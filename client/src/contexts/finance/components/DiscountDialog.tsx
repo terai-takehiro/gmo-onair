@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { formatCurrency } from "@/lib/format";
+import { Num } from "@gmo-onair/shared/src/client/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,8 +102,8 @@ export default function DiscountDialog({
           </DialogTitle>
           <DialogDescription>
             {mode === "item"
-              ? `対象: ${targetDescription || "(未指定)"}（¥${baseAmount.toLocaleString()}）`
-              : `現在の小計: ¥${baseAmount.toLocaleString()}（正の項目のみ）`}
+              ? `対象: ${targetDescription || "(未指定)"}（${formatCurrency(baseAmount)}）`
+              : `現在の小計: ${formatCurrency(baseAmount)}（正の項目のみ）`}
           </DialogDescription>
         </DialogHeader>
 
@@ -182,7 +183,7 @@ export default function DiscountDialog({
             </div>
             {discountType === "rate" && (
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>計算: {baseAmount.toLocaleString()} × {rateInput}%</span>
+                <span>計算: <Num value={baseAmount} /> × {rateInput}%</span>
               </div>
             )}
           </div>

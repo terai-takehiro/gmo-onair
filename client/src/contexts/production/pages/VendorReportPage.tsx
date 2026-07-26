@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Download, Loader2 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface VendorSummaryItem {
   vendor_id: string;
@@ -78,7 +79,7 @@ export default function VendorReportPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">仕入先別集計レポート</h1>
+        <PageTitle>仕入先別集計レポート</PageTitle>
         <Button onClick={handleExport} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
           CSV出力

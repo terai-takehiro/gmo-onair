@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
+import { formatCurrency } from '@gmo-onair/shared/src/client/format';
 import FinanceDocOriginal from '@gmo-onair/shared/src/client/finance/FinanceDocOriginal';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -37,7 +38,7 @@ function yen(v: number | string | null): string {
   if (v === null || v === '') return '—';
   const n = Number(v);
   if (Number.isNaN(n)) return '—';
-  return `¥${n.toLocaleString()}`;
+  return formatCurrency(n);
 }
 
 export default function FinanceDocsPage() {

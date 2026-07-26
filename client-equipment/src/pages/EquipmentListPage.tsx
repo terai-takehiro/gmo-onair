@@ -23,6 +23,7 @@ import {
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import CustomColumnDialog, { type CustomColumn } from "@/components/CustomColumnDialog";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
@@ -936,7 +937,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className={embedded ? "hidden" : "heading-page text-xl lg:text-2xl"}>機材一覧</h1>
+        <PageTitle className={embedded ? "hidden" : undefined}>機材一覧</PageTitle>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1" />Excelインポート

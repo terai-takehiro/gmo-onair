@@ -14,6 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Loader2, Calculator, Save, ArrowRight } from "lucide-react";
+import { StatValue } from "@gmo-onair/shared/src/client/ui";
 
 export interface SimulationAppliedItem {
   description: string;
@@ -378,9 +379,10 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
             </span>
             <div className="text-right">
               <div className="text-xs text-muted-foreground">見積合計</div>
-              <div className="text-2xl font-bold font-number text-primary">
+              {/* 6章: 大きい数字の大きさは段から選ぶ */}
+              <StatValue size="sm" className="block text-primary">
                 {formatCurrency(total)}
-              </div>
+              </StatValue>
             </div>
           </div>
           <div className="flex justify-end gap-2">

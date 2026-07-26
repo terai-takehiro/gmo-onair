@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
@@ -625,7 +626,7 @@ export function JointEventDetailPage() {
                       {ev.totals.matches
                         ? <span className="text-positive">総額と一致</span>
                         : <span className="text-negative">
-                            総額と {Math.abs(ev.totals.diff).toLocaleString("ja-JP")}円 {ev.totals.diff > 0 ? "多い" : "少ない"}
+                            総額と {formatCurrency(Math.abs(ev.totals.diff))} {ev.totals.diff > 0 ? "多い" : "少ない"}
                           </span>}
                     </td>
                   </tr>
@@ -702,7 +703,7 @@ export function JointEventDetailPage() {
                 <span className={`block text-xs ${ev.totals.matches ? "text-positive" : "text-negative"}`}>
                   {ev.totals.matches
                     ? "総額と一致"
-                    : `総額と ${Math.abs(ev.totals.diff).toLocaleString("ja-JP")}円 ${ev.totals.diff > 0 ? "多い" : "少ない"}`}
+                    : `総額と ${formatCurrency(Math.abs(ev.totals.diff))} ${ev.totals.diff > 0 ? "多い" : "少ない"}`}
                 </span>
               </span>
             </div>

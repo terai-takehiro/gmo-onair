@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { QrCode, Search, ArrowRight, Camera, CameraOff, AlertCircle } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const SCAN_REGION_ID = "qr-scan-region";
 
@@ -128,7 +129,7 @@ export default function ScanPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="heading-page text-xl lg:text-2xl">QRスキャン</h1>
+        <PageTitle>QRスキャン</PageTitle>
         <p className="text-sm text-muted-foreground">
           カメラでQRコードを読み取るか、IDを直接入力
         </p>

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -841,7 +842,7 @@ export default function EquipmentDetailPage() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {m.reported_at?.split("T")[0]}
-                      {m.repair_cost ? ` / 費用: ¥${m.repair_cost.toLocaleString()}` : ""}
+                      {m.repair_cost ? ` / 費用: ${formatCurrency(m.repair_cost)}` : ""}
                     </div>
                   </div>
                 ))}

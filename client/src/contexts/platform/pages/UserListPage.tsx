@@ -21,6 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Wrench } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -130,7 +131,7 @@ export default function UserListPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">ユーザー管理</h1>
+          <PageTitle>ユーザー管理</PageTitle>
           <p className="text-sm text-muted-foreground mt-0.5">
             ロールは「管理者」または「スタッフ」の2種類。アプリ別の権限は🔑ボタンで設定します。
           </p>

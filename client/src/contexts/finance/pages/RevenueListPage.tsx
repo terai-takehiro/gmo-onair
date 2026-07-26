@@ -69,6 +69,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
   return sortDir === "asc" ? <ChevronUp className="inline h-3 w-3 ml-0.5" /> : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
 }
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface RevenueRow {
   id: string;
@@ -594,7 +595,7 @@ export default function RevenueListPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">売上一覧</h1>
+          <PageTitle>売上一覧</PageTitle>
           {filterProjectId && filterProjectName && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-sm text-muted-foreground">

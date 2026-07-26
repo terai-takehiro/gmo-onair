@@ -9,6 +9,7 @@ import {
 import { Loader2, Search, Settings } from "lucide-react";
 import { TYPE_CODES } from "@/lib/constants";
 import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface RentalItem {
   id: string;
@@ -84,7 +85,7 @@ export default function RentalSettingsPage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Settings className="h-6 w-6 text-muted-foreground" />
-          <h1 className="text-xl lg:text-2xl font-bold">貸出機材設定</h1>
+          <PageTitle>貸出機材設定</PageTitle>
         </div>
         {!isLoading && (
           <p className="text-sm text-muted-foreground">

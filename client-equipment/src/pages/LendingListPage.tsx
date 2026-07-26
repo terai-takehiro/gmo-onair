@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, ArrowRightLeft, RotateCcw, Search, Check, ChevronRight, X } from "lucide-react";
 import { TYPE_CODES } from "@/lib/constants";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -173,7 +174,7 @@ export default function LendingListPage() {
     <div className="space-y-4 p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">貸出管理</h1>
+        <PageTitle>貸出管理</PageTitle>
         <Button size="sm" onClick={openDialog}>
           <Plus className="h-4 w-4 mr-1" />
           貸出登録

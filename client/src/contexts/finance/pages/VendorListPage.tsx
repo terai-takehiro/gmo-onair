@@ -19,6 +19,7 @@ import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Vendor {
   id: string;
@@ -77,7 +78,7 @@ export default function VendorListPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl lg:text-2xl font-bold">仕入先マスター</h1>
+          <PageTitle>仕入先マスター</PageTitle>
           <div className="flex flex-wrap gap-2">
             <ExcelToolbar resource="/vendors" name="仕入先" queryKey={["vendors"]} />
             <Button onClick={crud.openAdd}>

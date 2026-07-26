@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface ProjectOption { id: string; gls_number: string; name: string; }
 
@@ -119,7 +120,7 @@ export default function BudgetDetailPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap items-center gap-3 justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">案件月別詳細</h1>
+        <PageTitle>案件月別詳細</PageTitle>
         {projectId && selectedProject && (
           <ProjectQuickLinks
             projectId={projectId}

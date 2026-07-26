@@ -41,6 +41,7 @@ import SgaDialog, {
   formatSettlementNo,
   SettlementBadge,
 } from "../components/SgaDialog";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 export default function SgaListPage() {
   const { currentUser } = useAuth();
@@ -204,7 +205,7 @@ export default function SgaListPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap gap-2 items-center justify-between">
-          <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
+          <PageTitle>販管費一覧</PageTitle>
           <div className="flex flex-wrap gap-2">
             <ExcelToolbar
               resource="/sga-expenses"

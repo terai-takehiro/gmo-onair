@@ -55,6 +55,7 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
@@ -280,7 +281,7 @@ export default function PurchaseListPage() {
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
+            <PageTitle>仕入一覧</PageTitle>
             {filterProjectId && filterProjectName && (
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-sm text-muted-foreground">

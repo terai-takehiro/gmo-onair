@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown, Tag } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface RentalCategory {
   id: string;
@@ -68,7 +69,7 @@ export default function RentalCategoryPage() {
     <div className="space-y-4 p-3 lg:p-6 mx-auto max-w-2xl">
       <div className="flex items-center gap-2">
         <Tag className="h-5 w-5 text-primary" />
-        <h1 className="text-xl lg:text-2xl font-bold">貸出カテゴリ管理</h1>
+        <PageTitle>貸出カテゴリ管理</PageTitle>
       </div>
       <p className="text-sm text-muted-foreground">
         貸出機材一覧でグループ表示するカテゴリを管理します。並び順は↑↓で変更できます。

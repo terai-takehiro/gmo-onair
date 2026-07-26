@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   type LucideIcon, Bell, } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface SettingLink {
   label: string;
@@ -181,7 +182,7 @@ export default function SettingsHubPage() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <header>
-        <h1 className="text-xl font-bold sm:text-2xl">設定</h1>
+        <PageTitle>設定</PageTitle>
         <p className="mt-1 text-[13px] text-secondary-foreground">
           毎日使わないもの (マスター・権限・取り込み) はここにまとめました。
         </p>

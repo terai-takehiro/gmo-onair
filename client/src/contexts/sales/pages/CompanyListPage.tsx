@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, Building2, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 type RoleFilter = "all" | "customer" | "vendor" | "sga_payee" | "both" | "other";
 
@@ -190,7 +191,7 @@ export default function CompanyListPage() {
       <div className="space-y-4 p-3 lg:p-6">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold">取引先マスター</h1>
+            <PageTitle>取引先マスター</PageTitle>
             <p className="text-sm text-muted-foreground mt-0.5">顧客・仕入先を統合管理します</p>
           </div>
           <Button onClick={crud.openAdd}>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, Building2, Phone, Mail, MapPin, User } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Manufacturer {
   id: string;
@@ -83,7 +84,7 @@ export default function ManufacturerPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="heading-page text-xl lg:text-2xl">メーカー管理</h1>
+        <PageTitle>メーカー管理</PageTitle>
         <Button size="sm" onClick={crud.openAdd}><Plus className="h-4 w-4 mr-1" />メーカー追加</Button>
       </div>
 

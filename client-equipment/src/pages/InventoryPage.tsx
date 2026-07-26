@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw, Trash2 } from "lucide-react";
 import { INVENTORY_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 type CheckItem = {
   id: string;
@@ -261,7 +262,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">棚卸し</h1>
+        <PageTitle>棚卸し</PageTitle>
         <Button size="sm" onClick={() => {
           setForm({ title: "", check_date: new Date().toISOString().split("T")[0], notes: "" });
           setDialogOpen(true);

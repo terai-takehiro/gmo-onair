@@ -33,6 +33,7 @@ import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
   RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ---- サーバーの解析結果に対応する型 (表示に使う分のみ) ----
 interface XpointParsed {
@@ -268,7 +269,7 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
     <PageTransition>
       <div className={embedded ? "space-y-4 lg:space-y-6" : "space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl"}>
         <div className={embedded ? "hidden" : undefined}>
-          <h1 className="text-xl lg:text-2xl font-bold">精算 PDF 取込 (X-Point / 楽楽精算)</h1>
+          <PageTitle>精算 PDF 取込 (X-Point / 楽楽精算)</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
             自動では登録されません — <span className="font-medium text-foreground">すべての項目を必ず確認してください</span>。

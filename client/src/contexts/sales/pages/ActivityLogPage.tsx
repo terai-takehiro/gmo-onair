@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
 function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
@@ -248,7 +249,7 @@ export default function ActivityLogPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">営業活動記録</h1>
+          <PageTitle>営業活動記録</PageTitle>
           <p className="text-sm text-muted-foreground">電話・訪問・メール等の営業活動を記録</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>

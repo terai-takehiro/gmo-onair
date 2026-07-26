@@ -1,3 +1,5 @@
+import { formatCurrency } from '@gmo-onair/shared/src/client/format';
+import { manYen } from '@gmo-onair/shared/src/client/ui';
 // 日常業務アプリの型・定数
 
 export type OpsReportKind = 'weekly_activity' | 'daily_news';
@@ -226,7 +228,8 @@ export function addDays(dateStr: string, days: number): string {
   return toDateStr(d);
 }
 
+// 6章: 金額と万円の丸めは shared に寄せる (丸め方を画面ごとに持たない)
 export function formatYen(n: number): string {
-  if (Math.abs(n) >= 10000) return `¥${Math.round(n / 10000).toLocaleString()}万`;
-  return `¥${n.toLocaleString()}`;
+  if (Math.abs(n) >= 10000) return manYen(n);
+  return formatCurrency(n);
 }

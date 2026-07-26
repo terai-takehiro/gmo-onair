@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const COL_DEFS = [
   { key: "kind",              label: "種別",     default: true  },
@@ -339,7 +340,7 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className={embedded ? "hidden" : "heading-page text-xl lg:text-2xl"}>ケーブル管理</h1>
+          <PageTitle className={embedded ? "hidden" : undefined}>ケーブル管理</PageTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
             {items.length} 種類 / 合計 {totalQuantity.toLocaleString()} 本
           </p>

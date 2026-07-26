@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { formatPercent } from "@/lib/format";
 import { PROJECT_STAGE, ALERT_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
+import { manYen } from "@gmo-onair/shared/src/client/ui";
 import { PageTransition } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -85,8 +86,10 @@ const pipelineStageColors: Record<string, string> = {
 };
 
 // 万単位に丸めて出す (丸めないと 14,531,520 が「¥1,453.152万」になり桁が読めない)
-const formatYen = (value: number) => `¥${Math.round(value / 10000).toLocaleString()}万`;
-const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
+// 6章: 万円の丸め方は shared の `manYen` 1本にする
+// (以前はここに2本 (`Math.round` と `toFixed`) あり、負の数で結果が違っていた)
+const formatYen = manYen;
+const formatYenShort = manYen;
 
 /* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */
 const typeColors: Record<string, string> = {

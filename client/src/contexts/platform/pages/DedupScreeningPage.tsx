@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, CopyCheck, Trash2 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface DedupCandidate {
   table: "revenues" | "purchases" | "sga";
@@ -81,7 +82,7 @@ export default function DedupScreeningPage({ embedded }: { embedded?: boolean } 
       <div className={embedded ? "space-y-5" : "mx-auto max-w-4xl space-y-5 p-4 sm:p-6"}>
         <div className={embedded ? "hidden" : "flex items-center gap-2"}>
           <CopyCheck className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold lg:text-2xl">二重計上スクリーニング</h1>
+          <PageTitle>二重計上スクリーニング</PageTitle>
         </div>
 
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">

@@ -16,6 +16,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Partner {
   id: string;
@@ -88,7 +89,7 @@ export default function PartnerListPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl lg:text-2xl font-bold">パートナーマスター</h1>
+          <PageTitle>パートナーマスター</PageTitle>
           <div className="flex flex-wrap gap-2">
             <ExcelToolbar resource="/partners" name="パートナー" queryKey={["partners"]} />
             <Button onClick={crud.openAdd}>

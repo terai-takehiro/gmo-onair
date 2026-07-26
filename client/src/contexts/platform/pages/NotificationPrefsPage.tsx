@@ -12,6 +12,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Prefs {
   morning_slack: boolean;
@@ -63,10 +64,9 @@ export default function NotificationPrefsPage() {
     <PageTransition>
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-5 sm:py-7">
         <header>
-          <h1 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-            <Bell className="h-5 w-5 text-primary" aria-hidden="true" />
+          <PageTitle icon={<Bell className="h-5 w-5 text-primary" aria-hidden="true" />}>
             通知の受け取り方
-          </h1>
+          </PageTitle>
           <p className="mt-1 text-[13px] text-secondary-foreground">
             通知が流れて消えることはありません。溜まる場所は上辺のベル、届くのは朝の1通だけです。
           </p>

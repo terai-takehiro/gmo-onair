@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Palette, Pencil, Trash2 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Color {
   id: string;
@@ -71,7 +72,7 @@ export default function ColorPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">機材色マスタ</h1>
+        <PageTitle>機材色マスタ</PageTitle>
         <Button size="sm" onClick={crud.openAdd}>
           <Plus className="h-4 w-4 mr-1" />
           色追加

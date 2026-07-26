@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
@@ -477,7 +478,7 @@ export default function BillingWorkPage() {
                   <Money value={r.amount} className="w-[128px] text-[13.5px] font-bold" />
                   {changed && (
                     <span className="font-number w-[128px] text-right text-xs text-muted-foreground">
-                      先月 ¥{Number(r.prev_amount).toLocaleString("ja-JP")}
+                      先月 {formatCurrency(r.prev_amount)}
                     </span>
                   )}
                 </div>

@@ -17,6 +17,7 @@ import {
   Pencil, Settings2, Plus, Trash2, ArrowUp, ArrowDown, Check, X,
 } from "lucide-react";
 import { TYPE_CODES, CONDITION_LABELS } from "@/lib/constants";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "休止", disposed: "廃棄", lost: "紛失",
@@ -338,7 +339,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
     <div className="space-y-4 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className={embedded ? "hidden" : "text-xl lg:text-2xl font-bold"}>貸出機材一覧</h1>
+        <PageTitle className={embedded ? "hidden" : undefined}>貸出機材一覧</PageTitle>
         <div className="flex items-center gap-2">
           {!isLoading && (
             <p className="text-sm text-muted-foreground">

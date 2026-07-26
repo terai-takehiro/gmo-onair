@@ -1,3 +1,4 @@
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 /**
  * AI 活動フィード共通ヘルパー (v2.9.198+)
  * mcp_audit_log 由来のフィード項目を人間可読に整形する。
@@ -48,7 +49,7 @@ export function aiFeedSubject(rs: Record<string, unknown> | null): string {
   const cand = [rs.name, rs.subject, rs.title, rs.code, rs.gls_number, rs.session_label, rs.doc_type];
   const v = cand.find((x) => typeof x === "string" && x);
   let s = (v as string) ?? "";
-  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ¥${Number(rs.total).toLocaleString()})`;
+  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ${formatCurrency(Number(rs.total))})`;
   if (rs.status === "draft") s += "（下書き）";
   if (rs.idempotent) s += "（すでに登録済み）";
   return s;

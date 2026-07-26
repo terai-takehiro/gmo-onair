@@ -26,6 +26,7 @@ import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
 import KessanImportPage from "@/contexts/platform/pages/KessanImportPage";
 import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ─────────────────────────────────────────────
 // 旧URL → 新URL
@@ -174,7 +175,7 @@ function ImportFlow() {
   return (
     <div className="mx-auto max-w-screen-xl space-y-4 px-4 py-5 sm:py-7">
       <header>
-        <h1 className="text-xl font-bold sm:text-2xl">取り込む</h1>
+        <PageTitle>取り込む</PageTitle>
         <p className="mt-1 text-[13px] text-secondary-foreground">
           取り込んだ内容は確認してから登録します。いきなり登録されることはありません。
         </p>

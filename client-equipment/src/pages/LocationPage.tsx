@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, MapPin, Pencil, Trash2, Server, Settings } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Location {
   id: string;
@@ -122,7 +123,7 @@ export default function LocationPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">保管場所管理</h1>
+        <PageTitle>保管場所管理</PageTitle>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setMasterOpen(true)}>
             <Settings className="h-4 w-4 mr-1" />

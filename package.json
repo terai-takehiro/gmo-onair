@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "2.9.287",
+  "version": "2.9.288",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
@@ -26,7 +26,9 @@
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",
     "db:reset": "npm run db:reset -w server",
-    "lint": "eslint .",
+    "lint": "node scripts/check-ui-tokens.mjs && eslint .",
+    "lint:eslint": "eslint .",
+    "check:ui-tokens": "node scripts/check-ui-tokens.mjs",
     "verify:up": "bash scripts/dev-verify/up.sh",
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh"

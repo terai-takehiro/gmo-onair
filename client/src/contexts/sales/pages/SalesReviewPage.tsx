@@ -47,6 +47,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { OPPORTUNITY_STAGES, ProjectStageLabels } from "@/types";
+import { StatValue } from "@gmo-onair/shared/src/client/ui";
 
 const now = new Date();
 const currentYear = now.getFullYear();
@@ -402,9 +403,10 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
             <Card>
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">失注件数</p>
-                <p className="text-2xl font-bold text-red-500 font-number">
+                {/* 6章: 大きい数字の大きさは段から選ぶ */}
+                <StatValue size="sm" className="block text-destructive">
                   <AnimatedNumber value={lostAnalysis?.total_lost ?? 0} suffix="件" />
-                </p>
+                </StatValue>
               </CardContent>
             </Card>
             <Card>

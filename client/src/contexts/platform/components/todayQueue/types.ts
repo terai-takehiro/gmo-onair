@@ -2,6 +2,7 @@
 //
 // 元データは GET /dashboard/inbox。並びは received_at 昇順 = 最も待たせているものが先頭。
 
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 export type InboxKind = "overdue_action" | "ai_project" | "inquiry" | "finance_doc";
 
 export interface InboxItem {
@@ -103,7 +104,8 @@ export const FD_STATUS_LABELS: Record<string, string> = {
   processed: "処理完了",
 };
 
+// 6章: 金額の文字は shared に寄せる (0 と未入力の区別はここでも変えない)
 export const yen = (v: unknown): string =>
-  v == null || v === "" ? "—" : `¥${Number(v).toLocaleString()}`;
+  v == null || v === "" ? "—" : formatCurrency(Number(v));
 
 export const str = (v: unknown): string => (v == null ? "" : String(v));

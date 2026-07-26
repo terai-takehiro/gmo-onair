@@ -23,6 +23,7 @@ import {
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const DAY_OPTIONS = [7, 14, 30, 90] as const;
 const PAGE_SIZE = 30;
@@ -64,7 +65,7 @@ export default function AiActivityPage() {
             <Sparkles className="h-5 w-5 text-violet-600" aria-hidden="true" />
           </span>
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold">AI がやったこと</h1>
+            <PageTitle>AI がやったこと</PageTitle>
             <p className="text-xs text-muted-foreground">
               AI が作ったり直したりしたものの記録です。誰の指示だったかも残ります。
             </p>

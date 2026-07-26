@@ -26,3 +26,5 @@ export * from "./toggle-button-group";
 export * from "./notice";
 export * from "./tax-aware-amount-input";
 export * from "./money";
+// 6章: 数字のサイズ・万円の丸め方・ページ見出しを1か所にする
+export * from "./numbers";

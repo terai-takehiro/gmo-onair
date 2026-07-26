@@ -67,6 +67,7 @@ import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface RevenueItem {
   description: string;
@@ -764,14 +765,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           {isEstimateMode ? "案件に戻る" : "確定案件一覧"}
         </Button>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl lg:text-2xl font-bold">
+          <PageTitle>
             {project.gls_number && (
-              <span className=" text-primary">
+              <span className="text-primary">
                 {project.gls_number}{" "}
               </span>
             )}
             {project.name}
-          </h1>
+          </PageTitle>
           {isEstimateMode && (
             <Badge className="bg-orange-500 text-white">概算見積</Badge>
           )}

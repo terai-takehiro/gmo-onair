@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { Search, Loader2, Pencil, Database, X, AlertTriangle } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Row {
   id: string;
@@ -170,7 +171,7 @@ export default function GlsImportProjectsPage() {
         {/* Header */}
         <div className="flex items-center gap-2 flex-wrap">
           <Database className="h-6 w-6 text-primary" />
-          <h1 className="text-xl lg:text-2xl font-bold">旧GLS（決算インポート案件）</h1>
+          <PageTitle>旧GLS（決算インポート案件）</PageTitle>
         </div>
         <p className="text-sm text-muted-foreground">
           決算インポートで取り込んだ案件の一覧です。チェックを入れて「一括編集」で、顧客・担当・分類・ステージ・開催日・タグなどをまとめて変更できます。

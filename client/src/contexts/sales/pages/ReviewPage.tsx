@@ -20,6 +20,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/
 import KeepReportPage from "./KeepReportPage";
 import SalesReviewPage from "./SalesReviewPage";
 import { cn } from "@/lib/utils";
+import { manYen } from "@gmo-onair/shared/src/client/ui";
 
 const TABS = [
   { id: "week", label: "今週", Icon: CalendarCheck },
@@ -48,7 +49,8 @@ interface WeeklyStats {
   };
 }
 
-const yen = (v: number) => `¥${Math.round(v / 10_000).toLocaleString()}万`;
+// 6章: 万円の丸め方は shared の `manYen` 1本にする
+const yen = manYen;
 const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
 const fmtDate = (s: string) => {
   const d = new Date(s);

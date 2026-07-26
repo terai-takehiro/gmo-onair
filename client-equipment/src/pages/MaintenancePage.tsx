@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, Wrench } from "lucide-react";
 import { MAINTENANCE_TYPE, MAINTENANCE_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 export default function MaintenancePage() {
   const qc = useQueryClient();
@@ -60,7 +62,7 @@ export default function MaintenancePage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">メンテナンス</h1>
+        <PageTitle>メンテナンス</PageTitle>
         <Button size="sm" onClick={() => {
           setForm({ equipment_id: "", record_type: "breakdown", title: "", description: "", assigned_to: "", vendor_name: "", repair_cost: "" });
           setDialogOpen(true);
@@ -114,7 +116,7 @@ export default function MaintenancePage() {
                     <div className="text-xs text-muted-foreground mt-1">
                       報告: {r.reported_at?.split("T")[0]}
                       {r.vendor_name && ` / 業者: ${r.vendor_name}`}
-                      {r.repair_cost && ` / 費用: ¥${r.repair_cost.toLocaleString()}`}
+                      {r.repair_cost && ` / 費用: ${formatCurrency(r.repair_cost)}`}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

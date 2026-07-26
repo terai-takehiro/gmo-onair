@@ -14,6 +14,7 @@ import {
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
@@ -394,10 +395,12 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h1 className={embedded ? "hidden" : "heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2"}>
-            <Server className="h-5 w-5 text-amber-500" />
+          <PageTitle
+            className={embedded ? "hidden" : undefined}
+            icon={<Server className="h-5 w-5 text-amber-500" />}
+          >
             ラック実装ビュー
-          </h1>
+          </PageTitle>
 
           {/* 前面/背面 (モバイルでも常時表示) */}
           <div className="flex rounded-lg overflow-hidden border border-border shadow-sm shrink-0">

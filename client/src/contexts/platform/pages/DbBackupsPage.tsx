@@ -12,6 +12,7 @@ import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   HardDrive, Copy, Check, AlertTriangle, Loader2, Database, Clock,
 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface BackupFile {
   id: string;
@@ -103,7 +104,7 @@ export default function DbBackupsPage() {
             <HardDrive className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl lg:text-2xl font-bold">DB バックアップ管理</h1>
+            <PageTitle>DB バックアップ管理</PageTitle>
             <p className="text-xs text-muted-foreground">
               BOX の社内限り/00_DB_Backup/ に保管されている自動バックアップ一覧。3 時間ごとに 30 日分が保持されています。
             </p>

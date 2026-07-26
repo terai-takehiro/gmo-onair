@@ -45,6 +45,7 @@ import {
   ShoppingCart,
   FileText,
 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface GroupSummary {
   id: string;
@@ -513,7 +514,7 @@ export default function ProjectGroupListPage() {
           {detail ? (
             <>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-xl lg:text-2xl font-bold">{detail.name}</h1>
+                <PageTitle>{detail.name}</PageTitle>
                 <Badge variant="outline">{detail.members.length}案件</Badge>
                 <div className="ml-auto flex gap-2">
                   <Button variant="outline" size="sm" onClick={openEditGroup}>
@@ -1038,7 +1039,7 @@ export default function ProjectGroupListPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate("/purchases")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl lg:text-2xl font-bold">按分グループ</h1>
+          <PageTitle>按分グループ</PageTitle>
         </div>
         <Button onClick={() => { closeGroupDialog(); setGroupDialogOpen(true); }}>
           <Plus className="mr-1 h-4 w-4" />

@@ -27,6 +27,7 @@ import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
 import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue";
 import { type InboxData } from "@/contexts/platform/components/todayQueue/types";
+import { manYen } from "@gmo-onair/shared/src/client/ui";
 import {
   FolderKanban,
   PiggyBank,
@@ -151,7 +152,8 @@ function relativeDay(dateStr?: string | null): string {
 
 // 円表示
 // 万単位に丸めて出す。丸めないと 14,531,520 が「¥1,453.152万」になり桁が読めない
-const formatYen = (v: number) => `¥${Math.round(v / 10000).toLocaleString()}万`;
+// 6章: 万円の丸め方は shared の `manYen` 1本にする
+const formatYen = manYen;
 
 // 数値変化を「+X%」「-X%」形式に
 function formatDelta(curr: number, prev: number): { text: string; pct: number } | null {

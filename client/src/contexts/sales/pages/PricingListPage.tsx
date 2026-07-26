@@ -41,6 +41,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ---------- Category Dialog ----------
 
@@ -370,7 +371,7 @@ export default function PricingListPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">料金表マスター</h1>
+        <PageTitle>料金表マスター</PageTitle>
         <Button onClick={openAddCategory}>
           <Plus className="mr-2 h-4 w-4" />
           カテゴリ追加
