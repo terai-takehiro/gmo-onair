@@ -19,7 +19,7 @@ import VersionHistoryModal from '../versionHistory/VersionHistoryModal';
 import McpInfoModal from '../mcpInfo/McpInfoModal';
 import CommandPalette from '../commandPalette/CommandPalette';
 import { NotificationBell, type NotificationData } from '../notifications';
-import type { PaletteHit } from '../commandPalette/types';
+import type { PaletteHit, PaletteSearchResult } from '../commandPalette/types';
 import type { ManualContent } from '../manual/types';
 
 export interface AppShellProps {
@@ -50,7 +50,8 @@ export interface AppShellProps {
    */
   commandPalette?: {
     onRun: (path: string) => void;
-    search?: (q: string) => Promise<PaletteHit[]>;
+    /** 配列を返す旧い形も受ける (36章で権限つきの結果を返すようにした) */
+    search?: (q: string) => Promise<PaletteHit[] | PaletteSearchResult>;
   };
   /**
    * 通知ベル (Phase 9)。渡すと上辺にベルが出る。

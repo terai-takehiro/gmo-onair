@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, CornerDownLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '../utils';
 import { matchCommand, resolveCommands } from './commands';
-import type { CommandDef, PaletteAccess, PaletteHit } from './types';
+import type { CommandDef, PaletteAccess, PaletteHit, PaletteSearchResult } from './types';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -18,13 +18,18 @@ export interface CommandPaletteProps {
   access: PaletteAccess;
   /** 行き先を開く。アプリ内遷移かフルリロードかは呼び出し側が決める */
   onRun: (path: string) => void;
-  /** 案件・お客様の検索。未指定なら3グループ目を出さない */
-  search?: (q: string) => Promise<PaletteHit[]>;
+  /**
+   * 案件・お客様・機材の検索。未指定なら3グループ目を出さない。
+   * 配列を返す旧い形もそのまま受ける (呼び出し側を全部まとめて直さなくてよいように)。
+   */
+  search?: (q: string) => Promise<PaletteHit[] | PaletteSearchResult>;
 }
 
 type Row =
   | { type: 'command'; cmd: CommandDef }
-  | { type: 'hit'; hit: PaletteHit };
+  | { type: 'hit'; hit: PaletteHit }
+  // 「すべて見る」= 検索結果の画面へ (36章)
+  | { type: 'seeAll'; path: string };
 
 /** tab で回す種類。all → やる → ひらく → さがす */
 const KINDS = ['all', 'do', 'open', 'hit'] as const;
@@ -41,6 +46,9 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
   const [kind, setKind] = useState<Kind>('all');
   const [cursor, setCursor] = useState(0);
   const [hits, setHits] = useState<PaletteHit[]>([]);
+  // 権限が無くて探していない種類。**件数は出さず名前だけ**出す (36章)
+  const [hiddenKinds, setHiddenKinds] = useState<string[]>([]);
+  const [foundTotal, setFoundTotal] = useState(0);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -55,6 +63,8 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
     setKind('all');
     setCursor(0);
     setHits([]);
+    setHiddenKinds([]);
+    setFoundTotal(0);
     const t = setTimeout(() => inputRef.current?.focus(), 20);
     return () => clearTimeout(t);
   }, [open]);
@@ -65,6 +75,8 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
     const term = q.trim();
     if (term.length < 2) {
       setHits([]);
+      setHiddenKinds([]);
+      setFoundTotal(0);
       setSearching(false);
       return;
     }
@@ -72,8 +84,15 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
     setSearching(true);
     const t = setTimeout(() => {
       search(term)
-        .then((r) => { if (alive) setHits(r); })
-        .catch(() => { if (alive) setHits([]); })
+        .then((r) => {
+          if (!alive) return;
+          // 配列を返す旧い形も受ける
+          if (Array.isArray(r)) { setHits(r); setHiddenKinds([]); setFoundTotal(r.length); return; }
+          setHits(r.hits ?? []);
+          setHiddenKinds(r.hiddenKinds ?? []);
+          setFoundTotal(r.total ?? (r.hits?.length ?? 0));
+        })
+        .catch(() => { if (alive) { setHits([]); setHiddenKinds([]); setFoundTotal(0); } })
         .finally(() => { if (alive) setSearching(false); });
     }, 250);
     return () => { alive = false; clearTimeout(t); };
@@ -88,6 +107,10 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
     [commands, q, kind]
   );
   const hitList = useMemo(() => (kind === 'all' || kind === 'hit' ? hits : []), [hits, kind]);
+  // 出しているより多く見つかっているときだけ「すべて見る」を出す (36章)。
+  // いつも出すと、3件しかないのに「すべて見る」があって押してしまう。
+  const seeAllPath = q.trim().length >= 2 ? `/search?q=${encodeURIComponent(q.trim())}` : null;
+  const showSeeAll = Boolean(seeAllPath) && (kind === 'all' || kind === 'hit') && hits.length > 0;
 
   // ↑↓ が通る一列に潰す (グループの見た目とは別)
   const rows: Row[] = useMemo(
@@ -95,15 +118,18 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
       ...doList.map((cmd) => ({ type: 'command' as const, cmd })),
       ...openList.map((cmd) => ({ type: 'command' as const, cmd })),
       ...hitList.map((hit) => ({ type: 'hit' as const, hit })),
+      ...(showSeeAll && seeAllPath ? [{ type: 'seeAll' as const, path: seeAllPath }] : []),
     ],
-    [doList, openList, hitList]
+    [doList, openList, hitList, showSeeAll, seeAllPath]
   );
 
   useEffect(() => { setCursor(0); }, [q, kind, hits.length]);
 
   const run = (row: Row) => {
     onOpenChange(false);
-    onRun(row.type === 'command' ? row.cmd.path : row.hit.path);
+    if (row.type === 'command') { onRun(row.cmd.path); return; }
+    if (row.type === 'seeAll') { onRun(row.path); return; }
+    onRun(row.hit.path);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -225,7 +251,7 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
               )}
 
               {hitList.length > 0 && (
-                <Group label="見つかった案件・お客様">
+                <Group label="見つかったもの">
                   {hitList.map((hit) => {
                     const i = nextIndex();
                     return (
@@ -251,7 +277,29 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
                       />
                     );
                   })}
+                  {showSeeAll && seeAllPath && (() => {
+                    const i = nextIndex();
+                    return (
+                      <CommandRow
+                        key="see-all"
+                        active={i === cursor}
+                        label={`「${q.trim()}」の検索結果をすべて見る`}
+                        sub={foundTotal > hits.length ? `全部で ${foundTotal}件 見つかっています` : undefined}
+                        onHover={() => setCursor(i)}
+                        onClick={() => run({ type: 'seeAll', path: seeAllPath })}
+                        right={i === cursor ? <EnterBadge /> : null}
+                      />
+                    );
+                  })()}
                 </Group>
+              )}
+
+              {/* **見えないものは件数にも出さない** (36章)。
+                  0件と出すと「無い」と読まれるが、実際は「見せてもらえない」 */}
+              {hiddenKinds.length > 0 && q.trim().length >= 2 && (
+                <p className="px-4 py-2 text-[12px] text-muted-foreground">
+                  {hiddenKinds.join('・')} は見る権限がないので探していません。
+                </p>
               )}
             </>
           )}

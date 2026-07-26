@@ -51,6 +51,8 @@ export interface LendInput {
   notes?: string | null;
   requested_by?: string | null;
   created_by?: string | null;
+  /** どの案件のために貸したか (任意)。付けると案件の書類タブに返却が出る (15章) */
+  project_id?: string | null;
 }
 
 export interface ReturnInput {
@@ -176,14 +178,18 @@ export const securityCardService = {
     await execute(
       `INSERT INTO security_card_lendings
          (id, card_id, borrower_company, borrower_person, borrower_contact, purpose,
-          lent_on, due_on, lent_by_user_id, lent_by_name, notes, status, requested_by, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+          lent_on, due_on, lent_by_user_id, lent_by_name, notes, status, requested_by, created_by,
+          project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
       [
         id, cardId,
         input.borrower_company ?? null, person, input.borrower_contact ?? null, input.purpose ?? null,
         normDate(input.lent_on, today()), normDate(input.due_on),
         input.lent_by_user_id ?? null, input.lent_by_name ?? null,
         input.notes ?? null, input.requested_by ?? null, input.created_by ?? null,
+        // 案件は任意 (社内の用事で貸すこともある)。付いていれば案件の
+        // 「そろっていないもの」に返却が出る (15章)
+        input.project_id ?? null,
       ],
     );
     return (await this.getCard(cardId))!;

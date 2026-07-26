@@ -40,6 +40,20 @@ export interface PaletteHit {
   path: string;
 }
 
+/**
+ * 検索の結果。**権限で外れた種類も返す** (36章)。
+ *
+ * 「案件 0件」と出すと「無い」と読めてしまうが、実際は「見せてもらえない」なので
+ * 意味が違う。**件数は出さず、種類の名前だけ**を伝えて画面に書く。
+ */
+export interface PaletteSearchResult {
+  hits: PaletteHit[];
+  /** 権限が無くて探していない種類 (名前だけ) */
+  hiddenKinds?: string[];
+  /** 見つかった総数 (画面が「すべて見る」を出すのに使う) */
+  total?: number;
+}
+
 export interface PaletteAccess {
   role?: string;
   permissions?: Record<string, string>;

@@ -1,43 +1,40 @@
-import { Router } from 'express';
-import { queryAll } from '../../../shared/db/connection';
+import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../../../shared/middleware/auth';
+import { search, searchForPalette, RESULTS_LIMIT } from '../services/search.service';
 
 const router = Router();
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-// GET /search?q=keyword - Cross-search across entities
-router.get('/', requireAuth, async (req, res) => {
-  const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 100) : '';
-
-  if (!q || q.length < 1) {
-    res.json({ success: true, data: { projects: [], customers: [], vendors: [] } });
-    return;
-  }
-
-  const safe = q.replace(/[%_\\]/g, '\\$&');
-  const like = `%${safe}%`;
-
-  // ⌘K が「案件名 / 顧客名」の2行で出せるよう customer_name を同梱 (既存レスポンスへの追加)
-  const projects = await queryAll(
-    `SELECT p.id, p.code, p.gls_number, p.name, p.stage, c.name AS customer_name
-       FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id AND c.deleted_at IS NULL
-      WHERE (p.name ILIKE ? ESCAPE '\\' OR p.code ILIKE ? ESCAPE '\\' OR p.gls_number ILIKE ? ESCAPE '\\')
-        AND p.deleted_at IS NULL
-      LIMIT 10`,
-    [like, like, like]
-  );
-
-  const customers = await queryAll(
-    `SELECT id, name, short_name FROM customers WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
-    [like, like]
-  );
-
-  const vendors = await queryAll(
-    `SELECT id, name, vendor_type FROM vendors WHERE (name ILIKE ? ESCAPE '\\' OR vendor_type ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
-    [like, like]
-  );
-
-  res.json({ success: true, data: { projects, customers, vendors } });
+const actorOf = (req: Request) => ({
+  role: req.user?.role,
+  permissions: req.user?.permissions,
 });
+
+// ── 検索結果の画面 (36章) ────────────────────────────────
+//
+// `/search` より前に置く (`/search/results` が `/search` に食われないように)。
+// 種類ごとの件数つきで返す。**権限が無い種類は件数にも出さない**。
+router.get('/results', requireAuth, wrap(async (req, res) => {
+  res.json({
+    success: true,
+    data: await search({
+      q: typeof req.query.q === 'string' ? req.query.q : '',
+      actor: actorOf(req),
+      limit: RESULTS_LIMIT,
+      kind: typeof req.query.kind === 'string' && req.query.kind ? req.query.kind : null,
+    }),
+  });
+}));
+
+// GET /search?q=keyword — ⌘K の候補
+//
+// v2.9.286: **権限を見るようにした**。それまではログインしているだけで
+// 案件名・GLS番号・お客様の名前・仕入先の名前が誰にでも出ていた
+// (開くと403で止まるが、名前はもう見えている)。
+router.get('/', requireAuth, wrap(async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json({ success: true, data: await searchForPalette(q, actorOf(req)) });
+}));
 
 export default router;

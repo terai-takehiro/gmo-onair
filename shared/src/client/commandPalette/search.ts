@@ -3,7 +3,7 @@
 // 7アプリで同じマッピングを書き写すと、片方だけ直って食い違うので1箇所に置く。
 
 import { PROJECT_STAGE, statusOf } from '../../constants/statuses';
-import type { PaletteHit } from './types';
+import type { PaletteHit, PaletteSearchResult } from './types';
 
 interface MinimalApi {
   get: (url: string, config?: { params?: Record<string, unknown> }) => Promise<{ data?: unknown }>;
@@ -12,12 +12,19 @@ interface MinimalApi {
 const str = (v: unknown): string => (v == null ? '' : String(v));
 
 export function createPaletteSearch(api: MinimalApi) {
-  return async function search(q: string): Promise<PaletteHit[]> {
+  return async function search(q: string): Promise<PaletteSearchResult> {
     const res = await api.get('/search', { params: { q } });
-    const d = ((res.data as { data?: Record<string, unknown[]> })?.data ?? {}) as Record<string, unknown[]>;
+    const d = ((res.data as { data?: Record<string, unknown> })?.data ?? {}) as Record<string, unknown>;
 
-    const projects = (d.projects ?? []).map((raw) => {
-      const p = raw as Record<string, unknown>;
+    // **キーが無い種類は「権限が無い」** (0件ではない)。0件として出すと
+    // 「無い」と読まれるが、実際は「見せてもらえない」なので意味が違う。
+    const rows = (key: string): Record<string, unknown>[] =>
+      Array.isArray(d[key]) ? (d[key] as Record<string, unknown>[]) : [];
+    const hiddenKinds = Array.isArray(d._hidden_kinds)
+      ? (d._hidden_kinds as Array<{ label?: string }>).map((k) => String(k.label ?? '')).filter(Boolean)
+      : [];
+
+    const projects = rows('projects').map((p) => {
       return {
         id: `project-${p.id}`,
         name: str(p.name),
@@ -28,8 +35,7 @@ export function createPaletteSearch(api: MinimalApi) {
       } satisfies PaletteHit;
     });
 
-    const customers = (d.customers ?? []).map((raw) => {
-      const c = raw as Record<string, unknown>;
+    const customers = rows('customers').map((c) => {
       return {
         id: `customer-${c.id}`,
         name: str(c.name),
@@ -38,8 +44,7 @@ export function createPaletteSearch(api: MinimalApi) {
       } satisfies PaletteHit;
     });
 
-    const vendors = (d.vendors ?? []).map((raw) => {
-      const v = raw as Record<string, unknown>;
+    const vendors = rows('vendors').map((v) => {
       return {
         id: `vendor-${v.id}`,
         name: str(v.name),
@@ -48,6 +53,20 @@ export function createPaletteSearch(api: MinimalApi) {
       } satisfies PaletteHit;
     });
 
-    return [...projects, ...customers, ...vendors];
+    const equipment = rows('equipment').map((e) => {
+      return {
+        id: `equipment-${e.id}`,
+        name: str(e.name),
+        sub: e.model_number ? str(e.model_number) : '機材',
+        code: e.eq_code ? str(e.eq_code) : undefined,
+        path: '/equipment/',
+      } satisfies PaletteHit;
+    });
+
+    return {
+      hits: [...projects, ...customers, ...vendors, ...equipment],
+      hiddenKinds,
+      total: typeof d._total === 'number' ? d._total : undefined,
+    };
   };
 }

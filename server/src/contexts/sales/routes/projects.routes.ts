@@ -11,6 +11,7 @@ import {
   STAGE_ASKS, INTAKE_FIELDS,
 } from '../services/stage-ask.service';
 import { getProjectMoney, getProjectSchedule } from '../services/project-tabs.service';
+import { getProjectDocs, getDocFormat } from '../services/project-docs.service';
 
 const router = Router();
 
@@ -151,6 +152,12 @@ router.get('/stage-asks/all', async (_req, res) => {
   res.json({ success: true, data: { asks: STAGE_ASKS, intake: INTAKE_FIELDS } });
 });
 
+// 書類の12種と期日の決まり (案件に依らない)。`/:id/docs` より**前**に置く
+// (`docs/format` が `:id` に食われないように)。
+router.get('/docs/format', async (_req, res) => {
+  res.json({ success: true, data: getDocFormat() });
+});
+
 // 案件の「お金」タブ (13章 7a / §7.12)。4つの数字と操作を1本で返す。
 // 画面から集めると3〜4往復になり、案件一覧と違う数字が出る余地もできる。
 router.get('/:id/money', async (req, res) => {
@@ -161,6 +168,20 @@ router.get('/:id/money', async (req, res) => {
 // (予約の一覧は studio 権限で、案件を見るのは営業なので案件側に置く)。
 router.get('/:id/schedule', async (req, res) => {
   res.json({ success: true, data: await getProjectSchedule(String(req.params.id)) });
+});
+
+// 案件の「書類」タブ (15章)。12種のそろい方を**期日順**で1本で返す。
+// そろったかどうかは元データで判定する (人に「できました」を押させない)。
+router.get('/:id/docs', async (req, res) => {
+  res.json({
+    success: true,
+    data: await getProjectDocs(
+      String(req.params.id),
+      // 「今日」を渡せるようにしておく (期日の見え方を確かめるため)
+      typeof req.query.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.today)
+        ? req.query.today : undefined,
+    ),
+  });
 });
 
 // ステージ変更

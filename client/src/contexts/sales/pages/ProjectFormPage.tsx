@@ -45,6 +45,7 @@ import ProjectCommentsCard from "../components/ProjectCommentsCard";
 import ProjectChangesCard from "../components/ProjectChangesCard";
 import ProjectMoneyTab from "../components/ProjectMoneyTab";
 import ProjectScheduleTab from "../components/ProjectScheduleTab";
+import ProjectDocsTab from "../components/ProjectDocsTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface LostDialogState {
@@ -870,7 +871,9 @@ export default function ProjectFormPage() {
   // スマホでは入力フォームを畳む (§4.19)。xl 以上では常に開いている扱い
   const [formOpen, setFormOpen] = useState(false);
   // お金 / 予定 のタブ (13章 7a / §7.12)。既定は「お金」
-  const [detailTab, setDetailTab] = useState<"money" | "schedule">("money");
+  // 15章で「書類」を足した。**お金・予定・書類の3つだけ**
+  // (やり取り・タスクは §7.12 で「あとで」と決めている)
+  const [detailTab, setDetailTab] = useState<"money" | "schedule" | "docs">("money");
 
   if (isEdit && projectLoading) {
     return (
@@ -1263,10 +1266,11 @@ export default function ProjectFormPage() {
         {isEdit && id && (
           <Card>
             <CardContent className="pt-4">
-              <div className="flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="お金と予定">
+              <div className="flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="お金と予定と書類">
                 {([
                   { key: "money" as const, label: "お金" },
                   { key: "schedule" as const, label: "予定" },
+                  { key: "docs" as const, label: "書類" },
                 ]).map((t) => (
                   <button key={t.key} type="button" role="tab"
                     aria-selected={detailTab === t.key}
@@ -1280,9 +1284,9 @@ export default function ProjectFormPage() {
                 ))}
               </div>
               <div className="mt-4">
-                {detailTab === "money"
-                  ? <ProjectMoneyTab projectId={id} />
-                  : <ProjectScheduleTab projectId={id} canEdit={canEditCollab} />}
+                {detailTab === "money" && <ProjectMoneyTab projectId={id} />}
+                {detailTab === "schedule" && <ProjectScheduleTab projectId={id} canEdit={canEditCollab} />}
+                {detailTab === "docs" && <ProjectDocsTab projectId={id} />}
               </div>
             </CardContent>
           </Card>
@@ -1302,7 +1306,9 @@ export default function ProjectFormPage() {
                 </p>
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
+            {/* スマホのタップ領域を44px以上にする (size="sm" は36px。iOS HIG の下限を割る) */}
+            <Button size="sm" variant="outline" className="min-h-[44px]"
+              onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               見積をつくる
             </Button>

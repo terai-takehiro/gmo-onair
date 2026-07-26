@@ -21,6 +21,7 @@ import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import TodayPage from "@/contexts/platform/pages/TodayPage";
+import SearchResultsPage from "@/contexts/platform/pages/SearchResultsPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import UserPermissionPage from "@/contexts/platform/pages/UserPermissionPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
@@ -124,6 +125,10 @@ function AppRoutes() {
           が担当。URL は変わらないのでリンクを貼り直す必要はない。
         */}
         <Route path="/today" element={<TodayPage />} />
+        {/* 検索結果の画面 (36章)。⌘K の「すべて見る」から来る。
+            **権限で見えない種類はサーバーが返さない**ので、ここは権限で囲まない
+            (囲むと「案件だけ見られる人」が検索そのものを開けなくなる) */}
+        <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/projects" element={<PermissionRoute module="sales"><ProjectsRoute /></PermissionRoute>} />
         <Route path="/tasks" element={<PermissionRoute anyOf={["sales", "dailyops"]}><TasksRoute /></PermissionRoute>} />
         <Route path="/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
