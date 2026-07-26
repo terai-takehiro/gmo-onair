@@ -88,6 +88,8 @@ services:
       MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
       MS_TENANT_ID: ${MS_TENANT_ID:-}
       MS_OAUTH_REDIRECT: ${MS_OAUTH_REDIRECT:-}
+      # 朝の1通 (Slack)。未設定なら機能ごと無効 (何も飛ばない)
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
       SKIP_SEED: "true"
     depends_on:
       db:
@@ -147,6 +149,8 @@ services:
       MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
       MS_TENANT_ID: ${MS_TENANT_ID:-}
       MS_OAUTH_REDIRECT: ${MS_OAUTH_REDIRECT_DEV:-}
+      # 検証は dev 用トークンを別に持てる (無ければ本番と同じものを使う)
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN_DEV:-${SLACK_BOT_TOKEN:-}}
     depends_on:
       db:
         condition: service_healthy

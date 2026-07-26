@@ -51,6 +51,12 @@ const GROUPS: SettingGroup[] = [
         description: "朝の1通をどこで受けるか、期限超過をまとめるか。通知が流れて消えることはありません。",
         to: "/settings/notifications",
       },
+      {
+        label: "朝の1通（Slack）",
+        description: "チャンネルごとに「いつ・何を出すか」を決めます。送る前に本文を読めます。",
+        to: "/settings/slack-digest",
+        module: "admin",
+      },
     ],
   },
   {

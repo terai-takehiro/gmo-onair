@@ -34,6 +34,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-schedule', kind: 'open', label: '予定', path: '/schedule', keywords: 'yotei schedule カレンダー calendar', modules: ['studio', 'partner_schedule'] },
   { id: 'open-finance', kind: 'open', label: 'お金', path: '/finance', keywords: 'okane finance 財務 予算 損益', module: 'budget' },
   { id: 'open-notification-prefs', kind: 'open', label: '通知の受け取り方', path: '/settings/notifications', keywords: 'notification 通知 朝 slack メール' },
+  { id: 'open-slack-digest', kind: 'open', label: '朝の1通（Slack）の配信設定', path: '/settings/slack-digest', keywords: 'slack digest 朝 日報 配信 チャンネル', module: 'admin' },
   { id: 'open-settings', kind: 'open', label: '設定', path: '/settings', keywords: 'settei settings マスター' },
   // 現場の道具 (§4.14) — レールとホームには出さないので、単発で開く経路はここ
   // 「まだ案件に紐づいていないもの」は同じ画面の下段なので、別項目にはせずキーワードで拾う

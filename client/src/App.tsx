@@ -57,6 +57,7 @@ import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 import NotificationPrefsPage from "@/contexts/platform/pages/NotificationPrefsPage";
+import SlackDigestPage from "@/contexts/platform/pages/SlackDigestPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -128,6 +129,8 @@ function AppRoutes() {
         {/* 設定。入口 + 個別画面 (旧 /admin/* の新しい住所) */}
         <Route path="/settings" element={<SettingsHubPage />} />
         <Route path="/settings/notifications" element={<NotificationPrefsPage />} />
+        {/* 朝の1通 (Slack) の配信設定。全社チャンネルに出るので管理者のみ */}
+        <Route path="/settings/slack-digest" element={<PermissionRoute module="admin"><SlackDigestPage /></PermissionRoute>} />
         <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         {/* この人にできること (§4.17 / 20b) — 役割テンプレート + 見えるレールのプレビュー */}
         <Route path="/settings/users/:id" element={<PermissionRoute module="admin"><UserPermissionPage /></PermissionRoute>} />

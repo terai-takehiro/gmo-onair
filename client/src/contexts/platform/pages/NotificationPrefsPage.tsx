@@ -111,6 +111,16 @@ export default function NotificationPrefsPage() {
             </p>
           </>
         )}
+
+        {/* 全社チャンネルへの投稿はここではなく管理者の画面 (自分の設定と混ぜない) */}
+        <p className="text-[12px] text-secondary-foreground">
+          ここは<strong className="font-bold">自分の受け取り方</strong>の設定です。
+          全社チャンネルへの投稿は{" "}
+          <a href="/settings/slack-digest" className="font-bold text-primary underline">
+            朝の1通（Slack）
+          </a>{" "}
+          で、システム管理者が決めます。
+        </p>
       </div>
     </PageTransition>
   );
