@@ -1,5 +1,6 @@
 import { queryOne } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { NOT_SANDBOX, NOT_SANDBOX_VIA } from '../../../shared/db/sandbox-filter';
 
 // 月次損益サマリーの集計ロジック。finance/index.ts のインラインハンドラ本体を抽出したもので、
 // HTTP ルート (財務ダッシュボード) と MCP サーバーの両方から同じコードパスで呼ばれる。
@@ -92,11 +93,18 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   // 案件絞り込みなし: 全体集計
   const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL AND recognition_date >= ? AND recognition_date <= ?`,
+      // 25章: お試し (練習) の案件はここに入れない。案件を持たない行は落とさない
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues r
+        WHERE r.deleted_at IS NULL AND r.status = 'confirmed' AND r.group_id IS NULL
+          AND r.recognition_date >= ? AND r.recognition_date <= ?
+          AND ${NOT_SANDBOX_VIA('r')}`,
       [from, to]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL AND group_id IS NULL AND recognition_date >= ? AND recognition_date <= ?`,
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases pu
+        WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL
+          AND pu.recognition_date >= ? AND pu.recognition_date <= ?
+          AND ${NOT_SANDBOX_VIA('pu')}`,
       [from, to]
     ) as Promise<any>,
     queryOne(
@@ -107,7 +115,8 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
     queryOne(
       `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
        JOIN projects p ON p.id = pu.project_id
-       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND pu.recognition_date >= ? AND pu.recognition_date <= ? AND p.code = ?`,
+       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND pu.recognition_date >= ? AND pu.recognition_date <= ?
+         AND p.code = ? AND ${NOT_SANDBOX('p')}`,
       [from, to, FIXED_COGS_CODE]
     ) as Promise<any>,
   ]);

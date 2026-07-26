@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
+// 25章: この画面の数字は**本物だけ**。お試し (練習) の案件は数えない
+// (条件は `shared/db/sandbox-filter.ts` と同じ意味。ここは12か所すべてに入れている)
+
 export class SalesAnalyticsService {
   /** 失注理由カテゴリマスタ取得 */
   async getLostReasonCategories() {
@@ -22,27 +25,27 @@ export class SalesAnalyticsService {
     const stageCounts = await queryAll(
       `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount
        FROM projects p
-       WHERE p.deleted_at IS NULL ${dateFilter}
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE ${dateFilter}
        GROUP BY stage`,
       params
     );
 
     const totalRow = await queryOne(
-      `SELECT COUNT(*) as total FROM projects p WHERE p.deleted_at IS NULL ${dateFilter}`,
+      `SELECT COUNT(*) as total FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE ${dateFilter}`,
       params
     );
     const totalCount = (totalRow as any)?.total || 0;
 
     const wonRow = await queryOne(
       `SELECT COUNT(*) as won FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 's_completed', 'b_verbal') ${dateFilter}`,
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage IN ('a_won', 's_completed', 'b_verbal') ${dateFilter}`,
       params
     );
     const wonCount = (wonRow as any)?.won || 0;
 
     const lostRow = await queryOne(
       `SELECT COUNT(*) as lost FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage = 'e_lost' ${dateFilter}`,
       params
     );
     const lostCount = (lostRow as any)?.lost || 0;
@@ -50,7 +53,7 @@ export class SalesAnalyticsService {
     const avgDwellRow = await queryOne(
       `SELECT AVG(EXTRACT(EPOCH FROM (p.updated_at::timestamp - p.created_at::timestamp)) / 86400) as avg_days
        FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage NOT IN ('neta') ${dateFilter}`,
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage NOT IN ('neta') ${dateFilter}`,
       params
     );
 
@@ -64,7 +67,7 @@ export class SalesAnalyticsService {
                 COUNT(*) as total_count,
                 COALESCE(SUM(CASE WHEN p.stage IN ('a_won','b_verbal','s_completed') THEN p.expected_amount END), 0) as won_amount
          FROM projects p
-         WHERE p.deleted_at IS NULL AND TO_CHAR(p.created_at, 'YYYY') = ?
+         WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND TO_CHAR(p.created_at, 'YYYY') = ?
          GROUP BY TO_CHAR(p.updated_at::timestamp, 'MM')
          ORDER BY month`,
         [String(year)]
@@ -118,7 +121,7 @@ export class SalesAnalyticsService {
     const reasons = await queryAll(
       `SELECT COALESCE(p.lost_reason, '未設定') as reason, COUNT(*) as count, COALESCE(SUM(p.expected_amount), 0) as total_amount
        FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage = 'e_lost' ${dateFilter}
        GROUP BY p.lost_reason
        ORDER BY count DESC`,
       params
@@ -127,7 +130,7 @@ export class SalesAnalyticsService {
     const totalRow = await queryOne(
       `SELECT COUNT(*) as c, COALESCE(SUM(p.expected_amount), 0) as total_amount,
               COALESCE(AVG(p.expected_amount), 0) as avg_amount
-       FROM projects p WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
+       FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage = 'e_lost' ${dateFilter}`,
       params
     );
 
@@ -137,7 +140,7 @@ export class SalesAnalyticsService {
               COUNT(*) as count,
               COALESCE(SUM(p.expected_amount), 0) as total_amount
        FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage = 'e_lost' ${dateFilter}
        GROUP BY TO_CHAR(p.updated_at::timestamp, 'MM')
        ORDER BY month`,
       params
@@ -149,7 +152,7 @@ export class SalesAnalyticsService {
               p.lost_at, c.name as customer_name, c.short_name as customer_short_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' AND p.lessons_learned IS NOT NULL AND p.lessons_learned != '' ${dateFilter}
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage = 'e_lost' AND p.lessons_learned IS NOT NULL AND p.lessons_learned != '' ${dateFilter}
        ORDER BY p.lost_at DESC, p.updated_at DESC
        LIMIT 20`,
       params
@@ -219,8 +222,11 @@ export class SalesAnalyticsService {
               COALESCE(SUM(p.expected_amount), 0) as won_amount
        FROM projects p
        LEFT JOIN users u ON u.id = p.assigned_to
-       WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 'b_verbal', 's_completed') ${wonFilter}
-       GROUP BY p.assigned_to`,
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage IN ('a_won', 'b_verbal', 's_completed') ${wonFilter}
+       -- u.name も GROUP BY に入れる。入れないと Postgres が
+       -- 「column u.name must appear in the GROUP BY clause」で落ちる
+       -- (営業成績の画面が 500 で開けなかった既存の不具合)
+       GROUP BY p.assigned_to, u.name`,
       wonParams
     );
 
@@ -237,7 +243,7 @@ export class SalesAnalyticsService {
               COUNT(CASE WHEN p.stage = 'e_lost' THEN 1 END) as lost_count,
               COALESCE(AVG(p.expected_amount), 0) as avg_deal_size
        FROM projects p
-       WHERE p.deleted_at IS NULL ${allFilter}
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE ${allFilter}
        GROUP BY p.assigned_to`,
       allParams
     );
@@ -255,7 +261,8 @@ export class SalesAnalyticsService {
        FROM sales_targets t
        LEFT JOIN users u ON u.id = t.user_id
        ${targetFilter}
-       GROUP BY t.user_id`,
+       -- u.name も GROUP BY に入れる (上の actuals と同じ理由)
+       GROUP BY t.user_id, u.name`,
       targetParams
     );
 

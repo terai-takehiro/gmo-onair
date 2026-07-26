@@ -12,6 +12,7 @@ import {
   upsertBlock, deleteBlock, setLaneVisible, updateSheet, sendBlocksToTimer,
   CATEGORIES, SOURCES, HOUR_PX,
 } from '../services/call-sheet.service';
+import { assertNotSandbox } from '../../sales/services/sandbox.service';
 
 const router = Router();
 router.use(requireAuth, requirePermission('sales'));
@@ -67,6 +68,8 @@ router.put('/:id/lanes/:laneId/visible', requirePermission('sales', 'editor'), a
 
 // 選んだ枠を計時LIVEのタイマーにする (枠の長さがそのまま尺)
 router.post('/:id/to-timer', requirePermission('sales', 'editor'), async (req, res) => {
+  // 25章: お試し (練習) の案件からはタイマーを作らせない (当日の画面に出る)
+  await assertNotSandbox(String(req.params.id), 'timer');
   const ids = Array.isArray(req.body?.block_ids) ? req.body.block_ids.map(String) : [];
   res.json({ success: true, data: await sendBlocksToTimer(String(req.params.id), ids, uid(req)) });
 });

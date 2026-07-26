@@ -18,6 +18,7 @@
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
+import { NOT_SANDBOX_VIA } from '../../../shared/db/sandbox-filter';
 
 const TAX_RATE: Record<string, number> = { tax10: 0.10, tax8: 0.08, exempt: 0 };
 
@@ -48,7 +49,9 @@ const BASE_SELECT = `
   LEFT JOIN projects p ON p.id = r.project_id
   LEFT JOIN customers c ON c.id = r.customer_id
   LEFT JOIN episodes e ON e.id = r.episode_id
-  WHERE r.deleted_at IS NULL AND r.status = 'confirmed'`;
+  WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
+    -- 25章: お試し (練習) の案件の売上は請求のしごとに出さない
+    AND ${NOT_SANDBOX_VIA('r')}`;
 
 function shape(row: Record<string, any>) {
   const amount = Number(row.amount) || 0;
@@ -170,6 +173,7 @@ export async function getRecurring(month?: string) {
      ) prev ON TRUE
      WHERE cur.deleted_at IS NULL AND cur.status = 'confirmed'
        AND cur.recognition_date IS NOT NULL AND substr(cur.recognition_date, 1, 7) = ?
+       AND ${NOT_SANDBOX_VIA('cur')}
      ORDER BY (cur.amount <> prev.amount) DESC, p.name`,
     [prevMonth, month],
   )) as Array<Record<string, any>>;
@@ -186,11 +190,21 @@ export async function markIssued(ids: string[], userId: string) {
     throw new AppError(400, 'VALIDATION_ERROR', '請求書を出す売上を選んでください');
   }
   const rows = (await queryAll(
-    `SELECT r.id, p.application_form, p.name AS project_name
+    `SELECT r.id, p.application_form, p.name AS project_name, p.is_sandbox
      FROM revenues r LEFT JOIN projects p ON p.id = r.project_id
      WHERE r.id = ANY(?::text[]) AND r.deleted_at IS NULL AND r.status = 'confirmed'`,
     [ids],
   )) as Array<Record<string, any>>;
+
+  // 25章: お試し (練習) の売上からは請求書を出さない (請求書の番号を採ってしまう)。
+  // 一覧には出ないが、id を直接渡してくる経路があるのでここでも止める
+  const sandboxRows = rows.filter((r) => r.is_sandbox);
+  if (sandboxRows.length) {
+    throw new AppError(
+      400, 'SANDBOX_BLOCKED',
+      'お試しの案件では請求書を出せません。請求書の番号を採ってしまいます',
+    );
+  }
 
   const blocked = rows.filter((r) => missingDocs(r).length > 0);
   if (blocked.length) {

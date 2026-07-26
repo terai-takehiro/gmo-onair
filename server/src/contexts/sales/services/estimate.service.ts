@@ -128,7 +128,7 @@ async function loadProject(projectId: string) {
   const project = await queryOne(
     `SELECT p.*, c.name AS customer_name
      FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.id = ? AND p.deleted_at IS NULL`,
+     WHERE p.id = ? AND p.deleted_at IS NULL AND p.is_sandbox = FALSE`,
     [projectId],
   ) as Record<string, any> | null;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -160,7 +160,7 @@ export async function findSimilarProjects(projectId: string, limit = 3) {
        SELECT project_id, SUM(amount) AS total FROM purchases
        WHERE deleted_at IS NULL GROUP BY project_id
      ) pur ON pur.project_id = p.id
-     WHERE p.id <> ? AND p.deleted_at IS NULL AND COALESCE(rev.total, 0) > 0
+     WHERE p.id <> ? AND p.deleted_at IS NULL AND p.is_sandbox = FALSE AND COALESCE(rev.total, 0) > 0
      ORDER BY (p.customer_id IS NOT NULL AND p.customer_id = ?) DESC,
               ABS(COALESCE(rev.total, 0) - ?) ASC,
               p.event_start DESC NULLS LAST

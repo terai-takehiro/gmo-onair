@@ -313,14 +313,14 @@ async function gatherFacts() {
   };
 
   const wonCount = await row(
-    `SELECT COUNT(*) AS c FROM projects WHERE stage = 'a_won' AND deleted_at IS NULL`);
+    `SELECT COUNT(*) AS c FROM projects WHERE stage = 'a_won' AND deleted_at IS NULL AND is_sandbox = FALSE`);
   const netaCount = await row(
-    `SELECT COUNT(*) AS c FROM projects WHERE stage IN ('neta','d_hold','c_proposal') AND deleted_at IS NULL`);
+    `SELECT COUNT(*) AS c FROM projects WHERE stage IN ('neta','d_hold','c_proposal') AND deleted_at IS NULL AND is_sandbox = FALSE`);
   const taskDone = await row(
     `SELECT COUNT(*) FILTER (WHERE status = 'done') AS done, COUNT(*) AS total
        FROM project_tasks WHERE deleted_at IS NULL`);
   const purchase = await row(
-    `SELECT COALESCE(SUM(amount), 0) AS s FROM purchases WHERE deleted_at IS NULL`);
+    `SELECT COALESCE(SUM(amount), 0) AS s FROM purchases x WHERE x.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox)`);
 
   const onTime = taskDone && Number(taskDone.total) > 0
     ? Math.round((Number(taskDone.done) / Number(taskDone.total)) * 100) : null;

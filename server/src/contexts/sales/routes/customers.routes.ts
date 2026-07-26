@@ -32,7 +32,8 @@ router.get('/', async (req, res) => {
   const staleFrom = daysAgo(30);
   const yearFrom = `${new Date().getFullYear()}-01-01`;
 
-  let where = 'WHERE c.deleted_at IS NULL';
+  // 25章: お試し用のお客様は本物の一覧に出さない
+  let where = 'WHERE c.deleted_at IS NULL AND c.is_sandbox = FALSE';
   const params: unknown[] = [];
   if (search) {
     where += ` AND (c.name ILIKE ? OR c.short_name ILIKE ? OR c.contact_name ILIKE ?)`;
@@ -80,7 +81,7 @@ router.get('/', async (req, res) => {
      LEFT JOIN LATERAL (
        SELECT COUNT(*) AS total,
               COUNT(*) FILTER (WHERE p.stage NOT IN ('s_completed','e_lost')) AS active
-       FROM projects p WHERE p.customer_id = c.id AND p.deleted_at IS NULL
+       FROM projects p WHERE p.customer_id = c.id AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
      ) pj ON TRUE
      LEFT JOIN LATERAL (
        SELECT a.next_action, a.next_action_date
@@ -181,7 +182,7 @@ router.get('/:id/overview', async (req, res) => {
                   WHERE status = 'confirmed' AND deleted_at IS NULL GROUP BY project_id) r ON r.project_id = p.id
        LEFT JOIN (SELECT project_id, SUM(amount) AS pur FROM purchases
                   WHERE deleted_at IS NULL GROUP BY project_id) pu ON pu.project_id = p.id
-       WHERE p.customer_id = ? AND p.deleted_at IS NULL
+       WHERE p.customer_id = ? AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
        ORDER BY (p.stage NOT IN ('s_completed','e_lost')) DESC, p.event_start DESC NULLS LAST, p.created_at DESC`,
       [id]
     ),

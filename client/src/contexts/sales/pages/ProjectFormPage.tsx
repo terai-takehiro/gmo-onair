@@ -905,6 +905,13 @@ export default function ProjectFormPage() {
         </Button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            {/* 25章: お試し (練習) はどの画面でも一目で分かるようにする。
+                本物と見分けが付かないと、練習を本物と思って進めてしまう */}
+            {isEdit && (project as { is_sandbox?: boolean } | undefined)?.is_sandbox && (
+              <span className="shrink-0 rounded-md bg-amber-100 px-2 py-0.5 text-[12px] font-bold text-amber-900 ring-1 ring-amber-300">
+                お試し（練習）・数字には入りません
+              </span>
+            )}
             {isEdit && (
               <Badge className="shrink-0" style={{ backgroundColor: ProjectStageColors[currentStage], color: '#fff' }}>
                 {ProjectStageLabels[currentStage] || currentStage}

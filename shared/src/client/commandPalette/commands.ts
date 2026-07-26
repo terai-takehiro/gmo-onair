@@ -49,6 +49,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   // 合同案件 (32章) と 費用を分け合う案件 は別物。見分け方は「請求書が何枚出るか」。
   { id: 'open-manual-help', kind: 'open', label: '運営マニュアル (案件から開く)', path: '/projects', keywords: 'manual unei 運営 マニュアル 部品 配置図 会場図', module: 'sales' },
   { id: 'open-call-sheet-help', kind: 'open', label: '香盤表 (案件から開く)', path: '/projects', keywords: 'kouban call sheet 香盤 進行 当日 レーン', module: 'sales' },
+  { id: 'open-sandbox', kind: 'open', label: 'お試し（練習）', path: '/sales/sandbox', keywords: 'otameshi sandbox 練習 試す 研修 新人 デモ 実績に混ざらない', module: 'sales' },
   { id: 'open-keep-deck', kind: 'open', label: '隔週キープをつくる', path: '/sales/keep', keywords: 'keep kakushu 隔週 キープ 会議 資料 報告 mtg', module: 'sales' },
   { id: 'open-joint-events', kind: 'open', label: '合同案件 (各社に請求)', path: '/finance/joint', keywords: 'goudou joint 合同 株主総会 複数社 各社 請求 分ける', module: 'budget' },
   { id: 'open-project-groups', kind: 'open', label: '費用を分け合う案件', path: '/sales/project-groups', keywords: 'group 配分 グループ 分担 原価', module: 'sales' },

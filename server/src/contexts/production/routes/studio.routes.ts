@@ -6,6 +6,7 @@ import { requireAuth, requirePermission, requireRole } from '../../../shared/mid
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
+import { assertNotSandbox } from '../../sales/services/sandbox.service';
 
 const router = Router();
 
@@ -512,6 +513,9 @@ router.get('/bookings/:id', async (req, res) => {
 
 // POST /studios/bookings — 予約作成
 router.post('/bookings', requirePermission('studio', 'editor'), async (req, res) => {
+  // 25章: お試し (練習) の案件では予約を作らせない。予約はカレンダーに出るので、
+  // 他の人には本物と区別が付かない
+  await assertNotSandbox(req.body?.project_id, 'booking');
   const row = await studioBookingService.createBooking(req.body, req.user!.id);
   res.status(201).json({ success: true, data: row });
 });

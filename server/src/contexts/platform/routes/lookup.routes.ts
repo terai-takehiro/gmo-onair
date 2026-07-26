@@ -15,7 +15,7 @@ router.get('/gls-options', async (_req, res) => {
     `SELECT p.id, p.gls_number, p.name, c.name as customer_name
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
+     WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
      ORDER BY p.gls_number DESC`
   );
   res.json({ success: true, data: rows });

@@ -12,6 +12,11 @@ import {
 } from '../services/stage-ask.service';
 import { getProjectMoney, getProjectSchedule } from '../services/project-tabs.service';
 import { getProjectDocs, getDocFormat } from '../services/project-docs.service';
+import {
+  startSandbox, listSandboxes, getSandbox, cleanupSandbox,
+  SANDBOX_TOOLS, SANDBOX_BLOCKED, SANDBOX_STALE_DAYS,
+} from '../services/sandbox.service';
+import { assertNotSandbox } from '../services/sandbox.service';
 
 const router = Router();
 
@@ -22,6 +27,8 @@ router.use(requireAuth, requirePermission('sales'));
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const filter: ProjectFilter = {
+    // 25章: 既定はお試しを出さない。`sandbox=only` のときだけお試しを出す
+    sandbox: req.query.sandbox === 'only' ? 'only' : undefined,
     search,
     stage: req.query.stage as string,
     assignedTo: req.query.assigned_to as string,
@@ -50,7 +57,7 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
     `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.expected_amount
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.deleted_at IS NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
      ORDER BY p.created_at DESC`
   ) as Record<string, unknown>[];
   const columns = ['gls_number', 'name', 'client_name', 'stage', 'expected_amount'];
@@ -78,6 +85,53 @@ router.patch('/bulk', requirePermission('sales', 'manager'), async (req, res) =>
   const result = await projectService.bulkUpdate(ids, set || {}, req.user!.id);
   res.json({ success: true, data: result });
 });
+
+// ── お試し (25章) ────────────────────────────────────────
+//
+// **`/:id` より前に置く**。`/sandbox` は1セグメントなので、あとに置くと
+// `/:id` に id='sandbox' として食われて 404 になる (検証で踏んだ)。
+// `/docs/format` のような2セグメントのパスは食われないので後ろでもよい。
+// 練習は人ごとなので、他人の練習は出さない。
+router.get('/sandbox', async (req, res) => {
+  res.json({ success: true, data: await listSandboxes(req.user!.id) });
+});
+
+// お試しの決まり (何が試せて、何ができないか)。始める前に見る
+router.get('/sandbox/format', async (_req, res) => {
+  res.json({
+    success: true,
+    data: { tools: SANDBOX_TOOLS, blocked: SANDBOX_BLOCKED, stale_days: SANDBOX_STALE_DAYS },
+  });
+});
+
+router.post('/sandbox', requirePermission('sales', 'editor'), async (req, res) => {
+  res.status(201).json({
+    success: true,
+    data: await startSandbox(req.user!.id, req.user!.name),
+  });
+});
+
+router.get('/sandbox/:id', async (req, res) => {
+  res.json({ success: true, data: await getSandbox(String(req.params.id)) });
+});
+
+// 片づける。**お試しでなければ 400 で止める** (本物を消す経路にしない)
+router.delete('/sandbox/:id', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await cleanupSandbox(String(req.params.id), req.user!.id) });
+});
+
+// 案件の「お金」タブ (13章 7a / §7.12)。4つの数字と操作を1本で返す。
+// 画面から集めると3〜4往復になり、案件一覧と違う数字が出る余地もできる。
+router.get('/:id/money', async (req, res) => {
+  res.json({ success: true, data: await getProjectMoney(String(req.params.id)) });
+});
+
+// 案件の「予定」タブ。**この案件に紐づく予約だけ**を返す
+// (予約の一覧は studio 権限で、案件を見るのは営業なので案件側に置く)。
+router.get('/:id/schedule', async (req, res) => {
+  res.json({ success: true, data: await getProjectSchedule(String(req.params.id)) });
+});
+
 
 // 詳細
 router.get('/:id', async (req, res) => {
@@ -158,18 +212,6 @@ router.get('/docs/format', async (_req, res) => {
   res.json({ success: true, data: getDocFormat() });
 });
 
-// 案件の「お金」タブ (13章 7a / §7.12)。4つの数字と操作を1本で返す。
-// 画面から集めると3〜4往復になり、案件一覧と違う数字が出る余地もできる。
-router.get('/:id/money', async (req, res) => {
-  res.json({ success: true, data: await getProjectMoney(String(req.params.id)) });
-});
-
-// 案件の「予定」タブ。**この案件に紐づく予約だけ**を返す
-// (予約の一覧は studio 権限で、案件を見るのは営業なので案件側に置く)。
-router.get('/:id/schedule', async (req, res) => {
-  res.json({ success: true, data: await getProjectSchedule(String(req.params.id)) });
-});
-
 // 案件の「書類」タブ (15章)。12種のそろい方を**期日順**で1本で返す。
 // そろったかどうかは元データで判定する (人に「できました」を押させない)。
 router.get('/:id/docs', async (req, res) => {
@@ -214,6 +256,8 @@ router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res
 
 // GLS発番
 router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, res) => {
+  // 25章: お試しでは番号を採らない (番号を1本使ってしまう)
+  await assertNotSandbox(req.params.id as string, 'gls');
   const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
@@ -227,6 +271,8 @@ router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (
 
 // BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)
 router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {
+  // 25章: お試しでは共有フォルダを作らない
+  await assertNotSandbox(req.params.id as string, 'box');
   const result = await projectService.createBoxFolder(req.params.id as string);
   res.json({ success: true, data: result });
 });

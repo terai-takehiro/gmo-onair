@@ -64,7 +64,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
-     WHERE p.deleted_at IS NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
        AND p.created_at >= ?::date AND p.created_at < (?::date + INTERVAL '1 day')
      ORDER BY p.created_at ASC
      LIMIT 20`,
@@ -77,7 +77,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
               WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
             )) AS ai_c
      FROM projects
-     WHERE deleted_at IS NULL
+     WHERE deleted_at IS NULL AND is_sandbox = FALSE
        AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')`,
     [config.mcpActorId, weekStart, weekEnd],
   );
@@ -108,7 +108,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
   const pipeline = await queryAll(
     `SELECT stage, COUNT(*) AS count, COALESCE(SUM(expected_amount), 0) AS expected_amount
      FROM projects
-     WHERE deleted_at IS NULL AND stage NOT IN ('s_completed', 'e_lost')
+     WHERE deleted_at IS NULL AND is_sandbox = FALSE AND stage NOT IN ('s_completed', 'e_lost')
      GROUP BY stage
      ORDER BY CASE stage
        WHEN 'a_won' THEN 1 WHEN 'b_verbal' THEN 2 WHEN 'c_proposal' THEN 3
@@ -117,13 +117,13 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
 
   // 売上 (計上日ベース): 週内合計 + 当月累計
   const weekRevenue = await queryOne(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
-     WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`,
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues x
+     WHERE x.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox) AND recognition_date BETWEEN ? AND ?`,
     [weekStart, weekEnd],
   );
   const monthRevenue = await queryOne(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
-     WHERE deleted_at IS NULL AND substr(recognition_date, 1, 7) = ?`,
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues x
+     WHERE x.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox) AND substr(recognition_date, 1, 7) = ?`,
     [month],
   );
 
@@ -133,7 +133,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
             c.name AS customer_name
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
        AND NULLIF(p.event_start, '') IS NOT NULL
        AND p.event_start <= ?
        AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?

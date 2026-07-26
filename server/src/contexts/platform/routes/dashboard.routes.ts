@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+// 25章: お試し (練習) を数から外す条件。文字列は1か所に置く
+import { NOT_SANDBOX, NOT_SANDBOX_VIA } from '../../../shared/db/sandbox-filter';
 import { config } from '../../../config';
 import { projectCommentService } from '../../sales/services/project-history.service';
 
@@ -62,10 +64,11 @@ router.get('/kpi', async (req, res) => {
     periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
   }
 
-  const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
-  const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
-  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL`);
-  const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NULL AND stage NOT IN ('e_lost') AND deleted_at IS NULL`);
+  // 25章: お試し (練習) の案件は数えない。案件を持たない行は落とさない
+  const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [periodStart, periodEnd]);
+  const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [periodStart, periodEnd]);
+  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects p WHERE p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`);
+  const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects p WHERE p.gls_number IS NULL AND p.stage NOT IN ('e_lost') AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`);
 
   // SGA calculation
   const sgaNonAmortized = await queryOne(
@@ -132,11 +135,12 @@ router.get('/alerts', async (_req, res) => {
   const alerts = await queryAll(
     `SELECT id, gls_number, name, 'application_form' as alert_type, '申込書未提出' as message
      FROM projects WHERE application_form = 0 AND gls_number IS NOT NULL
-     AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL
+     AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL AND is_sandbox = FALSE
      UNION ALL
      SELECT id, gls_number, name, 'upcoming_event' as alert_type, 'イベントが近づいています' as message
      FROM projects WHERE event_start IS NOT NULL
-     AND event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text AND deleted_at IS NULL`
+     AND event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
+     AND deleted_at IS NULL AND is_sandbox = FALSE`
   );
   res.json({ success: true, data: alerts });
 });
@@ -152,7 +156,7 @@ const OVERDUE_ACTIONS_SQL =
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
    LEFT JOIN customers c ON c.id = p.customer_id
-   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
+   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
      AND p.stage NOT IN ('s_completed','e_lost')
      AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
      AND a.next_action_done_at IS NULL
@@ -171,7 +175,7 @@ router.get('/recent-projects', async (_req, res) => {
   const rows = await queryAll(
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
      AND p.event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
      ORDER BY p.event_start LIMIT 10`
   );
@@ -237,7 +241,7 @@ router.get('/sales-board', async (_req, res) => {
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
-     WHERE p.deleted_at IS NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
        AND p.stage NOT IN ('s_completed','e_lost')
      ORDER BY
        CASE WHEN la.activity_date IS NOT NULL
@@ -277,7 +281,7 @@ const AI_INBOX_SQL =
      ORDER BY m.created_at ASC
      LIMIT 1
    ) ai ON TRUE
-   WHERE p.deleted_at IS NULL
+   WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
      AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
      AND p.ai_reviewed_at IS NULL
    ORDER BY p.created_at DESC
@@ -310,7 +314,7 @@ router.get('/inbox', async (req, res) => {
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
-         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
+         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
        ORDER BY p.updated_at DESC
        LIMIT 100`
     ),
@@ -679,7 +683,7 @@ router.get('/weekly-schedule', async (_req, res) => {
 
     const projects = await queryAll(
       `SELECT p.id, p.gls_number, p.name, p.stage, 'event' as type
-       FROM projects p WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
+       FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
        AND (p.event_start <= ? AND p.event_end >= ? OR p.event_start = ?)`,
       [dateStr, dateStr, dateStr]
     );
@@ -728,8 +732,8 @@ router.get('/monthly-chart', async (_req, res) => {
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const monthStart = `${ym}-01`;
     const monthEnd = `${ym}-31`;
-    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
-    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [monthStart, monthEnd]);
+    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [monthStart, monthEnd]);
     const sgaNonAmortizedRow = await queryOne(
       `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
        WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
@@ -758,7 +762,8 @@ router.get('/monthly-chart', async (_req, res) => {
 router.get('/pipeline', async (_req, res) => {
   const stages = await queryAll(
     `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount),0) as total_amount
-     FROM projects WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','s_completed')
+     FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage NOT IN ('e_lost','s_completed')
+       AND ${NOT_SANDBOX('p')}
      GROUP BY stage ORDER BY CASE stage
        WHEN 'neta' THEN 1 WHEN 'd_hold' THEN 2 WHEN 'c_proposal' THEN 3
        WHEN 'b_verbal' THEN 4 WHEN 'a_won' THEN 5 END`

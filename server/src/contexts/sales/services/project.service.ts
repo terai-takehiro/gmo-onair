@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { NOT_SANDBOX } from '../../../shared/db/sandbox-filter';
 import {
   createProjectFolderTree,
   renameProjectFolderPair,
@@ -33,6 +34,8 @@ function normalizeCustomerType(value: unknown): CustomerType {
 }
 
 export interface ProjectFilter {
+  /** お試し (練習) の扱い。既定は「出さない」(25章) */
+  sandbox?: 'only';
   search?: string;
   stage?: string;
   assignedTo?: string;
@@ -97,7 +100,10 @@ export class ProjectService {
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
    */
   async list(filter: ProjectFilter, page: number, limit: number, offset: number) {
-    let where = 'WHERE p.deleted_at IS NULL';
+    // お試し (練習) は既定で出さない。`sandbox: 'only'` のときだけお試しを出す (25章)
+    let where = filter.sandbox === 'only'
+      ? `WHERE p.deleted_at IS NULL AND p.is_sandbox = TRUE`
+      : `WHERE p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`;
     const params: unknown[] = [];
 
     // タブフィルタ。タブごとの件数を出すために where 本体とは分けて持つ
@@ -1020,7 +1026,7 @@ export class ProjectService {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
        FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
+       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}
        ORDER BY p.gls_number DESC`
     );
   }

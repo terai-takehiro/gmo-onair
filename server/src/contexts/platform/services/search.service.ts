@@ -89,7 +89,7 @@ async function searchKind(key: string, like: string, limit: number) {
            LEFT JOIN customers c ON c.id = p.customer_id AND c.deleted_at IS NULL
           WHERE (p.name ILIKE ? ESCAPE '\\' OR p.code ILIKE ? ESCAPE '\\'
                  OR p.gls_number ILIKE ? ESCAPE '\\')
-            AND p.deleted_at IS NULL
+            AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
           ORDER BY p.updated_at DESC
           LIMIT ?`,
         [like, like, like, limit]);
@@ -97,19 +97,19 @@ async function searchKind(key: string, like: string, limit: number) {
         `SELECT COUNT(*) AS n FROM projects p
           WHERE (p.name ILIKE ? ESCAPE '\\' OR p.code ILIKE ? ESCAPE '\\'
                  OR p.gls_number ILIKE ? ESCAPE '\\')
-            AND p.deleted_at IS NULL`, [like, like, like])) as any;
+            AND p.deleted_at IS NULL AND p.is_sandbox = FALSE`, [like, like, like])) as any;
       return { rows, count: Number(c?.n ?? 0) };
     }
     case 'customers': {
       const rows = await queryAll(
         `SELECT id, name, short_name FROM customers
           WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\')
-            AND deleted_at IS NULL
+            AND deleted_at IS NULL AND is_sandbox = FALSE
           ORDER BY name LIMIT ?`, [like, like, limit]);
       const c = (await queryOne(
         `SELECT COUNT(*) AS n FROM customers
           WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\')
-            AND deleted_at IS NULL`, [like, like])) as any;
+            AND deleted_at IS NULL AND is_sandbox = FALSE`, [like, like])) as any;
       return { rows, count: Number(c?.n ?? 0) };
     }
     case 'vendors': {

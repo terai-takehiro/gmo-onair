@@ -1,6 +1,12 @@
 // 予算管理 一覧/エクスポート共通のフィルタ + 並び替えビルダー
 // list ルートと excel エクスポートで同一の絞り込み・ソートを保証するために共有する。
+//
+// 25章: **お試し (練習) の案件に付いた売上・仕入はここで外す**。
+// この2つのビルダーは 一覧 / CSV / Excel / MCP (`list_revenues` `list_purchases`) が
+// 共有しているので、1か所直せば全部に効く。
+// 案件の付いていない行 (案件なしの仕入など) は落とさない。
 import type { Request } from 'express';
+import { NOT_SANDBOX_VIA } from '../../shared/db/sandbox-filter';
 
 type Query = Request['query'];
 
@@ -12,7 +18,7 @@ function s(v: unknown): string {
 // 仕入 (purchases)  alias: pu / projects p / vendors v
 // ============================================================
 export function buildPurchaseWhere(q: Query): { where: string; params: unknown[] } {
-  let where = 'WHERE pu.deleted_at IS NULL';
+  let where = `WHERE pu.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('pu')}`;
   const params: unknown[] = [];
   const search = s(q.search);
   if (search) {
@@ -68,7 +74,7 @@ export function buildPurchaseOrder(q: Query): string {
 // 売上 (revenues)  alias: r / projects p / customers c
 // ============================================================
 export function buildRevenueWhere(q: Query): { where: string; params: unknown[] } {
-  let where = 'WHERE r.deleted_at IS NULL';
+  let where = `WHERE r.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('r')}`;
   const params: unknown[] = [];
   const search = s(q.search);
   if (search) {

@@ -110,7 +110,7 @@ async function waiting(): Promise<string | null> {
     queryOne(
       `SELECT COUNT(*) AS c, MIN(a.next_action_date) AS oldest
        FROM activity_logs a JOIN projects p ON p.id = a.project_id
-       WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
+       WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
          AND p.stage NOT IN ('s_completed','e_lost')
          AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
          AND a.next_action_done_at IS NULL AND a.next_action_date < CURRENT_DATE::text`,
@@ -121,7 +121,7 @@ async function waiting(): Promise<string | null> {
          SELECT m.id FROM mcp_audit_log m
          WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id LIMIT 1
        ) ai ON TRUE
-       WHERE p.deleted_at IS NULL AND p.ai_reviewed_at IS NULL
+       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.ai_reviewed_at IS NULL
          AND (p.created_by = ? OR ai.id IS NOT NULL)`,
       [config.mcpActorId],
     ),
@@ -175,7 +175,7 @@ async function weekAhead(): Promise<string | null> {
 async function noNextAction(): Promise<string | null> {
   const r = await queryOne(
     `SELECT COUNT(*) AS c FROM projects p
-     WHERE p.deleted_at IS NULL
+     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
        AND p.stage NOT IN ('neta','s_completed','e_lost')
        AND NOT EXISTS (
          SELECT 1 FROM activity_logs a
@@ -251,10 +251,13 @@ async function moneyMonth(): Promise<string | null> {
   const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const to = dateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   const [rev, pur, sga] = await Promise.all([
-    queryOne(`SELECT COALESCE(SUM(amount),0) AS t FROM revenues
-              WHERE deleted_at IS NULL AND status = 'confirmed' AND recognition_date BETWEEN ? AND ?`, [from, to]),
-    queryOne(`SELECT COALESCE(SUM(amount),0) AS t FROM purchases
-              WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`, [from, to]),
+    // 25章: お試し (練習) の案件は数えない
+    queryOne(`SELECT COALESCE(SUM(amount),0) AS t FROM revenues x
+              WHERE x.deleted_at IS NULL AND x.status = 'confirmed' AND x.recognition_date BETWEEN ? AND ?
+                AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox)`, [from, to]),
+    queryOne(`SELECT COALESCE(SUM(amount),0) AS t FROM purchases x
+              WHERE x.deleted_at IS NULL AND x.recognition_date BETWEEN ? AND ?
+                AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox)`, [from, to]),
     queryOne(`SELECT COALESCE(SUM(amount),0) AS t FROM sga_expenses
               WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`, [from, to]),
   ]);
