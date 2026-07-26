@@ -31,6 +31,7 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import ProjectIntakePage from "@/contexts/sales/pages/ProjectIntakePage";
+import KeepDeckPage from "@/contexts/sales/pages/KeepDeckPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
@@ -163,6 +164,8 @@ function AppRoutes() {
         {/* 現場の道具 (§4.14 / 12a) — レールとホームには出さない。案件か ⌘K から */}
         <Route path="/tools" element={<PermissionRoute module="sales"><ToolsPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<RedirectPreserveState to="/review?tab=keep" />} />
+        {/* 隔週キープをつくる (29章): 型は Ver.2.5 のまま、AIが16ページ埋めて人は2ページ書く */}
+        <Route path="/sales/keep" element={<PermissionRoute module="sales"><KeepDeckPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<RedirectPreserveState to="/review?tab=sales" />} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 

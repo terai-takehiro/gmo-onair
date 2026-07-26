@@ -14,6 +14,7 @@ import {
   CalendarCheck, Presentation, TrendingUp, BarChart3, ExternalLink, Sparkles, Info,
 } from "lucide-react";
 import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { DashboardHeader, KpiCard, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import KeepReportPage from "./KeepReportPage";
@@ -212,6 +213,18 @@ export default function ReviewPage() {
 
       {tab === "keep" && (
         <div className="space-y-4">
+          {/* 29章: 資料そのものを組み立てる画面への入口。
+              ここ (イベント報告・議事録) はその材料を確定する場所。 */}
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-divider bg-card p-3">
+            <span className="text-sm">
+              材料が揃ったら、<strong>資料を組み立てます</strong>（型は Ver.2.5 のまま）。
+            </span>
+            <Button size="sm" className="ml-auto min-h-[44px] gap-1"
+              onClick={() => navigate("/sales/keep")}>
+              <Presentation className="h-4 w-4" aria-hidden="true" />
+              隔週キープをつくる
+            </Button>
+          </div>
           <SectionCard
             icon={<Presentation />}
             title="イベントの実施報告"
