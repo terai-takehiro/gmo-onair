@@ -21,7 +21,7 @@ import { NoticeBar, setNotice } from "@gmo-onair/shared/src/client/ui/notice";
 import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import {
-  ArrowLeft, RefreshCw, Timer, AlertTriangle, Plus, X, Printer, Eye, EyeOff, Loader2,
+  ArrowLeft, RefreshCw, Timer, AlertTriangle, Plus, X, Printer, Eye, EyeOff, Loader2, BookOpen,
 } from "lucide-react";
 
 interface Lane {
@@ -244,6 +244,12 @@ export default function CallSheetPage() {
           <Button variant="outline" size="sm" className="min-h-[44px] gap-1" onClick={() => window.print()}>
             <Printer className="h-4 w-4" aria-hidden="true" />
             A3横で印刷
+          </Button>
+          {/* 香盤表は運営マニュアルの部品の1つ (22章)。そのまま束ねに行ける */}
+          <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+            onClick={() => navigate(`/sales/projects/${projectId}/manual`)}>
+            <BookOpen className="h-4 w-4" aria-hidden="true" />
+            運営マニュアルに入れる
           </Button>
         </div>
       </header>

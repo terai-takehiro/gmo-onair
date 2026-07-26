@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel, SkeletonCard, EmptyState } from "@gmo-onair/shared/src/client/states";
-import { CalendarDays, Plus, AlertTriangle, DoorOpen, Table2 } from "lucide-react";
+import { CalendarDays, Plus, AlertTriangle, DoorOpen, Table2, BookOpen } from "lucide-react";
 
 interface Booking {
   id: string; label: string; booking_type: string; status: string;
@@ -81,6 +81,11 @@ export default function ProjectScheduleTab({
             onClick={() => navigate(`/sales/projects/${projectId}/call-sheet`)}>
             <Table2 className="h-4 w-4" aria-hidden="true" />
             香盤表
+          </Button>
+          <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+            onClick={() => navigate(`/sales/projects/${projectId}/manual`)}>
+            <BookOpen className="h-4 w-4" aria-hidden="true" />
+            運営マニュアル
           </Button>
           {canEdit && (
             <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
