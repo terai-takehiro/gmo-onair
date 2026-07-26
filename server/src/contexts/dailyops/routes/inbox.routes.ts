@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { financeDocService, inquiryService } from '../services/inbox.service';
+import { getReply, draftReply, saveReply, markReply } from '../services/inquiry-reply.service';
 
 // 日常業務アプリ (dailyops) — 見積/請求書 + その他問い合わせ の受信箱 API + アラート集計。
 
@@ -92,6 +93,36 @@ router.post(
     res.json({ success: true, data: result });
   },
 );
+
+// ── 返信の下書き (AIが作る → 人が直して保存 → 送ったと記録) ──────────────
+//
+// **ONAiR は送らない**。保存した本文をコピーして自分のメールで送る運用。
+// 直した差分と 送った/使わなかった は ai_corrections / ai_outcomes に入り、
+// 次の生成のプロンプトに戻る (会社方針「AIを使い捨てにしない」)。
+
+router.get('/inquiries/:id/reply', ...canRead, async (req, res) => {
+  res.json({ success: true, data: await getReply(String(req.params.id)) });
+});
+
+router.post('/inquiries/:id/reply/draft', ...canEdit, async (req, res) => {
+  const r = await draftReply(String(req.params.id), { userId: req.user!.id });
+  res.json({ success: true, data: r });
+});
+
+router.put('/inquiries/:id/reply', ...canEdit, async (req, res) => {
+  const { final_text, note } = req.body ?? {};
+  const row = await saveReply(
+    String(req.params.id), String(final_text ?? ''),
+    note ? String(note) : null, { userId: req.user!.id },
+  );
+  res.json({ success: true, data: row });
+});
+
+router.post('/inquiries/:id/reply/mark', ...canEdit, async (req, res) => {
+  const outcome = req.body?.outcome === 'unused' ? 'unused' : 'sent';
+  const row = await markReply(String(req.params.id), outcome, { userId: req.user!.id });
+  res.json({ success: true, data: row });
+});
 
 router.delete('/inquiries/:id', ...canEdit, async (req, res) => {
   await inquiryService.remove(String(req.params.id));

@@ -11,6 +11,7 @@ import { ExternalLink, Loader2, CalendarCheck, FolderPlus } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { str } from "./types";
+import { InquiryReply } from "./InquiryReply";
 
 const IMPORTANCE_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
 
@@ -134,6 +135,9 @@ export function InquiryDetail({ meta, editable, pending, onHandled, onExclude, o
           </div>
         )}
       </div>
+
+      {/* 返信の下書き (AIが作る → 直して保存 → コピーして送る) */}
+      <InquiryReply inquiryId={str(meta.id)} editable={editable} />
 
       {/* 終端アクション */}
       <div className="flex flex-wrap items-center gap-2">
