@@ -210,6 +210,24 @@ export default function TasksPage() {
           ) : (
             <div className="space-y-4">
               <TaskDashboardPage view={view === "board" ? "kanban" : view} embedded />
+              {/*
+                案件に紐づかないタスク (投入欄から生まれた個人のもの) は**ここには出さない**と決めた。
+                案件のボードに「案件なし」の列を作ると、案件の進行を見る場所に個人の ToDo が混ざり、
+                ボードが「案件がどこまで進んだか」を表さなくなる。
+                ただし黙って出さないと「自分のタスクが無い = 壊れている」に見えるので画面に書く。
+              */}
+              <p className="text-[12px] text-muted-foreground">
+                ここに出るのは<span className="font-bold">案件に紐づくタスク</span>だけです。
+                投入欄から生まれた個人のタスクは案件に紐づかないので出ません（
+                <button
+                  type="button"
+                  onClick={() => set({ scope: "me", project: null })}
+                  className="font-bold text-primary underline"
+                >
+                  自分
+                </button>
+                で見てください）。
+              </p>
               {canDailyops && (
                 <section id="team-load" className="scroll-mt-20 rounded-lg border border-border bg-card p-4" aria-label="チームの負荷">
                   <h2 className="text-[15px] font-bold text-foreground">チームの負荷</h2>
