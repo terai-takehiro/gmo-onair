@@ -23,6 +23,16 @@ import { resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
 import { useAuth, MODULE_LABELS } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";
 
+interface PermissionChange {
+  id: string;
+  module: string;
+  before_level: string | null;
+  after_level: string | null;
+  source: string;
+  changed_at: string;
+  actor_name: string | null;
+}
+
 /** 画面に出す 4 段階。DB の値 (reader/editor/manager) と 1:1 で対応する */
 const LEVELS = [
   { id: "none", label: "見えない", hint: "メニューにも出ない" },
@@ -106,6 +116,18 @@ function normalize(level: string | undefined): LevelId {
   return "none";
 }
 
+/** 履歴の「見えない → 書ける」表示。NULL = その時点で権限なし */
+function levelLabel(level: string | null): string {
+  const id = normalize(level ?? undefined);
+  return LEVELS.find((l) => l.id === id)?.label ?? id;
+}
+
+/** `template:sales` → 「営業」 (消えたテンプレートIDはそのまま出す) */
+function templateName(source: string): string {
+  const id = source.slice("template:".length);
+  return TEMPLATES.find((t) => t.id === id)?.label ?? id;
+}
+
 interface UserRow {
   id: string;
   name: string;
@@ -177,13 +199,29 @@ export default function UserPermissionPage() {
     return map;
   }, [perms]);
 
+  // 変更履歴 (誰が・いつ・どの行を どう変えたか)
+  const { data: history } = useQuery<PermissionChange[]>({
+    queryKey: ["user-permission-history", id],
+    queryFn: async () => (await api.get(`/users/${id}/permission-history?limit=100`)).data.data,
+    enabled: !!id,
+    refetchOnMount: "always",
+  });
+
   const save = useMutation({
     mutationFn: async () => {
       const permissions: Record<string, string | null> = {};
       for (const m of MODULES) permissions[m] = draft[m] && draft[m] !== "none" ? draft[m] : null;
-      await api.put(`/users/${id}/permissions`, { permissions });
+      // 役割テンプレートを当てた保存かどうかを履歴に残す
+      // (「営業のテンプレートを当てた」のか「1行だけ直した」のかで読み方が変わる)
+      await api.put(`/users/${id}/permissions`, {
+        permissions,
+        source: appliedTemplate ? `template:${appliedTemplate}` : "manual",
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["user-permissions", id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-permissions", id] });
+      qc.invalidateQueries({ queryKey: ["user-permission-history", id] });
+    },
   });
 
   const applyTemplate = (t: (typeof TEMPLATES)[number]) => {
@@ -390,9 +428,46 @@ export default function UserPermissionPage() {
               </li>
               <li>
                 <span className="font-bold text-foreground">変更の記録</span> —
-                いまは「いつ変えたか」だけを持っています (誰が変えたかは残していません)。
+                この下に「誰が・いつ・どの行を どう変えたか」が残ります。
+                <span className="font-bold">記録を始めたのは v2.9.270 からなので、それより前の変更は残っていません。</span>
               </li>
             </ul>
+          </SectionCard>
+
+          {/* 変更履歴 — 「なぜこの人だけ見えないのか」を後から追うための台帳 */}
+          <SectionCard
+            title="変更の記録"
+            description="誰が・いつ・どの行を どう変えたか。消せません。"
+            icon={<Clock className="h-4 w-4" aria-hidden="true" />}
+          >
+            {(history ?? []).length === 0 ? (
+              <p className="text-[13px] text-secondary-foreground">
+                まだ記録がありません。記録を始めたのは v2.9.270 からなので、
+                それより前に変えた分は残っていません（「変更が無かった」ではありません）。
+              </p>
+            ) : (
+              <ul className="divide-y divide-divider">
+                {(history ?? []).map((h) => (
+                  <li key={h.id} className="py-2 first:pt-0 last:pb-0">
+                    <p className="flex flex-wrap items-baseline gap-x-1.5 text-[13px]">
+                      <span className="font-bold text-foreground">
+                        {MODULE_LABELS[h.module] ?? h.module}
+                      </span>
+                      <span className="text-secondary-foreground">
+                        {levelLabel(h.before_level)} → <span className="font-bold text-foreground">{levelLabel(h.after_level)}</span>
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">
+                      {new Date(h.changed_at).toLocaleString("ja-JP")}
+                      {h.actor_name ? ` ／ ${h.actor_name}` : ""}
+                      {h.source.startsWith("template:")
+                        ? ` ／ ${templateName(h.source)}のテンプレートを当てた`
+                        : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </SectionCard>
         </div>
       </div>

@@ -221,8 +221,8 @@ router.get('/me/permissions', wrap(async (req, res) => {
 
 // ユーザーのパーミッション一覧
 router.get('/:id/permissions', wrap(async (req, res) => {
-  // updated_at も返す (§4.17: 権限画面で「いつ変えたか」を出す。
-  // 誰が変えたかは記録していないので、そこは画面に「持っていない」と書く)
+  // updated_at も返す (§4.17: 権限画面で行ごとに「いつ変えたか」を出す)。
+  // 「誰が変えたか」は user_permission_changes (migration 142) が持つ
   const perms = await queryAll(
     'SELECT module, access_level, updated_at FROM user_permissions WHERE user_id = ?',
     [req.params.id]
@@ -230,10 +230,37 @@ router.get('/:id/permissions', wrap(async (req, res) => {
   res.json({ success: true, data: perms });
 }));
 
+/**
+ * 権限の変更履歴 (誰が・いつ・どの行を どう変えたか)。
+ *
+ * **記録を始めたのは v2.9.270 から**なので、それより前の変更は残っていない。
+ * 画面にもそう書く (空の一覧を見せて「変更が無かった」と誤解させない)。
+ */
+router.get('/:id/permission-history', requireRole('system_admin'), wrap(async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+  const rows = await queryAll(
+    `SELECT c.id, c.module, c.before_level, c.after_level, c.source, c.changed_at,
+            c.actor_id, COALESCE(u.name, c.actor_name) AS actor_name
+     FROM user_permission_changes c
+     LEFT JOIN users u ON u.id = c.actor_id
+     WHERE c.target_user_id = ?
+     ORDER BY c.changed_at DESC, c.module
+     LIMIT ${limit}`,
+    [req.params.id]
+  );
+  res.json({ success: true, data: rows });
+}));
+
 // ユーザーのパーミッション一括更新
 router.put('/:id/permissions', requireRole('system_admin'), wrap(async (req, res) => {
-  const { permissions } = req.body; // { module: access_level } or { module: null } to remove
+  const { permissions, source } = req.body; // { module: access_level } or { module: null } to remove
   if (!permissions || typeof permissions !== 'object') throw new AppError(400, 'VALIDATION_ERROR', 'permissions オブジェクトが必要です');
+
+  // 変更履歴のために**書き換える前の状態**を取る (差分が無い行は記録しない)
+  const beforeRows = await queryAll(
+    'SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]
+  );
+  const before = new Map<string, string>(beforeRows.map((r) => [r.module as string, r.access_level as string]));
 
   // Delete removed permissions, then upsert remaining
   const modules = Object.keys(permissions);
@@ -250,6 +277,26 @@ router.put('/:id/permissions', requireRole('system_admin'), wrap(async (req, res
       `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO UPDATE SET access_level = EXCLUDED.access_level, updated_at = NOW()`,
       [uuidv4(), req.params.id, module, level]
     );
+  }
+
+  // 変更履歴を残す (1行 = 1モジュールの変化)。
+  // **実際に変わった行だけ**を記録する — 保存を押しただけで履歴が伸びると読めなくなる。
+  // 記録に失敗しても権限の保存は成立させる (履歴のために業務を止めない)。
+  const src = typeof source === 'string' && /^template:[\w-]{1,40}$/.test(source) ? source : 'manual';
+  try {
+    for (const module of modules) {
+      const beforeLevel = before.get(module) ?? null;
+      const afterLevel = (permissions[module] as string | null) || null;
+      if (beforeLevel === afterLevel) continue;
+      await execute(
+        `INSERT INTO user_permission_changes
+           (id, target_user_id, actor_id, actor_name, module, before_level, after_level, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.params.id, req.user!.id, req.user!.name ?? null, module, beforeLevel, afterLevel, src]
+      );
+    }
+  } catch (err) {
+    console.warn('[users] permission history の記録に失敗:', (err as Error).message);
   }
 
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
