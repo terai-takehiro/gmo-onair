@@ -1069,6 +1069,11 @@ export class ProjectService {
 
     // 直接売上（group_id なし）+ グループ按分された売上
     // 明細行がある場合は revenue_items の合計を使う（revenues.amount との乖離を防ぐ）
+    //
+    // **見積 (status='estimate') は売上に数えない。**
+    // 見積はまだ提案で、GLS 発番のときに migrateEstimates で 'confirmed' に変わる。
+    // 数えていた間は「売上（確定）」に見積が混ざり、案件の粗利・粗利率が過大に出ていた
+    // (想定金額としても別に出しているので二重計上になっていた)。
     const directRev = await queryOne(
       `SELECT COALESCE(SUM(
          CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
@@ -1079,10 +1084,15 @@ export class ProjectService {
          FROM revenue_items
          GROUP BY revenue_id
        ) ri ON ri.revenue_id = r.id
-       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL`,
+       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL
+         AND r.status <> 'estimate'`,
       [id]
     );
-    const allocatedRev = await queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
+    const allocatedRev = await queryOne(
+      `SELECT COALESCE(SUM(ra.allocated_amount), 0) as total
+         FROM revenue_allocations ra
+         JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+        WHERE ra.project_id = ? AND r.status <> 'estimate'`, [id]);
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
     const allocatedPur = await queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);

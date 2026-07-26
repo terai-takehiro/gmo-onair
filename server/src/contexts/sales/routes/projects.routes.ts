@@ -10,6 +10,7 @@ import {
   getStageAsk, assertStageRequirements, applyStageAnswers, attachHoldRooms,
   STAGE_ASKS, INTAKE_FIELDS,
 } from '../services/stage-ask.service';
+import { getProjectMoney, getProjectSchedule } from '../services/project-tabs.service';
 
 const router = Router();
 
@@ -148,6 +149,18 @@ router.get('/:id/stage-ask', async (req, res) => {
 // 聞く項目そのもの (案件に依らない一覧)。27a の仕分けを画面に出すのに使う。
 router.get('/stage-asks/all', async (_req, res) => {
   res.json({ success: true, data: { asks: STAGE_ASKS, intake: INTAKE_FIELDS } });
+});
+
+// 案件の「お金」タブ (13章 7a / §7.12)。4つの数字と操作を1本で返す。
+// 画面から集めると3〜4往復になり、案件一覧と違う数字が出る余地もできる。
+router.get('/:id/money', async (req, res) => {
+  res.json({ success: true, data: await getProjectMoney(String(req.params.id)) });
+});
+
+// 案件の「予定」タブ。**この案件に紐づく予約だけ**を返す
+// (予約の一覧は studio 権限で、案件を見るのは営業なので案件側に置く)。
+router.get('/:id/schedule', async (req, res) => {
+  res.json({ success: true, data: await getProjectSchedule(String(req.params.id)) });
 });
 
 // ステージ変更

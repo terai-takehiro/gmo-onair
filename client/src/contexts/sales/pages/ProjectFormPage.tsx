@@ -43,6 +43,8 @@ import { useProjectCollab } from "../hooks/useProjectCollab";
 import ProjectCollabCard from "../components/ProjectCollabCard";
 import ProjectCommentsCard from "../components/ProjectCommentsCard";
 import ProjectChangesCard from "../components/ProjectChangesCard";
+import ProjectMoneyTab from "../components/ProjectMoneyTab";
+import ProjectScheduleTab from "../components/ProjectScheduleTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface LostDialogState {
@@ -867,6 +869,8 @@ export default function ProjectFormPage() {
   const dirtyCount = Object.keys(dirtyFields ?? {}).length;
   // スマホでは入力フォームを畳む (§4.19)。xl 以上では常に開いている扱い
   const [formOpen, setFormOpen] = useState(false);
+  // お金 / 予定 のタブ (13章 7a / §7.12)。既定は「お金」
+  const [detailTab, setDetailTab] = useState<"money" | "schedule">("money");
 
   if (isEdit && projectLoading) {
     return (
@@ -1249,26 +1253,40 @@ export default function ProjectFormPage() {
         {/* 現場の道具 — 案件から開くと、この案件の記録として残る (§4.14) */}
         {isEdit && id && <ProjectToolsCard projectId={id} projectName={watch("name") || project?.name} />}
 
-        {/* お金 — 見積 → 売上 → 仕入。数字は税抜 */}
-      {/* 財務サマリー */}
-      {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border bg-card p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">売上（確定）</p>
-            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_revenue))}</p>
-          </div>
-          <div className="rounded-lg border bg-card p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">仕入</p>
-            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_purchase))}</p>
-          </div>
-          <div className={`rounded-lg border p-3 text-center ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-            <p className="text-xs text-muted-foreground mb-1">粗利</p>
-            <p className={`text-base font-bold font-number ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "text-green-700" : "text-red-700"}`}>
-              {formatCurrency(Number(project.total_revenue) - Number(project.total_purchase))}
-            </p>
-          </div>
-        </div>
-      )}
+        {/*
+          お金 と 予定 は案件の中で**往復がいちばん多い**ので、この2つだけタブにする
+          (§7.12 / デザイン 13章 7a)。やり取り・タスク・書類はあとで、
+          現場の道具はリンクのまま。
+          旧「財務サマリー」(3値・売上か仕入があるときだけ表示) を置き換えている —
+          3値だと**想定金額が出ず、受注前は粗利が常にマイナスに見えた**。
+        */}
+        {isEdit && id && (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="お金と予定">
+                {([
+                  { key: "money" as const, label: "お金" },
+                  { key: "schedule" as const, label: "予定" },
+                ]).map((t) => (
+                  <button key={t.key} type="button" role="tab"
+                    aria-selected={detailTab === t.key}
+                    onClick={() => setDetailTab(t.key)}
+                    className={cn(
+                      "min-h-[40px] flex-1 rounded-lg px-3 text-sm",
+                      detailTab === t.key ? "bg-card font-bold shadow-sm" : "text-muted-foreground",
+                    )}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4">
+                {detailTab === "money"
+                  ? <ProjectMoneyTab projectId={id} />
+                  : <ProjectScheduleTab projectId={id} canEdit={canEditCollab} />}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* 見積 (30章 37a)。**ヨミ段階に限らない** — 口頭決定・受注のあとに直すことも多い */}
       {isEdit && !isTerminal && (
