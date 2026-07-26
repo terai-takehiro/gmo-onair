@@ -82,6 +82,13 @@ export function dueOption(days: number, hour: number): { date: string; label: st
   return { date, label: `${md} ${hour}:00` };
 }
 
+/** 原本 (PDF/画像) が付いているか。行の要約にも出す */
+export interface HasOriginal {
+  has_original?: boolean;
+  original_name?: string | null;
+  original_kind?: "pdf" | "image" | null;
+}
+
 export const DOC_TYPE_LABELS: Record<string, string> = {
   quote: "見積書",
   invoice: "請求書",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   FileText, Plus, Sparkles, Loader2, Pencil, Trash2, CheckCircle2, XCircle, ArrowRight, RotateCcw, CalendarClock,
 } from 'lucide-react';
@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { usePermissions } from '@/hooks/usePermissions';
+import api from '@/lib/api';
+import FinanceDocOriginal from '@gmo-onair/shared/src/client/finance/FinanceDocOriginal';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   FINANCE_DOC_TYPE_LABELS, FINANCE_DOC_STATUS_LABELS, formatDateJa,
   type FinanceDoc, type FinanceDocType, type FinanceDocStatus,
@@ -60,7 +63,12 @@ export default function FinanceDocsPage() {
             メールで受信した見積書・請求書・注文書の処理進捗。AI が取り込み、確認 → 承認/却下 → 処理完了 で管理します。
           </p>
         </div>
-        {canEdit && <Button size="sm" onClick={() => setAdding(true)} className="shrink-0"><Plus className="h-4 w-4 mr-1" />追加</Button>}
+        {canEdit && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <UploadNewButton />
+            <Button size="sm" variant="outline" onClick={() => setAdding(true)}><Plus className="h-4 w-4 mr-1" />手で追加</Button>
+          </div>
+        )}
       </div>
 
       {/* 種別タブ */}
@@ -92,6 +100,7 @@ export default function FinanceDocsPage() {
 }
 
 function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; onEdit: () => void }) {
+  const qc = useQueryClient();
   const update = useUpdateFinanceDoc();
   const del = useDeleteFinanceDoc();
   const isAi = d.source === 'email';
@@ -122,6 +131,18 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
             <div className="text-base font-semibold tabular-nums">{yen(d.amount)}</div>
           </div>
         </div>
+        {/* 原本 (PDF/画像)。承認する前に読めるようにする */}
+        <div className="mt-2 border-t border-border pt-2">
+          <FinanceDocOriginal
+            api={api}
+            docId={d.id}
+            hasOriginal={!!d.has_original}
+            originalName={d.original_name ?? null}
+            originalKind={d.original_kind ?? null}
+            canEdit={canEdit}
+            onChanged={() => qc.invalidateQueries({ queryKey: ['dailyops', 'finance-docs'] })}
+          />
+        </div>
         {canEdit && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
             {d.status === 'new' && <StepBtn onClick={() => setStatus('reviewing')} icon={ArrowRight}>確認中にする</StepBtn>}
@@ -139,6 +160,58 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * PDF を落として**新しい行を作る**。メールが無い請求書 (Slack で渡された / 紙を撮った) の入口。
+ * 下読みできた値はフォームに埋まった状態で行ができ、読めなかったことは注意として出す。
+ */
+function UploadNewButton() {
+  const qc = useQueryClient();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; lines: string[] } | null>(null);
+
+  const send = async (file: File) => {
+    setBusy(true); setNotice(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.post('/dailyops/finance-docs/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const warnings = (res.data?.data?.warnings ?? []) as string[];
+      qc.invalidateQueries({ queryKey: ['dailyops', 'finance-docs'] });
+      setNotice({ kind: 'ok', lines: ['登録しました。内容を確認してください。', ...warnings] });
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: { message?: string } } } };
+      setNotice({ kind: 'error', lines: [err?.response?.data?.error?.message ?? '登録できませんでした'] });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
+        {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+        PDFを落として登録
+      </Button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/jpeg,image/png"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void send(f); }}
+      />
+      {notice && (
+        <div className={`w-full rounded-md border px-3 py-2 text-xs ${notice.kind === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-rose-300 bg-rose-50 text-rose-800'}`}>
+          {notice.lines.map((l, i) => <p key={i}>{l}</p>)}
+          <button type="button" className="mt-1 underline" onClick={() => setNotice(null)}>閉じる</button>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import reportsRoutes from './routes/reports.routes';
 import inviewRoutes from './routes/inview.routes';
 import inboxRoutes from './routes/inbox.routes';
+import financeDocOriginalRoutes from './routes/finance-doc-original.routes';
 import securityCardRoutes from './routes/security-card.routes';
 import tasksRoutes from './routes/tasks.routes';
 
@@ -12,6 +13,9 @@ export function createDailyopsRoutes(): Router {
   const router = Router();
   router.use('/dailyops', reportsRoutes);
   router.use('/dailyops', inviewRoutes);
+  // 原本 (PDF/画像) は inboxRoutes より先に。`/finance-docs/upload` が `/finance-docs/:id` に
+  // 吸われないようにする
+  router.use('/dailyops', financeDocOriginalRoutes);
   router.use('/dailyops', inboxRoutes);
   router.use('/dailyops', securityCardRoutes);
   router.use('/dailyops', tasksRoutes);

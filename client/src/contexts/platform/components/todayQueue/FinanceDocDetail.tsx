@@ -5,6 +5,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, AlertTriangle } from "lucide-react";
+import api from "@/lib/api";
+import FinanceDocOriginal from "@gmo-onair/shared/src/client/finance/FinanceDocOriginal";
 import { DOC_TYPE_LABELS, FD_STATUS_LABELS, str, yen, type DuplicateSample } from "./types";
 
 export interface FinanceDocDetailProps {
@@ -12,9 +14,11 @@ export interface FinanceDocDetailProps {
   editable: boolean;
   pending: boolean;
   onSetStatus: (status: "reviewing" | "approved" | "processed" | "rejected") => void;
+  /** 原本を付けた・外したあとに行を取り直す */
+  onChanged?: () => void;
 }
 
-export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: FinanceDocDetailProps) {
+export function FinanceDocDetail({ meta, editable, pending, onSetStatus, onChanged }: FinanceDocDetailProps) {
   const status = str(meta.status) || "new";
   const content = str(meta.content);
   const dupCount = Number(meta.duplicate_count ?? 0);
@@ -46,6 +50,17 @@ export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: Finan
           </p>
         </div>
       )}
+      {/* 原本。金額を承認する画面なので、読み取り値より先に置く */}
+      <FinanceDocOriginal
+        api={api}
+        docId={str(meta.id)}
+        hasOriginal={!!meta.has_original}
+        originalName={meta.original_name ? str(meta.original_name) : null}
+        originalKind={(meta.original_kind as "pdf" | "image" | null) ?? null}
+        canEdit={editable}
+        onChanged={onChanged}
+      />
+
       {/* AI が読み取った値 */}
       <div>
         <p className="mb-1.5 flex flex-wrap items-baseline gap-2">

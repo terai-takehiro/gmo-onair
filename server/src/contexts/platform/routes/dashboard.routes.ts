@@ -315,7 +315,9 @@ router.get('/inbox', async (req, res) => {
       ? queryAll(
           `SELECT id, doc_type, sender, subject, amount, status, payment_due,
                   content, closing_month, gls_number, notes,
-                  received_at, created_at
+                  received_at, created_at,
+                  -- 原本 (PDF/画像)。承認する前に見られるように行に含める
+                  (box_file_id IS NOT NULL) AS has_original, original_name, original_kind
            FROM finance_docs
            WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
            ORDER BY created_at ASC

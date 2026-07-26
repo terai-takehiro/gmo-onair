@@ -103,6 +103,10 @@ export interface FinanceDoc {
   gls_number: string | null;
   notes: string | null;
   source: string;
+  /** 原本 (PDF/画像) が付いているか */
+  has_original?: boolean;
+  original_name?: string | null;
+  original_kind?: 'pdf' | 'image' | null;
   created_at: string;
   updated_at: string;
 }

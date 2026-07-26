@@ -394,6 +394,7 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
                         editable={editable}
                         pending={financeMutation.isPending}
                         onSetStatus={(status) => financeMutation.mutate({ id: str(m.id), status })}
+                        onChanged={invalidate}
                       />
                     )}
                   </div>
