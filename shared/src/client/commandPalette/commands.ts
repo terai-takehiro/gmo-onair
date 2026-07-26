@@ -47,6 +47,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-projects-business', kind: 'open', label: '確定案件 (ビジネス)', path: '/projects?filter=confirmed_business', keywords: 'kakutei business 確定 B系', module: 'sales' },
   { id: 'open-billing', kind: 'open', label: '請求のしごと', path: '/finance/billing', keywords: 'seikyu invoice 請求 入金 検収 締め', module: 'budget' },
   // 合同案件 (32章) と 費用を分け合う案件 は別物。見分け方は「請求書が何枚出るか」。
+  { id: 'open-call-sheet-help', kind: 'open', label: '香盤表 (案件から開く)', path: '/projects', keywords: 'kouban call sheet 香盤 進行 当日 レーン', module: 'sales' },
   { id: 'open-keep-deck', kind: 'open', label: '隔週キープをつくる', path: '/sales/keep', keywords: 'keep kakushu 隔週 キープ 会議 資料 報告 mtg', module: 'sales' },
   { id: 'open-joint-events', kind: 'open', label: '合同案件 (各社に請求)', path: '/finance/joint', keywords: 'goudou joint 合同 株主総会 複数社 各社 請求 分ける', module: 'budget' },
   { id: 'open-project-groups', kind: 'open', label: '費用を分け合う案件', path: '/sales/project-groups', keywords: 'group 配分 グループ 分担 原価', module: 'sales' },

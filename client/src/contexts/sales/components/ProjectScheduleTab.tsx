@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel, SkeletonCard, EmptyState } from "@gmo-onair/shared/src/client/states";
-import { CalendarDays, Plus, AlertTriangle, DoorOpen } from "lucide-react";
+import { CalendarDays, Plus, AlertTriangle, DoorOpen, Table2 } from "lucide-react";
 
 interface Booking {
   id: string; label: string; booking_type: string; status: string;
@@ -75,13 +75,21 @@ export default function ProjectScheduleTab({
         <p className="text-sm text-muted-foreground">
           この案件のスタジオの日程です。カレンダーからも同じものが見えます。
         </p>
-        {canEdit && (
+        <div className="flex flex-wrap gap-2">
+          {/* 香盤表 (21章)。当日の動きは予定の続きなのでここから開く */}
           <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
-            onClick={() => navigate(`/schedule?project_id=${projectId}`)}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            足す
+            onClick={() => navigate(`/sales/projects/${projectId}/call-sheet`)}>
+            <Table2 className="h-4 w-4" aria-hidden="true" />
+            香盤表
           </Button>
-        )}
+          {canEdit && (
+            <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+              onClick={() => navigate(`/schedule?project_id=${projectId}`)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              足す
+            </Button>
+          )}
+        </div>
       </div>
 
       {view.bookings.length === 0 ? (

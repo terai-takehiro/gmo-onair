@@ -47,6 +47,7 @@ import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
+import CallSheetPage from "@/contexts/production/pages/CallSheetPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
@@ -166,6 +167,8 @@ function AppRoutes() {
         <Route path="/sales/keep-report" element={<RedirectPreserveState to="/review?tab=keep" />} />
         {/* 隔週キープをつくる (29章): 型は Ver.2.5 のまま、AIが16ページ埋めて人は2ページ書く */}
         <Route path="/sales/keep" element={<PermissionRoute module="sales"><KeepDeckPage /></PermissionRoute>} />
+        {/* 香盤表 (21章 28a): 当日の動きを1枚に。案件の日程・予約・Qシート・機材から自動で組む */}
+        <Route path="/sales/projects/:id/call-sheet" element={<PermissionRoute module="sales"><CallSheetPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<RedirectPreserveState to="/review?tab=sales" />} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
