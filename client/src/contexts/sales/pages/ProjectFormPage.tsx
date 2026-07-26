@@ -39,7 +39,8 @@ import SimulationDialog from "../components/SimulationDialog";
 import CustomerDialog from "../components/CustomerDialog";
 import ProjectMembersEditor from "../components/ProjectMembersEditor";
 import PresenceAvatars from "@gmo-onair/shared/src/client/collab/PresenceAvatars";
-import { useProjectPresence } from "../hooks/useProjectPresence";
+import { useProjectCollab } from "../hooks/useProjectCollab";
+import ProjectCollabCard from "../components/ProjectCollabCard";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface LostDialogState {
@@ -331,9 +332,52 @@ export default function ProjectFormPage() {
   // 楽観ロック: 読み込んだ版と、409 で止まったときのお知らせ
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<string | null>(null);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
-  // 在席 (今この案件を開いている人)
-  const { currentUser } = useAuth();
-  const presenceUsers = useProjectPresence(isEdit ? id : undefined);
+  // 同時編集 (在席 + メモ/チェックリスト + いま触っている欄)
+  const { currentUser, hasPermission } = useAuth();
+  const canEditCollab = hasPermission("sales", "editor");
+  const collab = useProjectCollab(
+    isEdit ? id : undefined,
+    currentUser ? { id: currentUser.id, name: currentUser.name } : null,
+    canEditCollab,
+  );
+  const presenceUsers = collab.presence;
+  // メモ/チェックリストは専用カードに出ているので、フォームの見出しには出さない
+  const formFieldPeers = collab.fieldPeers.filter(
+    (p) => p.field !== "作業メモ" && p.field !== "チェックリスト",
+  );
+  // いま自分が触っている欄を共有する。
+  // 案件の中身は**全項目まとめて保存する**ので、別の欄を触っていても相手の変更を消す。
+  // 内容そのものは同期しない (書き手を2系統にしない) が、これが見えれば衝突は避けられる。
+  useEffect(() => {
+    if (!isEdit || !canEditCollab) return;
+    const label = (el: HTMLElement): string | null => {
+      const aria = el.getAttribute("aria-label");
+      if (aria) return aria.slice(0, 24);
+      let n: HTMLElement | null = el.parentElement;
+      for (let i = 0; i < 3 && n; i++) {
+        const t = n.querySelector("label")?.textContent?.replace(/\s*\*$/, "").trim();
+        if (t && t.length <= 24) return t;
+        n = n.parentElement;
+      }
+      return null;
+    };
+    const onIn = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("#project-form")) return;
+      collab.setField(label(el));
+    };
+    const onOut = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.("#project-form")) collab.setField(null);
+    };
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => {
+      document.removeEventListener("focusin", onIn);
+      document.removeEventListener("focusout", onOut);
+    };
+  }, [isEdit, canEditCollab, collab.setField, collab]);
+
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
     open: false, mode: 'new', broadcast_types: ["recording"], media_platforms: ["other"], target_project_id: "",
   });
@@ -1180,6 +1224,20 @@ export default function ProjectFormPage() {
       )}
 
 
+        {/* みんなで書くメモとチェックリスト — ここだけは2人で同時に打っても消えない */}
+        {isEdit && id && (
+          <ProjectCollabCard
+            projectId={id}
+            canEdit={canEditCollab}
+            synced={collab.synced}
+            failed={collab.failed}
+            doc={collab.doc}
+            mutate={collab.mutate}
+            presenceCount={presenceUsers.length}
+            setField={collab.setField}
+          />
+        )}
+
         {/* 現場の道具 — 案件から開くと、この案件の記録として残る (§4.14) */}
         {isEdit && id && <ProjectToolsCard projectId={id} projectName={watch("name") || project?.name} />}
 
@@ -1299,7 +1357,14 @@ export default function ProjectFormPage() {
       >
         {/* 基本情報 (常に表示) */}
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="flex flex-wrap items-baseline gap-2 text-base">案件の中身<span className="text-[12px] font-normal text-muted-foreground">直したら右上の「保存」を押してください</span></CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="flex flex-wrap items-baseline gap-2 text-base">案件の中身<span className="text-[12px] font-normal text-muted-foreground">直したら右上の「保存」を押してください</span>
+            {/* 誰がどの欄を触っているか。まとめて保存するので、別の欄でも相手の変更を消す */}
+            {formFieldPeers.length > 0 && (
+              <span className="rounded-full bg-warning-surface px-2 py-0.5 text-[12px] font-bold text-warning-strong">
+                いま編集中: {formFieldPeers.map((p) => `${p.field}（${p.name}）`).join(" / ")}
+              </span>
+            )}
+          </CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label>案件名 *</Label>
