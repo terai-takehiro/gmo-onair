@@ -6,7 +6,8 @@
  *
  * トーストは作らない。流れて消えるものは気づけないので、通知はここと朝の1通だけ。
  */
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, X, ChevronRight, Settings2 } from 'lucide-react';
 import { cn } from '../utils';
 
@@ -45,20 +46,21 @@ function elapsed(at?: string | null): string {
   return `${Math.floor(h / 24)}日`;
 }
 
-export function NotificationPanel({
-  data, onRun, onClose, onOpenPrefs,
-}: {
+export const NotificationPanel = forwardRef<HTMLDivElement, {
   data: NotificationData | null;
+  pos: { top: number; right: number };
   onRun: (path: string) => void;
   onClose: () => void;
   onOpenPrefs?: () => void;
-}) {
+}>(function NotificationPanel({ data, pos, onRun, onClose, onOpenPrefs }, ref) {
   const groups = data?.groups ?? [];
   return (
     <div
+      ref={ref}
       role="dialog"
       aria-label="通知"
-      className="absolute right-0 top-[52px] z-[80] max-h-[70vh] w-[min(92vw,420px)] overflow-y-auto rounded-lg border border-border bg-card shadow-xl"
+      className="fixed z-[99998] max-h-[70vh] w-[min(92vw,420px)] overflow-y-auto rounded-lg border border-border bg-card shadow-xl"
+      style={{ top: pos.top, right: pos.right }}
     >
       <header className="sticky top-0 flex items-center gap-2 border-b border-divider bg-card px-4 py-3">
         <h2 className="text-[15px] font-bold text-foreground">通知</h2>
@@ -136,7 +138,7 @@ export function NotificationPanel({
       </footer>
     </div>
   );
-}
+});
 
 /** ベル本体 (ボタン + パネル)。データ取得は呼び出し側から関数で渡す */
 export function NotificationBell({
@@ -148,7 +150,9 @@ export function NotificationBell({
 }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<NotificationData | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   // 件数はバッジのために常に持っておく (2分ごと。ポーリングは軽い導出クエリ1本)
   useEffect(() => {
@@ -172,7 +176,9 @@ export function NotificationBell({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (!btnRef.current?.contains(e.target as Node) && !panelRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDoc);
@@ -185,11 +191,28 @@ export function NotificationBell({
 
   const count = data?.total ?? 0;
 
+  // ベルはヘッダーの最右端ではない (右にユーザーメニューが続く) ので、パネルを
+  // ベルの親要素に相対配置すると、パネル自体はほぼ画面幅 (92vw) あるぶん左端が
+  // 画面外にはみ出し、AppShell 直下の overflow-hidden に切り取られていた
+  // (スマホで文字が左から欠けて見えていたのはこれが原因)。
+  // ⋯ / ユーザーメニュー (TopBar.tsx の DropdownPanel) と同じく body に portal し、
+  // 実測した位置に fixed 配置することで祖先の overflow-hidden の影響を受けなくする。
+  const show = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = Math.min(window.innerWidth * 0.92, 420);
+    const rawRight = window.innerWidth - r.right;
+    const maxRight = Math.max(window.innerWidth - width - 8, 8);
+    setPos({ top: r.bottom + 8, right: Math.min(rawRight, maxRight) });
+    setOpen(true);
+  };
+
   return (
-    <div ref={wrapRef} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : show())}
         className={cn(
           'relative flex h-11 w-11 items-center justify-center rounded-control transition-colors hover:bg-secondary',
           open && 'bg-secondary'
@@ -205,13 +228,16 @@ export function NotificationBell({
           </span>
         )}
       </button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <NotificationPanel
+          ref={panelRef}
           data={data}
+          pos={pos}
           onRun={(p) => { setOpen(false); onRun(p); }}
           onClose={() => setOpen(false)}
           onOpenPrefs={onOpenPrefs ? () => { setOpen(false); onOpenPrefs(); } : undefined}
-        />
+        />,
+        document.body,
       )}
     </div>
   );
