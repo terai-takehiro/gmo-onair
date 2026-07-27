@@ -34,3 +34,9 @@ client/public/mcp-tools.json
 
 # Claude Code worktrees (sub-agent isolated workspaces)
 .claude/worktrees/
+
+# 検証用の使い捨てスクリプト置き場 (v2.9.296)
+# 実 Postgres での確認スクリプトは `pg` を解決するためワークスペース内に置く必要があるが、
+# リポジトリに入れてはいけない (v2.9.294 で消し忘れた 1 本が CI の lint を落とした)。
+# ここに置けば消し忘れても混入しない。
+**/verify-scratch/
