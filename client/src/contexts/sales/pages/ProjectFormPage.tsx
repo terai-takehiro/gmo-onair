@@ -8,7 +8,6 @@ import { relativeTime } from "@/lib/aiFeed";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import ProjectToolsCard from "@/contexts/shared/components/ProjectToolsCard";
 import { PageTransition } from "@/components/ui/motion";
-import { humanizeError } from "@gmo-onair/shared/src/client/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -20,10 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History, ChevronRight, XCircle } from "lucide-react";
+import { Loader2, Save, ArrowLeft, CheckCircle2, ExternalLink, Calculator, AlertTriangle, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
@@ -50,282 +46,18 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError, notifySuccess } from '@/lib/notify';
 
-interface LostDialogState {
-  open: boolean;
-  lost_reason: string;
-  lost_reason_note: string;
-  lessons_learned: string;
-}
-
-interface FormValues {
-  name: string;
-  customer_id: string;
-  customer_type: string;
-  project_type: string;
-  project_type_other: string;
-  /** 'A' = スタジオ案件 (GLS-A) / 'B' = ビジネス案件 (GLS-B) */
-  gls_category: '' | 'A' | 'B';
-  event_start: string;
-  event_end: string;
-  expected_amount: number;
-  assigned_to: string;
-  broadcast_type: string;
-  media_platform: string;
-  tags: string;
-  notes: string;
-  box_url_internal: string;
-  box_url_external: string;
-  application_form: boolean;
-  logo_permission: boolean;
-}
-
-interface GlsDialogState {
-  open: boolean;
-  mode: 'new' | 'link';
-  broadcast_types: string[];
-  media_platforms: string[];
-  target_project_id: string;
-}
-
-/**
- * inclusive な終了日 (YYYY-MM-DD) を 1 日進めて exclusive-end に変換する。
- * StudioBookingDialog / FullCalendar は終日イベントの end を exclusive (end-1 が最終日)
- * として扱うため、案件の event 日付 (inclusive) を presetDate に渡すときはこれで揃える。
- * toISOString() の UTC 変換によるズレを避けるためローカル日付演算で計算。
- */
-function addOneDayStr(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const next = new Date(y, m - 1, d + 1);
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  return `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
-}
-
-// v2.9.219+: ジャーニーステッパー — ゴール(受注→完了)から逆算した現在地を可視化。
-// 案件のステージ順 (ネタ→仮押さえ→見積提案→口頭決定→受注→完了) を並べ、
-// 現在地を強調・通過済みにチェック。失注 (e_lost) は本線から外れた終端として別表示。
-const JOURNEY_STAGES: ProjectStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed'];
-const JOURNEY_SHORT: Record<ProjectStage, string> = {
-  neta: 'ネタ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定',
-  a_won: '受注', s_completed: '完了', e_lost: '失注',
-};
-/**
- * ジャーニー (7a) — 6段の現在地を日付つきで出し、**次の一手を1つだけ**主ボタンにする。
- * 他のステージは「ほかのステージ」に畳む (選択肢を10個並べると人は選べない)。
- * 失注は本線から外れた終端として別扱い。
- */
-const NEXT_STAGE_LABEL: Partial<Record<ProjectStage, { to: ProjectStage; label: string; note: string }>> = {
-  neta: { to: 'd_hold', label: '仮押さえにする', note: 'いまネタ。日程を押さえる目処が立ったら「仮押さえ」に進めてください。' },
-  d_hold: { to: 'c_proposal', label: '見積提案にする', note: 'いま仮押さえ。見積を出したら「見積提案」に進めてください。' },
-  c_proposal: { to: 'b_verbal', label: '口頭決定にする', note: 'いま見積提案。お客様の合意が取れたら「口頭決定」に進めてください。' },
-  b_verbal: { to: 'a_won', label: '受注にする', note: 'いま口頭決定。正式受注が固まったら「受注」に進めてください。見積・売上の明細登録はそこから始まります。' },
-  a_won: { to: 's_completed', label: '完了にする', note: 'いま受注済。実施と請求が終わったら「完了」にしてください。' },
-};
-
-function JourneyPanel({
-  currentStage, project, disabled, onGoStage, onOpenLost,
-}: {
-  currentStage: ProjectStage;
-  project: Record<string, unknown> | undefined;
-  disabled: boolean;
-  onGoStage: (stage: ProjectStage) => void;
-  onOpenLost: () => void;
-}) {
-  const [otherOpen, setOtherOpen] = useState(false);
-
-  if (currentStage === 'e_lost') {
-    return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive-surface px-4 py-3">
-        <p className="flex items-center gap-2 text-[14px] font-bold text-destructive">
-          <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          失注
-        </p>
-        <p className="mt-1 text-[13px] text-foreground">
-          この案件は失注として終わっています。本線には戻せますが、学びだけ残すのが基本です。
-        </p>
-        <button
-          type="button"
-          className="mt-2 text-[13px] text-primary hover:underline"
-          onClick={() => setOtherOpen((v) => !v)}
-        >
-          ほかのステージに戻す
-        </button>
-        {otherOpen && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {JOURNEY_STAGES.map((st) => (
-              <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
-                {JOURNEY_SHORT[st]}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const curIdx = JOURNEY_STAGES.indexOf(currentStage);
-  const next = NEXT_STAGE_LABEL[currentStage];
-  // 各段の日付 (分かるものだけ)。ネタ=作成日 / 受注・完了=実施日
-  const dateOf = (st: ProjectStage): string | null => {
-    const d = (k: string) => {
-      const v = project?.[k];
-      return typeof v === 'string' && v ? v.slice(0, 10) : null;
-    };
-    if (st === 'neta') return d('created_at');
-    if (st === 'a_won' || st === 's_completed') return d('event_start');
-    return null;
-  };
-
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="overflow-x-auto px-3 py-2.5">
-        <ol className="flex min-w-max items-center gap-1">
-          {JOURNEY_STAGES.map((st, i) => {
-            const done = i < curIdx;
-            const current = i === curIdx;
-            const dt = dateOf(st);
-            return (
-              <li key={st} className="flex items-center gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                      current ? "ring-2 ring-offset-1" : "",
-                      done || current ? "text-white" : "bg-secondary text-muted-foreground"
-                    )}
-                    style={done || current ? { backgroundColor: ProjectStageColors[st] } : undefined}
-                  >
-                    {done ? <Check className="h-3 w-3" aria-hidden="true" /> : i + 1}
-                  </span>
-                  <span className="whitespace-nowrap">
-                    <span className={cn("block text-[12px]", current ? "font-bold text-foreground" : done ? "text-foreground" : "text-muted-foreground")}>
-                      {JOURNEY_SHORT[st]}
-                    </span>
-                    {dt && <span className="block text-[11px] tabular-nums text-muted-foreground">{dt}</span>}
-                  </span>
-                </div>
-                {i < JOURNEY_STAGES.length - 1 && (
-                  <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", i < curIdx ? "text-foreground/40" : "text-muted-foreground/30")} aria-hidden="true" />
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-divider px-3 py-2.5">
-        <p className="min-w-0 flex-1 text-[13px] text-foreground">{next?.note ?? 'この案件は完了しています。'}</p>
-        {next && (
-          <Button type="button" size="sm" className="h-9 shrink-0" disabled={disabled} onClick={() => onGoStage(next.to)}>
-            {next.label}
-          </Button>
-        )}
-        <Button type="button" size="sm" variant="outline" className="h-9 shrink-0" onClick={() => setOtherOpen((v) => !v)}>
-          ほかのステージ
-        </Button>
-      </div>
-
-      {otherOpen && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-divider px-3 py-2.5">
-          {JOURNEY_STAGES.filter((st) => st !== currentStage).map((st) => (
-            <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
-              {JOURNEY_SHORT[st]}
-            </Button>
-          ))}
-          <Button
-            type="button" size="sm" variant="outline"
-            className="h-8 border-destructive/40 text-destructive hover:bg-destructive-surface"
-            onClick={onOpenLost}
-          >
-            失注にする
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * やり取りをこの場で記録する (7a)。営業活動ページに飛ばさない —
- * 飛ばすと戻ってこないので、案件の文脈のまま1件残せるようにする。
- * 既存の POST /activity-logs をそのまま使う (新規APIなし)。
- */
-function ActivityQuickAdd({ projectId, onDone }: { projectId: string; onDone: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState("email");
-  const [subject, setSubject] = useState("");
-  const [detail, setDetail] = useState("");
-  const [nextAction, setNextAction] = useState("");
-  const [nextDate, setNextDate] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-
-  const add = useMutation({
-    mutationFn: async () =>
-      api.post("/activity-logs", {
-        project_id: projectId,
-        activity_type: kind,
-        activity_date: new Date().toISOString().slice(0, 10),
-        subject: subject.trim(),
-        description: detail.trim() || undefined,
-        next_action: nextAction.trim() || undefined,
-        next_action_date: nextAction.trim() ? nextDate || undefined : undefined,
-      }),
-    onSuccess: () => {
-      setSubject(""); setDetail(""); setNextAction(""); setNextDate(""); setErr(null); setOpen(false);
-      onDone();
-    },
-    onError: (e: unknown) => setErr(humanizeError(e).cause),
-  });
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-control border border-border bg-secondary/40 px-3 py-2.5 text-left text-[13px] text-secondary-foreground transition-colors hover:bg-secondary"
-      >
-        <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
-        ここにやり取りを書くと、この案件の記録として残ります（次にやることもここで決められます）
-      </button>
-    );
-  }
-
-  return (
-    <div className="space-y-2 rounded-control border border-primary/30 bg-accent/30 p-3">
-      <div className="flex flex-wrap gap-1.5">
-        {([["email", "メール"], ["call", "電話"], ["meeting", "打合せ"], ["visit", "訪問"], ["other", "その他"]] as const).map(([v, lbl]) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setKind(v)}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[12px] transition-colors",
-              kind === v ? "border-primary bg-primary font-bold text-primary-foreground" : "border-border bg-card text-secondary-foreground hover:bg-secondary"
-            )}
-          >
-            {lbl}
-          </button>
-        ))}
-      </div>
-      <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="何があったか (例: 見積の相談を受けた)" className="h-9" />
-      <Textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={2} placeholder="くわしく (任意)" className="text-[13px]" />
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px]">
-        <Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="次にやること (任意)" className="h-9" />
-        <Input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="h-9" aria-label="次にやることの期限" />
-      </div>
-      {err && <p className="text-[12px] text-destructive">{err}</p>}
-      <div className="flex items-center gap-2">
-        <Button type="button" size="sm" className="h-9" disabled={!subject.trim() || add.isPending} onClick={() => add.mutate()}>
-          {add.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-          記録する
-        </Button>
-        <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => { setOpen(false); setErr(null); }}>
-          やめる
-        </Button>
-        <span className="text-[12px] text-muted-foreground">期限は「何月何日」で入れてください。</span>
-      </div>
-    </div>
-  );
-}
+import JourneyPanel from './projectForm/JourneyPanel';
+import ActivityQuickAdd from './projectForm/ActivityQuickAdd';
+import {
+  StageConfirmDialog, GlsIssueDialog, RelinkDialog, GlsResultDialog,
+  LostDialog, HoldPromptDialog, CategorySwitchDialog,
+} from './projectForm/dialogs';
+import {
+  addOneDayStr,
+  type FormValues,
+  type GlsDialogState,
+  type LostDialogState,
+} from './projectForm/types';
 
 export default function ProjectFormPage() {
   const { id } = useParams();
@@ -2094,37 +1826,14 @@ export default function ProjectFormPage() {
         onCreated={(customer) => setValue("customer_id", customer.id)}
       />
 
-      {/* ステージ変更確認ダイアログ */}
-      <Dialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              ステージ変更の確認
-            </DialogTitle>
-            <DialogDescription>
-              {(currentStage === 's_completed' || currentStage === 'e_lost') && (
-                <span className="font-semibold text-red-600">終了済みステージから復帰します。意図的な操作か確認してください。</span>
-              )}
-              {currentStage !== 's_completed' && currentStage !== 'e_lost' && (
-                <span>「{ProjectStageLabels[currentStage]}」から「{stageSelectValue ? ProjectStageLabels[stageSelectValue as ProjectStage] : ''}」に変更します。</span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setStageConfirmOpen(false); setStageSelectValue(""); }}>キャンセル</Button>
-            <Button
-              onClick={() => {
-                setStageConfirmOpen(false);
-                stageMutation.mutate({ stage: stageSelectValue });
-                setStageSelectValue("");
-              }}
-            >
-              変更する
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StageConfirmDialog
+        open={stageConfirmOpen}
+        onOpenChange={setStageConfirmOpen}
+        currentStage={currentStage}
+        stageSelectValue={stageSelectValue}
+        setStageSelectValue={setStageSelectValue}
+        stageMutation={stageMutation}
+      />
 
       {/* 料金シミュレーションダイアログ */}
       <SimulationDialog
@@ -2138,318 +1847,55 @@ export default function ProjectFormPage() {
         onApply={(total) => setValue("expected_amount", total, { shouldDirty: true })}
       />
 
-      {/* GLS発番ダイアログ */}
-      <Dialog open={glsDialog.open} onOpenChange={(open) => setGlsDialog({ ...glsDialog, open })}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-green-600" />
-              GLS発番
-            </DialogTitle>
-            <DialogDescription>
-              新規番組としてGLS番号を発番するか、既存のGLS案件にエピソードを追加するか選択してください。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* モード選択 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                className={`rounded-lg border-2 p-3 text-left transition-colors ${glsDialog.mode === 'new' ? 'border-green-500 bg-green-50' : 'border-muted hover:border-green-300'}`}
-                onClick={() => setGlsDialog({ ...glsDialog, mode: 'new', target_project_id: '' })}
-              >
-                <div className="font-medium text-sm">新規番組</div>
-                <p className="text-xs text-muted-foreground mt-1">新しいGLS番号を発番</p>
-              </button>
-              <button
-                type="button"
-                className={`rounded-lg border-2 p-3 text-left transition-colors ${glsDialog.mode === 'link' ? 'border-blue-500 bg-blue-50' : 'border-muted hover:border-blue-300'}`}
-                onClick={() => setGlsDialog({ ...glsDialog, mode: 'link' })}
-              >
-                <div className="font-medium text-sm">既存案件に追加</div>
-                <p className="text-xs text-muted-foreground mt-1">エピソード追加</p>
-              </button>
-            </div>
+      <GlsIssueDialog
+        glsDialog={glsDialog}
+        setGlsDialog={setGlsDialog}
+        glsProjects={glsProjects}
+        isCategoryA={isCategoryA}
+        project={project}
+        handleGlsConfirm={handleGlsConfirm}
+        glsMutation={glsMutation}
+        linkGlsMutation={linkGlsMutation}
+      />
 
-            <div>
-              <Label>案件名</Label>
-              <Input value={project?.name || ""} disabled className="bg-muted" />
-            </div>
+      <RelinkDialog
+        relinkDialog={relinkDialog}
+        setRelinkDialog={setRelinkDialog}
+        glsProjects={glsProjects}
+        project={project}
+        relinkMutation={relinkMutation}
+        projectId={id}
+      />
 
-            {/* 新規モード: A系の場合は番組種別と配信媒体（複数選択可） */}
-            {glsDialog.mode === 'new' && isCategoryA && (
-              <>
-                <div>
-                  <Label>番組種別 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
-                  <div className="mt-2">
-                    <ToggleButtonGroup
-                      options={(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
-                      value={glsDialog.broadcast_types}
-                      onChange={(next) => setGlsDialog({ ...glsDialog, broadcast_types: next })}
-                      multi
-                      cols={{ base: 2 }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>配信媒体 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
-                  <div className="mt-2">
-                    <ToggleButtonGroup
-                      options={(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
-                      value={glsDialog.media_platforms}
-                      onChange={(next) => setGlsDialog({ ...glsDialog, media_platforms: next })}
-                      multi
-                      cols={{ base: 2, sm: 3 }}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+      <GlsResultDialog
+        glsResult={glsResult}
+        setGlsResult={setGlsResult}
+        project={project}
+        onGoEpisodes={() => navigate(`/sales/projects/${id}/episodes`)}
+      />
 
-            {/* リンクモード: 既存GLS案件を選択 */}
-            {glsDialog.mode === 'link' && (
-              <div>
-                <Label>リンク先GLS案件 *</Label>
-                <SearchableSelect
-                  options={glsProjects.map((p) => ({
-                    value: p.id,
-                    label: `${p.gls_number} ${p.name}`,
-                    subLabel: p.customer_name,
-                  }))}
-                  value={glsDialog.target_project_id}
-                  onChange={(v) => setGlsDialog({ ...glsDialog, target_project_id: v })}
-                  placeholder="GLS番号で検索..."
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  選択した案件のGLS番号が割り当てられ、概算見積が確定売上に変換されます。
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGlsDialog({ ...glsDialog, open: false })}>キャンセル</Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={handleGlsConfirm}
-              disabled={
-                glsMutation.isPending || linkGlsMutation.isPending ||
-                (glsDialog.mode === 'link' && !glsDialog.target_project_id) ||
-                (glsDialog.mode === 'new' && isCategoryA &&
-                  (glsDialog.broadcast_types.length === 0 || glsDialog.media_platforms.length === 0))
-              }
-            >
-              {(glsMutation.isPending || linkGlsMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {glsDialog.mode === 'link' ? 'GLS番号をリンク' : 'GLS発番する'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <LostDialog
+        lostDialog={lostDialog}
+        setLostDialog={setLostDialog}
+        lostReasonCategories={lostReasonCategories}
+        stageMutation={stageMutation}
+      />
 
-      {/* 別GLSへ紐づけ直しダイアログ (発番済み案件をエピソード化) */}
-      <Dialog open={relinkDialog.open} onOpenChange={(open) => setRelinkDialog({ ...relinkDialog, open })}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>別GLSのエピソードへ紐づけ直す</DialogTitle>
-            <DialogDescription>
-              この案件（現在 {project?.gls_number}）を、選択した既存GLS案件のエピソードとして付け替えます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label>紐づけ先のGLS案件</Label>
-              <SearchableSelect
-                options={glsProjects
-                  .filter((p) => p.id !== id)
-                  .map((p) => ({ value: p.id, label: `${p.gls_number}　${p.name}`, subLabel: p.customer_name }))}
-                value={relinkDialog.target_project_id}
-                onChange={(v) => setRelinkDialog({ ...relinkDialog, target_project_id: v })}
-                placeholder="GLS番号で検索..."
-              />
-            </div>
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
-              <p>適用すると以下が行われます：</p>
-              <ul className="list-disc pl-4 space-y-0.5">
-                <li>GLS番号が紐づけ先のものに変わり、エピソードコードは新GLSで採番し直されます</li>
-                <li>現在のGLS番号（{project?.gls_number}）は履歴 (previous_gls_numbers) に保存されます</li>
-                <li>BOXフォルダ名・Qシートのエピソードコードも新GLSに更新されます</li>
-                <li>概算見積が残っていれば確定売上に変換されます（売上/仕入の実績はそのまま保持）</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRelinkDialog({ open: false, target_project_id: "" })}>キャンセル</Button>
-            <Button
-              disabled={!relinkDialog.target_project_id || relinkMutation.isPending}
-              onClick={async () => {
-                if ((await confirmAction({ title: "この案件を選択したGLSのエピソードに紐づけ直します。よろしいですか？" }))) {
-                  relinkMutation.mutate(relinkDialog.target_project_id);
-                }
-              }}
-            >
-              {relinkMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              紐づけ直す
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* GLS発番完了ダイアログ */}
-      {glsResult && (
-        <Dialog open={glsResult.open} onOpenChange={(open) => { if (!open) setGlsResult(null); }}>
-          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-700">
-                <CheckCircle2 className="h-6 w-6" />
-                GLS発番完了
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 py-4">
-              <div className="rounded-lg border bg-green-50 p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">イベントコード</span>
-                  <span className=" font-bold text-lg">{glsResult.glsNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">案件名</span>
-                  <span className="font-medium">{project?.name}</span>
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="flex gap-2 sm:gap-2">
-              <Button variant="outline" onClick={() => { setGlsResult(null); }}>
-                閉じる
-              </Button>
-              <Button onClick={() => { setGlsResult(null); navigate(`/sales/projects/${id}/episodes`); }}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  見積・売上管理へ
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* 失注ダイアログ */}
-      <Dialog open={lostDialog.open} onOpenChange={(open) => setLostDialog({ ...lostDialog, open })}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-              失注登録
-            </DialogTitle>
-            <DialogDescription>
-              失注理由を記録してください。今後の営業改善に活用されます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>失注理由 *</Label>
-              <div className="mt-2 space-y-2">
-                {lostReasonCategories.map((cat) => (
-                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio" name="lost_reason" value={cat.name}
-                      checked={lostDialog.lost_reason === cat.name}
-                      onChange={(e) => setLostDialog({ ...lostDialog, lost_reason: e.target.value })}
-                      className="accent-red-500"
-                    />
-                    <span className="text-sm">{cat.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>補足メモ</Label>
-              <Textarea
-                value={lostDialog.lost_reason_note}
-                onChange={(e) => setLostDialog({ ...lostDialog, lost_reason_note: e.target.value })}
-                placeholder="失注に至った経緯など"
-                rows={2}
-              />
-            </div>
-            <div>
-              <Label>教訓・学び</Label>
-              <Textarea
-                value={lostDialog.lessons_learned}
-                onChange={(e) => setLostDialog({ ...lostDialog, lessons_learned: e.target.value })}
-                placeholder="次回に活かすべきポイント、改善すべき点など"
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                ここに記録した内容は営業レビューの失注分析で共有されます
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLostDialog({ ...lostDialog, open: false })}>キャンセル</Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                stageMutation.mutate({
-                  stage: 'e_lost',
-                  lost_reason: lostDialog.lost_reason,
-                  lost_reason_note: lostDialog.lost_reason_note,
-                  lessons_learned: lostDialog.lessons_learned,
-                });
-                setLostDialog({ open: false, lost_reason: '', lost_reason_note: '', lessons_learned: '' });
-              }}
-              disabled={!lostDialog.lost_reason || stageMutation.isPending}
-            >
-              {stageMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              失注にする
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 仮押さえ完了 → スタジオ予約誘導ダイアログ */}
-      <Dialog open={holdPromptOpen} onOpenChange={setHoldPromptOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-blue-700">
-              <CalendarDays className="h-5 w-5" />
-              仮押さえに移行しました
-            </DialogTitle>
-            <DialogDescription>
-              スタジオの日程を押さえましょう。カレンダーから空き状況を確認して予約できます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">案件名</span>
-                <span className="font-medium text-sm">{project?.name}</span>
-              </div>
-              {project?.event_start && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">イベント予定日</span>
-                  <span className="font-medium text-sm">{project.event_start}{project.event_end && project.event_end !== project.event_start ? ` 〜 ${project.event_end}` : ''}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setHoldPromptOpen(false)}>
-              あとで
-            </Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => {
-                setHoldPromptOpen(false);
-                navigate("/schedule?layers=studio", {
-                  state: {
-                    presetRoomIds: scheduleRoomIds,
-                    presetDate: buildProjectPresetDate(),
-                    presetProjectId: id,
-                  },
-                });
-              }}
-            >
-              <CalendarDays className="mr-2 h-4 w-4" />
-              スタジオ予約へ
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HoldPromptDialog
+        open={holdPromptOpen}
+        onOpenChange={setHoldPromptOpen}
+        project={project}
+        onGoSchedule={() => {
+          setHoldPromptOpen(false);
+          navigate("/schedule?layers=studio", {
+            state: {
+              presetRoomIds: scheduleRoomIds,
+              presetDate: buildProjectPresetDate(),
+              presetProjectId: id,
+            },
+          });
+        }}
+      />
 
       {/* スタジオ予約ダイアログ (編集モード) */}
       {isEdit && id && (
@@ -2466,49 +1912,13 @@ export default function ProjectFormPage() {
         />
       )}
 
-      {/* 案件分類 A↔B 切替 (GLS発番済の採番し直し確認) */}
-      <Dialog open={categorySwitchDialog.open} onOpenChange={(o) => setCategorySwitchDialog((s) => ({ ...s, open: o }))}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>案件分類を変更しますか？</DialogTitle>
-            <DialogDescription>
-              {glsCategory === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
-              {' → '}
-              {categorySwitchDialog.target === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
-              に切り替えます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-3 text-sm">
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                <div className="space-y-1.5">
-                  <p className="font-medium">この案件は GLS 発番済みです ({project?.gls_number})</p>
-                  <p>切替に伴い以下が自動で更新されます:</p>
-                  <ul className="list-disc list-inside text-xs space-y-0.5">
-                    <li>GLS 番号を新カテゴリ側で<strong>採番し直し</strong></li>
-                    <li>エピソードコード (例: <code>{project?.gls_number}-001</code>) も新番号に書換</li>
-                    <li>BOX フォルダ名（社内限り / 社外共有可）を新 GLS 番号にリネーム</li>
-                    <li>既発行 PDF（見積書 / 請求書）の手元ファイルは更新されません</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCategorySwitchDialog({ open: false, target: 'A' })} disabled={categorySwitchMutation.isPending}>
-              キャンセル
-            </Button>
-            <Button
-              onClick={() => categorySwitchMutation.mutate(categorySwitchDialog.target)}
-              disabled={categorySwitchMutation.isPending}
-            >
-              {categorySwitchMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              採番し直して変更
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CategorySwitchDialog
+        dialog={categorySwitchDialog}
+        setDialog={setCategorySwitchDialog}
+        glsCategory={glsCategory}
+        project={project}
+        categorySwitchMutation={categorySwitchMutation}
+      />
     </div>
     </PageTransition>
   );
