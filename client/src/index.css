@@ -26,6 +26,15 @@
 .studio-calendar .fc .fc-list-event-time {
   font-size: 0.8125rem;
 }
+/* FullCalendar のリスト表示は table-layout:auto で、タイトル列に幅指定が無い。
+   中の予定名は white-space:nowrap の truncate なので、幅を絞らないと自然幅
+   (折り返さない全文の幅) がそのまま列の最小幅になり、表ごと画面より広がって
+   スマホで右にはみ出す (max-width:0 + width:100% で列を伸縮可能にし、
+   truncate の省略記号が効くようにする)。 */
+.studio-calendar .fc .fc-list-event-title {
+  max-width: 0;
+  width: 100%;
+}
 
 @media (max-width: 640px) {
   .studio-calendar .fc .fc-toolbar {

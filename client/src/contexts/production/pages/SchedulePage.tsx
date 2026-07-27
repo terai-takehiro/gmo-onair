@@ -967,7 +967,8 @@ export default function SchedulePage() {
               </div>
             </div>
           )}
-          <div className="studio-calendar">
+          {/* 万一なお中身が枠より広くなっても、ページ全体ではなくこの中だけでスクロールさせる */}
+          <div className="studio-calendar overflow-x-auto">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
