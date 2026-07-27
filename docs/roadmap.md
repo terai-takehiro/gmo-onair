@@ -827,3 +827,48 @@ id='sandbox' として食われて 404 になる（`/docs/format` のような2�
 
 今回の2本も **1,880〜1,925行**あるので続きがある
 （案件フォームのスタジオ日程、機材台帳の登録・一括編集ダイアログ）。
+
+---
+
+## v2.9.293 — ロードマップ3つ目の続き: 分割 3本目 (2,000行超がゼロに)
+
+| ファイル | 前 | 後 | 切り出したもの |
+| --- | --- | --- | --- |
+| `BusinessProjectView.tsx` | 2,047 | **1,520** | 型 (`types.ts` 59) / 月次請求 (`MonthlyBilling.tsx` 181) / 売上一覧 (`RevenueList.tsx` 347) / 仕入一覧 (`PurchaseList.tsx` 102) |
+
+### 決めたこと
+
+| 論点 | 決定 | 理由 |
+| --- | --- | --- |
+| どこを切るか | **「読むだけの並び」を選ぶ** | この画面の最大の塊はダイアログ2つ（売上明細400行・仕入198行）だが、**中で使う state が 25〜40 個**ある。props に開くと「渡せるが意味が違う」事故が起きやすい。一覧の並びは表示 + 数個のハンドラなので props 7〜18 個で収まる |
+| props の型 | **親の宣言をそのまま写す** | 推測で書いたら **5件が型エラーで止まった**（後述）。各ファイルの冒頭にこの注意を書いた |
+| 条件分岐 | **位置だけ動かす** | 月次請求は元が `{monthlyMode && (…)}`。中身を部品にして `{monthlyMode && <MonthlyBilling … />}` にした（意味は同じ） |
+| 未使用の import | **型チェック (TS6133) に列挙させる** | 目で探すより確実。7件を機械的に消し、残り1件だけ手で消した |
+
+### 型を推測して間違えたところ（型チェックが止めてくれた）
+
+- `monthEpisodes` は `billing_key` ではなく **`episode_code`** を持つ
+- `handleDownloadPdf` は**引数が2つ**で、種類（見積書 / 請求書 / **検収書**）を取る
+- `handleDeleteMonth` は **Promise を返す**（`async`）
+- `openNewForMonth` は `(epId, monthTitle, recMonth?)` の**3引数**
+
+**「渡せてしまうが中身が違う」**形なので、型が無ければ気づけない。
+
+### 検証
+
+- ビルド9ワークスペース通過 / `eslint` 0 errors・**77 warnings（着手前と同数）** / 禁止パターン違反0
+- **ブラウザ10項目** — 案件名 / **月次管理と「GLS-B900-YYMM の請求単位」の説明** /
+  売上の見出し / **登録した明細の 1,200,000 円が出る** / 仕入の見出しと追加ボタン /
+  **仕入ダイアログが開く（親に残した部分）** / 横はみ出し 0px / JSエラー0件
+- **v2.9.291・292 の検証54項目も再実行して全通過**
+
+### 残り (14本・2,000行超はゼロ)
+
+`ProjectFormPage.tsx` 1,925 / `EquipmentListPage.tsx` 1,880 / `BusinessProjectView.tsx` 1,520 /
+`SchedulePage.tsx` 1,515 / `RackLayoutPage.tsx` 1,505 / `manual/content.tsx` 1,455 /
+`RevenueListPage.tsx` 1,438 / `EventEditorPage.tsx` 1,294 / `ProjectGroupListPage.tsx` 1,177 /
+`project.service.ts` 1,130 / `TodayPage.tsx` 1,117 / `EditorPage.tsx` (Qシート) 1,094 /
+`EquipmentDetailPage.tsx` 1,093 / `CueTable.tsx` 1,078。
+
+`manual/content.tsx` は**文章のかたまり**（画面の使い方の本文）なので、分割の意味が薄い。
+次は `SchedulePage.tsx` / `RackLayoutPage.tsx` のような**画面**から進める。
