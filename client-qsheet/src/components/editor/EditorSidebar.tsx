@@ -85,25 +85,27 @@ interface Props {
 
 // ─── Block type config ──────────────────────────────────
 const BLOCK_TYPES = [
-  { type: "scenario", label: "シナリオ", Icon: User, color: "bg-blue-600" },
-  { type: "video", label: "映像", Icon: Video, color: "bg-indigo-600" },
-  { type: "slide", label: "スライド", Icon: Image, color: "bg-cyan-600" },
-  { type: "telop", label: "テロップ", Icon: Type, color: "bg-purple-600" },
-  { type: "audio", label: "オーディオ (BGM/SE)", Icon: Mic, color: "bg-rose-600" },
-  { type: "audio_mic", label: "マイク香盤", Icon: Mic, color: "bg-pink-700" },
-  { type: "led_xr", label: "LED/XR", Icon: Monitor, color: "bg-violet-600" },
-  { type: "lighting", label: "照明", Icon: Lightbulb, color: "bg-yellow-600" },
-  { type: "stage_diagram", label: "立ち位置図", Icon: Layout, color: "bg-amber-600" },
-  { type: "remarks", label: "備考", Icon: FileText, color: "bg-zinc-500" },
-  { type: "item", label: "小道具", Icon: FileText, color: "bg-green-600" },
+  // 色は「見分けるための色」(cat-1〜8)。状態の色は使わない — tokens.css 参照。
+  // 11 種あるので 3 つは 2 巡目。同じ色になる組は**離れた種別**にしてある。
+  { type: "scenario", label: "シナリオ", Icon: User, color: "bg-cat-1" },
+  { type: "video", label: "映像", Icon: Video, color: "bg-cat-2" },
+  { type: "slide", label: "スライド", Icon: Image, color: "bg-cat-3" },
+  { type: "telop", label: "テロップ", Icon: Type, color: "bg-cat-7" },
+  { type: "audio", label: "オーディオ (BGM/SE)", Icon: Mic, color: "bg-cat-6" },
+  { type: "audio_mic", label: "マイク香盤", Icon: Mic, color: "bg-cat-4" },
+  { type: "led_xr", label: "LED/XR", Icon: Monitor, color: "bg-cat-7" },
+  { type: "lighting", label: "照明", Icon: Lightbulb, color: "bg-cat-5" },
+  { type: "stage_diagram", label: "立ち位置図", Icon: Layout, color: "bg-cat-5" },
+  { type: "remarks", label: "備考", Icon: FileText, color: "bg-cat-8" },
+  { type: "item", label: "小道具", Icon: FileText, color: "bg-cat-4" },
 ];
 
 const MASTER_SECTIONS = [
-  { key: "persons" as const, label: "人物", color: "bg-slate-700 text-white" },
-  { key: "video" as const, label: "映像", color: "bg-blue-700 text-white" },
-  { key: "audio" as const, label: "音声", color: "bg-rose-700 text-white" },
-  { key: "telop" as const, label: "テロップ", color: "bg-purple-700 text-white" },
-  { key: "micTypes" as const, label: "マイク種類", color: "bg-pink-700 text-white" },
+  { key: "persons" as const, label: "人物", color: "bg-cat-8 text-white" },
+  { key: "video" as const, label: "映像", color: "bg-cat-2 text-white" },
+  { key: "audio" as const, label: "音声", color: "bg-cat-6 text-white" },
+  { key: "telop" as const, label: "テロップ", color: "bg-cat-7 text-white" },
+  { key: "micTypes" as const, label: "マイク種類", color: "bg-cat-4 text-white" },
 ];
 
 const MASTER_ICONS: Record<string, any> = {
@@ -141,7 +143,7 @@ function ResourceCard({
     <section className={`rounded-xl border ${accentTint} overflow-hidden`}>
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-background/40">
         {Icon && <Icon size={13} className="text-muted-foreground flex-none" aria-hidden />}
-        <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/80 flex-1 truncate">
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground flex-1 truncate">
           {title}
         </h3>
         {typeof count === "number" && (
@@ -229,7 +231,7 @@ function MasterSection({
           </span>
         ))}
         {items.length === 0 && (
-          <span className="text-[11px] text-muted-foreground/60 italic">未登録</span>
+          <span className="text-[11px] text-muted-foreground italic">未登録</span>
         )}
       </div>
       <input
@@ -237,7 +239,7 @@ function MasterSection({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={`${label}を追加 (Enter)`}
-        className="w-full px-2.5 py-1.5 text-[12px] bg-muted/40 border border-border rounded-md outline-none focus:border-primary focus:bg-card placeholder:text-muted-foreground/60 transition-all"
+        className="w-full px-2.5 py-1.5 text-[12px] bg-muted/40 border border-border rounded-md outline-none focus:border-primary focus:bg-card placeholder:text-muted-foreground transition-all"
         aria-label={`${label}を追加`}
       />
     </div>
@@ -303,7 +305,7 @@ function LedSceneSection({
                 <button
                   onClick={() => moveScene(i, -1)}
                   disabled={i === 0}
-                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={`シーン ${i + 1} を上へ`}
                 >
                   <ChevronUp size={13} aria-hidden />
@@ -311,14 +313,14 @@ function LedSceneSection({
                 <button
                   onClick={() => moveScene(i, 1)}
                   disabled={i === scenes.length - 1}
-                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={`シーン ${i + 1} を下へ`}
                 >
                   <ChevronDown size={13} aria-hidden />
                 </button>
                 <button
                   onClick={() => removeScene(i)}
-                  className="size-6 rounded inline-flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"
+                  className="size-6 rounded inline-flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"
                   aria-label={`シーン ${i + 1} を削除`}
                 >
                   <X size={11} aria-hidden />
@@ -327,22 +329,22 @@ function LedSceneSection({
               {/* 壁 + 床 (2カラムグリッド) */}
               <div className="grid grid-cols-2 gap-1.5 p-1.5">
                 <label className="block rounded-md border border-primary/20 bg-primary/5 p-1.5">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-primary/80 mb-0.5">壁</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-primary mb-0.5">壁</span>
                   <input
                     value={s.wall}
                     onChange={(e) => updateScene(i, { wall: e.target.value })}
                     placeholder="例: KVループ＋PC1"
-                    className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate"
+                    className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground truncate"
                     aria-label="壁演出"
                   />
                 </label>
                 <label className="block rounded-md border border-warning/30 bg-warning/5 p-1.5">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-warning/90 mb-0.5">床</span>
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-warning-strong mb-0.5">床</span>
                   <input
                     value={s.floor}
                     onChange={(e) => updateScene(i, { floor: e.target.value })}
                     placeholder="例: KV"
-                    className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate"
+                    className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground truncate"
                     aria-label="床演出"
                   />
                 </label>
@@ -525,14 +527,14 @@ export function EditorSidebarBody({
                   draggedBlkId === blk.id ? "opacity-40" : ""
                 } ${isDragTarget ? "border-t-2 border-primary" : ""}`}
               >
-                <GripVertical size={11} className="text-muted-foreground/60 flex-none" />
-                <span className={`w-4 h-4 rounded flex items-center justify-center text-white flex-none ${bt?.color || "bg-zinc-400"}`}>
+                <GripVertical size={11} className="text-muted-foreground flex-none" />
+                <span className={`w-4 h-4 rounded flex items-center justify-center text-white flex-none ${bt?.color || "bg-cat-8"}`}>
                   {bt?.Icon ? <bt.Icon size={10} /> : null}
                 </span>
                 <span className="flex-1 text-[13px] truncate font-medium">{blk.label}</span>
                 <button
                   onClick={() => removeBlock(idx)}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive transition-all flex-none"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all flex-none"
                 >
                   <X size={11} />
                 </button>
@@ -570,7 +572,7 @@ export function EditorSidebarBody({
             action={
               <button
                 onClick={addMicChannel}
-                className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-pink-700/10 hover:text-pink-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-cat-7/10 hover:text-cat-7 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Chを追加"
               >
                 <Plus size={14} aria-hidden />
@@ -601,7 +603,7 @@ export function EditorSidebarBody({
                     />
                     <button
                       onClick={() => removeMicChannel(i)}
-                      className="size-6 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-none"
+                      className="size-6 rounded inline-flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-none"
                       aria-label={`Ch ${c.ch} を削除`}
                     >
                       <X size={12} aria-hidden />
@@ -634,7 +636,7 @@ export function EditorSidebarBody({
             action={
               <button
                 onClick={() => onEditStageTemplate?.(-1)}
-                className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-warning/10 hover:text-warning-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="立ち位置図を追加"
               >
                 <Plus size={14} aria-hidden />
@@ -655,7 +657,7 @@ export function EditorSidebarBody({
                     <span className="flex-1 truncate font-medium">{t.name}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDuplicateStageTemplate?.(i); }}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-warning transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-warning-strong transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       aria-label="複製"
                       title="複製して編集 (元データを転用)"
                     >
@@ -663,7 +665,7 @@ export function EditorSidebarBody({
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onEditStageTemplate?.(i); }}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       aria-label="編集"
                     >
                       <Pencil size={12} aria-hidden />
@@ -723,7 +725,7 @@ export function EditorSidebarBody({
             onClick={onShowImport}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
           >
-            <Upload size={14} className="text-warning flex-none" />
+            <Upload size={14} className="text-warning-strong flex-none" />
             <span className="font-medium">Excelから読み込み</span>
           </button>
         </div>

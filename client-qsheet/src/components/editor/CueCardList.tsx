@@ -193,7 +193,7 @@ export default function CueCardList({
             <button
               type="button"
               onClick={() => { insertAt(idx, "cm"); setExpandedGap(null); }}
-              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-warning hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-warning-strong hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               ＋ CM
             </button>
@@ -258,12 +258,12 @@ export default function CueCardList({
             <input
               value={sec.label || ""}
               onChange={(e) => updateSectionLabel(si, e.target.value)}
-              className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/60"
+              className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground"
               placeholder={sec._break ? "CM" : sec._vtr ? "VTR" : "セクション名"}
               aria-label={`セクション ${si + 1} の名前`}
             />
             {sec._break && (
-              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">CM</span>
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning-strong">CM</span>
             )}
             {sec._vtr && (
               <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-info/20 text-info">VTR</span>

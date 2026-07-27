@@ -25,6 +25,7 @@ import {
   LayoutList, Columns3, Loader2, GripVertical,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 type SortKey = "default" | "created_at" | "name" | "customer" | "stage" | "expected_amount" | "event_start";
 type SortDir = "asc" | "desc";
@@ -212,11 +213,11 @@ export default function ProjectsPage() {
         {/* ヘッダー */}
         <header className="flex flex-wrap items-end justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+            <PageTitle>
               案件
               {filterParam === "confirmed_studio" && <span className="ml-2 text-[15px] font-bold text-secondary-foreground">スタジオ (GLS-A)</span>}
               {filterParam === "confirmed_business" && <span className="ml-2 text-[15px] font-bold text-secondary-foreground">ビジネス (GLS-B)</span>}
-            </h1>
+            </PageTitle>
             <p className="mt-1 text-[13px] text-secondary-foreground">
               {period ? `${period.label}に実施する案件` : "すべての案件"}{" "}
               <span className="font-bold tabular-nums text-foreground">{headerCount}件</span>

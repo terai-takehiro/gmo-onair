@@ -56,6 +56,7 @@ import {
   Check,
 } from "lucide-react";
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
@@ -354,9 +355,9 @@ function TodayGreeting({ greeting, name }: { greeting: string; name?: string }) 
   return (
     <header className="flex flex-wrap items-end justify-between gap-2">
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+        <PageTitle>
           {greeting}、{name} さん
-        </h1>
+        </PageTitle>
         <p className="mt-1 text-[13px] text-secondary-foreground">
           {items.length === 0 ? (
             <>お客様を待たせているものはありません。</>

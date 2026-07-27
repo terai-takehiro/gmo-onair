@@ -286,7 +286,7 @@ export default function EditorPage() {
           ) : saveMutation.isPending ? (
             <span className="hidden sm:inline text-xs text-muted-foreground">保存中…</span>
           ) : dirty ? (
-            <span className="hidden sm:inline text-xs text-amber-600">未保存</span>
+            <span className="hidden sm:inline text-xs text-warning-strong">未保存</span>
           ) : lastSavedAt ? (
             <span className="hidden sm:inline text-xs text-muted-foreground">
               保存済み {lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
@@ -551,7 +551,7 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
       <div className="overflow-x-auto border rounded-lg">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-slate-50">
+            <tr className="border-b bg-muted">
               <th className="w-16 px-2 py-2 text-left text-xs font-medium text-muted-foreground">No.</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[140px]">カメラ機種</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[120px]">レンズ</th>
@@ -563,7 +563,7 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b last:border-b-0 hover:bg-slate-50/30 group">
+              <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/30 group">
                 <td className="px-2 py-1">
                   <Input className="h-7 text-xs w-14" value={row.number} onChange={(e) => updateRow(row.id, "number", e.target.value)} placeholder="1C" />
                 </td>
@@ -583,7 +583,7 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
                   <Input className="h-7 text-xs" value={row.cable} onChange={(e) => updateRow(row.id, "cable", e.target.value)} />
                 </td>
                 <td className="px-1 py-1">
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground/30 group-hover:text-destructive" onClick={() => deleteRow(row.id)}>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground group-hover:text-destructive" onClick={() => deleteRow(row.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </td>
@@ -652,7 +652,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
           <div className="overflow-x-auto border rounded-lg">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-slate-50">
+                <tr className="border-b bg-muted">
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[150px]">項目</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[300px]">詳細</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[200px]">備考</th>
@@ -661,7 +661,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
               </thead>
               <tbody>
                 {sec.rows.map((row) => (
-                  <tr key={row.id} className="border-b last:border-b-0 hover:bg-slate-50/30 group">
+                  <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/30 group">
                     <td className="px-2 py-1">
                       <Input className="h-7 text-xs" value={row.item} onChange={(e) => updateRowInSection(sec.id, row.id, "item", e.target.value)} />
                     </td>
@@ -677,7 +677,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
                       <Input className="h-7 text-xs" value={row.notes} onChange={(e) => updateRowInSection(sec.id, row.id, "notes", e.target.value)} />
                     </td>
                     <td className="px-1 py-1">
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground/30 group-hover:text-destructive" onClick={() => deleteRowFromSection(sec.id, row.id)}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground group-hover:text-destructive" onClick={() => deleteRowFromSection(sec.id, row.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </td>

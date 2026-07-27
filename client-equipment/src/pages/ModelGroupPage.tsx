@@ -25,11 +25,11 @@ const STATUS_LABELS: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "休止", disposed: "廃棄", lost: "紛失",
 };
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  in_repair: "bg-yellow-100 text-yellow-800",
-  retired: "bg-gray-100 text-gray-700",
-  disposed: "bg-red-100 text-red-700",
-  lost: "bg-red-100 text-red-700",
+  active: "bg-success-surface text-success",
+  in_repair: "bg-warning-surface text-warning-strong",
+  retired: "bg-muted text-muted-foreground",
+  disposed: "bg-destructive-surface text-destructive",
+  lost: "bg-destructive-surface text-destructive",
 };
 
 interface ChildItem {
@@ -189,7 +189,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
                         className="h-6 text-sm flex-1"
                         autoFocus
                       />
-                      <button className="p-1 text-green-600 hover:bg-muted rounded" onClick={confirmEdit} disabled={updateMutation.isPending}>
+                      <button className="p-1 text-success hover:bg-muted rounded" onClick={confirmEdit} disabled={updateMutation.isPending}>
                         {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                       </button>
                       <button className="p-1 text-muted-foreground hover:bg-muted rounded" onClick={() => setEditingId(null)}><X className="h-3 w-3" /></button>
@@ -350,7 +350,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
             <p className="text-sm text-muted-foreground">
               {groups.length} 型番 / {totalUnits} 台
               {inRepairCount > 0 && (
-                <span className="ml-2 text-yellow-700">（修理中 {inRepairCount} 台）</span>
+                <span className="ml-2 text-warning-strong">（修理中 {inRepairCount} 台）</span>
               )}
             </p>
           )}
@@ -475,10 +475,10 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                             <Badge variant="outline" className="text-xs">{typeLabel(g.equipment_type_code)}</Badge>
                             <span className="text-sm font-medium">{g.total_count} 台</span>
                             {repairCount > 0 && (
-                              <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">修理中 {repairCount}</Badge>
+                              <Badge className="text-xs bg-warning-surface text-warning-strong border-warning">修理中 {repairCount}</Badge>
                             )}
                             {activeCount === g.total_count && g.total_count > 0 && (
-                              <Badge className="text-xs bg-green-100 text-green-800 border-green-300">全台稼働</Badge>
+                              <Badge className="text-xs bg-success-surface text-success border-success">全台稼働</Badge>
                             )}
                           </div>
                         </button>
@@ -521,7 +521,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                     </td>
                                     <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.eq_code}</td>
                                     <td className="px-4 py-2.5">
-                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-muted text-muted-foreground"}`}>
                                         {STATUS_LABELS[u.status] ?? u.status}
                                       </span>
                                     </td>
@@ -565,7 +565,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                   <span className=" text-sm font-medium">
                                     {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
                                   </span>
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-muted text-muted-foreground"}`}>
                                     {STATUS_LABELS[u.status] ?? u.status}
                                   </span>
                                 </div>
@@ -576,7 +576,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                 {(u.children?.length ?? 0) > 0 && (
                                   <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
                                     {u.children.map(c => c?.id && (
-                                      <span key={c.id} className="text-xs text-muted-foreground/70">
+                                      <span key={c.id} className="text-xs text-muted-foreground">
                                         ↳ {c.name ?? "?"}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
                                       </span>
                                     ))}

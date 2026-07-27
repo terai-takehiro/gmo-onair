@@ -1,54 +1,8 @@
-/* GMO ONAiR Qシート v2.0 — DADS-based tokens from shared */
-@import '@gmo-onair/shared/src/client/tokens.css';
+@import '@gmo-onair/shared/src/client/base.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html, body, #root {
-    overflow-x: hidden;
-    overscroll-behavior-x: none;
-    -webkit-text-size-adjust: 100%;
-    max-width: 100vw;
-  }
-  html, body {
-    touch-action: pan-y;
-    -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--background));
-    -moz-osx-font-smoothing: grayscale;
-  }
-  button, a, [role="button"], label[for], summary {
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  * {
-    @apply border-border;
-  }
-  html {
-    font-family: var(--font-sans);
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-sans);
-    font-size: var(--text-body);
-    line-height: var(--line-height-jp);
-    letter-spacing: var(--letter-spacing-jp);
-    margin: 0;
-  }
-
-  input[type="date"],
-  input[type="time"],
-  input[type="datetime-local"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    min-height: 2.75rem;
-    line-height: 1.5;
-  }
-}
-
-/* ── Font utilities ────────────────────────── */
 .font-oswald {
   font-family: var(--font-mono-num);
 }

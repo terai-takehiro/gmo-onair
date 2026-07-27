@@ -22,7 +22,7 @@ export default function SendActionRow({
     <div className="flex items-center gap-2 flex-wrap">
       <button
         onClick={onTake}
-        className="flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-3.5 text-base font-black tracking-widest uppercase text-white transition-colors shadow-lg shadow-red-900/40"
+        className="flex items-center gap-2 rounded-md bg-destructive hover:bg-destructive/90 px-5 py-3.5 text-base font-black tracking-widest uppercase text-white transition-colors shadow-lg"
       >
         <Play className="h-5 w-5 fill-current" /> TAKE
       </button>
@@ -32,8 +32,8 @@ export default function SendActionRow({
         className={cn(
           'flex items-center gap-2 rounded-md px-5 py-3.5 text-base font-black tracking-widest uppercase transition-colors',
           isLive
-            ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
-            : 'bg-slate-800/40 text-slate-400 cursor-not-allowed'
+            ? 'bg-muted hover:bg-accent text-foreground'
+            : 'bg-card/40 text-muted-foreground cursor-not-allowed'
         )}
       >
         <Square className="h-5 w-5 fill-current" /> CLEAR
@@ -44,8 +44,8 @@ export default function SendActionRow({
         className={cn(
           'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-semibold transition-all',
           showPortrait
-            ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300'
-            : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
+            ? 'border-success bg-success/30 text-success'
+            : 'border-border text-muted-foreground hover:bg-card hover:text-foreground'
         )}
         title="送出CGに画像 (Portrait) を含めるか切替"
       >
@@ -57,8 +57,8 @@ export default function SendActionRow({
         className={cn(
           'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-semibold transition-all',
           transparent
-            ? 'border-amber-500 bg-amber-900/30 text-amber-300'
-            : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
+            ? 'border-warning bg-warning/30 text-warning-strong'
+            : 'border-border text-muted-foreground hover:bg-card hover:text-foreground'
         )}
         title="本番出力相当 (背景透過)"
       >

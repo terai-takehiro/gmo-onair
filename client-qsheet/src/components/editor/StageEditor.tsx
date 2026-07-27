@@ -297,7 +297,7 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
               <button onClick={addPerson} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/15 transition-colors">
                 <UserPlus size={14} />人物を追加
               </button>
-              <button onClick={addRect} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
+              <button onClick={addRect} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-warning-surface dark:bg-warning/30 text-warning-strong dark:text-warning-strong rounded-lg hover:bg-warning-surface dark:hover:bg-warning/50 transition-colors">
                 <Square size={14} />オブジェクトを追加
               </button>
             </div>
@@ -311,7 +311,7 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
                   <div key={i} onClick={() => setSelectedIdx(i)} className={`group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] cursor-pointer transition-colors ${selectedIdx === i ? "bg-primary/10 text-primary" : "hover:bg-accent/50"}`}>
                     <span className="flex-none">{el.type === "person" ? "👤" : "📦"}</span>
                     <span className="flex-1 truncate font-medium">{el.label}</span>
-                    <button onClick={(e) => { e.stopPropagation(); removeElement(i); }} className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive transition-all">
+                    <button onClick={(e) => { e.stopPropagation(); removeElement(i); }} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
                       <Trash2 size={11} />
                     </button>
                   </div>

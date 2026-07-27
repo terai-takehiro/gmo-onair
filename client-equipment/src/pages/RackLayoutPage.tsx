@@ -356,7 +356,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
         <div className="flex items-center justify-between gap-2">
           <PageTitle
             className={embedded ? "hidden" : undefined}
-            icon={<Server className="h-5 w-5 text-amber-500" />}
+            icon={<Server className="h-5 w-5 text-warning-strong" />}
           >
             ラック実装ビュー
           </PageTitle>
@@ -369,7 +369,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
             >
               前面
               {side === "back" && oppositeSideHasContent && (
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
+                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning shadow-[0_0_0_2px_white]" />
               )}
             </button>
             <button
@@ -378,7 +378,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
             >
               背面
               {side === "front" && oppositeSideHasContent && (
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
+                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning shadow-[0_0_0_2px_white]" />
               )}
             </button>
           </div>
@@ -439,7 +439,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
       </div>
 
       {displayEditMode && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-warning bg-warning-surface p-3 text-sm text-warning-strong">
           <strong>表示変更モード：</strong>機材ブロックをクリックして表示項目をカスタマイズします。空きスペースのクリックは無効です。
         </div>
       )}
@@ -472,7 +472,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
                 <div className="flex items-center gap-2 ml-auto">
                   <div className="h-2 w-40 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all"
+                      className="h-full bg-success transition-all"
                       style={{ width: totalItems > 0 ? `${(totalChecked / totalItems) * 100}%` : "0%" }}
                     />
                   </div>
@@ -482,7 +482,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
             )}
           </div>
           {inventoryNotice && (
-            <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-sm text-warning-strong bg-warning-surface border border-warning rounded px-2.5 py-1.5">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {inventoryNotice}
             </div>

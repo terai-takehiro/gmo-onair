@@ -19,7 +19,7 @@ class CGErrorBoundary extends Component<{ children: ReactNode }, { err: Error | 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', flexDirection: 'column', gap: 8, color: '#f5a76e', background: 'rgba(80,30,15,0.4)', padding: 16, fontSize: 11, textAlign: 'center' }}>
           <div style={{ fontWeight: 900 }}>CG プレビュー エラー</div>
           <div style={{ opacity: 0.85 }}>{this.state.err.message}</div>
-          <button onClick={() => this.setState({ err: null })} className="mt-2 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-200">再試行</button>
+          <button onClick={() => this.setState({ err: null })} className="mt-2 rounded bg-card px-2 py-1 text-[10px] text-foreground">再試行</button>
         </div>
       );
     }
@@ -329,31 +329,31 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
   }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay, voteManualWinner, nextWinnerId, cue.scrimOpacity]);
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+    <div className="h-full flex flex-col bg-background text-foreground overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
 
       {/* ── Header (v2.9.34 統一 + v2.9.35 モバイル コンパクト化) ──────── */}
       {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
       {!embedded && (
-      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
+      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-border">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
           title="イベント詳細へ戻る"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card hover:bg-muted transition-colors"
         >
-          <ChevronLeft className="h-4 w-4 text-slate-300" />
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
-          <Tv className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-black text-slate-200 tracking-wider hidden sm:inline">リアルタイムCG</span>
-          <span className="text-xs font-black text-slate-200 tracking-wider sm:hidden">Ranking</span>
+          <Tv className="h-4 w-4 text-warning-strong" />
+          <span className="text-sm font-black text-foreground tracking-wider hidden sm:inline">リアルタイムCG</span>
+          <span className="text-xs font-black text-foreground tracking-wider sm:hidden">Ranking</span>
         </div>
-        {event && <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>}
+        {event && <span className="text-xs text-muted-foreground truncate hidden md:block">{event.name}</span>}
         <div className="flex-1 min-w-0" />
         {/* ── 3-way 回遊ナビ (sm+ のみ表示) ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="字幕スーパー (下部テロップ) コントロールへ"
         >
           <Subtitles className="h-3.5 w-3.5" />
@@ -361,7 +361,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="クイズ / アンケートCG コントロールへ"
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -372,8 +372,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
           'flex items-center gap-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all shrink-0',
           'px-2 py-1.5 sm:px-3',
           isLive
-            ? 'bg-red-950/70 text-red-400 border border-red-800/50'
-            : 'bg-slate-800/70 text-slate-300 border border-slate-700/50',
+            ? 'bg-destructive/70 text-destructive border border-destructive/50'
+            : 'bg-card/70 text-muted-foreground border border-border/50',
         )}>
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           <span className="hidden sm:inline">{isLive ? 'ON AIR' : 'STANDBY'}</span>
@@ -384,7 +384,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
           target="_blank"
           rel="noreferrer"
           title={`OA 出力 (${previewLang.toUpperCase()})`}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-card h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
         >
           <ExternalLink className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">出力</span>
@@ -393,7 +393,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除' : '全画面表示'}
-          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
+          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
@@ -406,7 +406,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         {/* PROGRAM (LIVE) — モバイルは max-h で抑えて操作系を優先 / lg+ は flex で残スペースを埋める */}
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-border shrink-0 lg:shrink"
         >
           {event && (
             <div
@@ -446,11 +446,12 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
             className={cn(
               'absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border',
               isLive
-                ? 'bg-red-950/70 border-red-800/60 text-red-400'
-                : 'bg-slate-900/80 border-slate-700/60 text-slate-300',
+                // 黒い映像の上に載るので、面の色の上に載る文字 (-foreground) を使う
+                ? 'bg-destructive border-destructive text-destructive-foreground'
+                : 'bg-background/85 border-border text-foreground',
             )}
           >
-            <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
+            <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-destructive animate-pulse' : 'bg-accent')} />
             {isLive ? `OA · ON AIR (${previewLang.toUpperCase()})` : `OA · ${cue.step.toUpperCase()} (${previewLang.toUpperCase()})`}
           </div>
         </div>
@@ -470,17 +471,17 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
       </div>
 
       {/* ── Bottom: NEXT thumb + Step selection + OneShot style + TAKE ── */}
-      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50">
+      <div className="shrink-0 border-t border-border bg-background/50">
         {/* mobile/tablet (< xl) NEXT info strip */}
-        <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-slate-800/80 bg-black/30">
-          <span className="font-black tracking-widest uppercase text-amber-500 shrink-0">
+        <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-border bg-muted">
+          <span className="font-black tracking-widest uppercase text-warning-strong shrink-0">
             NEXT · {previewLang === 'both' ? 'JA+EN' : previewLang.toUpperCase()}
           </span>
-          <span className="text-slate-200 truncate font-bold">{nextStepDef?.label ?? '—'}</span>
+          <span className="text-foreground truncate font-bold">{nextStepDef?.label ?? '—'}</span>
           {nextCategory && (
             <>
-              <span className="text-slate-400 shrink-0">·</span>
-              <span className="text-slate-400 truncate">{nextCategory.description || nextCategory.name}</span>
+              <span className="text-muted-foreground shrink-0">·</span>
+              <span className="text-muted-foreground truncate">{nextCategory.description || nextCategory.name}</span>
             </>
           )}
         </div>
@@ -489,13 +490,13 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
           <div className="flex flex-col xl:flex-row gap-3">
             {/* NEXT thumbnail (xl+) */}
             <div className="hidden xl:flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
-              <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-warning-strong">
+                <span className="h-1.5 w-1.5 rounded-full bg-warning" />
                 NEXT · 送出予約 ({previewLang.toUpperCase()})
               </div>
               <div
                 ref={nextThumbRef}
-                className="relative w-full aspect-video bg-black rounded border border-slate-800 overflow-hidden"
+                className="relative w-full aspect-video bg-black rounded border border-border overflow-hidden"
               >
                 {event && (
                   <div
@@ -537,12 +538,12 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
             {/* Controls column */}
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-2 text-[10px] font-black tracking-widest uppercase">
-                <span className="text-slate-500">PATTERN</span>
+                <span className="text-muted-foreground">PATTERN</span>
                 <span className={cn(
                   'rounded px-2 py-0.5 border',
                   pattern === 'vote'
-                    ? 'bg-amber-950/40 border-amber-700/60 text-amber-300'
-                    : 'bg-slate-800/40 border-slate-700/50 text-slate-300',
+                    ? 'bg-warning/40 border-warning/60 text-warning-strong'
+                    : 'bg-card/40 border-border/50 text-muted-foreground',
                 )}>
                   {pattern === 'vote' ? (
                     <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />ファイナルピッチ</span>
@@ -555,7 +556,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
               {/* ピックアップ用ボタン (Final Pitch ステップ LIVE 中のみ表示) */}
               {pattern === 'vote' && cue.step === 'final-pitch' && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase shrink-0">PICK</span>
+                  <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase shrink-0">PICK</span>
                   <div className="flex gap-1.5 flex-wrap">
                     {[0, 1, 2, 3].map((idx) => (
                       <button
@@ -564,8 +565,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                         className={cn(
                           'rounded-md border px-3 py-1 text-xs font-bold transition-all',
                           cue.revealPhase === idx
-                            ? 'border-amber-500 bg-amber-900/40 text-amber-300'
-                            : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                            ? 'border-warning bg-warning/40 text-warning-strong'
+                            : 'border-border text-muted-foreground hover:bg-card hover:text-foreground',
                         )}
                       >
                         {idx === 0 ? '3人並び' : `${idx}番をピック`}
@@ -576,8 +577,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
               )}
               {/* 投票No.1決定 (アンケート未紐づけ) は CELEB の No.1 を手動選択 */}
               {voteManualWinner && nextCategory && nextCategory.entries.length > 0 && (
-                <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-2 space-y-1.5">
-                  <div className="text-[11px] font-bold text-amber-300 tracking-wider">No.1 を選択（紙吹雪で発表）</div>
+                <div className="rounded-lg border border-warning/40 bg-warning/20 p-2 space-y-1.5">
+                  <div className="text-[11px] font-bold text-warning-strong tracking-wider">No.1 を選択（紙吹雪で発表）</div>
                   <div className="flex flex-wrap gap-1.5">
                     {nextCategory.entries.map((e) => (
                       <button
@@ -586,8 +587,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                         className={cn(
                           'rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-all',
                           nextWinnerId === e.id
-                            ? 'border-amber-500 bg-amber-900/50 text-amber-200'
-                            : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                            ? 'border-warning bg-warning/50 text-warning-strong'
+                            : 'border-border text-muted-foreground hover:bg-card hover:text-foreground',
                         )}
                       >
                         {e.name}
@@ -595,22 +596,22 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                     ))}
                   </div>
                   {nextWinnerId == null && (
-                    <div className="text-[10px] text-amber-200/60">未選択のときは順位1位を No.1 として発表します</div>
+                    <div className="text-[10px] text-warning-strong">未選択のときは順位1位を No.1 として発表します</div>
                   )}
                 </div>
               )}
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
               {/* v2.9.128: 半透明黒ベースの濃さをライブ調整 (cue で即時配信)。No.1発表系には適用されない。 */}
               <div className="flex items-center gap-3 px-1">
-                <span className="text-[10px] font-black tracking-widest uppercase text-slate-400 shrink-0">黒ベース濃さ</span>
+                <span className="text-[10px] font-black tracking-widest uppercase text-muted-foreground shrink-0">黒ベース濃さ</span>
                 <input
                   type="range" min={0} max={0.95} step={0.05}
                   value={cue.scrimOpacity ?? 0.72}
                   onChange={(e) => sendCue({ scrimOpacity: Number(e.target.value) })}
-                  className="flex-1 accent-slate-200"
+                  className="flex-1 accent-muted-foreground"
                   aria-label="ランキング演出の黒ベースの濃さ"
                 />
-                <span className="text-xs font-bold text-slate-200 tabular-nums w-10 text-right">
+                <span className="text-xs font-bold text-foreground tabular-nums w-10 text-right">
                   {Math.round((cue.scrimOpacity ?? 0.72) * 100)}%
                 </span>
               </div>
@@ -632,50 +633,50 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
   nextCategory: CgCategory | null;
 }) {
   return (
-    <div className="shrink-0 border-b border-slate-800">
+    <div className="shrink-0 border-b border-border">
       <div className={cn(
         'px-3 py-2 transition-all',
-        isLive ? 'bg-red-950/30' : 'bg-slate-900/30',
+        isLive ? 'bg-destructive/30' : 'bg-background/30',
       )}>
         <div className="flex items-center gap-2">
           <span className={cn(
             'text-[9px] font-black tracking-widest',
-            isLive ? 'text-red-400' : 'text-slate-400',
+            isLive ? 'text-destructive' : 'text-muted-foreground',
           )}>
             OA
           </span>
           <span className={cn(
             'text-sm font-black tracking-wider',
-            isLive ? 'text-red-300' : 'text-slate-300',
+            isLive ? 'text-destructive' : 'text-muted-foreground',
           )}>
             {liveStep?.label ?? '—'}
           </span>
-          <span className="text-xs text-slate-400">{liveStep?.desc}</span>
+          <span className="text-xs text-muted-foreground">{liveStep?.desc}</span>
         </div>
         {liveCategory && (
           <div className="flex items-center gap-1.5 mt-1">
-            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
-            <span className="text-xs text-amber-400 font-semibold truncate">{liveCategory.name}</span>
+            <Tv className="h-3 w-3 text-warning-strong shrink-0" />
+            <span className="text-xs text-warning-strong font-semibold truncate">{liveCategory.name}</span>
             {liveCategory.description && (
-              <span className="text-xs text-slate-300 truncate">/ {liveCategory.description}</span>
+              <span className="text-xs text-muted-foreground truncate">/ {liveCategory.description}</span>
             )}
           </div>
         )}
       </div>
-      <div className="px-3 py-2 bg-amber-950/20 border-t border-slate-800">
+      <div className="px-3 py-2 bg-warning/20 border-t border-border">
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-black tracking-widest text-amber-500">NEXT</span>
-          <span className="text-sm font-black tracking-wider text-amber-300">
+          <span className="text-[9px] font-black tracking-widest text-warning-strong">NEXT</span>
+          <span className="text-sm font-black tracking-wider text-warning-strong">
             {nextStep?.label ?? '—'}
           </span>
-          <span className="text-xs text-slate-400">{nextStep?.desc}</span>
+          <span className="text-xs text-muted-foreground">{nextStep?.desc}</span>
         </div>
         {nextCategory && (
           <div className="flex items-center gap-1.5 mt-1">
-            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
-            <span className="text-xs text-amber-400 font-semibold truncate">{nextCategory.name}</span>
+            <Tv className="h-3 w-3 text-warning-strong shrink-0" />
+            <span className="text-xs text-warning-strong font-semibold truncate">{nextCategory.name}</span>
             {nextCategory.description && (
-              <span className="text-xs text-slate-300 truncate">/ {nextCategory.description}</span>
+              <span className="text-xs text-muted-foreground truncate">/ {nextCategory.description}</span>
             )}
           </div>
         )}
@@ -692,15 +693,15 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }
   onSelect: (catId: number) => void;
 }) {
   if (!awardGroups.length) return (
-    <div className="text-xs text-slate-400 text-center py-6">カテゴリなし</div>
+    <div className="text-xs text-muted-foreground text-center py-6">カテゴリなし</div>
   );
   return (
     <div className="space-y-3">
       {awardGroups.map((g) => (
         <div key={g.name}>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
-            <span className="text-[11px] font-bold text-amber-500 tracking-wide">{g.name}</span>
+            <Tv className="h-3 w-3 text-warning-strong shrink-0" />
+            <span className="text-[11px] font-bold text-warning-strong tracking-wide">{g.name}</span>
           </div>
           <div className="flex flex-col gap-1 pl-4">
             {g.divisions.map((cat) => {
@@ -713,15 +714,15 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }
                   className={cn(
                     'w-full text-left rounded-md px-3 py-2 text-xs font-semibold transition-all border flex items-center gap-2',
                     isNext
-                      ? 'bg-amber-500 border-amber-400 text-slate-950'
-                      : 'bg-slate-800/60 border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:border-slate-600',
+                      ? 'bg-warning border-warning text-foreground'
+                      : 'bg-card/60 border-border/50 text-muted-foreground hover:bg-muted hover:border-border',
                   )}
                 >
                   <span className="flex-1 truncate">{cat.description || cat.name}</span>
                   {isLiveCat && (
                     <span className={cn(
                       'shrink-0 text-[9px] font-black tracking-widest uppercase rounded px-1 py-0.5',
-                      isNext ? 'bg-red-700 text-white' : 'bg-red-950/60 text-red-300 border border-red-800/50',
+                      isNext ? 'bg-destructive text-white' : 'bg-destructive/60 text-destructive border border-destructive/50',
                     )}>
                       LIVE
                     </span>
@@ -756,23 +757,23 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             onClick={() => onSelect(step)}
             className={cn(
               'relative flex flex-col items-start rounded-lg border px-2 sm:px-3 py-2 sm:py-2.5 text-left transition-all min-h-[52px] sm:min-h-[60px]',
-              isNext && color === 'live'    && 'border-amber-500 bg-amber-950/40 ring-1 ring-amber-700/40',
-              isNext && color === 'award'   && 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40',
-              isNext && color === 'neutral' && 'border-amber-500 bg-amber-950/30 ring-1 ring-amber-700/40',
-              !isNext && 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700',
+              isNext && color === 'live'    && 'border-warning bg-warning/40 ring-1 ring-warning/40',
+              isNext && color === 'award'   && 'border-warning bg-warning/50 ring-1 ring-warning/40',
+              isNext && color === 'neutral' && 'border-warning bg-warning/30 ring-1 ring-warning/40',
+              !isNext && 'border-border bg-background/40 hover:bg-card hover:border-border',
             )}
           >
             <span className={cn(
               'text-[11px] sm:text-xs font-black tracking-wider leading-none',
-              isNext ? 'text-amber-300' : 'text-slate-200',
+              isNext ? 'text-warning-strong' : 'text-foreground',
             )}>
               {label}
             </span>
-            <span className="text-[10px] sm:text-[11px] font-medium text-slate-300 mt-1 sm:mt-1.5 leading-tight">{desc}</span>
+            <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground mt-1 sm:mt-1.5 leading-tight">{desc}</span>
             {isLiveStep && (
               <span className={cn(
                 'absolute top-1 left-1.5 sm:top-1.5 sm:left-2 text-[8px] sm:text-[9px] font-black tracking-widest rounded px-1 py-0.5',
-                isNext ? 'bg-red-700 text-white' : 'bg-red-950/70 text-red-300 border border-red-800/50',
+                isNext ? 'bg-destructive text-white' : 'bg-destructive/70 text-destructive border border-destructive/50',
               )}>
                 LIVE
               </span>
@@ -793,7 +794,7 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
+      <span className="text-xs text-muted-foreground font-bold tracking-widest uppercase shrink-0">Style</span>
       <div className="flex gap-2 flex-wrap">
         {styles.map(({ style, label }) => {
           const isNext = nextStyle === style;
@@ -805,15 +806,15 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
               className={cn(
                 'rounded-md border px-3.5 py-2 text-xs font-bold transition-all relative min-h-[36px]',
                 isNext
-                  ? 'border-amber-500 bg-amber-900/30 text-amber-300'
-                  : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                  ? 'border-warning bg-warning/30 text-warning-strong'
+                  : 'border-border text-muted-foreground hover:bg-card hover:text-foreground',
               )}
             >
               {label}
               {isLiveStyle && (
                 <span className={cn(
                   'absolute -top-1.5 -right-1.5 text-[9px] font-black tracking-widest rounded px-1 py-0.5',
-                  isNext ? 'bg-red-700 text-white' : 'bg-red-950/80 text-red-300 border border-red-800/50',
+                  isNext ? 'bg-destructive text-white' : 'bg-destructive/80 text-destructive border border-destructive/50',
                 )}>
                   LIVE
                 </span>
@@ -836,7 +837,7 @@ function SendActionRow({ isLive, onTake, onClear }: {
     <div className="flex items-center gap-2">
       <button
         onClick={onTake}
-        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors shadow-lg shadow-red-900/40"
+        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-destructive hover:bg-destructive/90 text-white px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors shadow-lg"
       >
         <Send className="h-5 w-5" />
         TAKE
@@ -847,8 +848,8 @@ function SendActionRow({ isLive, onTake, onClear }: {
         className={cn(
           'flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors',
           isLive
-            ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
-            : 'bg-slate-900/40 text-slate-500 cursor-not-allowed',
+            ? 'bg-muted hover:bg-accent text-foreground'
+            : 'bg-background/40 text-muted-foreground cursor-not-allowed',
         )}
         title="ON AIR を停止して IDLE に戻す"
       >
@@ -870,7 +871,7 @@ function LangPicker({ value, onChange }: {
     { v: 'both', label: 'JA/EN' },
   ];
   return (
-    <div className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900/50 p-0.5 text-[10px] font-black tracking-widest" role="group" aria-label="プレビュー言語">
+    <div className="flex items-center rounded-lg border border-border/60 bg-background/50 p-0.5 text-[10px] font-black tracking-widest" role="group" aria-label="プレビュー言語">
       {opts.map(({ v, label }) => (
         <button
           key={v}
@@ -878,8 +879,8 @@ function LangPicker({ value, onChange }: {
           className={cn(
             'px-2 py-1 rounded-md transition-colors',
             value === v
-              ? 'bg-amber-500 text-slate-950'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-slate-300',
+              ? 'bg-warning text-foreground'
+              : 'text-muted-foreground hover:bg-card hover:text-muted-foreground',
           )}
           aria-pressed={value === v}
         >

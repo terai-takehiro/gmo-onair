@@ -58,6 +58,7 @@ import {
   type GlsDialogState,
   type LostDialogState,
 } from './projectForm/types';
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 export default function ProjectFormPage() {
   const { id } = useParams();
@@ -660,9 +661,9 @@ export default function ProjectFormPage() {
               <span className="text-[12px] text-secondary-foreground">担当 {project.assigned_to_name}</span>
             )}
           </div>
-          <h1 className="mt-1 text-xl font-bold text-foreground sm:text-2xl [overflow-wrap:anywhere]">
+          <PageTitle className="mt-1 [overflow-wrap:anywhere]">
             {isEdit ? (watch("name") || project?.name || "案件") : "新しい案件"}
-          </h1>
+          </PageTitle>
           {isEdit && (
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-secondary-foreground">
               {project?.customer_name && <span>{project.customer_name}</span>}

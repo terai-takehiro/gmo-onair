@@ -145,7 +145,7 @@ export default function RentalCategoryPage() {
                     autoFocus
                   />
                   <button
-                    className="p-1 rounded hover:bg-muted text-green-600"
+                    className="p-1 rounded hover:bg-muted text-success"
                     onClick={confirmEdit}
                     disabled={updateMutation.isPending}
                   >

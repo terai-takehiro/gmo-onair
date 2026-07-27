@@ -29,13 +29,13 @@ function ApiTestRow({ platform, note }: { platform: TestPlatform; note?: string 
     }
   };
 
-  const icon = result?.status === 'ok' ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+  const icon = result?.status === 'ok' ? <CheckCircle className="h-4 w-4 text-success shrink-0" />
     : result?.status === 'error' ? <XCircle className="h-4 w-4 text-destructive shrink-0" />
-    : result ? <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+    : result ? <AlertTriangle className="h-4 w-4 text-warning-strong shrink-0" />
     : null;
-  const textColor = result?.status === 'ok' ? 'text-green-700 dark:text-green-500'
+  const textColor = result?.status === 'ok' ? 'text-success dark:text-success'
     : result?.status === 'error' ? 'text-destructive'
-    : 'text-amber-600';
+    : 'text-warning-strong';
 
   return (
     <div className="space-y-1.5 pt-1">
@@ -49,9 +49,9 @@ function ApiTestRow({ platform, note }: { platform: TestPlatform; note?: string 
       </div>
       {result && (
         <div className={`flex items-start gap-1.5 rounded-md border p-2 text-xs ${
-          result.status === 'ok' ? 'border-green-600/30 bg-green-600/5'
+          result.status === 'ok' ? 'border-success/30 bg-success/5'
           : result.status === 'error' ? 'border-destructive/30 bg-destructive/5'
-          : 'border-amber-500/30 bg-amber-500/5'
+          : 'border-warning/30 bg-warning/5'
         }`} role="status">
           {icon}
           <div className="min-w-0">
@@ -213,10 +213,10 @@ export default function SettingsPage() {
                 </Button>
               </div>
               {settings?.hasOwnYoutubeKey && (
-                <p className="text-xs text-green-600">設定済み ({settings.youtubeApiKeyMasked})</p>
+                <p className="text-xs text-success">設定済み ({settings.youtubeApiKeyMasked})</p>
               )}
               {!settings?.hasOwnYoutubeKey && settings?.hasYoutubeKey && (
-                <p className="text-xs text-amber-600">他ユーザーのキーを共有利用中 (自分のキーを設定すると優先されます)</p>
+                <p className="text-xs text-warning-strong">他ユーザーのキーを共有利用中 (自分のキーを設定すると優先されます)</p>
               )}
               <ApiGuide
                 title="YouTube APIキーの取得方法"
@@ -244,10 +244,10 @@ export default function SettingsPage() {
                 </Button>
               </div>
               {settings?.hasOwnJstreamToken && (
-                <p className="text-xs text-green-600">設定済み ({settings.jstreamTokenMasked})</p>
+                <p className="text-xs text-success">設定済み ({settings.jstreamTokenMasked})</p>
               )}
               {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
-                <p className="text-xs text-amber-600">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
+                <p className="text-xs text-warning-strong">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
               )}
               <ApiGuide
                 title="Jstream トークンの取得方法"
@@ -269,10 +269,10 @@ export default function SettingsPage() {
               </p>
             </div>
             {settings?.hasOwnZoomCredentials && (
-              <p className="text-xs text-green-600">設定済み</p>
+              <p className="text-xs text-success">設定済み</p>
             )}
             {!settings?.hasOwnZoomCredentials && settings?.hasZoomCredentials && (
-              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+              <p className="text-xs text-warning-strong">他ユーザーの資格情報を共有利用中</p>
             )}
             <div className="space-y-1.5">
               <Label>Account ID</Label>
@@ -327,10 +327,10 @@ export default function SettingsPage() {
               </p>
             </div>
             {settings?.hasOwnTeamsCredentials && (
-              <p className="text-xs text-green-600">設定済み</p>
+              <p className="text-xs text-success">設定済み</p>
             )}
             {!settings?.hasOwnTeamsCredentials && settings?.hasTeamsCredentials && (
-              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+              <p className="text-xs text-warning-strong">他ユーザーの資格情報を共有利用中</p>
             )}
             <div className="space-y-1.5">
               <Label>Tenant ID</Label>

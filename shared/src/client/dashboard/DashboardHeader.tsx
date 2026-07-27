@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../utils";
+import { PageTitle } from "../ui/numbers";
 
 /**
  * DashboardHeader — ページ最上部の見出しエリア
@@ -32,7 +33,12 @@ export function DashboardHeader({
   return (
     <header className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)} {...rest}>
       <div className="min-w-0 flex-1">
-        <h1 className="heading-page text-xl sm:text-2xl text-foreground">{title}</h1>
+        {/*
+          見出しは `PageTitle` に寄せる (v2.9.297)。ここは `sm:text-2xl`、
+          `PageTitle` は `lg:text-2xl` だったため、**同じ画面で見出しが2段になる**
+          ことがあった (v2.9.288 で `/finance/import` で実際に起きていた)。
+        */}
+        <PageTitle>{title}</PageTitle>
         {description ? (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         ) : null}

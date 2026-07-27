@@ -50,10 +50,10 @@ const STEP_LABELS: Record<QuizStep, string> = {
 
 // 演出パターンの表示 (operator UI のバッジ用)
 function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
-  if (mode === 'quiz') return { label: '正解発表', color: 'bg-blue-900/40 text-blue-300 border-blue-700/50' };
+  if (mode === 'quiz') return { label: '正解発表', color: 'bg-primary/40 text-primary-foreground border-primary/50' };
   const pattern = surveyPattern ?? 'top-reveal';
-  if (pattern === 'answer-check') return { label: 'アンサーチェック', color: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50' };
-  return { label: 'No.1 → ランキングCG', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
+  if (pattern === 'answer-check') return { label: 'アンサーチェック', color: 'bg-success/40 text-success border-success/50' };
+  return { label: 'No.1 → ランキングCG', color: 'bg-warning/40 text-warning-strong border-warning/50' };
 }
 
 export default function QuizStackControlPage({ embedded = false }: { embedded?: boolean } = {}) {
@@ -237,28 +237,28 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
   const totalVotes = useMemo(() => Object.values(voteEdits).reduce((s, v) => s + (v || 0), 0), [voteEdits]);
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+    <div className="h-full flex flex-col bg-background text-foreground overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
       {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
       {!embedded && (
-      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
+      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-border">
         <button
           onClick={() => navigate(`/event/${eventId}/quiz`)}
           title="クイズ / アンケート一覧へ戻る"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card hover:bg-muted transition-colors"
         >
-          <ChevronLeft className="h-4 w-4 text-slate-300" />
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
-          <HelpCircle className="h-4 w-4 text-purple-400" />
-          <span className="hidden sm:inline text-sm font-black text-slate-200 tracking-wider">クイズ / アンケートCG</span>
+          <HelpCircle className="h-4 w-4 text-primary" />
+          <span className="hidden sm:inline text-sm font-black text-foreground tracking-wider">クイズ / アンケートCG</span>
         </div>
         <div className="flex-1" />
         {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / 字幕スーパー へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="リアルタイムCG (ランキング演出) コントロールへ"
         >
           <Tv className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="字幕スーパー (下部テロップ) コントロールへ"
         >
           <Subtitles className="h-3.5 w-3.5" />
@@ -275,8 +275,8 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         <div className={cn(
           'flex items-center gap-1.5 px-2 py-1.5 sm:px-3 rounded-full text-xs font-black tracking-widest uppercase shrink-0',
           cue.step !== 'idle'
-            ? 'bg-red-950/70 text-red-300 border border-red-700/60'
-            : 'bg-slate-800/70 text-slate-200 border border-slate-600/50',
+            ? 'bg-destructive/70 text-destructive border border-destructive/60'
+            : 'bg-card/70 text-foreground border border-border/50',
         )}>
           <Radio className={cn('h-3 w-3', cue.step !== 'idle' && 'animate-pulse')} />
           <span className="hidden sm:inline">{cue.step !== 'idle' ? 'ON AIR' : 'STANDBY'}</span>
@@ -286,7 +286,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           target="_blank"
           rel="noreferrer"
           title="OA 出力 (JA)"
-          className="flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-2 sm:px-3 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
+          className="flex items-center gap-1 rounded-lg bg-card px-2 py-2 sm:px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
         >
           <ExternalLink className="h-3.5 w-3.5" />JA
         </a>
@@ -295,7 +295,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           target="_blank"
           rel="noreferrer"
           title="OA 出力 (EN)"
-          className="flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-2 sm:px-3 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
+          className="flex items-center gap-1 rounded-lg bg-card px-2 py-2 sm:px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
         >
           <ExternalLink className="h-3.5 w-3.5" />EN
         </a>
@@ -305,7 +305,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         {/* PROGRAM プレビュー */}
         <div ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink">
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-border shrink-0 lg:shrink">
           {currentQuiz && (
             <div style={{
               position: 'absolute',
@@ -332,15 +332,16 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           <div className={cn(
             'absolute top-2 left-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-black tracking-widest uppercase border',
             cue.step !== 'idle'
-              ? 'bg-red-950/80 border-red-700/60 text-red-200'
-              : 'bg-slate-900/80 border-slate-700/60 text-slate-200',
+              // 黒い映像の上に載るので、面の色の上に載る文字 (-foreground) を使う
+              ? 'bg-destructive border-destructive text-destructive-foreground'
+              : 'bg-background/85 border-border text-foreground',
           )}>
-            <span className={cn(cue.step !== 'idle' ? 'text-red-400' : 'text-slate-400')}>
+            <span className={cn(cue.step !== 'idle' ? 'text-destructive' : 'text-muted-foreground')}>
               {cue.step !== 'idle' ? '● OA' : 'OA'}
             </span>
-            <span className="text-slate-100">{currentQuiz ? quizStackLabel(currentQuiz) : '(未選択)'}</span>
-            <span className="text-slate-400">·</span>
-            <span className="text-amber-300">{STEP_LABELS[cue.step]}</span>
+            <span className="text-foreground">{currentQuiz ? quizStackLabel(currentQuiz) : '(未選択)'}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-warning-strong">{STEP_LABELS[cue.step]}</span>
           </div>
         </div>
 
@@ -352,26 +353,26 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
             <div className={cn(
               'rounded-lg border-2 p-4 space-y-2',
               cue.step !== 'idle'
-                ? 'border-red-600/60 bg-red-950/30'
-                : 'border-slate-700 bg-slate-900/40',
+                ? 'border-destructive/60 bg-destructive/30'
+                : 'border-border bg-background/40',
             )}>
               <div className="flex items-center gap-2">
                 <div className={cn(
                   'text-xs font-black tracking-widest px-2 py-0.5 rounded',
-                  cue.step !== 'idle' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-200',
+                  cue.step !== 'idle' ? 'bg-destructive text-white' : 'bg-muted text-foreground',
                 )}>
                   {cue.step !== 'idle' ? '● ON AIR' : 'PROGRAM'}
                 </div>
-                <div className="text-xs font-bold tracking-widest text-slate-300 uppercase">
+                <div className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
                   {STEP_LABELS[cue.step]}
                 </div>
               </div>
-              <div className="text-xl font-black text-slate-50 leading-tight break-words">
+              <div className="text-xl font-black text-foreground leading-tight break-words">
                 {currentQuiz ? quizStackLabel(currentQuiz) : '(未選択)'}
               </div>
               {currentQuiz && (
                 <>
-                  <div className="text-sm text-slate-300">
+                  <div className="text-sm text-muted-foreground">
                     {currentQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
                     {' · '}{currentQuiz.choice_count} 択 / {currentQuiz.countdown_seconds} 秒
                   </div>
@@ -386,7 +387,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                       );
                     })()}
                     {currentQuiz.has_answer_check && (
-                      <span className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[11px] font-bold text-slate-300">
+                      <span className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                         + アンサーチェック前段
                       </span>
                     )}
@@ -396,17 +397,17 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
             </div>
 
             {/* NEXT (次に送出) — 大きく見やすく */}
-            <div className="rounded-lg border-2 border-amber-600/60 bg-amber-950/20 p-4 space-y-2">
+            <div className="rounded-lg border-2 border-warning/60 bg-warning/20 p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <div className="text-xs font-black tracking-widest px-2 py-0.5 rounded bg-amber-600 text-slate-950">
+                <div className="text-xs font-black tracking-widest px-2 py-0.5 rounded bg-warning text-foreground">
                   <IconRight className="inline h-3 w-3 -mt-0.5 mr-0.5" />NEXT
                 </div>
-                <div className="text-xs font-bold tracking-widest text-amber-300 uppercase">送出予約</div>
+                <div className="text-xs font-bold tracking-widest text-warning-strong uppercase">送出予約</div>
               </div>
               <select
                 value={nextQuizId ?? ''}
                 onChange={(e) => setNextQuizId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full rounded-lg border border-amber-700/40 bg-slate-900 px-3 py-2 text-base font-bold text-slate-50"
+                className="w-full rounded-lg border border-warning/40 bg-background px-3 py-2 text-base font-bold text-foreground"
               >
                 <option value="">(選択なし)</option>
                 {quizzes.map((q, i) => (
@@ -414,7 +415,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                 ))}
               </select>
               {nextQuiz && (
-                <div className="text-sm text-amber-200/80">
+                <div className="text-sm text-warning-strong">
                   {nextQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
                   {' · '}{nextQuiz.choice_count} 択 / {nextQuiz.countdown_seconds} 秒
                 </div>
@@ -426,8 +427,8 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                 className={cn(
                   'w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors',
                   cue.step === 'idle' && nextQuiz && nextQuiz.id !== cue.currentQuizId
-                    ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-900/30'
-                    : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+                    ? 'bg-warning hover:bg-warning/90 text-foreground shadow-md'
+                    : 'bg-card/60 text-muted-foreground cursor-not-allowed'
                 )}
                 title={
                   cue.step !== 'idle'
@@ -441,20 +442,20 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
               >
                 決定 (NEXT を仕込む)
               </button>
-              <p className="text-[11px] text-amber-200/60 leading-tight">
+              <p className="text-[11px] text-warning-strong leading-tight">
                 何もしなければ表示順で自動進行。CLEAR な状態で 決定 を押すと、選択中のクイズを次の PROGRAM として仕込めます。
               </p>
             </div>
 
             {/* 投票数 (PROGRAM) */}
             {currentQuiz && (
-              <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 space-y-2">
+              <div className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-black tracking-widest text-slate-200">投票/回答数</div>
-                  <div className="text-sm text-slate-400">合計 <span className="font-bold text-slate-100">{totalVotes.toLocaleString()}</span> {currentQuiz.display === 'percent' ? '' : '票'}</div>
+                  <div className="text-sm font-black tracking-widest text-foreground">投票/回答数</div>
+                  <div className="text-sm text-muted-foreground">合計 <span className="font-bold text-foreground">{totalVotes.toLocaleString()}</span> {currentQuiz.display === 'percent' ? '' : '票'}</div>
                 </div>
                 {isLinked && (
-                  <div className="flex items-center gap-1.5 rounded-md bg-cyan-900/40 border border-cyan-700/50 px-2 py-1.5 text-xs font-bold text-cyan-300">
+                  <div className="flex items-center gap-1.5 rounded-md bg-info/40 border border-info/50 px-2 py-1.5 text-xs font-bold text-info">
                     <Radio className={cn('h-3 w-3', liveActive && 'animate-pulse')} />
                     インタラクティブ連動中{liveActive ? '（リアルタイム反映）' : '（出題待ち）'}・手入力は無効
                   </div>
@@ -463,8 +464,8 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                   const v = voteEdits[c.position] ?? 0;
                   return (
                     <div key={c.id} className="flex items-center gap-2 text-sm">
-                      <div className="shrink-0 w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-black text-white">{c.position}</div>
-                      <div className="flex-1 min-w-0 truncate text-slate-100 font-semibold">{c.name || `選択肢${c.position}`}</div>
+                      <div className="shrink-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-black text-white">{c.position}</div>
+                      <div className="flex-1 min-w-0 truncate text-foreground font-semibold">{c.name || `選択肢${c.position}`}</div>
                       <input type="text" inputMode="numeric" value={String(v)}
                         readOnly={isLinked}
                         onChange={(e) => {
@@ -475,15 +476,15 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                         }}
                         onFocus={(e) => { if (!isLinked) e.target.select(); }}
                         className={cn(
-                          'w-24 rounded border border-slate-700 px-2 py-1.5 text-right text-base font-bold text-slate-50',
-                          isLinked ? 'bg-slate-800/60 cursor-not-allowed text-cyan-200' : 'bg-slate-900'
+                          'w-24 rounded border border-border px-2 py-1.5 text-right text-base font-bold text-foreground',
+                          isLinked ? 'bg-card/60 cursor-not-allowed text-info' : 'bg-background'
                         )}/>
                     </div>
                   );
                 })}
                 {!isLinked && (
                   <button onClick={() => sendCue({ votes: voteEdits })}
-                    className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 px-3 py-2 text-sm font-black text-slate-950">
+                    className="w-full rounded-lg bg-warning hover:bg-warning/90 px-3 py-2 text-sm font-black text-foreground">
                     投票数を保存 (送出に反映)
                   </button>
                 )}
@@ -492,14 +493,14 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           </div>
 
           {/* 下部: 次の TAKE 内容 + TAKE / CLEAR */}
-          <div className="shrink-0 border-t-2 border-slate-700 bg-slate-900/70 p-4 space-y-3">
-            <div className="rounded-lg bg-slate-950/60 border border-slate-700 px-3 py-2">
-              <div className="text-[10px] font-black tracking-widest text-slate-400 mb-0.5">次の TAKE で →</div>
-              <div className="text-base font-black text-amber-300 leading-tight break-words">{nextLabel}</div>
+          <div className="shrink-0 border-t-2 border-border bg-background/70 p-4 space-y-3">
+            <div className="rounded-lg bg-background/60 border border-border px-3 py-2">
+              <div className="text-[10px] font-black tracking-widest text-muted-foreground mb-0.5">次の TAKE で →</div>
+              <div className="text-base font-black text-warning-strong leading-tight break-words">{nextLabel}</div>
             </div>
             <div className="flex gap-2">
               <button onClick={take}
-                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-4 text-lg font-black tracking-widest shadow-lg shadow-red-900/40">
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-destructive hover:bg-destructive/90 text-white px-4 py-4 text-lg font-black tracking-widest shadow-lg">
                 <Send className="h-5 w-5" />TAKE
               </button>
               <button onClick={clear}
@@ -507,8 +508,8 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
                 className={cn(
                   'flex items-center justify-center gap-2 rounded-lg px-4 py-4 text-base font-black tracking-widest',
                   cue.step !== 'idle'
-                    ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
-                    : 'bg-slate-900/40 text-slate-500 cursor-not-allowed',
+                    ? 'bg-muted hover:bg-accent text-foreground'
+                    : 'bg-background/40 text-muted-foreground cursor-not-allowed',
                 )}>
                 <X className="h-5 w-5" />CLEAR
               </button>

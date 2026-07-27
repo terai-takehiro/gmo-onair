@@ -431,7 +431,7 @@ export default function OnAirPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-destructive" />
       </div>
     );
   }
@@ -461,12 +461,12 @@ export default function OnAirPage() {
           </button>
           <span className="text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>
           {running && !paused && (
-            <span className="ml-2 text-sm font-black tracking-[0.2em] text-red-500 flex items-center gap-1.5">
+            <span className="ml-2 text-sm font-black tracking-[0.2em] text-destructive flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
               ON AIR
             </span>
           )}
-          {paused && <span className="ml-2 text-sm font-black tracking-wider text-warning">PAUSE</span>}
+          {paused && <span className="ml-2 text-sm font-black tracking-wider text-warning-strong">PAUSE</span>}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm font-bold text-muted-foreground hidden lg:flex gap-6">
@@ -539,7 +539,7 @@ export default function OnAirPage() {
                           NEXT
                         </span>
                       )}
-                      <span className={`text-xl font-black truncate ${cm ? "text-warning" : isCur ? "text-foreground" : "text-foreground"}`}>
+                      <span className={`text-xl font-black truncate ${cm ? "text-warning-strong" : isCur ? "text-foreground" : "text-foreground"}`}>
                         {c.label}
                       </span>
                     </div>
@@ -593,7 +593,7 @@ export default function OnAirPage() {
                 </div>
                 <button
                   onClick={go}
-                  className="px-14 py-5 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-2xl font-black rounded-xl transition-all active:scale-95"
+                  className="px-14 py-5 bg-destructive hover:bg-destructive/90/90 text-destructive-foreground text-2xl font-black rounded-xl transition-all active:scale-95"
                   style={{ boxShadow: "0 0 60px rgba(220,38,38,0.5)" }}
                 >
                   <span className="flex items-center gap-3">
@@ -685,7 +685,7 @@ export default function OnAirPage() {
                           {oaFmt(nc.oa)}
                         </F>
                       </div>
-                      <div className={`text-xl font-black ${nc.type === "cm" ? "text-warning" : "text-foreground"}`}>{nc.label}</div>
+                      <div className={`text-xl font-black ${nc.type === "cm" ? "text-warning-strong" : "text-foreground"}`}>{nc.label}</div>
                       <F size={18} weight={700} color="#ccc" className="mt-1 block">
                         {mm(nc.duration)}
                       </F>
@@ -702,7 +702,7 @@ export default function OnAirPage() {
                     onClick={tog}
                     title={paused ? "計時を再開" : "計時を一時停止"}
                     aria-label={paused ? "計時を再開" : "計時を一時停止"}
-                    className={`p-4 rounded-lg transition-all active:scale-90 text-foreground font-bold ${paused ? "bg-success hover:bg-success/90" : "bg-warning hover:bg-warning/90"}`}
+                    className={`p-4 rounded-lg transition-all active:scale-90 text-foreground font-bold ${paused ? "bg-success hover:bg-success/90/90" : "bg-warning hover:bg-warning/90/90"}`}
                   >
                     {paused ? <Play size={26} /> : <Pause size={26} />}
                   </button>
@@ -710,7 +710,7 @@ export default function OnAirPage() {
                     onClick={next}
                     title="次のキューへ"
                     aria-label="次のキューへ"
-                    className="p-4 rounded-lg bg-destructive hover:bg-destructive/90 text-foreground font-bold transition-all active:scale-90"
+                    className="p-4 rounded-lg bg-destructive hover:bg-destructive/90/90 text-foreground font-bold transition-all active:scale-90"
                     style={{ boxShadow: "0 0 30px rgba(220,38,38,0.4)" }}
                   >
                     <SkipForward size={26} />

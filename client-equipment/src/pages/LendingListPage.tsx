@@ -213,7 +213,7 @@ export default function LendingListPage() {
           {lendings.map((l: any) => {
             const isOverdue = l.status === "lent" && l.due_date && l.due_date < today;
             return (
-              <Card key={l.id} className={isOverdue ? "border-amber-300" : ""}>
+              <Card key={l.id} className={isOverdue ? "border-warning" : ""}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -226,7 +226,7 @@ export default function LendingListPage() {
                       <div className="mt-1 flex items-center gap-2 flex-wrap">
                         <Badge
                           variant={l.status === "lent" ? "default" : "secondary"}
-                          className={isOverdue ? "bg-amber-500" : ""}
+                          className={isOverdue ? "bg-warning" : ""}
                         >
                           {l.status === "lent" ? (isOverdue ? "返却遅延" : "貸出中") : "返却済"}
                         </Badge>
@@ -346,12 +346,12 @@ export default function LendingListPage() {
                             <div className="mt-0.5 text-xs text-muted-foreground truncate">{item.location_name}</div>
                           )}
                           {(childrenMap.get(item.id)?.length ?? 0) > 0 && (
-                            <div className="mt-1 text-xs text-primary/70 font-medium">
+                            <div className="mt-1 text-xs text-primary font-medium">
                               付属品 {childrenMap.get(item.id)!.length}点含む
                             </div>
                           )}
                           {isLent && (
-                            <div className="mt-1 text-xs font-medium text-amber-600">貸出中</div>
+                            <div className="mt-1 text-xs font-medium text-warning-strong">貸出中</div>
                           )}
                         </button>
                       );
@@ -370,7 +370,7 @@ export default function LendingListPage() {
                         className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium"
                       >
                         {item.name}{item.unit_number != null ? ` No.${item.unit_number}` : ""}
-                        <button type="button" onClick={() => toggleItem(item)} className="hover:text-primary/70">
+                        <button type="button" onClick={() => toggleItem(item)} className="hover:text-primary">
                           <X className="h-3 w-3" />
                         </button>
                       </span>

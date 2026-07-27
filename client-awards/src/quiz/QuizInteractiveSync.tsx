@@ -58,11 +58,11 @@ export default function QuizInteractiveSync({
 
   return (
     <div className="flex items-center gap-1.5">
-      <Link2 className="h-3.5 w-3.5 text-cyan-600 shrink-0" />
+      <Link2 className="h-3.5 w-3.5 text-info shrink-0" />
       <select
         value={sel}
         onChange={(e) => { setSel(e.target.value); setLink.mutate(e.target.value); }}
-        className="max-w-[180px] rounded border border-cyan-300 bg-white px-1.5 py-1 text-[11px] text-slate-700"
+        className="max-w-[180px] rounded border border-info bg-white px-1.5 py-1 text-[11px] text-muted-foreground"
         title="連携する Interactive 問題"
       >
         <option value="">未連携</option>
@@ -70,19 +70,19 @@ export default function QuizInteractiveSync({
       </select>
       <button
         onClick={() => pull.mutate()} disabled={!sel || pull.isPending}
-        className="flex items-center gap-0.5 rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 px-1.5 py-1 text-[11px] font-semibold text-white"
+        className="flex items-center gap-0.5 rounded bg-info hover:bg-info/90 disabled:opacity-40 px-1.5 py-1 text-[11px] font-semibold text-white"
         title="この問題を Interactive から取込"
       >
         {pull.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}取込
       </button>
       <button
         onClick={() => push.mutate()} disabled={push.isPending}
-        className="flex items-center gap-0.5 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 px-1.5 py-1 text-[11px] font-semibold text-white"
+        className="flex items-center gap-0.5 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 px-1.5 py-1 text-[11px] font-semibold text-white"
         title="この quiz を Interactive へ送信"
       >
         {push.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}送信
       </button>
-      {flash && <span className="text-[10px] text-cyan-700">{flash}</span>}
+      {flash && <span className="text-[10px] text-info">{flash}</span>}
     </div>
   );
 }

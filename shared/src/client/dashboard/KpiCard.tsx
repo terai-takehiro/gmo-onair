@@ -42,7 +42,7 @@ export interface KpiCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
 const emphasisClasses: Record<Emphasis, string> = {
   default:  "text-foreground",
   success:  "text-success",
-  warning:  "text-warning",
+  warning:  "text-warning-strong",
   negative: "text-destructive",
   info:     "text-info",
 };

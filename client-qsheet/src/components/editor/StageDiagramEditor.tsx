@@ -94,7 +94,7 @@ export default function StageDiagramEditor({
   return (
     <div className="space-y-2">
       {/* Stage SVG */}
-      <div className="border rounded bg-slate-50 relative">
+      <div className="border rounded bg-muted relative">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}

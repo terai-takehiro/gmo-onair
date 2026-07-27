@@ -37,8 +37,8 @@ interface BoxBackup {
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   draft:  { label: '準備中', color: 'bg-muted text-muted-foreground' },
-  live:   { label: 'LIVE',   color: 'bg-red-500/10 text-red-600 ring-1 ring-red-500/20' },
-  closed: { label: '終了',   color: 'bg-green-500/10 text-green-700 ring-1 ring-green-500/20' },
+  live:   { label: 'LIVE',   color: 'bg-destructive/10 text-destructive ring-1 ring-destructive/20' },
+  closed: { label: '終了',   color: 'bg-success/10 text-success ring-1 ring-success/20' },
 };
 
 export default function DashboardPage() {
@@ -133,8 +133,8 @@ export default function DashboardPage() {
       {/* v2.9.37: モバイル時のヘッダーをコンパクトに (ラベル/ボタン折り返し回避) */}
       <div className="flex items-center justify-between gap-2 mb-6">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
-            <Tv className="h-5 w-5 text-amber-600" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning/10">
+            <Tv className="h-5 w-5 text-warning-strong" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base sm:text-xl font-bold whitespace-nowrap">リアルタイムCG</h1>
@@ -145,7 +145,7 @@ export default function DashboardPage() {
           {/* BOXから復元: モバイルではアイコンのみ (36×36px)、sm+ でテキスト付き */}
           <button
             onClick={() => setShowBackups((s) => !s)}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 hover:bg-amber-100 transition-colors text-amber-800 font-medium h-9 w-9 sm:w-auto sm:px-3 sm:py-2 sm:text-xs whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-warning/60 bg-warning-surface hover:bg-warning/90-surface transition-colors text-warning-strong font-medium h-9 w-9 sm:w-auto sm:px-3 sm:py-2 sm:text-xs whitespace-nowrap"
             title="BOX バックアップから復元"
           >
             <Archive className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
@@ -154,7 +154,7 @@ export default function DashboardPage() {
           {/* 新規イベント: モバイルでもテキスト残すが whitespace-nowrap で 1 行固定 */}
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors text-white font-medium h-9 sm:h-auto px-3 sm:px-4 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary hover:bg-primary/90/90 transition-colors text-white font-medium h-9 sm:h-auto px-3 sm:px-4 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
           >
             <Plus className="h-4 w-4" />
             <span className="sm:hidden">新規</span>
@@ -165,11 +165,11 @@ export default function DashboardPage() {
 
       {/* ── BOX バックアップ一覧 ──────────────────────────── */}
       {showBackups && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/30 p-4">
+        <div className="mb-4 rounded-xl border border-warning bg-warning-surface/30 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-amber-700" />
-              <span className="text-sm font-medium text-amber-900">BOX バックアップ</span>
+              <Archive className="h-4 w-4 text-warning-strong" />
+              <span className="text-sm font-medium text-warning-strong">BOX バックアップ</span>
             </div>
             <button onClick={() => setShowBackups(false)} className="text-xs text-muted-foreground hover:text-foreground">閉じる</button>
           </div>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-mono text-muted-foreground">#{b.eventId}</span>
                       <span className="font-medium truncate">{b.name}</span>
                       {b.deleted ? (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 ring-1 ring-red-200">削除済み</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-destructive-surface text-destructive ring-1 ring-destructive">削除済み</span>
                       ) : (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">現存</span>
                       )}
@@ -205,7 +205,7 @@ export default function DashboardPage() {
                   {b.deleted && (
                     <button
                       onClick={() => setRestoreNameDraft({ folderId: b.folderId, name: b.name })}
-                      className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
+                      className="flex items-center gap-1 rounded-md bg-warning px-2 py-1 text-xs font-medium text-warning-foreground hover:bg-warning/90"
                     >
                       <RotateCcw className="h-3 w-3" />
                       復元
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                   restoreMutation.mutate(restoreNameDraft);
                 }}
                 disabled={!restoreNameDraft.name.trim() || restoreMutation.isPending}
-                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                className="rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90 disabled:opacity-50"
               >
                 {restoreMutation.isPending ? '復元中…' : '復元する'}
               </button>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">{t.what}</span>
                 {t.uses.length > 0 && (
-                  <span className="mt-1 block text-[11px] text-muted-foreground/80">
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
                     使うもの: {t.uses.join(' / ')}
                   </span>
                 )}
@@ -299,7 +299,7 @@ export default function DashboardPage() {
             ))}
           </div>
           {notReady && (
-            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="mb-3 rounded-lg bg-warning-surface px-3 py-2 text-xs text-warning-strong">
               「{notReady}」は準備中です。いま作れるのは<strong>「アワード」</strong>だけなので、
               アワードに戻しました。
             </p>
@@ -354,8 +354,8 @@ export default function DashboardPage() {
                 className="group flex items-center gap-3 rounded-xl border bg-card p-4 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
                 onClick={() => navigate(`/event/${event.id}`)}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-                  <Tv className="h-5 w-5 text-amber-600" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/10">
+                  <Tv className="h-5 w-5 text-warning-strong" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -369,7 +369,7 @@ export default function DashboardPage() {
                   )}
                   {event.scheduled_at && (
                     <div className="flex items-center gap-1 mt-1">
-                      <Calendar className="h-3 w-3 text-muted-foreground/60" />
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">
                         {new Date(event.scheduled_at).toLocaleDateString('ja-JP')}
                       </span>
@@ -394,12 +394,12 @@ export default function DashboardPage() {
                         deleteMutation.mutate(event.id);
                       }
                     }}
-                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive/70 hover:text-destructive"
+                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive hover:text-destructive"
                     title="削除"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-muted-foreground transition-colors" />
                 </div>
               </div>
             );

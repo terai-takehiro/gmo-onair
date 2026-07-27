@@ -141,14 +141,14 @@ const CG_LABEL_BY_KEY: Record<ImportMappingKey, string> = (() => {
 
 // ── タイプバッジ ──────────────────────────────────────────
 const TYPE_META: Record<ColumnType, { label: string; icon: typeof Type; cls: string }> = {
-  shortText: { label: '短文',     icon: Type,         cls: 'bg-sky-100 text-sky-700 border-sky-300' },
-  longText:  { label: '長文',     icon: FileText,     cls: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
-  list:      { label: 'リスト',   icon: ListChecks,   cls: 'bg-violet-100 text-violet-700 border-violet-300' },
-  date:      { label: '日付',     icon: CalendarDays, cls: 'bg-amber-100 text-amber-700 border-amber-300' },
-  number:    { label: '数値',     icon: Hash,         cls: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
-  id:        { label: 'ID',       icon: Tag,          cls: 'bg-rose-100 text-rose-700 border-rose-300' },
-  url:       { label: 'URL',      icon: Link2,        cls: 'bg-teal-100 text-teal-700 border-teal-300' },
-  empty:     { label: '空',       icon: Inbox,        cls: 'bg-slate-100 text-slate-500 border-slate-300' },
+  shortText: { label: '短文',     icon: Type,         cls: 'bg-info/10 text-info border-info' },
+  longText:  { label: '長文',     icon: FileText,     cls: 'bg-accent text-primary border-primary' },
+  list:      { label: 'リスト',   icon: ListChecks,   cls: 'bg-cat-7/10 text-cat-7 border-cat-7/40' },
+  date:      { label: '日付',     icon: CalendarDays, cls: 'bg-warning-surface text-warning-strong border-warning' },
+  number:    { label: '数値',     icon: Hash,         cls: 'bg-info/10 text-info border-info' },
+  id:        { label: 'ID',       icon: Tag,          cls: 'bg-destructive-surface text-destructive border-destructive' },
+  url:       { label: 'URL',      icon: Link2,        cls: 'bg-info/10 text-info border-info' },
+  empty:     { label: '空',       icon: Inbox,        cls: 'bg-muted text-muted-foreground border-border' },
 };
 
 // ── 列ごとの割当 ──────────────────────────────────────────
@@ -329,16 +329,16 @@ export default function ExcelImportDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:p-4">
-      <div className="w-full max-w-5xl h-[100dvh] sm:max-h-[95vh] sm:h-auto flex flex-col bg-card border border-slate-300 sm:rounded-lg shadow-2xl overflow-hidden">
+      <div className="w-full max-w-5xl h-[100dvh] sm:max-h-[95vh] sm:h-auto flex flex-col bg-card border border-border sm:rounded-lg shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
-          <FileSpreadsheet className="h-5 w-5 text-emerald-600 shrink-0" />
-          <h2 className="text-base font-bold text-slate-900 min-w-0 truncate">
+        <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-border">
+          <FileSpreadsheet className="h-5 w-5 text-success shrink-0" />
+          <h2 className="text-base font-bold text-foreground min-w-0 truncate">
             {isPaste ? (sourceLabel ?? '貼った表を取り込む') : 'Excel インポート'}
-            <span className="ml-2 text-sm text-slate-500 font-normal">列の自動分類 → 確認</span>
+            <span className="ml-2 text-sm text-muted-foreground font-normal">列の自動分類 → 確認</span>
           </h2>
           <div className="flex-1" />
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded hover:bg-slate-100 text-slate-500">
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded hover:bg-muted text-muted-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -370,8 +370,8 @@ export default function ExcelImportDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50">
-          {error && <span className="text-sm text-red-600 break-words"><AlertCircle className="inline h-3.5 w-3.5 mr-1" />{error}</span>}
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-t border-border bg-muted">
+          {error && <span className="text-sm text-destructive break-words"><AlertCircle className="inline h-3.5 w-3.5 mr-1" />{error}</span>}
           <div className="flex-1" />
           {phase === 'preview' && preview && (
             <>
@@ -409,8 +409,8 @@ export default function ExcelImportDialog({
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold',
                   validation.ok
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    ? 'bg-success text-white hover:bg-success/90'
+                    : 'bg-accent text-muted-foreground cursor-not-allowed'
                 )}
               >
                 <Check className="h-4 w-4" />
@@ -432,8 +432,8 @@ export default function ExcelImportDialog({
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold',
                   plan.created + plan.updated > 0
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'bg-slate-300 text-slate-500 cursor-not-allowed',
+                    ? 'bg-success text-white hover:bg-success/90'
+                    : 'bg-accent text-muted-foreground cursor-not-allowed',
                 )}
               >
                 <Check className="h-4 w-4" />
@@ -446,7 +446,7 @@ export default function ExcelImportDialog({
             </>
           )}
           {phase === 'done' && (
-            <button onClick={onClose} className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-bold hover:bg-emerald-500">
+            <button onClick={onClose} className="rounded-md bg-success text-white px-4 py-2 text-sm font-bold hover:bg-success/90">
               閉じる
             </button>
           )}
@@ -467,19 +467,19 @@ function PhaseSelect({
 }: { onPick: (f: File) => void; pending: boolean; error: string | null }) {
   return (
     <div className="p-6 sm:p-10 flex flex-col items-center gap-4">
-      <div className="rounded-full bg-emerald-50 p-4">
-        <FileSpreadsheet className="h-10 w-10 text-emerald-600" />
+      <div className="rounded-full bg-success-surface p-4">
+        <FileSpreadsheet className="h-10 w-10 text-success" />
       </div>
-      <p className="text-base font-bold text-slate-800">Excel ファイルを選択</p>
-      <p className="text-sm text-slate-500 text-center max-w-md">
+      <p className="text-base font-bold text-muted-foreground">Excel ファイルを選択</p>
+      <p className="text-sm text-muted-foreground text-center max-w-md">
         .xlsx / .xls をアップロードします。各列のデータ型を自動分類し、CG 項目への割当を提案します。
         合っていれば確認、違っていればプルダウンで修正できます。
       </p>
       <label className={cn(
         'flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold transition-colors cursor-pointer',
         pending
-          ? 'bg-slate-200 text-slate-500 cursor-wait'
-          : 'bg-emerald-600 text-white hover:bg-emerald-500'
+          ? 'bg-accent text-muted-foreground cursor-wait'
+          : 'bg-success text-white hover:bg-success/90'
       )}>
         <Upload className="h-4 w-4" />
         {pending ? '解析中…' : 'ファイルを選択'}
@@ -492,7 +492,7 @@ function PhaseSelect({
         />
       </label>
       {error && (
-        <div className="text-sm text-red-600 flex items-start gap-1.5">
+        <div className="text-sm text-destructive flex items-start gap-1.5">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> {error}
         </div>
       )}
@@ -521,13 +521,13 @@ function PhasePreview({
   return (
     <div className="p-4 sm:p-6 space-y-4">
       {/* 概要 */}
-      <div className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
-        <Info className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-2 rounded-lg border border-success bg-success-surface px-3 py-2 text-sm">
+        <Info className="h-4 w-4 text-success shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-emerald-900">
+          <div className="font-bold text-success">
             {sourceName ?? file?.name} · {preview.totalRows}行 · {preview.columns.length}列
           </div>
-          <div className="text-xs text-emerald-800/80 mt-0.5">
+          <div className="text-xs text-success mt-0.5">
             列ごとに「自動分類タイプ」と「推奨 CG 項目」を表示しています。違っていればプルダウンで修正してください。
             既知 CG に該当しない列は <strong>そのまま保存</strong> で <code>oneshot_data</code> に格納されます。
           </div>
@@ -536,15 +536,15 @@ function PhasePreview({
 
       {/* 警告バー */}
       {!validation.ok && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm">
+        <div className="rounded-lg border border-destructive bg-destructive-surface px-3 py-2 text-sm">
           {validation.missing.length > 0 && (
-            <div className="text-red-700">
+            <div className="text-destructive">
               <AlertCircle className="inline h-4 w-4 mr-1" />
               必須項目が未割当です: <strong>{validation.missing.map((k) => CG_LABEL_BY_KEY[k]).join(' / ')}</strong>
             </div>
           )}
           {validation.conflicts.length > 0 && (
-            <div className="text-red-700">
+            <div className="text-destructive">
               <AlertCircle className="inline h-4 w-4 mr-1" />
               同じ CG 項目に複数の列が割当てられています: <strong>{validation.conflicts.map((k) => CG_LABEL_BY_KEY[k]).join(' / ')}</strong>
             </div>
@@ -589,9 +589,9 @@ function ColumnCard({
   return (
     <div className={cn(
       'rounded-lg border bg-white p-3 space-y-2',
-      isIgnore ? 'border-slate-200 opacity-60' :
-      isAsIs ? 'border-amber-300' :
-      isSuggested ? 'border-emerald-400' : 'border-sky-400'
+      isIgnore ? 'border-border opacity-60' :
+      isAsIs ? 'border-warning' :
+      isSuggested ? 'border-success' : 'border-info'
     )}>
       {/* 1行目: ヘッダー名 + タイプバッジ */}
       <div className="flex items-center gap-2 min-w-0">
@@ -599,22 +599,22 @@ function ColumnCard({
           <TypeIcon className="h-3 w-3" />
           {meta.label}
         </span>
-        <h4 className="text-sm font-bold text-slate-900 truncate min-w-0 flex-1">{col.header}</h4>
-        <span className="text-[10px] text-slate-500 shrink-0">
+        <h4 className="text-sm font-bold text-foreground truncate min-w-0 flex-1">{col.header}</h4>
+        <span className="text-[10px] text-muted-foreground shrink-0">
           {Math.round(col.filledRatio * 100)}%入力
         </span>
       </div>
 
       {/* サンプル */}
-      <div className="text-xs text-slate-600 break-words min-h-[1.25rem]">
+      <div className="text-xs text-muted-foreground break-words min-h-[1.25rem]">
         {col.samples.length > 0 ? (
           col.samples.map((s, i) => (
-            <span key={i} className="inline-block bg-slate-100 rounded px-1.5 py-0.5 mr-1 mb-1">
+            <span key={i} className="inline-block bg-muted rounded px-1.5 py-0.5 mr-1 mb-1">
               {s.length > 36 ? s.slice(0, 36) + '…' : s}
             </span>
           ))
         ) : (
-          <span className="text-slate-400">(空)</span>
+          <span className="text-muted-foreground">(空)</span>
         )}
       </div>
 
@@ -622,11 +622,11 @@ function ColumnCard({
       {col.suggestedKey && !isSuggested && col.suggestedConfidence !== 'none' && (
         <button
           onClick={() => onChange({ action: 'cg', cgKey: col.suggestedKey! })}
-          className="flex items-center gap-1.5 w-full rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800 hover:bg-emerald-100"
+          className="flex items-center gap-1.5 w-full rounded border border-success bg-success-surface px-2 py-1.5 text-xs text-success hover:bg-success/90-surface"
         >
-          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+          <Sparkles className="h-3.5 w-3.5 text-success" />
           推奨: → <strong>{CG_LABEL_BY_KEY[col.suggestedKey]}</strong>
-          <span className="ml-auto text-[10px] text-emerald-600">
+          <span className="ml-auto text-[10px] text-success">
             {col.suggestedConfidence === 'exact' ? '名前一致' : '類似一致'}
           </span>
         </button>
@@ -667,7 +667,7 @@ function AssignmentPicker({
           else if (v === 'ignore') onChange({ action: 'ignore' });
           else if (v.startsWith('cg:')) onChange({ action: 'cg', cgKey: v.slice(3) as ImportMappingKey });
         }}
-        className="w-full appearance-none rounded border border-slate-300 bg-white px-2.5 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+        className="w-full appearance-none rounded border border-border bg-white px-2.5 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-success/40"
       >
         <option value="asIs">📦 そのまま保存 (oneshot_data.{header})</option>
         <option value="ignore">⊘ 使用しない</option>
@@ -685,7 +685,7 @@ function AssignmentPicker({
           </optgroup>
         ))}
       </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
     </div>
   );
 }
@@ -693,8 +693,8 @@ function AssignmentPicker({
 // ── Phase: 実行中 ────────────────────────────────────────
 function PhaseSpinner({ label }: { label: string }) {
   return (
-    <div className="p-12 flex flex-col items-center gap-3 text-slate-600">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+    <div className="p-12 flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-success border-t-transparent" />
       <div className="text-sm font-bold">{label}</div>
     </div>
   );
@@ -710,10 +710,10 @@ function StatPills({ r }: { r: ImportResult }) {
   );
   return (
     <div className="flex flex-wrap gap-2">
-      {pill('新規', r.created, 'border-emerald-300 bg-emerald-50 text-emerald-700')}
-      {pill('更新', r.updated, 'border-sky-300 bg-sky-50 text-sky-700')}
-      {pill('変更なし', r.unchanged, 'border-slate-300 bg-slate-50 text-slate-500')}
-      {r.skipped > 0 && pill('取込不可', r.skipped, 'border-amber-300 bg-amber-50 text-amber-700')}
+      {pill('新規', r.created, 'border-success bg-success-surface text-success')}
+      {pill('更新', r.updated, 'border-info bg-info/10 text-info')}
+      {pill('変更なし', r.unchanged, 'border-border bg-muted text-muted-foreground')}
+      {r.skipped > 0 && pill('取込不可', r.skipped, 'border-warning bg-warning-surface text-warning-strong')}
     </div>
   );
 }
@@ -722,29 +722,29 @@ function StatPills({ r }: { r: ImportResult }) {
 function ChangesList({ changes }: { changes: EntryChange[] }) {
   if (changes.length === 0) {
     return (
-      <div className="rounded border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+      <div className="rounded border border-dashed border-border bg-muted px-3 py-4 text-center text-sm text-muted-foreground">
         新規・更新はありません (すべて既存と一致)
       </div>
     );
   }
   return (
-    <div className="rounded border border-slate-200 bg-white">
-      <div className="px-3 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+    <div className="rounded border border-border bg-white">
+      <div className="px-3 py-2 border-b border-border text-xs font-bold text-muted-foreground uppercase tracking-wider">
         新規 / 更新 の明細
       </div>
-      <div className="divide-y divide-slate-100 max-h-[34vh] overflow-y-auto">
+      <div className="divide-y divide-border max-h-[34vh] overflow-y-auto">
         {changes.map((c, i) => (
           <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
             <span className={cn(
               'shrink-0 text-[10px] font-black rounded px-1.5 py-0.5',
-              c.kind === 'created' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700',
+              c.kind === 'created' ? 'bg-success-surface text-success' : 'bg-info/10 text-info',
             )}>
               {c.kind === 'created' ? '新規' : '更新'}
             </span>
-            <span className="text-[10px] text-slate-400 shrink-0 max-w-[140px] truncate">{c.category}</span>
-            <span className="font-bold text-slate-800 min-w-0 truncate">{c.name}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0 max-w-[140px] truncate">{c.category}</span>
+            <span className="font-bold text-muted-foreground min-w-0 truncate">{c.name}</span>
             {c.fields.length > 0 && (
-              <span className="text-[11px] text-sky-600 shrink-0 truncate max-w-[200px]">変更: {c.fields.join(' / ')}</span>
+              <span className="text-[11px] text-info shrink-0 truncate max-w-[200px]">変更: {c.fields.join(' / ')}</span>
             )}
           </div>
         ))}
@@ -758,12 +758,12 @@ function PhasePlan({ plan }: { plan: ImportResult }) {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="rounded-full bg-sky-100 p-2">
-          <Info className="h-6 w-6 text-sky-600" />
+        <div className="rounded-full bg-info/10 p-2">
+          <Info className="h-6 w-6 text-info" />
         </div>
         <div>
-          <div className="text-base font-bold text-slate-900">差分の確認 (まだ投入していません)</div>
-          <div className="text-sm text-slate-600">
+          <div className="text-base font-bold text-foreground">差分の確認 (まだ投入していません)</div>
+          <div className="text-sm text-muted-foreground">
             既存と一致するものはスキップされます。下記の新規・更新だけが投入されます。
           </div>
         </div>
@@ -771,9 +771,9 @@ function PhasePlan({ plan }: { plan: ImportResult }) {
       <StatPills r={plan} />
       <ChangesList changes={plan.changes} />
       {plan.warnings.length > 0 && (
-        <div className="rounded border border-amber-300 bg-amber-50 p-3">
-          <div className="text-sm font-bold text-amber-900 mb-1">⚠ 警告</div>
-          <ul className="space-y-0.5 text-xs text-amber-800 list-disc pl-5">
+        <div className="rounded border border-warning bg-warning-surface p-3">
+          <div className="text-sm font-bold text-warning-strong mb-1">⚠ 警告</div>
+          <ul className="space-y-0.5 text-xs text-warning-strong list-disc pl-5">
             {plan.warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
@@ -787,12 +787,12 @@ function PhaseDone({ result }: { result: ImportResult }) {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="rounded-full bg-emerald-100 p-2">
-          <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+        <div className="rounded-full bg-success-surface p-2">
+          <CheckCircle2 className="h-7 w-7 text-success" />
         </div>
         <div>
-          <div className="text-base font-bold text-slate-900">インポート完了</div>
-          <div className="text-sm text-slate-600">
+          <div className="text-base font-bold text-foreground">インポート完了</div>
+          <div className="text-sm text-muted-foreground">
             新規 {result.created} / 更新 {result.updated} / 変更なし {result.unchanged}
             {result.skipped > 0 && ` / 取込不可 ${result.skipped}`}
           </div>
@@ -802,26 +802,26 @@ function PhaseDone({ result }: { result: ImportResult }) {
       <StatPills r={result} />
       <ChangesList changes={result.changes} />
 
-      <div className="rounded border border-slate-200 bg-white">
-        <div className="px-3 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+      <div className="rounded border border-border bg-white">
+        <div className="px-3 py-2 border-b border-border text-xs font-bold text-muted-foreground uppercase tracking-wider">
           カテゴリ別
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border">
           {result.categories.map((c) => (
             <div key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-              <span className="font-bold text-slate-800">{c.name}</span>
-              {c.description && <span className="text-slate-500">/ {c.description}</span>}
+              <span className="font-bold text-muted-foreground">{c.name}</span>
+              {c.description && <span className="text-muted-foreground">/ {c.description}</span>}
               <div className="flex-1" />
-              <span className="font-bold text-emerald-700 tabular-nums">{c.inserted}件</span>
+              <span className="font-bold text-success tabular-nums">{c.inserted}件</span>
             </div>
           ))}
         </div>
       </div>
 
       {result.warnings.length > 0 && (
-        <div className="rounded border border-amber-300 bg-amber-50 p-3">
-          <div className="text-sm font-bold text-amber-900 mb-1">⚠ 警告</div>
-          <ul className="space-y-0.5 text-xs text-amber-800 list-disc pl-5">
+        <div className="rounded border border-warning bg-warning-surface p-3">
+          <div className="text-sm font-bold text-warning-strong mb-1">⚠ 警告</div>
+          <ul className="space-y-0.5 text-xs text-warning-strong list-disc pl-5">
             {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>

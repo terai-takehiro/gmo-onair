@@ -1,43 +1,22 @@
+/*
+ * リアルタイムCG の CSS 入口。
+ *
+ * v2.9.297 まで、このアプリだけが共通トークンを読み込まず、旧 shadcn の変数
+ * 21 個を自前で `:root` に書いていた (他6アプリは 207 個)。背景色も書体も
+ * 他のアプリと違い、共通部品が使う `--success` などは未定義 = 色が付かない
+ * 状態だった。いまは `base.css` (= tokens.css + 共通の土台) に載せている。
+ *
+ * 放送に出る CG (`.cg-stage` / `.oneshot-cg-root`) は cg.css と
+ * oneshot/styles/ が持っており、どちらもクラスでスコープされているので影響しない。
+ */
+@import '@gmo-onair/shared/src/client/base.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 36 33% 97%;
-    --foreground: 222.2 47.4% 11.2%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --primary: 209 100% 34%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 36 20% 92%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 36 20% 92%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 36 20% 92%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 209 100% 34%;
-    --radius: 0.75rem;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
-  }
-}
-
-/* 出力画面 (OutputPage) で透過モードのときのみ作用 */
+/* 出力画面 (OBS のブラウザソース) で透過モードのときだけ地の色を消す。
+ * `base.css` は body にだけ色を敷いていて html には敷いていないので、
+ * ここで body と #root を透明にすれば canvas まで透ける。 */
 body[data-output-transparent],
 body[data-output-transparent] #root {
   background: transparent !important;

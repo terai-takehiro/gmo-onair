@@ -20,6 +20,7 @@ import {
 } from '@/lib/inviewApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError, notifySuccess } from '@/lib/notify';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 // セッション (回) キー
 function sessionKey(r: InviewRegistration): string {
@@ -152,10 +153,10 @@ export default function InviewPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-bold">
+          <PageTitle>
             <CalendarCheck className="h-5 w-5 text-primary" />
             内覧会 来場予約
-          </h1>
+          </PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             定期内覧会の回ごとの参加者名簿。Kairos3 の登録通知メールを AI が取り込み、当日は来場チェックに使えます。
           </p>
@@ -253,12 +254,12 @@ export default function InviewPage() {
                   {g.audience ? <Badge variant="outline" className="text-xs">{g.audience}</Badge> : null}
                   <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{g.items.length}組 / {headcount}名</span>
-                    <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />来場 {checkedIn}</span>
+                    <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="h-3.5 w-3.5" />来場 {checkedIn}</span>
                   </span>
                 </div>
                 {/* 回のフル文字列 (抽出前の生ラベル) */}
                 {g.label && (g.date ? formatDateJa(g.date) : '') !== g.label && (
-                  <p className="text-[11px] text-muted-foreground/70">{g.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{g.label}</p>
                 )}
                 {/* 会社別サマリー */}
                 {showSummary && <CompanySummary items={g.items} />}
@@ -330,7 +331,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
   const unnamed = Math.max(head - 1 - companions.length, 0);
   const hasParticipants = companions.length > 0 || head > 1;
   return (
-    <Card className={r.checked_in_at ? 'border-emerald-200 bg-emerald-50/30' : ''}>
+    <Card className={r.checked_in_at ? 'border-success bg-success-surface/30' : ''}>
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -339,12 +340,12 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
               {r.furigana ? <span className="text-xs text-muted-foreground">{r.furigana}</span> : null}
               <Badge variant="outline" className="text-[11px]"><Users className="h-3 w-3 mr-0.5" />{head}名</Badge>
               {isKairos ? (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700" title={r.requested_by ? `AI取込 (指示: ${r.requested_by})` : 'AI (メール) 取込'}>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai" title={r.requested_by ? `AI取込 (指示: ${r.requested_by})` : 'AI (メール) 取込'}>
                   <Sparkles className="h-3 w-3" />AI取込
                 </span>
               ) : null}
               {r.checked_in_at ? (
-                <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 text-[11px]">
+                <Badge variant="outline" className="gap-1 border-success text-success text-[11px]">
                   <CheckCircle2 className="h-3 w-3" />来場済み
                 </Badge>
               ) : null}
@@ -353,7 +354,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                   href={`/sales/projects/${r.promoted_project_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700 hover:underline"
+                  className="inline-flex items-center gap-1 rounded-full border border-primary bg-accent px-1.5 py-0.5 text-[10px] text-primary hover:underline"
                   title="この来場予約から作成された案件を開く"
                 >
                   <Briefcase className="h-3 w-3" />案件化済み<ExternalLink className="h-2.5 w-2.5" />
@@ -400,7 +401,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                 </div>
               </div>
             )}
-            {r.interests ? <p className="mt-1 text-xs text-foreground/80 whitespace-pre-line">💬 {r.interests}</p> : null}
+            {r.interests ? <p className="mt-1 text-xs text-foreground whitespace-pre-line">💬 {r.interests}</p> : null}
             {r.notes ? <p className="mt-1 text-xs text-muted-foreground whitespace-pre-line">📝 {r.notes}</p> : null}
           </div>
           {canEdit && (
@@ -418,7 +419,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 gap-1 border-blue-300 text-xs text-blue-700 hover:bg-blue-50"
+                  className="h-8 gap-1 border-primary text-xs text-primary hover:bg-accent"
                   disabled={promote.isPending}
                   onClick={async () => {
                     if (!(await confirmAction({ title: `${r.company || r.name} を案件化しますか？`, description: `顧客・ヨミ案件・来場の活動記録を作成します。` }))) return;

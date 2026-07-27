@@ -8,6 +8,7 @@ import { useFinanceDocs, useInquiries } from '@/lib/inboxApi';
 import { useSecurityCardStats } from '@/lib/securityCardApi';
 import { useMyTaskSummary } from '@/lib/tasksApi';
 import { MENUS, formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 const MENU_ICONS: Record<string, React.ElementType> = {
   CalendarCheck,
@@ -35,7 +36,7 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold">日常業務</h1>
+        <PageTitle>日常業務</PageTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           AI エージェントと協働する日々の定型業務メニュー。AI が生成・収集し、人が確認して仕上げます。
         </p>
@@ -62,17 +63,17 @@ export default function HomePage() {
                     {ts && (ts.overdue > 0 || ts.due_today > 0 || ts.unanswered_delegations > 0) ? (
                       <>
                         {ts.overdue > 0 && (
-                          <Badge variant="outline" className="gap-1 border-red-300 text-red-700">
+                          <Badge variant="outline" className="gap-1 border-destructive text-destructive">
                             <AlertTriangle className="h-3 w-3" /> 期限超過 {ts.overdue}
                           </Badge>
                         )}
                         {ts.due_today > 0 && (
-                          <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
+                          <Badge variant="outline" className="gap-1 border-warning text-warning-strong">
                             <Clock className="h-3 w-3" /> 今日が期限 {ts.due_today}
                           </Badge>
                         )}
                         {ts.unanswered_delegations > 0 && (
-                          <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+                          <Badge variant="outline" className="gap-1 border-ai text-ai">
                             未返答の依頼 {ts.unanswered_delegations}
                           </Badge>
                         )}
@@ -111,16 +112,16 @@ export default function HomePage() {
                               最新: {menu.kind === 'weekly_activity' ? formatWeekJa(latest.period_key) : formatDateJa(latest.period_key)}
                             </span>
                             {latest.status === 'published' ? (
-                              <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
+                              <Badge variant="outline" className="gap-1 border-success text-success">
                                 <CheckCircle2 className="h-3 w-3" /> 公開済み
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
+                              <Badge variant="outline" className="gap-1 border-warning text-warning-strong">
                                 <CircleDashed className="h-3 w-3" /> 下書き
                               </Badge>
                             )}
                             {!latest.reviewed_at && (
-                              <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+                              <Badge variant="outline" className="gap-1 border-ai text-ai">
                                 <Sparkles className="h-3 w-3" /> 未確認
                               </Badge>
                             )}
@@ -182,7 +183,7 @@ export default function HomePage() {
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">メール受信の見積・請求・注文書を AI が取込。確認→承認→処理完了で管理</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
                     {pendingFinance > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><CircleDashed className="h-3 w-3" /> 未処理 {pendingFinance}件</Badge>
+                      <Badge variant="outline" className="gap-1 border-warning text-warning-strong"><CircleDashed className="h-3 w-3" /> 未処理 {pendingFinance}件</Badge>
                     ) : <span className="text-muted-foreground">未処理はありません</span>}
                   </div>
                 </div>
@@ -205,7 +206,7 @@ export default function HomePage() {
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">スパム・営業を除いた有益なメールを AI が分類・重要度づけ</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
                     {unhandledInquiries > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700"><Sparkles className="h-3 w-3" /> 未対応 {unhandledInquiries}件</Badge>
+                      <Badge variant="outline" className="gap-1 border-ai text-ai"><Sparkles className="h-3 w-3" /> 未対応 {unhandledInquiries}件</Badge>
                     ) : <span className="text-muted-foreground">未対応はありません</span>}
                   </div>
                 </div>
@@ -227,12 +228,12 @@ export default function HomePage() {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">GMOサムライスタジオ用賀のセキュリティカード24枚の貸出・返却を管理</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700"><CheckCircle2 className="h-3 w-3" /> 利用可能 {cardStats.data?.available ?? '—'}</Badge>
+                    <Badge variant="outline" className="gap-1 border-success text-success"><CheckCircle2 className="h-3 w-3" /> 利用可能 {cardStats.data?.available ?? '—'}</Badge>
                     {(cardStats.data?.lent ?? 0) > 0 && (
-                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><Users className="h-3 w-3" /> 貸出中 {cardStats.data?.lent}</Badge>
+                      <Badge variant="outline" className="gap-1 border-warning text-warning-strong"><Users className="h-3 w-3" /> 貸出中 {cardStats.data?.lent}</Badge>
                     )}
                     {(cardStats.data?.overdue ?? 0) > 0 && (
-                      <Badge variant="outline" className="gap-1 border-red-300 text-red-700"><AlertTriangle className="h-3 w-3" /> 期限超過 {cardStats.data?.overdue}</Badge>
+                      <Badge variant="outline" className="gap-1 border-destructive text-destructive"><AlertTriangle className="h-3 w-3" /> 期限超過 {cardStats.data?.overdue}</Badge>
                     )}
                   </div>
                 </div>
@@ -245,7 +246,7 @@ export default function HomePage() {
       <Card>
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <Sparkles className="h-5 w-5 shrink-0 text-violet-500 mt-0.5" />
+            <Sparkles className="h-5 w-5 shrink-0 text-ai mt-0.5" />
             <div className="text-xs text-muted-foreground leading-relaxed">
               <p className="font-medium text-foreground text-sm mb-1">AI エージェントとの協働について</p>
               <p>

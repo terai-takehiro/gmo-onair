@@ -20,7 +20,7 @@ export default function LangPicker({ value, onChange }: Props) {
   ];
   return (
     <div
-      className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900/50 p-0.5 text-[10px] font-black tracking-widest"
+      className="flex items-center rounded-lg border border-border/60 bg-background/50 p-0.5 text-[10px] font-black tracking-widest"
       role="group"
       aria-label="プレビュー言語"
     >
@@ -30,7 +30,7 @@ export default function LangPicker({ value, onChange }: Props) {
           onClick={() => onChange(v)}
           className={cn(
             'px-2 py-1 rounded-md transition-colors',
-            value === v ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800 hover:text-slate-300'
+            value === v ? 'bg-warning text-foreground' : 'text-muted-foreground hover:bg-card hover:text-muted-foreground'
           )}
           aria-pressed={value === v}
         >

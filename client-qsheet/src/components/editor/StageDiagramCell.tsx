@@ -37,7 +37,7 @@ function StageDiagramPreview({
       preserveAspectRatio="xMidYMid meet"
       width={width ?? "100%"}
       height={height ?? "auto"}
-      className="rounded border border-zinc-200 dark:border-zinc-700 max-w-full"
+      className="rounded border border-border dark:border-border max-w-full"
       style={{ background: "#fafafa", display: "block", maxHeight: 200 }}
     >
       {elements.map((el, i) => {
@@ -86,7 +86,7 @@ export default function StageDiagramCell({ cell, stageTemplates, onChange }: Sta
       <select
         value={selectedIdx}
         onChange={(e) => onChange({ ...cell, templateIndex: parseInt(e.target.value) })}
-        className="w-full text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 outline-none focus:border-blue-400 transition-colors"
+        className="w-full text-[11px] bg-transparent border border-border dark:border-border rounded px-1 py-0.5 outline-none focus:border-primary transition-colors"
       >
         <option value={-1}>-- 選択 --</option>
         {templates.map((t, i) => (

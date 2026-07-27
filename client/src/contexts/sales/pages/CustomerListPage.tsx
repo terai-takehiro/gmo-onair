@@ -29,6 +29,7 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface CustomerRow {
   id: string;
@@ -130,7 +131,7 @@ export default function CustomerListPage() {
       <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
         <header className="flex flex-wrap items-end justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">お客様</h1>
+            <PageTitle>お客様</PageTitle>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
               全 <span className="font-bold tabular-nums text-foreground">{n(summary.total)}社</span>
               <span aria-hidden="true">・</span>

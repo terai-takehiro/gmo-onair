@@ -120,7 +120,7 @@ function getDraftColor(meta?: DocMeta): string {
   if (meta.draftType === "決定稿")
     return "bg-success/10 text-success ring-1 ring-success/30";
   if (meta.draftType === "準備稿")
-    return "bg-warning/10 text-warning ring-1 ring-warning/30";
+    return "bg-warning/10 text-warning-strong ring-1 ring-warning/30";
   return "bg-primary/10 text-primary ring-1 ring-primary/30";
 }
 

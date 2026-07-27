@@ -63,12 +63,12 @@ interface Props {
 }
 
 const SOURCE_LABEL: Record<SourceTag, { text: string; cls: string; dot: string }> = {
-  db: { text: 'DB列', cls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40', dot: 'bg-emerald-400' },
-  oneshot_data: { text: 'oneshot_data', cls: 'bg-amber-900/40 text-amber-300 border-amber-700/40', dot: 'bg-amber-400' },
-  i18n: { text: 'i18n辞書', cls: 'bg-sky-900/40 text-sky-300 border-sky-700/40', dot: 'bg-sky-400' },
-  fallback: { text: 'fallback', cls: 'bg-slate-700 text-slate-300 border-slate-600', dot: 'bg-slate-500' },
-  computed: { text: '算出', cls: 'bg-slate-700 text-slate-300 border-slate-600', dot: 'bg-slate-500' },
-  empty: { text: '未設定', cls: 'bg-red-900/40 text-red-300 border-red-800/50', dot: 'bg-red-500' },
+  db: { text: 'DB列', cls: 'bg-success/40 text-success border-success/40', dot: 'bg-success' },
+  oneshot_data: { text: 'oneshot_data', cls: 'bg-warning/40 text-warning border-warning/40', dot: 'bg-warning' },
+  i18n: { text: 'i18n辞書', cls: 'bg-info/40 text-info border-info/40', dot: 'bg-info' },
+  fallback: { text: 'fallback', cls: 'bg-muted text-muted-foreground border-border', dot: 'bg-muted-foreground' },
+  computed: { text: '算出', cls: 'bg-muted text-muted-foreground border-border', dot: 'bg-muted-foreground' },
+  empty: { text: '未設定', cls: 'bg-destructive/40 text-destructive border-destructive/50', dot: 'bg-destructive' },
 };
 
 // ── CG ステージ上の領域定義 (1920×1080 stage 座標)。
@@ -491,23 +491,23 @@ export default function OneShotDataEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:p-4">
-      <div className="w-full max-w-7xl h-[100dvh] sm:max-h-[95vh] sm:h-auto flex flex-col bg-slate-900 border border-slate-700 sm:rounded-lg shadow-2xl">
+      <div className="w-full max-w-7xl h-[100dvh] sm:max-h-[95vh] sm:h-auto flex flex-col bg-background border border-border sm:rounded-lg shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-800">
-          <Database className="h-5 w-5 text-amber-400 shrink-0" />
-          <h2 className="text-sm sm:text-base font-bold text-slate-100 min-w-0 truncate">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 border-b border-border">
+          <Database className="h-5 w-5 text-warning-strong shrink-0" />
+          <h2 className="text-sm sm:text-base font-bold text-foreground min-w-0 truncate">
             DB ↔ CG マッピング
-            <span className="ml-2 text-xs sm:text-sm text-slate-500 font-normal">#{entryId ?? '—'}</span>
+            <span className="ml-2 text-xs sm:text-sm text-muted-foreground font-normal">#{entryId ?? '—'}</span>
           </h2>
           <div className="flex-1" />
           <span
             className={cn(
               'flex items-center gap-1.5 rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-black tracking-widest shrink-0',
               completeness === 100
-                ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50'
+                ? 'bg-success/50 text-success border border-success/50'
                 : completeness >= 50
-                ? 'bg-amber-900/50 text-amber-300 border border-amber-700/50'
-                : 'bg-red-900/40 text-red-300 border border-red-800/40'
+                ? 'bg-warning/50 text-warning-strong border border-warning/50'
+                : 'bg-destructive/40 text-destructive border border-destructive/40'
             )}
             title={`oneshot_data 充足率 ${filled}/${editable.length}`}
           >
@@ -516,7 +516,7 @@ export default function OneShotDataEditor({
           </span>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded hover:bg-slate-800 text-slate-400"
+            className="flex h-9 w-9 items-center justify-center rounded hover:bg-card text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -528,8 +528,8 @@ export default function OneShotDataEditor({
             className={cn(
               'mx-3 sm:mx-6 mt-3 flex items-start gap-2 rounded border px-3 py-2 text-sm',
               saveError
-                ? 'border-red-700/60 bg-red-950/40 text-red-200'
-                : 'border-emerald-700/60 bg-emerald-950/40 text-emerald-200'
+                ? 'border-destructive/60 bg-destructive/40 text-destructive'
+                : 'border-success/60 bg-success/40 text-success'
             )}
           >
             {saveError ? <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> : <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />}
@@ -557,11 +557,11 @@ export default function OneShotDataEditor({
         {/* Body: stack on mobile, 2 cols on lg */}
         <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_minmax(420px,520px)] overflow-hidden min-h-0">
           {/* ── Left: CG preview with hotspots ─────────────── */}
-          <div className="flex flex-col h-[34vh] lg:h-auto border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden shrink-0 lg:shrink">
-            <div className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 border-b border-slate-800/60 bg-slate-950/40">
-              <Edit3 className="h-4 w-4 text-amber-400 shrink-0" />
-              <span className="text-sm font-bold text-slate-200">CG プレビュー</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">右の項目にホバーで該当箇所をハイライト</span>
+          <div className="flex flex-col h-[34vh] lg:h-auto border-b lg:border-b-0 lg:border-r border-border overflow-hidden shrink-0 lg:shrink">
+            <div className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 border-b border-border/60 bg-background/40">
+              <Edit3 className="h-4 w-4 text-warning-strong shrink-0" />
+              <span className="text-sm font-bold text-foreground">CG プレビュー</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">右の項目にホバーで該当箇所をハイライト</span>
             </div>
             <div className="flex-1 relative bg-black overflow-hidden" ref={previewRef}>
               {/* 1920x1080 stage */}
@@ -625,14 +625,14 @@ export default function OneShotDataEditor({
                         className={cn(
                           'absolute -top-3 -left-3 rounded-full text-white text-[28px] font-black flex items-center justify-center transition-all border-2',
                           isHover
-                            ? 'bg-amber-500 border-white scale-110 shadow-2xl'
+                            ? 'bg-warning border-white scale-110 shadow-2xl'
                             : f.source === 'empty'
-                            ? 'bg-red-600 border-red-900'
+                            ? 'bg-destructive border-destructive'
                             : f.source === 'oneshot_data'
-                            ? 'bg-amber-600 border-amber-900'
+                            ? 'bg-warning border-warning'
                             : f.source === 'i18n'
-                            ? 'bg-sky-600 border-sky-900'
-                            : 'bg-emerald-700 border-emerald-900'
+                            ? 'bg-info border-info'
+                            : 'bg-success border-success'
                         )}
                         style={{
                           width: 56,
@@ -650,9 +650,9 @@ export default function OneShotDataEditor({
               </div>
             </div>
             {/* Legend */}
-            <div className="px-5 py-3 border-t border-slate-800 bg-slate-950/40 flex items-center gap-3 flex-wrap text-xs">
-              <Info className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-slate-400">凡例:</span>
+            <div className="px-5 py-3 border-t border-border bg-background/40 flex items-center gap-3 flex-wrap text-xs">
+              <Info className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">凡例:</span>
               {(
                 [
                   { tag: 'db', desc: 'DB列 (固定)' },
@@ -663,7 +663,7 @@ export default function OneShotDataEditor({
               ).map(({ tag, desc }) => (
                 <span key={tag} className="flex items-center gap-1.5">
                   <span className={cn('h-2.5 w-2.5 rounded-full', SOURCE_LABEL[tag].dot)} />
-                  <span className="text-slate-300">{desc}</span>
+                  <span className="text-muted-foreground">{desc}</span>
                 </span>
               ))}
             </div>
@@ -672,10 +672,10 @@ export default function OneShotDataEditor({
           {/* ── Right: Field list grouped by section ───────── */}
           <div className="flex-1 lg:flex-initial overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
             {hovered && (
-              <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200/90">
+              <div className="rounded-lg border border-warning/50 bg-warning/30 px-3 py-2 text-xs text-warning-strong">
                 <span className="font-bold">選択中:</span> {hovered.label}
                 {hovered.dbHint && (
-                  <div className="text-[11px] text-amber-300/70 mt-1 font-mono">
+                  <div className="text-[11px] text-warning-strong mt-1 font-mono">
                     {hovered.dbHint}
                   </div>
                 )}
@@ -687,8 +687,8 @@ export default function OneShotDataEditor({
               const offset = sections.slice(0, secIdx).reduce((s, x) => s + x.fields.length, 0);
               return (
                 <section key={section.key} className="space-y-2.5">
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-200 pb-1.5 border-b border-slate-800">
-                    <SecIcon className="h-4 w-4 text-amber-500" />
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-foreground pb-1.5 border-b border-border">
+                    <SecIcon className="h-4 w-4 text-warning-strong" />
                     {section.title}
                   </h3>
                   <div className="space-y-2">
@@ -714,11 +714,11 @@ export default function OneShotDataEditor({
 
         {/* Raw JSONB collapsible (debug) */}
         {showRaw && (
-          <div className="mx-3 sm:mx-6 mb-2 rounded border border-slate-700 bg-slate-950 p-3 max-h-[40vh] overflow-y-auto">
+          <div className="mx-3 sm:mx-6 mb-2 rounded border border-border bg-background p-3 max-h-[40vh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-slate-300">RAW oneshot_data (送信される JSONB)</span>
+              <span className="text-xs font-bold text-muted-foreground">RAW oneshot_data (送信される JSONB)</span>
             </div>
-            <pre className="text-[11px] text-emerald-300 whitespace-pre-wrap break-all">
+            <pre className="text-[11px] text-success whitespace-pre-wrap break-all">
               {JSON.stringify(
                 Object.fromEntries(
                   Object.entries(draft).filter(([, v]) => {
@@ -736,9 +736,9 @@ export default function OneShotDataEditor({
         )}
 
         {/* Footer */}
-        <div className="flex items-center gap-2 flex-wrap px-3 sm:px-6 py-3 border-t border-slate-800 bg-slate-950/50">
+        <div className="flex items-center gap-2 flex-wrap px-3 sm:px-6 py-3 border-t border-border bg-background/50">
           {!entryId && (
-            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+            <span className="flex items-center gap-1.5 text-xs text-warning-strong">
               <AlertCircle className="h-4 w-4" />
               DB 未紐付け
             </span>
@@ -748,8 +748,8 @@ export default function OneShotDataEditor({
             className={cn(
               'flex items-center gap-1.5 rounded-md border px-2.5 sm:px-3 py-2 text-xs sm:text-sm transition-colors',
               showRaw
-                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-300'
-                : 'border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700'
+                ? 'border-success bg-success/30 text-success'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted'
             )}
             title="送信される JSONB を確認"
           >
@@ -760,14 +760,14 @@ export default function OneShotDataEditor({
           <div className="flex-1" />
           <button
             onClick={resetDraft}
-            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-slate-400 hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">リセット</span>
           </button>
           <button
             onClick={onClose}
-            className="rounded-md border border-slate-700 bg-slate-800 px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+            className="rounded-md border border-border bg-card px-3 sm:px-4 py-2 text-xs sm:text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
             閉じる
           </button>
@@ -777,8 +777,8 @@ export default function OneShotDataEditor({
             className={cn(
               'flex items-center gap-1.5 rounded-md px-3 sm:px-4 py-2 text-sm font-bold transition-colors',
               entryId
-                ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                ? 'bg-warning text-foreground hover:bg-warning/90'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
           >
             <Save className="h-4 w-4" />
@@ -820,10 +820,10 @@ function FieldRow({
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       className={cn(
-        'rounded-lg border bg-slate-800/40 p-3 transition-all',
+        'rounded-lg border bg-card/40 p-3 transition-all',
         isHovered
-          ? 'border-amber-500/70 bg-slate-800/80 ring-2 ring-amber-500/30'
-          : 'border-slate-700/60 hover:bg-slate-800/60'
+          ? 'border-warning/70 bg-card/80 ring-2 ring-warning/30'
+          : 'border-border/60 hover:bg-card/60'
       )}
     >
       {/* Header row */}
@@ -832,23 +832,23 @@ function FieldRow({
           className={cn(
             'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black shrink-0',
             f.source === 'empty'
-              ? 'bg-red-600 text-white'
+              ? 'bg-destructive text-white'
               : f.source === 'oneshot_data'
-              ? 'bg-amber-600 text-white'
+              ? 'bg-warning text-warning-foreground'
               : f.source === 'i18n'
-              ? 'bg-sky-600 text-white'
-              : 'bg-emerald-700 text-white'
+              ? 'bg-info text-white'
+              : 'bg-success text-white'
           )}
         >
           {index}
         </span>
-        <FieldIcon className="h-4 w-4 text-slate-400" />
-        <span className="text-sm font-bold text-slate-100">{f.label}</span>
+        <FieldIcon className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-bold text-foreground">{f.label}</span>
         <span className={cn('inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-bold', sl.cls)}>
           {sl.text}
         </span>
         {!isEditable && (
-          <span className="text-[11px] text-slate-500 italic">
+          <span className="text-[11px] text-muted-foreground italic">
             {f.source === 'db' ? '読み取り専用' : ''}
           </span>
         )}
@@ -883,7 +883,7 @@ function FieldRow({
 
       {/* DB hint */}
       {f.dbHint && (
-        <div className="mt-2 text-[11px] text-slate-500 font-mono break-all">
+        <div className="mt-2 text-[11px] text-muted-foreground font-mono break-all">
           ↳ {f.dbHint}
         </div>
       )}
@@ -905,14 +905,14 @@ function FieldInput({
   multiline?: boolean;
 }) {
   const cls = cn(
-    'w-full rounded border bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 transition-colors',
+    'w-full rounded border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 transition-colors',
     value
-      ? 'border-amber-500/50 focus:ring-amber-500/40'
-      : 'border-slate-700 focus:ring-slate-500'
+      ? 'border-warning/50 focus:ring-warning/40'
+      : 'border-border focus:ring-border'
   );
   return (
     <div className="space-y-1">
-      <span className="text-[11px] font-bold tracking-widest text-slate-400 uppercase">{label}</span>
+      <span className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase">{label}</span>
       {multiline ? (
         <textarea
           value={value}
@@ -936,9 +936,9 @@ function FieldInput({
 function ReadOnlyValue({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="space-y-1">
-      <span className="text-[11px] font-bold tracking-widest text-slate-500 uppercase">{label}</span>
-      <div className="rounded border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-300 break-words whitespace-pre-wrap min-h-[36px]">
-        {value || <span className="text-slate-600">—</span>}
+      <span className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase">{label}</span>
+      <div className="rounded border border-border bg-background/50 px-3 py-2 text-sm text-muted-foreground break-words whitespace-pre-wrap min-h-[36px]">
+        {value || <span className="text-muted-foreground">—</span>}
       </div>
     </div>
   );

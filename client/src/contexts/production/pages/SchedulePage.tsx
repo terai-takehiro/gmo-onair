@@ -54,6 +54,7 @@ import {
 } from './schedule/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CalendarFeedsDialog, PickRow } from './schedule/dialogs';
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 export default function SchedulePage() {
   const navigate = useNavigate();
@@ -582,7 +583,7 @@ export default function SchedulePage() {
       {/* ヘッダー (13a) — 数字で書く */}
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">予定</h1>
+          <PageTitle>予定</PageTitle>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
             今週 本番 <span className="font-bold tabular-nums text-foreground">{weekCounts.perf}件</span>
             <span aria-hidden="true">・</span>

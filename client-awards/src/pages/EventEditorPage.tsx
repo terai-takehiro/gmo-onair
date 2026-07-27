@@ -302,7 +302,7 @@ export default function EventEditorPage() {
               **どれを開いて本番に臨むのか**が人によって違っていた。 */}
           <button
             onClick={() => navigate(`/event/${eventId}/onair`)}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-red-600 px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+            className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-destructive px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-destructive/90 transition-colors"
             title="本番中に見る画面。次に出るものを見てTAKEします"
           >
             <Radio className="h-4 w-4" />
@@ -429,8 +429,8 @@ export default function EventEditorPage() {
 
           {/* Add award form */}
           {addingCat && (
-            <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/40 p-4 space-y-2">
-              <p className="text-xs font-medium text-amber-800">新しい賞を追加</p>
+            <div className="rounded-xl border-2 border-dashed border-warning bg-warning-surface/40 p-4 space-y-2">
+              <p className="text-xs font-medium text-warning-strong">新しい賞を追加</p>
               <div className="flex gap-2">
                 <input autoFocus value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
@@ -439,10 +439,10 @@ export default function EventEditorPage() {
                     if (e.key === 'Escape') { setAddingCat(false); setNewCatName(''); }
                   }}
                   placeholder="賞名（例: キャリア新人賞）"
-                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
                 />
                 <button onClick={() => { if (newCatName.trim()) addCategory.mutate(newCatName.trim()); }}
-                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600">追加</button>
+                  className="rounded-lg bg-warning px-3 py-2 text-sm text-warning-foreground hover:bg-warning/90">追加</button>
                 <button onClick={() => { setAddingCat(false); setNewCatName(''); }}
                   className="rounded-lg border px-3 py-2 text-sm hover:bg-muted">取消</button>
               </div>
@@ -537,7 +537,7 @@ export default function EventEditorPage() {
             <p className="text-sm font-medium">送出 URL</p>
             <p className="text-xs text-muted-foreground">
               OBS / vMix の Browser Source 用。<strong>1920×1080</strong> で配置し、透過合成は「<strong>透明度を許可 (Allow Transparency) ON</strong>」を必須としてください。
-              <span className="text-red-700 font-medium ml-1">OA</span> = 本番出力 / <span className="text-amber-700 font-medium ml-0.5">NEXT</span> = 次に送出する内容のプレビュー。
+              <span className="text-destructive font-medium ml-1">OA</span> = 本番出力 / <span className="text-warning-strong font-medium ml-0.5">NEXT</span> = 次に送出する内容のプレビュー。
               <br />演出SE（効果音）を鳴らすには出力URLに <code className="px-1 rounded bg-muted text-[10px]">?audio=1</code> を付けてください（鳴らすのは1枚だけ・下の「演出SE」で音源を登録）。各 OA に「音声あり」URLも用意しています。
             </p>
           </div>
@@ -545,11 +545,11 @@ export default function EventEditorPage() {
           {/* ── リアルタイムCG (ランキング演出) ─────────── */}
           <div className="pt-2 space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <Tv className="h-3.5 w-3.5 text-amber-600" />
+              <Tv className="h-3.5 w-3.5 text-warning-strong" />
               リアルタイムCG <span className="text-xs text-muted-foreground font-normal">(ランキング / BEST3 / ファイナルピッチ / 大賞演出)</span>
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -572,7 +572,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">OA (背景あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -596,7 +596,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
+              <div className="text-[10px] font-bold text-info uppercase tracking-widest">OA (音声あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>（多重再生防止）。透過のまま。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -620,7 +620,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -647,14 +647,14 @@ export default function EventEditorPage() {
           {/* ── 字幕スーパー (下部テロップ) ─────────── */}
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <Subtitles className="h-3.5 w-3.5 text-amber-600" />
+              <Subtitles className="h-3.5 w-3.5 text-warning-strong" />
               字幕スーパー <span className="text-xs text-muted-foreground font-normal">(下部テロップ)</span>
             </p>
             <p className="text-xs text-muted-foreground">
               リアルタイムCG (ランキング演出) とは独立レイヤー。同時並走可能。
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -677,7 +677,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -704,20 +704,20 @@ export default function EventEditorPage() {
           {/* ── クイズ / アンケートCG ─────────── */}
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <HelpCircle className="h-3.5 w-3.5 text-purple-600" />
+              <HelpCircle className="h-3.5 w-3.5 text-primary" />
               クイズ / アンケートCG <span className="text-xs text-muted-foreground font-normal">(質問 + 選択肢 + 投票/集計)</span>
             </p>
             <p className="text-xs text-muted-foreground">
               operator (<code className="px-1 rounded bg-muted text-[10px]">/event/{event.id}/quiz-stack/control</code>) で順次送出。
               NEXT は operator が選択中の「次の問題」のプレビュー。
             </p>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+            <p className="text-xs text-warning-strong bg-warning-surface border border-warning rounded-md px-2 py-1.5">
               この出力は<strong>投票 (POLL) + 集計 (アンサーチェック)</strong> まで。
               アンケートの <strong>No.1 発表</strong>は、上の<strong>リアルタイムCG（ランキング）出力URL</strong>側で、
               連動カテゴリ（賞）の最後に「SURVEY No.1」ステップとして表示されます。
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -740,7 +740,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">OA (背景あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -764,7 +764,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
+              <div className="text-[10px] font-bold text-info uppercase tracking-widest">OA (音声あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>。透過のまま。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -788,7 +788,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },

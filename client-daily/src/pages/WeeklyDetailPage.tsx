@@ -17,6 +17,7 @@ import {
 } from '@/lib/types';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 interface StatsShape {
   period?: { week_start: string; week_end: string };
@@ -61,23 +62,23 @@ export default function WeeklyDetailPage() {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
+            <PageTitle>
               <CalendarCheck className="h-5 w-5 text-primary" />
               {report.title || `週次活動報告`}
-            </h1>
+            </PageTitle>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{formatWeekJa(report.period_key)}</span>
               {isPublished ? (
-                <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
+                <Badge variant="outline" className="gap-1 border-success text-success">
                   <CheckCircle2 className="h-3 w-3" /> 確定済み
                 </Badge>
               ) : (
-                <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
+                <Badge variant="outline" className="gap-1 border-warning text-warning-strong">
                   <CircleDashed className="h-3 w-3" /> 下書き
                 </Badge>
               )}
               {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
-                <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+                <Badge variant="outline" className="gap-1 border-ai text-ai">
                   <Sparkles className="h-3 w-3" /> AI 起票
                   {report.requested_by ? ` (指示: ${report.requested_by})` : ''}
                 </Badge>
@@ -230,7 +231,7 @@ function KpiTile({ label, value, sub }: { label: string; value: string; sub?: st
       <CardContent className="p-3">
         <p className="text-[11px] text-muted-foreground">{label}</p>
         <p className="mt-0.5 text-lg font-bold leading-tight">{value}</p>
-        {sub && <p className="text-[11px] text-violet-600 mt-0.5">{sub}</p>}
+        {sub && <p className="text-[11px] text-ai mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -374,7 +375,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
         <div className="flex flex-wrap items-center gap-1.5">
           {item.category && <Badge variant="secondary" className="font-normal">{item.category}</Badge>}
           {item.source === 'ai' && (
-            <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+            <Badge variant="outline" className="gap-1 border-ai text-ai">
               <Sparkles className="h-3 w-3" /> AI
             </Badge>
           )}

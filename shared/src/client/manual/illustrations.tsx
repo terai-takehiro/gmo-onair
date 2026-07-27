@@ -24,7 +24,7 @@ const TONE_BG: Record<ManualTone, string> = {
 const TONE_TEXT: Record<ManualTone, string> = {
   primary: "text-primary",
   success: "text-success",
-  warning: "text-warning",
+  warning: "text-warning-strong",
   destructive: "text-destructive",
   info: "text-info",
   muted: "text-muted-foreground",

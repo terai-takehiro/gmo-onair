@@ -184,7 +184,7 @@ export default function DashboardPage() {
 
           {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken &&
            !settingsData?.hasZoomCredentials && !settingsData?.hasTeamsCredentials && (
-            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning" role="alert">
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning-strong" role="alert">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
             </div>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
               <p className="text-muted-foreground">ログなし</p>
             ) : viewer.logs.map((log: any, i: number) => (
               <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-success' : 'text-muted-foreground'}>
-                <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
+                <span className="text-muted-foreground">{log.time.toLocaleTimeString('ja-JP')} </span>
                 {log.message}
               </div>
             ))}

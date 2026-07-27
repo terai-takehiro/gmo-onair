@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface BlockDef { key: string; label: string; hint: string; money?: boolean }
 interface Channel { id: string; name: string; is_private: boolean }
@@ -191,10 +192,10 @@ export default function SlackDigestPage() {
     <PageTransition>
       <div className="mx-auto max-w-4xl space-y-4 px-4 py-5 sm:py-7">
         <header>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+          <PageTitle>
             <MessageSquare className="h-5 w-5 text-primary" aria-hidden="true" />
             朝の1通（Slack）
-          </h1>
+          </PageTitle>
           <p className="mt-1 text-[13px] text-secondary-foreground">
             チャンネルごとに「いつ・何を出すか」を決めます。1件 = 1回の投稿なので、
             同じチャンネルを朝と夕方で2件に分けて、内容を変えられます。

@@ -13,6 +13,7 @@ import ModelGroupPage from "./ModelGroupPage";
 import CablePage from "./CablePage";
 import ConnectorPage from "./ConnectorPage";
 import RackLayoutPage from "./RackLayoutPage";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const KINDS = [
   { id: "items", label: "機材", Icon: Package },
@@ -37,7 +38,7 @@ export default function ThingsPage() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <header>
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">機材 ＞ モノ</h1>
+        <PageTitle>機材 ＞ モノ</PageTitle>
         <p className="mt-1 text-[13px] text-secondary-foreground">
           機材・貸出機材・ケーブル・コネクタ・ラック図の台帳です。種別で切り替えます。
         </p>

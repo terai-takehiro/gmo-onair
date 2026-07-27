@@ -42,11 +42,11 @@ export function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEn
 
   return (
     <div ref={setNodeRef} style={style} className="rounded-lg border bg-background overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50/80 border-b">
-        <button {...listeners} {...attributes} className="cursor-grab touch-none text-slate-300 hover:text-slate-500 transition-colors" title="ドラッグして並び替え">
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/80 border-b">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-muted-foreground hover:text-muted-foreground transition-colors" title="ドラッグして並び替え">
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => setCollapsed(!collapsed)} className="text-slate-400 hover:text-slate-600">
+        <button onClick={() => setCollapsed(!collapsed)} className="text-muted-foreground hover:text-muted-foreground">
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
         <div className="flex-1 min-w-0 space-y-0.5">
@@ -60,7 +60,7 @@ export function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEn
         <button onClick={() => setAddingEntry(true)} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
           <Plus className="h-3 w-3" />追加
         </button>
-        <button onClick={onDeleteCat} className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors">
+        <button onClick={onDeleteCat} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
@@ -119,22 +119,22 @@ export function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAward
   const totalEntries = group.divisions.reduce((s, d) => s + d.entries.length, 0);
 
   return (
-    <div ref={setNodeRef} style={style} className="rounded-xl border-2 border-amber-200/70 bg-card overflow-hidden shadow-sm">
+    <div ref={setNodeRef} style={style} className="rounded-xl border-2 border-warning/70 bg-card overflow-hidden shadow-sm">
       {/* Award (賞) header */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-50/20 border-b border-amber-200/60">
-        <button {...listeners} {...attributes} className="cursor-grab touch-none text-amber-300 hover:text-amber-500 transition-colors shrink-0" title="ドラッグして並び替え">
+      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-warning-surface to-warning-surface/40 border-b border-warning/60">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-warning-strong hover:text-warning-strong transition-colors shrink-0" title="ドラッグして並び替え">
           <GripVertical className="h-4 w-4" />
         </button>
-        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
+        <Tv className="h-4 w-4 text-warning-strong shrink-0" />
         <div className="flex-1 min-w-0 space-y-0.5">
-          <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-amber-900" />
-          <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-amber-700/70" />
+          <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-warning-strong" />
+          <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-warning-strong" />
         </div>
-        <span className="text-xs text-amber-700/60 shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
-        <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-amber-300/50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 transition-colors shrink-0">
+        <span className="text-xs text-warning-strong shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
+        <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-warning/50 px-2 py-1 text-xs text-warning-strong hover:bg-warning/90-surface transition-colors shrink-0">
           <Plus className="h-3 w-3" />部門追加
         </button>
-        <button onClick={() => setCollapsed(!collapsed)} className="shrink-0 text-amber-600/50 hover:text-amber-700 transition-colors">
+        <button onClick={() => setCollapsed(!collapsed)} className="shrink-0 text-warning-strong hover:text-warning-strong transition-colors">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
       </div>
@@ -167,19 +167,19 @@ export function PatternBlock({ cat, onUpdate }: { cat: Category; onUpdate: (patc
   const pattern: 'direct' | 'vote' = cat.award_pattern === 'vote' ? 'vote' : 'direct';
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-md border bg-slate-50/40 px-2.5 py-2">
+    <div className="rounded-md border bg-muted/40 px-2.5 py-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-black tracking-widest uppercase text-slate-500">演出パターン</span>
+        <span className="text-[10px] font-black tracking-widest uppercase text-muted-foreground">演出パターン</span>
         <div className="inline-flex rounded-md border bg-white p-0.5 text-[11px]">
           <button
             onClick={() => onUpdate({ award_pattern: 'direct' })}
-            className={`px-2.5 py-1 rounded ${pattern === 'direct' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`px-2.5 py-1 rounded ${pattern === 'direct' ? 'bg-warning text-warning-foreground font-bold' : 'text-muted-foreground hover:bg-muted'}`}
           >
             No.1発表
           </button>
           <button
             onClick={() => onUpdate({ award_pattern: 'vote' })}
-            className={`px-2.5 py-1 rounded ${pattern === 'vote' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`px-2.5 py-1 rounded ${pattern === 'vote' ? 'bg-warning text-warning-foreground font-bold' : 'text-muted-foreground hover:bg-muted'}`}
           >
             投票No.1決定
           </button>
@@ -187,7 +187,7 @@ export function PatternBlock({ cat, onUpdate }: { cat: Category; onUpdate: (patc
         {pattern === 'vote' && (
           <button
             onClick={() => setOpen(!open)}
-            className="ml-auto text-[11px] text-amber-700 hover:underline"
+            className="ml-auto text-[11px] text-warning-strong hover:underline"
           >
             投票文言を{open ? '閉じる' : '編集'}
           </button>
@@ -212,7 +212,7 @@ export function PatternField({ label, value, onSave, placeholder }: {
   useEffect(() => { setV(value); }, [value]);
   return (
     <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+      <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
       <input
         value={v}
         onChange={(e) => setV(e.target.value)}

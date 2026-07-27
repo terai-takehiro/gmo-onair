@@ -221,7 +221,7 @@ export default function InventoryPage() {
                       <button
                         disabled={isCompleted}
                         className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
-                          item.found === 1 ? "bg-green-500 text-white" : "bg-muted hover:bg-green-100 disabled:hover:bg-muted"
+                          item.found === 1 ? "bg-success text-white" : "bg-muted hover:bg-success-surface disabled:hover:bg-muted"
                         } disabled:cursor-not-allowed`}
                         onClick={() => mark(item, 1)}
                       >
@@ -230,7 +230,7 @@ export default function InventoryPage() {
                       <button
                         disabled={isCompleted}
                         className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
-                          item.found === 2 ? "bg-red-500 text-white" : "bg-muted hover:bg-red-100 disabled:hover:bg-muted"
+                          item.found === 2 ? "bg-destructive text-white" : "bg-muted hover:bg-destructive-surface disabled:hover:bg-muted"
                         } disabled:cursor-not-allowed`}
                         onClick={() => mark(item, 2)}
                       >
@@ -249,7 +249,7 @@ export default function InventoryPage() {
                       </div>
                     </div>
                     {item.found === 0 && (
-                      <HelpCircle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                      <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />
                     )}
                   </div>
                 ))}

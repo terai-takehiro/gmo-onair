@@ -32,6 +32,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 interface Tidy {
   headers: string[];
@@ -107,7 +108,7 @@ export default function IntakePage() {
         イベントへ戻る
       </button>
 
-      <h1 className="text-lg font-bold">データを入れる</h1>
+      <PageTitle>データを入れる</PageTitle>
       <p className="mt-1 text-sm text-muted-foreground">
         ノミネートの一覧を入れます。<strong className="text-foreground">3つの入れ方があります。</strong>
         どれを選んでも、このあとは同じ「列を当てる」画面に進みます。
@@ -172,7 +173,7 @@ export default function IntakePage() {
       {way === 'ai' && (
         <section className="mt-4 rounded-xl border bg-card p-4">
           <h2 className="flex items-center gap-1.5 text-sm font-bold">
-            <Sparkles className="h-4 w-4 text-purple-600" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 text-ai" aria-hidden="true" />
             AIに整えさせる
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -186,13 +187,13 @@ export default function IntakePage() {
             className="mt-2 h-40 w-full rounded-lg border bg-background p-2 font-mono text-xs" />
           <button onClick={() => tidyMutation.mutate()}
             disabled={!text.trim() || tidyMutation.isPending}
-            className="mt-2 flex min-h-[44px] items-center gap-1.5 rounded-lg bg-purple-600 px-4 text-sm font-bold text-white disabled:opacity-40 hover:bg-purple-500">
+            className="mt-2 flex min-h-[44px] items-center gap-1.5 rounded-lg bg-ai px-4 text-sm font-bold text-white disabled:opacity-40 hover:bg-ai/90">
             <Wand2 className="h-4 w-4" aria-hidden="true" />
             {tidyMutation.isPending ? '整えています…' : '整えてもらう'}
           </button>
 
           {error && (
-            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-warning-surface p-2 text-xs text-warning-strong">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {error}
             </p>
@@ -200,22 +201,22 @@ export default function IntakePage() {
 
           {/* 整えた結果 */}
           {tidy && (
-            <div className="mt-3 rounded-xl border-2 border-purple-300 bg-purple-50/60 p-3">
-              <p className="text-xs font-bold text-purple-900">
+            <div className="mt-3 rounded-xl border-2 border-ai-border bg-ai-surface/60 p-3">
+              <p className="text-xs font-bold text-ai">
                 AIが整えました（{tidy.rows.length}行）。中身は確かめてから取り込んでください。
               </p>
               {tidy.guessed_columns.length > 0 && (
-                <p className="mt-1 text-xs text-purple-900">
+                <p className="mt-1 text-xs text-ai">
                   見出しが無かったので名前を付けた列:{' '}
                   {tidy.guessed_columns.map((g) => (
-                    <span key={g} className="mr-1 rounded bg-orange-100 px-1.5 py-0.5 text-orange-800">
+                    <span key={g} className="mr-1 rounded bg-warning-surface px-1.5 py-0.5 text-warning-strong">
                       {g}
                     </span>
                   ))}
                 </p>
               )}
               {tidy.notes.length > 0 && (
-                <ul className="mt-1 list-inside list-disc text-xs text-purple-900/80">
+                <ul className="mt-1 list-inside list-disc text-xs text-ai">
                   {tidy.notes.map((n, i) => <li key={i}>{n}</li>)}
                 </ul>
               )}
@@ -224,12 +225,12 @@ export default function IntakePage() {
               <div className="mt-2 overflow-x-auto">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="border-b border-purple-200">
+                    <tr className="border-b border-ai-border">
                       {tidy.headers.map((h) => (
                         <th key={h} className="whitespace-nowrap px-2 py-1 text-left font-bold">
                           {h}
                           {tidy.guessed_columns.includes(h) && (
-                            <span className="ml-1 text-orange-700">（推測）</span>
+                            <span className="ml-1 text-warning-strong">（推測）</span>
                           )}
                         </th>
                       ))}
@@ -237,7 +238,7 @@ export default function IntakePage() {
                   </thead>
                   <tbody>
                     {tidy.rows.slice(0, 5).map((r, i) => (
-                      <tr key={i} className="border-b border-purple-100">
+                      <tr key={i} className="border-b border-ai-border">
                         {r.map((c, j) => <td key={j} className="whitespace-nowrap px-2 py-1">{c}</td>)}
                       </tr>
                     ))}
@@ -245,16 +246,16 @@ export default function IntakePage() {
                 </table>
               </div>
               {tidy.rows.length > 5 && (
-                <p className="mt-1 text-xs text-purple-900/70">ほか {tidy.rows.length - 5} 行</p>
+                <p className="mt-1 text-xs text-ai">ほか {tidy.rows.length - 5} 行</p>
               )}
 
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => setDialog({ text: tidyAsTsv, label: 'AIが整えた表' })}
-                  className="min-h-[44px] rounded-lg bg-purple-600 px-4 text-sm font-bold text-white hover:bg-purple-500">
+                  className="min-h-[44px] rounded-lg bg-ai px-4 text-sm font-bold text-white hover:bg-ai/90">
                   列を当てる
                 </button>
                 <button onClick={dropTidy}
-                  className="min-h-[44px] rounded-lg border border-purple-300 px-4 text-sm text-purple-900 hover:bg-purple-100">
+                  className="min-h-[44px] rounded-lg border border-ai-border px-4 text-sm text-ai hover:bg-ai-surface">
                   これは使わない
                 </button>
               </div>

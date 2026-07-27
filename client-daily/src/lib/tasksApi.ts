@@ -300,11 +300,16 @@ export function daysSinceRequested(v: string | null): number | null {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
-/** スコアの帯色。9 が最優先、1 がやらない候補 */
+/**
+ * スコアの帯色。9 が最優先、1 がやらない候補。
+ *
+ * ここは**状態の色でよい**（急ぎ = 赤、注意 = 黄、参考 = 青）。
+ * 見分けのための `cat-*` ではなく `destructive` / `warning` / `info` を使う。
+ */
 export function scoreTone(score: number): string {
-  if (score >= 9) return 'bg-rose-100 text-rose-800 border-rose-300';
-  if (score >= 6) return 'bg-amber-100 text-amber-800 border-amber-300';
-  if (score >= 4) return 'bg-sky-100 text-sky-800 border-sky-300';
-  if (score >= 2) return 'bg-slate-100 text-slate-700 border-slate-300';
-  return 'bg-slate-50 text-slate-500 border-slate-200';
+  if (score >= 9) return 'bg-destructive-surface text-destructive border-destructive/30';
+  if (score >= 6) return 'bg-warning-surface text-warning-strong border-warning/30';
+  if (score >= 4) return 'bg-accent text-primary border-primary/30';
+  if (score >= 2) return 'bg-muted text-muted-foreground border-border';
+  return 'bg-muted text-muted-foreground border-border';
 }

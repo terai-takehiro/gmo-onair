@@ -753,7 +753,7 @@ export default function EditorPage() {
             <input
               value={doc.data.meta.title || ""}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, title: e.target.value } }))}
-              className="flex-1 min-w-0 bg-transparent text-[15px] font-bold border-none outline-none placeholder:text-muted-foreground/40 truncate"
+              className="flex-1 min-w-0 bg-transparent text-[15px] font-bold border-none outline-none placeholder:text-muted-foreground truncate"
               placeholder="無題のドキュメント"
               aria-label="ドキュメントタイトル"
             />
@@ -781,7 +781,7 @@ export default function EditorPage() {
                 saveStatus === "saved" ? "text-success bg-success/10" :
                 saveStatus === "saving" ? "text-primary bg-primary/10" :
                 saveStatus === "error" || saveStatus === "conflict" ? "text-destructive bg-destructive/10" :
-                "text-warning bg-warning/10"
+                "text-warning-strong bg-warning/10"
               }`}
             >
               {saveStatus === "saved"

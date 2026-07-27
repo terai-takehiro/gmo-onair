@@ -120,14 +120,14 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
     <div className="fixed inset-0 z-[1500] flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
       <div
-        className="relative w-full max-w-md h-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]"
+        className="relative w-full max-w-md h-full bg-white dark:bg-background shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex-none flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800">
+        <header className="flex-none flex items-center justify-between px-5 py-3 border-b border-border dark:border-border">
           <div className="flex items-center gap-2">
-            <Trash2 size={18} className="text-zinc-500" />
+            <Trash2 size={18} className="text-muted-foreground" />
             <h2 className="text-base font-semibold">ゴミ箱と直前の変更</h2>
-            <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="px-2 py-0.5 rounded-full bg-muted dark:bg-card text-xs text-muted-foreground dark:text-muted-foreground">
               {trash.length}
             </span>
           </div>
@@ -135,7 +135,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
             {trash.length > 0 && (
               <button
                 onClick={handleClearAll}
-                className="text-xs px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700 transition-colors"
+                className="text-xs px-2 py-1 rounded hover:bg-destructive-surface dark:hover:bg-destructive/30 text-destructive hover:text-destructive transition-colors"
                 title="ゴミ箱を空にする"
               >
                 すべて完全削除
@@ -143,7 +143,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
             )}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted dark:hover:bg-card text-muted-foreground transition-colors"
               title="閉じる (Esc)"
             >
               <X size={18} />
@@ -153,16 +153,16 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
 
         <div className="flex-1 overflow-auto">
           {/* 直前の変更 — 保存前でも戻せるのはこちら */}
-          <section className="border-b border-zinc-200 dark:border-zinc-800">
+          <section className="border-b border-border dark:border-border">
             <div className="flex items-center justify-between px-5 pt-3 pb-2">
-              <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+              <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 <History size={12} />
                 直前の変更
               </h3>
               {history.length > 0 && onUndo && (
                 <button
                   onClick={() => onUndo()}
-                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted dark:text-foreground dark:hover:bg-card"
                   title="1つ戻す (Ctrl+Z)"
                 >
                   <Undo2 size={12} />
@@ -171,7 +171,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
               )}
             </div>
             {history.length === 0 ? (
-              <p className="px-5 pb-3 text-[11px] leading-relaxed text-zinc-400">
+              <p className="px-5 pb-3 text-[11px] leading-relaxed text-muted-foreground">
                 この画面を開いてからの変更がここに並びます。保存する前でも戻せます（画面を閉じると履歴は消えます）。
               </p>
             ) : (
@@ -182,12 +182,12 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
                     <li key={`${h.at}-${idx}`}>
                       <button
                         onClick={() => onUndo?.(idx)}
-                        className="flex w-full items-center gap-2 px-5 py-1.5 text-left text-xs text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+                        className="flex w-full items-center gap-2 px-5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted dark:text-muted-foreground dark:hover:bg-card/50"
                         title="ここまで戻す"
                       >
-                        <Undo2 size={12} className="flex-shrink-0 text-zinc-400" />
+                        <Undo2 size={12} className="flex-shrink-0 text-muted-foreground" />
                         <span className="flex-1 truncate">{h.label}</span>
-                        <span className="flex-shrink-0 text-[10px] text-zinc-400">{elapsed(h.at)}</span>
+                        <span className="flex-shrink-0 text-[10px] text-muted-foreground">{elapsed(h.at)}</span>
                       </button>
                     </li>
                   );
@@ -197,44 +197,44 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
           </section>
 
           {trash.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-zinc-400 gap-3 p-8">
+            <div className="flex flex-col items-center justify-center text-muted-foreground gap-3 p-8">
               <Trash2 size={40} className="opacity-30" />
               <p className="text-sm">ゴミ箱は空です</p>
-              <p className="text-xs text-zinc-400 text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 ロール・行を削除するとここに退避されます
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <ul className="divide-y divide-border dark:divide-border">
               {trash.slice().reverse().map((item) => (
-                <li key={item.id} className="px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                <li key={item.id} className="px-5 py-3 hover:bg-muted dark:hover:bg-card/50 transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                          item.type === 'section' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' :
-                          item.type === 'row'     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' :
-                          'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          item.type === 'section' ? 'bg-accent text-primary dark:bg-primary dark:text-primary' :
+                          item.type === 'row'     ? 'bg-cat-7/10 text-cat-7 dark:bg-cat-7 dark:text-cat-7' :
+                          'bg-success-surface text-success dark:bg-success dark:text-success'
                         }`}>
                           {item.type === 'section' ? 'ロール' : item.type === 'row' ? '行' : '行内項目'}
                         </span>
-                        <span className="text-[11px] text-zinc-400">{formatDeletedAt(item.deletedAt)}</span>
+                        <span className="text-[11px] text-muted-foreground">{formatDeletedAt(item.deletedAt)}</span>
                       </div>
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                      <p className="text-sm font-medium text-muted-foreground dark:text-foreground truncate">
                         {describeTrashItem(item)}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => handleRestore(item)}
-                        className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-600 hover:text-emerald-700 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-success-surface dark:hover:bg-success/40 text-success hover:text-success transition-colors"
                         title="復元"
                       >
                         <RotateCcw size={14} />
                       </button>
                       <button
                         onClick={() => handlePermanentDelete(item)}
-                        className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/40 text-red-500 hover:text-red-700 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-destructive-surface dark:hover:bg-destructive/40 text-destructive hover:text-destructive transition-colors"
                         title="完全削除"
                       >
                         <Trash2 size={14} />
@@ -247,8 +247,8 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
           )}
         </div>
 
-        <footer className="flex-none px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-          <p className="text-[11px] text-zinc-500 flex items-start gap-1.5">
+        <footer className="flex-none px-5 py-3 border-t border-border dark:border-border bg-muted dark:bg-background/50">
+          <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
             <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
 ゴミ箱はQシートと一緒に保存されるので後日でも戻せますが、保存する前に閉じると消えます。保存前の取り消しは上の「直前の変更」を使ってください。
           </p>

@@ -389,8 +389,8 @@ export default function EquipmentDetailPage() {
           <DialogHeader><DialogTitle>機材編集</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {isAdmin && (
-              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
+              <div className="space-y-1 rounded-lg border border-warning bg-warning-surface p-3">
+                <Label className="text-warning-strong font-semibold">機材ID (管理者のみ変更可)</Label>
                 <Input
                   value={editForm.eq_code || ""}
                   onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
@@ -800,7 +800,7 @@ export default function EquipmentDetailPage() {
                   <div key={l.id} className="text-sm border rounded-lg p-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{l.borrower_name}</span>
-                      <span className={`text-xs rounded-full px-2 py-0.5 ${l.status === "lent" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${l.status === "lent" ? "bg-warning-surface text-warning-strong" : "bg-success-surface text-success"}`}>
                         {l.status === "lent" ? "貸出中" : "返却済"}
                       </span>
                     </div>
@@ -896,7 +896,7 @@ export default function EquipmentDetailPage() {
                         onClick={() => setEditingCustomCell(col.id)}
                         title="クリックして編集"
                       >
-                        {val || <span className="text-muted-foreground/40 font-normal">—</span>}
+                        {val || <span className="text-muted-foreground font-normal">—</span>}
                       </span>
                     )}
                   </div>

@@ -57,21 +57,21 @@ export default function CountdownControlPanel({
   };
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-3">
+    <div className="rounded-lg border border-border bg-background/40 p-3 space-y-3">
       {/* ヘッダー + ON/OFF */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-black tracking-widest uppercase text-amber-500">
+        <span className="text-[10px] font-black tracking-widest uppercase text-warning-strong">
           COUNTDOWN
         </span>
-        <span className="text-[10px] text-slate-400 hidden sm:inline">カウントダウンテロップ</span>
+        <span className="text-[10px] text-muted-foreground hidden sm:inline">カウントダウンテロップ</span>
         <div className="flex-1" />
         <button
           onClick={() => onChange({ countdownOn: !on })}
           className={cn(
             'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors',
             on
-              ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              ? 'bg-warning text-foreground hover:bg-warning/90'
+              : 'bg-card text-muted-foreground hover:bg-muted'
           )}
           title={on ? 'カウントダウン OFF' : 'カウントダウン ON'}
         >
@@ -81,7 +81,7 @@ export default function CountdownControlPanel({
       </div>
 
       {/* 開始モード切替 */}
-      <div className="flex items-center gap-1 rounded-md bg-slate-950/60 border border-slate-800 p-0.5 w-fit">
+      <div className="flex items-center gap-1 rounded-md bg-background/60 border border-border p-0.5 w-fit">
         {(['datetime', 'duration'] as const).map((m) => (
           <button
             key={m}
@@ -89,8 +89,8 @@ export default function CountdownControlPanel({
             className={cn(
               'px-2.5 py-1 rounded text-[10px] font-black tracking-widest uppercase transition-colors',
               mode === m
-                ? 'bg-amber-500 text-slate-900'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-warning text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {m === 'datetime' ? '指定日時' : '分秒指定'}
@@ -100,13 +100,13 @@ export default function CountdownControlPanel({
 
       {mode === 'datetime' ? (
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-center">
-          <label className="flex items-center gap-2 text-[11px] text-slate-300">
-            <span className="w-16 shrink-0 text-slate-400">目標日時</span>
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="w-16 shrink-0 text-muted-foreground">目標日時</span>
             <input
               type="datetime-local"
               value={localValue}
               onChange={(e) => onChange({ countdownTarget: localInputToIso(e.target.value) })}
-              className="flex-1 rounded bg-slate-950 border border-slate-700 px-2 py-1 text-slate-100 text-xs"
+              className="flex-1 rounded bg-background border border-border px-2 py-1 text-foreground text-xs"
             />
           </label>
           <div className="flex gap-1">
@@ -114,7 +114,7 @@ export default function CountdownControlPanel({
               <button
                 key={m}
                 onClick={() => presetIn(m)}
-                className="rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] px-2 py-1 font-semibold"
+                className="rounded bg-card hover:bg-muted text-muted-foreground text-[10px] px-2 py-1 font-semibold"
                 title={`今から ${m} 分後に開始`}
               >
                 +{m}m
@@ -124,32 +124,32 @@ export default function CountdownControlPanel({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] text-slate-400 w-16 shrink-0">今から</span>
-          <label className="flex items-center gap-1 text-[11px] text-slate-300">
+          <span className="text-[11px] text-muted-foreground w-16 shrink-0">今から</span>
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <input
               type="number"
               min={0}
               max={999}
               value={durMin}
               onChange={(e) => setDurMin(Math.max(0, Math.min(999, Number(e.target.value) || 0)))}
-              className="w-16 rounded bg-slate-950 border border-slate-700 px-2 py-1 text-slate-100 text-xs tabular-nums"
+              className="w-16 rounded bg-background border border-border px-2 py-1 text-foreground text-xs tabular-nums"
             />
-            <span className="text-slate-400">分</span>
+            <span className="text-muted-foreground">分</span>
           </label>
-          <label className="flex items-center gap-1 text-[11px] text-slate-300">
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <input
               type="number"
               min={0}
               max={59}
               value={durSec}
               onChange={(e) => setDurSec(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
-              className="w-16 rounded bg-slate-950 border border-slate-700 px-2 py-1 text-slate-100 text-xs tabular-nums"
+              className="w-16 rounded bg-background border border-border px-2 py-1 text-foreground text-xs tabular-nums"
             />
-            <span className="text-slate-400">秒</span>
+            <span className="text-muted-foreground">秒</span>
           </label>
           <button
             onClick={startDuration}
-            className="flex items-center gap-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-900 text-[11px] font-black tracking-widest uppercase px-3 py-1.5"
+            className="flex items-center gap-1 rounded bg-warning hover:bg-warning/90 text-foreground text-[11px] font-black tracking-widest uppercase px-3 py-1.5"
           >
             <Play className="h-3 w-3" />
             開始
@@ -164,7 +164,7 @@ export default function CountdownControlPanel({
               <button
                 key={p.label}
                 onClick={() => { setDurMin(Math.floor(p.s / 60)); setDurSec(p.s % 60); }}
-                className="rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] px-2 py-1 font-semibold"
+                className="rounded bg-card hover:bg-muted text-muted-foreground text-[10px] px-2 py-1 font-semibold"
                 title={`${p.label} をセット`}
               >
                 {p.label}
@@ -176,24 +176,24 @@ export default function CountdownControlPanel({
 
       {/* 枕詞 JA/EN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 text-[11px] text-slate-300">
-          <span className="w-16 shrink-0 text-slate-400">枕詞 (JA)</span>
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="w-16 shrink-0 text-muted-foreground">枕詞 (JA)</span>
           <input
             type="text"
             value={prefixJa}
             onChange={(e) => onChange({ countdownPrefixJa: e.target.value })}
             placeholder="アワードまであと"
-            className="flex-1 rounded bg-slate-950 border border-slate-700 px-2 py-1 text-slate-100 text-xs"
+            className="flex-1 rounded bg-background border border-border px-2 py-1 text-foreground text-xs"
           />
         </label>
-        <label className="flex items-center gap-2 text-[11px] text-slate-300">
-          <span className="w-16 shrink-0 text-slate-400">枕詞 (EN)</span>
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="w-16 shrink-0 text-muted-foreground">枕詞 (EN)</span>
           <input
             type="text"
             value={prefixEn}
             onChange={(e) => onChange({ countdownPrefixEn: e.target.value })}
             placeholder="Awards starts in"
-            className="flex-1 rounded bg-slate-950 border border-slate-700 px-2 py-1 text-slate-100 text-xs"
+            className="flex-1 rounded bg-background border border-border px-2 py-1 text-foreground text-xs"
           />
         </label>
       </div>
@@ -234,8 +234,8 @@ function NumField({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-[11px] text-slate-300">
-      <span className="w-12 shrink-0 text-slate-400">{label}</span>
+    <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+      <span className="w-12 shrink-0 text-muted-foreground">{label}</span>
       <input
         type="range"
         min={min}
@@ -243,7 +243,7 @@ function NumField({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-amber-500"
+        className="flex-1 accent-warning"
       />
       <input
         type="number"
@@ -255,7 +255,7 @@ function NumField({
           const v = Number(e.target.value);
           if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
         }}
-        className="w-16 rounded bg-slate-950 border border-slate-700 px-1.5 py-0.5 text-slate-100 text-[11px] tabular-nums"
+        className="w-16 rounded bg-background border border-border px-1.5 py-0.5 text-foreground text-[11px] tabular-nums"
       />
     </label>
   );

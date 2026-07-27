@@ -25,7 +25,7 @@ export default function SyncStatusBadge({
         )}
         title="OnAir から進行が届いています"
       >
-        <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+        <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
         同期中
       </span>
     );

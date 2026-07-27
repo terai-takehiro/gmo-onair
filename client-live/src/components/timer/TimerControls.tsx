@@ -74,7 +74,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
       {/* Controls */}
       <div className="flex items-center gap-2">
         <Button
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+          className="flex-1 bg-success hover:bg-success/90 text-white"
           disabled={running || phase === 'idle'}
           onClick={onStart}
         >

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReports, useEnsureReport } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatWeekJa, toDateStr } from '@/lib/types';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 /** 先週の月曜日 (既定の対象週) */
 function defaultWeekStart(): string {
@@ -34,10 +35,10 @@ export default function WeeklyListPage() {
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <PageTitle>
             <CalendarCheck className="h-5 w-5 text-primary" />
             ウィークリー活動報告
-          </h1>
+          </PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">全社で週 1 本 (月曜始まり)。AI の下書きにトピックを追記して確定します。</p>
         </div>
         {canEdit && !isLoading && !hasDefaultWeek && (
@@ -68,11 +69,11 @@ export default function WeeklyListPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-sm">{formatWeekJa(r.period_key)}</span>
                       {r.status === 'published' ? (
-                        <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
+                        <Badge variant="outline" className="gap-1 border-success text-success">
                           <CheckCircle2 className="h-3 w-3" /> 確定済み
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
+                        <Badge variant="outline" className="gap-1 border-warning text-warning-strong">
                           <CircleDashed className="h-3 w-3" /> 下書き
                         </Badge>
                       )}

@@ -94,7 +94,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           {/* Shared columns */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <Users className="h-3.5 w-3.5 text-blue-600" />
+              <Users className="h-3.5 w-3.5 text-primary" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">共有列（全員表示）</span>
             </div>
             {sharedCols.length === 0 && (
@@ -123,7 +123,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           {/* Personal columns */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <User className="h-3.5 w-3.5 text-slate-500" />
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">個人列（自分のみ表示）</span>
             </div>
             {personalCols.length === 0 && (
@@ -219,8 +219,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
 
         {/* Legend */}
         <div className="mt-4 pt-3 border-t text-xs text-muted-foreground space-y-1">
-          <p className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-500" />共有列: 機材一覧と機材詳細ページに表示されます</p>
-          <p className="flex items-center gap-1"><User className="h-3 w-3 text-slate-400" />個人列: 機材一覧のみ、自分だけに表示されます</p>
+          <p className="flex items-center gap-1"><Users className="h-3 w-3 text-primary" />共有列: 機材一覧と機材詳細ページに表示されます</p>
+          <p className="flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" />個人列: 機材一覧のみ、自分だけに表示されます</p>
         </div>
       </DialogContent>
     </Dialog>
@@ -291,7 +291,7 @@ function ColRow({ col, isEditing, editForm, setEditForm, canEdit, onEdit, onSave
           <button onClick={onEdit} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+          <button onClick={onDelete} className="p-1 rounded hover:bg-destructive-surface text-muted-foreground hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>

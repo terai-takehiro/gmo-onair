@@ -24,6 +24,7 @@ import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksTab, DelegationsTab, IntakeLogTab, TeamTab } from "./MyTasksPanels";
 import TaskDashboardPage from "./TaskDashboardPage";
 import ProjectTasksPage from "./ProjectTasksPage";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 type Scope = "me" | "project" | "all";
 type View = "list" | "board" | "gantt";
@@ -104,7 +105,7 @@ export default function TasksPage() {
         {/* ヘッダー — 数字で書く (§2.5 ルール4) */}
         <header className="flex flex-wrap items-end justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">タスク</h1>
+            <PageTitle>タスク</PageTitle>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
               {summary ? (
                 <>

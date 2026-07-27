@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { ProjectStageLabels, ProjectStageColors, type ProjectStage } from "@/types";
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ── 型 ────────────────────────────────────────────────────
 type Rec = Record<string, unknown>;
@@ -277,7 +278,7 @@ function CustomerHeader({ customer, canEdit, onSaved }: { customer: Rec; canEdit
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-foreground sm:text-2xl">{str(customer.name)}</h1>
+                <PageTitle>{str(customer.name)}</PageTitle>
                 {!!customer.is_ai_created && (
                   <span
                     className="inline-flex items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"

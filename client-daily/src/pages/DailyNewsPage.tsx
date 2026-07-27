@@ -13,6 +13,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { NEWS_CATEGORIES, formatDateJa, toDateStr, addDays, type OpsReportItem } from '@/lib/types';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 export default function DailyNewsPage() {
   const [date, setDate] = useState(() => toDateStr(new Date()));
@@ -27,10 +28,10 @@ export default function DailyNewsPage() {
       {/* ヘッダー + 日付ナビ */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <PageTitle>
             <Newspaper className="h-5 w-5 text-primary" />
             デイリーニュース報告
-          </h1>
+          </PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">AI が業界ニュースを日次収集。人の追記・採用ピックも可能です。</p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -51,11 +52,11 @@ export default function DailyNewsPage() {
           <>
             <Badge variant="secondary" className="font-normal">{report.items?.length ?? 0} 件</Badge>
             {report.reviewed_at ? (
-              <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
+              <Badge variant="outline" className="gap-1 border-success text-success">
                 <CheckCircle2 className="h-3 w-3" /> 確認済み
               </Badge>
             ) : (
-              <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+              <Badge variant="outline" className="gap-1 border-ai text-ai">
                 <Sparkles className="h-3 w-3" /> 未確認
               </Badge>
             )}
@@ -289,7 +290,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
 
   const recordedBy = (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-      {item.source === 'ai' && <Bot className="h-3 w-3 text-violet-500" />}
+      {item.source === 'ai' && <Bot className="h-3 w-3 text-ai" />}
       {item.recorded_by ?? '—'}
     </span>
   );
@@ -319,7 +320,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
       <tr className="align-top">
         <td className="px-3 py-2">{item.category ? <Badge variant="secondary" className="font-normal">{item.category}</Badge> : null}</td>
         <td className="px-2 py-2 text-center">
-          {item.ai_related ? <Badge variant="outline" className="border-violet-300 text-violet-700 px-1.5">AI</Badge> : null}
+          {item.ai_related ? <Badge variant="outline" className="border-ai text-ai px-1.5">AI</Badge> : null}
         </td>
         <td className="px-2 py-2 text-center">{pickPicker}</td>
         <td className="px-3 py-2">{contentCell}</td>
@@ -346,7 +347,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
     <div className="p-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {item.category && <Badge variant="secondary" className="font-normal">{item.category}</Badge>}
-        {item.ai_related && <Badge variant="outline" className="border-violet-300 text-violet-700 px-1.5">AI</Badge>}
+        {item.ai_related && <Badge variant="outline" className="border-ai text-ai px-1.5">AI</Badge>}
         <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">採用 {pickPicker}</span>
       </div>
       <p className="mt-1.5 text-sm">{contentCell}</p>

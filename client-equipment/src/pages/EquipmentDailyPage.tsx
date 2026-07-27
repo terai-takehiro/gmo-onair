@@ -30,6 +30,7 @@ import {
   Plug,
 } from "lucide-react";
 import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
@@ -115,7 +116,7 @@ export default function EquipmentDailyPage() {
     <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">機材 ＞ 日々</h1>
+          <PageTitle>機材 ＞ 日々</PageTitle>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
             貸出中 <span className="font-bold tabular-nums text-foreground">{stats.lent_out ?? 0}点</span>
             <span aria-hidden="true">・</span>
@@ -325,7 +326,7 @@ export default function EquipmentDailyPage() {
             <span className="text-sm">貸出登録</span>
           </Button>
           <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/maintenance")}>
-            <Plus className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
+            <Plus className="h-4 w-4 text-warning-strong shrink-0" aria-hidden="true" />
             <span className="text-sm">メンテ記録</span>
           </Button>
           <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/items")}>
@@ -388,7 +389,7 @@ export default function EquipmentDailyPage() {
             {(stats.overdue ?? 0) > 0 && (
               <button
                 type="button"
-                className="w-full flex items-center gap-2 text-sm text-warning bg-warning/10 rounded-md p-3 hover:bg-warning/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="w-full flex items-center gap-2 text-sm text-warning-strong bg-warning/10 rounded-md p-3 hover:bg-warning/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={() => navigate("/equipment/lendings")}
               >
                 <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />

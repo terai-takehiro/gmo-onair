@@ -226,7 +226,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
           {/* 列マッピング UI */}
           {preview && !committed && (
-            <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
+            <Card className={unmatchedCount > 0 ? "border-warning/60" : "border-success/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">列の対応付け</h3>
@@ -251,7 +251,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                         const current = mapping[col.key];
                         const isUnmatched = !current;
                         return (
-                          <tr key={col.key} className={isUnmatched ? 'bg-amber-50' : ''}>
+                          <tr key={col.key} className={isUnmatched ? 'bg-warning-surface' : ''}>
                             <td className="px-2 py-1.5 font-medium">{col.header}</td>
                             <td className="px-2 py-1">
                               <Select
@@ -314,22 +314,22 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
           {/* dry_run結果 */}
           {dryRun && !committed && (
-            <Card className={errorCount > 0 ? "border-destructive/40" : "border-green-500/40"}>
+            <Card className={errorCount > 0 ? "border-destructive/40" : "border-success/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">検証結果</h3>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800">新規 {dryRun.summary.insert}</span>
-                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800">更新 {dryRun.summary.update}</span>
-                    <span className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">スキップ {dryRun.summary.skip}</span>
+                    <span className="px-2 py-0.5 rounded bg-accent text-primary">新規 {dryRun.summary.insert}</span>
+                    <span className="px-2 py-0.5 rounded bg-warning-surface text-warning-strong">更新 {dryRun.summary.update}</span>
+                    <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground">スキップ {dryRun.summary.skip}</span>
                     {errorCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800">エラー {errorCount}</span>
+                      <span className="px-2 py-0.5 rounded bg-destructive-surface text-destructive">エラー {errorCount}</span>
                     )}
                   </div>
                 </div>
 
                 {dryRun.warnings.length > 0 && (
-                  <div className="text-xs text-amber-700 bg-amber-50 rounded p-2">
+                  <div className="text-xs text-warning-strong bg-warning-surface rounded p-2">
                     {dryRun.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}
                   </div>
                 )}
@@ -348,20 +348,20 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                     </thead>
                     <tbody>
                       {dryRun.rows.map((r) => (
-                        <tr key={r.rowNumber} className={r.errors.length > 0 ? 'bg-red-50' : ''}>
+                        <tr key={r.rowNumber} className={r.errors.length > 0 ? 'bg-destructive-surface' : ''}>
                           <td className="px-2 py-1 tabular-nums">{r.rowNumber}</td>
                           <td className="px-2 py-1 ">{r.eq_code || '-'}</td>
                           <td className="px-2 py-1">{r.name}</td>
                           <td className="px-2 py-1">
                             <span className={
-                              r.errors.length > 0 ? 'text-red-600' :
-                              r.action === 'insert' ? 'text-blue-600' :
-                              r.action === 'update' ? 'text-amber-600' : 'text-zinc-500'
+                              r.errors.length > 0 ? 'text-destructive' :
+                              r.action === 'insert' ? 'text-primary' :
+                              r.action === 'update' ? 'text-warning-strong' : 'text-muted-foreground'
                             }>
                               {r.errors.length > 0 ? '✗' : r.action === 'insert' ? '＋新規' : r.action === 'update' ? '◯更新' : 'スキップ'}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-red-600">
+                          <td className="px-2 py-1 text-destructive">
                             {r.errors.join(' / ')}
                           </td>
                         </tr>
@@ -392,9 +392,9 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
           {/* commit結果 */}
           {committed && (
-            <Card className="border-green-500/40 bg-green-50/30">
+            <Card className="border-success/40 bg-success-surface/30">
               <CardContent className="p-4 space-y-2">
-                <div className="flex items-center gap-2 text-green-700">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle2 className="h-5 w-5" />
                   <span className="font-semibold">インポート完了</span>
                 </div>

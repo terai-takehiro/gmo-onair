@@ -25,7 +25,7 @@ export function InlineText({
         onClick={() => { setDraft(value); setEditing(true); }}
         className={cn('text-left hover:opacity-70 transition-opacity', className)}
       >
-        {value || <span className="text-muted-foreground/60">{placeholder}</span>}
+        {value || <span className="text-muted-foreground">{placeholder}</span>}
       </button>
     );
   }
@@ -76,7 +76,7 @@ export function EntryRow({
       >
         {entry.photo_url
           ? <img src={entry.photo_url} alt="" className="h-full w-full object-cover" />
-          : <Upload className="h-3.5 w-3.5 text-muted-foreground/50 absolute inset-0 m-auto" />
+          : <Upload className="h-3.5 w-3.5 text-muted-foreground absolute inset-0 m-auto" />
         }
       </button>
       <input
@@ -101,7 +101,7 @@ export function EntryRow({
             value={entry.name_en ?? ''}
             onSave={(v) => onUpdate({ name_en: v || null })}
             placeholder="Name EN"
-            className="text-xs text-muted-foreground/60"
+            className="text-xs text-muted-foreground"
           />
         </div>
         {/* JA org + EN org */}
@@ -116,7 +116,7 @@ export function EntryRow({
             value={entry.org_en ?? ''}
             onSave={(v) => onUpdate({ org_en: v || null })}
             placeholder="Company EN"
-            className="text-xs text-muted-foreground/50"
+            className="text-xs text-muted-foreground"
           />
         </div>
         {/* Nomination title (vote パターンで使用) */}
@@ -125,18 +125,18 @@ export function EntryRow({
             value={entry.nomination_title ?? ''}
             onSave={(v) => onUpdate({ nomination_title: v || null })}
             placeholder="ノミネートタイトル (例: 社内システムから AI 活用まで。)"
-            className="text-xs text-amber-700"
+            className="text-xs text-warning-strong"
           />
           <InlineText
             value={entry.nomination_title_en ?? ''}
             onSave={(v) => onUpdate({ nomination_title_en: v || null })}
             placeholder="Nomination Title EN"
-            className="text-xs text-amber-700/60"
+            className="text-xs text-warning-strong"
           />
         </div>
         {/* Image ID badge */}
         {entry.image_id && (
-          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground/50">
+          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {entry.image_id}
           </span>
         )}
@@ -154,15 +154,15 @@ export function EntryRow({
           <span className="text-[10px] font-medium text-muted-foreground">PT</span>
         </div>
         <div className="flex items-center justify-end gap-1">
-          <span className="text-[10px] font-semibold text-amber-600/70">自社</span>
+          <span className="text-[10px] font-semibold text-warning-strong">自社</span>
           <InlineText
             value={entry.own_points != null ? String(entry.own_points) : ''}
             onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
             placeholder="—"
-            className=" text-xs tabular-nums text-amber-600"
+            className=" text-xs tabular-nums text-warning-strong"
           />
           {ownPct != null && (
-            <span className="text-[10px] tabular-nums text-amber-600/50">({ownPct}%)</span>
+            <span className="text-[10px] tabular-nums text-warning-strong">({ownPct}%)</span>
           )}
         </div>
       </div>
@@ -174,15 +174,15 @@ export function EntryRow({
         className={cn(
           'mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all',
           entry.is_winner
-            ? 'bg-amber-400/20 text-amber-600'
-            : 'text-muted-foreground/30 hover:text-amber-500'
+            ? 'bg-warning/20 text-warning-strong'
+            : 'text-muted-foreground hover:text-warning-strong'
         )}
       >
         <Tv className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={onDelete}
-        className="mt-1 text-muted-foreground/40 hover:text-destructive transition-colors"
+        className="mt-1 text-muted-foreground hover:text-destructive transition-colors"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

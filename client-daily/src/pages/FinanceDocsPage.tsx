@@ -21,18 +21,20 @@ import {
   useFinanceDocs, useCreateFinanceDoc, useUpdateFinanceDoc, useDeleteFinanceDoc, type FinanceDocInput,
 } from '@/lib/inboxApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 const STATUS_STYLE: Record<FinanceDocStatus, string> = {
-  new: 'border-blue-300 text-blue-700 bg-blue-50',
-  reviewing: 'border-amber-300 text-amber-700 bg-amber-50',
-  approved: 'border-violet-300 text-violet-700 bg-violet-50',
-  rejected: 'border-rose-300 text-rose-700 bg-rose-50',
-  processed: 'border-emerald-300 text-emerald-700 bg-emerald-50',
+  new: 'border-primary text-primary bg-accent',
+  reviewing: 'border-warning text-warning-strong bg-warning-surface',
+  // 承認済み = AI ではないので `ai` (紫) は使わない。段階を見分けるための色
+  approved: 'border-cat-7/40 text-cat-7 bg-cat-7/10',
+  rejected: 'border-destructive text-destructive bg-destructive-surface',
+  processed: 'border-success text-success bg-success-surface',
 };
 const TYPE_STYLE: Record<FinanceDocType, string> = {
-  quote: 'bg-sky-100 text-sky-800',
-  invoice: 'bg-indigo-100 text-indigo-800',
-  order: 'bg-teal-100 text-teal-800',
+  quote: 'bg-info/10 text-info',
+  invoice: 'bg-accent text-primary',
+  order: 'bg-info/10 text-info',
 };
 
 function yen(v: number | string | null): string {
@@ -60,7 +62,7 @@ export default function FinanceDocsPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-bold"><FileText className="h-5 w-5 text-primary" />見積 / 請求書</h1>
+          <PageTitle><FileText className="h-5 w-5 text-primary" />見積 / 請求書</PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             メールで受信した見積書・請求書・注文書の処理進捗。AI が取り込み、確認 → 承認/却下 → 処理完了 で管理します。
           </p>
@@ -109,14 +111,14 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
   const setStatus = (status: FinanceDocStatus) => update.mutate({ id: d.id, fields: { status } });
 
   return (
-    <Card className={d.status === 'processed' ? 'border-emerald-200 bg-emerald-50/20' : ''}>
+    <Card className={d.status === 'processed' ? 'border-success bg-success-surface/20' : ''}>
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_STYLE[d.doc_type]}`}>{FINANCE_DOC_TYPE_LABELS[d.doc_type]}</span>
               <Badge variant="outline" className={`text-[11px] ${STATUS_STYLE[d.status]}`}>{FINANCE_DOC_STATUS_LABELS[d.status]}</Badge>
-              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"><Sparkles className="h-3 w-3" />AI取込</span>}
+              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai"><Sparkles className="h-3 w-3" />AI取込</span>}
               {d.sender && <span className="text-sm font-medium">{d.sender}</span>}
             </div>
             {d.subject && <p className="mt-1 text-sm font-medium text-foreground truncate">{d.subject}</p>}
@@ -126,7 +128,7 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
               {d.payment_due && <span className="inline-flex items-center gap-1"><CalendarClock className="h-3 w-3" />支払期日 {formatDateJa(d.payment_due)}</span>}
               {d.received_at && <span>受信 {formatDateJa(d.received_at)}</span>}
               {d.gls_number && <span>{d.gls_number}</span>}
-              {d.processed_by && <span className="text-emerald-700">処理: {d.processed_by}</span>}
+              {d.processed_by && <span className="text-success">処理: {d.processed_by}</span>}
             </div>
           </div>
           <div className="shrink-0 text-right">
@@ -208,7 +210,7 @@ function UploadNewButton() {
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void send(f); }}
       />
       {notice && (
-        <div className={`w-full rounded-md border px-3 py-2 text-xs ${notice.kind === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-rose-300 bg-rose-50 text-rose-800'}`}>
+        <div className={`w-full rounded-md border px-3 py-2 text-xs ${notice.kind === 'ok' ? 'border-success bg-success-surface text-success' : 'border-destructive bg-destructive-surface text-destructive'}`}>
           {notice.lines.map((l, i) => <p key={i}>{l}</p>)}
           <button type="button" className="mt-1 underline" onClick={() => setNotice(null)}>閉じる</button>
         </div>
@@ -218,9 +220,9 @@ function UploadNewButton() {
 }
 
 function StepBtn({ onClick, icon: Icon, tone, children }: { onClick: () => void; icon: React.ElementType; tone?: 'violet' | 'rose' | 'emerald'; children: React.ReactNode }) {
-  const cls = tone === 'violet' ? 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
-    : tone === 'rose' ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
-    : tone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+  const cls = tone === 'violet' ? 'border-ai bg-ai-surface text-ai hover:bg-ai-surface'
+    : tone === 'rose' ? 'border-destructive bg-destructive-surface text-destructive hover:bg-destructive-surface'
+    : tone === 'emerald' ? 'border-success bg-success-surface text-success hover:bg-success-surface'
     : 'border-border bg-muted/40 text-foreground hover:bg-accent';
   return (
     <button onClick={onClick} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs ${cls}`}>

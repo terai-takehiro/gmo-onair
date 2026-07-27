@@ -55,9 +55,9 @@ const mmss = (s: number | null) => {
 };
 
 const TONE: Record<string, string> = {
-  neutral: 'border-neutral-600 bg-neutral-800 text-neutral-200',
-  live: 'border-red-500 bg-red-950 text-red-200',
-  award: 'border-amber-500 bg-amber-950 text-amber-100',
+  neutral: 'border-border bg-card text-foreground',
+  live: 'border-destructive bg-destructive text-destructive-foreground',
+  award: 'border-warning bg-warning text-warning-foreground',
 };
 
 export default function OnAirPage() {
@@ -146,30 +146,30 @@ export default function OnAirPage() {
     );
   }
   if (!v) {
-    return <div className="flex min-h-screen items-center justify-center bg-neutral-950 text-neutral-400">読み込んでいます…</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">読み込んでいます…</div>;
   }
 
   const anyLive = v.layers.some((l) => l.live);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+    <div className="min-h-screen bg-background text-foreground">
       {/* 上辺: ON AIR とレイヤーの状態 */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-neutral-800 px-4 py-3">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <button onClick={() => navigate(`/event/${eventId}`)}
-          className="flex min-h-[44px] items-center gap-1 text-sm text-neutral-400 hover:text-neutral-100">
+          className="flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           準備にもどる
         </button>
         <span className={cn(
           'flex items-center gap-1 rounded px-2 py-1 text-xs font-bold',
-          anyLive ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400',
+          anyLive ? 'bg-destructive text-white' : 'bg-card text-muted-foreground',
         )}>
           <Radio className="h-3 w-3" aria-hidden="true" />
           {anyLive ? 'ON AIR' : 'OFF'}
         </span>
         <span className="text-sm font-bold">{v.event.name}</span>
         {v.program.category_name && (
-          <span className="text-sm text-neutral-400">
+          <span className="text-sm text-muted-foreground">
             {v.program.category_name}
             {v.program.category_position && ` ・ ${v.program.category_position}`}
           </span>
@@ -178,7 +178,7 @@ export default function OnAirPage() {
           {v.layers.map((l) => (
             <span key={l.key} className={cn(
               'rounded px-2 py-1 text-xs',
-              l.live ? 'bg-red-950 text-red-200' : 'bg-neutral-800 text-neutral-500',
+              l.live ? 'bg-destructive text-destructive-foreground' : 'bg-card text-muted-foreground',
             )}>
               {l.label} {l.live ? `出ています ${mmss(l.elapsed_sec)}` : '出ていません'}
             </span>
@@ -188,7 +188,7 @@ export default function OnAirPage() {
 
       {/* 出したままの警告 */}
       {v.leftover.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 bg-amber-950 px-4 py-2 text-sm text-amber-100">
+        <div className="flex flex-wrap items-center gap-2 bg-warning px-4 py-2 text-sm text-warning-foreground">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {v.leftover.map((l) => (
             <span key={l.layer}>
@@ -196,7 +196,7 @@ export default function OnAirPage() {
             </span>
           ))}
           <button onClick={() => { clearOneshot.mutate(); clearAll(); }}
-            className="ml-auto min-h-[44px] rounded bg-amber-600 px-3 text-sm font-bold text-white hover:bg-amber-500">
+            className="ml-auto min-h-[44px] rounded bg-warning px-3 text-sm font-bold text-warning-foreground hover:bg-warning/90">
             その場で消す
           </button>
         </div>
@@ -222,23 +222,23 @@ export default function OnAirPage() {
         </section>
 
         {/* NEXT — 次のTAKEで出るもの */}
-        <section className="rounded-xl border-2 border-dashed border-neutral-600 bg-neutral-900 p-4">
-          <h2 className="text-xs font-bold tracking-wider text-neutral-400">NEXT ・ 次のTAKEで出るもの</h2>
+        <section className="rounded-xl border-2 border-dashed border-border bg-background p-4">
+          <h2 className="text-xs font-bold tracking-wider text-muted-foreground">NEXT ・ 次のTAKEで出るもの</h2>
           {v.next ? (
             <>
               <p className="mt-2 text-2xl font-bold">{v.next.label}</p>
-              <p className="mt-1 text-sm text-neutral-300">{v.next.desc}</p>
-              <p className="mt-2 text-xs text-neutral-500">
+              <p className="mt-1 text-sm text-muted-foreground">{v.next.desc}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
                 次のTAKEで「{v.next.desc}」が出ます。
               </p>
             </>
           ) : (
-            <p className="mt-2 text-sm text-neutral-400">
+            <p className="mt-2 text-sm text-muted-foreground">
               この部門はここまでです。次の部門を選んでください。
             </p>
           )}
           {v.after.length > 0 && (
-            <p className="mt-3 text-xs text-neutral-500">
+            <p className="mt-3 text-xs text-muted-foreground">
               そのあと {v.after.map((a) => a.label).join(' → ')} と進みます。
             </p>
           )}
@@ -248,7 +248,7 @@ export default function OnAirPage() {
       {/* 操作 (PCだけ。スマホにTAKEは置かない = 24d) */}
       <section className="hidden gap-2 px-4 pb-4 lg:flex lg:flex-wrap lg:items-center">
         <button onClick={take} disabled={!v.next || busy}
-          className="min-h-[56px] rounded-xl bg-red-600 px-6 text-lg font-bold text-white disabled:opacity-40 hover:bg-red-500">
+          className="min-h-[56px] rounded-xl bg-destructive px-6 text-lg font-bold text-white disabled:opacity-40 hover:bg-destructive/90">
           <Play className="mr-2 inline h-5 w-5" aria-hidden="true" />
           TAKE
           <span className="ml-2 text-sm font-normal opacity-80">
@@ -256,23 +256,23 @@ export default function OnAirPage() {
           </span>
         </button>
         <button onClick={undo} disabled={!v.prev || busy}
-          className="min-h-[56px] rounded-xl border border-neutral-600 px-4 text-sm text-neutral-200 disabled:opacity-40 hover:bg-neutral-800">
+          className="min-h-[56px] rounded-xl border border-border px-4 text-sm text-foreground disabled:opacity-40 hover:bg-card">
           <Undo2 className="mr-1 inline h-4 w-4" aria-hidden="true" />
           1つ戻す{v.prev ? `（${v.prev.label}）` : ''}
         </button>
         <button onClick={clearAll} disabled={busy}
-          className="min-h-[56px] rounded-xl border border-neutral-600 px-4 text-sm text-neutral-200 hover:bg-neutral-800">
+          className="min-h-[56px] rounded-xl border border-border px-4 text-sm text-foreground hover:bg-card">
           <Eraser className="mr-1 inline h-4 w-4" aria-hidden="true" />
           CLEAR
         </button>
 
-        <label className="ml-auto flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-neutral-300">
+        <label className="ml-auto flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-muted-foreground">
           <input type="checkbox" className="h-4 w-4" checked={keysArmed}
             onChange={(e) => setKeysArmed(e.target.checked)}
             aria-label="キー操作を使う" />
           <Keyboard className="h-4 w-4" aria-hidden="true" />
           キー操作を使う
-          <span className={cn('rounded px-1.5 text-xs', keysArmed ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-500')}>
+          <span className={cn('rounded px-1.5 text-xs', keysArmed ? 'bg-destructive text-white' : 'bg-card text-muted-foreground')}>
             {keysArmed ? '入' : '切'}
           </span>
         </label>
@@ -280,13 +280,13 @@ export default function OnAirPage() {
 
       {/* スマホは見張るだけ (24d) */}
       <section className="px-4 pb-4 lg:hidden">
-        <p className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-300">
+        <p className="rounded-xl border border-border bg-background p-3 text-sm text-muted-foreground">
           <strong>TAKE はこの画面にありません。</strong>
           送出はPCから行います。スマホでできるのは、出たままのものを消すことと、状態を見張ることだけです。
         </p>
         {anyLive && (
           <button onClick={() => { clearOneshot.mutate(); clearAll(); }}
-            className="mt-2 min-h-[44px] w-full rounded-xl bg-amber-600 px-3 text-sm font-bold text-white">
+            className="mt-2 min-h-[44px] w-full rounded-xl bg-warning px-3 text-sm font-bold text-warning-foreground">
             出ているものを消す
           </button>
         )}
@@ -294,24 +294,24 @@ export default function OnAirPage() {
 
       {/* キー操作の一覧 + 出したまま変えられるもの + 準備への導線 */}
       <div className="grid gap-4 px-4 pb-8 lg:grid-cols-3">
-        <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-          <h3 className="text-xs font-bold text-neutral-400">キー操作</h3>
-          <ul className="mt-2 space-y-1 text-xs text-neutral-300">
+        <section className="rounded-xl border border-border bg-background p-3">
+          <h3 className="text-xs font-bold text-muted-foreground">キー操作</h3>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
             {v.keys.map((k) => (
               <li key={k.key} className="flex gap-2">
-                <kbd className="shrink-0 rounded bg-neutral-800 px-1.5 py-0.5 font-mono">{k.key}</kbd>
+                <kbd className="shrink-0 rounded bg-card px-1.5 py-0.5 font-mono">{k.key}</kbd>
                 <span>{k.what}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[11px] text-neutral-500">
+          <p className="mt-2 text-[11px] text-muted-foreground">
             既定では効きません。誤って本番に出さないため、上の「キー操作を使う」を入れたときだけ効きます。
           </p>
         </section>
 
-        <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-          <h3 className="text-xs font-bold text-neutral-400">出したまま変えられるもの</h3>
-          <dl className="mt-2 space-y-1 text-xs text-neutral-300">
+        <section className="rounded-xl border border-border bg-background p-3">
+          <h3 className="text-xs font-bold text-muted-foreground">出したまま変えられるもの</h3>
+          <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
             <div className="flex justify-between gap-2">
               <dt>大賞の見せ方</dt><dd>{v.live_adjust.oneshot_style}</dd>
             </div>
@@ -319,32 +319,32 @@ export default function OnAirPage() {
               <dt>黒ベースの濃さ</dt><dd>{Math.round(v.live_adjust.scrim_opacity * 100)}%</dd>
             </div>
           </dl>
-          <p className="mt-2 text-[11px] text-neutral-500">
+          <p className="mt-2 text-[11px] text-muted-foreground">
             この2つは出したまま変えられます（TAKEし直す必要はありません）。
             変えるのは準備の画面からです。
           </p>
         </section>
 
-        <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-          <h3 className="text-xs font-bold text-neutral-400">準備（本番中は触りません）</h3>
+        <section className="rounded-xl border border-border bg-background p-3">
+          <h3 className="text-xs font-bold text-muted-foreground">準備（本番中は触りません）</h3>
           <div className="mt-2 flex flex-col gap-1">
             <button onClick={() => navigate(`/event/${eventId}/outputs`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-neutral-300 hover:text-neutral-100">
+              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
               出力URLの配り方
             </button>
             <button onClick={() => navigate(`/event/${eventId}/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-neutral-300 hover:text-neutral-100">
+              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               ランキングCGの設定
             </button>
             <button onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-neutral-300 hover:text-neutral-100">
+              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               字幕スーパーの設定
             </button>
             <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-neutral-300 hover:text-neutral-100">
+              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               クイズ・アンケートの設定
             </button>

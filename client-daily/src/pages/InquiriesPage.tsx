@@ -14,11 +14,12 @@ import {
   useInquiries, useCreateInquiry, useUpdateInquiry, useHandleInquiry, useDeleteInquiry, type InquiryInput,
 } from '@/lib/inboxApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 const IMP_STYLE: Record<Importance, string> = {
-  high: 'border-rose-300 text-rose-700 bg-rose-50',
-  medium: 'border-amber-300 text-amber-700 bg-amber-50',
-  low: 'border-slate-300 text-slate-600 bg-slate-50',
+  high: 'border-destructive text-destructive bg-destructive-surface',
+  medium: 'border-warning text-warning-strong bg-warning-surface',
+  low: 'border-border text-muted-foreground bg-muted',
 };
 
 export default function InquiriesPage() {
@@ -33,7 +34,7 @@ export default function InquiriesPage() {
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-bold"><Inbox className="h-5 w-5 text-primary" />その他問い合わせ</h1>
+          <PageTitle><Inbox className="h-5 w-5 text-primary" />その他問い合わせ</PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             案件・営業・見積請求・内覧会のいずれにも属さない有益なメール。AI がスパム・営業・メルマガを除いて分類・重要度づけします。
           </p>
@@ -64,7 +65,7 @@ function InquiryCard({ q, canEdit, onEdit }: { q: MiscInquiry; canEdit: boolean;
   const del = useDeleteInquiry();
   const isAi = q.source === 'email';
   return (
-    <Card className={q.handled_at ? 'opacity-70' : q.importance === 'high' ? 'border-rose-200' : ''}>
+    <Card className={q.handled_at ? 'opacity-70' : q.importance === 'high' ? 'border-destructive' : ''}>
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -73,8 +74,8 @@ function InquiryCard({ q, canEdit, onEdit }: { q: MiscInquiry; canEdit: boolean;
                 {q.importance === 'high' && <AlertTriangle className="h-3 w-3 mr-0.5" />}重要度 {IMPORTANCE_LABELS[q.importance]}
               </Badge>
               {q.category && <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{q.category}</span>}
-              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"><Sparkles className="h-3 w-3" />AI取込</span>}
-              {q.handled_at && <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 text-[11px]"><CheckCircle2 className="h-3 w-3" />対応済み</Badge>}
+              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai"><Sparkles className="h-3 w-3" />AI取込</span>}
+              {q.handled_at && <Badge variant="outline" className="gap-1 border-success text-success text-[11px]"><CheckCircle2 className="h-3 w-3" />対応済み</Badge>}
             </div>
             <p className="mt-1 text-sm font-medium text-foreground">{q.summary}</p>
             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -83,7 +84,7 @@ function InquiryCard({ q, canEdit, onEdit }: { q: MiscInquiry; canEdit: boolean;
               {q.received_at && <span>受信 {formatDateJa(q.received_at)}</span>}
               {q.url && <a href={q.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-primary hover:underline"><ExternalLink className="h-3 w-3" />リンク</a>}
             </div>
-            {q.action_needed && <p className="mt-1 text-xs text-blue-700">👉 {q.action_needed}</p>}
+            {q.action_needed && <p className="mt-1 text-xs text-primary">👉 {q.action_needed}</p>}
             {q.notes && <p className="mt-1 text-xs text-muted-foreground whitespace-pre-line">📝 {q.notes}</p>}
           </div>
           {canEdit && (

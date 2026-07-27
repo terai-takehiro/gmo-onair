@@ -420,7 +420,7 @@ export default function RundownPage() {
   const sectionBg = "bg-card/80";
   const rowHover = "hover:bg-accent/50";
   const mutedText = "text-muted-foreground";
-  const pastCueText = "text-muted-foreground/60";
+  const pastCueText = "text-muted-foreground";
 
   // ============================================================
   // Render
@@ -572,7 +572,7 @@ export default function RundownPage() {
             <span
               className={cn(
                 "font-number font-bold",
-                oshimaki > 3 ? "text-red-500" : oshimaki < -3 ? "text-info" : isDark ? "text-success" : "text-success"
+                oshimaki > 3 ? "text-destructive" : oshimaki < -3 ? "text-info" : isDark ? "text-success" : "text-success"
               )}
             >
               {oshimaki > 0 ? "+" : ""}{formatTime(oshimaki)}
@@ -694,7 +694,7 @@ export default function RundownPage() {
                                   if (!scene && !trigger) return null;
                                   return (
                                     <div key={ei} className="mb-1 last:mb-0">
-                                      {scene?.name && <div className="font-bold text-violet-400">【{scene.name}】</div>}
+                                      {scene?.name && <div className="font-bold text-cat-7">【{scene.name}】</div>}
                                       {scene?.wall && <div>壁: {scene.wall}</div>}
                                       {scene?.floor && <div>床: {scene.floor}</div>}
                                       {trigger && <div className={cn("text-[11px]", mutedText)}>［{trigger}］</div>}
@@ -806,7 +806,7 @@ export default function RundownPage() {
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[64px] rounded-xl transition-colors select-none font-bold",
               isPlaying
-                ? "bg-warning/15 text-warning border border-warning/40 hover:bg-warning/25 active:bg-warning/30"
+                ? "bg-warning/15 text-warning-strong border border-warning/40 hover:bg-warning/25 active:bg-warning/30"
                 : "bg-success/15 text-success border border-success/40 hover:bg-success/25 active:bg-success/30"
             )}
             aria-label={isPlaying ? "一時停止" : "再生"}

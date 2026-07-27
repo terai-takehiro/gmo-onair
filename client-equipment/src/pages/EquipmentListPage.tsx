@@ -919,7 +919,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           {saveErrors.map(e => (
             <div key={e.id} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <span className="flex-1">カスタム列の保存に失敗: {e.msg}</span>
-              <button onClick={() => setSaveErrors(prev => prev.filter(x => x.id !== e.id))} className="text-destructive/60 hover:text-destructive shrink-0">×</button>
+              <button onClick={() => setSaveErrors(prev => prev.filter(x => x.id !== e.id))} className="text-destructive hover:text-destructive shrink-0">×</button>
             </div>
           ))}
         </div>
@@ -985,7 +985,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                           />
                           <label htmlFor={`custom-col-${col.id}`} className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none min-w-0">
                             <span className="flex-1 truncate">{col.name}</span>
-                            <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                            <span className="text-[10px] text-muted-foreground shrink-0">
                               {col.scope === 'shared' ? '共' : '個'}
                             </span>
                           </label>
@@ -1184,7 +1184,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
                         <span className=" text-xs text-muted-foreground">{item.eq_code}</span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                     <p className="font-semibold text-sm leading-tight mb-0.5 truncate">
                       {item.name}
@@ -1204,9 +1204,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         {item.asset_class && <AssetBadge v={item.asset_class} />}
                         {item.condition && item.condition !== 'good' && (
                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset ${
-                            item.condition === 'excellent' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
-                            item.condition === 'fair' ? 'bg-yellow-50 text-yellow-700 ring-yellow-200' :
-                            'bg-red-50 text-red-700 ring-red-200'
+                            item.condition === 'excellent' ? 'bg-success-surface text-success ring-success' :
+                            item.condition === 'fair' ? 'bg-warning-surface text-warning-strong ring-warning' :
+                            'bg-destructive-surface text-destructive ring-destructive'
                           }`}>{CONDITION_LABELS[item.condition] ?? item.condition}</span>
                         )}
                       </div>
@@ -1267,15 +1267,15 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   return (
                     <tr
                       key={item.id}
-                      className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-warning-surface/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                       onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
-                      <td className="pr-1 py-2 text-muted-foreground/40 text-xs" style={{ paddingLeft: `${(depth + 1) * 16 + 4}px` }}>└</td>
+                      <td className="pr-1 py-2 text-muted-foreground text-xs" style={{ paddingLeft: `${(depth + 1) * 16 + 4}px` }}>└</td>
                       {canBulkEdit && <td />}
                       {renderTableCells(item, {
                         py: 'py-2',
                         nameSuffix: item.parent_name
-                          ? <span className="ml-1.5 text-[10px] text-muted-foreground/60 bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>
+                          ? <span className="ml-1.5 text-[10px] text-muted-foreground bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>
                           : undefined,
                       })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -1293,7 +1293,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   <>
                     <tr
                       key={item.id}
-                      className={`group transition-colors ${tableEditMode ? 'cursor-default' : 'cursor-pointer'} ${isSelected ? 'bg-primary/6' : tableEditMode ? 'hover:bg-amber-50/50 dark:hover:bg-amber-900/10' : 'hover:bg-accent/30'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      className={`group transition-colors ${tableEditMode ? 'cursor-default' : 'cursor-pointer'} ${isSelected ? 'bg-primary/6' : tableEditMode ? 'hover:bg-warning-surface/50 dark:hover:bg-warning/10' : 'hover:bg-accent/30'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                       onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
                       {/* 展開ボタン */}
@@ -1331,10 +1331,10 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                     {isExpanded && children.map((child: any) => (
                       <tr
                         key={child.id}
-                        className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                        className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-warning-surface/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                         onClick={tableEditMode ? undefined : () => navigateToDetail(child.id)}
                       >
-                        <td className="pl-8 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
+                        <td className="pl-8 pr-1 py-1.5 text-muted-foreground text-xs">└</td>
                         {canBulkEdit && <td />}
                         {renderTableCells(child, { py: 'py-1.5' })}
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -1380,7 +1380,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
             </DialogTitle>
           </DialogHeader>
           {saveSuccess && (
-            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+            <div className="text-sm text-success bg-success-surface border border-success rounded-md px-3 py-2">
               ✓ 登録しました。続けて次の機材を入力してください。
             </div>
           )}
@@ -1849,10 +1849,10 @@ function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
 }
 
 const ASSET_BADGE: Record<string, string> = {
-  fixed_asset: 'bg-blue-50 text-blue-700 ring-blue-200',
-  consumable:  'bg-green-50 text-green-700 ring-green-200',
-  leased:      'bg-orange-50 text-orange-700 ring-orange-200',
-  transferred: 'bg-gray-100 text-gray-600 ring-gray-200',
+  fixed_asset: 'bg-accent text-primary ring-primary/30',
+  consumable:  'bg-success-surface text-success ring-success',
+  leased:      'bg-warning-surface text-warning-strong ring-warning',
+  transferred: 'bg-muted text-muted-foreground ring-border',
 };
 function AssetBadge({ v }: { v: string }) {
   return (
@@ -1863,10 +1863,10 @@ function AssetBadge({ v }: { v: string }) {
 }
 
 const TYPE_BADGE: Record<string, string> = {
-  V: 'bg-violet-50 text-violet-700', C: 'bg-sky-50 text-sky-700',
-  A: 'bg-amber-50 text-amber-700', IC: 'bg-teal-50 text-teal-700',
-  NW: 'bg-cyan-50 text-cyan-700', L: 'bg-yellow-50 text-yellow-700',
-  XR: 'bg-pink-50 text-pink-700', E: 'bg-gray-100 text-gray-600',
+  V: 'bg-cat-7/10 text-cat-7', C: 'bg-info/10 text-info',
+  A: 'bg-warning-surface text-warning-strong', IC: 'bg-info/10 text-info',
+  NW: 'bg-info/10 text-info', L: 'bg-warning-surface text-warning-strong',
+  XR: 'bg-cat-7/10 text-cat-7', E: 'bg-muted text-muted-foreground',
 };
 function SectionBadge({ typeCode, section }: { typeCode: string | null; section: string | null }) {
   const label = sectionDisplay(typeCode, section);

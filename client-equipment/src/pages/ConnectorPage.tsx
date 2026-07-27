@@ -41,12 +41,12 @@ const STORAGE_VIS = "connector-visible-cols";
 const STORAGE_ORDER = "connector-col-order";
 
 const KINDS = [
-  { code: "video",    label: "映像", color: "bg-violet-50 text-violet-700" },
-  { code: "audio",    label: "音声", color: "bg-amber-50 text-amber-700" },
-  { code: "network",  label: "NW",   color: "bg-cyan-50 text-cyan-700" },
-  { code: "lighting", label: "照明", color: "bg-yellow-50 text-yellow-700" },
-  { code: "power",    label: "電源", color: "bg-rose-50 text-rose-700" },
-  { code: "other",    label: "その他", color: "bg-gray-100 text-gray-600" },
+  { code: "video",    label: "映像", color: "bg-cat-7/10 text-cat-7" },
+  { code: "audio",    label: "音声", color: "bg-warning-surface text-warning-strong" },
+  { code: "network",  label: "NW",   color: "bg-info/10 text-info" },
+  { code: "lighting", label: "照明", color: "bg-warning-surface text-warning-strong" },
+  { code: "power",    label: "電源", color: "bg-destructive-surface text-destructive" },
+  { code: "other",    label: "その他", color: "bg-muted text-muted-foreground" },
 ] as const;
 
 type KindCode = typeof KINDS[number]["code"];

@@ -160,16 +160,16 @@ export default function LocationPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         {isRack
-                          ? <Server className="h-4 w-4 text-amber-500 shrink-0" />
+                          ? <Server className="h-4 w-4 text-warning-strong shrink-0" />
                           : <MapPin className="h-4 w-4 text-primary shrink-0" />}
                         <h3 className="font-medium">{loc.name}</h3>
                         {brName && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                          <span className="text-xs bg-accent text-primary px-1.5 py-0.5 rounded">
                             {brName}
                           </span>
                         )}
                         {isRack && (
-                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ">
+                          <span className="text-xs bg-warning-surface text-warning-strong px-1.5 py-0.5 rounded ">
                             {rtName} {loc.rack_units}U
                           </span>
                         )}
