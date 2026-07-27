@@ -872,3 +872,51 @@ id='sandbox' として食われて 404 になる（`/docs/format` のような2�
 
 `manual/content.tsx` は**文章のかたまり**（画面の使い方の本文）なので、分割の意味が薄い。
 次は `SchedulePage.tsx` / `RackLayoutPage.tsx` のような**画面**から進める。
+
+---
+
+## v2.9.294 — 分割 4本目・5本目 (初めて1000行を切った)
+
+| ファイル | 前 | 後 | 切り出したもの |
+| --- | --- | --- | --- |
+| `RackLayoutPage.tsx` | 1,505 | **714** | 定数と型 (`config.ts` 49) / ダイアログ2つ (`dialogs.tsx` 156) / ラック図の絵 (`RackDisplay.tsx` 412) / 印刷用 (`print.tsx` 205) |
+| `SchedulePage.tsx` | 1,515 | **1,234** | 型・定数・道具 (`types.ts` 145) / カレンダー連携と種別ピッカー (`dialogs.tsx` 148) |
+
+### 分かったこと: 「切りやすいファイル」と「切りにくいファイル」がある
+
+`RackLayoutPage` は **もともと関数が9つに分かれて並んでいた**
+(`RackDisplay` / `DefaultCellContent` / `ConfiguredCellContent` / `UnitBadge` /
+`ItemTooltip` / `PrintRackArea` / `PrintRackDisplay` / ダイアログ2つ)。
+props はすでに決まっているので**そのまま移すだけ**で済み、−791行と最大の削減になった。
+
+つまり **「1つの巨大な関数」なのか「小さい関数が1ファイルに積んである」のか**で
+分割の難易度がまったく違う。後者はほぼ機械作業。前者 (ProjectFormPage / EquipmentListPage /
+BusinessProjectView) は props を1つずつ決める必要があり、型を間違えると
+「渡せるが意味が違う」事故になる。
+
+### 祝日の一覧がページ本文に埋まっていた
+
+`SchedulePage.tsx` には **2027年までの祝日が手で書いてあった**。
+「調べて直すもの」がページの本文にあると、直すたびに 1,500 行のファイルを開くことになる。
+`schedule/types.ts` に移した。
+
+### 検証
+
+- ビルド9ワークスペース通過 / `eslint` 0 errors・**77 warnings（着手前と同数）** / 禁止パターン違反0
+- **ブラウザ11項目** — 予定表（**「部屋」パネルに切り出した部屋とスタジオ名が出る** /
+  **カレンダー連携ダイアログが開く** / **種別ピッカーが開く**）、
+  ラック図（**前面・背面の切替** / **印刷ボタン**）、横はみ出し 0px、JSエラー0件
+- **v2.9.292・293 の検証47項目も再実行して全通過**
+- 検証で「予定表は部屋名を既定では出さない（「部屋」パネルの中）」と分かった。
+  最初これを知らずに FAIL と判定したが、**既存の作りであって分割の影響ではない**
+
+### 残り (13本)
+
+`ProjectFormPage.tsx` 1,925 / `EquipmentListPage.tsx` 1,880 / `BusinessProjectView.tsx` 1,520 /
+`manual/content.tsx` 1,455 / `RevenueListPage.tsx` 1,438 / `EventEditorPage.tsx` 1,294 /
+`SchedulePage.tsx` 1,234 / `ProjectGroupListPage.tsx` 1,177 / `project.service.ts` 1,130 /
+`TodayPage.tsx` 1,117 / `EditorPage.tsx` (Qシート) 1,094 / `EquipmentDetailPage.tsx` 1,093 /
+`CueTable.tsx` 1,078。
+
+**`manual/content.tsx` は対象から外す** — 画面の使い方の本文そのもの (文章のかたまり) なので、
+分割しても読みやすくならない。
