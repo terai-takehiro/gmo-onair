@@ -15,8 +15,8 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatDateJa, type InviewRegistration } from '@/lib/types';
 import {
-  useInviewList, useCreateInview, useUpdateInview, useCheckInInview, useDeleteInview,
-  usePromoteInview, type InviewInput,
+  useInviewList, useCreateInview, useUpdateInview, useCheckInInview, useCheckInInviewCompanion,
+  useDeleteInview, usePromoteInview, type InviewInput,
 } from '@/lib/inviewApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError, notifySuccess } from '@/lib/notify';
@@ -90,12 +90,13 @@ function buildCsv(rows: InviewRegistration[]): string {
       r.postal_code ?? '', r.address ?? '', String(headOf(r)), r.visit_time ?? '',
       r.interests ?? '', r.notes ?? '', checkin, r.checked_in_by ?? '', promoted, src, createdAt,
     ].map(csvCell));
-    // 同行者 (会社・回・来場状況は代表から継承)
+    // 同行者 (会社・回は代表から継承。来場状況は同行者ごとに個別)
     for (const c of r.companions ?? []) {
+      const companionCheckin = c.checked_in_at ? '来場済み' : '未受付';
       lines.push([
         sessionDate, r.session_label ?? '', r.session_time ?? '', r.session_audience ?? '',
-        '同行', c, '', r.name ?? '',
-        r.company ?? '', '', '', '', '', '', '', '', '', '', '', '', checkin, '', '', src, '',
+        '同行', c.name, '', r.name ?? '',
+        r.company ?? '', '', '', '', '', '', '', '', '', '', '', '', companionCheckin, c.checked_in_by ?? '', '', src, '',
       ].map(csvCell));
     }
   }
@@ -321,6 +322,7 @@ function CompanySummary({ items }: { items: InviewRegistration[] }) {
 
 function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: boolean; onEdit: () => void }) {
   const checkIn = useCheckInInview();
+  const checkInCompanion = useCheckInInviewCompanion();
   const del = useDeleteInview();
   const promote = usePromoteInview();
   const isKairos = r.source === 'kairos3';
@@ -386,19 +388,42 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                     {r.name}
                     <span className="rounded bg-primary/20 px-1 text-[9px] font-medium text-primary">代表</span>
                   </span>
-                  {companions.map((c, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs">
-                      <UserPlus className="h-3 w-3 text-muted-foreground" />
-                      {c}
-                      <span className="rounded bg-muted px-1 text-[9px] text-muted-foreground">同行</span>
-                    </span>
-                  ))}
                   {unnamed > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground">
                       ほか {unnamed}名（氏名未登録）
                     </span>
                   )}
                 </div>
+                {/* 同行者 — 代表とは独立に1人ずつ受付できる */}
+                {companions.length > 0 && (
+                  <div className="mt-1.5 space-y-1">
+                    {companions.map((c) => (
+                      <div
+                        key={c.id}
+                        className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs ${c.checked_in_at ? 'border-success bg-success-surface/40' : 'border-border bg-background'}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-1">
+                          <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{c.name}</span>
+                          <span className="shrink-0 rounded bg-muted px-1 text-[9px] text-muted-foreground">同行</span>
+                        </span>
+                        {canEdit ? (
+                          <Button
+                            size="sm"
+                            variant={c.checked_in_at ? 'outline' : 'default'}
+                            className="h-6 shrink-0 gap-1 px-2 text-[11px]"
+                            disabled={checkInCompanion.isPending}
+                            onClick={() => checkInCompanion.mutate({ id: r.id, companionId: c.id, checkedIn: !c.checked_in_at })}
+                          >
+                            {c.checked_in_at ? <><Circle className="h-3 w-3" />取消</> : <><CheckCircle2 className="h-3 w-3" />受付</>}
+                          </Button>
+                        ) : c.checked_in_at ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 text-success"><CheckCircle2 className="h-3 w-3" />来場済み</span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {r.interests ? <p className="mt-1 text-xs text-foreground whitespace-pre-line">💬 {r.interests}</p> : null}
@@ -471,12 +496,12 @@ function InviewDialog({ initial, onClose }: { initial: InviewRegistration | null
     mobile: initial?.mobile ?? '',
     fax: initial?.fax ?? '',
     party_size: initial?.party_size ?? 1,
-    companions: initial?.companions ?? [],
+    companions: (initial?.companions ?? []).map((c) => c.name),
     visit_time: initial?.visit_time ?? '',
     interests: initial?.interests ?? '',
     notes: initial?.notes ?? '',
   });
-  const [companionsText, setCompanionsText] = useState((initial?.companions ?? []).join('\n'));
+  const [companionsText, setCompanionsText] = useState((initial?.companions ?? []).map((c) => c.name).join('\n'));
   const pending = create.isPending || update.isPending;
 
   const submit = () => {

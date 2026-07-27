@@ -41,6 +41,14 @@ export interface OpsReport {
 }
 
 // ── 内覧会 来場予約 ──────────────────────────────────
+/** 同行者。代表者の登録に従属し、当日は1人ずつ独立して受付できる (v2.9.298 相当) */
+export interface InviewCompanion {
+  id: string;
+  name: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
+
 export interface InviewRegistration {
   id: string;
   session_label: string;
@@ -59,7 +67,7 @@ export interface InviewRegistration {
   mobile: string | null;
   mail_consent: boolean | null;
   party_size: number;
-  companions: string[] | null;
+  companions: InviewCompanion[] | null;
   visit_time: string | null;
   interests: string | null;
   notes: string | null;

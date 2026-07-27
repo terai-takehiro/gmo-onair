@@ -1788,12 +1788,19 @@ export default function ProjectFormPage() {
                     const selected = (watch("media_platform") || "").split(",").map((s) => s.trim()).filter(Boolean);
                     return (
                       <div className="mt-2">
+                        {/*
+                          `sm:3` は**画面幅**で切り替わるが、この隣にもう1枠並ぶ
+                          `lg:grid-cols-2` の中では実際の幅は画面の半分しかない。
+                          画面が広いのに枠は狭いままなので、YouTube/地上波TV/ネットメディア
+                          のような短い語が1文字ずつ折り返されて崩れて見えていた。
+                          2列に固定して、どの画面幅でも枠の実際の広さに合わせる。
+                        */}
                         <ToggleButtonGroup
                           options={(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
                           value={selected}
                           onChange={(next) => setValue("media_platform", next.join(","))}
                           multi
-                          cols={{ base: 2, sm: 3 }}
+                          cols={{ base: 2 }}
                         />
                       </div>
                     );

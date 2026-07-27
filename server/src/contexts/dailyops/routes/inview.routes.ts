@@ -63,6 +63,15 @@ router.post('/inview/:id/check-in', ...canEdit, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
+// 同行者1人の来場チェック (body: { checked_in: boolean })
+router.post('/inview/:id/companions/:companionId/check-in', ...canEdit, async (req, res) => {
+  const checkedIn = req.body?.checked_in !== false; // 既定 true
+  const row = await inviewService.setCompanionCheckIn(
+    String(req.params.id), String(req.params.companionId), checkedIn, req.user!.name,
+  );
+  res.json({ success: true, data: row });
+});
+
 // 登録の削除 (論理削除)
 router.delete('/inview/:id', ...canEdit, async (req, res) => {
   await inviewService.remove(String(req.params.id));

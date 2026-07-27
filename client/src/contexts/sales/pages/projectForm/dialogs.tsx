@@ -464,12 +464,15 @@ export function GlsIssueDialog({
                     <div>
                       <Label>配信媒体 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
                       <div className="mt-2">
+                        {/* このダイアログ自体が `sm:max-w-md` (≈448px) なので、
+                            `sm:3` にすると画面幅が広がった瞬間に3列へ切り替わり、
+                            枠が足りず短い語が1文字ずつ折り返される。2列で固定する。 */}
                         <ToggleButtonGroup
                           options={(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
                           value={glsDialog.media_platforms}
                           onChange={(next) => setGlsDialog({ ...glsDialog, media_platforms: next })}
                           multi
-                          cols={{ base: 2, sm: 3 }}
+                          cols={{ base: 2 }}
                         />
                       </div>
                     </div>
