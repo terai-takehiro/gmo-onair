@@ -33,17 +33,17 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const COL_DEFS = [
-  { key: 'eq_code',          label: 'ID',        sortKey: 'eq_code',             default: true  },
-  { key: 'equipment_type',   label: '種別',       sortKey: 'equipment_type_code', default: true  },
-  { key: 'location',         label: '設置場所',   sortKey: 'location_name',       default: true  },
-  { key: 'name',             label: '商品名',     sortKey: 'name',                default: true  },
-  { key: 'manufacturer',     label: 'メーカー',   sortKey: 'manufacturer_name',   default: false },
-  { key: 'model_number',     label: '型名',       sortKey: 'model_number',        default: true  },
-  { key: 'serial_number',    label: 'シリアル',   sortKey: 'serial_number',       default: false },
-  { key: 'unit_number',      label: 'No',         sortKey: 'unit_number',         default: true  },
-  { key: 'condition',        label: '状態',       sortKey: 'condition',           default: false },
-  { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code',    default: false },
-  { key: 'notes',            label: '備考',       sortKey: 'notes',               default: true  },
+  { key: 'eq_code', label: 'ID', sortKey: 'eq_code', default: true  },
+  { key: 'equipment_type', label: '種別', sortKey: 'equipment_type_code', default: true  },
+  { key: 'location', label: '設置場所', sortKey: 'location_name', default: true  },
+  { key: 'name', label: '商品名', sortKey: 'name', default: true  },
+  { key: 'manufacturer', label: 'メーカー', sortKey: 'manufacturer_name', default: false },
+  { key: 'model_number', label: '型名', sortKey: 'model_number', default: true  },
+  { key: 'serial_number', label: 'シリアル', sortKey: 'serial_number', default: false },
+  { key: 'unit_number', label: 'No', sortKey: 'unit_number', default: true  },
+  { key: 'condition', label: '状態', sortKey: 'condition', default: false },
+  { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
+  { key: 'notes', label: '備考', sortKey: 'notes', default: true  },
 ] as const;
 type ColKey = typeof COL_DEFS[number]['key'];
 
@@ -789,7 +789,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           <td key={col.id} className={`px-3 ${py}`} onClick={e => e.stopPropagation()}>
             <input
               type={col.col_type === 'number' ? 'number' : 'text'}
-              className="w-full min-w-[80px] bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-xs"
+              className="w-full min-w-[72px] bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-xs"
               defaultValue={val}
               autoFocus
               onBlur={e => commitEdit(e.target.value)}
@@ -817,7 +817,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
       if (!col) return null;
       switch (col.key) {
         case 'eq_code':
-          return <td key="eq_code" className={`px-3 ${py}  text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
+        return <td key="eq_code" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
         case 'equipment_type':
           return <td key="equipment_type" className={`px-3 ${py} whitespace-nowrap`}><SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} /></td>;
         case 'location': {
@@ -828,7 +828,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="name" className={`px-3 ${py} font-medium`}>
               {tableEditMode
-                ? <input className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
+                ? <input className="w-full min-w-[128px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
                     value={tableEdits[item.id]?.name ?? item.name ?? ''}
                     onChange={e => handleInlineChange(item.id, 'name', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -844,7 +844,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.model_number ?? item.model_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'model_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -855,9 +855,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           );
         case 'serial_number':
           return (
-            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
+            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'serial_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -883,9 +883,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return <td key="condition" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{CONDITION_LABELS[item.condition] || '–'}</td>;
         case 'fixed_asset_code':
           return (
-            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
+            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.fixed_asset_code ?? item.fixed_asset_code ?? ''}
                     onChange={e => handleInlineChange(item.id, 'fixed_asset_code', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -898,7 +898,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="notes" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                     value={tableEdits[item.id]?.notes ?? item.notes ?? ''}
                     onChange={e => handleInlineChange(item.id, 'notes', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -1000,7 +1000,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                 )}
                 <div className="border-t mt-1.5 pt-1.5">
                   <button
-                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded"
+                  className="h-ctl-1 flex w-full items-center gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded"
                     onClick={() => { setColPickerOpen(false); setCustomColDialogOpen(true); }}
                   >
                     <Settings2 className="h-3.5 w-3.5" />カスタム列を管理...
@@ -1038,7 +1038,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
               n.delete('orphans');
               return n;
             }, { replace: true })}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            className={`inline-flex h-ctl-1 items-center px-3 rounded-full text-sm font-medium transition-colors ${
               filterBlock === t.code
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1060,7 +1060,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
               if (filterSection === s.value) n.delete('sect'); else n.set('sect', s.value);
               return n;
             }, { replace: true })}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            className={`inline-flex h-ctl-1 items-center px-3 rounded-full text-sm font-medium transition-colors ${
               filterSection === s.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
@@ -1073,7 +1073,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           <button
             type="button"
             onClick={() => setLocFilterOpen(v => !v)}
-            className={`relative flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            className={`h-ctl-1 relative flex items-center gap-1.5 px-3 rounded-full text-sm font-medium border transition-colors${
               filterLocs.size > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
             }`}
           >
@@ -1116,7 +1116,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
 
       {/* 検索 + 子機材トグル */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative max-w-sm flex-1 min-w-[180px]">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
@@ -1442,7 +1442,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                           <button
                             key={item.model_number ?? 'none'}
                             type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                            className="h-ctl-3 w-full text-left px-3 text-sm hover:bg-muted flex items-center gap-2"
                             onMouseDown={() => {
                               setForm(f => ({
                                 ...f,
@@ -1850,8 +1850,8 @@ function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
 
 const ASSET_BADGE: Record<string, string> = {
   fixed_asset: 'bg-accent text-primary ring-primary/30',
-  consumable:  'bg-success-surface text-success ring-success',
-  leased:      'bg-warning-surface text-warning-strong ring-warning',
+  consumable: 'bg-success-surface text-success ring-success',
+  leased: 'bg-warning-surface text-warning-strong ring-warning',
   transferred: 'bg-muted text-muted-foreground ring-border',
 };
 function AssetBadge({ v }: { v: string }) {

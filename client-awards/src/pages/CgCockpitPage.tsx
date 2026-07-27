@@ -10,7 +10,7 @@ import OneShotControlPage from './OneShotControlPage';
 import QuizStackControlPage from './QuizStackControlPage';
 
 // v2.9.88: 統合送出コックピット。出力URL・各レイヤーの送出ロジック・socket は据え置き、
-//   operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
+// operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
 // v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング)。
 // v2.9.91: PC (lg+) はタブではなく **複数レイヤーを横並びで一覧表示** (同時に見える)。
 //   モバイル (< lg) は従来どおりタブ (1 レイヤーのみ表示)。
@@ -139,7 +139,7 @@ export default function CgCockpitPage() {
         >
           <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
-        <span className="hidden sm:block text-sm font-bold text-foreground truncate max-w-[120px] lg:max-w-[220px]">
+        <span className="hidden sm:block text-sm font-bold text-foreground truncate max-w-[128px] lg:max-w-[240px]">
           {event?.name ?? '送出'}
         </span>
 

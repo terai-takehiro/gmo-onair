@@ -100,7 +100,7 @@ export default function RentalSettingsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[180px] max-w-sm">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="商品名・型番・メーカーで検索..."
@@ -110,7 +110,7 @@ export default function RentalSettingsPage() {
           />
         </div>
         <Select value={typeFilter || "_all"} onValueChange={v => setTypeFilter(v === "_all" ? "" : v)}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-[128px]">
             <SelectValue placeholder="全種別" />
           </SelectTrigger>
           <SelectContent>

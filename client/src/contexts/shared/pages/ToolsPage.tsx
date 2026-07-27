@@ -121,7 +121,7 @@ export function ToolOutputRow({
 
         {picking && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="min-w-[220px] flex-1">
+            <div className="min-w-[240px] flex-1">
               <SearchableSelect
                 options={projects}
                 value={pick}

@@ -38,7 +38,7 @@ export default function AppShell() {
             if (btn) btn.click();
             else window.location.href = "/qsheet";
           }}
-          className="flex w-full items-center gap-2.5 rounded-control border border-primary/25 px-3 py-2 text-[13px] font-bold text-primary transition-colors hover:bg-accent"
+          className="flex h-ctl-3 w-full items-center gap-2.5 rounded-control border border-primary/25 px-3 text-[13px] font-bold text-primary transition-colors hover:bg-accent"
         >
           <FilePlus className="h-4 w-4 shrink-0" aria-hidden="true" />
           新規作成

@@ -109,7 +109,7 @@ export default function QuizListPage() {
             <ExternalLink className="h-3.5 w-3.5" />EN
           </a>
           <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-            className="flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 py-1.5 text-xs font-semibold text-white">
+          className="h-ctl-1 flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 text-xs font-semibold text-white">
             <Radio className="h-3.5 w-3.5" />送出
           </button>
         </div>
@@ -139,7 +139,7 @@ export default function QuizListPage() {
           })}
         </div>
         <button onClick={() => setShowCreate((s) => !s)}
-          className="flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 py-1.5 text-xs font-semibold text-white mb-1">
+        className="h-ctl-1 flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 text-xs font-semibold text-white mb-1">
           <Plus className="h-3.5 w-3.5" />追加
         </button>
       </div>
@@ -248,7 +248,7 @@ export default function QuizListPage() {
                   </div>
                 </div>
                 <button onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/edit`)}
-                  className="flex items-center gap-1 rounded-lg border border-border hover:bg-muted px-2.5 py-1.5 text-xs font-semibold text-muted-foreground">
+                className="h-ctl-1 flex items-center gap-1 rounded-lg border border-border hover:bg-muted px-2.5 text-xs font-semibold text-muted-foreground">
                   <Edit3 className="h-3.5 w-3.5" />編集
                 </button>
                 <button onClick={async () => { if ((await confirmAction({ title: `「${q.title}」を削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMut.mutate(q.id); }}
@@ -279,7 +279,7 @@ export default function QuizListPage() {
 // ════════════════════════════════════════════════════════════════
 // 送出スタック (順番・送出名) — v2.9.48
 //   送出 UI (QuizStackControlPage) の NEXT プルダウン / 自動進行が参照する
-//   display_order を 1 本のスタックとして並び替え + 送出名 (stack_label) を編集。
+// display_order を 1 本のスタックとして並び替え + 送出名 (stack_label) を編集。
 //   並び替え: PC = ドラッグ&ドロップ / スマホ = ↑↓ ボタン。
 // ════════════════════════════════════════════════════════════════
 function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[] }) {
@@ -392,11 +392,11 @@ function StackRow({ quiz, index, total, eventId, onUp, onDown }: {
       </button>
       <div className="flex sm:hidden flex-col shrink-0">
         <button onClick={onUp} disabled={index === 0} aria-label="上へ"
-          className="flex h-5 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
+        className="flex h-ctl-1 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
           <ChevronUp className="h-4 w-4" />
         </button>
         <button onClick={onDown} disabled={index === total - 1} aria-label="下へ"
-          className="flex h-5 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
+        className="flex h-ctl-1 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
           <ChevronDown className="h-4 w-4" />
         </button>
       </div>

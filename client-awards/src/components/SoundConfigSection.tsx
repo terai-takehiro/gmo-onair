@@ -105,7 +105,7 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
             <span className="flex-1 min-w-0 truncate font-medium text-muted-foreground">{slot.label}</span>
             {s ? (
               <>
-                <button onClick={() => preview(s.url)} className="flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 py-1 text-xs" title="試聴">
+                <button onClick={() => preview(s.url)} className="h-ctl-1 flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 text-xs" title="試聴">
                   <Play className="h-3.5 w-3.5" /> 試聴
                 </button>
                 <input type="range" min={0} max={100} value={Math.round(s.volume * 100)}
@@ -148,7 +148,7 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
           return (
             <div key={key} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
               <span className="flex-1 min-w-0 truncate font-medium text-muted-foreground">出題カウントダウン（{s.rankStart}秒）</span>
-              <button onClick={() => preview(s.url)} className="flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 py-1 text-xs" title="試聴">
+              <button onClick={() => preview(s.url)} className="h-ctl-1 flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 text-xs" title="試聴">
                 <Play className="h-3.5 w-3.5" /> 試聴
               </button>
               <input type="range" min={0} max={100} value={Math.round(s.volume * 100)}

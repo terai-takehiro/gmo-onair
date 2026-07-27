@@ -40,7 +40,7 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
   return (
     <div className="space-y-2">
       {children.map((child) => (
-        <div key={child.id} className="flex items-center gap-2 group min-h-[44px]">
+        <div key={child.id} className="flex items-center gap-2 group min-h-tap">
           <Checkbox
             checked={child.is_completed}
             onCheckedChange={() => toggleComplete.mutate(child.id)}

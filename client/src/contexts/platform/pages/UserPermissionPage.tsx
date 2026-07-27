@@ -314,7 +314,7 @@ export default function UserPermissionPage() {
                   onClick={() => applyTemplate(t)}
                   aria-pressed={appliedTemplate === t.id}
                   className={cn(
-                    "min-w-[140px] flex-1 rounded-control border p-2.5 text-left transition-colors disabled:opacity-50",
+                    "min-w-[128px] flex-1 rounded-control border p-2.5 text-left transition-colors disabled:opacity-50",
                     appliedTemplate === t.id
                       ? "border-primary bg-primary/5"
                       : "border-border bg-card hover:bg-accent"
@@ -347,7 +347,7 @@ export default function UserPermissionPage() {
                 const when = elapsed(updatedAtByModule[mod]);
                 return (
                   <div key={mod} className="flex flex-wrap items-center gap-2 py-2.5">
-                    <div className="min-w-[132px] flex-1">
+                    <div className="min-w-[128px] flex-1">
                       <span className="text-sm font-bold text-foreground">
                         {MODULE_LABELS[mod] ?? mod}
                       </span>

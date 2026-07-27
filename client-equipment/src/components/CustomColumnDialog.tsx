@@ -271,10 +271,10 @@ function ColRow({ col, isEditing, editForm, setEditForm, canEdit, onEdit, onSave
           </Select>
         </div>
         <div className="flex gap-2 justify-end">
-          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onCancel}>
+          <Button size="sm" variant="ghost" className="h-ctl-1 px-2 text-xs" onClick={onCancel}>
             <X className="h-3 w-3 mr-0.5" />キャンセル
           </Button>
-          <Button size="sm" className="h-6 px-2 text-xs" onClick={onSave} disabled={!editForm.name.trim()}>
+          <Button size="sm" className="h-ctl-1 px-2 text-xs" onClick={onSave} disabled={!editForm.name.trim()}>
             <Check className="h-3 w-3 mr-0.5" />保存
           </Button>
         </div>

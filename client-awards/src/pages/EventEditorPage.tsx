@@ -273,7 +273,7 @@ export default function EventEditorPage() {
 
   const tabs = [
     { key: 'categories', label: 'カテゴリ / エントリ' },
-    { key: 'info',       label: 'イベント情報' },
+    { key: 'info', label: 'イベント情報' },
   ] as const;
 
   return (
@@ -302,7 +302,7 @@ export default function EventEditorPage() {
               **どれを開いて本番に臨むのか**が人によって違っていた。 */}
           <button
             onClick={() => navigate(`/event/${eventId}/onair`)}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-destructive px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-destructive/90 transition-colors"
+            className="flex min-h-tap items-center gap-1.5 rounded-lg bg-destructive px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-destructive/90 transition-colors"
             title="本番中に見る画面。次に出るものを見てTAKEします"
           >
             <Radio className="h-4 w-4" />
@@ -318,7 +318,7 @@ export default function EventEditorPage() {
         <span className="mr-1 text-xs font-bold text-muted-foreground">準備</span>
         <button
           onClick={() => navigate(`/event/${eventId}/intake`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
           title="ノミネートの一覧を入れる (貼る / 落とす / AIに整えさせる)"
         >
           <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -326,7 +326,7 @@ export default function EventEditorPage() {
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/outputs`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
           title="OBS に貼る URL を作る"
         >
           <Link2 className="h-3.5 w-3.5" />
@@ -335,28 +335,28 @@ export default function EventEditorPage() {
         <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
         >
           <Tv className="h-3.5 w-3.5" />
           ランキングCGの設定
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
         >
           <Subtitles className="h-3.5 w-3.5" />
           字幕スーパーの設定
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/quiz`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
         >
           <HelpCircle className="h-3.5 w-3.5" />
           クイズ・アンケートの設定
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/cg/control`)}
-          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs text-muted-foreground hover:bg-muted"
+          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs text-muted-foreground hover:bg-muted"
           title="以前の統合コックピット (送出は上の「送出」を使います)"
         >
           <Layers className="h-3.5 w-3.5" />
@@ -371,7 +371,7 @@ export default function EventEditorPage() {
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={cn(
-              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+              'inline-flex h-ctl-3 items-center px-4 text-sm font-medium border-b-2 -mb-px transition-colors',
               activeTab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -389,14 +389,14 @@ export default function EventEditorPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setAddingCat(true)}
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors"
             >
               <Plus className="h-4 w-4" /> 賞を追加
             </button>
             <button
               onClick={() => seedDummy.mutate()}
               disabled={seedDummy.isPending}
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors text-muted-foreground"
               title="ダミーカテゴリとエントリを挿入（テスト用）"
             >
               <Shuffle className="h-4 w-4" />
@@ -404,7 +404,7 @@ export default function EventEditorPage() {
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors text-muted-foreground"
               title="Excel をアップロードして列マッピング画面で取り込み"
             >
               <FileSpreadsheet className="h-4 w-4" />
@@ -560,7 +560,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -584,7 +584,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -608,7 +608,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -631,7 +631,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -665,7 +665,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -688,7 +688,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -728,7 +728,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -752,7 +752,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -776,7 +776,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -799,7 +799,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"

@@ -312,7 +312,7 @@ export default function EditorPage() {
       {conflict && (
         <div className="flex items-center justify-between gap-2 bg-destructive/10 border-b border-destructive/30 px-4 py-2 text-xs text-destructive">
           <span>この技術資料は別のタブ/端末で更新されました。上書きを防ぐため自動保存を停止しています。CSV 等で退避してから最新を読み込んでください。</span>
-          <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={handleReload}>
+          <Button size="sm" variant="outline" className="h-ctl-1 text-xs shrink-0" onClick={handleReload}>
             最新を読み込む
           </Button>
         </div>
@@ -337,7 +337,7 @@ export default function EditorPage() {
             <button
               key={sheet.id}
               className={cn(
-                "flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
+                "h-ctl-3 flex items-center gap-1.5 px-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === sheet.id
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -486,7 +486,7 @@ function HeaderStaffTab({ data, updateData, doc, setDoc, setDirty }: {
             <div key={field}>
               <div className="flex items-center gap-2 mb-1">
                 <label className="text-xs text-muted-foreground">{label}</label>
-                <Button variant="ghost" size="sm" className="h-5 px-1 text-xs" onClick={() => addStaffEntry(field)}>
+                <Button variant="ghost" size="sm" className="h-ctl-1 px-1 text-xs" onClick={() => addStaffEntry(field)}>
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
@@ -553,10 +553,10 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
           <thead>
             <tr className="border-b bg-muted">
               <th className="w-16 px-2 py-2 text-left text-xs font-medium text-muted-foreground">No.</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[140px]">カメラ機種</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[120px]">レンズ</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[100px]">担当者</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[150px]">設置場所</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[128px]">カメラ機種</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[128px]">レンズ</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[96px]">担当者</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[160px]">設置場所</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[200px]">ケーブル/備考</th>
               <th className="w-8"></th>
             </tr>
@@ -645,7 +645,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
         <div key={sec.id}>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">{sec.label}</h3>
-            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => addRowToSection(sec.id)}>
+            <Button size="sm" variant="ghost" className="h-ctl-1 gap-1 text-xs" onClick={() => addRowToSection(sec.id)}>
               <Plus className="h-3 w-3" /> 追加
             </Button>
           </div>
@@ -653,7 +653,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted">
-                  <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[150px]">項目</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[160px]">項目</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[300px]">詳細</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[200px]">備考</th>
                   <th className="w-8"></th>

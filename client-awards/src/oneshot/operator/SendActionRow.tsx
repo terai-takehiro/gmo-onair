@@ -22,7 +22,7 @@ export default function SendActionRow({
     <div className="flex items-center gap-2 flex-wrap">
       <button
         onClick={onTake}
-        className="flex items-center gap-2 rounded-md bg-destructive hover:bg-destructive/90 px-5 py-3.5 text-base font-black tracking-widest uppercase text-white transition-colors shadow-lg"
+        className="flex items-center gap-2 rounded-md bg-destructive hover:bg-destructive/90 h-ctl-5 px-5 text-base font-black tracking-widest uppercase text-white transition-colors shadow-lg"
       >
         <Play className="h-5 w-5 fill-current" /> TAKE
       </button>
@@ -42,7 +42,7 @@ export default function SendActionRow({
       <button
         onClick={onTogglePortrait}
         className={cn(
-          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-semibold transition-all',
+          'flex h-ctl-1 items-center gap-1.5 rounded-md border px-3 text-xs sm:text-sm font-semibold transition-all',
           showPortrait
             ? 'border-success bg-success/30 text-success'
             : 'border-border text-muted-foreground hover:bg-card hover:text-foreground'
@@ -55,7 +55,7 @@ export default function SendActionRow({
       <button
         onClick={onToggleTransparent}
         className={cn(
-          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-semibold transition-all',
+          'flex h-ctl-1 items-center gap-1.5 rounded-md border px-3 text-xs sm:text-sm font-semibold transition-all',
           transparent
             ? 'border-warning bg-warning/30 text-warning-strong'
             : 'border-border text-muted-foreground hover:bg-card hover:text-foreground'

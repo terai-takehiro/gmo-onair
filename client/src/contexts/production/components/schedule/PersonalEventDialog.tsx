@@ -251,7 +251,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
                             key={u.id}
                             type="button"
                             onClick={() => toggleShare(u.id)}
-                            className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                            className={`h-ctl-3 flex w-full items-center gap-2 rounded-md border px-3 text-sm transition-colors${
                               on ? "border-purple-400 bg-purple-50 text-purple-800" : "hover:bg-accent"
                             }`}
                           >

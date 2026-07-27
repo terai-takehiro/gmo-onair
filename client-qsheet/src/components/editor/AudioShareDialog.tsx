@@ -174,7 +174,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId, audioRevok
             <button
               type="button"
               onClick={handleCopy}
-              className={`inline-flex flex-none items-center gap-1 rounded-r-md border border-l-0 border-border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`h-ctl-1 inline-flex flex-none items-center gap-1 rounded-r-md border border-l-0 border-border px-3 text-xs font-semibold transition-colors${
                 copied ? "bg-success/10 text-success" : "bg-card text-foreground hover:bg-accent"
               }`}
               aria-label="URLをコピー"
@@ -207,7 +207,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId, audioRevok
                   type="button"
                   onClick={() => revokeMutation.mutate(false)}
                   disabled={revokeMutation.isPending}
-                  className="mt-1.5 inline-flex items-center gap-1 rounded-control border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+                  className="h-ctl-1 mt-1.5 inline-flex items-center gap-1 rounded-control border border-border bg-card px-2.5 text-[11px] font-semibold text-foreground hover:bg-accent disabled:opacity-60"
                 >
                   {revokeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Globe className="h-3 w-3" aria-hidden />}
                   もう一度配れるようにする

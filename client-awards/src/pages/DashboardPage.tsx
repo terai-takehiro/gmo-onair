@@ -37,8 +37,8 @@ interface BoxBackup {
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   draft:  { label: '準備中', color: 'bg-muted text-muted-foreground' },
-  live:   { label: 'LIVE',   color: 'bg-destructive/10 text-destructive ring-1 ring-destructive/20' },
-  closed: { label: '終了',   color: 'bg-success/10 text-success ring-1 ring-success/20' },
+  live:   { label: 'LIVE', color: 'bg-destructive/10 text-destructive ring-1 ring-destructive/20' },
+  closed: { label: '終了', color: 'bg-success/10 text-success ring-1 ring-success/20' },
 };
 
 export default function DashboardPage() {
@@ -205,7 +205,7 @@ export default function DashboardPage() {
                   {b.deleted && (
                     <button
                       onClick={() => setRestoreNameDraft({ folderId: b.folderId, name: b.name })}
-                      className="flex items-center gap-1 rounded-md bg-warning px-2 py-1 text-xs font-medium text-warning-foreground hover:bg-warning/90"
+                      className="h-ctl-1 flex items-center gap-1 rounded-md bg-warning px-2 text-xs font-medium text-warning-foreground hover:bg-warning/90"
                     >
                       <RotateCcw className="h-3 w-3" />
                       復元
@@ -274,7 +274,7 @@ export default function DashboardPage() {
                   setTemplate(t.key); setNotReady(null);
                 }}
                 className={cn(
-                  'rounded-lg border p-2.5 text-left min-h-[44px]',
+                  'rounded-lg border p-2.5 text-left min-h-tap',
                   template === t.key
                     ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
                     : t.implemented ? 'hover:bg-muted' : 'opacity-60 hover:bg-muted',
@@ -320,7 +320,7 @@ export default function DashboardPage() {
             <button
               onClick={() => { if (newName.trim()) createMutation.mutate(newName.trim()); }}
               disabled={!newName.trim() || createMutation.isPending}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 min-w-[60px]"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 min-w-[56px]"
             >
               {createMutation.isPending ? '作成中…' : '作成'}
             </button>

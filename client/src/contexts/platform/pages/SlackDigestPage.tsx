@@ -258,7 +258,7 @@ export default function SlackDigestPage() {
                   type="time"
                   value={dmDraft.send_time}
                   onChange={(e) => setDmDraft({ ...dmDraft, send_time: e.target.value })}
-                  className="h-9 max-w-[140px]"
+                  className="h-9 max-w-[128px]"
                 />
               </div>
               <div className="flex flex-wrap gap-1">
@@ -409,7 +409,7 @@ export default function SlackDigestPage() {
                         type="time"
                         value={d.send_time}
                         onChange={(e) => set({ send_time: e.target.value })}
-                        className="h-9 max-w-[140px]"
+                        className="h-9 max-w-[128px]"
                       />
                       <div className="mt-2 flex flex-wrap gap-1">
                         {WD.map((w) => (

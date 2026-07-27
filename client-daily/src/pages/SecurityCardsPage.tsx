@@ -476,7 +476,7 @@ function HistoryTab() {
       <div className="flex flex-wrap gap-1.5">
         {(['all', 'active', 'returned'] as const).map((s) => (
           <button key={s} onClick={() => setStatus(s)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${status === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
+            className={`inline-flex h-ctl-1 items-center rounded-full px-3 text-xs font-medium transition-colors ${status === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
             {s === 'all' ? 'すべて' : s === 'active' ? '貸出中' : '返却済'}
           </button>
         ))}
@@ -585,7 +585,7 @@ export default function SecurityCardsPage() {
             <div className="flex gap-1.5">
               {(['all', 'available', 'lent'] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
+                  className={`inline-flex h-ctl-1 items-center rounded-full px-3 text-xs font-medium transition-colors ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
                   {f === 'all' ? 'すべて' : f === 'available' ? '利用可能' : '貸出中'}
                 </button>
               ))}

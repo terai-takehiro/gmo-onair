@@ -44,17 +44,22 @@ export function ProjectChangesCard({ projectId }: { projectId: string }) {
 
   return (
     <Card>
-      <CardHeader className="pb-0">
+      {/*
+        畳んだときは**見出しの帯だけ**になる。`CardHeader` の既定は上下24pxで、
+        `pb-0` を足すと上だけ空いて中身が下に寄る (畳んだ状態が空の箱に見えていた)。
+        デザインの決まりどおり **帯の高さを48pxで固定**し、左右だけ余白を持たせる。
+      */}
+      <CardHeader className="space-y-0 p-0">
         <CardTitle className="text-base">
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className="flex w-full items-center gap-2 py-1 text-left"
+            className="flex min-h-ctl-5 w-full items-center gap-2 px-4 text-left sm:px-6"
             aria-expanded={open}
           >
-            <History className="h-4 w-4 text-primary" aria-hidden="true" />
-            変更の記録
-            <span className="text-[12px] font-normal text-muted-foreground">
+            <History className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="shrink-0">変更の記録</span>
+            <span className="min-w-0 truncate text-[12px] font-normal text-muted-foreground">
               誰が・いつ・何を変えたか
             </span>
             {open ? (
@@ -66,7 +71,7 @@ export function ProjectChangesCard({ projectId }: { projectId: string }) {
         </CardTitle>
       </CardHeader>
       {open && (
-        <CardContent className="space-y-2 pt-3">
+        <CardContent className="space-y-2 px-4 pb-4 pt-1 sm:px-6 sm:pb-6">
           {isLoading ? (
             <p className="text-[13px] text-secondary-foreground">読み込んでいます…</p>
           ) : rows.length === 0 ? (

@@ -142,12 +142,12 @@ const EMPTY_FORM: CompanyForm = {
 };
 
 const roleTabs: { value: RoleFilter; label: string }[] = [
-  { value: "all",       label: "全て" },
-  { value: "customer",  label: "顧客" },
-  { value: "vendor",    label: "仕入先" },
+  { value: "all", label: "全て" },
+  { value: "customer", label: "顧客" },
+  { value: "vendor", label: "仕入先" },
   { value: "sga_payee", label: "販管費支払先" },
-  { value: "both",      label: "顧客兼仕入先" },
-  { value: "other",     label: "その他" },
+  { value: "both", label: "顧客兼仕入先" },
+  { value: "other", label: "その他" },
 ];
 
 export default function CompanyListPage() {
@@ -319,7 +319,7 @@ export default function CompanyListPage() {
                     key: "invoice_registration_number",
                     header: "インボイス番号",
                     defaultWidth: 160,
-                    className: "text-xs  text-muted-foreground",
+                    className: "text-xs text-muted-foreground",
                     cell: (c) => c.invoice_registration_number || "-",
                   },
                   {
@@ -389,9 +389,9 @@ export default function CompanyListPage() {
                 <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
                 <ToggleButtonGroup
                   options={[
-                    { value: 'customer',  label: '顧客',           description: '売上管理で選択可能' },
-                    { value: 'vendor',    label: '仕入先',         description: '仕入管理で選択可能' },
-                    { value: 'sga_payee', label: '販管費支払先',   description: '販管費管理で選択可能' },
+                    { value: 'customer', label: '顧客', description: '売上管理で選択可能' },
+                    { value: 'vendor', label: '仕入先', description: '仕入管理で選択可能' },
+                    { value: 'sga_payee', label: '販管費支払先', description: '販管費管理で選択可能' },
                   ]}
                   value={[
                     ...(form.watch("is_customer")   ? ['customer'] : []),
@@ -399,8 +399,8 @@ export default function CompanyListPage() {
                     ...(form.watch("is_sga_payee")  ? ['sga_payee'] : []),
                   ]}
                   onChange={(next) => {
-                    form.setValue("is_customer",  next.includes('customer'));
-                    form.setValue("is_vendor",    next.includes('vendor'));
+                    form.setValue("is_customer", next.includes('customer'));
+                    form.setValue("is_vendor", next.includes('vendor'));
                     form.setValue("is_sga_payee", next.includes('sga_payee'));
                   }}
                   multi

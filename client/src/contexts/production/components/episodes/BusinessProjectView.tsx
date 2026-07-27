@@ -934,14 +934,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 <Table className="min-w-[1180px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[220px]">内容</TableHead>
+                      <TableHead className="min-w-[240px]">内容</TableHead>
                       <TableHead className="w-32">カテゴリ</TableHead>
                       <TableHead className="w-20 text-right">数量</TableHead>
                       <TableHead className="w-40 text-right">単価</TableHead>
                       <TableHead className="w-28 text-right">金額</TableHead>
-                      <TableHead className="w-[130px]">期間開始</TableHead>
-                      <TableHead className="w-[130px]">期間終了</TableHead>
-                      <TableHead className="min-w-[180px]">明細備考</TableHead>
+                      <TableHead className="w-[128px]">期間開始</TableHead>
+                      <TableHead className="w-[128px]">期間終了</TableHead>
+                      <TableHead className="min-w-[200px]">明細備考</TableHead>
                       <TableHead className="w-16"></TableHead>
                     </TableRow>
                   </TableHeader>

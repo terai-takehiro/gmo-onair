@@ -428,7 +428,7 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["project", id] });
       setRelinkDialog({ open: false, target_project_id: "" });
-      notifySuccess(`✓ ${data.data.gls_number} のエピソードに紐づけ直しました（旧GLS番号は履歴に保存されています）`);
+      notifySuccess(`✓ ${data.data.gls_number} の回に紐づけ直しました（旧GLS番号は履歴に保存されています）`);
     },
     onError: (err: any) => {
       notifyError(err?.response?.data?.error?.message || err?.message || '紐づけに失敗しました');
@@ -847,7 +847,7 @@ export default function ProjectFormPage() {
                         </span>
                         <div className="flex shrink-0 items-center gap-1">
                           <Button
-                            type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]"
+                          type="button" size="sm" variant="outline" className="h-ctl-1 px-2 text-[11px]"
                             disabled={nextActionMutation.isPending}
                             onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "complete" })}
                           >
@@ -855,12 +855,12 @@ export default function ProjectFormPage() {
                           </Button>
                           {naPostponeFor === a.id ? (
                             <>
-                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(1) })}>明日</Button>
-                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(7) })}>1週間</Button>
-                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => setNaPostponeFor(null)}>×</Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(1) })}>明日</Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(7) })}>1週間</Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[11px]" onClick={() => setNaPostponeFor(null)}>×</Button>
                             </>
                           ) : (
-                            <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setNaPostponeFor(a.id)}>延期</Button>
+                            <Button type="button" size="sm" variant="outline" className="h-ctl-1 px-2 text-[11px]" onClick={() => setNaPostponeFor(a.id)}>延期</Button>
                           )}
                         </div>
                       </li>
@@ -1049,7 +1049,7 @@ export default function ProjectFormPage() {
               </div>
             </div>
             {/* スマホのタップ領域を44px以上にする (size="sm" は36px。iOS HIG の下限を割る) */}
-            <Button size="sm" variant="outline" className="min-h-[44px]"
+            <Button size="sm" variant="outline" className="min-h-tap"
               onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               見積をつくる
@@ -1117,7 +1117,7 @@ export default function ProjectFormPage() {
         type="button"
         onClick={() => setFormOpen((v) => !v)}
         aria-expanded={formOpen}
-        className="flex w-full items-center justify-between rounded-control border border-border bg-card px-3 py-2.5 text-sm font-bold text-foreground xl:hidden"
+        className="h-ctl-3 flex w-full items-center justify-between rounded-control border border-border bg-card px-3 text-sm font-bold text-foreground xl:hidden"
       >
         案件の中身を{formOpen ? "閉じる" : "開いて直す"}
         {dirtyCount > 0 && (
@@ -1205,7 +1205,7 @@ export default function ProjectFormPage() {
                     {glsCategory === 'A' ? 'ビジネス案件 (B) に変更…' : 'スタジオ案件 (A) に変更…'}
                   </Button>
                   <p className="w-full text-xs text-muted-foreground">
-                    GLS発番済のため、分類変更時はGLS番号が採番し直されます（BOXフォルダ名・エピソードコードも自動で更新）。
+                    GLS発番済のため、分類変更時はGLS番号が採番し直されます（BOXフォルダ名・回のコードも自動で更新）。
                   </p>
                 </div>
               ) : (
@@ -1571,7 +1571,13 @@ export default function ProjectFormPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                        /*
+                          列数を画面幅で決めない。このパネルは案件フォームの右カラム
+                          (約430px) に入るので、`lg:grid-cols-4` だと1枠が約100pxになり
+                          部屋名が「WOR…」「第1…」と潰れて読めなくなっていた。
+                          **入れ物の幅に合わせて**折り返す (1枠 160px 以上を確保)。
+                        */
+                        <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
                           {rooms.map((room) => {
                             const selected = scheduleRoomIds.includes(room.id);
                             return (
@@ -1586,7 +1592,7 @@ export default function ProjectFormPage() {
                                   );
                                 }}
                                 className={cn(
-                                  "min-h-[44px] flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm text-left transition-all",
+                                  "min-h-tap flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm text-left transition-all",
                                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                   selected
                                     ? "border-transparent text-white shadow-sm"
@@ -1601,7 +1607,7 @@ export default function ProjectFormPage() {
                                   )}
                                   style={{ background: selected ? '#ffffff' : room.color }}
                                 />
-                                <span className="truncate flex-1 font-medium">{room.name}</span>
+                                <span className="min-w-0 flex-1 font-medium leading-snug [overflow-wrap:anywhere]" title={room.name}>{room.name}</span>
                                 {selected && <Check className="h-4 w-4 shrink-0" />}
                               </button>
                             );

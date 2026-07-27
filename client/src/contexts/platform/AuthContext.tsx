@@ -26,19 +26,19 @@ export interface BlockApp {
 }
 
 export const BLOCK_APPS: BlockApp[] = [
-  { id: "sales",       label: "案件管理",           description: "案件パイプライン・顧客・見積",     icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
-  { id: "budget",      label: "財務管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
-  { id: "studio",      label: "カレンダー",         description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
-  { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
-  { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
-  { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
-  { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Timer",        color: "bg-red-500",     status: "active",      basePath: "/live" },
-  { id: "awards",      label: "リアルタイムCG",     description: "リアルタイム放送CG演出・送出管理", icon: "Tv",           color: "bg-yellow-500",  status: "active",      basePath: "/awards" },
-  { id: "dailyops",    label: "日常業務",           description: "AI 週次活動報告・業界ニュース収集", icon: "ClipboardList", color: "bg-teal-600",   status: "active",      basePath: "/daily" },
-  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援 (外部)", icon: "Sparkles", color: "bg-pink-500", status: "active",      basePath: "https://interactive.gmo-onair.jp/", externalUrl: "https://interactive.gmo-onair.jp/" },
-  { id: "translate",   label: "翻訳",               description: "GMO 翻訳ツール (外部)",            icon: "Languages",    color: "bg-green-600",   status: "active",      basePath: "https://gmo-translate.jp/", externalUrl: "https://gmo-translate.jp/" },
-  { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
-  { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
+  { id: "sales", label: "案件管理", description: "案件パイプライン・顧客・見積", icon: "FolderKanban", color: "bg-blue-500", status: "active", basePath: "/sales" },
+  { id: "budget", label: "財務管理", description: "売上・仕入・販管費・損益", icon: "PiggyBank", color: "bg-emerald-500", status: "active", basePath: "/budget" },
+  { id: "studio", label: "カレンダー", description: "スタジオカレンダー・ブッキング", icon: "Calendar", color: "bg-violet-500", status: "active", basePath: "/studio" },
+  { id: "qsheet", label: "Qシート", description: "Qシート作成・OnAir・ランダウン", icon: "FileText", color: "bg-rose-500", status: "active", basePath: "/qsheet" },
+  { id: "equipment", label: "機材管理", description: "機材台帳・貸出・メンテナンス", icon: "Package", color: "bg-amber-500", status: "active", basePath: "/equipment" },
+  { id: "techsheet", label: "技術資料", description: "カメラ・映像・音声技術仕様書", icon: "BookOpen", color: "bg-cyan-500", status: "active", basePath: "/techsheet" },
+  { id: "liveops", label: "計時LIVE", description: "カウントダウン・視聴者カウンター", icon: "Timer", color: "bg-red-500", status: "active", basePath: "/live" },
+  { id: "awards", label: "リアルタイムCG", description: "リアルタイム放送CG演出・送出管理", icon: "Tv", color: "bg-yellow-500", status: "active", basePath: "/awards" },
+  { id: "dailyops", label: "日常業務", description: "AI 週次活動報告・業界ニュース収集", icon: "ClipboardList", color: "bg-teal-600", status: "active", basePath: "/daily" },
+  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援 (外部)", icon: "Sparkles", color: "bg-pink-500", status: "active", basePath: "https://interactive.gmo-onair.jp/", externalUrl: "https://interactive.gmo-onair.jp/" },
+  { id: "translate", label: "翻訳", description: "GMO 翻訳ツール (外部)", icon: "Languages", color: "bg-green-600", status: "active", basePath: "https://gmo-translate.jp/", externalUrl: "https://gmo-translate.jp/" },
+  { id: "assign", label: "制作支援", description: "スケジュール・スタッフ配置", icon: "Users", color: "bg-orange-500", status: "coming_soon", basePath: "/prodsheet" },
+  { id: "delivery", label: "素材納品", description: "VTR/素材の納品管理", icon: "Truck", color: "bg-teal-500", status: "coming_soon", basePath: "/delivery" },
 ];
 
 /** モジュール定義（日本語ラベル付き）— パーミッションキーとして使用 */
@@ -75,7 +75,7 @@ export const ACCESS_LEVEL_DESCRIPTIONS: Record<string, string> = {
 /** 旧レベルの互換ラベル（DBに古い値が残っている場合の表示用） */
 export const LEGACY_LEVEL_LABELS: Record<string, string> = {
   exporter: "閲覧",
-  owner:    "管理",
+  owner: "管理",
 };
 
 interface AuthContextType {

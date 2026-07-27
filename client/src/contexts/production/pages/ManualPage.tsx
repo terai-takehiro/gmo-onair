@@ -151,7 +151,7 @@ export default function ManualPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
       <NoticeBar />
 
-      <Button variant="ghost" size="sm" className="min-h-[44px] gap-1 sm:hidden"
+      <Button variant="ghost" size="sm" className="min-h-tap gap-1 sm:hidden"
         onClick={() => navigate(`/sales/projects/${projectId}`)}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         案件へ戻る
@@ -177,7 +177,7 @@ export default function ManualPage() {
           </p>
         </div>
         {canEdit && (
-          <Button className="min-h-[44px] gap-1" disabled={issue.isPending}
+          <Button className="min-h-tap gap-1" disabled={issue.isPending}
             onClick={() => issue.mutate()}>
             {issue.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -195,7 +195,7 @@ export default function ManualPage() {
             <button key={a.key} type="button"
               onClick={() => setParam("audience", a.key)}
               aria-pressed={audience === a.key}
-              className={`min-h-[44px] rounded-xl border p-3 text-left ${
+              className={`min-h-tap rounded-xl border p-3 text-left ${
                 audience === a.key ? "border-primary bg-primary/5" : "border-divider hover:bg-muted/40"
               }`}>
               <span className="block font-medium">{a.label}</span>
@@ -256,7 +256,7 @@ export default function ManualPage() {
                   )}
                   {!p.included && <span className="shrink-0 text-xs text-muted-foreground">この版には入りません</span>}
                   {canEdit && p.included && p.fill !== "auto" && (
-                    <Button variant="ghost" size="sm" className="min-h-[44px] shrink-0"
+                    <Button variant="ghost" size="sm" className="min-h-tap shrink-0"
                       onClick={() => savePart.mutate({ kind: p.kind, ready: !p.ready })}>
                       {p.ready ? "できていないに戻す" : "できたことにする"}
                     </Button>
@@ -286,7 +286,7 @@ export default function ManualPage() {
 
             {canEdit && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+                <Button variant="outline" size="sm" className="min-h-tap gap-1"
                   disabled={aiDraft.isPending} onClick={() => aiDraft.mutate()}>
                   {aiDraft.isPending
                     ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -365,7 +365,7 @@ export default function ManualPage() {
                   <div className="mt-3 flex flex-wrap items-end gap-2">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">置くもの</span>
-                      <select className="mt-1 block min-h-[44px] rounded-xl border border-divider bg-card px-2 text-sm"
+                      <select className="mt-1 block min-h-tap rounded-xl border border-divider bg-card px-2 text-sm"
                         aria-label="置く記号" value={mark} onChange={(e) => setMark(e.target.value)}>
                         <option value="">選んでください</option>
                         {layout.symbols.map((s) => (
@@ -373,7 +373,7 @@ export default function ManualPage() {
                         ))}
                       </select>
                     </label>
-                    <Button size="sm" className="min-h-[44px] gap-1" disabled={!mark || putItem.isPending}
+                    <Button size="sm" className="min-h-tap gap-1" disabled={!mark || putItem.isPending}
                       onClick={() => putItem.mutate({ mark, x: 500, y: 500 })}>
                       <Plus className="h-4 w-4" aria-hidden="true" />
                       図の中央に置く

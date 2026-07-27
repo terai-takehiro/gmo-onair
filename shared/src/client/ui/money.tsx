@@ -52,7 +52,16 @@ export function Money({ value, currency = '¥', negativeIsDanger, className, ...
   );
 }
 
-/** 表の列で使う固定幅つき。列幅は README の7段 (96/128/160...) から選ぶ */
-export function MoneyCell({ width = 128, className, ...rest }: MoneyProps & { width?: 96 | 128 | 160 | 200 }) {
+/**
+ * 表の列で使う固定幅つき。
+ * **列幅は README の7段 (56 / 72 / 96 / 128 / 160 / 200 / 240px) からしか選べない。**
+ * 中間の値 (120px・180px …) を作ると、同じ意味の列がページごとに違う幅になり、
+ * 金額の右端が縦にそろわなくなる。
+ */
+export function MoneyCell({
+  width = 128,
+  className,
+  ...rest
+}: MoneyProps & { width?: 56 | 72 | 96 | 128 | 160 | 200 | 240 }) {
   return <Money className={cn('shrink-0', className)} style={{ width }} {...rest} />;
 }

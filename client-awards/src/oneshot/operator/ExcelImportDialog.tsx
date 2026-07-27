@@ -141,14 +141,14 @@ const CG_LABEL_BY_KEY: Record<ImportMappingKey, string> = (() => {
 
 // ── タイプバッジ ──────────────────────────────────────────
 const TYPE_META: Record<ColumnType, { label: string; icon: typeof Type; cls: string }> = {
-  shortText: { label: '短文',     icon: Type,         cls: 'bg-info/10 text-info border-info' },
-  longText:  { label: '長文',     icon: FileText,     cls: 'bg-accent text-primary border-primary' },
-  list:      { label: 'リスト',   icon: ListChecks,   cls: 'bg-cat-7/10 text-cat-7 border-cat-7/40' },
-  date:      { label: '日付',     icon: CalendarDays, cls: 'bg-warning-surface text-warning-strong border-warning' },
-  number:    { label: '数値',     icon: Hash,         cls: 'bg-info/10 text-info border-info' },
-  id:        { label: 'ID',       icon: Tag,          cls: 'bg-destructive-surface text-destructive border-destructive' },
-  url:       { label: 'URL',      icon: Link2,        cls: 'bg-info/10 text-info border-info' },
-  empty:     { label: '空',       icon: Inbox,        cls: 'bg-muted text-muted-foreground border-border' },
+  shortText: { label: '短文', icon: Type, cls: 'bg-info/10 text-info border-info' },
+  longText:  { label: '長文', icon: FileText, cls: 'bg-accent text-primary border-primary' },
+  list:      { label: 'リスト', icon: ListChecks, cls: 'bg-cat-7/10 text-cat-7 border-cat-7/40' },
+  date:      { label: '日付', icon: CalendarDays, cls: 'bg-warning-surface text-warning-strong border-warning' },
+  number:    { label: '数値', icon: Hash, cls: 'bg-info/10 text-info border-info' },
+  id:        { label: 'ID', icon: Tag, cls: 'bg-destructive-surface text-destructive border-destructive' },
+  url:       { label: 'URL', icon: Link2, cls: 'bg-info/10 text-info border-info' },
+  empty:     { label: '空', icon: Inbox, cls: 'bg-muted text-muted-foreground border-border' },
 };
 
 // ── 列ごとの割当 ──────────────────────────────────────────
@@ -385,7 +385,7 @@ export default function ExcelImportDialog({
               )}
               <button
                 onClick={() => setAssignments(buildAutoAssignments(preview))}
-                className="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+                className="h-ctl-3 flex items-center gap-1.5 rounded-md border px-3 text-sm hover:bg-muted"
                 title="自動分類結果に戻す"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -622,7 +622,7 @@ function ColumnCard({
       {col.suggestedKey && !isSuggested && col.suggestedConfidence !== 'none' && (
         <button
           onClick={() => onChange({ action: 'cg', cgKey: col.suggestedKey! })}
-          className="flex items-center gap-1.5 w-full rounded border border-success bg-success-surface px-2 py-1.5 text-xs text-success hover:bg-success/90-surface"
+          className="h-ctl-1 flex items-center gap-1.5 w-full rounded border border-success bg-success-surface px-2 text-xs text-success hover:bg-success/90-surface"
         >
           <Sparkles className="h-3.5 w-3.5 text-success" />
           推奨: → <strong>{CG_LABEL_BY_KEY[col.suggestedKey]}</strong>
@@ -741,7 +741,7 @@ function ChangesList({ changes }: { changes: EntryChange[] }) {
             )}>
               {c.kind === 'created' ? '新規' : '更新'}
             </span>
-            <span className="text-[10px] text-muted-foreground shrink-0 max-w-[140px] truncate">{c.category}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0 max-w-[128px] truncate">{c.category}</span>
             <span className="font-bold text-muted-foreground min-w-0 truncate">{c.name}</span>
             {c.fields.length > 0 && (
               <span className="text-[11px] text-info shrink-0 truncate max-w-[200px]">変更: {c.fields.join(' / ')}</span>

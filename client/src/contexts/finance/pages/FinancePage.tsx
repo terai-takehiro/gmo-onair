@@ -434,7 +434,7 @@ export default function FinancePage() {
                       disabled={!f.to}
                       onClick={() => f.to && navigate(f.to)}
                       className={cn(
-                        "min-w-[152px] flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                        "min-w-[160px] flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
                         f.tone === "profit" ? "border-primary/30 bg-primary/[0.04]" : "border-border bg-card",
                         f.to ? "hover:border-primary/40 hover:bg-secondary cursor-pointer" : "cursor-default"
                       )}
@@ -497,7 +497,7 @@ export default function FinancePage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/budget/revenues?edit=${r.id}`)}
-                      className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      className="h-ctl-3 flex w-full items-center justify-between gap-2 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       title="クリックで売上詳細を開く"
                     >
                       <div className="min-w-0 flex-1">

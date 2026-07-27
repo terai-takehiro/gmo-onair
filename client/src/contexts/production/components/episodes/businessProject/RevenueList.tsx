@@ -91,7 +91,7 @@ export default function RevenueList({
                           {taxLabels[rev.tax_category] || rev.tax_category}
                         </Badge>
                         {rev.group_name && (
-                          <Badge variant="secondary" className="text-xs">按分: {rev.group_name}</Badge>
+                          <Badge variant="secondary" className="text-xs">分け合い: {rev.group_name}</Badge>
                         )}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -196,7 +196,7 @@ export default function RevenueList({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-[11px]"
+                            className="h-ctl-1 px-2 text-[11px]"
                             onClick={() => startInlineEdit(rev)}
                             title="明細項目をインラインで編集"
                           >
@@ -208,7 +208,7 @@ export default function RevenueList({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 px-2 text-[11px]"
+                              className="h-ctl-1 px-2 text-[11px]"
                               onClick={cancelInlineEdit}
                               disabled={inlineSaveMutation.isPending}
                             >
@@ -216,7 +216,7 @@ export default function RevenueList({
                             </Button>
                             <Button
                               size="sm"
-                              className="h-6 px-2 text-[11px]"
+                              className="h-ctl-1 px-2 text-[11px]"
                               onClick={() => inlineSaveMutation.mutate({ id: rev.id, items: inlineItems })}
                               disabled={inlineSaveMutation.isPending}
                             >
@@ -310,7 +310,7 @@ export default function RevenueList({
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs"
+                            className="h-ctl-1 text-xs"
                             onClick={addInlineItem}
                           >
                             <Plus className="h-3 w-3 mr-1" />
@@ -329,7 +329,7 @@ export default function RevenueList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px] text-muted-foreground"
+                        className="h-ctl-1 px-2 text-[11px] text-muted-foreground"
                         onClick={() => startInlineEdit(rev)}
                       >
                         <Plus className="h-3 w-3 mr-1" />

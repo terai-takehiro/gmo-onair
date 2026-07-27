@@ -165,12 +165,12 @@ export default function QuizEditPage() {
             </span>
           )}
           <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-            className="flex items-center gap-1.5 rounded-lg border border-border hover:bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+          className="h-ctl-1 flex items-center gap-1.5 rounded-lg border border-border hover:bg-muted px-3 text-xs font-semibold text-muted-foreground">
             <Radio className="h-3.5 w-3.5" />送出
           </button>
           <button onClick={onSave}
             disabled={saving}
-            className="flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 px-4 py-1.5 text-xs font-bold text-white">
+            className="h-ctl-1 flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 px-4 text-xs font-bold text-white">
             <Save className="h-3.5 w-3.5" />{saving ? '保存中…' : '保存'}
           </button>
         </div>
@@ -212,7 +212,7 @@ export default function QuizEditPage() {
             : <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">未連携</span>}
           <div className="flex-1" />
           <button onClick={onPull} disabled={!iqId || pulling}
-            className="flex items-center gap-1.5 rounded-lg bg-info hover:bg-info/90 disabled:opacity-40 px-3 py-1.5 text-xs font-bold text-white"
+          className="h-ctl-1 flex items-center gap-1.5 rounded-lg bg-info hover:bg-info/90 disabled:opacity-40 px-3 text-xs font-bold text-white"
             title="インタラクティブ演出の内容をこの問題に取り込む">
             {pulling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Interactive から取込
@@ -317,7 +317,7 @@ export default function QuizEditPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {([
                   { v: 'answer-check', emoji: '📊', label: 'アンサーチェック', desc: '各選択肢の票数を集計してアニメ表示し、そこで終了 (No.1 発表なし)', color: 'emerald' },
-                  { v: 'top-reveal',   emoji: '🏆', label: 'No.1 発表',         desc: 'アンケートCGは投票+集計まで。No.1 はランキングCG側で、連動カテゴリの賞の最後にフルスクリーン発表', color: 'amber' },
+                  { v: 'top-reveal', emoji: '🏆', label: 'No.1 発表', desc: 'アンケートCGは投票+集計まで。No.1 はランキングCG側で、連動カテゴリの賞の最後にフルスクリーン発表', color: 'amber' },
                 ] as const).map(({ v, emoji, label, desc, color }) => {
                   const active = pattern === v;
                   const colorCls = active

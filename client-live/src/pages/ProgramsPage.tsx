@@ -89,7 +89,7 @@ export default function ProgramsPage() {
         {canManage && (
           <Button
             size="sm"
-            className="h-7 text-xs"
+            className="h-ctl-1 text-xs"
             onClick={() => saveMutation.mutate()}
             disabled={!name.trim() || saveMutation.isPending}
           >
@@ -125,7 +125,7 @@ export default function ProgramsPage() {
             <div className="flex items-center justify-between">
               <Label>YouTube URL</Label>
               {canManage && (
-                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={addYtUrl}>
+                <Button type="button" variant="ghost" size="sm" className="h-ctl-1 text-xs" onClick={addYtUrl}>
                   <Plus className="h-3 w-3 mr-1" />追加
                 </Button>
               )}

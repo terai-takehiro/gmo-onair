@@ -51,29 +51,29 @@ type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | '
 
 // パターン別ステップシーケンス
 const STEPS_DIRECT: StepDef[] = [
-  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral' },
-  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
-  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
-  { step: 'ranks52',     label: 'RANKS 5→2',  desc: '5位→2位発表 (ランキングバー)', color: 'live' },
-  { step: 'winner-bar',  label: 'WINNER BAR', desc: '1位ランキングバー (大賞引き)', color: 'award' },
-  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award'   },
-  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
+  { step: 'idle', label: 'IDLE', desc: '透過', color: 'neutral' },
+  { step: 'title', label: 'TITLE', desc: 'タイトルカード', color: 'neutral' },
+  { step: 'nominees', label: 'NOMINEES', desc: 'ノミネート一覧', color: 'live'    },
+  { step: 'ranks52', label: 'RANKS 5→2', desc: '5位→2位発表 (ランキングバー)', color: 'live' },
+  { step: 'winner-bar', label: 'WINNER BAR', desc: '1位ランキングバー (大賞引き)', color: 'award' },
+  { step: 'oneshot', label: 'ONE SHOT', desc: '大賞フルスクリーン', color: 'award'   },
+  { step: 'celebration', label: 'CELEB', desc: '全部門 No.1 + 紙吹雪', color: 'award'   },
 ];
 const STEPS_VOTE: StepDef[] = [
-  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral' },
-  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
-  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
-  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live'    },
-  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live' },
-  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
+  { step: 'idle', label: 'IDLE', desc: '透過', color: 'neutral' },
+  { step: 'title', label: 'TITLE', desc: 'タイトルカード', color: 'neutral' },
+  { step: 'nominees', label: 'NOMINEES', desc: 'ノミネート一覧', color: 'live'    },
+  { step: 'top3', label: 'BEST 3', desc: 'TOP3 発表', color: 'live'    },
+  { step: 'final-pitch', label: 'PITCH', desc: 'ファイナルピッチ (3名→1名)', color: 'live' },
+  { step: 'celebration', label: 'CELEB', desc: '全部門 No.1 + 紙吹雪', color: 'award'   },
 ];
 // v2.9.63: 連動アンケートを持つ部門でだけ末尾に追加する「アンケート No.1 発表」ステップ
 const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award' };
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
-  { style: 'classic',   label: 'Classic'   },
-  { style: 'shards',    label: 'Shards'    },
+  { style: 'classic', label: 'Classic'   },
+  { style: 'shards', label: 'Shards'    },
   { style: 'spotlight', label: 'Spotlight' },
-  { style: 'slit',      label: 'Slit'      },
+  { style: 'slit', label: 'Slit'      },
 ];
 const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
@@ -218,7 +218,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     }
 
     // v2.9.63: survey-oneshot は TAKE で revealPhase を 0→1→2 (ロール→ロック→No.1) に進める。
-    //   phase 2 到達後の TAKE で次のカテゴリの idle へ。
+    // phase 2 到達後の TAKE で次のカテゴリの idle へ。
     if (nextStep === 'survey-oneshot' && cue.step === 'survey-oneshot') {
       if (cue.revealPhase < 2) {
         sendCue({ revealPhase: (cue.revealPhase + 1) as 0 | 1 | 2 | 3 });
@@ -353,7 +353,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         {/* ── 3-way 回遊ナビ (sm+ のみ表示) ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="字幕スーパー (下部テロップ) コントロールへ"
         >
           <Subtitles className="h-3.5 w-3.5" />
@@ -361,7 +361,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="クイズ / アンケートCG コントロールへ"
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -866,8 +866,8 @@ function LangPicker({ value, onChange }: {
   onChange: (v: PreviewLang) => void;
 }) {
   const opts: { v: PreviewLang; label: string }[] = [
-    { v: 'ja',   label: 'JA'    },
-    { v: 'en',   label: 'EN'    },
+    { v: 'ja', label: 'JA'    },
+    { v: 'en', label: 'EN'    },
     { v: 'both', label: 'JA/EN' },
   ];
   return (

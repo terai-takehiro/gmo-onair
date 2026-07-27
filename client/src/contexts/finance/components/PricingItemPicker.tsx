@@ -168,7 +168,7 @@ export default function PricingItemPicker({
                           key={it.id}
                           type="button"
                           onClick={() => handleSelect(it)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 transition-colors text-left ${
+                          className={`h-ctl-3 w-full flex items-center gap-3 px-3 transition-colors text-left${
                             isFlashing
                               ? "bg-emerald-100 ring-2 ring-emerald-400"
                               : "hover:bg-accent"

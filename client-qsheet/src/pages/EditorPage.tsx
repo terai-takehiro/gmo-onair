@@ -794,7 +794,7 @@ export default function EditorPage() {
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              className={`h-ctl-1 inline-flex items-center gap-1 px-2.5 text-xs font-semibold rounded-lg transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1${
                 saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
               aria-label="手動保存"
@@ -807,7 +807,7 @@ export default function EditorPage() {
             {/* 印刷 / PDF */}
             <button
               onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="h-ctl-1 hidden sm:inline-flex items-center gap-1.5 px-3 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="紙 / PDF"
             >
               <Eye size={13} aria-hidden />
@@ -824,7 +824,7 @@ export default function EditorPage() {
             <div className="relative">
               <button
                 onClick={() => setShowMore((v) => !v)}
-                className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 aria-label="そのほかの操作"
                 aria-expanded={showMore}
               >
@@ -849,7 +849,7 @@ export default function EditorPage() {
                         key={m.label}
                         type="button"
                         onClick={() => { setShowMore(false); m.run(); }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground hover:bg-accent"
+                        className="h-ctl-3 flex w-full items-center gap-2 px-3 text-left text-xs text-foreground hover:bg-accent"
                       >
                         <m.Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                         {m.label}
@@ -1012,7 +1012,7 @@ export default function EditorPage() {
         type="button"
         onClick={() => setMobileSidebarOpen(true)}
         aria-label="エディタサイドバーを開く"
-        className={`lg:hidden fixed right-4 size-14 rounded-full shadow-lg flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+        className={`lg:hidden fixed right-4 h-tap-lg w-tap-lg rounded-full shadow-float flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
           saveStatus === "error"
             ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
             : "bg-primary text-primary-foreground hover:bg-primary/90"

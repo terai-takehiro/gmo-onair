@@ -51,6 +51,13 @@
     font-size: var(--text-body);
     line-height: var(--line-height-jp);
     letter-spacing: var(--letter-spacing-jp);
+    /*
+     * `palt` = 和文のプロポーショナル詰め。約物 (「」（）、。) の前後に空く
+     * 全角の空きを詰める。`kern` = 欧文のペアカーニング。
+     * **数字には掛けない** — `.font-number` 側で `palt` 0 / `tnum` 1 に戻している
+     * (詰めると桁の幅が変わり、金額を縦に並べたときに揃わない)。
+     */
+    font-feature-settings: 'palt' 1, 'kern' 1;
     touch-action: pan-y;
     margin: 0;
   }

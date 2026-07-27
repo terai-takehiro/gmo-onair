@@ -77,18 +77,18 @@ export default function ProjectScheduleTab({
         </p>
         <div className="flex flex-wrap gap-2">
           {/* 香盤表 (21章)。当日の動きは予定の続きなのでここから開く */}
-          <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+          <Button variant="outline" size="sm" className="min-h-tap gap-1"
             onClick={() => navigate(`/sales/projects/${projectId}/call-sheet`)}>
             <Table2 className="h-4 w-4" aria-hidden="true" />
             香盤表
           </Button>
-          <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+          <Button variant="outline" size="sm" className="min-h-tap gap-1"
             onClick={() => navigate(`/sales/projects/${projectId}/manual`)}>
             <BookOpen className="h-4 w-4" aria-hidden="true" />
             運営マニュアル
           </Button>
           {canEdit && (
-            <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+            <Button variant="outline" size="sm" className="min-h-tap gap-1"
               onClick={() => navigate(`/schedule?project_id=${projectId}`)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               足す
@@ -103,7 +103,7 @@ export default function ProjectScheduleTab({
           title="まだ日程が押さえられていません"
           description="仮押さえにするときに、日付と部屋をその場で聞きます。"
           action={canEdit ? (
-            <Button size="sm" className="min-h-[44px]"
+            <Button size="sm" className="min-h-tap"
               onClick={() => navigate(`/schedule?project_id=${projectId}`)}>
               カレンダーで押さえる
             </Button>

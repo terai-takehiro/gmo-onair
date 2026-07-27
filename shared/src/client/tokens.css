@@ -77,6 +77,15 @@
 
   --info:                201 100% 37%;          /* light-blue-700 #0877d7 */
   --info-foreground:     0 0% 100%;
+  --info-surface:        201 90% 95%;           /* 参考の帯 */
+
+  /* 帯の枠線。`-surface` の帯を四角く置くとき、面だけだと境目が消える */
+  --success-border:      136 30% 89%;           /* #d8ecdd */
+  --warning-border:      48 96% 76%;            /* #fde68a */
+  --destructive-border:  353 62% 89%;           /* #f6cdd2 */
+
+  /* 面の3段目。カード (#ffffff) より一段沈めた帯 (表のヘッダーなど) */
+  --band:                216 20% 98%;           /* #fafbfc */
 
   /* AI — AI が作ったもの・AI に投げるものだけに使う (人が作ったものには使わない) */
   --ai:                  263 70% 50%;           /* #6d28d9 */
@@ -173,6 +182,13 @@
 
   --info:                201 85% 55%;
   --info-foreground:     220 15% 9%;
+  --info-surface:        201 40% 18%;
+
+  --success-border:      152 30% 26%;
+  --warning-border:      36 40% 30%;
+  --destructive-border:  0 35% 30%;
+
+  --band:                220 13% 14%;
 
   --ai:                  263 85% 72%;
   --ai-foreground:       220 15% 9%;
@@ -279,6 +295,10 @@
 .font-number {
   font-family: var(--font-mono-num);
   font-variant-numeric: tabular-nums;
+  /* 数字は詰めない (`palt` 0) + 等幅 (`tnum` 1)。
+   * 本文と同じ `palt` 1 のままだと 1 と 8 で幅が変わり、
+   * 金額を縦に並べたときに桁の位置がずれて比べられない。 */
+  font-feature-settings: 'palt' 0, 'tnum' 1;
 }
 
 /* ==========================================================================

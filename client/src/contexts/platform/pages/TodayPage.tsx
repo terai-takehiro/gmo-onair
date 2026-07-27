@@ -658,7 +658,7 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
       padding="compact"
       className="border-violet-100"
       actions={
-        <Button variant="ghost" size="sm" className="h-7 text-xs text-violet-700" onClick={() => navigate("/sales/ai-activity")}>
+        <Button variant="ghost" size="sm" className="h-ctl-1 text-xs text-violet-700" onClick={() => navigate("/sales/ai-activity")}>
           すべて見る
           <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
         </Button>
@@ -892,7 +892,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                       <span className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-0.5 rounded-md border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-green-700 hover:bg-green-100 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="h-ctl-1 inline-flex items-center gap-0.5 rounded-md border border-green-200 bg-green-50 px-2 text-[11px] text-green-700 hover:bg-green-100 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           disabled={nextActionMutation.isPending}
                           onClick={() => nextActionMutation.mutate({ id: naId, action: "complete" })}
                           aria-label="次回アクションを完了"
@@ -903,7 +903,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                         <button
                           type="button"
                           className={cn(
-                            "inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "h-ctl-1 inline-flex items-center gap-0.5 rounded-md border px-2 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             postponeFor === naId
                               ? "border-blue-300 bg-blue-100 text-blue-800"
                               : "border-border bg-muted/40 text-muted-foreground hover:bg-accent"
@@ -946,7 +946,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
           {list.length > VISIBLE ? (
             <button
               type="button"
-              className="mt-2 flex w-full items-center justify-center gap-1 rounded-md py-2 text-xs text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-ctl-3 mt-2 flex w-full items-center justify-center gap-1 rounded-md text-xs text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => setExpanded((v) => !v)}
             >
               {expanded ? (

@@ -27,8 +27,8 @@ interface Props {
 export default function ViewerChart({ snapshots, visible }: Props) {
   if (snapshots.length === 0) {
     return (
-      <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
-        データがありません
+      <div className="flex h-36 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+        まだ視聴者数を受け取っていません。配信が始まると1分ごとに増えていきます。
       </div>
     );
   }

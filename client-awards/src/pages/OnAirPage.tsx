@@ -156,7 +156,7 @@ export default function OnAirPage() {
       {/* 上辺: ON AIR とレイヤーの状態 */}
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <button onClick={() => navigate(`/event/${eventId}`)}
-          className="flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        className="flex min-h-tap items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           準備にもどる
         </button>
@@ -196,7 +196,7 @@ export default function OnAirPage() {
             </span>
           ))}
           <button onClick={() => { clearOneshot.mutate(); clearAll(); }}
-            className="ml-auto min-h-[44px] rounded bg-warning px-3 text-sm font-bold text-warning-foreground hover:bg-warning/90">
+          className="ml-auto min-h-tap rounded bg-warning px-3 text-sm font-bold text-warning-foreground hover:bg-warning/90">
             その場で消す
           </button>
         </div>
@@ -248,7 +248,7 @@ export default function OnAirPage() {
       {/* 操作 (PCだけ。スマホにTAKEは置かない = 24d) */}
       <section className="hidden gap-2 px-4 pb-4 lg:flex lg:flex-wrap lg:items-center">
         <button onClick={take} disabled={!v.next || busy}
-          className="min-h-[56px] rounded-xl bg-destructive px-6 text-lg font-bold text-white disabled:opacity-40 hover:bg-destructive/90">
+          className="min-h-ctl-5 rounded-xl bg-destructive px-6 text-lg font-bold text-white disabled:opacity-40 hover:bg-destructive/90">
           <Play className="mr-2 inline h-5 w-5" aria-hidden="true" />
           TAKE
           <span className="ml-2 text-sm font-normal opacity-80">
@@ -256,17 +256,17 @@ export default function OnAirPage() {
           </span>
         </button>
         <button onClick={undo} disabled={!v.prev || busy}
-          className="min-h-[56px] rounded-xl border border-border px-4 text-sm text-foreground disabled:opacity-40 hover:bg-card">
+          className="min-h-ctl-5 rounded-xl border border-border px-4 text-sm text-foreground disabled:opacity-40 hover:bg-card">
           <Undo2 className="mr-1 inline h-4 w-4" aria-hidden="true" />
           1つ戻す{v.prev ? `（${v.prev.label}）` : ''}
         </button>
         <button onClick={clearAll} disabled={busy}
-          className="min-h-[56px] rounded-xl border border-border px-4 text-sm text-foreground hover:bg-card">
+          className="min-h-ctl-5 rounded-xl border border-border px-4 text-sm text-foreground hover:bg-card">
           <Eraser className="mr-1 inline h-4 w-4" aria-hidden="true" />
           CLEAR
         </button>
 
-        <label className="ml-auto flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+        <label className="ml-auto flex min-h-tap cursor-pointer items-center gap-2 text-sm text-muted-foreground">
           <input type="checkbox" className="h-4 w-4" checked={keysArmed}
             onChange={(e) => setKeysArmed(e.target.checked)}
             aria-label="キー操作を使う" />
@@ -286,7 +286,7 @@ export default function OnAirPage() {
         </p>
         {anyLive && (
           <button onClick={() => { clearOneshot.mutate(); clearAll(); }}
-            className="mt-2 min-h-[44px] w-full rounded-xl bg-warning px-3 text-sm font-bold text-warning-foreground">
+          className="mt-2 min-h-tap w-full rounded-xl bg-warning px-3 text-sm font-bold text-warning-foreground">
             出ているものを消す
           </button>
         )}
@@ -329,22 +329,22 @@ export default function OnAirPage() {
           <h3 className="text-xs font-bold text-muted-foreground">準備（本番中は触りません）</h3>
           <div className="mt-2 flex flex-col gap-1">
             <button onClick={() => navigate(`/event/${eventId}/outputs`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
+            className="flex min-h-tap items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
               出力URLの配り方
             </button>
             <button onClick={() => navigate(`/event/${eventId}/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
+            className="flex min-h-tap items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               ランキングCGの設定
             </button>
             <button onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
+            className="flex min-h-tap items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               字幕スーパーの設定
             </button>
             <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-              className="flex min-h-[44px] items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
+            className="flex min-h-tap items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground">
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               クイズ・アンケートの設定
             </button>

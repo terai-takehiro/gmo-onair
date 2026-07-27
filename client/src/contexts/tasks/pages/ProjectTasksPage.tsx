@@ -149,7 +149,7 @@ export default function ProjectTasksPage({
         {/* ヘルスストリップ (進捗 / 期限超過 / 担当メンバー) */}
         <HealthStrip projectId={projectId} episodeId={episodeId} />
 
-        {/* GLS-A: エピソードスコープトグル */}
+        {/* GLS-A: 回のスコープトグル */}
         {isGlsA && (
           <div className="overflow-x-auto">
             <EpisodeScopeToggle projectId={projectId} selectedEpisodeId={episodeId} onChange={setEpisodeId} />

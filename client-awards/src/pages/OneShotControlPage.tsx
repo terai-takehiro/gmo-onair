@@ -418,7 +418,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         {/* 賞・部門 英訳辞書 (localStorage) */}
         <button
           onClick={() => setDictOpen(true)}
-          className="hidden lg:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden lg:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="賞・部門の英訳辞書 (localStorage 保存、DB と独立)"
         >
           <Languages className="h-3.5 w-3.5" />
@@ -427,7 +427,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / クイズ・アンケートCG へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="リアルタイムCG (ランキング演出) コントロールへ"
         >
           <Tv className="h-3.5 w-3.5" />
@@ -435,7 +435,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="クイズ / アンケートCG コントロールへ"
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -745,7 +745,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
                   key={t.id}
                   onClick={() => setControlTab(t.id)}
                   className={cn(
-                    'relative px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors -mb-px border-b-2',
+                    'relative inline-flex h-ctl-1 items-center px-3 text-[11px] font-black tracking-widest uppercase transition-colors -mb-px border-b-2',
                     controlTab === t.id
                       ? 'text-warning-strong border-warning'
                       : 'text-muted-foreground border-transparent hover:text-foreground'

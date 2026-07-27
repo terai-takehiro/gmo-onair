@@ -147,7 +147,10 @@ export default function UserListPage() {
       ) : (
         <>
           {(!users || users.length === 0) ? (
-            <EmptyState title="データがありません" />
+            <EmptyState
+            title="利用者がまだ登録されていません"
+            description="「利用者を追加」から、ONAiR を使う人のメールアドレスを登録してください。登録した人だけがログインできます。"
+            />
           ) : (
             <>
               {/* Mobile cards */}

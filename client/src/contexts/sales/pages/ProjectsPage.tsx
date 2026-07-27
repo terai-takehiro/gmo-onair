@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import StageAskDialog from "@/contexts/sales/components/StageAskDialog";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { Money } from "@gmo-onair/shared/src/client/ui";
 import { ProjectStageColors, ProjectStageLabels, type ProjectStage } from "@/types";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -222,7 +223,7 @@ export default function ProjectsPage() {
               {period ? `${period.label}に実施する案件` : "すべての案件"}{" "}
               <span className="font-bold tabular-nums text-foreground">{headerCount}件</span>
               {summary && summary.expected_total > 0 && (
-                <> ・ 想定 <span className="font-bold tabular-nums text-foreground">{yen(summary.expected_total)}</span></>
+                <> ・ 想定 <Money value={summary.expected_total} className="inline-flex font-bold text-foreground" /></>
               )}
             </p>
           </div>
@@ -235,7 +236,7 @@ export default function ProjectsPage() {
                   type="button"
                   onClick={() => setView(v)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-1.5 text-[13px] transition-colors",
+                    "inline-flex h-ctl-1 items-center gap-1.5 rounded-[9px] px-2.5 text-[13px] transition-colors",
                     view === v ? "bg-primary font-bold text-primary-foreground" : "text-secondary-foreground hover:bg-secondary"
                   )}
                   aria-pressed={view === v}
@@ -274,7 +275,7 @@ export default function ProjectsPage() {
                   type="button"
                   onClick={() => { setTab(t.value); setPage(1); }}
                   className={cn(
-                    "rounded-[9px] px-2.5 py-1.5 text-[13px] transition-colors",
+                    "inline-flex h-ctl-1 items-center rounded-[9px] px-2.5 text-[13px] transition-colors",
                     tab === t.value ? "bg-primary font-bold text-primary-foreground" : "text-secondary-foreground hover:bg-secondary"
                   )}
                   aria-pressed={tab === t.value}
@@ -299,7 +300,7 @@ export default function ProjectsPage() {
                   type="button"
                   onClick={() => { setPeriodMode(m); setPage(1); }}
                   className={cn(
-                    "rounded-[9px] px-2.5 py-1 text-[12px] transition-colors",
+                    "inline-flex h-ctl-1 items-center rounded-[9px] px-2.5 text-[12px] transition-colors",
                     periodMode === m ? "bg-secondary font-bold text-foreground" : "text-muted-foreground hover:bg-secondary"
                   )}
                   aria-pressed={periodMode === m}
@@ -561,12 +562,12 @@ function ProjectRow({ row: r, onClick }: { row: Row; onClick: () => void }) {
         <span className="shrink-0 text-right">
           {confirmed > 0 ? (
             <>
-              <span className="block text-[15px] font-bold tabular-nums text-foreground">{yen(confirmed)}</span>
+              <Money value={confirmed} className="text-[15px] font-bold text-foreground" />
               <span className="block text-[11px] text-muted-foreground">確定した売上</span>
             </>
           ) : expected > 0 ? (
             <>
-              <span className="block text-[15px] font-bold tabular-nums text-secondary-foreground">{yen(expected)}</span>
+              <Money value={expected} className="text-[15px] font-bold text-secondary-foreground" />
               <span className="block text-[11px] text-muted-foreground">想定</span>
             </>
           ) : (
@@ -645,7 +646,7 @@ function BoardView({
               <span className="text-[13px] font-bold text-foreground">{col.label}</span>
               <span className="text-[12px] tabular-nums text-muted-foreground">{col.deals.length}</span>
               {col.total > 0 && (
-                <span className="ml-auto text-[12px] tabular-nums text-secondary-foreground">{yen(col.total)}</span>
+                <Money value={col.total} className="ml-auto w-col-4 text-[12px] text-secondary-foreground" />
               )}
             </div>
 
@@ -686,7 +687,7 @@ function BoardView({
                       </div>
                       <p className="mt-1 truncate text-[12px] text-secondary-foreground">{d.customer_name || "お客様 未設定"}</p>
                       {Number(d.expected_amount) > 0 && (
-                        <p className="mt-0.5 text-[12px] font-bold tabular-nums text-foreground">{yen(d.expected_amount)}</p>
+                        <Money value={d.expected_amount} className="mt-0.5 text-[12px] font-bold text-foreground" />
                       )}
                       {d.next_action ? (
                         <p className={cn("mt-1 flex items-center gap-1 text-[11px]", overdue ? "font-bold text-destructive" : "text-secondary-foreground")}>

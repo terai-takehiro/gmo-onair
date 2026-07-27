@@ -181,7 +181,7 @@ export default function KeepDeckPage() {
             <Input type="date" className="mt-1 w-40" value={date}
               aria-label="開催日" onChange={(e) => setDate(e.target.value)} />
           </label>
-          <Button variant="outline" className="min-h-[44px] gap-1" onClick={downloadPdf}>
+          <Button variant="outline" className="min-h-tap gap-1" onClick={downloadPdf}>
             <Printer className="h-4 w-4" aria-hidden="true" />
             PDFにする
           </Button>
@@ -319,7 +319,7 @@ export default function KeepDeckPage() {
                   <span className="min-w-0 flex-1">{a.label}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{a.minutes}分</span>
                   {canEdit && a.id && (
-                    <Button variant="ghost" size="sm" className="min-h-[44px] shrink-0 text-negative"
+                    <Button variant="ghost" size="sm" className="min-h-tap shrink-0 text-negative"
                       aria-label={`${a.label} を外す`}
                       onClick={() => removeAgenda.mutate(a.id as string)}>
                       <X className="h-4 w-4" aria-hidden="true" />
@@ -337,7 +337,7 @@ export default function KeepDeckPage() {
                     <button key={o.kind} type="button"
                       onClick={() => setNewAgenda({ kind: o.kind, label: o.kind === "other" ? "" : o.label, note: "" })}
                       aria-pressed={newAgenda.kind === o.kind}
-                      className={`min-h-[44px] rounded-xl border px-3 text-left text-sm ${
+                      className={`min-h-tap rounded-xl border px-3 text-left text-sm ${
                         newAgenda.kind === o.kind ? "border-primary bg-primary/5" : "border-divider bg-card"
                       }`}>
                       <span className="block font-medium">{o.label}</span>
@@ -354,7 +354,7 @@ export default function KeepDeckPage() {
                     <Input placeholder="どんな話か（任意）" aria-label="議題の内容"
                       value={newAgenda.note}
                       onChange={(e) => setNewAgenda({ ...newAgenda, note: e.target.value })} />
-                    <Button className="min-h-[44px] gap-1"
+                    <Button className="min-h-tap gap-1"
                       disabled={addAgenda.isPending || (newAgenda.kind === "other" && !newAgenda.label.trim())}
                       onClick={() => addAgenda.mutate()}>
                       {addAgenda.isPending
@@ -419,7 +419,7 @@ export default function KeepDeckPage() {
 
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2">
-              <Button className="min-h-[44px] gap-1" disabled={confirm.isPending}
+              <Button className="min-h-tap gap-1" disabled={confirm.isPending}
                 onClick={() => confirm.mutate()}>
                 {confirm.isPending
                   ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

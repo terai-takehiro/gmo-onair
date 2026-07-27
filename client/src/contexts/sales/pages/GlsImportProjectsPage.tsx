@@ -194,7 +194,7 @@ export default function GlsImportProjectsPage() {
           <div>
             <Label className="block text-xs text-muted-foreground mb-1">取込バッチ（マーカー）</Label>
             <Select value={marker} onValueChange={(v) => { setMarker(v); setPage(1); }}>
-              <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">すべて</SelectItem>
                 {markers.map((m) => (
@@ -378,7 +378,7 @@ export default function GlsImportProjectsPage() {
               <FieldRow checked={edit.tags} onCheck={(v) => setEdit((s) => ({ ...s, tags: v }))} label="タグ">
                 <div className="flex gap-2">
                   <Select value={edit.tagsMode} onValueChange={(v) => setEdit((s) => ({ ...s, tagsMode: v as "append" | "replace" }))} disabled={!edit.tags}>
-                    <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="append">追加</SelectItem>
                       <SelectItem value="replace">置換</SelectItem>

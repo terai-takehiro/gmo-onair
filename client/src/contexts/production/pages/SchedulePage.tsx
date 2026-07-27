@@ -712,7 +712,7 @@ export default function SchedulePage() {
             <span className="text-sm text-muted-foreground">
               絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
             </span>
-            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/schedule?layers=studio")}>
+            <Button variant="ghost" size="sm" className="h-ctl-1 px-1.5 text-xs" onClick={() => navigate("/schedule?layers=studio")}>
               解除
             </Button>
           </div>
@@ -743,7 +743,7 @@ export default function SchedulePage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">部屋フィルター</span>
               {selectedRoomIds.size > 0 && (
-                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearFilter}>
+                <Button variant="ghost" size="sm" className="h-ctl-1 text-xs" onClick={clearFilter}>
                   クリア
                 </Button>
               )}
@@ -757,7 +757,7 @@ export default function SchedulePage() {
                       <button
                         key={room.id}
                         onClick={() => toggleRoom(room.id)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                        className={`h-ctl-1 inline-flex items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-all border${
                           selectedRoomIds.has(room.id)
                             ? "border-transparent text-white shadow-sm"
                             : "border-border bg-background hover:bg-muted"

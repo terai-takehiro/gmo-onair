@@ -139,7 +139,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
       }
     } else if (cue.step === 'poll') {
       // poll の次が idle (= top-reveal アンケート: 出題のみ) のときは TAKE no-op。
-      //   operator は CLEAR で投票を終了する (No.1 はランキングCGで発表)。
+      // operator は CLEAR で投票を終了する (No.1 はランキングCGで発表)。
       if (next === 'idle') return;
       sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
@@ -258,7 +258,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / 字幕スーパー へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="リアルタイムCG (ランキング演出) コントロールへ"
         >
           <Tv className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="字幕スーパー (下部テロップ) コントロールへ"
         >
           <Subtitles className="h-3.5 w-3.5" />

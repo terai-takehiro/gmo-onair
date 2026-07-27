@@ -35,10 +35,10 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
 };
 
 const ROOM_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'studio',    label: 'スタジオ' },
-  { value: 'control',   label: '調整室' },
+  { value: 'studio', label: 'スタジオ' },
+  { value: 'control', label: '調整室' },
   { value: 'greenroom', label: 'ゲストルーム' },
-  { value: 'other',     label: 'その他' },
+  { value: 'other', label: 'その他' },
 ];
 
 interface NewRoomDraft {

@@ -117,24 +117,24 @@ export default function MonthlyBilling({
                           <div className="flex flex-wrap items-center gap-1.5">
                             {primaryRev ? (
                               <>
-                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openEdit(primaryRev)}>
+                                <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => openEdit(primaryRev)}>
                                   <Pencil className="h-3 w-3" />明細編集
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "estimate")}>
+                                <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "estimate")}>
                                   <FileText className="h-3 w-3" />見積書
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "invoice")}>
+                                <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "invoice")}>
                                   <Receipt className="h-3 w-3" />請求書
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "inspection")}>
+                                <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "inspection")}>
                                   <ClipboardCheck className="h-3 w-3" />検収書
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadExcel(primaryRev.id)}>
+                                <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => handleDownloadExcel(primaryRev.id)}>
                                   <FileSpreadsheet className="h-3 w-3" />Excel
                                 </Button>
                               </>
                             ) : (
-                              <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewForMonth(ep.id, ep.title || "", mm ? `20${mm[1]}-${mm[2]}` : undefined)}>
+                              <Button size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => openNewForMonth(ep.id, ep.title || "", mm ? `20${mm[1]}-${mm[2]}` : undefined)}>
                                 <Plus className="h-3 w-3" />売上明細を入力
                               </Button>
                             )}
@@ -146,7 +146,7 @@ export default function MonthlyBilling({
                       <div className="rounded-md border bg-muted/20 p-2 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium">仕入</span>
-                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewPurchaseForMonth(ep.id, recMonth)}>
+                          <Button variant="outline" size="sm" className="h-ctl-1 gap-1 px-2 text-xs" onClick={() => openNewPurchaseForMonth(ep.id, recMonth)}>
                             <Plus className="h-3 w-3" />仕入を追加
                           </Button>
                         </div>
@@ -156,7 +156,7 @@ export default function MonthlyBilling({
                               <button
                                 key={pu.id}
                                 type="button"
-                                className="flex w-full items-center justify-between gap-2 py-1 text-left text-xs hover:bg-muted/40 rounded px-1"
+                                className="h-ctl-1 flex w-full items-center justify-between gap-2 text-left text-xs hover:bg-muted/40 rounded px-1"
                                 onClick={() => openEditPurchase(pu)}
                                 title="この仕入を編集"
                               >

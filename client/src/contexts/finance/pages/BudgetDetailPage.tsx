@@ -263,7 +263,7 @@ export default function BudgetDetailPage() {
                         const settled = formatSettlementNo(p.settlement_method, p.settlement_number);
                         return (
                           <TableRow key={p.id as string}>
-                            <TableCell className="truncate max-w-[130px]">{(p.vendor_name as string) || "-"}</TableCell>
+                            <TableCell className="truncate max-w-[128px]">{(p.vendor_name as string) || "-"}</TableCell>
                             {!projectId && (
                               <TableCell className="text-xs truncate max-w-[200px]">
                                 <span className=" text-primary mr-1">{(p.gls_number as string) || "-"}</span>
@@ -293,7 +293,7 @@ export default function BudgetDetailPage() {
             <div className="space-y-2 xl:col-span-2">
               <h2 className="text-base font-semibold">
                 販管費
-                {projectId && <span className="ml-2 text-xs font-normal text-muted-foreground">※ 案件別按分なし・月内の全社データ</span>}
+                {projectId && <span className="ml-2 text-xs font-normal text-muted-foreground">※ 案件ごとには分けていません・月内の全社データ</span>}
               </h2>
                 {sgaLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : (
                   <div className="overflow-x-auto rounded border">
@@ -317,8 +317,8 @@ export default function BudgetDetailPage() {
                           return (
                             <TableRow key={e.id as string}>
                               <TableCell className=" text-xs">{(e.billing_key as string) || "-"}</TableCell>
-                              <TableCell className="truncate max-w-[130px]">{(e.vendor_name as string) || "-"}</TableCell>
-                              <TableCell className="truncate max-w-[180px] text-xs">{(e.description as string) || "-"}</TableCell>
+                              <TableCell className="truncate max-w-[128px]">{(e.vendor_name as string) || "-"}</TableCell>
+                              <TableCell className="truncate max-w-[200px] text-xs">{(e.description as string) || "-"}</TableCell>
                               <TableCell className="text-xs">{e.expense_type === "fixed" ? "固定" : "スポット"}</TableCell>
                               <TableCell className="text-xs">{formatDate(e.recognition_date as string)}</TableCell>
                               <TableCell className="text-xs">

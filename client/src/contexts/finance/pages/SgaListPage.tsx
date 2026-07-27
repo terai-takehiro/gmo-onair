@@ -280,7 +280,7 @@ export default function SgaListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
           </div>
         ) : crud.items.length === 0 ? (
-          <EmptyState title="データがありません" />
+          <EmptyState title="この条件の販管費はまだありません" description="「販管費を追加」から登録するか、絞り込みを外してみてください。" />
         ) : (
           <>
             {/* Mobile cards */}
@@ -310,7 +310,7 @@ export default function SgaListPage() {
                         )}
                         {item.amortize_start ? (
                           <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            按分中
+                            月ごとに分けている
                           </span>
                         ) : item.expense_type === "fixed" ? (
                           <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
@@ -476,7 +476,7 @@ export default function SgaListPage() {
                       <TableCell>
                         {item.amortize_start ? (
                           <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            按分中
+                            月ごとに分けている
                           </span>
                         ) : item.expense_type === "fixed" ? (
                           <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">

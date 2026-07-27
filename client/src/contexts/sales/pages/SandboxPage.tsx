@@ -122,7 +122,7 @@ export default function SandboxPage() {
       <button
         onClick={() => start.mutate()}
         disabled={start.isPending}
-        className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50 hover:opacity-90 sm:w-auto"
+        className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50 hover:opacity-90 sm:w-auto"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         {start.isPending ? "作っています…" : "お試しをはじめる"}
@@ -171,7 +171,7 @@ export default function SandboxPage() {
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button onClick={() => navigate(`/sales/projects/${it.id}`)}
-                    className="flex min-h-[44px] items-center gap-1 rounded-lg border px-3 text-xs hover:bg-muted">
+                  className="flex min-h-tap items-center gap-1 rounded-lg border px-3 text-xs hover:bg-muted">
                     ひらく
                     <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -179,17 +179,17 @@ export default function SandboxPage() {
                     <>
                       <button onClick={() => cleanup.mutate(it.id)}
                         disabled={cleanup.isPending}
-                        className="min-h-[44px] rounded-lg bg-destructive px-3 text-xs font-bold text-destructive-foreground disabled:opacity-50">
+                        className="min-h-tap rounded-lg bg-destructive px-3 text-xs font-bold text-destructive-foreground disabled:opacity-50">
                         {cleanup.isPending ? "片づけています…" : "本当に片づける"}
                       </button>
                       <button onClick={() => setConfirmId(null)}
-                        className="min-h-[44px] rounded-lg border px-3 text-xs hover:bg-muted">
+                      className="min-h-tap rounded-lg border px-3 text-xs hover:bg-muted">
                         やめる
                       </button>
                     </>
                   ) : (
                     <button onClick={() => setConfirmId(it.id)}
-                      className="flex min-h-[44px] items-center gap-1 rounded-lg border px-3 text-xs text-muted-foreground hover:bg-muted">
+                    className="flex min-h-tap items-center gap-1 rounded-lg border px-3 text-xs text-muted-foreground hover:bg-muted">
                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       片づける
                     </button>

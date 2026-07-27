@@ -186,7 +186,7 @@ function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="編集"
           >
             <Pencil size={14} aria-hidden />
@@ -194,7 +194,7 @@ function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="h-ctl-1 inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 sm: text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="ONAIRを開始"
           >
             <Radio size={10} aria-hidden />
@@ -204,7 +204,7 @@ function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onShare(doc); }}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="共有"
             >
               <Share2 size={14} aria-hidden />
@@ -214,7 +214,7 @@ function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="削除"
             >
               <Trash2 size={14} aria-hidden />
@@ -394,7 +394,7 @@ function ShareDialog({
                     key={u.id}
                     type="button"
                     onClick={() => toggle(u.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    className="h-ctl-3 w-full flex items-center gap-3 px-3 text-left hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     role="checkbox"
                     aria-checked={on}
                   >
@@ -774,10 +774,10 @@ export default function DashboardPage() {
 
                   {selectedProjectId && episodes && episodes.length > 0 && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                      <Label className="text-xs text-muted-foreground">回（任意）</Label>
                       <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="エピソードを選択..." />
+                          <SelectValue placeholder="回を選択..." />
                         </SelectTrigger>
                         <SelectContent>
                           {episodes.map((ep) => (

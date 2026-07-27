@@ -170,7 +170,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
         controls={
           <div className="flex gap-2 items-center">
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}年</SelectItem>
@@ -181,7 +181,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               value={month ? String(month) : "all"}
               onValueChange={(v) => setMonth(v === "all" ? undefined : Number(v))}
             >
-              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">通年</SelectItem>
                 {MONTHS.map((m) => (
@@ -438,7 +438,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               </CardHeader>
               <CardContent>
                 {lostAnalysis?.total_lost === 0 ? (
-                  <EmptyState title="失注データがありません" description="選択中の期間に失注案件がありません。" />
+                  <EmptyState title="この期間に失注した案件はありません" description="期間を広げると、過去の失注理由をまとめて見られます。" />
                 ) : (
                   <div className="space-y-3">
                     {lostAnalysis?.reasons?.map((r: any, i: number) => {
@@ -485,7 +485,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               <CardContent>
                 {!lostAnalysis?.monthly_trend ||
                 lostAnalysis.monthly_trend.length === 0 ? (
-                  <EmptyState title="月別の推移データがありません" />
+                  <EmptyState title="この期間に売上が1件もありません" description="お金 > 売上 に明細を登録すると、月ごとの推移がここに出ます。" />
                 ) : (
                   <div className="space-y-2">
                     {MONTHS.map((m) => {
@@ -610,7 +610,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
             <CardContent>
               {performance.length === 0 ? (
                 <EmptyState
-                  title="担当者別データがありません"
+                title="この期間に担当者ごとの実績がありません"
                   description="目標を設定するか、ヨミを登録してください。"
                 />
               ) : (

@@ -537,7 +537,7 @@ export default function RevenueListPage() {
               <span className="text-sm text-muted-foreground">
                 絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
               </span>
-              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/revenues")}>
+              <Button variant="ghost" size="sm" className="h-ctl-1 px-1.5 text-xs" onClick={() => navigate("/revenues")}>
                 解除
               </Button>
             </div>
@@ -617,7 +617,7 @@ export default function RevenueListPage() {
       ) : (
         <>
           {revenues.length === 0 ? (
-            <EmptyState title="データがありません" />
+            <EmptyState title="この条件の売上はまだありません" description="既定では今月だけを出しています。期間を広げるか「売上を追加」から登録してください。" />
           ) : (
             <>
               {/* Mobile cards */}
@@ -732,7 +732,7 @@ export default function RevenueListPage() {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className="truncate max-w-[120px]">
+                        <TableCell className="truncate max-w-[128px]">
                           {r.customer_name || "-"}
                         </TableCell>
                         <TableCell className="text-xs">
@@ -809,7 +809,7 @@ export default function RevenueListPage() {
                     <button
                       key={p.id}
                       type="button"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                      className="h-ctl-3 flex w-full items-center gap-2 px-3 text-sm hover:bg-accent"
                       onClick={() => {
                         setSelectedProjectId(p.id);
                         setSelectedProjectObj(p);
@@ -830,7 +830,7 @@ export default function RevenueListPage() {
                   {selectedProject.customer_name ?? "-"}
                   {isProjectCategoryB && (
                     <span className="ml-2 text-blue-600 font-medium">
-                      B系（エピソードなし）
+                      B系（回なし）
                     </span>
                   )}
                 </p>

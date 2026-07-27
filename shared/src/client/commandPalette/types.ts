@@ -1,3 +1,5 @@
+import type { LucideIcon } from 'lucide-react';
+
 // ⌘K の型 (§4.5 / デザイン 6a)
 //
 // 3グループ:
@@ -7,11 +9,29 @@
 
 export type CommandKind = 'do' | 'open';
 
+/**
+ * 場所のまとまり (v2.9.298)。
+ *
+ * 83件を「やる」「ひらく」の2つに積んだだけだと、**探すより読む方が大変**になる。
+ * 何も打っていないときは、この単位で畳んだ**行き先の地図**として出す。
+ * 並びはレール (今日→案件→タスク→お客様→予定→お金) と同じにする —
+ * 画面の左に並んでいる順と違う順で出すと、対応が取れない。
+ */
+export const COMMAND_GROUPS = [
+  '今日', '案件', 'タスク', 'お客様', '予定', 'お金',
+  '現場の道具', '機材', '日常業務', 'ふりかえり', '設定',
+] as const;
+export type CommandGroup = (typeof COMMAND_GROUPS)[number];
+
 export interface CommandDef {
   id: string;
   kind: CommandKind;
   /** 画面に出す名前 */
   label: string;
+  /** どのまとまりの中か。何も打っていないときの地図で使う */
+  group: CommandGroup;
+  /** 行の左に出す印。lucide のアイコン名 (`Icon` そのものを渡す) */
+  icon?: LucideIcon;
   /** やる の1行説明 (ひらく はパスを出すので不要) */
   hint?: string;
   /** 行き先 (絶対パス)。別アプリのパスもそのまま書く */

@@ -300,7 +300,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
         <button
           type="button"
           onClick={() => setGuideOpen(!guideOpen)}
-          className="flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium hover:bg-muted/50"
+          className="h-ctl-3 flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 text-sm font-medium hover:bg-muted/50"
         >
           <ChevronDown className={`h-4 w-4 transition-transform ${guideOpen ? "rotate-180" : ""}`} />
           公開 ICS URL の発行方法（Outlook / Google）

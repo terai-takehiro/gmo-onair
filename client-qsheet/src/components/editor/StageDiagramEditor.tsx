@@ -172,11 +172,11 @@ export default function StageDiagramEditor({
 
       {/* Controls */}
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addElement("person")}>
+        <Button variant="outline" size="sm" className="h-ctl-1 text-xs gap-1" onClick={() => addElement("person")}>
           <User className="h-3 w-3" />
           出演者
         </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addElement("object")}>
+        <Button variant="outline" size="sm" className="h-ctl-1 text-xs gap-1" onClick={() => addElement("object")}>
           <Plus className="h-3 w-3" />
           オブジェクト
         </Button>

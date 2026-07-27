@@ -204,7 +204,7 @@ function BackupTable({
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
         <div className="flex items-center gap-2">
-          <Badge className={envColor + "  text-xs"}>{env.toUpperCase()}</Badge>
+          <Badge className={envColor + " text-xs"}>{env.toUpperCase()}</Badge>
           <span className="font-semibold">{envLabel}</span>
         </div>
         <span className="text-xs text-muted-foreground">{files.length} 件</span>

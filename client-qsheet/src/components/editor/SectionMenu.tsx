@@ -34,14 +34,14 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
         <div className="absolute right-0 top-full mt-1 w-44 py-1 bg-white dark:bg-card rounded-lg shadow-xl border border-border dark:border-border z-50 animate-scale-in">
           <button
             onClick={() => { onAddBreakAfter(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
+            className="h-ctl-1 w-full flex items-center gap-2 px-3 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
           >
             <Plus size={12} className="text-warning-strong" />
             <span>CM・休憩を追加</span>
           </button>
           <button
             onClick={() => { onAddPageBreakAfter(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
+            className="h-ctl-1 w-full flex items-center gap-2 px-3 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
           >
             <Scissors size={12} className="text-muted-foreground" />
             <span>改ページを追加</span>
@@ -49,7 +49,7 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
           {onAddVtrAfter && (
             <button
               onClick={() => { onAddVtrAfter(); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
+              className="h-ctl-1 w-full flex items-center gap-2 px-3 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
             >
               <Film size={12} className="text-primary" />
               <span>VTR を追加</span>
@@ -58,7 +58,7 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
           {onSaveTemplate && (
             <button
               onClick={() => { onSaveTemplate(); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
+              className="h-ctl-1 w-full flex items-center gap-2 px-3 text-[12px] hover:bg-muted dark:hover:bg-muted text-left transition-colors"
             >
               <FileText size={12} className="text-primary" />
               <span>テンプレとして保存</span>
@@ -67,7 +67,7 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
           <div className="border-t border-border dark:border-border my-1" />
           <button
             onClick={() => { onDelete(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-destructive-surface dark:hover:bg-destructive/30 text-destructive text-left transition-colors"
+            className="h-ctl-1 w-full flex items-center gap-2 px-3 text-[12px] hover:bg-destructive-surface dark:hover:bg-destructive/30 text-destructive text-left transition-colors"
           >
             <Trash2 size={12} />
             <span>このロールを削除</span>

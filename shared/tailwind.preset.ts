@@ -83,22 +83,28 @@ const preset = {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
           surface: 'hsl(var(--destructive-surface))',
+          border: 'hsl(var(--destructive-border))',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
           surface: 'hsl(var(--success-surface))',
+          border: 'hsl(var(--success-border))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
           surface: 'hsl(var(--warning-surface))',
+          border: 'hsl(var(--warning-border))',
           strong: 'hsl(var(--warning-strong))',
         },
         info: {
           DEFAULT: 'hsl(var(--info))',
           foreground: 'hsl(var(--info-foreground))',
+          surface: 'hsl(var(--info-surface))',
         },
+        /* 面の3段目 — カード (#ffffff) より一段沈めた帯 (表のヘッダーなど) */
+        band: 'hsl(var(--band))',
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
@@ -152,6 +158,54 @@ const preset = {
         md: 'calc(var(--radius) - 2px)',   /* 12px */
         sm: 'calc(var(--radius) - 4px)',   /* 10px */
         control: '0.6875rem',              /* 11px — ボタン・入力 */
+      },
+      /*
+       * 影は2種類だけ (デザイン README「デザイントークン」)。
+       * `shadow-sm` `shadow-md` `shadow-lg` を場当たりで選ぶと、同じカードが
+       * 画面ごとに違う浮き方をする。**面は card、浮かせるものは float**。
+       */
+      boxShadow: {
+        card: '0 1px 2px rgba(16, 24, 40, 0.04)',
+        float: '0 30px 70px -34px rgba(16, 24, 40, 0.26)',
+      },
+      /*
+       * 表の列幅は7段だけ (デザイン README「寸法」)。
+       * `w-col-3` のように段で書く。中間の値 (120px・180px …) を作らない —
+       * 作るとページごとに同じ意味の列が違う幅になり、目が横に流れなくなる。
+       */
+      width: {
+        tap: '46px',
+        'tap-lg': '52px',
+        'col-1': '56px',
+        'col-2': '72px',
+        'col-3': '96px',
+        'col-4': '128px',
+        'col-5': '160px',
+        'col-6': '200px',
+        'col-7': '240px',
+      },
+      /*
+       * ボタンとバッジの高さ。README の寸法表 (32/36/40/44/48・バッジ 22/26)。
+       * 中間の値を作らないために、段そのものに名前を付ける。
+       */
+      height: {
+        'ctl-1': '32px',
+        'ctl-2': '36px',
+        'ctl-3': '40px',
+        'ctl-4': '44px',
+        'ctl-5': '48px',
+        'badge-sm': '22px',
+        'badge-md': '26px',
+        /* スマホの浮くボタン (FAB)。タップ領域の帯の上限 = 52px */
+        tap: '46px',
+        'tap-lg': '52px',
+      },
+      minHeight: {
+        /* スマホのタップ領域は 46〜52px (44px 未満を作らない) */
+        tap: '46px',
+        'ctl-3': '40px',
+        'ctl-4': '44px',
+        'ctl-5': '48px',
       },
       /* DADS Fibonacci spacing — already covered by Tailwind's default 4px scale;
        * tokens.css provides CSS variables for explicit use. */

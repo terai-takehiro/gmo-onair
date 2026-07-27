@@ -66,7 +66,7 @@ export default function TimerAdminPage() {
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
         <h1 className="text-sm font-bold">タイマー管理</h1>
         {canManage && (
-          <Button size="sm" className="h-7 text-xs" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" className="h-ctl-1 text-xs" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3 w-3 mr-1" />新規
           </Button>
         )}
@@ -90,7 +90,7 @@ export default function TimerAdminPage() {
                 <button
                   key={t.id}
                   onClick={() => setSelectedId(t.id)}
-                  className={`w-full flex items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  className={`h-ctl-3 w-full flex items-center justify-between rounded-md px-3 text-left text-sm transition-colors${
                     selectedId === t.id
                       ? 'bg-primary/15 text-primary font-medium'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'

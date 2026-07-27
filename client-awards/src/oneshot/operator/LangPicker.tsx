@@ -14,8 +14,8 @@ interface Props {
 
 export default function LangPicker({ value, onChange }: Props) {
   const opts: { v: LangMode; label: string }[] = [
-    { v: 'ja',   label: 'JA'    },
-    { v: 'en',   label: 'EN'    },
+    { v: 'ja', label: 'JA'    },
+    { v: 'en', label: 'EN'    },
     { v: 'both', label: 'JA/EN' },
   ];
   return (
@@ -48,9 +48,9 @@ export function toLangMode(lang: Lang, bilingual: boolean): LangMode {
 }
 
 /** LangMode → (lang, bilingual) ペアに分解。
- *  v2.8.83+: 'both' でも bilingual=false (in-CG 縦スタックは廃止)。
- *  'both' の場合は OneShotControlPage 側で **JA/EN を別々の CG として横並びプレビュー**する。
- *  cue.lang は primary lang ('ja') を保持し、output URL は ?lang= で個別レンダリング。 */
+ * v2.8.83+: 'both' でも bilingual=false (in-CG 縦スタックは廃止)。
+ * 'both' の場合は OneShotControlPage 側で **JA/EN を別々の CG として横並びプレビュー**する。
+ * cue.lang は primary lang ('ja') を保持し、output URL は ?lang= で個別レンダリング。 */
 export function fromLangMode(mode: LangMode): { lang: Lang; bilingual: boolean } {
   if (mode === 'both') return { lang: 'ja', bilingual: false };
   return { lang: mode, bilingual: false };

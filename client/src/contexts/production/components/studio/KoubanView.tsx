@@ -305,7 +305,7 @@ export default function KoubanView({
               {filteredRooms.map((room) => (
                 <div
                   key={room.id}
-                  className="flex-1 min-w-[120px] border-r last:border-r-0 p-2 text-center"
+                  className="flex-1 min-w-[128px] border-r last:border-r-0 p-2 text-center"
                 >
                   <div className="flex items-center justify-center gap-1.5">
                     <span
@@ -340,7 +340,7 @@ export default function KoubanView({
               {filteredRooms.map((room) => {
                 const entries = roomBookings.get(room.id) || [];
                 return (
-                  <div key={room.id} className="flex-1 min-w-[120px] border-r last:border-r-0 relative">
+                  <div key={room.id} className="flex-1 min-w-[128px] border-r last:border-r-0 relative">
                     {/* Slot backgrounds */}
                     {timeSlots.map((slot, i) => (
                       <div

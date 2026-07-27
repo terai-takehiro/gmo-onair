@@ -75,7 +75,7 @@ export default function OutputsPage() {
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6">
       <button onClick={() => navigate(`/event/${eventId}`)}
-        className="mb-3 flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      className="mb-3 flex min-h-tap items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         イベントへ戻る
       </button>
@@ -95,7 +95,7 @@ export default function OutputsPage() {
             {uses.map((u) => (
               <button key={u.key} onClick={() => setUse(u.key)}
                 className={cn(
-                  'min-h-[44px] rounded-lg border px-3 text-sm',
+                  'min-h-tap rounded-lg border px-3 text-sm',
                   use === u.key ? 'border-primary bg-primary/10 font-bold text-primary' : 'hover:bg-muted',
                 )}>
                 {u.label}
@@ -110,7 +110,7 @@ export default function OutputsPage() {
         {/* 2. 音 */}
         <section className="rounded-xl border bg-card p-4">
           <h2 className="text-sm font-bold">2. 音を鳴らすか</h2>
-          <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm">
+          <label className="mt-2 flex min-h-tap cursor-pointer items-center gap-2 text-sm">
             <input type="checkbox" className="h-4 w-4" checked={audio}
               onChange={(e) => setAudio(e.target.checked)} aria-label="音を鳴らす" />
             <Volume2 className="h-4 w-4" aria-hidden="true" />
@@ -129,7 +129,7 @@ export default function OutputsPage() {
             {(['ja', 'en'] as const).map((l) => (
               <button key={l} onClick={() => setLang(l)}
                 className={cn(
-                  'min-h-[44px] rounded-lg border px-4 text-sm',
+                  'min-h-tap rounded-lg border px-4 text-sm',
                   lang === l ? 'border-primary bg-primary/10 font-bold text-primary' : 'hover:bg-muted',
                 )}>
                 {l === 'ja' ? '日本語' : '英語'}
@@ -144,7 +144,7 @@ export default function OutputsPage() {
         {/* 4. 背景 */}
         <section className="rounded-xl border bg-card p-4">
           <h2 className="text-sm font-bold">4. 背景</h2>
-          <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm">
+          <label className="mt-2 flex min-h-tap cursor-pointer items-center gap-2 text-sm">
             <input type="checkbox" className="h-4 w-4" checked={opaque}
               onChange={(e) => setOpaque(e.target.checked)} aria-label="背景を付ける" />
             背景を付ける（透過にしない）
@@ -170,12 +170,12 @@ export default function OutputsPage() {
               </code>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={copy}
-                  className="flex min-h-[44px] items-center gap-1 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90">
+                className="flex min-h-tap items-center gap-1 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90">
                   {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                   {copied ? 'うつしました' : 'URLをうつす'}
                 </button>
                 <a href={full} target="_blank" rel="noreferrer"
-                  className="flex min-h-[44px] items-center gap-1 rounded-lg border px-4 text-sm hover:bg-muted">
+                className="flex min-h-tap items-center gap-1 rounded-lg border px-4 text-sm hover:bg-muted">
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />
                   出るか見てみる
                 </a>

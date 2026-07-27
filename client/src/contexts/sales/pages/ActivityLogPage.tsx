@@ -288,7 +288,7 @@ export default function ActivityLogPage() {
 
       {/* フィルター */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 max-w-sm min-w-[180px]">
+        <div className="relative flex-1 max-w-sm min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="件名・案件名・顧客名で検索..."
@@ -298,7 +298,7 @@ export default function ActivityLogPage() {
           />
         </div>
         <Select value={typeFilter || "all"} onValueChange={(v) => { setTypeFilter(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全種別</SelectItem>
             {ACTIVITY_TYPES.map(t => (
@@ -307,7 +307,7 @@ export default function ActivityLogPage() {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => { setSort(v as "date" | "next_action"); setPage(1); }}>
-          <SelectTrigger className="w-[168px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="date">活動日が新しい順</SelectItem>
             <SelectItem value="next_action">次回アクション期限順</SelectItem>
@@ -320,7 +320,7 @@ export default function ActivityLogPage() {
               key={v || "all"}
               type="button"
               onClick={() => { setOriginFilter(v); setPage(1); }}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs transition-colors ${
+              className={`h-ctl-1 inline-flex items-center gap-1 rounded-md px-2.5 text-xs transition-colors${
                 originFilter === v
                   ? v === "ai"
                     ? "bg-violet-600 text-white font-medium"
@@ -398,11 +398,11 @@ export default function ActivityLogPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[110px]">活動日</TableHead>
-                    <TableHead className="w-[80px]">種別</TableHead>
+                    <TableHead className="w-[96px]">活動日</TableHead>
+                    <TableHead className="w-[72px]">種別</TableHead>
                     <TableHead>件名</TableHead>
                     <TableHead>案件 / 顧客</TableHead>
-                    <TableHead className="w-[90px]">担当</TableHead>
+                    <TableHead className="w-[96px]">担当</TableHead>
                     <TableHead>次回アクション</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>

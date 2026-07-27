@@ -68,18 +68,18 @@ const TABLE_LABELS: Record<string, string> = {
   partners: 'パートナー(個人)',
   revenues: '売上',
   revenue_items: '売上明細',
-  revenue_allocations: '売上按分',
+  revenue_allocations: '売上の分け合い',
   purchases: '仕入',
-  purchase_allocations: '仕入按分',
-  project_groups: '費用按分グループ',
-  project_group_members: '費用按分メンバー',
+  purchase_allocations: '仕入の分け合い',
+  project_groups: '費用を分け合うグループ',
+  project_group_members: '費用を分け合うメンバー',
   sga_expenses: '販管費',
   pricing_categories: '料金カテゴリ',
   pricing_items: '料金項目',
-  episodes: 'エピソード',
-  episode_orders: 'エピソード発注',
+  episodes: '回',
+  episode_orders: '回の発注',
   invoice_groups: '請求グループ',
-  invoice_group_episodes: '請求グループ↔エピソード',
+  invoice_group_episodes: '請求グループ↔回',
   studio_locations: 'スタジオ拠点',
   studio_rooms: 'スタジオ部屋',
   studio_bookings: 'スタジオ予約',
@@ -269,7 +269,7 @@ const COLUMN_LABELS: Record<string, string> = {
   application_form: '申込書',
   logo_permission: 'ロゴ許可',
   episode_number: '話数番号',
-  episode_code: 'エピソードコード',
+  episode_code: '回のコード',
   recording_date: '収録日',
   broadcast_date: '放送日',
   delivery_date: '納品日',
@@ -293,11 +293,11 @@ const COLUMN_LABELS: Record<string, string> = {
   invoice_qualified: 'インボイス',
   inspection_date: '検収日',
   purchase_id: '仕入ID',
-  allocated_amount: '按分額',
+  allocated_amount: '分けた額',
   vendor_name: '支払先',
   expense_type: '種別',
-  amortize_start: '按分開始',
-  amortize_end: '按分終了',
+  amortize_start: '分ける開始',
+  amortize_end: '分ける終了',
   source: '処理元',
   period_start: '期間開始',
   period_end: '期間終了',
@@ -568,7 +568,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px]  truncate ${
+                        <span className={`block text-[11px] truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -608,7 +608,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px]  truncate ${
+                        <span className={`block text-[11px] truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -754,7 +754,7 @@ export default function DataViewerPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <Database className="h-10 w-10 mb-2" />
-                  <p>データがありません</p>
+                  <p>この表にはまだ1行も入っていません。</p>
                 </div>
               )}
             </div>

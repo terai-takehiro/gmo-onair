@@ -27,28 +27,28 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const COL_DEFS = [
-  { key: "kind",              label: "種別",     default: true  },
-  { key: "location_name",     label: "設置場所", default: true  },
-  { key: "name",              label: "商品名",   default: true  },
+  { key: "kind", label: "種別", default: true  },
+  { key: "location_name", label: "設置場所", default: true  },
+  { key: "name", label: "商品名", default: true  },
   { key: "manufacturer_name", label: "メーカー", default: true  },
-  { key: "model_number",      label: "型名",     default: true  },
-  { key: "length_m",          label: "m",        default: true  },
-  { key: "color",             label: "色",       default: true  },
-  { key: "quantity",          label: "本数",     default: true  },
-  { key: "storage_method",    label: "収納方法", default: true  },
-  { key: "notes",             label: "備考",     default: true  },
+  { key: "model_number", label: "型名", default: true  },
+  { key: "length_m", label: "m", default: true  },
+  { key: "color", label: "色", default: true  },
+  { key: "quantity", label: "本数", default: true  },
+  { key: "storage_method", label: "収納方法", default: true  },
+  { key: "notes", label: "備考", default: true  },
 ] as const;
 type ColKey = typeof COL_DEFS[number]["key"];
 const STORAGE_VIS = "cable-visible-cols";
 const STORAGE_ORDER = "cable-col-order";
 
 const KINDS = [
-  { code: "video",    label: "映像", color: "bg-cat-7/10 text-cat-7" },
-  { code: "audio",    label: "音声", color: "bg-warning-surface text-warning-strong" },
-  { code: "network",  label: "NW",   color: "bg-info/10 text-info" },
+  { code: "video", label: "映像", color: "bg-cat-7/10 text-cat-7" },
+  { code: "audio", label: "音声", color: "bg-warning-surface text-warning-strong" },
+  { code: "network", label: "NW", color: "bg-info/10 text-info" },
   { code: "lighting", label: "照明", color: "bg-warning-surface text-warning-strong" },
-  { code: "power",    label: "電源", color: "bg-destructive-surface text-destructive" },
-  { code: "other",    label: "その他", color: "bg-muted text-muted-foreground" },
+  { code: "power", label: "電源", color: "bg-destructive-surface text-destructive" },
+  { code: "other", label: "その他", color: "bg-muted text-muted-foreground" },
 ] as const;
 
 type KindCode = typeof KINDS[number]["code"];
@@ -473,7 +473,7 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative max-w-sm flex-1 min-w-[180px]">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="商品名・型名・備考で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>

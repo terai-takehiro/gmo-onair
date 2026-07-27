@@ -97,19 +97,19 @@ export function PrintTable({ items, printCols, printCheckbox, printTitle, filter
 
   const getCellValue = (item: any, key: string): string => {
     switch (key) {
-      case 'eq_code':           return item.eq_code || '–';
-      case 'equipment_type':    return sectionDisplay(item.equipment_type_code, item.equipment_section) || '–';
-      case 'name':              return item.name || '–';
+      case 'eq_code': return item.eq_code || '–';
+      case 'equipment_type': return sectionDisplay(item.equipment_type_code, item.equipment_section) || '–';
+      case 'name': return item.name || '–';
       case 'manufacturer_name': return item.manufacturer_name || '–';
-      case 'model_number':      return item.model_number || '–';
-      case 'unit_number':       return item.unit_number != null ? String(item.unit_number) : '–';
-      case 'serial_number':     return item.serial_number || '–';
-      case 'location':          return item.location_name || item.location_detail || '–';
-      case 'fixed_asset_code':  return item.fixed_asset_code || '–';
-      case 'purchased_at':      return item.purchased_at?.slice(0, 7) || '–';
-      case 'warranty_years':    return item.warranty_years ? `${item.warranty_years}年` : '–';
-      case 'notes':             return item.notes || '–';
-      default:                  return '–';
+      case 'model_number': return item.model_number || '–';
+      case 'unit_number': return item.unit_number != null ? String(item.unit_number) : '–';
+      case 'serial_number': return item.serial_number || '–';
+      case 'location': return item.location_name || item.location_detail || '–';
+      case 'fixed_asset_code': return item.fixed_asset_code || '–';
+      case 'purchased_at': return item.purchased_at?.slice(0, 7) || '–';
+      case 'warranty_years': return item.warranty_years ? `${item.warranty_years}年` : '–';
+      case 'notes': return item.notes || '–';
+      default: return '–';
     }
   };
 

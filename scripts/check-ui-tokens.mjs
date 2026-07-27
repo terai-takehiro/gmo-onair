@@ -148,6 +148,56 @@ const RULES = [
     only: (rel) => rel.startsWith('client-') && !rel.startsWith('client/'),
   },
   {
+    id: 'forbidden-wording',
+    // 画面に出さないと決めた言葉 (デザイン 4章 23a / 2026-07-26 の修正依頼)。
+    // コードの識別子と DB の列名は対象外 — **画面に出る文字だけ**を止める。
+    re: /按分|エピソード|データがありません|共用キー|タイムアウト|トースト/,
+    why: '画面に出さないと決めた言葉です（デザイン 4章 ことばの設計）。'
+       + '「按分」→「費用を分け合う」「分け方」「分けた額」／'
+       + '「エピソード」→「回」（第1回・7月分）／'
+       + '「データがありません」→ **何が無いのかと次にやること**／'
+       + '「共用キー」→「AI（担当者の記録なし）」。'
+       + '技術用語（トースト・タイムアウト）はそのまま出さず、起きたことを日本語で書きます',
+    // コメント行は開発者向けなので対象外 (概念名を残しておかないと DB と対応が取れない)
+    extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
+  },
+  {
+    id: 'control-height',
+    // ボタンの高さは 32/36/40/44/48px の5種だけ (デザイン README「寸法」)。
+    // 20/24/28px のような中間の値を作ると、並べたときに底が揃わない。
+    re: /\bh-(?:5|6|7|\[(?:2[0-9]|3[013-9]|4[1-357-9])px\])\b/,
+    why: 'ボタンの高さは **32 / 36 / 40 / 44 / 48px の5種**から選びます'
+       + '（`h-ctl-1`〜`h-ctl-5`、または `<Button size="xs|sm|default|lg|xl">`）。'
+       + '中間の値を作ると、同じ意味のボタンが画面ごとに1〜2px 違い、並べたときに底が揃いません',
+    // ボタンの開始タグと同じ行にあるものだけ。アイコン (h-4 w-4) は対象外
+    extra: (line) => /<(?:button|Button|a)\b/.test(line) && !/\bh-(\d)\b[^"']*\bw-\1\b/.test(line),
+  },
+  {
+    id: 'tap-target',
+    // スマホのタップ領域は 46〜52px。44px は下限すれすれなので作らない
+    re: /\bmin-h-(?:11|\[(?:3[0-9]|4[0-5])px\])\b/,
+    why: 'スマホのタップ領域は **46〜52px** です（`min-h-tap` = 46px）。'
+       + '44px 未満はもちろん、44px ちょうども作りません（指の腹が縁にかかると押し損ねます）',
+  },
+  {
+    id: 'col-width-by-hand',
+    // 表の列幅は7段だけ。48〜250px の帯に入る中間の値を止める
+    // (これより小さいのは図形、大きいのはパネルの幅なので対象外)
+    re: /\b(?:min-|max-)?w-\[(\d+)px\]/,
+    why: '表の列幅は **56 / 72 / 96 / 128 / 160 / 200 / 240px の7段**から選びます'
+       + '（`w-col-1`〜`w-col-7`、金額は `<MoneyCell width={…} />`）。'
+       + '中間の値 (120px・180px …) を作ると、同じ意味の列がページごとに違う幅になり、'
+       + '目が横に流れなくなります',
+    extra: (line) => {
+      const allowed = new Set([56, 72, 96, 128, 160, 200, 240]);
+      for (const m of line.matchAll(/\b(?:min-|max-)?w-\[(\d+)px\]/g)) {
+        const n = Number(m[1]);
+        if (n >= 48 && n <= 250 && !allowed.has(n)) return true;
+      }
+      return false;
+    },
+  },
+  {
     id: 'page-title-by-hand',
     // `lg:` と `sm:` の両方の変種を止める。**同じページに2つの段が出ていた**
     // (`/finance/import` は枠が `text-xl sm:text-2xl`、中身が `text-xl lg:text-2xl` だった)
@@ -261,8 +311,11 @@ for (const file of files) {
     // 「ここは意図してこう書いている」と書いた行は見逃す (逃げ道を1つだけ用意する)
     if (line.includes('ui-tokens-ok')) return;
     for (const rule of RULES) {
-      // 放送・印刷に出る絵は色の決まりが違うので、色の検査だけ外す
-      if (notAScreen && (rule.id === 'raw-palette' || rule.id === 'translucent-text')) continue;
+      // 放送・印刷に出る絵は色・寸法の決まりが違うので、その検査だけ外す
+      // (紙は px 指定の表組みが普通で、放送CGはタップ領域もボタン段も関係ない)
+      if (notAScreen && [
+        'raw-palette', 'translucent-text', 'control-height', 'tap-target', 'col-width-by-hand',
+      ].includes(rule.id)) continue;
       if (rule.only && !rule.only(rel)) continue;
       if (!rule.re.test(line)) continue;
       if (rule.extra && !rule.extra(line)) continue;

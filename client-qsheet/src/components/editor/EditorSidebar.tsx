@@ -356,7 +356,7 @@ function LedSceneSection({
       <button
         type="button"
         onClick={addScene}
-        className="w-full flex items-center justify-center gap-1.5 px-2 py-2 text-[12px] rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-ctl-3 w-full flex items-center justify-center gap-1.5 px-2 text-[12px] rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="シーンを追加"
       >
         <Plus size={12} aria-hidden />
@@ -477,7 +477,7 @@ export function EditorSidebarBody({
               <button
                 key={bt.type}
                 onClick={() => addBlock(bt.type)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-md hover:bg-accent transition-colors text-left"
+                className="h-ctl-3 w-full flex items-center gap-2.5 px-3 text-[13px] rounded-md hover:bg-accent transition-colors text-left"
               >
                 <span className={`w-5 h-5 rounded flex items-center justify-center text-white ${bt.color}`}>
                   <bt.Icon size={12} />
@@ -716,14 +716,14 @@ export function EditorSidebarBody({
         <div className="space-y-1.5">
           <button
             onClick={onExportExcel}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
+            className="h-ctl-3 w-full flex items-center gap-2.5 px-3 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
           >
             <FileSpreadsheet size={14} className="text-primary flex-none" />
             <span className="font-medium">現在の台本をExcel出力</span>
           </button>
           <button
             onClick={onShowImport}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
+            className="h-ctl-3 w-full flex items-center gap-2.5 px-3 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
           >
             <Upload size={14} className="text-warning-strong flex-none" />
             <span className="font-medium">Excelから読み込み</span>

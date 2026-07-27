@@ -75,7 +75,7 @@ function RowSummary({ item }: { item: InboxItem }) {
       return (
         <>
           <span className="min-w-0 flex-1 truncate font-bold text-foreground">{str(m.name)}</span>
-          <span className="hidden min-w-0 max-w-[220px] truncate text-[13px] text-secondary-foreground sm:inline">
+          <span className="hidden min-w-0 max-w-[240px] truncate text-[13px] text-secondary-foreground sm:inline">
             {str(m.customer_name)}
           </span>
           {m.ai_requested_by ? (
@@ -89,7 +89,7 @@ function RowSummary({ item }: { item: InboxItem }) {
           <span className="min-w-0 flex-1 truncate font-bold text-foreground">
             {str(m.subject) || "(件名なし)"}
           </span>
-          <span className="hidden min-w-0 max-w-[220px] truncate text-[13px] text-secondary-foreground sm:inline">
+          <span className="hidden min-w-0 max-w-[240px] truncate text-[13px] text-secondary-foreground sm:inline">
             {str(m.sender)}
           </span>
           {m.importance === "high" && (
@@ -418,7 +418,7 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
               <li key={c.key}>
                 <button
                   type="button"
-                  className="inline-flex max-w-[280px] items-center gap-1.5 rounded-control border border-border bg-card px-2.5 py-1.5 text-[12px] text-foreground hover:bg-secondary"
+                  className="h-ctl-1 inline-flex max-w-[280px] items-center gap-1.5 rounded-control border border-border bg-card px-2.5 text-[12px] text-foreground hover:bg-secondary"
                   onClick={() => navigate(`/sales/projects/${str(c.meta.id)}`)}
                   title={`${str(c.meta.name)} — 案件を開いて書類管理から提出済みにできます`}
                 >

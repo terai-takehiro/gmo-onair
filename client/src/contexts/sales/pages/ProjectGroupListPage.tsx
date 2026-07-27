@@ -559,7 +559,7 @@ export default function ProjectGroupListPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-semibold flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    グループ売上（按分）
+                    グループ売上（分けた額）
                   </h2>
                   <Button size="sm" onClick={() => setRevenueDialogOpen(true)} disabled={detail.members.length === 0}>
                     <Plus className="h-4 w-4 mr-1" />
@@ -631,7 +631,7 @@ export default function ProjectGroupListPage() {
                         )}
                         {rev.allocations && rev.allocations.length > 0 && (
                           <div className="mt-2 border-t pt-2">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">分けた内訳</p>
                             {rev.allocations.map((a: Allocation, i: number) => (
                               <div key={i} className="flex justify-between text-xs py-0.5">
                                 <span className="">{a.gls_number} {a.project_name}</span>
@@ -651,7 +651,7 @@ export default function ProjectGroupListPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-semibold flex items-center gap-2">
                     <ShoppingCart className="h-4 w-4" />
-                    グループ仕入（按分）
+                    グループ仕入（分けた額）
                   </h2>
                   <Button size="sm" onClick={() => setPurchaseDialogOpen(true)} disabled={detail.members.length === 0}>
                     <Plus className="h-4 w-4 mr-1" />
@@ -690,7 +690,7 @@ export default function ProjectGroupListPage() {
                         </div>
                         {pu.allocations && pu.allocations.length > 0 && (
                           <div className="mt-3 border-t pt-2">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">分けた内訳</p>
                             {pu.allocations.map((a: Allocation, i: number) => (
                               <div key={i} className="flex justify-between text-xs py-0.5">
                                 <span className="">{a.gls_number} {a.project_name}</span>
@@ -789,15 +789,15 @@ export default function ProjectGroupListPage() {
                 </div>
               </div>
 
-              {/* 按分設定 */}
+              {/* 分け合い設定 */}
               {detail && detail.members.length > 0 && purAmount > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <Label className="text-sm font-semibold">按分方法</Label>
+                    <Label className="text-sm font-semibold">分け方</Label>
                     <div className="flex gap-3">
                       <label className="flex items-center gap-1 text-sm cursor-pointer">
                         <input type="radio" checked={purAllocMode === "equal"} onChange={() => setPurAllocMode("equal")} className="accent-primary" />
-                        均等按分
+                        均等に分ける
                       </label>
                       <label className="flex items-center gap-1 text-sm cursor-pointer">
                         <input type="radio" checked={purAllocMode === "custom"} onChange={() => setPurAllocMode("custom")} className="accent-primary" />
@@ -825,7 +825,7 @@ export default function ProjectGroupListPage() {
                     ))}
                     {purAllocMode === "custom" && (
                       <div className="flex justify-between border-t pt-2 text-sm">
-                        <span className="font-medium">按分合計</span>
+                        <span className="font-medium">分けた合計</span>
                         <span className={`font-number font-bold ${customTotal !== purAmount ? 'text-destructive' : ''}`}>
                           {formatCurrency(customTotal)} / {formatCurrency(purAmount)}
                         </span>
@@ -950,15 +950,15 @@ export default function ProjectGroupListPage() {
                 </div>
               </div>
 
-              {/* 按分設定 */}
+              {/* 分け合い設定 */}
               {detail && detail.members.length > 0 && revTotal > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <Label className="text-sm font-semibold">按分方法</Label>
+                    <Label className="text-sm font-semibold">分け方</Label>
                     <div className="flex gap-3">
                       <label className="flex items-center gap-1 text-sm cursor-pointer">
                         <input type="radio" checked={revAllocMode === "equal"} onChange={() => setRevAllocMode("equal")} className="accent-primary" />
-                        均等按分
+                        均等に分ける
                       </label>
                       <label className="flex items-center gap-1 text-sm cursor-pointer">
                         <input type="radio" checked={revAllocMode === "custom"} onChange={() => setRevAllocMode("custom")} className="accent-primary" />
@@ -986,7 +986,7 @@ export default function ProjectGroupListPage() {
                     ))}
                     {revAllocMode === "custom" && (
                       <div className="flex justify-between border-t pt-2 text-sm">
-                        <span className="font-medium">按分合計</span>
+                        <span className="font-medium">分けた合計</span>
                         <span className={`font-number font-bold ${revCustomTotal !== revTotal ? 'text-destructive' : ''}`}>
                           {formatCurrency(revCustomTotal)} / {formatCurrency(revTotal)}
                         </span>
@@ -1040,7 +1040,7 @@ export default function ProjectGroupListPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate("/purchases")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <PageTitle>按分グループ</PageTitle>
+          <PageTitle>費用を分け合うまとまり</PageTitle>
         </div>
         <Button onClick={() => { closeGroupDialog(); setGroupDialogOpen(true); }}>
           <Plus className="mr-1 h-4 w-4" />
@@ -1056,7 +1056,7 @@ export default function ProjectGroupListPage() {
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>按分グループがありません</p>
+            <p>費用を分け合うまとまりがありません</p>
             <p className="text-xs mt-1">複数案件で費用を共有する場合にグループを作成してください</p>
           </CardContent>
         </Card>
@@ -1119,7 +1119,7 @@ function GroupFormDialog({ open, onClose, glsProjects, name, setName, desc, setD
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "グループ編集" : "新規按分グループ"}</DialogTitle>
+          <DialogTitle>{isEdit ? "グループ編集" : "新しい「費用を分け合う」まとまり"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>

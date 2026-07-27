@@ -74,7 +74,7 @@ export default function MaintenancePage() {
 
       <div className="flex gap-2">
         <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[128px]">
             <SelectValue placeholder="ステータス" />
           </SelectTrigger>
           <SelectContent>
@@ -133,7 +133,7 @@ export default function MaintenancePage() {
                           started_at: r.started_at, completed_at: v === "completed" ? new Date().toISOString() : r.completed_at,
                         })}
                       >
-                        <SelectTrigger className="h-7 w-[100px] text-xs">
+                        <SelectTrigger className="h-7 w-[96px] text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

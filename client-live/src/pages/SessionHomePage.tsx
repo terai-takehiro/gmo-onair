@@ -170,7 +170,7 @@ export default function SessionHomePage() {
                   className="group w-full flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3.5 text-left transition-all hover:border-primary/40 hover:bg-accent"
                 >
                   {/* GLS badge or standalone indicator */}
-                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs  font-bold ${
+                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
                     p.gls_number ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
                   }`}>
                     {p.gls_number ?? 'STA'}

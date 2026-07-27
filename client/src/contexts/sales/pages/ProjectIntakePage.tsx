@@ -97,7 +97,7 @@ export default function ProjectIntakePage() {
       <NoticeBar />
 
       {/* スマホではパンくずを並べず 44px の戻る1つにする */}
-      <Button variant="ghost" size="sm" className="min-h-[44px] gap-1 sm:hidden"
+      <Button variant="ghost" size="sm" className="min-h-tap gap-1 sm:hidden"
         onClick={() => navigate("/projects")}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         案件へ戻る
@@ -137,10 +137,10 @@ export default function ProjectIntakePage() {
         <div>
           <span className="text-sm font-bold">お客様</span>
           {customerId ? (
-            <div className="mt-1 flex min-h-[44px] flex-wrap items-center gap-2 rounded-xl border border-divider bg-muted/40 px-3">
+            <div className="mt-1 flex min-h-tap flex-wrap items-center gap-2 rounded-xl border border-divider bg-muted/40 px-3">
               <Check className="h-4 w-4 text-positive" aria-hidden="true" />
               <span className="text-sm font-medium">{pickedName}</span>
-              <Button variant="ghost" size="sm" className="ml-auto min-h-[44px]"
+              <Button variant="ghost" size="sm" className="ml-auto min-h-tap"
                 onClick={() => { setCustomerId(null); setCustomerQuery(""); }}>
                 変える
               </Button>
@@ -162,7 +162,7 @@ export default function ProjectIntakePage() {
                     <li key={c.id} className="border-b border-row last:border-0">
                       <button type="button" disabled={!canEdit}
                         onClick={() => setCustomerId(c.id)}
-                        className="flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40">
+                        className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40">
                         <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         {c.name}
                       </button>
@@ -172,7 +172,7 @@ export default function ProjectIntakePage() {
                     <li className="border-t border-divider">
                       <button type="button" disabled={!canEdit || createCustomer.isPending}
                         onClick={() => createCustomer.mutate()}
-                        className="flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-primary/5">
+                        className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-primary/5">
                         {createCustomer.isPending
                           ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                           : <Plus className="h-4 w-4" aria-hidden="true" />}
@@ -194,7 +194,7 @@ export default function ProjectIntakePage() {
               <button key={k.label} type="button" disabled={!canEdit}
                 onClick={() => setUsesStudio(k.uses)}
                 aria-pressed={usesStudio === k.uses}
-                className={`min-h-[44px] rounded-xl border p-3 text-left ${
+                className={`min-h-tap rounded-xl border p-3 text-left ${
                   usesStudio === k.uses
                     ? "border-primary bg-primary/5"
                     : "border-divider hover:bg-muted/40"

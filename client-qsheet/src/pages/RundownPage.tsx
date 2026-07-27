@@ -436,7 +436,7 @@ export default function RundownPage() {
   if (!doc || flatCues.length === 0) {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>
-        <p className={mutedText}>キューデータがありません</p>
+        <p className={mutedText}>このQシートにはまだ1行も入っていません。エディターで行を足すと、ここに進行順で並びます。</p>
         <Button variant="outline" onClick={() => navigate(`/qsheet/editor/${id}`)}>
           エディターに戻る
         </Button>
@@ -602,7 +602,7 @@ export default function RundownPage() {
               <th className="w-14 px-2 py-2 text-center text-xs font-medium opacity-60">尺</th>
               <th className="w-20 px-2 py-2 text-center text-xs font-medium opacity-60">実尺</th>
               {activeBlocks.map((block) => (
-                <th key={block.id} className="px-3 py-2 text-left text-xs font-medium opacity-60 min-w-[120px]">
+                <th key={block.id} className="px-3 py-2 text-left text-xs font-medium opacity-60 min-w-[128px]">
                   {block.label}
                 </th>
               ))}
@@ -685,7 +685,7 @@ export default function RundownPage() {
                           if (block.type === "led_xr") {
                             const entries: any[] = Array.isArray(cell?.entries) ? cell.entries : [];
                             return (
-                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1 leading-tight">
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[128px] flex-1 leading-tight">
                                 {entries.map((en, ei) => {
                                   const scene = doc?.data?.ledScenes?.find((s) => s.id === en?.sceneId);
                                   const cueLabel = en?.cueType === "custom" ? (en.cueCustom || "") : (en?.cueType || "");
@@ -709,7 +709,7 @@ export default function RundownPage() {
                             const tmplIdx = cell?.templateIndex ?? -1;
                             const tmpl = tmplIdx >= 0 ? doc?.data?.stageTemplates?.[tmplIdx] : null;
                             return (
-                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1">
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[128px] flex-1">
                                 {tmpl?.elements ? (
                                   <StageDiagramPreview elements={tmpl.elements} />
                                 ) : (
@@ -727,7 +727,7 @@ export default function RundownPage() {
                               <div
                                 key={block.id}
                                 className={cn(
-                                  "px-3 py-2 text-xs min-w-[120px] flex-1",
+                                  "px-3 py-2 text-xs min-w-[128px] flex-1",
                                   block.type === "scenario" ? "whitespace-pre-wrap" : ""
                                 )}
                               >
@@ -752,7 +752,7 @@ export default function RundownPage() {
                           return (
                             <div
                               key={block.id}
-                              className="px-3 py-2 text-xs min-w-[120px] flex-1 truncate"
+                              className="px-3 py-2 text-xs min-w-[128px] flex-1 truncate"
                             >
                               {extractCellText(cue.row, block)}
                             </div>

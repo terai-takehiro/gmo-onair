@@ -9,9 +9,9 @@ interface ViewToggleProps {
 }
 
 const VIEWS: { key: TaskView; label: string; icon: React.ReactNode }[] = [
-  { key: "kanban", label: "カンバン",     icon: <KanbanSquare className="h-3.5 w-3.5" /> },
-  { key: "list",   label: "リスト",       icon: <List         className="h-3.5 w-3.5" /> },
-  { key: "gantt",  label: "ガント",       icon: <BarChart2    className="h-3.5 w-3.5" /> },
+  { key: "kanban", label: "カンバン", icon: <KanbanSquare className="h-3.5 w-3.5" /> },
+  { key: "list", label: "リスト", icon: <List className="h-3.5 w-3.5" /> },
+  { key: "gantt", label: "ガント", icon: <BarChart2 className="h-3.5 w-3.5" /> },
 ];
 
 export default function ViewToggle({ current, onChange }: ViewToggleProps) {

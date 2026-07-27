@@ -430,10 +430,10 @@ export default function DashboardPage() {
 
                   {selectedProjectId && episodes && episodes.length > 0 && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                      <Label className="text-xs text-muted-foreground">回（任意）</Label>
                       <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="エピソードを選択..." />
+                          <SelectValue placeholder="回を選択..." />
                         </SelectTrigger>
                         <SelectContent>
                           {episodes.map((ep) => (

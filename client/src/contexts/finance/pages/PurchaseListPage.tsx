@@ -293,7 +293,7 @@ export default function PurchaseListPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 px-1.5 text-xs"
+                  className="h-ctl-1 px-1.5 text-xs"
                   onClick={() => navigate("/budget/purchases")}
                 >
                   解除
@@ -315,7 +315,7 @@ export default function PurchaseListPage() {
               }}
             />
             <Button variant="outline" onClick={() => navigate("/project-groups")}>
-              按分グループ
+              費用を分け合うまとまり
             </Button>
             <Button onClick={crud.openAdd}>
               <Plus className="mr-1 h-4 w-4" />
@@ -377,7 +377,7 @@ export default function PurchaseListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
           </div>
         ) : crud.items.length === 0 ? (
-          <EmptyState title="データがありません" />
+          <EmptyState title="この条件の仕入はまだありません" description="「仕入を追加」から登録するか、絞り込みを外してみてください。" />
         ) : (
           <>
             {/* Mobile cards */}
@@ -396,7 +396,7 @@ export default function PurchaseListPage() {
                         <SettlementBadge number={p.settlement_number} />
                         {p.group_name && (
                           <Badge variant="outline" className="text-xs">
-                            按分
+                            分け合い
                           </Badge>
                         )}
                       </div>
@@ -502,7 +502,7 @@ export default function PurchaseListPage() {
                           <span className=" text-sm">{p.episode_code || p.gls_number || "-"}</span>
                           {p.group_name && (
                             <Badge variant="outline" className="text-xs">
-                              按分
+                              分け合い
                             </Badge>
                           )}
                         </div>
@@ -594,7 +594,7 @@ export default function PurchaseListPage() {
                   placeholder="GLS番号で検索..."
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  複数案件への按分は「按分グループ」から登録してください
+                  複数の案件で分け合うときは「費用を分け合う」から登録してください
                 </p>
               </div>
 

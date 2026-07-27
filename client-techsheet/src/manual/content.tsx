@@ -50,7 +50,7 @@ export const TECHSHEET_MANUAL: ManualContent = {
           type: "callout",
           tone: "info",
           title: "GLS案件との連携",
-          text: "作成時に「GLS案件に紐付ける」をONにすると、案件管理アプリの案件・エピソードと紐づきます。エピソードを選ぶと制作日が放送日から自動補完されます。",
+          text: "作成時に「GLS案件に紐付ける」をONにすると、案件管理アプリの案件・回と紐づきます。回を選ぶと制作日が放送日から自動補完されます。",
         },
       ],
     },
@@ -87,7 +87,7 @@ export const TECHSHEET_MANUAL: ManualContent = {
       group: "資料の管理",
       icon: FilePlus2,
       title: "新規作成",
-      keywords: ["新規作成", "gls案件", "エピソード", "制作日"],
+      keywords: ["新規作成", "gls案件", "回", "制作日"],
       blocks: [
         {
           type: "steps",
@@ -102,7 +102,7 @@ export const TECHSHEET_MANUAL: ManualContent = {
             },
             {
               title: "GLS案件に紐付ける（任意）",
-              text: "トグルをONにして「GLS案件」を選び、必要なら「エピソード（任意）」も選択します。エピソードを選ぶと制作日が自動補完されます。",
+              text: "トグルをONにして「GLS案件」を選び、必要なら「回（任意）」も選択します。回を選ぶと制作日が自動補完されます。",
             },
             {
               title: "作成",

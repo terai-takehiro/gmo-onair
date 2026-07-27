@@ -47,7 +47,7 @@ export default function ActivityQuickAdd({ projectId, onDone }: { projectId: str
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-control border border-border bg-secondary/40 px-3 py-2.5 text-left text-[13px] text-secondary-foreground transition-colors hover:bg-secondary"
+        className="h-ctl-3 flex w-full items-center gap-2 rounded-control border border-border bg-secondary/40 px-3 text-left text-[13px] text-secondary-foreground transition-colors hover:bg-secondary"
       >
         <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
         ここにやり取りを書くと、この案件の記録として残ります（次にやることもここで決められます）

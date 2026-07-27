@@ -262,7 +262,7 @@ export default function BillingWorkPage() {
         {/* 一覧 */}
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           {/* 列見出し (PC のみ) */}
-          <div className="hidden min-h-[44px] items-center gap-3.5 border-b border-divider bg-muted/40 px-[18px] text-[12.5px] font-bold text-muted-foreground lg:flex">
+          <div className="hidden min-h-tap items-center gap-3.5 border-b border-divider bg-muted/40 px-[18px] text-[12.5px] font-bold text-muted-foreground lg:flex">
             {tab === "issue" && <span className="w-[24px] shrink-0" />}
             <span className="min-w-0 flex-1">案件 ／ 請求先</span>
             <span className="w-[128px] shrink-0 text-right">金額（税抜）</span>
@@ -310,7 +310,7 @@ export default function BillingWorkPage() {
                     })}
                     aria-pressed={isPicked}
                     aria-label={blocked ? "書類が揃っていないので選べません" : "この請求を選ぶ"}
-                    className="-m-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center p-2 lg:m-0 lg:min-h-0 lg:min-w-0 lg:p-0"
+                    className="-m-2 flex min-h-tap min-w-[44px] shrink-0 items-center justify-center p-2 lg:m-0 lg:min-h-0 lg:min-w-0 lg:p-0"
                   >
                     {/* 見た目は 22px の四角。タップ領域だけスマホで 44px に広げる */}
                     <span
@@ -328,7 +328,7 @@ export default function BillingWorkPage() {
                   <button
                     type="button"
                     onClick={() => r.project_id && navigate(`/sales/projects/${r.project_id}`)}
-                    className="flex min-h-[44px] max-w-full items-center text-left text-[13.5px] font-bold hover:underline lg:min-h-0"
+                    className="flex min-h-tap max-w-full items-center text-left text-[13.5px] font-bold hover:underline lg:min-h-0"
                   >
                     <span className="truncate">{r.project_name || "（案件名なし）"}</span>
                   </button>

@@ -103,7 +103,7 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
           <p className="mt-1 text-xs text-muted-foreground">
             「確定する」を押すと想定金額に入ります。
           </p>
-          <Button size="sm" className="mt-2 min-h-[44px]"
+          <Button size="sm" className="mt-2 min-h-tap"
             onClick={() => navigate(`/sales/projects/${projectId}/estimates`)}>
             中身を見て確定する
           </Button>
@@ -116,7 +116,7 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
           const Icon = ACTION_ICONS[a.key] ?? List;
           return (
             <Button key={a.key} variant="outline" size="sm"
-              className="min-h-[44px] gap-1"
+            className="min-h-tap gap-1"
               disabled={!a.enabled}
               title={a.enabled ? undefined : "見積をつくると使えます"}
               onClick={() => go(a.key)}>

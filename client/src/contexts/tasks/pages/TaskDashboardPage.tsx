@@ -61,7 +61,7 @@ export default function TaskDashboardPage({
               key={id}
               onClick={() => navigate(`/tasks?scope=all&view=${id === "kanban" ? "board" : id}`)}
               className={cn(
-                "flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                "h-ctl-1 flex items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors",
                 activeView === id
                   ? "bg-background shadow text-foreground"
                   : "text-muted-foreground hover:text-foreground"

@@ -26,7 +26,7 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
         disabled={disabled}
         title={infoTitle}
         className={cn(
-          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-bold transition-all shrink-0',
+          'flex h-ctl-1 items-center gap-1.5 rounded-md border px-3 text-xs sm:text-sm font-bold transition-all shrink-0',
           on
             ? 'bg-warning border-warning text-foreground'
             : disabled

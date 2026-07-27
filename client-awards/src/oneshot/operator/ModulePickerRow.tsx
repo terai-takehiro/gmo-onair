@@ -31,7 +31,7 @@ export default function ModulePickerRow({ modules, selected, onSelect, lang }: P
             key={m.id}
             onClick={() => onSelect(cueKey)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-3 py-2.5 min-h-[44px] text-left transition-all',
+              'flex items-center gap-1.5 rounded-lg border px-3 py-2.5 min-h-tap text-left transition-all',
               active
                 ? 'border-warning bg-warning/50 ring-1 ring-warning/40'
                 : 'border-border bg-background/40 hover:bg-card hover:border-border'

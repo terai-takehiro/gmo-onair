@@ -149,7 +149,7 @@ export default function CountdownControlPanel({
           </label>
           <button
             onClick={startDuration}
-            className="flex items-center gap-1 rounded bg-warning hover:bg-warning/90 text-foreground text-[11px] font-black tracking-widest uppercase px-3 py-1.5"
+            className="h-ctl-1 flex items-center gap-1 rounded bg-warning hover:bg-warning/90 text-foreground text-[11px] font-black tracking-widest uppercase px-3 "
           >
             <Play className="h-3 w-3" />
             開始

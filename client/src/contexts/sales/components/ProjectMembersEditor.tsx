@@ -74,10 +74,17 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">担当メンバー</span>
-        <span className="text-xs text-muted-foreground">（ユーザー管理から選択 / 外部の方は手入力）</span>
+      {/*
+        見出しと注記は**横に並べない**。細い列 (案件フォームの右カラム) では
+        「担当メンバー」が語の途中で折り返して読めなくなっていた。
+        注記は下に落とす (`flex-wrap` + 注記を 100% 幅) 。
+      */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="whitespace-nowrap text-sm font-medium">担当メンバー</span>
+        <span className="basis-full text-xs text-muted-foreground sm:basis-auto">
+          ユーザー管理から選ぶか、外部の方は名前を手で入れます
+        </span>
       </div>
 
       {/* 現在のメンバー */}
@@ -97,7 +104,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
               <span className="font-medium">{m.member_name}</span>
               {m.role && <span className="text-xs text-muted-foreground">/ {m.role}</span>}
               {m.is_external && (
-                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-700">
+                <Badge variant="outline" className="border-warning-border bg-warning-surface text-[10px] text-warning-strong">
                   外部
                 </Badge>
               )}
@@ -134,7 +141,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_auto] sm:items-center">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_128px_auto] sm:items-center">
           {mode === "user" ? (
             <SearchableSelect
               options={users.map((u) => ({ value: u.id, label: u.name }))}

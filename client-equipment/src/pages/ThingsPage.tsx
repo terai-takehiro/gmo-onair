@@ -53,7 +53,7 @@ export default function ThingsPage() {
             aria-selected={kind === k.id}
             onClick={() => setKind(k.id)}
             className={cn(
-              "-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[14px] transition-colors",
+              "-mb-px inline-flex h-ctl-4 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-[14px] transition-colors",
               kind === k.id
                 ? "border-primary font-bold text-primary"
                 : "border-transparent text-secondary-foreground hover:text-foreground"

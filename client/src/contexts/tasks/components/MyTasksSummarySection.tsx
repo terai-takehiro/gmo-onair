@@ -95,7 +95,7 @@ export function MyTasksSummarySection({ navigate }: { navigate: (to: string) => 
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 gap-1 text-xs"
+          className="h-ctl-1 gap-1 text-xs"
           onClick={() => navigate("/daily/tasks")}
         >
           すべて見る
@@ -128,7 +128,7 @@ export function MyTasksSummarySection({ navigate }: { navigate: (to: string) => 
           <Button
             size="sm"
             variant="outline"
-            className="h-7 shrink-0 border-sky-300 text-xs text-sky-700"
+            className="h-ctl-1 shrink-0 border-sky-300 text-xs text-sky-700"
             onClick={() => navigate("/daily/tasks?tab=intake")}
           >
             確認する

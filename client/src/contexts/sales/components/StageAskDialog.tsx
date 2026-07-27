@@ -191,8 +191,8 @@ export default function StageAskDialog({
                     )}
                     {rooms.map((r) => (
                       <label key={r.id}
-                        className="flex min-h-[44px] cursor-pointer items-center gap-3 border-b border-row px-3 last:border-0 hover:bg-muted/40">
-                        <span className="-m-2 flex min-h-[44px] min-w-[44px] items-center justify-center p-2">
+                      className="flex min-h-tap cursor-pointer items-center gap-3 border-b border-row px-3 last:border-0 hover:bg-muted/40">
+                        <span className="-m-2 flex min-h-tap min-w-[44px] items-center justify-center p-2">
                           <input type="checkbox" className="h-[22px] w-[22px]"
                             checked={(answers.room_ids ?? []).includes(r.id)}
                             onChange={() => toggleRoom(r.id)}
@@ -215,8 +215,8 @@ export default function StageAskDialog({
                 )}
 
                 {f.kind === "check" && (
-                  <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-3">
-                    <span className="-m-2 flex min-h-[44px] min-w-[44px] items-center justify-center p-2">
+                  <label className="mt-2 flex min-h-tap cursor-pointer items-center gap-3">
+                    <span className="-m-2 flex min-h-tap min-w-[44px] items-center justify-center p-2">
                       <input type="checkbox" className="h-[22px] w-[22px]"
                         checked={!!answers[f.key]}
                         onChange={(e) => setAnswers({ ...answers, [f.key]: e.target.checked })}
@@ -232,7 +232,7 @@ export default function StageAskDialog({
                       <button key={r.value} type="button"
                         onClick={() => setAnswers({ ...answers, lost_reason: r.value })}
                         aria-pressed={answers.lost_reason === r.value}
-                        className={`min-h-[44px] rounded-xl border px-3 text-left text-sm ${
+                        className={`min-h-tap rounded-xl border px-3 text-left text-sm ${
                           answers.lost_reason === r.value
                             ? "border-primary bg-primary/5" : "border-divider hover:bg-muted/40"
                         }`}>
@@ -259,14 +259,14 @@ export default function StageAskDialog({
                           aria-label={`追加の日程 ${i + 1} のラベル`}
                           onChange={(e) => setExtraDates(extraDates.map((x, j) =>
                             j === i ? { ...x, label: e.target.value } : x))} />
-                        <Button variant="ghost" size="sm" className="min-h-[44px]"
+                        <Button variant="ghost" size="sm" className="min-h-tap"
                           onClick={() => setExtraDates(extraDates.filter((_, j) => j !== i))}
                           aria-label={`追加の日程 ${i + 1} を消す`}>
                           <X className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </div>
                     ))}
-                    <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+                    <Button variant="outline" size="sm" className="min-h-tap gap-1"
                       onClick={() => setExtraDates([...extraDates, { date: "", label: "" }])}>
                       <Plus className="h-4 w-4" aria-hidden="true" />
                       日程を足す
@@ -291,7 +291,7 @@ export default function StageAskDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" className="min-h-[44px]" onClick={onClose}>やめる</Button>
+          <Button variant="ghost" className="min-h-tap" onClick={onClose}>やめる</Button>
           <Button disabled={!ask || !filledOk || change.isPending}
             onClick={() => change.mutate()}>
             {change.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}

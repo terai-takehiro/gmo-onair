@@ -142,7 +142,7 @@ export default function PricingPickerDialog({
           <div className="space-y-4">
             {filtered.map((c) => (
               <div key={c.id} className="overflow-hidden rounded-lg border">
-                <div className="flex min-h-[44px] items-center gap-2 border-b bg-muted/40 px-4 text-[12.5px] font-bold text-muted-foreground">
+                <div className="flex min-h-tap items-center gap-2 border-b bg-muted/40 px-4 text-[12.5px] font-bold text-muted-foreground">
                   <span>{c.name}</span>
                   <span className="rounded bg-background px-1.5 py-0.5 text-[11px] font-medium">
                     {toEstimateGroup(c.name)}

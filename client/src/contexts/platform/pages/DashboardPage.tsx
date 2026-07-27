@@ -299,7 +299,7 @@ export default function DashboardPage() {
                   {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
                     const isToday = day.date === new Date().toISOString().split('T')[0];
                     return (
-                      <div key={day.date} className={`min-w-[120px] snap-start shrink-0 rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+                      <div key={day.date} className={`min-w-[128px] snap-start shrink-0 rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
                         <div className={`text-center mb-1 ${isToday ? 'font-bold text-primary' : 'text-foreground'}`}>
                           <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
                           <span className="text-xs ml-1">{day.date.split('-')[2]}日</span>
@@ -397,7 +397,7 @@ export default function DashboardPage() {
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="月次データがありません" />
+              <EmptyState title="この期間に売上・仕入がありません" description="お金 > 売上 / 仕入 に登録すると、月ごとの損益がここに出ます。" />
             )}
           </SectionCard>
 
@@ -434,7 +434,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="パイプラインデータがありません" />
+              <EmptyState title="進行中の案件がありません" description="案件 から新しい案件を作るか、ヨミ段階の案件のステージを進めてください。" />
             )}
           </SectionCard>
         </div>

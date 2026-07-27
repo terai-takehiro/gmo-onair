@@ -94,7 +94,7 @@ export function HighlightPicker({
           <button
             type="button"
             onClick={() => select(null)}
-            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="h-ctl-3 mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 text-xs font-medium rounded-md border border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="ハイライトをクリア"
           >
             <X size={12} aria-hidden />

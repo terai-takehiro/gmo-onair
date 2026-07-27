@@ -124,7 +124,7 @@ export default function ProjectDocsTab({ projectId }: { projectId: string }) {
       </span>
       {item.path && !item.ready && (
         <button type="button" onClick={() => go(item)}
-          className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg border px-3 text-xs hover:bg-muted">
+        className="flex min-h-tap shrink-0 items-center gap-1 rounded-lg border px-3 text-xs hover:bg-muted">
           {item.path_label ?? "開く"}
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

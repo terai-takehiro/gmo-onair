@@ -90,7 +90,7 @@ export default function MicAssignmentCell({
         <button
           type="button"
           onClick={onInheritFromPrev}
-          className={`self-start inline-flex items-center gap-1 h-5 px-1.5 mb-0.5 rounded text-[10px] font-medium transition-colors ${
+          className={`self-start inline-flex items-center gap-1 h-ctl-1 px-1.5 mb-0.5 rounded text-[10px] font-medium transition-colors ${
             isEmpty
               ? "text-cat-7 hover:bg-cat-7/10"
               : "text-muted-foreground hover:text-cat-7"
@@ -109,7 +109,7 @@ export default function MicAssignmentCell({
             <button
               type="button"
               onClick={() => update(c.ch, { state: STATE_CYCLE[a.state] })}
-              className={`flex-none h-5 px-1.5 rounded text-[10px] font-bold tracking-wide transition-colors ${STATE_CLASS[a.state]}`}
+              className={`flex-none h-ctl-1 px-1.5 rounded text-[10px] font-bold tracking-wide transition-colors ${STATE_CLASS[a.state]}`}
               title={`${a.state} → ${STATE_CYCLE[a.state]}`}
               aria-label={`Ch${c.ch} ${STATE_LABEL[a.state]}`}
             >

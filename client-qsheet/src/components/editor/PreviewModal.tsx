@@ -542,11 +542,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
             })}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={handleCsvDownload} title="CSVダウンロード" className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-border text-muted-foreground hover:bg-muted transition-all">
+            <button onClick={handleCsvDownload} title="CSVダウンロード" className="h-ctl-3 inline-flex items-center gap-1.5 px-3 text-xs font-semibold rounded-lg bg-white border border-border text-muted-foreground hover:bg-muted transition-all">
               <Download size={14} />
               CSV
             </button>
-            <button onClick={handlePDF} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 shadow-sm transition-all">
+            <button onClick={handlePDF} className="h-ctl-3 inline-flex items-center gap-1.5 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 shadow-sm transition-all">
               <Printer size={14} />
               PDF / 印刷
             </button>

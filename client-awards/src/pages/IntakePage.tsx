@@ -103,7 +103,7 @@ export default function IntakePage() {
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6">
       <button onClick={() => navigate(`/event/${eventId}`)}
-        className="mb-3 flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      className="mb-3 flex min-h-tap items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         イベントへ戻る
       </button>
@@ -149,7 +149,7 @@ export default function IntakePage() {
           <button
             onClick={() => setDialog({ text, label: '貼った表' })}
             disabled={!text.trim()}
-            className="mt-2 min-h-[44px] rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40 hover:opacity-90">
+            className="mt-2 min-h-tap rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40 hover:opacity-90">
             列を当てる
           </button>
         </section>
@@ -163,7 +163,7 @@ export default function IntakePage() {
             .xlsx / .xls を渡します。列は自動で当てて、違っていれば直せます。
           </p>
           <button onClick={() => setDialog({ text: null, label: 'Excel インポート' })}
-            className="mt-2 min-h-[44px] rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90">
+          className="mt-2 min-h-tap rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90">
             ファイルを選ぶ
           </button>
         </section>
@@ -187,7 +187,7 @@ export default function IntakePage() {
             className="mt-2 h-40 w-full rounded-lg border bg-background p-2 font-mono text-xs" />
           <button onClick={() => tidyMutation.mutate()}
             disabled={!text.trim() || tidyMutation.isPending}
-            className="mt-2 flex min-h-[44px] items-center gap-1.5 rounded-lg bg-ai px-4 text-sm font-bold text-white disabled:opacity-40 hover:bg-ai/90">
+            className="mt-2 flex min-h-tap items-center gap-1.5 rounded-lg bg-ai px-4 text-sm font-bold text-white disabled:opacity-40 hover:bg-ai/90">
             <Wand2 className="h-4 w-4" aria-hidden="true" />
             {tidyMutation.isPending ? '整えています…' : '整えてもらう'}
           </button>
@@ -251,11 +251,11 @@ export default function IntakePage() {
 
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => setDialog({ text: tidyAsTsv, label: 'AIが整えた表' })}
-                  className="min-h-[44px] rounded-lg bg-ai px-4 text-sm font-bold text-white hover:bg-ai/90">
+                className="min-h-tap rounded-lg bg-ai px-4 text-sm font-bold text-white hover:bg-ai/90">
                   列を当てる
                 </button>
                 <button onClick={dropTidy}
-                  className="min-h-[44px] rounded-lg border border-ai-border px-4 text-sm text-ai hover:bg-ai-surface">
+                className="min-h-tap rounded-lg border border-ai-border px-4 text-sm text-ai hover:bg-ai-surface">
                   これは使わない
                 </button>
               </div>

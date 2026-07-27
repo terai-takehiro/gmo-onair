@@ -182,7 +182,7 @@ export default function ReviewPage() {
           <button
             type="button"
             onClick={() => navigate("/finance")}
-            className="inline-flex items-center gap-1 rounded-control border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="h-ctl-1 inline-flex items-center gap-1 rounded-control border border-border bg-card px-3 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             お金の画面へ
           </button>
@@ -221,7 +221,7 @@ export default function ReviewPage() {
             <span className="text-sm">
               材料が揃ったら、<strong>資料を組み立てます</strong>（型は Ver.2.5 のまま）。
             </span>
-            <Button size="sm" className="ml-auto min-h-[44px] gap-1"
+            <Button size="sm" className="ml-auto min-h-tap gap-1"
               onClick={() => navigate("/sales/keep")}>
               <Presentation className="h-4 w-4" aria-hidden="true" />
               隔週キープをつくる

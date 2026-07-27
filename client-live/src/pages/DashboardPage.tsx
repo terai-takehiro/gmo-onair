@@ -26,8 +26,8 @@ interface Snapshot {
 const PLATFORM_META: { key: PlatformKey; label: string; color: string }[] = [
   { key: 'youtube', label: 'YouTube', color: '#ff0000' },
   { key: 'jstream', label: 'Jstream', color: '#00b4d8' },
-  { key: 'zoom',    label: 'Zoom',    color: '#2D8CFF' },
-  { key: 'teams',   label: 'Teams',   color: '#6264A7' },
+  { key: 'zoom', label: 'Zoom', color: '#2D8CFF' },
+  { key: 'teams', label: 'Teams', color: '#6264A7' },
 ];
 
 function loadToggles(programId: string | undefined): PlatformToggles {
@@ -36,8 +36,8 @@ function loadToggles(programId: string | undefined): PlatformToggles {
     return {
       youtube: s.youtube ?? true,
       jstream: s.jstream ?? true,
-      zoom:    s.zoom    ?? true,
-      teams:   s.teams   ?? true,
+      zoom: s.zoom    ?? true,
+      teams: s.teams   ?? true,
     };
   } catch {
     return { ...ALL_PLATFORMS_ON };
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                 )}
               </div>
               <Link to={`/program/${programId}/timers`}>
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground">管理</Button>
+                <Button variant="ghost" size="sm" className="h-ctl-1 text-xs text-muted-foreground hover:text-foreground">管理</Button>
               </Link>
             </div>
             <div className="h-44 sm:h-52">
@@ -173,7 +173,7 @@ export default function DashboardPage() {
             <Button
               variant={viewer.running ? 'destructive' : 'default'}
               size="sm"
-              className="h-7 text-xs"
+              className="h-ctl-1 text-xs"
               onClick={viewer.running ? viewer.stopPolling : viewer.startPolling}
             >
               {viewer.running

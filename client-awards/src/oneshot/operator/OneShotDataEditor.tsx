@@ -72,7 +72,7 @@ const SOURCE_LABEL: Record<SourceTag, { text: string; cls: string; dot: string }
 };
 
 // ── CG ステージ上の領域定義 (1920×1080 stage 座標)。
-//    lower-third が画面下中央、normal width 1200×~290。
+// lower-third が画面下中央、normal width 1200×~290。
 //    精密な座標ではなく、各フィールドが大体どこに出るかを示す矩形。
 const REGIONS = {
   portrait: { x: 374, y: 724, w: 146, h: 182 },
@@ -760,7 +760,7 @@ export default function OneShotDataEditor({
           <div className="flex-1" />
           <button
             onClick={resetDraft}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-muted-foreground hover:bg-muted transition-colors"
+            className="h-ctl-3 flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 sm:px-3 text-xs sm:text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">リセット</span>

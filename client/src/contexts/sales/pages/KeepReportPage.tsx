@@ -99,7 +99,7 @@ function EventReportsTab() {
                       </span>
                     )}
                     <Button
-                      size="sm" variant="outline" className="ml-auto h-7 text-xs shrink-0 border-amber-300"
+                    size="sm" variant="outline" className="ml-auto h-ctl-1 text-xs shrink-0 border-amber-300"
                       onClick={() => setEditing({ projectId: c.id, projectName: c.name, report: null })}
                     >
                       <Plus className="h-3 w-3 mr-1" />報告を作成
@@ -260,8 +260,8 @@ function EventReportDialog({ projectId, projectName, report, onClose }: {
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
-              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="Box ファイル ID" value={newBoxId} onChange={(e) => setNewBoxId(e.target.value)} />
-              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="キャプション (任意)" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
+              <Input className="h-8 flex-1 min-w-[128px] text-sm" placeholder="Box ファイル ID" value={newBoxId} onChange={(e) => setNewBoxId(e.target.value)} />
+              <Input className="h-8 flex-1 min-w-[128px] text-sm" placeholder="キャプション (任意)" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
               <Button size="sm" variant="outline" className="h-8" disabled={!newBoxId.trim() || addPhoto.isPending} onClick={() => addPhoto.mutate()}>
                 <Plus className="h-3.5 w-3.5 mr-1" />追加
               </Button>
@@ -388,7 +388,7 @@ function MonthlyPlTab() {
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-semibold">予算 (目標)</p>
                 {!editBudget && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                  <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => {
                     setBudgetForm({
                       revenue: pl.budget?.revenue != null ? String(pl.budget.revenue) : "",
                       cogs_fixed: pl.budget?.cogs_fixed != null ? String(pl.budget.cogs_fixed) : "",
@@ -409,8 +409,8 @@ function MonthlyPlTab() {
                   ))}
                   <p className="text-[11px] text-muted-foreground">営業利益目標は 売上 − 固定原価 − 変動原価 − 販管費 で自動計算されます。</p>
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditBudget(false)}>キャンセル</Button>
-                    <Button size="sm" className="h-7 text-xs" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate()}>保存</Button>
+                    <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setEditBudget(false)}>キャンセル</Button>
+                    <Button size="sm" className="h-ctl-1 text-xs" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate()}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -425,7 +425,7 @@ function MonthlyPlTab() {
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-semibold">実績補正 (経理確定値)</p>
                 {!editOverride && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                  <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => {
                     setOverrideForm({
                       cogs_fixed_actual: pl.override?.cogs_fixed_actual != null ? String(pl.override.cogs_fixed_actual) : "",
                       sga_actual: pl.override?.sga_actual != null ? String(pl.override.sga_actual) : "",
@@ -451,8 +451,8 @@ function MonthlyPlTab() {
                   </div>
                   <p className="text-[11px] text-muted-foreground">空欄で保存すると補正を解除し自動集計値に戻ります。</p>
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditOverride(false)}>キャンセル</Button>
-                    <Button size="sm" className="h-7 text-xs" disabled={saveOverride.isPending} onClick={() => saveOverride.mutate()}>保存</Button>
+                    <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setEditOverride(false)}>キャンセル</Button>
+                    <Button size="sm" className="h-ctl-1 text-xs" disabled={saveOverride.isPending} onClick={() => saveOverride.mutate()}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -567,7 +567,7 @@ function MinutesDialog({ initial, onClose }: { initial: Minutes | null; onClose:
           <div>
             <div className="mb-1 flex items-center justify-between">
               <Label>領域別トピック</Label>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setTopics((t) => [...t, { area: "", text: "" }])}>
+              <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setTopics((t) => [...t, { area: "", text: "" }])}>
                 <Plus className="h-3 w-3 mr-1" />行追加
               </Button>
             </div>

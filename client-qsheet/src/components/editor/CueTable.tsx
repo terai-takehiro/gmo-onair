@@ -506,7 +506,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => insertSectionAt(idx)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} にロールを挿入`}
         >
           ＋ ロール
@@ -514,7 +514,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => addBreak(idx - 1)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning-strong hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning-strong hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} に CM を挿入`}
         >
           ＋ CM
@@ -522,7 +522,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => addVtr(idx - 1)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} に VTR を挿入`}
         >
           ＋ VTR

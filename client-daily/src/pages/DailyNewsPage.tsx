@@ -38,7 +38,7 @@ export default function DailyNewsPage() {
           <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setDate(addDays(date, -1))} title="前日">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-[150px]" />
+          <Input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-[160px]" />
           <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setDate(addDays(date, 1))} disabled={date >= today} title="翌日">
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -122,13 +122,13 @@ function NewsTable({ items, reportId, date, canEdit, onEnsure }: {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium w-[90px]">カテゴリ</th>
-                  <th className="px-2 py-2 text-center font-medium w-[52px]">AI活用</th>
-                  <th className="px-2 py-2 text-center font-medium w-[64px]">採用</th>
+                  <th className="px-3 py-2 text-left font-medium w-[96px]">カテゴリ</th>
+                  <th className="px-2 py-2 text-center font-medium w-[56px]">AI活用</th>
+                  <th className="px-2 py-2 text-center font-medium w-[72px]">採用</th>
                   <th className="px-3 py-2 text-left font-medium">要約</th>
-                  <th className="px-3 py-2 text-left font-medium w-[180px]">メモ</th>
-                  <th className="px-2 py-2 text-left font-medium w-[90px]">記入者</th>
-                  {canEdit && <th className="px-2 py-2 w-[76px]" />}
+                  <th className="px-3 py-2 text-left font-medium w-[200px]">メモ</th>
+                  <th className="px-2 py-2 text-left font-medium w-[96px]">記入者</th>
+                  {canEdit && <th className="px-2 py-2 w-[72px]" />}
                 </tr>
               </thead>
               <tbody className="divide-y">

@@ -162,7 +162,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
               {history.length > 0 && onUndo && (
                 <button
                   onClick={() => onUndo()}
-                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted dark:text-foreground dark:hover:bg-card"
+                  className="h-ctl-1 inline-flex items-center gap-1 rounded px-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted dark:text-foreground dark:hover:bg-card"
                   title="1つ戻す (Ctrl+Z)"
                 >
                   <Undo2 size={12} />
@@ -182,7 +182,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
                     <li key={`${h.at}-${idx}`}>
                       <button
                         onClick={() => onUndo?.(idx)}
-                        className="flex w-full items-center gap-2 px-5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted dark:text-muted-foreground dark:hover:bg-card/50"
+                        className="h-ctl-1 flex w-full items-center gap-2 px-5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted dark:text-muted-foreground dark:hover:bg-card/50"
                         title="ここまで戻す"
                       >
                         <Undo2 size={12} className="flex-shrink-0 text-muted-foreground" />

@@ -441,7 +441,7 @@ export default function EquipmentDetailPage() {
                         <button
                           key={item.model_number ?? 'none'}
                           type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                          className="h-ctl-3 w-full text-left px-3 text-sm hover:bg-muted flex items-center gap-2"
                           onMouseDown={() => {
                             setEditForm(f => ({
                               ...f,
@@ -1046,7 +1046,7 @@ function SearchableSelect({ value, onChange, items, placeholder }: {
     <div ref={ref} className="relative flex-1">
       <button
         type="button"
-        className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
+        className="h-ctl-3 w-full flex items-center justify-between px-3 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
         onClick={() => {
           setOpen((o) => !o);
           if (!open) setTimeout(() => inputRef.current?.focus(), 50);

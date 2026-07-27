@@ -387,7 +387,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {branches.length > 0 && (
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="min-w-[120px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-w-[128px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全拠点</SelectItem>
                 {branches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -397,7 +397,7 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
 
           {rackTypes.length > 0 && (
             <Select value={rackTypeFilter} onValueChange={setRackTypeFilter}>
-              <SelectTrigger className="min-w-[120px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-w-[128px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全種別</SelectItem>
                 {rackTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -548,8 +548,8 @@ export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}
               <Label>種別</Label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: "blank",  label: "ブランクパネル" },
-                  { value: "cable",  label: "通線口" },
+                  { value: "blank", label: "ブランクパネル" },
+                  { value: "cable", label: "通線口" },
                   { value: "drawer", label: "引き出し" },
                   { value: "custom", label: "自由記述" },
                 ].map((opt) => (

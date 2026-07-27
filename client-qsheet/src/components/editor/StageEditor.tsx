@@ -204,7 +204,7 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
           )}
           <button
             onClick={() => onSave({ name, elements })}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="h-ctl-1 inline-flex items-center gap-1.5 px-4 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="保存"
           >
             <Save size={13} aria-hidden />保存
@@ -294,10 +294,10 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
           {/* Side Panel */}
           <div className="w-56 border-l border-border p-4 space-y-4 overflow-y-auto">
             <div className="space-y-1.5">
-              <button onClick={addPerson} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/15 transition-colors">
+              <button onClick={addPerson} className="h-ctl-3 w-full flex items-center gap-2 px-3 text-[13px] font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/15 transition-colors">
                 <UserPlus size={14} />人物を追加
               </button>
-              <button onClick={addRect} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium bg-warning-surface dark:bg-warning/30 text-warning-strong dark:text-warning-strong rounded-lg hover:bg-warning-surface dark:hover:bg-warning/50 transition-colors">
+              <button onClick={addRect} className="h-ctl-3 w-full flex items-center gap-2 px-3 text-[13px] font-medium bg-warning-surface dark:bg-warning/30 text-warning-strong dark:text-warning-strong rounded-lg hover:bg-warning-surface dark:hover:bg-warning/50 transition-colors">
                 <Square size={14} />オブジェクトを追加
               </button>
             </div>
@@ -355,7 +355,7 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
                     </label>
                   </div>
                 )}
-                <button onClick={() => removeElement(selectedIdx!)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                <button onClick={() => removeElement(selectedIdx!)} className="h-ctl-1 w-full flex items-center justify-center gap-1.5 px-3 text-[12px] text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
                   <Trash2 size={12} />この要素を削除
                 </button>
               </div>

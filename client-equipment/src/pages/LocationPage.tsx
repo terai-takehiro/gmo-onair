@@ -387,13 +387,13 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
                   autoFocus
                 />
                 <Button
-                  size="sm" className="h-7 px-2 text-xs"
+                size="sm" className="h-ctl-1 px-2 text-xs"
                   disabled={!editName.trim() || updateMutation.isPending}
                   onClick={() => updateMutation.mutate({ id: item.id, name: editName.trim() })}
                 >
                   保存
                 </Button>
-                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(null)}>
+                <Button size="sm" variant="ghost" className="h-ctl-1 px-2 text-xs" onClick={() => setEditingId(null)}>
                   キャンセル
                 </Button>
               </>
@@ -428,7 +428,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
             }}
           />
           <Button
-            size="sm" className="h-7 px-2 text-xs"
+          size="sm" className="h-ctl-1 px-2 text-xs"
             disabled={!addName.trim() || addMutation.isPending}
             onClick={() => addMutation.mutate(addName.trim())}
           >

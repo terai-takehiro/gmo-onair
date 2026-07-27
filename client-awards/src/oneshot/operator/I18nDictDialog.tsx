@@ -218,7 +218,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
         <div className="flex items-center gap-2 flex-wrap px-6 py-3 border-t border-border bg-background/50">
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+            className="h-ctl-3 flex items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
             JSONエクスポート
@@ -239,7 +239,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           </label>
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-destructive/40 hover:text-destructive transition-colors"
+            className="h-ctl-3 flex items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground hover:bg-destructive/40 hover:text-destructive transition-colors"
             title="全ての設定を消去"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -255,7 +255,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           </button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-1.5 rounded-md bg-warning px-4 py-2 text-sm font-bold text-foreground hover:bg-warning/90 transition-colors"
+            className="h-ctl-3 flex items-center gap-1.5 rounded-md bg-warning px-4 text-sm font-bold text-foreground hover:bg-warning/90 transition-colors"
           >
             <Save className="h-4 w-4" />
             保存

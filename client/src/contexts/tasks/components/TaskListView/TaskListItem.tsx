@@ -49,7 +49,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
   return (
     <>
       <div
-        className={`group flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-accent/50 min-h-[44px] ${
+      className={`group flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-accent/50 min-h-tap ${
           task.is_completed ? "opacity-60" : ""
         }`}
       >

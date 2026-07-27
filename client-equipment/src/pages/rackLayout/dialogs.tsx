@@ -25,7 +25,7 @@ export function RackSubtitleDialog({ config, onSave, onClose }: {
         </DialogHeader>
         <div className="space-y-3 pt-1">
           {[
-            { value: "auto",   label: "自動（拠点・種別・建物情報）" },
+            { value: "auto", label: "自動（拠点・種別・建物情報）" },
             { value: "hidden", label: "非表示" },
             { value: "custom", label: "カスタム文字列" },
           ].map((opt) => (
@@ -89,7 +89,7 @@ export function CellConfigDialog({
             <div className="flex flex-col gap-1.5">
               {[
                 { value: "model", label: "型名を優先" },
-                { value: "name",  label: "機材名を優先" },
+                { value: "name", label: "機材名を優先" },
                 { value: "custom", label: "任意文字列" },
               ].map((opt) => (
                 <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -120,17 +120,17 @@ export function CellConfigDialog({
             <div>
               <ToggleButtonGroup
                 options={[
-                  { value: 'showName',   label: '機材名' },
-                  { value: 'showModel',  label: '型名' },
-                  { value: 'showNo',     label: 'No.' },
+                  { value: 'showName', label: '機材名' },
+                  { value: 'showModel', label: '型名' },
+                  { value: 'showNo', label: 'No.' },
                   { value: 'showCustom', label: '任意文字列' },
                 ]}
                 value={(['showName','showModel','showNo','showCustom'] as const).filter(k => form[k as keyof CellConfig])}
                 onChange={(next) => setForm(f => ({
                   ...f,
-                  showName:   next.includes('showName'),
-                  showModel:  next.includes('showModel'),
-                  showNo:     next.includes('showNo'),
+                  showName: next.includes('showName'),
+                  showModel: next.includes('showModel'),
+                  showNo: next.includes('showNo'),
                   showCustom: next.includes('showCustom'),
                 }))}
                 multi

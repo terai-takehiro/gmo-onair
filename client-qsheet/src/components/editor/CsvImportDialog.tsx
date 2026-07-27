@@ -172,7 +172,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
           <button
             onClick={handleExecute}
             disabled={!result}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="h-ctl-3 inline-flex items-center gap-1.5 px-4 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Upload size={14} aria-hidden />
             インポート実行

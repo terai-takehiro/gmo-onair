@@ -159,7 +159,7 @@ export default function CallSheetPage() {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
         <NoticeBar />
-        <Button variant="ghost" size="sm" className="min-h-[44px] gap-1"
+        <Button variant="ghost" size="sm" className="min-h-tap gap-1"
           onClick={() => navigate(`/sales/projects/${projectId}`)}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           案件へ戻る
@@ -202,7 +202,7 @@ export default function CallSheetPage() {
     <div className="mx-auto w-full max-w-[1400px] space-y-4 p-4 sm:p-6">
       <NoticeBar />
 
-      <Button variant="ghost" size="sm" className="min-h-[44px] gap-1 sm:hidden"
+      <Button variant="ghost" size="sm" className="min-h-tap gap-1 sm:hidden"
         onClick={() => navigate(`/sales/projects/${projectId}`)}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         案件へ戻る
@@ -226,14 +226,14 @@ export default function CallSheetPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {sheets.length > 1 && (
-            <select className="min-h-[44px] rounded-xl border border-divider bg-card px-2 text-sm"
+            <select className="min-h-tap rounded-xl border border-divider bg-card px-2 text-sm"
               aria-label="日を選ぶ" value={sheetId ?? ""}
               onChange={(e) => { const n = new URLSearchParams(sp); n.set("sheet", e.target.value); setSp(n, { replace: true }); }}>
               {sheets.map((s: any) => <option key={s.id} value={s.id}>{s.sheet_date}</option>)}
             </select>
           )}
           {canEdit && (
-            <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+            <Button variant="outline" size="sm" className="min-h-tap gap-1"
               disabled={rebuild.isPending} onClick={() => rebuild.mutate()}>
               {rebuild.isPending
                 ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -241,12 +241,12 @@ export default function CallSheetPage() {
               元データから組み直す
             </Button>
           )}
-          <Button variant="outline" size="sm" className="min-h-[44px] gap-1" onClick={() => window.print()}>
+          <Button variant="outline" size="sm" className="min-h-tap gap-1" onClick={() => window.print()}>
             <Printer className="h-4 w-4" aria-hidden="true" />
             A3横で印刷
           </Button>
           {/* 香盤表は運営マニュアルの部品の1つ (22章)。そのまま束ねに行ける */}
-          <Button variant="outline" size="sm" className="min-h-[44px] gap-1"
+          <Button variant="outline" size="sm" className="min-h-tap gap-1"
             onClick={() => navigate(`/sales/projects/${projectId}/manual`)}>
             <BookOpen className="h-4 w-4" aria-hidden="true" />
             運営マニュアルに入れる
@@ -275,7 +275,7 @@ export default function CallSheetPage() {
             <button key={l.id} type="button" disabled={!canEdit}
               onClick={() => toggleLane.mutate({ laneId: l.id, visible: !l.visible })}
               aria-pressed={l.visible}
-              className={`flex min-h-[44px] items-center gap-1 rounded-full border px-3 text-sm ${
+              className={`flex min-h-tap items-center gap-1 rounded-full border px-3 text-sm ${
                 l.visible ? "border-primary bg-primary text-primary-foreground" : "border-divider bg-card text-muted-foreground"
               }`}>
               {l.visible ? <Eye className="h-3.5 w-3.5" aria-hidden="true" /> : <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -304,7 +304,7 @@ export default function CallSheetPage() {
           </div>
           {/* レーン */}
           {visibleLanes.map((l) => (
-            <div key={l.id} className="min-w-[140px] flex-1 border-r border-divider last:border-0">
+            <div key={l.id} className="min-w-[128px] flex-1 border-r border-divider last:border-0">
               <div className="h-10 border-b border-divider px-2 py-1">
                 <div className="truncate text-xs font-bold">{l.name}</div>
                 {l.sub && <div className="truncate text-[11px] text-muted-foreground">{l.sub}</div>}
@@ -362,7 +362,7 @@ export default function CallSheetPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             枠の長さがそのままタイマーの尺になります。当日はタイマーを作り直しません。
           </p>
-          <Button size="sm" className="mt-2 min-h-[44px] gap-1"
+          <Button size="sm" className="mt-2 min-h-tap gap-1"
             disabled={picked.size === 0 || toTimer.isPending}
             onClick={() => toTimer.mutate()}>
             {toTimer.isPending
@@ -380,7 +380,7 @@ export default function CallSheetPage() {
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <label className="block">
               <span className="text-xs text-muted-foreground">どのレーン</span>
-              <select className="mt-1 block min-h-[44px] rounded-xl border border-divider bg-card px-2 text-sm"
+              <select className="mt-1 block min-h-tap rounded-xl border border-divider bg-card px-2 text-sm"
                 aria-label="どのレーンに置くか" value={draft.lane_id}
                 onChange={(e) => setDraft({ ...draft, lane_id: e.target.value })}>
                 <option value="">選んでください</option>
@@ -404,13 +404,13 @@ export default function CallSheetPage() {
             </label>
             <label className="block">
               <span className="text-xs text-muted-foreground">種類</span>
-              <select className="mt-1 block min-h-[44px] rounded-xl border border-divider bg-card px-2 text-sm"
+              <select className="mt-1 block min-h-tap rounded-xl border border-divider bg-card px-2 text-sm"
                 aria-label="枠の種類" value={draft.category}
                 onChange={(e) => setDraft({ ...draft, category: e.target.value })}>
                 {sheet.categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </label>
-            <Button size="sm" className="min-h-[44px] gap-1"
+            <Button size="sm" className="min-h-tap gap-1"
               disabled={!draft.lane_id || !draft.label.trim() || toMin(draft.start) == null || putBlock.isPending}
               onClick={() => putBlock.mutate({
                 lane_id: draft.lane_id, label: draft.label,

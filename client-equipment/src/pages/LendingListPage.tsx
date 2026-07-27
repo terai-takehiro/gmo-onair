@@ -184,7 +184,7 @@ export default function LendingListPage() {
       {/* Status filter */}
       <div className="flex gap-2">
         <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[128px]">
             <SelectValue placeholder="ステータス" />
           </SelectTrigger>
           <SelectContent>

@@ -302,10 +302,10 @@ export default function EstimatePage() {
         <button
           type="button"
           onClick={() => navigate(`/sales/projects/${projectId}`)}
-          className="flex min-h-[44px] min-w-0 items-center gap-1.5 text-[13.5px] text-muted-foreground sm:hidden"
+          className="flex min-h-tap min-w-0 items-center gap-1.5 text-[13.5px] text-muted-foreground sm:hidden"
         >
           <ChevronLeft className="h-4 w-4 shrink-0" />
-          <span className="max-w-[150px] truncate">{view.project.name}</span>
+          <span className="max-w-[160px] truncate">{view.project.name}</span>
           <span className="whitespace-nowrap font-bold text-foreground">／ 見積</span>
         </button>
 
@@ -432,7 +432,7 @@ export default function EstimatePage() {
           {/* 明細 */}
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             {/* 見出し (PC のみ。狭い画面は行ごとのラベルで読む) */}
-            <div className="hidden min-h-[44px] items-center gap-3.5 border-b border-divider bg-muted/40 px-[18px] text-[12.5px] font-bold text-muted-foreground lg:flex">
+            <div className="hidden min-h-tap items-center gap-3.5 border-b border-divider bg-muted/40 px-[18px] text-[12.5px] font-bold text-muted-foreground lg:flex">
               <span className="min-w-0 flex-1">品目</span>
               <span className="w-[72px] shrink-0 text-right">数量</span>
               <span className="w-[56px] shrink-0 text-center">単位</span>
@@ -450,7 +450,7 @@ export default function EstimatePage() {
                   <div className="flex min-h-[36px] items-center gap-2.5 border-b border-row bg-accent/40 px-[18px]">
                     <span className="whitespace-nowrap text-[13px] font-extrabold text-primary">{g}</span>
                     <div className="flex-1" />
-                    <Money value={sum} className="w-[112px] text-[12.5px] text-muted-foreground" />
+                    <Money value={sum} className="w-[128px] text-[12.5px] text-muted-foreground" />
                   </div>
 
                   {groupRows.length === 0 ? (
@@ -622,7 +622,7 @@ export default function EstimatePage() {
                   key={s.id}
                   type="button"
                   onClick={() => navigate(`/sales/projects/${s.id}`)}
-                  className="flex w-full items-center gap-2.5 border-b border-row py-2 text-left last:border-b-0 hover:bg-accent/30"
+                  className="h-ctl-3 flex w-full items-center gap-2.5 border-b border-row text-left last:border-b-0 hover:bg-accent/30"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-bold">{s.name}</p>
@@ -631,8 +631,8 @@ export default function EstimatePage() {
                       {s.same_customer ? " ・ 同じお客様" : ""}
                     </p>
                   </div>
-                  <Money value={rev} className="w-[112px] text-[13.5px] font-bold" />
-                  <span className="font-number w-[48px] shrink-0 text-right text-[12.5px] text-muted-foreground">
+                  <Money value={rev} className="w-[128px] text-[13.5px] font-bold" />
+                  <span className="font-number w-[56px] shrink-0 text-right text-[12.5px] text-muted-foreground">
                     {gp === null ? "—" : `${gp}%`}
                   </span>
                 </button>

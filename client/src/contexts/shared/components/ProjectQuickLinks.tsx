@@ -35,13 +35,13 @@ export default function ProjectQuickLinks({
     icon: React.ReactNode;
     to: string;
   }> = [
-    { key: "project",   label: "案件",    icon: <Briefcase className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}` },
-    { key: "revenues",  label: "売上",    icon: <Wallet    className="h-3.5 w-3.5" />, to: `/budget/revenues?project_id=${projectId}${nameParam}` },
-    { key: "purchases", label: "仕入",    icon: <Truck     className="h-3.5 w-3.5" />, to: `/budget/purchases?project_id=${projectId}${nameParam}` },
-    { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: `/schedule?layers=studio&project_id=${projectId}${nameParam}` },
-    { key: "tasks",     label: "タスク",     icon: <KanbanSquare className="h-3.5 w-3.5" />, to: `/tasks?scope=project&project=${projectId}` },
+    { key: "project", label: "案件", icon: <Briefcase className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}` },
+    { key: "revenues", label: "売上", icon: <Wallet className="h-3.5 w-3.5" />, to: `/budget/revenues?project_id=${projectId}${nameParam}` },
+    { key: "purchases", label: "仕入", icon: <Truck className="h-3.5 w-3.5" />, to: `/budget/purchases?project_id=${projectId}${nameParam}` },
+    { key: "calendar", label: "カレンダー", icon: <Calendar className="h-3.5 w-3.5" />, to: `/schedule?layers=studio&project_id=${projectId}${nameParam}` },
+    { key: "tasks", label: "タスク", icon: <KanbanSquare className="h-3.5 w-3.5" />, to: `/tasks?scope=project&project=${projectId}` },
     // 貸出は案件から始められる (§4.16)。案件を持ったまま機材の貸出画面へ
-    { key: "equipment", label: "機材",     icon: <Package      className="h-3.5 w-3.5" />, to: `/equipment/lendings?project_id=${projectId}${nameParam}` },
+    { key: "equipment", label: "機材", icon: <Package className="h-3.5 w-3.5" />, to: `/equipment/lendings?project_id=${projectId}${nameParam}` },
   ];
 
   return (

@@ -144,7 +144,7 @@ export default function NomineePanel({
                   key={n.id}
                   onClick={() => onSelectNominee(n.id)}
                   className={cn(
-                    'relative text-left rounded-md border px-2 py-1.5 transition-all min-w-0 min-h-[44px] flex flex-col justify-center gap-0.5',
+                    'relative text-left rounded-md border px-2 py-1.5 transition-all min-w-0 min-h-tap flex flex-col justify-center gap-0.5',
                     active
                       ? 'bg-warning/15 border-warning ring-1 ring-warning/30'
                       : 'bg-card/60 border-border/50 hover:bg-muted hover:border-border',

@@ -151,7 +151,7 @@ export function ConfirmHost(): ReactNode {
           */}
           <Button
             variant="outline"
-            className="min-h-11"
+            className="min-h-tap"
             autoFocus={danger}
             onClick={() => answer(false)}
           >
@@ -159,7 +159,7 @@ export function ConfirmHost(): ReactNode {
           </Button>
           <Button
             variant={danger ? 'destructive' : 'default'}
-            className="min-h-11"
+            className="min-h-tap"
             autoFocus={!danger}
             onClick={() => answer(true)}
           >

@@ -485,9 +485,9 @@ export default function OnAirPage() {
         <div className="w-full md:w-[500px] h-[40vh] md:h-auto flex-shrink-0 flex flex-col bg-background border-b-2 md:border-b-0 md:border-r-2 border-border">
           {/* Column headers */}
           <div className="flex-none flex items-center h-10 px-2 bg-muted border-b-2 border-border">
-            <div className="w-[120px] text-center text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>TIME</div>
+            <div className="w-[128px] text-center text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>TIME</div>
             <div className="flex-1 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>CUE</div>
-            <div className="w-[90px] text-right pr-4 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>DUR</div>
+            <div className="w-[96px] text-right pr-4 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>DUR</div>
           </div>
 
           {/* Cue list */}
@@ -521,7 +521,7 @@ export default function OnAirPage() {
                   {isCur && <div className="absolute left-0 top-0 bottom-0 w-1 bg-destructive" />}
                   {isNxt && <div className="absolute left-0 top-0 bottom-0 w-1 bg-info" />}
 
-                  <div className="w-[120px] flex-shrink-0 text-center py-4">
+                  <div className="w-[128px] flex-shrink-0 text-center py-4">
                     <F size={isCur ? 28 : 24} weight={700} color={isCur ? "#fff" : past ? "#333" : "#999"}>
                       {oaFmt(c.oa)}
                     </F>
@@ -545,7 +545,7 @@ export default function OnAirPage() {
                     </div>
                   </div>
 
-                  <div className="w-[90px] flex-shrink-0 text-right pr-4 py-4">
+                  <div className="w-[96px] flex-shrink-0 text-right pr-4 py-4">
                     <F size={isCur ? 28 : 24} weight={700} color={isCur ? "#fff" : cm ? "#fbbf24" : "#777"}>
                       {mm(c.duration)}
                     </F>
@@ -723,7 +723,7 @@ export default function OnAirPage() {
                     onClick={() => setOffset((p) => p - 60)}
                     title="番組の想定尺を1分短くする"
                     aria-label="番組の想定尺を1分短くする"
-                    className="min-w-11 min-h-11 flex items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
+                    className="min-w-11 min-h-tap flex items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
                   >
                     <Minus size={16} />
                   </button>
@@ -732,7 +732,7 @@ export default function OnAirPage() {
                     onClick={() => setOffset((p) => p + 60)}
                     title="番組の想定尺を1分長くする"
                     aria-label="番組の想定尺を1分長くする"
-                    className="min-w-11 min-h-11 flex items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
+                    className="min-w-11 min-h-tap flex items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
                   >
                     <Plus size={16} />
                   </button>

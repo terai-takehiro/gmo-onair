@@ -54,10 +54,10 @@ export function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEn
           <InlineText value={cat.description_en ?? ''} onSave={(v) => onUpdateCat({ description_en: v.trim() || null })} placeholder="部門名（英語）" className="text-xs italic text-muted-foreground" />
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{cat.entries.length}名</span>
-        <button onClick={onGenerateDummyPoints} title="ポイント自動生成" className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+        <button onClick={onGenerateDummyPoints} title="ポイント自動生成" className="h-ctl-1 flex items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted transition-colors">
           <RefreshCw className="h-3 w-3" />pt生成
         </button>
-        <button onClick={() => setAddingEntry(true)} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+        <button onClick={() => setAddingEntry(true)} className="h-ctl-1 flex items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted transition-colors">
           <Plus className="h-3 w-3" />追加
         </button>
         <button onClick={onDeleteCat} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
@@ -131,7 +131,7 @@ export function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAward
           <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-warning-strong" />
         </div>
         <span className="text-xs text-warning-strong shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
-        <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-warning/50 px-2 py-1 text-xs text-warning-strong hover:bg-warning/90-surface transition-colors shrink-0">
+        <button onClick={() => onAddDivision(group.name)} className="h-ctl-1 flex items-center gap-1 rounded-lg border border-warning/50 px-2 text-xs text-warning-strong hover:bg-warning/90-surface transition-colors shrink-0">
           <Plus className="h-3 w-3" />部門追加
         </button>
         <button onClick={() => setCollapsed(!collapsed)} className="shrink-0 text-warning-strong hover:text-warning-strong transition-colors">

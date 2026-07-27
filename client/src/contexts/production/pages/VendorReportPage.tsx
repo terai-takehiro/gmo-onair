@@ -125,7 +125,7 @@ export default function VendorReportPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title="データがありません" />
+            <EmptyState title="この期間に取引のある仕入先がありません" description="期間を変えるか、お金 > 仕入 に明細を登録してください。" />
           ) : (
             <>
               {/* Mobile cards */}

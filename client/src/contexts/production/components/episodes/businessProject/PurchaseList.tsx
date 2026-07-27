@@ -42,7 +42,7 @@ export default function PurchaseList({
         ) : flatPurchases.length === 0 ? (
           <Card>
             <CardContent className="py-6 text-center text-muted-foreground">
-              {monthlyMode ? "月次以外の仕入はありません。月締めの仕入は上の「月次管理」から追加します。" : "仕入データがありません"}
+              {monthlyMode ? "月次以外の仕入はありません。月締めの仕入は上の「月次管理」から追加します。" : "この案件にはまだ仕入がありません。下の「仕入を追加」から登録します。"}
             </CardContent>
           </Card>
         ) : (
@@ -61,7 +61,7 @@ export default function PurchaseList({
                       </div>
                       {pu.group_name && (
                         <Badge variant="outline" className="mt-1 text-xs">
-                          按分: {pu.group_name}
+                          分け合い: {pu.group_name}
                         </Badge>
                       )}
                     </div>

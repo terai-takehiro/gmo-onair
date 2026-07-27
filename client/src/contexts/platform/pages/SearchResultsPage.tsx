@@ -122,7 +122,7 @@ export default function SearchResultsPage() {
           }}
           aria-label="さがす言葉"
           placeholder="案件名・GLS番号・お客様の名前"
-          className="min-h-[44px] flex-1 rounded-lg border bg-background px-3 text-sm"
+          className="min-h-tap flex-1 rounded-lg border bg-background px-3 text-sm"
         />
       </form>
       {fields && (
@@ -200,7 +200,7 @@ export default function SearchResultsPage() {
                       return (
                         <li key={`${g.key}-${str(raw.id) || i}`}>
                           <button type="button" onClick={() => go(r.path, r.external)}
-                            className="flex min-h-[44px] w-full items-center gap-3 rounded-xl border bg-card px-3 py-2 text-left hover:bg-muted">
+                          className="flex min-h-tap w-full items-center gap-3 rounded-xl border bg-card px-3 py-2 text-left hover:bg-muted">
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-bold">{r.name}</span>
                               {r.sub && (

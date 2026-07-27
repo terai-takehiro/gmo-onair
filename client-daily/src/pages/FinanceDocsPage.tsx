@@ -79,12 +79,12 @@ export default function FinanceDocsPage() {
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
         {([['all', 'すべて'], ['quote', '見積書'], ['invoice', '請求書'], ['order', '注文書']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTypeTab(k)}
-            className={`rounded-md px-3 py-1.5 ${typeTab === k ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
+            className={`inline-flex h-ctl-1 items-center rounded-md px-3 ${typeTab === k ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
         {([['pending', '未処理'], ['all', '全ステータス'], ['processed', '処理完了']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setStatusFilter(k)}
-            className={`rounded-md px-2.5 py-1.5 text-xs ${statusFilter === k ? 'bg-foreground/10 font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
+            className={`inline-flex h-ctl-1 items-center rounded-md px-2.5 text-xs ${statusFilter === k ? 'bg-foreground/10 font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
         ))}
       </div>
 
@@ -225,7 +225,7 @@ function StepBtn({ onClick, icon: Icon, tone, children }: { onClick: () => void;
     : tone === 'emerald' ? 'border-success bg-success-surface text-success hover:bg-success-surface'
     : 'border-border bg-muted/40 text-foreground hover:bg-accent';
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs ${cls}`}>
+    <button onClick={onClick} className={`h-ctl-1 inline-flex items-center gap-1 rounded-md border px-2.5 text-xs${cls}`}>
       <Icon className="h-3.5 w-3.5" />{children}
     </button>
   );

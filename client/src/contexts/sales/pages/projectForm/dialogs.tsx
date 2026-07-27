@@ -219,7 +219,7 @@ export function CategorySwitchDialog({
                       <p>切替に伴い以下が自動で更新されます:</p>
                       <ul className="list-disc list-inside text-xs space-y-0.5">
                         <li>GLS 番号を新カテゴリ側で<strong>採番し直し</strong></li>
-                        <li>エピソードコード (例: <code>{project?.gls_number}-001</code>) も新番号に書換</li>
+                        <li>回のコード (例: <code>{project?.gls_number}-001</code>) も新番号に書換</li>
                         <li>BOX フォルダ名（社内限り / 社外共有可）を新 GLS 番号にリネーム</li>
                         <li>既発行 PDF（見積書 / 請求書）の手元ファイルは更新されません</li>
                       </ul>
@@ -343,13 +343,13 @@ export function RelinkDialog({
 }) {
   return (
     <>
-          {/* 別GLSへ紐づけ直しダイアログ (発番済み案件をエピソード化) */}
+          {/* 別GLSへ紐づけ直しダイアログ (発番済み案件を回化) */}
           <Dialog open={relinkDialog.open} onOpenChange={(open) => setRelinkDialog({ ...relinkDialog, open })}>
             <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>別GLSのエピソードへ紐づけ直す</DialogTitle>
+                <DialogTitle>別GLSの回へ紐づけ直す</DialogTitle>
                 <DialogDescription>
-                  この案件（現在 {project?.gls_number}）を、選択した既存GLS案件のエピソードとして付け替えます。
+                  この案件（現在 {project?.gls_number}）を、選択した既存GLS案件の回として付け替えます。
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-2">
@@ -367,9 +367,9 @@ export function RelinkDialog({
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
                   <p>適用すると以下が行われます：</p>
                   <ul className="list-disc pl-4 space-y-0.5">
-                    <li>GLS番号が紐づけ先のものに変わり、エピソードコードは新GLSで採番し直されます</li>
+                    <li>GLS番号が紐づけ先のものに変わり、回のコードは新GLSで採番し直されます</li>
                     <li>現在のGLS番号（{project?.gls_number}）は履歴 (previous_gls_numbers) に保存されます</li>
-                    <li>BOXフォルダ名・Qシートのエピソードコードも新GLSに更新されます</li>
+                    <li>BOXフォルダ名・Qシートの回のコードも新GLSに更新されます</li>
                     <li>概算見積が残っていれば確定売上に変換されます（売上/仕入の実績はそのまま保持）</li>
                   </ul>
                 </div>
@@ -379,7 +379,7 @@ export function RelinkDialog({
                 <Button
                   disabled={!relinkDialog.target_project_id || relinkMutation.isPending}
                   onClick={async () => {
-                    if ((await confirmAction({ title: "この案件を選択したGLSのエピソードに紐づけ直します。よろしいですか？" }))) {
+                    if ((await confirmAction({ title: "この案件を選択したGLSの回に紐づけ直します。よろしいですか？" }))) {
                       relinkMutation.mutate(relinkDialog.target_project_id);
                     }
                   }}
@@ -417,7 +417,7 @@ export function GlsIssueDialog({
                   GLS発番
                 </DialogTitle>
                 <DialogDescription>
-                  新規番組としてGLS番号を発番するか、既存のGLS案件にエピソードを追加するか選択してください。
+                  新規番組としてGLS番号を発番するか、既存のGLS案件に回を追加するか選択してください。
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -437,7 +437,7 @@ export function GlsIssueDialog({
                     onClick={() => setGlsDialog({ ...glsDialog, mode: 'link' })}
                   >
                     <div className="font-medium text-sm">既存案件に追加</div>
-                    <p className="text-xs text-muted-foreground mt-1">エピソード追加</p>
+                    <p className="text-xs text-muted-foreground mt-1">回を追加</p>
                   </button>
                 </div>
 

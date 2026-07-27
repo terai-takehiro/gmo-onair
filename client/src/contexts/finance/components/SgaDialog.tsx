@@ -346,7 +346,7 @@ export default function SgaDialog({
             {form.expense_type === "spot" && (
               <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm">月按分する</span>
+                  <span className="text-sm">月ごとに分ける</span>
                   <Switch
                     checked={form.amortize_enabled}
                     onCheckedChange={(checked) =>
@@ -363,7 +363,7 @@ export default function SgaDialog({
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">按分開始月</Label>
+                        <Label className="text-xs">分ける開始月</Label>
                         <Input
                           type="month"
                           value={form.amortize_start}
@@ -376,7 +376,7 @@ export default function SgaDialog({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">按分終了月</Label>
+                        <Label className="text-xs">分ける終了月</Label>
                         <Input
                           type="month"
                           value={form.amortize_end}

@@ -134,7 +134,7 @@ function KindPicker({ onPick }: { onPick: (k: "cost" | "joint") => void }) {
               key={k.key}
               type="button"
               onClick={() => onPick(k.key)}
-              className={`min-h-[44px] rounded-xl border p-4 text-left transition ${
+              className={`min-h-tap rounded-xl border p-4 text-left transition ${
                 isJoint
                   ? "border-primary bg-primary/5 hover:bg-primary/10"
                   : "border-divider bg-muted/40 hover:bg-muted"
@@ -305,13 +305,13 @@ export default function JointEventsPage() {
             )}
             {customers.map((c: any) => (
               <label key={c.id}
-                className="flex min-h-[44px] cursor-pointer items-center gap-3 border-b border-row px-3 py-2 last:border-0 hover:bg-muted/40">
-                <span className="-m-2 flex min-h-[44px] min-w-[44px] items-center justify-center p-2">
+              className="flex min-h-tap cursor-pointer items-center gap-3 border-b border-row px-3 py-2 last:border-0 hover:bg-muted/40">
+                <span className="-m-2 flex min-h-tap min-w-[44px] items-center justify-center p-2">
                   <input type="checkbox" className="h-[22px] w-[22px]" checked={picked.has(c.id)}
                     onChange={() => toggle(c.id)} aria-label={`${c.name} を参加する会社にする`} />
                 </span>
                 <span className="flex-1 text-sm">{c.name}</span>
-                <span className="flex min-h-[44px] items-center">
+                <span className="flex min-h-tap items-center">
                   <input type="radio" name="organizer" className="h-[18px] w-[18px]"
                     checked={form.organizer_customer_id === c.id}
                     onChange={() => setForm({ ...form, organizer_customer_id: c.id })}
@@ -347,7 +347,7 @@ export default function JointEventsPage() {
             {events.map((e: any) => (
               <li key={e.id} className="border-b border-row last:border-0">
                 <button type="button" onClick={() => navigate(`/finance/joint/${e.id}`)}
-                  className="flex min-h-[44px] w-full flex-wrap items-center gap-x-3 gap-y-1 p-4 text-left hover:bg-muted/40">
+                className="flex min-h-tap w-full flex-wrap items-center gap-x-3 gap-y-1 p-4 text-left hover:bg-muted/40">
                   <span className="font-medium">{e.name}</span>
                   <span className="text-sm text-muted-foreground">{Number(e.company_count)}社で分ける</span>
                   {e.event_start && <span className="text-sm text-muted-foreground">実施 {md(e.event_start)}</span>}
@@ -447,7 +447,7 @@ export function JointEventDetailPage() {
       <NoticeBar />
 
       {/* スマホではパンくずを並べず、44px の戻る1つにする */}
-      <Button variant="ghost" size="sm" className="min-h-[44px] gap-1 sm:hidden" onClick={() => navigate("/finance/joint")}>
+      <Button variant="ghost" size="sm" className="min-h-tap gap-1 sm:hidden" onClick={() => navigate("/finance/joint")}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         合同案件へ戻る
       </Button>
@@ -605,7 +605,7 @@ export function JointEventDetailPage() {
                       {canEdit && (
                         <td className="p-3">
                           {!c.cancelled_at && c.customer_id !== ev.organizer_customer_id && (
-                            <Button variant="ghost" size="sm" className="min-h-[44px] gap-1 text-negative"
+                            <Button variant="ghost" size="sm" className="min-h-tap gap-1 text-negative"
                               disabled={cancelMutation.isPending}
                               onClick={() => cancelMutation.mutate({ companyId: c.id, redistribute: "others" })}>
                               <X className="h-4 w-4" aria-hidden="true" />
@@ -686,7 +686,7 @@ export function JointEventDetailPage() {
                     </div>
                   </dl>
                   {canEdit && !c.cancelled_at && c.customer_id !== ev.organizer_customer_id && (
-                    <Button variant="ghost" size="sm" className="mt-1 min-h-[44px] gap-1 text-negative"
+                    <Button variant="ghost" size="sm" className="mt-1 min-h-tap gap-1 text-negative"
                       disabled={cancelMutation.isPending}
                       onClick={() => cancelMutation.mutate({ companyId: c.id, redistribute: "others" })}>
                       <X className="h-4 w-4" aria-hidden="true" />
@@ -715,11 +715,11 @@ export function JointEventDetailPage() {
                   合計が総額に合っていないので、まだ請求書を出せません。差額の始末を選んでください。
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="min-h-[44px]"
+                  <Button variant="outline" size="sm" className="min-h-tap"
                     onClick={() => absorbMutation.mutate({ company_id: active[active.length - 1]?.id, how: "others" })}>
                     残りの社で割り直す
                   </Button>
-                  <Button variant="outline" size="sm" className="min-h-[44px]"
+                  <Button variant="outline" size="sm" className="min-h-tap"
                     onClick={() => absorbMutation.mutate({ company_id: active[active.length - 1]?.id, how: "organizer" })}>
                     幹事に寄せる
                   </Button>

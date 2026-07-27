@@ -564,19 +564,19 @@ function WaitingCard({ rows, canEdit, onChanged }: { rows: Rec[]; canEdit: boole
                 ) : null}
                 {canEdit && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[12px]"
+                    <Button size="sm" variant="outline" className="h-ctl-1 gap-1 px-2 text-[12px]"
                       disabled={act.isPending}
                       onClick={() => act.mutate({ id: str(r.id), action: "complete" })}>
                       <Check className="h-3 w-3" aria-hidden="true" />もう終わった
                     </Button>
                     {postponeFor === str(r.id) ? (
                       <>
-                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => setPostponeFor(null)}>やめる</Button>
+                        <Button size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
+                        <Button size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
+                        <Button size="sm" variant="ghost" className="h-ctl-1 px-1.5 text-[12px]" onClick={() => setPostponeFor(null)}>やめる</Button>
                       </>
                     ) : (
-                      <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]" onClick={() => setPostponeFor(str(r.id))}>期限を引き直す</Button>
+                      <Button size="sm" variant="outline" className="h-ctl-1 px-2 text-[12px]" onClick={() => setPostponeFor(str(r.id))}>期限を引き直す</Button>
                     )}
                   </div>
                 )}

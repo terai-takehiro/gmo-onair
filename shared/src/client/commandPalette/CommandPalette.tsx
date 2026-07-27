@@ -8,9 +8,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, CornerDownLeft, ArrowRight, Loader2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '../utils';
 import { matchCommand, resolveCommands } from './commands';
-import type { CommandDef, PaletteAccess, PaletteHit, PaletteSearchResult } from './types';
+import { COMMAND_GROUPS } from './types';
+import type { CommandDef, CommandGroup, PaletteAccess, PaletteHit, PaletteSearchResult } from './types';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -112,15 +114,41 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
   const seeAllPath = q.trim().length >= 2 ? `/search?q=${encodeURIComponent(q.trim())}` : null;
   const showSeeAll = Boolean(seeAllPath) && (kind === 'all' || kind === 'hit') && hits.length > 0;
 
+  /*
+   * 何も打っていないときは**行き先の地図**にする (v2.9.298)。
+   *
+   * 83件を「やる」「ひらく」の2つに積むと、探すより読む方が大変になる。
+   * レールと同じ順 (今日→案件→タスク→お客様→予定→お金→…) でまとまりに畳み、
+   * 行の左にアイコンを置いて、目で当たりを付けられるようにする。
+   * **打ち始めたら地図はやめて、当たった順に並べる** (絞り込みの邪魔になる)。
+   */
+  const browsing = q.trim() === '' && kind === 'all';
+  const mapGroups = useMemo(() => {
+    if (!browsing) return [];
+    const by = new Map<CommandGroup, CommandDef[]>();
+    for (const c of commands) {
+      if (!by.has(c.group)) by.set(c.group, []);
+      by.get(c.group)!.push(c);
+    }
+    // 「やる」を各まとまりの先頭に置く (場所より操作が先、はグループの中でも同じ)
+    for (const list of by.values()) {
+      list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'do' ? -1 : 1));
+    }
+    return COMMAND_GROUPS.filter((g) => by.has(g)).map((g) => ({ group: g, items: by.get(g)! }));
+  }, [browsing, commands]);
+
   // ↑↓ が通る一列に潰す (グループの見た目とは別)
   const rows: Row[] = useMemo(
-    () => [
+    () =>
+      browsing
+        ? mapGroups.flatMap((g) => g.items.map((cmd) => ({ type: 'command' as const, cmd })))
+        : [
       ...doList.map((cmd) => ({ type: 'command' as const, cmd })),
       ...openList.map((cmd) => ({ type: 'command' as const, cmd })),
       ...hitList.map((hit) => ({ type: 'hit' as const, hit })),
       ...(showSeeAll && seeAllPath ? [{ type: 'seeAll' as const, path: seeAllPath }] : []),
     ],
-    [doList, openList, hitList, showSeeAll, seeAllPath]
+    [browsing, mapGroups, doList, openList, hitList, showSeeAll, seeAllPath]
   );
 
   useEffect(() => { setCursor(0); }, [q, kind, hits.length]);
@@ -210,6 +238,35 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
             <p className="px-4 py-8 text-center text-[13px] text-secondary-foreground">
               {q ? `「${q}」に当てはまるものはありません。別の言い方で探してください。` : '入力すると候補が出ます。'}
             </p>
+          ) : browsing ? (
+            /* 行き先の地図。まとまりごとに畳んで、広い画面では2列に流す */
+            <div className="columns-1 gap-x-4 px-2 sm:columns-2">
+              {mapGroups.map((g) => (
+                <section key={g.group} className="mb-3 break-inside-avoid">
+                  <p className="px-2 pb-1 text-[11px] font-bold tracking-wider text-muted-foreground">
+                    {g.group}
+                  </p>
+                  <ul>
+                    {g.items.map((cmd) => {
+                      const i = nextIndex();
+                      return (
+                        <CommandRow
+                          key={cmd.id}
+                          active={i === cursor}
+                          icon={cmd.icon}
+                          label={cmd.label}
+                          sub={cmd.kind === 'do' ? cmd.hint : undefined}
+                          compact
+                          onHover={() => setCursor(i)}
+                          onClick={() => run({ type: 'command', cmd })}
+                          right={i === cursor ? <EnterBadge /> : null}
+                        />
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           ) : (
             <>
               {doList.length > 0 && (
@@ -220,6 +277,7 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
                       <CommandRow
                         key={cmd.id}
                         active={i === cursor}
+                        icon={cmd.icon}
                         label={cmd.label}
                         sub={cmd.hint}
                         onHover={() => setCursor(i)}
@@ -239,6 +297,7 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
                       <CommandRow
                         key={cmd.id}
                         active={i === cursor}
+                        icon={cmd.icon}
                         label={cmd.label}
                         path={cmd.path}
                         onHover={() => setCursor(i)}
@@ -310,7 +369,9 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
           <span>↑↓ で選ぶ</span>
           <span>enter で実行</span>
           <span>tab で種類を切り替え</span>
-          <span className="ml-auto">機能はすべてここから開けます（{total}件）</span>
+          <span className="ml-auto">
+            {browsing ? `打つと絞り込めます（${total}件をここから開けます）` : `機能はすべてここから開けます（${total}件）`}
+          </span>
         </div>
       </div>
     </div>
@@ -336,13 +397,16 @@ function EnterBadge() {
 }
 
 function CommandRow({
-  active, label, sub, path, right, onHover, onClick,
+  active, icon: Icon, label, sub, path, right, compact, onHover, onClick,
 }: {
   active: boolean;
+  icon?: LucideIcon;
   label: string;
   sub?: string;
   path?: string;
   right?: React.ReactNode;
+  /** 地図のときは1行で詰める (83件を一望できるようにするため) */
+  compact?: boolean;
   onHover: () => void;
   onClick: () => void;
 }) {
@@ -354,13 +418,22 @@ function CommandRow({
         onMouseMove={onHover}
         onClick={onClick}
         className={cn(
-          'flex w-full items-center gap-2 px-4 py-2 text-left transition-colors',
+          'flex w-full items-center gap-2 rounded-control text-left transition-colors',
+          compact ? 'h-ctl-1 px-2' : 'px-4 py-2',
           active ? 'bg-accent' : 'hover:bg-secondary'
         )}
       >
+        {Icon ? (
+          <Icon
+            className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')}
+            aria-hidden="true"
+          />
+        ) : (
+          <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+        )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-bold text-foreground">{label}</span>
-          {sub && <span className="mt-0.5 block truncate text-[12px] text-secondary-foreground">{sub}</span>}
+          <span className={cn('block truncate text-foreground', compact ? 'text-[13px] font-medium' : 'text-[14px] font-bold')}>{label}</span>
+          {sub && !compact && <span className="mt-0.5 block truncate text-[12px] text-secondary-foreground">{sub}</span>}
         </span>
         {path && (
           <span className="hidden shrink-0 items-center gap-1 text-[12px] text-muted-foreground sm:flex">
