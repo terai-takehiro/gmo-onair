@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { NoticeBar, setNotice } from "@gmo-onair/shared/src/client/ui/notice";
-import { ErrorPanel, SkeletonCard, EmptyState } from "@gmo-onair/shared/src/client/states";
+import { EmptyState, ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   Receipt, Wallet, ClipboardCheck, Loader2, AlertTriangle, RefreshCw, Repeat, Printer,

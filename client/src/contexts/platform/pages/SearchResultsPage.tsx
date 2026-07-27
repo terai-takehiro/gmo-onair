@@ -20,7 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronRight, Lock } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { EmptyState, ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { EmptyState, ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 interface Group {

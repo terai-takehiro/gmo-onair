@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
-import { Delayed, SkeletonRows } from "@gmo-onair/shared/src/client/states";
+import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { dueOption, str, yen } from "./types";
 
 const ACTIVITY_ICON: Record<string, typeof Mail> = {

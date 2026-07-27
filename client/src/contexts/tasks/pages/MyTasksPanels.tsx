@@ -32,6 +32,7 @@ import {
   type MyTask, type TaskIntake,
 } from '@/contexts/tasks/lib/tasksApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 /** 9 マスの並び。上が重要、左が緊急。位置に意味があるので固定 */
 const CELL_GRID: string[][] = [
@@ -69,7 +70,7 @@ export function MyTasksTab({
   const junkCount = open.filter((t) => t.priority_score === 1).length;
 
   if (isLoading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return <Delayed><SkeletonRows rows={4} /></Delayed>;
   }
 
   return (
@@ -336,7 +337,7 @@ export function DelegationsTab() {
   const { data: sent, isLoading: l2 } = useMyDelegations('sent', includeDone);
 
   if (l1 || l2) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return <Delayed><SkeletonRows rows={4} /></Delayed>;
   }
 
   return (
@@ -542,7 +543,7 @@ export function IntakeLogTab() {
   const { data, isLoading } = useTaskIntakes({ all });
 
   if (isLoading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return <Delayed><SkeletonRows rows={4} /></Delayed>;
   }
   const list = data ?? [];
 
@@ -625,7 +626,9 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
             <div>
               <Label className="text-xs">ここから生まれたタスク（{data.generated_tasks.length} 件）</Label>
               {data.generated_tasks.length === 0 ? (
-                <p className="mt-1 text-sm text-muted-foreground">まだありません。</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  ここから生まれたタスクはまだありません。この依頼を引き受けるとタスクになります。
+                </p>
               ) : (
                 <div className="mt-1 space-y-1.5">
                   {data.generated_tasks.map((t) => (
@@ -657,7 +660,7 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
 export function TeamTab() {
   const { data, isLoading } = useTeamLoad();
   if (isLoading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return <Delayed><SkeletonRows rows={4} /></Delayed>;
   }
   const rows = data ?? [];
 

@@ -19,6 +19,7 @@ import {
   Radio,
 } from "lucide-react";
 import { notifyError } from '@/lib/notify';
+import { Delayed, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // Types
@@ -253,9 +254,7 @@ export default function EditorPage() {
 
   if (isLoading || !doc) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed><SkeletonCard lines={6} /></Delayed>
     );
   }
 

@@ -67,6 +67,25 @@ const RULES = [
     extra: (line) => /text-(2xl|3xl|4xl|5xl)/.test(line),
   },
   {
+    id: 'empty-by-hand',
+    // 一覧の代わりに**縦の場所を取るブロック**として出している「ありません」。
+    // `text-center` を必須にしているのは、カードの中の1行の状態表示
+    // (「待たせているものはありません」= 良い知らせ) や検索欄の注記まで
+    // 拾ってしまうと、枠付きパネルに置き換えて逆に読みにくくなるため。
+    re: /<(?:p|div)[^>]*className="[^"]*text-center[^"]*"[^>]*>\s*[^<>{]{0,40}(?:ありません|該当なし|見つかりません)/,
+    why: '一覧が空のときは `<EmptyState title=… description=… />` を使います'
+       + '（検索0件は `<NoSearchResults />`、権限が無いときは `<NoPermissionPanel />`）。'
+       + '「データがありません」で終わらせず、**何が無いのかと次にやること**を書いてください',
+  },
+  {
+    id: 'loading-by-hand',
+    // ページ全体を差し替える読み込み表示。Delayed を通さないと一瞬で点滅する
+    re: /if \s*\([^)]*\b(?:isLoading|isPending)\b[^)]*\)\s*(?:\{\s*)?return\b[^;]{0,200}animate-spin/,
+    why: 'ページ全体の読み込みは `<Delayed><SkeletonRows /></Delayed>` を使います'
+       + '（1秒未満はスピナーを出さない = 一瞬で返る取得で点滅させない。'
+       + ' 画面の骨格は出したまま中身だけ骨組みにする）',
+  },
+  {
     id: 'browser-dialog',
     // ブラウザ標準の alert() / confirm()。`.alert(` のようなメソッド呼び出しは除く
     re: /(?<![\w.$])(?:window\.)?(alert|confirm)\s*\(/,

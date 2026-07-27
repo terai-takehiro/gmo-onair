@@ -17,10 +17,11 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { Search, Loader2, Pencil, Database, X, AlertTriangle } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Row {
   id: string;

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Save } from 'lucide-react';
+import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 interface YoutubeUrl { label: string; url: string }
 interface LiveProgram {
@@ -77,9 +78,7 @@ export default function ProgramsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
-      </div>
+      <Delayed><SkeletonRows rows={5} /></Delayed>
     );
   }
 

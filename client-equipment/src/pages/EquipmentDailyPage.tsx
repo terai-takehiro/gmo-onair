@@ -11,17 +11,12 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
-import {
-  KpiCard,
-  SectionCard,
-  EmptyState,
-} from "@gmo-onair/shared/src/client/dashboard";
+import { KpiCard, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Package,
   ArrowRightLeft,
   Wrench,
   AlertTriangle,
-  Loader2,
   Plus,
   RefreshCw,
   ChevronRight,
@@ -34,6 +29,7 @@ import {
   Cable,
   Plug,
 } from "lucide-react";
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
@@ -88,9 +84,7 @@ export default function EquipmentDailyPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
-      </div>
+      <Delayed><SkeletonRows rows={6} /></Delayed>
     );
   }
 

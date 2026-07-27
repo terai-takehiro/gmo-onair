@@ -24,6 +24,7 @@ import { useRef } from "react";
 import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState, ErrorPanel, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 
 const COL_DEFS = [
   { key: "kind",              label: "種別",     default: true },
@@ -194,7 +195,7 @@ export default function ConnectorPage({ embedded }: { embedded?: boolean } = {})
     setColOrder(DEFAULT_COL_ORDER);
   };
 
-  const { data: connectorsRes, isLoading, error: listError } = useQuery({
+  const { data: connectorsRes, isLoading, error: listError, refetch } = useQuery({
     queryKey: ["equipment-connectors", filterKind, filterLoc, filterMfr, debouncedSearch],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -468,19 +469,17 @@ export default function ConnectorPage({ embedded }: { embedded?: boolean } = {})
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : listError ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Plug className="h-12 w-12 opacity-20" />
-          <p className="font-medium text-destructive">
-            {(listError as { response?: { status?: number } })?.response?.status === 403
-              ? "コネクタ管理へのアクセス権限がありません"
-              : "データの取得に失敗しました"}
-          </p>
-        </div>
+        (listError as { response?: { status?: number } })?.response?.status === 403 ? (
+          <NoPermissionPanel modules={['equipment']} target="コネクタの一覧" />
+        ) : (
+          <ErrorPanel title="コネクタの一覧を読み込めませんでした" error={listError} onRetry={() => refetch()} />
+        )
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Plug className="h-12 w-12 opacity-20" />
-          <p>コネクタが登録されていません</p>
-        </div>
+        <EmptyState
+          icon={<Plug />}
+          title="コネクタはまだ1つも登録されていません"
+          description="「新規追加」から、現場で使うコネクタの種類を登録してください。"
+        />
       ) : (
         <>
           {/* モバイル: カード */}

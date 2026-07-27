@@ -25,7 +25,6 @@ import ColumnChips from "@/components/editor/ColumnChips";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
 import type { CsvImportResult } from "@/lib/csvImport";
 import {
-  Loader2,
   Save,
   Radio,
   Clock,
@@ -41,6 +40,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 /**
  * セルに中身があるか (出す列の自動判定用)。
@@ -717,9 +717,7 @@ export default function EditorPage() {
 
   if (isLoading || !doc) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed><SkeletonCard lines={6} /></Delayed>
     );
   }
 

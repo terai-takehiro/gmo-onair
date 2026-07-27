@@ -16,10 +16,11 @@ import ColorPage from "@/pages/ColorPage";
 import RentalSettingsPage from "@/pages/RentalSettingsPage";
 import RentalCategoryPage from "@/pages/RentalCategoryPage";
 import { Loader2 } from "lucide-react";
+import { Delayed } from '@gmo-onair/shared/src/client/states';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <Delayed><div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Delayed>;
   if (!isAuthenticated) return <RedirectOnce to="/equipment/login" />;
   return <>{children}</>;
 }
@@ -28,7 +29,7 @@ export default function App() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <Delayed><div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Delayed>;
   }
 
   return (

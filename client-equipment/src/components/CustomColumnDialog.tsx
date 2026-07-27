@@ -98,7 +98,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">共有列（全員表示）</span>
             </div>
             {sharedCols.length === 0 && (
-              <p className="text-xs text-muted-foreground px-1">共有列はありません</p>
+              <p className="text-xs text-muted-foreground px-1">みんなで使う列はまだありません。下の欄から追加できます。</p>
             )}
             {sharedCols.map(col => (
               <ColRow
@@ -127,7 +127,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">個人列（自分のみ表示）</span>
             </div>
             {personalCols.length === 0 && (
-              <p className="text-xs text-muted-foreground px-1">個人列はありません</p>
+              <p className="text-xs text-muted-foreground px-1">自分だけの列はまだありません。下の欄から追加できます。</p>
             )}
             {personalCols.map(col => (
               <ColRow

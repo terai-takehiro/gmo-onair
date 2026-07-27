@@ -439,7 +439,8 @@ export default function OnAirPage() {
   if (!doc || cues.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
-        <p className="text-muted-foreground">キューデータがありません</p>
+        <p className="text-base font-bold">このQシートにはまだキューがありません</p>
+        <p className="text-sm text-muted-foreground">台本でロールと尺を入れると、ここで計時できます。</p>
         <button
           onClick={() => navigate(`/qsheet/editor/${id}`)}
           className="px-4 py-2 border border-border rounded text-sm hover:bg-accent"

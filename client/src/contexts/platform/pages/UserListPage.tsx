@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -20,8 +20,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, KeyRound, Copy, CheckCircle2, Wrench } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -118,11 +119,7 @@ export default function UserListPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <ShieldAlert className="h-16 w-16 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">権限がありません</h2>
-        <p className="text-muted-foreground">このページはシステム管理者のみアクセスできます</p>
-      </div>
+      <NoPermissionPanel modules={['admin']} level="manager" target="利用者の一覧" />
     );
   }
 
@@ -311,7 +308,6 @@ export default function UserListPage() {
           )}
         </DialogContent>
       </Dialog>
-
 
       {/* 権限修復 結果ダイアログ */}
       <Dialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen}>

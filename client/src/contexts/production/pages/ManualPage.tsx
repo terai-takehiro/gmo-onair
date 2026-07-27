@@ -17,7 +17,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { NoticeBar, setNotice } from "@gmo-onair/shared/src/client/ui/notice";
-import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   ArrowLeft, Printer, Sparkles, AlertTriangle, Check, Plus, X, Loader2, MapPin,

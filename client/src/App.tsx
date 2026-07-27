@@ -66,15 +66,18 @@ import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 import NotificationPrefsPage from "@/contexts/platform/pages/NotificationPrefsPage";
 import SlackDigestPage from "@/contexts/platform/pages/SlackDigestPage";
+import { Delayed } from '@gmo-onair/shared/src/client/states';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed>
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Delayed>
     );
   }
 
@@ -90,9 +93,11 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed>
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Delayed>
     );
   }
 

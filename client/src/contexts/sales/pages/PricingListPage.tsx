@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 // ---------- Category Dialog ----------
 
@@ -412,7 +413,10 @@ export default function PricingListPage() {
             </CardHeader>
             <CardContent>
               {(cat.items ?? []).length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">項目がありません</p>
+                <EmptyState
+                  title="この分類には項目がまだありません"
+                  description="「項目を追加」から、見積で選べる単価を登録してください。"
+                />
               ) : (
                 <>
                   {/* Mobile cards */}

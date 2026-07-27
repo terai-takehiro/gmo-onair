@@ -29,6 +29,7 @@ import {
   RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
 } from "@/lib/constants";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const sectionDisplay = (typeCode: string | null, section: string | null) => {
   const t = TYPE_CODES.find((c) => c.code === typeCode)?.label || "";
@@ -348,7 +349,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
     URL.revokeObjectURL(url);
   };
 
-  const { data: itemsData, isLoading, error: itemsError } = useQuery({
+  const { data: itemsData, isLoading, error: itemsError, refetch } = useQuery({
     queryKey: ["equipment-items", urlSearch, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -526,6 +527,12 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
   }, [customColumns.length]);
 
   // データ読み込み完了後にスクロール位置を復元
+  // 取得に失敗したときの技術的な中身は console に出す (画面には出さない・§2.5)
+  useEffect(() => {
+    if (!itemsError) return;
+    console.error('[equipment] 機材一覧の取得に失敗', itemsError);
+  }, [itemsError]);
+
   useEffect(() => {
     if (isLoading) return;
     const saved = sessionStorage.getItem('eq-list-scroll');
@@ -1109,7 +1116,11 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   <span className="truncate">{loc.name || loc.location_detail}</span>
                 </label>
               ))}
-              {locations.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">設置場所がありません</p>}
+              {locations.length === 0 && (
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              設置場所がまだ登録されていません。設定の「設置場所」から追加してください。
+            </p>
+          )}
             </div>
           )}
         </div>
@@ -1158,25 +1169,21 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        <Delayed><SkeletonRows rows={8} /></Delayed>
       ) : itemsError ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Package className="h-12 w-12 opacity-20" />
-          <p className="font-medium text-destructive">
-            {(itemsError as any)?.response?.status === 403
-              ? '機材管理へのアクセス権限がありません。管理者に権限付与を依頼してください。'
-              : 'データの取得に失敗しました。ページを再読み込みしてください。'}
-          </p>
-          {(itemsError as any)?.response?.data?.error?.debug && (
-            <pre className="text-xs bg-muted/50 rounded p-3 max-w-xl overflow-auto">
-              {JSON.stringify((itemsError as any).response.data.error.debug, null, 2)}
-            </pre>
-          )}
-        </div>
+        // 技術的な中身 (debug) は画面に出さず console に留める (§2.5)。
+        // 以前はサーバーが返す debug の JSON をそのまま画面に貼っていた。
+        (itemsError as { response?: { status?: number } })?.response?.status === 403 ? (
+          <NoPermissionPanel modules={['equipment']} target="機材の一覧" />
+        ) : (
+          <ErrorPanel title="機材の一覧を読み込めませんでした" error={itemsError} onRetry={() => refetch()} />
+        )
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Package className="h-12 w-12 opacity-20" /><p>機材が登録されていません</p>
-        </div>
+        <EmptyState
+          icon={<Package />}
+          title="機材はまだ1点も登録されていません"
+          description="「新規登録」から1点ずつ、または「Excel取込」でまとめて登録できます。"
+        />
       ) : (
         <>
           {/* ── モバイル カードビュー (md未満) ── */}

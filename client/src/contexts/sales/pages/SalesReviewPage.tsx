@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardHeader, KpiCard, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, KpiCard } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Table,
   TableBody,
@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { OPPORTUNITY_STAGES, ProjectStageLabels } from "@/types";
 import { StatValue } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const now = new Date();
 const currentYear = now.getFullYear();

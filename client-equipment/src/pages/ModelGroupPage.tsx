@@ -19,6 +19,7 @@ import {
 import { TYPE_CODES, CONDITION_LABELS } from "@/lib/constants";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const STATUS_LABELS: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "休止", disposed: "廃棄", lost: "紛失",
@@ -162,9 +163,12 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
         {/* リスト */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
-            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+            <Delayed><SkeletonRows rows={4} /></Delayed>
           ) : categories.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-6">カテゴリがありません</p>
+            <EmptyState
+              title="カテゴリはまだ1つもありません"
+              description="「カテゴリを追加」から作ると、機材をまとめて分類できます。"
+            />
           ) : (
             <div className="space-y-1">
               {categories.map((cat, idx) => (

@@ -1,4 +1,4 @@
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Download, Loader2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface VendorSummaryItem {
   vendor_id: string;

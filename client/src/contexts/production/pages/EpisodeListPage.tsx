@@ -2,8 +2,8 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Project } from "@/types";
-import { Loader2 } from "lucide-react";
 import BusinessProjectView from "../components/episodes/BusinessProjectView";
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 export default function EpisodeListPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -16,15 +16,16 @@ export default function EpisodeListPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed><SkeletonRows rows={5} /></Delayed>
     );
   }
 
   if (!project) {
     return (
-      <div className="p-6 text-center text-muted-foreground">案件が見つかりません</div>
+      <EmptyState
+        title="この案件は見つかりませんでした"
+        description="削除された可能性があります。案件一覧から選び直してください。"
+      />
     );
   }
 

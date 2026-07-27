@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState, NoPermissionPanel } from "@gmo-onair/shared/src/client/states";
+import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksTab, DelegationsTab, IntakeLogTab, TeamTab } from "./MyTasksPanels";

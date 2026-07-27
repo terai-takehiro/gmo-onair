@@ -7,10 +7,11 @@ import DashboardPage from "@/pages/DashboardPage";
 import EditorPage from "@/pages/EditorPage";
 import PrintPage from "@/pages/PrintPage";
 import { Loader2 } from "lucide-react";
+import { Delayed } from '@gmo-onair/shared/src/client/states';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <Delayed><div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Delayed>;
   if (!isAuthenticated) return <RedirectOnce to="/techsheet/login" />;
   return <>{children}</>;
 }
@@ -19,7 +20,7 @@ export default function App() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <Delayed><div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></Delayed>;
   }
 
   return (

@@ -6,11 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  KpiCard,
-  SectionCard,
-  EmptyState,
-} from "@gmo-onair/shared/src/client/dashboard";
+import { KpiCard, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
 import api from "@/lib/api";
 import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
@@ -59,6 +55,7 @@ import {
   CalendarClock,
   Check,
 } from "lucide-react";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,

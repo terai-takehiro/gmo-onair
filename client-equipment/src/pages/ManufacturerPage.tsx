@@ -3,7 +3,7 @@
  * useCrudPage / EmptyState の shared プリミティブを使用。
  */
 import { useEffect, useState } from "react";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, Plus, Pencil, Trash2, Building2, Phone, Mail, MapPin, User } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Manufacturer {
   id: string;

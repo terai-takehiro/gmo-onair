@@ -3,7 +3,7 @@
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  * 列リサイズ + ダイアログ内の多数の useState フィールドは既存のまま維持。
  */
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -57,6 +57,7 @@ import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";

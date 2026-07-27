@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader } from "@gmo-onair/shared/src/client/dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import {
   FileText,
@@ -45,6 +45,7 @@ import {
   Check,
   Lock,
 } from "lucide-react";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // Types
@@ -384,7 +385,7 @@ function ShareDialog({
           </div>
           <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border">
             {filtered.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">ユーザーが見つかりません</p>
+              <p className="p-4 text-sm text-muted-foreground text-center">当てはまる人がいません。名前の一部で探してみてください。</p>
             ) : (
               filtered.map((u) => {
                 const on = selected.has(u.id);

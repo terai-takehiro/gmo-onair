@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
 import { activeRailKey, resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
 import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
-import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SALES_MANUAL } from "@/manual/content";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";

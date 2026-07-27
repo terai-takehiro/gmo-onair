@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import {
   HardDrive, Copy, Check, AlertTriangle, Loader2, Database, Clock,
 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 
 interface BackupFile {
   id: string;
@@ -86,10 +87,7 @@ export default function DbBackupsPage() {
     return (
       <PageTransition>
         <div className="p-6">
-          <EmptyState
-            title="アクセス権限がありません"
-            description="DB バックアップ管理は system_admin ロールのみ閲覧できます。"
-          />
+          <NoPermissionPanel modules={['admin']} level="manager" target="DB バックアップの一覧" />
         </div>
       </PageTransition>
     );

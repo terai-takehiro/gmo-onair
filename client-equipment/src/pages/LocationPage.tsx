@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { useCrudPage } from "@/hooks/useCrudPage";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 import { Loader2, Plus, MapPin, Pencil, Trash2, Server, Settings } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Location {
   id: string;

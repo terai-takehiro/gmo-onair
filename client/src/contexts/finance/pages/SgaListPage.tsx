@@ -3,7 +3,7 @@
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  * 列リサイズ + SgaDialog (別ファイル) は既存のまま維持。
  */
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -43,6 +43,7 @@ import SgaDialog, {
 } from "../components/SgaDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 export default function SgaListPage() {
   const { currentUser } = useAuth();

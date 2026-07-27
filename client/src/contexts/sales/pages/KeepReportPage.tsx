@@ -23,6 +23,7 @@ import {
   CalendarDays, TrendingUp, FileText, Users,
 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // 型
@@ -110,7 +111,10 @@ function EventReportsTab() {
           )}
 
           {reports.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">イベント実施報告がまだありません。上の候補から作成してください。</p>
+            <EmptyState
+              title="イベント実施報告はまだ1件もありません"
+              description="上の候補から選ぶと、その案件の実施報告を作れます。"
+            />
           ) : (
             <div className="space-y-2">
               {reports.map((r) => (
@@ -487,9 +491,12 @@ function MinutesTab() {
         </Button>
       </div>
       {isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : list.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">議事録がまだありません。</p>
+        <EmptyState
+          title="議事録はまだ1件もありません"
+          description="「議事録を作る」から、隔週キープで話したことを残してください。"
+        />
       ) : (
         <div className="space-y-2">
           {list.map((m) => (

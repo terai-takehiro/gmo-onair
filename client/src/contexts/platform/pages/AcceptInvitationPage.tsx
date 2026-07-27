@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertCircle, CheckCircle2, Lock } from "lucide-react";
+import { Delayed } from '@gmo-onair/shared/src/client/states';
 
 export default function AcceptInvitationPage() {
   const [searchParams] = useSearchParams();
@@ -43,9 +44,11 @@ export default function AcceptInvitationPage() {
   };
 
   if (isLoading) return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
+    <Delayed>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    </Delayed>
   );
 
   if (fetchError || !invitation) return (

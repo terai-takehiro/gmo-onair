@@ -18,6 +18,7 @@ import {
   useLendCard, useReturnCard, useUpdateCard, todayStr, fmtMd,
   type SecurityCard, type Lending, type LendInput,
 } from '@/lib/securityCardApi';
+import { Delayed, EmptyState, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const STUDIO_LABEL = 'GMOサムライスタジオ用賀';
 
@@ -382,7 +383,7 @@ function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit:
               {history.isLoading ? (
                 <div className="py-4 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></div>
               ) : (history.data ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">まだ貸出履歴はありません</p>
+                <p className="text-xs text-muted-foreground py-2">このカードはまだ貸し出されていません。</p>
               ) : (
                 <ul className="space-y-1.5">
                   {(history.data ?? []).map((h) => (
@@ -476,9 +477,12 @@ function HistoryTab() {
         ))}
       </div>
       {lendings.isLoading ? (
-        <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
+        <Delayed><SkeletonRows rows={3} /></Delayed>
       ) : rows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">履歴はありません</p>
+        <EmptyState
+          title="貸出の履歴はまだありません"
+          description="カードを貸し出すと、誰にいつ渡して いつ返ってきたかがここに並びます。"
+        />
       ) : (
         <div className="space-y-2">
           {rows.map((h: Lending) => (
@@ -588,9 +592,9 @@ export default function SecurityCardsPage() {
           </div>
 
           {cardsQuery.isLoading ? (
-            <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></div>
+            <Delayed><SkeletonRows rows={4} /></Delayed>
           ) : filtered.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">該当するカードがありません</p>
+            <NoSearchResults keyword={search || undefined} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filtered.map((c) => (

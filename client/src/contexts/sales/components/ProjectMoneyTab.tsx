@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
-import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { List, Printer, ShoppingCart, Calculator, Sparkles, AlertTriangle } from "lucide-react";
 
 interface MoneyRow { key: string; label: string; value: number; note: string }

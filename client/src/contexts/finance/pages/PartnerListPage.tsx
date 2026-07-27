@@ -4,7 +4,7 @@
  */
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
@@ -18,6 +18,7 @@ import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Partner {
   id: string;

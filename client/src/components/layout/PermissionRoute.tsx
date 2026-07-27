@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { NoPermissionPanel } from "@gmo-onair/shared/src/client/states";
+import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 
 interface Props {
   /** 単一モジュール指定 (従来)。anyOf 指定時は省略可 */

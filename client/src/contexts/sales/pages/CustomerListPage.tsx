@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { EmptyState, ErrorPanel, Delayed, SkeletonRows } from "@gmo-onair/shared/src/client/states";
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";

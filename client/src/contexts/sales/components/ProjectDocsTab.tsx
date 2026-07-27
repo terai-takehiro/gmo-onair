@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 interface DocItem {
   key: string;

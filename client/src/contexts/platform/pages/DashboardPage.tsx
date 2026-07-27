@@ -8,14 +8,7 @@ import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { manYen } from "@gmo-onair/shared/src/client/ui";
 import { PageTransition } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
-import {
-  DashboardHeader,
-  KpiCard,
-  SectionCard,
-  EmptyState,
-  chartColors,
-  chartDefaults,
-} from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, KpiCard, SectionCard, chartColors, chartDefaults } from "@gmo-onair/shared/src/client/dashboard";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Line, ComposedChart, Cell,
@@ -31,6 +24,7 @@ import {
   Loader2,
   ClipboardList,
 } from "lucide-react";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface KPI {
   period_label: string;

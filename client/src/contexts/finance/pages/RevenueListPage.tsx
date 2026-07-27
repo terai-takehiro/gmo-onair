@@ -13,7 +13,7 @@ import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/li
 import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { PageTransition } from "@/components/ui/motion";
@@ -51,6 +51,7 @@ import DiscountDialog, { type DiscountResult } from "../components/DiscountDialo
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError } from '@/lib/notify';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 type SortKey = "billing_key" | "gls_number" | "project_name" | "customer_name" | "tax_category" | "amount" | "recognition_date";
 type SortDir = "asc" | "desc";

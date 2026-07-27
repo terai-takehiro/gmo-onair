@@ -35,9 +35,10 @@ import {
   Link2,
   Printer,
 } from "lucide-react";
-import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader } from "@gmo-onair/shared/src/client/dashboard";
 import { TECHSHEET_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface TechsheetDocument {
   id: string;

@@ -4,7 +4,7 @@
  * pagination/search なし (マスター全件表示) のため Pagination/FilterBar は省略。
  */
 import { useEffect, useState } from "react";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 import { Loader2, Plus, Palette, Pencil, Trash2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Color {
   id: string;

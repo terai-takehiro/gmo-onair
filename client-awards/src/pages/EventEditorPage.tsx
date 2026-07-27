@@ -21,6 +21,7 @@ import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import SoundConfigSection from '../components/SoundConfigSection';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError, notifyInfo } from '@/lib/notify';
+import { Delayed, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -520,9 +521,7 @@ export default function EventEditorPage() {
 
   if (isLoading || !event) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
+      <Delayed><SkeletonCard lines={6} /></Delayed>
     );
   }
 
@@ -1152,7 +1151,9 @@ function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, on
             </div>
           )}
           {cat.entries.length === 0 && !addingEntry && (
-            <p className="py-3 text-center text-xs text-muted-foreground/50">エントリがありません</p>
+            <p className="py-3 text-center text-xs text-muted-foreground">
+                この部門の受賞者はまだ入っていません。「Excel取込」か「貼り付け」で入れられます。
+              </p>
           )}
           {cat.entries.map((entry) => (
             <EntryRow key={entry.id} entry={entry}

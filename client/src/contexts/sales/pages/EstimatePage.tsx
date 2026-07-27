@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { NoticeBar, setNotice, clearNotice } from "@gmo-onair/shared/src/client/ui/notice";
-import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import PricingPickerDialog, { type PickedPricingRow } from "../components/estimate/PricingPickerDialog";
 import {

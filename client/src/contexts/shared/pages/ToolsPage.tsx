@@ -18,8 +18,8 @@ import {
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DashboardHeader, SectionCard, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { DashboardHeader, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";

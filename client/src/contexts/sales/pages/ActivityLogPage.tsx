@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 // v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
 function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
@@ -338,9 +339,12 @@ export default function ActivityLogPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-8">読み込み中...</div>
+            <Delayed><SkeletonRows rows={5} /></Delayed>
           ) : logs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">活動記録がありません</div>
+            <EmptyState
+              title="活動記録はまだ1件もありません"
+              description="「活動を記録」から、訪問・電話・メールのやり取りを残してください。次回の予定も一緒に入れられます。"
+            />
           ) : (
             <>
               {/* Mobile cards — 活動日でグルーピングし、カードは「件名 → 案件/顧客 → 次回」の順に整理。

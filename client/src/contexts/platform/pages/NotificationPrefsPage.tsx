@@ -11,7 +11,7 @@ import api from "@/lib/api";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface Prefs {

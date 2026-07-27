@@ -18,7 +18,7 @@ import {
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@gmo-onair/shared/src/client/dashboard";
-import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
 import { useAuth, MODULE_LABELS } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw, Clock } from 'lucide-react';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyError, notifySuccess } from '@/lib/notify';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface AwardsEvent {
   id: number;
@@ -338,11 +339,11 @@ export default function DashboardPage() {
           <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : !data?.length ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Tv className="h-12 w-12 text-muted-foreground/30 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">イベントがありません</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">「新規イベント」から作成してください</p>
-        </div>
+        <EmptyState
+          icon={<Tv />}
+          title="イベントはまだ1件も作られていません"
+          description="「新規イベント」から作ると、部門・受賞者・送出の画面が使えるようになります。"
+        />
       ) : (
         <div className="space-y-2">
           {data.map((event) => {

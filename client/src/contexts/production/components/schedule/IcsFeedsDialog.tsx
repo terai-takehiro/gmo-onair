@@ -365,7 +365,9 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           {isLoading ? (
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : feeds.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
+            <p className="text-sm text-muted-foreground py-2">
+              連携しているカレンダーはまだありません。下の欄に ICS の URL を入れると、予定を取り込めます。
+            </p>
           ) : (
             feeds.map((f) => (
               <div key={f.id} className="rounded-lg border p-3 space-y-1">

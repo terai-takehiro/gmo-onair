@@ -44,7 +44,7 @@ import {
   BOOKING_TYPE_COLORS, BOOKING_TYPE_LABELS,
   type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
-import { EmptyState } from "@gmo-onair/shared/src/client/states";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface StudioRoom {

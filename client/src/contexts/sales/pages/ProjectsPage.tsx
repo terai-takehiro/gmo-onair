@@ -18,7 +18,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, Info, Sparkles, ChevronRight, CalendarClock, AlertTriangle,

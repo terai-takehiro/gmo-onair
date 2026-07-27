@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   relativeTime,
 } from "@/lib/aiFeed";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const DAY_OPTIONS = [7, 14, 30, 90] as const;
 const PAGE_SIZE = 30;

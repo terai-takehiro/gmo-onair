@@ -24,6 +24,7 @@ import { useRef } from "react";
 import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const COL_DEFS = [
   { key: "kind",              label: "種別",     default: true  },
@@ -199,7 +200,7 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
     setColOrder(DEFAULT_COL_ORDER);
   };
 
-  const { data: cablesRes, isLoading, error: listError } = useQuery({
+  const { data: cablesRes, isLoading, error: listError, refetch } = useQuery({
     queryKey: ["equipment-cables", filterKind, filterLoc, filterMfr, debouncedSearch],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -479,21 +480,19 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : listError ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Cable className="h-12 w-12 opacity-20" />
-          <p className="font-medium text-destructive">
-            {(listError as { response?: { status?: number } })?.response?.status === 403
-              ? "ケーブル管理へのアクセス権限がありません"
-              : "データの取得に失敗しました"}
-          </p>
-        </div>
+        (listError as { response?: { status?: number } })?.response?.status === 403 ? (
+          <NoPermissionPanel modules={['equipment']} target="ケーブルの一覧" />
+        ) : (
+          <ErrorPanel title="ケーブルの一覧を読み込めませんでした" error={listError} onRetry={() => refetch()} />
+        )
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Cable className="h-12 w-12 opacity-20" />
-          <p>ケーブルが登録されていません</p>
-        </div>
+        <EmptyState
+          icon={<Cable />}
+          title="ケーブルはまだ1本も登録されていません"
+          description="「新規追加」から、よく使うケーブルを登録してください。長さ・コネクタを入れておくと現場で探しやすくなります。"
+        />
       ) : (
         <>
           {/* モバイル: カード */}

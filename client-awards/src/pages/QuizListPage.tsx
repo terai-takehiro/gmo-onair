@@ -18,6 +18,7 @@ import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
 import QuizInteractiveSync, { type IaQuestion } from '@/quiz/QuizInteractiveSync';
 import type { CgCategory } from '@/cg/types';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface AwardsEventDetail {
   id: number; name: string;
@@ -334,7 +335,10 @@ function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[
             送出名は送出 UI に表示する名前（空ならタイトルを表示）。
           </p>
           {ordered.length === 0 ? (
-            <div className="text-center py-6 text-sm text-muted-foreground">問題がありません</div>
+            <EmptyState
+              title="問題はまだ1問もありません"
+              description="「問題を追加」から作ると、ここで送出の順番を並べ替えられます。"
+            />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={order.map(String)} strategy={verticalListSortingStrategy}>

@@ -1134,7 +1134,9 @@ function GroupFormDialog({ open, onClose, glsProjects, name, setName, desc, setD
             <Label>所属案件 *</Label>
             <div className="max-h-72 overflow-y-auto rounded border p-2 space-y-1.5 mt-1">
               {glsProjects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">GLS発番済み案件がありません</p>
+                <p className="text-sm text-muted-foreground">
+                  選べる案件がありません。グループに入れられるのは <strong>GLS 番号が付いた案件</strong>だけです。
+                </p>
               ) : (
                 glsProjects.map((p) => (
                   <ToggleCard

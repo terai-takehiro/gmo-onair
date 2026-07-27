@@ -18,7 +18,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ErrorPanel, EmptyState } from "@gmo-onair/shared/src/client/states";
+import { EmptyState, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface BlockDef { key: string; label: string; hint: string; money?: boolean }

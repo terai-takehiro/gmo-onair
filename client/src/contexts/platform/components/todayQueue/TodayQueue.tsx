@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { cn } from "@/lib/utils";
-import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
+import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import {
   DOC_TYPE_LABELS, FD_STATUS_LABELS, KIND_BADGE_CLASS, KIND_CTA, KIND_LABELS,
   elapsedHours, formatElapsed, str, yen,

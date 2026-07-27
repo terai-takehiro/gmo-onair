@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
@@ -27,6 +27,7 @@ import {
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, Building2, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 type RoleFilter = "all" | "customer" | "vendor" | "sga_payee" | "both" | "other";
 
@@ -91,7 +92,10 @@ function CompanySummaryDialog({ open, onOpenChange, company }: {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground py-4 text-center">データがありません</p>
+          <EmptyState
+            title="この会社に紐づく案件はまだありません"
+            description="案件を作るときにこの会社をお客様に選ぶと、ここに並びます。"
+          />
         )}
       </DialogContent>
     </Dialog>

@@ -16,6 +16,7 @@ import {
   formatWeekJa, formatDateJa, formatYen, type OpsReportItem,
 } from '@/lib/types';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 interface StatsShape {
   period?: { week_start: string; week_end: string };
@@ -38,9 +39,7 @@ export default function WeeklyDetailPage() {
 
   if (isLoading || !report) {
     return (
-      <div className="flex justify-center py-16">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
+      <Delayed><SkeletonCard lines={5} /></Delayed>
     );
   }
 
@@ -116,7 +115,10 @@ export default function WeeklyDetailPage() {
               <ReactMarkdown>{report.body}</ReactMarkdown>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">AI 本文はまだありません</p>
+            <EmptyState
+              title="AI の本文はまだ作られていません"
+              description="週次レポートの定期実行を待つか、「先週のレポートを作る」から作成してください。"
+            />
           )}
         </CardContent>
       </Card>
@@ -273,7 +275,10 @@ function TopicsSection({ items, reportId, editable }: { items: OpsReportItem[]; 
     <Card>
       <CardContent className="p-0">
         {items.length === 0 && !adding && (
-          <p className="text-sm text-muted-foreground text-center py-8">トピックはまだありません</p>
+          <EmptyState
+            title="トピックはまだ1件もありません"
+            description="「トピックを追加」から、その週に共有したいことを書いてください。"
+          />
         )}
         {items.length > 0 && (
           <div className="divide-y">

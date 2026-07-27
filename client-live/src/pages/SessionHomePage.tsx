@@ -11,8 +11,9 @@ import {
   Youtube, Globe, Link2, Unlink, Trash2, Loader2,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
-import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface LiveProgram {
   id: string;
@@ -281,7 +282,7 @@ export default function SessionHomePage() {
                   </div>
                   <div className="max-h-40 overflow-y-auto rounded-md border border-border">
                     {filteredProjects.length === 0 ? (
-                      <div className="py-6 text-center text-xs text-muted-foreground">案件が見つかりません</div>
+                      <div className="py-6 text-center text-xs text-muted-foreground">当てはまる案件がありません。言葉を短くしてお試しください。</div> /* ui-tokens-ok: 高さ40の選択リストの中なので EmptyState の枠付きパネルは入らない */
                     ) : filteredProjects.map(p => (
                       <button
                         key={p.id}

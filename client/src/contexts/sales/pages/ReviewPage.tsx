@@ -16,7 +16,7 @@ import {
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { DashboardHeader, KpiCard, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
-import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import KeepReportPage from "./KeepReportPage";
 import SalesReviewPage from "./SalesReviewPage";
 import { cn } from "@/lib/utils";

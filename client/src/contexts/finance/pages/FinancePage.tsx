@@ -20,16 +20,13 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  DashboardHeader,
-  SectionCard,
-  EmptyState,
-} from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
 import { cn } from "@/lib/utils";
 import {
   Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign,
   Printer, LayoutGrid, Columns3, Upload, CalendarCheck, FileText, Users,
 } from "lucide-react";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface MonthlySummary {
   month: string;

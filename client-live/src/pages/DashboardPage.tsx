@@ -10,7 +10,8 @@ import ViewerCard from '@/components/viewer/ViewerCard';
 import ViewerChart from '@/components/viewer/ViewerChart';
 import { Button } from '@/components/ui/button';
 import { Play, Square, ExternalLink, AlertCircle, Timer } from 'lucide-react';
-import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface TimerData { id: string; name: string; phase: string }
 interface Snapshot {

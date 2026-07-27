@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { ErrorPanel, SkeletonCard, EmptyState } from "@gmo-onair/shared/src/client/states";
+import { EmptyState, ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { CalendarDays, Plus, AlertTriangle, DoorOpen, Table2, BookOpen } from "lucide-react";
 
 interface Booking {

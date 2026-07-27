@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface StudioRoom {
   id: string;
@@ -266,12 +267,18 @@ export default function KoubanView({
 
       {/* Timetable grid */}
       {filteredRooms.length === 0 && activeTab !== "other" ? (
-        <p className="text-center text-muted-foreground py-8">このロケーションにはスタジオがありません</p>
+        <EmptyState
+          title="このロケーションにスタジオが登録されていません"
+          description="設定の「スタジオ・部屋」から部屋を登録すると、香盤表に列が出ます。"
+        />
       ) : activeTab === "other" && filteredRooms.length === 0 ? (
         /* "Other" tab: show external bookings as list */
         <div className="space-y-2">
           {otherBookings.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">外現場の予約はありません</p>
+            <EmptyState
+            title="この日の外現場の予約はありません"
+            description="スタジオ以外の現場を押さえると、ここに並びます。"
+          />
           ) : (
             otherBookings.map((b) => (
               <div

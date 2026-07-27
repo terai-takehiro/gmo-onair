@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Loader2, AlertTriangle, Users } from "lucide-react";
+import { AlertTriangle, Users } from "lucide-react";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import ViewToggle, { type TaskView } from "../components/ViewToggle";
 import EpisodeScopeToggle from "../components/EpisodeScopeToggle";
@@ -11,6 +11,7 @@ import TaskListView from "../components/TaskListView/TaskListView";
 import GanttView from "../components/GanttView/GanttView";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { getProjectCategory, type Project } from "@/types";
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 interface ProjectMember {
   id: string;
@@ -116,14 +117,17 @@ export default function ProjectTasksPage({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed><SkeletonRows rows={5} /></Delayed>
     );
   }
 
   if (!project || !projectId) {
-    return <div className="p-6 text-center text-muted-foreground">案件が見つかりません</div>;
+    return (
+      <EmptyState
+        title="この案件は見つかりませんでした"
+        description="削除された可能性があります。案件一覧から選び直してください。"
+      />
+    );
   }
 
   const isGlsA = getProjectCategory(project.project_type) === "A" && project.gls_category !== "B";

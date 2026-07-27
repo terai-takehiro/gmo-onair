@@ -19,7 +19,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NoticeBar, setNotice } from "@gmo-onair/shared/src/client/ui/notice";
-import { ErrorPanel, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   Check, Pencil, Plus, X, Loader2, Printer, Sparkles, CircleAlert, Presentation,

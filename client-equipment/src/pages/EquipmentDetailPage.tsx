@@ -28,6 +28,7 @@ import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, STATUS_OPTIONS, CONDITION_OPTIONS, TYPE_LABELS, SECTION_LABELS,
 } from "@/lib/constants";
+import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 // EQUIPMENT_STATUS / EQUIPMENT_CONDITION / MAINTENANCE_STATUS / MAINTENANCE_TYPE を使用。
@@ -296,15 +297,16 @@ export default function EquipmentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Delayed><SkeletonCard lines={6} /></Delayed>
     );
   }
 
   if (!data) {
     return (
-      <div className="p-6 text-center text-muted-foreground">機材が見つかりません</div>
+      <EmptyState
+        title="この機材は見つかりませんでした"
+        description="削除された可能性があります。機材一覧から選び直してください。"
+      />
     );
   }
 
@@ -1070,7 +1072,7 @@ function SearchableSelect({ value, onChange, items, placeholder }: {
           </div>
           <div className="max-h-52 overflow-y-auto">
             {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">見つかりません</div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">当てはまるものがありません。言葉を短くしてお試しください。</div>
             ) : (
               filtered.map((it) => (
                 <button
