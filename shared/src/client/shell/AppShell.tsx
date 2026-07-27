@@ -189,7 +189,13 @@ export default function AppShell({
 
         <main
           className={cn(
-            'min-w-0 flex-1 overflow-y-auto',
+            // overflow-y だけ指定すると (overflow-x が既定の visible のままだと)
+            // CSS の仕様で overflow-x も暗黙に auto 扱いになり、中の要素が画面幅を
+            // 超えた瞬間にこの <main> ごと横スクロール可能になってしまう
+            // (例: FullCalendar の日表示が幅を超える → スマホでスワイプすると
+            // ページ全体が左にずれ、見出し・凡例まで巻き込んで文字が欠けて見える)。
+            // overflow-x-hidden を明示して横スクロールの入口自体を塞ぐ。
+            'min-w-0 flex-1 overflow-x-hidden overflow-y-auto',
             // スマホは下タブに隠れないよう底上げ
             'pb-[calc(58px+env(safe-area-inset-bottom))] lg:pb-0',
             padMain && 'px-4 py-4 sm:px-8 sm:py-[26px]',
