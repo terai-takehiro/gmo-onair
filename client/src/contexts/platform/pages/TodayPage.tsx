@@ -19,7 +19,7 @@ import {
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
-import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
+import { AiActionBox } from "@/contexts/tasks/components/AiActionBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
 import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue";
 import { type InboxData } from "@/contexts/platform/components/todayQueue/types";
@@ -196,7 +196,7 @@ export default function TodayPage() {
              イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
              投げるのは1秒で終わる行為なので最上部に置く。
              奥に置くと「あとでいいか」になり、口頭のまま消える元の状態に戻る。 */}
-        {canSeeDailyops && <TaskIntakeBox />}
+        {canSeeDailyops && <AiActionBox />}
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ── 左: 今日やること ── */}

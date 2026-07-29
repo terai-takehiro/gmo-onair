@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
+import { AiActionBox } from "@/contexts/tasks/components/AiActionBox";
 import { MyTasksTab, DelegationsTab, IntakeLogTab, TeamTab } from "./MyTasksPanels";
 import TaskDashboardPage from "./TaskDashboardPage";
 import ProjectTasksPage from "./ProjectTasksPage";
@@ -173,7 +173,7 @@ export default function TasksPage() {
                 <MyTasksTab view={view === "board" ? "board" : "list"} onViewChange={(v) => set({ view: v })} />
               </div>
               <div className="min-w-0 space-y-4">
-                <TaskIntakeBox />
+                <AiActionBox />
                 <IntakeLogPanel />
               </div>
             </div>

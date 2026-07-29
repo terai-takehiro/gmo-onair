@@ -44,7 +44,8 @@ import ProjectScheduleTab from "../components/ProjectScheduleTab";
 import ProjectDocsTab from "../components/ProjectDocsTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError, notifySuccess } from '@/lib/notify';
+import { notifyApiError, notifyError, notifySuccess } from '@/lib/notify';
+import StageAskDialog from '../components/StageAskDialog';
 
 import JourneyPanel from './projectForm/JourneyPanel';
 import ActivityQuickAdd from './projectForm/ActivityQuickAdd';
@@ -169,6 +170,14 @@ export default function ProjectFormPage() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [stageSelectValue, setStageSelectValue] = useState("");
   const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
+  /**
+   * 進んだ段で聞く (14章 27c)。案件の一覧 (ボード) は前から `/stage-ask` を見て
+   * 足りない項目をその場で聞いていたが、**この画面だけ聞かずに送っていた**ため
+   * 仮押さえ・見積提案・受注はサーバーの必須チェックで必ず 400 になっていた。
+   * 同じ部品 (StageAskDialog) を通して聞くようにする。
+   */
+  const [stageAsk, setStageAsk] = useState<ProjectStage | null>(null);
+  const [stageAskLoading, setStageAskLoading] = useState(false);
 
   // スタジオスケジュール
   const [scheduleRoomIds, setScheduleRoomIds] = useState<string[]>([]);
@@ -385,6 +394,10 @@ export default function ProjectFormPage() {
         setHoldPromptOpen(true);
       }
     },
+    // **必ず出す。** サーバーは「仮押さえに進めるには 本番日 と 使用する部屋 が要ります」
+    // のように何が足りないかを日本語で返すが、ここが無いあいだは画面に何も出ず
+    // 「押しても変わらない」ように見えていた (ステージが変えられないという報告の実体)。
+    onError: (err: unknown) => notifyApiError("ステージの変更", err),
   });
 
   // GLS番号付き案件一覧（リンク先選択用）
@@ -405,6 +418,9 @@ export default function ProjectFormPage() {
       setGlsDialog({ ...glsDialog, open: false });
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
     },
+    // 発番はお試し案件では止まる / 分類未設定でも止まる。理由を出さないと
+    // 「押しても何も起きない」に見えるので必ず出す
+    onError: (err: unknown) => notifyApiError("GLS の発番", err),
   });
 
   const linkGlsMutation = useMutation({
@@ -417,6 +433,7 @@ export default function ProjectFormPage() {
       setGlsDialog({ ...glsDialog, open: false });
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
     },
+    onError: (err: unknown) => notifyApiError("既存GLSへの紐づけ", err),
   });
 
   // 発番済み案件を別 GLS のエピソードへ紐づけ直す
@@ -462,6 +479,32 @@ export default function ProjectFormPage() {
   const handleCreateBoxFolder = async () => {
     if (!(await confirmAction({ title: "BOX に案件フォルダを作成しますか？" }))) return;
     createBoxFolderMutation.mutate();
+  };
+
+  /**
+   * ステージを動かす。**聞くことがあるなら先に聞く。**
+   *
+   * 足りない必須項目 (仮押さえ = 日付と部屋 / 見積提案 = 想定金額 / 受注 = 申込書) は
+   * サーバー 1 か所 (`GET /projects/:id/stage-ask`) が決めているので、それを見て
+   * 足りていれば確認だけ、足りなければ StageAskDialog でその場で 1〜2 問聞く。
+   * 取得に失敗しても進める (サーバー側で必須は止まり、その理由は onError が出す)。
+   */
+  const goStage = async (st: ProjectStage) => {
+    if (!id) return;
+    setStageAskLoading(true);
+    try {
+      const res = await api.get(`/projects/${id}/stage-ask`, { params: { to: st } });
+      if ((res.data?.data?.missing ?? []).length > 0) {
+        setStageAsk(st);
+        return;
+      }
+    } catch {
+      // 聞く項目が取れなくても操作は止めない
+    } finally {
+      setStageAskLoading(false);
+    }
+    setStageSelectValue(st);
+    setStageConfirmOpen(true);
   };
 
   const handleGlsConfirm = () => {
@@ -710,8 +753,8 @@ export default function ProjectFormPage() {
         <JourneyPanel
           currentStage={currentStage}
           project={project}
-          disabled={stageMutation.isPending}
-          onGoStage={(st) => { setStageSelectValue(st); setStageConfirmOpen(true); }}
+          disabled={stageMutation.isPending || stageAskLoading}
+          onGoStage={(st) => { void goStage(st); }}
           onOpenLost={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })}
         />
       )}
@@ -1053,6 +1096,36 @@ export default function ProjectFormPage() {
               onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               見積をつくる
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/*
+        GLS発番 (未発番の案件だけ)。
+        v2.9.258 で案件ワークスペースを組み替えたときに**この入口だけが落ちていた**。
+        ダイアログ (GlsIssueDialog) と発番の処理は残っていたが、`glsDialog.open` を
+        true にする箇所がどこにも無く、画面から発番できない状態が続いていた。
+      */}
+      {isEdit && isYomi && !isTerminal && (
+        <Card className="border-success/30 bg-success-surface">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+              <div>
+                <span className="font-medium">GLS発番</span>
+                <p className="text-xs text-secondary-foreground">
+                  受注が固まったらここで番号を出します。概算見積は確定売上に変わり、
+                  ステージは「口頭決定」まで自動で上がります。既存の番組に回を足すこともできます。
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="min-h-tap"
+              onClick={() => setGlsDialog({ ...glsDialog, open: true })}
+            >
+              GLS発番へ
             </Button>
           </CardContent>
         </Card>
@@ -1839,6 +1912,21 @@ export default function ProjectFormPage() {
         onOpenChange={setCustomerDialogOpen}
         onCreated={(customer) => setValue("customer_id", customer.id)}
       />
+
+      {/* 進んだ段で聞く (14章 27c)。足りない項目があるときだけ出る */}
+      {stageAsk && id && (
+        <StageAskDialog
+          projectId={id}
+          toStage={stageAsk}
+          open
+          onClose={() => setStageAsk(null)}
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["projects"] });
+            qc.invalidateQueries({ queryKey: ["project", id] });
+            if (stageAsk === 'd_hold' && isCategoryARef.current) setHoldPromptOpen(true);
+          }}
+        />
+      )}
 
       <StageConfirmDialog
         open={stageConfirmOpen}

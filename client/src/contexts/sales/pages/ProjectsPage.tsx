@@ -26,6 +26,7 @@ import {
   LayoutList, Columns3, Loader2, GripVertical,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { notifyApiError } from "@/lib/notify";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 type SortKey = "default" | "created_at" | "name" | "customer" | "stage" | "expected_amount" | "event_start";
@@ -180,6 +181,10 @@ export default function ProjectsPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
+    // 足りない項目は普段 StageAskDialog で聞くが、`/stage-ask` が取れなかった場合や
+    // 他の人が先に値を消した場合はここに落ちてくる。黙って戻すと
+    // 「運んだのに列が変わらない」だけになるので理由を出す
+    onError: (err: unknown) => notifyApiError("ステージの変更", err),
   });
 
   // 進んだ段で聞く (14章 27c)。ボードで動かしたときに足りない項目があれば
