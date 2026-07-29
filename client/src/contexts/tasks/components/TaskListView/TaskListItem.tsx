@@ -19,6 +19,7 @@ import ChecklistItems from "../ChecklistItems";
 import type { ProjectTask } from "@/types";
 import { TaskTypeLabels, ProductionStepLabels } from "@/types";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface Props {
   task: ProjectTask;
@@ -76,7 +77,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             {task.is_ai_created && (
               <span
                 className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-5 shrink-0"
-                title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
+                title={aiOriginTitle("作成")}
               >
                 <Sparkles className="h-3 w-3" />
                 AI作成

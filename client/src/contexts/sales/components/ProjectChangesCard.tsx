@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { History, ChevronDown, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { actorDisplayName } from "@gmo-onair/shared/src/client/aiAttribution";
 
 interface ChangeRow {
   id: string;
@@ -85,7 +86,8 @@ export function ProjectChangesCard({ projectId }: { projectId: string }) {
               {rows.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-1.5">
                   <span className="text-[12px] text-muted-foreground">{when(r.changed_at)}</span>
-                  <span className="text-[13px] font-bold text-foreground">{r.actor_name ?? "不明"}</span>
+                  {/* AI (MCP) が直した行は人名にしない (aiAttribution.ts) */}
+                  <span className="text-[13px] font-bold text-foreground">{actorDisplayName(r.actor_id, r.actor_name)}</span>
                   <span className="text-[13px] text-secondary-foreground">が</span>
                   <span className="rounded bg-secondary px-1.5 py-0.5 text-[12px] font-bold text-secondary-foreground">
                     {r.field_label}

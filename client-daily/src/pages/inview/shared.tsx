@@ -28,6 +28,8 @@ import {
   useDeleteInview, usePromoteInview, type InviewInput,
 } from '@/lib/inviewApi';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+// AI が入れた記録に人名を出さない (v3.0.6)。requested_by は AI の自由記述で誤字が入る
+import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { headOf } from './logic';
 
@@ -105,7 +107,7 @@ export function AttendeeCard({
               {r.furigana ? <span className="text-xs text-muted-foreground">{r.furigana}</span> : null}
               <Badge variant="outline" className="text-[11px]"><Users className="h-3 w-3 mr-0.5" />{head}名</Badge>
               {isKairos ? (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai" title={r.requested_by ? `AI取込 (指示: ${r.requested_by})` : 'AI (メール) 取込'}>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai" title={aiOriginTitle('メールから取り込み')}>
                   <Sparkles className="h-3 w-3" />AI取込
                 </span>
               ) : null}
