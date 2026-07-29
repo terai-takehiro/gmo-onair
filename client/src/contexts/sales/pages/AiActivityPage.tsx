@@ -19,10 +19,10 @@ import {
   AI_TOOL_LABELS,
   aiFeedSubject,
   aiFeedProjectLink,
-  aiFeedActor,
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
+import { AI_ACTOR_LABEL } from "@gmo-onair/shared/src/client/aiAttribution";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
@@ -128,7 +128,6 @@ export default function AiActivityPage() {
               const label = AI_TOOL_LABELS[f.tool_name] ?? f.tool_name;
               const subject = aiFeedSubject(f.result_summary);
               const projectLink = aiFeedProjectLink(f);
-              const actor = aiFeedActor(f);
               return (
                 <li key={f.id} className="flex items-start gap-3 px-3 py-2.5">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50">
@@ -151,11 +150,10 @@ export default function AiActivityPage() {
                         )
                       ) : null}
                     </p>
-                    {/* 内部の詳細 (実行者・ツール名) は title に退避し、主線には出さない */}
+                    {/* 実行したのは AI。人名 (接続ユーザー・AI が書いた指示者) は出さない (aiAttribution.ts) */}
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground" title={aiFeedActorDetail(f)}>
                       <span>{absoluteTime(f.created_at)}（{relativeTime(f.created_at)}）</span>
-                      {actor ? <span>{actor}</span> : null}
-                      {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
+                      <span className="text-ai">{AI_ACTOR_LABEL}</span>
                     </p>
                   </div>
                 </li>

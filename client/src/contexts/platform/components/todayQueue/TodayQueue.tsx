@@ -27,6 +27,7 @@ import { OverdueDetail } from "./OverdueDetail";
 import { FinanceDocDetail } from "./FinanceDocDetail";
 import { InquiryDetail } from "./InquiryDetail";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { AI_ACTOR_LABEL } from '@gmo-onair/shared/src/client/aiAttribution';
 
 /** 経過時間チップ。4時間で色が変わり、24時間で赤 */
 export function ElapsedChip({ receivedAt, forceRed }: { receivedAt: string | null; forceRed?: boolean }) {
@@ -78,9 +79,8 @@ function RowSummary({ item }: { item: InboxItem }) {
           <span className="hidden min-w-0 max-w-[240px] truncate text-[13px] text-secondary-foreground sm:inline">
             {str(m.customer_name)}
           </span>
-          {m.ai_requested_by ? (
-            <span className="hidden shrink-0 text-[12px] text-ai sm:inline">指示: {str(m.ai_requested_by)}</span>
-          ) : null}
+          {/* 作ったのは AI。人名 (AI が書いた指示者) は出さない (aiAttribution.ts) */}
+          <span className="hidden shrink-0 text-[12px] text-ai sm:inline">{AI_ACTOR_LABEL}</span>
         </>
       );
     case "inquiry":
@@ -347,8 +347,9 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
                             <dd className="font-bold text-foreground">{str(m.assigned_to_name) || "未設定"}</dd>
                           </div>
                           <div>
-                            <dt className="text-[12px] text-muted-foreground">指示した人</dt>
-                            <dd className="font-bold text-foreground">{str(m.ai_requested_by) || "—"}</dd>
+                            {/* 「指示した人」は出さない — AI が推測で書いた名前が入るため (aiAttribution.ts) */}
+                            <dt className="text-[12px] text-muted-foreground">登録</dt>
+                            <dd className="font-bold text-foreground">{AI_ACTOR_LABEL}</dd>
                           </div>
                         </dl>
                         <p className="rounded-control border border-ai-border bg-ai-surface px-3 py-2 text-[13px] text-foreground">

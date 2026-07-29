@@ -59,6 +59,7 @@ import {
   type LostDialogState,
 } from './projectForm/types';
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { AI_ACTOR_LABEL, AI_BADGE_LABEL, aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
 export default function ProjectFormPage() {
   const { id } = useParams();
@@ -147,9 +148,9 @@ export default function ProjectFormPage() {
     Array.isArray(simulationData?.data) ? simulationData.data : [];
   const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === "draft");
   const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
-  // AI 下書きの由来 (いつ・誰の指示で・誰の名義で作られたか) — mcp_audit_log から (v2.9.198+)
-  const aiDraftOrigin: { created_at?: string; requested_by?: string | null; actor_id?: string | null; actor_name?: string | null } | null =
-    simulationData?.ai_draft_origin ?? null;
+  // AI 下書きの由来 (いつ作られたか) — mcp_audit_log から (v2.9.198+)。
+  // 人名 (実行者・AI が書いた指示者) は画面に出さないので受け取らない (aiAttribution.ts)
+  const aiDraftOrigin: { created_at?: string } | null = simulationData?.ai_draft_origin ?? null;
   const finalizeSimMutation = useMutation({
     mutationFn: async () => (await api.post(`/projects/${id}/simulation/finalize`)).data,
     onSuccess: (res) => {
@@ -774,7 +775,6 @@ export default function ProjectFormPage() {
           <Sparkles className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
           <span className="min-w-0 flex-1">
             AI がメールから作った案件です。内容が合っているか見てください。
-            {project.ai_requested_by ? <span className="ml-1 font-medium">指示: {project.ai_requested_by}</span> : null}
           </span>
           {project.ai_reviewed_at ? (
             <span className="flex shrink-0 items-center gap-1.5 text-xs text-green-700">
@@ -928,14 +928,11 @@ export default function ProjectFormPage() {
                         {a.is_ai_created ? (
                           <span
                             className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-                            title={a.ai_requested_by ? `AI が記録しました (指示: ${a.ai_requested_by})` : "AI が記録しました"}
+                            title={aiOriginTitle("記録")}
                           >
                             <Sparkles className="h-3 w-3" aria-hidden="true" />
-                            AI作成
+                            {AI_BADGE_LABEL}
                           </span>
-                        ) : null}
-                        {a.ai_requested_by ? (
-                          <span className="text-[10px] text-violet-600">指示: {a.ai_requested_by}</span>
                         ) : null}
                         {a.source_channel ? (
                           <span className="inline-flex items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
@@ -1274,13 +1271,9 @@ export default function ProjectFormPage() {
                           「確定する」を押すと想定金額に入ります。
                         </p>
                         {aiDraftOrigin?.created_at && (
-                          // 実行者は主線に出さず title に退避する (認証方式そのものは書かない)
-                          <p
-                            className="mt-0.5 text-[11px] text-amber-700"
-                            title={`実行: ${aiDraftOrigin.actor_id === "mcp-claude" ? "AI（担当者の記録なし）" : (aiDraftOrigin.actor_name ?? "不明")}`}
-                          >
-                            {relativeTime(aiDraftOrigin.created_at)}に作成
-                            {aiDraftOrigin.requested_by ? `（指示: ${aiDraftOrigin.requested_by}）` : ""}
+                          // 作ったのは AI。人名 (接続ユーザー・AI が書いた指示者) は出さない (aiAttribution.ts)
+                          <p className="mt-0.5 text-[11px] text-amber-700" title={aiOriginTitle("作成")}>
+                            {relativeTime(aiDraftOrigin.created_at)}に {AI_ACTOR_LABEL}
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">

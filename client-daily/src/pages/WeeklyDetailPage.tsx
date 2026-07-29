@@ -18,6 +18,7 @@ import {
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { PageTitle } from '@gmo-onair/shared/src/client/ui';
+import { MCP_ACTOR_ID, aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface StatsShape {
   period?: { week_start: string; week_end: string };
@@ -77,10 +78,10 @@ export default function WeeklyDetailPage() {
                   <CircleDashed className="h-3 w-3" /> 下書き
                 </Badge>
               )}
-              {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
-                <Badge variant="outline" className="gap-1 border-ai text-ai">
+              {/* 人名 (AI が書いた指示者) は出さない — 誤字が入るため (aiAttribution.ts) */}
+              {(report.created_by === MCP_ACTOR_ID || !!report.requested_by) && (
+                <Badge variant="outline" className="gap-1 border-ai text-ai" title={aiOriginTitle('起票')}>
                   <Sparkles className="h-3 w-3" /> AI 起票
-                  {report.requested_by ? ` (指示: ${report.requested_by})` : ''}
                 </Badge>
               )}
             </div>

@@ -30,6 +30,7 @@ import ExcelToolbar from "@/components/ExcelToolbar";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { AI_BADGE_LABEL, aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
 interface CustomerRow {
   id: string;
@@ -45,7 +46,6 @@ interface CustomerRow {
   next_action?: string | null;
   next_action_date?: string | null;
   is_ai_created?: boolean;
-  ai_requested_by?: string | null;
 }
 
 interface Summary {
@@ -240,7 +240,7 @@ export default function CustomerListPage() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="min-w-0 truncate text-[15px] font-bold text-foreground">{c.name}</span>
-                          {c.is_ai_created && <AiBadge requestedBy={c.ai_requested_by} />}
+                          {c.is_ai_created && <AiBadge />}
                         </span>
                         {c.contact_name && (
                           <span className="mt-0.5 block truncate text-[12px] text-secondary-foreground">{c.contact_name}</span>
@@ -338,7 +338,7 @@ function Row({ c, onOpen }: { c: CustomerRow; onOpen: () => void }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="truncate text-[14px] font-bold text-foreground">{c.name}</span>
-              {c.is_ai_created && <AiBadge requestedBy={c.ai_requested_by} />}
+              {c.is_ai_created && <AiBadge />}
             </div>
             <div className="mt-0.5 truncate text-[12px] text-secondary-foreground">
               {c.contact_name || "担当者 未登録"}
@@ -392,14 +392,15 @@ function Initial({ name }: { name: string }) {
   );
 }
 
-function AiBadge({ requestedBy }: { requestedBy?: string | null }) {
+// 人名 (AI が書いた指示者) は出さない — 誤字が入るため (aiAttribution.ts)
+function AiBadge() {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"
-      title={requestedBy ? `AI が登録しました（指示: ${requestedBy}）` : "AI が登録しました"}
+      title={aiOriginTitle("登録")}
     >
       <Sparkles className="h-3 w-3" aria-hidden="true" />
-      AI作成
+      {AI_BADGE_LABEL}
     </span>
   );
 }

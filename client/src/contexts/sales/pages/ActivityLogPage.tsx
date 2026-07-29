@@ -16,27 +16,29 @@ import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucid
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { AI_BADGE_LABEL, aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
-// v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
-function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
+// v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ。
+// 人名 (AI が書いた指示者) は出さない — 誤字が入るため (aiAttribution.ts)
+function AiCreatedBadge() {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-      title={requestedBy ? `AI が記録しました (指示: ${requestedBy})` : "AI が記録しました"}
+      title={aiOriginTitle("記録")}
     >
       <Sparkles className="h-3 w-3" aria-hidden="true" />
-      AI作成
+      {AI_BADGE_LABEL}
     </span>
   );
 }
 
-// v2.9.197+: 由来 (プロベナンス) チップ — 流入チャネル + メール取込 + AI 指示者。
+// v2.9.197+: 由来 (プロベナンス) チップ — 流入チャネル + メール取込。
 // AI 自動入力の「どこから来た情報か」を一目で分かるようにする。
+// **AI が書いた指示者名は出さない** (誤字が入るため。理由: aiAttribution.ts)
 function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
   const channel = log.source_channel as string | null;
   const hasMail = !!log.message_id;
-  const requestedBy = log.ai_requested_by as string | null;
-  if (!channel && !hasMail && !requestedBy) return null;
+  if (!channel && !hasMail) return null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {channel && (
@@ -52,9 +54,6 @@ function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
         >
           ✉ メール
         </span>
-      )}
-      {requestedBy && (
-        <span className="text-[10px] text-violet-600" title="AI に指示した人">指示: {requestedBy}</span>
       )}
     </span>
   );
@@ -371,7 +370,7 @@ export default function ActivityLogPage() {
                         <div className="flex items-start gap-2">
                           <span className={`mt-0.5 shrink-0 rounded px-2 py-0.5 text-xs ${at.color}`}>{at.label}</span>
                           <span className="min-w-0 flex-1 font-medium leading-snug line-clamp-2">{log.subject}</span>
-                          {log.is_ai_created && <span className="mt-0.5"><AiCreatedBadge requestedBy={log.ai_requested_by} /></span>}
+                          {log.is_ai_created && <span className="mt-0.5"><AiCreatedBadge /></span>}
                         </div>
                         {/* 2行目: 案件名/顧客名 (人が読める名前) + 担当 + 活動日 (期限順ソート時のみ) */}
                         <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground min-w-0">
@@ -424,7 +423,7 @@ export default function ActivityLogPage() {
                         <TableCell className="font-medium max-w-[320px]">
                           <span className="flex items-center gap-1.5">
                             <span className="truncate" title={log.subject}>{log.subject}</span>
-                            {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
+                            {log.is_ai_created && <AiCreatedBadge />}
                           </span>
                           <ProvenanceChips log={log} />
                         </TableCell>
