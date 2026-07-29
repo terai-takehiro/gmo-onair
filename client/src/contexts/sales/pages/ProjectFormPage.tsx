@@ -44,7 +44,7 @@ import ProjectScheduleTab from "../components/ProjectScheduleTab";
 import ProjectDocsTab from "../components/ProjectDocsTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyApiError, notifyError, notifySuccess } from '@/lib/notify';
+import { notifyApiError, notifyError, notifySuccess, notifyWarning } from '@/lib/notify';
 import StageAskDialog from '../components/StageAskDialog';
 
 import JourneyPanel from './projectForm/JourneyPanel';
@@ -495,12 +495,25 @@ export default function ProjectFormPage() {
     setStageAskLoading(true);
     try {
       const res = await api.get(`/projects/${id}/stage-ask`, { params: { to: st } });
-      if ((res.data?.data?.missing ?? []).length > 0) {
+      const ask = res.data?.data;
+
+      // **入れても進めない事情は、聞く前に理由を出して止める。**
+      // プロジェクト系の案件に「仮押さえ」が無い / 案件分類が未設定 /
+      // 部屋が1件も登録されていない、といった「入力では解決しないもの」がここに入る。
+      // 空の入力欄を出して押せないままにするより、何が足りないかを言う。
+      if (ask?.blocked?.message) {
+        notifyWarning("このステージには進められません", { description: ask.blocked.message });
+        return;
+      }
+      if ((ask?.missing ?? []).length > 0) {
         setStageAsk(st);
         return;
       }
-    } catch {
-      // 聞く項目が取れなくても操作は止めない
+    } catch (err) {
+      // 聞く項目が取れなくても操作は止めない (サーバー側で必須は止まり理由も返る)。
+      // ただし黙って進めると「押しても何も起きない」に見えるので、
+      // 取れなかったこと自体は出す
+      notifyApiError("進める段の確認", err, "聞く項目を読み込めませんでした。そのまま変更を試します");
     } finally {
       setStageAskLoading(false);
     }
@@ -755,6 +768,7 @@ export default function ProjectFormPage() {
           currentStage={currentStage}
           project={project}
           disabled={stageMutation.isPending || stageAskLoading}
+          glsCategory={glsCategory as 'A' | 'B' | '' | undefined}
           onGoStage={(st) => { void goStage(st); }}
           onOpenLost={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })}
         />

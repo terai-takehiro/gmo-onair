@@ -26,7 +26,7 @@ import {
   LayoutList, Columns3, Loader2, GripVertical,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
-import { notifyApiError } from "@/lib/notify";
+import { notifyApiError, notifyWarning } from "@/lib/notify";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
@@ -194,12 +194,20 @@ export default function ProjectsPage() {
   const moveStage = async (id: string, stage: ProjectStage) => {
     try {
       const res = await api.get(`/projects/${id}/stage-ask`, { params: { to: stage } });
-      if ((res.data?.data?.missing ?? []).length > 0) {
+      const ask = res.data?.data;
+      // 入れても進めない事情 (プロジェクト系の案件に仮押さえは無い・案件分類が未設定 等)
+      // は、運んだ先で黙って戻すのではなく理由を出す
+      if (ask?.blocked?.message) {
+        notifyWarning("このステージには進められません", { description: ask.blocked.message });
+        return;
+      }
+      if ((ask?.missing ?? []).length > 0) {
         setAsk({ id, stage });
         return;
       }
     } catch {
-      // 聞く項目が取れなくても動かせるようにする (サーバー側で必須は止まる)
+      // 聞く項目が取れなくても動かせるようにする (サーバー側で必須は止まり、
+      // 理由は stageMutation の onError が出す)
     }
     stageMutation.mutate({ id, stage });
   };

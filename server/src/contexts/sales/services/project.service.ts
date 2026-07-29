@@ -11,6 +11,7 @@ import {
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { recordProjectChanges } from './project-history.service';
+import { resolveStudioUse } from './stage-ask.service';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -656,7 +657,14 @@ export class ProjectService {
     // 重複防止: この案件に既に予約 (種別問わず: 本番/リハ/仮押さえ/手動登録) があれば作らない。
     // (旧実装は booking_type='hold' のみ照合していたため、新規作成時に作られた本番予約と
     //  仮押さえ予約が二重登録されていた)
-    if (stage === 'd_hold' && project.event_start) {
+    //
+    // **スタジオを使う案件 (A系) だけに作る。** GMO案件・コンサルティング等の
+    // プロジェクト系 (B系) にはスタジオのスケジュールという概念が無いのに、
+    // 日程が入っていれば予約を作っていたため、**スタジオを使わない案件の
+    // 仮押さえがスタジオのカレンダーに入っていた**。HTTP 経路は
+    // assertStageRequirements が先に止めるが、MCP の change_project_stage は
+    // ここを直接呼ぶので、この関数の中でも守る。
+    if (stage === 'd_hold' && project.event_start && resolveStudioUse(project) === 'studio') {
       const existing = await queryOne(
         `SELECT id FROM studio_bookings WHERE project_id = ? AND deleted_at IS NULL LIMIT 1`,
         [id]

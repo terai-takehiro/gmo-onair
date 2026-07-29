@@ -20,7 +20,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { setNotice } from "@gmo-onair/shared/src/client/ui/notice";
-import { Loader2, Sparkles, HelpCircle, Plus, X } from "lucide-react";
+import { Loader2, Sparkles, HelpCircle, Plus, X, AlertTriangle } from "lucide-react";
 
 interface AskField {
   key: string;
@@ -40,6 +40,10 @@ interface StageAskView {
   missing: string[];
   /** 部屋の候補。部屋の一覧は studio 権限なので、営業でも読めるようここに載る */
   room_choices: Array<{ id: string; name: string; location: string | null }>;
+  /** 'studio' = スタジオを使う案件 / 'project' = 使わない案件 */
+  studio_use?: 'studio' | 'project' | 'unknown';
+  /** 入力では解決しない事情 (概念が無い / 設定不備)。あるときは聞かずに理由を出す */
+  blocked?: { message: string; suggest_stage?: string } | null;
 }
 
 const LOST_REASONS = [
@@ -145,7 +149,17 @@ export default function StageAskDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {ask && (
+        {ask?.blocked?.message && (
+          <div className="rounded-xl border border-warning/35 bg-warning-surface p-3">
+            <p className="flex items-start gap-1.5 text-sm font-bold text-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-strong" aria-hidden="true" />
+              このステージには進められません
+            </p>
+            <p className="mt-1 text-[13px] text-foreground">{ask.blocked.message}</p>
+          </div>
+        )}
+
+        {ask && !ask.blocked && (
           <div className="space-y-4">
             {toAsk.length === 0 && (
               <p className="text-sm text-muted-foreground">
@@ -186,8 +200,21 @@ export default function StageAskDialog({
 
                 {f.kind === "rooms" && (
                   <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-divider">
+                    {/*
+                      読み込み中と「選べる部屋が無い」を区別する。
+                      前は両方「部屋を読み込んでいます…」だったので、部屋が1件も
+                      登録されていない環境では**永久に読み込み中に見えて**、
+                      必須が埋まらず「仮押さえにする」を押せないままだった。
+                    */}
                     {rooms.length === 0 && (
-                      <p className="p-3 text-sm text-muted-foreground">部屋を読み込んでいます…</p>
+                      isLoading ? (
+                        <p className="p-3 text-sm text-muted-foreground">部屋を読み込んでいます…</p>
+                      ) : (
+                        <p className="p-3 text-sm text-warning-strong">
+                          選べる部屋がありません。スタジオの部屋が登録されていないため仮押さえに進めません。
+                          管理者に部屋の登録を依頼してください。
+                        </p>
+                      )
                     )}
                     {rooms.map((r) => (
                       <label key={r.id}
@@ -292,7 +319,7 @@ export default function StageAskDialog({
 
         <DialogFooter>
           <Button variant="ghost" className="min-h-tap" onClick={onClose}>やめる</Button>
-          <Button disabled={!ask || !filledOk || change.isPending}
+          <Button disabled={!ask || !!ask.blocked || !filledOk || change.isPending}
             onClick={() => change.mutate()}>
             {change.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             {ask?.toLabel ?? ""}にする
