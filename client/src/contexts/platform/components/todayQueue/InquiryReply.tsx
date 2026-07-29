@@ -17,6 +17,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { useAiAvailable } from '@gmo-onair/shared/src/client/hooks/useAiAvailable';
 
 interface ReplyRow {
   inquiry_id: string;
@@ -82,6 +83,8 @@ export function InquiryReply({ inquiryId, editable }: { inquiryId: string; edita
   });
 
   const busy = draft.isPending || save.isPending || mark.isPending;
+  // AI をつないでいない環境では「下書きを作る」を出さない (押しても 503 になる)
+  const ai = useAiAvailable(api);
   const edited = !!reply?.ai_text && text.trim() !== reply.ai_text.trim();
 
   const copy = async () => {
@@ -110,8 +113,12 @@ export function InquiryReply({ inquiryId, editable }: { inquiryId: string; edita
           作った下書きはここで直せます。<span className="font-bold">送信はONAiRからは行いません</span> —
           直した本文をコピーして、ご自分のメールで送ってください。
         </p>
-        {editable ? (
-          <Button size="sm" className="mt-2 h-9 gap-1.5" disabled={busy} onClick={() => draft.mutate()}>
+        {!ai.available && !ai.loading ? (
+          <p className="mt-1 text-[12px] text-secondary-foreground">
+            AI はいまつないでいません。本文はご自分で書いてください（保存すれば記録は残ります）。
+          </p>
+        ) : editable ? (
+          <Button size="sm" className="mt-2 h-9 gap-1.5" disabled={busy || ai.loading} onClick={() => draft.mutate()}>
             {draft.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             下書きを作る
           </Button>

@@ -43,6 +43,7 @@ import {
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 
 // ---------- Category Dialog ----------
 
@@ -335,7 +336,26 @@ export default function PricingListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pricing-categories"] });
     },
+    meta: { action: "分類の削除" },
   });
+
+  /**
+   * 分類を消す前に必ず訊く (v3.0.9)。**配下の単価がまとめて消える**のに、
+   * v3.0.8 まで確認が無くゴミ箱1回で走っていた。何件消えるかを文章に出す。
+   */
+  const askDeleteCategory = async (cat: PricingCategory) => {
+    const n = (cat.items ?? []).length;
+    const ok = await confirmAction({
+      title: `分類「${cat.name}」を削除しますか？`,
+      description:
+        n > 0
+          ? `この分類に入っている単価 ${n} 件も一緒に消えます。すでに作った見積の金額は変わりませんが、次から選べなくなります。取り消せません。`
+          : "この分類を消します。取り消せません。",
+      confirmLabel: "削除する",
+      tone: "danger",
+    });
+    if (ok) deleteCategoryMutation.mutate(cat.id);
+  };
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -344,7 +364,19 @@ export default function PricingListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pricing-categories"] });
     },
+    meta: { action: "単価の削除" },
   });
+
+  const askDeleteItem = async (item: PricingItem) => {
+    const ok = await confirmAction({
+      title: `「${item.name}」を削除しますか？`,
+      description:
+        "見積で選べなくなります。すでに作った見積の金額は変わりません。取り消せません。",
+      confirmLabel: "削除する",
+      tone: "danger",
+    });
+    if (ok) deleteItemMutation.mutate(item.id);
+  };
 
   const openAddCategory = () => {
     setEditingCategory(null);
@@ -405,7 +437,7 @@ export default function PricingListPage() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-destructive"
-                  onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                  onClick={() => askDeleteCategory(cat)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -432,7 +464,7 @@ export default function PricingListPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(cat.id, item)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => askDeleteItem(item)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -482,7 +514,7 @@ export default function PricingListPage() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditItem(cat.id, item)}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => askDeleteItem(item)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>

@@ -46,13 +46,23 @@ interface Sheet {
   warnings: string[];
 }
 
-/** 枠の色。カテゴリごとに固定 (デザイン 28a の色分け) */
+/**
+ * 枠の色。カテゴリごとに固定 (デザイン 28a の色分け)。
+ *
+ * **`cat-*` を使う (状態の色を流用しない)。** v3.0.8 まで本番に `negative`・
+ * 客席に `positive` を当てていたが、この2つは**トークンに存在しない**ので
+ * CSS が1行も出ておらず、どちらも枠なし・黒文字で出ていた。
+ * かつ仮に定義したとしても、赤は「異常」の意味を持つ色なので
+ * 「本番のレーン」に当てると異常と見分けが付かなくなる
+ * (CLAUDE.md「状態の色を色分けに流用しない」)。
+ * リハーサルの山吹だけは「気をつける」の意味と重なって読めるので残す。
+ */
 const CAT_STYLE: Record<string, string> = {
   setup: "border-l-muted-foreground bg-muted/40 text-foreground",
-  rehearsal: "border-l-warning bg-warning/10 text-warning-strong",
-  performance: "border-l-negative bg-negative/10 text-negative",
+  rehearsal: "border-l-warning bg-warning-surface text-warning-strong",
+  performance: "border-l-cat-1 bg-cat-1/10 text-cat-1",
   break: "border-l-divider bg-card text-muted-foreground",
-  audience: "border-l-positive bg-positive/10 text-positive",
+  audience: "border-l-cat-3 bg-cat-3/10 text-cat-3",
   move: "border-l-primary bg-primary/10 text-primary",
   teardown: "border-l-muted-foreground bg-muted/40 text-foreground",
 };

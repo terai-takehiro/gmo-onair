@@ -22,6 +22,8 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   ArrowLeft, Printer, Sparkles, AlertTriangle, Check, Plus, X, Loader2, MapPin,
 } from "lucide-react";
+import { useAiAvailable } from '@gmo-onair/shared/src/client/hooks/useAiAvailable';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 
 interface Part {
   kind: string; label: string; src: string; fill: string; from: string;
@@ -60,6 +62,8 @@ export default function ManualPage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission("sales", "editor");
+  // AI をつないでいない環境では「AIに下書きさせる」を出さない
+  const ai = useAiAvailable(api);
 
   const [sp, setSp] = useSearchParams();
   const audience = sp.get("audience") ?? "internal";
@@ -109,6 +113,27 @@ export default function ManualPage() {
     },
     onError,
   });
+  /**
+   * 配置図の AI 下書き。**人が置いたものを全部消してから入れ直す**ので必ず訊く (v3.0.9)。
+   *
+   * サーバーは `DELETE FROM manual_layout_items WHERE layout_id = ?` のあとに
+   * AI の結果を入れる。v3.0.8 まで確認が無かったので、位置を直し終えたあとに
+   * 押してしまうと**その作業が丸ごと消えた**（元に戻す手段は無い）。
+   */
+  const askAiDraft = async () => {
+    const n = layout?.items?.length ?? 0;
+    if (n > 0) {
+      const ok = await confirmAction({
+        title: "いまの配置をAIの下書きで置き換えますか？",
+        description: `この場面に置いてある ${n} 個は全部消えて、AI が置いたものに入れ替わります。動かした位置も消えます。元に戻せません。`,
+        confirmLabel: "置き換える",
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
+    aiDraft.mutate();
+  };
+
   const putItem = useMutation({
     mutationFn: async (body: any) =>
       (await api.put(`/manuals/${manual!.id}/layouts/${layout!.id}/items`, body)).data,
@@ -173,7 +198,7 @@ export default function ManualPage() {
             第{manual.version}版 ・ 全 {manual.toc.length}ページ ・
             {manual.not_ready_count > 0
               ? <span className="text-warning"> できていない部品 {manual.not_ready_count}</span>
-              : <span className="text-positive"> 部品はすべて揃っています</span>}
+              : <span className="text-success"> 部品はすべて揃っています</span>}
           </p>
         </div>
         {canEdit && (
@@ -236,7 +261,7 @@ export default function ManualPage() {
                     p.included ? "" : "opacity-50"
                   }`}>
                   {p.ready
-                    ? <Check className="h-4 w-4 shrink-0 text-positive" aria-hidden="true" />
+                    ? <Check className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
                     : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />}
                   <span className="min-w-0 flex-1">
                     <span className="font-medium">{p.label}</span>
@@ -274,7 +299,7 @@ export default function ManualPage() {
                 {manual.scenes.map((s) => (
                   <button key={s.key} type="button" onClick={() => setParam("scene", s.key)}
                     aria-pressed={scene === s.key}
-                    className={`min-h-[36px] rounded-lg px-2 text-sm ${
+                    className={`min-h-tap rounded-lg px-2 text-sm ${
                       scene === s.key ? "bg-card font-medium shadow-sm" : "text-muted-foreground"
                     }`}>{s.label}</button>
                 ))}
@@ -284,10 +309,10 @@ export default function ManualPage() {
               記号はスタッフ表から。凡例は勝手にできます。場面ごとに1枚です。
             </p>
 
-            {canEdit && (
+            {canEdit && ai.available && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" className="min-h-tap gap-1"
-                  disabled={aiDraft.isPending} onClick={() => aiDraft.mutate()}>
+                  disabled={aiDraft.isPending} onClick={askAiDraft}>
                   {aiDraft.isPending
                     ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     : <Sparkles className="h-4 w-4 text-ai" aria-hidden="true" />}

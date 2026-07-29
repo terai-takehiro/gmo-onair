@@ -102,10 +102,11 @@ export const DOC_KINDS: DocKindDef[] = [
     path: '/sales/projects/{id}/manual', path_label: '運営マニュアルをつくる' },
   { key: 'qsheet', label: 'Qシート', group: 'work', who: 'ディレクター',
     why: '進行の台本。本番の送出がこれを見ます', required_from: 'a_won',
-    path: '/qsheet/', path_label: 'Qシートへ' },
+    // 案件を渡す。受け側 (client-qsheet の DashboardPage) は `?project` を読む
+    path: '/qsheet?project={id}', path_label: 'Qシートへ' },
   { key: 'techsheet', label: '技術資料', group: 'work', who: '技術',
     why: 'カメラ・映像・音声の仕様です', required_from: 'a_won',
-    path: '/techsheet/', path_label: '技術資料へ' },
+    path: '/techsheet?project={id}', path_label: '技術資料へ' },
   // ── 貸したもの ──
   { key: 'security_card', label: 'セキュリティカードの返却', group: 'card', who: '受付',
     why: '返ってこないと次の案件で貸せません', required_from: 'a_won',

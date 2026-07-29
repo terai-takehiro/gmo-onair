@@ -232,7 +232,7 @@ export default function BillingWorkPage() {
                 type="button"
                 onClick={() => setParam("tab", t.key)}
                 aria-pressed={active}
-                className={`flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-[9px] px-3 text-[13.5px] font-bold transition-colors ${
+                className={`flex min-h-tap flex-1 items-center justify-center gap-2 rounded-[9px] px-3 text-[13.5px] font-bold transition-colors ${
                   active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >

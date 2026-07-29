@@ -23,6 +23,7 @@ import {
 import { Plus, Pencil, Trash2, Loader2, KeyRound, Copy, CheckCircle2, Wrench } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -101,7 +102,27 @@ export default function UserListPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => { await api.delete(`/users/${id}`); },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); },
+    meta: { action: "利用者の削除" },
   });
+
+  /**
+   * 利用者を消す前に必ず訊く (v3.0.9)。
+   *
+   * v3.0.8 まで**ゴミ箱アイコン1回で即座に削除**していた。一覧はスマホでは
+   * 行が詰まっており、隣は「この人にできること」と「編集」なので押し間違えやすい。
+   * 取り消せない操作なので `tone: 'danger'`（既定フォーカスは「やめる」側）にし、
+   * **一緒に何が起きるか**を書く。
+   */
+  const askDelete = async (u: User) => {
+    const ok = await confirmAction({
+      title: `${u.name} さんを削除しますか？`,
+      description:
+        "この人はログインできなくなり、権限の設定も消えます。担当していた案件・タスク・活動記録は残りますが、担当者の欄が空になります。取り消せません。",
+      confirmLabel: "削除する",
+      tone: "danger",
+    });
+    if (ok) deleteMutation.mutate(u.id);
+  };
 
   const openAdd = () => {
     setEditingId(null);
@@ -180,7 +201,7 @@ export default function UserListPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => askDelete(u)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -226,7 +247,7 @@ export default function UserListPage() {
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/settings/users/${u.id}`)} title="この人にできること"><KeyRound className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => askDelete(u)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>

@@ -29,6 +29,15 @@ export function clearNotice() {
   setNotice(null);
 }
 
+/**
+ * いま出ているお知らせ。React の外から読むための口
+ * (共通の受け皿 = `queryClient` の MutationCache が本当に帯を出すかを
+ *  ブラウザ無しで確かめるのに使う。画面側は `useNotice()` を使うこと)。
+ */
+export function getNotice(): Notice | null {
+  return current;
+}
+
 export function useNotice(): Notice | null {
   const [n, setN] = useState<Notice | null>(current);
   useEffect(() => {

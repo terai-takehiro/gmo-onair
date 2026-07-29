@@ -204,7 +204,7 @@ export default function KeepDeckPage() {
                   }`}>
                   {p.needs_human
                     ? <Pencil className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
-                    : <Check className="h-3.5 w-3.5 shrink-0 text-positive" aria-hidden="true" />}
+                    : <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />}
                   <span className="w-6 shrink-0 text-xs text-muted-foreground">{p.no}</span>
                   <span className="min-w-0 flex-1 truncate">{p.label}</span>
                   <span className="shrink-0 text-[11px] text-muted-foreground">{BY_LABEL[p.by]}</span>
@@ -284,7 +284,7 @@ export default function KeepDeckPage() {
                     <span className="text-xs text-muted-foreground">{t.no}</span>
                     <span className="font-medium">{t.theme}</span>
                     <span className="text-xs text-muted-foreground">／ {t.owner}</span>
-                    <span className={`ml-auto text-xs ${t.written ? "text-positive" : "text-warning"}`}>
+                    <span className={`ml-auto text-xs ${t.written ? "text-success" : "text-warning"}`}>
                       {t.written ? "書いた" : "未記入"}
                     </span>
                   </div>
@@ -319,7 +319,7 @@ export default function KeepDeckPage() {
                   <span className="min-w-0 flex-1">{a.label}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{a.minutes}分</span>
                   {canEdit && a.id && (
-                    <Button variant="ghost" size="sm" className="min-h-tap shrink-0 text-negative"
+                    <Button variant="ghost" size="sm" className="min-h-tap shrink-0 text-destructive"
                       aria-label={`${a.label} を外す`}
                       onClick={() => removeAgenda.mutate(a.id as string)}>
                       <X className="h-4 w-4" aria-hidden="true" />
@@ -381,14 +381,14 @@ export default function KeepDeckPage() {
               {deck.format_version} のチェックリスト（11項目）を自動で見ます。落ちている項目だけ出します。
             </p>
             {missingChecks.length === 0 ? (
-              <p className="mt-3 flex items-center gap-1 text-sm text-positive">
+              <p className="mt-3 flex items-center gap-1 text-sm text-success">
                 <Check className="h-4 w-4" aria-hidden="true" />
                 11項目すべて満たしています。
               </p>
             ) : (
               <ul className="mt-3 space-y-1">
                 {missingChecks.map((c) => (
-                  <li key={c.key} className="flex items-start gap-1 text-sm text-negative">
+                  <li key={c.key} className="flex items-start gap-1 text-sm text-destructive">
                     <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                     {c.label}
                   </li>
@@ -406,7 +406,7 @@ export default function KeepDeckPage() {
               <ul className="mt-2 space-y-1 text-sm">
                 {deck.diffs.map((d) => (
                   <li key={d.what} className="border-t border-row pt-1">
-                    <span className="font-medium text-negative">{d.what}</span>
+                    <span className="font-medium text-destructive">{d.what}</span>
                     <span className="pl-2 text-muted-foreground">{d.detail}</span>
                   </li>
                 ))}
@@ -427,7 +427,7 @@ export default function KeepDeckPage() {
                 この回を確定する
               </Button>
               {deck.confirmed_at && (
-                <span className="text-sm text-positive">確定しました</span>
+                <span className="text-sm text-success">確定しました</span>
               )}
               <span className="text-xs text-muted-foreground">
                 落ちている項目があっても確定できます（止めると会議が始められないため）。

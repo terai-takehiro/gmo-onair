@@ -158,7 +158,7 @@ export default function StageAskDialog({
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-sm font-bold">{f.label}</span>
                   <span className={`text-xs ${
-                    f.required === "required" ? "text-negative"
+                    f.required === "required" ? "text-destructive"
                       : f.required === "conditional" ? "text-warning" : "text-muted-foreground"
                   }`}>{REQ_LABEL[f.required]}</span>
                 </div>

@@ -11,8 +11,8 @@ import { Search, CornerDownLeft, ArrowRight, Loader2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../utils';
 import { matchCommand, resolveCommands } from './commands';
-import { COMMAND_GROUPS } from './types';
-import type { CommandDef, CommandGroup, PaletteAccess, PaletteHit, PaletteSearchResult } from './types';
+import { SITE_SECTIONS } from './types';
+import type { CommandDef, SiteSectionId, PaletteAccess, PaletteHit, PaletteSearchResult } from './types';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -118,23 +118,23 @@ export default function CommandPalette({ open, onOpenChange, access, onRun, sear
    * 何も打っていないときは**行き先の地図**にする (v2.9.298)。
    *
    * 83件を「やる」「ひらく」の2つに積むと、探すより読む方が大変になる。
-   * レールと同じ順 (今日→案件→タスク→お客様→予定→お金→…) でまとまりに畳み、
+   * **仕事の順番** (今日→仕事をとる→段取りする→本番をまわす→お金にする→…) で畳み、
    * 行の左にアイコンを置いて、目で当たりを付けられるようにする。
    * **打ち始めたら地図はやめて、当たった順に並べる** (絞り込みの邪魔になる)。
    */
   const browsing = q.trim() === '' && kind === 'all';
   const mapGroups = useMemo(() => {
     if (!browsing) return [];
-    const by = new Map<CommandGroup, CommandDef[]>();
+    const by = new Map<SiteSectionId, CommandDef[]>();
     for (const c of commands) {
-      if (!by.has(c.group)) by.set(c.group, []);
-      by.get(c.group)!.push(c);
+      if (!by.has(c.section)) by.set(c.section, []);
+      by.get(c.section)!.push(c);
     }
     // 「やる」を各まとまりの先頭に置く (場所より操作が先、はグループの中でも同じ)
     for (const list of by.values()) {
       list.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'do' ? -1 : 1));
     }
-    return COMMAND_GROUPS.filter((g) => by.has(g)).map((g) => ({ group: g, items: by.get(g)! }));
+    return SITE_SECTIONS.filter((s) => by.has(s.id)).map((s) => ({ group: s.title, items: by.get(s.id)! }));
   }, [browsing, commands]);
 
   // ↑↓ が通る一列に潰す (グループの見た目とは別)

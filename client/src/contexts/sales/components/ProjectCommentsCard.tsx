@@ -202,7 +202,7 @@ export function ProjectCommentsCard({
                       type="button"
                       onClick={() => toggle(u.id)}
                       className={cn(
-                        "min-h-[36px] rounded-full border px-3 py-1 text-[12px] font-bold transition-colors",
+                        "min-h-tap rounded-full border px-3 py-1 text-[12px] font-bold transition-colors",
                         targets.includes(u.id)
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-card text-secondary-foreground hover:bg-secondary",

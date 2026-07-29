@@ -56,7 +56,8 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
         window.open(`/api/v1/internal/projects/${projectId}/estimates/pdf`, "_blank");
         break;
       case "add_purchase":
-        navigate(`/finance?view=purchases&project_id=${projectId}`);
+        // 受け側 (routeAdapters の FinanceRoute) が見るのは `tab`。`view` では損益の画面に着く
+        navigate(`/finance?tab=purchase&project_id=${projectId}`);
         break;
     }
   };
@@ -72,10 +73,10 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
         {view.rows.map((r) => (
           <div key={r.key}
             className={`rounded-xl border p-3 ${
-              r.key === "gross" ? "border-positive/40 bg-positive/5" : "border-divider bg-card"
+              r.key === "gross" ? "border-success/40 bg-success/5" : "border-divider bg-card"
             }`}>
             <dt className="text-xs text-muted-foreground">{r.label}</dt>
-            <dd className={`mt-1 text-base font-bold ${r.key === "gross" ? "text-positive" : ""}`}>
+            <dd className={`mt-1 text-base font-bold ${r.key === "gross" ? "text-success" : ""}`}>
               <Money value={r.value} />
             </dd>
             <dd className="mt-0.5 text-xs text-muted-foreground">{r.note}</dd>

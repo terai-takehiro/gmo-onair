@@ -27,9 +27,14 @@ interface ScheduleView {
   missing_room_count: number;
 }
 
+/**
+ * 予定の種別を見分けるための点。**状態ではないので `cat-*` を使う。**
+ * v3.0.8 まで本番に `bg-negative` を当てていたが、このトークンは存在せず
+ * **点が透明で出ていなかった** (本番日と他の予定が区別できない)。
+ */
 const DOT: Record<string, string> = {
-  performance: "bg-negative",
-  rehearsal: "bg-warning",
+  performance: "bg-cat-1",
+  rehearsal: "bg-cat-2",
   hold: "bg-warning/60",
   setup: "bg-primary",
   other: "bg-muted-foreground",

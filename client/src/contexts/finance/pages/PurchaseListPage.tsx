@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
+import { notifyApiError } from '@/lib/notify';
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
 import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
@@ -229,8 +230,9 @@ export default function PurchaseListPage() {
       try {
         const row = (await api.get(`/purchases/${editParam}`)).data?.data;
         if (row) crud.openEdit(row as PurchaseRow);
-      } catch {
-        /* 取得失敗時は無視 */
+      } catch (err) {
+        // 黙って捨てると「押しても何も起きない」に見える (v3.0.9)
+        notifyApiError('仕入の明細を開けませんでした', err, '一覧から選び直してください。');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,7 +296,7 @@ export default function PurchaseListPage() {
                   variant="ghost"
                   size="sm"
                   className="h-ctl-1 px-1.5 text-xs"
-                  onClick={() => navigate("/budget/purchases")}
+                  onClick={() => navigate("/finance?tab=purchase")}
                 >
                   解除
                 </Button>
@@ -305,7 +307,10 @@ export default function PurchaseListPage() {
             <ExcelToolbar
               resource="/purchases"
               name="仕入"
-              queryKey={["purchases"]}
+              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.0.9)。
+              // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
+              // 出てこないのでもう一度取り込む人がいた (仕入の二重登録の元)
+              queryKey={["purchases-all"]}
               hasDuplicateKey={false}
               exportParams={{
                 search: crud.search || undefined,
@@ -314,7 +319,8 @@ export default function PurchaseListPage() {
                 sort: sortParam,
               }}
             />
-            <Button variant="outline" onClick={() => navigate("/project-groups")}>
+            <Button variant="outline" // 正のURLは /sales/project-groups。`/project-groups` はルート表に無く「今日」に落ちていた
+              onClick={() => navigate("/sales/project-groups")}>
               費用を分け合うまとまり
             </Button>
             <Button onClick={crud.openAdd}>

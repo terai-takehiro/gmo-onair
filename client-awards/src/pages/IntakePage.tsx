@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { PageTitle } from '@gmo-onair/shared/src/client/ui';
+import { useAiAvailable } from '@gmo-onair/shared/src/client/hooks/useAiAvailable';
 
 interface Tidy {
   headers: string[];
@@ -57,6 +58,12 @@ export default function IntakePage() {
   const navigate = useNavigate();
 
   const [way, setWay] = useState<'paste' | 'file' | 'ai'>('paste');
+  /**
+   * AI をつないでいない環境では「AIに整えさせる」のタブを出さない (v3.0.9)。
+   * v3.0.8 まで押せる見た目で出ていて、押すと 503 が返るだけだった。
+   */
+  const ai = useAiAvailable(api);
+  const ways = WAYS.filter((w) => w.key !== 'ai' || ai.available);
   const [text, setText] = useState('');
   const [tidy, setTidy] = useState<Tidy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +123,7 @@ export default function IntakePage() {
 
       {/* 3つの入れ方 */}
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        {WAYS.map((w) => {
+        {ways.map((w) => {
           const Icon = w.icon;
           return (
             <button key={w.key} onClick={() => { setWay(w.key); setError(null); }}

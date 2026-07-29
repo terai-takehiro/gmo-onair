@@ -804,7 +804,7 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
               key={style}
               onClick={() => onSelect(style)}
               className={cn(
-                'rounded-md border px-3.5 py-2 text-xs font-bold transition-all relative min-h-[36px]',
+                'rounded-md border px-3.5 py-2 text-xs font-bold transition-all relative min-h-tap',
                 isNext
                   ? 'border-warning bg-warning/30 text-warning-strong'
                   : 'border-border text-muted-foreground hover:bg-card hover:text-foreground',

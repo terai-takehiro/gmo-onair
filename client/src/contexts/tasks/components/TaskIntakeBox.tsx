@@ -54,7 +54,11 @@ interface IntakeResponse {
   users?: { id: string; name: string }[];
 }
 
-/** 編集中の行。checked = 登録するか */
+/** 編集中の行。checked = 登録するか *
+ * **AI の紫 (`ai` トークン) は使わない** (v3.0.9)。この箱が出るのは
+ * AI をつないでいないときで、読み取りは決まった規則でやっている。
+ * 紫は「AI が作ったもの」の印なので、ここで使うと**AI がやったように見える**。
+ */
 interface Row extends Draft {
   checked: boolean;
 }
@@ -277,9 +281,9 @@ export function TaskIntakeBox() {
         <div className="flex flex-wrap items-start gap-2">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-[15px] font-bold text-foreground">AIに投げる</p>
+            <p className="text-[15px] font-bold text-foreground">書き留める</p>
             <p className="mt-0.5 text-[12px] text-secondary-foreground">
-              議事録でも、口で言われた依頼でも、そのまま貼ってください。宛先と期限はAIが整えます。
+              議事録でも、口で言われた依頼でも、そのまま貼ってください。宛先と期限は決まった規則で読み取ります（いまは AI をつないでいません）。
             </p>
           </div>
           <div className="ml-auto inline-flex shrink-0 rounded-lg border border-border p-0.5">
@@ -350,10 +354,10 @@ export function TaskIntakeBox() {
         {submitMutation.isPending && (
           <div
             role="status"
-            className="mt-2.5 rounded-control border border-ai-border bg-ai-surface px-3 py-2.5"
+            className="mt-2.5 rounded-control border border-border bg-muted px-3 py-2.5"
           >
             <p className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-ai" aria-hidden="true" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />
               AIが読んでいます
             </p>
             <p className="mt-0.5 text-[12px] text-secondary-foreground">
@@ -362,7 +366,7 @@ export function TaskIntakeBox() {
             <ul className="mt-1.5 space-y-0.5">
               {READING_STEPS.map((sline) => (
                 <li key={sline} className="flex items-start gap-1.5 text-[12px] text-secondary-foreground">
-                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ai" aria-hidden="true" />
+                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                   {sline}
                 </li>
               ))}
@@ -430,9 +434,9 @@ export function TaskIntakeBox() {
                   ? `${rows.length} 件みつけました。登録しますか？`
                   : "タスクは見つかりませんでした"}
               </span>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ai-border bg-ai-surface px-2 py-0.5 text-[11px] font-bold text-ai">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-bold text-secondary-foreground">
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
-                AI作成
+                自動で読み取り
               </span>
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning/35 bg-warning-surface px-2 py-0.5 text-[11px] font-bold text-warning-strong">
                 <Clock className="h-3 w-3" aria-hidden="true" />

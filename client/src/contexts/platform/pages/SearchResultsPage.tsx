@@ -156,7 +156,7 @@ export default function SearchResultsPage() {
           <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label="さがす種類">
             <button type="button" role="tab" aria-selected={kind === ""}
               onClick={() => setKind("")}
-              className={cn("min-h-[40px] rounded-lg border px-3 text-sm",
+              className={cn("min-h-tap rounded-lg border px-3 text-sm",
                 kind === "" ? "border-primary bg-primary/10 font-bold text-primary" : "hover:bg-muted")}>
               すべて {data.total}件
             </button>
@@ -165,7 +165,7 @@ export default function SearchResultsPage() {
               return (
                 <button key={k.key} type="button" role="tab" aria-selected={kind === k.key}
                   onClick={() => setKind(k.key)}
-                  className={cn("min-h-[40px] rounded-lg border px-3 text-sm",
+                  className={cn("min-h-tap rounded-lg border px-3 text-sm",
                     kind === k.key ? "border-primary bg-primary/10 font-bold text-primary" : "hover:bg-muted")}>
                   {k.label}{g ? ` ${g.count}件` : ""}
                 </button>

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, LogOut, Menu, MoreHorizontal, Search, ArrowLeftRight, HelpCircle, History, Plug } from 'lucide-react';
+import { ChevronDown, LogOut, Map as MapIcon, Menu, MoreHorizontal, Search, ArrowLeftRight, HelpCircle, History, Plug } from 'lucide-react';
 import { cn } from '../utils';
 
 export interface TopBarUser {
@@ -40,6 +40,14 @@ export interface TopBarProps {
   onOpenManual?: () => void;
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
+  /**
+   * 全体マップ (v3.0.9)。
+   *
+   * **どのアプリからでも同じ1枚に行ける**ことがこの項目の役目。
+   * 現場アプリ (Qシート・機材…) に居ると、いま見えているメニューは
+   * そのアプリのものだけなので、「他に何があるか」を知る手立てが無かった。
+   */
+  onOpenSiteMap?: () => void;
 }
 
 interface MenuItemDef {
@@ -137,11 +145,14 @@ export default function TopBar({
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
+  onOpenSiteMap,
 }: TopBarProps) {
   const user = useDropdown();
   const more = useDropdown();
 
   const moreItems: MenuItemDef[] = [];
+  // 先頭に置く。「どこに何があるか」は説明書より先に要る
+  if (onOpenSiteMap) moreItems.push({ label: '全体マップ', Icon: MapIcon, onSelect: () => { more.setOpen(false); onOpenSiteMap(); } });
   if (onOpenManual) moreItems.push({ label: '利用マニュアル', Icon: HelpCircle, onSelect: () => { more.setOpen(false); onOpenManual(); } });
   if (onOpenVersionHistory) moreItems.push({ label: 'バージョン履歴', Icon: History, onSelect: () => { more.setOpen(false); onOpenVersionHistory(); } });
   if (onOpenMcpInfo) moreItems.push({ label: 'MCP コネクタ', Icon: Plug, onSelect: () => { more.setOpen(false); onOpenMcpInfo(); } });
@@ -247,7 +258,7 @@ export default function TopBar({
             type="button"
             ref={user.btnRef}
             onClick={user.open ? () => user.setOpen(false) : user.show}
-            className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-control px-1.5 py-1.5 transition-colors hover:bg-secondary sm:px-2.5"
+            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-control px-1.5 py-1.5 transition-colors hover:bg-secondary sm:px-2.5"
             aria-label="ユーザーメニュー"
             aria-expanded={user.open}
             aria-haspopup="menu"

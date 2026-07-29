@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { AppShell } from './components/layout/AppShell';
 import { RedirectOnce } from '@gmo-onair/shared/src/client/RedirectOnce';
 import DashboardPage from './pages/DashboardPage';
+import NotFoundRoute from './components/NotFoundRoute';
 import EventEditorPage from './pages/EventEditorPage';
 import ControlPage from './pages/ControlPage';
 import OutputPage from './pages/OutputPage';
@@ -69,7 +70,10 @@ function AuthenticatedApp() {
             <Route path="/event/:id/quiz" element={<QuizListPage />} />
             <Route path="/event/:id/quiz-stack/control" element={<QuizStackControlPage />} />
             <Route path="/event/:id/quiz/:quizId/edit" element={<QuizEditPage />} />
-          </Route>
+                      {/* 知らないURL。v3.0.8 まで path="*" が無く**何も描かれず真っ白**だった
+                (壊れたのか読み込み中なのか区別が付かない)。共通の案内を出す */}
+            <Route path="*" element={<NotFoundRoute homeLabel="イベント一覧にもどる" />} />
+</Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />
         )}

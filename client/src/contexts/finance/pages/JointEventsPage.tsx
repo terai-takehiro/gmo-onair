@@ -354,7 +354,7 @@ export default function JointEventsPage() {
                   <span className="text-sm text-muted-foreground">幹事 {e.organizer_name}</span>
                   <span className="ml-auto text-sm">
                     {Number(e.issued_count) > 0
-                      ? <span className="text-positive">{Number(e.issued_count)}枚 出しました</span>
+                      ? <span className="text-success">{Number(e.issued_count)}枚 出しました</span>
                       : <span className="text-muted-foreground">まだ出していません</span>}
                   </span>
                 </button>
@@ -506,7 +506,7 @@ export function JointEventDetailPage() {
                 {(["equal", "ratio", "manual"] as const).map((m) => (
                   <button key={m} type="button" disabled={!canEdit}
                     onClick={() => saveMutation.mutate({ split_mode: m })}
-                    className={`min-h-[36px] rounded-lg px-3 text-sm ${
+                    className={`min-h-tap rounded-lg px-3 text-sm ${
                       ev.split_mode === m ? "bg-card font-medium shadow-sm" : "text-muted-foreground"
                     }`}>
                     {SPLIT_LABELS[m]}
@@ -572,7 +572,7 @@ export function JointEventDetailPage() {
                               {c.billing_differs && (
                                 <span className="text-warning">請求先が本社と違います（{c.billing_company_name}）</span>
                               )}
-                              {c.cancelled_at && <span className="text-negative">取り消し済み{c.cancel_billing_key ? `（${c.cancel_billing_key}）` : ""}</span>}
+                              {c.cancelled_at && <span className="text-destructive">取り消し済み{c.cancel_billing_key ? `（${c.cancel_billing_key}）` : ""}</span>}
                             </div>
                           </div>
                         </div>
@@ -593,19 +593,19 @@ export function JointEventDetailPage() {
                       <td className="p-3">{md(c.payment_due_date ?? ev.payment_due_date)}</td>
                       <td className="p-3">
                         {c.cancelled_at ? <span className="text-muted-foreground">—</span>
-                          : c.billing_key ? <span className="text-positive">{c.billing_key}</span>
+                          : c.billing_key ? <span className="text-success">{c.billing_key}</span>
                           : c.billing_differs ? <span className="text-warning">確認して</span>
                           : <span className="text-muted-foreground">出せる</span>}
                       </td>
                       <td className="p-3">
-                        {c.paid_at ? <span className="text-positive">入金済み</span>
+                        {c.paid_at ? <span className="text-success">入金済み</span>
                           : c.billing_key ? <span className="text-muted-foreground">待ち</span>
                           : <span className="text-muted-foreground">—</span>}
                       </td>
                       {canEdit && (
                         <td className="p-3">
                           {!c.cancelled_at && c.customer_id !== ev.organizer_customer_id && (
-                            <Button variant="ghost" size="sm" className="min-h-tap gap-1 text-negative"
+                            <Button variant="ghost" size="sm" className="min-h-tap gap-1 text-destructive"
                               disabled={cancelMutation.isPending}
                               onClick={() => cancelMutation.mutate({ companyId: c.id, redistribute: "others" })}>
                               <X className="h-4 w-4" aria-hidden="true" />
@@ -624,8 +624,8 @@ export function JointEventDetailPage() {
                     <td className="p-3 text-right"><Money value={ev.totals.sum} className="justify-end" /></td>
                     <td className="p-3" colSpan={canEdit ? 4 : 3}>
                       {ev.totals.matches
-                        ? <span className="text-positive">総額と一致</span>
-                        : <span className="text-negative">
+                        ? <span className="text-success">総額と一致</span>
+                        : <span className="text-destructive">
                             総額と {formatCurrency(Math.abs(ev.totals.diff))} {ev.totals.diff > 0 ? "多い" : "少ない"}
                           </span>}
                     </td>
@@ -650,7 +650,7 @@ export function JointEventDetailPage() {
                           <span className="text-warning">請求先が本社と違います（{c.billing_company_name}）</span>
                         )}
                         {c.cancelled_at && (
-                          <span className="text-negative">取り消し済み{c.cancel_billing_key ? `（${c.cancel_billing_key}）` : ""}</span>
+                          <span className="text-destructive">取り消し済み{c.cancel_billing_key ? `（${c.cancel_billing_key}）` : ""}</span>
                         )}
                       </div>
                     </div>
@@ -672,7 +672,7 @@ export function JointEventDetailPage() {
                       <dt className="text-muted-foreground">請求書</dt>
                       <dd>
                         {c.cancelled_at ? "—"
-                          : c.billing_key ? <span className="text-positive">{c.billing_key}</span>
+                          : c.billing_key ? <span className="text-success">{c.billing_key}</span>
                           : c.billing_differs ? <span className="text-warning">確認して</span>
                           : "出せる"}
                       </dd>
@@ -680,13 +680,13 @@ export function JointEventDetailPage() {
                     <div className="flex justify-between gap-2">
                       <dt className="text-muted-foreground">入金</dt>
                       <dd>
-                        {c.paid_at ? <span className="text-positive">入金済み</span>
+                        {c.paid_at ? <span className="text-success">入金済み</span>
                           : c.billing_key ? "待ち" : "—"}
                       </dd>
                     </div>
                   </dl>
                   {canEdit && !c.cancelled_at && c.customer_id !== ev.organizer_customer_id && (
-                    <Button variant="ghost" size="sm" className="mt-1 min-h-tap gap-1 text-negative"
+                    <Button variant="ghost" size="sm" className="mt-1 min-h-tap gap-1 text-destructive"
                       disabled={cancelMutation.isPending}
                       onClick={() => cancelMutation.mutate({ companyId: c.id, redistribute: "others" })}>
                       <X className="h-4 w-4" aria-hidden="true" />
@@ -700,7 +700,7 @@ export function JointEventDetailPage() {
               <span>合計</span>
               <span className="text-right">
                 <Money value={ev.totals.sum} className="justify-end" />
-                <span className={`block text-xs ${ev.totals.matches ? "text-positive" : "text-negative"}`}>
+                <span className={`block text-xs ${ev.totals.matches ? "text-success" : "text-destructive"}`}>
                   {ev.totals.matches
                     ? "総額と一致"
                     : `総額と ${formatCurrency(Math.abs(ev.totals.diff))} ${ev.totals.diff > 0 ? "多い" : "少ない"}`}
@@ -731,7 +731,7 @@ export function JointEventDetailPage() {
               <div className="border-t border-divider p-4">
                 {/* 全社ぶん出し終わったら「0社ぶんの請求書を出す」ではなく済んだと言う */}
                 {active.every((c) => c.revenue_id) ? (
-                  <p className="flex items-center gap-2 text-sm text-positive">
+                  <p className="flex items-center gap-2 text-sm text-success">
                     <Check className="h-4 w-4" aria-hidden="true" />
                     {active.length}社ぶんの請求書は出し終わっています。入金は「請求のしごと」で確かめられます。
                   </p>
@@ -767,11 +767,11 @@ export function JointEventDetailPage() {
               </div>
               <div className="flex items-baseline justify-between gap-2 border-t border-row pt-2">
                 <dt className="text-muted-foreground">粗利</dt>
-                <dd className="text-lg font-bold text-positive"><Money value={ev.totals.gross} /></dd>
+                <dd className="text-lg font-bold text-success"><Money value={ev.totals.gross} /></dd>
               </div>
               <div className="flex items-baseline justify-between gap-2">
                 <dt className="text-muted-foreground">粗利率</dt>
-                <dd className="font-bold text-positive tabular-nums">{ev.totals.gross_margin}%</dd>
+                <dd className="font-bold text-success tabular-nums">{ev.totals.gross_margin}%</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-muted-foreground">

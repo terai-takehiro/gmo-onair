@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { openAppPath } from "@/lib/openAppPath";
 import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 interface DocItem {
@@ -74,11 +75,14 @@ export default function ProjectDocsTab({ projectId }: { projectId: string }) {
   const go = (item: DocItem) => {
     if (!item.path) return;
     const path = item.path.replace("{id}", projectId);
-    if (path.startsWith("/qsheet") || path.startsWith("/techsheet") || path.startsWith("/daily")) {
-      window.open(path, "_blank", "noopener");
-      return;
-    }
-    navigate(path);
+    /**
+     * 別バンドルも**同じタブ**で開く (v3.0.9)。
+     *
+     * v3.0.8 までは Qシート・技術資料・日々の事務だけ新しいタブで開いていた。
+     * 押す前にどちらになるか分からないので、タブが増えたり増えなかったりする。
+     * 案件へ戻る道を上辺に足した (`BackToProject`) ので、同じタブで開いても迷わない。
+     */
+    openAppPath(path, navigate);
   };
 
   const Row = ({ item }: { item: DocItem }) => (
@@ -122,10 +126,13 @@ export default function ProjectDocsTab({ projectId }: { projectId: string }) {
           <span className="text-muted-foreground/70">—</span>
         )}
       </span>
-      {item.path && !item.ready && (
+      {/* できあがった後も開けるようにする (v3.0.9)。
+          `!item.ready` を条件にしていたので、**Qシートを作った瞬間に案件から開く道が消えて**
+          いた。作った後こそ直しに開くので、消えるのが困る。ラベルだけ変える */}
+      {item.path && (
         <button type="button" onClick={() => go(item)}
         className="flex min-h-tap shrink-0 items-center gap-1 rounded-lg border px-3 text-xs hover:bg-muted">
-          {item.path_label ?? "開く"}
+          {item.ready ? "開く" : item.path_label ?? "開く"}
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       )}

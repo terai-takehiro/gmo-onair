@@ -138,7 +138,7 @@ export default function ProjectIntakePage() {
           <span className="text-sm font-bold">お客様</span>
           {customerId ? (
             <div className="mt-1 flex min-h-tap flex-wrap items-center gap-2 rounded-xl border border-divider bg-muted/40 px-3">
-              <Check className="h-4 w-4 text-positive" aria-hidden="true" />
+              <Check className="h-4 w-4 text-success" aria-hidden="true" />
               <span className="text-sm font-medium">{pickedName}</span>
               <Button variant="ghost" size="sm" className="ml-auto min-h-tap"
                 onClick={() => { setCustomerId(null); setCustomerQuery(""); }}>

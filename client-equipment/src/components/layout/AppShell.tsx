@@ -5,6 +5,8 @@ import {
   QrCode, MapPin, Building2, Palette, Settings,
 } from "lucide-react";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
+import LocationCrumb from "@gmo-onair/shared/src/client/shell/LocationCrumb";
+import BackToProject from "@gmo-onair/shared/src/client/shell/BackToProject";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
 import { createNotificationFetcher } from "@gmo-onair/shared/src/client/notifications";
 import api from "@/lib/api";
@@ -45,7 +47,7 @@ const renderLink: RailLinkRenderer = ({ href, children, className, onClick, titl
 );
 
 export default function AppShell() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { currentUser, logout, permissions } = useAuth();
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
@@ -58,7 +60,12 @@ export default function AppShell() {
       role={currentUser?.role}
       permissions={permissions}
       currentPath={realPathname(pathname)}
-      breadcrumb={<span className="font-bold text-foreground">機材管理</span>}
+      breadcrumb={
+        <span className="flex min-w-0 items-center gap-1.5">
+          <BackToProject search={search} />
+          <LocationCrumb path={realPathname(pathname)} fallback="機材管理" />
+        </span>
+      }
       secondaryNav={
         <SecondaryNavList items={NAV_ITEMS} currentPath={pathname} renderLink={renderLink} />
       }
@@ -66,6 +73,7 @@ export default function AppShell() {
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={EQUIPMENT_MANUAL}
+      onOpenSiteMap={() => { window.location.href = "/map"; }}
     >
       <Outlet />
     </SharedAppShell>

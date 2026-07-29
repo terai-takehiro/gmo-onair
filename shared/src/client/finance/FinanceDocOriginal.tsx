@@ -12,6 +12,7 @@
  */
 import { useRef, useState } from 'react';
 import type { AxiosInstance } from 'axios';
+import { confirmAction } from '../ui/confirm';
 
 export interface FinanceDocOriginalProps {
   api: AxiosInstance;
@@ -59,7 +60,17 @@ export default function FinanceDocOriginal({
   };
 
   const remove = async () => {
-    if (!window.confirm('原本を外します。付け間違えたときの取り消し用です。よろしいですか？')) return;
+    // v3.0.9: `window.confirm` をやめた。**共通部品なのに検査の対象外だった**ため、
+    // 全アプリに出るこの1か所だけブラウザ標準のダイアログが出ていた
+    // (デザインの外側に出る / 何が一緒に起きるかを書けない)。
+    const ok = await confirmAction({
+      title: '付けた原本を外しますか？',
+      description:
+        'この書類から PDF・写真の紐づけを外します。Box に置いたファイルそのものは消えません（差し替えの記録が要る書類なので残します）。もう一度付け直せます。',
+      confirmLabel: '外す',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setBusy(true); setError(null);
     try {
       await api.delete(`/dailyops/finance-docs/${docId}/original`);

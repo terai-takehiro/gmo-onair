@@ -25,15 +25,72 @@ import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 
+
+/**
+ * preset に定義されている色の名前を読み取って、
+ * 「知らない色トークン」を見つける正規表現を組む (v3.0.9)。
+ *
+ * **preset を正にする** — 検査側に色の一覧を書き写すと、色を足したときに
+ * 片方だけ古くなって「定義したのに怒られる」が起きる。
+ */
+function buildUnknownColorRe() {
+  const presetSrc = readFileSync(join(ROOT, 'shared/tailwind.preset.ts'), 'utf8');
+  const colorsStart = presetSrc.indexOf('colors: {');
+  const body = colorsStart >= 0 ? presetSrc.slice(colorsStart, presetSrc.indexOf('\n      },', colorsStart)) : presetSrc;
+
+  /** preset の colors に実際に定義されている名前 */
+  const defined = new Set();
+  for (const m of body.matchAll(/^\s*'?([a-z][a-z0-9-]*)'?\s*:/gm)) defined.add(m[1]);
+
+  /**
+   * 「状態や意味の名前に見えるが、定義されていたら困らない」語の一覧。
+   *
+   * ── なぜ総当たりにしないか ─────────────────────────────
+   *
+   * 最初は「preset に無い色を全部止める」形で書いたが、色の接頭辞は
+   * Tailwind の**色ではないユーティリティ**と重なっている
+   * (`text-sm` `border-t` `bg-gradient-to-br` `shadow-inner` `from-font` …)。
+   * 除外一覧を育てても、`restore-db-from-box` のような**ただの文字列**まで
+   * `from-box` として当たってしまう。実測で 3,681 件の誤検知が出た。
+   *
+   * 本当に正確にやるなら**生成された CSS と突き合わせる**しかないが、
+   * それはビルドが要るので `lint` では走らせられない。
+   *
+   * そこで**実際に起きた間違いの形**に絞る。v3.0.8 で 37 か所あったのは
+   * 「状態を表す語を自分で考えて書いた」もの (`positive` / `negative`) で、
+   * 名前を見れば何をしたかったかが分かる。この手の語を並べておけば、
+   * 同じ間違いは入った瞬間に止まる。**必要になったら足す**。
+   */
+  const INVENTED = [
+    'positive', 'negative', 'danger', 'error', 'ok', 'good', 'bad', 'alert', 'caution',
+    'safe', 'critical', 'notice', 'highlight', 'brand', 'gray-light', 'gray-dark',
+    'positive-surface', 'negative-surface',
+  ].filter((n) => !defined.has(n));
+
+  return new RegExp(
+    '\\b(?:bg|text|border-[lrtxyb]|border|ring|divide|fill|stroke|caret|decoration|from|via|to)'
+    + '-(?:' + INVENTED.join('|') + ')'
+    + '(?:-[a-z]+)?(?:/[0-9]{1,3})?\\b'
+  );
+}
+
 /** 見るディレクトリ (画面のコード) */
 const TARGET_DIRS = [
   'client/src', 'client-qsheet/src', 'client-equipment/src', 'client-techsheet/src',
   'client-live/src', 'client-awards/src', 'client-daily/src',
+  // v3.0.9 で追加。**共通部品も画面に出る** —
+  // ここを見ていなかったので、`shared/src/client/finance/FinanceDocOriginal.tsx` に
+  // 禁止した `window.confirm` が残り、生パレットも 16 か所あるのに
+  // 「違反0」と報告されていた (全アプリに出る場所なので影響はいちばん大きい)。
+  'shared/src',
 ];
 
 /** 対象から外すもの (部品の実装そのもの・自動生成・出力用CG) */
 const SKIP = [
   'shared/src/client/ui/',
+  // 部品の実装そのもの。ここが「金額の組み立て方」「大きい数字の段」を定義している
+  'shared/src/client/format.ts',
+  'shared/src/client/dashboard/KpiCard.tsx',
   '/components/ui/',            // 各アプリの再エクスポート層
   '/cg/',                       // 出力用CG (画面設計の対象外。放送の絵)
   '/quiz/QuizCG',
@@ -109,6 +166,8 @@ const RULES = [
     id: 'browser-dialog',
     // ブラウザ標準の alert() / confirm()。`.alert(` のようなメソッド呼び出しは除く
     re: /(?<![\w.$])(?:window\.)?(alert|confirm)\s*\(/,
+    // コメント行は対象外 (「なぜ禁止か」を書き残せなくなる)
+    extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
     why: '`alert()` / `confirm()` は使いません。'
        + '知らせるときは `notifyError()` / `notifySuccess()`（お知らせ帯）、'
        + '確認するときは `await confirmAction({ title, description, tone })` を使います'
@@ -133,8 +192,18 @@ const RULES = [
        + '**意味を持たない見分けのための色 = `cat-1`〜`cat-8`**）。'
        + '生のパレットを書くと、同じ「灰色」がアプリごとに違う灰色になり、'
        + '状態の色 (赤 = 危ない) と区別の色 (話者3が赤) が混ざります',
-    // まず現場の6アプリから。案件管理 (client) は残り 664 か所あるので次の版で入れる
-    only: (rel) => rel.startsWith('client-') && !rel.startsWith('client/'),
+    /**
+     * v3.0.9 で**全アプリを対象にした**。
+     *
+     * それまでは `client-` で始まるディレクトリだけを見ていた
+     * (= 案件管理 `client/` と 共通部品 `shared/` は丸ごと除外)。
+     * 結果として「違反0」と報告しながら、**一番人が触るアプリに 370 か所、
+     * 共通部品に 16 か所**残っていた。検査が嘘をついている状態のほうが、
+     * 違反が残っているより悪い (直す必要がないと読める)。
+     *
+     * 既存分は `BASELINE` に件数で記録し、**増えたときだけ止める**。
+     * 一気に 386 か所を置き換えると差分が読めずレビューが成立しないため。
+     */
   },
   {
     id: 'translucent-text',
@@ -145,7 +214,6 @@ const RULES = [
        + ' AA を満たさないので使用禁止です。`text-muted-foreground/60` は白地で'
        + ' #9ea3ab 相当まで薄くなり、これを下回ります）。'
        + '薄くしたいときは透明度ではなく `text-muted-foreground` を使います',
-    only: (rel) => rel.startsWith('client-') && !rel.startsWith('client/'),
   },
   {
     id: 'forbidden-wording',
@@ -165,7 +233,11 @@ const RULES = [
     id: 'control-height',
     // ボタンの高さは 32/36/40/44/48px の5種だけ (デザイン README「寸法」)。
     // 20/24/28px のような中間の値を作ると、並べたときに底が揃わない。
-    re: /\bh-(?:5|6|7|\[(?:2[0-9]|3[013-9]|4[1-357-9])px\])\b/,
+    // **`\[..px\]\b` は1度も当たっていなかった** (v3.0.9 で修正)。
+    // `]` の次が `"` だと `\b` が成立しないため、`h-[38px]"` が常に false になる。
+    // あわせて 40番台の並びを直した — 旧 `4[1-357-9]` は **48 を誤って弾き 46 を見逃していた**。
+    // 正は 32 / 36 / 40 / 44 / 48。
+    re: /\bh-(?:[567]\b|\[(?:2[0-9]|3(?:[01]|[3-5]|[7-9])|4(?:[1-3]|[5-7]|9))px\])/,
     why: 'ボタンの高さは **32 / 36 / 40 / 44 / 48px の5種**から選びます'
        + '（`h-ctl-1`〜`h-ctl-5`、または `<Button size="xs|sm|default|lg|xl">`）。'
        + '中間の値を作ると、同じ意味のボタンが画面ごとに1〜2px 違い、並べたときに底が揃いません',
@@ -175,7 +247,20 @@ const RULES = [
   {
     id: 'tap-target',
     // スマホのタップ領域は 46〜52px。44px は下限すれすれなので作らない
-    re: /\bmin-h-(?:11|\[(?:3[0-9]|4[0-5])px\])\b/,
+    // ここも `\[..px\]\b` が常に false だった (v3.0.9 で修正)。
+    // `min-h-[44px]` は「下限すれすれ」として止めたい値なのに、1度も止めていなかった。
+    re: /\bmin-h-(?:11\b|\[(?:3[0-9]|4[0-5])px\])/,
+    /**
+     * **押すもの**にだけ効かせる。
+     *
+     * 有効にした途端に、`<textarea rows={1} className="min-h-[32px]">` の
+     * 入力欄の最小の高さや、読み取り専用の `<div>` の高さ、表の見出し行まで
+     * 当たってしまった。これらはタップ領域ではないので、この決まりの対象ではない。
+     */
+    extra: (line, block = line) =>
+      /<(?:button|Button|a|Link|NavLink)\b/.test(block)
+      || /\bonClick=/.test(block)
+      || /role="(?:button|tab|option)"/.test(block),
     why: 'スマホのタップ領域は **46〜52px** です（`min-h-tap` = 46px）。'
        + '44px 未満はもちろん、44px ちょうども作りません（指の腹が縁にかかると押し損ねます）',
   },
@@ -188,6 +273,12 @@ const RULES = [
        + '（`w-col-1`〜`w-col-7`、金額は `<MoneyCell width={…} />`）。'
        + '中間の値 (120px・180px …) を作ると、同じ意味の列がページごとに違う幅になり、'
        + '目が横に流れなくなります',
+    /**
+     * これは**表の列幅**の決まり。アプリの枠 (レール 88px・ドロワー 220px・
+     * ドロップダウンの最小幅・ロゴの最大幅) は表の列ではないので対象外にする。
+     * v3.0.9 で `shared/src` を見るようにしたときに初めて当たった。
+     */
+    only: (rel) => !/^shared\/src\/client\/(shell|manual|mcpInfo|versionHistory)\//.test(rel),
     extra: (line) => {
       const allowed = new Set([56, 72, 96, 128, 160, 200, 240]);
       for (const m of line.matchAll(/\b(?:min-|max-)?w-\[(\d+)px\]/g)) {
@@ -226,6 +317,36 @@ const RULES = [
     // コメント行は開発者向けなので対象外 (なぜ出さないかを書き残せるようにする)。
     // JSX の `{/* … */}` も対象外
     extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
+  },
+  {
+    id: 'unknown-color-token',
+    /**
+     * **定義されていない色トークン**を書いている。
+     *
+     * v3.0.8 の時点で `text-positive` / `bg-negative` / `border-positive/40` が
+     * 31 行 (37 か所) あったが、`positive` / `negative` は
+     * `shared/tailwind.preset.ts` にも `tokens.css` にも**存在しなかった**。
+     * Tailwind は知らない色のクラスを**黙って出力しない**ので、
+     *   - 合同案件の「総額と一致 / ずれている」が どちらも黒文字で出る
+     *   - 香盤表の本番レーンの枠と背景が付かない
+     *   - 案件の予定タブの本番日の点が透明になる
+     * という「デザインどおりに書いたのに何も起きない」状態になっていた。
+     * 型でも lint でも落ちないので、**画面を開いた人が気づくしかない**種類の抜け。
+     *
+     * 許すのは preset の colors のキー + Tailwind の組み込み
+     * (white/black/transparent/current/inherit) + 生パレット
+     * (そちらは `raw-palette` が別に止める)。
+     */
+    re: buildUnknownColorRe(),
+    // コメント行は対象外 (どのトークンが無かったかを書き残せるようにする)
+    extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
+    why: '定義されていない色トークンです。'
+       + 'Tailwind は知らない色を**黙って出力しない**ので、書いても色が付きません '
+       + '(v3.0.8 では `positive` / `negative` が 37 か所あり、合同案件の一致/不一致、'
+       + '香盤表の本番レーン、案件の予定タブの本番日がすべて無色で出ていました)。'
+       + '面/文字は `background` `card` `muted` `foreground` `muted-foreground`、'
+       + '状態は `success` `warning` `destructive` `info`、AI は `ai`、'
+       + '**意味を持たない見分けの色は `cat-1`〜`cat-8`** から選んでください',
   },
 ];
 
@@ -330,6 +451,12 @@ for (const file of files) {
   lines.forEach((line, i) => {
     // 「ここは意図してこう書いている」と書いた行は見逃す (逃げ道を1つだけ用意する)
     if (line.includes('ui-tokens-ok')) return;
+    /**
+     * 直前3行 + この行。JSX は属性が改行で分かれるので、
+     * 「`<button` と同じ行に書いてあるか」だけを見ると**書き方によって見逃す**
+     * (`<button\n  type="button"\n  className="min-h-[36px]"` が素通りしていた)。
+     */
+    const block = lines.slice(Math.max(0, i - 3), i + 1).join('\n');
     for (const rule of RULES) {
       // 放送・印刷に出る絵は色・寸法の決まりが違うので、その検査だけ外す
       // (紙は px 指定の表組みが普通で、放送CGはタップ領域もボタン段も関係ない)
@@ -338,7 +465,7 @@ for (const file of files) {
       ].includes(rule.id)) continue;
       if (rule.only && !rule.only(rel)) continue;
       if (!rule.re.test(line)) continue;
-      if (rule.extra && !rule.extra(line)) continue;
+      if (rule.extra && !rule.extra(line, block)) continue;
       findings.push({ rel, line: i + 1, id: rule.id, why: rule.why, text: line.trim().slice(0, 120) });
     }
   });
@@ -358,19 +485,64 @@ for (const file of serverFiles) {
   });
 }
 
-if (findings.length === 0) {
-  console.log(`[ui-tokens] ${files.length + serverFiles.length} ファイルを見ました。手で書かれた数字・見出し、禁止パターンはありません。`);
-  process.exit(0);
-}
+/**
+ * ベースライン (v3.0.9)
+ *
+ * ── なぜ件数で持つか ──────────────────────────────────────
+ *
+ * `raw-palette` と `translucent-text` は v3.0.8 まで **`client/` と `shared/` を
+ * 丸ごと除外**していた。つまり検査は「違反0」と報告しながら、一番人が触る
+ * 案件管理に 370 か所、全アプリに出る共通部品に 16 か所が残っていた。
+ * **検査が嘘をついている状態は、違反が残っているより悪い** — 直す必要が
+ * 無いように読めるので、誰も直さない。
+ *
+ * かといって 400 か所を1つの版で置き換えると差分が読めずレビューが成立しない。
+ * そこで**いまの数を記録して、増えたら止める**形にする。
+ * 減らしたときは記録も下げる (下げ忘れると次に増えても気づけない)。
+ *
+ * **新しく足す規則はベースラインを作らない。** 0 件のうちに入れれば
+ * 「増えたら止まる」は最初から成立する。
+ */
+const BASELINE = {
+  raw_palette: 384,
+  translucent_text: 31,
+};
+const BASELINED = new Set(['raw-palette', 'translucent-text']);
 
-console.error(`[ui-tokens] 直す必要がある箇所が ${findings.length} 件あります。\n`);
 const byRule = new Map();
 for (const f of findings) {
   if (!byRule.has(f.id)) byRule.set(f.id, []);
   byRule.get(f.id).push(f);
 }
+
+/** 止めるもの (ベースライン超過 or ベースライン対象外の規則) */
+const blocking = [];
+const withinBaseline = [];
 for (const [id, list] of byRule) {
-  console.error(`■ ${id} — ${list[0].why}`);
+  if (!BASELINED.has(id)) { blocking.push([id, list]); continue; }
+  const allowed = BASELINE[id.replace(/-/g, '_')] ?? 0;
+  if (list.length > allowed) blocking.push([id, list, allowed]);
+  else withinBaseline.push([id, list.length, allowed]);
+}
+
+if (blocking.length === 0) {
+  console.log(`[ui-tokens] ${files.length + serverFiles.length} ファイルを見ました。手で書かれた数字・見出し、禁止パターンはありません。`);
+  for (const [id, n, allowed] of withinBaseline) {
+    console.log(`  ・${id}: 残り ${n} 件 (記録 ${allowed} 件。増やさないこと。減らしたら BASELINE も下げてください)`);
+  }
+  process.exit(0);
+}
+
+const total = blocking.reduce((n, [, list]) => n + list.length, 0);
+console.error(`[ui-tokens] 直す必要がある箇所が ${total} 件あります。\n`);
+for (const [id, list, allowed] of blocking) {
+  if (allowed !== undefined) {
+    console.error(`■ ${id} — **記録は ${allowed} 件ですが ${list.length} 件あります (増えています)**`);
+    console.error(`   ${list[0].why}`);
+    console.error('   増えたぶんだけ直してください。全部を直す版は別に切ります。');
+  } else {
+    console.error(`■ ${id} — ${list[0].why}`);
+  }
   for (const f of list) console.error(`   ${f.rel}:${f.line}  ${f.text}`);
   console.error('');
 }

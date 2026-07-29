@@ -1058,7 +1058,7 @@ export default function ProjectFormPage() {
                     aria-selected={detailTab === t.key}
                     onClick={() => setDetailTab(t.key)}
                     className={cn(
-                      "min-h-[40px] flex-1 rounded-lg px-3 text-sm",
+                      "min-h-tap flex-1 rounded-lg px-3 text-sm",
                       detailTab === t.key ? "bg-card font-bold shadow-sm" : "text-muted-foreground",
                     )}>
                     {t.label}

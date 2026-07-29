@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { AI_ACTOR_LABEL } from '@gmo-onair/shared/src/client/aiAttribution';
+import { useAiAvailable } from '@gmo-onair/shared/src/client/hooks/useAiAvailable';
 
 /** 明細のグループ。3つに固定する (増やすと並び順が読めなくなる) */
 const GROUPS = ["スタジオ", "技術・人員", "制作・その他"] as const;
@@ -132,6 +133,8 @@ export default function EstimatePage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission("sales", "editor");
+  // AI をつないでいない環境では下書きのボタンを出さない (押しても必ず失敗する)
+  const ai = useAiAvailable(api);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -295,6 +298,7 @@ export default function EstimatePage() {
     || sentMutation.isPending || pdfMutation.isPending;
   const deadline = view.next_action ? deadlineLabel(view.next_action.date) : null;
   const hasRows = rows.some((r) => r.description.trim());
+  const rowCount = rows.filter((r) => r.description.trim()).length;
 
   return (
     <div className="min-h-full bg-background">
@@ -388,13 +392,25 @@ export default function EstimatePage() {
               <p className="text-[15px] font-bold">AIが作った下書き</p>
               <span className="text-[12.5px] text-muted-foreground">似た案件と料金表から</span>
               <div className="flex-1" />
-              {canEdit && (
+              {/* AI をつないでいない環境ではボタンを出さない (押しても必ず失敗する) */}
+              {canEdit && ai.available && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-8 border-ai-border text-ai hover:bg-ai-surface"
                   onClick={async () => {
-                    if (hasRows && !(await confirmAction({ title: "いまの明細を AI の下書きで置き換えます。よろしいですか？" }))) return;
+                    // 何が消えるかを書く。「よろしいですか？」だけでは判断できない
+                    if (
+                      hasRows &&
+                      !(await confirmAction({
+                        title: "いまの明細を AI の下書きで置き換えますか？",
+                        description: `いま入っている ${rowCount} 行はすべて消えて、AI が作った明細に入れ替わります。値引きの設定も外れます。元に戻せません。`,
+                        confirmLabel: "置き換える",
+                        tone: "danger",
+                      }))
+                    ) {
+                      return;
+                    }
                     draftMutation.mutate();
                   }}
                   disabled={busy}
@@ -402,6 +418,11 @@ export default function EstimatePage() {
                   {draftMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                   {hasRows ? "作り直す" : "下書きを作る"}
                 </Button>
+              )}
+              {canEdit && !ai.available && !ai.loading && (
+                <span className="text-[12px] text-muted-foreground">
+                  AI はいまつないでいません。明細は下の「行を足す」から入れてください。
+                </span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2.5">

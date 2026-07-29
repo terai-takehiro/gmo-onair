@@ -144,7 +144,7 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
             originalName={d.original_name ?? null}
             originalKind={d.original_kind ?? null}
             canEdit={canEdit}
-            onChanged={() => qc.invalidateQueries({ queryKey: ['dailyops', 'finance-docs'] })}
+            onChanged={() => qc.invalidateQueries({ queryKey: ['finance-docs'] })}
           />
         </div>
         {canEdit && (
@@ -186,7 +186,7 @@ function UploadNewButton() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const warnings = (res.data?.data?.warnings ?? []) as string[];
-      qc.invalidateQueries({ queryKey: ['dailyops', 'finance-docs'] });
+      qc.invalidateQueries({ queryKey: ['finance-docs'] });
       setNotice({ kind: 'ok', lines: ['登録しました。内容を確認してください。', ...warnings] });
     } catch (e) {
       const err = e as { response?: { data?: { error?: { message?: string } } } };

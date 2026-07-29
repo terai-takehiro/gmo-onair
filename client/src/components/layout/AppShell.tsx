@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
-import { activeRailKey, resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
+import LocationCrumb from "@gmo-onair/shared/src/client/shell/LocationCrumb";
 import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
 import { ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
@@ -9,17 +9,31 @@ import { SALES_MANUAL } from "@/manual/content";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
 import { createNotificationFetcher } from "@gmo-onair/shared/src/client/notifications";
 import api from "@/lib/api";
+import { openAppPath } from "@/lib/openAppPath";
 
-/** 別バンドルのアプリ。ここへ行くときだけフルリロードする */
-const EXTERNAL_PREFIXES = ["/equipment", "/qsheet", "/techsheet", "/live", "/awards", "/daily"];
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: unknown;
 }
 
-class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
-  constructor(props: { children: React.ReactNode }) {
+/**
+ * 1画面の描画エラーで**アプリ全体が使えなくなる**のを止める (v3.0.9)。
+ *
+ * v3.0.8 まで、この境界は `hasError` を一度立てたら下ろす経路が無かった。
+ * レールのリンクはクライアント側遷移なので URL は変わるが境界は再生成されず、
+ * **どのレールを押しても同じエラー画面が出続ける**。「前の画面に戻る」か
+ * 「今日の画面へ」で**フルリロードするまで復帰できない**状態だった
+ * (エラーの原因が1画面だけでも、7つのレール全部が死ぬ)。
+ *
+ * `resetKey` (= 現在地) が変わったら状態を戻す。別の画面に移った時点で
+ * その画面が描けるかどうかは分からないので、**もう一度描かせて確かめる**のが正しい。
+ */
+class PageErrorBoundary extends React.Component<
+  { children: React.ReactNode; resetKey: string },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode; resetKey: string }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -30,6 +44,12 @@ class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, E
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[PageErrorBoundary] Caught error:", error, info.componentStack);
+  }
+
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (this.state.hasError && prev.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: undefined });
+    }
   }
 
   render() {
@@ -72,30 +92,14 @@ const renderRailLink: RailLinkRenderer = ({ href, children, className, onClick, 
   </NavLink>
 );
 
-/** 上辺のパンくず。いまはレールの区画名 (案件の名前を出すのは Phase 4) */
-function useBreadcrumb(pathname: string, role?: string, permissions?: Record<string, string>): string | null {
-  const items = resolveRailItems({ role, permissions });
-  const key = activeRailKey(pathname, items);
-  return items.find((i) => i.key === key)?.label ?? null;
-}
 
 export default function AppShell() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout, permissions } = useAuth();
-  const breadcrumb = useBreadcrumb(pathname, currentUser?.role, permissions);
 
-  // ⌘K の行き先。案件管理アプリ内はルーティング、別アプリはフルリロード
-  const runCommand = useCallback(
-    (path: string) => {
-      if (EXTERNAL_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`))) {
-        window.location.href = path;
-        return;
-      }
-      navigate(path);
-    },
-    [navigate]
-  );
+  // ⌘K・ベル・マップの行き先。判定は openAppPath に1本化してある
+  const runCommand = useCallback((path: string) => openAppPath(path, navigate), [navigate]);
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
   const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
@@ -110,12 +114,14 @@ export default function AppShell() {
       permissions={permissions}
       currentPath={pathname}
       renderLink={renderRailLink}
-      breadcrumb={breadcrumb ? <span className="font-bold text-foreground">{breadcrumb}</span> : undefined}
+      breadcrumb={<LocationCrumb path={pathname} fallback="案件管理" />}
       commandPalette={{ onRun: runCommand, search: searchHits }}
       notifications={{ fetchData: fetchNotifications, onRun: runCommand, onOpenPrefs: () => navigate("/settings/notifications") }}
       manualContent={SALES_MANUAL}
+      onOpenSiteMap={() => navigate("/map")}
     >
-      <PageErrorBoundary>
+      {/* resetKey に現在地を渡す。別の画面へ移ったらエラー状態を解く */}
+      <PageErrorBoundary resetKey={pathname}>
         <Outlet />
       </PageErrorBoundary>
     </SharedAppShell>

@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Timer, LayoutDashboard, Settings, ArrowLeft } from 'lucide-react';
+import { Timer, LayoutDashboard, Settings, ArrowLeft, KeyRound } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
+import LocationCrumb from '@gmo-onair/shared/src/client/shell/LocationCrumb';
+import BackToProject from '@gmo-onair/shared/src/client/shell/BackToProject';
 import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
 import { createNotificationFetcher } from '@gmo-onair/shared/src/client/notifications';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
@@ -29,7 +31,7 @@ const renderLink: RailLinkRenderer = ({ href, children, className, onClick, titl
 );
 
 export default function AppShell() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { programId } = useParams<{ programId?: string }>();
   const { currentUser, logout, permissions } = useAuth();
   const { canView, permissionsLoading } = usePermissions();
@@ -48,18 +50,22 @@ export default function AppShell() {
         { label: 'タイマー管理', href: `/program/${programId}/timers`, Icon: Timer },
         { label: '番組設定', href: `/program/${programId}/settings`, Icon: Settings },
         { label: 'セッション一覧へ', href: '/', Icon: ArrowLeft, exact: true, groupTitle: 'ほか' },
-        { label: '設定', href: '/settings', Icon: Settings },
+        // 「設定」が2行並んで区別が付かなかったので中身の名前にする
+        // (/live/settings は YouTube などの APIキーを入れる画面)
+        { label: '視聴者数のAPIキー', href: '/settings', Icon: KeyRound },
       ]
     : [
         { label: 'セッション一覧', href: '/', Icon: Timer, exact: true },
-        { label: '設定', href: '/settings', Icon: Settings },
+        { label: '視聴者数のAPIキー', href: '/settings', Icon: KeyRound },
       ];
 
   const noAccess = !permissionsLoading && !canView;
 
+  // 区分 + 画面名は共通部品から (全アプリで同じ形にする)。番組名はこのアプリ固有なので後ろに足す
   const breadcrumb = (
     <span className="flex min-w-0 items-center gap-1.5">
-      <span className="shrink-0 font-bold text-foreground">計時LIVE</span>
+      <BackToProject search={search} />
+      <LocationCrumb path={realPathname(pathname)} fallback="計時LIVE" />
       {program && (
         <>
           <span className="shrink-0 select-none text-border" aria-hidden="true">
@@ -91,6 +97,7 @@ export default function AppShell() {
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={LIVE_MANUAL}
+      onOpenSiteMap={() => { window.location.href = "/map"; }}
       padMain={noAccess}
     >
       {noAccess ? <NoPermissionPanel modules={['liveops']} target="計時LIVE" /> : <Outlet />}

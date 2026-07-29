@@ -142,11 +142,19 @@ export const NotificationPanel = forwardRef<HTMLDivElement, {
 
 /** ベル本体 (ボタン + パネル)。データ取得は呼び出し側から関数で渡す */
 export function NotificationBell({
-  fetchData, onRun, onOpenPrefs,
+  fetchData, onRun, onOpenPrefs, onData,
 }: {
   fetchData: () => Promise<NotificationData>;
   onRun: (path: string) => void;
   onOpenPrefs?: () => void;
+  /**
+   * 取れた件数を親に渡す (v3.0.9)。
+   *
+   * レールには**件数を出す仕掛け (`railBadges`) が最初から入っていたのに、
+   * 渡している呼び出し側が1つも無かった** — つまり丸ごと死んでいた。
+   * ベルはもう2分ごとに取っているので、**もう1本取りに行かず**その結果を配る。
+   */
+  onData?: (d: NotificationData) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<NotificationData | null>(null);
@@ -158,7 +166,7 @@ export function NotificationBell({
   useEffect(() => {
     let alive = true;
     const load = () => {
-      fetchData().then((d) => { if (alive) setData(d); }).catch(() => { /* 失敗しても上辺は壊さない */ });
+      fetchData().then((d) => { if (alive) { setData(d); onData?.(d); } }).catch(() => { /* 失敗しても上辺は壊さない */ });
     };
     load();
     const t = setInterval(load, 120_000);
@@ -169,7 +177,7 @@ export function NotificationBell({
   // 開いたときは最新を取り直す (終わらせた分がすぐ消えるように)
   useEffect(() => {
     if (!open) return;
-    fetchData().then(setData).catch(() => { /* noop */ });
+    fetchData().then((d) => { setData(d); onData?.(d); }).catch(() => { /* noop */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

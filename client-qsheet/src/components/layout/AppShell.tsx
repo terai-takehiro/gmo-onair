@@ -1,51 +1,18 @@
 import { useMemo } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, FilePlus } from "lucide-react";
+import { Outlet, useLocation } from "react-router-dom";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
+import LocationCrumb from "@gmo-onair/shared/src/client/shell/LocationCrumb";
+import BackToProject from "@gmo-onair/shared/src/client/shell/BackToProject";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
 import { createNotificationFetcher } from "@gmo-onair/shared/src/client/notifications";
 import api from "@/lib/api";
-import SecondaryNavList, { type SecondaryNavItem } from "@gmo-onair/shared/src/client/shell/SecondaryNavList";
-import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
 import { realPathname } from "@gmo-onair/shared/src/client/shell/realPath";
 import { useAuth } from "@/hooks/useAuth";
 import { QSHEET_MANUAL } from "@/manual/content";
 
-const NAV_ITEMS: SecondaryNavItem[] = [
-  { label: "ドキュメント一覧", href: "/qsheet", Icon: LayoutDashboard, exact: true },
-];
-
-const renderLink: RailLinkRenderer = ({ href, children, className, onClick, title, ...rest }) => (
-  <NavLink to={href} className={className} onClick={onClick} title={title} {...rest}>
-    {children}
-  </NavLink>
-);
-
 export default function AppShell() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { currentUser, logout, permissions } = useAuth();
-
-  const nav = (
-    <SecondaryNavList
-      items={NAV_ITEMS}
-      currentPath={pathname === "/qsheet/editor" ? "/qsheet" : pathname}
-      renderLink={renderLink}
-      footer={
-        <button
-          type="button"
-          onClick={() => {
-            const btn = document.querySelector("[data-create-btn]") as HTMLButtonElement | null;
-            if (btn) btn.click();
-            else window.location.href = "/qsheet";
-          }}
-          className="flex h-ctl-3 w-full items-center gap-2.5 rounded-control border border-primary/25 px-3 text-[13px] font-bold text-primary transition-colors hover:bg-accent"
-        >
-          <FilePlus className="h-4 w-4 shrink-0" aria-hidden="true" />
-          新規作成
-        </button>
-      }
-    />
-  );
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
   const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
@@ -57,12 +24,16 @@ export default function AppShell() {
       role={currentUser?.role}
       permissions={permissions}
       currentPath={realPathname(pathname)}
-      breadcrumb={<span className="font-bold text-foreground">Qシート</span>}
-      secondaryNav={nav}
-      secondaryNavLabel="Qシート"
+      breadcrumb={
+        <span className="flex min-w-0 items-center gap-1.5">
+          <BackToProject search={search} />
+          <LocationCrumb path={realPathname(pathname)} fallback="Qシート" home={{ path: "/qsheet", onGo: () => { window.location.href = "/qsheet"; } }} />
+        </span>
+      }
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={QSHEET_MANUAL}
+      onOpenSiteMap={() => { window.location.href = "/map"; }}
     >
       <Outlet />
     </SharedAppShell>

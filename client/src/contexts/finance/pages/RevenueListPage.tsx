@@ -49,7 +49,7 @@ import PricingItemPicker, { type PickedPricingItem } from "../components/Pricing
 import DiscountDialog, { type DiscountResult } from "../components/DiscountDialog";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError } from '@/lib/notify';
+import { notifyApiError, notifyError } from '@/lib/notify';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
@@ -356,8 +356,9 @@ export default function RevenueListPage() {
       try {
         const row = (await api.get(`/revenues/${editParam}`)).data?.data;
         if (row) handleEditRevenue(row as RevenueRow);
-      } catch {
-        /* 取得失敗時は無視 */
+      } catch (err) {
+        // 黙って捨てると「押しても何も起きない」に見える (v3.0.9)
+        notifyApiError('売上の明細を開けませんでした', err, '一覧から選び直してください。');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -547,7 +548,10 @@ export default function RevenueListPage() {
           <ExcelToolbar
             resource="/revenues"
             name="売上"
-            queryKey={["revenues"]}
+            // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.0.9)。
+              // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
+              // 出てこないのでもう一度取り込む人がいた (売上の二重登録の元)
+              queryKey={["revenues-all"]}
             hasDuplicateKey={false}
             exportParams={{
               search: search || undefined,

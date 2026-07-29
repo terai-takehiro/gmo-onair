@@ -10,6 +10,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { notifyApiError } from '@/lib/notify';
 import { formatCurrency, formatDate, formatMonth } from "@/lib/format";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useCrudPage } from "@/hooks/useCrudPage";
@@ -95,8 +96,9 @@ export default function SgaListPage() {
       try {
         const row = (await api.get(`/sga/${editParam}`)).data?.data;
         if (row) crud.openEdit(row as SgaExpense);
-      } catch {
-        /* 取得失敗時は無視 */
+      } catch (err) {
+        // 黙って捨てると「押しても何も起きない」に見える (v3.0.9)
+        notifyApiError('販管費の明細を開けませんでした', err, '一覧から選び直してください。');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,7 +214,10 @@ export default function SgaListPage() {
             <ExcelToolbar
               resource="/sga-expenses"
               name="販管費"
-              queryKey={["sga-expenses"]}
+              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.0.9)。
+              // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
+              // 出てこないのでもう一度取り込む人がいた (販管費の二重登録の元)
+              queryKey={["sga-list"]}
               hasDuplicateKey={false}
               exportParams={{
                 search: crud.search || undefined,

@@ -199,7 +199,7 @@ export default function ReviewPage() {
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "inline-flex min-h-[36px] items-center gap-1.5 rounded-control border px-3 text-xs transition-colors",
+              "inline-flex min-h-tap items-center gap-1.5 rounded-control border px-3 text-xs transition-colors",
               tab === t.id
                 ? "border-primary bg-primary/10 font-bold text-primary"
                 : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"

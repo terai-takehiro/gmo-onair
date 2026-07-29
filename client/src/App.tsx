@@ -22,6 +22,8 @@ import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import TodayPage from "@/contexts/platform/pages/TodayPage";
 import SearchResultsPage from "@/contexts/platform/pages/SearchResultsPage";
+import SiteMapPage from "@/contexts/platform/pages/SiteMapPage";
+import NotFoundPage from "@/contexts/platform/pages/NotFoundPage";
 import SandboxPage from "@/contexts/sales/pages/SandboxPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import UserPermissionPage from "@/contexts/platform/pages/UserPermissionPage";
@@ -131,6 +133,9 @@ function AppRoutes() {
           が担当。URL は変わらないのでリンクを貼り直す必要はない。
         */}
         <Route path="/today" element={<TodayPage />} />
+        {/* 全体マップ (v3.0.9) — 行き先の全部を仕事の順番で1枚に。
+            権限で絞るのは表の側 (resolveCommands) なので、ここは囲まない */}
+        <Route path="/map" element={<SiteMapPage />} />
         {/* 検索結果の画面 (36章)。⌘K の「すべて見る」から来る。
             **権限で見えない種類はサーバーが返さない**ので、ここは権限で囲まない
             (囲むと「案件だけ見られる人」が検索そのものを開けなくなる) */}
@@ -199,60 +204,74 @@ function AppRoutes() {
         {/*
           ===== 旧URL → 新URL (§3.3「必須・削除しない」) =====
           ブックマーク・過去のメール・Slack のリンクを壊さないため、消さずに残す。
+
+          **転送は `RedirectPreserveState` に統一する (v3.0.9)。**
+          `<Navigate to="/finance?tab=revenue">` は**元URLのクエリと state を捨てる**ので、
+          `/budget/revenues?project_id=X` を踏むと案件の絞り込みが消えて全社の売上一覧に着いていた
+          (案件の「売上」「仕入」ボタンがこれに当たっていた)。転送の意味が
+          `<Navigate>` / `RedirectPreserveState` / `RedirectTo` の3種に分かれていたため、
+          どのリンクが何を引き継ぐのか書いた本人にしか分からない状態だった。
+          引き継いで困るものは無いので、既定を「引き継ぐ」側に寄せる。
         */}
         <Route path="/" element={<Navigate to="/today" replace />} />
-        <Route path="/sales/inbox" element={<Navigate to="/today" replace />} />
+        <Route path="/sales/inbox" element={<RedirectPreserveState to="/today" />} />
 
-        <Route path="/sales/projects" element={<Navigate to="/projects" replace />} />
-        <Route path="/sales/pipeline" element={<Navigate to="/projects?view=board" replace />} />
+        <Route path="/sales/projects" element={<RedirectPreserveState to="/projects" />} />
+        <Route path="/sales/pipeline" element={<RedirectPreserveState to="/projects?view=board" />} />
         <Route path="/sales/projects/confirmed/:category" element={<RedirectConfirmed />} />
 
-        <Route path="/sales/tasks" element={<Navigate to="/tasks?scope=all&view=board" replace />} />
+        <Route path="/sales/tasks" element={<RedirectPreserveState to="/tasks?scope=all&view=board" />} />
         <Route path="/sales/tasks/:view" element={<RedirectTaskView />} />
         <Route path="/sales/projects/:projectId/tasks" element={<RedirectTo to="/tasks?scope=project&project=:projectId" />} />
 
-        <Route path="/sales/customers" element={<Navigate to="/customers" replace />} />
+        <Route path="/sales/customers" element={<RedirectPreserveState to="/customers" />} />
         <Route path="/sales/customers/:id" element={<RedirectTo to="/customers/:id" />} />
-        <Route path="/sales/companies" element={<Navigate to="/settings/billing-parties" replace />} />
+        <Route path="/sales/companies" element={<RedirectPreserveState to="/settings/billing-parties" />} />
 
         <Route path="/studio/all" element={<RedirectPreserveState to="/schedule" />} />
         <Route path="/studio/calendar" element={<RedirectPreserveState to="/schedule?layers=studio" />} />
         <Route path="/studio/partners" element={<RedirectPreserveState to="/schedule?layers=partner" />} />
         <Route path="/studio/my-calendar" element={<RedirectPreserveState to="/schedule?layers=me" />} />
 
-        <Route path="/budget/dashboard" element={<Navigate to="/finance" replace />} />
-        <Route path="/budget/revenues" element={<Navigate to="/finance?tab=revenue" replace />} />
-        <Route path="/budget/purchases" element={<Navigate to="/finance?tab=purchase" replace />} />
-        <Route path="/budget/sga" element={<Navigate to="/finance?tab=sga" replace />} />
-        <Route path="/budget/xpoint-import" element={<Navigate to="/finance/import?tool=xpoint" replace />} />
-        <Route path="/budget/kessan-import" element={<Navigate to="/finance/import?tool=kessan" replace />} />
-        <Route path="/budget/dedup-screening" element={<Navigate to="/finance/import?tool=dedup" replace />} />
+        <Route path="/budget/dashboard" element={<RedirectPreserveState to="/finance" />} />
+        <Route path="/budget/revenues" element={<RedirectPreserveState to="/finance?tab=revenue" />} />
+        <Route path="/budget/purchases" element={<RedirectPreserveState to="/finance?tab=purchase" />} />
+        <Route path="/budget/sga" element={<RedirectPreserveState to="/finance?tab=sga" />} />
+        <Route path="/budget/xpoint-import" element={<RedirectPreserveState to="/finance/import?tool=xpoint" />} />
+        <Route path="/budget/kessan-import" element={<RedirectPreserveState to="/finance/import?tool=kessan" />} />
+        <Route path="/budget/dedup-screening" element={<RedirectPreserveState to="/finance/import?tool=dedup" />} />
 
-        <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
-        <Route path="/admin/data-viewer" element={<Navigate to="/settings/data-viewer" replace />} />
-        <Route path="/admin/db-backups" element={<Navigate to="/settings/db-backups" replace />} />
-        <Route path="/admin/settings" element={<Navigate to="/settings/system" replace />} />
-        <Route path="/admin/kessan-import" element={<Navigate to="/finance/import?tool=kessan" replace />} />
+        <Route path="/admin/users" element={<RedirectPreserveState to="/settings/users" />} />
+        <Route path="/admin/data-viewer" element={<RedirectPreserveState to="/settings/data-viewer" />} />
+        <Route path="/admin/db-backups" element={<RedirectPreserveState to="/settings/db-backups" />} />
+        <Route path="/admin/settings" element={<RedirectPreserveState to="/settings/system" />} />
+        <Route path="/admin/kessan-import" element={<RedirectPreserveState to="/finance/import?tool=kessan" />} />
 
         {/* ブロックアプリ インデックス (BLOCK_APPS.basePath 対応) */}
-        <Route path="/sales" element={<Navigate to="/projects" replace />} />
-        <Route path="/budget" element={<Navigate to="/finance" replace />} />
-        <Route path="/studio" element={<Navigate to="/schedule" replace />} />
+        <Route path="/sales" element={<RedirectPreserveState to="/projects" />} />
+        <Route path="/budget" element={<RedirectPreserveState to="/finance" />} />
+        <Route path="/studio" element={<RedirectPreserveState to="/schedule" />} />
 
         {/* さらに古いURL */}
         <Route path="/projects/*" element={<Navigate to="/projects" replace />} />
-        <Route path="/revenues" element={<Navigate to="/finance?tab=revenue" replace />} />
-        <Route path="/purchases" element={<Navigate to="/finance?tab=purchase" replace />} />
-        <Route path="/sga" element={<Navigate to="/finance?tab=sga" replace />} />
-        <Route path="/calendar" element={<Navigate to="/schedule?layers=studio" replace />} />
-        <Route path="/masters/customers" element={<Navigate to="/customers" replace />} />
-        <Route path="/masters/pricing" element={<Navigate to="/sales/pricing" replace />} />
-        <Route path="/masters/vendors" element={<Navigate to="/budget/vendors" replace />} />
-        <Route path="/masters/partners" element={<Navigate to="/budget/partners" replace />} />
-        <Route path="/reports/vendors" element={<Navigate to="/budget/reports/vendors" replace />} />
+        <Route path="/revenues" element={<RedirectPreserveState to="/finance?tab=revenue" />} />
+        <Route path="/purchases" element={<RedirectPreserveState to="/finance?tab=purchase" />} />
+        <Route path="/sga" element={<RedirectPreserveState to="/finance?tab=sga" />} />
+        <Route path="/calendar" element={<RedirectPreserveState to="/schedule?layers=studio" />} />
+        <Route path="/masters/customers" element={<RedirectPreserveState to="/customers" />} />
+        <Route path="/masters/pricing" element={<RedirectPreserveState to="/sales/pricing" />} />
+        <Route path="/masters/vendors" element={<RedirectPreserveState to="/budget/vendors" />} />
+        <Route path="/masters/partners" element={<RedirectPreserveState to="/budget/partners" />} />
+        <Route path="/reports/vendors" element={<RedirectPreserveState to="/budget/reports/vendors" />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/*
+        知らないURL。v3.0.8 までは黙って `/` (= 今日) に飛ばしていたので、
+        リンクが壊れていても「押しても何も起きない」ようにしか見えなかった
+        (実際に案件の「機材」ボタンと「今日」の3ボタンがこれで死んでいた)。
+        **何が起きたかを言って、全体マップへ送る。**
+      */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

@@ -7,6 +7,13 @@ import { TECHSHEET_STATUS } from '../../../shared/constants/statuses';
 const router = Router();
 
 router.use(requireAuth, requirePermission('techsheet'));
+// 書き込みは editor 以上 (v3.0.9)。
+//
+// v3.0.8 まで router.use の `requirePermission('techsheet')` だけが掛かっており、
+// これは既定で **minLevel='reader'** なので、**「見るだけ」の権限で 技術資料を
+// 作成・変更・削除できた**。サーバー側の他の 74 箇所は書き込みに
+// `requirePermission('...', 'editor')` を明示しているので、ここだけが抜けていた。
+// 削除も editor にする (毎日の操作なので manager では現場が止まる)。
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SEARCH_LENGTH = 100;
@@ -154,7 +161,7 @@ router.get('/documents/:id', async (req: Request, res: Response) => {
 // ============================================================
 // 作成
 // ============================================================
-router.post('/documents', async (req: Request, res: Response) => {
+router.post('/documents', requirePermission('techsheet', 'editor'), async (req: Request, res: Response) => {
   try {
     const id = uuid();
     const { title, project_id, episode_id, production_date, venue, data } = req.body;
@@ -179,7 +186,7 @@ router.post('/documents', async (req: Request, res: Response) => {
 // ============================================================
 // 更新
 // ============================================================
-router.put('/documents/:id', async (req: Request, res: Response) => {
+router.put('/documents/:id', requirePermission('techsheet', 'editor'), async (req: Request, res: Response) => {
   try {
     const existing = await queryOne('SELECT id, updated_at FROM techsheet_documents WHERE id = $1', [req.params.id]);
     if (!existing) {
@@ -233,7 +240,7 @@ router.put('/documents/:id', async (req: Request, res: Response) => {
 // ============================================================
 // 削除
 // ============================================================
-router.delete('/documents/:id', async (req: Request, res: Response) => {
+router.delete('/documents/:id', requirePermission('techsheet', 'editor'), async (req: Request, res: Response) => {
   try {
     const existing = await queryOne('SELECT id FROM techsheet_documents WHERE id = $1', [req.params.id]);
     if (!existing) {

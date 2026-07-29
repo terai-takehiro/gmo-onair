@@ -19,6 +19,7 @@ import VersionHistoryModal from '../versionHistory/VersionHistoryModal';
 import McpInfoModal from '../mcpInfo/McpInfoModal';
 import CommandPalette from '../commandPalette/CommandPalette';
 import { NotificationBell, type NotificationData } from '../notifications';
+import { railBadgesFromNotifications } from './railBadges';
 import type { PaletteHit, PaletteSearchResult } from '../commandPalette/types';
 import type { ManualContent } from '../manual/types';
 
@@ -65,6 +66,11 @@ export interface AppShellProps {
   };
   /** 渡すと ⋯ に「利用マニュアル」が出る */
   manualContent?: ManualContent;
+  /**
+   * 渡すと ⋯ に「全体マップ」が出る (v3.0.9)。
+   * 行き先の全部が並ぶ1枚 (`/map`)。**全アプリの上辺から同じ場所に行ける**ようにする。
+   */
+  onOpenSiteMap?: () => void;
   productLabel?: string;
   /**
    * main に共通の余白 (26px/32px) を付ける。
@@ -91,6 +97,7 @@ export default function AppShell({
   commandPalette,
   notifications,
   manualContent,
+  onOpenSiteMap,
   productLabel = 'GMO ONAiR',
   padMain = false,
   children,
@@ -100,6 +107,14 @@ export default function AppShell({
   const [mcpOpen, setMcpOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /**
+   * レールに出す件数 (v3.0.9)。
+   *
+   * ベルの中にしか件数が無かったので、**ベルを開くまで「待たせているものがある」
+   * ことに気づけなかった**。レールは常に見えているので、そこに数を出す。
+   * 取りに行くのはベルの2分ごとの1本だけ (二重に取らない)。
+   */
+  const [notifyData, setNotifyData] = useState<NotificationData | null>(null);
 
   // ⌘K / Ctrl+K。入力中でも開けるようにする (探すのは常に最短距離で)
   useEffect(() => {
@@ -132,10 +147,12 @@ export default function AppShell({
               fetchData={notifications.fetchData}
               onRun={notifications.onRun}
               onOpenPrefs={notifications.onOpenPrefs}
+              onData={setNotifyData}
             />
           ) : undefined
         }
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
+        onOpenSiteMap={onOpenSiteMap}
         onOpenVersionHistory={() => setVersionOpen(true)}
         onOpenMcpInfo={() => setMcpOpen(true)}
       />
@@ -144,7 +161,8 @@ export default function AppShell({
         <Rail
           items={railItems}
           currentPath={currentPath}
-          badges={railBadges}
+          // 呼び出し側が明示した件数があればそれを、無ければ通知から導く
+          badges={railBadges ?? railBadgesFromNotifications(notifyData)}
           renderLink={renderLink}
           onNavigate={() => setNavOpen(false)}
           // スマホの下タブ「さがす」= ⌘K。下タブに出さない項目 (お客様・お金・設定) はここから辿る

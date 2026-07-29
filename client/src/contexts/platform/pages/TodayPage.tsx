@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { KpiCard, SectionCard } from "@gmo-onair/shared/src/client/dashboard";
 import api from "@/lib/api";
+import { openAppPath } from "@/lib/openAppPath";
 import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import {
@@ -25,17 +26,14 @@ import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue
 import { type InboxData } from "@/contexts/platform/components/todayQueue/types";
 import { manYen } from "@gmo-onair/shared/src/client/ui";
 import {
-  FolderKanban,
   PiggyBank,
   Calendar,
   Package,
   FileText,
   BookOpen,
   Users,
-  Truck,
   Sparkles,
   ExternalLink,
-  Wrench,
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
@@ -47,6 +45,7 @@ import {
   ClipboardList,
   Briefcase,
   Languages,
+  Map as MapIcon,
   TrendingUp,
   Flame,
   Phone,
@@ -58,10 +57,29 @@ import {
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
-};
+/**
+ * 毎日つかう道具への近道。
+ *
+ * **レールに出ているもの (案件・タスク・お客様・予定・お金) は入れない。**
+ * 同じ行き先を2か所に置くと、どちらが正か分からなくなる (§入口は1つ)。
+ * 全部の行き先は `/map` にあるので、ここは「毎日押すもの」だけに絞る。
+ */
+const FIELD_TOOLS: Array<{
+  label: string;
+  to: string;
+  module: string;
+  Icon: React.ElementType;
+  external?: boolean;
+}> = [
+  { label: "Qシート", to: "/qsheet", module: "qsheet", Icon: FileText },
+  { label: "技術資料", to: "/techsheet", module: "techsheet", Icon: BookOpen },
+  { label: "機材", to: "/equipment", module: "equipment", Icon: Package },
+  { label: "計時LIVE", to: "/live", module: "liveops", Icon: Timer },
+  { label: "リアルタイムCG", to: "/awards", module: "awards", Icon: Tv },
+  { label: "日々の事務", to: "/daily", module: "dailyops", Icon: ClipboardList },
+  { label: "翻訳", to: "https://gmo-translate.jp/", module: "", Icon: Languages, external: true },
+  { label: "インタラクティブ", to: "https://interactive.gmo-onair.jp/", module: "", Icon: Sparkles, external: true },
+];
 
 // ──────────────────────────────────────
 // 型定義
@@ -220,30 +238,50 @@ export default function TodayPage() {
           </div>
         </div>
 
-        {/* ───── 現場の道具 (⌘K が入る Phase 3 まで残す唯一の到達経路) ───── */}
+        {/* ───── どこに何があるか (v3.0.9) ─────
+             ここには v3.0.8 まで**アプリ13枚のグリッド**が出ていた。
+             だが左のレールも行き先を並べているので、利用者には
+             「モノで分けた7項目」と「アプリで分けた13枚」が同時に見えており、
+             しかも 案件管理 / 財務管理 / カレンダー は両方に出ていた
+             (同じ行き先が2つの分類に属す)。**2つの絵は1つに畳めない**ので、
+             覚えられるサイトツリーにならなかった。
+
+             グリッドをやめて、**行き先の全体は1か所** (`/map`) に集約する。
+             ここに残すのは「そこへ行く道」と、毎日押す道具への近道だけ。 */}
         <SectionCard
-          title="現場の道具"
-          description="案件から開くのが基本です。単発で使うときはここから。"
-          icon={<Briefcase />}
+          title="どこに何があるか"
+          description="行き先はすべて全体マップにあります。仕事の順番に並んでいます。"
+          icon={<MapIcon />}
           padding="compact"
         >
-          <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {BLOCK_APPS.map((app) => (
-              <AppCard
-                key={app.id}
-                app={app}
-                disabled={!app.externalUrl && !hasPermission(app.id)}
-                onClick={() => {
-                  if (app.externalUrl) {
-                    window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.id)) {
-                    window.location.href = app.basePath;
-                  } else {
-                    navigate(app.basePath);
-                  }
-                }}
-              />
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" className="min-h-tap gap-1.5" onClick={() => navigate("/map")}>
+              <MapIcon className="h-4 w-4" aria-hidden="true" />
+              全体マップを開く
+            </Button>
+            <span className="text-[12px] text-muted-foreground">
+              名前で開くなら
+              <kbd className="mx-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[11px] font-bold">⌘K</kbd>
+              （上の「さがす」でも開きます）
+            </span>
+          </div>
+
+          <div className="mt-3 border-t border-divider pt-3">
+            <p className="text-[12px] text-muted-foreground">毎日つかう道具</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {FIELD_TOOLS.filter((t) => t.external || hasPermission(t.module)).map((t) => (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => openAppPath(t.to, navigate)}
+                  className="min-h-tap inline-flex items-center gap-1.5 rounded-control border border-border bg-card px-3 text-[13px] font-bold text-foreground transition-colors hover:border-primary hover:bg-accent"
+                >
+                  <t.Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  {t.label}
+                  {t.external && <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                </button>
+              ))}
+            </div>
           </div>
         </SectionCard>
 
@@ -442,7 +480,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
           trend={revDelta?.text}
           trendLabel="前月比"
           trendSemantics="positive"
-          onClick={() => navigate("/budget/revenues")}
+          onClick={() => navigate("/finance?tab=revenue")}
         />
         <KpiCard
           label="粗利"
@@ -963,46 +1001,6 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
 // ══════════════════════════════════════════════════════════
 // アプリカード — 補助セクション用にコンパクト化
 // ══════════════════════════════════════════════════════════
-function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onClick: () => void; disabled?: boolean }) {
-  const Icon = ICON_MAP[app.icon] || Package;
-  const isComingSoon = app.status === "coming_soon";
-  const isDisabled = isComingSoon || forceDisabled;
-  const isExternal = !!app.externalUrl;
-
-  return (
-    <button
-      onClick={isDisabled ? undefined : onClick}
-      disabled={isDisabled}
-      aria-label={`${app.label}を開く`}
-      className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-md border p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isDisabled
-          ? "cursor-default border-dashed border-muted bg-muted/20 opacity-50"
-          : "border-border bg-card hover:border-primary hover:bg-accent active:scale-[0.98]"
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-md text-white",
-          isDisabled ? "bg-muted-foreground/30" : app.color
-        )}
-      >
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </div>
-      <div className="flex-1 flex flex-col justify-center">
-        <h3 className="text-sm font-semibold text-foreground">{app.label}</h3>
-      </div>
-      {isComingSoon && (
-        <Badge variant="secondary" className="absolute top-1 right-1 text-[10px] px-1">
-          準備中
-        </Badge>
-      )}
-      {isExternal && !isDisabled && (
-        <ExternalLink className="absolute top-1.5 right-1.5 h-3 w-3 text-muted-foreground/50" aria-hidden="true" />
-      )}
-    </button>
-  );
-}
 
 // ══════════════════════════════════════════════════════════
 // 権限診断パネル — 内容そのままで節維持

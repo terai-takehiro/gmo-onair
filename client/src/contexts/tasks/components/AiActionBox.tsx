@@ -236,7 +236,7 @@ export function AiActionBox() {
     },
     onSuccess: (data) => {
       setResults(data.results);
-      closeAll();
+      clearAfterRun();
       // 案件・タスク・予定・お客様のどれが増えたか分からないので広めに捨てる
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -256,17 +256,31 @@ export function AiActionBox() {
       return (await api.post(`/dailyops/ai/actions/plans/${id}/discard`, {})).data.data;
     },
     onSuccess: () => {
-      setResults([{ action_key: "-", kind: "create_task", ok: true, message: "提案を破棄しました（投げた文は記録に残っています）" }]);
+      setResults([{ action_key: "-", kind: "create_task", ok: true, message: "提案を破棄しました（投げた文はそのまま残しています）" }]);
+      // 破棄は「この提案が違った」という意味なので、**投げた文は残す** (書き直して投げ直せる)
       closeAll();
     },
   });
 
+  /**
+   * 確認をとじる。
+   *
+   * **投げた文は消さない** (v3.0.9)。v3.0.8 までここで `setText("")` していたため、
+   * 確認の画面を Esc で閉じた / 外を押した時点で**貼った文が消えて二度と戻せなかった**。
+   * 議事録やメールを貼ってから閉じてしまうと、もう一度どこかから探して貼り直すことになる。
+   * 登録が済んだときだけ空にする (`clearAfterRun`)。
+   */
   function closeAll() {
     setPlan(null);
     setNothing(null);
     setRows([]);
-    setText("");
     setError(null);
+  }
+
+  /** 登録まで終わったので投入欄も空にする */
+  function clearAfterRun() {
+    closeAll();
+    setText("");
   }
 
   const cancelReading = () => {

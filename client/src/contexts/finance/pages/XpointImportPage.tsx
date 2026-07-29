@@ -442,7 +442,7 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
                           <Link
                             key={`${r.table}-${r.id}`}
                             className="underline"
-                            to={r.table === "purchases" ? `/budget/purchases?edit=${r.id}` : `/budget/sga?edit=${r.id}`}
+                            to={r.table === "purchases" ? `/finance?tab=purchase&edit=${r.id}` : `/finance?tab=sga&edit=${r.id}`}
                           >
                             登録{regRecords.length > 1 ? ` ${i + 1}` : ""} ({r.kind === "purchase" ? "仕入" : "販管費"} {formatCurrency(r.amount)})
                           </Link>

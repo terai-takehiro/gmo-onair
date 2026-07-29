@@ -9,6 +9,7 @@ import { Input } from "../ui/input";
 import { cn } from "../utils";
 import type { VersionHistoryData, VersionHistoryEntry } from "./types";
 import { renderInline, RichDescription } from "./richDescription";
+import { NoSearchResults } from '../states/EmptyState';
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_STEP = 30;
@@ -171,7 +172,7 @@ export default function VersionHistoryModal({
                 ))}
               </ol>
               {filtered.length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">該当するバージョンが見つかりません。</p>
+                <NoSearchResults keyword={query} />
               )}
               {hasMore && (
                 <div className="mt-4 flex justify-center">

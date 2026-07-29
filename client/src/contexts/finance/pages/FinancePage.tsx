@@ -181,7 +181,7 @@ export default function FinancePage() {
     <li key={p.id} className="flex items-center justify-between gap-2 py-1">
       <button
         type="button"
-        onClick={() => navigate(`/budget/purchases?edit=${p.id}`)}
+        onClick={() => navigate(`/finance?tab=purchase&edit=${p.id}`)}
         className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
         title="クリックで仕入編集を開く"
       >
@@ -496,7 +496,7 @@ export default function FinancePage() {
                   <li key={r.id}>
                     <button
                       type="button"
-                      onClick={() => navigate(`/budget/revenues?edit=${r.id}`)}
+                      onClick={() => navigate(`/finance?tab=revenue&edit=${r.id}`)}
                       className="h-ctl-3 flex w-full items-center justify-between gap-2 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       title="クリックで売上詳細を開く"
                     >
@@ -578,7 +578,7 @@ export default function FinancePage() {
                     <li key={s.id} className="flex items-center justify-between gap-2 py-1">
                       <button
                         type="button"
-                        onClick={() => navigate(`/budget/sga?edit=${s.id}`)}
+                        onClick={() => navigate(`/finance?tab=sga&edit=${s.id}`)}
                         className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                         title="クリックで販管費編集を開く"
                       >

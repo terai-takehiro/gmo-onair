@@ -23,6 +23,7 @@ import {
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 
 interface Layer {
   key: string; label: string; live: boolean;
@@ -108,8 +109,23 @@ export default function OnAirPage() {
     cue.mutate(v.prev.step, { onSettled: () => setBusy(false) });
   }, [v, busy, cue]);
 
-  const clearAll = useCallback(() => {
+  /**
+   * 出ているものを消す。**本番中なので必ず訊く** (v3.0.9)。
+   *
+   * v3.0.8 まで CLEAR は無確認で即座に走り、しかも下のキー操作で
+   * **Escape に割り当てられていた**。Escape はどの画面でも「閉じる・やめる」の
+   * キーなので、本番中に癖で押すと**画面が真っ黒になって放送に出る**。
+   * ボタンは確認を通し、Escape の割り当ては外した。
+   */
+  const clearAll = useCallback(async () => {
     if (busy) return;
+    const ok = await confirmAction({
+      title: 'いま出ているものを消しますか？',
+      description: '放送に出ている絵がすぐに消えます（黒画になります）。出し直すには TAKE をもう一度押します。',
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setBusy(true);
     cue.mutate('idle', { onSettled: () => setBusy(false) });
   }, [busy, cue]);
@@ -122,11 +138,12 @@ export default function OnAirPage() {
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
       if (e.code === 'Space') { e.preventDefault(); take(); }
       else if (e.code === 'Backspace') { e.preventDefault(); undo(); }
-      else if (e.code === 'Escape') { e.preventDefault(); clearAll(); }
+      // Escape に CLEAR は割り当てない。どの画面でも「閉じる・やめる」のキーなので、
+      // 本番中に癖で押すと放送が黒画になる。消すときはボタンから (確認を通す)
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [keysArmed, take, undo, clearAll]);
+  }, [keysArmed, take, undo]);
 
   // 権限が無い人に「読み込んでいます…」を出したままにしない
   // (何が足りないのか分からず、壊れているのと区別が付かない)
@@ -138,7 +155,15 @@ export default function OnAirPage() {
       </div>
     );
   }
-  if (error) {
+  /**
+   * **一度でも状態が取れていれば、通信が切れても画面を消さない** (v3.0.9)。
+   *
+   * v3.0.8 までは `error` が立った時点で送出画面ごと差し替えていた。この画面は
+   * 2秒ごとに取り直しているので、**本番中に通信が一瞬途切れただけで TAKE の
+   * ボタンが消える**。次のポーリングで戻るが、その数秒間オペレーターは何も押せない。
+   * 最初の読み込みで一度も取れていないときだけ全画面にする。
+   */
+  if (error && !v) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
         送出の状態を読めませんでした。通信を確かめて、もう一度開いてください。
@@ -160,6 +185,13 @@ export default function OnAirPage() {
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           準備にもどる
         </button>
+        {/* 通信が取れていない間は黙らない。画面は残すが「いまの状態か分からない」と言う */}
+        {error && (
+          <span className="flex items-center gap-1 rounded bg-warning-surface px-2 py-1 text-xs font-bold text-warning-strong">
+            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+            通信が取れていません（表示は最後に届いた状態です）
+          </span>
+        )}
         <span className={cn(
           'flex items-center gap-1 rounded px-2 py-1 text-xs font-bold',
           anyLive ? 'bg-destructive text-white' : 'bg-card text-muted-foreground',
