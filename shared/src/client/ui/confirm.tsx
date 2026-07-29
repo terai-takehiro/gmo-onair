@@ -29,8 +29,30 @@
  *
  * 置き場所は各アプリのレイアウトに `<ConfirmHost />` を 1 つだけ。
  * (お知らせ帯 `<NoticeBar />` と同じ考え方 — 出る場所を 1 か所に決める)
+ *
+ * ── なぜ `document.body` 直下に出すのか (v3.0.6) ──────────────────
+ *
+ * ダイアログ (Radix) の中の「削除」から呼ばれた確認が**押せなかった**。
+ * Radix の modal ダイアログは開いている間、
+ *
+ *   1. `document.body` に `pointer-events: none` を掛ける
+ *      (ダイアログ本体だけ `auto` に戻す = 外側を触らせない仕組み)
+ *   2. body の他の子に `aria-hidden="true"` を付ける
+ *   3. `document` の keydown / focusin を捕まえて Esc で閉じ、フォーカスを閉じ込める
+ *
+ * という 3 つを同時にやる。`<ConfirmHost />` を `#root` の中に置くと
+ * この 3 つを全部食らうので、**確認は見えているのにボタンが死んでいる**
+ * (クリックが `<html>` に当たる) 状態になっていた。個人予定の削除・
+ * ダイアログの中から呼ぶ確認すべてが黙って何もしない挙動だった。
+ *
+ * そこで確認が要るときだけ `document.body` 直下に器を作り、
+ * `pointer-events: auto` を明示する。器はダイアログより**後**に足されるので
+ * `aria-hidden` も付かない (Radix は付けた後に増えた要素を見ていない)。
+ * ネイティブの pointerdown / click / focusin / keydown は器で止めて、
+ * 下のダイアログが「外側を触られた」と誤解して閉じるのも防ぐ。
  */
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 import { cn } from '../utils';
 import { Button } from './button';
@@ -85,9 +107,20 @@ export function confirmAction(req: ConfirmRequest): Promise<boolean> {
 let hostMounted = 0;
 
 /** アプリのルート直下に置く。訊くことが無ければ何も描かない */
+/** ダイアログ (Radix) より後に body 直下へ足す器。触れる・読める状態を明示する */
+function createHostElement(): HTMLDivElement {
+  const el = document.createElement('div');
+  el.setAttribute('data-confirm-host', '');
+  // Radix の modal ダイアログが body に掛ける `pointer-events: none` を継承しない
+  // (継承すると確認のボタンが押せず、削除が黙って何も起きない)
+  el.style.pointerEvents = 'auto';
+  return el;
+}
+
 export function ConfirmHost(): ReactNode {
   const [req, setReq] = useState<Pending | null>(pending);
   const [primary, setPrimary] = useState(false);
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     hostMounted += 1;
@@ -100,23 +133,64 @@ export function ConfirmHost(): ReactNode {
     return () => { listeners.delete(setReq); };
   }, []);
 
+  // 訊くことがある間だけ body 直下に器を出す (ダイアログより後に足すのが要点)
   useEffect(() => {
-    if (!req) return;
-    const onKey = (e: KeyboardEvent) => {
-      // Esc は「やめる」。Enter で実行はしない (取り消せない操作を勢いで通さない)
-      if (e.key === 'Escape') { e.preventDefault(); req.resolve(false); publish(null); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [req]);
+    if (!primary || !req) return;
+    const el = createHostElement();
+    document.body.appendChild(el);
+    setHost(el);
+    // 下のダイアログ (Radix) に「外側を触られた」と誤解させない
+    // (誤解すると、確認のボタンを押した瞬間にダイアログごと閉じる)
+    const swallow = (e: Event) => e.stopPropagation();
+    const types = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'click'];
+    for (const t of types) el.addEventListener(t, swallow);
 
-  if (!primary || !req) return null;
+    // フォーカスの閉じ込め (Radix FocusScope) をこの確認の間だけ黙らせる。
+    // `focusout` は**出ていく側**の要素 (下のダイアログのボタン) で起きるので
+    // 器に付けたリスナーでは止められない。window の捕捉フェーズ
+    // (document より先) で見て、行き先が確認ダイアログなら通さない。
+    // 止めないと、確認を開いた瞬間にフォーカスが下のダイアログへ引き戻され、
+    // キーボードだけでは「削除する / やめる」を選べない。
+    const guardFocus = (e: FocusEvent) => {
+      const inHost = (n: EventTarget | null) => n instanceof Node && el.contains(n);
+      if (inHost(e.target) || inHost(e.relatedTarget)) e.stopPropagation();
+    };
+    window.addEventListener('focusin', guardFocus, true);
+    window.addEventListener('focusout', guardFocus, true);
+
+    return () => {
+      for (const t of types) el.removeEventListener(t, swallow);
+      window.removeEventListener('focusin', guardFocus, true);
+      window.removeEventListener('focusout', guardFocus, true);
+      el.remove();
+      setHost(null);
+    };
+  }, [primary, req]);
+
+  useEffect(() => {
+    if (!primary || !req) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Esc は「やめる」。Enter で実行はしない (取り消せない操作を勢いで通さない)。
+      // Radix は document の**捕捉**フェーズで Esc を見ているので、window の
+      // 捕捉フェーズ (それより先) で止めて、下のダイアログまで一緒に閉じないようにする。
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        req.resolve(false);
+        publish(null);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [primary, req]);
+
+  if (!primary || !req || !host) return null;
 
   const danger = req.tone === 'danger';
   const answer = (ok: boolean) => { req.resolve(ok); publish(null); };
   const Icon = danger ? AlertTriangle : HelpCircle;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       // 外側を押しても閉じない (取り消せない操作を誤って消さない)。やめるボタンで閉じる
@@ -167,6 +241,7 @@ export function ConfirmHost(): ReactNode {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    host,
   );
 }
