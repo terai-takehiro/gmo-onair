@@ -15,10 +15,10 @@ import {
   AI_TOOL_LABELS,
   aiFeedSubject,
   aiFeedProjectLink,
-  aiFeedActor,
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
+import { AI_ACTOR_LABEL, aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 import { AiActionBox } from "@/contexts/tasks/components/AiActionBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
 import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue";
@@ -669,7 +669,6 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
           const label = AI_TOOL_LABELS[f.tool_name] ?? f.tool_name;
           const subject = aiFeedSubject(f.result_summary);
           const projectLink = aiFeedProjectLink(f);
-          const actor = aiFeedActor(f);
           return (
             <li key={f.id} className="flex items-start gap-2.5 px-2 py-2">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50">
@@ -692,11 +691,10 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
                     )
                   ) : null}
                 </p>
-                {/* 内部の詳細 (実行者・ツール名) は title に退避し、主線には出さない */}
+                {/* 実行したのは AI。人名 (接続ユーザー・AI が書いた指示者) は出さない (aiAttribution.ts) */}
                 <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground" title={aiFeedActorDetail(f)}>
                   <span>{relativeTime(f.created_at)}</span>
-                  {actor ? <span>{actor}</span> : null}
-                  {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
+                  <span className="text-ai">{AI_ACTOR_LABEL}</span>
                 </p>
               </div>
             </li>
@@ -837,7 +835,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                         {aiCreated ? (
                           <span
                             className="ml-1.5 inline-flex items-center gap-0.5 align-middle rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-normal text-violet-700"
-                            title={p.ai_requested_by ? `AI が作りました (指示: ${p.ai_requested_by})` : "AI が作りました"}
+                            title={aiOriginTitle("作成")}
                           >
                             <Sparkles className="h-3 w-3" aria-hidden="true" />
                             AI作成

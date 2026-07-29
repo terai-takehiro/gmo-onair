@@ -28,6 +28,7 @@ import {
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { notifyApiError } from "@/lib/notify";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
 type SortKey = "default" | "created_at" | "name" | "customer" | "stage" | "expected_amount" | "event_start";
 type SortDir = "asc" | "desc";
@@ -517,7 +518,7 @@ function ProjectRow({ row: r, onClick }: { row: Row; onClick: () => void }) {
             {r.is_ai_created && (
               <span
                 className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[11px] font-bold text-ai"
-                title={r.ai_requested_by ? `AI が作りました (指示: ${r.ai_requested_by})` : "AI が作りました"}
+                title={aiOriginTitle("作成")}
               >
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 AI作成

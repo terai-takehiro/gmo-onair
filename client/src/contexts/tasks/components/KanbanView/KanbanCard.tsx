@@ -12,6 +12,7 @@ import { useToggleComplete, useDeleteTask } from "../../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
 import { TaskTypeLabels, ProductionStepLabels } from "@/types";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface Props {
   task: ProjectTask;
@@ -98,7 +99,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               {task.is_ai_created && (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
-                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
+                  title={aiOriginTitle("作成")}
                 >
                   <Sparkles className="h-2.5 w-2.5" />
                   AI作成

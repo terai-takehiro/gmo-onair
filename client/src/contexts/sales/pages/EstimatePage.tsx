@@ -31,6 +31,7 @@ import {
   History, BookOpen, CalendarClock, Receipt, AlertTriangle,
 } from "lucide-react";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { AI_ACTOR_LABEL } from '@gmo-onair/shared/src/client/aiAttribution';
 
 /** 明細のグループ。3つに固定する (増やすと並び順が読めなくなる) */
 const GROUPS = ["スタジオ", "技術・人員", "制作・その他"] as const;
@@ -69,7 +70,8 @@ interface EstimateView {
     payable: number; cost_total: number; gross_profit: number;
     gross_margin: number | null; below_warn: boolean;
   };
-  ai_origin: { created_at: string; model: string | null; actor_name: string | null; requested_by: string | null } | null;
+  // 人名 (実行者・AI が書いた指示者) は画面に出さないので受け取らない (aiAttribution.ts)
+  ai_origin: { created_at: string; model: string | null } | null;
   next_action: { text: string; date: string } | null;
   similar: Array<Record<string, any>>;
 }
@@ -420,10 +422,10 @@ export default function EstimatePage() {
                 </span>
               )}
             </div>
+            {/* 作ったのは AI。人名 (接続ユーザー・AI が書いた指示者) は出さない (aiAttribution.ts) */}
             {view.ai_origin && (
               <p className="mt-2.5 text-xs text-muted-foreground">
-                {formatShortDate(String(view.ai_origin.created_at).slice(0, 10))} に作成
-                {view.ai_origin.requested_by ? `（指示: ${view.ai_origin.requested_by}）` : ""}
+                {formatShortDate(String(view.ai_origin.created_at).slice(0, 10))} に {AI_ACTOR_LABEL}
                 　金額と仕入は必ず自分で確かめてください。
               </p>
             )}

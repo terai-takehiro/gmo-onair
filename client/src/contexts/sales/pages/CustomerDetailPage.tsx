@@ -33,6 +33,7 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { ProjectStageLabels, ProjectStageColors, type ProjectStage } from "@/types";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
 // ── 型 ────────────────────────────────────────────────────
 type Rec = Record<string, unknown>;
@@ -282,7 +283,7 @@ function CustomerHeader({ customer, canEdit, onSaved }: { customer: Rec; canEdit
                 {!!customer.is_ai_created && (
                   <span
                     className="inline-flex items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"
-                    title={customer.ai_requested_by ? `AI が登録しました（指示: ${customer.ai_requested_by}）` : "AI が登録しました"}
+                    title={aiOriginTitle("登録")}
                   >
                     <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
                   </span>
@@ -496,7 +497,7 @@ function TimelineCard({
                     {a.is_ai_created ? (
                       <span
                         className="inline-flex items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"
-                        title={a.ai_requested_by ? `AI が記録しました（指示: ${a.ai_requested_by}）` : "AI が記録しました"}
+                        title={aiOriginTitle("記録")}
                       >
                         <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
                       </span>
