@@ -8,6 +8,7 @@ import WeeklyListPage from './pages/WeeklyListPage';
 import WeeklyDetailPage from './pages/WeeklyDetailPage';
 import DailyNewsPage from './pages/DailyNewsPage';
 import InviewPage from './pages/InviewPage';
+import InviewDayPage from './pages/InviewDayPage';
 import FinanceDocsPage from './pages/FinanceDocsPage';
 import InquiriesPage from './pages/InquiriesPage';
 import SecurityCardsPage from './pages/SecurityCardsPage';
@@ -40,7 +41,9 @@ export default function App() {
             <Route path="/weekly" element={<WeeklyListPage />} />
             <Route path="/weekly/:id" element={<WeeklyDetailPage />} />
             <Route path="/news" element={<DailyNewsPage />} />
+            {/* 内覧会は開催日ごとにページを分ける (/inview = 日の一覧、/inview/:date = その日の受付) */}
             <Route path="/inview" element={<InviewPage />} />
+            <Route path="/inview/:date" element={<InviewDayPage />} />
             <Route path="/finance" element={<FinanceDocsPage />} />
             <Route path="/inquiries" element={<InquiriesPage />} />
             <Route path="/security-cards" element={<SecurityCardsPage />} />

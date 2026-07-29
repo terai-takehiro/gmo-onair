@@ -290,8 +290,30 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
               onClick={async () => {
-                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
-                if ((await confirmAction({ title: msg }))) deleteMutation.mutate();
+                // 取り消せない操作なので danger + 「一緒に何が起きるか」を書く (§UI ポリシー)
+                const ok = isSharedIn
+                  ? await confirmAction({
+                      title: "この予定の共有を外しますか？",
+                      description: "あなたのカレンダーから消えます。予定そのものは作成者と他の共有相手には残ります。",
+                      confirmLabel: "共有から外す",
+                    })
+                  : await confirmAction({
+                      title: `「${title || editing.title}」を削除しますか？`,
+                      description: [
+                        editing.shared_with && editing.shared_with.length > 0
+                          ? `共有している ${editing.shared_with.length} 名のカレンダーからも消えます。`
+                          : "",
+                        editing.external_provider
+                          ? `連携中の ${editing.external_provider === "google" ? "Google" : "Outlook"} カレンダーからも削除します。`
+                          : "",
+                        isExternalSynced
+                          ? "外部カレンダーに残っていれば、次回の同期で戻ってきます。"
+                          : "元に戻せません。",
+                      ].filter(Boolean).join("\n"),
+                      confirmLabel: "削除する",
+                      tone: "danger",
+                    });
+                if (ok) deleteMutation.mutate();
               }}
               disabled={deleteMutation.isPending}
             >
