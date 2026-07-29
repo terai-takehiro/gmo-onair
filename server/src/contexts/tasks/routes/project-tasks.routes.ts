@@ -7,9 +7,9 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, requirePermission('sales'));
-// 書き込みは editor 以上 (v3.0.9)。
+// 書き込みは editor 以上 (v3.1.0)。
 //
-// v3.0.8 まで router.use の `requirePermission('sales')` だけが掛かっており、
+// v3.0.11 まで router.use の `requirePermission('sales')` だけが掛かっており、
 // これは既定で **minLevel='reader'** なので、**「見るだけ」の権限で タスクを
 // 作成・変更・削除できた**。サーバー側の他の 74 箇所は書き込みに
 // `requirePermission('...', 'editor')` を明示しているので、ここだけが抜けていた。

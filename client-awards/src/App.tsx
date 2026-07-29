@@ -70,7 +70,7 @@ function AuthenticatedApp() {
             <Route path="/event/:id/quiz" element={<QuizListPage />} />
             <Route path="/event/:id/quiz-stack/control" element={<QuizStackControlPage />} />
             <Route path="/event/:id/quiz/:quizId/edit" element={<QuizEditPage />} />
-                      {/* 知らないURL。v3.0.8 まで path="*" が無く**何も描かれず真っ白**だった
+                      {/* 知らないURL。v3.0.11 まで path="*" が無く**何も描かれず真っ白**だった
                 (壊れたのか読み込み中なのか区別が付かない)。共通の案内を出す */}
             <Route path="*" element={<NotFoundRoute homeLabel="イベント一覧にもどる" />} />
 </Route>

@@ -3,7 +3,7 @@
 デザイン一式 (6部36章・約60画面) と実装を1画面ずつ突き合わせて引いた順番。
 **決まった理由も一緒に書く** — 同じ議論を繰り返さないため。
 
-最終更新: 2026-07-29 / v3.0.9 全体監査 (サイトツリー再編) — 残りは末尾の一覧
+最終更新: 2026-07-29 / v3.1.0 全体監査 (サイトツリー再編) — 残りは末尾の一覧
 
 ---
 
@@ -1009,11 +1009,11 @@ v2.9.289 で入れたゲート (`deploy-*` は `needs: [build, typecheck]`) が�
 
 ---
 
-## v3.0.9 の全体監査で残した課題 (2026-07-29)
+## v3.1.0 の全体監査で残した課題 (2026-07-29)
 
 サイトツリー・デザイン適用・機能欠陥・AI 導線を6観点で全アプリ横断監査し、
 **検証済み 180 件** (high 70 / medium 90 / low 20) を洗い出した。
-v3.0.9 で **85 件**を直し、**残り 95 件** (うち high 27 件)。
+v3.1.0 で **85 件**を直し、**残り 95 件** (うち high 27 件)。
 
 検証の方法: 各観点の findings を別のエージェントが**実コードで1件ずつ裏取り**し、
 成立しないものを落とした (棄却 3 件)。下の一覧は裏取りを通ったものだけ。
@@ -1072,7 +1072,7 @@ v3.0.9 で **85 件**を直し、**残り 95 件** (うち high 27 件)。
 | high | **今日の依頼「受ける/相談/辞退」が閲覧権限の人には無反応** — dailyops を「閲覧」だけで持つ人の今日の画面に「あなたへの依頼」カードが出て、受ける/相談/辞退のボタンが押せる。押すと 403 になるが何も出ず、依頼はそのまま残る。依頼した側からは「見たのに答えない人」に見える。 | `client/src/contexts/tasks/components/MyTasksSummarySection.tsx:71` | MyTasksSummarySection でも `hasPermission('dailyops','editor')` を取り、返答ボタンをその条件で描く。respondMutation に notifyApiError を足す。 |
 | medium | **案件フォームの「+ 新規顧客」が編集権限では必ず失敗する** — 案件を新規に作る途中で「+ 新規顧客」を押して会社名を入れ「登録」を押すと、sales editor では何も起きない(ダイアログが開いたまま、顧客も作られない)。案件の作成自体は editor でできるので、権限が足りないと気づけない。 | `client/src/contexts/sales/components/CustomerDialog.tsx:39` | mutation に `onError: (e) => notifyApiError('顧客の登録', e)` を足す。さらに ProjectFormPage.tsx:1226-1232 のボタンを `hasPermission('sales','manage… |
 | medium | **GLS分類のA↔B切替が管理権限以外では無反応（ダイアログも閉じない）** — 発番済み案件で「ビジネス案件(B)に変更…」を押すと確認ダイアログが開き、「採番し直して変更」を押しても sales editor では何も起きない。ダイアログが開いたまま、GLS番号も変わらず、理由も出ない。 | `client/src/contexts/sales/pages/ProjectFormPage.tsx:637` | `onError: (e) => notifyApiError('案件分類の変更', e)` を足す。ボタンを `hasPermission('sales','manager')` で出し分ける。同じファイルの aiReviewMutation(273) / … |
-| medium | **旧GLS一括編集からのヨミ変更は必須チェックと自動処理を飛ばす** — /sales/gls-import で案件を複数選んで「ヨミ」を仮押さえ(d_hold)や受注(a_won)に一括変更すると、本番日も部屋も見積も無いままステージだけが変わる。その案件は「仮押さえ」なのにスタジオの仮押さえ予約が1件も作られず、予定画面の「期限が近い仮押さえ」にも出ない。案件詳細から… | `client/src/contexts/sales/pages/GlsImportProjectsPage.tsx:135` | bulkUpdate で stage を扱うときは1件ずつ `assertStageRequirements` → `applyStageAnswers` を通し、満たさない案件は結果に「できなかった理由」として返す(v3.0.8 の AI 実行器が1件ずつ止… |
+| medium | **旧GLS一括編集からのヨミ変更は必須チェックと自動処理を飛ばす** — /sales/gls-import で案件を複数選んで「ヨミ」を仮押さえ(d_hold)や受注(a_won)に一括変更すると、本番日も部屋も見積も無いままステージだけが変わる。その案件は「仮押さえ」なのにスタジオの仮押さえ予約が1件も作られず、予定画面の「期限が近い仮押さえ」にも出ない。案件詳細から… | `client/src/contexts/sales/pages/GlsImportProjectsPage.tsx:135` | bulkUpdate で stage を扱うときは1件ずつ `assertStageRequirements` → `applyStageAnswers` を通し、満たさない案件は結果に「できなかった理由」として返す(v3.0.11 の AI 実行器が1件ずつ止… |
 | medium | **予約を消しても「期限が近い仮押さえ」に残り続ける** — 予定画面のカレンダーから仮押さえの予約を削除すると、カレンダーからは消えるのに下の「期限が近い仮押さえ」一覧には残る。そこに出ている「本予約にする」を押すと 404 になり、しかも何も表示されないので壊れているように見える。 | `client/src/contexts/production/pages/SchedulePage.tsx:266` | deleteMutation と StudioBookingDialog の createMutation の onSuccess に `qc.invalidateQueries({ queryKey: ["studio-holds"] })` を足し、両方に… |
 | medium | **旧URLから取り込み画面を開くと本文が真っ白になる** — ブックマークやSlackに残っている `/budget/kessan-import` `/admin/kessan-import` `/budget/dedup-screening` を budget 権限の人(system_admin ではない)が開くと、`/finance/import?tool… | `client/src/components/layout/routeAdapters.tsx:256` | tool が指定されているのに描けるものが無い場合に `<NoPermissionPanel modules={['admin']} level='manager' />`(権限不足) または `<EmptyState>`(未知の tool) を出す。SOUR… |
 | medium | **料金シミュレーションの結果が案件に保存されないまま反映される** — 料金シミュレーションで項目を選び「適用」を押すと、金額と明細は見積フォームに入りダイアログが閉じる。しかし案件へのシミュレーション保存が失敗していた場合(sales 権限が編集未満など)何も表示されない。次にダイアログを開くと選択が全部消えていて、なぜ消えたのか分からない。 | `client/src/contexts/sales/components/SimulationDialog.tsx:161` | `saveMutation.mutate(undefined, { onSuccess: () => { onApply(...); onOpenChange(false); }, onError: (e) => notifyApiError('シミュレーショ… |
@@ -1101,7 +1101,7 @@ v3.0.9 で **85 件**を直し、**残り 95 件** (うち high 27 件)。
 | --- | --- | --- | --- |
 | high | **AI の入口が7種8箇所に散り、集約画面が無い** — 「AI に何を頼めるか」を知る場所が無い。ユーザーは (1) /today の投入欄、(2) /tasks?scope=me の同じ投入欄、(3) 見積画面の「下書きを作る」、(4) /today の行列を開いた先の「返信の下書きをAIに作らせる」、(5) 同じ場所の「作り直す」、(6) 開催マニュ… | `client/src/contexts/platform/pages/TodayPage.tsx:199` | `/settings` 配下に「AI にできること」の1画面を作り、action-catalog.ts の11操作と上記7つの生成入口を1つの表にする (カタログを正にする設計はサーバー側に既にあるので、`GET /dailyops/ai/actions/ca… |
 | high | **「投げたものの行き先」に AI の提案が1件も出ない** — /tasks?scope=me では AiActionBox のすぐ下に「投げたものの行き先」という折りたたみがある。AI に投げた直後にここを開いても**必ず空**（または昔の投入だけ）。ユーザーは「さっき投げたのに記録されていない」と読む。 | `client/src/contexts/tasks/pages/TasksPage.tsx:250` | IntakeLogTab を2本のデータ源 (task_intake + ai_action_plans) をマージした「投げたものの行き先」にする。pending 行は該当の確認画面を再開するボタンを持たせ、再開できないなら pending 文言の案内先を直… |
-| high | **投入欄で AI が作ったものに AI の印が1つも付かない** — 「AIに投げる」で案件・お客様・タスク・活動記録を作ると、その後どの画面を見ても「AI作成」バッジが付かない。案件一覧の「AI作成の未確認」で絞っても出てこない。/today の「待たせている行列」の AI 起票インボックスにも入らない。「AI がやったこと」にも1行も出ない。つまり v3.0.8 … | `server/src/contexts/tasks/services/action-executor.service.ts:175` | executor に `audit('ui:ai-action:'+kind, …)` 相当の記録を追加する (mcp_audit_log を正の「AI がやったこと」台帳として使い続けるなら最小変更)。あるいは `is_ai_created` の判定を「mc… |
+| high | **投入欄で AI が作ったものに AI の印が1つも付かない** — 「AIに投げる」で案件・お客様・タスク・活動記録を作ると、その後どの画面を見ても「AI作成」バッジが付かない。案件一覧の「AI作成の未確認」で絞っても出てこない。/today の「待たせている行列」の AI 起票インボックスにも入らない。「AI がやったこと」にも1行も出ない。つまり v3.0.11 … | `server/src/contexts/tasks/services/action-executor.service.ts:175` | executor に `audit('ui:ai-action:'+kind, …)` 相当の記録を追加する (mcp_audit_log を正の「AI がやったこと」台帳として使い続けるなら最小変更)。あるいは `is_ai_created` の判定を「mc… |
 | high | **「AI が作った」の判定が6通りあり、同じタスクが画面によって AI に見えない** — 同じ1件のタスクが、/tasks?scope=me の一覧では「AI作成」バッジ付き、同じ /tasks のリスト表示・ボード表示ではバッジ無し、という状態になる。逆に MCP がメールから作ったタスクはリスト/ボードでは AI作成、/tasks?scope=me では無印。どちらが本当か画面から判… | `client/src/contexts/tasks/pages/MyTasksPanels.tsx:303` | 「AI が作った」の判定を `shared/src/client/aiAttribution.ts` に1本化する (例 `isAiCreated(row)`)。サーバー側も列を1つ増やして (`origin` 等) 明示的に持たせ、6つの推測式を捨てる。 |
 | high | **AI が推測した人名が /daily/news と /daily/weekly にまだ出ている** — デイリーニュースとウィークリー活動報告の行に、AI が本文から推測して書いた人名がそのまま表示される。v3.0.6 で「実在しない人名 (寺井武大) を見せていた」として15画面から消したはずの表示が、この2画面では残っている。 | `server/src/contexts/mcp/tools/opsreports.tools.ts:110` | opsreports.tools.ts:110 で `requested_by` を `recorded_by` に流すのを止め、AI 行は `recorded_by = null` + `source='ai'` だけにする。画面側は `source ===… |
 | high | **「AI がやったこと」に画面から動かした AI の結果が1件も出ない** — AI の結果を後から確認する唯一の集約画面 /sales/ai-activity を開いても、見積の AI 下書き・返信の AI 下書き・配置図の AI 下書き・awards の AI 整形・投入欄の行動提案の実行は**1件も出てこない**。「今日 AI が何をしたか」を1画面で追えると期待して開い… | `server/src/contexts/platform/routes/dashboard.routes.ts:644` | feed を `mcp_audit_log ∪ ai_outputs` の UNION にする (ai_outputs には kind / target_table / model / prompt_version が既に入っているので画面のラベル付けは可能)… |

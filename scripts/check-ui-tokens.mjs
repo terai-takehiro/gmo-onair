@@ -28,7 +28,7 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 
 /**
  * preset に定義されている色の名前を読み取って、
- * 「知らない色トークン」を見つける正規表現を組む (v3.0.9)。
+ * 「知らない色トークン」を見つける正規表現を組む (v3.1.0)。
  *
  * **preset を正にする** — 検査側に色の一覧を書き写すと、色を足したときに
  * 片方だけ古くなって「定義したのに怒られる」が起きる。
@@ -56,7 +56,7 @@ function buildUnknownColorRe() {
    * 本当に正確にやるなら**生成された CSS と突き合わせる**しかないが、
    * それはビルドが要るので `lint` では走らせられない。
    *
-   * そこで**実際に起きた間違いの形**に絞る。v3.0.8 で 37 か所あったのは
+   * そこで**実際に起きた間違いの形**に絞る。v3.0.11 で 37 か所あったのは
    * 「状態を表す語を自分で考えて書いた」もの (`positive` / `negative`) で、
    * 名前を見れば何をしたかったかが分かる。この手の語を並べておけば、
    * 同じ間違いは入った瞬間に止まる。**必要になったら足す**。
@@ -78,7 +78,7 @@ function buildUnknownColorRe() {
 const TARGET_DIRS = [
   'client/src', 'client-qsheet/src', 'client-equipment/src', 'client-techsheet/src',
   'client-live/src', 'client-awards/src', 'client-daily/src',
-  // v3.0.9 で追加。**共通部品も画面に出る** —
+  // v3.1.0 で追加。**共通部品も画面に出る** —
   // ここを見ていなかったので、`shared/src/client/finance/FinanceDocOriginal.tsx` に
   // 禁止した `window.confirm` が残り、生パレットも 16 か所あるのに
   // 「違反0」と報告されていた (全アプリに出る場所なので影響はいちばん大きい)。
@@ -193,7 +193,7 @@ const RULES = [
        + '生のパレットを書くと、同じ「灰色」がアプリごとに違う灰色になり、'
        + '状態の色 (赤 = 危ない) と区別の色 (話者3が赤) が混ざります',
     /**
-     * v3.0.9 で**全アプリを対象にした**。
+     * v3.1.0 で**全アプリを対象にした**。
      *
      * それまでは `client-` で始まるディレクトリだけを見ていた
      * (= 案件管理 `client/` と 共通部品 `shared/` は丸ごと除外)。
@@ -233,7 +233,7 @@ const RULES = [
     id: 'control-height',
     // ボタンの高さは 32/36/40/44/48px の5種だけ (デザイン README「寸法」)。
     // 20/24/28px のような中間の値を作ると、並べたときに底が揃わない。
-    // **`\[..px\]\b` は1度も当たっていなかった** (v3.0.9 で修正)。
+    // **`\[..px\]\b` は1度も当たっていなかった** (v3.1.0 で修正)。
     // `]` の次が `"` だと `\b` が成立しないため、`h-[38px]"` が常に false になる。
     // あわせて 40番台の並びを直した — 旧 `4[1-357-9]` は **48 を誤って弾き 46 を見逃していた**。
     // 正は 32 / 36 / 40 / 44 / 48。
@@ -247,7 +247,7 @@ const RULES = [
   {
     id: 'tap-target',
     // スマホのタップ領域は 46〜52px。44px は下限すれすれなので作らない
-    // ここも `\[..px\]\b` が常に false だった (v3.0.9 で修正)。
+    // ここも `\[..px\]\b` が常に false だった (v3.1.0 で修正)。
     // `min-h-[44px]` は「下限すれすれ」として止めたい値なのに、1度も止めていなかった。
     re: /\bmin-h-(?:11\b|\[(?:3[0-9]|4[0-5])px\])/,
     /**
@@ -276,7 +276,7 @@ const RULES = [
     /**
      * これは**表の列幅**の決まり。アプリの枠 (レール 88px・ドロワー 220px・
      * ドロップダウンの最小幅・ロゴの最大幅) は表の列ではないので対象外にする。
-     * v3.0.9 で `shared/src` を見るようにしたときに初めて当たった。
+     * v3.1.0 で `shared/src` を見るようにしたときに初めて当たった。
      */
     only: (rel) => !/^shared\/src\/client\/(shell|manual|mcpInfo|versionHistory)\//.test(rel),
     extra: (line) => {
@@ -323,7 +323,7 @@ const RULES = [
     /**
      * **定義されていない色トークン**を書いている。
      *
-     * v3.0.8 の時点で `text-positive` / `bg-negative` / `border-positive/40` が
+     * v3.0.11 の時点で `text-positive` / `bg-negative` / `border-positive/40` が
      * 31 行 (37 か所) あったが、`positive` / `negative` は
      * `shared/tailwind.preset.ts` にも `tokens.css` にも**存在しなかった**。
      * Tailwind は知らない色のクラスを**黙って出力しない**ので、
@@ -342,7 +342,7 @@ const RULES = [
     extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
     why: '定義されていない色トークンです。'
        + 'Tailwind は知らない色を**黙って出力しない**ので、書いても色が付きません '
-       + '(v3.0.8 では `positive` / `negative` が 37 か所あり、合同案件の一致/不一致、'
+       + '(v3.0.11 では `positive` / `negative` が 37 か所あり、合同案件の一致/不一致、'
        + '香盤表の本番レーン、案件の予定タブの本番日がすべて無色で出ていました)。'
        + '面/文字は `background` `card` `muted` `foreground` `muted-foreground`、'
        + '状態は `success` `warning` `destructive` `info`、AI は `ai`、'
@@ -486,11 +486,11 @@ for (const file of serverFiles) {
 }
 
 /**
- * ベースライン (v3.0.9)
+ * ベースライン (v3.1.0)
  *
  * ── なぜ件数で持つか ──────────────────────────────────────
  *
- * `raw-palette` と `translucent-text` は v3.0.8 まで **`client/` と `shared/` を
+ * `raw-palette` と `translucent-text` は v3.0.11 まで **`client/` と `shared/` を
  * 丸ごと除外**していた。つまり検査は「違反0」と報告しながら、一番人が触る
  * 案件管理に 370 か所、全アプリに出る共通部品に 16 か所が残っていた。
  * **検査が嘘をついている状態は、違反が残っているより悪い** — 直す必要が

@@ -7,9 +7,9 @@ import { TECHSHEET_STATUS } from '../../../shared/constants/statuses';
 const router = Router();
 
 router.use(requireAuth, requirePermission('techsheet'));
-// 書き込みは editor 以上 (v3.0.9)。
+// 書き込みは editor 以上 (v3.1.0)。
 //
-// v3.0.8 まで router.use の `requirePermission('techsheet')` だけが掛かっており、
+// v3.0.11 まで router.use の `requirePermission('techsheet')` だけが掛かっており、
 // これは既定で **minLevel='reader'** なので、**「見るだけ」の権限で 技術資料を
 // 作成・変更・削除できた**。サーバー側の他の 74 箇所は書き込みに
 // `requirePermission('...', 'editor')` を明示しているので、ここだけが抜けていた。

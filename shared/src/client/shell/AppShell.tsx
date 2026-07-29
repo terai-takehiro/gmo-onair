@@ -67,7 +67,7 @@ export interface AppShellProps {
   /** 渡すと ⋯ に「利用マニュアル」が出る */
   manualContent?: ManualContent;
   /**
-   * 渡すと ⋯ に「全体マップ」が出る (v3.0.9)。
+   * 渡すと ⋯ に「全体マップ」が出る (v3.1.0)。
    * 行き先の全部が並ぶ1枚 (`/map`)。**全アプリの上辺から同じ場所に行ける**ようにする。
    */
   onOpenSiteMap?: () => void;
@@ -108,7 +108,7 @@ export default function AppShell({
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   /**
-   * レールに出す件数 (v3.0.9)。
+   * レールに出す件数 (v3.1.0)。
    *
    * ベルの中にしか件数が無かったので、**ベルを開くまで「待たせているものがある」
    * ことに気づけなかった**。レールは常に見えているので、そこに数を出す。

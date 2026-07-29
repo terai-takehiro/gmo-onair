@@ -148,7 +148,7 @@ export function NotificationBell({
   onRun: (path: string) => void;
   onOpenPrefs?: () => void;
   /**
-   * 取れた件数を親に渡す (v3.0.9)。
+   * 取れた件数を親に渡す (v3.1.0)。
    *
    * レールには**件数を出す仕掛け (`railBadges`) が最初から入っていたのに、
    * 渡している呼び出し側が1つも無かった** — つまり丸ごと死んでいた。

@@ -1,4 +1,4 @@
-// shared/src/client/shell/railBadges.ts — レールに出す件数 (v3.0.9)
+// shared/src/client/shell/railBadges.ts — レールに出す件数 (v3.1.0)
 //
 // ── なぜ必要だったか ───────────────────────────────────────
 //

@@ -340,8 +340,8 @@ export default function PricingListPage() {
   });
 
   /**
-   * 分類を消す前に必ず訊く (v3.0.9)。**配下の単価がまとめて消える**のに、
-   * v3.0.8 まで確認が無くゴミ箱1回で走っていた。何件消えるかを文章に出す。
+   * 分類を消す前に必ず訊く (v3.1.0)。**配下の単価がまとめて消える**のに、
+   * v3.0.11 まで確認が無くゴミ箱1回で走っていた。何件消えるかを文章に出す。
    */
   const askDeleteCategory = async (cat: PricingCategory) => {
     const n = (cat.items ?? []).length;

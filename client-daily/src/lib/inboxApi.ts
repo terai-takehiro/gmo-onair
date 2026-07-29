@@ -3,9 +3,9 @@ import api from './api';
 import type { FinanceDoc, FinanceDocStatus, FinanceDocType, MiscInquiry, Importance } from './types';
 
 /**
- * 一覧のキャッシュキー (v3.0.9)。
+ * 一覧のキャッシュキー (v3.1.0)。
  *
- * v3.0.8 まで、読む側は `['finance-docs', …]`、`FinanceDocsPage` の
+ * v3.0.11 まで、読む側は `['finance-docs', …]`、`FinanceDocsPage` の
  * 書き込み後は `['dailyops', 'finance-docs']` を無効化していた。**前方一致しないので
  * 一覧が更新されず**、PDF を上げても画面に出てこない。出てこないので
  * もう一度上げる人がいて、それが二重登録の元になっていた。

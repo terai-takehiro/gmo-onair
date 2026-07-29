@@ -76,9 +76,9 @@ export default function ProjectDocsTab({ projectId }: { projectId: string }) {
     if (!item.path) return;
     const path = item.path.replace("{id}", projectId);
     /**
-     * 別バンドルも**同じタブ**で開く (v3.0.9)。
+     * 別バンドルも**同じタブ**で開く (v3.1.0)。
      *
-     * v3.0.8 までは Qシート・技術資料・日々の事務だけ新しいタブで開いていた。
+     * v3.0.11 までは Qシート・技術資料・日々の事務だけ新しいタブで開いていた。
      * 押す前にどちらになるか分からないので、タブが増えたり増えなかったりする。
      * 案件へ戻る道を上辺に足した (`BackToProject`) ので、同じタブで開いても迷わない。
      */
@@ -126,7 +126,7 @@ export default function ProjectDocsTab({ projectId }: { projectId: string }) {
           <span className="text-muted-foreground/70">—</span>
         )}
       </span>
-      {/* できあがった後も開けるようにする (v3.0.9)。
+      {/* できあがった後も開けるようにする (v3.1.0)。
           `!item.ready` を条件にしていたので、**Qシートを作った瞬間に案件から開く道が消えて**
           いた。作った後こそ直しに開くので、消えるのが困る。ラベルだけ変える */}
       {item.path && (

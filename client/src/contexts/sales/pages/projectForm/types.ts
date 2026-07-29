@@ -77,3 +77,53 @@ export const NEXT_STAGE_LABEL: Partial<Record<ProjectStage, { to: ProjectStage; 
   b_verbal: { to: 'a_won', label: '受注にする', note: 'いま口頭決定。正式受注が固まったら「受注」に進めてください。見積・売上の明細登録はそこから始まります。' },
   a_won: { to: 's_completed', label: '完了にする', note: 'いま受注済。実施と請求が終わったら「完了」にしてください。' },
 };
+
+// ── プロジェクト系 (B系) には「仮押さえ」が無い ────────────────
+//
+// 「仮押さえ」はスタジオの枠を取る操作なので、GMO案件・コンサルティング・その他
+// (スタジオを使わない案件) には概念そのものが無い。それなのに 6 段の道のりに
+// 常に「仮押さえ」を入れ、ネタの次の一手を「仮押さえにする」にしていたため、
+// プロジェクト系の案件は**次の一手を押しても部屋を聞かれて先に進めなかった**。
+// 案件分類で道のりを変える (サーバー側の判定と揃えてある)。
+
+/**
+ * その案件の道のり。プロジェクト系は「仮押さえ」を通らない。
+ *
+ * ただし **いま仮押さえに入っている案件では段を残す**。v3.1.0 より前に
+ * 作られたプロジェクト系の案件は仮押さえに入っていることがあり、
+ * 段を消すと現在地がどこにも光らない道のりになってしまう
+ * (`indexOf` が -1 になり、全部「まだ通っていない」表示になる)。
+ * 新しく作られた案件がこの段に入ることはもう無い。
+ */
+export function journeyStagesFor(
+  category: 'A' | 'B' | '' | undefined,
+  currentStage?: ProjectStage,
+): ProjectStage[] {
+  if (category !== 'B' || currentStage === 'd_hold') return JOURNEY_STAGES;
+  return JOURNEY_STAGES.filter((s) => s !== 'd_hold');
+}
+
+/** その案件の「次の一手」。プロジェクト系はネタの次が見積提案になる */
+export function nextStageFor(
+  stage: ProjectStage, category: 'A' | 'B' | '' | undefined,
+): { to: ProjectStage; label: string; note: string } | undefined {
+  if (category === 'B') {
+    if (stage === 'neta') {
+      return {
+        to: 'c_proposal',
+        label: '見積提案にする',
+        note: 'いまネタ。金額が決まったら「見積提案」に進めてください。'
+          + 'この案件はスタジオを使わないので「仮押さえ」は通りません。',
+      };
+    }
+    // 既にデータとして仮押さえに入っている案件は、そこから本線へ戻せるようにする
+    if (stage === 'd_hold') {
+      return {
+        to: 'c_proposal',
+        label: '見積提案にする',
+        note: 'この案件はスタジオを使わないため、仮押さえは使いません。「見積提案」に進めてください。',
+      };
+    }
+  }
+  return NEXT_STAGE_LABEL[stage];
+}

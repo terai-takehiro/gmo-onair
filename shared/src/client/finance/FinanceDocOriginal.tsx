@@ -60,7 +60,7 @@ export default function FinanceDocOriginal({
   };
 
   const remove = async () => {
-    // v3.0.9: `window.confirm` をやめた。**共通部品なのに検査の対象外だった**ため、
+    // v3.1.0: `window.confirm` をやめた。**共通部品なのに検査の対象外だった**ため、
     // 全アプリに出るこの1か所だけブラウザ標準のダイアログが出ていた
     // (デザインの外側に出る / 何が一緒に起きるかを書けない)。
     const ok = await confirmAction({

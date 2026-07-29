@@ -146,6 +146,109 @@ export const STAGE_ASKS: Record<string, StageAsk> = {
 /** 起票で聞く3つ。これ以上増やさない (27a「いま必要」) */
 export const INTAKE_FIELDS = ['name', 'customer_id', 'uses_studio'] as const;
 
+// ── 案件の性質で聞くことが変わる ──────────────────────────
+//
+// 上の表は**スタジオを使う案件 (A系)** を前提に書かれていた。
+// しかし GMO案件・コンサルティング・その他 (B系 = プロジェクト系) には
+// **スタジオのスケジュールという概念が無い**。それなのに「仮押さえ」で
+// 「いつ、どの部屋を押さえますか」と部屋を必須で聞いていたため、
+//   - プロジェクト系の案件はステージを1つも先に進められない (必ず 400 になる)
+//   - 無理に部屋を選ぶと、スタジオを使わない案件の仮押さえ予約が
+//     スタジオのカレンダーに入ってしまう (実際に入っていた)
+// という2つの実害が出ていた。案件の性質を見て聞くことを変える。
+
+/**
+ * スタジオを使う案件種別 (A系)。
+ * `client/src/types/index.ts` の `PROJECT_CATEGORY_A` と同じ並びにすること
+ * (ずれると画面とサーバーで「仮押さえがある案件」の判定が食い違う)。
+ */
+const STUDIO_PROJECT_TYPES = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'];
+
+/** 'studio' = スタジオを使う (A系) / 'project' = 使わない (B系) / 'unknown' = 決まっていない */
+export type StudioUse = 'studio' | 'project' | 'unknown';
+
+/**
+ * この案件がスタジオを使うか。
+ *
+ * 案件分類 (gls_category) が正。v2.8.113 で登録時に必須化されたが、
+ * それ以前の案件は空のことがあるので案件種別から補う。
+ * どちらも分からないときは **勝手に決めずに 'unknown'** を返す
+ * (勝手にスタジオ扱いにすると、また部屋を聞かれて進めなくなる)。
+ */
+export function resolveStudioUse(project: {
+  gls_category?: unknown; project_type?: unknown;
+}): StudioUse {
+  const category = String(project.gls_category ?? '').toUpperCase();
+  if (category === 'A') return 'studio';
+  if (category === 'B') return 'project';
+  const type = String(project.project_type ?? '');
+  if (STUDIO_PROJECT_TYPES.includes(type)) return 'studio';
+  if (type) return 'project';
+  return 'unknown';
+}
+
+/** 進めない理由。**「できない」で終わらせず、何をすれば進めるかまで返す** */
+export interface StageBlock {
+  /** 画面がそのまま出せる日本語 1〜2 文 */
+  message: string;
+  /** 代わりにどのステージへ進めばよいか (あるなら) */
+  suggest_stage?: StageId;
+}
+
+/**
+ * このステージに進めない事情があるか (入力不足とは別)。
+ *
+ * 入力不足は「入れれば進める」が、こちらは **入れても進めない**もの:
+ *   - プロジェクト系の案件に「仮押さえ」= 概念そのものが無い
+ *   - 案件分類が未設定 = どちらの決まりで進めるか決められない (設定不備)
+ *   - スタジオの部屋が1件も登録されていない = 押さえる先が無い (設定不備)
+ */
+export async function findStageBlock(
+  project: Record<string, unknown>, toStage: string,
+): Promise<StageBlock | null> {
+  if (toStage !== 'd_hold') return null;
+
+  // **案件分類を先に見る。** 未設定のときに案件種別から推測して
+  // 「プロジェクト系なので仮押さえはありません」と言うと、ユーザーは
+  // そう設定した覚えが無いので理由として通じない (実際に既定値の
+  // project_type='other' だけでそう言ってしまっていた)。
+  // 未設定は未設定として、何を設定すれば進めるかを言う。
+  const category = String(project.gls_category ?? '').toUpperCase();
+  const use = resolveStudioUse(project);
+
+  if (category !== 'A' && category !== 'B') {
+    const inferred = use === 'studio' ? 'スタジオを使う案件'
+      : use === 'project' ? 'スタジオを使わない案件' : null;
+    return {
+      message:
+        '案件分類（スタジオ / プロジェクト）が未設定のため、仮押さえに進めません。' +
+        (inferred ? `案件種別からは${inferred}に見えます。` : '') +
+        '案件編集で分類を選んでから、もう一度お試しください。',
+    };
+  }
+
+  if (category === 'B') {
+    return {
+      message:
+        'この案件はプロジェクト系（スタジオを使わない案件）なので、スタジオの「仮押さえ」はありません。' +
+        '金額が決まったら「見積提案」に進めてください。',
+      suggest_stage: 'c_proposal',
+    };
+  }
+  // スタジオ案件。押さえる部屋が1つも無ければ、入力しても進めないので先に言う
+  const rooms = (await queryAll(
+    'SELECT id FROM studio_rooms WHERE deleted_at IS NULL LIMIT 1',
+  )) as unknown[];
+  if (rooms.length === 0) {
+    return {
+      message:
+        'スタジオの部屋が1件も登録されていないため、仮押さえに進めません。' +
+        '管理者に部屋の登録を依頼してください。',
+    };
+  }
+  return null;
+}
+
 /**
  * この案件をこのステージに動かすとき、何を聞くか。
  * **すでに入っている項目は聞かない** (同じことを2度打たせない)。
@@ -159,11 +262,25 @@ export async function getStageAsk(projectId: string, toStage: string) {
   )) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
+  const studioUse = resolveStudioUse(project);
   const ask = STAGE_ASKS[toStage];
   if (!ask) {
     return {
       to: toStage, toLabel: STAGE_LABELS[toStage] ?? toStage,
       question: '聞くことはありません', fields: [], auto: [], filled: {}, missing: [],
+      studio_use: studioUse, blocked: null,
+    };
+  }
+
+  // 入れても進めない事情 (概念が無い / 設定不備) は、聞く前に返す。
+  // ここで返さないと「部屋を選べと言われるが選べる部屋が無い」のような
+  // 出口の無い画面になり、押しても何も起きないように見える。
+  const blocked = await findStageBlock(project, toStage);
+  if (blocked) {
+    return {
+      ...ask,
+      filled: {}, room_choices: [], missing: [],
+      studio_use: studioUse, blocked,
     };
   }
 
@@ -191,6 +308,8 @@ export async function getStageAsk(projectId: string, toStage: string) {
     room_choices: roomChoices,
     // まだ入っていない必須。画面はこれだけ出せばよい
     missing: ask.fields.filter((f) => f.required === 'required' && !filled[f.key]).map((f) => f.key),
+    studio_use: studioUse,
+    blocked: null as StageBlock | null,
   };
 }
 
@@ -226,6 +345,12 @@ export async function assertStageRequirements(
     [projectId]
   )) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+  // **入れても進めない事情は入力不足より先に言う。**
+  // 「部屋が要ります」と言われても、プロジェクト系の案件には押さえる部屋が
+  // そもそも無いので、入力を促すのは間違った案内になる。
+  const blocked = await findStageBlock(project, toStage);
+  if (blocked) throw new AppError(400, 'STAGE_NOT_APPLICABLE', blocked.message);
 
   const missing: string[] = [];
   for (const f of ask.fields) {

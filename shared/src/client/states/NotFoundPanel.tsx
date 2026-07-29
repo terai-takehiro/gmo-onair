@@ -1,4 +1,4 @@
-// shared/src/client/states/NotFoundPanel.tsx — 知らないURLに来たとき (v3.0.9)
+// shared/src/client/states/NotFoundPanel.tsx — 知らないURLに来たとき (v3.1.0)
 //
 // ── なぜ共通部品にしたか ───────────────────────────────────
 //

@@ -48,7 +48,7 @@ export default function App() {
             <Route path="/finance" element={<FinanceDocsPage />} />
             <Route path="/inquiries" element={<InquiriesPage />} />
             <Route path="/security-cards" element={<SecurityCardsPage />} />
-                      {/* 知らないURL。v3.0.8 まで path="*" が無く**何も描かれず真っ白**だった
+                      {/* 知らないURL。v3.0.11 まで path="*" が無く**何も描かれず真っ白**だった
                 (壊れたのか読み込み中なのか区別が付かない)。共通の案内を出す */}
             <Route path="*" element={<NotFoundRoute homeLabel="この一覧にもどる" />} />
 </Route>

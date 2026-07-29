@@ -145,7 +145,7 @@ export function matchCommand(c: CommandDef, q: string): boolean {
 
 
 /**
- * 現在地を1つに決める (v3.0.9)。
+ * 現在地を1つに決める (v3.1.0)。
  *
  * ── なぜ要るか ─────────────────────────────────────────────
  *

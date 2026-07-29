@@ -231,7 +231,7 @@ export default function PurchaseListPage() {
         const row = (await api.get(`/purchases/${editParam}`)).data?.data;
         if (row) crud.openEdit(row as PurchaseRow);
       } catch (err) {
-        // 黙って捨てると「押しても何も起きない」に見える (v3.0.9)
+        // 黙って捨てると「押しても何も起きない」に見える (v3.1.0)
         notifyApiError('仕入の明細を開けませんでした', err, '一覧から選び直してください。');
       }
     })();
@@ -307,7 +307,7 @@ export default function PurchaseListPage() {
             <ExcelToolbar
               resource="/purchases"
               name="仕入"
-              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.0.9)。
+              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.1.0)。
               // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
               // 出てこないのでもう一度取り込む人がいた (仕入の二重登録の元)
               queryKey={["purchases-all"]}

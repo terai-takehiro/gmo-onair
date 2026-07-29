@@ -59,8 +59,8 @@ export default function IntakePage() {
 
   const [way, setWay] = useState<'paste' | 'file' | 'ai'>('paste');
   /**
-   * AI をつないでいない環境では「AIに整えさせる」のタブを出さない (v3.0.9)。
-   * v3.0.8 まで押せる見た目で出ていて、押すと 503 が返るだけだった。
+   * AI をつないでいない環境では「AIに整えさせる」のタブを出さない (v3.1.0)。
+   * v3.0.11 まで押せる見た目で出ていて、押すと 503 が返るだけだった。
    */
   const ai = useAiAvailable(api);
   const ways = WAYS.filter((w) => w.key !== 'ai' || ai.available);

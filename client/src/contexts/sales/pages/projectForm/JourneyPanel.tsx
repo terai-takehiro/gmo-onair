@@ -5,7 +5,7 @@ import { Check, ChevronRight, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProjectStageColors, type ProjectStage } from '@/types';
-import { JOURNEY_STAGES, JOURNEY_SHORT, NEXT_STAGE_LABEL } from './types';
+import { JOURNEY_SHORT, journeyStagesFor, nextStageFor } from './types';
 
 /**
  * ジャーニー (7a) — 6段の現在地を日付つきで出し、**次の一手を1つだけ**主ボタンにする。
@@ -13,15 +13,18 @@ import { JOURNEY_STAGES, JOURNEY_SHORT, NEXT_STAGE_LABEL } from './types';
  * 失注は本線から外れた終端として別扱い。
  */
 export default function JourneyPanel({
-  currentStage, project, disabled, onGoStage, onOpenLost,
+  currentStage, project, disabled, glsCategory, onGoStage, onOpenLost,
 }: {
   currentStage: ProjectStage;
   project: Record<string, unknown> | undefined;
   disabled: boolean;
+  /** 'A' = スタジオ案件 / 'B' = プロジェクト系。道のりと次の一手がこれで変わる */
+  glsCategory: 'A' | 'B' | '' | undefined;
   onGoStage: (stage: ProjectStage) => void;
   onOpenLost: () => void;
 }) {
   const [otherOpen, setOtherOpen] = useState(false);
+  const stages = journeyStagesFor(glsCategory, currentStage);
 
   if (currentStage === 'e_lost') {
     return (
@@ -42,7 +45,7 @@ export default function JourneyPanel({
         </button>
         {otherOpen && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {JOURNEY_STAGES.map((st) => (
+            {stages.map((st) => (
               <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
                 {JOURNEY_SHORT[st]}
               </Button>
@@ -53,8 +56,8 @@ export default function JourneyPanel({
     );
   }
 
-  const curIdx = JOURNEY_STAGES.indexOf(currentStage);
-  const next = NEXT_STAGE_LABEL[currentStage];
+  const curIdx = stages.indexOf(currentStage);
+  const next = nextStageFor(currentStage, glsCategory);
   // 各段の日付 (分かるものだけ)。ネタ=作成日 / 受注・完了=実施日
   const dateOf = (st: ProjectStage): string | null => {
     const d = (k: string) => {
@@ -70,7 +73,7 @@ export default function JourneyPanel({
     <div className="rounded-lg border border-border bg-card">
       <div className="overflow-x-auto px-3 py-2.5">
         <ol className="flex min-w-max items-center gap-1">
-          {JOURNEY_STAGES.map((st, i) => {
+          {stages.map((st, i) => {
             const done = i < curIdx;
             const current = i === curIdx;
             const dt = dateOf(st);
@@ -94,7 +97,7 @@ export default function JourneyPanel({
                     {dt && <span className="block text-[11px] tabular-nums text-muted-foreground">{dt}</span>}
                   </span>
                 </div>
-                {i < JOURNEY_STAGES.length - 1 && (
+                {i < stages.length - 1 && (
                   <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", i < curIdx ? "text-foreground/40" : "text-muted-foreground/30")} aria-hidden="true" />
                 )}
               </li>
@@ -117,7 +120,7 @@ export default function JourneyPanel({
 
       {otherOpen && (
         <div className="flex flex-wrap items-center gap-1.5 border-t border-divider px-3 py-2.5">
-          {JOURNEY_STAGES.filter((st) => st !== currentStage).map((st) => (
+          {stages.filter((st) => st !== currentStage).map((st) => (
             <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
               {JOURNEY_SHORT[st]}
             </Button>

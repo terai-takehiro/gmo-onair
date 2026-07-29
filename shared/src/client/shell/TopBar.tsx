@@ -41,7 +41,7 @@ export interface TopBarProps {
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
   /**
-   * 全体マップ (v3.0.9)。
+   * 全体マップ (v3.1.0)。
    *
    * **どのアプリからでも同じ1枚に行ける**ことがこの項目の役目。
    * 現場アプリ (Qシート・機材…) に居ると、いま見えているメニューは
