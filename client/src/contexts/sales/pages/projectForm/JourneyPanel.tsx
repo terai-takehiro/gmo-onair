@@ -24,7 +24,7 @@ export default function JourneyPanel({
   onOpenLost: () => void;
 }) {
   const [otherOpen, setOtherOpen] = useState(false);
-  const stages = journeyStagesFor(glsCategory);
+  const stages = journeyStagesFor(glsCategory, currentStage);
 
   if (currentStage === 'e_lost') {
     return (

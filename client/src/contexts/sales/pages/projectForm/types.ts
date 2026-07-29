@@ -86,11 +86,21 @@ export const NEXT_STAGE_LABEL: Partial<Record<ProjectStage, { to: ProjectStage; 
 // プロジェクト系の案件は**次の一手を押しても部屋を聞かれて先に進めなかった**。
 // 案件分類で道のりを変える (サーバー側の判定と揃えてある)。
 
-/** その案件の道のり。プロジェクト系は「仮押さえ」を通らない */
-export function journeyStagesFor(category: 'A' | 'B' | '' | undefined): ProjectStage[] {
-  return category === 'B'
-    ? JOURNEY_STAGES.filter((s) => s !== 'd_hold')
-    : JOURNEY_STAGES;
+/**
+ * その案件の道のり。プロジェクト系は「仮押さえ」を通らない。
+ *
+ * ただし **いま仮押さえに入っている案件では段を残す**。v3.0.9 より前に
+ * 作られたプロジェクト系の案件は仮押さえに入っていることがあり、
+ * 段を消すと現在地がどこにも光らない道のりになってしまう
+ * (`indexOf` が -1 になり、全部「まだ通っていない」表示になる)。
+ * 新しく作られた案件がこの段に入ることはもう無い。
+ */
+export function journeyStagesFor(
+  category: 'A' | 'B' | '' | undefined,
+  currentStage?: ProjectStage,
+): ProjectStage[] {
+  if (category !== 'B' || currentStage === 'd_hold') return JOURNEY_STAGES;
+  return JOURNEY_STAGES.filter((s) => s !== 'd_hold');
 }
 
 /** その案件の「次の一手」。プロジェクト系はネタの次が見積提案になる */
