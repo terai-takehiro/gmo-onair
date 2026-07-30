@@ -63,6 +63,9 @@ export interface EstimateItemInput {
   cost_amount?: number;
   cost_vendor_id?: string | null;
   item_notes?: string | null;
+  /** この行だけの期間 (日付だけ)。空なら見積書 PDF は案件の予定で出す */
+  period_start?: string | null;
+  period_end?: string | null;
   pricing_item_id?: string | null;
   is_ai_suggested?: boolean;
 }
@@ -261,8 +264,31 @@ interface NormalizedItem {
   cost_amount: number;
   cost_vendor_id: string | null;
   item_notes: string | null;
+  period_start: string | null;
+  period_end: string | null;
   pricing_item_id: string | null;
   is_ai_suggested: boolean;
+}
+
+/**
+ * 行の期間は**日付だけ (YYYY-MM-DD)** で持つ。
+ *
+ * `revenue_items.period_start` は TEXT (migration 073) なので、何を入れても列は通る。
+ * 空文字を入れると PDF が「期間: 」と中身の無い行を出すので **null に寄せる**。
+ * 秒つきの値が来ても日付だけに切る (既存の売上明細に混ざっている形)。
+ */
+function normalizeDateOnly(value: unknown, label: string): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) {
+    throw new AppError(
+      400, 'VALIDATION_ERROR',
+      `${label}は年月日で指定してください（受け取った値: ${s.slice(0, 40)}）`,
+    );
+  }
+  return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
 function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
@@ -274,9 +300,21 @@ function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
     const amount = it.amount != null && it.amount !== undefined
       ? Math.round(Number(it.amount) || 0)
       : Math.round(quantity * unitPrice);
+    const description = String(it.description ?? '').trim();
+    const shown = description || '（品目名なし）';
+    const periodStart = normalizeDateOnly(it.period_start, `「${shown}」の期間（開始）`);
+    const periodEnd = normalizeDateOnly(it.period_end, `「${shown}」の期間（終了）`);
+    // 逆さまの期間は入れさせない。PDF は「期間: 8/21 〜 8/19」とそのまま刷るので、
+    // 受け取った側が読めないものが社外に出る
+    if (periodStart && periodEnd && periodEnd < periodStart) {
+      throw new AppError(
+        400, 'VALIDATION_ERROR',
+        `「${shown}」の期間が逆さまです（終了 ${periodEnd} が開始 ${periodStart} より前）。開始と終了を入れ替えてください`,
+      );
+    }
     return {
       id: it.id ?? null,
-      description: String(it.description ?? '').trim(),
+      description,
       category: it.category ? String(it.category) : null,
       quantity,
       unit: it.unit ? String(it.unit) : null,
@@ -285,6 +323,8 @@ function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
       cost_amount: Math.max(0, Math.round(Number(it.cost_amount) || 0)),
       cost_vendor_id: it.cost_vendor_id || null,
       item_notes: it.item_notes ? String(it.item_notes) : null,
+      period_start: periodStart,
+      period_end: periodEnd,
       pricing_item_id: it.pricing_item_id || null,
       is_ai_suggested: !!it.is_ai_suggested,
     };
@@ -350,10 +390,12 @@ export async function saveEstimate(
       await tx.execute(
         `INSERT INTO revenue_items
            (id, revenue_id, description, category, quantity, unit, unit_price, amount,
-            cost_amount, cost_vendor_id, item_notes, pricing_item_id, is_ai_suggested, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            cost_amount, cost_vendor_id, item_notes, period_start, period_end,
+            pricing_item_id, is_ai_suggested, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), row!.id, it.description, it.category, it.quantity, it.unit, it.unit_price, it.amount,
-         it.cost_amount, it.cost_vendor_id, it.item_notes, it.pricing_item_id, it.is_ai_suggested, i],
+         it.cost_amount, it.cost_vendor_id, it.item_notes, it.period_start, it.period_end,
+         it.pricing_item_id, it.is_ai_suggested, i],
       );
     }
   });
@@ -703,6 +745,9 @@ export async function draftEstimateWithAi(projectId: string, actor: { userId: st
  * - `is_provisional = TRUE` で入れる。確定した支払いではないので、確定仕入と混ぜない
  * - **冪等**。notes のマーカーで既に作った行を見分け、ステージを往復しても増えない
  * - 仕入先が未定の行は「(仕入先未定)」に寄せる。ここで落とすと粗利の裏付けが消える
+ * - 計上日は**その行の期間の開始日**。入っていなければ案件の実施日にする
+ *   (前日設営・翌月の編集のように、案件の実施日と月が違う行があるため。
+ *    ここで案件の実施日に丸めると月次の損益がずれる)
  */
 export async function materializeEstimateCosts(
   projectId: string, userId: string,
@@ -711,7 +756,7 @@ export async function materializeEstimateCosts(
   if (!row) return { created: 0, skipped: 0 };
 
   const items = (await queryAll(
-    `SELECT id, description, amount, cost_amount, cost_vendor_id
+    `SELECT id, description, amount, cost_amount, cost_vendor_id, period_start
      FROM revenue_items WHERE revenue_id = ? AND cost_amount > 0 ORDER BY sort_order`,
     [row.id],
   )) as Array<Record<string, any>>;
@@ -741,7 +786,7 @@ export async function materializeEstimateCosts(
        VALUES (?, ?, ?, ?, 'tax10', 1, ?, ?, ?, TRUE, ?, ?, ?)`,
       [uuidv4(), projectId, vendorId, project.assigned_to ?? userId,
        Math.round(Number(it.cost_amount) || 0), it.description,
-       project.event_start ?? null, `見積から自動作成 ${marker}`, userId, userId],
+       it.period_start || project.event_start || null, `見積から自動作成 ${marker}`, userId, userId],
     );
     created++;
   }

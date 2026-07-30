@@ -50,6 +50,9 @@ interface Row {
   amount: number;
   cost_amount: number;
   item_notes: string | null;
+  /** この行だけの期間 (日付だけ)。空のままなら見積書は案件の予定で出す */
+  period_start: string | null;
+  period_end: string | null;
   pricing_item_id: string | null;
   is_ai_suggested: boolean;
 }
@@ -84,6 +87,22 @@ const TAX_RATE: Record<string, number> = { tax10: 0.1, tax8: 0.08, exempt: 0 };
 let seq = 0;
 const newKey = () => `row-${Date.now()}-${seq++}`;
 
+/**
+ * 期間は日付だけ (`<input type="date">` が読める形) にして持つ。
+ * `revenue_items.period_start` は TEXT で、既存の売上明細には秒つきの値も混ざっているため、
+ * 受け取った側で切る (切らないと date 入力が空欄で開き、開いた瞬間に期間が消える)。
+ */
+function toDateOnly(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+}
+
+/** 終了が開始より前になっている行。保存する前に指の近くで知らせる (サーバーも同じ条件で弾く) */
+const periodInverted = (r: Row) =>
+  !!r.period_start && !!r.period_end && r.period_end < r.period_start;
+
 function toRow(it: Record<string, any>): Row {
   const category = GROUPS.includes(it.category as Group) ? (it.category as Group) : "制作・その他";
   return {
@@ -96,6 +115,8 @@ function toRow(it: Record<string, any>): Row {
     amount: Number(it.amount) || 0,
     cost_amount: Number(it.cost_amount) || 0,
     item_notes: it.item_notes ?? null,
+    period_start: toDateOnly(it.period_start),
+    period_end: toDateOnly(it.period_end),
     pricing_item_id: it.pricing_item_id ?? null,
     is_ai_suggested: !!it.is_ai_suggested,
   };
@@ -140,6 +161,12 @@ export default function EstimatePage() {
   const [discount, setDiscount] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /**
+   * 期間の入力欄を出している行 (期間が入っている行は常に出す)。
+   * 全行に日付2つを並べると、期間を持たない行 (機材1式・人員1名) でも高さが増え、
+   * 10行を超える見積で金額の列が画面から出ていく。押したときだけ出す。
+   */
+  const [periodOpen, setPeriodOpen] = useState<Set<string>>(() => new Set());
   const loadedFor = useRef<string | null>(null);
 
   // お知らせ帯は共通の1本 (§4.15)。画面を離れるときに残さない
@@ -184,6 +211,7 @@ export default function EstimatePage() {
     setRows((prev) => [...prev, {
       key: newKey(), description: "", category: group, quantity: 1, unit: "式",
       unit_price: 0, amount: 0, cost_amount: 0, item_notes: null,
+      period_start: null, period_end: null,
       pricing_item_id: null, is_ai_suggested: false,
     }]);
     setDirty(true);
@@ -191,6 +219,12 @@ export default function EstimatePage() {
 
   const removeRow = (key: string) => {
     setRows((prev) => prev.filter((r) => r.key !== key));
+    setPeriodOpen((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
     setDirty(true);
   };
 
@@ -201,9 +235,31 @@ export default function EstimatePage() {
       category: (GROUPS.includes(p.category as Group) ? p.category : "制作・その他") as Group,
       quantity: p.quantity, unit: p.unit, unit_price: p.unit_price,
       amount: p.quantity * p.unit_price, cost_amount: 0, item_notes: null,
+      period_start: null, period_end: null,
       pricing_item_id: p.pricing_item_id, is_ai_suggested: false,
     }))]);
     setDirty(true);
+  };
+
+  /**
+   * 期間を入れ始める。案件の予定が分かっているならそれを入れておく
+   * (ほとんどの行は案件の予定と同じで、違う行だけを直したい)。
+   */
+  const openPeriod = (key: string) => {
+    setPeriodOpen((prev) => new Set(prev).add(key));
+    const start = toDateOnly(view?.project.event_start);
+    const end = toDateOnly(view?.project.event_end);
+    if (start) patchRow(key, { period_start: start, period_end: end ?? start });
+  };
+
+  /** 期間を空に戻す (案件の予定で出るようになる) */
+  const clearPeriod = (key: string) => {
+    setPeriodOpen((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    patchRow(key, { period_start: null, period_end: null });
   };
 
   const payload = () => ({
@@ -215,6 +271,7 @@ export default function EstimatePage() {
         description: r.description.trim(), category: r.category, quantity: r.quantity,
         unit: r.unit, unit_price: r.unit_price, amount: r.amount,
         cost_amount: r.cost_amount, item_notes: r.item_notes,
+        period_start: r.period_start, period_end: r.period_end,
         pricing_item_id: r.pricing_item_id, is_ai_suggested: r.is_ai_suggested,
       })),
   });
@@ -299,6 +356,15 @@ export default function EstimatePage() {
   const deadline = view.next_action ? deadlineLabel(view.next_action.date) : null;
   const hasRows = rows.some((r) => r.description.trim());
   const rowCount = rows.filter((r) => r.description.trim()).length;
+  // 期間が逆さまの行。サーバーも同じ条件で 400 を返すので、押す前に止めて理由を出す
+  const periodBrokenCount = rows.filter((r) => r.description.trim() && periodInverted(r)).length;
+  // 期間を空にした行の出方 (見積書 PDF は案件の予定で埋める)
+  const projectPeriodText = view.project.event_start
+    ? `案件の予定（${formatShortDate(view.project.event_start)}${
+        view.project.event_end && view.project.event_end !== view.project.event_start
+          ? `〜${formatShortDate(view.project.event_end)}` : ""
+      }）`
+    : null;
 
   return (
     <div className="min-h-full bg-background">
@@ -343,6 +409,13 @@ export default function EstimatePage() {
           </span>
         )}
 
+        {/* 保存できない理由を、押せなくしたボタンの隣に置く (下の表まで探させない) */}
+        {periodBrokenCount > 0 && (
+          <span className="inline-flex h-[26px] shrink-0 items-center rounded-[7px] bg-destructive-surface px-2.5 text-[12.5px] font-bold text-destructive">
+            期間が逆さまの行が{periodBrokenCount}行あります
+          </span>
+        )}
+
         <div className="flex-1" />
 
         {deadline && (
@@ -357,7 +430,14 @@ export default function EstimatePage() {
         )}
 
         {canEdit && (
-          <Button variant="outline" size="sm" className="h-10" onClick={() => saveMutation.mutate()} disabled={busy || !dirty}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10"
+            onClick={() => saveMutation.mutate()}
+            disabled={busy || !dirty || periodBrokenCount > 0}
+            title={periodBrokenCount > 0 ? "期間の終了が開始より前になっている行があります" : undefined}
+          >
             {saveMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
             保存
           </Button>
@@ -481,10 +561,8 @@ export default function EstimatePage() {
                       この区分の明細はまだありません。
                     </div>
                   ) : groupRows.map((r) => (
-                    <div
-                      key={r.key}
-                      className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-row px-[18px] py-2.5 hover:bg-accent/20 lg:flex-nowrap lg:py-0 lg:min-h-[52px]"
-                    >
+                    <div key={r.key} className="border-b border-row hover:bg-accent/20">
+                     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-[18px] py-2.5 lg:flex-nowrap lg:py-0 lg:min-h-[52px]">
                       <div className="min-w-0 flex-1 basis-full lg:basis-auto">
                         <Input
                           value={r.description}
@@ -493,6 +571,7 @@ export default function EstimatePage() {
                           placeholder="品目"
                           className="h-9 border-transparent bg-transparent px-1 text-[13.5px] font-bold hover:border-border focus:border-input disabled:opacity-100"
                         />
+
                         <div className="flex items-center gap-2 px-1">
                           <Input
                             value={r.item_notes ?? ""}
@@ -507,6 +586,17 @@ export default function EstimatePage() {
                             <span className="inline-flex h-[22px] shrink-0 items-center gap-1 rounded-md bg-warning-surface px-1.5 text-[11px] font-bold text-warning-strong">
                               <AlertTriangle className="h-3 w-3" />AIが補いました
                             </span>
+                          )}
+                          {/* 期間はほとんどの行で案件の予定と同じなので、押したときだけ欄を出す */}
+                          {canEdit && !r.period_start && !r.period_end && !periodOpen.has(r.key) && (
+                            <button
+                              type="button"
+                              onClick={() => openPeriod(r.key)}
+                              className="flex h-8 shrink-0 items-center gap-1 rounded-control px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                              title="この行だけの期間を入れる（空のままなら案件の予定で出ます）"
+                            >
+                              <CalendarClock className="h-3 w-3" />期間を入れる
+                            </button>
                           )}
                         </div>
                       </div>
@@ -562,6 +652,66 @@ export default function EstimatePage() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
+                     </div>
+
+                     {/*
+                       この行だけの期間。**列の中には置かない** — 品目の列は数量・単価と幅を
+                       分け合っており、日付2つ (128px×2) を入れると金額の列に重なる。
+                       行の下に1本の帯として敷いて、開始と終了を離さない。
+                       空のままなら見積書は案件の予定で出る (下の注記)
+                     */}
+                     {(r.period_start || r.period_end || periodOpen.has(r.key)) && (
+                       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-[18px] pb-2.5 lg:pb-2">
+                         <span className="shrink-0 text-[11px] text-muted-foreground">この行の期間</span>
+                         {canEdit ? (
+                           <>
+                             {/* 開始と終了は離さない (折り返しで別の行に落ちると期間として読めない) */}
+                             <span className="flex shrink-0 items-center gap-1.5">
+                               <Input
+                                 type="date"
+                                 value={r.period_start ?? ""}
+                                 max={r.period_end ?? undefined}
+                                 onChange={(e) => patchRow(r.key, { period_start: e.target.value || null })}
+                                 aria-label={`${r.description || "この行"}の期間（開始）`}
+                                 className={`h-9 w-[128px] shrink-0 px-1.5 font-number text-xs ${
+                                   periodInverted(r) ? "border-destructive" : ""
+                                 }`}
+                               />
+                               <span className="shrink-0 text-[11px] text-muted-foreground">〜</span>
+                               <Input
+                                 type="date"
+                                 value={r.period_end ?? ""}
+                                 min={r.period_start ?? undefined}
+                                 onChange={(e) => patchRow(r.key, { period_end: e.target.value || null })}
+                                 aria-label={`${r.description || "この行"}の期間（終了）`}
+                                 className={`h-9 w-[128px] shrink-0 px-1.5 font-number text-xs ${
+                                   periodInverted(r) ? "border-destructive" : ""
+                                 }`}
+                               />
+                             </span>
+                             <button
+                               type="button"
+                               onClick={() => clearPeriod(r.key)}
+                               aria-label={`${r.description || "この行"}の期間を消す`}
+                               className="flex h-9 shrink-0 items-center rounded-control px-2 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                               title="この行の期間を消す（案件の予定で出るようになります）"
+                             >
+                               期間を消す
+                             </button>
+                           </>
+                         ) : (
+                           <span className="font-number text-[11px] text-muted-foreground">
+                             {r.period_start ? formatShortDate(r.period_start) : "（開始なし）"}
+                             {r.period_end ? ` 〜 ${formatShortDate(r.period_end)}` : ""}
+                           </span>
+                         )}
+                         {periodInverted(r) && (
+                           <span className="basis-full text-[11px] font-bold text-destructive">
+                             終了が開始より前になっています。このままでは保存できません
+                           </span>
+                         )}
+                       </div>
+                     )}
                     </div>
                   ))}
                 </div>
@@ -579,9 +729,14 @@ export default function EstimatePage() {
                   </Button>
                 ))}
                 <div className="flex-1" />
-                <span className="text-[12.5px] text-muted-foreground">
-                  仕入の列に入れた金額は、受注したときに見込み仕入の明細になります
-                </span>
+                <div className="text-[12.5px] text-muted-foreground">
+                  <p>仕入の列に入れた金額は、受注したときに見込み仕入の明細になります</p>
+                  <p>
+                    期間を入れなかった行は、見積書では
+                    {projectPeriodText ?? "期間なし"}で出ます
+                    {projectPeriodText ? "（前日設営・翌月編集など、案件の予定と違う行だけ入れてください）" : "（案件の実施日が未設定です）"}
+                  </p>
+                </div>
               </div>
             )}
           </div>
