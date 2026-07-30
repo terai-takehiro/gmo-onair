@@ -18,7 +18,7 @@
 //  - AI の接続が無い環境では、この箱は出さず従来のタスク投入欄に戻す
 //    (「どの操作にするか」は規則では決められないので、できるふりをしない)。
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { invalidateSchedule } from "@/lib/scheduleQueries";
+import { buildBookingTitle } from "@gmo-onair/shared/src/booking/bookingTitle";
 import api from "@/lib/api";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { Money } from "@gmo-onair/shared/src/client/ui";
@@ -622,6 +623,21 @@ function ActionRow({
   const chainCustomer = r.from_previous_customer && !r.customer_id;
   const chainProject = r.from_previous_project && !r.project_id;
 
+  // スタジオ予約の名前は、案件を選んだら**予約ダイアログと同じ形の既定値**に寄せる (v3.1.2)。
+  // AI は「8/12 Aスタ押さえたい」のような読み取り文をそのまま名前にしてくるが、
+  // 経路ごとに題名が違うと同じ予定が二重に入っていても突き合わせられない。
+  // ただし**人が打ち替えたら上書きしない**。押した結果は人が見て通したものになる。
+  const [titleTouched, setTitleTouched] = useState(false);
+  const bookingProjectName = projects.find((p) => p.id === r.project_id)?.name;
+  useEffect(() => {
+    if (r.kind !== "create_studio_booking" || titleTouched) return;
+    if (!bookingProjectName) return;
+    const next = buildBookingTitle({ projectName: bookingProjectName, date: r.date ?? undefined });
+    if (next && next !== r.title) onChange({ title: next });
+    // r.title は自分で書き換えるので依存に入れない (入れると1回の変更で止まらなくなる)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r.kind, bookingProjectName, r.date, titleTouched]);
+
   return (
     <li
       className={cn(
@@ -679,7 +695,7 @@ function ActionRow({
           {SHOWS_TITLE.includes(r.kind) && (
             <Input
               value={r.title}
-              onChange={(e) => onChange({ title: e.target.value })}
+              onChange={(e) => { setTitleTouched(true); onChange({ title: e.target.value }); }}
               className={cn("h-ctl-2 text-sm font-medium", missing(r.title.trim(), "title") && "border-warning")}
               placeholder={r.kind === "create_project" ? "案件名" : r.kind === "create_customer" ? "会社名" : "件名・やること"}
               aria-label="名前"

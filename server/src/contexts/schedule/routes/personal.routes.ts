@@ -284,12 +284,100 @@ router.get('/feeds', ...canUse, async (req, res) => {
   res.json({ success: true, data: rows.map(feedForClient) });
 });
 
+/**
+ * 保存する URL。**取得にそのまま使うので、削るのは webcal → https だけ**。
+ *
+ * ここで形を整えてはいけない。URL に埋め込んだ資格情報 (`https://user:pass@host/…`) は
+ * Nextcloud / Zimbra / CalDAV 系が普通に配る形で、axios はそれを Basic 認証に使う
+ * (`axios/dist/node/axios.cjs` の `if (!auth && (parsed.username || parsed.password))`)。
+ * 末尾のスラッシュが意味を持つ提供元もある。**突合のための整形は別関数** (下の
+ * `feedCompareKey`) に分け、保存と取得には触れないこと。
+ */
+function storableFeedUrl(raw: string): string {
+  return String(raw ?? '').trim().replace(/^webcal:\/\//i, 'https://');
+}
+
+/**
+ * 購読 URL を突き合わせるための鍵 (v3.1.2)。**保存はしない・取得にも使わない**。
+ *
+ * `url_enc` は AES-GCM で毎回ランダムな IV を使うので、**同じ URL でも暗号文は毎回違う**。
+ * 列に一意索引を張っても効かないため、登録時にその人の既存フィードを復号して
+ * この鍵に揃えたもので比べる (1人あたり数件なので現実的なコスト)。
+ *
+ * 畳むのは「同じ URL の書き方の違い」だけに留める:
+ *   - webcal:// → https://    (同じフィードの別スキーム表記)
+ *   - スキームとホストは小文字 (RFC 上 case-insensitive)
+ *   - 末尾のスラッシュと `#fragment` を落とす
+ *
+ * **畳まないもの**:
+ *   - パスとクエリの大小 — Google の「iCal 形式の非公開 URL」はパスに秘密の文字列が
+ *     入っており、小文字化すると別のフィードを同一と誤判定する
+ *   - 資格情報 (`user:pass@`) — 同じホスト・同じパスでも**利用者が違えば別のカレンダー**
+ */
+export function feedCompareKey(raw: string): string {
+  const trimmed = storableFeedUrl(raw);
+  try {
+    const u = new URL(trimmed);
+    const auth = u.username || u.password ? `${u.username}:${u.password}@` : '';
+    const path = u.pathname.replace(/\/+$/, '');
+    return `${u.protocol.toLowerCase()}//${auth}${u.hostname.toLowerCase()}${u.port ? `:${u.port}` : ''}${path}${u.search}`;
+  } catch {
+    return trimmed.replace(/\/+$/, '');
+  }
+}
+
+/**
+ * ONAiR 自身が出しているカレンダーを「自分の予定」として購読しようとしていないか。
+ *
+ * スタジオ予約の ICS を配る URL と ICS を追加する欄が同じヘッダーに隣接しているため、
+ * 実際に取り違えられる。取り込むと **スタジオ予約が「自分」レイヤーにも複製されて出る**
+ * (しかも `【本番】案件名 (26/08/12)｜ラベル` という別表記になる)。
+ */
+function isOwnCalendarUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (/\/studios\/calendar\.ics$/i.test(u.pathname)) return true;
+    const clientUrl = process.env.CLIENT_URL;
+    if (clientUrl) {
+      const own = new URL(clientUrl);
+      if (own.hostname.toLowerCase() === u.hostname.toLowerCase()) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // フィード追加 (body: { label, url }) — 追加後すぐに初回同期を試みる
 router.post('/feeds', ...canUse, async (req, res) => {
   const { label, url } = req.body ?? {};
   if (!label || !url) throw new AppError(400, 'VALIDATION_ERROR', 'ラベルと ICS URL は必須です');
-  const normalized = String(url).trim().replace(/^webcal:\/\//i, 'https://');
+  // **保存する値は削らない** (資格情報つき URL や末尾スラッシュが意味を持つ提供元があるため)
+  const normalized = storableFeedUrl(String(url));
   if (!/^https:\/\//i.test(normalized)) throw new AppError(400, 'VALIDATION_ERROR', 'https:// (または webcal://) で始まる公開 ICS URL を入力してください');
+
+  // ONAiR 自身のカレンダーは購読させない (取り込むと予約が二重に見える)
+  if (isOwnCalendarUrl(normalized)) {
+    throw new AppError(400, 'OWN_CALENDAR', 'これは ONAiR 自身が出しているカレンダーの URL です。ここに入れると同じ予定が「自分の予定」としてもう1件並んでしまいます。スタジオ予約はカレンダーにそのまま出ているので、購読は不要です');
+  }
+
+  // 同じ URL を2回登録させない (登録できてしまうと、以後その人のすべての予定が2行になる)。
+  // 比べるのは整形した鍵だけで、保存する値には触らない。
+  const key = feedCompareKey(normalized);
+  const mine = await queryAll(
+    `SELECT id, label, url_enc FROM personal_ics_feeds WHERE user_id = ? AND deleted_at IS NULL`,
+    [req.user!.id]) as Array<{ id: string; label: string; url_enc: string }>;
+  for (const f of mine) {
+    const plain = decrypt(f.url_enc);
+    // 復号できない行 (鍵を入れ替えた等) は突合できない。**黙って通さず**理由を返す —
+    // 通すと「以後すべての予定が2行」になり、原因が分からないまま残る。
+    if (!plain) {
+      throw new AppError(400, 'FEED_UNREADABLE', `既に登録されている「${f.label}」の URL を読めないため、同じ URL かどうか確かめられません。「${f.label}」の連携を解除してから登録し直してください`);
+    }
+    if (feedCompareKey(plain) === key) {
+      throw new AppError(400, 'DUPLICATE_FEED', `この URL は「${f.label}」として既に登録されています。同じ URL を2回登録すると、同じ予定が2件ずつ並びます`);
+    }
+  }
 
   let urlEnc: string;
   try {

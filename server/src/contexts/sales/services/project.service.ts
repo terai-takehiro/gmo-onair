@@ -9,6 +9,7 @@ import {
   type CustomerType,
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
+import { buildBookingTitle } from '../../../shared/booking/bookingTitle';
 import { config } from '../../../config';
 import { recordProjectChanges } from './project-history.service';
 import { resolveStudioUse } from './stage-ask.service';
@@ -675,7 +676,11 @@ export class ProjectService {
         await execute(
           `INSERT INTO studio_bookings (id, title, booking_type, project_id, all_day, start_time, end_time, status, notes, created_by)
            VALUES (?, ?, 'hold', ?, 1, ?, ?, 'tentative', '案件ステージ移行で自動生成', ?)`,
-          [bookingId, `${project.name} 仮押さえ`, id, project.event_start, eventEnd, userId]
+          // 題名は buildBookingTitle 1か所で作る (経路ごとに違う文字列になると
+          // 同じ予定が二重に入っていても突き合わせられない = 表記揺らぎの直接の原因)。
+          // 種別 (仮押さえ) は題名に入れない — 色と種別ラベルで出す。
+          [bookingId, buildBookingTitle({ projectName: project.name, date: project.event_start }),
+           id, project.event_start, eventEnd, userId]
         );
       }
     }

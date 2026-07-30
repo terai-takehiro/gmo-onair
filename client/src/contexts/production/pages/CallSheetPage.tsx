@@ -59,6 +59,13 @@ interface Sheet {
  */
 const CAT_STYLE: Record<string, string> = {
   setup: "border-l-muted-foreground bg-muted/40 text-foreground",
+  /*
+   * 仮押さえ (v3.1.2)。以前はサーバーが hold を 'performance' に写していたため、
+   * **まだ確定していない予約が本番と同じ赤系で出ていた**。題名からも種別を外したので
+   * 手掛かりが1つも無くなる。破線で「仮のもの」と読ませる
+   * (状態の色 success/warning/destructive は色分けに流用しない = CLAUDE.md)。
+   */
+  hold: "border-l-muted-foreground border-dashed bg-muted/20 text-muted-foreground",
   rehearsal: "border-l-warning bg-warning-surface text-warning-strong",
   performance: "border-l-cat-1 bg-cat-1/10 text-cat-1",
   break: "border-l-divider bg-card text-muted-foreground",

@@ -40,7 +40,7 @@ import PersonalEventDialog from "../components/schedule/PersonalEventDialog";
 import IcsFeedsDialog from "../components/schedule/IcsFeedsDialog";
 import {
   loadCalState, saveCalState, clampView,
-  SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS, toExclusiveEnd,
+  SCHEDULE_TYPE_COLORS, toExclusiveEnd,
   BOOKING_TYPE_COLORS, BOOKING_TYPE_LABELS,
   type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
@@ -50,7 +50,7 @@ import { invalidateSchedule } from "@/lib/scheduleQueries";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 import {
-  ALL_LAYERS, ICS_COLOR, JP_HOLIDAYS, MANUAL_COLOR,
+  ALL_LAYERS, ICS_COLOR, JP_HOLIDAYS, MANUAL_COLOR, SOURCE_COLORS, sourceLabel,
   bookingTypeColors, bookingTypeLabels, buildRoomChain, daysUntil, useIsMobile,
   type HoldRow, type LayerKey, type StudioBooking, type StudioLocation,
 } from './schedule/types';
@@ -295,9 +295,15 @@ export default function SchedulePage() {
       const { start: evStart, end: evEnd, allDay: evAllDay } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour", "setup"].includes(b.booking_type);
 
-      const dateSuffix = b.project_event_end ? ` (${formatShortDate(b.project_event_end)})` : "";
       // Strip leading GLS number (e.g. "GLS-A005 番組名" → "番組名")
       const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, "").trim() || b.title;
+      // 案件の本番日を添える。**題名が既に日付で終わっているときは足さない** —
+      // v3.1.2 で題名の生成を `案件名 (YY/MM/DD)` に統一したので、そのまま足すと
+      // 「第3回定例配信 (26/08/12) (26/08/12)」と括弧つきの日付が2つ並ぶ。
+      // (古い題名や人が打ち替えた題名には日付が無いので、そちらには従来どおり添える)
+      const titleEndsWithDate = /\(\d{2}\/\d{2}\/\d{2}\)$/.test(displayTitle);
+      const dateSuffix = b.project_event_end && !titleEndsWithDate
+        ? ` (${formatShortDate(b.project_event_end)})` : "";
 
       // rooms はサーバーが必ず配列で返すが、無い形が来てもページ全体を落とさない
       // (下の upcomingDays は既に `?? []` で守っている。片方だけ無防備だった)
@@ -414,18 +420,22 @@ export default function SchedulePage() {
     // 自分の予定 (レイヤー)
     if (canPersonal && on("me")) {
       for (const e of personalEvents) {
-        const color = e.source === "manual" ? MANUAL_COLOR : ICS_COLOR;
+        // 取込元は**題名に混ぜず**、色とバッジで出す (v3.1.2)。
+        // 以前は `題名｜ラベル` と題名の中に入れていたため、同じ会議が2経路から
+        // 入っていると片方だけ文字列が長く、しかも色は同じで、どちらを消すか
+        // 判断できなかった。題名を揃えて取込元を分けると見比べられる。
+        const color = SOURCE_COLORS[e.source] ?? ICS_COLOR;
         const isAllDay = !!e.all_day;
         events.push({
           id: `pe-${e.id}`,
-          title: e.source !== "manual" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
+          title: e.title,
           start: isAllDay ? e.start_time.split("T")[0] : e.start_time,
           end: isAllDay ? toExclusiveEnd(e.end_time) : e.end_time,
           allDay: isAllDay,
           backgroundColor: color,
           borderColor: color,
           textColor: "#ffffff",
-          extendedProps: { kind: "personal", refId: e.id },
+          extendedProps: { kind: "personal", refId: e.id, badge: sourceLabel(e.source, e.feed_label) },
         });
       }
     }
@@ -1032,7 +1042,13 @@ export default function SchedulePage() {
               datesSet={handleDatesSet}
               eventClick={handleEventClick}
               eventContent={(arg) => {
-                const ext = arg.event.extendedProps as { projectLine?: string; roomsLine?: string; kind?: string };
+                const ext = arg.event.extendedProps as {
+                  projectLine?: string; roomsLine?: string; kind?: string;
+                  /** 予約の種別 (本番 / 仮押さえ …)。題名から外したのでここから引く */
+                  bookingType?: string;
+                  /** 個人予定の取込元 (Google / Outlook / 購読ラベル)。手入力は空 */
+                  badge?: string;
+                };
                 // 背景イベント (エピソード) は中身を出さない
                 if (ext?.kind === 'episode') return <></>;
                 // パートナー・自分の予定は 時刻 + タイトルの1行
@@ -1041,6 +1057,12 @@ export default function SchedulePage() {
                   return (
                     <div className="overflow-hidden px-1 py-0.5 text-[11px] leading-tight">
                       {arg.timeText && <span className="mr-1 font-medium opacity-90">{arg.timeText}</span>}
+                      {/* 取込元 (Google / Outlook / 購読のラベル)。題名に混ぜずここに出す */}
+                      {ext?.badge && (
+                        <span className="mr-1 rounded-sm bg-white/25 px-1 text-[9px] font-bold align-[1px]">
+                          {ext.badge}
+                        </span>
+                      )}
                       <span className="font-semibold">{arg.event.title}</span>
                     </div>
                   );
@@ -1048,10 +1070,22 @@ export default function SchedulePage() {
                 const projectLine = ext.projectLine || arg.event.title;
                 const roomsLine = ext.roomsLine || '';
                 const timeText = arg.timeText;
+                // 種別 (本番 / 仮押さえ …) を必ず出す。題名から種別を外した (v3.1.2) ので、
+                // ここに出さないと**仮押さえと本番が同じ文字列に見える** =「二重に入っている」
+                // と誤解される。以前は薄さ・斜体だけが手掛かりで、月表示では特に見分けが
+                // 付かなかった (一覧と案件詳細は元からラベルを出している)。
+                const typeLabel = ext.bookingType ? (bookingTypeLabels[ext.bookingType] || '') : '';
                 return (
                   <div className="overflow-hidden leading-tight px-1 py-0.5 text-[11px]">
                     {timeText && <div className="opacity-90 font-medium">{timeText}</div>}
-                    <div className="font-semibold truncate">{projectLine}</div>
+                    <div className="truncate">
+                      {typeLabel && (
+                        <span className="mr-1 rounded-sm bg-white/25 px-1 text-[9px] font-bold align-[1px]">
+                          {typeLabel}
+                        </span>
+                      )}
+                      <span className="font-semibold">{projectLine}</span>
+                    </div>
                     {roomsLine && <div className="opacity-90 truncate text-[10px]">{roomsLine}</div>}
                   </div>
                 );
@@ -1210,7 +1244,7 @@ export default function SchedulePage() {
             {canPersonal && on("me") && (
               <PickRow
                 label="自分の予定"
-                hint="自分だけの予定。共有相手を選べば相手にも見えます"
+                hint="自分だけが見る予定（外出・通院・打合せなど）。共有相手を選べばその人にも見えます"
                 color={MANUAL_COLOR}
                 icon={CalendarClock}
                 onClick={() => {
@@ -1222,7 +1256,7 @@ export default function SchedulePage() {
             {canPersonal && on("partner") && (
               <PickRow
                 label="パートナーの予定"
-                hint={`代休・有給・出張・社外活動 など（${SCHEDULE_TYPE_LABELS.daikyu}等）`}
+                hint="みんなに休みを知らせる（代休・有給・出張・リモート）。休みをここに入れないと他の人には分かりません"
                 color={SCHEDULE_TYPE_COLORS.daikyu}
                 icon={Users}
                 onClick={() => {

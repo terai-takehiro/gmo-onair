@@ -23,6 +23,7 @@
  */
 
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { buildBookingTitle } from '../../../shared/booking/bookingTitle';
 import { meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { ACTION_CATALOG, type ActionKind } from './action-catalog';
@@ -264,7 +265,19 @@ async function runOne(
     // ── スタジオ予約 ──────────────────────────────────
     case 'create_studio_booking': {
       if (!a.date) return fail('日付が読み取れませんでした');
-      const title = a.title || '仮押さえ';
+      // 題名は **確認画面で人が見て通したもの (a.title) をそのまま使う**。
+      // 画面 (AiActionBox の「件名・やること」) は編集できる欄として出しているので、
+      // ここで案件名+日付に置き換えると**人が打ち替えた文字が黙って消える**
+      // (予約ダイアログで titleTouched を入れたのと同じ理由)。
+      //
+      // 揃えるのは**画面に出す既定値の側**でやる: 案件を選ぶと欄が
+      // `案件名 (YY/MM/DD)` になるので、人はその形を見たうえで通すか直すかを決められる。
+      // ここは空だったときの受け皿だけを持つ。
+      const proj = projectId
+        ? await queryOne(`SELECT name FROM projects WHERE id = ? AND deleted_at IS NULL`, [projectId]) as { name?: string } | null
+        : null;
+      const title = String(a.title ?? '').trim()
+        || buildBookingTitle({ projectName: proj?.name, date: a.date });
       const booking = await studioBookingService.createBooking({
         title,
         booking_type: 'hold',

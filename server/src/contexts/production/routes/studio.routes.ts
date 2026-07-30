@@ -227,7 +227,12 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
 
   // 現在使用中の予約
   const current = await queryOne(
-    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
+    // booking_type / status も返す。**題名から種別を外した (v3.1.2) ので、
+    // これが無いと表示機の前に立った人が「仮押さえ」を本予約と読んでしまう**。
+    // 部屋つきの仮押さえは実際に作られる — ステージ移行そのもの (project.service.ts) は
+    // 部屋を付けないが、道のりのダイアログで部屋を答えると
+    // projects.routes.ts の attachHoldRooms が同じ予約に部屋を足す。
+    `SELECT b.title, b.booking_type, b.status, b.start_time, b.end_time, br.occupant, br.usage_note
      FROM studio_bookings b
      JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
      WHERE b.deleted_at IS NULL AND b.start_time <= ? AND b.end_time >= ?
@@ -237,7 +242,7 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
 
   // 本日の残りの予約
   const upcoming = await queryAll(
-    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
+    `SELECT b.title, b.booking_type, b.status, b.start_time, b.end_time, br.occupant, br.usage_note
      FROM studio_bookings b
      JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
      WHERE b.deleted_at IS NULL AND b.start_time > ? AND b.start_time <= ?

@@ -192,9 +192,15 @@ export async function rebuildFromSources(sheetId: string, userId: string) {
 
   const CATEGORY_OF_BOOKING: Record<string, string> = {
     performance: 'performance', rehearsal: 'rehearsal', setup: 'setup',
-    hold: 'performance', tour: 'audience', consultation: 'break',
+    // **仮押さえは「本番」として写さない**。まだ確定していないものを香盤表で本番と
+    // 同じ色で出すと、当日の動きを決める人が確定済みだと読む。題名からも種別を外した
+    // (v3.1.2) ので、色が同じだと手掛かりが1つも無くなる。'hold' の見た目は
+    // 別区分にして、下の label にも種別を前置する。
+    hold: 'hold', tour: 'audience', consultation: 'break',
     maintenance: 'setup', internal: 'setup', other: 'setup',
   };
+  /** 香盤表のブロックに出す種別の前置。確定していないものだけ付ける */
+  const TENTATIVE_PREFIX: Record<string, string> = { hold: '仮押さえ', consultation: '相談' };
 
   for (const b of bookings) {
     // 部屋が決まっていない予約は「会場（部屋未定）」に寄せる — 落とすと当日の動きが抜ける
@@ -206,7 +212,8 @@ export async function rebuildFromSources(sheetId: string, userId: string) {
     const s = minOf(b.start_time), e = minOf(b.end_time);
     if (s == null) continue;
     await putAutoBlock(sheetId, laneId, {
-      label: b.title || '予約', start_min: b.all_day ? 0 : s,
+      label: `${TENTATIVE_PREFIX[String(b.booking_type)] ? `【${TENTATIVE_PREFIX[String(b.booking_type)]}】` : ''}${b.title || '予約'}`,
+      start_min: b.all_day ? 0 : s,
       end_min: b.all_day ? 24 * 60 : e, category: CATEGORY_OF_BOOKING[String(b.booking_type)] ?? 'setup',
       origin_kind: 'studio_booking', origin_id: String(b.id),
     });

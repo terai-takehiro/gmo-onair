@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
-import { formatShortDate } from "@/lib/format";
+import { buildBookingTitle } from "@gmo-onair/shared/src/booking/bookingTitle";
 import { notifySuccess } from "@/lib/notify";
 import { invalidateSchedule } from "@/lib/scheduleQueries";
 
@@ -125,6 +125,8 @@ export default function StudioBookingDialog({
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** 人が題名を打ち替えたか。立っている間は自動命名で上書きしない */
+  const [titleTouched, setTitleTouched] = useState(false);
 
   const [locationHistory] = useState<string[]>(() => loadLocationHistory());
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
@@ -178,6 +180,7 @@ export default function StudioBookingDialog({
   useEffect(() => {
     if (!open) return;
     setError(null); // 前回の失敗を持ち越さない
+    setTitleTouched(false);
     if (editingBooking) {
       const b = editingBooking;
       setTitle(b.title);
@@ -251,17 +254,19 @@ export default function StudioBookingDialog({
     if (bookingType === "hold" || bookingType === "consultation") setStatus("tentative");
   }, [bookingType]);
 
+  // 案件を選ぶと題名を自動で入れる。**人が題名を打ち替えたら上書きしない** —
+  // 以前は案件・種別・開始日のどれかが変わるたびに無条件で上書きしていたので、
+  // 題名を書いたあとに日付を直すと打った文字が黙って消えていた。
+  //
+  // 生成は buildBookingTitle 1か所に寄せてある (サーバー・AI と同じ文字列を作る)。
+  // 種別で出し分けていた条件も外した — 種別が題名に入らなくなったので、
+  // 「本番・リハ・仮押さえのときだけ案件名を入れる」理由が無い。
   useEffect(() => {
-    if (projectId && !editingBooking) {
-      const proj = projectOptions.find((p: any) => p.id === projectId);
-      if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
-        // タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記不要
-        const datePart = formatShortDate(startDate);
-        const suffix = datePart ? ` (${datePart})` : "";
-        setTitle(`${proj.name}${suffix}`);
-      }
-    }
-  }, [projectId, bookingType, startDate, projects, episodes, editingBooking]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!projectId || editingBooking || titleTouched) return;
+    const proj = projectOptions.find((p: any) => p.id === projectId);
+    if (!proj) return;
+    setTitle(buildBookingTitle({ projectName: proj.name, date: startDate }));
+  }, [projectId, startDate, projects, episodes, editingBooking, titleTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -431,7 +436,7 @@ export default function StudioBookingDialog({
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }}
                   placeholder="タイトル"
                   className="w-full px-4 py-3.5 bg-transparent outline-none placeholder:text-muted-foreground/40"
                   style={{ fontSize: "16px" }}

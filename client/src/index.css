@@ -200,6 +200,37 @@
   font-size: clamp(1rem, 2vw, 1.5rem);
   opacity: 0.6;
 }
+/*
+ * 「仮押さえ」の札 (v3.1.2)。
+ *
+ * 予約の題名から種別を外したので、これが無いと表示機の前に立った人が
+ * **まだ確定していない部屋を「使用中」と読む**。物理ディスプレイなので
+ * 遠くから読める大きさと、確定の赤 (.signage-label) と混ざらない山吹にする。
+ * 放送・紙に出る画と同じ扱いで色トークンの対象外 (check-ui-tokens.mjs の NOT_A_SCREEN)。
+ */
+.signage-tentative {
+  display: inline-block;
+  /* 本文 (ご利用中・題名) は左揃えなので、札も左端に合わせる */
+  align-self: flex-start;
+  font-size: clamp(1rem, 2.2vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #1f2937;
+  background: #fbbf24;
+  border-radius: 0.4em;
+  padding: 0.2em 0.7em;
+  margin-bottom: 0.5vh;
+}
+.signage-tentative-inline {
+  font-size: 0.55em;
+  font-weight: 700;
+  color: #1f2937;
+  background: #fbbf24;
+  border-radius: 0.4em;
+  padding: 0.15em 0.5em;
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
 .signage-time-range {
   font-size: clamp(1.3rem, 2.5vw, 2rem);
   font-weight: 300;

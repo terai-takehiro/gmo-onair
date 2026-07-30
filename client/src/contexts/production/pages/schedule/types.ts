@@ -128,6 +128,29 @@ export const ALL_LAYERS: LayerKey[] = ["studio", "partner", "me"];
 export const MANUAL_COLOR = "#2563eb";
 export const ICS_COLOR = "#64748b";
 
+/**
+ * 取込元ごとの色 (v3.1.2)。
+ *
+ * 以前は google / outlook / ics のすべてが ICS_COLOR の同色・ラベルなしで、
+ * 取込元が題名の末尾に `｜ラベル` として混ざっていた。そのため
+ * **同じ会議が2つの経路から入っていても、どちらを消せばよいか判断できなかった**
+ * (色も同じ・題名だけが片方だけ長い)。取込元は色とバッジで出し、題名には混ぜない。
+ */
+export const SOURCE_COLORS: Record<string, string> = {
+  manual: MANUAL_COLOR,
+  google: "#0f766e",   // teal — Google の緑と混同しない濃さ
+  outlook: "#1e40af",  // 濃紺
+  ics: ICS_COLOR,      // 灰 (URL 購読)
+};
+
+/** 取込元の短い名前。ICS は購読につけたラベルがあればそれを出す */
+export function sourceLabel(source: string, feedLabel?: string | null): string {
+  if (source === "manual") return "";
+  if (source === "google") return "Google";
+  if (source === "outlook") return "Outlook";
+  return (feedLabel || "ICS").slice(0, 20);
+}
+
 /** 仮押さえの「期限が近い」= 本番日まであと何日か。切替期限の列は持っていない */
 export interface HoldRow {
   id: string;
