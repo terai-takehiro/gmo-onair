@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, Trash2, CloudDownload, Users, Check, CloudUpload, UserMinus } from "lucide-react";
 import type { PersonalEvent } from "./scheduleShared";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifySuccess } from "@/lib/notify";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 
 interface Props {
   open: boolean;
@@ -97,6 +99,14 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     }
   }, [open, editing, presetRange]);
 
+  // 入れた内容を言い返すための文。同じ予定を2回入れていないか見比べられるようにする
+  const describeEvent = () => {
+    const period = allDay
+      ? (endDate && endDate !== startDate ? `${startDate} 〜 ${endDate}` : startDate)
+      : `${startDate} ${startTime}〜${endTime}`;
+    return location.trim() ? `${period} / ${location.trim()}` : period;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
@@ -113,7 +123,11 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       return api.post("/schedule/personal", payload);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["personal-events"] });
+      invalidateSchedule(qc, "personal");
+      // 入れた内容を言い返す (登録できたか分からず入れ直すのを止める)
+      notifySuccess(editing ? "予定を更新しました" : "予定を登録しました", {
+        description: `${title.trim()}（${describeEvent()}）`,
+      });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
@@ -122,7 +136,8 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
   const deleteMutation = useMutation({
     mutationFn: async () => api.delete(`/schedule/personal/${editing!.id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["personal-events"] });
+      invalidateSchedule(qc, "personal");
+      notifySuccess("予定を削除しました", { description: editing?.title ?? undefined });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),

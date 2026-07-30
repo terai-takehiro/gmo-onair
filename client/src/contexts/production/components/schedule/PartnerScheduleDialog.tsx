@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SCHEDULE_TYPE_LABELS, SCHEDULE_TYPE_COLORS, type PartnerSchedule } from "./scheduleShared";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifySuccess } from "@/lib/notify";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 
 interface Props {
   open: boolean;
@@ -89,8 +91,15 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       return api.post("/schedule/partner", payload);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partner-schedules"] });
-      qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
+      invalidateSchedule(qc, "partner");
+      // 誰の・いつの・何かを言い返す (総務が代理で入れるので「入ったか」が特に見えない)
+      const who = partnerUsers.find((u) => u.id === (userId || currentUser?.id))?.name ?? currentUser?.name;
+      const period = allDay
+        ? (endDate && endDate !== startDate ? `${startDate} 〜 ${endDate}` : startDate)
+        : `${startDate} ${startTime}〜${endTime}`;
+      notifySuccess(editing ? "予定を更新しました" : "予定を登録しました", {
+        description: `${who ? `${who} / ` : ""}${SCHEDULE_TYPE_LABELS[scheduleType] || scheduleType} / ${period}`,
+      });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
@@ -99,8 +108,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const deleteMutation = useMutation({
     mutationFn: async () => api.delete(`/schedule/partner/${editing!.id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partner-schedules"] });
-      qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
+      invalidateSchedule(qc, "partner");
+      notifySuccess("予定を削除しました", { description: editing?.title ?? undefined });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,10 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   });
 
   const invalidate = () => {
+    // 予定そのものは層の定義から (鍵を足したときにここが取り残されないように)
+    invalidateSchedule(qc, "personal");
+    // 連携の設定・接続状態はこの画面だけのもの
     qc.invalidateQueries({ queryKey: ["personal-ics-feeds"] });
-    qc.invalidateQueries({ queryKey: ["personal-events"] });
     qc.invalidateQueries({ queryKey: ["google-cal-status"] });
     qc.invalidateQueries({ queryKey: ["ms-cal-status"] });
   };

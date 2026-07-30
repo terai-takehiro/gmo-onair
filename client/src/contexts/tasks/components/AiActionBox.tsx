@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 import api from "@/lib/api";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { Money } from "@gmo-onair/shared/src/client/ui";
@@ -242,7 +243,7 @@ export function AiActionBox() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["my-tasks"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      invalidateSchedule(qc, "studio", "personal", "partner");
     },
     onError: (e: unknown) => {
       const err = e as { response?: { data?: { error?: { message?: string } } } };

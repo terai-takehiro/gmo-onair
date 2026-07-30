@@ -45,6 +45,7 @@ import ProjectDocsTab from "../components/ProjectDocsTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { notifyApiError, notifyError, notifySuccess, notifyWarning } from '@/lib/notify';
+import { invalidateSchedule } from '@/lib/scheduleQueries';
 import StageAskDialog from '../components/StageAskDialog';
 
 import JourneyPanel from './projectForm/JourneyPanel';
@@ -238,9 +239,12 @@ export default function ProjectFormPage() {
     if (!(await confirmAction({ title: "この予約を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     try {
       await api.delete(`/studios/bookings/${b.id}`);
-      qc.invalidateQueries({ queryKey: ["project-studio-bookings", id] });
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-    } catch (e) { console.error(e); }
+      invalidateSchedule(qc, "studio");
+      notifySuccess("予約を削除しました", { description: b.title ?? undefined });
+    } catch (e) {
+      // 以前は console.error だけで画面に何も出ず、押しても消えないように見えていた
+      notifyApiError("予約の削除", e);
+    }
   };
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, dirtyFields } } = useForm<FormValues>({

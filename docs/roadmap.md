@@ -1145,3 +1145,41 @@ v3.1.0 で **85 件**を直し、**残り 95 件** (うち high 27 件)。
 | low | **AI投入欄が2画面にあり案内が片方だけ** — 「AIに投げる」の入力欄が今日 (/today) とタスク (/tasks?scope=me) の2画面に出るのに、投入したものの一覧 (IntakeLogPanel) はタスク側にしか無く、⌘K の「AIに投げる」は今日にしか案内しない。今日から投入の確認へ寄せるリンク（MyTasksSummar… | `client/src/contexts/tasks/pages/TasksPage.tsx:176` | 入力欄は今日に1つだけ置き、タスク側は投入の記録だけを残して「投げるのは今日から」と1行書く。今日の AiActionBox の下に「投げたものを見る」→ /tasks?scope=me のリンクを出し、投げてから確認するまでを1本にする。 |
 | low | **通知のコメントが本文まで飛ばない** — 通知ベルで「コメントで呼ばれています」を押すと案件が開くが、画面はページ先頭のまま。コメント欄は案件詳細のかなり下にあるので、呼ばれた本人が長いページをスクロールして探すことになる。 | `server/src/contexts/platform/routes/dashboard.routes.ts:550` | TasksPage.tsx:66-80 のハッシュ寄せを shared のフック (useScrollToHash) に切り出し、ProjectFormPage でも呼ぶ。ハッシュ付きの通知は今後も増えるので、リンクを出す側ではなく共通シェル (AppShel… |
 
+
+## カレンダーの二重登録 (v3.1.1 で止血、以降の段取り)
+
+利用者指摘「同じ内容のスケジュールが二重で登録されることが多々ある / 若干の表記揺らぎがある」の
+全体調査で 66 件の原因を洗い出し、**入れ直させていた側だけを v3.1.1 で直した**。
+残りは列の追加と掃除の順序が絡むので段に分ける。
+
+**順序の絶対条件**: `migrate.ts` は1ファイル1トランザクションで、失敗すると `throw` し、
+`index.ts` の `main()` が `runMigrations()` を起動シーケンスで待つ。つまり
+**migration が落ちるとサーバーが上がらない (本番も同じ)**。実 Postgres で再現確認済み:
+
+```
+ERROR:  could not create unique index "uq_studio_bookings_auto"
+DETAIL:  Key (project_id, booking_type, substr(start_time, 1, 10))=(p1, hold, 2026-08-12) is duplicated.
+```
+
+→ **一意索引は必ず掃除の後**。次の migration 番号は 156。
+
+| 段 | 内容 | 状態 |
+|---|---|---|
+| 0 | 観測。`docs/ops/cleanup-duplicate-calendar-entries.sql` の ⓪＋① を SELECT だけ流し、確度別の件数を出す | **手順書は v3.1.1 で追加済み。実行は人** |
+| 1 | 止血 (画面)。無効化の鍵を層ごとに1か所へ / 成功の知らせ / 失敗を指の近くに / 期間予約の何日目か | **v3.1.1 で完了** |
+| 2 | 新規発生を止める (入口)。同じ ICS URL の重複登録を弾く・自ホストの `calendar.ics` を弾く・Google と Outlook の両方が繋がっているときに警告・予定ピッカーの文言を役割で言い分ける | 未着手 |
+| 3 | タイトル生成と正規化を1か所に。**表示は元の文字列のまま**、正規化は突合だけに使う。`check-collab-parity.mjs` の `PAIRS` に追加してビルドで乖離を止める | 未着手 |
+| 4 | migration 156: 列を足すだけ (`personal_events.ical_uid` `.dedupe_key` `.hidden_at` / `studio_bookings.auto_source` / `personal_ics_feeds.url_sha256`)。**索引は張らない**。`url_sha256` は AES-GCM のランダムIVのため SQL では埋められないので埋め戻しスクリプトが要る | 未着手 |
+| 5 | コードを共通鍵で動かす。取込3経路で `dedupe_key` を埋め、**INSERT 前に他経路の live 行を見て作らない**(消さない)。ICS取込に書き戻し除外を入れる (Google/Outlook にはある)。仮押さえの掃除条件を `notes` の完全一致から `auto_source` に変え、`createBooking` / PUT / PATCH confirm の3経路から呼ぶ | 未着手 |
+| 6 | 掃除 (人が実行)。①→②→件数確認→COMMIT。dev で全手順を通してから本番 | 手順書は用意済み |
+| 7 | migration 157: 一意索引を張る。**その前に「① の確度A が0件」を必ず確認** | 未着手 |
+| 8 | 登録前の確認と表示。重複照会を1本に集約し、似た予定があれば `confirmAction` で見せる (**止めない**)。月表示に種別ラベルと取込元バッジ | 未着手 |
+| 9 | 同期の堅牢化。advisory lock / 取りこぼしの回に古い行を消さない / OAuth を1人2アカウントまで許す (今は `user_id UNIQUE` なので2つ持つ人が ICS 併用に追い込まれ、それが二重の主因のひとつ) | 未着手 |
+
+**やらないと決めたもの**: 似ている2件の自動マージ (どちらが正しいか機械には決められず取り消せない) /
+同じ部屋・重なる時間の登録を禁止する (仕込み・本番・控室の掛け持ちが正当。警告までにする) /
+`partner_schedules` の一意制約 (半休を2行に分ける運用の有無が未確認) /
+`Idempotency-Key` (二度押しは既にダイアログで止まっており、残る経路は鍵が別になるので止まらない) /
+ICSフィードの URL とトークンの変更 (`docs/ia.md` §4 で維持と決めている) /
+`start_time` の列型変更 (香盤・空き照会・ICS書き出し・計時に波及する。入口の正規化だけにする) /
+`notes` を機械の印として使い続けること (人が書き換えられる欄に印を埋めたことが原因なので `auto_source` に移す)

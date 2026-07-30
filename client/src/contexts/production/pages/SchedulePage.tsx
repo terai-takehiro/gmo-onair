@@ -45,6 +45,8 @@ import {
   type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess } from "@/lib/notify";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 import {
@@ -236,8 +238,8 @@ export default function SchedulePage() {
   const confirmHold = useMutation({
     mutationFn: async (id: string) => api.patch(`/studios/bookings/${id}/confirm`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["studio-holds"] });
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      invalidateSchedule(qc, "studio");
+      notifySuccess("仮押さえを本予約にしました");
     },
   });
 
@@ -263,7 +265,8 @@ export default function SchedulePage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      invalidateSchedule(qc, "studio");
+      notifySuccess("予約を削除しました");
       setDetailDialogOpen(false);
     },
   });
@@ -531,6 +534,12 @@ export default function SchedulePage() {
 
   // ── 直近 7 日間の予定 (今日起点) ───────────────────────────
   // 部屋フィルタ適用後の予約を、今日 +6 日 (計 7 日) の窓に絞ってグルーピング
+  // 「8/5」形式 (カレンダーの他の場所と揃える。0 埋めしない)
+  const mdLabel = (ymd: string) => {
+    const [, m, d] = ymd.split('-');
+    return `${Number(m)}/${Number(d)}`;
+  };
+
   const upcomingDays = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -829,6 +838,16 @@ export default function SchedulePage() {
                       const tentative = b.status === 'tentative';
                       const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, '').trim() || b.title;
                       const roomChain = (b.rooms ?? []).length > 0 ? buildRoomChain((b.rooms ?? []) as any) : (b.location_note || '');
+                      // 期間予約は日数ぶん行が出る。「同じ予定が2行ある」と誤解されるので
+                      // 何日目かを添える (DB の二重登録と見分けられるようにする)
+                      const spanStart = (b.start_time || '').split('T')[0];
+                      const spanEnd = (b.end_time || spanStart).split('T')[0];
+                      const spanDays = spanStart && spanEnd > spanStart
+                        ? Math.round((new Date(spanEnd).getTime() - new Date(spanStart).getTime()) / 86_400_000) + 1
+                        : 1;
+                      const spanNth = spanDays > 1
+                        ? Math.round((new Date(d.key).getTime() - new Date(spanStart).getTime()) / 86_400_000) + 1
+                        : 0;
                       return (
                         <button
                           key={b.id}
@@ -851,6 +870,11 @@ export default function SchedulePage() {
                           <span className="font-medium text-sm flex-1 min-w-0 truncate">{displayTitle}</span>
                           {roomChain && (
                             <span className="text-xs text-muted-foreground truncate sm:max-w-[40%]">{roomChain}</span>
+                          )}
+                          {spanNth > 0 && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                              {mdLabel(spanStart)}〜{mdLabel(spanEnd)} の {spanNth}日目
+                            </span>
                           )}
                           <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-full sm:w-auto sm:ml-auto">
                             {allDay ? '終日' : `${startTime}–${endTime}`}

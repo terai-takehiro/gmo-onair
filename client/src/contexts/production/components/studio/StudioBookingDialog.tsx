@@ -14,6 +14,8 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
 import { formatShortDate } from "@/lib/format";
+import { notifySuccess } from "@/lib/notify";
+import { invalidateSchedule } from "@/lib/scheduleQueries";
 
 interface StudioRoom {
   id: string;
@@ -122,6 +124,7 @@ export default function StudioBookingDialog({
   const [roomDetails, setRoomDetails] = useState<Record<string, { occupant: string; usage_note: string }>>({});
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const [locationHistory] = useState<string[]>(() => loadLocationHistory());
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
@@ -174,6 +177,7 @@ export default function StudioBookingDialog({
 
   useEffect(() => {
     if (!open) return;
+    setError(null); // 前回の失敗を持ち越さない
     if (editingBooking) {
       const b = editingBooking;
       setTitle(b.title);
@@ -295,12 +299,45 @@ export default function StudioBookingDialog({
     setShowLocationSuggestions(filtered.length > 0);
   };
 
+  // 入れた内容を言い返すための文 (「登録できたか分からず入れ直す」を止める)。
+  // 日付・部屋・種別まで出すのは、既に入っている予約と見比べられるようにするため。
+  const describeBooking = (effectiveEndDate: string) => {
+    const typeLabel = bookingTypeOptions.find((o) => o.value === bookingType)?.label ?? bookingType;
+    const roomNames = roomLocations
+      .flatMap((loc) => loc.rooms)
+      .filter((r) => selectedRoomIds.has(r.id))
+      .map((r) => r.abbreviation || r.name);
+    const period = effectiveEndDate && effectiveEndDate !== startDate
+      ? `${startDate} 〜 ${effectiveEndDate}`
+      : allDay ? startDate : `${startDate} ${startTime}〜${endTime}`;
+    const where = roomNames.length > 0 ? roomNames.join("・") : locationNote.trim() || "部屋の指定なし";
+    return `${period} / ${where} / ${typeLabel}`;
+  };
+
   const createMutation = useMutation({
+    // 共通の受け皿 (MutationCache) は onError を持つ mutation では黙るので、
+    // ここで出す文がそのまま利用者に見えるものになる。
+    meta: { action: editingBooking ? "予約の更新" : "予約の登録" },
     mutationFn: (payload: any) =>
       editingBooking
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio-bookings"] }); onOpenChange(false); },
+    onSuccess: (_res, payload: any) => {
+      setError(null);
+      // 案件詳細の予約一覧と「期限が近い仮押さえ」も鍵が違うので一緒に無効化する
+      invalidateSchedule(qc, "studio");
+      notifySuccess(editingBooking ? "予約を更新しました" : "予約を登録しました", {
+        description: `${title}（${describeBooking(String(payload?.end_time ?? "").split("T")[0])}）`,
+      });
+      onOpenChange(false);
+    },
+    // 帯は画面の上端に出るが、押した指の近くにも出す (他の2つのダイアログと同じ位置)
+    onError: (err: any) => {
+      setError(
+        err?.response?.data?.error?.message ||
+          (editingBooking ? "更新できませんでした。もう一度お試しください。" : "登録できませんでした。もう一度お試しください。"),
+      );
+    },
   });
 
   const handleSubmit = () => {
@@ -308,6 +345,7 @@ export default function StudioBookingDialog({
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) return;
     if (locationNote.trim()) saveLocationHistory(locationNote.trim());
+    setError(null);
     createMutation.mutate({
       title, booking_type: bookingType, status,
       project_id: projectId || null, episode_id: episodeId || null,
@@ -373,6 +411,16 @@ export default function StudioBookingDialog({
               {editingBooking ? "更新" : "予約する"}
             </button>
           </div>
+
+          {/* 失敗の理由は「予約する」と同じ視界に出す。
+              このダイアログは iOS 風で実行ボタンが**上辺**にあり、本文は下に長くスクロールする。
+              本文の末尾に置くと画面外になり、気づかずもう一度押す (= 二重登録) ため、
+              スクロール領域の外・ヘッダーの直下に固定する。 */}
+          {error && (
+            <p role="alert" className="border-b border-destructive/40 bg-destructive-surface px-4 py-2.5 text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           {/* Scrollable body */}
           <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(92dvh - 56px)" }}>
