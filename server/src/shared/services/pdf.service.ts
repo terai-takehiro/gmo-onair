@@ -262,7 +262,16 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
 
           const descH   = textH(it.description || '', R, 8, wDesc - 6);
           const periodH = periodStr ? 10 : 0;
-          const notesH  = it.item_notes ? textH(it.item_notes, R, 7, wDesc - 6) : 0;
+          /**
+           * 品目内補足は**改行を残して刷る**。pdfkit の折り返しに任せず1行ずつ描くので、
+           * 貼り付けの `\r\n` でも空行でも同じ結果になる (空行は1行ぶんの高さを取る)。
+           * 長い行はこれまでどおり列幅で折り返す。
+           */
+          const notesLines = it.item_notes
+            ? String(it.item_notes).replace(/\r\n?/g, '\n').split('\n')
+            : [];
+          const notesLineH = notesLines.map((ln) => textH(ln || ' ', R, 7, wDesc - 6));
+          const notesH  = notesLineH.reduce((s, h) => s + h, 0);
           const rh = Math.max(VPAD + descH + (periodH ? 2 + periodH : 0) + (notesH ? 2 + notesH : 0) + VPAD, 24);
 
           ensureSpace(rh);
@@ -274,7 +283,13 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
             txt(it.description || '', xDesc + 3, y + VPAD, { sz: 8, c: itColor, w: wDesc - 6, wrap: true });
             let yy = y + VPAD + descH;
             if (periodStr) { txt(periodStr, xDesc + 3, yy + 2, { sz: 7, c: '#444444', w: wDesc - 6 }); yy += 2 + periodH; }
-            if (it.item_notes) { txt(it.item_notes, xDesc + 3, yy + 2, { sz: 7, c: '#555555', w: wDesc - 6, wrap: true }); }
+            if (notesLines.length) {
+              let ny = yy + 2;
+              notesLines.forEach((ln, li) => {
+                if (ln) txt(ln, xDesc + 3, ny, { sz: 7, c: '#555555', w: wDesc - 6, wrap: true });
+                ny += notesLineH[li];
+              });
+            }
           });
           cell(xQty, y, wQty, rh, () => {
             txt(String(it.quantity ?? 1), xQty + 3, y + VPAD, { sz: 8, c: itColor, w: wQty - 6, align: 'right' });

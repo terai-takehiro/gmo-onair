@@ -291,6 +291,20 @@ function normalizeDateOnly(value: unknown, label: string): string | null {
   return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
+/**
+ * 品目内補足は**改行を残す** (見積書 PDF も改行のまま刷る)。
+ *
+ * 改行コードは `\n` に寄せ (Windows から貼ると `\r\n` が来る。`\r` が残ると PDF に
+ * 豆腐が出る)、行末の空白と前後の空行は落とす。空だけの値は null にする
+ * (TEXT 列に空文字が入ると PDF が中身の無い補足行を作る)。
+ */
+function normalizeNotes(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '');
+  const trimmed = s.replace(/^\n+/, '').replace(/\n+$/, '');
+  return trimmed.trim() ? trimmed : null;
+}
+
 function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
   return (items ?? []).map((it) => {
     const quantity = Number(it.quantity) || 0;
@@ -322,7 +336,7 @@ function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
       amount,
       cost_amount: Math.max(0, Math.round(Number(it.cost_amount) || 0)),
       cost_vendor_id: it.cost_vendor_id || null,
-      item_notes: it.item_notes ? String(it.item_notes) : null,
+      item_notes: normalizeNotes(it.item_notes),
       period_start: periodStart,
       period_end: periodEnd,
       pricing_item_id: it.pricing_item_id || null,

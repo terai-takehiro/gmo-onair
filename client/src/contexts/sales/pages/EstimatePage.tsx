@@ -21,14 +21,15 @@ import api from "@/lib/api";
 import { formatShortDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { NoticeBar, setNotice, clearNotice } from "@gmo-onair/shared/src/client/ui/notice";
 import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from "@/contexts/platform/AuthContext";
 import PricingPickerDialog, { type PickedPricingRow } from "../components/estimate/PricingPickerDialog";
 import {
-  ChevronRight, ChevronLeft, Printer, Sparkles, Plus, Trash2, Loader2, Check, Send,
-  History, BookOpen, CalendarClock, Receipt, AlertTriangle,
+  ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Printer, Sparkles, Plus, Trash2,
+  Loader2, Check, Send, History, BookOpen, CalendarClock, Receipt, AlertTriangle,
 } from "lucide-react";
 import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 import { AI_ACTOR_LABEL } from '@gmo-onair/shared/src/client/aiAttribution';
@@ -98,6 +99,22 @@ function toDateOnly(v: unknown): string | null {
   if (!s) return null;
   return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
 }
+
+/**
+ * 品目内補足は**改行を残したまま**持つ (見積書 PDF も改行のまま刷る)。
+ * 改行コードは `\n` に寄せ、行末の空白と前後の空行は落とす。
+ * 空だけの値は null にする (TEXT 列に空文字が入ると PDF が中身の無い行を作る)。
+ */
+function normalizeNotes(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const s = String(v).replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "");
+  const trimmed = s.replace(/^\n+/, "").replace(/\n+$/, "");
+  return trimmed.trim() ? trimmed : null;
+}
+
+/** 補足の欄の高さ。入っている行数に合わせて伸ばす (上限6行 — それ以上は中でスクロール) */
+const notesRows = (v: string | null) =>
+  Math.min(6, Math.max(1, (v ?? "").split("\n").length));
 
 /** 終了が開始より前になっている行。保存する前に指の近くで知らせる (サーバーも同じ条件で弾く) */
 const periodInverted = (r: Row) =>
@@ -217,6 +234,27 @@ export default function EstimatePage() {
     setDirty(true);
   };
 
+  /**
+   * 行を1つ上/下に動かす。**同じ区分の中だけ**で入れ替える
+   * (画面は区分ごとに並べているので、区分をまたいで動かすと押した行が別の見出しの下へ飛ぶ)。
+   * `rows` の並びがそのまま保存時の `sort_order` になり、見積書 PDF もこの順で出る。
+   */
+  const moveRow = (key: string, dir: -1 | 1) => {
+    setRows((prev) => {
+      const i = prev.findIndex((r) => r.key === key);
+      if (i < 0) return prev;
+      // 区分の違う行が間に挟まっていても、同じ区分の隣の行を探して入れ替える
+      let j = i + dir;
+      while (j >= 0 && j < prev.length && prev[j].category !== prev[i].category) j += dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      next[i] = prev[j];
+      next[j] = prev[i];
+      return next;
+    });
+    setDirty(true);
+  };
+
   const removeRow = (key: string) => {
     setRows((prev) => prev.filter((r) => r.key !== key));
     setPeriodOpen((prev) => {
@@ -270,7 +308,7 @@ export default function EstimatePage() {
       .map((r) => ({
         description: r.description.trim(), category: r.category, quantity: r.quantity,
         unit: r.unit, unit_price: r.unit_price, amount: r.amount,
-        cost_amount: r.cost_amount, item_notes: r.item_notes,
+        cost_amount: r.cost_amount, item_notes: normalizeNotes(r.item_notes),
         period_start: r.period_start, period_end: r.period_end,
         pricing_item_id: r.pricing_item_id, is_ai_suggested: r.is_ai_suggested,
       })),
@@ -542,7 +580,8 @@ export default function EstimatePage() {
               <span className="w-[128px] shrink-0 text-right">単価</span>
               <span className="w-[128px] shrink-0 text-right">金額</span>
               <span className="w-[96px] shrink-0 text-right">仕入</span>
-              <span className="w-[32px] shrink-0" />
+              {/* 並べ替え2つと削除で 32px×3 */}
+              <span className="w-col-3 shrink-0" />
             </div>
 
             {GROUPS.map((g) => {
@@ -560,7 +599,7 @@ export default function EstimatePage() {
                     <div className="border-b border-row px-[18px] py-3 text-xs text-muted-foreground">
                       この区分の明細はまだありません。
                     </div>
-                  ) : groupRows.map((r) => (
+                  ) : groupRows.map((r, ri) => (
                     <div key={r.key} className="border-b border-row hover:bg-accent/20">
                      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-[18px] py-2.5 lg:flex-nowrap lg:py-0 lg:min-h-[52px]">
                       <div className="min-w-0 flex-1 basis-full lg:basis-auto">
@@ -572,13 +611,19 @@ export default function EstimatePage() {
                           className="h-9 border-transparent bg-transparent px-1 text-[13.5px] font-bold hover:border-border focus:border-input disabled:opacity-100"
                         />
 
-                        <div className="flex items-center gap-2 px-1">
-                          <Input
+                        <div className="flex items-start gap-2 px-1">
+                          {/*
+                            補足は**改行できる** (`Textarea`)。見積書 PDF も改行のまま刷る。
+                            1行のときは 1行ぶんの高さで、入れた行数だけ伸びる (上限6行)
+                          */}
+                          <Textarea
                             value={r.item_notes ?? ""}
                             onChange={(e) => patchRow(r.key, { item_notes: e.target.value || null })}
                             disabled={!canEdit}
-                            placeholder="補足（任意）"
-                            className={`h-7 border-transparent bg-transparent px-0 text-xs hover:border-border focus:border-input disabled:opacity-100 ${
+                            rows={notesRows(r.item_notes)}
+                            placeholder="補足（任意・改行できます）"
+                            title="改行して書けます。見積書でも改行されたまま出ます"
+                            className={`min-w-0 flex-1 min-h-0 resize-y border-transparent bg-transparent px-0 py-1 text-xs leading-[1.5] hover:border-border focus:border-input disabled:opacity-100 ${
                               r.is_ai_suggested ? "text-warning-strong" : "text-muted-foreground"
                             }`}
                           />
@@ -643,14 +688,37 @@ export default function EstimatePage() {
                         title="外部に払う見込み額。社内でまわせる作業は 0 のままにしてください" />
 
                       {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => removeRow(r.key)}
-                          className="flex h-9 w-[32px] shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-destructive-surface hover:text-destructive"
-                          title="この行を消す"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center">
+                          {/* 並べ替え — 区分の中で1つずつ動かす。この並びが見積書の並びになる */}
+                          <button
+                            type="button"
+                            onClick={() => moveRow(r.key, -1)}
+                            disabled={ri === 0}
+                            aria-label={`${r.description || "この行"}を1つ上へ`}
+                            className="flex h-9 w-[32px] items-center justify-center rounded-control text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+                            title="1つ上へ"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveRow(r.key, 1)}
+                            disabled={ri === groupRows.length - 1}
+                            aria-label={`${r.description || "この行"}を1つ下へ`}
+                            className="flex h-9 w-[32px] items-center justify-center rounded-control text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+                            title="1つ下へ"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRow(r.key)}
+                            className="flex h-9 w-[32px] items-center justify-center rounded-control text-muted-foreground hover:bg-destructive-surface hover:text-destructive"
+                            title="この行を消す"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                      </div>
 
@@ -731,6 +799,7 @@ export default function EstimatePage() {
                 <div className="flex-1" />
                 <div className="text-[12.5px] text-muted-foreground">
                   <p>仕入の列に入れた金額は、受注したときに見込み仕入の明細になります</p>
+                  <p>行の ∧ ∨ で並べ替えられます（区分の中で入れ替わり、この並びで見積書が出ます）。補足は改行できます（見積書でも改行されたまま出ます）</p>
                   <p>
                     期間を入れなかった行は、見積書では
                     {projectPeriodText ?? "期間なし"}で出ます
