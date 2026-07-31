@@ -29,6 +29,7 @@
     "lint": "node scripts/check-ui-tokens.mjs && eslint .",
     "lint:eslint": "eslint .",
     "check:ui-tokens": "node scripts/check-ui-tokens.mjs",
+    "check:version": "node scripts/check-version-consistency.mjs",
     "verify:up": "bash scripts/dev-verify/up.sh",
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh",

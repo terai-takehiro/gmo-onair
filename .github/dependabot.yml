@@ -1,0 +1,52 @@
+version: 2
+
+# 依存更新を人手で見に行くのをやめる。
+# 頻度は月1にして、種類ごとに1本の PR にまとめる (毎週バラバラに来ると読まれない)。
+updates:
+  # ─── npm (モノレポのルートで workspaces 全体を見る) ───
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels: ['type:chore', 'area:deps']
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # パッチ・マイナーは1本にまとめる。個別に見る価値がほぼ無い
+      minor-and-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+      # メジャーは1つずつ。壊れ方が読めないので混ぜない
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+    ignore:
+      # tailwindcss のメジャー更新は自動で上げない。
+      # v3 → v4 は PostCSS の入口が変わる (@tailwindcss/postcss 経由になる) ので、
+      # package.json だけ上がると lockfile と食い違ってフロントのビルドが止まる。
+      # 実際にこれが起きて放置されていた (CLAUDE.md「コード健全性ポリシー」参照)。
+      # 上げるときは preset / postcss.config / 全ワークスペースを同じ PR で揃える。
+      - dependency-name: tailwindcss
+        update-types: ['version-update:semver-major']
+      # Express 5 系はミドルウェアの互換が広く効くので手で上げる
+      - dependency-name: express
+        update-types: ['version-update:semver-major']
+
+  # ─── GitHub Actions 自体のバージョン ───
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 3
+    labels: ['type:chore', 'area:ci']
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      actions:
+        patterns: ['*']

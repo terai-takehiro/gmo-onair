@@ -1,0 +1,74 @@
+name: 不具合の報告
+description: 動かない・表示がおかしい・保存できない
+title: '[不具合] '
+labels: ['type:bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本番で業務が止まっている場合は、Issue を立てるより先に Slack で連絡してください。
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: どのアプリで起きたか
+      options:
+        - 案件管理 (/)
+        - Qシート (/qsheet/)
+        - 機材管理 (/equipment/)
+        - 技術資料 (/techsheet/)
+        - ライブ運用 (/live/)
+        - リアルタイムCG (/awards/)
+        - デイリー (/daily/)
+        - 分からない・複数
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: どの環境か
+      options:
+        - 本番 (gmo-onair.jp)
+        - 検証 (dev.gmo-onair.jp)
+        - 手元の開発環境
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 何が起きたか
+      description: 画面に出た文言はそのまま貼ってください
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: どうやったら再現するか
+      placeholder: |
+        1. 案件一覧を開く
+        2. GLS002-003 の「お金」タブを押す
+        3. 「見積書PDFを出す」を押す → 何も出てこない
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: どうなってほしかったか
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 使っていた端末・ブラウザ
+      placeholder: iPhone / Safari、Windows / Chrome など
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: スクリーンショット
+      description: 画像はこの枠に貼り付けるとアップロードされます

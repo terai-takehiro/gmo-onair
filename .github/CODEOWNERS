@@ -1,0 +1,25 @@
+# このファイルに書いたパスの PR には、対応する人が自動でレビュアーに入る。
+#
+# いまは実質1人体制なので全部を1人に寄せてある。人が増えたら
+# ブロックアプリごとに担当を分けること (下のコメントを外して名前を入れる)。
+#
+# 書式: <パス>  <@ユーザー名 / @組織/チーム名>
+
+*                       @terai-takehiro
+
+# ─── 触ると全アプリに効く場所。人が増えても必ずレビューを通す ───
+/shared/                @terai-takehiro
+/.github/               @terai-takehiro
+/docker-compose.yml     @terai-takehiro
+/Dockerfile             @terai-takehiro
+/nginx/                 @terai-takehiro
+/scripts/               @terai-takehiro
+/server/src/shared/db/  @terai-takehiro
+
+# ─── 人が増えたらここを分ける ───
+# /client/                @案件管理の担当
+# /client-qsheet/         @Qシートの担当
+# /client-equipment/      @機材管理の担当
+# /client-techsheet/      @技術資料の担当
+# /client-live/           @ライブ運用の担当
+# /client-awards/         @リアルタイムCGの担当

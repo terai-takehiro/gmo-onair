@@ -1,0 +1,11 @@
+# 空の Issue (テンプレートなし) を作らせない。
+# 「どこに書けばいいか分からない」を避けるため、必ずどれかの型に入れてもらう。
+blank_issues_enabled: false
+
+contact_links:
+  - name: ブランチ運用・PR の出し方
+    url: https://github.com/terai-takehiro/gmo-onair/blob/main/docs/branching.md
+    about: どのブランチを切るのか、どこにマージするのか、本番にどう出すのか
+  - name: 開発の始め方
+    url: https://github.com/terai-takehiro/gmo-onair/blob/main/CONTRIBUTING.md
+    about: 環境構築から PR を出すまでの手順

@@ -16,22 +16,33 @@ v2.9.229 まで、デプロイは GitHub Actions から VPS へ SSH し、**2GB 
 ## 新しい仕組み
 
 ```
-push (dev/main)
+main へのマージ (→ 検証)  /  Release の公開 (→ 本番)
    │
-   ├─ [build ジョブ]  GitHub Actions ランナー上で docker buildx ビルド
-   │     ・Dockerfile はワークスペース別の並列ステージ構成
-   │     ・GHA レイヤーキャッシュ (type=gha, mode=max):
-   │         - package*.json が変わらない限り npm install をスキップ
-   │         - 変更のないワークスペースの build ステージを丸ごとスキップ
-   │     ・ghcr.io/terai-takehiro/gmo-onair:{dev|prod} と :sha-<commit> に push
+   ├─ [meta ジョブ]  どこへ・どのコミットを出すのかを決める
    │
-   └─ [deploy ジョブ]  VPS へ SSH
-         ・git worktree 同期 (compose / nginx 設定 / フォールバック用)
+   ├─ [ci ジョブ]  .github/workflows/ci.yml を呼ぶ (PR で走るものと同一)
+   │     ・checks: 型チェック / Lint / 共通コードの乖離 / バージョン表記の整合
+   │     ・build : GitHub Actions ランナー上で docker buildx ビルド
+   │         - Dockerfile はワークスペース別の並列ステージ構成
+   │         - GHA レイヤーキャッシュ (type=gha, mode=max):
+   │             · package*.json が変わらない限り npm install をスキップ
+   │             · 変更のないワークスペースの build ステージを丸ごとスキップ
+   │         - ghcr.io/terai-takehiro/gmo-onair:{dev|prod} と :sha-<commit> に push
+   │           (Release 経由のときは :vX.Y.Z も付く)
+   │     ★ ここが落ちるとデプロイジョブは動かない
+   │
+   └─ [staging / production ジョブ]  VPS へ SSH
+         ・git worktree を対象コミットに detached checkout (タグでもブランチでも同じ手順)
          ・docker login ghcr.io (ジョブの一時 GITHUB_TOKEN、追加 secret 不要)
          ・docker compose pull → up -d --force-recreate  (1〜2 分)
          ・pull 失敗時のみ従来どおり VPS 上ビルドにフォールバック
+         ・nginx は設定ファイルが変わったときだけ作り直す (検証側のみ)
          ・docker image prune -f で旧 dangling イメージを掃除
 ```
+
+> **`:dev` / `:prod` は配信チャネル名で、ブランチ名ではありません。**
+> `dev` ブランチは v4 で廃止しました (`docker-compose.yml` の `image:` 既定値が
+> この名前なのでタグ名は変えていない)。運用の全体像は [`branching.md`](branching.md)。
 
 ### 変更ファイル
 
@@ -113,8 +124,9 @@ GitHub のランナーは 2 コアなので、この 50 秒はほぼそのまま
 そこで:
 
 - 各クライアントの `build` は `vite build` だけにし、`typecheck` (`tsc -b`) を別スクリプトにした
-- `deploy.yml` に **`typecheck` ジョブ**を足して `build` と**並走**させた
-- `deploy-dev` / `deploy-prod` は `needs: [build, typecheck]`
+- 型チェックのジョブを足して Docker ビルドと**並走**させた
+  (v4 で `ci.yml` の `checks` / `build` に整理。**PR で走るものと完全に同じ**)
+- `staging` / `production` は `needs: [meta, ci]`
   → **型エラーがあればデプロイは止まる** (イメージは GHCR に上がるが配られない)
 - ルートの `npm run build` は `npm run typecheck && …` にしたので、**手元の `npm run build` は
   今までどおり型を見る** (型チェックを飛ばしたいときだけ `npm run build:nocheck`)
@@ -133,18 +145,23 @@ GitHub のランナーは 2 コアなので、この 50 秒はほぼそのまま
 
 ### ロールバック
 
-GHCR にはコミットごとの `sha-<full commit hash>` タグが残る。VPS 上で:
+**本番を戻す (推奨)**: Releases に過去のタグが並んでいるので、**1つ前のタグの Deploy
+ワークフローを再実行**する。git 履歴・イメージ・VPS の checkout が全部そのタグで揃うので、
+「いま本番に何が出ているか」がずれない。
+
+**その場でイメージだけ差し替える (急ぎ)**: GHCR にはコミットごとの `sha-<full commit hash>`
+タグと、リリースごとの `vX.Y.Z` タグが残る。VPS 上で:
 
 ```bash
-# 例: dev を特定コミットのイメージに戻す
+# 例: 検証環境を特定コミットのイメージに戻す
 cd /root/gmo-onair-dev
 APP_IMAGE_DEV=ghcr.io/terai-takehiro/gmo-onair:sha-<旧コミットhash> \
   docker compose -p gmo-onair --env-file /root/gmo-onair/.env \
   -f /root/gmo-onair-dev/docker-compose.yml up -d --no-deps --force-recreate app_dev
 ```
 
-(従来どおり「旧コミットを dev/main に push して再デプロイ」でも戻せる。こちらは
-git 履歴とイメージが一致するので恒久的なロールバックにはこちらを推奨。)
+(こちらは**イメージだけ**が古い状態になり、VPS の checkout や git 履歴とは食い違う。
+恒久的に戻すなら上のタグ再実行を使うこと。)
 
 ### GHCR イメージの認証
 
