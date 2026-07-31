@@ -1,0 +1,45 @@
+name: 利用者からの依頼
+description: 現場から上がってきた「こうしてほしい」をそのまま記録する
+title: '[依頼] '
+labels: ['type:user-request']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **依頼の文言を、そのままの言葉で残してください。**
+        こちらの言葉に直すと、あとで「本当は何を頼まれたのか」が分からなくなります。
+        1件の依頼に複数の話が混ざっていたら、実装は Issue を分けて構いません
+        (この Issue を親にして子 Issue に割る)。
+
+  - type: input
+    id: from
+    attributes:
+      label: 誰からの依頼か
+      placeholder: 部署名・氏名、または「〇〇の現場」
+    validations:
+      required: true
+
+  - type: textarea
+    id: raw
+    attributes:
+      label: 依頼の内容 (原文のまま)
+      description: Slack やメールの文面をそのまま貼る
+    validations:
+      required: true
+
+  - type: textarea
+    id: interpretation
+    attributes:
+      label: こちらの理解
+      description: 何をすれば依頼を満たせるか。原文と分けて書く (取り違えていたら本人が指摘できる)
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: 急ぎ具合
+      options:
+        - 本番の業務が止まっている
+        - 次の案件までに欲しい
+        - 急がない
+    validations:
+      required: true

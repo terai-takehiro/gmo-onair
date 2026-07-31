@@ -106,7 +106,8 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 ### 開発運用
 - **npm workspaces** — モノレポ
 - **Dev Containers** — ローカル開発を隔離
-- **Gitea/GitHub Webhook** — `main` ブランチへの push で本番自動デプロイ
+- **GitHub Actions** — PR で検査 / `main` マージで検証環境 / Release 公開で本番デプロイ
+- **GitHub Container Registry (GHCR)** — ビルド済みイメージの配布（VPS 上ではビルドしない）
 
 ---
 
@@ -310,51 +311,51 @@ npm run build    # shared → 全クライアント → server の順に TypeScr
 
 各クライアントは Vite で静的ファイルを生成し、Express が静的配信します。
 
-### 本番デプロイ
-
-**トリガー**: `main` ブランチへの push
-**フロー**:
-1. GitHub Webhook が `scripts/deploy-webhook.js` (VPS 上、ポート 9000) に通知
-2. VPS が `git pull origin main && docker compose up -d --build` を実行
-3. `app_prod` コンテナが再ビルド・再起動される
-
-**デプロイ時間**: 約2〜3分
-
 ### 検証デプロイ
 
-**トリガー**: `dev` ブランチへの push
-検証環境 (`dev.gmo-onair.jp` / `app_dev`) に自動反映されます。
+**トリガー**: `main` に PR がマージされたとき
+
+1. GitHub Actions が型チェック・Lint・整合性検査を回す
+2. 同時に Docker イメージをビルドして GHCR (`ghcr.io/terai-takehiro/gmo-onair:dev`) へ push
+3. VPS へ SSH し、イメージを pull して `app_dev` コンテナを作り直す
+
+検証環境 (`dev.gmo-onair.jp` / `app_dev`) に自動反映されます。**デプロイ時間**: 約2〜3分
+
+### 本番デプロイ
+
+**トリガー**: GitHub で **Release を公開**したとき（タグ `vX.Y.Z`）
+
+`main` に push しても本番には出ません。`production` 環境の承認を経て `app_prod` が入れ替わります。
+手順は [CONTRIBUTING.md「リリースの出し方」](CONTRIBUTING.md#リリースの出し方)。
 
 ### 緊急ロールバック
 
-```bash
-# VPS 上で
-git checkout <旧コミット>
-docker compose up -d --build
-```
+Releases に過去のタグが並んでいるので、**1つ前のタグの Deploy を再実行**します。
+イメージも `ghcr.io/terai-takehiro/gmo-onair:vX.Y.Z` / `:sha-<commit>` で残っているため、
+VPS 側で直接差し替えることもできます（[docs/deploy-pipeline.md](docs/deploy-pipeline.md)）。
 
 ---
 
 ## ブランチ運用
 
-- **`main`** — 本番デプロイの起点（push で webhook 発火）
-- **`master`** — `main` のミラーブランチ（`master ← main` の PR で定期同期）
-- **`dev`** — 検証環境の起点
-- **`feature/*`, `claude/*`** — 機能ブランチ（main または dev から派生）
+**GitHub Flow + リリースタグ**。詳細は [docs/branching.md](docs/branching.md)。
 
-### リリースフロー
+- **`main`** — 唯一の長命ブランチ。常に「次に出せる状態」。**直接 push 禁止**（PR のみ）
+- **`feature/*` `fix/*` `chore/*` `docs/*`** — 作業ブランチ。`main` から切って PR で戻す。マージ後は自動削除
+- **`release/v3`** — v3 系の保守専用（v3.1.5 で凍結。緊急修正だけ）
 
 ```
-feature/xxx → dev → (検証環境で動作確認) → main → (本番自動デプロイ)
-                                              ↓
-                                            master (ミラー同期)
+feature/xxx ──► PR (CI必須) ──► main ──► 検証環境 (自動)
+                                  │
+                                  └─► Release 公開 (タグ vX.Y.Z) ──► 本番
 ```
 
 ### バージョン管理
 
-- パッチバージョンのみインクリメント（例: v1.1.100 → v1.1.101）
-- `CLAUDE.md` + 全ワークスペースの `package.json` を同期更新
-- コミットメッセージに `vX.X.X` を明記
+- パッチバージョンのみインクリメント（例: v4.0.1 → v4.0.2）
+- **上げるのはリリースを出すときだけ**。3か所（ルート `package.json` / `CLAUDE.md` / この README）を揃え、
+  `npm run check:version` が一致を検査します（各ワークスペースの `package.json` は更新しません）
+- 本番に出たコミットは `vX.Y.Z` タグと GitHub Release に残ります
 
 ---
 
@@ -362,7 +363,11 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | ファイル | 内容 |
 |---|---|
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | **開発の始め方** — 環境構築 → 作業 → PR → リリースの出し方 |
+| [`docs/branching.md`](./docs/branching.md) | **ブランチ運用とリリース** — どこに切る・どこにマージする・本番にどう出す |
 | [`CLAUDE.md`](./CLAUDE.md) | プロジェクトメモリ（開発方針・環境分離ポリシー・セキュリティポリシー） |
+| [`docs/ops/github-repo-settings.md`](./docs/ops/github-repo-settings.md) | GitHub 側の設定（分岐保護・環境・ラベル）と適用スクリプト |
+| [`docs/deploy-pipeline.md`](./docs/deploy-pipeline.md) | デプロイの中身（GHCR・キャッシュ・ロールバック） |
 | [`docs/DEPLOY_CONOHA.md`](./docs/DEPLOY_CONOHA.md) | CoNoHa VPS への初回デプロイ手順 |
 | [`docs/architecture/v1.0-domain-design.md`](./docs/architecture/v1.0-domain-design.md) | ドメイン設計（案件・エピソード・売上・仕入のモデル） |
 | [`docs/architecture/v1.0-data-model.md`](./docs/architecture/v1.0-data-model.md) | データモデル詳細 |

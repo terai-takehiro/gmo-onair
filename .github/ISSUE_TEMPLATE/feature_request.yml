@@ -1,0 +1,66 @@
+name: 機能の追加・変更
+description: 新しい機能、既存機能の作り替え (v4 の作業もこれ)
+title: '[機能] '
+labels: ['type:feature']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **1 Issue = 1 ブランチ = 1 PR** で回します。
+        「〜画面を作り直す」のように大きいものは、先に親 Issue を立てて
+        中身を子 Issue に分けてください (Issue 画面の "Create sub-issue" が使えます)。
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 何ができるようになるか
+      description: 使う人の言葉で書く。実装方法ではなく、できるようになること
+      placeholder: 見積の明細を上下に入れ替えられるようになる
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: いまはどう困っているか
+      description: 誰が・どの作業で・どれくらい困っているか。時間が分かるなら書く
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: どのアプリか
+      multiple: true
+      options:
+        - 案件管理 (/)
+        - Qシート (/qsheet/)
+        - 機材管理 (/equipment/)
+        - 技術資料 (/techsheet/)
+        - ライブ運用 (/live/)
+        - リアルタイムCG (/awards/)
+        - デイリー (/daily/)
+        - サーバー・API
+        - 共通ライブラリ (全アプリに影響)
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了の条件
+      description: これが満たされたら閉じる、という箇条書き
+      placeholder: |
+        - [ ] 明細の行に ∧ ∨ が出る
+        - [ ] 区分をまたいでは動かない
+        - [ ] 並べ替えた順で見積書 PDF が出る
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ai
+    attributes:
+      label: AI が関わるか
+      description: 関わる場合、設計時に「AIを使い捨てにしない」5条件の充足表が必要です
+      options:
+        - label: この機能は AI の出力を人に見せる / AI に業務を投げる

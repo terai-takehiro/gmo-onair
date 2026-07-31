@@ -1,148 +1,137 @@
 name: Deploy
 
+# ─────────────────────────────────────────────────────────────────────
+# デプロイの入口は2つだけ (v3.1.5 までの「dev ブランチ / main ブランチ」を廃止)
+#
+#   ① main に push (= PR がマージされた)     → 検証環境 dev.gmo-onair.jp
+#   ② GitHub で Release を公開 (タグ vX.Y.Z) → 本番   gmo-onair.jp
+#
+# なぜこの形か: 以前は「dev ブランチ = 検証」「main ブランチ = 本番」で、
+#   本番に出すには dev を main にマージする必要があった。ところが実際には
+#   main と dev の中身は常に同じになっていた (差分0) ので、ブランチを2本
+#   持つ意味が無く、「どっちが正なのか」を新しく入った人に説明できなかった。
+#   いまは **main が唯一の正**、**本番に出た瞬間 = タグ** という形にしてある。
+#   タグが打たれるので「どのコミットが本番か」「v3.1.4 に戻したい」が
+#   GitHub の Releases 画面だけで完結する (以前はタグが1つも無かった)。
+#
+# 検査はしない (できない) ようにしてある: どちらの経路も ci.yml を
+#   `needs` で通るので、**型エラー・Lint 違反があればデプロイは始まらない**。
+#
+# VPS 上のレイアウト:
+#   /root/gmo-onair      ← 本番用 worktree (本番デプロイだけが触る)
+#   /root/gmo-onair-dev  ← 検証用 worktree (検証デプロイだけが触る)
+#
+#   どちらにもリポジトリ全体 (docker-compose.yml + nginx/) が入っている。
+#   両方が `docker compose -p gmo-onair` を共有することで app_prod / app_dev /
+#   nginx / db をネットワーク・ボリューム 1 セットで動かす。
+#   ブランチではなく **コミットを直接 checkout (detached HEAD)** する。
+#   これでタグからでもブランチからでも同じ手順で出せる。
+#
+# GHCR のイメージタグ `:dev` `:prod` は**配信チャネル名**で、ブランチ名ではない。
+#   docker-compose.yml の `image:` 既定値がこの名前なので変えていない。
+#
+# ロールバック: Releases から1つ前のタグを選んで "Re-run" するか、VPS で
+#   `APP_IMAGE_PROD=ghcr.io/<repo>:sha-<旧commit> docker compose ... up -d app_prod`
+# ─────────────────────────────────────────────────────────────────────
+
 on:
   push:
-    branches: [dev, main]
+    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       target:
-        description: 'Deploy target'
+        description: 'デプロイ先 (デプロイするコミットは、この実行を開始するときに選んだブランチ/タグ)'
         required: true
-        default: 'dev'
+        default: staging
         type: choice
         options:
-          - dev
-          - prod
+          - staging
+          - production
 
-# 同じブランチへの複数プッシュが重なった場合、最新のみ実行
 concurrency:
   group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
-# ─────────────────────────────────────────────────────────────────────
-# デプロイパイプライン (v2.9.230 で全面刷新 — 詳細: docs/deploy-pipeline.md)
-#
-#   [build]  GitHub Actions ランナー上で Docker イメージをビルドし GHCR へ push。
-#            - Dockerfile はワークスペース別の並列ステージ構成。buildx の
-#              GHA レイヤーキャッシュにより「変更のないワークスペースのビルド」
-#              「依存が変わらない限りの npm install」は丸ごとスキップされる。
-#            - VPS (2GB RAM) 上ではもうビルドしない。デプロイ中に本番アプリの
-#              リソースを奪わず、ビルド時間もランナーの性能で大幅短縮。
-#   [deploy] VPS へ SSH し、GHCR から pull → コンテナ再作成のみ (1〜2 分)。
-#            GHCR 認証にはジョブの一時 GITHUB_TOKEN を使用 (追加 secret 不要)。
-#            pull に失敗した場合のみ従来どおり VPS 上でビルドにフォールバック。
-#
-# VPS 上のレイアウト (デプロイ前提):
-#   /root/gmo-onair      ← main ブランチの worktree (prod 専用)
-#   /root/gmo-onair-dev  ← dev ブランチの worktree (dev 専用)
-#
-# どちらの worktree にもリポジトリ全体 (docker-compose.yml + nginx/) が含まれる。
-# 両 worktree で `docker compose -p gmo-onair` という project 名を共有することで
-# app_prod / app_dev / nginx / db のネットワーク・ボリューム・DB を 1 セットで動かす。
-#
-# 設計原則:
-#   - dev デプロイは /root/gmo-onair-dev だけを参照 (main worktree を一切触らない)
-#   - prod デプロイは /root/gmo-onair だけを参照 (dev worktree を一切触らない)
-#   - 「次回デプロイで戻る」等の暗黙リセットには依存しない
-#   - --no-deps + --force-recreate でデプロイ対象外サービスへの影響を最小化
-#
-# ロールバック: GHCR には sha-<commit> タグも push される。
-#   VPS で `APP_IMAGE_DEV=ghcr.io/<repo>:sha-<旧commit> docker compose ... up -d app_dev`
-#   のように環境変数でイメージを差し替えれば任意のコミットへ即戻せる。
-# ─────────────────────────────────────────────────────────────────────
-
 jobs:
   # ============================================
-  # 型チェック (build と同時に走らせる)
+  # どこへ・どのコミットを出すのかを1か所で決める
   # ============================================
-  # なぜ別ジョブか: クライアントの tsconfig は noEmit なので、tsc は成果物を
-  # 1 バイトも作らない (vite は esbuild で型を捨ててバンドルする)。それが
-  # イメージのビルドの中で直列に走っていて、実測で約 50 秒 (client だけで 20.6 秒)
-  # がそのまま待ち時間になっていた。
-  #
-  # ここに出すと build と**並走**するので、型チェックの時間は事実上ゼロになる。
-  # 一方で deploy-dev / deploy-prod は `needs: [build, typecheck]` なので、
-  # **型エラーがあればデプロイは止まる** (イメージは GHCR に上がるが配られない)。
-  typecheck:
+  meta:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+    outputs:
+      channel: ${{ steps.resolve.outputs.channel }}
+      image_channel: ${{ steps.resolve.outputs.image_channel }}
+      version_tag: ${{ steps.resolve.outputs.version_tag }}
+      deploy_ref: ${{ steps.resolve.outputs.deploy_ref }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-      - run: npm ci --workspaces --include-workspace-root
-      - name: Type check (7 clients + server)
-        run: npm run typecheck
-      - name: Lint (禁止パターン + eslint)
-        run: npm run lint
+      - id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ inputs.target }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            release)           channel=production ;;
+            workflow_dispatch) channel="$TARGET" ;;
+            *)                 channel=staging ;;
+          esac
+
+          if [ "$channel" = "production" ]; then
+            image_channel=prod
+          else
+            image_channel=dev
+          fi
+
+          # Release 経由のときだけ、イメージにもバージョンタグを付ける
+          version_tag=''
+          if [ "$EVENT" = "release" ]; then
+            version_tag="$REF_NAME"
+          fi
+
+          {
+            echo "channel=$channel"
+            echo "image_channel=$image_channel"
+            echo "version_tag=$version_tag"
+            echo "deploy_ref=$REF_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "### デプロイ: \`$channel\` ← \`$REF_NAME\` (${GITHUB_SHA})" >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================
-  # イメージビルド (GitHub ランナー上) → GHCR push
+  # 検査 + イメージビルド (ci.yml を呼ぶ)
   # ============================================
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  # ここが失敗するとデプロイジョブは動かない。検査の中身は ci.yml 側にある
+  # (PR で走るものと完全に同じもの — 2か所に書くとどちらかが古くなる)。
+  ci:
+    needs: meta
+    uses: ./.github/workflows/ci.yml
+    with:
+      push_image: true
+      image_channel: ${{ needs.meta.outputs.image_channel }}
+      version_tag: ${{ needs.meta.outputs.version_tag }}
     permissions:
       contents: read
       packages: write
-    outputs:
-      channel: ${{ steps.meta.outputs.channel }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve deploy channel (dev / prod)
-        id: meta
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ inputs.target }}" = "prod" ]; then
-            echo "channel=prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=dev" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # cache-from/to type=gha: npm install レイヤーと、変更のないワークスペースの
-      # ビルドステージがキャッシュヒットする (mode=max で中間ステージも保存)。
-      # チャネルタグ (:dev / :prod) は常に最新、sha タグはロールバック用に残る。
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        env:
-          # ビルドレコードを artifact としてアップロードしない。
-          # (このリポジトリは artifact ストレージの上限に達しており、
-          #  毎回 "Artifact storage quota has been hit" の警告でログが汚れるだけで
-          #  デプロイには不要。ビルド結果は Actions のログで確認できる。)
-          DOCKER_BUILD_SUMMARY: 'false'
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.channel }}
-            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    secrets: inherit
 
   # ============================================
-  # 検証環境 (dev.gmo-onair.jp) — dev push で自動
+  # 検証環境 (dev.gmo-onair.jp)
   # ============================================
-  deploy-dev:
-    needs: [build, typecheck]
-    if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
+  staging:
+    needs: [meta, ci]
+    if: needs.meta.outputs.channel == 'staging'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       packages: read
+    environment:
+      name: staging
+      url: https://dev.gmo-onair.jp
 
     steps:
       - name: Setup SSH key
@@ -152,30 +141,38 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy to dev environment
+      - name: Deploy to staging
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' DEPLOY_SHA='${{ github.sha }}' bash -s" << 'ENDSSH'
             set -euo pipefail
 
-            # 1) dev worktree を最新に更新
-            #    Why: compose ファイル / nginx config / .env 参照 / フォールバックビルドの
-            #         コンテキストがこの worktree のファイルを参照するため、最初に同期する。
+            # 1) 検証用 worktree を、デプロイ対象のコミットそのものに合わせる。
+            #    Why: compose ファイル / nginx config / .env 参照 / フォールバック
+            #         ビルドのコンテキストがこの worktree のファイルを見るため。
+            #    Why detached: ブランチではなくコミットを直接指す。タグからでも
+            #         ブランチからでも同じ1行で出せる。
             cd /root/gmo-onair-dev
-            git fetch origin dev
-            git reset --hard origin/dev
+            git fetch origin --prune --tags --force
 
-            # 2) dev worktree の docker-compose.yml を明示的に指定して dev 操作を行う。
-            #    Why -f: cp で main worktree (/root/gmo-onair) を汚さない。
-            #    Why -p gmo-onair: prod デプロイと同じ project 名にすることで、
-            #            app_prod / db / nginx を共有 (別プロジェクトとして並走しない)。
-            #    Why --env-file: secrets (DB_PASSWORD / JWT_SECRET 等) は main worktree の
+            # nginx の設定が今回の変更で動いたかどうかを、切り替えの前後で比べる。
+            # Why: nginx コンテナは本番と検証の両方の server_name を1つで捌いている。
+            #      毎回 force-recreate すると、検証デプロイのたびに本番向けの
+            #      リバースプロキシが一瞬落ちる。設定が変わっていないなら触らない。
+            NGINX_BEFORE=$(cat nginx/*.conf 2>/dev/null | md5sum | cut -d' ' -f1)
+            git checkout --force --detach "$DEPLOY_SHA"
+            NGINX_AFTER=$(cat nginx/*.conf 2>/dev/null | md5sum | cut -d' ' -f1)
+
+            # 2) 検証側の compose ファイルを明示して操作する。
+            #    Why -f: 本番 worktree (/root/gmo-onair) を一切汚さない。
+            #    Why -p gmo-onair: 本番デプロイと同じ project 名にして
+            #            app_prod / db / nginx を共有する (別プロジェクトにしない)。
+            #    Why --env-file: secrets (DB_PASSWORD / JWT_SECRET 等) は
             #            /root/gmo-onair/.env にだけ置かれているので明示参照。
             COMPOSE_DEV="docker compose -p gmo-onair --env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml"
 
-            # 3) GHCR にログインしてビルド済みイメージを pull (VPS 上ではビルドしない)。
-            #    GHCR_TOKEN はこのワークフロー実行中だけ有効な一時トークン。
-            #    pull に失敗した場合 (GHCR 障害等) のみ、従来どおり VPS 上でビルドに
-            #    フォールバックする (--no-cache は古い JS 事故防止の保険で従来踏襲)。
+            # 3) GHCR からビルド済みイメージを pull (VPS 上ではビルドしない)。
+            #    pull に失敗した場合 (GHCR 障害等) のみ VPS 上でのビルドに落ちる。
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             if $COMPOSE_DEV pull app_dev; then
               echo "✓ pulled prebuilt image from GHCR"
@@ -185,23 +182,23 @@ jobs:
             fi
             $COMPOSE_DEV up -d --no-deps --force-recreate app_dev
 
-            # 4) nginx を dev の compose + dev の nginx config で再作成。
-            #    Why dev 側で管理: 1 つの nginx コンテナが prod / dev 両方の server_name を捌くので、
-            #         「最新のニーズに沿った設定」を保持しているのは常に dev branch (main は dev から merge を受ける運用)。
-            #         prod デプロイ側は nginx に触れない (下記 deploy-prod 参照)。
-            $COMPOSE_DEV up -d --no-deps --force-recreate nginx
+            # 4) nginx は設定が変わったときだけ作り直す。
+            if [ "$NGINX_BEFORE" != "$NGINX_AFTER" ]; then
+              echo "→ nginx の設定が変わったので再作成する"
+              $COMPOSE_DEV up -d --no-deps --force-recreate nginx
+            else
+              echo "→ nginx の設定は変わっていないので触らない"
+            fi
 
             # 5) 後片付け: 認証情報を残さない + タグ付け替えで dangling になった旧イメージを削除
             docker logout ghcr.io || true
             docker image prune -f || true
 
-            # 6) 診断: app_dev / nginx の起動状況を deploy ログに必ず吐く。
-            #    502 Bad Gateway 等のトラブル時にここが原因特定の唯一の窓口になる。
+            # 6) 診断: 502 等のトラブル時に原因を特定できる唯一の窓口なので必ず吐く。
             #
             # NOTE: 単一引用 heredoc 内では \$(...) と書くと remote bash が
             # \\$ を literal $ と解釈して後続の ( で構文エラーになる。
-            # heredoc が変数展開を抑止しているので、リモート側で実行したい
-            # コマンド置換は素直に $(...) と書く。
+            # heredoc が変数展開を抑止しているので素直に $(...) と書く。
             sleep 15
             echo "=== docker compose ps ==="
             $COMPOSE_DEV ps app_dev nginx db || true
@@ -241,22 +238,28 @@ jobs:
             fi
 
             echo "=== External health check ==="
-            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ dev health OK" || echo "⚠ external health check failed (上記 logs を確認)"
+            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ staging health OK" || echo "⚠ external health check failed (上記 logs を確認)"
 
-            echo "✓ Dev deploy complete (logs above)"
+            echo "✓ Staging deploy complete (logs above)"
           ENDSSH
 
   # ============================================
-  # 本番環境 (gmo-onair.jp) — main push で自動
+  # 本番環境 (gmo-onair.jp)
   # ============================================
-  deploy-prod:
-    needs: [build, typecheck]
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
+  # environment: production に「承認が必要」を設定しておくと、
+  # Release を公開してもここで一度止まり、承認した人の記録が残る
+  # (設定手順: docs/ops/github-repo-settings.md)。
+  production:
+    needs: [meta, ci]
+    if: needs.meta.outputs.channel == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       packages: read
+    environment:
+      name: production
+      url: https://gmo-onair.jp
 
     steps:
       - name: Setup SSH key
@@ -268,23 +271,25 @@ jobs:
 
       - name: Deploy to production
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' DEPLOY_SHA='${{ github.sha }}' DEPLOY_REF='${{ needs.meta.outputs.deploy_ref }}' bash -s" << 'ENDSSH'
             set -euo pipefail
 
-            # 1) main worktree を最新に更新。dev worktree (/root/gmo-onair-dev) は一切触らない。
+            # 1) 本番 worktree をリリース対象のコミットに合わせる。
+            #    検証 worktree (/root/gmo-onair-dev) は一切触らない。
             cd /root/gmo-onair
-            git fetch origin main
-            git reset --hard origin/main
+            git fetch origin --prune --tags --force
+            git checkout --force --detach "$DEPLOY_SHA"
+            echo "→ 本番を $DEPLOY_REF ($DEPLOY_SHA) に合わせた"
 
-            # 2) main の docker-compose.yml を明示。-p で project 名を共有。
+            # 2) 本番の compose を明示。-p で project 名を共有。
             COMPOSE_PROD="docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml"
 
-            # 3) GHCR からビルド済みイメージを pull (VPS 上ではビルドしない)。
-            #    pull 失敗時のみ従来どおり VPS 上ビルドにフォールバック。
-            #    Why nginx に触れない: nginx は dev デプロイで最新化済み。prod 側で
-            #         main の nginx config を強制すると、dev branch にしかない設定変更が消えてしまう。
-            #         nginx 設定を本番に反映したい場合は、まず dev → main を merge してから
-            #         dev デプロイ → prod デプロイの順で実施する (dev 側で nginx 再起動が走る)。
+            # 3) GHCR からビルド済みイメージを pull。失敗時のみ VPS 上ビルドに落ちる。
+            #    Why nginx に触れない: nginx は検証デプロイ側で最新化される。
+            #         本番側で古いタグの nginx config を強制すると、main にしかない
+            #         設定変更が消えてしまう。nginx 設定を本番に効かせたい場合は
+            #         main にマージして検証デプロイを回す (そこで nginx が再作成される)。
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             if $COMPOSE_PROD pull app_prod; then
               echo "✓ pulled prebuilt image from GHCR"
@@ -294,11 +299,11 @@ jobs:
             fi
             $COMPOSE_PROD up -d --no-deps --force-recreate app_prod
 
-            # 後片付け: 認証情報を残さない + dangling になった旧イメージを削除
+            # 後片付け
             docker logout ghcr.io || true
             docker image prune -f || true
 
-            # 4) サーバー起動ログ + ヘルスチェック
+            # 4) 起動ログ + ヘルスチェック
             echo "=== Container logs (first 10s) ==="
             sleep 10
             APP_PROD_CID=$(docker ps -aq -f name=gmo-onair-app_prod | head -1)
@@ -314,5 +319,5 @@ jobs:
 
             echo "=== Container status ==="
             $COMPOSE_PROD ps app_prod
-            echo "✓ Prod deploy complete"
+            echo "✓ Production deploy complete"
           ENDSSH

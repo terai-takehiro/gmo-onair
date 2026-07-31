@@ -1,0 +1,134 @@
+name: CI
+
+# ─────────────────────────────────────────────────────────────────────
+# 全部の検査をここ1か所に置く。
+#
+# なぜ1か所か: 以前は検査 (typecheck / lint) が deploy.yml の中にしか無く、
+#   **dev / main に push したあと**にしか走らなかった。つまり PR は無検査で
+#   マージでき、壊れたコードが検証環境に出てから気づく形だった。
+#
+# 呼ばれ方は3通り:
+#   1. pull_request        — マージ前のゲート (イメージは push しない)
+#   2. push (release/**)   — 旧バージョンの保守ブランチ
+#   3. workflow_call       — deploy.yml から。ここだけ GHCR にイメージを push する
+#
+# 分岐保護 (ruleset) の「必須チェック」に指定するのは下のジョブ名そのまま:
+#   checks / build   ← 日本語にすると ruleset 側で打ち間違えるので ASCII 固定
+# ─────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+  push:
+    branches: [release/**]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      push_image:
+        description: 'GHCR にイメージを push するか (deploy.yml から呼ばれたときだけ true)'
+        type: boolean
+        default: false
+      image_channel:
+        description: '配信チャネルのタグ (dev = 検証環境 / prod = 本番)。ブランチ名ではない'
+        type: string
+        default: ''
+      version_tag:
+        description: 'リリースタグ (例: v4.0.0)。イメージにも同じタグを付ける'
+        type: string
+        default: ''
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # 型チェック / Lint / 整合性検査
+  # ============================================
+  # ジョブ名 (= 必須チェックの context) は ASCII のまま置く。
+  # ここを日本語にすると ruleset 側で打ち間違えても静かに「チェック無し」になる。
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci --workspaces --include-workspace-root
+
+      - name: 型チェック (7クライアント + server)
+        run: npm run typecheck
+
+      - name: Lint (UIトークン検査 + eslint)
+        run: npm run lint
+
+      # server の prebuild でも走るが、ここで単体でも回す。
+      # Docker ビルドが失敗する前に「共通コードの2コピーがずれた」と分かるほうが速い。
+      - name: 共通コードの乖離検査 (server ↔ shared)
+        run: node scripts/check-collab-parity.mjs
+
+      # バージョン表記は package.json / CLAUDE.md / README の3か所にあり、
+      # 手で揃える運用だったので実際にずれていた。機械で止める。
+      - name: バージョン表記の整合
+        run: npm run check:version
+
+  # ============================================
+  # Docker イメージのビルド
+  # ============================================
+  # PR では push: false で「本番と同じビルド経路が通るか」だけを見る。
+  # tsc が通っても Vite のバンドルで落ちることがあるので、型チェックとは別に要る。
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: inputs.push_image == true
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # タグは shell で組む。入力を直接 YAML に埋め込むとシェル差し込みの穴になるので env 経由。
+      - name: イメージタグを組み立てる
+        id: tags
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          CHANNEL: ${{ inputs.image_channel }}
+          VERSION_TAG: ${{ inputs.version_tag }}
+        run: |
+          set -euo pipefail
+          {
+            echo 'list<<TAGS_EOF'
+            echo "ghcr.io/${REPO}:sha-${SHA}"
+            [ -n "${CHANNEL}" ] && echo "ghcr.io/${REPO}:${CHANNEL}"
+            [ -n "${VERSION_TAG}" ] && echo "ghcr.io/${REPO}:${VERSION_TAG}"
+            echo TAGS_EOF
+          } >> "$GITHUB_OUTPUT"
+
+      # cache-to は push するときだけ。PR のビルドでキャッシュを書き戻すと
+      # main のキャッシュを押し出して、次のデプロイが丸ごと再ビルドになる。
+      - name: Build (and push)
+        uses: docker/build-push-action@v6
+        env:
+          # このリポジトリは artifact ストレージ上限に達しており、
+          # ビルドレコードの upload は毎回警告になるだけで使い道がない。
+          DOCKER_BUILD_SUMMARY: 'false'
+        with:
+          context: .
+          push: ${{ inputs.push_image == true }}
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha
+          cache-to: ${{ inputs.push_image == true && 'type=gha,mode=max' || '' }}
