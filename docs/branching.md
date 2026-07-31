@@ -183,6 +183,31 @@ git push -u origin fix/v3-なにか
 | タグ・リリースなし | リリースごとに `vX.Y.Z` タグ + GitHub Release |
 | 検査は push した後 | 検査は PR のマージ前（必須チェック） |
 
+### 2026-07-31 に整理したブランチ
+
+`claude/*` 40 本と `dev` を削除しました。うち **`main` に入っていない作業を持つ 7 本は
+`archive/2026-07-31/*` タグに退避**してあるので、いつでもブランチに戻せます。
+
+```bash
+git fetch origin --tags
+git tag -n99 -l 'archive/*'                              # 何が退避されているか読む
+git switch -c feature/accounting-import \
+  archive/2026-07-31/accounting-import-phase1            # 戻す
+```
+
+| タグ | 中身 | `main` に入っているか |
+| --- | --- | --- |
+| `accounting-import-phase1` | 経理データ取込 Phase 0/1（旧 PR #28） | **入っていない**。migration 087 が現在の `main` と番号衝突するので付け替えが必要 |
+| `presentation-deck` | 社長プレゼン資料（pptx 25枚 + 画面画像） | **入っていない** |
+| `vps-bootstrap-scripts` | VPS 構築スクリプト3本 + DEPLOY_CONOHA.md 全面版 | **入っていない** |
+| `interactive-awards-link` | インタラクティブ ↔ 表彰CG 連携 API | 別 VPS に切り出したため当時のコードは無い |
+| `interactive-split-out` | 切り出し当時の `client-interactive` | 切り出し自体は反映済み |
+| `qsheet-csv-import-v2.9.166` | Qシート CSV インポート | `main` がより新しい形で含む |
+| `calendar-relink-hotfix` | カレンダー再連携の修正 | `main` が同内容を含む |
+
+整理そのものは `scripts/github/cleanup-legacy-branches.sh` に残してあります（何を消したかが
+SHA まで読める形になっています）。
+
 ---
 
 ## 関連

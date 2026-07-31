@@ -13,6 +13,40 @@ bash scripts/github/apply-repo-settings.sh             # 適用
 
 ---
 
+## 移行手順（2026-07-31 の切り替え / 一度だけ）
+
+**順番を守ってください。** 3 → 4 を先にやると検証環境へのデプロイ経路が無くなります。
+
+| # | やること | コマンド / 場所 |
+| --- | --- | --- |
+| 1 | この変更（新しい CI・デプロイ・ドキュメント）を `main` にマージする | PR をマージ |
+| 2 | 検証環境が新しい経路で出ることを確かめる | Actions の `Deploy` → `curl -s https://dev.gmo-onair.jp/health` |
+| 3 | 旧ブランチを整理する（`archive/*` タグ + `v3.1.5` タグ + `claude/*` 40本 + `dev` の削除） | `bash scripts/github/cleanup-legacy-branches.sh --dry-run` → 本実行 |
+| 4 | 分岐保護・環境・ラベルを入れる | `bash scripts/github/apply-repo-settings.sh` |
+| 5 | `production` 環境の承認者を設定する | [Settings → Environments](https://github.com/terai-takehiro/gmo-onair/settings/environments) |
+| 6 | VPS の worktree を確認する | 下記「VPS 側の確認」 |
+
+`cleanup-legacy-branches.sh` は**`main` に `ci.yml` が入っているかを見てから** `dev` を消すので、
+1 を飛ばして 3 を流しても `dev` は残ります（`claude/*` の整理とタグ付けだけ進みます）。
+`dev` と `main` がずれている場合も `dev` は消しません。
+
+### VPS 側の確認
+
+新しい `deploy.yml` は worktree を**ブランチではなくコミットで detached checkout** します
+（タグからでもブランチからでも同じ手順で出せるようにするため）。初回のデプロイ後に:
+
+```bash
+ssh <VPS>
+cd /root/gmo-onair-dev && git log --oneline -1 && git status | head -2   # detached HEAD になっているはず
+cd /root/gmo-onair     && git log --oneline -1
+docker compose -p gmo-onair ps
+```
+
+`dev` ブランチを消しても worktree は壊れません（ローカルの `dev` ブランチが残るだけで、
+デプロイはそれを参照しなくなります）。
+
+---
+
 ## 何を設定しているか
 
 ### 1. マージ方法
