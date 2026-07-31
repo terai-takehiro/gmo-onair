@@ -331,13 +331,30 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       doc.moveTo(xDesc, y).lineTo(xDesc + PW, y).strokeColor('#333333').lineWidth(1).stroke();
       y += 16;
 
-      // ── ⑧ 備考ボックス ────────────────────────────────────────
+      /**
+       * ── ⑧ 備考ボックス ──────────────────────────────────────
+       *
+       * 品目に紐づかない自由記述 (見積画面の末尾の「備考」)。
+       * **改行を残して刷る**。品目内補足と同じやり方で1行ずつ描く —
+       * pdfkit の折り返しに任せると、貼り付けの `\r\n` の `\r` が豆腐になり、
+       * 段落の区切りに打った空行も詰まる (v3.1.4 で品目内補足を直したのと同じ理由)。
+       * 空行は1行ぶんの高さを取り、長い行はこれまでどおり枠幅で折り返す。
+       */
       if (data.notes) {
-        const noteH = VPAD + textH(data.notes, R, 8, PW - 18) + VPAD + 16;
+        const noteLines = String(data.notes).replace(/\r\n?/g, '\n').split('\n');
+        const noteLineH = noteLines.map((ln) => textH(ln || ' ', R, 8, PW - 18));
+        const noteBodyH = noteLineH.reduce((sum, h) => sum + h, 0);
+        const noteH = VPAD + noteBodyH + VPAD + 16;
         ensureSpace(noteH + 8);
         rect(ML, y, PW, noteH, undefined, '#888888');
         txt('備考', ML + 6, y + 6, { sz: 9, f: B });
-        txt(data.notes, ML + 6, y + 18, { sz: 8, w: PW - 12, wrap: true });
+        cell(ML, y, PW, noteH, () => {
+          let ny = y + 18;
+          noteLines.forEach((ln, li) => {
+            if (ln) txt(ln, ML + 6, ny, { sz: 8, w: PW - 18, wrap: true });
+            ny += noteLineH[li];
+          });
+        });
         y += noteH + 8;
       }
 

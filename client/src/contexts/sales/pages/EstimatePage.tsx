@@ -19,6 +19,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatShortDate } from "@/lib/format";
+import { TaxCategoryLabels, taxRateOf } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +51,8 @@ interface Row {
   unit_price: number;
   amount: number;
   cost_amount: number;
+  /** この行の仕入先 (未定でよい)。受注したときの見込み仕入の相手になる */
+  cost_vendor_id: string | null;
   item_notes: string | null;
   /** この行だけの期間 (日付だけ)。空のままなら見積書は案件の予定で出す */
   period_start: string | null;
@@ -68,8 +71,15 @@ interface EstimateView {
   estimate: {
     id: string; version: number; discount_amount: number; tax_category: string;
     sent_at: string | null; confirmed_at: string | null; pdf_box_file_id: string | null;
+    notes: string | null;
+    /** 売上としての状態。案件化 (GLS発番) で 'estimate' → 'confirmed' に変わる */
+    revenue_status: string;
+    /** この見積の行から作った見込み仕入の件数 */
+    linked_purchase_count: number;
   } | null;
   items: Array<Record<string, any>>;
+  /** 仕入先の選択肢 (この口から返る。/vendors は budget 権限で営業は叩けない) */
+  vendors: Array<{ id: string; name: string }>;
   totals: {
     items_total: number; discount_amount: number; subtotal: number; tax_amount: number;
     payable: number; cost_total: number; gross_profit: number;
@@ -83,7 +93,6 @@ interface EstimateView {
 
 /** 粗利率がこれを切ると赤で出す (サーバーの GROSS_MARGIN_WARN と同じ値) */
 const GROSS_MARGIN_WARN = 0.3;
-const TAX_RATE: Record<string, number> = { tax10: 0.1, tax8: 0.08, exempt: 0 };
 
 let seq = 0;
 const newKey = () => `row-${Date.now()}-${seq++}`;
@@ -131,6 +140,7 @@ function toRow(it: Record<string, any>): Row {
     unit_price: Number(it.unit_price) || 0,
     amount: Number(it.amount) || 0,
     cost_amount: Number(it.cost_amount) || 0,
+    cost_vendor_id: it.cost_vendor_id ?? null,
     item_notes: it.item_notes ?? null,
     period_start: toDateOnly(it.period_start),
     period_end: toDateOnly(it.period_end),
@@ -144,7 +154,7 @@ function computeTotals(rows: Row[], discount: number, taxCategory: string) {
   const itemsTotal = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const costTotal = rows.reduce((s, r) => s + (Number(r.cost_amount) || 0), 0);
   const subtotal = itemsTotal - Math.max(0, discount);
-  const taxAmount = Math.round(subtotal * (TAX_RATE[taxCategory] ?? 0.1));
+  const taxAmount = Math.round(subtotal * taxRateOf(taxCategory));
   const grossProfit = subtotal - costTotal;
   const grossMargin = subtotal > 0 ? grossProfit / subtotal : null;
   return {
@@ -176,6 +186,10 @@ export default function EstimatePage() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [discount, setDiscount] = useState(0);
+  /** 税区分。見積の行そのものが売上になるので、ここで選んだ区分がそのまま売上の税区分 */
+  const [taxCategory, setTaxCategory] = useState<string>("tax10");
+  /** 末尾の備考 (品目に紐づかない自由記述)。見積書 PDF の「備考」枠に出る */
+  const [notes, setNotes] = useState("");
   const [dirty, setDirty] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   /**
@@ -205,10 +219,11 @@ export default function EstimatePage() {
     loadedFor.current = stamp;
     setRows(view.items.map(toRow));
     setDiscount(view.estimate?.discount_amount ?? 0);
+    setTaxCategory(view.estimate?.tax_category ?? "tax10");
+    setNotes(view.estimate?.notes ?? "");
     setDirty(false);
   }, [view, dirty]);
 
-  const taxCategory = view?.estimate?.tax_category ?? "tax10";
   const totals = useMemo(() => computeTotals(rows, discount, taxCategory), [rows, discount, taxCategory]);
 
   const patchRow = (key: string, patch: Partial<Row>) => {
@@ -227,7 +242,7 @@ export default function EstimatePage() {
   const addRow = (group: Group) => {
     setRows((prev) => [...prev, {
       key: newKey(), description: "", category: group, quantity: 1, unit: "式",
-      unit_price: 0, amount: 0, cost_amount: 0, item_notes: null,
+      unit_price: 0, amount: 0, cost_amount: 0, cost_vendor_id: null, item_notes: null,
       period_start: null, period_end: null,
       pricing_item_id: null, is_ai_suggested: false,
     }]);
@@ -272,7 +287,7 @@ export default function EstimatePage() {
       description: p.description,
       category: (GROUPS.includes(p.category as Group) ? p.category : "制作・その他") as Group,
       quantity: p.quantity, unit: p.unit, unit_price: p.unit_price,
-      amount: p.quantity * p.unit_price, cost_amount: 0, item_notes: null,
+      amount: p.quantity * p.unit_price, cost_amount: 0, cost_vendor_id: null, item_notes: null,
       period_start: null, period_end: null,
       pricing_item_id: p.pricing_item_id, is_ai_suggested: false,
     }))]);
@@ -303,12 +318,16 @@ export default function EstimatePage() {
   const payload = () => ({
     discount_amount: discount,
     tax_category: taxCategory,
+    // 末尾の備考。品目に紐づかない自由記述で、見積書 PDF の「備考」枠に出る。
+    // **空文字も送る** (送らないとサーバーが今の値を残すので、消せない欄になる)
+    notes: normalizeNotes(notes) ?? "",
     items: rows
       .filter((r) => r.description.trim())
       .map((r) => ({
         description: r.description.trim(), category: r.category, quantity: r.quantity,
         unit: r.unit, unit_price: r.unit_price, amount: r.amount,
-        cost_amount: r.cost_amount, item_notes: normalizeNotes(r.item_notes),
+        cost_amount: r.cost_amount, cost_vendor_id: r.cost_vendor_id,
+        item_notes: normalizeNotes(r.item_notes),
         period_start: r.period_start, period_end: r.period_end,
         pricing_item_id: r.pricing_item_id, is_ai_suggested: r.is_ai_suggested,
       })),
@@ -320,6 +339,13 @@ export default function EstimatePage() {
     setDirty(false);
     setRows(next.items.map(toRow));
     setDiscount(next.estimate?.discount_amount ?? 0);
+    setTaxCategory(next.estimate?.tax_category ?? "tax10");
+    setNotes(next.estimate?.notes ?? "");
+    // 案件の「お金」タブ・売上一覧はこの行を同じデータとして読んでいるので、
+    // 保存したら一緒に読み直させる (古い金額が残っていると二重登録の元になる)
+    qc.invalidateQueries({ queryKey: ["project-money", projectId] });
+    qc.invalidateQueries({ queryKey: ["revenues-all"] });
+    qc.invalidateQueries({ queryKey: ["purchases-all"] });
   };
 
   const saveMutation = useMutation({
@@ -389,6 +415,12 @@ export default function EstimatePage() {
   }
 
   const customerType = view.project.customer_type === "internal" ? "internal" : "external";
+  /**
+   * 案件化 (GLS発番) 済みで、この見積の行が**確定売上として数えられている**状態。
+   * 同じ1行を見積画面でも売上一覧でも扱うので、どちらを触っているのかを画面に出す。
+   */
+  const becameRevenue = !!view.estimate && view.estimate.revenue_status !== "estimate";
+  const linkedPurchases = view.estimate?.linked_purchase_count ?? 0;
   const busy = saveMutation.isPending || draftMutation.isPending || confirmMutation.isPending
     || sentMutation.isPending || pdfMutation.isPending;
   const deadline = view.next_action ? deadlineLabel(view.next_action.date) : null;
@@ -440,6 +472,13 @@ export default function EstimatePage() {
         }`}>
           {view.estimate?.confirmed_at ? "確定" : "下書き"} ・ 第{view.estimate?.version ?? 1}版
         </span>
+
+        {/* 案件化したあとは、この画面で直しているのが**確定売上**だと分かるようにする */}
+        {becameRevenue && (
+          <span className="inline-flex h-[26px] shrink-0 items-center rounded-[7px] bg-info-surface px-2.5 text-[12.5px] font-bold text-info">
+            確定売上として登録済み
+          </span>
+        )}
 
         {dirty && (
           <span className="inline-flex h-[26px] shrink-0 items-center rounded-[7px] bg-secondary px-2.5 text-[12.5px] font-bold text-secondary-foreground">
@@ -780,6 +819,36 @@ export default function EstimatePage() {
                          )}
                        </div>
                      )}
+
+                     {/*
+                       行ごとの仕入先。**仕入を入れた行だけ**に出す (利用者依頼:
+                       見積と仕入を同じ画面で編集する)。ここで選んだ相手が、受注したときに
+                       できる見込み仕入の仕入先になり、以後この見積を保存するたび追随する。
+                       列の中には置かない — 品目の列は数量・単価と幅を分け合っており、
+                       名前の入る欄を差すと金額の列に重なる (期間の欄と同じ理由)。
+                     */}
+                     {r.cost_amount > 0 && (
+                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-[18px] pb-2.5 lg:pb-2">
+                         <span className="shrink-0 text-[11px] text-muted-foreground">この行の仕入先</span>
+                         {canEdit ? (
+                           <select
+                             value={r.cost_vendor_id ?? ""}
+                             onChange={(e) => patchRow(r.key, { cost_vendor_id: e.target.value || null })}
+                             aria-label={`${r.description || "この行"}の仕入先`}
+                             className="h-9 max-w-[260px] shrink-0 rounded-control border border-input bg-background px-1.5 text-[11.5px]"
+                           >
+                             <option value="">（未定 → 「(仕入先未定)」で立てます）</option>
+                             {view.vendors.map((v) => (
+                               <option key={v.id} value={v.id}>{v.name}</option>
+                             ))}
+                           </select>
+                         ) : (
+                           <span className="text-[11px] text-muted-foreground">
+                             {view.vendors.find((v) => v.id === r.cost_vendor_id)?.name ?? "（未定）"}
+                           </span>
+                         )}
+                       </div>
+                     )}
                     </div>
                   ))}
                 </div>
@@ -808,6 +877,34 @@ export default function EstimatePage() {
                 </div>
               </div>
             )}
+
+            {/*
+              末尾の備考 — **品目に紐づかない自由記述** (利用者依頼)。
+              明細の下に1枠だけ置く。品目内補足 (行ごと) とは別で、見積書 PDF では
+              明細表の下の「備考」枠に、打った改行のまま出る。
+              行に紐づける必要のない条件 (支払条件・有効期限の補足・注意書き) の置き場。
+            */}
+            <div className="border-t border-divider px-[18px] py-3.5">
+              <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <p className="text-[13.5px] font-bold">備考（品目に紐づかない）</p>
+                <span className="text-[12px] text-muted-foreground">
+                  見積書の明細の下に、打った改行のまま出ます
+                </span>
+              </div>
+              {canEdit ? (
+                <Textarea
+                  value={notes}
+                  onChange={(e) => { setNotes(e.target.value); setDirty(true); }}
+                  rows={Math.min(8, Math.max(3, notes.split("\n").length + 1))}
+                  placeholder={"例）\n・上記金額には交通費・宿泊費を含みません。\n・スタジオの延長は 30 分単位で承ります。"}
+                  className="w-full resize-y text-[13px] leading-[1.6]"
+                />
+              ) : notes.trim() ? (
+                <p className="whitespace-pre-wrap text-[13px] leading-[1.6] text-secondary-foreground">{notes}</p>
+              ) : (
+                <p className="text-[12.5px] text-muted-foreground">備考は入っていません。</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -817,7 +914,33 @@ export default function EstimatePage() {
             <p className="mb-2.5 text-[15px] font-bold">いまの金額</p>
 
             <TotalRow label="小計（税抜）" value={totals.subtotal} size="16px" bold />
-            <TotalRow label={`消費税 ${taxCategory === "tax8" ? "8%" : taxCategory === "exempt" ? "（非課税）" : "10%"}`} value={totals.taxAmount} />
+
+            {/*
+              税区分はここで選ぶ。**この見積の行がそのまま売上になる**ので、選んだ区分が
+              売上の税区分 (`revenues.tax_category`) になり、請求キーの末尾も変わる。
+              「非課税」と「不課税」は税額が同じ 0 円でも帳簿では別の区分なので分けてある。
+            */}
+            <div className="flex items-center gap-2.5 border-b border-row py-2">
+              <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">消費税</span>
+              {canEdit ? (
+                <select
+                  value={taxCategory}
+                  onChange={(e) => { setTaxCategory(e.target.value); setDirty(true); }}
+                  aria-label="税区分"
+                  className="h-9 w-col-5 shrink-0 rounded-control border border-input bg-background px-1.5 text-[12.5px]"
+                >
+                  {Object.entries(TaxCategoryLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="w-col-5 shrink-0 text-right text-[12.5px] text-muted-foreground">
+                  {TaxCategoryLabels[taxCategory as keyof typeof TaxCategoryLabels] ?? taxCategory}
+                </span>
+              )}
+              <Money value={totals.taxAmount} className="w-[128px] shrink-0 text-[14px]" />
+            </div>
+
             <TotalRow label="お客様の支払額" value={totals.payable} size="18px" bold />
             <TotalRow label="仕入（見込み）" value={totals.costTotal} />
             <TotalRow
@@ -896,7 +1019,13 @@ export default function EstimatePage() {
             <AfterItem icon={<CalendarClock className="h-[15px] w-[15px] text-primary" />}
               text="送ったら次にやること（申込書をもらう）が自動で立ちます。" />
             <AfterItem icon={<Receipt className="h-[15px] w-[15px] text-muted-foreground" />}
-              text="仕入の列に入れた金額は、受注したときに見込み仕入の明細になります（二度打ちしません）。" />
+              text={linkedPurchases > 0
+                ? `仕入の列はお金の仕入 ${linkedPurchases}件とつながっています。ここで直して保存すると仕入も一緒に直ります（人が確定した仕入は動かしません）。`
+                : "仕入の列に入れた金額は、受注したときに見込み仕入の明細になります（二度打ちしません）。以後この画面で直すと仕入も一緒に直ります。"} />
+            {becameRevenue && (
+              <AfterItem icon={<Receipt className="h-[15px] w-[15px] text-info" />}
+                text="この案件は案件化済みで、上の明細はそのまま確定売上として数えられています。ここで直すと売上の金額と明細も変わります（計上日・請求日はお金＞売上で扱います）。" />
+            )}
 
             {canEdit && (
               <Button

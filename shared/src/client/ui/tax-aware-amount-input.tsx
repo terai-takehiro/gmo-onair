@@ -16,12 +16,16 @@ import { Label } from "./label";
 // クリックで「入力した金額は税込？税抜？」→ 税込なら 10% / 8% / 非課税 を選択 →
 // 税抜金額を計算して onChange に渡す。
 
-type TaxRate = "10" | "8" | "exempt";
+type TaxRate = "10" | "8" | "exempt" | "nontax";
 
+// 非課税と不課税は別物 (enums.ts の TaxCategory と同じ考え方)。
+// どちらも税率 0 なので換算結果は同じだが、選ぶ人の言葉に合わせて両方出す
+// — 「不課税の支払いなのに非課税しか無い」と迷わせない。
 const TAX_RATES: { value: TaxRate; label: string; rate: number }[] = [
   { value: "10", label: "10%課税", rate: 0.1 },
   { value: "8", label: "8%課税(軽減)", rate: 0.08 },
   { value: "exempt", label: "非課税", rate: 0 },
+  { value: "nontax", label: "不課税", rate: 0 },
 ];
 
 export interface TaxAwareAmountInputProps
@@ -149,7 +153,7 @@ export function TaxHelperButton({
               </div>
               <div className="text-[11px] text-muted-foreground border-t pt-2">
                 「税抜きとして使う」を選ぶと、入力した金額がそのまま税抜金額として使用されます。<br />
-                「税込→税抜計算」を選ぶと、次の画面で税率 (10% / 8% / 非課税) を選んで税抜金額に換算します。
+                「税込→税抜計算」を選ぶと、次の画面で税率 (10% / 8% / 非課税 / 不課税) を選んで税抜金額に換算します。
               </div>
             </div>
           )}
@@ -332,7 +336,7 @@ export const TaxAwareAmountInput = React.forwardRef<HTMLInputElement, TaxAwareAm
                 </div>
                 <div className="text-[11px] text-muted-foreground border-t pt-2">
                   「税抜きとして使う」を選ぶと、入力した金額がそのまま税抜金額として使用されます。<br />
-                  「税込→税抜計算」を選ぶと、次の画面で税率 (10% / 8% / 非課税) を選んで税抜金額に換算します。
+                  「税込→税抜計算」を選ぶと、次の画面で税率 (10% / 8% / 非課税 / 不課税) を選んで税抜金額に換算します。
                 </div>
               </div>
             )}

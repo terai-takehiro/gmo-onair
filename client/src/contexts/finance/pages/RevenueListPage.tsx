@@ -16,7 +16,7 @@ import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amoun
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { PageTransition } from "@/components/ui/motion";
-import { getProjectCategory } from "@/types";
+import { getProjectCategory, TaxCategoryLabels, taxShortLabel } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -59,6 +59,32 @@ import {
   type EpisodeOption, type ProjectOption, type RevenueItem, type RevenueRow, type SortDir, type SortKey,
 } from './revenueList/types';
 import RevenueItemsEditor from './revenueList/RevenueItemsEditor';
+
+/**
+ * サーバーから読んだ明細1行を、編集用の形にする。
+ *
+ * **見積が入れた列 (`unit` / `cost_amount` / `cost_vendor_id` / `is_ai_suggested`) も
+ * 持ったまま往復させる**。落とすとサーバーの全置換で消え、行ごとの仕入と単位が失われる
+ * (この画面には仕入の欄が無いので、消えたことに気づけない)。
+ * 並びはサーバーが `sort_order` で返しているので、読んだ順のままにする。
+ */
+function toEditableItem(it: Record<string, any>): RevenueItem {
+  return {
+    description: it.description || "",
+    quantity: it.quantity || 1,
+    unit_price: it.unit_price || 0,
+    amount: it.amount || 0,
+    pricing_item_id: it.pricing_item_id,
+    period_start: it.period_start ? String(it.period_start).slice(0, 10) : null,
+    period_end: it.period_end ? String(it.period_end).slice(0, 10) : null,
+    item_notes: it.item_notes || null,
+    category: it.category || null,
+    unit: it.unit ?? null,
+    cost_amount: Number(it.cost_amount) || 0,
+    cost_vendor_id: it.cost_vendor_id ?? null,
+    is_ai_suggested: !!it.is_ai_suggested,
+  };
+}
 
 export default function RevenueListPage() {
   const navigate = useNavigate();
@@ -238,17 +264,7 @@ export default function RevenueListPage() {
     setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
     setInvoiceIssued(!!primaryRevenue.invoice_issued);
     if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
-      setItems(primaryRevenue.items.map((it: any) => ({
-        description: it.description || "",
-        quantity: it.quantity || 1,
-        unit_price: it.unit_price || 0,
-        amount: it.amount || 0,
-        pricing_item_id: it.pricing_item_id,
-        period_start: it.period_start || null,
-        period_end: it.period_end || null,
-        item_notes: it.item_notes || null,
-        category: it.category || null,
-      })));
+      setItems(primaryRevenue.items.map(toEditableItem));
     }
   }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -342,7 +358,14 @@ export default function RevenueListPage() {
     setIsAdvancePayment(!!r.is_advance_payment);
     setInvoiceIssued(!!r.invoice_issued);
     setSelectedEpisodeId("");
-    setItems([]);
+    /**
+     * 既存の明細を**読み込む** (v3.1.5)。以前は空にしていたので、
+     * 案件化した見積の明細 (並び・区分・期間・行ごとの仕入) が売上の編集画面に
+     * 1行も出ず、「見積で作ったものが反映されない」ように見えていた。
+     * さらに 1 行足して保存すると、送った 1 行だけが残って残りが消えていた
+     * (サーバーは items が来たら全置換するため)。
+     */
+    setItems(Array.isArray(r.items) ? r.items.map(toEditableItem) : []);
     setDialogOpen(true);
   };
 
@@ -740,7 +763,7 @@ export default function RevenueListPage() {
                           {r.customer_name || "-"}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}
+                          {taxShortLabel(r.tax_category)}
                         </TableCell>
                         <TableCell className="text-right font-medium font-number">
                           {formatCurrency(r.amount)}
@@ -872,9 +895,11 @@ export default function RevenueListPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tax10">10%課税</SelectItem>
-                  <SelectItem value="tax8">8%課税(軽減)</SelectItem>
-                  <SelectItem value="exempt">非課税</SelectItem>
+                  {/* 税区分は @/types の TaxCategoryLabels 1か所から出す
+                      (画面ごとに並べると【不課税】のように足した選択肢が漏れる) */}
+                  {Object.entries(TaxCategoryLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {billingKeyPreview && (

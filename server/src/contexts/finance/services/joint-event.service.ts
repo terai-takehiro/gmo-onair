@@ -25,6 +25,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
 import { withTax } from './billing-work.service';
+import { normalizeTaxCategory, taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import type { GlsCategory } from '../../../shared/services/sequence.service';
 
 export const SPLIT_MODES = ['equal', 'ratio', 'manual'] as const;
@@ -263,7 +264,7 @@ export async function createJointEvent(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'equal', NULL, ?, ?, ?)`,
     [
       eventId, name, data.event_start || null, data.event_end || null, organizerId,
-      glsCategory, data.tax_category || 'tax10', Math.max(0, Math.round(Number(data.total_amount ?? 0))),
+      glsCategory, normalizeTaxCategory(data.tax_category), Math.max(0, Math.round(Number(data.total_amount ?? 0))),
       data.payment_due_date || null, userId, userId,
     ]
   );
@@ -392,7 +393,7 @@ export async function updateJointEvent(
       mode,
       data.remainder_customer_id !== undefined ? data.remainder_customer_id : event.remainder_customer_id,
       data.payment_due_date !== undefined ? data.payment_due_date : event.payment_due_date,
-      data.tax_category || event.tax_category,
+      data.tax_category ? normalizeTaxCategory(data.tax_category) : event.tax_category,
       userId, id,
     ]
   );
@@ -493,7 +494,7 @@ async function ensureGls(projectId: string, userId: string): Promise<string> {
   return gls;
 }
 
-const TAX_SUFFIX: Record<string, string> = { tax10: '1', tax8: '2', exempt: '0' };
+// 税枝番は tax-category.service 1か所 (不課税を足したときに漏れないように)
 
 /**
  * 参加社数ぶんの請求書をまとめて出す。
@@ -532,7 +533,7 @@ export async function issueInvoices(id: string, userId: string) {
         WHERE p.gls_number = ? AND r.status = 'confirmed'`, [gls]
     )) as any).c;
     const seq = String(Number(cnt) + 1).padStart(3, '0');
-    const billingKey = `${gls}-${seq}-${TAX_SUFFIX[String(detail.tax_category)] ?? '1'}`;
+    const billingKey = `${gls}-${seq}-${taxBillingSuffix(detail.tax_category)}`;
 
     const revenueId = uuidv4();
     await execute(
@@ -614,7 +615,7 @@ export async function cancelCompany(
         WHERE p2.gls_number = ? AND r.status = 'confirmed'`, [p?.gls_number]
     )) as any).c;
     const seq = String(Number(cnt) + 1).padStart(3, '0');
-    const billingKey = `${p?.gls_number}-${seq}-${TAX_SUFFIX[String(event.tax_category)] ?? '1'}`;
+    const billingKey = `${p?.gls_number}-${seq}-${taxBillingSuffix(event.tax_category)}`;
 
     cancelRevenueId = uuidv4();
     await execute(

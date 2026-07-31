@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { taxShortLabel } from "@/types";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
@@ -216,7 +217,7 @@ export default function BudgetDetailPage() {
                               <span>{(r.project_name as string) || "-"}</span>
                             </TableCell>
                           )}
-                          <TableCell className="text-xs">{r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}</TableCell>
+                          <TableCell className="text-xs">{taxShortLabel(r.tax_category as string)}</TableCell>
                           <TableCell className="text-xs">{formatMonth(r.recognition_date as string)}</TableCell>
                           <TableCell className="text-xs">
                             {r.invoice_issued ? (

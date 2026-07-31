@@ -28,7 +28,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Vendor, TaxCategoryLabels } from "@/types";
+import { Vendor, TaxCategoryLabels, taxRateOf } from "@/types";
 import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
   RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
@@ -86,7 +86,8 @@ interface RakurakuParsed {
 interface RegistrationUnit {
   kind: "purchase" | "sga" | "unknown";
   glsNumber: string | null;
-  taxCategory: "tax10" | "tax8" | "exempt";
+  /** 税区分 (不課税を含む。値の一覧は @/types の TaxCategory) */
+  taxCategory: string;
   amountInclusive: number;
   amountExclusive: number;
   description: string | null;
@@ -146,8 +147,9 @@ const STATUS_BADGE: Record<XpointFileRow["status"], { label: string; cls: string
   error: { label: "エラー", cls: "bg-red-100 text-red-700" },
 };
 
+/** 税込 → 税抜 の割り戻しに使う係数 (1 + 税率)。税区分の一覧は @/types に1本化 */
 function taxRate(cat: string): number {
-  return cat === "tax10" ? 1.1 : cat === "tax8" ? 1.08 : 1;
+  return 1 + taxRateOf(cat);
 }
 
 function settlementPrefix(format: string): string {
@@ -906,7 +908,7 @@ function XpointReviewDialog({
             <CurrencyInput value={amount} onChange={setAmount} />
             {unit && (
               <p className="text-xs text-muted-foreground">
-                税込 {formatCurrency(unit.amountInclusive)} ÷ {taxCategory === "tax10" ? "1.1" : taxCategory === "tax8" ? "1.08" : "1"} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
+                税込 {formatCurrency(unit.amountInclusive)} ÷ {taxRate(taxCategory)} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
               </p>
             )}
           </div>

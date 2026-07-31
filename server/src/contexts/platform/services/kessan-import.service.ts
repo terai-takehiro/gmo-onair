@@ -126,10 +126,19 @@ function stripGlsName(memo: unknown): string {
     .trim();
   return (nm || String(memo ?? '').trim()).slice(0, 80);
 }
-function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' {
+/**
+ * freee の税区分文字列 → ONAiR の税区分。
+ *
+ * 「非課税」と「不課税 / 対象外」を**分けて入れる** (v3.1.5)。以前はどちらも exempt に
+ * 寄せていたので、取り込んだあとに帳簿で分けられなかった (税額は同じ 0 円だが、
+ * 申告では別の区分)。判定は**不課税を先に見る** — 「不課税」は「課税」を含むため
+ * 順番を変えると 10% に落ちる。
+ */
+function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' | 'nontax' {
   const s = String(z ?? '');
   if (s.includes('8%') || s.includes('軽')) return 'tax8';
-  if (s.includes('対象外') || s.includes('非課税') || s.includes('不課税')) return 'exempt';
+  if (s.includes('不課税') || s.includes('対象外')) return 'nontax';
+  if (s.includes('非課税')) return 'exempt';
   return 'tax10';
 }
 /**
@@ -137,10 +146,10 @@ function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' {
  * ONAiR が保持する税抜額に換算する (税区分で 10%/8% を除算・非課税/対象外はそのまま)。
  * 負数 (逆仕訳) も対応。
  */
-function grossToNet(gross: number, taxCat: 'tax10' | 'tax8' | 'exempt'): number {
+function grossToNet(gross: number, taxCat: 'tax10' | 'tax8' | 'exempt' | 'nontax'): number {
   if (taxCat === 'tax10') return Math.round(gross / 1.1);
   if (taxCat === 'tax8') return Math.round(gross / 1.08);
-  return gross;
+  return gross;   // 非課税・不課税は税込 = 税抜
 }
 const invQualified = (...xs: unknown[]): number => {
   const s = xs.map((x) => String(x ?? '')).join(' ');
@@ -835,7 +844,7 @@ export interface DedupScreenReport {
 
 const isKessanNotes = (notes: unknown): boolean => /^\s*\[kessan:/.test(String(notes ?? ''));
 
-interface ScreenRow { id: string; amount: number; recognition_date: string; notes: string; created_at: string; key: string; label: string; taxCat: 'tax10' | 'tax8' | 'exempt'; }
+interface ScreenRow { id: string; amount: number; recognition_date: string; notes: string; created_at: string; key: string; label: string; taxCat: 'tax10' | 'tax8' | 'exempt' | 'nontax'; }
 
 export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: string | null): Promise<DedupScreenReport> {
   const scope = opts.scope || 'all';

@@ -238,6 +238,23 @@ export default function PurchaseListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editParam]);
 
+  /**
+   * お金トップ (`/finance`) の「仕入を登録」から `?new=1` で来たら、そのまま登録の
+   * ダイアログを開く (v3.1.5 / 利用者依頼: 仕入をお金トップから入力できるようにする)。
+   *
+   * ダイアログはこのページが持っている (案件・仕入先・精算方法・計上月・申請URL…と
+   * 欄が多く、トップに写すと同じフォームが2つになる)。トップから1回押すだけで
+   * 入力欄に着くようにして、入口だけを増やす。
+   */
+  const newParam = searchParams.get("new");
+  const newOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!newParam || newOpenedRef.current) return;
+    newOpenedRef.current = true;
+    crud.openAdd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newParam]);
+
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects-for-purchase"],
     queryFn: async () => (await api.get("/projects/gls-projects")).data,

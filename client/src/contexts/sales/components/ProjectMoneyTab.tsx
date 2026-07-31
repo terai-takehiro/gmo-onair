@@ -11,7 +11,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { ErrorPanel, SkeletonCard } from '@gmo-onair/shared/src/client/states';
-import { List, Printer, ShoppingCart, Calculator, Sparkles, AlertTriangle } from "lucide-react";
+import { List, Printer, ShoppingCart, Calculator, Sparkles, AlertTriangle, Receipt } from "lucide-react";
 
 interface MoneyRow { key: string; label: string; value: number; note: string }
 interface MoneyAction { key: string; label: string; enabled: boolean }
@@ -21,6 +21,8 @@ interface MoneyView {
   estimate: {
     id: string; amount: number; discount_amount: number;
     item_count: number; confirmed: boolean; sent: boolean;
+    /** 案件化して確定売上になっているか (同じ1行を見積画面でも売上一覧でも扱う) */
+    became_revenue: boolean;
   } | null;
   provisional_purchase_count: number;
 }
@@ -53,7 +55,14 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
         navigate(`/sales/projects/${projectId}/estimates`);
         break;
       case "estimate_pdf":
-        window.open(`/api/v1/internal/projects/${projectId}/estimates/pdf`, "_blank");
+        /**
+         * 見積の画面へ送る (v3.1.5)。
+         * ここは `/projects/:id/estimates/pdf` を新しいタブで開いていたが、
+         * **その口は無い** (実体は `POST /projects/:id/estimate/pdf`)。GET で開くので
+         * 404 になり、認証ヘッダーも付かないので押しても何も出てこなかった。
+         * 見積の画面の「PDFにする」が正しい経路 (BOX への保管もそこで走る)。
+         */
+        navigate(`/sales/projects/${projectId}/estimates`);
         break;
       case "add_purchase":
         // 受け側 (routeAdapters の FinanceRoute) が見るのは `tab`。`view` では損益の画面に着く
@@ -90,6 +99,20 @@ export default function ProjectMoneyTab({ projectId }: { projectId: string }) {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           仕入のうち {view.provisional_purchase_count}件は<strong>まだ仮（見込み）</strong>です。
           確定すると粗利が動きます。
+        </p>
+      )}
+
+      {/* 案件化済み: 見積の行がそのまま確定売上として数えられていることを出す */}
+      {view.estimate?.became_revenue && (
+        <p className="flex items-start gap-2 rounded-xl bg-info/10 p-3 text-sm">
+          <Receipt className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+          見積の明細は<strong>確定売上として登録済み</strong>です。
+          明細・区分・並び・行ごとの仕入は、いまも
+          <button type="button" className="underline"
+            onClick={() => navigate(`/sales/projects/${projectId}/estimates`)}>
+            見積の画面
+          </button>
+          で直せます（案件化しても消えません）。
         </p>
       )}
 

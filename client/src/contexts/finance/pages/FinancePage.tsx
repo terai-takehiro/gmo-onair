@@ -251,6 +251,20 @@ export default function FinancePage() {
           MTG用に出す
         </Button>
       )}
+      {/*
+        入力の入口 (v3.1.5 / 利用者依頼: 仕入・販管費をお金トップから入力できるようにする)。
+        押すとそれぞれの一覧に着いて**登録のダイアログが開いた状態**になる (`?new=1`)。
+        フォームを持つのは一覧ページのまま — 同じ入力欄を2か所に置くと、片方だけ
+        項目が増える (この製品で何度も起きている形) ので、増やすのは入口だけにする。
+      */}
+      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance?tab=purchase&new=1")}>
+        <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+        仕入を登録
+      </Button>
+      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance?tab=sga&new=1")}>
+        <Receipt className="h-4 w-4" aria-hidden="true" />
+        販管費を登録
+      </Button>
       {/* 請求のしごと (31章)。締めの日にここから始める */}
       <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance/billing")}>
         <FileText className="h-4 w-4" aria-hidden="true" />
@@ -530,7 +544,16 @@ export default function FinancePage() {
               footnote={`${variablePurchaseRows.length} 件`}
             >
               {variablePurchaseRows.length === 0 ? (
-                <EmptyState title="変動原価の明細がありません" />
+                <EmptyState
+                  title="変動原価の明細がありません"
+                  description="この期間に案件へ紐づく仕入が登録されていません。"
+                  action={
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance?tab=purchase&new=1")}>
+                      <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+                      仕入を登録
+                    </Button>
+                  }
+                />
               ) : (
                 <ul className="divide-y divide-border">
                   {variablePurchaseRows.map(renderPurchaseItem)}
@@ -571,7 +594,16 @@ export default function FinancePage() {
               footnote={`${sgaRows.length} 件`}
             >
               {sgaRows.length === 0 ? (
-                <EmptyState title="販管費明細がありません" />
+                <EmptyState
+                  title="販管費明細がありません"
+                  description="この期間に案件へ紐づかない費用が登録されていません。"
+                  action={
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance?tab=sga&new=1")}>
+                      <Receipt className="h-4 w-4" aria-hidden="true" />
+                      販管費を登録
+                    </Button>
+                  }
+                />
               ) : (
                 <ul className="divide-y divide-border">
                   {sgaRows.map((s) => (

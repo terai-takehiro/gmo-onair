@@ -1200,9 +1200,11 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tax10">10%課税</SelectItem>
-                    <SelectItem value="tax8">8%課税(軽減)</SelectItem>
-                    <SelectItem value="exempt">非課税</SelectItem>
+                    {/* 税区分は @/types の TaxCategoryLabels 1か所から出す
+                        (画面ごとに並べると【不課税】のように足した選択肢が漏れる) */}
+                    {Object.entries(TaxCategoryLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

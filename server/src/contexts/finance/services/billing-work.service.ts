@@ -19,12 +19,11 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
 import { NOT_SANDBOX_VIA } from '../../../shared/db/sandbox-filter';
+import { taxRateOf } from '../../../shared/services/tax-category.service';
 
-const TAX_RATE: Record<string, number> = { tax10: 0.10, tax8: 0.08, exempt: 0 };
-
-/** 税抜 → 税込。表示のときだけ足す (保持は税抜) */
+/** 税抜 → 税込。表示のときだけ足す (保持は税抜)。税率は tax-category.service 1か所 */
 export function withTax(net: number, taxCategory: string): number {
-  return net + Math.round(net * (TAX_RATE[taxCategory] ?? TAX_RATE.tax10));
+  return net + Math.round(net * taxRateOf(taxCategory));
 }
 
 /**

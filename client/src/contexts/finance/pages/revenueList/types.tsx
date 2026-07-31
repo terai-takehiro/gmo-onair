@@ -62,6 +62,14 @@ export interface EpisodeOption {
   episode_number: number;
 }
 
+/**
+ * 売上の明細1行。
+ *
+ * `unit` / `cost_amount` / `cost_vendor_id` / `is_ai_suggested` は**見積 (30章 37a) が
+ * 入れる列** (migration 145)。案件化すると見積の行がそのまま確定売上の明細になるので、
+ * この画面は**読んだ値をそのまま送り返す** (v3.1.5)。
+ * 落として送るとサーバーの DELETE → INSERT で消え、行ごとの仕入・単位・仕入先が失われる。
+ */
 export interface RevenueItem {
   description: string;
   quantity: number;
@@ -72,4 +80,15 @@ export interface RevenueItem {
   period_end?: string | null;
   item_notes?: string | null;
   category?: string | null;
+  /** 単位 (式・日・台…)。見積書 PDF に出る */
+  unit?: string | null;
+  /** この行の仕入 (見込み)。見積で入れた金額 */
+  cost_amount?: number;
+  /** この行の仕入先 */
+  cost_vendor_id?: string | null;
+  /** AI が補った行の印 */
+  is_ai_suggested?: boolean;
 }
+
+/** 見積 (30章 37a) が使う区分。売上明細のカテゴリもこれに揃える */
+export const REVENUE_ITEM_CATEGORIES = ['スタジオ', '技術・人員', '制作・その他'] as const;

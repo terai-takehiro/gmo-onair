@@ -104,6 +104,20 @@ export default function SgaListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editParam]);
 
+  /**
+   * お金トップ (`/finance`) の「販管費を登録」から `?new=1` で来たら、そのまま登録の
+   * ダイアログを開く (v3.1.5 / 利用者依頼)。フォームはこのページが持っている
+   * (トップに写すと同じフォームが2つになる) ので、入口だけを増やす。
+   */
+  const newParam = searchParams.get("new");
+  const newOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!newParam || newOpenedRef.current) return;
+    newOpenedRef.current = true;
+    crud.openAdd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newParam]);
+
   // editingItem 同期: open 時に form を埋める / close 時にリセット
   useEffect(() => {
     if (crud.editingItem) {

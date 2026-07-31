@@ -3,7 +3,8 @@
 //
 // 型は親 (RevenueListPage) の宣言をそのまま写している。
 // 推測で書くと「渡せるが意味が違う」形になるので、必ず元に合わせる。
-import { Plus, Trash2, Percent, Download, Link2 } from 'lucide-react';
+import { Plus, Trash2, Percent, Download, Link2, SlidersHorizontal } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import { formatCurrency } from '@/lib/format';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import type { RevenueItem } from './types';
+import { REVENUE_ITEM_CATEGORIES, type RevenueItem } from './types';
 
 export default function RevenueItemsEditor({
   items, addItem, updateItem, removeItem, itemsTotal, flashRowIdx,
@@ -37,17 +38,34 @@ export default function RevenueItemsEditor({
 }) {
   return (
             <div className="space-y-2">
+          {/*
+            カテゴリの候補は**見積 (30章 37a) と同じ3区分**に揃える (v3.1.5)。
+            以前は 制作費 / 機材費 / 人件費 / スタジオ費 / 配信費 / 諸経費 の別系統を出しており、
+            案件化した見積の行 (スタジオ / 技術・人員 / 制作・その他) と混ざると、
+            見積書と請求書で区分の見出しが変わっていた。
+            入力は自由記述のまま — 過去の値をそのまま残せるようにしておく。
+          */}
           <datalist id="revenue-item-categories">
-            <option value="制作費" />
-            <option value="機材費" />
-            <option value="人件費" />
-            <option value="スタジオ費" />
-            <option value="配信費" />
-            <option value="諸経費" />
+            {REVENUE_ITEM_CATEGORIES.map((c) => (
+              <option key={c} value={c} />
+            ))}
           </datalist>
           <div className="flex items-center justify-between">
             <Label>明細行</Label>
             <div className="flex flex-wrap gap-2">
+              {/*
+                見積と売上は**同じ1行**なので、区分・並び・行ごとの仕入をまとめて直すなら
+                見積の画面のほうが揃っている (∧∨ で並べ替え・区分ごとの小計・仕入先・粗利)。
+                ここから行けるようにしておく (v3.1.5)。
+              */}
+              {selectedProjectId && (
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to={`/sales/projects/${selectedProjectId}/estimates`}>
+                    <SlidersHorizontal className="mr-1 h-3 w-3" />
+                    見積の画面で編集
+                  </Link>
+                </Button>
+              )}
               {/* Import from simulation (A系のみ) */}
               {selectedProjectId &&
                 !isProjectCategoryB &&
@@ -371,6 +389,17 @@ export default function RevenueItemsEditor({
                   {formatCurrency(itemsTotal)}
                 </span>
               </div>
+              {/* 見積で入れた行ごとの仕入は、この画面には欄が無いが**保たれる** */}
+              {items.some((it) => (it.cost_amount || 0) > 0) && (
+                <div className="border-t px-4 py-2 text-xs text-muted-foreground">
+                  この明細には見積で入れた行ごとの仕入（合計{" "}
+                  <span className="font-number">
+                    {formatCurrency(items.reduce((sum, it) => sum + (it.cost_amount || 0), 0))}
+                  </span>
+                  ）が入っています。この画面には欄がありませんが保存しても消えません。
+                  直すときは「見積の画面で編集」から。
+                </div>
+              )}
             </div>
           )}
         </div>

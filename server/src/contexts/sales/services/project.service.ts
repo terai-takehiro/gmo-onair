@@ -10,6 +10,7 @@ import {
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
 import { buildBookingTitle } from '../../../shared/booking/bookingTitle';
+import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { config } from '../../../config';
 import { recordProjectChanges } from './project-history.service';
 import { resolveStudioUse } from './stage-ask.service';
@@ -1056,6 +1057,15 @@ export class ProjectService {
     ) as any[];
     if (estimates.length === 0) return;
 
+    // 見積由来の印を付けておく (v3.1.5)。status を 'confirmed' に変えると
+    // 「見積だった行」を後から言えなくなり、見積画面が空になる = 作り直され、
+    // 同じ金額の売上が2件立つ。印は status に依らないので発番後も同じ行を開ける。
+    for (const est of estimates) {
+      await execute(
+        `UPDATE revenues SET is_estimate_origin = TRUE WHERE id = ?`, [est.id]
+      );
+    }
+
     // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）。
     // deleted_at でフィルタすると削除後に連番が再利用され billing_key が重複するため、
     // ソフトデリート分も含めて数える (連番は飛んでも一意性を優先)。
@@ -1070,8 +1080,7 @@ export class ProjectService {
       const est = estimates[i];
       const seq = existingConfirmed + i + 1;
       const seqNum = String(seq).padStart(3, '0');
-      const taxSuffix = est.tax_category === 'tax8' ? '2' : (est.tax_category === 'exempt' ? '0' : '1');
-      const newBillingKey = `${glsNumber}-${seqNum}-${taxSuffix}`;
+      const newBillingKey = `${glsNumber}-${seqNum}-${taxBillingSuffix(est.tax_category)}`;
       await execute(
         `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = NOW() WHERE id = ?`,
         [newBillingKey, est.id]

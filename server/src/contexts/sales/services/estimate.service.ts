@@ -37,6 +37,7 @@ import {
   recordAiOutput, recordCorrections, recordAiOutcome, diffByKey,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
+import { normalizeTaxCategory, taxRateOf } from '../../../shared/services/tax-category.service';
 import { resolveProvider, intakeAiModel } from '../../tasks/services/intake-ai.service';
 
 const KIND = 'estimate_draft';
@@ -50,7 +51,6 @@ export type EstimateGroup = typeof ESTIMATE_GROUPS[number];
 /** 粗利率がこれを切ると画面で赤く出す (止めはしない) */
 export const GROSS_MARGIN_WARN = 0.30;
 
-const TAX_RATE: Record<string, number> = { tax10: 0.10, tax8: 0.08, exempt: 0 };
 
 export interface EstimateItemInput {
   id?: string | null;
@@ -93,8 +93,7 @@ export function computeTotals(
   const costTotal = items.reduce((s, it) => s + (Number(it.cost_amount) || 0), 0);
   const discountAmount = Math.max(0, Math.round(Number(discount) || 0));
   const subtotal = itemsTotal - discountAmount;
-  const rate = TAX_RATE[taxCategory] ?? TAX_RATE.tax10;
-  const taxAmount = Math.round(subtotal * rate);
+  const taxAmount = Math.round(subtotal * taxRateOf(taxCategory));
   const grossProfit = subtotal - costTotal;
   const grossMargin = subtotal > 0 ? grossProfit / subtotal : null;
   return {
@@ -114,13 +113,27 @@ const ITEM_COLS = `id, revenue_id, description, category, quantity, unit, unit_p
   cost_amount, cost_vendor_id, item_notes, period_start, period_end,
   pricing_item_id, is_ai_suggested, sort_order`;
 
-/** この案件の見積 (1本)。無ければ null */
+/**
+ * この案件の見積 (1本)。無ければ null
+ *
+ * **`status` では引かない** (v3.1.5)。案件化 (GLS 発番) すると `migrateEstimates` が
+ * status を 'estimate' → 'confirmed' に変えるので、status で引くと発番した瞬間に
+ * 「見積が無い案件」になり画面が空になる (= 利用者から見ると「見積が消えた」)。
+ * 空の画面でもう一度組み直されると `status='estimate'` の行が増え、再発番のときに
+ * それも確定売上へ変換されて**同じ金額の売上が2件**立つ。
+ *
+ * 代わりに `is_estimate_origin` (migration 157) で引く。確定売上になったあとも
+ * 同じ行を同じ画面で直せる = 「見積 = 最終的には売上」を1つのデータで扱う。
+ * 旧データ (列を足す前に作られ、印の埋め戻し条件に当たらない行) のために
+ * `status='estimate'` も残す。
+ */
 async function findEstimateRow(projectId: string) {
   return (await queryOne(
     `SELECT r.*, c.name AS customer_name, c.address AS customer_address, c.contact_name AS customer_contact
      FROM revenues r
      LEFT JOIN customers c ON c.id = r.customer_id
-     WHERE r.project_id = ? AND r.status = 'estimate' AND r.deleted_at IS NULL
+     WHERE r.project_id = ? AND r.deleted_at IS NULL
+       AND (r.is_estimate_origin OR r.status = 'estimate')
      ORDER BY r.created_at ASC LIMIT 1`,
     [projectId],
   )) as Record<string, any> | null;
@@ -180,14 +193,20 @@ export async function getEstimate(projectId: string) {
   const project = await loadProject(projectId);
   const row = await findEstimateRow(projectId);
 
+  // 仕入先の名前も一緒に返す (行ごとの仕入先を画面で選べるようにしたので、
+  // 選んだ相手が誰か画面に出せないと確かめられない)
   const items = row
     ? (await queryAll(
-        `SELECT ${ITEM_COLS} FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order, created_at`,
+        `SELECT ${ITEM_COLS.split(',').map((c) => `i.${c.trim()}`).join(', ')},
+                v.name AS cost_vendor_name
+           FROM revenue_items i
+           LEFT JOIN vendors v ON v.id = i.cost_vendor_id
+          WHERE i.revenue_id = ? ORDER BY i.sort_order, i.created_at`,
         [row.id],
       )) as Array<Record<string, any>>
     : [];
 
-  const taxCategory = String(row?.tax_category ?? 'tax10');
+  const taxCategory = normalizeTaxCategory(row?.tax_category);
   const totals = computeTotals(items, Number(row?.discount_amount) || 0, taxCategory);
 
   // AI 下書きの由来 (いつ・誰の指示・どのモデル)。人が足した行と区別して見せるために出す
@@ -240,11 +259,33 @@ export async function getEstimate(projectId: string) {
           pdf_box_file_id: row.estimate_pdf_box_file_id ?? null,
           notes: row.notes ?? null,
           updated_at: row.updated_at,
+          /**
+           * 売上としての状態。案件化 (GLS 発番) で 'estimate' → 'confirmed' に変わる。
+           * **同じ1行**を見積画面でも売上一覧でも扱うので、いまどちらとして数えられて
+           * いるのかを画面に出す (出さないと「確定売上を直している」ことに気づけない)。
+           */
+          revenue_status: String(row.status ?? 'estimate'),
+          /** 行ごとの仕入から作った見込み仕入の件数 (この見積とつながっている数) */
+          linked_purchase_count: Number(
+            ((await queryOne(
+              `SELECT COUNT(*) AS c FROM purchases
+                WHERE project_id = ? AND deleted_at IS NULL AND notes LIKE '%[from_estimate:%'`,
+              [projectId],
+            )) as Record<string, any> | null)?.c ?? 0,
+          ),
         }
       : null,
     items,
     totals,
     groups: ESTIMATE_GROUPS,
+    /**
+     * 仕入先の選択肢。**この口から返す** — 仕入先の一覧 (`/vendors`) は `budget` 権限で、
+     * 見積を作る営業は持っていないことが普通 (このファイル冒頭の理由と同じ)。
+     * 画面から直接叩かせると行ごとの仕入先が営業には選べない欄になる。
+     */
+    vendors: (await queryAll(
+      `SELECT id, name FROM vendors WHERE deleted_at IS NULL ORDER BY name LIMIT 300`,
+    )) as Array<Record<string, any>>,
     ai_origin: aiOrigin,
     next_action: nextAction
       ? { text: nextAction.next_action, date: nextAction.next_action_date }
@@ -352,6 +393,11 @@ function normalizeItems(items: EstimateItemInput[]): NormalizedItem[] {
  * 「AI は 120 万・営業は 95 万に直した」という一番価値のある情報を、
  * 明細が上書きされる前に取る。突合は行の**品目名**で行う (index だと 1 行足しただけで
  * 以降すべてが「変更された」ことになり修正率が実態とかけ離れる)。
+ *
+ * **案件化 (GLS 発番) のあともこの口で直す** (v3.1.5)。同じ行が確定売上になっているので、
+ * 触るのは見積が持っている項目だけに閉じる (金額・税区分・値引き・件名・備考・明細)。
+ * 計上日・請求日・入金予定日といった売上の運用項目には触らない — そちらは
+ * お金 ＞ 売上 の口 (`budget` 権限) の持ち物で、営業が見積を直すたびに動くと困る。
  */
 export async function saveEstimate(
   projectId: string,
@@ -363,9 +409,14 @@ export async function saveEstimate(
     throw new AppError(400, 'VALIDATION_ERROR', '明細 (items) は配列で指定してください');
   }
   const items = normalizeItems(body.items);
-  const taxCategory = TAX_RATE[String(body.tax_category ?? '')] !== undefined
-    ? String(body.tax_category) : 'tax10';
+  const taxCategory = normalizeTaxCategory(body.tax_category);
   const discount = Math.max(0, Math.round(Number(body.discount_amount) || 0));
+  // 末尾の備考は品目に紐づかない自由記述 (見積書 PDF の「備考」枠に出る)。
+  // 品目内補足と同じ形に寄せる (`\r\n` を `\n` に・前後の空行を落とす・空白だけは null)。
+  // **`undefined` と null を分ける** — 送ってこなかったときは今の値を残し、
+  // 空で送ってきたときは消す (COALESCE で寄せると消せない欄になる)
+  const notesGiven = body.notes !== undefined;
+  const notes = notesGiven ? normalizeNotes(body.notes) : null;
 
   let row = await findEstimateRow(projectId);
 
@@ -381,10 +432,11 @@ export async function saveEstimate(
       await tx.execute(
         `INSERT INTO revenues
            (id, billing_key, project_id, customer_id, assigned_to, tax_category, amount,
-            status, discount_amount, estimate_version, subtitle, notes, created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 'estimate', ?, 1, ?, ?, ?, ?)`,
+            status, discount_amount, estimate_version, subtitle, notes,
+            is_estimate_origin, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, 0, 'estimate', ?, 1, ?, ?, TRUE, ?, ?)`,
         [id, billingKey, projectId, project.customer_id, project.assigned_to ?? actor.userId,
-         taxCategory, discount, body.subtitle ?? null, body.notes ?? null, actor.userId, actor.userId],
+         taxCategory, discount, body.subtitle ?? null, notes, actor.userId, actor.userId],
       );
       row = { id } as Record<string, any>;
     }
@@ -392,10 +444,13 @@ export async function saveEstimate(
     const totals = computeTotals(items, discount, taxCategory);
     await tx.execute(
       `UPDATE revenues SET amount = ?, tax_category = ?, discount_amount = ?,
-              subtitle = COALESCE(?, subtitle), notes = COALESCE(?, notes),
+              subtitle = COALESCE(?, subtitle),
+              notes = CASE WHEN ?::boolean THEN ? ELSE notes END,
+              is_estimate_origin = TRUE,
               updated_at = NOW(), updated_by = ?
        WHERE id = ?`,
-      [totals.subtotal, taxCategory, discount, body.subtitle ?? null, body.notes ?? null, actor.userId, row!.id],
+      [totals.subtotal, taxCategory, discount, body.subtitle ?? null,
+       notesGiven, notes, actor.userId, row!.id],
     );
 
     await tx.execute(`DELETE FROM revenue_items WHERE revenue_id = ?`, [row!.id]);
@@ -415,6 +470,20 @@ export async function saveEstimate(
   });
 
   await recordEstimateCorrections(row!.id, items, actor.userId);
+
+  /**
+   * 行ごとの仕入から作った見込み仕入を**この保存に合わせ直す**。
+   *
+   * すでに1件でも作られている案件だけが対象 (受注のときに作られる)。まだ作っていない
+   * 見積で走らせると、下書きを保存しただけで仕入が立ってしまう。
+   * 受注後に見積の行を直したのに仕入が古いままだと、同じ数字を2か所で直すことになる
+   * (= 「見積と仕入は同じデータ」という依頼が成立しない)。
+   */
+  try {
+    await syncEstimateCosts(projectId, actor.userId, { onlyIfMaterialized: true });
+  } catch (e) {
+    console.warn('[estimate] 見込み仕入の追随に失敗 (保存は成立):', (e as Error).message);
+  }
   return getEstimate(projectId);
 }
 
@@ -754,57 +823,146 @@ export async function draftEstimateWithAi(projectId: string, actor: { userId: st
 }
 
 /**
- * 受注したときに、見積の「仕入(見込み)」列を見込み仕入の明細にする (二度打ちしない)。
+ * 見積の「仕入(見込み)」列と、見込み仕入の明細を**同じ内容に保つ** (二度打ちしない)。
  *
- * - `is_provisional = TRUE` で入れる。確定した支払いではないので、確定仕入と混ぜない
- * - **冪等**。notes のマーカーで既に作った行を見分け、ステージを往復しても増えない
- * - 仕入先が未定の行は「(仕入先未定)」に寄せる。ここで落とすと粗利の裏付けが消える
- * - 計上日は**その行の期間の開始日**。入っていなければ案件の実施日にする
- *   (前日設営・翌月の編集のように、案件の実施日と月が違う行があるため。
- *    ここで案件の実施日に丸めると月次の損益がずれる)
+ * 受注したときに最初の1回が走り (project.service の a_won)、以降は**見積を保存する
+ * たびに追随する** (v3.1.5)。追随しないと、受注後に見積の行を直しても仕入が古いままで、
+ * 同じ数字を見積と仕入の2か所で直すことになる (= 「見積と仕入は同じデータを参照する」
+ * という依頼が成立しない)。
+ *
+ * ── 決めごと ──────────────────────────────────────────
+ *  - `is_provisional = TRUE` で入れる。確定した支払いではないので確定仕入と混ぜない
+ *  - **人が確定した行 (`is_provisional = FALSE`) には触らない**。仕入が確定したあとに
+ *    見積を直しても、確定した支払いを勝手に書き換えたり消したりしてはいけない
+ *  - **冪等**。notes のマーカー (`[from_estimate:{明細id}]`) で対応を取る
+ *  - 仕入先が未定の行は「(仕入先未定)」に寄せる。ここで落とすと粗利の裏付けが消える
+ *  - 計上日は**その行の期間の開始日**。入っていなければ案件の実施日にする
+ *    (前日設営・翌月の編集のように、案件の実施日と月が違う行があるため。
+ *     ここで案件の実施日に丸めると月次の損益がずれる)
+ *  - 見積から消えた行・仕入を 0 にした行は、**仮のままなら消す**
+ *    (残すと粗利が実態より低く出続ける。確定済みなら残して人に任せる)
+ *
+ * ── マーカーが明細の id である以上、保存のたびに作り直す前提が要る ────
+ *
+ * `saveEstimate` は明細を DELETE → INSERT で入れ替えるので、**行の id は毎回変わる**。
+ * そのため「同じ品目名の仮の仕入」も突合の手掛かりに使い、id が変わっただけの行を
+ * 二重に作らない。品目名も変わった行は別の行として作り直す (これは正しい)。
  */
-export async function materializeEstimateCosts(
-  projectId: string, userId: string,
-): Promise<{ created: number; skipped: number }> {
+export async function syncEstimateCosts(
+  projectId: string,
+  userId: string,
+  opts: { onlyIfMaterialized?: boolean } = {},
+): Promise<{ created: number; updated: number; removed: number }> {
   const row = await findEstimateRow(projectId);
-  if (!row) return { created: 0, skipped: 0 };
+  if (!row) return { created: 0, updated: 0, removed: 0 };
+
+  // この見積から作られた仮の仕入 (確定済みは対象外 = 人の持ち物)
+  const linked = (await queryAll(
+    `SELECT id, amount, description, vendor_id, recognition_date, notes, is_provisional
+       FROM purchases
+      WHERE project_id = ? AND deleted_at IS NULL AND notes LIKE '%[from_estimate:%'`,
+    [projectId],
+  )) as Array<Record<string, any>>;
+
+  // 受注前 (まだ1件も作っていない) は何もしない。下書きの保存で仕入を立てない
+  if (opts.onlyIfMaterialized && linked.length === 0) {
+    return { created: 0, updated: 0, removed: 0 };
+  }
 
   const items = (await queryAll(
     `SELECT id, description, amount, cost_amount, cost_vendor_id, period_start
      FROM revenue_items WHERE revenue_id = ? AND cost_amount > 0 ORDER BY sort_order`,
     [row.id],
   )) as Array<Record<string, any>>;
-  if (!items.length) return { created: 0, skipped: 0 };
 
   const project = await loadProject(projectId);
-  let created = 0, skipped = 0;
+  let created = 0, updated = 0, removed = 0;
   let fallbackVendorId: string | null = null;
+  const markerOf = (purchase: Record<string, any>): string => {
+    const m = /\[from_estimate:([^\]]+)\]/.exec(String(purchase.notes ?? ''));
+    return m ? m[1] : '';
+  };
+
+  const byMarker = new Map<string, Record<string, any>>();
+  for (const p of linked) byMarker.set(markerOf(p), p);
+  const claimed = new Set<string>();
 
   for (const it of items) {
     const marker = `[from_estimate:${it.id}]`;
-    const exists = await queryOne(
-      `SELECT id FROM purchases WHERE project_id = ? AND notes LIKE ? AND deleted_at IS NULL LIMIT 1`,
-      [projectId, `%${marker}%`],
-    );
-    if (exists) { skipped++; continue; }
+    const costAmount = Math.round(Number(it.cost_amount) || 0);
+    const recognitionDate = it.period_start || project.event_start || null;
+
+    // ① 同じ明細 id で作った行 → ② 品目名が同じ仮の行 (明細 id は保存のたびに変わる)
+    let target = byMarker.get(String(it.id)) ?? null;
+    if (!target) {
+      target = linked.find((p) =>
+        !claimed.has(String(p.id)) && p.is_provisional
+        && String(p.description ?? '') === String(it.description ?? '')
+      ) ?? null;
+    }
 
     let vendorId = it.cost_vendor_id as string | null;
     if (!vendorId) {
       if (!fallbackVendorId) fallbackVendorId = await ensureFallbackVendor(userId);
       vendorId = fallbackVendorId;
     }
+
+    if (target) {
+      claimed.add(String(target.id));
+      // 人が確定した仕入は動かさない (金額も仕入先も、確定した支払いが正)
+      if (!target.is_provisional) continue;
+      const same = Number(target.amount) === costAmount
+        && String(target.description ?? '') === String(it.description ?? '')
+        && String(target.vendor_id ?? '') === String(vendorId ?? '')
+        && String(target.recognition_date ?? '') === String(recognitionDate ?? '')
+        && markerOf(target) === String(it.id);
+      if (same) continue;
+      await execute(
+        `UPDATE purchases
+            SET amount = ?, description = ?, vendor_id = ?, recognition_date = ?,
+                notes = ?, updated_at = NOW(), updated_by = ?
+          WHERE id = ?`,
+        [costAmount, it.description, vendorId, recognitionDate,
+         `見積から自動作成 ${marker}`, userId, target.id],
+      );
+      updated++;
+      continue;
+    }
+
     await execute(
       `INSERT INTO purchases
          (id, project_id, vendor_id, assigned_to, tax_category, invoice_qualified, amount,
           description, recognition_date, is_provisional, notes, created_by, updated_by)
        VALUES (?, ?, ?, ?, 'tax10', 1, ?, ?, ?, TRUE, ?, ?, ?)`,
       [uuidv4(), projectId, vendorId, project.assigned_to ?? userId,
-       Math.round(Number(it.cost_amount) || 0), it.description,
-       it.period_start || project.event_start || null, `見積から自動作成 ${marker}`, userId, userId],
+       costAmount, it.description, recognitionDate,
+       `見積から自動作成 ${marker}`, userId, userId],
     );
     created++;
   }
-  return { created, skipped };
+
+  // 見積から消えた行 (仮のままのものだけ)。確定済みは人に任せる
+  for (const p of linked) {
+    if (claimed.has(String(p.id))) continue;
+    if (!p.is_provisional) continue;
+    await execute(
+      `UPDATE purchases SET deleted_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL`,
+      [userId, p.id],
+    );
+    removed++;
+  }
+
+  return { created, updated, removed };
+}
+
+/**
+ * 受注したときに、見積の「仕入(見込み)」列を見込み仕入の明細にする。
+ * 名前は受注の側から読める形で残す (中身は `syncEstimateCosts` と同じ)。
+ */
+export async function materializeEstimateCosts(
+  projectId: string, userId: string,
+): Promise<{ created: number; updated: number; removed: number }> {
+  return syncEstimateCosts(projectId, userId);
 }
 
 /** 「(仕入先未定)」を1件だけ持つ (決算取込の「(顧客不明)」と同じ寄せ方) */

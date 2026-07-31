@@ -56,13 +56,19 @@ export async function getProjectMoney(id: string) {
   const project = await assertProject(id);
   const summary = await projectService.getSummary(id) as any;
 
-  // 見積 (30章)。確定前の下書きも「想定金額」の裏付けとして出す
+  // 見積 (30章)。確定前の下書きも「想定金額」の裏付けとして出す。
+  //
+  // **`status` では引かない** (v3.1.5)。案件化 (GLS 発番) で status が 'confirmed' に
+  // 変わるので、status で引くと発番した瞬間に「見積が無い」ことになり、
+  // 「見積書PDFを出す」が押せなくなっていた (見積の中身は残っているのに)。
+  // 見積画面と同じ条件 (`is_estimate_origin`) で引く。
   const estimate = (await queryOne(
-    `SELECT id, amount, discount_amount, estimate_confirmed_at, estimate_sent_at,
+    `SELECT id, amount, discount_amount, estimate_confirmed_at, estimate_sent_at, status,
             (SELECT COUNT(*) FROM revenue_items i WHERE i.revenue_id = r.id) AS item_count
        FROM revenues r
-      WHERE r.project_id = ? AND r.status = 'estimate' AND r.deleted_at IS NULL
-      ORDER BY r.created_at DESC LIMIT 1`,
+      WHERE r.project_id = ? AND r.deleted_at IS NULL
+        AND (r.is_estimate_origin OR r.status = 'estimate')
+      ORDER BY r.created_at ASC LIMIT 1`,
     [id]
   )) as any;
 
@@ -124,6 +130,8 @@ export async function getProjectMoney(id: string) {
           item_count: Number(estimate.item_count ?? 0),
           confirmed: Boolean(estimate.estimate_confirmed_at),
           sent: Boolean(estimate.estimate_sent_at),
+          /** 案件化して確定売上になっているか (同じ1行を見積画面でも売上一覧でも扱う) */
+          became_revenue: String(estimate.status ?? '') !== 'estimate',
         }
       : null,
     provisional_purchase_count: Number(purchases?.provisional ?? 0),

@@ -114,10 +114,17 @@ export const CalcTypeLabels: Record<CalcType, string> = {
   qty: '数量×単価',
 };
 
+// 税区分 (shared/src/enums.ts と同じ内容を持つ。このファイルの方針どおり写しで持つ)
+//
+// **非課税 (exempt) と不課税 (nontax) は別物**なので選択肢を分けている。
+//  - 非課税: 消費税の対象だが法令で課税しない取引 (土地の貸付・利息・行政手数料など)
+//  - 不課税: そもそも消費税の対象外 (給与・寄付・配当・国外取引など)
+// どちらも税額は 0 円だが、**帳簿と申告では区別する**ため一方に寄せると後から分けられない。
 export const TaxCategory = {
   TAX10: 'tax10',
   TAX8: 'tax8',
   EXEMPT: 'exempt',
+  NONTAX: 'nontax',
 } as const;
 export type TaxCategory = (typeof TaxCategory)[keyof typeof TaxCategory];
 
@@ -125,7 +132,31 @@ export const TaxCategoryLabels: Record<TaxCategory, string> = {
   tax10: '10%課税',
   tax8: '8%課税(軽減)',
   exempt: '非課税',
+  nontax: '不課税',
 };
+
+/** 税率。**画面はここだけを見る** (その場で三項演算子を書くと選択肢が増えたとき漏れる) */
+export const TaxCategoryRates: Record<string, number> = {
+  tax10: 0.1,
+  tax8: 0.08,
+  exempt: 0,
+  nontax: 0,
+};
+
+/** 税率 (未知の値は 10% として扱う。既存データに合わせる) */
+export function taxRateOf(taxCategory: string | null | undefined): number {
+  return TaxCategoryRates[String(taxCategory ?? '')] ?? TaxCategoryRates.tax10;
+}
+
+/** 短い表示 (一覧の狭い列用)。「10%」「8%」「非課税」「不課税」 */
+export function taxShortLabel(taxCategory: string | null | undefined): string {
+  switch (String(taxCategory ?? '')) {
+    case 'tax8': return '8%';
+    case 'exempt': return '非課税';
+    case 'nontax': return '不課税';
+    default: return '10%';
+  }
+}
 
 export const SettlementMethod = {
   RAKURAKU: 'rakuraku',

@@ -15,13 +15,17 @@
  * 曖昧なものは warnings に積んで人間のレビューに委ねる。
  */
 
+import { toExcludedAmount, type TaxCategoryValue } from '../../../shared/services/tax-category.service';
+
+export type { TaxCategoryValue };
+
 export type VoucherFormat = 'xpoint' | 'rakuraku' | 'unknown';
 
 /** 1 回の登録操作に対応する単位 (仕入/販管費 1 レコード分)。楽楽精算は 1 伝票から複数生成され得る */
 export interface RegistrationUnit {
   kind: 'purchase' | 'sga' | 'unknown';
   glsNumber: string | null;
-  taxCategory: 'tax10' | 'tax8' | 'exempt';
+  taxCategory: TaxCategoryValue;
   /** この単位に含まれる明細の税込合計 (円) */
   amountInclusive: number;
   /** 税区分で換算した税抜金額 (円) */
@@ -92,11 +96,9 @@ function toIsoDate(s: string): string {
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 }
 
-/** 税込金額から税抜金額を計算 (四捨五入)。exempt は据え置き */
-export function toExclusiveAmount(inclusive: number, taxCategory: 'tax10' | 'tax8' | 'exempt'): number {
-  if (taxCategory === 'tax10') return Math.round(inclusive / 1.1);
-  if (taxCategory === 'tax8') return Math.round(inclusive / 1.08);
-  return inclusive;
+/** 税込金額から税抜金額を計算 (四捨五入)。非課税・不課税は据え置き */
+export function toExclusiveAmount(inclusive: number, taxCategory: TaxCategoryValue): number {
+  return toExcludedAmount(inclusive, taxCategory);
 }
 
 export function parseXpointText(text: string): XpointParsed {
@@ -325,7 +327,7 @@ export interface RakurakuItem {
   no: number;
   date: string | null;           // YYYY-MM-DD (利用日)
   taxLabel: string;              // 例 '10%標準' / '不課税'
-  taxCategory: 'tax10' | 'tax8' | 'exempt';
+  taxCategory: TaxCategoryValue;
   body: string;                  // 利用内訳 + 支払方法の生テキスト
   amountInclusive: number;
   usage: string | null;          // 用途行の生テキスト (例 '[仕入れ][GLS-A004]GMOアワード2026_宿泊費')
@@ -347,10 +349,16 @@ export interface RakurakuParsed {
   warnings: string[];
 }
 
-function mapTaxLabel(label: string): 'tax10' | 'tax8' | 'exempt' | null {
+/**
+ * 楽楽精算の税区分ラベル → ONAiR の税区分。
+ * **不課税と非課税を分ける** (v3.1.5)。税額はどちらも 0 円だが申告では別の区分なので、
+ * 片方に寄せると取り込んだあとに分けられない。「不課税」は「課税」を含むので先に見る。
+ */
+function mapTaxLabel(label: string): TaxCategoryValue | null {
   if (label.includes('10%')) return 'tax10';
   if (label.includes('8%')) return 'tax8';
-  if (/不課税|非課税|対象外|免税/.test(label)) return 'exempt';
+  if (/不課税|対象外/.test(label)) return 'nontax';
+  if (/非課税|免税/.test(label)) return 'exempt';
   return null;
 }
 

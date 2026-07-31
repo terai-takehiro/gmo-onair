@@ -33,6 +33,7 @@ import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDia
 import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   Settings, CalendarSync, CalendarDays, Users, CalendarClock, Rows3, Clock, Link2,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PartnerScheduleDialog from "../components/schedule/PartnerScheduleDialog";
@@ -588,6 +589,19 @@ export default function SchedulePage() {
 
   const totalUpcoming = upcomingDays.reduce((sum, d) => sum + d.items.length, 0);
 
+  /**
+   * 「直近の予定」は**畳んで開く** (既定は閉じる。利用者依頼)。
+   *
+   * この一覧は今日から7日ぶんを日付ごとに全部並べるので、予約の多い週はカレンダー本体が
+   * 画面の外まで押し下げられる。カレンダーを見に来た人が最初に見たいのは月表示なので、
+   * 件数だけ見出しに出して中身は閉じておく。
+   *
+   * 開いた状態は**その場で覚えない** (毎回閉じた状態で開く)。カレンダーの表示状態
+   * (`loadCalState` / `saveCalState`) に足すと、既定を閉じるという依頼が
+   * 「一度開いた人には以後ずっと開く」に化ける。
+   */
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
+
   const layerChips: Array<{ key: LayerKey; label: string; icon: React.ElementType; color: string }> = [
     { key: "studio", label: "スタジオ予約", icon: CalendarDays, color: bookingTypeColors.performance },
     { key: "partner", label: "パートナー", icon: Users, color: SCHEDULE_TYPE_COLORS.daikyu },
@@ -802,21 +816,37 @@ export default function SchedulePage() {
         </Card>
       )}
 
-      {/* 直近 7 日の予定 */}
+      {/* 直近 7 日の予定 — 畳んで開く (既定は閉じる) */}
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-muted/20">
+        <button
+          type="button"
+          onClick={() => setUpcomingOpen((v) => !v)}
+          aria-expanded={upcomingOpen}
+          aria-controls="upcoming-bookings-panel"
+          className="flex min-h-tap w-full items-center justify-between gap-2 border-b bg-muted/20 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <div className="flex items-center gap-2 min-w-0">
+            <ChevronRight
+              className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", upcomingOpen && "rotate-90")}
+              aria-hidden="true"
+            />
             <CalendarDays className="h-4 w-4 text-primary shrink-0" />
             <h2 className="text-sm font-semibold truncate">直近の予定</h2>
             <span className="text-xs text-muted-foreground shrink-0">今日から 7 日間</span>
           </div>
-          {totalUpcoming > 0 && (
-            <Badge variant="outline" className="shrink-0 text-[10px]">
-              {totalUpcoming}件
-            </Badge>
-          )}
-        </div>
-        <CardContent className="p-0">
+          <span className="flex shrink-0 items-center gap-2">
+            {totalUpcoming > 0 && (
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {totalUpcoming}件
+              </Badge>
+            )}
+            {/* 開くまで中身が無いので、閉じているときは何をすれば見えるかを書く */}
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {upcomingOpen ? "閉じる" : "開く"}
+            </span>
+          </span>
+        </button>
+        <CardContent className={cn("p-0", !upcomingOpen && "hidden")} id="upcoming-bookings-panel">
           {totalUpcoming === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-muted-foreground">
               直近 7 日間に予定はありません

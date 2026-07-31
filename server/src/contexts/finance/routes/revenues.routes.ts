@@ -8,11 +8,43 @@ import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
+import { normalizeTaxCategory, taxBillingSuffix } from '../../../shared/services/tax-category.service';
 
 const router = Router();
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('budget'));
+
+/**
+ * 明細1行の INSERT。**列の並びをここ1か所で持つ** (新規と更新で2回書くと片方だけ増える)。
+ *
+ * ── なぜ unit / cost_amount / cost_vendor_id / is_ai_suggested を入れるか ──
+ *
+ * この4列は見積 (30章 37a) が使う列 (migration 145)。案件化すると見積の行はそのまま
+ * 確定売上の明細になるので、**売上をこの画面で1度保存すると、見積が入れた
+ * 単位・行ごとの仕入・仕入先・AIの印がすべて消えていた**
+ * (DELETE → INSERT で入れ替えるのに、INSERT の列に入っていなかった)。
+ * 消えると行ごとの粗利の裏付けが無くなり、見積書 PDF の単位も落ちる。
+ *
+ * 送ってこなかった項目は 0 / null になるので、**画面は読んだ値をそのまま送り返す**こと
+ * (RevenueListPage は既存明細を読み込んで往復させる)。
+ */
+const ITEM_INSERT_SQL = `INSERT INTO revenue_items
+  (id, revenue_id, description, quantity, unit, unit_price, amount, pricing_item_id,
+   sort_order, period_start, period_end, item_notes, category,
+   cost_amount, cost_vendor_id, is_ai_suggested)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+function itemInsertParams(revenueId: string, it: any, index: number): unknown[] {
+  return [
+    uuidv4(), revenueId, it.description || '', it.quantity || 1, it.unit || null,
+    it.unit_price || 0, it.amount || 0, it.pricing_item_id || null,
+    index + 1, it.period_start || null, it.period_end || null,
+    it.item_notes || null, it.category || null,
+    Math.max(0, Math.round(Number(it.cost_amount) || 0)), it.cost_vendor_id || null,
+    !!it.is_ai_suggested,
+  ];
+}
 
 // 売上一覧
 router.get('/', async (req, res) => {
@@ -296,7 +328,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     [project_id]
   )) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
-  const taxSuffix = (tax_category || 'tax10') === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+  const taxSuffix = taxBillingSuffix(tax_category);
 
   // 月次ユニット等でエピソードに紐づく場合は、そのエピソードコードを請求KEYの基底にする
   // (例: GLS-B001-2607 → GLS-B001-2607-1)。月締め請求で「1月=1請求単位」を成立させる。
@@ -337,16 +369,12 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   // 半端に残らないように)
   await withTransaction(async (tx) => {
     await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, normalizeTaxCategory(tax_category), finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
-    // 明細行を保存
+    // 明細行を保存 (列は ITEM_INSERT_SQL 1か所。**見積が入れた列を落とさない**)
     if (Array.isArray(items)) {
       for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        await tx.execute(
-          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
-        );
+        await tx.execute(ITEM_INSERT_SQL, itemInsertParams(id, items[i], i));
       }
     }
 
@@ -369,7 +397,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;
   if (tax_category && tax_category !== existing.tax_category) {
-    const taxSuffix = tax_category === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+    const taxSuffix = taxBillingSuffix(tax_category);
     // 末尾の税枝番を置換 (GLS-A004-001-1 → GLS-A004-001-2)
     finalBillingKey = existing.billing_key.replace(/-\d$/, `-${taxSuffix}`);
   }
@@ -398,22 +426,19 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   // トランザクション無しだと DELETE 後の INSERT が途中失敗したとき明細が全損するため。
   await withTransaction(async (tx) => {
     await tx.execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, is_advance_payment=?, invoice_issued=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-      [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount,
+      [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id,
+       tax_category ? normalizeTaxCategory(tax_category) : existing.tax_category, finalAmount,
        recognition_date !== undefined ? (recognition_date || null) : existing.recognition_date,
        billing_date !== undefined ? (billing_date || null) : existing.billing_date,
        payment_due_date !== undefined ? (payment_due_date || null) : existing.payment_due_date,
        notes !== undefined ? (notes || null) : existing.notes,
        subtitle !== undefined ? (subtitle || null) : existing.subtitle, isAdvancePayment, invoiceIssued, req.user!.id, req.params.id]);
 
-    // 明細行を置換
+    // 明細行を置換 (列は ITEM_INSERT_SQL 1か所。**見積が入れた列を落とさない**)
     if (Array.isArray(items)) {
       await tx.execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
       for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        await tx.execute(
-          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
-        );
+        await tx.execute(ITEM_INSERT_SQL, itemInsertParams(String(req.params.id), items[i], i));
       }
     }
   });

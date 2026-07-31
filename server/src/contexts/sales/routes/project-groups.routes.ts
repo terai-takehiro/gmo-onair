@@ -4,6 +4,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { normalizeTaxCategory, taxBillingSuffix } from '../../../shared/services/tax-category.service';
 
 const router = Router();
 
@@ -192,7 +193,7 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
   }
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
-  const taxCat = tax_category || 'tax10';
+  const taxCat = normalizeTaxCategory(tax_category);
 
   // billing_key生成
   const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [allocations[0].project_id]) as any;
@@ -203,7 +204,7 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
     [allocations[0].project_id]
   ) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
-  const taxSuffix = taxCat === 'tax8' ? '2' : (taxCat === 'exempt' ? '0' : '1');
+  const taxSuffix = taxBillingSuffix(taxCat);
   const estBase = (project?.code as string) || String(allocations[0].project_id).slice(0, 8);
   const billing_key = revenueStatus === 'estimate'
     ? `EST-${estBase}-${seqNum}-${taxSuffix}`
