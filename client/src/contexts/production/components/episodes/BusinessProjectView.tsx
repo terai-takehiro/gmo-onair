@@ -118,11 +118,9 @@ interface Props {
   isEstimateMode?: boolean;
 }
 
-const taxLabels: Record<string, string> = {
-  tax10: "10%課税",
-  tax8: "8%課税(軽減)",
-  exempt: "非課税",
-};
+// 画面ごとに表を持つと足した区分が漏れる (実際に不課税がここだけ抜けていた)。
+// 表は client/src/types/index.ts の TaxCategoryLabels 1本にする。
+const taxLabels: Record<string, string> = TaxCategoryLabels;
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const navigate = useNavigate();
@@ -1724,9 +1722,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tax10">10%課税</SelectItem>
-                    <SelectItem value="tax8">8%課税(軽減)</SelectItem>
-                    <SelectItem value="exempt">非課税</SelectItem>
+                    {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
+                      <SelectItem key={key} value={key}>{TaxCategoryLabels[key]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -92,8 +92,8 @@ function toIsoDate(s: string): string {
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 }
 
-/** 税込金額から税抜金額を計算 (四捨五入)。exempt は据え置き */
-export function toExclusiveAmount(inclusive: number, taxCategory: 'tax10' | 'tax8' | 'exempt'): number {
+/** 税込金額から税抜金額を計算 (四捨五入)。非課税・不課税は据え置き */
+export function toExclusiveAmount(inclusive: number, taxCategory: 'tax10' | 'tax8' | 'exempt' | 'nontax'): number {
   if (taxCategory === 'tax10') return Math.round(inclusive / 1.1);
   if (taxCategory === 'tax8') return Math.round(inclusive / 1.08);
   return inclusive;

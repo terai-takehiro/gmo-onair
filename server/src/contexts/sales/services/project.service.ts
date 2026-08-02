@@ -9,6 +9,7 @@ import {
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
+import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -923,7 +924,7 @@ export class ProjectService {
       const est = estimates[i];
       const seq = existingConfirmed + i + 1;
       const seqNum = String(seq).padStart(3, '0');
-      const taxSuffix = est.tax_category === 'tax8' ? '2' : (est.tax_category === 'exempt' ? '0' : '1');
+      const taxSuffix = taxBillingSuffix(est.tax_category);
       const newBillingKey = `${glsNumber}-${seqNum}-${taxSuffix}`;
       await execute(
         `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = NOW() WHERE id = ?`,

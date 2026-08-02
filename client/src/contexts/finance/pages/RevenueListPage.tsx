@@ -69,6 +69,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
   return sortDir === "asc" ? <ChevronUp className="inline h-3 w-3 ml-0.5" /> : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
 }
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { TaxCategoryLabels, taxBillingSuffix } from "@/types";
 
 interface RevenueRow {
   id: string;
@@ -320,11 +321,11 @@ export default function RevenueListPage() {
     if (selectedEpisodeId) {
       const ep = episodes.find((e) => e.id === selectedEpisodeId);
       if (!ep) return "";
-      const taxSuffix = taxCategory === "tax8" ? "-2" : "-1";
+      const taxSuffix = `-${taxBillingSuffix(taxCategory)}`;
       return `${ep.episode_code}${taxSuffix}`;
     }
     if (selectedProject?.gls_number) {
-      const suffix = taxCategory === "tax8" ? "-2" : "-1";
+      const suffix = `-${taxBillingSuffix(taxCategory)}`;
       return `${selectedProject.gls_number}${suffix}`;
     }
     return "";
@@ -799,7 +800,7 @@ export default function RevenueListPage() {
                           {r.customer_name || "-"}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}
+                          {TaxCategoryLabels[r.tax_category as keyof typeof TaxCategoryLabels] ?? r.tax_category}
                         </TableCell>
                         <TableCell className="text-right font-medium font-number">
                           {formatCurrency(r.amount)}
@@ -931,9 +932,9 @@ export default function RevenueListPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tax10">10%課税</SelectItem>
-                  <SelectItem value="tax8">8%課税(軽減)</SelectItem>
-                  <SelectItem value="exempt">非課税</SelectItem>
+                  {Object.entries(TaxCategoryLabels).map(([v, label]) => (
+                    <SelectItem key={v} value={v}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {billingKeyPreview && (

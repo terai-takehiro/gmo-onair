@@ -8,6 +8,8 @@ import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
+import { taxRateOf, taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS } from '../../../shared/services/tax-category.service';
+import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 
 const router = Router();
 
@@ -186,9 +188,13 @@ router.get('/:id/excel', async (req, res, next) => {
     };
     // 税区分 → 税率ラベル + 税込への係数
     const tc = row.tax_category as string;
-    const rateLabel = tc === 'tax8' ? '8%' : tc === 'exempt' ? '非課税' : '10%';
-    const rateMul = tc === 'tax8' ? 1.08 : tc === 'exempt' ? 1 : 1.1;
-    const inclusive = (net: number): number => (tc === 'exempt' ? net : Math.round(net * rateMul));
+    // 税率は tax-category.service に一本化する。
+    // 以前はここで三項演算子を連ねており、**知らない区分は 10% に落ちていた**。
+    // migration 156 で足した不課税 (nontax) がまさにそれに当たり、
+    // 税額 0 円であるべき請求書・見積書が 10% 課税で出てしまう。
+    const rate = taxRateOf(tc);
+    const rateLabel = TAX_RATE_LABELS[normalizeTaxCategory(tc)];
+    const inclusive = (net: number): number => (rate === 0 ? net : Math.round(net * (1 + rate)));
 
     // 請求先住所は 1 カラムのため住所1 に全文を入れる (郵便番号/建物名は分離保持していない)
     const addr1 = (row.customer_address || '').replace(/\n/g, ' ').trim();
@@ -296,7 +302,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     [project_id]
   )) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
-  const taxSuffix = (tax_category || 'tax10') === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+  const taxSuffix = taxBillingSuffix(tax_category);
 
   // 月次ユニット等でエピソードに紐づく場合は、そのエピソードコードを請求KEYの基底にする
   // (例: GLS-B001-2607 → GLS-B001-2607-1)。月締め請求で「1月=1請求単位」を成立させる。
@@ -369,7 +375,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;
   if (tax_category && tax_category !== existing.tax_category) {
-    const taxSuffix = tax_category === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+    const taxSuffix = taxBillingSuffix(tax_category);
     // 末尾の税枝番を置換 (GLS-A004-001-1 → GLS-A004-001-2)
     finalBillingKey = existing.billing_key.replace(/-\d$/, `-${taxSuffix}`);
   }
@@ -407,12 +413,26 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
 
     // 明細行を置換
     if (Array.isArray(items)) {
+      // この画面が知らない列 (単位・行ごとの仕入・仕入先・AI 由来) を引き継ぐ。
+      // **DELETE の前に読む**。消してからでは引き継ぐ値が残っていない。
+      const carryover = await loadRevenueItemCarryover(String(req.params.id), tx.queryAll);
+
       await tx.execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
+        const kept = carryover(it.description);
         await tx.execute(
-          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category, unit, cost_amount, cost_vendor_id, is_ai_suggested) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1,
+           // 画面から送られてくる列は送られてきた値を優先し、
+           // 送られてこなかった (undefined) ときだけ既存の値を引き継ぐ。
+           // `null` で送ってきたときは「消したい」なので引き継がない。
+           it.period_start !== undefined ? (it.period_start || null) : kept.period_start,
+           it.period_end !== undefined ? (it.period_end || null) : kept.period_end,
+           it.item_notes !== undefined ? (it.item_notes || null) : kept.item_notes,
+           it.category !== undefined ? (it.category || null) : kept.category,
+           // ここから下はこの版の画面に入力欄が無い。常に引き継ぐ。
+           kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested]
         );
       }
     }

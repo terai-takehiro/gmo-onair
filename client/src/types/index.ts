@@ -118,14 +118,39 @@ export const TaxCategory = {
   TAX10: 'tax10',
   TAX8: 'tax8',
   EXEMPT: 'exempt',
+  NONTAX: 'nontax',
 } as const;
 export type TaxCategory = (typeof TaxCategory)[keyof typeof TaxCategory];
 
+// 非課税と不課税は別物 (非課税 = 消費税の対象だが法令で課税しない /
+// 不課税 = そもそも対象外)。税額はどちらも 0 円だが帳簿と申告では区別する。
+// DB の CHECK 制約 (migration 156) と同じ集合にすること。
 export const TaxCategoryLabels: Record<TaxCategory, string> = {
   tax10: '10%課税',
   tax8: '8%課税(軽減)',
   exempt: '非課税',
+  nontax: '不課税',
 };
+
+/** 税率 (0〜1)。知らない値は 10% として扱う (server の tax-category.service と同じ規則) */
+export function taxRateOf(taxCategory: string | null | undefined): number {
+  switch (taxCategory) {
+    case 'tax8': return 0.08;
+    case 'exempt': return 0;
+    case 'nontax': return 0;
+    default: return 0.1;
+  }
+}
+
+/** billing_key の末尾に付ける税枝番 (server の taxBillingSuffix と同じ規則) */
+export function taxBillingSuffix(taxCategory: string | null | undefined): string {
+  switch (taxCategory) {
+    case 'tax8': return '2';
+    case 'exempt': return '0';
+    case 'nontax': return '3';
+    default: return '1';
+  }
+}
 
 export const SettlementMethod = {
   RAKURAKU: 'rakuraku',

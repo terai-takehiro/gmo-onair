@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
+import { TaxCategoryLabels } from "@/types";
 
 export interface SgaFormData {
   vendor_name: string;
@@ -189,8 +190,11 @@ export default function SgaDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tax10">10%課税</SelectItem>
-                  <SelectItem value="tax8">8%課税(軽減)</SelectItem>
+                  {/* 画面ごとに <SelectItem> を並べると足した区分が漏れる。
+                      実際ここだけ非課税が無く、販管費は非課税を選べなかった。 */}
+                  {(Object.keys(TaxCategoryLabels) as (keyof typeof TaxCategoryLabels)[]).map((k) => (
+                    <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

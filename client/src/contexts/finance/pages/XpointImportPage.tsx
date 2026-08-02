@@ -28,7 +28,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Vendor, TaxCategoryLabels } from "@/types";
+import { Vendor, TaxCategoryLabels, taxRateOf } from "@/types";
 import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
   RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
@@ -145,7 +145,7 @@ const STATUS_BADGE: Record<XpointFileRow["status"], { label: string; cls: string
 };
 
 function taxRate(cat: string): number {
-  return cat === "tax10" ? 1.1 : cat === "tax8" ? 1.08 : 1;
+  return 1 + taxRateOf(cat);
 }
 
 function settlementPrefix(format: string): string {
@@ -904,7 +904,7 @@ function XpointReviewDialog({
             <CurrencyInput value={amount} onChange={setAmount} />
             {unit && (
               <p className="text-xs text-muted-foreground">
-                税込 {formatCurrency(unit.amountInclusive)} ÷ {taxCategory === "tax10" ? "1.1" : taxCategory === "tax8" ? "1.08" : "1"} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
+                税込 {formatCurrency(unit.amountInclusive)} ÷ {String(1 + taxRateOf(taxCategory))} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
               </p>
             )}
           </div>
