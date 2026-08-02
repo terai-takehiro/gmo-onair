@@ -13,32 +13,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { AI_BADGE_LABEL, aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
-// v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ。
-// 人名 (AI が書いた指示者) は出さない — 誤字が入るため (aiAttribution.ts)
-function AiCreatedBadge() {
+// v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
+function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-      title={aiOriginTitle("記録")}
+      title={requestedBy ? `AI が記録しました (指示: ${requestedBy})` : "AI が記録しました"}
     >
       <Sparkles className="h-3 w-3" aria-hidden="true" />
-      {AI_BADGE_LABEL}
+      AI作成
     </span>
   );
 }
 
-// v2.9.197+: 由来 (プロベナンス) チップ — 流入チャネル + メール取込。
+// v2.9.197+: 由来 (プロベナンス) チップ — 流入チャネル + メール取込 + AI 指示者。
 // AI 自動入力の「どこから来た情報か」を一目で分かるようにする。
-// **AI が書いた指示者名は出さない** (誤字が入るため。理由: aiAttribution.ts)
 function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
   const channel = log.source_channel as string | null;
   const hasMail = !!log.message_id;
-  if (!channel && !hasMail) return null;
+  const requestedBy = log.ai_requested_by as string | null;
+  if (!channel && !hasMail && !requestedBy) return null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {channel && (
@@ -54,6 +49,9 @@ function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
         >
           ✉ メール
         </span>
+      )}
+      {requestedBy && (
+        <span className="text-[10px] text-violet-600" title="AI に指示した人">指示: {requestedBy}</span>
       )}
     </span>
   );
@@ -250,7 +248,7 @@ export default function ActivityLogPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <PageTitle>営業活動記録</PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">営業活動記録</h1>
           <p className="text-sm text-muted-foreground">電話・訪問・メール等の営業活動を記録</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
@@ -287,7 +285,7 @@ export default function ActivityLogPage() {
 
       {/* フィルター */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 max-w-sm min-w-[200px]">
+        <div className="relative flex-1 max-w-sm min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="件名・案件名・顧客名で検索..."
@@ -297,7 +295,7 @@ export default function ActivityLogPage() {
           />
         </div>
         <Select value={typeFilter || "all"} onValueChange={(v) => { setTypeFilter(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全種別</SelectItem>
             {ACTIVITY_TYPES.map(t => (
@@ -306,7 +304,7 @@ export default function ActivityLogPage() {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => { setSort(v as "date" | "next_action"); setPage(1); }}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[168px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="date">活動日が新しい順</SelectItem>
             <SelectItem value="next_action">次回アクション期限順</SelectItem>
@@ -319,7 +317,7 @@ export default function ActivityLogPage() {
               key={v || "all"}
               type="button"
               onClick={() => { setOriginFilter(v); setPage(1); }}
-              className={`h-ctl-1 inline-flex items-center gap-1 rounded-md px-2.5 text-xs transition-colors${
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 originFilter === v
                   ? v === "ai"
                     ? "bg-violet-600 text-white font-medium"
@@ -338,12 +336,9 @@ export default function ActivityLogPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <Delayed><SkeletonRows rows={5} /></Delayed>
+            <div className="flex justify-center py-8">読み込み中...</div>
           ) : logs.length === 0 ? (
-            <EmptyState
-              title="活動記録はまだ1件もありません"
-              description="「活動を記録」から、訪問・電話・メールのやり取りを残してください。次回の予定も一緒に入れられます。"
-            />
+            <div className="text-center py-8 text-muted-foreground">活動記録がありません</div>
           ) : (
             <>
               {/* Mobile cards — 活動日でグルーピングし、カードは「件名 → 案件/顧客 → 次回」の順に整理。
@@ -370,7 +365,7 @@ export default function ActivityLogPage() {
                         <div className="flex items-start gap-2">
                           <span className={`mt-0.5 shrink-0 rounded px-2 py-0.5 text-xs ${at.color}`}>{at.label}</span>
                           <span className="min-w-0 flex-1 font-medium leading-snug line-clamp-2">{log.subject}</span>
-                          {log.is_ai_created && <span className="mt-0.5"><AiCreatedBadge /></span>}
+                          {log.is_ai_created && <span className="mt-0.5"><AiCreatedBadge requestedBy={log.ai_requested_by} /></span>}
                         </div>
                         {/* 2行目: 案件名/顧客名 (人が読める名前) + 担当 + 活動日 (期限順ソート時のみ) */}
                         <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground min-w-0">
@@ -397,11 +392,11 @@ export default function ActivityLogPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[96px]">活動日</TableHead>
-                    <TableHead className="w-[72px]">種別</TableHead>
+                    <TableHead className="w-[110px]">活動日</TableHead>
+                    <TableHead className="w-[80px]">種別</TableHead>
                     <TableHead>件名</TableHead>
                     <TableHead>案件 / 顧客</TableHead>
-                    <TableHead className="w-[96px]">担当</TableHead>
+                    <TableHead className="w-[90px]">担当</TableHead>
                     <TableHead>次回アクション</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>
@@ -423,7 +418,7 @@ export default function ActivityLogPage() {
                         <TableCell className="font-medium max-w-[320px]">
                           <span className="flex items-center gap-1.5">
                             <span className="truncate" title={log.subject}>{log.subject}</span>
-                            {log.is_ai_created && <AiCreatedBadge />}
+                            {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
                           </span>
                           <ProvenanceChips log={log} />
                         </TableCell>
@@ -441,8 +436,8 @@ export default function ActivityLogPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(log)}>
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
-                              if ((await confirmAction({ title: "削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(log.id);
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                              if (confirm("削除しますか？")) deleteMutation.mutate(log.id);
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -549,7 +544,7 @@ export default function ActivityLogPage() {
               <Button
                 variant="ghost"
                 className="text-destructive hover:text-destructive sm:mr-auto"
-                onClick={async () => { if ((await confirmAction({ title: "この活動記録を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(editingId); }}
+                onClick={() => { if (confirm("この活動記録を削除しますか？")) deleteMutation.mutate(editingId); }}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="h-4 w-4 mr-1" />削除

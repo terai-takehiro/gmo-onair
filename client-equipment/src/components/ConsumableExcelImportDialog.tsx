@@ -203,7 +203,7 @@ export default function ConsumableExcelImportDialog({
           </Card>
 
           {preview && !committed && (
-            <Card className={unmatchedCount > 0 ? "border-warning/60" : "border-success/40"}>
+            <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">列の対応付け</h3>
@@ -226,7 +226,7 @@ export default function ConsumableExcelImportDialog({
                       {preview.expectedColumns.map((col) => {
                         const current = mapping[col.key];
                         return (
-                          <tr key={col.key} className={!current ? 'bg-warning-surface' : ''}>
+                          <tr key={col.key} className={!current ? 'bg-amber-50' : ''}>
                             <td className="px-2 py-1.5 font-medium">{col.header}</td>
                             <td className="px-2 py-1">
                               <Select
@@ -272,19 +272,19 @@ export default function ConsumableExcelImportDialog({
           )}
 
           {dryRun && !committed && (
-            <Card className={errorCount > 0 ? "border-destructive/40" : "border-success/40"}>
+            <Card className={errorCount > 0 ? "border-destructive/40" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">検証結果</h3>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-accent text-primary">新規 {dryRun.summary.insert}</span>
+                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800">新規 {dryRun.summary.insert}</span>
                     {errorCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-destructive-surface text-destructive">エラー {errorCount}</span>
+                      <span className="px-2 py-0.5 rounded bg-red-100 text-red-800">エラー {errorCount}</span>
                     )}
                   </div>
                 </div>
                 {dryRun.warnings.length > 0 && (
-                  <div className="text-xs text-warning-strong bg-warning-surface rounded p-2 space-y-0.5">
+                  <div className="text-xs text-amber-700 bg-amber-50 rounded p-2 space-y-0.5">
                     {dryRun.warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}
                   </div>
                 )}
@@ -300,15 +300,15 @@ export default function ConsumableExcelImportDialog({
                     </thead>
                     <tbody>
                       {dryRun.rows.map((r) => (
-                        <tr key={r.rowNumber} className={r.errors.length > 0 ? 'bg-destructive-surface' : ''}>
+                        <tr key={r.rowNumber} className={r.errors.length > 0 ? 'bg-red-50' : ''}>
                           <td className="px-2 py-1 tabular-nums">{r.rowNumber}</td>
                           <td className="px-2 py-1">{r.name}</td>
                           <td className="px-2 py-1">
-                            <span className={r.errors.length > 0 ? 'text-destructive' : 'text-primary'}>
+                            <span className={r.errors.length > 0 ? 'text-red-600' : 'text-blue-600'}>
                               {r.errors.length > 0 ? '✗' : '＋新規'}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-destructive">{r.errors.join(' / ')}</td>
+                          <td className="px-2 py-1 text-red-600">{r.errors.join(' / ')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -334,9 +334,9 @@ export default function ConsumableExcelImportDialog({
           )}
 
           {committed && (
-            <Card className="border-success/40 bg-success-surface/30">
+            <Card className="border-green-500/40 bg-green-50/30">
               <CardContent className="p-4 space-y-2">
-                <div className="flex items-center gap-2 text-success">
+                <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle2 className="h-5 w-5" />
                   <span className="font-semibold">インポート完了</span>
                 </div>

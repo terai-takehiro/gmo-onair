@@ -70,11 +70,7 @@ export default function OutputPage() {
     refetchInterval: 3000,
   });
 
-  // 引数なしの `useAwardsStore()` だと**ストア全体**を見てしまい、
-  // cue が変わるたびに (= TAKE のたび・アンケート票数の3秒ごと) この
-  // 出力ページそのものが描き直される。要るのは書き込む関数だけなので選ぶ。
-  const setCategories = useAwardsStore((s) => s.setCategories);
-  const setSurveys = useAwardsStore((s) => s.setSurveys);
+  const { setCategories, setSurveys } = useAwardsStore();
   useEffect(() => {
     if (event?.categories) setCategories(event.categories);
   }, [event, setCategories]);

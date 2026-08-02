@@ -73,20 +73,12 @@ export function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => { setOpen(!open); setSearch(""); }}
-        className="flex h-ctl-3 w-full items-center justify-between gap-2 rounded-control border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        title={selected ? selected.label : undefined}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {/*
-          選んだものは**1行で省略する**。`min-w-0` と `truncate` が無いと、
-          長い会社名 (「GMOインターネットグループ株式会社」) が高さ40pxの枠の中で
-          2行に折り返し、中央寄せに見えて崩れる (実際に起きていた)。
-        */}
-        <span
-        className={`min-w-0 flex-1 truncate text-left ${selected ? "text-foreground" : "text-muted-foreground"}`}
-        >
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
           {selected ? selected.label : placeholder}
         </span>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex items-center gap-1">
           {value && (
             <X
               className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"

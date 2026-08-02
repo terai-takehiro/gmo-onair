@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { formatCurrency } from "@/lib/format";
 import {
   Vendor,
-  TaxCategoryLabels,
 } from "@/types";
 import {
   Dialog,
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
+import { TaxCategoryLabels } from "@/types";
 
 export interface SgaFormData {
   vendor_name: string;
@@ -190,10 +190,10 @@ export default function SgaDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* 税区分は @/types の TaxCategoryLabels 1か所から出す
-                      (画面ごとに並べると【不課税】のように足した選択肢が漏れる) */}
-                  {Object.entries(TaxCategoryLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {/* 画面ごとに <SelectItem> を並べると足した区分が漏れる。
+                      実際ここだけ非課税が無く、販管費は非課税を選べなかった。 */}
+                  {(Object.keys(TaxCategoryLabels) as (keyof typeof TaxCategoryLabels)[]).map((k) => (
+                    <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -350,7 +350,7 @@ export default function SgaDialog({
             {form.expense_type === "spot" && (
               <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm">月ごとに分ける</span>
+                  <span className="text-sm">月按分する</span>
                   <Switch
                     checked={form.amortize_enabled}
                     onCheckedChange={(checked) =>
@@ -367,7 +367,7 @@ export default function SgaDialog({
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">分ける開始月</Label>
+                        <Label className="text-xs">按分開始月</Label>
                         <Input
                           type="month"
                           value={form.amortize_start}
@@ -380,7 +380,7 @@ export default function SgaDialog({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">分ける終了月</Label>
+                        <Label className="text-xs">按分終了月</Label>
                         <Input
                           type="month"
                           value={form.amortize_end}

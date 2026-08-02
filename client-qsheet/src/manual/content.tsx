@@ -85,7 +85,7 @@ export const QSHEET_MANUAL: ManualContent = {
             },
             {
               title: "GLS案件に紐付ける（任意）",
-              text: "トグルをONにして「GLS案件」と「回（任意）」を選ぶと、案件管理アプリと連携します。",
+              text: "トグルをONにして「GLS案件」と「エピソード（任意）」を選ぶと、案件管理アプリと連携します。",
             },
             {
               title: "作成",
@@ -266,7 +266,7 @@ export const QSHEET_MANUAL: ManualContent = {
           ],
           caption: "OnAir画面のキーボード操作",
         },
-        { type: "callout", tone: "info", text: "OnAirの進行状態はランダウン・プロンプター・音声サポートへリアルタイム配信されます。接続が切れると画面の上に「放送同期が切断されました」のお知らせが出ます（閉じるまで消えません）。" },
+        { type: "callout", tone: "info", text: "OnAirの進行状態はランダウン・プロンプター・音声サポートへリアルタイム配信されます。接続が切れると「放送同期が切断されました」のトーストが出ます。" },
       ],
     },
     {

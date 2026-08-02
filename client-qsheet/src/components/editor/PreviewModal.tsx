@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { X, Download, Printer } from "lucide-react";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, fmtMinSec as fmtMinSecShared } from "@/lib/time";
-import { notifyWarning } from '@/lib/notify';
 
 // ─── Constants ──────────────────────────────────────────
 const SPEAKER_COLORS = ["#1e3a5f", "#0f766e", "#7e22ce", "#be185d", "#b45309", "#15803d", "#1d4ed8", "#9f1239", "#4338ca", "#a16207"];
@@ -229,7 +228,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
   const handlePDF = () => {
     if (!pageRef.current) return;
     const printWindow = window.open("", "_blank");
-    if (!printWindow) { notifyWarning("PDF を開けませんでした", { description: "ブラウザがポップアップをブロックしています。このサイトのポップアップを許可してから、もう一度お試しください。" }); return; }
+    if (!printWindow) { alert("ポップアップがブロックされました。許可してください。"); return; }
     const sizes: Record<string, [string, string]> = {
       A4P: ["210mm", "297mm"],
       A4L: ["297mm", "210mm"],
@@ -452,9 +451,9 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="flex flex-col bg-muted rounded-2xl shadow-2xl overflow-hidden" style={{ width: "min(92vw, 1280px)", height: "92vh" }}>
         {/* Toolbar */}
-        <div className="flex-none flex items-center justify-between px-5 py-3 bg-white border-b border-border shadow-sm gap-4">
+        <div className="flex-none flex items-center justify-between px-5 py-3 bg-white border-b border-zinc-200 shadow-sm gap-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
               用紙
               <select value={paperSize} onChange={(e) => setPaperSize(e.target.value)} className="px-2 py-1 text-xs border border-border rounded-lg bg-card text-foreground" aria-label="用紙サイズ">
                 <option value="A4P">A4 タテ</option>
@@ -463,32 +462,32 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                 <option value="A3L">A3 ヨコ</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
               フォント
               <input type="range" min="7" max="12" value={fontSize} step="0.5" onChange={(e) => setFontSize(parseFloat(e.target.value))} className="w-16" />
               <span className=" text-xs">{fontSize}pt</span>
             </label>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
               余白
               <input type="range" min="10" max="50" value={margin} step="5" onChange={(e) => setMargin(parseInt(e.target.value))} className="w-16" />
               <span className=" text-xs">{margin}</span>
             </label>
-            <span className="w-px h-4 bg-accent" />
+            <span className="w-px h-4 bg-zinc-200" />
             <button
               type="button"
               role="switch"
               aria-checked={mono}
               onClick={() => setMono(!mono)}
               className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
-                mono ? "bg-muted border-border text-white" : "border-border text-muted-foreground hover:bg-muted"
+                mono ? "bg-zinc-700 border-zinc-700 text-white" : "border-zinc-300 text-zinc-600 hover:bg-zinc-50"
               }`}
             >
               白黒
             </button>
-            <span className="w-px h-4 bg-accent" />
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="w-px h-4 bg-zinc-200" />
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
               改ページ
-              <span className="inline-flex rounded-full border border-border overflow-hidden" role="radiogroup" aria-label="改ページ方式">
+              <span className="inline-flex rounded-full border border-zinc-300 overflow-hidden" role="radiogroup" aria-label="改ページ方式">
                 <button
                   type="button"
                   role="radio"
@@ -496,7 +495,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                   onClick={() => changePageMode("flow")}
                   title="ロールを物理ページなりに連続して詰める (A4横などで紙が無駄になりません)"
                   className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                    pageMode === "flow" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"
+                    pageMode === "flow" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
                   }`}
                 >
                   ページごと
@@ -507,16 +506,16 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                   aria-checked={pageMode === "role"}
                   onClick={() => changePageMode("role")}
                   title="ロールが変わるたびに改ページ (1 ロール = 1 ページ)。ページ番号が物理ページと一致します"
-                  className={`px-2.5 py-1 text-xs font-medium border-l border-border transition-colors ${
-                    pageMode === "role" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"
+                  className={`px-2.5 py-1 text-xs font-medium border-l border-zinc-300 transition-colors ${
+                    pageMode === "role" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
                   }`}
                 >
                   ロールごと
                 </button>
               </span>
             </label>
-            <span className="w-px h-4 bg-accent" />
-            <span className="text-xs text-muted-foreground">出力列:</span>
+            <span className="w-px h-4 bg-zinc-200" />
+            <span className="text-xs text-zinc-400">出力列:</span>
             {state.blocks.map((blk) => {
               const isScenario = blk.type === "scenario";
               const isOn = isScenario || selectedBlocks.has(blk.id);
@@ -530,10 +529,10 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                   onClick={() => toggleBlock(blk.id)}
                   className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors disabled:cursor-not-allowed ${
                     isScenario
-                      ? "bg-muted border-border text-muted-foreground"
+                      ? "bg-zinc-100 border-zinc-200 text-zinc-400"
                       : isOn
-                        ? "bg-primary border-primary text-white"
-                        : "border-border text-muted-foreground hover:bg-muted"
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-zinc-300 text-zinc-600 hover:bg-zinc-50"
                   }`}
                 >
                   {blk.label}
@@ -542,15 +541,15 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
             })}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={handleCsvDownload} title="CSVダウンロード" className="h-ctl-3 inline-flex items-center gap-1.5 px-3 text-xs font-semibold rounded-lg bg-white border border-border text-muted-foreground hover:bg-muted transition-all">
+            <button onClick={handleCsvDownload} title="CSVダウンロード" className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">
               <Download size={14} />
               CSV
             </button>
-            <button onClick={handlePDF} className="h-ctl-3 inline-flex items-center gap-1.5 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 shadow-sm transition-all">
+            <button onClick={handlePDF} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all">
               <Printer size={14} />
               PDF / 印刷
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 transition-colors">
               <X size={18} />
             </button>
           </div>

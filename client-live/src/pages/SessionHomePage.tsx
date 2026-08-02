@@ -11,9 +11,7 @@ import {
   Youtube, Globe, Link2, Unlink, Trash2, Loader2,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
-
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface LiveProgram {
   id: string;
@@ -63,9 +61,9 @@ export default function SessionHomePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['programs-all'] }),
   });
 
-  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    if (!(await confirmAction({ title: `「${name}」を削除しますか？`, description: `タイマーのデータは残りますが、このセッションには戻れません。`, confirmLabel: '削除する', tone: 'danger' }))) return;
+    if (!confirm(`「${name}」を削除しますか？\nタイマーのデータは残りますが、このセッションには戻れません。`)) return;
     deleteMutation.mutate(id);
   };
 
@@ -170,7 +168,7 @@ export default function SessionHomePage() {
                   className="group w-full flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3.5 text-left transition-all hover:border-primary/40 hover:bg-accent"
                 >
                   {/* GLS badge or standalone indicator */}
-                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${
+                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs  font-bold ${
                     p.gls_number ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
                   }`}>
                     {p.gls_number ?? 'STA'}
@@ -282,7 +280,7 @@ export default function SessionHomePage() {
                   </div>
                   <div className="max-h-40 overflow-y-auto rounded-md border border-border">
                     {filteredProjects.length === 0 ? (
-                      <div className="py-6 text-center text-xs text-muted-foreground">当てはまる案件がありません。言葉を短くしてお試しください。</div> /* ui-tokens-ok: 高さ40の選択リストの中なので EmptyState の枠付きパネルは入らない */
+                      <div className="py-6 text-center text-xs text-muted-foreground">案件が見つかりません</div>
                     ) : filteredProjects.map(p => (
                       <button
                         key={p.id}

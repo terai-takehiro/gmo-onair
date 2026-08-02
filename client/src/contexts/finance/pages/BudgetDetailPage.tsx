@@ -11,9 +11,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { taxShortLabel } from "@/types";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { TaxCategoryLabels } from "@/types";
 
 interface ProjectOption { id: string; gls_number: string; name: string; }
 
@@ -121,7 +120,7 @@ export default function BudgetDetailPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap items-center gap-3 justify-between">
-        <PageTitle>案件月別詳細</PageTitle>
+        <h1 className="text-xl lg:text-2xl font-bold">案件月別詳細</h1>
         {projectId && selectedProject && (
           <ProjectQuickLinks
             projectId={projectId}
@@ -217,7 +216,7 @@ export default function BudgetDetailPage() {
                               <span>{(r.project_name as string) || "-"}</span>
                             </TableCell>
                           )}
-                          <TableCell className="text-xs">{taxShortLabel(r.tax_category as string)}</TableCell>
+                          <TableCell className="text-xs">{TaxCategoryLabels[r.tax_category as keyof typeof TaxCategoryLabels] ?? r.tax_category}</TableCell>
                           <TableCell className="text-xs">{formatMonth(r.recognition_date as string)}</TableCell>
                           <TableCell className="text-xs">
                             {r.invoice_issued ? (
@@ -264,7 +263,7 @@ export default function BudgetDetailPage() {
                         const settled = formatSettlementNo(p.settlement_method, p.settlement_number);
                         return (
                           <TableRow key={p.id as string}>
-                            <TableCell className="truncate max-w-[128px]">{(p.vendor_name as string) || "-"}</TableCell>
+                            <TableCell className="truncate max-w-[130px]">{(p.vendor_name as string) || "-"}</TableCell>
                             {!projectId && (
                               <TableCell className="text-xs truncate max-w-[200px]">
                                 <span className=" text-primary mr-1">{(p.gls_number as string) || "-"}</span>
@@ -294,7 +293,7 @@ export default function BudgetDetailPage() {
             <div className="space-y-2 xl:col-span-2">
               <h2 className="text-base font-semibold">
                 販管費
-                {projectId && <span className="ml-2 text-xs font-normal text-muted-foreground">※ 案件ごとには分けていません・月内の全社データ</span>}
+                {projectId && <span className="ml-2 text-xs font-normal text-muted-foreground">※ 案件別按分なし・月内の全社データ</span>}
               </h2>
                 {sgaLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : (
                   <div className="overflow-x-auto rounded border">
@@ -318,8 +317,8 @@ export default function BudgetDetailPage() {
                           return (
                             <TableRow key={e.id as string}>
                               <TableCell className=" text-xs">{(e.billing_key as string) || "-"}</TableCell>
-                              <TableCell className="truncate max-w-[128px]">{(e.vendor_name as string) || "-"}</TableCell>
-                              <TableCell className="truncate max-w-[200px] text-xs">{(e.description as string) || "-"}</TableCell>
+                              <TableCell className="truncate max-w-[130px]">{(e.vendor_name as string) || "-"}</TableCell>
+                              <TableCell className="truncate max-w-[180px] text-xs">{(e.description as string) || "-"}</TableCell>
                               <TableCell className="text-xs">{e.expense_type === "fixed" ? "固定" : "スポット"}</TableCell>
                               <TableCell className="text-xs">{formatDate(e.recognition_date as string)}</TableCell>
                               <TableCell className="text-xs">

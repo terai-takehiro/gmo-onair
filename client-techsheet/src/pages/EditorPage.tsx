@@ -18,8 +18,6 @@ import {
   Monitor,
   Radio,
 } from "lucide-react";
-import { notifyError } from '@/lib/notify';
-import { Delayed, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // Types
@@ -211,7 +209,7 @@ export default function EditorPage() {
       }
       const msg = err?.response?.data?.error?.message || err?.message || "保存に失敗しました";
       console.error("[techsheet] save error:", msg);
-      notifyError(`保存エラー: ${msg}`);
+      alert(`保存エラー: ${msg}`);
     },
   });
 
@@ -254,7 +252,9 @@ export default function EditorPage() {
 
   if (isLoading || !doc) {
     return (
-      <Delayed><SkeletonCard lines={6} /></Delayed>
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
@@ -286,7 +286,7 @@ export default function EditorPage() {
           ) : saveMutation.isPending ? (
             <span className="hidden sm:inline text-xs text-muted-foreground">保存中…</span>
           ) : dirty ? (
-            <span className="hidden sm:inline text-xs text-warning-strong">未保存</span>
+            <span className="hidden sm:inline text-xs text-amber-600">未保存</span>
           ) : lastSavedAt ? (
             <span className="hidden sm:inline text-xs text-muted-foreground">
               保存済み {lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
@@ -312,7 +312,7 @@ export default function EditorPage() {
       {conflict && (
         <div className="flex items-center justify-between gap-2 bg-destructive/10 border-b border-destructive/30 px-4 py-2 text-xs text-destructive">
           <span>この技術資料は別のタブ/端末で更新されました。上書きを防ぐため自動保存を停止しています。CSV 等で退避してから最新を読み込んでください。</span>
-          <Button size="sm" variant="outline" className="h-ctl-1 text-xs shrink-0" onClick={handleReload}>
+          <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={handleReload}>
             最新を読み込む
           </Button>
         </div>
@@ -337,7 +337,7 @@ export default function EditorPage() {
             <button
               key={sheet.id}
               className={cn(
-                "h-ctl-3 flex items-center gap-1.5 px-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
+                "flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === sheet.id
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -486,7 +486,7 @@ function HeaderStaffTab({ data, updateData, doc, setDoc, setDirty }: {
             <div key={field}>
               <div className="flex items-center gap-2 mb-1">
                 <label className="text-xs text-muted-foreground">{label}</label>
-                <Button variant="ghost" size="sm" className="h-ctl-1 px-1 text-xs" onClick={() => addStaffEntry(field)}>
+                <Button variant="ghost" size="sm" className="h-5 px-1 text-xs" onClick={() => addStaffEntry(field)}>
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
@@ -551,19 +551,19 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
       <div className="overflow-x-auto border rounded-lg">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted">
+            <tr className="border-b bg-slate-50">
               <th className="w-16 px-2 py-2 text-left text-xs font-medium text-muted-foreground">No.</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[128px]">カメラ機種</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[128px]">レンズ</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[96px]">担当者</th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[160px]">設置場所</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[140px]">カメラ機種</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[120px]">レンズ</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[100px]">担当者</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[150px]">設置場所</th>
               <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[200px]">ケーブル/備考</th>
               <th className="w-8"></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/30 group">
+              <tr key={row.id} className="border-b last:border-b-0 hover:bg-slate-50/30 group">
                 <td className="px-2 py-1">
                   <Input className="h-7 text-xs w-14" value={row.number} onChange={(e) => updateRow(row.id, "number", e.target.value)} placeholder="1C" />
                 </td>
@@ -583,7 +583,7 @@ function CameraTab({ sheet, updateSheet }: { sheet: SheetData; updateSheet: (id:
                   <Input className="h-7 text-xs" value={row.cable} onChange={(e) => updateRow(row.id, "cable", e.target.value)} />
                 </td>
                 <td className="px-1 py-1">
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground group-hover:text-destructive" onClick={() => deleteRow(row.id)}>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground/30 group-hover:text-destructive" onClick={() => deleteRow(row.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </td>
@@ -645,15 +645,15 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
         <div key={sec.id}>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">{sec.label}</h3>
-            <Button size="sm" variant="ghost" className="h-ctl-1 gap-1 text-xs" onClick={() => addRowToSection(sec.id)}>
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => addRowToSection(sec.id)}>
               <Plus className="h-3 w-3" /> 追加
             </Button>
           </div>
           <div className="overflow-x-auto border rounded-lg">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted">
-                  <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[160px]">項目</th>
+                <tr className="border-b bg-slate-50">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[150px]">項目</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[300px]">詳細</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-muted-foreground min-w-[200px]">備考</th>
                   <th className="w-8"></th>
@@ -661,7 +661,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
               </thead>
               <tbody>
                 {sec.rows.map((row) => (
-                  <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/30 group">
+                  <tr key={row.id} className="border-b last:border-b-0 hover:bg-slate-50/30 group">
                     <td className="px-2 py-1">
                       <Input className="h-7 text-xs" value={row.item} onChange={(e) => updateRowInSection(sec.id, row.id, "item", e.target.value)} />
                     </td>
@@ -677,7 +677,7 @@ function SectionedTab({ sheet, updateSheet, newRow }: {
                       <Input className="h-7 text-xs" value={row.notes} onChange={(e) => updateRowInSection(sec.id, row.id, "notes", e.target.value)} />
                     </td>
                     <td className="px-1 py-1">
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground group-hover:text-destructive" onClick={() => deleteRowFromSection(sec.id, row.id)}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground/30 group-hover:text-destructive" onClick={() => deleteRowFromSection(sec.id, row.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </td>

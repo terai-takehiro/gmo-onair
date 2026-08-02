@@ -127,7 +127,6 @@ export const projectCollabService = {
         done: !!it?.done,
         assigned_to: it?.assigned_to ?? null,
         due_at: it?.due_at ?? null,
-        by_ai: !!it?.by_ai,
       })),
     };
     // state も作り直す。JSONB だけ更新すると、次に部屋を開いたとき
@@ -145,4 +144,7 @@ export const projectCollabService = {
   },
 };
 
-
+// TODO(要件 B5): 編集中の案件に AI が追記する経路。
+// 部屋が開いている場合は Y.Text の末尾に insert して他の参加者へ中継する必要があり、
+// socket 層と結線しないと成立しない。ここは Phase 6 (B5 案件エージェント) で作る。
+// それまで AI からの書き込みは「部屋が閉じているときだけ putDoc」で足りる。

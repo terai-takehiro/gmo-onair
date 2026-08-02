@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -9,27 +9,278 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
-  arrayMove,
+  useSortable, arrayMove,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
-  Tv, ChevronLeft, Plus, HelpCircle,
-  Upload, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  Subtitles, Layers, Radio, Link2,
+  Tv, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
+  Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
+  ChevronDown, ChevronRight, Subtitles, Layers,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import SoundConfigSection from '../components/SoundConfigSection';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError, notifyInfo } from '@/lib/notify';
-import { Delayed, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
-import {
-  STATUS_OPTIONS, computeReorderPayload, groupByAward,
-  type AwardsEventDetail, type CategoryPatch, type Entry,
-} from './eventEditor/types';
-import {
-  FormField, SortableAwardGroupCard,
-} from './eventEditor/sections';
+// ── Types ───────────────────────────────────────────────────
+interface Entry {
+  id: number;
+  rank: number | null;
+  name: string;
+  name_en: string | null;
+  org: string | null;
+  org_en: string | null;
+  image_id: string | null;
+  points: number | null;
+  own_points: number | null;
+  nomination_title: string | null;
+  nomination_title_en: string | null;
+  photo_url: string | null;
+  is_winner: boolean;
+}
 
+interface Category {
+  id: number;
+  name: string;
+  name_en: string | null;
+  description: string | null;
+  description_en: string | null;
+  display_order: number;
+  award_pattern?: 'direct' | 'vote';
+  poll_title?: string | null;
+  poll_title_en?: string | null;
+  poll_question?: string | null;
+  poll_question_en?: string | null;
+  entries: Entry[];
+}
+
+type CategoryPatch = Partial<Pick<Category,
+  'name' | 'name_en' | 'description' | 'description_en' |
+  'award_pattern' | 'poll_title' | 'poll_title_en' | 'poll_question' | 'poll_question_en'
+>>;
+
+interface AwardsEventDetail {
+  id: number;
+  name: string;
+  subtitle: string | null;
+  description: string | null;
+  scheduled_at: string | null;
+  status: 'draft' | 'live' | 'closed';
+  categories: Category[];
+}
+
+interface AwardGroup {
+  name: string;
+  nameEn: string | null;
+  divisions: Category[];
+}
+
+function groupByAward(categories: Category[]): AwardGroup[] {
+  const map = new Map<string, Category[]>();
+  const order: string[] = [];
+  for (const cat of categories) {
+    if (!map.has(cat.name)) { map.set(cat.name, []); order.push(cat.name); }
+    map.get(cat.name)!.push(cat);
+  }
+  return order.map((name) => {
+    const divisions = map.get(name)!;
+    const nameEn = divisions.find((d) => d.name_en?.trim())?.name_en ?? null;
+    return { name, nameEn, divisions };
+  });
+}
+
+function computeReorderPayload(groups: AwardGroup[]) {
+  let i = 1;
+  return groups.flatMap((g) => g.divisions.map((d) => ({ id: d.id, displayOrder: i++ })));
+}
+
+const STATUS_OPTIONS = [
+  { value: 'draft',  label: '準備中' },
+  { value: 'live',   label: 'LIVE中' },
+  { value: 'closed', label: '終了' },
+] as const;
+
+// ── Inline edit helpers ──────────────────────────────────────
+function InlineText({
+  value, onSave, placeholder, className,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setDraft(value); setEditing(true); }}
+        className={cn('text-left hover:opacity-70 transition-opacity', className)}
+      >
+        {value || <span className="text-muted-foreground/60">{placeholder}</span>}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { onSave(draft); setEditing(false); }
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className={cn('flex-1 rounded border bg-background px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50', className)}
+      />
+      <button onClick={() => { onSave(draft); setEditing(false); }} className="text-primary"><Check className="h-4 w-4" /></button>
+      <button onClick={() => setEditing(false)} className="text-muted-foreground"><X className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+// ── EntryRow ────────────────────────────────────────────────
+function EntryRow({
+  entry, onUpdate, onDelete, onPhotoUpload,
+}: {
+  entry: Entry;
+  onUpdate: (patch: Partial<Entry>) => void;
+  onDelete: () => void;
+  onPhotoUpload: (file: File) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const ownPct = entry.own_points != null && entry.points
+    ? Math.round(entry.own_points / entry.points * 100)
+    : null;
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm">
+      {/* Rank */}
+      <div className="mt-1.5 w-6 shrink-0 text-center text-xs font-bold text-muted-foreground">
+        {entry.rank ?? '–'}
+      </div>
+
+      {/* Photo */}
+      <button
+        onClick={() => fileRef.current?.click()}
+        className="relative mt-0.5 h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border hover:ring-primary/50 transition-all"
+        title="写真をアップロード"
+      >
+        {entry.photo_url
+          ? <img src={entry.photo_url} alt="" className="h-full w-full object-cover" />
+          : <Upload className="h-3.5 w-3.5 text-muted-foreground/50 absolute inset-0 m-auto" />
+        }
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhotoUpload(f); e.target.value = ''; }}
+      />
+
+      {/* Identity */}
+      <div className="flex-1 min-w-0 space-y-0.5">
+        {/* JA name + EN name */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.name}
+            onSave={(v) => onUpdate({ name: v })}
+            placeholder="氏名"
+            className="font-semibold"
+          />
+          <InlineText
+            value={entry.name_en ?? ''}
+            onSave={(v) => onUpdate({ name_en: v || null })}
+            placeholder="Name EN"
+            className="text-xs text-muted-foreground/60"
+          />
+        </div>
+        {/* JA org + EN org */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.org ?? ''}
+            onSave={(v) => onUpdate({ org: v || null })}
+            placeholder="会社名"
+            className="text-xs text-muted-foreground"
+          />
+          <InlineText
+            value={entry.org_en ?? ''}
+            onSave={(v) => onUpdate({ org_en: v || null })}
+            placeholder="Company EN"
+            className="text-xs text-muted-foreground/50"
+          />
+        </div>
+        {/* Nomination title (vote パターンで使用) */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.nomination_title ?? ''}
+            onSave={(v) => onUpdate({ nomination_title: v || null })}
+            placeholder="ノミネートタイトル (例: 社内システムから AI 活用まで。)"
+            className="text-xs text-amber-700"
+          />
+          <InlineText
+            value={entry.nomination_title_en ?? ''}
+            onSave={(v) => onUpdate({ nomination_title_en: v || null })}
+            placeholder="Nomination Title EN"
+            className="text-xs text-amber-700/60"
+          />
+        </div>
+        {/* Image ID badge */}
+        {entry.image_id && (
+          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground/50">
+            {entry.image_id}
+          </span>
+        )}
+      </div>
+
+      {/* Points */}
+      <div className="shrink-0 space-y-1 text-right">
+        <div className="flex items-baseline justify-end gap-1">
+          <InlineText
+            value={entry.points != null ? String(entry.points) : ''}
+            onSave={(v) => onUpdate({ points: v ? parseInt(v) || null : null })}
+            placeholder="—"
+            className=" font-bold text-sm tabular-nums"
+          />
+          <span className="text-[10px] font-medium text-muted-foreground">PT</span>
+        </div>
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-[10px] font-semibold text-amber-600/70">自社</span>
+          <InlineText
+            value={entry.own_points != null ? String(entry.own_points) : ''}
+            onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
+            placeholder="—"
+            className=" text-xs tabular-nums text-amber-600"
+          />
+          {ownPct != null && (
+            <span className="text-[10px] tabular-nums text-amber-600/50">({ownPct}%)</span>
+          )}
+        </div>
+      </div>
+
+      {/* Winner */}
+      <button
+        onClick={() => onUpdate({ is_winner: !entry.is_winner })}
+        title={entry.is_winner ? '大賞' : '大賞にする'}
+        className={cn(
+          'mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all',
+          entry.is_winner
+            ? 'bg-amber-400/20 text-amber-600'
+            : 'text-muted-foreground/30 hover:text-amber-500'
+        )}
+      >
+        <Tv className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={onDelete}
+        className="mt-1 text-muted-foreground/40 hover:text-destructive transition-colors"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// ── Main Page ────────────────────────────────────────────────
 export default function EventEditorPage() {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
@@ -258,22 +509,24 @@ export default function EventEditorPage() {
           }
         }
       }
-      notifyInfo(lines.join('\n'));
+      alert(lines.join('\n'));
       invalidate();
     } catch (err: any) {
-      notifyError(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
+      alert(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
     }
   };
 
   if (isLoading || !event) {
     return (
-      <Delayed><SkeletonCard lines={6} /></Delayed>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
     );
   }
 
   const tabs = [
     { key: 'categories', label: 'カテゴリ / エントリ' },
-    { key: 'info', label: 'イベント情報' },
+    { key: 'info',       label: 'イベント情報' },
   ] as const;
 
   return (
@@ -296,72 +549,39 @@ export default function EventEditorPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-          {/* ── 送出は1つ (20章 24a) ──────────────────────────
-              本番中に見る画面は1つ。以前は「統合送出 / 字幕スーパー /
-              アンケート・クイズ / ランキングCG」の4つが同じ並びにあり、
-              **どれを開いて本番に臨むのか**が人によって違っていた。 */}
           <button
-            onClick={() => navigate(`/event/${eventId}/onair`)}
-            className="flex min-h-tap items-center gap-1.5 rounded-lg bg-destructive px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-destructive/90 transition-colors"
-            title="本番中に見る画面。次に出るものを見てTAKEします"
+            onClick={() => navigate(`/event/${eventId}/cg/control`)}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2 sm:px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
+            title="統合送出コックピット (ランキング/字幕/クイズを1画面で操作)"
           >
-            <Radio className="h-4 w-4" />
-            送出
+            <Layers className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">統合送出</span>
+          </button>
+          <button
+            onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
+            title="字幕スーパー (下部テロップ) のオペレーター画面"
+          >
+            <Subtitles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">字幕スーパー</span>
+          </button>
+          <button
+            onClick={() => navigate(`/event/${eventId}/quiz`)}
+            className="flex items-center gap-1.5 rounded-lg border border-purple-500/60 bg-purple-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition-colors"
+            title="アンケート/クイズCG のオペレーター画面"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">アンケート/クイズ</span>
+          </button>
+          <button
+            onClick={() => navigate(`/event/${eventId}/control`)}
+            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2 sm:px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+            title="ランキングCG (ランキング演出) のオペレーター画面"
+          >
+            <Tv className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">ランキングCG</span>
           </button>
         </div>
-      </div>
-
-      {/* ── 準備（本番中は触りません。24a）────────────────────
-          設定は本番の操作と同じ並びに置かない。混ざると本番中に
-          設定を触ってしまう。 */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-xl border bg-muted/30 px-3 py-2">
-        <span className="mr-1 text-xs font-bold text-muted-foreground">準備</span>
-        <button
-          onClick={() => navigate(`/event/${eventId}/intake`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
-          title="ノミネートの一覧を入れる (貼る / 落とす / AIに整えさせる)"
-        >
-          <FileSpreadsheet className="h-3.5 w-3.5" />
-          データを入れる
-        </button>
-        <button
-          onClick={() => navigate(`/event/${eventId}/outputs`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
-          title="OBS に貼る URL を作る"
-        >
-          <Link2 className="h-3.5 w-3.5" />
-          出力URLの配り方
-        </button>
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-        <button
-          onClick={() => navigate(`/event/${eventId}/control`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
-        >
-          <Tv className="h-3.5 w-3.5" />
-          ランキングCGの設定
-        </button>
-        <button
-          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
-        >
-          <Subtitles className="h-3.5 w-3.5" />
-          字幕スーパーの設定
-        </button>
-        <button
-          onClick={() => navigate(`/event/${eventId}/quiz`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
-        >
-          <HelpCircle className="h-3.5 w-3.5" />
-          クイズ・アンケートの設定
-        </button>
-        <button
-          onClick={() => navigate(`/event/${eventId}/cg/control`)}
-          className="flex min-h-tap items-center gap-1.5 rounded-lg border bg-background px-3 text-xs text-muted-foreground hover:bg-muted"
-          title="以前の統合コックピット (送出は上の「送出」を使います)"
-        >
-          <Layers className="h-3.5 w-3.5" />
-          以前のコックピット
-        </button>
       </div>
 
       {/* Tabs */}
@@ -371,7 +591,7 @@ export default function EventEditorPage() {
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={cn(
-              'inline-flex h-ctl-3 items-center px-4 text-sm font-medium border-b-2 -mb-px transition-colors',
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
               activeTab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -389,14 +609,14 @@ export default function EventEditorPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setAddingCat(true)}
-              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
             >
               <Plus className="h-4 w-4" /> 賞を追加
             </button>
             <button
               onClick={() => seedDummy.mutate()}
               disabled={seedDummy.isPending}
-              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
               title="ダミーカテゴリとエントリを挿入（テスト用）"
             >
               <Shuffle className="h-4 w-4" />
@@ -404,7 +624,7 @@ export default function EventEditorPage() {
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              className="h-ctl-1 flex items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
               title="Excel をアップロードして列マッピング画面で取り込み"
             >
               <FileSpreadsheet className="h-4 w-4" />
@@ -429,8 +649,8 @@ export default function EventEditorPage() {
 
           {/* Add award form */}
           {addingCat && (
-            <div className="rounded-xl border-2 border-dashed border-warning bg-warning-surface/40 p-4 space-y-2">
-              <p className="text-xs font-medium text-warning-strong">新しい賞を追加</p>
+            <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/40 p-4 space-y-2">
+              <p className="text-xs font-medium text-amber-800">新しい賞を追加</p>
               <div className="flex gap-2">
                 <input autoFocus value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
@@ -439,10 +659,10 @@ export default function EventEditorPage() {
                     if (e.key === 'Escape') { setAddingCat(false); setNewCatName(''); }
                   }}
                   placeholder="賞名（例: キャリア新人賞）"
-                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50"
                 />
                 <button onClick={() => { if (newCatName.trim()) addCategory.mutate(newCatName.trim()); }}
-                  className="rounded-lg bg-warning px-3 py-2 text-sm text-warning-foreground hover:bg-warning/90">追加</button>
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600">追加</button>
                 <button onClick={() => { setAddingCat(false); setNewCatName(''); }}
                   className="rounded-lg border px-3 py-2 text-sm hover:bg-muted">取消</button>
               </div>
@@ -480,15 +700,15 @@ export default function EventEditorPage() {
                     onAddDivision={(awardName) => {
                       addCategory.mutate(awardName);
                     }}
-                    onDeleteCat={async (catId) => {
+                    onDeleteCat={(catId) => {
                       const cat = event.categories.find((c) => c.id === catId);
-                      if ((await confirmAction({ title: `「${cat?.description || cat?.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' })))
+                      if (confirm(`「${cat?.description || cat?.name}」を削除しますか？`))
                         deleteCategory.mutate(catId);
                     }}
                     onUpdateCat={(catId, patch) => updateCategory.mutate({ catId, patch })}
                     onAddEntry={(catId, name) => addEntry.mutate({ catId, name })}
                     onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
-                    onDeleteEntry={async (eid) => { if ((await confirmAction({ title: 'このエントリを削除しますか？', description: '（写真・ポイント・CG表示内容も削除されます）', confirmLabel: '削除する', tone: 'danger' }))) deleteEntry.mutate(eid); }}
+                    onDeleteEntry={(eid) => { if (confirm('このエントリを削除しますか？（写真・ポイント・CG表示内容も削除されます）')) deleteEntry.mutate(eid); }}
                     onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
                     onGenerateDummyPoints={(catId) => generateDummyPoints.mutate(catId)}
                   />
@@ -537,7 +757,7 @@ export default function EventEditorPage() {
             <p className="text-sm font-medium">送出 URL</p>
             <p className="text-xs text-muted-foreground">
               OBS / vMix の Browser Source 用。<strong>1920×1080</strong> で配置し、透過合成は「<strong>透明度を許可 (Allow Transparency) ON</strong>」を必須としてください。
-              <span className="text-destructive font-medium ml-1">OA</span> = 本番出力 / <span className="text-warning-strong font-medium ml-0.5">NEXT</span> = 次に送出する内容のプレビュー。
+              <span className="text-red-700 font-medium ml-1">OA</span> = 本番出力 / <span className="text-amber-700 font-medium ml-0.5">NEXT</span> = 次に送出する内容のプレビュー。
               <br />演出SE（効果音）を鳴らすには出力URLに <code className="px-1 rounded bg-muted text-[10px]">?audio=1</code> を付けてください（鳴らすのは1枚だけ・下の「演出SE」で音源を登録）。各 OA に「音声あり」URLも用意しています。
             </p>
           </div>
@@ -545,11 +765,11 @@ export default function EventEditorPage() {
           {/* ── リアルタイムCG (ランキング演出) ─────────── */}
           <div className="pt-2 space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <Tv className="h-3.5 w-3.5 text-warning-strong" />
+              <Tv className="h-3.5 w-3.5 text-amber-600" />
               リアルタイムCG <span className="text-xs text-muted-foreground font-normal">(ランキング / BEST3 / ファイナルピッチ / 大賞演出)</span>
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -560,7 +780,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -572,7 +792,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">OA (背景あり)</div>
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -584,7 +804,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -596,7 +816,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-info uppercase tracking-widest">OA (音声あり)</div>
+              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>（多重再生防止）。透過のまま。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -608,7 +828,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -620,7 +840,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -631,7 +851,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -647,14 +867,14 @@ export default function EventEditorPage() {
           {/* ── 字幕スーパー (下部テロップ) ─────────── */}
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <Subtitles className="h-3.5 w-3.5 text-warning-strong" />
+              <Subtitles className="h-3.5 w-3.5 text-amber-600" />
               字幕スーパー <span className="text-xs text-muted-foreground font-normal">(下部テロップ)</span>
             </p>
             <p className="text-xs text-muted-foreground">
               リアルタイムCG (ランキング演出) とは独立レイヤー。同時並走可能。
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -665,7 +885,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -677,7 +897,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -688,7 +908,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -704,20 +924,20 @@ export default function EventEditorPage() {
           {/* ── クイズ / アンケートCG ─────────── */}
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <HelpCircle className="h-3.5 w-3.5 text-primary" />
+              <HelpCircle className="h-3.5 w-3.5 text-purple-600" />
               クイズ / アンケートCG <span className="text-xs text-muted-foreground font-normal">(質問 + 選択肢 + 投票/集計)</span>
             </p>
             <p className="text-xs text-muted-foreground">
               operator (<code className="px-1 rounded bg-muted text-[10px]">/event/{event.id}/quiz-stack/control</code>) で順次送出。
               NEXT は operator が選択中の「次の問題」のプレビュー。
             </p>
-            <p className="text-xs text-warning-strong bg-warning-surface border border-warning rounded-md px-2 py-1.5">
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
               この出力は<strong>投票 (POLL) + 集計 (アンサーチェック)</strong> まで。
               アンケートの <strong>No.1 発表</strong>は、上の<strong>リアルタイムCG（ランキング）出力URL</strong>側で、
               連動カテゴリ（賞）の最後に「SURVEY No.1」ステップとして表示されます。
             </p>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-destructive uppercase tracking-widest">OA (本番)</div>
+              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -728,7 +948,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -740,7 +960,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">OA (背景あり)</div>
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -752,7 +972,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -764,7 +984,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-info uppercase tracking-widest">OA (音声あり)</div>
+              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
               <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>。透過のまま。</p>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -776,7 +996,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -788,7 +1008,7 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-warning-strong uppercase tracking-widest">NEXT</div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
                 { label: '🇺🇸 English', lang: 'en' },
@@ -799,7 +1019,7 @@ export default function EventEditorPage() {
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
-                    className="h-ctl-1 shrink-0 flex items-center gap-1 rounded-lg border px-2 text-xs hover:bg-muted transition-colors">
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                       <Copy className="h-3 w-3" />コピー
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -826,3 +1046,213 @@ export default function EventEditorPage() {
 }
 
 // ── 字幕スーパー モジュール構成 セクション (v2.8.74+) ────────────
+// イベントごとの ModuleDef[] (送出モジュール構成) を編集 + JSON I/O。
+// 段階4 (v2.8.75+) で「編集ページへ」ボタンを追加。
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ── SortableDivisionSection ─────────────────────────────────
+function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
+  cat: Category;
+  onDeleteCat: () => void;
+  onUpdateCat: (patch: CategoryPatch) => void;
+  onAddEntry: (name: string) => void;
+  onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
+  onDeleteEntry: (eid: number) => void;
+  onPhotoUpload: (eid: number, file: File) => void;
+  onGenerateDummyPoints: () => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [addingEntry, setAddingEntry] = useState(false);
+  const [newEntryName, setNewEntryName] = useState('');
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `div:${cat.id}` });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-lg border bg-background overflow-hidden">
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50/80 border-b">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-slate-300 hover:text-slate-500 transition-colors" title="ドラッグして並び替え">
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => setCollapsed(!collapsed)} className="text-slate-400 hover:text-slate-600">
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <InlineText value={cat.description ?? ''} onSave={(v) => onUpdateCat({ description: v.trim() || null })} placeholder="部門名" className="text-sm font-medium" />
+          <InlineText value={cat.description_en ?? ''} onSave={(v) => onUpdateCat({ description_en: v.trim() || null })} placeholder="部門名（英語）" className="text-xs italic text-muted-foreground" />
+        </div>
+        <span className="text-xs text-muted-foreground shrink-0">{cat.entries.length}名</span>
+        <button onClick={onGenerateDummyPoints} title="ポイント自動生成" className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+          <RefreshCw className="h-3 w-3" />pt生成
+        </button>
+        <button onClick={() => setAddingEntry(true)} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+          <Plus className="h-3 w-3" />追加
+        </button>
+        <button onClick={onDeleteCat} className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors">
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="p-2.5 space-y-1.5">
+          <PatternBlock cat={cat} onUpdate={onUpdateCat} />
+          {addingEntry && (
+            <div className="flex gap-2 mb-2">
+              <input autoFocus value={newEntryName} onChange={(e) => setNewEntryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newEntryName.trim()) { onAddEntry(newEntryName.trim()); setAddingEntry(false); setNewEntryName(''); }
+                  if (e.key === 'Escape') { setAddingEntry(false); setNewEntryName(''); }
+                }}
+                placeholder="氏名 / 名称"
+                className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button onClick={() => { if (newEntryName.trim()) { onAddEntry(newEntryName.trim()); setAddingEntry(false); setNewEntryName(''); } }} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white">追加</button>
+              <button onClick={() => { setAddingEntry(false); setNewEntryName(''); }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted">取消</button>
+            </div>
+          )}
+          {cat.entries.length === 0 && !addingEntry && (
+            <p className="py-3 text-center text-xs text-muted-foreground/50">エントリがありません</p>
+          )}
+          {cat.entries.map((entry) => (
+            <EntryRow key={entry.id} entry={entry}
+              onUpdate={(patch) => onUpdateEntry(entry.id, patch)}
+              onDelete={() => onDeleteEntry(entry.id)}
+              onPhotoUpload={(file) => onPhotoUpload(entry.id, file)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SortableAwardGroupCard ───────────────────────────────────
+function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAwardNameEn, onAddDivision, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
+  group: AwardGroup;
+  onUpdateAwardName: (name: string) => void;
+  onUpdateAwardNameEn: (nameEn: string) => void;
+  onAddDivision: (awardName: string) => void;
+  onDeleteCat: (catId: number) => void;
+  onUpdateCat: (catId: number, patch: CategoryPatch) => void;
+  onAddEntry: (catId: number, name: string) => void;
+  onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
+  onDeleteEntry: (eid: number) => void;
+  onPhotoUpload: (eid: number, file: File) => void;
+  onGenerateDummyPoints: (catId: number) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `group:${group.name}` });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const totalEntries = group.divisions.reduce((s, d) => s + d.entries.length, 0);
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-xl border-2 border-amber-200/70 bg-card overflow-hidden shadow-sm">
+      {/* Award (賞) header */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-50/20 border-b border-amber-200/60">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-amber-300 hover:text-amber-500 transition-colors shrink-0" title="ドラッグして並び替え">
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-amber-900" />
+          <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-amber-700/70" />
+        </div>
+        <span className="text-xs text-amber-700/60 shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
+        <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-amber-300/50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 transition-colors shrink-0">
+          <Plus className="h-3 w-3" />部門追加
+        </button>
+        <button onClick={() => setCollapsed(!collapsed)} className="shrink-0 text-amber-600/50 hover:text-amber-700 transition-colors">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+      </div>
+      {/* Division list */}
+      {!collapsed && (
+        <div className="p-3 space-y-2">
+          <SortableContext items={group.divisions.map((d) => `div:${d.id}`)} strategy={verticalListSortingStrategy}>
+            {group.divisions.map((cat) => (
+              <SortableDivisionSection
+                key={cat.id}
+                cat={cat}
+                onDeleteCat={() => onDeleteCat(cat.id)}
+                onUpdateCat={(patch) => onUpdateCat(cat.id, patch)}
+                onAddEntry={(name) => onAddEntry(cat.id, name)}
+                onUpdateEntry={onUpdateEntry}
+                onDeleteEntry={onDeleteEntry}
+                onPhotoUpload={onPhotoUpload}
+                onGenerateDummyPoints={() => onGenerateDummyPoints(cat.id)}
+              />
+            ))}
+          </SortableContext>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PatternBlock: 部門ごとの演出パターン + 投票文言 ───────────
+function PatternBlock({ cat, onUpdate }: { cat: Category; onUpdate: (patch: CategoryPatch) => void }) {
+  const pattern: 'direct' | 'vote' = cat.award_pattern === 'vote' ? 'vote' : 'direct';
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border bg-slate-50/40 px-2.5 py-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-black tracking-widest uppercase text-slate-500">演出パターン</span>
+        <div className="inline-flex rounded-md border bg-white p-0.5 text-[11px]">
+          <button
+            onClick={() => onUpdate({ award_pattern: 'direct' })}
+            className={`px-2.5 py-1 rounded ${pattern === 'direct' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            No.1発表
+          </button>
+          <button
+            onClick={() => onUpdate({ award_pattern: 'vote' })}
+            className={`px-2.5 py-1 rounded ${pattern === 'vote' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            投票No.1決定
+          </button>
+        </div>
+        {pattern === 'vote' && (
+          <button
+            onClick={() => setOpen(!open)}
+            className="ml-auto text-[11px] text-amber-700 hover:underline"
+          >
+            投票文言を{open ? '閉じる' : '編集'}
+          </button>
+        )}
+      </div>
+      {pattern === 'vote' && open && (
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <PatternField label="タイトル (JA)" value={cat.poll_title ?? ''} onSave={(v) => onUpdate({ poll_title: v || null })} placeholder="最優秀新人賞" />
+          <PatternField label="タイトル (EN)" value={cat.poll_title_en ?? ''} onSave={(v) => onUpdate({ poll_title_en: v || null })} placeholder="Best Rookie" />
+          <PatternField label="質問文 (JA)" value={cat.poll_question ?? ''} onSave={(v) => onUpdate({ poll_question: v || null })} placeholder="Q.最優秀新人賞にふさわしいのは？" />
+          <PatternField label="質問文 (EN)" value={cat.poll_question_en ?? ''} onSave={(v) => onUpdate({ poll_question_en: v || null })} placeholder="Q. Who deserves the award?" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PatternField({ label, value, onSave, placeholder }: {
+  label: string; value: string; onSave: (v: string) => void; placeholder?: string;
+}) {
+  const [v, setV] = useState(value);
+  useEffect(() => { setV(value); }, [value]);
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => { if (v !== value) onSave(v.trim()); }}
+        placeholder={placeholder}
+        className="rounded border bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+      />
+    </label>
+  );
+}

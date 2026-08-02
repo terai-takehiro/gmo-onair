@@ -9,7 +9,6 @@ import {
 import { Loader2, Search, Settings } from "lucide-react";
 import { TYPE_CODES } from "@/lib/constants";
 import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 interface RentalItem {
   id: string;
@@ -85,7 +84,7 @@ export default function RentalSettingsPage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Settings className="h-6 w-6 text-muted-foreground" />
-          <PageTitle>貸出機材設定</PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">貸出機材設定</h1>
         </div>
         {!isLoading && (
           <p className="text-sm text-muted-foreground">
@@ -100,7 +99,7 @@ export default function RentalSettingsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="商品名・型番・メーカーで検索..."
@@ -110,7 +109,7 @@ export default function RentalSettingsPage() {
           />
         </div>
         <Select value={typeFilter || "_all"} onValueChange={v => setTypeFilter(v === "_all" ? "" : v)}>
-          <SelectTrigger className="w-[128px]">
+          <SelectTrigger className="w-[130px]">
             <SelectValue placeholder="全種別" />
           </SelectTrigger>
           <SelectContent>

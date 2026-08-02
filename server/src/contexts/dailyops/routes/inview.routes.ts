@@ -63,11 +63,14 @@ router.post('/inview/:id/check-in', ...canEdit, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-// 同行者1人の来場チェック (body: { checked_in: boolean })
+// 同行者1人の来場チェック (body: { checked_in: boolean })。代表者の受付とは独立
 router.post('/inview/:id/companions/:companionId/check-in', ...canEdit, async (req, res) => {
   const checkedIn = req.body?.checked_in !== false; // 既定 true
   const row = await inviewService.setCompanionCheckIn(
-    String(req.params.id), String(req.params.companionId), checkedIn, req.user!.name,
+    String(req.params.id),
+    String(req.params.companionId),
+    checkedIn,
+    req.user!.name,
   );
   res.json({ success: true, data: row });
 });

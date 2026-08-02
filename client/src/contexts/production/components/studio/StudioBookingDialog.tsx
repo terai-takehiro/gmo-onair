@@ -13,9 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
-import { buildBookingTitle } from "@gmo-onair/shared/src/booking/bookingTitle";
-import { notifySuccess } from "@/lib/notify";
-import { invalidateSchedule } from "@/lib/scheduleQueries";
+import { formatShortDate } from "@/lib/format";
 
 interface StudioRoom {
   id: string;
@@ -124,9 +122,6 @@ export default function StudioBookingDialog({
   const [roomDetails, setRoomDetails] = useState<Record<string, { occupant: string; usage_note: string }>>({});
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  /** 人が題名を打ち替えたか。立っている間は自動命名で上書きしない */
-  const [titleTouched, setTitleTouched] = useState(false);
 
   const [locationHistory] = useState<string[]>(() => loadLocationHistory());
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
@@ -179,8 +174,6 @@ export default function StudioBookingDialog({
 
   useEffect(() => {
     if (!open) return;
-    setError(null); // 前回の失敗を持ち越さない
-    setTitleTouched(false);
     if (editingBooking) {
       const b = editingBooking;
       setTitle(b.title);
@@ -254,19 +247,17 @@ export default function StudioBookingDialog({
     if (bookingType === "hold" || bookingType === "consultation") setStatus("tentative");
   }, [bookingType]);
 
-  // 案件を選ぶと題名を自動で入れる。**人が題名を打ち替えたら上書きしない** —
-  // 以前は案件・種別・開始日のどれかが変わるたびに無条件で上書きしていたので、
-  // 題名を書いたあとに日付を直すと打った文字が黙って消えていた。
-  //
-  // 生成は buildBookingTitle 1か所に寄せてある (サーバー・AI と同じ文字列を作る)。
-  // 種別で出し分けていた条件も外した — 種別が題名に入らなくなったので、
-  // 「本番・リハ・仮押さえのときだけ案件名を入れる」理由が無い。
   useEffect(() => {
-    if (!projectId || editingBooking || titleTouched) return;
-    const proj = projectOptions.find((p: any) => p.id === projectId);
-    if (!proj) return;
-    setTitle(buildBookingTitle({ projectName: proj.name, date: startDate }));
-  }, [projectId, startDate, projects, episodes, editingBooking, titleTouched]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (projectId && !editingBooking) {
+      const proj = projectOptions.find((p: any) => p.id === projectId);
+      if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
+        // タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記不要
+        const datePart = formatShortDate(startDate);
+        const suffix = datePart ? ` (${datePart})` : "";
+        setTitle(`${proj.name}${suffix}`);
+      }
+    }
+  }, [projectId, bookingType, startDate, projects, episodes, editingBooking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -304,53 +295,38 @@ export default function StudioBookingDialog({
     setShowLocationSuggestions(filtered.length > 0);
   };
 
-  // 入れた内容を言い返すための文 (「登録できたか分からず入れ直す」を止める)。
-  // 日付・部屋・種別まで出すのは、既に入っている予約と見比べられるようにするため。
-  const describeBooking = (effectiveEndDate: string) => {
-    const typeLabel = bookingTypeOptions.find((o) => o.value === bookingType)?.label ?? bookingType;
-    const roomNames = roomLocations
-      .flatMap((loc) => loc.rooms)
-      .filter((r) => selectedRoomIds.has(r.id))
-      .map((r) => r.abbreviation || r.name);
-    const period = effectiveEndDate && effectiveEndDate !== startDate
-      ? `${startDate} 〜 ${effectiveEndDate}`
-      : allDay ? startDate : `${startDate} ${startTime}〜${endTime}`;
-    const where = roomNames.length > 0 ? roomNames.join("・") : locationNote.trim() || "部屋の指定なし";
-    return `${period} / ${where} / ${typeLabel}`;
-  };
+  // 保存に失敗した理由。ダイアログの中に出す (何も出ないと「押せていない」と思って
+  // もう一度押され、同じ予定が二重に入る)
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    // 共通の受け皿 (MutationCache) は onError を持つ mutation では黙るので、
-    // ここで出す文がそのまま利用者に見えるものになる。
-    meta: { action: editingBooking ? "予約の更新" : "予約の登録" },
     mutationFn: (payload: any) =>
       editingBooking
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
-    onSuccess: (_res, payload: any) => {
-      setError(null);
-      // 案件詳細の予約一覧と「期限が近い仮押さえ」も鍵が違うので一緒に無効化する
-      invalidateSchedule(qc, "studio");
-      notifySuccess(editingBooking ? "予約を更新しました" : "予約を登録しました", {
-        description: `${title}（${describeBooking(String(payload?.end_time ?? "").split("T")[0])}）`,
-      });
+    onSuccess: () => {
+      // 同じ「案件の予約」を読む問い合わせが2つある。カレンダー側の鍵しか
+      // 無効化していなかったため、**案件詳細から登録しても予約一覧が増えず**、
+      // リロードするまで古いままだった (refetchOnWindowFocus は切ってある) =
+      // 「登録できなかった」ように見えてもう一度入れることになっていた。
+      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
+      setSaveError(null);
       onOpenChange(false);
     },
-    // 帯は画面の上端に出るが、押した指の近くにも出す (他の2つのダイアログと同じ位置)
-    onError: (err: any) => {
-      setError(
-        err?.response?.data?.error?.message ||
-          (editingBooking ? "更新できませんでした。もう一度お試しください。" : "登録できませんでした。もう一度お試しください。"),
-      );
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      setSaveError(msg || "予約を保存できませんでした。時間をおいてもう一度お試しください");
     },
   });
 
   const handleSubmit = () => {
+    setSaveError(null);
     if (!title || !startDate) return;
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) return;
     if (locationNote.trim()) saveLocationHistory(locationNote.trim());
-    setError(null);
     createMutation.mutate({
       title, booking_type: bookingType, status,
       project_id: projectId || null, episode_id: episodeId || null,
@@ -417,14 +393,15 @@ export default function StudioBookingDialog({
             </button>
           </div>
 
-          {/* 失敗の理由は「予約する」と同じ視界に出す。
-              このダイアログは iOS 風で実行ボタンが**上辺**にあり、本文は下に長くスクロールする。
-              本文の末尾に置くと画面外になり、気づかずもう一度押す (= 二重登録) ため、
-              スクロール領域の外・ヘッダーの直下に固定する。 */}
-          {error && (
-            <p role="alert" className="border-b border-destructive/40 bg-destructive-surface px-4 py-2.5 text-sm text-destructive">
-              {error}
-            </p>
+          {/* 保存できなかった理由 — 実行ボタンが上辺にあるので、**スクロール領域の外**
+              ヘッダー直下に固定する。本文末尾に置くと画面外で気づかれず押し直される */}
+          {saveError && (
+            <div
+              role="alert"
+              className="border-b border-destructive/30 bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive"
+            >
+              {saveError}
+            </div>
           )}
 
           {/* Scrollable body */}
@@ -436,7 +413,7 @@ export default function StudioBookingDialog({
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }}
+                  onChange={(e) => setTitle(e.target.value)}
                   placeholder="タイトル"
                   className="w-full px-4 py-3.5 bg-transparent outline-none placeholder:text-muted-foreground/40"
                   style={{ fontSize: "16px" }}

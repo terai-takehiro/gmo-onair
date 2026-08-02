@@ -113,9 +113,8 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
     },
   });
 
-  // `dryRun?.summary.error` と書くと summary が欠けた応答で throw する (?. は dryRun で止まる)
-  const errorCount = dryRun?.summary?.error ?? 0;
-  const canCommit = dryRun && errorCount === 0 && ((dryRun.summary?.insert ?? 0) + (dryRun.summary?.update ?? 0) > 0);
+  const errorCount = dryRun?.summary.error ?? 0;
+  const canCommit = dryRun && errorCount === 0 && (dryRun.summary.insert + dryRun.summary.update > 0);
 
   return (
     <>

@@ -3,14 +3,13 @@
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  * 列リサイズ + SgaDialog (別ファイル) は既存のまま維持。
  */
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { notifyApiError } from '@/lib/notify';
 import { formatCurrency, formatDate, formatMonth } from "@/lib/format";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useCrudPage } from "@/hooks/useCrudPage";
@@ -42,9 +41,6 @@ import SgaDialog, {
   formatSettlementNo,
   SettlementBadge,
 } from "../components/SgaDialog";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 export default function SgaListPage() {
   const { currentUser } = useAuth();
@@ -96,27 +92,12 @@ export default function SgaListPage() {
       try {
         const row = (await api.get(`/sga/${editParam}`)).data?.data;
         if (row) crud.openEdit(row as SgaExpense);
-      } catch (err) {
-        // 黙って捨てると「押しても何も起きない」に見える (v3.1.0)
-        notifyApiError('販管費の明細を開けませんでした', err, '一覧から選び直してください。');
+      } catch {
+        /* 取得失敗時は無視 */
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editParam]);
-
-  /**
-   * お金トップ (`/finance`) の「販管費を登録」から `?new=1` で来たら、そのまま登録の
-   * ダイアログを開く (v3.1.5 / 利用者依頼)。フォームはこのページが持っている
-   * (トップに写すと同じフォームが2つになる) ので、入口だけを増やす。
-   */
-  const newParam = searchParams.get("new");
-  const newOpenedRef = useRef(false);
-  useEffect(() => {
-    if (!newParam || newOpenedRef.current) return;
-    newOpenedRef.current = true;
-    crud.openAdd();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newParam]);
 
   // editingItem 同期: open 時に form を埋める / close 時にリセット
   useEffect(() => {
@@ -214,8 +195,8 @@ export default function SgaListPage() {
     crud.save.mutate(payload);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!(await confirmAction({ title: "この販管費を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (id: string) => {
+    if (!confirm("この販管費を削除しますか？")) return;
     crud.remove.mutate(id);
   };
 
@@ -223,15 +204,12 @@ export default function SgaListPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap gap-2 items-center justify-between">
-          <PageTitle>販管費一覧</PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
           <div className="flex flex-wrap gap-2">
             <ExcelToolbar
               resource="/sga-expenses"
               name="販管費"
-              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.1.0)。
-              // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
-              // 出てこないのでもう一度取り込む人がいた (販管費の二重登録の元)
-              queryKey={["sga-list"]}
+              queryKey={["sga-expenses"]}
               hasDuplicateKey={false}
               exportParams={{
                 search: crud.search || undefined,
@@ -299,7 +277,7 @@ export default function SgaListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
           </div>
         ) : crud.items.length === 0 ? (
-          <EmptyState title="この条件の販管費はまだありません" description="「販管費を追加」から登録するか、絞り込みを外してみてください。" />
+          <EmptyState title="データがありません" />
         ) : (
           <>
             {/* Mobile cards */}
@@ -329,7 +307,7 @@ export default function SgaListPage() {
                         )}
                         {item.amortize_start ? (
                           <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            月ごとに分けている
+                            按分中
                           </span>
                         ) : item.expense_type === "fixed" ? (
                           <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
@@ -495,7 +473,7 @@ export default function SgaListPage() {
                       <TableCell>
                         {item.amortize_start ? (
                           <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            月ごとに分けている
+                            按分中
                           </span>
                         ) : item.expense_type === "fixed" ? (
                           <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">

@@ -4,7 +4,8 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { normalizeTaxCategory, taxBillingSuffix } from '../../../shared/services/tax-category.service';
+import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
+import { loadRevenueItemCarryover } from '../../finance/services/revenue-item-carryover.service';
 
 const router = Router();
 
@@ -193,7 +194,7 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
   }
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
-  const taxCat = normalizeTaxCategory(tax_category);
+  const taxCat = tax_category || 'tax10';
 
   // billing_key生成
   const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [allocations[0].project_id]) as any;
@@ -328,12 +329,20 @@ router.put('/:id/revenues/:revenueId', requirePermission('sales', 'editor'), asy
 
   // 明細行を置換
   if (Array.isArray(items)) {
+    // この口は品目名・数量・単価しか送ってこないが、DB には期間・補足・区分・単位・
+    // 行ごとの仕入…と列がある。全置換なので、**送ってこない列は毎回消えていた**。
+    // DELETE の前に読んで引き継ぐ。
+    const carryover = await loadRevenueItemCarryover(String(req.params.revenueId), queryAll);
+
     await execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.revenueId]);
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
+      const kept = carryover(it.description);
       await execute(
-        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), req.params.revenueId, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category, unit, cost_amount, cost_vendor_id, is_ai_suggested) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.params.revenueId, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1,
+         kept.period_start, kept.period_end, kept.item_notes, kept.category,
+         kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested]
       );
     }
   }

@@ -12,8 +12,6 @@ import {
 } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { NEWS_CATEGORIES, formatDateJa, toDateStr, addDays, type OpsReportItem } from '@/lib/types';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 export default function DailyNewsPage() {
   const [date, setDate] = useState(() => toDateStr(new Date()));
@@ -28,17 +26,17 @@ export default function DailyNewsPage() {
       {/* ヘッダー + 日付ナビ */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <PageTitle>
+          <h1 className="text-xl font-bold flex items-center gap-2">
             <Newspaper className="h-5 w-5 text-primary" />
             デイリーニュース報告
-          </PageTitle>
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">AI が業界ニュースを日次収集。人の追記・採用ピックも可能です。</p>
         </div>
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setDate(addDays(date, -1))} title="前日">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-[160px]" />
+          <Input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-[150px]" />
           <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setDate(addDays(date, 1))} disabled={date >= today} title="翌日">
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -52,11 +50,11 @@ export default function DailyNewsPage() {
           <>
             <Badge variant="secondary" className="font-normal">{report.items?.length ?? 0} 件</Badge>
             {report.reviewed_at ? (
-              <Badge variant="outline" className="gap-1 border-success text-success">
+              <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
                 <CheckCircle2 className="h-3 w-3" /> 確認済み
               </Badge>
             ) : (
-              <Badge variant="outline" className="gap-1 border-ai text-ai">
+              <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
                 <Sparkles className="h-3 w-3" /> 未確認
               </Badge>
             )}
@@ -122,13 +120,13 @@ function NewsTable({ items, reportId, date, canEdit, onEnsure }: {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium w-[96px]">カテゴリ</th>
-                  <th className="px-2 py-2 text-center font-medium w-[56px]">AI活用</th>
-                  <th className="px-2 py-2 text-center font-medium w-[72px]">採用</th>
+                  <th className="px-3 py-2 text-left font-medium w-[90px]">カテゴリ</th>
+                  <th className="px-2 py-2 text-center font-medium w-[52px]">AI活用</th>
+                  <th className="px-2 py-2 text-center font-medium w-[64px]">採用</th>
                   <th className="px-3 py-2 text-left font-medium">要約</th>
-                  <th className="px-3 py-2 text-left font-medium w-[200px]">メモ</th>
-                  <th className="px-2 py-2 text-left font-medium w-[96px]">記入者</th>
-                  {canEdit && <th className="px-2 py-2 w-[72px]" />}
+                  <th className="px-3 py-2 text-left font-medium w-[180px]">メモ</th>
+                  <th className="px-2 py-2 text-left font-medium w-[90px]">記入者</th>
+                  {canEdit && <th className="px-2 py-2 w-[76px]" />}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -254,8 +252,8 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
   const setPick = (pick: number | null) => {
     updateItem.mutate({ itemId: item.id, fields: { pick } });
   };
-  const remove = async () => {
-    if (!(await confirmAction({ title: 'このニュースを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
+  const remove = () => {
+    if (!window.confirm('このニュースを削除しますか？')) return;
     deleteItem.mutate(item.id);
   };
   const saveEdit = async (fields: NewsFields) => {
@@ -290,7 +288,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
 
   const recordedBy = (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-      {item.source === 'ai' && <Bot className="h-3 w-3 text-ai" />}
+      {item.source === 'ai' && <Bot className="h-3 w-3 text-violet-500" />}
       {item.recorded_by ?? '—'}
     </span>
   );
@@ -320,7 +318,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
       <tr className="align-top">
         <td className="px-3 py-2">{item.category ? <Badge variant="secondary" className="font-normal">{item.category}</Badge> : null}</td>
         <td className="px-2 py-2 text-center">
-          {item.ai_related ? <Badge variant="outline" className="border-ai text-ai px-1.5">AI</Badge> : null}
+          {item.ai_related ? <Badge variant="outline" className="border-violet-300 text-violet-700 px-1.5">AI</Badge> : null}
         </td>
         <td className="px-2 py-2 text-center">{pickPicker}</td>
         <td className="px-3 py-2">{contentCell}</td>
@@ -347,7 +345,7 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
     <div className="p-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {item.category && <Badge variant="secondary" className="font-normal">{item.category}</Badge>}
-        {item.ai_related && <Badge variant="outline" className="border-ai text-ai px-1.5">AI</Badge>}
+        {item.ai_related && <Badge variant="outline" className="border-violet-300 text-violet-700 px-1.5">AI</Badge>}
         <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">採用 {pickPicker}</span>
       </div>
       <p className="mt-1.5 text-sm">{contentCell}</p>

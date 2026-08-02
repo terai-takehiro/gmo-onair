@@ -13,16 +13,11 @@
 #                 (例: client-daily だけ変更 → 他 6 クライアント + server はキャッシュヒット)。
 #   production  — サーバー + 各クライアントの dist だけを集約した実行イメージ。
 #
-# v2.9.289: **クライアントの型チェック (tsc -b) をイメージのビルドから外した**。
-#   クライアントの tsconfig は `noEmit: true` なので、tsc は 1 バイトも出力しない
-#   (vite は esbuild で型を捨てるだけでバンドルする) — つまり中身は変わらず、
-#   時間だけがビルドの一直線上に乗っていた。実測で client が 20.6 秒、
-#   他 6 クライアントが各 4〜5 秒、合計約 50 秒。GitHub のランナーは 2 コアなので
-#   これがほぼそのまま待ち時間になっていた。
-#   型チェックは deploy.yml の `typecheck` ジョブで**ビルドと同時に**走り、
-#   deploy ジョブは build と typecheck の両方が通るまで動かない
-#   (= 型エラーのあるイメージは作られても配られない)。
-#   server の tsc は dist を出力する本体なので、ここに残す。
+# 型チェックはイメージのビルドに残している (各クライアントの build は `tsc -b && vite build`)。
+#   CI の typecheck ジョブでも同じものが走るが、**イメージ側にも残す**のは、
+#   CI の配線が変わってもここだけは型エラーのまま焼き上がらないようにするため
+#   (ワークフローの設定ずれは実際に起きている)。ビルドは約50秒伸びるが、
+#   デプロイの所要時間はイメージの pull が主なので実害は小さい。
 #
 # ビルドは GitHub Actions (buildx + キャッシュ) で行い GHCR へ push、
 # VPS は pull して起動するだけ (詳細: docs/deploy-pipeline.md)。
@@ -73,8 +68,7 @@ RUN npm ci --workspaces --include-workspace-root
 # ── Stage: build-client (案件管理) ─────────────
 # client の prebuild (generate-version-history / generate-mcp-tools) だけが
 # ワークスペース外のファイルを参照する:
-#   - CLAUDE.md                        ← 「現在のバージョン」節 (最新5件) をパース
-#   - docs/version-history.md          ← それ以前の全履歴 (無いと画面の履歴が5件に減る)
+#   - CLAUDE.md                        ← 「現在のバージョン」節をパース (全履歴がここにある)
 #   - scripts/generate-*.mjs           ← 生成スクリプト本体
 #   - server/src/contexts/mcp/tools/   ← registerTool() を走査して MCP ツール一覧を生成
 # この 3 つを COPY し忘れると prebuild が ENOENT で落ちるので、
@@ -91,7 +85,6 @@ FROM deps AS build-client
 COPY package.json ./
 COPY shared/ shared/
 COPY CLAUDE.md ./
-COPY docs/version-history.md docs/
 COPY scripts/ scripts/
 COPY server/src/contexts/mcp/tools/ server/src/contexts/mcp/tools/
 # gate.ts は generate-mcp-tools.mjs の権限ゲート検証 (書き込みツールの登録漏れ検出) が読む。

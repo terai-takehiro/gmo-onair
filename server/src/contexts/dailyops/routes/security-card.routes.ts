@@ -74,8 +74,6 @@ router.post('/security-cards/:id/lend', ...canEdit, async (req, res) => {
     lent_by_user_id: b.lent_by_user_id ?? req.user!.id,
     lent_by_name: b.lent_by_name ?? req.user!.name,
     notes: b.notes,
-    // 案件に紐づけると、案件の書類タブに「返却」が出る (15章)
-    project_id: b.project_id ?? null,
     created_by: req.user!.id,
   });
   res.status(201).json({ success: true, data: row });

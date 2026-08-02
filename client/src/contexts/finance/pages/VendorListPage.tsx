@@ -7,7 +7,7 @@
  */
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { PageTransition } from "@/components/ui/motion";
@@ -19,9 +19,6 @@ import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Vendor {
   id: string;
@@ -71,8 +68,8 @@ export default function VendorListPage() {
     }
   }, [crud.editingItem, form]);
 
-  const handleDelete = async (v: Vendor) => {
-    if (!(await confirmAction({ title: `「${v.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (v: Vendor) => {
+    if (!confirm(`「${v.name}」を削除しますか？`)) return;
     crud.remove.mutate(v.id);
   };
 
@@ -80,7 +77,7 @@ export default function VendorListPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <PageTitle>仕入先マスター</PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">仕入先マスター</h1>
           <div className="flex flex-wrap gap-2">
             <ExcelToolbar resource="/vendors" name="仕入先" queryKey={["vendors"]} />
             <Button onClick={crud.openAdd}>

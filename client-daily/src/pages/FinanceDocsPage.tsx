@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   FileText, Plus, Sparkles, Loader2, Pencil, Trash2, CheckCircle2, XCircle, ArrowRight, RotateCcw, CalendarClock,
 } from 'lucide-react';
@@ -9,10 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { usePermissions } from '@/hooks/usePermissions';
-import api from '@/lib/api';
-import { formatCurrency } from '@gmo-onair/shared/src/client/format';
-import FinanceDocOriginal from '@gmo-onair/shared/src/client/finance/FinanceDocOriginal';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   FINANCE_DOC_TYPE_LABELS, FINANCE_DOC_STATUS_LABELS, formatDateJa,
   type FinanceDoc, type FinanceDocType, type FinanceDocStatus,
@@ -20,28 +16,25 @@ import {
 import {
   useFinanceDocs, useCreateFinanceDoc, useUpdateFinanceDoc, useDeleteFinanceDoc, type FinanceDocInput,
 } from '@/lib/inboxApi';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 const STATUS_STYLE: Record<FinanceDocStatus, string> = {
-  new: 'border-primary text-primary bg-accent',
-  reviewing: 'border-warning text-warning-strong bg-warning-surface',
-  // 承認済み = AI ではないので `ai` (紫) は使わない。段階を見分けるための色
-  approved: 'border-cat-7/40 text-cat-7 bg-cat-7/10',
-  rejected: 'border-destructive text-destructive bg-destructive-surface',
-  processed: 'border-success text-success bg-success-surface',
+  new: 'border-blue-300 text-blue-700 bg-blue-50',
+  reviewing: 'border-amber-300 text-amber-700 bg-amber-50',
+  approved: 'border-violet-300 text-violet-700 bg-violet-50',
+  rejected: 'border-rose-300 text-rose-700 bg-rose-50',
+  processed: 'border-emerald-300 text-emerald-700 bg-emerald-50',
 };
 const TYPE_STYLE: Record<FinanceDocType, string> = {
-  quote: 'bg-info/10 text-info',
-  invoice: 'bg-accent text-primary',
-  order: 'bg-info/10 text-info',
+  quote: 'bg-sky-100 text-sky-800',
+  invoice: 'bg-indigo-100 text-indigo-800',
+  order: 'bg-teal-100 text-teal-800',
 };
 
 function yen(v: number | string | null): string {
   if (v === null || v === '') return '—';
   const n = Number(v);
   if (Number.isNaN(n)) return '—';
-  return formatCurrency(n);
+  return `¥${n.toLocaleString()}`;
 }
 
 export default function FinanceDocsPage() {
@@ -62,29 +55,24 @@ export default function FinanceDocsPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <PageTitle><FileText className="h-5 w-5 text-primary" />見積 / 請求書</PageTitle>
+          <h1 className="flex items-center gap-2 text-xl font-bold"><FileText className="h-5 w-5 text-primary" />見積 / 請求書</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             メールで受信した見積書・請求書・注文書の処理進捗。AI が取り込み、確認 → 承認/却下 → 処理完了 で管理します。
           </p>
         </div>
-        {canEdit && (
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <UploadNewButton />
-            <Button size="sm" variant="outline" onClick={() => setAdding(true)}><Plus className="h-4 w-4 mr-1" />手で追加</Button>
-          </div>
-        )}
+        {canEdit && <Button size="sm" onClick={() => setAdding(true)} className="shrink-0"><Plus className="h-4 w-4 mr-1" />追加</Button>}
       </div>
 
       {/* 種別タブ */}
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
         {([['all', 'すべて'], ['quote', '見積書'], ['invoice', '請求書'], ['order', '注文書']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTypeTab(k)}
-            className={`inline-flex h-ctl-1 items-center rounded-md px-3 ${typeTab === k ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
+            className={`rounded-md px-3 py-1.5 ${typeTab === k ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
         ))}
         <span className="mx-1 h-4 w-px bg-border" />
         {([['pending', '未処理'], ['all', '全ステータス'], ['processed', '処理完了']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setStatusFilter(k)}
-            className={`inline-flex h-ctl-1 items-center rounded-md px-2.5 text-xs ${statusFilter === k ? 'bg-foreground/10 font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
+            className={`rounded-md px-2.5 py-1.5 text-xs ${statusFilter === k ? 'bg-foreground/10 font-medium' : 'text-muted-foreground hover:bg-accent'}`}>{label}</button>
         ))}
       </div>
 
@@ -104,21 +92,20 @@ export default function FinanceDocsPage() {
 }
 
 function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; onEdit: () => void }) {
-  const qc = useQueryClient();
   const update = useUpdateFinanceDoc();
   const del = useDeleteFinanceDoc();
   const isAi = d.source === 'email';
   const setStatus = (status: FinanceDocStatus) => update.mutate({ id: d.id, fields: { status } });
 
   return (
-    <Card className={d.status === 'processed' ? 'border-success bg-success-surface/20' : ''}>
+    <Card className={d.status === 'processed' ? 'border-emerald-200 bg-emerald-50/20' : ''}>
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_STYLE[d.doc_type]}`}>{FINANCE_DOC_TYPE_LABELS[d.doc_type]}</span>
               <Badge variant="outline" className={`text-[11px] ${STATUS_STYLE[d.status]}`}>{FINANCE_DOC_STATUS_LABELS[d.status]}</Badge>
-              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai"><Sparkles className="h-3 w-3" />AI取込</span>}
+              {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"><Sparkles className="h-3 w-3" />AI取込</span>}
               {d.sender && <span className="text-sm font-medium">{d.sender}</span>}
             </div>
             {d.subject && <p className="mt-1 text-sm font-medium text-foreground truncate">{d.subject}</p>}
@@ -128,24 +115,12 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
               {d.payment_due && <span className="inline-flex items-center gap-1"><CalendarClock className="h-3 w-3" />支払期日 {formatDateJa(d.payment_due)}</span>}
               {d.received_at && <span>受信 {formatDateJa(d.received_at)}</span>}
               {d.gls_number && <span>{d.gls_number}</span>}
-              {d.processed_by && <span className="text-success">処理: {d.processed_by}</span>}
+              {d.processed_by && <span className="text-emerald-700">処理: {d.processed_by}</span>}
             </div>
           </div>
           <div className="shrink-0 text-right">
             <div className="text-base font-semibold tabular-nums">{yen(d.amount)}</div>
           </div>
-        </div>
-        {/* 原本 (PDF/画像)。承認する前に読めるようにする */}
-        <div className="mt-2 border-t border-border pt-2">
-          <FinanceDocOriginal
-            api={api}
-            docId={d.id}
-            hasOriginal={!!d.has_original}
-            originalName={d.original_name ?? null}
-            originalKind={d.original_kind ?? null}
-            canEdit={canEdit}
-            onChanged={() => qc.invalidateQueries({ queryKey: ['finance-docs'] })}
-          />
         </div>
         {canEdit && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
@@ -158,7 +133,7 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
             {(d.status === 'processed' || d.status === 'rejected') && <StepBtn onClick={() => setStatus('new')} icon={RotateCcw}>受信に戻す</StepBtn>}
             <div className="ml-auto flex gap-1">
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => { if ((await confirmAction({ title: 'この書類を削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) del.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('この書類を削除しますか？')) del.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         )}
@@ -167,65 +142,13 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
   );
 }
 
-/**
- * PDF を落として**新しい行を作る**。メールが無い請求書 (Slack で渡された / 紙を撮った) の入口。
- * 下読みできた値はフォームに埋まった状態で行ができ、読めなかったことは注意として出す。
- */
-function UploadNewButton() {
-  const qc = useQueryClient();
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; lines: string[] } | null>(null);
-
-  const send = async (file: File) => {
-    setBusy(true); setNotice(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await api.post('/dailyops/finance-docs/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const warnings = (res.data?.data?.warnings ?? []) as string[];
-      qc.invalidateQueries({ queryKey: ['finance-docs'] });
-      setNotice({ kind: 'ok', lines: ['登録しました。内容を確認してください。', ...warnings] });
-    } catch (e) {
-      const err = e as { response?: { data?: { error?: { message?: string } } } };
-      setNotice({ kind: 'error', lines: [err?.response?.data?.error?.message ?? '登録できませんでした'] });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      <Button size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-        PDFを落として登録
-      </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf,image/jpeg,image/png"
-        className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void send(f); }}
-      />
-      {notice && (
-        <div className={`w-full rounded-md border px-3 py-2 text-xs ${notice.kind === 'ok' ? 'border-success bg-success-surface text-success' : 'border-destructive bg-destructive-surface text-destructive'}`}>
-          {notice.lines.map((l, i) => <p key={i}>{l}</p>)}
-          <button type="button" className="mt-1 underline" onClick={() => setNotice(null)}>閉じる</button>
-        </div>
-      )}
-    </>
-  );
-}
-
 function StepBtn({ onClick, icon: Icon, tone, children }: { onClick: () => void; icon: React.ElementType; tone?: 'violet' | 'rose' | 'emerald'; children: React.ReactNode }) {
-  const cls = tone === 'violet' ? 'border-ai bg-ai-surface text-ai hover:bg-ai-surface'
-    : tone === 'rose' ? 'border-destructive bg-destructive-surface text-destructive hover:bg-destructive-surface'
-    : tone === 'emerald' ? 'border-success bg-success-surface text-success hover:bg-success-surface'
+  const cls = tone === 'violet' ? 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+    : tone === 'rose' ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+    : tone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
     : 'border-border bg-muted/40 text-foreground hover:bg-accent';
   return (
-    <button onClick={onClick} className={`h-ctl-1 inline-flex items-center gap-1 rounded-md border px-2.5 text-xs${cls}`}>
+    <button onClick={onClick} className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs ${cls}`}>
       <Icon className="h-3.5 w-3.5" />{children}
     </button>
   );

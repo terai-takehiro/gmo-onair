@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseDur, fmtAbs } from "@/lib/time";
 import { StageDiagramPreview } from "@/components/editor/StageDiagramCell";
-import LiveRoleSwitch from "@/components/LiveRoleSwitch";
-import SyncStatusBadge from "@/components/SyncStatusBadge";
 import {
   Loader2,
   ArrowLeft,
@@ -22,7 +20,6 @@ import {
   Columns3,
   X,
 } from "lucide-react";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ============================================================
 // Types (shared with EditorPage / OnAirPage)
@@ -165,8 +162,6 @@ export default function RundownPage() {
     return (localStorage.getItem(STORAGE_KEY_THEME) as "light" | "dark") || "dark";
   });
   const [columnSelectorOpen, setColumnSelectorOpen] = useState(false);
-  // 放送同期の状態 (切れても数字は最後の値で残るので画面に出す)
-  const [syncConnected, setSyncConnected] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_COLUMNS);
@@ -284,13 +279,6 @@ export default function RundownPage() {
     const socket = getQsheetSocket(id);
     socketRef.current = socket;
 
-    // 切断すると数字が最後の値で止まるだけなので、状態を画面に出す (§4.13)
-    const onConnect = () => setSyncConnected(true);
-    const onDisconnect = () => setSyncConnected(false);
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    setSyncConnected(socket.connected);
-
     socket.on("cue:sync", (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
       setCurrentCue(data.currentCue);
       setElapsed(data.elapsed);
@@ -309,9 +297,7 @@ export default function RundownPage() {
     socket.on("cue:reset", () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming(); });
 
     return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      disconnectQsheetSocket(id);
+      disconnectQsheetSocket();
       socketRef.current = null;
     };
   }, [id, flatCues.length]);
@@ -343,8 +329,8 @@ export default function RundownPage() {
   const sendPrev = useCallback(() => { socketRef.current?.emit("cue:prev"); setCurrentCue((p) => Math.max(p - 1, 0)); }, []);
   const sendPlay = useCallback(() => { socketRef.current?.emit("cue:play"); setIsPlaying(true); }, []);
   const sendPause = useCallback(() => { socketRef.current?.emit("cue:pause"); setIsPlaying(false); }, []);
-  const sendReset = useCallback(async () => {
-    if (!(await confirmAction({ title: "計時をリセットしますか？", description: "(経過時間と実尺の記録がクリアされます)", confirmLabel: 'リセットする', tone: 'danger' }))) return;
+  const sendReset = useCallback(() => {
+    if (!window.confirm("計時をリセットしますか？ (経過時間と実尺の記録がクリアされます)")) return;
     socketRef.current?.emit("cue:reset");
     setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming();
   }, [resetCueTiming]);
@@ -420,7 +406,7 @@ export default function RundownPage() {
   const sectionBg = "bg-card/80";
   const rowHover = "hover:bg-accent/50";
   const mutedText = "text-muted-foreground";
-  const pastCueText = "text-muted-foreground";
+  const pastCueText = "text-muted-foreground/60";
 
   // ============================================================
   // Render
@@ -436,7 +422,7 @@ export default function RundownPage() {
   if (!doc || flatCues.length === 0) {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>
-        <p className={mutedText}>このQシートにはまだ1行も入っていません。エディターで行を足すと、ここに進行順で並びます。</p>
+        <p className={mutedText}>キューデータがありません</p>
         <Button variant="outline" onClick={() => navigate(`/qsheet/editor/${id}`)}>
           エディターに戻る
         </Button>
@@ -486,11 +472,6 @@ export default function RundownPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <SyncStatusBadge connected={syncConnected} tone={isDark ? "dark" : "light"} />
-
-          {/* 本番の役割切替 (§4.13) */}
-          {id && <LiveRoleSwitch docId={id} current="rundown" tone={isDark ? "dark" : "light"} />}
-
           {/* Column selector toggle */}
           <Button
             variant="ghost"
@@ -572,7 +553,7 @@ export default function RundownPage() {
             <span
               className={cn(
                 "font-number font-bold",
-                oshimaki > 3 ? "text-destructive" : oshimaki < -3 ? "text-info" : isDark ? "text-success" : "text-success"
+                oshimaki > 3 ? "text-red-500" : oshimaki < -3 ? "text-info" : isDark ? "text-success" : "text-success"
               )}
             >
               {oshimaki > 0 ? "+" : ""}{formatTime(oshimaki)}
@@ -602,7 +583,7 @@ export default function RundownPage() {
               <th className="w-14 px-2 py-2 text-center text-xs font-medium opacity-60">尺</th>
               <th className="w-20 px-2 py-2 text-center text-xs font-medium opacity-60">実尺</th>
               {activeBlocks.map((block) => (
-                <th key={block.id} className="px-3 py-2 text-left text-xs font-medium opacity-60 min-w-[128px]">
+                <th key={block.id} className="px-3 py-2 text-left text-xs font-medium opacity-60 min-w-[120px]">
                   {block.label}
                 </th>
               ))}
@@ -685,7 +666,7 @@ export default function RundownPage() {
                           if (block.type === "led_xr") {
                             const entries: any[] = Array.isArray(cell?.entries) ? cell.entries : [];
                             return (
-                              <div key={block.id} className="px-3 py-2 text-xs min-w-[128px] flex-1 leading-tight">
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1 leading-tight">
                                 {entries.map((en, ei) => {
                                   const scene = doc?.data?.ledScenes?.find((s) => s.id === en?.sceneId);
                                   const cueLabel = en?.cueType === "custom" ? (en.cueCustom || "") : (en?.cueType || "");
@@ -694,7 +675,7 @@ export default function RundownPage() {
                                   if (!scene && !trigger) return null;
                                   return (
                                     <div key={ei} className="mb-1 last:mb-0">
-                                      {scene?.name && <div className="font-bold text-cat-7">【{scene.name}】</div>}
+                                      {scene?.name && <div className="font-bold text-violet-400">【{scene.name}】</div>}
                                       {scene?.wall && <div>壁: {scene.wall}</div>}
                                       {scene?.floor && <div>床: {scene.floor}</div>}
                                       {trigger && <div className={cn("text-[11px]", mutedText)}>［{trigger}］</div>}
@@ -709,7 +690,7 @@ export default function RundownPage() {
                             const tmplIdx = cell?.templateIndex ?? -1;
                             const tmpl = tmplIdx >= 0 ? doc?.data?.stageTemplates?.[tmplIdx] : null;
                             return (
-                              <div key={block.id} className="px-3 py-2 text-xs min-w-[128px] flex-1">
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1">
                                 {tmpl?.elements ? (
                                   <StageDiagramPreview elements={tmpl.elements} />
                                 ) : (
@@ -727,7 +708,7 @@ export default function RundownPage() {
                               <div
                                 key={block.id}
                                 className={cn(
-                                  "px-3 py-2 text-xs min-w-[128px] flex-1",
+                                  "px-3 py-2 text-xs min-w-[120px] flex-1",
                                   block.type === "scenario" ? "whitespace-pre-wrap" : ""
                                 )}
                               >
@@ -752,7 +733,7 @@ export default function RundownPage() {
                           return (
                             <div
                               key={block.id}
-                              className="px-3 py-2 text-xs min-w-[128px] flex-1 truncate"
+                              className="px-3 py-2 text-xs min-w-[120px] flex-1 truncate"
                             >
                               {extractCellText(cue.row, block)}
                             </div>
@@ -806,7 +787,7 @@ export default function RundownPage() {
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[64px] rounded-xl transition-colors select-none font-bold",
               isPlaying
-                ? "bg-warning/15 text-warning-strong border border-warning/40 hover:bg-warning/25 active:bg-warning/30"
+                ? "bg-warning/15 text-warning border border-warning/40 hover:bg-warning/25 active:bg-warning/30"
                 : "bg-success/15 text-success border border-success/40 hover:bg-success/25 active:bg-success/30"
             )}
             aria-label={isPlaying ? "一時停止" : "再生"}

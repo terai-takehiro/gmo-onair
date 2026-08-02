@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Link2, Download, Upload, Loader2, CheckCircle2, AlertCircle, Unlink, Activity } from 'lucide-react';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /**
  * 表彰CG ⇄ インタラクティブ演出 (別 VPS) 連携パネル — v2.9.24
@@ -133,64 +132,64 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
   const configured = cfg?.configured;
 
   return (
-    <div className="mb-6 rounded-xl border border-info bg-info/10/40 p-4">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 text-sm font-bold text-info">
+    <div className="mb-6 rounded-xl border border-cyan-200 bg-cyan-50/40 p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 text-sm font-bold text-cyan-900">
         <Link2 className="h-4 w-4" />
         インタラクティブ演出 連携
         {configured
-          ? <span className="ml-1 rounded-full bg-success-surface px-2 py-0.5 text-[10px] font-semibold text-success">連携中</span>
-          : <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">未設定</span>}
-        <span className="ml-auto text-xs text-info">{open ? '閉じる ▲' : '開く ▼'}</span>
+          ? <span className="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">連携中</span>
+          : <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">未設定</span>}
+        <span className="ml-auto text-xs text-cyan-700">{open ? '閉じる ▲' : '開く ▼'}</span>
       </button>
 
       {/* 連携済みなら取込/送信ボタンを常時表示 */}
       {configured && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button onClick={() => pullMut.mutate()} disabled={pullMut.isPending}
-          className="h-ctl-3 flex items-center gap-1.5 rounded-lg bg-info hover:bg-info/90 disabled:opacity-50 px-3 text-xs font-bold text-white">
+            className="flex items-center gap-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3 py-2 text-xs font-bold text-white">
             {pullMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Interactive から取込
           </button>
-          <button onClick={async () => { if ((await confirmAction({ title: 'CG の全 quiz の本文・選択肢を Interactive に書き込みます。よろしいですか？' }))) pushMut.mutate(); }} disabled={pushMut.isPending}
-          className="h-ctl-3 flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90/90 disabled:opacity-50 px-3 text-xs font-bold text-white">
+          <button onClick={() => { if (window.confirm('CG の全 quiz の本文・選択肢を Interactive に書き込みます。よろしいですか？')) pushMut.mutate(); }} disabled={pushMut.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 text-xs font-bold text-white">
             {pushMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Interactive へ送信
           </button>
           <button onClick={() => diagMut.mutate()} disabled={diagMut.isPending}
-          className="h-ctl-3 flex items-center gap-1.5 rounded-lg bg-warning hover:bg-warning/90 disabled:opacity-50 px-3 text-xs font-bold text-warning-foreground">
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 px-3 py-2 text-xs font-bold text-white">
             {diagMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
             連携を診断
           </button>
-          <span className="text-[11px] text-info">投票数は連携中なら自動でリアルタイム反映されます</span>
+          <span className="text-[11px] text-cyan-700">投票数は連携中なら自動でリアルタイム反映されます</span>
         </div>
       )}
 
       {/* 診断結果 */}
       {diag && (
-        <div className="mt-3 space-y-2 rounded-lg border border-warning bg-warning-surface/60 p-3">
-          <div className="text-xs font-bold text-warning-strong">連携診断結果</div>
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3">
+          <div className="text-xs font-bold text-amber-900">連携診断結果</div>
           {diagVerdict(diag).map((v, i) => (
-            <div key={i} className={`flex items-start gap-2 rounded px-2 py-1.5 text-xs ${v.kind === 'ok' ? 'bg-success-surface text-success' : v.kind === 'warn' ? 'bg-warning-surface text-warning-strong' : 'bg-destructive-surface text-destructive'}`}>
+            <div key={i} className={`flex items-start gap-2 rounded px-2 py-1.5 text-xs ${v.kind === 'ok' ? 'bg-green-50 text-green-800' : v.kind === 'warn' ? 'bg-amber-100 text-amber-900' : 'bg-red-50 text-red-800'}`}>
               {v.kind === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
               <span>{v.text}</span>
             </div>
           ))}
           <details className="text-[11px]">
-            <summary className="cursor-pointer font-semibold text-warning-strong">詳細 JSON（コピーして共有可）</summary>
-            <pre className="mt-1 max-h-64 overflow-auto rounded bg-background p-2 text-[10px] leading-tight text-foreground">{JSON.stringify(diag, null, 2)}</pre>
+            <summary className="cursor-pointer font-semibold text-amber-800">詳細 JSON（コピーして共有可）</summary>
+            <pre className="mt-1 max-h-64 overflow-auto rounded bg-slate-900 p-2 text-[10px] leading-tight text-slate-100">{JSON.stringify(diag, null, 2)}</pre>
           </details>
         </div>
       )}
 
       {msg && (
-        <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-success-surface text-success' : 'bg-destructive-surface text-destructive'}`}>
+        <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {msg.kind === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
           {msg.text}
         </div>
       )}
 
       {open && (
-        <div className="mt-4 space-y-3 border-t border-info pt-4">
+        <div className="mt-4 space-y-3 border-t border-cyan-200 pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="text-xs">
               <span className="block mb-1 font-semibold text-muted-foreground">Interactive URL</span>
@@ -200,7 +199,7 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
             </label>
             <label className="text-xs">
               <span className="block mb-1 font-semibold text-muted-foreground">
-                API キー {configured && <span className="text-success">(設定済 {cfg?.apiKeyPrefix}… / 変更時のみ入力)</span>}
+                API キー {configured && <span className="text-green-600">(設定済 {cfg?.apiKeyPrefix}… / 変更時のみ入力)</span>}
               </span>
               <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                 placeholder={configured ? '変更しない場合は空欄' : 'ak_...'}
@@ -226,18 +225,18 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
                 )}
             </label>
             <button onClick={() => testMut.mutate()} disabled={testMut.isPending || !baseUrl}
-              className="rounded-lg bg-accent hover:bg-accent disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+              className="rounded-lg bg-slate-200 hover:bg-slate-300 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
               {testMut.isPending ? '確認中…' : '接続テスト'}
             </button>
           </div>
 
           {/* カウントダウン連動 出題/締切 */}
-          <div className="rounded-lg border border-info bg-white/60 p-3 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-info">
-              <input type="checkbox" checked={autoControl} onChange={(e) => setAutoControl(e.target.checked)} className="h-4 w-4 accent-primary" />
+          <div className="rounded-lg border border-cyan-200 bg-white/60 p-3 space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-cyan-900">
+              <input type="checkbox" checked={autoControl} onChange={(e) => setAutoControl(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
               カウントダウンに連動して自動で出題・締切する
             </label>
-            <p className="text-[11px] leading-relaxed text-info">
+            <p className="text-[11px] leading-relaxed text-cyan-800/70">
               ON にすると、CG のカウントダウン開始でインタラクティブ側を自動「出題」、カウントダウン終了
               （+下のバッファ秒）で自動「締切」します。集計結果は締切後も自動反映されます。
             </p>
@@ -253,18 +252,18 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
 
           <div className="flex items-center gap-2">
             <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !baseUrl || !iaEventId}
-              className="rounded-lg bg-info hover:bg-info/90 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white">
+              className="rounded-lg bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white">
               {saveMut.isPending ? '保存中…' : '連携設定を保存'}
             </button>
             {configured && (
-              <button onClick={async () => { if ((await confirmAction({ title: '連携を解除します（quiz の紐づけも外れます）。よろしいですか？', confirmLabel: '解除する', tone: 'danger' }))) unlinkMut.mutate(); }}
-              className="h-ctl-3 flex items-center gap-1 rounded-lg px-3 text-xs font-semibold text-destructive hover:bg-destructive/90-surface">
+              <button onClick={() => { if (window.confirm('連携を解除します（quiz の紐づけも外れます）。よろしいですか？')) unlinkMut.mutate(); }}
+                className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">
                 <Unlink className="h-3.5 w-3.5" />連携解除
               </button>
             )}
           </div>
 
-          <p className="text-[11px] leading-relaxed text-info">
+          <p className="text-[11px] leading-relaxed text-cyan-800/70">
             複数言語 (日本語/英語) の投票はインタラクティブ側で自動的に合算され、合算値が CG に反映されます。
             問題文・選択肢は日本語=無印・英語=_en として双方向に同期します。
           </p>

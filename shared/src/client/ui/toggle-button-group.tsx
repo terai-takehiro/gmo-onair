@@ -3,54 +3,6 @@ import { Check } from "lucide-react";
 import { cn } from "../utils";
 
 /**
- * ラベルを枠の実際の幅に必ず1行で収める。折り返すと YouTube/ネットメディアのような
- * 語が1文字ずつ割れて崩れて見えるため、折り返しには戻さず横方向だけ縮める(長体)。
- * 下限を設けて縮小率を打ち切ると、その下限では入りきらない分だけ overflow-hidden に
- * 切り取られて末尾が欠ける ("地上波T" 等) ため、下限は設けず常に枠にぴったり収まる
- * 比率で縮める (極端に狭い枠では文字が小さくなるが、欠けたり折り返したりはしない)。
- */
-function FitLabel({ children, size, className }: { children: React.ReactNode; size: 'sm' | 'md'; className?: string }) {
-  // 外枠 (outer) は枠の実幅ぶんだけ overflow-hidden。中身 (inner) は自然幅のまま
-  // scaleX で縮める — 同じ要素に overflow-hidden と scaleX を両方かけると、縮める前の
-  // 幅で先に切り取られて "YouTub" のように末尾が欠けるため、2重構造にして順序をずらす。
-  const outerRef = React.useRef<HTMLSpanElement>(null);
-  const innerRef = React.useRef<HTMLSpanElement>(null);
-  const [scale, setScale] = React.useState(1);
-
-  React.useLayoutEffect(() => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-    const recalc = () => {
-      const available = outer.clientWidth;
-      const natural = inner.scrollWidth;
-      if (available <= 0 || natural <= available) {
-        setScale(1);
-        return;
-      }
-      setScale(available / natural);
-    };
-    recalc();
-    const ro = new ResizeObserver(recalc);
-    ro.observe(outer);
-    return () => ro.disconnect();
-  }, [children]);
-
-  const sizeClass = size === 'sm' ? 'text-xs' : 'text-sm';
-  return (
-    <span ref={outerRef} className={cn('block overflow-hidden', className)}>
-      <span
-        ref={innerRef}
-        className={cn('inline-block whitespace-nowrap font-medium leading-snug', sizeClass)}
-        style={scale < 1 ? { transform: `scaleX(${scale})`, transformOrigin: 'left center' } : undefined}
-      >
-        {children}
-      </span>
-    </span>
-  );
-}
-
-/**
  * ToggleCard — 1 個分のトグルボタンカード。
  * v2.7.5 のスタジオ予約 UI を汎用化したもの。
  *
@@ -107,7 +59,9 @@ export const ToggleCard = React.forwardRef<HTMLButtonElement, ToggleCardProps>(
           <span className="shrink-0 flex items-center pt-0.5">{leftSlot}</span>
         )}
         <span className="flex-1 min-w-0 self-center">
-          <FitLabel size={size}>{label}</FitLabel>
+          <span className={cn('block font-medium leading-snug whitespace-normal break-words [word-break:keep-all] [overflow-wrap:anywhere]', size === 'sm' ? 'text-xs' : 'text-sm')}>
+            {label}
+          </span>
           {description && (
             <span className={cn('block leading-snug whitespace-normal break-words [word-break:keep-all] [overflow-wrap:anywhere]', selected ? 'text-white/85' : 'text-muted-foreground', 'text-[11px] mt-0.5')}>
               {description}

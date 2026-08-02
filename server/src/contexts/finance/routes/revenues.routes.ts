@@ -8,43 +8,13 @@ import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
-import { normalizeTaxCategory, taxBillingSuffix } from '../../../shared/services/tax-category.service';
+import { taxRateOf, taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS } from '../../../shared/services/tax-category.service';
+import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 
 const router = Router();
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('budget'));
-
-/**
- * 明細1行の INSERT。**列の並びをここ1か所で持つ** (新規と更新で2回書くと片方だけ増える)。
- *
- * ── なぜ unit / cost_amount / cost_vendor_id / is_ai_suggested を入れるか ──
- *
- * この4列は見積 (30章 37a) が使う列 (migration 145)。案件化すると見積の行はそのまま
- * 確定売上の明細になるので、**売上をこの画面で1度保存すると、見積が入れた
- * 単位・行ごとの仕入・仕入先・AIの印がすべて消えていた**
- * (DELETE → INSERT で入れ替えるのに、INSERT の列に入っていなかった)。
- * 消えると行ごとの粗利の裏付けが無くなり、見積書 PDF の単位も落ちる。
- *
- * 送ってこなかった項目は 0 / null になるので、**画面は読んだ値をそのまま送り返す**こと
- * (RevenueListPage は既存明細を読み込んで往復させる)。
- */
-const ITEM_INSERT_SQL = `INSERT INTO revenue_items
-  (id, revenue_id, description, quantity, unit, unit_price, amount, pricing_item_id,
-   sort_order, period_start, period_end, item_notes, category,
-   cost_amount, cost_vendor_id, is_ai_suggested)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-function itemInsertParams(revenueId: string, it: any, index: number): unknown[] {
-  return [
-    uuidv4(), revenueId, it.description || '', it.quantity || 1, it.unit || null,
-    it.unit_price || 0, it.amount || 0, it.pricing_item_id || null,
-    index + 1, it.period_start || null, it.period_end || null,
-    it.item_notes || null, it.category || null,
-    Math.max(0, Math.round(Number(it.cost_amount) || 0)), it.cost_vendor_id || null,
-    !!it.is_ai_suggested,
-  ];
-}
 
 // 売上一覧
 router.get('/', async (req, res) => {
@@ -218,9 +188,13 @@ router.get('/:id/excel', async (req, res, next) => {
     };
     // 税区分 → 税率ラベル + 税込への係数
     const tc = row.tax_category as string;
-    const rateLabel = tc === 'tax8' ? '8%' : tc === 'exempt' ? '非課税' : '10%';
-    const rateMul = tc === 'tax8' ? 1.08 : tc === 'exempt' ? 1 : 1.1;
-    const inclusive = (net: number): number => (tc === 'exempt' ? net : Math.round(net * rateMul));
+    // 税率は tax-category.service に一本化する。
+    // 以前はここで三項演算子を連ねており、**知らない区分は 10% に落ちていた**。
+    // migration 156 で足した不課税 (nontax) がまさにそれに当たり、
+    // 税額 0 円であるべき請求書・見積書が 10% 課税で出てしまう。
+    const rate = taxRateOf(tc);
+    const rateLabel = TAX_RATE_LABELS[normalizeTaxCategory(tc)];
+    const inclusive = (net: number): number => (rate === 0 ? net : Math.round(net * (1 + rate)));
 
     // 請求先住所は 1 カラムのため住所1 に全文を入れる (郵便番号/建物名は分離保持していない)
     const addr1 = (row.customer_address || '').replace(/\n/g, ' ').trim();
@@ -369,12 +343,16 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   // 半端に残らないように)
   await withTransaction(async (tx) => {
     await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, normalizeTaxCategory(tax_category), finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
-    // 明細行を保存 (列は ITEM_INSERT_SQL 1か所。**見積が入れた列を落とさない**)
+    // 明細行を保存
     if (Array.isArray(items)) {
       for (let i = 0; i < items.length; i++) {
-        await tx.execute(ITEM_INSERT_SQL, itemInsertParams(id, items[i], i));
+        const it = items[i];
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
+        );
       }
     }
 
@@ -426,19 +404,36 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   // トランザクション無しだと DELETE 後の INSERT が途中失敗したとき明細が全損するため。
   await withTransaction(async (tx) => {
     await tx.execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, is_advance_payment=?, invoice_issued=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-      [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id,
-       tax_category ? normalizeTaxCategory(tax_category) : existing.tax_category, finalAmount,
+      [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount,
        recognition_date !== undefined ? (recognition_date || null) : existing.recognition_date,
        billing_date !== undefined ? (billing_date || null) : existing.billing_date,
        payment_due_date !== undefined ? (payment_due_date || null) : existing.payment_due_date,
        notes !== undefined ? (notes || null) : existing.notes,
        subtitle !== undefined ? (subtitle || null) : existing.subtitle, isAdvancePayment, invoiceIssued, req.user!.id, req.params.id]);
 
-    // 明細行を置換 (列は ITEM_INSERT_SQL 1か所。**見積が入れた列を落とさない**)
+    // 明細行を置換
     if (Array.isArray(items)) {
+      // この画面が知らない列 (単位・行ごとの仕入・仕入先・AI 由来) を引き継ぐ。
+      // **DELETE の前に読む**。消してからでは引き継ぐ値が残っていない。
+      const carryover = await loadRevenueItemCarryover(String(req.params.id), tx.queryAll);
+
       await tx.execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
       for (let i = 0; i < items.length; i++) {
-        await tx.execute(ITEM_INSERT_SQL, itemInsertParams(String(req.params.id), items[i], i));
+        const it = items[i];
+        const kept = carryover(it.description);
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category, unit, cost_amount, cost_vendor_id, is_ai_suggested) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1,
+           // 画面から送られてくる列は送られてきた値を優先し、
+           // 送られてこなかった (undefined) ときだけ既存の値を引き継ぐ。
+           // `null` で送ってきたときは「消したい」なので引き継がない。
+           it.period_start !== undefined ? (it.period_start || null) : kept.period_start,
+           it.period_end !== undefined ? (it.period_end || null) : kept.period_end,
+           it.item_notes !== undefined ? (it.item_notes || null) : kept.item_notes,
+           it.category !== undefined ? (it.category || null) : kept.category,
+           // ここから下はこの版の画面に入力欄が無い。常に引き継ぐ。
+           kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested]
+        );
       }
     }
   });

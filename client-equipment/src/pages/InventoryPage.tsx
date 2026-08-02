@@ -11,9 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw, Trash2 } from "lucide-react";
 import { INVENTORY_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifySuccess } from '@/lib/notify';
 
 type CheckItem = {
   id: string;
@@ -85,7 +82,7 @@ export default function InventoryPage() {
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheck] });
       const added = res?.data?.data?.added ?? 0;
-      if (added > 0) notifySuccess(`${added}件の機材を追加しました`);
+      if (added > 0) alert(`${added}件の機材を追加しました`);
     },
   });
 
@@ -172,7 +169,7 @@ export default function InventoryPage() {
               size="sm" variant="outline"
               className="text-destructive border-destructive/30 hover:bg-destructive/10"
               disabled={deleteMutation.isPending}
-              onClick={async () => { if ((await confirmAction({ title: `「${detail.title}」を削除しますか？`, description: `※この操作は取り消せません`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(detail.id); }}
+              onClick={() => { if (confirm(`「${detail.title}」を削除しますか？\n※この操作は取り消せません`)) deleteMutation.mutate(detail.id); }}
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
               削除
@@ -221,7 +218,7 @@ export default function InventoryPage() {
                       <button
                         disabled={isCompleted}
                         className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
-                          item.found === 1 ? "bg-success text-white" : "bg-muted hover:bg-success-surface disabled:hover:bg-muted"
+                          item.found === 1 ? "bg-green-500 text-white" : "bg-muted hover:bg-green-100 disabled:hover:bg-muted"
                         } disabled:cursor-not-allowed`}
                         onClick={() => mark(item, 1)}
                       >
@@ -230,7 +227,7 @@ export default function InventoryPage() {
                       <button
                         disabled={isCompleted}
                         className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
-                          item.found === 2 ? "bg-destructive text-white" : "bg-muted hover:bg-destructive-surface disabled:hover:bg-muted"
+                          item.found === 2 ? "bg-red-500 text-white" : "bg-muted hover:bg-red-100 disabled:hover:bg-muted"
                         } disabled:cursor-not-allowed`}
                         onClick={() => mark(item, 2)}
                       >
@@ -249,7 +246,7 @@ export default function InventoryPage() {
                       </div>
                     </div>
                     {item.found === 0 && (
-                      <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <HelpCircle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
                     )}
                   </div>
                 ))}
@@ -264,7 +261,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTitle>棚卸し</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">棚卸し</h1>
         <Button size="sm" onClick={() => {
           setForm({ title: "", check_date: new Date().toISOString().split("T")[0], notes: "" });
           setDialogOpen(true);
@@ -303,7 +300,7 @@ export default function InventoryPage() {
                       size="icon" variant="ghost"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
                       disabled={deleteMutation.isPending}
-                      onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${c.title}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(c.id); }}
+                      onClick={(e) => { e.stopPropagation(); if (confirm(`「${c.title}」を削除しますか？`)) deleteMutation.mutate(c.id); }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

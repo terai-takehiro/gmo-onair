@@ -2,22 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './api';
 import type { FinanceDoc, FinanceDocStatus, FinanceDocType, MiscInquiry, Importance } from './types';
 
-/**
- * 一覧のキャッシュキー (v3.1.0)。
- *
- * v3.0.11 まで、読む側は `['finance-docs', …]`、`FinanceDocsPage` の
- * 書き込み後は `['dailyops', 'finance-docs']` を無効化していた。**前方一致しないので
- * 一覧が更新されず**、PDF を上げても画面に出てこない。出てこないので
- * もう一度上げる人がいて、それが二重登録の元になっていた。
- * キーは1か所に置いて、読む側と無効化する側が同じものを使う。
- *
- * また `['dailyops-alerts']` を無効化していたが、**そのキーで取得している画面は無い**
- * (読む側が居ない無効化) ので外した。
- */
-export const FINANCE_DOCS_KEY = ['finance-docs'] as const;
-export const INQUIRIES_KEY = ['inquiries'] as const;
-
-
 // 見積/請求書 + その他問い合わせ API の react-query フック集
 
 // ── 見積/請求書 ──────────────────────────────
@@ -38,7 +22,7 @@ export interface FinanceDocInput {
 
 export function useFinanceDocs(params: { status?: FinanceDocStatus; doc_type?: FinanceDocType } = {}) {
   return useQuery({
-    queryKey: [...FINANCE_DOCS_KEY, params.status ?? 'all', params.doc_type ?? 'all'],
+    queryKey: ['finance-docs', params.status ?? 'all', params.doc_type ?? 'all'],
     queryFn: () => api.get('/dailyops/finance-docs', { params }).then((r) => r.data.data as FinanceDoc[]),
     refetchOnMount: 'always',
   });
@@ -46,7 +30,7 @@ export function useFinanceDocs(params: { status?: FinanceDocStatus; doc_type?: F
 
 function useInvalidateFinance() {
   const qc = useQueryClient();
-  return () => { qc.invalidateQueries({ queryKey: FINANCE_DOCS_KEY }); };
+  return () => { qc.invalidateQueries({ queryKey: ['finance-docs'] }); qc.invalidateQueries({ queryKey: ['dailyops-alerts'] }); };
 }
 
 export function useCreateFinanceDoc() {
@@ -77,7 +61,7 @@ export interface InquiryInput {
 
 export function useInquiries(params: { importance?: Importance; unhandled?: boolean } = {}) {
   return useQuery({
-    queryKey: [...INQUIRIES_KEY, params.importance ?? 'all', params.unhandled ? 'unhandled' : 'all'],
+    queryKey: ['inquiries', params.importance ?? 'all', params.unhandled ? 'unhandled' : 'all'],
     queryFn: () => api.get('/dailyops/inquiries', { params: params.unhandled ? { ...params, unhandled: 1 } : params }).then((r) => r.data.data as MiscInquiry[]),
     refetchOnMount: 'always',
   });
@@ -85,7 +69,7 @@ export function useInquiries(params: { importance?: Importance; unhandled?: bool
 
 function useInvalidateInq() {
   const qc = useQueryClient();
-  return () => { qc.invalidateQueries({ queryKey: INQUIRIES_KEY }); };
+  return () => { qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['dailyops-alerts'] }); };
 }
 
 export function useCreateInquiry() {

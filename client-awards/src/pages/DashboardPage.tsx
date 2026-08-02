@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { cn } from '@/lib/utils';
-import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw, Clock } from 'lucide-react';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError, notifySuccess } from '@/lib/notify';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
 
 interface AwardsEvent {
   id: number;
@@ -15,15 +11,6 @@ interface AwardsEvent {
   scheduled_at: string | null;
   status: 'draft' | 'live' | 'closed';
   created_at: string;
-}
-
-/** 演出のテンプレート (20e)。**実装しているのはアワードだけ** */
-interface Template {
-  key: string;
-  label: string;
-  implemented: boolean;
-  what: string;
-  uses: string[];
 }
 
 interface BoxBackup {
@@ -37,8 +24,8 @@ interface BoxBackup {
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   draft:  { label: '準備中', color: 'bg-muted text-muted-foreground' },
-  live:   { label: 'LIVE', color: 'bg-destructive/10 text-destructive ring-1 ring-destructive/20' },
-  closed: { label: '終了', color: 'bg-success/10 text-success ring-1 ring-success/20' },
+  live:   { label: 'LIVE',   color: 'bg-red-500/10 text-red-600 ring-1 ring-red-500/20' },
+  closed: { label: '終了',   color: 'bg-green-500/10 text-green-700 ring-1 ring-green-500/20' },
 };
 
 export default function DashboardPage() {
@@ -47,9 +34,6 @@ export default function DashboardPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [showBackups, setShowBackups] = useState(false);
-  // テンプレート (20e)。既定はアワード = いま作れる唯一のもの
-  const [template, setTemplate] = useState('awards');
-  const [notReady, setNotReady] = useState<string | null>(null);
   const [restoreNameDraft, setRestoreNameDraft] = useState<{ folderId: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -60,17 +44,9 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: templates } = useQuery({
-    queryKey: ['awards-templates'],
-    queryFn: async () => {
-      const res = await api.get('/awards/templates');
-      return res.data.data.templates as Template[];
-    },
-  });
-
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await api.post('/awards/events', { name, template });
+      const res = await api.post('/awards/events', { name });
       return res.data.data as AwardsEvent;
     },
     onSuccess: (event) => {
@@ -84,7 +60,7 @@ export default function DashboardPage() {
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message ?? 'イベント作成に失敗しました';
-      notifyError(msg);
+      alert(msg);
     },
   });
 
@@ -118,13 +94,13 @@ export default function DashboardPage() {
       qc.invalidateQueries({ queryKey: ['awards-events'] });
       qc.invalidateQueries({ queryKey: ['awards-box-backups'] });
       setRestoreNameDraft(null);
-      notifySuccess(`復元しました: ${d.filesRestored} 件の画像 / ${d.entriesCreated} 件のエントリ`);
+      alert(`復元しました: ${d.filesRestored} 件の画像 / ${d.entriesCreated} 件のエントリ`);
       navigate(`/event/${d.eventId}`);
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message ?? '復元に失敗しました';
-      notifyError(msg);
+      alert(msg);
     },
   });
 
@@ -133,8 +109,8 @@ export default function DashboardPage() {
       {/* v2.9.37: モバイル時のヘッダーをコンパクトに (ラベル/ボタン折り返し回避) */}
       <div className="flex items-center justify-between gap-2 mb-6">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning/10">
-            <Tv className="h-5 w-5 text-warning-strong" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+            <Tv className="h-5 w-5 text-amber-600" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base sm:text-xl font-bold whitespace-nowrap">リアルタイムCG</h1>
@@ -145,7 +121,7 @@ export default function DashboardPage() {
           {/* BOXから復元: モバイルではアイコンのみ (36×36px)、sm+ でテキスト付き */}
           <button
             onClick={() => setShowBackups((s) => !s)}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-warning/60 bg-warning-surface hover:bg-warning/90-surface transition-colors text-warning-strong font-medium h-9 w-9 sm:w-auto sm:px-3 sm:py-2 sm:text-xs whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 hover:bg-amber-100 transition-colors text-amber-800 font-medium h-9 w-9 sm:w-auto sm:px-3 sm:py-2 sm:text-xs whitespace-nowrap"
             title="BOX バックアップから復元"
           >
             <Archive className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
@@ -154,7 +130,7 @@ export default function DashboardPage() {
           {/* 新規イベント: モバイルでもテキスト残すが whitespace-nowrap で 1 行固定 */}
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary hover:bg-primary/90/90 transition-colors text-white font-medium h-9 sm:h-auto px-3 sm:px-4 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors text-white font-medium h-9 sm:h-auto px-3 sm:px-4 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
           >
             <Plus className="h-4 w-4" />
             <span className="sm:hidden">新規</span>
@@ -165,11 +141,11 @@ export default function DashboardPage() {
 
       {/* ── BOX バックアップ一覧 ──────────────────────────── */}
       {showBackups && (
-        <div className="mb-4 rounded-xl border border-warning bg-warning-surface/30 p-4">
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/30 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-warning-strong" />
-              <span className="text-sm font-medium text-warning-strong">BOX バックアップ</span>
+              <Archive className="h-4 w-4 text-amber-700" />
+              <span className="text-sm font-medium text-amber-900">BOX バックアップ</span>
             </div>
             <button onClick={() => setShowBackups(false)} className="text-xs text-muted-foreground hover:text-foreground">閉じる</button>
           </div>
@@ -193,7 +169,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-mono text-muted-foreground">#{b.eventId}</span>
                       <span className="font-medium truncate">{b.name}</span>
                       {b.deleted ? (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-destructive-surface text-destructive ring-1 ring-destructive">削除済み</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 ring-1 ring-red-200">削除済み</span>
                       ) : (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">現存</span>
                       )}
@@ -205,7 +181,7 @@ export default function DashboardPage() {
                   {b.deleted && (
                     <button
                       onClick={() => setRestoreNameDraft({ folderId: b.folderId, name: b.name })}
-                      className="h-ctl-1 flex items-center gap-1 rounded-md bg-warning px-2 text-xs font-medium text-warning-foreground hover:bg-warning/90"
+                      className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
                     >
                       <RotateCcw className="h-3 w-3" />
                       復元
@@ -248,7 +224,7 @@ export default function DashboardPage() {
                   restoreMutation.mutate(restoreNameDraft);
                 }}
                 disabled={!restoreNameDraft.name.trim() || restoreMutation.isPending}
-                className="rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90 disabled:opacity-50"
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
               >
                 {restoreMutation.isPending ? '復元中…' : '復元する'}
               </button>
@@ -260,51 +236,6 @@ export default function DashboardPage() {
       {creating && (
         <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-sm font-medium mb-3">新規イベント作成</p>
-
-          {/* ── テンプレート (20e) ────────────────────────────
-              一覧から隠さない。隠すと「うちの演出は作れないのか」が分からず
-              毎回聞かれる。**出すが作れない**ことをその場で言う。 */}
-          <p className="text-xs font-medium mb-1.5">どの演出をつくりますか</p>
-          <div className="mb-3 grid gap-2 sm:grid-cols-2">
-            {(templates ?? []).map((t) => (
-              <button
-                key={t.key}
-                onClick={() => {
-                  if (!t.implemented) { setNotReady(t.label); setTemplate('awards'); return; }
-                  setTemplate(t.key); setNotReady(null);
-                }}
-                className={cn(
-                  'rounded-lg border p-2.5 text-left min-h-tap',
-                  template === t.key
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : t.implemented ? 'hover:bg-muted' : 'opacity-60 hover:bg-muted',
-                )}
-              >
-                <span className="flex items-center gap-1.5 text-sm font-bold">
-                  {t.label}
-                  {!t.implemented && (
-                    <span className="flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      準備中
-                    </span>
-                  )}
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{t.what}</span>
-                {t.uses.length > 0 && (
-                  <span className="mt-1 block text-[11px] text-muted-foreground">
-                    使うもの: {t.uses.join(' / ')}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          {notReady && (
-            <p className="mb-3 rounded-lg bg-warning-surface px-3 py-2 text-xs text-warning-strong">
-              「{notReady}」は準備中です。いま作れるのは<strong>「アワード」</strong>だけなので、
-              アワードに戻しました。
-            </p>
-          )}
-
           <div className="flex gap-2">
             <input
               autoFocus
@@ -320,7 +251,7 @@ export default function DashboardPage() {
             <button
               onClick={() => { if (newName.trim()) createMutation.mutate(newName.trim()); }}
               disabled={!newName.trim() || createMutation.isPending}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 min-w-[56px]"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 min-w-[60px]"
             >
               {createMutation.isPending ? '作成中…' : '作成'}
             </button>
@@ -339,11 +270,11 @@ export default function DashboardPage() {
           <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       ) : !data?.length ? (
-        <EmptyState
-          icon={<Tv />}
-          title="イベントはまだ1件も作られていません"
-          description="「新規イベント」から作ると、部門・受賞者・送出の画面が使えるようになります。"
-        />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Tv className="h-12 w-12 text-muted-foreground/30 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">イベントがありません</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">「新規イベント」から作成してください</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {data.map((event) => {
@@ -354,8 +285,8 @@ export default function DashboardPage() {
                 className="group flex items-center gap-3 rounded-xl border bg-card p-4 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
                 onClick={() => navigate(`/event/${event.id}`)}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/10">
-                  <Tv className="h-5 w-5 text-warning-strong" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+                  <Tv className="h-5 w-5 text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -369,7 +300,7 @@ export default function DashboardPage() {
                   )}
                   {event.scheduled_at && (
                     <div className="flex items-center gap-1 mt-1">
-                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                      <Calendar className="h-3 w-3 text-muted-foreground/60" />
                       <span className="text-xs text-muted-foreground">
                         {new Date(event.scheduled_at).toLocaleDateString('ja-JP')}
                       </span>
@@ -388,18 +319,18 @@ export default function DashboardPage() {
                     <ExternalLink className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      if ((await confirmAction({ title: `「${event.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) {
+                      if (confirm(`「${event.name}」を削除しますか？`)) {
                         deleteMutation.mutate(event.id);
                       }
                     }}
-                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive hover:text-destructive"
+                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive/70 hover:text-destructive"
                     title="削除"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-muted-foreground transition-colors" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
                 </div>
               </div>
             );

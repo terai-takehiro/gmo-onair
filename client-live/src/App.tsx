@@ -3,7 +3,6 @@ import { useAuth } from './hooks/useAuth';
 import { RedirectOnce } from '@gmo-onair/shared/src/client/RedirectOnce';
 import AppShell from './components/layout/AppShell';
 import LoginPage from './pages/LoginPage';
-import NotFoundRoute from './components/NotFoundRoute';
 import SessionHomePage from './pages/SessionHomePage';
 import DashboardPage from './pages/DashboardPage';
 import TimerAdminPage from './pages/TimerAdminPage';
@@ -45,10 +44,7 @@ function AuthenticatedApp() {
               <Route index element={<DashboardPage />} />
               <Route path="timers" element={<TimerAdminPage />} />
               <Route path="settings" element={<ProgramsPage />} />
-                        {/* 知らないURL。v3.0.11 まで path="*" が無く**何も描かれず真っ白**だった
-                (壊れたのか読み込み中なのか区別が付かない)。共通の案内を出す */}
-            <Route path="*" element={<NotFoundRoute homeLabel="セッション一覧にもどる" />} />
-</Route>
+            </Route>
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />

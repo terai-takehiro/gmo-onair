@@ -241,8 +241,8 @@ function VerticalText({ text, fontSize: baseFontSize, maxHeight }: { text: strin
         transform: scale < 1 ? `scaleY(${scale})` : 'none',
         transformOrigin: 'top center',
         // v2.9.50: 縦書きの「？」「！」が左にずれる問題を修正。
-        // palt (横組み用プロポーショナル詰め) は縦組みで約物を左寄せにするため外し、
-        // vert (縦組みグリフ置換) のみ有効化して全角約物を中央に配置する。
+        //   palt (横組み用プロポーショナル詰め) は縦組みで約物を左寄せにするため外し、
+        //   vert (縦組みグリフ置換) のみ有効化して全角約物を中央に配置する。
         fontFeatureSettings: '"vert" 1',
       }}>{text}</div>
     </div>

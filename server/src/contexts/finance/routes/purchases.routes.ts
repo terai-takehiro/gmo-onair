@@ -7,7 +7,6 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildPurchaseWhere, buildPurchaseOrder } from '../list-query';
-import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 
 const router = Router();
 
@@ -75,7 +74,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   let billing_key: string | null = null;
   if (episode_id) {
     const episode = await queryOne('SELECT episode_code FROM episodes WHERE id = ?', [episode_id]) as any;
-    if (episode) billing_key = generateBillingKey(episode.episode_code, normalizeTaxCategory(tax_category));
+    if (episode) billing_key = generateBillingKey(episode.episode_code, tax_category || 'tax10');
   }
 
   const id = uuidv4();
@@ -83,7 +82,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, billing_key, project_id, episode_id || null, vendor_id, req.user!.id,
-     settlement_method || null, settlement_number || null, settlement_url || null, normalizeTaxCategory(tax_category),
+     settlement_method || null, settlement_number || null, settlement_url || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,
      inspection_date || null, payment_due_date || null, notes || null, is_provisional ? true : false,
@@ -114,7 +113,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
      settlement_method !== undefined ? (settlement_method || null) : existing.settlement_method,
      settlement_number !== undefined ? (settlement_number || null) : existing.settlement_number,
      settlement_url !== undefined ? (settlement_url || null) : existing.settlement_url,
-     tax_category !== undefined ? normalizeTaxCategory(tax_category) : existing.tax_category,
+     tax_category !== undefined ? tax_category : existing.tax_category,
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : existing.invoice_qualified,
      amount !== undefined ? amount : existing.amount,
      description !== undefined ? (description || null) : existing.description,

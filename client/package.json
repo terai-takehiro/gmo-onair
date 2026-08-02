@@ -7,8 +7,7 @@
     "predev": "node ../scripts/generate-version-history.mjs && node ../scripts/generate-mcp-tools.mjs",
     "dev": "vite",
     "prebuild": "node ../scripts/generate-version-history.mjs && node ../scripts/generate-mcp-tools.mjs",
-    "build": "vite build",
-    "typecheck": "tsc -b",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
   },
@@ -45,9 +44,7 @@
     "react-hook-form": "^7.54.0",
     "react-router-dom": "^6.28.0",
     "recharts": "^3.8.0",
-    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^2.6.0",
-    "y-protocols": "^1.0.7",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

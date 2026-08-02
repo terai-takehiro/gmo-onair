@@ -1,4 +1,4 @@
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -17,8 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Download, Loader2 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface VendorSummaryItem {
   vendor_id: string;
@@ -80,7 +78,7 @@ export default function VendorReportPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <PageTitle>仕入先別集計レポート</PageTitle>
+        <h1 className="text-xl lg:text-2xl font-bold">仕入先別集計レポート</h1>
         <Button onClick={handleExport} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
           CSV出力
@@ -125,7 +123,7 @@ export default function VendorReportPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title="この期間に取引のある仕入先がありません" description="期間を変えるか、お金 > 仕入 に明細を登録してください。" />
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}

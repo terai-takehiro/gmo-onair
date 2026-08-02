@@ -52,9 +52,7 @@ export function DataTable<T>({
   actions,
   actionsHeader,
   actionsWidth = 96,
-  // 既定の文言は**わざと呼び出し側に決めさせる**。ここに一般名を置くと
-  // 「何が無いのか」を書かないまま通ってしまう (デザイン 4章 23a の禁止語)
-  emptyMessage = "この条件に当てはまるものはありません。絞り込みを外すと出るかもしれません。",
+  emptyMessage = "データがありません",
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);

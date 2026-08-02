@@ -5,10 +5,16 @@ import api from "@/lib/api";
 import { formatPercent } from "@/lib/format";
 import { PROJECT_STAGE, ALERT_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
-import { manYen } from "@gmo-onair/shared/src/client/ui";
 import { PageTransition } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
-import { DashboardHeader, KpiCard, SectionCard, chartColors, chartDefaults } from "@gmo-onair/shared/src/client/dashboard";
+import {
+  DashboardHeader,
+  KpiCard,
+  SectionCard,
+  EmptyState,
+  chartColors,
+  chartDefaults,
+} from "@gmo-onair/shared/src/client/dashboard";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Line, ComposedChart, Cell,
@@ -24,7 +30,6 @@ import {
   Loader2,
   ClipboardList,
 } from "lucide-react";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface KPI {
   period_label: string;
@@ -79,11 +84,8 @@ const pipelineStageColors: Record<string, string> = {
   a_won: chartColors.positive,
 };
 
-// 万単位に丸めて出す (丸めないと 14,531,520 が「¥1,453.152万」になり桁が読めない)
-// 6章: 万円の丸め方は shared の `manYen` 1本にする
-// (以前はここに2本 (`Math.round` と `toFixed`) あり、負の数で結果が違っていた)
-const formatYen = manYen;
-const formatYenShort = manYen;
+const formatYen = (value: number) => `¥${(value / 10000).toLocaleString()}万`;
+const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
 
 /* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */
 const typeColors: Record<string, string> = {
@@ -299,7 +301,7 @@ export default function DashboardPage() {
                   {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
                     const isToday = day.date === new Date().toISOString().split('T')[0];
                     return (
-                      <div key={day.date} className={`min-w-[128px] snap-start shrink-0 rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+                      <div key={day.date} className={`min-w-[120px] snap-start shrink-0 rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
                         <div className={`text-center mb-1 ${isToday ? 'font-bold text-primary' : 'text-foreground'}`}>
                           <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
                           <span className="text-xs ml-1">{day.date.split('-')[2]}日</span>
@@ -397,7 +399,7 @@ export default function DashboardPage() {
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="この期間に売上・仕入がありません" description="お金 > 売上 / 仕入 に登録すると、月ごとの損益がここに出ます。" />
+              <EmptyState title="月次データがありません" />
             )}
           </SectionCard>
 
@@ -434,7 +436,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="進行中の案件がありません" description="案件 から新しい案件を作るか、ヨミ段階の案件のステージを進めてください。" />
+              <EmptyState title="パイプラインデータがありません" />
             )}
           </SectionCard>
         </div>

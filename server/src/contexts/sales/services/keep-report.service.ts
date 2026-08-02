@@ -74,7 +74,7 @@ export const keepReportService = {
     const rows = await queryAll(
       `SELECT r.*, p.name AS project_name, p.gls_number, p.event_start, p.event_end, p.stage
        FROM event_reports r
-       JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
+       JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
        ${where}
        ORDER BY r.reported_at DESC NULLS LAST, r.updated_at DESC
        LIMIT ?`,
@@ -92,7 +92,7 @@ export const keepReportService = {
       `SELECT p.id, p.name, p.gls_number, p.stage, p.event_start, p.event_end
        FROM projects p
        LEFT JOIN event_reports r ON r.project_id = p.id
-       WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
+       WHERE p.deleted_at IS NULL
          AND r.id IS NULL
          AND (
            p.stage = 's_completed'

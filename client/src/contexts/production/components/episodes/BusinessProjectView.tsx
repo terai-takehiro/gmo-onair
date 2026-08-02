@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import {
+  Project,
   Vendor,
   ProjectTypeLabels,
   BroadcastTypeLabels,
@@ -54,9 +55,10 @@ import {
   Pencil,
   Loader2,
   FileText,
-  
-  
-  
+  Receipt,
+  FileSpreadsheet,
+  ClipboardCheck,
+  ShoppingCart,
   Percent,
   Link2,
   Calculator,
@@ -65,20 +67,60 @@ import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError, notifyInfo } from '@/lib/notify';
 
-import {
-  
-  type Props,
-  type Purchase,
-  type Revenue,
-  type RevenueItem,
-} from './businessProject/types';
-import MonthlyBilling from './businessProject/MonthlyBilling';
-import RevenueList from './businessProject/RevenueList';
-import PurchaseList from './businessProject/PurchaseList';
+interface RevenueItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+  period_start?: string | null;
+  period_end?: string | null;
+  item_notes?: string | null;
+  category?: string | null;
+}
+
+interface Revenue {
+  id: string;
+  billing_key: string;
+  amount: number;
+  tax_category: string;
+  recognition_date: string | null;
+  billing_date: string | null;
+  payment_due_date: string | null;
+  notes: string | null;
+  subtitle: string | null;
+  customer_name: string;
+  items?: RevenueItem[];
+  group_name?: string | null;
+  allocated_amount?: number | null;
+  group_id?: string | null;
+}
+
+interface Purchase {
+  id: string;
+  amount: number;
+  description: string | null;
+  vendor_id: string;
+  vendor_name: string;
+  recognition_date: string | null;
+  settlement_method: string | null;
+  settlement_number: string | null;
+  tax_category: string;
+  invoice_qualified: number;
+  group_name?: string | null;
+  group_id?: string | null;
+  allocated_amount?: number | null;
+}
+
+interface Props {
+  project: Project;
+  projectId: string;
+  isEstimateMode?: boolean;
+}
+
+// 画面ごとに表を持つと足した区分が漏れる (実際に不課税がここだけ抜けていた)。
+// 表は client/src/types/index.ts の TaxCategoryLabels 1本にする。
+const taxLabels: Record<string, string> = TaxCategoryLabels;
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const navigate = useNavigate();
@@ -177,7 +219,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     onError: (err: any) => {
       const msg =
         err?.response?.data?.error?.message || err?.message || "月ユニットの作成に失敗しました";
-      notifyError(`月の追加に失敗しました: ${msg}`);
+      alert(`月の追加に失敗しました: ${msg}`);
     },
   });
 
@@ -191,20 +233,20 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     onError: (err: any) => {
       const msg =
         err?.response?.data?.error?.message || err?.message || "削除に失敗しました";
-      notifyError(`月ユニットの削除に失敗しました: ${msg}`);
+      alert(`月ユニットの削除に失敗しました: ${msg}`);
     },
   });
 
-  const handleDeleteMonth = async (ep: { id: string; episode_code: string }) => {
+  const handleDeleteMonth = (ep: { id: string; episode_code: string }) => {
     const linkedRevs = revenues.filter((r) => (r as any).episode_id === ep.id).length;
     const linkedPurs = purchases.filter((p) => (p as any).episode_id === ep.id).length;
     if (linkedRevs > 0 || linkedPurs > 0) {
-      notifyInfo(
+      alert(
         `${ep.episode_code} には売上 ${linkedRevs} 件 / 仕入 ${linkedPurs} 件が紐づいています。\n先にそれらを削除（または編集で紐づけを変更）してから月を削除してください。`,
       );
       return;
     }
-    if (!(await confirmAction({ title: `${ep.episode_code} を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+    if (!confirm(`${ep.episode_code} を削除しますか？`)) return;
     deleteMonthMutation.mutate(ep.id);
   };
 
@@ -435,7 +477,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      notifyError('PDF生成に失敗しました');
+      alert('PDF生成に失敗しました');
     }
   };
 
@@ -457,7 +499,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      notifyError('Excel生成に失敗しました');
+      alert('Excel生成に失敗しました');
     }
   };
 
@@ -579,7 +621,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   const openItemDiscount = (idx: number) => {
     const item = items[idx];
     if (!item || (item.amount || 0) <= 0) {
-      notifyError("値引きの対象となる金額が0円以下です");
+      alert("値引きの対象となる金額が0円以下です");
       return;
     }
     setDiscountDialog({
@@ -598,7 +640,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       0
     );
     if (positiveSubtotal <= 0) {
-      notifyError("値引きの対象となる小計が0円以下です");
+      alert("値引きの対象となる小計が0円以下です");
       return;
     }
     setDiscountDialog({
@@ -711,8 +753,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               ? navigate(`/sales/projects/${projectId}`)
               : navigate(
                   isCategoryA
-                    ? "/projects?filter=confirmed_studio"
-                    : "/projects?filter=confirmed_business"
+                    ? "/projects/confirmed/studio"
+                    : "/projects/confirmed/business"
                 )
           }
         >
@@ -720,14 +762,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           {isEstimateMode ? "案件に戻る" : "確定案件一覧"}
         </Button>
         <div className="flex flex-wrap items-center gap-2">
-          <PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">
             {project.gls_number && (
-              <span className="text-primary">
+              <span className=" text-primary">
                 {project.gls_number}{" "}
               </span>
             )}
             {project.name}
-          </PageTitle>
+          </h1>
           {isEstimateMode && (
             <Badge className="bg-orange-500 text-white">概算見積</Badge>
           )}
@@ -836,55 +878,535 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         </Card>
       )}
 
+      {/* 月次請求 (ビジネス案件の月締め請求単位) — 1月 = 1請求単位 (GLS-XXXX-YYMM) */}
       {monthlyMode && (
-        <MonthlyBilling
-          monthEpisodes={monthEpisodes}
-          revenues={revenues}
-          purchases={purchases}
-          newMonth={newMonth}
-          setNewMonth={setNewMonth}
-          addMonthMutation={addMonthMutation}
-          handleDeleteMonth={handleDeleteMonth}
-          handleDownloadExcel={handleDownloadExcel}
-          handleDownloadPdf={handleDownloadPdf}
-          openEdit={openEdit}
-          openNewForMonth={openNewForMonth}
-          openEditPurchase={openEditPurchase}
-          openNewPurchaseForMonth={openNewPurchaseForMonth}
-          project={project}
-        />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              月次管理（月締め：売上・仕入）
+            </h2>
+            <div className="flex items-center gap-2">
+              <Input
+                type="month"
+                value={newMonth}
+                onChange={(e) => setNewMonth(e.target.value)}
+                className="h-9 w-40"
+                aria-label="追加する対象月"
+              />
+              <Button
+                size="sm"
+                disabled={!newMonth || addMonthMutation.isPending}
+                onClick={() => addMonthMutation.mutate(newMonth)}
+              >
+                {addMonthMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-1" />
+                )}
+                月を追加
+              </Button>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            月ごとに <span className="font-medium text-foreground">{project.gls_number}-YYMM</span>{" "}
+            の請求単位を作り、その月の<span className="font-medium text-foreground">売上・仕入</span>をまとめて管理します（締め月が違っても月別に分けられます）。1月＝1請求書/見積書。
+          </p>
+
+          {monthEpisodes.length === 0 ? (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                月次ユニットがありません。上の入力欄で対象月を選び「月を追加」してください。
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {monthEpisodes.map((ep) => {
+                const monthRevs = revenues.filter((r) => (r as any).episode_id === ep.id);
+                const monthPurs = purchases.filter((p) => (p as any).episode_id === ep.id);
+                const revTotal = monthRevs.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+                const purTotal = monthPurs.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                const primaryRev = monthRevs[0];
+                // episode_code の末尾 YYMM から計上月 (YYYY-MM) を導出
+                const mm = ep.episode_code.match(/-(\d{2})(\d{2})$/);
+                const recMonth = mm ? `20${mm[1]}-${mm[2]}` : undefined;
+                return (
+                  <Card key={ep.id}>
+                    <CardContent className="space-y-3 py-3 px-4">
+                      {/* ヘッダー: コード + 売上/仕入/粗利 + 削除 */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-sm font-semibold">
+                          {ep.episode_code}
+                          {ep.title && <span className="ml-2 text-muted-foreground font-normal">{ep.title}</span>}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span>売上 <span className="font-medium font-number">{formatCurrency(revTotal)}</span></span>
+                          <span className="text-muted-foreground">仕入 <span className="font-medium font-number">{formatCurrency(purTotal)}</span></span>
+                          <span className="text-primary">粗利 <span className="font-medium font-number">{formatCurrency(revTotal - purTotal)}</span></span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            title="この月ユニットを削除（紐づく売上/仕入がある場合は先に削除が必要）"
+                            onClick={() => handleDeleteMonth(ep)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 売上 */}
+                      <div className="rounded-md border bg-muted/20 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium">売上（請求）</span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {primaryRev ? (
+                              <>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openEdit(primaryRev)}>
+                                  <Pencil className="h-3 w-3" />明細編集
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "estimate")}>
+                                  <FileText className="h-3 w-3" />見積書
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "invoice")}>
+                                  <Receipt className="h-3 w-3" />請求書
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "inspection")}>
+                                  <ClipboardCheck className="h-3 w-3" />検収書
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadExcel(primaryRev.id)}>
+                                  <FileSpreadsheet className="h-3 w-3" />Excel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewForMonth(ep.id, ep.title || "", mm ? `20${mm[1]}-${mm[2]}` : undefined)}>
+                                <Plus className="h-3 w-3" />売上明細を入力
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 仕入 */}
+                      <div className="rounded-md border bg-muted/20 p-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium">仕入</span>
+                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewPurchaseForMonth(ep.id, recMonth)}>
+                            <Plus className="h-3 w-3" />仕入を追加
+                          </Button>
+                        </div>
+                        {monthPurs.length > 0 && (
+                          <div className="divide-y">
+                            {monthPurs.map((pu) => (
+                              <button
+                                key={pu.id}
+                                type="button"
+                                className="flex w-full items-center justify-between gap-2 py-1 text-left text-xs hover:bg-muted/40 rounded px-1"
+                                onClick={() => openEditPurchase(pu)}
+                                title="この仕入を編集"
+                              >
+                                <span className="min-w-0 flex-1 truncate">
+                                  {pu.vendor_name || "—"}
+                                  {pu.description && <span className="text-muted-foreground ml-1">{pu.description}</span>}
+                                </span>
+                                <span className="font-number shrink-0">{formatCurrency(pu.amount)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
-      <RevenueList
-        monthlyMode={monthlyMode}
-        isEstimateMode={isEstimateMode}
-        isLoading={isLoading}
-        flatRevenues={flatRevenues}
-        openNew={openNew}
-        openEdit={openEdit}
-        deleteMutation={deleteMutation}
-        handleDownloadExcel={handleDownloadExcel}
-        handleDownloadPdf={handleDownloadPdf}
-        inlineEditId={inlineEditId}
-        inlineItems={inlineItems}
-        startInlineEdit={startInlineEdit}
-        cancelInlineEdit={cancelInlineEdit}
-        updateInlineItem={updateInlineItem}
-        addInlineItem={addInlineItem}
-        removeInlineItem={removeInlineItem}
-        inlineSaveMutation={inlineSaveMutation}
-        setSimDialogOpen={setSimDialogOpen}
-      />
+      {/* Revenue List = 見積/売上明細 */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {isEstimateMode ? "概算見積書" : monthlyMode ? "その他の売上明細（月次外）" : "見積・売上明細"}
+          </h2>
+          <div className="flex items-center gap-2">
+            {isEstimateMode && (
+              <Button size="sm" variant="outline" onClick={() => setSimDialogOpen(true)}>
+                <Calculator className="h-4 w-4 mr-1" />
+                シミュレーション
+              </Button>
+            )}
+            <Button size="sm" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isEstimateMode ? "見積追加" : "明細追加"}
+            </Button>
+          </div>
+        </div>
 
-      <PurchaseList
-        monthlyMode={monthlyMode}
-        isEstimateMode={isEstimateMode}
-        purchasesLoading={purchasesLoading}
-        flatPurchases={flatPurchases}
-        openNewPurchase={openNewPurchase}
-        openEditPurchase={openEditPurchase}
-        deletePurMutation={deletePurMutation}
-      />
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : flatRevenues.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              {monthlyMode
+                ? "月次以外の売上明細はありません。月締め請求は上の「月次請求」から管理します。"
+                : "売上明細がありません。「明細追加」から見積構成を作成してください。"}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {flatRevenues.map((rev) => (
+              <Card key={rev.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className=" text-sm font-semibold">
+                          {rev.billing_key}
+                        </span>
+                        {rev.subtitle && (
+                          <span className="text-sm font-medium">{rev.subtitle}</span>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {taxLabels[rev.tax_category] || rev.tax_category}
+                        </Badge>
+                        {rev.group_name && (
+                          <Badge variant="secondary" className="text-xs">按分: {rev.group_name}</Badge>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {rev.recognition_date && (
+                          <span>計上日: {formatDate(rev.recognition_date)}</span>
+                        )}
+                        {rev.billing_date && (
+                          <span>請求日: {formatDate(rev.billing_date)}</span>
+                        )}
+                        {rev.payment_due_date && (
+                          <span>支払期日: {formatDate(rev.payment_due_date)}</span>
+                        )}
+                      </div>
+                      {rev.notes && (
+                        <p className="mt-1 text-xs text-muted-foreground truncate">
+                          {rev.notes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="text-right mr-2">
+                        <span className="font-number text-lg font-bold">
+                          {formatCurrency(rev.allocated_amount != null ? rev.allocated_amount : rev.amount)}
+                        </span>
+                        {rev.allocated_amount != null && rev.allocated_amount !== rev.amount && (
+                          <div className="text-xs text-muted-foreground font-number">
+                            全体 {formatCurrency(rev.amount)}
+                          </div>
+                        )}
+                      </div>
+                      {rev.items && rev.items.length > 0 && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="見積書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'estimate')}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">見積書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="請求書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'invoice')}
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">請求書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="検収書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'inspection')}
+                          >
+                            <ClipboardCheck className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">検収書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="請求書Excelを発行（業務推進提出用）"
+                            onClick={() => handleDownloadExcel(rev.id)}
+                          >
+                            <FileSpreadsheet className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">請求書Excel</span>
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(rev)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => {
+                          if (confirm("この明細を削除しますか？"))
+                            deleteMutation.mutate(rev.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* 明細項目: 表示 / インライン編集 (v2.8.104+) */}
+                  {(rev.items && rev.items.length > 0) || inlineEditId === rev.id ? (
+                    <div className="mt-3 border-t pt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] text-muted-foreground tracking-wide">明細項目</span>
+                        {inlineEditId !== rev.id ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={() => startInlineEdit(rev)}
+                            title="明細項目をインラインで編集"
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            明細を編集
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={cancelInlineEdit}
+                              disabled={inlineSaveMutation.isPending}
+                            >
+                              キャンセル
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={() => inlineSaveMutation.mutate({ id: rev.id, items: inlineItems })}
+                              disabled={inlineSaveMutation.isPending}
+                            >
+                              {inlineSaveMutation.isPending ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : null}
+                              保存
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground">
+                            <th className="text-left font-normal pb-1">項目</th>
+                            <th className="text-right font-normal pb-1 w-16">数量</th>
+                            <th className="text-right font-normal pb-1 w-24">単価</th>
+                            <th className="text-right font-normal pb-1 w-24">金額</th>
+                            {inlineEditId === rev.id && <th className="w-8"></th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inlineEditId === rev.id
+                            ? inlineItems.map((item, idx) => (
+                                <tr key={idx} className="border-t border-dashed">
+                                  <td className="py-1 pr-1">
+                                    <Input
+                                      value={item.description}
+                                      onChange={(e) => updateInlineItem(idx, "description", e.target.value)}
+                                      placeholder="項目名"
+                                      className="h-7 text-xs"
+                                    />
+                                  </td>
+                                  <td className="py-1 px-1">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={item.quantity}
+                                      onChange={(e) =>
+                                        updateInlineItem(idx, "quantity", parseInt(e.target.value) || 0)
+                                      }
+                                      className="h-7 text-xs text-right"
+                                    />
+                                  </td>
+                                  <td className="py-1 px-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={item.unit_price}
+                                        onChange={(e) =>
+                                          updateInlineItem(idx, "unit_price", parseInt(e.target.value) || 0)
+                                        }
+                                        className="h-7 text-xs text-right flex-1"
+                                      />
+                                      <TaxHelperButton
+                                        fieldLabel="単価"
+                                        defaultIncludedAmount={item.unit_price}
+                                        onResult={(v) => updateInlineItem(idx, "unit_price", v)}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-1 text-right font-number font-medium tabular-nums">
+                                    {formatCurrency(item.amount)}
+                                  </td>
+                                  <td className="py-1 pl-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => removeInlineItem(idx)}
+                                      title="この行を削除"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))
+                            : rev.items!.map((item, idx) => (
+                                <tr key={idx} className="border-t border-dashed">
+                                  <td className="py-1">{item.description}</td>
+                                  <td className="py-1 text-right font-number">{item.quantity}</td>
+                                  <td className="py-1 text-right font-number">{formatCurrency(item.unit_price)}</td>
+                                  <td className="py-1 text-right font-number font-medium">{formatCurrency(item.amount)}</td>
+                                </tr>
+                              ))}
+                        </tbody>
+                      </table>
+                      {inlineEditId === rev.id && (
+                        <div className="mt-2 flex items-center justify-between">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={addInlineItem}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            行追加
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            合計: <span className="font-number font-medium text-foreground">
+                              {formatCurrency(inlineItems.reduce((s, it) => s + (it.amount || 0), 0))}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 border-t pt-2 flex items-center justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px] text-muted-foreground"
+                        onClick={() => startInlineEdit(rev)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        明細項目を追加
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 仕入一覧 */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            {monthlyMode ? "その他の仕入（月次外）" : "仕入一覧"}
+          </h2>
+          {!isEstimateMode && (
+            <Button size="sm" onClick={openNewPurchase}>
+              <Plus className="h-4 w-4 mr-1" />
+              仕入追加
+            </Button>
+          )}
+        </div>
+
+        {purchasesLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : flatPurchases.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-muted-foreground">
+              {monthlyMode ? "月次以外の仕入はありません。月締めの仕入は上の「月次管理」から追加します。" : "仕入データがありません"}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {flatPurchases.map((pu) => (
+              <Card key={pu.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm">
+                        {pu.description || "（説明なし）"}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {pu.vendor_name}
+                        {pu.recognition_date && ` / ${formatDate(pu.recognition_date)}`}
+                      </div>
+                      {pu.group_name && (
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          按分: {pu.group_name}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        {pu.allocated_amount != null && pu.allocated_amount !== pu.amount ? (
+                          <>
+                            <span className="font-number text-lg font-bold">{formatCurrency(pu.allocated_amount)}</span>
+                            <div className="text-xs text-muted-foreground">
+                              全体 {formatCurrency(pu.amount)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
+                        )}
+                      </div>
+                      {!pu.group_id && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPurchase(pu)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                            if (confirm("この仕入を削除しますか？")) deletePurMutation.mutate(pu.id);
+                          }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 明細追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
@@ -934,14 +1456,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 <Table className="min-w-[1180px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[240px]">内容</TableHead>
+                      <TableHead className="min-w-[220px]">内容</TableHead>
                       <TableHead className="w-32">カテゴリ</TableHead>
                       <TableHead className="w-20 text-right">数量</TableHead>
                       <TableHead className="w-40 text-right">単価</TableHead>
                       <TableHead className="w-28 text-right">金額</TableHead>
-                      <TableHead className="w-[128px]">期間開始</TableHead>
-                      <TableHead className="w-[128px]">期間終了</TableHead>
-                      <TableHead className="min-w-[200px]">明細備考</TableHead>
+                      <TableHead className="w-[130px]">期間開始</TableHead>
+                      <TableHead className="w-[130px]">期間終了</TableHead>
+                      <TableHead className="min-w-[180px]">明細備考</TableHead>
                       <TableHead className="w-16"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1200,10 +1722,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* 税区分は @/types の TaxCategoryLabels 1か所から出す
-                        (画面ごとに並べると【不課税】のように足した選択肢が漏れる) */}
-                    {Object.entries(TaxCategoryLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
+                      <SelectItem key={key} value={key}>{TaxCategoryLabels[key]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1462,8 +1982,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               {editingPurId && (
                 <Button
                   variant="destructive"
-                  onClick={async () => {
-                    if (!(await confirmAction({ title: "この仕入を削除しますか？", description: "この操作は元に戻せません。", confirmLabel: '削除する', tone: 'danger' }))) return;
+                  onClick={() => {
+                    if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
                     deletePurMutation.mutate(editingPurId, { onSuccess: () => closePurDialog() });
                   }}
                   disabled={deletePurMutation.isPending}

@@ -1,40 +1,66 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { requireAuth } from '../../../shared/middleware/auth';
-import { search, searchForPalette, RESULTS_LIMIT } from '../services/search.service';
+import { Router } from 'express';
+import { queryAll } from '../../../shared/db/connection';
+import { requireAuth, meetsPermissionLevel } from '../../../shared/middleware/auth';
 
 const router = Router();
-const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
-  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-const actorOf = (req: Request) => ({
-  role: req.user?.role,
-  permissions: req.user?.permissions,
+/**
+ * 横断検索は種類ごとに権限を見る。
+ *
+ * 以前は `requireAuth` だけだったので、**ログインしているだけで**
+ * 案件名・GLS番号・お客様の名前・仕入先の名前が誰にでも出ていた
+ * (開くと 403 で止まるが、名前はもう見えている)。機材だけの権限の人にも見えた。
+ *
+ * 権限が無い種類は**空配列で返す**。「N件あるが見せない」も漏れになるので、
+ * 件数も出さない。
+ *
+ * 判定は `requirePermission` と同じ `meetsPermissionLevel` を通す。
+ * 判定を写すと片方だけ緩くなる
+ * (v2.9.207 で MCP が HTTP の requirePermission をバイパスしていたのと同じ形)。
+ */
+const SEARCH_MODULES = {
+  projects: 'sales',
+  customers: 'sales',
+  vendors: 'budget',
+} as const;
+
+// GET /search?q=keyword - Cross-search across entities
+router.get('/', requireAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 100) : '';
+
+  const can = (kind: keyof typeof SEARCH_MODULES) =>
+    meetsPermissionLevel(req.user?.role, req.user?.permissions?.[SEARCH_MODULES[kind]], 'reader');
+
+  if (!q || q.length < 1) {
+    res.json({ success: true, data: { projects: [], customers: [], vendors: [] } });
+    return;
+  }
+
+  const safe = q.replace(/[%_\\]/g, '\\$&');
+  const like = `%${safe}%`;
+
+  const projects = can('projects')
+    ? await queryAll(
+        `SELECT id, code, gls_number, name, stage FROM projects WHERE (name ILIKE ? ESCAPE '\\' OR code ILIKE ? ESCAPE '\\' OR gls_number ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 10`,
+        [like, like, like]
+      )
+    : [];
+
+  const customers = can('customers')
+    ? await queryAll(
+        `SELECT id, name, short_name FROM customers WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
+        [like, like]
+      )
+    : [];
+
+  const vendors = can('vendors')
+    ? await queryAll(
+        `SELECT id, name, vendor_type FROM vendors WHERE (name ILIKE ? ESCAPE '\\' OR vendor_type ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
+        [like, like]
+      )
+    : [];
+
+  res.json({ success: true, data: { projects, customers, vendors } });
 });
-
-// ── 検索結果の画面 (36章) ────────────────────────────────
-//
-// `/search` より前に置く (`/search/results` が `/search` に食われないように)。
-// 種類ごとの件数つきで返す。**権限が無い種類は件数にも出さない**。
-router.get('/results', requireAuth, wrap(async (req, res) => {
-  res.json({
-    success: true,
-    data: await search({
-      q: typeof req.query.q === 'string' ? req.query.q : '',
-      actor: actorOf(req),
-      limit: RESULTS_LIMIT,
-      kind: typeof req.query.kind === 'string' && req.query.kind ? req.query.kind : null,
-    }),
-  });
-}));
-
-// GET /search?q=keyword — ⌘K の候補
-//
-// v2.9.286: **権限を見るようにした**。それまではログインしているだけで
-// 案件名・GLS番号・お客様の名前・仕入先の名前が誰にでも出ていた
-// (開くと403で止まるが、名前はもう見えている)。
-router.get('/', requireAuth, wrap(async (req, res) => {
-  const q = typeof req.query.q === 'string' ? req.query.q : '';
-  res.json({ success: true, data: await searchForPalette(q, actorOf(req)) });
-}));
 
 export default router;

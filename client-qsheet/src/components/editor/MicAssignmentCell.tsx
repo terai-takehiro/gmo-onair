@@ -42,9 +42,9 @@ const STATE_LABEL: Record<MicState, string> = {
 };
 
 const STATE_CLASS: Record<MicState, string> = {
-  on: "bg-destructive text-white",
-  standby: "bg-warning text-warning-strong",
-  off: "bg-accent text-muted-foreground dark:bg-muted dark:text-muted-foreground",
+  on: "bg-red-600 text-white",
+  standby: "bg-amber-400 text-amber-950",
+  off: "bg-zinc-300 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400",
 };
 
 export function getAssignment(
@@ -90,10 +90,10 @@ export default function MicAssignmentCell({
         <button
           type="button"
           onClick={onInheritFromPrev}
-          className={`self-start inline-flex items-center gap-1 h-ctl-1 px-1.5 mb-0.5 rounded text-[10px] font-medium transition-colors ${
+          className={`self-start inline-flex items-center gap-1 h-5 px-1.5 mb-0.5 rounded text-[10px] font-medium transition-colors ${
             isEmpty
-              ? "text-cat-7 hover:bg-cat-7/10"
-              : "text-muted-foreground hover:text-cat-7"
+              ? "text-pink-700 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-950/40"
+              : "text-zinc-400 hover:text-pink-700 dark:text-zinc-500 dark:hover:text-pink-400"
           }`}
           title="直前 cue のマイク状態をコピー"
           aria-label="前cueから継承"
@@ -109,14 +109,14 @@ export default function MicAssignmentCell({
             <button
               type="button"
               onClick={() => update(c.ch, { state: STATE_CYCLE[a.state] })}
-              className={`flex-none h-ctl-1 px-1.5 rounded text-[10px] font-bold tracking-wide transition-colors ${STATE_CLASS[a.state]}`}
+              className={`flex-none h-5 px-1.5 rounded text-[10px] font-bold tracking-wide transition-colors ${STATE_CLASS[a.state]}`}
               title={`${a.state} → ${STATE_CYCLE[a.state]}`}
               aria-label={`Ch${c.ch} ${STATE_LABEL[a.state]}`}
             >
               {STATE_LABEL[a.state]}
             </button>
             <span
-              className="flex-none text-[10px] font-bold w-7 text-muted-foreground dark:text-muted-foreground tabular-nums"
+              className="flex-none text-[10px] font-bold w-7 text-zinc-500 dark:text-zinc-400 tabular-nums"
               style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
             >
               Ch{c.ch}
@@ -126,7 +126,7 @@ export default function MicAssignmentCell({
               onChange={(e) => update(c.ch, { person: e.target.value })}
               list={personsListId}
               placeholder={c.label || "出演者"}
-              className="flex-1 min-w-0 h-5 px-1 text-[11px] bg-transparent border border-transparent hover:border-border dark:hover:border-border focus:border-border dark:focus:border-border rounded outline-none"
+              className="flex-1 min-w-0 h-5 px-1 text-[11px] bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 focus:border-zinc-300 dark:focus:border-zinc-600 rounded outline-none"
               aria-label={`Ch${c.ch} 出演者`}
             />
             <input
@@ -134,14 +134,14 @@ export default function MicAssignmentCell({
               onChange={(e) => update(c.ch, { micType: e.target.value })}
               list={micTypesListId}
               placeholder="マイク"
-              className="flex-none w-14 h-5 px-1 text-[11px] bg-transparent border border-transparent hover:border-border dark:hover:border-border focus:border-border dark:focus:border-border rounded outline-none"
+              className="flex-none w-14 h-5 px-1 text-[11px] bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 focus:border-zinc-300 dark:focus:border-zinc-600 rounded outline-none"
               aria-label={`Ch${c.ch} マイク種類`}
             />
           </div>
         );
       })}
       {chList === DEFAULT_CHANNELS && (
-        <p className="flex items-center gap-1 text-[9px] text-muted-foreground dark:text-muted-foreground italic mt-0.5">
+        <p className="flex items-center gap-1 text-[9px] text-zinc-400 dark:text-zinc-500 italic mt-0.5">
           <Mic size={9} aria-hidden /> マスターでChを定義
         </p>
       )}

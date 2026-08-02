@@ -22,8 +22,6 @@ import {
   Presentation, Loader2, Check, Plus, Trash2, Image as ImageIcon,
   CalendarDays, TrendingUp, FileText, Users,
 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // 型
@@ -99,7 +97,7 @@ function EventReportsTab() {
                       </span>
                     )}
                     <Button
-                    size="sm" variant="outline" className="ml-auto h-ctl-1 text-xs shrink-0 border-amber-300"
+                      size="sm" variant="outline" className="ml-auto h-7 text-xs shrink-0 border-amber-300"
                       onClick={() => setEditing({ projectId: c.id, projectName: c.name, report: null })}
                     >
                       <Plus className="h-3 w-3 mr-1" />報告を作成
@@ -111,10 +109,7 @@ function EventReportsTab() {
           )}
 
           {reports.length === 0 ? (
-            <EmptyState
-              title="イベント実施報告はまだ1件もありません"
-              description="上の候補から選ぶと、その案件の実施報告を作れます。"
-            />
+            <p className="py-6 text-center text-sm text-muted-foreground">イベント実施報告がまだありません。上の候補から作成してください。</p>
           ) : (
             <div className="space-y-2">
               {reports.map((r) => (
@@ -260,8 +255,8 @@ function EventReportDialog({ projectId, projectName, report, onClose }: {
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
-              <Input className="h-8 flex-1 min-w-[128px] text-sm" placeholder="Box ファイル ID" value={newBoxId} onChange={(e) => setNewBoxId(e.target.value)} />
-              <Input className="h-8 flex-1 min-w-[128px] text-sm" placeholder="キャプション (任意)" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
+              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="Box ファイル ID" value={newBoxId} onChange={(e) => setNewBoxId(e.target.value)} />
+              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="キャプション (任意)" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
               <Button size="sm" variant="outline" className="h-8" disabled={!newBoxId.trim() || addPhoto.isPending} onClick={() => addPhoto.mutate()}>
                 <Plus className="h-3.5 w-3.5 mr-1" />追加
               </Button>
@@ -340,7 +335,7 @@ function MonthlyPlTab() {
         )}
       </div>
 
-      {isLoading || !pl?.variance || !pl?.actual ? (
+      {isLoading || !pl ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
         <>
@@ -388,7 +383,7 @@ function MonthlyPlTab() {
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-semibold">予算 (目標)</p>
                 {!editBudget && (
-                  <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => {
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                     setBudgetForm({
                       revenue: pl.budget?.revenue != null ? String(pl.budget.revenue) : "",
                       cogs_fixed: pl.budget?.cogs_fixed != null ? String(pl.budget.cogs_fixed) : "",
@@ -409,8 +404,8 @@ function MonthlyPlTab() {
                   ))}
                   <p className="text-[11px] text-muted-foreground">営業利益目標は 売上 − 固定原価 − 変動原価 − 販管費 で自動計算されます。</p>
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setEditBudget(false)}>キャンセル</Button>
-                    <Button size="sm" className="h-ctl-1 text-xs" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate()}>保存</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditBudget(false)}>キャンセル</Button>
+                    <Button size="sm" className="h-7 text-xs" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate()}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -425,7 +420,7 @@ function MonthlyPlTab() {
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-semibold">実績補正 (経理確定値)</p>
                 {!editOverride && (
-                  <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => {
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
                     setOverrideForm({
                       cogs_fixed_actual: pl.override?.cogs_fixed_actual != null ? String(pl.override.cogs_fixed_actual) : "",
                       sga_actual: pl.override?.sga_actual != null ? String(pl.override.sga_actual) : "",
@@ -451,8 +446,8 @@ function MonthlyPlTab() {
                   </div>
                   <p className="text-[11px] text-muted-foreground">空欄で保存すると補正を解除し自動集計値に戻ります。</p>
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setEditOverride(false)}>キャンセル</Button>
-                    <Button size="sm" className="h-ctl-1 text-xs" disabled={saveOverride.isPending} onClick={() => saveOverride.mutate()}>保存</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditOverride(false)}>キャンセル</Button>
+                    <Button size="sm" className="h-7 text-xs" disabled={saveOverride.isPending} onClick={() => saveOverride.mutate()}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -491,12 +486,9 @@ function MinutesTab() {
         </Button>
       </div>
       {isLoading ? (
-        <Delayed><SkeletonRows rows={4} /></Delayed>
+        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : list.length === 0 ? (
-        <EmptyState
-          title="議事録はまだ1件もありません"
-          description="「議事録を作る」から、隔週キープで話したことを残してください。"
-        />
+        <p className="py-6 text-center text-sm text-muted-foreground">議事録がまだありません。</p>
       ) : (
         <div className="space-y-2">
           {list.map((m) => (
@@ -567,7 +559,7 @@ function MinutesDialog({ initial, onClose }: { initial: Minutes | null; onClose:
           <div>
             <div className="mb-1 flex items-center justify-between">
               <Label>領域別トピック</Label>
-              <Button size="sm" variant="outline" className="h-ctl-1 text-xs" onClick={() => setTopics((t) => [...t, { area: "", text: "" }])}>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setTopics((t) => [...t, { area: "", text: "" }])}>
                 <Plus className="h-3 w-3 mr-1" />行追加
               </Button>
             </div>
@@ -605,19 +597,7 @@ function MinutesDialog({ initial, onClose }: { initial: Minutes | null; onClose:
 // ============================================================
 // ページ本体
 // ============================================================
-/**
- * 報告資料の基礎データ。
- *
- * `only` を渡すと、そのタブの中身だけを枠なしで返す (ふりかえり `/review` に埋める用)。
- * ふりかえり側が「今週 / 隔週キープ / 月次の損益 / 営業レビュー」のタブを持つので、
- * ここのタブ列を一緒に出すと同じ階層の切り替えが2組並んでしまう。
- */
-export default function KeepReportPage({ only }: { only?: "events" | "pl" | "minutes" } = {}) {
-  if (only) {
-    if (only === "events") return <EventReportsTab />;
-    if (only === "pl") return <MonthlyPlTab />;
-    return <MinutesTab />;
-  }
+export default function KeepReportPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-5xl space-y-4 p-3 lg:p-6">
@@ -626,7 +606,7 @@ export default function KeepReportPage({ only }: { only?: "events" | "pl" | "min
             <Presentation className="h-5 w-5 text-primary" aria-hidden="true" />
           </span>
           <div>
-            <PageTitle>報告資料</PageTitle>
+            <h1 className="text-xl lg:text-2xl font-bold">報告資料</h1>
             <p className="text-xs text-muted-foreground">
               パワポ報告資料の基礎データをここで整理・確定します。確定 (confirmed) したデータを AI (MCP) が読んで資料を自動生成します。
             </p>

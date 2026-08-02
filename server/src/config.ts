@@ -84,15 +84,11 @@ export const config = {
 // CORS 許可オリジン — HTTP (app.ts) と Socket.IO (socket.ts) で共有
 // 本番では ALLOWED_ORIGINS 必須 (上で検証済み)、dev はローカル Vite ポートを許可
 export function getAllowedOrigins(): string[] {
-  // 開発時の許可オリジン。**ここに無いポートは Socket.IO のハンドシェイクが
-  // 400 で落ちる** (allowRequest が Origin を見るため) ので、
-  // クライアントを追加したら必ずここにも足すこと。
-  // 5180 (client-daily) が抜けていて日常業務アプリのリアルタイムが開発時に
-  // 使えなくなっていた。127.0.0.1 でも同じことが起きるので両表記を入れる。
-  const devPorts = [5173, 5174, 5175, 5176, 5177, 5178, 5179, 5180, 3000];
-  const devOrigins = isProduction
-    ? []
-    : devPorts.flatMap((p) => [`http://localhost:${p}`, `http://127.0.0.1:${p}`]);
+  const devOrigins = isProduction ? [] : [
+    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
+    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178',
+    'http://localhost:5179', 'http://localhost:3000',
+  ];
   const envOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
     : [];

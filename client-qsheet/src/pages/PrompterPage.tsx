@@ -5,8 +5,6 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings2, ChevronUp, ChevronDown } from "lucide-react";
-import LiveRoleSwitch from "@/components/LiveRoleSwitch";
-import SyncStatusBadge from "@/components/SyncStatusBadge";
 
 interface CueRow {
   id: string;
@@ -58,8 +56,6 @@ export default function PrompterPage() {
   const [isScrolling, setIsScrolling] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [mirror, setMirror] = useState(false);
-  // 放送同期の状態 (§4.13) — 切れても文字は残るので画面に出す
-  const [syncConnected, setSyncConnected] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<number>(0);
   const rafRef = useRef<number>(0);
@@ -104,12 +100,6 @@ export default function PrompterPage() {
     if (!id) return;
     const socket = getQsheetSocket(id);
 
-    const onConnect = () => setSyncConnected(true);
-    const onDisconnect = () => setSyncConnected(false);
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    setSyncConnected(socket.connected);
-
     socket.on('cue:update', (data: { currentCue: number }) => {
       setCurrentCue(data.currentCue);
       // Jump scroll to top for new cue
@@ -140,11 +130,7 @@ export default function PrompterPage() {
       }
     });
 
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      disconnectQsheetSocket(id);
-    };
+    return () => { disconnectQsheetSocket(); };
   }, [id]);
 
   // Auto-scroll animation
@@ -230,9 +216,6 @@ export default function PrompterPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground truncate max-w-xs">{doc.title}</span>
-          <SyncStatusBadge connected={syncConnected} />
-          {/* 本番の役割切替 (§4.13) */}
-          {id && <LiveRoleSwitch docId={id} current="prompter" />}
         </div>
 
         <div className="flex items-center gap-3">

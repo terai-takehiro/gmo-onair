@@ -36,7 +36,7 @@
  * ========================================================================== */
 :root {
   /* Surfaces — DADS neutral palette (sumi / solid-gray) */
-  --background:          220 20% 97%;       /* #f7f8fa — app background (v2.9.251 刷新) */
+  --background:          0 0% 98%;          /* #fafafa — app background */
   --foreground:          220 15% 11%;       /* #1a1d24 — body text (WCAG AA on bg) */
 
   --card:                0 0% 100%;         /* #ffffff — card surface */
@@ -51,7 +51,7 @@
 
   /* Neutrals (DADS sumi aligned) */
   --secondary:           220 14% 96%;       /* #f3f4f6 — subtle surface */
-  --secondary-foreground: 218 12% 27%;      /* #3c424c — 副テキスト (contrast 9.4:1) */
+  --secondary-foreground: 220 15% 20%;
 
   --muted:               220 14% 96%;
   --muted-foreground:    220 10% 40%;        /* #5d6470 — secondary text (contrast 5.5:1) */
@@ -59,49 +59,26 @@
   --accent:              209 85% 95%;        /* tint of brand for hover */
   --accent-foreground:   209 100% 25%;
 
-  /* Status (DADS semantic) — `-surface` は帯(バナー)の背景、`-strong` は帯の上に載る文字 */
+  /* Status (DADS semantic) */
   --destructive:         0 78% 44%;          /* red-800 #c7243a */
   --destructive-foreground: 0 0% 100%;
-  --destructive-surface: 0 93% 94%;          /* #fee2e2 — 危険の帯 */
 
   --success:             152 74% 30%;         /* green-800 #197a4b */
   --success-foreground:  0 0% 100%;
-  --success-surface:     152 45% 94%;          /* 成功の帯 */
 
   --warning:             36 100% 46%;          /* yellow-700 / orange boundary */
-  /* 山吹 (#eb9800) の上に白を置くと 2.3:1 しかなく AA (4.5:1) を満たさない。
-   * 濃い文字なら 7.3:1 になるので、警告の面の上は**濃い文字**にする (v2.9.297)。 */
-  --warning-foreground:  220 15% 11%;
-  --warning-surface:     48 96% 89%;           /* #fef3c7 — 警告の帯 */
-  --warning-strong:      26 90% 37%;           /* #b45309 — 警告の帯の上の文字 */
+  --warning-foreground:  0 0% 100%;
 
   --info:                201 100% 37%;          /* light-blue-700 #0877d7 */
   --info-foreground:     0 0% 100%;
-  --info-surface:        201 90% 95%;           /* 参考の帯 */
-
-  /* 帯の枠線。`-surface` の帯を四角く置くとき、面だけだと境目が消える */
-  --success-border:      136 30% 89%;           /* #d8ecdd */
-  --warning-border:      48 96% 76%;            /* #fde68a */
-  --destructive-border:  353 62% 89%;           /* #f6cdd2 */
-
-  /* 面の3段目。カード (#ffffff) より一段沈めた帯 (表のヘッダーなど) */
-  --band:                216 20% 98%;           /* #fafbfc */
-
-  /* AI — AI が作ったもの・AI に投げるものだけに使う (人が作ったものには使わない) */
-  --ai:                  263 70% 50%;           /* #6d28d9 */
-  --ai-foreground:       0 0% 100%;
-  --ai-surface:          250 100% 98%;          /* #f5f3ff */
-  --ai-border:           250 95% 92%;           /* #ddd6fe */
 
   /* Chrome — borders, inputs, focus ring */
-  --border:              214 16% 92%;          /* #e6e9ed — 境界 (薄) */
-  --input:               214 16% 92%;
-  --divider:             214 19% 93%;          /* #e9ecf0 — 区切り線 */
-  --row:                 210 20% 96%;          /* #f4f6f8 — 表の行の区切り (divider より薄い) */
+  --border:              220 13% 88%;          /* #dbdee3 — surface divider */
+  --input:               220 13% 88%;
   --ring:                209 100% 34%;           /* focus ring = primary */
 
-  /* Radius — 刷新で 11–16px に拡大。rounded-lg = カード14px / ボタンと入力は 11px 固定 */
-  --radius:              0.875rem;               /* 14px — card */
+  /* Radius — DADS uses 4/8/12/16, map to shadcn's --radius */
+  --radius:              0.5rem;                 /* 8px default */
 
   /* Charts — derived from DADS semantic palette */
   --chart-1: 209 100% 34%;        /* GMO Blue */
@@ -109,26 +86,6 @@
   --chart-3: 152 74% 30%;         /* green */
   --chart-4: 36 100% 46%;         /* warning amber */
   --chart-5: 0 78% 44%;            /* red */
-
-  /* ── カテゴリの色 (v2.9.297) ──────────────────────────────────────────
-   * **意味を持たない、「区別するためだけ」の色**。話者・ブロック種別・
-   * 系列など、並べたときに見分けが付けばよいものに使う。
-   *
-   * 状態の色 (success / warning / destructive) を流用してはいけない —
-   * 「話者3が赤」なのか「話者3に異常がある」のか区別が付かなくなる。
-   * 逆に、その場で好きな色を選ぶと画面ごとに同じ人が違う色になる。
-   *
-   * 8色すべて**白い文字が WCAG AA (4.5:1) を満たす**濃さにそろえてある
-   * ので、`bg-cat-N text-white` でそのまま使える。9つ以上必要になったら、
-   * 色ではなく形 (アイコン・記号) で分けること。 */
-  --cat-1: 209 100% 34%;   /* 青 (ブランド) */
-  --cat-2: 208 93% 44%;    /* 水色 */
-  --cat-3: 189 100% 30%;   /* 青緑 */
-  --cat-4: 151 66% 29%;    /* 緑 */
-  --cat-5: 39 100% 31%;    /* 山吹 */
-  --cat-6: 352 69% 46%;    /* 赤 */
-  --cat-7: 261 51% 51%;    /* 紫 */
-  --cat-8: 218 9% 40%;     /* 灰 */
 
   /* Sidebar (shadcn/ui sidebar) */
   --sidebar-background:             0 0% 100%;
@@ -169,36 +126,18 @@
 
   --destructive:         0 65% 55%;
   --destructive-foreground: 0 0% 100%;
-  --destructive-surface: 0 40% 18%;
 
   --success:             152 50% 50%;
   --success-foreground:  220 15% 9%;
-  --success-surface:     152 35% 16%;
 
   --warning:             36 85% 55%;
   --warning-foreground:  220 15% 9%;
-  --warning-surface:     36 45% 18%;
-  --warning-strong:      36 90% 70%;
 
   --info:                201 85% 55%;
   --info-foreground:     220 15% 9%;
-  --info-surface:        201 40% 18%;
-
-  --success-border:      152 30% 26%;
-  --warning-border:      36 40% 30%;
-  --destructive-border:  0 35% 30%;
-
-  --band:                220 13% 14%;
-
-  --ai:                  263 85% 72%;
-  --ai-foreground:       220 15% 9%;
-  --ai-surface:          263 35% 18%;
-  --ai-border:           263 40% 32%;
 
   --border:              220 10% 22%;
   --input:               220 10% 22%;
-  --divider:             220 10% 20%;
-  --row:                 220 10% 17%;
   --ring:                209 100% 55%;
 
   --chart-1: 209 100% 55%;
@@ -218,34 +157,15 @@
 }
 
 /* ==========================================================================
- * Typography
- *
- * 刷新の書体は LINE Seed JP (400/700/800)。数字も同書体を使い、
- * 見出しと数字で書体が変わらないようにする。
- *
- * 配信は Google Fonts (各アプリの index.html の <link>):
- *   family=LINE+Seed+JP:wght@400;700;800
- * 日本語なので unicode-range で 124 サブセット/ウェイトに分割されており、
- * ブラウザは実際に使う文字の分だけ落とす (1 サブセット ≒ 4KB)。
- * CSP は styleSrc に fonts.googleapis.com / fontSrc に fonts.gstatic.com を
- * 既に許可しているため追加設定は不要。
- *
- * 400=本文 / 700=見出し・強調 / 800=数字の特大表示。
- * 300 と 500/600 は配信されていないので使わない (font-weight で指定しても
- * 700 か 400 に丸められる)。
+ * Typography — Noto Sans JP for all UI; Roboto Condensed for emphasized numbers.
  * ========================================================================== */
 :root {
-  --font-sans: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+  --font-sans: 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
   --font-serif: var(--font-sans);
   --font-mono-ui: var(--font-sans);
-  /* 数字は LINE Seed JP → Roboto Condensed (デザイン準拠)。
-     金額・件数は桁が並ぶので、和字が無い箇所は幅の狭い Roboto Condensed に落ちる。
-     tabular-nums は .font-number 側で当てる */
-  --font-mono-num: 'LINE Seed JP', 'Roboto Condensed', sans-serif;
+  --font-mono-num: 'Roboto Condensed', 'Noto Sans JP', sans-serif;
 
   --text-body:         15px;
-  /* 補助テキストの下限 = 12px。これより小さい文字は使わない (§2.4) */
-  --text-caption:      12px;
   --line-height-jp:    1.75;
   --letter-spacing-jp: 0.02em;
 }
@@ -295,10 +215,6 @@
 .font-number {
   font-family: var(--font-mono-num);
   font-variant-numeric: tabular-nums;
-  /* 数字は詰めない (`palt` 0) + 等幅 (`tnum` 1)。
-   * 本文と同じ `palt` 1 のままだと 1 と 8 で幅が変わり、
-   * 金額を縦に並べたときに桁の位置がずれて比べられない。 */
-  font-feature-settings: 'palt' 0, 'tnum' 1;
 }
 
 /* ==========================================================================

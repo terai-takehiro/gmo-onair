@@ -3,7 +3,7 @@
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  * 列リサイズ + ダイアログ内の多数の useState フィールドは既存のまま維持。
  */
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -11,7 +11,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
-import { notifyApiError } from '@/lib/notify';
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
 import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
@@ -56,9 +55,6 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
@@ -230,30 +226,12 @@ export default function PurchaseListPage() {
       try {
         const row = (await api.get(`/purchases/${editParam}`)).data?.data;
         if (row) crud.openEdit(row as PurchaseRow);
-      } catch (err) {
-        // 黙って捨てると「押しても何も起きない」に見える (v3.1.0)
-        notifyApiError('仕入の明細を開けませんでした', err, '一覧から選び直してください。');
+      } catch {
+        /* 取得失敗時は無視 */
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editParam]);
-
-  /**
-   * お金トップ (`/finance`) の「仕入を登録」から `?new=1` で来たら、そのまま登録の
-   * ダイアログを開く (v3.1.5 / 利用者依頼: 仕入をお金トップから入力できるようにする)。
-   *
-   * ダイアログはこのページが持っている (案件・仕入先・精算方法・計上月・申請URL…と
-   * 欄が多く、トップに写すと同じフォームが2つになる)。トップから1回押すだけで
-   * 入力欄に着くようにして、入口だけを増やす。
-   */
-  const newParam = searchParams.get("new");
-  const newOpenedRef = useRef(false);
-  useEffect(() => {
-    if (!newParam || newOpenedRef.current) return;
-    newOpenedRef.current = true;
-    crud.openAdd();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newParam]);
 
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects-for-purchase"],
@@ -269,9 +247,9 @@ export default function PurchaseListPage() {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!crud.editingItem) return;
-    if (!(await confirmAction({ title: "この仕入を削除しますか？", description: "この操作は元に戻せません。", confirmLabel: '削除する', tone: 'danger' }))) return;
+    if (!window.confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
     crud.remove.mutate(crud.editingItem.id, {
       onSuccess: () => crud.closeDialog(),
     });
@@ -302,7 +280,7 @@ export default function PurchaseListPage() {
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div>
-            <PageTitle>仕入一覧</PageTitle>
+            <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
             {filterProjectId && filterProjectName && (
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-sm text-muted-foreground">
@@ -312,8 +290,8 @@ export default function PurchaseListPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-ctl-1 px-1.5 text-xs"
-                  onClick={() => navigate("/finance?tab=purchase")}
+                  className="h-5 px-1.5 text-xs"
+                  onClick={() => navigate("/budget/purchases")}
                 >
                   解除
                 </Button>
@@ -324,10 +302,7 @@ export default function PurchaseListPage() {
             <ExcelToolbar
               resource="/purchases"
               name="仕入"
-              // 取込後に無効化するキーは、この画面が実際に使っているキーと同じものにする (v3.1.0)。
-              // 違うキーを渡していたため**取り込んでも一覧が古いまま**で、
-              // 出てこないのでもう一度取り込む人がいた (仕入の二重登録の元)
-              queryKey={["purchases-all"]}
+              queryKey={["purchases"]}
               hasDuplicateKey={false}
               exportParams={{
                 search: crud.search || undefined,
@@ -336,9 +311,8 @@ export default function PurchaseListPage() {
                 sort: sortParam,
               }}
             />
-            <Button variant="outline" // 正のURLは /sales/project-groups。`/project-groups` はルート表に無く「今日」に落ちていた
-              onClick={() => navigate("/sales/project-groups")}>
-              費用を分け合うまとまり
+            <Button variant="outline" onClick={() => navigate("/project-groups")}>
+              按分グループ
             </Button>
             <Button onClick={crud.openAdd}>
               <Plus className="mr-1 h-4 w-4" />
@@ -400,7 +374,7 @@ export default function PurchaseListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
           </div>
         ) : crud.items.length === 0 ? (
-          <EmptyState title="この条件の仕入はまだありません" description="「仕入を追加」から登録するか、絞り込みを外してみてください。" />
+          <EmptyState title="データがありません" />
         ) : (
           <>
             {/* Mobile cards */}
@@ -419,7 +393,7 @@ export default function PurchaseListPage() {
                         <SettlementBadge number={p.settlement_number} />
                         {p.group_name && (
                           <Badge variant="outline" className="text-xs">
-                            分け合い
+                            按分
                           </Badge>
                         )}
                       </div>
@@ -525,7 +499,7 @@ export default function PurchaseListPage() {
                           <span className=" text-sm">{p.episode_code || p.gls_number || "-"}</span>
                           {p.group_name && (
                             <Badge variant="outline" className="text-xs">
-                              分け合い
+                              按分
                             </Badge>
                           )}
                         </div>
@@ -617,7 +591,7 @@ export default function PurchaseListPage() {
                   placeholder="GLS番号で検索..."
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  複数の案件で分け合うときは「費用を分け合う」から登録してください
+                  複数案件への按分は「按分グループ」から登録してください
                 </p>
               </div>
 

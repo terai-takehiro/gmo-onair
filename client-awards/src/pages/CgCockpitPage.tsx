@@ -10,7 +10,7 @@ import OneShotControlPage from './OneShotControlPage';
 import QuizStackControlPage from './QuizStackControlPage';
 
 // v2.9.88: 統合送出コックピット。出力URL・各レイヤーの送出ロジック・socket は据え置き、
-// operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
+//   operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
 // v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング)。
 // v2.9.91: PC (lg+) はタブではなく **複数レイヤーを横並びで一覧表示** (同時に見える)。
 //   モバイル (< lg) は従来どおりタブ (1 レイヤーのみ表示)。
@@ -20,9 +20,9 @@ type Layer = 'oneshot' | 'ranking' | 'quiz';
 
 // 並び順: 字幕スーパー → ランキングCG → クイズ・アンケート
 const LAYERS: { key: Layer; label: string; short: string; icon: typeof Tv; color: string }[] = [
-  { key: 'oneshot', label: '字幕スーパー', short: '字幕', icon: Subtitles, color: 'text-warning-strong' },
-  { key: 'ranking', label: 'ランキングCG', short: 'ランキング', icon: Tv, color: 'text-destructive' },
-  { key: 'quiz', label: 'クイズ/アンケート', short: 'クイズ', icon: HelpCircle, color: 'text-primary' },
+  { key: 'oneshot', label: '字幕スーパー', short: '字幕', icon: Subtitles, color: 'text-amber-400' },
+  { key: 'ranking', label: 'ランキングCG', short: 'ランキング', icon: Tv, color: 'text-red-400' },
+  { key: 'quiz', label: 'クイズ/アンケート', short: 'クイズ', icon: HelpCircle, color: 'text-purple-400' },
 ];
 
 interface CgStatus {
@@ -117,11 +117,11 @@ export default function CgCockpitPage() {
     return (
       <>
         <a href={u.ja} target="_blank" rel="noreferrer" title="OA 出力 (JA)"
-          className="flex items-center gap-1 rounded-md bg-card px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
           <ExternalLink className="h-3 w-3" />JA
         </a>
         <a href={u.en} target="_blank" rel="noreferrer" title="OA 出力 (EN)"
-          className="flex items-center gap-1 rounded-md bg-card px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
           <ExternalLink className="h-3 w-3" />EN
         </a>
       </>
@@ -129,17 +129,17 @@ export default function CgCockpitPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background text-foreground overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
       {/* ── 統合ヘッダー ─────────────────────────────────── */}
-      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-border">
+      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
           title="イベント編集へ戻る"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card hover:bg-muted transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
         >
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <span className="hidden sm:block text-sm font-bold text-foreground truncate max-w-[128px] lg:max-w-[240px]">
+        <span className="hidden sm:block text-sm font-bold text-slate-200 truncate max-w-[120px] lg:max-w-[220px]">
           {event?.name ?? '送出'}
         </span>
 
@@ -156,15 +156,15 @@ export default function CgCockpitPage() {
                   onClick={() => setLayer(l.key)}
                   className={cn(
                     'relative flex items-center gap-1.5 rounded-lg px-2.5 h-9 text-xs font-bold transition-colors border',
-                    active ? 'bg-muted text-foreground border-border'
-                           : 'bg-background/60 text-muted-foreground border-transparent hover:bg-card',
-                    live && 'ring-1 ring-destructive/70',
+                    active ? 'bg-slate-700 text-slate-50 border-slate-500'
+                           : 'bg-slate-900/60 text-slate-400 border-transparent hover:bg-slate-800',
+                    live && 'ring-1 ring-red-500/70',
                   )}
                   title={`${l.label}${live ? ' — ON AIR' : ''}`}
                 >
                   <Icon className={cn('h-4 w-4 shrink-0', active ? l.color : '')} />
                   <span>{l.short}</span>
-                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-destructive animate-pulse' : 'bg-accent/50')} />
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')} />
                 </button>
               );
             })}
@@ -174,7 +174,7 @@ export default function CgCockpitPage() {
         {/* wide のみ: 横並び表示するレイヤーを任意選択 (2 つ / 3 つ) */}
         {wide && (
           <div className="flex-1 flex items-center justify-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-bold text-muted-foreground shrink-0">表示</span>
+            <span className="text-[11px] font-bold text-slate-500 shrink-0">表示</span>
             {LAYERS.map((l) => {
               const Icon = l.icon;
               const on = visible.includes(l.key);
@@ -186,14 +186,14 @@ export default function CgCockpitPage() {
                   aria-pressed={on}
                   className={cn(
                     'relative flex items-center gap-1.5 rounded-lg px-2.5 h-9 text-xs font-bold transition-colors border',
-                    on ? 'bg-muted text-foreground border-border'
-                       : 'bg-background/60 text-muted-foreground border-transparent hover:bg-card',
+                    on ? 'bg-slate-700 text-slate-50 border-slate-500'
+                       : 'bg-slate-900/60 text-slate-500 border-transparent hover:bg-slate-800',
                   )}
                   title={`${l.label} を${on ? '非表示にする' : '表示する'}`}
                 >
-                  <Icon className={cn('h-4 w-4 shrink-0', on ? l.color : 'text-muted-foreground')} />
+                  <Icon className={cn('h-4 w-4 shrink-0', on ? l.color : 'text-slate-600')} />
                   <span>{l.short}</span>
-                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-destructive animate-pulse' : 'bg-accent/50')} />
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')} />
                 </button>
               );
             })}
@@ -206,26 +206,26 @@ export default function CgCockpitPage() {
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除' : '全画面'}
-          className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card hover:bg-muted transition-colors"
+          className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
         >
-          {isFullscreen ? <Minimize2 className="h-4 w-4 text-muted-foreground" /> : <Maximize2 className="h-4 w-4 text-muted-foreground" />}
+          {isFullscreen ? <Minimize2 className="h-4 w-4 text-slate-300" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
         </button>
       </header>
 
       {/* ── 操作本体 ───────────────────────────────────── */}
       {wide ? (
         // PC: 選択したレイヤー (1〜3 つ) を横並びで一覧表示。
-        <div className="flex-1 min-h-0 flex flex-row divide-x divide-border">
+        <div className="flex-1 min-h-0 flex flex-row divide-x divide-slate-800">
           {visibleLayers.map((l) => {
             const Icon = l.icon;
             const live = liveOf(l.key);
             return (
               <div key={l.key} className="flex-1 min-w-0 flex flex-col">
                 {/* カラム見出し */}
-                <div className="flex items-center gap-2 h-9 px-2 shrink-0 border-b border-border bg-background/50">
+                <div className="flex items-center gap-2 h-9 px-2 shrink-0 border-b border-slate-800 bg-slate-900/50">
                   <Icon className={cn('h-4 w-4 shrink-0', l.color)} />
-                  <span className="text-xs font-bold text-foreground truncate">{l.label}</span>
-                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-destructive animate-pulse' : 'bg-accent/50')}
+                  <span className="text-xs font-bold text-slate-100 truncate">{l.label}</span>
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')}
                     aria-label={live ? 'ON AIR' : 'OFF'} />
                   <span className="flex-1" />
                   <OutputLinks k={l.key} />

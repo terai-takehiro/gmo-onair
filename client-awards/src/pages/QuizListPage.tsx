@@ -17,8 +17,6 @@ import { quizStackLabel, type Quiz, type QuizMode } from '@/quiz/types';
 import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
 import QuizInteractiveSync, { type IaQuestion } from '@/quiz/QuizInteractiveSync';
 import type { CgCategory } from '@/cg/types';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface AwardsEventDetail {
   id: number; name: string;
@@ -93,23 +91,23 @@ export default function QuizListPage() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg sm:text-xl font-semibold truncate flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-primary shrink-0" />クイズ / アンケート管理
+            <HelpCircle className="h-5 w-5 text-purple-600 shrink-0" />クイズ / アンケート管理
           </h1>
           <p className="text-sm text-muted-foreground truncate">{event?.name ?? ''} · {quizzes.length}問</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a href={`/awards/output/quiz-stack/${eventId}?lang=ja`} target="_blank" rel="noreferrer"
-            className="flex items-center gap-1 rounded-lg border border-border hover:bg-muted px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
+            className="flex items-center gap-1 rounded-lg border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
             title="出力 URL JA (OBS 用)">
             <ExternalLink className="h-3.5 w-3.5" />JA
           </a>
           <a href={`/awards/output/quiz-stack/${eventId}?lang=en`} target="_blank" rel="noreferrer"
-            className="flex items-center gap-1 rounded-lg border border-border hover:bg-muted px-2.5 py-1.5 text-xs font-semibold text-muted-foreground"
+            className="flex items-center gap-1 rounded-lg border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
             title="出力 URL EN (OBS 用)">
             <ExternalLink className="h-3.5 w-3.5" />EN
           </a>
           <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="h-ctl-1 flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 text-xs font-semibold text-white">
+            className="flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-semibold text-white">
             <Radio className="h-3.5 w-3.5" />送出
           </button>
         </div>
@@ -131,7 +129,7 @@ export default function QuizListPage() {
               <button key={m}
                 onClick={() => setActiveTab(m)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  active ? 'border-purple-600 text-purple-700' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}>
                 {m === 'quiz' ? 'クイズ' : 'アンケート'} ({count})
               </button>
@@ -139,7 +137,7 @@ export default function QuizListPage() {
           })}
         </div>
         <button onClick={() => setShowCreate((s) => !s)}
-        className="h-ctl-1 flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 text-xs font-semibold text-white mb-1">
+          className="flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-semibold text-white mb-1">
           <Plus className="h-3.5 w-3.5" />追加
         </button>
       </div>
@@ -187,7 +185,7 @@ export default function QuizListPage() {
           </div>
           <button onClick={handleCreate}
             disabled={!newTitle.trim() || createMut.isPending}
-            className="w-full rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white">
+            className="w-full rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white">
             {createMut.isPending ? '作成中…' : `${activeTab === 'quiz' ? 'クイズ' : 'アンケート'}を作成`}
           </button>
         </div>
@@ -211,7 +209,7 @@ export default function QuizListPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
-                      isQuiz ? 'bg-accent text-primary' : 'bg-muted text-muted-foreground'
+                      isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
                     }`}>
                       {isQuiz ? 'クイズ' : 'アンケート'}
                     </span>
@@ -219,24 +217,24 @@ export default function QuizListPage() {
                     {(() => {
                       if (isQuiz) {
                         return (
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-accent text-primary">
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-blue-100 text-blue-700">
                             正解発表
                           </span>
                         );
                       }
                       const p = q.survey_pattern ?? 'top-reveal';
                       return p === 'answer-check' ? (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-success-surface text-success">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-emerald-100 text-emerald-700">
                           アンサーチェック
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-warning-surface text-warning-strong">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-amber-100 text-amber-700">
                           No.1 発表
                         </span>
                       );
                     })()}
                     {q.has_answer_check && (q.mode === 'quiz' || (q.survey_pattern ?? 'top-reveal') === 'top-reveal') && (
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-muted text-muted-foreground border border-border">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-slate-100 text-slate-600 border border-slate-300">
                         + 前段ANS
                       </span>
                     )}
@@ -248,11 +246,11 @@ export default function QuizListPage() {
                   </div>
                 </div>
                 <button onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/edit`)}
-                className="h-ctl-1 flex items-center gap-1 rounded-lg border border-border hover:bg-muted px-2.5 text-xs font-semibold text-muted-foreground">
+                  className="flex items-center gap-1 rounded-lg border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700">
                   <Edit3 className="h-3.5 w-3.5" />編集
                 </button>
-                <button onClick={async () => { if ((await confirmAction({ title: `「${q.title}」を削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMut.mutate(q.id); }}
-                  className="flex items-center justify-center rounded-lg p-2 text-destructive hover:bg-destructive/90-surface"
+                <button onClick={() => { if (window.confirm(`「${q.title}」を削除します。よろしいですか？`)) deleteMut.mutate(q.id); }}
+                  className="flex items-center justify-center rounded-lg p-2 text-red-500 hover:bg-red-50"
                   title="削除">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -279,7 +277,7 @@ export default function QuizListPage() {
 // ════════════════════════════════════════════════════════════════
 // 送出スタック (順番・送出名) — v2.9.48
 //   送出 UI (QuizStackControlPage) の NEXT プルダウン / 自動進行が参照する
-// display_order を 1 本のスタックとして並び替え + 送出名 (stack_label) を編集。
+//   display_order を 1 本のスタックとして並び替え + 送出名 (stack_label) を編集。
 //   並び替え: PC = ドラッグ&ドロップ / スマホ = ↑↓ ボタン。
 // ════════════════════════════════════════════════════════════════
 function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[] }) {
@@ -321,7 +319,7 @@ function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[
     <div className="rounded-xl border bg-card">
       <button onClick={() => setOpen((s) => !s)}
         className="flex w-full items-center gap-2 px-4 py-3 text-left">
-        <ListOrdered className="h-4 w-4 text-primary shrink-0" />
+        <ListOrdered className="h-4 w-4 text-purple-600 shrink-0" />
         <span className="text-sm font-semibold">送出スタック（順番・送出名）</span>
         <span className="text-xs text-muted-foreground">{ordered.length}問</span>
         <span className="flex-1" />
@@ -335,10 +333,7 @@ function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[
             送出名は送出 UI に表示する名前（空ならタイトルを表示）。
           </p>
           {ordered.length === 0 ? (
-            <EmptyState
-              title="問題はまだ1問もありません"
-              description="「問題を追加」から作ると、ここで送出の順番を並べ替えられます。"
-            />
+            <div className="text-center py-6 text-sm text-muted-foreground">問題がありません</div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={order.map(String)} strategy={verticalListSortingStrategy}>
@@ -386,23 +381,23 @@ function StackRow({ quiz, index, total, eventId, onUp, onDown }: {
       className="flex items-center gap-2 rounded-lg border bg-background px-2 py-2">
       {/* PC: ドラッグハンドル / スマホ: ↑↓ ボタン */}
       <button {...listeners} {...attributes}
-        className="hidden sm:flex cursor-grab touch-none text-muted-foreground hover:text-muted-foreground shrink-0"
+        className="hidden sm:flex cursor-grab touch-none text-slate-300 hover:text-slate-500 shrink-0"
         title="ドラッグして並び替え" aria-label="ドラッグして並び替え">
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="flex sm:hidden flex-col shrink-0">
         <button onClick={onUp} disabled={index === 0} aria-label="上へ"
-        className="flex h-ctl-1 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
+          className="flex h-5 w-7 items-center justify-center rounded text-slate-500 hover:bg-muted disabled:opacity-30">
           <ChevronUp className="h-4 w-4" />
         </button>
         <button onClick={onDown} disabled={index === total - 1} aria-label="下へ"
-        className="flex h-ctl-1 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30">
+          className="flex h-5 w-7 items-center justify-center rounded text-slate-500 hover:bg-muted disabled:opacity-30">
           <ChevronDown className="h-4 w-4" />
         </button>
       </div>
-      <span className="shrink-0 w-6 text-center text-sm font-bold text-primary tabular-nums">{index + 1}</span>
+      <span className="shrink-0 w-6 text-center text-sm font-bold text-purple-600 tabular-nums">{index + 1}</span>
       <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-        isQuiz ? 'bg-accent text-primary' : 'bg-muted text-muted-foreground'
+        isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
       }`}>
         {isQuiz ? 'クイズ' : 'アンケート'}
       </span>

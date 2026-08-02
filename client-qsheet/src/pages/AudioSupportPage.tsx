@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Mic, AlertTriangle, Radio, ArrowRight } from "lucide-react";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
-import SyncStatusBadge from "@/components/SyncStatusBadge";
 
 type MicState = "on" | "off" | "standby";
 
@@ -62,9 +61,9 @@ interface FlatCue {
 type DiffKind = "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change";
 
 const STATE_BG: Record<MicState, string> = {
-  on: "bg-destructive",
-  standby: "bg-warning",
-  off: "bg-card",
+  on: "bg-red-600",
+  standby: "bg-amber-400",
+  off: "bg-zinc-800",
 };
 
 const STATE_LABEL: Record<MicState, string> = {
@@ -74,11 +73,11 @@ const STATE_LABEL: Record<MicState, string> = {
 };
 
 const DIFF_RING: Record<DiffKind, string> = {
-  turn_on: "ring-4 ring-destructive/70",
-  turn_off: "ring-4 ring-border/50",
-  standby: "ring-4 ring-warning/70",
-  person_change: "ring-4 ring-info/70",
-  mic_change: "ring-4 ring-ai",
+  turn_on: "ring-4 ring-red-400/70",
+  turn_off: "ring-4 ring-zinc-400/50",
+  standby: "ring-4 ring-amber-300/70",
+  person_change: "ring-4 ring-sky-400/70",
+  mic_change: "ring-4 ring-purple-400/70",
 };
 
 const DIFF_LABEL: Record<DiffKind, string> = {
@@ -159,7 +158,7 @@ function ChCard({
       } ${diff ? DIFF_RING[diff] : ""}`}
     >
       {diff && (
-        <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-white text-foreground text-[10px] font-bold shadow-md whitespace-nowrap">
+        <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-white text-zinc-900 text-[10px] font-bold shadow-md whitespace-nowrap">
           {DIFF_LABEL[diff]}
         </span>
       )}
@@ -167,14 +166,14 @@ function ChCard({
         <div>
           <div
             className={`text-3xl font-bold tabular-nums leading-none ${
-              a.state === "off" ? "text-muted-foreground" : "text-white"
+              a.state === "off" ? "text-zinc-500" : "text-white"
             }`}
             style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
           >
             Ch{ch}
           </div>
           {label && (
-            <div className={`text-[10px] uppercase tracking-wider mt-0.5 ${a.state === "off" ? "text-muted-foreground" : "text-white/70"}`}>
+            <div className={`text-[10px] uppercase tracking-wider mt-0.5 ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
               {label}
             </div>
           )}
@@ -184,18 +183,18 @@ function ChCard({
             a.state === "on"
               ? "bg-white/20 text-white"
               : a.state === "standby"
-              ? "bg-warning/50 text-warning-strong"
-              : "bg-card text-muted-foreground"
+              ? "bg-amber-900/50 text-amber-100"
+              : "bg-zinc-800 text-zinc-500"
           }`}
         >
           {STATE_LABEL[a.state]}
         </span>
       </div>
       <div className="space-y-0.5">
-        <div className={`text-base font-bold truncate ${a.state === "off" ? "text-muted-foreground" : "text-white"}`}>
+        <div className={`text-base font-bold truncate ${a.state === "off" ? "text-zinc-600" : "text-white"}`}>
           {a.person || (a.state === "off" ? "—" : "(未割当)")}
         </div>
-        <div className={`text-xs truncate ${a.state === "off" ? "text-muted-foreground" : "text-white/70"}`}>
+        <div className={`text-xs truncate ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
           {a.micType || "—"}
         </div>
       </div>
@@ -225,11 +224,11 @@ function CueColumn({
 }) {
   const isOA = variant === "oa";
   const accent = isOA
-    ? { bg: "from-destructive/15 to-destructive/5", border: "border-destructive/60", text: "text-destructive", icon: <Radio size={16} /> }
-    : { bg: "from-warning/15 to-warning/5", border: "border-warning/40", text: "text-warning-strong", icon: <ArrowRight size={16} /> };
+    ? { bg: "from-red-950/60 to-rose-950/40", border: "border-red-900/60", text: "text-red-300", icon: <Radio size={16} /> }
+    : { bg: "from-amber-950/40 to-zinc-900/40", border: "border-amber-900/40", text: "text-amber-300", icon: <ArrowRight size={16} /> };
 
   return (
-    <section className={`flex flex-col min-h-0 rounded-2xl border ${accent.border} bg-background/30 overflow-hidden`}>
+    <section className={`flex flex-col min-h-0 rounded-2xl border ${accent.border} bg-zinc-900/30 overflow-hidden`}>
       {/* Section header */}
       <header className={`flex-none px-4 py-3 bg-gradient-to-r ${accent.bg} border-b ${accent.border}`}>
         <div className="flex items-baseline gap-2 flex-wrap">
@@ -240,7 +239,7 @@ function CueColumn({
           {cueIndex !== null && totalCues > 0 ? (
             <>
               <span
-                className="text-2xl sm:text-3xl font-bold tabular-nums text-foreground"
+                className="text-2xl sm:text-3xl font-bold tabular-nums text-zinc-200"
                 style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
               >
                 #{cueIndex + 1}
@@ -249,13 +248,13 @@ function CueColumn({
                 {cueLabel || "—"}
               </span>
               {cueType && cueType !== "cue" && (
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-card text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
                   {cueType}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-base font-bold text-muted-foreground italic">{isOA ? "—" : "(終端)"}</span>
+            <span className="text-base font-bold text-zinc-500 italic">{isOA ? "—" : "(終端)"}</span>
           )}
         </div>
       </header>
@@ -284,7 +283,6 @@ function CueColumn({
 export default function AudioSupportPage() {
   const { id } = useParams<{ id: string }>();
   const [currentCue, setCurrentCue] = useState(0);
-  const [syncConnected, setSyncConnected] = useState(false);
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -294,8 +292,7 @@ export default function AudioSupportPage() {
         credentials: "omit",
       });
       if (!res.ok) {
-        // 410 = 配布をやめた URL。「間違えた」ではなく「もう配っていない」と伝える
-        throw new Error(res.status === 410 ? "REVOKED" : `HTTP ${res.status}`);
+        throw new Error(`HTTP ${res.status}`);
       }
       const json = await res.json();
       return json.data as PublicDoc;
@@ -310,13 +307,6 @@ export default function AudioSupportPage() {
     if (!id) return;
     const sock = getQsheetSocket(id);
     socketRef.current = sock;
-
-    // 切れても最後に届いたキューが残り続けるので状態を出す (§4.13)
-    const onConnect = () => setSyncConnected(true);
-    const onDisconnect = () => setSyncConnected(false);
-    sock.on("connect", onConnect);
-    sock.on("disconnect", onDisconnect);
-    setSyncConnected(sock.connected);
 
     const onSync = (payload: { currentCue: number }) => {
       if (typeof payload?.currentCue === "number") {
@@ -339,9 +329,7 @@ export default function AudioSupportPage() {
       sock.off("cue:jump", onJump);
       sock.off("cue:next", onNext);
       sock.off("cue:prev", onPrev);
-      sock.off("connect", onConnect);
-      sock.off("disconnect", onDisconnect);
-      disconnectQsheetSocket(id);
+      disconnectQsheetSocket();
       socketRef.current = null;
     };
   }, [id]);
@@ -388,51 +376,45 @@ export default function AudioSupportPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-zinc-950 text-zinc-200 flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-zinc-500" />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center gap-3 p-6">
-        <AlertTriangle className="h-12 w-12 text-warning-strong" aria-hidden />
-        <h1 className="text-xl font-bold">
-          {(error as Error | null)?.message === "REVOKED" ? "この配布URLは無効になりました" : "読み込めませんでした"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {(error as Error | null)?.message === "REVOKED"
-            ? "番組が終わったため配布を止めています。まだ必要な場合は担当者に新しいURLを聞いてください。"
-            : "ドキュメントが存在しないか、共有が解除されている可能性があります"}
-        </p>
+      <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center gap-3 p-6">
+        <AlertTriangle className="h-12 w-12 text-amber-500" aria-hidden />
+        <h1 className="text-xl font-bold">読み込めませんでした</h1>
+        <p className="text-sm text-zinc-400">ドキュメントが存在しないか、共有が解除されている可能性があります</p>
       </div>
     );
   }
 
   if (!micBlock) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center gap-3 p-6 text-center">
-        <Mic className="h-12 w-12 text-muted-foreground" aria-hidden />
+      <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center gap-3 p-6 text-center">
+        <Mic className="h-12 w-12 text-zinc-600" aria-hidden />
         <h1 className="text-xl font-bold">マイク香盤が未設定です</h1>
-        <p className="text-sm text-muted-foreground">エディタで「マイク香盤」ブロックを追加してください</p>
+        <p className="text-sm text-zinc-400">エディタで「マイク香盤」ブロックを追加してください</p>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
+    <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex-none px-6 py-3 border-b border-border bg-background/60 backdrop-blur">
+      <header className="flex-none px-6 py-3 border-b border-zinc-800 bg-zinc-900/60 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 min-w-0">
-            <Mic className="h-5 w-5 text-primary flex-none" aria-hidden />
+            <Mic className="h-5 w-5 text-pink-500 flex-none" aria-hidden />
             <h1 className="text-base font-bold truncate">{data.meta.title || "音声サポート"}</h1>
-            <span className="text-xs text-muted-foreground bg-card px-2 py-0.5 rounded-full flex-none">マイク香盤</span>
+            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full flex-none">マイク香盤</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-none">
-            <span className="hidden sm:inline">公開URL</span>
-            <SyncStatusBadge connected={syncConnected} />
+          <div className="flex items-center gap-3 text-xs text-zinc-400 flex-none">
+            <span className="hidden sm:inline">公開URL · リアルタイム同期中</span>
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
           </div>
         </div>
       </header>
@@ -461,9 +443,9 @@ export default function AudioSupportPage() {
       </main>
 
       {/* Footer */}
-      <footer className="flex-none px-6 py-2 border-t border-border bg-background/40 text-[11px] text-muted-foreground flex items-center justify-between flex-wrap gap-2">
+      <footer className="flex-none px-6 py-2 border-t border-zinc-800 bg-zinc-900/40 text-[11px] text-zinc-500 flex items-center justify-between flex-wrap gap-2">
         <span>Ch数: {channels.length} · 全 {cues.length} キュー</span>
-        <span className="text-muted-foreground">差分: <span className="text-destructive">ON</span> / <span className="text-warning-strong">STBY</span> / <span className="text-muted-foreground">OFF</span> / <span className="text-info">人物交代</span> / <span className="text-cat-7">マイク変更</span></span>
+        <span className="text-zinc-600">差分: <span className="text-red-400">ON</span> / <span className="text-amber-400">STBY</span> / <span className="text-zinc-400">OFF</span> / <span className="text-sky-400">人物交代</span> / <span className="text-purple-400">マイク変更</span></span>
       </footer>
     </div>
   );

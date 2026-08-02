@@ -15,10 +15,6 @@ import {
   WEEKLY_CATEGORIES, STAGE_LABELS, ACTIVITY_TYPE_LABELS,
   formatWeekJa, formatDateJa, formatYen, type OpsReportItem,
 } from '@/lib/types';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
-import { MCP_ACTOR_ID, aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface StatsShape {
   period?: { week_start: string; week_end: string };
@@ -41,7 +37,9 @@ export default function WeeklyDetailPage() {
 
   if (isLoading || !report) {
     return (
-      <Delayed><SkeletonCard lines={5} /></Delayed>
+      <div className="flex justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
     );
   }
 
@@ -49,8 +47,8 @@ export default function WeeklyDetailPage() {
   const isPublished = report.status === 'published';
   const editable = canEdit && !isPublished;
 
-  const onPublish = async () => {
-    if (!(await confirmAction({ title: 'このレポートを確認・確定 (公開) しますか？', description: '確定後はトピックの追記ができなくなります。', confirmLabel: '確定する' }))) return;
+  const onPublish = () => {
+    if (!window.confirm('このレポートを確認・確定 (公開) しますか？\n確定後はトピックの追記ができなくなります。')) return;
     publish.mutate(report.id);
   };
 
@@ -63,25 +61,25 @@ export default function WeeklyDetailPage() {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <PageTitle>
+            <h1 className="text-xl font-bold flex items-center gap-2">
               <CalendarCheck className="h-5 w-5 text-primary" />
               {report.title || `週次活動報告`}
-            </PageTitle>
+            </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{formatWeekJa(report.period_key)}</span>
               {isPublished ? (
-                <Badge variant="outline" className="gap-1 border-success text-success">
+                <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
                   <CheckCircle2 className="h-3 w-3" /> 確定済み
                 </Badge>
               ) : (
-                <Badge variant="outline" className="gap-1 border-warning text-warning-strong">
+                <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
                   <CircleDashed className="h-3 w-3" /> 下書き
                 </Badge>
               )}
-              {/* 人名 (AI が書いた指示者) は出さない — 誤字が入るため (aiAttribution.ts) */}
-              {(report.created_by === MCP_ACTOR_ID || !!report.requested_by) && (
-                <Badge variant="outline" className="gap-1 border-ai text-ai" title={aiOriginTitle('起票')}>
+              {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
+                <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
                   <Sparkles className="h-3 w-3" /> AI 起票
+                  {report.requested_by ? ` (指示: ${report.requested_by})` : ''}
                 </Badge>
               )}
             </div>
@@ -117,10 +115,7 @@ export default function WeeklyDetailPage() {
               <ReactMarkdown>{report.body}</ReactMarkdown>
             </div>
           ) : (
-            <EmptyState
-              title="AI の本文はまだ作られていません"
-              description="週次レポートの定期実行を待つか、「先週のレポートを作る」から作成してください。"
-            />
+            <p className="text-sm text-muted-foreground text-center py-4">AI 本文はまだありません</p>
           )}
         </CardContent>
       </Card>
@@ -232,7 +227,7 @@ function KpiTile({ label, value, sub }: { label: string; value: string; sub?: st
       <CardContent className="p-3">
         <p className="text-[11px] text-muted-foreground">{label}</p>
         <p className="mt-0.5 text-lg font-bold leading-tight">{value}</p>
-        {sub && <p className="text-[11px] text-ai mt-0.5">{sub}</p>}
+        {sub && <p className="text-[11px] text-violet-600 mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -277,10 +272,7 @@ function TopicsSection({ items, reportId, editable }: { items: OpsReportItem[]; 
     <Card>
       <CardContent className="p-0">
         {items.length === 0 && !adding && (
-          <EmptyState
-            title="トピックはまだ1件もありません"
-            description="「トピックを追加」から、その週に共有したいことを書いてください。"
-          />
+          <p className="text-sm text-muted-foreground text-center py-8">トピックはまだありません</p>
         )}
         {items.length > 0 && (
           <div className="divide-y">
@@ -345,8 +337,8 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
     await updateItem.mutateAsync({ itemId: item.id, fields: { category: category || null, content, note: note || null } });
     setEditing(false);
   };
-  const remove = async () => {
-    if (!(await confirmAction({ title: 'このトピックを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
+  const remove = () => {
+    if (!window.confirm('このトピックを削除しますか？')) return;
     deleteItem.mutate(item.id);
   };
 
@@ -376,7 +368,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
         <div className="flex flex-wrap items-center gap-1.5">
           {item.category && <Badge variant="secondary" className="font-normal">{item.category}</Badge>}
           {item.source === 'ai' && (
-            <Badge variant="outline" className="gap-1 border-ai text-ai">
+            <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
               <Sparkles className="h-3 w-3" /> AI
             </Badge>
           )}

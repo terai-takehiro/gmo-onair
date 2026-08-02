@@ -10,7 +10,7 @@ import { cn } from "../utils";
  * - Variants follow DADS: Solid / Secondary (Ghost) / Outline / Link / Destructive
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-control text-sm font-medium transition-[background-color,color,box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,color,box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
@@ -22,20 +22,12 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline focus-visible:ring-offset-0",
         success: "bg-success text-success-foreground hover:bg-success/90",
       },
-      /*
-       * 高さは **32 / 36 / 40 / 44 / 48px の5種だけ**（デザイン README「寸法」）。
-       * 30・34・38・42・46px のような中間の値を作らない — 作ると同じ意味の
-       * ボタンが画面ごとに1〜2px 違い、並べたときに底が揃わなくなる。
-       */
       size: {
-        xs: "h-ctl-1 rounded-control px-2.5 text-xs",  /* 32px — 表の行の中 */
-        sm: "h-ctl-2 rounded-control px-3",            /* 36px */
-        default: "h-ctl-3 px-4",                       /* 40px */
-        lg: "h-ctl-4 rounded-control px-6",            /* 44px — タップ領域の下限 */
-        xl: "h-ctl-5 rounded-control px-8 text-base",  /* 48px — 主要な操作 */
-        icon: "h-ctl-3 w-10",
-        "icon-sm": "h-ctl-2 w-9",
-        "icon-xs": "h-ctl-1 w-8",
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-6",          /* 44px — WCAG AAA touch target */
+        icon: "h-10 w-10",
+        "icon-sm": "h-9 w-9",
       },
     },
     defaultVariants: {

@@ -27,9 +27,6 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' |
   add_project_member: { module: 'sales', level: 'editor' },
   remove_project_member: { module: 'sales', level: 'editor' },
   set_project_simulation: { module: 'sales', level: 'editor' },
-  // 案件のメモ / チェックリストへの追記 (要件 B5)。追記だけで書き換え・削除はできない
-  append_project_note: { module: 'sales', level: 'editor' },
-  add_project_checklist: { module: 'sales', level: 'editor' },
   create_task: { module: 'sales', level: 'editor' },
   update_task: { module: 'sales', level: 'editor' },
   move_task: { module: 'sales', level: 'editor' },

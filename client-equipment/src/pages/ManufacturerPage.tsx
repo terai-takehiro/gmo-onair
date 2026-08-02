@@ -3,16 +3,13 @@
  * useCrudPage / EmptyState の shared プリミティブを使用。
  */
 import { useEffect, useState } from "react";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, Building2, Phone, Mail, MapPin, User } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Manufacturer {
   id: string;
@@ -78,15 +75,15 @@ export default function ManufacturerPage() {
     crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 });
   };
 
-  const handleDelete = async (m: Manufacturer) => {
-    if (!(await confirmAction({ title: `「${m.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (m: Manufacturer) => {
+    if (!confirm(`「${m.name}」を削除しますか？`)) return;
     crud.remove.mutate(m.id);
   };
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex items-center justify-between">
-        <PageTitle>メーカー管理</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">メーカー管理</h1>
         <Button size="sm" onClick={crud.openAdd}><Plus className="h-4 w-4 mr-1" />メーカー追加</Button>
       </div>
 

@@ -14,7 +14,6 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectCollabService } from '../services/project-collab.service';
-import { appendNotes, appendChecklist } from '../services/project-collab-append.service';
 import type { ProjectCollabDoc } from '../../../shared/collab/projectCollabDoc';
 
 const router = Router();
@@ -58,55 +57,6 @@ router.put(
       userId
     );
     res.json({ success: true, data: saved });
-  }
-);
-
-/**
- * **追記だけ**する (要件 B5)。編集中でも通る。
- *
- * 全置換 (PUT) は編集中は 409 で拒否するが、こちらは末尾に足すだけで
- * **既存の文字を1文字も消さない**ので、人が打っている最中でも安全。
- * 足した分は「AIが追記」の見出しと AI の印が付き、人が書いた分と見分けられる。
- */
-router.post(
-  '/:id/collab/append',
-  requireAuth,
-  requirePermission('sales', 'editor'),
-  async (req, res) => {
-    const userId = req.user?.id;
-    if (!userId) throw new AppError(401, 'UNAUTHORIZED', 'ログインが必要です');
-    const body = (req.body ?? {}) as {
-      notes?: unknown;
-      checklist?: unknown;
-      requested_by?: unknown;
-    };
-    const requestedBy = typeof body.requested_by === 'string' ? body.requested_by : null;
-    const out: Record<string, unknown> = {};
-
-    if (body.notes !== undefined) {
-      if (typeof body.notes !== 'string') {
-        throw new AppError(400, 'VALIDATION_ERROR', 'notes は文字列で指定してください');
-      }
-      out.notes = await appendNotes(String(req.params.id), body.notes, { userId, requestedBy });
-    }
-    if (body.checklist !== undefined) {
-      if (!Array.isArray(body.checklist)) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'checklist は配列で指定してください');
-      }
-      const items = body.checklist.map((it) => {
-        if (typeof it === 'string') return { text: it, due_at: null };
-        const o = (it ?? {}) as { text?: unknown; due_at?: unknown };
-        return {
-          text: typeof o.text === 'string' ? o.text : '',
-          due_at: typeof o.due_at === 'string' ? o.due_at : null,
-        };
-      });
-      out.checklist = await appendChecklist(String(req.params.id), items, { userId, requestedBy });
-    }
-    if (Object.keys(out).length === 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'notes か checklist のどちらかを指定してください');
-    }
-    res.status(201).json({ success: true, data: out });
   }
 );
 

@@ -5,7 +5,6 @@ import GanttRow, { type DragMode } from "./GanttRow";
 import { useProjectTasks, useUpdateTask, useTaskDependencies } from "../../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
 import TaskDialog from "../TaskDialog";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const DAY_WIDTH = 24;
 const ROW_HEIGHT = 36;
@@ -159,10 +158,9 @@ export default function GanttView({ projectId, episodeId }: Props) {
 
   if (tasks.length === 0) {
     return (
-      <EmptyState
-        title="この案件のタスクはまだありません"
-        description="タスクを作ると、期日の並びと前後関係がこの表に出ます。"
-      />
+      <div className="flex items-center justify-center flex-1 py-16 text-center">
+        <p className="text-muted-foreground text-sm">タスクがありません</p>
+      </div>
     );
   }
 

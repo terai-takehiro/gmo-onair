@@ -1,7 +1,7 @@
 /**
- * 内覧会 来場予約 — 2 画面で共有する部品とルール。
+ * 内覧会 来場予約 — 2 画面で共有する部品。
  *
- * 画面は 2 枚に分かれている (v3.0.6):
+ * 画面は 2 枚に分かれている:
  *   `/inview`        … 開催日の一覧 (+ 全部の回をまたぐ検索)
  *   `/inview/:date`  … その日の受付ページ (名簿・検索・受付・CSV)
  *
@@ -27,11 +27,7 @@ import {
   useCreateInview, useUpdateInview, useCheckInInview, useCheckInInviewCompanion,
   useDeleteInview, usePromoteInview, type InviewInput,
 } from '@/lib/inviewApi';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-// AI が入れた記録に人名を出さない (v3.0.6)。requested_by は AI の自由記述で誤字が入る
-import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
-import { notifyError, notifySuccess } from '@/lib/notify';
-import { headOf } from './logic';
+import { companionsOf, headOf } from './logic';
 
 // 画面を持たない計算部分 (キー・検索・並び替え・CSV) は logic.ts にある。
 // 画面側は `./inview/shared` 1 か所から取れるよう、ここでまとめて通す。
@@ -90,7 +86,7 @@ export function AttendeeCard({
   const promote = usePromoteInview();
   const isKairos = r.source === 'kairos3';
   const isPromoted = !!r.promoted_project_id;
-  const companions = r.companions ?? [];
+  const companions = companionsOf(r);
   const head = headOf(r);
   // 氏名が登録されていない同行者 (人数 - 代表1 - 同行者名の数)
   const unnamed = Math.max(head - 1 - companions.length, 0);
@@ -98,7 +94,7 @@ export function AttendeeCard({
   // 氏名で当たったときは自明なので出さない (受付の画面を余計な字で埋めない)
   const reasons = (matchedIn ?? []).filter((f) => f !== '氏名' && f !== 'ふりがな');
   return (
-    <Card className={r.checked_in_at ? 'border-success bg-success-surface/30' : ''}>
+    <Card className={r.checked_in_at ? 'border-emerald-200 bg-emerald-50/30' : ''}>
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -107,12 +103,12 @@ export function AttendeeCard({
               {r.furigana ? <span className="text-xs text-muted-foreground">{r.furigana}</span> : null}
               <Badge variant="outline" className="text-[11px]"><Users className="h-3 w-3 mr-0.5" />{head}名</Badge>
               {isKairos ? (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-ai-surface border border-ai px-1.5 py-0.5 text-[10px] text-ai" title={aiOriginTitle('メールから取り込み')}>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700" title="AI がメールから取り込んだ登録です">
                   <Sparkles className="h-3 w-3" />AI取込
                 </span>
               ) : null}
               {r.checked_in_at ? (
-                <Badge variant="outline" className="gap-1 border-success text-success text-[11px]">
+                <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 text-[11px]">
                   <CheckCircle2 className="h-3 w-3" />来場済み
                 </Badge>
               ) : null}
@@ -121,7 +117,7 @@ export function AttendeeCard({
                   href={`/sales/projects/${r.promoted_project_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-primary bg-accent px-1.5 py-0.5 text-[10px] text-primary hover:underline"
+                  className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700 hover:underline"
                   title="この来場予約から作成された案件を開く"
                 >
                   <Briefcase className="h-3 w-3" />案件化済み<ExternalLink className="h-2.5 w-2.5" />
@@ -165,28 +161,28 @@ export function AttendeeCard({
                 {/* 同行者 — 代表とは独立に1人ずつ受付できる */}
                 {companions.length > 0 && (
                   <div className="mt-1.5 space-y-1">
-                    {companions.map((c) => (
+                    {companions.map((c, i) => (
                       <div
-                        key={c.id}
-                        className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs ${c.checked_in_at ? 'border-success bg-success-surface/40' : 'border-border bg-background'}`}
+                        key={c.id ?? `${c.name}-${i}`}
+                        className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs ${c.checked_in_at ? 'border-emerald-300 bg-emerald-50/40' : 'border-border bg-background'}`}
                       >
                         <span className="flex min-w-0 items-center gap-1">
                           <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <span className="truncate">{c.name}</span>
                           <span className="shrink-0 rounded bg-muted px-1 text-[9px] text-muted-foreground">同行</span>
                         </span>
-                        {canEdit ? (
+                        {canEdit && c.id ? (
                           <Button
                             size="sm"
                             variant={c.checked_in_at ? 'outline' : 'default'}
                             className="h-6 shrink-0 gap-1 px-2 text-[11px]"
                             disabled={checkInCompanion.isPending}
-                            onClick={() => checkInCompanion.mutate({ id: r.id, companionId: c.id, checkedIn: !c.checked_in_at })}
+                            onClick={() => checkInCompanion.mutate({ id: r.id, companionId: c.id!, checkedIn: !c.checked_in_at })}
                           >
                             {c.checked_in_at ? <><Circle className="h-3 w-3" />取消</> : <><CheckCircle2 className="h-3 w-3" />受付</>}
                           </Button>
                         ) : c.checked_in_at ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 text-success"><CheckCircle2 className="h-3 w-3" />来場済み</span>
+                          <span className="inline-flex shrink-0 items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3 w-3" />来場済み</span>
                         ) : null}
                       </div>
                     ))}
@@ -194,7 +190,7 @@ export function AttendeeCard({
                 )}
               </div>
             )}
-            {r.interests ? <p className="mt-1 text-xs text-foreground whitespace-pre-line">💬 {r.interests}</p> : null}
+            {r.interests ? <p className="mt-1 text-xs text-foreground/80 whitespace-pre-line">💬 {r.interests}</p> : null}
             {r.notes ? <p className="mt-1 text-xs text-muted-foreground whitespace-pre-line">📝 {r.notes}</p> : null}
           </div>
           {canEdit && (
@@ -212,19 +208,19 @@ export function AttendeeCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 gap-1 border-primary text-xs text-primary hover:bg-accent"
+                  className="h-8 gap-1 border-blue-300 text-xs text-blue-700 hover:bg-blue-50"
                   disabled={promote.isPending}
-                  onClick={async () => {
-                    if (!(await confirmAction({ title: `${r.company || r.name} を案件化しますか？`, description: `顧客・ヨミ案件・来場の活動記録を作成します。` }))) return;
+                  onClick={() => {
+                    if (!confirm(`${r.company || r.name} を案件化しますか？\n顧客・ヨミ案件・来場の活動記録を作成します。`)) return;
                     promote.mutate({ id: r.id }, {
                       onSuccess: (res) => {
-                        notifySuccess(res.customer_created
+                        alert(res.customer_created
                           ? '案件化しました（新規顧客も作成）。案件管理アプリでヨミ案件を確認できます。'
                           : '案件化しました。案件管理アプリでヨミ案件を確認できます。');
                       },
                       onError: (e: unknown) => {
                         const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-                        notifyError(`案件化に失敗しました: ${msg || '不明なエラー'}`);
+                        alert(`案件化に失敗しました: ${msg || '不明なエラー'}`);
                       },
                     });
                   }}
@@ -236,7 +232,7 @@ export function AttendeeCard({
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit} aria-label="編集"><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label="削除"
-                  onClick={async () => { if ((await confirmAction({ title: `${r.name} さんの来場予約を削除しますか？`, description: '同行者の受付状況も一緒に消えます。元に戻せません。', confirmLabel: '削除する', tone: 'danger' }))) del.mutate(r.id); }}>
+                  onClick={() => { if (confirm(`${r.name} さんの来場予約を削除しますか？\n同行者の受付状況も一緒に消えます。元に戻せません。`)) del.mutate(r.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -260,6 +256,9 @@ export function InviewDialog({
 }) {
   const create = useCreateInview();
   const update = useUpdateInview();
+  // フォームは氏名だけを扱う (submit で companionsText から作り直す)。
+  // 同行者ごとの受付記録はサーバー側が氏名で突き合わせて引き継ぐ。
+  const initialCompanionNames = (initial ? companionsOf(initial) : []).map((c) => c.name);
   const [f, setF] = useState<InviewInput>({
     session_label: initial?.session_label ?? presetSessionLabel ?? '',
     name: initial?.name ?? '',
@@ -273,12 +272,12 @@ export function InviewDialog({
     mobile: initial?.mobile ?? '',
     fax: initial?.fax ?? '',
     party_size: initial?.party_size ?? 1,
-    companions: (initial?.companions ?? []).map((c) => c.name),
+    companions: initialCompanionNames,
     visit_time: initial?.visit_time ?? '',
     interests: initial?.interests ?? '',
     notes: initial?.notes ?? '',
   });
-  const [companionsText, setCompanionsText] = useState((initial?.companions ?? []).map((c) => c.name).join('\n'));
+  const [companionsText, setCompanionsText] = useState(initialCompanionNames.join('\n'));
   const pending = create.isPending || update.isPending;
 
   const submit = () => {
@@ -366,7 +365,7 @@ export function InviewDialog({
                 onChange={(e) => setCompanionsText(e.target.value)}
                 placeholder="同行者がいれば1行ずつ"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">氏名を入れると各同行者が1人の参加者として表示されます</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">氏名を入れると各同行者が1人の参加者として表示され、当日は1人ずつ受付できます</p>
             </div>
           </div>
           <div>

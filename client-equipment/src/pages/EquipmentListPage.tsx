@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
+import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,31 +23,47 @@ import {
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import CustomColumnDialog, { type CustomColumn } from "@/components/CustomColumnDialog";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
 } from "@/lib/constants";
-import { sectionDisplay } from './equipmentList/columns';
-import { PrintSettingsDialog, PrintTable } from './equipmentList/printing';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+
+const sectionDisplay = (typeCode: string | null, section: string | null) => {
+  const t = TYPE_CODES.find((c) => c.code === typeCode)?.label || "";
+  const s = SECTIONS.find((c) => c.value === section)?.label || "";
+  return `${t}${s}`.trim() || "-";
+};
+
 
 const COL_DEFS = [
-  { key: 'eq_code', label: 'ID', sortKey: 'eq_code', default: true  },
-  { key: 'equipment_type', label: '種別', sortKey: 'equipment_type_code', default: true  },
-  { key: 'location', label: '設置場所', sortKey: 'location_name', default: true  },
-  { key: 'name', label: '商品名', sortKey: 'name', default: true  },
-  { key: 'manufacturer', label: 'メーカー', sortKey: 'manufacturer_name', default: false },
-  { key: 'model_number', label: '型名', sortKey: 'model_number', default: true  },
-  { key: 'serial_number', label: 'シリアル', sortKey: 'serial_number', default: false },
-  { key: 'unit_number', label: 'No', sortKey: 'unit_number', default: true  },
-  { key: 'condition', label: '状態', sortKey: 'condition', default: false },
-  { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
-  { key: 'notes', label: '備考', sortKey: 'notes', default: true  },
+  { key: 'eq_code',          label: 'ID',        sortKey: 'eq_code',             default: true  },
+  { key: 'equipment_type',   label: '種別',       sortKey: 'equipment_type_code', default: true  },
+  { key: 'location',         label: '設置場所',   sortKey: 'location_name',       default: true  },
+  { key: 'name',             label: '商品名',     sortKey: 'name',                default: true  },
+  { key: 'manufacturer',     label: 'メーカー',   sortKey: 'manufacturer_name',   default: false },
+  { key: 'model_number',     label: '型名',       sortKey: 'model_number',        default: true  },
+  { key: 'serial_number',    label: 'シリアル',   sortKey: 'serial_number',       default: false },
+  { key: 'unit_number',      label: 'No',         sortKey: 'unit_number',         default: true  },
+  { key: 'condition',        label: '状態',       sortKey: 'condition',           default: false },
+  { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code',    default: false },
+  { key: 'notes',            label: '備考',       sortKey: 'notes',               default: true  },
 ] as const;
 type ColKey = typeof COL_DEFS[number]['key'];
 
+const PRINT_COLS = [
+  { key: 'eq_code',           label: 'ID'        },
+  { key: 'equipment_type',    label: '種別'       },
+  { key: 'name',              label: '商品名'     },
+  { key: 'manufacturer_name', label: 'メーカー'   },
+  { key: 'model_number',      label: '型名'       },
+  { key: 'unit_number',       label: 'No.'        },
+  { key: 'serial_number',     label: 'serial'     },
+  { key: 'location',          label: '設置場所'   },
+  { key: 'fixed_asset_code',  label: '資産コード' },
+  { key: 'purchased_at',      label: '購入年月'   },
+  { key: 'warranty_years',    label: '保証'       },
+  { key: 'notes',             label: '備考'       },
+] as const;
 
 const defaultForm = {
   name: "", model_number: "", unit_number: "", serial_number: "",
@@ -61,7 +78,7 @@ const defaultForm = {
 
 type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number' | 'serial_number' | 'unit_number' | 'fixed_asset_code' | 'condition' | 'color_id' | 'location_detail' | 'rack_position' | 'rack_height' | 'rack_slot' | 'rack_side';
 
-export default function EquipmentListPage({ embedded }: { embedded?: boolean } = {}) {
+export default function EquipmentListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
@@ -329,7 +346,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
     URL.revokeObjectURL(url);
   };
 
-  const { data: itemsData, isLoading, error: itemsError, refetch } = useQuery({
+  const { data: itemsData, isLoading, error: itemsError } = useQuery({
     queryKey: ["equipment-items", urlSearch, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -507,12 +524,6 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
   }, [customColumns.length]);
 
   // データ読み込み完了後にスクロール位置を復元
-  // 取得に失敗したときの技術的な中身は console に出す (画面には出さない・§2.5)
-  useEffect(() => {
-    if (!itemsError) return;
-    console.error('[equipment] 機材一覧の取得に失敗', itemsError);
-  }, [itemsError]);
-
   useEffect(() => {
     if (isLoading) return;
     const saved = sessionStorage.getItem('eq-list-scroll');
@@ -789,7 +800,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           <td key={col.id} className={`px-3 ${py}`} onClick={e => e.stopPropagation()}>
             <input
               type={col.col_type === 'number' ? 'number' : 'text'}
-              className="w-full min-w-[72px] bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-xs"
+              className="w-full min-w-[80px] bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-xs"
               defaultValue={val}
               autoFocus
               onBlur={e => commitEdit(e.target.value)}
@@ -817,7 +828,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
       if (!col) return null;
       switch (col.key) {
         case 'eq_code':
-        return <td key="eq_code" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
+          return <td key="eq_code" className={`px-3 ${py}  text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
         case 'equipment_type':
           return <td key="equipment_type" className={`px-3 ${py} whitespace-nowrap`}><SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} /></td>;
         case 'location': {
@@ -828,7 +839,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="name" className={`px-3 ${py} font-medium`}>
               {tableEditMode
-                ? <input className="w-full min-w-[128px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
+                ? <input className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
                     value={tableEdits[item.id]?.name ?? item.name ?? ''}
                     onChange={e => handleInlineChange(item.id, 'name', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -844,7 +855,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
-                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.model_number ?? item.model_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'model_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -855,9 +866,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           );
         case 'serial_number':
           return (
-            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
+            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'serial_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -883,9 +894,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return <td key="condition" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{CONDITION_LABELS[item.condition] || '–'}</td>;
         case 'fixed_asset_code':
           return (
-            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
+            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.fixed_asset_code ?? item.fixed_asset_code ?? ''}
                     onChange={e => handleInlineChange(item.id, 'fixed_asset_code', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -898,7 +909,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           return (
             <td key="notes" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
-                ? <input className="w-full min-w-[72px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                     value={tableEdits[item.id]?.notes ?? item.notes ?? ''}
                     onChange={e => handleInlineChange(item.id, 'notes', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -919,13 +930,13 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           {saveErrors.map(e => (
             <div key={e.id} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <span className="flex-1">カスタム列の保存に失敗: {e.msg}</span>
-              <button onClick={() => setSaveErrors(prev => prev.filter(x => x.id !== e.id))} className="text-destructive hover:text-destructive shrink-0">×</button>
+              <button onClick={() => setSaveErrors(prev => prev.filter(x => x.id !== e.id))} className="text-destructive/60 hover:text-destructive shrink-0">×</button>
             </div>
           ))}
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTitle className={embedded ? "hidden" : undefined}>機材一覧</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">機材一覧</h1>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1" />Excelインポート
@@ -985,7 +996,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                           />
                           <label htmlFor={`custom-col-${col.id}`} className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none min-w-0">
                             <span className="flex-1 truncate">{col.name}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
+                            <span className="text-[10px] text-muted-foreground/60 shrink-0">
                               {col.scope === 'shared' ? '共' : '個'}
                             </span>
                           </label>
@@ -1000,7 +1011,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                 )}
                 <div className="border-t mt-1.5 pt-1.5">
                   <button
-                  className="h-ctl-1 flex w-full items-center gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded"
+                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded"
                     onClick={() => { setColPickerOpen(false); setCustomColDialogOpen(true); }}
                   >
                     <Settings2 className="h-3.5 w-3.5" />カスタム列を管理...
@@ -1038,7 +1049,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
               n.delete('orphans');
               return n;
             }, { replace: true })}
-            className={`inline-flex h-ctl-1 items-center px-3 rounded-full text-sm font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filterBlock === t.code
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1060,7 +1071,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
               if (filterSection === s.value) n.delete('sect'); else n.set('sect', s.value);
               return n;
             }, { replace: true })}
-            className={`inline-flex h-ctl-1 items-center px-3 rounded-full text-sm font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filterSection === s.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
@@ -1073,7 +1084,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
           <button
             type="button"
             onClick={() => setLocFilterOpen(v => !v)}
-            className={`h-ctl-1 relative flex items-center gap-1.5 px-3 rounded-full text-sm font-medium border transition-colors${
+            className={`relative flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
               filterLocs.size > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
             }`}
           >
@@ -1096,11 +1107,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   <span className="truncate">{loc.name || loc.location_detail}</span>
                 </label>
               ))}
-              {locations.length === 0 && (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              設置場所がまだ登録されていません。設定の「設置場所」から追加してください。
-            </p>
-          )}
+              {locations.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">設置場所がありません</p>}
             </div>
           )}
         </div>
@@ -1116,7 +1123,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
 
       {/* 検索 + 子機材トグル */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="relative max-w-sm flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
@@ -1149,21 +1156,25 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
       )}
 
       {isLoading ? (
-        <Delayed><SkeletonRows rows={8} /></Delayed>
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : itemsError ? (
-        // 技術的な中身 (debug) は画面に出さず console に留める (§2.5)。
-        // 以前はサーバーが返す debug の JSON をそのまま画面に貼っていた。
-        (itemsError as { response?: { status?: number } })?.response?.status === 403 ? (
-          <NoPermissionPanel modules={['equipment']} target="機材の一覧" />
-        ) : (
-          <ErrorPanel title="機材の一覧を読み込めませんでした" error={itemsError} onRetry={() => refetch()} />
-        )
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Package className="h-12 w-12 opacity-20" />
+          <p className="font-medium text-destructive">
+            {(itemsError as any)?.response?.status === 403
+              ? '機材管理へのアクセス権限がありません。管理者に権限付与を依頼してください。'
+              : 'データの取得に失敗しました。ページを再読み込みしてください。'}
+          </p>
+          {(itemsError as any)?.response?.data?.error?.debug && (
+            <pre className="text-xs bg-muted/50 rounded p-3 max-w-xl overflow-auto">
+              {JSON.stringify((itemsError as any).response.data.error.debug, null, 2)}
+            </pre>
+          )}
+        </div>
       ) : items.length === 0 ? (
-        <EmptyState
-          icon={<Package />}
-          title="機材はまだ1点も登録されていません"
-          description="「新規登録」から1点ずつ、または「Excel取込」でまとめて登録できます。"
-        />
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Package className="h-12 w-12 opacity-20" /><p>機材が登録されていません</p>
+        </div>
       ) : (
         <>
           {/* ── モバイル カードビュー (md未満) ── */}
@@ -1184,7 +1195,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
                         <span className=" text-xs text-muted-foreground">{item.eq_code}</span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     </div>
                     <p className="font-semibold text-sm leading-tight mb-0.5 truncate">
                       {item.name}
@@ -1204,9 +1215,9 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         {item.asset_class && <AssetBadge v={item.asset_class} />}
                         {item.condition && item.condition !== 'good' && (
                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset ${
-                            item.condition === 'excellent' ? 'bg-success-surface text-success ring-success' :
-                            item.condition === 'fair' ? 'bg-warning-surface text-warning-strong ring-warning' :
-                            'bg-destructive-surface text-destructive ring-destructive'
+                            item.condition === 'excellent' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
+                            item.condition === 'fair' ? 'bg-yellow-50 text-yellow-700 ring-yellow-200' :
+                            'bg-red-50 text-red-700 ring-red-200'
                           }`}>{CONDITION_LABELS[item.condition] ?? item.condition}</span>
                         )}
                       </div>
@@ -1267,22 +1278,22 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   return (
                     <tr
                       key={item.id}
-                      className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-warning-surface/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                       onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
-                      <td className="pr-1 py-2 text-muted-foreground text-xs" style={{ paddingLeft: `${(depth + 1) * 16 + 4}px` }}>└</td>
+                      <td className="pr-1 py-2 text-muted-foreground/40 text-xs" style={{ paddingLeft: `${(depth + 1) * 16 + 4}px` }}>└</td>
                       {canBulkEdit && <td />}
                       {renderTableCells(item, {
                         py: 'py-2',
                         nameSuffix: item.parent_name
-                          ? <span className="ml-1.5 text-[10px] text-muted-foreground bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>
+                          ? <span className="ml-1.5 text-[10px] text-muted-foreground/60 bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>
                           : undefined,
                       })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>}
                           {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>}
-                          {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${item.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -1293,7 +1304,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                   <>
                     <tr
                       key={item.id}
-                      className={`group transition-colors ${tableEditMode ? 'cursor-default' : 'cursor-pointer'} ${isSelected ? 'bg-primary/6' : tableEditMode ? 'hover:bg-warning-surface/50 dark:hover:bg-warning/10' : 'hover:bg-accent/30'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      className={`group transition-colors ${tableEditMode ? 'cursor-default' : 'cursor-pointer'} ${isSelected ? 'bg-primary/6' : tableEditMode ? 'hover:bg-amber-50/50 dark:hover:bg-amber-900/10' : 'hover:bg-accent/30'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                       onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
                       {/* 展開ボタン */}
@@ -1323,7 +1334,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>}
                           {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3.5 w-3.5" /></Button>}
-                          {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${item.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -1331,17 +1342,17 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                     {isExpanded && children.map((child: any) => (
                       <tr
                         key={child.id}
-                        className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-warning-surface/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                        className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                         onClick={tableEditMode ? undefined : () => navigateToDetail(child.id)}
                       >
-                        <td className="pl-8 pr-1 py-1.5 text-muted-foreground text-xs">└</td>
+                        <td className="pl-8 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
                         {canBulkEdit && <td />}
                         {renderTableCells(child, { py: 'py-1.5' })}
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>}
                             {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>}
-                            {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${child.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>}
+                            {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${child.name}」を削除？`)) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>}
                           </div>
                         </td>
                       </tr>
@@ -1380,7 +1391,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
             </DialogTitle>
           </DialogHeader>
           {saveSuccess && (
-            <div className="text-sm text-success bg-success-surface border border-success rounded-md px-3 py-2">
+            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
               ✓ 登録しました。続けて次の機材を入力してください。
             </div>
           )}
@@ -1442,7 +1453,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                           <button
                             key={item.model_number ?? 'none'}
                             type="button"
-                            className="h-ctl-3 w-full text-left px-3 text-sm hover:bg-muted flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                             onMouseDown={() => {
                               setForm(f => ({
                                 ...f,
@@ -1800,20 +1811,53 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
       </Dialog>
 
       {/* 印刷設定ダイアログ */}
-      <PrintSettingsDialog
-        open={printDialogOpen}
-        onOpenChange={setPrintDialogOpen}
-        printCols={printCols}
-        setPrintCols={setPrintCols}
-        printCheckbox={printCheckbox}
-        setPrintCheckbox={setPrintCheckbox}
-        printTitle={printTitle}
-        setPrintTitle={setPrintTitle}
-        printLandscape={printLandscape}
-        setPrintLandscape={setPrintLandscape}
-        onPrint={handlePrint}
-        itemCount={items.length}
-      />
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>印刷設定</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>タイトル</Label>
+              <Input value={printTitle} onChange={(e) => setPrintTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>印刷する列</Label>
+              <ToggleButtonGroup
+                options={PRINT_COLS.map(c => ({ value: c.key, label: c.label }))}
+                value={Array.from(printCols)}
+                onChange={(next) => setPrintCols(new Set(next))}
+                multi
+                cols={{ base: 2, sm: 3 }}
+                size="sm"
+                showSelectAll
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span>チェック欄を追加（棚卸し用手書き）</span>
+              <Switch checked={printCheckbox} onCheckedChange={(v) => setPrintCheckbox(!!v)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>用紙方向</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="radio" name="print-orient" checked={!printLandscape} onChange={() => setPrintLandscape(false)} />
+                  縦 (A4 Portrait)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="radio" name="print-orient" checked={printLandscape} onChange={() => setPrintLandscape(true)} />
+                  横 (Landscape)
+                </label>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">※ 現在の絞り込み結果 {items.length} 件を印刷</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>キャンセル</Button>
+              <Button onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-1" />印刷実行
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 印刷エリア（スクリーンでは非表示、@media print で表示） */}
       <div id="eq-print-area-wrapper">
@@ -1849,10 +1893,10 @@ function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
 }
 
 const ASSET_BADGE: Record<string, string> = {
-  fixed_asset: 'bg-accent text-primary ring-primary/30',
-  consumable: 'bg-success-surface text-success ring-success',
-  leased: 'bg-warning-surface text-warning-strong ring-warning',
-  transferred: 'bg-muted text-muted-foreground ring-border',
+  fixed_asset: 'bg-blue-50 text-blue-700 ring-blue-200',
+  consumable:  'bg-green-50 text-green-700 ring-green-200',
+  leased:      'bg-orange-50 text-orange-700 ring-orange-200',
+  transferred: 'bg-gray-100 text-gray-600 ring-gray-200',
 };
 function AssetBadge({ v }: { v: string }) {
   return (
@@ -1863,10 +1907,10 @@ function AssetBadge({ v }: { v: string }) {
 }
 
 const TYPE_BADGE: Record<string, string> = {
-  V: 'bg-cat-7/10 text-cat-7', C: 'bg-info/10 text-info',
-  A: 'bg-warning-surface text-warning-strong', IC: 'bg-info/10 text-info',
-  NW: 'bg-info/10 text-info', L: 'bg-warning-surface text-warning-strong',
-  XR: 'bg-cat-7/10 text-cat-7', E: 'bg-muted text-muted-foreground',
+  V: 'bg-violet-50 text-violet-700', C: 'bg-sky-50 text-sky-700',
+  A: 'bg-amber-50 text-amber-700', IC: 'bg-teal-50 text-teal-700',
+  NW: 'bg-cyan-50 text-cyan-700', L: 'bg-yellow-50 text-yellow-700',
+  XR: 'bg-pink-50 text-pink-700', E: 'bg-gray-100 text-gray-600',
 };
 function SectionBadge({ typeCode, section }: { typeCode: string | null; section: string | null }) {
   const label = sectionDisplay(typeCode, section);
@@ -1878,3 +1922,96 @@ function SectionBadge({ typeCode, section }: { typeCode: string | null; section:
   );
 }
 
+function PrintTable({ items, printCols, printCheckbox, printTitle, filterLabel }: {
+  items: any[];
+  printCols: Set<string>;
+  printCheckbox: boolean;
+  printTitle: string;
+  filterLabel: string;
+}) {
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const getCellValue = (item: any, key: string): string => {
+    switch (key) {
+      case 'eq_code':           return item.eq_code || '–';
+      case 'equipment_type':    return sectionDisplay(item.equipment_type_code, item.equipment_section) || '–';
+      case 'name':              return item.name || '–';
+      case 'manufacturer_name': return item.manufacturer_name || '–';
+      case 'model_number':      return item.model_number || '–';
+      case 'unit_number':       return item.unit_number != null ? String(item.unit_number) : '–';
+      case 'serial_number':     return item.serial_number || '–';
+      case 'location':          return item.location_name || item.location_detail || '–';
+      case 'fixed_asset_code':  return item.fixed_asset_code || '–';
+      case 'purchased_at':      return item.purchased_at?.slice(0, 7) || '–';
+      case 'warranty_years':    return item.warranty_years ? `${item.warranty_years}年` : '–';
+      case 'notes':             return item.notes || '–';
+      default:                  return '–';
+    }
+  };
+
+  const visibleCols = PRINT_COLS.filter(c => printCols.has(c.key));
+
+  // 各アイテムの深さを計算（idMap から親を辿る）
+  const idMap = new Map<string, any>(items.map((i: any) => [i.id, i]));
+  const getDepth = (item: any): number => {
+    let depth = 0;
+    let pid = item.parent_id;
+    while (pid && idMap.has(pid)) {
+      depth++;
+      pid = idMap.get(pid)?.parent_id;
+    }
+    return depth;
+  };
+
+  // インデント記号（深さ → プレフィックス文字列）
+  const INDENT_PREFIX = ['', '└ ', '　└ ', '　　└ '];
+
+  return (
+    <div id="eq-print-area">
+      <div className="print-title">{printTitle}</div>
+      <div className="print-meta">
+        {today}　全 {items.length} 件{filterLabel ? `　フィルター: ${filterLabel}` : ''}
+      </div>
+      <table>
+        <thead>
+          <tr>
+            {printCheckbox && <th className="check-col">✓</th>}
+            {visibleCols.map(c => (
+              <th key={c.key} className={c.key === 'eq_code' ? 'col-id' : ''}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item: any) => {
+            const depth = getDepth(item);
+            const depthClass = `depth-${Math.min(depth, 3)}`;
+            return (
+              <tr key={item.id} className={depthClass}>
+                {printCheckbox && (
+                  <td className="check-col">
+                    <span style={{ display: 'block', width: 13, height: 13, border: '1px solid #000', margin: '0 auto' }} />
+                  </td>
+                )}
+                {visibleCols.map(c => {
+                  const isName = c.key === 'name';
+                  const tdClass = [
+                    c.key === 'eq_code' ? 'col-id' : '',
+                    c.key === 'notes' ? 'col-notes' : '',
+                    isName ? 'col-name' : '',
+                  ].filter(Boolean).join(' ');
+                  const value = getCellValue(item, c.key);
+                  return (
+                    <td key={c.key} className={tdClass}
+                      style={isName && depth > 0 ? { paddingLeft: `${depth * 10 + 5}px` } : {}}>
+                      {isName && depth > 0 ? `${INDENT_PREFIX[Math.min(depth, 3)]}${value}` : value}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

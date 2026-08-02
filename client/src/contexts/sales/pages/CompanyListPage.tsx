@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
@@ -26,8 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, Building2, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 type RoleFilter = "all" | "customer" | "vendor" | "sga_payee" | "both" | "other";
 
@@ -92,10 +90,7 @@ function CompanySummaryDialog({ open, onOpenChange, company }: {
             </div>
           </div>
         ) : (
-          <EmptyState
-            title="この会社に紐づく案件はまだありません"
-            description="案件を作るときにこの会社をお客様に選ぶと、ここに並びます。"
-          />
+          <p className="text-sm text-muted-foreground py-4 text-center">データがありません</p>
         )}
       </DialogContent>
     </Dialog>
@@ -142,12 +137,12 @@ const EMPTY_FORM: CompanyForm = {
 };
 
 const roleTabs: { value: RoleFilter; label: string }[] = [
-  { value: "all", label: "全て" },
-  { value: "customer", label: "顧客" },
-  { value: "vendor", label: "仕入先" },
+  { value: "all",       label: "全て" },
+  { value: "customer",  label: "顧客" },
+  { value: "vendor",    label: "仕入先" },
   { value: "sga_payee", label: "販管費支払先" },
-  { value: "both", label: "顧客兼仕入先" },
-  { value: "other", label: "その他" },
+  { value: "both",      label: "顧客兼仕入先" },
+  { value: "other",     label: "その他" },
 ];
 
 export default function CompanyListPage() {
@@ -195,7 +190,7 @@ export default function CompanyListPage() {
       <div className="space-y-4 p-3 lg:p-6">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <PageTitle>取引先マスター</PageTitle>
+            <h1 className="text-xl lg:text-2xl font-bold">取引先マスター</h1>
             <p className="text-sm text-muted-foreground mt-0.5">顧客・仕入先を統合管理します</p>
           </div>
           <Button onClick={crud.openAdd}>
@@ -260,7 +255,7 @@ export default function CompanyListPage() {
                     {c.customer_id && (
                       <button
                         className="text-xs text-primary hover:underline flex items-center gap-0.5"
-                        onClick={() => navigate(`/customers/${c.customer_id}`)}
+                        onClick={() => navigate("/sales/customers")}
                       >
                         <ExternalLink className="h-3 w-3" />顧客ページ
                       </button>
@@ -319,7 +314,7 @@ export default function CompanyListPage() {
                     key: "invoice_registration_number",
                     header: "インボイス番号",
                     defaultWidth: 160,
-                    className: "text-xs text-muted-foreground",
+                    className: "text-xs  text-muted-foreground",
                     cell: (c) => c.invoice_registration_number || "-",
                   },
                   {
@@ -332,7 +327,7 @@ export default function CompanyListPage() {
                         {c.customer_id && (
                           <button
                             className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/customers/${c.customer_id}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate("/sales/customers"); }}
                           >
                             <ExternalLink className="h-3 w-3" />顧客
                           </button>
@@ -389,9 +384,9 @@ export default function CompanyListPage() {
                 <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
                 <ToggleButtonGroup
                   options={[
-                    { value: 'customer', label: '顧客', description: '売上管理で選択可能' },
-                    { value: 'vendor', label: '仕入先', description: '仕入管理で選択可能' },
-                    { value: 'sga_payee', label: '販管費支払先', description: '販管費管理で選択可能' },
+                    { value: 'customer',  label: '顧客',           description: '売上管理で選択可能' },
+                    { value: 'vendor',    label: '仕入先',         description: '仕入管理で選択可能' },
+                    { value: 'sga_payee', label: '販管費支払先',   description: '販管費管理で選択可能' },
                   ]}
                   value={[
                     ...(form.watch("is_customer")   ? ['customer'] : []),
@@ -399,8 +394,8 @@ export default function CompanyListPage() {
                     ...(form.watch("is_sga_payee")  ? ['sga_payee'] : []),
                   ]}
                   onChange={(next) => {
-                    form.setValue("is_customer", next.includes('customer'));
-                    form.setValue("is_vendor", next.includes('vendor'));
+                    form.setValue("is_customer",  next.includes('customer'));
+                    form.setValue("is_vendor",    next.includes('vendor'));
                     form.setValue("is_sga_payee", next.includes('sga_payee'));
                   }}
                   multi

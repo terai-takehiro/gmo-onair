@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import { X, Upload, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { parseCsv, mapCsvColumns, buildSectionsFromCsv, type CsvColumnMap, type CsvImportResult } from "@/lib/csvImport";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface CsvImportDialogProps {
   blocks: { id: string; type: string; label: string }[];
@@ -51,9 +50,9 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
     }
   };
 
-  const handleExecute = async () => {
+  const handleExecute = () => {
     if (!result) return;
-    if (mode === "replace" && !(await confirmAction({ title: "現在のロール・行をすべて置き換えます。よろしいですか？", description: "（置き換え前の内容は元に戻せません。必要なら先に CSV を書き出してください）", tone: 'danger' }))) return;
+    if (mode === "replace" && !confirm("現在のロール・行をすべて置き換えます。よろしいですか？\n（置き換え前の内容は元に戻せません。必要なら先に CSV を書き出してください）")) return;
     onImport(result, mode);
     onClose();
   };
@@ -172,7 +171,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
           <button
             onClick={handleExecute}
             disabled={!result}
-            className="h-ctl-3 inline-flex items-center gap-1.5 px-4 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Upload size={14} aria-hidden />
             インポート実行

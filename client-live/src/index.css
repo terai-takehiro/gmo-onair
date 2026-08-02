@@ -1,8 +1,33 @@
-@import '@gmo-onair/shared/src/client/base.css';
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html, body, #root {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html {
+    touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+/* ── Timer Phase Colors ── */
 .phase-idle      { color: hsl(var(--foreground)); }
 .phase-countdown { color: hsl(var(--foreground)); }
 .phase-yellow    { color: #d97706; }

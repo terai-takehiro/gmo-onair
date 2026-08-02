@@ -81,17 +81,10 @@ export const ProjectStatusColors: Record<ProjectStatus, string> = {
 };
 
 // 税区分
-//
-// **非課税 (exempt) と不課税 (nontax) は別物**なので選択肢を分けている。
-//  - 非課税: 消費税の対象だが法令で課税しない取引 (土地の貸付・利息・行政手数料など)
-//  - 不課税: そもそも消費税の対象外 (給与・寄付・配当・国外取引・課税対象外の内部振替など)
-// どちらも税額は 0 円なので金額計算は同じだが、**帳簿と申告では区別する**ため
-// 「非課税」に寄せて入れてしまうと、あとから分けられない。
 export const TaxCategory = {
   TAX10: 'tax10',
   TAX8: 'tax8',
   EXEMPT: 'exempt',
-  NONTAX: 'nontax',
 } as const;
 export type TaxCategory = (typeof TaxCategory)[keyof typeof TaxCategory];
 
@@ -99,31 +92,7 @@ export const TaxCategoryLabels: Record<TaxCategory, string> = {
   tax10: '10%課税',
   tax8: '8%課税(軽減)',
   exempt: '非課税',
-  nontax: '不課税',
 };
-
-/** 税率。**画面と帳票はここだけを見る** (その場で三項演算子を書くと選択肢が増えたとき漏れる) */
-export const TaxCategoryRates: Record<string, number> = {
-  tax10: 0.1,
-  tax8: 0.08,
-  exempt: 0,
-  nontax: 0,
-};
-
-/** 税率 (未知の値は 10% として扱う。既存データに合わせる) */
-export function taxRateOf(taxCategory: string | null | undefined): number {
-  return TaxCategoryRates[String(taxCategory ?? '')] ?? TaxCategoryRates.tax10;
-}
-
-/** 短い表示 (一覧の狭い列用)。「10%」「8%」「非課税」「不課税」 */
-export function taxShortLabel(taxCategory: string | null | undefined): string {
-  switch (String(taxCategory ?? '')) {
-    case 'tax8': return '8%';
-    case 'exempt': return '非課税';
-    case 'nontax': return '不課税';
-    default: return '10%';
-  }
-}
 
 // 精算方法
 export const SettlementMethod = {

@@ -10,8 +10,7 @@ import ViewerCard from '@/components/viewer/ViewerCard';
 import ViewerChart from '@/components/viewer/ViewerChart';
 import { Button } from '@/components/ui/button';
 import { Play, Square, ExternalLink, AlertCircle, Timer } from 'lucide-react';
-
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface TimerData { id: string; name: string; phase: string }
 interface Snapshot {
@@ -26,8 +25,8 @@ interface Snapshot {
 const PLATFORM_META: { key: PlatformKey; label: string; color: string }[] = [
   { key: 'youtube', label: 'YouTube', color: '#ff0000' },
   { key: 'jstream', label: 'Jstream', color: '#00b4d8' },
-  { key: 'zoom', label: 'Zoom', color: '#2D8CFF' },
-  { key: 'teams', label: 'Teams', color: '#6264A7' },
+  { key: 'zoom',    label: 'Zoom',    color: '#2D8CFF' },
+  { key: 'teams',   label: 'Teams',   color: '#6264A7' },
 ];
 
 function loadToggles(programId: string | undefined): PlatformToggles {
@@ -36,8 +35,8 @@ function loadToggles(programId: string | undefined): PlatformToggles {
     return {
       youtube: s.youtube ?? true,
       jstream: s.jstream ?? true,
-      zoom: s.zoom    ?? true,
-      teams: s.teams   ?? true,
+      zoom:    s.zoom    ?? true,
+      teams:   s.teams   ?? true,
     };
   } catch {
     return { ...ALL_PLATFORMS_ON };
@@ -140,7 +139,7 @@ export default function DashboardPage() {
                 )}
               </div>
               <Link to={`/program/${programId}/timers`}>
-                <Button variant="ghost" size="sm" className="h-ctl-1 text-xs text-muted-foreground hover:text-foreground">管理</Button>
+                <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground">管理</Button>
               </Link>
             </div>
             <div className="h-44 sm:h-52">
@@ -173,7 +172,7 @@ export default function DashboardPage() {
             <Button
               variant={viewer.running ? 'destructive' : 'default'}
               size="sm"
-              className="h-ctl-1 text-xs"
+              className="h-7 text-xs"
               onClick={viewer.running ? viewer.stopPolling : viewer.startPolling}
             >
               {viewer.running
@@ -184,7 +183,7 @@ export default function DashboardPage() {
 
           {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken &&
            !settingsData?.hasZoomCredentials && !settingsData?.hasTeamsCredentials && (
-            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning-strong" role="alert">
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning" role="alert">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
             </div>
@@ -269,7 +268,7 @@ export default function DashboardPage() {
               <p className="text-muted-foreground">ログなし</p>
             ) : viewer.logs.map((log: any, i: number) => (
               <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-success' : 'text-muted-foreground'}>
-                <span className="text-muted-foreground">{log.time.toLocaleTimeString('ja-JP')} </span>
+                <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
                 {log.message}
               </div>
             ))}

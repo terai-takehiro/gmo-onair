@@ -5,8 +5,6 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Database, FlaskConical } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface KessanReport {
   dryRun: boolean;
@@ -36,7 +34,7 @@ interface KessanReport {
 const yen = (n: number) => "¥" + Number(n || 0).toLocaleString();
 type Scope = "sga" | "revenues" | "purchases" | "all";
 
-export default function KessanImportPage({ embedded }: { embedded?: boolean } = {}) {
+export default function KessanImportPage() {
   const { currentUser } = useAuth();
   const isSystemAdmin = currentUser?.role === "system_admin";
 
@@ -88,10 +86,10 @@ export default function KessanImportPage({ embedded }: { embedded?: boolean } = 
 
   return (
     <PageTransition>
-      <div className={embedded ? "space-y-5" : "mx-auto max-w-4xl space-y-5 p-4 sm:p-6"}>
-        <div className={embedded ? "hidden" : "flex items-center gap-2"}>
+      <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
+        <div className="flex items-center gap-2">
           <FlaskConical className="h-6 w-6 text-primary" />
-          <PageTitle>決算インポート</PageTitle>
+          <h1 className="text-xl font-bold lg:text-2xl">決算インポート</h1>
         </div>
 
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
@@ -165,12 +163,12 @@ export default function KessanImportPage({ embedded }: { embedded?: boolean } = 
             </Button>
             <Button
               disabled={run.isPending}
-              onClick={async () => {
+              onClick={() => {
                 const tgt = report?.isProd ? "⚠ 本番DB" : "検証DB";
                 const extra = report?.isProd
                   ? "\n\n【本番DB】に書き込みます。先に「解析(dry-run)」で件数・金額・重複候補を必ず確認してください。"
                   : "";
-                if ((await confirmAction({ title: `${tgt}に決算データを投入します。よろしいですか？`, description: `（対象月分は入れ直しになります）${extra}` }))) run.mutate(true);
+                if (window.confirm(`${tgt}に決算データを投入します。よろしいですか？（対象月分は入れ直しになります）${extra}`)) run.mutate(true);
               }}
             >
               {run.isPending && run.variables ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}

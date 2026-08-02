@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   HardDrive, Copy, Check, AlertTriangle, Loader2, Database, Clock,
 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { EmptyState, NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 
 interface BackupFile {
   id: string;
@@ -87,7 +85,10 @@ export default function DbBackupsPage() {
     return (
       <PageTransition>
         <div className="p-6">
-          <NoPermissionPanel modules={['admin']} level="manager" target="DB バックアップの一覧" />
+          <EmptyState
+            title="アクセス権限がありません"
+            description="DB バックアップ管理は system_admin ロールのみ閲覧できます。"
+          />
         </div>
       </PageTransition>
     );
@@ -102,7 +103,7 @@ export default function DbBackupsPage() {
             <HardDrive className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <PageTitle>DB バックアップ管理</PageTitle>
+            <h1 className="text-xl lg:text-2xl font-bold">DB バックアップ管理</h1>
             <p className="text-xs text-muted-foreground">
               BOX の社内限り/00_DB_Backup/ に保管されている自動バックアップ一覧。3 時間ごとに 30 日分が保持されています。
             </p>
@@ -155,7 +156,7 @@ export default function DbBackupsPage() {
         )}
 
         {/* Backup tables per environment */}
-        {(data?.environments ?? []).map((envBackup) => (
+        {data?.environments.map((envBackup) => (
           <BackupTable
             key={envBackup.env}
             env={envBackup.env}
@@ -204,7 +205,7 @@ function BackupTable({
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
         <div className="flex items-center gap-2">
-          <Badge className={envColor + " text-xs"}>{env.toUpperCase()}</Badge>
+          <Badge className={envColor + "  text-xs"}>{env.toUpperCase()}</Badge>
           <span className="font-semibold">{envLabel}</span>
         </div>
         <span className="text-xs text-muted-foreground">{files.length} 件</span>

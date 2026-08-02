@@ -2,7 +2,6 @@ import { useState, Fragment } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Button } from "@gmo-onair/shared/src/client/ui";
 import CueRowSheet from "./CueRowSheet";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Block {
   id: string;
@@ -108,8 +107,8 @@ export default function CueCardList({
     });
   };
 
-  const removeRow = async (si: number, ri: number) => {
-    if (!(await confirmAction({ title: "この行を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
+  const removeRow = (si: number, ri: number) => {
+    if (!confirm("この行を削除しますか？")) return;
     updateState((s: any) => {
       const next = { ...s };
       next.sections = next.sections.map((sec: any, i: number) =>
@@ -151,8 +150,8 @@ export default function CueCardList({
     });
   };
 
-  const removeSection = async (si: number) => {
-    if (!(await confirmAction({ title: "このロールを削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
+  const removeSection = (si: number) => {
+    if (!confirm("このロールを削除しますか？")) return;
     updateState((s: any) => ({
       ...s,
       sections: s.sections.filter((_: any, i: number) => i !== si),
@@ -193,7 +192,7 @@ export default function CueCardList({
             <button
               type="button"
               onClick={() => { insertAt(idx, "cm"); setExpandedGap(null); }}
-              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-warning-strong hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-warning hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               ＋ CM
             </button>
@@ -258,12 +257,12 @@ export default function CueCardList({
             <input
               value={sec.label || ""}
               onChange={(e) => updateSectionLabel(si, e.target.value)}
-              className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/60"
               placeholder={sec._break ? "CM" : sec._vtr ? "VTR" : "セクション名"}
               aria-label={`セクション ${si + 1} の名前`}
             />
             {sec._break && (
-              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning-strong">CM</span>
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">CM</span>
             )}
             {sec._vtr && (
               <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-info/20 text-info">VTR</span>

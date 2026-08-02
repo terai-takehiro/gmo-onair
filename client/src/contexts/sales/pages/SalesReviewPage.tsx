@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardHeader, KpiCard } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, KpiCard, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Table,
   TableBody,
@@ -47,8 +47,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { OPPORTUNITY_STAGES, ProjectStageLabels } from "@/types";
-import { StatValue } from "@gmo-onair/shared/src/client/ui";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const now = new Date();
 const currentYear = now.getFullYear();
@@ -56,8 +54,7 @@ const currentMonth = now.getMonth() + 1;
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-/** `embedded` のときは見出しを出さない (ふりかえり `/review` に埋める用。見出しが二重になる) */
-export default function SalesReviewPage({ embedded = false }: { embedded?: boolean } = {}) {
+export default function SalesReviewPage() {
   const qc = useQueryClient();
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | undefined>(undefined);
@@ -162,15 +159,15 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
 
   return (
     <PageTransition>
-    <div className={embedded ? "space-y-5" : "space-y-5 p-4 sm:space-y-6 sm:p-6"}>
-      {!embedded && <DashboardHeader
+    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+      <DashboardHeader
         title="営業レビュー"
         description="ファネル分析・失注分析・営業評価を横断で確認します。"
         period={`${year}年${month ? ` ${month}月` : ' 通年'}`}
         controls={
           <div className="flex gap-2 items-center">
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}年</SelectItem>
@@ -181,7 +178,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               value={month ? String(month) : "all"}
               onValueChange={(v) => setMonth(v === "all" ? undefined : Number(v))}
             >
-              <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">通年</SelectItem>
                 {MONTHS.map((m) => (
@@ -191,7 +188,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
             </Select>
           </div>
         }
-      />}
+      />
 
       <Tabs defaultValue="funnel" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -404,10 +401,9 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
             <Card>
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">失注件数</p>
-                {/* 6章: 大きい数字の大きさは段から選ぶ */}
-                <StatValue size="sm" className="block text-destructive">
+                <p className="text-2xl font-bold text-red-500 font-number">
                   <AnimatedNumber value={lostAnalysis?.total_lost ?? 0} suffix="件" />
-                </StatValue>
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -438,7 +434,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               </CardHeader>
               <CardContent>
                 {lostAnalysis?.total_lost === 0 ? (
-                  <EmptyState title="この期間に失注した案件はありません" description="期間を広げると、過去の失注理由をまとめて見られます。" />
+                  <EmptyState title="失注データがありません" description="選択中の期間に失注案件がありません。" />
                 ) : (
                   <div className="space-y-3">
                     {lostAnalysis?.reasons?.map((r: any, i: number) => {
@@ -485,7 +481,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
               <CardContent>
                 {!lostAnalysis?.monthly_trend ||
                 lostAnalysis.monthly_trend.length === 0 ? (
-                  <EmptyState title="この期間に売上が1件もありません" description="お金 > 売上 に明細を登録すると、月ごとの推移がここに出ます。" />
+                  <EmptyState title="月別の推移データがありません" />
                 ) : (
                   <div className="space-y-2">
                     {MONTHS.map((m) => {
@@ -610,7 +606,7 @@ export default function SalesReviewPage({ embedded = false }: { embedded?: boole
             <CardContent>
               {performance.length === 0 ? (
                 <EmptyState
-                title="この期間に担当者ごとの実績がありません"
+                  title="担当者別データがありません"
                   description="目標を設定するか、ヨミを登録してください。"
                 />
               ) : (

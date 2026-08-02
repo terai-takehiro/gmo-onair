@@ -9,9 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Trash2, CloudDownload, Users, Check, CloudUpload, UserMinus } from "lucide-react";
 import type { PersonalEvent } from "./scheduleShared";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifySuccess } from "@/lib/notify";
-import { invalidateSchedule } from "@/lib/scheduleQueries";
 
 interface Props {
   open: boolean;
@@ -99,14 +96,6 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     }
   }, [open, editing, presetRange]);
 
-  // 入れた内容を言い返すための文。同じ予定を2回入れていないか見比べられるようにする
-  const describeEvent = () => {
-    const period = allDay
-      ? (endDate && endDate !== startDate ? `${startDate} 〜 ${endDate}` : startDate)
-      : `${startDate} ${startTime}〜${endTime}`;
-    return location.trim() ? `${period} / ${location.trim()}` : period;
-  };
-
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
@@ -123,11 +112,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       return api.post("/schedule/personal", payload);
     },
     onSuccess: () => {
-      invalidateSchedule(qc, "personal");
-      // 入れた内容を言い返す (登録できたか分からず入れ直すのを止める)
-      notifySuccess(editing ? "予定を更新しました" : "予定を登録しました", {
-        description: `${title.trim()}（${describeEvent()}）`,
-      });
+      qc.invalidateQueries({ queryKey: ["personal-events"] });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
@@ -136,8 +121,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
   const deleteMutation = useMutation({
     mutationFn: async () => api.delete(`/schedule/personal/${editing!.id}`),
     onSuccess: () => {
-      invalidateSchedule(qc, "personal");
-      notifySuccess("予定を削除しました", { description: editing?.title ?? undefined });
+      qc.invalidateQueries({ queryKey: ["personal-events"] });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),
@@ -266,7 +250,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
                             key={u.id}
                             type="button"
                             onClick={() => toggleShare(u.id)}
-                            className={`h-ctl-3 flex w-full items-center gap-2 rounded-md border px-3 text-sm transition-colors${
+                            className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
                               on ? "border-purple-400 bg-purple-50 text-purple-800" : "hover:bg-accent"
                             }`}
                           >
@@ -304,31 +288,9 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               type="button"
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={async () => {
-                // 取り消せない操作なので danger + 「一緒に何が起きるか」を書く (§UI ポリシー)
-                const ok = isSharedIn
-                  ? await confirmAction({
-                      title: "この予定の共有を外しますか？",
-                      description: "あなたのカレンダーから消えます。予定そのものは作成者と他の共有相手には残ります。",
-                      confirmLabel: "共有から外す",
-                    })
-                  : await confirmAction({
-                      title: `「${title || editing.title}」を削除しますか？`,
-                      description: [
-                        editing.shared_with && editing.shared_with.length > 0
-                          ? `共有している ${editing.shared_with.length} 名のカレンダーからも消えます。`
-                          : "",
-                        editing.external_provider
-                          ? `連携中の ${editing.external_provider === "google" ? "Google" : "Outlook"} カレンダーからも削除します。`
-                          : "",
-                        isExternalSynced
-                          ? "外部カレンダーに残っていれば、次回の同期で戻ってきます。"
-                          : "元に戻せません。",
-                      ].filter(Boolean).join("\n"),
-                      confirmLabel: "削除する",
-                      tone: "danger",
-                    });
-                if (ok) deleteMutation.mutate();
+              onClick={() => {
+                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
+                if (confirm(msg)) deleteMutation.mutate();
               }}
               disabled={deleteMutation.isPending}
             >

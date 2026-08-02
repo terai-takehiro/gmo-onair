@@ -238,7 +238,7 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
          COUNT(DISTINCT p.id) FILTER (WHERE p.stage NOT IN ('a_won','s_completed','e_lost')) AS in_progress,
          COALESCE(SUM(DISTINCT p.expected_amount) FILTER (WHERE p.stage IN ('a_won','s_completed')), 0) AS won_amount_total
        FROM ai_outputs o
-       JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
+       JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL
       WHERE o.kind = 'estimate_draft'
         AND o.created_at >= NOW() - (? || ' days')::interval`,
       [w],

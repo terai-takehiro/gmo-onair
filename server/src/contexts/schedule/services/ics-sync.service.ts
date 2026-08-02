@@ -180,12 +180,13 @@ export async function syncFeed(feed: FeedRow): Promise<SyncResult> {
 
   const desired = buildDesiredEvents(text);
 
-  // 書き戻した自分の手入力予定を、ICS 経由でもう1件取り込まない (v3.1.2)。
+  // 書き戻した自分の手入力予定を、ICS 経由でもう1件取り込まない。
   //
-  // Google / Outlook の取込には最初からこの除外があったが (google-calendar.service.ts /
-  // ms-calendar.service.ts)、**ICS 取込にだけ無かった**。そのため
-  // 「書き込み連携あり + 同じカレンダーを ICS でも購読」の人は、ONAiR で作った予定が
-  // すべて 2 行になっていた (手入力の素の題名 と 取込側の題名 の2件)。
+  // Google / Outlook の取込には最初からこの除外があったが
+  // (google-calendar.service.ts / ms-calendar.service.ts)、**ICS 取込にだけ無かった**。
+  // そのため「書き込み連携あり + 同じカレンダーを ICS でも購読」の人は、
+  // ONAiR で作った予定がすべて 2 行になっていた
+  // (手入力の素の題名 と 取込側の題名 の2件)。
   //
   // 突合は「書き戻し先のイベント id」で行う。ICS の UID は提供元が
   // `<イベントid>@google.com` の形で出すので、`@` の前と一致するかを見る

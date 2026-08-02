@@ -1,4 +1,3 @@
-import { useSearchParams } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -16,17 +15,11 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, ArrowRightLeft, RotateCcw, Search, Check, ChevronRight, X } from "lucide-react";
 import { TYPE_CODES } from "@/lib/constants";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
 
 const today = new Date().toISOString().split("T")[0];
 
 export default function LendingListPage() {
   const qc = useQueryClient();
-  // 案件から来たとき (`?project_id=`) は番組貸出として案件を最初から入れておく (§4.16)。
-  // ここで拾わないと「案件から貸出を始められる」が案件を選び直させる導線になってしまう。
-  const [urlParams] = useSearchParams();
-  const fromProjectId = urlParams.get("project_id") ?? "";
-  const fromProjectName = urlParams.get("project_name") ?? "";
 
   // ─── Lending list state ───────────────────────────────────
   const [filterStatus, setFilterStatus] = useState("lent");
@@ -36,13 +29,11 @@ export default function LendingListPage() {
   const [step, setStep] = useState<"select" | "form">("select");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [typeTab, setTypeTab] = useState("");
-  const [lendingType, setLendingType] = useState<"standalone" | "program">(
-    fromProjectId ? "program" : "standalone"
-  );
-  const [projectSearch, setProjectSearch] = useState(fromProjectName);
+  const [lendingType, setLendingType] = useState<"standalone" | "program">("standalone");
+  const [projectSearch, setProjectSearch] = useState("");
   const [form, setForm] = useState({
     borrower_name: "", purpose: "",
-    lent_at: today, due_date: "", notes: "", project_id: fromProjectId,
+    lent_at: today, due_date: "", notes: "", project_id: "",
   });
 
   // ─── Return dialog ────────────────────────────────────────
@@ -130,7 +121,7 @@ export default function LendingListPage() {
     setTypeTab("");
     setLendingType("standalone");
     setProjectSearch("");
-    setForm({ borrower_name: "", purpose: "", lent_at: today, due_date: "", notes: "", project_id: fromProjectId });
+    setForm({ borrower_name: "", purpose: "", lent_at: today, due_date: "", notes: "", project_id: "" });
   };
 
   const openDialog = () => {
@@ -174,7 +165,7 @@ export default function LendingListPage() {
     <div className="space-y-4 p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTitle>貸出管理</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">貸出管理</h1>
         <Button size="sm" onClick={openDialog}>
           <Plus className="h-4 w-4 mr-1" />
           貸出登録
@@ -184,7 +175,7 @@ export default function LendingListPage() {
       {/* Status filter */}
       <div className="flex gap-2">
         <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[128px]">
+          <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="ステータス" />
           </SelectTrigger>
           <SelectContent>
@@ -213,7 +204,7 @@ export default function LendingListPage() {
           {lendings.map((l: any) => {
             const isOverdue = l.status === "lent" && l.due_date && l.due_date < today;
             return (
-              <Card key={l.id} className={isOverdue ? "border-warning" : ""}>
+              <Card key={l.id} className={isOverdue ? "border-amber-300" : ""}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -226,7 +217,7 @@ export default function LendingListPage() {
                       <div className="mt-1 flex items-center gap-2 flex-wrap">
                         <Badge
                           variant={l.status === "lent" ? "default" : "secondary"}
-                          className={isOverdue ? "bg-warning" : ""}
+                          className={isOverdue ? "bg-amber-500" : ""}
                         >
                           {l.status === "lent" ? (isOverdue ? "返却遅延" : "貸出中") : "返却済"}
                         </Badge>
@@ -346,12 +337,12 @@ export default function LendingListPage() {
                             <div className="mt-0.5 text-xs text-muted-foreground truncate">{item.location_name}</div>
                           )}
                           {(childrenMap.get(item.id)?.length ?? 0) > 0 && (
-                            <div className="mt-1 text-xs text-primary font-medium">
+                            <div className="mt-1 text-xs text-primary/70 font-medium">
                               付属品 {childrenMap.get(item.id)!.length}点含む
                             </div>
                           )}
                           {isLent && (
-                            <div className="mt-1 text-xs font-medium text-warning-strong">貸出中</div>
+                            <div className="mt-1 text-xs font-medium text-amber-600">貸出中</div>
                           )}
                         </button>
                       );
@@ -370,7 +361,7 @@ export default function LendingListPage() {
                         className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium"
                       >
                         {item.name}{item.unit_number != null ? ` No.${item.unit_number}` : ""}
-                        <button type="button" onClick={() => toggleItem(item)} className="hover:text-primary">
+                        <button type="button" onClick={() => toggleItem(item)} className="hover:text-primary/70">
                           <X className="h-3 w-3" />
                         </button>
                       </span>

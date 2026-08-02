@@ -8,7 +8,6 @@ import {
   parseOverridesJson,
   type I18nOverrides,
 } from '../lib/i18nOverrides';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface CategoryRow {
   id: number;
@@ -62,8 +61,8 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
     onClose();
   };
 
-  const handleReset = async () => {
-    if (!(await confirmAction({ title: '全ての英訳辞書設定を消去しますか？', description: '(localStorage 内のみ。DB は影響なし)', confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleReset = () => {
+    if (!confirm('全ての英訳辞書設定を消去しますか？(localStorage 内のみ。DB は影響なし)')) return;
     const empty = { awards: {}, divisions: {} };
     saveOverrides(empty);
     setDraft(empty);
@@ -98,27 +97,27 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:p-4">
-      <div className="w-full max-w-3xl h-[100dvh] sm:max-h-[90vh] sm:h-auto flex flex-col bg-background border border-border sm:rounded-lg shadow-2xl">
+      <div className="w-full max-w-3xl h-[100dvh] sm:max-h-[90vh] sm:h-auto flex flex-col bg-slate-900 border border-slate-700 sm:rounded-lg shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-border">
-          <Languages className="h-5 w-5 text-warning-strong" />
-          <h2 className="text-base font-bold text-foreground">英訳辞書 · 賞 / 部門</h2>
-          <span className="text-xs text-muted-foreground hidden sm:inline">(localStorage 保存)</span>
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-800">
+          <Languages className="h-5 w-5 text-amber-400" />
+          <h2 className="text-base font-bold text-slate-100">英訳辞書 · 賞 / 部門</h2>
+          <span className="text-xs text-slate-500 hidden sm:inline">(localStorage 保存)</span>
           <div className="flex-1" />
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded hover:bg-card text-muted-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded hover:bg-slate-800 text-slate-400"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Info banner */}
-        <div className="mx-6 mt-3 flex items-start gap-2 rounded border border-warning/40 bg-warning/30 px-3 py-2.5 text-sm text-warning-strong">
+        <div className="mx-6 mt-3 flex items-start gap-2 rounded border border-amber-700/40 bg-amber-950/30 px-3 py-2.5 text-sm text-amber-200/90">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
-            ブラウザに保存されます。DB の <code className="px-1 rounded bg-card text-warning-strong text-xs">awards_categories.name_en</code> /{' '}
-            <code className="px-1 rounded bg-card text-warning-strong text-xs">description_en</code> よりも優先されるため、
+            ブラウザに保存されます。DB の <code className="px-1 rounded bg-slate-800 text-amber-300 text-xs">awards_categories.name_en</code> /{' '}
+            <code className="px-1 rounded bg-slate-800 text-amber-300 text-xs">description_en</code> よりも優先されるため、
             DB を削除/再作成しても (このブラウザ上では) 翻訳が残ります。デバイス間移動は下部の Export/Import で。
           </div>
         </div>
@@ -128,14 +127,14 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           {/* 賞 */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Tv className="h-4 w-4 text-warning-strong" />
-              <h3 className="text-sm font-black tracking-widest text-foreground uppercase">
+              <Tv className="h-4 w-4 text-amber-500" />
+              <h3 className="text-sm font-black tracking-widest text-slate-200 uppercase">
                 賞 · Award
-                <span className="ml-1.5 text-muted-foreground font-medium">({awards.length})</span>
+                <span className="ml-1.5 text-slate-500 font-medium">({awards.length})</span>
               </h3>
             </div>
             {awards.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">登録済み賞なし</p>
+              <p className="text-sm text-slate-500 py-4 text-center">登録済み賞なし</p>
             ) : (
               <div className="space-y-2">
                 {awards.map(({ ja, dbEn }) => {
@@ -143,7 +142,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
                   const placeholder = dbEn || `EN訳を入力 (${ja})`;
                   return (
                     <div key={ja} className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-                      <div className="text-sm font-bold text-foreground truncate" title={ja}>
+                      <div className="text-sm font-bold text-slate-100 truncate" title={ja}>
                         {ja}
                       </div>
                       <input
@@ -156,10 +155,10 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
                         }
                         placeholder={placeholder}
                         className={cn(
-                          'rounded border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2',
+                          'rounded border bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2',
                           value
-                            ? 'border-warning/60 text-warning-strong focus:ring-warning/40'
-                            : 'border-border text-foreground focus:ring-border'
+                            ? 'border-amber-500/60 text-amber-100 focus:ring-amber-500/40'
+                            : 'border-slate-700 text-slate-200 focus:ring-slate-500'
                         )}
                       />
                     </div>
@@ -172,14 +171,14 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           {/* 部門 */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-warning-strong" />
-              <h3 className="text-sm font-black tracking-widest text-foreground uppercase">
+              <Filter className="h-4 w-4 text-amber-500/70" />
+              <h3 className="text-sm font-black tracking-widest text-slate-200 uppercase">
                 部門 · Division
-                <span className="ml-1.5 text-muted-foreground font-medium">({divisions.length})</span>
+                <span className="ml-1.5 text-slate-500 font-medium">({divisions.length})</span>
               </h3>
             </div>
             {divisions.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">登録済み部門なし</p>
+              <p className="text-sm text-slate-500 py-4 text-center">登録済み部門なし</p>
             ) : (
               <div className="space-y-2">
                 {divisions.map(({ ja, dbEn }) => {
@@ -187,7 +186,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
                   const placeholder = dbEn || `EN訳を入力 (${ja})`;
                   return (
                     <div key={ja} className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-                      <div className="text-sm text-foreground truncate" title={ja}>
+                      <div className="text-sm text-slate-200 truncate" title={ja}>
                         {ja}
                       </div>
                       <input
@@ -200,10 +199,10 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
                         }
                         placeholder={placeholder}
                         className={cn(
-                          'rounded border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2',
+                          'rounded border bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2',
                           value
-                            ? 'border-warning/60 text-warning-strong focus:ring-warning/40'
-                            : 'border-border text-foreground focus:ring-border'
+                            ? 'border-amber-500/60 text-amber-100 focus:ring-amber-500/40'
+                            : 'border-slate-700 text-slate-200 focus:ring-slate-500'
                         )}
                       />
                     </div>
@@ -215,15 +214,15 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 flex-wrap px-6 py-3 border-t border-border bg-background/50">
+        <div className="flex items-center gap-2 flex-wrap px-6 py-3 border-t border-slate-800 bg-slate-950/50">
           <button
             onClick={handleExport}
-            className="h-ctl-3 flex items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
             JSONエクスポート
           </button>
-          <label className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors cursor-pointer">
+          <label className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer">
             <Upload className="h-3.5 w-3.5" />
             JSONインポート
             <input
@@ -239,23 +238,23 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           </label>
           <button
             onClick={handleReset}
-            className="h-ctl-3 flex items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground hover:bg-destructive/40 hover:text-destructive transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 hover:bg-red-900/40 hover:text-red-300 transition-colors"
             title="全ての設定を消去"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             リセット
           </button>
           <div className="flex-1" />
-          {importErr && <span className="text-xs text-destructive">{importErr}</span>}
+          {importErr && <span className="text-xs text-red-400">{importErr}</span>}
           <button
             onClick={onClose}
-            className="rounded-md border border-border bg-card px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+            className="rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
           >
             キャンセル
           </button>
           <button
             onClick={handleSave}
-            className="h-ctl-3 flex items-center gap-1.5 rounded-md bg-warning px-4 text-sm font-bold text-foreground hover:bg-warning/90 transition-colors"
+            className="flex items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 transition-colors"
           >
             <Save className="h-4 w-4" />
             保存

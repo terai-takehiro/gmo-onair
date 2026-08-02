@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getAwardsSocket, acquireAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
+import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
 import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 import type { OneShotCueState } from '../types';
 
@@ -30,10 +30,12 @@ interface SyncPayload extends OneShotCueState {
 // The same /awards namespace + room is reused — events are namespaced by name.
 export function useOneShotCue(eventId: number | null) {
   const [cue, setCueState] = useState<OneShotCueState>(DEFAULT_CUE);
+  const connectedRef = useRef(false);
 
   useEffect(() => {
     if (!eventId) return;
-    const socket = acquireAwardsSocket(eventId);
+    const socket = getAwardsSocket(eventId);
+    connectedRef.current = true;
 
     const onSync = (data: SyncPayload) => {
       updateServerOffsetFromTimestamp(data.timestamp);
@@ -60,10 +62,12 @@ export function useOneShotCue(eventId: number | null) {
 
     return () => {
       socket.off('oneshot:sync', onSync);
-      // 借りたものを返すだけ。**最後に離れたフックが閉じる** (v2.9.289 以降は
-      // lib/socket.ts が使用数を数えているので、ランキングCG が同じ接続を
-      // 使っていても勝手に閉じない)。
-      disconnectAwardsSocket(eventId);
+      if (connectedRef.current) {
+        // Note: do NOT call disconnectAwardsSocket here unconditionally —
+        // ranking CG (useAwardsCue) may still be using the same socket.
+        // Each hook is responsible for its own listeners only.
+        connectedRef.current = false;
+      }
     };
   }, [eventId]);
 
@@ -106,7 +110,8 @@ export function useOneShotNextCue(eventId: number | null) {
 
   useEffect(() => {
     if (!eventId) return;
-    const socket = acquireAwardsSocket(eventId);
+    const socket = getAwardsSocket(eventId);
+    connectedRef.current = true;
 
     const onSync = (data: SyncPayload) => {
       updateServerOffsetFromTimestamp(data.timestamp);

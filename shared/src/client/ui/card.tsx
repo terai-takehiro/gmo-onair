@@ -5,7 +5,7 @@ import { cn } from "../utils";
  * Card — DADS-aligned surface container
  * - Uses `card` semantic token for background
  * - `border` for subtle divider (DADS style)
- * - `rounded-lg` = 14px (刷新のカード半径 = --radius)
+ * - `rounded-lg` = 8px (DADS 推奨 radius)
  * - Elevation via subtle border-color shift on hover (not heavy shadow)
  */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(

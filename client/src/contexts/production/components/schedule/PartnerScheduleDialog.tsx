@@ -11,9 +11,6 @@ import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SCHEDULE_TYPE_LABELS, SCHEDULE_TYPE_COLORS, type PartnerSchedule } from "./scheduleShared";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifySuccess } from "@/lib/notify";
-import { invalidateSchedule } from "@/lib/scheduleQueries";
 
 interface Props {
   open: boolean;
@@ -91,15 +88,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       return api.post("/schedule/partner", payload);
     },
     onSuccess: () => {
-      invalidateSchedule(qc, "partner");
-      // 誰の・いつの・何かを言い返す (総務が代理で入れるので「入ったか」が特に見えない)
-      const who = partnerUsers.find((u) => u.id === (userId || currentUser?.id))?.name ?? currentUser?.name;
-      const period = allDay
-        ? (endDate && endDate !== startDate ? `${startDate} 〜 ${endDate}` : startDate)
-        : `${startDate} ${startTime}〜${endTime}`;
-      notifySuccess(editing ? "予定を更新しました" : "予定を登録しました", {
-        description: `${who ? `${who} / ` : ""}${SCHEDULE_TYPE_LABELS[scheduleType] || scheduleType} / ${period}`,
-      });
+      qc.invalidateQueries({ queryKey: ["partner-schedules"] });
+      qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
@@ -108,8 +98,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const deleteMutation = useMutation({
     mutationFn: async () => api.delete(`/schedule/partner/${editing!.id}`),
     onSuccess: () => {
-      invalidateSchedule(qc, "partner");
-      notifySuccess("予定を削除しました", { description: editing?.title ?? undefined });
+      qc.invalidateQueries({ queryKey: ["partner-schedules"] });
+      qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
       onOpenChange(false);
     },
     onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),
@@ -226,7 +216,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
               type="button"
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={async () => { if ((await confirmAction({ title: "この予定を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(); }}
+              onClick={() => { if (confirm("この予定を削除しますか？")) deleteMutation.mutate(); }}
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
