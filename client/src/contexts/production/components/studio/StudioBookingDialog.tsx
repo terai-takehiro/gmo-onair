@@ -295,15 +295,34 @@ export default function StudioBookingDialog({
     setShowLocationSuggestions(filtered.length > 0);
   };
 
+  // 保存に失敗した理由。ダイアログの中に出す (何も出ないと「押せていない」と思って
+  // もう一度押され、同じ予定が二重に入る)
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const createMutation = useMutation({
     mutationFn: (payload: any) =>
       editingBooking
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio-bookings"] }); onOpenChange(false); },
+    onSuccess: () => {
+      // 同じ「案件の予約」を読む問い合わせが2つある。カレンダー側の鍵しか
+      // 無効化していなかったため、**案件詳細から登録しても予約一覧が増えず**、
+      // リロードするまで古いままだった (refetchOnWindowFocus は切ってある) =
+      // 「登録できなかった」ように見えてもう一度入れることになっていた。
+      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
+      setSaveError(null);
+      onOpenChange(false);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      setSaveError(msg || "予約を保存できませんでした。時間をおいてもう一度お試しください");
+    },
   });
 
   const handleSubmit = () => {
+    setSaveError(null);
     if (!title || !startDate) return;
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) return;
@@ -373,6 +392,17 @@ export default function StudioBookingDialog({
               {editingBooking ? "更新" : "予約する"}
             </button>
           </div>
+
+          {/* 保存できなかった理由 — 実行ボタンが上辺にあるので、**スクロール領域の外**
+              ヘッダー直下に固定する。本文末尾に置くと画面外で気づかれず押し直される */}
+          {saveError && (
+            <div
+              role="alert"
+              className="border-b border-destructive/30 bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive"
+            >
+              {saveError}
+            </div>
+          )}
 
           {/* Scrollable body */}
           <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(92dvh - 56px)" }}>

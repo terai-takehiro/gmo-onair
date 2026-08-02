@@ -181,7 +181,7 @@ export const inviewService = {
    */
   async create(input: InviewInput): Promise<{ row: Record<string, unknown>; action: 'created' | 'updated' }> {
     const name = (input.name ?? '').trim();
-    if (!name) throw new AppError(400, '名前 (name) は必須です', 'VALIDATION_ERROR');
+    if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前 (name) は必須です');
 
     const label = (input.session_label ?? '').trim();
     const parsed = parseSessionLabel(label);
@@ -227,7 +227,7 @@ export const inviewService = {
   /** 部分更新 (渡したフィールドだけ変更)。session_label 変更時は date/time/audience を再抽出。 */
   async update(id: string, input: InviewInput): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
 
     const sets: string[] = [];
     const params: unknown[] = [];
@@ -248,7 +248,7 @@ export const inviewService = {
     }
     if (input.name !== undefined) {
       const nm = (input.name ?? '').trim();
-      if (!nm) throw new AppError(400, '名前 (name) は必須です', 'VALIDATION_ERROR');
+      if (!nm) throw new AppError(400, 'VALIDATION_ERROR', '名前 (name) は必須です');
       set('name', nm);
     }
     if (input.furigana !== undefined) set('furigana', input.furigana ?? null);
@@ -277,7 +277,7 @@ export const inviewService = {
 
   async remove(id: string): Promise<void> {
     const existing = await queryOne(`SELECT id FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     await execute(`UPDATE inview_registrations SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
   },
 
@@ -294,7 +294,7 @@ export const inviewService = {
     opts: { gls_category?: 'A' | 'B'; customer_id?: string } = {},
   ): Promise<{ promoted: boolean; already?: boolean; project_id: string; customer_id: string; customer_created?: boolean }> {
     const reg = await this.getById(id);
-    if (!reg) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!reg) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     if (reg.promoted_project_id) {
       return { promoted: false, already: true, project_id: String(reg.promoted_project_id), customer_id: '' };
     }
@@ -379,7 +379,7 @@ export const inviewService = {
   /** 来場チェックの切替 (checkedIn=true で受付、false で取消) */
   async setCheckIn(id: string, checkedIn: boolean, userName?: string | null): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT id FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     if (checkedIn) {
       await execute(
         `UPDATE inview_registrations SET checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW() WHERE id = ?`,
@@ -411,11 +411,11 @@ export const inviewService = {
       `SELECT id, companions FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`,
       [id],
     );
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
 
     const companions = readCompanions((existing as Record<string, unknown>).companions);
     const idx = companions.findIndex((c) => c.id === companionId);
-    if (idx < 0) throw new AppError(404, '同行者が見つかりません', 'NOT_FOUND');
+    if (idx < 0) throw new AppError(404, 'NOT_FOUND', '同行者が見つかりません');
 
     companions[idx] = {
       ...companions[idx],

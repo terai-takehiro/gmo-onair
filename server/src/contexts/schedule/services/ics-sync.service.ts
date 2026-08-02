@@ -55,6 +55,13 @@ interface DesiredEvent {
   end_time: string;
   location: string | null;
   notes: string | null;
+  /**
+   * VEVENT の生の UID (繰り返しの回でもマスターの UID)。
+   * 書き戻した自分の予定を取り込み直さないための突合にだけ使う。
+   * ics_key から切り出さないのは、UID に ':' が入ると壊れるため
+   * (繰り返しの ics_key は `uid + ':' + 開始instant`)。
+   */
+  uid: string;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -86,10 +93,11 @@ export function buildDesiredEvents(icsText: string, now = new Date()): Map<strin
   const parsed = ical.parseICS(icsText);
   const desired = new Map<string, DesiredEvent>();
 
-  const put = (key: string, title: string, allDay: boolean, start: Date, end: Date, location?: string, notes?: string) => {
+  const put = (key: string, uid: string, title: string, allDay: boolean, start: Date, end: Date, location?: string, notes?: string) => {
     if (desired.size >= MAX_EVENTS_PER_FEED) return;
     const endEff = allDay ? allDayEndInclusive(end, start) : end;
     desired.set(key, {
+      uid,
       title: (title || '(タイトルなし)').slice(0, 300),
       all_day: allDay ? 1 : 0,
       start_time: toJstString(start, allDay),
@@ -130,16 +138,16 @@ export function buildDesiredEvents(icsText: string, now = new Date()): Map<strin
         const key = `${uid}:${occ.toISOString()}`;
         if (override && override.start instanceof Date) {
           const oEnd = override.end instanceof Date ? override.end : new Date(override.start.getTime() + durationMs);
-          put(key, override.summary ?? ev.summary, allDay, override.start, oEnd, override.location ?? ev.location, override.description ?? ev.description);
+          put(key, uid, override.summary ?? ev.summary, allDay, override.start, oEnd, override.location ?? ev.location, override.description ?? ev.description);
         } else {
-          put(key, ev.summary, allDay, occ, new Date(occ.getTime() + durationMs), ev.location, ev.description);
+          put(key, uid, ev.summary, allDay, occ, new Date(occ.getTime() + durationMs), ev.location, ev.description);
         }
       }
     } else {
       // 単発 (マスター不在の RECURRENCE-ID 単独上書きは uid が同じため recurrenceid で区別)
       if (baseEnd.getTime() < winStart.getTime() || ev.start.getTime() > winEnd.getTime()) continue;
       const key = ev.recurrenceid instanceof Date ? `${uid}:${ev.recurrenceid.toISOString()}` : uid;
-      put(key, ev.summary, allDay, ev.start, baseEnd, ev.location, ev.description);
+      put(key, uid, ev.summary, allDay, ev.start, baseEnd, ev.location, ev.description);
     }
   }
   return desired;
@@ -171,6 +179,32 @@ export async function syncFeed(feed: FeedRow): Promise<SyncResult> {
   if (!text.includes('BEGIN:VCALENDAR')) throw new Error('ICS 形式ではありません (URL が公開カレンダーの ICS か確認してください)');
 
   const desired = buildDesiredEvents(text);
+
+  // 書き戻した自分の手入力予定を、ICS 経由でもう1件取り込まない。
+  //
+  // Google / Outlook の取込には最初からこの除外があったが
+  // (google-calendar.service.ts / ms-calendar.service.ts)、**ICS 取込にだけ無かった**。
+  // そのため「書き込み連携あり + 同じカレンダーを ICS でも購読」の人は、
+  // ONAiR で作った予定がすべて 2 行になっていた
+  // (手入力の素の題名 と 取込側の題名 の2件)。
+  //
+  // 突合は「書き戻し先のイベント id」で行う。ICS の UID は提供元が
+  // `<イベントid>@google.com` の形で出すので、`@` の前と一致するかを見る
+  // (Outlook の公開 ICS の UID は Graph の id と一致しないため Outlook 側は拾えない。
+  //  そちらは取込自体に除外が入っているので、ICS 併用のときだけ残る既知の穴)。
+  const pushed = await queryAll(
+    `SELECT external_event_id FROM personal_events
+     WHERE user_id = ? AND external_event_id IS NOT NULL
+       AND source = 'manual' AND deleted_at IS NULL`,
+    [feed.user_id]
+  ) as Array<{ external_event_id: string }>;
+  if (pushed.length > 0) {
+    const pushedIds = new Set(pushed.map((p) => String(p.external_event_id)));
+    for (const [key, ev] of [...desired]) {
+      // UID そのもの / `@` の前 のどちらかが書き戻し先の id なら、それは自分の予定
+      if (pushedIds.has(ev.uid) || pushedIds.has(ev.uid.split('@')[0])) desired.delete(key);
+    }
+  }
 
   const existing = await queryAll(
     `SELECT id, ics_key, title, all_day, start_time, end_time, location, notes

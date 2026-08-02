@@ -211,6 +211,8 @@ export default function UnifiedCalendarPage() {
     mutationFn: async (id: string) => api.delete(`/studios/bookings/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+      // 案件詳細の予約一覧も読み直す (消したのに残って見えると、もう一度消しに行くことになる)
+      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
       setDetailOpen(false);
     },
   });

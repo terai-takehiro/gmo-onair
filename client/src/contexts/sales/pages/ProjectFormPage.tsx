@@ -262,7 +262,13 @@ export default function ProjectFormPage() {
       await api.delete(`/studios/bookings/${b.id}`);
       qc.invalidateQueries({ queryKey: ["project-studio-bookings", id] });
       qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      // 黙って失敗すると「消えていない = もう一度消す/入れ直す」ことになるので理由を出す
+      console.error(e);
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message;
+      alert(`予約を削除できませんでした: ${msg || "時間をおいてもう一度お試しください"}`);
+    }
   };
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
