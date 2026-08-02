@@ -35,6 +35,24 @@ api() {
 }
 
 # ─────────────────────────────────────────────────────────────
+# 0. デフォルトブランチ
+# ─────────────────────────────────────────────────────────────
+# **ここを間違えると後続が静かに的を外す。**
+#   - ruleset の `~DEFAULT_BRANCH` が別のブランチを保護してしまう
+#   - `workflow_dispatch` は**デフォルトブランチにあるワークフローしか呼べない**
+#     (Preview / Deploy を手動実行できない)
+#   - PR を作るときの base の既定値が変わる
+#   - デフォルトブランチは**削除できない** (cleanup スクリプトが dev を消せない)
+log "デフォルトブランチを main にする"
+CURRENT_DEFAULT=$(gh api "repos/$REPO" --jq .default_branch 2>/dev/null || echo '?')
+if [ "$CURRENT_DEFAULT" = "main" ]; then
+  echo "  - 既に main"
+else
+  echo "  現在: $CURRENT_DEFAULT → main に変更する"
+  api "repos/$REPO" -X PATCH -f default_branch=main --silent
+fi
+
+# ─────────────────────────────────────────────────────────────
 # 1. マージ方法とブランチの自動削除
 # ─────────────────────────────────────────────────────────────
 # Squash のみ許可: 1つの PR = main の1コミット。
@@ -80,12 +98,16 @@ apply_ruleset() {
 
 # 必須チェックの context は .github/workflows/ci.yml のジョブ ID そのまま。
 # ci.yml 側のジョブ ID を変えたらここも変える (変え忘れると静かに無検査になる)。
+#
+# 対象は `~DEFAULT_BRANCH` ではなく `refs/heads/main` と**明示**する。
+# 実際にデフォルトブランチが dev のままだったことがあり、`~DEFAULT_BRANCH` だと
+# main ではなく dev を保護してしまう (しかも成功したように見える)。
 log "分岐保護: main"
 apply_ruleset "main" '{
   "name": "main",
   "target": "branch",
   "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
   "rules": [
     { "type": "deletion" },
     { "type": "non_fast_forward" },
