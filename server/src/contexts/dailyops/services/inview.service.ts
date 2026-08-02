@@ -80,12 +80,34 @@ export function companionName(c: unknown): string {
 }
 
 /**
+ * DB の companions を `InviewCompanion[]` として読む。
+ * 旧形式 (氏名の文字列) や id 欠けの行も受け、その場で id を振る
+ * (受付の切り替えは id で行うため、id が無いと個別受付ができない)。
+ */
+function readCompanions(v: unknown): InviewCompanion[] {
+  if (!Array.isArray(v)) return [];
+  const out: InviewCompanion[] = [];
+  for (const x of v) {
+    const nm = companionName(x);
+    if (!nm) continue;
+    const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    out.push({
+      id: String(o.id ?? '') || uuidv4(),
+      name: nm,
+      checked_in_at: (o.checked_in_at as string | null) ?? null,
+      checked_in_by: (o.checked_in_by as string | null) ?? null,
+    });
+  }
+  return out;
+}
+
+/**
  * 同行者を `{ id, name, checked_in_at, checked_in_by }` の配列に正規化する。
  *
- * **この版の画面は氏名の配列しか送ってこない** (同行者ごとの受付が無かった頃のまま)。
- * 一方 DB は migration 154 でオブジェクト配列になっている。素直に文字列で
- * 上書きすると**同行者ごとの受付記録 (checked_in_at / checked_in_by) が消える**。
- * しかも画面に受付欄が無いので、消えても誰も気づけない。
+ * **編集フォームは氏名の配列しか送ってこない** (1行1名のテキスト欄なので、
+ * 送れるのは氏名だけ)。素直に文字列で上書きすると**同行者ごとの受付記録
+ * (checked_in_at / checked_in_by) が消える** — 当日の受付を済ませたあとに
+ * 誰かが登録内容を直しただけで受付が無かったことになる。
  *
  * そこで氏名で既存と突き合わせ、一致したものは id と受付記録を引き継ぐ。
  * 同名が複数いるときは出てきた順に1つずつ使う (先着で消費)。
@@ -94,20 +116,11 @@ export function companionName(c: unknown): string {
 function normCompanions(v: unknown, existing?: unknown): InviewCompanion[] | null {
   if (!Array.isArray(v)) return null;
 
-  const prev = Array.isArray(existing) ? existing : [];
   const byName = new Map<string, InviewCompanion[]>();
-  for (const p of prev) {
-    const nm = companionName(p);
-    if (!nm) continue;
-    const o = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
-    const list = byName.get(nm) ?? [];
-    list.push({
-      id: String(o.id ?? '') || uuidv4(),
-      name: nm,
-      checked_in_at: (o.checked_in_at as string | null) ?? null,
-      checked_in_by: (o.checked_in_by as string | null) ?? null,
-    });
-    byName.set(nm, list);
+  for (const p of readCompanions(existing)) {
+    const list = byName.get(p.name) ?? [];
+    list.push(p);
+    byName.set(p.name, list);
   }
 
   const out: InviewCompanion[] = [];
@@ -378,6 +391,41 @@ export const inviewService = {
         [id],
       );
     }
+    return (await this.getById(id))!;
+  },
+
+  /**
+   * 同行者1人の来場チェック (checkedIn=true で受付、false で取消)。
+   *
+   * 代表者の受付とは独立に切り替える。当日は「代表だけ先に来て同行者は後から」
+   * のような入り方が普通にあるため、まとめて1つの状態にすると誰が来ているのか
+   * 分からなくなる。companions (JSONB) の該当要素だけを書き換える。
+   */
+  async setCompanionCheckIn(
+    id: string,
+    companionId: string,
+    checkedIn: boolean,
+    userName?: string | null,
+  ): Promise<Record<string, unknown>> {
+    const existing = await queryOne(
+      `SELECT id, companions FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`,
+      [id],
+    );
+    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+
+    const companions = readCompanions((existing as Record<string, unknown>).companions);
+    const idx = companions.findIndex((c) => c.id === companionId);
+    if (idx < 0) throw new AppError(404, '同行者が見つかりません', 'NOT_FOUND');
+
+    companions[idx] = {
+      ...companions[idx],
+      checked_in_at: checkedIn ? new Date().toISOString() : null,
+      checked_in_by: checkedIn ? (userName ?? null) : null,
+    };
+    await execute(
+      `UPDATE inview_registrations SET companions = ?::jsonb, updated_at = NOW() WHERE id = ?`,
+      [JSON.stringify(companions), id],
+    );
     return (await this.getById(id))!;
   },
 };

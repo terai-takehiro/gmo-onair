@@ -66,6 +66,17 @@ export function useCheckInInview() {
   });
 }
 
+/** 同行者1人の来場チェック。代表者の受付とは独立に切り替えられる */
+export function useCheckInInviewCompanion() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, companionId, checkedIn }: { id: string; companionId: string; checkedIn: boolean }) =>
+      api.post(`/dailyops/inview/${id}/companions/${companionId}/check-in`, { checked_in: checkedIn })
+        .then((r) => r.data.data as InviewRegistration),
+    onSuccess: invalidate,
+  });
+}
+
 export function useDeleteInview() {
   const invalidate = useInvalidate();
   return useMutation({
