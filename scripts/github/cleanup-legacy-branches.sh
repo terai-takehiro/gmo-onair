@@ -58,6 +58,19 @@ else
   DELETE_DEV=false
 fi
 
+# (a-2) dev がデフォルトブランチのままだと、そもそも**削除できない** (GitHub が拒否する)。
+#       先にデフォルトブランチを main に変える必要がある。
+DEFAULT_BRANCH=$(git symbolic-ref --quiet --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)
+if [ "$DEFAULT_BRANCH" = "dev" ]; then
+  echo "  ⚠ dev がデフォルトブランチのままです。"
+  echo "    デフォルトブランチは削除できないので、先に main へ切り替えてください:"
+  echo "      Settings → General → Default branch → main"
+  echo "      (または bash scripts/github/apply-repo-settings.sh)"
+  DELETE_DEV=false
+elif [ -n "$DEFAULT_BRANCH" ]; then
+  echo "  ✓ デフォルトブランチ: $DEFAULT_BRANCH"
+fi
+
 # (b) dev と main が同じコミットを指しているか。
 #     ずれていたら dev にしかない変更があるので消さない。
 DEV_SHA=$(git rev-parse --verify --quiet "$REMOTE/dev" || true)
