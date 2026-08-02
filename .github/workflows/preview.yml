@@ -1,0 +1,162 @@
+name: Preview
+
+# ─────────────────────────────────────────────────────────────────────
+# 指定したコミット / タグ / ブランチを **検証環境だけ** に出す。
+#
+# 用途: 「昔の画面を実物で見たい」。v4 の UI/UX を検討する間、旧版と現行を
+#   見比べる場面が繰り返し出てくるので、そのための入口を1つ用意しておく。
+#
+# Deploy との違い:
+#   - **本番には絶対に出ない**。出せる先は検証環境だけ (入力すら無い)
+#   - **検査 (ci.yml) を通さない**。古いコードには今の検査スクリプト
+#     (`typecheck` / `check:version` 等) がそもそも無く、通しようがないため。
+#     出るのは既に一度リリースされたコードなので、ここでは検査しない
+#   - **VPS の worktree を動かさない**。イメージを差し替えて app_dev を
+#     作り直すだけ。compose と nginx は main のものがそのまま使われる
+#     (= 検証デプロイのついでに本番のリバースプロキシが落ちることがない)
+#
+# 元に戻すには:
+#   Actions → Deploy → Run workflow → Branch: main / target: staging
+#   (main のコードで `:dev` イメージが作り直され、検証環境が現行に戻る)
+#
+# 注意: `:dev` タグを上書きするので、この後 main にマージがあれば
+#   そちらで自然に上書きされる (= 検証環境は勝手に現行へ戻る)。
+#   本番の `:prod` には一切触れない。
+#   Deploy の staging ジョブと同じ concurrency グループなので、
+#   プレビュー中に main のデプロイが割り込むことはない (順番待ちになる)。
+# ─────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '検証環境に出したいコミット / タグ / ブランチ (例: c3607a94 = v2.9.250 旧UI最後の版)'
+        required: true
+        type: string
+      reason:
+        description: '何のために出すか (実行履歴に残ります)'
+        required: false
+        type: string
+        default: '旧版の画面を確認するため'
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    environment:
+      name: staging
+      url: https://dev.gmo-onair.jp
+
+    steps:
+      - name: Checkout the requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: 出すものを記録する
+        id: what
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          {
+            echo "## 検証環境へのプレビュー"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| 指定 | \`${{ inputs.ref }}\` |"
+            echo "| コミット | \`$SHA\` |"
+            echo "| 日付 | $(git log -1 --format=%ad --date=short) |"
+            echo "| 件名 | $(git log -1 --format=%s) |"
+            echo "| 理由 | ${{ inputs.reason }} |"
+            echo
+            echo "> **検査 (checks / build) は通していません。** 既にリリース済みのコードを"
+            echo "> 見るための経路なので意図的に飛ばしています。本番には出ません。"
+            echo
+            echo "元に戻す: Actions → Deploy → Run workflow → Branch \`main\` / target \`staging\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 古いコミットは Dockerfile も当時のものが使われる。
+      # キャッシュは読むだけ (mode=max で書き戻すと main のキャッシュを押し出す)。
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_SUMMARY: 'false'
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:dev
+            ghcr.io/${{ github.repository }}:sha-${{ steps.what.outputs.sha }}
+          cache-from: type=gha
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Swap the staging container
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" << 'ENDSSH'
+            set -euo pipefail
+
+            # worktree は動かさない。compose / nginx は main のものをそのまま使う。
+            # ここで git checkout すると nginx 設定まで巻き戻る恐れがあるため。
+            COMPOSE_DEV="docker compose -p gmo-onair --env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml"
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            $COMPOSE_DEV pull app_dev
+            $COMPOSE_DEV up -d --no-deps --force-recreate app_dev
+            docker logout ghcr.io || true
+            docker image prune -f || true
+
+            sleep 15
+            echo "=== app_dev logs (last 60 lines) ==="
+            CID=$(docker ps -aq -f name=gmo-onair-app_dev | head -1)
+            if [ -n "$CID" ]; then
+              docker logs --tail=60 "$CID" 2>&1 || true
+            else
+              echo "⚠ app_dev container not found"
+            fi
+
+            echo "=== External health check ==="
+            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ staging health OK" \
+              || echo "⚠ external health check failed (上の logs を確認)"
+          ENDSSH
+
+      - name: 見るところを出す
+        run: |
+          {
+            echo
+            echo "### 見に行く"
+            echo
+            echo "- 案件管理: https://dev.gmo-onair.jp/"
+            echo "- Qシート: https://dev.gmo-onair.jp/qsheet/"
+            echo "- 機材管理: https://dev.gmo-onair.jp/equipment/"
+            echo "- 技術資料: https://dev.gmo-onair.jp/techsheet/"
+            echo "- ライブ運用: https://dev.gmo-onair.jp/live/"
+            echo "- リアルタイムCG: https://dev.gmo-onair.jp/awards/"
+            echo
+            echo "画面が古いままに見えるときはブラウザの強制再読み込み (Cmd/Ctrl + Shift + R) を。"
+          } >> "$GITHUB_STEP_SUMMARY"

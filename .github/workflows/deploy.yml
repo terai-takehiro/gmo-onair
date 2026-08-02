@@ -129,6 +129,11 @@ jobs:
     permissions:
       contents: read
       packages: read
+    # 環境ごとの排他。preview.yml も同じグループを使うので、
+    # 「プレビューを出している最中に main のデプロイが割り込む」が起きない。
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     environment:
       name: staging
       url: https://dev.gmo-onair.jp
@@ -257,6 +262,9 @@ jobs:
     permissions:
       contents: read
       packages: read
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     environment:
       name: production
       url: https://gmo-onair.jp
