@@ -26,7 +26,7 @@ export interface InviewInput {
   mobile?: string | null;
   mail_consent?: boolean | null;
   party_size?: number | null;
-  companions?: string[] | null;
+  companions?: (string | Partial<InviewCompanion>)[] | null;
   visit_time?: string | null;
   interests?: string | null;
   notes?: string | null;
@@ -64,10 +64,61 @@ function normSize(v: unknown): number {
   return Math.min(999, n);
 }
 
-function normCompanions(v: unknown): string[] | null {
+/** 同行者1人。migration 154 で「氏名の文字列」から この形に変わった */
+export interface InviewCompanion {
+  id: string;
+  name: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
+
+/** 同行者の氏名を取り出す。旧形式 (文字列) と新形式 (オブジェクト) の両方を受ける */
+export function companionName(c: unknown): string {
+  if (typeof c === 'string') return c.trim();
+  if (c && typeof c === 'object') return String((c as Record<string, unknown>).name ?? '').trim();
+  return '';
+}
+
+/**
+ * 同行者を `{ id, name, checked_in_at, checked_in_by }` の配列に正規化する。
+ *
+ * **この版の画面は氏名の配列しか送ってこない** (同行者ごとの受付が無かった頃のまま)。
+ * 一方 DB は migration 154 でオブジェクト配列になっている。素直に文字列で
+ * 上書きすると**同行者ごとの受付記録 (checked_in_at / checked_in_by) が消える**。
+ * しかも画面に受付欄が無いので、消えても誰も気づけない。
+ *
+ * そこで氏名で既存と突き合わせ、一致したものは id と受付記録を引き継ぐ。
+ * 同名が複数いるときは出てきた順に1つずつ使う (先着で消費)。
+ * 対応が取れなかった行は新しい id を振り、未受付として入れる。
+ */
+function normCompanions(v: unknown, existing?: unknown): InviewCompanion[] | null {
   if (!Array.isArray(v)) return null;
-  const arr = v.map((x) => String(x ?? '').trim()).filter(Boolean);
-  return arr.length ? arr : null;
+
+  const prev = Array.isArray(existing) ? existing : [];
+  const byName = new Map<string, InviewCompanion[]>();
+  for (const p of prev) {
+    const nm = companionName(p);
+    if (!nm) continue;
+    const o = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
+    const list = byName.get(nm) ?? [];
+    list.push({
+      id: String(o.id ?? '') || uuidv4(),
+      name: nm,
+      checked_in_at: (o.checked_in_at as string | null) ?? null,
+      checked_in_by: (o.checked_in_by as string | null) ?? null,
+    });
+    byName.set(nm, list);
+  }
+
+  const out: InviewCompanion[] = [];
+  for (const x of v) {
+    const nm = companionName(x);
+    if (!nm) continue;
+    const queue = byName.get(nm);
+    if (queue && queue.length) out.push(queue.shift() as InviewCompanion);
+    else out.push({ id: uuidv4(), name: nm, checked_in_at: null, checked_in_by: null });
+  }
+  return out.length ? out : null;
 }
 
 const ROW_COLS = `id, session_label, session_date, session_time, session_audience,
@@ -198,7 +249,7 @@ export const inviewService = {
     if (input.mobile !== undefined) set('mobile', input.mobile ?? null);
     if (input.mail_consent !== undefined) set('mail_consent', typeof input.mail_consent === 'boolean' ? input.mail_consent : null);
     if (input.party_size !== undefined) set('party_size', normSize(input.party_size ?? 1));
-    if (input.companions !== undefined) { sets.push('companions = ?::jsonb'); params.push(JSON.stringify(normCompanions(input.companions))); }
+    if (input.companions !== undefined) { sets.push('companions = ?::jsonb'); params.push(JSON.stringify(normCompanions(input.companions, (existing as Record<string, unknown>).companions))); }
     if (input.visit_time !== undefined) set('visit_time', input.visit_time ?? null);
     if (input.interests !== undefined) set('interests', input.interests ?? null);
     if (input.notes !== undefined) set('notes', input.notes ?? null);
@@ -271,7 +322,7 @@ export const inviewService = {
       `来場者: ${personName}${reg.role ? `（${reg.role}）` : ''}`,
       company ? `会社: ${company}` : '',
       reg.party_size ? `参加人数: ${reg.party_size}名` : '',
-      Array.isArray(reg.companions) && (reg.companions as string[]).length ? `同行者: ${(reg.companions as string[]).join('、')}` : '',
+      Array.isArray(reg.companions) && reg.companions.length ? `同行者: ${(reg.companions as unknown[]).map(companionName).filter(Boolean).join('、')}` : '',
       reg.interests ? `興味・相談: ${reg.interests}` : '',
       (reg.email || reg.phone || reg.mobile) ? `連絡先: ${[reg.email, reg.phone, reg.mobile].filter(Boolean).join(' / ')}` : '',
     ].filter(Boolean);

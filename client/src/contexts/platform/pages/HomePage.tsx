@@ -239,39 +239,11 @@ export default function HomePage() {
           }
         />
 
-        {/* ───── 0. 投入欄 (依頼・タスクを書き留める。最上部に置く) ─────
-             イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
-             投げるのは 1 秒で終わる行為なので入口の最上部に置く。
-             奥に置くと「あとでいいか」になり、口頭のまま消える元の状態に戻る。 */}
-        {canSeeDailyops && <TaskIntakeBox />}
-
-        {/* ───── 0.5 あなたのタスクと依頼 (ストックとして置く。ポップアップは作らない) ───── */}
-        {canSeeDailyops && <MyTasksSummarySection navigate={navigate} />}
-
-        {/* ───── 1. 受信箱サマリー (「今日お客様を待たせているものはゼロか」= 最優先) ───── */}
-        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
-
-        {/* ───── 2. 今日・明日の現場 (今後のスケジュール) ───── */}
-        {canSeeStudio && <ScheduleSection />}
-
-        {/* ───── 3. クイックアクセス (作成系・高頻度業務への導線) ───── */}
-        {(canSeeSales || canSeeBudget) && (
-          <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
-        )}
-
-        {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
-        {canSeeSales && <KpiSection navigate={navigate} />}
-
-        {/* ───── 5. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
-        {canSeeSales && <SalesBoardSection navigate={navigate} />}
-
-        {/* ───── 5.2 AI 活動フィード (AI が最近やったこと・監査ログから) ───── */}
-        {canSeeSales && <AiActivityFeedSection navigate={navigate} />}
-
-        {/* ───── 5. 直近の案件 ───── */}
-        {canSeeSales && <RecentProjectsSection navigate={navigate} />}
-
-        {/* ───── 6. ブロックアプリ起動 (補助) ───── */}
+        {/* ───── 0. アプリを起動 (最上部) ─────
+             ここが全ブロックアプリへの入口。以前は補助扱いで下から2番目に置いていたが、
+             ホームに来る目的の多くが「別のアプリに移る」ことなので、スクロールせずに
+             届く位置に上げる。下に置いていた頃は、案件・お金の情報を全部越えないと
+             Qシートにも機材にも行けなかった。 */}
         <SectionCard
           title="アプリを起動"
           description="業務に応じたブロックアプリへ遷移します。"
@@ -298,7 +270,39 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        {/* ───── 8. システム管理 (admin only) ───── */}
+        {/* ───── 1. 投入欄 (依頼・タスクを書き留める) ─────
+             イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
+             投げるのは 1 秒で終わる行為なので入口の最上部に置く。
+             奥に置くと「あとでいいか」になり、口頭のまま消える元の状態に戻る。 */}
+        {canSeeDailyops && <TaskIntakeBox />}
+
+        {/* ───── 2. あなたのタスクと依頼 (ストックとして置く。ポップアップは作らない) ───── */}
+        {canSeeDailyops && <MyTasksSummarySection navigate={navigate} />}
+
+        {/* ───── 3. 受信箱サマリー (「今日お客様を待たせているものはゼロか」= 最優先) ───── */}
+        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
+
+        {/* ───── 4. 今日・明日の現場 (今後のスケジュール) ───── */}
+        {canSeeStudio && <ScheduleSection />}
+
+        {/* ───── 5. クイックアクセス (作成系・高頻度業務への導線) ───── */}
+        {(canSeeSales || canSeeBudget) && (
+          <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
+        )}
+
+        {/* ───── 6. 今月の主要指標 + 前月比 ───── */}
+        {canSeeSales && <KpiSection navigate={navigate} />}
+
+        {/* ───── 7. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
+        {canSeeSales && <SalesBoardSection navigate={navigate} />}
+
+        {/* ───── 8. AI 活動フィード (AI が最近やったこと・監査ログから) ───── */}
+        {canSeeSales && <AiActivityFeedSection navigate={navigate} />}
+
+        {/* ───── 9. 直近の案件 ───── */}
+        {canSeeSales && <RecentProjectsSection navigate={navigate} />}
+
+        {/* ───── 10. システム管理 (admin only) ───── */}
         {isAdmin && (
           <SectionCard
             title="システム管理"

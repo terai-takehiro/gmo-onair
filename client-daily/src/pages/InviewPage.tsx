@@ -24,6 +24,17 @@ function sessionKey(r: InviewRegistration): string {
   return `${r.session_date ?? ''}${r.session_label}`;
 }
 
+// 同行者の氏名を取り出す。
+// migration 154 で companions が `["氏名"]` から
+// `[{ id, name, checked_in_at, checked_in_by }]` に変わっている。
+// **オブジェクトをそのまま JSX に置くと React error #31 で画面全体が落ちる**ので、
+// 描画・書き出し・編集欄はすべてこれを通す。古い文字列形式もそのまま扱える。
+function companionName(c: unknown): string {
+  if (typeof c === 'string') return c.trim();
+  if (c && typeof c === 'object') return String((c as { name?: unknown }).name ?? '').trim();
+  return '';
+}
+
 // 予約の参加人数 (party_size は代表+同行を含む合計。未設定なら 1 + 同行者数)
 function headOf(r: InviewRegistration): number {
   const named = 1 + (r.companions?.length ?? 0);
@@ -91,7 +102,7 @@ function buildCsv(rows: InviewRegistration[]): string {
     for (const c of r.companions ?? []) {
       lines.push([
         sessionDate, r.session_label ?? '', r.session_time ?? '', r.session_audience ?? '',
-        '同行', c, '', r.name ?? '',
+        '同行', companionName(c), '', r.name ?? '',
         r.company ?? '', '', '', '', '', '', '', '', '', '', '', '', checkin, '', '', src, '',
       ].map(csvCell));
     }
@@ -386,7 +397,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                   {companions.map((c, i) => (
                     <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs">
                       <UserPlus className="h-3 w-3 text-muted-foreground" />
-                      {c}
+                      {companionName(c)}
                       <span className="rounded bg-muted px-1 text-[9px] text-muted-foreground">同行</span>
                     </span>
                   ))}
@@ -468,12 +479,16 @@ function InviewDialog({ initial, onClose }: { initial: InviewRegistration | null
     mobile: initial?.mobile ?? '',
     fax: initial?.fax ?? '',
     party_size: initial?.party_size ?? 1,
-    companions: initial?.companions ?? [],
+    // フォームは氏名だけを扱う (submit で companionsText から作り直す)。
+    // 受付記録はサーバー側が氏名で突き合わせて引き継ぐ。
+    companions: (initial?.companions ?? []).map(companionName).filter(Boolean),
     visit_time: initial?.visit_time ?? '',
     interests: initial?.interests ?? '',
     notes: initial?.notes ?? '',
   });
-  const [companionsText, setCompanionsText] = useState((initial?.companions ?? []).join('\n'));
+  const [companionsText, setCompanionsText] = useState(
+    (initial?.companions ?? []).map(companionName).filter(Boolean).join('\n'),
+  );
   const pending = create.isPending || update.isPending;
 
   const submit = () => {

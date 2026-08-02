@@ -39,6 +39,13 @@ export interface OpsReport {
 }
 
 // ── 内覧会 来場予約 ──────────────────────────────────
+export interface InviewCompanion {
+  id?: string;
+  name: string;
+  checked_in_at?: string | null;
+  checked_in_by?: string | null;
+}
+
 export interface InviewRegistration {
   id: string;
   session_label: string;
@@ -57,7 +64,11 @@ export interface InviewRegistration {
   mobile: string | null;
   mail_consent: boolean | null;
   party_size: number;
-  companions: string[] | null;
+  // migration 154 で「氏名の文字列」から オブジェクト に変わった。
+  // この版の画面は同行者ごとの受付を持たないが、**描画・書き出しでは氏名だけを使う**。
+  // 文字列のまま残っている行もあり得るので両方受ける (オブジェクトをそのまま
+  // JSX に置くと React error #31 で画面が落ちる)。
+  companions: (string | InviewCompanion)[] | null;
   visit_time: string | null;
   interests: string | null;
   notes: string | null;
