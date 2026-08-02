@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Pencil, Check, X, Info } from "lucide-react";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface StudioRoom {
   id: string;
@@ -35,10 +34,10 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
 };
 
 const ROOM_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'studio', label: 'スタジオ' },
-  { value: 'control', label: '調整室' },
+  { value: 'studio',    label: 'スタジオ' },
+  { value: 'control',   label: '調整室' },
   { value: 'greenroom', label: 'ゲストルーム' },
-  { value: 'other', label: 'その他' },
+  { value: 'other',     label: 'その他' },
 ];
 
 interface NewRoomDraft {
@@ -177,8 +176,8 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
                       <Button size="sm" variant="ghost" onClick={() => { setEditingLocId(loc.id); setEditLocName(loc.name); }}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => {
-                        if ((await confirmAction({ title: `${loc.name} と関連する全ての部屋を削除しますか?`, confirmLabel: '削除する', tone: 'danger' }))) deleteLocation.mutate(loc.id);
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => {
+                        if (confirm(`${loc.name} と関連する全ての部屋を削除しますか?`)) deleteLocation.mutate(loc.id);
                       }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -272,8 +271,8 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0" onClick={() => startEditRoom(r)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive shrink-0" onClick={async () => {
-                            if ((await confirmAction({ title: `${r.name} を削除しますか?`, confirmLabel: '削除する', tone: 'danger' }))) deleteRoom.mutate(r.id);
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive shrink-0" onClick={() => {
+                            if (confirm(`${r.name} を削除しますか?`)) deleteRoom.mutate(r.id);
                           }}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

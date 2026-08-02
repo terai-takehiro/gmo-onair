@@ -1,75 +1,37 @@
-import { useMemo } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import {
-  LayoutDashboard, CalendarCheck, Newspaper, DoorOpen, FileText, Inbox, KeyRound,
-} from 'lucide-react';
-import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
-import LocationCrumb from '@gmo-onair/shared/src/client/shell/LocationCrumb';
-import BackToProject from '@gmo-onair/shared/src/client/shell/BackToProject';
-import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
-import { createNotificationFetcher } from '@gmo-onair/shared/src/client/notifications';
-import api from '@/lib/api';
-import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
-import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
-import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
-import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
-import { useAuth } from '@/hooks/useAuth';
+import { Outlet } from 'react-router-dom';
+import Header from './Header';
+import Sidebar from './Sidebar';
 import { usePermissions } from '@/hooks/usePermissions';
-import { DAILY_MANUAL } from '@/manual/content';
-
-// href はルーター相対 (basename="/daily")
-const NAV_ITEMS: SecondaryNavItem[] = [
-  { label: 'ホーム', href: '/', Icon: LayoutDashboard, exact: true },
-  { label: 'ウィークリー活動報告', href: '/weekly', Icon: CalendarCheck },
-  { label: 'デイリーニュース報告', href: '/news', Icon: Newspaper },
-  { label: '内覧会 来場予約', href: '/inview', Icon: DoorOpen },
-  { label: '見積 / 請求書', href: '/finance', Icon: FileText },
-  { label: 'その他問い合わせ', href: '/inquiries', Icon: Inbox },
-  { label: 'セキュリティカード', href: '/security-cards', Icon: KeyRound },
-];
-
-const renderLink: RailLinkRenderer = ({ href, children, className, onClick, title, ...rest }) => (
-  <NavLink to={href} className={className} onClick={onClick} title={title} {...rest}>
-    {children}
-  </NavLink>
-);
+import { ShieldOff } from 'lucide-react';
 
 export default function AppShell() {
-  const { pathname, search } = useLocation();
-  const { currentUser, logout, permissions } = useAuth();
   const { canView, permissionsLoading } = usePermissions();
 
-  const body = !permissionsLoading && !canView
-    ? <NoPermissionPanel modules={['dailyops']} target="日常業務" />
-    : <Outlet />;
-
-  const searchHits = useMemo(() => createPaletteSearch(api), []);
-  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
+  if (!permissionsLoading && !canView) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center space-y-4 max-w-sm px-4">
+          <ShieldOff className="h-12 w-12 text-muted-foreground mx-auto" />
+          <h2 className="text-lg font-semibold">アクセス権限がありません</h2>
+          <p className="text-sm text-muted-foreground">
+            日常業務アプリへのアクセス権限がありません。<br />
+            管理者に <code className="text-xs bg-muted px-1 py-0.5 rounded">dailyops</code> モジュールの権限付与を依頼してください。
+          </p>
+          <a href="/" className="inline-block text-sm text-primary underline">メインアプリに戻る</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <SharedAppShell
-      currentUser={currentUser}
-      onLogout={logout}
-      role={currentUser?.role}
-      permissions={permissions}
-      currentPath={realPathname(pathname)}
-      breadcrumb={
-        <span className='flex min-w-0 items-center gap-1.5'>
-          <BackToProject search={search} />
-          <LocationCrumb path={realPathname(pathname)} fallback="日々の事務" />
-        </span>
-      }
-      secondaryNav={
-        <SecondaryNavList items={NAV_ITEMS} currentPath={pathname} renderLink={renderLink} />
-      }
-      secondaryNavLabel="日常業務"
-      commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
-      notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
-      manualContent={DAILY_MANUAL}
-      onOpenSiteMap={() => { window.location.href = "/map"; }}
-      padMain={!permissionsLoading && !canView}
-    >
-      {body}
-    </SharedAppShell>
+    <div className="flex h-screen overflow-x-hidden">
+      <Sidebar />
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

@@ -26,12 +26,12 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
         disabled={disabled}
         title={infoTitle}
         className={cn(
-          'flex h-ctl-1 items-center gap-1.5 rounded-md border px-3 text-xs sm:text-sm font-bold transition-all shrink-0',
+          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs sm:text-sm font-bold transition-all shrink-0',
           on
-            ? 'bg-warning border-warning text-foreground'
+            ? 'bg-amber-500 border-amber-400 text-slate-950'
             : disabled
-            ? 'border-border text-muted-foreground bg-background/40 cursor-not-allowed'
-            : 'border-border text-muted-foreground hover:bg-card hover:text-foreground'
+            ? 'border-slate-800 text-slate-400 bg-slate-900/40 cursor-not-allowed'
+            : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
         )}
       >
         <Megaphone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -39,10 +39,10 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
       </button>
       {/* sm 以上のみ info を表示 */}
       {currentAward && (
-        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground min-w-0">
-          <span className="text-muted-foreground">流す賞 →</span>
-          <span className="font-bold text-warning-strong truncate">{currentAward.award}</span>
-          <span className="text-muted-foreground text-xs shrink-0">
+        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 min-w-0">
+          <span className="text-slate-300">流す賞 →</span>
+          <span className="font-bold text-amber-300 truncate">{currentAward.award}</span>
+          <span className="text-slate-300 text-xs shrink-0">
             {divCount > 1 ? `${divCount}部門ループ · ` : ''}
             <span className="tabular-nums">{totalItems}</span>名
           </span>

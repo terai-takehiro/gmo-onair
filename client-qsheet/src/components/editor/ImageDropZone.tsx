@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import api from "@/lib/api";
-import { notifyError } from '@/lib/notify';
 
 interface Props {
   imageUrl: string | null;
@@ -16,7 +15,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
   const uploadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      notifyError("ファイルサイズが5MBを超えています");
+      alert("ファイルサイズが5MBを超えています");
       return;
     }
 
@@ -35,7 +34,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
       });
       onImageChange(res.data.data.url);
     } catch {
-      notifyError("画像のアップロードに失敗しました");
+      alert("画像のアップロードに失敗しました");
     } finally {
       setUploading(false);
     }
@@ -62,7 +61,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
         <img
           src={imageUrl}
           alt=""
-          className="w-full h-20 object-contain rounded border bg-muted"
+          className="w-full h-20 object-contain rounded border bg-slate-50"
         />
         <button
           className="absolute top-1 right-1 p-0.5 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -77,7 +76,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
   return (
     <div
       className={`flex flex-col items-center justify-center w-full h-16 rounded border-2 border-dashed cursor-pointer transition-colors ${
-        dragOver ? "border-primary bg-primary/5" : "border-border hover:border-border"
+        dragOver ? "border-primary bg-primary/5" : "border-slate-200 hover:border-slate-300"
       }`}
       onClick={() => inputRef.current?.click()}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

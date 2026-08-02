@@ -149,7 +149,7 @@ export function useCollabDoc(
       removeAwarenessStates(awareness, [awareness.clientID], 'local-cleanup');
       awareness.destroy();
       awarenessRef.current = null;
-      disconnectQsheetSocket(docId);
+      disconnectQsheetSocket();
       ydoc.destroy();
       ydocRef.current = null;
       setSynced(false);

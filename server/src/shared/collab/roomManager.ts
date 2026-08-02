@@ -95,57 +95,6 @@ export class YjsRoomManager {
     }
   }
 
-  /**
-   * サーバー由来の更新を接続中の全員へ配るための関数を登録する。
-   *
-   * クライアント由来の更新は socket 層が `socket.to(room)` で中継しているが、
-   * **サーバーが自分で書いた分は誰も中継しない**。登録しないと AI が足したメモが
-   * 「いま開いている人の画面には出ず、開き直すと出てくる」という分かりにくい挙動になる。
-   */
-  setBroadcaster(fn: (docId: string, update: Uint8Array) => void): void {
-    this.broadcast = fn;
-  }
-  private broadcast: ((docId: string, update: Uint8Array) => void) | null = null;
-
-  /**
-   * サーバー側から Y.Doc を直接書き換える (AI の追記など)。
-   *
-   * **部屋が開いていなくても安全**: acquire で必要なら既存データから種化し、
-   * 書いたあと release して永続化する。
-   * 生成された増分は接続中の全員へ配る (開いている人の画面にも即出る)。
-   */
-  async mutate(docId: string, fn: (ydoc: Y.Doc) => void): Promise<void> {
-    await this.acquire(docId);
-    try {
-      const room = this.rooms.get(docId);
-      if (!room) return;
-      let produced: Uint8Array | null = null;
-      const onUpdate = (u: Uint8Array, origin: unknown) => {
-        if (origin === 'server') produced = u;
-      };
-      room.ydoc.on('update', onUpdate);
-      try {
-        room.ydoc.transact(() => fn(room.ydoc), 'server');
-      } finally {
-        room.ydoc.off('update', onUpdate);
-      }
-      if (produced) {
-        room.dirty = true;
-        this.scheduleSave(docId);
-        if (this.broadcast) {
-          try {
-            this.broadcast(docId, produced);
-          } catch (e) {
-            // 配信に失敗しても書き込みは成立させる (次に開いたときには見える)
-            console.error(`[${this.label}] broadcast error`, e);
-          }
-        }
-      }
-    } finally {
-      this.release(docId);
-    }
-  }
-
   /** 現在の Y state (全体) を返す (同期の初期応答用)。 */
   getState(docId: string): Uint8Array | null {
     const room = this.rooms.get(docId);

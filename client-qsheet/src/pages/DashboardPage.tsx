@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardHeader } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import {
   FileText,
@@ -45,7 +45,6 @@ import {
   Check,
   Lock,
 } from "lucide-react";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 // ============================================================
 // Types
@@ -120,7 +119,7 @@ function getDraftColor(meta?: DocMeta): string {
   if (meta.draftType === "決定稿")
     return "bg-success/10 text-success ring-1 ring-success/30";
   if (meta.draftType === "準備稿")
-    return "bg-warning/10 text-warning-strong ring-1 ring-warning/30";
+    return "bg-warning/10 text-warning ring-1 ring-warning/30";
   return "bg-primary/10 text-primary ring-1 ring-primary/30";
 }
 
@@ -186,7 +185,7 @@ function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="編集"
           >
             <Pencil size={14} aria-hidden />
@@ -194,7 +193,7 @@ function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="h-ctl-1 inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 sm: text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="ONAIRを開始"
           >
             <Radio size={10} aria-hidden />
@@ -204,7 +203,7 @@ function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onShare(doc); }}
-              className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="共有"
             >
               <Share2 size={14} aria-hidden />
@@ -214,7 +213,7 @@ function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-              className="h-ctl-1 w-8 inline-flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="削除"
             >
               <Trash2 size={14} aria-hidden />
@@ -270,15 +269,9 @@ function DocCard({
               共有中 {shareCount}
             </span>
           ) : (
-            /* 案件に紐づいていない台本は作成者だけが見える。ここを一律「案件メンバー」と書くと嘘になる */
-            <span
-              className="inline-flex items-center gap-0.5"
-              title={doc.project_id
-                ? "この案件のメンバーに見えます。案件の外の人には「共有」から追加してください"
-                : "案件に紐づいていないので、あなただけが見られます。案件に紐づけるか「共有」から追加してください"}
-            >
+            <span className="inline-flex items-center gap-0.5" title="作成者と管理者のみ閲覧可能">
               <Lock size={9} aria-hidden />
-              {doc.project_id ? "案件メンバー" : "自分のみ"}
+              自分のみ
             </span>
           )}
         </div>
@@ -385,7 +378,7 @@ function ShareDialog({
           </div>
           <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border">
             {filtered.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">当てはまる人がいません。名前の一部で探してみてください。</p>
+              <p className="p-4 text-sm text-muted-foreground text-center">ユーザーが見つかりません</p>
             ) : (
               filtered.map((u) => {
                 const on = selected.has(u.id);
@@ -394,7 +387,7 @@ function ShareDialog({
                     key={u.id}
                     type="button"
                     onClick={() => toggle(u.id)}
-                    className="h-ctl-3 w-full flex items-center gap-3 px-3 text-left hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     role="checkbox"
                     aria-checked={on}
                   >
@@ -522,11 +515,7 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       setShowCreate(false);
       resetCreateForm();
-      notifySuccess(
-        doc.project_id
-          ? "作成しました。この案件のメンバーにも見えます（案件の外の人に見せるにはカードの「共有」から追加してください）。"
-          : "作成しました。案件に紐づいていないので、いまはあなただけが見られます（他の人に見せるにはカードの「共有」から追加してください）。"
-      );
+      notifySuccess("作成しました。このQシートはあなたと管理者のみ閲覧できます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
       navigate(`/qsheet/editor/${doc.id}`);
     },
     onError: () => {
@@ -774,10 +763,10 @@ export default function DashboardPage() {
 
                   {selectedProjectId && episodes && episodes.length > 0 && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">回（任意）</Label>
+                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
                       <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="回を選択..." />
+                          <SelectValue placeholder="エピソードを選択..." />
                         </SelectTrigger>
                         <SelectContent>
                           {episodes.map((ep) => (

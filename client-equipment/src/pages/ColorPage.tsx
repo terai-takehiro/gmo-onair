@@ -4,7 +4,7 @@
  * pagination/search なし (マスター全件表示) のため Pagination/FilterBar は省略。
  */
 import { useEffect, useState } from "react";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Palette, Pencil, Trash2 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Color {
   id: string;
@@ -66,15 +63,15 @@ export default function ColorPage() {
     });
   };
 
-  const handleDelete = async (c: Color) => {
-    if (!(await confirmAction({ title: `「${c.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (c: Color) => {
+    if (!confirm(`「${c.name}」を削除しますか？`)) return;
     crud.remove.mutate(c.id);
   };
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTitle>機材色マスタ</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">機材色マスタ</h1>
         <Button size="sm" onClick={crud.openAdd}>
           <Plus className="h-4 w-4 mr-1" />
           色追加

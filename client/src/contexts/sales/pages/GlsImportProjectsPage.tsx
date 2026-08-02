@@ -17,11 +17,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { Search, Loader2, Pencil, Database, X, AlertTriangle } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Row {
   id: string;
@@ -173,7 +170,7 @@ export default function GlsImportProjectsPage() {
         {/* Header */}
         <div className="flex items-center gap-2 flex-wrap">
           <Database className="h-6 w-6 text-primary" />
-          <PageTitle>旧GLS（決算インポート案件）</PageTitle>
+          <h1 className="text-xl lg:text-2xl font-bold">旧GLS（決算インポート案件）</h1>
         </div>
         <p className="text-sm text-muted-foreground">
           決算インポートで取り込んだ案件の一覧です。チェックを入れて「一括編集」で、顧客・担当・分類・ステージ・開催日・タグなどをまとめて変更できます。
@@ -194,7 +191,7 @@ export default function GlsImportProjectsPage() {
           <div>
             <Label className="block text-xs text-muted-foreground mb-1">取込バッチ（マーカー）</Label>
             <Select value={marker} onValueChange={(v) => { setMarker(v); setPage(1); }}>
-              <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">すべて</SelectItem>
                 {markers.map((m) => (
@@ -378,7 +375,7 @@ export default function GlsImportProjectsPage() {
               <FieldRow checked={edit.tags} onCheck={(v) => setEdit((s) => ({ ...s, tags: v }))} label="タグ">
                 <div className="flex gap-2">
                   <Select value={edit.tagsMode} onValueChange={(v) => setEdit((s) => ({ ...s, tagsMode: v as "append" | "replace" }))} disabled={!edit.tags}>
-                    <SelectTrigger className="w-[96px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="append">追加</SelectItem>
                       <SelectItem value="replace">置換</SelectItem>
@@ -397,8 +394,8 @@ export default function GlsImportProjectsPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
               <Button
                 disabled={!anyFieldEnabled || bulk.isPending}
-                onClick={async () => {
-                  if ((await confirmAction({ title: `選択中の ${selected.size} 件にチェックした項目を一括適用します。よろしいですか？` }))) bulk.mutate();
+                onClick={() => {
+                  if (window.confirm(`選択中の ${selected.size} 件にチェックした項目を一括適用します。よろしいですか？`)) bulk.mutate();
                 }}
               >
                 {bulk.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}

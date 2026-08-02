@@ -95,8 +95,8 @@ export function MyTasksSummarySection({ navigate }: { navigate: (to: string) => 
         <Button
           variant="ghost"
           size="sm"
-          className="h-ctl-1 gap-1 text-xs"
-          onClick={() => navigate("/tasks?scope=me")}
+          className="h-7 gap-1 text-xs"
+          onClick={() => navigate("/daily/tasks")}
         >
           すべて見る
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -128,8 +128,8 @@ export function MyTasksSummarySection({ navigate }: { navigate: (to: string) => 
           <Button
             size="sm"
             variant="outline"
-            className="h-ctl-1 shrink-0 border-sky-300 text-xs text-sky-700"
-            onClick={() => navigate("/tasks?scope=me")}
+            className="h-7 shrink-0 border-sky-300 text-xs text-sky-700"
+            onClick={() => navigate("/daily/tasks?tab=intake")}
           >
             確認する
           </Button>
@@ -192,7 +192,7 @@ export function MyTasksSummarySection({ navigate }: { navigate: (to: string) => 
             <button
               type="button"
               className="text-xs text-primary hover:underline"
-              onClick={() => navigate("/tasks?scope=me")}
+              onClick={() => navigate("/daily/tasks")}
             >
               残り {unanswered.length - 4} 件を見る
             </button>

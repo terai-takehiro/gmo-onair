@@ -1,27 +1,12 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
-// 25章: お試し (練習) を数から外す条件。文字列は1か所に置く
-import { NOT_SANDBOX, NOT_SANDBOX_VIA } from '../../../shared/db/sandbox-filter';
 import { config } from '../../../config';
-import { projectCommentService } from '../../sales/services/project-history.service';
 
 const router = Router();
 
-/**
- * ベル (`/notifications`) と「受け取り方の設定」(`/notification-prefs`) は
- * **全アプリ共通の上辺**にあるので、sales 権限を持たない人 (経理・機材だけの人) でも
- * 開ける必要がある。ベルの中身は**グループごとに権限で絞ってある** (has('sales') 等) ので、
- * ルーター全体に sales を要求すると、経理の画面でベルが 403 になるだけで得るものが無い。
- *
- * **既定は sales 必須のまま**にして、この2つだけを通す (新しく足したルートは
- * 何もしなくても sales で守られる = 付け忘れても緩くならない)。
- */
-const SALES_NOT_REQUIRED = new Set(['/notifications', '/notification-prefs']);
-router.use(requireAuth, (req, res, next) => {
-  if (SALES_NOT_REQUIRED.has(req.path)) return next();
-  return requirePermission('sales')(req, res, next);
-});
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('sales'));
 
 function countMonths(start: string, end: string): number {
   const [sy, sm] = start.split('-').map(Number);
@@ -64,11 +49,10 @@ router.get('/kpi', async (req, res) => {
     periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
   }
 
-  // 25章: お試し (練習) の案件は数えない。案件を持たない行は落とさない
-  const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [periodStart, periodEnd]);
-  const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [periodStart, periodEnd]);
-  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects p WHERE p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`);
-  const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects p WHERE p.gls_number IS NULL AND p.stage NOT IN ('e_lost') AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`);
+  const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
+  const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
+  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL`);
+  const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NULL AND stage NOT IN ('e_lost') AND deleted_at IS NULL`);
 
   // SGA calculation
   const sgaNonAmortized = await queryOne(
@@ -135,12 +119,11 @@ router.get('/alerts', async (_req, res) => {
   const alerts = await queryAll(
     `SELECT id, gls_number, name, 'application_form' as alert_type, '申込書未提出' as message
      FROM projects WHERE application_form = 0 AND gls_number IS NOT NULL
-     AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL AND is_sandbox = FALSE
+     AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL
      UNION ALL
      SELECT id, gls_number, name, 'upcoming_event' as alert_type, 'イベントが近づいています' as message
      FROM projects WHERE event_start IS NOT NULL
-     AND event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
-     AND deleted_at IS NULL AND is_sandbox = FALSE`
+     AND event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text AND deleted_at IS NULL`
   );
   res.json({ success: true, data: alerts });
 });
@@ -149,14 +132,13 @@ router.get('/alerts', async (_req, res) => {
 const OVERDUE_ACTIONS_SQL =
   `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
           a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
-          p.expected_amount, p.event_start, p.event_end,
-          a.user_id, u.name AS assigned_to_name, c.name AS customer_name, p.customer_id,
+          a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
           (CURRENT_DATE - a.next_action_date::date) AS days_overdue
    FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
    LEFT JOIN customers c ON c.id = p.customer_id
-   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
+   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
      AND p.stage NOT IN ('s_completed','e_lost')
      AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
      AND a.next_action_done_at IS NULL
@@ -175,7 +157,7 @@ router.get('/recent-projects', async (_req, res) => {
   const rows = await queryAll(
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
+     WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
      AND p.event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
      ORDER BY p.event_start LIMIT 10`
   );
@@ -241,7 +223,7 @@ router.get('/sales-board', async (_req, res) => {
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
-     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
+     WHERE p.deleted_at IS NULL
        AND p.stage NOT IN ('s_completed','e_lost')
      ORDER BY
        CASE WHEN la.activity_date IS NOT NULL
@@ -281,7 +263,7 @@ const AI_INBOX_SQL =
      ORDER BY m.created_at ASC
      LIMIT 1
    ) ai ON TRUE
-   WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
+   WHERE p.deleted_at IS NULL
      AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
      AND p.ai_reviewed_at IS NULL
    ORDER BY p.created_at DESC
@@ -314,7 +296,7 @@ router.get('/inbox', async (req, res) => {
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
-         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL AND p.is_sandbox = FALSE
+         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
        ORDER BY p.updated_at DESC
        LIMIT 100`
     ),
@@ -331,10 +313,7 @@ router.get('/inbox', async (req, res) => {
     dailyopsVisible
       ? queryAll(
           `SELECT id, doc_type, sender, subject, amount, status, payment_due,
-                  content, closing_month, gls_number, notes,
-                  received_at, created_at,
-                  -- 原本 (PDF/画像)。承認する前に見られるように行に含める
-                  (box_file_id IS NOT NULL) AS has_original, original_name, original_kind
+                  received_at, created_at
            FROM finance_docs
            WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
            ORDER BY created_at ASC
@@ -342,66 +321,6 @@ router.get('/inbox', async (req, res) => {
         )
       : Promise.resolve([]),
   ]);
-
-  // ── 二重計上の警告 (デザイン 5a・v2.9.253 で見送っていた分) ──────────────
-  //
-  // finance_docs は**まだ登録されていない**ので、既存の重複判定 (登録済みの行同士を
-  // 突き合わせる仕組み) が使えない。ここで「同じ税抜金額の仕入・販管費が既にあるか」を
-  // 突き合わせて、承認する前に気付けるようにする。
-  //
-  // **金額だけの一致は「同じ支払い」の証明にはならない** (月額の定額費用など、
-  // 同額が正しく並ぶことは普通にある) ので、断定せず「既に1件あります」と出して
-  // 人に確認させる。GLS 番号が読めているものはそれも併記する。
-  const docAmounts = Array.from(
-    new Set(financeDocs.map((d) => Number(d.amount)).filter((n) => Number.isFinite(n) && n > 0)),
-  );
-  let dupByAmount = new Map<number, { kind: string; gls_number: string | null; label: string; recognition_date: string | null }[]>();
-  if (docAmounts.length > 0) {
-    const ph = docAmounts.map(() => '?').join(',');
-    const [pur, sga] = await Promise.all([
-      queryAll(
-        `SELECT pu.amount, pu.recognition_date, p.gls_number,
-                COALESCE(NULLIF(pu.description,''), v.name, '仕入') AS label
-         FROM purchases pu
-         LEFT JOIN projects p ON p.id = pu.project_id
-         LEFT JOIN vendors v ON v.id = pu.vendor_id
-         WHERE pu.deleted_at IS NULL AND pu.amount IN (${ph})
-         ORDER BY pu.created_at DESC LIMIT 200`,
-        docAmounts,
-      ),
-      queryAll(
-        `SELECT amount, recognition_date, NULL AS gls_number,
-                COALESCE(NULLIF(description,''), vendor_name, '販管費') AS label
-         FROM sga_expenses
-         WHERE deleted_at IS NULL AND amount IN (${ph})
-         ORDER BY created_at DESC LIMIT 200`,
-        docAmounts,
-      ),
-    ]);
-    dupByAmount = new Map();
-    for (const [kind, rows] of [['purchase', pur], ['sga', sga]] as const) {
-      for (const r of rows) {
-        const amt = Number(r.amount);
-        const list = dupByAmount.get(amt) ?? [];
-        list.push({
-          kind,
-          gls_number: (r.gls_number as string | null) ?? null,
-          label: String(r.label ?? ''),
-          recognition_date: (r.recognition_date as string | null) ?? null,
-        });
-        dupByAmount.set(amt, list);
-      }
-    }
-  }
-  for (const d of financeDocs) {
-    const hits = dupByAmount.get(Number(d.amount)) ?? [];
-    // 同じ GLS のものがあればそれを先に見せる (一番心当たりが付く)
-    const sameGls = d.gls_number ? hits.filter((h) => h.gls_number === d.gls_number) : [];
-    const shown = (sameGls.length > 0 ? sameGls : hits).slice(0, 3);
-    d.duplicate_count = hits.length;
-    d.duplicate_same_gls = sameGls.length;
-    d.duplicate_samples = shown;
-  }
 
   // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
   // 無ければ created_at。overdue は期限日 (= お客様を待たせ始めた瞬間)。
@@ -425,30 +344,10 @@ router.get('/inbox', async (req, res) => {
     })),
   ].sort((a, b) => toMs(a.received_at) - toMs(b.received_at));
 
-  // 行列が空のときに出す「直近7日で N件 終わらせました」(デザイン 6b)。
-  // **新しいテーブルは作らず**、既にある完了の記録から数える:
-  //   - project_tasks.completed_at (自分が担当のタスク)
-  //   - activity_logs.next_action_done_at (自分が終わらせた次回アクション)
-  // 数字を出せない状態で当てずっぽうを置くほうが害が大きいので、0 件なら画面に出さない。
-  const doneRow = await queryOne(
-    `SELECT
-       (SELECT COUNT(*) FROM project_tasks
-         WHERE deleted_at IS NULL AND completed_at IS NOT NULL
-           AND completed_at >= NOW() - interval '7 days'
-           AND (assigned_to = ? OR requester_id = ?)) AS tasks,
-       (SELECT COUNT(*) FROM activity_logs
-         WHERE deleted_at IS NULL AND next_action_done_at IS NOT NULL
-           AND next_action_done_at >= NOW() - interval '7 days'
-           AND user_id = ?) AS actions`,
-    [user.id, user.id, user.id],
-  ) as { tasks?: unknown; actions?: unknown } | null;
-  const doneLast7 = Number(doneRow?.tasks ?? 0) + Number(doneRow?.actions ?? 0);
-
   res.json({
     success: true,
     data: {
       items,
-      done_last_7days: doneLast7,
       checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
       counts: {
         total: items.length,
@@ -461,180 +360,6 @@ router.get('/inbox', async (req, res) => {
       dailyops: { visible: dailyopsVisible, editable: dailyopsEditable },
     },
   });
-});
-
-/**
- * GET /dashboard/notifications — ベルの中身 (§4.15 / デザイン 18a)
- *
- * **通知は保存しない**。既存データ (inbox / tasks / bookings) から**その場で導出**する。
- * だから **既読の概念を持たない** — 終わらせた分は次に開いたときに消えている。
- * 「読んだだけでは何も終わっていない」ため、既読フラグを持つと嘘の «片づいた» が生まれる。
- *
- * グループ: お客様を待たせている / 依頼の返事 / AIが作ったもの (確認待ち) / 今日の現場。
- */
-router.get('/notifications', async (req, res) => {
-  const user = req.user!;
-  const isAdmin = user.role === 'system_admin';
-  const has = (m: string) => isAdmin || !!user.permissions?.[m];
-  const today = new Date().toISOString().slice(0, 10);
-
-  const [overdue, aiProjects, delegations, todayBookings, mentions] = await Promise.all([
-    // お客様を待たせている (期限を過ぎた次回アクション)
-    has('sales') ? queryAll(OVERDUE_ACTIONS_SQL) : Promise.resolve([]),
-    // AI が作ったもの (未確認)
-    has('sales') ? queryAll(AI_INBOX_SQL, [config.mcpActorId]) : Promise.resolve([]),
-    // 依頼の返事 — 自分が出して未返答のもの (催促の判断は依頼者にさせる)
-    has('dailyops')
-      ? queryAll(
-          `SELECT t.id, t.title, t.due_at, t.requested_at, t.delegation_status,
-                  u.name AS assignee_name
-           FROM project_tasks t
-           LEFT JOIN users u ON u.id = t.assigned_to
-           WHERE t.deleted_at IS NULL AND t.is_completed = FALSE
-             AND t.requester_id = ? AND t.delegation_status IN ('requested','declined','consulting')
-           ORDER BY t.requested_at ASC NULLS LAST
-           LIMIT 50`,
-          [user.id]
-        )
-      : Promise.resolve([]),
-    // 今日の現場 (スタジオ予約)。start_time は TEXT なので先頭10桁で日付を見る
-    has('studio')
-      ? queryAll(
-          `SELECT b.id, b.title, b.booking_type, b.all_day, b.start_time, b.end_time,
-                  p.name AS project_name, p.gls_number,
-                  COALESCE(
-                    (SELECT string_agg(r.name, ' / ' ORDER BY r.sort_order, r.name)
-                     FROM studio_booking_rooms br JOIN studio_rooms r ON r.id = br.room_id
-                     WHERE br.booking_id = b.id), ''
-                  ) AS room_names
-           FROM studio_bookings b
-           LEFT JOIN projects p ON p.id = b.project_id
-           WHERE b.deleted_at IS NULL
-             AND substr(b.start_time, 1, 10) <= ?
-             AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?
-           ORDER BY b.start_time ASC
-           LIMIT 30`,
-          [today, today]
-        )
-      : Promise.resolve([]),
-    // 案件のコメントで自分に知らせが来ていて、まだ対応していないもの (B3)
-    // **既読では消えない** — 本人が「対応した」と言ったときだけ消える
-    has('sales') ? projectCommentService.listMyOpenMentions(user.id) : Promise.resolve([]),
-  ]);
-
-  const groups = [
-    {
-      key: 'waiting',
-      label: 'お客様を待たせている',
-      rule: '期限を過ぎた次回アクション。終わらせると消えます',
-      items: overdue.map((r: any) => ({
-        id: `overdue:${r.activity_id}`,
-        title: r.next_action,
-        meta: [r.gls_number, r.project_name].filter(Boolean).join(' '),
-        at: r.next_action_date,
-        cta: '片づける',
-        path: r.project_id ? `/sales/projects/${r.project_id}` : '/today',
-      })),
-    },
-    {
-      key: 'mention',
-      label: '案件で名前を呼ばれた',
-      rule: 'コメントで知らせが来たもの。「対応した」を押すと消えます',
-      items: mentions.map((r) => ({
-        id: `mention:${r.comment_id}`,
-        title: r.body.length > 60 ? `${r.body.slice(0, 60)}…` : r.body,
-        meta: [r.author_name ? `${r.author_name}さん` : null, r.gls_number, r.project_name]
-          .filter(Boolean).join(' ・ '),
-        at: r.created_at,
-        cta: '見に行く',
-        path: `/sales/projects/${r.project_id}#comments`,
-      })),
-    },
-    {
-      key: 'delegation',
-      label: '依頼の返事',
-      rule: '自分が出した依頼で、まだ返事が来ていないもの',
-      items: delegations.map((r: any) => ({
-        id: `deleg:${r.id}`,
-        title: r.title,
-        meta: `${r.assignee_name ?? '担当未設定'}・${r.delegation_status === 'requested' ? '未返答' : r.delegation_status === 'declined' ? '辞退された' : '相談中'}`,
-        at: r.requested_at,
-        cta: '決める',
-        path: '/tasks?scope=me',
-      })),
-    },
-    {
-      key: 'ai',
-      label: 'AIが作ったもの（確認待ち）',
-      rule: '内容を見て確認済みにすると消えます',
-      items: aiProjects.map((r: any) => ({
-        id: `ai:${r.id}`,
-        title: r.name,
-        meta: [r.gls_number, r.customer_name].filter(Boolean).join(' '),
-        at: r.created_at,
-        cta: '確認する',
-        path: `/sales/projects/${r.id}`,
-      })),
-    },
-    {
-      key: 'today',
-      label: '今日の現場',
-      rule: '今日ぶんだけ。日付が変われば消えます',
-      items: todayBookings.map((r: any) => ({
-        id: `bk:${r.id}`,
-        title: r.project_name || r.title,
-        meta: [r.room_names, r.all_day ? '終日' : String(r.start_time).slice(11, 16)].filter(Boolean).join(' ・ '),
-        at: r.start_time,
-        cta: '予定を開く',
-        path: '/schedule?layers=studio',
-      })),
-    },
-  ].filter((g) => g.items.length > 0);
-
-  res.json({
-    success: true,
-    data: {
-      groups,
-      total: groups.reduce((n, g) => n + g.items.length, 0),
-    },
-  });
-});
-
-/**
- * 通知の受け取り方 (migration 137)。**通知そのものは保存しない**ので、
- * ここに入るのは「どう受け取りたいか」だけ。
- */
-router.get('/notification-prefs', async (req, res) => {
-  const row = await queryOne('SELECT * FROM user_notification_prefs WHERE user_id = ?', [req.user!.id]);
-  res.json({
-    success: true,
-    data: row ?? {
-      user_id: req.user!.id,
-      morning_slack: true,
-      morning_email: false,
-      overdue_digest: true,
-      delegation_instant: true,
-    },
-  });
-});
-
-router.put('/notification-prefs', async (req, res) => {
-  const b = req.body as Record<string, unknown>;
-  const bool = (k: string, d: boolean) => (b[k] === undefined ? d : !!b[k]);
-  await execute(
-    `INSERT INTO user_notification_prefs (user_id, morning_slack, morning_email, overdue_digest, delegation_instant, updated_at)
-     VALUES (?, ?, ?, ?, ?, NOW())
-     ON CONFLICT (user_id) DO UPDATE SET
-       morning_slack = EXCLUDED.morning_slack,
-       morning_email = EXCLUDED.morning_email,
-       overdue_digest = EXCLUDED.overdue_digest,
-       delegation_instant = EXCLUDED.delegation_instant,
-       updated_at = NOW()`,
-    [req.user!.id, bool('morning_slack', true), bool('morning_email', false),
-     bool('overdue_digest', true), bool('delegation_instant', true)]
-  );
-  const row = await queryOne('SELECT * FROM user_notification_prefs WHERE user_id = ?', [req.user!.id]);
-  res.json({ success: true, data: row });
 });
 
 // v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す
@@ -683,7 +408,7 @@ router.get('/weekly-schedule', async (_req, res) => {
 
     const projects = await queryAll(
       `SELECT p.id, p.gls_number, p.name, p.stage, 'event' as type
-       FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
+       FROM projects p WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
        AND (p.event_start <= ? AND p.event_end >= ? OR p.event_start = ?)`,
       [dateStr, dateStr, dateStr]
     );
@@ -732,8 +457,8 @@ router.get('/monthly-chart', async (_req, res) => {
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const monthStart = `${ym}-01`;
     const monthEnd = `${ym}-31`;
-    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [monthStart, monthEnd]);
-    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases x WHERE x.recognition_date BETWEEN ? AND ? AND x.deleted_at IS NULL AND ${NOT_SANDBOX_VIA('x')}`, [monthStart, monthEnd]);
+    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
     const sgaNonAmortizedRow = await queryOne(
       `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
        WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
@@ -762,8 +487,7 @@ router.get('/monthly-chart', async (_req, res) => {
 router.get('/pipeline', async (_req, res) => {
   const stages = await queryAll(
     `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount),0) as total_amount
-     FROM projects p WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.stage NOT IN ('e_lost','s_completed')
-       AND ${NOT_SANDBOX('p')}
+     FROM projects WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','s_completed')
      GROUP BY stage ORDER BY CASE stage
        WHEN 'neta' THEN 1 WHEN 'd_hold' THEN 2 WHEN 'c_proposal' THEN 3
        WHEN 'b_verbal' THEN 4 WHEN 'a_won' THEN 5 END`

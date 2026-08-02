@@ -6,7 +6,6 @@ import { requireAuth, requirePermission, requireRole } from '../../../shared/mid
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
-import { assertNotSandbox } from '../../sales/services/sandbox.service';
 
 const router = Router();
 
@@ -227,12 +226,7 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
 
   // 現在使用中の予約
   const current = await queryOne(
-    // booking_type / status も返す。**題名から種別を外した (v3.1.2) ので、
-    // これが無いと表示機の前に立った人が「仮押さえ」を本予約と読んでしまう**。
-    // 部屋つきの仮押さえは実際に作られる — ステージ移行そのもの (project.service.ts) は
-    // 部屋を付けないが、道のりのダイアログで部屋を答えると
-    // projects.routes.ts の attachHoldRooms が同じ予約に部屋を足す。
-    `SELECT b.title, b.booking_type, b.status, b.start_time, b.end_time, br.occupant, br.usage_note
+    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
      FROM studio_bookings b
      JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
      WHERE b.deleted_at IS NULL AND b.start_time <= ? AND b.end_time >= ?
@@ -242,7 +236,7 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
 
   // 本日の残りの予約
   const upcoming = await queryAll(
-    `SELECT b.title, b.booking_type, b.status, b.start_time, b.end_time, br.occupant, br.usage_note
+    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
      FROM studio_bookings b
      JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
      WHERE b.deleted_at IS NULL AND b.start_time > ? AND b.start_time <= ?
@@ -309,25 +303,8 @@ router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_ad
 // 以下、認証必須のAPI
 // ============================================================
 
-// 以降のルートは認証 + studio 権限。
-//
-// ただし**案件フォームは営業が開く**のに、その中の「使用する部屋・空間」と
-// 「登録済みの予約」がこの2本を読んでいた。営業は studio 権限を持たないのが普通なので、
-// 部屋も予約も**黙って空になっていた** (画面はエラーも出さないので、
-// 「この案件には部屋が登録されていない」と読めてしまう)。
-// v2.9.277 のベルと同じ形なので、同じ直し方にする:
-// **既定は studio 必須のまま**、営業も要る読み取りだけを通す。
-// こうすると新しく足したルートは何もしなくても守られる (付け忘れても緩くならない)。
-const SALES_MAY_READ = new Set(['/locations', '/bookings']);
-router.use(requireAuth, (req, res, next) => {
-  if (req.method === 'GET' && SALES_MAY_READ.has(req.path)) {
-    // どちらかを持っていれば読める。studio を先に見る (本来の持ち主)
-    const level = req.user?.permissions?.studio ?? req.user?.permissions?.sales;
-    if (req.user?.role === 'system_admin' || level) return next();
-    return requirePermission('sales')(req, res, next);
-  }
-  return requirePermission('studio')(req, res, next);
-});
+// Apply auth + permission middleware to all routes below
+router.use(requireAuth, requirePermission('studio'));
 
 // ============================================================
 // Studio Locations & Rooms
@@ -429,68 +406,6 @@ router.get('/bookings/availability', async (req, res) => {
   res.json({ success: true, data: result });
 });
 
-/**
- * GET /studios/bookings/holds?days=45 — 期限が近い仮押さえ (§4.10 / デザイン 13a)
- *
- * **本予約への切替期限という列は持っていない**ので、
- * 「本番日が近いのにまだ仮押さえのまま」を期限が近いものとして扱う
- * (列を作らずに、あるデータで意味のある並びにする)。
- * ※ /bookings/:id より前に定義すること
- */
-router.get('/bookings/holds', async (req, res) => {
-  const days = Math.min(Math.max(Number(req.query.days) || 45, 1), 180);
-  const today = new Date();
-  const from = today.toISOString().slice(0, 10);
-  const until = new Date(today.getTime() + days * 86_400_000).toISOString().slice(0, 10);
-
-  // start_time は TEXT (ISO 文字列) なので先頭 10 桁の文字列比較で日付を見る
-  const rows = await queryAll(
-    `SELECT b.id, b.title, b.booking_type, b.all_day, b.start_time, b.end_time,
-            b.status, b.project_id, p.name AS project_name, p.gls_number,
-            c.name AS customer_name,
-            COALESCE(
-              (SELECT string_agg(r.name, ' / ' ORDER BY r.sort_order, r.name)
-               FROM studio_booking_rooms br JOIN studio_rooms r ON r.id = br.room_id
-               WHERE br.booking_id = b.id), ''
-            ) AS room_names,
-            substr(b.start_time, 1, 10) AS start_date
-     FROM studio_bookings b
-     LEFT JOIN projects p ON p.id = b.project_id
-     LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE b.deleted_at IS NULL AND b.booking_type = 'hold'
-       AND substr(b.start_time, 1, 10) >= ? AND substr(b.start_time, 1, 10) <= ?
-     ORDER BY substr(b.start_time, 1, 10) ASC
-     LIMIT 50`,
-    [from, until]
-  );
-  res.json({ success: true, data: rows });
-});
-
-/**
- * PATCH /studios/bookings/:id/confirm — 仮押さえを本予約にする
- *
- * PUT は全上書きなので、ワンクリックのボタンから叩くと送っていない項目 (部屋・備考) が
- * 消える。種別と確定フラグだけを触る専用の口を用意する。
- */
-router.patch('/bookings/:id/confirm', requirePermission('studio', 'editor'), async (req, res) => {
-  const existing = await queryOne(
-    'SELECT id, booking_type FROM studio_bookings WHERE id = ? AND deleted_at IS NULL',
-    [req.params.id]
-  ) as any;
-  if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
-
-  const to = ['performance', 'rehearsal'].includes(String(req.body?.booking_type))
-    ? String(req.body.booking_type)
-    : 'performance';
-  await execute(
-    `UPDATE studio_bookings SET booking_type = ?, status = 'confirmed', updated_at = NOW(), updated_by = ?
-     WHERE id = ?`,
-    [to, req.user!.id, req.params.id]
-  );
-  const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [req.params.id]);
-  res.json({ success: true, data: row });
-});
-
 // GET /studios/bookings/:id
 router.get('/bookings/:id', async (req, res) => {
   const booking = await queryOne(
@@ -518,9 +433,6 @@ router.get('/bookings/:id', async (req, res) => {
 
 // POST /studios/bookings — 予約作成
 router.post('/bookings', requirePermission('studio', 'editor'), async (req, res) => {
-  // 25章: お試し (練習) の案件では予約を作らせない。予約はカレンダーに出るので、
-  // 他の人には本物と区別が付かない
-  await assertNotSandbox(req.body?.project_id, 'booking');
   const row = await studioBookingService.createBooking(req.body, req.user!.id);
   res.status(201).json({ success: true, data: row });
 });

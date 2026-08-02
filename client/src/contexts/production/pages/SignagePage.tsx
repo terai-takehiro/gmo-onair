@@ -2,36 +2,10 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 
-interface SignageBooking {
-  title: string;
-  /** 予約種別。仮押さえ (hold) を本予約と読ませないために出す */
-  booking_type?: string;
-  /** confirmed / tentative */
-  status?: string;
-  occupant: string;
-  usage_note: string;
-  start_time: string;
-  end_time: string;
-}
-
-/**
- * 「仮押さえ」と読める札を出すか。
- *
- * 題名から種別を外した (v3.1.2) ので、これが無いと表示機の前に立った人は
- * **まだ確定していない部屋を「使用中」と読む**。部屋つきの仮押さえは実際に作られる
- * (道のりのダイアログで部屋を答えると attachHoldRooms が仮押さえに部屋を足す)。
- */
-function tentativeLabel(b: SignageBooking): string | null {
-  if (b.booking_type === 'hold') return '仮押さえ';
-  if (b.booking_type === 'consultation') return '相談';
-  if (b.status === 'tentative') return '未確定';
-  return null;
-}
-
 interface SignageData {
   room: { name: string; location_name: string; room_type: string };
-  current: SignageBooking | null;
-  upcoming: SignageBooking[];
+  current: { title: string; occupant: string; usage_note: string; start_time: string; end_time: string } | null;
+  upcoming: { title: string; occupant: string; usage_note: string; start_time: string; end_time: string }[];
 }
 
 function formatTime(iso: string) {
@@ -115,9 +89,6 @@ export default function SignagePage() {
         {hasCurrent ? (
           <>
             <div className="signage-label">ご利用中</div>
-            {tentativeLabel(data.current!) && (
-              <div className="signage-tentative">{tentativeLabel(data.current!)}</div>
-            )}
             <div className="signage-title">{data.current!.title.replace(/^GLS-?\w+\s*/i, '')}</div>
             {data.current!.occupant && (
               <div className="signage-occupant">{data.current!.occupant}</div>
@@ -135,12 +106,7 @@ export default function SignagePage() {
             {data.upcoming.length > 0 ? (
               <div className="signage-upcoming">
                 <div className="signage-upcoming-label">次のご利用</div>
-                <div className="signage-title">
-                  {tentativeLabel(data.upcoming[0]) && (
-                    <span className="signage-tentative-inline">{tentativeLabel(data.upcoming[0])}</span>
-                  )}
-                  {data.upcoming[0].title.replace(/^GLS-?\w+\s*/i, '')}
-                </div>
+                <div className="signage-title">{data.upcoming[0].title.replace(/^GLS-?\w+\s*/i, '')}</div>
                 {data.upcoming[0].occupant && (
                   <div className="signage-occupant">{data.upcoming[0].occupant}</div>
                 )}

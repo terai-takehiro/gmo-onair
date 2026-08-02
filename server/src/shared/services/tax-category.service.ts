@@ -36,6 +36,14 @@ const TAX_RATES: Record<string, number> = {
 export const TAX_CATEGORIES = ['tax10', 'tax8', 'exempt', 'nontax'] as const;
 export type TaxCategoryValue = typeof TAX_CATEGORIES[number];
 
+/** 帳票に刷る税率の表記。非課税と不課税は税額 0 円だが**別の区分**なので分けて出す */
+export const TAX_RATE_LABELS: Record<TaxCategoryValue, string> = {
+  tax10: '10%',
+  tax8: '8%',
+  exempt: '非課税',
+  nontax: '不課税',
+};
+
 /** 税率 (0〜1)。未知の値は 10% */
 export function taxRateOf(taxCategory: string | null | undefined): number {
   return TAX_RATES[String(taxCategory ?? '')] ?? TAX_RATES.tax10;

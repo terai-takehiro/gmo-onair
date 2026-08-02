@@ -50,8 +50,18 @@ on:
           - staging
           - production
 
+# ワークフロー全体の排他は**デプロイ先ごと**に分ける。
+#
+# 以前は `deploy-${{ github.ref_name }}` (ブランチ名のみ) + cancel-in-progress: true
+# だったため、**同じブランチから検証と本番を続けて出すと、後から投げた本番が
+# 実行中の検証を打ち切っていた** (実際に起きた)。検証と本番は別のものなので、
+# 一方が他方を止めてよい理由がない。
+#
+# 環境ごとの排他 (同じ環境への二重デプロイを防ぐ) は各ジョブの
+# `concurrency: deploy-staging / deploy-production` が担う。こちらは
+# cancel-in-progress: false なので、走っているデプロイは最後まで完走する。
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: deploy-${{ github.ref_name }}-${{ inputs.target || (github.event_name == 'release' && 'production') || 'staging' }}
   cancel-in-progress: true
 
 jobs:

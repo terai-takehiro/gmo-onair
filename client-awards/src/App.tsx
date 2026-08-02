@@ -3,7 +3,6 @@ import { useAuth } from './hooks/useAuth';
 import { AppShell } from './components/layout/AppShell';
 import { RedirectOnce } from '@gmo-onair/shared/src/client/RedirectOnce';
 import DashboardPage from './pages/DashboardPage';
-import NotFoundRoute from './components/NotFoundRoute';
 import EventEditorPage from './pages/EventEditorPage';
 import ControlPage from './pages/ControlPage';
 import OutputPage from './pages/OutputPage';
@@ -18,9 +17,6 @@ import QuizStackControlPage from './pages/QuizStackControlPage';
 import QuizStackOutputPage from './pages/QuizStackOutputPage';
 import CgCockpitPage from './pages/CgCockpitPage';
 import QuizStackOutputNextPage from './pages/QuizStackOutputNextPage';
-import OnAirPage from './pages/OnAirPage';
-import OutputsPage from './pages/OutputsPage';
-import IntakePage from './pages/IntakePage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -59,21 +55,13 @@ function AuthenticatedApp() {
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
             <Route path="/event/:id" element={<EventEditorPage />} />
-            {/* 送出（本番中に見る唯一の画面。20章 24a）*/}
-            <Route path="/event/:id/onair" element={<OnAirPage />} />
-            {/* 出力URLの配り方 (24b) / データを入れる (20f) — どちらも準備 */}
-            <Route path="/event/:id/outputs" element={<OutputsPage />} />
-            <Route path="/event/:id/intake" element={<IntakePage />} />
             <Route path="/event/:id/cg/control" element={<CgCockpitPage />} />
             <Route path="/event/:id/control" element={<ControlPage />} />
             <Route path="/event/:id/oneshot/control" element={<OneShotControlPage />} />
             <Route path="/event/:id/quiz" element={<QuizListPage />} />
             <Route path="/event/:id/quiz-stack/control" element={<QuizStackControlPage />} />
             <Route path="/event/:id/quiz/:quizId/edit" element={<QuizEditPage />} />
-                      {/* 知らないURL。v3.0.11 まで path="*" が無く**何も描かれず真っ白**だった
-                (壊れたのか読み込み中なのか区別が付かない)。共通の案内を出す */}
-            <Route path="*" element={<NotFoundRoute homeLabel="イベント一覧にもどる" />} />
-</Route>
+          </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />
         )}

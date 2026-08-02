@@ -1,41 +1,17 @@
-import { useMemo } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
-import LocationCrumb from "@gmo-onair/shared/src/client/shell/LocationCrumb";
-import BackToProject from "@gmo-onair/shared/src/client/shell/BackToProject";
-import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
-import { createNotificationFetcher } from "@gmo-onair/shared/src/client/notifications";
-import api from "@/lib/api";
-import { realPathname } from "@gmo-onair/shared/src/client/shell/realPath";
-import { useAuth } from "@/hooks/useAuth";
-import { QSHEET_MANUAL } from "@/manual/content";
+import { Outlet } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import Header from "./Header";
 
 export default function AppShell() {
-  const { pathname, search } = useLocation();
-  const { currentUser, logout, permissions } = useAuth();
-
-  const searchHits = useMemo(() => createPaletteSearch(api), []);
-  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
-
   return (
-    <SharedAppShell
-      currentUser={currentUser}
-      onLogout={logout}
-      role={currentUser?.role}
-      permissions={permissions}
-      currentPath={realPathname(pathname)}
-      breadcrumb={
-        <span className="flex min-w-0 items-center gap-1.5">
-          <BackToProject search={search} />
-          <LocationCrumb path={realPathname(pathname)} fallback="Qシート" home={{ path: "/qsheet", onGo: () => { window.location.href = "/qsheet"; } }} />
-        </span>
-      }
-      commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
-      notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
-      manualContent={QSHEET_MANUAL}
-      onOpenSiteMap={() => { window.location.href = "/map"; }}
-    >
-      <Outlet />
-    </SharedAppShell>
+    <div className="flex h-screen overflow-x-hidden">
+      <Sidebar />
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

@@ -40,25 +40,11 @@ router.get('/documents', async (req: Request, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    // 管理者以外は 自分が作成 / 自分に共有された / **案件メンバーである案件のもの**。
-    // 一覧と canAccessDoc は同じ条件でなければならない
-    // (一覧に出ないのに開ける、逆に出るのに開けない が起きる)。
+    // 管理者以外は「自分が作成」または「自分に共有された」ドキュメントのみ
     if (!isQsheetAdmin(req.user!)) {
-      sql += ` AND (
-                 d.created_by = $${paramIndex}
-                 OR EXISTS (
-                   SELECT 1 FROM qsheet_document_shares s
-                   WHERE s.document_id = d.id AND s.user_id = $${paramIndex}
-                 )
-                 OR (d.project_id IS NOT NULL AND p.deleted_at IS NULL AND (
-                   p.assigned_to = $${paramIndex}
-                   OR EXISTS (
-                     SELECT 1 FROM project_members pm
-                     WHERE pm.project_id = d.project_id AND pm.user_id = $${paramIndex}
-                       AND pm.deleted_at IS NULL
-                   )
-                 ))
-               )`;
+      sql += ` AND (d.created_by = $${paramIndex} OR EXISTS (
+                 SELECT 1 FROM qsheet_document_shares s
+                 WHERE s.document_id = d.id AND s.user_id = $${paramIndex}))`;
       params.push(req.user!.id);
       paramIndex++;
     }
@@ -352,48 +338,6 @@ router.put('/documents/:id/shares', requirePermission('qsheet', 'editor'), async
     res.json({ success: true, data: rows });
   } catch (err: unknown) {
     console.error('PUT /documents/:id/shares error:', err);
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
-  }
-});
-
-// ============================================================
-// 音声サポートの配布URL (認証なしの公開URL) を止める / 再開する
-//   作成者 または 管理者のみ。番組が終わったら止められるようにするための口。
-//   止めても台本は消えない (公開URLが 410 を返すだけ)。
-// ============================================================
-router.post('/documents/:id/audio-share', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
-  try {
-    const doc = await queryOne(
-      'SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
-      [req.params.id],
-    );
-    if (!doc) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
-      return;
-    }
-    if (!isQsheetAdmin(req.user!) && (doc.created_by as string) !== req.user!.id) {
-      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '配布URLを止める権限がありません' } });
-      return;
-    }
-    const revoked = (req.body as { revoked?: unknown })?.revoked !== false; // 既定は「止める」
-    if (revoked) {
-      await execute(
-        `UPDATE qsheet_documents SET audio_share_revoked_at = NOW(), audio_share_revoked_by = $2, updated_at = NOW() WHERE id = $1`,
-        [req.params.id, req.user!.id],
-      );
-    } else {
-      await execute(
-        `UPDATE qsheet_documents SET audio_share_revoked_at = NULL, audio_share_revoked_by = NULL, updated_at = NOW() WHERE id = $1`,
-        [req.params.id],
-      );
-    }
-    const row = await queryOne(
-      `SELECT audio_share_revoked_at, audio_share_revoked_by FROM qsheet_documents WHERE id = $1`,
-      [req.params.id],
-    );
-    res.json({ success: true, data: row });
-  } catch (err: unknown) {
-    console.error('POST /documents/:id/audio-share error:', err);
     res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });

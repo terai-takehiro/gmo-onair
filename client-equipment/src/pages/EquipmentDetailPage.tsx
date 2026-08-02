@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { formatCurrency } from "@gmo-onair/shared/src/client/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +27,6 @@ import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, STATUS_OPTIONS, CONDITION_OPTIONS, TYPE_LABELS, SECTION_LABELS,
 } from "@/lib/constants";
-import { Delayed, EmptyState, SkeletonCard } from '@gmo-onair/shared/src/client/states';
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 // EQUIPMENT_STATUS / EQUIPMENT_CONDITION / MAINTENANCE_STATUS / MAINTENANCE_TYPE を使用。
@@ -297,16 +295,15 @@ export default function EquipmentDetailPage() {
 
   if (isLoading) {
     return (
-      <Delayed><SkeletonCard lines={6} /></Delayed>
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <EmptyState
-        title="この機材は見つかりませんでした"
-        description="削除された可能性があります。機材一覧から選び直してください。"
-      />
+      <div className="p-6 text-center text-muted-foreground">機材が見つかりません</div>
     );
   }
 
@@ -389,8 +386,8 @@ export default function EquipmentDetailPage() {
           <DialogHeader><DialogTitle>機材編集</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {isAdmin && (
-              <div className="space-y-1 rounded-lg border border-warning bg-warning-surface p-3">
-                <Label className="text-warning-strong font-semibold">機材ID (管理者のみ変更可)</Label>
+              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
                 <Input
                   value={editForm.eq_code || ""}
                   onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
@@ -441,7 +438,7 @@ export default function EquipmentDetailPage() {
                         <button
                           key={item.model_number ?? 'none'}
                           type="button"
-                          className="h-ctl-3 w-full text-left px-3 text-sm hover:bg-muted flex items-center gap-2"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                           onMouseDown={() => {
                             setEditForm(f => ({
                               ...f,
@@ -800,7 +797,7 @@ export default function EquipmentDetailPage() {
                   <div key={l.id} className="text-sm border rounded-lg p-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{l.borrower_name}</span>
-                      <span className={`text-xs rounded-full px-2 py-0.5 ${l.status === "lent" ? "bg-warning-surface text-warning-strong" : "bg-success-surface text-success"}`}>
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${l.status === "lent" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>
                         {l.status === "lent" ? "貸出中" : "返却済"}
                       </span>
                     </div>
@@ -844,7 +841,7 @@ export default function EquipmentDetailPage() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {m.reported_at?.split("T")[0]}
-                      {m.repair_cost ? ` / 費用: ${formatCurrency(m.repair_cost)}` : ""}
+                      {m.repair_cost ? ` / 費用: ¥${m.repair_cost.toLocaleString()}` : ""}
                     </div>
                   </div>
                 ))}
@@ -896,7 +893,7 @@ export default function EquipmentDetailPage() {
                         onClick={() => setEditingCustomCell(col.id)}
                         title="クリックして編集"
                       >
-                        {val || <span className="text-muted-foreground font-normal">—</span>}
+                        {val || <span className="text-muted-foreground/40 font-normal">—</span>}
                       </span>
                     )}
                   </div>
@@ -1046,7 +1043,7 @@ function SearchableSelect({ value, onChange, items, placeholder }: {
     <div ref={ref} className="relative flex-1">
       <button
         type="button"
-        className="h-ctl-3 w-full flex items-center justify-between px-3 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
         onClick={() => {
           setOpen((o) => !o);
           if (!open) setTimeout(() => inputRef.current?.focus(), 50);
@@ -1072,7 +1069,7 @@ function SearchableSelect({ value, onChange, items, placeholder }: {
           </div>
           <div className="max-h-52 overflow-y-auto">
             {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">当てはまるものがありません。言葉を短くしてお試しください。</div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">見つかりません</div>
             ) : (
               filtered.map((it) => (
                 <button

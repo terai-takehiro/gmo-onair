@@ -22,33 +22,30 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { Delayed, EmptyState, ErrorPanel, NoPermissionPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const COL_DEFS = [
-  { key: "kind", label: "種別", default: true  },
-  { key: "location_name", label: "設置場所", default: true  },
-  { key: "name", label: "商品名", default: true  },
+  { key: "kind",              label: "種別",     default: true  },
+  { key: "location_name",     label: "設置場所", default: true  },
+  { key: "name",              label: "商品名",   default: true  },
   { key: "manufacturer_name", label: "メーカー", default: true  },
-  { key: "model_number", label: "型名", default: true  },
-  { key: "length_m", label: "m", default: true  },
-  { key: "color", label: "色", default: true  },
-  { key: "quantity", label: "本数", default: true  },
-  { key: "storage_method", label: "収納方法", default: true  },
-  { key: "notes", label: "備考", default: true  },
+  { key: "model_number",      label: "型名",     default: true  },
+  { key: "length_m",          label: "m",        default: true  },
+  { key: "color",             label: "色",       default: true  },
+  { key: "quantity",          label: "本数",     default: true  },
+  { key: "storage_method",    label: "収納方法", default: true  },
+  { key: "notes",             label: "備考",     default: true  },
 ] as const;
 type ColKey = typeof COL_DEFS[number]["key"];
 const STORAGE_VIS = "cable-visible-cols";
 const STORAGE_ORDER = "cable-col-order";
 
 const KINDS = [
-  { code: "video", label: "映像", color: "bg-cat-7/10 text-cat-7" },
-  { code: "audio", label: "音声", color: "bg-warning-surface text-warning-strong" },
-  { code: "network", label: "NW", color: "bg-info/10 text-info" },
-  { code: "lighting", label: "照明", color: "bg-warning-surface text-warning-strong" },
-  { code: "power", label: "電源", color: "bg-destructive-surface text-destructive" },
-  { code: "other", label: "その他", color: "bg-muted text-muted-foreground" },
+  { code: "video",    label: "映像", color: "bg-violet-50 text-violet-700" },
+  { code: "audio",    label: "音声", color: "bg-amber-50 text-amber-700" },
+  { code: "network",  label: "NW",   color: "bg-cyan-50 text-cyan-700" },
+  { code: "lighting", label: "照明", color: "bg-yellow-50 text-yellow-700" },
+  { code: "power",    label: "電源", color: "bg-rose-50 text-rose-700" },
+  { code: "other",    label: "その他", color: "bg-gray-100 text-gray-600" },
 ] as const;
 
 type KindCode = typeof KINDS[number]["code"];
@@ -99,7 +96,7 @@ function KindBadge({ code }: { code: KindCode }) {
   );
 }
 
-export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
+export default function CablePage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission("equipment", "editor");
@@ -200,7 +197,7 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
     setColOrder(DEFAULT_COL_ORDER);
   };
 
-  const { data: cablesRes, isLoading, error: listError, refetch } = useQuery({
+  const { data: cablesRes, isLoading, error: listError } = useQuery({
     queryKey: ["equipment-cables", filterKind, filterLoc, filterMfr, debouncedSearch],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -306,8 +303,8 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (it: Cable) => {
-    if (!(await confirmAction({ title: `「${it.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (it: Cable) => {
+    if (!confirm(`「${it.name}」を削除しますか？`)) return;
     deleteMutation.mutate(it.id);
   };
 
@@ -342,7 +339,7 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <PageTitle className={embedded ? "hidden" : undefined}>ケーブル管理</PageTitle>
+          <h1 className="heading-page text-xl lg:text-2xl">ケーブル管理</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {items.length} 種類 / 合計 {totalQuantity.toLocaleString()} 本
           </p>
@@ -473,26 +470,28 @@ export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative max-w-sm flex-1 min-w-[200px]">
+        <div className="relative max-w-sm flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="商品名・型名・備考で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
       {isLoading ? (
-        <Delayed><SkeletonRows rows={6} /></Delayed>
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : listError ? (
-        (listError as { response?: { status?: number } })?.response?.status === 403 ? (
-          <NoPermissionPanel modules={['equipment']} target="ケーブルの一覧" />
-        ) : (
-          <ErrorPanel title="ケーブルの一覧を読み込めませんでした" error={listError} onRetry={() => refetch()} />
-        )
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Cable className="h-12 w-12 opacity-20" />
+          <p className="font-medium text-destructive">
+            {(listError as { response?: { status?: number } })?.response?.status === 403
+              ? "ケーブル管理へのアクセス権限がありません"
+              : "データの取得に失敗しました"}
+          </p>
+        </div>
       ) : items.length === 0 ? (
-        <EmptyState
-          icon={<Cable />}
-          title="ケーブルはまだ1本も登録されていません"
-          description="「新規追加」から、よく使うケーブルを登録してください。長さ・コネクタを入れておくと現場で探しやすくなります。"
-        />
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Cable className="h-12 w-12 opacity-20" />
+          <p>ケーブルが登録されていません</p>
+        </div>
       ) : (
         <>
           {/* モバイル: カード */}

@@ -379,25 +379,25 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
   const tickerCategoryEn = awardsEn[selectedAwardIdx] ?? null;
 
   return (
-    <div className="h-full flex flex-col bg-background text-foreground overflow-y-auto lg:overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
       {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
       {!embedded && (
-      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-border">
+      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card hover:bg-muted transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
           title="イベント詳細へ戻る"
         >
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
-          <Subtitles className="h-4 w-4 text-warning-strong" />
-          <span className="hidden sm:inline text-sm font-black text-foreground tracking-wider">字幕スーパー</span>
+          <Subtitles className="h-4 w-4 text-amber-500" />
+          <span className="hidden sm:inline text-sm font-black text-slate-200 tracking-wider">字幕スーパー</span>
         </div>
         {event && (
-          <span className="text-xs text-muted-foreground truncate hidden md:block">{event.name}</span>
+          <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>
         )}
         <div className="flex-1" />
         {/* DB → CG マッピング インスペクタ + oneshot_data 編集 */}
@@ -407,8 +407,8 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
           className={cn(
             'hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors',
             previewNominee && nomineeDbId(previewNominee)
-              ? 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
-              : 'bg-background/40 text-muted-foreground cursor-not-allowed'
+              ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+              : 'bg-slate-900/40 text-slate-500 cursor-not-allowed'
           )}
           title="現在の PREVIEW ノミネートの DB ↔ CG マッピングを確認/編集"
         >
@@ -418,7 +418,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         {/* 賞・部門 英訳辞書 (localStorage) */}
         <button
           onClick={() => setDictOpen(true)}
-          className="h-ctl-3 hidden lg:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
           title="賞・部門の英訳辞書 (localStorage 保存、DB と独立)"
         >
           <Languages className="h-3.5 w-3.5" />
@@ -427,7 +427,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / クイズ・アンケートCG へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
           title="リアルタイムCG (ランキング演出) コントロールへ"
         >
           <Tv className="h-3.5 w-3.5" />
@@ -435,7 +435,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="h-ctl-3 hidden sm:flex items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
           title="クイズ / アンケートCG コントロールへ"
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -445,8 +445,8 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
           className={cn(
             'flex items-center gap-1.5 px-2 py-1.5 sm:px-3 rounded-full text-xs font-black tracking-widest uppercase transition-all shrink-0',
             isLive
-              ? 'bg-destructive/70 text-destructive border border-destructive/50'
-              : 'bg-card/70 text-muted-foreground border border-border/50'
+              ? 'bg-red-950/70 text-red-400 border border-red-800/50'
+              : 'bg-slate-800/70 text-slate-300 border border-slate-700/50'
           )}
         >
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
@@ -458,7 +458,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
           target="_blank"
           rel="noreferrer"
           title={`字幕スーパー 出力 (${lang.toUpperCase()})`}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-card h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           <ExternalLink className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">出力</span>
@@ -466,7 +466,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除' : '全画面表示'}
-          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
@@ -477,13 +477,13 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-border shrink-0 lg:shrink"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
         >
           {/* v2.8.83+: langMode='both' のとき JA + EN を別々の CG として横並びプレビュー */}
           {langMode === 'both' ? (
             <div className="absolute inset-0 flex">
               <div className="flex-1 relative">
-                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-muted-foreground">JA</span>
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-300">JA</span>
                 <ScaledStage
                   lang="ja"
                   nominee={liveNominee}
@@ -500,9 +500,9 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
                   countdown={countdownStage}
                 />
               </div>
-              <div className="w-px bg-card/80 self-stretch" />
+              <div className="w-px bg-slate-800/80 self-stretch" />
               <div className="flex-1 relative">
-                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-muted-foreground">EN</span>
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-300">EN</span>
                 <ScaledStage
                   lang="en"
                   nominee={liveNominee}
@@ -562,28 +562,26 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
             className={cn(
               'absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border',
               isLive
-                // 黒い映像の上に載るので、面の色の上に載る文字 (-foreground) を使う
-                ? 'bg-destructive border-destructive text-destructive-foreground'
-                : 'bg-background/85 border-border text-foreground'
+                ? 'bg-red-950/70 border-red-800/60 text-red-400'
+                : 'bg-slate-900/80 border-slate-700/60 text-slate-300'
             )}
           >
-            <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-destructive animate-pulse' : 'bg-accent')} />
+            <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
             {isLive ? `OA · ON AIR (${lang.toUpperCase()})` : `OA · OFF (${lang.toUpperCase()})`}
           </div>
           {/* v2.8.82: TICKER ON 時は overlay 非表示。ティッカーだけ流している状態を
               「白線が出てる」と誤認させないため、ティッカーの存在をそのまま見せる。 */}
           {!isLive && !tickerFlow.on && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {/* 黒い映像の上なので、地の色に依らない白で書く */}
-              <div className="text-center text-white/70">
+              <div className="text-center text-slate-300">
                 <div className="text-[10px] font-black tracking-widest uppercase mb-1">OA OFF</div>
                 <div className="text-[9px] font-medium tracking-widest">Press TAKE to send</div>
               </div>
             </div>
           )}
           {!isLive && tickerFlow.on && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase bg-warning border border-warning text-warning-foreground pointer-events-none">
-              <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+            <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase bg-amber-950/60 border border-amber-800/60 text-amber-300 pointer-events-none">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
               TICKER ONLY
             </div>
           )}
@@ -608,28 +606,28 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
       </div>
 
       {/* ── Bottom: PREVIEW thumb + Module / Ticker / Send ────── */}
-      <div className="shrink-0 border-t border-border bg-background/50">
+      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50">
         {/* v2.8.77+: モバイル/タブレット (< xl) でのみ表示する PREVIEW info strip
             (PREVIEW thumbnail を非表示にする代わりに、現在 queue されている
             ノミネート + モジュールをテキストで簡潔に表示) */}
-        <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-border bg-muted">
-          <span className="font-black tracking-widest uppercase text-warning-strong shrink-0">
+        <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-slate-800/80 bg-black/30">
+          <span className="font-black tracking-widest uppercase text-amber-500 shrink-0">
             NEXT · 送出予約 ({langMode === 'both' ? 'JA+EN' : lang.toUpperCase()})
           </span>
           {previewNominee ? (
             <>
-              <span className="text-foreground truncate font-bold">
+              <span className="text-slate-200 truncate font-bold">
                 {previewNominee.type === 'team'
                   ? (lang === 'ja' ? previewNominee.projectName ?? previewNominee.name : previewNominee.projectNameEn ?? previewNominee.nameEn)
                   : (lang === 'ja' ? previewNominee.name : previewNominee.nameEn)}
               </span>
-              <span className="text-muted-foreground shrink-0">·</span>
-              <span className="text-muted-foreground truncate">
+              <span className="text-slate-400 shrink-0">·</span>
+              <span className="text-slate-400 truncate">
                 {previewModules.find((m) => m.id === `preset:${previewModule}` || m.id === previewModule)?.label[lang === 'en' ? 'en' : 'ja'] ?? '—'}
               </span>
             </>
           ) : (
-            <span className="text-muted-foreground">ノミネート未選択</span>
+            <span className="text-slate-300">ノミネート未選択</span>
           )}
         </div>
 
@@ -640,19 +638,19 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
             "hidden xl:flex flex-col gap-1.5 shrink-0 w-full",
             langMode === 'both' ? 'xl:w-[480px]' : 'xl:w-[320px]'
           )}>
-            <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-warning-strong">
-              <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+            <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               NEXT · 送出予約 ({langMode === 'both' ? 'JA + EN' : lang.toUpperCase()})
             </div>
             <div
               ref={previewThumbRef}
-              className="relative w-full aspect-video bg-black rounded border border-border overflow-hidden"
+              className="relative w-full aspect-video bg-black rounded border border-slate-800 overflow-hidden"
             >
               {previewNominee ? (
                 langMode === 'both' ? (
                   <div className="absolute inset-0 flex">
                     <div className="flex-1 relative">
-                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-muted-foreground">JA</span>
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-300">JA</span>
                       <ScaledStage
                         lang="ja"
                         nominee={previewNominee}
@@ -669,9 +667,9 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
                   countdown={countdownStage}
                       />
                     </div>
-                    <div className="w-px bg-card/80 self-stretch" />
+                    <div className="w-px bg-slate-800/80 self-stretch" />
                     <div className="flex-1 relative">
-                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-muted-foreground">EN</span>
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-300">EN</span>
                       <ScaledStage
                         lang="en"
                         nominee={previewNominee}
@@ -727,7 +725,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
                   </div>
                 )
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400">
                   ノミネート未選択
                 </div>
               )}
@@ -736,7 +734,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
 
           {/* Controls column — v2.8.122+: タブで送出/カウントダウンを切替 */}
           <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-1 border-b border-border">
+            <div className="flex items-center gap-1 border-b border-slate-800">
               {([
                 { id: 'main', label: '1SHOT' },
                 { id: 'countdown', label: 'カウントダウン', live: countdownOn },
@@ -745,15 +743,15 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
                   key={t.id}
                   onClick={() => setControlTab(t.id)}
                   className={cn(
-                    'relative inline-flex h-ctl-1 items-center px-3 text-[11px] font-black tracking-widest uppercase transition-colors -mb-px border-b-2',
+                    'relative px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors -mb-px border-b-2',
                     controlTab === t.id
-                      ? 'text-warning-strong border-warning'
-                      : 'text-muted-foreground border-transparent hover:text-foreground'
+                      ? 'text-amber-400 border-amber-500'
+                      : 'text-slate-400 border-transparent hover:text-slate-200'
                   )}
                 >
                   {t.label}
                   {('live' in t && t.live) && (
-                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
+                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                   )}
                 </button>
               ))}

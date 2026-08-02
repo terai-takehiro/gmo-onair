@@ -44,12 +44,6 @@ export interface ChecklistItem {
   assigned_to?: string | null;
   /** 期限。イズムに合わせて分まで持つ 'YYYY-MM-DD HH:mm' */
   due_at?: string | null;
-  /**
-   * AI が足した行かどうか。**人が足した行と見分けるために持つ** —
-   * 見分けが付かないと「勝手に増えている」と受け取られ、消すか残すかの判断ができない。
-   * 既存の行にこの鍵は無いので、無ければ false として読む。
-   */
-  by_ai?: boolean;
 }
 
 export interface ProjectCollabDoc {
@@ -74,7 +68,6 @@ function itemToYMap(item: ChecklistItem): Y.Map<unknown> {
   m.set('done', !!item.done);
   m.set('assigned_to', item.assigned_to ?? null);
   m.set('due_at', item.due_at ?? null);
-  m.set('by_ai', !!item.by_ai);
   return m;
 }
 
@@ -93,7 +86,6 @@ function yMapToItem(m: Y.Map<unknown>): ChecklistItem {
     done: m.get('done') === true,
     assigned_to: sn('assigned_to'),
     due_at: sn('due_at'),
-    by_ai: m.get('by_ai') === true,
   };
 }
 

@@ -8,7 +8,6 @@ import { Search, Plug, Loader2, AlertTriangle, Copy, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { cn } from "../utils";
-import { NoSearchResults } from '../states/EmptyState';
 
 interface McpTool {
   name: string;
@@ -191,7 +190,7 @@ export default function McpInfoModal({
                 </section>
               ))}
               {filtered.length === 0 && (
-                <NoSearchResults keyword={query} />
+                <p className="py-10 text-center text-sm text-muted-foreground">該当するツールが見つかりません。</p>
               )}
             </div>
           )}

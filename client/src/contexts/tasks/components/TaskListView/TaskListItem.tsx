@@ -18,8 +18,6 @@ import TaskDialog from "../TaskDialog";
 import ChecklistItems from "../ChecklistItems";
 import type { ProjectTask } from "@/types";
 import { TaskTypeLabels, ProductionStepLabels } from "@/types";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface Props {
   task: ProjectTask;
@@ -50,7 +48,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
   return (
     <>
       <div
-      className={`group flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-accent/50 min-h-tap ${
+        className={`group flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-accent/50 min-h-[44px] ${
           task.is_completed ? "opacity-60" : ""
         }`}
       >
@@ -77,7 +75,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             {task.is_ai_created && (
               <span
                 className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-5 shrink-0"
-                title={aiOriginTitle("作成")}
+                title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
               >
                 <Sparkles className="h-3 w-3" />
                 AI作成
@@ -162,7 +160,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             size="icon"
             variant="ghost"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={async () => { if ((await confirmAction({ title: `「${task.title}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteTask.mutate(task.id); }}
+            onClick={() => { if (window.confirm(`「${task.title}」を削除しますか？`)) deleteTask.mutate(task.id); }}
             aria-label={`${task.title} を削除`}
           >
             <Trash2 className="h-3.5 w-3.5" />

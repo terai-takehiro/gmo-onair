@@ -33,8 +33,6 @@ import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
   RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { notifyError } from '@/lib/notify';
 
 // ---- サーバーの解析結果に対応する型 (表示に使う分のみ) ----
 interface XpointParsed {
@@ -86,8 +84,7 @@ interface RakurakuParsed {
 interface RegistrationUnit {
   kind: "purchase" | "sga" | "unknown";
   glsNumber: string | null;
-  /** 税区分 (不課税を含む。値の一覧は @/types の TaxCategory) */
-  taxCategory: string;
+  taxCategory: "tax10" | "tax8" | "exempt";
   amountInclusive: number;
   amountExclusive: number;
   description: string | null;
@@ -147,7 +144,6 @@ const STATUS_BADGE: Record<XpointFileRow["status"], { label: string; cls: string
   error: { label: "エラー", cls: "bg-red-100 text-red-700" },
 };
 
-/** 税込 → 税抜 の割り戻しに使う係数 (1 + 税率)。税区分の一覧は @/types に1本化 */
 function taxRate(cat: string): number {
   return 1 + taxRateOf(cat);
 }
@@ -156,7 +152,7 @@ function settlementPrefix(format: string): string {
   return format === "rakuraku" ? "楽" : "X";
 }
 
-export default function XpointImportPage({ embedded }: { embedded?: boolean } = {}) {
+export default function XpointImportPage() {
   const queryClient = useQueryClient();
   const [folderInput, setFolderInput] = useState("");
   const [scanned, setScanned] = useState<{ folderId: string; folderUrl: string; files: XpointFileRow[] } | null>(null);
@@ -250,7 +246,7 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
       scan.mutate(); // 一覧のステータスを更新
     },
     onError: (err: any) => {
-      notifyError(`PDF の解析に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
+      alert(`PDF の解析に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
       scan.mutate();
     },
   });
@@ -270,17 +266,17 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
 
   return (
     <PageTransition>
-      <div className={embedded ? "space-y-4 lg:space-y-6" : "space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl"}>
-        <div className={embedded ? "hidden" : undefined}>
-          <PageTitle>精算 PDF 取込 (X-Point / 楽楽精算)</PageTitle>
+      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl">
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold">精算 PDF 取込 (X-Point / 楽楽精算)</h1>
           <p className="text-sm text-muted-foreground mt-1">
             X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
             自動では登録されません — <span className="font-medium text-foreground">すべての項目を必ず確認してください</span>。
           </p>
         </div>
 
-        {/* 使い方 3 ステップ (枠に出すので埋め込み時は隠す) */}
-        <div className={embedded ? "hidden" : "rounded-xl border bg-card p-3 sm:p-4"}>
+        {/* 使い方 3 ステップ */}
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             {[
               { icon: CloudUpload, title: "1. PDF を取り込む", desc: "Box フォルダに置いて読み込むか、この画面に直接アップロード" },
@@ -444,7 +440,7 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
                           <Link
                             key={`${r.table}-${r.id}`}
                             className="underline"
-                            to={r.table === "purchases" ? `/finance?tab=purchase&edit=${r.id}` : `/finance?tab=sga&edit=${r.id}`}
+                            to={r.table === "purchases" ? `/budget/purchases?edit=${r.id}` : `/budget/sga?edit=${r.id}`}
                           >
                             登録{regRecords.length > 1 ? ` ${i + 1}` : ""} ({r.kind === "purchase" ? "仕入" : "販管費"} {formatCurrency(r.amount)})
                           </Link>
@@ -663,7 +659,7 @@ function XpointReviewDialog({
       });
     },
     onError: (err: any) => {
-      notifyError(`登録に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
+      alert(`登録に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
     },
   });
 
@@ -908,7 +904,7 @@ function XpointReviewDialog({
             <CurrencyInput value={amount} onChange={setAmount} />
             {unit && (
               <p className="text-xs text-muted-foreground">
-                税込 {formatCurrency(unit.amountInclusive)} ÷ {taxRate(taxCategory)} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
+                税込 {formatCurrency(unit.amountInclusive)} ÷ {String(1 + taxRateOf(taxCategory))} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
               </p>
             )}
           </div>

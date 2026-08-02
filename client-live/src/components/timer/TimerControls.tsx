@@ -3,7 +3,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { type TimerState } from '@/hooks/useTimer';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const PRESETS = [1, 3, 5, 10, 15, 20, 30];
 
@@ -74,7 +73,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
       {/* Controls */}
       <div className="flex items-center gap-2">
         <Button
-          className="flex-1 bg-success hover:bg-success/90 text-white"
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
           disabled={running || phase === 'idle'}
           onClick={onStart}
         >
@@ -91,7 +90,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
         <Button
           variant="destructive"
           size="sm"
-          onClick={async () => { if (running && !(await confirmAction({ title: 'タイマーをリセットします。よろしいですか？', confirmLabel: 'リセットする', tone: 'danger' }))) return; onReset(); }}
+          onClick={() => { if (running && !window.confirm('タイマーをリセットします。よろしいですか？')) return; onReset(); }}
         >
           リセット
         </Button>

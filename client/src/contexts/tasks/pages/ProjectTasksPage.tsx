@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { AlertTriangle, Users } from "lucide-react";
+import { Loader2, AlertTriangle, Users } from "lucide-react";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import ViewToggle, { type TaskView } from "../components/ViewToggle";
 import EpisodeScopeToggle from "../components/EpisodeScopeToggle";
@@ -11,7 +11,6 @@ import TaskListView from "../components/TaskListView/TaskListView";
 import GanttView from "../components/GanttView/GanttView";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { getProjectCategory, type Project } from "@/types";
-import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 interface ProjectMember {
   id: string;
@@ -77,22 +76,9 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
   );
 }
 
-/** projectId は旧パス (/sales/projects/:projectId/tasks) と新クエリ (?project=) の両方から来る */
-/**
- * view / onViewChange を渡すと表示形式の切り替えは呼び出し側 (/tasks の見出し) が持つ。
- * 同じ切り替えを2箇所に出さないため、渡されたときは内側の ViewToggle を出さない。
- */
-export default function ProjectTasksPage({
-  projectId: projectIdProp,
-  view: viewProp,
-  onViewChange,
-}: { projectId?: string; view?: TaskView; onViewChange?: (v: TaskView) => void } = {}) {
-  const params = useParams<{ projectId: string }>();
-  const projectId = projectIdProp ?? params.projectId;
-  const controlled = viewProp !== undefined;
-  const [localView, setLocalView] = useState<TaskView>("kanban");
-  const view = viewProp ?? localView;
-  const setView = (v: TaskView) => (onViewChange ? onViewChange(v) : setLocalView(v));
+export default function ProjectTasksPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const [view, setView] = useState<TaskView>("kanban");
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const didInitView = useRef(false);
 
@@ -111,23 +97,20 @@ export default function ProjectTasksPage({
   useEffect(() => {
     if (project && !didInitView.current) {
       didInitView.current = true;
-      if (isBusiness && !controlled) setLocalView("gantt");
+      if (isBusiness) setView("gantt");
     }
-  }, [project, isBusiness, controlled]);
+  }, [project, isBusiness]);
 
   if (isLoading) {
     return (
-      <Delayed><SkeletonRows rows={5} /></Delayed>
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   if (!project || !projectId) {
-    return (
-      <EmptyState
-        title="この案件は見つかりませんでした"
-        description="削除された可能性があります。案件一覧から選び直してください。"
-      />
-    );
+    return <div className="p-6 text-center text-muted-foreground">案件が見つかりません</div>;
   }
 
   const isGlsA = getProjectCategory(project.project_type) === "A" && project.gls_category !== "B";
@@ -138,18 +121,18 @@ export default function ProjectTasksPage({
       <div className="border-b border-border bg-background px-4 py-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-semibold truncate max-w-[60vw]">
+            <h1 className="text-sm font-semibold truncate max-w-[60vw]">
               {project.gls_number ?? project.code} — {project.name}
-            </h2>
+            </h1>
             <ProjectQuickLinks projectId={projectId} projectName={project.name} currentPage="tasks" />
           </div>
-          {!controlled && <ViewToggle current={view} onChange={setView} />}
+          <ViewToggle current={view} onChange={setView} />
         </div>
 
         {/* ヘルスストリップ (進捗 / 期限超過 / 担当メンバー) */}
         <HealthStrip projectId={projectId} episodeId={episodeId} />
 
-        {/* GLS-A: 回のスコープトグル */}
+        {/* GLS-A: エピソードスコープトグル */}
         {isGlsA && (
           <div className="overflow-x-auto">
             <EpisodeScopeToggle projectId={projectId} selectedEpisodeId={episodeId} onChange={setEpisodeId} />

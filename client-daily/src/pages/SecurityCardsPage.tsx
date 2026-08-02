@@ -18,23 +18,17 @@ import {
   useLendCard, useReturnCard, useUpdateCard, todayStr, fmtMd,
   type SecurityCard, type Lending, type LendInput,
 } from '@/lib/securityCardApi';
-import { Delayed, EmptyState, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
 
 const STUDIO_LABEL = 'GMOサムライスタジオ用賀';
 
-/*
- * レベルごとの色。**どのレベルが「危ない」わけでもない**ので、
- * 状態の色 (destructive / warning) ではなく「見分けるための色」を使う
- * (`cat-1`〜`cat-8`。tokens.css)。AI 用の紫 (`ai`) も使わない。
- */
+// レベルごとの色 (可視化用)
 const LEVEL_STYLE: Record<string, string> = {
-  master: 'bg-cat-7/10 text-cat-7 border-cat-7/40',
-  room_a: 'bg-cat-1/10 text-cat-1 border-cat-1/40',
-  room_b: 'bg-cat-3/10 text-cat-3 border-cat-3/40',
-  room_c: 'bg-cat-5/10 text-cat-5 border-cat-5/40',
-  meeting: 'bg-muted text-muted-foreground border-border',
-  vip: 'bg-cat-6/10 text-cat-6 border-cat-6/40',
+  master: 'bg-violet-100 text-violet-700 border-violet-300',
+  room_a: 'bg-sky-100 text-sky-700 border-sky-300',
+  room_b: 'bg-teal-100 text-teal-700 border-teal-300',
+  room_c: 'bg-amber-100 text-amber-700 border-amber-300',
+  meeting: 'bg-slate-100 text-slate-700 border-slate-300',
+  vip: 'bg-rose-100 text-rose-700 border-rose-300',
 };
 
 function enabledAreaLabels(access: Record<string, boolean>): string[] {
@@ -45,20 +39,20 @@ function enabledAreaLabels(access: Record<string, boolean>): string[] {
 function StatusBadge({ card }: { card: SecurityCard }) {
   if (card.status === 'available') {
     return (
-      <Badge variant="outline" className="gap-1 border-success bg-success-surface text-success">
+      <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700">
         <CheckCircle2 className="h-3 w-3" /> 利用可能
       </Badge>
     );
   }
   if (card.overdue) {
     return (
-      <Badge variant="outline" className="gap-1 border-destructive bg-destructive-surface text-destructive">
+      <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700">
         <AlertTriangle className="h-3 w-3" /> 返却期限超過
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="gap-1 border-warning bg-warning-surface text-warning-strong">
+    <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700">
       <ArrowRightLeft className="h-3 w-3" /> 貸出中
     </Badge>
   );
@@ -89,7 +83,7 @@ function CardTile({ card, onOpen }: { card: SecurityCard; onOpen: () => void }) 
       {/* 解錠できる部屋 */}
       <div className="mt-3 flex flex-wrap gap-1">
         {isMaster ? (
-          <span className="inline-flex items-center gap-1 rounded-md bg-cat-7/10 px-1.5 py-0.5 text-[11px] font-medium text-cat-7">
+          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700">
             <ShieldCheck className="h-3 w-3" /> 全エリア (マスター)
           </span>
         ) : (
@@ -103,7 +97,7 @@ function CardTile({ card, onOpen }: { card: SecurityCard; onOpen: () => void }) 
 
       {/* 貸出中の情報 */}
       {card.status === 'lent' && (
-        <div className={`mt-3 rounded-lg border px-2.5 py-2 text-xs ${card.overdue ? 'border-destructive bg-destructive-surface/60' : 'border-warning bg-warning-surface/60'}`}>
+        <div className={`mt-3 rounded-lg border px-2.5 py-2 text-xs ${card.overdue ? 'border-red-200 bg-red-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
           <div className="flex items-center gap-1 font-medium text-foreground">
             <Building2 className="h-3 w-3 shrink-0" />
             <span className="truncate">{card.borrower_company || '（会社名なし）'}</span>
@@ -120,7 +114,7 @@ function CardTile({ card, onOpen }: { card: SecurityCard; onOpen: () => void }) 
       )}
 
       {!card.is_active && (
-        <div className="mt-2 text-[11px] text-destructive">※ 運用対象外 (紛失/廃止)</div>
+        <div className="mt-2 text-[11px] text-red-600">※ 運用対象外 (紛失/廃止)</div>
       )}
     </button>
   );
@@ -172,7 +166,7 @@ function LendForm({ card, onDone }: { card: SecurityCard; onDone: () => void }) 
           <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="例：株式会社〇〇" />
         </div>
         <div>
-          <Label className="text-xs">担当者 <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">担当者 <span className="text-red-500">*</span></Label>
           <Input value={person} onChange={(e) => setPerson(e.target.value)} placeholder="例：山田 太郎" />
         </div>
         <div>
@@ -213,7 +207,7 @@ function LendForm({ card, onDone }: { card: SecurityCard; onDone: () => void }) 
           />
         </div>
       </div>
-      {err && <p className="text-xs text-destructive">{err}</p>}
+      {err && <p className="text-xs text-red-600">{err}</p>}
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>キャンセル</Button>
         <Button onClick={submit} disabled={lend.isPending} className="gap-1.5">
@@ -241,7 +235,7 @@ function ReturnForm({ card, onDone }: { card: SecurityCard; onDone: () => void }
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg bg-warning-surface border border-warning px-3 py-2.5 text-xs">
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs">
         <div className="font-medium text-foreground">No.{card.card_no}・{card.level_label} を返却します</div>
         <div className="mt-1 text-muted-foreground">
           貸出先: {card.borrower_company || '（会社名なし）'} / {card.borrower_person}<br />
@@ -262,7 +256,7 @@ function ReturnForm({ card, onDone }: { card: SecurityCard; onDone: () => void }
           placeholder="任意"
         />
       </div>
-      {err && <p className="text-xs text-destructive">{err}</p>}
+      {err && <p className="text-xs text-red-600">{err}</p>}
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>キャンセル</Button>
         <Button onClick={submit} disabled={ret.isPending} className="gap-1.5">
@@ -342,8 +336,8 @@ function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit:
                 {SECURITY_AREAS.map((a) => {
                   const ok = !!card.access[a.key];
                   return (
-                    <div key={a.key} className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs ${ok ? 'border-success bg-success-surface text-success' : 'border-border bg-muted/40 text-muted-foreground line-through'}`}>
-                      {ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" /> : <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                    <div key={a.key} className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-border bg-muted/40 text-muted-foreground line-through'}`}>
+                      {ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" /> : <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />}
                       <span className="truncate">{a.label}</span>
                       <span className="ml-auto text-[10px] opacity-60">{a.floor}</span>
                     </div>
@@ -354,7 +348,7 @@ function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit:
 
             {/* 現在の貸出 */}
             {card.status === 'lent' && (
-              <div className={`rounded-lg border px-3 py-2.5 text-sm ${card.overdue ? 'border-destructive bg-destructive-surface/60' : 'border-warning bg-warning-surface/60'}`}>
+              <div className={`rounded-lg border px-3 py-2.5 text-sm ${card.overdue ? 'border-red-200 bg-red-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
                 <div className="text-xs font-semibold text-muted-foreground mb-1">現在の貸出</div>
                 <div className="flex items-center gap-1.5"><Building2 className="h-4 w-4 text-muted-foreground" />{card.borrower_company || '（会社名なし）'}</div>
                 <div className="flex items-center gap-1.5 mt-0.5"><User className="h-4 w-4 text-muted-foreground" />{card.borrower_person}{card.borrower_contact ? `（${card.borrower_contact}）` : ''}</div>
@@ -388,7 +382,7 @@ function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit:
               {history.isLoading ? (
                 <div className="py-4 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></div>
               ) : (history.data ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">このカードはまだ貸し出されていません。</p>
+                <p className="text-xs text-muted-foreground py-2">まだ貸出履歴はありません</p>
               ) : (
                 <ul className="space-y-1.5">
                   {(history.data ?? []).map((h) => (
@@ -396,9 +390,9 @@ function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit:
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium truncate">{h.borrower_company || '（会社名なし）'} / {h.borrower_person}</span>
                         {h.status === 'active' ? (
-                          <Badge variant="outline" className="border-warning text-warning-strong shrink-0">貸出中</Badge>
+                          <Badge variant="outline" className="border-amber-300 text-amber-700 shrink-0">貸出中</Badge>
                         ) : (
-                          <Badge variant="outline" className="border-border text-muted-foreground shrink-0">返却済</Badge>
+                          <Badge variant="outline" className="border-slate-300 text-slate-600 shrink-0">返却済</Badge>
                         )}
                       </div>
                       <div className="mt-0.5 text-muted-foreground">
@@ -454,8 +448,8 @@ function AccessMatrixTable({ cards }: { cards: SecurityCard[] }) {
               {SECURITY_AREAS.map((a, i) => (
                 <td key={a.key} className={`px-2 py-1.5 text-center ${i === 0 || a.floor !== SECURITY_AREAS[i - 1].floor ? 'border-l border-border' : ''}`}>
                   {c.access[a.key]
-                    ? <span className="text-success font-bold">◯</span>
-                    : <span className="text-muted-foreground">✕</span>}
+                    ? <span className="text-emerald-600 font-bold">◯</span>
+                    : <span className="text-muted-foreground/40">✕</span>}
                 </td>
               ))}
             </tr>
@@ -476,18 +470,15 @@ function HistoryTab() {
       <div className="flex flex-wrap gap-1.5">
         {(['all', 'active', 'returned'] as const).map((s) => (
           <button key={s} onClick={() => setStatus(s)}
-            className={`inline-flex h-ctl-1 items-center rounded-full px-3 text-xs font-medium transition-colors ${status === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${status === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
             {s === 'all' ? 'すべて' : s === 'active' ? '貸出中' : '返却済'}
           </button>
         ))}
       </div>
       {lendings.isLoading ? (
-        <Delayed><SkeletonRows rows={3} /></Delayed>
+        <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
       ) : rows.length === 0 ? (
-        <EmptyState
-          title="貸出の履歴はまだありません"
-          description="カードを貸し出すと、誰にいつ渡して いつ返ってきたかがここに並びます。"
-        />
+        <p className="py-8 text-center text-sm text-muted-foreground">履歴はありません</p>
       ) : (
         <div className="space-y-2">
           {rows.map((h: Lending) => (
@@ -503,10 +494,10 @@ function HistoryTab() {
                   </div>
                   {h.status === 'active' ? (
                     h.overdue
-                      ? <Badge variant="outline" className="border-destructive text-destructive shrink-0">期限超過</Badge>
-                      : <Badge variant="outline" className="border-warning text-warning-strong shrink-0">貸出中</Badge>
+                      ? <Badge variant="outline" className="border-red-300 text-red-700 shrink-0">期限超過</Badge>
+                      : <Badge variant="outline" className="border-amber-300 text-amber-700 shrink-0">貸出中</Badge>
                   ) : (
-                    <Badge variant="outline" className="border-border text-muted-foreground shrink-0">返却済</Badge>
+                    <Badge variant="outline" className="border-slate-300 text-slate-600 shrink-0">返却済</Badge>
                   )}
                 </div>
                 <div className="mt-1.5 text-xs text-muted-foreground">
@@ -558,7 +549,7 @@ export default function SecurityCardsPage() {
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-5 w-5" /></div>
           <div>
-            <PageTitle>セキュリティカード管理</PageTitle>
+            <h1 className="text-xl font-bold">セキュリティカード管理</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1"><DoorOpen className="h-3 w-3" />{STUDIO_LABEL}</p>
           </div>
         </div>
@@ -585,7 +576,7 @@ export default function SecurityCardsPage() {
             <div className="flex gap-1.5">
               {(['all', 'available', 'lent'] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`inline-flex h-ctl-1 items-center rounded-full px-3 text-xs font-medium transition-colors ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
                   {f === 'all' ? 'すべて' : f === 'available' ? '利用可能' : '貸出中'}
                 </button>
               ))}
@@ -597,9 +588,9 @@ export default function SecurityCardsPage() {
           </div>
 
           {cardsQuery.isLoading ? (
-            <Delayed><SkeletonRows rows={4} /></Delayed>
+            <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></div>
           ) : filtered.length === 0 ? (
-            <NoSearchResults keyword={search || undefined} />
+            <p className="py-12 text-center text-sm text-muted-foreground">該当するカードがありません</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filtered.map((c) => (
@@ -627,9 +618,9 @@ export default function SecurityCardsPage() {
 function StatCard({ label, value, tone, icon }: { label: string; value: number; tone: 'default' | 'emerald' | 'amber' | 'red'; icon: React.ReactNode }) {
   const toneClass = {
     default: 'text-foreground',
-    emerald: 'text-success',
-    amber: 'text-warning-strong',
-    red: value > 0 ? 'text-destructive' : 'text-muted-foreground',
+    emerald: 'text-emerald-600',
+    amber: 'text-amber-600',
+    red: value > 0 ? 'text-red-600' : 'text-muted-foreground',
   }[tone];
   return (
     <Card>

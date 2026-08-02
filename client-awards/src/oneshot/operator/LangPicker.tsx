@@ -14,13 +14,13 @@ interface Props {
 
 export default function LangPicker({ value, onChange }: Props) {
   const opts: { v: LangMode; label: string }[] = [
-    { v: 'ja', label: 'JA'    },
-    { v: 'en', label: 'EN'    },
+    { v: 'ja',   label: 'JA'    },
+    { v: 'en',   label: 'EN'    },
     { v: 'both', label: 'JA/EN' },
   ];
   return (
     <div
-      className="flex items-center rounded-lg border border-border/60 bg-background/50 p-0.5 text-[10px] font-black tracking-widest"
+      className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900/50 p-0.5 text-[10px] font-black tracking-widest"
       role="group"
       aria-label="プレビュー言語"
     >
@@ -30,7 +30,7 @@ export default function LangPicker({ value, onChange }: Props) {
           onClick={() => onChange(v)}
           className={cn(
             'px-2 py-1 rounded-md transition-colors',
-            value === v ? 'bg-warning text-foreground' : 'text-muted-foreground hover:bg-card hover:text-muted-foreground'
+            value === v ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800 hover:text-slate-300'
           )}
           aria-pressed={value === v}
         >
@@ -48,9 +48,9 @@ export function toLangMode(lang: Lang, bilingual: boolean): LangMode {
 }
 
 /** LangMode → (lang, bilingual) ペアに分解。
- * v2.8.83+: 'both' でも bilingual=false (in-CG 縦スタックは廃止)。
- * 'both' の場合は OneShotControlPage 側で **JA/EN を別々の CG として横並びプレビュー**する。
- * cue.lang は primary lang ('ja') を保持し、output URL は ?lang= で個別レンダリング。 */
+ *  v2.8.83+: 'both' でも bilingual=false (in-CG 縦スタックは廃止)。
+ *  'both' の場合は OneShotControlPage 側で **JA/EN を別々の CG として横並びプレビュー**する。
+ *  cue.lang は primary lang ('ja') を保持し、output URL は ?lang= で個別レンダリング。 */
 export function fromLangMode(mode: LangMode): { lang: Lang; bilingual: boolean } {
   if (mode === 'both') return { lang: 'ja', bilingual: false };
   return { lang: mode, bilingual: false };

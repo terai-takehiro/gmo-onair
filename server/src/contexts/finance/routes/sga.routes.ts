@@ -6,7 +6,6 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { buildSgaWhere, buildSgaOrder } from '../list-query';
-import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 
 const router = Router();
 
@@ -44,7 +43,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   if (!recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
 
-  const billing_key = generateSgaBillingKey(recognition_date, normalizeTaxCategory(tax_category));
+  const billing_key = generateSgaBillingKey(recognition_date, tax_category || 'tax10');
   const id = uuidv4();
 
   await execute(
@@ -54,7 +53,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
       settlement_method || null, settlement_number || null, settlement_url || null,
       description || null, notes || null,
       recognition_date, payment_due_date || null,
-      normalizeTaxCategory(tax_category),
+      tax_category || 'tax10',
       invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
       amount || 0,
       expense_type || 'spot',
@@ -82,7 +81,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   // Regenerate billing_key if recognition_date or tax_category changed
   let billing_key = existing.billing_key;
   const newDate = recognition_date || existing.recognition_date;
-  const newTax = tax_category ? normalizeTaxCategory(tax_category) : existing.tax_category;
+  const newTax = tax_category || existing.tax_category;
   if (newDate !== existing.recognition_date || newTax !== existing.tax_category) {
     billing_key = generateSgaBillingKey(newDate, newTax);
   }
@@ -95,7 +94,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
       description || null, notes || null,
       recognition_date || existing.recognition_date,
       payment_due_date || null,
-      newTax,
+      tax_category || existing.tax_category,
       invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : existing.invoice_qualified,
       amount !== undefined ? amount : existing.amount,
       expense_type !== undefined ? expense_type : existing.expense_type,

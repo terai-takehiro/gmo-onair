@@ -31,14 +31,14 @@ export default function ModulePickerRow({ modules, selected, onSelect, lang }: P
             key={m.id}
             onClick={() => onSelect(cueKey)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-3 py-2.5 min-h-tap text-left transition-all',
+              'flex items-center gap-1.5 rounded-lg border px-3 py-2.5 min-h-[44px] text-left transition-all',
               active
-                ? 'border-warning bg-warning/50 ring-1 ring-warning/40'
-                : 'border-border bg-background/40 hover:bg-card hover:border-border'
+                ? 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40'
+                : 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700'
             )}
             title={m.id}
           >
-            <span className={cn('text-sm font-black tracking-wide leading-tight min-w-0 break-words', active ? 'text-warning-strong' : 'text-foreground')}>
+            <span className={cn('text-sm font-black tracking-wide leading-tight min-w-0 break-words', active ? 'text-amber-300' : 'text-slate-200')}>
               {label}
             </span>
           </button>

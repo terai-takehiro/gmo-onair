@@ -45,7 +45,6 @@ import {
   Trash2,
   Save,
 } from "lucide-react";
-import { notifyError } from '@/lib/notify';
 
 interface TableInfo {
   name: string;
@@ -68,18 +67,18 @@ const TABLE_LABELS: Record<string, string> = {
   partners: 'パートナー(個人)',
   revenues: '売上',
   revenue_items: '売上明細',
-  revenue_allocations: '売上の分け合い',
+  revenue_allocations: '売上按分',
   purchases: '仕入',
-  purchase_allocations: '仕入の分け合い',
-  project_groups: '費用を分け合うグループ',
-  project_group_members: '費用を分け合うメンバー',
+  purchase_allocations: '仕入按分',
+  project_groups: '費用按分グループ',
+  project_group_members: '費用按分メンバー',
   sga_expenses: '販管費',
   pricing_categories: '料金カテゴリ',
   pricing_items: '料金項目',
-  episodes: '回',
-  episode_orders: '回の発注',
+  episodes: 'エピソード',
+  episode_orders: 'エピソード発注',
   invoice_groups: '請求グループ',
-  invoice_group_episodes: '請求グループ↔回',
+  invoice_group_episodes: '請求グループ↔エピソード',
   studio_locations: 'スタジオ拠点',
   studio_rooms: 'スタジオ部屋',
   studio_bookings: 'スタジオ予約',
@@ -269,7 +268,7 @@ const COLUMN_LABELS: Record<string, string> = {
   application_form: '申込書',
   logo_permission: 'ロゴ許可',
   episode_number: '話数番号',
-  episode_code: '回のコード',
+  episode_code: 'エピソードコード',
   recording_date: '収録日',
   broadcast_date: '放送日',
   delivery_date: '納品日',
@@ -293,11 +292,11 @@ const COLUMN_LABELS: Record<string, string> = {
   invoice_qualified: 'インボイス',
   inspection_date: '検収日',
   purchase_id: '仕入ID',
-  allocated_amount: '分けた額',
+  allocated_amount: '按分額',
   vendor_name: '支払先',
   expense_type: '種別',
-  amortize_start: '分ける開始',
-  amortize_end: '分ける終了',
+  amortize_start: '按分開始',
+  amortize_end: '按分終了',
   source: '処理元',
   period_start: '期間開始',
   period_end: '期間終了',
@@ -428,7 +427,7 @@ export default function DataViewerPage() {
       setEditFormValues({});
     },
     onError: (err: any) => {
-      notifyError(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
+      window.alert(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
     },
   });
 
@@ -442,7 +441,7 @@ export default function DataViewerPage() {
       setDeletingRow(null);
     },
     onError: (err: any) => {
-      notifyError(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
+      window.alert(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
     },
   });
 
@@ -461,7 +460,7 @@ export default function DataViewerPage() {
     if (!editingRow) return;
     const id = editingRow.id as string;
     if (!id) {
-      notifyError("id が無いため更新できません");
+      window.alert("id が無いため更新できません");
       return;
     }
     // 編集可能なフィールドかつ元と異なるものだけ送信
@@ -484,7 +483,7 @@ export default function DataViewerPage() {
     if (!deletingRow) return;
     const id = deletingRow.id as string;
     if (!id) {
-      notifyError("id が無いため削除できません");
+      window.alert("id が無いため削除できません");
       return;
     }
     deleteMutation.mutate(id);
@@ -568,7 +567,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px] truncate ${
+                        <span className={`block text-[11px]  truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -608,7 +607,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px] truncate ${
+                        <span className={`block text-[11px]  truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -754,7 +753,7 @@ export default function DataViewerPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <Database className="h-10 w-10 mb-2" />
-                  <p>この表にはまだ1行も入っていません。</p>
+                  <p>データがありません</p>
                 </div>
               )}
             </div>

@@ -2,18 +2,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { NOT_SANDBOX } from '../../../shared/db/sandbox-filter';
 import {
   createProjectFolderTree,
   renameProjectFolderPair,
   type CustomerType,
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
-import { buildBookingTitle } from '../../../shared/booking/bookingTitle';
-import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { config } from '../../../config';
-import { recordProjectChanges } from './project-history.service';
-import { resolveStudioUse } from './stage-ask.service';
+import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -37,8 +33,6 @@ function normalizeCustomerType(value: unknown): CustomerType {
 }
 
 export interface ProjectFilter {
-  /** お試し (練習) の扱い。既定は「出さない」(25章) */
-  sandbox?: 'only';
   search?: string;
   stage?: string;
   assignedTo?: string;
@@ -103,23 +97,18 @@ export class ProjectService {
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
    */
   async list(filter: ProjectFilter, page: number, limit: number, offset: number) {
-    // お試し (練習) は既定で出さない。`sandbox: 'only'` のときだけお試しを出す (25章)
-    let where = filter.sandbox === 'only'
-      ? `WHERE p.deleted_at IS NULL AND p.is_sandbox = TRUE`
-      : `WHERE p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}`;
+    let where = 'WHERE p.deleted_at IS NULL';
     const params: unknown[] = [];
 
-    // タブフィルタ。タブごとの件数を出すために where 本体とは分けて持つ
-    // (タブ条件はプレースホルダを使わないので params の順序には影響しない)
-    let tabClause = '';
+    // タブフィルタ
     if (filter.tab === 'yomi') {
-      tabClause = ` AND p.gls_number IS NULL AND p.stage NOT IN ('e_lost')`;
+      where += ` AND p.gls_number IS NULL AND p.stage NOT IN ('e_lost')`;
     } else if (filter.tab === 'active') {
-      tabClause = ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
+      where += ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
     } else if (filter.tab === 'completed') {
-      tabClause = ` AND p.stage = 's_completed'`;
+      where += ` AND p.stage = 's_completed'`;
     } else if (filter.tab === 'lost') {
-      tabClause = ` AND p.stage = 'e_lost'`;
+      where += ` AND p.stage = 'e_lost'`;
     }
 
     // 個別フィルタ
@@ -190,11 +179,6 @@ export class ProjectService {
       params.push(filter.eventTo, filter.eventFrom);
     }
 
-    // タブ以外の絞り込みだけを残した where (タブごとの件数用)
-    const whereNoTab = where;
-    const paramsNoTab = params;
-    where += tabClause;
-
     // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
     let orderBy: string;
     if (!filter.sortBy || filter.sortBy === 'default') {
@@ -216,9 +200,7 @@ export class ProjectService {
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
-       ai.requested_by as ai_requested_by,
-       na.activity_id AS next_action_activity_id,
-       na.next_action, na.next_action_date
+       ai.requested_by as ai_requested_by
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
@@ -227,62 +209,10 @@ export class ProjectService {
          WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
          ORDER BY m.created_at ASC LIMIT 1
        ) ai ON TRUE
-       -- 次にやること = 未完了で期限が最も近いもの (/dashboard/sales-board と同じ定義)
-       LEFT JOIN LATERAL (
-         SELECT a.id AS activity_id, a.next_action, a.next_action_date
-         FROM activity_logs a
-         WHERE a.project_id = p.id AND a.deleted_at IS NULL
-           AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-           AND a.next_action_done_at IS NULL
-         ORDER BY a.next_action_date ASC, a.created_at DESC
-         LIMIT 1
-       ) na ON TRUE
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [config.mcpActorId, ...params, limit, offset]
     );
-
-    // 区分 (ネタ / 提案中 / 受注済・完了 / 失注) ごとの件数と金額。
-    // 1ページ分から数えるとページをまたいだ合計が出せないので、絞り込み全体で集計する。
-    const groupRows = await queryAll(
-      `SELECT CASE
-                WHEN p.stage = 'neta' THEN 'neta'
-                WHEN p.stage IN ('b_verbal','c_proposal','d_hold') THEN 'proposal'
-                WHEN p.stage IN ('s_completed','a_won') THEN 'won'
-                ELSE 'lost'
-              END AS grp,
-              COUNT(*)::int AS count,
-              COALESCE(SUM(p.expected_amount), 0)::float AS expected_total,
-              COALESCE(SUM((
-                SELECT COALESCE(SUM(r.amount), 0) FROM revenues r
-                WHERE r.project_id = p.id AND r.status = 'confirmed'
-                  AND r.deleted_at IS NULL AND r.group_id IS NULL
-              )), 0)::float AS confirmed_total
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
-       ${where}
-       GROUP BY grp`,
-      params
-    );
-
-    // タブごとの件数。タブ以外の絞り込み (検索・期間・AI) はそのまま効かせる。
-    const tabRows = await queryAll(
-      `SELECT
-         COUNT(*)::int AS all_count,
-         COUNT(*) FILTER (WHERE p.gls_number IS NULL AND p.stage <> 'e_lost')::int AS yomi,
-         COUNT(*) FILTER (WHERE p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed','e_lost'))::int AS active,
-         COUNT(*) FILTER (WHERE p.stage = 's_completed')::int AS completed,
-         COUNT(*) FILTER (WHERE p.stage = 'e_lost')::int AS lost
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
-       ${whereNoTab}`,
-      paramsNoTab
-    );
-
-    const summary = {
-      groups: groupRows as Record<string, unknown>[],
-      tabs: (tabRows[0] ?? { all_count: 0, yomi: 0, active: 0, completed: 0, lost: 0 }) as Record<string, unknown>,
-      expected_total: (groupRows as Record<string, number>[]).reduce((a, g) => a + Number(g.expected_total || 0), 0),
-    };
-
-    return { rows, total, page, limit, summary };
+    return { rows, total, page, limit };
   }
 
   async getById(id: string) {
@@ -402,17 +332,9 @@ export class ProjectService {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
             event_start, event_end, dates, gls_category } = data;
-    if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名とお客様は必須です');
-
-    // 14章 27b: 起票で聞くのは3つだけ (案件名 / お客様 / スタジオを使うか)。
-    // 案件分類は「スタジオを使うか」から決まるので**人には聞かない**
-    // (同じことを2度聞くと、片方だけ直された案件ができる)。
-    // 既存の画面と MCP は gls_category を直接渡してくるので、そちらも受ける。
-    const glsCategory = normalizeGlsCategory(gls_category)
-      ?? (data.uses_studio === undefined ? null : (data.uses_studio ? 'A' : 'B'));
-    if (!glsCategory) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'スタジオを使うかどうかを選んでください');
-    }
+    if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
+    const glsCategory = normalizeGlsCategory(gls_category);
+    if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
@@ -482,35 +404,11 @@ export class ProjectService {
    * 更新（ヨミ段階でも案件段階でも同じAPI）
    */
   async update(id: string, data: Record<string, unknown>, userId: string) {
-    // `SELECT *` にしてあるのは変更の記録 (project_changes) が変更前の主要項目を必要とするため。
-    // 列を絞ると「何が変わったか」を比べられない。
     const existing = await queryOne(
-      'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount FROM projects WHERE id = ? AND deleted_at IS NULL',
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-
-    // 楽観ロック (Qシート v2.9.166 と同じ形)
-    //
-    // 案件の保存は**全項目の上書き**なので、2人が同じ案件を開いていると後に保存した側が
-    // 相手の変更を黙って消す。金額を含む画面でこれが起きると気付けないため、
-    // 読み込み時点の updated_at を送ってきたクライアントには 409 を返す。
-    // **送ってこない旧クライアント / MCP は従来どおり通す** (後方互換)。
-    if (data.expected_updated_at) {
-      const dbAt = new Date(existing.updated_at as string).getTime();
-      const reqAt = new Date(data.expected_updated_at as string).getTime();
-      if (Number.isFinite(dbAt) && Number.isFinite(reqAt) && dbAt !== reqAt) {
-        const who = await queryOne(
-          `SELECT u.name FROM projects p LEFT JOIN users u ON u.id = p.updated_by WHERE p.id = ?`,
-          [id],
-        ) as { name?: string } | null;
-        throw new AppError(
-          409,
-          'CONFLICT',
-          `この案件は${who?.name ? `${who.name}さんが` : '他の人が'}先に保存しています。最新を読み込んでから直してください。`,
-        );
-      }
-    }
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
@@ -602,14 +500,6 @@ export class ProjectService {
       );
     }
 
-    // 変更の記録 (主要な項目だけ・実際に変わった行だけ)。失敗しても保存は成立させる
-    await recordProjectChanges(id, existing, {
-      name, customer_id, assigned_to, project_type,
-      event_start: finalEventStart, event_end: finalEventEnd,
-      expected_amount: expected_amount === undefined ? undefined : (expected_amount || 0),
-      ...(allowCategoryUpdate ? { gls_category: reqCategory } : {}),
-    }, { userId });
-
     // 案件名変更を BOX 両フォルダ (社内限り / 社外共有可) に並行反映 (非ブロッキング)
     if (typeof name === 'string' && name && name !== existing.name) {
       try {
@@ -652,21 +542,11 @@ export class ProjectService {
       );
     }
 
-    // 変更の記録 (ステージは update() とは別の経路で変わるのでここでも記録する)
-    await recordProjectChanges(id, project, { stage }, { userId });
-
     // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成。
     // 重複防止: この案件に既に予約 (種別問わず: 本番/リハ/仮押さえ/手動登録) があれば作らない。
     // (旧実装は booking_type='hold' のみ照合していたため、新規作成時に作られた本番予約と
     //  仮押さえ予約が二重登録されていた)
-    //
-    // **スタジオを使う案件 (A系) だけに作る。** GMO案件・コンサルティング等の
-    // プロジェクト系 (B系) にはスタジオのスケジュールという概念が無いのに、
-    // 日程が入っていれば予約を作っていたため、**スタジオを使わない案件の
-    // 仮押さえがスタジオのカレンダーに入っていた**。HTTP 経路は
-    // assertStageRequirements が先に止めるが、MCP の change_project_stage は
-    // ここを直接呼ぶので、この関数の中でも守る。
-    if (stage === 'd_hold' && project.event_start && resolveStudioUse(project) === 'studio') {
+    if (stage === 'd_hold' && project.event_start) {
       const existing = await queryOne(
         `SELECT id FROM studio_bookings WHERE project_id = ? AND deleted_at IS NULL LIMIT 1`,
         [id]
@@ -677,29 +557,8 @@ export class ProjectService {
         await execute(
           `INSERT INTO studio_bookings (id, title, booking_type, project_id, all_day, start_time, end_time, status, notes, created_by)
            VALUES (?, ?, 'hold', ?, 1, ?, ?, 'tentative', '案件ステージ移行で自動生成', ?)`,
-          // 題名は buildBookingTitle 1か所で作る (経路ごとに違う文字列になると
-          // 同じ予定が二重に入っていても突き合わせられない = 表記揺らぎの直接の原因)。
-          // 種別 (仮押さえ) は題名に入れない — 色と種別ラベルで出す。
-          [bookingId, buildBookingTitle({ projectName: project.name, date: project.event_start }),
-           id, project.event_start, eventEnd, userId]
+          [bookingId, `${project.name} 仮押さえ`, id, project.event_start, eventEnd, userId]
         );
-      }
-    }
-
-    // 受注したら、見積の「仕入(見込み)」列を見込み仕入の明細にする (30章 37a)。
-    // 見積を作るときに「この行は外部に幾ら払うか」が分かっているのに、
-    // 受注後にもう一度仕入画面で打ち直すのが二度打ちの実体。
-    // 冪等なのでステージを往復しても増えない。失敗しても受注は成立させる
-    // (仕入の自動作成のために営業の操作を止めない)。
-    if (stage === 'a_won') {
-      try {
-        const { materializeEstimateCosts } = await import('./estimate.service');
-        const r = await materializeEstimateCosts(id, userId);
-        if (r.created > 0) {
-          console.log(`[estimate] 受注により見込み仕入 ${r.created} 件を作成 (project=${id})`);
-        }
-      } catch (e) {
-        console.warn('[estimate] 見込み仕入の自動作成に失敗 (受注は成立):', (e as Error).message);
       }
     }
 
@@ -728,12 +587,6 @@ export class ProjectService {
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
-
-    // 変更の記録 (GLS 発番はステージも上がるので両方記録する)
-    await recordProjectChanges(id, project, {
-      gls_number: glsNumber,
-      stage: ['neta', 'd_hold', 'c_proposal'].includes(String(project.stage)) ? 'b_verbal' : project.stage,
-    }, { userId });
 
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);
@@ -1040,7 +893,7 @@ export class ProjectService {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
        FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL AND ${NOT_SANDBOX('p')}
+       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
        ORDER BY p.gls_number DESC`
     );
   }
@@ -1057,15 +910,6 @@ export class ProjectService {
     ) as any[];
     if (estimates.length === 0) return;
 
-    // 見積由来の印を付けておく (v3.1.5)。status を 'confirmed' に変えると
-    // 「見積だった行」を後から言えなくなり、見積画面が空になる = 作り直され、
-    // 同じ金額の売上が2件立つ。印は status に依らないので発番後も同じ行を開ける。
-    for (const est of estimates) {
-      await execute(
-        `UPDATE revenues SET is_estimate_origin = TRUE WHERE id = ?`, [est.id]
-      );
-    }
-
     // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）。
     // deleted_at でフィルタすると削除後に連番が再利用され billing_key が重複するため、
     // ソフトデリート分も含めて数える (連番は飛んでも一意性を優先)。
@@ -1080,7 +924,8 @@ export class ProjectService {
       const est = estimates[i];
       const seq = existingConfirmed + i + 1;
       const seqNum = String(seq).padStart(3, '0');
-      const newBillingKey = `${glsNumber}-${seqNum}-${taxBillingSuffix(est.tax_category)}`;
+      const taxSuffix = taxBillingSuffix(est.tax_category);
+      const newBillingKey = `${glsNumber}-${seqNum}-${taxSuffix}`;
       await execute(
         `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = NOW() WHERE id = ?`,
         [newBillingKey, est.id]
@@ -1097,11 +942,6 @@ export class ProjectService {
 
     // 直接売上（group_id なし）+ グループ按分された売上
     // 明細行がある場合は revenue_items の合計を使う（revenues.amount との乖離を防ぐ）
-    //
-    // **見積 (status='estimate') は売上に数えない。**
-    // 見積はまだ提案で、GLS 発番のときに migrateEstimates で 'confirmed' に変わる。
-    // 数えていた間は「売上（確定）」に見積が混ざり、案件の粗利・粗利率が過大に出ていた
-    // (想定金額としても別に出しているので二重計上になっていた)。
     const directRev = await queryOne(
       `SELECT COALESCE(SUM(
          CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
@@ -1112,15 +952,10 @@ export class ProjectService {
          FROM revenue_items
          GROUP BY revenue_id
        ) ri ON ri.revenue_id = r.id
-       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL
-         AND r.status <> 'estimate'`,
+       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL`,
       [id]
     );
-    const allocatedRev = await queryOne(
-      `SELECT COALESCE(SUM(ra.allocated_amount), 0) as total
-         FROM revenue_allocations ra
-         JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
-        WHERE ra.project_id = ? AND r.status <> 'estimate'`, [id]);
+    const allocatedRev = await queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
     const allocatedPur = await queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);

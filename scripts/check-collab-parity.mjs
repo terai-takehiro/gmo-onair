@@ -20,10 +20,6 @@ const root = path.resolve(import.meta.dirname, '..');
 const PAIRS = [
   ['server/src/shared/collab/yjsDoc.ts', 'shared/src/collab/yjsDoc.ts'],
   ['server/src/shared/collab/projectCollabDoc.ts', 'shared/src/collab/projectCollabDoc.ts'],
-  // スタジオ予約の題名の生成 (v3.1.2)。ここが片方だけ変わると、画面から作った予約と
-  // サーバー/AI が作った予約で題名の形が食い違い、同じ予定を突き合わせられなくなる
-  // (= 二重登録が見つけられない)。乖離をビルドで止める。
-  ['server/src/shared/booking/bookingTitle.ts', 'shared/src/booking/bookingTitle.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */

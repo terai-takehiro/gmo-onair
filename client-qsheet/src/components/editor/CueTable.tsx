@@ -20,7 +20,6 @@ import { genId } from "@/lib/stableIds";
 import CueRow from "./CueRow";
 import CueCardList from "./CueCardList";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -88,13 +87,10 @@ function defaultBlockWidth(blk: Block): number {
 const parseDur = parseDurShared;
 const fmtAbs = fmtAbsShared;
 
-// ─── 見分けるための色 (カテゴリ) ────────────────────────────────
-// 状態の色 (success / warning / destructive) は使わない — 「話者3が赤」なのか
-// 「話者3に異常がある」のか区別が付かなくなる。共通の `cat-1〜8` から選ぶ
-// (tokens.css。8色すべて白文字が AA を満たす)。9人目からは色が一巡する。
+// ─── SPEAKER_COLORS ─────────────────────────────────────
 const SPEAKER_COLORS = [
-  "bg-cat-1", "bg-cat-2", "bg-cat-3", "bg-cat-4",
-  "bg-cat-5", "bg-cat-6", "bg-cat-7", "bg-cat-8",
+  "bg-slate-700", "bg-teal-700", "bg-purple-700", "bg-pink-700", "bg-amber-700",
+  "bg-green-700", "bg-blue-800", "bg-red-800", "bg-indigo-700", "bg-orange-700",
 ];
 
 // ─── CueTable ───────────────────────────────────────────
@@ -239,8 +235,8 @@ function CueTableLg({
     });
   }, [updateState]);
 
-  const deleteSection = useCallback(async (si: number) => {
-    if (!(await confirmAction({ title: "このロールを削除しますか？", description: "（ゴミ箱から復元可能です）", confirmLabel: '削除する', tone: 'danger' }))) return;
+  const deleteSection = useCallback((si: number) => {
+    if (!confirm("このロールを削除しますか？（ゴミ箱から復元可能です）")) return;
     updateState((s: any) => {
       const section = s.sections[si];
       if (!section) return s;
@@ -496,7 +492,7 @@ function CueTableLg({
       <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 group-hover:border-primary/40 transition-colors pointer-events-none" />
       {/* デフォルト表示: 小さな + アイコンのみ */}
       <span
-        className="relative inline-flex items-center justify-center size-5 rounded-full bg-background text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
+        className="relative inline-flex items-center justify-center size-5 rounded-full bg-background text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
         aria-hidden
       >
         <Plus size={12} />
@@ -506,7 +502,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => insertSectionAt(idx)}
-          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} にロールを挿入`}
         >
           ＋ ロール
@@ -514,7 +510,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => addBreak(idx - 1)}
-          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning-strong hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} に CM を挿入`}
         >
           ＋ CM
@@ -522,7 +518,7 @@ function CueTableLg({
         <button
           type="button"
           onClick={() => addVtr(idx - 1)}
-          className="inline-flex h-ctl-1 items-center px-2 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`位置 ${idx} に VTR を挿入`}
         >
           ＋ VTR
@@ -563,11 +559,11 @@ function CueTableLg({
             return (
               <Fragment key={section.id ?? si}>
                 <div className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
-                  <GripVertical size={12} className="text-muted-foreground flex-none" />
+                  <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
                   <div className="flex-1 border-t-2 border-dashed border-border" />
                   <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">改ページ</span>
                   <div className="flex-1 border-t-2 border-dashed border-border" />
-                  <button onClick={() => deleteSection(si)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
+                  <button onClick={() => deleteSection(si)} className="text-muted-foreground/60 hover:text-destructive transition-colors p-0.5">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -615,7 +611,7 @@ function CueTableLg({
                       }}
                       className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
                         parseDur(section.duration || "") === 0
-                          ? "bg-warning/30 text-warning-strong ring-1 ring-warning/70"
+                          ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
                           : "bg-foreground/30 text-background/70"
                       }`}
                       placeholder="0:00"
@@ -647,16 +643,16 @@ function CueTableLg({
                   onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
                   className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-lg" : ""}`}
                 >
-                <div className="flex items-center gap-3 px-4 py-1.5 bg-primary rounded-lg cursor-grab select-none">
-                  <GripVertical size={13} className="text-primary-foreground/80 flex-none" aria-hidden />
-                  <span className="text-[11px] font-bold text-primary-foreground bg-primary/50 rounded px-1.5 py-0.5 tracking-wider">VTR</span>
-                  <span className="text-[13px] text-primary-foreground tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-indigo-800 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 rounded-lg cursor-grab select-none">
+                  <GripVertical size={13} className="text-indigo-300 flex-none" aria-hidden />
+                  <span className="text-[11px] font-bold text-indigo-200 bg-indigo-950/50 rounded px-1.5 py-0.5 tracking-wider">VTR</span>
+                  <span className="text-[13px] text-indigo-200 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
                     {fmtAbs(vtrAbsSec)}
                   </span>
                   <input
                     value={section.label || ""}
                     onChange={(e) => updateSection(si, "label", e.target.value)}
-                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-primary-foreground/80 tracking-wide flex-1"
+                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-indigo-300 tracking-wide flex-1"
                     placeholder="VTR タイトル"
                   />
                   <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
@@ -669,15 +665,15 @@ function CueTableLg({
                       const n = normalizeDur(e.target.value);
                       if (n !== e.target.value) updateSection(si, "duration", n);
                     }}
-                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-primary-foreground/80 focus:text-white transition-colors ${
+                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-indigo-300 focus:text-white transition-colors ${
                       vtrDur === 0
-                        ? "bg-warning/30 text-warning-strong ring-1 ring-warning/70"
-                        : "bg-primary/50 text-primary-foreground"
+                        ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
+                        : "bg-indigo-950/50 text-indigo-100"
                     }`}
                     placeholder="0:00"
                     title={vtrDur === 0 ? "尺が未入力です" : undefined}
                   />
-                  <button onClick={() => deleteSection(si)} className="text-info hover:text-destructive transition-colors p-1">
+                  <button onClick={() => deleteSection(si)} className="text-info/80 hover:text-destructive/80 transition-colors p-1">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -734,7 +730,7 @@ function CueTableLg({
                   }}
                   className={`w-14 text-center text-[13px] font-medium border-none outline-none rounded-md py-1 tabular-nums focus:bg-white/25 transition-colors font-oswald ${
                     parseDur(section.duration || "") === 0
-                      ? "bg-warning/30 text-warning-strong ring-1 ring-warning/80 placeholder:text-warning-strong"
+                      ? "bg-amber-400/30 text-amber-50 ring-1 ring-amber-300/80 placeholder:text-amber-100/70"
                       : "bg-white/15 text-white placeholder:text-white/30"
                   }`}
                   placeholder="0:00"
@@ -744,7 +740,7 @@ function CueTableLg({
                 <input
                   value={section.label || ""}
                   onChange={(e) => updateSection(si, "label", e.target.value)}
-                  className="flex-1 bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-primary-foreground/60 tracking-wide"
+                  className="flex-1 bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-blue-200/50 tracking-wide"
                   placeholder="ロール名"
                 />
                 <button
@@ -811,13 +807,9 @@ function CueTableLg({
                                   updateState((s: any) => {
                                     const blks = [...s.blocks];
                                     const fromIdx = blks.findIndex((b: Block) => b.id === fromId);
-                                    // 挿入位置は**落とした列の id** から引く。
-                                    // 表示している列 (bi) は「出す列」で絞られていることがあり、
-                                    // その番号で state の配列に splice すると別の列の位置に入ってしまう。
-                                    const toIdx = blks.findIndex((b: Block) => b.id === blk.id);
-                                    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return s;
+                                    if (fromIdx < 0 || fromIdx === bi) return s;
                                     const [moved] = blks.splice(fromIdx, 1);
-                                    blks.splice(toIdx, 0, moved);
+                                    blks.splice(bi, 0, moved);
                                     return { ...s, blocks: blks };
                                   });
                                   setDraggedBlockId(null);
@@ -826,7 +818,7 @@ function CueTableLg({
                                 onDragEnd={() => { setDraggedBlockId(null); setDropTargetIdx(null); }}
                                 className={`px-2 py-2 text-left font-medium border-b border-border/60 relative group/th cursor-grab select-none transition-all ${
                                   draggedBlockId === blk.id ? "opacity-40" : ""
-                                } ${isDragTarget ? "border-l-2 border-l-primary" : ""}`}
+                                } ${isDragTarget ? "border-l-2 border-l-blue-500" : ""}`}
                               >
                                 {isCollapsed ? (
                                   <div className="flex items-center justify-center h-full">
@@ -848,7 +840,7 @@ function CueTableLg({
                                 {!isCollapsed && (
                                   <div
                                     draggable={false}
-                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-primary/90 transition-opacity"
+                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-primary transition-opacity"
                                     onMouseDown={(e) => startResize(e, blk)}
                                   />
                                 )}
@@ -940,7 +932,7 @@ function CueTableLg({
           </button>
           <button
             onClick={() => addBreak()}
-            className="py-3 px-5 text-sm text-muted-foreground hover:text-warning-strong border-2 border-dashed border-border hover:border-warning rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-muted-foreground hover:text-warning border-2 border-dashed border-border hover:border-warning rounded-xl transition-all"
           >
             ＋ CMなど
           </button>

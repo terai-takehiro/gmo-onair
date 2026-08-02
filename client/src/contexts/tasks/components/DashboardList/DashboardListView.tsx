@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { CheckSquare, Square, ExternalLink, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashboardProject, DashboardTask, TaskColumn } from "@/types";
-import { aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 
 interface Props {
   projects: DashboardProject[];
@@ -145,7 +144,7 @@ export default function DashboardListView({ projects, columns, tasks }: Props) {
                               {task.is_ai_created && (
                                 <span
                                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 shrink-0"
-                                  title={aiOriginTitle("作成")}
+                                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
                                 >
                                   <Sparkles className="h-2.5 w-2.5" />
                                   AI作成

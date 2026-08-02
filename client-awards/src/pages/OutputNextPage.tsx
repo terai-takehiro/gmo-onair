@@ -46,9 +46,7 @@ export default function OutputNextPage() {
     refetchInterval: 30000,
   });
 
-  // 書き込む関数だけを選ぶ (引数なしだとストア全体を見て毎回描き直される)
-  const setCategories = useAwardsStore((s) => s.setCategories);
-  const setSurveys = useAwardsStore((s) => s.setSurveys);
+  const { setCategories, setSurveys } = useAwardsStore();
   useEffect(() => {
     if (event?.categories) setCategories(event.categories);
     if (event) setSurveys(event.surveys ?? []);

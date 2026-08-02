@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Save } from 'lucide-react';
-import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 interface YoutubeUrl { label: string; url: string }
 interface LiveProgram {
@@ -78,7 +77,9 @@ export default function ProgramsPage() {
 
   if (isLoading) {
     return (
-      <Delayed><SkeletonRows rows={5} /></Delayed>
+      <div className="flex h-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+      </div>
     );
   }
 
@@ -89,7 +90,7 @@ export default function ProgramsPage() {
         {canManage && (
           <Button
             size="sm"
-            className="h-ctl-1 text-xs"
+            className="h-7 text-xs"
             onClick={() => saveMutation.mutate()}
             disabled={!name.trim() || saveMutation.isPending}
           >
@@ -125,7 +126,7 @@ export default function ProgramsPage() {
             <div className="flex items-center justify-between">
               <Label>YouTube URL</Label>
               {canManage && (
-                <Button type="button" variant="ghost" size="sm" className="h-ctl-1 text-xs" onClick={addYtUrl}>
+                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={addYtUrl}>
                   <Plus className="h-3 w-3 mr-1" />追加
                 </Button>
               )}

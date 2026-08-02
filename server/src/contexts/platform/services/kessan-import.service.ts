@@ -17,9 +17,9 @@ import type { PoolClient } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 import * as XLSX from 'xlsx';
-import { safeReadWorkbook } from '../../../shared/utils/xlsx-safe';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
+import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 
 export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
@@ -126,17 +126,12 @@ function stripGlsName(memo: unknown): string {
     .trim();
   return (nm || String(memo ?? '').trim()).slice(0, 80);
 }
-/**
- * freee の税区分文字列 → ONAiR の税区分。
- *
- * 「非課税」と「不課税 / 対象外」を**分けて入れる** (v3.1.5)。以前はどちらも exempt に
- * 寄せていたので、取り込んだあとに帳簿で分けられなかった (税額は同じ 0 円だが、
- * 申告では別の区分)。判定は**不課税を先に見る** — 「不課税」は「課税」を含むため
- * 順番を変えると 10% に落ちる。
- */
 function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' | 'nontax' {
   const s = String(z ?? '');
   if (s.includes('8%') || s.includes('軽')) return 'tax8';
+  // **「不課税」を先に見る**。「不課税」は「課税」を含むので順番を逆にすると取り違える。
+  // 非課税 (消費税の対象だが法令で課税しない) と不課税 (そもそも対象外) は
+  // 税額はどちらも 0 円だが、帳簿と申告では区別する。片方に寄せると後から分けられない。
   if (s.includes('不課税') || s.includes('対象外')) return 'nontax';
   if (s.includes('非課税')) return 'exempt';
   return 'tax10';
@@ -149,7 +144,7 @@ function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' | 'nontax' {
 function grossToNet(gross: number, taxCat: 'tax10' | 'tax8' | 'exempt' | 'nontax'): number {
   if (taxCat === 'tax10') return Math.round(gross / 1.1);
   if (taxCat === 'tax8') return Math.round(gross / 1.08);
-  return gross;   // 非課税・不課税は税込 = 税抜
+  return gross;
 }
 const invQualified = (...xs: unknown[]): number => {
   const s = xs.map((x) => String(x ?? '')).join(' ');
@@ -403,7 +398,7 @@ function extractFreeeJournalRows(rows: string[][], glFileName: string): Extracte
  * - G社名='GLS' 以外 (AM/GLOVIA 等の他社レガシー) は除外。
  */
 function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Extracted {
-  const wb = safeReadWorkbook(buf);
+  const wb = XLSX.read(buf, { type: 'buffer' });
   let H: Record<string, number> | null = null;
   let body: string[][] = [];
   for (const sheetName of wb.SheetNames) {
@@ -934,7 +929,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
-        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
+        taxCat: normalizeTaxCategory(row.tax_category),
         key: String(row.gls_number || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS?'} ${row.cname || ''}`.trim(),
       })), 'revenues');
@@ -947,7 +942,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
-        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
+        taxCat: normalizeTaxCategory(row.tax_category),
         key: String(row.gls_number || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS無'} ${row.vname || ''}`.trim(),
       })), 'purchases');
@@ -959,7 +954,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
-        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
+        taxCat: normalizeTaxCategory(row.tax_category),
         key: String(row.vendor_name || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.vendor_name || ''}`.trim(),
       })), 'sga');

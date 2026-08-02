@@ -148,7 +148,7 @@ function MobileGanttView({
             {/* Project header */}
             <button
               onClick={() => navigate(`/sales/projects/${project.id}/tasks`)}
-              className="h-ctl-3 w-full flex items-center justify-between px-3 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
             >
               <span className="font-semibold text-sm truncate">
                 {project.gls_number ? `${project.gls_number} ` : ""}
@@ -191,14 +191,14 @@ function MobileGanttView({
                     {/* Row 2: meta + date badge */}
                     <div className="flex items-center gap-2 text-xs">
                       {col && (
-                        <span className="text-muted-foreground truncate max-w-[72px]">
+                        <span className="text-muted-foreground truncate max-w-[80px]">
                           {col.name}
                         </span>
                       )}
                       {task.assigned_to_name && (
                         <>
                           <span className="text-muted-foreground/40">·</span>
-                          <span className="text-muted-foreground truncate max-w-[72px]">
+                          <span className="text-muted-foreground truncate max-w-[80px]">
                             {task.assigned_to_name}
                           </span>
                         </>

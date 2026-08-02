@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import api from '@/lib/api';
 import { Music, Upload, Trash2, Play, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /**
  * 演出SE 設定セクション (イベント編集画面) — v2.9.122
@@ -85,7 +84,7 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
     try { await api.put(`/awards/sounds/${s.id}`, { volume }); } catch { /* noop */ }
   };
   const onDelete = async (s: Sound) => {
-    if (!(await confirmAction({ title: 'この音源を削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
+    if (!window.confirm('この音源を削除しますか？')) return;
     try { await api.delete(`/awards/sounds/${s.id}`); flash('ok', '削除しました'); load(); }
     catch { flash('err', '削除に失敗しました'); }
   };
@@ -101,27 +100,27 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
         const s = matchSound(sounds, layer, slot.step, slot.rankStart);
         const key = slotKey(layer, slot.step, slot.rankStart);
         return (
-          <div key={key} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
-            <span className="flex-1 min-w-0 truncate font-medium text-muted-foreground">{slot.label}</span>
+          <div key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <span className="flex-1 min-w-0 truncate font-medium text-slate-700">{slot.label}</span>
             {s ? (
               <>
-                <button onClick={() => preview(s.url)} className="h-ctl-1 flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 text-xs" title="試聴">
+                <button onClick={() => preview(s.url)} className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2 py-1 text-xs" title="試聴">
                   <Play className="h-3.5 w-3.5" /> 試聴
                 </button>
                 <input type="range" min={0} max={100} value={Math.round(s.volume * 100)}
                   onChange={(e) => onVolume(s, Number(e.target.value) / 100)}
-                  className="w-20 accent-primary" title={`音量 ${Math.round(s.volume * 100)}%`} />
-                <label className="flex items-center gap-1 rounded bg-info/10 hover:bg-info/10 px-2 py-1 text-xs text-info cursor-pointer">
+                  className="w-20 accent-cyan-600" title={`音量 ${Math.round(s.volume * 100)}%`} />
+                <label className="flex items-center gap-1 rounded bg-cyan-50 hover:bg-cyan-100 px-2 py-1 text-xs text-cyan-700 cursor-pointer">
                   差し替え
                   <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(layer, slot.step, slot.rankStart, f); e.currentTarget.value = ''; }} />
                 </label>
-                <button onClick={() => onDelete(s)} className="rounded p-1 text-destructive hover:bg-destructive/90-surface" title="削除">
+                <button onClick={() => onDelete(s)} className="rounded p-1 text-red-500 hover:bg-red-50" title="削除">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </>
             ) : (
-              <label className="flex items-center gap-1 rounded bg-muted hover:bg-accent px-2.5 py-1 text-xs text-muted-foreground cursor-pointer">
+              <label className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-xs text-slate-600 cursor-pointer">
                 {busy === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 wav/mp3 を追加
                 <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" className="hidden"
@@ -146,36 +145,36 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
         {pollSounds.map((s) => {
           const key = slotKey('quiz', 'poll', s.rankStart);
           return (
-            <div key={key} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
-              <span className="flex-1 min-w-0 truncate font-medium text-muted-foreground">出題カウントダウン（{s.rankStart}秒）</span>
-              <button onClick={() => preview(s.url)} className="h-ctl-1 flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 text-xs" title="試聴">
+            <div key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <span className="flex-1 min-w-0 truncate font-medium text-slate-700">出題カウントダウン（{s.rankStart}秒）</span>
+              <button onClick={() => preview(s.url)} className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2 py-1 text-xs" title="試聴">
                 <Play className="h-3.5 w-3.5" /> 試聴
               </button>
               <input type="range" min={0} max={100} value={Math.round(s.volume * 100)}
                 onChange={(e) => onVolume(s, Number(e.target.value) / 100)}
-                className="w-20 accent-primary" title={`音量 ${Math.round(s.volume * 100)}%`} />
-              <label className="flex items-center gap-1 rounded bg-info/10 hover:bg-info/10 px-2 py-1 text-xs text-info cursor-pointer">
+                className="w-20 accent-cyan-600" title={`音量 ${Math.round(s.volume * 100)}%`} />
+              <label className="flex items-center gap-1 rounded bg-cyan-50 hover:bg-cyan-100 px-2 py-1 text-xs text-cyan-700 cursor-pointer">
                 差し替え
                 <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload('quiz', 'poll', s.rankStart, f); e.currentTarget.value = ''; }} />
               </label>
-              <button onClick={() => onDelete(s)} className="rounded p-1 text-destructive hover:bg-destructive/90-surface" title="削除">
+              <button onClick={() => onDelete(s)} className="rounded p-1 text-red-500 hover:bg-red-50" title="削除">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
           );
         })}
         {pollSounds.length === 0 && (
-          <p className="px-1 text-[11px] text-muted-foreground">秒数を指定して出題カウントダウンの音源を追加してください（出題クイズの制限秒数に一致する音源が再生されます）。</p>
+          <p className="px-1 text-[11px] text-slate-500">秒数を指定して出題カウントダウンの音源を追加してください（出題クイズの制限秒数に一致する音源が再生されます）。</p>
         )}
         {/* 秒数を指定して追加 */}
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border bg-white px-3 py-2 text-sm">
-          <span className="text-xs font-medium text-muted-foreground">秒数</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-sm">
+          <span className="text-xs font-medium text-slate-600">秒数</span>
           <input type="number" min={1} max={32767} value={pollSecInput}
             onChange={(e) => setPollSecInput(e.target.value)}
-            className="w-20 rounded border border-border px-2 py-1 text-sm" />
-          <span className="text-xs text-muted-foreground">秒</span>
-          <label className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs cursor-pointer ${addValid ? 'bg-muted hover:bg-accent text-muted-foreground' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}>
+            className="w-20 rounded border border-slate-300 px-2 py-1 text-sm" />
+          <span className="text-xs text-slate-500">秒</span>
+          <label className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs cursor-pointer ${addValid ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}>
             {busy === slotKey('quiz', 'poll', addValid ? addSec : null) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             この秒数の音源を追加
             <input type="file" accept=".wav,.mp3,audio/wav,audio/mpeg" className="hidden" disabled={!addValid}
@@ -184,7 +183,7 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
           <div className="flex flex-wrap items-center gap-1">
             {POLL_SEC_PRESETS.map((n) => (
               <button key={n} onClick={() => setPollSecInput(String(n))}
-                className={`rounded px-2 py-0.5 text-[11px] ${addSec === n ? 'bg-info text-white' : 'bg-muted hover:bg-accent text-muted-foreground'}`}>
+                className={`rounded px-2 py-0.5 text-[11px] ${addSec === n ? 'bg-cyan-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
                 {n}秒
               </button>
             ))}
@@ -195,16 +194,16 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
   };
 
   return (
-    <div className="mb-6 rounded-xl border border-border bg-muted/60 p-4">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 text-sm font-bold text-muted-foreground">
-        <Music className="h-4 w-4 text-info" />
+    <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 text-sm font-bold text-slate-800">
+        <Music className="h-4 w-4 text-cyan-600" />
         演出SE（効果音）
-        <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{sounds.length} 件</span>
-        <span className="ml-auto text-xs text-muted-foreground">{open ? '閉じる ▲' : '開く ▼'}</span>
+        <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{sounds.length} 件</span>
+        <span className="ml-auto text-xs text-slate-500">{open ? '閉じる ▲' : '開く ▼'}</span>
       </button>
 
       {msg && (
-        <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-success-surface text-success' : 'bg-destructive-surface text-destructive'}`}>
+        <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {msg.kind === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
           {msg.text}
         </div>
@@ -212,18 +211,18 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
 
       {open && (
         <div className="mt-4 space-y-4">
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
+          <p className="text-[11px] leading-relaxed text-slate-500">
             CGステップに wav / mp3 を割り当てると、出力URL（OBS）でそのステップに切り替わった瞬間に再生されます。
             音は1チャンネルで、<strong>次のTAKEで前の音は即カットアウト</strong>。鳴らすのは出力URLに <code>?audio=1</code> を付けた1枚だけ。
             ランキングバーは開始順位（5/4/3/2位）ごとに別音源を登録できます（人数に応じて自動で選択）。
             クイズの出題カウントダウンは制限秒数（5/10/…/120 秒など任意）ごとに別音源を登録でき、出題クイズの秒数に一致する音源が再生されます（無ければ汎用にフォールバック）。
           </p>
           <div>
-            <div className="mb-1.5 text-xs font-bold tracking-wider text-muted-foreground">ランキングCG</div>
+            <div className="mb-1.5 text-xs font-bold tracking-wider text-slate-500">ランキングCG</div>
             {renderSlots('ranking', RANKING_SLOTS)}
           </div>
           <div>
-            <div className="mb-1.5 text-xs font-bold tracking-wider text-muted-foreground">クイズ / アンケートCG</div>
+            <div className="mb-1.5 text-xs font-bold tracking-wider text-slate-500">クイズ / アンケートCG</div>
             {renderQuizCountdown()}
             <div className="mt-1.5">{renderSlots('quiz', QUIZ_FIXED_SLOTS)}</div>
           </div>

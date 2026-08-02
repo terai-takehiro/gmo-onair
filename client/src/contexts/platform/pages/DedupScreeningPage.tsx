@@ -5,8 +5,6 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, CopyCheck, Trash2 } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface DedupCandidate {
   table: "revenues" | "purchases" | "sga";
@@ -39,7 +37,7 @@ const yen = (n: number) => "¥" + Number(n || 0).toLocaleString();
 type Scope = "sga" | "revenues" | "purchases" | "all";
 const TABLE_LABEL: Record<string, string> = { revenues: "売上", purchases: "仕入", sga: "販管費" };
 
-export default function DedupScreeningPage({ embedded }: { embedded?: boolean } = {}) {
+export default function DedupScreeningPage() {
   const { currentUser } = useAuth();
   const isSystemAdmin = currentUser?.role === "system_admin";
 
@@ -80,10 +78,10 @@ export default function DedupScreeningPage({ embedded }: { embedded?: boolean } 
 
   return (
     <PageTransition>
-      <div className={embedded ? "space-y-5" : "mx-auto max-w-4xl space-y-5 p-4 sm:p-6"}>
-        <div className={embedded ? "hidden" : "flex items-center gap-2"}>
+      <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
+        <div className="flex items-center gap-2">
           <CopyCheck className="h-6 w-6 text-primary" />
-          <PageTitle>二重計上スクリーニング</PageTitle>
+          <h1 className="text-xl font-bold lg:text-2xl">二重計上スクリーニング</h1>
         </div>
 
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
@@ -131,10 +129,10 @@ export default function DedupScreeningPage({ embedded }: { embedded?: boolean } 
             </Button>
             <Button
               variant="destructive"
-              disabled={run.isPending || !report || (report.summary?.total?.count ?? 0) === 0}
-              onClick={async () => {
-                const n = report?.summary?.total?.count ?? 0;
-                if ((await confirmAction({ title: `決算インポート行 ${n} 件を削除します（手入力行は残ります）。よろしいですか？`, description: `※論理削除のため必要ならバックアップから復元できます。`, confirmLabel: '削除する', tone: 'danger' }))) {
+              disabled={run.isPending || !report || report.summary.total.count === 0}
+              onClick={() => {
+                const n = report?.summary.total.count ?? 0;
+                if (window.confirm(`決算インポート行 ${n} 件を削除します（手入力行は残ります）。よろしいですか？\n※論理削除のため必要ならバックアップから復元できます。`)) {
                   run.mutate(true);
                 }
               }}

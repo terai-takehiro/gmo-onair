@@ -21,8 +21,6 @@ import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState, NoSearchResults } from '@gmo-onair/shared/src/client/states';
 import {
   AttendeeCard, InviewDialog, UNDATED, checkedInHeadOf, dayKey, downloadCsv, formatDayTitle,
   headOf, matchedFields, matchesTerms, searchTerms, todayKey,
@@ -97,10 +95,10 @@ export default function InviewPage() {
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <PageTitle>
+          <h1 className="flex items-center gap-2 text-xl font-bold">
             <CalendarCheck className="h-5 w-5 text-primary" />
             内覧会 来場予約
-          </PageTitle>
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             開催日を選ぶとその日の受付ページが開きます。Kairos3 の登録通知メールを AI が取り込み、当日は来場チェックに使えます。
           </p>
@@ -142,11 +140,14 @@ export default function InviewPage() {
         isLoading ? (
           <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : hits.length === 0 ? (
-          <NoSearchResults
-            keyword={query}
-            activeFilters={upcoming ? ['表示: 今後の回のみ'] : []}
-            onClearFilters={upcoming ? () => setUpcoming(false) : undefined}
-          />
+          <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
+            <p>「{query}」に一致する来場予約はありません。</p>
+            {upcoming && (
+              <Button variant="outline" size="sm" onClick={() => setUpcoming(false)}>
+                「今後の回のみ」を解除してすべての回から探す
+              </Button>
+            )}
+          </CardContent></Card>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
@@ -217,11 +218,13 @@ export default function InviewPage() {
           {isLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : days.length === 0 ? (
-            <EmptyState
-              title={upcoming ? '今後の回の来場予約がまだありません' : '来場予約がまだありません'}
-              description="Kairos3 のメールを AI が取り込むか、「来場予約を追加」から登録してください。"
-              action={upcoming ? <Button variant="outline" size="sm" onClick={() => setUpcoming(false)}>すべての回を見る</Button> : undefined}
-            />
+            <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
+              <p>{upcoming ? '今後の回の来場予約がまだありません。' : '来場予約がまだありません。'}</p>
+              <p>Kairos3 のメールを AI が取り込むか、「来場予約を追加」から登録してください。</p>
+              {upcoming && (
+                <Button variant="outline" size="sm" onClick={() => setUpcoming(false)}>すべての回を見る</Button>
+              )}
+            </CardContent></Card>
           ) : (
             <ul className="space-y-3">
               {days.map((g) => {
@@ -263,7 +266,7 @@ export default function InviewPage() {
                           <span className="font-semibold tabular-nums text-foreground">{g.regs}</span>組 /
                           <span className="font-semibold tabular-nums text-foreground">{g.head}</span>名
                         </span>
-                        <span className={`inline-flex items-center gap-1 ${g.checkedIn > 0 ? 'text-success' : ''}`}>
+                        <span className={`inline-flex items-center gap-1 ${g.checkedIn > 0 ? 'text-emerald-700' : ''}`}>
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           受付 <span className="font-semibold tabular-nums">{g.checkedIn}</span> / {g.head}名
                         </span>

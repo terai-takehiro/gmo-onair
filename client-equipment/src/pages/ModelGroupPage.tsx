@@ -17,19 +17,16 @@ import {
   Pencil, Settings2, Plus, Trash2, ArrowUp, ArrowDown, Check, X,
 } from "lucide-react";
 import { TYPE_CODES, CONDITION_LABELS } from "@/lib/constants";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 const STATUS_LABELS: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "休止", disposed: "廃棄", lost: "紛失",
 };
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-success-surface text-success",
-  in_repair: "bg-warning-surface text-warning-strong",
-  retired: "bg-muted text-muted-foreground",
-  disposed: "bg-destructive-surface text-destructive",
-  lost: "bg-destructive-surface text-destructive",
+  active: "bg-green-100 text-green-800",
+  in_repair: "bg-yellow-100 text-yellow-800",
+  retired: "bg-gray-100 text-gray-700",
+  disposed: "bg-red-100 text-red-700",
+  lost: "bg-red-100 text-red-700",
 };
 
 interface ChildItem {
@@ -163,12 +160,9 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
         {/* リスト */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
-            <Delayed><SkeletonRows rows={4} /></Delayed>
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
           ) : categories.length === 0 ? (
-            <EmptyState
-              title="カテゴリはまだ1つもありません"
-              description="「カテゴリを追加」から作ると、機材をまとめて分類できます。"
-            />
+            <p className="text-center text-sm text-muted-foreground py-6">カテゴリがありません</p>
           ) : (
             <div className="space-y-1">
               {categories.map((cat, idx) => (
@@ -189,7 +183,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
                         className="h-6 text-sm flex-1"
                         autoFocus
                       />
-                      <button className="p-1 text-success hover:bg-muted rounded" onClick={confirmEdit} disabled={updateMutation.isPending}>
+                      <button className="p-1 text-green-600 hover:bg-muted rounded" onClick={confirmEdit} disabled={updateMutation.isPending}>
                         {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                       </button>
                       <button className="p-1 text-muted-foreground hover:bg-muted rounded" onClick={() => setEditingId(null)}><X className="h-3 w-3" /></button>
@@ -200,7 +194,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
                       <button className="p-1 rounded hover:bg-muted text-muted-foreground" onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }} title="名前を変更"><Pencil className="h-3 w-3" /></button>
                       <button
                         className="p-1 rounded hover:bg-muted text-destructive"
-                        onClick={async () => { if ((await confirmAction({ title: `「${cat.name}」を削除しますか？`, description: `割り当て済みの機材のカテゴリは解除されます。`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(cat.id); }}
+                        onClick={() => { if (confirm(`「${cat.name}」を削除しますか？\n割り当て済みの機材のカテゴリは解除されます。`)) deleteMutation.mutate(cat.id); }}
                         title="削除"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -222,7 +216,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
 }
 
 // ─── メインページ ─────────────────────────────────────────────────────
-export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}) {
+export default function ModelGroupPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -344,13 +338,13 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
     <div className="space-y-4 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <PageTitle className={embedded ? "hidden" : undefined}>貸出機材一覧</PageTitle>
+        <h1 className="text-xl lg:text-2xl font-bold">貸出機材一覧</h1>
         <div className="flex items-center gap-2">
           {!isLoading && (
             <p className="text-sm text-muted-foreground">
               {groups.length} 型番 / {totalUnits} 台
               {inRepairCount > 0 && (
-                <span className="ml-2 text-warning-strong">（修理中 {inRepairCount} 台）</span>
+                <span className="ml-2 text-yellow-700">（修理中 {inRepairCount} 台）</span>
               )}
             </p>
           )}
@@ -363,7 +357,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="商品名・型番・メーカーで検索..."
@@ -375,7 +369,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
 
         {allCategories.length > 0 && (
           <Select value={categoryFilter || "_all"} onValueChange={v => setCategoryFilter(v === "_all" ? "" : v)}>
-            <SelectTrigger className="w-[128px]">
+            <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="全カテゴリ" />
             </SelectTrigger>
             <SelectContent>
@@ -389,7 +383,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
         )}
 
         <Select value={typeFilter || "_all"} onValueChange={v => setTypeFilter(v === "_all" ? "" : v)}>
-          <SelectTrigger className="w-[128px]">
+          <SelectTrigger className="w-[130px]">
             <SelectValue placeholder="全種別" />
           </SelectTrigger>
           <SelectContent>
@@ -475,10 +469,10 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                             <Badge variant="outline" className="text-xs">{typeLabel(g.equipment_type_code)}</Badge>
                             <span className="text-sm font-medium">{g.total_count} 台</span>
                             {repairCount > 0 && (
-                              <Badge className="text-xs bg-warning-surface text-warning-strong border-warning">修理中 {repairCount}</Badge>
+                              <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">修理中 {repairCount}</Badge>
                             )}
                             {activeCount === g.total_count && g.total_count > 0 && (
-                              <Badge className="text-xs bg-success-surface text-success border-success">全台稼働</Badge>
+                              <Badge className="text-xs bg-green-100 text-green-800 border-green-300">全台稼働</Badge>
                             )}
                           </div>
                         </button>
@@ -521,7 +515,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                     </td>
                                     <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.eq_code}</td>
                                     <td className="px-4 py-2.5">
-                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-muted text-muted-foreground"}`}>
+                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
                                         {STATUS_LABELS[u.status] ?? u.status}
                                       </span>
                                     </td>
@@ -565,7 +559,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                   <span className=" text-sm font-medium">
                                     {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
                                   </span>
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-muted text-muted-foreground"}`}>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
                                     {STATUS_LABELS[u.status] ?? u.status}
                                   </span>
                                 </div>
@@ -576,7 +570,7 @@ export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}
                                 {(u.children?.length ?? 0) > 0 && (
                                   <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
                                     {u.children.map(c => c?.id && (
-                                      <span key={c.id} className="text-xs text-muted-foreground">
+                                      <span key={c.id} className="text-xs text-muted-foreground/70">
                                         ↳ {c.name ?? "?"}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
                                       </span>
                                     ))}

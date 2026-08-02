@@ -13,20 +13,6 @@ const DEFAULT_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/onai
  * Convert sql.js style `?` placeholders to PostgreSQL `$1, $2, $3...` format.
  * This allows existing queries throughout the codebase to remain unchanged.
  */
-/**
- * `?` プレースホルダを Postgres の `$1, $2, …` に直す。
- *
- * ⚠️ **文字列リテラルの中の `?` も区別せず置き換える。**
- * SQL の中に `?` を含む**文字列**を書くと黙って壊れる。特に正規表現:
- *
- *   regexp_replace(t, '[（(].*?[）)]', '')   ← `.*?` の `?` が `$1` に化けて
- *                                              パターンが何にも当たらなくなる
- *                                              (例外は出ない。静かに空振りする)
- *
- * いま本番の SQL に該当箇所は無い (`ai-feedback.service.ts:154` の regexp には
- * `?` が無い)。正規表現や `?` を含む文言を SQL に書くときは、貪欲でない量指定子を
- * 避けるか、`execMultiple` (置換なし) を使うこと。
- */
 function convertPlaceholders(sql: string): string {
   let index = 0;
   return sql.replace(/\?/g, () => {

@@ -35,10 +35,8 @@ import {
   Link2,
   Printer,
 } from "lucide-react";
-import { DashboardHeader } from "@gmo-onair/shared/src/client/dashboard";
+import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { TECHSHEET_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface TechsheetDocument {
   id: string;
@@ -326,9 +324,9 @@ export default function DashboardPage() {
                       variant="ghost"
                       size="sm"
                       className="h-8 gap-1 text-xs text-destructive hover:text-destructive ml-auto"
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-                        if ((await confirmAction({ title: "この技術資料を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) {
+                        if (confirm("この技術資料を削除しますか？")) {
                           deleteMutation.mutate(doc.id);
                         }
                       }}
@@ -430,10 +428,10 @@ export default function DashboardPage() {
 
                   {selectedProjectId && episodes && episodes.length > 0 && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">回（任意）</Label>
+                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
                       <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="回を選択..." />
+                          <SelectValue placeholder="エピソードを選択..." />
                         </SelectTrigger>
                         <SelectContent>
                           {episodes.map((ep) => (

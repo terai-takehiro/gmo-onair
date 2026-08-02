@@ -65,7 +65,7 @@ export function registerFinanceTools(server: McpServer): void {
       title: '売上一覧',
       description:
         '売上を一覧する。status: confirmed=確定売上 / estimate=概算見積 (project_id 未指定かつ status 未指定のときは confirmed のみ)。' +
-        'tax_category: tax10=10%課税 / tax8=8%課税 / exempt=非課税 / nontax=不課税。金額 (amount) は税抜。',
+        'tax_category: tax10=10%課税 / tax8=8%課税 / exempt=非課税。金額 (amount) は税抜。',
       inputSchema: {
         search: z.string().max(100).optional().describe('請求キー / 備考の部分一致検索'),
         project_id: z.string().optional().describe('案件 ID (按分配分された売上も含む)'),

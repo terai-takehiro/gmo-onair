@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Check, X, Users, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 export interface CustomColumn {
   id: string;
@@ -94,11 +93,11 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           {/* Shared columns */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <Users className="h-3.5 w-3.5 text-primary" />
+              <Users className="h-3.5 w-3.5 text-blue-600" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">共有列（全員表示）</span>
             </div>
             {sharedCols.length === 0 && (
-              <p className="text-xs text-muted-foreground px-1">みんなで使う列はまだありません。下の欄から追加できます。</p>
+              <p className="text-xs text-muted-foreground px-1">共有列はありません</p>
             )}
             {sharedCols.map(col => (
               <ColRow
@@ -111,8 +110,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={async () => {
-                  if ((await confirmAction({ title: `列「${col.name}」とその全データを削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) {
+                onDelete={() => {
+                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
                     deleteMutation.mutate(col.id);
                   }
                 }}
@@ -123,11 +122,11 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           {/* Personal columns */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <User className="h-3.5 w-3.5 text-slate-500" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">個人列（自分のみ表示）</span>
             </div>
             {personalCols.length === 0 && (
-              <p className="text-xs text-muted-foreground px-1">自分だけの列はまだありません。下の欄から追加できます。</p>
+              <p className="text-xs text-muted-foreground px-1">個人列はありません</p>
             )}
             {personalCols.map(col => (
               <ColRow
@@ -140,8 +139,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={async () => {
-                  if ((await confirmAction({ title: `列「${col.name}」とその全データを削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) {
+                onDelete={() => {
+                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
                     deleteMutation.mutate(col.id);
                   }
                 }}
@@ -219,8 +218,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
 
         {/* Legend */}
         <div className="mt-4 pt-3 border-t text-xs text-muted-foreground space-y-1">
-          <p className="flex items-center gap-1"><Users className="h-3 w-3 text-primary" />共有列: 機材一覧と機材詳細ページに表示されます</p>
-          <p className="flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" />個人列: 機材一覧のみ、自分だけに表示されます</p>
+          <p className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-500" />共有列: 機材一覧と機材詳細ページに表示されます</p>
+          <p className="flex items-center gap-1"><User className="h-3 w-3 text-slate-400" />個人列: 機材一覧のみ、自分だけに表示されます</p>
         </div>
       </DialogContent>
     </Dialog>
@@ -271,10 +270,10 @@ function ColRow({ col, isEditing, editForm, setEditForm, canEdit, onEdit, onSave
           </Select>
         </div>
         <div className="flex gap-2 justify-end">
-          <Button size="sm" variant="ghost" className="h-ctl-1 px-2 text-xs" onClick={onCancel}>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onCancel}>
             <X className="h-3 w-3 mr-0.5" />キャンセル
           </Button>
-          <Button size="sm" className="h-ctl-1 px-2 text-xs" onClick={onSave} disabled={!editForm.name.trim()}>
+          <Button size="sm" className="h-6 px-2 text-xs" onClick={onSave} disabled={!editForm.name.trim()}>
             <Check className="h-3 w-3 mr-0.5" />保存
           </Button>
         </div>
@@ -291,7 +290,7 @@ function ColRow({ col, isEditing, editForm, setEditForm, canEdit, onEdit, onSave
           <button onClick={onEdit} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onDelete} className="p-1 rounded hover:bg-destructive-surface text-muted-foreground hover:text-destructive">
+          <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>

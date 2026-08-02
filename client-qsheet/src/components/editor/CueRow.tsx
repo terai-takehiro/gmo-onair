@@ -4,7 +4,6 @@ import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
 import MicAssignmentCell from "./MicAssignmentCell";
-import { notifyError } from '@/lib/notify';
 
 // ─── Buffered text inputs ───────────────────────────────
 // 入力中はローカル state に保持し、blur / IME 確定 / 短いデバウンスでのみグローバル
@@ -201,7 +200,7 @@ function EntryImageButton({
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      notifyError("ファイルサイズが5MBを超えています");
+      alert("ファイルサイズが5MBを超えています");
       return;
     }
     setUploading(true);
@@ -218,7 +217,7 @@ function EntryImageButton({
       });
       onChange(res.data.data.url);
     } catch {
-      notifyError("画像のアップロードに失敗しました");
+      alert("画像のアップロードに失敗しました");
     } finally {
       setUploading(false);
     }
@@ -230,11 +229,11 @@ function EntryImageButton({
         <img
           src={imageUrl}
           alt=""
-          className="h-6 w-6 rounded object-cover border border-border dark:border-border"
+          className="h-6 w-6 rounded object-cover border border-zinc-200 dark:border-zinc-700"
         />
         <button
           onClick={() => onChange(null)}
-          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-border text-muted-foreground hover:text-destructive text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
           title="画像を削除"
         >
           ×
@@ -250,8 +249,8 @@ function EntryImageButton({
         onClick={() => inputRef.current?.click()}
         className={`flex-shrink-0 w-5 h-5 rounded transition-colors mt-[1px] flex items-center justify-center ${
           hasImage
-            ? "text-primary hover:bg-accent dark:hover:bg-primary/30"
-            : "text-muted-foreground hover:text-primary hover:bg-accent dark:hover:bg-primary/30 opacity-0 group-hover:opacity-100"
+            ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
         }`}
         title={hasImage ? "画像を変更" : "画像を添付"}
         disabled={uploading}
@@ -348,7 +347,7 @@ function EditablePill({
             }
           }}
           autoFocus
-          className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-full outline-none bg-accent dark:bg-muted text-muted-foreground dark:text-muted-foreground placeholder:text-muted-foreground transition-all"
+          className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-full outline-none bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 placeholder:text-zinc-400 transition-all"
           placeholder={placeholder}
         />
         <datalist id={datalistId}>
@@ -365,7 +364,7 @@ function EditablePill({
     return (
       <span
         onClick={startEditing}
-        className="w-14 h-5 flex-none rounded-full border border-dashed border-border dark:border-border bg-transparent cursor-text hover:bg-muted dark:hover:bg-card transition-colors flex items-center justify-center text-[10px] text-muted-foreground dark:text-muted-foreground"
+        className="w-14 h-5 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 bg-transparent cursor-text hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-[10px] text-zinc-400 dark:text-zinc-500"
         title="クリックで編集"
       >
         {placeholder}
@@ -389,15 +388,12 @@ function EditablePill({
   );
 }
 
-// ─── 見分けるための色 (カテゴリ) ────────────────────────────────
-// 状態の色 (success / warning / destructive) は使わない — 「話者3が赤」なのか
-// 「話者3に異常がある」のか区別が付かなくなる。共通の `cat-1〜8` から選ぶ
-// (tokens.css。8色すべて白文字が AA を満たす)。9人目からは色が一巡する。
+// ─── Speaker Colors ─────────────────────────────────────
 const SPEAKER_COLORS = [
-  "bg-cat-1", "bg-cat-2", "bg-cat-3", "bg-cat-4",
-  "bg-cat-5", "bg-cat-6", "bg-cat-7", "bg-cat-8",
+  "bg-slate-700", "bg-teal-700", "bg-purple-700", "bg-pink-700", "bg-amber-700",
+  "bg-green-700", "bg-blue-700", "bg-red-800", "bg-indigo-700", "bg-orange-700",
 ];
-const PILL_COLORS: Record<string, string> = { video: "bg-cat-1", audio: "bg-cat-6", telop: "bg-cat-7" };
+const PILL_COLORS: Record<string, string> = { video: "bg-blue-700", audio: "bg-rose-700", telop: "bg-purple-700" };
 
 // ─── CueRow ─────────────────────────────────────────────
 function CueRowImpl({
@@ -479,28 +475,28 @@ function CueRowImpl({
   return (
     <tr
       {...dragHandlers}
-      className={`group transition-colors duration-150 hover:bg-accent/40 dark:hover:bg-primary/10 border-b border-border/80 dark:border-border/60 ${isSelected ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""} ${dragClass}`}
+      className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 border-b border-zinc-100/80 dark:border-zinc-800/60 ${isSelected ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""} ${dragClass}`}
       style={rowHighlight ? { backgroundColor: rowHighlight } : undefined}
     >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
-              return <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="border-r border-border/60 dark:border-border/40" />;
+              return <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="border-r border-zinc-100/60 dark:border-zinc-800/40" />;
             }
             const en = getEntry(blk);
 
             // ── Scenario cell ──
             if (blk.type === "scenario") {
-              const color = en?.name ? (speakerColorMap[en.name] || SPEAKER_COLORS[0]) : "bg-cat-8";
+              const color = en?.name ? (speakerColorMap[en.name] || SPEAKER_COLORS[0]) : "bg-zinc-400";
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 overflow-hidden break-words align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden break-words align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-start gap-1.5 min-w-0">
                       <button
                         onClick={() => updateEntry(blk, "isQWord", !en?.isQWord)}
                         className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
                           en?.isQWord
-                            ? "bg-destructive text-white shadow-sm"
-                            : "bg-muted dark:bg-card text-muted-foreground hover:bg-accent dark:hover:bg-muted"
+                            ? "bg-red-500 text-white shadow-sm"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                         }`}
                         title="Qワード切替"
                       >
@@ -514,7 +510,7 @@ function CueRowImpl({
                         datalistOptions={masters?.persons}
                         onChange={(v) => updateEntry(blk, "name", v)}
                       />
-                      {en?.isQWord && <span className="flex-shrink-0 text-destructive font-bold text-[13px] leading-[20px]">Q→</span>}
+                      {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
                       <BufferedTextarea
                         autosize
                         value={en?.html?.replace(/<[^>]*>/g, "") || ""}
@@ -539,11 +535,11 @@ function CueRowImpl({
                         <img
                           src={en.image}
                           alt=""
-                          className="max-h-40 max-w-full rounded border border-border dark:border-border object-contain"
+                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
                         />
                         <button
                           onClick={() => updateEntry(blk, "image", undefined)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-border text-muted-foreground hover:text-destructive text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
                           title="画像を削除"
                         >
                           ×
@@ -557,14 +553,14 @@ function CueRowImpl({
 
             // ── Video / Audio / Telop cells (paired: pill + memo) ──
             if (["video", "audio", "telop"].includes(blk.type)) {
-              const pillColor = PILL_COLORS[blk.type] || "bg-accent";
+              const pillColor = PILL_COLORS[blk.type] || "bg-zinc-600";
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 overflow-hidden align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-start gap-1.5 min-w-0">
                       <EditablePill
                         value={en?.label || ""}
-                        color={en?.label ? pillColor : "bg-cat-8"}
+                        color={en?.label ? pillColor : "bg-zinc-400"}
                         placeholder="ID"
                         datalistId={`${blk.type}-${rowUid}-${blk.id}`}
                         datalistOptions={masters?.[blk.type]}
@@ -588,11 +584,11 @@ function CueRowImpl({
                         <img
                           src={en.image}
                           alt=""
-                          className="max-h-40 max-w-full rounded border border-border dark:border-border object-contain"
+                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
                         />
                         <button
                           onClick={() => updateEntry(blk, "image", undefined)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-border text-muted-foreground hover:text-destructive text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
                           title="画像を削除"
                         >
                           ×
@@ -607,7 +603,7 @@ function CueRowImpl({
             // ── Audio mic (マイク香盤) cell ──
             if (blk.type === "audio_mic") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                   <MicAssignmentCell
                     cell={row.cells?.[blk.id]}
                     channels={masters?.micChannels || []}
@@ -632,7 +628,7 @@ function CueRowImpl({
             // ── Stage diagram cell ──
             if (blk.type === "stage_diagram") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                   <StageDiagramCell
                     cell={row.cells?.[blk.id]}
                     stageTemplates={stageTemplates}
@@ -645,8 +641,8 @@ function CueRowImpl({
             // ── Slide cell (image drop zone) ──
             if (blk.type === "slide") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 overflow-hidden align-top">
-                  <div className="flex items-center justify-center h-16 border border-dashed border-border dark:border-border rounded text-muted-foreground dark:text-muted-foreground text-xs">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                  <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
                     <ImageIcon size={14} className="mr-1" />
                     スライド
                   </div>
@@ -668,12 +664,12 @@ function CueRowImpl({
                 updateCell(blk.id, newCell);
               };
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 overflow-hidden align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <select
                       value={ledEntry.sceneId || ""}
                       onChange={(e) => updateLed("sceneId", e.target.value || undefined)}
-                      className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-border dark:border-border rounded outline-none focus:border-cat-7/40"
+                      className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
                     >
                       <option value="">-- シーン選択 --</option>
                       {(ledScenes || []).map((s) => (
@@ -685,11 +681,11 @@ function CueRowImpl({
                     {scene && (
                       <div className="grid grid-cols-2 gap-1">
                         <div className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
-                          <div className="text-[8px] font-bold uppercase tracking-wider text-primary">壁</div>
+                          <div className="text-[8px] font-bold uppercase tracking-wider text-primary/80">壁</div>
                           <div className="text-[10px] font-medium text-foreground truncate">{scene.wall || "—"}</div>
                         </div>
                         <div className="rounded border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
-                          <div className="text-[8px] font-bold uppercase tracking-wider text-warning-strong">床</div>
+                          <div className="text-[8px] font-bold uppercase tracking-wider text-warning/90">床</div>
                           <div className="text-[10px] font-medium text-foreground truncate">{scene.floor || "—"}</div>
                         </div>
                       </div>
@@ -698,7 +694,7 @@ function CueRowImpl({
                       <select
                         value={ledEntry.cueType || ""}
                         onChange={(e) => updateLed("cueType", e.target.value || undefined)}
-                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border dark:border-border rounded outline-none focus:border-cat-7/40"
+                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
                         title="Cue"
                       >
                         <option value="">Cue</option>
@@ -712,7 +708,7 @@ function CueRowImpl({
                           value={ledEntry.cueCustom || ""}
                           onChange={(e) => updateLed("cueCustom", e.target.value)}
                           placeholder="Cue (任意)"
-                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border dark:border-border rounded outline-none focus:border-cat-7/40"
+                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
                         />
                       )}
                     </div>
@@ -720,7 +716,7 @@ function CueRowImpl({
                       <select
                         value={ledEntry.transition || ""}
                         onChange={(e) => updateLed("transition", e.target.value || undefined)}
-                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border dark:border-border rounded outline-none focus:border-cat-7/40"
+                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
                         title="トランジション"
                       >
                         <option value="">効果</option>
@@ -734,7 +730,7 @@ function CueRowImpl({
                           value={ledEntry.transitionCustom || ""}
                           onChange={(e) => updateLed("transitionCustom", e.target.value)}
                           placeholder="効果 (任意)"
-                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border dark:border-border rounded outline-none focus:border-cat-7/40"
+                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
                         />
                       )}
                     </div>
@@ -745,7 +741,7 @@ function CueRowImpl({
 
             // ── Remarks / other cells ──
             return (
-              <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-border/60 dark:border-border/40 align-top">
+              <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                 <BufferedTextarea
                   value={(row.cells?.[blk.id] || {}).value || ""}
                   onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}
@@ -758,7 +754,7 @@ function CueRowImpl({
           })}
 
           {/* 操作ボタン (モバイル常時表示) */}
-          <td className="px-0.5 align-top w-9 border-b border-border/80 dark:border-border/60">
+          <td className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
             <div className="flex flex-col items-center gap-0.5 pt-1">
               {onToggleSelect && (
                 <button
@@ -766,7 +762,7 @@ function CueRowImpl({
                   className={`size-5 rounded border flex items-center justify-center transition-all ${
                     isSelected
                       ? "bg-primary border-primary text-primary-foreground opacity-100"
-                      : "border-border dark:border-border text-transparent opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                      : "border-zinc-300 dark:border-zinc-600 text-transparent opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
                   }`}
                   title="行を選択 (まとめて移動 / Shift+クリックで範囲選択)"
                   aria-pressed={isSelected}
@@ -777,19 +773,19 @@ function CueRowImpl({
               )}
             </div>
             <div className="flex flex-col items-center gap-0.5 pt-0.5 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
-              <button onClick={onMoveUp} className="p-1.5 text-muted-foreground hover:text-muted-foreground active:text-muted-foreground transition-colors">
+              <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
                 <ChevronUp size={14} />
               </button>
-              <button onClick={onMoveDown} className="p-1.5 text-muted-foreground hover:text-muted-foreground active:text-muted-foreground transition-colors">
+              <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
                 <ChevronDown size={14} />
               </button>
-              <button onClick={onInsertBelow} className="p-1.5 text-muted-foreground hover:text-primary active:text-primary transition-colors" title="この行の下に空行を挿入">
+              <button onClick={onInsertBelow} className="p-1.5 text-zinc-400 hover:text-primary active:text-primary transition-colors" title="この行の下に空行を挿入">
                 <Plus size={13} />
               </button>
-              <button onClick={onDuplicate} className="p-1.5 text-muted-foreground hover:text-muted-foreground active:text-muted-foreground transition-colors" title="この行を複製">
+              <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors" title="この行を複製">
                 <Copy size={12} />
               </button>
-              <button onClick={onDelete} className="p-1.5 text-muted-foreground hover:text-destructive active:text-destructive transition-colors" title="この行を削除">
+              <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors" title="この行を削除">
                 <Trash2 size={12} />
               </button>
             </div>

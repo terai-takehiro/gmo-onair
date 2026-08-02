@@ -10,8 +10,6 @@ import { useQuiz, useSyncQuizFromCategory } from '@/quiz/api';
 import type { Quiz, QuizChoice } from '@/quiz/types';
 import { QUIZ_COLORS } from '@/quiz/types';
 import type { CgCategory } from '@/cg/types';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { notifyError, notifyWarning } from '@/lib/notify';
 
 interface AwardsEventDetail {
   id: number; name: string;
@@ -98,13 +96,13 @@ export default function QuizEditPage() {
   // 取込 (Interactive → リアルタイムCG): 連携中の問題の本文・選択肢・正解で上書き
   const onPull = async () => {
     if (!iqId) return;
-    if (!(await confirmAction({ title: 'インタラクティブ演出側の本文・選択肢・正解で、この問題を上書きします。よろしいですか？', confirmLabel: '上書きする', tone: 'danger' }))) return;
+    if (!window.confirm('インタラクティブ演出側の本文・選択肢・正解で、この問題を上書きします。よろしいですか？')) return;
     setPulling(true);
     try {
       await api.post(`/quiz/events/${eventId}/interactive-link/pull/${quizId}`);
       await qc.invalidateQueries({ queryKey: ['quizzes'] });
     } catch {
-      notifyError('取込に失敗しました（連携先の問題が見つからない可能性があります）。');
+      alert('取込に失敗しました（連携先の問題が見つからない可能性があります）。');
     } finally {
       setPulling(false);
     }
@@ -151,7 +149,7 @@ export default function QuizEditPage() {
           <h1 className="text-lg sm:text-xl font-semibold truncate">{draft.title || quiz.title || '(タイトル未設定)'}</h1>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              isQuiz ? 'bg-accent text-primary' : 'bg-muted text-muted-foreground'
+              isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
             }`}>
               {isQuiz ? 'クイズ' : 'アンケート'}
             </span>
@@ -160,17 +158,17 @@ export default function QuizEditPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {savedFlash && (
-            <span className="hidden sm:flex items-center gap-1 text-xs font-semibold text-success">
+            <span className="hidden sm:flex items-center gap-1 text-xs font-semibold text-green-600">
               <CheckCircle2 className="h-3.5 w-3.5" />保存しました
             </span>
           )}
           <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
-          className="h-ctl-1 flex items-center gap-1.5 rounded-lg border border-border hover:bg-muted px-3 text-xs font-semibold text-muted-foreground">
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
             <Radio className="h-3.5 w-3.5" />送出
           </button>
           <button onClick={onSave}
             disabled={saving}
-            className="h-ctl-1 flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 px-4 text-xs font-bold text-white">
+            className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-1.5 text-xs font-bold text-white">
             <Save className="h-3.5 w-3.5" />{saving ? '保存中…' : '保存'}
           </button>
         </div>
@@ -194,7 +192,7 @@ export default function QuizEditPage() {
                 });
               }}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                active ? 'border-purple-600 text-purple-700' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}>
               {m === 'quiz' ? 'クイズ' : 'アンケート'}
             </button>
@@ -204,20 +202,20 @@ export default function QuizEditPage() {
 
       {/* インタラクティブ演出 連携 (双方向) — 設定済みのときのみ表示 */}
       {iaLink?.configured && (
-        <div className="rounded-xl border border-info bg-info/10/40 p-3 flex flex-wrap items-center gap-2">
-          <Link2 className="h-4 w-4 text-info shrink-0" />
-          <span className="text-xs font-bold text-info">インタラクティブ演出 連携</span>
+        <div className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-3 flex flex-wrap items-center gap-2">
+          <Link2 className="h-4 w-4 text-cyan-600 shrink-0" />
+          <span className="text-xs font-bold text-cyan-900">インタラクティブ演出 連携</span>
           {iqId
-            ? <span className="rounded-full bg-success-surface px-2 py-0.5 text-[10px] font-semibold text-success">連携中</span>
-            : <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">未連携</span>}
+            ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">連携中</span>
+            : <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">未連携</span>}
           <div className="flex-1" />
           <button onClick={onPull} disabled={!iqId || pulling}
-          className="h-ctl-1 flex items-center gap-1.5 rounded-lg bg-info hover:bg-info/90 disabled:opacity-40 px-3 text-xs font-bold text-white"
+            className="flex items-center gap-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 px-3 py-1.5 text-xs font-bold text-white"
             title="インタラクティブ演出の内容をこの問題に取り込む">
             {pulling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Interactive から取込
           </button>
-          <p className="w-full text-[11px] text-info">
+          <p className="w-full text-[11px] text-cyan-700">
             ⬆ 送信 (CG → Interactive) は<strong>保存時に自動</strong>で実行されます。
             ⬇ 取込 (Interactive → CG) は上のボタンで実行します。
             {!iqId && '（一覧ページで連携先の問題を選ぶと有効になります）'}
@@ -276,12 +274,12 @@ export default function QuizEditPage() {
                 ))}
               </select>
               <button onClick={async () => {
-                if (!quiz.link_category_id) { notifyWarning('先に連動カテゴリを保存してください'); return; }
-                if (!(await confirmAction({ title: '連動カテゴリの TOP-N で choices を上書きします。よろしいですか？', confirmLabel: '上書きする', tone: 'danger' }))) return;
+                if (!quiz.link_category_id) { alert('先に連動カテゴリを保存してください'); return; }
+                if (!window.confirm('連動カテゴリの TOP-N で choices を上書きします。よろしいですか？')) return;
                 await sync.mutateAsync();
               }}
                 disabled={!quiz.link_category_id || sync.isPending}
-                className="flex items-center gap-1 rounded-lg border border-border px-2.5 hover:bg-muted disabled:opacity-50 text-xs">
+                className="flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 hover:bg-slate-50 disabled:opacity-50 text-xs">
                 <RefreshCw className="h-3.5 w-3.5" />取込
               </button>
             </div>
@@ -289,10 +287,10 @@ export default function QuizEditPage() {
         </div>
 
         {/* v2.9.36: 演出パターン ピッカー — 種別により選択肢が変わる階層型 UI */}
-        <div className="rounded-xl border border-primary bg-accent/30 p-3 space-y-3">
-          <div className="text-sm font-bold text-primary flex items-center gap-1.5">
+        <div className="rounded-xl border border-purple-200 bg-purple-50/30 p-3 space-y-3">
+          <div className="text-sm font-bold text-purple-900 flex items-center gap-1.5">
             演出パターン
-            <span className="text-xs font-normal text-primary">
+            <span className="text-xs font-normal text-purple-700">
               (TAKE で進む CG 演出のフローを決めます)
             </span>
           </div>
@@ -300,12 +298,12 @@ export default function QuizEditPage() {
             const mode = draft.mode ?? quiz.mode;
             if (mode === 'quiz') {
               return (
-                <div className="rounded-lg border-2 border-primary bg-accent/60 p-3">
+                <div className="rounded-lg border-2 border-blue-500 bg-blue-50/60 p-3">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-white text-[10px] font-black">✓</span>
-                    <span className="text-sm font-bold text-primary">正解発表 (クイズ固定)</span>
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-500 text-white text-[10px] font-black">✓</span>
+                    <span className="text-sm font-bold text-blue-900">正解発表 (クイズ固定)</span>
                   </div>
-                  <p className="mt-1 ml-7 text-xs text-primary">
+                  <p className="mt-1 ml-7 text-xs text-blue-800">
                     正解選択肢をハイライト表示。クイズ種別では常にこの演出になります。
                   </p>
                 </div>
@@ -317,14 +315,14 @@ export default function QuizEditPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {([
                   { v: 'answer-check', emoji: '📊', label: 'アンサーチェック', desc: '各選択肢の票数を集計してアニメ表示し、そこで終了 (No.1 発表なし)', color: 'emerald' },
-                  { v: 'top-reveal', emoji: '🏆', label: 'No.1 発表', desc: 'アンケートCGは投票+集計まで。No.1 はランキングCG側で、連動カテゴリの賞の最後にフルスクリーン発表', color: 'amber' },
+                  { v: 'top-reveal',   emoji: '🏆', label: 'No.1 発表',         desc: 'アンケートCGは投票+集計まで。No.1 はランキングCG側で、連動カテゴリの賞の最後にフルスクリーン発表', color: 'amber' },
                 ] as const).map(({ v, emoji, label, desc, color }) => {
                   const active = pattern === v;
                   const colorCls = active
                     ? (color === 'emerald'
-                        ? 'border-success bg-success-surface/80 text-success'
-                        : 'border-warning bg-warning-surface/80 text-warning-strong')
-                    : 'border-border bg-white text-muted-foreground hover:border-border';
+                        ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900'
+                        : 'border-amber-500 bg-amber-50/80 text-amber-900')
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300';
                   return (
                     <button
                       key={v}
@@ -337,7 +335,7 @@ export default function QuizEditPage() {
                         <span className="text-sm font-bold">{label}</span>
                         {active && (
                           <span className={`ml-auto inline-flex items-center justify-center h-5 w-5 rounded-full text-white text-[10px] font-black ${
-                            color === 'emerald' ? 'bg-success' : 'bg-warning'
+                            color === 'emerald' ? 'bg-emerald-500' : 'bg-amber-500'
                           }`}>✓</span>
                         )}
                       </div>
@@ -355,12 +353,12 @@ export default function QuizEditPage() {
             const mode = draft.mode ?? quiz.mode;
             if (mode !== 'quiz') return null;
             return (
-              <label className="flex items-start gap-2 text-sm rounded-lg border bg-muted/60 px-3 py-2 cursor-pointer">
+              <label className="flex items-start gap-2 text-sm rounded-lg border bg-slate-50/60 px-3 py-2 cursor-pointer">
                 <input type="checkbox" className="mt-0.5" checked={!!draft.has_answer_check}
                   onChange={(e) => setDraft({ ...draft, has_answer_check: e.target.checked })}/>
                 <span>
                   <strong>アンサーチェック演出を前段に挿入する</strong>
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="block text-xs text-slate-600">
                     正解発表の前に「票数集計アニメ」を 1 ステップ追加します。
                   </span>
                 </span>
@@ -380,7 +378,7 @@ export default function QuizEditPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold">選択肢 ({choiceCount} 件)</h2>
           {isQuiz && (
-            <span className="text-[11px] text-success font-medium flex items-center gap-1">
+            <span className="text-[11px] text-green-700 font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />正解を選択 (複数可)
             </span>
           )}
@@ -461,7 +459,7 @@ function ChoiceEditor({ position, value, onChange, showCorrectFlag }: ChoiceEdit
             aria-label={`選択肢 ${position} を正解にする`}
             onClick={() => onChange({ is_correct: !value.is_correct })}
             className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${
-              value.is_correct ? 'border-success bg-success text-white' : 'border-border text-transparent hover:border-success'
+              value.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'
             }`}>
             <Check className="h-4 w-4" />
           </button>
@@ -471,11 +469,11 @@ function ChoiceEditor({ position, value, onChange, showCorrectFlag }: ChoiceEdit
           placeholder={`選択肢 ${position}`} className="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm"/>
 
         <button onClick={() => fileRef.current?.click()}
-          className="relative w-9 h-9 rounded-lg overflow-hidden bg-muted border hover:border-primary flex items-center justify-center shrink-0"
+          className="relative w-9 h-9 rounded-lg overflow-hidden bg-slate-100 border hover:border-purple-500 flex items-center justify-center shrink-0"
           title="画像をアップロード">
           {value.photo_data_url
             ? <img src={value.photo_data_url} alt="" className="w-full h-full object-cover"/>
-            : <ImageIcon className="h-4 w-4 text-muted-foreground"/>}
+            : <ImageIcon className="h-4 w-4 text-slate-400"/>}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}/>
@@ -512,7 +510,7 @@ function ChoiceEditor({ position, value, onChange, showCorrectFlag }: ChoiceEdit
           </label>
           {value.photo_data_url && (
             <button onClick={() => onChange({ photo_data_url: '' })}
-              className="text-[11px] text-muted-foreground hover:text-destructive inline-flex items-center gap-1 justify-self-start">
+              className="text-[11px] text-slate-500 hover:text-red-500 inline-flex items-center gap-1 justify-self-start">
               <ImageOff className="h-3.5 w-3.5"/>画像を削除
             </button>
           )}
@@ -560,25 +558,25 @@ function CoverImageEditor({ value, onChange }: {
     reader.readAsDataURL(f);
   };
   return (
-    <div className="rounded-lg border bg-muted/40 p-3">
-      <div className="text-[11px] font-bold text-muted-foreground mb-2">カバー画像 (16:9, アンケート画面のカメラ枠内に表示)</div>
+    <div className="rounded-lg border bg-slate-50/40 p-3">
+      <div className="text-[11px] font-bold text-slate-600 mb-2">カバー画像 (16:9, アンケート画面のカメラ枠内に表示)</div>
       <div className="flex items-center gap-3">
         <button
           onClick={() => fileRef.current?.click()}
-          className="relative w-48 aspect-video rounded-lg overflow-hidden bg-accent border border-border hover:border-primary flex items-center justify-center"
+          className="relative w-48 aspect-video rounded-lg overflow-hidden bg-slate-200 border border-slate-300 hover:border-purple-500 flex items-center justify-center"
         >
           {value
             ? <img src={value} alt="" className="w-full h-full object-cover"/>
-            : <span className="text-xs text-muted-foreground">クリックで画像を選択</span>}
+            : <span className="text-xs text-slate-500">クリックで画像を選択</span>}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}/>
         {value && (
           <button onClick={() => onChange(null)}
-            className="text-xs text-muted-foreground hover:text-destructive">削除</button>
+            className="text-xs text-slate-500 hover:text-red-500">削除</button>
         )}
       </div>
-      <div className="text-[11px] text-muted-foreground mt-2">
+      <div className="text-[11px] text-slate-500 mt-2">
         ※ 自動的に 1280×720 (16:9) にクロップされます。未設定の場合はアルファ透過枠のままです。
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { invalidateSchedule } from "@/lib/scheduleQueries";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, RefreshCw, Plus, CloudDownload, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface OAuthStatus {
   configured: boolean;
@@ -55,10 +53,8 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   });
 
   const invalidate = () => {
-    // 予定そのものは層の定義から (鍵を足したときにここが取り残されないように)
-    invalidateSchedule(qc, "personal");
-    // 連携の設定・接続状態はこの画面だけのもの
     qc.invalidateQueries({ queryKey: ["personal-ics-feeds"] });
+    qc.invalidateQueries({ queryKey: ["personal-events"] });
     qc.invalidateQueries({ queryKey: ["google-cal-status"] });
     qc.invalidateQueries({ queryKey: ["ms-cal-status"] });
   };
@@ -94,38 +90,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
     onSuccess: () => { invalidate(); setNotice("Outlook カレンダーの連携を解除しました（同期済みの予定も削除されます）"); },
     onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携解除に失敗しました"); },
   });
-
-  /**
-   * 貼られた URL が、既に OAuth で繋がっている提供元のものかを見る (v3.1.2)。
-   *
-   * 同じカレンダーを OAuth と ICS購読 の両方から取り込むと、**その人のすべての予定が
-   * 2 行になる**。一意索引は取込元ごとに閉じているので構造では止まらない。
-   * ただし「Google 連携済みだが、別の共有カレンダーを ICS で購読したい」は正当なので、
-   * **禁止はせず確認する**（会社ポリシーで ICS しか使えない人もいる）。
-   */
-  const connectedProviderFor = (rawUrl: string): string | null => {
-    let host = '';
-    try { host = new URL(rawUrl.trim().replace(/^webcal:\/\//i, 'https://')).hostname.toLowerCase(); }
-    catch { return null; }
-    if (google?.connected && /(^|\.)google\.com$|(^|\.)googleusercontent\.com$/.test(host)) return 'Google';
-    if (outlook?.connected && /(^|\.)(outlook|office365|office|live)\.com$|(^|\.)outlook\.office365\.com$/.test(host)) return 'Outlook';
-    return null;
-  };
-
-  const handleAdd = async () => {
-    const provider = connectedProviderFor(url);
-    if (provider) {
-      const go = await confirmAction({
-        title: `${provider} は既に連携済みです。この URL も追加しますか？`,
-        description:
-          `同じカレンダーを ${provider} 連携と ICS購読の両方から取り込むと、以後すべての予定が2件ずつ並びます。`
-          + `別の共有カレンダー（チームの予定など）を足す場合はそのまま進めてください。`,
-        confirmLabel: 'それでも追加する',
-      });
-      if (!go) return;
-    }
-    addMutation.mutate();
-  };
 
   const addMutation = useMutation({
     mutationFn: async () => (await api.post("/schedule/feeds", { label, url })).data.data,
@@ -168,22 +132,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             公開 ICS URL での連携は取込のみの一方向です。
           </DialogDescription>
         </DialogHeader>
-
-        {/* 両方つないでいるときの注意 (v3.1.2)。
-            Google と Outlook の**両方**につなぐと、片方に同じ会議が転送されている場合に
-            同じ予定が2件ずつ入る。一意索引は取込元ごとに閉じているので構造では止まらない。
-            会社と個人で別々のカレンダーを持つのは正当なので、禁止はせず注意だけ出す。 */}
-        {google?.connected && outlook?.connected && (
-          <div className="flex items-start gap-2 rounded-lg border border-warning-strong/40 bg-warning-surface p-3 text-xs text-warning-strong">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>
-              <b>Google と Outlook の両方につながっています。</b>
-              片方にもう片方の予定が転送されている場合、同じ予定が2件ずつ並びます。
-              カレンダーが実際に別（会社と個人など）なら問題ありません。
-              重なって見えるときは、使っていない方の連携を解除してください。
-            </span>
-          </div>
-        )}
 
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
@@ -230,7 +178,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                   <Button
                     size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                    onClick={async () => { if ((await confirmAction({ title: "Google カレンダーの連携を解除しますか？", description: "（同期済みの予定も削除されます）", confirmLabel: '削除する', tone: 'danger' }))) googleDisconnectMutation.mutate(); }}
+                    onClick={() => { if (confirm("Google カレンダーの連携を解除しますか？（同期済みの予定も削除されます）")) googleDisconnectMutation.mutate(); }}
                     disabled={googleDisconnectMutation.isPending}
                     title="連携を解除"
                   >
@@ -308,7 +256,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                   <Button
                     size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                    onClick={async () => { if ((await confirmAction({ title: "Outlook カレンダーの連携を解除しますか？", description: "（同期済みの予定も削除されます）", confirmLabel: '削除する', tone: 'danger' }))) msDisconnectMutation.mutate(); }}
+                    onClick={() => { if (confirm("Outlook カレンダーの連携を解除しますか？（同期済みの予定も削除されます）")) msDisconnectMutation.mutate(); }}
                     disabled={msDisconnectMutation.isPending}
                     title="連携を解除"
                   >
@@ -351,7 +299,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
         <button
           type="button"
           onClick={() => setGuideOpen(!guideOpen)}
-          className="h-ctl-3 flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 text-sm font-medium hover:bg-muted/50"
+          className="flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium hover:bg-muted/50"
         >
           <ChevronDown className={`h-4 w-4 transition-transform ${guideOpen ? "rotate-180" : ""}`} />
           公開 ICS URL の発行方法（Outlook / Google）
@@ -378,15 +326,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>組織のポリシーによってはカレンダーの公開が無効化されている場合があります。その場合は管理者にご確認ください。</span>
             </div>
-            <div className="flex items-start gap-1.5 text-warning-strong">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>
-                <b>同じカレンダーを2通りの方法で登録しないでください。</b>
-                上の OAuth 連携（Google / Outlook）で取り込んでいるカレンダーを、
-                さらに ICS URL でも登録すると、同じ予定が2件ずつ並びます。
-                ここに入れるのは「OAuth では取れないカレンダー」だけにしてください。
-              </span>
-            </div>
           </div>
         )}
 
@@ -408,7 +347,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           </div>
           <Button
             size="sm"
-            onClick={() => { void handleAdd(); }}
+            onClick={() => addMutation.mutate()}
             disabled={!label.trim() || !url.trim() || addMutation.isPending}
           >
             {addMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
@@ -425,9 +364,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           {isLoading ? (
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : feeds.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">
-              連携しているカレンダーはまだありません。下の欄に ICS の URL を入れると、予定を取り込めます。
-            </p>
+            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
           ) : (
             feeds.map((f) => (
               <div key={f.id} className="rounded-lg border p-3 space-y-1">
@@ -445,7 +382,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                     </Button>
                     <Button
                       size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={async () => { if ((await confirmAction({ title: `「${f.label}」の連携を解除しますか？`, description: `（同期済みの予定も削除されます）`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(f.id); }}
+                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
                       disabled={deleteMutation.isPending}
                       title="連携を解除"
                     >

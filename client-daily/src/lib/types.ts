@@ -1,5 +1,3 @@
-import { formatCurrency } from '@gmo-onair/shared/src/client/format';
-import { manYen } from '@gmo-onair/shared/src/client/ui';
 // 日常業務アプリの型・定数
 
 export type OpsReportKind = 'weekly_activity' | 'daily_news';
@@ -41,12 +39,11 @@ export interface OpsReport {
 }
 
 // ── 内覧会 来場予約 ──────────────────────────────────
-/** 同行者。代表者の登録に従属し、当日は1人ずつ独立して受付できる (v2.9.298 相当) */
 export interface InviewCompanion {
-  id: string;
+  id?: string;
   name: string;
-  checked_in_at: string | null;
-  checked_in_by: string | null;
+  checked_in_at?: string | null;
+  checked_in_by?: string | null;
 }
 
 export interface InviewRegistration {
@@ -67,7 +64,11 @@ export interface InviewRegistration {
   mobile: string | null;
   mail_consent: boolean | null;
   party_size: number;
-  companions: InviewCompanion[] | null;
+  // migration 154 で「氏名の文字列」から オブジェクト に変わった。
+  // この版の画面は同行者ごとの受付を持たないが、**描画・書き出しでは氏名だけを使う**。
+  // 文字列のまま残っている行もあり得るので両方受ける (オブジェクトをそのまま
+  // JSX に置くと React error #31 で画面が落ちる)。
+  companions: (string | InviewCompanion)[] | null;
   visit_time: string | null;
   interests: string | null;
   notes: string | null;
@@ -113,10 +114,6 @@ export interface FinanceDoc {
   gls_number: string | null;
   notes: string | null;
   source: string;
-  /** 原本 (PDF/画像) が付いているか */
-  has_original?: boolean;
-  original_name?: string | null;
-  original_kind?: 'pdf' | 'image' | null;
   created_at: string;
   updated_at: string;
 }
@@ -236,8 +233,7 @@ export function addDays(dateStr: string, days: number): string {
   return toDateStr(d);
 }
 
-// 6章: 金額と万円の丸めは shared に寄せる (丸め方を画面ごとに持たない)
 export function formatYen(n: number): string {
-  if (Math.abs(n) >= 10000) return manYen(n);
-  return formatCurrency(n);
+  if (Math.abs(n) >= 10000) return `¥${Math.round(n / 10000).toLocaleString()}万`;
+  return `¥${n.toLocaleString()}`;
 }

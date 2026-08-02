@@ -8,19 +8,6 @@ import { activityLogService } from '../../sales/services/activity-log.service';
 // API (inview.routes) と MCP (inview.tools) の両方から使う。
 // Kairos3 の登録通知メールをベースにした参加者名簿。回 (セッション) は
 // session_label / session_date から自動グループ化する (マスター table は持たない)。
-//
-// 同行者 (companions) は代表者の登録に従属する JSONB 配列。v2.9.298 までは
-// 氏名の文字列配列だったが、当日は同行者も1人ずつ受付するので
-// { id, name, checked_in_at, checked_in_by } に変えた (migration 154)。
-// 別テーブルにしないのは、同行者が単独では検索も一覧もされず、代表者の
-// 登録が消えれば一緒に消えてよい従属データだから。
-
-export interface InviewCompanion {
-  id: string;
-  name: string;
-  checked_in_at: string | null;
-  checked_in_by: string | null;
-}
 
 export interface InviewInput {
   session_label?: string | null;
@@ -39,7 +26,7 @@ export interface InviewInput {
   mobile?: string | null;
   mail_consent?: boolean | null;
   party_size?: number | null;
-  companions?: string[] | null;
+  companions?: (string | Partial<InviewCompanion>)[] | null;
   visit_time?: string | null;
   interests?: string | null;
   notes?: string | null;
@@ -77,44 +64,74 @@ function normSize(v: unknown): number {
   return Math.min(999, n);
 }
 
-function normNames(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.map((x) => String(x ?? '').trim()).filter(Boolean);
+/** 同行者1人。migration 154 で「氏名の文字列」から この形に変わった */
+export interface InviewCompanion {
+  id: string;
+  name: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
+
+/** 同行者の氏名を取り出す。旧形式 (文字列) と新形式 (オブジェクト) の両方を受ける */
+export function companionName(c: unknown): string {
+  if (typeof c === 'string') return c.trim();
+  if (c && typeof c === 'object') return String((c as Record<string, unknown>).name ?? '').trim();
+  return '';
 }
 
 /**
- * 氏名の配列 (フォームが送ってくる形) を、既存の同行者情報と突き合わせて
- * 受付状態を保ったまま Companion[] に組み立てる。
- *
- * 同行者には安定した ID が無い入力 (氏名だけ) しか来ないので、**同じ氏名なら
- * 同一人物とみなす**。名前を変えると別人扱いで受付状態がリセットされる
- * (この画面には同行者の編集専用フォームが無いので、割り切り)。
+ * DB の companions を `InviewCompanion[]` として読む。
+ * 旧形式 (氏名の文字列) や id 欠けの行も受け、その場で id を振る
+ * (受付の切り替えは id で行うため、id が無いと個別受付ができない)。
  */
-function buildCompanions(names: string[], existing: InviewCompanion[] | null): InviewCompanion[] | null {
-  const clean = normNames(names);
-  if (!clean.length) return null;
-  const byName = new Map((existing ?? []).map((c) => [c.name, c] as const));
-  return clean.map((name) => {
-    const prev = byName.get(name);
-    return prev
-      ? { ...prev, name }
-      : { id: uuidv4(), name, checked_in_at: null, checked_in_by: null };
-  });
-}
-
-/** DB から読んだ companions (JSONB) を安全に Companion[] にする (旧形式の文字列配列も救う) */
 function readCompanions(v: unknown): InviewCompanion[] {
   if (!Array.isArray(v)) return [];
-  return v.map((x) => {
-    if (typeof x === 'string') return { id: uuidv4(), name: x, checked_in_at: null, checked_in_by: null };
-    const c = x as Partial<InviewCompanion>;
-    return {
-      id: String(c.id ?? uuidv4()),
-      name: String(c.name ?? ''),
-      checked_in_at: c.checked_in_at ?? null,
-      checked_in_by: c.checked_in_by ?? null,
-    };
-  }).filter((c) => c.name);
+  const out: InviewCompanion[] = [];
+  for (const x of v) {
+    const nm = companionName(x);
+    if (!nm) continue;
+    const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    out.push({
+      id: String(o.id ?? '') || uuidv4(),
+      name: nm,
+      checked_in_at: (o.checked_in_at as string | null) ?? null,
+      checked_in_by: (o.checked_in_by as string | null) ?? null,
+    });
+  }
+  return out;
+}
+
+/**
+ * 同行者を `{ id, name, checked_in_at, checked_in_by }` の配列に正規化する。
+ *
+ * **編集フォームは氏名の配列しか送ってこない** (1行1名のテキスト欄なので、
+ * 送れるのは氏名だけ)。素直に文字列で上書きすると**同行者ごとの受付記録
+ * (checked_in_at / checked_in_by) が消える** — 当日の受付を済ませたあとに
+ * 誰かが登録内容を直しただけで受付が無かったことになる。
+ *
+ * そこで氏名で既存と突き合わせ、一致したものは id と受付記録を引き継ぐ。
+ * 同名が複数いるときは出てきた順に1つずつ使う (先着で消費)。
+ * 対応が取れなかった行は新しい id を振り、未受付として入れる。
+ */
+function normCompanions(v: unknown, existing?: unknown): InviewCompanion[] | null {
+  if (!Array.isArray(v)) return null;
+
+  const byName = new Map<string, InviewCompanion[]>();
+  for (const p of readCompanions(existing)) {
+    const list = byName.get(p.name) ?? [];
+    list.push(p);
+    byName.set(p.name, list);
+  }
+
+  const out: InviewCompanion[] = [];
+  for (const x of v) {
+    const nm = companionName(x);
+    if (!nm) continue;
+    const queue = byName.get(nm);
+    if (queue && queue.length) out.push(queue.shift() as InviewCompanion);
+    else out.push({ id: uuidv4(), name: nm, checked_in_at: null, checked_in_by: null });
+  }
+  return out.length ? out : null;
 }
 
 const ROW_COLS = `id, session_label, session_date, session_time, session_audience,
@@ -164,7 +181,7 @@ export const inviewService = {
    */
   async create(input: InviewInput): Promise<{ row: Record<string, unknown>; action: 'created' | 'updated' }> {
     const name = (input.name ?? '').trim();
-    if (!name) throw new AppError(400, '名前 (name) は必須です', 'VALIDATION_ERROR');
+    if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前 (name) は必須です');
 
     const label = (input.session_label ?? '').trim();
     const parsed = parseSessionLabel(label);
@@ -199,7 +216,7 @@ export const inviewService = {
         input.postal_code ?? null, input.address ?? null, input.phone ?? null, input.fax ?? null, input.mobile ?? null,
         typeof input.mail_consent === 'boolean' ? input.mail_consent : null,
         normSize(input.party_size ?? 1),
-        input.companions !== undefined ? JSON.stringify(buildCompanions(input.companions ?? [], null)) : null,
+        input.companions !== undefined ? JSON.stringify(normCompanions(input.companions)) : null,
         input.visit_time ?? null, input.interests ?? null, input.notes ?? null,
         input.source ?? 'kairos3', input.requested_by ?? null, input.created_by ?? null,
       ],
@@ -210,7 +227,7 @@ export const inviewService = {
   /** 部分更新 (渡したフィールドだけ変更)。session_label 変更時は date/time/audience を再抽出。 */
   async update(id: string, input: InviewInput): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
 
     const sets: string[] = [];
     const params: unknown[] = [];
@@ -231,7 +248,7 @@ export const inviewService = {
     }
     if (input.name !== undefined) {
       const nm = (input.name ?? '').trim();
-      if (!nm) throw new AppError(400, '名前 (name) は必須です', 'VALIDATION_ERROR');
+      if (!nm) throw new AppError(400, 'VALIDATION_ERROR', '名前 (name) は必須です');
       set('name', nm);
     }
     if (input.furigana !== undefined) set('furigana', input.furigana ?? null);
@@ -245,13 +262,7 @@ export const inviewService = {
     if (input.mobile !== undefined) set('mobile', input.mobile ?? null);
     if (input.mail_consent !== undefined) set('mail_consent', typeof input.mail_consent === 'boolean' ? input.mail_consent : null);
     if (input.party_size !== undefined) set('party_size', normSize(input.party_size ?? 1));
-    if (input.companions !== undefined) {
-      // 名前だけの入力を、既存の受付状態と突き合わせてから保存する
-      // (そのまま上書きすると、編集のたびに全員「未受付」に戻ってしまう)
-      const rebuilt = buildCompanions(input.companions ?? [], readCompanions(existing.companions));
-      sets.push('companions = ?::jsonb');
-      params.push(JSON.stringify(rebuilt));
-    }
+    if (input.companions !== undefined) { sets.push('companions = ?::jsonb'); params.push(JSON.stringify(normCompanions(input.companions, (existing as Record<string, unknown>).companions))); }
     if (input.visit_time !== undefined) set('visit_time', input.visit_time ?? null);
     if (input.interests !== undefined) set('interests', input.interests ?? null);
     if (input.notes !== undefined) set('notes', input.notes ?? null);
@@ -266,7 +277,7 @@ export const inviewService = {
 
   async remove(id: string): Promise<void> {
     const existing = await queryOne(`SELECT id FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     await execute(`UPDATE inview_registrations SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
   },
 
@@ -283,7 +294,7 @@ export const inviewService = {
     opts: { gls_category?: 'A' | 'B'; customer_id?: string } = {},
   ): Promise<{ promoted: boolean; already?: boolean; project_id: string; customer_id: string; customer_created?: boolean }> {
     const reg = await this.getById(id);
-    if (!reg) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!reg) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     if (reg.promoted_project_id) {
       return { promoted: false, already: true, project_id: String(reg.promoted_project_id), customer_id: '' };
     }
@@ -324,7 +335,7 @@ export const inviewService = {
       `来場者: ${personName}${reg.role ? `（${reg.role}）` : ''}`,
       company ? `会社: ${company}` : '',
       reg.party_size ? `参加人数: ${reg.party_size}名` : '',
-      readCompanions(reg.companions).length ? `同行者: ${readCompanions(reg.companions).map((c) => c.name).join('、')}` : '',
+      Array.isArray(reg.companions) && reg.companions.length ? `同行者: ${(reg.companions as unknown[]).map(companionName).filter(Boolean).join('、')}` : '',
       reg.interests ? `興味・相談: ${reg.interests}` : '',
       (reg.email || reg.phone || reg.mobile) ? `連絡先: ${[reg.email, reg.phone, reg.mobile].filter(Boolean).join(' / ')}` : '',
     ].filter(Boolean);
@@ -368,7 +379,7 @@ export const inviewService = {
   /** 来場チェックの切替 (checkedIn=true で受付、false で取消) */
   async setCheckIn(id: string, checkedIn: boolean, userName?: string | null): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT id FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
     if (checkedIn) {
       await execute(
         `UPDATE inview_registrations SET checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW() WHERE id = ?`,
@@ -383,18 +394,29 @@ export const inviewService = {
     return (await this.getById(id))!;
   },
 
-  /** 同行者1人の来場チェックの切替 (代表者の受付とは独立) */
+  /**
+   * 同行者1人の来場チェック (checkedIn=true で受付、false で取消)。
+   *
+   * 代表者の受付とは独立に切り替える。当日は「代表だけ先に来て同行者は後から」
+   * のような入り方が普通にあるため、まとめて1つの状態にすると誰が来ているのか
+   * 分からなくなる。companions (JSONB) の該当要素だけを書き換える。
+   */
   async setCompanionCheckIn(
     id: string,
     companionId: string,
     checkedIn: boolean,
     userName?: string | null,
   ): Promise<Record<string, unknown>> {
-    const existing = await queryOne(`SELECT id, companions FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
-    const companions = readCompanions(existing.companions);
+    const existing = await queryOne(
+      `SELECT id, companions FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`,
+      [id],
+    );
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
+
+    const companions = readCompanions((existing as Record<string, unknown>).companions);
     const idx = companions.findIndex((c) => c.id === companionId);
-    if (idx < 0) throw new AppError(404, '同行者が見つかりません', 'NOT_FOUND');
+    if (idx < 0) throw new AppError(404, 'NOT_FOUND', '同行者が見つかりません');
+
     companions[idx] = {
       ...companions[idx],
       checked_in_at: checkedIn ? new Date().toISOString() : null,

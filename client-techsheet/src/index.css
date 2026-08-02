@@ -1,8 +1,55 @@
-@import '@gmo-onair/shared/src/client/base.css';
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html, body, #root {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html, body {
+    touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--card)); /* safe-area inset = header color */
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
+  }
+  .heading-page { font-family: var(--font-sans); font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }
+  .heading-section { font-family: var(--font-sans); font-weight: 600; line-height: 1.25; }
+  .heading-card { font-family: var(--font-sans); font-weight: 600; line-height: 1.30; }
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    min-height: 2.5rem;
+    line-height: 1.5;
+  }
+}
+
+/* Print styles */
 @media print {
   body { background: white !important; }
   .no-print { display: none !important; }

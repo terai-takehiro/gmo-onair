@@ -42,7 +42,7 @@ export interface KpiCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
 const emphasisClasses: Record<Emphasis, string> = {
   default:  "text-foreground",
   success:  "text-success",
-  warning:  "text-warning-strong",
+  warning:  "text-warning",
   negative: "text-destructive",
   info:     "text-info",
 };
@@ -124,7 +124,7 @@ export function KpiCard({
         {loading ? (
           <span className="h-8 w-24 animate-pulse rounded bg-muted" aria-hidden="true" />
         ) : (
-          <span className={cn("font-number whitespace-nowrap font-bold tracking-tight tabular-nums", valueSizeClass, emphasisClasses[emphasis])}>
+          <span className={cn("font-number font-bold tracking-tight tabular-nums", valueSizeClass, emphasisClasses[emphasis])}>
             {renderValue(value)}
           </span>
         )}

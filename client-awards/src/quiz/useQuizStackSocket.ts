@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createSocketPool } from '@gmo-onair/shared/src/client/socketPool';
+import { io, Socket } from 'socket.io-client';
 import type { QuizStackCue, QuizStep } from './types';
 import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 
-// イベント 1 件につき接続 1 本。**なぜ「つながっていなければ作り直す」形を
-// やめたかは shared/src/client/socketPool.ts の冒頭に書いてある。**
-// ここでは `sendCue` が毎回接続を取り出すので、**操作そのものが受け口を壊し**、
-// 本番中に票数と進行の表示だけが止まる形になっていた。
-const pool = createSocketPool<number>({
-  namespace: '/quiz',
-  exclusive: true,
-  options: (eventId) => ({
+let socket: Socket | null = null;
+let currentEventId: number | null = null;
+
+function getStackSocket(eventId: number): Socket {
+  if (socket && currentEventId === eventId && socket.connected) return socket;
+  if (socket) { socket.disconnect(); socket = null; }
+  currentEventId = eventId;
+  socket = io('/quiz', {
     query: { stackEventId: String(eventId) },
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
-  }),
-});
-const getStackSocket = (eventId: number) => pool.get(eventId);
+  });
+  return socket;
+}
 
 const DEFAULT = (id: number): QuizStackCue => ({
   eventId: id, currentQuizId: null, step: 'idle', pollStartedAt: null, revealPhase: 0,
@@ -37,7 +37,7 @@ export function useQuizStackSocket(eventId: number | null) {
     if (!eventId) return;
     setCue(DEFAULT(eventId));
     setLiveVotes(null);
-    const sock = pool.acquire(eventId);
+    const sock = getStackSocket(eventId);
     const onSync = (data: QuizStackCue & { timestamp?: number }) => {
       updateServerOffsetFromTimestamp(data.timestamp);
       setCue({
@@ -62,9 +62,8 @@ export function useQuizStackSocket(eventId: number | null) {
       sock.off('quizStack:sync', onSync);
       sock.off('quizStack:votes', onVotes);
       sock.off('quizStack:nextSync', onNextSync);
-      // 借りたものを返すだけ。以前は無条件に切っていたので、
-      // 同じ接続を使う別の画面 (クイズ本体) の同期も一緒に止まっていた。
-      pool.release(eventId);
+      sock.disconnect();
+      socket = null; currentEventId = null;
     };
   }, [eventId]);
 

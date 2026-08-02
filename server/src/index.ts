@@ -13,7 +13,6 @@ import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
 import { initQuizSocketIO, initInteractivePoller } from './contexts/quiz';
-import { initDigestScheduler, shutdownDigestScheduler } from './contexts/platform/services/digest-scheduler.service';
 import { initIcsSyncPoller, shutdownIcsSyncPoller, initGoogleSyncPoller, shutdownGoogleSyncPoller, initMsSyncPoller, shutdownMsSyncPoller } from './contexts/schedule';
 
 async function main() {
@@ -68,7 +67,6 @@ async function main() {
   initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
   initGoogleSyncPoller();     // v2.9.190: マイカレンダーの Google OAuth 同期 (Google → ONAiR)
   initMsSyncPoller();         // v2.9.191: マイカレンダーの Outlook OAuth 同期 (Microsoft → ONAiR)
-  initDigestScheduler();      // v2.9.268: 朝の1通 (Slack) の定時送信
   app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {
@@ -83,7 +81,6 @@ async function main() {
     shutdownIcsSyncPoller();
     shutdownGoogleSyncPoller();
     shutdownMsSyncPoller();
-    shutdownDigestScheduler();
     httpServer.close();
   });
 }

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { useCreateTask, useToggleComplete, useDeleteTask } from "../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Props {
   projectId: string;
@@ -40,7 +39,7 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
   return (
     <div className="space-y-2">
       {children.map((child) => (
-        <div key={child.id} className="flex items-center gap-2 group min-h-tap">
+        <div key={child.id} className="flex items-center gap-2 group min-h-[44px]">
           <Checkbox
             checked={child.is_completed}
             onCheckedChange={() => toggleComplete.mutate(child.id)}
@@ -54,7 +53,7 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
           </span>
           <button
             type="button"
-            onClick={async () => { if ((await confirmAction({ title: 'このサブタスクを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) deleteTask.mutate(child.id); }}
+            onClick={() => { if (window.confirm('このサブタスクを削除しますか？')) deleteTask.mutate(child.id); }}
             className="sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={`${child.title} を削除`}
           >

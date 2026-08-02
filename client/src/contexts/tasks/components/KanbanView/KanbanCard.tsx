@@ -11,8 +11,6 @@ import TaskDialog from "../TaskDialog";
 import { useToggleComplete, useDeleteTask } from "../../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
 import { TaskTypeLabels, ProductionStepLabels } from "@/types";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { aiOriginTitle } from '@gmo-onair/shared/src/client/aiAttribution';
 
 interface Props {
   task: ProjectTask;
@@ -99,7 +97,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               {task.is_ai_created && (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
-                  title={aiOriginTitle("作成")}
+                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
                 >
                   <Sparkles className="h-2.5 w-2.5" />
                   AI作成
@@ -159,7 +157,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               size="icon"
               variant="ghost"
               className="h-7 w-7 sm:h-6 sm:w-6 text-muted-foreground hover:text-destructive"
-              onClick={async () => { if ((await confirmAction({ title: `「${task.title}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteTask.mutate(task.id); }}
+              onClick={() => { if (window.confirm(`「${task.title}」を削除しますか？`)) deleteTask.mutate(task.id); }}
               aria-label={`${task.title} を削除`}
             >
               <Trash2 className="h-3 w-3" />

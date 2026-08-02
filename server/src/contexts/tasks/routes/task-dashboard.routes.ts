@@ -14,7 +14,7 @@ router.get('/', wrap(async (req, res) => {
   const projects = (await queryAll(
     `SELECT id, gls_number, gls_category, name, stage
      FROM projects
-     WHERE deleted_at IS NULL AND is_sandbox = FALSE
+     WHERE deleted_at IS NULL
        AND stage NOT IN ('s_completed', 'e_lost')
      ORDER BY gls_number NULLS LAST, name`
   )) as unknown as { id: string; gls_number: string | null; gls_category: string | null; name: string; stage: string }[];

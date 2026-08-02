@@ -288,17 +288,16 @@ router.get('/feeds', ...canUse, async (req, res) => {
  * 保存する URL。**取得にそのまま使うので、削るのは webcal → https だけ**。
  *
  * ここで形を整えてはいけない。URL に埋め込んだ資格情報 (`https://user:pass@host/…`) は
- * Nextcloud / Zimbra / CalDAV 系が普通に配る形で、axios はそれを Basic 認証に使う
- * (`axios/dist/node/axios.cjs` の `if (!auth && (parsed.username || parsed.password))`)。
- * 末尾のスラッシュが意味を持つ提供元もある。**突合のための整形は別関数** (下の
- * `feedCompareKey`) に分け、保存と取得には触れないこと。
+ * Nextcloud / Zimbra / CalDAV 系が普通に配る形で、axios はそれを Basic 認証に使う。
+ * 末尾のスラッシュが意味を持つ提供元もある。**突合のための整形は別関数**
+ * (下の `feedCompareKey`) に分け、保存と取得には触れないこと。
  */
 function storableFeedUrl(raw: string): string {
   return String(raw ?? '').trim().replace(/^webcal:\/\//i, 'https://');
 }
 
 /**
- * 購読 URL を突き合わせるための鍵 (v3.1.2)。**保存はしない・取得にも使わない**。
+ * 購読 URL を突き合わせるための鍵。**保存はしない・取得にも使わない**。
  *
  * `url_enc` は AES-GCM で毎回ランダムな IV を使うので、**同じ URL でも暗号文は毎回違う**。
  * 列に一意索引を張っても効かないため、登録時にその人の既存フィードを復号して
@@ -329,9 +328,8 @@ export function feedCompareKey(raw: string): string {
 /**
  * ONAiR 自身が出しているカレンダーを「自分の予定」として購読しようとしていないか。
  *
- * スタジオ予約の ICS を配る URL と ICS を追加する欄が同じヘッダーに隣接しているため、
- * 実際に取り違えられる。取り込むと **スタジオ予約が「自分」レイヤーにも複製されて出る**
- * (しかも `【本番】案件名 (26/08/12)｜ラベル` という別表記になる)。
+ * スタジオ予約の ICS を配る URL と ICS を追加する欄が同じダイアログに隣接しているため、
+ * 実際に取り違えられる。取り込むと **スタジオ予約が「自分」レイヤーにも複製されて出る**。
  */
 function isOwnCalendarUrl(url: string): boolean {
   try {

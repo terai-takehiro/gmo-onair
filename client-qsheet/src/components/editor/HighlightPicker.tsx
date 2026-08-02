@@ -52,7 +52,7 @@ export function HighlightPicker({
         className={`w-5 h-5 rounded flex items-center justify-center transition-colors mt-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
           value
             ? "border border-border"
-            : "text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100"
+            : "text-muted-foreground/60 hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100"
         }`}
         style={value ? { backgroundColor: value } : undefined}
         title="行のハイライト色"
@@ -94,7 +94,7 @@ export function HighlightPicker({
           <button
             type="button"
             onClick={() => select(null)}
-            className="h-ctl-3 mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 text-xs font-medium rounded-md border border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-dashed border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="ハイライトをクリア"
           >
             <X size={12} aria-hidden />

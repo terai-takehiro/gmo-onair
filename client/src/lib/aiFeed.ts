@@ -1,5 +1,3 @@
-import { formatCurrency } from "@gmo-onair/shared/src/client/format";
-import { aiOriginTitle } from "@gmo-onair/shared/src/client/aiAttribution";
 /**
  * AI 活動フィード共通ヘルパー (v2.9.198+)
  * mcp_audit_log 由来のフィード項目を人間可読に整形する。
@@ -50,7 +48,7 @@ export function aiFeedSubject(rs: Record<string, unknown> | null): string {
   const cand = [rs.name, rs.subject, rs.title, rs.code, rs.gls_number, rs.session_label, rs.doc_type];
   const v = cand.find((x) => typeof x === "string" && x);
   let s = (v as string) ?? "";
-  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ${formatCurrency(Number(rs.total))})`;
+  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ¥${Number(rs.total).toLocaleString()})`;
   if (rs.status === "draft") s += "（下書き）";
   if (rs.idempotent) s += "（すでに登録済み）";
   return s;
@@ -65,15 +63,23 @@ export function aiFeedProjectLink(f: AiFeedItem): string | null {
 }
 
 /**
- * ツールチップ用の補足。**人名は出さない。**
- *
- * このフィードは `mcp_audit_log` = AI が実行した記録だけを持つ表なので、
- * どの行も実行したのは AI。`actor_name` (MCP の接続に使ったユーザー) や
- * `requested_by` (AI が推測で書く自由記述) を出すと「この人が入れた」と
- * 読めてしまうため、代わりに**何をしたか**を出す (理由: aiAttribution.ts)。
+ * 画面に出す実行者名。
+ * 共用キー経由 (actor_id = 'mcp-claude') は「誰が」に相当する人が居らず、
+ * 認証方式を画面に書いても読む人の役に立たないので null を返して非表示にする。
+ * 内部の詳細が必要なときは aiFeedActorDetail をツールチップに使う。
+ */
+export function aiFeedActor(f: AiFeedItem): string | null {
+  return f.actor_id === "mcp-claude" ? null : (f.actor_name ?? null);
+}
+
+/**
+ * ツールチップ用の補足 (消さずに主線から外すためのもの)。
+ * 共用 API キー経由は「担当者の記録が無い」ことだけを平易に伝える
+ * (認証方式そのものは画面に書かない)。
  */
 export function aiFeedActorDetail(f: AiFeedItem): string {
-  return aiOriginTitle(AI_TOOL_LABELS[f.tool_name] ?? f.tool_name);
+  const who = f.actor_id === "mcp-claude" ? "AI（担当者の記録なし）" : (f.actor_name ?? "不明");
+  return `実行: ${who}${f.requested_by ? ` ／ 指示: ${f.requested_by}` : ""}`;
 }
 
 /** created_at → 相対時刻 (○分前/○時間前/○日前) */

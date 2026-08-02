@@ -2,8 +2,6 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
-import { bookingTypeLabels } from "../../pages/schedule/types";
 
 interface StudioRoom {
   id: string;
@@ -48,8 +46,6 @@ interface StudioBooking {
   rooms: BookingRoom[];
 }
 
-// 種別ラベルはカレンダーと同じ表 (`schedule/types.ts`) を使う。
-// ここで別に持つと片方だけ増えて表記が食い違う (題名の生成で起きたのと同じ形)。
 const bookingTypeColors: Record<string, string> = {
   project: "#3b82f6",
   maintenance: "#ef4444",
@@ -270,18 +266,12 @@ export default function KoubanView({
 
       {/* Timetable grid */}
       {filteredRooms.length === 0 && activeTab !== "other" ? (
-        <EmptyState
-          title="このロケーションにスタジオが登録されていません"
-          description="設定の「スタジオ・部屋」から部屋を登録すると、香盤表に列が出ます。"
-        />
+        <p className="text-center text-muted-foreground py-8">このロケーションにはスタジオがありません</p>
       ) : activeTab === "other" && filteredRooms.length === 0 ? (
         /* "Other" tab: show external bookings as list */
         <div className="space-y-2">
           {otherBookings.length === 0 ? (
-            <EmptyState
-            title="この日の外現場の予約はありません"
-            description="スタジオ以外の現場を押さえると、ここに並びます。"
-          />
+            <p className="text-center text-muted-foreground py-8">外現場の予約はありません</p>
           ) : (
             otherBookings.map((b) => (
               <div
@@ -289,15 +279,7 @@ export default function KoubanView({
                 className="rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => onBookingClick(b)}
               >
-                <div className="font-medium">
-                  {/* 部屋列と同じく種別ラベルを出す。題名に種別が入らないので、
-                      これが無いと仮押さえと本番が同じ見た目になる。
-                      部屋なしの予約 (自動仮押さえで部屋を答えなかったもの) はここに来る */}
-                  <span className="mr-1.5 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-                    {bookingTypeLabels[b.booking_type] || b.booking_type}
-                  </span>
-                  {b.title}
-                </div>
+                <div className="font-medium">{b.title}</div>
                 <div className="text-sm text-muted-foreground">
                   {b.location_note || "場所未定"} / {b.start_time.split("T")[1]?.slice(0, 5) || "終日"} - {b.end_time.split("T")[1]?.slice(0, 5) || ""}
                 </div>
@@ -316,7 +298,7 @@ export default function KoubanView({
               {filteredRooms.map((room) => (
                 <div
                   key={room.id}
-                  className="flex-1 min-w-[128px] border-r last:border-r-0 p-2 text-center"
+                  className="flex-1 min-w-[120px] border-r last:border-r-0 p-2 text-center"
                 >
                   <div className="flex items-center justify-center gap-1.5">
                     <span
@@ -351,7 +333,7 @@ export default function KoubanView({
               {filteredRooms.map((room) => {
                 const entries = roomBookings.get(room.id) || [];
                 return (
-                  <div key={room.id} className="flex-1 min-w-[128px] border-r last:border-r-0 relative">
+                  <div key={room.id} className="flex-1 min-w-[120px] border-r last:border-r-0 relative">
                     {/* Slot backgrounds */}
                     {timeSlots.map((slot, i) => (
                       <div
@@ -390,12 +372,6 @@ export default function KoubanView({
                           }}
                         >
                           <div className="text-xs font-medium leading-tight truncate">
-                            {/* 種別ラベル。題名から種別を外した (v3.1.2) ので、これが無いと
-                                **仮押さえと本番が見分けられない** (部屋の色は同じ)。
-                                色は部屋ごとなので、ラベルは白の半透明で下地に乗せる。 */}
-                            <span className="mr-1 rounded-sm bg-white/25 px-1 text-[10px] font-bold">
-                              {bookingTypeLabels[entry.booking.booking_type] || entry.booking.booking_type}
-                            </span>
                             {entry.booking.title}
                           </div>
                           {height >= SLOT_HEIGHT && (

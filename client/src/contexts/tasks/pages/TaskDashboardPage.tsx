@@ -23,13 +23,8 @@ const CAT_FILTERS: { id: CatFilter; label: string }[] = [
   { id: "A", label: "スタジオ" },
 ];
 
-/** view は旧パス (/sales/tasks/:view) と新クエリ (/tasks?view=) の両方から来る */
-export default function TaskDashboardPage({
-  view: viewProp,
-  embedded,
-}: { view?: string; embedded?: boolean } = {}) {
-  const params = useParams<{ view: string }>();
-  const view = viewProp ?? params.view;
+export default function TaskDashboardPage() {
+  const { view } = useParams<{ view: string }>();
   const navigate = useNavigate();
   const activeView: ViewType =
     view === "kanban" || view === "list" || view === "gantt" ? view : "kanban";
@@ -54,14 +49,13 @@ export default function TaskDashboardPage({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b px-4 py-3 flex items-center gap-3 flex-wrap">
-        {/* 表示形式は /tasks の見出しが持つ。埋め込みのときは同じ切り替えを2つ出さない */}
-        <div className={cn("flex items-center gap-1 rounded-md border bg-muted/40 p-0.5", embedded && "hidden")}>
+        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
           {VIEWS.map(({ id, label, Icon }) => (
             <button
               key={id}
-              onClick={() => navigate(`/tasks?scope=all&view=${id === "kanban" ? "board" : id}`)}
+              onClick={() => navigate(`/sales/tasks/${id}`)}
               className={cn(
-                "h-ctl-1 flex items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors",
+                "flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
                 activeView === id
                   ? "bg-background shadow text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -138,26 +132,11 @@ export default function TaskDashboardPage({
               />
             )}
             {activeView === "gantt" && (
-              <>
-                {/* ガントはPCのみ (§4.19)。スマホでは横に長すぎて読めないのでリストへ誘導する */}
-                <div className="hidden h-full flex-col sm:flex">
-                  <DashboardGanttView
-                    projects={filtered.projects}
-                    columns={filtered.columns}
-                    tasks={filtered.tasks}
-                  />
-                </div>
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center sm:hidden">
-                  <p className="text-sm text-muted-foreground">ガントは横に長いのでPCで見てください。</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/tasks?scope=all&view=list")}
-                    className="text-sm text-primary underline underline-offset-2"
-                  >
-                    リストで見る
-                  </button>
-                </div>
-              </>
+              <DashboardGanttView
+                projects={filtered.projects}
+                columns={filtered.columns}
+                tasks={filtered.tasks}
+              />
             )}
           </>
         ) : null}

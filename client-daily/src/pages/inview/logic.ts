@@ -5,8 +5,47 @@
  * ようにするため**。受付の検索はカタカナ/ひらがな・全角/半角・電話のハイフンで
  * 空振りしないことが要件なので、ここだけを Node から呼んで確かめられる形にした。
  */
-import type { InviewRegistration } from '@/lib/types';
+import type { InviewCompanion, InviewRegistration } from '@/lib/types';
 import { formatDateJa } from '@/lib/types';
+
+// ── 同行者の読み取り ─────────────────────────────────────────
+//
+// `companions` は migration 154 で「氏名の文字列」から
+// `{ id, name, checked_in_at, checked_in_by }` に変わった。DB 上は移行済みだが
+// 型としては両方あり得るので、画面はここを通してから使う。
+// **オブジェクトをそのまま JSX に置くと React error #31 で画面全体が落ちる。**
+
+/** 同行者1人 (画面が扱う形)。id が無い = 個別受付ができない (旧形式の残骸) */
+export interface CompanionView {
+  id: string | null;
+  name: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
+
+/** 同行者の氏名を取り出す。旧形式 (文字列) と新形式 (オブジェクト) の両方を受ける */
+export function companionName(c: string | InviewCompanion | null | undefined): string {
+  if (typeof c === 'string') return c.trim();
+  if (c && typeof c === 'object') return String(c.name ?? '').trim();
+  return '';
+}
+
+/** 予約の同行者を画面が扱う形に揃える (氏名が空の行は落とす) */
+export function companionsOf(r: InviewRegistration): CompanionView[] {
+  const out: CompanionView[] = [];
+  for (const c of r.companions ?? []) {
+    const name = companionName(c);
+    if (!name) continue;
+    const o = typeof c === 'object' && c ? c : null;
+    out.push({
+      id: o?.id ?? null,
+      name,
+      checked_in_at: o?.checked_in_at ?? null,
+      checked_in_by: o?.checked_in_by ?? null,
+    });
+  }
+  return out;
+}
 
 // ── 回 (セッション) と 日 のキー ─────────────────────────────
 
@@ -42,7 +81,7 @@ export function headOf(r: InviewRegistration): number {
 
 /** その予約のうち受付が済んだ人数 (代表 + 同行者を個別に数える) */
 export function checkedInHeadOf(r: InviewRegistration): number {
-  const companions = (r.companions ?? []).filter((c) => c.checked_in_at).length;
+  const companions = companionsOf(r).filter((c) => c.checked_in_at).length;
   return (r.checked_in_at ? 1 : 0) + companions;
 }
 
@@ -74,7 +113,7 @@ function haystack(r: InviewRegistration): string {
   return normalizeForSearch([
     r.name, r.furigana, r.company, r.role, r.email, r.phone, r.mobile, r.fax,
     r.postal_code, r.address, r.visit_time, r.session_label,
-    ...(r.companions ?? []).map((c) => c.name),
+    ...companionsOf(r).map((c) => c.name),
   ].filter(Boolean).join(' '));
 }
 
@@ -93,7 +132,7 @@ export function matchedFields(r: InviewRegistration, terms: string[]): string[] 
     ['メール', r.email], ['電話', r.phone], ['携帯', r.mobile], ['FAX', r.fax],
     ['住所', [r.postal_code, r.address].filter(Boolean).join(' ')],
     ['来場予定時間', r.visit_time], ['回', r.session_label],
-    ['同行者', (r.companions ?? []).map((c) => c.name).join(' ')],
+    ['同行者', companionsOf(r).map((c) => c.name).join(' ')],
   ];
   const hit = new Set<string>();
   for (const [label, value] of fields) {
@@ -164,7 +203,7 @@ export function buildCsv(rows: InviewRegistration[]): string {
       r.interests ?? '', r.notes ?? '', checkin, r.checked_in_by ?? '', promoted, src, createdAt,
     ].map(csvCell));
     // 同行者 (会社・回は代表から継承。来場状況は同行者ごとに個別)
-    for (const c of r.companions ?? []) {
+    for (const c of companionsOf(r)) {
       const companionCheckin = c.checked_in_at ? '来場済み' : '未受付';
       lines.push([
         sessionDate, r.session_label ?? '', r.session_time ?? '', r.session_audience ?? '',
@@ -189,4 +228,3 @@ export function downloadCsv(rows: InviewRegistration[], nameSuffix = '') {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-

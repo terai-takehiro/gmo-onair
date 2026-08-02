@@ -94,7 +94,7 @@ export default function StageDiagramEditor({
   return (
     <div className="space-y-2">
       {/* Stage SVG */}
-      <div className="border rounded bg-muted relative">
+      <div className="border rounded bg-slate-50 relative">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
@@ -172,11 +172,11 @@ export default function StageDiagramEditor({
 
       {/* Controls */}
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" className="h-ctl-1 text-xs gap-1" onClick={() => addElement("person")}>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addElement("person")}>
           <User className="h-3 w-3" />
           出演者
         </Button>
-        <Button variant="outline" size="sm" className="h-ctl-1 text-xs gap-1" onClick={() => addElement("object")}>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addElement("object")}>
           <Plus className="h-3 w-3" />
           オブジェクト
         </Button>

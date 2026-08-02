@@ -90,7 +90,7 @@ export default function BranchCodeInput({ value, onChange, placeholder = "GMO-IG
                 key={o}
                 type="button"
                 onMouseDown={e => { e.preventDefault(); handleSelect(o); }}
-                className="h-ctl-3 w-full flex items-center gap-2 text-left px-3 text-sm hover:bg-accent transition-colors"
+                className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
               >
                 {value === o
                   ? <Check className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -127,7 +127,7 @@ export default function BranchCodeInput({ value, onChange, placeholder = "GMO-IG
               <button
                 type="button"
                 onMouseDown={e => { e.preventDefault(); setInputMode(true); setDraft(""); }}
-                className="h-ctl-1 w-full flex items-center gap-1.5 px-2 text-sm text-primary hover:bg-accent rounded transition-colors"
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-sm text-primary hover:bg-accent rounded transition-colors"
               >
                 <Plus className="h-3.5 w-3.5 shrink-0" />
                 新規追加

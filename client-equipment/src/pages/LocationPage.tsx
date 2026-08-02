@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, MapPin, Pencil, Trash2, Server, Settings } from "lucide-react";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { confirmAction } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 interface Location {
   id: string;
@@ -112,8 +109,8 @@ export default function LocationPage() {
     });
   };
 
-  const handleDelete = async (loc: Location) => {
-    if (!(await confirmAction({ title: `「${loc.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
+  const handleDelete = (loc: Location) => {
+    if (!confirm(`「${loc.name}」を削除しますか？`)) return;
     crud.remove.mutate(loc.id);
   };
 
@@ -125,7 +122,7 @@ export default function LocationPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTitle>保管場所管理</PageTitle>
+        <h1 className="heading-page text-xl lg:text-2xl">保管場所管理</h1>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setMasterOpen(true)}>
             <Settings className="h-4 w-4 mr-1" />
@@ -160,16 +157,16 @@ export default function LocationPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         {isRack
-                          ? <Server className="h-4 w-4 text-warning-strong shrink-0" />
+                          ? <Server className="h-4 w-4 text-amber-500 shrink-0" />
                           : <MapPin className="h-4 w-4 text-primary shrink-0" />}
                         <h3 className="font-medium">{loc.name}</h3>
                         {brName && (
-                          <span className="text-xs bg-accent text-primary px-1.5 py-0.5 rounded">
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
                             {brName}
                           </span>
                         )}
                         {isRack && (
-                          <span className="text-xs bg-warning-surface text-warning-strong px-1.5 py-0.5 rounded ">
+                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ">
                             {rtName} {loc.rack_units}U
                           </span>
                         )}
@@ -387,13 +384,13 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
                   autoFocus
                 />
                 <Button
-                size="sm" className="h-ctl-1 px-2 text-xs"
+                  size="sm" className="h-7 px-2 text-xs"
                   disabled={!editName.trim() || updateMutation.isPending}
                   onClick={() => updateMutation.mutate({ id: item.id, name: editName.trim() })}
                 >
                   保存
                 </Button>
-                <Button size="sm" variant="ghost" className="h-ctl-1 px-2 text-xs" onClick={() => setEditingId(null)}>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingId(null)}>
                   キャンセル
                 </Button>
               </>
@@ -409,7 +406,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
                 <Button
                   variant="ghost" size="icon" className="h-6 w-6 text-destructive"
                   disabled={deleteMutation.isPending}
-                  onClick={async () => { if ((await confirmAction({ title: `「${item.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}
+                  onClick={() => { if (confirm(`「${item.name}」を削除しますか？`)) deleteMutation.mutate(item.id); }}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -428,7 +425,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
             }}
           />
           <Button
-          size="sm" className="h-ctl-1 px-2 text-xs"
+            size="sm" className="h-7 px-2 text-xs"
             disabled={!addName.trim() || addMutation.isPending}
             onClick={() => addMutation.mutate(addName.trim())}
           >

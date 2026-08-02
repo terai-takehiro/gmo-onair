@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,10 @@ import {
   AI_TOOL_LABELS,
   aiFeedSubject,
   aiFeedProjectLink,
+  aiFeedActor,
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
-import { AI_ACTOR_LABEL } from "@gmo-onair/shared/src/client/aiAttribution";
-import { PageTitle } from "@gmo-onair/shared/src/client/ui";
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
 
 const DAY_OPTIONS = [7, 14, 30, 90] as const;
 const PAGE_SIZE = 30;
@@ -66,7 +64,7 @@ export default function AiActivityPage() {
             <Sparkles className="h-5 w-5 text-violet-600" aria-hidden="true" />
           </span>
           <div>
-            <PageTitle>AI がやったこと</PageTitle>
+            <h1 className="text-xl lg:text-2xl font-bold">AI がやったこと</h1>
             <p className="text-xs text-muted-foreground">
               AI が作ったり直したりしたものの記録です。誰の指示だったかも残ります。
             </p>
@@ -128,6 +126,7 @@ export default function AiActivityPage() {
               const label = AI_TOOL_LABELS[f.tool_name] ?? f.tool_name;
               const subject = aiFeedSubject(f.result_summary);
               const projectLink = aiFeedProjectLink(f);
+              const actor = aiFeedActor(f);
               return (
                 <li key={f.id} className="flex items-start gap-3 px-3 py-2.5">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50">
@@ -150,10 +149,11 @@ export default function AiActivityPage() {
                         )
                       ) : null}
                     </p>
-                    {/* 実行したのは AI。人名 (接続ユーザー・AI が書いた指示者) は出さない (aiAttribution.ts) */}
+                    {/* 内部の詳細 (実行者・ツール名) は title に退避し、主線には出さない */}
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground" title={aiFeedActorDetail(f)}>
                       <span>{absoluteTime(f.created_at)}（{relativeTime(f.created_at)}）</span>
-                      <span className="text-ai">{AI_ACTOR_LABEL}</span>
+                      {actor ? <span>{actor}</span> : null}
+                      {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
                     </p>
                   </div>
                 </li>

@@ -1,7 +1,6 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { config } from '../../../config';
 import { normalizeWeekStart, defaultWeekStart, addDays } from './ops-report.service';
-import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 
 // ウィークリー活動報告の数値集計 (オンデマンド)。
 // dashboard.routes の /kpi /sales-board /weekly-schedule と同じ流儀で集計する。
@@ -20,26 +19,6 @@ export interface WeeklyStats {
     week_end: string;
     events: Record<string, unknown>[];
     next_actions: Record<string, unknown>[];
-  };
-  /**
-   * ふりかえりで見る「守れたか」(§4.18)。
-   * 件数だけでは「忙しかった」しか分からないので、**約束を守れた割合**を出す。
-   */
-  quality: {
-    /** 今週が期限だったタスク */
-    tasks_due: number;
-    /** そのうち期限内に終えたもの */
-    tasks_on_time: number;
-    /** 終えたが期限を過ぎていたもの */
-    tasks_late: number;
-    /** まだ終わっていないもの (期限は過ぎている) */
-    tasks_open: number;
-    /** 期限内完了率 (0〜1)。期限のあるタスクが無い週は null */
-    on_time_rate: number | null;
-    /** AI が出したものが直されずに通った割合 (直近30日・kind=task_intake) */
-    ai_reviewed_outputs: number;
-    ai_accepted_as_is: number;
-    ai_as_is_rate: number | null;
   };
 }
 
@@ -64,7 +43,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
-     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE
+     WHERE p.deleted_at IS NULL
        AND p.created_at >= ?::date AND p.created_at < (?::date + INTERVAL '1 day')
      ORDER BY p.created_at ASC
      LIMIT 20`,
@@ -77,7 +56,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
               WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
             )) AS ai_c
      FROM projects
-     WHERE deleted_at IS NULL AND is_sandbox = FALSE
+     WHERE deleted_at IS NULL
        AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')`,
     [config.mcpActorId, weekStart, weekEnd],
   );
@@ -108,7 +87,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
   const pipeline = await queryAll(
     `SELECT stage, COUNT(*) AS count, COALESCE(SUM(expected_amount), 0) AS expected_amount
      FROM projects
-     WHERE deleted_at IS NULL AND is_sandbox = FALSE AND stage NOT IN ('s_completed', 'e_lost')
+     WHERE deleted_at IS NULL AND stage NOT IN ('s_completed', 'e_lost')
      GROUP BY stage
      ORDER BY CASE stage
        WHEN 'a_won' THEN 1 WHEN 'b_verbal' THEN 2 WHEN 'c_proposal' THEN 3
@@ -117,13 +96,13 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
 
   // 売上 (計上日ベース): 週内合計 + 当月累計
   const weekRevenue = await queryOne(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues x
-     WHERE x.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox) AND recognition_date BETWEEN ? AND ?`,
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
+     WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`,
     [weekStart, weekEnd],
   );
   const monthRevenue = await queryOne(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues x
-     WHERE x.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM projects sbx WHERE sbx.id = x.project_id AND sbx.is_sandbox) AND substr(recognition_date, 1, 7) = ?`,
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
+     WHERE deleted_at IS NULL AND substr(recognition_date, 1, 7) = ?`,
     [month],
   );
 
@@ -133,7 +112,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
             c.name AS customer_name
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE p.deleted_at IS NULL AND p.is_sandbox = FALSE AND p.gls_number IS NOT NULL
+     WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
        AND NULLIF(p.event_start, '') IS NOT NULL
        AND p.event_start <= ?
        AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?
@@ -161,42 +140,6 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
     [nextWeekStart, nextWeekEnd],
   );
 
-  /**
-   * 今週が期限だったタスクを、期限内 / 遅れ / 未完了 に分ける。
-   * 期限は `due_at` を正とし、旧 `due_date` はその日の 18:00 として読む
-   * (v2.9.244 の決めごと。DB は書き換えない)。
-   */
-  const dueExpr = `COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)`;
-  const taskQuality = await queryOne(
-    `SELECT COUNT(*)::int AS due_count,
-            COUNT(*) FILTER (WHERE t.is_completed = TRUE AND t.completed_at IS NOT NULL
-                             AND t.completed_at <= ${dueExpr})::int AS on_time,
-            COUNT(*) FILTER (WHERE t.is_completed = TRUE AND (t.completed_at IS NULL
-                             OR t.completed_at > ${dueExpr}))::int AS late,
-            COUNT(*) FILTER (WHERE t.is_completed = FALSE)::int AS still_open
-     FROM project_tasks t
-     WHERE t.deleted_at IS NULL
-       AND ${dueExpr} >= ?::timestamp
-       AND ${dueExpr} < (?::date + 1)::timestamp`,
-    [weekStart, weekEnd]
-  ) as Record<string, unknown> | null;
-
-  // AI の無修正採用率は既存のダイジェストから借りる (同じ数字を2か所で計算しない)
-  let aiReviewed = 0;
-  let aiAsIs = 0;
-  let aiRate: number | null = null;
-  try {
-    const digest = await getFeedbackDigest('task_intake', 30);
-    aiReviewed = digest.reviewed_outputs;
-    aiAsIs = digest.accepted_as_is;
-    aiRate = digest.as_is_rate;
-  } catch {
-    // ダイジェストが取れなくても週報は出す (数字が1つ欠けるだけ)
-  }
-
-  const dueCount = Number(taskQuality?.due_count ?? 0);
-  const onTime = Number(taskQuality?.on_time ?? 0);
-
   return {
     period: { week_start: weekStart, week_end: weekEnd },
     new_projects: {
@@ -221,16 +164,6 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
       week_end: nextWeekEnd,
       events: eventsNextWeek,
       next_actions: nextActions,
-    },
-    quality: {
-      tasks_due: dueCount,
-      tasks_on_time: onTime,
-      tasks_late: Number(taskQuality?.late ?? 0),
-      tasks_open: Number(taskQuality?.still_open ?? 0),
-      on_time_rate: dueCount > 0 ? onTime / dueCount : null,
-      ai_reviewed_outputs: aiReviewed,
-      ai_accepted_as_is: aiAsIs,
-      ai_as_is_rate: aiRate,
     },
   };
 }

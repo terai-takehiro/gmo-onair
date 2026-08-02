@@ -21,8 +21,6 @@ import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
-import { PageTitle } from '@gmo-onair/shared/src/client/ui';
-import { EmptyState, NoSearchResults } from '@gmo-onair/shared/src/client/states';
 import {
   AttendeeCard, CompanySummary, InviewDialog, SORT_LABELS, UNDATED, checkedInHeadOf, dayKey,
   downloadCsv, formatDayTitle, headOf, matchedFields, matchesTerms, searchTerms, sortRegs,
@@ -90,18 +88,18 @@ export default function InviewDayPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <PageTitle>
+          <h1 className="flex items-center gap-2 text-xl font-bold">
             <Users className="h-5 w-5 text-primary" />
             {date === UNDATED ? '日付未定の回' : formatDayTitle(date)}
             {isToday && <Badge className="ml-1 bg-primary text-primary-foreground text-[11px]">今日</Badge>}
-          </PageTitle>
+          </h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
               <span className="font-semibold tabular-nums text-foreground">{dayRows.length}</span>組 /
               <span className="font-semibold tabular-nums text-foreground">{head}</span>名
             </span>
-            <span className={`inline-flex items-center gap-1 ${checkedIn > 0 ? 'text-success' : ''}`}>
+            <span className={`inline-flex items-center gap-1 ${checkedIn > 0 ? 'text-emerald-700' : ''}`}>
               <CheckCircle2 className="h-3.5 w-3.5" />
               受付 <span className="font-semibold tabular-nums">{checkedIn}</span> / {head}名
             </span>
@@ -185,25 +183,22 @@ export default function InviewDayPage() {
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : dayRows.length === 0 ? (
-        <EmptyState
-          title="この日の来場予約はありません"
-          description="日付を取り違えているかもしれません。開催日の一覧から選び直してください。"
-          action={<Button variant="outline" size="sm" asChild><Link to="/inview">開催日の一覧に戻る</Link></Button>}
-        />
+        <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
+          <p>この日の来場予約はありません。</p>
+          <p>日付を取り違えているかもしれません。開催日の一覧から選び直してください。</p>
+          <Button variant="outline" size="sm" asChild><Link to="/inview">開催日の一覧に戻る</Link></Button>
+        </CardContent></Card>
       ) : searching && hitCount === 0 ? (
-        <div className="space-y-3">
-          <NoSearchResults
-            keyword={query}
-            activeFilters={[`表示: ${date === UNDATED ? '日付未定の回' : formatDayTitle(date)} のみ`]}
-            onClearFilters={() => setQuery('')}
-          />
-          <p className="text-center text-sm text-muted-foreground">
+        <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
+          <p>「{query}」に一致する来場者は、{date === UNDATED ? '日付未定の回' : formatDayTitle(date)} にはいません。</p>
+          <p>
             別の日で申し込んでいる可能性もあります。
             <Link to="/inview" className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline">
               全部の回から探す<ChevronRight className="h-3 w-3" />
             </Link>
           </p>
-        </div>
+          <Button variant="outline" size="sm" onClick={() => setQuery('')}>検索をクリア</Button>
+        </CardContent></Card>
       ) : (
         <div className="space-y-6">
           {sessions.map((s) => {
@@ -219,7 +214,7 @@ export default function InviewDayPage() {
                   {s.audience ? <Badge variant="outline" className="text-xs">{s.audience}</Badge> : null}
                   <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{s.items.length}組 / {sHead}名</span>
-                    <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="h-3.5 w-3.5" />受付 {sChecked}</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />受付 {sChecked}</span>
                   </span>
                 </div>
                 {/* 回のフル文字列 (抽出前の生ラベル) */}
