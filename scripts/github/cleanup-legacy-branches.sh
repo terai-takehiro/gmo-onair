@@ -11,10 +11,35 @@
 # なぜスクリプトにしてあるか:
 #   ブランチ 41 本の削除は取り消しにくいので、「何を消すのか」を SHA まで
 #   固定して読める形にしてから流す。--dry-run で全部確認できる。
-#   (Claude Code のセッションからは push の権限でタグ作成とブランチ削除が
-#    できなかったため、この形で残してある)
 #
-# 使い方:
+# ★ 誰が流すか (2026-08-04 に再確認):
+#   **Claude Code のセッションからは流せない。** git プロキシがタグ作成と
+#   ブランチ削除を組織ポリシーとして拒否する:
+#       error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+#   `git push --dry-run` は通ってしまうので、dry-run では気づけない。
+#   実際に流したときリモートは 1 バイトも変わらなかった (タグ0本・ブランチ45本のまま)
+#   ので、途中で止まっても壊れない。
+#
+#   流す方法は2つ。どちらでも同じことをする:
+#     ① GitHub の画面から (おすすめ・このスクリプトを触らなくてよい)
+#        Actions → Cleanup branches → Run workflow
+#          mode = dry-run … 見るだけ
+#          mode = execute + confirm = cleanup … 実行
+#        → .github/workflows/cleanup-branches.yml
+#        ※ ワークフローは**デフォルトブランチ (main) にある分しか呼べない**ので、
+#          この仕組みが入った PR がマージされてから使えるようになる。
+#     ② 手元のターミナル (通常の GitHub 認証) から下の使い方で
+#
+#   流したあとの想定: リモートのタグ 11 本 (archive 7 + v3.1.5/v3.2.0/v3.2.1/v3.2.2)、
+#   ブランチ 45 → 4 本 (main / release/v3 / rollback/old-ui / 作業中のもの)
+#
+# ★ GitHub の Releases 画面でタグを作ってはいけない:
+#   タグを作る入口は Releases しかなく、Release を**公開**すると deploy.yml の
+#   `release: types: [published]` が発火して **そのタグの中身が本番に出る**。
+#   v3.1.5 は本番未投入、archive/* は古い作業ブランチなので、本番に出てはいけない。
+#   (下書きのままではタグが作られないので、そもそも目的も果たせない)
+#
+# 使い方 (手元のターミナルから流す場合):
 #   bash scripts/github/cleanup-legacy-branches.sh --dry-run   # 何をするか見るだけ
 #   bash scripts/github/cleanup-legacy-branches.sh             # 実行
 #
@@ -71,8 +96,13 @@ elif [ -n "$DEFAULT_BRANCH" ]; then
   echo "  ✓ デフォルトブランチ: $DEFAULT_BRANCH"
 fi
 
-# (b) dev と main が同じコミットを指しているか。
-#     ずれていたら dev にしかない変更があるので消さない。
+# (b) dev を消して失われるものが無いか。
+#     消して良いのは次のどちらか:
+#       - dev == main                      … 中身が同じ
+#       - dev に固有のコミットが0件 かつ    … main から見て先に進んでいない
+#         その位置を release/v3 が指している … v3 のコードは別のブランチに残る
+#     v3.2.0 で v3.1.5 からロールバックしたため、dev (=v3.1.5) は main の祖先ではなく
+#     「別の枝の先端」になっている。単純な SHA 比較だけだと永久に消せない。
 DEV_SHA=$(git rev-parse --verify --quiet "$REMOTE/dev" || true)
 MAIN_SHA=$(git rev-parse "$REMOTE/main")
 if [ -z "$DEV_SHA" ]; then
@@ -81,12 +111,23 @@ if [ -z "$DEV_SHA" ]; then
 elif [ "$DEV_SHA" = "$MAIN_SHA" ]; then
   echo "  ✓ dev と main は同じコミット ($(git rev-parse --short "$MAIN_SHA"))"
 else
-  echo "  ⚠ dev と main がずれている:"
+  DEV_ONLY=$(git rev-list --count "$REMOTE/main..$REMOTE/dev")
+  REL_SHA=$(git rev-parse --verify --quiet "$REMOTE/release/v3" || true)
+  echo "  · dev と main は別の位置:"
   echo "      dev  = $(git rev-parse --short "$DEV_SHA")"
   echo "      main = $(git rev-parse --short "$MAIN_SHA")"
-  echo "      dev にしかないコミット: $(git rev-list --count "$REMOTE/main..$REMOTE/dev") 件"
-  echo "    → dev は消さない。先に main へ取り込んでからもう一度流してください。"
-  DELETE_DEV=false
+  echo "      dev にしかないコミット: $DEV_ONLY 件"
+  if [ "$DEV_ONLY" = "0" ]; then
+    echo "  ✓ dev に固有のコミットは無い"
+    DELETE_DEV=true
+  elif [ -n "$REL_SHA" ] && [ "$REL_SHA" = "$DEV_SHA" ]; then
+    echo "  ✓ 同じコミットを release/v3 が指している → dev を消してもコードは残る"
+    DELETE_DEV=true
+  else
+    echo "    → dev は消さない。固有のコミットがあり、release/v3 も別の位置を指している。"
+    echo "      先に main か release/v3 へ取り込んでからもう一度流してください。"
+    DELETE_DEV=false
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────
@@ -175,7 +216,7 @@ RELEASE_TAGS=()
 tag_at v3.1.5 '6909a78d62de7374deb543a81f039901eece670c' \
   "v3.1.5 — 見積が案件化しても消えないようにし、見積=売上=仕入を1つのデータにした / 不課税の追加 / お金トップからの仕入・販管費入力" \
   "UI/UX 刷新 (v2.9.251〜) の到達点。**本番には投入していない** — v3.2.0 で刷新前の画面へロールバックしたため。v4 はここを下地として参照する (docs/branching.md)。"
-tag_at v3.2.0 '5c2789293e0d95a6f0d0a9b34cd0e0b0f2b6bd58' \
+tag_at v3.2.0 '5c278929105cdf7704108e997e3b0421718770b7' \
   "v3.2.0 — UI/UX 刷新の直前 (v2.9.250 相当) へロールバック" \
   "v4 に向けて画面を作り直すための巻き戻し。DB は戻していない。ここから本番は v3.2.x 系で稼働している。"
 tag_at v3.2.1 '4aa5685a' \

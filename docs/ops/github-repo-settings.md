@@ -22,7 +22,7 @@ bash scripts/github/apply-repo-settings.sh             # 適用
 | 0 | **デフォルトブランチを `main` にする** | [Settings → General → Default branch](https://github.com/terai-takehiro/gmo-onair/settings) |
 | 1 | この変更（新しい CI・デプロイ・ドキュメント）を `main` にマージする | PR をマージ |
 | 2 | 検証環境が新しい経路で出ることを確かめる | Actions の `Deploy` → `curl -s https://dev.gmo-onair.jp/health` |
-| 3 | 旧ブランチを整理する（`archive/*` タグ + `v3.1.5` タグ + `claude/*` 40本 + `dev` の削除） | `bash scripts/github/cleanup-legacy-branches.sh --dry-run` → 本実行 |
+| 3 | 旧ブランチを整理する（`archive/*` タグ + `v3.1.5` タグ + `claude/*` 40本 + `dev` の削除） | **Actions → Cleanup branches**（`mode = dry-run` → `execute` + `confirm = cleanup`）／手元からなら `bash scripts/github/cleanup-legacy-branches.sh --dry-run` → 本実行 |
 | 4 | 分岐保護・環境・ラベルを入れる | `bash scripts/github/apply-repo-settings.sh` |
 | 5 | `production` 環境の承認者を設定する | [Settings → Environments](https://github.com/terai-takehiro/gmo-onair/settings/environments) |
 | 6 | VPS の worktree を確認する | 下記「VPS 側の確認」 |
@@ -30,6 +30,12 @@ bash scripts/github/apply-repo-settings.sh             # 適用
 `cleanup-legacy-branches.sh` は**`main` に `ci.yml` が入っているかを見てから** `dev` を消すので、
 1 を飛ばして 3 を流しても `dev` は残ります（`claude/*` の整理とタグ付けだけ進みます）。
 `dev` と `main` がずれている場合も `dev` は消しません。
+
+> **タグを Releases 画面から作らないでください。** GitHub の画面でタグを作る入口は Releases だけで、
+> Release を**公開**すると `deploy.yml` の `release: types: [published]` が発火し、
+> **そのタグの中身が本番に出ます**。`v3.1.5`（本番未投入）や `archive/*`（古い作業ブランチ）を
+> 本番に出すことになるので使えません。`Cleanup branches` ワークフローはタグを push するだけで
+> Release を作らないため、本番は動きません。
 
 ### なぜ 0 が最初なのか
 

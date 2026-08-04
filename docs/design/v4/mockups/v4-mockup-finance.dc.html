@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.470.0/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; background:#e9ebee; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; }
+  a:hover { color:#0068b8; text-decoration:underline; }
+  .num { font-family:'LINE Seed JP','Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  @keyframes screenIn { from { opacity:0; transform:translateY(10px) scale(.995); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes toastIn { from { opacity:0; transform:translate(-50%,14px) scale(.96); } to { opacity:1; transform:translate(-50%,0) scale(1); } }
+  button, a, [style*="cursor:pointer"] { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .14s cubic-bezier(.22,.61,.36,1); }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.985); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column">
+
+  <div style="position:sticky; top:0; z-index:50; background:rgba(233,235,238,.86); backdrop-filter:blur(10px); border-bottom:1px solid #dcdfe4">
+    <div style="max-width:1600px; margin:0 auto; padding:14px 32px; display:flex; align-items:center; gap:16px">
+      <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0">
+        <span class="num" style="font-size:13px; font-weight:800; color:#005bac; letter-spacing:.1em">v4.0</span>
+        <span style="font-size:17px; font-weight:800">モックアップ</span>
+      </div>
+      <div style="width:1px; height:20px; background:#cbd2da; flex-shrink:0"></div>
+      <span style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #197a4b; border-radius:10px; background:#197a4b; color:#fff; font-size:13.5px; font-weight:800; white-space:nowrap">
+        <i data-lucide="wallet" style="width:15px;height:15px"></i>財務管理
+      </span>
+      <a href="v4-mockup-main.dc.html" style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:13.5px; font-weight:700; white-space:nowrap; text-decoration:none">
+        <i data-lucide="layout-grid" style="width:15px;height:15px"></i>ほかのアプリ・共通画面へ
+      </a>
+      <div style="flex:1"></div>
+      <span style="font-size:12.5px; color:#5d6470; white-space:nowrap">実装に渡す前の確認用 ・ 中身はダミー</span>
+    </div>
+    <div style="max-width:1600px; margin:0 auto; padding:0 32px 12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+      <span style="font-size:12px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">財務管理:</span>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.go }}" style="height:30px; padding:0 13px; border:1px solid {{ t.bd }}; border-radius:999px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:180; background:rgba(16,24,40,.42); display:flex; align-items:flex-start; justify-content:center; padding:64px 24px; overflow:auto">
+      <div onClick="{{ dlgStop }}" style="width:580px; background:#fff; border-radius:18px; box-shadow:0 40px 90px -30px rgba(16,24,40,.55); overflow:hidden; animation:screenIn .22s cubic-bezier(.22,.61,.36,1) both">
+        <div style="display:flex; align-items:center; gap:11px; padding:16px 20px; border-bottom:1px solid #eef0f3">
+          <span style="width:30px; height:30px; border-radius:9px; background:{{ dlg.icBg }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+            <i data-lucide="{{ dlg.icon }}" style="width:16px;height:16px;color:{{ dlg.icFg }}"></i>
+          </span>
+          <h3 style="margin:0; font-size:16px; font-weight:800">{{ dlg.title }}</h3>
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="width:30px; height:30px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7">
+            <i data-lucide="x" style="width:16px;height:16px;color:#9aa1ab"></i>
+          </span>
+        </div>
+        <div style="padding:18px 20px 6px; display:flex; flex-direction:column; gap:12px">
+          <sc-for list="{{ dlg.fields }}" as="fd" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:14px">
+              <span style="width:118px; flex-shrink:0; font-size:12.5px; font-weight:700; color:#3c424c; white-space:nowrap">{{ fd.label }}<span style="color:#c7243a">{{ fd.req }}</span></span>
+              <span style="flex:1; min-width:0; display:flex; align-items:center; gap:8px">
+                <sc-if value="{{ fd.isInput }}" hint-placeholder-val="{{ true }}">
+                  <span style="flex:1; min-width:0; display:inline-flex; align-items:center; height:38px; padding:0 12px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd; font-size:13px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ fd.ph }}</span>
+                </sc-if>
+                <sc-if value="{{ fd.isPick }}" hint-placeholder-val="{{ false }}">
+                  <sc-for list="{{ fd.opts }}" as="op" hint-placeholder-count="3">
+                    <span onClick="{{ op.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ op.bd }}; border-radius:9px; background:{{ op.bg }}; color:{{ op.fg }}; font-size:12.5px; font-weight:{{ op.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ op.label }}</span>
+                  </sc-for>
+                </sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <sc-for list="{{ dlg.rows }}" as="rw" hint-placeholder-count="0">
+            <div style="display:flex; align-items:center; gap:12px; padding:10px 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd">
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ rw.name }}</span>
+                <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ rw.sub }}</span>
+              </span>
+              <span style="width:118px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                <span style="flex-shrink:0; font-size:11.5px; color:#9aa1ab">{{ rw.yen }}</span>
+                <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ rw.v }}</span>
+              </span>
+            </div>
+          </sc-for>
+          <p style="margin:2px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.7">{{ dlg.note }}</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px; padding:16px 20px; margin-top:12px; border-top:1px solid #eef0f3; background:#fbfcfd">
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">やめる</span>
+          <span onClick="{{ dlgSave }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 17px; border:none; border-radius:10px; background:{{ dlg.saveBg }}; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.08)">{{ dlg.save }}</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:10px; padding:13px 20px; border-radius:999px; background:#1a1d24; color:#fff; box-shadow:0 20px 40px -14px rgba(16,24,40,.55); animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+      <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#7dd3a0"></i>
+      <span style="font-size:13.5px; font-weight:700; white-space:nowrap">{{ toast }}</span>
+    </div>
+  </sc-if>
+
+  <div style="flex:1; padding:26px 32px 64px">
+    <div style="width:1440px; margin-inline:auto">
+
+      <sc-if value="{{ isPl }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ ダッシュボード</h1>
+          <span style="font-size:13.5px; color:#5d6470">KPI・集計条件・内訳の3列。<strong>数字を押すとその明細</strong>に着きます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="ダッシュボード" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="金額はすべて税抜。消費税は請求書に出るときに足します。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:12px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">ダッシュボード</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ pl.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ pl.print }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="printer" style="width:14px;height:14px;color:#5d6470"></i>印刷する
+                </button>
+                <button onClick="{{ pl.addRevenue }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="circle-dollar-sign" style="width:14px;height:14px;color:#197a4b"></i>売上を登録
+                </button>
+                <button onClick="{{ pl.addPurchase }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="shopping-cart" style="width:14px;height:14px;color:#5d6470"></i>仕入を登録
+                </button>
+                <button onClick="{{ pl.addSga }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="receipt" style="width:14px;height:14px;color:#c2410e"></i>販管費を登録
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; padding:11px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">集計期間</span>
+                <div style="display:flex; align-items:center; gap:3px; padding:3px; border:1px solid #e6e9ed; border-radius:10px; flex-shrink:0">
+                  <sc-for list="{{ pl.modes }}" as="m" hint-placeholder-count="4">
+                    <span onClick="{{ m.go }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border-radius:8px; background:{{ m.bg }}; color:{{ m.fg }}; font-size:12.5px; font-weight:{{ m.w }}; cursor:pointer; white-space:nowrap">{{ m.label }}</span>
+                  </sc-for>
+                </div>
+                <span class="num" style="display:inline-flex; align-items:center; height:36px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd; font-size:13px; font-weight:700; flex-shrink:0; white-space:nowrap">{{ pl.periodLabel }}</span>
+                <span style="width:1px; height:24px; background:#e6e9ed; flex-shrink:0"></span>
+                <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">案件</span>
+                <span onClick="{{ pl.pickProject }}" style="flex:1; min-width:0; display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd; font-size:13px; color:{{ pl.projFg }}; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" style-hover="border-color:#a6ceeb">
+                  <i data-lucide="search" style="width:14px;height:14px;color:#9aa1ab;flex-shrink:0"></i>{{ pl.projLabel }}
+                </span>
+                <span onClick="{{ pl.clearProject }}" style="display:inline-flex; align-items:center; justify-content:center; height:36px; padding:0 12px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">全案件に戻す</span>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:9px">
+                <sc-for list="{{ pl.flowRows }}" as="row" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:stretch; gap:0">
+                    <sc-for list="{{ row.items }}" as="k" hint-placeholder-count="7">
+                      <sc-if value="{{ k.isOp }}" hint-placeholder-val="{{ false }}">
+                        <span style="width:34px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:#9aa1ab">{{ k.op }}</span>
+                      </sc-if>
+                      <sc-if value="{{ k.isCard }}" hint-placeholder-val="{{ true }}">
+                        <span onClick="{{ k.go }}" style="flex:{{ k.grow }}; min-width:0; display:flex; flex-direction:column; gap:5px; padding:13px 15px 14px; box-sizing:border-box; border:1px solid {{ k.bd }}; border-radius:14px; background:{{ k.bg }}; cursor:{{ k.cursor }}" style-hover="border-color:#a6ceeb">
+                          <span style="display:flex; align-items:center; gap:8px">
+                            <span style="width:26px; height:26px; flex-shrink:0; border-radius:8px; background:{{ k.iconBg }}; display:inline-flex; align-items:center; justify-content:center">
+                              <i data-lucide="{{ k.icon }}" style="width:14px;height:14px;color:{{ k.iconFg }}"></i>
+                            </span>
+                            <span style="flex:1; min-width:0; font-size:12px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ k.label }}</span>
+                            <span class="num" style="flex-shrink:0; font-size:11px; font-weight:700; color:{{ k.pctFg }}">{{ k.pct }}</span>
+                          </span>
+                          <span style="display:flex; align-items:baseline; gap:5px">
+                            <span style="flex-shrink:0; font-size:12px; color:#9aa1ab">￥</span>
+                            <span class="num" style="flex:1; min-width:0; text-align:right; font-size:{{ k.vSize }}; font-weight:800; color:{{ k.fg }}; white-space:nowrap">{{ k.v }}</span>
+                          </span>
+                          <span style="font-size:11px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ k.sub }}</span>
+                        </span>
+                      </sc-if>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <sc-for list="{{ pl.cols }}" as="c" hint-placeholder-count="3">
+                  <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="{{ c.icon }}" style="width:16px;height:16px;color:{{ c.iconFg }}"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.title }}</h3>
+                      <span style="display:flex; align-items:baseline; gap:5px; flex-shrink:0">
+                        <span style="font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="font-size:14px; font-weight:800">{{ c.total }}</span>
+                      </span>
+                      <span class="num" style="width:44px; flex-shrink:0; text-align:right; font-size:11px; color:#9aa1ab">{{ c.n }}</span>
+                    </div>
+                    <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="6">
+                      <div onClick="{{ r.go }}" style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:1px solid #f7f8fa; cursor:pointer" style-hover="background:#fbfcfd">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                          <span style="display:flex; align-items:center; gap:6px; font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden">
+                            <span class="num" style="flex-shrink:0; color:#8a93a0">{{ r.code }}</span>
+                            <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                          </span>
+                        </span>
+                        <span style="width:34px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:26px; height:19px; border-radius:5px; background:{{ r.tagBg }}; color:{{ r.tagFg }}; font-size:10px; font-weight:800">{{ r.tag }}</span>
+                        </span>
+                        <span style="width:104px; flex-shrink:0; display:flex; align-items:baseline; gap:5px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ r.v }}</span>
+                        </span>
+                        <span style="width:18px; flex-shrink:0; display:flex; justify-content:center">
+                          <i data-lucide="{{ r.linkIcon }}" style="width:13px;height:13px;color:#a6ceeb"></i>
+                        </span>
+                      </div>
+                    </sc-for>
+                    <div onClick="{{ c.all }}" style="padding:10px 16px; font-size:12px; font-weight:700; color:#005bac; cursor:pointer; text-align:center" style-hover="background:#fbfcfd">{{ c.allLabel }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; flex:1; min-width:0; font-size:12px; color:#3c424c; line-height:1.75">売上・仕入の行は案件番号でつながっています。行を押すと案件管理のその案件に着きます（固定原価はプロジェクト管理の案件）。案件で絞り込むと販管費は集計から外れ、金額はすべて税抜です。</p>
+                <span style="display:flex; align-items:center; gap:8px; flex-shrink:0">
+                  <a href="v4-mockup-main.dc.html" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #cfe4f4; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#005bac; text-decoration:none; white-space:nowrap" style-hover="background:#eaf4fb">
+                    <i data-lucide="folder-kanban" style="width:13px;height:13px"></i>案件管理で見る
+                  </a>
+                  <a href="v4-mockup-project.dc.html" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #cfe4f4; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#005bac; text-decoration:none; white-space:nowrap" style-hover="background:#eaf4fb">
+                    <i data-lucide="gantt-chart" style="width:13px;height:13px"></i>プロジェクト管理で見る
+                  </a>
+                </span>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isBill }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ 請求・入金管理</h1>
+          <span style="font-size:13.5px; color:#5d6470">売上・案件・書類の状態を突き合わせ、<strong>請求 → 入金 → 検収</strong>を1画面で処理します</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="請求・入金管理" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="ONAiR はメールを送りません。「催促する」は次にやることを立てるだけです。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:12px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">請求・入金管理</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ bill.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <span class="num" style="display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:13px; font-weight:700; flex-shrink:0; white-space:nowrap">
+                  <i data-lucide="calendar" style="width:14px;height:14px;color:#9aa1ab"></i>{{ bill.month }} 締め
+                </span>
+                <button onClick="{{ bill.reload }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="refresh-cw" style="width:14px;height:14px;color:#5d6470"></i>最新にする
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:6px; padding:5px; background:#f2f4f7; border-radius:12px">
+                <sc-for list="{{ bill.tabs }}" as="t" hint-placeholder-count="3">
+                  <span onClick="{{ t.go }}" style="flex:1; min-width:0; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; border-radius:9px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:13.5px; font-weight:{{ t.w }}; cursor:pointer; white-space:nowrap; box-shadow:{{ t.sh }}">
+                    <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>{{ t.label }}
+                    <span class="num" style="min-width:20px; height:20px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:{{ t.nBg }}; color:{{ t.nFg }}; font-size:11px; font-weight:800; display:inline-flex; align-items:center; justify-content:center">{{ t.n }}</span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ bill.hasPicked }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; align-items:center; gap:12px; padding:11px 16px; background:#f4faff; border:1px solid #cfe4f4; border-radius:13px">
+                  <span style="font-size:13px; font-weight:800; white-space:nowrap">{{ bill.pickedN }} 件を選択中</span>
+                  <span style="display:flex; align-items:baseline; gap:6px; width:150px">
+                    <span style="flex-shrink:0; font-size:11.5px; color:#5d6470">￥</span>
+                    <span class="num" style="flex:1; min-width:0; text-align:right; font-size:15px; font-weight:800">{{ bill.pickedSum }}</span>
+                  </span>
+                  <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">税抜</span>
+                  <div style="flex:1"></div>
+                  <span onClick="{{ bill.clearPick }}" style="display:inline-flex; align-items:center; justify-content:center; height:36px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">選択を外す</span>
+                  <span onClick="{{ bill.issue }}" style="display:inline-flex; align-items:center; justify-content:center; gap:7px; height:36px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="background:#0068b8">
+                    <i data-lucide="printer" style="width:14px;height:14px"></i>選んだ {{ bill.pickedN }} 件をまとめて出す
+                  </span>
+                </div>
+              </sc-if>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                  <sc-if value="{{ bill.isIssue }}" hint-placeholder-val="{{ true }}"><span style="width:22px; flex-shrink:0"></span></sc-if>
+                  <span style="flex:1; min-width:0">案件 ／ 請求先</span>
+                  <span style="width:124px; flex-shrink:0; text-align:right">金額（税抜）</span>
+                  <span style="width:56px; flex-shrink:0; text-align:center">計上月</span>
+                  <span style="width:82px; flex-shrink:0; text-align:center">支払期日</span>
+                  <span style="width:132px; flex-shrink:0">{{ bill.stateCol }}</span>
+                  <span style="width:196px; flex-shrink:0"></span>
+                </div>
+                <sc-for list="{{ bill.rows }}" as="r" hint-placeholder-count="6">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 18px; border-bottom:1px solid #f7f8fa; background:{{ r.rowBg }}">
+                    <sc-if value="{{ bill.isIssue }}" hint-placeholder-val="{{ true }}">
+                    <span style="width:22px; flex-shrink:0; display:flex; justify-content:center">
+                      <span onClick="{{ r.pick }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:21px; height:21px; border:1px solid {{ r.ckBd }}; border-radius:6px; background:{{ r.ckBg }}; color:#fff; font-size:12px; font-weight:800; cursor:{{ r.ckCursor }}">{{ r.ck }}</span>
+                    </span>
+                    </sc-if>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:13px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                    </span>
+                    <span style="width:124px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                      <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                      <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; font-weight:800">{{ r.v }}</span>
+                    </span>
+                    <span class="num" style="width:56px; flex-shrink:0; text-align:center; font-size:12px; color:#5d6470">{{ r.month }}</span>
+                    <span class="num" style="width:82px; flex-shrink:0; text-align:center; font-size:12px; font-weight:{{ r.dueW }}; color:{{ r.dueFg }}">{{ r.due }}</span>
+                    <span style="width:132px; flex-shrink:0; display:flex; justify-content:flex-start">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:76px; height:22px; padding:0 8px; border-radius:6px; background:{{ r.stBg }}; color:{{ r.stFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.st }}</span>
+                    </span>
+                    <span style="width:196px; flex-shrink:0; display:flex; justify-content:flex-end; gap:6px">
+                      <sc-for list="{{ r.acts }}" as="a" hint-placeholder-count="1">
+                        <span onClick="{{ a.go }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 11px; border:1px solid {{ a.bd }}; border-radius:9px; background:{{ a.bg }}; color:{{ a.fg }}; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">{{ a.label }}</span>
+                      </sc-for>
+                    </span>
+                  </div>
+                </sc-for>
+                <p style="margin:0; padding:11px 18px; font-size:11.5px; color:#9aa1ab; line-height:1.7">{{ bill.foot }}</p>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                    <i data-lucide="wallet" style="width:16px;height:16px;color:#197a4b"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">最近入金した分</h3>
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">直近14日ぶん。間違えたらここで外せます</span>
+                  </div>
+                  <sc-for list="{{ bill.paid }}" as="p" hint-placeholder-count="3">
+                    <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.name }}</span>
+                        <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.sub }}</span>
+                      </span>
+                      <span class="num" style="width:74px; flex-shrink:0; text-align:center; font-size:11.5px; color:#197a4b">{{ p.when }}</span>
+                      <span style="width:112px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ p.v }}</span>
+                      </span>
+                      <span onClick="{{ p.undo }}" style="width:84px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:30px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:11.5px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">入金を外す</span>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                    <i data-lucide="repeat" style="width:16px;height:16px;color:#5d6470"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">毎月同じ請求（月次運用）</h3>
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">先月と金額が違うものだけ印</span>
+                  </div>
+                  <sc-for list="{{ bill.recur }}" as="c" hint-placeholder-count="4">
+                    <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.name }}</span>
+                        <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.sub }}</span>
+                      </span>
+                      <span style="width:70px; flex-shrink:0; display:flex; justify-content:center">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:66px; height:20px; border-radius:6px; background:{{ c.chBg }}; color:{{ c.chFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ c.chip }}</span>
+                      </span>
+                      <span style="width:112px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ c.v }}</span>
+                      </span>
+                      <span style="width:124px; flex-shrink:0; display:flex; align-items:baseline; gap:4px">
+                        <span style="width:30px; flex-shrink:0; font-size:10.5px; color:#9aa1ab; white-space:nowrap">{{ c.prevLabel }}</span>
+                        <span style="width:10px; flex-shrink:0; font-size:10.5px; color:#9aa1ab">{{ c.prevYen }}</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:11.5px; color:#9aa1ab">{{ c.prev }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ {{ ls.title }}</h1>
+          <span style="font-size:13.5px; color:#5d6470">{{ ls.hint }}</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="{{ ls.title }}" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:12px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">{{ ls.title }}</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ ls.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ ls.excel }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="table-2" style="width:14px;height:14px;color:#5d6470"></i>Excel 入出力
+                </button>
+                <button onClick="{{ ls.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>{{ ls.addLabel }}
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:2px; margin:0 -26px 2px; padding:0 24px; border-bottom:1px solid #e9ecf0">
+                <sc-for list="{{ ls.kinds }}" as="k" hint-placeholder-count="3">
+                  <span onClick="{{ k.go }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-bottom:2px solid {{ k.bd }}; color:{{ k.fg }}; font-size:13.5px; font-weight:{{ k.w }}; cursor:pointer; white-space:nowrap">
+                    <i data-lucide="{{ k.icon }}" style="width:15px;height:15px"></i>
+                    {{ k.label }}
+                    <span class="num" style="min-width:19px; height:19px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:#f2f4f7; color:#5d6470; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center">{{ k.n }}</span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ ls.isList }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <sc-for list="{{ ls.filters }}" as="f" hint-placeholder-count="4">
+                  <span onClick="{{ f.go }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ f.bd }}; border-radius:9px; background:{{ f.bg }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ f.label }}</span>
+                </sc-for>
+                <div style="flex:1"></div>
+                <span class="num" style="display:inline-flex; align-items:center; height:34px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fbfcfd; font-size:12.5px; font-weight:700; white-space:nowrap; flex-shrink:0">計上月 2026/07</span>
+                <span onClick="{{ ls.search }}" style="width:240px; flex-shrink:0; display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 12px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:9px; background:#fbfcfd; font-size:12.5px; color:#9aa1ab; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">
+                  <i data-lucide="search" style="width:14px;height:14px;color:#9aa1ab;flex-shrink:0"></i>{{ ls.searchPh }}
+                </span>
+              </div>
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                  <span style="width:104px; flex-shrink:0">{{ ls.col1 }}</span>
+                  <span style="flex:1; min-width:0">{{ ls.col2 }}</span>
+                  <span style="width:132px; flex-shrink:0">{{ ls.col3 }}</span>
+                  <span style="width:56px; flex-shrink:0; text-align:center">計上月</span>
+                  <span style="width:124px; flex-shrink:0; text-align:right">金額（税抜）</span>
+                  <span style="width:52px; flex-shrink:0; text-align:center">状態</span>
+                  <span style="width:92px; flex-shrink:0; text-align:center">{{ ls.col7 }}</span>
+                  <span style="width:52px; flex-shrink:0"></span>
+                </div>
+                <sc-for list="{{ ls.rows }}" as="r" hint-placeholder-count="10">
+                  <div onClick="{{ r.open }}" style="display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid #f7f8fa; cursor:pointer" style-hover="background:#fbfcfd">
+                    <span class="num" style="width:104px; flex-shrink:0; font-size:11.5px; font-weight:700; color:#005bac; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.code }}</span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:13px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                    </span>
+                    <span style="width:132px; flex-shrink:0; font-size:12px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.party }}</span>
+                    <span class="num" style="width:56px; flex-shrink:0; text-align:center; font-size:12px; color:#5d6470">{{ r.month }}</span>
+                    <span style="width:124px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                      <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                      <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; font-weight:800">{{ r.v }}</span>
+                    </span>
+                    <span style="width:52px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:48px; height:21px; border-radius:6px; background:{{ r.tagBg }}; color:{{ r.tagFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.tag }}</span>
+                    </span>
+                    <span style="width:92px; flex-shrink:0; display:flex; justify-content:center">
+                      <span onClick="{{ r.openUrl }}" style="display:inline-flex; align-items:center; justify-content:center; gap:5px; box-sizing:border-box; min-width:66px; height:26px; padding:0 9px; border-radius:7px; background:{{ r.urlBg }}; color:{{ r.urlFg }}; font-size:11px; font-weight:700; cursor:{{ r.urlCur }}; white-space:nowrap">{{ r.urlLabel }}</span>
+                    </span>
+                    <span style="width:52px; flex-shrink:0; display:flex; justify-content:flex-end; gap:4px">
+                      <span onClick="{{ r.edit }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="pencil" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                      <span onClick="{{ r.del }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#fef6f7"><i data-lucide="trash-2" style="width:13px;height:13px;color:#c7243a"></i></span>
+                    </span>
+                  </div>
+                </sc-for>
+                <div style="display:flex; align-items:center; gap:12px; padding:12px 18px; background:#fbfcfd">
+                  <span style="font-size:12px; color:#9aa1ab">{{ ls.count }}</span>
+                  <div style="flex:1"></div>
+                  <span style="font-size:12px; font-weight:700; color:#5d6470; white-space:nowrap">合計</span>
+                  <span style="width:124px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                    <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                    <span class="num" style="flex:1; min-width:0; text-align:right; font-size:15px; font-weight:800">{{ ls.total }}</span>
+                  </span>
+                  <span style="width:130px; flex-shrink:0"></span>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">{{ ls.note }}</p>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ ls.isAlloc }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="width:330px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                    <i data-lucide="users" style="width:16px;height:16px;color:#005bac"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">按分している案件</h3>
+                  </div>
+                  <sc-for list="{{ ls.al.events }}" as="e" hint-placeholder-count="3">
+                    <div onClick="{{ e.pick }}" style="display:flex; flex-direction:column; gap:4px; padding:12px 16px; border-bottom:1px solid #f7f8fa; background:{{ e.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                      <span style="font-size:13px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ e.name }}</span>
+                      <span style="display:flex; align-items:center; gap:8px">
+                        <span style="flex:1; min-width:0; font-size:11px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">幹事 {{ e.host }}</span>
+                        <span class="num" style="flex-shrink:0; font-size:11px; color:#5d6470">{{ e.n }}</span>
+                      </span>
+                      <span style="display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ e.v }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:10px; padding:13px 16px 11px; border-bottom:1px solid #f2f4f7">
+                      <h3 style="margin:0; font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ ls.al.sel.name }}</h3>
+                      <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">代表 {{ ls.al.sel.host }} ・ {{ ls.al.sel.n }}</span>
+                      <div style="flex:1"></div>
+                      <span onClick="{{ ls.al.addCo }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">会社を足す</span>
+                      <span onClick="{{ ls.al.toHost }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">あまりを代表社に寄せる</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; padding:9px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                      <span style="flex:1; min-width:0">参加する会社</span>
+                      <span style="width:46px; flex-shrink:0; text-align:center">幹事</span>
+                      <span style="width:56px; flex-shrink:0; text-align:right">割合</span>
+                      <span style="width:116px; flex-shrink:0; text-align:right">売上（税抜）</span>
+                      <span style="width:116px; flex-shrink:0; text-align:right">原価</span>
+                      <span style="width:104px; flex-shrink:0; text-align:right">粗利</span>
+                      <span style="width:66px; flex-shrink:0; text-align:center">請求書</span>
+                    </div>
+                    <sc-for list="{{ ls.al.sel.cos }}" as="c" hint-placeholder-count="5">
+                      <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.name }}</span>
+                          <span class="num" style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.code }}</span>
+                        </span>
+                        <span style="width:46px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:40px; height:20px; border-radius:6px; background:{{ c.hostBg }}; color:{{ c.hostFg }}; font-size:10.5px; font-weight:800">{{ c.host }}</span>
+                        </span>
+                        <span class="num" style="width:56px; flex-shrink:0; text-align:right; font-size:12px; color:#5d6470">{{ c.rate }}</span>
+                        <span style="width:116px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ c.rev }}</span>
+                        </span>
+                        <span style="width:116px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; color:#5d6470">{{ c.cost }}</span>
+                        </span>
+                        <span style="width:104px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700; color:#197a4b">{{ c.gross }}</span>
+                        </span>
+                        <span style="width:66px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:21px; border-radius:6px; background:{{ c.invBg }}; color:{{ c.invFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ c.inv }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:#fbfcfd">
+                      <span style="flex:1; min-width:0; font-size:12px; font-weight:700">合計</span>
+                      <span style="width:46px; flex-shrink:0"></span>
+                      <span class="num" style="width:56px; flex-shrink:0; text-align:right; font-size:12px; color:#5d6470">100%</span>
+                      <span style="width:116px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; font-weight:800">{{ ls.al.sel.rev }}</span>
+                      </span>
+                      <span style="width:116px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; color:#5d6470">{{ ls.al.sel.cost }}</span>
+                      </span>
+                      <span style="width:104px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                        <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                        <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; font-weight:800; color:#197a4b">{{ ls.al.sel.gross }}</span>
+                      </span>
+                      <span style="width:66px; flex-shrink:0"></span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">選んだ会社の数だけ案件ができ、請求書もその数だけ出ます。1円のあまりは幹事に付きます（付ける先はここで変えられます）。1社ぶんだけ見ても全体は分からないので、合同案件の粗利はこの画面で見ます。</p>
+                  </div>
+                </div>
+              </div>
+
+              </sc-if>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isRdoc }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ 受け取った書類</h1>
+          <span style="font-size:13.5px; color:#5d6470"><strong>よそから届いた</strong>見積書・請求書・注文書。承認すると仕入・販管費の下書きになります</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="受け取った書類" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">受け取った書類</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ rdoc.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ rdoc.manual }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>手で足す
+                </button>
+                <button onClick="{{ rdoc.upload }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="file-up" style="width:14px;height:14px"></i>PDFを落として登録
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px; flex-wrap:wrap">
+                <sc-for list="{{ rdoc.types }}" as="t" hint-placeholder-count="4">
+                  <span onClick="{{ t.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid {{ t.bd }}; border-radius:9px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:12.5px; font-weight:{{ t.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ t.label }}</span>
+                </sc-for>
+                <span style="width:1px; height:20px; background:#e6e9ed; flex-shrink:0"></span>
+                <sc-for list="{{ rdoc.states }}" as="st" hint-placeholder-count="3">
+                  <span onClick="{{ st.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:28px; padding:0 11px; border-radius:8px; background:{{ st.bg }}; color:{{ st.fg }}; font-size:12px; font-weight:{{ st.weight }}; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">{{ st.label }}</span>
+                </sc-for>
+                <div style="flex:1"></div>
+                <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ rdoc.count }}</span>
+              </div>
+
+              <sc-for list="{{ rdoc.rows }}" as="d" hint-placeholder-count="5">
+                <div style="background:#fff; border:1px solid {{ d.bd }}; border-radius:15px; padding:13px 16px 14px">
+                  <div style="display:flex; align-items:flex-start; gap:12px">
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px">
+                      <span style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:56px; height:21px; border-radius:6px; background:{{ d.tyBg }}; color:{{ d.tyFg }}; font-size:10.5px; font-weight:800">{{ d.type }}</span>
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:21px; border-radius:6px; background:{{ d.stBg }}; color:{{ d.stFg }}; font-size:10.5px; font-weight:800">{{ d.state }}</span>
+                        <sc-if value="{{ d.isAi }}" hint-placeholder-val="{{ true }}">
+                          <span style="display:inline-flex; align-items:center; gap:4px; height:21px; padding:0 8px; border:1px solid #ddd6fe; border-radius:6px; background:#f5f3ff; color:#6d28d9; font-size:10px; font-weight:800; white-space:nowrap">
+                            <i data-lucide="sparkles" style="width:11px;height:11px"></i>AI取込
+                          </span>
+                        </sc-if>
+                        <span style="font-size:13.5px; font-weight:800; white-space:nowrap">{{ d.sender }}</span>
+                      </span>
+                      <span style="font-size:12.5px; color:#3c424c; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ d.subject }}</span>
+                      <span style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+                        <span class="num" style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">締月 {{ d.closing }}</span>
+                        <span class="num" style="font-size:11.5px; color:{{ d.dueFg }}; white-space:nowrap">支払期日 {{ d.due }}</span>
+                        <span class="num" style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">受信 {{ d.received }}</span>
+                        <span class="num" style="font-size:11.5px; color:#005bac; white-space:nowrap">{{ d.gls }}</span>
+                      </span>
+                    </span>
+                    <span style="width:150px; flex-shrink:0; display:flex; align-items:baseline; gap:6px; justify-content:flex-end">
+                      <span style="font-size:13px; color:#9aa1ab; flex-shrink:0">￥</span>
+                      <span class="num" style="flex:1; min-width:0; text-align:right; font-size:19px; font-weight:800">{{ d.amount }}</span>
+                    </span>
+                    <span style="width:118px; flex-shrink:0; display:flex; justify-content:flex-end">
+                      <span onClick="{{ d.openOrig }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; box-sizing:border-box; width:114px; height:32px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:11.5px; font-weight:700; color:{{ d.origFg }}; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">
+                        <i data-lucide="{{ d.origIcon }}" style="width:13px;height:13px"></i>{{ d.origLabel }}
+                      </span>
+                    </span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:11px; padding-top:11px; border-top:1px solid #f2f4f7">
+                    <sc-for list="{{ d.acts }}" as="a" hint-placeholder-count="2">
+                      <span onClick="{{ a.go }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:30px; padding:0 12px; border:1px solid {{ a.bd }}; border-radius:8px; background:{{ a.bg }}; color:{{ a.fg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                        <i data-lucide="{{ a.icon }}" style="width:13px;height:13px"></i>{{ a.label }}
+                      </span>
+                    </sc-for>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11px; color:#9aa1ab; white-space:nowrap">{{ d.trail }}</span>
+                  </div>
+                </div>
+              </sc-for>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">メール・Slack・紙で届いた<strong>支払う側の書類</strong>です。承認して「仕入／販管費に入れる」を押すと、金額・支払期日・案件がそのまま明細の下書きになります。二度打ちしません。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isImp }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ 取り込み</h1>
+          <span style="font-size:13.5px; color:#5d6470"><strong>取り込む → 確認する → 登録する</strong>の1本道。精算PDFはそのまま置くとAIが読み取ります</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="取り込み" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="読み取った内容は必ず人が確かめてから登録します。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:12px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">取り込み</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ imp.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <sc-for list="{{ imp.actions }}" as="a" hint-placeholder-count="2">
+                  <button onClick="{{ a.go }}" style="height:38px; padding:0 15px; border:{{ a.bd }}; border-radius:10px; background:{{ a.bg }}; color:{{ a.fg }}; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="opacity:.88">
+                    <i data-lucide="{{ a.icon }}" style="width:14px;height:14px"></i>{{ a.label }}
+                  </button>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:stretch; gap:9px">
+                <sc-for list="{{ imp.steps }}" as="s" hint-placeholder-count="3">
+                  <span style="flex:1; min-width:0; display:flex; align-items:flex-start; gap:10px; padding:11px 14px; box-sizing:border-box; border:1px solid {{ s.bd }}; border-radius:12px; background:{{ s.bg }}">
+                    <span class="num" style="width:22px; height:22px; flex-shrink:0; border-radius:999px; background:{{ s.noBg }}; color:{{ s.noFg }}; font-size:11.5px; font-weight:800; display:inline-flex; align-items:center; justify-content:center">{{ s.no }}</span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:13px; font-weight:700; line-height:1.4">{{ s.label }}</span>
+                      <span style="font-size:11.5px; color:#9aa1ab; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ s.detail }}</span>
+                    </span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:2px; margin:0 -26px 2px; padding:0 24px; border-bottom:1px solid #e9ecf0">
+                <sc-for list="{{ imp.sources }}" as="t" hint-placeholder-count="3">
+                  <span onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-bottom:2px solid {{ t.bd }}; color:{{ t.fg }}; font-size:13.5px; font-weight:{{ t.w }}; cursor:pointer; white-space:nowrap">
+                    <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>
+                    {{ t.label }}
+                    <sc-if value="{{ t.hasTag }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; height:19px; padding:0 7px; border-radius:999px; background:{{ t.tagBg }}; color:{{ t.tagFg }}; font-size:10.5px; font-weight:800">{{ t.tag }}</span>
+                    </sc-if>
+                  </span>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ imp.isPdf }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+                  <div onClick="{{ imp.drop }}" style="display:flex; align-items:center; gap:14px; padding:16px 18px; border:2px dashed #cfe4f4; border-radius:16px; background:#f7fbff; cursor:pointer" style-hover="border-color:#005bac; background:#f0f8ff">
+                    <span style="width:44px; height:44px; flex-shrink:0; border-radius:12px; background:#eaf4fb; display:inline-flex; align-items:center; justify-content:center">
+                      <i data-lucide="file-up" style="width:21px;height:21px;color:#005bac"></i>
+                    </span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+                      <span style="font-size:14px; font-weight:800; line-height:1.4">申請PDFをここに置く（まとめて可）</span>
+                      <span style="font-size:11.5px; color:#5d6470; line-height:1.6">X-Point・楽楽精算のPDFをそのままドラッグ。AIが支払先・金額・発生日・案件（GLS）・税区分を読み取ります。BOXに置く必要はありません。</span>
+                    </span>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; height:36px; padding:0 14px; border:1px solid #005bac; border-radius:10px; background:#fff; color:#005bac; font-size:12.5px; font-weight:700; white-space:nowrap; flex-shrink:0">ファイルを選ぶ</span>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                      <span style="width:72px; flex-shrink:0">精算番号</span>
+                      <span style="flex:1; min-width:0">支払先 ／ 内容</span>
+                      <span style="width:56px; flex-shrink:0; text-align:center">発生日</span>
+                      <span style="width:112px; flex-shrink:0; text-align:right">金額（税抜）</span>
+                      <span style="width:62px; flex-shrink:0; text-align:center">読み取り</span>
+                      <span style="width:72px; flex-shrink:0; text-align:center">状態</span>
+                    </div>
+                    <sc-for list="{{ imp.rows }}" as="r" hint-placeholder-count="9">
+                      <div onClick="{{ r.pick }}" style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f7f8fa; background:{{ r.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                        <span class="num" style="width:72px; flex-shrink:0; font-size:11.5px; font-weight:700; color:#005bac; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.no }}</span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.payee }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.desc }}</span>
+                        </span>
+                        <span class="num" style="width:56px; flex-shrink:0; text-align:center; font-size:11.5px; color:#5d6470">{{ r.date }}</span>
+                        <span style="width:112px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13.5px; font-weight:800">{{ r.v }}</span>
+                        </span>
+                        <span class="num" style="width:62px; flex-shrink:0; text-align:center; font-size:11.5px; font-weight:700; color:{{ r.aiFg }}">{{ r.ai }}</span>
+                        <span style="width:72px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:68px; height:21px; border-radius:6px; background:{{ r.stBg }}; color:{{ r.stFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.st }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:420px; flex-shrink:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="sparkles" style="width:16px;height:16px;color:#005bac"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">AIが読み取った内容</h3>
+                      <span class="num" style="flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ imp.sel.no }}</span>
+                    </div>
+                    <sc-for list="{{ imp.sel.fields }}" as="f" hint-placeholder-count="8">
+                      <div style="display:flex; align-items:center; gap:12px; padding:9px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="width:104px; flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ f.k }}</span>
+                        <sc-if value="{{ f.isMoney }}" hint-placeholder-val="{{ false }}">
+                          <span style="flex:1; min-width:0; display:flex; align-items:baseline; gap:6px">
+                            <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                            <span class="num" style="flex:1; min-width:0; text-align:right; font-size:14px; font-weight:800">{{ f.v }}</span>
+                          </span>
+                        </sc-if>
+                        <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                          <span style="flex:1; min-width:0; font-size:12.5px; font-weight:{{ f.w }}; color:{{ f.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ f.v }}</span>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px; background:#fbfcfd">
+                      <span onClick="{{ imp.skip }}" style="display:inline-flex; align-items:center; justify-content:center; height:36px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">あとにする</span>
+                      <div style="flex:1"></div>
+                      <span onClick="{{ imp.toSga }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">
+                        <i data-lucide="receipt" style="width:14px;height:14px;color:#c2410e"></i>販管費にする
+                      </span>
+                      <span onClick="{{ imp.toPurchase }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 14px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="background:#0068b8">
+                        <i data-lucide="shopping-cart" style="width:14px;height:14px"></i>仕入にする
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">読み取りに自信がない項目は色が付きます。案件（GLS）が読めたものは仕入の候補、読めなかったものは販管費の候補。どちらにするかは人が決めます。同じ精算番号は二重に登録されません。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ imp.isGl }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+                  <div onClick="{{ imp.drop }}" style="display:flex; align-items:center; gap:14px; padding:16px 18px; border:2px dashed #cfe4f4; border-radius:16px; background:#f7fbff; cursor:pointer" style-hover="border-color:#005bac; background:#f0f8ff">
+                    <span style="width:44px; height:44px; flex-shrink:0; border-radius:12px; background:#eaf4fb; display:inline-flex; align-items:center; justify-content:center">
+                      <i data-lucide="file-spreadsheet" style="width:21px;height:21px;color:#005bac"></i>
+                    </span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+                      <span style="font-size:14px; font-weight:800; line-height:1.4">総勘定元帳をここに置く</span>
+                      <span style="font-size:11.5px; color:#5d6470; line-height:1.6">freee の仕訳帳CSV／MoneyForward の xlsx。形式は自動で見分けます。BOXに置いてあるものを指定することもできます。</span>
+                    </span>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; height:36px; padding:0 14px; border:1px solid #005bac; border-radius:10px; background:#fff; color:#005bac; font-size:12.5px; font-weight:700; white-space:nowrap; flex-shrink:0">ファイルを選ぶ</span>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="sliders-horizontal" style="width:16px;height:16px;color:#5d6470"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800">取り込みの条件</h3>
+                      <span class="num" style="flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ imp.gl.file }}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #f7f8fa">
+                      <span style="width:104px; flex-shrink:0; font-size:11.5px; color:#9aa1ab">対象</span>
+                      <span style="display:flex; align-items:center; gap:4px">
+                        <sc-for list="{{ imp.gl.scopes }}" as="o" hint-placeholder-count="4">
+                          <span onClick="{{ o.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border:1px solid {{ o.bd }}; border-radius:8px; background:{{ o.bg }}; color:{{ o.fg }}; font-size:12px; font-weight:{{ o.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ o.label }}</span>
+                        </sc-for>
+                      </span>
+                    </div>
+                    <sc-for list="{{ imp.gl.opts }}" as="o" hint-placeholder-count="3">
+                      <div style="display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.45">{{ o.label }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; line-height:1.5">{{ o.sub }}</span>
+                        </span>
+                        <span onClick="{{ o.toggle }}" style="width:38px; flex-shrink:0; display:inline-flex; align-items:center; box-sizing:border-box; height:22px; padding:2px; border-radius:999px; background:{{ o.swBg }}; cursor:pointer; transition:background .18s ease">
+                          <span style="width:18px; height:18px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.3); transform:translateX({{ o.swX }}); transition:transform .18s cubic-bezier(.22,.61,.36,1)"></span>
+                        </span>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px; background:#fbfcfd">
+                      <span style="flex:1; min-width:0; font-size:11.5px; color:#9aa1ab; line-height:1.6">まず解析だけして中身を確かめます。投入しても対象月ぶんを入れ直すので、何度でもやり直せます。</span>
+                      <span onClick="{{ imp.gl.dry }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                        <i data-lucide="search-check" style="width:14px;height:14px;color:#5d6470"></i>解析する
+                      </span>
+                      <span onClick="{{ imp.gl.commit }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 14px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                        <i data-lucide="database" style="width:14px;height:14px"></i>投入する
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:12px 16px 10px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="clipboard-list" style="width:16px;height:16px;color:#005bac"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800">解析の結果</h3>
+                      <span style="display:inline-flex; align-items:center; justify-content:center; height:21px; padding:0 9px; border-radius:6px; background:#eaf4fb; color:#005bac; font-size:10.5px; font-weight:800; white-space:nowrap; flex-shrink:0">まだ投入していません</span>
+                      <span class="num" style="flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ imp.gl.period }}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                      <span style="flex:1; min-width:0">区分</span>
+                      <span style="width:62px; flex-shrink:0; text-align:right">件数</span>
+                      <span style="width:124px; flex-shrink:0; text-align:right">金額（税抜）</span>
+                      <span style="width:96px; flex-shrink:0; text-align:center">重複候補</span>
+                    </div>
+                    <sc-for list="{{ imp.gl.rows }}" as="r" hint-placeholder-count="4">
+                      <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.45">{{ r.label }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; line-height:1.4">{{ r.sub }}</span>
+                        </span>
+                        <span class="num" style="width:62px; flex-shrink:0; text-align:right; font-size:12.5px; font-weight:700">{{ r.n }}</span>
+                        <span style="width:124px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13.5px; font-weight:800">{{ r.v }}</span>
+                        </span>
+                        <span style="width:96px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:88px; height:21px; border-radius:6px; background:{{ r.dupBg }}; color:{{ r.dupFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.dup }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:420px; flex-shrink:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 10px; font-size:15px; font-weight:800">足りないもの</h3>
+                    <sc-for list="{{ imp.gl.missing }}" as="m" hint-placeholder-count="3">
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid #f2f4f7">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.4">{{ m.label }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ m.sample }}</span>
+                        </span>
+                        <span class="num" style="width:48px; flex-shrink:0; text-align:right; font-size:12.5px; font-weight:700; color:#c2410e">{{ m.n }}</span>
+                      </div>
+                    </sc-for>
+                    <p style="margin:10px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.65">「案件・顧客・取引先をつくる」をオンにして投入すると、足りないものはそのまま作られます。</p>
+                  </div>
+
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fffaf3; border:1px solid #f5d9b8; border-radius:14px">
+                    <i data-lucide="alert-triangle" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">総勘定元帳の取り込みは管理者だけが使えます。手で入れた行と重なることがあるので、投入したあとは「二重計上を調べる」で確かめてください。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ imp.isDedup }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; align-items:center; gap:12px; padding:11px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                  <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">対象</span>
+                  <span style="display:flex; align-items:center; gap:4px">
+                    <sc-for list="{{ imp.dd.scopes }}" as="o" hint-placeholder-count="4">
+                      <span onClick="{{ o.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border:1px solid {{ o.bd }}; border-radius:8px; background:{{ o.bg }}; color:{{ o.fg }}; font-size:12px; font-weight:{{ o.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ o.label }}</span>
+                    </sc-for>
+                  </span>
+                  <span style="width:1px; height:24px; background:#e6e9ed; flex-shrink:0"></span>
+                  <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">期間</span>
+                  <span class="num" style="width:92px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:34px; border:1px solid #e6e9ed; border-radius:9px; background:#fbfcfd; font-size:12.5px">2026/01</span>
+                  <span style="flex-shrink:0; font-size:12px; color:#9aa1ab">〜</span>
+                  <span class="num" style="width:92px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:34px; border:1px solid #e6e9ed; border-radius:9px; background:#fbfcfd; font-size:12.5px">2026/07</span>
+                  <div style="flex:1"></div>
+                  <span onClick="{{ imp.dd.scan }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:34px; padding:0 13px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                    <i data-lucide="copy-check" style="width:14px;height:14px;color:#5d6470"></i>調べる
+                  </span>
+                  <span onClick="{{ imp.dd.del }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:34px; padding:0 13px; border:none; border-radius:9px; background:#c7243a; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#d63a4f">
+                    <i data-lucide="trash-2" style="width:14px;height:14px"></i>取込側を消す
+                  </span>
+                </div>
+
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                      <span style="width:56px; flex-shrink:0; text-align:center">区分</span>
+                      <span style="flex:1; min-width:0">消す行（総勘定元帳の取り込み）</span>
+                      <span style="flex:1; min-width:0">残す行（手で入れたもの）</span>
+                      <span style="width:112px; flex-shrink:0; text-align:right">金額（税抜）</span>
+                    </div>
+                    <sc-for list="{{ imp.dd.rows }}" as="r" hint-placeholder-count="6">
+                      <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="width:56px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:21px; border-radius:6px; background:{{ r.kBg }}; color:{{ r.kFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.kind }}</span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; color:#c7243a; text-decoration:line-through; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.del }}</span>
+                          <span class="num" style="font-size:11px; color:#9aa1ab; line-height:1.4">{{ r.delTag }}</span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; color:#197a4b; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.keep }}</span>
+                          <span class="num" style="font-size:11px; color:#9aa1ab; line-height:1.4">{{ r.keepTag }}</span>
+                        </span>
+                        <span style="width:112px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13.5px; font-weight:800">{{ r.v }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:420px; flex-shrink:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px">
+                    <sc-for list="{{ imp.dd.kpis }}" as="k" hint-placeholder-count="4">
+                      <span style="display:flex; flex-direction:column; gap:4px; padding:12px 14px; box-sizing:border-box; border:1px solid {{ k.bd }}; border-radius:14px; background:{{ k.bg }}">
+                        <span style="font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ k.label }}</span>
+                        <span class="num" style="font-size:19px; font-weight:800; color:{{ k.fg }}">{{ k.n }}</span>
+                        <span style="display:flex; align-items:baseline; gap:5px">
+                          <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                          <span class="num" style="flex:1; min-width:0; text-align:right; font-size:12px; color:#5d6470">{{ k.v }}</span>
+                        </span>
+                      </span>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">同じ金額・同じ案件（または取引先）・同じ計上月のものを、手で入れた行と取り込んだ行の組で見つけます。消すのは取り込んだ側だけで、手で入れた行は必ず残ります。消したものは元に戻せます。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+
+      <sc-if value="{{ isParty }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">財務管理 ／ 取引先</h1>
+          <span style="font-size:13.5px; color:#5d6470">仕入先・請求先・パートナーを<strong>1つの画面</strong>にまとめ、タブで切り替えます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="財務管理" app-icon="wallet" crumb="取引先" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:12px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">取引先</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ pt.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ pt.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>{{ pt.addLabel }}
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:2px; margin:0 -26px 2px; padding:0 24px; border-bottom:1px solid #e9ecf0">
+                <sc-for list="{{ pt.tabs }}" as="t" hint-placeholder-count="3">
+                  <span onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-bottom:2px solid {{ t.bd }}; color:{{ t.fg }}; font-size:13.5px; font-weight:{{ t.w }}; cursor:pointer; white-space:nowrap">
+                    <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>
+                    {{ t.label }}
+                    <span class="num" style="min-width:19px; height:19px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:#f2f4f7; color:#5d6470; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center">{{ t.n }}</span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                  <span style="flex:1; min-width:0">{{ pt.col1 }}</span>
+                  <span style="width:104px; flex-shrink:0">担当者</span>
+                  <span style="width:124px; flex-shrink:0">電話</span>
+                  <span style="width:168px; flex-shrink:0">{{ pt.col4 }}</span>
+                  <span style="width:112px; flex-shrink:0; text-align:right">{{ pt.col5 }}</span>
+                  <span style="width:52px; flex-shrink:0"></span>
+                </div>
+                <sc-for list="{{ pt.rows }}" as="r" hint-placeholder-count="10">
+                  <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid #f7f8fa">
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:13px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.mail }}</span>
+                    </span>
+                    <span style="width:104px; flex-shrink:0; font-size:12px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.person }}</span>
+                    <span class="num" style="width:124px; flex-shrink:0; font-size:12px; color:#5d6470; white-space:nowrap">{{ r.tel }}</span>
+                    <span class="num" style="width:168px; flex-shrink:0; font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.extra }}</span>
+                    <span style="width:112px; flex-shrink:0; display:flex; align-items:baseline; gap:6px">
+                      <span style="flex-shrink:0; font-size:11px; color:{{ r.yenFg }}">{{ r.yen }}</span>
+                      <span class="num" style="flex:1; min-width:0; text-align:right; font-size:13px; font-weight:700">{{ r.v }}</span>
+                    </span>
+                    <span style="width:52px; flex-shrink:0; display:flex; justify-content:flex-end; gap:4px">
+                      <span onClick="{{ r.edit }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="pencil" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                      <span onClick="{{ r.del }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#fef6f7"><i data-lucide="trash-2" style="width:13px;height:13px;color:#c7243a"></i></span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">{{ pt.note }}</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'pl', rdocT: 'all', rdocS: 'pending', appSw: false, toast: '', plMode: 'month', plView: 'flow', plProj: '' };
+
+  APPS = [
+    { label: '機材管理', icon: 'package', iconBg: '#f2f4f7', iconFg: '#5d6470', to: 'v4-mockup-equipment.dc.html' },
+    { label: '案件管理', icon: 'folder-kanban', iconBg: '#eaf4fb', iconFg: '#005bac' },
+    { label: 'プロジェクト管理', icon: 'list-checks', iconBg: '#eef2ff', iconFg: '#4338ca', to: 'v4-mockup-project.dc.html' },
+    { label: '財務管理', icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', here: true },
+    { label: 'カレンダー', icon: 'calendar-days', iconBg: '#fff7ed', iconFg: '#c2410e' },
+    { label: '日常業務', icon: 'clipboard-list', iconBg: '#f5f3ff', iconFg: '#6d28d9', to: 'v4-mockup-dailyops.dc.html' },
+    { label: '制作資料', icon: 'layout-template', iconBg: '#fff7ed', iconFg: '#c2410e' },
+    { label: '技術資料', icon: 'sliders-horizontal', iconBg: '#f5f3ff', iconFg: '#6d28d9' },
+    { label: '設定', icon: 'settings', iconBg: '#f2f4f7', iconFg: '#5d6470' },
+  ];
+
+  MENU = [
+    { group: '見る', label: 'ダッシュボード', on: true },
+    { group: '', label: '請求・入金', tag: '12' },
+    { group: '明細', label: '売上', tag: '38' },
+    { group: '', label: '仕入', tag: '64' },
+    { group: '', label: '販管費', tag: '22' },
+    { group: '取り込み', label: '受け取った書類', tag: '6' },
+    { group: '', label: '取り込み', tag: '9' },
+    { group: '設定', label: '取引先' },
+  ];
+
+  DOCS = [
+    { type: '請求書', state: '確認中', sender: 'ライトウェーブ音響', subject: '7月分 音声オペレート（夏フェス 中継 ほか2件）', amount: '286,000', closing: '2026-07', due: '7/31', overdue: true, received: '7/20', gls: 'GLS-2607-009', ai: true, orig: true, trail: 'AIが7/20に取込 ／ 寺井が確認中' },
+    { type: '注文書', state: '承認', sender: 'GMOメディア', subject: 'PROGRAM 第14回 収録・配信 一式', amount: '1,240,000', closing: '2026-08', due: '8/31', overdue: false, received: '7/28', gls: 'GLS-2607-014', ai: true, orig: true, trail: '大西が7/29に承認' },
+    { type: '見積書', state: '受信', sender: '株式会社ステージワークス', subject: '9月 展示会ブース 音響・照明 見積', amount: '842,000', closing: '2026-09', due: '—', overdue: false, received: '8/1', gls: '—', ai: true, orig: true, trail: 'AIが8/1に取込' },
+    { type: '請求書', state: '処理完了', sender: 'GMOグローバルサイン', subject: '配信基盤 7月分 利用料', amount: '620,000', closing: '2026-07', due: '8/20', overdue: false, received: '7/31', gls: '—', ai: true, orig: true, trail: '財務管理の販管費へ渡しました（8/1）' },
+    { type: '請求書', state: '受信', sender: '寺井（Slackで受領）', subject: '夏フェス 会場ケータリング（紙の領収書を撮影）', amount: '48,600', closing: '2026-08', due: '8/15', overdue: false, received: '8/2', gls: 'GLS-2607-009', ai: false, orig: true, trail: '寺井がPDFを落として登録' },
+    { type: '注文書', state: '却下', sender: '株式会社ミライテック', subject: 'LEDパネル レンタル（8月）', amount: '380,000', closing: '2026-08', due: '—', overdue: false, received: '7/24', gls: '—', ai: true, orig: false, trail: '中西が7/25に却下（別業者に変更）' },
+  ];
+
+  rdocVals() {
+    const s = this.state;
+    const ty = s.rdocT || 'all';
+    const st = s.rdocS || 'pending';
+    const TY = [{ k: 'all', label: 'すべて' }, { k: '見積書', label: '見積書' }, { k: '請求書', label: '請求書' }, { k: '注文書', label: '注文書' }];
+    const ST = [{ k: 'pending', label: '未処理' }, { k: 'all', label: '全部' }, { k: '処理完了', label: '処理完了' }];
+    const SC = { '受信': ['#eaf4fb', '#005bac'], '確認中': ['#fff7ed', '#c2410e'], '承認': ['#f5f3ff', '#6d28d9'], '却下': ['#fef6f7', '#c7243a'], '処理完了': ['#e7f6ee', '#197a4b'] };
+    const TC = { '見積書': ['#e0f7fa', '#0e7490'], '請求書': ['#eaf4fb', '#005bac'], '注文書': ['#eef2ff', '#4338ca'] };
+    const rows = this.DOCS.filter((d) => (ty === 'all' || d.type === ty) && (st === 'all' ? true : st === 'pending' ? (d.state !== '処理完了' && d.state !== '却下') : d.state === st));
+    const nextAct = (d) => {
+      if (d.state === '受信') return [{ label: '確認中にする', icon: 'arrow-right', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.flash('「' + d.sender + '」を確認中にしました') }];
+      if (d.state === '確認中') return [
+        { label: '承認する', icon: 'check-circle-2', bd: '#ddd6fe', bg: '#f5f3ff', fg: '#6d28d9', go: () => this.flash('「' + d.sender + '」を承認しました') },
+        { label: '却下する', icon: 'x-circle', bd: '#f3c9cf', bg: '#fef6f7', fg: '#c7243a', go: () => this.flash('「' + d.sender + '」を却下しました') },
+      ];
+      if (d.state === '承認') return [{ label: '仕入／販管費に入れる', icon: 'arrow-up-right', bd: '#bfe3cd', bg: '#e7f6ee', fg: '#197a4b', go: () => this.setState({ dlg: 'toFin' }) }];
+      if (d.state === '処理完了') return [{ label: '入れた明細を見る', icon: 'external-link', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => { this.setState({ screen: 'pur' }); } }];
+      return [{ label: '受信に戻す', icon: 'rotate-ccw', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.flash('「' + d.sender + '」を受信に戻しました') }];
+    };
+    return {
+      lead: '届いた書類 ' + this.DOCS.length + '件 ・ 未処理 4件 ・ 支払期日ごえ 1件',
+      count: rows.length + ' 件を表示',
+      manual: () => this.setState({ dlg: 'doc' }),
+      upload: () => this.setState({ dlg: 'upload' }),
+      types: TY.map((x) => ({ label: x.label, pick: () => this.setState({ rdocT: x.k }),
+        bd: ty === x.k ? '#005bac' : '#e6e9ed', bg: ty === x.k ? '#eaf4fb' : '#fff', fg: ty === x.k ? '#005bac' : '#5d6470', weight: ty === x.k ? 700 : 400 })),
+      states: ST.map((x) => ({ label: x.label, pick: () => this.setState({ rdocS: x.k }),
+        bg: st === x.k ? '#f2f4f7' : 'transparent', fg: st === x.k ? '#1a1d24' : '#9aa1ab', weight: st === x.k ? 700 : 400 })),
+      rows: rows.map((d) => ({
+        type: d.type, tyBg: (TC[d.type] || ['#f2f4f7', '#5d6470'])[0], tyFg: (TC[d.type] || ['#f2f4f7', '#5d6470'])[1],
+        state: d.state, stBg: (SC[d.state] || ['#f2f4f7', '#5d6470'])[0], stFg: (SC[d.state] || ['#f2f4f7', '#5d6470'])[1],
+        isAi: d.ai, sender: d.sender, subject: d.subject, amount: d.amount,
+        closing: d.closing, due: d.due, dueFg: d.overdue ? '#c7243a' : '#9aa1ab',
+        received: d.received, gls: d.gls, trail: d.trail,
+        bd: d.overdue ? '#f3c9cf' : d.state === '処理完了' ? '#bfe3cd' : '#e6e9ed',
+        origLabel: d.orig ? '原本を見る' : '原本なし', origIcon: d.orig ? 'file-text' : 'file-x',
+        origFg: d.orig ? '#005bac' : '#cbd2da',
+        openOrig: d.orig ? () => this.flash('原本（PDF）を開きます') : () => this.flash('この書類には原本が付いていません'),
+        acts: nextAct(d),
+      })),
+    };
+  }
+
+  REV = [
+    { code: 'GLS-2607-018', name: '60周年 記念式典 配信・収録', sub: 'GMOインターネットグループ', v: 4820000, tag: '確定', bill: '未請求' },
+    { code: 'GLS-2607-021', name: '株主総会 ライブ配信', sub: 'GMOフィナンシャルHD', v: 2650000, tag: '確定', bill: '未請求' },
+    { code: 'EP-0714', name: 'PROGRAM 第14回', sub: 'GMOメディア ／ 月次運用', v: 980000, tag: '月次', bill: '発行済' },
+    { code: 'GLS-2607-009', name: '夏フェス 中継（3日間）', sub: 'ライトウェーブ音響', v: 3400000, tag: '確定', bill: '未請求' },
+    { code: 'GLS-2606-044', name: '新製品発表会 収録', sub: 'GMOペパボ', v: 1280000, tag: '確定', bill: '発行済' },
+    { code: 'EP-0715', name: 'PROGRAM 第15回', sub: 'GMOメディア ／ 月次運用', v: 980000, tag: '月次', bill: '入金済' },
+  ];
+
+  PUR = [
+    { code: 'GLS-2607-018', name: '照明オペレート（3名）', sub: 'ライトウェーブ音響 ／ 人件費', v: 640000, tag: '確', url: true },
+    { code: 'GLS-2607-009', name: '中継車 手配', sub: '東京中継サービス ／ 車輌', v: 1180000, tag: '仮', url: true },
+    { code: 'GLS-2607-021', name: 'LEDパネル レンタル', sub: 'ビジュアルレンタル ／ 機材', v: 420000, tag: '確', url: false },
+    { code: 'GLS-2607-018', name: 'カメラマン 4名', sub: 'フリーランス ／ 人件費', v: 520000, tag: '確', url: true },
+    { code: 'GLS-2606-044', name: '会場音響 一式', sub: 'サウンドワークス ／ 音声', v: 288000, tag: '確', url: true },
+  ];
+
+  FIX = [
+    { code: 'FIX-001', name: 'スタジオ償却負担額（用賀）', sub: '固定原価Pj ／ 月次', v: 1860000, tag: '固', url: false },
+    { code: 'FIX-002', name: 'スタジオ償却負担額（渋谷）', sub: '固定原価Pj ／ 月次', v: 640000, tag: '固', url: false },
+    { code: 'FIX-003', name: '常設機材 保守', sub: '固定原価Pj ／ 月次', v: 210000, tag: '固', url: true },
+  ];
+
+  SGA = [
+    { code: '—', name: 'クラウド利用料', sub: 'AWS ／ 通信費', v: 386000, tag: '確', url: true },
+    { code: '—', name: 'オフィス賃料', sub: 'GMO Bright ／ 地代家賃', v: 1240000, tag: '確', url: false },
+    { code: '—', name: '交通費 精算（7月）', sub: '楽楽精算 ／ 旅費交通費', v: 148000, tag: '確', url: true },
+    { code: '—', name: '採用広告', sub: 'リクルート ／ 広告宣伝費', v: 320000, tag: '確', url: true },
+    { code: '—', name: '事務用品', sub: 'アスクル ／ 消耗品費', v: 46000, tag: '確', url: false },
+  ];
+
+  DLG = {
+    purchase: {
+      icon: 'shopping-cart', title: '仕入を登録', save: '登録する', done: '仕入を登録しました',
+      note: '案件に紐づく仕入は変動原価、固定原価プロジェクトに付けたものは固定原価として集計されます。申請URLを入れておくと明細から精算ページを開けます。',
+      fields: [
+        { label: '案件', req: ' *', ph: 'GLS番号・案件名で探す' },
+        { label: '仕入先', req: ' *', ph: '例）ライトウェーブ音響' },
+        { label: '金額（税抜）', req: ' *', ph: '例）640000' },
+        { label: '税区分', pick: ['課税10%', '軽減8%', '非課税'] },
+        { label: '精算方法', pick: ['X-Point', '楽楽精算', '直接'] },
+        { label: '説明', ph: '例）照明オペレート（3名）' },
+        { label: '役務提供完了日', ph: '2026/07/28' },
+        { label: '計上月', req: ' *', ph: '2026/07' },
+        { label: '支払予定日', ph: '2026/08/31' },
+        { label: '精算番号', ph: '例）XP-2607-0182' },
+        { label: '申請URL', ph: 'https://…' },
+        { label: 'インボイス', pick: ['適格', '不適格'] },
+        { label: '備考', ph: '補足' },
+      ],
+    },
+    sga: {
+      icon: 'receipt', title: '販管費を登録', save: '登録する', done: '販管費を登録しました',
+      note: '販管費は案件に紐づきません。案件で絞り込んでいるときは集計から外れます。部門で分けるものは按分の設定を使ってください。',
+      fields: [
+        { label: '支払先', req: ' *', ph: '例）AWS' },
+        { label: '勘定科目', req: ' *', pick: ['通信費', '地代家賃', '旅費交通費', 'その他'] },
+        { label: '金額（税抜）', req: ' *', ph: '例）386000' },
+        { label: '税区分', pick: ['課税10%', '軽減8%', '非課税'] },
+        { label: '計上月', req: ' *', ph: '2026/07' },
+        { label: '支払予定日', ph: '2026/08/31' },
+        { label: '申請URL', ph: 'https://…' },
+        { label: '詳細', ph: '例）クラウド利用料（7月分）' },
+        { label: '備考', ph: '補足' },
+      ],
+    },
+    revenue: {
+      icon: 'circle-dollar-sign', title: '売上を登録', save: '登録する', done: '売上を登録しました',
+      note: '確定にすると請求・入金管理に並びます。明細行（数量・単価・期間）は登録後の詳細で足せます。金額はすべて税抜です。',
+      fields: [
+        { label: '案件', req: ' *', ph: 'GLS番号・案件名で探す' },
+        { label: '話数（任意）', ph: '例）EP-0714（月次運用のとき）' },
+        { label: '金額（税抜）', req: ' *', ph: '例）4820000' },
+        { label: '税区分', pick: ['課税10%', '軽減8%', '非課税'] },
+        { label: '計上月', req: ' *', ph: '2026/07' },
+        { label: '請求予定日', ph: '2026/07/31' },
+        { label: '入金予定日', ph: '2026/08/31' },
+        { label: '状態', req: ' *', pick: ['確定', '見込み'] },
+        { label: '前金', pick: ['なし', 'あり'] },
+        { label: '備考', ph: '補足' },
+      ],
+    },
+    excel: {
+      icon: 'table-2', title: 'Excel 入出力', save: '書き出す', done: '明細を書き出しました',
+      note: '取り込みは1度だけ列の対応づけをすれば次から同じ形で読めます。IDが一致する行は更新、無い行は新規として足します。',
+      fields: [
+        { label: '向き', req: ' *', pick: ['書き出す', '取り込む'] },
+        { label: '対象', pick: ['表示中の絞り込み', 'すべて'] },
+        { label: '期間', pick: ['この計上月', '期間指定'] },
+        { label: 'ファイル', ph: '取り込むときに選びます（.xlsx）' },
+      ],
+    },
+    search: {
+      icon: 'search', title: '明細を探す', save: '探す', done: '絞り込みました',
+      note: '探した条件はこの画面にだけ効きます。よく使う条件は「保存する」で残せます。',
+      fields: [
+        { label: 'ことば', ph: '案件名・取引先・説明で探す' },
+        { label: '計上月', pick: ['この月', '3か月', '期間指定'] },
+        { label: '金額', ph: '例）100000 以上' },
+        { label: '状態', pick: ['すべて', '確定', '仮'] },
+      ],
+    },
+    impFolder: {
+      icon: 'folder', title: '取込元のフォルダ', save: '保存する', done: '取込元のフォルダを変えました',
+      note: 'Box のフォルダID か URL を入れます。空欄なら既定のフォルダ（精算PDF）を見にいきます。読み取ったPDFは元のフォルダに残ります。',
+      fields: [
+        { label: 'フォルダ', ph: 'Box のフォルダID または URL' },
+        { label: '対象', pick: ['X-Point', '楽楽精算', '両方'] },
+        { label: '読む範囲', pick: ['先月ぶん', '今月ぶん', '全部'] },
+      ],
+    },
+    impRun: {
+      icon: 'upload', title: '取り込む', save: '取り込む', done: '9件を読み取りました（未仕分け 3件）',
+      note: '読み取った内容は必ず人が確かめてから登録します。同じ精算番号は二重に登録されません。',
+      fields: [
+        { label: '対象', req: ' *', pick: ['Box フォルダ', 'ファイルを選ぶ'] },
+        { label: '種類', pick: ['X-Point', '楽楽精算', '両方'] },
+        { label: '案件の読み取り', pick: ['する', 'しない'] },
+        { label: 'ファイル', ph: '「ファイルを選ぶ」のとき（.pdf / .csv 複数可）' },
+      ],
+    },
+    joint: {
+      icon: 'users', title: '合同案件をつくる', save: 'つくる', done: '合同案件をつくりました（案件が5件できました）',
+      note: '選んだ会社の数だけ案件ができ、請求書もその数だけ出ます。幹事（取りまとめる会社）も参加する会社に含めてください。あまりの1円は幹事に付きます。',
+      fields: [
+        { label: 'イベント名', req: ' *', ph: '例）合同新年会 配信' },
+        { label: '開催日', req: ' *', ph: '2026/01/15' },
+        { label: '参加する会社', req: ' *', ph: '会社名で探して選ぶ（複数）' },
+        { label: '幹事', req: ' *', ph: '例）GMOインターネットグループ' },
+        { label: '分け方', pick: ['均等', '会社ごとに指定'] },
+        { label: 'あまりの行き先', pick: ['幹事', '指定する'] },
+      ],
+    },
+    jointCo: {
+      icon: 'user-plus', title: '会社を足す', save: '足す', done: '会社を足しました（案件と請求書が1件増えます）',
+      note: '足すと案件が1件できて、請求書もその会社ぶん増えます。すでに請求書を出した会社の金額は変わりません。',
+      fields: [
+        { label: '会社', req: ' *', ph: '会社名で探す' },
+        { label: '分け方', pick: ['均等に割り直す', '足したぶんだけ'] },
+        { label: '請求先', ph: '会社と請求先が違うとき' },
+      ],
+    },
+    jointRound: {
+      icon: 'coins', title: 'あまりを寄せる先', save: '変える', done: 'あまりの行き先を変えました',
+      note: '均等に割ると1円のあまりが出ます。既定は幹事に付きますが、ここで別の会社に変えられます。',
+      fields: [
+        { label: '寄せる先', req: ' *', pick: ['幹事', '会社を選ぶ'] },
+        { label: '会社', ph: '「会社を選ぶ」のとき' },
+      ],
+    },
+    party: {
+      icon: 'building-2', title: '取引先を足す', save: '追加する', done: '取引先を追加しました',
+      note: '仕入先と請求先が同じ会社のときは、両方にチェックを入れます。適格請求書番号がないところは仕入に「不適格」の印が付きます。',
+      fields: [
+        { label: '名前', req: ' *', ph: '例）ライトウェーブ音響' },
+        { label: '区分', req: ' *', pick: ['仕入先', '請求先', '両方'] },
+        { label: '担当者', ph: '例）大西 亮' },
+        { label: '電話', ph: '03-0000-0000' },
+        { label: 'メール', ph: 'sales@example.jp' },
+        { label: '適格請求書番号', ph: 'T1234567890123' },
+        { label: '請求の出し方', pick: ['メール', '郵送'] },
+        { label: '締め日', pick: ['月末', '15日', '20日'] },
+        { label: '備考', ph: '補足' },
+      ],
+    },
+    del: {
+      icon: 'trash-2', title: '削除しますか？', save: '削除する', tone: 'danger', done: '削除しました',
+      note: '', fields: [],
+    },
+    proj: {
+      icon: 'search', title: '案件で絞り込む', save: '絞り込む', done: '案件で絞り込みました',
+      note: '案件を選ぶと売上・仕入・固定原価がその案件ぶんだけになります。販管費は案件に紐づかないため集計から外れます。',
+      fields: [
+        { label: '探す', ph: 'GLS番号・案件名・請求先で探す' },
+        { label: '並び', pick: ['GLS番号順', '売上が大きい順'] },
+      ],
+      rows: [
+        { name: 'GLS-2607-018 ／ 60周年 記念式典 配信・収録', sub: 'GMOインターネットグループ', yen: '￥', v: '4,820,000' },
+        { name: 'GLS-2607-021 ／ 株主総会 ライブ配信', sub: 'GMOフィナンシャルHD', yen: '￥', v: '2,650,000' },
+        { name: 'GLS-2607-009 ／ 夏フェス 中継（3日間）', sub: 'ライトウェーブ音響', yen: '￥', v: '3,400,000' },
+      ],
+    },
+    print: {
+      icon: 'printer', title: '印刷する', save: '出す', done: 'ダッシュボードのPDFを作りました',
+      note: 'KPIと内訳（売上 ／ 仕入＋固定原価 ／ 販管費）をそのまま1枚に出します。財務MTGはこの形で見ています。',
+      fields: [
+        { label: '出す形', req: ' *', pick: ['PDF', '印刷'] },
+        { label: '期間', pick: ['この期間', '前月と並べる'] },
+        { label: '明細', pick: ['すべて', '上位20件'] },
+        { label: '案件の絞り込み', pick: ['そのまま', '外す'] },
+      ],
+    },
+    issue: {
+      icon: 'printer', title: '選んだ請求をまとめて出す', save: 'まとめて出す', done: '「請求書を出した」と記録し、PDFを作りました',
+      note: '「出した」と記録した瞬間に請求書番号（INV-年月-連番）を採番します。番号は取り消しても欠番にせず、出し直しても同じ番号です。PDFは1件ずつ作り、宛先ごとに送るため1つの箱にはまとめません。送るのは自分のメールです（ONAiR はメールを送りません）。',
+      fields: [
+        { label: '請求日', req: ' *', ph: '2026/07/31' },
+        { label: '支払期日', req: ' *', pick: ['翌月末', '60日後', '個別'] },
+        { label: '出す形', pick: ['PDF', '印刷'] },
+        { label: '検収書', pick: ['あとで', '一緒に出す'] },
+      ],
+      rows: [
+        { name: '60周年 記念式典 配信・収録', sub: 'GMOインターネットグループ', yen: '￥', v: '4,820,000' },
+        { name: '株主総会 ライブ配信', sub: 'GMOフィナンシャルHD', yen: '￥', v: '2,650,000' },
+      ],
+    },
+    pdf: {
+      icon: 'file-text', title: '請求書を見る', save: 'PDFを出す', done: '請求書のPDFを作りました',
+      note: '出す前の下見です。ここで出しても「出した」記録は付きません。記録は一覧で選んで「まとめて出す」を押したときに付きます。',
+      fields: [
+        { label: '宛名', ph: 'GMOインターネットグループ 御中' },
+        { label: '件名', ph: '60周年 記念式典 配信・収録' },
+        { label: '請求日', ph: '2026/07/31' },
+        { label: '支払期日', ph: '2026/08/31' },
+        { label: '税', pick: ['税抜で出す', '税込を併記'] },
+      ],
+    },
+    paid: {
+      icon: 'wallet', title: '入金を記録', save: '記録する', done: '入金を記録しました',
+      note: '記録すると「最近入金した分」に14日ぶん残ります。打ち間違えたらそこから外せます。',
+      fields: [
+        { label: '入金日', req: ' *', ph: '2026/08/02' },
+        { label: '入金額', req: ' *', ph: '1,650,000（税抜）' },
+        { label: '過不足', pick: ['なし', '一部入金', '振込手数料引き'] },
+        { label: 'メモ', ph: '相手先名義が違うときなど' },
+      ],
+    },
+    dun: {
+      icon: 'bell', title: '催促する', save: '次にやることを立てる', done: '催促を次にやることに立てました',
+      note: 'ONAiR はメールを送りません。ここで立てた「次にやること」は担当者のタスクに出ます。文面は自分のメールで送ってください。',
+      fields: [
+        { label: '担当', req: ' *', ph: '例）寺井' },
+        { label: '期限', req: ' *', ph: '2026/08/05' },
+        { label: 'やり方', pick: ['メール', '電話', '訪問'] },
+        { label: 'メモ', ph: '前回の連絡・相手の状況など' },
+      ],
+    },
+    unissue: {
+      icon: 'undo-2', title: '「出した」記録を取り消す', save: '取り消す', tone: 'danger', done: '発行を取り消しました（番号は残ります）',
+      note: '請求書の番号は残ります。もう一度出すときは同じ番号で出ます。入金の記録が付いている場合は先に入金を外してください。',
+      fields: [{ label: '理由', pick: ['出し間違い', '金額の直し', '先方都合'] }, { label: 'メモ', ph: '補足' }],
+    },
+    inspect: {
+      icon: 'clipboard-check', title: '検収書を出す', save: '出す', done: '検収書を出したと記録しました',
+      note: 'PDFを作って「出した」と記録します。請求書を出した売上のうち、検収書がまだのものがこのタブに並びます。',
+      fields: [
+        { label: '検収日', req: ' *', ph: '2026/07/31' },
+        { label: '宛名', ph: 'GMOインターネットグループ 御中' },
+        { label: '出す形', pick: ['PDF', '印刷'] },
+      ],
+    },
+  };
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+
+  componentDidMount() { this.icons(); }
+  componentDidUpdate() { this.icons(); }
+
+  icons() {
+    clearTimeout(this._iconT);
+    this._iconT = setTimeout(() => {
+      if (!window.lucide) return;
+      const svgs = document.querySelectorAll('svg.lucide');
+      for (let i = 0; i < svgs.length; i++) {
+        const sv = svgs[i], pa = sv.parentNode;
+        if (!pa) continue;
+        let hasI = false, others = 0;
+        for (let k = 0; k < pa.children.length; k++) {
+          const ch = pa.children[k];
+          if (ch.tagName === 'I' && ch.hasAttribute('data-lucide')) hasI = true;
+          if (ch !== sv && ch.tagName === 'svg' && ch.classList.contains('lucide')) others += 1;
+        }
+        if (hasI || others > 0) { try { pa.removeChild(sv); } catch (e) {} }
+      }
+      if (!document.querySelector('i[data-lucide]')) return;
+      window.lucide.createIcons();
+    }, 60);
+  }
+
+  yen(n) { return Math.round(n).toLocaleString('ja-JP'); }
+
+  dlgVals() {
+    const s = this.state;
+    const key = s.dlg;
+    let d = this.DLG[key] || this.DLG.purchase;
+    if (key === 'del') {
+      const t = s.delTarget || {};
+      d = { ...d, title: '「' + (t.name || '') + '」を削除しますか？',
+        note: (t.kind || 'この明細') + 'の記録が消えます。請求書を出したあとの売上は消せません（先に「出した」記録を取り消してください）。',
+        done: '「' + (t.name || '') + '」を削除しました' };
+    }
+    const picks = s.dlgPick || {};
+    return {
+      dlgOpen: !!key,
+      dlgStop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      dlgClose: () => this.setState({ dlg: '' }),
+      dlgSave: () => { this.setState({ dlg: '' }); this.flash(d.done || '登録しました'); },
+      dlg: {
+        icon: d.icon, title: d.title, save: d.save, note: d.note,
+        rows: d.rows || [],
+        saveBg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        icBg: d.tone === 'danger' ? '#fef6f7' : '#eaf4fb',
+        icFg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        fields: d.fields.map((fd, i) => ({
+          label: fd.label, req: fd.req || '', ph: fd.ph || '',
+          isInput: !fd.pick, isPick: !!fd.pick,
+          opts: (fd.pick || []).map((o) => {
+            const on = (picks[key + i] || fd.pick[0]) === o;
+            return { label: o, pick: () => { const p = Object.assign({}, picks); p[key + i] = o; this.setState({ dlgPick: p }); },
+              bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470', weight: on ? 800 : 400 };
+          }),
+        })),
+      },
+    };
+  }
+
+  plVals() {
+    const s = this.state;
+    const mode = s.plMode || 'month';
+    const view = s.plView || 'flow';
+    const proj = s.plProj;
+    const dlg = (k) => () => this.setState({ dlg: k });
+    const sum = (a) => a.reduce((t, r) => t + r.v, 0);
+    const scale = proj ? 0.34 : 1;
+    const revRows = proj ? this.REV.slice(0, 2) : this.REV;
+    const purRows = proj ? this.PUR.slice(0, 2) : this.PUR;
+    const rev = Math.round(sum(this.REV) * (proj ? 0.55 : 1));
+    const varc = Math.round(sum(this.PUR) * (proj ? 0.55 : 1));
+    const fix = Math.round(sum(this.FIX) * scale);
+    const sga = proj ? 0 : sum(this.SGA);
+    const marg = rev - varc;
+    const gross = marg - fix;
+    const op = gross - sga;
+    const pct = (n) => rev > 0 ? (n / rev * 100).toFixed(1) + '%' : '—';
+    const label = { month: '2026年7月', quarter: '2026年 3Q（7〜9月）', year: '2026年（1〜12月 合算）', range: '2026年4月 〜 2026年7月' }[mode];
+    const tagC = { '確定': ['#e7f6ee', '#197a4b'], '月次': ['#eef2ff', '#4338ca'], '確': ['#f2f4f7', '#5d6470'], '仮': ['#fff7ed', '#c2410e'], '固': ['#f5f3ff', '#6d28d9'] };
+    const row = (r, to) => ({
+      code: r.code, name: r.name, sub: r.sub, v: this.yen(r.v),
+      tag: r.tag, tagBg: (tagC[r.tag] || tagC['確'])[0], tagFg: (tagC[r.tag] || tagC['確'])[1],
+      linkIcon: r.url ? 'external-link' : 'chevron-right',
+      go: () => this.flash(r.code === '—' ? r.name + ' の' + to + 'の明細を開きます' : r.code + '「' + r.name + '」を案件管理で開きます（' + to + 'の明細つき）'),
+    });
+    const flow = [
+      { label: '売上', v: rev, sub: '確定売上 ' + revRows.length + '件', op: '−', to: 'rev' },
+      { label: '仕入（変動原価）', v: varc, sub: '案件に紐づく ' + purRows.length + '件', op: '=', to: 'pur' },
+      { label: '粗利（限界利益）', v: marg, profit: true, pct: pct(marg), op: '−' },
+      { label: '固定原価', v: fix, sub: '償却負担額など ' + this.FIX.length + '件', op: '=', to: 'pur' },
+      { label: '売上総利益', v: gross, profit: true, pct: pct(gross), op: '−' },
+      { label: '販管費', v: sga, sub: proj ? '案件で絞り込み中は対象外' : '案件に紐づかない ' + this.SGA.length + '件', op: '=', to: 'sga' },
+      { label: '営業利益', v: op, profit: true, pct: pct(op) },
+    ];
+    return {
+      lead: label + ' ・ 確定売上ベース ・ ' + (proj ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'),
+      periodLabel: label,
+      projLabel: proj || '— 全案件（販管費を含む）—',
+      projFg: proj ? '#1a1d24' : '#9aa1ab',
+      pickProject: dlg('proj'),
+      clearProject: () => { this.setState({ plProj: '' }); this.flash('全案件に戻しました'); },
+      print: dlg('print'), addRevenue: dlg('revenue'), addPurchase: dlg('purchase'), addSga: dlg('sga'),
+      isFlow: view === 'flow', isReview: view === 'review3col',
+      views: [
+        { k: 'flow', label: '損益の流れ', icon: 'layout-grid' },
+        { k: 'review3col', label: '3列レビュー', icon: 'columns-3' },
+      ].map((v) => ({ label: v.label, icon: v.icon, go: () => this.setState({ plView: v.k }),
+        bg: view === v.k ? '#eaf4fb' : 'transparent', fg: view === v.k ? '#005bac' : '#5d6470', w: view === v.k ? 700 : 400 })),
+      modes: [
+        { k: 'month', label: '月' }, { k: 'quarter', label: '四半期' }, { k: 'year', label: '年' }, { k: 'range', label: '期間指定' },
+      ].map((m) => ({ label: m.label, go: () => this.setState({ plMode: m.k }),
+        bg: mode === m.k ? '#005bac' : 'transparent', fg: mode === m.k ? '#fff' : '#5d6470', w: mode === m.k ? 700 : 400 })),
+      kpis: [
+        { label: '売上', v: rev, icon: 'circle-dollar-sign', iconBg: '#e7f6ee', iconFg: '#197a4b', sub: '確定売上 ' + revRows.length + '件', to: 'rev' },
+        { label: '仕入（変動原価）', v: varc, icon: 'shopping-cart', iconBg: '#eaf4fb', iconFg: '#005bac', sub: '案件に紐づく ' + purRows.length + '件', to: 'pur' },
+        { label: '限界利益（粗利）', v: marg, icon: 'trending-up', iconBg: '#f4faff', iconFg: '#005bac', sub: '売上 − 変動原価', profit: true, pct: pct(marg) },
+        { label: '固定原価', v: fix, icon: 'building-2', iconBg: '#f5f3ff', iconFg: '#6d28d9', sub: '償却負担額など ' + this.FIX.length + '件', to: 'pur' },
+        { label: '売上総利益', v: gross, icon: 'trending-up', iconBg: '#f4faff', iconFg: '#005bac', sub: '限界利益 − 固定原価', profit: true, pct: pct(gross) },
+        { label: '販管費', v: sga, icon: 'receipt', iconBg: '#fff7ed', iconFg: '#c2410e', sub: proj ? '案件で絞り込み中は対象外' : '案件に紐づかない ' + this.SGA.length + '件', to: 'sga' },
+        { label: '営業利益', v: op, icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', sub: '売上総利益 − 販管費', profit: true, pct: pct(op) },
+        { label: '仕入 合計', v: varc + fix, icon: 'package', iconBg: '#f2f4f7', iconFg: '#5d6470', sub: '変動原価 ＋ 固定原価', to: 'pur' },
+      ].map((k) => ({
+        label: k.label, v: this.yen(k.v), sub: k.sub, icon: k.icon, iconBg: k.iconBg, iconFg: k.iconFg,
+        pct: k.pct || '', pctFg: k.profit ? (k.v >= 0 ? '#197a4b' : '#c7243a') : '#9aa1ab',
+        fg: k.profit ? (k.v >= 0 ? '#197a4b' : '#c7243a') : '#1a1d24',
+        bd: k.profit ? '#cfe4f4' : '#e6e9ed', bg: k.profit ? '#f4faff' : '#fff',
+        cursor: k.to ? 'pointer' : 'default',
+        go: k.to ? () => this.setState({ screen: k.to }) : () => {},
+      })),
+      flowRows: (() => {
+        const card = (o) => ({ isOp: false, isCard: true, op: '',
+          label: o.label, v: this.yen(o.v), sub: o.sub || '', pct: o.pct || '',
+          icon: o.icon, iconBg: o.iconBg, iconFg: o.iconFg,
+          fg: o.result ? (o.v >= 0 ? '#197a4b' : '#c7243a') : '#1a1d24',
+          bd: o.result ? '#cfe8da' : '#e6e9ed', bg: o.result ? '#f4fbf7' : '#fff',
+          vSize: o.big ? '26px' : '21px', grow: o.big ? 1.25 : 1,
+          pctFg: o.result ? '#197a4b' : '#9aa1ab',
+          cursor: o.to ? 'pointer' : 'default',
+          go: o.to ? () => this.setState({ screen: o.to }) : () => {} });
+        const sign = (s) => ({ isOp: true, isCard: false, op: s,
+          label: '', v: '', sub: '', pct: '', icon: 'minus', iconBg: '', iconFg: '',
+          fg: '', bd: '', bg: '', vSize: '', grow: 0, pctFg: '', cursor: 'default', go: () => {} });
+        return [
+          { items: [
+            card({ label: '売上', v: rev, icon: 'circle-dollar-sign', iconBg: '#e7f6ee', iconFg: '#197a4b', sub: '確定売上 ' + revRows.length + '件', to: 'rev' }),
+            sign('−'),
+            card({ label: '仕入（変動原価）', v: varc, icon: 'shopping-cart', iconBg: '#eaf4fb', iconFg: '#005bac', sub: '案件に紐づく ' + purRows.length + '件', to: 'pur' }),
+            sign('−'),
+            card({ label: '固定原価', v: fix, icon: 'building-2', iconBg: '#f5f3ff', iconFg: '#6d28d9', sub: '償却負担額など ' + this.FIX.length + '件', to: 'pur' }),
+            sign('='),
+            card({ label: '売上総利益', v: gross, icon: 'trending-up', iconBg: '#e7f6ee', iconFg: '#197a4b', sub: '限界利益 ￥' + this.yen(marg) + '（' + pct(marg) + '）から固定原価を引いた額', pct: pct(gross), result: true }),
+          ] },
+          { items: [
+            card({ label: '売上総利益', v: gross, icon: 'trending-up', iconBg: '#f2f4f7', iconFg: '#5d6470', sub: '上の行から繰り越し', pct: pct(gross) }),
+            sign('−'),
+            card({ label: '販管費', v: sga, icon: 'receipt', iconBg: '#fff7ed', iconFg: '#c2410e', sub: proj ? '案件で絞り込み中は対象外' : '案件に紐づかない ' + this.SGA.length + '件', to: 'sga' }),
+            sign('='),
+            card({ label: '営業利益', v: op, icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', sub: '最終的に手元に残る利益', pct: pct(op), result: true, big: true }),
+          ] },
+        ];
+      })(),
+      flow: flow.map((f) => ({
+        label: f.label, v: this.yen(f.v), sub: f.sub || '', pct: f.pct || '',
+        pctFg: f.profit ? (f.v >= 0 ? '#197a4b' : '#c7243a') : '#9aa1ab',
+        fg: f.profit ? (f.v >= 0 ? '#197a4b' : '#c7243a') : '#1a1d24',
+        bd: f.profit ? '#cfe4f4' : '#e6e9ed', bg: f.profit ? '#f4faff' : '#fff',
+        grow: f.profit ? 1.15 : 1, cursor: f.to ? 'pointer' : 'default',
+        hasOp: !!f.op, op: f.op || '',
+        go: f.to ? () => this.setState({ screen: f.to }) : () => {},
+      })),
+      cols: [
+        { title: '売上', icon: 'circle-dollar-sign', iconFg: '#197a4b', total: this.yen(rev), n: revRows.length + ' 件',
+          rows: revRows.map((r) => row(r, '売上')), allLabel: '売上の明細をすべて見る', all: () => this.setState({ screen: 'rev' }) },
+        { title: '仕入（変動原価）＋固定原価', icon: 'shopping-cart', iconFg: '#005bac', total: this.yen(varc + fix), n: (purRows.length + this.FIX.length) + ' 件',
+          rows: purRows.map((r) => row(r, '仕入')).concat(this.FIX.map((r) => row(r, '固定原価'))), allLabel: '仕入の明細をすべて見る', all: () => this.setState({ screen: 'pur' }) },
+        { title: '販管費', icon: 'receipt', iconFg: '#c2410e', total: this.yen(sga), n: (proj ? 0 : this.SGA.length) + ' 件',
+          rows: proj ? [] : this.SGA.map((r) => row(r, '販管費')), allLabel: '販管費の明細をすべて見る', all: () => this.setState({ screen: 'sga' }) },
+      ],
+    };
+  }
+
+  BILL = {
+    issue: [
+      { name: '60周年 記念式典 配信・収録', sub: 'GMOインターネットグループ ・ GLS-2607-018', v: 4820000, month: '7月', due: '8/31', missing: '' },
+      { name: '株主総会 ライブ配信', sub: 'GMOフィナンシャルHD ・ GLS-2607-021', v: 2650000, month: '7月', due: '8/31', missing: '' },
+      { name: '夏フェス 中継（3日間）', sub: 'ライトウェーブ音響 ・ GLS-2607-009', v: 3400000, month: '7月', due: '8/20', missing: '申込書' },
+      { name: 'PROGRAM 第14回', sub: 'GMOメディア ・ EP-0714', v: 980000, month: '7月', due: '8/31', missing: '' },
+      { name: '新製品発表会 収録', sub: 'GMOペパボ ・ GLS-2606-044', v: 1280000, month: '6月', due: '7/31', missing: '見積書・申込書', carry: true },
+    ],
+    collect: [
+      { name: '記者発表 配信', sub: 'GMOあおぞらネット銀行 ・ GLS-2605-031', v: 1650000, month: '5月', due: '6/30', over: true, no: 'INV-2605-0118' },
+      { name: '社内表彰式 収録', sub: 'GMOペイメントゲートウェイ ・ GLS-2606-012', v: 840000, month: '6月', due: '7/20', over: true, no: 'INV-2606-0131' },
+      { name: 'PROGRAM 第13回', sub: 'GMOメディア ・ EP-0713', v: 980000, month: '6月', due: '8/10', over: false, no: 'INV-2606-0136' },
+      { name: '展示会 ブース配信', sub: 'GMOグローバルサイン ・ GLS-2606-028', v: 1420000, month: '6月', due: '8/15', over: false, no: 'INV-2606-0140' },
+    ],
+    inspect: [
+      { name: '入社式 配信', sub: 'GMOインターネットグループ ・ GLS-2604-002', v: 1180000, month: '4月', due: '5/31', over: false, no: 'INV-2604-0092' },
+      { name: '決算説明会 収録', sub: 'GMOフィナンシャルHD ・ GLS-2605-018', v: 2240000, month: '5月', due: '6/30', over: false, no: 'INV-2605-0109' },
+      { name: 'PROGRAM 第12回', sub: 'GMOメディア ・ EP-0712', v: 980000, month: '5月', due: '6/30', over: false, no: 'INV-2605-0121' },
+    ],
+  };
+
+  PAID = [
+    { name: '周年イベント 配信', sub: 'GMOクリック証券', v: 2180000, when: '7/28 入金' },
+    { name: 'PROGRAM 第11回', sub: 'GMOメディア', v: 980000, when: '7/25 入金' },
+    { name: 'セミナー 収録', sub: 'GMOリサーチ', v: 460000, when: '7/22 入金' },
+  ];
+
+  RECUR = [
+    { name: 'PROGRAM 月次運用', sub: 'GMOメディア', v: 980000, prev: 980000 },
+    { name: 'スタジオ 定額利用', sub: 'GMOペパボ', v: 1240000, prev: 1180000 },
+    { name: '配信基盤 運用', sub: 'GMOグローバルサイン', v: 620000, prev: 620000 },
+    { name: 'アーカイブ 保管', sub: 'GMOあおぞらネット銀行', v: 148000, prev: 132000 },
+  ];
+
+  billVals() {
+    const s = this.state;
+    const tab = s.billTab || 'issue';
+    const picked = s.billPick || {};
+    const paidDone = s.billPaid || {};
+    const rows = this.BILL[tab] || [];
+    const T = [
+      { k: 'issue', label: '請求書を出す', icon: 'receipt', n: this.BILL.issue.length },
+      { k: 'collect', label: '入金の確認', icon: 'wallet', n: this.BILL.collect.length },
+      { k: 'inspect', label: '検収書を出す', icon: 'clipboard-check', n: this.BILL.inspect.length },
+    ];
+    const pickedRows = tab === 'issue' ? rows.filter((r, i) => picked['issue' + i]) : [];
+    const blocked = this.BILL.issue.filter((r) => r.missing).length;
+    return {
+      lead: '2026年7月締め ・ 未発行 ' + this.BILL.issue.length + '件 ・ 入金待ち ' + this.BILL.collect.length + '件 ・ 書類が揃っていない ' + blocked + '件 ・ 次の番号 INV-2607-0148',
+      month: '2026年7月',
+      reload: () => this.flash('最新の状態にしました'),
+      tabs: T.map((t) => ({ label: t.label, icon: t.icon, n: String(t.n), go: () => this.setState({ billTab: t.k }),
+        bg: tab === t.k ? '#fff' : 'transparent', fg: tab === t.k ? '#1a1d24' : '#5d6470', w: tab === t.k ? 800 : 400,
+        sh: tab === t.k ? '0 1px 3px rgba(16,24,40,.12)' : 'none',
+        nBg: tab === t.k ? '#eaf4fb' : '#e6e9ed', nFg: tab === t.k ? '#005bac' : '#5d6470' })),
+      hasPicked: pickedRows.length > 0,
+      pickedN: String(pickedRows.length),
+      pickedSum: this.yen(pickedRows.reduce((t, r) => t + r.v, 0)),
+      clearPick: () => this.setState({ billPick: {} }),
+      issue: () => this.setState({ dlg: 'issue' }),
+      isIssue: tab === 'issue',
+      stateCol: tab === 'issue' ? '揃っていないもの' : '状態',
+      foot: tab === 'issue'
+        ? '申込書が揃っていない案件は選べません。請求書番号は「出す」を押した瞬間に採番します（INV-年月-連番）。締めた月にあとから確定した売上は、翌月の締めに回ります。'
+        : tab === 'collect'
+        ? '入金の確認は経理が行います。期日を過ぎたものが上に出ます。「催促する」は次にやることを立てるだけです（ONAiR はメールを送りません）。'
+        : '請求書を出した売上のうち、検収書がまだのものが並びます。',
+      rows: rows.map((r, i) => {
+        const key = tab + i;
+        const on = !!picked[key];
+        const block = tab === 'issue' && !!r.missing;
+        const acts = tab === 'issue'
+          ? [{ label: 'PDFを見る', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.setState({ dlg: 'pdf' }) }]
+          : tab === 'collect'
+          ? (r.over ? [{ label: '催促する', bd: '#005bac', bg: '#005bac', fg: '#fff', go: () => this.setState({ dlg: 'dun' }) }] : [])
+              .concat([{ label: '入金を記録', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.setState({ dlg: 'paid' }) },
+                { label: '取り消す', bd: '#e6e9ed', bg: '#fff', fg: '#9aa1ab', go: () => this.setState({ dlg: 'unissue' }) }])
+          : [{ label: '検収書を出す', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.setState({ dlg: 'inspect' }) }];
+        return {
+          name: r.name,
+          sub: r.no ? r.sub + ' ・ ' + r.no : (r.carry ? r.sub + ' ・ 6月は締め済 → 7月締めで請求' : r.sub),
+          v: this.yen(r.v), month: r.month, due: r.over ? r.due + ' 超過' : r.due,
+          dueFg: r.over ? '#c7243a' : '#5d6470', dueW: r.over ? 800 : 400,
+          rowBg: r.over ? '#fdf5f6' : block ? '#fbfcfd' : '#fff',
+          ck: on ? '✓' : '', ckBd: block ? '#e6e9ed' : on ? '#005bac' : '#cbd2da',
+          ckBg: block ? '#f2f4f7' : on ? '#005bac' : '#fff',
+          ckCursor: tab === 'issue' && !block ? 'pointer' : 'default',
+          pick: () => {
+            if (tab !== 'issue' || block) { if (block) this.flash('書類が揃っていないので選べません'); return; }
+            const p = Object.assign({}, picked); p[key] = !on; this.setState({ billPick: p });
+          },
+          st: tab === 'issue' ? (r.missing || '出せる')
+            : tab === 'collect' ? (r.over ? '期日を過ぎています' : '入金待ち') : '請求済み',
+          stBg: tab === 'issue' ? (r.missing ? '#fef6f7' : '#e7f6ee') : tab === 'collect' ? (r.over ? '#fef6f7' : '#fff7ed') : '#f2f4f7',
+          stFg: tab === 'issue' ? (r.missing ? '#c7243a' : '#197a4b') : tab === 'collect' ? (r.over ? '#c7243a' : '#c2410e') : '#5d6470',
+          acts: acts,
+        };
+      }),
+      paid: this.PAID.map((p, i) => ({ name: p.name, sub: p.sub, v: this.yen(p.v), when: paidDone[i] ? '外しました' : p.when,
+        undo: () => { const d = Object.assign({}, paidDone); d[i] = true; this.setState({ billPaid: d }); this.flash('入金の記録を外しました'); } })),
+      recur: this.RECUR.map((c) => {
+        const ch = c.v !== c.prev;
+        return { name: c.name, sub: c.sub, v: this.yen(c.v),
+          chip: ch ? '先月と違う' : '同じ', chBg: ch ? '#fff7ed' : '#f2f4f7', chFg: ch ? '#c2410e' : '#9aa1ab',
+          prevLabel: ch ? '先月' : '', prevYen: ch ? '￥' : '', prev: ch ? this.yen(c.prev) : '' };
+      }),
+    };
+  }
+
+  lsVals() {
+    const s = this.state;
+    const cur = s.screen;
+    const kind = cur === 'rev' ? 'rev' : cur === 'sga' ? 'sga' : 'pur';
+    const purTab = s.purTab || 'var';
+    const fil = s.lsFil || 'all';
+    const dlg = (k) => () => this.setState({ dlg: k });
+    const src = kind === 'rev' ? this.REV : kind === 'sga' ? this.SGA : (purTab === 'fix' ? this.FIX : this.PUR);
+    const tagC = { '確定': ['#e7f6ee', '#197a4b'], '月次': ['#eef2ff', '#4338ca'], '確': ['#f2f4f7', '#5d6470'], '仮': ['#fff7ed', '#c2410e'], '固': ['#f5f3ff', '#6d28d9'] };
+    const title = kind === 'rev' ? '売上' : kind === 'sga' ? '販管費' : '仕入';
+    const editKey = kind === 'rev' ? 'revenue' : kind === 'sga' ? 'sga' : 'purchase';
+    const total = src.reduce((t, r) => t + r.v, 0);
+    const revView = s.revView || 'list';
+    const kinds = kind === 'pur'
+      ? [{ k: 'var', label: '変動原価（案件に紐づく）', icon: 'shopping-cart', n: this.PUR.length },
+         { k: 'fix', label: '固定原価', icon: 'building-2', n: this.FIX.length }]
+      : kind === 'rev'
+      ? [{ k: 'list', label: '売上明細', icon: 'circle-dollar-sign', n: this.REV.length },
+         { k: 'alloc', label: '案件按分（複数社で分ける）', icon: 'split', n: this.JOINT.length }]
+      : [];
+    const isAlloc = kind === 'rev' && revView === 'alloc';
+    const FIL = kind === 'rev'
+      ? [{ k: 'all', label: 'すべて' }, { k: 'confirmed', label: '確定' }, { k: 'draft', label: '見込み' }, { k: 'issued', label: '請求書 発行済' }, { k: 'unpaid', label: '入金待ち' }]
+      : kind === 'sga'
+      ? [{ k: 'all', label: 'すべて' }, { k: 'tsushin', label: '通信費' }, { k: 'chidai', label: '地代家賃' }, { k: 'ryohi', label: '旅費交通費' }, { k: 'other', label: 'その他' }]
+      : [{ k: 'all', label: 'すべて' }, { k: 'fixed', label: '確定' }, { k: 'prov', label: '仮 (見込み)' }, { k: 'nourl', label: '申請URLなし' }];
+    return {
+      title: title,
+      hint: kind === 'rev' ? '案件ごとの売上。確定した売上が請求・入金管理に並びます'
+        : kind === 'sga' ? '案件に紐づかない費用。ダッシュボードでは最後に引かれます'
+        : '案件に紐づくものが変動原価、固定原価プロジェクトに付けたものが固定原価です',
+      lead: '2026年7月 ・ ' + src.length + '件 ・ 合計 ￥' + this.yen(total) + '（税抜）',
+      isList: !isAlloc, isAlloc: isAlloc,
+      al: this.allocVals(),
+      addLabel: isAlloc ? '按分をつくる' : title + 'を登録',
+      add: isAlloc ? dlg('joint') : dlg(editKey), excel: dlg('excel'), search: dlg('search'),
+      searchPh: kind === 'rev' ? 'GLS番号・案件名・請求先で探す' : kind === 'sga' ? '支払先・詳細で探す' : 'GLS番号・仕入先・説明で探す',
+      col1: kind === 'sga' ? '勘定科目' : 'GLS番号 ／ 話数',
+      col2: kind === 'rev' ? '案件' : kind === 'sga' ? '詳細' : '案件 ／ 説明',
+      col3: kind === 'rev' ? '請求先' : kind === 'sga' ? '支払先' : '仕入先',
+      col7: kind === 'rev' ? '請求' : '申請',
+      count: '全 ' + src.length + ' 件を表示',
+      total: this.yen(total),
+      note: kind === 'rev' ? '請求の状態（未請求／発行済／入金済）はこの台帳では変えられません。請求書の発行と入金の記録は請求・入金管理だけで行い、ここは結果を映します。状態を押すとその画面に移ります。'
+        : kind === 'sga' ? '販管費は案件に紐づきません。ダッシュボードで案件を絞り込むと集計から外れます。部門で分けるものは按分の設定を使います。'
+        : '「仮」は金額が確定していない見込みです。精算が通ると確定に変わります。申請URLから精算ページを開けます。',
+      kinds: kinds.map((k) => {
+        const on = kind === 'rev' ? revView === k.k : purTab === k.k;
+        return { label: k.label, icon: k.icon, n: String(k.n),
+          go: kind === 'rev' ? () => this.setState({ revView: k.k }) : () => this.setState({ purTab: k.k }),
+          bd: on ? '#005bac' : 'transparent', fg: on ? '#005bac' : '#5d6470', w: on ? 700 : 400 };
+      }),
+      filters: FIL.map((f) => ({ label: f.label, go: () => this.setState({ lsFil: f.k }),
+        bd: fil === f.k ? '#005bac' : '#e6e9ed', bg: fil === f.k ? '#eaf4fb' : '#fff',
+        fg: fil === f.k ? '#005bac' : '#5d6470', w: fil === f.k ? 700 : 400 })),
+      rows: src.map((r) => {
+        const c = tagC[r.tag] || tagC['確'];
+        const bc = { '未請求': ['#f2f4f7', '#5d6470'], '発行済': ['#eaf4fb', '#005bac'], '入金済': ['#e7f6ee', '#197a4b'] }[r.bill] || ['#f2f4f7', '#cbd2da'];
+        const toBill = (e) => { if (e && e.stopPropagation) e.stopPropagation();
+          this.setState({ screen: 'bill', billTab: r.bill === '未請求' ? 'issue' : r.bill === '発行済' ? 'collect' : 'inspect' }); };
+        return {
+          code: kind === 'sga' ? r.sub.split(' ／ ')[1] || '—' : r.code,
+          name: r.name, sub: kind === 'sga' ? r.sub.split(' ／ ')[1] + ' ／ 7月分' : r.sub, party: r.sub.split(' ／ ')[0],
+          month: '7月', v: this.yen(r.v), tag: r.tag, tagBg: c[0], tagFg: c[1],
+          urlLabel: kind === 'rev' ? r.bill : (r.url ? '開く' : '—'),
+          urlBg: kind === 'rev' ? bc[0] : (r.url ? '#eaf4fb' : 'transparent'),
+          urlFg: kind === 'rev' ? bc[1] : (r.url ? '#005bac' : '#cbd2da'),
+          urlCur: kind === 'rev' ? 'pointer' : (r.url ? 'pointer' : 'default'),
+          openUrl: kind === 'rev' ? toBill
+            : (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.flash(r.url ? '精算ページを開きます' : '申請URLは入っていません'); },
+          open: () => this.setState({ dlg: editKey }),
+          edit: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ dlg: editKey }); },
+          del: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ dlg: 'del', delTarget: { name: r.name, kind: title } }); },
+        };
+      }),
+    };
+  }
+
+  IMP = [
+    { no: 'XP-2607-0182', payee: 'ライトウェーブ音響', desc: '照明オペレート（3名）／ GLS-2607-018', date: '7/28', v: 640000, st: '未仕分け', proj: 'GLS-2607-018 60周年 記念式典', kind: '仕入' },
+    { no: 'XP-2607-0186', payee: '東京中継サービス', desc: '中継車 手配 ／ GLS-2607-009', date: '7/26', v: 1180000, st: '未仕分け', proj: 'GLS-2607-009 夏フェス 中継', kind: '仕入' },
+    { no: 'RK-2607-0044', payee: 'アスクル', desc: '事務用品 ／ 案件の読み取りなし', date: '7/24', v: 46000, st: '未仕分け', proj: '—', kind: '販管費' },
+    { no: 'XP-2607-0177', payee: 'ビジュアルレンタル', desc: 'LEDパネル レンタル ／ GLS-2607-021', date: '7/22', v: 420000, st: '仕分け済', proj: 'GLS-2607-021 株主総会 ライブ配信', kind: '仕入' },
+    { no: 'RK-2607-0039', payee: '楽楽精算（交通費）', desc: '交通費 精算（7月）／ 案件の読み取りなし', date: '7/20', v: 148000, st: '取込済', proj: '—', kind: '販管費' },
+    { no: 'XP-2607-0165', payee: 'サウンドワークス', desc: '会場音響 一式 ／ GLS-2606-044', date: '7/18', v: 288000, st: '取込済', proj: 'GLS-2606-044 新製品発表会 収録', kind: '仕入' },
+    { no: 'XP-2607-0161', payee: 'フリーランス（カメラ）', desc: 'カメラマン 4名 ／ GLS-2607-018', date: '7/16', v: 520000, st: '取込済', proj: 'GLS-2607-018 60周年 記念式典', kind: '仕入' },
+    { no: 'RK-2607-0031', payee: 'AWS', desc: 'クラウド利用料（7月）', date: '7/15', v: 386000, st: '取込済', proj: '—', kind: '販管費' },
+    { no: 'XP-2607-0158', payee: '東京中継サービス', desc: '回線手配 ／ 案件の読み取りなし', date: '7/12', v: 96000, st: '未仕分け', proj: '—', kind: '仕入' },
+  ];
+
+  impVals() {
+    const s = this.state;
+    const i = s.impSel === undefined ? 0 : s.impSel;
+    const r = this.IMP[i] || this.IMP[0];
+    const stC = { '未仕分け': ['#fff7ed', '#c2410e'], '仕分け済': ['#eaf4fb', '#005bac'], '取込済': ['#e7f6ee', '#197a4b'] };
+    const open = this.IMP.filter((x) => x.st === '未仕分け').length;
+    const src = s.impSrc || 'pdf';
+    const isPdf = src === 'pdf', isGl = src === 'gl', isDedup = src === 'dedup';
+    const glScope = s.glScope || 'all';
+    const glOpt = s.glOpt || {};
+    const ddScope = s.ddScope || 'all';
+    const AI = ['98%', '96%', '92%', '99%', '74%', '95%', '97%', '88%', '61%'];
+    const lead = isPdf ? '2026年7月 ・ 読み取り ' + this.IMP.length + '件（未仕分け ' + open + '件） ・ X-Point ／ 楽楽精算のPDFをそのまま置く'
+      : isGl ? '2026年7月 ・ freee 仕訳帳 ／ MoneyForward の総勘定元帳を、売上・仕入・販管費に入れます（管理者のみ）'
+      : '手で入れた行と、総勘定元帳から取り込んだ行が二重になっていないか調べます（管理者のみ）';
+    const steps = isPdf
+      ? [{ no: 1, label: '取り込む', detail: '申請PDFを置く（AIが読み取り）' }, { no: 2, label: '確認する', detail: '読み取った内容を1件ずつ見る' }, { no: 3, label: '登録する', detail: '仕入か販管費として入れる' }]
+      : isGl
+      ? [{ no: 1, label: '取り込む', detail: '総勘定元帳のファイルを置く' }, { no: 2, label: '確認する', detail: '解析して件数・金額・重複を見る' }, { no: 3, label: '登録する', detail: '投入する（対象月は入れ直し）' }]
+      : [{ no: 1, label: '調べる', detail: '同じ金額・案件・計上月の組を探す' }, { no: 2, label: '確認する', detail: '消す行と残す行を見比べる' }, { no: 3, label: '消す', detail: '取り込んだ側だけを消す' }];
+    const activeStep = isDedup ? 1 : 2;
+    return {
+      lead: lead,
+      actions: isPdf
+        ? [{ label: '取り込みの記録', icon: 'history', bd: '1px solid #e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.flash('これまでの取り込みの記録を開きます') },
+           { label: 'PDFを選ぶ', icon: 'file-up', bd: 'none', bg: '#005bac', fg: '#fff', go: () => this.setState({ dlg: 'impRun' }) }]
+        : isGl
+        ? [{ label: '取込元の設定', icon: 'folder', bd: '1px solid #e6e9ed', bg: '#fff', fg: '#3c424c', go: () => this.setState({ dlg: 'impFolder' }) },
+           { label: 'ファイルを選ぶ', icon: 'file-spreadsheet', bd: 'none', bg: '#005bac', fg: '#fff', go: () => this.setState({ dlg: 'impRun' }) }]
+        : [{ label: '調べる', icon: 'copy-check', bd: 'none', bg: '#005bac', fg: '#fff', go: () => this.flash('二重計上の候補を調べました（6件）') }],
+      steps: steps.map((x) => ({ no: String(x.no), label: x.label, detail: x.detail,
+        bd: x.no === activeStep ? '#cfe4f4' : '#e6e9ed', bg: x.no === activeStep ? '#f4faff' : '#fff',
+        noBg: x.no === activeStep ? '#005bac' : '#f2f4f7', noFg: x.no === activeStep ? '#fff' : '#5d6470' })),
+      sources: [
+        { k: 'pdf', label: '精算PDF（X-Point ／ 楽楽精算）', icon: 'file-up', tag: '未仕分け ' + open, tagBg: '#fff7ed', tagFg: '#c2410e' },
+        { k: 'gl', label: '総勘定元帳（freee ／ MoneyForward）', icon: 'file-spreadsheet', tag: '管理者', tagBg: '#f5f3ff', tagFg: '#6d28d9' },
+        { k: 'dedup', label: '二重計上を調べる', icon: 'copy-check', tag: '6', tagBg: '#fef6f7', tagFg: '#c7243a' },
+      ].map((t) => ({ label: t.label, icon: t.icon, hasTag: true, tag: t.tag, tagBg: t.tagBg, tagFg: t.tagFg,
+        bd: src === t.k ? '#005bac' : 'transparent', fg: src === t.k ? '#005bac' : '#5d6470', w: src === t.k ? 700 : 400,
+        go: () => this.setState({ impSrc: t.k }) })),
+      isPdf: isPdf, isGl: isGl, isDedup: isDedup,
+      drop: () => this.setState({ dlg: 'impRun' }),
+      gl: {
+        file: '仕訳帳_2026-07.csv（freee）',
+        period: '2026/07/01 〜 2026/07/31',
+        scopes: [{ k: 'all', label: 'すべて' }, { k: 'sga', label: '販管費' }, { k: 'rev', label: '売上' }, { k: 'pur', label: '仕入' }]
+          .map((o) => ({ label: o.label, pick: () => this.setState({ glScope: o.k }),
+            bd: glScope === o.k ? '#005bac' : '#e6e9ed', bg: glScope === o.k ? '#eaf4fb' : '#fff',
+            fg: glScope === o.k ? '#005bac' : '#5d6470', w: glScope === o.k ? 700 : 400 })),
+        opts: [
+          { k: 'master', label: '案件・顧客・取引先をつくる', sub: '元帳にあってONAiRに無いものを、そのまま作ります', def: true },
+          { k: 'exFix', label: '固定原価（GLS無し）を外す', sub: '案件に紐づかない原価を取り込みから外します', def: false },
+          { k: 'skipDup', label: '重複候補は飛ばす', sub: '金額・内容・日付が既存と同じものは入れません', def: true },
+        ].map((o) => {
+          const on = glOpt[o.k] === undefined ? o.def : glOpt[o.k];
+          return { label: o.label, sub: o.sub, swBg: on ? '#005bac' : '#d7dbe0', swX: on ? '16px' : '0px',
+            toggle: () => this.setState({ glOpt: Object.assign({}, glOpt, { [o.k]: !on }) }) };
+        }),
+        dry: () => this.flash('解析しました（まだ投入していません）'),
+        commit: () => this.setState({ dlg: 'impRun' }),
+        rows: [
+          { label: '販管費', sub: '通信費・地代家賃・旅費交通費 ほか', n: '38', v: this.yen(2140000), dup: '2 件', warn: true },
+          { label: '売上', sub: 'GLSが読めたもの', n: '22', v: this.yen(14110000), dup: 'なし' },
+          { label: '仕入（変動原価）', sub: 'GLSが読めたもの', n: '41', v: this.yen(3048000), dup: '3 件', warn: true },
+          { label: '固定原価', sub: '償却負担額など → 固定原価プロジェクトへ', n: '9', v: this.yen(2710000), dup: '1 件', warn: true },
+        ].map((r) => ({ label: r.label, sub: r.sub, n: r.n, v: r.v, dup: r.dup,
+          dupBg: r.warn ? '#fff7ed' : '#f2f4f7', dupFg: r.warn ? '#c2410e' : '#9aa1ab' })),
+        missing: [
+          { label: '登録のない案件（GLS）', sample: 'GLS-2607-041 ／ GLS-2607-052 ほか', n: '4' },
+          { label: '登録のない顧客', sample: 'GMOアドパートナーズ ／ GMO TECH', n: '2' },
+          { label: '登録のない仕入先', sample: '新宿ライティング', n: '1' },
+        ],
+      },
+      dd: {
+        scopes: [{ k: 'all', label: 'すべて' }, { k: 'rev', label: '売上' }, { k: 'pur', label: '仕入' }, { k: 'sga', label: '販管費' }]
+          .map((o) => ({ label: o.label, pick: () => this.setState({ ddScope: o.k }),
+            bd: ddScope === o.k ? '#005bac' : '#e6e9ed', bg: ddScope === o.k ? '#eaf4fb' : '#fff',
+            fg: ddScope === o.k ? '#005bac' : '#5d6470', w: ddScope === o.k ? 700 : 400 })),
+        scan: () => this.flash('二重計上の候補を調べました（6件）'),
+        del: () => this.setState({ dlg: 'del' }),
+        kpis: [
+          { label: '売上', n: '1 件', v: this.yen(980000), bd: '#e6e9ed', bg: '#fff', fg: '#1a1d24' },
+          { label: '仕入', n: '3 件', v: this.yen(1136000), bd: '#e6e9ed', bg: '#fff', fg: '#1a1d24' },
+          { label: '販管費', n: '2 件', v: this.yen(534000), bd: '#e6e9ed', bg: '#fff', fg: '#1a1d24' },
+          { label: '消す候補 合計', n: '6 件', v: this.yen(2650000), bd: '#f3c9cf', bg: '#fef6f7', fg: '#c7243a' },
+        ],
+        rows: [
+          { kind: '仕入', del: '照明オペレート（3名） ライトウェーブ音響', delTag: 'GLS-2607-018 ／ 2026-07', keep: '照明オペレート（3名） ライトウェーブ音響', keepTag: '手入力 ／ 7/18 大西', v: this.yen(640000) },
+          { kind: '仕入', del: '中継車 手配 東京中継サービス', delTag: 'GLS-2607-009 ／ 2026-07', keep: '中継車 手配 東京中継サービス', keepTag: '手入力 ／ 7/12 寺井', v: this.yen(1180000) },
+          { kind: '販管費', del: 'クラウド利用料 AWS', delTag: '通信費 ／ 2026-07', keep: 'クラウド利用料 AWS', keepTag: '手入力 ／ 7/15 経理', v: this.yen(386000) },
+          { kind: '売上', del: 'PROGRAM 第14回 GMOメディア', delTag: 'EP-0714 ／ 2026-07', keep: 'PROGRAM 第14回 GMOメディア', keepTag: '手入力 ／ 7/31 月次', v: this.yen(980000) },
+          { kind: '仕入', del: '会場音響 一式 サウンドワークス', delTag: 'GLS-2606-044 ／ 2026-06', keep: '会場音響 一式 サウンドワークス', keepTag: '手入力 ／ 6/28 中西', v: this.yen(288000) },
+          { kind: '販管費', del: '交通費 精算（7月） 楽楽精算', delTag: '旅費交通費 ／ 2026-07', keep: '交通費 精算（7月） 楽楽精算', keepTag: '手入力 ／ 7/20 経理', v: this.yen(148000) },
+        ].map((r) => ({ kind: r.kind, del: r.del, delTag: r.delTag, keep: r.keep, keepTag: r.keepTag, v: r.v,
+          kBg: r.kind === '売上' ? '#e7f6ee' : r.kind === '仕入' ? '#eaf4fb' : '#fff7ed',
+          kFg: r.kind === '売上' ? '#197a4b' : r.kind === '仕入' ? '#005bac' : '#c2410e' })),
+      },
+      folder: () => this.setState({ dlg: 'impFolder' }),
+      run: () => this.setState({ dlg: 'impRun' }),
+      skip: () => this.flash('この精算はあとに回しました'),
+      toPurchase: () => this.setState({ dlg: 'purchase' }),
+      toSga: () => this.setState({ dlg: 'sga' }),
+      rows: this.IMP.map((x, k) => {
+        const c = stC[x.st];
+        const ai = AI[k % AI.length];
+        return { no: x.no, payee: x.payee, desc: x.desc, date: x.date, v: this.yen(x.v),
+          ai: ai, aiFg: parseInt(ai, 10) < 80 ? '#c2410e' : '#5d6470',
+          st: x.st, stBg: c[0], stFg: c[1], rowBg: k === i ? '#f4faff' : '#fff',
+          pick: () => this.setState({ impSel: k }) };
+      }),
+      sel: {
+        no: r.no,
+        fields: [
+          { k: '支払先', v: r.payee, w: 700 },
+          { k: '内容', v: r.desc.split(' ／ ')[0] },
+          { k: '発生日（計上日）', v: '2026/07/' + r.date.split('/')[1] },
+          { k: '金額（税抜）', v: this.yen(r.v), money: true },
+          { k: '税区分', v: '課税10%' },
+          { k: '計上月', v: '2026/07' },
+          { k: '支払予定日', v: '2026/08/31' },
+          { k: 'インボイス', v: '適格' },
+          { k: '読み取れた案件', v: r.proj, fg: r.proj === '—' ? '#9aa1ab' : '#005bac', w: 700 },
+          { k: '候補', v: r.kind + 'として登録', w: 700 },
+        ].map((f) => ({ k: f.k, v: f.v, isMoney: !!f.money, isText: !f.money, w: f.w || 400, fg: f.fg || '#3c424c' })),
+      },
+    };
+  }
+
+  JOINT = [
+    { name: '合同新年会 配信（9社）', host: 'GMOインターネットグループ', n: 9, v: 5400000,
+      cos: [
+        { name: 'GMOインターネットグループ', code: 'GLS-2601-101', host: true, rate: '11.2%', rev: 604000, cost: 372000, inv: '発行済' },
+        { name: 'GMOペイメントゲートウェイ', code: 'GLS-2601-102', rate: '11.1%', rev: 600000, cost: 370000, inv: '発行済' },
+        { name: 'GMOフィナンシャルHD', code: 'GLS-2601-103', rate: '11.1%', rev: 600000, cost: 370000, inv: '未' },
+        { name: 'GMOメディア', code: 'GLS-2601-104', rate: '11.1%', rev: 600000, cost: 370000, inv: '未' },
+        { name: 'GMOペパボ', code: 'GLS-2601-105', rate: '11.1%', rev: 600000, cost: 370000, inv: '発行済' },
+      ] },
+    { name: 'グループ合同 採用説明会（4社）', host: 'GMOペパボ', n: 4, v: 1680000,
+      cos: [
+        { name: 'GMOペパボ', code: 'GLS-2604-071', host: true, rate: '25.1%', rev: 421000, cost: 262000, inv: '発行済' },
+        { name: 'GMOメディア', code: 'GLS-2604-072', rate: '24.9%', rev: 419000, cost: 261000, inv: '発行済' },
+        { name: 'GMOリサーチ', code: 'GLS-2604-073', rate: '25.0%', rev: 420000, cost: 261000, inv: '未' },
+        { name: 'GMOグローバルサイン', code: 'GLS-2604-074', rate: '25.0%', rev: 420000, cost: 261000, inv: '未' },
+      ] },
+    { name: '事業説明会 中継（3社）', host: 'GMOフィナンシャルHD', n: 3, v: 960000,
+      cos: [
+        { name: 'GMOフィナンシャルHD', code: 'GLS-2607-081', host: true, rate: '33.4%', rev: 320000, cost: 196000, inv: '未' },
+        { name: 'GMOクリック証券', code: 'GLS-2607-082', rate: '33.3%', rev: 320000, cost: 196000, inv: '未' },
+        { name: 'GMOあおぞらネット銀行', code: 'GLS-2607-083', rate: '33.3%', rev: 320000, cost: 196000, inv: '未' },
+      ] },
+  ];
+
+  allocVals() {
+    const s = this.state;
+    const i = s.jtSel === undefined ? 0 : s.jtSel;
+    const e = this.JOINT[i] || this.JOINT[0];
+    const sum = (k) => e.cos.reduce((t, c) => t + c[k], 0);
+    return {
+      lead: '按分中 3件 ・ 参加社の数だけ案件（GLS）と見積・請求・検収ができます ・ 端数は代表社に付きます',
+      create: () => this.setState({ dlg: 'joint' }),
+      addCo: () => this.setState({ dlg: 'jointCo' }),
+      toHost: () => this.setState({ dlg: 'jointRound' }),
+      events: this.JOINT.map((x, k) => ({ name: x.name, host: x.host, n: x.n + ' 社', v: this.yen(x.v),
+        rowBg: k === i ? '#f4faff' : '#fff', pick: () => this.setState({ jtSel: k }) })),
+      sel: {
+        name: e.name, host: e.host, n: e.n + ' 社',
+        rev: this.yen(sum('rev')), cost: this.yen(sum('cost')), gross: this.yen(sum('rev') - sum('cost')),
+        cos: e.cos.map((c) => ({
+          name: c.name, code: c.code, rate: c.rate,
+          host: c.host ? '代表' : '', hostBg: c.host ? '#eaf4fb' : 'transparent', hostFg: c.host ? '#005bac' : '#cbd2da',
+          rev: this.yen(c.rev), cost: this.yen(c.cost), gross: this.yen(c.rev - c.cost),
+          inv: c.inv, invBg: c.inv === '発行済' ? '#e7f6ee' : '#fff7ed', invFg: c.inv === '発行済' ? '#197a4b' : '#c2410e',
+        })),
+      },
+    };
+  }
+
+  VENDORS = [
+    { name: 'ライトウェーブ音響', person: '大西 亮', tel: '03-5432-1180', mail: 'sales@lightwave.example.jp', extra: 'T1234567890123', v: 2860000 },
+    { name: '東京中継サービス', person: '寺島 健', tel: '03-6410-2288', mail: 'info@tokyo-chukei.example.jp', extra: 'T2345678901234', v: 4120000 },
+    { name: 'ビジュアルレンタル', person: '佐々木 悠', tel: '03-3355-7712', mail: 'rental@visual.example.jp', extra: 'T3456789012345', v: 1680000 },
+    { name: 'サウンドワークス', person: '—', tel: '03-6801-4420', mail: 'contact@soundworks.example.jp', extra: 'T4567890123456', v: 940000 },
+    { name: 'フリーランス（カメラ）', person: '複数', tel: '—', mail: '—', extra: '未登録（不適格）', v: 1560000 },
+  ];
+
+  CUSTOMERS = [
+    { name: 'GMOインターネットグループ', person: '広報 高橋', tel: '03-5456-2555', mail: 'pr@gmo.example.jp', extra: '請求書：郵送 ／ 締め 月末', v: 12480000 },
+    { name: 'GMOフィナンシャルHD', person: 'IR 井上', tel: '03-6221-0910', mail: 'ir@gmo-fh.example.jp', extra: '請求書：メール ／ 締め 月末', v: 6820000 },
+    { name: 'GMOメディア', person: '制作 中村', tel: '03-5456-2626', mail: 'media@gmo.example.jp', extra: '月次運用 ／ 締め 月末', v: 5880000 },
+    { name: 'GMOペパボ', person: '総務 林', tel: '03-5456-2717', mail: 'soumu@pepabo.example.jp', extra: '請求書：メール ／ 締め 15日', v: 3240000 },
+    { name: 'ライトウェーブ音響', person: '大西 亮', tel: '03-5432-1180', mail: 'sales@lightwave.example.jp', extra: '仕入先も兼ねる', v: 3400000 },
+  ];
+
+  PARTNERS = [
+    { name: '寺井 健太郎', person: 'テクニカルディレクター', tel: '090-1234-5678', mail: 'terai@example.jp', extra: '映像・スイッチング', v: 0 },
+    { name: '中西 千夏', person: '音声', tel: '090-2345-6789', mail: 'nakanishi@example.jp', extra: '音響・インカム', v: 0 },
+    { name: '大石 圭', person: '照明', tel: '090-3456-7890', mail: 'oishi@example.jp', extra: '照明・LED', v: 0 },
+    { name: '山下 遥', person: 'カメラ', tel: '090-4567-8901', mail: 'yamashita@example.jp', extra: '撮影・カメラ', v: 0 },
+  ];
+
+  ptVals() {
+    const s = this.state;
+    const tab = s.ptTab || 'vendor';
+    const src = tab === 'vendor' ? this.VENDORS : tab === 'customer' ? this.CUSTOMERS : this.PARTNERS;
+    const T = [
+      { k: 'vendor', label: '仕入先', icon: 'truck', n: this.VENDORS.length },
+      { k: 'customer', label: '請求先', icon: 'building-2', n: this.CUSTOMERS.length },
+      { k: 'partner', label: 'パートナー', icon: 'users', n: this.PARTNERS.length },
+    ];
+    const label = { vendor: '仕入先', customer: '請求先', partner: 'パートナー' }[tab];
+    return {
+      lead: label + ' ' + src.length + '件 ・ ' + (tab === 'partner' ? '外部スタッフの連絡先と専門分野' : '請求・支払のやり取りに使います'),
+      addLabel: label + 'を足す', add: () => this.setState({ dlg: 'party' }),
+      tabs: T.map((t) => ({ label: t.label, icon: t.icon, n: String(t.n), go: () => this.setState({ ptTab: t.k }),
+        bd: tab === t.k ? '#005bac' : 'transparent', fg: tab === t.k ? '#005bac' : '#5d6470', w: tab === t.k ? 700 : 400 })),
+      col1: label, col4: tab === 'vendor' ? '適格請求書番号' : tab === 'customer' ? '請求の出し方' : '専門分野',
+      col5: tab === 'partner' ? '' : '今期の取引額',
+      note: tab === 'vendor' ? '適格請求書番号がないところは「不適格」として仕入に印が付きます。取引のある仕入先は消せません。'
+        : tab === 'customer' ? '請求書の出し方（郵送／メール）と締め日をここに持ちます。請求・入金管理の並びに効きます。'
+        : 'パートナーは外部スタッフの連絡先です。案件のアサインと見積の人件費で使います。',
+      rows: src.map((r) => ({
+        name: r.name, person: r.person, tel: r.tel, mail: r.mail, extra: r.extra,
+        yen: r.v ? '￥' : '', yenFg: '#9aa1ab', v: r.v ? this.yen(r.v) : '',
+        edit: () => this.setState({ dlg: 'party' }),
+        del: () => this.setState({ dlg: 'del', delTarget: { name: r.name, kind: label } }),
+      })),
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const cur = s.screen || 'pl';
+    const soon = (msg) => () => this.flash(msg);
+    const M = { 'ダッシュボード': 'pl', '請求・入金': 'bill', '売上': 'rev', '仕入': 'pur', '販管費': 'sga', '受け取った書類': 'rdoc', '取り込み': 'imp', '取引先': 'party' };
+    return {
+      isPl: cur === 'pl',
+      pl: this.plVals(),
+      isBill: cur === 'bill',
+      bill: this.billVals(),
+      isList: cur === 'rev' || cur === 'pur' || cur === 'sga',
+      ls: this.lsVals(),
+      isRdoc: cur === 'rdoc',
+      rdoc: this.rdocVals(),
+      isImp: cur === 'imp',
+      imp: this.impVals(),
+      isParty: cur === 'party',
+      pt: this.ptVals(),
+      ...this.dlgVals(),
+      hasToast: !!s.toast,
+      toast: s.toast,
+      goHome: () => { window.location.href = 'v4-mockup-main.dc.html'; },
+      appSwOpen: s.appSw,
+      toggleAppSw: () => this.setState({ appSw: !s.appSw }),
+      closeAppSw: () => this.setState({ appSw: false }),
+      appSwitchApps: this.APPS.map((a) => ({
+        ...a,
+        pick: () => {
+          this.setState({ appSw: false });
+          if (a.here) return;
+          if (a.to) { window.location.href = a.to; return; }
+          this.flash('「' + a.label + '」はこのファイルには入っていません');
+        },
+      })),
+      menu: this.MENU.map((m) => {
+        const k = M[m.label];
+        const on = k === cur;
+        return { group: m.group, label: m.label, tag: m.tag || '',
+          go: k ? () => this.setState({ screen: k }) : soon('「' + m.label + '」の画面はこれから作ります'),
+          bg: on ? '#eaf4fb' : 'transparent', fg: on ? '#005bac' : '#3c424c',
+          dot: on ? '#005bac' : '#cbd2da', weight: on ? 700 : 400 };
+      }),
+      tabs: [
+        { key: 'pl', label: '① ダッシュボード' }, { key: 'bill', label: '② 請求・入金' }, { key: 'rev', label: '③ 売上' },
+        { key: 'pur', label: '④ 仕入' }, { key: 'sga', label: '⑤ 販管費' }, { key: 'rdoc', label: '⑥ 受け取った書類' }, { key: 'imp', label: '⑦ 取り込み' },
+        { key: 'party', label: '⑦ 取引先' },
+      ].map((t) => {
+        const on = cur === t.key;
+        return { label: t.label, go: () => this.setState({ screen: t.key }),
+          bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470' };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

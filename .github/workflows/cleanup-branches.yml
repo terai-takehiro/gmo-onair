@@ -1,0 +1,125 @@
+name: Cleanup branches
+
+# ─────────────────────────────────────────────────────────────────────
+# 旧ブランチの整理を **GitHub の画面から** 実行する。
+#
+#   Actions → Cleanup branches → Run workflow
+#     mode = dry-run  … 何をするか出すだけ (既定)
+#     mode = execute  … 実行する。confirm に cleanup と入力しないと止まる
+#
+# 中身は scripts/github/cleanup-legacy-branches.sh そのもの。
+# このワークフローは「手元のターミナルの代わりに GitHub の上で走らせる」だけで、
+# 何を消すか・何をタグに退避するかはスクリプト側に SHA まで書いてある。
+#
+# なぜワークフローにしたか:
+#   ・Claude Code のセッションからは push できない (git プロキシがタグ作成と
+#     ブランチ削除を組織ポリシーとして 403 で拒否する)。
+#   ・GitHub の画面だけでは **タグを安全に作れない**。タグを作る入口は Releases
+#     しかなく、Release を公開すると deploy.yml の `release: types: [published]`
+#     が発火して **そのタグの中身が本番に出る**。v3.1.5 (本番未投入) や
+#     archive/* (古い作業ブランチ) を本番に出すことになるので使えない。
+#   ・ブランチの削除だけなら Branches 画面のゴミ箱アイコンでできるが 41 回押す。
+#   → タグ作成とブランチ削除をまとめて、一度の実行で片付けられる形にした。
+#
+# 必要な権限:
+#   contents: write (タグの push とブランチの削除) を下で宣言している。
+#   ※ push が 403 で失敗する場合は、リポジトリ設定
+#     Settings → Actions → General → Workflow permissions を見ること。
+#     (deploy.yml も同じ仕組みで packages: write を宣言して GHCR に push している)
+#
+# タグは push するが Release は作らない = **本番は動かない**。
+#   deploy.yml は `push: branches: [main]` と `release: published` でしか動かず、
+#   タグの push では発火しない。
+#
+# 全体の方針: docs/branching.md
+# ─────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '実行するか、見るだけか'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - execute
+      confirm:
+        description: 'execute のときだけ必要: cleanup と入力してください'
+        required: false
+        default: ''
+
+# 二重実行を止める。途中で止まっても壊れないが、同時に走ると
+# 「既にある」「既に無い」の判定が競合して読みにくいログになる。
+concurrency:
+  group: cleanup-branches
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: execute のときは confirm を確認
+        if: inputs.mode == 'execute'
+        run: |
+          if [ "${{ inputs.confirm }}" != "cleanup" ]; then
+            echo "::error::confirm に cleanup と入力されていません (入力値: '${{ inputs.confirm }}')。"
+            echo "::error::ブランチ 41 本の削除は取り消しにくいので、誤操作を防ぐための確認です。"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          # スクリプトは origin/main・origin/dev・origin/release/v3 と
+          # claude/* 40 本の先端 SHA を見る。浅い clone では判定できない。
+          fetch-depth: 0
+
+      - name: 全ブランチとタグを取り込む
+        run: |
+          git config --unset-all remote.origin.fetch || true
+          git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin --prune --tags
+          # スクリプトの「dev がデフォルトブランチだと削除できない」判定は
+          # refs/remotes/origin/HEAD を見る。checkout はこれを張らないので、
+          # イベントの payload にある実際のデフォルトブランチから作る。
+          # (無いと判定が黙って飛ばされ、削除できないブランチを消そうとして落ちる)
+          git remote set-head origin '${{ github.event.repository.default_branch }}'
+          echo "ブランチ: $(git for-each-ref --count=0 refs/remotes/origin | wc -l) 本 / タグ: $(git tag | wc -l) 本"
+
+      - name: タグを打つ人を設定
+        # git tag -a (注釈つきタグ) は tagger の名前とメールを要求する。
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: 整理を実行
+        id: run
+        run: |
+          set -o pipefail
+          ARGS=''
+          [ '${{ inputs.mode }}' = 'dry-run' ] && ARGS='--dry-run'
+          bash scripts/github/cleanup-legacy-branches.sh $ARGS 2>&1 | tee /tmp/cleanup.log
+
+      - name: 結果をまとめに出す
+        if: always()
+        run: |
+          {
+            echo "## ブランチ整理 (${{ inputs.mode }})"
+            echo
+            if [ '${{ inputs.mode }}' = 'dry-run' ]; then
+              echo "> **見るだけの実行です。** リモートは 1 バイトも変わっていません。"
+              echo "> 内容に問題がなければ mode = execute / confirm = cleanup で流してください。"
+            else
+              echo "> **実行しました。** タグは push されましたが Release は作っていないので、本番は動いていません。"
+            fi
+            echo
+            echo '```'
+            # ANSI の色コードを落とす (まとめは Markdown なのでそのままだと読めない)
+            sed -e 's/\x1b\[[0-9;]*m//g' /tmp/cleanup.log || echo '(ログがありません)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

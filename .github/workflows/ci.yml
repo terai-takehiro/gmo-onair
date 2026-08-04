@@ -59,10 +59,13 @@ jobs:
 
       - run: npm ci --workspaces --include-workspace-root
 
+      # ローカルの `npm run typecheck` は v4 対象の3アプリだけに絞ってある (速さのため)。
+      # CI では凍結4アプリ (qsheet / techsheet / live / awards) も必ず見る。
+      # shared/ を触ると凍結アプリの型も壊れ得るので、ここを絞ると気づけなくなる。
       - name: 型チェック (7クライアント + server)
-        run: npm run typecheck
+        run: npm run typecheck:all
 
-      - name: Lint (UIトークン検査 + eslint)
+      - name: Lint (eslint)
         run: npm run lint
 
       # server の prebuild でも走るが、ここで単体でも回す。

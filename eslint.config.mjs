@@ -19,6 +19,10 @@ export default tseslint.config(
       'scripts/**',
       'server/scripts/**',
       '**/vite-env.d.ts',
+      // デザイン参照物 (v4 モックアップ)。プロダクションコードではないので検査しない。
+      // support.js / onair-data.js はモックのランタイムで、ブラウザ直開き前提の
+      // 素の JS (window / document / customElements を直接触る)。
+      'docs/**',
     ],
   },
   js.configs.recommended,

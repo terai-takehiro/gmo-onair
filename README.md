@@ -48,14 +48,21 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 
 ## ブロックアプリ構成
 
-| アプリ | ディレクトリ | 公開パス | dev ポート | 概要 |
-|---|---|---|---|---|
-| 案件管理 | `client/` | `/` | 5173 | 案件・売上・仕入・損益、ダッシュボード |
-| Qシート | `client-qsheet/` | `/qsheet/` | 5174 | 進行台本・ランダウン・OnAir |
-| 機材管理 | `client-equipment/` | `/equipment/` | 5175 | 機材台帳・貸出 |
-| 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ/映像/音声 技術仕様書 |
-| ライブ運用 | `client-live/` | `/live/` | 5178 | 本番オペ・進行管理 |
-| リアルタイムCG | `client-awards/` | `/awards/` | 5179 | リアルタイム放送CG演出・送出管理 (内部識別子は `awards`) |
+アプリごとの詳しい決めごとは、各ディレクトリの `CLAUDE.md` にあります。
+
+| アプリ | ディレクトリ | 公開パス | dev ポート | v4.0.0 | 概要 |
+|---|---|---|---|---|---|
+| 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
+| 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
+| 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
+| 制作資料 (Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
+| 技術資料 | [`client-techsheet/`](client-techsheet/CLAUDE.md) | `/techsheet/` | 5177 | 凍結 | カメラ/映像/音声 技術仕様書 |
+| 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
+| リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards`) |
+
+**「凍結」**: v4.0.0 の UI 刷新の対象外です。**URL は生かし、見た目は今のまま**にします
+（トップページのアプリ一覧からは外します）。不具合の修正は通常どおり行います。
+v4.1 以降で順に刷新します → [docs/v4-plan.md](docs/v4-plan.md)
 
 ### 外部リンク (別 VPS / 別タブで開く)
 - **インタラクティブ**: <https://interactive.gmo-onair.jp/> — EventStamp・リアルタイム演出
@@ -93,7 +100,8 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 ### 開発運用
 - **npm workspaces** — モノレポ
 - **Dev Containers** — ローカル開発を隔離
-- **Gitea/GitHub Webhook** — `main` ブランチへの push で本番自動デプロイ
+- **GitHub Actions** — PR で検査（型・Lint・Docker ビルド）、`main` マージで検証環境、
+  Release タグ公開で本番。イメージは GHCR 経由で配信し VPS 上ではビルドしない
 
 ---
 
@@ -292,56 +300,70 @@ npm run db:reset     # 全リセット + re-seed
 ### ビルド
 
 ```bash
-npm run build    # shared → 全クライアント → server の順に TypeScript ビルド
+npm run build        # v4 対象3アプリ (client / client-daily / client-equipment) + server
+npm run build:all    # 全7アプリ + server
+npm run build:changed # 変更したワークスペースだけ (全部だと約2分)
 ```
 
+既定を3アプリにしているのは**手元の速さのため**です。本番は `Dockerfile` が7アプリすべてを
+個別のステージでビルドするので、凍結中のアプリも必ず作られます。
 各クライアントは Vite で静的ファイルを生成し、Express が静的配信します。
 
-### 本番デプロイ
+### デプロイ
 
-**トリガー**: `main` ブランチへの push
-**フロー**:
-1. GitHub Webhook が `scripts/deploy-webhook.js` (VPS 上、ポート 9000) に通知
-2. VPS が `git pull origin main && docker compose up -d --build` を実行
-3. `app_prod` コンテナが再ビルド・再起動される
+手順は **[docs/branching.md](docs/branching.md)**、仕組みの中身は
+**[docs/deploy-pipeline.md](docs/deploy-pipeline.md)** にあります。要点だけ:
 
-**デプロイ時間**: 約2〜3分
+| やりたいこと | 操作 |
+| --- | --- |
+| 検証環境 (dev.gmo-onair.jp) に出す | **`main` に PR をマージする**（自動デプロイ） |
+| 特定のブランチ・コミットだけ検証環境で見る | Actions → **Preview** → ref を入力（本番には出せない） |
+| **本番 (gmo-onair.jp) に出す** | GitHub で **Release（タグ `vX.Y.Z`）を公開する** |
+| 本番を戻す | Releases から**1つ前のタグの Deploy を再実行** |
 
-### 検証デプロイ
-
-**トリガー**: `dev` ブランチへの push
-検証環境 (`dev.gmo-onair.jp` / `app_dev`) に自動反映されます。
-
-### 緊急ロールバック
-
-```bash
-# VPS 上で
-git checkout <旧コミット>
-docker compose up -d --build
-```
+ビルドは GitHub Actions 上で行い、イメージを GHCR (`ghcr.io/terai-takehiro/gmo-onair`) に push、
+VPS は pull してコンテナを差し替えるだけです（VPS 上でビルドしません）。
 
 ---
 
 ## ブランチ運用
 
-- **`main`** — 本番デプロイの起点（push で webhook 発火）
-- **`master`** — `main` のミラーブランチ（`master ← main` の PR で定期同期）
-- **`dev`** — 検証環境の起点
-- **`feature/*`, `claude/*`** — 機能ブランチ（main または dev から派生）
+**正は [docs/branching.md](docs/branching.md)。** GitHub Flow ＋ リリースタグです。
 
-### リリースフロー
+- **長く残るブランチは `main` だけ。** 直接 push 禁止（PR のみ・**Squash マージ固定**）
+- **`main` は本番ではありません。** `main` = 次に出せるコード／**本番はタグが指すコード**
+- 作業ブランチは `feature/<Issue番号>-<短い名前>`（`fix/` `chore/` `docs/`）。数日で PR にして消す
+- `release/v3` は v3 系の保守専用（凍結済み）
 
 ```
-feature/xxx → dev → (検証環境で動作確認) → main → (本番自動デプロイ)
-                                              ↓
-                                            master (ミラー同期)
+feature/xxx ──PR──▶ main ──▶ 検証環境 (自動)
+                     └──▶ Release タグ vX.Y.Z を公開 ──▶ 本番
 ```
+
+### PR タイトル
+
+`種類(アプリ): 何をしたか` の形にします。Squash マージで `main` の1コミットになるため、
+`git log --oneline` がそのまま「どの機能に何をしたか」の一覧になります。
+
+```
+feat(equipment): 機材台帳を v4 の見た目にした
+fix(finance):    金額の桁がずれていたのを直した
+chore(shared):   設計トークンを v4 の値に差し替えた
+```
+
+種類は `feat` / `fix` / `chore` / `docs` / `refactor`。
 
 ### バージョン管理
 
-- パッチバージョンのみインクリメント（例: v1.1.100 → v1.1.101）
-- `CLAUDE.md` + 全ワークスペースの `package.json` を同期更新
-- コミットメッセージに `vX.X.X` を明記
+**リリースするときだけ**上げます（以前の「毎 push でパッチを上げる」は廃止しました）。
+更新するのは**3か所だけ**で、`npm run check:version` が整合を検査します。
+
+1. ルート `package.json` の `version` ← **唯一の情報源**
+2. `CLAUDE.md`「## 現在のバージョン」の先頭に1行追記（**4件目はアーカイブへ移す**）
+3. `README.md` の「現在のバージョン」
+
+**各ワークスペースの `package.json` は更新しません**（どこからも読まれず、更新すると
+Docker のビルドキャッシュが全部無効化されてデプロイが 2〜3 分伸びます）。
 
 ---
 
