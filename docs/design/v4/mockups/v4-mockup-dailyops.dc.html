@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.470.0/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; background:#e9ebee; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; }
+  a:hover { color:#0068b8; text-decoration:underline; }
+  .num { font-family:'LINE Seed JP','Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  @keyframes screenIn { from { opacity:0; transform:translateY(10px) scale(.995); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes toastIn { from { opacity:0; transform:translate(-50%,14px) scale(.96); } to { opacity:1; transform:translate(-50%,0) scale(1); } }
+  button, a, [style*="cursor:pointer"] { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .14s cubic-bezier(.22,.61,.36,1); }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.985); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column">
+
+  <div style="position:sticky; top:0; z-index:50; background:rgba(233,235,238,.86); backdrop-filter:blur(10px); border-bottom:1px solid #dcdfe4">
+    <div style="max-width:1600px; margin:0 auto; padding:14px 32px; display:flex; align-items:center; gap:16px">
+      <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0">
+        <span class="num" style="font-size:13px; font-weight:800; color:#005bac; letter-spacing:.1em">v4.0</span>
+        <span style="font-size:17px; font-weight:800">モックアップ</span>
+      </div>
+      <div style="width:1px; height:20px; background:#cbd2da; flex-shrink:0"></div>
+      <span style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #6d28d9; border-radius:10px; background:#6d28d9; color:#fff; font-size:13.5px; font-weight:800; white-space:nowrap">
+        <i data-lucide="clipboard-list" style="width:15px;height:15px"></i>日常業務
+      </span>
+      <a href="v4-mockup-main.dc.html" style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:13.5px; font-weight:700; white-space:nowrap; text-decoration:none">
+        <i data-lucide="layout-grid" style="width:15px;height:15px"></i>ほかのアプリ・共通画面へ
+      </a>
+      <div style="flex:1"></div>
+      <span style="font-size:12.5px; color:#5d6470; white-space:nowrap">実装に渡す前の確認用 ・ 中身はダミー</span>
+    </div>
+    <div style="max-width:1600px; margin:0 auto; padding:0 32px 12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+      <span style="font-size:12px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">日常業務:</span>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7">
+        <button onClick="{{ t.go }}" style="height:30px; padding:0 13px; border:1px solid {{ t.bd }}; border-radius:999px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:180; background:rgba(16,24,40,.42); display:flex; align-items:flex-start; justify-content:center; padding:64px 24px; overflow:auto">
+      <div style="width:580px; background:#fff; border-radius:18px; box-shadow:0 40px 90px -30px rgba(16,24,40,.55); overflow:hidden; animation:screenIn .22s cubic-bezier(.22,.61,.36,1) both">
+        <div style="display:flex; align-items:center; gap:11px; padding:16px 20px; border-bottom:1px solid #eef0f3">
+          <span style="width:30px; height:30px; border-radius:9px; background:{{ dlg.icBg }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+            <i data-lucide="{{ dlg.icon }}" style="width:16px;height:16px;color:{{ dlg.icFg }}"></i>
+          </span>
+          <h3 style="margin:0; font-size:16px; font-weight:800">{{ dlg.title }}</h3>
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="width:30px; height:30px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7">
+            <i data-lucide="x" style="width:16px;height:16px;color:#9aa1ab"></i>
+          </span>
+        </div>
+        <div style="padding:18px 20px 6px; display:flex; flex-direction:column; gap:12px">
+          <sc-for list="{{ dlg.fields }}" as="fd" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:14px">
+              <span style="width:124px; flex-shrink:0; font-size:12.5px; font-weight:700; color:#3c424c; white-space:nowrap">{{ fd.label }}<span style="color:#c7243a">{{ fd.req }}</span></span>
+              <span style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <sc-if value="{{ fd.isInput }}" hint-placeholder-val="{{ true }}">
+                  <span style="flex:1; min-width:0; display:inline-flex; align-items:center; height:38px; padding:0 12px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd; font-size:13px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ fd.ph }}</span>
+                </sc-if>
+                <sc-if value="{{ fd.isPick }}" hint-placeholder-val="{{ false }}">
+                  <sc-for list="{{ fd.opts }}" as="op" hint-placeholder-count="3">
+                    <span onClick="{{ op.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ op.bd }}; border-radius:9px; background:{{ op.bg }}; color:{{ op.fg }}; font-size:12.5px; font-weight:{{ op.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ op.label }}</span>
+                  </sc-for>
+                </sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <p style="margin:2px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.7">{{ dlg.note }}</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px; padding:16px 20px; margin-top:12px; border-top:1px solid #eef0f3; background:#fbfcfd">
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">やめる</span>
+          <span onClick="{{ dlgSave }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 17px; border:none; border-radius:10px; background:{{ dlg.saveBg }}; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.08)">{{ dlg.save }}</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:10px; padding:13px 20px; border-radius:999px; background:#1a1d24; color:#fff; box-shadow:0 20px 40px -14px rgba(16,24,40,.55); animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+      <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#7dd3a0"></i>
+      <span style="font-size:13.5px; font-weight:700; white-space:nowrap">{{ toast }}</span>
+    </div>
+  </sc-if>
+
+  <div style="flex:1; padding:26px 32px 64px">
+    <div style="width:1440px; margin-inline:auto">
+
+      <sc-if value="{{ isWk }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ ウィークリー活動報告</h1>
+          <span style="font-size:13.5px; color:#5d6470">全社で週に1本。<strong>自動集計 → AIの本文 → 人のトピック</strong>の順で読みます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="ウィークリー活動報告" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">ウィークリー活動報告</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ wk.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ wk.publish }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:{{ wk.pubBg }}; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="filter:brightness(1.08)">
+                  <i data-lucide="check-circle-2" style="width:14px;height:14px"></i>{{ wk.pubLabel }}
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="width:250px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:12px 15px 10px; border-bottom:1px solid #f2f4f7">
+                    <i data-lucide="calendar-check" style="width:15px;height:15px;color:#5d6470"></i>
+                    <h3 style="margin:0; font-size:14px; font-weight:800">週の一覧</h3>
+                  </div>
+                  <sc-for list="{{ wk.weeks }}" as="w" hint-placeholder-count="6">
+                    <div onClick="{{ w.pick }}" style="display:flex; align-items:center; gap:9px; padding:11px 15px; border-bottom:1px solid #f7f8fa; background:{{ w.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span class="num" style="font-size:12.5px; font-weight:{{ w.weight }}; line-height:1.4; color:{{ w.fg }}">{{ w.label }}</span>
+                        <span style="font-size:11px; color:#9aa1ab; line-height:1.4">{{ w.sub }}</span>
+                      </span>
+                      <span style="width:52px; flex-shrink:0; display:flex; justify-content:flex-end">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:20px; border-radius:6px; background:{{ w.stBg }}; color:{{ w.stFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ w.state }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="display:flex; align-items:center; gap:9px">
+                    <i data-lucide="bar-chart-3" style="width:15px;height:15px;color:#005bac"></i>
+                    <h3 style="margin:0; font-size:14px; font-weight:800">自動集計</h3>
+                    <span style="font-size:11.5px; color:#9aa1ab">— 投稿した時点のONAiRの数字（あとから動きません）</span>
+                  </div>
+                  <div style="display:flex; align-items:stretch; gap:10px">
+                    <sc-for list="{{ wk.kpis }}" as="k" hint-placeholder-count="4">
+                      <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:13px; padding:11px 13px 12px">
+                        <span style="font-size:11px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block">{{ k.label }}</span>
+                        <div style="display:flex; align-items:baseline; gap:4px; margin-top:6px">
+                          <sc-if value="{{ k.isYen }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:13px; color:#9aa1ab; flex-shrink:0">￥</span>
+                          </sc-if>
+                          <span class="num" style="flex:1; min-width:0; text-align:{{ k.align }}; font-size:20px; font-weight:800; line-height:1">{{ k.value }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; flex-shrink:0">{{ k.unit }}</span>
+                        </div>
+                        <p style="margin:5px 0 0; font-size:11px; color:#6d28d9; min-height:14px">{{ k.sub }}</p>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="display:flex; align-items:flex-start; gap:11px">
+                    <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:12px 15px 13px">
+                      <h4 style="margin:0 0 9px; font-size:12px; font-weight:800; color:#5d6470">パイプライン現況</h4>
+                      <sc-for list="{{ wk.pipeline }}" as="p" hint-placeholder-count="5">
+                        <div style="display:flex; align-items:center; gap:10px; padding:5px 0">
+                          <span style="width:76px; flex-shrink:0; font-size:12px; font-weight:700; white-space:nowrap">{{ p.stage }}</span>
+                          <span style="flex:1; min-width:0; height:6px; border-radius:999px; background:#f2f4f7; overflow:hidden">
+                            <span style="display:block; height:6px; width:{{ p.w }}; background:{{ p.color }}; border-radius:999px"></span>
+                          </span>
+                          <span class="num" style="width:34px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700">{{ p.n }}</span>
+                          <span style="width:12px; flex-shrink:0; font-size:11px; color:#9aa1ab; text-align:right">￥</span>
+                          <span class="num" style="width:64px; flex-shrink:0; text-align:right; font-size:11.5px; color:#5d6470">{{ p.amount }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="width:280px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:12px 15px 13px">
+                      <h4 style="margin:0 0 9px; font-size:12px; font-weight:800; color:#5d6470">営業活動の内訳</h4>
+                      <div style="display:flex; flex-wrap:wrap; gap:6px">
+                        <sc-for list="{{ wk.acts }}" as="a" hint-placeholder-count="6">
+                          <span style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border-radius:7px; background:#f2f4f7; font-size:11.5px; color:#3c424c; white-space:nowrap">{{ a.label }}<span class="num" style="font-weight:800">{{ a.n }}</span></span>
+                        </sc-for>
+                      </div>
+                      <h4 style="margin:13px 0 7px; font-size:12px; font-weight:800; color:#5d6470">来週の予定</h4>
+                      <sc-for list="{{ wk.next }}" as="n" hint-placeholder-count="3">
+                        <div style="display:flex; align-items:center; gap:8px; padding:3px 0">
+                          <span class="num" style="width:40px; flex-shrink:0; font-size:11px; color:#9aa1ab">{{ n.date }}</span>
+                          <span style="flex:1; min-width:0; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ n.name }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:9px; margin-top:2px">
+                    <i data-lucide="bot" style="width:15px;height:15px;color:#6d28d9"></i>
+                    <h3 style="margin:0; font-size:14px; font-weight:800">AIサマリー</h3>
+                    <span style="font-size:11.5px; color:#9aa1ab">— 集計を文章にしたもの。直すときはAIに投げ直します</span>
+                  </div>
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:15px 18px 16px">
+                    <sc-for list="{{ wk.body }}" as="b" hint-placeholder-count="4">
+                      <p style="margin:0 0 9px; font-size:12.5px; color:#3c424c; line-height:1.85">{{ b.text }}</p>
+                    </sc-for>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:9px; margin-top:2px">
+                    <i data-lucide="list-checks" style="width:15px;height:15px;color:#005bac"></i>
+                    <h3 style="margin:0; font-size:14px; font-weight:800">週次トピックス</h3>
+                    <span style="font-size:11.5px; color:#9aa1ab">— 人が足す行。確定すると足せなくなります</span>
+                    <div style="flex:1"></div>
+                    <span onClick="{{ wk.addTopic }}" style="display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">
+                      <i data-lucide="plus" style="width:13px;height:13px"></i>トピックを足す
+                    </span>
+                  </div>
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden">
+                    <sc-for list="{{ wk.topics }}" as="t" hint-placeholder-count="5">
+                      <div style="display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="width:132px; flex-shrink:0; display:flex; justify-content:flex-start">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:128px; height:22px; border-radius:6px; background:{{ t.catBg }}; color:{{ t.catFg }}; font-size:10.5px; font-weight:800; white-space:nowrap; overflow:hidden">{{ t.cat }}</span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+                          <span style="font-size:13px; line-height:1.6">{{ t.content }}</span>
+                          <span style="font-size:11px; color:#9aa1ab; line-height:1.5">{{ t.note }}</span>
+                        </span>
+                        <span style="width:96px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-end; gap:6px">
+                          <sc-if value="{{ t.fromNews }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; height:19px; padding:0 6px; border-radius:5px; background:#f5f3ff; color:#6d28d9; font-size:10px; font-weight:800; white-space:nowrap">ニュース</span>
+                          </sc-if>
+                          <span style="font-size:11px; color:#9aa1ab; white-space:nowrap">{{ t.by }}</span>
+                        </span>
+                        <span style="width:24px; flex-shrink:0; display:flex; justify-content:flex-end">
+                          <span onClick="{{ t.edit }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="pencil" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isNews }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ デイリーニュース報告</h1>
+          <span style="font-size:13.5px; color:#5d6470">AIが毎朝集めます。人は<strong>採用（1〜5）を付ける</strong>だけ。採用した行は週報に送れます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="デイリーニュース報告" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">デイリーニュース報告</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ news.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <span onClick="{{ news.prev }}" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7"><i data-lucide="chevron-left" style="width:15px;height:15px;color:#3c424c"></i></span>
+                <span class="num" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 14px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:13px; font-weight:700; white-space:nowrap; flex-shrink:0">{{ news.date }}</span>
+                <span onClick="{{ news.next }}" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7"><i data-lucide="chevron-right" style="width:15px;height:15px;color:#3c424c"></i></span>
+                <button onClick="{{ news.add }}" style="height:34px; padding:0 13px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>ニュースを足す
+                </button>
+                <button onClick="{{ news.review }}" style="height:34px; padding:0 14px; border:none; border-radius:9px; background:{{ news.revBg }}; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="filter:brightness(1.08)">
+                  <i data-lucide="check-circle-2" style="width:14px;height:14px"></i>{{ news.revLabel }}
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <sc-for list="{{ news.filters }}" as="f" hint-placeholder-count="4">
+                  <span onClick="{{ f.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid {{ f.bd }}; border-radius:9px; background:{{ f.bg }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ f.label }}</span>
+                </sc-for>
+                <div style="flex:1"></div>
+                <span onClick="{{ news.toWeekly }}" style="display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 13px; border:1px solid #cfe4f4; border-radius:9px; background:#f4faff; color:#005bac; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="background:#eaf4fb">
+                  <i data-lucide="arrow-up-right" style="width:14px;height:14px"></i>採用した行を週報に送る（{{ news.pickedN }}）
+                </span>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                  <span style="width:74px; flex-shrink:0">カテゴリ</span>
+                  <span style="width:34px; flex-shrink:0; text-align:center">AI</span>
+                  <span style="width:118px; flex-shrink:0; text-align:center">採用</span>
+                  <span style="flex:1; min-width:0">1行要約</span>
+                  <span style="width:180px; flex-shrink:0">メモ</span>
+                  <span style="width:76px; flex-shrink:0">記入者</span>
+                  <span style="width:24px; flex-shrink:0"></span>
+                </div>
+                <sc-for list="{{ news.rows }}" as="r" hint-placeholder-count="8">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 18px; border-bottom:1px solid #f7f8fa; background:{{ r.rowBg }}">
+                    <span style="width:74px; flex-shrink:0; display:flex">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:70px; height:21px; border-radius:6px; background:{{ r.catBg }}; color:{{ r.catFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.cat }}</span>
+                    </span>
+                    <span style="width:34px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:30px; height:19px; border-radius:5px; background:{{ r.aiBg }}; color:{{ r.aiFg }}; font-size:10px; font-weight:800">{{ r.ai }}</span>
+                    </span>
+                    <span style="width:118px; flex-shrink:0; display:flex; align-items:center; justify-content:center; gap:3px">
+                      <sc-for list="{{ r.stars }}" as="st" hint-placeholder-count="5">
+                        <span onClick="{{ st.pick }}" style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:5px; cursor:pointer" style-hover="background:#fff7ed">
+                          <i data-lucide="star" style="width:14px;height:14px;color:{{ st.color }};fill:{{ st.fill }}"></i>
+                        </span>
+                      </sc-for>
+                    </span>
+                    <span style="flex:1; min-width:0; display:flex; align-items:center; gap:6px">
+                      <span style="flex:1; min-width:0; font-size:12.5px; line-height:1.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.content }}</span>
+                      <span onClick="{{ r.open }}" style="width:20px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:20px; border-radius:5px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="external-link" style="width:13px;height:13px;color:#005bac"></i></span>
+                    </span>
+                    <span style="width:180px; flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.note }}</span>
+                    <span style="width:76px; flex-shrink:0; display:flex; align-items:center; gap:5px">
+                      <i data-lucide="{{ r.byIcon }}" style="width:12px;height:12px;color:{{ r.byFg }};flex-shrink:0"></i>
+                      <span style="font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.by }}</span>
+                    </span>
+                    <span style="width:24px; flex-shrink:0; display:flex; justify-content:flex-end">
+                      <span onClick="{{ r.edit }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="pencil" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                    </span>
+                  </div>
+                </sc-for>
+                <div style="display:flex; align-items:center; gap:10px; padding:11px 18px; background:#fbfcfd">
+                  <span style="flex:1; min-width:0; font-size:11.5px; color:#9aa1ab">採用は1〜5。5に近いほど週報のピックアップに上げます。星をもう一度押すと外れます。</span>
+                  <span class="num" style="font-size:12px; font-weight:700; color:#3c424c; white-space:nowrap">{{ news.count }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isInvList }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ 内覧会 来場予約</h1>
+          <span style="font-size:13.5px; color:#5d6470">まず<strong>開催日を選ぶ</strong>だけ。名簿は日ごとのページに分けています</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="内覧会 来場予約" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">内覧会 来場予約</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">開催日を選ぶとその日の受付ページが開きます。Kairos3 の登録通知メールはAIが取り込みます</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ ivl.csv }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="download" style="width:14px;height:14px"></i>CSV出力（全期間）
+                </button>
+                <button onClick="{{ ivl.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="user-plus" style="width:14px;height:14px"></i>来場予約を追加
+                </button>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:13px 16px 14px">
+                <div style="display:flex; align-items:center; gap:10px">
+                  <i data-lucide="search" style="width:17px;height:17px;color:#9aa1ab;flex-shrink:0"></i>
+                  <span onClick="{{ ivl.search }}" style="flex:1; min-width:0; display:inline-flex; align-items:center; height:40px; padding:0 13px; box-sizing:border-box; border:1px solid {{ ivl.qBd }}; border-radius:10px; background:#fbfcfd; font-size:14px; color:{{ ivl.qFg }}; cursor:pointer">{{ ivl.q }}</span>
+                  <sc-if value="{{ ivl.searching }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ ivl.clear }}" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:9px; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7"><i data-lucide="x" style="width:15px;height:15px;color:#9aa1ab"></i></span>
+                  </sc-if>
+                </div>
+                <p style="margin:8px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.7">氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 / 回 を探します。カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。<strong>全部の回をまたいで</strong>探します。</p>
+              </div>
+
+              <sc-if value="{{ ivl.searching }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:10px">
+                <p style="margin:0; font-size:12.5px; color:#5d6470">「{{ ivl.q }}」に一致する来場予約 <strong class="num">{{ ivl.hitN }}</strong> 件</p>
+                <sc-for list="{{ ivl.hits }}" as="h" hint-placeholder-count="2">
+                  <div style="display:flex; flex-direction:column; gap:5px">
+                    <span onClick="{{ h.open }}" style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#005bac; cursor:pointer; white-space:nowrap">
+                      <i data-lucide="calendar-days" style="width:12px;height:12px"></i>{{ h.day }} の受付ページを開く<i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+                    </span>
+                    <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:12px 15px 13px">
+                      <span style="display:flex; align-items:baseline; gap:9px">
+                        <span style="font-size:14px; font-weight:800; white-space:nowrap">{{ h.name }}</span>
+                        <span style="font-size:11px; color:#9aa1ab; white-space:nowrap">{{ h.kana }}</span>
+                        <span style="font-size:12px; color:#3c424c; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ h.company }}</span>
+                      </span>
+                      <p style="margin:5px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.6">{{ h.meta }}</p>
+                      <p style="margin:5px 0 0; font-size:11px; color:#6d28d9">検索が当たった項目: {{ h.matched }}</p>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ ivl.notSearching }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; flex-direction:column; gap:11px">
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                  <sc-for list="{{ ivl.scope }}" as="sc" hint-placeholder-count="2">
+                    <span onClick="{{ sc.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid {{ sc.bd }}; border-radius:9px; background:{{ sc.bg }}; color:{{ sc.fg }}; font-size:12.5px; font-weight:{{ sc.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ sc.label }}</span>
+                  </sc-for>
+                  <span style="width:1px; height:20px; background:#e6e9ed; flex-shrink:0"></span>
+                  <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">開催日</span>
+                  <sc-for list="{{ ivl.order }}" as="o" hint-placeholder-count="2">
+                    <span onClick="{{ o.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:28px; padding:0 11px; border-radius:8px; background:{{ o.bg }}; color:{{ o.fg }}; font-size:12px; font-weight:{{ o.weight }}; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">{{ o.label }}</span>
+                  </sc-for>
+                  <div style="flex:1"></div>
+                  <span class="num" style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ ivl.total }}</span>
+                </div>
+
+                <sc-for list="{{ ivl.days }}" as="d" hint-placeholder-count="5">
+                  <div onClick="{{ d.open }}" style="background:#fff; border:1px solid {{ d.bd }}; border-radius:15px; padding:14px 17px 15px; cursor:pointer" style-hover="border-color:#a6ceeb; background:#fbfcfd">
+                    <div style="display:flex; align-items:center; gap:9px">
+                      <span style="font-size:16px; font-weight:800; white-space:nowrap">{{ d.title }}</span>
+                      <sc-if value="{{ d.isToday }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:38px; height:20px; border-radius:6px; background:#005bac; color:#fff; font-size:10px; font-weight:800; flex-shrink:0">今日</span>
+                      </sc-if>
+                      <sc-if value="{{ d.isPast }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:38px; height:20px; border-radius:6px; border:1px solid #e6e9ed; color:#9aa1ab; font-size:10px; font-weight:700; flex-shrink:0">終了</span>
+                      </sc-if>
+                      <div style="flex:1"></div>
+                      <i data-lucide="chevron-right" style="width:15px;height:15px;color:#cbd2da"></i>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:9px">
+                      <sc-for list="{{ d.sessions }}" as="s" hint-placeholder-count="2">
+                        <span style="display:inline-flex; align-items:center; gap:7px; height:24px; padding:0 11px; border:1px solid #e6e9ed; border-radius:999px; background:#fbfcfd; font-size:11.5px; white-space:nowrap">
+                          <span class="num" style="font-weight:700">{{ s.time }}</span>
+                          <span style="color:#5d6470">{{ s.audience }}</span>
+                          <span class="num" style="color:#9aa1ab">{{ s.head }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px; margin-top:9px">
+                      <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:#5d6470; white-space:nowrap">
+                        <i data-lucide="users" style="width:13px;height:13px;color:#9aa1ab"></i><span class="num" style="font-weight:800; color:#1a1d24">{{ d.regs }}</span>組 / <span class="num" style="font-weight:800; color:#1a1d24">{{ d.head }}</span>名
+                      </span>
+                      <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:{{ d.ckFg }}; white-space:nowrap">
+                        <i data-lucide="check-circle-2" style="width:13px;height:13px"></i>受付 <span class="num" style="font-weight:800">{{ d.checked }}</span> / {{ d.head }}名
+                      </span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isInv }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ 内覧会 来場予約</h1>
+          <span style="font-size:13.5px; color:#5d6470">当日の受付で開きっぱなしにする画面。<strong>探して、1人ずつ受付</strong>を押します</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="内覧会 来場予約" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <span onClick="{{ inv.back }}" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#005bac; cursor:pointer; white-space:nowrap; align-self:flex-start">
+                <i data-lucide="arrow-left" style="width:14px;height:14px"></i>開催日の一覧に戻る
+              </span>
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">{{ inv.title }}</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ inv.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ inv.csv }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="download" style="width:14px;height:14px"></i>CSVを出す
+                </button>
+                <button onClick="{{ inv.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="user-plus" style="width:14px;height:14px"></i>来場予約を足す
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="width:236px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:12px 15px 10px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="calendar-days" style="width:15px;height:15px;color:#5d6470"></i>
+                      <h3 style="margin:0; font-size:14px; font-weight:800">開催日</h3>
+                    </div>
+                    <sc-for list="{{ inv.days }}" as="d" hint-placeholder-count="5">
+                      <div onClick="{{ d.pick }}" style="display:flex; align-items:center; gap:9px; padding:11px 15px; border-bottom:1px solid #f7f8fa; background:{{ d.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span class="num" style="font-size:12.5px; font-weight:{{ d.weight }}; line-height:1.4; color:{{ d.fg }}">{{ d.label }}</span>
+                          <span class="num" style="font-size:11px; color:#9aa1ab; line-height:1.4">{{ d.sub }}</span>
+                        </span>
+                        <sc-if value="{{ d.isToday }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:34px; height:20px; border-radius:6px; background:#005bac; color:#fff; font-size:10px; font-weight:800; flex-shrink:0">今日</span>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ inv.showSummary }}" hint-placeholder-val="{{ true }}">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:13px 15px 14px">
+                    <h3 style="margin:0 0 9px; font-size:14px; font-weight:800">{{ inv.sumTitle }}</h3>
+                    <sc-for list="{{ inv.companies }}" as="c" hint-placeholder-count="4">
+                      <div style="display:flex; align-items:center; gap:9px; padding:5px 0; border-top:1px solid #f2f4f7">
+                        <span style="flex:1; min-width:0; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.name }}</span>
+                        <span class="num" style="width:54px; flex-shrink:0; text-align:right; font-size:11.5px; color:#5d6470">{{ c.n }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  </sc-if>
+                </div>
+
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:13px 16px 14px">
+                    <div style="display:flex; align-items:center; gap:10px">
+                      <i data-lucide="search" style="width:18px;height:18px;color:#9aa1ab;flex-shrink:0"></i>
+                      <span style="flex:1; min-width:0; display:inline-flex; align-items:center; height:44px; padding:0 14px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:11px; background:#fbfcfd; font-size:15px; color:#9aa1ab">氏名・会社名・電話番号などで探す</span>
+                    </div>
+                    <p style="margin:9px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.7">氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 を探します。カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。<strong>この日のすべての回をまたいで</strong>探します（申し込んだ回を間違えて来る人がいるため）。</p>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">並び替え</span>
+                    <sc-for list="{{ inv.sorts }}" as="so" hint-placeholder-count="5">
+                      <span onClick="{{ so.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 11px; border:1px solid {{ so.bd }}; border-radius:8px; background:{{ so.bg }}; color:{{ so.fg }}; font-size:12px; font-weight:{{ so.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ so.label }}</span>
+                    </sc-for>
+                    <div style="flex:1"></div>
+                    <span onClick="{{ inv.toggleSummary }}" style="display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border:1px solid {{ inv.sumBd }}; border-radius:8px; background:{{ inv.sumBg }}; color:{{ inv.sumFg }}; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">
+                      <i data-lucide="pie-chart" style="width:13px;height:13px"></i>会社別サマリー
+                    </span>
+                  </div>
+
+                  <sc-for list="{{ inv.sessions }}" as="s" hint-placeholder-count="2">
+                    <div style="display:flex; flex-direction:column; gap:9px">
+                      <div style="display:flex; align-items:center; gap:10px; padding-bottom:8px; border-bottom:1px solid #e6e9ed">
+                        <span class="num" style="font-size:14px; font-weight:800; white-space:nowrap">{{ s.time }}</span>
+                        <span style="display:inline-flex; align-items:center; justify-content:center; height:21px; padding:0 9px; border:1px solid #e6e9ed; border-radius:6px; font-size:10.5px; font-weight:700; color:#5d6470; white-space:nowrap">{{ s.audience }}</span>
+                        <div style="flex:1"></div>
+                        <span class="num" style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ s.count }}</span>
+                        <span class="num" style="font-size:11.5px; font-weight:700; color:#197a4b; white-space:nowrap">{{ s.checked }}</span>
+                      </div>
+                      <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="3">
+                        <div style="background:#fff; border:1px solid {{ r.bd }}; border-radius:14px; padding:12px 15px 13px">
+                          <div style="display:flex; align-items:flex-start; gap:12px">
+                            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px">
+                              <span style="display:flex; align-items:baseline; gap:9px">
+                                <span style="font-size:14.5px; font-weight:800; white-space:nowrap">{{ r.name }}</span>
+                                <span style="font-size:11px; color:#9aa1ab; white-space:nowrap">{{ r.kana }}</span>
+                                <span style="font-size:12px; color:#3c424c; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.company }}</span>
+                              </span>
+                              <span style="font-size:11.5px; color:#9aa1ab; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.meta }}</span>
+                              <sc-if value="{{ r.hasInterest }}" hint-placeholder-val="{{ false }}">
+                                <span style="display:flex; align-items:flex-start; gap:7px; margin-top:3px; padding:8px 11px; background:#fbfcfd; border:1px solid #eef0f3; border-radius:10px">
+                                  <i data-lucide="message-square" style="width:13px;height:13px;color:#9aa1ab;flex-shrink:0;margin-top:2px"></i>
+                                  <span style="flex:1; min-width:0; font-size:11.5px; color:#3c424c; line-height:1.65">{{ r.interest }}</span>
+                                </span>
+                              </sc-if>
+                            </span>
+                            <span style="width:206px; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:7px">
+                              <span style="display:flex; align-items:center; gap:6px">
+                                <span class="num" style="font-size:11.5px; color:#5d6470; white-space:nowrap">{{ r.party }}</span>
+                                <span onClick="{{ r.check }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; box-sizing:border-box; width:104px; height:32px; border:1px solid {{ r.ckBd }}; border-radius:9px; background:{{ r.ckBg }}; color:{{ r.ckFg }}; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                                  <i data-lucide="{{ r.ckIcon }}" style="width:13px;height:13px"></i>{{ r.ckLabel }}
+                                </span>
+                              </span>
+                              <span onClick="{{ r.promote }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:28px; padding:0 11px; border:1px solid {{ r.prBd }}; border-radius:8px; background:{{ r.prBg }}; color:{{ r.prFg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">
+                                <i data-lucide="{{ r.prIcon }}" style="width:12px;height:12px"></i>{{ r.prLabel }}
+                              </span>
+                            </span>
+                          </div>
+                          <sc-if value="{{ r.hasParticipants }}" hint-placeholder-val="{{ false }}">
+                            <div style="margin-top:10px; padding:10px 12px 11px; background:#fbfcfd; border:1px solid #eef0f3; border-radius:11px">
+                              <span style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#9aa1ab">
+                                <i data-lucide="users" style="width:12px;height:12px"></i>参加者 {{ r.party }}
+                              </span>
+                              <div style="display:flex; align-items:center; gap:7px; margin-top:8px; flex-wrap:wrap">
+                                <span onClick="{{ r.check }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border:1px solid {{ r.selfBd }}; border-radius:8px; background:{{ r.selfBg }}; color:{{ r.selfFg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                                  <i data-lucide="{{ r.ckIcon }}" style="width:12px;height:12px"></i>{{ r.name }}
+                                  <span style="display:inline-flex; align-items:center; justify-content:center; height:16px; padding:0 5px; border-radius:4px; background:rgba(0,91,172,.12); color:#005bac; font-size:9.5px; font-weight:800">代表</span>
+                                </span>
+                                <sc-for list="{{ r.companions }}" as="cp" hint-placeholder-count="2">
+                                  <span onClick="{{ cp.check }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border:1px solid {{ cp.bd }}; border-radius:8px; background:{{ cp.bg }}; color:{{ cp.fg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                                    <i data-lucide="{{ cp.icon }}" style="width:12px;height:12px"></i>{{ cp.name }}
+                                    <span style="display:inline-flex; align-items:center; justify-content:center; height:16px; padding:0 5px; border-radius:4px; background:#f2f4f7; color:#9aa1ab; font-size:9.5px; font-weight:800">同行</span>
+                                  </span>
+                                </sc-for>
+                                <sc-if value="{{ r.hasUnnamed }}" hint-placeholder-val="{{ false }}">
+                                  <span style="display:inline-flex; align-items:center; height:28px; padding:0 11px; border:1px dashed #cbd2da; border-radius:8px; color:#9aa1ab; font-size:11.5px; white-space:nowrap">ほか {{ r.unnamed }}（氏名未登録）</span>
+                                </sc-if>
+                              </div>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isInq }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ 入ってきた情報</h1>
+          <span style="font-size:13.5px; color:#5d6470">メール・Slack・電話で<strong>流れていく話を止めて</strong>、残すか・やることにするかを決める場所です</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="入ってきた情報" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">入ってきた情報</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ inq.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ inq.add }}" style="height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>手で足す
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:2px; margin:0 -26px 2px; padding:0 24px; border-bottom:1px solid #e9ecf0">
+                <sc-for list="{{ inq.tabs }}" as="t" hint-placeholder-count="4">
+                  <span onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-bottom:2px solid {{ t.bd }}; color:{{ t.fg }}; font-size:13.5px; font-weight:{{ t.w }}; cursor:pointer; white-space:nowrap">
+                    <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>
+                    {{ t.label }}
+                    <span class="num" style="min-width:19px; height:19px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:#f2f4f7; color:#5d6470; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center">{{ t.n }}</span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:11px">
+                  <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px; flex-wrap:wrap">
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">出どころ</span>
+                    <sc-for list="{{ inq.srcs }}" as="sr" hint-placeholder-count="5">
+                      <span onClick="{{ sr.pick }}" style="display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 11px; border:1px solid {{ sr.bd }}; border-radius:8px; background:{{ sr.bg }}; color:{{ sr.fg }}; font-size:12px; font-weight:{{ sr.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">
+                        <i data-lucide="{{ sr.icon }}" style="width:13px;height:13px"></i>{{ sr.label }}
+                      </span>
+                    </sc-for>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ inq.count }}</span>
+                  </div>
+
+                  <sc-for list="{{ inq.rows }}" as="q" hint-placeholder-count="5">
+                    <div style="background:#fff; border:1px solid {{ q.bd }}; border-radius:15px; padding:13px 16px 14px; opacity:{{ q.op }}">
+                      <div style="display:flex; align-items:flex-start; gap:12px">
+                        <span style="width:30px; flex-shrink:0; display:flex; justify-content:center; padding-top:2px">
+                          <span style="width:28px; height:28px; border-radius:9px; background:{{ q.srcBg }}; display:inline-flex; align-items:center; justify-content:center">
+                            <i data-lucide="{{ q.srcIcon }}" style="width:14px;height:14px;color:{{ q.srcFg }}"></i>
+                          </span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px">
+                          <span style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:64px; height:21px; border-radius:6px; background:{{ q.impBg }}; color:{{ q.impFg }}; font-size:10.5px; font-weight:800">{{ q.imp }}</span>
+                            <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:70px; height:21px; border-radius:6px; background:{{ q.stBg }}; color:{{ q.stFg }}; font-size:10.5px; font-weight:800">{{ q.state }}</span>
+                            <sc-if value="{{ q.isAi }}" hint-placeholder-val="{{ true }}">
+                              <span style="display:inline-flex; align-items:center; gap:4px; height:21px; padding:0 8px; border:1px solid #ddd6fe; border-radius:6px; background:#f5f3ff; color:#6d28d9; font-size:10px; font-weight:800; white-space:nowrap">
+                                <i data-lucide="sparkles" style="width:11px;height:11px"></i>AI要約
+                              </span>
+                            </sc-if>
+                            <span style="font-size:12px; color:#5d6470; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ q.from }}</span>
+                          </span>
+                          <span style="font-size:13.5px; font-weight:700; line-height:1.55">{{ q.summary }}</span>
+                          <span style="font-size:11.5px; color:#9aa1ab; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ q.subject }}</span>
+                          <span style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:2px">
+                            <sc-for list="{{ q.tags }}" as="tg" hint-placeholder-count="2">
+                              <span style="display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:10.5px; font-weight:700; white-space:nowrap">{{ tg.label }}</span>
+                            </sc-for>
+                            <span onClick="{{ q.tag }}" style="display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 8px; border:1px dashed #cbd2da; border-radius:6px; color:#9aa1ab; font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb; color:#005bac">
+                              <i data-lucide="tag" style="width:10px;height:10px"></i>タグを足す
+                            </span>
+                          </span>
+                          <sc-if value="{{ q.hasTicket }}" hint-placeholder-val="{{ false }}">
+                            <span onClick="{{ q.openTicket }}" style="display:flex; align-items:center; gap:8px; margin-top:4px; padding:9px 12px; background:#f4faff; border:1px solid #cfe4f4; border-radius:11px; cursor:pointer" style-hover="background:#eaf4fb">
+                              <i data-lucide="list-checks" style="width:13px;height:13px;color:#005bac;flex-shrink:0"></i>
+                              <span style="flex:1; min-width:0; font-size:11.5px; color:#005bac; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ q.ticket }}</span>
+                              <span class="num" style="font-size:11px; color:#5d6470; white-space:nowrap; flex-shrink:0">{{ q.ticketDue }}</span>
+                              <i data-lucide="arrow-up-right" style="width:12px;height:12px;color:#005bac;flex-shrink:0"></i>
+                            </span>
+                          </sc-if>
+                        </span>
+                        <span style="width:166px; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:6px">
+                          <span class="num" style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ q.received }}</span>
+                          <sc-for list="{{ q.acts }}" as="ac" hint-placeholder-count="3">
+                            <span onClick="{{ ac.go }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; box-sizing:border-box; width:150px; height:30px; border:1px solid {{ ac.bd }}; border-radius:8px; background:{{ ac.bg }}; color:{{ ac.fg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                              <i data-lucide="{{ ac.icon }}" style="width:12px;height:12px"></i>{{ ac.label }}
+                            </span>
+                          </sc-for>
+                        </span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="width:320px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 10px; font-size:14px; font-weight:800">出どころ別（今週）</h3>
+                    <sc-for list="{{ inq.bySrc }}" as="s" hint-placeholder-count="4">
+                      <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid #f2f4f7">
+                        <span style="width:24px; height:24px; flex-shrink:0; border-radius:7px; background:{{ s.bg }}; display:inline-flex; align-items:center; justify-content:center">
+                          <i data-lucide="{{ s.icon }}" style="width:12px;height:12px;color:{{ s.fg }}"></i>
+                        </span>
+                        <span style="flex:1; min-width:0; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ s.label }}</span>
+                        <span class="num" style="width:38px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700">{{ s.n }}</span>
+                        <span class="num" style="width:58px; flex-shrink:0; text-align:right; font-size:11px; color:#9aa1ab">{{ s.ticket }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 9px; font-size:14px; font-weight:800">よく使うタグ</h3>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px">
+                      <sc-for list="{{ inq.tags }}" as="t" hint-placeholder-count="6">
+                        <span onClick="{{ t.pick }}" style="display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px; border:1px solid {{ t.bd }}; border-radius:8px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ t.label }}<span class="num" style="color:#9aa1ab">{{ t.n }}</span></span>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">行き先は3つだけです。<strong>やることになる</strong>ならチケット（案件管理のタスクになります）、<strong>案件になりそう</strong>なら案件の受付へ、<strong>あとで効く話</strong>ならストックしてタグを付ける。どれでもないものは見送りにして消します。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isCard }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">日常業務 ／ セキュリティカード</h1>
+          <span style="font-size:13.5px; color:#5d6470">用賀27Fの<strong>24枚</strong>。カードごとに解錠できるエリアが違います</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="日常業務" app-icon="clipboard-list" crumb="セキュリティカード" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">セキュリティカード</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ card.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ card.lend }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="arrow-up-right" style="width:14px;height:14px"></i>貸出を記録
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px">
+                  <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                    <sc-for list="{{ card.filters }}" as="f" hint-placeholder-count="4">
+                      <span onClick="{{ f.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 12px; border:1px solid {{ f.bd }}; border-radius:9px; background:{{ f.bg }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ f.label }}</span>
+                    </sc-for>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ card.count }}</span>
+                  </div>
+
+                  <div style="display:flex; flex-wrap:wrap; gap:10px">
+                    <sc-for list="{{ card.cards }}" as="c" hint-placeholder-count="24">
+                      <div onClick="{{ c.pick }}" style="width:126px; box-sizing:border-box; background:#fff; border:1px solid {{ c.bd }}; border-radius:13px; padding:11px 12px 12px; cursor:pointer" style-hover="border-color:#a6ceeb">
+                        <div style="display:flex; align-items:center; gap:7px">
+                          <span class="num" style="font-size:15px; font-weight:800; line-height:1">No.{{ c.no }}</span>
+                          <div style="flex:1"></div>
+                          <span style="width:8px; height:8px; border-radius:999px; background:{{ c.dot }}; flex-shrink:0"></span>
+                        </div>
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:100%; height:20px; margin-top:8px; border-radius:6px; background:{{ c.lvBg }}; color:{{ c.lvFg }}; font-size:10px; font-weight:800; white-space:nowrap">{{ c.level }}</span>
+                        <p style="margin:8px 0 0; font-size:11px; color:{{ c.stFg }}; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.state }}</p>
+                        <p class="num" style="margin:2px 0 0; font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.due }}</p>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:330px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <div style="display:flex; align-items:center; gap:9px">
+                      <span class="num" style="font-size:17px; font-weight:800">No.{{ card.sel.no }}</span>
+                      <span style="display:inline-flex; align-items:center; justify-content:center; height:21px; padding:0 9px; border-radius:6px; background:{{ card.sel.lvBg }}; color:{{ card.sel.lvFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ card.sel.level }}</span>
+                      <div style="flex:1"></div>
+                      <span onClick="{{ card.sel.act }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:30px; padding:0 12px; border:1px solid {{ card.sel.actBd }}; border-radius:9px; background:{{ card.sel.actBg }}; color:{{ card.sel.actFg }}; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.04)">
+                        <i data-lucide="{{ card.sel.actIcon }}" style="width:13px;height:13px"></i>{{ card.sel.actLabel }}
+                      </span>
+                    </div>
+                    <sc-for list="{{ card.sel.rows }}" as="r" hint-placeholder-count="5">
+                      <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid #f2f4f7">
+                        <span style="width:82px; flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ r.label }}</span>
+                        <span style="flex:1; min-width:0; font-size:12.5px; font-weight:{{ r.weight }}; color:{{ r.fg }}; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 9px; font-size:14px; font-weight:800">解錠できるエリア</h3>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px">
+                      <sc-for list="{{ card.sel.areas }}" as="a" hint-placeholder-count="10">
+                        <span style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px; border:1px solid {{ a.bd }}; border-radius:7px; background:{{ a.bg }}; color:{{ a.fg }}; font-size:11px; font-weight:700; white-space:nowrap">
+                          <i data-lucide="{{ a.icon }}" style="width:11px;height:11px"></i>{{ a.label }}
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px 11px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="history" style="width:15px;height:15px;color:#5d6470"></i>
+                      <h3 style="margin:0; font-size:14px; font-weight:800">貸出履歴</h3>
+                    </div>
+                    <sc-for list="{{ card.sel.history }}" as="h" hint-placeholder-count="4">
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:1px solid #f7f8fa">
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ h.who }}</span>
+                          <span style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ h.purpose }}</span>
+                        </span>
+                        <span class="num" style="width:38px; flex-shrink:0; text-align:right; font-size:11px; color:#5d6470">{{ h.from }}</span>
+                        <span style="width:12px; flex-shrink:0; text-align:center; font-size:10px; color:#cbd2da">〜</span>
+                        <span class="num" style="width:38px; flex-shrink:0; text-align:right; font-size:11px; color:{{ h.toFg }}">{{ h.to }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'wk', appSw: false, toast: '', dlg: '', wkSel: 0, newsD: 2, picks: {}, newsF: 'all', invDay: 0, checks: {}, docsT: 'all', docsS: 'pending', inqTab: 'new', inqSrc: 'all', inqMoved: {}, cardSel: 3, cardF: 'all', ivQ: '', ivScope: 'all', ivOrder: 'desc', invSort: 'default', invSum: true };
+
+  APPS = [
+    { label: '機材管理', icon: 'package', iconBg: '#f2f4f7', iconFg: '#5d6470', to: 'v4-mockup-equipment.dc.html' },
+    { label: '案件管理', icon: 'folder-kanban', iconBg: '#eaf4fb', iconFg: '#005bac', to: 'v4-mockup-main.dc.html' },
+    { label: 'プロジェクト管理', icon: 'list-checks', iconBg: '#eef2ff', iconFg: '#4338ca', to: 'v4-mockup-project.dc.html' },
+    { label: '財務管理', icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', to: 'v4-mockup-finance.dc.html' },
+    { label: 'カレンダー', icon: 'calendar-days', iconBg: '#fff7ed', iconFg: '#c2410e', to: 'v4-mockup-calendar.dc.html' },
+    { label: '日常業務', icon: 'clipboard-list', iconBg: '#f5f3ff', iconFg: '#6d28d9', here: true },
+    { label: '制作資料', icon: 'layout-template', iconBg: '#fff7ed', iconFg: '#c2410e' },
+    { label: '技術資料', icon: 'sliders-horizontal', iconBg: '#f5f3ff', iconFg: '#6d28d9' },
+    { label: '設定', icon: 'settings', iconBg: '#f2f4f7', iconFg: '#5d6470' },
+  ];
+
+  MENU = [
+    { group: '定期報告', label: 'ウィークリー活動報告' },
+    { group: '', label: 'デイリーニュース報告', tag: '12' },
+    { group: '届いたもの', label: '入ってきた情報', tag: '3' },
+    { group: '現場の受付', label: '内覧会 来場予約' },
+    { group: '', label: 'セキュリティカード', tag: '3' },
+  ];
+
+  DLG = {
+    topic: { icon: 'plus', title: 'トピックを足す', save: '足す', done: 'トピックを足しました',
+      note: '記入者は自分の名前で入ります。AIが本文を入れ直しても、人が足したこの行には触れません。',
+      fields: [
+        { label: 'カテゴリ', req: ' *', pick: ['イベント', 'AI活用', 'セールス'] },
+        { label: '内容', req: ' *', ph: '今週のトピックを書く' },
+        { label: '補足', ph: '任意' },
+      ] },
+    news: { icon: 'newspaper', title: 'ニュースを足す', save: '足す', done: 'ニュースを足しました',
+      note: 'AIが拾えなかったものを手で足します。カテゴリは選ぶか、自由に打てます。',
+      fields: [
+        { label: 'カテゴリ', req: ' *', pick: ['映像', '配信', 'LED'] },
+        { label: '1行要約', req: ' *', ph: '例）◯◯社、12G-SDI対応の新スイッチャーを発表' },
+        { label: 'URL', ph: 'https://…' },
+        { label: 'AI活用の話', pick: ['ちがう', 'そう'] },
+        { label: 'メモ', ph: '任意' },
+      ] },
+    pub: { icon: 'check-circle-2', title: 'この週の報告を確定しますか？', save: '確定する', done: '確定しました（確定者と日時を残しました）',
+      note: '確定するとトピックを足せなくなります。あとから足したいことが出たら、翌週の報告に書いてください。' },
+    inv: { icon: 'user-plus', title: '来場予約を足す', save: '足す', done: '来場予約を足しました',
+      note: '当日に飛び込みで来た人もここから足します。同行者は名前を1人ずつ入れると、1人ずつ受付を押せます。',
+      fields: [
+        { label: '参加希望の回', req: ' *', pick: ['10:30〜', '14:00〜'] },
+        { label: '氏名', req: ' *', ph: '例）田中 太郎' },
+        { label: 'ふりがな', ph: '例）たなか たろう' },
+        { label: '会社・役職', ph: '例）GMOメディア / 制作部 部長' },
+        { label: '人数', pick: ['1名', '2名', '3名以上'] },
+        { label: '同行者', ph: '名前を1人ずつ（カンマ区切り）' },
+      ] },
+    csv: { icon: 'download', title: 'この日のCSVを出す', save: '出す', done: 'CSVを出しました',
+      note: '出るのは名簿の項目（回・氏名・ふりがな・会社・役職・連絡先・人数・同行者・受付時刻・相談事項）です。',
+      fields: [{ label: '出す範囲', pick: ['この日ぜんぶ', '受付した人だけ'] }] },
+    promote: { icon: 'folder-plus', title: '案件の受付（ネタ）へ送る', save: '送る', done: '案件管理の受付へ送りました',
+      note: '会社・担当者・連絡先・相談事項をそのまま持って行きます。案件になったかどうかは、この名簿にも印が付きます。',
+      fields: [
+        { label: '見込み', pick: ['ネタ', 'D 仮押さえ'] },
+        { label: '相談の中身', ph: '相談事項がそのまま入ります' },
+      ] },
+    upload: { icon: 'file-up', title: 'PDFを落として登録', save: '読み取る', done: '読み取りました。中身を確かめてください',
+      note: 'メールで来ていない書類（Slackでもらった・紙を撮った）の入口です。読めた値は入った状態で行ができ、読めなかったところは注意として出ます。',
+      fields: [
+        { label: 'ファイル', req: ' *', ph: 'PDF / JPEG / PNG をここに落とす' },
+        { label: '種別', pick: ['請求書', '見積書', '注文書'] },
+      ] },
+    doc: { icon: 'plus', title: '書類を手で足す', save: '足す', done: '書類を足しました',
+      note: '金額は税込で入れます。関連GLSを入れておくと、財務管理へ渡したときに案件が付いた状態になります。',
+      fields: [
+        { label: '種別', req: ' *', pick: ['請求書', '見積書', '注文書'] },
+        { label: '送ってきた先', req: ' *', ph: '例）ライトウェーブ音響' },
+        { label: '件名', ph: '例）7月分 音声オペレート' },
+        { label: '金額（税込）', ph: '例）286,000' },
+        { label: '締月 / 支払期日', ph: '例）2026-07 / 2026-08-31' },
+        { label: '関連GLS', ph: '例）GLS-2607-018' },
+      ] },
+    toFin: { icon: 'arrow-up-right', title: '財務管理へ渡す', save: '渡す', done: '財務管理に下書きを作りました',
+      note: '金額・支払期日・関連GLSをそのまま持って行き、仕入か販管費の下書きになります。ここで打ち直しません。財務側で確定すると、この書類は「処理完了」になります。',
+      fields: [
+        { label: '入れる先', req: ' *', pick: ['仕入（変動原価）', '販管費'] },
+        { label: '案件', ph: 'GLS-2607-018（書類から）' },
+      ] },
+    inq: { icon: 'plus', title: '情報を手で足す', save: '足す', done: '足しました',
+      note: '電話や立ち話で来た話、AIが落としてしまったメールを拾い直すときに使います。要約だけ入れておけば後からタグを付けられます。',
+      fields: [
+        { label: '要約', req: ' *', ph: '内容の1行要約' },
+        { label: '出どころ', req: ' *', pick: ['メール', 'Slack', '電話', '口頭'] },
+        { label: '相手・出どころ名', ph: '例）◯◯大学 メディア学部 ／ #tech-運用' },
+        { label: '重要度', pick: ['高', '中', '低'] },
+        { label: 'タグ', ph: '例）取材, 広報' },
+      ] },
+    ticket: { icon: 'list-checks', title: 'チケットにする（やることにする）', save: 'チケットにする', done: '案件管理のタスクとして作りました',
+      note: 'チケットは案件管理のタスクとして持ちます。ここには「どの話から出たか」の紐づけだけを残すので、やることの実体は1つです。',
+      fields: [
+        { label: 'やること', req: ' *', ph: '要約から入ります（直せます）' },
+        { label: '担当', req: ' *', pick: ['自分', '選ぶ'] },
+        { label: '期限', ph: '例）2026-08-08 18:00' },
+        { label: '案件に紐づける', ph: 'GLS番号（任意）' },
+        { label: '重要度 × 緊急度', pick: ['重要・急ぎ', '重要', 'ふつう'] },
+      ] },
+    toNeta: { icon: 'folder-plus', title: '案件の受付（ネタ）へ送る', save: '送る', done: '案件管理の受付へ送りました',
+      note: '送ると、この話は「チケットにした」に移り、続きは案件管理で追いかけます。同じ話を2か所で持ちません。',
+      fields: [{ label: '受け付ける人', pick: ['自分', '選ぶ'] }] },
+    lend: { icon: 'arrow-up-right', title: 'カードの貸出を記録', save: '記録する', done: '貸出を記録しました',
+      note: '返却予定日を過ぎると、この画面とダッシュボードに「返却遅延」で出ます。エリアの解錠権限はカードごとに決まっています。',
+      fields: [
+        { label: 'カード', req: ' *', pick: ['No.04', 'No.09', '空きから選ぶ'] },
+        { label: '借りる人', req: ' *', ph: '例）中西 健' },
+        { label: '会社', ph: '例）ライトウェーブ音響' },
+        { label: '連絡先', ph: '例）090-0000-0000' },
+        { label: '用途', ph: '例）8/5 夏フェス 中継の仕込み' },
+        { label: '返却予定日', ph: '例）2026-08-06' },
+      ] },
+    ret: { icon: 'corner-down-left', title: 'カードの返却を記録', save: '記録する', done: '返却を記録しました',
+      note: '返した人と日付を残します。傷や不具合があれば備考に書いてください。',
+      fields: [
+        { label: '返した日', pick: ['今日', '日付を選ぶ'] },
+        { label: '受け取った人', ph: '例）寺井 岳宏' },
+        { label: '備考', ph: '任意' },
+      ] },
+    review: { icon: 'check-circle-2', title: 'この日のニュースを確認済みにしますか？', save: '確認済みにする', done: '確認済みにしました',
+      note: '既読の記録が残るだけで、行は消えません。あとから採用を付け直すこともできます。' },
+    toWeekly: { icon: 'arrow-up-right', title: '採用した行を週報に送る', save: '送る', done: '今週の報告にトピックとして足しました',
+      note: '採用（1〜5）を付けた行が、今週のウィークリー活動報告のトピックに「ニュース」の印つきで入ります。二度打ちしません。',
+      fields: [{ label: '送る行', pick: ['採用4以上', '採用が付いた全部'] }] },
+  };
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+
+  componentDidMount() { this.icons(); }
+  componentDidUpdate() { this.icons(); }
+
+  icons() {
+    clearTimeout(this._iconT);
+    this._iconT = setTimeout(() => {
+      if (!window.lucide) return;
+      const svgs = document.querySelectorAll('svg.lucide');
+      for (let i = 0; i < svgs.length; i++) {
+        const sv = svgs[i], pa = sv.parentNode;
+        if (!pa) continue;
+        let hasI = false, others = 0;
+        for (let k = 0; k < pa.children.length; k++) {
+          const ch = pa.children[k];
+          if (ch.tagName === 'I' && ch.hasAttribute('data-lucide')) hasI = true;
+          if (ch !== sv && ch.tagName === 'svg' && ch.classList.contains('lucide')) others += 1;
+        }
+        if (hasI || others > 0) { try { pa.removeChild(sv); } catch (e) {} }
+      }
+      if (!document.querySelector('i[data-lucide]')) return;
+      window.lucide.createIcons();
+    }, 60);
+  }
+
+  dlgVals() {
+    const s = this.state;
+    const key = s.dlg;
+    const d = this.DLG[key] || this.DLG.topic;
+    const picks = s.dlgPick || {};
+    return {
+      dlgOpen: !!key,
+      dlgClose: () => this.setState({ dlg: '' }),
+      dlgSave: () => { this.setState({ dlg: '' }); this.flash(d.done || '登録しました'); },
+      dlg: {
+        icon: d.icon, title: d.title, save: d.save || '保存', note: d.note,
+        saveBg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        icBg: d.tone === 'danger' ? '#fef6f7' : '#eaf4fb',
+        icFg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        fields: (d.fields || []).map((fd, i) => ({
+          label: fd.label, req: fd.req || '', ph: fd.ph || '',
+          isInput: !fd.pick, isPick: !!fd.pick,
+          opts: (fd.pick || []).map((o) => {
+            const on = (picks[key + i] || fd.pick[0]) === o;
+            return { label: o, pick: () => { const p = Object.assign({}, picks); p[key + i] = o; this.setState({ dlgPick: p }); },
+              bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470', weight: on ? 800 : 400 };
+          }),
+        })),
+      },
+    };
+  }
+
+  WEEKS = [
+    { label: '7/27 〜 8/2 の週', sub: 'トピック 3件', state: '下書き' },
+    { label: '7/20 〜 7/26 の週', sub: 'トピック 5件', state: '確定' },
+    { label: '7/13 〜 7/19 の週', sub: 'トピック 4件', state: '確定' },
+    { label: '7/6 〜 7/12 の週', sub: 'トピック 6件', state: '確定' },
+    { label: '6/29 〜 7/5 の週', sub: 'トピック 4件', state: '確定' },
+    { label: '6/22 〜 6/28 の週', sub: 'トピック 3件', state: '確定' },
+  ];
+
+  wkVals() {
+    const s = this.state;
+    const sel = s.wkSel || 0;
+    const w = this.WEEKS[sel];
+    const draft = w.state === '下書き';
+    return {
+      lead: w.label + ' ・ ' + (draft ? '下書き（AI起票）・ 確定するとトピックを足せなくなります' : '確定済み ・ 8/3 09:12 に寺井が確定'),
+      pubLabel: draft ? '確認・確定' : '確定済み',
+      pubBg: draft ? '#005bac' : '#9aa1ab',
+      publish: draft ? () => this.setState({ dlg: 'pub' }) : () => this.flash('この週はもう確定しています。足したいことは翌週の報告へ'),
+      addTopic: draft ? () => this.setState({ dlg: 'topic' }) : () => this.flash('確定した週にはトピックを足せません'),
+      weeks: this.WEEKS.map((x, i) => ({
+        label: x.label, sub: x.sub, state: x.state,
+        rowBg: i === sel ? '#f4faff' : '#fff', fg: i === sel ? '#005bac' : '#1a1d24', weight: i === sel ? 800 : 700,
+        stBg: x.state === '下書き' ? '#fff7ed' : '#e7f6ee', stFg: x.state === '下書き' ? '#c2410e' : '#197a4b',
+        pick: () => this.setState({ wkSel: i }),
+      })),
+      kpis: [
+        { label: '新規案件', value: '7', unit: '件', sub: 'うち AI 3 件', isYen: false, align: 'right' },
+        { label: '営業活動', value: '34', unit: '件', sub: 'うち AI 11 件', isYen: false, align: 'right' },
+        { label: '売上（週）', value: '8,620,000', unit: '', sub: '', isYen: true, align: 'right' },
+        { label: '売上（7月 累計）', value: '42,180,000', unit: '', sub: '', isYen: true, align: 'right' },
+      ],
+      pipeline: [
+        { stage: 'A 受注済', n: '6', amount: '24,800,000', w: '82%', color: '#197a4b' },
+        { stage: 'B 口頭決定', n: '4', amount: '11,600,000', w: '54%', color: '#005bac' },
+        { stage: 'C 見積提案', n: '9', amount: '18,900,000', w: '68%', color: '#2563eb' },
+        { stage: 'D 仮押さえ', n: '5', amount: '7,400,000', w: '32%', color: '#c2410e' },
+        { stage: 'ネタ', n: '12', amount: '—', w: '18%', color: '#9aa1ab' },
+      ],
+      acts: [
+        { label: '打合せ', n: '11' }, { label: 'メール', n: '9' }, { label: '電話', n: '6' },
+        { label: '訪問', n: '4' }, { label: '提案', n: '3' }, { label: 'デモ', n: '1' },
+      ],
+      next: [
+        { date: '8/5', name: '夏フェス 中継（3日間）仕込み' },
+        { date: '8/6', name: '株主総会 ライブ配信 リハーサル' },
+        { date: '8/8', name: 'GMOメディア 定例 打合せ' },
+      ],
+      body: [
+        { text: '7月最終週は新規案件7件（うちAI起票3件）。前週比＋2件で、内覧会からの流入が2件を占めました。' },
+        { text: '営業活動は34件。打合せ11件が最も多く、C 見積提案の滞留が9件と増えています。見積の返しに時間がかかっているものが3件あります。' },
+        { text: '週の売上は￥8,620,000。7月累計は￥42,180,000で、月次目標に対しては98%の着地見込みです。' },
+        { text: '来週は夏フェス中継の仕込みが3日間入るため、技術メンバーの空きが薄くなります。新規の仮押さえは8/12以降を案内してください。' },
+      ],
+      topics: [
+        { cat: 'イベント', catBg: '#fff7ed', catFg: '#c2410e', content: '夏フェス中継（3日間）の仕込みが8/5から。用賀の常設機材を12点持ち出します。', note: '持ち出しは機材管理に登録済み', by: '大西', fromNews: false, edit: () => this.setState({ dlg: 'topic' }) },
+        { cat: 'AI活用', catBg: '#f5f3ff', catFg: '#6d28d9', content: '議事録の文字起こし→整形→タスク化を3案件で試用。打合せ後の作業が45分→10分に。', note: 'プロジェクト管理の議事録機能', by: '寺井', fromNews: true, edit: () => this.setState({ dlg: 'topic' }) },
+        { cat: 'セールス・マーケ', catBg: '#eaf4fb', catFg: '#005bac', content: '8/12の内覧会は12組19名。制作会社からの申込が6組と、これまでで最多です。', note: '', by: '中西', fromNews: false, edit: () => this.setState({ dlg: 'topic' }) },
+      ],
+    };
+  }
+
+  NEWS = [
+    { cat: '映像', ai: false, content: '12G-SDI対応の小型スイッチャーが発表。4ME構成で価格は据え置き', note: '常設の更新候補', by: 'AI', src: 'ai', pick: 4 },
+    { cat: 'AR/XR', ai: true, content: '生成AIによる背景差し替えをリアルタイムで行うプラグインが提供開始', note: 'XRスタジオで検証したい', by: 'AI', src: 'ai', pick: 5 },
+    { cat: '配信', ai: false, content: '大手配信基盤が縦型ライブの同時配信に対応。1本の入力から3比率を出力', note: '', by: 'AI', src: 'ai', pick: 0 },
+    { cat: 'LED', ai: false, content: '国内メーカーがピッチ1.2mmのLEDパネルを発表。従来比で消費電力3割減', note: '見積の参考に', by: 'AI', src: 'ai', pick: 3 },
+    { cat: '照明', ai: false, content: 'ムービングライトの新製品、DMXに加えてArtNetの二重化に対応', note: '', by: 'AI', src: 'ai', pick: 0 },
+    { cat: '音声', ai: true, content: 'AIによるノイズ除去を内蔵したデジタルミキサーが登場。会場ノイズを自動で抑制', note: '中西が触った', by: 'AI', src: 'ai', pick: 4 },
+    { cat: 'スタジオ', ai: false, content: '都内に大型バーチャルプロダクションスタジオが新設。9月から稼働', note: '競合の動き', by: '寺井', src: 'human', pick: 2 },
+    { cat: 'コンテンツ', ai: false, content: '大型音楽イベントの配信本数が前年比1.4倍。縦型同時配信が主流に', note: '', by: 'AI', src: 'ai', pick: 0 },
+  ];
+
+  newsVals() {
+    const s = this.state;
+    const day = s.newsD === undefined ? 2 : s.newsD;
+    const picks = s.picks || {};
+    const f = s.newsF || 'all';
+    const DOW = ['金', '土', '日', '月', '火', '水', '木'];
+    const pk = (i) => (picks[i] === undefined ? this.NEWS[i].pick : picks[i]);
+    const all = this.NEWS.map((n, i) => ({ n: n, i: i, p: pk(i) }));
+    const shown = all.filter((x) => (f === 'all' ? true : f === 'picked' ? x.p > 0 : f === 'ai' ? x.n.ai : x.n.src === 'human'));
+    const pickedN = all.filter((x) => x.p > 0).length;
+    const FILT = [{ k: 'all', label: 'すべて' }, { k: 'picked', label: '採用が付いたもの' }, { k: 'ai', label: 'AI活用の話' }, { k: 'human', label: '人が足したもの' }];
+    const CAT = { '映像': ['#eaf4fb', '#005bac'], '配信': ['#e0f7fa', '#0e7490'], 'LED': ['#fce7f3', '#9d174d'], '照明': ['#fefce8', '#a16207'], '音声': ['#fff7ed', '#c2410e'], 'スタジオ': ['#eef2ff', '#4338ca'], 'AR/XR': ['#f5f3ff', '#6d28d9'], 'コンテンツ': ['#f2f4f7', '#5d6470'] };
+    return {
+      lead: 'AIが毎朝6:30に集めます。' + this.NEWS.length + '件のうち採用が付いているのは' + pickedN + '件',
+      date: '2026/08/0' + day + '（' + DOW[day % 7] + '）',
+      prev: () => (day <= 1 ? this.flash('7月は入っていません（モックアップは8月のみ）') : this.setState({ newsD: day - 1 })),
+      next: () => (day >= 2 ? this.flash('今日より先の日は出せません') : this.setState({ newsD: day + 1 })),
+      add: () => this.setState({ dlg: 'news' }),
+      review: () => this.setState({ dlg: 'review' }),
+      revLabel: '確認済みにする',
+      revBg: '#005bac',
+      count: shown.length + ' 件を表示（この日 ' + this.NEWS.length + ' 件）',
+      pickedN: pickedN + '件',
+      toWeekly: pickedN ? () => this.setState({ dlg: 'toWeekly' }) : () => this.flash('採用（星）が付いた行がありません'),
+      filters: FILT.map((x) => ({ label: x.label, pick: () => this.setState({ newsF: x.k }),
+        bd: f === x.k ? '#005bac' : '#e6e9ed', bg: f === x.k ? '#eaf4fb' : '#fff', fg: f === x.k ? '#005bac' : '#5d6470', weight: f === x.k ? 700 : 400 })),
+      rows: shown.map((x) => {
+        const c = CAT[x.n.cat] || ['#f2f4f7', '#5d6470'];
+        return {
+          cat: x.n.cat, catBg: c[0], catFg: c[1],
+          ai: x.n.ai ? 'AI' : '', aiBg: x.n.ai ? '#f5f3ff' : 'transparent', aiFg: '#6d28d9',
+          content: x.n.content, note: x.n.note || '—', by: x.n.by,
+          byIcon: x.n.src === 'ai' ? 'bot' : 'user', byFg: x.n.src === 'ai' ? '#6d28d9' : '#9aa1ab',
+          rowBg: x.p >= 4 ? '#fffdf6' : '#fff',
+          stars: [1, 2, 3, 4, 5].map((v) => ({
+            color: v <= x.p ? '#f59e0b' : '#dfe3e8', fill: v <= x.p ? '#f59e0b' : 'none',
+            pick: () => { const p = Object.assign({}, picks); p[x.i] = (x.p === v ? 0 : v); this.setState({ picks: p }); },
+          })),
+          open: () => this.flash('元の記事を新しいタブで開きます'),
+          edit: () => this.setState({ dlg: 'news' }),
+        };
+      }),
+    };
+  }
+
+  INV_ROWS = [
+    { ses: 0, name: '田中 太郎', kana: 'たなか たろう', company: 'GMOメディア', role: '制作部 部長', meta: '090-1234-5678 ／ t.tanaka@example.co.jp ／ 東京都渋谷区', party: 3, companions: ['佐藤 花子', '鈴木 一郎'], interest: 'バーチャルプロダクションの制作フローと、内製化したときの人員体制を相談したい。', checked: true, promoted: true },
+    { ses: 0, name: '中村 美咲', kana: 'なかむら みさき', company: 'ライトウェーブ音響', role: '営業', meta: '03-1111-2222 ／ nakamura@example.jp', party: 1, companions: [], interest: '', checked: false, promoted: false },
+    { ses: 0, name: '高橋 健一', kana: 'たかはし けんいち', company: '株式会社スカイプロダクション', role: 'プロデューサー', meta: '080-9999-0000 ／ takahashi@example.com ／ 東京都港区', party: 2, companions: ['伊藤 涼'], interest: '年内に配信付きの式典を予定。スタジオとLEDの組み合わせで見積が欲しい。', checked: false, promoted: false },
+    { ses: 1, name: '山本 直樹', kana: 'やまもと なおき', company: 'GMOあおぞらネット銀行', role: '広報', meta: '03-3333-4444 ／ yamamoto@example.jp', party: 2, companions: ['小林 遥'], interest: '', checked: false, promoted: false },
+    { ses: 1, name: '渡辺 亮', kana: 'わたなべ りょう', company: 'フリーランス', role: 'ディレクター', meta: '070-5555-6666', party: 1, companions: [], interest: '縦型配信の実績を見たい。', checked: false, promoted: false },
+  ];
+
+  INV_DATA = {
+    '2026-08-12': { title: '2026年8月12日 (水)', past: false, sessions: [
+      { time: '10:30 - 12:00', audience: '一般', label: '2026/8/12(水)10:30-12:00｜一般向け' },
+      { time: '14:00 - 15:30', audience: 'イベント主催者向け', label: '2026/8/12(水)14:00-15:30｜イベント主催者向け' },
+    ] },
+    '2026-08-26': { title: '2026年8月26日 (水)', past: false, sessions: [
+      { time: '14:00 - 15:30', audience: '一般', label: '2026/8/26(水)14:00-15:30｜一般向け' },
+    ] },
+    '2026-07-29': { title: '2026年7月29日 (水)', past: true, sessions: [
+      { time: '14:00 - 17:00', audience: 'イベント主催者向け', label: '2026/7/29(水)14:00-17:00｜イベント主催者向け' },
+    ] },
+    'undated': { title: '日付未定の回', past: false, sessions: [
+      { time: '時間未定', audience: '—', label: '日程調整中（個別内覧）' },
+    ] },
+  };
+
+  invListVals() {
+    const s = this.state;
+    const q = s.ivQ || '';
+    const scope = s.ivScope || 'all';
+    const order = s.ivOrder || 'desc';
+    const today = '2026-08-02';
+    const stats = {
+      '2026-08-12': { regs: 5, head: 9, checked: 3 },
+      '2026-08-26': { regs: 4, head: 6, checked: 0 },
+      '2026-07-29': { regs: 9, head: 14, checked: 14 },
+      'undated': { regs: 1, head: 2, checked: 0 },
+    };
+    let keys = Object.keys(this.INV_DATA);
+    if (scope === 'upcoming') keys = keys.filter((k) => k === 'undated' || k >= today);
+    keys.sort((x, y) => {
+      if (x === 'undated') return 1;
+      if (y === 'undated') return -1;
+      return order === 'asc' ? x.localeCompare(y) : y.localeCompare(x);
+    });
+    const totalRegs = keys.reduce((n, k) => n + stats[k].regs, 0);
+    const totalHead = keys.reduce((n, k) => n + stats[k].head, 0);
+    const searching = q.length > 0;
+    const SCOPE = [{ k: 'all', label: 'すべての回' }, { k: 'upcoming', label: '今後の回のみ' }];
+    const ORDER = [{ k: 'desc', label: '新しい順' }, { k: 'asc', label: '古い順' }];
+    return {
+      q: searching ? q : '氏名・会社名・電話番号などで全部の回から探す',
+      qFg: searching ? '#1a1d24' : '#9aa1ab',
+      qBd: searching ? '#a6ceeb' : '#e6e9ed',
+      searching: searching, notSearching: !searching,
+      search: () => this.setState({ ivQ: 'なかむら' }),
+      clear: () => this.setState({ ivQ: '' }),
+      hitN: '2',
+      hits: [
+        { day: '2026年8月12日 (水) 10:30 - 12:00', name: '中村 美咲', kana: 'なかむら みさき', company: 'ライトウェーブ音響',
+          meta: '営業 ／ 03-1111-2222 ／ nakamura@example.jp', matched: '氏名 / ふりがな',
+          open: () => this.setState({ screen: 'inv', invDay: 0, ivQ: '' }) },
+        { day: '2026年7月29日 (水) 14:00 - 17:00', name: '中村 拓也', kana: 'なかむら たくや', company: '株式会社ナカムラ映像',
+          meta: 'カメラマン ／ 090-7777-8888', matched: '氏名 / ふりがな / 会社',
+          open: () => this.setState({ screen: 'inv', invDay: 2, ivQ: '' }) },
+      ],
+      add: () => this.setState({ dlg: 'inv' }),
+      csv: () => this.setState({ dlg: 'csv' }),
+      total: keys.length + '日 / ' + totalRegs + '組 / ' + totalHead + '名',
+      scope: SCOPE.map((x) => ({ label: x.label, pick: () => this.setState({ ivScope: x.k }),
+        bd: scope === x.k ? '#005bac' : '#e6e9ed', bg: scope === x.k ? '#eaf4fb' : '#fff', fg: scope === x.k ? '#005bac' : '#5d6470', weight: scope === x.k ? 700 : 400 })),
+      order: ORDER.map((x) => ({ label: x.label, pick: () => this.setState({ ivOrder: x.k }),
+        bg: order === x.k ? '#f2f4f7' : 'transparent', fg: order === x.k ? '#1a1d24' : '#9aa1ab', weight: order === x.k ? 700 : 400 })),
+      days: keys.map((k) => {
+        const d = this.INV_DATA[k], st = stats[k];
+        const idx = Object.keys(this.INV_DATA).indexOf(k);
+        return {
+          title: d.title, isToday: k === today, isPast: d.past,
+          bd: k === today ? '#a6ceeb' : '#e6e9ed',
+          sessions: d.sessions.map((se) => ({ time: se.time, audience: se.audience, head: Math.round(st.head / d.sessions.length) + '名' })),
+          regs: String(st.regs), head: String(st.head), checked: String(st.checked),
+          ckFg: st.checked > 0 ? '#197a4b' : '#9aa1ab',
+          open: () => this.setState({ screen: 'inv', invDay: idx }),
+        };
+      }),
+    };
+  }
+
+  invVals() {
+    const s = this.state;
+    const keys = Object.keys(this.INV_DATA);
+    const di = s.invDay || 0;
+    const dayKey = keys[di] || keys[0];
+    const day = this.INV_DATA[dayKey];
+    const ck = s.checks || {};
+    const sort = s.invSort || 'default';
+    const showSum = s.invSum === undefined ? true : s.invSum;
+    const isOn = (k, d) => (ck[k] === undefined ? d : ck[k]);
+    const rows = this.INV_ROWS;
+    const headOf = (r) => Math.max(r.party, 1 + r.companions.length, 1);
+    const headAll = rows.reduce((a, r) => a + headOf(r), 0);
+    const ckHead = rows.reduce((a, r, i) => a + (isOn('r' + i, r.checked) ? 1 : 0) + r.companions.filter((c, j) => isOn('c' + i + '_' + j, r.checked)).length, 0);
+    const SORT = [
+      { k: 'default', label: '登録順' }, { k: 'company', label: '会社名' }, { k: 'name', label: '氏名（ふりがな）' },
+      { k: 'party', label: '参加人数' }, { k: 'checkin', label: '未受付を先に' },
+    ];
+    const sorted = (list) => {
+      const arr = list.slice();
+      if (sort === 'company') arr.sort((x, y) => x.r.company.localeCompare(y.r.company, 'ja'));
+      else if (sort === 'name') arr.sort((x, y) => x.r.kana.localeCompare(y.r.kana, 'ja'));
+      else if (sort === 'party') arr.sort((x, y) => headOf(y.r) - headOf(x.r));
+      else if (sort === 'checkin') arr.sort((x, y) => (isOn('r' + x.i, x.r.checked) ? 1 : 0) - (isOn('r' + y.i, y.r.checked) ? 1 : 0));
+      return arr;
+    };
+    const comp = {};
+    rows.forEach((r) => { comp[r.company] = (comp[r.company] || 0) + headOf(r); });
+    const compList = Object.keys(comp).sort((x, y) => comp[y] - comp[x]);
+    return {
+      title: day.title + ' の受付',
+      lead: rows.length + '組 / ' + headAll + '名 ・ 受付 ' + ckHead + ' / ' + headAll + '名 ・ 回をまたいで探せます',
+      back: () => this.setState({ screen: 'invList' }),
+      csv: () => this.setState({ dlg: 'csv' }),
+      add: () => this.setState({ dlg: 'inv' }),
+      sorts: SORT.map((x) => ({ label: x.label, pick: () => this.setState({ invSort: x.k }),
+        bd: sort === x.k ? '#005bac' : '#e6e9ed', bg: sort === x.k ? '#eaf4fb' : '#fff', fg: sort === x.k ? '#005bac' : '#5d6470', weight: sort === x.k ? 700 : 400 })),
+      showSummary: showSum,
+      toggleSummary: () => this.setState({ invSum: !showSum }),
+      sumBd: showSum ? '#005bac' : '#e6e9ed', sumBg: showSum ? '#eaf4fb' : '#fff', sumFg: showSum ? '#005bac' : '#5d6470',
+      sumTitle: '会社別サマリー（' + compList.length + '社 / ' + headAll + '名）',
+      days: keys.map((k, i) => {
+        const d = this.INV_DATA[k];
+        return { label: d.title.replace('2026年', ''), sub: d.sessions.length + '回' + (d.past ? '（終了）' : ''), isToday: false,
+          rowBg: i === di ? '#f4faff' : '#fff', fg: i === di ? '#005bac' : '#1a1d24', weight: i === di ? 800 : 700,
+          pick: () => this.setState({ invDay: i }) };
+      }),
+      companies: compList.map((c) => ({ name: c, n: comp[c] + ' 名' })),
+      sessions: day.sessions.map((se, si) => {
+        const list = rows.map((r, i) => ({ r: r, i: i })).filter((x) => x.r.ses === Math.min(si, 1));
+        const head = list.reduce((a, x) => a + headOf(x.r), 0);
+        const chk = list.reduce((a, x) => a + (isOn('r' + x.i, x.r.checked) ? 1 : 0) + x.r.companions.filter((c, j) => isOn('c' + x.i + '_' + j, x.r.checked)).length, 0);
+        return {
+          time: se.time, audience: se.audience,
+          count: list.length + '組 / ' + head + '名', checked: '受付 ' + chk + '名',
+          rows: sorted(list).map((x) => {
+            const on = isOn('r' + x.i, x.r.checked);
+            const h = headOf(x.r);
+            const unnamed = Math.max(h - 1 - x.r.companions.length, 0);
+            return {
+              name: x.r.name, kana: x.r.kana, company: x.r.company,
+              meta: x.r.role + ' ／ ' + x.r.meta,
+              hasInterest: !!x.r.interest, interest: x.r.interest,
+              party: h + '名',
+              bd: on ? '#bfe3cd' : '#e6e9ed',
+              ckLabel: on ? '受付取消' : '受付する',
+              ckIcon: on ? 'check-circle-2' : 'circle',
+              ckBd: on ? '#197a4b' : '#005bac', ckBg: on ? '#e7f6ee' : '#005bac', ckFg: on ? '#197a4b' : '#fff',
+              selfBd: on ? '#197a4b' : '#e6e9ed', selfBg: on ? '#e7f6ee' : '#fff', selfFg: on ? '#197a4b' : '#3c424c',
+              check: () => { const n = Object.assign({}, ck); n['r' + x.i] = !on; this.setState({ checks: n }); },
+              prLabel: x.r.promoted ? '案件化済み' : '案件化',
+              prIcon: x.r.promoted ? 'briefcase' : 'briefcase',
+              prBd: x.r.promoted ? '#a6ceeb' : '#005bac', prBg: x.r.promoted ? '#eaf4fb' : '#fff', prFg: '#005bac',
+              promote: x.r.promoted ? () => this.flash('この来場予約から作った案件（GLS-2607-031）を開きます') : () => this.setState({ dlg: 'promote' }),
+              hasParticipants: h > 1 || x.r.companions.length > 0,
+              hasUnnamed: unnamed > 0, unnamed: unnamed + '名',
+              companions: x.r.companions.map((cn, j) => {
+                const co = isOn('c' + x.i + '_' + j, x.r.checked);
+                return { name: cn, icon: co ? 'check-circle-2' : 'circle',
+                  bd: co ? '#197a4b' : '#e6e9ed', bg: co ? '#e7f6ee' : '#fff', fg: co ? '#197a4b' : '#3c424c',
+                  check: () => { const n = Object.assign({}, ck); n['c' + x.i + '_' + j] = !co; this.setState({ checks: n }); } };
+              }),
+            };
+          }),
+        };
+      }),
+    };
+  }
+
+  INQ = [
+    { src: 'mail', from: '◯◯大学 メディア学部', imp: '高', summary: 'バーチャルプロダクションの取材を受けてほしい（学生向け教材の制作）', subject: '件名: 【取材のお願い】スタジオ設備について', tags: ['取材', '広報'], received: '7/30', ai: true, state: '未仕分け', ticket: '', due: '' },
+    { src: 'slack', from: '#org-グローバルスタジオ営業 ／ 大西', imp: '高', summary: '夏フェス中継、先方の音声担当が交代。連絡先の差し替えが要る', subject: 'スレッド: 夏フェス 中継（3日間）', tags: ['GLS-2607-009'], received: '8/1', ai: true, state: 'チケット', ticket: '音声担当の連絡先を差し替える（大西）', due: '8/4' },
+    { src: 'mail', from: '株式会社ミライテック', imp: '中', summary: 'LEDパネルの共同デモを一緒にやりたいという相談', subject: '件名: デモイベント共催のご相談', tags: ['協業'], received: '7/31', ai: true, state: '未仕分け', ticket: '', due: '' },
+    { src: 'phone', from: '電話メモ ／ 受け: 中西', imp: '中', summary: '来年の式典の日程が2月に動きそう。正式な連絡は9月とのこと', subject: 'GMOインターネットグループ 広報', tags: ['先の話', '60周年'], received: '7/29', ai: false, state: 'ストック', ticket: '', due: '' },
+    { src: 'mail', from: '転職エージェント', imp: '中', summary: '映像技術者の紹介。3名分の経歴書が添付', subject: '件名: 技術職のご紹介', tags: ['採用'], received: '8/1', ai: true, state: '未仕分け', ticket: '', due: '' },
+    { src: 'slack', from: '#tech-運用 ／ 寺井', imp: '中', summary: '第1調整室のUPSが8月で保証切れ。更新見積を取っておきたい', subject: 'スレッド: 設備の保守', tags: ['設備', '見積'], received: '7/28', ai: true, state: 'チケット', ticket: 'UPSの更新見積を取る（寺井）', due: '8/20' },
+    { src: 'talk', from: '口頭 ／ 内覧会での立ち話', imp: '低', summary: '縦型配信の実績をまとめた資料が欲しいと言われた', subject: '7/29 内覧会 来場者より', tags: ['営業資料'], received: '7/29', ai: false, state: 'ストック', ticket: '', due: '' },
+    { src: 'mail', from: '配信プラットフォーム事業者', imp: '中', summary: '縦型配信のβ版に参加しないかという打診', subject: '件名: β版参加のお誘い', tags: ['協業'], received: '7/26', ai: true, state: '見送り', ticket: '', due: '' },
+  ];
+
+  inqVals() {
+    const s = this.state;
+    const tab = s.inqTab || 'new';
+    const src = s.inqSrc || 'all';
+    const moved = s.inqMoved || {};
+    const SRC = {
+      mail: { label: 'メール', icon: 'mail', bg: '#eaf4fb', fg: '#005bac' },
+      slack: { label: 'Slack', icon: 'message-square', bg: '#f5f3ff', fg: '#6d28d9' },
+      phone: { label: '電話', icon: 'phone', bg: '#fff7ed', fg: '#c2410e' },
+      talk: { label: '口頭', icon: 'users', bg: '#f2f4f7', fg: '#5d6470' },
+    };
+    const IC = { '高': ['#fef6f7', '#c7243a'], '中': ['#fff7ed', '#c2410e'], '低': ['#f2f4f7', '#9aa1ab'] };
+    const SC = { '未仕分け': ['#fff7ed', '#c2410e'], 'ストック': ['#eaf4fb', '#005bac'], 'チケット': ['#e7f6ee', '#197a4b'], '見送り': ['#f2f4f7', '#9aa1ab'] };
+    const stOf = (q, i) => moved[i] || q.state;
+    const list = this.INQ.map((q, i) => ({ q: q, i: i, st: stOf(q, i) }));
+    const TAB = [
+      { k: 'new', label: '未仕分け', icon: 'inbox', st: '未仕分け' },
+      { k: 'stock', label: 'ストック', icon: 'archive', st: 'ストック' },
+      { k: 'ticket', label: 'チケットにした', icon: 'list-checks', st: 'チケット' },
+      { k: 'drop', label: '見送り', icon: 'circle-slash', st: '見送り' },
+    ];
+    const byTab = list.filter((x) => x.st === (TAB.find((t) => t.k === tab) || TAB[0]).st);
+    const rows = byTab.filter((x) => src === 'all' || x.q.src === src);
+    const SRCF = [{ k: 'all', label: 'すべて', icon: 'layers' }].concat(Object.keys(SRC).map((k) => ({ k: k, label: SRC[k].label, icon: SRC[k].icon })));
+    const move = (i, st, msg) => () => { const n = Object.assign({}, moved); n[i] = st; this.setState({ inqMoved: n }); this.flash(msg); };
+    return {
+      lead: '未仕分け ' + list.filter((x) => x.st === '未仕分け').length + '件 ・ ストック ' + list.filter((x) => x.st === 'ストック').length + '件 ・ 今週チケットにしたもの ' + list.filter((x) => x.st === 'チケット').length + '件',
+      count: rows.length + ' 件を表示',
+      add: () => this.setState({ dlg: 'inq' }),
+      tabs: TAB.map((t) => ({ label: t.label, icon: t.icon, n: String(list.filter((x) => x.st === t.st).length),
+        bd: tab === t.k ? '#005bac' : 'transparent', fg: tab === t.k ? '#005bac' : '#5d6470', w: tab === t.k ? 700 : 400,
+        go: () => this.setState({ inqTab: t.k }) })),
+      srcs: SRCF.map((x) => ({ label: x.label, icon: x.icon, pick: () => this.setState({ inqSrc: x.k }),
+        bd: src === x.k ? '#005bac' : '#e6e9ed', bg: src === x.k ? '#eaf4fb' : '#fff', fg: src === x.k ? '#005bac' : '#5d6470', w: src === x.k ? 700 : 400 })),
+      bySrc: Object.keys(SRC).map((k) => ({ label: SRC[k].label, icon: SRC[k].icon, bg: SRC[k].bg, fg: SRC[k].fg,
+        n: String(list.filter((x) => x.q.src === k).length) + ' 件',
+        ticket: 'チケット ' + list.filter((x) => x.q.src === k && x.st === 'チケット').length })),
+      tags: [
+        { label: '協業', n: '2' }, { label: '取材', n: '1' }, { label: '採用', n: '1' },
+        { label: '設備', n: '1' }, { label: '営業資料', n: '1' }, { label: '先の話', n: '1' },
+      ].map((t) => ({ label: t.label, n: t.n, bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', pick: () => this.flash('「' + t.label + '」のタグが付いたものだけを出します') })),
+      rows: rows.map((x) => {
+        const sc = SRC[x.q.src];
+        const st = x.st;
+        const acts = st === 'チケット'
+          ? [{ label: 'ストックに戻す', icon: 'archive', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: move(x.i, 'ストック', 'ストックに戻しました') }]
+          : st === '見送り'
+            ? [{ label: '未仕分けに戻す', icon: 'rotate-ccw', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: move(x.i, '未仕分け', '未仕分けに戻しました') }]
+            : [
+              { label: 'チケットにする', icon: 'list-checks', bd: '#005bac', bg: '#005bac', fg: '#fff', go: () => this.setState({ dlg: 'ticket' }) },
+              { label: '案件の受付へ送る', icon: 'folder-plus', bd: '#cfe4f4', bg: '#f4faff', fg: '#005bac', go: () => this.setState({ dlg: 'toNeta' }) },
+            ].concat(st === 'ストック'
+              ? [{ label: '見送りにする', icon: 'circle-slash', bd: '#e6e9ed', bg: '#fff', fg: '#9aa1ab', go: move(x.i, '見送り', '見送りにしました') }]
+              : [{ label: 'ストックする', icon: 'archive', bd: '#e6e9ed', bg: '#fff', fg: '#3c424c', go: move(x.i, 'ストック', 'ストックしました。タグを付けておくと後から引けます') },
+                 { label: '見送りにする', icon: 'circle-slash', bd: '#e6e9ed', bg: '#fff', fg: '#9aa1ab', go: move(x.i, '見送り', '見送りにしました') }]);
+        return {
+          srcIcon: sc.icon, srcBg: sc.bg, srcFg: sc.fg, from: x.q.from,
+          imp: '重要度 ' + x.q.imp, impBg: IC[x.q.imp][0], impFg: IC[x.q.imp][1],
+          state: st, stBg: SC[st][0], stFg: SC[st][1],
+          isAi: x.q.ai, summary: x.q.summary, subject: x.q.subject, received: '受信 ' + x.q.received,
+          tags: x.q.tags.map((t) => ({ label: t })),
+          tag: () => this.flash('タグを足します（協業・取材・採用・設備 …）'),
+          hasTicket: st === 'チケット' && !!x.q.ticket, ticket: x.q.ticket, ticketDue: x.q.due ? '期限 ' + x.q.due : '',
+          openTicket: () => { window.location.href = 'v4-mockup-main.dc.html'; },
+          bd: st === '未仕分け' && x.q.imp === '高' ? '#f3c9cf' : st === 'チケット' ? '#bfe3cd' : '#e6e9ed',
+          op: st === '見送り' ? '.6' : '1',
+          acts: acts,
+        };
+      }),
+    };
+  }
+
+  AREAS = [
+    { key: 'office', label: '執務室', icon: 'building-2' },
+    { key: 'cargo_ev', label: '通用口（貨物EV）', icon: 'door-open' },
+    { key: 'private_ev', label: '通用口（占有EV）', icon: 'door-open' },
+    { key: 'room_a', label: 'ROOM A', icon: 'square' },
+    { key: 'room_b', label: 'ROOM B', icon: 'square' },
+    { key: 'room_c', label: 'ROOM C', icon: 'square' },
+    { key: 'meeting', label: 'MEETING ROOM', icon: 'users' },
+    { key: 'vip', label: 'VIP LOUNGE', icon: 'sofa' },
+    { key: 'tech_storage', label: '技術倉庫', icon: 'package' },
+    { key: 'soc1', label: '第1SOC（26F）', icon: 'server' },
+  ];
+
+  cardVals() {
+    const s = this.state;
+    const sel = s.cardSel === undefined ? 3 : s.cardSel;
+    const f = s.cardF || 'all';
+    const LV = ['全域', '技術', '共用'];
+    const cards = [];
+    for (let i = 1; i <= 24; i++) {
+      const lv = i <= 4 ? '全域' : i <= 14 ? '技術' : '共用';
+      const lent = [4, 9, 12, 17, 21].indexOf(i) >= 0;
+      const overdue = [9, 12, 21].indexOf(i) >= 0;
+      cards.push({
+        no: i < 10 ? '0' + i : String(i), level: lv, lent: lent, overdue: overdue,
+        who: lent ? ['中西 健', '大西 亮', '寺井 岳宏', '佐々木 亘', '山口 遼'][[4, 9, 12, 17, 21].indexOf(i)] : '',
+        company: lent ? ['ライトウェーブ音響', 'ライトウェーブ音響', '社内', 'スカイプロダクション', '社内'][[4, 9, 12, 17, 21].indexOf(i)] : '',
+        purpose: lent ? ['夏フェス 中継の仕込み', '夏フェス 中継の仕込み', '第2副調 構築', '展示会 ブース配信', '深夜メンテ'][[4, 9, 12, 17, 21].indexOf(i)] : '',
+        from: lent ? ['7/28', '7/25', '7/26', '8/1', '7/24'][[4, 9, 12, 17, 21].indexOf(i)] : '',
+        due: lent ? ['8/6', '7/30', '7/31', '8/8', '7/29'][[4, 9, 12, 17, 21].indexOf(i)] : '',
+      });
+    }
+    const FILT = [{ k: 'all', label: 'すべて' }, { k: 'free', label: '貸出できる' }, { k: 'lent', label: '貸出中' }, { k: 'over', label: '返却遅延' }];
+    const shown = cards.filter((c) => (f === 'all' ? true : f === 'free' ? !c.lent : f === 'lent' ? c.lent : c.overdue));
+    const cur = cards[sel] || cards[0];
+    const lvc = (lv) => (lv === '全域' ? ['#fef6f7', '#c7243a'] : lv === '技術' ? ['#eaf4fb', '#005bac'] : ['#f2f4f7', '#5d6470']);
+    const allow = { '全域': 10, '技術': 7, '共用': 4 };
+    const n = allow[cur.level];
+    return {
+      lead: '用賀27F ・ 貸出できる 19枚 ／ 貸出中 5枚 ／ 返却遅延 3枚',
+      count: shown.length + ' 枚を表示（全 24 枚）',
+      lend: () => this.setState({ dlg: 'lend' }),
+      filters: FILT.map((x) => ({ label: x.label, pick: () => this.setState({ cardF: x.k }),
+        bd: f === x.k ? '#005bac' : '#e6e9ed', bg: f === x.k ? '#eaf4fb' : '#fff', fg: f === x.k ? '#005bac' : '#5d6470', weight: f === x.k ? 700 : 400 })),
+      cards: shown.map((c) => {
+        const i = cards.indexOf(c);
+        return { no: c.no, level: c.level, lvBg: lvc(c.level)[0], lvFg: lvc(c.level)[1],
+          bd: i === sel ? '#005bac' : c.overdue ? '#f3c9cf' : '#e6e9ed',
+          dot: c.overdue ? '#c7243a' : c.lent ? '#c2410e' : '#197a4b',
+          state: c.overdue ? '返却遅延' : c.lent ? c.who : '貸出できる',
+          stFg: c.overdue ? '#c7243a' : c.lent ? '#3c424c' : '#197a4b',
+          due: c.lent ? '返却予定 ' + c.due : '',
+          pick: () => this.setState({ cardSel: i }) };
+      }),
+      sel: {
+        no: cur.no, level: cur.level, lvBg: lvc(cur.level)[0], lvFg: lvc(cur.level)[1],
+        actLabel: cur.lent ? '返却を記録' : '貸出を記録',
+        actIcon: cur.lent ? 'corner-down-left' : 'arrow-up-right',
+        actBd: cur.lent ? '#bfe3cd' : '#005bac', actBg: cur.lent ? '#e7f6ee' : '#005bac', actFg: cur.lent ? '#197a4b' : '#fff',
+        act: () => this.setState({ dlg: cur.lent ? 'ret' : 'lend' }),
+        rows: [
+          { label: '状態', value: cur.overdue ? '返却遅延' : cur.lent ? '貸出中' : '貸出できる', fg: cur.overdue ? '#c7243a' : cur.lent ? '#c2410e' : '#197a4b', weight: 800 },
+          { label: '借りている人', value: cur.who || '—', fg: '#1a1d24', weight: 700 },
+          { label: '会社', value: cur.company || '—', fg: '#5d6470', weight: 400 },
+          { label: '用途', value: cur.purpose || '—', fg: '#5d6470', weight: 400 },
+          { label: '貸出日', value: cur.from || '—', fg: '#5d6470', weight: 400 },
+          { label: '返却予定', value: cur.due || '—', fg: cur.overdue ? '#c7243a' : '#5d6470', weight: cur.overdue ? 800 : 400 },
+        ],
+        areas: this.AREAS.map((a, i) => {
+          const ok = i < n;
+          return { label: a.label, icon: ok ? a.icon : 'lock',
+            bd: ok ? '#bfe3cd' : '#eef0f3', bg: ok ? '#e7f6ee' : '#fbfcfd', fg: ok ? '#197a4b' : '#cbd2da' };
+        }),
+        history: [
+          { who: '中西 健（ライトウェーブ音響）', purpose: '夏フェス 中継の仕込み', from: '7/28', to: '—', toFg: '#c2410e' },
+          { who: '大西 亮（社内）', purpose: '第2副調 構築の立会い', from: '7/14', to: '7/18', toFg: '#5d6470' },
+          { who: '佐々木 亘（スカイプロダクション）', purpose: '展示会 ブース配信', from: '6/30', to: '7/3', toFg: '#5d6470' },
+          { who: '寺井 岳宏（社内）', purpose: '深夜メンテナンス', from: '6/12', to: '6/13', toFg: '#5d6470' },
+        ],
+      },
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const cur = s.screen || 'wk';
+    const soon = (msg) => () => this.flash(msg);
+    const M = { 'ウィークリー活動報告': 'wk', 'デイリーニュース報告': 'news', '入ってきた情報': 'inq', '内覧会 来場予約': 'invList', 'セキュリティカード': 'card' };
+    return {
+      isWk: cur === 'wk', wk: this.wkVals(),
+      isNews: cur === 'news', news: this.newsVals(),
+      isInvList: cur === 'invList', ivl: this.invListVals(),
+      isInv: cur === 'inv', inv: this.invVals(),
+      isInq: cur === 'inq', inq: this.inqVals(),
+      isCard: cur === 'card', card: this.cardVals(),
+      ...this.dlgVals(),
+      hasToast: !!s.toast,
+      toast: s.toast,
+      goHome: () => { window.location.href = 'v4-mockup-main.dc.html'; },
+      appSwOpen: s.appSw,
+      toggleAppSw: () => this.setState({ appSw: !s.appSw }),
+      closeAppSw: () => this.setState({ appSw: false }),
+      appSwitchApps: this.APPS.map((a) => ({
+        ...a,
+        pick: () => {
+          this.setState({ appSw: false });
+          if (a.here) return;
+          if (a.to) { window.location.href = a.to; return; }
+          this.flash('「' + a.label + '」はこのファイルには入っていません');
+        },
+      })),
+      menu: this.MENU.map((m) => {
+        const k = M[m.label];
+        const on = k === cur || (k === 'invList' && cur === 'inv');
+        return { group: m.group, label: m.label, tag: m.tag || '',
+          go: k ? () => this.setState({ screen: k }) : soon('「' + m.label + '」の画面はこれから作ります'),
+          bg: on ? '#eaf4fb' : 'transparent', fg: on ? '#005bac' : '#3c424c',
+          dot: on ? '#005bac' : '#cbd2da', weight: on ? 700 : 400 };
+      }),
+      tabs: [
+        { key: 'wk', label: '① ウィークリー活動報告' }, { key: 'news', label: '② デイリーニュース' },
+        { key: 'invList', label: '③ 内覧会 開催日の一覧' }, { key: 'inv', label: '④ 内覧会 その日の受付' },
+        { key: 'inq', label: '⑤ 入ってきた情報' }, { key: 'card', label: '⑥ セキュリティカード' },
+      ].map((t) => {
+        const on = cur === t.key;
+        return { label: t.label, go: () => this.setState({ screen: t.key }),
+          bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470' };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

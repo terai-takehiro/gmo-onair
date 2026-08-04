@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="height:64px; box-sizing:border-box; display:flex; align-items:center; gap:14px; padding:0 24px; background:#fff; border-bottom:1px solid #e9ecf0">
+  <img onClick="{{ onHome }}" src="logo-onair.svg" alt="GMO ONAiR" style="height:20px; width:auto; cursor:pointer">
+  <div style="width:1px; height:22px; background:#e9ecf0"></div>
+  <span style="position:relative; flex-shrink:0">
+    <button onClick="{{ onToggle }}" style="display:flex; align-items:center; gap:9px; height:40px; padding:0 12px; border:1px solid {{ btnBd }}; border-radius:10px; background:{{ btnBg }}; font-size:14px; font-weight:700; color:{{ btnFg }}; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="background:{{ btnBgHover }}">
+      <span style="width:22px; height:22px; border-radius:7px; background:{{ iconBg }}; display:inline-flex; align-items:center; justify-content:center">
+        <i data-lucide="{{ appIcon }}" style="width:13px;height:13px;color:{{ btnFg }}"></i>
+      </span>
+      {{ appLabel }}
+      <i data-lucide="chevron-down" style="width:15px;height:15px"></i>
+    </button>
+    <sc-if value="{{ swOpen }}" hint-placeholder-val="{{ false }}">
+      <span onClick="{{ onClose }}" style="position:fixed; inset:0; z-index:55; display:block"></span>
+      <span style="position:absolute; top:46px; left:0; z-index:60; display:block; width:600px; box-sizing:border-box; background:#fff; border:1px solid #e6e9ed; border-radius:16px; box-shadow:0 30px 60px -20px rgba(16,24,40,.34); padding:13px 15px 15px">
+        <span style="display:block; font-size:11.5px; font-weight:800; color:#9aa1ab; letter-spacing:.1em; margin-bottom:9px">アプリを切り替え</span>
+        <span style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px">
+          <sc-for list="{{ apps }}" as="a" hint-placeholder-count="9">
+            <span onClick="{{ a.pick }}" style="display:flex; align-items:center; gap:9px; padding:9px 11px; border:1px solid {{ a.bd }}; border-radius:11px; background:{{ a.bg }}; cursor:pointer" style-hover="border-color:#a6ceeb">
+              <span style="width:28px; height:28px; border-radius:9px; background:{{ a.iconBg }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+                <i data-lucide="{{ a.icon }}" style="width:15px;height:15px;color:{{ a.iconFg }}"></i>
+              </span>
+              <span style="flex:1; min-width:0; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ a.label }}</span>
+            </span>
+          </sc-for>
+        </span>
+        <span onClick="{{ onHome }}" style="display:flex; align-items:center; gap:9px; margin-top:11px; padding-top:11px; border-top:1px solid #f2f4f7; cursor:pointer">
+          <i data-lucide="home" style="width:15px;height:15px;color:{{ btnFg }}"></i>
+          <span style="font-size:13px; font-weight:700; color:{{ btnFg }}">トップページへ戻る</span>
+          <sc-if value="{{ hasNote }}" hint-placeholder-val="{{ false }}">
+            <span style="flex:1"></span>
+            <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ swNote }}</span>
+          </sc-if>
+        </span>
+      </span>
+    </sc-if>
+  </span>
+  <sc-if value="{{ hasCrumbLink }}" hint-placeholder-val="{{ false }}">
+    <span onClick="{{ onCrumb }}" style="font-size:13px; font-weight:700; color:{{ btnFg }}; white-space:nowrap; cursor:pointer">／ {{ crumb }}</span>
+  </sc-if>
+  <sc-if value="{{ plainCrumb }}" hint-placeholder-val="{{ true }}">
+    <span style="font-size:13px; color:#5d6470; white-space:nowrap">／ {{ crumb }}</span>
+  </sc-if>
+  <sc-if value="{{ hasCrumb2 }}" hint-placeholder-val="{{ false }}">
+    <span style="font-size:13px; color:#5d6470; white-space:nowrap">／ {{ crumb2 }}</span>
+  </sc-if>
+  <div style="flex:1"></div>
+  <button style="display:flex; align-items:center; gap:10px; height:40px; padding:0 14px; border:1px solid #e6e9ed; border-radius:10px; background:#f7f8fa; color:#5d6470; font-size:13.5px; font-family:inherit; cursor:pointer; width:{{ searchW }}; text-align:left" style-hover="border-color:#a6ceeb; background:#fff">
+    <i data-lucide="search" style="width:16px;height:16px"></i>
+    <span style="flex:1; white-space:nowrap">検索</span>
+    <span style="border:1px solid #e6e9ed; background:#fff; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:22px; padding:0 8px; font-size:11px; white-space:nowrap; flex-shrink:0">⌘K</span>
+  </button>
+  <button style="display:flex; align-items:center; gap:8px; height:40px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:13.5px; color:#3c424c; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">
+    <i data-lucide="bell" style="width:16px;height:16px;color:#5d6470"></i>通知
+  </button>
+  <div style="width:32px; height:32px; border-radius:999px; background:{{ iconBg }}; color:{{ btnFg }}; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0">寺</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:64},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;blue&quot;,&quot;indigo&quot;,&quot;slate&quot;],&quot;default&quot;:&quot;blue&quot;,&quot;tsType&quot;:&quot;'blue' | 'indigo' | 'slate'&quot;},&quot;appLabel&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;案件管理&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;appIcon&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;folder-kanban&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumb&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ダッシュボード&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumb2&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;searchWidth&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;260px&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;swNote&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;swOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;apps&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;any[]&quot;},&quot;onHome&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onToggle&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onCrumb&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props || {};
+    const tone = {
+      blue: { bd: '#cfe4f4', bg: '#f4faff', hover: '#eaf4fb', fg: '#005bac', icon: '#eaf4fb' },
+      indigo: { bd: '#d6d9f7', bg: '#f5f6ff', hover: '#eef2ff', fg: '#4338ca', icon: '#eef2ff' },
+      slate: { bd: '#d7dbe0', bg: '#f7f8fa', hover: '#f2f4f7', fg: '#3c424c', icon: '#f2f4f7' },
+    }[p.theme] || { bd: '#cfe4f4', bg: '#f4faff', hover: '#eaf4fb', fg: '#005bac', icon: '#eaf4fb' };
+    return {
+      btnBd: tone.bd,
+      btnBg: tone.bg,
+      btnBgHover: tone.hover,
+      btnFg: tone.fg,
+      iconBg: tone.icon,
+      appLabel: p.appLabel || 'アプリ',
+      appIcon: p.appIcon || 'layout-grid',
+      crumb: p.crumb || '',
+      crumb2: p.crumb2 || '',
+      hasCrumb2: !!p.crumb2,
+      onCrumb: p.onCrumb,
+      hasCrumbLink: !!p.onCrumb,
+      plainCrumb: !p.onCrumb,
+      swOpen: !!p.swOpen,
+      apps: p.apps || [],
+      onHome: p.onHome,
+      onToggle: p.onToggle,
+      onClose: p.onClose,
+      swNote: p.swNote || '',
+      hasNote: !!p.swNote,
+      searchW: p.searchWidth || '260px',
+    };
+  }
+}
+</script>
+</body>
+</html>

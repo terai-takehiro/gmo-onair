@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.470.0/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; background:#e9ebee; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; }
+  a:hover { color:#0068b8; text-decoration:underline; }
+  .num { font-family:'LINE Seed JP','Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  @keyframes screenIn { from { opacity:0; transform:translateY(10px) scale(.995); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes viewIn { from { opacity:0; transform:translateY(8px) scale(.994); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes evIn { from { opacity:0; transform:translateY(6px) scaleY(.94); } to { opacity:1; transform:translateY(0) scaleY(1); } }
+  @keyframes toastIn { from { opacity:0; transform:translate(-50%,14px) scale(.96); } to { opacity:1; transform:translate(-50%,0) scale(1); } }
+  button, a, [style*="cursor:pointer"] { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .14s cubic-bezier(.22,.61,.36,1); }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.985); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column">
+
+  <div style="position:sticky; top:0; z-index:50; background:rgba(233,235,238,.86); backdrop-filter:blur(10px); border-bottom:1px solid #dcdfe4">
+    <div style="max-width:1600px; margin:0 auto; padding:14px 32px; display:flex; align-items:center; gap:16px">
+      <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0">
+        <span class="num" style="font-size:13px; font-weight:800; color:#005bac; letter-spacing:.1em">v4.0</span>
+        <span style="font-size:17px; font-weight:800">モックアップ</span>
+      </div>
+      <div style="width:1px; height:20px; background:#cbd2da; flex-shrink:0"></div>
+      <span style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #c2410e; border-radius:10px; background:#c2410e; color:#fff; font-size:13.5px; font-weight:800; white-space:nowrap">
+        <i data-lucide="calendar-days" style="width:15px;height:15px"></i>カレンダー
+      </span>
+      <a href="v4-mockup-main.dc.html" style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:13.5px; font-weight:700; white-space:nowrap; text-decoration:none">
+        <i data-lucide="layout-grid" style="width:15px;height:15px"></i>ほかのアプリ・共通画面へ
+      </a>
+      <div style="flex:1"></div>
+      <span style="font-size:12.5px; color:#5d6470; white-space:nowrap">実装に渡す前の確認用 ・ 中身はダミー</span>
+    </div>
+    <div style="max-width:1600px; margin:0 auto; padding:0 32px 12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+      <span style="font-size:12px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">カレンダー:</span>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+        <button onClick="{{ t.go }}" style="height:30px; padding:0 13px; border:1px solid {{ t.bd }}; border-radius:999px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:180; background:rgba(16,24,40,.42); display:flex; align-items:flex-start; justify-content:center; padding:64px 24px; overflow:auto">
+      <div style="width:580px; background:#fff; border-radius:18px; box-shadow:0 40px 90px -30px rgba(16,24,40,.55); overflow:hidden; animation:screenIn .22s cubic-bezier(.22,.61,.36,1) both">
+        <div style="display:flex; align-items:center; gap:11px; padding:16px 20px; border-bottom:1px solid #eef0f3">
+          <span style="width:30px; height:30px; border-radius:9px; background:{{ dlg.icBg }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+            <i data-lucide="{{ dlg.icon }}" style="width:16px;height:16px;color:{{ dlg.icFg }}"></i>
+          </span>
+          <h3 style="margin:0; font-size:16px; font-weight:800">{{ dlg.title }}</h3>
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="width:30px; height:30px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0" style-hover="background:#f2f4f7">
+            <i data-lucide="x" style="width:16px;height:16px;color:#9aa1ab"></i>
+          </span>
+        </div>
+        <div style="padding:18px 20px 6px; display:flex; flex-direction:column; gap:12px">
+          <sc-for list="{{ dlg.picks }}" as="pk" hint-placeholder-count="0">
+            <div onClick="{{ pk.go }}" style="display:flex; align-items:flex-start; gap:12px; padding:11px 13px; border:1px solid #e6e9ed; border-radius:12px; cursor:pointer" style-hover="border-color:#a6ceeb; background:#fbfcfd">
+              <span style="width:28px; height:28px; flex-shrink:0; border-radius:999px; background:{{ pk.color }}; display:inline-flex; align-items:center; justify-content:center">
+                <i data-lucide="{{ pk.icon }}" style="width:15px;height:15px;color:#fff"></i>
+              </span>
+              <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+                <span style="font-size:13.5px; font-weight:800; line-height:1.4">{{ pk.label }}</span>
+                <span style="font-size:12px; color:#5d6470; line-height:1.6">{{ pk.hint }}</span>
+              </span>
+            </div>
+          </sc-for>
+          <sc-for list="{{ dlg.fields }}" as="fd" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:14px">
+              <span style="width:118px; flex-shrink:0; font-size:12.5px; font-weight:700; color:#3c424c; white-space:nowrap">{{ fd.label }}<span style="color:#c7243a">{{ fd.req }}</span></span>
+              <span style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <sc-if value="{{ fd.isInput }}" hint-placeholder-val="{{ true }}">
+                  <span style="flex:1; min-width:0; display:inline-flex; align-items:center; height:38px; padding:0 12px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd; font-size:13px; color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ fd.ph }}</span>
+                </sc-if>
+                <sc-if value="{{ fd.isPick }}" hint-placeholder-val="{{ false }}">
+                  <sc-for list="{{ fd.opts }}" as="op" hint-placeholder-count="3">
+                    <span onClick="{{ op.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ op.bd }}; border-radius:9px; background:{{ op.bg }}; color:{{ op.fg }}; font-size:12.5px; font-weight:{{ op.weight }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ op.label }}</span>
+                  </sc-for>
+                </sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <p style="margin:2px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.7">{{ dlg.note }}</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px; padding:16px 20px; margin-top:12px; border-top:1px solid #eef0f3; background:#fbfcfd">
+          <div style="flex:1"></div>
+          <span onClick="{{ dlgClose }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">やめる</span>
+          <sc-if value="{{ dlg.hasSave }}" hint-placeholder-val="{{ true }}">
+            <span onClick="{{ dlgSave }}" style="display:inline-flex; align-items:center; justify-content:center; height:38px; padding:0 17px; border:none; border-radius:10px; background:{{ dlg.saveBg }}; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(1.08)">{{ dlg.save }}</span>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:10px; padding:13px 20px; border-radius:999px; background:#1a1d24; color:#fff; box-shadow:0 20px 40px -14px rgba(16,24,40,.55); animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+      <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#7dd3a0"></i>
+      <span style="font-size:13.5px; font-weight:700; white-space:nowrap">{{ toast }}</span>
+    </div>
+  </sc-if>
+
+  <div style="flex:1; padding:26px 32px 64px">
+    <div style="width:1440px; margin-inline:auto">
+
+      <sc-if value="{{ isCal }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">カレンダー ／ 予定</h1>
+          <span style="font-size:13.5px; color:#5d6470">カレンダーは<strong>1本</strong>。スタジオ・パートナー・自分を<strong>出し入れ</strong>して見ます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="カレンダー" app-icon="calendar-days" crumb="予定" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="予定を入れるときは、まず「部屋を押さえる／自分の予定／パートナー」を選びます。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">予定</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ cal.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ cal.feeds }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="calendar-sync" style="width:14px;height:14px;color:#5d6470"></i>カレンダー連携
+                </button>
+                <button onClick="{{ cal.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>予定を入れる
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <span style="display:flex; align-items:center; gap:4px; flex-shrink:0">
+                  <sc-for list="{{ cal.views }}" as="v" hint-placeholder-count="4">
+                    <span onClick="{{ v.pick }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:52px; height:30px; border:1px solid {{ v.bd }}; border-radius:8px; background:{{ v.bg }}; color:{{ v.fg }}; font-size:12px; font-weight:{{ v.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ v.label }}</span>
+                  </sc-for>
+                </span>
+                <span style="width:1px; height:22px; background:#e6e9ed; flex-shrink:0"></span>
+                <span onClick="{{ cal.prev }}" style="width:30px; height:30px; flex-shrink:0; border:1px solid #e6e9ed; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; background:#fff" style-hover="background:#f2f4f7"><i data-lucide="chevron-left" style="width:15px;height:15px;color:#5d6470"></i></span>
+                <span class="num" style="width:118px; flex-shrink:0; text-align:center; font-size:15px; font-weight:800; white-space:nowrap">{{ cal.title }}</span>
+                <span onClick="{{ cal.next }}" style="width:30px; height:30px; flex-shrink:0; border:1px solid #e6e9ed; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; background:#fff" style-hover="background:#f2f4f7"><i data-lucide="chevron-right" style="width:15px;height:15px;color:#5d6470"></i></span>
+                <span onClick="{{ cal.today }}" style="height:30px; flex-shrink:0; padding:0 12px; border:1px solid #e6e9ed; border-radius:8px; display:inline-flex; align-items:center; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">今日</span>
+                <span style="width:1px; height:22px; background:#e6e9ed; flex-shrink:0"></span>
+                <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">出すもの</span>
+                <span style="display:flex; align-items:center; gap:6px; flex-shrink:0">
+                  <sc-for list="{{ cal.layers }}" as="ly" hint-placeholder-count="3">
+                    <span onClick="{{ ly.toggle }}" style="display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 11px; border:1px solid {{ ly.bd }}; border-radius:999px; background:{{ ly.bg }}; color:{{ ly.fg }}; font-size:12px; font-weight:{{ ly.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">
+                      <span style="width:9px; height:9px; border-radius:999px; background:{{ ly.dot }}; flex-shrink:0"></span>{{ ly.label }}
+                    </span>
+                  </sc-for>
+                </span>
+                <div style="flex:1"></div>
+                <span onClick="{{ cal.filterUser }}" style="display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="user-search" style="width:14px;height:14px;color:#5d6470"></i>人で絞る
+                </span>
+                <span onClick="{{ cal.filterRoom }}" style="display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="door-open" style="width:14px;height:14px;color:#5d6470"></i>{{ cal.roomLabel }}
+                </span>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:13px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+
+                  <sc-if value="{{ cal.isMonth }}" hint-placeholder-val="{{ true }}">
+                  <div style="animation:viewIn .3s cubic-bezier(.22,.61,.36,1) both">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex">
+                    <sc-for list="{{ cal.dows }}" as="w" hint-placeholder-count="7">
+                      <span style="flex:1; min-width:0; text-align:center; padding:9px 0; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11.5px; font-weight:800; color:{{ w.fg }}">{{ w.label }}</span>
+                    </sc-for>
+                  </div>
+                  <sc-for list="{{ cal.weeks }}" as="wk" hint-placeholder-count="5">
+                    <div style="display:flex; border-bottom:1px solid #f2f4f7">
+                      <sc-for list="{{ wk.days }}" as="d" hint-placeholder-count="7">
+                        <div onClick="{{ d.open }}" style="flex:1; min-width:0; height:112px; padding:5px 6px 6px; box-sizing:border-box; border-right:1px solid #f2f4f7; background:{{ d.bg }}; cursor:pointer; display:flex; flex-direction:column; gap:3px" style-hover="background:#f7fafd">
+                          <span style="display:flex; align-items:center; gap:5px; flex-shrink:0">
+                            <span class="num" style="display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; box-sizing:border-box; border-radius:999px; background:{{ d.numBg }}; color:{{ d.numFg }}; font-size:11.5px; font-weight:800">{{ d.n }}</span>
+                            <span style="font-size:10px; color:#c7243a; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ d.holiday }}</span>
+                          </span>
+                          <sc-for list="{{ d.chips }}" as="c" hint-placeholder-count="2">
+                            <span onClick="{{ c.open }}" style="display:flex; align-items:center; gap:4px; height:17px; padding:0 5px; box-sizing:border-box; border-radius:5px; background:{{ c.bg }}; flex-shrink:0; overflow:hidden; cursor:pointer" style-hover="filter:brightness(.96)">
+                              <span style="width:3px; height:11px; border-radius:2px; background:{{ c.color }}; flex-shrink:0"></span>
+                              <span class="num" style="font-size:9.5px; font-weight:700; color:{{ c.fg }}; flex-shrink:0">{{ c.time }}</span>
+                              <span style="font-size:10px; color:{{ c.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0">{{ c.title }}</span>
+                            </span>
+                          </sc-for>
+                          <span style="font-size:9.5px; color:#9aa1ab; font-weight:700; white-space:nowrap">{{ d.more }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+
+                  </div>
+                  </sc-if>
+
+                  <sc-if value="{{ cal.isWeek }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; animation:viewIn .3s cubic-bezier(.22,.61,.36,1) both">
+                    <div style="display:flex; border-bottom:1px solid #eef0f3; background:#fbfcfd">
+                      <span style="width:54px; flex-shrink:0"></span>
+                      <sc-for list="{{ cal.wk.cols }}" as="c" hint-placeholder-count="7">
+                        <span style="flex:1; min-width:0; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0; border-left:1px solid #f2f4f7; background:{{ c.hdBg }}">
+                          <span style="font-size:11px; font-weight:800; color:{{ c.fg }}">{{ c.dow }}</span>
+                          <span class="num" style="display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:{{ c.numBg }}; color:{{ c.numFg }}; font-size:12px; font-weight:800">{{ c.n }}</span>
+                          <span style="font-size:10px; font-weight:700; color:#c7243a; white-space:nowrap">{{ c.holiday }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex; border-bottom:1px solid #eef0f3; min-height:30px">
+                      <span style="width:54px; flex-shrink:0; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:10px; color:#9aa1ab">終日</span>
+                      <sc-for list="{{ cal.wk.cols }}" as="c" hint-placeholder-count="7">
+                        <span style="flex:1; min-width:0; box-sizing:border-box; border-left:1px solid #f2f4f7; padding:4px; display:flex; flex-direction:column; gap:3px; background:{{ c.hdBg }}">
+                          <sc-for list="{{ c.allday }}" as="a" hint-placeholder-count="0">
+                            <span onClick="{{ a.open }}" style="display:flex; align-items:center; gap:5px; height:19px; padding:0 6px; box-sizing:border-box; border-radius:6px; background:{{ a.bg }}; cursor:pointer; overflow:hidden" style-hover="filter:brightness(.96)">
+                              <span style="width:3px; height:12px; border-radius:2px; background:{{ a.color }}; flex-shrink:0"></span>
+                              <span style="font-size:10px; font-weight:700; color:#3c424c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0">{{ a.title }}</span>
+                            </span>
+                          </sc-for>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex; height:616px; overflow:hidden">
+                      <div style="width:54px; flex-shrink:0; position:relative">
+                        <sc-for list="{{ cal.wk.hours }}" as="h" hint-placeholder-count="14">
+                          <span class="num" style="position:absolute; top:{{ h.top }}; right:8px; transform:translateY(-6px); font-size:10.5px; color:#9aa1ab">{{ h.label }}</span>
+                        </sc-for>
+                      </div>
+                      <sc-for list="{{ cal.wk.cols }}" as="c" hint-placeholder-count="7">
+                        <div onClick="{{ c.openDay }}" style="flex:1; min-width:0; box-sizing:border-box; position:relative; border-left:1px solid #f2f4f7; background:{{ c.gridBg }}; cursor:pointer">
+                          <sc-for list="{{ c.evs }}" as="e" hint-placeholder-count="0">
+                            <span onClick="{{ e.open }}" style="position:absolute; top:{{ e.top }}; height:{{ e.h }}; left:{{ e.left }}; width:{{ e.w }}; box-sizing:border-box; border-radius:7px; border-left:3px solid {{ e.color }}; background:{{ e.bg }}; padding:3px 5px; display:flex; flex-direction:column; gap:1px; overflow:hidden; cursor:pointer; animation:evIn .34s cubic-bezier(.22,.61,.36,1) both" style-hover="filter:brightness(.97)">
+                              <span class="num" style="font-size:9.5px; font-weight:800; color:{{ e.color }}; white-space:nowrap">{{ e.time }}</span>
+                              <span style="font-size:10.5px; font-weight:700; color:#1a1d24; line-height:1.3; overflow:hidden; text-overflow:ellipsis">{{ e.title }}</span>
+                              <span style="font-size:9.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ e.room }}</span>
+                            </span>
+                          </sc-for>
+                          <sc-if value="{{ c.isToday }}" hint-placeholder-val="{{ false }}">
+                            <span style="position:absolute; left:0; right:0; top:{{ cal.nowTop }}; height:2px; background:#c7243a; z-index:5">
+                              <span style="position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:999px; background:#c7243a"></span>
+                            </span>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  </sc-if>
+
+                  <sc-if value="{{ cal.isDay }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; animation:viewIn .3s cubic-bezier(.22,.61,.36,1) both">
+                    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #eef0f3; background:#fbfcfd">
+                      <span class="num" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; background:{{ cal.day.numBg }}; color:{{ cal.day.numFg }}; font-size:15px; font-weight:800; flex-shrink:0">{{ cal.day.n }}</span>
+                      <span style="display:flex; flex-direction:column; gap:1px; min-width:0">
+                        <span style="font-size:14px; font-weight:800; white-space:nowrap">{{ cal.day.title }}</span>
+                        <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ cal.day.sub }}</span>
+                      </span>
+                      <div style="flex:1"></div>
+                      <span onClick="{{ cal.day.goRoom }}" style="display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                        <i data-lucide="door-open" style="width:14px;height:14px;color:#5d6470"></i>部屋の空きで見る
+                      </span>
+                    </div>
+                    <sc-if value="{{ cal.day.hasAllday }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex; align-items:center; gap:8px; padding:8px 16px; border-bottom:1px solid #f2f4f7">
+                        <span style="width:38px; flex-shrink:0; font-size:10.5px; color:#9aa1ab">終日</span>
+                        <sc-for list="{{ cal.day.allday }}" as="a" hint-placeholder-count="1">
+                          <span onClick="{{ a.open }}" style="display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 9px; border-radius:7px; background:{{ a.bg }}; cursor:pointer; white-space:nowrap" style-hover="filter:brightness(.96)">
+                            <span style="width:3px; height:13px; border-radius:2px; background:{{ a.color }}"></span>
+                            <span style="font-size:11px; font-weight:700; color:#3c424c">{{ a.title }}</span>
+                          </span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex; height:672px; overflow:hidden">
+                      <div style="width:60px; flex-shrink:0; position:relative">
+                        <sc-for list="{{ cal.day.hours }}" as="h" hint-placeholder-count="14">
+                          <span class="num" style="position:absolute; top:{{ h.top }}; right:10px; transform:translateY(-6px); font-size:11px; color:#9aa1ab">{{ h.label }}</span>
+                        </sc-for>
+                      </div>
+                      <div style="flex:1; min-width:0; position:relative; border-left:1px solid #f2f4f7; background:{{ cal.day.gridBg }}">
+                        <sc-for list="{{ cal.day.evs }}" as="e" hint-placeholder-count="3">
+                          <span onClick="{{ e.open }}" style="position:absolute; top:{{ e.top }}; height:{{ e.h }}; left:{{ e.left }}; width:{{ e.w }}; box-sizing:border-box; border-radius:9px; border-left:4px solid {{ e.color }}; background:{{ e.bg }}; padding:6px 10px; display:flex; flex-direction:column; gap:2px; overflow:hidden; cursor:pointer; animation:evIn .36s cubic-bezier(.22,.61,.36,1) both" style-hover="filter:brightness(.97)">
+                            <span class="num" style="font-size:11px; font-weight:800; color:{{ e.color }}; white-space:nowrap">{{ e.time }}</span>
+                            <span style="font-size:13px; font-weight:700; color:#1a1d24; line-height:1.35; overflow:hidden; text-overflow:ellipsis">{{ e.title }}</span>
+                            <span style="font-size:11px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ e.room }}</span>
+                          </span>
+                        </sc-for>
+                        <sc-if value="{{ cal.day.isToday }}" hint-placeholder-val="{{ true }}">
+                          <span style="position:absolute; left:0; right:0; top:{{ cal.nowTop }}; height:2px; background:#c7243a; z-index:5">
+                            <span style="position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:999px; background:#c7243a"></span>
+                            <span class="num" style="position:absolute; right:8px; top:-8px; font-size:10px; font-weight:800; color:#c7243a">いま</span>
+                          </span>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </div>
+                  </sc-if>
+
+                  <sc-if value="{{ cal.isList }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; animation:viewIn .3s cubic-bezier(.22,.61,.36,1) both">
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                      <span style="width:62px; flex-shrink:0">日付</span>
+                      <span style="width:96px; flex-shrink:0">時間</span>
+                      <span style="flex:1; min-width:0">予定</span>
+                      <span style="width:132px; flex-shrink:0">部屋</span>
+                      <span style="width:56px; flex-shrink:0; text-align:center">取込元</span>
+                      <span style="width:70px; flex-shrink:0; text-align:center">種別</span>
+                    </div>
+                    <sc-for list="{{ cal.list }}" as="r" hint-placeholder-count="10">
+                      <div onClick="{{ r.open }}" style="display:flex; align-items:center; gap:10px; padding:9px 18px; border-bottom:1px solid #f7f8fa; background:{{ r.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                        <span style="width:62px; flex-shrink:0; display:flex; align-items:center; gap:6px">
+                          <span class="num" style="width:28px; text-align:right; font-size:12.5px; font-weight:800; color:{{ r.dFg }}">{{ r.d }}</span>
+                          <span style="width:26px; font-size:10.5px; font-weight:700; color:{{ r.dFg }}">{{ r.dow }}</span>
+                        </span>
+                        <span class="num" style="width:96px; flex-shrink:0; font-size:11.5px; font-weight:700; color:#3c424c">{{ r.time }}</span>
+                        <span style="flex:1; min-width:0; display:flex; align-items:center; gap:8px">
+                          <span style="width:3px; height:16px; border-radius:2px; background:{{ r.color }}; flex-shrink:0"></span>
+                          <span style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.title }}</span>
+                        </span>
+                        <span style="width:132px; flex-shrink:0; font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.room }}</span>
+                        <span style="width:56px; flex-shrink:0; display:flex; justify-content:center">
+                          <sc-if value="{{ r.hasSrc }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:52px; height:20px; border-radius:6px; background:{{ r.srcBg }}; color:{{ r.srcFg }}; font-size:9.5px; font-weight:800; white-space:nowrap">{{ r.src }}</span>
+                          </sc-if>
+                        </span>
+                        <span style="width:70px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:66px; height:21px; border-radius:6px; background:{{ r.tagBg }}; color:{{ r.tagFg }}; font-size:10px; font-weight:800; white-space:nowrap">{{ r.tag }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  </sc-if>
+
+                </div>
+
+                <div style="width:322px; flex-shrink:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px 11px">
+                      <i data-lucide="calendar-check" style="width:16px;height:16px;color:#005bac"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">今日 8/2（日）</h3>
+                      <span class="num" style="font-size:11.5px; color:#9aa1ab; flex-shrink:0">{{ cal.todayN }}</span>
+                    </div>
+                    <sc-for list="{{ cal.todayRows }}" as="r" hint-placeholder-count="4">
+                      <div onClick="{{ r.open }}" style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-top:1px solid #f2f4f7; cursor:pointer" style-hover="background:#fbfcfd">
+                        <span style="width:4px; height:30px; border-radius:2px; background:{{ r.color }}; flex-shrink:0"></span>
+                        <span class="num" style="width:74px; flex-shrink:0; font-size:11.5px; font-weight:700; color:#3c424c">{{ r.time }}</span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.title }}</span>
+                          <span style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                        </span>
+                        <span style="width:52px; flex-shrink:0; display:flex; justify-content:center">
+                          <sc-if value="{{ r.hasSrc }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:20px; border-radius:6px; background:{{ r.srcBg }}; color:{{ r.srcFg }}; font-size:9.5px; font-weight:800; white-space:nowrap">{{ r.src }}</span>
+                          </sc-if>
+                        </span>
+                        <span style="width:58px; flex-shrink:0; display:flex; justify-content:flex-end">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:54px; height:20px; border-radius:6px; background:{{ r.tagBg }}; color:{{ r.tagFg }}; font-size:10px; font-weight:800; white-space:nowrap">{{ r.tag }}</span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px 11px">
+                      <i data-lucide="clock-alert" style="width:16px;height:16px;color:#c2410e"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">期限が近い仮押さえ</h3>
+                      <span onClick="{{ cal.goHold }}" style="font-size:11.5px; font-weight:700; color:#005bac; cursor:pointer; flex-shrink:0; white-space:nowrap">すべて</span>
+                    </div>
+                    <sc-for list="{{ cal.holds }}" as="h" hint-placeholder-count="3">
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-top:1px solid #f2f4f7">
+                        <span style="width:46px; flex-shrink:0; display:flex; justify-content:center">
+                          <span class="num" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:42px; height:21px; border-radius:6px; background:{{ h.dBg }}; color:{{ h.dFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ h.left }}</span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ h.title }}</span>
+                          <span style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ h.sub }}</span>
+                        </span>
+                        <span onClick="{{ h.fix }}" style="display:inline-flex; align-items:center; justify-content:center; height:26px; padding:0 10px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:11px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">本予約に</span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:13px 16px 15px">
+                    <h3 style="margin:0 0 10px; font-size:15px; font-weight:800">色の意味</h3>
+                    <div style="display:flex; flex-wrap:wrap; gap:7px 12px">
+                      <sc-for list="{{ cal.legend }}" as="g" hint-placeholder-count="9">
+                        <span style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap">
+                          <span style="width:10px; height:10px; border-radius:3px; background:{{ g.color }}; flex-shrink:0"></span>
+                          <span style="font-size:11.5px; color:#3c424c">{{ g.label }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <p style="margin:10px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.65">仮押さえは<strong>破線</strong>で出ます。題名に種別を混ぜないので、色と札で見分けます。</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isRoom }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">カレンダー ／ 部屋の空き</h1>
+          <span style="font-size:13.5px; color:#5d6470">縦が部屋、横が時間。<strong>1日ぶんの部屋の埋まり方</strong>を1枚で見ます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="カレンダー" app-icon="calendar-days" crumb="部屋の空き" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">部屋の空き</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ rm.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ rm.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>部屋を押さえる
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <span onClick="{{ rm.prev }}" style="width:30px; height:30px; flex-shrink:0; border:1px solid #e6e9ed; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="chevron-left" style="width:15px;height:15px;color:#5d6470"></i></span>
+                <span class="num" style="width:150px; flex-shrink:0; text-align:center; font-size:15px; font-weight:800; white-space:nowrap">{{ rm.title }}</span>
+                <span onClick="{{ rm.next }}" style="width:30px; height:30px; flex-shrink:0; border:1px solid #e6e9ed; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="chevron-right" style="width:15px;height:15px;color:#5d6470"></i></span>
+                <span style="width:1px; height:22px; background:#e6e9ed; flex-shrink:0"></span>
+                <span style="font-size:12px; font-weight:700; color:#5d6470; flex-shrink:0; white-space:nowrap">拠点</span>
+                <span style="display:flex; align-items:center; gap:4px; flex-shrink:0">
+                  <sc-for list="{{ rm.sites }}" as="st" hint-placeholder-count="3">
+                    <span onClick="{{ st.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border:1px solid {{ st.bd }}; border-radius:8px; background:{{ st.bg }}; color:{{ st.fg }}; font-size:12px; font-weight:{{ st.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ st.label }}</span>
+                  </sc-for>
+                </span>
+                <div style="flex:1"></div>
+                <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">{{ rm.hint }}</span>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:stretch; background:#fbfcfd; border-bottom:1px solid #eef0f3">
+                  <span style="width:216px; flex-shrink:0; padding:8px 14px; box-sizing:border-box; font-size:11px; font-weight:700; color:#5d6470; border-right:1px solid #eef0f3">部屋</span>
+                  <span style="flex:1; min-width:0; display:flex">
+                    <sc-for list="{{ rm.hours }}" as="h" hint-placeholder-count="14">
+                      <span class="num" style="flex:1; min-width:0; padding:8px 0; text-align:center; font-size:10.5px; font-weight:700; color:#9aa1ab; border-right:1px solid #f2f4f7">{{ h.label }}</span>
+                    </sc-for>
+                  </span>
+                </div>
+                <sc-for list="{{ rm.rows }}" as="r" hint-placeholder-count="6">
+                  <div style="display:flex; align-items:stretch; border-bottom:1px solid #f2f4f7">
+                    <span style="width:216px; flex-shrink:0; padding:10px 14px; box-sizing:border-box; border-right:1px solid #eef0f3; display:flex; flex-direction:column; gap:2px">
+                      <span style="display:flex; align-items:center; gap:6px; width:100%">
+                        <span style="width:8px; height:8px; border-radius:2px; background:{{ r.color }}; flex-shrink:0"></span>
+                        <span style="flex:1; min-width:0; font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      </span>
+                      <span style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                    </span>
+                    <span style="flex:1; min-width:0; position:relative; height:54px">
+                      <sc-for list="{{ rm.hours }}" as="h2" hint-placeholder-count="14">
+                        <span style="position:absolute; top:0; bottom:0; left:{{ h2.left }}; width:1px; background:#f2f4f7"></span>
+                      </sc-for>
+                      <sc-for list="{{ r.blocks }}" as="b" hint-placeholder-count="2">
+                        <span onClick="{{ b.open }}" style="position:absolute; top:7px; height:40px; left:{{ b.left }}; width:{{ b.width }}; box-sizing:border-box; border:{{ b.border }}; border-left:3px solid {{ b.color }}; border-radius:8px; background:{{ b.bg }}; padding:5px 8px; display:flex; flex-direction:column; gap:1px; overflow:hidden; cursor:pointer" style-hover="filter:brightness(.98)">
+                          <span class="num" style="font-size:10px; font-weight:800; color:{{ b.fg }}; white-space:nowrap">{{ b.time }}</span>
+                          <span style="font-size:11px; color:{{ b.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ b.title }}</span>
+                        </span>
+                      </sc-for>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">1つの予約が複数の部屋にまたがるときは、その部屋すべての行に出ます。破線は仮押さえです。空いているところを押すと、その部屋・その時間で押さえに行けます。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isCfg }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">カレンダー ／ 設定</h1>
+          <span style="font-size:13.5px; color:#5d6470">部屋・外部カレンダー・サイネージを<strong>1つの画面</strong>にまとめ、タブで切り替えます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="カレンダー" app-icon="calendar-days" crumb="設定" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">設定</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ cf.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ cf.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#0068b8">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>{{ cf.addLabel }}
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:2px; margin:0 -26px 2px; padding:0 24px; border-bottom:1px solid #e9ecf0">
+                <sc-for list="{{ cf.tabs }}" as="t" hint-placeholder-count="3">
+                  <span onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-bottom:2px solid {{ t.bd }}; color:{{ t.fg }}; font-size:13.5px; font-weight:{{ t.w }}; cursor:pointer; white-space:nowrap">
+                    <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>
+                    {{ t.label }}
+                    <span class="num" style="min-width:19px; height:19px; padding:0 6px; box-sizing:border-box; border-radius:999px; background:#f2f4f7; color:#5d6470; font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center">{{ t.n }}</span>
+                  </span>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ cf.isRooms }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                    <span style="width:42px; flex-shrink:0; text-align:center">拠点</span>
+                    <span style="flex:1; min-width:0">部屋</span>
+                    <span style="width:52px; flex-shrink:0; text-align:center">略称</span>
+                    <span style="width:78px; flex-shrink:0; text-align:center">種別</span>
+                    <span style="width:44px; flex-shrink:0; text-align:center">色</span>
+                    <span style="width:62px; flex-shrink:0; text-align:center">表示機</span>
+                    <span style="width:52px; flex-shrink:0"></span>
+                  </div>
+                  <sc-for list="{{ cf.rooms }}" as="r" hint-placeholder-count="7">
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f7f8fa">
+                      <span style="width:42px; flex-shrink:0; display:flex; justify-content:center">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:38px; height:20px; border-radius:6px; background:{{ r.siteBg }}; color:{{ r.siteFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.site }}</span>
+                      </span>
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span style="font-size:13px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                        <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                      </span>
+                      <span class="num" style="width:52px; flex-shrink:0; text-align:center; font-size:11.5px; font-weight:700; color:#3c424c">{{ r.abbr }}</span>
+                      <span style="width:78px; flex-shrink:0; display:flex; justify-content:center">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:74px; height:20px; border-radius:6px; background:{{ r.kBg }}; color:{{ r.kFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.kind }}</span>
+                      </span>
+                      <span style="width:44px; flex-shrink:0; display:flex; justify-content:center">
+                        <span style="width:22px; height:22px; border-radius:7px; border:1px solid rgba(11,13,16,.14); background:{{ r.color }}"></span>
+                      </span>
+                      <span style="width:62px; flex-shrink:0; display:flex; justify-content:center">
+                        <span onClick="{{ r.toggle }}" style="display:inline-flex; align-items:center; box-sizing:border-box; width:38px; height:21px; padding:2px; border-radius:999px; background:{{ r.swBg }}; cursor:pointer; transition:background .18s ease">
+                          <span style="width:17px; height:17px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.3); transform:translateX({{ r.swX }}); transition:transform .18s cubic-bezier(.22,.61,.36,1)"></span>
+                        </span>
+                      </span>
+                      <span style="width:52px; flex-shrink:0; display:flex; justify-content:flex-end; gap:4px">
+                        <span onClick="{{ r.edit }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="pencil" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                        <span onClick="{{ r.del }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#fef6f7"><i data-lucide="trash-2" style="width:13px;height:13px;color:#c7243a"></i></span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 9px; font-size:15px; font-weight:800">拠点</h3>
+                    <sc-for list="{{ cf.sites }}" as="st" hint-placeholder-count="2">
+                      <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #f2f4f7">
+                        <span style="width:38px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:20px; border-radius:6px; background:{{ st.bg }}; color:{{ st.fg }}; font-size:10.5px; font-weight:800">{{ st.code }}</span>
+                        <span style="flex:1; min-width:0; font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ st.name }}</span>
+                        <span class="num" style="width:52px; flex-shrink:0; text-align:right; font-size:11.5px; color:#5d6470">{{ st.n }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">略称は予定の帯に出ます（4部屋以上は「+N」）。色は部屋の空きの行頭に出ます。表示機を入にした部屋だけ、サイネージのURLが作られます。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ cf.isFeed }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <div style="display:flex; align-items:center; gap:9px">
+                      <i data-lucide="upload" style="width:16px;height:16px;color:#005bac"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800">ONAiR から出す</h3>
+                    </div>
+                    <p style="margin:7px 0 11px; font-size:12px; color:#5d6470; line-height:1.7">このURLを Google カレンダー / Outlook に<strong>1つ足すだけ</strong>で、全部屋の予約がまとめて入ります。同期の間隔はカレンダー側の設定によります（通常 数時間〜24時間）。</p>
+                    <div style="display:flex; align-items:center; gap:10px; padding:11px 13px; border:1px solid #cfe4f4; border-radius:12px; background:#f4faff">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span style="font-size:12.5px; font-weight:700">カレンダー フィードURL（全部屋・共通）</span>
+                        <span class="num" style="font-size:11px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ cf.feedUrl }}</span>
+                      </span>
+                      <span onClick="{{ cf.copy }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                        <i data-lucide="copy" style="width:13px;height:13px;color:#5d6470"></i>URLコピー
+                      </span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:11px">
+                      <span style="font-size:12px; font-weight:700; color:#3c424c; white-space:nowrap">仮押さえ</span>
+                      <sc-for list="{{ cf.feedOpts }}" as="o" hint-placeholder-count="2">
+                        <span onClick="{{ o.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border:1px solid {{ o.bd }}; border-radius:8px; background:{{ o.bg }}; color:{{ o.fg }}; font-size:12px; font-weight:{{ o.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ o.label }}</span>
+                      </sc-for>
+                      <div style="flex:1"></div>
+                      <span onClick="{{ cf.regen }}" style="display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border:1px solid #f3c9cf; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#c7243a; cursor:pointer; white-space:nowrap" style-hover="background:#fef6f7">
+                        <i data-lucide="rotate-ccw" style="width:13px;height:13px"></i>トークンを作り直す
+                      </span>
+                    </div>
+                    <p style="margin:8px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.65">作り直すと、いまの登録とサイネージはすべて無効になります。URLが外に漏れたときだけ使ってください。</p>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:9px; padding:13px 16px 11px">
+                      <i data-lucide="download" style="width:16px;height:16px;color:#005bac"></i>
+                      <h3 style="margin:0; flex:1; min-width:0; font-size:15px; font-weight:800">ONAiR に入れる</h3>
+                      <span onClick="{{ cf.addFeed }}" style="font-size:12px; font-weight:700; color:#005bac; cursor:pointer; flex-shrink:0; white-space:nowrap">購読を足す</span>
+                    </div>
+                    <sc-for list="{{ cf.feeds }}" as="fd" hint-placeholder-count="4">
+                      <div style="display:flex; align-items:center; gap:11px; padding:11px 16px; border-top:1px solid #f2f4f7">
+                        <span style="width:66px; flex-shrink:0; display:flex; justify-content:center">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:21px; border-radius:6px; background:{{ fd.srcBg }}; color:{{ fd.srcFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ fd.src }}</span>
+                        </span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ fd.label }}</span>
+                          <span class="num" style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ fd.url }}</span>
+                        </span>
+                        <span style="width:96px; flex-shrink:0; display:flex; flex-direction:column; gap:2px; align-items:flex-end">
+                          <span class="num" style="font-size:11px; color:{{ fd.syncFg }}; white-space:nowrap">{{ fd.synced }}</span>
+                          <span class="num" style="font-size:10.5px; color:#9aa1ab; white-space:nowrap">{{ fd.count }}</span>
+                        </span>
+                        <span style="width:56px; flex-shrink:0; display:flex; justify-content:center">
+                          <span onClick="{{ fd.toggle }}" style="display:inline-flex; align-items:center; box-sizing:border-box; width:38px; height:21px; padding:2px; border-radius:999px; background:{{ fd.swBg }}; cursor:pointer; transition:background .18s ease">
+                            <span style="width:17px; height:17px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.3); transform:translateX({{ fd.swX }}); transition:transform .18s cubic-bezier(.22,.61,.36,1)"></span>
+                          </span>
+                        </span>
+                        <span style="width:52px; flex-shrink:0; display:flex; justify-content:flex-end; gap:4px">
+                          <span onClick="{{ fd.sync }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="refresh-cw" style="width:13px;height:13px;color:#9aa1ab"></i></span>
+                          <span onClick="{{ fd.del }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#fef6f7"><i data-lucide="trash-2" style="width:13px;height:13px;color:#c7243a"></i></span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:320px; flex-shrink:0; display:flex; flex-direction:column; gap:14px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 4px; font-size:15px; font-weight:800">書き戻し</h3>
+                    <p style="margin:0 0 11px; font-size:11.5px; color:#5d6470; line-height:1.65">ONAiR で入れた自分の予定を、外のカレンダーにも作ります。予約（部屋）は書き戻しません。</p>
+                    <sc-for list="{{ cf.back }}" as="bk" hint-placeholder-count="2">
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid #f2f4f7">
+                        <span style="width:10px; height:10px; border-radius:3px; background:{{ bk.color }}; flex-shrink:0"></span>
+                        <span style="flex:1; min-width:0; font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ bk.label }}</span>
+                        <span onClick="{{ bk.toggle }}" style="width:38px; flex-shrink:0; display:inline-flex; align-items:center; box-sizing:border-box; height:21px; padding:2px; border-radius:999px; background:{{ bk.swBg }}; cursor:pointer; transition:background .18s ease">
+                          <span style="width:17px; height:17px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.3); transform:translateX({{ bk.swX }}); transition:transform .18s cubic-bezier(.22,.61,.36,1)"></span>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                    <h3 style="margin:0 0 10px; font-size:15px; font-weight:800">取込元の色</h3>
+                    <div style="display:flex; flex-direction:column; gap:8px">
+                      <sc-for list="{{ cf.srcLegend }}" as="g" hint-placeholder-count="4">
+                        <span style="display:flex; align-items:center; gap:8px">
+                          <span style="width:10px; height:10px; border-radius:3px; background:{{ g.color }}; flex-shrink:0"></span>
+                          <span style="flex:1; min-width:0; font-size:11.5px; color:#3c424c">{{ g.label }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <p style="margin:10px 0 0; font-size:11.5px; color:#9aa1ab; line-height:1.65">同じ会議が2つの経路から入っていても、色と札でどちらを消せばよいか分かります。取込元は題名に混ぜません。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ cf.isSign }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                    <span style="flex:1; min-width:0">部屋 ／ 表示機のURL</span>
+                    <span style="width:78px; flex-shrink:0; text-align:center">いまの状態</span>
+                    <span style="width:96px; flex-shrink:0"></span>
+                  </div>
+                  <sc-for list="{{ cf.signs }}" as="sg" hint-placeholder-count="5">
+                    <div onClick="{{ sg.pick }}" style="display:flex; align-items:center; gap:11px; padding:11px 16px; border-bottom:1px solid #f7f8fa; background:{{ sg.rowBg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                        <span style="font-size:12.5px; font-weight:700; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ sg.name }}</span>
+                        <span class="num" style="font-size:10.5px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ sg.url }}</span>
+                      </span>
+                      <span style="width:78px; flex-shrink:0; display:flex; justify-content:center">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:74px; height:21px; border-radius:6px; background:{{ sg.stBg }}; color:{{ sg.stFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ sg.state }}</span>
+                      </span>
+                      <span style="width:96px; flex-shrink:0; display:flex; justify-content:flex-end">
+                        <span onClick="{{ sg.copy }}" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:28px; padding:0 11px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:11.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">
+                          <i data-lucide="copy" style="width:12px;height:12px;color:#5d6470"></i>コピー
+                        </span>
+                      </span>
+                    </div>
+                  </sc-for>
+                  <p style="margin:0; padding:11px 16px 13px; font-size:11.5px; color:#9aa1ab; line-height:1.7">タブレットやモニターのブラウザで全画面にして使います。URLは部屋ごとに別です。</p>
+                </div>
+
+                <div style="width:392px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+                  <div style="border-radius:16px; overflow:hidden; background:{{ cf.sgBg }}; color:#fff; padding:20px 22px 22px; min-height:268px; display:flex; flex-direction:column">
+                    <div style="display:flex; align-items:flex-start; gap:12px">
+                      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+                        <span style="font-size:19px; font-weight:800; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ cf.sgRoom }}</span>
+                        <span style="font-size:12px; opacity:.72">{{ cf.sgLoc }}</span>
+                      </span>
+                      <span style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:2px">
+                        <span class="num" style="font-size:26px; font-weight:800; line-height:1">14:32</span>
+                        <span class="num" style="font-size:11px; opacity:.72">2026年8月2日</span>
+                      </span>
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:9px; padding:18px 0 6px">
+                      <span style="display:flex; align-items:center; gap:9px">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; height:26px; padding:0 12px; border-radius:999px; background:rgba(255,255,255,.18); font-size:12px; font-weight:800; white-space:nowrap">{{ cf.sgLabel }}</span>
+                        <sc-if value="{{ cf.sgIsTent }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; height:26px; padding:0 12px; border-radius:999px; border:1px dashed rgba(255,255,255,.6); font-size:12px; font-weight:800; white-space:nowrap">仮押さえ</span>
+                        </sc-if>
+                      </span>
+                      <span style="font-size:24px; font-weight:800; line-height:1.35">{{ cf.sgTitle }}</span>
+                      <span style="font-size:13.5px; opacity:.86">{{ cf.sgOccupant }}</span>
+                      <span class="num" style="font-size:15px; font-weight:700; opacity:.92">{{ cf.sgTime }}</span>
+                    </div>
+                    <span style="font-size:11px; opacity:.6; letter-spacing:.08em">GMO GLOBAL STUDIO</span>
+                  </div>
+                  <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#f4faff; border:1px solid #cfe4f4; border-radius:14px">
+                    <i data-lucide="info" style="width:16px;height:16px;color:#005bac;flex-shrink:0;margin-top:1px"></i>
+                    <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">仮押さえ・相談の予約は「仮押さえ」の札を出します。札がないと、まだ確定していない部屋を<strong>使用中</strong>と読まれてしまいます。GLS番号は題名から外して出します。</p>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isHold }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">カレンダー ／ 仮押さえ</h1>
+          <span style="font-size:13.5px; color:#5d6470">本番日が近い順。<strong>その場で本予約に切り替え</strong>られます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="カレンダー" app-icon="calendar-days" crumb="仮押さえ" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">仮押さえ</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ hd.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <span style="display:flex; align-items:center; gap:4px; flex-shrink:0">
+                  <sc-for list="{{ hd.filters }}" as="f" hint-placeholder-count="3">
+                    <span onClick="{{ f.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ f.bd }}; border-radius:9px; background:{{ f.bg }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.w }}; cursor:pointer; white-space:nowrap" style-hover="border-color:#a6ceeb">{{ f.label }}</span>
+                  </sc-for>
+                </span>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 18px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11px; font-weight:700; color:#5d6470">
+                  <span style="width:52px; flex-shrink:0; text-align:center">あと</span>
+                  <span style="width:84px; flex-shrink:0">本番日</span>
+                  <span style="flex:1; min-width:0">案件 ／ お客様</span>
+                  <span style="width:150px; flex-shrink:0">部屋</span>
+                  <span style="width:88px; flex-shrink:0; text-align:center">見込み</span>
+                  <span style="width:172px; flex-shrink:0"></span>
+                </div>
+                <sc-for list="{{ hd.rows }}" as="r" hint-placeholder-count="7">
+                  <div style="display:flex; align-items:center; gap:12px; padding:11px 18px; border-bottom:1px solid #f7f8fa; background:{{ r.rowBg }}">
+                    <span style="width:52px; flex-shrink:0; display:flex; justify-content:center">
+                      <span class="num" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:48px; height:22px; border-radius:6px; background:{{ r.dBg }}; color:{{ r.dFg }}; font-size:11px; font-weight:800; white-space:nowrap">{{ r.left }}</span>
+                    </span>
+                    <span class="num" style="width:84px; flex-shrink:0; font-size:12.5px; font-weight:700; color:#3c424c; white-space:nowrap">{{ r.date }}</span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:13px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.title }}</span>
+                      <span style="font-size:11px; color:#9aa1ab; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.sub }}</span>
+                    </span>
+                    <span style="width:150px; flex-shrink:0; font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.rooms }}</span>
+                    <span style="width:88px; flex-shrink:0; display:flex; align-items:baseline; gap:5px">
+                      <span style="flex-shrink:0; font-size:11px; color:#9aa1ab">￥</span>
+                      <span class="num" style="flex:1; min-width:0; text-align:right; font-size:12.5px; font-weight:700">{{ r.v }}</span>
+                    </span>
+                    <span style="width:172px; flex-shrink:0; display:flex; justify-content:flex-end; gap:6px">
+                      <span onClick="{{ r.fix }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 12px; border:none; border-radius:8px; background:#005bac; color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap" style-hover="background:#0068b8">本予約にする</span>
+                      <span onClick="{{ r.drop }}" style="display:inline-flex; align-items:center; justify-content:center; height:30px; padding:0 11px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:11.5px; font-weight:700; color:#9aa1ab; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">外す</span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fffaf3; border:1px solid #f5d9b8; border-radius:14px">
+                <i data-lucide="alert-triangle" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">切替の期限は持っていません。<strong>本番日までの残り日数</strong>で並べています。45日先までに仮押さえのまま残っているものが対象です。本予約にすると部屋が確定し、表示機にも「使用中」で出ます。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'cal', appSw: false, toast: '', dlg: '', month: 8, view: 'month', off: {}, rmDay: 2, rmSite: 'yoga', hdFilter: 'all' };
+
+  APPS = [
+    { label: '機材管理', icon: 'package', iconBg: '#f2f4f7', iconFg: '#5d6470', to: 'v4-mockup-equipment.dc.html' },
+    { label: '案件管理', icon: 'folder-kanban', iconBg: '#eaf4fb', iconFg: '#005bac' },
+    { label: 'プロジェクト管理', icon: 'list-checks', iconBg: '#eef2ff', iconFg: '#4338ca', to: 'v4-mockup-project.dc.html' },
+    { label: '財務管理', icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', to: 'v4-mockup-finance.dc.html' },
+    { label: 'カレンダー', icon: 'calendar-days', iconBg: '#fff7ed', iconFg: '#c2410e', here: true },
+    { label: '日常業務', icon: 'clipboard-list', iconBg: '#f5f3ff', iconFg: '#6d28d9', to: 'v4-mockup-dailyops.dc.html' },
+    { label: '制作資料', icon: 'layout-template', iconBg: '#fff7ed', iconFg: '#c2410e' },
+    { label: '技術資料', icon: 'sliders-horizontal', iconBg: '#f5f3ff', iconFg: '#6d28d9' },
+    { label: '設定', icon: 'settings', iconBg: '#f2f4f7', iconFg: '#5d6470' },
+  ];
+
+  MENU = [
+    { group: '見る', label: '予定', on: true },
+    { group: '', label: '部屋の空き' },
+    { group: '', label: '仮押さえ', tag: '7' },
+    { group: '設定', label: '設定' },
+  ];
+
+  TYPE = {
+    performance: { label: '本番', color: '#dc2626' },
+    rehearsal: { label: 'リハーサル', color: '#f59e0b' },
+    hold: { label: '仮押さえ', color: '#3b82f6' },
+    consultation: { label: '相談', color: '#10b981' },
+    maintenance: { label: 'メンテ', color: '#64748b' },
+    tour: { label: '内覧', color: '#8b5cf6' },
+    internal: { label: '社内利用', color: '#0891b2' },
+    setup: { label: '設営/準備', color: '#d97706' },
+    trip: { label: '出張', color: '#f59e0b' },
+    leave: { label: '有給', color: '#10b981' },
+    ext: { label: '社外活動', color: '#8b5cf6' },
+    mtg: { label: '打合せ', color: '#2563eb' },
+  };
+
+  HOLIDAYS = { 11: '山の日' };
+
+  EV = [
+    { d: 1, s: '10:00', e: '18:00', t: 'setup', title: '60周年 記念式典 設営', room: 'W', layer: 'studio' },
+    { d: 2, s: '09:00', e: '21:00', t: 'performance', title: '60周年 記念式典 配信・収録', room: 'W', layer: 'studio' },
+    { d: 2, s: '13:00', e: '15:00', t: 'internal', title: '副調 音声チェック', room: '2調', layer: 'studio' },
+    { d: 2, s: '16:00', e: '17:00', t: 'mtg', title: '来週の座組み 打合せ', room: '', layer: 'me', src: 'Google' },
+    { d: 3, s: '10:00', e: '12:00', t: 'mtg', title: '週次 定例', room: '', layer: 'me', src: 'Outlook' },
+    { d: 3, s: '14:00', e: '17:00', t: 'rehearsal', title: '株主総会 リハーサル', room: 'SKY', layer: 'studio' },
+    { d: 4, s: '09:30', e: '19:00', t: 'performance', title: '株主総会 ライブ配信', room: 'SKY', layer: 'studio' },
+    { d: 5, s: '終日', e: '', t: 'leave', title: '中西 有給', room: '', layer: 'partner', src: 'ONAiR' },
+    { d: 5, s: '11:00', e: '13:00', t: 'consultation', title: 'ライトウェーブ音響 下見', room: 'W', layer: 'studio' },
+    { d: 6, s: '10:00', e: '18:00', t: 'hold', title: '夏フェス 中継（仮）', room: 'W', layer: 'studio' },
+    { d: 7, s: '13:00', e: '16:00', t: 'tour', title: '定期内覧会', room: 'W', layer: 'studio' },
+    { d: 8, s: '10:00', e: '17:00', t: 'maintenance', title: '第1調整室 電源工事', room: '1調', layer: 'studio' },
+    { d: 10, s: '10:00', e: '20:00', t: 'performance', title: 'PROGRAM 第15回 収録', room: 'W', layer: 'studio' },
+    { d: 11, s: '終日', e: '', t: 'ext', title: '寺井 展示会 視察', room: '', layer: 'me', src: 'ICS' },
+    { d: 12, s: '14:00', e: '18:00', t: 'hold', title: '記者発表 配信（仮）', room: 'SKY', layer: 'studio' },
+    { d: 13, s: '09:00', e: '12:00', t: 'internal', title: '機材棚卸し（用賀）', room: '倉庫', layer: 'studio' },
+    { d: 14, s: '10:00', e: '19:00', t: 'performance', title: '新製品発表会 収録', room: 'W', layer: 'studio' },
+    { d: 17, s: '10:00', e: '18:00', t: 'rehearsal', title: '社内表彰式 リハ', room: 'SKY', layer: 'studio' },
+    { d: 18, s: '09:00', e: '21:00', t: 'performance', title: '社内表彰式 収録', room: 'SKY', layer: 'studio' },
+    { d: 19, s: '13:00', e: '15:00', t: 'mtg', title: 'GMOメディア 定例', room: '', layer: 'me', src: 'Google' },
+    { d: 20, s: '終日', e: '', t: 'trip', title: '大西 大阪出張', room: '', layer: 'partner', src: 'ONAiR' },
+    { d: 20, s: '10:00', e: '17:00', t: 'hold', title: '展示会 ブース配信（仮）', room: 'W', layer: 'studio' },
+    { d: 21, s: '10:00', e: '18:00', t: 'performance', title: 'セミナー 配信', room: 'W', layer: 'studio' },
+    { d: 24, s: '10:00', e: '16:00', t: 'setup', title: '周年イベント 仕込み', room: 'W', layer: 'studio' },
+    { d: 25, s: '08:00', e: '22:00', t: 'performance', title: '周年イベント 配信', room: 'W', layer: 'studio' },
+    { d: 26, s: '10:00', e: '13:00', t: 'consultation', title: 'GMOペパボ 打合せ', room: '楽A', layer: 'studio' },
+    { d: 27, s: '14:00', e: '18:00', t: 'hold', title: '決算説明会 収録（仮）', room: 'SKY', layer: 'studio' },
+    { d: 28, s: '10:00', e: '18:00', t: 'rehearsal', title: 'PROGRAM 第16回 リハ', room: 'W', layer: 'studio' },
+    { d: 31, s: '10:00', e: '20:00', t: 'performance', title: 'PROGRAM 第16回 収録', room: 'W', layer: 'studio' },
+  ];
+
+  ROOMS = [
+    { site: 'yoga', name: 'WORLD STUDIO', abbr: 'W', sub: '用賀 ／ 1F ・ スタジオ', color: '#dc2626' },
+    { site: 'yoga', name: '第1調整室', abbr: '1調', sub: '用賀 ／ 2F ・ ラック室', color: '#0891b2' },
+    { site: 'yoga', name: '第2調整室', abbr: '2調', sub: '用賀 ／ 2F ・ ラック室', color: '#8b5cf6' },
+    { site: 'yoga', name: '楽屋A', abbr: '楽A', sub: '用賀 ／ 1F ・ 楽屋', color: '#d97706' },
+    { site: 'yoga', name: '3F 倉庫', abbr: '倉庫', sub: '用賀 ／ 3F ・ 倉庫', color: '#64748b' },
+    { site: 'sby', name: 'SKY STUDIO', abbr: 'SKY', sub: '渋谷 ／ 9F ・ スタジオ', color: '#dc2626' },
+    { site: 'sby', name: '副調整室', abbr: '副調', sub: '渋谷 ／ 9F ・ ラック室', color: '#0891b2' },
+  ];
+
+  HOLDS = [
+    { date: '8/6（木）', left: 'あと4日', d: 4, title: '夏フェス 中継（3日間）', sub: 'ライトウェーブ音響 ・ GLS-2607-009', rooms: 'WORLD STUDIO', v: '3,400,000' },
+    { date: '8/12（水）', left: 'あと10日', d: 10, title: '記者発表 配信', sub: 'GMOあおぞらネット銀行 ・ GLS-2608-004', rooms: 'SKY STUDIO', v: '1,650,000' },
+    { date: '8/20（木）', left: 'あと18日', d: 18, title: '展示会 ブース配信', sub: 'GMOグローバルサイン ・ GLS-2608-011', rooms: 'WORLD STUDIO・楽屋A', v: '1,420,000' },
+    { date: '8/27（木）', left: 'あと25日', d: 25, title: '決算説明会 収録', sub: 'GMOフィナンシャルHD ・ GLS-2608-016', rooms: 'SKY STUDIO', v: '2,240,000' },
+    { date: '9/4（金）', left: 'あと33日', d: 33, title: '入社式 配信（秋）', sub: 'GMOインターネットグループ ・ 相談中', rooms: 'WORLD STUDIO', v: '1,180,000' },
+    { date: '9/10（木）', left: 'あと39日', d: 39, title: 'PROGRAM 特番 収録', sub: 'GMOメディア ・ EP-0801', rooms: 'WORLD STUDIO・第1調整室', v: '980,000' },
+    { date: '9/15（火）', left: 'あと44日', d: 44, title: 'ウェビナー 3本撮り', sub: 'GMOペイメントゲートウェイ ・ 相談中', rooms: 'SKY STUDIO', v: '760,000' },
+  ];
+
+  DLG = {
+    pickKind: {
+      icon: 'plus', title: '何の予定を入れますか', note: '部屋を押さえるものと、自分・パートナーの予定は入れ方が違います。ここで選んでから中身を書きます。', noSave: true,
+      picks: [
+        { k: 'booking', label: 'スタジオの予約', hint: '本番・リハーサル・仮押さえ・メンテナンス など（部屋を押さえます）', icon: 'door-open', color: '#dc2626' },
+        { k: 'mine', label: '自分の予定', hint: '打合せ・移動・作業。共有すると他の人にも出ます', icon: 'user', color: '#2563eb' },
+        { k: 'partner', label: 'パートナーの予定', hint: '代休・有給・出張・社外活動。人の空きを見るために入れます', icon: 'users', color: '#8b5cf6' },
+      ],
+    },
+    booking: {
+      icon: 'door-open', title: 'スタジオの予約', save: '入れる', done: '予約を入れました',
+      note: '部屋は複数選べます。仮押さえで入れたものは「仮押さえ」に並び、本番日が近い順に出ます。題名に種別は書かないでください（色と札で出ます）。',
+      fields: [
+        { label: '種別', req: ' *', pick: ['本番', 'リハーサル', '仮押さえ', 'その他'] },
+        { label: '案件', ph: 'GLS番号・案件名で探す（任意）' },
+        { label: '題名', req: ' *', ph: '例）60周年 記念式典 配信・収録' },
+        { label: '日', req: ' *', ph: '2026/08/02' },
+        { label: '時間', req: ' *', ph: '09:00 〜 21:00' },
+        { label: '部屋', req: ' *', ph: 'WORLD STUDIO・第1調整室' },
+        { label: '使う人', ph: '表示機に出ます（例：GMOインターネットグループ）' },
+        { label: 'メモ', ph: '入退館・搬入口など' },
+      ],
+    },
+    mine: {
+      icon: 'user', title: '自分の予定', save: '入れる', done: '自分の予定を入れました',
+      note: '共有すると、選んだ人のカレンダーにも出ます。Google／Outlook に書き戻す設定にしていると、そちらにも作られます。',
+      fields: [
+        { label: '題名', req: ' *', ph: '例）GMOメディア 定例' },
+        { label: '日時', req: ' *', ph: '2026/08/03 13:00 〜 15:00' },
+        { label: '終日', pick: ['いいえ', 'はい'] },
+        { label: '場所', ph: '会議室・オンライン など' },
+        { label: '共有', pick: ['自分だけ', '人を選ぶ'] },
+        { label: '書き戻し', pick: ['しない', 'Google', 'Outlook'] },
+      ],
+    },
+    partner: {
+      icon: 'users', title: 'パートナーの予定', save: '入れる', done: 'パートナーの予定を入れました',
+      note: 'アサインの空きを見るためのものです。本人が入れられないときは、こちらから代わりに入れます。',
+      fields: [
+        { label: '人', req: ' *', ph: '例）大西 亮' },
+        { label: '種別', req: ' *', pick: ['代休', '有給', '出張', '社外活動', 'リモート'] },
+        { label: '日', req: ' *', ph: '2026/08/20' },
+        { label: '終日', pick: ['はい', 'いいえ'] },
+        { label: 'メモ', ph: '連絡が取れる時間など' },
+      ],
+    },
+    fix: {
+      icon: 'calendar-check', title: '仮押さえを本予約にする', save: '本予約にする', done: '仮押さえを本予約にしました',
+      note: '部屋が確定し、表示機の「仮押さえ」の札が外れます。案件がつながっていれば、案件の日程にも入ります。',
+      fields: [
+        { label: '種別', req: ' *', pick: ['本番', 'リハーサル', '設営/準備'] },
+        { label: '時間', ph: '10:00 〜 18:00（仮押さえのまま使う場合は空欄）' },
+        { label: '部屋', ph: '仮押さえの部屋をそのまま使います' },
+      ],
+    },
+    drop: {
+      icon: 'trash-2', title: '仮押さえを外しますか？', save: '外す', tone: 'danger', done: '仮押さえを外しました',
+      note: '部屋が空きます。案件が残っている場合は、案件側の日程は消えません。',
+      fields: [{ label: '理由', pick: ['失注', '日程変更', '重複'] }, { label: 'メモ', ph: '補足' }],
+    },
+    room: {
+      icon: 'door-open', title: '部屋で絞り込む', save: '絞り込む', done: '部屋で絞り込みました',
+      note: '選んだ部屋の予約だけを出します。自分・パートナーの予定は部屋を持たないので、絞ると出なくなります。',
+      fields: [
+        { label: '拠点', pick: ['すべて', '用賀', '渋谷'] },
+        { label: '部屋', ph: 'WORLD STUDIO・SKY STUDIO …' },
+      ],
+    },
+    feeds: {
+      icon: 'calendar-sync', title: 'カレンダー連携', save: 'URLをコピー', done: 'フィードURLをコピーしました',
+      note: 'このURLを Google Calendar / Outlook に1つ足すだけで、全部屋の予約がまとめて入ります。同期の間隔はカレンダー側の設定によります（通常 数時間〜24時間）。',
+      fields: [
+        { label: 'フィードURL', ph: 'https://onair.gmo/feeds/studio/••••••••.ics' },
+        { label: '入れるもの', pick: ['全部屋', '部屋を選ぶ'] },
+        { label: '仮押さえ', pick: ['入れる', '入れない'] },
+      ],
+    },
+    regen: {
+      icon: 'rotate-ccw', title: 'フィードのトークンを作り直しますか？', save: '作り直す', tone: 'danger', done: 'トークンを作り直しました（登録し直してください）',
+      note: 'いまのカレンダー登録とサイネージ表示はすべて無効になり、新しいURLを登録し直すことになります。URLが外に漏れたときだけ使ってください。',
+      fields: [{ label: '理由', pick: ['URLの流出', '退職者の端末', '定期の入れ替え'] }],
+    },
+    addFeed: {
+      icon: 'calendar-plus', title: '外のカレンダーを入れる', save: '入れる', done: '取り込みを始めました',
+      note: 'Google・Outlook はつなぐと自動で入ります。ICS は URL を購読します。取込元は色と札で出るので、題名には混ざりません。',
+      fields: [
+        { label: '取込元', req: ' *', pick: ['Google', 'Outlook', 'URL購読（ICS）'] },
+        { label: 'ラベル', req: ' *', ph: '例）協力会社 稼働表' },
+        { label: 'URL', ph: 'ICS のときだけ（https://…/basic.ics）' },
+        { label: '書き戻し', pick: ['しない', 'する'] },
+      ],
+    },
+    user: {
+      icon: 'user-search', title: '人で絞る', save: '絞り込む', done: '人で絞り込みました',
+      note: 'パートナーの予定を人で絞ります。アサインの空きを見るときに使います。スタジオの予約は人を持たないため、絞ると出なくなります。',
+      fields: [
+        { label: '人', ph: '名前で探す（例：大西 亮）' },
+        { label: '出すもの', pick: ['予定がある人だけ', '全員'] },
+      ],
+    },
+    ev: {
+      icon: 'calendar', title: '予定を見る', save: '直す', done: '予定を直しました',
+      note: '種別は題名に混ぜません。色と札で見分けます。案件がつながっていれば、案件・見積・機材にそのまま行けます。',
+      fields: [
+        { label: '題名', ph: '60周年 記念式典 配信・収録' },
+        { label: '日時', ph: '2026/08/02 09:00 〜 21:00' },
+        { label: '部屋', ph: 'WORLD STUDIO' },
+        { label: '案件', ph: 'GLS-2607-018' },
+        { label: '種別', pick: ['本番', 'リハーサル', '仮押さえ'] },
+      ],
+    },
+  };
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+
+  componentDidMount() { this.icons(); }
+  componentDidUpdate() { this.icons(); }
+
+  icons() {
+    clearTimeout(this._iconT);
+    this._iconT = setTimeout(() => {
+      if (!window.lucide) return;
+      const svgs = document.querySelectorAll('svg.lucide');
+      for (let i = 0; i < svgs.length; i++) {
+        const sv = svgs[i], pa = sv.parentNode;
+        if (!pa) continue;
+        let hasI = false, others = 0;
+        for (let k = 0; k < pa.children.length; k++) {
+          const ch = pa.children[k];
+          if (ch.tagName === 'I' && ch.hasAttribute('data-lucide')) hasI = true;
+          if (ch !== sv && ch.tagName === 'svg' && ch.classList.contains('lucide')) others += 1;
+        }
+        if (hasI || others > 0) { try { pa.removeChild(sv); } catch (e) {} }
+      }
+      if (!document.querySelector('i[data-lucide]')) return;
+      window.lucide.createIcons();
+    }, 60);
+  }
+
+  dlgVals() {
+    const s = this.state;
+    const key = s.dlg;
+    const d = this.DLG[key] || this.DLG.booking;
+    const picks = s.dlgPick || {};
+    return {
+      dlgOpen: !!key,
+      dlgClose: () => this.setState({ dlg: '' }),
+      dlgSave: () => { this.setState({ dlg: '' }); this.flash(d.done || '登録しました'); },
+      dlg: {
+        icon: d.icon, title: d.title, save: d.save || '保存', note: d.note, hasSave: !d.noSave,
+        saveBg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        icBg: d.tone === 'danger' ? '#fef6f7' : '#eaf4fb',
+        icFg: d.tone === 'danger' ? '#c7243a' : '#005bac',
+        picks: (d.picks || []).map((p) => ({ label: p.label, hint: p.hint, icon: p.icon, color: p.color,
+          go: () => this.setState({ dlg: p.k }) })),
+        fields: (d.fields || []).map((fd, i) => ({
+          label: fd.label, req: fd.req || '', ph: fd.ph || '',
+          isInput: !fd.pick, isPick: !!fd.pick,
+          opts: (fd.pick || []).map((o) => {
+            const on = (picks[key + i] || fd.pick[0]) === o;
+            return { label: o, pick: () => { const p = Object.assign({}, picks); p[key + i] = o; this.setState({ dlgPick: p }); },
+              bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470', weight: on ? 800 : 400 };
+          }),
+        })),
+      },
+    };
+  }
+
+  tint(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  dowOf(d) { return (5 + d) % 7; }
+
+  weekViewVals(days, todayD) {
+    const s = this.state;
+    const off = s.off || {};
+    const on = (k) => off[k] === undefined ? true : off[k];
+    const H0 = 8, H1 = 22, span = (H1 - H0) * 60;
+    const toMin = (t) => { const q = t.split(':'); return Number(q[0]) * 60 + Number(q[1]); };
+    const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+    const hours = [];
+    for (let h = H0; h <= H1; h++) hours.push({ label: String(h), top: (((h - H0) * 60) / span * 100).toFixed(3) + '%' });
+    const grid = 'repeating-linear-gradient(to bottom, #f2f4f7 0 1px, transparent 1px ' + (100 / (H1 - H0)).toFixed(4) + '%)';
+    const cols = days.map((d) => {
+      const i = this.dowOf(d);
+      const hol = this.HOLIDAYS[d] || '';
+      const evsAll = this.EV.filter((e) => e.d === d && on(e.layer));
+      const timed = evsAll.filter((e) => e.s !== '終日').slice().sort((a, b) => toMin(a.s) - toMin(b.s));
+      // 重なりを列に割る
+      const lanes = [];
+      timed.forEach((e) => {
+        const a = toMin(e.s), b = toMin(e.e || e.s);
+        let k = 0;
+        while (lanes[k] !== undefined && lanes[k] > a) k++;
+        lanes[k] = b;
+        e._lane = k;
+      });
+      const laneN = Math.max(1, lanes.length);
+      return {
+        n: String(d), dow: DOW[i], holiday: hol,
+        fg: i === 0 || hol ? '#c7243a' : i === 6 ? '#2563eb' : '#5d6470',
+        numBg: d === todayD ? '#005bac' : 'transparent', numFg: d === todayD ? '#fff' : (i === 0 || hol ? '#c7243a' : i === 6 ? '#2563eb' : '#3c424c'),
+        hdBg: hol || i === 0 ? 'rgba(239,68,68,.05)' : i === 6 ? 'rgba(59,130,246,.05)' : '#fff',
+        gridBg: grid, isToday: d === todayD,
+        openDay: () => this.setState({ view: 'day', dayN: d }),
+        allday: evsAll.filter((e) => e.s === '終日').map((e) => {
+          const t = this.TYPE[e.t];
+          return { title: e.title, color: t.color, bg: this.tint(t.color, .12), open: () => this.setState({ dlg: 'ev' }) };
+        }),
+        evs: timed.map((e) => {
+          const t = this.TYPE[e.t];
+          const a = Math.max(toMin(e.s), H0 * 60), b = Math.min(toMin(e.e || e.s), H1 * 60);
+          const w = 100 / laneN;
+          return { time: e.s + '–' + e.e, title: e.title, room: e.room ? this.roomName(e.room) : (e.src ? e.src + ' から' : ''),
+            color: t.color, bg: this.tint(t.color, .1),
+            top: (((a - H0 * 60) / span) * 100).toFixed(3) + '%',
+            h: 'max(20px, ' + (((b - a) / span) * 100).toFixed(3) + '%)',
+            left: 'calc(' + (e._lane * w).toFixed(3) + '% + 2px)', w: 'calc(' + w.toFixed(3) + '% - 4px)',
+            open: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState({ dlg: 'ev' }); } };
+        }),
+      };
+    });
+    return { hours, cols, grid };
+  }
+
+  calVals() {
+    const s = this.state;
+    const off = s.off || {};
+    const on = (k) => off[k] === undefined ? true : off[k];
+    const dlg = (k) => () => this.setState({ dlg: k });
+    const shown = this.EV.filter((e) => on(e.layer));
+    // 2026年8月：1日は土曜
+    const firstDow = 6, days = 31;
+    const weeks = [];
+    let cell = 1 - firstDow;
+    for (let w = 0; w < 6; w++) {
+      const row = [];
+      for (let i = 0; i < 7; i++, cell++) {
+        const inM = cell >= 1 && cell <= days;
+        const evs = inM ? shown.filter((e) => e.d === cell) : [];
+        const hol = inM ? this.HOLIDAYS[cell] : '';
+        const isSun = i === 0, isSat = i === 6, isToday = inM && cell === 2;
+        row.push({
+          n: inM ? String(cell) : '', holiday: hol || '',
+          bg: !inM ? '#fbfcfd' : (isSun || hol) ? 'rgba(239,68,68,.06)' : isSat ? 'rgba(59,130,246,.06)' : '#fff',
+          numBg: isToday ? '#005bac' : 'transparent',
+          numFg: isToday ? '#fff' : (isSun || hol) ? '#c7243a' : isSat ? '#2563eb' : '#3c424c',
+          chips: evs.slice(0, 3).map((e) => {
+            const t = this.TYPE[e.t];
+            return { time: e.s === '終日' ? '終日' : e.s, title: e.title, color: t.color,
+              bg: this.tint(t.color, .10), fg: '#3c424c',
+              open: (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState({ dlg: 'ev' }); } };
+          }),
+          more: evs.length > 3 ? '他 ' + (evs.length - 3) + ' 件' : '',
+          open: inM ? () => this.setState({ view: 'day', dayN: cell }) : () => {},
+        });
+      }
+      weeks.push({ days: row });
+    }
+    const LY = [
+      { k: 'studio', label: 'スタジオ', dot: '#dc2626' },
+      { k: 'partner', label: 'パートナー', dot: '#8b5cf6' },
+      { k: 'me', label: '自分', dot: '#2563eb' },
+    ];
+    const todayRows = this.EV.filter((e) => e.d === 2).map((e) => {
+      const t = this.TYPE[e.t];
+      const sc = { Google: ['#e6f4f1', '#0f766e'], Outlook: ['#e8edfb', '#1e40af'], ICS: ['#f2f4f7', '#5d6470'], ONAiR: ['#eaf4fb', '#2563eb'] }[e.src] || null;
+      return { time: e.s === '終日' ? '終日' : e.s + '–' + e.e, title: e.title, color: t.color,
+        sub: e.room ? this.roomName(e.room) : (e.src ? e.src + ' から' : '部屋なし'),
+        hasSrc: !!sc, src: e.src || '', srcBg: sc ? sc[0] : 'transparent', srcFg: sc ? sc[1] : '#9aa1ab',
+        tag: t.label, tagBg: this.tint(t.color, .12), tagFg: t.color, open: dlg('ev') };
+    });
+    const view = s.view || 'month';
+    const DOWJ = ['日', '月', '火', '水', '木', '金', '土'];
+    const dayN = s.dayN || 2;
+    const weekStart = s.weekStart === undefined ? 2 : s.weekStart;
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) { const d = weekStart + i; if (d >= 1 && d <= 31) weekDays.push(d); }
+    const wkVals = view === 'week' ? this.weekViewVals(weekDays, 2) : { hours: [], cols: [] };
+    const dv = view === 'day' ? this.weekViewVals([dayN], 2) : null;
+    const dayCol = dv ? dv.cols[0] : null;
+    const dayEvs = dayCol ? dayCol.evs : [];
+    const dayVals = {
+      n: String(dayN), title: '8月' + dayN + '日（' + DOWJ[this.dowOf(dayN)] + '）' + (this.HOLIDAYS[dayN] ? ' ・ ' + this.HOLIDAYS[dayN] : ''),
+      sub: (dayCol ? (dayCol.evs.length + dayCol.allday.length) : 0) + ' 件の予定 ・ 8:00 – 22:00',
+      numBg: dayN === 2 ? '#005bac' : '#f2f4f7', numFg: dayN === 2 ? '#fff' : '#3c424c',
+      isToday: dayN === 2, gridBg: dv ? dv.grid : '',
+      hours: dv ? dv.hours : [], evs: dayEvs,
+      allday: dayCol ? dayCol.allday : [], hasAllday: !!(dayCol && dayCol.allday.length),
+      goRoom: () => this.setState({ screen: 'room', rmDay: dayN }),
+    };
+    const listRows = shown.slice().sort((a, b) => a.d - b.d || (a.s === '終日' ? -1 : a.s.localeCompare(b.s))).map((e) => {
+      const t = this.TYPE[e.t];
+      const i = this.dowOf(e.d), hol = this.HOLIDAYS[e.d];
+      const sc = { Google: ['#e6f4f1', '#0f766e'], Outlook: ['#e8edfb', '#1e40af'], ICS: ['#f2f4f7', '#5d6470'], ONAiR: ['#eaf4fb', '#2563eb'] }[e.src] || null;
+      return { d: String(e.d), dow: DOWJ[i], dFg: (i === 0 || hol) ? '#c7243a' : i === 6 ? '#2563eb' : '#3c424c',
+        rowBg: e.d === 2 ? 'rgba(0,91,172,.04)' : '#fff',
+        time: e.s === '終日' ? '終日' : e.s + '–' + e.e, title: e.title, color: t.color,
+        room: e.room ? this.roomName(e.room) : '—',
+        hasSrc: !!sc, src: e.src || '', srcBg: sc ? sc[0] : 'transparent', srcFg: sc ? sc[1] : '#9aa1ab',
+        tag: t.label, tagBg: this.tint(t.color, .12), tagFg: t.color, open: dlg('ev') };
+    });
+    const clampD = (n) => Math.min(31, Math.max(1, n));
+    const title = view === 'month' || view === 'list' ? '2026年8月'
+      : view === 'week' ? '8/' + weekDays[0] + ' – 8/' + weekDays[weekDays.length - 1]
+      : '8月' + dayN + '日（' + DOWJ[this.dowOf(dayN)] + '）';
+    const prev = view === 'week' ? () => (weekStart <= 1 ? this.flash('7月は入っていません（モックアップは8月のみ）') : this.setState({ weekStart: Math.max(1, weekStart - 7) }))
+      : view === 'day' ? () => (dayN <= 1 ? this.flash('7月は入っていません（モックアップは8月のみ）') : this.setState({ dayN: clampD(dayN - 1) }))
+      : () => this.flash('7月を表示します（モックアップは8月のみ）');
+    const next = view === 'week' ? () => (weekStart + 7 > 31 ? this.flash('9月は入っていません（モックアップは8月のみ）') : this.setState({ weekStart: weekStart + 7 }))
+      : view === 'day' ? () => (dayN >= 31 ? this.flash('9月は入っていません（モックアップは8月のみ）') : this.setState({ dayN: clampD(dayN + 1) }))
+      : () => this.flash('9月を表示します（モックアップは8月のみ）');
+    return {
+      lead: '2026年8月 ・ 予約 ' + shown.filter((e) => e.layer === 'studio').length + '件 ・ 仮押さえ ' + this.HOLDS.length + '件 ・ 表示中のレイヤー ' + LY.filter((l) => on(l.k)).length + '／3',
+      add: dlg('pickKind'), feeds: dlg('feeds'), filterRoom: dlg('room'), filterUser: dlg('user'), roomLabel: '部屋で絞る',
+      goHold: () => this.setState({ screen: 'hold' }),
+      title: title,
+      prev: prev, next: next,
+      today: () => this.setState({ view: s.view || 'month', dayN: 2, weekStart: 2 }),
+      isMonth: view === 'month', isWeek: view === 'week', isDay: view === 'day', isList: view === 'list',
+      nowTop: (((14 * 60 + 20) - 8 * 60) / (14 * 60) * 100).toFixed(3) + '%',
+      wk: wkVals,
+      day: dayVals,
+      list: listRows,
+      views: [{ k: 'month', label: '月' }, { k: 'week', label: '週' }, { k: 'day', label: '日' }, { k: 'list', label: '一覧' }].map((v) => ({
+        label: v.label, pick: () => this.setState({ view: v.k }),
+        bd: s.view === v.k ? '#005bac' : '#e6e9ed', bg: s.view === v.k ? '#eaf4fb' : '#fff',
+        fg: s.view === v.k ? '#005bac' : '#5d6470', w: s.view === v.k ? 700 : 400 })),
+      layers: LY.map((l) => {
+        const o = on(l.k);
+        return { label: l.label, dot: o ? l.dot : '#cbd2da',
+          bd: o ? '#005bac' : '#e6e9ed', bg: o ? '#eaf4fb' : '#fff', fg: o ? '#005bac' : '#9aa1ab', w: o ? 700 : 400,
+          toggle: () => { const n = Object.assign({}, off); n[l.k] = !o; this.setState({ off: n }); } };
+      }),
+      dows: ['日', '月', '火', '水', '木', '金', '土'].map((x, i) => ({ label: x, fg: i === 0 ? '#c7243a' : i === 6 ? '#2563eb' : '#5d6470' })),
+      weeks: weeks,
+      todayN: todayRows.length + ' 件',
+      todayRows: todayRows,
+      holds: this.HOLDS.slice(0, 4).map((h) => ({
+        left: h.left.replace('あと', ''), title: h.title, sub: h.date + ' ・ ' + h.rooms,
+        dBg: h.d <= 7 ? '#fef6f7' : '#fff7ed', dFg: h.d <= 7 ? '#c7243a' : '#c2410e',
+        fix: dlg('fix') })),
+      legend: Object.keys(this.TYPE).slice(0, 9).map((k) => ({ label: this.TYPE[k].label, color: this.TYPE[k].color })),
+    };
+  }
+
+  roomName(abbr) {
+    const r = this.ROOMS.find((x) => x.abbr === abbr);
+    return r ? r.name : abbr;
+  }
+
+  rmVals() {
+    const s = this.state;
+    const site = s.rmSite || 'yoga';
+    const day = s.rmDay || 2;
+    const dlg = (k) => () => this.setState({ dlg: k });
+    const H0 = 8, H1 = 22, span = H1 - H0;
+    const hours = [];
+    for (let h = H0; h < H1; h++) hours.push({ label: String(h), left: (((h - H0) / span) * 100).toFixed(3) + '%' });
+    const toMin = (t) => { const p = t.split(':'); return Number(p[0]) * 60 + Number(p[1]); };
+    const rooms = this.ROOMS.filter((r) => site === 'all' || r.site === site);
+    const evs = this.EV.filter((e) => e.d === day && e.room && e.s !== '終日');
+    return {
+      lead: '2026/08/' + String(day).padStart(2, '0') + '（日）・ ' + (site === 'yoga' ? '用賀' : site === 'sby' ? '渋谷' : '全拠点') + ' ・ 予約 ' + evs.length + '件',
+      title: '8月' + day + '日（日）',
+      add: dlg('booking'),
+      prev: () => this.setState({ rmDay: Math.max(1, day - 1) }),
+      next: () => this.setState({ rmDay: Math.min(31, day + 1) }),
+      hint: '8:00 〜 22:00 を表示',
+      sites: [{ k: 'yoga', label: '用賀' }, { k: 'sby', label: '渋谷' }, { k: 'all', label: 'すべて' }].map((x) => ({
+        label: x.label, pick: () => this.setState({ rmSite: x.k }),
+        bd: site === x.k ? '#005bac' : '#e6e9ed', bg: site === x.k ? '#eaf4fb' : '#fff',
+        fg: site === x.k ? '#005bac' : '#5d6470', w: site === x.k ? 700 : 400 })),
+      hours: hours,
+      rows: rooms.map((r) => ({
+        name: r.name, sub: r.sub.split(' ／ ')[1], color: r.color,
+        blocks: evs.filter((e) => e.room === r.abbr).map((e) => {
+          const t = this.TYPE[e.t];
+          const a = (toMin(e.s) - H0 * 60) / (span * 60), b = (toMin(e.e) - H0 * 60) / (span * 60);
+          return { left: (a * 100).toFixed(3) + '%', width: Math.max(0.04, b - a) * 100 + '%',
+            color: t.color, bg: this.tint(t.color, e.t === 'hold' ? .06 : .10),
+            border: e.t === 'hold' ? '1px dashed ' + t.color : '1px solid ' + this.tint(t.color, .35),
+            fg: '#3c424c', time: e.s + '–' + e.e, title: e.title, open: dlg('ev') };
+        }),
+      })),
+    };
+  }
+
+  hdVals() {
+    const s = this.state;
+    const f = s.hdFilter || 'all';
+    const dlg = (k) => () => this.setState({ dlg: k });
+    const rows = this.HOLDS.filter((h) => f === 'all' ? true : f === 'soon' ? h.d <= 14 : h.d > 14);
+    return {
+      lead: '45日先まで ・ ' + this.HOLDS.length + '件（うち2週間以内 ' + this.HOLDS.filter((h) => h.d <= 14).length + '件）',
+      filters: [{ k: 'all', label: 'すべて' }, { k: 'soon', label: '2週間以内' }, { k: 'later', label: 'それより先' }].map((x) => ({
+        label: x.label, pick: () => this.setState({ hdFilter: x.k }),
+        bd: f === x.k ? '#005bac' : '#e6e9ed', bg: f === x.k ? '#eaf4fb' : '#fff',
+        fg: f === x.k ? '#005bac' : '#5d6470', w: f === x.k ? 700 : 400 })),
+      rows: rows.map((h) => ({
+        left: h.left.replace('あと', ''), date: h.date, title: h.title, sub: h.sub, rooms: h.rooms, v: h.v,
+        rowBg: h.d <= 7 ? '#fdf5f6' : '#fff',
+        dBg: h.d <= 7 ? '#fef6f7' : h.d <= 14 ? '#fff7ed' : '#f2f4f7',
+        dFg: h.d <= 7 ? '#c7243a' : h.d <= 14 ? '#c2410e' : '#5d6470',
+        fix: dlg('fix'), drop: dlg('drop'),
+      })),
+    };
+  }
+
+  FEEDS = [
+    { src: 'Google', label: '寺井 業務カレンダー', url: 'google://terai@gmo-globalstudio.com', synced: '3分前', count: '128件', on: true },
+    { src: 'Outlook', label: 'GMO 全社（会議室）', url: 'outlook://gmo-internet.onmicrosoft.com', synced: '18分前', count: '412件', on: true },
+    { src: 'ICS', label: '協力会社 稼働表', url: 'https://cal.lightwave.jp/•••••••/basic.ics', synced: '2時間前', count: '46件', on: true },
+    { src: 'ICS', label: '祝日（日本）', url: 'https://calendar.google.com/•••/japanese.ics', synced: '取得できません', count: '—', on: false, err: true },
+  ];
+
+  cfVals() {
+    const s = this.state;
+    const tab = s.cfTab || 'rooms';
+    const sw = s.cfSw || {};
+    const on = (k, d) => sw[k] === undefined ? d : sw[k];
+    const soon = (m) => () => this.flash(m);
+    const T = [
+      { k: 'rooms', label: '部屋', icon: 'door-open', n: this.ROOMS.length },
+      { k: 'feed', label: '外部カレンダー', icon: 'calendar-sync', n: this.FEEDS.length },
+      { k: 'sign', label: 'サイネージ', icon: 'monitor', n: this.ROOMS.filter((r) => r.sub.indexOf('倉庫') < 0).length },
+    ];
+    const addLabel = { rooms: '部屋を足す', feed: '購読を足す', sign: '表示機を足す' }[tab];
+    const lead = { rooms: '拠点・部屋・略称・色。予定の帯と部屋の空きの並びはここから作られます',
+      feed: 'ONAiR から出すフィードと、ONAiR に入れる購読。取込元は色で見分けます',
+      sign: '部屋の入口に置く表示機。URLは部屋ごとに別です' }[tab];
+    const KIND = { 'スタジオ': ['#f5f3ff', '#6d28d9'], 'ラック室': ['#eaf4fb', '#005bac'], '楽屋': ['#fff7ed', '#c2410e'], '倉庫': ['#f2f4f7', '#5d6470'] };
+    const kindOf = (r) => r.sub.indexOf('スタジオ') >= 0 ? 'スタジオ' : r.sub.indexOf('ラック室') >= 0 ? 'ラック室' : r.sub.indexOf('楽屋') >= 0 ? '楽屋' : '倉庫';
+    const pickSign = s.cfSign === undefined ? 0 : s.cfSign;
+    const SIGN = this.ROOMS.filter((r) => kindOf(r) !== '倉庫').map((r, i) => ({
+      name: (r.site === 'yoga' ? '用賀' : '渋谷') + ' — ' + r.name,
+      url: 'https://onair.gmo/signage/' + r.abbr.toLowerCase() + '/••••••',
+      state: i === 0 ? 'ご利用中' : i === 1 ? '仮押さえ' : '空室',
+    }));
+    const cur = SIGN[pickSign] || SIGN[0];
+    return {
+      lead: lead, addLabel: addLabel, add: soon(addLabel.replace('を足す', '') + 'の追加はこれから作ります'),
+      isRooms: tab === 'rooms', isFeed: tab === 'feed', isSign: tab === 'sign',
+      tabs: T.map((t) => ({ label: t.label, icon: t.icon, n: String(t.n),
+        bd: tab === t.k ? '#005bac' : 'transparent', fg: tab === t.k ? '#005bac' : '#5d6470', w: tab === t.k ? 700 : 400,
+        go: () => this.setState({ cfTab: t.k }) })),
+      rooms: this.ROOMS.map((r, i) => {
+        const k = kindOf(r), c = KIND[k];
+        const o = on('room' + i, k !== '倉庫');
+        return { name: r.name, sub: r.sub, abbr: r.abbr, color: r.color, kind: k, kBg: c[0], kFg: c[1],
+          site: r.site === 'yoga' ? '用賀' : '渋谷',
+          siteBg: r.site === 'yoga' ? '#eaf4fb' : '#f5f3ff', siteFg: r.site === 'yoga' ? '#005bac' : '#6d28d9',
+          swBg: o ? '#005bac' : '#d7dbe0', swX: o ? '17px' : '0px',
+          toggle: () => { const n = Object.assign({}, sw); n['room' + i] = !o; this.setState({ cfSw: n }); },
+          edit: soon('「' + r.name + '」を直します（名前・略称・種別・色・並び順）'),
+          del: soon('「' + r.name + '」は予約が入っているため消せません') };
+      }),
+      sites: [
+        { code: 'Y', name: '用賀（WORLD STUDIO）', n: '5部屋', bg: '#eaf4fb', fg: '#005bac' },
+        { code: 'S', name: '渋谷（SKY STUDIO）', n: '2部屋', bg: '#f5f3ff', fg: '#6d28d9' },
+      ],
+      feedUrl: 'https://onair.gmo/feeds/studio/a1c9•••••••••.ics',
+      copy: () => this.flash('フィードURLをコピーしました'),
+      regen: () => this.setState({ dlg: 'regen' }),
+      addFeed: () => this.setState({ dlg: 'addFeed' }),
+      feedOpts: ['入れる', '入れない'].map((o) => {
+        const cu = s.cfHold || '入れる';
+        return { label: o, pick: () => this.setState({ cfHold: o }),
+          bd: cu === o ? '#005bac' : '#e6e9ed', bg: cu === o ? '#eaf4fb' : '#fff', fg: cu === o ? '#005bac' : '#5d6470', w: cu === o ? 700 : 400 };
+      }),
+      feeds: this.FEEDS.map((fd, i) => {
+        const o = on('feed' + i, fd.on);
+        const c = fd.src === 'Google' ? ['#e6f4f1', '#0f766e'] : fd.src === 'Outlook' ? ['#e8edfb', '#1e40af'] : ['#f2f4f7', '#5d6470'];
+        return { src: fd.src, srcBg: c[0], srcFg: c[1], label: fd.label, url: fd.url,
+          synced: fd.synced, syncFg: fd.err ? '#c7243a' : '#5d6470', count: fd.count,
+          swBg: o ? '#005bac' : '#d7dbe0', swX: o ? '17px' : '0px',
+          toggle: () => { const n = Object.assign({}, sw); n['feed' + i] = !o; this.setState({ cfSw: n }); },
+          sync: () => this.flash('「' + fd.label + '」を取り込みました'),
+          del: soon('「' + fd.label + '」の購読を外すと、入っている予定も消えます') };
+      }),
+      back: [{ k: 'g', label: 'Google カレンダー', color: '#0f766e', d: true }, { k: 'o', label: 'Outlook 予定表', color: '#1e40af', d: false }].map((b) => {
+        const o = on('back' + b.k, b.d);
+        return { label: b.label, color: b.color, swBg: o ? '#005bac' : '#d7dbe0', swX: o ? '17px' : '0px',
+          toggle: () => { const n = Object.assign({}, sw); n['back' + b.k] = !o; this.setState({ cfSw: n }); } };
+      }),
+      srcLegend: [
+        { label: 'ONAiR で入れたもの', color: '#2563eb' }, { label: 'Google から', color: '#0f766e' },
+        { label: 'Outlook から', color: '#1e40af' }, { label: 'URL購読（ICS）から', color: '#64748b' },
+      ],
+      signs: SIGN.map((g, i) => ({ name: g.name, url: g.url, state: g.state,
+        rowBg: i === pickSign ? '#f4faff' : '#fff',
+        stBg: g.state === 'ご利用中' ? '#fef6f7' : g.state === '仮押さえ' ? '#eef4fd' : '#e7f6ee',
+        stFg: g.state === 'ご利用中' ? '#c7243a' : g.state === '仮押さえ' ? '#2563eb' : '#197a4b',
+        pick: () => this.setState({ cfSign: i }),
+        copy: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.flash('表示機のURLをコピーしました'); } })),
+      sgBg: cur.state === '空室' ? '#1f2a37' : '#0f2f52',
+      sgRoom: cur.name.split(' — ')[1], sgLoc: cur.name.split(' — ')[0],
+      sgLabel: cur.state === '空室' ? '空室' : 'ご利用中',
+      sgIsTent: cur.state === '仮押さえ',
+      sgTitle: cur.state === '空室' ? '本日のご予約はありません' : cur.state === '仮押さえ' ? '記者発表 配信' : '60周年 記念式典 配信・収録',
+      sgOccupant: cur.state === '空室' ? '' : cur.state === '仮押さえ' ? 'GMOあおぞらネット銀行' : 'GMOインターネットグループ',
+      sgTime: cur.state === '空室' ? '' : cur.state === '仮押さえ' ? '14:00 - 18:00' : '9:00 - 21:00',
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const cur = s.screen || 'cal';
+    const soon = (msg) => () => this.flash(msg);
+    const M = { '予定': 'cal', '部屋の空き': 'room', '仮押さえ': 'hold', '設定': 'cfg' };
+    return {
+      isCal: cur === 'cal',
+      cal: this.calVals(),
+      isRoom: cur === 'room',
+      rm: this.rmVals(),
+      isHold: cur === 'hold',
+      hd: this.hdVals(),
+      isCfg: cur === 'cfg',
+      cf: this.cfVals(),
+      ...this.dlgVals(),
+      hasToast: !!s.toast,
+      toast: s.toast,
+      goHome: () => { window.location.href = 'v4-mockup-main.dc.html'; },
+      appSwOpen: s.appSw,
+      toggleAppSw: () => this.setState({ appSw: !s.appSw }),
+      closeAppSw: () => this.setState({ appSw: false }),
+      appSwitchApps: this.APPS.map((a) => ({
+        ...a,
+        pick: () => {
+          this.setState({ appSw: false });
+          if (a.here) return;
+          if (a.to) { window.location.href = a.to; return; }
+          this.flash('「' + a.label + '」はこのファイルには入っていません');
+        },
+      })),
+      menu: this.MENU.map((m) => {
+        const k = M[m.label];
+        const on = k === cur;
+        return { group: m.group, label: m.label, tag: m.tag || '',
+          go: k ? () => this.setState({ screen: k }) : soon('「' + m.label + '」の画面はこれから作ります'),
+          bg: on ? '#eaf4fb' : 'transparent', fg: on ? '#005bac' : '#3c424c',
+          dot: on ? '#005bac' : '#cbd2da', weight: on ? 700 : 400 };
+      }),
+      tabs: [
+        { key: 'cal', label: '① 予定' }, { key: 'room', label: '② 部屋の空き' }, { key: 'hold', label: '③ 仮押さえ' },
+        { key: 'cfg', label: '④ 設定' },
+      ].map((t) => {
+        const on = cur === t.key;
+        return { label: t.label, go: () => this.setState({ screen: t.key }),
+          bd: on ? '#005bac' : '#e6e9ed', bg: on ? '#005bac' : '#fff', fg: on ? '#fff' : '#5d6470' };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>
