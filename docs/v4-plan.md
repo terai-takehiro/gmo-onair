@@ -527,6 +527,52 @@ S4（旧シェル削除）── タグ v4.0.0 より前
 各 Phase は Milestone、各画面は Issue、各 Issue に短命なブランチ1本と PR 1本。
 `main` はいつでも「検証環境に出せる状態」を保ちます。本番はタグを公開したときだけ動きます。
 
+---
+
+## Phase 0-1 の実行方法 — ブランチ整理を「GitHub の画面から」流す
+
+Phase 0-1（放置ブランチ41本の整理＋タグ11本）は `scripts/github/cleanup-legacy-branches.sh` を流すだけですが、
+**Claude Code のセッションからは流せません。** git プロキシがタグ作成とブランチ削除を組織ポリシーとして
+拒否します（`error: RPC failed; HTTP 403`）。`git push --dry-run` は通ってしまうので dry-run では気づけず、
+実際に流したときリモートは1バイトも変わりませんでした（タグ0本・ブランチ45本のまま＝壊れていません）。
+
+「GitHub の画面でできないか」を調べた結果:
+
+| やること | GitHub の画面で | 理由 |
+| --- | --- | --- |
+| ブランチ41本の削除 | **できる**（ただし一括削除が無く41回クリック） | Branches ページのゴミ箱アイコン |
+| タグ11本を打つ | **できない（やると本番が出る）** | 画面でタグを作る入口は Releases だけ。`deploy.yml` は `release: types: [published]` で発火するので、**公開した瞬間そのタグの中身が本番に出る**。`v3.1.5`（本番未投入）と `archive/*` 7本（古い作業ブランチ）を本番に出すことになる。下書きのままではタグが作られないので目的も果たせない |
+
+→ **Actions タブから実行する** `.github/workflows/cleanup-branches.yml` を用意しました。
+画面だけで完結し、41回クリックも不要で、タグは push するが Release は作らないので**本番は動きません**
+（`deploy.yml` はタグの push では発火しない）。
+
+```
+Actions → Cleanup branches → Run workflow
+  mode = dry-run                        ← 何が消えるかを出すだけ（リモートは無変更）
+  mode = execute + confirm = cleanup    ← 実行
+```
+
+`confirm` に `cleanup` と入力しないと止まります（41本の削除は取り消しにくいため）。
+結果は Actions の画面に日本語のまとめとして出ます。
+
+ワークフロー側で押さえた3点（どれも欠けると黙って失敗する）:
+
+1. **`fetch-depth: 0` ＋ 全ブランチの refspec を明示** — スクリプトは `origin/main` `origin/dev`
+   `origin/release/v3` と `claude/*` 40本の先端 SHA を照合する。浅い clone では判定できない
+2. **`git remote set-head origin <既定ブランチ>`** — 「`dev` が既定ブランチだと削除できない」という
+   安全確認が `refs/remotes/origin/HEAD` を見るが、`actions/checkout` はこれを張らない。
+   無いと確認が黙って飛ばされ、削除できないブランチを消そうとして落ちる
+3. **`git config user.name` / `user.email`** — `git tag -a`（注釈つきタグ）は打つ人の名前とメールを
+   要求する。Actions は既定で設定しないため、無いとタグ作成の時点で落ちる
+
+> **ワークフローは既定ブランチ（`main`）にある分しか手動実行できません。**
+> この仕組みを含む PR が `main` にマージされてから、Actions タブに `Cleanup branches` が現れます。
+> `docs/ops/github-repo-settings.md` の移行手順はもともと「1. この変更を `main` にマージ →
+> 3. ブランチ整理」の並びなので、段取りは変わりません。
+
+---
+
 ### 承認をいただいたら最初にやること
 
 1. `docs/v4-plan.md` としてこのプランをリポジトリに置く（Issue から参照できるようにする）

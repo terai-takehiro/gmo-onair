@@ -19,11 +19,27 @@
 #   `git push --dry-run` は通ってしまうので、dry-run では気づけない。
 #   実際に流したときリモートは 1 バイトも変わらなかった (タグ0本・ブランチ45本のまま)
 #   ので、途中で止まっても壊れない。
-#   → **手元のターミナル (通常の GitHub 認証) から流すこと。**
-#      流したあとの想定: リモートのタグ 11 本 (archive 7 + v3.1.5/v3.2.0/v3.2.1/v3.2.2)、
-#      ブランチ 45 → 4 本 (main / release/v3 / rollback/old-ui / 作業中のもの)
 #
-# 使い方:
+#   流す方法は2つ。どちらでも同じことをする:
+#     ① GitHub の画面から (おすすめ・このスクリプトを触らなくてよい)
+#        Actions → Cleanup branches → Run workflow
+#          mode = dry-run … 見るだけ
+#          mode = execute + confirm = cleanup … 実行
+#        → .github/workflows/cleanup-branches.yml
+#        ※ ワークフローは**デフォルトブランチ (main) にある分しか呼べない**ので、
+#          この仕組みが入った PR がマージされてから使えるようになる。
+#     ② 手元のターミナル (通常の GitHub 認証) から下の使い方で
+#
+#   流したあとの想定: リモートのタグ 11 本 (archive 7 + v3.1.5/v3.2.0/v3.2.1/v3.2.2)、
+#   ブランチ 45 → 4 本 (main / release/v3 / rollback/old-ui / 作業中のもの)
+#
+# ★ GitHub の Releases 画面でタグを作ってはいけない:
+#   タグを作る入口は Releases しかなく、Release を**公開**すると deploy.yml の
+#   `release: types: [published]` が発火して **そのタグの中身が本番に出る**。
+#   v3.1.5 は本番未投入、archive/* は古い作業ブランチなので、本番に出てはいけない。
+#   (下書きのままではタグが作られないので、そもそも目的も果たせない)
+#
+# 使い方 (手元のターミナルから流す場合):
 #   bash scripts/github/cleanup-legacy-branches.sh --dry-run   # 何をするか見るだけ
 #   bash scripts/github/cleanup-legacy-branches.sh             # 実行
 #
