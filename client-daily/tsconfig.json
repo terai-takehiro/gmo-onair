@@ -16,7 +16,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "paths": { "@/*": ["./src/*"] },
+    "paths": { "@/*": ["./src/*"], "@gmo-onair/shared/*": ["../shared/*"] },
     "ignoreDeprecations": "5.0",
     "baseUrl": "."
   },

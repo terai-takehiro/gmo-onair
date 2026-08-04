@@ -20,7 +20,8 @@
     "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@gmo-onair/shared/*": ["../shared/*"]
     }
   },
   "include": ["src"]

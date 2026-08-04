@@ -4,8 +4,32 @@
 
 ビルド工程を持たない（`main`/`types` が `src/index.ts` を直接指す）。各アプリは
 `@gmo-onair/shared/src/client/...` の深いパスで **TypeScript のまま** import する。
-解決は root の npm workspaces が作る symlink だけに依存している（Vite の alias も
-tsconfig の paths も無い。v4 の F1 で明示する）。
+
+## 参照経路（4つある。ずれると shared が二重に読み込まれる）
+
+| 経路 | 何で解決するか | 書き方 |
+| --- | --- | --- |
+| `import` 文（238か所） | 各アプリの `vite.config.ts` の `resolve.alias` | `@gmo-onair/shared/src/...` |
+| 型チェック（同じ import 文） | 各アプリの `tsconfig.json` の `paths` | 同上 |
+| CSS の `@import`（6アプリ） | Vite の `resolve.alias` | `@gmo-onair/shared/src/client/tokens.css` |
+| Tailwind の preset（6アプリ） | Node の解決（`node_modules` の symlink） | `@gmo-onair/shared/tailwind.preset` |
+
+**4つが同じ実体を指していないと、zustand のストアや React の context が2つできる**
+（「片方で更新したのに反映されない」という再現条件の読めない不具合になる）。
+`npm run lint` の `check-shared-wiring.mjs` が7アプリ分を機械的に照合する。
+
+- **`package.json` の依存は必ず `"@gmo-onair/shared": "*"`。** 範囲（`^2.9.237` 等）を書くと
+  **本番のビルドが落ちる** — Dockerfile の manifests ステージが全ワークスペースの `version` を
+  `0.0.0-build` に書き換えるので範囲が外れ、`npm ci` が公開レジストリを見て 404 になる
+- **`tsconfig.json` の `paths` は、指す先が無いと黙って `node_modules` にフォールバックする**
+  （実測: 存在しないディレクトリに向けても `tsc -b` は exit 0）。**型チェックでは気づけない**ので、
+  ずれを見つけられるのは上記の検査だけ
+- **`shared` に `tsconfig.json` は無い。** そのため shared は各アプリの `tsc -b` に取り込まれる形で
+  **7回・7通りの `compilerOptions` で型チェックされる**（`client-daily` / `client-live` だけ
+  `noUnusedLocals: false`、`client-awards` は `forceConsistentCasingInFileNames` が無い）。
+  正しく直すには shared を composite プロジェクトにして `references` で参照する必要があるが、
+  それは `main`/`types` を `dist` に向ける変更＝238か所の import と CSS の `@import` に影響するため、
+  v4.0.0 では手を付けない
 
 ## 中身
 
