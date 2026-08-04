@@ -11,8 +11,17 @@
 # なぜスクリプトにしてあるか:
 #   ブランチ 41 本の削除は取り消しにくいので、「何を消すのか」を SHA まで
 #   固定して読める形にしてから流す。--dry-run で全部確認できる。
-#   (Claude Code のセッションからは push の権限でタグ作成とブランチ削除が
-#    できなかったため、この形で残してある)
+#
+# ★ 誰が流すか (2026-08-04 に再確認):
+#   **Claude Code のセッションからは流せない。** git プロキシがタグ作成と
+#   ブランチ削除を組織ポリシーとして拒否する:
+#       error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+#   `git push --dry-run` は通ってしまうので、dry-run では気づけない。
+#   実際に流したときリモートは 1 バイトも変わらなかった (タグ0本・ブランチ45本のまま)
+#   ので、途中で止まっても壊れない。
+#   → **手元のターミナル (通常の GitHub 認証) から流すこと。**
+#      流したあとの想定: リモートのタグ 11 本 (archive 7 + v3.1.5/v3.2.0/v3.2.1/v3.2.2)、
+#      ブランチ 45 → 4 本 (main / release/v3 / rollback/old-ui / 作業中のもの)
 #
 # 使い方:
 #   bash scripts/github/cleanup-legacy-branches.sh --dry-run   # 何をするか見るだけ
@@ -71,8 +80,13 @@ elif [ -n "$DEFAULT_BRANCH" ]; then
   echo "  ✓ デフォルトブランチ: $DEFAULT_BRANCH"
 fi
 
-# (b) dev と main が同じコミットを指しているか。
-#     ずれていたら dev にしかない変更があるので消さない。
+# (b) dev を消して失われるものが無いか。
+#     消して良いのは次のどちらか:
+#       - dev == main                      … 中身が同じ
+#       - dev に固有のコミットが0件 かつ    … main から見て先に進んでいない
+#         その位置を release/v3 が指している … v3 のコードは別のブランチに残る
+#     v3.2.0 で v3.1.5 からロールバックしたため、dev (=v3.1.5) は main の祖先ではなく
+#     「別の枝の先端」になっている。単純な SHA 比較だけだと永久に消せない。
 DEV_SHA=$(git rev-parse --verify --quiet "$REMOTE/dev" || true)
 MAIN_SHA=$(git rev-parse "$REMOTE/main")
 if [ -z "$DEV_SHA" ]; then
@@ -81,12 +95,23 @@ if [ -z "$DEV_SHA" ]; then
 elif [ "$DEV_SHA" = "$MAIN_SHA" ]; then
   echo "  ✓ dev と main は同じコミット ($(git rev-parse --short "$MAIN_SHA"))"
 else
-  echo "  ⚠ dev と main がずれている:"
+  DEV_ONLY=$(git rev-list --count "$REMOTE/main..$REMOTE/dev")
+  REL_SHA=$(git rev-parse --verify --quiet "$REMOTE/release/v3" || true)
+  echo "  · dev と main は別の位置:"
   echo "      dev  = $(git rev-parse --short "$DEV_SHA")"
   echo "      main = $(git rev-parse --short "$MAIN_SHA")"
-  echo "      dev にしかないコミット: $(git rev-list --count "$REMOTE/main..$REMOTE/dev") 件"
-  echo "    → dev は消さない。先に main へ取り込んでからもう一度流してください。"
-  DELETE_DEV=false
+  echo "      dev にしかないコミット: $DEV_ONLY 件"
+  if [ "$DEV_ONLY" = "0" ]; then
+    echo "  ✓ dev に固有のコミットは無い"
+    DELETE_DEV=true
+  elif [ -n "$REL_SHA" ] && [ "$REL_SHA" = "$DEV_SHA" ]; then
+    echo "  ✓ 同じコミットを release/v3 が指している → dev を消してもコードは残る"
+    DELETE_DEV=true
+  else
+    echo "    → dev は消さない。固有のコミットがあり、release/v3 も別の位置を指している。"
+    echo "      先に main か release/v3 へ取り込んでからもう一度流してください。"
+    DELETE_DEV=false
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────
