@@ -85,6 +85,12 @@ FROM deps AS build-client
 COPY package.json ./
 COPY shared/ shared/
 COPY CLAUDE.md ./
+# generate-version-history.mjs は CLAUDE.md (最新3件) と docs/version-history.md
+# (それ以前の全件) の両方を読んで画面のバージョン履歴を組み立てる。
+# CLAUDE.md は毎ターン文脈に載るため履歴を全部抱えると作業が遅くなるので切り出してある。
+# この COPY を忘れるとスクリプトは exit 1 で落ちる (fail closed。静かに履歴が
+# 最新3件だけになるのを防ぐため)。.dockerignore の "!docs/version-history.md" と対で必要。
+COPY docs/version-history.md docs/
 COPY scripts/ scripts/
 COPY server/src/contexts/mcp/tools/ server/src/contexts/mcp/tools/
 # gate.ts は generate-mcp-tools.mjs の権限ゲート検証 (書き込みツールの登録漏れ検出) が読む。

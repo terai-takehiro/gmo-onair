@@ -1,11 +1,20 @@
 # GMO ONAiR バージョン履歴 (アーカイブ)
 
 > **この文書は生成物ではなく、CLAUDE.md から切り出したアーカイブです。**
-> 最新5件は `CLAUDE.md` の「## 現在のバージョン」節にあり、6件目以降がここに入ります。
+> 最新3件は `CLAUDE.md` の「## 現在のバージョン」節にあり、**4件目以降がここに入ります**。
 > `scripts/generate-version-history.mjs` が **CLAUDE.md → この文書** の順で読み、
-> `client/public/version-history.json` を組み立てます (画面の「バージョン履歴」は従来どおり全件表示)。
+> `client/public/version-history.json` を組み立てます (画面の「バージョン履歴」は全件表示)。
+>
+> **なぜ切り出すのか**: `CLAUDE.md` は開発中に毎ターン全文が読み込まれるため、履歴を全部抱えると
+> 作業そのものが遅くなります (v3.2.2 時点で 680KB＝CLAUDE.md の96%が履歴でした)。
+>
+> **リリースのたびに、CLAUDE.md の4件目をこの下の「## 過去のバージョン」直下へ移してください。**
+> 目安 (5件) を超えると生成時に警告が出ます。
 >
 > **書式を崩さないこと**: 1エントリ = 1行、`(vX.Y.Z — 本文)` 形式、間に空行。
+> Docker では `.dockerignore` の `!docs/version-history.md` と
+> Dockerfile `build-client` の `COPY docs/version-history.md docs/` の**両方**が必要です
+> (どちらか欠けると生成が exit 1 で止まります)。
 
 ## 過去のバージョン
 

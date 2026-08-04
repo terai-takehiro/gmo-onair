@@ -16,17 +16,25 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const CLAUDE_MD = path.join(ROOT, "CLAUDE.md");
+// v2.9.278 以降: CLAUDE.md には最新数件だけを残し、それ以前はここへ切り出している。
+// CLAUDE.md はコーディング中に毎ターン読み込まれるため、履歴を全部抱えると
+// 本文 828KB のうち 96% が履歴という状態になり、作業そのものが遅くなっていた。
+// 画面の「バージョン履歴」は全件出したいので、生成時にこの2つを連結して読む。
+const HISTORY_MD = path.join(ROOT, "docs", "version-history.md");
 const OUT_FILE = path.join(ROOT, "client", "public", "version-history.json");
 
 const SECTION_START = "## 現在のバージョン";
-const SECTION_END = "## ブランチ運用";
+// CLAUDE.md 側の節の終わり。節を挟む見出しを増やしたらここも直すこと。
+const SECTION_END = "## 開発の絶対原則";
+const HISTORY_SECTION_START = "## 過去のバージョン";
 
-function extractSection(text) {
-  const startIdx = text.indexOf(SECTION_START);
-  if (startIdx === -1) throw new Error(`見出し「${SECTION_START}」が見つかりません`);
+function extractSection(text, start, end) {
+  const startIdx = text.indexOf(start);
+  if (startIdx === -1) throw new Error(`見出し「${start}」が見つかりません`);
   const bodyStart = text.indexOf("\n", startIdx) + 1;
-  const endIdx = text.indexOf(`\n${SECTION_END}`, bodyStart);
-  if (endIdx === -1) throw new Error(`見出し「${SECTION_END}」が見つかりません`);
+  if (!end) return text.slice(bodyStart);
+  const endIdx = text.indexOf(`\n${end}`, bodyStart);
+  if (endIdx === -1) throw new Error(`見出し「${end}」が見つかりません`);
   return text.slice(bodyStart, endIdx);
 }
 
@@ -97,12 +105,40 @@ function parseEntries(sectionText) {
 
 function main() {
   const claudeMd = readFileSync(CLAUDE_MD, "utf8");
-  const section = extractSection(claudeMd);
-  const versions = parseEntries(section);
+  const recent = extractSection(claudeMd, SECTION_START, SECTION_END);
+
+  // アーカイブが読めなければ**ビルドを止める** (fail closed)。
+  // 黙って進むと画面のバージョン履歴が最新5件だけになり、しかもエラーが出ないので
+  // 誰も気付けない。Docker では .dockerignore の再包含と Dockerfile の COPY の
+  // どちらかを忘れるとここに来る。
+  let archived;
+  try {
+    archived = extractSection(readFileSync(HISTORY_MD, "utf8"), HISTORY_SECTION_START, null);
+  } catch (e) {
+    console.error(
+      `[version-history] ${path.relative(ROOT, HISTORY_MD)} を読めません: ${e.message}\n` +
+        `  Docker ビルドで出た場合は .dockerignore の "!docs/version-history.md" と\n` +
+        `  Dockerfile build-client の "COPY docs/version-history.md docs/" を確認すること。`
+    );
+    process.exit(1);
+  }
+
+  // CLAUDE.md は毎ターン全文が読み込まれるので、履歴を溜めると作業が遅くなる。
+  // 溜まってきたら気付けるよう、ビルドのたびに警告する (止めはしない)。
+  const KEEP_IN_CLAUDE_MD = 5;
+  const recentCount = parseEntries(recent).length;
+  if (recentCount > KEEP_IN_CLAUDE_MD) {
+    console.warn(
+      `[version-history] 警告: CLAUDE.md に ${recentCount} 件あります (目安 ${KEEP_IN_CLAUDE_MD} 件)。\n` +
+        `  古いほうを docs/version-history.md の「## 過去のバージョン」直下へ移してください。`
+    );
+  }
+
+  const versions = parseEntries(`${recent}\n${archived}`);
 
   const output = {
     generatedAt: new Date().toISOString(),
-    generatedFrom: "CLAUDE.md #現在のバージョン",
+    generatedFrom: "CLAUDE.md #現在のバージョン + docs/version-history.md",
     product: "GMO ONAiR",
     currentVersion: versions.find((v) => v.isCurrent)?.version ?? null,
     count: versions.length,
