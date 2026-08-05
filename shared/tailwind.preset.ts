@@ -58,6 +58,13 @@ const preset = {
         badge:     ['11px',   { lineHeight: '1.4',  fontWeight: '700' }],
         note:      ['12px',   { lineHeight: '1.75', fontWeight: '400' }],
       },
+      /*
+       * タップ対象の最小寸法 — v4 (docs/design/v4/_rules.md「3. スマホ」)。
+       * **最低 44px** (iOS HIG の基準)。`min-h-tap` / `min-w-tap` で使う。
+       * 追加なので既存の画面には影響しない (いま使っている画面は無い)。
+       */
+      minHeight: { tap: '44px' },
+      minWidth: { tap: '44px' },
       colors: {
         /* GMO Blue scale — matches --color-gmo-blue-* from tokens.css */
         'gmo-blue': {

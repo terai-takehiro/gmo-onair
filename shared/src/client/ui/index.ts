@@ -35,9 +35,6 @@ export * from "./textarea";
 export * from "./separator";
 export * from "./crud-form-dialog";
 export * from "./toggle-button-group";
-export * from "./toast";
-export * from "./use-toast";
-export * from "./toaster";
 export * from "./tax-aware-amount-input";
 
 /* ── v4 の共通部品 (P1)。Radix を要求しないのでバレルに載せてよい ── */
@@ -48,3 +45,25 @@ export * from "./dateRange";  // <DateRange>
 /* ── 行の骨格 (P2)。列幅の7段 (SlotWidth) はここが正 ── */
 export * from "./row";        // <Row> <RowHeader> <RowMain> <RowTitle> <RowSub> <RowSlot>
 export * from "./tableBadge"; // <TableBadge>
+
+/*
+ * ── 知らせる・訊く (P3) ──────────────────────────────────────
+ *
+ * 知らせる → `notifySuccess` / `notifyApiError` (`shared/src/client/notify.ts`)
+ * 訊く    → `confirmAction`     (`shared/src/client/ui/confirm.tsx`)
+ * 出す場所 → `<NoticeBar />` (`ui/notice.tsx`) と `<ConfirmHost />` を
+ *            アプリのシェルに1つずつ。`check-shared-wiring.mjs` が数を検査する
+ * 中身が無いとき → `shared/src/client/states/`
+ *
+ * **どれもこのバレルには載せない** (`table` などと同じ扱い)。深いパスで名指しする:
+ *     import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+ * 載せると**凍結4アプリのバンドルにも入る** (帯も確認も描かないので純粋に無駄)。
+ *
+ * **トースト (`toast` / `useToast` / `Toaster`) も同じくバレルから外した。**
+ * v4 は「流れて消えない帯」で知らせる決まりなので、同じ入口に2つ並べると
+ * 必ず混ざる。ただし**消してはいない** — 凍結アプリの Qシートが 13 か所で
+ * 使っており、そこには**放送中の「放送同期が切断されました」も含まれる**。
+ * 消すと凍結アプリの挙動が変わるので、深いパスでの名指しだけ残した:
+ *     import { toast } from '@gmo-onair/shared/src/client/ui/use-toast';
+ * Qシートを v4 に載せ替えるとき (v4.1 以降) に帯へ寄せて、そこで消す。
+ */

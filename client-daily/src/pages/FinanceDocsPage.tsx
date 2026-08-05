@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Row, RowMain, RowTitle, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { EmptyState, NoSearchResults, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   FINANCE_DOC_TYPE_LABELS, FINANCE_DOC_STATUS_LABELS, formatDateJa,
@@ -46,6 +49,15 @@ export default function FinanceDocsPage() {
     return d.status === statusFilter;
   });
 
+  // 0件のときに「どれを外せば出るのか」を出すための一覧 (絞り込んでいないものは並べない)
+  const activeFilters = [
+    typeTab !== 'all' ? `種別: ${FINANCE_DOC_TYPE_LABELS[typeTab]}` : null,
+    statusFilter === 'pending' ? '状態: 未処理' : null,
+    statusFilter !== 'pending' && statusFilter !== 'all'
+      ? `状態: ${FINANCE_DOC_STATUS_LABELS[statusFilter]}`
+      : null,
+  ].filter((f): f is string => f !== null);
+
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,10 +83,26 @@ export default function FinanceDocsPage() {
         ))}
       </div>
 
+      {/*
+        中身が無いときの出し方を共通部品に寄せた (P3)。
+        ・読み込み中は**全画面のスピナーにしない**。1秒未満は何も出さず (`Delayed`)、
+          それを超えたら一覧の骨組みを出す (画面の枠は残したまま)
+        ・0件は「該当なし」で終わらせず、**1件も無い**のか
+          **絞り込みで消えている**のかを区別して、外すべき条件を名指しする
+      */}
       {isLoading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <Delayed><SkeletonRows rows={4} /></Delayed>
+      ) : (rows ?? []).length === 0 ? (
+        <EmptyState
+          title="受け取った書類はまだありません"
+          description="メールで届いた見積書・請求書・注文書を AI が取り込みます。手で足すこともできます。"
+          action={canEdit ? <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1 h-4 w-4" />追加</Button> : undefined}
+        />
       ) : list.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">該当する書類はありません。</CardContent></Card>
+        <NoSearchResults
+          activeFilters={activeFilters}
+          onClearFilters={() => { setTypeTab('all'); setStatusFilter('all'); }}
+        />
       ) : (
         <div className="space-y-2">
           {list.map((d) => <FinanceCard key={d.id} d={d} canEdit={canEdit} onEdit={() => setEditing(d)} />)}
@@ -134,7 +162,28 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
             {(d.status === 'processed' || d.status === 'rejected') && <StepBtn onClick={() => setStatus('new')} icon={RotateCcw}>受信に戻す</StepBtn>}
             <div className="ml-auto flex gap-1">
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('この書類を削除しますか？')) del.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+              {/*
+                削除は `window.confirm` ではなく `confirmAction` (P3)。
+                **一緒に何が消えるかを出す**のが要点で、「削除しますか？」だけだと
+                取り込んだ本文や金額もまとめて消えることが伝わらない。
+              */}
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => {
+                const ok = await confirmAction({
+                  title: `${FINANCE_DOC_TYPE_LABELS[d.doc_type]}を削除しますか？`,
+                  description: [
+                    d.sender ? `差出人: ${d.sender}` : null,
+                    d.subject ? `件名: ${d.subject}` : null,
+                    '取り込んだ本文・金額・支払期日もいっしょに消えます。元に戻せません。',
+                  ].filter(Boolean).join('\n'),
+                  confirmLabel: '削除する',
+                  tone: 'danger',
+                });
+                if (!ok) return;
+                del.mutate(d.id, {
+                  onSuccess: () => notifySuccess('書類を削除しました'),
+                  onError: (err) => notifyApiError('書類を削除できませんでした', err),
+                });
+              }}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         )}

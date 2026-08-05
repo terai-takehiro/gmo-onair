@@ -19,6 +19,11 @@
 - 共通シェル（`shared/src/client/shell/`）に**載せ替えない**。
   `src/components/layout/{AppShell,Header,Sidebar}.tsx` は残す
 - v4 の共通部品（`Row` / `Money` / `DateRange` など）で**既存画面を書き換えない**
+- **トーストを帯（`NoticeBar`）に置き換えない。** このアプリは `src/lib/notify.ts` 経由で
+  13 か所トーストを使っており、**放送中の「放送同期が切断されました」も含まれる**。
+  v4 の3アプリは帯に移ったが、ここは今日のまま。v4.1 で載せ替えるときに寄せる
+  （P3 でバレルから外したので、import は深いパス
+  `@gmo-onair/shared/src/client/ui/{use-toast,toaster}` を名指しする形になっている）
 
 不具合の修正は通常どおり行ってよい（見た目の刷新だけを止めている）。
 v4.1 以降で順に v4 へ載せ替える。

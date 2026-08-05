@@ -90,6 +90,53 @@
   広がらず 24.6px のままだった）。`TableBadge` が表示を block 系に変えている
 - **`text-badge` を効かせるには `cn()` の設定が必要**（下記）
 
+### v4 の共通部品（P3 で入った）— 中身が無いとき・知らせる・訊く
+
+| 部品 | 置き場所 | 何を強制するか |
+| --- | --- | --- |
+| `EmptyState` / `NoSearchResults` | `src/client/states/` | 「該当なし」で終わらせない。**0件の理由**（1件も無い／絞り込みが効いている）を分ける |
+| `Delayed` + `SkeletonRows` / `SkeletonCard` / `SkeletonKpi` | 同上 | **1秒未満はスピナーを出さない**（点滅させない）。全画面ローディングを作らない |
+| `ErrorPanel` + `humanizeError` | 同上 | 原因1文＋次の一手1文。**HTTP コード・スタックを画面に出さない** |
+| `NotFoundPanel` | 同上 | 知らない URL で**真っ白にしない**（計時LIVE・CG・日常業務は `path="*"` が無い） |
+| `NoPermissionPanel` | 同上 | 白紙にせず、**何の権限が要るか**を名前で出す |
+| `notifySuccess` / `notifyApiError` ほか | `src/client/notify.ts` | 結果を**流れて消えない帯**で伝える（`alert()` 25 か所の置き換え先） |
+| `<NoticeBar />` | `src/client/ui/notice.tsx` | 帯の出る場所。**アプリのシェルに1つだけ** |
+| `confirmAction()` / `<ConfirmHost />` | `src/client/ui/confirm.tsx` | 「〜しますか？」を画面の中で訊く。**一緒に何が消えるかを書ける** |
+
+- **`EmptyState` の実装は1つだけ。** `src/client/dashboard/EmptyState.tsx` が既に 29 ファイルで
+  使われている（うち4つは凍結アプリ）ので、`states/` からは**再エクスポート**している。
+  v4 の画面は `states` だけを見ればよい。ただし既定の `title`（「データがありません」）は
+  v4 の決めごとに反するので、**必ず `title` と `description` を渡すこと**
+- **`<NoticeBar />` と `<ConfirmHost />` は v4 対象3アプリのシェルに1つずつ。**
+  `confirmAction` は器が無いと **`false` を返して実行しません**（黙って実行するより安全側）。
+  つまり置き忘れると「削除ボタンを押しても何も起きない」になるので、
+  `npm run lint` の `check-shared-wiring` が**数を数えて**止める（凍結アプリは 0 個が正）
+- **`states` / `notice` / `confirm` は `ui/index.ts` のバレルに載せない。**
+  載せると凍結4アプリのバンドルにも入る（描かないので純粋に無駄）。深いパスで名指しする
+
+### 保存が黙って失敗しない仕組み（P3・重要）
+
+`src/client/queryClient.ts` の MutationCache に**最後の受け皿**を置いてある。
+書き込みは7アプリで **296 か所**あるのに `onError` の記述は **54 か所**しかなく、
+残りは 400 / 403 / 500 が返っても**画面に何も出ない**（押した人には「押しても変わらない」
+としか見えない）状態だった。
+
+- 画面が自分で `onError` を持っているときは**黙る**（同じ失敗を2回出さない）
+- `useMutation({ meta: { action: '案件の保存' } })` を渡すと「案件の保存に失敗しました」になる。
+  `meta: { silent: true }` で受け皿を止められる
+- **凍結アプリは `<NoticeBar />` を置いていないので今日と同じ挙動**（描く相手がいない）
+- `onError` の**引数の並びを取り違えると常に黙る**。並びは `(error, variables, context, mutation)` で
+  **4番目が mutation**。`shared/tests/queryClient.test.ts` が実際に失敗させて固定している
+
+### トーストは残っているが、v4 では使わない
+
+`ui/{toast,use-toast,toaster}.tsx` は**消していない** — 凍結アプリの Qシートが 13 か所で
+使っており、**放送中の「放送同期が切断されました」も含まれる**。消すと凍結アプリの挙動が変わる。
+
+**ただしバレルからは外した。** 深いパスでしか import できない:
+`import { toast } from '@gmo-onair/shared/src/client/ui/use-toast';`
+v4 の3アプリは帯（`notify.ts`）を使うこと。Qシートを v4 に載せ替えるとき（v4.1 以降）に消す。
+
 ### UI 部品の置き場所と参照のしかた
 
 - `src/client/ui/index.ts`（バレル）は **`data-table` / `filter-bar` / `pagination` /
