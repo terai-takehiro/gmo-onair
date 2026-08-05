@@ -171,6 +171,52 @@ function walk(dir, out = []) {
   }
 }
 
+// ── お知らせ帯と確認ダイアログの器が置かれているか (P3) ──────────────
+//
+// `confirmAction()` は `<ConfirmHost />` が画面に無いと **false を返して実行しません**
+// (置き忘れたときに黙って実行するほうが危ないので、そう倒してある)。
+// つまり置き忘れると「削除ボタンを押しても何も起きない」になり、
+// **その画面を実際に触るまで誰も気づけません**。
+// `<NoticeBar />` も同じで、無いと `notifyApiError` が呼ばれても何も出ません。
+//
+// 凍結4アプリには**置かない**のが正 (帯が出ると見た目が変わる)。
+// 逆にトーストの受け皿 `<Toaster />` は**Qシートだけ**が置く
+// (13 か所で使っており、放送中の「放送同期が切断されました」も含まれる。
+//  v4 の3アプリに置くと通知の出方が2通りになる)。
+{
+  /** v4 対象3アプリ = 帯と器を1つずつ置く。凍結4アプリ = 置かない */
+  const V4_APPS = ['client', 'client-daily', 'client-equipment'];
+  for (const app of APPS) {
+    const src = path.join(ROOT, app, 'src');
+    if (!existsSync(src)) continue;
+    const counts = { NoticeBar: 0, ConfirmHost: 0, Toaster: 0 };
+    for (const file of walk(src)) {
+      if (!/\.tsx$/.test(file)) continue;
+      const text = readFileSync(file, 'utf8');
+      for (const name of Object.keys(counts)) {
+        counts[name] += (text.match(new RegExp(`<${name}\\s*/>`, 'g')) ?? []).length;
+      }
+    }
+    const v4 = V4_APPS.includes(app);
+    const want = { NoticeBar: v4 ? 1 : 0, ConfirmHost: v4 ? 1 : 0, Toaster: app === 'client-qsheet' ? 1 : 0 };
+    const WHY = {
+      NoticeBar: v4
+        ? '無いと notifyApiError が呼ばれても画面に何も出ません'
+        : '凍結アプリには置かないこと (帯が出ると見た目が変わります)',
+      ConfirmHost: v4
+        ? '無いと confirmAction が false を返し、削除ボタンが黙って何もしません'
+        : '凍結アプリには置かないこと',
+      Toaster:
+        app === 'client-qsheet'
+          ? 'Qシートは 13 か所でトーストを使っています (放送中の切断通知を含む)'
+          : 'v4 は帯で知らせる決まりです。トーストを足すと出方が2通りになります',
+    };
+    for (const [name, n] of Object.entries(counts)) {
+      if (n !== want[name]) bad(app, 'シェル', `<${name} /> が ${n} 個 (期待 ${want[name]} 個) — ${WHY[name]}`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ shared の参照がずれています (${problems.length} 件)\n`);
   for (const { app, what, detail } of problems) {

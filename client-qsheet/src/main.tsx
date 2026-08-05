@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { installHistoryDiagnostic } from '@gmo-onair/shared/src/client/historyDiagnostic';
-import { Toaster } from '@gmo-onair/shared/src/client/ui';
+// トーストの置き場所。**凍結アプリだけが使う** (深いパスで名指し。理由は lib/notify.ts)
+import { Toaster } from '@gmo-onair/shared/src/client/ui/toaster';
 import { queryClient } from '@/lib/queryClient';
 import App from '@/App';
 import '@/index.css';

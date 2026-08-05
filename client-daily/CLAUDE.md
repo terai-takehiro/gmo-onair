@@ -34,7 +34,11 @@
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**
 - **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
   `shared/src/client/base.css`（F2 で集約済み）。本文が 16px だったのもこれで揃った
-- **`pages/FinanceDocsPage.tsx` は v4 の行部品に変換済み**（P2 の実証台）。
+- **`pages/FinanceDocsPage.tsx` は v4 の共通部品の実証台**（P2・P3）。
+  中身が無いときは `Delayed`+`SkeletonRows` / `EmptyState` / `NoSearchResults`、
+  削除の確認は `confirmAction`（`window.confirm` は使わない）、
+  結果は `notifySuccess` / `notifyApiError`（`alert` は使わない）。
+  行部品の使い方は次のとおり:
   一覧の行を書くときはここを写す:
   `<Row align="start" stackOnMobile>` ＋ `<RowSlot w={56} hideOnMobile>`（種別）
   ＋ `<TableBadge w={96}>`（ステータス）＋ `<RowMain>`（件名・本文）

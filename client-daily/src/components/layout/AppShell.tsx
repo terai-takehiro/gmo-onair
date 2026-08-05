@@ -3,6 +3,8 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ShieldOff } from 'lucide-react';
+import { NoticeBar } from '@gmo-onair/shared/src/client/ui/notice';
+import { ConfirmHost } from '@gmo-onair/shared/src/client/ui/confirm';
 
 export default function AppShell() {
   const { canView, permissionsLoading } = usePermissions();
@@ -31,10 +33,19 @@ export default function AppShell() {
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <Header />
+        {/*
+          お知らせ帯はスクロールする領域の**中の上端**に置く (sticky top-0)。
+          ヘッダーの外に出すと、スクロールして下にいるときに気づけない。
+          確認ダイアログの器 (ConfirmHost) はシェル直下に1つだけ。
+          置き忘れると confirmAction が **false を返して実行しない**
+          (黙って実行するより安全側に倒してある)。
+        */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <NoticeBar />
           <Outlet />
         </main>
       </div>
+      <ConfirmHost />
     </div>
   );
 }
