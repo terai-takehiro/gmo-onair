@@ -109,6 +109,28 @@ v4.0.0 の対象は **`client` / `client-daily` / `client-equipment` の3アプ�
 - **`hsl(var(--…))` と書かないこと。** 3つ組を HSL として読むと全く違う色になる。
   `npm run lint` の `check-tokens.mjs` が止める（リアルタイムCG だけは自前の HSL
   トークンと自前の tailwind 設定で完結しているので対象外）
+
+### v4 で足した名前（T1b・まだ画面では使っていない）
+
+| 種類 | 名前 |
+| --- | --- |
+| 状態の帯 | `success-surface/-border`・`warning-surface/-border/-border-strong`・`destructive-surface/-border`・`info-surface/-border` |
+| AI・表彰 | `ai`・`ai-foreground`・`ai-surface`・`ai-border` |
+| 面と罫の段 | `surface-subtle`・`border-subtle`・`border-faint`・`border-disabled` |
+| プライマリの淡い段 | `primary-surface`・`primary-surface-weak`・`primary-border`・`primary-border-strong` |
+| 薄い文字 | `fg-disabled` — **読ませる文字には使わない**（白地で 2.61:1）。ヒント文字・押せない状態・アイコンの塗りだけ |
+| 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない** |
+| 角丸の役割名 | `rounded-{badge-xs,badge,control,control-md,control-lg,note,card,app,chip}` |
+| 型スケール | `text-{h1,h2,card,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
+
+- **v4 の一群は明るい配色のみ。** モックに暗い配色が無く、使う予定の無い色を先に決めると
+  誰も見ていない値を保守することになる。`check-tokens.mjs` はこの一群を例外として扱う
+  （暗い配色を使うのは凍結アプリの放送画面だけで、そこは v4 のトークンを参照しない）
+- **角丸の数字の段（`rounded` / `rounded-xl` / `rounded-2xl` / `rounded-3xl`）は T2 で入れ替える。**
+  T1b で入れたら Tailwind の組み込みとぶつかり、**書き換えていない画面の角まで変わった**
+  （`rounded` 4px→7px が1,455か所、`rounded-2xl` 16px→14px が7か所。ビルド出力を比べて発見）
+- **型スケールがウェイトを内包している**ので、v4 の画面で `font-medium` / `font-semibold` を
+  書く理由は無い（LINE Seed JP は 400/700/800 しか無く 500/600 は黙って落ちる）
 - **`client-awards` は `tokens.css` を読んでいない**（自前の変数を持ち、共通 preset も継承していない）。
   凍結なのでこれは**直さない**
 

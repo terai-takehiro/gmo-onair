@@ -80,9 +80,29 @@ for (const [set, name] of [[light, ':root'], [dark, '.dark']]) {
 }
 
 // ── ② 明るい配色と暗い配色で定義がそろっているか ──────────────
-// 暗い配色に無いトークンは、明るい配色の値のまま描かれる (黙って読めない色になる)
+// 暗い配色に無いトークンは、明るい配色の値のまま描かれる (黙って読めない色になる)。
+//
+// ただし **v4 で足した一群は明るい配色のみ**。v4 の画面はモックに暗い配色が無く、
+// 使う予定の無い色を先に決めると誰も見ていない値を保守することになる。
+// v4 の画面を暗くするときにまとめて決める。
+// (暗い配色を使っているのは凍結アプリの放送画面 = Qシートの OnAir / ランダウンだけで、
+//  そこは v4 のトークンを1つも参照しない)
+const LIGHT_ONLY = [
+  /-surface(-weak)?$/,          // 帯の背景 (success-surface など)
+  /^--border-(subtle|faint|disabled)$/,
+  /^--primary-border(-strong)?$/,
+  /-border(-strong)?$/,         // 状態の帯の枠 (success-border など)
+  /^--surface-subtle$/,
+  /^--fg-disabled$/,
+  /^--ai(-foreground)?$/,
+  /^--cat-[1-8]$/,
+];
+const lightOnly = (tok) => LIGHT_ONLY.some((re) => re.test(tok));
+
 for (const tok of light.keys()) {
-  if (!dark.has(tok)) bad('tokens.css .dark', `${tok} が暗い配色に無い (明るい配色の値のまま描かれます)`);
+  if (!dark.has(tok) && !lightOnly(tok)) {
+    bad('tokens.css .dark', `${tok} が暗い配色に無い (明るい配色の値のまま描かれます)`);
+  }
 }
 for (const tok of dark.keys()) {
   if (!light.has(tok)) bad('tokens.css :root', `${tok} が明るい配色に無い`);
