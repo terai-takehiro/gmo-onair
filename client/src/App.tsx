@@ -20,7 +20,6 @@ import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InboxPage from "@/contexts/sales/pages/InboxPage";
-import PipelinePage from "@/contexts/sales/pages/PipelinePage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
@@ -124,7 +123,9 @@ function AppRoutes() {
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/inbox" element={<PermissionRoute module="sales"><InboxPage /></PermissionRoute>} />
-        <Route path="/sales/pipeline" element={<PermissionRoute module="sales"><PipelinePage /></PermissionRoute>} />
+        {/* v4: ヨミ・パイプラインは案件一覧の「ボード」表示に畳んだ (別画面だと絞り込みが引き継げず、
+            一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
+        <Route path="/sales/pipeline" element={<Navigate to="/sales/projects?view=board" replace />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />

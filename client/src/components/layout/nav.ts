@@ -41,7 +41,6 @@ import {
   ShoppingCart,
   Sparkles,
   Store,
-  TrendingUp,
   Truck,
   UserCog,
   Users,
@@ -67,7 +66,6 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "商談",
       items: [
-        { label: "ヨミ・パイプライン", to: "/sales/pipeline", icon: TrendingUp },
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
       ],
     },

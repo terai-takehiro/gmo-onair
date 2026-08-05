@@ -34,7 +34,6 @@
     "client/src/contexts/finance/components/SgaDialog.tsx": 499,
     "client/src/contexts/sales/pages/CompanyListPage.tsx": 494,
     "client/src/contexts/sales/pages/CustomerDetailPage.tsx": 492,
-    "client/src/contexts/sales/pages/ProjectListPage.tsx": 492,
     "client/src/contexts/finance/pages/BudgetDashboardPage.tsx": 483,
     "client/src/contexts/sales/pages/InboxPage.tsx": 451,
     "client-equipment/src/pages/LocationPage.tsx": 439,

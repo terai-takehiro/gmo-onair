@@ -18,11 +18,18 @@
 import * as React from 'react';
 import { cn } from '../utils';
 
-/** `YYYY-MM-DD...` を `YYYY/MM/DD` にする。`shared/src/client/format.ts` と同じ規則 */
-function fmt(value: string | null | undefined): string | null {
+/**
+ * `YYYY-MM-DD...` を `YYYY/MM/DD` にする。`shared/src/client/format.ts` と同じ規則。
+ *
+ * `short` のときは `MM/DD` まで落とす。一覧の「実施日」列は横幅が
+ * 96px しかなく、年まで出すと期間 (開始〜終了) が入りません。
+ * **年を落としてよいのは、その一覧が期間で絞り込まれているときだけ**なので、
+ * 既定は `full` のままにしてあります。
+ */
+function fmt(value: string | null | undefined, short: boolean): string | null {
   if (!value) return null;
   const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+  if (m) return short ? `${m[2]}/${m[3]}` : `${m[1]}/${m[2]}/${m[3]}`;
   // すでに整形済みの文字列 (`5/12` など) はそのまま通す
   return String(value);
 }
@@ -37,6 +44,11 @@ export interface DateRangeProps extends React.HTMLAttributes<HTMLSpanElement> {
   collapseSameDay?: boolean;
   /** 値が無いときに出す文字。列の幅を保つため既定でも何か出す */
   placeholder?: string;
+  /**
+   * 年を落として `MM/DD` にする。**狭い列でだけ**使うこと
+   * (一覧が期間で絞り込まれていないと、来年の予定と今年の予定が同じに見える)。
+   */
+  short?: boolean;
 }
 
 /**
@@ -51,11 +63,12 @@ export function DateRange({
   end,
   collapseSameDay = true,
   placeholder = '—',
+  short = false,
   className,
   ...rest
 }: DateRangeProps) {
-  const s = fmt(start);
-  const e = fmt(end);
+  const s = fmt(start, short);
+  const e = fmt(end, short);
 
   if (!s && !e) {
     return (

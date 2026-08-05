@@ -624,7 +624,7 @@ for (const file of serverFiles) {
  */
 const BASELINE = {
     "ai-person-name": {
-      "client": 22,
+      "client": 21,
       "client-daily": 1
     },
     "browser-dialog": {
@@ -646,7 +646,7 @@ const BASELINE = {
       "client-equipment": 3
     },
     "date-range-by-hand": {
-      "client": 9,
+      "client": 8,
       "client-daily": 6
     },
     "empty-by-hand": {
@@ -668,7 +668,7 @@ const BASELINE = {
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 417,
+      "client": 397,
       "client-daily": 95,
       "client-equipment": 132
     },
@@ -677,12 +677,12 @@ const BASELINE = {
       "client-equipment": 2
     },
     "page-title-by-hand": {
-      "client": 25,
+      "client": 24,
       "client-equipment": 14,
       "shared": 1
     },
     "raw-palette": {
-      "client": 391,
+      "client": 376,
       "client-daily": 116,
       "client-equipment": 111,
       "shared": 6
