@@ -9,7 +9,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
+import { formatMonth, formatShortDate, localDateStr } from "@/lib/format";
 import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
@@ -70,6 +70,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
 }
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { TaxCategoryLabels, taxBillingSuffix } from "@/types";
+import { Money } from '@gmo-onair/shared/src/client/ui/money';
 
 interface RevenueRow {
   id: string;
@@ -714,9 +715,7 @@ export default function RevenueListPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <div className="font-medium font-number">
-                          {formatCurrency(r.amount)}
-                        </div>
+                        <Money value={r.amount} className="font-medium" />
                         <div className="text-xs text-muted-foreground">
                           {formatMonth(r.recognition_date)}
                         </div>
@@ -802,8 +801,8 @@ export default function RevenueListPage() {
                         <TableCell className="text-xs">
                           {TaxCategoryLabels[r.tax_category as keyof typeof TaxCategoryLabels] ?? r.tax_category}
                         </TableCell>
-                        <TableCell className="text-right font-medium font-number">
-                          {formatCurrency(r.amount)}
+                        <TableCell className="text-right">
+                          <Money value={r.amount} className="font-medium justify-end" />
                         </TableCell>
                         <TableCell className="text-xs">
                           {formatMonth(r.recognition_date)}
@@ -1083,8 +1082,8 @@ export default function RevenueListPage() {
                                 />
                               </div>
                             </TableCell>
-                            <TableCell className="p-1 text-right font-number text-sm font-medium">
-                              {formatCurrency(item.amount)}
+                            <TableCell className="p-1 text-right text-sm">
+                              <Money value={item.amount} className="font-medium justify-end" />
                             </TableCell>
                             <TableCell className="p-1">
                               <Input
@@ -1228,8 +1227,8 @@ export default function RevenueListPage() {
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">金額</Label>
-                            <div className="flex items-center h-9 text-sm font-medium font-number">
-                              {formatCurrency(item.amount)}
+                            <div className="flex items-center h-9 text-sm">
+                              <Money value={item.amount} className="font-medium" />
                             </div>
                           </div>
                         </div>
@@ -1276,9 +1275,7 @@ export default function RevenueListPage() {
                   {/* Total */}
                   <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-t">
                     <span className="text-sm font-medium">合計</span>
-                    <span className="text-base font-bold font-number">
-                      {formatCurrency(itemsTotal)}
-                    </span>
+                    <Money value={itemsTotal} className="text-base font-bold" />
                   </div>
                 </div>
               )}

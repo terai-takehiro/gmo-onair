@@ -76,6 +76,7 @@ import {
   Check,
   Inbox,
 } from "lucide-react";
+import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
@@ -181,8 +182,6 @@ function relativeDay(dateStr?: string | null): string {
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
-// 円表示
-const formatYen = (v: number) => `¥${(v / 10000).toLocaleString()}万`;
 
 // 数値変化を「+X%」「-X%」形式に
 function formatDelta(curr: number, prev: number): { text: string; pct: number } | null {
@@ -474,7 +473,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard
           label="売上"
-          value={formatYen(kpi.monthly_revenue)}
+          value={manYen(kpi.monthly_revenue)}
           trend={revDelta?.text}
           trendLabel="前月比"
           trendSemantics="positive"
@@ -482,7 +481,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
         />
         <KpiCard
           label="粗利"
-          value={formatYen(kpi.gross_profit)}
+          value={manYen(kpi.gross_profit)}
           unit={`${kpi.monthly_gross_margin}%`}
           emphasis={kpi.gross_profit >= 0 ? 'success' : 'negative'}
           trend={grossDelta?.text}
@@ -492,7 +491,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
         />
         <KpiCard
           label="営業利益"
-          value={formatYen(kpi.operating_profit)}
+          value={manYen(kpi.operating_profit)}
           unit={`${kpi.operating_margin}%`}
           emphasis={kpi.operating_profit >= 0 ? 'success' : 'negative'}
           trend={opDelta?.text}

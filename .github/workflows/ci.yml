@@ -68,6 +68,13 @@ jobs:
       - name: Lint (eslint)
         run: npm run lint
 
+      # 土台の計算だけのテスト (shared)。**画面のテストは書かない** —
+      # 見た目は verify-ui.mjs が実ブラウザで測るほうが確実で、73画面ぶんの
+      # テストを入れても3か月で誰も直さなくなる (docs/v4-plan.md)。
+      # ここに置くのは「画面を見ても間違いに気づけない計算」だけ。
+      - name: Test (shared の純関数)
+        run: npm test
+
       # server の prebuild でも走るが、ここで単体でも回す。
       # Docker ビルドが失敗する前に「共通コードの2コピーがずれた」と分かるほうが速い。
       - name: 共通コードの乖離検査 (server ↔ shared)

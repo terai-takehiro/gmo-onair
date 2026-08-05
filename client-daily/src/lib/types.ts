@@ -1,3 +1,4 @@
+import { compactYen } from '@gmo-onair/shared/src/client/ui/numbers';
 // 日常業務アプリの型・定数
 
 export type OpsReportKind = 'weekly_activity' | 'daily_news';
@@ -233,7 +234,10 @@ export function addDays(dateStr: string, days: number): string {
   return toDateStr(d);
 }
 
-export function formatYen(n: number): string {
-  if (Math.abs(n) >= 10000) return `¥${Math.round(n / 10000).toLocaleString()}万`;
-  return `¥${n.toLocaleString()}`;
-}
+/**
+ * 1万円未満はそのままの円。**この振る舞いは残す** — 5,000 円を「¥1万」と出すと
+ * 倍に見えるため。丸め方だけ shared に寄せた (`compactYen`)。
+ * 以前は `Math.round(n / 10000)` で、**負の数だけ丸め方が違っていた**
+ * (-15,000 円 → 「¥-1万」。他の画面は「¥-2万」)。
+ */
+export const formatYen = compactYen;

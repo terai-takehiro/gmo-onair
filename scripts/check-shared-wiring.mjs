@@ -150,6 +150,9 @@ function walk(dir, out = []) {
 
   const used = new Map(); // パッケージ名 → 最初に見つけたファイル
   for (const file of walk(path.join(ROOT, 'shared/src'))) {
+    // テストは**アプリから読み込まれない**ので対象外。この検査が見ているのは
+    // 「アプリ側で解決できないと画面が壊れるもの」で、vitest はそれに当たらない。
+    if (/\.(test|spec)\.tsx?$/.test(file)) continue;
     const text = readFileSync(file, 'utf8');
     for (const m of text.matchAll(/(?:from|@import)\s+['"]([^'"]+)['"]/g)) {
       const spec = m[1];
