@@ -171,7 +171,7 @@ function walk(dir, out = []) {
   }
 }
 
-// ── お知らせ帯と確認ダイアログの器が置かれているか (P3) ──────────────
+// ── お知らせ帯と確認ダイアログの器が「ちょうど1つ」あるか (P3 / S2) ──────
 //
 // `confirmAction()` は `<ConfirmHost />` が画面に無いと **false を返して実行しません**
 // (置き忘れたときに黙って実行するほうが危ないので、そう倒してある)。
@@ -179,40 +179,62 @@ function walk(dir, out = []) {
 // **その画面を実際に触るまで誰も気づけません**。
 // `<NoticeBar />` も同じで、無いと `notifyApiError` が呼ばれても何も出ません。
 //
-// 凍結4アプリには**置かない**のが正 (帯が出ると見た目が変わる)。
-// 逆にトーストの受け皿 `<Toaster />` は**Qシートだけ**が置く
-// (13 か所で使っており、放送中の「放送同期が切断されました」も含まれる。
-//  v4 の3アプリに置くと通知の出方が2通りになる)。
+// 数え方: **共通シェル (`shared/src/client/shell`) を使っていれば、シェルが持っている**。
+// 使っていないアプリは自分で1つずつ置く。合わせて 1 になっていればよい。
+// 凍結4アプリは 0 (帯が出ると見た目が変わる)。
 {
-  /** v4 対象3アプリ = 帯と器を1つずつ置く。凍結4アプリ = 置かない */
   const V4_APPS = ['client', 'client-daily', 'client-equipment'];
+  const SHELL = `${PKG}/src/client/shell`;
+
+  // 共通シェル自身が本当に置いているか。ここが抜けると
+  // 「シェルを使っているアプリ = 置いてある」という数え方が丸ごと嘘になる
+  // コメントを落としてから探す。**説明文の中の `<NoticeBar />` に引っかかると、
+  // 実際に消しても検査が通ってしまう** (最初に書いたとき実際に素通りした)
+  const shellSrc = readFileSync(path.join(ROOT, 'shared/src/client/shell/AppShell.tsx'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  for (const name of ['NoticeBar', 'ConfirmHost']) {
+    if (!new RegExp(`<${name}\\s*/>`).test(shellSrc)) {
+      bad('shared', 'shell/AppShell.tsx', `<${name} /> を描いていない — シェルを使うアプリ全部で効かなくなります`);
+    }
+  }
   for (const app of APPS) {
     const src = path.join(ROOT, app, 'src');
     if (!existsSync(src)) continue;
     const counts = { NoticeBar: 0, ConfirmHost: 0, Toaster: 0 };
+    let usesShell = false;
     for (const file of walk(src)) {
-      if (!/\.tsx$/.test(file)) continue;
+      if (!/\.tsx?$/.test(file)) continue;
       const text = readFileSync(file, 'utf8');
+      if (text.includes(SHELL)) usesShell = true;
+      if (!/\.tsx$/.test(file)) continue;
       for (const name of Object.keys(counts)) {
         counts[name] += (text.match(new RegExp(`<${name}\\s*/>`, 'g')) ?? []).length;
       }
     }
     const v4 = V4_APPS.includes(app);
-    const want = { NoticeBar: v4 ? 1 : 0, ConfirmHost: v4 ? 1 : 0, Toaster: app === 'client-qsheet' ? 1 : 0 };
-    const WHY = {
-      NoticeBar: v4
-        ? '無いと notifyApiError が呼ばれても画面に何も出ません'
-        : '凍結アプリには置かないこと (帯が出ると見た目が変わります)',
-      ConfirmHost: v4
-        ? '無いと confirmAction が false を返し、削除ボタンが黙って何もしません'
-        : '凍結アプリには置かないこと',
-      Toaster:
-        app === 'client-qsheet'
-          ? 'Qシートは 13 か所でトーストを使っています (放送中の切断通知を含む)'
-          : 'v4 は帯で知らせる決まりです。トーストを足すと出方が2通りになります',
-    };
-    for (const [name, n] of Object.entries(counts)) {
-      if (n !== want[name]) bad(app, 'シェル', `<${name} /> が ${n} 個 (期待 ${want[name]} 個) — ${WHY[name]}`);
+    if (!v4 && usesShell) {
+      bad(app, 'シェル', '凍結アプリを共通シェルに載せ替えないこと (見た目が変わります)');
+    }
+    // 共通シェルが持っている分を 1 と数える
+    const owned = v4 && usesShell ? 1 : 0;
+    const want = v4 ? 1 : 0;
+    for (const name of ['NoticeBar', 'ConfirmHost']) {
+      const total = counts[name] + owned;
+      if (total === want) continue;
+      const why =
+        want === 1
+          ? name === 'ConfirmHost'
+            ? '無いと confirmAction が false を返し、削除ボタンが黙って何もしません'
+            : '無いと notifyApiError が呼ばれても画面に何も出ません'
+          : '凍結アプリには置かないこと (帯が出ると見た目が変わります)';
+      bad(app, 'シェル', `<${name} /> が実質 ${total} 個 (期待 ${want} 個 / 共通シェル ${owned} + 直置き ${counts[name]}) — ${why}`);
+    }
+    const wantToaster = app === 'client-qsheet' ? 1 : 0;
+    if (counts.Toaster !== wantToaster) {
+      bad(app, 'シェル', `<Toaster /> が ${counts.Toaster} 個 (期待 ${wantToaster} 個) — ` +
+        (wantToaster ? 'Qシートは 13 か所でトーストを使っています (放送中の切断通知を含む)'
+                     : 'v4 は帯で知らせる決まりです。トーストを足すと出方が2通りになります'));
     }
   }
 }

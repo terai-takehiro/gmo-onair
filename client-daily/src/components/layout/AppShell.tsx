@@ -1,51 +1,44 @@
 import { Outlet } from 'react-router-dom';
-import Header from './Header';
-import Sidebar from './Sidebar';
+import { AppShell as SharedAppShell } from '@gmo-onair/shared/src/client/shell';
+import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
+import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
-import { ShieldOff } from 'lucide-react';
-import { NoticeBar } from '@gmo-onair/shared/src/client/ui/notice';
-import { ConfirmHost } from '@gmo-onair/shared/src/client/ui/confirm';
+import { DAILY_MOBILE_TABS, DAILY_NAV } from './nav';
+import { DAILY_MANUAL } from '@/manual/content';
 
+/**
+ * 日常業務のシェル — **枠は共通** (`shared/src/client/shell/`)。
+ *
+ * ここに残っているのは「このアプリ固有の設定を渡すこと」だけです。
+ * 高さ・スクロール・お知らせ帯・確認ダイアログ・アプリ切替・スマホの引き出しは
+ * すべて共通シェルが持ちます。**メニューの項目は `nav.ts` で、中身は今までと同じ**です。
+ */
 export default function AppShell() {
+  const { currentUser, logout } = useAuth();
   const { canView, permissionsLoading } = usePermissions();
 
+  // 権限が無い人に白紙を出さない。何の権限が要るかを名前で出す (P3 の共通部品)
   if (!permissionsLoading && !canView) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-sm px-4">
-          <ShieldOff className="h-12 w-12 text-muted-foreground mx-auto" />
-          <h2 className="text-lg font-semibold">アクセス権限がありません</h2>
-          <p className="text-sm text-muted-foreground">
-            日常業務アプリへのアクセス権限がありません。<br />
-            管理者に <code className="text-xs bg-muted px-1 py-0.5 rounded">dailyops</code> モジュールの権限付与を依頼してください。
-          </p>
-          <a href="/" className="inline-block text-sm text-primary underline">メインアプリに戻る</a>
-        </div>
+      <div className="flex h-full items-center justify-center overflow-y-auto bg-background p-4">
+        <NoPermissionPanel modules={['dailyops']} target="日常業務" />
       </div>
     );
   }
 
-  // 根は h-screen (100vh) ではなく h-full。iOS の 100vh は URL バーを含むので
-  // 実際の表示領域より高くなり、#root の overflow: hidden で下端が切れる。
-  // 親の高さは shared/src/client/base.css が html/body/#root に配っている。
   return (
-    <div className="flex h-full overflow-x-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header />
-        {/*
-          お知らせ帯はスクロールする領域の**中の上端**に置く (sticky top-0)。
-          ヘッダーの外に出すと、スクロールして下にいるときに気づけない。
-          確認ダイアログの器 (ConfirmHost) はシェル直下に1つだけ。
-          置き忘れると confirmAction が **false を返して実行しない**
-          (黙って実行するより安全側に倒してある)。
-        */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <NoticeBar />
-          <Outlet />
-        </main>
-      </div>
-      <ConfirmHost />
-    </div>
+    <SharedAppShell
+      appKey="dailyops"
+      sections={DAILY_NAV}
+      mobileTabs={DAILY_MOBILE_TABS}
+      manualContent={DAILY_MANUAL}
+      user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
+      onLogout={logout}
+      onSwitchUser={logout}
+      role={currentUser?.role}
+      permissions={currentUser?.permissions as Record<string, string> | undefined}
+    >
+      <Outlet />
+    </SharedAppShell>
   );
 }

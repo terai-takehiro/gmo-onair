@@ -166,6 +166,10 @@ function measure() {
   const OKH = new Set([32, 36, 40, 44, 46, 48, 50, 52]);
   const badBtn = [];
   document.querySelectorAll('button, a[role="button"], [role="switch"]').forEach((el) => {
+    // スマホ下端のタブは**ボタンではなく現在地の切替**。寸法表のボタンの段
+    // (32〜52px) ではなく「タップ帯」として 56px で作ってある (v4 の共通シェル)。
+    // ここに混ぜると、下タブを置いた画面がすべて落ちる。
+    if (el.closest('nav[aria-label="下タブ"]')) return;
     const r = el.getBoundingClientRect();
     const h = Math.round(r.height);
     if (!h || h < 28) return;
