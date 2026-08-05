@@ -119,6 +119,9 @@ export function Row({
 }: RowProps) {
   return (
     <div
+      // `data-row` は検査の印。**バッジの左端・金額の右端を列ごとに測る**ときに
+      // 「どれが同じ列か」を決めるのに使う (verify-ui.mjs)。消さないこと
+      data-row
       className={cn(
         'flex gap-3',
         align === 'start' ? 'items-start' : 'items-center',

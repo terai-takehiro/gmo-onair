@@ -1,18 +1,22 @@
 import React from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
-import { NoticeBar } from '@gmo-onair/shared/src/client/ui/notice';
-import { ConfirmHost } from '@gmo-onair/shared/src/client/ui/confirm';
+import { Outlet, useLocation } from "react-router-dom";
+import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
+import { appOfPath } from "@gmo-onair/shared/src/client/apps";
+import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { SALES_MANUAL } from "@/manual/content";
+import GlobalSearch from "./GlobalSearch";
+import { CLIENT_MOBILE_TABS, CLIENT_NAV } from "./nav";
 
 interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class PageErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
+/**
+ * 画面が例外で落ちたときの受け皿。**真っ白にしない**のが目的。
+ * P3 で入れた `ErrorPanel` に寄せてあるので、文言と見た目が他の画面とそろう。
+ */
+class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -29,29 +33,31 @@ class PageErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full p-8 gap-4 text-center">
-          <p className="text-lg font-medium text-destructive">ページの読み込み中にエラーが発生しました</p>
-          <p className="text-sm text-muted-foreground">前のページに戻るか、ホームに移動してください。</p>
-          <div className="flex gap-3">
-            <button
-              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-              onClick={() => {
-                this.setState({ hasError: false });
-                window.history.back();
-              }}
-            >
-              戻る
-            </button>
-            <button
-              className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90"
-              onClick={() => {
-                this.setState({ hasError: false });
-                window.location.href = "/";
-              }}
-            >
-              ホームへ
-            </button>
-          </div>
+        <div className="mx-auto max-w-2xl p-6">
+          <ErrorPanel
+            title="この画面を表示できませんでした"
+            cause={{
+              cause: '画面の組み立て中に問題が起きました。',
+              next: '前の画面に戻るか、ホームからやり直してください。',
+            }}
+            onRetry={() => {
+              this.setState({ hasError: false });
+              window.history.back();
+            }}
+            retryLabel="前の画面に戻る"
+            action={
+              <button
+                type="button"
+                className="text-list min-h-tap rounded-control bg-primary px-4 text-primary-foreground"
+                onClick={() => {
+                  this.setState({ hasError: false });
+                  window.location.href = "/";
+                }}
+              >
+                ホームへ
+              </button>
+            }
+          />
         </div>
       );
     }
@@ -59,21 +65,52 @@ class PageErrorBoundary extends React.Component<
   }
 }
 
+/**
+ * 案件管理・財務管理・カレンダー・システム管理のシェル — **枠は共通**
+ * (`shared/src/client/shell/`)。
+ *
+ * ── 入口が4つあるアプリ ──────────────────────────────────────
+ *
+ * URL から今いる入口を判定し (`appOfPath`)、その入口の左メニューだけを出します。
+ * トップページ (`/`) はどの入口でもないので**左メニューを出しません**
+ * (旧実装と同じ挙動 — 旧 Sidebar は `useActiveApp()` が null のとき自分で
+ *  `return null` していました)。
+ *
+ * 旧実装にあった `/admin` の特例と、アプリ名・色の捏造 (`?? "システム管理"` /
+ * `?? "bg-slate-500"`) は**両方不要になりました** — `admin` がアプリ登録に載ったためです。
+ *
+ * ── グローバル検索 ───────────────────────────────────────────
+ *
+ * 上辺バーの `searchSlot` に差し込みます。共通シェルは中身を知りません
+ * (案件管理だけが持つ機能なので、シェルに畳み込むと他の2アプリが背負う)。
+ */
 export default function AppShell() {
+  const { pathname } = useLocation();
+  const { currentUser, logout, hasPermission, permissions } = useAuth();
+
+  const app = appOfPath(pathname);
+  const sections = app ? (CLIENT_NAV[app.key] ?? []) : [];
+  const isHome = !app;
+
   return (
-    <div className="flex h-full overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 min-h-0 overflow-y-auto" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {/* お知らせ帯はスクロール領域の中の上端 (sticky)。詳細は日常業務の AppShell */}
-          <NoticeBar />
-          <PageErrorBoundary>
-            <Outlet />
-          </PageErrorBoundary>
-        </main>
-      </div>
-      <ConfirmHost />
-    </div>
+    <SharedAppShell
+      appKey={app?.key ?? "home"}
+      appLabel={app?.label ?? "ONAiR"}
+      sections={sections}
+      showOtherApps={!isHome}
+      mobileTabs={CLIENT_MOBILE_TABS}
+      searchSlot={<GlobalSearch />}
+      manualContent={SALES_MANUAL}
+      user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
+      onLogout={logout}
+      onSwitchUser={logout}
+      role={currentUser?.role}
+      permissions={permissions}
+      can={(m) => hasPermission(m)}
+    >
+      <PageErrorBoundary>
+        <Outlet />
+      </PageErrorBoundary>
+    </SharedAppShell>
   );
 }

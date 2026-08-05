@@ -4,14 +4,9 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
-  LayoutDashboard, Wrench,
-  Home, FileText, Package, Sparkles, Briefcase,
-  X, ChevronLeft, Timer, Tv, Languages, ClipboardList,
+  LayoutDashboard, Wrench, X, ChevronLeft,
 } from 'lucide-react';
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
-};
 
 const navItems = [
   { label: "ダッシュボード", path: "/techsheet", icon: LayoutDashboard },
@@ -68,12 +63,12 @@ export default function Sidebar() {
           <div className="border-t p-3 space-y-1">
             <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
             {otherApps.map((app) => {
-              const Icon = ICON_MAP[app.icon] || Wrench;
-              const isExternal = !!app.externalUrl;
+              const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
+              const isExternal = !!app.external;
               return (
                 <a
                   key={app.key}
-                  href={isExternal ? app.externalUrl : app.path}
+                  href={isExternal ? app.external : app.path}
                   {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >

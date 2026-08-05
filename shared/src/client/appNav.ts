@@ -1,54 +1,27 @@
-// shared/src/client/appNav.ts — 全アプリ共通のナビゲーション定義
-// Sidebarの「他のアプリ」セクションで使用。権限ベースでフィルタリング。
+// shared/src/client/appNav.ts — 左メニュー下部の「他のアプリ」
+//
+// **一覧そのものは持たない。** アプリ登録は `apps.ts` が唯一の正で、ここは
+// 「現在のアプリを外して、権限で絞る」という**使い方**だけを提供する薄い層。
+//
+// 以前はここに `ALL_APPS` という2つ目の一覧があり、`AppSwitcher` の `ONAIR_APPS`・
+// `AuthContext` の `BLOCK_APPS`・`client` の Sidebar と**4か所で食い違っていた**
+// (「カレンダー」が「スタジオ予約」になっている、技術資料のアイコンが2種類、など)。
+import { visibleApps, type AppDef } from './apps';
 
-export interface AppNavItem {
-  key: string;         // module key (permissions key)
-  path: string;        // URL path
-  label: string;       // 表示名
-  icon: string;        // lucide icon name (Sidebarでマッピング)
-  alwaysVisible?: boolean; // 権限不要で常に表示 (ホームなど)
-  externalUrl?: string;    // 外部URL (別タブで開く)
-}
-
-/** 全ブロックアプリ・モジュールの定義 (ユーザーがアクセス可能なもの全てをSidebarに掲載) */
-export const ALL_APPS: AppNavItem[] = [
-  { key: 'home',        path: '/',                   label: 'ホーム',              icon: 'Home',        alwaysVisible: true },
-  // 案件管理アプリ (client/) 内のモジュール
-  { key: 'sales',       path: '/',                   label: '案件管理',            icon: 'Briefcase' },
-  { key: 'budget',      path: '/budget/revenues',    label: '財務管理',            icon: 'PiggyBank' },
-  { key: 'studio',      path: '/studio/calendar',    label: 'スタジオ予約',        icon: 'Calendar' },
-  // 独立ブロックアプリ
-  { key: 'qsheet',      path: '/qsheet',             label: 'Qシート',             icon: 'FileText' },
-  { key: 'equipment',   path: '/equipment',          label: '機材管理',            icon: 'Package' },
-  { key: 'techsheet',   path: '/techsheet',          label: '技術資料',            icon: 'Wrench' },
-  { key: 'liveops',    path: '/live',               label: '計時LIVE',            icon: 'Radio' },
-  { key: 'awards',     path: '/awards',             label: 'リアルタイムCG',      icon: 'Tv' },
-  { key: 'dailyops',   path: '/daily',              label: '日常業務',            icon: 'ClipboardList' },
-  // 外部アプリ (別タブで開く・権限不要)
-  { key: 'interactive', path: 'https://interactive.gmo-onair.jp/', label: 'インタラクティブ', icon: 'Sparkles',  alwaysVisible: true, externalUrl: 'https://interactive.gmo-onair.jp/' },
-  { key: 'translate',  path: 'https://gmo-translate.jp/', label: '翻訳',           icon: 'Languages', alwaysVisible: true, externalUrl: 'https://gmo-translate.jp/' },
-];
+/** 後方互換の名前。中身は `AppDef` そのもの */
+export type AppNavItem = AppDef;
 
 /**
- * ユーザーの権限に基づいてアクセス可能なアプリ一覧を返す
- * @param currentAppKey 現在のアプリ（除外する）
- * @param role ユーザーロール
- * @param permissions ユーザーのモジュール別権限
+ * ユーザーの権限に基づいてアクセス可能なアプリ一覧を返す。
+ *
+ * **凍結4アプリは既定で含む。** 旧シェル (v4 に載せ替える前の画面) から
+ * Qシート等へ行けなくなるのを避けるため。v4 の共通シェルは
+ * `visibleApps({ includeFrozen: false })` を直接呼ぶ。
  */
 export function getAccessibleApps(
   currentAppKey: string,
   role?: string,
-  permissions?: Record<string, string>,
+  permissions?: Record<string, string> | null,
 ): AppNavItem[] {
-  return ALL_APPS.filter(app => {
-    // 現在のアプリは除外
-    if (app.key === currentAppKey) return false;
-    // 常に表示するアプリ
-    if (app.alwaysVisible) return true;
-    // system_admin は全て表示
-    if (role === 'system_admin') return true;
-    // 権限がないアプリは非表示
-    if (!permissions) return false;
-    return !!permissions[app.key];
-  });
+  return visibleApps({ current: currentAppKey, role, permissions, includeFrozen: true, includeHome: true });
 }

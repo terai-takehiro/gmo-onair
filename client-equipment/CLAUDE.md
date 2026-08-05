@@ -31,6 +31,13 @@
 
 ## 触るときの注意
 
+- **シェルは共通** (`shared/src/client/shell/`)。残っているのは
+  `components/layout/AppShell.tsx` と `components/layout/nav.ts` だけ。
+  `nav.ts` の `to` は **`/equipment/...` から書く** — このアプリはルーターの `basename` を
+  持たず Vite の `base` だけで動くため（日常業務は `basename="/daily"` なので `/tasks`）。
+  **閲覧のフロント側ゲートは足していない** — 無いのが現状で、新設すると
+  権限を持たない既存の利用者が突然入れなくなる
+
 - **1ファイル400行を上限にする。** いま超過しているもの:
   `pages/EquipmentListPage.tsx` 2,017行 / `pages/RackLayoutPage.tsx` 1,502行 /
   `pages/EquipmentDetailPage.tsx` 1,090行 / `pages/CablePage.tsx` 839行

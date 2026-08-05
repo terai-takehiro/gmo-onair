@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { APPS, type AppDef } from "@gmo-onair/shared/src/client/apps";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,52 +37,13 @@ import {
   formatElapsed,
 } from "@/contexts/sales/pages/InboxPage";
 import {
-  FolderKanban,
-  PiggyBank,
-  Calendar,
-  Package,
-  FileText,
-  BookOpen,
-  Users,
-  Truck,
-  Sparkles,
-  UserCog,
-  Database,
-  Settings,
-  ExternalLink,
-  Wrench,
-  ArrowRight,
-  ShieldCheck,
-  ShieldAlert,
-  ChevronDown,
-  ChevronUp,
-  Timer,
-  Tv,
-  FileSearch,
-  FolderPlus,
-  Zap,
-  RefreshCw,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  ClipboardList,
-  Briefcase,
-  Languages,
-  TrendingUp,
-  Flame,
-  Phone,
-  Mail,
-  MessageSquare,
-  CalendarClock,
-  Check,
-  Inbox,
+  PiggyBank, Calendar, FileText, Users, Sparkles, UserCog, Database, Settings,
+  ExternalLink, ArrowRight, ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, FileSearch, FolderPlus,
+  Zap, RefreshCw, Loader2, CheckCircle2, Clock, ClipboardList, Briefcase, TrendingUp,
+  Flame, Phone, Mail, MessageSquare, CalendarClock, Check, Inbox,
 } from "lucide-react";
 import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
-};
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -250,18 +212,19 @@ export default function HomePage() {
           padding="compact"
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 auto-rows-fr">
-            {BLOCK_APPS.map((app) => (
+            {APPS.filter((a) => a.key !== "home").map((app) => (
               <AppCard
-                key={app.id}
+                key={app.key}
                 app={app}
-                disabled={!app.externalUrl && !hasPermission(app.id)}
+                disabled={!app.external && !hasPermission(app.key)}
                 onClick={() => {
-                  if (app.externalUrl) {
-                    window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.id)) {
-                    window.location.href = app.basePath;
+                  if (app.external) {
+                    window.open(app.external, "_blank", "noopener,noreferrer");
+                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.key)) {
+                    // 別バンドルのアプリは react-router では飛べない (フルリロードが要る)
+                    window.location.href = app.path;
                   } else {
-                    navigate(app.basePath);
+                    navigate(app.path);
                   }
                 }}
               />
@@ -1159,11 +1122,11 @@ function RecentProjectsSection({ navigate }: { navigate: (to: string) => void })
 // ══════════════════════════════════════════════════════════
 // アプリカード — 補助セクション用にコンパクト化
 // ══════════════════════════════════════════════════════════
-function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onClick: () => void; disabled?: boolean }) {
-  const Icon = ICON_MAP[app.icon] || Package;
-  const isComingSoon = app.status === "coming_soon";
+function AppCard({ app, onClick, disabled: forceDisabled }: { app: AppDef; onClick: () => void; disabled?: boolean }) {
+  const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
+  const isComingSoon = !!app.comingSoon;
   const isDisabled = isComingSoon || forceDisabled;
-  const isExternal = !!app.externalUrl;
+  const isExternal = !!app.external;
 
   return (
     <button
@@ -1177,11 +1140,13 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
           : "border-border bg-card hover:border-primary hover:bg-accent active:scale-[0.98]"
       )}
     >
+      {/*
+        色は登録の hex 1本 (S1)。以前は Tailwind のクラス (BLOCK_APPS) と
+        hex (AppSwitcher) の2系統があり、同じアプリが場所によって別の色だった。
+      */}
       <div
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-md text-white",
-          isDisabled ? "bg-muted-foreground/30" : app.color
-        )}
+        className="flex h-10 w-10 items-center justify-center rounded-md text-white"
+        style={{ backgroundColor: isDisabled ? undefined : app.color }}
       >
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>

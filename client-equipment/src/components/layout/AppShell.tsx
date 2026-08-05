@@ -1,25 +1,36 @@
 import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
-import { NoticeBar } from '@gmo-onair/shared/src/client/ui/notice';
-import { ConfirmHost } from '@gmo-onair/shared/src/client/ui/confirm';
+import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
+import { useAuth } from "@/hooks/useAuth";
+import { EQUIPMENT_MANUAL } from "@/manual/content";
+import { EQUIPMENT_MOBILE_TABS, EQUIPMENT_NAV } from "./nav";
 
+/**
+ * 機材管理のシェル — **枠は共通** (`shared/src/client/shell/`)。
+ *
+ * 高さ・スクロール・お知らせ帯・確認ダイアログ・アプリ切替・スマホの引き出しは
+ * すべて共通シェルが持ちます。**メニューの項目は `nav.ts` で、中身は今までと同じ**です。
+ *
+ * **閲覧のゲートは足していません。** 機材管理には今フロント側の権限ゲートが無く
+ * (サーバー側で見ている)、ここで新設すると**権限を持たない既存の利用者が
+ * 突然入れなくなります**。入れるなら本番の `user_permissions` を数えてから別の作業で。
+ */
 export default function AppShell() {
-  // 根は h-screen (100vh) ではなく h-full。iOS の 100vh は URL バーを含むので
-  // 実際の表示領域より高くなり、#root の overflow: hidden で下端が切れる。
-  // 親の高さは shared/src/client/base.css が html/body/#root に配っている。
+  const { currentUser, logout, hasPermission } = useAuth();
+
   return (
-    <div className="flex h-full overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header />
-        <main className="flex-1 min-h-0 overflow-y-auto" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {/* お知らせ帯はスクロール領域の中の上端 (sticky)。詳細は日常業務の AppShell */}
-          <NoticeBar />
-          <Outlet />
-        </main>
-      </div>
-      <ConfirmHost />
-    </div>
+    <SharedAppShell
+      appKey="equipment"
+      sections={EQUIPMENT_NAV}
+      mobileTabs={EQUIPMENT_MOBILE_TABS}
+      manualContent={EQUIPMENT_MANUAL}
+      user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
+      onLogout={logout}
+      onSwitchUser={logout}
+      role={currentUser?.role}
+      permissions={currentUser?.permissions as Record<string, string> | undefined}
+      can={(m) => hasPermission(m)}
+    >
+      <Outlet />
+    </SharedAppShell>
   );
 }
