@@ -28,8 +28,8 @@
 }
 
 /* ── Timer Phase Colors ── */
-.phase-idle      { color: hsl(var(--foreground)); }
-.phase-countdown { color: hsl(var(--foreground)); }
+.phase-idle      { color: rgb(var(--foreground)); }
+.phase-countdown { color: rgb(var(--foreground)); }
 .phase-yellow    { color: #d97706; }
 .phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
 

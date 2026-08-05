@@ -2,7 +2,7 @@ import { formatTimer } from '@/lib/utils';
 import { type TimerState, type TimerPhase } from '@/hooks/useTimer';
 
 const phaseBarColors: Record<TimerPhase, string> = {
-  idle: 'hsl(var(--muted-foreground) / 0.35)',
+  idle: 'rgb(var(--muted-foreground) / 0.35)',
   countdown: '#16a34a',
   yellow: '#d97706',
   red: '#dc2626',
