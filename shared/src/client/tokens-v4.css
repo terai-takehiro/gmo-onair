@@ -76,4 +76,32 @@
   /* `--chart-1`〜`--chart-5` は触っていない。**どこからも参照されていない**旧トークンで、
      v4 の見分けの色は `--cat-1`〜`--cat-8` (T1b で追加)。グラフの実際の色は
      `shared/src/client/dashboard/chart-colors.ts` が hex で直接持っている */
+
+  /* ── 書体 (T3) ─────────────────────────────────────────────
+   * LINE Seed JP。**400 / 700 / 800 しか配信されていない** (500/600 を要求しても
+   * 返ってこないことを実測で確認)。`font-medium` / `font-semibold` は黙って
+   * 400 / 700 に落ちる (v4 対象3アプリで 665 か所)。型スケール (`text-h1` 等) が
+   * ウェイトを内包しているので、v4 の画面では font-medium / font-semibold を書かない。
+   */
+  --font-sans: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+
+  /* **数字に別の書体を当てない** (docs/design/v4/_tokens.md)。
+   * 別書体だと**その書体が届く前の一瞬だけ数字の幅が変わり、列の幅がずれる**。
+   * 凍結アプリは今までどおり Roboto Condensed (tokens.css 側) */
+  --font-mono-num: var(--font-sans);
+}
+
+/*
+ * 数字は**字詰めを掛けない**。
+ *
+ * 本文には `palt` (和文のプロポーショナル詰め) を掛けているが、**数字に掛かると
+ * 1 と 8 で文字幅が変わり、金額を縦に並べたときに桁がずれる**。ここで戻す。
+ * `tnum` = 等幅数字。`font-variant-numeric: tabular-nums` (tokens.css 側) と
+ * 同じ意味だが、`font-feature-settings` を上書きすると打ち消されるので両方書く。
+ *
+ * **`tokens.css` ではなくここに置く理由**: 凍結アプリは本文に `palt` を掛けて
+ * いないので、打ち消しも要らない (触らないほうが安全)。
+ */
+.font-number {
+  font-feature-settings: 'palt' 0, 'tnum' 1;
 }

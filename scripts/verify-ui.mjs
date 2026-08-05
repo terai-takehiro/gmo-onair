@@ -267,8 +267,21 @@ async function runViewport(browser, { width, height, tag }) {
           ? 'rgb(250, 250, 250)'
           : 'rgb(247, 248, 250)';
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
-    ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
-    ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);
+    /*
+     * 書体と字詰めも **アプリによって期待値が違う** (T3 から)。
+     *   v4 対象3アプリ … LINE Seed JP ＋ palt/kern
+     *   凍結4アプリ     … Noto Sans JP・字詰めなし (今日のまま)
+     * 凍結アプリに LINE Seed JP を要求すると「直せ」と言い続ける検査になる。
+     */
+    if (FROZEN_PREFIX.test(url)) {
+      // リアルタイムCG は shared のトークンを読まないので書体の指定が無い (自前の指定)
+      if (!/^\/awards\//.test(url)) {
+        ok(`${label} 書体が今日のまま`, m.font.includes('Noto Sans JP'), m.font.slice(0, 30));
+      }
+    } else {
+      ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
+      ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);
+    }
     ok(`${label} シェルが画面いっぱい`, m.shellH >= m.vh - 2, `${m.shellH}/${m.vh}`);
     ok(`${label} 薄すぎる文字 0件`, m.faint === 0, `${m.faint}件 ${JSON.stringify(m.faintList)}`);
     ok(`${label} ボタンの高さが段のみ`, m.badBtnN === 0, JSON.stringify(m.badBtn));
