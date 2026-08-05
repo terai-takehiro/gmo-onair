@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "echo 'shared: no build step needed (consumed as TypeScript)'"
+    "build": "echo 'shared: no build step needed (consumed as TypeScript)'",
+    "test": "vitest run"
   },
   "dependencies": {
     "@digital-go-jp/design-tokens": "^1.1.9",
@@ -35,10 +36,23 @@
     "zustand": "^4.0.0"
   },
   "peerDependenciesMeta": {
-    "@radix-ui/react-checkbox": { "optional": true },
-    "@radix-ui/react-scroll-area": { "optional": true },
-    "@radix-ui/react-separator": { "optional": true },
-    "@radix-ui/react-switch": { "optional": true },
-    "@radix-ui/react-toast": { "optional": true }
+    "@radix-ui/react-checkbox": {
+      "optional": true
+    },
+    "@radix-ui/react-scroll-area": {
+      "optional": true
+    },
+    "@radix-ui/react-separator": {
+      "optional": true
+    },
+    "@radix-ui/react-switch": {
+      "optional": true
+    },
+    "@radix-ui/react-toast": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   }
 }

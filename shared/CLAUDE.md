@@ -46,6 +46,25 @@
 | `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
 | `src/constants/statuses.ts`, `src/utils/businessDays.ts`, `src/enums.ts`, `src/types.ts` | 業務の共通定義 |
 
+### v4 の共通部品（P1 で入った）
+
+| 部品 | 何を強制するか |
+| --- | --- |
+| `<Money value={n} />` `<MoneyCell width={n} />` | **`¥` と数字を別要素**にして、縦に並べたとき桁を一直線にする |
+| `<StatValue size="lg\|md\|sm">` | 大きい数字のサイズを4段から選ばせる（`text-2xl` を直書きさせない） |
+| `<Num value unit>` | 金額でない数字。等幅で桁をそろえる |
+| `<DateRange start end />` | 期間の**開始／`〜`／終了を別要素**にする |
+| `manYen(n)` / `compactYen(n)` / `toMan(n)` | 万円の丸めを**1か所**にする |
+| `<PageTitle>` | ページ見出しの大きさをそろえる |
+
+- **万円の丸めは `manYen` 1本。** 着手時点で**4通りに割れていて、同じ画面の中で
+  食い違っていた**（KPI カード `¥1,234.568万` / 同じ画面のグラフ `¥1235万`）。
+  負の数で結果が違う実装もあった（-15,000 円 → `¥-1万` と `¥-2万`）
+- **1万円未満をそのままの円で出したいときは `compactYen`。** 5,000 円を「¥1万」と
+  出すと倍に見えるので、この振る舞いは残してある（日常業務の週報がこの形）
+- **テストがある** — `npm test`（`shared/src/client/ui/numbers.test.ts`）。
+  画面を見ても間違いに気づけない計算なので、ここだけは書く
+
 ### UI 部品の置き場所と参照のしかた
 
 - `src/client/ui/index.ts`（バレル）は **`data-table` / `filter-bar` / `pagination` /

@@ -30,6 +30,7 @@ import {
   Loader2,
   ClipboardList,
 } from "lucide-react";
+import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
 
 interface KPI {
   period_label: string;
@@ -84,8 +85,6 @@ const pipelineStageColors: Record<string, string> = {
   a_won: chartColors.positive,
 };
 
-const formatYen = (value: number) => `¥${(value / 10000).toLocaleString()}万`;
-const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
 
 /* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */
 const typeColors: Record<string, string> = {
@@ -219,30 +218,30 @@ export default function DashboardPage() {
               <KpiCard
                 label="売上"
                 icon={<DollarSign />}
-                value={formatYen(kpi.monthly_revenue)}
+                value={manYen(kpi.monthly_revenue)}
                 footnote={kpi.period_label}
               />
               <KpiCard
                 label="変動原価 (仕入)"
                 icon={<ShoppingCart />}
-                value={formatYen(kpi.monthly_purchase)}
+                value={manYen(kpi.monthly_purchase)}
               />
               <KpiCard
                 label="粗利"
                 icon={<TrendingUp />}
-                value={formatYen(kpi.gross_profit)}
+                value={manYen(kpi.gross_profit)}
                 unit={formatPercent(kpi.monthly_gross_margin)}
                 emphasis={kpi.gross_profit >= 0 ? 'success' : 'negative'}
               />
               <KpiCard
                 label="販管費"
                 icon={<Receipt />}
-                value={formatYen(kpi.monthly_sga)}
+                value={manYen(kpi.monthly_sga)}
               />
               <KpiCard
                 label="営業利益"
                 icon={<BarChart3 />}
-                value={formatYen(kpi.operating_profit)}
+                value={manYen(kpi.operating_profit)}
                 unit={formatPercent(kpi.operating_margin)}
                 emphasis={kpi.operating_profit >= 0 ? 'success' : 'negative'}
                 size="lg"
@@ -386,7 +385,7 @@ export default function DashboardPage() {
                     {...chartDefaults.axis}
                   />
                   <Tooltip
-                    formatter={(value) => [formatYenShort(Number(value)), '']}
+                    formatter={(value) => [manYen(Number(value)), '']}
                     labelFormatter={(label) => `${parseInt(String(label).split('-')[1])}月`}
                     wrapperStyle={{ zIndex: 10 }}
                   />
@@ -423,7 +422,7 @@ export default function DashboardPage() {
                   <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} {...chartDefaults.axis} />
                   <YAxis type="category" dataKey="label" width={80} {...chartDefaults.axis} />
                   <Tooltip
-                    formatter={(value) => [formatYenShort(Number(value)), '金額']}
+                    formatter={(value) => [manYen(Number(value)), '金額']}
                   />
                   <Bar dataKey="total_amount" name="金額" label={{ position: 'right', fontSize: 11, formatter: (v: unknown) => {
                     const item = pipelineData.find((s) => s.total_amount === Number(v));

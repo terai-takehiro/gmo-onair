@@ -7,6 +7,7 @@
  * ── このバレルに全部が載っているわけではない ────────────────────
  * `data-table` / `filter-bar` / `pagination` / `table` / `searchable-select` /
  * `currency-input` / `scroll-area` は **わざとここから export していない**。
+ * (Radix を要求するものだけ。要求しないものはバレルに載せてある)
  * 深いパスで名指しして import する:
  *     import { Table, TableRow } from '@gmo-onair/shared/src/client/ui/table';
  * 理由: バレルに載せると **使わないアプリまで Radix を巻き込む**
@@ -38,3 +39,8 @@ export * from "./toast";
 export * from "./use-toast";
 export * from "./toaster";
 export * from "./tax-aware-amount-input";
+
+/* ── v4 の共通部品 (P1)。Radix を要求しないのでバレルに載せてよい ── */
+export * from "./money";      // <Money> <MoneyCell>
+export * from "./numbers";    // <StatValue> <Num> <ManYen> <PageTitle> manYen() compactYen()
+export * from "./dateRange";  // <DateRange>

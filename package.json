@@ -26,6 +26,7 @@
     "build": "npm run build -w shared && npm run build -w client && npm run build -w client-daily && npm run build -w client-equipment && npm run build -w server",
     "build:all": "npm run build -w shared && npm run build -w client && npm run build -w client-equipment && npm run build -w client-qsheet && npm run build -w client-techsheet && npm run build -w client-live && npm run build -w client-awards && npm run build -w client-daily && npm run build -w server",
     "build:changed": "node scripts/build-changed.mjs",
+    "test": "npm run test -w shared",
     "build:render": "cd client && npx vite build && cd ../client-equipment && npx vite build && cd ../client-qsheet && npx vite build && cd ../client-techsheet && npx vite build && cd ../client-live && npx vite build && cd ../client-awards && npx vite build && cd ../client-daily && npx vite build && cd ../server && npx tsc && mkdir -p dist/shared/db && cp -r src/shared/db/migrations dist/shared/db/",
     "start:render": "node server/dist/index.js",
     "db:migrate": "npm run db:migrate -w server",

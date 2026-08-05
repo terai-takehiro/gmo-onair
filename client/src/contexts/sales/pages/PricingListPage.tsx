@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import type { PricingCategory, PricingItem, CalcType } from "@/types";
 import { CalcTypeLabels } from "@/types";
@@ -41,6 +40,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Money } from '@gmo-onair/shared/src/client/ui/money';
 
 // ---------- Category Dialog ----------
 
@@ -435,11 +435,11 @@ export default function PricingListPage() {
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                           <span className="font-number">
                             <span className="text-xs text-muted-foreground">定価</span>{" "}
-                            <span className="font-medium">{item.unit_price == null ? "—" : formatCurrency(item.unit_price)}</span>
+                            <Money value={item.unit_price} className="font-medium" />
                           </span>
                           <span className="font-number">
                             <span className="text-xs text-muted-foreground">グループ内</span>{" "}
-                            <span className="font-medium">{item.group_price == null ? "—" : formatCurrency(item.group_price)}</span>
+                            <Money value={item.group_price} className="font-medium" />
                           </span>
                           <span className="text-xs text-muted-foreground">{CalcTypeLabels[item.calc_type]}</span>
                         </div>
@@ -465,11 +465,11 @@ export default function PricingListPage() {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{item.sub_label || "-"}</TableCell>
-                          <TableCell className="text-right font-number">
-                            {item.unit_price == null ? <span className="text-muted-foreground">—</span> : formatCurrency(item.unit_price)}
+                          <TableCell className="text-right">
+                            <Money value={item.unit_price} className="justify-end" />
                           </TableCell>
-                          <TableCell className="text-right font-number">
-                            {item.group_price == null ? <span className="text-muted-foreground">—</span> : formatCurrency(item.group_price)}
+                          <TableCell className="text-right">
+                            <Money value={item.group_price} className="justify-end" />
                           </TableCell>
                           <TableCell>{CalcTypeLabels[item.calc_type]}</TableCell>
                           <TableCell>
