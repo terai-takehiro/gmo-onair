@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { APPS } from "@gmo-onair/shared/src/client/apps";
 import { Database, Download, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
 import { useState } from "react";
@@ -89,18 +90,21 @@ export default function SettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {BLOCK_APPS.map((app) => (
-                    <tr key={app.id} className="border-b last:border-0">
+                  {/* アプリ登録 (shared/src/client/apps.ts) が唯一の正 (S1/S4) */}
+                  {APPS.filter((app) => app.key !== "home").map((app) => (
+                    <tr key={app.key} className="border-b last:border-0">
                       <td className="py-2 pr-4 font-medium">{app.label}</td>
                       <td className="py-2 pr-4">
-                        {app.status === "active" ? (
-                          <Badge className="bg-green-500 text-white">有効</Badge>
-                        ) : (
+                        {app.comingSoon ? (
                           <Badge variant="secondary">準備中</Badge>
+                        ) : app.frozen ? (
+                          <Badge variant="outline">v4.0.0 では据え置き</Badge>
+                        ) : (
+                          <Badge className="bg-green-500 text-white">有効</Badge>
                         )}
                       </td>
                       <td className="py-2 text-xs text-muted-foreground">
-                        {app.basePath}
+                        {app.path}
                       </td>
                     </tr>
                   ))}

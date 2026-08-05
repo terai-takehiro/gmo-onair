@@ -14,8 +14,16 @@ interface User {
 type AccessLevel = 'reader' | 'editor' | 'manager';
 
 // 3段階化: exporter=reader, owner=manager として扱う
+/**
+ * アクセスレベルの強さ。
+ *
+ * **`full` を必ず入れておくこと。** サーバーは system_admin に
+ * `{ _all: 'full' }` を返す (`users.routes.ts`)。いまは `role === 'system_admin'` を
+ * 先に見るので到達しないが、`_all` を一般ユーザーにも返すようにした瞬間に
+ * `(undefined || 0) >= 1` = false になり、**その人から全メニューが消える**。
+ */
 const LEVEL_ORDER: Record<string, number> = {
-  reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3,
+  reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4,
 };
 
 export interface AuthHookConfig {

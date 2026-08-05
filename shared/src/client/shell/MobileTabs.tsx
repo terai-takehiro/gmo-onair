@@ -10,8 +10,9 @@
  * 下端は `env(safe-area-inset-bottom)` を足す — iPhone のホームバーに
  * 重なると押せないタブができる。
  */
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../utils';
+import { isCurrent } from './AppSideMenu';
 import type { ShellMobileTab } from './types';
 
 export interface MobileTabsProps {
@@ -21,6 +22,7 @@ export interface MobileTabsProps {
 }
 
 export function MobileTabs({ tabs, onOpenMenu }: MobileTabsProps) {
+  const { pathname } = useLocation();
   if (tabs.length === 0) return null;
   return (
     <nav
@@ -40,20 +42,18 @@ export function MobileTabs({ tabs, onOpenMenu }: MobileTabsProps) {
             {tab.label}
           </button>
         ) : (
-          <NavLink
+          <Link
             key={tab.label}
             to={tab.to ?? '/'}
-            end={tab.end}
-            className={({ isActive }) =>
-              cn(
-                'text-sub-sm flex h-14 flex-1 flex-col items-center justify-center gap-1',
-                isActive ? 'font-bold text-primary' : 'text-muted-foreground',
-              )
-            }
+            aria-current={isCurrent(pathname, tab.to ?? '/', tab.end) ? 'page' : undefined}
+            className={cn(
+              'text-sub-sm flex h-14 flex-1 flex-col items-center justify-center gap-1',
+              isCurrent(pathname, tab.to ?? '/', tab.end) ? 'font-bold text-primary' : 'text-muted-foreground',
+            )}
           >
             <tab.icon className="h-5 w-5" aria-hidden="true" />
             {tab.label}
-          </NavLink>
+          </Link>
         ),
       )}
     </nav>

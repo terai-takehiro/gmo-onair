@@ -47,9 +47,11 @@ const normalizeLevel = (level: string | undefined): string | undefined => {
   return level;
 };
 
-// 権限ダイアログで表示するモジュール（順序付き）
+// 権限ダイアログで表示するモジュール（順序付き）。
+// **`admin` が抜けていた** — /admin/* は PermissionRoute で守られているのに
+// ここに無く、画面から権限を付けられなかった (S1 で発見。gpm は Phase 5 で足す)
 const PERM_MODULES = [
-  "sales", "budget", "studio", "partner_schedule", "equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops",
+  "sales", "budget", "studio", "partner_schedule", "equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops", "admin",
 ];
 
 interface User {

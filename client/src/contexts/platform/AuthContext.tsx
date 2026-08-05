@@ -1,4 +1,4 @@
-import { APPS, APP_LABELS, type AppDef } from "@gmo-onair/shared/src/client/apps";
+import { APP_LABELS } from "@gmo-onair/shared/src/client/apps";
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import api from "@/lib/api";
 import { useUiStore } from "@/stores/uiStore";
@@ -12,30 +12,6 @@ interface User {
 
 /** モジュール別パーミッション: module名 → access_level */
 type Permissions = Record<string, string>;
-
-/**
- * ブロックアプリ定義 — **一覧そのものは持たない**。
- * アプリ登録は `shared/src/client/apps.ts` が唯一の正 (S1)。
- * ここは旧い呼び名 (`id` / `basePath` / `status` / `externalUrl`) を残すだけの薄い層で、
- * トップページと左メニューを v4 に作り直すとき (Phase 2) に消す。
- */
-export type BlockApp = AppDef & {
-  id: string;
-  basePath: string;
-  status: 'active' | 'coming_soon';
-  externalUrl?: string;
-};
-
-export const BLOCK_APPS: BlockApp[] = APPS
-  // ホームはアプリのカードとしては出さない (トップページ自身なので)
-  .filter((a) => a.key !== 'home')
-  .map((a) => ({
-    ...a,
-    id: a.key,
-    basePath: a.path,
-    status: a.comingSoon ? ('coming_soon' as const) : ('active' as const),
-    externalUrl: a.external,
-  }));
 
 /**
  * モジュール定義（日本語ラベル付き）— パーミッションキーとして使用。
@@ -85,7 +61,17 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // 3段階化: exporter=reader, owner=manager として扱う
-const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
+/**
+ * アクセスレベルの強さ。
+ *
+ * **`full` を必ず入れておくこと。** サーバーは system_admin に
+ * `{ _all: 'full' }` を返す (`users.routes.ts`)。いまは `role === 'system_admin'` を
+ * 先に見るので到達しないが、`_all` を一般ユーザーにも返すようにした瞬間に
+ * `(undefined || 0) >= 1` = false になり、**その人から全メニューが消える**。
+ */
+const LEVEL_ORDER: Record<string, number> = {
+  reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4,
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

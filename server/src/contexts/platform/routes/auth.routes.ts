@@ -405,8 +405,10 @@ router.get('/debug', requireAuth, async (req, res) => {
 
 // requirePermissionロジックを直接シミュレートして全モジュールの判定結果を返す
 router.get('/permission-test', requireAuth, wrap(async (req, res) => {
-  const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
-  const MODULES = ['sales', 'budget', 'studio', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards'];
+  const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4 };
+  // **3つ欠けていた** (S1 で発見): dailyops / partner_schedule / admin。
+  // 権限を調べる画面で「そのモジュールは存在しない」ように見えていた
+  const MODULES = ['sales', 'budget', 'studio', 'partner_schedule', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards', 'dailyops', 'admin'];
 
   // DB から直接クエリして最新値を取得
   const dbRows = await queryAll(

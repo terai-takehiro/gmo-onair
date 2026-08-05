@@ -16,6 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { APPS, APP_BY_KEY, APP_LABELS, canOpenApp, visibleApps, appOfPath } from '../src/client/apps';
+import { isCurrent } from '../src/client/shell/AppSideMenu';
 
 const admin = { role: 'system_admin', permissions: {} };
 const nobody = { role: 'staff', permissions: {} };
@@ -156,5 +157,32 @@ describe('appOfPath — URL から現在地を判定', () => {
 
   it('知らない URL は undefined', () => {
     expect(appOfPath('/nope/whatever')).toBeUndefined();
+  });
+});
+
+describe('isCurrent — 左メニューの現在地', () => {
+  it('**末尾のスラッシュを畳む** (これで実際に光らなかった)', () => {
+    // 機材管理は Vite の base が `/equipment/` なので、入口を開くと
+    // URL が `/equipment/` になる。NavLink の `end` はこれに一致しなかった
+    expect(isCurrent('/equipment/', '/equipment', true)).toBe(true);
+    expect(isCurrent('/equipment', '/equipment/', true)).toBe(true);
+    expect(isCurrent('/', '/', true)).toBe(true);
+  });
+
+  it('`end` の項目は配下で光らない (入口だけ)', () => {
+    expect(isCurrent('/equipment/items', '/equipment', true)).toBe(false);
+    expect(isCurrent('/tasks', '/', true)).toBe(false);
+  });
+
+  it('`end` が無い項目は配下でも光る', () => {
+    expect(isCurrent('/sales/projects', '/sales/projects')).toBe(true);
+    expect(isCurrent('/sales/projects/abc123', '/sales/projects')).toBe(true);
+    expect(isCurrent('/sales/projects/', '/sales/projects')).toBe(true);
+  });
+
+  it('**前方一致で誤爆しない**', () => {
+    // 「案件一覧」を開いているのに「按分グループ」まで光る、が起きないこと
+    expect(isCurrent('/sales/project-groups', '/sales/projects')).toBe(false);
+    expect(isCurrent('/budget/revenues-old', '/budget/revenues')).toBe(false);
   });
 });

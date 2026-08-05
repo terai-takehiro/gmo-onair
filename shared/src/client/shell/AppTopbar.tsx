@@ -89,7 +89,7 @@ export function AppTopbar({
   const base = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL ?? '/') : '/';
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3.5 border-b border-border bg-card px-4 sm:px-6">
+    <header data-shell-topbar className="flex h-16 shrink-0 items-center gap-3.5 border-b border-border bg-card px-4 sm:px-6">
       {/* スマホの左メニュー呼び出し。タップ領域 44px を確保する */}
       {onToggleMenu && (
         <button

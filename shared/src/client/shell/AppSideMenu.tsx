@@ -1,7 +1,11 @@
 /**
  * 左メニュー — 幅 **248px** (docs/design/v4/mockups/AppSideMenu.dc.html)
  *
- * 見出し (11.5px/800) ＋ 項目 (最低高 38px・角丸 10px・左に 6px の点)。
+ * 見出し (11.5px/800) ＋ 項目 (角丸 10px・左に 6px の点)。
+ *
+ * **項目の高さは PC 38px / スマホ 44px。** モックは 38px ですが、スマホでは
+ * 引き出しとして同じ項目を指で押すので、v4 の決めごと「タップ対象は最低 44px」
+ * が優先します (38px のままだと押し損ねる)。
  * 現在地は **背景・文字色・点の色・ウェイト** の4つで示します
  * (色だけだと、色が見分けにくい人に伝わらない)。
  *
@@ -16,12 +20,30 @@
  * 消えた人は「そんな画面は無い」と思うだけなので報告されず、作った側は
  * 自分の権限では見えているので気づきません。`shared/tests/apps.test.ts` で固定してあります。
  */
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../utils';
 import { visibleApps } from '../apps';
 import type { ShellAccess, ShellNavSection } from './types';
+
+/**
+ * 現在地の判定。**`NavLink` の既定に任せない。**
+ *
+ * 機材管理は Vite の `base: '/equipment/'` で配信されるので、入口を開いたときの
+ * URL は `/equipment/` (末尾にスラッシュ) になります。`NavLink to="/equipment" end`
+ * は**これに一致せず、ダッシュボードにいるのにどの項目も光りませんでした**
+ * (実ブラウザで測って気づいた。`/equipment/items` では光るので見落としやすい)。
+ *
+ * 末尾のスラッシュを畳んでから比べます。`end` が無い項目は配下も現在地とみなします
+ * (`/sales/projects` にいるとき `/sales/projects` の項目が光る)。
+ */
+export function isCurrent(pathname: string, to: string, end?: boolean): boolean {
+  const norm = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p);
+  const a = norm(pathname);
+  const b = norm(to);
+  return end ? a === b : a === b || a.startsWith(`${b}/`);
+}
 
 export interface AppSideMenuProps extends ShellAccess {
   appKey: string;
@@ -53,6 +75,7 @@ export function AppSideMenu({
   permissions,
   can,
 }: AppSideMenuProps) {
+  const { pathname } = useLocation();
   const allow = useCan({ role, permissions, can });
   const isAdmin = role === 'system_admin';
   const others = showOtherApps ? visibleApps({ current: appKey, role, permissions }) : [];
@@ -104,38 +127,37 @@ export function AppSideMenu({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={onClose}
-                  className="text-list flex min-h-[38px] items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted"
+                  className="text-list min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted lg:min-h-[38px]"
                 >
                   <Dot active={false} />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 </a>
               ) : (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    cn(
-                      'text-list flex min-h-[38px] items-center gap-2.5 rounded-control-lg px-2.5 py-1.5',
-                      isActive
-                        ? 'bg-primary-surface-weak font-extrabold text-primary'
-                        : 'text-secondary-foreground hover:bg-muted',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Dot active={isActive} />
+                (() => {
+                  const active = isCurrent(pathname, item.to, item.end);
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={onClose}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'text-list min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 lg:min-h-[38px]',
+                        active
+                          ? 'bg-primary-surface-weak font-extrabold text-primary'
+                          : 'text-secondary-foreground hover:bg-muted',
+                      )}
+                    >
+                      <Dot active={active} />
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       {item.tag && (
                         <span className="text-sub-sm inline-flex h-[19px] shrink-0 items-center rounded-badge-xs bg-muted px-1.5 font-bold text-muted-foreground">
                           {item.tag}
                         </span>
                       )}
-                    </>
-                  )}
-                </NavLink>
+                    </Link>
+                  );
+                })()
               ),
             )}
           </div>
@@ -149,7 +171,7 @@ export function AppSideMenu({
                 key={a.key}
                 href={a.external ?? a.path}
                 {...(a.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="text-list flex min-h-[38px] items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted"
+                className="text-list min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted lg:min-h-[38px]"
               >
                 <a.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>

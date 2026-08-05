@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { APPS, type AppDef } from "@gmo-onair/shared/src/client/apps";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -211,18 +212,19 @@ export default function HomePage() {
           padding="compact"
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 auto-rows-fr">
-            {BLOCK_APPS.map((app) => (
+            {APPS.filter((a) => a.key !== "home").map((app) => (
               <AppCard
-                key={app.id}
+                key={app.key}
                 app={app}
-                disabled={!app.externalUrl && !hasPermission(app.id)}
+                disabled={!app.external && !hasPermission(app.key)}
                 onClick={() => {
-                  if (app.externalUrl) {
-                    window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.id)) {
-                    window.location.href = app.basePath;
+                  if (app.external) {
+                    window.open(app.external, "_blank", "noopener,noreferrer");
+                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.key)) {
+                    // 別バンドルのアプリは react-router では飛べない (フルリロードが要る)
+                    window.location.href = app.path;
                   } else {
-                    navigate(app.basePath);
+                    navigate(app.path);
                   }
                 }}
               />
@@ -1120,11 +1122,11 @@ function RecentProjectsSection({ navigate }: { navigate: (to: string) => void })
 // ══════════════════════════════════════════════════════════
 // アプリカード — 補助セクション用にコンパクト化
 // ══════════════════════════════════════════════════════════
-function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onClick: () => void; disabled?: boolean }) {
+function AppCard({ app, onClick, disabled: forceDisabled }: { app: AppDef; onClick: () => void; disabled?: boolean }) {
   const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
-  const isComingSoon = app.status === "coming_soon";
+  const isComingSoon = !!app.comingSoon;
   const isDisabled = isComingSoon || forceDisabled;
-  const isExternal = !!app.externalUrl;
+  const isExternal = !!app.external;
 
   return (
     <button

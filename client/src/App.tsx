@@ -164,7 +164,7 @@ function AppRoutes() {
         <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
         <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
-        {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}
+        {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
         <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />
         <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
