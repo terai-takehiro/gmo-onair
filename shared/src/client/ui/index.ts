@@ -4,9 +4,20 @@
  * Based on shadcn/ui (Radix primitives) with DADS v2.13 tokens and styling.
  * Accessibility: WCAG 2.2 AA (focus rings, aria-*, keyboard, contrast).
  *
- * For advanced app-specific components (DataTable, DropdownMenu, ScrollArea,
- * SearchableSelect, CurrencyInput, AnimatedNumber, Motion, Table) see the
- * respective client app under `src/components/ui/`.
+ * ── このバレルに全部が載っているわけではない ────────────────────
+ * `data-table` / `filter-bar` / `pagination` / `table` / `searchable-select` /
+ * `currency-input` / `scroll-area` は **わざとここから export していない**。
+ * 深いパスで名指しして import する:
+ *     import { Table, TableRow } from '@gmo-onair/shared/src/client/ui/table';
+ * 理由: バレルに載せると **使わないアプリまで Radix を巻き込む**
+ * (`scroll-area` は @radix-ui/react-scroll-area を要求するが、入っているのは
+ * いまのところ案件管理だけ)。v2.4.0 の `data-table` 昇格からこの形。
+ *
+ * ── まだ案件管理に残っている部品 ──────────────────────────────
+ * `motion` / `animated-number` は `client/src/components/ui/` に置いたまま。
+ * `framer-motion` が案件管理にしか入っていないうえ、v4 は hover を色・罫線だけに
+ * 絞り画面遷移も CSS の animation で行う (`docs/design/v4/_tokens.md`) ので、
+ * **v4 が離れていく方向の部品**を他アプリに背負わせない。Phase 2 で整理する。
  */
 export * from "./button";
 export * from "./input";
