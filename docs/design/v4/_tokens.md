@@ -6,6 +6,15 @@
 実装では **`shared/src/client/tokens-v4.css` と `shared/tailwind.preset.ts` に集約**し、
 画面から色コードや px を直接書かないこと（`npm run check:ui-tokens` が止めます）。
 
+> **実装の状況**（Phase 1 の T1 / T2 時点）
+> - **色は全部入っています。** 値が変わるものは `tokens-v4.css`、名前を足すものは
+>   `tokens.css`。読むのは **v4 対象3アプリだけ**で、凍結4アプリは今日の色のまま
+> - **角丸は役割名だけ入っています**（`rounded-card` / `rounded-control` など）。
+>   下の9段の数字（`rounded-2xl` 等）は Tailwind の組み込みとぶつかり、
+>   **まだ作り直していない画面の角まで変わる**ので入れていません。**画面では役割名を使ってください**
+> - **書体（LINE Seed JP）と `palt` は T3 で入ります。** それまで型スケール
+>   （`text-h1` 等）は Noto Sans JP で描かれます
+
 ---
 
 ## 色

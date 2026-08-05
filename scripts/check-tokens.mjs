@@ -20,7 +20,7 @@
 // 実行:
 //   node scripts/check-tokens.mjs        # 検査 (npm run lint から呼ばれる)
 //
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,19 +34,20 @@ const bad = (where, detail) => problems.push({ where, detail });
 const css = readFileSync(TOKENS, 'utf8');
 
 /** `:root { ... }` / `.dark { ... }` の中身を取り出す */
-function block(selector) {
+function block(selector, text = css) {
+  const src = text;
   // 最初に現れる `<selector> {` から、対応する `}` まで
   const re = new RegExp(`${selector.replace('.', '\\.')}\\s*\\{`, 'g');
   const out = [];
-  for (const m of css.matchAll(re)) {
+  for (const m of src.matchAll(re)) {
     let depth = 1, i = m.index + m[0].length;
     const start = i;
-    while (i < css.length && depth > 0) {
-      if (css[i] === '{') depth++;
-      else if (css[i] === '}') depth--;
+    while (i < src.length && depth > 0) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') depth--;
       i++;
     }
-    out.push(css.slice(start, i - 1));
+    out.push(src.slice(start, i - 1));
   }
   return out.join('\n');
 }
@@ -117,7 +118,37 @@ for (const m of preset.matchAll(/rgb\(var\((--[a-z0-9-]+)\)/g)) {
   }
 }
 
-// ── ④ 書き方が RGB に揃っているか ────────────────────────────
+// ── ④ v4 の上書き (tokens-v4.css) が効く形になっているか ────────
+//
+// `tokens-v4.css` は **v4 対象3アプリだけ**が読む上書き層 (base.css 経由)。
+// ここで名前を打ち間違えても CSS は黙って新しい変数を1つ作るだけなので、
+// **上書きしたつもりの色が元のまま**になる。画面を見ても「なんとなく違う」
+// としか分からず、原因に辿り着けない。
+{
+  const V4 = path.join(ROOT, 'shared/src/client/tokens-v4.css');
+  if (existsSync(V4)) {
+    const v4 = colorTokens(block(':root', readFileSync(V4, 'utf8')));
+    for (const [tok, rgb] of v4) {
+      if (!light.has(tok)) {
+        bad('tokens-v4.css', `${tok} は tokens.css に無い名前 — 上書きにならず、新しい変数を作っているだけです`);
+      }
+      if (rgb.some((v) => v > 255)) bad('tokens-v4.css', `${tok}: ${rgb.join(' ')} — 0〜255 の範囲外です`);
+    }
+    // 上書きの意味が無い (元と同じ値) ものは、消し忘れか写し間違い
+    for (const [tok, rgb] of v4) {
+      const base = light.get(tok);
+      if (base && base.join(' ') === rgb.join(' ')) {
+        // `--card` のように「変えないことを明示する」目的の行は許す。
+        // ただし数が増えると差分が読めなくなるので、コメントで意図を書くこと。
+      }
+    }
+    if (!/@import\s+['"]\.\/tokens-v4\.css['"]/.test(readFileSync(path.join(ROOT, 'shared/src/client/base.css'), 'utf8'))) {
+      bad('base.css', "tokens-v4.css を import していません (v4 の色が当たりません)");
+    }
+  }
+}
+
+// ── ⑤ 書き方が RGB に揃っているか ────────────────────────────
 // `hsl(var(--x))` が残っていると、RGB の3つ組を HSL として読んで**全く違う色**になる。
 // リアルタイムCG は自前の HSL トークンと自前の tailwind 設定で完結しているので対象外。
 for (const m of preset.matchAll(/hsl\(var\(--[a-z0-9-]+\)/g)) {
