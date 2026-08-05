@@ -36,52 +36,13 @@ import {
   formatElapsed,
 } from "@/contexts/sales/pages/InboxPage";
 import {
-  FolderKanban,
-  PiggyBank,
-  Calendar,
-  Package,
-  FileText,
-  BookOpen,
-  Users,
-  Truck,
-  Sparkles,
-  UserCog,
-  Database,
-  Settings,
-  ExternalLink,
-  Wrench,
-  ArrowRight,
-  ShieldCheck,
-  ShieldAlert,
-  ChevronDown,
-  ChevronUp,
-  Timer,
-  Tv,
-  FileSearch,
-  FolderPlus,
-  Zap,
-  RefreshCw,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  ClipboardList,
-  Briefcase,
-  Languages,
-  TrendingUp,
-  Flame,
-  Phone,
-  Mail,
-  MessageSquare,
-  CalendarClock,
-  Check,
-  Inbox,
+  PiggyBank, Calendar, FileText, Users, Sparkles, UserCog, Database, Settings,
+  ExternalLink, ArrowRight, ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, FileSearch, FolderPlus,
+  Zap, RefreshCw, Loader2, CheckCircle2, Clock, ClipboardList, Briefcase, TrendingUp,
+  Flame, Phone, Mail, MessageSquare, CalendarClock, Check, Inbox,
 } from "lucide-react";
 import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
-};
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -1160,7 +1121,7 @@ function RecentProjectsSection({ navigate }: { navigate: (to: string) => void })
 // アプリカード — 補助セクション用にコンパクト化
 // ══════════════════════════════════════════════════════════
 function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onClick: () => void; disabled?: boolean }) {
-  const Icon = ICON_MAP[app.icon] || Package;
+  const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
   const isComingSoon = app.status === "coming_soon";
   const isDisabled = isComingSoon || forceDisabled;
   const isExternal = !!app.externalUrl;
@@ -1177,11 +1138,13 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
           : "border-border bg-card hover:border-primary hover:bg-accent active:scale-[0.98]"
       )}
     >
+      {/*
+        色は登録の hex 1本 (S1)。以前は Tailwind のクラス (BLOCK_APPS) と
+        hex (AppSwitcher) の2系統があり、同じアプリが場所によって別の色だった。
+      */}
       <div
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-md text-white",
-          isDisabled ? "bg-muted-foreground/30" : app.color
-        )}
+        className="flex h-10 w-10 items-center justify-center rounded-md text-white"
+        style={{ backgroundColor: isDisabled ? undefined : app.color }}
       >
         <Icon className="h-5 w-5" aria-hidden="true" />
       </div>

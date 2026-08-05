@@ -1,56 +1,17 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
+import { visibleApps } from "@gmo-onair/shared/src/client/apps";
 import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Inbox,
-  TrendingUp,
-  FolderKanban,
-  Receipt,
-  ShoppingCart,
-  Calendar,
-  CalendarClock,
-  Layers,
-  Building2,
-  Truck,
-  Users,
-  UserCog,
-  DollarSign,
-  BarChart3,
-  Database,
-  HardDrive,
-  FlaskConical,
-  X,
-  ClipboardList,
-  Award,
-  Film,
-  Briefcase,
-  GitBranch,
-  Package,
-  PiggyBank,
-  Home,
-  ChevronLeft,
-  Sparkles,
-  Presentation,
-  FileText,
-  FileSearch,
-  BookOpen,
-  Settings,
-  Timer,
-  Tv,
-  Store,
-  KanbanSquare,
-  ListTodo,
-  GanttChart,
-  Languages,
-  CopyCheck,
+  Inbox, TrendingUp, FolderKanban, Receipt, ShoppingCart, Calendar, CalendarClock, Layers,
+  Building2, Truck, Users, UserCog, DollarSign, BarChart3, Database, HardDrive,
+  FlaskConical, X, ClipboardList, Award, Film, Briefcase, GitBranch, Home,
+  ChevronLeft, Sparkles, Presentation, FileSearch, Settings, Store, KanbanSquare, ListTodo,
+  GanttChart, CopyCheck,
 } from "lucide-react";
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Timer, Tv,
-};
 
 interface NavItem {
   label: string;
@@ -195,16 +156,16 @@ export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUiStore();
   const navigate = useNavigate();
   const activeAppId = useActiveApp();
-  const { currentUser, hasPermission } = useAuth();
+  const { currentUser, hasPermission, permissions } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
 
   // ホーム画面ではサイドバー非表示
   if (!activeAppId) return null;
 
   const activeApp = BLOCK_APPS.find((a) => a.id === activeAppId);
-  const AppIcon = activeApp ? (ICON_MAP[activeApp.icon] || Package) : Settings;
+  const AppIcon = activeApp?.icon ?? Settings;  // アプリ登録が部品を持つ (S1)
   const appLabel = activeApp?.label ?? "システム管理";
-  const appColor = activeApp?.color ?? "bg-slate-500";
+  const appColor = activeApp?.color ?? "#64748b";  // 登録の hex 1本 (S1)
   const sections = APP_NAV[activeAppId] || [];
 
   return (
@@ -233,7 +194,7 @@ export default function Sidebar() {
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-2 min-w-0">
-            <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white", appColor)}>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white" style={{ backgroundColor: appColor }}>
               <AppIcon className="h-4 w-4" />
             </div>
             <span className="truncate text-sm font-bold">{appLabel}</span>
@@ -290,30 +251,29 @@ export default function Sidebar() {
         {/* App shortcuts + Home — アクセス可能なアプリのみ表示 */}
         <div className="border-t p-3 space-y-1">
           <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
-          {(
-            [
-              { path: "/qsheet", label: "Qシート", Icon: FileText, module: "qsheet" },
-              { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
-              { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
-              { path: "/live", label: "計時LIVE", Icon: Timer, module: "liveops" },
-              { path: "/awards", label: "リアルタイムCG", Icon: Tv, module: "awards" },
-              { path: "/daily", label: "日常業務", Icon: ClipboardList, module: "dailyops" },
-              { path: "https://interactive.gmo-onair.jp/", label: "インタラクティブ", Icon: Sparkles, module: "interactive", external: true },
-              { path: "https://gmo-translate.jp/", label: "翻訳", Icon: Languages, module: "translate", external: true },
-            ] as Array<{ path: string; label: string; Icon: React.ElementType; module: string; external?: boolean }>
-          )
-            .filter((app) => app.external || isAdmin || hasPermission(app.module))
-            .map((app) => (
-              <a
-                key={app.path}
-                href={app.path}
-                {...(app.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              >
-                <app.Icon className="h-4 w-4 shrink-0" />
-                {app.label}
-              </a>
-            ))}
+          {/*
+            「他のアプリ」の一覧は**手書きしない** (S1)。以前はここに8行の
+            一覧があり、AppSwitcher・appNav・BLOCK_APPS と合わせて4か所で
+            食い違っていた (「カレンダー」が「スタジオ予約」になっている等)。
+            凍結4アプリはここでは**まだ出す** — この画面はまだ v4 ではないので、
+            消すと Qシート等への行き方が無くなる。
+          */}
+          {visibleApps({
+            current: activeAppId ?? undefined,
+            role: currentUser?.role,
+            permissions,
+            includeFrozen: true,
+          }).map((app) => (
+            <a
+              key={app.key}
+              href={app.external ?? app.path}
+              {...(app.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            >
+              <app.icon className="h-4 w-4 shrink-0" />
+              {app.label}
+            </a>
+          ))}
           <button
             onClick={() => { navigate("/"); setSidebarOpen(false); }}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

@@ -2,52 +2,20 @@
  * AppSwitcher — グローバルアプリ切り替えメニュー（フラットデザイン）
  * 全ブロックアプリのヘッダーに組み込み、どの画面からでも直接他アプリに遷移可能にする。
  * createPortal で document.body 直下にレンダリング → 親の overflow/transform/z-index 影響を完全回避
+ *
+ * **アプリの一覧はここに持たない。** `apps.ts` が唯一の正 (S1)。
+ * 以前はここに `ONAIR_APPS` という独自の一覧があり、他の3か所と食い違っていた。
  */
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {
-  Home,
-  FolderKanban,
-  PiggyBank,
-  Calendar,
-  FileText,
-  Package,
-  Sparkles,
-  Wrench,
-  Users,
-  Timer,
-  Tv,
-  ClipboardList,
-  Languages,
-  type LucideIcon,
-} from "lucide-react";
+import { APPS, type AppDef } from "./apps";
 
-/** アプリ定義 */
-interface AppDef {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  color: string;
-  basePath: string;
-  status: "active" | "coming_soon";
-  externalUrl?: string;
-}
-
-export const ONAIR_APPS: AppDef[] = [
-  { id: "home",        label: "ホーム",           icon: Home,          color: "#475569", basePath: "/",            status: "active" },
-  { id: "sales",       label: "案件管理",         icon: FolderKanban,  color: "#2563eb", basePath: "/sales",       status: "active" },
-  { id: "budget",      label: "財務管理",         icon: PiggyBank,     color: "#059669", basePath: "/budget",      status: "active" },
-  { id: "studio",      label: "カレンダー",       icon: Calendar,      color: "#7c3aed", basePath: "/studio",      status: "active" },
-  { id: "qsheet",      label: "Qシート",          icon: FileText,      color: "#e11d48", basePath: "/qsheet",      status: "active" },
-  { id: "equipment",   label: "機材管理",         icon: Package,       color: "#d97706", basePath: "/equipment",   status: "active" },
-  { id: "techsheet",   label: "技術資料",         icon: Wrench,        color: "#0891b2", basePath: "/techsheet",   status: "active" },
-  { id: "liveops",     label: "計時LIVE",         icon: Timer,         color: "#ef4444", basePath: "/live",        status: "active" },
-  { id: "awards",      label: "リアルタイムCG",   icon: Tv,            color: "#f59e0b", basePath: "/awards",      status: "active" },
-  { id: "dailyops",    label: "日常業務",         icon: ClipboardList, color: "#0d9488", basePath: "/daily",       status: "active" },
-  { id: "interactive", label: "インタラクティブ", icon: Sparkles,      color: "#db2777", basePath: "https://interactive.gmo-onair.jp/", status: "active", externalUrl: "https://interactive.gmo-onair.jp/" },
-  { id: "translate",   label: "翻訳",             icon: Languages,     color: "#16a34a", basePath: "https://gmo-translate.jp/", status: "active", externalUrl: "https://gmo-translate.jp/" },
-  { id: "assign",      label: "制作支援",         icon: Users,         color: "#ea580c", basePath: "/prodsheet",   status: "coming_soon" },
-];
+/**
+ * 後方互換の名前。**新しいコードは `APPS` を使うこと。**
+ * `basePath` / `id` / `status` は旧 `ONAIR_APPS` の呼び名。
+ */
+export const ONAIR_APPS: Array<AppDef & { id: string; basePath: string; status: 'active' | 'coming_soon'; externalUrl?: string }> =
+  APPS.map((a) => ({ ...a, id: a.key, basePath: a.path, status: a.comingSoon ? 'coming_soon' : 'active', externalUrl: a.external }));
 
 interface AppSwitcherProps {
   currentApp?: string;

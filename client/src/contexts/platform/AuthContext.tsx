@@ -1,3 +1,4 @@
+import { APPS, APP_LABELS, type AppDef } from "@gmo-onair/shared/src/client/apps";
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import api from "@/lib/api";
 import { useUiStore } from "@/stores/uiStore";
@@ -12,50 +13,38 @@ interface User {
 /** モジュール別パーミッション: module名 → access_level */
 type Permissions = Record<string, string>;
 
-/** ブロックアプリ定義 */
-export interface BlockApp {
+/**
+ * ブロックアプリ定義 — **一覧そのものは持たない**。
+ * アプリ登録は `shared/src/client/apps.ts` が唯一の正 (S1)。
+ * ここは旧い呼び名 (`id` / `basePath` / `status` / `externalUrl`) を残すだけの薄い層で、
+ * トップページと左メニューを v4 に作り直すとき (Phase 2) に消す。
+ */
+export type BlockApp = AppDef & {
   id: string;
-  label: string;
-  description: string;
-  icon: string;       // lucide icon name (resolved in UI)
-  color: string;      // tailwind color class
-  status: "active" | "coming_soon";
   basePath: string;
-  /** 外部URLの場合（別タブで開く）。Phase NOW で Qsheet/EventStamp に使用 */
+  status: 'active' | 'coming_soon';
   externalUrl?: string;
-}
+};
 
-export const BLOCK_APPS: BlockApp[] = [
-  { id: "sales",       label: "案件管理",           description: "案件パイプライン・顧客・見積",     icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
-  { id: "budget",      label: "財務管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
-  { id: "studio",      label: "カレンダー",         description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
-  { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
-  { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
-  { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
-  { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Timer",        color: "bg-red-500",     status: "active",      basePath: "/live" },
-  { id: "awards",      label: "リアルタイムCG",     description: "リアルタイム放送CG演出・送出管理", icon: "Tv",           color: "bg-yellow-500",  status: "active",      basePath: "/awards" },
-  { id: "dailyops",    label: "日常業務",           description: "AI 週次活動報告・業界ニュース収集", icon: "ClipboardList", color: "bg-teal-600",   status: "active",      basePath: "/daily" },
-  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援 (外部)", icon: "Sparkles", color: "bg-pink-500", status: "active",      basePath: "https://interactive.gmo-onair.jp/", externalUrl: "https://interactive.gmo-onair.jp/" },
-  { id: "translate",   label: "翻訳",               description: "GMO 翻訳ツール (外部)",            icon: "Languages",    color: "bg-green-600",   status: "active",      basePath: "https://gmo-translate.jp/", externalUrl: "https://gmo-translate.jp/" },
-  { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
-  { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
-];
+export const BLOCK_APPS: BlockApp[] = APPS
+  // ホームはアプリのカードとしては出さない (トップページ自身なので)
+  .filter((a) => a.key !== 'home')
+  .map((a) => ({
+    ...a,
+    id: a.key,
+    basePath: a.path,
+    status: a.comingSoon ? ('coming_soon' as const) : ('active' as const),
+    externalUrl: a.external,
+  }));
 
-/** モジュール定義（日本語ラベル付き）— パーミッションキーとして使用 */
+/**
+ * モジュール定義（日本語ラベル付き）— パーミッションキーとして使用。
+ * **名前は `apps.ts` から引く**（2か所に書くと必ず片方だけ変わる）。
+ */
 export const MODULE_LABELS: Record<string, string> = {
-  sales: "案件管理",
-  budget: "財務管理",
-  studio: "カレンダー",
-  partner_schedule: "パートナースケジュール",
-  equipment: "機材管理",
-  qsheet: "Qシート",
-  techsheet: "技術資料",
-  liveops: "計時LIVE",
-  awards: "リアルタイムCG",
-  dailyops: "日常業務",
-  assign: "制作支援",
-  delivery: "素材納品",
-  admin: "システム管理",
+  ...APP_LABELS,
+  // アプリではないが権限モジュールとして存在するもの
+  partner_schedule: 'パートナースケジュール',
 };
 
 /** アクセスレベル定義（3段階） */

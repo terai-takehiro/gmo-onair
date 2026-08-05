@@ -8,20 +8,16 @@
 
 import { Lock } from 'lucide-react';
 import { cn } from '../utils';
+import { APP_LABELS } from '../apps';
 
-/** モジュールキー → 画面に出す権限の名前 */
+/**
+ * モジュールキー → 画面に出す権限の名前。
+ * **名前は `apps.ts` から引く** (S1)。ここに書き写すと5か所目の一覧になる。
+ */
 export const MODULE_LABELS: Record<string, string> = {
-  sales: '案件管理',
-  budget: 'お金 (財務管理)',
-  studio: 'カレンダー',
+  ...APP_LABELS,
+  // アプリではないが権限モジュールとして存在するもの
   partner_schedule: 'パートナースケジュール',
-  qsheet: 'Qシート',
-  equipment: '機材管理',
-  techsheet: '技術資料',
-  liveops: '計時LIVE',
-  awards: 'リアルタイムCG',
-  dailyops: '日常業務',
-  admin: 'システム管理',
 };
 
 /** アクセスレベルの表示名 (内部値 reader/editor/manager を人の言葉に) */

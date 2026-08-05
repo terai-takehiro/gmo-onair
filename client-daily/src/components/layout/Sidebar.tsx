@@ -4,15 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUiStore } from '@/stores/uiStore';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
-  ClipboardList, CalendarCheck, Newspaper, ChevronLeft, X,
-  Home, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages,
-  Briefcase, PiggyBank, Calendar, LayoutDashboard, DoorOpen, Inbox, KeyRound, ListChecks,
+  ClipboardList, CalendarCheck, Newspaper, ChevronLeft, X, FileText, LayoutDashboard, DoorOpen,
+  Inbox, KeyRound, ListChecks,
 } from 'lucide-react';
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  Home, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages,
-  Briefcase, PiggyBank, Calendar, ClipboardList,
-};
 
 export default function Sidebar() {
   const { currentUser } = useAuth();
@@ -69,12 +64,12 @@ export default function Sidebar() {
           <div className="border-t border-border p-2 space-y-0.5 max-h-[40vh] overflow-y-auto">
             <p className="px-3 mb-1 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">他のアプリ</p>
             {otherApps.map((app) => {
-              const Icon = ICON_MAP[app.icon] || Package;
-              const isExternal = !!app.externalUrl;
+              const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
+              const isExternal = !!app.external;
               return (
                 <a
                   key={app.key}
-                  href={isExternal ? app.externalUrl : app.path}
+                  href={isExternal ? app.external : app.path}
                   {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="flex items-center gap-2.5 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >

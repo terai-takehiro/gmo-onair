@@ -5,12 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
   Tv, LayoutDashboard, ChevronLeft, X,
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Languages, ClipboardList,
 } from 'lucide-react';
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Tv, Languages, ClipboardList,
-};
 
 const navItems = [
   { label: 'イベント一覧', path: '/', icon: LayoutDashboard, exact: true },
@@ -87,12 +83,12 @@ export default function Sidebar() {
               他のアプリ
             </p>
             {otherApps.map((app) => {
-              const Icon = ICON_MAP[app.icon] || Tv;
-              const isExternal = !!app.externalUrl;
+              const Icon = app.icon;  // アプリ登録 (shared/src/client/apps.ts) が部品を持つ
+              const isExternal = !!app.external;
               return (
                 <a
                   key={app.key}
-                  href={isExternal ? app.externalUrl : app.path}
+                  href={isExternal ? app.external : app.path}
                   {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
