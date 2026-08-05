@@ -128,6 +128,26 @@ npm run check:shared-wiring    # 7アプリ分を照合 (lint から自動で呼
 `vite.config.ts` の `resolve.alias` と `tsconfig.json` の `paths` に `../shared` を入れてください
 （検査が抜けを指摘します）。**バージョン範囲は書かないこと** — 本番のビルドが落ちます
 （理由は [shared/CLAUDE.md](shared/CLAUDE.md)）。
+
+### CSS を書く場所
+
+**`html` / `body` / `#root` をアプリの `index.css` で触らないでください。**
+高さ・書体・行間・タップ領域・印刷は `shared/src/client/base.css` にまとまっています。
+
+```css
+/* <app>/src/index.css の先頭。ここから下はアプリ固有の CSS だけ */
+@import '@gmo-onair/shared/src/client/base.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+- **v4 対象3アプリだけ**が読みます。凍結4アプリは `tokens.css` を直読みするまま（見た目を変えないため）
+- 画面のスクロールは**シェルの中**（`<main class="overflow-y-auto">`）が持ちます。
+  `html`/`body` は動きません。シェルの根は `h-screen`(=100vh) ではなく **`h-full`**
+  （iOS の `100vh` は URL バーを含むので、下端が切れます）
+- 変えたくなったら**まず `base.css` を直すべきかを考える**。アプリ側で上書きすると、
+  アプリごとにまた土台がずれていきます（F2 の前はこれで7か所に分かれていました）
 どうしても分けられない理由があるときは `--update` で基準に入れ、**PR に理由を書いて**ください。
 
 ### 画面を実装するときに読むもの

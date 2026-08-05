@@ -32,5 +32,5 @@
 - **1ファイル400行を上限にする。** いま `pages/TasksPage.tsx` が 1,005行
 - `src/index.css` にタイマー・視聴者数のクラスが残っている（計時LIVE から流用された跡）。
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**
-- 本文の文字サイズが `client` と揃っていない（`index.css` の `@layer base` に
-  `font-size`/`line-height`/`letter-spacing` が無い）→ v4 の F2 で共通の下地に寄せる
+- **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
+  `shared/src/client/base.css`（F2 で集約済み）。本文が 16px だったのもこれで揃った

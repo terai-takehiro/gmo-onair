@@ -28,7 +28,14 @@ const BASE = process.env.BASE || 'http://localhost:3001';
 const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const USER = process.env.VERIFY_USER || 'v-admin';
 
-/** 見るページ。`slow` は取得に時間がかかるので長めに待つ */
+/**
+ * 見るページ。`slow` は取得に時間がかかるので長めに待つ。
+ *
+ * **v4 の対象3アプリは全画面を並べる。** 共通の下地 (`shared/src/client/base.css`) や
+ * 共通シェルを入れ替えると**全画面に一度に効く**ので、代表2〜3画面では足りない
+ * (実際 F2 の前は日常業務2画面・機材2画面しか見ていなかった)。
+ * 凍結4アプリは見た目を変えないので代表画面のままにしてある。
+ */
 const PAGES = [
   ['案件管理 今日', '/today'],
   ['案件管理 案件', '/projects'],
@@ -36,13 +43,36 @@ const PAGES = [
   ['Qシート 編集', '/qsheet/editor/verify-onair'],
   ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
   ['Qシート ランダウン', '/qsheet/rundown/verify-onair', { dark: true }],
-  ['機材 日々', '/equipment/'],
-  ['機材 台帳', '/equipment/items'],
   ['技術資料', '/techsheet/'],
   ['計時LIVE', '/live/'],
+
+  // ── 機材管理 (v4 対象・全画面) ──────────────────────────
+  ['機材 日々', '/equipment/'],
+  ['機材 台帳', '/equipment/items', { slow: true }],
+  ['機材 ケーブル', '/equipment/cables'],
+  ['機材 コネクタ', '/equipment/connectors'],
+  ['機材 ラック図', '/equipment/racks', { slow: true, print: true }],
+  ['機材 メンテナンス', '/equipment/maintenance'],
+  ['機材 棚卸し', '/equipment/inventory'],
+  ['機材 貸出', '/equipment/lendings'],
+  ['機材 スキャン', '/equipment/scan'],
+  ['機材 拠点', '/equipment/locations'],
+  ['機材 メーカー', '/equipment/manufacturers'],
+  ['機材 型番グループ', '/equipment/model-groups'],
+  ['機材 貸出区分', '/equipment/rental-categories'],
+  ['機材 貸出設定', '/equipment/rental-settings'],
+  ['機材 色', '/equipment/colors'],
+
+  // ── 日常業務 (v4 対象・全画面) ──────────────────────────
   ['日常業務 ホーム', '/daily/'],
-  ['日常業務 カード', '/daily/security-cards'],
+  ['日常業務 週報', '/daily/weekly'],
+  ['日常業務 ニュース', '/daily/news'],
+  ['日常業務 内覧会', '/daily/inview'],
   ['日常業務 見積請求', '/daily/finance'],
+  ['日常業務 問い合わせ', '/daily/inquiries'],
+  ['日常業務 やること', '/daily/tasks'],
+  ['日常業務 カード', '/daily/security-cards'],
+
   ['リアルタイムCG 一覧', '/awards/'],
   ['リアルタイムCG 準備', '/awards/event/1'],
   ['リアルタイムCG 送出', '/awards/event/1/onair'],
@@ -123,8 +153,37 @@ function measure() {
 
   // 金額は ¥ と数字が別要素 (1要素に「¥4,820,000」と入っていたら桁がそろわない)
 
+  /*
+   * **中身がスクロールする手段の無いまま切れていないか。**
+   * 共通の下地は `html, body, #root` に `overflow: hidden` を敷き、スクロールは
+   * シェルの中 (`<main class="overflow-y-auto">`) が持つ形にしている。この形は
+   * **間に1つでも「はみ出しているのに隠すだけ」の箱があると、そこから下に
+   * ユーザーが到達できなくなる** (スクロールバーも出ないので気づけない)。
+   * 型でもレビューでも見つからないので、実ブラウザで座標を測って数える。
+   */
+  const clipped = [];
+  document.querySelectorAll('body *').forEach((el) => {
+    const over = el.scrollHeight - el.clientHeight;
+    if (over <= 2) return;                                  // 端数は無視
+    const s = cs(el);
+    if (s.overflowY !== 'visible' && s.overflowY !== 'hidden') return;   // 自分でスクロールできる
+    if (s.display === 'none' || s.visibility === 'hidden') return;
+    if (!el.clientHeight) return;                           // 潰れている箱は別の話
+    // overflow: visible ならはみ出した中身は見えている。祖先のどこかが
+    // スクロールを持っていれば到達できるので、それを探す。
+    let node = el.parentElement, reachable = s.overflowY === 'visible';
+    while (node && !reachable) {
+      const ns = cs(node);
+      if (ns.overflowY === 'auto' || ns.overflowY === 'scroll') reachable = true;
+      node = node.parentElement;
+    }
+    if (reachable) return;
+    clipped.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().slice(0, 24)} +${over}px`);
+  });
+
   const shell = document.querySelector('#root > div');
   return {
+    clipped: clipped.length, clippedList: [...new Set(clipped)].slice(0, 3),
     overflowX: de.scrollWidth - de.clientWidth,
     bodyBg: cs(document.body).backgroundColor,
     font: cs(document.body).fontFamily,
@@ -167,8 +226,15 @@ async function runViewport(browser, { width, height, tag }) {
     const m = await pg.evaluate(measure);
 
     ok(`${label} 横はみ出し 0px`, m.overflowX === 0, `${m.overflowX}px`);
+    ok(`${label} 中身が隠れていない`, m.clipped === 0, `${m.clipped}件 ${JSON.stringify(m.clippedList)}`);
     ok(`${label} JSエラー 0件`, errs.length === 0, errs.slice(0, 1).join(''));
     // 放送中の画面は DADS の `.dark` を**意図して**使う (地の色が違うのが正しい)
+    //
+    // **いま全ページで落ちるのは想定内。** 期待値 #f6f7f9 は前回の刷新 (release/v3) の
+    // トークンの値で、現在の `tokens.css` は `--background: 0 0% 98%` = #fafafa。
+    // v4 の確定値は #f7f8fa (`docs/design/v4/_tokens.md`) なので、**T1 (HSL→RGB 変換) と
+    // T2 (tokens-v4.css) でトークンを入れ替えるときに、この期待値も一緒に直す。**
+    // ここを先に直すと「検査は緑なのに画面の色は v4 ではない」状態になるので触らない。
     const wantBg = opt.dark ? 'rgb(20, 22, 26)' : 'rgb(246, 247, 249)';
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
     ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
@@ -179,6 +245,25 @@ async function runViewport(browser, { width, height, tag }) {
     ok(`${label} 金額は¥と数字が別要素`, m.badMoney.length === 0, JSON.stringify(m.badMoney));
     if (m.h1.length) {
       ok(`${label} 見出しの大きさが1つ`, new Set(m.h1).size === 1, m.h1.join(','));
+    }
+
+    /*
+     * **印刷で高さの固定が外れているか** (`print: true` のページだけ)。
+     * 画面では `html, body, #root { height: 100%; overflow: hidden }` でシェルを
+     * 画面に固定しているが、そのまま紙に出すと**1ページ目で切れる**。
+     * `base.css` の `@media print` が解除している前提を、実ブラウザで確かめる。
+     */
+    if (opt.print) {
+      await pg.emulateMedia({ media: 'print' });
+      const p = await pg.evaluate(() => {
+        const s = getComputedStyle(document.documentElement);
+        const b = getComputedStyle(document.body);
+        return { htmlOv: s.overflowY, bodyOv: b.overflowY, htmlH: s.height, vh: window.innerHeight };
+      });
+      await pg.emulateMedia({ media: 'screen' });
+      ok(`${label} 印刷で高さの固定が外れる`,
+        p.htmlOv === 'visible' && p.bodyOv === 'visible',
+        `html:${p.htmlOv} body:${p.bodyOv}`);
     }
   }
   await ctx.close();

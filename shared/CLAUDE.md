@@ -36,6 +36,7 @@
 | 場所 | 何が入っているか |
 | --- | --- |
 | `src/client/tokens.css` | 設計トークン（色・書体・角丸）。DADS のプリミティブを import した上に GMO ブルーと意味づけを載せる |
+| `src/client/base.css` | **共通の土台**（`html`/`body`/`#root` の高さ・書体・タップ領域・印刷）。`tokens.css` を import した上に敷く。**v4 対象3アプリだけ**が読む |
 | `tailwind.preset.ts` | 全7アプリの `tailwind.config.ts` が `presets` で継承（**相対パス** `../shared/tailwind.preset` で参照） |
 | `src/client/ui/` | shadcn/Radix のプリミティブ22本 |
 | `src/client/dashboard/` | `DashboardHeader` / `KpiCard` / `SectionCard` / `EmptyState` / `chart-colors` |
@@ -47,6 +48,22 @@
 
 - `src/client/ui/index.ts` は `data-table` / `filter-bar` / `pagination` を**再エクスポートしていない**（深いパスで import する）
 - ストレージキー: `qs_user`(qsheet) / `ts_user`(techsheet) / `eq_user`(equipment) ほか
+
+## 共通の土台 `base.css`（重要）
+
+**v4 対象3アプリの `index.css` は `@import '@gmo-onair/shared/src/client/base.css';` から始め、
+アプリ固有の CSS だけを書く。** `html`/`body`/`#root` をアプリ側で上書きしないこと
+（`scripts/check-ui-tokens.mjs` の `app-foundation` が import の有無を見ている）。
+
+- **凍結4アプリは読まない。** `tokens.css` を直読みするままが正しい（見た目を変えないため）
+- **シェルの根は `h-screen`(=100vh) ではなく `h-full`。** iOS の `100vh` は URL バーを含むので
+  実際の表示領域より高くなり、`#root` の `overflow: hidden` で下端が切れる
+- **`@media print` は `@layer base` の中に置く。** 外に出すと効かない — Tailwind は
+  `@layer base` の中身を `@tailwind base` の位置へ移すが素の CSS は書いた場所に残り、
+  `base.css` は `index.css` の先頭で import されるので `overflow: hidden` より前に出て負ける
+  （実ブラウザで `overflow-y: hidden` を実測して見つけた。**印刷が1ページ目で切れる**）
+- **`font-feature-settings: 'palt'` はまだ入れていない。** 数字に掛かると桁がずれるので、
+  打ち消す `.font-number` と書体（LINE Seed JP）が揃う **T3 で入れる**
 
 ## v4 のトークン方針（重要）
 

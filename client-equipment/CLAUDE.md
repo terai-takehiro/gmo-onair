@@ -35,4 +35,7 @@
   `pages/EquipmentListPage.tsx` 2,017行 / `pages/RackLayoutPage.tsx` 1,502行 /
   `pages/EquipmentDetailPage.tsx` 1,090行 / `pages/CablePage.tsx` 839行
 - Excel の取込・出力が複数ページにある（機材・ケーブル・コネクタ）。列定義は各ページに散っている
-- 本文の文字サイズが `client` と揃っていない → v4 の F2 で共通の下地に寄せる
+- **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
+  `shared/src/client/base.css`（F2 で集約済み）。`.heading-*` / `.font-number` の複製も削除済み
+- **ラック図・機材台帳の印刷**は `index.css` の `@media print` 2ブロック。`base.css` が
+  印刷時に高さの固定を外す前提なので、`html`/`body` の `overflow` をここで書かないこと
