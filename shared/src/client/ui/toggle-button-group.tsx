@@ -52,7 +52,7 @@ export const ToggleCard = React.forwardRef<HTMLButtonElement, ToggleCardProps>(
             : 'border-input bg-background hover:border-primary/40 hover:bg-muted/30',
           className,
         )}
-        style={selected ? { background: color ?? 'hsl(var(--primary))' } : undefined}
+        style={selected ? { background: color ?? 'rgb(var(--primary))' } : undefined}
         {...rest}
       >
         {leftSlot && (

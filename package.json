@@ -35,10 +35,11 @@
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh",
     "verify:ui": "node scripts/verify-ui.mjs",
-    "lint": "node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && eslint .",
+    "lint": "node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && eslint .",
     "lint:eslint": "eslint .",
     "check:file-size": "node scripts/check-file-size.mjs",
     "check:shared-wiring": "node scripts/check-shared-wiring.mjs",
+    "check:tokens": "node scripts/check-tokens.mjs",
     "check:ui-tokens": "node scripts/check-ui-tokens.mjs",
     "check:version": "node scripts/check-version-consistency.mjs",
     "design:extract": "node scripts/extract-v4-design.mjs"

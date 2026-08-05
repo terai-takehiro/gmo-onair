@@ -58,12 +58,12 @@
      * 上辺バーは白 (`--card`) なので、帯もそこに合わせる。
      * ここを `--background` (灰) にすると、上辺バーの上だけ灰色の帯が出る。
      */
-    background-color: hsl(var(--card));
+    background-color: rgb(var(--card));
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--line-height-jp);
@@ -81,7 +81,7 @@
 
   /* 既定の枠線色。shadcn/ui の各部品が `border` とだけ書けるようにする */
   * {
-    border-color: hsl(var(--border));
+    border-color: rgb(var(--border));
   }
 
   /* タップの反応を速くする (300ms 待たない) + 押した瞬間の灰色を消す */

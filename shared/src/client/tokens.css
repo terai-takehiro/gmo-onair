@@ -9,6 +9,31 @@
  *   2. GMO Blue scale (custom)                    ← this file
  *   3. Semantic tokens (light/dark theme)          ← this file
  *   4. Tailwind @layer base color utilities        ← index.css
+ *
+ * ── 色は RGB の3つ組で持つ (v4 の T1 で HSL から変えた) ────────────────
+ *
+ *   --primary: 0 90 173;   →  rgb(var(--primary) / <alpha-value>)
+ *
+ * **なぜ HSL をやめたか**: HSL の3つ組は元の色に戻せない。書いてあるコメントの hex と
+ * 実際に描かれる色が **7 トークンで食い違っていた** (変換時に実測):
+ *
+ *     --primary          #005bac と書いてあったが実際は #005aad  ← ブランド色
+ *     --foreground       #1a1d24  →  #181b20
+ *     --muted-foreground #5d6470  →  #5c6370
+ *     --border           #dbdee3  →  #dcdfe4
+ *     --destructive      #c7243a  →  #c81919   ← 色相がずれている (赤紫寄り → 純赤)
+ *     --success          #197a4b  →  #148550
+ *     --info             #0877d7  →  #007bbd
+ *
+ * T1 は**いま実際に描かれている色**から変換したので、描画結果は1ピクセルも変えていない
+ * (18画面・67,131件の描画色を実ブラウザで突き合わせて確認済み)。上の「本来の値」に
+ * 揃えるのは **T2 (v4 のトークン)** で、そこが見た目の変わる唯一の場所。
+ *
+ * **色コードの直書きにはできない**: `bg-primary/10` のような半透明指定が765か所あり、
+ * 直書きにすると全部が黙って無色になる。3つ組 + `<alpha-value>` はそのための形。
+ *
+ * `npm run lint` の `scripts/check-tokens.mjs` が、値が RGB の3つ組であること・
+ * 明暗の配色で定義がそろっていること・preset の参照先がすべて定義済みであることを検査する。
  * ========================================================================== */
 
 @import '@digital-go-jp/design-tokens/dist/tokens.css';
@@ -36,66 +61,66 @@
  * ========================================================================== */
 :root {
   /* Surfaces — DADS neutral palette (sumi / solid-gray) */
-  --background:          0 0% 98%;          /* #fafafa — app background */
-  --foreground:          220 15% 11%;       /* #1a1d24 — body text (WCAG AA on bg) */
+  --background:          250 250 250;          /* #fafafa — app background */
+  --foreground:          24 27 32;       /* #181b20 — body text (WCAG AA on bg) */
 
-  --card:                0 0% 100%;         /* #ffffff — card surface */
-  --card-foreground:     220 15% 11%;
+  --card:                255 255 255;         /* #ffffff — card surface */
+  --card-foreground:     24 27 32;
 
-  --popover:             0 0% 100%;
-  --popover-foreground:  220 15% 11%;
+  --popover:             255 255 255;
+  --popover-foreground:  24 27 32;
 
   /* Brand */
-  --primary:             209 100% 34%;      /* GMO Blue #005bac */
-  --primary-foreground:  0 0% 100%;
+  --primary:             0 90 173;      /* GMO Blue #005aad */
+  --primary-foreground:  255 255 255;
 
   /* Neutrals (DADS sumi aligned) */
-  --secondary:           220 14% 96%;       /* #f3f4f6 — subtle surface */
-  --secondary-foreground: 220 15% 20%;
+  --secondary:           243 244 246;       /* #f3f4f6 — subtle surface */
+  --secondary-foreground: 43 48 59;
 
-  --muted:               220 14% 96%;
-  --muted-foreground:    220 10% 40%;        /* #5d6470 — secondary text (contrast 5.5:1) */
+  --muted:               243 244 246;
+  --muted-foreground:    92 99 112;        /* #5c6370 — secondary text (contrast 5.5:1) */
 
-  --accent:              209 85% 95%;        /* tint of brand for hover */
-  --accent-foreground:   209 100% 25%;
+  --accent:              231 243 253;        /* tint of brand for hover */
+  --accent-foreground:   0 66 128;
 
   /* Status (DADS semantic) */
-  --destructive:         0 78% 44%;          /* red-800 #c7243a */
-  --destructive-foreground: 0 0% 100%;
+  --destructive:         200 25 25;          /* red-800 #c81919 */
+  --destructive-foreground: 255 255 255;
 
-  --success:             152 74% 30%;         /* green-800 #197a4b */
-  --success-foreground:  0 0% 100%;
+  --success:             20 133 80;         /* green-800 #148550 */
+  --success-foreground:  255 255 255;
 
-  --warning:             36 100% 46%;          /* yellow-700 / orange boundary */
-  --warning-foreground:  0 0% 100%;
+  --warning:             235 141 0;          /* yellow-700 / orange boundary */
+  --warning-foreground:  255 255 255;
 
-  --info:                201 100% 37%;          /* light-blue-700 #0877d7 */
-  --info-foreground:     0 0% 100%;
+  --info:                0 123 189;          /* light-blue-700 #007bbd */
+  --info-foreground:     255 255 255;
 
   /* Chrome — borders, inputs, focus ring */
-  --border:              220 13% 88%;          /* #dbdee3 — surface divider */
-  --input:               220 13% 88%;
-  --ring:                209 100% 34%;           /* focus ring = primary */
+  --border:              220 223 228;          /* #dcdfe4 — surface divider */
+  --input:               220 223 228;
+  --ring:                0 90 173;           /* focus ring = primary */
 
   /* Radius — DADS uses 4/8/12/16, map to shadcn's --radius */
   --radius:              0.5rem;                 /* 8px default */
 
   /* Charts — derived from DADS semantic palette */
-  --chart-1: 209 100% 34%;        /* GMO Blue */
-  --chart-2: 173 58% 39%;         /* cyan */
-  --chart-3: 152 74% 30%;         /* green */
-  --chart-4: 36 100% 46%;         /* warning amber */
-  --chart-5: 0 78% 44%;            /* red */
+  --chart-1: 0 90 173;        /* GMO Blue */
+  --chart-2: 42 157 144;         /* cyan */
+  --chart-3: 20 133 80;         /* green */
+  --chart-4: 235 141 0;         /* warning amber */
+  --chart-5: 200 25 25;            /* red */
 
   /* Sidebar (shadcn/ui sidebar) */
-  --sidebar-background:             0 0% 100%;
-  --sidebar-foreground:             220 15% 20%;
-  --sidebar-primary:                209 100% 34%;
-  --sidebar-primary-foreground:     0 0% 100%;
-  --sidebar-accent:                 209 85% 95%;
-  --sidebar-accent-foreground:      209 100% 25%;
-  --sidebar-border:                 220 13% 88%;
-  --sidebar-ring:                   209 100% 34%;
+  --sidebar-background:             255 255 255;
+  --sidebar-foreground:             43 48 59;
+  --sidebar-primary:                0 90 173;
+  --sidebar-primary-foreground:     255 255 255;
+  --sidebar-accent:                 231 243 253;
+  --sidebar-accent-foreground:      0 66 128;
+  --sidebar-border:                 220 223 228;
+  --sidebar-ring:                   0 90 173;
 }
 
 /* ==========================================================================
@@ -103,57 +128,57 @@
  * DADS does not prescribe dark tokens; we derive from DADS sumi scale.
  * ========================================================================== */
 .dark {
-  --background:          220 15% 9%;        /* near-black */
-  --foreground:          220 10% 88%;
+  --background:          20 22 26;        /* near-black */
+  --foreground:          221 223 227;
 
-  --card:                220 13% 12%;
-  --card-foreground:     220 10% 88%;
+  --card:                27 29 35;
+  --card-foreground:     221 223 227;
 
-  --popover:             220 13% 12%;
-  --popover-foreground:  220 10% 88%;
+  --popover:             27 29 35;
+  --popover-foreground:  221 223 227;
 
-  --primary:             209 100% 55%;       /* lightened GMO Blue for contrast */
-  --primary-foreground:  220 15% 9%;
+  --primary:             26 144 255;       /* lightened GMO Blue for contrast */
+  --primary-foreground:  20 22 26;
 
-  --secondary:           220 12% 18%;
-  --secondary-foreground: 220 10% 88%;
+  --secondary:           40 44 51;
+  --secondary-foreground: 221 223 227;
 
-  --muted:               220 12% 18%;
-  --muted-foreground:    220 8% 65%;
+  --muted:               40 44 51;
+  --muted-foreground:    159 163 173;
 
-  --accent:              209 60% 20%;
-  --accent-foreground:   209 85% 88%;
+  --accent:              20 52 82;
+  --accent-foreground:   198 225 250;
 
-  --destructive:         0 65% 55%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive:         215 66 66;
+  --destructive-foreground: 255 255 255;
 
-  --success:             152 50% 50%;
-  --success-foreground:  220 15% 9%;
+  --success:             64 191 132;
+  --success-foreground:  20 22 26;
 
-  --warning:             36 85% 55%;
-  --warning-foreground:  220 15% 9%;
+  --warning:             238 160 43;
+  --warning-foreground:  20 22 26;
 
-  --info:                201 85% 55%;
-  --info-foreground:     220 15% 9%;
+  --info:                43 170 238;
+  --info-foreground:     20 22 26;
 
-  --border:              220 10% 22%;
-  --input:               220 10% 22%;
-  --ring:                209 100% 55%;
+  --border:              50 54 62;
+  --input:               50 54 62;
+  --ring:                26 144 255;
 
-  --chart-1: 209 100% 55%;
-  --chart-2: 173 60% 50%;
-  --chart-3: 152 50% 50%;
-  --chart-4: 36 85% 55%;
-  --chart-5: 0 65% 55%;
+  --chart-1: 26 144 255;
+  --chart-2: 51 204 186;
+  --chart-3: 64 191 132;
+  --chart-4: 238 160 43;
+  --chart-5: 215 66 66;
 
-  --sidebar-background:             220 15% 9%;
-  --sidebar-foreground:             220 10% 88%;
-  --sidebar-primary:                209 100% 55%;
-  --sidebar-primary-foreground:     220 15% 9%;
-  --sidebar-accent:                 209 60% 20%;
-  --sidebar-accent-foreground:      209 85% 88%;
-  --sidebar-border:                 220 10% 22%;
-  --sidebar-ring:                   209 100% 55%;
+  --sidebar-background:             20 22 26;
+  --sidebar-foreground:             221 223 227;
+  --sidebar-primary:                26 144 255;
+  --sidebar-primary-foreground:     20 22 26;
+  --sidebar-accent:                 20 52 82;
+  --sidebar-accent-foreground:      198 225 250;
+  --sidebar-border:                 50 54 62;
+  --sidebar-ring:                   26 144 255;
 }
 
 /* ==========================================================================
@@ -242,7 +267,7 @@
  * Applied globally so ALL interactive elements get consistent focus.
  * ========================================================================== */
 :focus-visible {
-  outline: 2px solid hsl(var(--ring));
+  outline: 2px solid rgb(var(--ring));
   outline-offset: 2px;
   border-radius: 2px;
 }

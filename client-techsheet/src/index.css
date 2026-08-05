@@ -13,7 +13,7 @@
   html, body {
     touch-action: pan-y;
     -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--card)); /* safe-area inset = header color */
+    background-color: rgb(var(--card)); /* safe-area inset = header color */
   }
   button, a, [role="button"], label[for], summary {
     touch-action: manipulation;

@@ -6,8 +6,8 @@
 @tailwind utilities;
 
 /* ── Timer Phase Colors ── */
-.phase-idle      { color: hsl(var(--foreground)); }
-.phase-countdown { color: hsl(var(--foreground)); }
+.phase-idle      { color: rgb(var(--foreground)); }
+.phase-countdown { color: rgb(var(--foreground)); }
 .phase-yellow    { color: #d97706; }
 .phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
 
@@ -186,9 +186,9 @@
 .md-body ol { list-style: decimal; }
 .md-body li { margin: 0.15rem 0; }
 .md-body strong { font-weight: 700; }
-.md-body a { color: hsl(var(--primary)); text-decoration: underline; }
-.md-body code { background: hsl(var(--muted)); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.85em; }
-.md-body blockquote { border-left: 3px solid hsl(var(--border)); padding-left: 0.8rem; color: hsl(var(--muted-foreground)); margin: 0.5rem 0; }
+.md-body a { color: rgb(var(--primary)); text-decoration: underline; }
+.md-body code { background: rgb(var(--muted)); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.85em; }
+.md-body blockquote { border-left: 3px solid rgb(var(--border)); padding-left: 0.8rem; color: rgb(var(--muted-foreground)); margin: 0.5rem 0; }
 .md-body table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85em; }
-.md-body th, .md-body td { border: 1px solid hsl(var(--border)); padding: 0.25rem 0.5rem; }
-.md-body hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 0.8rem 0; }
+.md-body th, .md-body td { border: 1px solid rgb(var(--border)); padding: 0.25rem 0.5rem; }
+.md-body hr { border: none; border-top: 1px solid rgb(var(--border)); margin: 0.8rem 0; }
