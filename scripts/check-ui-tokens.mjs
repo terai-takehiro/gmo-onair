@@ -380,10 +380,10 @@ const SERVER_RULES = [
  * どれも「動くけれど見た目が壊れる」ので、型でもテストでも気づけない。
  */
 function checkAppFoundation() {
-  const apps = [
-    'client', 'client-qsheet', 'client-equipment', 'client-techsheet',
-    'client-live', 'client-awards', 'client-daily',
-  ];
+  // **v4.0.0 の対象3アプリだけ。** 凍結4アプリ (Qシート / 技術資料 / 計時LIVE /
+  // リアルタイムCG) は「今日と同じ見た目を保つ」のが決定事項で、`tokens.css` を
+  // 直接読むままが正しい。base.css は高さ・書体・印刷を変えるので当ててはいけない。
+  const apps = ['client', 'client-daily', 'client-equipment'];
   const out = [];
   for (const app of apps) {
     const cssPath = join(ROOT, app, 'src/index.css');

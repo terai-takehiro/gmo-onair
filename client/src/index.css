@@ -1,54 +1,9 @@
-/* GMO ONAiR 案件管理 v2.0 — DADS-based tokens from shared */
-@import '@gmo-onair/shared/src/client/tokens.css';
+/* GMO ONAiR 案件管理 — 土台は shared/src/client/base.css (高さ・書体・印刷)。
+   このファイルにはアプリ固有の CSS だけを書く。土台を上書きしないこと。 */
+@import '@gmo-onair/shared/src/client/base.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer base {
-  html, body, #root {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-    -webkit-text-size-adjust: 100%;
-    max-width: 100vw;
-  }
-  html, body {
-    touch-action: pan-y;
-    -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--card)); /* safe-area inset = header color */
-  }
-  button, a, [role="button"], label[for], summary {
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  * {
-    @apply border-border;
-  }
-  html {
-    font-family: var(--font-sans);
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-sans);
-    font-size: var(--text-body);
-    line-height: var(--line-height-jp);
-    letter-spacing: var(--letter-spacing-jp);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* 日付入力のモバイル表示修正 */
-  input[type="date"],
-  input[type="time"],
-  input[type="datetime-local"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    min-height: 2.75rem;
-    line-height: 1.5;
-  }
-}
 
 /* ==========================================================================
  * FullCalendar — stacking isolation + responsive overrides

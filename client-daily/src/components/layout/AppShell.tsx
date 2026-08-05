@@ -9,7 +9,7 @@ export default function AppShell() {
 
   if (!permissionsLoading && !canView) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center space-y-4 max-w-sm px-4">
           <ShieldOff className="h-12 w-12 text-muted-foreground mx-auto" />
           <h2 className="text-lg font-semibold">アクセス権限がありません</h2>
@@ -23,8 +23,11 @@ export default function AppShell() {
     );
   }
 
+  // 根は h-screen (100vh) ではなく h-full。iOS の 100vh は URL バーを含むので
+  // 実際の表示領域より高くなり、#root の overflow: hidden で下端が切れる。
+  // 親の高さは shared/src/client/base.css が html/body/#root に配っている。
   return (
-    <div className="flex h-screen overflow-x-hidden">
+    <div className="flex h-full overflow-x-hidden">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <Header />
