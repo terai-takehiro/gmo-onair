@@ -99,6 +99,12 @@ const PAGES = [
   ['リアルタイムCG 投入', '/awards/event/1/intake'],
 ];
 
+/**
+ * 凍結4アプリ (Qシート / 技術資料 / 計時LIVE / リアルタイムCG) の URL。
+ * **見た目を今日のまま保つ**のが決定事項なので、v4 の基準を当てない。
+ */
+const FROZEN_PREFIX = /^\/(qsheet|techsheet|live|awards)\//;
+
 const filters = process.argv.slice(2);
 const targets = filters.length
   ? PAGES.filter(([label, url]) => filters.some((f) => label.includes(f) || url.includes(f)))
@@ -245,14 +251,21 @@ async function runViewport(browser, { width, height, tag }) {
     ok(`${label} 横はみ出し 0px`, m.overflowX === 0, `${m.overflowX}px`);
     ok(`${label} 中身が隠れていない`, m.clipped === 0, `${m.clipped}件 ${JSON.stringify(m.clippedList)}`);
     ok(`${label} JSエラー 0件`, errs.length === 0, errs.slice(0, 1).join(''));
-    // 放送中の画面は DADS の `.dark` を**意図して**使う (地の色が違うのが正しい)
-    //
-    // **いま全ページで落ちるのは想定内。** 期待値 #f6f7f9 は前回の刷新 (release/v3) の
-    // トークンの値で、現在の `tokens.css` は `--background: 0 0% 98%` = #fafafa。
-    // v4 の確定値は #f7f8fa (`docs/design/v4/_tokens.md`) なので、**T1 (HSL→RGB 変換) と
-    // T2 (tokens-v4.css) でトークンを入れ替えるときに、この期待値も一緒に直す。**
-    // ここを先に直すと「検査は緑なのに画面の色は v4 ではない」状態になるので触らない。
-    const wantBg = opt.dark ? 'rgb(20, 22, 26)' : 'rgb(246, 247, 249)';
+    /*
+     * 地の色は **アプリによって期待値が違う** (T2 から)。
+     *   v4 対象3アプリ … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
+     *   凍結3アプリ     … #fafafa  ← 今日と同じ色を保つのが決定事項
+     *   リアルタイムCG  … #faf8f5  ← `tokens.css` を読まず自前の値を持っている
+     *   放送中の画面     … #14161a  ← DADS の `.dark` を**意図して**使っている
+     * 1つの期待値にまとめると、凍結アプリを「直す」方向に引っぱってしまう。
+     */
+    const wantBg = opt.dark
+      ? 'rgb(20, 22, 26)'
+      : /^\/awards\//.test(url)
+        ? 'rgb(250, 248, 245)'   // リアルタイムCG は自前のトークン (温かい生成り)
+        : FROZEN_PREFIX.test(url)
+          ? 'rgb(250, 250, 250)'
+          : 'rgb(247, 248, 250)';
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
     ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
     ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);

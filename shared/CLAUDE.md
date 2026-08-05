@@ -97,8 +97,26 @@ v4.0.0 の対象は **`client` / `client-daily` / `client-equipment` の3アプ�
 | ファイル | 誰が読むか | 触り方 |
 | --- | --- | --- |
 | `src/client/tokens.css` | **凍結4アプリ**（＋v4対象も import 元として経由） | **値を変えない。** 名前の追加だけ可 |
-| `src/client/tokens-v4.css`（v4 の T2 で新設） | **v4 対象3アプリだけ** | `tokens.css` を import した上で、v4 で変わる値（約5個＋書体）を上書き |
+| `src/client/tokens-v4.css` | **v4 対象3アプリだけ**（`base.css` 経由） | v4 で変わる値を上書き。**名前は足さない**（足すなら `tokens.css` へ） |
 | `tailwind.preset.ts` | 全7アプリ | **追加だけ。** 既存キーの値を変えない（追加なら凍結アプリを壊さない） |
+
+```
+base.css  →  tokens-v4.css  →  tokens.css     ← v4 対象3アプリ
+             tokens.css                        ← 凍結4アプリ
+```
+
+**`base.css` の import 1行が「v4 の色にするかどうか」の切り替え。** 戻したいときは
+`./tokens.css` に戻せばよい。`check-tokens.mjs` が、上書きの名前が `tokens.css` に
+実在すること（打ち間違えると**上書きにならず新しい変数を作るだけ**）と、
+`base.css` が `tokens-v4.css` を読んでいることを検査する。
+
+### 角丸は数字の段を入れ替えていない（決定）
+
+v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl` / `rounded-2xl` /
+`rounded-3xl`）と**そのままぶつかり、まだ作り直していない画面の角まで変わる**
+（`rounded` は 1,455 か所）。**v4 の画面は T1b で足した役割名**
+（`rounded-card` / `rounded-control` / `rounded-note` など）**を使うこと。**
+数字の段を入れ替えるかどうかは、画面を作り終えてから判断する。
 
 - 色は **RGB の3つ組 ＋ `<alpha-value>`** で持つ（`rgb(var(--primary) / <alpha-value>)`）。
   **T1 で HSL から変換済み。** HSL の3つ組は元の色に戻せず、**7トークンでコメントの hex と
