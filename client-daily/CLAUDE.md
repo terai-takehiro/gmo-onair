@@ -34,3 +34,10 @@
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**
 - **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
   `shared/src/client/base.css`（F2 で集約済み）。本文が 16px だったのもこれで揃った
+- **`pages/FinanceDocsPage.tsx` は v4 の行部品に変換済み**（P2 の実証台）。
+  一覧の行を書くときはここを写す:
+  `<Row align="start" stackOnMobile>` ＋ `<RowSlot w={56} hideOnMobile>`（種別）
+  ＋ `<TableBadge w={96}>`（ステータス）＋ `<RowMain>`（件名・本文）
+  ＋ `<MoneyCell width={128}>`（金額）。**幅は7段（56/72/96/128/160/200/240）から選ぶ**
+- **バッジの色は生の Tailwind パレット直書きが 49 か所**残っている
+  （`shared/src/constants/statuses.ts` を通していない）。Phase 4 の作り直しでまとめる

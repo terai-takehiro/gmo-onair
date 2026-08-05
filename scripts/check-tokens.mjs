@@ -155,6 +155,65 @@ for (const m of preset.matchAll(/hsl\(var\(--[a-z0-9-]+\)/g)) {
   bad('tailwind.preset.ts', `${m[0]}...) が残っています。トークンは RGB の3つ組なので rgb(...) にしてください`);
 }
 
+// ── ⑥ 型スケールの名前が色の名前とぶつかっていないか ──────────────
+// **同じクラス名で2つの規則ができる。** `fontSize.card` と `colors.card` が両方あると
+// `text-card` が「font-size:15px」と「color: 面の白」の両方になり、白地に白で消える。
+// Tailwind もエラーを出さないので、当てた画面を見るまで気づけない。
+const presetBlock = (key) => {
+  const i = preset.indexOf(`${key}: {`);
+  if (i < 0) return '';
+  let depth = 0;
+  for (let j = preset.indexOf('{', i); j < preset.length; j++) {
+    if (preset[j] === '{') depth++;
+    else if (preset[j] === '}' && --depth === 0) return preset.slice(i, j);
+  }
+  return '';
+};
+/** `foo:` / `'foo-bar':` の形のキーを1段目だけ拾う */
+const topKeys = (src) => {
+  const out = [];
+  let depth = 0;
+  for (const line of src.split('\n')) {
+    const m = depth === 1 && line.match(/^\s*'?([a-zA-Z0-9-]+)'?\s*:/);
+    if (m) out.push(m[1]);
+    depth += (line.match(/\{/g) ?? []).length - (line.match(/\}/g) ?? []).length;
+  }
+  return out;
+};
+const fontSizeKeys = topKeys(presetBlock('fontSize'));
+const colorKeys = topKeys(presetBlock('colors'));
+for (const k of fontSizeKeys) {
+  if (colorKeys.includes(k)) {
+    bad('tailwind.preset.ts', `fontSize.${k} と colors.${k} が同名です — text-${k} が「大きさ」と「色」の両方になり、文字が背景色で消えます`);
+  }
+}
+
+// ── ⑦ 独自の段を tailwind-merge に教えてあるか ────────────────────
+// `cn()` は tailwind-merge で「後のクラスが前を打ち消す」を実現しているが、
+// **独自の名前は既定の一覧に無いので打ち消しが効かない**。教え忘れると
+// `text-xs` の上に `text-badge` を重ねても **12px のまま描かれる**
+// (実際に踏んだ: 幅 62px のバッジに和文4字が収まらず2行になった)。
+const utils = readFileSync(path.join(ROOT, 'shared/src/client/utils.ts'), 'utf8');
+const declared = (name) => {
+  const m = utils.match(new RegExp(`const ${name}\\s*=\\s*\\[([^\\]]*)\\]`));
+  return m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
+};
+const mergeFontSizes = declared('V4_FONT_SIZES');
+const mergeRadii = declared('V4_RADII');
+// 組み込みの名前 (xs/sm/base/lg/... , lg/md/sm) は既定の一覧にあるので教える必要が無い
+const BUILTIN_TEXT = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', '8xl', '9xl'];
+const BUILTIN_ROUNDED = ['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'];
+for (const k of fontSizeKeys) {
+  if (!BUILTIN_TEXT.includes(k) && !mergeFontSizes.includes(k)) {
+    bad('shared/src/client/utils.ts', `fontSize.${k} が V4_FONT_SIZES に無い — cn() で text-${k} が組み込みの text-* を打ち消せません`);
+  }
+}
+for (const k of topKeys(presetBlock('borderRadius'))) {
+  if (!BUILTIN_ROUNDED.includes(k) && !mergeRadii.includes(k)) {
+    bad('shared/src/client/utils.ts', `borderRadius.${k} が V4_RADII に無い — cn() で rounded-${k} が組み込みの rounded-* を打ち消せません`);
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ 設計トークンの契約に違反しています (${problems.length} 件)\n`);
   for (const { where, detail } of problems) console.error(`    ${where}\n      ${detail}`);

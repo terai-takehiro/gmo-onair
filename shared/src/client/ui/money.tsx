@@ -10,6 +10,7 @@
  */
 import * as React from 'react';
 import { cn } from '../utils';
+import { type SlotWidth } from './row';
 
 export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   value: number | string | null | undefined;
@@ -54,14 +55,17 @@ export function Money({ value, currency = '¥', negativeIsDanger, className, ...
 
 /**
  * 表の列で使う固定幅つき。
- * **列幅は README の7段 (56 / 72 / 96 / 128 / 160 / 200 / 240px) からしか選べない。**
+ * **列幅は7段 (56 / 72 / 96 / 128 / 160 / 200 / 240px) からしか選べない。**
  * 中間の値 (120px・180px …) を作ると、同じ意味の列がページごとに違う幅になり、
  * 金額の右端が縦にそろわなくなる。
+ *
+ * 段の定義は `row.tsx` の `SlotWidth` **1か所だけ**。ここに数字を書き写すと
+ * 「金額列は96px・バッジ列は100px」のように片方だけ増えて必ずずれる (P2)。
  */
 export function MoneyCell({
   width = 128,
   className,
   ...rest
-}: MoneyProps & { width?: 56 | 72 | 96 | 128 | 160 | 200 | 240 }) {
+}: MoneyProps & { width?: SlotWidth }) {
   return <Money className={cn('shrink-0', className)} style={{ width }} {...rest} />;
 }

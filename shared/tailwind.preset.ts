@@ -42,7 +42,15 @@ const preset = {
       fontSize: {
         h1:        ['23px',   { lineHeight: '1.3',  fontWeight: '800' }],
         h2:        ['19px',   { lineHeight: '1.35', fontWeight: '800' }],
-        card:      ['15px',   { lineHeight: '1.4',  fontWeight: '800' }],
+        /*
+         * カード見出し。**`card` という名前にしてはいけない。**
+         * `colors` に `card` (面 白) があるので `text-card` は**色の指定としても
+         * 生成され**、同じクラス名で「font-size:15px」と「color:白」の2つの規則が
+         * できる。当てた文字が白地に白で消える (まだ誰も使っていないので実害は
+         * 出ていなかったが、Phase 2 で必ず踏む)。`check-tokens.mjs` が
+         * 色名との衝突を検査して止める。
+         */
+        cardtitle: ['15px',   { lineHeight: '1.4',  fontWeight: '800' }],
         list:      ['13.5px', { lineHeight: '1.5',  fontWeight: '700' }],
         sub:       ['12.5px', { lineHeight: '1.6',  fontWeight: '400' }],
         'sub-sm':  ['11.5px', { lineHeight: '1.6',  fontWeight: '400' }],

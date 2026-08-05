@@ -44,3 +44,7 @@ export * from "./tax-aware-amount-input";
 export * from "./money";      // <Money> <MoneyCell>
 export * from "./numbers";    // <StatValue> <Num> <ManYen> <PageTitle> manYen() compactYen()
 export * from "./dateRange";  // <DateRange>
+
+/* ── 行の骨格 (P2)。列幅の7段 (SlotWidth) はここが正 ── */
+export * from "./row";        // <Row> <RowHeader> <RowMain> <RowTitle> <RowSub> <RowSlot>
+export * from "./tableBadge"; // <TableBadge>

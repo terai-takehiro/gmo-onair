@@ -110,7 +110,7 @@ Tailwind 側は `rgb(var(--primary) / <alpha-value>)` の形で参照します
 | --- | --- | --- |
 | 画面見出し（h1） | 23px / 800 | `text-h1` |
 | 節見出し（h2） | 19px / 800 | `text-h2` |
-| カード見出し | 15px / 800 | `text-card` |
+| カード見出し | 15px / 800 | `text-cardtitle` ← **`text-card` にはできない** |
 | 一覧の主テキスト | 13.5px / 700 | `text-list` |
 | 一覧の副テキスト | 12.5px / 400 | `text-sub` |
 | 一覧の副テキスト（小） | 11.5px / 400 | `text-sub-sm` |
@@ -120,6 +120,17 @@ Tailwind 側は `rgb(var(--primary) / <alpha-value>)` の形で参照します
 | KPI 数値 | 15–17px / 800 | `<StatValue>` |
 | スマホ 本文 | 13–14px / 700 | — |
 | スマホ 主ボタン | 15px / 800 | — |
+
+> **`text-card` という名前は使えない（P2 で判明）。** `colors` に `card`（面 白）があるので
+> `text-card` は**色の指定としても生成され**、同じクラス名で「font-size:15px」と
+> 「color: 白」の2つの規則ができます。当てた文字が白地に白で消えます。
+> → 型スケール側を `cardtitle` にしました。`check-tokens.mjs` が色名との衝突を検査します。
+>
+> **型スケールを足したら `shared/src/client/utils.ts` の `V4_FONT_SIZES` にも足すこと。**
+> `cn()`（tailwind-merge）は独自の名前を知らないため、教えないと
+> `text-xs` の上に `text-badge` を重ねても**打ち消せず 12px のまま描かれます**
+> （実際に踏んで、和文4字のバッジが幅 62px の枠に収まらず2行になりました）。
+> 角丸の役割名も同じで `V4_RADII` に足します。どちらも `check-tokens.mjs` が止めます。
 
 ---
 
