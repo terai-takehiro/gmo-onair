@@ -46,7 +46,30 @@
 | `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
 | `src/constants/statuses.ts`, `src/utils/businessDays.ts`, `src/enums.ts`, `src/types.ts` | 業務の共通定義 |
 
-- `src/client/ui/index.ts` は `data-table` / `filter-bar` / `pagination` を**再エクスポートしていない**（深いパスで import する）
+### UI 部品の置き場所と参照のしかた
+
+- `src/client/ui/index.ts`（バレル）は **`data-table` / `filter-bar` / `pagination` /
+  `table` / `searchable-select` / `currency-input` / `scroll-area` を再エクスポートしていない**。
+  深いパスで名指しする: `import { Table } from '@gmo-onair/shared/src/client/ui/table';`
+  → バレルに載せると**使わないアプリまで Radix を巻き込む**（`scroll-area` が要求する
+  `@radix-ui/react-scroll-area` は案件管理にしか入っていない）
+- **`motion` / `animated-number` は `client/src/components/ui/` に残してある。**
+  `framer-motion` が案件管理にしか無いうえ、v4 は hover を色・罫線だけに絞り
+  画面遷移も CSS の `animation` で行う（`docs/design/v4/_tokens.md`）。
+  **v4 が離れていく方向の部品**なので他アプリに背負わせない（Phase 2 で整理）
+- **`client-equipment/src/pages/EquipmentDetailPage.tsx` に独自の `SearchableSelect`** があり、
+  prop の形も見た目も shared 版と違う。差し替えると画面が変わるので **Phase 4 でまとめる**
+
+### npm パッケージは `peerDependencies` に申告する
+
+`shared` はビルドせず TypeScript のまま配るので、**shared が import したパッケージは
+それを使うアプリ側で解決されます**。申告が無くても npm workspaces のホイスティングで
+たまたま解決できてしまうため、**F3 の着手時点で `lucide-react` / `class-variance-authority` /
+Radix 9個が未申告**でした。`npm run lint` の `check-shared-wiring` が申告漏れを止めます。
+
+`dependencies` ではなく **peer** にすること — Radix も React も**実体が2つあると壊れます**
+（context が別インスタンスになりダイアログが開かない等）。一部のアプリしか使わないものは
+`peerDependenciesMeta` で `optional` にしてあります。
 - ストレージキー: `qs_user`(qsheet) / `ts_user`(techsheet) / `eq_user`(equipment) ほか
 
 ## 共通の土台 `base.css`（重要）

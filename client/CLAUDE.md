@@ -49,8 +49,12 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   `contexts/finance/pages/RevenueListPage.tsx` 1,435行 /
   `contexts/platform/pages/HomePage.tsx` 1,313行
   → v4 で作り直すときに分割する（案件詳細は7タブなので7ファイルが自然）
-- `src/components/ui/` には **shared に無い実装が7本ある**（`table` `dropdown-menu` `scroll-area`
-  `searchable-select` `currency-input` `animated-number` `motion`）。他アプリからは使えない
-  → v4 の F3 で `shared` に昇格させる
+- `src/components/ui/` は **`motion` / `animated-number` の2本以外すべて1行の再エクスポート**。
+  実体は `shared/src/client/ui/`（F3 で `table` / `searchable-select` / `currency-input` /
+  `scroll-area` を移した。`dropdown-menu` は参照0件だったので削除）。
+  **新しい共通部品は `shared` に置くこと** — ここに実装を足すと他アプリから使えない
+- **`motion` / `animated-number` だけ残してある**。`framer-motion` が案件管理にしか入っておらず、
+  v4 は hover を色・罫線だけに絞り画面遷移も CSS で行う（`docs/design/v4/_tokens.md`）ため。
+  **v4 の画面を作るときは使わない**（Phase 2 で整理する）
 - `src/index.css` にアプリ固有 CSS が約200行（FullCalendar の上書き・サイネージ）。
   サイネージの色はトークン外の直書き

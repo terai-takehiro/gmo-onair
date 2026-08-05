@@ -128,6 +128,46 @@ function walk(dir, out = []) {
   return out;
 }
 
+// ── shared 自身が import するパッケージがすべて申告されているか ──────
+//
+// shared は「ビルドせず TypeScript のまま配る」形なので、shared が import した
+// パッケージは **それを使うアプリ側で解決される**。申告が無くても npm workspaces の
+// ホイスティングでたまたま解決できてしまうため、気づかないまま増えていく
+// (F3 の着手時点で lucide-react / class-variance-authority / Radix 9個が未申告だった)。
+//
+// 何が起きるか: あるアプリが `shared/ui/scroll-area` を import したとき、そのアプリに
+// @radix-ui/react-scroll-area が無いと **「Failed to resolve import」としか出ない**。
+// shared 側の申告漏れが原因だと分かるまで時間を取られる。ここで先に止める。
+//
+// dependencies ではなく peerDependencies に置くこと: Radix も React も**実体が2つ
+// あると壊れる** (context が別インスタンスになりダイアログが開かない等)。
+{
+  const pkg = JSON.parse(readFileSync(path.join(ROOT, 'shared/package.json'), 'utf8'));
+  const declared = new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}),
+  ]);
+
+  const used = new Map(); // パッケージ名 → 最初に見つけたファイル
+  for (const file of walk(path.join(ROOT, 'shared/src'))) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/(?:from|@import)\s+['"]([^'"]+)['"]/g)) {
+      const spec = m[1];
+      if (spec.startsWith('.') || spec.startsWith('/')) continue;   // 相対パス
+      if (spec.startsWith(PKG)) continue;                            // 自分自身
+      // "@scope/name/deep/path" → "@scope/name" / "name/deep" → "name"
+      const name = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
+      if (!used.has(name)) used.set(name, path.relative(ROOT, file));
+    }
+  }
+
+  for (const [name, file] of [...used].sort()) {
+    if (!declared.has(name)) {
+      bad('shared', 'package.json', `"${name}" を import しているのに申告が無い (${file})`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ shared の参照がずれています (${problems.length} 件)\n`);
   for (const { app, what, detail } of problems) {

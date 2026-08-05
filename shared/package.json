@@ -13,11 +13,32 @@
     "yjs": "^13.6.31"
   },
   "peerDependencies": {
+    "@radix-ui/react-checkbox": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.0.0",
+    "@radix-ui/react-label": "^2.0.0",
+    "@radix-ui/react-scroll-area": "^1.0.0",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.0",
+    "@radix-ui/react-slot": "^1.0.0",
+    "@radix-ui/react-switch": "^1.0.0",
+    "@radix-ui/react-tabs": "^1.0.0",
+    "@radix-ui/react-toast": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.0.0",
+    "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "lucide-react": "^0.468.0",
     "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0",
     "tailwind-merge": "^2.0.0",
     "zustand": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@radix-ui/react-checkbox": { "optional": true },
+    "@radix-ui/react-scroll-area": { "optional": true },
+    "@radix-ui/react-separator": { "optional": true },
+    "@radix-ui/react-switch": { "optional": true },
+    "@radix-ui/react-toast": { "optional": true }
   }
 }

@@ -37,8 +37,25 @@ const USER = process.env.VERIFY_USER || 'v-admin';
  * 凍結4アプリは見た目を変えないので代表画面のままにしてある。
  */
 const PAGES = [
+  // ── 案件管理・財務管理・設定 (v4 対象) ──────────────────────
+  // 共通部品 (表 / 検索付き選択 / 金額入力) を使う画面を並べてある。
+  // shared に部品を移したとき、ここが変わらないことが「置き場所を変えただけ」の証拠になる。
   ['案件管理 今日', '/today'],
   ['案件管理 案件', '/projects'],
+  ['案件管理 レビュー', '/sales/review', { slow: true }],
+  ['案件管理 料金表', '/sales/pricing'],
+  ['案件管理 案件グループ', '/sales/project-groups'],
+  ['案件管理 活動履歴', '/sales/activity-logs'],
+  ['案件管理 GLS取込', '/sales/gls-import'],
+  ['財務 ダッシュボード', '/budget/dashboard', { slow: true }],
+  ['財務 仕入', '/budget/purchases', { slow: true }],
+  ['財務 販管費', '/budget/sga'],
+  ['財務 売上', '/budget/revenues', { slow: true }],
+  ['財務 取引先レポート', '/budget/reports/vendors'],
+  ['財務 楽楽精算取込', '/budget/xpoint-import'],
+  ['設定 メンバー', '/admin/users'],
+  ['設定 データ', '/admin/data-viewer'],
+  ['設定 DBバックアップ', '/admin/db-backups'],
   ['Qシート 一覧', '/qsheet/'],
   ['Qシート 編集', '/qsheet/editor/verify-onair'],
   ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
