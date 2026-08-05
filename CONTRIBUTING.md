@@ -111,6 +111,23 @@ node scripts/check-file-size.mjs --update      # 減ったら基準を締める
 ```
 
 分割したら `--update` で基準を締めてください（減る方向にしか動きません）。
+
+### 共通ライブラリ（`shared`）の参照のしかた
+
+**`@gmo-onair/shared/src/...` と書きます。相対パス（`../../shared/...`）で参照しないでください。**
+
+参照経路が4つあり（`import` 文 / 型チェック / CSS の `@import` / Tailwind の preset）、
+**ずれると `shared` が二重に読み込まれます**。そうなると zustand のストアや React の context が
+2つでき、「片方で更新したのに反映されない」という**再現条件の読めない不具合**になります。
+
+```bash
+npm run check:shared-wiring    # 7アプリ分を照合 (lint から自動で呼ばれる)
+```
+
+新しくアプリを足すときは、`package.json` の `dependencies` に **`"@gmo-onair/shared": "*"`**、
+`vite.config.ts` の `resolve.alias` と `tsconfig.json` の `paths` に `../shared` を入れてください
+（検査が抜けを指摘します）。**バージョン範囲は書かないこと** — 本番のビルドが落ちます
+（理由は [shared/CLAUDE.md](shared/CLAUDE.md)）。
 どうしても分けられない理由があるときは `--update` で基準に入れ、**PR に理由を書いて**ください。
 
 ### 画面を実装するときに読むもの

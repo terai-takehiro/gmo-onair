@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-import preset from '../shared/tailwind.preset';
+import preset from '@gmo-onair/shared/tailwind.preset';
 
 const config: Config = {
   presets: [preset as Config],
