@@ -58,7 +58,10 @@ function useDismiss(open: boolean, close: () => void, ...refs: Array<React.RefOb
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  });
+    // `refs` は毎回新しい配列になるので依存に入れない (入れると毎描画で貼り直す)。
+    // 中身の ref オブジェクト自体は変わらないので、これで正しく動く。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, close]);
 }
 
 export function AppTopbar({
