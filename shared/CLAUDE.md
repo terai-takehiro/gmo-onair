@@ -110,6 +110,26 @@ base.css  →  tokens-v4.css  →  tokens.css     ← v4 対象3アプリ
 実在すること（打ち間違えると**上書きにならず新しい変数を作るだけ**）と、
 `base.css` が `tokens-v4.css` を読んでいることを検査する。
 
+### 書体（T3 で入った）
+
+| | v4 対象3アプリ | 凍結4アプリ |
+| --- | --- | --- |
+| 書体 | **LINE Seed JP** | Noto Sans JP（今日のまま） |
+| 字詰め | `palt` 1 / `kern` 1 | なし |
+| 数字 | **本文と同じ書体** ＋ `palt` 0 / `tnum` 1 | Roboto Condensed |
+
+- **LINE Seed JP は 400 / 700 / 800 しか配信されていない**（500/600 を要求しても返らないことを実測）。
+  `font-medium`(451) / `font-semibold`(214) は**黙って 400 / 700 に落ちる**。
+  → **v4 の画面では `font-medium` / `font-semibold` を書かない。**
+  型スケール（`text-h1` 等）がウェイトを内包しているのでその必要が無い
+- **`palt` と `.font-number` の打ち消しは必ず一緒に動かす。** 本文の `palt` だけ入れると
+  数字に掛かって 1 と 8 で幅が変わり、**金額を縦に並べたとき桁がずれる**
+  （`base.css` の body ＋ `tokens-v4.css` の `.font-number` が対）
+- **数字に別の書体を当てない。** 別書体だと**その書体が届く前の一瞬だけ数字の幅が変わり、
+  列の幅がずれる**（v4 前は Roboto Condensed が当たっていた）
+- `tailwind.preset.ts` の `fontFamily` は**トークン参照**（`var(--font-sans)` 等）。
+  書体名をベタ書きすると v4 の書体に変えたとき**凍結アプリまで変わる**
+
 ### 角丸は数字の段を入れ替えていない（決定）
 
 v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl` / `rounded-2xl` /

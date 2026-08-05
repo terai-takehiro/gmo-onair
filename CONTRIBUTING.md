@@ -89,6 +89,9 @@ npm run verify:ui        # 書体・地の色・桁揃い・横はみ出し・�
 | 知らせる・確認する | `notifySuccess` / `notifyApiError` / `confirmAction` |
 | 読み込み中・空・エラー | `<SkeletonRows>` `<EmptyState>` `<ErrorPanel>` |
 | 色 | `bg-card` `text-muted-foreground` 等の共通トークン |
+| 文字の大きさ | `text-h1` `text-list` `text-sub` 等の**型スケール**（サイズ・行間・ウェイトが一体） |
+| 太さ | **`font-medium` / `font-semibold` を書かない** — LINE Seed JP は 400/700/800 しか無く黙って落ちる |
+| 角丸 | `rounded-card` `rounded-control` 等の**役割名**（`rounded-[Npx]` は書かない） |
 
 `alert()` / `confirm()` / `¥{n.toLocaleString()}` / Tailwind の生パレット（`slate-800` 等）は**使いません**。
 

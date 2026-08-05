@@ -18,11 +18,17 @@ const preset = {
       screens: { '2xl': '1400px' },
     },
     extend: {
+      /*
+       * 書体は**トークン参照にする**。ここに書体名をベタ書きすると、v4 の書体
+       * (LINE Seed JP) に変えたときに**凍結アプリまで変わってしまう**。
+       * トークン経由なら v4 対象3アプリだけが `tokens-v4.css` で上書きされ、
+       * 凍結アプリは `tokens.css` の Noto Sans JP のまま。
+       */
       fontFamily: {
-        sans: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        serif: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        mono: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        number: ['"Roboto Condensed"', '"Noto Sans JP"', 'sans-serif'],
+        sans: ['var(--font-sans)'],
+        serif: ['var(--font-serif)'],
+        mono: ['var(--font-mono-ui)'],
+        number: ['var(--font-mono-num)'],
       },
       /*
        * 型スケール — v4 (docs/design/v4/_tokens.md)。
