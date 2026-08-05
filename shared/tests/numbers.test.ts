@@ -14,7 +14,7 @@
  *     (KPI カード `¥1,234.568万` / 同じ画面のグラフ `¥1235万`)
  */
 import { describe, it, expect } from 'vitest';
-import { manYen, toMan, compactYen, formatNum } from './numbers';
+import { manYen, toMan, compactYen, formatNum } from '../src/client/ui/numbers';
 
 describe('manYen — 常に万円', () => {
   it('四捨五入する', () => {

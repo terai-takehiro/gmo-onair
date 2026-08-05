@@ -3,11 +3,13 @@ import {
   FileText, Plus, Sparkles, Loader2, Pencil, Trash2, CheckCircle2, XCircle, ArrowRight, RotateCcw, CalendarClock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Row, RowMain, RowTitle, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   FINANCE_DOC_TYPE_LABELS, FINANCE_DOC_STATUS_LABELS, formatDateJa,
@@ -29,13 +31,6 @@ const TYPE_STYLE: Record<FinanceDocType, string> = {
   invoice: 'bg-indigo-100 text-indigo-800',
   order: 'bg-teal-100 text-teal-800',
 };
-
-function yen(v: number | string | null): string {
-  if (v === null || v === '') return '—';
-  const n = Number(v);
-  if (Number.isNaN(n)) return '—';
-  return `¥${n.toLocaleString()}`;
-}
 
 export default function FinanceDocsPage() {
   const { canEdit } = usePermissions();
@@ -99,31 +94,37 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
 
   return (
     <Card className={d.status === 'processed' ? 'border-emerald-200 bg-emerald-50/20' : ''}>
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
+      <CardContent className="p-0">
+        {/*
+         * 列は固定幅のスロット、伸びるのは名前列だけ (docs/design/v4/_rules.md)。
+         * 種別チップとステータスバッジを枠に入れたので、**行をまたいで左端がそろう**。
+         * スマホでは固定列が 375px に入らないので `stackOnMobile` で名前列を1行にする。
+         */}
+        <Row align="start" stackOnMobile>
+          <RowSlot w={56} hideOnMobile>
+            <span className={`text-badge rounded px-1.5 py-0.5 ${TYPE_STYLE[d.doc_type]}`}>{FINANCE_DOC_TYPE_LABELS[d.doc_type]}</span>
+          </RowSlot>
+          <TableBadge w={96} label={FINANCE_DOC_STATUS_LABELS[d.status]} variant="outline" className={STATUS_STYLE[d.status]} />
+          <RowMain>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${TYPE_STYLE[d.doc_type]}`}>{FINANCE_DOC_TYPE_LABELS[d.doc_type]}</span>
-              <Badge variant="outline" className={`text-[11px] ${STATUS_STYLE[d.status]}`}>{FINANCE_DOC_STATUS_LABELS[d.status]}</Badge>
               {isAi && <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"><Sparkles className="h-3 w-3" />AI取込</span>}
-              {d.sender && <span className="text-sm font-medium">{d.sender}</span>}
+              {d.sender && <span className="text-list">{d.sender}</span>}
             </div>
-            {d.subject && <p className="mt-1 text-sm font-medium text-foreground truncate">{d.subject}</p>}
-            {d.content && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2 whitespace-pre-line">{d.content}</p>}
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+            {d.subject && <RowTitle className="mt-1">{d.subject}</RowTitle>}
+            {d.content && <p className="text-sub mt-0.5 text-muted-foreground line-clamp-2 whitespace-pre-line">{d.content}</p>}
+            <div className="text-sub-sm mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
               {d.closing_month && <span>締月 {d.closing_month}</span>}
               {d.payment_due && <span className="inline-flex items-center gap-1"><CalendarClock className="h-3 w-3" />支払期日 {formatDateJa(d.payment_due)}</span>}
               {d.received_at && <span>受信 {formatDateJa(d.received_at)}</span>}
               {d.gls_number && <span>{d.gls_number}</span>}
               {d.processed_by && <span className="text-emerald-700">処理: {d.processed_by}</span>}
             </div>
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="text-base font-semibold tabular-nums">{yen(d.amount)}</div>
-          </div>
-        </div>
+          </RowMain>
+          {/* 金額は ¥ を左端・数字を右端に分ける。縦に並べたとき桁が一直線になる */}
+          <MoneyCell value={d.amount} width={128} className="text-base font-bold" />
+        </Row>
         {canEdit && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border px-4 py-2">
             {d.status === 'new' && <StepBtn onClick={() => setStatus('reviewing')} icon={ArrowRight}>確認中にする</StepBtn>}
             {d.status === 'reviewing' && <>
               <StepBtn onClick={() => setStatus('approved')} icon={CheckCircle2} tone="violet">承認</StepBtn>

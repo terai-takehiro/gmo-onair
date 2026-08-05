@@ -62,8 +62,33 @@
   負の数で結果が違う実装もあった（-15,000 円 → `¥-1万` と `¥-2万`）
 - **1万円未満をそのままの円で出したいときは `compactYen`。** 5,000 円を「¥1万」と
   出すと倍に見えるので、この振る舞いは残してある（日常業務の週報がこの形）
-- **テストがある** — `npm test`（`shared/src/client/ui/numbers.test.ts`）。
-  画面を見ても間違いに気づけない計算なので、ここだけは書く
+- **テストがある** — `npm test`（`shared/tests/`）。
+  画面を見ても間違いに気づけない計算なので、ここだけは書く。
+  **`src/` の外に置くこと** — 各アプリの Tailwind の `content` が `../shared/src/client/**` を
+  含むので、`src/` に置くと**テストの中のクラス名まで CSS になる**（実際に凍結4アプリの
+  CSS に `rounded-card` / `text-h1` が増えた）。理由は `shared/tests/README.md`
+
+### v4 の共通部品（P2 で入った）
+
+| 部品 | 何を強制するか |
+| --- | --- |
+| `<Row density align divider interactive stackOnMobile>` | 一覧・表の1行。行高と区切り線を1か所にする |
+| `<RowMain>` | **行の中で唯一伸びる子。** `min-w-0` + `flex-1` を内包する |
+| `<RowTitle>` `<RowSub>` | 名前列の主／副テキスト。1行で省略する |
+| `<RowSlot w align hideOnMobile placeholder>` | 固定幅の列。**7段しか受け付けない**。値が無い行も枠を残す |
+| `<RowHeader>` | 表頭。**本文と同じ `<RowSlot>` を並べる**のでずれない |
+| `<TableBadge label w>` | バッジを固定幅の枠に入れ、**和文は 62px で均等割り付け**する |
+
+- **列幅の7段（`SlotWidth`）は `ui/row.tsx` が正。** `MoneyCell` の `width` も
+  `TableBadge` の `w` もここを読む。**別々に持つとずれる**（「金額列は96px・
+  バッジ列は100px」になる）。着手時点で手書きの列幅が97か所あり、
+  **7段に乗っていたのは32か所（33%）だけ**だった
+- **`<Row stackOnMobile>` が `<RowMain>` を `data-row-main` 経由で狙っている。**
+  この属性を消すとスマホの縦積みが黙って効かなくなる
+- **均等割り付けには `inline-block` が必須。** `Badge` の既定は `inline-flex` で、
+  **flex の中の文字には `text-align` が効かない**（実測: 和文2字が 48px の帯に
+  広がらず 24.6px のままだった）。`TableBadge` が表示を block 系に変えている
+- **`text-badge` を効かせるには `cn()` の設定が必要**（下記）
 
 ### UI 部品の置き場所と参照のしかた
 
@@ -178,7 +203,7 @@ v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl`
 | 薄い文字 | `fg-disabled` — **読ませる文字には使わない**（白地で 2.61:1）。ヒント文字・押せない状態・アイコンの塗りだけ |
 | 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない** |
 | 角丸の役割名 | `rounded-{badge-xs,badge,control,control-md,control-lg,note,card,app,chip}` |
-| 型スケール | `text-{h1,h2,card,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
+| 型スケール | `text-{h1,h2,cardtitle,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
 
 - **v4 の一群は明るい配色のみ。** モックに暗い配色が無く、使う予定の無い色を先に決めると
   誰も見ていない値を保守することになる。`check-tokens.mjs` はこの一群を例外として扱う
@@ -190,6 +215,21 @@ v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl`
   書く理由は無い（LINE Seed JP は 400/700/800 しか無く 500/600 は黙って落ちる）
 - **`client-awards` は `tokens.css` を読んでいない**（自前の変数を持ち、共通 preset も継承していない）。
   凍結なのでこれは**直さない**
+
+### 段を足したら `cn()` にも教える（P2 で判明・最重要）
+
+`src/client/utils.ts` の `cn()` は tailwind-merge で「あとに書いたクラスが前を打ち消す」を
+実現しているが、**判断は既定の Tailwind のクラス名一覧に基づく**。`text-badge` のような
+独自の名前は一覧に無いので `text-...` を**色**の指定だと解釈し、「サイズとは衝突しない」と
+判断する。結果**両方残り、CSS の順番で組み込みの `text-xs` が勝つ**。
+
+- 型スケールを足したら `V4_FONT_SIZES` に、角丸の役割名を足したら `V4_RADII` に**必ず追記**。
+  `npm run lint`（`check-tokens.mjs`）が `tailwind.preset.ts` との食い違いを止める
+- **`fontSize` のキーに色名と同じ名前を使わない。** `text-card` は
+  「font-size:15px」と「color: 面の白」の**両方の規則**になり、文字が白地に白で消える。
+  だから型スケールは `cardtitle`。これも `check-tokens.mjs` が検査する
+- 気づけたのは**実ブラウザで font-size を実測したとき**だけだった（型・lint・
+  CSS の突き合わせのどれにも出ない）。だから `shared/tests/utils.test.ts` で固定してある
 
 ## 触るときの注意
 
