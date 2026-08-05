@@ -35,12 +35,14 @@
 
 | 場所 | 何が入っているか |
 | --- | --- |
+| `src/client/apps.ts` | **アプリ登録（唯一の正）**。名前・アイコン・色・URL・権限モジュール・凍結の印 |
+| `src/client/shell/` | **共通シェル**（上辺バー・左メニュー・スマホ下タブ）。v4 対象3アプリだけが使う |
 | `src/client/tokens.css` | 設計トークン（色・書体・角丸）。DADS のプリミティブを import した上に GMO ブルーと意味づけを載せる |
 | `src/client/base.css` | **共通の土台**（`html`/`body`/`#root` の高さ・書体・タップ領域・印刷）。`tokens.css` を import した上に敷く。**v4 対象3アプリだけ**が読む |
 | `tailwind.preset.ts` | 全7アプリの `tailwind.config.ts` が `presets` で継承（**相対パス** `../shared/tailwind.preset` で参照） |
 | `src/client/ui/` | shadcn/Radix のプリミティブ22本 |
 | `src/client/dashboard/` | `DashboardHeader` / `KpiCard` / `SectionCard` / `EmptyState` / `chart-colors` |
-| `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | いまのヘッダーとアプリ切替（**v4 の S1/S2 で `src/client/shell/` に置き換える**） |
+| `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | **旧ヘッダー。凍結4アプリだけが使う**（v4 対象3アプリは `src/client/shell/` に移行済み） |
 | `src/client/{createApi,createAuthHook,queryClient,uiStore}.ts` | axios・認証フック・react-query・UIストアのファクトリ |
 | `src/client/{manual,mcpInfo,versionHistory}/` | ヘッダーから開くモーダル3種 |
 | `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
@@ -136,6 +138,32 @@
 **ただしバレルからは外した。** 深いパスでしか import できない:
 `import { toast } from '@gmo-onair/shared/src/client/ui/use-toast';`
 v4 の3アプリは帯（`notify.ts`）を使うこと。Qシートを v4 に載せ替えるとき（v4.1 以降）に消す。
+
+### 共通シェル（S2 / S3 で入った）
+
+`src/client/shell/` が **上辺バー 64px ＋ 左メニュー 248px ＋ スマホ下タブ**を持ち、
+**v4 対象3アプリすべてが載っています**。凍結4アプリは旧シェル（各アプリの
+`src/components/layout/`）のままです。
+
+| ファイル | 役割 |
+| --- | --- |
+| `shell/AppShell.tsx` | 骨格。高さ・`<NoticeBar />`・`<ConfirmHost />`・3つのモーダル |
+| `shell/AppTopbar.tsx` | 上辺バー。**アプリ名そのものが切替ボタン**／検索スロット／本人メニュー |
+| `shell/AppSideMenu.tsx` | 左メニュー。権限フィルタ・現在地・「他のアプリ」 |
+| `shell/MobileTabs.tsx` | スマホ下端のタブ（高さ 56px ＋ `safe-area-inset-bottom`） |
+| `shell/types.ts` | `ShellNavSection` / `ShellNavItem` / `ShellMobileTab` |
+
+- **メニューの中身はシェルが決めない。** 各アプリの `src/components/layout/nav.ts` が
+  渡す（v4 では**枠だけ入れ替え、項目・並び・ラベルは今までのまま**）
+- **`<NoticeBar />` と `<ConfirmHost />` はシェルが持つ。** アプリ側に置かないこと
+  （`check-shared-wiring.mjs` が数を数える。シェル自身が描いているかも見る）
+- **現在地の判定は `isCurrent()`。** `NavLink` の既定に任せない —
+  機材管理は Vite の base が `/equipment/` なので URL に末尾のスラッシュが付き、
+  `NavLink ... end` が一致せず**入口を開いても光らなかった**（実ブラウザで発見）
+- **左メニューの項目は PC 38px / スマホ 44px。** モックは 38px だが、
+  スマホでは指で押すので v4 の「最低 44px」が優先する
+- 旧ヘッダー（`SharedHeader` / `AppHeader` / `AppSwitcher` / `appNav`）は
+  **凍結4アプリが使うので残してある**
 
 ### UI 部品の置き場所と参照のしかた
 
@@ -282,7 +310,10 @@ v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl`
 
 - **`shared/` を触る PR は全アプリの再ビルドを起こす。** 「共通部分を触る PR」と
   「1アプリだけの PR」を意識して分けること（分ければ後者はビルドがスキップされる）
-- `src/client/AppSwitcher.tsx` の `ONAIR_APPS` はアプリ色を**トークン外の hex 直書き**で持っている。
-  同じアプリ一覧が `appNav.ts` の `ALL_APPS`・`client` の `BLOCK_APPS`・各 `Sidebar` にもあり、
-  **4か所が既に食い違っている**（`studio` が「カレンダー」と「スタジオ予約」など）→ v4 の S1 で1つに統合
+- **アプリ一覧は `src/client/apps.ts` が唯一の正**（S1 で統合済み）。
+  以前は `AppSwitcher` の `ONAIR_APPS`・`appNav` の `ALL_APPS`・`client` の `BLOCK_APPS`・
+  各 `Sidebar`・`NoPermissionPanel` の5か所にあり、**すでに食い違っていた**
+  （`studio` が「カレンダー」と「スタジオ予約」、技術資料のアイコンが2種類、
+  計時LIVE のアイコンがどの対応表にも無く既定の箱に落ちていた）。
+  **アイコンは部品そのもの**を持つので、名前→部品の対応表（7個あった）はもう要らない
 - `src/collab/` を変えたら `server/src/shared/collab/` も同じに直す（検査で止まる）

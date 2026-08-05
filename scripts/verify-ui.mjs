@@ -178,6 +178,75 @@ function measure() {
     if (!OKH.has(h)) badBtn.push(`${h}px "${(el.textContent || '').trim().slice(0, 10)}"`);
   });
 
+  /*
+   * ── v4 の縦の整列を**座標で**確かめる (G4) ─────────────────
+   *
+   * 「バッジ・チップは固定幅の枠に入れる」「金額の右端をそろえる」は
+   * **文字列の検査では測れない** (クラス名が正しくても、中身の文字数で
+   * 実際の幅が変わる)。ここは実ブラウザの座標でしか分からない。
+   */
+
+  /**
+   * 同じ列のバッジ・金額を束ねる鍵。
+   *
+   * 行は `<Row>` が `data-row` を付けているので、**その行の何番目の子か**で
+   * 列を決める。行の親 (一覧の器) が同じものどうしを比べる。
+   * 見た目のクラス名で束ねると、**枠を外した瞬間に「列が無い」ことになって
+   * 検査が素通りする** (実際に最初の実装がそうなり、反証試験で気づいた)。
+   */
+  const colKeyOf = (el) => {
+    const row = el.closest('[data-row]');
+    if (!row) return null;
+    let child = el;
+    while (child.parentElement && child.parentElement !== row) child = child.parentElement;
+    const idx = [...row.children].indexOf(child);
+    if (idx < 0) return null;
+    const listId = row.parentElement ? [...document.querySelectorAll('[data-row]')].indexOf(row) >= 0
+      ? (row.parentElement.getAttribute('data-list') ?? row.parentElement.tagName + (row.parentElement.className || '').slice(0, 16))
+      : '?' : '?';
+    return `${listId}#${idx}`;
+  };
+
+  const groupEdges = (nodes, pick) => {
+    const by = new Map();
+    for (const el of nodes) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || r.bottom < 0) continue;
+      const key = colKeyOf(el);
+      if (!key) continue;
+      if (!by.has(key)) by.set(key, []);
+      by.get(key).push(Math.round(pick(r) * 2) / 2);
+    }
+    const bad = [];
+    for (const [key, vals] of by) {
+      if (vals.length < 2) continue;               // 1行だけの列は比べようがない
+      const uniq = [...new Set(vals)];
+      if (uniq.length > 1 && Math.max(...uniq) - Math.min(...uniq) > 0.5) {
+        bad.push(`${key}: ${uniq.slice(0, 4).join('/')}`);
+      }
+    }
+    return bad;
+  };
+
+  /**
+   * バッジの列。**左端と右端の両方**を見る。
+   *
+   * 左端だけだと「固定幅の枠を外した」ことに気づけない — 枠を外しても、
+   * 前の列が固定幅なら左端はそろったままだから (反証試験で分かった)。
+   * 右端も見ることで「文字数で幅が変わっている」を捕まえる。
+   */
+  const badgeSlots = [...document.querySelectorAll('[data-badge-slot]')];
+  const badgeCols = [
+    ...groupEdges(badgeSlots, (r) => r.left).map((x) => `左端 ${x}`),
+    ...groupEdges(badgeSlots, (r) => r.right).map((x) => `右端 ${x}`),
+  ];
+
+  /** 金額の右端が ±0.5px でそろっているか */
+  const moneyCols = groupEdges(
+    [...document.querySelectorAll('.font-number')].filter((el) => /¥/.test(el.textContent || '')),
+    (r) => r.right,
+  );
+
   // 金額は ¥ と数字が別要素 (1要素に「¥4,820,000」と入っていたら桁がそろわない)
 
   /*
@@ -221,6 +290,8 @@ function measure() {
     faint: faint.length, faintList: faint.slice(0, 4),
     badBtn: [...new Set(badBtn)].slice(0, 5), badBtnN: badBtn.length,
     badMoney: badMoney.slice(0, 3),
+    badgeCols: badgeCols.slice(0, 3),
+    moneyCols: moneyCols.slice(0, 3),
   };
 }
 
@@ -290,6 +361,14 @@ async function runViewport(browser, { width, height, tag }) {
     ok(`${label} 薄すぎる文字 0件`, m.faint === 0, `${m.faint}件 ${JSON.stringify(m.faintList)}`);
     ok(`${label} ボタンの高さが段のみ`, m.badBtnN === 0, JSON.stringify(m.badBtn));
     ok(`${label} 金額は¥と数字が別要素`, m.badMoney.length === 0, JSON.stringify(m.badMoney));
+    /*
+     * v4 の縦の整列 (G4)。**凍結4アプリには当てない** — 見た目を今日のまま
+     * 保つのが決定事項なので、そこで揃っていなくても直せない。
+     */
+    if (!FROZEN_PREFIX.test(url)) {
+      ok(`${label} バッジの列がそろう (左端・右端)`, m.badgeCols.length === 0, JSON.stringify(m.badgeCols));
+      ok(`${label} 金額の右端が±0.5px`, m.moneyCols.length === 0, JSON.stringify(m.moneyCols));
+    }
     if (m.h1.length) {
       ok(`${label} 見出しの大きさが1つ`, new Set(m.h1).size === 1, m.h1.join(','));
     }

@@ -43,6 +43,11 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 
 ## 触るときの注意
 
+- **シェルは共通** (`shared/src/client/shell/`)。残っているのは
+  `components/layout/AppShell.tsx`・`nav.ts`（4つの入口ぶんのメニュー）・
+  `GlobalSearch.tsx`（上辺バーに差し込む検索）だけ。**旧 `Header.tsx` / `Sidebar.tsx` は削除済み**。
+  どの入口にいるかは `appOfPath()` が URL から判定する（`BLOCK_APPS` の前方一致は廃止）
+
 - **1ファイル400行を上限にする。** いま超過しているもの:
   `contexts/sales/pages/ProjectFormPage.tsx` 2,178行 /
   `contexts/production/components/episodes/BusinessProjectView.tsx` 2,042行 /

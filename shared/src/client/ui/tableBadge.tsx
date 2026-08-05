@@ -95,10 +95,10 @@ export function TableBadge({ label, w = 96, className, style, ...rest }: TableBa
   );
 
   // 枠を持たない形。`<RowSlot>` の中に置くときはこちら
-  if (w === null) return badge;
+  if (w === null) return <span data-badge-slot>{badge}</span>;
 
   return (
-    <span className="inline-flex shrink-0 justify-center" style={{ width: w }}>
+    <span data-badge-slot className="inline-flex shrink-0 justify-center" style={{ width: w }}>
       {badge}
     </span>
   );

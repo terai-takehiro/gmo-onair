@@ -29,6 +29,10 @@
 
 ## 触るときの注意
 
+- **シェルは共通** (`shared/src/client/shell/`)。このアプリに残っているのは
+  `components/layout/AppShell.tsx`（設定を渡すだけ）と `components/layout/nav.ts`（メニューの中身）。
+  **旧 `Header.tsx` / `Sidebar.tsx` は削除済み**
+
 - **1ファイル400行を上限にする。** いま `pages/TasksPage.tsx` が 1,005行
 - `src/index.css` にタイマー・視聴者数のクラスが残っている（計時LIVE から流用された跡）。
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**
