@@ -33,6 +33,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | 画面 | 置き場所 | 決めたこと |
 | --- | --- | --- |
 | ① ダッシュボード | `contexts/platform/pages/DashboardPage.tsx` ＋ `pages/salesDashboard/` | 下記 |
+| ② 受付 | `contexts/sales/pages/InboxPage.tsx` ＋ `pages/inbox/` | 下記 |
 | ③ 案件一覧 | `contexts/sales/pages/ProjectListPage.tsx` ＋ `pages/projectList/` | 下記 |
 | ④ タスク一覧 | `contexts/tasks/pages/TaskDashboardPage.tsx` ＋ `pages/taskList/` | 下記 |
 | ⑥ 案件詳細（ふりかえり以外の7タブ） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
@@ -63,6 +64,33 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   以後この枠全体が信用されなくなる。無いものは無いと書く
 - `salesDashboard/Panel.tsx` は**この画面だけの部品**。`dashboard/SectionCard` は v4 より前の段
   （`rounded-lg` = 8px・見出しの下に区切り線）で、まだ作り直していない画面が使っている
+
+**受付（②）で決めたこと**
+- **4種類のまま。** モックの受付は引き合い（メール・電話）だけだが、この受信箱は
+  「お客様を待たせているもの」を集める別の目的で既に使われており、片方を消すと
+  **期限超過のアクションを見る場所が無くなる**。3ステップ（入れる→確かめる→案件にする）を
+  通せるのは**ネタ案件だけ**なので、そこだけ作業台（中央＋右）を出す
+- **確信度（高/中/低）は出さない。** MCP の `create_project` は確信度を渡さないので、
+  その値が無い。無い数字をそれらしく出すより**「必須なのに空」を赤で名指し**する
+- **「聞き方の下書き」は AI ではない。** 入っていない項目から機械的に組み立てる
+  （`pages/inbox/ask.ts`）。同じ入力なら必ず同じ結果になるので、変なときに原因が追える。
+  **AI を1つ足すたびに5条件を満たす経路が要る**ので、文面を自然にするためだけには増やさない
+- **`primaryAction` を使わない。** スマホでは画面下端に固定されるので、
+  「ダッシュボードに戻る」を置くと**主役でないものが主役の位置**に出る
+- **AI に返る経路をこの画面で閉じた**（会社方針「AI を使い捨てにしない」）:
+  - `create_project`（MCP）が起票内容の**全文**を `ai_outputs`(kind=`project_draft`) に残す。
+    `mcp_audit_log` は `args` を 1000 文字で切り詰める監査用で、教師データにならない
+  - `projectService.update` が保存時に**サーバー側で自動比較**し、
+    「どの項目を・何から何に」を `ai_corrections` に入れる（`project-ai-feedback.service.ts`）。
+    **人には何も入力させない**
+  - **起票から7日以内の更新だけ**を見る。窓を切らないと数ヶ月後の通常の業務更新まで
+    「AI の誤り」に数えられ、修正率が意味のない数字になる
+  - **直さなかった項目も `none` で残す**（無修正採用率の分母）。ただし**直した回だけ**。
+    開くたびに積むと、よく開かれる案件ほど精度が高く見える
+  - 見送り（`e_lost`）は `reject` として残す＝**拾いすぎの指標**
+  - 成果（受注/失注）は `projects.stage` から導出する。**`ai_outcomes` に行を足さない** —
+    既存データで表現できるものに新しいテーブルを作ると、書き忘れた日から数字が嘘になる
+  - 還流は `get_ai_feedback_digest`（MCP）が `kind=project_draft` を読めるようにした
 
 **案件一覧（③）で決めたこと**
 - **ボードは別画面をやめて「見え方」にした。** 旧 `/sales/pipeline`（`PipelinePage`）は削除し、

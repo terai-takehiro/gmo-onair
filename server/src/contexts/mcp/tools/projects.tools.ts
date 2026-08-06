@@ -3,6 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectService } from '../../sales/services/project.service';
 import { queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
+import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.service';
 
 // 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
 // 書き込みは create / update (read-merge-write) / stage 変更 / GLS 発番。
@@ -179,6 +181,28 @@ export function registerProjectTools(server: McpServer): void {
           [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
         );
       }
+      // フィードバックループ (会社方針「AI を使い捨てにしない」の条件1)。
+      // **`mcp_audit_log` では足りない** — あちらは `args` を 1000 文字で切り詰める監査用で、
+      // 教師データにならない。ここには**起票した内容の全文**を残し、
+      // 受付 (v4 ②) で人が直したときの before にする (`project-ai-feedback.service`)。
+      await recordAiOutput({
+        kind: PROJECT_DRAFT_KIND,
+        targetTable: 'projects',
+        targetId: row.id,
+        payload: {
+          name: args.name, customer_id: args.customer_id, gls_category: args.gls_category,
+          assigned_to: args.assigned_to, expected_amount: args.expected_amount ?? null,
+          project_type: args.project_type ?? null, customer_type: args.customer_type ?? null,
+          event_start: args.event_start ?? null, event_end: args.event_end ?? null,
+          dates: args.dates ?? null, notes: args.notes ?? null,
+        },
+        toolName: 'create_project',
+        actorId: currentActorId(),
+        requestedBy: args.requested_by ?? null,
+        sourceChannel: args.source_channel ?? null,
+        messageId: args.message_id ?? null,
+      });
+
       audit('create_project', args, { created_id: row.id, code: row.code, name: row.name }, args.requested_by);
       return ok({ created: true, project: { ...row, idempotency_key: args.idempotency_key ?? null, message_id: args.message_id ?? null, source_channel: args.source_channel ?? null } });
     }),

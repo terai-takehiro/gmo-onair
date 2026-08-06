@@ -27,15 +27,10 @@ import {
 } from "@/lib/aiFeed";
 import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
-import {
-  type InboxData,
-  type InboxItem,
-  KIND_LABELS,
-  KIND_BADGE_CLASS,
-  ElapsedChip,
-  elapsedHours,
-  formatElapsed,
-} from "@/contexts/sales/pages/InboxPage";
+// 受付 (v4 ②) と同じ定義を使う。**ここで持ち直さない** —
+// 種別のラベルと色が2か所に分かれると、片方だけ足したときに食い違う
+import { KINDS, type InboxData, type InboxItem } from "@/contexts/sales/pages/inbox/kinds";
+import { ElapsedChip, elapsedHours, formatElapsed } from "@/contexts/sales/pages/inbox/InboxList";
 import {
   PiggyBank, Calendar, FileText, Users, Sparkles, UserCog, Database, Settings,
   ExternalLink, ArrowRight, ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, FileSearch, FolderPlus,
@@ -793,10 +788,10 @@ function InboxSummarySection({ navigate }: { navigate: (to: string) => void }) {
               <span
                 className={cn(
                   "shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold",
-                  KIND_BADGE_CLASS[it.kind]
+                  KINDS[it.kind].tone
                 )}
               >
-                {KIND_LABELS[it.kind]}
+                {KINDS[it.kind].label}
               </span>
               <ElapsedChip receivedAt={it.received_at} forceRed={it.kind === "overdue_action"} />
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{titleOf(it)}</span>

@@ -37,7 +37,8 @@ export function registerAiFeedbackTools(server: McpServer): void {
           .optional()
           .describe(
             'AI出力の種別 (既定 estimate_draft)。記録があるのは ' +
-            'estimate_draft (見積の下書き) と task_intake (投入欄からのタスク下書き)'
+            'estimate_draft (見積の下書き) / task_intake (投入欄からのタスク下書き) / ' +
+            'project_draft (create_project で起票したネタ案件。受付で人が直した差分が入る)'
           ),
         window_days: z
           .number()
