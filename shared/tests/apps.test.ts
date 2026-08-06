@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { APPS, APP_BY_KEY, APP_LABELS, canOpenApp, visibleApps, appOfPath } from '../src/client/apps';
-import { isCurrent } from '../src/client/shell/AppSideMenu';
+import { isCurrent, currentTo } from '../src/client/shell/AppSideMenu';
 
 const admin = { role: 'system_admin', permissions: {} };
 const nobody = { role: 'staff', permissions: {} };
@@ -185,5 +185,47 @@ describe('isCurrent — 左メニューの現在地', () => {
     // 「案件一覧」を開いているのに「按分グループ」まで光る、が起きないこと
     expect(isCurrent('/sales/project-groups', '/sales/projects')).toBe(false);
     expect(isCurrent('/budget/revenues-old', '/budget/revenues')).toBe(false);
+  });
+});
+
+describe('currentTo — 光るのは1つだけ', () => {
+  // 実際の案件管理のメニュー（v4）の抜粋
+  const SECTIONS = [
+    { title: '業務', items: [
+      { label: 'ダッシュボード', to: '/sales/dashboard' },
+      { label: '受付', to: '/sales/inbox' },
+      { label: '案件一覧', to: '/sales/projects' },
+    ] },
+    { title: '全案件', items: [
+      { label: 'タスク一覧', to: '/sales/tasks/list' },
+      { label: '見積・請求', to: '/sales/billing' },
+    ] },
+    { title: 'そのほか', collapsible: true, items: [
+      { label: '確定案件（スタジオ）', to: '/sales/projects/confirmed/studio' },
+      { label: '按分グループ', to: '/sales/project-groups' },
+      { label: 'ガントチャート', to: '/sales/tasks/gantt' },
+    ] },
+  ];
+
+  it('**入れ子の項目は深いほうだけが光る**', () => {
+    // `/sales/projects` と `/sales/projects/confirmed/studio` は
+    // どちらも isCurrent が true になる。2つ光ると現在地が読めない
+    expect(isCurrent('/sales/projects/confirmed/studio', '/sales/projects')).toBe(true);
+    expect(currentTo('/sales/projects/confirmed/studio', SECTIONS))
+      .toBe('/sales/projects/confirmed/studio');
+  });
+
+  it('案件詳細では「案件一覧」が光る', () => {
+    expect(currentTo('/sales/projects/abc123', SECTIONS)).toBe('/sales/projects');
+  });
+
+  it('前方一致で別の項目に飛び移らない', () => {
+    expect(currentTo('/sales/project-groups', SECTIONS)).toBe('/sales/project-groups');
+    expect(currentTo('/sales/tasks/gantt', SECTIONS)).toBe('/sales/tasks/gantt');
+    expect(currentTo('/sales/tasks/list', SECTIONS)).toBe('/sales/tasks/list');
+  });
+
+  it('どれにも当たらなければ null', () => {
+    expect(currentTo('/sales/customers', SECTIONS)).toBeNull();
   });
 });

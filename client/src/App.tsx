@@ -199,7 +199,13 @@ function AppRoutes() {
         <Route path="/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
-        <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />
+        {/*
+          アプリ切替の「案件管理」やトップページのタイルはここに来る。
+          **ダッシュボードに送る** — 財務 (`/budget/dashboard`) と揃える。
+          v4 の情報設計でもダッシュボードが入口の1番目。
+          以前は案件一覧に送っており、「トップを押してもダッシュボードにならない」状態だった。
+        */}
+        <Route path="/sales" element={<Navigate to="/sales/dashboard" replace />} />
         <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
