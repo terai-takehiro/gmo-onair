@@ -47,6 +47,7 @@ const PAGES = [
   ['案件管理 案件ボード', '/sales/projects?view=board'],
   ['案件管理 案件詳細', '/sales/projects/pj-1'],
   ['案件管理 案件詳細タスク', '/sales/projects/pj-1/task', { slow: true }],
+  ['案件管理 案件詳細見積', '/sales/projects/pj-1/estimate'],
   ['案件管理 案件詳細書類', '/sales/projects/pj-1/files'],
   ['案件管理 案件詳細当日', '/sales/projects/pj-1/day'],
   ['案件管理 案件詳細未作成', '/sales/projects/pj-1/review'],

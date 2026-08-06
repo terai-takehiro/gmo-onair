@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import projectsRoutes from './routes/projects.routes';
+import estimatesRoutes from './routes/estimates.routes';
 import projectMembersRoutes from './routes/project-members.routes';
 import projectCollabRoutes from './routes/project-collab.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
@@ -16,6 +17,7 @@ export function createSalesRoutes(): Router {
   const router = Router();
 
   router.use('/project-groups', projectGroupsRoutes);
+  router.use('/projects/:projectId/estimates', estimatesRoutes);
   router.use('/projects', projectsRoutes);
   router.use('/projects', projectMembersRoutes);
   router.use('/projects', projectCollabRoutes);

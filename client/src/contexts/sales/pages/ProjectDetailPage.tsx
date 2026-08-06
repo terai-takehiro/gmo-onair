@@ -36,6 +36,7 @@ import { FilesTab } from './projectDetail/FilesTab';
 import { DayTab } from './projectDetail/DayTab';
 import { ThreadTab } from './projectDetail/ThreadTab';
 import { LegacyViewTab } from './projectDetail/LegacyViewTab';
+import { EstimateTab } from './projectDetail/EstimateTab';
 import { PROJECT_TABS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
@@ -127,7 +128,7 @@ export default function ProjectDetailPage() {
       {tab === 'thread' && <ThreadTab projectId={id} />}
       {tab === 'episode' && <LegacyViewTab project={p} />}
       {tab === 'task' && <TasksTab project={p} />}
-      {tab === 'estimate' && <LegacyViewTab project={p} estimateMode />}
+      {tab === 'estimate' && <EstimateTab project={p} />}
       {tab === 'files' && <FilesTab project={p} />}
       {tab === 'day' && <DayTab projectId={id} />}
       {PROJECT_TABS.find((t) => t.key === tab)?.todo && (
