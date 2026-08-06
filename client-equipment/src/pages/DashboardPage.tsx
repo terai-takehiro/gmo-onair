@@ -1,374 +1,256 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import api from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
+/**
+ * ① ダッシュボード (v4)
+ *
+ * ── 何を出すか ────────────────────────────────────────────
+ *
+ * **「押せば片づくもの」だけ**を出します。旧実装は KPI 4枚 ＋ クイックアクション7個 ＋
+ * 消耗品の合計 ＋ 要注意 ＋ 貸出中 ＋ メンテの6段で、
+ * **ケーブルとコネクタの合計本数をここでも数えていました**
+ * (機材台帳が数えているのと同じもの = 同じものを2か所で数えない)。
+ *
+ * ── モックにあって出さないもの ────────────────────────────
+ *
+ * モックの「本日・明日の入出庫」は**予定**を出しますが、`equipment_lendings` は
+ * 持ち出した瞬間に作られる記録で、**「これから出す予定」を持っていません**。
+ * 数えられないものをそれらしく出さないので、代わりに
+ * **返却予定日が近い/過ぎているもの**を出します (こちらは持っている値です)。
+ */
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  DashboardHeader,
-  KpiCard,
-  SectionCard,
-  EmptyState,
-} from "@gmo-onair/shared/src/client/dashboard";
-import {
-  Package,
-  ArrowRightLeft,
-  Wrench,
-  AlertTriangle,
-  Loader2,
-  Plus,
-  RefreshCw,
-  ChevronRight,
-  Clock,
-  CalendarDays,
-  CheckCircle2,
-  ClipboardCheck,
-  Server,
-  QrCode,
-  Cable,
-  Plug,
-} from "lucide-react";
+  AlertTriangle, ArrowRightLeft, ClipboardCheck, Package, Plus, QrCode, Wrench,
+} from 'lucide-react';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { Delayed, EmptyState, ErrorPanel, SkeletonKpi, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 
-function fmtDate(dateStr: string | null) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+interface Stats {
+  total_items: number;
+  active_items: number;
+  in_repair: number;
+  lent_out: number;
+  overdue: number;
+  open_maintenance: number;
+  pending_inventory: number;
+  recent_lendings: {
+    id: string; borrower_name: string; due_date: string | null; lent_at: string;
+    equipment_name: string; unit_number: number | null;
+    project_name: string | null; gls_number: string | null;
+  }[];
+  recent_maintenance: {
+    id: string; title: string; record_type: string; status: string; equipment_name: string;
+  }[];
 }
 
-function isOverdue(dueDateStr: string | null) {
-  if (!dueDateStr) return false;
-  return new Date(dueDateStr) < new Date();
+const md = (d: string | null) => (d && d.length >= 10 ? `${d.slice(5, 7)}/${d.slice(8, 10)}` : '—');
+
+/** 返却予定日から「あと何日 / 何日超過」を出す。日付が無ければ null */
+function dueIn(due: string | null): number | null {
+  if (!due || due.length < 10) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(`${due.slice(0, 10)}T00:00:00`);
+  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
 }
 
-// ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
+function Tile({ label, value, unit, sub, tone, icon, to }: {
+  label: string; value: number; unit: string; sub: string;
+  tone: 'plain' | 'warning' | 'danger'; icon: React.ReactNode; to: string;
+}) {
+  const toneClass = tone === 'danger' ? 'text-destructive' : tone === 'warning' ? 'text-warning' : 'text-foreground';
+  return (
+    <Link
+      to={to}
+      className="min-h-tap flex flex-col gap-2 rounded-card border border-border bg-card p-4 hover:border-primary-border"
+    >
+      <span className="flex items-center gap-2 text-sub text-muted-foreground">
+        {icon}{label}
+      </span>
+      <span className="flex items-baseline gap-1.5">
+        <span className={`font-number text-h1 ${toneClass}`}>{value.toLocaleString('ja-JP')}</span>
+        <span className="text-sub text-muted-foreground">{unit}</span>
+      </span>
+      <span className="text-note text-muted-foreground">{sub}</span>
+    </Link>
+  );
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["equipment-stats"],
-    queryFn: async () => (await api.get("/equipment/stats")).data.data,
+  const query = useQuery<Stats>({
+    queryKey: ['equipment-stats'],
+    queryFn: async () => (await api.get('/equipment/stats')).data.data,
     retry: 1,
     staleTime: 60 * 1000,
   });
 
-  const { data: cablesData } = useQuery({
-    queryKey: ["equipment-cables"],
-    queryFn: async () => (await api.get("/equipment/cables")).data.data as Array<{ quantity: number }>,
-    staleTime: 60 * 1000,
-  });
-  const { data: connectorsData } = useQuery({
-    queryKey: ["equipment-connectors"],
-    queryFn: async () => (await api.get("/equipment/connectors")).data.data as Array<{ quantity: number }>,
-    staleTime: 60 * 1000,
-  });
-  const cableTypes = cablesData?.length ?? 0;
-  const cableTotal = (cablesData ?? []).reduce((s, c) => s + (Number(c.quantity) || 0), 0);
-  const connectorTypes = connectorsData?.length ?? 0;
-  const connectorTotal = (connectorsData ?? []).reduce((s, c) => s + (Number(c.quantity) || 0), 0);
-
-  const refreshButton = (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => refetch()}
-      disabled={isFetching}
-      aria-label="データ更新"
-    >
-      <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
-      更新
-    </Button>
-  );
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="p-4 sm:p-6">
-        <EmptyState
-          title="データを取得できませんでした"
-          description="ネットワーク接続を確認し、再試行してください。"
-          action={
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4 mr-2" />再試行
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
-
-  const stats = data || {};
-  const recentLendings: any[] = stats.recent_lendings || [];
-  const recentMaintenance: any[] = stats.recent_maintenance || [];
+  const s = query.data;
+  const overdueLendings = (s?.recent_lendings ?? []).filter((l) => (dueIn(l.due_date) ?? 99) < 0);
+  const soonLendings = (s?.recent_lendings ?? []).filter((l) => (dueIn(l.due_date) ?? 99) >= 0);
 
   return (
-    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-      <DashboardHeader
-        title="機材ダッシュボード"
-        description="機材台帳・貸出・メンテナンスの状況を一望できます。"
-        controls={refreshButton}
-      />
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="ダッシュボード"
+        sub={s
+          ? `常設 ${(s.total_items - s.lent_out).toLocaleString('ja-JP')}点 ・ 修理中 ${s.in_repair}点 ・ 貸出中 ${s.lent_out}点${s.overdue > 0 ? `（返却遅延 ${s.overdue}点）` : ''}`
+          : '機材台帳・貸出・メンテナンスの状況'}
+        primaryAction={<Button onClick={() => navigate('/equipment/items?view=items')}>
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を足す
+        </Button>}
+      >
+        <Button variant="outline" asChild>
+          <Link to="/equipment/scan"><QrCode className="mr-1 h-4 w-4" aria-hidden="true" />QRスキャン</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/equipment/lendings">
+            <ArrowRightLeft className="mr-1 h-4 w-4" aria-hidden="true" />貸出を登録
+          </Link>
+        </Button>
+      </PageHeader>
 
-      {/* 主要指標 */}
-      <section aria-labelledby="equipment-kpi-heading">
-        <h2 id="equipment-kpi-heading" className="sr-only">機材の主要指標</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            label="総機材数"
-            icon={<Package />}
-            value={stats.total_items ?? 0}
-            unit="件"
-            footnote={`稼働中 ${stats.active_items ?? 0} 件`}
-            onClick={() => navigate("/equipment/items")}
-          />
-          <KpiCard
-            label="貸出中"
-            icon={<ArrowRightLeft />}
-            value={stats.lent_out ?? 0}
-            unit="件"
-            emphasis={(stats.overdue ?? 0) > 0 ? "warning" : "info"}
-            footnote={(stats.overdue ?? 0) > 0 ? `遅延 ${stats.overdue} 件` : "遅延なし"}
-            onClick={() => navigate("/equipment/lendings")}
-          />
-          <KpiCard
-            label="修理・メンテ中"
-            icon={<Wrench />}
-            value={stats.in_repair ?? 0}
-            unit="件"
-            emphasis={(stats.open_maintenance ?? 0) > 0 ? "negative" : "success"}
-            footnote={`未対応 ${stats.open_maintenance ?? 0} 件`}
-            onClick={() => navigate("/equipment/maintenance")}
-          />
-          <KpiCard
-            label="棚卸し"
-            icon={<ClipboardCheck />}
-            value={stats.pending_inventory ?? 0}
-            unit="件"
-            emphasis="info"
-            footnote="未完了の棚卸し"
-            onClick={() => navigate("/equipment/inventory")}
-          />
-        </div>
-      </section>
-
-      {/* クイックアクション */}
-      <SectionCard title="クイックアクション" description="よく使う操作を1タップで。" padding="compact">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/lendings")}>
-            <Plus className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">貸出登録</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/maintenance")}>
-            <Plus className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
-            <span className="text-sm">メンテ記録</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/items")}>
-            <Package className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">機材一覧</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/cables")}>
-            <Cable className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">ケーブル管理</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/connectors")}>
-            <Plug className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">コネクタ管理</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/scan")}>
-            <QrCode className="h-4 w-4 text-success shrink-0" aria-hidden="true" />
-            <span className="text-sm">QRスキャン</span>
-          </Button>
-          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/racks")}>
-            <Server className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-            <span className="text-sm">ラック実装</span>
-          </Button>
-        </div>
-      </SectionCard>
-
-      {/* 消耗品サマリー: ケーブル + コネクタ */}
-      <section aria-labelledby="equipment-supplies-heading">
-        <h2 id="equipment-supplies-heading" className="sr-only">消耗品の在庫サマリー</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <KpiCard
-            label="ケーブル"
-            icon={<Cable />}
-            value={cableTotal}
-            unit="本"
-            footnote={`${cableTypes} 種類`}
-            emphasis="info"
-            onClick={() => navigate("/equipment/cables")}
-          />
-          <KpiCard
-            label="コネクタ"
-            icon={<Plug />}
-            value={connectorTotal}
-            unit="個"
-            footnote={`${connectorTypes} 種類`}
-            emphasis="info"
-            onClick={() => navigate("/equipment/connectors")}
-          />
-        </div>
-      </section>
-
-      {/* アラート (要注意) */}
-      {((stats.overdue ?? 0) > 0 || (stats.open_maintenance ?? 0) > 0) && (
-        <SectionCard
-          title="要注意"
-          description="対応が必要な項目です。タップで該当一覧へ。"
-          icon={<AlertTriangle />}
-          padding="compact"
-        >
-          <div className="space-y-2">
-            {(stats.overdue ?? 0) > 0 && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 text-sm text-warning bg-warning/10 rounded-md p-3 hover:bg-warning/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={() => navigate("/equipment/lendings")}
-              >
-                <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-left">返却期限超過が {stats.overdue} 件あります</span>
-                <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-              </button>
-            )}
-            {(stats.open_maintenance ?? 0) > 0 && (
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-md p-3 hover:bg-destructive/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={() => navigate("/equipment/maintenance")}
-              >
-                <Wrench className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-left">未対応のメンテナンスが {stats.open_maintenance} 件あります</span>
-                <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-              </button>
-            )}
+      {query.isError ? (
+        <ErrorPanel title="機材の状況を読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
+      ) : !s ? (
+        <Delayed><SkeletonKpi /></Delayed>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Tile
+              label="機材" value={s.total_items} unit="点"
+              sub={`稼働中 ${s.active_items.toLocaleString('ja-JP')} 点`}
+              tone="plain" icon={<Package className="h-4 w-4" aria-hidden="true" />}
+              to="/equipment/items?view=items"
+            />
+            <Tile
+              label="貸出中" value={s.lent_out} unit="点"
+              sub={s.overdue > 0 ? `返却遅延 ${s.overdue} 点` : '返却遅延はありません'}
+              tone={s.overdue > 0 ? 'danger' : 'plain'}
+              icon={<ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
+              to="/equipment/lendings"
+            />
+            <Tile
+              label="稼働停止中" value={s.in_repair} unit="点"
+              sub={`未対応の記録 ${s.open_maintenance} 件`}
+              tone={s.open_maintenance > 0 ? 'warning' : 'plain'}
+              icon={<Wrench className="h-4 w-4" aria-hidden="true" />}
+              to="/equipment/maintenance"
+            />
+            <Tile
+              label="棚卸し" value={s.pending_inventory} unit="件"
+              sub="下書き・実施中のもの"
+              tone="plain" icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
+              to="/equipment/inventory"
+            />
           </div>
-        </SectionCard>
-      )}
 
-      {/* 最近の貸出 */}
-      {recentLendings.length > 0 && (
-        <SectionCard
-          title={`貸出中 (${stats.lent_out ?? 0} 件)`}
-          icon={<ArrowRightLeft />}
-          actions={
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-              onClick={() => navigate("/equipment/lendings")}
-            >
-              すべて表示
-            </button>
-          }
-          padding="compact"
-        >
-          <ul className="space-y-2">
-            {recentLendings.map((l: any) => {
-              const overdue = isOverdue(l.due_date);
-              return (
-                <li
-                  key={l.id}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm border ${
-                    overdue ? "bg-warning/10 border-warning/30" : "bg-muted/40 border-border"
-                  }`}
-                >
-                  <CalendarDays
-                    className={`h-4 w-4 shrink-0 ${overdue ? "text-warning" : "text-muted-foreground"}`}
-                    aria-hidden="true"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {l.equipment_name}
-                      {l.unit_number ? ` #${l.unit_number}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {l.borrower_name}
-                      {l.project_name ? ` · ${l.project_name}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p
-                      className={`text-xs font-number tabular-nums ${
-                        overdue ? "text-warning font-semibold" : "text-muted-foreground"
-                      }`}
-                    >
-                      返却 {fmtDate(l.due_date)}
-                    </p>
-                    {overdue && (
-                      <Badge variant="warning" className="text-xs mt-1">
-                        遅延
-                      </Badge>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </SectionCard>
-      )}
+          <section className="flex flex-col gap-2" aria-labelledby="eq-overdue">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
+              <h2 id="eq-overdue" className="text-h2">返してもらう</h2>
+              <span className="text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
+              <div className="flex-1" />
+              <Link to="/equipment/lendings" className="text-sub text-primary hover:underline">すべて見る</Link>
+            </div>
+            {overdueLendings.length + soonLendings.length === 0 ? (
+              <EmptyState
+                title="返してもらうものはありません"
+                description="貸出中の機材はすべて期限内です。"
+              />
+            ) : (
+              <div className="flex flex-col rounded-card border border-border bg-card">
+                {[...overdueLendings, ...soonLendings].map((l) => {
+                  const days = dueIn(l.due_date);
+                  const late = days !== null && days < 0;
+                  return (
+                    <Row key={l.id} divider stackOnMobile>
+                      <RowMain>
+                        <RowTitle>{l.equipment_name}{l.unit_number ? ` No.${l.unit_number}` : ''}</RowTitle>
+                        <RowSub>
+                          {[l.borrower_name, l.project_name, l.gls_number].filter(Boolean).join(' ／ ')}
+                        </RowSub>
+                      </RowMain>
+                      <RowSlot w={96} align="right">
+                        <span className="font-number text-sub">返却 {md(l.due_date)}</span>
+                      </RowSlot>
+                      <RowSlot w={96}>
+                        {days === null ? null : (
+                          <TableBadge
+                            label={late ? `${-days}日 超過` : days === 0 ? '本日返却' : `あと${days}日`}
+                            w={null}
+                            className={late
+                              ? 'bg-destructive-surface text-destructive border-transparent'
+                              : days === 0
+                                ? 'bg-warning-surface text-warning border-transparent'
+                                : 'bg-muted text-muted-foreground border-transparent'}
+                          />
+                        )}
+                      </RowSlot>
+                      <RowSlot w={96} align="right" placeholder="">
+                        <Button variant="outline" asChild>
+                          <Link to="/equipment/lendings">返却を記録</Link>
+                        </Button>
+                      </RowSlot>
+                    </Row>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-      {/* 最近のメンテナンス */}
-      {recentMaintenance.length > 0 && (
-        <SectionCard
-          title={`未対応メンテナンス (${stats.open_maintenance ?? 0} 件)`}
-          icon={<Wrench />}
-          actions={
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-              onClick={() => navigate("/equipment/maintenance")}
-            >
-              すべて表示
-            </button>
-          }
-          padding="compact"
-        >
-          <ul className="space-y-2">
-            {recentMaintenance.map((m: any) => (
-              <li
-                key={m.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-muted/40 text-sm"
-              >
-                <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{m.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
-                </div>
-                <div className="text-right shrink-0 space-y-1">
-                  <Badge variant={statusOf(MAINTENANCE_STATUS, m.status).variant} className="text-xs">
-                    {statusOf(MAINTENANCE_STATUS, m.status).label}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground">
-                    {statusOf(MAINTENANCE_TYPE, m.record_type).label}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      )}
+          <section className="flex flex-col gap-2" aria-labelledby="eq-maint">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-warning" aria-hidden="true" />
+              <h2 id="eq-maint" className="text-h2">稼働停止中の機材</h2>
+              <span className="text-sub text-muted-foreground">修理・点検で使えない状態のもの</span>
+              <div className="flex-1" />
+              <Link to="/equipment/maintenance" className="text-sub text-primary hover:underline">すべて見る</Link>
+            </div>
+            {query.isLoading ? (
+              <Delayed><SkeletonRows rows={3} /></Delayed>
+            ) : s.recent_maintenance.length === 0 ? (
+              <EmptyState
+                title="未対応のメンテナンスはありません"
+                description="故障や点検が出たらメンテナンスから記録します。"
+              />
+            ) : (
+              <div className="flex flex-col rounded-card border border-border bg-card">
+                {s.recent_maintenance.map((m) => (
+                  <Row key={m.id} divider stackOnMobile>
+                    <RowMain>
+                      <RowTitle>{m.title}</RowTitle>
+                      <RowSub>{m.equipment_name}</RowSub>
+                    </RowMain>
+                    <RowSlot w={72} hideOnMobile>
+                      <span className="text-sub-sm text-muted-foreground">
+                        {statusOf(MAINTENANCE_TYPE, m.record_type).label}
+                      </span>
+                    </RowSlot>
+                    <RowSlot w={96}>
+                      <TableBadge
+                        label={statusOf(MAINTENANCE_STATUS, m.status).label}
+                        w={null}
+                        className={m.status === 'in_progress'
+                          ? 'bg-info-surface text-info border-transparent'
+                          : 'bg-warning-surface text-warning border-transparent'}
+                      />
+                    </RowSlot>
+                  </Row>
+                ))}
+              </div>
+            )}
+          </section>
 
-      {/* 空状態 */}
-      {(stats.total_items ?? 0) === 0 && (
-        <SectionCard title="機材を登録しましょう">
-          <EmptyState
-            icon={<CheckCircle2 />}
-            title="まだ機材が登録されていません"
-            description="機材を登録すると、ここに統計情報と貸出・メンテ一覧が表示されます。"
-            action={
-              <Button size="sm" onClick={() => navigate("/equipment/items")}>
-                <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
-                機材を追加
-              </Button>
-            }
-          />
-        </SectionCard>
+          <p className="text-note text-muted-foreground">
+            機材は<strong className="font-bold">常設が基本</strong>で、置き場所に紐づきます。
+            持ち出せるのは設定の「貸出の決めごと」で貸出可にした機材だけで、
+            貸出・返却・遅延の管理はその機材にだけ働きます。
+            <strong className="font-bold">これから出す予定</strong>は記録として持っていないので、この画面には出していません。
+          </p>
+        </>
       )}
     </div>
   );

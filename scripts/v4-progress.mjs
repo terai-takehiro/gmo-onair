@@ -108,11 +108,19 @@ const TREE = [
   ]],
   ['機材管理', [
     ['ダッシュボード', '/equipment/', 'client-equipment/src/pages/DashboardPage.tsx'],
-    ['機材台帳', '/equipment/items', 'client-equipment/src/pages/EquipmentListPage.tsx'],
-    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx'],
+    // v4: 機材・貸出機材・ケーブル・コネクタを1画面4タブに畳んだ（旧 URL は転送）
+    ['機材台帳 (機材・貸出機材・ケーブル・コネクタ)', '/equipment/items', 'client-equipment/src/pages/EquipmentLedgerPage.tsx', undefined,
+      '**枠は v4・行の載せ替えは途中**。この一覧だけがカスタム列・その場編集・親子の入れ子を' +
+      '同時に持っており、`<Row>` に載せ替えるとその3つを作り直すことになるので分けています'],
+    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx', undefined,
+      '**意図して据え置き**。1,502行に 座標計算・印刷・棚卸しモード が同居しており、' +
+      '**触ると印刷が1ページ目で切れます**。分割しても印刷が壊れないことを実機で確かめてから'],
     ['メンテナンス', '/equipment/maintenance', 'client-equipment/src/pages/MaintenancePage.tsx'],
     ['棚卸し', '/equipment/inventory', 'client-equipment/src/pages/InventoryPage.tsx'],
+    ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/ScanPage.tsx'],
     ['貸出・返却', '/equipment/lendings', 'client-equipment/src/pages/LendingListPage.tsx'],
+    // v4: 拠点・メーカー・色・貸出カテゴリ・貸出の決めごとを1画面4タブに畳んだ
+    ['設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
   ]],
   ['プロジェクト管理 (新規・7画面)', [
     ['設計から', '—', null],

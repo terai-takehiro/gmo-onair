@@ -1,25 +1,36 @@
-import { Routes, Route } from "react-router-dom";
+/**
+ * 機材管理のルート (v4 で 16画面 → 8画面)
+ *
+ * ── 旧 URL は全部生かす ────────────────────────────────────
+ *
+ * 畳んだ画面の URL はブックマークされているので、`<Navigate replace>` で
+ * 新しい画面のタブへ送ります。`replace` なので「戻る」で転送のページに
+ * 戻り続けることはありません。
+ *
+ *   /equipment/model-groups      → /equipment/items?view=lend
+ *   /equipment/cables            → /equipment/items?view=cable
+ *   /equipment/connectors        → /equipment/items?view=connector
+ *   /equipment/locations         → /equipment/settings?tab=loc
+ *   /equipment/manufacturers     → /equipment/settings?tab=maker
+ *   /equipment/colors            → /equipment/settings?tab=maker  (色はメーカーと同じタブ)
+ *   /equipment/rental-categories → /equipment/settings?tab=cat
+ *   /equipment/rental-settings   → /equipment/settings?tab=rule
+ */
+import { Navigate, Route, Routes } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
-import EquipmentListPage from "@/pages/EquipmentListPage";
+import EquipmentLedgerPage from "@/pages/EquipmentLedgerPage";
 import EquipmentDetailPage from "@/pages/EquipmentDetailPage";
 import LendingListPage from "@/pages/LendingListPage";
 import MaintenancePage from "@/pages/MaintenancePage";
 import InventoryPage from "@/pages/InventoryPage";
 import ScanPage from "@/pages/ScanPage";
-import LocationPage from "@/pages/LocationPage";
-import ManufacturerPage from "@/pages/ManufacturerPage";
-import ColorPage from "@/pages/ColorPage";
 import RackLayoutPage from "@/pages/RackLayoutPage";
-import ModelGroupPage from "@/pages/ModelGroupPage";
-import RentalSettingsPage from "@/pages/RentalSettingsPage";
-import RentalCategoryPage from "@/pages/RentalCategoryPage";
-import CablePage from "@/pages/CablePage";
-import ConnectorPage from "@/pages/ConnectorPage";
-import { Loader2 } from "lucide-react";
+import SettingsPage from "@/pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -48,22 +59,26 @@ export default function App() {
           </ProtectedRoute>
         }
       >
+        {/* v4 の8画面 */}
         <Route path="/equipment" element={<DashboardPage />} />
-        <Route path="/equipment/items" element={<EquipmentListPage />} />
+        <Route path="/equipment/items" element={<EquipmentLedgerPage />} />
         <Route path="/equipment/items/:id" element={<EquipmentDetailPage />} />
-        <Route path="/equipment/lendings" element={<LendingListPage />} />
+        <Route path="/equipment/racks" element={<RackLayoutPage />} />
         <Route path="/equipment/maintenance" element={<MaintenancePage />} />
         <Route path="/equipment/inventory" element={<InventoryPage />} />
         <Route path="/equipment/scan" element={<ScanPage />} />
-        <Route path="/equipment/locations" element={<LocationPage />} />
-        <Route path="/equipment/manufacturers" element={<ManufacturerPage />} />
-        <Route path="/equipment/colors" element={<ColorPage />} />
-        <Route path="/equipment/racks" element={<RackLayoutPage />} />
-        <Route path="/equipment/model-groups" element={<ModelGroupPage />} />
-        <Route path="/equipment/rental-settings" element={<RentalSettingsPage />} />
-        <Route path="/equipment/rental-categories" element={<RentalCategoryPage />} />
-        <Route path="/equipment/cables" element={<CablePage />} />
-        <Route path="/equipment/connectors" element={<ConnectorPage />} />
+        <Route path="/equipment/lendings" element={<LendingListPage />} />
+        <Route path="/equipment/settings" element={<SettingsPage />} />
+
+        {/* 畳んだ画面の旧 URL (ブックマークを生かす) */}
+        <Route path="/equipment/model-groups" element={<Navigate to="/equipment/items?view=lend" replace />} />
+        <Route path="/equipment/cables" element={<Navigate to="/equipment/items?view=cable" replace />} />
+        <Route path="/equipment/connectors" element={<Navigate to="/equipment/items?view=connector" replace />} />
+        <Route path="/equipment/locations" element={<Navigate to="/equipment/settings?tab=loc" replace />} />
+        <Route path="/equipment/manufacturers" element={<Navigate to="/equipment/settings?tab=maker" replace />} />
+        <Route path="/equipment/colors" element={<Navigate to="/equipment/settings?tab=maker" replace />} />
+        <Route path="/equipment/rental-categories" element={<Navigate to="/equipment/settings?tab=cat" replace />} />
+        <Route path="/equipment/rental-settings" element={<Navigate to="/equipment/settings?tab=rule" replace />} />
       </Route>
       <Route path="*" element={<RedirectOnce to="/equipment" />} />
     </Routes>

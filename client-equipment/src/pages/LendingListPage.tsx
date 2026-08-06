@@ -1,568 +1,218 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
-import api from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Plus, ArrowRightLeft, RotateCcw, Search, Check, ChevronRight, X } from "lucide-react";
-import { TYPE_CODES } from "@/lib/constants";
+/**
+ * ⑦ 貸出・返却 (v4)
+ *
+ * いま出ている機材と、返ってきた記録です。
+ * 貸出の登録 (`lending/LendingDialog.tsx`) と返却 (`lending/ReturnDialog.tsx`) は別ファイル。
+ *
+ * ── 変えたこと ────────────────────────────────────────────
+ *
+ *  ・状態の絞り込みを**件数つきのチップ**にした (押す前に 0 件だと分かる)。
+ *    旧実装は選択肢の1つが「返却遅延」で、サーバーはその値を知らないため
+ *    **選ぶと全件が出ていました** — 遅延は返却予定日から画面で導きます。
+ *  ・保存できなかった理由をダイアログの上辺に出すようにした
+ *    (旧実装は貸出だけ本文の末尾、返却は何も出ませんでした)。
+ */
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, RotateCcw } from 'lucide-react';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { LendingDialog, type LendingPayload } from './lending/LendingDialog';
+import { ReturnDialog } from './lending/ReturnDialog';
 
-const today = new Date().toISOString().split("T")[0];
+interface Lending {
+  id: string;
+  equipment_name: string;
+  unit_number: number | null;
+  borrower_name: string;
+  purpose: string | null;
+  status: string;
+  lent_at: string | null;
+  due_date: string | null;
+  returned_at: string | null;
+  project_name: string | null;
+  gls_number: string | null;
+}
+
+const today = () => new Date().toISOString().split('T')[0];
+
+/** 遅延は**画面で導く**。サーバーの `status` は貸出中／返却済の2つしか無い */
+const isLate = (l: Lending) => l.status === 'lent' && !!l.due_date && l.due_date < today();
+
+const md = (d: string | null) => (d && d.length >= 10 ? `${d.slice(5, 7)}/${d.slice(8, 10)}` : '—');
 
 export default function LendingListPage() {
   const qc = useQueryClient();
-
-  // ─── Lending list state ───────────────────────────────────
-  const [filterStatus, setFilterStatus] = useState("lent");
-
-  // ─── Dialog state ─────────────────────────────────────────
+  const [chip, setChip] = useState('lent');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [step, setStep] = useState<"select" | "form">("select");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [typeTab, setTypeTab] = useState("");
-  const [lendingType, setLendingType] = useState<"standalone" | "program">("standalone");
-  const [projectSearch, setProjectSearch] = useState("");
-  const [form, setForm] = useState({
-    borrower_name: "", purpose: "",
-    lent_at: today, due_date: "", notes: "", project_id: "",
+  const [lendError, setLendError] = useState<string | null>(null);
+  const [returnTarget, setReturnTarget] = useState<Lending | null>(null);
+  const [returnError, setReturnError] = useState<string | null>(null);
+
+  // すべて引いてから画面で分ける。**チップの件数を出すため**
+  const list = useQuery({
+    queryKey: ['equipment-lendings'],
+    queryFn: async () => (await api.get('/equipment/lendings')).data.data as Lending[],
   });
+  const all = useMemo(() => list.data ?? [], [list.data]);
 
-  // ─── Return dialog ────────────────────────────────────────
-  const [returnDialogId, setReturnDialogId] = useState<string | null>(null);
-  const [returnCondition, setReturnCondition] = useState("good");
-  const [returnNotes, setReturnNotes] = useState("");
+  const groups = useMemo(() => ({
+    lent: all.filter((l) => l.status === 'lent'),
+    late: all.filter(isLate),
+    returned: all.filter((l) => l.status !== 'lent'),
+  }), [all]);
 
-  // ─── Queries ──────────────────────────────────────────────
-  const { data: lendingsData, isLoading } = useQuery({
-    queryKey: ["equipment-lendings", filterStatus],
-    queryFn: async () => {
-      const params: Record<string, string> = {};
-      if (filterStatus) params.status = filterStatus;
-      return (await api.get("/equipment/lendings", { params })).data.data;
+  const rows = chip === 'late' ? groups.late : chip === 'returned' ? groups.returned : groups.lent;
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['equipment-lendings'] });
+    qc.invalidateQueries({ queryKey: ['equipment-stats'] });
+    qc.invalidateQueries({ queryKey: ['equipment-lendable'] });
+  };
+
+  const lend = useMutation({
+    mutationFn: (payload: LendingPayload) => api.post('/equipment/lendings/batch', payload),
+    onSuccess: (_r, p) => {
+      invalidate();
+      setDialogOpen(false);
+      setLendError(null);
+      notifySuccess(`${p.equipment_ids.length} 台の貸出を記録しました`);
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setLendError(e?.response?.data?.error?.message || e?.message || '貸出を記録できませんでした');
     },
   });
-  const lendings: any[] = lendingsData ?? [];
 
-  const { data: lendableData, isLoading: lendableLoading } = useQuery({
-    queryKey: ["equipment-lendable"],
-    queryFn: async () => (await api.get("/equipment/items", {
-      params: { is_rental_listed: "true", status: "active", include_children: "1" },
-    })).data.data,
-    enabled: dialogOpen,
-    staleTime: 30_000,
-  });
-  const lendableItems: any[] = lendableData ?? [];
-
-  const { data: projectsData } = useQuery({
-    queryKey: ["equipment-projects", projectSearch],
-    queryFn: async () => (await api.get("/equipment/projects", { params: { search: projectSearch } })).data.data,
-    enabled: dialogOpen && lendingType === "program" && projectSearch.length >= 1,
-  });
-  const projects: any[] = projectsData ?? [];
-
-  // ─── Computed ─────────────────────────────────────────────
-  const childrenMap = useMemo(() => {
-    const map = new Map<string, any[]>();
-    for (const item of lendableItems) {
-      if (item.parent_id) {
-        if (!map.has(item.parent_id)) map.set(item.parent_id, []);
-        map.get(item.parent_id)!.push(item);
-      }
-    }
-    return map;
-  }, [lendableItems]);
-
-  const parentItems = useMemo(() => lendableItems.filter(i => !i.parent_id), [lendableItems]);
-
-  const availableTypes = useMemo(() => {
-    const codes = new Set(parentItems.map(i => i.equipment_type_code));
-    return TYPE_CODES.filter(t => codes.has(t.code));
-  }, [parentItems]);
-
-  const filteredItems = useMemo(() => {
-    if (!typeTab) return parentItems;
-    return parentItems.filter(i => i.equipment_type_code === typeTab);
-  }, [parentItems, typeTab]);
-
-  const selectedItems = useMemo(() => {
-    return parentItems.filter(i => selectedIds.has(i.id));
-  }, [parentItems, selectedIds]);
-
-  // ─── Helpers ──────────────────────────────────────────────
-  const toggleItem = (item: any) => {
-    if (item.current_lending) return;
-    const children = childrenMap.get(item.id) ?? [];
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(item.id)) {
-        next.delete(item.id);
-        children.forEach(c => next.delete(c.id));
-      } else {
-        next.add(item.id);
-        children.filter(c => !c.current_lending).forEach(c => next.add(c.id));
-      }
-      return next;
-    });
-  };
-
-  const resetAndClose = () => {
-    setDialogOpen(false);
-    setStep("select");
-    setSelectedIds(new Set());
-    setTypeTab("");
-    setLendingType("standalone");
-    setProjectSearch("");
-    setForm({ borrower_name: "", purpose: "", lent_at: today, due_date: "", notes: "", project_id: "" });
-  };
-
-  const openDialog = () => {
-    resetAndClose();
-    setDialogOpen(true);
-  };
-
-  // ─── Mutations ────────────────────────────────────────────
-  const batchLendMutation = useMutation({
-    mutationFn: (payload: any) => api.post("/equipment/lendings/batch", payload),
+  const doReturn = useMutation({
+    mutationFn: (p: { id: string; condition_in: string; notes: string }) =>
+      api.put(`/equipment/lendings/${p.id}/return`, { condition_in: p.condition_in, notes: p.notes }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-lendings"] });
-      qc.invalidateQueries({ queryKey: ["equipment-stats"] });
-      qc.invalidateQueries({ queryKey: ["equipment-lendable"] });
-      resetAndClose();
+      invalidate();
+      setReturnTarget(null);
+      setReturnError(null);
+      notifySuccess('返却を記録しました');
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setReturnError(e?.response?.data?.error?.message || e?.message || '返却を記録できませんでした');
     },
   });
 
-  const returnMutation = useMutation({
-    mutationFn: ({ id, ...body }: any) => api.put(`/equipment/lendings/${id}/return`, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-lendings"] });
-      qc.invalidateQueries({ queryKey: ["equipment-stats"] });
-      qc.invalidateQueries({ queryKey: ["equipment-lendable"] });
-      setReturnDialogId(null);
-    },
-  });
-
-  const handleSubmit = () => {
-    if (selectedIds.size === 0 || !form.borrower_name) return;
-    batchLendMutation.mutate({
-      equipment_ids: Array.from(selectedIds),
-      ...form,
-      project_id: lendingType === "program" ? (form.project_id || null) : null,
-      due_date: form.due_date || null,
-    });
-  };
-
-  // ─── Render ───────────────────────────────────────────────
   return (
-    <div className="space-y-4 p-4 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">貸出管理</h1>
-        <Button size="sm" onClick={openDialog}>
-          <Plus className="h-4 w-4 mr-1" />
-          貸出登録
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="貸出・返却"
+        sub="いま出ている機材と、返ってきた記録です。貸出可にした機材だけが対象です"
+        primaryAction={
+          <Button onClick={() => { setLendError(null); setDialogOpen(true); }}>
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />貸出を記録
+          </Button>
+        }
+      />
 
-      {/* Status filter */}
-      <div className="flex gap-2">
-        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="ステータス" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            <SelectItem value="lent">貸出中</SelectItem>
-            <SelectItem value="returned">返却済</SelectItem>
-            <SelectItem value="overdue">返却遅延</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterChips
+        label="状態で絞り込む"
+        items={[
+          { key: 'lent', label: '貸出中', count: groups.lent.length },
+          { key: 'late', label: '返却遅延', count: groups.late.length },
+          { key: 'returned', label: '返却済', count: groups.returned.length },
+        ]}
+        value={chip}
+        onChange={setChip}
+      />
 
-      {/* Lending list */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : lendings.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <ArrowRightLeft className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>貸出記録がありません</p>
-          </CardContent>
-        </Card>
+      {list.isError ? (
+        <ErrorPanel title="貸出の記録を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
+      ) : list.isLoading ? (
+        <Delayed><SkeletonRows rows={5} /></Delayed>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title={
+            chip === 'late' ? '返却が遅れているものはありません'
+              : chip === 'returned' ? '返却済の記録はまだありません'
+                : 'いま出ている機材はありません'
+          }
+          description="「貸出を記録」から持ち出しを登録します。貸出可にした機材だけが選べます。"
+        />
       ) : (
-        <div className="space-y-2">
-          {lendings.map((l: any) => {
-            const isOverdue = l.status === "lent" && l.due_date && l.due_date < today;
+        <div className="flex flex-col rounded-card border border-border bg-card">
+          <RowHeader className="hidden sm:flex">
+            <RowMain>機材 ／ 借りている人・案件</RowMain>
+            <RowSlot w={96}>状態</RowSlot>
+            <RowSlot w={72} align="right">持出</RowSlot>
+            <RowSlot w={72} align="right">返却予定</RowSlot>
+            <RowSlot w={96} align="right">{''}</RowSlot>
+          </RowHeader>
+          {rows.map((l) => {
+            const late = isLate(l);
             return (
-              <Card key={l.id} className={isOverdue ? "border-amber-300" : ""}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">
-                          {l.equipment_name}
-                          {l.unit_number && <span className="text-primary ml-1">No.{l.unit_number}</span>}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        <Badge
-                          variant={l.status === "lent" ? "default" : "secondary"}
-                          className={isOverdue ? "bg-amber-500" : ""}
-                        >
-                          {l.status === "lent" ? (isOverdue ? "返却遅延" : "貸出中") : "返却済"}
-                        </Badge>
-                        <span className="text-sm">{l.borrower_name}</span>
-                        {l.gls_number && (
-                          <Badge variant="outline" className="text-xs">
-                            {l.gls_number} {l.project_name}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        貸出: {l.lent_at?.split("T")[0]}
-                        {l.due_date && ` / 期限: ${l.due_date}`}
-                        {l.returned_at && ` / 返却: ${l.returned_at.split("T")[0]}`}
-                      </div>
-                      {l.purpose && <div className="text-xs text-muted-foreground">{l.purpose}</div>}
-                    </div>
-                    {l.status === "lent" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => { setReturnDialogId(l.id); setReturnCondition("good"); setReturnNotes(""); }}
-                        className="shrink-0"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                        返却
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <Row key={l.id} divider stackOnMobile>
+                <RowMain>
+                  <RowTitle>
+                    {l.equipment_name}
+                    {l.unit_number != null && <span className="ml-1 text-primary">No.{l.unit_number}</span>}
+                  </RowTitle>
+                  <RowSub>
+                    {[l.borrower_name, l.gls_number, l.project_name, l.purpose].filter(Boolean).join(' ／ ')}
+                  </RowSub>
+                </RowMain>
+                <RowSlot w={96}>
+                  <TableBadge
+                    label={l.status === 'lent' ? (late ? '返却遅延' : '貸出中') : '返却済'}
+                    w={null}
+                    className={late
+                      ? 'bg-destructive-surface text-destructive border-transparent'
+                      : l.status === 'lent'
+                        ? 'bg-primary-surface-weak text-primary border-transparent'
+                        : 'bg-muted text-muted-foreground border-transparent'}
+                  />
+                </RowSlot>
+                <RowSlot w={72} align="right" hideOnMobile>
+                  <span className="font-number text-sub-sm text-muted-foreground">{md(l.lent_at)}</span>
+                </RowSlot>
+                <RowSlot w={72} align="right">
+                  <span className={`font-number text-sub ${late ? 'text-destructive' : 'text-secondary-foreground'}`}>
+                    {l.status === 'lent' ? md(l.due_date) : md(l.returned_at)}
+                  </span>
+                </RowSlot>
+                <RowSlot w={96} align="right" placeholder="">
+                  {l.status === 'lent' && (
+                    <Button variant="outline" onClick={() => { setReturnError(null); setReturnTarget(l); }}>
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />返却
+                    </Button>
+                  )}
+                </RowSlot>
+              </Row>
             );
           })}
         </div>
       )}
 
-      {/* ── New Lending Dialog ────────────────────────────── */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) resetAndClose(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
-            <DialogTitle>新規貸出登録</DialogTitle>
-          </DialogHeader>
+      <LendingDialog
+        open={dialogOpen}
+        saving={lend.isPending}
+        error={lendError}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={(payload) => lend.mutate(payload)}
+      />
 
-          {/* ── STEP 1: Equipment picker ── */}
-          {step === "select" && (
-            <div className="flex flex-col min-h-0 flex-1">
-              {/* Type tabs */}
-              <div className="flex gap-1.5 px-4 py-2.5 border-b overflow-x-auto shrink-0 scrollbar-none">
-                <button
-                  onClick={() => setTypeTab("")}
-                  className={cn(
-                    "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    !typeTab ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
-                  )}
-                >
-                  全て {lendableItems.length > 0 && `(${lendableItems.length})`}
-                </button>
-                {availableTypes.map(t => {
-                  const count = lendableItems.filter(i => i.equipment_type_code === t.code).length;
-                  return (
-                    <button
-                      key={t.code}
-                      onClick={() => setTypeTab(t.code)}
-                      className={cn(
-                        "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                        typeTab === t.code ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
-                      )}
-                    >
-                      {t.label} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Equipment card grid */}
-              <div className="flex-1 overflow-y-auto px-4 py-3">
-                {lendableLoading ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                  </div>
-                ) : filteredItems.length === 0 ? (
-                  <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
-                    <ArrowRightLeft className="h-10 w-10 opacity-30" />
-                    <p className="text-sm">貸出可能な機材がありません</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {filteredItems.map((item: any) => {
-                      const isSelected = selectedIds.has(item.id);
-                      const isLent = !!item.current_lending;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          disabled={isLent}
-                          onClick={() => toggleItem(item)}
-                          className={cn(
-                            "relative w-full text-left rounded-lg border p-2.5 transition-all text-sm",
-                            isSelected
-                              ? "ring-2 ring-primary border-primary bg-primary/5"
-                              : "hover:bg-muted/50 hover:border-muted-foreground/30",
-                            isLent && "opacity-50 cursor-not-allowed bg-muted/30"
-                          )}
-                        >
-                          {isSelected && (
-                            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                              <Check className="h-2.5 w-2.5 text-white" />
-                            </span>
-                          )}
-                          <div className="pr-5 font-medium leading-tight line-clamp-2 text-xs sm:text-sm">
-                            {item.name}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
-                          </div>
-                          {item.location_name && (
-                            <div className="mt-0.5 text-xs text-muted-foreground truncate">{item.location_name}</div>
-                          )}
-                          {(childrenMap.get(item.id)?.length ?? 0) > 0 && (
-                            <div className="mt-1 text-xs text-primary/70 font-medium">
-                              付属品 {childrenMap.get(item.id)!.length}点含む
-                            </div>
-                          )}
-                          {isLent && (
-                            <div className="mt-1 text-xs font-medium text-amber-600">貸出中</div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer: selected chips + next button */}
-              <div className="border-t px-4 py-3 shrink-0 space-y-2">
-                {selectedItems.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedItems.map(item => (
-                      <span
-                        key={item.id}
-                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium"
-                      >
-                        {item.name}{item.unit_number != null ? ` No.${item.unit_number}` : ""}
-                        <button type="button" onClick={() => toggleItem(item)} className="hover:text-primary/70">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    {selectedItems.length > 0 ? `${selectedItems.length} 台選択中` : "機材をタップして選択"}
-                  </span>
-                  <Button
-                    size="sm"
-                    disabled={selectedItems.length === 0}
-                    onClick={() => setStep("form")}
-                  >
-                    次へ: {selectedItems.length} 台を貸出
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 2: Borrower form ── */}
-          {step === "form" && (
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {/* Selected items summary */}
-              <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
-                <p className="text-xs font-semibold text-muted-foreground mb-1.5">選択機材 ({selectedItems.length} 台)</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedItems.map(item => (
-                    <span key={item.id} className="text-xs bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">
-                      {item.name}{item.unit_number != null ? ` No.${item.unit_number}` : ""}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lending type */}
-              <div className="space-y-1">
-                <Label>貸出種別</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["standalone", "program"] as const).map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      className={cn(
-                        "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                        lendingType === type
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border hover:bg-muted"
-                      )}
-                      onClick={() => {
-                        setLendingType(type);
-                        if (type === "standalone") setForm(f => ({ ...f, project_id: "" }));
-                      }}
-                    >
-                      {type === "standalone" ? "単独貸出" : "番組貸出"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* GLS project (program only) */}
-              {lendingType === "program" && (
-                <div className="space-y-1">
-                  <Label>GLS案件 *</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      className="pl-9"
-                      placeholder="GLS番号 or 案件名で検索..."
-                      value={projectSearch}
-                      onChange={(e) => {
-                        setProjectSearch(e.target.value);
-                        if (!e.target.value) setForm(f => ({ ...f, project_id: "" }));
-                      }}
-                    />
-                  </div>
-                  {projects.length > 0 && !form.project_id && (
-                    <div className="border rounded-md max-h-32 overflow-y-auto">
-                      {projects.map((p: any) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors"
-                          onClick={() => { setForm(f => ({ ...f, project_id: p.id })); setProjectSearch(`${p.gls_number} ${p.name}`); }}
-                        >
-                          <span className=" text-xs text-primary">{p.gls_number}</span>
-                          <span className="ml-2">{p.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {form.project_id && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Badge variant="outline" className="text-xs">選択済</Badge>
-                      <button type="button" className="text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => { setForm(f => ({ ...f, project_id: "" })); setProjectSearch(""); }}>
-                        変更
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Borrower */}
-              <div className="space-y-1">
-                <Label>借用者 *</Label>
-                <Input
-                  value={form.borrower_name}
-                  onChange={e => setForm(f => ({ ...f, borrower_name: e.target.value }))}
-                  placeholder="氏名"
-                />
-              </div>
-
-              {/* Purpose */}
-              <div className="space-y-1">
-                <Label>目的</Label>
-                <Input
-                  value={form.purpose}
-                  onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))}
-                  placeholder="利用目的"
-                />
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>貸出日</Label>
-                  <Input type="date" value={form.lent_at} onChange={e => setForm(f => ({ ...f, lent_at: e.target.value }))} />
-                </div>
-                <div className="space-y-1">
-                  <Label>返却予定日</Label>
-                  <Input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
-                </div>
-              </div>
-
-              {/* Error */}
-              {batchLendMutation.isError && (
-                <p className="text-sm text-destructive">
-                  {(batchLendMutation.error as any)?.response?.data?.error?.message ?? "エラーが発生しました"}
-                </p>
-              )}
-
-              {/* Buttons */}
-              <div className="flex justify-between gap-2 pt-1">
-                <Button variant="outline" onClick={() => setStep("select")}>← 戻る</Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={
-                    !form.borrower_name ||
-                    (lendingType === "program" && !form.project_id) ||
-                    batchLendMutation.isPending
-                  }
-                >
-                  {batchLendMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {selectedIds.size} 台を貸出登録
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Return Dialog */}
-      <Dialog open={!!returnDialogId} onOpenChange={() => setReturnDialogId(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>返却処理</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>返却時コンディション</Label>
-              <Select value={returnCondition} onValueChange={setReturnCondition}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="excellent">優良</SelectItem>
-                  <SelectItem value="good">良好</SelectItem>
-                  <SelectItem value="fair">可</SelectItem>
-                  <SelectItem value="poor">不良</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>備考</Label>
-              <Input value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} placeholder="状態のメモ等" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setReturnDialogId(null)}>キャンセル</Button>
-              <Button
-                onClick={() => returnMutation.mutate({ id: returnDialogId, condition_in: returnCondition, notes: returnNotes })}
-                disabled={returnMutation.isPending}
-              >
-                {returnMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                返却完了
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ReturnDialog
+        open={!!returnTarget}
+        name={returnTarget
+          ? `${returnTarget.equipment_name}${returnTarget.unit_number != null ? ` No.${returnTarget.unit_number}` : ''}`
+          : ''}
+        saving={doReturn.isPending}
+        error={returnError}
+        onClose={() => setReturnTarget(null)}
+        onSubmit={(p) => returnTarget && doReturn.mutate({ id: returnTarget.id, ...p })}
+      />
     </div>
   );
 }

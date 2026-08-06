@@ -1,8 +1,20 @@
 /**
- * 機材管理の左メニュー — **中身は今までと1項目も変えていない**。
+ * 機材管理の左メニュー — **v4 の情報設計に差し替え済み** (8画面)。
  *
- * 旧 `Sidebar.tsx` の `navItems` からの逐語コピーです。並べ替え・改名・削除を
- * していません。情報設計 (v4 では8画面に整理する) は Phase 4 で相談します。
+ * 旧メニューは1つの塊に 14 項目が平らに並んでいました。中身は
+ *
+ *   機材一覧 / ケーブル管理 / コネクタ管理 / 貸出機材一覧  ← どれも「物の台帳」
+ *   貸出管理 / 貸出機材設定                                ← 貸出
+ *   保管場所管理 / メーカー管理 / 機材色                    ← 設定
+ *
+ * で、**毎日開く画面と月1回しか触らない設定が同じ高さ**に並んでいました。
+ * さらに「貸出カテゴリ管理」(`/equipment/rental-categories`) は
+ * **ルートはあるのにメニューから辿り着けません**でした。
+ *
+ * v4 は モックの `MENU` に合わせて **現場 / 貸出 / 設定** の3つの塊にします。
+ * **畳んだ画面は全部いまの8画面のどこかのタブに入っている**ので、
+ * 「そのほか (作り直し前)」の塊は作っていません (作り直していない画面が
+ * 出てきたらここに畳みます)。
  *
  * ── `to` が `/equipment/...` で始まる理由 ──────────────────────
  *
@@ -11,42 +23,48 @@
  * **共通シェルは接頭辞を知りません** — この差はアプリごとの `nav.ts` に閉じ込めます。
  */
 import {
+  ArrowRightLeft,
   BarChart3,
-  Package,
-  Cable,
-  Plug,
-  Layers,
-  ClipboardList,
-  Settings,
-  Wrench,
   ClipboardCheck,
+  ClipboardList,
+  Layers,
+  Menu,
+  Package,
   QrCode,
   Server,
-  MapPin,
-  Building2,
-  Palette,
-  Menu,
+  Settings,
+  Wrench,
 } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 
 export const EQUIPMENT_NAV: ShellNavSection[] = [
   {
+    title: '現場',
     items: [
       // `end: true` が要る。付け忘れると**全ページでダッシュボードが光る**
       { label: 'ダッシュボード', to: '/equipment', icon: BarChart3, end: true },
-      { label: '機材一覧', to: '/equipment/items', icon: Package },
-      { label: 'ケーブル管理', to: '/equipment/cables', icon: Cable },
-      { label: 'コネクタ管理', to: '/equipment/connectors', icon: Plug },
-      { label: '貸出機材一覧', to: '/equipment/model-groups', icon: Layers },
-      { label: '貸出管理', to: '/equipment/lendings', icon: ClipboardList },
-      { label: '貸出機材設定', to: '/equipment/rental-settings', icon: Settings },
+      // ケーブル・コネクタ・貸出機材はこの中のタブ。**別項目にしない** —
+      // 探しているものがどの台帳に入っているかを先に思い出す必要が出る
+      { label: '機材台帳', to: '/equipment/items', icon: Package },
+      { label: 'ラック図', to: '/equipment/racks', icon: Server },
       { label: 'メンテナンス', to: '/equipment/maintenance', icon: Wrench },
       { label: '棚卸し', to: '/equipment/inventory', icon: ClipboardCheck },
       { label: 'QRスキャン', to: '/equipment/scan', icon: QrCode },
-      { label: 'ラック実装', to: '/equipment/racks', icon: Server },
-      { label: '保管場所管理', to: '/equipment/locations', icon: MapPin },
-      { label: 'メーカー管理', to: '/equipment/manufacturers', icon: Building2 },
-      { label: '機材色', to: '/equipment/colors', icon: Palette },
+    ],
+  },
+  {
+    title: '貸出',
+    items: [
+      { label: '貸出・返却', to: '/equipment/lendings', icon: ArrowRightLeft },
+      // 台帳のタブへ直接送る。貸出のときはこちらから入るほうが早い
+      { label: '貸出対象の機材', to: '/equipment/items?view=lend', icon: Layers },
+    ],
+  },
+  {
+    title: '設定',
+    items: [
+      // 保管場所 / メーカー・色 / 貸出カテゴリ / 貸出の決めごと の4タブ
+      { label: '設定', to: '/equipment/settings', icon: Settings },
     ],
   },
 ];
