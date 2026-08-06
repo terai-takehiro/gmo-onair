@@ -16,7 +16,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import {
-  KIND_LABEL, STATUS_LABEL, progressPct, ymd,
+  KIND_LABEL, STATUS_LABEL, phaseProgress, ymd,
   type GpmProjectDetail, type GpmStatus,
 } from '../../types';
 
@@ -44,7 +44,7 @@ export function DetailHeader({
   onChangeStatus: (next: GpmStatus) => void;
   onEdit: () => void;
 }) {
-  const pct = progressPct(project.phase_done, project.phase_count);
+  const progress = phaseProgress(project.phases);
   const sub = [
     project.client_name,
     KIND_LABEL[project.kind],
@@ -93,7 +93,9 @@ export function DetailHeader({
           <div>
             <p className="text-th text-muted-foreground">進み具合</p>
             <p className="text-sub font-number">
-              {pct === null ? '工程なし' : `${pct}% ・ ${project.phase_done} / ${project.phase_count} 工程`}
+              {progress.pct === null
+                ? '工程なし'
+                : `${progress.pct}% ・ ${progress.done} / ${progress.count} 工程`}
             </p>
           </div>
         </div>

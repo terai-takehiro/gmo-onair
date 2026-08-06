@@ -26,8 +26,8 @@ export type MemberSide = 'internal' | 'client' | 'pm' | 'vendor';
 
 // ── サーバーが返す形 ────────────────────────────────────────
 
-/** `GET /gpm/projects` の1行。**進み具合はサーバーが数えたもの** */
-export interface GpmProjectRow {
+/** 一覧にも詳細にも入っている列（`gpm_projects` そのもの） */
+export interface GpmProjectBase {
   id: string;
   name: string;
   kind: GpmKind;
@@ -42,16 +42,26 @@ export interface GpmProjectRow {
   template_id: string | null;
   project_id: string | null;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * `GET /gpm/projects` の1行。**進み具合はサーバーが数えたもの**。
+ *
+ * **`open_items` の意味が一覧と詳細で違います。** 一覧は「未解決の件数」
+ * （数値）、詳細は「未確認事項の配列」です（サーバーが同じ名前を使っている）。
+ * 型を分けてあるので、取り違えるとその場でコンパイルが止まります。
+ */
+export interface GpmProjectRow extends GpmProjectBase {
   /** いま動いている工程（進行中が無ければ最初の未着手） */
   current_phase: string | null;
   phase_count: number;
   phase_done: number;
-  /** 未解決の未確認事項の件数 */
+  /** 未解決の未確認事項の**件数** */
   open_items: number;
   next_task: string | null;
   next_due: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface GpmPhase {
@@ -96,10 +106,19 @@ export interface GpmMember {
   sort_order: number;
 }
 
-export interface GpmProjectDetail extends GpmProjectRow {
+/**
+ * `GET /gpm/projects/:id`。
+ *
+ * **一覧が返す集計（`phase_count` / `phase_done` / `current_phase` /
+ * `next_task`）は入っていません。** 詳細は工程そのものを返すので、
+ * 進み具合は `phases` から出します（`phaseProgress()`）。
+ * 集計を写して持たせると、同じ数字を2か所で数えることになります。
+ */
+export interface GpmProjectDetail extends GpmProjectBase {
   customer_name: string | null;
   template_name: string | null;
   phases: GpmPhase[];
+  /** 未確認事項の**中身**（一覧の `open_items` は件数なので別物） */
   open_items: GpmOpenItem[];
   members: GpmMember[];
 }
@@ -234,6 +253,16 @@ export function ymd(value: string | null | undefined): string | null {
 export function progressPct(done: number, count: number): number | null {
   if (!count) return null;
   return Math.round((done / count) * 100);
+}
+
+/**
+ * 詳細画面での進み具合。**一覧と同じ数え方**（完了した工程 ÷ 工程の数）に
+ * 揃えてあります — 詳細だけタスクの完了率で出すと、一覧と詳細で
+ * 違う％が出て「どちらが本当か」が分からなくなります。
+ */
+export function phaseProgress(phases: { state: PhaseState }[]): { done: number; count: number; pct: number | null } {
+  const done = phases.filter((p) => p.state === 'done').length;
+  return { done, count: phases.length, pct: progressPct(done, phases.length) };
 }
 
 /** 期限の色。**超過だけを赤にする** — 全部に色を付けると超過が埋もれる */

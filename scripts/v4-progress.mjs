@@ -122,8 +122,19 @@ const TREE = [
     // v4: 拠点・メーカー・色・貸出カテゴリ・貸出の決めごとを1画面4タブに畳んだ
     ['設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
   ]],
-  ['プロジェクト管理 (新規・7画面)', [
-    ['設計から', '—', null],
+  // v4 で新しく作ったアプリ。DB・API・画面すべて新規（migration 161/162）
+  ['プロジェクト管理 (新規)', [
+    ['① ダッシュボード', '/gpm/dashboard', 'client/src/contexts/gpm/pages/GpmDashboardPage.tsx'],
+    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx'],
+    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx'],
+    ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
+    ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
+    ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
+    ['⑥ 見積・請求', '—', null, undefined,
+      '**意図して作っていません。** `estimates.project_id` が `NOT NULL REFERENCES projects(id)` なので、' +
+      '自社構築（案件に紐づかない）プロジェクトは見積を1枚も持てません。モックの「提出先」に相当する列も 0 件。' +
+      '足すとサーバー12か所・画面4か所（案件詳細の見積タブ・見積請求一覧・案件ダッシュボードの KPI）に同時に効きます。' +
+      '**見積のデータ設計の変更**なので設計から。理由と手順は `docs/design/gpm-model.md` の「決め⑤」'],
   ]],
 ];
 

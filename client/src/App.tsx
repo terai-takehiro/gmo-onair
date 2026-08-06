@@ -36,6 +36,14 @@ import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 // Tasks (タスク管理)
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 
+// GPM (プロジェクト管理 — v4 で新規)
+import GpmDashboardPage from "@/contexts/gpm/pages/GpmDashboardPage";
+import GpmProjectListPage from "@/contexts/gpm/pages/GpmProjectListPage";
+import GpmProjectFormPage from "@/contexts/gpm/pages/GpmProjectFormPage";
+import GpmProjectDetailPage from "@/contexts/gpm/pages/GpmProjectDetailPage";
+import GpmTaskListPage from "@/contexts/gpm/pages/GpmTaskListPage";
+import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
+
 // Production (スタジオ予約)
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
@@ -161,6 +169,20 @@ function AppRoutes() {
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
         <Route path="/sales/billing" element={<PermissionRoute module="sales"><BillingListPage /></PermissionRoute>} />
 
+        {/* ===== プロジェクト管理 (gpm) — v4 で新規 =====
+            工程で管理する構築案件。**案件管理 (`/sales`) とは別のテーブル**で、
+            売れるかどうかを追う段階（ヨミ）は持たない（着手＝発注確定）。
+            理由は `docs/design/gpm-model.md`。
+            **見積・請求の画面はまだ作っていない** — `estimates` にモックが持つ
+            「提出先」の列が無く、足すと案件管理の見積画面に影響するため */}
+        <Route path="/gpm/dashboard" element={<PermissionRoute module="gpm"><GpmDashboardPage /></PermissionRoute>} />
+        <Route path="/gpm/projects" element={<PermissionRoute module="gpm"><GpmProjectListPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/new" element={<PermissionRoute module="gpm" minLevel="editor"><GpmProjectFormPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/:id" element={<PermissionRoute module="gpm"><GpmProjectDetailPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/:id/:tab" element={<PermissionRoute module="gpm"><GpmProjectDetailPage /></PermissionRoute>} />
+        <Route path="/gpm/tasks" element={<PermissionRoute module="gpm"><GpmTaskListPage /></PermissionRoute>} />
+        <Route path="/gpm/templates" element={<PermissionRoute module="gpm"><GpmTemplateListPage /></PermissionRoute>} />
+
         {/* ===== 財務管理 (budget) ===== */}
         {/* v4 ⑥: 受け取った書類。日常業務から財務へ移した（経理が開けなかったため）。
             **権限は budget か dailyops のどちらか** — いま見られる人は見られたまま */}
@@ -214,6 +236,7 @@ function AppRoutes() {
         */}
         <Route path="/sales" element={<Navigate to="/sales/dashboard" replace />} />
         <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
+        <Route path="/gpm" element={<Navigate to="/gpm/dashboard" replace />} />
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 旧URLリダイレクト */}

@@ -20,6 +20,7 @@ import { Plus, Search } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import {
@@ -44,6 +45,9 @@ const KINDS: GpmKind[] = ['self_build', 'group_order'];
 
 export default function GpmProjectListPage() {
   const navigate = useNavigate();
+  // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('gpm', 'editor');
   const [statusKey, setStatusKey] = useState('open');
   const [kind, setKind] = useState<GpmKind | ''>('');
   const [search, setSearch] = useState('');
@@ -54,11 +58,10 @@ export default function GpmProjectListPage() {
 
   // 区分だけを掛けた集合。**状態チップの件数はここから数える**
   const byKind = useMemo(() => (kind ? all.filter((p) => p.kind === kind) : all), [all, kind]);
-  const statuses = STATUS_CHIPS.find((c) => c.key === statusKey)?.statuses ?? [];
-  const rows = useMemo(
-    () => byKind.filter((p) => statuses.includes(p.status)),
-    [byKind, statuses],
-  );
+  const rows = useMemo(() => {
+    const statuses = STATUS_CHIPS.find((c) => c.key === statusKey)?.statuses ?? [];
+    return byKind.filter((p) => statuses.includes(p.status));
+  }, [byKind, statusKey]);
 
   const chips = STATUS_CHIPS.map((c) => ({
     key: c.key,
@@ -85,9 +88,11 @@ export default function GpmProjectListPage() {
             : 'すべて発注が確定したもの'
         }
         primaryAction={
-          <Button onClick={() => navigate('/gpm/projects/new')}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作る
-          </Button>
+          canEdit ? (
+            <Button onClick={() => navigate('/gpm/projects/new')}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作る
+            </Button>
+          ) : undefined
         }
       />
 
@@ -136,9 +141,11 @@ export default function GpmProjectListPage() {
             title="プロジェクトがまだありません"
             description="発注が確定した構築案件をここで工程管理します。標準工程を選ぶと、工程とタスクが日付付きで入ります。"
             action={
-              <Button onClick={() => navigate('/gpm/projects/new')}>
-                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />プロジェクトを作る
-              </Button>
+              canEdit ? (
+                <Button onClick={() => navigate('/gpm/projects/new')}>
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />プロジェクトを作る
+                </Button>
+              ) : undefined
             }
           />
         ) : (
