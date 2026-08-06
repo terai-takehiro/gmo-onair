@@ -37,7 +37,28 @@ router.get('/', async (req, res) => {
      ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...allocParams, ...params, limit, offset]
   );
-  res.json(paginatedResponse(rows, total, page, limit));
+  // 一覧の下に出す合計。**表示中のページではなく絞り込み全体**（めくるたびに変わらない）
+  const joins = `FROM purchases pu
+     LEFT JOIN projects p ON p.id = pu.project_id
+     LEFT JOIN vendors v ON v.id = pu.vendor_id ${allocJoin}`;
+  const sum = (await queryOne(
+    `SELECT COALESCE(SUM(pu.amount), 0) as s ${joins} ${where}`, [...allocParams, ...params])) as { s: string } | null;
+
+  // 絞り込みチップの件数。**state 以外の絞り込みだけ**を掛けて数える
+  const { state: _state, ...restQuery } = req.query as Record<string, unknown>;
+  const base = buildPurchaseWhere(restQuery as typeof req.query);
+  const counts = (await queryOne(
+    `SELECT COUNT(*) FILTER (WHERE pu.is_provisional IS NOT TRUE) as fixed,
+            COUNT(*) FILTER (WHERE pu.is_provisional = true) as prov,
+            COUNT(*) FILTER (WHERE pu.settlement_url IS NULL OR pu.settlement_url = '') as nourl,
+            COUNT(*) as all
+     ${joins} ${base.where}`, [...allocParams, ...base.params])) as Record<string, string>;
+
+  res.json({
+    ...paginatedResponse(rows, total, page, limit),
+    total_amount: Number(sum?.s ?? 0),
+    state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
+  });
 });
 
 // CSV Export

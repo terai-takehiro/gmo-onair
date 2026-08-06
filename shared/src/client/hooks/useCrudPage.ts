@@ -80,8 +80,16 @@ export interface CrudPageResult<T extends { id: string }> {
   // ── データ ────────────────────────────────────
   items: T[];
   pagination: PaginationInfo | undefined;
+  /**
+   * 応答そのもの。`data` と `pagination` 以外を返すルート
+   * (合計金額・絞り込みチップの件数など) を読むために出しています。
+   * 項目ごとにフックへ足していくと、使うアプリだけ増えて型が肥ります。
+   */
+  raw: Record<string, unknown> | undefined;
   isLoading: boolean;
   isError: boolean;
+  /** 失敗した理由。`ErrorPanel` にそのまま渡せる */
+  error: unknown;
   refetch: () => void;
 
   // ── ミューテーション ────────────────────────────
@@ -192,8 +200,17 @@ export function createUseCrudPage(api: AxiosInstance) {
 
       items: (list.data?.data ?? []) as T[],
       pagination: list.data?.pagination,
+      /**
+       * 応答そのもの。`data` と `pagination` 以外を返すルート
+       * (合計金額・絞り込みチップの件数など) を読むために出しています。
+       * **項目ごとにフックへ足していくと、使うアプリだけ増えて型が肥る**ので、
+       * 一覧の付随情報はここから取ってください。
+       */
+      raw: list.data as Record<string, unknown> | undefined,
       isLoading: list.isLoading,
       isError: list.isError,
+      /** 失敗した理由。`ErrorPanel` にそのまま渡せる */
+      error: list.error,
       refetch: list.refetch,
 
       save,

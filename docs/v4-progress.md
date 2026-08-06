@@ -1,4 +1,4 @@
-**8 / 37 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
+**11 / 37 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
 
 # v4 の進み具合（サイトツリー）
 
@@ -51,9 +51,9 @@
 | | 画面 | URL |
 | --- | --- | --- |
 | ⬜ | ダッシュボード | `/budget/dashboard` |
-| ⬜ | 売上 | `/budget/revenues` |
-| ⬜ | 仕入 | `/budget/purchases` |
-| ⬜ | 販管費 | `/budget/sga` |
+| ✅ | 売上 | `/budget/revenues` |
+| ✅ | 仕入 | `/budget/purchases` |
+| ✅ | 販管費 | `/budget/sga` |
 | ⬜ | 取引先 | `/budget/vendors` |
 | ⬜ | 取り込み (楽楽精算) | `/budget/xpoint-import` |
 | ⬜ | 取り込み (決算) | `/budget/kessan-import` |

@@ -16,8 +16,10 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   const params: unknown[] = [];
   const search = s(q.search);
   if (search) {
-    where += ` AND (pu.description ILIKE ? OR v.name ILIKE ? OR p.gls_number ILIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    // **案件名も見る。** 画面が「GLS番号・案件名・仕入先で検索」と書いているのに
+    // 案件名だけ抜けていた（売上と同じ抜け）
+    where += ` AND (pu.description ILIKE ? OR v.name ILIKE ? OR p.gls_number ILIKE ? OR p.name ILIKE ?)`;
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
   const projectId = s(q.project_id);
   if (projectId) {
@@ -35,6 +37,14 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   const fc = s(q.fixed_cost);
   if (fc === '1') { where += ` AND p.code = 'FIXED-COGS'`; }
   else if (fc === '0') { where += ` AND (p.code IS NULL OR p.code <> 'FIXED-COGS')`; }
+
+  // 精算の進み具合。`prov` = まだ金額が確定していない見込み
+  const state = s(q.state);
+  if (state === 'fixed') where += ` AND pu.is_provisional IS NOT TRUE`;
+  else if (state === 'prov') where += ` AND pu.is_provisional = true`;
+  else if (state === 'nourl') where += ` AND (pu.settlement_url IS NULL OR pu.settlement_url = '')`;
+  // 知らない値は素通しさせない（絞り込んだのに全件返ると気づけない）
+  else if (state) where += ` AND FALSE`;
   return { where, params };
 }
 
@@ -73,8 +83,13 @@ export function buildRevenueWhere(q: Query): { where: string; params: unknown[] 
   const search = s(q.search);
   if (search) {
     const safe = search.slice(0, 100).replace(/[%_\\]/g, '\\$&');
-    where += ` AND (r.billing_key ILIKE ? ESCAPE '\\' OR r.notes ILIKE ? ESCAPE '\\')`;
-    params.push(`%${safe}%`, `%${safe}%`);
+    // **案件名・GLS番号・請求先も見る。** ここが請求KEYと備考だけだったため、
+    // 画面が「請求KEY・案件名で検索」と書いているのに**案件名では1件も出ませんでした**
+    // (仕入・販管費は元から相手先と説明を見ており、売上だけが抜けていた)。
+    where += ` AND (r.billing_key ILIKE ? ESCAPE '\\' OR r.notes ILIKE ? ESCAPE '\\'`
+      + ` OR p.name ILIKE ? ESCAPE '\\' OR p.gls_number ILIKE ? ESCAPE '\\' OR c.name ILIKE ? ESCAPE '\\')`;
+    const like = `%${safe}%`;
+    params.push(like, like, like, like, like);
   }
   const projectId = s(q.project_id);
   if (projectId) {
@@ -87,8 +102,21 @@ export function buildRevenueWhere(q: Query): { where: string; params: unknown[] 
   if (rf) { where += ` AND r.recognition_date >= ?`; params.push(rf); }
   if (rt) { where += ` AND r.recognition_date <= ?`; params.push(rt); }
   const status = s(q.status);
-  if (status) { where += ` AND r.status = ?`; params.push(status); }
+  // `status=all` は「確定も見込みも出す」。**空文字と区別する** — 空文字のときは
+  // 従来どおり確定だけに絞る (この既定を変えると、status を渡していない
+  // 集計 (月次サマリ・MCP・Excel) に見込みが混ざって金額が変わる)
+  if (status === 'all') { /* 絞らない */ }
+  else if (status) { where += ` AND r.status = ?`; params.push(status); }
   else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
+
+  // 請求・入金の進み具合。**日付が入っていれば済み**（フラグと日付を両方持つと必ず食い違う）
+  const state = s(q.state);
+  if (state === 'issued') where += ` AND r.invoice_issued = true`;
+  else if (state === 'unissued') where += ` AND (r.invoice_issued IS NOT TRUE)`;
+  else if (state === 'unpaid') where += ` AND r.invoice_issued = true AND r.paid_date IS NULL`;
+  else if (state === 'paid') where += ` AND r.paid_date IS NOT NULL`;
+  // 知らない値は**素通しさせない**。絞り込んだのに全件返ると気づけない
+  else if (state) where += ` AND FALSE`;
   return { where, params };
 }
 
@@ -121,6 +149,10 @@ export function buildSgaWhere(q: Query): { where: string; params: unknown[] } {
   const params: unknown[] = [];
   const source = s(q.source);
   if (source === 'staff' || source === 'accounting') { where += ` AND s.source = ?`; params.push(source); }
+  // 固定費 / 都度。**勘定科目では絞れません** — `sga_expenses` に勘定科目の列が無いため
+  const et = s(q.expense_type);
+  if (et === 'fixed' || et === 'spot') { where += ` AND s.expense_type = ?`; params.push(et); }
+  else if (et) { where += ` AND FALSE`; }
   const search = s(q.search);
   if (search) { where += ` AND (s.vendor_name ILIKE ? OR s.description ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   const dateFrom = s(q.date_from);
