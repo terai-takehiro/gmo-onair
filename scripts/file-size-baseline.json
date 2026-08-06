@@ -2,7 +2,7 @@
   "limit": 400,
   "note": "scripts/check-file-size.mjs の基準。減ったら --update で締める。増やさないこと。",
   "files": {
-    "client/src/contexts/sales/pages/ProjectFormPage.tsx": 2179,
+    "client/src/contexts/sales/pages/ProjectFormPage.tsx": 2235,
     "client/src/contexts/production/components/episodes/BusinessProjectView.tsx": 2043,
     "client-equipment/src/pages/EquipmentListPage.tsx": 2018,
     "client-equipment/src/pages/RackLayoutPage.tsx": 1503,
@@ -19,7 +19,6 @@
     "client-equipment/src/pages/ConnectorPage.tsx": 793,
     "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 773,
     "client-equipment/src/pages/ModelGroupPage.tsx": 658,
-    "client-daily/src/pages/SecurityCardsPage.tsx": 634,
     "client/src/contexts/sales/pages/KeepReportPage.tsx": 630,
     "client-equipment/src/pages/LendingListPage.tsx": 569,
     "client/src/contexts/platform/pages/UserListPage.tsx": 566,

@@ -6,24 +6,33 @@
 
 | v4 画面 | いまの実装 |
 | --- | --- |
-| ウィークリー活動報告 | `pages/WeeklyListPage` / `WeeklyDetailPage` |
-| デイリーニュース報告 | `pages/DailyNewsPage` |
+| ウィークリー活動報告 | `pages/WeeklyDetailPage`（**1画面 master-detail**）＋ `pages/weekly/{WeekRail,StatsSection,TopicsSection}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ |
+| デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
-| 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{shared.tsx,logic.ts}` |
+| 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
 | 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` |
-| セキュリティカード | `pages/SecurityCardsPage` |
+| セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
 
-- `pages/TasksPage` は**案件管理へ寄せる**方針（v4 では `/daily/tasks` を案件管理のタスクへ転送）
-- 左メニューは `src/components/layout/Sidebar.tsx`
+- `pages/TasksPage` は**案件管理へ寄せる**方針（v4 では `/daily/tasks` を案件管理のタスクへ転送）。
+  いまは**そのまま残している** — 案件管理の `contexts/tasks/components/MyTasksSummarySection.tsx`
+  からここへ来る導線があり、先に消すと切れる
+- 左メニューの中身は `src/components/layout/nav.ts`（枠は共通シェル）。
+  **3つの塊**（定期報告 / 届いたもの / 現場の受付）＋ ホームとタスク
 
 ## このアプリ固有の決めごと
 
 - **ウィークリー活動報告**: 自動集計 → AI本文 → 人が書くトピック の3層。**確定後は追記不可**
-- **デイリーニュース**: 日付ナビ・カテゴリ・AI活用・採用1〜5・記入者。採用を付けた行は週報のトピックへ送れる
+- **デイリーニュース**: 日付ナビ・分類・AI活用・採用1〜5・記入者。
+  **採用した行を週報へ送る仕組みは無い**（サーバーに口が無く、由来を残す列も無い）。
+  モックにはボタンがあるが**出していない** — 押しても何も起きないものを置かない
 - **内覧会**: 検索は**回をまたぐ**（申し込んだ回を覚えていない人が普通にいる）。
   正規化は NFKC → 小文字 → カタカナをひらがなへ → 区切り記号を落とす（`pages/inview/logic.ts`）。
   **同行者は1人ずつ受付**する（代表だけ先に来るのが普通）。受付人数は**組数ではなく人数**で数える
-- **セキュリティカード**は機材の貸出とは**別台帳**（エリア解錠権限で分かれる。24枚・10エリア）
+- **セキュリティカード**は機材の貸出とは**別台帳**（エリア解錠権限で分かれる。24枚・10エリア）。
+  **レベルは DB（migration 133 の6つ: master / room_a / room_b / room_c / meeting / vip）が正**。
+  v4 のモックはレベルを3つに畳んでいるが**実データと一致しないので採らない**
+  （畳むと ROOM A と ROOM B のカードが同じに見え、違う部屋のカードを渡す）。
+  絞り込みの「返却遅延」は**「貸出中」の一部**（足しても「すべて」にならない）
 - **受け取った書類は財務管理へ移した**（v4 ⑥・`/budget/documents`）。`dailyops` 権限だけを
   要求していたので**経理が開けなかった**（実測で 403）。中身は 金額・締月・支払期日・GLS番号 で
   経理の道具なので財務に置き、**`budget` か `dailyops` のどちらか**で通す。
@@ -42,14 +51,14 @@
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**
 - **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
   `shared/src/client/base.css`（F2 で集約済み）。本文が 16px だったのもこれで揃った
-- **`pages/FinanceDocsPage.tsx` は v4 の共通部品の実証台**（P2・P3）。
-  中身が無いときは `Delayed`+`SkeletonRows` / `EmptyState` / `NoSearchResults`、
-  削除の確認は `confirmAction`（`window.confirm` は使わない）、
-  結果は `notifySuccess` / `notifyApiError`（`alert` は使わない）。
-  行部品の使い方は次のとおり:
-  一覧の行を書くときはここを写す:
-  `<Row align="start" stackOnMobile>` ＋ `<RowSlot w={56} hideOnMobile>`（種別）
-  ＋ `<TableBadge w={96}>`（ステータス）＋ `<RowMain>`（件名・本文）
-  ＋ `<MoneyCell width={128}>`（金額）。**幅は7段（56/72/96/128/160/200/240）から選ぶ**
-- **バッジの色は生の Tailwind パレット直書きが 49 か所**残っている
-  （`shared/src/constants/statuses.ts` を通していない）。Phase 4 の作り直しでまとめる
+- **一覧の行を書くときは `pages/InviewPage.tsx` の `DayRow` を写す。**
+  `<Row divider interactive>` ＋ `<RowMain>`（唯一伸びる列）＋ `<RowSlot w={…}>`。
+  **幅は7段（56/72/96/128/160/200/240）から選ぶ**。中身が無いときは
+  `Delayed`+`SkeletonRows` / `EmptyState` / `NoSearchResults`、削除の確認は
+  `confirmAction`（`window.confirm` は使わない）、結果は `notifySuccess` /
+  `notifyApiError`（`alert` は使わない）
+- **行ぜんぶをリンクにするときは `stackOnMobile` を使わない。**
+  あれは `Row` の**直接の子**の `RowMain` を狙うので、間に `<Link>` が挟まると効かない。
+  畳む列は `hideOnMobile`、落とした数字は `RowSub` に出す
+- **`TableBadge` は折り返さない。** 長くなりうる文字（回の対象・週次トピックスの分類）は
+  バッジにせず、`truncate` した文字で出す（バッジにすると列をはみ出して隣に重なる）
