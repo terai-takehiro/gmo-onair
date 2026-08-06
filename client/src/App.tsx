@@ -22,6 +22,7 @@ import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InboxPage from "@/contexts/sales/pages/InboxPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
+import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
@@ -114,7 +115,16 @@ function AppRoutes() {
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        {/*
+            v4 ⑥: 案件詳細は**読む画面**（タブ付き）になった。直すのは /edit の
+            いままでのフォームそのまま。枠の入れ替えと中身の作り直しを同じ回でやると、
+            どちらが原因で壊れたのか切り分けられなくなるので分けてある。
+            `:tab` は `/sales/projects/:projectId/episodes` などの静的なルートより
+            後に評価される（React Router は静的な区切りを優先する）
+        */}
+        <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:id/edit" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:id/:tab" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />

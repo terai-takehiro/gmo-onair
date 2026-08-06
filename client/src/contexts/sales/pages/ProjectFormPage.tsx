@@ -1454,7 +1454,7 @@ export default function ProjectFormPage() {
                               );
                             }}
                             className={cn(
-                              "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
+                              "text-[11px] h-8 px-2.5 rounded-full border transition-colors",  // 高さは決めた段から (29px だった)
                               allSelected
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-input hover:bg-accent"
