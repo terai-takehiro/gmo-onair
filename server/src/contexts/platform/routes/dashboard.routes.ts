@@ -3,8 +3,27 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { config } from '../../../config';
 import { getSalesOverview } from '../services/salesOverview.service';
+import { getAppBadges } from '../services/appBadges.service';
 
 const router = Router();
+
+/**
+ * トップページのアプリタイルに出す件数 (v4)。
+ *
+ * **`sales` の権限を要求する前に置いている。** この下の `router.use` は
+ * すべてのルートに `sales` を要求するが、トップページは**全員が最初に開く画面**で、
+ * 経理だけ・機材だけの人も来る。ここを sales の内側に置くと、その人たちの
+ * トップページで 403 が出る（自分に関係のあるタイルの数字さえ出ない）。
+ *
+ * 中で見えるのは**その人が権限を持つアプリの件数だけ**なので、
+ * `requireAuth` で足りる（詳細は appBadges.service.ts）。
+ *
+ * **案件管理と日常業務のぶんはここに無い** — 受信箱 (`/dashboard/inbox`) が
+ * 同じものを数えているので、2か所で数えないため。
+ */
+router.get('/app-badges', requireAuth, async (req, res) => {
+  res.json({ success: true, data: await getAppBadges(req.user!) });
+});
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
@@ -422,7 +441,11 @@ router.get('/weekly-schedule', async (_req, res) => {
     // スタジオ予約 (メンテナンス・リハーサル・仮押さえ等の全種別)。
     // start_time/end_time は TEXT (ISO文字列) のため日付先頭 10 桁の文字列比較 (v2.9.144 と同方式)
     const bookings = await queryAll(
-      `SELECT b.id, b.title as name, b.booking_type, b.project_id, p.gls_number
+      // v4: 時刻も返す。トップページの「今日の予定」を時間順に並べるため。
+      // 案件の本番日・収録日は日付しか持たないので、時刻を持つのは予約だけになる
+      // (画面はそれを「終日」として扱う)。
+      `SELECT b.id, b.title as name, b.booking_type, b.project_id, p.gls_number,
+              b.start_time, b.end_time
        FROM studio_bookings b LEFT JOIN projects p ON p.id = b.project_id
        WHERE b.deleted_at IS NULL
        AND substr(b.start_time, 1, 10) <= ?
@@ -436,7 +459,10 @@ router.get('/weekly-schedule', async (_req, res) => {
     const bookingEvents = bookings
       .filter((b: any) => !(b.booking_type === 'performance' && b.project_id && projectIds.has(b.project_id)))
       .map((b: any) => ({
-        name: b.name, gls_number: b.gls_number, booking_type: b.booking_type, type: 'booking',
+        id: b.id, name: b.name, gls_number: b.gls_number, booking_type: b.booking_type,
+        start_time: b.start_time, end_time: b.end_time,
+        // 仮押さえは本予約と見分けたい (放っておくと押さえたまま流れる)
+        type: b.booking_type === 'hold' ? 'hold' : 'booking',
       }));
 
     days.push({

@@ -77,7 +77,11 @@ const TREE = [
     ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx'],
   ]],
   ['共通', [
-    ['トップページ', '/', 'client/src/contexts/platform/pages/HomePage.tsx'],
+    ['トップページ', '/', 'client/src/contexts/platform/pages/HomePage.tsx',
+      './home/AppTiles',
+      'v4 は**上＝アプリの入口 ／ 下＝自分の今日**に絞りました。旧トップにあった KPI・営業ダッシュボード・' +
+      'AI活動フィード・直近の案件は、**各アプリのダッシュボードと同じ中身を二重に見ていた**ので外し、' +
+      'それぞれの画面へ送っています（理由と行き先は `HomePage.tsx` の冒頭）'],
     // シェルは画面ではないので `<PageHeader>` を持たない。**3アプリが共通シェルを
     // 読んでいるか**で判定する (S2 / S3 で載せ替え済み)
     ['共通シェル (上辺バー64px・左メニュー248px・スマホ下タブ)', '—',

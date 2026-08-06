@@ -1,0 +1,130 @@
+/**
+ * トップページの「自分のやること」 (v4)
+ *
+ * **お待たせ中（相手を待たせているもの）と分けています。** 混ぜると、
+ * 相手を待たせているものが自分の雑務に埋もれます。
+ *
+ * ── 数字は3つだけ ────────────────────────────────────────────
+ *
+ * 期限超過 / 今日まで / 返事待ちの依頼。イズム 9-5「報告は数字で行え」に沿って
+ * 件数だけを出し、「順調です」のような文は出しません。
+ *
+ * ── その場で終わらせられる ──────────────────────────────────
+ *
+ * 押して別画面に飛んでから完了する形だと、朝の5分では片づきません。
+ * 四角を押すとその場で完了にします（`PATCH /dailyops/tasks/:id`）。
+ */
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { UserCheck, ArrowRight, Check } from 'lucide-react';
+import api from '@/lib/api';
+import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
+import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import type { MyTaskRow, MyTaskSummary } from './types';
+
+/** 期限を「7/31 17:00」で。**分まで出す**（イズム: 何月何日何時何分まで） */
+function fmtDue(v: string | null): string {
+  if (!v) return '期限なし';
+  const d = new Date(v.replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return v;
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+const SHOWN = 4;
+
+export function MyTasksCard() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const summary = useQuery<MyTaskSummary>({
+    queryKey: queryKeys.dashboard.myTaskSummary(),
+    queryFn: async () => (await api.get('/dailyops/tasks/summary')).data.data,
+    staleTime: 60_000,
+  });
+
+  const mine = useQuery<{ data: MyTaskRow[] }>({
+    queryKey: ['home', 'my-tasks'],
+    queryFn: async () => (await api.get('/dailyops/tasks/mine', { params: { limit: 8 } })).data,
+    staleTime: 60_000,
+  });
+
+  const complete = useMutation({
+    mutationFn: (id: string) => api.patch(`/dailyops/tasks/${id}`, { is_completed: true }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['home', 'my-tasks'] });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.myTaskSummary() });
+      // 全案件のタスク一覧も同じタスクを別の鍵で持っている
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+    },
+    onError: (e) => notifyApiError('完了にできませんでした', e),
+  });
+
+  const rows = useMemo(() => mine.data?.data ?? [], [mine.data]);
+  const s = summary.data;
+
+  const chips = [
+    { label: '期限超過', n: s?.overdue ?? 0, tone: 'border-destructive-border bg-destructive-surface text-destructive' },
+    { label: '今日まで', n: s?.due_today ?? 0, tone: 'border-warning-border bg-warning-surface text-warning' },
+    { label: '返事待ちの依頼', n: s?.unanswered_delegations ?? 0, tone: 'border-border bg-surface-subtle text-secondary-foreground' },
+  ];
+
+  return (
+    <section className="rounded-card flex h-full flex-col border border-primary-border-strong bg-card p-4 lg:px-5">
+      <div className="flex items-center gap-2.5">
+        <UserCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <h3 className="text-cardtitle text-primary">自分のやること</h3>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => navigate('/sales/tasks/list')}
+          className="text-note flex items-center gap-0.5 font-bold text-primary hover:underline"
+        >
+          全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="mt-2.5 flex gap-2">
+        {chips.map((c) => (
+          <span key={c.label} className={`rounded-control-lg min-w-0 flex-1 border px-2.5 py-1.5 ${c.tone}`}>
+            <span className="font-number block text-h2 leading-tight">{c.n}</span>
+            <span className="text-note block truncate text-muted-foreground">{c.label}</span>
+          </span>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-sub mt-3 text-secondary-foreground">
+          {mine.isLoading ? '' : '自分に割り当てられた未完了のタスクはありません。'}
+        </p>
+      ) : (
+        <div className="mt-1.5 flex flex-col">
+          {rows.slice(0, SHOWN).map((t) => (
+            <div key={t.id} className="flex items-start gap-2.5 border-t border-border-subtle py-2">
+              <button
+                type="button"
+                aria-label={`「${t.title}」を完了にする`}
+                disabled={complete.isPending}
+                onClick={() => complete.mutate(t.id)}
+                className="rounded-badge-xs mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px] border-border-disabled hover:border-primary hover:bg-primary-surface"
+              >
+                <Check className="h-3 w-3 text-transparent hover:text-primary" aria-hidden="true" />
+              </button>
+              <span className="min-w-0 flex-1">
+                <span className="text-sub block [overflow-wrap:anywhere]">{t.title}</span>
+                <span className="text-note block truncate text-muted-foreground">
+                  {[t.gls_number, t.project_name, fmtDue(t.due_at)].filter(Boolean).join(' ・ ')}
+                </span>
+              </span>
+              {t.is_overdue && (
+                <span className="rounded-badge-xs inline-flex h-[22px] shrink-0 items-center bg-destructive-surface px-2 text-note font-bold text-destructive">
+                  超過
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
