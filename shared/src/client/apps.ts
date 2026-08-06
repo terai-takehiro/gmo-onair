@@ -119,10 +119,10 @@ export const APPS: AppDef[] = [
   { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'studio' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
-  { key: 'admin',       label: 'システム管理',       description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/admin',      permissionModule: 'admin' },
+  { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'admin' },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
-  { key: 'qsheet',      label: 'Qシート',            description: 'Qシート作成・OnAir・ランダウン',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet',    frozen: true },
+  { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet',    frozen: true },
   { key: 'techsheet',   label: '技術資料',           description: 'カメラ・映像・音声技術仕様書',          icon: Wrench,        color: '#0891b2', path: '/techsheet',  permissionModule: 'techsheet', frozen: true },
   { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops',   frozen: true },
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
@@ -80,6 +80,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * 旧 `/sales/projects/:projectId/{tasks,episodes,estimates}` — v4 ⑥ で
  * 案件詳細のタブに畳んだ。**ブックマークと配布済みのリンクを生かすための転送**。
  */
+/** 旧 `/admin/*` → `/settings/*`。`/admin/settings` だけは `/settings` に畳む */
+function RedirectAdminToSettings() {
+  const { pathname, search } = useLocation();
+  const rest = pathname.replace(/^\/admin\/?/, '');
+  const to = rest === '' || rest === 'settings' ? '/settings' : `/settings/${rest}`;
+  return <Navigate to={to + search} replace />;
+}
+
 function RedirectToDetailTab({ tab }: { tab: string }) {
   const { projectId } = useParams<{ projectId: string }>();
   return <Navigate to={`/sales/projects/${projectId}/${tab}`} replace />;
@@ -175,12 +183,18 @@ function AppRoutes() {
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
-        <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
-        <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
-        <Route path="/admin/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
+        <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは /budget/kessan-import へ移管。旧URLはリダイレクト */}
         <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
-        <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        {/*
+            v4: 設定は `/admin/*` → `/settings/*` に改名した。「設定」は権限・お金のルール・
+            休日など**管理者専用ではない業務設定**を含むので `/admin` は誤解を招く。
+            旧 URL はブックマークを生かすためにまとめて転送する
+        */}
+        <Route path="/admin/*" element={<RedirectAdminToSettings />} />
+        <Route path="/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
         <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />

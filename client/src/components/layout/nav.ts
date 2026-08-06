@@ -1,5 +1,5 @@
 /**
- * 案件管理・財務管理・カレンダー・システム管理の左メニュー
+ * 案件管理・財務管理・カレンダー・設定の左メニュー
  * — **中身は今までと1項目も変えていない**。
  *
  * 旧 `Sidebar.tsx` の `APP_NAV` からの逐語コピーです。節の見出し・並び・ラベル・
@@ -10,7 +10,7 @@
  * ── 1つのアプリに「入口が4つ」ある ──────────────────────────
  *
  * このアプリは1つの Vite バンドルに案件管理 (`/sales`)・財務管理 (`/budget`)・
- * カレンダー (`/studio`)・システム管理 (`/admin`) の4つの入口が入っています。
+ * カレンダー (`/studio`)・設定 (`/settings`) の4つの入口が入っています。
  * どの入口にいるかは URL から `appOfPath()` で判定し、その入口の節だけを出します。
  */
 import {
@@ -150,10 +150,10 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
   admin: [
     {
       items: [
-        { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
-        { label: "データビューア", to: "/admin/data-viewer", icon: Database },
-        { label: "DBバックアップ", to: "/admin/db-backups", icon: HardDrive },
-        { label: "システム設定", to: "/admin/settings", icon: Settings },
+        { label: "ユーザー管理", to: "/settings/users", icon: UserCog },
+        { label: "データビューア", to: "/settings/data-viewer", icon: Database },
+        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive },
+        { label: "全体の設定", to: "/settings", icon: Settings, end: true },
       ],
     },
   ],
@@ -169,6 +169,6 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
  */
 export const CLIENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: "ホーム", to: "/", icon: Home, end: true },
-  { label: "やること", to: "/sales/tasks/kanban", icon: ListTodoTab },
+  { label: "やること", to: "/sales/tasks/list", icon: ListTodoTab },
   { label: "メニュー", icon: Menu, action: "menu" },
 ];

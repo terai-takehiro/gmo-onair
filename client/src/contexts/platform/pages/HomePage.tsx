@@ -274,9 +274,9 @@ export default function HomePage() {
           >
             <div className="flex flex-wrap gap-2">
               {[
-                { label: "ユーザー管理", icon: UserCog, to: "/admin/users" },
-                { label: "データビューア", icon: Database, to: "/admin/data-viewer" },
-                { label: "システム設定", icon: Settings, to: "/admin/settings" },
+                { label: "ユーザー管理", icon: UserCog, to: "/settings/users" },
+                { label: "データビューア", icon: Database, to: "/settings/data-viewer" },
+                { label: "システム設定", icon: Settings, to: "/settings" },
               ].map((item) => (
                 <Button
                   key={item.to}

@@ -10,7 +10,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | 案件管理 | `/sales/*` | `sales` | `contexts/sales`, `contexts/tasks` |
 | 財務管理 | `/budget/*` | `budget` | `contexts/finance` |
 | カレンダー | `/studio/*` | `studio` / `partner_schedule` | `contexts/production` |
-| 設定 | `/admin/*` → **v4 で `/settings/*` に改名** | `admin` | `contexts/platform` |
+| 設定 | `/settings/*`（**v4 で `/admin/*` から改名**・旧 URL は転送） | `admin` | `contexts/platform` |
 | **プロジェクト管理（v4 で新規）** | `/gpm/*` | 未定 | `contexts/gpm`（新設） |
 
 - ルート定義は `src/App.tsx` の1ファイル。**旧URLからの転送表もここ**（`<Navigate>` 約12本）
