@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { config } from '../../../config';
+import { getSalesOverview } from '../services/salesOverview.service';
 
 const router = Router();
 
@@ -493,6 +494,14 @@ router.get('/pipeline', async (_req, res) => {
        WHEN 'b_verbal' THEN 4 WHEN 'a_won' THEN 5 END`
   );
   res.json({ success: true, data: stages });
+});
+
+/**
+ * 案件管理ダッシュボード (v4 ①) の数字。中身は `salesOverview.service` を読む。
+ * **1回で全部返す** — 数字が後から差し替わると読み間違えるため。
+ */
+router.get('/sales-overview', async (_req, res) => {
+  res.json({ success: true, data: await getSalesOverview() });
 });
 
 export default router;

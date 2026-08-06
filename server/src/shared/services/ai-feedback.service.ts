@@ -230,7 +230,11 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
 
   // 成果は既存データから導出 (バッチ不要・常に最新)。
   // estimate_draft は target_id = projects.id なので案件のステージと確定売上に繋がる。
-  if (kind === 'estimate_draft') {
+  // `project_draft` (AI が起票したネタ) も同じ形で読める — どちらも
+  // `target_id = projects.id` なので、案件のステージがそのまま成果になる。
+  // **`ai_outcomes` に行を足さない**: 既存データから導出できるものに
+  // 新しいテーブルを作ると、書き忘れた日から数字が嘘になる
+  if (kind === 'estimate_draft' || kind === 'project_draft') {
     const oc = await queryOne(
       `SELECT
          COUNT(DISTINCT p.id) FILTER (WHERE p.stage IN ('a_won','s_completed')) AS won,
@@ -239,9 +243,9 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
          COALESCE(SUM(DISTINCT p.expected_amount) FILTER (WHERE p.stage IN ('a_won','s_completed')), 0) AS won_amount_total
        FROM ai_outputs o
        JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL
-      WHERE o.kind = 'estimate_draft'
+      WHERE o.kind = ?
         AND o.created_at >= NOW() - (? || ' days')::interval`,
-      [w],
+      [kind, w],
     ) as any;
     digest.outcomes = {
       won: num(oc?.won), lost: num(oc?.lost), in_progress: num(oc?.in_progress),

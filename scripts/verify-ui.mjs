@@ -40,6 +40,8 @@ const PAGES = [
   // ── 案件管理・財務管理・設定 (v4 対象) ──────────────────────
   // 共通部品 (表 / 検索付き選択 / 金額入力) を使う画面を並べてある。
   // shared に部品を移したとき、ここが変わらないことが「置き場所を変えただけ」の証拠になる。
+  ['案件管理 ダッシュボード', '/sales/dashboard'],
+  ['案件管理 受付', '/sales/inbox'],
   ['案件管理 今日', '/today'],
   ['案件管理 案件一覧', '/sales/projects'],
   // v4 でボードは案件一覧の見え方の1つになった (旧 /sales/pipeline)。
@@ -306,6 +308,27 @@ function measure() {
     overflowX: de.scrollWidth - de.clientWidth,
     bodyBg: cs(document.body).backgroundColor,
     font: cs(document.body).fontFamily,
+    /*
+     * **書体が本当に届いているか。**
+     *
+     * `fontFamily` を見るだけでは足りません — あれは CSS に書いた**宣言**で、
+     * 配信が届かなくても文字列は残ります (**落ちようがない検査**でした)。
+     * 存在しない書体名で描いた幅と比べて、同じなら代替書体で描かれています。
+     * ラテン文字で測るのが要点 — **和文は太さや書体が変わっても字幅が同じ**なので
+     * 和文だと差が出ません (実測して分かった)。
+     */
+    fontLoaded: (() => {
+      const w = (family) => {
+        const el = document.createElement('span');
+        el.textContent = 'Handgloves 12345';
+        el.style.cssText = `position:absolute;visibility:hidden;font-size:40px;font-family:${family}`;
+        document.body.appendChild(el);
+        const x = el.getBoundingClientRect().width;
+        el.remove();
+        return Math.round(x * 100) / 100;
+      };
+      return w("'LINE Seed JP', monospace") !== w("'ZZ No Such Font', monospace");
+    })(),
     feat: cs(document.body).fontFeatureSettings,
     shellH: shell ? Math.round(shell.getBoundingClientRect().height) : 0,
     vh: window.innerHeight,
@@ -378,6 +401,11 @@ async function runViewport(browser, { width, height, tag }) {
       }
     } else {
       ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
+      // **宣言ではなく実際に届いたか。** 落ちたら書体は代替で描かれている
+      // (この開発コンテナは Google Fonts に出られないので、ここは必ず落ちます。
+      //  書体の確認は検証環境でしかできません)
+      ok(`${label} 書体が実際に届いている`, m.fontLoaded,
+        m.fontLoaded ? '' : '代替書体で描かれています (配信に出られていない可能性)');
       ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);
     }
     ok(`${label} シェルが画面いっぱい`, m.shellH >= m.vh - 2, `${m.shellH}/${m.vh}`);

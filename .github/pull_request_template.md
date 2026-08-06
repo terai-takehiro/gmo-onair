@@ -41,6 +41,14 @@ Closes #
 - [ ] **伸びるのは名前列だけ**にした (`min-w-0` + 省略記号)
 - [ ] 色は共通トークンから選んだ (Tailwind の生パレットを直接書いていない)
 - [ ] `npm run verify:ui` が通る (書体・地の色・桁揃い・タップ領域の実測)
+- [ ] **サイトツリーを貼った** — `node scripts/v4-progress.mjs --write` を実行し、
+      [docs/v4-progress.md](../docs/v4-progress.md) の内容を下の「進み具合」に貼る
+      (**どこが出来てどこが手つかずか**が分からないと検証のしようがないため)
+
+<details>
+<summary>進み具合（サイトツリー）</summary>
+
+</details>
 
 ### 凍結アプリ (Qシート / 技術資料 / 計時LIVE / リアルタイムCG) を触った場合
 

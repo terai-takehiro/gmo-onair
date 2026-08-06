@@ -1,0 +1,196 @@
+#!/usr/bin/env node
+/**
+ * v4 の進み具合を「サイトツリー」で出す (docs/v4-progress.md を書き直す)
+ *
+ * ── なぜ手書きの表にしないか ────────────────────────────────
+ *
+ * 「ここまで出来ました」を手で書くと**必ず実態とずれます**。直したのに表を
+ * 更新し忘れる／表だけ先に埋める、のどちらかが起きます。
+ *
+ * → **画面のファイルを実際に読んで判定します。** 判定の中身は下の `V4_MARK`。
+ * 表を直し忘れても、画面を直せば勝手に追随します。**嘘がつけません。**
+ *
+ *   node scripts/v4-progress.mjs           # 画面に出す
+ *   node scripts/v4-progress.mjs --write   # docs/v4-progress.md に書く
+ */
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+
+/**
+ * 「作り直した」の印。**`<PageHeader>` を使っているかどうかだけ**を見ます。
+ *
+ * 最初は「v4 の部品をどれか使っていれば ✅」にしましたが、**甘すぎました** —
+ * 料金表と売上が ✅ になります。あの2つは作り直していませんが、
+ * P1 で入れた `<Money>` や P3 の `states` を先に取り込んでいるためです。
+ *
+ * `<PageHeader>` は **Phase 2 で作った画面の枠**で、それ以前には存在しません。
+ * これを使っている = 画面の頭から組み直した、と言い切れます。
+ * 案件詳細だけは枠を自前で持っている (タブがあるため) ので別に見ます。
+ */
+const V4_MARK = 'ui/pageHeader';
+/** 例外: 案件詳細は `DetailHeader` が枠を持つ (タブ付きなので PageHeader を使わない) */
+const V4_EXTRA_MARK = 'projectDetail/DetailHeader';
+
+/**
+ * 画面の一覧。**v4 の設計 (docs/design/v4) の画面立てに合わせて並べる。**
+ *
+ *   [名前, URL, 見るファイル, 目印(省略可), 注記(省略可)]
+ *
+ * - `見るファイル` が `null` の行は「これから作る」(新規)
+ * - `目印` を書いた行は**その文字列**で判定する。画面ではないもの (共通シェルなど) は
+ *   `<PageHeader>` を持たないので、行ごとに何を見るかを指定できるようにしてある
+ * - `注記` は表の下に出す。**「まだ」に見えるが意図してそうしている**ものを
+ *   説明するため (書かないと「やり忘れ」と読まれる)
+ */
+const TREE = [
+  ['案件管理', [
+    ['① ダッシュボード', '/sales/dashboard', 'client/src/contexts/platform/pages/DashboardPage.tsx'],
+    ['② 受付', '/sales/inbox', 'client/src/contexts/sales/pages/InboxPage.tsx'],
+    ['③ 案件一覧', '/sales/projects', 'client/src/contexts/sales/pages/ProjectListPage.tsx'],
+    ['④ タスク一覧', '/sales/tasks/list', 'client/src/contexts/tasks/pages/TaskDashboardPage.tsx'],
+    ['⑤ 見積・請求 (全案件)', '—', null],
+    ['⑥ 案件詳細', '/sales/projects/:id', 'client/src/contexts/sales/pages/ProjectDetailPage.tsx'],
+    ['⑦ 標準工程 (設定)', '—', null],
+    ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
+  ]],
+  ['財務管理', [
+    ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/FinanceDashboardPage.tsx'],
+    ['売上', '/budget/revenues', 'client/src/contexts/finance/pages/RevenueListPage.tsx'],
+    ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
+    ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],
+    ['取引先', '/budget/vendors', 'client/src/contexts/finance/pages/VendorListPage.tsx'],
+    ['取り込み (楽楽精算)', '/budget/xpoint-import', 'client/src/contexts/finance/pages/XpointImportPage.tsx'],
+    ['取り込み (決算)', '/budget/kessan-import', 'client/src/contexts/platform/pages/KessanImportPage.tsx'],
+    ['二重計上を調べる', '/budget/dedup-screening', 'client/src/contexts/platform/pages/DedupScreeningPage.tsx'],
+  ]],
+  ['カレンダー', [
+    ['予定', '/studio/calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx'],
+    ['部屋の空き', '/studio/all', 'client/src/contexts/production/pages/AllStudiosPage.tsx'],
+    ['パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx'],
+    ['自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx'],
+  ]],
+  ['設定', [
+    ['設定トップ', '/settings', 'client/src/contexts/platform/pages/SettingsPage.tsx'],
+    ['権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/UserListPage.tsx'],
+    ['データ', '/settings/data-viewer', 'client/src/contexts/platform/pages/DataViewerPage.tsx'],
+    ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx'],
+  ]],
+  ['共通', [
+    ['トップページ', '/', 'client/src/contexts/platform/pages/HomePage.tsx'],
+    // シェルは画面ではないので `<PageHeader>` を持たない。**3アプリが共通シェルを
+    // 読んでいるか**で判定する (S2 / S3 で載せ替え済み)
+    ['共通シェル (上辺バー64px・左メニュー248px・スマホ下タブ)', '—',
+      'client/src/components/layout/AppShell.tsx', 'shared/src/client/shell'],
+    ['左メニューの項目・並び・ラベル', '—',
+      'client/src/components/layout/nav.ts', '@@意図して据え置き@@',
+      '**枠 (共通シェル) は v4 に載せ替え済みですが、メニューの中身は今までのままです。** ' +
+      '前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が却下されたときに ' +
+      '**枠まで一緒に捨てられました**。今回は分けています。中身をどう変えるかは画面が出そろってから相談します'],
+  ]],
+  ['日常業務', [
+    ['ウィークリー活動報告', '/daily/weekly', 'client-daily/src/pages/WeeklyListPage.tsx'],
+    ['デイリーニュース', '/daily/news', 'client-daily/src/pages/DailyNewsPage.tsx'],
+    ['内覧会 開催日', '/daily/inview', 'client-daily/src/pages/InviewPage.tsx'],
+    ['入ってきた情報', '/daily/finance', 'client-daily/src/pages/FinanceDocsPage.tsx'],
+    ['セキュリティカード', '/daily/security-cards', 'client-daily/src/pages/SecurityCardsPage.tsx'],
+  ]],
+  ['機材管理', [
+    ['ダッシュボード', '/equipment/', 'client-equipment/src/pages/DashboardPage.tsx'],
+    ['機材台帳', '/equipment/items', 'client-equipment/src/pages/EquipmentListPage.tsx'],
+    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx'],
+    ['メンテナンス', '/equipment/maintenance', 'client-equipment/src/pages/MaintenancePage.tsx'],
+    ['棚卸し', '/equipment/inventory', 'client-equipment/src/pages/InventoryPage.tsx'],
+    ['貸出・返却', '/equipment/lendings', 'client-equipment/src/pages/LendingListPage.tsx'],
+  ]],
+  ['プロジェクト管理 (新規・7画面)', [
+    ['設計から', '—', null],
+  ]],
+];
+
+/**
+ * その画面が v4 で作り直されているか。
+ * `mark` を渡すとその文字列で判定する (画面以外の行はこちらを使う)。
+ * `@@意図して据え置き@@` は「作れていない」ではなく「そうすると決めた」の印。
+ */
+function isV4(file, mark) {
+  if (mark === '@@意図して据え置き@@') return false;
+  if (!file || !existsSync(file)) return false;
+  const text = readFileSync(file, 'utf8');
+  if (mark) return text.includes(mark);
+  return text.includes(V4_MARK) || text.includes(V4_EXTRA_MARK);
+}
+
+/** 案件詳細のタブ。**`tabs.ts` の `todo: true` を読む** (手で書くとずれる) */
+function detailTabs() {
+  const p = 'client/src/contexts/sales/pages/projectDetail/tabs.ts';
+  if (!existsSync(p)) return [];
+  const text = readFileSync(p, 'utf8');
+  return [...text.matchAll(/label: '([^']+)'[^}]*?}/g)].map((m) => {
+    const whole = m[0];
+    return [m[1], !whole.includes('todo: true')];
+  });
+}
+
+const lines = ['# v4 の進み具合（サイトツリー）', '',
+  '> **この文書は生成物です。** `node scripts/v4-progress.mjs --write` で作られます。',
+  '> 手で書くと実態とずれるので、**画面のファイルが v4 の共通部品を使っているか**で判定しています。',
+  '',
+  '| 印 | 意味 |', '| --- | --- |',
+  '| ✅ | v4 で作り直した |', '| ⬜ | まだ（見た目は今までのまま・動きます） |',
+  '| ⏸ | **意図して据え置き**（下の注記を読んでください） |',
+  '| 🆕 | これから新しく作る（いま画面がない） |',
+  '',
+  '## ⬜ の画面も「今までのまま」ではありません', '',
+  '下の土台は **v4 対象3アプリの全画面に、もう効いています**。',
+  '⬜ が意味するのは「その画面の中身（並べ方・列・見出し）をまだ組み直していない」ことだけです。', '',
+  '- **色**（GMO ブルー `#005bac`・地の色 `#f7f8fa`・罫線 `#e6e9ed`）',
+  '- **書体**（LINE Seed JP ＋ 字詰め `palt`）',
+  '- **共通シェル**（上辺バー 64px・左メニュー 248px・スマホ下タブ）',
+  '- **ボタンと入力欄**（角丸 10px・太字・高さ 40〜44px）',
+  '- **お知らせ帯・確認ダイアログ・空/エラー/権限なしの出し方**',
+  '',
+  '> **書体だけは検証環境で見てください。** LINE Seed JP は Google Fonts から配信していますが、',
+  '> **開発用のコンテナは外に出られないので代替書体で描かれます**（`verify:ui` の',
+  '> 「書体が実際に届いている」がそれを見ています）。手元の見え方＝本物ではありません。',
+  ''];
+
+let done = 0, total = 0;
+for (const [section, screens] of TREE) {
+  lines.push(`## ${section}`, '');
+  lines.push('| | 画面 | URL |', '| --- | --- | --- |');
+  const notes = [];
+  for (const [name, url, file, howToTell, note] of screens) {
+    const held = howToTell === '@@意図して据え置き@@';
+    const mark = file === null ? '🆕' : isV4(file, howToTell) ? '✅' : held ? '⏸' : '⬜';
+    if (file !== null) { total++; if (mark === '✅') done++; }
+    lines.push(`| ${mark} | ${name} | \`${url}\` |`);
+    if (note) notes.push(`- **${name}** — ${note}`);
+  }
+  lines.push('');
+  if (notes.length) lines.push(...notes, '');
+  if (section === '案件管理') {
+    lines.push('**⑥ 案件詳細のタブ**', '');
+    lines.push(detailTabs().map(([n, ok]) => `${ok ? '✅' : '⬜'} ${n}`).join(' ／ '), '');
+  }
+}
+
+lines.push('## 凍結（v4.0.0 では作り直さない）', '',
+  '見た目は今までのまま、**URL は生きています**。アプリの一覧からは外れます。', '',
+  '⬜ 制作資料（Qシート） ／ ⬜ 技術資料 ／ ⬜ 計時LIVE ／ ⬜ リアルタイムCG', '');
+
+lines.push('## まだ入っていない機能', '',
+  '- **打合せを録音**（案件詳細のやり取りタブ）— v4.0 で実装すると決定済み。着手前に AI 方針の充足表を出します',
+  '- **BOX にファイルを置く**（書類タブ）— いまは中を見るだけ',
+  '- **スマホ専用の13画面**（Phase 6）',
+  '- **標準工程テンプレート**・**見積/請求の全案件一覧** — 新規',
+  '');
+
+lines.unshift('');
+lines.unshift(`**${done} / ${total} 画面**が v4 になりました（凍結4アプリと新規画面を除く）。`);
+
+const out = lines.join('\n');
+if (process.argv.includes('--write')) {
+  writeFileSync('docs/v4-progress.md', out);
+  console.log(`[v4-progress] docs/v4-progress.md を書きました (${done}/${total})`);
+} else {
+  console.log(out);
+}

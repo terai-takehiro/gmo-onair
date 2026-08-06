@@ -10,6 +10,7 @@ import {
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
+import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -74,6 +75,10 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   event_start: 'p.event_start',
   assigned_to: 'u.name',
   created_at: 'p.created_at',
+  // 「最後の動き」順。SELECT 句で組み立てた別名をそのまま並べ替えに使う
+  // (PostgreSQL は ORDER BY に SELECT の別名を書ける)。**式を書き写さないこと** —
+  // 写すと片方だけ直したときに「並び順と表示が食い違う」になる
+  last_move: 'last_activity_at',
 };
 
 /**
@@ -506,8 +511,12 @@ export class ProjectService {
    * 更新（ヨミ段階でも案件段階でも同じAPI）
    */
   async update(id: string, data: Record<string, unknown>, userId: string) {
+    // **全列を取る。** AI 起票の案件はここで取った「保存前の姿」と保存後を比べて
+    // 人がどこを直したかを残す (`project-ai-feedback.service`)。
+    // 必要な列だけ並べる形だと、突き合わせる項目を足すたびにここも直すことになり、
+    // 片方を忘れると**その項目だけ黙って差分が取れなくなる**
     const existing = await queryOne(
-      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount FROM projects WHERE id = ? AND deleted_at IS NULL',
+      'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL',
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -620,7 +629,12 @@ export class ProjectService {
       }
     }
 
-    return this.getById(id);
+    const saved = await this.getById(id) as Record<string, unknown>;
+    // AI が起票した案件を人が直したら、**どこを直したか**を残す (会社方針の条件2)。
+    // 起票から7日以内の更新だけを見る — 窓を切らないと数ヶ月後の通常の業務更新まで
+    // 「AI の誤り」として数えられ、修正率が意味のない数字になる
+    await recordProjectCorrections(id, existing, saved, userId);
+    return saved;
   }
 
   /**
@@ -637,6 +651,10 @@ export class ProjectService {
         `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, data.lost_reason || null, data.lost_reason_note || null, data.lessons_learned || null, userId, id]
       );
+      // AI が起票したネタを人が見送った = **拾いすぎ**の手がかり。
+      // 受注/失注そのものはステージから読めるので記録しないが、
+      // 「AI 出力が業務にならなかった」は不採用として残す
+      await recordIntakeDecision(id, 'dropped', userId, (data.lost_reason_note as string) || (data.lost_reason as string) || null);
     } else {
       await execute(
         `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,

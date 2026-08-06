@@ -1,522 +1,223 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import api from "@/lib/api";
-import { PageTransition } from "@/components/ui/motion";
-import type { PricingCategory, PricingItem, CalcType } from "@/types";
-import { CalcTypeLabels } from "@/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
-import { Money } from '@gmo-onair/shared/src/client/ui/money';
+/**
+ * ⑧ 料金表（設定） (v4)
+ *
+ * 見積の元になる表。分類 → 品目の2段で、ここで足す・直す・消す・並べ替えができます。
+ *
+ * ── モックと違えたところ ────────────────────────────────────
+ *
+ * **「場所ごとの表」は入れていません。** モックは用賀・その他の拠点ごとに
+ * 別々の料金表を持ち、案件の場所に応じた表が見積に出る形ですが、
+ * いまの `pricing_categories` に**場所の列がありません**。足すと
+ * ①テーブルの作り替え ②見積の積算 (`set_project_simulation` / `SimulationDialog`) と
+ * MCP の `list_pricing` が「どの場所の表か」を持つ ③既存の 78 品目をどの場所に
+ * 割り当てるかの決め — の3つが同時に要ります。**画面の作り直しとは別の仕事**なので、
+ * ここでは1つの表として扱い、場所の分割は設計から始めます。
+ *
+ * ── この版で直した「黙って壊れる」もの ──────────────────────
+ *
+ * ① **分類・品目の削除に確認がありませんでした。** ゴミ箱を押した瞬間に消え、
+ *    分類を消すとぶら下がる品目も見えなくなります。**何がいっしょに消えるか**を
+ *    出してから訊くようにしました
+ * ② **失敗しても画面に何も出ませんでした** (`onError` が無い)。保存・削除の
+ *    すべてに理由を出します
+ * ③ **並び順を数字で入力させていました。** 「10 と 20 の間だから 15」を
+ *    利用者にやらせるのは内部の都合の押し付けで、同じ数字を2つ入れると
+ *    並びが不定になります。**↑↓ で入れ替える**形にしました
+ * ④ **権限が無い人にも操作ボタンが出ていました。** 押すと 403 で失敗するだけです。
+ *    分類は `owner`、品目は `editor`（消すのは `manager`）で出し分けます
+ */
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Search, Info } from 'lucide-react';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import type { PricingCategory, PricingItem } from '@/types';
+import { CategoryCard } from './pricing/CategoryCard';
+import { CategoryDialog, ItemDialog } from './pricing/PricingDialogs';
 
-// ---------- Category Dialog ----------
-
-interface CategoryFormValues {
-  name: string;
-  sort_order: number;
-}
-
-function CategoryDialog({
-  open,
-  onOpenChange,
-  editingCategory,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  editingCategory: PricingCategory | null;
-}) {
-  const qc = useQueryClient();
-  const form = useForm<CategoryFormValues>({
-    values: editingCategory
-      ? { name: editingCategory.name, sort_order: editingCategory.sort_order }
-      : { name: "", sort_order: 0 },
-  });
-
-  const mutation = useMutation({
-    mutationFn: async (values: CategoryFormValues) => {
-      if (editingCategory) {
-        return (await api.put(`/pricing/categories/${editingCategory.id}`, values)).data;
-      }
-      return (await api.post("/pricing/categories", values)).data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-categories"] });
-      onOpenChange(false);
-    },
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {editingCategory ? "カテゴリ編集" : "カテゴリ追加"}
-          </DialogTitle>
-          <DialogDescription>
-            {editingCategory
-              ? "カテゴリ情報を編集します"
-              : "新しいカテゴリを追加します"}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
-          className="space-y-4"
-        >
-          <div>
-            <Label>カテゴリ名 *</Label>
-            <Input {...form.register("name", { required: true })} />
-          </div>
-          <div>
-            <Label>並び順</Label>
-            <Input
-              type="number"
-              {...form.register("sort_order", { valueAsNumber: true })}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              キャンセル
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              保存
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------- Item Dialog ----------
-
-interface ItemFormValues {
-  name: string;
-  sub_label: string;
-  unit_price: number;
-  unit_price_unset: boolean;
-  group_price: number;
-  group_price_unset: boolean;
-  calc_type: CalcType;
-  sort_order: number;
-}
-
-function ItemDialog({
-  open,
-  onOpenChange,
-  categoryId,
-  editingItem,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  categoryId: string;
-  editingItem: PricingItem | null;
-}) {
-  const qc = useQueryClient();
-  const form = useForm<ItemFormValues>({
-    values: editingItem
-      ? {
-          name: editingItem.name,
-          sub_label: editingItem.sub_label || "",
-          unit_price: editingItem.unit_price ?? 0,
-          unit_price_unset: editingItem.unit_price == null,
-          group_price: editingItem.group_price ?? 0,
-          group_price_unset: editingItem.group_price == null,
-          calc_type: editingItem.calc_type,
-          sort_order: editingItem.sort_order,
-        }
-      : {
-          name: "",
-          sub_label: "",
-          unit_price: 0,
-          unit_price_unset: false,
-          group_price: 0,
-          group_price_unset: false,
-          calc_type: "fixed" as CalcType,
-          sort_order: 0,
-        },
-  });
-
-  const mutation = useMutation({
-    mutationFn: async (values: ItemFormValues) => {
-      const payload = {
-        category_id: categoryId,
-        name: values.name,
-        sub_label: values.sub_label,
-        unit_price: values.unit_price_unset ? null : values.unit_price,
-        group_price: values.group_price_unset ? null : values.group_price,
-        calc_type: values.calc_type,
-        sort_order: values.sort_order,
-      };
-      if (editingItem) {
-        return (await api.put(`/pricing/items/${editingItem.id}`, payload)).data;
-      }
-      return (await api.post("/pricing/items", payload)).data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-categories"] });
-      onOpenChange(false);
-    },
-  });
-
-  const unitUnset = form.watch("unit_price_unset");
-  const groupUnset = form.watch("group_price_unset");
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingItem ? "項目編集" : "項目追加"}
-          </DialogTitle>
-          <DialogDescription>
-            {editingItem ? "項目情報を編集します" : "新しい項目を追加します"}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
-          className="space-y-4"
-        >
-          <div>
-            <Label>項目名 *</Label>
-            <Input {...form.register("name", { required: true })} />
-          </div>
-          <div>
-            <Label>内容 / サブラベル</Label>
-            <Input {...form.register("sub_label")} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>定価（外販）</Label>
-              <CurrencyInput
-                value={form.watch("unit_price")}
-                onChange={(v) => form.setValue("unit_price", v, { shouldValidate: true })}
-                disabled={unitUnset}
-              />
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>設定なし（外販では提供しない）</span>
-                <Switch
-                  checked={unitUnset}
-                  onCheckedChange={(v) => form.setValue("unit_price_unset", !!v)}
-                />
-              </div>
-            </div>
-            <div>
-              <Label>グループ内単価</Label>
-              <CurrencyInput
-                value={form.watch("group_price")}
-                onChange={(v) => form.setValue("group_price", v, { shouldValidate: true })}
-                disabled={groupUnset}
-              />
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>設定なし（グループ内では提供しない）</span>
-                <Switch
-                  checked={groupUnset}
-                  onCheckedChange={(v) => form.setValue("group_price_unset", !!v)}
-                />
-              </div>
-            </div>
-          </div>
-          <div>
-            <Label>計算タイプ *</Label>
-            <Select
-              value={form.watch("calc_type")}
-              onValueChange={(v) => form.setValue("calc_type", v as CalcType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(
-                  Object.entries(CalcTypeLabels) as [CalcType, string][]
-                ).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>並び順</Label>
-            <Input
-              type="number"
-              {...form.register("sort_order", { valueAsNumber: true })}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              キャンセル
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              保存
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------- Main Page ----------
+const KEY = ['pricing-categories'];
 
 export default function PricingListPage() {
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canEditCategory = hasPermission('sales', 'owner');
+  const canEditItem = hasPermission('sales', 'editor');
+  const canDeleteItem = hasPermission('sales', 'manager');
 
-  // Category dialog state
-  const [catDialogOpen, setCatDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] =
-    useState<PricingCategory | null>(null);
-
-  // Item dialog state
-  const [itemDialogOpen, setItemDialogOpen] = useState(false);
-  const [itemCategoryId, setItemCategoryId] = useState("");
+  const [q, setQ] = useState('');
+  const [catOpen, setCatOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<PricingCategory | null>(null);
+  const [itemOpen, setItemOpen] = useState(false);
+  const [itemCatId, setItemCatId] = useState('');
   const [editingItem, setEditingItem] = useState<PricingItem | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["pricing-categories"],
-    queryFn: async () => (await api.get("/pricing/categories")).data,
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: KEY,
+    queryFn: async () => (await api.get('/pricing/categories')).data,
+  });
+  // `?? []` を素で書くと**毎回別の配列**になり、下の `useMemo` が毎描画で走る
+  const categories: PricingCategory[] = useMemo(() => data?.data ?? [], [data]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: KEY });
+
+  /** 品目名と補足の両方で探す。**補足に部屋名が入っている**ので、そこも当たらないと引けない */
+  const needle = q.trim().toLowerCase();
+  const shown = useMemo(() => categories.map((c) => ({
+    category: c,
+    items: (c.items ?? []).filter((it) => !needle
+      || it.name.toLowerCase().includes(needle)
+      || (it.sub_label ?? '').toLowerCase().includes(needle)),
+  })), [categories, needle]);
+  const hitCount = shown.reduce((n, s) => n + s.items.length, 0);
+  const totalCount = categories.reduce((n, c) => n + (c.items?.length ?? 0), 0);
+
+  const del = useMutation({
+    mutationFn: (p: { kind: 'category' | 'item'; id: string }) =>
+      api.delete(`/pricing/${p.kind === 'category' ? 'categories' : 'items'}/${p.id}`),
+    onSuccess: () => { invalidate(); notifySuccess('消しました'); },
+    onError: (e) => notifyApiError('消せませんでした', e),
   });
 
-  const categories: PricingCategory[] = data?.data ?? [];
-
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/pricing/categories/${id}`);
+  /**
+   * 並べ替え。**2つの `sort_order` を入れ替える**だけ。
+   * 全件に連番を振り直すと、同時に別の人が触っていたとき、
+   * 見ていない分類まで動きます。
+   */
+  const move = useMutation({
+    mutationFn: async (p: { a: PricingCategory; b: PricingCategory }) => {
+      await api.put(`/pricing/categories/${p.a.id}`, { name: p.a.name, sort_order: p.b.sort_order });
+      await api.put(`/pricing/categories/${p.b.id}`, { name: p.b.name, sort_order: p.a.sort_order });
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-categories"] });
-    },
+    onSuccess: invalidate,
+    onError: (e) => notifyApiError('並べ替えられませんでした', e),
   });
 
-  const deleteItemMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/pricing/items/${id}`);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-categories"] });
-    },
-  });
-
-  const openAddCategory = () => {
-    setEditingCategory(null);
-    setCatDialogOpen(true);
+  const askDeleteCategory = async (c: PricingCategory) => {
+    const n = c.items?.length ?? 0;
+    const ok = await confirmAction({
+      title: `分類「${c.name}」を消しますか`,
+      description: n > 0
+        ? `この分類に入っている ${n} 品目も、料金表から見えなくなります。すでに作った見積の金額は変わりません。`
+        : 'すでに作った見積の金額は変わりません。',
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (ok) del.mutate({ kind: 'category', id: c.id });
   };
 
-  const openEditCategory = (cat: PricingCategory) => {
-    setEditingCategory(cat);
-    setCatDialogOpen(true);
-  };
-
-  const openAddItem = (categoryId: string) => {
-    setItemCategoryId(categoryId);
-    setEditingItem(null);
-    setItemDialogOpen(true);
-  };
-
-  const openEditItem = (categoryId: string, item: PricingItem) => {
-    setItemCategoryId(categoryId);
-    setEditingItem(item);
-    setItemDialogOpen(true);
+  const askDeleteItem = async (item: PricingItem) => {
+    const ok = await confirmAction({
+      title: `品目「${item.name}」を消しますか`,
+      description: '以後この品目は見積で選べなくなります。すでに作った見積の金額は変わりません。',
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (ok) del.mutate({ kind: 'item', id: item.id });
   };
 
   return (
-    <PageTransition>
-    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">料金表マスター</h1>
-        <Button onClick={openAddCategory}>
-          <Plus className="mr-2 h-4 w-4" />
-          カテゴリ追加
-        </Button>
+    <div className="flex flex-col gap-3.5 p-4 lg:p-6">
+      <PageHeader
+        title="料金表"
+        sub={`見積の元になる表です ・ 分類 ${categories.length} ／ 品目 ${totalCount}`}
+        primaryAction={canEditCategory ? (
+          <Button onClick={() => { setEditingCat(null); setCatOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />分類を足す
+          </Button>
+        ) : undefined}
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="品目名・補足で探す"
+            aria-label="品目を探す"
+            className="w-full pl-9 sm:w-56"
+          />
+        </div>
+      </PageHeader>
+
+      {/*
+        決めごと。**画面に書いておかないと必ず訊かれる**もの。
+        モックの4項目のうち「場所ごと」に関する2つは、いまの作りに無いので載せていません
+        （書いてあるのに無い、がいちばん困る）。
+      */}
+      <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <p className="text-note text-secondary-foreground">
+          <strong className="font-bold">ここを直しても、すでに作った見積の金額は変わりません。</strong>
+          グループ内価格が「設定なし」の品目は、グループ内の案件では選べません（逆も同じ）。
+          直せるのは権限のある人だけで、ほかの人は見るだけになります。
+        </p>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : categories.length === 0 ? (
-        <p className="text-center text-muted-foreground py-12">
-          カテゴリが登録されていません
+      {q && (
+        <p className="text-sub text-muted-foreground">
+          「{q}」に当たる品目 <span className="font-number font-bold">{hitCount}</span> 件
         </p>
-      ) : (
-        categories.map((cat) => (
-          <Card key={cat.id}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg">{cat.name}</CardTitle>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEditCategory(cat)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={() => deleteCategoryMutation.mutate(cat.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {(cat.items ?? []).length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">項目がありません</p>
-              ) : (
-                <>
-                  {/* Mobile cards */}
-                  <div className="space-y-2 lg:hidden">
-                    {(cat.items ?? []).map((item) => (
-                      <div key={item.id} className="rounded-lg border p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium">{item.name}</span>
-                            {item.sub_label && <span className="ml-1 text-xs text-muted-foreground">({item.sub_label})</span>}
-                          </div>
-                          <div className="flex gap-1 shrink-0">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(cat.id, item)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                          <span className="font-number">
-                            <span className="text-xs text-muted-foreground">定価</span>{" "}
-                            <Money value={item.unit_price} className="font-medium" />
-                          </span>
-                          <span className="font-number">
-                            <span className="text-xs text-muted-foreground">グループ内</span>{" "}
-                            <Money value={item.group_price} className="font-medium" />
-                          </span>
-                          <span className="text-xs text-muted-foreground">{CalcTypeLabels[item.calc_type]}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+      )}
 
-                  {/* Desktop table */}
-                  <div className="hidden lg:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>項目名</TableHead>
-                        <TableHead>内容 / サブラベル</TableHead>
-                        <TableHead className="text-right">定価</TableHead>
-                        <TableHead className="text-right">グループ内</TableHead>
-                        <TableHead>計算タイプ</TableHead>
-                        <TableHead className="w-24"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(cat.items ?? []).map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{item.sub_label || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            <Money value={item.unit_price} className="justify-end" />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Money value={item.group_price} className="justify-end" />
-                          </TableCell>
-                          <TableCell>{CalcTypeLabels[item.calc_type]}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditItem(cat.id, item)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  </div>
-                </>
-              )}
-              <div className="mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openAddItem(cat.id)}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  項目追加
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {isError ? (
+        <ErrorPanel title="料金表を読み込めませんでした" error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : categories.length === 0 ? (
+        <EmptyState
+          title="料金表がまだありません"
+          description="分類（スタジオ利用料・技術スタッフ など）をつくってから、品目を入れていきます。"
+          action={canEditCategory
+            ? <Button onClick={() => { setEditingCat(null); setCatOpen(true); }}>
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />分類を足す
+              </Button>
+            : undefined}
+        />
+      ) : (
+        shown.map(({ category, items }, i) => (
+          <CategoryCard
+            key={category.id}
+            category={category}
+            items={items}
+            canEditCategory={canEditCategory}
+            canEditItem={canEditItem}
+            canDeleteItem={canDeleteItem}
+            first={i === 0}
+            last={i === shown.length - 1}
+            onMove={(dir) => {
+              const other = shown[i + dir]?.category;
+              if (other) move.mutate({ a: category, b: other });
+            }}
+            onRename={() => { setEditingCat(category); setCatOpen(true); }}
+            onDelete={() => askDeleteCategory(category)}
+            onAddItem={() => { setItemCatId(category.id); setEditingItem(null); setItemOpen(true); }}
+            onEditItem={(item) => { setItemCatId(category.id); setEditingItem(item); setItemOpen(true); }}
+            onDeleteItem={askDeleteItem}
+          />
         ))
       )}
 
       <CategoryDialog
-        open={catDialogOpen}
-        onOpenChange={setCatDialogOpen}
-        editingCategory={editingCategory}
+        open={catOpen}
+        onOpenChange={setCatOpen}
+        editing={editingCat}
+        // 末尾に置く。**先頭に割り込ませない** (既存の並びを勝手に変えない)
+        nextSortOrder={Math.max(0, ...categories.map((c) => c.sort_order ?? 0)) + 10}
       />
-
       <ItemDialog
-        open={itemDialogOpen}
-        onOpenChange={setItemDialogOpen}
-        categoryId={itemCategoryId}
-        editingItem={editingItem}
+        open={itemOpen}
+        onOpenChange={setItemOpen}
+        categoryId={itemCatId}
+        editing={editingItem}
+        nextSortOrder={
+          Math.max(0, ...(categories.find((c) => c.id === itemCatId)?.items ?? []).map((it) => it.sort_order ?? 0)) + 10
+        }
       />
     </div>
-    </PageTransition>
   );
 }

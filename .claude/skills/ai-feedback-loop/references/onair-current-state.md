@@ -1,25 +1,35 @@
-# GMO ONAiR の現状（2026-07 / v2.9.231 時点）
+# GMO ONAiR の現状（2026-08 / v4 開発中 時点）
 
 ONAiR で AI 機能を設計するとき、この調査をやり直さずに済むようにまとめたもの。
 **実装を読んで確認した事実**のみを書いている。変更したら更新すること。
 
 ## 結論
 
-**ループの前半（①実行・②の一部）は整っているが、後半（学習）が丸ごと無い。**
-最大の穴は条件2「人間の修正差分」で、差分/履歴テーブルは migration 133 本の中に 1 つも存在しない。
+**器 (migration 134 の `ai_outputs` / `ai_corrections` / `ai_outcomes`) は入っており、
+ループが閉じているのは「機能ごと」。** 新しい AI 機能を作るときは
+**その機能について**5条件を確認すること — テーブルがあることと、
+その機能が使っていることは別。
 
-一方で**帰属情報（誰のどの AI が何を作ったか）は既に揃っている**ため、
-差分と成果を足すだけでループは閉じる。ゼロからではなく「あと3テーブル + 還流経路」。
+| 機能 | kind | 記録 | 修正差分 | 成果 | 還流 |
+|---|---|---|---|---|---|
+| 見積の下書き (`set_project_simulation`) | `estimate_draft` | ○ | ○ (simulations 確定時) | ○ (stage から導出) | ○ |
+| タスクの投入欄 | `task_intake` | ○ | ○ (commit / discard) | ○ (期限内完了率) | ○ |
+| **案件の起票 (`create_project`)** | `project_draft` | ○ | ○ (受付/案件編集の保存時・7日窓) | ○ (stage から導出) | ○ |
+| Slack の返信案・概算見積 | — | ✕ | ✕ | ✕ | ✕ |
+
+**残っている穴**: ONAiR の外に出る生成物 (Slack / Gmail / Box)。
+`ai_outputs` に登録して ID を発行し、リアクションや送信済みメールと突合する
+(`patterns.md` の代替案表)。
 
 ## 5条件の充足状況
 
 | 条件 | 現状 | 判定 |
 |---|---|---|
-| 1. AI出力の記録 | `mcp_audit_log`（`tool_name` / `args` / `result_summary` / `actor_id` / `requested_by` / `created_at`）。MCP は OAuth 2.1 per-user 認証なので実行者を特定できる | **△** `args` が**1000文字で切り詰め**られており教師データに使えない。Slack に出す返信案など ONAiR 外の生成物は未保存 |
-| 2. 人間の修正差分 | **存在しない。** `projects.ai_reviewed_at` / `ai_reviewed_by` は「確認した」時刻のみ。`simulations` の draft→final は**全置換で AI 下書きが消える** | **✕ 最大の穴** |
-| 3. 顧客反応・成果の紐づけ | 素材は揃う（ステージ遷移・`lost_reason`・確定売上・`source_channel`・`message_id`・`idempotency_key`）。`mcp_audit_log.result_summary->>'created_id'` で生成物を逆引きでき、専用の expression index もある（migration 117） | **△** 集計する仕組みが無い。満足度は未構造化 |
-| 4. AI改善への還流 | **存在しない。** スキル / プロンプトは静的ファイル。監査ログを読んで改善に使う導線が無い | **✕** |
-| 5. レビュー頻度と担当 | **未定義。** | **✕**（器は流用可・下記参照） |
+| 1. AI出力の記録 | `ai_outputs.payload_snapshot` (JSONB・**切り詰めない**)。役割を分けてあり、`mcp_audit_log` は監査用のまま（`args` を 1000 文字で切るので教師データにならない） | **○**（上の表に無い機能は ✕。Slack に出す返信案など ONAiR 外の生成物は未保存） |
+| 2. 人間の修正差分 | `ai_corrections` (migration 134)。`simulations` 確定時 / タスク投入の commit・discard 時 / **案件の保存時 (`project-ai-feedback.service`)** に**サーバーが自動比較**して入れる。`projects.ai_reviewed_at` は「見た」時刻だけなので差分の代わりにはならない | **○**（上の表に無い機能は ✕） |
+| 3. 顧客反応・成果の紐づけ | `getFeedbackDigest` が**読み取り時に導出**する（`estimate_draft` / `project_draft` は `projects.stage` と確定売上、`task_intake` は期限内完了率）。**`ai_outcomes` に日次バッチで焼かない** — 既存データで表現できるものに行を足すと、書き忘れた日から数字が嘘になる | **○** 満足度だけ未構造化 |
+| 4. AI改善への還流 | `get_ai_feedback_digest` (MCP)。`kind` ごとに無修正採用率・よく直される項目・成果を返し、**下書きを作る前に読ませる**運用 | **○** |
+| 5. レビュー頻度と担当 | **未定義。** `ops_reports` の `kind` に CHECK 制約が無いので `kind='ai_review'` を足すだけで週次レビューを載せられる（下記） | **✕**（器は流用可・下記参照） |
 
 ## 流用できる既存資産
 
@@ -45,17 +55,17 @@ AI バッジ・AI 起票インボックス・AI 活動履歴ページ（`/sales/
 `message_id`（由来メール）・`idempotency_key`（partial unique で二重登録を DB が拒否）・
 `source_channel`（info@ / sales@cc / 電話 等）がある。外部システムとの突合キーとして使える。
 
-## 想定フェーズ
+## 残っていること
 
-| Phase | 内容 | 効果 |
-|---|---|---|
-| 1 | `ai_outputs` / `ai_corrections` / `ai_outcomes` 新設（migration 134）+ MCP 書き込みツールから `ai_outputs` へ自動登録（`audit()` の隣に 1 行）+ `simulations` finalize 時のスナップショット保存 | 記録が始まる |
-| 2 | sales / finance の update service に共通 `recordCorrections()` を差し込み（AI 由来レコードのみ）+ UI に任意の「直した理由」欄 | **この時点で教師データが貯まり始める** |
-| 3 | ステージ / 売上 / 返信 / `pick` から `ai_outcomes` を日次バッチ生成 + AI改善ダッシュボード（修正率・フィールド別・KPI） | 効果が見える |
-| 4 | `get_ai_feedback_digest`（MCP）+ ナレッジテーブル + JSONL export + 週次 `ai_review` と承認フロー | 賢くなり始める |
+| # | 内容 |
+|---|---|
+| 1 | **レビュー運用（条件5）が未定義。** `ops_reports.kind='ai_review'` に週次で digest を貼り、承認したものをスキル/プロンプトに反映する担当と頻度を決める |
+| 2 | **ONAiR 外の生成物**（Slack の返信案・概算見積、Gmail、Box）が未記録。`ai_outputs` に登録して ID を発行し、リアクション/送信済みメールと突合する |
+| 3 | **`prompt_version` が実際には埋まっていない。** 列はあるので、改善前後を比べるには書き込み側で入れる |
+| 4 | 財務系（仕入・販管費）の AI 由来レコードに `recordCorrections` が入っていない |
 
-**Phase 1+2 まで入れば「使うほど教師データが貯まる」状態**になる。
-Phase 3 以降は貯まったデータを使う側なので後追いでも損失がない。逆順にすると空箱になる。
+**新しい AI 機能を足すときは、上の「機能ごと」の表に行を1つ足せる状態にしてから出すこと。**
+器があることを理由に「満たしている」と書かない。
 
 ## ONAiR 固有の注意
 

@@ -275,6 +275,41 @@ v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl`
 （`rounded-card` / `rounded-control` / `rounded-note` など）**を使うこと。**
 数字の段を入れ替えるかどうかは、画面を作り終えてから判断する。
 
+**ただし `--radius` は `tokens-v4.css` で 12px にしてある。** shadcn の部品
+（ボタン・入力欄・選択欄）は `rounded-md` = `calc(var(--radius) - 2px)` を使うので、
+これだけで**ボタンと入力欄が 10px** になる（モックの実測: ボタン 119 個中 10px が最多）。
+`rounded` などの数字の段は動かないので、**まだ作り直していない画面の角は今までのまま**。
+
+### v4 だけの Tailwind 設定は `tailwind.v4.preset.ts`（別ファイル）
+
+`tailwind.preset.ts` は**凍結4アプリも継承している**ので、そこに書くと4アプリの見た目が動く。
+v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` の順で継承する。
+
+いま入っているのは**存在しない太さを潰す1件**だけ:
+
+| キー | 値 | なぜ |
+| --- | --- | --- |
+| `fontWeight.medium` | `400` | LINE Seed JP に 500 が無い。**すでに 400 で描かれている**ので見た目は変わらず、開発ツールに出る値が実描画と一致するようになる |
+| `fontWeight.semibold` | `700` | 同上（600 が無い） |
+
+（実測: 400 と 500 の描画は 1 ピクセルも違わない。600 と 700 も同じ。
+`check-ui-tokens` の `missing-font-weight` が 610 か所を数えており、減らす作業自体は続ける）
+
+### ボタンの文字は太字（v4 だけ）
+
+モックの `<button>` 119 個のうち **94 個が 700 / 11 個が 800**。一方 shadcn の `Button` は
+`font-medium` を持つので v4 では 400 に落ち、**押せるものが本文と同じ太さ**になる。
+
+`button.tsx` の `font-medium` を直接書き換えると**凍結4アプリのボタンまで太くなる**ので、
+`Button` には `data-ui="button"` という**属性だけ**を足し、`tokens-v4.css`（v4 対象3アプリしか
+読まない）で `:root [data-ui='button'] { font-weight: 700 }` と上書きしている。
+
+- **`:root` は飾りではない。** `.font-medium` はクラス1つ = 詳細度 (0,1,0)、属性1つも (0,1,0) で
+  同点になり、同点なら**後ろに書かれた Tailwind のユーティリティが勝つ**。`:root` を足して
+  (0,2,0) にして初めて効く
+- 凍結アプリは `tokens-v4.css` を読まないので、**DOM に属性が1つ増えるだけ**
+  （4アプリのビルド CSS が変更前と**1バイトも違わない**ことを確認済み）
+
 - 色は **RGB の3つ組 ＋ `<alpha-value>`** で持つ（`rgb(var(--primary) / <alpha-value>)`）。
   **T1 で HSL から変換済み。** HSL の3つ組は元の色に戻せず、**7トークンでコメントの hex と
   描画色が食い違っていた**（ブランド色 `--primary` が `#005bac` ではなく `#005aad`、

@@ -1,0 +1,129 @@
+/**
+ * AI が起票した案件（ネタ）についての「人がどこを直したか」を残す。
+ *
+ * ── なぜ要るか（会社方針「AI を使い捨てにしない」の条件2）──────
+ *
+ * `projects.ai_reviewed_at` は「人が見た」時刻しか持っておらず、
+ * **何が間違っていたかを1バイトも教えてくれません**。これでは AI 側の
+ * 取り違え（お客様を別会社にした・日付を読み違えた）が永久に直りません。
+ *
+ * v4 の ② 受付は**まさに人が AI の起票を直す場所**なので、
+ * ここで差分を残せばその日から教師データが貯まります。
+ *
+ * ── 3つの落とし穴（`.claude/skills/ai-feedback-loop/` の失敗パターン）──
+ *
+ * ① **通常の業務更新を「AI の誤り」と数えない。** 案件は数ヶ月にわたって
+ *    更新され続けるので、窓を切らないと全部が誤りになります。
+ *    → `CORRECTION_WINDOW_DAYS`(7日) 以内の更新だけを見ます。
+ * ② **無修正で採用されたことも記録する。** これが正解ラベルで、
+ *    無いと修正率の分母が壊れます (`type: 'none'`)。
+ * ③ **人に差分を入力させない。** before/after はサーバーが自動で比べます。
+ *
+ * ── 業務を止めない ────────────────────────────────────────
+ *
+ * 記録に失敗しても案件の保存は成功させます（`ai-output.service` 側が
+ * すべて try/catch で握りつぶす作り）。**学習の都合で保存を落とさない。**
+ */
+import {
+  findLatestAiOutput,
+  recordCorrections,
+  type CorrectionInput,
+} from '../../../shared/services/ai-output.service';
+
+/** AI 出力の種類。`create_project` (MCP) が起票時に残す */
+export const PROJECT_DRAFT_KIND = 'project_draft';
+
+/**
+ * 突き合わせる項目。**AI が埋められるものだけ**を並べる。
+ *
+ * `application_form` や `box_url_*` のような**業務の進行に伴って変わる列は入れない** —
+ * 申込書が返ってきてチェックを付けただけで「AI が間違えた」と数えてしまう。
+ */
+const FIELDS: { path: string; label: string }[] = [
+  { path: 'name', label: '案件名' },
+  { path: 'customer_id', label: 'お客様' },
+  { path: 'expected_amount', label: '想定金額' },
+  { path: 'event_start', label: '開始日' },
+  { path: 'event_end', label: '終了日' },
+  { path: 'project_type', label: '案件種別' },
+  { path: 'customer_type', label: '社内 / 社外' },
+  { path: 'gls_category', label: '案件分類' },
+  { path: 'assigned_to', label: '担当者' },
+  { path: 'notes', label: '備考' },
+];
+
+/** 見た目が違うだけの値を「直した」と数えないための正規化 */
+function norm(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'number') return String(v);
+  // 数字として読めるものは数値で比べる (0 と '0'、1000 と '1000')
+  const s = String(v).trim();
+  const n = Number(s);
+  return Number.isFinite(n) && s !== '' ? String(n) : s;
+}
+
+/**
+ * 案件の保存時に呼ぶ。AI 起票でなければ何もしない。
+ *
+ * @param before 保存前の行 (projects の全列)
+ * @param after  保存後の行
+ */
+export async function recordProjectCorrections(
+  projectId: string,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  userId: string,
+): Promise<void> {
+  const output = await findLatestAiOutput('projects', projectId, PROJECT_DRAFT_KIND);
+  if (!output) return;   // AI 起票でない / 7日を過ぎている
+
+  const diffs: CorrectionInput[] = [];
+  for (const f of FIELDS) {
+    const b = norm(before[f.path]);
+    const a = norm(after[f.path]);
+    if (b === a) continue;
+    diffs.push({
+      fieldPath: f.path,
+      before: before[f.path] ?? null,
+      after: after[f.path] ?? null,
+      // 空 → 値 は「AI が取れなかったものを人が足した」= 追記。
+      // 値 → 別の値 は取り違え = 誤り。**この2つを混ぜると直す先が分からない**
+      type: b === '' ? 'enrich' : 'fix',
+    });
+  }
+  if (diffs.length === 0) return;
+
+  // 直さなかった項目も残す (無修正採用率の分母)。**直した回だけ**記録する —
+  // 開くたびに 'none' を積むと、よく開かれる案件ほど精度が高く見える
+  for (const f of FIELDS) {
+    if (diffs.some((d) => d.fieldPath === f.path)) continue;
+    diffs.push({ fieldPath: f.path, type: 'none' });
+  }
+
+  await recordCorrections(output.id, diffs, userId);
+}
+
+/**
+ * 受付での「決めた」を記録する。
+ *
+ * **`ai_outcomes` に行を足さない。** 案件になったか / 見送りかは
+ * `projects.stage` から always-fresh に導出できる (`ai-feedback.service`)。
+ * 既存データで表現できるものに新しいテーブルを作らない、という決めごと。
+ * ここに残すのは**判断そのもの**ではなく、判断が AI 出力の不採用だった場合だけ。
+ */
+export async function recordIntakeDecision(
+  projectId: string,
+  decision: 'promoted' | 'dropped',
+  userId: string,
+  note?: string | null,
+): Promise<void> {
+  if (decision !== 'dropped') return;   // 案件になった側はステージから読める
+  const output = await findLatestAiOutput('projects', projectId, PROJECT_DRAFT_KIND);
+  if (!output) return;
+  // 見送り = AI が拾ってきたものが業務にならなかった。**拾いすぎの指標**になる
+  await recordCorrections(
+    output.id,
+    [{ fieldPath: '(案件全体)', before: output.payload ?? null, after: null, type: 'reject', note: note ?? null }],
+    userId,
+  );
+}

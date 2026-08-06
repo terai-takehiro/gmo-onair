@@ -48,6 +48,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
+        // v4 の3アプリだけ、ここを目印に文字を太くしている
+        // (`tokens-v4.css` の `:root [data-ui='button']`)。
+        // **属性を足すだけ**なので凍結4アプリの見た目は変わらない
+        // (あちらは `tokens-v4.css` を読まないので、当たる規則が無い)。
+        data-ui="button"
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}

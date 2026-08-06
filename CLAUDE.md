@@ -62,6 +62,7 @@ npm run lint           # eslint    /  npm run check:version  # バージョン�
 | 知りたいこと | 読む場所 |
 | --- | --- |
 | v4 の開発計画・スコープ・段取り | [docs/v4-plan.md](docs/v4-plan.md) |
+| **v4 でどこまで出来たか (サイトツリー)** | [docs/v4-progress.md](docs/v4-progress.md) — `node scripts/v4-progress.mjs --write` で**画面のファイルを読んで作る生成物**。手で書くとずれるので、v4 の PR では毎回作り直して本文に貼る |
 | ブランチ・PR・リリース手順 | [docs/branching.md](docs/branching.md) |
 | 環境構築から PR まで | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | デプロイの仕組み (GHCR・キャッシュ・戻し方) | [docs/deploy-pipeline.md](docs/deploy-pipeline.md) |
