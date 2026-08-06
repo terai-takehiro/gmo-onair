@@ -1,4 +1,5 @@
 /** ⑥ 受け取った書類（財務）が読むデータの形 */
+import type { RichBlock } from '@gmo-onair/shared/src/client-v4/richContent';
 
 export type DocType = 'quote' | 'invoice' | 'order';
 export type DocStatus = 'new' | 'reviewing' | 'approved' | 'rejected' | 'processed';
@@ -24,6 +25,14 @@ export interface FinanceDoc {
   /** 台帳へ渡した先。**片側だけだと突き合わせられない**（migration 142） */
   linked_kind: 'purchase' | 'sga' | null;
   linked_id: string | null;
+  /**
+   * AI が組み立てた「読める形」の中身（migration 160）。
+   * **`content` を置き換えるものではない** — 古い行は `content` の自由文しか持っていないので、
+   * どちらも出す（`RichContent` の `fallback` がその役）。
+   */
+  details: RichBlock[] | null;
+  /** メール本文の全文。切り詰めていない */
+  body_text: string | null;
   created_at: string;
   updated_at: string;
 }

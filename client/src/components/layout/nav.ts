@@ -1,11 +1,13 @@
 /**
  * 案件管理・財務管理・カレンダー・設定の左メニュー
- * — **中身は今までと1項目も変えていない**。
  *
- * 旧 `Sidebar.tsx` の `APP_NAV` からの逐語コピーです。節の見出し・並び・ラベル・
- * 権限の条件 (`module` / `modules` / `adminOnly`) をそのまま持ってきています。
- * 情報設計 (v4 は案件管理8画面・財務8画面・カレンダー4画面・設定7画面に整理する) は
- * Phase 2 / Phase 3 で相談します。
+ * **入口ごとに、画面を作り終えたときだけ情報設計を差し替えます。**
+ * いま v4 の並びになっているのは**案件管理**と**財務管理**の2つ。
+ * カレンダーと設定は旧 `Sidebar.tsx` の `APP_NAV` からの逐語コピーのままで、
+ * その入口の画面を作り終えたときに差し替えます。
+ *
+ * 前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が
+ * 却下されたときに**枠まで一緒に捨てられました**。だから画面ができた入口から順に変えます。
  *
  * ── 1つのアプリに「入口が4つ」ある ──────────────────────────
  *
@@ -21,12 +23,10 @@ import {
   Calendar,
   CalendarClock,
   ClipboardList,
-  CopyCheck,
   Database,
   DollarSign,
   FileSearch,
   Film,
-  FlaskConical,
   FolderKanban,
   GanttChart,
   GitBranch,
@@ -108,10 +108,13 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
   ],
-  // 財務管理。**まだ v4 の情報設計に差し替えていない**（8画面のうち4画面が済み）。
-  // 残り4画面（ダッシュボード・受け取った書類・取り込み・取引先）を作り終えたときに、
-  // 案件管理と同じように 見る／明細／取り込み／設定 の4つへ組み直す。
-  // いまは v4 で作った「請求・入金」を足しただけ。
+  // 財務管理 — **v4 の情報設計に差し替え済み**（8画面すべて作り直した）。
+  //
+  //   見る（全体の数字）／明細（1件ずつの台帳）／取り込み（外から入れる）／設定
+  //
+  // 旧メニューは「見る・収支・マスター・レポート」の4塊に9項目あり、
+  // **収支の中に台帳3つと取込3つが混ざっていた**（毎日見るものと月1回しか
+  // 使わないものが同じ塊）。取込3つは1画面のタブに畳んだので1項目になっている。
   budget: [
     {
       title: "見る",
@@ -121,31 +124,41 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
     {
-      title: "収支",
+      title: "明細",
       items: [
-        { label: "売上管理", to: "/budget/revenues", icon: Receipt },
-        { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
+        { label: "売上", to: "/budget/revenues", icon: Receipt },
+        { label: "仕入", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は budget か dailyops
         { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["budget", "dailyops"] },
-        { label: "精算PDF取込", to: "/budget/xpoint-import", icon: FileSearch },
-        { label: "決算インポート", to: "/budget/kessan-import", icon: FlaskConical, adminOnly: true },
-        { label: "二重計上スクリーニング", to: "/budget/dedup-screening", icon: CopyCheck, adminOnly: true },
-        { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
       ],
     },
     {
-      title: "マスター",
+      title: "取り込み",
+      items: [
+        // v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブに畳んだ。
+        // **adminOnly は付けない** — 精算PDF は budget の editor が使う。
+        // タブは画面の中で権限に応じて出し分ける
+        { label: "取り込み", to: "/budget/import", icon: FileSearch },
+      ],
+    },
+    {
+      title: "設定",
       items: [
         // v4 ⑧: 仕入先とパートナーは1画面のタブになった
         { label: "取引先（仕入先・パートナー）", to: "/budget/vendors", icon: Truck },
-        { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },
       ],
     },
     {
-      title: "レポート",
+      // v4 で作り直していない3画面。**消さずに畳む** — 消すと動いている画面へ
+      // 辿り着けず、全部並べると v4 の並びが読めない（案件管理と同じやり方）
+      title: "そのほか（作り直し前）",
+      collapsible: true,
       items: [
+        { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
         { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },
+        // 請求先は案件管理の持ち物。**同じ相手を2か所から直せるようにしない**
+        { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },
       ],
     },
   ],

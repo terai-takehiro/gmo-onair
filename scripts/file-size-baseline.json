@@ -12,7 +12,6 @@
     "client-equipment/src/pages/EquipmentDetailPage.tsx": 1091,
     "client/src/contexts/production/pages/StudioCalendarPage.tsx": 1012,
     "client-daily/src/pages/TasksPage.tsx": 1006,
-    "client/src/contexts/finance/pages/XpointImportPage.tsx": 981,
     "client/src/contexts/sales/pages/SalesReviewPage.tsx": 929,
     "client/src/contexts/platform/pages/DataViewerPage.tsx": 890,
     "client-equipment/src/pages/CablePage.tsx": 840,

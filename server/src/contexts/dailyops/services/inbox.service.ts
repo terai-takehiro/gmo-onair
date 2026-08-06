@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { normalizeRichContent } from '../../../shared/services/rich-content';
+import { recordFinanceDocCorrections, recordInquiryCorrections } from './inbox-ai-feedback.service';
 
 // 日常業務アプリ (dailyops) — 受信箱型トラッキングの service 層。
 // 見積/請求書 (finance_docs) と その他問い合わせ (misc_inquiries)。
@@ -29,13 +31,29 @@ export interface FinanceDocInput {
   message_id?: string | null;
   requested_by?: string | null;
   created_by?: string | null;
+  /** AI が組み立てた「読める形」の中身 (migration 160)。形は rich-content.ts が検査する */
+  details?: unknown;
+  /** メール本文の全文。**切り詰めない** — AI がどこを読み違えたかを後から確かめるため */
+  body_text?: string | null;
 }
 
 const FD_COLS = `id, doc_type, sender, subject, content, amount, closing_month, payment_due,
   status, received_at, processed_by, processed_at, gls_number, notes, source, message_id,
   requested_by, created_by, created_at, updated_at,
   -- v4 ⑥: 台帳（仕入 / 販管費）へ渡した先。**片側だけだと突き合わせられない**
-  linked_kind, linked_id`;
+  linked_kind, linked_id,
+  -- 160: AI が組み立てた「読める形」の中身と、メール本文の全文
+  details, body_text`;
+
+/**
+ * `details` を DB へ入れる形にする。**検査を通ったものだけ**が入る。
+ * 中身が1つも残らなければ `null` — 空配列を入れると「AI が何も出せなかった」と
+ * 「そもそも構造化していない」の区別が付かなくなる。
+ */
+function jsonOrNull(v: unknown): string | null {
+  const blocks = normalizeRichContent(v);
+  return blocks ? JSON.stringify(blocks) : null;
+}
 
 function assertIn<T extends string>(val: string, allowed: readonly T[], label: string): void {
   if (!(allowed as readonly string[]).includes(val)) {
@@ -83,13 +101,15 @@ export const financeDocService = {
     await execute(
       `INSERT INTO finance_docs
          (id, doc_type, sender, subject, content, amount, closing_month, payment_due, status,
-          received_at, gls_number, notes, source, message_id, requested_by, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          received_at, gls_number, notes, source, message_id, requested_by, created_by,
+          details, body_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)`,
       [
         id, docType, input.sender ?? null, input.subject ?? null, input.content ?? null,
         input.amount ?? null, input.closing_month ?? null, input.payment_due ?? null, status,
         input.received_at ?? null, input.gls_number ?? null, input.notes ?? null,
         input.source ?? 'email', input.message_id ?? null, input.requested_by ?? null, input.created_by ?? null,
+        jsonOrNull(input.details), input.body_text ?? null,
       ],
     );
     return { row: (await this.getById(id))!, action: 'created' };
@@ -111,6 +131,8 @@ export const financeDocService = {
     if (input.received_at !== undefined) set('received_at', input.received_at ?? null);
     if (input.gls_number !== undefined) set('gls_number', input.gls_number ?? null);
     if (input.notes !== undefined) set('notes', input.notes ?? null);
+    if (input.details !== undefined) { sets.push('details = ?::jsonb'); params.push(jsonOrNull(input.details)); }
+    if (input.body_text !== undefined) set('body_text', input.body_text ?? null);
     if (input.status !== undefined && input.status) {
       assertIn(input.status, FINANCE_DOC_STATUSES, 'status');
       set('status', input.status);
@@ -130,6 +152,9 @@ export const financeDocService = {
     sets.push('updated_at = NOW()');
     params.push(id);
     await execute(`UPDATE finance_docs SET ${sets.join(', ')} WHERE id = ?`, params);
+    const after = (await queryOne(`SELECT * FROM finance_docs WHERE id = ?`, [id])) ?? {};
+    // **人がどこを直したか**を残す（会社方針・条件2）。失敗しても保存は成功させる
+    await recordFinanceDocCorrections(id, existing, after, String(input.created_by ?? 'unknown'));
     return (await this.getById(id))!;
   },
 
@@ -157,11 +182,17 @@ export interface InquiryInput {
   message_id?: string | null;
   requested_by?: string | null;
   created_by?: string | null;
+  /** AI が組み立てた「読める形」の中身 (migration 160)。形は rich-content.ts が検査する */
+  details?: unknown;
+  /** メール本文の全文。**切り詰めない** */
+  body_text?: string | null;
 }
 
 const IQ_COLS = `id, sender, subject, summary, category, importance, action_needed, url,
   received_at, handled_at, handled_by, notes, source, message_id, requested_by, created_by,
-  created_at, updated_at`;
+  created_at, updated_at,
+  -- 160: AI が組み立てた「読める形」の中身と、メール本文の全文
+  details, body_text`;
 
 export const inquiryService = {
   async list(filter: { importance?: string; unhandledOnly?: boolean } = {}): Promise<Record<string, unknown>[]> {
@@ -201,12 +232,13 @@ export const inquiryService = {
     await execute(
       `INSERT INTO misc_inquiries
          (id, sender, subject, summary, category, importance, action_needed, url, received_at,
-          notes, source, message_id, requested_by, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          notes, source, message_id, requested_by, created_by, details, body_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)`,
       [
         id, input.sender ?? null, input.subject ?? null, summary, input.category ?? null, importance,
         input.action_needed ?? null, input.url ?? null, input.received_at ?? null, input.notes ?? null,
         input.source ?? 'email', input.message_id ?? null, input.requested_by ?? null, input.created_by ?? null,
+        jsonOrNull(input.details), input.body_text ?? null,
       ],
     );
     return { row: (await this.getById(id))!, action: 'created' };
@@ -231,11 +263,15 @@ export const inquiryService = {
     if (input.url !== undefined) set('url', input.url ?? null);
     if (input.received_at !== undefined) set('received_at', input.received_at ?? null);
     if (input.notes !== undefined) set('notes', input.notes ?? null);
+    if (input.details !== undefined) { sets.push('details = ?::jsonb'); params.push(jsonOrNull(input.details)); }
+    if (input.body_text !== undefined) set('body_text', input.body_text ?? null);
     if (input.requested_by !== undefined && input.requested_by !== null) set('requested_by', input.requested_by);
     if (!sets.length) return (await this.getById(id))!;
     sets.push('updated_at = NOW()');
     params.push(id);
     await execute(`UPDATE misc_inquiries SET ${sets.join(', ')} WHERE id = ?`, params);
+    const after = (await queryOne(`SELECT * FROM misc_inquiries WHERE id = ?`, [id])) ?? {};
+    await recordInquiryCorrections(id, existing, after, String(input.created_by ?? 'unknown'));
     return (await this.getById(id))!;
   },
 

@@ -49,7 +49,10 @@ router.post('/finance-docs', ...docsEdit, async (req, res) => {
 });
 
 router.put('/finance-docs/:id', ...docsEdit, async (req, res) => {
-  const row = await financeDocService.update(String(req.params.id), { ...req.body, processed_by_user: req.user!.name });
+  // `created_by` は**誰が直したか**として AI の修正差分に残る（会社方針・条件2）
+  const row = await financeDocService.update(String(req.params.id), {
+    ...req.body, processed_by_user: req.user!.name, created_by: req.user!.id,
+  });
   res.json({ success: true, data: row });
 });
 
@@ -106,7 +109,7 @@ router.post('/inquiries', ...canEdit, async (req, res) => {
 });
 
 router.put('/inquiries/:id', ...canEdit, async (req, res) => {
-  const row = await inquiryService.update(String(req.params.id), req.body ?? {});
+  const row = await inquiryService.update(String(req.params.id), { ...(req.body ?? {}), created_by: req.user!.id });
   res.json({ success: true, data: row });
 });
 

@@ -13,8 +13,6 @@ import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
-import KessanImportPage from "@/contexts/platform/pages/KessanImportPage";
-import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
@@ -52,7 +50,7 @@ import ClosingPage from "@/contexts/finance/pages/ClosingPage";
 import DocumentsPage from "@/contexts/finance/pages/DocumentsPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
-import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
+import ImportPage from "@/contexts/finance/pages/ImportPage";
 import CounterpartyPage from "@/contexts/finance/pages/CounterpartyPage";
 import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
@@ -171,10 +169,13 @@ function AppRoutes() {
         <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
-        <Route path="/budget/xpoint-import" element={<PermissionRoute module="budget"><XpointImportPage /></PermissionRoute>} />
-        {/* 決算インポートは財務管理メニューに配置。実行は system_admin 限定のため module="admin" でゲート */}
-        <Route path="/budget/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
-        <Route path="/budget/dedup-screening" element={<PermissionRoute module="admin"><DedupScreeningPage /></PermissionRoute>} />
+        {/* v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブにまとめた。
+            **旧 URL は毎月使う業務画面なので必ず生かす**（転送先はタブ）。
+            権限は画面の中で出し分ける（総勘定元帳と二重計上は system_admin だけ） */}
+        <Route path="/budget/import" element={<PermissionRoute anyOf={["budget", "admin"]}><ImportPage /></PermissionRoute>} />
+        <Route path="/budget/xpoint-import" element={<Navigate to="/budget/import?src=pdf" replace />} />
+        <Route path="/budget/kessan-import" element={<Navigate to="/budget/import?src=gl" replace />} />
+        <Route path="/budget/dedup-screening" element={<Navigate to="/budget/import?src=dedup" replace />} />
         {/* v4 ⑧: 仕入先とパートナーを1画面のタブにまとめた。旧 URL は転送する */}
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><CounterpartyPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<Navigate to="/budget/vendors?tab=partner" replace />} />
@@ -194,8 +195,8 @@ function AppRoutes() {
         <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
-        {/* 決算インポートは /budget/kessan-import へ移管。旧URLはリダイレクト */}
-        <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
+        {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}
+        <Route path="/admin/kessan-import" element={<Navigate to="/budget/import?src=gl" replace />} />
         {/*
             v4: 設定は `/admin/*` → `/settings/*` に改名した。「設定」は権限・お金のルール・
             休日など**管理者専用ではない業務設定**を含むので `/admin` は誤解を招く。

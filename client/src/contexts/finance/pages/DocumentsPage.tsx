@@ -36,6 +36,7 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { HandoffDialog, type HandoffPayload } from './documents/HandoffDialog';
+import { DocDetails } from './documents/DocDetails';
 import { STATUS_LABEL, STATUS_TONE, TYPE_LABEL, type DocStatus, type FinanceDoc } from './documents/types';
 
 const CHIPS = [
@@ -57,6 +58,9 @@ export default function DocumentsPage() {
 
   const [chip, setChip] = useState('pending');
   const [handoff, setHandoff] = useState<FinanceDoc | null>(null);
+  // **開いた行だけ中身を出す。** 全部を行に出すと行の高さがバラバラになり、
+  // 金額の桁が縦にそろわなくなる
+  const [opened, setOpened] = useState<string | null>(null);
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<{ data: FinanceDoc[] }>({
@@ -162,7 +166,7 @@ export default function DocumentsPage() {
             </RowHeader>
 
             {rows.map((d) => (
-              <Row key={d.id}>
+              <Row key={d.id} align="start">
                 <RowSlot w={72}>
                   <span className="text-sub-sm text-secondary-foreground">{TYPE_LABEL[d.doc_type]}</span>
                 </RowSlot>
@@ -178,6 +182,11 @@ export default function DocumentsPage() {
                     {[d.sender, d.gls_number, d.closing_month ? `${d.closing_month} 締め` : null]
                       .filter(Boolean).join(' ・ ')}
                   </RowSub>
+                  <DocDetails
+                    doc={d}
+                    open={opened === d.id}
+                    onToggle={() => setOpened((cur) => (cur === d.id ? null : d.id))}
+                  />
                 </RowMain>
 
                 <MoneyCell value={Number(d.amount) || 0} width={128} />
@@ -250,6 +259,9 @@ export default function DocumentsPage() {
             「台帳に入れる」を押すと<strong className="font-bold">仕入か販管費の行を作り、処理完了にします</strong>。
             書類の金額は税込なので、台帳に入れるときに税抜の金額を確かめます。
             取り消しても<strong className="font-bold">台帳の行は消しません</strong>（経理が直しているかもしれないため）。
+            <Sparkles className="mx-1 inline h-3 w-3 text-ai" aria-hidden="true" />
+            の付いた行は<strong className="font-bold">AI がメールを項目に分けて読み取ったもの</strong>です。
+            「中身を読む」でメールの原文も確かめられます。
           </p>
         </>
       )}
