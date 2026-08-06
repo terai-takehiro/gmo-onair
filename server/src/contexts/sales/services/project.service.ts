@@ -521,10 +521,27 @@ export class ProjectService {
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
+    const { name, customer_id, expected_amount, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external,
             dates, gls_category } = data;
+    /**
+     * **主担当は空にできない。** `projects.assigned_to` は NOT NULL の外部キーなので、
+     * 空文字や未指定をそのまま渡すと FK 違反で 500 になります。
+     *
+     * 画面の担当者選択（`SearchableSelect`）は値があると × を出し、押すと空文字を送ります。
+     * 押した人には「保存できませんでした」としか出ず、原因が分かりませんでした
+     * （実測: 空にして保存すると 500）。
+     *
+     * v4 は「案件担当者という概念を持たない」（誰がやるかはタスク単位）方針ですが、
+     * **列は NOT NULL のまま**です。NULL 許容にすると一覧の絞り込み・`getById` の
+     * LEFT JOIN・MCP の `list_projects`・週報・営業レビューの集計が
+     * 「担当者なし」を想定していないので、そちらの影響のほうが大きい。
+     * ここでは**渡されなければ今の値を保つ**にとどめます。
+     */
+    const assigned_to = (data.assigned_to === undefined || data.assigned_to === null || data.assigned_to === '')
+      ? existing.assigned_to
+      : data.assigned_to;
     const cType = normalizeCustomerType(customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の

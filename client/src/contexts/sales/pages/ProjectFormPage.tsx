@@ -36,6 +36,7 @@ import {
 import SimulationDialog from "../components/SimulationDialog";
 import CustomerDialog from "../components/CustomerDialog";
 import ProjectMembersEditor from "../components/ProjectMembersEditor";
+import { notifyApiError } from "@gmo-onair/shared/src/client/notify";
 
 interface LostDialogState {
   open: boolean;
@@ -213,6 +214,25 @@ export default function ProjectFormPage() {
   const [rehearsalMultiDay, setRehearsalMultiDay] = useState(false);
   // 追加の日程（飛び日対応）
   const [extraDates, setExtraDates] = useState<Array<{ date: string; label: string }>>([]);
+  /**
+   * **日程の欄に人が触ったか。**
+   *
+   * 触っていないのに `dates` を送ると、サーバーは `project_dates` を全 DELETE→再 INSERT し、
+   * さらに `event_start=MIN` / `event_end=MAX` を送られた日付だけで上書きします。
+   * 編集モードでは本番日・リハ日の欄が空のまま始まっていたので、
+   * **日程が3つ以上ある案件を開いて何も変えずに保存すると日程が消えていました**
+   * （実 DB で再現: 11/13 リハ・11/14 本番・11/15 撤去 → 11/14 の1行だけになり、
+   *   期間も 11/13〜11/15 から 11/14〜11/14 になった）。
+   *
+   * 下の `useEffect` で欄を読み戻したうえで、**触っていないときは `dates` を送りません**。
+   * 読み戻しだけだと、ラベルの付いていない古いデータで同じ事故が起きます。
+   */
+  const [datesTouched, setDatesTouched] = useState(false);
+  /**
+   * 日程の欄を書き換える。**印を付けるのを忘れられない形**にしてある
+   * （素の setter を直接呼ぶと、上の「触っていないなら送らない」が効かなくなる）。
+   */
+  const touch = <T,>(setter: (v: T) => void) => (v: T) => { setDatesTouched(true); setter(v); };
   const [locationNote, setLocationNote] = useState("");
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const locationSuggestionsRef = useRef<HTMLDivElement>(null);
@@ -358,27 +378,47 @@ export default function ProjectFormPage() {
         application_form: !!project.application_form,
         logo_permission: !!project.logo_permission,
       });
-      // 仮スケジュール（複数日程）の読み込み
+      // 仮スケジュール（複数日程）の読み込み。
+      // **ラベルで本番・リハに振り分ける**（保存時に付けているのと同じラベル）。
+      // 振り分けないと欄が空のまま始まり、保存したときに日程が消えます。
       if (Array.isArray(project.dates)) {
-        const knownDates = new Set<string>();
-        if (project.event_start) knownDates.add(project.event_start);
-        if (project.event_end) knownDates.add(project.event_end);
-        const extras = (project.dates as Array<{ date: string; label: string | null }>)
-          .filter((d) => !knownDates.has(d.date))
-          .map((d) => ({ date: d.date, label: d.label || "" }));
-        setExtraDates(extras);
+        const rows = project.dates as Array<{ date: string; label: string | null }>;
+        const pick = (label: string) => rows.find((d) => d.label === label)?.date || "";
+        const prodStart = pick("本番");
+        const prodEnd = pick("本番（最終日）");
+        const rehStart = pick("リハ");
+        const rehEnd = pick("リハ（最終日）");
+        setProductionStart(prodStart);
+        setProductionEnd(prodEnd);
+        setProductionMultiDay(!!prodEnd);
+        setHasRehearsal(!!rehStart);
+        setRehearsalStart(rehStart);
+        setRehearsalEnd(rehEnd);
+        setRehearsalMultiDay(!!rehEnd);
+        // 上の4つに当てはまらない日付だけが「追加の日程」。
+        // **event_start / event_end では振り分けない** — 同じ日に本番とリハがあると
+        // 片方が消えるうえ、ラベルを持つ日程が「追加の日程」に落ちる
+        const used = new Set([prodStart, prodEnd, rehStart, rehEnd].filter(Boolean));
+        setExtraDates(rows.filter((d) => !used.has(d.date)).map((d) => ({ date: d.date, label: d.label || "" })));
+        setDatesTouched(false);
       }
     }
   }, [project, reset]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: FormValues) => {
+      // **主担当を空にしたら送らない。** `projects.assigned_to` は NOT NULL の外部キーで、
+      // 空文字を渡すと FK 違反で 500 になる（`SearchableSelect` の × を押すと空になる）。
+      // 送らなければサーバーは既存の値を保つ
+      const body: Record<string, unknown> = { ...values };
+      if (!values.assigned_to) delete body.assigned_to;
       if (isEdit) {
-        return (await api.put(`/projects/${id}`, values)).data.data;
+        return (await api.put(`/projects/${id}`, body)).data.data;
       } else {
-        return (await api.post("/projects", values)).data.data;
+        return (await api.post("/projects", body)).data.data;
       }
     },
+    onError: (err) => notifyApiError("案件を保存できませんでした", err),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["dashboard", "alerts"] });
@@ -488,10 +528,15 @@ export default function ProjectFormPage() {
     if (glsDialog.mode === 'link') {
       linkGlsMutation.mutate(glsDialog.target_project_id);
     } else {
-      glsMutation.mutate({
+      // **番組種別・配信媒体は A（スタジオ）案件のときだけ送る。**
+      // 入力欄は `mode==='new' && isCategoryA` のときしか描かれないのに、
+      // ここは分類に関係なく初期値（recording / other）を送っていたので、
+      // **ビジネス案件を発番すると番組種別が勝手に「収録」になっていた**。
+      // 番組情報カードは A のときしか出ないので、画面から直すこともできなかった
+      glsMutation.mutate(isCategoryA ? {
         broadcast_type: glsDialog.broadcast_types.length > 0 ? glsDialog.broadcast_types.join(',') : null,
         media_platform: glsDialog.media_platforms.length > 0 ? glsDialog.media_platforms.join(',') : null,
-      });
+      } : { broadcast_type: null, media_platform: null });
     }
   };
 
@@ -532,13 +577,20 @@ export default function ProjectFormPage() {
     extraDates.forEach((d) => {
       if (d.date) allDates.push({ date: d.date, label: d.label || null });
     });
-    if (allDates.length > 0) {
+    // **編集で日程に触っていないときは `dates` を送らない。**
+    // 送るとサーバーが project_dates を全置換し、拾えなかった日程が消える
+    if (allDates.length > 0 && (!isEdit || datesTouched)) {
       // 重複日を排除（同じ日付があった場合は最初のラベル優先）
       const uniqueMap = new Map<string, { date: string; label: string | null }>();
       for (const d of allDates) {
         if (!uniqueMap.has(d.date)) uniqueMap.set(d.date, d);
       }
       (values as any).dates = Array.from(uniqueMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+    // 日程に触っていないなら期間も動かさない（サーバーは受け取った値で上書きする）
+    if (isEdit && !datesTouched) {
+      values.event_start = project?.event_start || values.event_start;
+      values.event_end = project?.event_end || values.event_end;
     }
 
     saveMutation.mutate(values, {
@@ -1538,12 +1590,12 @@ export default function ProjectFormPage() {
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <Label>本番日</Label>
-                  <Input type="date" value={productionStart} onChange={(e) => setProductionStart(e.target.value)} />
+                  <Input type="date" value={productionStart} onChange={(e) => touch(setProductionStart)(e.target.value)} />
                 </div>
                 {productionMultiDay && (
                   <div className="flex-1">
                     <Label>本番 終了日</Label>
-                    <Input type="date" value={productionEnd} onChange={(e) => setProductionEnd(e.target.value)} />
+                    <Input type="date" value={productionEnd} onChange={(e) => touch(setProductionEnd)(e.target.value)} />
                   </div>
                 )}
               </div>
@@ -1552,6 +1604,7 @@ export default function ProjectFormPage() {
                 <Switch
                   checked={productionMultiDay}
                   onCheckedChange={(v) => {
+                    setDatesTouched(true);
                     setProductionMultiDay(!!v);
                     if (!v) setProductionEnd("");
                   }}
@@ -1566,6 +1619,7 @@ export default function ProjectFormPage() {
                 <Switch
                   checked={hasRehearsal}
                   onCheckedChange={(v) => {
+                    setDatesTouched(true);
                     setHasRehearsal(!!v);
                     if (!v) { setRehearsalStart(""); setRehearsalEnd(""); setRehearsalMultiDay(false); }
                   }}
@@ -1576,12 +1630,12 @@ export default function ProjectFormPage() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <Label>リハーサル日</Label>
-                      <Input type="date" value={rehearsalStart} onChange={(e) => setRehearsalStart(e.target.value)} />
+                      <Input type="date" value={rehearsalStart} onChange={(e) => touch(setRehearsalStart)(e.target.value)} />
                     </div>
                     {rehearsalMultiDay && (
                       <div className="flex-1">
                         <Label>リハーサル 終了日</Label>
-                        <Input type="date" value={rehearsalEnd} onChange={(e) => setRehearsalEnd(e.target.value)} />
+                        <Input type="date" value={rehearsalEnd} onChange={(e) => touch(setRehearsalEnd)(e.target.value)} />
                       </div>
                     )}
                   </div>
@@ -1613,7 +1667,7 @@ export default function ProjectFormPage() {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    setExtraDates((prev) => [...prev, { date: "", label: "" }])
+                    { setDatesTouched(true); setExtraDates((prev) => [...prev, { date: "", label: "" }]); }
                   }
                 >
                   + 日程を追加
@@ -1628,26 +1682,28 @@ export default function ProjectFormPage() {
                         <Input
                           type="date"
                           value={d.date}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setDatesTouched(true);
                             setExtraDates((prev) => {
                               const next = [...prev];
                               next[idx] = { ...next[idx], date: e.target.value };
                               return next;
-                            })
-                          }
+                            });
+                          }}
                         />
                       </div>
                       <div className="flex-1">
                         <Label className="text-xs">ラベル</Label>
                         <Input
                           value={d.label}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setDatesTouched(true);
                             setExtraDates((prev) => {
                               const next = [...prev];
                               next[idx] = { ...next[idx], label: e.target.value };
                               return next;
-                            })
-                          }
+                            });
+                          }}
                           placeholder="例: 撤去 / 中日 / 予備日"
                         />
                       </div>
@@ -1657,7 +1713,7 @@ export default function ProjectFormPage() {
                         size="icon"
                         className="text-destructive shrink-0"
                         onClick={() =>
-                          setExtraDates((prev) => prev.filter((_, i) => i !== idx))
+                          { setDatesTouched(true); setExtraDates((prev) => prev.filter((_, i) => i !== idx)); }
                         }
                       >
                         ×
