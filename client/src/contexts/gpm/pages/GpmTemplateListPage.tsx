@@ -159,7 +159,10 @@ function TemplateCard({
           </span>
         </button>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        {/* **`shrink-0` を付けない。** 4つの数字と2つのボタンを縮まない塊にすると、
+            375px で親の折り返しより先に幅が確定して**44px はみ出す**（実測）。
+            折り返せる形にしておけば、狭いときは数字が2段になるだけで済む */}
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <Stat label="工程" value={t.phases.length} />
           <Stat label="タスク" value={tasks} />
           <Stat label="目安" value={days} unit="日" />

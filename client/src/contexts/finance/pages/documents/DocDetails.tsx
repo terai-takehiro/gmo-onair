@@ -35,7 +35,7 @@ export function DocDetails({ doc, open, onToggle }: { doc: FinanceDoc; open: boo
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="text-note min-h-tap inline-flex items-center gap-1 text-primary lg:min-h-[28px]"
+        className="text-note min-h-tap inline-flex items-center gap-1 text-primary lg:min-h-[32px]"
       >
         {open
           ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -56,7 +56,7 @@ export function DocDetails({ doc, open, onToggle }: { doc: FinanceDoc; open: boo
 
           {hasBody && (
             <details>
-              <summary className="text-note min-h-tap flex cursor-pointer items-center gap-1 text-muted-foreground lg:min-h-[28px]">
+              <summary className="text-note min-h-tap flex cursor-pointer items-center gap-1 text-muted-foreground lg:min-h-[32px]">
                 <FileText className="h-3.5 w-3.5" aria-hidden="true" />
                 メールの原文を見る
               </summary>

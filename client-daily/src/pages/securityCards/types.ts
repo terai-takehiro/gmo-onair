@@ -21,12 +21,19 @@ import type { SecurityCard } from '@/lib/securityCardApi';
 /** 表に出す順番。DB の `security_level` と1対1 */
 export const LEVEL_ORDER = ['master', 'room_a', 'room_b', 'room_c', 'meeting', 'vip'] as const;
 
-/** レベルごとの見分けの色 (意味は持たない)。知らないレベルは灰色にする */
+/**
+ * レベルごとの見分けの色 (意味は持たない)。知らないレベルは灰色にする。
+ *
+ * **`cat-5`（山吹 #d2a400）は文字に使わないこと。** 白地でのコントラストが
+ * 基準（`verify-ui` の「薄すぎる文字」）を満たしません。実測で
+ * `ROOM C + 会議室` の見出しとカード番号が落ちました。
+ * 罫線だけなら使えますが、文字と揃えたいので `cat-4`（深緑）にしてあります。
+ */
 export const LEVEL_TONE: Record<string, string> = {
   master: 'border-cat-7 text-cat-7',
   room_a: 'border-cat-2 text-cat-2',
   room_b: 'border-cat-3 text-cat-3',
-  room_c: 'border-cat-5 text-cat-5',
+  room_c: 'border-cat-4 text-cat-4',
   meeting: 'border-cat-8 text-cat-8',
   vip: 'border-cat-6 text-cat-6',
 };

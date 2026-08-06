@@ -337,7 +337,7 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | 面と罫の段 | `surface-subtle`・`border-subtle`・`border-faint`・`border-disabled` |
 | プライマリの淡い段 | `primary-surface`・`primary-surface-weak`・`primary-border`・`primary-border-strong` |
 | 薄い文字 | `fg-disabled` — **読ませる文字には使わない**（白地で 2.61:1）。ヒント文字・押せない状態・アイコンの塗りだけ |
-| 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない** |
+| 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない**。⚠️ **`cat-5`（山吹 #d2a400）は文字に使わない** — 白地でコントラストが足りず `verify-ui` の「薄すぎる文字」で落ちる（罫線・塗りなら可） |
 | 角丸の役割名 | `rounded-{badge-xs,badge,control,control-md,control-lg,note,card,app,chip}` |
 | 型スケール | `text-{h1,h2,cardtitle,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
 
