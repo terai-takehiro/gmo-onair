@@ -60,7 +60,7 @@ const TREE = [
     ['売上', '/budget/revenues', 'client/src/contexts/finance/pages/RevenueListPage.tsx'],
     ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
     ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],
-    ['取引先', '/budget/vendors', 'client/src/contexts/finance/pages/VendorListPage.tsx'],
+    ['取引先 (仕入先・パートナー)', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx'],
     ['取り込み (楽楽精算)', '/budget/xpoint-import', 'client/src/contexts/finance/pages/XpointImportPage.tsx'],
     ['取り込み (決算)', '/budget/kessan-import', 'client/src/contexts/platform/pages/KessanImportPage.tsx'],
     ['二重計上を調べる', '/budget/dedup-screening', 'client/src/contexts/platform/pages/DedupScreeningPage.tsx'],

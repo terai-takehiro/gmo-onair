@@ -135,9 +135,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "マスター",
       items: [
-        { label: "取引先マスター", to: "/sales/companies", icon: Store },
-        { label: "仕入先", to: "/budget/vendors", icon: Truck },
-        { label: "パートナー", to: "/budget/partners", icon: Users },
+        // v4 ⑧: 仕入先とパートナーは1画面のタブになった
+        { label: "取引先（仕入先・パートナー）", to: "/budget/vendors", icon: Truck },
+        { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },
       ],
     },
     {

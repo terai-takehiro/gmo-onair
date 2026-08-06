@@ -52,8 +52,7 @@ import ClosingPage from "@/contexts/finance/pages/ClosingPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
-import VendorListPage from "@/contexts/finance/pages/VendorListPage";
-import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
+import CounterpartyPage from "@/contexts/finance/pages/CounterpartyPage";
 import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
@@ -172,8 +171,9 @@ function AppRoutes() {
         {/* 決算インポートは財務管理メニューに配置。実行は system_admin 限定のため module="admin" でゲート */}
         <Route path="/budget/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
         <Route path="/budget/dedup-screening" element={<PermissionRoute module="admin"><DedupScreeningPage /></PermissionRoute>} />
-        <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
-        <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
+        {/* v4 ⑧: 仕入先とパートナーを1画面のタブにまとめた。旧 URL は転送する */}
+        <Route path="/budget/vendors" element={<PermissionRoute module="budget"><CounterpartyPage /></PermissionRoute>} />
+        <Route path="/budget/partners" element={<Navigate to="/budget/vendors?tab=partner" replace />} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
         <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
         <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />

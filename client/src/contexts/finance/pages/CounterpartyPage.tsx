@@ -1,0 +1,306 @@
+/**
+ * ⑧ 取引先（財務） (v4)
+ *
+ * **仕入先とパートナーを1画面のタブにまとめました。** 旧実装は
+ * `/budget/vendors`（208行）と `/budget/partners`（224行）の2画面で、
+ * **中身はほぼ同じ**（名前・担当・電話・メール・もう1項目）でした。
+ * 別画面だと、探すときにどちらにいるか思い出す必要があります。
+ *
+ * ── 請求先（顧客）はここに入れていません ────────────────────
+ *
+ * モックは仕入先・請求先・パートナーの3つを並べますが、請求先は
+ * **案件管理の「取引先マスター」（`/sales/companies`）で編集します**。
+ * 同じものを2か所から直せるようにすると、片方だけ直された相手ができます。
+ * ここからは**その画面へ送るだけ**にしました。
+ *
+ * ── 取引額は出していません ──────────────────────────────────
+ *
+ * モックは相手ごとの取引額を出しますが、**期間の取り方（今年度／直近12か月／
+ * 全期間）が決まっていません**。仕入先だけは「仕入先集計」があるので、
+ * そこへ送るボタンを置いています。
+ */
+import { useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Pencil, Trash2, Truck, Users, Building2, ArrowRight, BarChart3 } from 'lucide-react';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
+import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { CrudFormDialog } from '@gmo-onair/shared/src/client/ui/crud-form-dialog';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { useCrudPage } from '@/hooks/useCrudPage';
+import ExcelToolbar from '@/components/ExcelToolbar';
+import { LedgerTabs } from './ledger/LedgerTabs';
+import { LedgerSearch } from './ledger/LedgerParts';
+
+type Kind = 'vendor' | 'partner';
+
+interface Party {
+  id: string;
+  name: string;
+  contact_name?: string;
+  role_title?: string;
+  email?: string;
+  phone?: string;
+  invoice_registration_number?: string;
+  specialties?: string[];
+}
+
+interface PartyForm {
+  name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  /** 仕入先＝インボイス登録番号 ／ パートナー＝得意分野（カンマ区切り） */
+  extra: string;
+}
+
+const EMPTY: PartyForm = { name: '', contact_name: '', email: '', phone: '', extra: '' };
+
+const DEF: Record<Kind, {
+  label: string; endpoint: string; queryKey: string; icon: JSX.Element;
+  extraLabel: string; extraHint: string; searchPh: string; excelName: string;
+}> = {
+  vendor: {
+    label: '仕入先', endpoint: '/vendors', queryKey: 'vendors',
+    icon: <Truck className="h-4 w-4" aria-hidden="true" />,
+    extraLabel: 'インボイス登録番号', extraHint: '例 T1234567890123（適格請求書発行事業者の番号）',
+    searchPh: '仕入先名で探す', excelName: '仕入先',
+  },
+  partner: {
+    label: 'パートナー', endpoint: '/partners', queryKey: 'partners',
+    icon: <Users className="h-4 w-4" aria-hidden="true" />,
+    extraLabel: '得意分野', extraHint: 'カンマ区切り。例 映像, スイッチング',
+    searchPh: 'お名前で探す', excelName: 'パートナー',
+  },
+};
+
+/** 相手の「もう1項目」を取り出す。種類で入っている列が違う */
+function extraOf(p: Party, kind: Kind): string {
+  if (kind === 'vendor') return p.invoice_registration_number ?? '';
+  return (p.specialties ?? []).join(', ');
+}
+
+export default function CounterpartyPage() {
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('budget', 'editor');
+
+  const kind: Kind = params.get('tab') === 'partner' ? 'partner' : 'vendor';
+  const def = DEF[kind];
+
+  const setKind = (k: Kind) => {
+    const next = new URLSearchParams(params);
+    if (k === 'partner') next.set('tab', 'partner'); else next.delete('tab');
+    setParams(next, { replace: true });
+  };
+
+  // **タブごとに別のフックを持たない。** `endpoint` を切り替えるだけにする
+  // （2つ持つと、片方だけ検索が残る・件数が古いままになる）
+  const crud = useCrudPage<Party>({ endpoint: def.endpoint, queryKey: [def.queryKey] });
+
+  const form = useForm<PartyForm>({ defaultValues: EMPTY });
+
+  useEffect(() => {
+    const it = crud.editingItem;
+    form.reset(it
+      ? {
+          name: it.name || '',
+          contact_name: it.contact_name || it.role_title || '',
+          email: it.email || '',
+          phone: it.phone || '',
+          extra: extraOf(it, kind),
+        }
+      : EMPTY);
+  }, [crud.editingItem, kind, form]);
+
+  const items = useMemo(() => crud.items ?? [], [crud.items]);
+
+  const submit = form.handleSubmit((v) => {
+    // 送る列が種類で違う。**サーバーが知らない列を送らない**
+    const payload: Record<string, unknown> = {
+      name: v.name, email: v.email || null, phone: v.phone || null,
+    };
+    if (kind === 'vendor') {
+      payload.contact_name = v.contact_name || null;
+      payload.invoice_registration_number = v.extra || null;
+    } else {
+      payload.role_title = v.contact_name || null;
+      payload.specialties = v.extra ? v.extra.split(',').map((x) => x.trim()).filter(Boolean) : [];
+    }
+    crud.save.mutate(payload);
+  });
+
+  const onDelete = async (p: Party) => {
+    const ok = await confirmAction({
+      title: `「${p.name}」を消しますか`,
+      description: `${def.label}の登録を消します。過去の仕入や予定に付いている記録は残りますが、次から選べなくなります。`,
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (ok) crud.remove.mutate(p.id);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="取引先"
+        sub="仕入先とパートナーをここで管理します。請求先（顧客）は案件管理の「取引先マスター」です"
+        primaryAction={
+          canEdit ? (
+            <Button onClick={crud.openAdd}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />{def.label}を追加
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <ExcelToolbar resource={def.endpoint} name={def.excelName} queryKey={[def.queryKey]} />
+          {kind === 'vendor' && (
+            <Button variant="outline" onClick={() => navigate('/budget/reports/vendors')}>
+              <BarChart3 className="mr-1.5 h-4 w-4" aria-hidden="true" />仕入先集計
+            </Button>
+          )}
+        </div>
+      </PageHeader>
+
+      <LedgerTabs
+        value={kind}
+        onChange={(k) => setKind(k as Kind)}
+        items={[
+          { key: 'vendor', label: '仕入先', icon: DEF.vendor.icon },
+          { key: 'partner', label: 'パートナー', icon: DEF.partner.icon },
+        ]}
+      />
+
+      {/* 請求先はここで編集しない。**同じものを2か所から直せるようにしない** */}
+      <button
+        type="button"
+        onClick={() => navigate('/sales/companies')}
+        className="rounded-card min-h-tap flex items-center gap-2.5 border border-dashed border-border px-4 py-2.5 text-left hover:border-primary-border-strong"
+      >
+        <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="text-sub min-w-0 flex-1 text-secondary-foreground">
+          <strong className="font-bold">請求先（顧客）は案件管理の「取引先マスター」で管理します。</strong>
+          {' '}同じ相手を2か所から直せるようにすると、片方だけ直された相手ができます。
+        </span>
+        <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      </button>
+
+      <LedgerSearch value={crud.search} onChange={crud.setSearch} placeholder={def.searchPh} />
+
+      {crud.isError ? (
+        <ErrorPanel title={`${def.label}を読み込めませんでした`} error={crud.error} onRetry={() => crud.refetch()} />
+      ) : crud.isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : items.length === 0 ? (
+        crud.search ? (
+          <NoSearchResults keyword={crud.search} onClearFilters={() => crud.setSearch('')} />
+        ) : (
+          <EmptyState
+            title={`${def.label}がまだありません`}
+            description={`「${def.label}を追加」から登録すると、仕入や予定の登録で選べるようになります。`}
+          />
+        )
+      ) : (
+        <>
+          <div className="flex flex-col">
+            <RowHeader className="hidden sm:flex">
+              <RowMain>{kind === 'vendor' ? '仕入先' : 'お名前'}</RowMain>
+              <RowSlot w={160}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
+              <RowSlot w={160}>電話</RowSlot>
+              <RowSlot w={200}>{def.extraLabel}</RowSlot>
+              <RowSlot w={96}>{canEdit ? '操作' : ''}</RowSlot>
+            </RowHeader>
+
+            {items.map((p) => (
+              <Row key={p.id} onClick={canEdit ? () => crud.openEdit(p) : undefined}>
+                <RowMain>
+                  <RowTitle>{p.name}</RowTitle>
+                  <RowSub>{p.email || 'メールなし'}</RowSub>
+                </RowMain>
+                <RowSlot w={160} hideOnMobile>
+                  <span className="truncate text-sub text-secondary-foreground">
+                    {p.contact_name || p.role_title || '—'}
+                  </span>
+                </RowSlot>
+                <RowSlot w={160} hideOnMobile>
+                  <span className="font-number truncate text-sub text-secondary-foreground">{p.phone || '—'}</span>
+                </RowSlot>
+                <RowSlot w={200} hideOnMobile>
+                  <span className="truncate text-sub text-muted-foreground">{extraOf(p, kind) || '—'}</span>
+                </RowSlot>
+                <RowSlot w={96}>
+                  {canEdit && (
+                    <span className="flex gap-0.5">
+                      <Button
+                        variant="ghost" size="icon" aria-label="直す"
+                        onClick={(e) => { e.stopPropagation(); crud.openEdit(p); }}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon" aria-label="消す" className="text-destructive"
+                        onClick={(e) => { e.stopPropagation(); onDelete(p); }}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </span>
+                  )}
+                </RowSlot>
+              </Row>
+            ))}
+          </div>
+
+          <Pagination
+            page={crud.page}
+            totalPages={crud.pagination?.totalPages ?? 1}
+            total={crud.pagination?.total ?? 0}
+            onChange={crud.setPage}
+            disabled={crud.isLoading}
+          />
+        </>
+      )}
+
+      <CrudFormDialog
+        crud={crud}
+        title={{ create: `${def.label}を追加`, edit: `${def.label}を直す` }}
+        description={{
+          create: `${def.label}を登録すると、仕入や予定の登録で選べるようになります。`,
+          edit: '登録済みの内容を直します。',
+        }}
+        onSubmit={submit}
+      >
+        <div className="space-y-1">
+          <Label>{kind === 'vendor' ? '仕入先名' : 'お名前'} *</Label>
+          <Input {...form.register('name', { required: true })} />
+        </div>
+        <div className="space-y-1">
+          <Label>{kind === 'vendor' ? '担当者' : '役割'}</Label>
+          <Input {...form.register('contact_name')} />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label>メール</Label>
+            <Input type="email" {...form.register('email')} />
+          </div>
+          <div className="space-y-1">
+            <Label>電話</Label>
+            <Input {...form.register('phone')} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label>{def.extraLabel}</Label>
+          <Input {...form.register('extra')} />
+          <p className="text-note text-muted-foreground">{def.extraHint}</p>
+        </div>
+      </CrudFormDialog>
+    </div>
+  );
+}
