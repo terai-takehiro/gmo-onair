@@ -3,6 +3,7 @@ import { createPlatformRoutes } from '../contexts/platform';
 import { createSalesRoutes } from '../contexts/sales';
 import { createProductionRoutes } from '../contexts/production';
 import { createFinanceRoutes } from '../contexts/finance';
+import { createGpmRoutes } from '../contexts/gpm';
 import { createAssetRoutes } from '../contexts/asset';
 import { createEquipmentRoutes } from '../contexts/equipment';
 import { createQsheetRoutes } from '../contexts/qsheet';
@@ -22,6 +23,7 @@ export function createRoutes(): Router {
   router.use(createSalesRoutes());
   router.use(createProductionRoutes());
   router.use(createFinanceRoutes());
+  router.use('/gpm', createGpmRoutes());   // プロジェクト管理 (migration 161)
   router.use(createAssetRoutes());
   router.use(createEquipmentRoutes());
   router.use(createQsheetRoutes());
