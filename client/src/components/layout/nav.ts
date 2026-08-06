@@ -75,6 +75,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
         { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
+        // v4 ⑤。**「案件」のまとまりに置く** — 案件をまたいだ見積・請求なので、
+        // マスター (料金表) でも財務でもなく、案件の並びが自然
+        { label: "見積・請求", to: "/sales/billing", icon: Receipt },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
       ],

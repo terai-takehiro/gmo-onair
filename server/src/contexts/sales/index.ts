@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import projectsRoutes from './routes/projects.routes';
 import estimatesRoutes from './routes/estimates.routes';
+import billingRoutes from './routes/billing.routes';
 import projectMembersRoutes from './routes/project-members.routes';
 import projectCollabRoutes from './routes/project-collab.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
@@ -16,6 +17,9 @@ import { createSalesExcelRouter } from './routes/excel.routes';
 export function createSalesRoutes(): Router {
   const router = Router();
 
+  // 案件をまたぐ見積・請求 (v4 ⑤)。案件ごとの `/projects/:id/estimates` とは
+  // **別の接頭辞**にしてある (同じ下にぶら下げると `:id` に "billing" が入る)
+  router.use('/billing', billingRoutes);
   router.use('/project-groups', projectGroupsRoutes);
   router.use('/projects/:projectId/estimates', estimatesRoutes);
   router.use('/projects', projectsRoutes);

@@ -47,9 +47,11 @@ const TREE = [
     ['② 受付', '/sales/inbox', 'client/src/contexts/sales/pages/InboxPage.tsx'],
     ['③ 案件一覧', '/sales/projects', 'client/src/contexts/sales/pages/ProjectListPage.tsx'],
     ['④ タスク一覧', '/sales/tasks/list', 'client/src/contexts/tasks/pages/TaskDashboardPage.tsx'],
-    ['⑤ 見積・請求 (全案件)', '—', null],
+    ['⑤ 見積・請求 (全案件)', '/sales/billing', 'client/src/contexts/sales/pages/BillingListPage.tsx'],
     ['⑥ 案件詳細', '/sales/projects/:id', 'client/src/contexts/sales/pages/ProjectDetailPage.tsx'],
-    ['⑦ 標準工程 (設定)', '—', null],
+    ['⑦ 標準工程 (設定)', '—', null, undefined,
+      '**社内で工程を整理中のため後回し**（ご判断）。**スタジオ案件とプロジェクトで工程がまったく別**になるので、' +
+      'テンプレートは2系統つくります。工程の並び・期限の決め方・担当の職種をいただければ着手できます'],
     ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
   ]],
   ['財務管理', [
@@ -181,7 +183,7 @@ lines.push('## まだ入っていない機能', '',
   '- **打合せを録音**（案件詳細のやり取りタブ）— v4.0 で実装すると決定済み。着手前に AI 方針の充足表を出します',
   '- **BOX にファイルを置く**（書類タブ）— いまは中を見るだけ',
   '- **スマホ専用の13画面**（Phase 6）',
-  '- **標準工程テンプレート**・**見積/請求の全案件一覧** — 新規',
+  '- **標準工程テンプレート** — 社内で整理中のため後回し（スタジオ案件とプロジェクトで別の表を作ります）',
   '');
 
 lines.unshift('');

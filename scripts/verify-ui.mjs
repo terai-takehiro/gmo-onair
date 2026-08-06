@@ -58,6 +58,8 @@ const PAGES = [
   ['案件管理 タスクガント', '/sales/tasks/gantt', { slow: true }],
   ['案件管理 レビュー', '/sales/review', { slow: true }],
   ['案件管理 料金表', '/sales/pricing'],
+  ['案件管理 見積請求', '/sales/billing'],
+  ['案件管理 請求タブ', '/sales/billing?tab=invoice'],
   ['案件管理 案件グループ', '/sales/project-groups'],
   ['案件管理 活動履歴', '/sales/activity-logs'],
   ['案件管理 GLS取込', '/sales/gls-import'],
