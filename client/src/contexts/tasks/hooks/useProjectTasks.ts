@@ -118,8 +118,17 @@ export function useProjectTasks(
   });
 }
 
+/**
+ * タスクを書き換えたあとに読み直すもの。
+ *
+ * **`task-dashboard` も必ず落とすこと。** 案件の中のタスクと、全案件を集めた
+ * タスク一覧 (v4 ④) は**同じタスクを別の鍵で持っています**。案件側だけを
+ * 落としていたので、一覧から直しても一覧が古いままでした
+ * (画面上は「押しても変わらない」= 保存できなかったように見える)。
+ */
 const invalidateTasks = (qc: ReturnType<typeof useQueryClient>, projectId: string) => {
   qc.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+  qc.invalidateQueries({ queryKey: ["task-dashboard"] });
 };
 
 export function useCreateTask(projectId: string) {

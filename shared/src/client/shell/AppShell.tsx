@@ -23,8 +23,15 @@
  * `<NoticeBar />` と `<ConfirmHost />` はここが持ちます。**アプリ側で置かない**
  * (置き忘れると `confirmAction` が false を返して削除ボタンが黙って何もしない)。
  * `scripts/check-shared-wiring.mjs` が数を数えています。
+ *
+ * ── スマホの主アクション ────────────────────────────────────
+ *
+ * 下タブのすぐ上に**差し込み口を1つ**持ちます (`primaryAction.ts`)。
+ * `<PageHeader primaryAction={…}>` がここへ描くので、**画面側は
+ * `fixed bottom-0` を書きません**。中身が無い画面では消えます。
  */
 import { useState, type ReactNode } from 'react';
+import { PrimaryActionSlotContext } from './primaryAction';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
 import ManualModal from '../manual/ManualModal';
@@ -74,6 +81,9 @@ export function AppShell({
   const [manualOpen, setManualOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
+  // 差し込み口は「ref」ではなく state で受ける。ref のままだと最初の描画で
+  // まだ DOM が無く、子 (PageHeader) が描き直されないので何も出ない
+  const [actionSlot, setActionSlot] = useState<HTMLDivElement | null>(null);
 
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
   const hasMenu = sections.length > 0 || showOtherApps;
@@ -114,9 +124,17 @@ export function AppShell({
           {/* お知らせ帯はスクロール領域の中の上端 (sticky)。ヘッダーの外に出すと
               下にスクロールしているときに気づけない */}
           <NoticeBar />
-          {children}
+          <PrimaryActionSlotContext.Provider value={actionSlot}>
+            {children}
+          </PrimaryActionSlotContext.Provider>
         </main>
       </div>
+
+      {/* スマホの主アクションの差し込み口。中身が無い画面では罫線ごと消える */}
+      <div
+        ref={setActionSlot}
+        className="shrink-0 border-t border-border bg-card px-4 py-3 empty:hidden sm:hidden"
+      />
 
       <MobileTabs tabs={mobileTabs} onOpenMenu={() => setMenuOpen(true)} />
 

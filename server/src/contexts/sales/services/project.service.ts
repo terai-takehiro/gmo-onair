@@ -34,6 +34,11 @@ function normalizeCustomerType(value: unknown): CustomerType {
 
 export interface ProjectFilter {
   search?: string;
+  /**
+   * ステージ。**カンマ区切りで複数渡せる** (`s_completed,e_lost` = 終了)。
+   * v4 の案件一覧はチップで A〜E と「終了」を切り替えるので、
+   * 「終了」だけが2つのステージにまたがる。
+   */
   stage?: string;
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
@@ -92,6 +97,62 @@ const DEFAULT_SORT_SQL = `
   p.created_at DESC
 `;
 
+/**
+ * 「次のタスク」— v4 の案件一覧の列 (docs/design/v4/projects.md ③)。
+ *
+ * **未完了のうち期限がいちばん近い1件**だけを返す。
+ * 期限が無いタスクは最後 (`NULLS LAST`) — 期限が付いているほうが先に効くため。
+ * 同じ期限なら板の並び順 → 作成順で、画面のかんばんと同じ順になる。
+ *
+ * 期限は `my-tasks.service.ts` と**同じ式**で採る
+ * (`due_at` があればそれ、無ければ `due_date` の 18:00)。
+ * ここだけ別の式にすると、同じタスクが「やること」画面と案件一覧で違う順に並ぶ。
+ *
+ * `due_date::text` にしているのは、`pg` が DATE を JS の Date にしてしまい、
+ * JSON にすると UTC に寄って**日付が1日ずれる**ため
+ * (`project-tasks.service.ts` も同じ理由で `::text` にしてある)。
+ *
+ * 案件担当者ではなく**タスクの担当者**を出す。v4 は
+ * 「案件担当者という概念を持たない。誰が何をするかはタスク単位で表す」
+ * (client/CLAUDE.md「v4 の設計判断」)。
+ */
+const NEXT_TASK_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT t.title,
+           COALESCE(t.due_date::text, to_char(t.due_at, 'YYYY-MM-DD')) AS due_date,
+           tu.name AS assignee_name
+    FROM project_tasks t
+    LEFT JOIN users tu ON tu.id = t.assigned_to
+    WHERE t.project_id = p.id AND t.deleted_at IS NULL AND t.is_completed = false
+    ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) ASC NULLS LAST,
+             t.sort_order ASC, t.created_at ASC
+    LIMIT 1
+  ) nt ON TRUE
+`;
+
+/**
+ * 「最後の動き」— 同じく v4 の案件一覧の列。
+ *
+ * **`projects.updated_at` だけでは足りない。** この列を見る目的は
+ * 「放っておかれていないか」で、案件の行を書き換えなくても
+ * タスクを動かしたり活動を記録したりすれば「動いている」。
+ * 案件そのもの・タスク・活動記録の**いちばん新しい時刻**を採る。
+ *
+ * 見積・請求は入れていない (`revenues` は締め処理で一斉に更新されるので、
+ * 誰も触っていない案件まで「たった今」になる)。
+ */
+const LAST_MOVE_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT MAX(x.at) AS last_at FROM (
+      SELECT MAX(t.updated_at) AS at FROM project_tasks t
+        WHERE t.project_id = p.id AND t.deleted_at IS NULL
+      UNION ALL
+      SELECT MAX(a.updated_at) AS at FROM activity_logs a
+        WHERE a.project_id = p.id AND a.deleted_at IS NULL
+    ) x
+  ) mv ON TRUE
+`;
+
 export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
@@ -115,10 +176,6 @@ export class ProjectService {
     if (filter.search) {
       where += ` AND (p.name ILIKE ? OR p.code ILIKE ? OR p.gls_number ILIKE ? OR c.name ILIKE ? OR c.short_name ILIKE ?)`;
       params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
-    }
-    if (filter.stage) {
-      where += ` AND p.stage = ?`;
-      params.push(filter.stage);
     }
     if (filter.assignedTo) {
       where += ` AND p.assigned_to = ?`;
@@ -179,6 +236,31 @@ export class ProjectService {
       params.push(filter.eventTo, filter.eventFrom);
     }
 
+    /*
+     * ステージだけは**最後に足す**。
+     *
+     * v4 の案件一覧はステージのチップに件数を出します
+     * (「D 仮押さえ 0」と見えていれば押さずに済む)。その件数は
+     * **ステージ以外の絞り込みを全部かけたうえで、ステージだけ外して**
+     * 数えたものでなければ意味がありません
+     * (検索語を入れているのに全件の内訳が出ると、押した先が 0 件になる)。
+     * だから「ステージ抜きの where」を1つ取っておきます。
+     */
+    const whereWithoutStage = where;
+    const paramsWithoutStage = [...params];
+    // カンマ区切りで複数受ける (「終了」= s_completed + e_lost)。
+    const asked = (filter.stage ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const stages = asked.filter((s) => STAGES.includes(s));
+    if (asked.length > 0) {
+      // **知らないステージ名は素通ししない。** 素通しすると絞り込みを指定したのに
+      // 全件が返り、「絞り込みが効いていない」ことに気づけない
+      // (`IN ()` は構文誤りになるので、当たらない条件を明示的に置く)
+      where += stages.length > 0
+        ? ` AND p.stage IN (${stages.map(() => '?').join(',')})`
+        : ' AND FALSE';
+      params.push(...stages);
+    }
+
     // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
     let orderBy: string;
     if (!filter.sortBy || filter.sortBy === 'default') {
@@ -200,7 +282,9 @@ export class ProjectService {
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
-       ai.requested_by as ai_requested_by
+       ai.requested_by as ai_requested_by,
+       nt.title as next_task_title, nt.due_date as next_task_due, nt.assignee_name as next_task_assignee,
+       GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
@@ -209,10 +293,28 @@ export class ProjectService {
          WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
          ORDER BY m.created_at ASC LIMIT 1
        ) ai ON TRUE
+       ${NEXT_TASK_LATERAL}
+       ${LAST_MOVE_LATERAL}
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [config.mcpActorId, ...params, limit, offset]
     );
-    return { rows, total, page, limit };
+    /*
+     * ステージ別の件数。**画面のチップに出す数**なので、
+     * ページングは掛けず (LIMIT 無し)、ステージ以外の絞り込みだけを掛ける。
+     * 「終了」のようにステージをまたぐまとまりは画面側で足す
+     * (ここでまとめてしまうと、別の画面が別のまとめ方をしたときに使えない)。
+     */
+    const stageCountRows = await queryAll(
+      `SELECT p.stage, COUNT(*)::int AS n
+       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       ${whereWithoutStage} GROUP BY p.stage`,
+      paramsWithoutStage
+    ) as { stage: string; n: number }[];
+    const stageCounts: Record<string, number> = {};
+    for (const s of STAGES) stageCounts[s] = 0;   // 0 件のステージも鍵を残す (チップを消さない)
+    for (const r of stageCountRows) stageCounts[r.stage] = r.n;
+
+    return { rows, total, page, limit, stageCounts };
   }
 
   async getById(id: string) {

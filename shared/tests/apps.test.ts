@@ -42,10 +42,11 @@ describe('アプリ登録そのもの', () => {
   it('**名前は決めたとおり** (4か所で食い違っていた分)', () => {
     expect(APP_LABELS.studio).toBe('カレンダー');   // 「スタジオ予約」ではない
     expect(APP_LABELS.sales).toBe('案件管理');
-    // 4か所で一致していた名前は**勝手に変えない** (v4 の文書は別の呼び方だが、
-    // 変えるかどうかは利用者に確認してから)
-    expect(APP_LABELS.qsheet).toBe('Qシート');
-    expect(APP_LABELS.admin).toBe('システム管理');
+    // v4 で改名した2つ (利用者に確認済み)。
+    // 「Qシート」は**制作資料の中のミニアプリの名前**として残っており、
+    // アプリの名前は「制作資料」。設定は `/admin` → `/settings` の改名と対
+    expect(APP_LABELS.qsheet).toBe('制作資料');
+    expect(APP_LABELS.admin).toBe('設定');
   });
 
   it('外部リンクは http で始まる', () => {
@@ -144,7 +145,7 @@ describe('appOfPath — URL から現在地を判定', () => {
     expect(appOfPath('/sales/projects')?.key).toBe('sales');
     expect(appOfPath('/budget/revenues')?.key).toBe('budget');
     expect(appOfPath('/equipment/items')?.key).toBe('equipment');
-    expect(appOfPath('/admin/users')?.key).toBe('admin');
+    expect(appOfPath('/settings/users')?.key).toBe('admin');   // 権限モジュール名は admin のまま
   });
 
   it('トップページはどのアプリでもない', () => {

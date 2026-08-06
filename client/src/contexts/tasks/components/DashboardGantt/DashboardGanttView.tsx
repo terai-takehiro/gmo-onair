@@ -44,13 +44,13 @@ function barColor(col: TaskColumn | undefined): string {
 }
 
 // ---- urgency for mobile badge ----
+// 期限の近さで色を変える。`text-yellow-700` は白地で薄すぎた (実測 rgb(183,143,0)) ので状態の色トークンへ
 function urgencyClass(due: string | null): string {
   if (!due) return "bg-muted text-muted-foreground";
   const days = diffDays(new Date(), new Date(due));
-  if (days < 0) return "bg-red-100 text-red-700";
-  if (days <= 3) return "bg-orange-100 text-orange-700";
-  if (days <= 7) return "bg-yellow-100 text-yellow-700";
-  return "bg-slate-100 text-slate-600";
+  if (days < 0) return "bg-destructive-surface text-destructive";
+  if (days <= 7) return "bg-warning-surface text-warning";
+  return "bg-muted text-muted-foreground";
 }
 
 // ============================================================
@@ -147,7 +147,7 @@ function MobileGanttView({
           <div key={project.id} className="border rounded-xl overflow-hidden">
             {/* Project header */}
             <button
-              onClick={() => navigate(`/sales/projects/${project.id}/tasks`)}
+              onClick={() => navigate(`/sales/projects/${project.id}/task`)}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
             >
               <span className="font-semibold text-sm truncate">
@@ -346,7 +346,7 @@ function DesktopGanttView({
                     className="border-b bg-muted/40 flex items-center px-2"
                   >
                     <button
-                      onClick={() => navigate(`/sales/projects/${row.project.id}/tasks`)}
+                      onClick={() => navigate(`/sales/projects/${row.project.id}/task`)}
                       className="text-xs font-semibold truncate hover:text-primary transition-colors text-left w-full"
                     >
                       {row.project.gls_number ? `${row.project.gls_number} ` : ""}

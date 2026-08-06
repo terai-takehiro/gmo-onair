@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
@@ -20,9 +20,9 @@ import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InboxPage from "@/contexts/sales/pages/InboxPage";
-import PipelinePage from "@/contexts/sales/pages/PipelinePage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
+import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
@@ -32,15 +32,12 @@ import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
-import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Tasks (タスク管理)
-import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 
 // Production (スタジオ予約)
-import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
@@ -79,6 +76,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * 旧 `/sales/projects/:projectId/{tasks,episodes,estimates}` — v4 ⑥ で
+ * 案件詳細のタブに畳んだ。**ブックマークと配布済みのリンクを生かすための転送**。
+ */
+/** 旧 `/admin/*` → `/settings/*`。`/admin/settings` だけは `/settings` に畳む */
+function RedirectAdminToSettings() {
+  const { pathname, search } = useLocation();
+  const rest = pathname.replace(/^\/admin\/?/, '');
+  const to = rest === '' || rest === 'settings' ? '/settings' : `/settings/${rest}`;
+  return <Navigate to={to + search} replace />;
+}
+
+function RedirectToDetailTab({ tab }: { tab: string }) {
+  const { projectId } = useParams<{ projectId: string }>();
+  return <Navigate to={`/sales/projects/${projectId}/${tab}`} replace />;
+}
+
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -115,16 +129,28 @@ function AppRoutes() {
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        {/*
+            v4 ⑥: 案件詳細は**読む画面**（タブ付き）になった。直すのは /edit の
+            いままでのフォームそのまま。枠の入れ替えと中身の作り直しを同じ回でやると、
+            どちらが原因で壊れたのか切り分けられなくなるので分けてある。
+            `:tab` は `/sales/projects/:projectId/episodes` などの静的なルートより
+            後に評価される（React Router は静的な区切りを優先する）
+        */}
+        <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:id/edit" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:id/:tab" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/tasks" element={<PermissionRoute module="sales"><ProjectTasksPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="episode" />} />
+        <Route path="/sales/projects/:projectId/estimates" element={<RedirectToDetailTab tab="estimate" />} />
+        {/* v4 ⑥-B: 案件のタスクは案件詳細の「タスク」タブに畳んだ (ブックマークは生かす) */}
+        <Route path="/sales/projects/:projectId/tasks" element={<RedirectToDetailTab tab="task" />} />
         <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/inbox" element={<PermissionRoute module="sales"><InboxPage /></PermissionRoute>} />
-        <Route path="/sales/pipeline" element={<PermissionRoute module="sales"><PipelinePage /></PermissionRoute>} />
+        {/* v4: ヨミ・パイプラインは案件一覧の「ボード」表示に畳んだ (別画面だと絞り込みが引き継げず、
+            一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
+        <Route path="/sales/pipeline" element={<Navigate to="/sales/projects?view=board" replace />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
@@ -157,12 +183,18 @@ function AppRoutes() {
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
-        <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
-        <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
-        <Route path="/admin/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
+        <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは /budget/kessan-import へ移管。旧URLはリダイレクト */}
         <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
-        <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        {/*
+            v4: 設定は `/admin/*` → `/settings/*` に改名した。「設定」は権限・お金のルール・
+            休日など**管理者専用ではない業務設定**を含むので `/admin` は誤解を招く。
+            旧 URL はブックマークを生かすためにまとめて転送する
+        */}
+        <Route path="/admin/*" element={<RedirectAdminToSettings />} />
+        <Route path="/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
         <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />

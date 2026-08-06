@@ -41,7 +41,19 @@ const PAGES = [
   // 共通部品 (表 / 検索付き選択 / 金額入力) を使う画面を並べてある。
   // shared に部品を移したとき、ここが変わらないことが「置き場所を変えただけ」の証拠になる。
   ['案件管理 今日', '/today'],
-  ['案件管理 案件', '/projects'],
+  ['案件管理 案件一覧', '/sales/projects'],
+  // v4 でボードは案件一覧の見え方の1つになった (旧 /sales/pipeline)。
+  // リストとは別の描き方なので**別に測る** — カードの中は行部品を使わない
+  ['案件管理 案件ボード', '/sales/projects?view=board'],
+  ['案件管理 案件詳細', '/sales/projects/pj-1'],
+  ['案件管理 案件詳細タスク', '/sales/projects/pj-1/task', { slow: true }],
+  ['案件管理 案件詳細見積', '/sales/projects/pj-1/estimate'],
+  ['案件管理 案件詳細書類', '/sales/projects/pj-1/files'],
+  ['案件管理 案件詳細当日', '/sales/projects/pj-1/day'],
+  ['案件管理 案件詳細未作成', '/sales/projects/pj-1/review'],
+  ['案件管理 案件編集', '/sales/projects/pj-1/edit', { slow: true }],
+  ['案件管理 タスク一覧', '/sales/tasks/list'],
+  ['案件管理 タスクガント', '/sales/tasks/gantt', { slow: true }],
   ['案件管理 レビュー', '/sales/review', { slow: true }],
   ['案件管理 料金表', '/sales/pricing'],
   ['案件管理 案件グループ', '/sales/project-groups'],
@@ -53,9 +65,10 @@ const PAGES = [
   ['財務 売上', '/budget/revenues', { slow: true }],
   ['財務 取引先レポート', '/budget/reports/vendors'],
   ['財務 楽楽精算取込', '/budget/xpoint-import'],
-  ['設定 メンバー', '/admin/users'],
-  ['設定 データ', '/admin/data-viewer'],
-  ['設定 DBバックアップ', '/admin/db-backups'],
+  ['設定 メンバー', '/settings/users'],
+  ['設定 データ', '/settings/data-viewer'],
+  ['設定 DBバックアップ', '/settings/db-backups'],
+  ['設定 全体', '/settings'],
   ['Qシート 一覧', '/qsheet/'],
   ['Qシート 編集', '/qsheet/editor/verify-onair'],
   ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
@@ -265,6 +278,16 @@ function measure() {
     if (s.overflowY !== 'visible' && s.overflowY !== 'hidden') return;   // 自分でスクロールできる
     if (s.display === 'none' || s.visibility === 'hidden') return;
     if (!el.clientHeight) return;                           // 潰れている箱は別の話
+    /*
+     * **`line-clamp` は「切れている」のではなく「切ると決めた」もの。**
+     * 1行の `truncate` は自分で `text-overflow: ellipsis` を出すので
+     * scrollHeight が伸びず、ここには最初から当たらない。
+     * ところが同じ判断を複数行でやる `line-clamp-N` は縦に伸びるので
+     * 当たってしまい、**同じ決めごとの片方だけが違反になる**。
+     * 省略記号が出て、押せば全文のある画面へ行けるので到達不能ではない。
+     * (v4 の案件ボードのカード名で踏んだ)
+     */
+    if (s.webkitLineClamp && s.webkitLineClamp !== 'none') return;
     // overflow: visible ならはみ出した中身は見えている。祖先のどこかが
     // スクロールを持っていれば到達できるので、それを探す。
     let node = el.parentElement, reachable = s.overflowY === 'visible';

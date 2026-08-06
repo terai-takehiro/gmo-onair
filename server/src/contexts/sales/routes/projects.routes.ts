@@ -33,8 +33,10 @@ router.get('/', async (req, res) => {
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
-  const { rows, total } = await projectService.list(filter, page, limit, offset);
-  res.json(paginatedResponse(rows, total, page, limit));
+  const { rows, total, stageCounts } = await projectService.list(filter, page, limit, offset);
+  // stage_counts は v4 の案件一覧のチップに出す件数 (ステージ以外の絞り込みだけを掛けたもの)。
+  // 既存の呼び出し側は data / pagination しか見ないので足しても壊れない
+  res.json({ ...paginatedResponse(rows, total, page, limit), stage_counts: stageCounts });
 });
 
 // CSV Export
