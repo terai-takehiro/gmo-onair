@@ -55,7 +55,7 @@ const TREE = [
     ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
   ]],
   ['財務管理', [
-    ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/FinanceDashboardPage.tsx'],
+    ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/BudgetDashboardPage.tsx'],
     ['請求・入金', '/budget/billing', 'client/src/contexts/finance/pages/ClosingPage.tsx'],
     ['売上', '/budget/revenues', 'client/src/contexts/finance/pages/RevenueListPage.tsx'],
     ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
