@@ -48,7 +48,9 @@ function MarkCell({
           type="button"
           disabled={!canEdit || busy}
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="rounded-badge text-sub-sm flex min-h-tap w-full flex-col items-center justify-center bg-success-surface py-0.5 font-bold text-success disabled:cursor-default lg:min-h-[34px]"
+          // **高さを決め打ちにする。** 2行（済の印 + 日付）なので、`min-h` だけだと
+          // 中身の高さが勝って 41px になり、ボタンの段（32/36/40/44…）から外れる
+          className="rounded-badge text-sub-sm flex min-h-tap w-full flex-col items-center justify-center leading-[1.15] bg-success-surface font-bold text-success disabled:cursor-default lg:h-9 lg:min-h-0"
           title={canEdit ? `${doneLabel}を取り消す` : undefined}
         >
           <span className="flex items-center gap-1"><Check className="h-3 w-3" aria-hidden="true" />{doneLabel}</span>
@@ -64,7 +66,7 @@ function MarkCell({
           type="button"
           disabled={busy}
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary lg:min-h-[34px]"
+          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary lg:h-9 lg:min-h-0"
         >
           {todoLabel}
         </button>

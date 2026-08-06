@@ -171,8 +171,15 @@ v4 の3アプリは帯（`notify.ts`）を使うこと。Qシートを v4 に載
 | `shell/MobileTabs.tsx` | スマホ下端のタブ（高さ 56px ＋ `safe-area-inset-bottom`） |
 | `shell/types.ts` | `ShellNavSection` / `ShellNavItem` / `ShellMobileTab` |
 
-- **メニューの中身はシェルが決めない。** 各アプリの `src/components/layout/nav.ts` が
-  渡す（v4 では**枠だけ入れ替え、項目・並び・ラベルは今までのまま**）
+- **メニューの中身はシェルが決めない。** 各アプリの `src/components/layout/nav.ts` が渡す。
+  **案件管理だけ v4 の情報設計に差し替え済み**（3つの塊 + 折りたたみの「そのほか」）。
+  ほかのアプリは今までのままで、その入口の画面を作り終えたときに差し替える
+- **光らせるのは1つだけ**（`currentTo()`）。`isCurrent` は入れ子の項目
+  （`/sales/projects` と `/sales/projects/confirmed/studio`）で**両方 true になる**ため、
+  一致した中でいちばん深いものだけを現在地にする。`shared/tests/apps.test.ts` で固定
+- **`ShellNavSection.collapsible`** で塊を折りたためる。**v4 で作り直す前の画面を畳む**ため。
+  メニューから消すと動いている画面に辿り着けず、全部並べると v4 の並びが読めない。
+  **いまいる画面がその中にあるときは自動で開く**（閉じたままだとどこも光らず迷子になる）
 - **`<NoticeBar />` と `<ConfirmHost />` はシェルが持つ。** アプリ側に置かないこと
   （`check-shared-wiring.mjs` が数を数える。シェル自身が描いているかも見る）
 - **現在地の判定は `isCurrent()`。** `NavLink` の既定に任せない —
@@ -363,6 +370,13 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 
 - **`shared/` を触る PR は全アプリの再ビルドを起こす。** 「共通部分を触る PR」と
   「1アプリだけの PR」を意識して分けること（分ければ後者はビルドがスキップされる）
+- **`shared/src/` に新しいクラス名を書くと、凍結4アプリの CSS にも入る。**
+  各アプリの Tailwind の `content` が `../shared/src/client/**` を含むため、
+  **そのアプリが描かない部品のクラスまで CSS になる**。実際に左メニューへ
+  `lg:min-h-[32px]` を1つ足しただけで凍結3アプリの CSS が 28 バイト増えた
+  （`tests/` を `src/` の外に置いてあるのと同じ理由）。
+  → **shared に手を入れたら凍結4アプリの CSS のハッシュを必ず突き合わせること。**
+  既にある値で足りるならそれを使う（上の例は `lg:min-h-[38px]` で解決した）
 - **アプリ一覧は `src/client/apps.ts` が唯一の正**（S1 で統合済み）。
   以前は `AppSwitcher` の `ONAIR_APPS`・`appNav` の `ALL_APPS`・`client` の `BLOCK_APPS`・
   各 `Sidebar`・`NoPermissionPanel` の5か所にあり、**すでに食い違っていた**

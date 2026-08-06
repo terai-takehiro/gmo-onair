@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { formatCurrency } from "@/lib/format";
 import {
   Vendor,
 } from "@/types";
@@ -14,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectTrigger,
@@ -24,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
+import { SgaExpenseTypeFields } from "./SgaExpenseTypeFields";
+import { SgaSettlementFields } from "./SgaSettlementFields";
 import { TaxCategoryLabels } from "@/types";
 
 export interface SgaFormData {
@@ -114,7 +114,11 @@ interface SgaDialogProps {
   vendors: Vendor[];
   users: { id: string; name: string }[];
   isSaving: boolean;
+  /** 消している最中か。**編集のときだけ「消す」を出す** */
+  isDeleting?: boolean;
   onSubmit: () => void;
+  /** 消す。渡さなければボタンを出さない */
+  onDelete?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -127,7 +131,9 @@ export default function SgaDialog({
   vendors,
   users,
   isSaving,
+  isDeleting = false,
   onSubmit,
+  onDelete,
   onClose,
 }: SgaDialogProps) {
   const billingKeyPreview = useMemo(
@@ -235,61 +241,8 @@ export default function SgaDialog({
             </div>
           </div>
 
-          {/* Row 3: settlement */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>精算方法</Label>
-              <Select
-                value={form.settlement_method}
-                onValueChange={(val) =>
-                  setForm((f) => ({ ...f, settlement_method: val }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="xpoint">X-Point</SelectItem>
-                  <SelectItem value="rakuraku">楽楽精算</SelectItem>
-                  <SelectItem value="other">その他</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Label>精算番号</Label>
-                <SettlementBadge number={form.settlement_number} />
-              </div>
-              <Input
-                value={form.settlement_number}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    settlement_number: e.target.value,
-                  }))
-                }
-                placeholder="申請後に番号を入力（任意）"
-              />
-              {form.settlement_number && (
-                <p className="text-xs text-muted-foreground">
-                  表示: {formatSettlementNo(form.settlement_method, form.settlement_number)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Row 3.5: 申請URL */}
-          <div className="space-y-1">
-            <Label>申請URL</Label>
-            <Input
-              type="url"
-              value={form.settlement_url}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, settlement_url: e.target.value }))
-              }
-              placeholder="精算申請ページのURL（任意）"
-            />
-          </div>
+          {/* Row 3: 精算方法・精算番号・申請URL — 400行の上限で別ファイル */}
+          <SgaSettlementFields form={form} setForm={setForm} />
 
           {/* Row 4: amount */}
           <div className="space-y-1">
@@ -311,99 +264,8 @@ export default function SgaDialog({
             </div>
           </div>
 
-          {/* Row 4.5: expense_type + amortization */}
-          <div className="space-y-2">
-            <Label>販管費種別</Label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="expense_type"
-                  checked={form.expense_type === "spot"}
-                  onChange={() =>
-                    setForm((f) => ({ ...f, expense_type: "spot" }))
-                  }
-                  className="accent-primary"
-                />
-                <span className="text-sm">スポット</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="expense_type"
-                  checked={form.expense_type === "fixed"}
-                  onChange={() =>
-                    setForm((f) => ({
-                      ...f,
-                      expense_type: "fixed",
-                      amortize_enabled: false,
-                      amortize_start: "",
-                      amortize_end: "",
-                    }))
-                  }
-                  className="accent-primary"
-                />
-                <span className="text-sm">固定(毎月)</span>
-              </label>
-            </div>
-
-            {form.expense_type === "spot" && (
-              <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm">月按分する</span>
-                  <Switch
-                    checked={form.amortize_enabled}
-                    onCheckedChange={(checked) =>
-                      setForm((f) => ({
-                        ...f,
-                        amortize_enabled: !!checked,
-                        amortize_start: checked ? f.amortize_start : "",
-                        amortize_end: checked ? f.amortize_end : "",
-                      }))
-                    }
-                  />
-                </div>
-                {form.amortize_enabled && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs">按分開始月</Label>
-                        <Input
-                          type="month"
-                          value={form.amortize_start}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              amortize_start: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">按分終了月</Label>
-                        <Input
-                          type="month"
-                          value={form.amortize_end}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              amortize_end: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    {form.amount > 0 && amortizeMonths > 0 && (
-                      <p className="text-sm text-muted-foreground font-number">
-                        {formatCurrency(form.amount)} ÷ {amortizeMonths}ヶ月 ={" "}
-                        {formatCurrency(Math.floor(form.amount / amortizeMonths))}/月
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Row 4.5: 種別と月按分 — 1ファイル400行の上限で別ファイルに分けている */}
+          <SgaExpenseTypeFields form={form} setForm={setForm} amortizeMonths={amortizeMonths} />
 
           {/* Row 5: description + notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -477,7 +339,18 @@ export default function SgaDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2 sm:justify-between">
+            <div>
+              {/* **消すのはここだけ。** 一覧の行にゴミ箱を並べると、
+                  隣の行を押して消す事故が起きる（金額の記録なので戻せない） */}
+              {editingId && onDelete && (
+                <Button variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
+                  {isDeleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  消す
+                </Button>
+              )}
+            </div>
+            <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={onClose}>
               キャンセル
             </Button>
@@ -490,6 +363,7 @@ export default function SgaDialog({
               )}
               {editingId ? "更新" : "登録"}
             </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

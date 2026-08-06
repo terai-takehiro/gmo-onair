@@ -20,8 +20,9 @@
  * 消えた人は「そんな画面は無い」と思うだけなので報告されず、作った側は
  * 自分の権限では見えているので気づきません。`shared/tests/apps.test.ts` で固定してあります。
  */
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../utils';
 import { visibleApps } from '../apps';
@@ -43,6 +44,28 @@ export function isCurrent(pathname: string, to: string, end?: boolean): boolean 
   const a = norm(pathname);
   const b = norm(to);
   return end ? a === b : a === b || a.startsWith(`${b}/`);
+}
+
+/**
+ * 光らせるのは**いちばん深く一致した1つだけ**。
+ *
+ * 入れ子の項目（`/sales/projects` と `/sales/projects/confirmed/studio`）は
+ * `isCurrent` が**両方 true になります**。2つ光ると「いまどこにいるか」が読めません。
+ * 一致した中で `to` がいちばん長いものを現在地とします。
+ *
+ * これで `/sales/projects/<案件id>`（案件詳細）では `案件一覧` が光り、
+ * `/sales/projects/confirmed/studio` では `確定案件（スタジオ）` だけが光ります。
+ */
+export function currentTo(pathname: string, sections: ShellNavSection[]): string | null {
+  let best: string | null = null;
+  for (const s of sections) {
+    for (const i of s.items) {
+      if (i.external) continue;
+      if (!isCurrent(pathname, i.to, i.end)) continue;
+      if (best === null || i.to.length > best.length) best = i.to;
+    }
+  }
+  return best;
 }
 
 export interface AppSideMenuProps extends ShellAccess {
@@ -92,6 +115,9 @@ export function AppSideMenu({
     }))
     .filter((s) => s.items.length > 0);
 
+  // **光らせるのは1つだけ。** 権限で消えた項目は数に入れない（見えないものを現在地にしない）
+  const activeTo = currentTo(pathname, visible);
+
   return (
     <>
       {/* スマホで開いているときの下敷き */}
@@ -117,8 +143,7 @@ export function AppSideMenu({
         </button>
 
         {visible.map((section, si) => (
-          <div key={section.title ?? si}>
-            {section.title && <p className="text-th mb-1 mt-3.5 px-2.5 text-muted-foreground">{section.title}</p>}
+          <Section key={section.title ?? si} section={section} activeTo={activeTo}>
             {section.items.map((item) =>
               item.external ? (
                 <a
@@ -134,7 +159,7 @@ export function AppSideMenu({
                 </a>
               ) : (
                 (() => {
-                  const active = isCurrent(pathname, item.to, item.end);
+                  const active = item.to === activeTo;
                   return (
                     <Link
                       key={item.to}
@@ -160,7 +185,7 @@ export function AppSideMenu({
                 })()
               ),
             )}
-          </div>
+          </Section>
         ))}
 
         {others.length > 0 && (
@@ -187,6 +212,54 @@ export function AppSideMenu({
         )}
       </nav>
     </>
+  );
+}
+
+/**
+ * メニューの1つの塊。`collapsible` なら折りたたむ。
+ *
+ * **いまいる画面がこの中にあるときは開いた状態で始めます。** 閉じたままだと、
+ * その画面を開いているのにメニューのどこも光らず「どこにいるか」が分かりません。
+ */
+function Section({
+  section, activeTo, children,
+}: {
+  section: ShellNavSection;
+  activeTo: string | null;
+  children: ReactNode;
+}) {
+  const hasCurrent = section.items.some((i) => i.to === activeTo);
+  const [open, setOpen] = useState(hasCurrent);
+
+  if (!section.collapsible) {
+    return (
+      <div>
+        {section.title && <p className="text-th mb-1 mt-3.5 px-2.5 text-muted-foreground">{section.title}</p>}
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3.5 border-t border-border-faint pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="text-th min-h-tap flex w-full items-center gap-1 px-2.5 text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
+        <span className="min-w-0 flex-1 truncate text-left">{section.title}</span>
+        <span className="font-number">{section.items.length}</span>
+      </button>
+      {open && (
+        <>
+          {section.note && <p className="text-note mb-1 px-2.5 text-muted-foreground">{section.note}</p>}
+          {children}
+        </>
+      )}
+    </div>
   );
 }
 

@@ -1,173 +1,150 @@
 /**
- * SgaListPage — Phase 2A 移行 (v2.6.4)
- * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
- * 列リサイズ + SgaDialog (別ファイル) は既存のまま維持。
+ * ⑤ 販管費（財務管理） (v4)
+ *
+ * **案件に紐づかない費用**です。ダッシュボードでは最後に引かれます。
+ *
+ * ── モックの「勘定科目」で絞る機能は入れていません ─────────────
+ *
+ * モックは 通信費／地代家賃／旅費交通費／その他 で絞れる形ですが、
+ * **`sga_expenses` に勘定科目の列がありません**。足すには
+ * ①科目の一覧を決める ②既存データの割り当て ③取り込み（楽楽精算・総勘定元帳）が
+ * 科目を持つ — が同時に要ります。**画面の作り直しとは別の仕事**なので、
+ * いま持っている軸（固定費／都度、社員／経理）で絞れるようにしました。
+ * 無い列で絞れるように見せると、押しても何も変わらない絞り込みが並びます。
+ *
+ * ── 一覧の左端 ────────────────────────────────────────────
+ *
+ * 勘定科目の代わりに**精算番号**を出します（旧実装もそうでした）。
+ * 経理が楽楽精算の番号で突き合わせるので、ここに無いと画面を行き来します。
  */
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
-import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
-import { formatCurrency, formatDate, formatMonth } from "@/lib/format";
-import { useAuth } from "@/contexts/platform/AuthContext";
-import { useCrudPage } from "@/hooks/useCrudPage";
-import { PageTransition } from "@/components/ui/motion";
-import {
-  SgaExpense,
-  Vendor,
-  SettlementMethod,
-  SettlementMethodLabels,
-  TaxCategory,
-  TaxCategoryLabels,
-} from "@/types";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
-import ExcelToolbar from "@/components/ExcelToolbar";
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import api from '@/lib/api';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { useCrudPage } from '@/hooks/useCrudPage';
+import ExcelToolbar from '@/components/ExcelToolbar';
+import type { SgaExpense, Vendor } from '@/types';
+import SgaDialog, { type SgaFormData, initialFormData } from '../components/SgaDialog';
+import { LedgerRows } from './ledger/LedgerRows';
+import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import type { LedgerRow } from './ledger/types';
 
-import SgaDialog, {
-  type SgaFormData,
-  initialFormData,
-  formatSettlementNo,
-  SettlementBadge,
-} from "../components/SgaDialog";
+/** 持っている軸だけで絞る（勘定科目の列が無い理由はファイル冒頭に書いた） */
+const CHIPS = [
+  { key: 'all', label: 'すべて', expense_type: '', source: '', count: 'all' },
+  { key: 'fixed', label: '固定費', expense_type: 'fixed', source: '', count: 'fixed' },
+  { key: 'spot', label: '都度', expense_type: 'spot', source: '', count: 'spot' },
+  { key: 'staff', label: '社員が入れた', expense_type: '', source: 'staff', count: 'staff' },
+  { key: 'accounting', label: '経理の取込', expense_type: '', source: 'accounting', count: 'accounting' },
+];
+
+/** 按分中 > 固定 > 都度 の順に1つだけ出す（3つ並べると何が要点か分からない） */
+function sgaState(item: SgaExpense): LedgerRow['state'] {
+  if (item.amortize_start) {
+    // 期間は「から/まで」で書く（`〜` の手打ちは `DateRange` を使う決めごとに反する）
+    const to = item.amortize_end ? `${item.amortize_end} まで` : '終わり未定';
+    return { label: '按分中', tone: 'info', title: `${item.amortize_start} から ${to} で分けています` };
+  }
+  if (item.expense_type === 'fixed') return { label: '固定', tone: 'ok', title: '毎月かかる費用' };
+  return { label: '都度', tone: 'neutral', title: 'その都度の費用' };
+}
 
 export default function SgaListPage() {
-  const { currentUser } = useAuth();
-  const [sourceFilter, setSourceFilter] = useState<string>("");
-  // 既定は今月で絞り込み
-  const [monthFilter, setMonthFilter] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [colWidths, setColWidths] = useState<Record<string, number>>({});
-  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+  const { currentUser, hasPermission } = useAuth();
+  const canEdit = hasPermission('budget', 'editor');
+  const [searchParams] = useSearchParams();
 
-  // 列ヘッダー並び替え (null = サーバー既定: 金額降順)
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const sortParam = sortCol ? `${sortCol}_${sortDir}` : undefined;
-  const handleSort = (col: string) => {
-    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortCol(col); setSortDir("asc"); }
-    crud.setPage(1);
-  };
-  // 列キー → サーバーソートキー
-  const SORT_KEY: Record<string, string> = {
-    bkey: "billing_key", vendor: "vendor", desc: "desc", rec: "recognition",
-    due: "due", tax: "tax", amount: "amount", method: "method",
-    status: "settlement", type: "type", source: "source",
-  };
+  const [chip, setChip] = useState('all');
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const crud = useCrudPage<SgaExpense>({
-    endpoint: "/sga",
-    queryKey: ["sga-list"],
+    endpoint: '/sga',
+    queryKey: ['sga-list'],
     extraParams: {
-      source: sourceFilter || undefined,
-      recognition_month: monthFilter || undefined,
-      sort: sortParam,
+      source: cur.source || undefined,
+      expense_type: cur.expense_type || undefined,
+      recognition_month: month || undefined,
     },
   });
 
+  const raw = crud.raw as { total_amount?: number; state_counts?: Record<string, number> } | undefined;
+  const counts = raw?.state_counts ?? {};
+
   const [form, setForm] = useState<SgaFormData>(initialFormData);
 
-  // 財務ダッシュボード等から ?edit={id} で遷移されたら、その販管費の編集モーダルを開く
-  const [searchParams] = useSearchParams();
-  const editParam = searchParams.get("edit");
-  const editOpenedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!editParam || editOpenedRef.current === editParam) return;
-    editOpenedRef.current = editParam;
-    (async () => {
-      try {
-        const row = (await api.get(`/sga/${editParam}`)).data?.data;
-        if (row) crud.openEdit(row as SgaExpense);
-      } catch {
-        /* 取得失敗時は無視 */
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editParam]);
-
-  // editingItem 同期: open 時に form を埋める / close 時にリセット
-  useEffect(() => {
-    if (crud.editingItem) {
-      const item = crud.editingItem;
-      setForm({
-        vendor_name: item.vendor_name ?? "",
-        vendor_id: item.vendor_id ?? "",
-        tax_category: item.tax_category ?? "tax10",
-        recognition_date: item.recognition_date?.slice(0, 10) ?? "",
-        settlement_method: item.settlement_method ?? "xpoint",
-        settlement_number:
-          item.settlement_number === "pending" ? "" : (item.settlement_number ?? ""),
-        settlement_number_pending: item.settlement_number === "pending",
-        settlement_url: item.settlement_url ?? "",
-        amount: item.amount ?? 0,
-        description: item.description ?? "",
-        notes: item.notes ?? "",
-        invoice_qualified: item.invoice_qualified ?? true,
-        payment_due_date: item.payment_due_date?.slice(0, 10) ?? "",
-        assigned_to: item.assigned_to ?? currentUser?.id ?? "",
-        expense_type: item.expense_type ?? "spot",
-        amortize_enabled: !!item.amortize_start,
-        amortize_start: item.amortize_start ?? "",
-        amortize_end: item.amortize_end ?? "",
-        source: item.source || "staff",
-      });
-    } else if (crud.dialogOpen) {
-      // 新規追加: assigned_to を current user に
-      setForm({ ...initialFormData, assigned_to: currentUser?.id ?? "" });
-    } else {
-      setForm(initialFormData);
-    }
-  }, [crud.editingItem, crud.dialogOpen, currentUser]);
-
-  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const newW = Math.max(50, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
-      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
-    };
-    const onMouseUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }, []);
-
-  // Fetch vendors (販管費支払先のみ) — dialog 開いたときだけ
   const { data: vendorsData } = useQuery({
-    queryKey: ["vendors-list-sga"],
-    queryFn: async () => (await api.get("/vendors?limit=200&sga_payee_only=true")).data,
+    queryKey: ['vendors-list-sga'],
+    queryFn: async () => (await api.get('/vendors?limit=200&sga_payee_only=true')).data,
     enabled: crud.dialogOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
   const { data: usersData } = useQuery({
-    queryKey: ["users-list"],
-    queryFn: async () => (await api.get("/users?limit=200")).data,
+    queryKey: ['users-list'],
+    queryFn: async () => (await api.get('/users?limit=200')).data,
     enabled: crud.dialogOpen,
   });
   const users = usersData?.data ?? [];
 
+  /** ダイアログを開く。**開くときに詰める** — 閉じたときに消し忘れる形をやめた */
+  const openFor = (item: SgaExpense | null) => {
+    if (item) {
+      setForm({
+        vendor_name: item.vendor_name ?? '',
+        vendor_id: item.vendor_id ?? '',
+        tax_category: item.tax_category ?? 'tax10',
+        recognition_date: item.recognition_date?.slice(0, 10) ?? '',
+        settlement_method: item.settlement_method ?? 'xpoint',
+        settlement_number: item.settlement_number === 'pending' ? '' : (item.settlement_number ?? ''),
+        settlement_number_pending: item.settlement_number === 'pending',
+        settlement_url: item.settlement_url ?? '',
+        amount: item.amount ?? 0,
+        description: item.description ?? '',
+        notes: item.notes ?? '',
+        invoice_qualified: item.invoice_qualified ?? true,
+        payment_due_date: item.payment_due_date?.slice(0, 10) ?? '',
+        assigned_to: item.assigned_to ?? currentUser?.id ?? '',
+        expense_type: item.expense_type ?? 'spot',
+        amortize_enabled: !!item.amortize_start,
+        amortize_start: item.amortize_start ?? '',
+        amortize_end: item.amortize_end ?? '',
+        source: item.source || 'staff',
+      });
+      crud.openEdit(item);
+    } else {
+      setForm({ ...initialFormData, assigned_to: currentUser?.id ?? '' });
+      crud.openAdd();
+    }
+  };
+
+  // 財務ダッシュボード等から ?edit={id} で来たら、その販管費を開く
+  const editParam = searchParams.get('edit');
+  useQuery({
+    queryKey: ['sga-open-edit', editParam],
+    queryFn: async () => {
+      const row = (await api.get(`/sga/${editParam}`)).data?.data as SgaExpense | undefined;
+      if (row) openFor(row);
+      return row ?? null;
+    },
+    enabled: !!editParam,
+    staleTime: Infinity,
+  });
+
   const handleSubmit = () => {
-    const payload: Record<string, unknown> = {
+    crud.save.mutate({
       vendor_name: form.vendor_name,
       vendor_id: form.vendor_id || null,
       tax_category: form.tax_category,
@@ -183,371 +160,159 @@ export default function SgaListPage() {
       assigned_to: form.assigned_to || null,
       expense_type: form.expense_type,
       amortize_start:
-        form.expense_type === "spot" && form.amortize_enabled && form.amortize_start
-          ? form.amortize_start
-          : null,
+        form.expense_type === 'spot' && form.amortize_enabled && form.amortize_start
+          ? form.amortize_start : null,
       amortize_end:
-        form.expense_type === "spot" && form.amortize_enabled && form.amortize_end
-          ? form.amortize_end
-          : null,
+        form.expense_type === 'spot' && form.amortize_enabled && form.amortize_end
+          ? form.amortize_end : null,
       source: form.source,
-    };
-    crud.save.mutate(payload);
+    });
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("この販管費を削除しますか？")) return;
-    crud.remove.mutate(id);
+  const handleDelete = async (id: string) => {
+    const item = crud.items.find((i) => i.id === id);
+    const ok = await confirmAction({
+      title: 'この販管費を消しますか',
+      description: `${item?.vendor_name ?? '支払先なし'}「${item?.description ?? '詳細なし'}」を消します。元に戻せません。`,
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (ok) crud.remove.mutate(id);
   };
+
+  const items = useMemo(() => crud.items ?? [], [crud.items]);
+  const ledgerRows: LedgerRow[] = useMemo(
+    () => items.map((item) => ({
+      id: item.id,
+      // 勘定科目の列が無いので精算番号を出す（`pending` は「番号待ち」）
+      code: item.settlement_number === 'pending' ? '番号待ち' : item.settlement_number,
+      title: item.description || '（詳細なし）',
+      sub: null,
+      party: item.vendor_name,
+      amount: Number(item.amount) || 0,
+      tax_category: item.tax_category,
+      recognition_date: item.recognition_date,
+      state: sgaState(item),
+      project_id: null,
+    })),
+    [items],
+  );
 
   return (
-    <PageTransition>
-      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-        <div className="flex flex-wrap gap-2 items-center justify-between">
-          <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
-          <div className="flex flex-wrap gap-2">
-            <ExcelToolbar
-              resource="/sga-expenses"
-              name="販管費"
-              queryKey={["sga-expenses"]}
-              hasDuplicateKey={false}
-              exportParams={{
-                search: crud.search || undefined,
-                source: sourceFilter || undefined,
-                recognition_month: monthFilter || undefined,
-                sort: sortParam,
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="販管費"
+        sub="案件に紐づかない費用です。ダッシュボードでは最後に引かれます"
+        primaryAction={
+          canEdit ? (
+            <Button onClick={() => openFor(null)}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />販管費を登録
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <ExcelToolbar
+            resource="/sga-expenses"
+            name="販管費"
+            queryKey={['sga-expenses']}
+            hasDuplicateKey={false}
+            exportParams={{
+              search: crud.search || undefined,
+              source: cur.source || undefined,
+              expense_type: cur.expense_type || undefined,
+              recognition_month: month || undefined,
+            }}
+          />
+        </div>
+      </PageHeader>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <LedgerSearch
+          value={crud.search}
+          onChange={crud.setSearch}
+          placeholder="支払先・詳細で探す"
+        />
+        <MonthPicker value={month} onChange={(v) => { setMonth(v); crud.setPage(1); }} />
+      </div>
+
+      <FilterChips
+        label="販管費の種類で絞り込む"
+        items={CHIPS.map((c) => ({
+          key: c.key,
+          label: c.label,
+          count: counts[c.count] ?? null,
+        }))}
+        value={chip}
+        onChange={(k) => { setChip(k); crud.setPage(1); }}
+      />
+
+      {crud.isError ? (
+        <ErrorPanel title="販管費を読み込めませんでした" error={crud.error} onRetry={() => crud.refetch()} />
+      ) : crud.isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : items.length === 0 ? (
+        crud.search ? (
+          <NoSearchResults
+            keyword={crud.search}
+            activeFilters={[
+              cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
+              month ? `発生月: ${month}` : '',
+            ].filter(Boolean)}
+            onClearFilters={() => { crud.setSearch(''); setChip('all'); setMonth(''); }}
+          />
+        ) : (
+          <EmptyState
+            title={month ? `${month.replace('-', '年')}月の販管費はありません` : '販管費がありません'}
+            description="社員が入れたものと、経理が取り込んだものの両方がここに並びます。"
+          />
+        )
+      ) : (
+        <>
+          <div className="flex flex-col">
+            <LedgerRows
+              rows={ledgerRows}
+              codeLabel="精算番号"
+              titleLabel="詳細"
+              partyLabel="支払先"
+              stateLabel="種類"
+              onOpen={(row) => {
+                const full = items.find((i) => i.id === row.id);
+                if (full && canEdit) openFor(full);
               }}
             />
-            <Button onClick={crud.openAdd}>
-              <Plus className="mr-1 h-4 w-4" />
-              新規登録
-            </Button>
           </div>
-        </div>
 
-        <FilterBar
-          search={crud.search}
-          onSearchChange={crud.setSearch}
-          searchPlaceholder="支払先・詳細で検索..."
-          tabs={[
-            { value: "", label: "全て" },
-            { value: "staff", label: "スタッフ入力" },
-            { value: "accounting", label: "経理入力" },
-          ]}
-          activeTab={sourceFilter}
-          onTabChange={(v) => {
-            setSourceFilter(v);
-            crud.setPage(1);
-          }}
-          layout="stacked"
-        />
-
-        {/* 月絞り込み (並び替えは各列ヘッダーのクリックで操作) */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">発生年月で絞り込み</span>
-          <Input
-            type="month"
-            value={monthFilter}
-            onChange={(e) => {
-              setMonthFilter(e.target.value);
-              crud.setPage(1);
-            }}
-            className="w-40"
+          <LedgerFooter
+            count={crud.pagination?.total ?? items.length}
+            total={raw?.total_amount ?? 0}
+            note="販管費は案件に紐づきません。ダッシュボードで案件を絞り込むと集計から外れます。モックにある勘定科目での絞り込みは、その列がまだ無いため入れていません。"
           />
-          {monthFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={() => {
-                setMonthFilter("");
-                crud.setPage(1);
-              }}
-            >
-              解除
-            </Button>
-          )}
-          <span className="text-xs text-muted-foreground">
-            ／ 各列の見出しクリックで並び替え（既定: 金額降順）
-          </span>
-        </div>
 
-        {crud.isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
-          </div>
-        ) : crud.items.length === 0 ? (
-          <EmptyState title="データがありません" />
-        ) : (
-          <>
-            {/* Mobile cards */}
-            <div className="space-y-2 lg:hidden">
-              {crud.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium truncate">{item.vendor_name || "-"}</span>
-                        <SettlementBadge number={item.settlement_number} />
-                        {item.settlement_url && (
-                          <a
-                            href={item.settlement_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center text-primary hover:text-primary/80"
-                            title="申請URLを開く"
-                            aria-label="申請URLを開く"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
-                        {item.amortize_start ? (
-                          <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            按分中
-                          </span>
-                        ) : item.expense_type === "fixed" ? (
-                          <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            固定
-                          </span>
-                        ) : (
-                          <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                            スポット
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1 truncate">
-                        {item.description || "-"}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {formatDate(item.recognition_date)}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <div className="font-medium font-number">{formatCurrency(item.amount)}</div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => crud.openEdit(item)}
-                          aria-label="編集"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          disabled={crud.remove.isPending}
-                          onClick={() => handleDelete(item.id)}
-                          aria-label="削除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <Pagination
+            page={crud.page}
+            totalPages={crud.pagination?.totalPages ?? 1}
+            total={crud.pagination?.total ?? 0}
+            onChange={crud.setPage}
+            disabled={crud.isLoading}
+          />
+        </>
+      )}
 
-            {/* Desktop table */}
-            <div className="hidden lg:block overflow-x-auto">
-              <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
-                <TableHeader>
-                  <TableRow>
-                    {(
-                      [
-                        { key: "bkey", label: "請求KEY", defaultW: 120 },
-                        { key: "vendor", label: "支払先", defaultW: 130 },
-                        { key: "desc", label: "詳細", defaultW: 180 },
-                        { key: "rec", label: "発生年月", defaultW: 90 },
-                        { key: "due", label: "支払期日", defaultW: 90 },
-                        { key: "tax", label: "税区分", defaultW: 70 },
-                        { key: "amount", label: "金額", defaultW: 100, align: "right" },
-                        { key: "method", label: "精算方法", defaultW: 90 },
-                        { key: "status", label: "精算状況", defaultW: 90 },
-                        { key: "type", label: "種別", defaultW: 70 },
-                        { key: "source", label: "処理元", defaultW: 70 },
-                        { key: "ops", label: "操作", defaultW: 70 },
-                      ] as { key: string; label: string; defaultW: number; align?: string }[]
-                    ).map(({ key, label, defaultW, align }) => {
-                      const w =
-                        colWidths[key] ??
-                        (Object.keys(colWidths).length > 0 ? defaultW : undefined);
-                      return (
-                        <TableHead
-                          key={key}
-                          style={w ? { width: w, minWidth: 40 } : undefined}
-                          className={`select-none whitespace-nowrap relative${
-                            align === "right" ? " text-right" : ""
-                          }`}
-                        >
-                          {SORT_KEY[key] ? (
-                            <button
-                              type="button"
-                              onClick={() => handleSort(SORT_KEY[key])}
-                              className={`inline-flex items-center gap-0.5 hover:text-primary ${
-                                align === "right" ? "flex-row-reverse" : ""
-                              }`}
-                              title="クリックで並び替え"
-                            >
-                              {label}
-                              <span className="text-[10px] leading-none text-primary">
-                                {sortCol === SORT_KEY[key] ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                              </span>
-                            </button>
-                          ) : (
-                            label
-                          )}
-                          <span
-                            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
-                            onMouseDown={(e) =>
-                              startResize(key, e, colWidths[key] ?? defaultW)
-                            }
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {crud.items.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => crud.openEdit(item)}
-                    >
-                      <TableCell className=" text-xs">
-                        {item.billing_key || "-"}
-                      </TableCell>
-                      <TableCell>{item.vendor_name || "-"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {item.description || "-"}
-                      </TableCell>
-                      <TableCell>{formatMonth(item.recognition_date)}</TableCell>
-                      <TableCell>{formatDate(item.payment_due_date)}</TableCell>
-                      <TableCell>
-                        {TaxCategoryLabels[item.tax_category as TaxCategory] ??
-                          item.tax_category}
-                      </TableCell>
-                      <TableCell className="text-right font-medium font-number">
-                        {formatCurrency(item.amount)}
-                      </TableCell>
-                      <TableCell>
-                        {SettlementMethodLabels[item.settlement_method as SettlementMethod] ??
-                          item.settlement_method ??
-                          "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <SettlementBadge number={item.settlement_number} />
-                          {item.settlement_number && item.settlement_number !== "pending" && (
-                            <span className=" text-xs">
-                              {formatSettlementNo(
-                                item.settlement_method ?? "",
-                                item.settlement_number,
-                              )}
-                            </span>
-                          )}
-                          {item.settlement_url && (
-                            <a
-                              href={item.settlement_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center text-primary hover:text-primary/80"
-                              title="申請URLを開く"
-                              aria-label="申請URLを開く"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {item.amortize_start ? (
-                          <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                            按分中
-                          </span>
-                        ) : item.expense_type === "fixed" ? (
-                          <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            固定
-                          </span>
-                        ) : (
-                          <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                            スポット
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                            item.source === "accounting"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-sky-100 text-sky-700"
-                          }`}
-                        >
-                          {item.source === "accounting" ? "経理" : "スタッフ"}
-                        </span>
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => crud.openEdit(item)}
-                            aria-label="編集"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                            disabled={crud.remove.isPending}
-                            onClick={() => handleDelete(item.id)}
-                            aria-label="削除"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
-
-        <Pagination
-          page={crud.page}
-          totalPages={crud.pagination?.totalPages ?? 1}
-          total={crud.pagination?.total ?? 0}
-          onChange={crud.setPage}
-          disabled={crud.isLoading}
-        />
-
-        <SgaDialog
-          open={crud.dialogOpen}
-          onOpenChange={crud.setDialogOpen}
-          editingId={crud.editingItem?.id ?? null}
-          form={form}
-          setForm={setForm}
-          vendors={vendors}
-          users={users}
-          isSaving={crud.save.isPending}
-          onSubmit={handleSubmit}
-          onClose={crud.closeDialog}
-        />
-      </div>
-    </PageTransition>
+      <SgaDialog
+        open={crud.dialogOpen}
+        onOpenChange={(v) => { if (!v) crud.closeDialog(); else crud.setDialogOpen(v); }}
+        form={form}
+        setForm={setForm}
+        vendors={vendors}
+        users={users}
+        editingId={crud.editingItem?.id ?? null}
+        isSaving={crud.save.isPending}
+        isDeleting={crud.remove.isPending}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        onClose={crud.closeDialog}
+      />
+    </div>
   );
 }

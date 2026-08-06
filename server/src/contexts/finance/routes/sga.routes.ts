@@ -23,7 +23,26 @@ router.get('/', async (req, res) => {
     `SELECT s.* FROM sga_expenses s ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
-  res.json(paginatedResponse(rows, total, page, limit));
+  // 一覧の下に出す合計。**表示中のページではなく絞り込み全体**
+  const sum = (await queryOne(
+    `SELECT COALESCE(SUM(s.amount), 0) as s FROM sga_expenses s ${where}`, params)) as { s: string } | null;
+
+  // 絞り込みチップの件数。**種別以外の絞り込みだけ**を掛けて数える
+  const { expense_type: _t, source: _s, ...restQuery } = req.query as Record<string, unknown>;
+  const base = buildSgaWhere(restQuery as typeof req.query);
+  const counts = (await queryOne(
+    `SELECT COUNT(*) FILTER (WHERE s.expense_type = 'fixed') as fixed,
+            COUNT(*) FILTER (WHERE s.expense_type = 'spot') as spot,
+            COUNT(*) FILTER (WHERE s.source = 'staff') as staff,
+            COUNT(*) FILTER (WHERE s.source = 'accounting') as accounting,
+            COUNT(*) as all
+     FROM sga_expenses s ${base.where}`, base.params)) as Record<string, string>;
+
+  res.json({
+    ...paginatedResponse(rows, total, page, limit),
+    total_amount: Number(sum?.s ?? 0),
+    state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
+  });
 });
 
 // GET /sga/:id - Get single

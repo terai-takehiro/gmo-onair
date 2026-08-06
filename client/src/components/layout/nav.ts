@@ -32,8 +32,8 @@ import {
   GitBranch,
   HardDrive,
   Inbox,
-  KanbanSquare,
   Layers,
+  LayoutDashboard,
   ListTodo,
   Presentation,
   Receipt,
@@ -50,60 +50,60 @@ import type { ShellMobileTab, ShellNavSection } from "@gmo-onair/shared/src/clie
 
 export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
   // v2.9.220+: 営業ジャーニー縦軸でグルーピング (お客様の声→お客様→商談→案件→ふりかえり)
+  // ── 案件管理 (v4 の情報設計) ────────────────────────────────
+  //
+  // モックの `navMenus`（`docs/design/v4/mockups/onair-data.js`）に合わせた
+  // **3つの塊 + 「そのほか」** です。旧メニューは7つの塊に 20 項目あり、
+  // **ダッシュボードが「ふりかえり」の中**にあって、押すと同じ画面に行く
+  // 「カンバン」と「タスクリスト」が別項目として並んでいました。
+  //
+  // **v4 で作り直していない画面はメニューから消さず「そのほか」に畳みます**（ご判断）。
+  // 消すと動いている画面に辿り着けなくなり、全部並べると v4 の並びが読めません。
+  // 作り直したものから上の塊へ移していきます。
   sales: [
     {
-      title: "要対応",
+      title: "業務",
       items: [
-        { label: "受信箱", to: "/sales/inbox", icon: Inbox },
+        { label: "ダッシュボード", to: "/sales/dashboard", icon: LayoutDashboard },
+        // モックの PC サイドバーには無いが、スマホメニューには「案件受付」がある。
+        // 毎日開く画面なので、ダッシュボードのカード経由だけだと遠回りになる（ご判断）
+        { label: "受付", to: "/sales/inbox", icon: Inbox },
+        { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
       ],
     },
     {
-      title: "お客様",
+      title: "全案件",
+      items: [
+        // **`/sales/tasks/list` を指す。** `/sales/tasks` は `kanban` へ転送されるが、
+        // `kanban` と `list` は同じ画面（v4 でカンバンを畳んだ）
+        { label: "タスク一覧", to: "/sales/tasks/list", icon: ListTodo },
+        { label: "見積・請求", to: "/sales/billing", icon: Receipt },
+      ],
+    },
+    {
+      title: "設定",
+      items: [
+        // 「標準工程テンプレート」はまだ画面が無いので出さない
+        // （押しても何も起きない項目は「壊れている」と受け取られる）
+        { label: "料金表", to: "/sales/pricing", icon: DollarSign },
+      ],
+    },
+    {
+      title: "そのほか（作り直し前）",
+      note: "v4 の並びをこれから決める画面です。いまのまま使えます。",
+      collapsible: true,
       items: [
         { label: "顧客", to: "/sales/customers", icon: Building2 },
-      ],
-    },
-    {
-      title: "商談",
-      items: [
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
-      ],
-    },
-    {
-      title: "案件",
-      items: [
-        { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
         { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
-        // v4 ⑤。**「案件」のまとまりに置く** — 案件をまたいだ見積・請求なので、
-        // マスター (料金表) でも財務でもなく、案件の並びが自然
-        { label: "見積・請求", to: "/sales/billing", icon: Receipt },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
-      ],
-    },
-    {
-      title: "タスク",
-      items: [
-        { label: "カンバン", to: "/sales/tasks/kanban", icon: KanbanSquare },
-        { label: "タスクリスト", to: "/sales/tasks/list", icon: ListTodo },
         { label: "ガントチャート", to: "/sales/tasks/gantt", icon: GanttChart },
-      ],
-    },
-    {
-      title: "ふりかえり",
-      items: [
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
         { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
-        { label: "ダッシュボード", to: "/sales/dashboard", icon: BarChart3 },
-      ],
-    },
-    {
-      title: "マスター",
-      items: [
         { label: "取引先マスター", to: "/sales/companies", icon: Store },
-        { label: "料金表", to: "/sales/pricing", icon: DollarSign },
       ],
     },
   ],

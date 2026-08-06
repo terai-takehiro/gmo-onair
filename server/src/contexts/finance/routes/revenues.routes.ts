@@ -51,7 +51,32 @@ router.get('/', async (req, res) => {
     }
   }
 
-  res.json(paginatedResponse(rows, total, page, limit));
+  // 画面の下に出す「全 N 件 ・ 合計 ￥X」。**表示中のページではなく絞り込み全体**を数える。
+  // ページの合計を出すと、2ページ目に行くたびに合計が変わって読み間違える。
+  const sum = (await queryOne(
+    `SELECT COALESCE(SUM(r.amount), 0) as s FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     LEFT JOIN customers c ON c.id = r.customer_id ${where}`, params)) as { s: string } | null;
+
+  // 絞り込みチップの件数。**state 以外の絞り込みだけ**を掛けて数える
+  // (全件の内訳を出すと、検索中に押した先が 0 件になる)。
+  const { state: _state, ...restQuery } = req.query as Record<string, unknown>;
+  const base = buildRevenueWhere(restQuery as typeof req.query);
+  const counts = (await queryOne(
+    `SELECT COUNT(*) FILTER (WHERE r.invoice_issued IS NOT TRUE) as unissued,
+            COUNT(*) FILTER (WHERE r.invoice_issued = true) as issued,
+            COUNT(*) FILTER (WHERE r.invoice_issued = true AND r.paid_date IS NULL) as unpaid,
+            COUNT(*) FILTER (WHERE r.paid_date IS NOT NULL) as paid,
+            COUNT(*) as all
+     FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     LEFT JOIN customers c ON c.id = r.customer_id ${base.where}`, base.params)) as Record<string, string>;
+
+  res.json({
+    ...paginatedResponse(rows, total, page, limit),
+    total_amount: Number(sum?.s ?? 0),
+    state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
+  });
 });
 
 // CSV Export
