@@ -22,14 +22,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import ChecklistItems from "./ChecklistItems";
+import PredecessorEditor from "./PredecessorEditor";
 import {
   useCreateTask,
   useUpdateTask,
   useTaskColumns,
-  useProjectTasks,
-  useTaskDependencies,
-  useAddDependency,
-  useRemoveDependency,
 } from "../hooks/useProjectTasks";
 import {
   TaskTypeLabels,
@@ -39,7 +36,9 @@ import type {
   ProjectTask,
   TaskType,
   ProductionStep,
+  TaskWorkState,
 } from "@/types";
+import { WORK_STATE_OPTIONS } from "../pages/taskList/state";
 
 interface Props {
   open: boolean;
@@ -71,6 +70,8 @@ export default function TaskDialog({
   const [dueDate, setDueDate] = useState("");
   const [progress, setProgress] = useState(0);
   const [isMilestone, setIsMilestone] = useState(false);
+  // 完了していないときの止まり方 (v4 ④)。完了はここではなく一覧のチェックで切り替える
+  const [workState, setWorkState] = useState<TaskWorkState>("todo");
 
   const { data: columns = [] } = useTaskColumns(projectId);
   const { data: users = [] } = useQuery({
@@ -98,6 +99,7 @@ export default function TaskDialog({
       setDueDate(existing.due_date ?? "");
       setProgress(existing.progress ?? 0);
       setIsMilestone(existing.is_milestone ?? false);
+      setWorkState(existing.work_state ?? "todo");
     } else {
       setTitle("");
       setDescription("");
@@ -109,6 +111,7 @@ export default function TaskDialog({
       setDueDate("");
       setProgress(0);
       setIsMilestone(false);
+      setWorkState("todo");
     }
   }, [existing, defaultColumnId, open]);
 
@@ -128,6 +131,7 @@ export default function TaskDialog({
       due_date: dueDate || null,
       progress: isMilestone ? 0 : progress,
       is_milestone: isMilestone,
+      work_state: workState,
     };
 
     try {
@@ -244,6 +248,28 @@ export default function TaskDialog({
             </Select>
           </div>
 
+          {/*
+            状態 (v4 ④)。**完了はここに出しません** — 完了は `is_completed` が持ち、
+            一覧のチェックボックスと詳細の「完了にする」で切り替えます。
+            ここは「完了していないときにどう止まっているか」だけを選ぶ場所です。
+          */}
+          <div className="space-y-1">
+            <Label>状態</Label>
+            <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WORK_STATE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sub-sm text-muted-foreground">
+              「相手待ち」はお客様や他部署の返事を待っていて、自分では進められないときに使います。
+            </p>
+          </div>
+
           {/* 期間 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -342,62 +368,5 @@ export default function TaskDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** 先行タスク (この後に始めるタスク) の依存関係を即時に追加/削除 */
-function PredecessorEditor({ projectId, taskId }: { projectId: string; taskId: string }) {
-  const { data: tasks = [] } = useProjectTasks(projectId);
-  const { data: deps = [] } = useTaskDependencies(projectId);
-  const addDep = useAddDependency(projectId);
-  const removeDep = useRemoveDependency(projectId);
-
-  // この (successor) タスクの先行タスク id → dependency id
-  const predOf = new Map<string, string>();
-  for (const d of deps) if (d.successor_id === taskId) predOf.set(d.predecessor_id, d.id);
-
-  const candidates = tasks.filter((t) => t.id !== taskId);
-  const [adding, setAdding] = useState(false);
-
-  return (
-    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm">先行タスク（完了後にこのタスクを開始）</Label>
-        {predOf.size > 0 && <Badge variant="secondary" className="text-xs">{predOf.size}</Badge>}
-      </div>
-      {predOf.size === 0 && !adding && (
-        <p className="text-xs text-muted-foreground">先行タスクなし</p>
-      )}
-      {/* 現在の先行タスク */}
-      <div className="flex flex-wrap gap-1.5">
-        {[...predOf.entries()].map(([pid, depId]) => {
-          const t = tasks.find((x) => x.id === pid);
-          return (
-            <span key={depId} className="flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs">
-              {t?.title ?? "(削除済み)"}
-              <button type="button" onClick={() => removeDep.mutate(depId)}
-                className="text-muted-foreground hover:text-destructive">×</button>
-            </span>
-          );
-        })}
-      </div>
-      {/* 追加 */}
-      {adding ? (
-        <Select
-          value=""
-          onValueChange={(v) => { if (v) { addDep.mutate({ predecessor_id: v, successor_id: taskId }); setAdding(false); } }}
-        >
-          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="先行タスクを選択..." /></SelectTrigger>
-          <SelectContent>
-            {candidates.filter((t) => !predOf.has(t.id)).map((t) => (
-              <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)}
-          className="text-xs text-primary hover:underline">+ 先行タスクを追加</button>
-      )}
-    </div>
   );
 }

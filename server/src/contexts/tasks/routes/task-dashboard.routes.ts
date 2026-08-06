@@ -42,7 +42,7 @@ router.get('/', wrap(async (req, res) => {
        t.title, t.description, t.task_type, t.production_step,
        t.start_date::text AS start_date, t.due_date::text AS due_date,
        t.assigned_to, u.name AS assigned_to_name,
-       t.is_completed, t.completed_at, t.progress, t.is_milestone,
+       t.is_completed, t.completed_at, t.work_state, t.progress, t.is_milestone,
        t.sort_order, t.parent_task_id,
        tc.name AS column_name, tc.color AS column_color,
        t.created_at, t.updated_at,

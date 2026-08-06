@@ -1,146 +1,247 @@
-import { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { KanbanSquare, ListTodo, GanttChart, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useTaskDashboard } from "@/contexts/tasks/hooks/useProjectTasks";
-import DashboardKanbanView from "@/contexts/tasks/components/DashboardKanban/DashboardKanbanView";
-import DashboardListView from "@/contexts/tasks/components/DashboardList/DashboardListView";
-import DashboardGanttView from "@/contexts/tasks/components/DashboardGantt/DashboardGanttView";
-import { Loader2 } from "lucide-react";
+/**
+ * ④ タスク一覧 (v4) — 全案件のタスクを1か所で
+ *
+ * ── いまの実装から変えたこと ────────────────────────────────
+ *
+ * ① **カンバンを畳みました。** 旧実装の「カンバン」は案件ごとの小さな板を
+ *    縦に積み、**各列5件までしか出さない**ものでした。案件をまたいで見えて
+ *    いるわけではなく、同じことは案件詳細の板のほうがよくできます。
+ * ② **ガントは残しました。** 全案件の山を1枚で見る場所はここしかありません
+ *    (中身はまだ v4 に作り直していません — 後述)。
+ * ③ **状態が4つになりました** (未着手 / 進行中 / 相手待ち / 完了)。
+ *    「相手待ち」は**自分は動けない**を表すためのもので、これが無いと
+ *    未完了のタスクが全部同じ重さに見えます (`taskList/state.ts`)。
+ * ④ **全体 / 自分**を切り替えられるようにしました (モックの scopes)。
+ * ⑤ **一覧からタスクを足せる**ようにしました。案件を選んでやること・担当・
+ *    期限だけ決めれば入ります。
+ *
+ * ── まだ v4 になっていないところ ────────────────────────────
+ *
+ * **ガントの中身は旧実装のまま**です (`DashboardGanttView` 522行)。
+ * ここを作り直すのは「時間軸の描画」という別の仕事なので、
+ * 一覧の作り直しと混ぜませんでした。
+ */
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Plus, ListTodo, GanttChart, Info } from 'lucide-react';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { localDateStr } from '@/lib/format';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { EmptyState, NoSearchResults, ErrorPanel, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import api from '@/lib/api';
+import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
+import DashboardGanttView from '@/contexts/tasks/components/DashboardGantt/DashboardGanttView';
+import TaskDialog from '@/contexts/tasks/components/TaskDialog';
+import { TaskRow, TaskRowsHeader } from './taskList/TaskRows';
+import { AddTaskDialog } from './taskList/AddTaskDialog';
+import { stateRank } from './taskList/state';
+import type { DashboardTask } from '@/types';
 
-type ViewType = "kanban" | "list" | "gantt";
-type CatFilter = "all" | "B" | "A";
+type Scope = 'all' | 'mine';
+type Filter = 'all' | 'open' | 'over';
+type Sort = 'due' | 'project' | 'state';
 
-const VIEWS: { id: ViewType; label: string; Icon: React.ElementType }[] = [
-  { id: "kanban", label: "カンバン", Icon: KanbanSquare },
-  { id: "list", label: "タスクリスト", Icon: ListTodo },
-  { id: "gantt", label: "ガント", Icon: GanttChart },
-];
-
-const CAT_FILTERS: { id: CatFilter; label: string }[] = [
-  { id: "all", label: "すべて" },
-  { id: "B", label: "ビジネス" },
-  { id: "A", label: "スタジオ" },
+const SORTS: { key: Sort; label: string }[] = [
+  { key: 'due', label: '期限' },
+  { key: 'project', label: '案件' },
+  { key: 'state', label: '状態' },
 ];
 
 export default function TaskDashboardPage() {
   const { view } = useParams<{ view: string }>();
   const navigate = useNavigate();
-  const activeView: ViewType =
-    view === "kanban" || view === "list" || view === "gantt" ? view : "kanban";
+  const qc = useQueryClient();
+  const { currentUser } = useAuth();
+  const isGantt = view === 'gantt';
 
-  const { data, isLoading, isError, refetch, isFetching } = useTaskDashboard();
-  const [cat, setCat] = useState<CatFilter>("all");
+  const { data, isLoading, isError, refetch } = useTaskDashboard();
+  const [scope, setScope] = useState<Scope>('all');
+  const [filter, setFilter] = useState<Filter>('open');
+  const [sort, setSort] = useState<Sort>('due');
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<DashboardTask | null>(null);
 
-  // GLS 区分でプロジェクト + タスクを絞り込む (columns は project_id 経由で自然に絞られる)
-  const filtered = useMemo(() => {
-    if (!data) return data;
-    if (cat === "all") return data;
-    const projects = data.projects.filter((p) => p.gls_category === cat);
-    const ids = new Set(projects.map((p) => p.id));
-    return {
-      projects,
-      columns: data.columns.filter((c) => ids.has(c.project_id)),
-      tasks: data.tasks.filter((t) => ids.has(t.project_id)),
-    };
-  }, [data, cat]);
+  const today = localDateStr(new Date());
+
+  /** 「全体 / 自分」を掛けたところまで。**件数はここから数える** */
+  const scoped = useMemo(() => {
+    const all = data?.tasks ?? [];
+    return scope === 'mine' ? all.filter((t) => t.assigned_to === currentUser?.id) : all;
+  }, [data, scope, currentUser?.id]);
+
+  const isOver = (t: DashboardTask) => !t.is_completed && !!t.due_date && t.due_date < today;
+
+  const rows = useMemo(() => {
+    const list = scoped.filter((t) => {
+      if (filter === 'open') return !t.is_completed;
+      if (filter === 'over') return isOver(t);
+      return true;
+    });
+    const byDue = (a: DashboardTask, b: DashboardTask) =>
+      // 期限なしは最後。付いているほうが先に効く
+      (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999');
+    return [...list].sort((a, b) => {
+      if (sort === 'project') return a.project_name.localeCompare(b.project_name, 'ja') || byDue(a, b);
+      if (sort === 'state') return stateRank(a) - stateRank(b) || byDue(a, b);
+      // 期限順でも**完了は最後**に落とす (済んだものが上に居座ると今日の分が見えない)
+      return (Number(a.is_completed) - Number(b.is_completed)) || byDue(a, b);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoped, filter, sort, today]);
+
+  /** チェックボックス。**その場で完了を切り替える** */
+  const toggle = async (t: DashboardTask) => {
+    try {
+      await api.patch(`/projects/${t.project_id}/tasks/${t.id}/complete`, {});
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['project-tasks', t.project_id] });
+    } catch (err) {
+      notifyApiError(t.is_completed ? '完了を取り消せませんでした' : '完了にできませんでした', err);
+    }
+  };
+
+  const chips = [
+    { key: 'all' as const, label: 'すべて', count: data ? scoped.length : null },
+    { key: 'open' as const, label: '未完了', count: data ? scoped.filter((t) => !t.is_completed).length : null },
+    { key: 'over' as const, label: '期限切れ', count: data ? scoped.filter(isOver).length : null },
+  ];
+
+  const openCount = scoped.filter((t) => !t.is_completed).length;
+  const activeFilters = [
+    scope === 'mine' ? '自分のタスクだけ' : null,
+    filter === 'open' ? '未完了だけ' : filter === 'over' ? '期限切れだけ' : null,
+  ].filter((f): f is string => f !== null);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b px-4 py-3 flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
-          {VIEWS.map(({ id, label, Icon }) => (
+    <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
+      <PageHeader
+        title="タスク一覧"
+        sub={data ? `全案件のタスク ${scoped.length}件（うち未完了 ${openCount}件）` : '全案件のタスク'}
+        primaryAction={
+          <Button onClick={() => setAdding(true)}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを足す
+          </Button>
+        }
+      >
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+          {([['list', 'リスト', ListTodo], ['gantt', 'ガント', GanttChart]] as const).map(([v, label, Icon], i) => (
             <button
-              key={id}
-              onClick={() => navigate(`/sales/tasks/${id}`)}
-              className={cn(
-                "flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
-                activeView === id
-                  ? "bg-background shadow text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              key={v}
+              type="button"
+              onClick={() => navigate(`/sales/tasks/${v}`)}
+              aria-pressed={isGantt === (v === 'gantt')}
+              className={`min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px] ${i > 0 ? 'border-l border-border' : ''} ${
+                isGantt === (v === 'gantt') ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted'
+              }`}
             >
-              <Icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{label}</span>
+              <Icon className="h-4 w-4" aria-hidden="true" />{label}
             </button>
           ))}
         </div>
+      </PageHeader>
 
-        {/* GLS 区分フィルタ (ビジネス / スタジオ) */}
-        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
-          {CAT_FILTERS.map(({ id, label }) => (
+      {/* 全体 / 自分。**塗りつぶしで切り替える** (罫線だけだとどちらか分からない) */}
+      <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card px-3 py-2.5">
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="範囲を切り替える">
+          {([['all', '全体'], ['mine', '自分']] as const).map(([k, label], i) => (
             <button
-              key={id}
-              onClick={() => setCat(id)}
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                cat === id ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
+              key={k}
+              type="button"
+              onClick={() => setScope(k)}
+              aria-pressed={scope === k}
+              className={`min-h-tap text-sub inline-flex min-w-[96px] items-center justify-center gap-1.5 px-3.5 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
+                scope === k ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              }`}
             >
               {label}
+              <span className="font-number text-sub-sm">
+                {data ? (k === 'all' ? (data.tasks ?? []).length : (data.tasks ?? []).filter((t) => t.assigned_to === currentUser?.id).length) : ''}
+              </span>
             </button>
           ))}
         </div>
 
-        {filtered && (
-          <span className="text-xs text-muted-foreground">
-            {filtered.projects.length}案件 · {filtered.tasks.length}タスク
-          </span>
-        )}
+        <FilterChips label="状態で絞り込む" items={chips} value={filter} onChange={setFilter} />
 
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
-          更新
-        </button>
+        <div className="ml-auto inline-flex shrink-0 items-center gap-2">
+          <span className="text-sub text-muted-foreground">並べ替え</span>
+          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="並べ替え">
+            {SORTS.map((s, i) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSort(s.key)}
+                aria-pressed={sort === s.key}
+                className={`min-h-tap text-sub px-3.5 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
+                  sort === s.key ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : isError ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-            <p className="text-sm">データの取得に失敗しました</p>
-            <button
-              onClick={() => refetch()}
-              className="text-xs text-primary hover:underline"
-            >
-              再試行
-            </button>
-          </div>
-        ) : filtered ? (
-          <>
-            {activeView === "kanban" && (
-              <DashboardKanbanView
-                projects={filtered.projects}
-                columns={filtered.columns}
-                tasks={filtered.tasks}
-              />
-            )}
-            {activeView === "list" && (
-              <DashboardListView
-                projects={filtered.projects}
-                columns={filtered.columns}
-                tasks={filtered.tasks}
-              />
-            )}
-            {activeView === "gantt" && (
-              <DashboardGanttView
-                projects={filtered.projects}
-                columns={filtered.columns}
-                tasks={filtered.tasks}
-              />
-            )}
-          </>
-        ) : null}
+      {isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : isError ? (
+        <ErrorPanel title="タスクを読み込めませんでした" onRetry={() => refetch()} />
+      ) : isGantt ? (
+        <DashboardGanttView
+          projects={data?.projects ?? []}
+          columns={data?.columns ?? []}
+          tasks={scoped}
+        />
+      ) : rows.length === 0 ? (
+        activeFilters.length > 0 ? (
+          <NoSearchResults
+            activeFilters={activeFilters}
+            onClearFilters={() => { setScope('all'); setFilter('all'); }}
+          />
+        ) : (
+          <EmptyState
+            title="タスクがまだありません"
+            description="案件を進めるためにやることを足します。案件の中からでも、ここからでも足せます。"
+            action={<Button onClick={() => setAdding(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />タスクを足す</Button>}
+          />
+        )
+      ) : (
+        <div className="overflow-hidden rounded-card border border-border bg-card">
+          <TaskRowsHeader />
+          {rows.map((t) => (
+            <TaskRow
+              key={t.id}
+              t={t}
+              today={today}
+              onToggle={() => toggle(t)}
+              onOpen={() => setEditing(t)}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <p className="text-note text-secondary-foreground">
+          案件の中のタスクを全案件ぶん集めた画面です。直すのは案件の中でもここでもできます。
+          <strong className="font-bold">終わった案件（完了・失注）のタスクは出しません。</strong>
+        </p>
       </div>
+
+      {adding && <AddTaskDialog onClose={() => setAdding(false)} />}
+      {editing && (
+        <TaskDialog
+          open
+          projectId={editing.project_id}
+          existing={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

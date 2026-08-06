@@ -44,13 +44,13 @@ function barColor(col: TaskColumn | undefined): string {
 }
 
 // ---- urgency for mobile badge ----
+// 期限の近さで色を変える。`text-yellow-700` は白地で薄すぎた (実測 rgb(183,143,0)) ので状態の色トークンへ
 function urgencyClass(due: string | null): string {
   if (!due) return "bg-muted text-muted-foreground";
   const days = diffDays(new Date(), new Date(due));
-  if (days < 0) return "bg-red-100 text-red-700";
-  if (days <= 3) return "bg-orange-100 text-orange-700";
-  if (days <= 7) return "bg-yellow-100 text-yellow-700";
-  return "bg-slate-100 text-slate-600";
+  if (days < 0) return "bg-destructive-surface text-destructive";
+  if (days <= 7) return "bg-warning-surface text-warning";
+  return "bg-muted text-muted-foreground";
 }
 
 // ============================================================

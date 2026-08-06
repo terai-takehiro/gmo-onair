@@ -28,7 +28,6 @@
     "client/src/contexts/finance/pages/SgaListPage.tsx": 554,
     "client/src/contexts/sales/pages/PricingListPage.tsx": 523,
     "client/src/contexts/tasks/components/DashboardGantt/DashboardGanttView.tsx": 523,
-    "client/src/types/index.ts": 521,
     "client/src/contexts/tasks/components/TaskIntakeBox.tsx": 517,
     "client/src/contexts/platform/pages/DashboardPage.tsx": 505,
     "client/src/contexts/finance/components/SgaDialog.tsx": 499,
@@ -38,9 +37,9 @@
     "client/src/contexts/sales/pages/InboxPage.tsx": 451,
     "client-equipment/src/pages/LocationPage.tsx": 439,
     "client/src/contexts/sales/pages/GlsImportProjectsPage.tsx": 425,
+    "client/src/types/index.ts": 416,
     "client-equipment/src/components/ExcelImportDialog.tsx": 415,
     "client/src/contexts/production/components/schedule/IcsFeedsDialog.tsx": 412,
-    "client/src/contexts/sales/components/SimulationDialog.tsx": 404,
-    "client/src/contexts/tasks/components/TaskDialog.tsx": 404
+    "client/src/contexts/sales/components/SimulationDialog.tsx": 404
   }
 }

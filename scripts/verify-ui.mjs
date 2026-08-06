@@ -45,6 +45,8 @@ const PAGES = [
   // v4 でボードは案件一覧の見え方の1つになった (旧 /sales/pipeline)。
   // リストとは別の描き方なので**別に測る** — カードの中は行部品を使わない
   ['案件管理 案件ボード', '/sales/projects?view=board'],
+  ['案件管理 タスク一覧', '/sales/tasks/list'],
+  ['案件管理 タスクガント', '/sales/tasks/gantt', { slow: true }],
   ['案件管理 レビュー', '/sales/review', { slow: true }],
   ['案件管理 料金表', '/sales/pricing'],
   ['案件管理 案件グループ', '/sales/project-groups'],

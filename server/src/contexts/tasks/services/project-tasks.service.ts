@@ -17,6 +17,12 @@ export interface ProjectTask {
   assigned_to_name: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  /**
+   * 完了していないときの止まり方 (`todo` 未着手 / `doing` 進行中 / `waiting` 相手待ち)。
+   * **完了かどうかは `is_completed` が正** — この列は完了していないときだけ意味を持つ
+   * (migration 137 に理由がある)。画面の状態 = `is_completed ? '完了' : work_state`
+   */
+  work_state: 'todo' | 'doing' | 'waiting';
   progress: number;
   is_milestone: boolean;
   sort_order: number;
@@ -31,6 +37,22 @@ export interface ProjectTask {
   ai_requested_by?: string | null;
 }
 
+/** 未完了のときの止まり方。**知らない値は「未着手」に丸める** */
+const WORK_STATES = ['todo', 'doing', 'waiting'] as const;
+
+/**
+ * `work_state` を安全な値にする。
+ *
+ * 素通しすると CHECK 制約に当たって**リクエストごと 500 になり**、
+ * 画面には「保存できませんでした」としか出ません (何が悪いのか分からない)。
+ * 状態は3つしかないので、知らない値は既定に丸めるほうが害が小さい。
+ */
+function normalizeWorkState(value: unknown): 'todo' | 'doing' | 'waiting' {
+  return (WORK_STATES as readonly string[]).includes(value as string)
+    ? (value as 'todo' | 'doing' | 'waiting')
+    : 'todo';
+}
+
 // v2.9.198+: AI 作成判定の lateral はパラメータ無しのため $n 採番に影響しない
 const SELECT_TASK = `
   SELECT
@@ -38,7 +60,7 @@ const SELECT_TASK = `
     t.title, t.description, t.task_type, t.production_step,
     t.start_date::text AS start_date, t.due_date::text AS due_date,
     t.assigned_to, u.name AS assigned_to_name,
-    t.is_completed, t.completed_at, t.progress, t.is_milestone,
+    t.is_completed, t.completed_at, t.work_state, t.progress, t.is_milestone,
     t.sort_order, t.parent_task_id,
     tc.name AS column_name, tc.color AS column_color,
     t.created_at, t.updated_at,
@@ -143,6 +165,7 @@ export const projectTasksService = {
       parent_task_id?: string | null;
       progress?: number;
       is_milestone?: boolean;
+      work_state?: ProjectTask['work_state'];
     },
     userId: string
   ): Promise<ProjectTask> {
@@ -164,12 +187,14 @@ export const projectTasksService = {
          (id, project_id, episode_id, column_id, title, description,
           task_type, production_step, start_date, due_date,
           assigned_to, sort_order, parent_task_id, progress, is_milestone,
+          work_state,
           created_at, updated_at, created_by, updated_by)
        VALUES
          ($1, $2, $3, $4, $5, $6,
           $7, $8, $9::date, $10::date,
           $11, $12, $13, $14, $15,
-          NOW(), NOW(), $16, $16)`,
+          $16,
+          NOW(), NOW(), $17, $17)`,
       [
         id, projectId,
         data.episode_id ?? null, data.column_id ?? null,
@@ -179,6 +204,7 @@ export const projectTasksService = {
         data.assigned_to ?? null, sortOrder,
         data.parent_task_id ?? null,
         Math.max(0, Math.min(100, data.progress ?? 0)), data.is_milestone ?? false,
+        normalizeWorkState(data.work_state),
         userId,
       ]
     );
@@ -200,6 +226,7 @@ export const projectTasksService = {
       assigned_to: string | null;
       progress: number;
       is_milestone: boolean;
+      work_state: ProjectTask['work_state'];
     }>,
     userId: string
   ): Promise<ProjectTask> {
@@ -224,6 +251,11 @@ export const projectTasksService = {
     if ('progress' in data) {
       sets.push(`progress = $${i++}`);
       params.push(Math.max(0, Math.min(100, Number(data.progress) || 0)));
+    }
+    if ('work_state' in data) {
+      // 知らない値が入ると CHECK 制約でリクエストごと 500 になる。手前で丸める
+      sets.push(`work_state = $${i++}`);
+      params.push(normalizeWorkState(data.work_state));
     }
     if ('start_date' in data) { sets.push(`start_date = $${i++}::date`); params.push(data.start_date); }
     if ('due_date' in data) { sets.push(`due_date = $${i++}::date`); params.push(data.due_date); }
