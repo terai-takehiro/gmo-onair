@@ -1,4 +1,4 @@
-**17 / 40 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
+**27 / 38 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
 
 # v4 の進み具合（サイトツリー）
 
@@ -57,9 +57,7 @@
 | ✅ | 販管費 | `/budget/sga` |
 | ✅ | 取引先 (仕入先・パートナー) | `/budget/vendors` |
 | ✅ | 受け取った書類 | `/budget/documents` |
-| ⬜ | 取り込み (楽楽精算) | `/budget/xpoint-import` |
-| ⬜ | 取り込み (決算) | `/budget/kessan-import` |
-| ⬜ | 二重計上を調べる | `/budget/dedup-screening` |
+| ✅ | 取り込み (精算PDF・総勘定元帳・二重計上) | `/budget/import` |
 
 ## カレンダー
 
@@ -94,12 +92,12 @@
 
 | | 画面 | URL |
 | --- | --- | --- |
-| ⬜ | ウィークリー活動報告 | `/daily/weekly` |
-| ⬜ | デイリーニュース | `/daily/news` |
-| ⬜ | 内覧会 開催日 | `/daily/inview` |
-| ⬜ | 入ってきた情報 (その他問い合わせ) | `/daily/inquiries` |
+| ✅ | ウィークリー活動報告 | `/daily/weekly` |
+| ✅ | デイリーニュース | `/daily/news` |
+| ✅ | 内覧会 開催日 | `/daily/inview` |
+| ✅ | 入ってきた情報 (その他問い合わせ) | `/daily/inquiries` |
 | ✅ | 受け取った書類 | `/budget/documents` |
-| ⬜ | セキュリティカード | `/daily/security-cards` |
+| ✅ | セキュリティカード | `/daily/security-cards` |
 
 - **受け取った書類** — **財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります
 
@@ -107,12 +105,12 @@
 
 | | 画面 | URL |
 | --- | --- | --- |
-| ⬜ | ダッシュボード | `/equipment/` |
+| ✅ | ダッシュボード | `/equipment/` |
 | ⬜ | 機材台帳 | `/equipment/items` |
 | ⬜ | ラック図 | `/equipment/racks` |
-| ⬜ | メンテナンス | `/equipment/maintenance` |
-| ⬜ | 棚卸し | `/equipment/inventory` |
-| ⬜ | 貸出・返却 | `/equipment/lendings` |
+| ✅ | メンテナンス | `/equipment/maintenance` |
+| ✅ | 棚卸し | `/equipment/inventory` |
+| ✅ | 貸出・返却 | `/equipment/lendings` |
 
 ## プロジェクト管理 (新規・7画面)
 

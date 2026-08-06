@@ -63,9 +63,8 @@ const TREE = [
     ['取引先 (仕入先・パートナー)', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx'],
     // 日常業務 (`/daily/finance`) から移した。`dailyops` だけを要求していて経理が開けなかった
     ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx'],
-    ['取り込み (楽楽精算)', '/budget/xpoint-import', 'client/src/contexts/finance/pages/XpointImportPage.tsx'],
-    ['取り込み (決算)', '/budget/kessan-import', 'client/src/contexts/platform/pages/KessanImportPage.tsx'],
-    ['二重計上を調べる', '/budget/dedup-screening', 'client/src/contexts/platform/pages/DedupScreeningPage.tsx'],
+    // v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブに畳んだ（旧3 URL は転送）
+    ['取り込み (精算PDF・総勘定元帳・二重計上)', '/budget/import', 'client/src/contexts/finance/pages/ImportPage.tsx'],
   ]],
   ['カレンダー', [
     ['予定', '/studio/calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx'],
