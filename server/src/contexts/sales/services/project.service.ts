@@ -74,6 +74,10 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   event_start: 'p.event_start',
   assigned_to: 'u.name',
   created_at: 'p.created_at',
+  // 「最後の動き」順。SELECT 句で組み立てた別名をそのまま並べ替えに使う
+  // (PostgreSQL は ORDER BY に SELECT の別名を書ける)。**式を書き写さないこと** —
+  // 写すと片方だけ直したときに「並び順と表示が食い違う」になる
+  last_move: 'last_activity_at',
 };
 
 /**
