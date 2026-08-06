@@ -62,11 +62,40 @@ AI バッジ・AI 起票インボックス・AI 活動履歴ページ（`/sales/
 |---|---|
 | 1 | **レビュー運用（条件5）の仕組み化。** 頻度と担当は決まった（**月1回・営業のマネージャー**）。あとは `ops_reports.kind='ai_review'` に月次で digest を貼り、承認したものをスキル/プロンプトに反映する導線を作る |
 | 2 | **ONAiR 外の生成物**（Slack の返信案・概算見積、Gmail、Box）が未記録。`ai_outputs` に登録して ID を発行し、リアクション/送信済みメールと突合する |
-| 3 | **`prompt_version` が実際には埋まっていない。** 列はあるので、改善前後を比べるには書き込み側で入れる |
+| 3 | **`prompt_version` は一部だけ埋まっている**（実測）。議事録（`minutes-ai.service` の `MINUTES_PROMPT_VERSION`）と**画面から**の投入（`dailyops/routes/tasks.routes.ts`）は入っている。**入っていないのは MCP 経由の `create_task_intake` と `create_project` / `set_project_simulation`** |
 | 4 | 財務系（仕入・販管費）の AI 由来レコードに `recordCorrections` が入っていない |
+| 5 | **メール取込のうち `create_activity_log` と `register_inview_attendee` はまだ `recordAiOutput` を呼んでいない**（条件1から欠落）。`record_inquiry` / `record_finance_doc` は v4 で入れた |
+| 6 | **`create_project` に構造化引数（`details`）を足していない。** 本番のメール取込スキルが毎日叩いているので、`record_inquiry` / `record_finance_doc` で形が固まってから任意引数として足す。**スキル（`/root/.claude/skills/sales-mail-gmoonair/`）は Git 管理外なので、足しても人が直さないと埋まらない** |
 
 **新しい AI 機能を足すときは、上の「機能ごと」の表に行を1つ足せる状態にしてから出すこと。**
 器があることを理由に「満たしている」と書かない。
+
+## メールの取込（v4・migration 160）
+
+`record_inquiry`（入ってきた情報）と `record_finance_doc`（受け取った書類）。
+
+**それまで AI は、メールから読み取った 差出人・要件・希望日・人数・予算・期限 を
+1本の自由文（`summary` / `content` / `notes`）に潰して渡していた。**
+AI 側は項目を読み分けているのに、渡す入れ物が1本しか無かった。
+画面はそれを `📝 <そのままのテキスト>` と出すだけだった。
+
+実装で決めたこと（他の AI 機能でも同じ判断をすること）:
+
+- **AI に HTML を書かせない。** 取引先の文面がそのまま実行される（XSS）うえ、
+  画面の書体・色・余白が AI ごとに変わり、後から検索・集計もできない。
+  **AI は「何の情報か」を言い、見せ方はアプリの部品が決める**（`RichContent`）
+- **形はサーバーが検査する**（`shared/services/rich-content.ts`）。
+  知らない種類は捨て、`javascript:` は落とし、長さに上限を持つ。
+  知らない形が画面に届くと React が落ちる（v3.2.0 の内覧会の事故）
+- **原文（`body_text`）を切り詰めずに残す。** 入力が無いと
+  「AI がどこを読み違えたか」を後から確かめられない。
+  `mcp_audit_log` は 1000 文字で切るので教師データにならない
+- **条件2 の差分は7日窓。** `status` / `handled_at` / `processed_by` は
+  **業務が進んだ印**なので数えない（承認しただけで「AI が間違えた」になる）
+- **直した回だけ `none` も積む**（無修正採用率の分母）。開くたびに積むと
+  よく開かれる行ほど精度が高く見える
+- **既存の呼び出しを壊さない。** 足したのは任意引数だけ。本番の無人バッチは
+  最短1時間おきに走っており、必須引数を足すと次の実行から全部落ちる
 
 ## 打合せの議事録（実装済み・2026-08）
 

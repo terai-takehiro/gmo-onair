@@ -81,7 +81,17 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (71 種 / v2.9.229+)
+## ツール一覧 (82 種 / 19 カテゴリ / v4)
+
+> **この一覧は手で書いています。** 実際に登録されているツールは
+> `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
+> 数え直して `client/public/mcp-tools.json` を作ります（画面の「MCP コネクタ」はそれを読む）。
+> **ツールを足したら生成スクリプトを流し、この文書も直してください** —
+> v4 の時点で本文は「71 種」のままで、`mytasks` 10 種と `aifeedback` 1 種が丸ごと抜けていました。
+>
+> 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
+> studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
+> opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -162,6 +172,29 @@ kind と運用契約:
 | `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
 | `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / category / action_needed を付与 |
 | `list_inquiries` | read | その他問い合わせの一覧 (importance / unhandled) |
+
+**v4: メールの中身を「読める形」で渡せるようになりました**（migration 160）。
+`record_finance_doc` / `record_inquiry` に**任意の引数**が2つ増えています。
+
+| 引数 | 中身 |
+|---|---|
+| `details` | メールの中身を**意味の単位に分けた配列**（最大30）。`heading` 小見出し / `text` 段落 / `fields` ラベルと値の組 / `bullets` 箇条書き / `table` 表 / `quote` 本文からの引用 / `note` 注意 / `link` 参考URL |
+| `body_text` | メール本文の**全文**（切り詰めない）。要約ではなく原文 |
+
+- **HTML やマークダウンを書かせません。** 取引先の文面がそのまま実行される（XSS）うえ、
+  画面の書体・色・余白が AI ごとに変わり、後から検索も集計もできなくなります。
+  **AI は「何の情報か」を言い、見せ方はアプリの部品が決めます**
+- 形はサーバー (`shared/services/rich-content.ts`) が検査します。
+  **知らない種類は捨て**、`javascript:` の URL は落とし、長さに上限があります
+- おすすめの組み立て方: ① `fields` に「差出人の所属・要件・希望日・人数・予算・返事の期限」など
+  **読み取れた項目だけ**（読み取れなかった項目は入れない＝推測しない）② `bullets` に条件
+  ③ `quote` に判断の根拠になる原文をそのまま
+- **この2つのツールは `ai_outputs` に引数の全文を残します**（会社方針「AI を使い捨てにしない」の条件1）。
+  人が画面で直すと、サーバーが自動で差分を `ai_corrections` に入れます（条件2）
+
+> ⚠️ **本番のメール取込スキルは `/root/.claude/skills/sales-mail-gmoonair/` にあり Git 管理外です。**
+> ツール側に引数を足しても**スキルが追随しないと1件も埋まりません**。
+> スキルの手順6（notes に全部詰める）を、`details` を渡す形に直す必要があります。
 
 ### スタジオ セキュリティカード (dailyops — security cards)
 GMOサムライスタジオ用賀のセキュリティカード 24 枚。カードはセキュリティレベルに応じて解錠できる部屋が異なる。貸出対応者は GMO ONAiR ユーザー。
@@ -269,8 +302,23 @@ server/src/contexts/mcp/
     ├── projects.tools.ts   projectService を再利用
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
-    └── … (customers / activities / tasks / analytics / users / pricing / opsreports / inview / inbox)
+    ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
+    └── … (customers / activities / tasks / members / minutes / analytics / users /
+           mytasks / pricing / budget / opsreports / eventreports / inview / inbox /
+           security-cards / aifeedback)
 ```
+
+### 権限ゲート (gate.ts)
+
+- **静的 APIキー**はフルアクセス運用鍵として素通り
+- **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
+  `module` は**配列も受ける**（どれか1つを満たせばよい）—
+  v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
+- ⚠️ **読み取りツール（44 種）はゲートがありません。** OAuth で自分の ONAiR
+  アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
+  `list_inquiries` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が
+  MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
+  44 種あるので**別の作業**にしてあります
 
 - スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み — UI と MCP が同一コードパスを通る。
 - 書き込みツールの actor は `currentActorId()` で解決: OAuth 経由なら実 ONAiR ユーザー id、静的キー経由なら共用 `mcp-claude`。
