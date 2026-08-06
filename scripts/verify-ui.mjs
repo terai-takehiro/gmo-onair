@@ -67,6 +67,7 @@ const PAGES = [
   ['案件管理 活動履歴', '/sales/activity-logs'],
   ['案件管理 GLS取込', '/sales/gls-import'],
   ['財務 ダッシュボード', '/budget/dashboard', { slow: true }],
+  ['財務 請求・入金', '/budget/billing'],
   ['財務 仕入', '/budget/purchases', { slow: true }],
   ['財務 販管費', '/budget/sga'],
   ['財務 売上', '/budget/revenues', { slow: true }],

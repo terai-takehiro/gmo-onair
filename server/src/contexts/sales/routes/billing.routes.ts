@@ -13,12 +13,23 @@
  * **子行と二重に数えない**よう、他の集計と同じく `group_id IS NULL` で絞ります。
  */
 import { Router } from 'express';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireAnyPermission } from '../../../shared/middleware/auth';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
-router.use(requireAuth, requirePermission('sales'));
+
+/**
+ * **`sales` か `budget` のどちらかがあれば通す。**
+ *
+ * 同じ請求を2つの入口から扱います:
+ *   案件管理 ⑤ 見積・請求  … 案件をまたいで取りこぼさない (`sales`)
+ *   財務   ② 請求・入金   … 月次の締めを一括でやる (`budget`)
+ *
+ * `sales` だけを要求していたので、**経理だけの人は月次の締めができません**でした。
+ */
+router.use(requireAuth, requireAnyPermission(['sales', 'budget']));
+const canEdit = requireAnyPermission(['sales', 'budget'], 'editor');
 
 /** 日付の形。**画面から来た値をそのまま SQL に置かない** */
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -117,12 +128,12 @@ router.get('/invoices', async (req, res) => {
  * 渡さなかった項目は触りません — 片方を入れるつもりで
  * もう片方を消してしまう事故を防ぎます。
  */
-router.patch('/invoices/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.patch('/invoices/:id', canEdit, async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const sets: string[] = [];
   const params: unknown[] = [];
 
-  for (const col of ['inspection_date', 'paid_date'] as const) {
+  for (const col of ['inspection_date', 'paid_date', 'billing_date'] as const) {
     if (!(col in body)) continue;                       // 渡していない = 触らない
     const v = body[col];
     if (v !== null && !(typeof v === 'string' && YMD.test(v))) {
@@ -130,6 +141,12 @@ router.patch('/invoices/:id', requirePermission('sales', 'editor'), async (req, 
     }
     sets.push(`${col} = ?`);
     params.push(v);
+  }
+  // 請求書を出したか。**日付ではなく真偽値**なので別に扱う
+  // (`billing_date` は「いつ出す予定か」で、出したかどうかとは別の列)
+  if ('invoice_issued' in body) {
+    sets.push('invoice_issued = ?');
+    params.push(body.invoice_issued === true);
   }
   if (sets.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '変更する項目がありません');
 
@@ -144,6 +161,145 @@ router.patch('/invoices/:id', requirePermission('sales', 'editor'), async (req, 
     params,
   );
   res.json({ success: true, data: await queryOne('SELECT * FROM revenues WHERE id = ?', [req.params.id]) });
+});
+
+
+// ══════════════════════════════════════════════════════════
+// ② 請求・入金（財務） — 月次の締めを一括でやる
+//
+// ⑤ 見積・請求が「案件をまたいで取りこぼさない」ための一覧なのに対して、
+// こちらは**締め月を決めて、その月ぶんをまとめて処理する**ための画面です。
+// 書き込む列は同じ (`invoice_issued` / `paid_date` / `inspection_date`) で、
+// **同じ `PATCH /invoices/:id` と同じ検査**を通します。
+// ══════════════════════════════════════════════════════════
+
+/** `YYYY-MM`。締め月 */
+const YM = /^\d{4}-\d{2}$/;
+
+/**
+ * 締め月の3つの束。**1本のリクエストで返す** —
+ * 3本に分けるとタブを切り替えるたびに数字が後から差し替わります。
+ *
+ * ・issue   請求書を出す … まだ出していない
+ * ・collect 入金の確認   … 出したが入金が無い
+ * ・inspect 検収書を出す … 検収日が無い
+ *
+ * **申込書 (`projects.application_form`) が無い案件は `blocked` を立てます。**
+ * 出せないわけではなく、**選べない**ようにするための印です
+ * (モックの「申込書が揃っていない案件は選べません」)。
+ */
+router.get('/closing', async (req, res) => {
+  const month = typeof req.query.month === 'string' && YM.test(req.query.month)
+    ? req.query.month
+    : new Date().toISOString().slice(0, 7);
+
+  const rows = await queryAll(
+    `SELECT r.id, r.project_id, r.amount, r.tax_category,
+            r.recognition_date, r.billing_date, r.payment_due_date,
+            r.invoice_issued, r.inspection_date, r.paid_date,
+            p.name AS project_name, p.gls_number,
+            -- 申込書が揃っていない案件は選ばせない (0 = 未提出)
+            (COALESCE(p.application_form, 0) = 0) AS blocked,
+            c.name AS customer_name,
+            e.episode_code
+       FROM revenues r
+       JOIN projects p ON p.id = r.project_id
+       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN episodes e ON e.id = r.episode_id
+      WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
+        AND r.group_id IS NULL AND p.deleted_at IS NULL
+        AND r.recognition_date LIKE ?
+      ORDER BY p.gls_number ASC NULLS LAST, r.amount DESC`,
+    [`${month}-%`],
+  );
+
+  type Row = Record<string, unknown> & {
+    invoice_issued: boolean; paid_date: string | null; inspection_date: string | null;
+  };
+  const all = rows as Row[];
+  const issue = all.filter((r) => !r.invoice_issued);
+  const collect = all.filter((r) => r.invoice_issued && !r.paid_date);
+  const inspect = all.filter((r) => !r.inspection_date);
+
+  const today = new Date().toISOString().slice(0, 10);
+  res.json({
+    success: true,
+    data: { month, issue, collect, inspect },
+    counts: {
+      issue: issue.length,
+      collect: collect.length,
+      inspect: inspect.length,
+      // 出せない (申込書が無い) もの。**「出していない」とは別に数える**
+      blocked: issue.filter((r) => r.blocked).length,
+      // 期日を過ぎた入金待ち
+      overdue: collect.filter((r) => {
+        const due = r.payment_due_date as string | null;
+        return !!due && due < today;
+      }).length,
+    },
+  });
+});
+
+/**
+ * まとめて記録する（月次の締め）。
+ *
+ * **1件ずつと同じ検査を通します** — 別に書くと片方だけ緩くなります。
+ * 途中で失敗しても**どこまで進んだかを返します**（黙って一部だけ入るのが最悪）。
+ */
+router.post('/invoices/bulk', canEdit, async (req, res) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const ids = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string') : [];
+  if (ids.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '対象が選ばれていません');
+  if (ids.length > 200) throw new AppError(400, 'VALIDATION_ERROR', '一度に処理できるのは 200 件までです');
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  for (const col of ['inspection_date', 'paid_date', 'billing_date'] as const) {
+    if (!(col in body)) continue;
+    const v = body[col];
+    if (v !== null && !(typeof v === 'string' && YMD.test(v))) {
+      throw new AppError(400, 'VALIDATION_ERROR', `${col} は YYYY-MM-DD か null で指定してください`);
+    }
+    sets.push(`${col} = ?`);
+    values.push(v);
+  }
+  if ('invoice_issued' in body) {
+    sets.push('invoice_issued = ?');
+    values.push(body.invoice_issued === true);
+  }
+  if (sets.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '変更する項目がありません');
+
+  // **申込書が揃っていないものは弾く。** 画面でも選べないようにしているが、
+  // ここで見ないと直接叩けば通ってしまう
+  const blocked = await queryAll(
+    `SELECT r.id FROM revenues r JOIN projects p ON p.id = r.project_id
+      WHERE r.id = ANY($1::text[]) AND COALESCE(p.application_form, 0) = 0`,
+    [ids],
+  ) as { id: string }[];
+  const blockedIds = new Set(blocked.map((b) => b.id));
+  const target = ids.filter((id) => !blockedIds.has(id));
+
+  // 請求書を出すときだけ申込書を要求する。入金・検収の記録は止めない
+  const issuing = 'invoice_issued' in body && body.invoice_issued === true;
+  const finalIds = issuing ? target : ids;
+  if (finalIds.length === 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', '選んだものはすべて申込書が揃っていません');
+  }
+
+  await execute(
+    `UPDATE revenues SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ?
+      WHERE id = ANY($${values.length + 2}::text[]) AND deleted_at IS NULL`,
+    [...values, req.user!.id, finalIds],
+  );
+
+  res.json({
+    success: true,
+    data: {
+      updated: finalIds.length,
+      // **飛ばしたものを返す。** 黙って一部だけ処理するのがいちばん困る
+      skipped_blocked: issuing ? [...blockedIds] : [],
+    },
+  });
 });
 
 export default router;

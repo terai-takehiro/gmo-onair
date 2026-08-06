@@ -56,6 +56,7 @@ const TREE = [
   ]],
   ['財務管理', [
     ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/FinanceDashboardPage.tsx'],
+    ['請求・入金', '/budget/billing', 'client/src/contexts/finance/pages/ClosingPage.tsx'],
     ['売上', '/budget/revenues', 'client/src/contexts/finance/pages/RevenueListPage.tsx'],
     ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
     ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],

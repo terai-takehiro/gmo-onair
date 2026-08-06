@@ -44,6 +44,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
 import { Home, ListTodo as ListTodoTab, Menu } from "lucide-react";
 import type { ShellMobileTab, ShellNavSection } from "@gmo-onair/shared/src/client/shell";
@@ -107,10 +108,16 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
   ],
+  // 財務管理。**まだ v4 の情報設計に差し替えていない**（8画面のうち4画面が済み）。
+  // 残り4画面（ダッシュボード・受け取った書類・取り込み・取引先）を作り終えたときに、
+  // 案件管理と同じように 見る／明細／取り込み／設定 の4つへ組み直す。
+  // いまは v4 で作った「請求・入金」を足しただけ。
   budget: [
     {
+      title: "見る",
       items: [
         { label: "財務ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
+        { label: "請求・入金", to: "/budget/billing", icon: Wallet },
       ],
     },
     {

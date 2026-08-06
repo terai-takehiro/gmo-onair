@@ -48,6 +48,7 @@ import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
 // Finance (財務管理)
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
+import ClosingPage from "@/contexts/finance/pages/ClosingPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
@@ -163,6 +164,7 @@ function AppRoutes() {
         <Route path="/sales/billing" element={<PermissionRoute module="sales"><BillingListPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) ===== */}
+        <Route path="/budget/billing" element={<PermissionRoute module="budget"><ClosingPage /></PermissionRoute>} />
         <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
