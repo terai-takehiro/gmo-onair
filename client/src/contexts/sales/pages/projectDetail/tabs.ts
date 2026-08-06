@@ -37,10 +37,10 @@ export interface ProjectTabDef {
 
 export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'overview', label: '概要', icon: LayoutDashboard },
-  { key: 'thread', label: 'やり取り', icon: MessageSquare, todo: true },
-  { key: 'episode', label: '回', icon: Clapperboard, seriesOnly: true, todo: true },
+  { key: 'thread', label: 'やり取り', icon: MessageSquare },
+  { key: 'episode', label: '回', icon: Clapperboard, seriesOnly: true },
   { key: 'task', label: 'タスク', icon: ListChecks },
-  { key: 'estimate', label: '見積・請求', icon: Receipt, todo: true },
+  { key: 'estimate', label: '見積・請求', icon: Receipt },
   { key: 'files', label: '書類', icon: FolderCheck },
   { key: 'day', label: '当日', icon: ClipboardList },
   { key: 'review', label: 'ふりかえり', icon: LineChart, todo: true },

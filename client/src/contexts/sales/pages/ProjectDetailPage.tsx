@@ -17,7 +17,8 @@
  *
  * 残り7つのタブは枠だけです。**空白にせず「これから作ります」と出します**
  * — タブがあるのに押しても何も起きないのがいちばん困るので。
- * ⑥-B で タスク / 書類 / 当日 を足しました。残るのは やり取り / 回 / 見積・請求 (⑥-C)。
+ * ⑥-B で タスク / 書類 / 当日、⑥-C で やり取り / 回 / 見積・請求 を足しました。
+ * 残るのは「ふりかえり」だけ (モック自身が「これから作ります」と書いている分)。
  * 「ふりかえり」は**モック自身が「これから作ります」**と書いている分です。
  */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -33,6 +34,8 @@ import { OverviewTab } from './projectDetail/OverviewTab';
 import { TasksTab } from './projectDetail/TasksTab';
 import { FilesTab } from './projectDetail/FilesTab';
 import { DayTab } from './projectDetail/DayTab';
+import { ThreadTab } from './projectDetail/ThreadTab';
+import { LegacyViewTab } from './projectDetail/LegacyViewTab';
 import { PROJECT_TABS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
@@ -121,7 +124,10 @@ export default function ProjectDetailPage() {
       {tab === 'overview' && (
         <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
       )}
+      {tab === 'thread' && <ThreadTab projectId={id} />}
+      {tab === 'episode' && <LegacyViewTab project={p} />}
       {tab === 'task' && <TasksTab project={p} />}
+      {tab === 'estimate' && <LegacyViewTab project={p} estimateMode />}
       {tab === 'files' && <FilesTab project={p} />}
       {tab === 'day' && <DayTab projectId={id} />}
       {PROJECT_TABS.find((t) => t.key === tab)?.todo && (

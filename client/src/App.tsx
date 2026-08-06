@@ -32,14 +32,12 @@ import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
-import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Tasks (タスク管理)
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 
 // Production (スタジオ予約)
-import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
@@ -79,12 +77,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * 旧 `/sales/projects/:projectId/tasks` — v4 ⑥-B で案件詳細の「タスク」タブに畳んだ。
- * ブックマークと、まだ書き換わっていないリンクを生かすための転送。
+ * 旧 `/sales/projects/:projectId/{tasks,episodes,estimates}` — v4 ⑥ で
+ * 案件詳細のタブに畳んだ。**ブックマークと配布済みのリンクを生かすための転送**。
  */
-function RedirectToTaskTab() {
+function RedirectToDetailTab({ tab }: { tab: string }) {
   const { projectId } = useParams<{ projectId: string }>();
-  return <Navigate to={`/sales/projects/${projectId}/task`} replace />;
+  return <Navigate to={`/sales/projects/${projectId}/${tab}`} replace />;
 }
 
 function AppRoutes() {
@@ -134,10 +132,10 @@ function AppRoutes() {
         <Route path="/sales/projects/:id/edit" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/:id/:tab" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
+        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="episode" />} />
+        <Route path="/sales/projects/:projectId/estimates" element={<RedirectToDetailTab tab="estimate" />} />
         {/* v4 ⑥-B: 案件のタスクは案件詳細の「タスク」タブに畳んだ (ブックマークは生かす) */}
-        <Route path="/sales/projects/:projectId/tasks" element={<RedirectToTaskTab />} />
+        <Route path="/sales/projects/:projectId/tasks" element={<RedirectToDetailTab tab="task" />} />
         <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />

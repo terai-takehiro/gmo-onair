@@ -34,7 +34,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | --- | --- | --- |
 | ③ 案件一覧 | `contexts/sales/pages/ProjectListPage.tsx` ＋ `pages/projectList/` | 下記 |
 | ④ タスク一覧 | `contexts/tasks/pages/TaskDashboardPage.tsx` ＋ `pages/taskList/` | 下記 |
-| ⑥ 案件詳細（枠＋概要・タスク・書類・当日） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
+| ⑥ 案件詳細（ふりかえり以外の7タブ） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
 
 **案件一覧（③）で決めたこと**
 - **ボードは別画面をやめて「見え方」にした。** 旧 `/sales/pipeline`（`PipelinePage`）は削除し、
@@ -79,8 +79,11 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 - **タブの URL の鍵は `episode` / `task` のように単数**。`episodes` / `tasks` にすると
   既存の `/sales/projects/:projectId/episodes` と衝突し、押した瞬間に枠ごと消える
   （React Router は静的な区切りを優先する）。⑥-B・⑥-C で古い画面を畳んだら綴りを揃える
-- **中身があるのは 概要・タスク・書類・当日**。残る やり取り／回／見積・請求 は
-  「これから作ります」と何が入るかを出す（空白にすると壊れているのか読み込み中か分からない）
+- **中身があるのは「ふりかえり」以外の7タブ**。ふりかえりはモック自身が「これから作ります」
+  と書いている分（空白にせず、何が入るかを画面に出す）
+- **回タブと見積・請求タブは `BusinessProjectView`（2,042行）を呼ぶだけ。**
+  旧 `EpisodeListPage` / `EstimatePage` は**同じものを別 URL で開いていた32行のラッパー**
+  だったので削除し、旧 URL は転送にした（違いは `isEstimateMode` の有無だけだった）
 - **タスクタブは既存のかんばん／リスト／ガントをそのまま呼んでいる。** 落としたのは
   見出しだけ（枠が出すので二重になる）。旧 `/sales/projects/:id/tasks` は転送にして
   `ProjectTasksPage` は削除した
@@ -91,9 +94,9 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   `GET /techsheet/documents?project_id=` でこの案件の資料を引き、**あるものだけ**並べて
   `/qsheet/editor/:id` を直接開く（凍結＝URL は生きているので今日から使える）。
   資料ごとの進み具合は凍結アプリ側の作りに依存するので出さず、その旨を画面に書いた
-- **見積・請求は ⑥-C に回した。** `revenues` に**見積という状態も版（v1/v2）も無く**、
-  編集は `BusinessProjectView` 2,042行が持っている。モックの「v1 送付済 / v2 作成中」を
-  出すには DB の設計判断が要る
+- **見積の「版」はまだ無い。** `revenues` に見積という状態も版（v1/v2）も無い
+  （status は `confirmed` だけ）。**版を残す方針は決定済み**なので、DB の設計と合わせて
+  別の回で入れる（枠を入れ替える回とデータの形を変える回は混ぜない）
 - **「エピソード」→ タブ名は「回」。** モックは「エピソード」だが、v4 の用語の決めごと
   （`docs/wording.md`・`check-ui-tokens` の `forbidden-wording`）で画面に出さない語。
   **用語の決めごとを優先した**
