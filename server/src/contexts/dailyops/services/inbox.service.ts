@@ -33,7 +33,9 @@ export interface FinanceDocInput {
 
 const FD_COLS = `id, doc_type, sender, subject, content, amount, closing_month, payment_due,
   status, received_at, processed_by, processed_at, gls_number, notes, source, message_id,
-  requested_by, created_by, created_at, updated_at`;
+  requested_by, created_by, created_at, updated_at,
+  -- v4 ⑥: 台帳（仕入 / 販管費）へ渡した先。**片側だけだと突き合わせられない**
+  linked_kind, linked_id`;
 
 function assertIn<T extends string>(val: string, allowed: readonly T[], label: string): void {
   if (!(allowed as readonly string[]).includes(val)) {

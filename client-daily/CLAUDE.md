@@ -10,7 +10,7 @@
 | デイリーニュース報告 | `pages/DailyNewsPage` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
 | 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{shared.tsx,logic.ts}` |
-| 入ってきた情報（届いた見積・請求書 ＋ その他問い合わせ） | `pages/FinanceDocsPage` ＋ `pages/InquiriesPage` |
+| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` |
 | セキュリティカード | `pages/SecurityCardsPage` |
 
 - `pages/TasksPage` は**案件管理へ寄せる**方針（v4 では `/daily/tasks` を案件管理のタスクへ転送）
@@ -24,8 +24,12 @@
   正規化は NFKC → 小文字 → カタカナをひらがなへ → 区切り記号を落とす（`pages/inview/logic.ts`）。
   **同行者は1人ずつ受付**する（代表だけ先に来るのが普通）。受付人数は**組数ではなく人数**で数える
 - **セキュリティカード**は機材の貸出とは**別台帳**（エリア解錠権限で分かれる。24枚・10エリア）
-- **受け取った書類**（届いた見積・請求書）は自社が出す請求（財務管理）とは別物。
-  承認後に「財務管理へ渡す」で仕入／販管費の下書きになる一本道
+- **受け取った書類は財務管理へ移した**（v4 ⑥・`/budget/documents`）。`dailyops` 権限だけを
+  要求していたので**経理が開けなかった**（実測で 403）。中身は 金額・締月・支払期日・GLS番号 で
+  経理の道具なので財務に置き、**`budget` か `dailyops` のどちらか**で通す。
+  `/daily/finance` は転送だけ残した（`App.tsx` の `RedirectToFinanceDocs`）。
+  **左メニューとホームのタイルは消していない** — `dailyops` だけの人はアプリ切替に
+  財務管理が出ないので、消すと辿り着く道が無くなる
 
 ## 触るときの注意
 

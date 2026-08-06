@@ -29,7 +29,10 @@ export const DAILY_NAV: ShellNavSection[] = [
       { label: 'ウィークリー活動報告', to: '/weekly', icon: CalendarCheck },
       { label: 'デイリーニュース報告', to: '/news', icon: Newspaper },
       { label: '内覧会 来場予約', to: '/inview', icon: DoorOpen },
-      { label: '見積 / 請求書', to: '/finance', icon: FileText },
+      // v4 ⑥: 画面は財務管理へ移した (`/budget/documents`)。`/finance` は転送だけ。
+      // **項目は消せない** — `dailyops` だけの人はアプリ切替に財務管理が出ないので、
+      // ここを消すと辿り着く道が無くなる (行き先の権限は budget か dailyops のどちらか)
+      { label: '受け取った書類', to: '/finance', icon: FileText },
       { label: 'その他問い合わせ', to: '/inquiries', icon: Inbox },
       { label: 'セキュリティカード', to: '/security-cards', icon: KeyRound },
     ],

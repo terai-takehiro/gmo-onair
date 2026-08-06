@@ -61,6 +61,8 @@ const TREE = [
     ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
     ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],
     ['取引先 (仕入先・パートナー)', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx'],
+    // 日常業務 (`/daily/finance`) から移した。`dailyops` だけを要求していて経理が開けなかった
+    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx'],
     ['取り込み (楽楽精算)', '/budget/xpoint-import', 'client/src/contexts/finance/pages/XpointImportPage.tsx'],
     ['取り込み (決算)', '/budget/kessan-import', 'client/src/contexts/platform/pages/KessanImportPage.tsx'],
     ['二重計上を調べる', '/budget/dedup-screening', 'client/src/contexts/platform/pages/DedupScreeningPage.tsx'],
@@ -99,7 +101,10 @@ const TREE = [
     ['ウィークリー活動報告', '/daily/weekly', 'client-daily/src/pages/WeeklyListPage.tsx'],
     ['デイリーニュース', '/daily/news', 'client-daily/src/pages/DailyNewsPage.tsx'],
     ['内覧会 開催日', '/daily/inview', 'client-daily/src/pages/InviewPage.tsx'],
-    ['入ってきた情報', '/daily/finance', 'client-daily/src/pages/FinanceDocsPage.tsx'],
+    ['入ってきた情報 (その他問い合わせ)', '/daily/inquiries', 'client-daily/src/pages/InquiriesPage.tsx'],
+    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx', undefined,
+      '**財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので' +
+      '**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります'],
     ['セキュリティカード', '/daily/security-cards', 'client-daily/src/pages/SecurityCardsPage.tsx'],
   ]],
   ['機材管理', [

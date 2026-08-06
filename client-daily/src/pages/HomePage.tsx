@@ -168,7 +168,7 @@ export default function HomePage() {
           </Card>
         </Link>
 
-        {/* 見積 / 請求書 */}
+        {/* 受け取った書類 — 画面は財務管理へ移した (`/finance` は転送) */}
         <Link to="/finance" className="group">
           <Card className="h-full transition-shadow hover:shadow-md">
             <CardContent className="p-4 sm:p-5">
@@ -176,10 +176,10 @@ export default function HomePage() {
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-5 w-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">見積 / 請求書</h2>
+                    <h2 className="font-semibold text-sm truncate">受け取った書類</h2>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">メール受信の見積・請求・注文書を AI が取込。確認→承認→処理完了で管理</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">メール受信の見積・請求・注文書を AI が取込。承認したら仕入・販管費に入れます（財務管理へ移動します）</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
                     {pendingFinance > 0 ? (
                       <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><CircleDashed className="h-3 w-3" /> 未処理 {pendingFinance}件</Badge>

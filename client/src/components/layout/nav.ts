@@ -126,6 +126,8 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "売上管理", to: "/budget/revenues", icon: Receipt },
         { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
+        // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は budget か dailyops
+        { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["budget", "dailyops"] },
         { label: "精算PDF取込", to: "/budget/xpoint-import", icon: FileSearch },
         { label: "決算インポート", to: "/budget/kessan-import", icon: FlaskConical, adminOnly: true },
         { label: "二重計上スクリーニング", to: "/budget/dedup-screening", icon: CopyCheck, adminOnly: true },

@@ -71,6 +71,8 @@ const PAGES = [
   ['財務 仕入', '/budget/purchases', { slow: true }],
   ['財務 販管費', '/budget/sga'],
   ['財務 売上', '/budget/revenues', { slow: true }],
+  ['財務 取引先', '/budget/vendors'],
+  ['財務 受け取った書類', '/budget/documents'],
   ['財務 取引先レポート', '/budget/reports/vendors'],
   ['財務 楽楽精算取込', '/budget/xpoint-import'],
   ['設定 メンバー', '/settings/users'],
@@ -106,7 +108,9 @@ const PAGES = [
   ['日常業務 週報', '/daily/weekly'],
   ['日常業務 ニュース', '/daily/news'],
   ['日常業務 内覧会', '/daily/inview'],
-  ['日常業務 見積請求', '/daily/finance'],
+  // `/daily/finance` は**画面ではなく転送**になった (v4 ⑥ で財務へ移した)。
+  // 中身は上の「財務 受け取った書類」で見る。ここに残すと、転送の一瞬を測って
+  // 「シェルが画面いっぱいでない」と必ず落ちる
   ['日常業務 問い合わせ', '/daily/inquiries'],
   ['日常業務 やること', '/daily/tasks'],
   ['日常業務 カード', '/daily/security-cards'],
