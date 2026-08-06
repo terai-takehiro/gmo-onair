@@ -34,7 +34,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | --- | --- | --- |
 | ③ 案件一覧 | `contexts/sales/pages/ProjectListPage.tsx` ＋ `pages/projectList/` | 下記 |
 | ④ タスク一覧 | `contexts/tasks/pages/TaskDashboardPage.tsx` ＋ `pages/taskList/` | 下記 |
-| ⑥ 案件詳細（枠＋概要） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
+| ⑥ 案件詳細（枠＋概要・タスク・書類・当日） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
 
 **案件一覧（③）で決めたこと**
 - **ボードは別画面をやめて「見え方」にした。** 旧 `/sales/pipeline`（`PipelinePage`）は削除し、
@@ -79,8 +79,21 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 - **タブの URL の鍵は `episode` / `task` のように単数**。`episodes` / `tasks` にすると
   既存の `/sales/projects/:projectId/episodes` と衝突し、押した瞬間に枠ごと消える
   （React Router は静的な区切りを優先する）。⑥-B・⑥-C で古い画面を畳んだら綴りを揃える
-- **中身があるのは「概要」だけ。** 残りは「これから作ります」と何が入るかを出す。
-  空白にすると壊れているのか読み込み中なのか分からない
+- **中身があるのは 概要・タスク・書類・当日**。残る やり取り／回／見積・請求 は
+  「これから作ります」と何が入るかを出す（空白にすると壊れているのか読み込み中か分からない）
+- **タスクタブは既存のかんばん／リスト／ガントをそのまま呼んでいる。** 落としたのは
+  見出しだけ（枠が出すので二重になる）。旧 `/sales/projects/:id/tasks` は転送にして
+  `ProjectTasksPage` は削除した
+- **書類タブは BOX を開く導線だけ。** BOX は**フォルダを作る口しかなく、中を一覧する
+  API が無い**（`POST /projects/:id/create-box-folder` だけ）。読み取りを足すのは
+  それだけで1回ぶんの作業なので、できないことを画面に明記した
+- **当日タブは凍結アプリへの導線。** `GET /qsheet/documents?project_id=` /
+  `GET /techsheet/documents?project_id=` でこの案件の資料を引き、**あるものだけ**並べて
+  `/qsheet/editor/:id` を直接開く（凍結＝URL は生きているので今日から使える）。
+  資料ごとの進み具合は凍結アプリ側の作りに依存するので出さず、その旨を画面に書いた
+- **見積・請求は ⑥-C に回した。** `revenues` に**見積という状態も版（v1/v2）も無く**、
+  編集は `BusinessProjectView` 2,042行が持っている。モックの「v1 送付済 / v2 作成中」を
+  出すには DB の設計判断が要る
 - **「エピソード」→ タブ名は「回」。** モックは「エピソード」だが、v4 の用語の決めごと
   （`docs/wording.md`・`check-ui-tokens` の `forbidden-wording`）で画面に出さない語。
   **用語の決めごとを優先した**

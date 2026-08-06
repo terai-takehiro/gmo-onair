@@ -650,13 +650,13 @@ const BASELINE = {
       "client-daily": 6
     },
     "empty-by-hand": {
-      "client": 11,
+      "client": 10,
       "client-daily": 4,
       "client-equipment": 2,
       "shared": 2
     },
     "forbidden-wording": {
-      "client": 85,
+      "client": 84,
       "client-live": 1,
       "client-qsheet": 6,
       "client-techsheet": 5,
@@ -668,7 +668,7 @@ const BASELINE = {
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 386,
+      "client": 383,
       "client-daily": 95,
       "client-equipment": 132
     },
@@ -682,7 +682,7 @@ const BASELINE = {
       "shared": 1
     },
     "raw-palette": {
-      "client": 375,
+      "client": 372,
       "client-daily": 116,
       "client-equipment": 111,
       "shared": 6

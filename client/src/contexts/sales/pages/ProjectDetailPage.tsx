@@ -13,11 +13,11 @@
  * 同じ回でやると、どちらが原因で壊れたのか切り分けられなくなるためです
  * (前回の刷新が捨てられたのがまさにこれでした)。
  *
- * ── いま中身があるのは「概要」だけ ────────────────────────────
+ * ── まだ中身が無いタブ ──────────────────────────────────────
  *
  * 残り7つのタブは枠だけです。**空白にせず「これから作ります」と出します**
  * — タブがあるのに押しても何も起きないのがいちばん困るので。
- * やり取り / 回 / タスク / 見積・請求 / 書類 / 当日 は ⑥-B・⑥-C で作ります。
+ * ⑥-B で タスク / 書類 / 当日 を足しました。残るのは やり取り / 回 / 見積・請求 (⑥-C)。
  * 「ふりかえり」は**モック自身が「これから作ります」**と書いている分です。
  */
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -30,6 +30,9 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { DetailHeader } from './projectDetail/DetailHeader';
 import { OverviewTab } from './projectDetail/OverviewTab';
+import { TasksTab } from './projectDetail/TasksTab';
+import { FilesTab } from './projectDetail/FilesTab';
+import { DayTab } from './projectDetail/DayTab';
 import { PROJECT_TABS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
@@ -115,13 +118,13 @@ export default function ProjectDetailPage() {
         onChangeStage={onChangeStage}
       />
 
-      {tab === 'overview' ? (
-        <OverviewTab
-          project={p}
-          bookings={bookings.data ?? []}
-          activities={activities.data?.data ?? []}
-        />
-      ) : (
+      {tab === 'overview' && (
+        <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
+      )}
+      {tab === 'task' && <TasksTab project={p} />}
+      {tab === 'files' && <FilesTab project={p} />}
+      {tab === 'day' && <DayTab projectId={id} />}
+      {PROJECT_TABS.find((t) => t.key === tab)?.todo && (
         <TabTodo tab={tab} onBack={() => navigate(`/sales/projects/${id}`)} />
       )}
     </div>

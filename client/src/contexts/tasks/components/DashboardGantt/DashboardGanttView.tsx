@@ -147,7 +147,7 @@ function MobileGanttView({
           <div key={project.id} className="border rounded-xl overflow-hidden">
             {/* Project header */}
             <button
-              onClick={() => navigate(`/sales/projects/${project.id}/tasks`)}
+              onClick={() => navigate(`/sales/projects/${project.id}/task`)}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
             >
               <span className="font-semibold text-sm truncate">
@@ -346,7 +346,7 @@ function DesktopGanttView({
                     className="border-b bg-muted/40 flex items-center px-2"
                   >
                     <button
-                      onClick={() => navigate(`/sales/projects/${row.project.id}/tasks`)}
+                      onClick={() => navigate(`/sales/projects/${row.project.id}/task`)}
                       className="text-xs font-semibold truncate hover:text-primary transition-colors text-left w-full"
                     >
                       {row.project.gls_number ? `${row.project.gls_number} ` : ""}

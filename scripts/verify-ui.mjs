@@ -46,7 +46,10 @@ const PAGES = [
   // リストとは別の描き方なので**別に測る** — カードの中は行部品を使わない
   ['案件管理 案件ボード', '/sales/projects?view=board'],
   ['案件管理 案件詳細', '/sales/projects/pj-1'],
-  ['案件管理 案件詳細タブ', '/sales/projects/pj-1/files'],
+  ['案件管理 案件詳細タスク', '/sales/projects/pj-1/task', { slow: true }],
+  ['案件管理 案件詳細書類', '/sales/projects/pj-1/files'],
+  ['案件管理 案件詳細当日', '/sales/projects/pj-1/day'],
+  ['案件管理 案件詳細未作成', '/sales/projects/pj-1/review'],
   ['案件管理 案件編集', '/sales/projects/pj-1/edit', { slow: true }],
   ['案件管理 タスク一覧', '/sales/tasks/list'],
   ['案件管理 タスクガント', '/sales/tasks/gantt', { slow: true }],

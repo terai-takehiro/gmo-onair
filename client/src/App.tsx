@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
@@ -36,7 +36,6 @@ import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Tasks (タスク管理)
-import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 
 // Production (スタジオ予約)
@@ -77,6 +76,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+/**
+ * 旧 `/sales/projects/:projectId/tasks` — v4 ⑥-B で案件詳細の「タスク」タブに畳んだ。
+ * ブックマークと、まだ書き換わっていないリンクを生かすための転送。
+ */
+function RedirectToTaskTab() {
+  const { projectId } = useParams<{ projectId: string }>();
+  return <Navigate to={`/sales/projects/${projectId}/task`} replace />;
 }
 
 function AppRoutes() {
@@ -128,7 +136,8 @@ function AppRoutes() {
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/tasks" element={<PermissionRoute module="sales"><ProjectTasksPage /></PermissionRoute>} />
+        {/* v4 ⑥-B: 案件のタスクは案件詳細の「タスク」タブに畳んだ (ブックマークは生かす) */}
+        <Route path="/sales/projects/:projectId/tasks" element={<RedirectToTaskTab />} />
         <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
