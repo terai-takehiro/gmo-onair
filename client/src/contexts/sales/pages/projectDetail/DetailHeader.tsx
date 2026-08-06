@@ -90,14 +90,13 @@ export function DetailHeader({
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/*
-            打合せを録音 — **中身は別の回**にしました (AI が文字起こしから
-            決定事項・未確認事項を抜き出す機能で、会社方針の「AI を使い捨てにしない」
-            に沿ってフィードバックの経路から設計する必要があるため)。
-            ここでは押せる場所だけ決めておきます。
+            打合せを録音 — **中身はやり取りタブが持っています**。
+            ここは入口なのでタブへ送るだけにします (同じダイアログを2か所から
+            開けるようにすると、状態を持つ場所が2つになって必ずずれます)。
           */}
           <Button
             variant="outline"
-            title="録音から議事録を起こす機能は、次のバージョンで入ります"
+            title="やり取りタブで録音します"
             onClick={() => navigate(`/sales/projects/${id}/thread`)}
           >
             <Mic className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />打合せを録音

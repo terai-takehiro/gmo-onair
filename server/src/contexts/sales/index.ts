@@ -2,6 +2,7 @@ import { Router } from 'express';
 import projectsRoutes from './routes/projects.routes';
 import estimatesRoutes from './routes/estimates.routes';
 import billingRoutes from './routes/billing.routes';
+import minutesRoutes from './routes/minutes.routes';
 import projectMembersRoutes from './routes/project-members.routes';
 import projectCollabRoutes from './routes/project-collab.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
@@ -22,6 +23,7 @@ export function createSalesRoutes(): Router {
   router.use('/billing', billingRoutes);
   router.use('/project-groups', projectGroupsRoutes);
   router.use('/projects/:projectId/estimates', estimatesRoutes);
+  router.use('/projects/:projectId/minutes', minutesRoutes);
   router.use('/projects', projectsRoutes);
   router.use('/projects', projectMembersRoutes);
   router.use('/projects', projectCollabRoutes);
