@@ -87,9 +87,12 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 - **タスクタブは既存のかんばん／リスト／ガントをそのまま呼んでいる。** 落としたのは
   見出しだけ（枠が出すので二重になる）。旧 `/sales/projects/:id/tasks` は転送にして
   `ProjectTasksPage` は削除した
-- **書類タブは BOX を開く導線だけ。** BOX は**フォルダを作る口しかなく、中を一覧する
-  API が無い**（`POST /projects/:id/create-box-folder` だけ）。読み取りを足すのは
-  それだけで1回ぶんの作業なので、できないことを画面に明記した
+- **書類タブは BOX の中身を1階層ぶん出す**（`GET /projects/:id/box-files?scope=`）。
+  **再帰しない** — 深いフォルダを全部たどると呼び出し回数が読めず画面が固まる。
+  **失敗しても 200 で返し `reason` を渡す**（`NO_FOLDER` / `NOT_CONFIGURED` /
+  `UNAVAILABLE`）。500 にすると BOX が落ちた日に案件詳細が全部開けなくなる
+  （`shared/services/box.ts` の「BOX 障害が業務をブロックしない」方針）。
+  **ファイルを置く（アップロード）はまだ無い**ので画面に明記している
 - **当日タブは凍結アプリへの導線。** `GET /qsheet/documents?project_id=` /
   `GET /techsheet/documents?project_id=` でこの案件の資料を引き、**あるものだけ**並べて
   `/qsheet/editor/:id` を直接開く（凍結＝URL は生きているので今日から使える）。

@@ -6,6 +6,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
+import { extractFolderId, isBoxConfigured, listFolderItems } from '../../../shared/services/box';
 
 const router = Router();
 
@@ -159,6 +160,43 @@ router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (
 router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {
   const result = await projectService.createBoxFolder(req.params.id as string);
   res.json({ success: true, data: result });
+});
+
+/**
+ * 案件の BOX フォルダの中身 (v4 ⑥ 書類タブ)。
+ *
+ * `scope=internal` 社内限り / `scope=external` 社外と共有。
+ *
+ * **BOX が落ちていても案件は止めない**というのがこのリポジトリの決めごと
+ * (`shared/services/box.ts` の設計方針) なので、**失敗しても 200 で返し**、
+ * `reason` に理由を入れます。画面はそれを「BOX につながりません」と出すだけで、
+ * 案件詳細の他のタブは普通に使えます。500 にすると画面全体がエラーになります。
+ */
+router.get('/:id/box-files', async (req, res) => {
+  const scope = req.query.scope === 'internal' ? 'internal' : 'external';
+  const project = await queryOne(
+    'SELECT box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
+    [req.params.id]
+  ) as { box_url_internal: string | null; box_url_external: string | null } | undefined;
+  if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+  const folderId = extractFolderId(
+    scope === 'internal' ? project.box_url_internal : project.box_url_external
+  );
+  if (!folderId) {
+    res.json({ success: true, data: [], reason: 'NO_FOLDER' });
+    return;
+  }
+  if (!isBoxConfigured()) {
+    res.json({ success: true, data: [], reason: 'NOT_CONFIGURED' });
+    return;
+  }
+  try {
+    res.json({ success: true, data: await listFolderItems(folderId) });
+  } catch (err) {
+    console.error('[box] listFolderItems failed:', (err as Error).message);
+    res.json({ success: true, data: [], reason: 'UNAVAILABLE' });
+  }
 });
 
 // 既存GLS案件へのリンク（エピソード追加）
