@@ -57,7 +57,9 @@ interface RevenueListResponse {
 
 /** 請求の進み具合を1つのバッジにする。**日付が入っていれば済み** */
 function billingState(r: RevenueRow): LedgerRow['state'] {
-  const to = `/sales/billing?tab=invoice`;
+  // **同じ財務の中の「請求・入金」へ送る。** 台帳から状態を変えられるようにすると、
+  // 経理が入金を記録した直後に別の画面から戻される事故が起きる
+  const to = '/budget/billing';
   if (r.paid_date) {
     return { label: '入金済', tone: 'ok', to, title: `${r.paid_date} に入金。押すと請求・入金の画面へ` };
   }

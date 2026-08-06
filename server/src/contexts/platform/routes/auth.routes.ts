@@ -408,7 +408,8 @@ router.get('/permission-test', requireAuth, wrap(async (req, res) => {
   const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4 };
   // **3つ欠けていた** (S1 で発見): dailyops / partner_schedule / admin。
   // 権限を調べる画面で「そのモジュールは存在しない」ように見えていた
-  const MODULES = ['sales', 'budget', 'studio', 'partner_schedule', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards', 'dailyops', 'admin'];
+  // **`UserListPage.tsx` の PERM_MODULES と同じ並びにすること**（片方だけだと付与できない）
+  const MODULES = ['sales', 'budget', 'gpm', 'studio', 'partner_schedule', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards', 'dailyops', 'admin'];
 
   // DB から直接クエリして最新値を取得
   const dbRows = await queryAll(

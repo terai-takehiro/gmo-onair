@@ -37,6 +37,7 @@
 | --- | --- |
 | `src/client/apps.ts` | **アプリ登録（唯一の正）**。名前・アイコン・色・URL・権限モジュール・凍結の印 |
 | `src/client/shell/` | **共通シェル**（上辺バー・左メニュー・スマホ下タブ）。v4 対象3アプリだけが使う |
+| **`src/client-v4/`** | **v4 対象3アプリだけが Tailwind で走査する場所**（下記）。凍結アプリの CSS を増やさずに新しいクラス名を書ける |
 | `src/client/tokens.css` | 設計トークン（色・書体・角丸）。DADS のプリミティブを import した上に GMO ブルーと意味づけを載せる |
 | `src/client/base.css` | **共通の土台**（`html`/`body`/`#root` の高さ・書体・タップ領域・印刷）。`tokens.css` を import した上に敷く。**v4 対象3アプリだけ**が読む |
 | `tailwind.preset.ts` | 全7アプリの `tailwind.config.ts` が `presets` で継承（**相対パス** `../shared/tailwind.preset` で参照） |
@@ -336,7 +337,7 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | 面と罫の段 | `surface-subtle`・`border-subtle`・`border-faint`・`border-disabled` |
 | プライマリの淡い段 | `primary-surface`・`primary-surface-weak`・`primary-border`・`primary-border-strong` |
 | 薄い文字 | `fg-disabled` — **読ませる文字には使わない**（白地で 2.61:1）。ヒント文字・押せない状態・アイコンの塗りだけ |
-| 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない** |
+| 見分けの色 | `cat-1`〜`cat-8` — 意味を持たない系列用。**状態の色を流用しない**。⚠️ **`cat-5`（山吹 #d2a400）は文字に使わない** — 白地でコントラストが足りず `verify-ui` の「薄すぎる文字」で落ちる（罫線・塗りなら可） |
 | 角丸の役割名 | `rounded-{badge-xs,badge,control,control-md,control-lg,note,card,app,chip}` |
 | 型スケール | `text-{h1,h2,cardtitle,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
 
@@ -370,12 +371,20 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 
 - **`shared/` を触る PR は全アプリの再ビルドを起こす。** 「共通部分を触る PR」と
   「1アプリだけの PR」を意識して分けること（分ければ後者はビルドがスキップされる）
-- **`shared/src/` に新しいクラス名を書くと、凍結4アプリの CSS にも入る。**
+- **`shared/src/client/` に新しいクラス名を書くと、凍結4アプリの CSS にも入る。**
   各アプリの Tailwind の `content` が `../shared/src/client/**` を含むため、
   **そのアプリが描かない部品のクラスまで CSS になる**。実際に左メニューへ
   `lg:min-h-[32px]` を1つ足しただけで凍結3アプリの CSS が 28 バイト増えた
   （`tests/` を `src/` の外に置いてあるのと同じ理由）。
-  → **shared に手を入れたら凍結4アプリの CSS のハッシュを必ず突き合わせること。**
+
+  → **v4 でしか使わない共通部品は `shared/src/client-v4/` に置くこと。**
+  v4 対象3アプリの `tailwind.config.ts` だけが `../shared/src/client-v4/**` を
+  content に持っているので、**凍結4アプリの CSS は1バイトも増えません**。
+  `RichContent`（AI が取り込んだ内容を描く部品）を `src/client/ui/` に置いたとき、
+  `gap-x-4` / `border-warning-border` / `pl-5` / `underline` の**4規則・231バイト**が
+  qsheet・techsheet・計時LIVE の CSS に入ったのを実測して切り分けました。
+
+  → `src/client/` を触ったときは**凍結4アプリの CSS のハッシュを必ず突き合わせる**。
   既にある値で足りるならそれを使う（上の例は `lg:min-h-[38px]` で解決した）
 - **アプリ一覧は `src/client/apps.ts` が唯一の正**（S1 で統合済み）。
   以前は `AppSwitcher` の `ONAIR_APPS`・`appNav` の `ALL_APPS`・`client` の `BLOCK_APPS`・

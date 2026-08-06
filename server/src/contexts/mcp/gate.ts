@@ -14,7 +14,7 @@ import type { McpActor } from './helpers';
 // - 表に無いツール (list_* / get_* 等の読み取り系) はゲートなし。
 //
 // 各ツールの module / level は対応する HTTP ルートの requirePermission に揃えてある。
-const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' | 'manager' }> = {
+const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level: 'editor' | 'manager' }> = {
   // sales (案件・顧客・営業活動・タスク・見積・keep-report[イベント報告/議事録/月次予算])
   create_activity_log: { module: 'sales', level: 'editor' },
   update_activity_log: { module: 'sales', level: 'editor' },
@@ -42,7 +42,11 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' |
   upsert_monthly_budget: { module: 'sales', level: 'editor' },
   upsert_monthly_actual_override: { module: 'sales', level: 'editor' },
   // dailyops (日常業務: 見積/請求書・問い合わせ・内覧会・週報/ニュース・セキュリティカード)
-  record_finance_doc: { module: 'dailyops', level: 'editor' },
+  // v4 ⑥: 受け取った書類は財務へ移し、HTTP 側を `dailyops` か `budget` の
+  // **どちらか**で通すようにした (経理が 403 で開けなかった)。
+  // **MCP 側も同じにする** — 片方だけ直すと、画面からは書けるのに
+  // MCP からは書けない（またはその逆の）ねじれが残る
+  record_finance_doc: { module: ['dailyops', 'budget'], level: 'editor' },
   record_inquiry: { module: 'dailyops', level: 'editor' },
   register_inview_attendee: { module: 'dailyops', level: 'editor' },
   submit_ops_report: { module: 'dailyops', level: 'editor' },
@@ -68,21 +72,27 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' |
 
 const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
 
+/**
+ * `module` は**配列も受ける**（どれか1つを満たせばよい）。
+ * HTTP 側の `requireAnyPermission` と同じ考え方で、v4 で
+ * 「受け取った書類は経理も日常業務も開ける」にしたのに合わせてある。
+ */
 async function actorHasPermission(
   userId: string,
-  module: string,
+  module: string | string[],
   minLevel: 'editor' | 'manager',
 ): Promise<boolean> {
   const user = (await queryOne('SELECT role FROM users WHERE id = ?', [userId])) as { role?: string } | null;
   if (!user) return false;
   if (user.role === 'system_admin') return true;
+  const modules = Array.isArray(module) ? module : [module];
   const rows = (await queryAll(
-    'SELECT access_level FROM user_permissions WHERE user_id = ? AND module = ?',
-    [userId, module],
+    `SELECT access_level FROM user_permissions WHERE user_id = ? AND module IN (${modules.map(() => '?').join(', ')})`,
+    [userId, ...modules],
   )) as Array<{ access_level: string }>;
-  if (rows.length === 0) return false;
-  const lvl = LEVEL_ORDER[rows[0].access_level] ?? 0;
-  return lvl >= LEVEL_ORDER[minLevel];
+  // **どれか1つでも足りていれば通す。** 行の順序に依存しないよう最大値で見る
+  // (以前は `rows[0]` だけを見ており、複数モジュールでは結果が不定になる)
+  return rows.some((r) => (LEVEL_ORDER[r.access_level] ?? 0) >= LEVEL_ORDER[minLevel]);
 }
 
 /**
@@ -103,8 +113,9 @@ export async function enforceToolPermissions(body: unknown, actor: McpActor): Pr
     if (!need) continue; // 読み取りツール等はゲートなし
     const allowed = await actorHasPermission(actor.actorId, need.module, need.level);
     if (!allowed) {
+      const label = Array.isArray(need.module) ? need.module.join(' か ') : need.module;
       throw new Error(
-        `権限が不足しています: ツール '${name}' には「${need.module}」モジュールの ${need.level} 以上の権限が必要です`,
+        `権限が不足しています: ツール '${name}' には「${label}」モジュールの ${need.level} 以上の権限が必要です`,
       );
     }
   }

@@ -20,18 +20,29 @@ const TOOLS_DIR = path.join(ROOT, "server", "src", "contexts", "mcp", "tools");
 const OUT_FILE = path.join(ROOT, "client", "public", "mcp-tools.json");
 
 // ファイル basename (.tools.ts を除いた語) → カテゴリラベル
+// **表に無いカテゴリは英語のキーがそのまま利用者に出る。**
+// ツールファイルを足したら必ずここにも足すこと（v4 の時点で 8 カテゴリが
+// aifeedback / budget / … のまま「MCP コネクタ」モーダルに出ていた）。
 const CATEGORY_LABELS = {
   projects: "案件管理",
   customers: "顧客",
   activities: "営業活動",
   tasks: "タスク",
+  members: "案件メンバー",
+  minutes: "議事録",
   studio: "スタジオ予約カレンダー",
   finance: "財務",
+  budget: "月次予算・損益",
+  pricing: "料金表・見積",
   analytics: "営業分析",
   users: "ユーザー",
+  mytasks: "個人タスク・依頼・投入",
   opsreports: "日常業務（週報／日報）",
+  eventreports: "イベント実施報告",
   inview: "内覧会 来場予約",
-  inbox: "見積／請求・その他問い合わせ",
+  inbox: "受け取った書類・入ってきた情報",
+  "security-cards": "セキュリティカード",
+  aifeedback: "AI の改善（修正差分の還流）",
 };
 // カテゴリ表示順 (未知は末尾)
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);

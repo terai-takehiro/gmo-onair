@@ -2,12 +2,22 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { financeDocService, inquiryService, FINANCE_DOC_TYPES, FINANCE_DOC_STATUSES } from '../../dailyops/services/inbox.service';
 import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { RICH_CONTENT_ARGS } from './richContentSchema';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
 
 // 日常業務アプリ (dailyops) — 受信箱系の MCP ツール。
 // AI がメールを読み取り、見積/請求書 と その他問い合わせ を分類して取り込む想定。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/**
+ * AI 出力の種類 (`ai_outputs.kind`)。
+ * **人が直した差分を突き合わせる起点**なので、サービス側 (`inbox-ai-feedback.service.ts`)
+ * と必ず同じ値を使うこと。
+ */
+export const FINANCE_DOC_INTAKE_KIND = 'finance_doc_intake';
+export const INQUIRY_INTAKE_KIND = 'inquiry_intake';
 
 export function registerInboxTools(server: McpServer): void {
   // ── 見積/請求書/注文書 ──────────────────────────────
@@ -32,6 +42,7 @@ export function registerInboxTools(server: McpServer): void {
         gls_number: z.string().optional().describe('関連案件の GLS 番号 (分かれば)'),
         notes: z.string().optional(),
         message_id: z.string().optional().describe('メールの Message-ID (重複取込ガード)'),
+        ...RICH_CONTENT_ARGS,
         ...REQUESTED_BY,
       },
     },
@@ -42,10 +53,20 @@ export function registerInboxTools(server: McpServer): void {
         closing_month: args.closing_month ?? null, payment_due: args.payment_due ?? null,
         received_at: args.received_at ?? null, gls_number: args.gls_number ?? null, notes: args.notes ?? null,
         source: 'email', message_id: args.message_id ?? null,
+        details: args.details, body_text: args.body_text ?? null,
         requested_by: args.requested_by ?? null, created_by: currentActorId(),
       });
       audit('record_finance_doc', { doc_type: args.doc_type, sender: args.sender, subject: args.subject, amount: args.amount },
         { id: row.id, action, doc_type: row.doc_type }, args.requested_by);
+      // **AI の出力を切り詰めずに残す**（会社方針「AI を使い捨てにしない」の条件1）。
+      // `mcp_audit_log` は args を 1000 文字で切るので教師データにならない
+      await recordAiOutput({
+        kind: FINANCE_DOC_INTAKE_KIND,
+        targetTable: 'finance_docs', targetId: String(row.id),
+        payload: args, toolName: 'record_finance_doc',
+        actorId: currentActorId(), requestedBy: args.requested_by ?? null,
+        sourceChannel: 'email', messageId: args.message_id ?? null,
+      });
       return ok({ [action]: true, id: row.id, action, doc_type: row.doc_type, status: row.status });
     }),
   );
@@ -88,6 +109,7 @@ export function registerInboxTools(server: McpServer): void {
         url: z.string().optional(),
         received_at: z.string().regex(DATE_RE).optional().describe('受信日 (YYYY-MM-DD)'),
         message_id: z.string().optional().describe('メールの Message-ID (重複取込ガード)'),
+        ...RICH_CONTENT_ARGS,
         ...REQUESTED_BY,
       },
     },
@@ -97,10 +119,18 @@ export function registerInboxTools(server: McpServer): void {
         category: args.category ?? null, importance: args.importance ?? 'medium',
         action_needed: args.action_needed ?? null, url: args.url ?? null,
         received_at: args.received_at ?? null, source: 'email', message_id: args.message_id ?? null,
+        details: args.details, body_text: args.body_text ?? null,
         requested_by: args.requested_by ?? null, created_by: currentActorId(),
       });
       audit('record_inquiry', { subject: args.subject, sender: args.sender, importance: args.importance, category: args.category },
         { id: row.id, action }, args.requested_by);
+      await recordAiOutput({
+        kind: INQUIRY_INTAKE_KIND,
+        targetTable: 'misc_inquiries', targetId: String(row.id),
+        payload: args, toolName: 'record_inquiry',
+        actorId: currentActorId(), requestedBy: args.requested_by ?? null,
+        sourceChannel: 'email', messageId: args.message_id ?? null,
+      });
       return ok({ [action]: true, id: row.id, action, importance: row.importance });
     }),
   );

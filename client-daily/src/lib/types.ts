@@ -1,4 +1,5 @@
 import { compactYen } from '@gmo-onair/shared/src/client/ui/numbers';
+import type { RichBlock } from '@gmo-onair/shared/src/client-v4/richContent';
 // 日常業務アプリの型・定数
 
 export type OpsReportKind = 'weekly_activity' | 'daily_news';
@@ -142,6 +143,13 @@ export interface MiscInquiry {
   handled_by: string | null;
   notes: string | null;
   source: string;
+  /**
+   * AI が組み立てた「読める形」の中身（migration 160）。
+   * **`summary` を置き換えるものではない** — 古い行は自由文しか持っていないので両方出す。
+   */
+  details: RichBlock[] | null;
+  /** メール本文の全文。切り詰めていない */
+  body_text: string | null;
   created_at: string;
   updated_at: string;
 }

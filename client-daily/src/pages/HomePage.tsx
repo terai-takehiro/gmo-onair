@@ -1,262 +1,225 @@
+/**
+ * 日常業務のホーム (`/`) (v4)
+ *
+ * ── 3つの塊にした ───────────────────────────────────────────
+ *
+ * 以前は7枚のカードが同じ大きさで並んでいて、**どれが急ぐのかが分からない**
+ * 画面だった。v4 のモックに合わせて、やることの種類でまとめる:
+ *
+ *   定期報告     決まった周期で出すもの (週・日)
+ *   届いたもの   外から来て、こちらが仕分けるもの
+ *   現場の受付   その日その場で人と向き合うもの
+ *
+ * 「タスク・依頼」だけは上に単独で置く。**期限があるのはここだけ**で、
+ * 他の塊と同じ扱いにすると期限超過が埋もれる。
+ *
+ * ── 件数は「すでに数えているもの」を使う ────────────────────
+ *
+ * ホームで数え直さない。書類と情報は `GET /dailyops/alerts`
+ * (サーバーが数えたもの)、タスクは `GET /dailyops/tasks/summary`、
+ * カードは `GET /dailyops/security-cards/stats`。以前は書類と問い合わせの
+ * **一覧を丸ごと取り寄せてから画面で数えて**いたので、「未処理」の定義が
+ * 画面とサーバーの2か所にあった。
+ *
+ * 内覧会だけは一覧から数える (件数の口が無い)。数え方は
+ * `inview/logic.ts` の `headOf()` — 受付ページと**同じ関数**を使う。
+ */
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox, KeyRound, AlertTriangle, ListChecks, Clock } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import {
+  CalendarCheck, ChevronRight, DoorOpen, FileText, Inbox, KeyRound, ListChecks, Newspaper, Sparkles,
+} from 'lucide-react';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { useReports } from '@/lib/reportsApi';
 import { useInviewList } from '@/lib/inviewApi';
-import { useFinanceDocs, useInquiries } from '@/lib/inboxApi';
+import { useDailyopsAlerts } from '@/lib/inboxApi';
 import { useSecurityCardStats } from '@/lib/securityCardApi';
 import { useMyTaskSummary } from '@/lib/tasksApi';
-import { MENUS, formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
+import { formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
+import { headOf, todayKey } from './inview/logic';
 
-const MENU_ICONS: Record<string, React.ElementType> = {
-  CalendarCheck,
-  Newspaper,
-};
+/** カードに出す小さな札。`tone` は状態の色 (急ぎ = destructive) */
+interface Mark { label: string; tone: string }
+
+const MARK_TONE = {
+  urgent: 'border-destructive-border bg-destructive-surface text-destructive',
+  soon: 'border-warning-border bg-warning-surface text-warning',
+  ai: 'border-ai-border bg-ai-surface text-ai',
+  done: 'border-success-border bg-success-surface text-success',
+  plain: 'bg-muted text-muted-foreground',
+} as const;
 
 export default function HomePage() {
   const weekly = useReports('weekly_activity', 1);
   const news = useReports('daily_news', 1);
-  const inviewUpcoming = useInviewList({ upcoming: true });
-  const latestByKind: Record<string, OpsReport | undefined> = {
-    weekly_activity: weekly.data?.[0],
-    daily_news: news.data?.[0],
-  };
-  const upcomingInviewCount = inviewUpcoming.data?.length ?? 0;
-  const upcomingInviewHeadcount = (inviewUpcoming.data ?? []).reduce((a, r) => a + (r.party_size || 1), 0);
-  const financeDocs = useFinanceDocs();
-  const pendingFinance = (financeDocs.data ?? []).filter((d) => d.status !== 'processed' && d.status !== 'rejected').length;
-  const inquiries = useInquiries();
-  const unhandledInquiries = (inquiries.data ?? []).filter((q) => !q.handled_at).length;
+  const inview = useInviewList({ upcoming: true });
+  const alerts = useDailyopsAlerts();
   const cardStats = useSecurityCardStats();
-  const taskSummary = useMyTaskSummary();
-  const ts = taskSummary.data;
+  const tasks = useMyTaskSummary();
+
+  const ts = tasks.data;
+  const taskMarks: Mark[] = [];
+  if (ts?.overdue) taskMarks.push({ label: `期限超過 ${ts.overdue}`, tone: MARK_TONE.urgent });
+  if (ts?.due_today) taskMarks.push({ label: `今日が期限 ${ts.due_today}`, tone: MARK_TONE.soon });
+  if (ts?.unanswered_delegations) taskMarks.push({ label: `未返答の依頼 ${ts.unanswered_delegations}`, tone: MARK_TONE.plain });
+
+  // 今後の回。人数は受付ページと同じ `headOf()` で数える (定義を1つにする)
+  const today = todayKey();
+  const upcoming = (inview.data ?? []).filter((r) => !r.session_date || r.session_date >= today);
+  const upcomingHead = upcoming.reduce((a, r) => a + headOf(r), 0);
+
+  const pendingDocs = alerts.data?.pendingFinanceDocs ?? 0;
+  const unhandled = alerts.data?.unhandledInquiries ?? 0;
+  const cs = cardStats.data;
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">日常業務</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          AI エージェントと協働する日々の定型業務メニュー。AI が生成・収集し、人が確認して仕上げます。
+    <div className="flex flex-col gap-5 p-3 lg:gap-6 lg:p-6">
+      <PageHeader
+        title="日常業務"
+        sub="AI が集めて下書きし、人が確かめて仕上げる日々の仕事です"
+      />
+
+      <Tile
+        to="/tasks"
+        icon={ListChecks}
+        title="タスク・依頼"
+        description="案件と自分のタスクを、重要度 × 緊急度の順に。受けた依頼・出した依頼もここ"
+        marks={taskMarks}
+        empty="待たせているものはありません"
+      />
+
+      <Group title="定期報告" note="決まった周期で出すもの">
+        <Tile
+          to="/weekly"
+          icon={CalendarCheck}
+          title="ウィークリー活動報告"
+          description="AI が週の活動を集計して文章にします。人がトピックを足して確定します"
+          marks={reportMarks(weekly.data?.[0], 'week')}
+          empty="週の報告はまだありません"
+        />
+        <Tile
+          to="/news"
+          icon={Newspaper}
+          title="デイリーニュース報告"
+          description="AI が業界のニュースを毎日集めます。分類と採用（1〜5）を人が付けます"
+          marks={reportMarks(news.data?.[0], 'day')}
+          empty="今日のニュースはまだありません"
+        />
+      </Group>
+
+      <Group title="届いたもの" note="外から来て、こちらが仕分けるもの">
+        <Tile
+          to="/inquiries"
+          icon={Inbox}
+          title="入ってきた情報"
+          description="スパムと営業を除いた有益なメールを AI が分類して重要度を付けます"
+          marks={unhandled ? [{ label: `未対応 ${unhandled}件`, tone: MARK_TONE.ai }] : []}
+          empty="未対応はありません"
+        />
+        <Tile
+          to="/finance"
+          icon={FileText}
+          title="受け取った書類"
+          description="メールで届いた見積・請求・注文書を AI が取り込みます（財務管理へ移ります）"
+          marks={pendingDocs ? [{ label: `未処理 ${pendingDocs}件`, tone: MARK_TONE.soon }] : []}
+          empty="未処理はありません"
+        />
+      </Group>
+
+      <Group title="現場の受付" note="その日その場で人と向き合うもの">
+        <Tile
+          to="/inview"
+          icon={DoorOpen}
+          title="内覧会 来場予約"
+          description="開催日ごとの名簿。Kairos3 のメールを AI が取り込み、当日の受付にも使います"
+          marks={upcoming.length ? [{ label: `今後 ${upcoming.length}組 / ${upcomingHead}名`, tone: MARK_TONE.plain }] : []}
+          empty="今後の予約はまだありません"
+        />
+        <Tile
+          to="/security-cards"
+          icon={KeyRound}
+          title="セキュリティカード"
+          description="GMOサムライスタジオ用賀の 24 枚の貸し借りを追いかけます"
+          marks={[
+            ...(cs ? [{ label: `貸せる ${cs.available}`, tone: MARK_TONE.done }] : []),
+            ...(cs?.lent ? [{ label: `貸出中 ${cs.lent}`, tone: MARK_TONE.soon }] : []),
+            ...(cs?.overdue ? [{ label: `返却遅延 ${cs.overdue}`, tone: MARK_TONE.urgent }] : []),
+          ]}
+          empty="カードの数を数えています"
+        />
+      </Group>
+
+      <div className="rounded-card border border-border bg-card p-4">
+        <p className="text-cardtitle flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-ai" aria-hidden="true" />AI との分担
+        </p>
+        <p className="text-sub mt-1 text-muted-foreground">
+          報告は MCP サーバー経由で AI が定期的に投稿します。AI が入れ直すのは
+          <strong className="font-bold">本文だけ</strong>で、人が足した行（トピック・ニュース）には触れません。
+          使い方はヘッダーの「?」から見られます。
         </p>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* タスク・依頼 — 期限は何月何日何時何分まで。件数だけを出す */}
-        <Link to="/tasks" className="group">
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <ListChecks className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">タスク・依頼</h2>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    案件と個人のタスクを重要度 × 緊急度の順に。受けた依頼・出した依頼もここで
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    {ts && (ts.overdue > 0 || ts.due_today > 0 || ts.unanswered_delegations > 0) ? (
-                      <>
-                        {ts.overdue > 0 && (
-                          <Badge variant="outline" className="gap-1 border-red-300 text-red-700">
-                            <AlertTriangle className="h-3 w-3" /> 期限超過 {ts.overdue}
-                          </Badge>
-                        )}
-                        {ts.due_today > 0 && (
-                          <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
-                            <Clock className="h-3 w-3" /> 今日が期限 {ts.due_today}
-                          </Badge>
-                        )}
-                        {ts.unanswered_delegations > 0 && (
-                          <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
-                            未返答の依頼 {ts.unanswered_delegations}
-                          </Badge>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">待たせているものはありません</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {MENUS.map((menu) => {
-          const Icon = MENU_ICONS[menu.icon] ?? CalendarCheck;
-          const latest = latestByKind[menu.kind];
-          return (
-            <Link key={menu.kind} to={menu.path} className="group">
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <h2 className="font-semibold text-sm truncate">{menu.label}</h2>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{menu.description}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                        {latest ? (
-                          <>
-                            <span className="text-muted-foreground">
-                              最新: {menu.kind === 'weekly_activity' ? formatWeekJa(latest.period_key) : formatDateJa(latest.period_key)}
-                            </span>
-                            {latest.status === 'published' ? (
-                              <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
-                                <CheckCircle2 className="h-3 w-3" /> 公開済み
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
-                                <CircleDashed className="h-3 w-3" /> 下書き
-                              </Badge>
-                            )}
-                            {!latest.reviewed_at && (
-                              <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
-                                <Sparkles className="h-3 w-3" /> 未確認
-                              </Badge>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">レポートはまだありません</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-
-        {/* 内覧会 来場予約 (レポート型ではない独立メニュー) */}
-        <Link to="/inview" className="group">
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <DoorOpen className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">内覧会 来場予約</h2>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    定期内覧会の回ごとの参加者名簿。Kairos3 のメールを AI が取り込み・当日受付にも
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    {upcomingInviewCount > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
-                        <Users className="h-3 w-3" /> 今後 {upcomingInviewCount}組 / {upcomingInviewHeadcount}名
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">今後の予約はまだありません</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* 見積 / 請求書 */}
-        <Link to="/finance" className="group">
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-5 w-5" /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">見積 / 請求書</h2>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">メール受信の見積・請求・注文書を AI が取込。確認→承認→処理完了で管理</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    {pendingFinance > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><CircleDashed className="h-3 w-3" /> 未処理 {pendingFinance}件</Badge>
-                    ) : <span className="text-muted-foreground">未処理はありません</span>}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* その他問い合わせ */}
-        <Link to="/inquiries" className="group">
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Inbox className="h-5 w-5" /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">その他問い合わせ</h2>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">スパム・営業を除いた有益なメールを AI が分類・重要度づけ</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    {unhandledInquiries > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700"><Sparkles className="h-3 w-3" /> 未対応 {unhandledInquiries}件</Badge>
-                    ) : <span className="text-muted-foreground">未対応はありません</span>}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* スタジオ セキュリティカード */}
-        <Link to="/security-cards" className="group">
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-5 w-5" /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="font-semibold text-sm truncate">セキュリティカード</h2>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">GMOサムライスタジオ用賀のセキュリティカード24枚の貸出・返却を管理</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700"><CheckCircle2 className="h-3 w-3" /> 利用可能 {cardStats.data?.available ?? '—'}</Badge>
-                    {(cardStats.data?.lent ?? 0) > 0 && (
-                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><Users className="h-3 w-3" /> 貸出中 {cardStats.data?.lent}</Badge>
-                    )}
-                    {(cardStats.data?.overdue ?? 0) > 0 && (
-                      <Badge variant="outline" className="gap-1 border-red-300 text-red-700"><AlertTriangle className="h-3 w-3" /> 期限超過 {cardStats.data?.overdue}</Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      <Card>
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-5 w-5 shrink-0 text-violet-500 mt-0.5" />
-            <div className="text-xs text-muted-foreground leading-relaxed">
-              <p className="font-medium text-foreground text-sm mb-1">AI エージェントとの協働について</p>
-              <p>
-                レポートは GMO ONAiR の MCP サーバー経由で AI エージェントが定期投稿します。
-                AI の再投稿はレポート本文のみを更新し、人が追記した行 (トピック・ニュース) には触れません。
-                詳しい使い方はヘッダーの「?」から利用マニュアルを参照してください。
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
+  );
+}
+
+/** 最新の報告から札を作る。**「無い」ことも情報**なので、無いときは空で返す */
+function reportMarks(latest: OpsReport | undefined, unit: 'week' | 'day'): Mark[] {
+  if (!latest) return [];
+  const marks: Mark[] = [{
+    label: unit === 'week' ? formatWeekJa(latest.period_key) : formatDateJa(latest.period_key),
+    tone: MARK_TONE.plain,
+  }];
+  marks.push(latest.status === 'published'
+    ? { label: '確定済み', tone: MARK_TONE.done }
+    : { label: '下書き', tone: MARK_TONE.soon });
+  if (!latest.reviewed_at) marks.push({ label: '未確認', tone: MARK_TONE.ai });
+  return marks;
+}
+
+function Group({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-h2">{title}</h2>
+        <span className="text-note text-muted-foreground">{note}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function Tile({
+  to, icon: Icon, title, description, marks, empty,
+}: {
+  to: string;
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  marks: Mark[];
+  /** 札が1つも無いときに出す一言。**空白にしない** */
+  empty: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="min-h-tap group flex gap-3 rounded-card border border-border bg-card p-4 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-primary-surface-weak text-primary">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="text-cardtitle truncate">{title}</span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </span>
+        <span className="text-sub mt-1 block text-muted-foreground">{description}</span>
+        <span className="mt-2 flex flex-wrap items-center gap-1.5">
+          {marks.length > 0
+            ? marks.map((m) => <TableBadge key={m.label} label={m.label} w={null} className={m.tone} />)
+            : <span className="text-sub-sm text-muted-foreground">{empty}</span>}
+        </span>
+      </span>
+    </Link>
   );
 }

@@ -21,6 +21,7 @@
  * 残るのは「ふりかえり」だけ (モック自身が「これから作ります」と書いている分)。
  * 「ふりかえり」は**モック自身が「これから作ります」**と書いている分です。
  */
+import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Hammer } from 'lucide-react';
@@ -30,6 +31,7 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { DetailHeader } from './projectDetail/DetailHeader';
+import { LostDialog, type LostPayload } from './projectDetail/LostDialog';
 import { OverviewTab } from './projectDetail/OverviewTab';
 import { TasksTab } from './projectDetail/TasksTab';
 import { FilesTab } from './projectDetail/FilesTab';
@@ -45,6 +47,11 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const tab: ProjectTabKey = isProjectTab(rawTab) ? rawTab : 'overview';
+  /**
+   * 失注だけは「はい / いいえ」で済ませません。**理由を残さないと失注分析が
+   * 「不明」だらけ**になるので、理由を選ばないと押せないダイアログを開きます。
+   */
+  const [lostOpen, setLostOpen] = useState(false);
 
   const project = useQuery<ProjectDetail>({
     queryKey: ['project', id],
@@ -65,11 +72,13 @@ export default function ProjectDetailPage() {
   });
 
   const changeStage = useMutation({
-    mutationFn: (stage: ProjectStage) => api.patch(`/projects/${id}/stage`, { stage }),
-    onSuccess: (_r, stage) => {
+    mutationFn: (v: { stage: ProjectStage } & Partial<LostPayload>) =>
+      api.patch(`/projects/${id}/stage`, v),
+    onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
-      notifySuccess(`ステージを「${ProjectStageLabels[stage]}」にしました`);
+      setLostOpen(false);
+      notifySuccess(`ステージを「${ProjectStageLabels[v.stage]}」にしました`);
     },
     onError: (err) => notifyApiError('ステージを変えられませんでした', err),
   });
@@ -91,16 +100,21 @@ export default function ProjectDetailPage() {
    * 「変更しますか？」だけだと、見込み金額の集計とヨミの一覧が
    * 一緒に動くことが伝わりません。
    */
+  const wasTerminal = p.stage === 's_completed' || p.stage === 'e_lost';
   const onChangeStage = async (next: ProjectStage) => {
+    // 失注は理由が要るので、確認ではなく専用のダイアログを開く
+    if (next === 'e_lost') { setLostOpen(true); return; }
     const ok = await confirmAction({
       title: `ステージを「${ProjectStageLabels[next]}」にしますか？`,
       description: [
         `いま: ${ProjectStageLabels[p.stage]} → ${ProjectStageLabels[next]}`,
+        // 終わった案件を戻すのは間違いを直すときなので、そうと分かるように言う
+        wasTerminal ? '終わった案件を進行中に戻します。' : '',
         'ヨミの一覧と、ステージごとの想定金額の集計が同時に変わります。',
-      ].join('\n'),
+      ].filter(Boolean).join('\n'),
       confirmLabel: 'ステージを変える',
     });
-    if (ok) changeStage.mutate(next);
+    if (ok) changeStage.mutate({ stage: next });
   };
 
   const counts: Partial<Record<ProjectTabKey, number>> = {
@@ -134,6 +148,13 @@ export default function ProjectDetailPage() {
       {PROJECT_TABS.find((t) => t.key === tab)?.todo && (
         <TabTodo tab={tab} onBack={() => navigate(`/sales/projects/${id}`)} />
       )}
+
+      <LostDialog
+        open={lostOpen}
+        onOpenChange={setLostOpen}
+        busy={changeStage.isPending}
+        onConfirm={(payload) => changeStage.mutate({ stage: 'e_lost', ...payload })}
+      />
     </div>
   );
 }

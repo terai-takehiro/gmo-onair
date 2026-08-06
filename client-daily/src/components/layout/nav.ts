@@ -1,36 +1,63 @@
 /**
- * 日常業務の左メニュー — **中身は今までと1項目も変えていない**。
+ * 日常業務の左メニュー (v4)
  *
- * v4 で入れ替えたのは枠 (`shared/src/client/shell/`) だけで、
- * 項目・並び・ラベルは旧 `Sidebar.tsx` からそのまま持ってきています。
- * 情報設計 (項目を減らす・並べ替える・呼び名を変える) は Phase 4 で相談します。
+ * ── 3つの塊にした ───────────────────────────────────────────
+ *
+ * v4 のモックの並び。「メニュー」という見出しの下に7項目をべた並べしていたのを、
+ * **やることの種類**でまとめた:
+ *
+ *   定期報告     決まった周期で出すもの (週・日)
+ *   届いたもの   外から来て、こちらが仕分けるもの
+ *   現場の受付   その日その場で人と向き合うもの
+ *
+ * ── 消せないもの ────────────────────────────────────────────
+ *
+ * ・**受け取った書類 (`/finance`)** — 画面は財務管理へ移した (`/budget/documents`)
+ *   が、`dailyops` だけの人はアプリ切替に財務管理が出ないので、**ここを消すと
+ *   辿り着く道が無くなる**。行き先の権限は `budget` か `dailyops` のどちらか
+ * ・**タスク・依頼 (`/tasks`)** — 案件管理の「わたしのタスク」から
+ *   ここへ来る導線がある (`client/src/contexts/tasks/.../MyTasksSummarySection.tsx`)。
+ *   案件管理へ寄せるかどうかは別の作業
  */
 import {
-  LayoutDashboard,
-  ListChecks,
   CalendarCheck,
-  Newspaper,
   DoorOpen,
   FileText,
   Inbox,
   KeyRound,
+  LayoutDashboard,
+  ListChecks,
+  Newspaper,
   Search,
 } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 
 export const DAILY_NAV: ShellNavSection[] = [
   {
-    items: [{ label: 'ホーム', to: '/', icon: LayoutDashboard, end: true }],
+    items: [
+      { label: 'ホーム', to: '/', icon: LayoutDashboard, end: true },
+      { label: 'タスク・依頼', to: '/tasks', icon: ListChecks },
+    ],
   },
   {
-    title: 'メニュー',
+    title: '定期報告',
     items: [
-      { label: 'タスク・依頼', to: '/tasks', icon: ListChecks },
       { label: 'ウィークリー活動報告', to: '/weekly', icon: CalendarCheck },
       { label: 'デイリーニュース報告', to: '/news', icon: Newspaper },
+    ],
+  },
+  {
+    title: '届いたもの',
+    items: [
+      { label: '入ってきた情報', to: '/inquiries', icon: Inbox },
+      // 画面は財務管理にある。**ここを消すと `dailyops` だけの人が辿り着けない**
+      { label: '受け取った書類', to: '/finance', icon: FileText },
+    ],
+  },
+  {
+    title: '現場の受付',
+    items: [
       { label: '内覧会 来場予約', to: '/inview', icon: DoorOpen },
-      { label: '見積 / 請求書', to: '/finance', icon: FileText },
-      { label: 'その他問い合わせ', to: '/inquiries', icon: Inbox },
       { label: 'セキュリティカード', to: '/security-cards', icon: KeyRound },
     ],
   },
@@ -42,7 +69,6 @@ export const DAILY_NAV: ShellNavSection[] = [
  * v4 の決めごとは **ホーム / やること / 検索** の3つですが、
  * 日常業務にはまだ「検索」の画面がありません。無い画面のタブを置くと
  * 押しても何も起きないので、**いまはメニューを開くタブ**にしてあります。
- * Phase 6 (スマホ) で検索の画面を作るときに差し替えます。
  */
 export const DAILY_MOBILE_TABS: ShellMobileTab[] = [
   { label: 'ホーム', to: '/', icon: LayoutDashboard, end: true },

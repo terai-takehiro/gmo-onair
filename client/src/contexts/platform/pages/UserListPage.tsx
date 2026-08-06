@@ -50,8 +50,12 @@ const normalizeLevel = (level: string | undefined): string | undefined => {
 // 権限ダイアログで表示するモジュール（順序付き）。
 // **`admin` が抜けていた** — /admin/* は PermissionRoute で守られているのに
 // ここに無く、画面から権限を付けられなかった (S1 で発見。gpm は Phase 5 で足す)
+// **ここと `auth.routes.ts` の MODULES は同じ並びにすること。**
+// 片方に足し忘れると、その権限は画面から付けられない（＝system_admin だけが通る）。
+// v4 でプロジェクト管理 (`gpm`) を足した — `apps.ts` は前から宣言していたのに
+// この2つに入っておらず、**誰にも付与できない状態**だった
 const PERM_MODULES = [
-  "sales", "budget", "studio", "partner_schedule", "equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops", "admin",
+  "sales", "budget", "gpm", "studio", "partner_schedule", "equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops", "admin",
 ];
 
 interface User {

@@ -20,11 +20,19 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
+import { ProjectTypeLabels } from '@/types';
 import { internalTodos, blockedReason, type IntakeProject } from './ask';
 
-const TYPE_LABEL: Record<string, string> = {
-  live: '配信', recording: '収録', event: 'イベント', other: '—',
-};
+/**
+ * 案件種類の名前。**`@/types` の対応表をそのまま使う。**
+ *
+ * ここに4つ（`live` / `recording` / `event` / `other`）だけ書き写していたので、
+ * 実際の値（`live_broadcast` / `offline_event` / `hybrid_event` / `gmo_project` /
+ * `consulting`）は名前が見つからず、**`recording` 以外は生のキーが画面に出ていました**。
+ * 書き写すと、種類を足したときに必ず片方だけ古くなります。
+ */
+const typeLabel = (key: string) =>
+  ProjectTypeLabels[key as keyof typeof ProjectTypeLabels] ?? key;
 
 interface FieldRow {
   label: string;
@@ -51,7 +59,7 @@ function fieldsOf(p: IntakeProject): FieldRow[] {
     },
     {
       label: '種別',
-      value: p.project_type && p.project_type !== 'other' ? (TYPE_LABEL[p.project_type] ?? p.project_type) : null,
+      value: p.project_type && p.project_type !== 'other' ? typeLabel(p.project_type) : null,
       filled: !!p.project_type && p.project_type !== 'other',
     },
     {

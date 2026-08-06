@@ -16,6 +16,20 @@
  * 状態を見る場所と変える場所を分けると、**変えたあとに見に戻る**ことになるので
  * 同じ場所にしました。押すと確認を出します (`confirmAction`) — ステージは
  * 売上の見込みと連動していて、取り違えると数字が動くためです。
+ *
+ * ── 「完了」と「失注」を別の組にして必ず出す ──────────────────
+ *
+ * 最初は E〜A の5段だけを出し、終わった案件では帯ごと消して名前を書いていました。
+ * ところが**この画面から「完了にする」「失注にする」ができない**ので、
+ * 終わらせるためだけに編集画面（旧フォームのステージ変更カード）を開く必要があり、
+ * そのカードを外すと**終わらせる手段が画面から消えます**。
+ *
+ * そこで終わり方2つを**別の組**として右に並べました。E〜A と続けて並べると
+ * 「A の次が完了」という順路に見えますが、実際は途中のどこからでも失注しますし、
+ * 完了は受注のあとに来ます。組を分けて、区切りを挟んであります。
+ *
+ * 終わった案件では E〜A のどれも光りません（居ないので嘘になる）。押せば戻せます —
+ * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
 import { ArrowLeft, Pencil, Mic, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -30,6 +44,15 @@ const STAGE_STEPS: { stage: ProjectStage; key: string }[] = [
   { stage: 'c_proposal', key: 'C' },
   { stage: 'b_verbal', key: 'B' },
   { stage: 'a_won', key: 'A' },
+];
+
+/**
+ * 終わり方。**E〜A の続きではない**ので組を分ける
+ * (失注は途中のどこからでも起きるし、完了は受注のあとに来る)。
+ */
+const END_STEPS: { stage: ProjectStage; label: string }[] = [
+  { stage: 's_completed', label: '完了' },
+  { stage: 'e_lost', label: '失注' },
 ];
 
 /** ステージの短い名前 (押せる帯に入る長さ) */
@@ -56,7 +79,6 @@ export function DetailHeader({
 }: DetailHeaderProps) {
   const navigate = useNavigate();
   const tabs = PROJECT_TABS.filter((t) => !t.seriesOnly || isSeries);
-  const terminal = stage === 's_completed' || stage === 'e_lost';
 
   return (
     <div className="border-b border-border bg-card">
@@ -135,15 +157,11 @@ export function DetailHeader({
         </div>
 
         {/*
-          ステージ。終わった案件 (完了・失注) では横並びを出しません —
-          E〜A の段に居ないので、どれかを光らせると嘘になります。
+          ステージ。**進む5段と終わり方2つを別の組**にしてあります。
+          終わった案件では E〜A のどれも光りません (居ないので嘘になる)。
         */}
-        {terminal ? (
-          <span className="text-sub mb-2 shrink-0 rounded-control border border-border px-3 py-1.5 text-muted-foreground">
-            {ProjectStageLabels[stage]}
-          </span>
-        ) : (
-          <div className="mb-2 inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
+        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
             {STAGE_STEPS.map((s, i) => {
               const on = s.stage === stage;
               return (
@@ -163,7 +181,32 @@ export function DetailHeader({
               );
             })}
           </div>
-        )}
+
+          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="案件を終わらせる">
+            {END_STEPS.map((s, i) => {
+              const on = s.stage === stage;
+              const lost = s.stage === 'e_lost';
+              return (
+                <button
+                  key={s.stage}
+                  type="button"
+                  onClick={() => { if (!on) onChangeStage(s.stage); }}
+                  aria-pressed={on}
+                  title={ProjectStageLabels[s.stage]}
+                  className={`min-h-tap text-sub inline-flex items-center px-3 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
+                    on
+                      ? lost
+                        ? 'bg-destructive font-bold text-destructive-foreground'
+                        : 'bg-secondary font-bold text-secondary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

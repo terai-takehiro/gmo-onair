@@ -67,11 +67,20 @@ const PAGES = [
   ['案件管理 活動履歴', '/sales/activity-logs'],
   ['案件管理 GLS取込', '/sales/gls-import'],
   ['財務 ダッシュボード', '/budget/dashboard', { slow: true }],
+  ['財務 請求・入金', '/budget/billing'],
   ['財務 仕入', '/budget/purchases', { slow: true }],
   ['財務 販管費', '/budget/sga'],
   ['財務 売上', '/budget/revenues', { slow: true }],
+  ['財務 取引先', '/budget/vendors'],
+  ['財務 取り込み', '/budget/import'],
+  ['財務 受け取った書類', '/budget/documents'],
   ['財務 取引先レポート', '/budget/reports/vendors'],
-  ['財務 楽楽精算取込', '/budget/xpoint-import'],
+  // v4 で新しく作ったアプリ (migration 161/162)
+  ['プロジェクト管理 ダッシュボード', '/gpm/dashboard'],
+  ['プロジェクト管理 一覧', '/gpm/projects'],
+  ['プロジェクト管理 新規', '/gpm/projects/new'],
+  ['プロジェクト管理 やること', '/gpm/tasks'],
+  ['プロジェクト管理 標準工程', '/gpm/templates'],
   ['設定 メンバー', '/settings/users'],
   ['設定 データ', '/settings/data-viewer'],
   ['設定 DBバックアップ', '/settings/db-backups'],
@@ -86,6 +95,7 @@ const PAGES = [
   // ── 機材管理 (v4 対象・全画面) ──────────────────────────
   ['機材 日々', '/equipment/'],
   ['機材 台帳', '/equipment/items', { slow: true }],
+  ['機材 設定', '/equipment/settings'],
   ['機材 ケーブル', '/equipment/cables'],
   ['機材 コネクタ', '/equipment/connectors'],
   ['機材 ラック図', '/equipment/racks', { slow: true, print: true }],
@@ -105,7 +115,9 @@ const PAGES = [
   ['日常業務 週報', '/daily/weekly'],
   ['日常業務 ニュース', '/daily/news'],
   ['日常業務 内覧会', '/daily/inview'],
-  ['日常業務 見積請求', '/daily/finance'],
+  // `/daily/finance` は**画面ではなく転送**になった (v4 ⑥ で財務へ移した)。
+  // 中身は上の「財務 受け取った書類」で見る。ここに残すと、転送の一瞬を測って
+  // 「シェルが画面いっぱいでない」と必ず落ちる
   ['日常業務 問い合わせ', '/daily/inquiries'],
   ['日常業務 やること', '/daily/tasks'],
   ['日常業務 カード', '/daily/security-cards'],

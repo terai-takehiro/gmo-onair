@@ -17,6 +17,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { ProjectTypeLabels } from '@/types';
+import { AiReviewBanner } from './AiReviewBanner';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
 /** 事実の帯の1枠 */
@@ -72,6 +73,14 @@ export function OverviewTab({
   return (
     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
       <div className="flex min-w-0 flex-col gap-3.5">
+        {/*
+          AI が作った案件だけに出る帯。**「確認した」はここにしかありません** —
+          押されるまで「まだ誰も見ていない案件」として待ち行列に残ります。
+        */}
+        {project.is_ai_created && (
+          <AiReviewBanner projectId={project.id} reviewedAt={project.ai_reviewed_at} />
+        )}
+
         {/* 事実の帯 */}
         <div className="grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-4">
           <Fact icon={CalendarDays} label="実施日">

@@ -1,5 +1,5 @@
 /**
- * 内覧会 来場予約 — その日の受付ページ (`/inview/:date`)
+ * 内覧会 来場予約 — その日の受付ページ (`/inview/:date`) (v4)
  *
  * 当日の受付端末で開きっぱなしにする画面。この日の名簿だけを出し、
  * 一番上に検索欄を置く (受付は「田中さん」「GMO」程度の手掛かりで名簿を引く)。
@@ -7,31 +7,45 @@
  * 全部の回を横断する** — 本人が申し込んだ回を間違えて来ることがあるため。
  *
  * :date は `YYYY-MM-DD`、日付が読み取れなかった回は `undated`。
+ *
+ * ── v4 で変えたところ ────────────────────────────────────────
+ *
+ * ・**回の見出しを7段の列幅に載せた。** 回ごとの「N組 / N名 / 受付 N」が
+ *   縦にそろうので、どの回が詰まっているか一目で分かる
+ * ・**0件の理由を分けた。** 「この日に1件も無い」(`EmptyState`) と
+ *   「検索が当たらない」(`NoSearchResults`) は次にやることが違う
+ * ・**並び替えを `FilterChips` にはしていない。** 並び替えは絞り込みではないので
+ *   件数が出せない (`count` に嘘の数字を置くことになる)。素の `select` のまま
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Download, Loader2, PieChart,
-  Plus, Search, Users, X, ArrowDownUp,
+  ArrowLeft, ArrowDownUp, CalendarDays, CheckCircle2, Download, PieChart, Search, UserPlus, X,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import {
+  Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows,
+} from '@gmo-onair/shared/src/client/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
+import { AttendeeCard } from './inview/AttendeeCard';
+import { CompanySummary } from './inview/CompanySummary';
+import { InviewDialog } from './inview/InviewDialog';
 import {
-  AttendeeCard, CompanySummary, InviewDialog, SORT_LABELS, UNDATED, checkedInHeadOf, dayKey,
-  downloadCsv, formatDayTitle, headOf, matchedFields, matchesTerms, searchTerms, sortRegs,
-  todayKey, type SortKey,
-} from './inview/shared';
+  SORT_LABELS, UNDATED, checkedInHeadOf, dayKey, downloadCsv, formatDayTitle, headOf,
+  matchedFields, matchesTerms, searchTerms, sortRegs, todayKey, type SortKey,
+} from './inview/logic';
 
 export default function InviewDayPage() {
   const { date = UNDATED } = useParams<{ date: string }>();
   const { canEdit } = usePermissions();
-  // 日ページは常に全件から絞る (過去の回も開けるように upcoming フィルタは使わない)
-  const { data: rows, isLoading } = useInviewList();
+  // 日ページは常に全件から絞る (過去の回も開けるように「今後のみ」は使わない)
+  const list = useInviewList();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('default');
   const [showSummary, setShowSummary] = useState(false);
@@ -48,10 +62,9 @@ export default function InviewDayPage() {
   const terms = useMemo(() => searchTerms(query), [query]);
   const searching = terms.length > 0;
 
-  // この日の予約 (回をまたいで集める)
   const dayRows = useMemo(
-    () => (rows ?? []).filter((r) => dayKey(r) === date),
-    [rows, date],
+    () => (list.data ?? []).filter((r) => dayKey(r) === date),
+    [list.data, date],
   );
 
   const head = dayRows.reduce((a, r) => a + headOf(r), 0);
@@ -79,80 +92,71 @@ export default function InviewDayPage() {
   const isToday = date === todayKey();
   // 同じ日に回が1つだけなら、追加ダイアログの「参加希望の回」を埋めておく
   const presetSessionLabel = sessions.length === 1 ? sessions[0].label : undefined;
+  const dayTitle = date === UNDATED ? '日付未定の回' : formatDayTitle(date);
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-4">
-      <Link to="/inview" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-        <ArrowLeft className="h-4 w-4" /> 開催日の一覧に戻る
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <Link to="/inview" className="text-sub inline-flex items-center gap-1 text-primary hover:underline">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> 開催日の一覧に戻る
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-bold">
-            <Users className="h-5 w-5 text-primary" />
-            {date === UNDATED ? '日付未定の回' : formatDayTitle(date)}
-            {isToday && <Badge className="ml-1 bg-primary text-primary-foreground text-[11px]">今日</Badge>}
-          </h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
-              <span className="font-semibold tabular-nums text-foreground">{dayRows.length}</span>組 /
-              <span className="font-semibold tabular-nums text-foreground">{head}</span>名
-            </span>
-            <span className={`inline-flex items-center gap-1 ${checkedIn > 0 ? 'text-emerald-700' : ''}`}>
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              受付 <span className="font-semibold tabular-nums">{checkedIn}</span> / {head}名
-            </span>
-          </p>
-        </div>
-        {canEdit && (
-          <Button size="sm" onClick={() => setAdding(true)} className="shrink-0">
-            <Plus className="h-4 w-4 mr-1" /> 来場予約を追加
+      <PageHeader
+        title={<>{dayTitle}{isToday && <TableBadge label="今日" w={null} className="bg-primary text-primary-foreground" />}</>}
+        sub={`${dayRows.length}組 ・ ${head}名 ・ 受付 ${checkedIn} / ${head}名`}
+        primaryAction={canEdit ? (
+          <Button onClick={() => setAdding(true)}>
+            <UserPlus className="mr-1 h-4 w-4" aria-hidden="true" />来場予約を追加
           </Button>
+        ) : undefined}
+      />
+
+      {/* 受付の検索欄 — この画面の主役 */}
+      <div className="rounded-card border border-border bg-card p-3 lg:px-4">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="氏名・会社名・電話番号などで探す"
+            aria-label="この日の来場者を検索"
+            className="pl-9 pr-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="検索を消す"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <p className="text-note mt-2 text-muted-foreground">
+          氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 を探します。
+          カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。
+          {sessions.length > 1 ? 'この日のすべての回をまたいで探します。' : ''}
+        </p>
+        {searching && (
+          <p className="text-sub mt-1.5">
+            「{query}」に当てはまる <span className="font-number font-bold">{hitCount}</span> 件 / この日 {dayRows.length} 件
+          </p>
         )}
       </div>
 
-      {/* 受付の検索欄 — この画面の主役 */}
-      <Card>
-        <CardContent className="p-3 sm:p-4">
-          <label className="flex items-center gap-2">
-            <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">この日の来場者を検索</span>
-            <Input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="氏名・会社名・電話番号などで探す"
-              className="h-11 text-base"
-            />
-            {query && (
-              <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" onClick={() => setQuery('')} aria-label="検索をクリア">
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </label>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 を探します。
-            カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。
-            {sessions.length > 1 ? 'この日のすべての回をまたいで探します。' : ''}
-          </p>
-          {searching && (
-            <p className="mt-1.5 text-sm">
-              「{query}」に一致 <span className="font-semibold tabular-nums">{hitCount}</span> 件 / この日 {dayRows.length} 件
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ツールバー */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <label className="flex items-center gap-1.5 text-muted-foreground">
-          <ArrowDownUp className="h-3.5 w-3.5" />
+      {/* 並び替えと書き出し */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-sub flex items-center gap-1.5 text-muted-foreground">
+          <ArrowDownUp className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="sr-only">並び替え</span>
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+            className="text-sub min-h-tap rounded-control border border-border bg-background px-2 text-foreground lg:min-h-[36px]"
           >
             {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
               <option key={k} value={k}>{SORT_LABELS[k]}</option>
@@ -160,82 +164,53 @@ export default function InviewDayPage() {
           </select>
         </label>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={showSummary ? 'default' : 'outline'}
-            className="h-8 gap-1 text-xs"
-            onClick={() => setShowSummary((v) => !v)}
-          >
-            <PieChart className="h-3.5 w-3.5" /> 会社別サマリー
+          <Button variant={showSummary ? 'default' : 'outline'} onClick={() => setShowSummary((v) => !v)}>
+            <PieChart className="mr-1 h-4 w-4" aria-hidden="true" /> 会社別のまとめ
           </Button>
           <Button
-            size="sm"
             variant="outline"
-            className="h-8 gap-1 text-xs"
             disabled={!dayRows.length}
             onClick={() => downloadCsv(dayRows, date === UNDATED ? '日付未定' : date)}
           >
-            <Download className="h-3.5 w-3.5" /> CSV出力（この日）
+            <Download className="mr-1 h-4 w-4" aria-hidden="true" /> CSV出力（この日）
           </Button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      {list.isError ? (
+        <ErrorPanel title="来場予約を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
+      ) : list.isLoading ? (
+        <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : dayRows.length === 0 ? (
-        <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
-          <p>この日の来場予約はありません。</p>
-          <p>日付を取り違えているかもしれません。開催日の一覧から選び直してください。</p>
-          <Button variant="outline" size="sm" asChild><Link to="/inview">開催日の一覧に戻る</Link></Button>
-        </CardContent></Card>
+        <EmptyState
+          title={`${dayTitle} の来場予約はありません`}
+          description="日付を取り違えているかもしれません。開催日の一覧から選び直してください。"
+          action={<Button variant="outline" asChild><Link to="/inview">開催日の一覧に戻る</Link></Button>}
+        />
       ) : searching && hitCount === 0 ? (
-        <Card><CardContent className="space-y-2 p-8 text-center text-sm text-muted-foreground">
-          <p>「{query}」に一致する来場者は、{date === UNDATED ? '日付未定の回' : formatDayTitle(date)} にはいません。</p>
-          <p>
-            別の日で申し込んでいる可能性もあります。
-            <Link to="/inview" className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline">
-              全部の回から探す<ChevronRight className="h-3 w-3" />
-            </Link>
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setQuery('')}>検索をクリア</Button>
-        </CardContent></Card>
+        <NoSearchResults
+          keyword={query}
+          activeFilters={[`開催日: ${dayTitle}`]}
+          onClearFilters={() => setQuery('')}
+        />
       ) : (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {sessions.map((s) => {
             // 検索中は当たりが無い回を出さない (受付の画面を空の見出しで埋めない)
             if (searching && s.visible.length === 0) return null;
-            const sHead = s.items.reduce((a, r) => a + headOf(r), 0);
-            const sChecked = s.items.reduce((a, r) => a + checkedInHeadOf(r), 0);
             return (
-              <div key={s.label} className="space-y-2">
-                {/* 回の見出し (同じ日に複数の回が立つ) */}
-                <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
-                  {s.time ? <span className="font-semibold tabular-nums">{s.time}</span> : <span className="font-semibold">時間未定</span>}
-                  {s.audience ? <Badge variant="outline" className="text-xs">{s.audience}</Badge> : null}
-                  <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{s.items.length}組 / {sHead}名</span>
-                    <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />受付 {sChecked}</span>
-                  </span>
-                </div>
-                {/* 回のフル文字列 (抽出前の生ラベル) */}
-                {s.label && s.label !== s.time && (
-                  <p className="flex items-start gap-1 text-[11px] text-muted-foreground">
-                    <CalendarDays className="mt-0.5 h-3 w-3 shrink-0" />{s.label}
-                  </p>
-                )}
-                {showSummary && <CompanySummary items={s.items} />}
-                <div className="space-y-2">
-                  {s.visible.map((r) => (
-                    <AttendeeCard
-                      key={r.id}
-                      r={r}
-                      canEdit={canEdit}
-                      onEdit={() => setEditing(r)}
-                      matchedIn={searching ? matchedFields(r, terms) : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
+              <SessionBlock
+                key={s.label}
+                label={s.label}
+                time={s.time}
+                audience={s.audience}
+                items={s.items}
+                visible={s.visible}
+                showSummary={showSummary}
+                canEdit={canEdit}
+                terms={searching ? terms : null}
+                onEdit={setEditing}
+              />
             );
           })}
         </div>
@@ -248,6 +223,73 @@ export default function InviewDayPage() {
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}
+    </div>
+  );
+}
+
+/** 回1つぶん (見出し + 名簿)。同じ日に複数の回が立つ */
+function SessionBlock({
+  label, time, audience, items, visible, showSummary, canEdit, terms, onEdit,
+}: {
+  label: string;
+  time: string | null;
+  audience: string | null;
+  items: InviewRegistration[];
+  visible: InviewRegistration[];
+  showSummary: boolean;
+  canEdit: boolean;
+  /** 検索中なら検索語。検索していないときは null */
+  terms: string[] | null;
+  onEdit: (r: InviewRegistration) => void;
+}) {
+  const sHead = items.reduce((a, r) => a + headOf(r), 0);
+  const sChecked = items.reduce((a, r) => a + checkedInHeadOf(r), 0);
+  return (
+    <div className="flex flex-col gap-2">
+      <Row density="table" className="border-b border-border px-0" stackOnMobile>
+        <RowMain>
+          <RowTitle>{time ? <span className="font-number">{time}</span> : '時間未定'}</RowTitle>
+          {/* 回のフル文字列 (読み取り前の生ラベル)。時間だけの回では出さない */}
+          {label && label !== time && (
+            <RowSub className="flex items-center gap-1">
+              <CalendarDays className="h-3 w-3 shrink-0" aria-hidden="true" />{label}
+            </RowSub>
+          )}
+        </RowMain>
+        {/*
+          対象は「イベント主催者向け」のように長いので**バッジにしない**。
+          `TableBadge` は折り返さないので、列の幅 (96px) をはみ出して隣に重なる。
+        */}
+        <RowSlot w={160} hideOnMobile>
+          <span className="text-sub-sm truncate text-muted-foreground">{audience || '—'}</span>
+        </RowSlot>
+        <RowSlot w={72} align="right" hideOnMobile>
+          <span className="font-number text-sub">{items.length}組</span>
+        </RowSlot>
+        <RowSlot w={72} align="right" hideOnMobile>
+          <span className="font-number text-sub">{sHead}名</span>
+        </RowSlot>
+        <RowSlot w={96} align="right">
+          <span className={`font-number text-sub ${sChecked > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+            {sChecked} / {sHead}名
+          </span>
+        </RowSlot>
+      </Row>
+
+      {showSummary && <CompanySummary items={items} />}
+
+      <div className="flex flex-col gap-2">
+        {visible.map((r) => (
+          <AttendeeCard
+            key={r.id}
+            r={r}
+            canEdit={canEdit}
+            onEdit={() => onEdit(r)}
+            matchedIn={terms ? matchedFields(r, terms) : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 }

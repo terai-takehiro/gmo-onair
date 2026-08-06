@@ -1,4 +1,4 @@
-**12 / 37 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
+**36 / 46 画面**が v4 になりました（凍結4アプリと新規画面を除く）。
 
 # v4 の進み具合（サイトツリー）
 
@@ -50,14 +50,14 @@
 
 | | 画面 | URL |
 | --- | --- | --- |
-| ⬜ | ダッシュボード | `/budget/dashboard` |
+| ✅ | ダッシュボード | `/budget/dashboard` |
+| ✅ | 請求・入金 | `/budget/billing` |
 | ✅ | 売上 | `/budget/revenues` |
 | ✅ | 仕入 | `/budget/purchases` |
 | ✅ | 販管費 | `/budget/sga` |
-| ⬜ | 取引先 | `/budget/vendors` |
-| ⬜ | 取り込み (楽楽精算) | `/budget/xpoint-import` |
-| ⬜ | 取り込み (決算) | `/budget/kessan-import` |
-| ⬜ | 二重計上を調べる | `/budget/dedup-screening` |
+| ✅ | 取引先 (仕入先・パートナー) | `/budget/vendors` |
+| ✅ | 受け取った書類 | `/budget/documents` |
+| ✅ | 取り込み (精算PDF・総勘定元帳・二重計上) | `/budget/import` |
 
 ## カレンダー
 
@@ -92,28 +92,44 @@
 
 | | 画面 | URL |
 | --- | --- | --- |
-| ⬜ | ウィークリー活動報告 | `/daily/weekly` |
-| ⬜ | デイリーニュース | `/daily/news` |
-| ⬜ | 内覧会 開催日 | `/daily/inview` |
-| ⬜ | 入ってきた情報 | `/daily/finance` |
-| ⬜ | セキュリティカード | `/daily/security-cards` |
+| ✅ | ウィークリー活動報告 | `/daily/weekly` |
+| ✅ | デイリーニュース | `/daily/news` |
+| ✅ | 内覧会 開催日 | `/daily/inview` |
+| ✅ | 入ってきた情報 (その他問い合わせ) | `/daily/inquiries` |
+| ✅ | 受け取った書類 | `/budget/documents` |
+| ✅ | セキュリティカード | `/daily/security-cards` |
+
+- **受け取った書類** — **財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります
 
 ## 機材管理
 
 | | 画面 | URL |
 | --- | --- | --- |
-| ⬜ | ダッシュボード | `/equipment/` |
-| ⬜ | 機材台帳 | `/equipment/items` |
+| ✅ | ダッシュボード | `/equipment/` |
+| ✅ | 機材台帳 (機材・貸出機材・ケーブル・コネクタ) | `/equipment/items` |
 | ⬜ | ラック図 | `/equipment/racks` |
-| ⬜ | メンテナンス | `/equipment/maintenance` |
-| ⬜ | 棚卸し | `/equipment/inventory` |
-| ⬜ | 貸出・返却 | `/equipment/lendings` |
+| ✅ | メンテナンス | `/equipment/maintenance` |
+| ✅ | 棚卸し | `/equipment/inventory` |
+| ✅ | QRスキャン | `/equipment/scan` |
+| ✅ | 貸出・返却 | `/equipment/lendings` |
+| ✅ | 設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと) | `/equipment/settings` |
 
-## プロジェクト管理 (新規・7画面)
+- **機材台帳 (機材・貸出機材・ケーブル・コネクタ)** — **枠は v4・行の載せ替えは途中**。この一覧だけがカスタム列・その場編集・親子の入れ子を同時に持っており、`<Row>` に載せ替えるとその3つを作り直すことになるので分けています
+- **ラック図** — **意図して据え置き**。1,502行に 座標計算・印刷・棚卸しモード が同居しており、**触ると印刷が1ページ目で切れます**。分割しても印刷が壊れないことを実機で確かめてから
+
+## プロジェクト管理 (新規)
 
 | | 画面 | URL |
 | --- | --- | --- |
-| 🆕 | 設計から | `—` |
+| ✅ | ① ダッシュボード | `/gpm/dashboard` |
+| ✅ | ② プロジェクト一覧 | `/gpm/projects` |
+| ✅ | ③ プロジェクト詳細 | `/gpm/projects/:id` |
+| ✅ | ④ 新規作成 | `/gpm/projects/new` |
+| ✅ | ⑤ やること（未確認事項） | `/gpm/tasks` |
+| ✅ | ⑦ 標準工程テンプレート | `/gpm/templates` |
+| 🆕 | ⑥ 見積・請求 | `—` |
+
+- **⑥ 見積・請求** — **意図して作っていません。** `estimates.project_id` が `NOT NULL REFERENCES projects(id)` なので、自社構築（案件に紐づかない）プロジェクトは見積を1枚も持てません。モックの「提出先」に相当する列も 0 件。足すとサーバー12か所・画面4か所（案件詳細の見積タブ・見積請求一覧・案件ダッシュボードの KPI）に同時に効きます。**見積のデータ設計の変更**なので設計から。理由と手順は `docs/design/gpm-model.md` の「決め⑤」
 
 ## 凍結（v4.0.0 では作り直さない）
 

@@ -1,633 +1,152 @@
+/**
+ * スタジオ セキュリティカード (`/security-cards`) (v4)
+ *
+ * GMOサムライスタジオ用賀の 24 枚の貸し借りを追いかける画面。
+ * **左に一覧・右に中身の1画面 (master-detail)** にした。以前はカードを押すと
+ * ダイアログが開き、開いている間は一覧が見えないので「他に貸せるカードが
+ * あるか」を確かめるのに閉じる必要があった。
+ *
+ * ── v4 で変えたところ ────────────────────────────────────────
+ *
+ * ・**絞り込みに「返却遅延」を足した。** 貸出中のうち返却の日を過ぎたものは
+ *   催促する相手が違うのに、以前は「貸出中」に混ざって数えられていた
+ * ・**上の数字のタイル4枚を消して、チップの件数に寄せた。** 同じ数を
+ *   タイルとチップの2か所に出すと、片方だけ古くなったときに気づけない
+ * ・**タブ (カード / 貸出履歴 / アクセス表) をやめた。** 開けられる部屋も
+ *   貸し借りも「選んだ1枚について知りたいこと」なので、右に集めた
+ * ・レベルは **DB (migration 133 の6つ) を正**にした。モックはレベルを3つに
+ *   畳んでいるが、実データと一致しないので採らない (`securityCards/types.ts`)
+ */
 import { useMemo, useState } from 'react';
-import {
-  KeyRound, ShieldCheck, DoorOpen, Search, ArrowRightLeft, Undo2, Loader2,
-  Building2, User, CalendarClock, AlertTriangle, CheckCircle2, X, Pencil, Table2, History, LayoutGrid, CircleUserRound,
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { DoorOpen, Search, X } from 'lucide-react';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useAuth } from '@/hooks/useAuth';
-import { formatDateJa } from '@/lib/types';
-import {
-  SECURITY_AREAS, useSecurityCards, useSecurityCardStats, useCardLendings, useOnairUsers,
-  useLendCard, useReturnCard, useUpdateCard, todayStr, fmtMd,
-  type SecurityCard, type Lending, type LendInput,
-} from '@/lib/securityCardApi';
+import { useSecurityCards } from '@/lib/securityCardApi';
+import { CardDetailPanel } from './securityCards/CardDetailPanel';
+import { CardGrid } from './securityCards/CardGrid';
+import { LendDialog, ReturnDialog } from './securityCards/LendDialog';
+import { FILTER_LABELS, matchesFilter, matchesSearch, type CardFilter } from './securityCards/types';
 
 const STUDIO_LABEL = 'GMOサムライスタジオ用賀';
 
-// レベルごとの色 (可視化用)
-const LEVEL_STYLE: Record<string, string> = {
-  master: 'bg-violet-100 text-violet-700 border-violet-300',
-  room_a: 'bg-sky-100 text-sky-700 border-sky-300',
-  room_b: 'bg-teal-100 text-teal-700 border-teal-300',
-  room_c: 'bg-amber-100 text-amber-700 border-amber-300',
-  meeting: 'bg-slate-100 text-slate-700 border-slate-300',
-  vip: 'bg-rose-100 text-rose-700 border-rose-300',
-};
-
-function enabledAreaLabels(access: Record<string, boolean>): string[] {
-  return SECURITY_AREAS.filter((a) => access[a.key]).map((a) => a.label);
-}
-
-// ── ステータスバッジ ───────────────────────────────────────
-function StatusBadge({ card }: { card: SecurityCard }) {
-  if (card.status === 'available') {
-    return (
-      <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-700">
-        <CheckCircle2 className="h-3 w-3" /> 利用可能
-      </Badge>
-    );
-  }
-  if (card.overdue) {
-    return (
-      <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700">
-        <AlertTriangle className="h-3 w-3" /> 返却期限超過
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700">
-      <ArrowRightLeft className="h-3 w-3" /> 貸出中
-    </Badge>
-  );
-}
-
-// ── カードタイル ───────────────────────────────────────────
-function CardTile({ card, onOpen }: { card: SecurityCard; onOpen: () => void }) {
-  const labels = enabledAreaLabels(card.access);
-  const isMaster = card.security_level === 'master';
-  return (
-    <button
-      onClick={onOpen}
-      className="group text-left rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-base font-bold ${LEVEL_STYLE[card.security_level] ?? 'bg-muted text-foreground border-border'}`}>
-            {card.card_no}
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground">No.{card.card_no}</div>
-            <div className="text-sm font-semibold truncate">{card.level_label}</div>
-          </div>
-        </div>
-        <StatusBadge card={card} />
-      </div>
-
-      {/* 解錠できる部屋 */}
-      <div className="mt-3 flex flex-wrap gap-1">
-        {isMaster ? (
-          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700">
-            <ShieldCheck className="h-3 w-3" /> 全エリア (マスター)
-          </span>
-        ) : (
-          labels.map((l) => (
-            <span key={l} className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              {l}
-            </span>
-          ))
-        )}
-      </div>
-
-      {/* 貸出中の情報 */}
-      {card.status === 'lent' && (
-        <div className={`mt-3 rounded-lg border px-2.5 py-2 text-xs ${card.overdue ? 'border-red-200 bg-red-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
-          <div className="flex items-center gap-1 font-medium text-foreground">
-            <Building2 className="h-3 w-3 shrink-0" />
-            <span className="truncate">{card.borrower_company || '（会社名なし）'}</span>
-          </div>
-          <div className="mt-0.5 flex items-center gap-1 text-muted-foreground">
-            <User className="h-3 w-3 shrink-0" />
-            <span className="truncate">{card.borrower_person}</span>
-          </div>
-          <div className="mt-0.5 flex items-center gap-1 text-muted-foreground">
-            <CalendarClock className="h-3 w-3 shrink-0" />
-            <span>{fmtMd(card.lent_on)} 〜 {card.due_on ? `${fmtMd(card.due_on)} 返却予定` : '返却予定日なし'}</span>
-          </div>
-        </div>
-      )}
-
-      {!card.is_active && (
-        <div className="mt-2 text-[11px] text-red-600">※ 運用対象外 (紛失/廃止)</div>
-      )}
-    </button>
-  );
-}
-
-// ── 貸出フォーム ───────────────────────────────────────────
-function LendForm({ card, onDone }: { card: SecurityCard; onDone: () => void }) {
-  const { currentUser } = useAuth();
-  const users = useOnairUsers();
-  const lend = useLendCard();
-  const [company, setCompany] = useState('');
-  const [person, setPerson] = useState('');
-  const [contact, setContact] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [lentOn, setLentOn] = useState(todayStr());
-  const [dueOn, setDueOn] = useState('');
-  const [handlerId, setHandlerId] = useState(currentUser?.id ?? '');
-  const [notes, setNotes] = useState('');
-  const [err, setErr] = useState('');
-
-  const submit = () => {
-    if (!person.trim()) { setErr('貸出先の担当者は必須です'); return; }
-    const handler = users.data?.find((u) => u.id === handlerId);
-    const input: LendInput = {
-      borrower_person: person.trim(),
-      borrower_company: company.trim() || null,
-      borrower_contact: contact.trim() || null,
-      purpose: purpose.trim() || null,
-      lent_on: lentOn || todayStr(),
-      due_on: dueOn || null,
-      lent_by_user_id: handlerId || currentUser?.id || null,
-      lent_by_name: handler?.name ?? currentUser?.name ?? null,
-      notes: notes.trim() || null,
-    };
-    lend.mutate({ id: card.id, input }, {
-      onSuccess: onDone,
-      onError: (e: any) => setErr(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? '貸出に失敗しました'),
-    });
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">No.{card.card_no}・{card.level_label}</span> を貸し出します
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">貸出先の会社</Label>
-          <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="例：株式会社〇〇" />
-        </div>
-        <div>
-          <Label className="text-xs">担当者 <span className="text-red-500">*</span></Label>
-          <Input value={person} onChange={(e) => setPerson(e.target.value)} placeholder="例：山田 太郎" />
-        </div>
-        <div>
-          <Label className="text-xs">連絡先</Label>
-          <Input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="電話 / メール" />
-        </div>
-        <div>
-          <Label className="text-xs">利用目的</Label>
-          <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：収録立ち会い" />
-        </div>
-        <div>
-          <Label className="text-xs">貸出日</Label>
-          <Input type="date" value={lentOn} onChange={(e) => setLentOn(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">返却予定日</Label>
-          <Input type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs flex items-center gap-1"><CircleUserRound className="h-3.5 w-3.5" /> 貸出対応者 (ONAiR メンバー)</Label>
-          <select
-            value={handlerId}
-            onChange={(e) => setHandlerId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-          >
-            {!currentUser && <option value="">選択してください</option>}
-            {users.data?.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs">メモ</Label>
-          <textarea
-            value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-            className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y"
-            placeholder="任意"
-          />
-        </div>
-      </div>
-      {err && <p className="text-xs text-red-600">{err}</p>}
-      <DialogFooter>
-        <Button variant="outline" onClick={onDone}>キャンセル</Button>
-        <Button onClick={submit} disabled={lend.isPending} className="gap-1.5">
-          {lend.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-          貸し出す
-        </Button>
-      </DialogFooter>
-    </div>
-  );
-}
-
-// ── 返却フォーム ───────────────────────────────────────────
-function ReturnForm({ card, onDone }: { card: SecurityCard; onDone: () => void }) {
-  const ret = useReturnCard();
-  const [returnedOn, setReturnedOn] = useState(todayStr());
-  const [notes, setNotes] = useState('');
-  const [err, setErr] = useState('');
-
-  const submit = () => {
-    ret.mutate({ id: card.id, input: { returned_on: returnedOn || todayStr(), notes: notes.trim() || null } }, {
-      onSuccess: onDone,
-      onError: (e: any) => setErr(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? '返却に失敗しました'),
-    });
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs">
-        <div className="font-medium text-foreground">No.{card.card_no}・{card.level_label} を返却します</div>
-        <div className="mt-1 text-muted-foreground">
-          貸出先: {card.borrower_company || '（会社名なし）'} / {card.borrower_person}<br />
-          貸出日: {fmtMd(card.lent_on)}{card.due_on ? ` ・返却予定 ${fmtMd(card.due_on)}` : ''}
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">返却日</Label>
-          <Input type="date" value={returnedOn} onChange={(e) => setReturnedOn(e.target.value)} />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs">返却時のメモ</Label>
-        <textarea
-          value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-          className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y"
-          placeholder="任意"
-        />
-      </div>
-      {err && <p className="text-xs text-red-600">{err}</p>}
-      <DialogFooter>
-        <Button variant="outline" onClick={onDone}>キャンセル</Button>
-        <Button onClick={submit} disabled={ret.isPending} className="gap-1.5">
-          {ret.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
-          返却する
-        </Button>
-      </DialogFooter>
-    </div>
-  );
-}
-
-// ── 詳細ダイアログ ─────────────────────────────────────────
-type DetailMode = 'view' | 'lend' | 'return' | 'edit';
-
-function DetailDialog({ card, canEdit, onClose }: { card: SecurityCard; canEdit: boolean; onClose: () => void }) {
-  const [mode, setMode] = useState<DetailMode>('view');
-  const history = useCardLendings({ card_id: card.id }, mode === 'view');
-  const update = useUpdateCard();
-  const [label, setLabel] = useState(card.label ?? '');
-  const [notes, setNotes] = useState(card.notes ?? '');
-  const [isActive, setIsActive] = useState(card.is_active);
-
-  const saveEdit = () => {
-    update.mutate({ id: card.id, fields: { label: label.trim() || null, notes: notes.trim() || null, is_active: isActive } }, {
-      onSuccess: () => setMode('view'),
-    });
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm font-bold ${LEVEL_STYLE[card.security_level] ?? 'bg-muted border-border'}`}>{card.card_no}</span>
-            <span>セキュリティカード No.{card.card_no}</span>
-          </DialogTitle>
-        </DialogHeader>
-
-        {mode === 'lend' && <LendForm card={card} onDone={() => setMode('view')} />}
-        {mode === 'return' && <ReturnForm card={card} onDone={() => setMode('view')} />}
-
-        {mode === 'edit' && (
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs">表示名 / メモ (任意)</Label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：貸出用 予備" />
-            </div>
-            <div>
-              <Label className="text-xs">備考</Label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-                className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y" />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-              運用対象にする (オフ = 紛失/廃止で貸出不可)
-            </label>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setMode('view')}>キャンセル</Button>
-              <Button onClick={saveEdit} disabled={update.isPending}>保存</Button>
-            </DialogFooter>
-          </div>
-        )}
-
-        {mode === 'view' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium ${LEVEL_STYLE[card.security_level] ?? 'bg-muted border-border'}`}>
-                <KeyRound className="h-3 w-3" /> {card.level_label}
-              </span>
-              <StatusBadge card={card} />
-            </div>
-
-            {/* アクセス一覧 (このカードで解錠できる部屋) */}
-            <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted-foreground">解錠できる部屋</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {SECURITY_AREAS.map((a) => {
-                  const ok = !!card.access[a.key];
-                  return (
-                    <div key={a.key} className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs ${ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-border bg-muted/40 text-muted-foreground line-through'}`}>
-                      {ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" /> : <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />}
-                      <span className="truncate">{a.label}</span>
-                      <span className="ml-auto text-[10px] opacity-60">{a.floor}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 現在の貸出 */}
-            {card.status === 'lent' && (
-              <div className={`rounded-lg border px-3 py-2.5 text-sm ${card.overdue ? 'border-red-200 bg-red-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
-                <div className="text-xs font-semibold text-muted-foreground mb-1">現在の貸出</div>
-                <div className="flex items-center gap-1.5"><Building2 className="h-4 w-4 text-muted-foreground" />{card.borrower_company || '（会社名なし）'}</div>
-                <div className="flex items-center gap-1.5 mt-0.5"><User className="h-4 w-4 text-muted-foreground" />{card.borrower_person}{card.borrower_contact ? `（${card.borrower_contact}）` : ''}</div>
-                <div className="flex items-center gap-1.5 mt-0.5 text-muted-foreground"><CalendarClock className="h-4 w-4" />{fmtMd(card.lent_on)} 〜 {card.due_on ? `${fmtMd(card.due_on)} 返却予定` : '返却予定日なし'}{card.overdue ? ' ・期限超過' : ''}</div>
-                {card.lent_by_name && <div className="mt-0.5 text-xs text-muted-foreground">対応: {card.lent_by_name}</div>}
-                {card.purpose && <div className="mt-0.5 text-xs text-muted-foreground">目的: {card.purpose}</div>}
-              </div>
-            )}
-
-            {/* アクション */}
-            {canEdit && (
-              <div className="flex flex-wrap gap-2">
-                {card.status === 'available' ? (
-                  <Button onClick={() => setMode('lend')} disabled={!card.is_active} className="gap-1.5 flex-1">
-                    <ArrowRightLeft className="h-4 w-4" /> 貸し出す
-                  </Button>
-                ) : (
-                  <Button onClick={() => setMode('return')} variant="default" className="gap-1.5 flex-1">
-                    <Undo2 className="h-4 w-4" /> 返却する
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setMode('edit')} className="gap-1.5">
-                  <Pencil className="h-4 w-4" /> 編集
-                </Button>
-              </div>
-            )}
-
-            {/* 貸出履歴 */}
-            <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted-foreground">貸出履歴</div>
-              {history.isLoading ? (
-                <div className="py-4 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></div>
-              ) : (history.data ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">まだ貸出履歴はありません</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {(history.data ?? []).map((h) => (
-                    <li key={h.id} className="rounded-md border border-border px-2.5 py-1.5 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium truncate">{h.borrower_company || '（会社名なし）'} / {h.borrower_person}</span>
-                        {h.status === 'active' ? (
-                          <Badge variant="outline" className="border-amber-300 text-amber-700 shrink-0">貸出中</Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-slate-300 text-slate-600 shrink-0">返却済</Badge>
-                        )}
-                      </div>
-                      <div className="mt-0.5 text-muted-foreground">
-                        {fmtMd(h.lent_on)} 〜 {h.returned_on ? `${fmtMd(h.returned_on)} 返却` : (h.due_on ? `${fmtMd(h.due_on)} 返却予定` : '返却予定日なし')}
-                        {h.lent_by_name ? ` ・貸出対応 ${h.lent_by_name}` : ''}
-                        {h.returned_by_name ? ` / 返却対応 ${h.returned_by_name}` : ''}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── アクセス一覧表 (仕様書の ◯/✗ グリッド) ─────────────────
-function AccessMatrixTable({ cards }: { cards: SecurityCard[] }) {
-  const floors = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const a of SECURITY_AREAS) map[a.floor] = (map[a.floor] ?? 0) + 1;
-    return map;
-  }, []);
-  return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="min-w-[820px] w-full text-xs">
-        <thead>
-          <tr className="bg-muted/60">
-            <th className="sticky left-0 z-10 bg-muted/60 px-2 py-1.5 text-left font-semibold">No.</th>
-            <th className="px-2 py-1.5 text-left font-semibold whitespace-nowrap">レベル</th>
-            {Object.entries(floors).map(([floor, span]) => (
-              <th key={floor} colSpan={span} className="px-2 py-1 text-center font-semibold border-l border-border">{floor}</th>
-            ))}
-          </tr>
-          <tr className="bg-muted/40">
-            <th className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5" />
-            <th className="px-2 py-1.5" />
-            {SECURITY_AREAS.map((a, i) => (
-              <th key={a.key} className={`px-2 py-1.5 text-center font-medium whitespace-nowrap ${i === 0 || a.floor !== SECURITY_AREAS[i - 1].floor ? 'border-l border-border' : ''}`}>
-                {a.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {cards.map((c) => (
-            <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-              <td className="sticky left-0 z-10 bg-card px-2 py-1.5 font-bold">{c.card_no}</td>
-              <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">{c.level_label}</td>
-              {SECURITY_AREAS.map((a, i) => (
-                <td key={a.key} className={`px-2 py-1.5 text-center ${i === 0 || a.floor !== SECURITY_AREAS[i - 1].floor ? 'border-l border-border' : ''}`}>
-                  {c.access[a.key]
-                    ? <span className="text-emerald-600 font-bold">◯</span>
-                    : <span className="text-muted-foreground/40">✕</span>}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── 貸出履歴タブ ───────────────────────────────────────────
-function HistoryTab() {
-  const [status, setStatus] = useState<'all' | 'active' | 'returned'>('all');
-  const lendings = useCardLendings(status === 'all' ? {} : { status });
-  const rows = lendings.data ?? [];
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {(['all', 'active', 'returned'] as const).map((s) => (
-          <button key={s} onClick={() => setStatus(s)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${status === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
-            {s === 'all' ? 'すべて' : s === 'active' ? '貸出中' : '返却済'}
-          </button>
-        ))}
-      </div>
-      {lendings.isLoading ? (
-        <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
-      ) : rows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">履歴はありません</p>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((h: Lending) => (
-            <Card key={h.id}>
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold">{h.card_no}</span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{h.borrower_company || '（会社名なし）'} / {h.borrower_person}</div>
-                      <div className="text-xs text-muted-foreground">{h.level_label}</div>
-                    </div>
-                  </div>
-                  {h.status === 'active' ? (
-                    h.overdue
-                      ? <Badge variant="outline" className="border-red-300 text-red-700 shrink-0">期限超過</Badge>
-                      : <Badge variant="outline" className="border-amber-300 text-amber-700 shrink-0">貸出中</Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-slate-300 text-slate-600 shrink-0">返却済</Badge>
-                  )}
-                </div>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  {formatDateJa(h.lent_on)} 〜 {h.returned_on ? `${formatDateJa(h.returned_on)} 返却` : (h.due_on ? `${formatDateJa(h.due_on)} 返却予定` : '返却予定日なし')}
-                  {h.lent_by_name ? ` ・貸出対応 ${h.lent_by_name}` : ''}
-                  {h.returned_by_name ? ` / 返却対応 ${h.returned_by_name}` : ''}
-                  {h.purpose ? ` ・目的 ${h.purpose}` : ''}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── ページ本体 ─────────────────────────────────────────────
 export default function SecurityCardsPage() {
   const { canEdit } = usePermissions();
-  const cardsQuery = useSecurityCards();
-  const stats = useSecurityCardStats();
-  const [filter, setFilter] = useState<'all' | 'available' | 'lent'>('all');
+  const cards = useSecurityCards();
+  const [filter, setFilter] = useState<CardFilter>('all');
   const [search, setSearch] = useState('');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<'lend' | 'return' | null>(null);
 
-  const allCards = useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
-  const filtered = useMemo(() => {
-    let out = allCards;
-    if (filter !== 'all') out = out.filter((c) => c.status === filter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      out = out.filter((c) =>
-        String(c.card_no).includes(q) ||
-        c.level_label.toLowerCase().includes(q) ||
-        (c.borrower_company ?? '').toLowerCase().includes(q) ||
-        (c.borrower_person ?? '').toLowerCase().includes(q));
-    }
-    return out;
-  }, [allCards, filter, search]);
+  const all = useMemo(() => cards.data ?? [], [cards.data]);
 
-  const openCard = allCards.find((c) => c.id === openId) ?? null;
-  const s = stats.data;
+  // **件数はこの一覧から数える。** 集計の口 (`/stats`) からも同じ数が取れるが、
+  // 2か所から数えると絞り込みの定義がずれたときに食い違う
+  const counts = useMemo(() => ({
+    all: all.length,
+    available: all.filter((c) => matchesFilter(c, 'available')).length,
+    lent: all.filter((c) => matchesFilter(c, 'lent')).length,
+    overdue: all.filter((c) => matchesFilter(c, 'overdue')).length,
+  }), [all]);
+
+  const visible = useMemo(
+    () => all.filter((c) => matchesFilter(c, filter) && matchesSearch(c, search)),
+    [all, filter, search],
+  );
+
+  // 絞り込みで消えたカードを右に出したままにしない (左に無いものを操作させない)
+  const selected = visible.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
-      {/* ヘッダー */}
-      <div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-5 w-5" /></div>
-          <div>
-            <h1 className="text-xl font-bold">セキュリティカード管理</h1>
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><DoorOpen className="h-3 w-3" />{STUDIO_LABEL}</p>
-          </div>
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="セキュリティカード"
+        sub={`${STUDIO_LABEL} の 24 枚。誰にどのカードを貸しているかを追いかけます`}
+        icon={<DoorOpen className="h-5 w-5 text-primary" aria-hidden="true" />}
+      />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterChips
+          label="カードの状態で絞り込む"
+          items={(Object.keys(FILTER_LABELS) as CardFilter[]).map((k) => ({
+            key: k, label: FILTER_LABELS[k], count: counts[k],
+          }))}
+          value={filter}
+          onChange={(k) => setFilter(k as CardFilter)}
+        />
+        <div className="relative min-w-0 flex-1 sm:max-w-[240px]">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="番号 / 会社 / 担当者で探す"
+            aria-label="カードを探す"
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="検索を消す"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* サマリー */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <StatCard label="カード総数" value={s?.total ?? 24} tone="default" icon={<KeyRound className="h-4 w-4" />} />
-        <StatCard label="利用可能" value={s?.available ?? 0} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
-        <StatCard label="貸出中" value={s?.lent ?? 0} tone="amber" icon={<ArrowRightLeft className="h-4 w-4" />} />
-        <StatCard label="返却期限超過" value={s?.overdue ?? 0} tone="red" icon={<AlertTriangle className="h-4 w-4" />} />
-      </div>
+      <p className="text-note text-muted-foreground">
+        「返却遅延」は<strong className="font-bold">「貸出中」の中の一部</strong>です（足しても「すべて」にはなりません）。
+      </p>
 
-      <Tabs defaultValue="cards">
-        <TabsList>
-          <TabsTrigger value="cards" className="gap-1.5"><LayoutGrid className="h-4 w-4" /> カード</TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5"><History className="h-4 w-4" /> 貸出履歴</TabsTrigger>
-          <TabsTrigger value="matrix" className="gap-1.5"><Table2 className="h-4 w-4" /> アクセス表</TabsTrigger>
-        </TabsList>
-
-        {/* カード一覧 */}
-        <TabsContent value="cards" className="space-y-3 pt-2">
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="flex gap-1.5">
-              {(['all', 'available', 'lent'] as const).map((f) => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
-                  {f === 'all' ? 'すべて' : f === 'available' ? '利用可能' : '貸出中'}
-                </button>
-              ))}
-            </div>
-            <div className="relative sm:ml-auto sm:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="番号 / 会社 / 担当者で検索" className="pl-8" />
-            </div>
+      {cards.isError ? (
+        <ErrorPanel title="カードを読み込めませんでした" error={cards.error} onRetry={() => cards.refetch()} />
+      ) : cards.isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : all.length === 0 ? (
+        <EmptyState
+          title="カードが登録されていません"
+          description="24 枚はデータベースの初期データとして入るものです。出てこないときは管理者に連絡してください。"
+        />
+      ) : (
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+          <div className="min-w-0 flex-1">
+            {visible.length === 0 ? (
+              <NoSearchResults
+                keyword={search || undefined}
+                activeFilters={filter === 'all' ? [] : [`状態: ${FILTER_LABELS[filter]}`]}
+                onClearFilters={() => { setFilter('all'); setSearch(''); }}
+              />
+            ) : (
+              <CardGrid
+                cards={visible}
+                selectedId={selected?.id ?? null}
+                // **別のカードを選んだら開きかけの操作は閉じる。**
+                // 残しておくと、貸出の途中で他のカードを押したときに
+                // そのカードの貸出ダイアログがいきなり開く
+                onSelect={(id) => { setSelectedId(id); setDialog(null); }}
+              />
+            )}
           </div>
+          <div className="min-w-0 lg:w-[400px] lg:shrink-0">
+            <CardDetailPanel
+              card={selected}
+              canEdit={canEdit}
+              onLend={() => setDialog('lend')}
+              onReturn={() => setDialog('return')}
+            />
+          </div>
+        </div>
+      )}
 
-          {cardsQuery.isLoading ? (
-            <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></div>
-          ) : filtered.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">該当するカードがありません</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filtered.map((c) => (
-                <CardTile key={c.id} card={c} onOpen={() => setOpenId(c.id)} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="history" className="pt-2">
-          <HistoryTab />
-        </TabsContent>
-
-        <TabsContent value="matrix" className="pt-2 space-y-2">
-          <p className="text-xs text-muted-foreground">◯ = 解錠可 / ✕ = 解錠不可。セキュリティレベルに応じて貸し出すカードを選びます。</p>
-          <AccessMatrixTable cards={allCards} />
-        </TabsContent>
-      </Tabs>
-
-      {openCard && <DetailDialog card={openCard} canEdit={canEdit} onClose={() => setOpenId(null)} />}
+      {selected && dialog === 'lend' && <LendDialog card={selected} onClose={() => setDialog(null)} />}
+      {selected && dialog === 'return' && <ReturnDialog card={selected} onClose={() => setDialog(null)} />}
     </div>
-  );
-}
-
-function StatCard({ label, value, tone, icon }: { label: string; value: number; tone: 'default' | 'emerald' | 'amber' | 'red'; icon: React.ReactNode }) {
-  const toneClass = {
-    default: 'text-foreground',
-    emerald: 'text-emerald-600',
-    amber: 'text-amber-600',
-    red: value > 0 ? 'text-red-600' : 'text-muted-foreground',
-  }[tone];
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}{label}</div>
-        <div className={`mt-1 text-2xl font-bold ${toneClass}`}>{value}</div>
-      </CardContent>
-    </Card>
   );
 }

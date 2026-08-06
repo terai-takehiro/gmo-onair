@@ -142,6 +142,45 @@ export function meetsPermissionLevel(
   return (LEVEL_ORDER[userLevel] ?? 0) >= LEVEL_ORDER[minLevel];
 }
 
+/**
+ * **どれか1つの権限があれば通す。**
+ *
+ * 1つのデータを2つの入口から扱う画面のためのもの。たとえば請求は
+ * 案件管理の「見積・請求」(`sales`) と財務の「請求・入金」(`budget`) の
+ * 両方から見て・記録します。片方だけを要求すると、**経理だけの人が
+ * 月次の締めをできない / 営業が入金待ちを見られない**のどちらかになります。
+ *
+ * 判定は `requirePermission` と**同じ `meetsPermissionLevel` を通します** —
+ * 写すと片方だけ緩くなります。
+ */
+export function requireAnyPermission(modules: string[], minLevel: PermissionLevel = 'reader') {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
+      return;
+    }
+    const ok = modules.some((m) =>
+      meetsPermissionLevel(req.user!.role, req.user!.permissions?.[m], minLevel));
+    if (ok) { next(); return; }
+
+    console.log(`[auth] 403 user=${req.user.id} role=${req.user.role} modules=${modules.join('|')}`);
+    const isProduction = process.env.NODE_ENV === 'production';
+    const error = isProduction
+      ? { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' }
+      : {
+          code: 'FORBIDDEN',
+          message: 'このモジュールへのアクセス権限がありません',
+          debug: {
+            requiredAnyOf: modules,
+            requiredMinLevel: minLevel,
+            userRole: req.user.role,
+            allPermissions: req.user.permissions ?? {},
+          },
+        };
+    res.status(403).json({ success: false, error });
+  };
+}
+
 export function requirePermission(module: string, minLevel: PermissionLevel = 'reader') {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {

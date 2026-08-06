@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Check, X, Users, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
+import { notifyApiError, notifySuccess } from "@gmo-onair/shared/src/client/notify";
 
 export interface CustomColumn {
   id: string;
@@ -67,8 +69,30 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/equipment/custom-columns/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment-custom-columns'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['equipment-custom-columns'] });
+      qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
+      notifySuccess('列を消しました');
+    },
+    onError: (e) => notifyApiError('列を消せませんでした', e),
   });
+
+  /**
+   * 列を消すと**その列に入っている値も全部消えます**。
+   * ブラウザ標準の `confirm()` では何がいっしょに消えるかを書けないので、
+   * 共通の確認ダイアログに置き換えました。
+   */
+  const askDelete = async (col: CustomColumn) => {
+    const ok = await confirmAction({
+      title: `列「${col.name}」を消しますか`,
+      description: col.scope === 'shared'
+        ? 'この列に入れた値が全機材ぶん消えます。共有列なので全員の画面から消えます。取り消せません。'
+        : 'この列に入れた値が全機材ぶん消えます。取り消せません。',
+      confirmLabel: '消す',
+      tone: 'danger',
+    });
+    if (ok) deleteMutation.mutate(col.id);
+  };
 
   const startEdit = (col: CustomColumn) => {
     setEditForm({ name: col.name, col_type: col.col_type, scope: col.scope });
@@ -110,11 +134,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={() => {
-                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
-                    deleteMutation.mutate(col.id);
-                  }
-                }}
+                onDelete={() => askDelete(col)}
               />
             ))}
           </div>
@@ -139,11 +159,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={() => {
-                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
-                    deleteMutation.mutate(col.id);
-                  }
-                }}
+                onDelete={() => askDelete(col)}
               />
             ))}
           </div>

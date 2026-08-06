@@ -19,6 +19,14 @@ export interface ProjectDetail {
   box_url_internal: string | null;
   box_url_external: string | null;
   updated_at: string;
+  /**
+   * AI がメールから起票した案件か。**サーバーが計算して返す**
+   * (`projects.routes.ts` の詳細取得が書き込みの記録と突き合わせる)。
+   * 本人名義で実行された分も検出されるので、画面側で作られ方を推測しない。
+   */
+  is_ai_created?: boolean;
+  /** 「確認した」を押した時刻。押されるまで null */
+  ai_reviewed_at?: string | null;
 }
 
 /** `GET /studios/bookings?project_id=` の1行 */

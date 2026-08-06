@@ -1,12 +1,22 @@
-import { Link } from 'react-router-dom';
-import { CalendarCheck, CheckCircle2, CircleDashed, ChevronRight, Plus } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+/**
+ * ウィークリー活動報告の入口 (`/weekly`) (v4)
+ *
+ * v4 で 一覧 と 中身 を **1画面 (master-detail)** にしたので、ここは
+ * **いちばん新しい週へ送るだけ**になった。`/weekly` のブックマークを
+ * 生かすために URL は残してある (消すと 404 になる)。
+ *
+ * 週の報告が1本も無いときだけ、ここが画面になる。何も無い理由と
+ * 「先週ぶんを作る」ボタンを出す — 転送先が無いのに白紙を出さないため。
+ */
+import { Navigate, useNavigate } from 'react-router-dom';
+import { CalendarCheck, Plus } from 'lucide-react';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { useReports, useEnsureReport } from '@/lib/reportsApi';
+import { useEnsureReport, useReports } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
-import { formatWeekJa, toDateStr } from '@/lib/types';
+import { toDateStr } from '@/lib/types';
 
 /** 先週の月曜日 (既定の対象週) */
 function defaultWeekStart(): string {
@@ -18,76 +28,44 @@ function defaultWeekStart(): string {
 }
 
 export default function WeeklyListPage() {
-  const { data: reports, isLoading } = useReports('weekly_activity', 50);
+  const list = useReports('weekly_activity', 50);
   const { canEdit } = usePermissions();
   const ensure = useEnsureReport();
   const navigate = useNavigate();
 
-  const hasDefaultWeek = reports?.some((r) => r.period_key === defaultWeekStart());
+  // 一覧はサーバーが period_key の新しい順で返す。先頭が最新の週
+  const latest = list.data?.[0];
+  if (latest) return <Navigate to={`/weekly/${latest.id}`} replace />;
 
-  const createForDefaultWeek = async () => {
-    const report = await ensure.mutateAsync({ kind: 'weekly_activity', period_key: defaultWeekStart() });
-    navigate(`/weekly/${report.id}`);
+  const createForLastWeek = () => {
+    ensure.mutate({ kind: 'weekly_activity', period_key: defaultWeekStart() }, {
+      onSuccess: (report) => navigate(`/weekly/${report.id}`),
+      onError: (e) => notifyApiError('作れませんでした', e),
+    });
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-primary" />
-            ウィークリー活動報告
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">全社で週 1 本 (月曜始まり)。AI の下書きにトピックを追記して確定します。</p>
-        </div>
-        {canEdit && !isLoading && !hasDefaultWeek && (
-          <Button size="sm" onClick={createForDefaultWeek} disabled={ensure.isPending}>
-            <Plus className="h-4 w-4 mr-1" />
-            先週のレポートを作成
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+      <PageHeader
+        title="ウィークリー活動報告"
+        sub="全社で週1本（月曜はじまり）。AI の下書きに人がトピックを足して確定します"
+        icon={<CalendarCheck className="h-5 w-5 text-primary" aria-hidden="true" />}
+      />
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      ) : !reports?.length ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            レポートはまだありません。AI の定期実行を待つか、「先週のレポートを作成」から始められます。
-          </CardContent>
-        </Card>
+      {list.isError ? (
+        <ErrorPanel title="週の報告を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
+      ) : list.isLoading ? (
+        <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (
-        <div className="space-y-2">
-          {reports.map((r) => (
-            <Link key={r.id} to={`/weekly/${r.id}`} className="block group">
-              <Card className="transition-shadow hover:shadow-md">
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-sm">{formatWeekJa(r.period_key)}</span>
-                      {r.status === 'published' ? (
-                        <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700">
-                          <CheckCircle2 className="h-3 w-3" /> 確定済み
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
-                          <CircleDashed className="h-3 w-3" /> 下書き
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                      {r.title || '週次活動報告'}
-                      {typeof r.item_count !== 'undefined' && ` ・ トピック ${r.item_count} 件`}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <EmptyState
+          title="週の報告はまだ1本もありません"
+          description="AI が毎週の定期実行で下書きを作ります。待てないときは、先週ぶんの箱を先に作れます。"
+          action={canEdit ? (
+            <Button onClick={createForLastWeek} disabled={ensure.isPending}>
+              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />先週ぶんを作る
+            </Button>
+          ) : undefined}
+        />
       )}
     </div>
   );

@@ -9,6 +9,11 @@ const config: Config = {
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
     '../shared/src/client/**/*.{js,ts,jsx,tsx}',
+    // **v4 対象3アプリだけが読む場所。** `shared/src/client/**` に v4 の新しい
+    // クラス名を書くと、凍結4アプリの Tailwind も走査するので**あちらの CSS が増える**
+    // (実測: 部品1つで qsheet に4規則・231バイト)。v4 でしか使わない共通部品は
+    // `shared/src/client-v4/` に置き、凍結アプリの content には足さない
+    '../shared/src/client-v4/**/*.{js,ts,jsx,tsx}',
   ],
 };
 

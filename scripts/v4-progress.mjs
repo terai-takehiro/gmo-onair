@@ -55,14 +55,16 @@ const TREE = [
     ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
   ]],
   ['財務管理', [
-    ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/FinanceDashboardPage.tsx'],
+    ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/BudgetDashboardPage.tsx'],
+    ['請求・入金', '/budget/billing', 'client/src/contexts/finance/pages/ClosingPage.tsx'],
     ['売上', '/budget/revenues', 'client/src/contexts/finance/pages/RevenueListPage.tsx'],
     ['仕入', '/budget/purchases', 'client/src/contexts/finance/pages/PurchaseListPage.tsx'],
     ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],
-    ['取引先', '/budget/vendors', 'client/src/contexts/finance/pages/VendorListPage.tsx'],
-    ['取り込み (楽楽精算)', '/budget/xpoint-import', 'client/src/contexts/finance/pages/XpointImportPage.tsx'],
-    ['取り込み (決算)', '/budget/kessan-import', 'client/src/contexts/platform/pages/KessanImportPage.tsx'],
-    ['二重計上を調べる', '/budget/dedup-screening', 'client/src/contexts/platform/pages/DedupScreeningPage.tsx'],
+    ['取引先 (仕入先・パートナー)', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx'],
+    // 日常業務 (`/daily/finance`) から移した。`dailyops` だけを要求していて経理が開けなかった
+    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx'],
+    // v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブに畳んだ（旧3 URL は転送）
+    ['取り込み (精算PDF・総勘定元帳・二重計上)', '/budget/import', 'client/src/contexts/finance/pages/ImportPage.tsx'],
   ]],
   ['カレンダー', [
     ['予定', '/studio/calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx'],
@@ -98,19 +100,41 @@ const TREE = [
     ['ウィークリー活動報告', '/daily/weekly', 'client-daily/src/pages/WeeklyListPage.tsx'],
     ['デイリーニュース', '/daily/news', 'client-daily/src/pages/DailyNewsPage.tsx'],
     ['内覧会 開催日', '/daily/inview', 'client-daily/src/pages/InviewPage.tsx'],
-    ['入ってきた情報', '/daily/finance', 'client-daily/src/pages/FinanceDocsPage.tsx'],
+    ['入ってきた情報 (その他問い合わせ)', '/daily/inquiries', 'client-daily/src/pages/InquiriesPage.tsx'],
+    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx', undefined,
+      '**財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので' +
+      '**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります'],
     ['セキュリティカード', '/daily/security-cards', 'client-daily/src/pages/SecurityCardsPage.tsx'],
   ]],
   ['機材管理', [
     ['ダッシュボード', '/equipment/', 'client-equipment/src/pages/DashboardPage.tsx'],
-    ['機材台帳', '/equipment/items', 'client-equipment/src/pages/EquipmentListPage.tsx'],
-    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx'],
+    // v4: 機材・貸出機材・ケーブル・コネクタを1画面4タブに畳んだ（旧 URL は転送）
+    ['機材台帳 (機材・貸出機材・ケーブル・コネクタ)', '/equipment/items', 'client-equipment/src/pages/EquipmentLedgerPage.tsx', undefined,
+      '**枠は v4・行の載せ替えは途中**。この一覧だけがカスタム列・その場編集・親子の入れ子を' +
+      '同時に持っており、`<Row>` に載せ替えるとその3つを作り直すことになるので分けています'],
+    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx', undefined,
+      '**意図して据え置き**。1,502行に 座標計算・印刷・棚卸しモード が同居しており、' +
+      '**触ると印刷が1ページ目で切れます**。分割しても印刷が壊れないことを実機で確かめてから'],
     ['メンテナンス', '/equipment/maintenance', 'client-equipment/src/pages/MaintenancePage.tsx'],
     ['棚卸し', '/equipment/inventory', 'client-equipment/src/pages/InventoryPage.tsx'],
+    ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/ScanPage.tsx'],
     ['貸出・返却', '/equipment/lendings', 'client-equipment/src/pages/LendingListPage.tsx'],
+    // v4: 拠点・メーカー・色・貸出カテゴリ・貸出の決めごとを1画面4タブに畳んだ
+    ['設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
   ]],
-  ['プロジェクト管理 (新規・7画面)', [
-    ['設計から', '—', null],
+  // v4 で新しく作ったアプリ。DB・API・画面すべて新規（migration 161/162）
+  ['プロジェクト管理 (新規)', [
+    ['① ダッシュボード', '/gpm/dashboard', 'client/src/contexts/gpm/pages/GpmDashboardPage.tsx'],
+    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx'],
+    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx'],
+    ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
+    ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
+    ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
+    ['⑥ 見積・請求', '—', null, undefined,
+      '**意図して作っていません。** `estimates.project_id` が `NOT NULL REFERENCES projects(id)` なので、' +
+      '自社構築（案件に紐づかない）プロジェクトは見積を1枚も持てません。モックの「提出先」に相当する列も 0 件。' +
+      '足すとサーバー12か所・画面4か所（案件詳細の見積タブ・見積請求一覧・案件ダッシュボードの KPI）に同時に効きます。' +
+      '**見積のデータ設計の変更**なので設計から。理由と手順は `docs/design/gpm-model.md` の「決め⑤」'],
   ]],
 ];
 
