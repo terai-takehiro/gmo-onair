@@ -37,6 +37,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | ③ 案件一覧 | `contexts/sales/pages/ProjectListPage.tsx` ＋ `pages/projectList/` | 下記 |
 | ④ タスク一覧 | `contexts/tasks/pages/TaskDashboardPage.tsx` ＋ `pages/taskList/` | 下記 |
 | ⑥ 案件詳細（ふりかえり以外の7タブ） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` | 下記 |
+| ⑤ 見積・請求（全案件） | `contexts/sales/pages/BillingListPage.tsx` ＋ `pages/billing/` | 下記 |
 | ⑧ 料金表 | `contexts/sales/pages/PricingListPage.tsx` ＋ `pages/pricing/` | 下記 |
 
 **ダッシュボード（①）で決めたこと**
@@ -92,6 +93,22 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   - 成果（受注/失注）は `projects.stage` から導出する。**`ai_outcomes` に行を足さない** —
     既存データで表現できるものに新しいテーブルを作ると、書き忘れた日から数字が嘘になる
   - 還流は `get_ai_feedback_digest`（MCP）が `kind=project_draft` を読めるようにした
+
+**見積・請求（⑤）で決めたこと**
+- **検収と入金を ONAiR で持つ**（ご判断）。`revenues` には請求日・支払期日・
+  請求書の発行済フラグはあったが、**「検収したか」と「いつ入金されたか」が無かった**
+  （仕入 `purchases` には `inspection_date` があるのに売上側には無い、という非対称）。
+  migration 140 で `inspection_date` / `paid_date` を追加
+- **フラグではなく日付**。済んだかを別のフラグでも持つと片方だけ更新されて必ず食い違う
+  （日付が入っていれば済み）。`invoice_issued` と `billing_date` が同じ形になりかけている
+- **取り消しは訊く。** 黙って戻せると、経理の訂正が誰にも気づかれない
+- **旧版（`superseded`）は出さない。** サーバー側で外している。差し替え済みの版が並ぶと
+  「返事待ちが何件か」が読めない
+- **どちらのタブも常に引く。** 開いている側だけにすると、閉じている側のタブに出る件数が
+  0 のままで**数字が嘘になる**（実ブラウザで「見積 0 / 請求 2」と出て気づいた）
+- **「見積を作成」ボタンは置かない。** 見積は案件にぶら下がるもので、ここで押しても
+  「どの案件の？」を先に訊くことになる。行を押すとその案件の見積タブへ飛ぶ
+- 請求は `status='confirmed'` かつ `group_id IS NULL`（按分の親行を二重に数えない）
 
 **料金表（⑧）で決めたこと**
 - **「場所ごとの表」は入れていない。** モックは拠点ごとに別々の料金表を持ち、案件の場所に
