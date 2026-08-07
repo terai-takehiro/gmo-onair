@@ -11,11 +11,14 @@
  * 縦が部屋、横が 8:00〜22:00。埋まっているところに帯が出るので、
  * **空いている幅がそのまま見えます**。
  *
- * ── 終日の予定は帯にしない ──────────────────────────────────
+ * ── 終日の予定も帯にする（レビューで直した）────────────────
  *
- * 終日は時間の幅を持たないので、横一杯の帯にすると
- * **その部屋が丸1日埋まっているように見えます**（実際には「その日に何かある」だけ）。
- * 部屋名の下に別で出します。
+ * 最初は「終日は時間の幅を持たないから帯にしない」として部屋名の下に文字で出して
+ * いましたが、**この画面は横の余白が空きを意味します**。帯を出さないと
+ * **丸1日押さえてある部屋が 14 時間まるごと空きに見え**、二重に予約されます。
+ *
+ * → **横一杯の帯を出したうえで、見た目を分けます**（斜線・「終日」と明記）。
+ *   時間帯の予約と同じ塗りにすると「何時から何時まで」を読み違えるためです。
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -66,8 +69,8 @@ export default function RoomAvailabilityPage() {
   );
 
   const evs = useMemo(() => bookings.data ?? [], [bookings.data]);
-  const timed = useMemo(() => evs.filter((e) => !isAllDay(e)), [evs]);
-  const allDay = useMemo(() => evs.filter(isAllDay), [evs]);
+  // **終日も帯に含める。** 除くと押さえてある部屋が空きに見える
+  const allDayCount = useMemo(() => evs.filter(isAllDay).length, [evs]);
 
   const hours = useMemo(
     () => Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i),
@@ -86,7 +89,7 @@ export default function RoomAvailabilityPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="部屋の空き"
-        sub={`${day} ・ 予約 ${evs.length}件（うち終日 ${allDay.length}件）・ ${DAY_START_H}:00 〜 ${DAY_END_H}:00 を表示`}
+        sub={`${day} ・ 予約 ${evs.length}件（うち終日 ${allDayCount}件）・ ${DAY_START_H}:00 〜 ${DAY_END_H}:00 を表示`}
       >
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="icon" aria-label="前の日" onClick={() => shift(-1)}>
@@ -153,8 +156,9 @@ export default function RoomAvailabilityPage() {
             </div>
 
             {shownRooms.map((r) => {
-              const blocks = laneBlocks(timed, r.id);
-              const allDayHere = allDay.filter((e) => e.rooms?.some((x) => x.room_id === r.id));
+              // **見ている日を渡す。** 渡さないと日をまたぐ予約を置き違える
+              // （8/1 20:00〜8/2 10:00 が 8/2 の 20:00〜22:00 に出ていた）
+              const blocks = laneBlocks(evs, r.id, day);
               return (
                 <div key={r.id} className="flex border-b border-border-faint last:border-b-0">
                   <span className="w-40 shrink-0 px-3 py-2.5">
@@ -163,12 +167,6 @@ export default function RoomAvailabilityPage() {
                       <span className="min-w-0 truncate">{r.abbreviation || r.name}</span>
                     </span>
                     <span className="text-note block truncate text-muted-foreground">{r.location_name}</span>
-                    {/* **終日は帯にしない**（横一杯にすると丸1日埋まって見える） */}
-                    {allDayHere.map((e) => (
-                      <span key={e.id} className="text-note mt-0.5 block truncate text-warning">
-                        終日: {e.title}
-                      </span>
-                    ))}
                   </span>
 
                   <span className="relative min-w-0 flex-1 py-2">
@@ -190,10 +188,13 @@ export default function RoomAvailabilityPage() {
                             // 仮押さえは**破線**。確定と同じ見た目にすると、
                             // 押さえただけの枠を「決まっている」と読んでしまう
                             b.tentative ? 'border border-dashed' : 'border',
+                            // **終日は塗りを分ける。** 時間帯の予約と同じ塗りだと
+                            // 「8:00〜22:00 に何かある」と読み違える
+                            b.allDay && 'bg-avail-allday',
                           )}
                           style={{
                             left: b.left, width: b.width,
-                            background: b.tentative ? 'transparent' : 'rgb(var(--primary-surface))',
+                            background: b.allDay || b.tentative ? undefined : 'rgb(var(--primary-surface))',
                             borderColor: b.color || 'rgb(var(--border))',
                           }}
                         >
@@ -213,8 +214,9 @@ export default function RoomAvailabilityPage() {
 
       <p className="text-note text-muted-foreground">
         <strong className="font-bold">破線は仮押さえ</strong>です（まだ決まっていません — 「仮押さえ」の画面で確定か取り消しを決めます）。
-        終日の予定は帯にせず部屋名の下に出しています。時間の幅を持たないので、
-        帯にすると<strong className="font-bold">丸1日埋まっているように見える</strong>ためです。
+        <strong className="font-bold">斜線は終日</strong>の予約です（その日はその部屋が押さえられています）。
+        <strong className="font-bold">横の余白が空き</strong>なので、
+        前の日から続いている予約もこの日のぶんだけ切って出しています。
       </p>
     </div>
   );

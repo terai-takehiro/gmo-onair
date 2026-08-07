@@ -232,7 +232,13 @@ function AppRoutes() {
         <Route path="/studio/calendar" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
         <Route path="/studio/rooms" element={<PermissionRoute module="studio"><RoomAvailabilityPage /></PermissionRoute>} />
         <Route path="/studio/holds" element={<PermissionRoute module="studio"><HoldListPage /></PermissionRoute>} />
-        <Route path="/studio/settings" element={<PermissionRoute module="studio"><CalendarSettingsPage /></PermissionRoute>} />
+        {/*
+            **`studio` か `partner_schedule` のどちらかで通す。** 3つのタブは
+            別々の口を叩き、外部カレンダーだけ `/schedule/*`（`partner_schedule` の
+            editor）を使う。`studio` だけで括ると **`partner_schedule` だけの人が
+            自分のフィード設定に来られない**（画面の中でタブを出し分ける）
+        */}
+        <Route path="/studio/settings" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><CalendarSettingsPage /></PermissionRoute>} />
         <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
         <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
         <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />

@@ -243,3 +243,19 @@
   font-style: italic;
   opacity: 0.75;
 }
+
+/*
+ * ② 部屋の空き — **終日の予約の帯**。
+ *
+ * 終日も帯を出さないと、丸1日押さえてある部屋が空きに見えます
+ * （レビューで指摘されて直した）。ただし時間帯の予約と同じ塗りにすると
+ * 「8:00〜22:00 に何かある」と読み違えるので、**斜線で分けます**。
+ * 色はトークンから取ります（生の色コードを書かない）。
+ */
+.bg-avail-allday {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgb(var(--primary-surface)) 0 6px,
+    rgb(var(--card)) 6px 12px
+  );
+}
