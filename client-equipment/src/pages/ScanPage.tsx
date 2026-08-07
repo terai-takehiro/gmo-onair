@@ -27,6 +27,7 @@ import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Camera, CameraOff, History, Loader2, QrCode, Search } from 'lucide-react';
 import api from '@/lib/api';
+import { extractCode } from '@/lib/qrCode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,26 +45,6 @@ export default function ScanPage() {
   const [searching, setSearching] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qc = useQueryClient();
-
-  /**
-   * 読み取った文字から機材を割り出す。
-   *   URL (`…/equipment/items/<uuid>`) → id ／ `?eq=Y-C-00001` → 機材ID
-   *   `Y-C-00001` 直接 ／ UUID 直接
-   */
-  const extractCode = (raw: string): { type: 'id' | 'eq_code'; value: string } | null => {
-    const text = raw.trim();
-    if (!text) return null;
-    try {
-      const u = new URL(text);
-      const m = u.pathname.match(/\/equipment\/items\/([^/?#]+)/);
-      if (m) return { type: 'id', value: m[1] };
-      const eq = u.searchParams.get('eq');
-      if (eq) return { type: 'eq_code', value: eq };
-    } catch { /* URL ではない */ }
-    if (/^[A-Z]+-[A-Z0-9]+-[0-9]{5}$/i.test(text)) return { type: 'eq_code', value: text.toUpperCase() };
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) return { type: 'id', value: text };
-    return null;
-  };
 
   const resolveAndNavigate = async (raw: string) => {
     const parsed = extractCode(raw);

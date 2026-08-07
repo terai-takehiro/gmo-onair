@@ -53,6 +53,19 @@ export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'review', label: 'ふりかえり', icon: LineChart, todo: true },
 ];
 
+/**
+ * スマホで開けるタブ（⑥・モックの端末枠 6枚目）。
+ *
+ * モックの端末枠は **概要（実施日・会場・標準工程・個別タスク）だけ**で、
+ * その下に「**見積・書類・やり取りは PC で**」と書いてあります。
+ * 8タブを 375px に並べると1タブが 40px 弱になり、押し分けられません。
+ *
+ * **当日を入れているのはモックに無い足し算です。** 本番当日に現場で開く
+ * 資料への入口で、**スマホで開く場面がいちばん多いタブ**だからです
+ * （中身は既にある画面へのリンクだけなので、幅の問題もありません）。
+ */
+export const MOBILE_TAB_KEYS: ProjectTabKey[] = ['overview', 'task', 'day'];
+
 export function isProjectTab(value: string | undefined): value is ProjectTabKey {
   return PROJECT_TABS.some((t) => t.key === value);
 }

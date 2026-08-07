@@ -32,7 +32,7 @@ const OUTLOOK_COLOR = "#0078d4";
 const SHARED_COLOR = "#9333ea"; // 共有予定 (自分が共有した/された) は紫で区別
 
 export default function MyCalendarPage() {
-  const isMobile = useIsMobile(1024);
+  const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
   const { currentUser } = useAuth();
   const qc = useQueryClient();

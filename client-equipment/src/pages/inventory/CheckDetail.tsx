@@ -16,6 +16,8 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { INVENTORY_STATUS, statusOf } from '@gmo-onair/shared/src/constants/statuses';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { MobileScanSession } from './MobileScanSession';
 
 export interface CheckItem {
   id: string;
@@ -42,7 +44,20 @@ interface CheckDetailData {
 
 const locKey = (i: CheckItem) => i.location_name || i.location_detail || '(場所なし)';
 
-export function CheckDetail({ checkId, onBack, onDeleted }: {
+/**
+ * 幅で選ぶだけの薄い親。**中で `if (mobile) return …` と書かない**
+ * （幅が変わった瞬間にフックの数が変わって React が落ちる）。
+ *
+ * スマホは ⑨ 現場のスキャン（`MobileScanSession`）。
+ * 保管場所ごとの一覧を 375px に積むと、目的の1本に着くまでスクロールし続けます。
+ */
+export function CheckDetail(props: { checkId: string; onBack: () => void; onDeleted: () => void }) {
+  return useIsMobile()
+    ? <MobileScanSession checkId={props.checkId} onBack={props.onBack} />
+    : <DesktopCheckDetail {...props} />;
+}
+
+function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
   checkId: string;
   onBack: () => void;
   onDeleted: () => void;

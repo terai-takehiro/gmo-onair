@@ -45,6 +45,8 @@ import { StuckPanel } from './salesDashboard/StuckPanel';
 import { OverduePanel } from './salesDashboard/OverduePanel';
 import { StagePanel } from './salesDashboard/StagePanel';
 import { WeekPanel } from './salesDashboard/WeekPanel';
+import { MobileSalesDashboard } from './salesDashboard/MobileSalesDashboard';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { SalesOverview, PipelineStage, WeekDay } from './salesDashboard/types';
 
 /** 「2026年7月31日（金）時点」。**日付を出す** — 数字がいつのものか分からないと使えない */
@@ -54,7 +56,16 @@ function asOf(now: Date): string {
   });
 }
 
+/**
+ * 幅で選ぶだけの薄い親。
+ * **中で `if (mobile) return …` と書かない** — 幅が変わった瞬間に
+ * フックの数が変わって React が落ちる（`docs/design/v4/mobile.md`）。
+ */
 export default function DashboardPage() {
+  return useIsMobile() ? <MobileSalesDashboard /> : <DesktopSalesDashboard />;
+}
+
+function DesktopSalesDashboard() {
   const navigate = useNavigate();
 
   const overview = useQuery<SalesOverview>({

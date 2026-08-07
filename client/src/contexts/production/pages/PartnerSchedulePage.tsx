@@ -24,7 +24,7 @@ import {
 // 権限モジュール 'partner_schedule' の保持者のみ (ルートは PermissionRoute でガード)。
 
 export default function PartnerSchedulePage() {
-  const isMobile = useIsMobile(1024);
+  const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
   const { currentUser, hasPermission } = useAuth();
   const isManager = currentUser?.role === "system_admin" || hasPermission("partner_schedule", "manager");

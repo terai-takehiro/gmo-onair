@@ -16,6 +16,19 @@
  * この見え方は**ステージを「ネタ」に固定します**（見送りも見えるように失注も含む）。
  * ステージのチップは押せなくなります — 「ネタの見え方」で「受注済」を選ぶのは
  * 意味を持たないためです。
+ *
+ * ── スマホ（③・モックの端末枠 3枚目） ──────────────────────
+ *
+ * **絞り込みと問い合わせは1つのまま、行の描き方だけ差し替えます**
+ * （`projectList/ProjectCards.tsx`）。画面をもう1枚作ると、
+ * 検索・ステージ・並び順・期間の4つを2か所で直すことになります。
+ *
+ * スマホで変えるのは3つだけ:
+ *   ① 行 → **カード**（PC の行は狭いと実施日・次のタスク・最後の動きが消え、
+ *      「次に何をするか」が読めなくなる）
+ *   ② **ボードを出さない。** 5列のかんばんは 375px では1列ぶんも入らない。
+ *      押せるように見せて横スクロールにすると、指の当たり所が無くなる
+ *   ③ **Excel の書き出しを出さない**（端末に落としても開く先が無い）
  */
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -33,6 +46,8 @@ import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { ProjectBoard } from './projectList/ProjectBoard';
 import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
 import { FilterBar, TermHint, SORT_OPTIONS, type EventPeriodMode } from './projectList/FilterBar';
+import { ProjectCards } from './projectList/ProjectCards';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { ProjectListResponse } from './projectList/types';
 
 /** 1ページの件数。ボードは列に並べるので**まとめて取る** (5列に 20 件だと各列 4 件しか出ない) */
@@ -41,10 +56,15 @@ const BOARD_SIZE = 200;
 
 export default function ProjectListPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const rawView = params.get('view');
-  const view: 'list' | 'board' | 'seed' =
+  const rawViewKey: 'list' | 'board' | 'seed' =
     rawView === 'board' ? 'board' : rawView === 'seed' ? 'seed' : 'list';
+  // **スマホではボードをリストに落とす。** `/sales/pipeline` からの転送で
+  // `?view=board` が付いたままスマホで開かれることがある
+  const view: 'list' | 'board' | 'seed' =
+    isMobile && rawViewKey === 'board' ? 'list' : rawViewKey;
   const setView = (v: 'list' | 'board' | 'seed') => {
     const next = new URLSearchParams(params);
     if (v === 'list') next.delete('view'); else next.set('view', v);
@@ -147,9 +167,12 @@ export default function ProjectListPage() {
         }
       >
         <div className="flex shrink-0 items-center gap-2">
-          <ExcelToolbar resource="/projects" name="案件" queryKey={['projects']} />
+          {!isMobile && <ExcelToolbar resource="/projects" name="案件" queryKey={['projects']} />}
           <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
-            {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid], ['seed', 'ネタ', Inbox]] as const).map(([v, label, Icon], i) => (
+            {(isMobile
+              ? ([['list', 'リスト', List], ['seed', 'ネタ', Inbox]] as const)
+              : ([['list', 'リスト', List], ['board', 'ボード', LayoutGrid], ['seed', 'ネタ', Inbox]] as const)
+            ).map(([v, label, Icon], i) => (
               <button
                 key={v}
                 type="button"
@@ -199,6 +222,8 @@ export default function ProjectListPage() {
         )
       ) : view === 'board' ? (
         <ProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+      ) : isMobile && view === 'list' ? (
+        <ProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
       ) : view === 'seed' ? (
         <>
           <div className="overflow-hidden rounded-card border border-border bg-card">
@@ -240,6 +265,14 @@ export default function ProjectListPage() {
             </div>
           )}
         </>
+      )}
+
+      {isMobile && rawViewKey === 'board' && (
+        <p className="text-note text-muted-foreground">
+          <strong className="font-bold">ボードは PC で見る画面です。</strong>
+          5つのステージを横に並べるので、この幅では1列も入りません。
+          いまはリストを出しています。
+        </p>
       )}
 
       {view === 'board' && rows.length >= BOARD_SIZE && (
