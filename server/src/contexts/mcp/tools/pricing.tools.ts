@@ -3,10 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { pricingLocationService } from '../../sales/services/pricing-location.service';
 import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 
 // 料金表 (pricing_categories / pricing_items) と 見積シミュレーション (simulations) の MCP ツール。
+// 料金表は**場所ごと** (v4 大③・migration 172)。
 // - list_pricing: 料金表マスタの参照 (見積を組む前に pricing_item_id と calc_type を調べる)
 // - get_project_simulation: 案件の現在の見積
 // - set_project_simulation: 料金表から見積を組んで案件に設定 (expected_amount 自動更新)
@@ -53,27 +55,65 @@ export function registerPricingTools(server: McpServer): void {
         '料金表マスタをカテゴリ別に一覧する。見積を組む前に pricing_item_id と calc_type を調べる用途。' +
         'calc_type の意味: days=日数×単価 / hours=時間数×単価 (days 欄に時間数) / fixed・toggle=固定 (単価そのもの) / ' +
         'days_qty=日数×台数×単価 / days_people=日数×人数×単価 / qty=数量×単価。' +
-        'unit_price=定価(社外), group_price=グループ内価格(社内・null は未設定)。案件の customer_type により自動選択される。',
+        'unit_price=定価(社外), group_price=グループ内価格(社内・null は未設定)。案件の customer_type により自動選択される。' +
+        '\n\n**料金表は場所ごとにある** (v4・migration 172)。用賀・渋谷・青山で別々の表を持ち、' +
+        '同じ品目名でも金額が違う。`location_id` を渡さないと**全部の場所の品目が混ざって返る**ので、' +
+        '見積を組むときは必ず `project_id` か `location_id` のどちらかを渡すこと。' +
+        '`project_id` を渡すと、その案件のスタジオ予約から場所を決めて絞り込む ' +
+        '(予約が複数の拠点にまたがる・まだ予約が無い場合は絞り込まず、`location_hint.reason` で理由を返す)。',
       inputSchema: {
         search: z.string().max(100).optional().describe('項目名の部分一致で絞り込み'),
+        location_id: z.string().optional().describe('場所で絞り込む (studio_locations.id)'),
+        project_id: z.string().optional().describe('案件 ID。予約から場所を決めて絞り込む'),
       },
     },
     async (args) => runTool(async () => {
+      // 場所の決め方: 明示 > 案件の予約から。**決まらなければ絞らない**
+      // (勝手に用賀の値段を出すより、混ざっていると分かるほうがまし)
+      let locationId = args.location_id ?? null;
+      let hint: Awaited<ReturnType<typeof pricingLocationService.resolveForProject>> | null = null;
+      if (!locationId && args.project_id) {
+        hint = await pricingLocationService.resolveForProject(args.project_id);
+        if (hint.reason === 'booking') locationId = hint.location_id;
+      }
+
+      const catParams: unknown[] = [];
+      let catWhere = 'WHERE c.deleted_at IS NULL';
+      if (locationId) { catWhere += ' AND c.location_id = ?'; catParams.push(locationId); }
       const categories = await queryAll(
-        `SELECT id, name, sort_order FROM pricing_categories WHERE deleted_at IS NULL ORDER BY sort_order, created_at`,
+        `SELECT c.id, c.name, c.sort_order, c.location_id, l.name AS location_name
+           FROM pricing_categories c
+           LEFT JOIN studio_locations l ON l.id = c.location_id
+           ${catWhere} ORDER BY c.sort_order, c.created_at`,
+        catParams,
       ) as any[];
-      let itemWhere = 'WHERE deleted_at IS NULL';
+
+      let itemWhere = 'WHERE i.deleted_at IS NULL AND c.deleted_at IS NULL';
       const params: unknown[] = [];
-      if (args.search) { itemWhere += ' AND name ILIKE ?'; params.push(`%${args.search}%`); }
+      if (args.search) { itemWhere += ' AND i.name ILIKE ?'; params.push(`%${args.search}%`); }
+      if (locationId) { itemWhere += ' AND c.location_id = ?'; params.push(locationId); }
       const items = await queryAll(
-        `SELECT id, category_id, name, sub_label, unit_price, group_price, calc_type, sort_order
-         FROM pricing_items ${itemWhere} ORDER BY sort_order, created_at`,
+        `SELECT i.id, i.category_id, i.name, i.sub_label, i.unit_price, i.group_price, i.calc_type, i.sort_order
+           FROM pricing_items i
+           JOIN pricing_categories c ON c.id = i.category_id
+         ${itemWhere} ORDER BY i.sort_order, i.created_at`,
         params,
       ) as any[];
       const result = categories
         .map((c) => ({ ...c, items: items.filter((it) => it.category_id === c.id) }))
         .filter((c) => !args.search || c.items.length > 0); // 検索時は該当項目のあるカテゴリのみ
-      return ok(result);
+      return ok({
+        location_id: locationId,
+        // **絞れなかったときはその理由を返す。** 黙って全部返すと、
+        // AI は場所ごとに違う金額が混ざっていることに気づけない
+        location_hint: hint && hint.reason !== 'booking'
+          ? { reason: hint.reason, candidates: hint.candidates,
+              note: hint.reason === 'ambiguous'
+                ? 'この案件は複数の拠点に予約があります。どの場所の料金かを人に確かめてください'
+                : '案件から場所を決められませんでした。全部の場所の品目が混ざっています' }
+          : null,
+        categories: result,
+      });
     }),
   );
 

@@ -141,7 +141,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 ### 料金表・見積 (v2.9.193+)
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `list_pricing` | read | 料金表マスタ (カテゴリ別に項目・calc_type・定価/グループ内価格)。見積を組む前に pricing_item_id を調べる |
+| `list_pricing` | read | 料金表マスタ (カテゴリ別に項目・calc_type・定価/グループ内価格)。見積を組む前に pricing_item_id を調べる。**料金表は場所ごとにある** (v4 大③) — `location_id` か `project_id` を渡さないと全場所の品目が混ざる。`project_id` は案件のスタジオ予約から場所を決め、決められないときは `location_hint.reason` で理由を返す |
 | `get_project_simulation` | read | 案件の見積明細 + 合計 |
 | `set_project_simulation` | write | 料金表から案件の見積を組んで設定 (既存は全置換)。subtotal は calc_type からサーバー算出、単価は案件の customer_type で自動選択。**既定 status=draft (AI 下書き・未確定)**: expected_amount には反映されず、担当者がアプリの案件画面で「確定する」を押すと最終化される。status=final を明示すると即反映 |
 

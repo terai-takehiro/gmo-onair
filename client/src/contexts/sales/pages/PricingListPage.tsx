@@ -3,15 +3,18 @@
  *
  * 見積の元になる表。分類 → 品目の2段で、ここで足す・直す・消す・並べ替えができます。
  *
- * ── モックと違えたところ ────────────────────────────────────
+ * ── 場所ごとの表 (v4 大③・migration 172) ────────────────────
  *
- * **「場所ごとの表」は入れていません。** モックは用賀・その他の拠点ごとに
- * 別々の料金表を持ち、案件の場所に応じた表が見積に出る形ですが、
- * いまの `pricing_categories` に**場所の列がありません**。足すと
- * ①テーブルの作り替え ②見積の積算 (`set_project_simulation` / `SimulationDialog`) と
- * MCP の `list_pricing` が「どの場所の表か」を持つ ③既存の 78 品目をどの場所に
- * 割り当てるかの決め — の3つが同時に要ります。**画面の作り直しとは別の仕事**なので、
- * ここでは1つの表として扱い、場所の分割は設計から始めます。
+ * モックどおり**上辺に場所のタブ**を出し、用賀・渋谷・青山で別々の表を持ちます。
+ * 既存の 78 品目はすべて用賀の料金なので用賀に割り当てました。
+ *
+ * 1つの表を全部の案件で使っていると、**渋谷の案件に用賀の値段がそのまま出ます**。
+ * しかも出た金額はそれらしいので、気づかずに見積を送ることになります。
+ * 空の場所は空と見せます（「まだ入れていない」は直せる）。
+ *
+ * 空の場所からは ①ほかの場所の表を丸ごと写す ②空から作る の2つで始められます。
+ * **写せるのは空の場所だけ** — 2回押すと同じ品目が2つ並び、どちらを選んだかで
+ * 金額が変わります。
  *
  * ── この版で直した「黙って壊れる」もの ──────────────────────
  *
@@ -33,13 +36,15 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
-import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import type { PricingCategory, PricingItem } from '@/types';
 import { CategoryCard } from './pricing/CategoryCard';
 import { CategoryDialog, ItemDialog } from './pricing/PricingDialogs';
+import { usePricingLocations, LOCATION_KEY } from './pricing/locations';
+import { LocationTabs, EmptyTable } from './pricing/LocationTabs';
 
 const KEY = ['pricing-categories'];
 
@@ -51,20 +56,49 @@ export default function PricingListPage() {
   const canDeleteItem = hasPermission('sales', 'manager');
 
   const [q, setQ] = useState('');
+  const [locationId, setLocationId] = useState<string>('');
   const [catOpen, setCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<PricingCategory | null>(null);
   const [itemOpen, setItemOpen] = useState(false);
   const [itemCatId, setItemCatId] = useState('');
   const [editingItem, setEditingItem] = useState<PricingItem | null>(null);
 
+  const locations = usePricingLocations();
+  // 既定は**料金が入っている最初の場所**。空の場所を開いて「壊れている」と
+  // 読まれるより、中身のある表を先に見せる
+  const activeLocation = locationId
+    || locations.data?.find((l) => l.item_count > 0)?.id
+    || locations.data?.[0]?.id
+    || '';
+  const activeName = locations.data?.find((l) => l.id === activeLocation)?.name ?? '';
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: KEY,
-    queryFn: async () => (await api.get('/pricing/categories')).data,
+    queryKey: [...KEY, activeLocation],
+    queryFn: async () => (await api.get('/pricing/categories', { params: { location_id: activeLocation } })).data,
+    enabled: !!activeLocation,
   });
   // `?? []` を素で書くと**毎回別の配列**になり、下の `useMemo` が毎描画で走る
   const categories: PricingCategory[] = useMemo(() => data?.data ?? [], [data]);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: KEY });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: KEY });
+    // 場所のタブに出る品目数も一緒に落とす（片方だけだとタブの数字が古いまま）
+    qc.invalidateQueries({ queryKey: LOCATION_KEY });
+  };
+
+  /** ほかの場所の表を丸ごと写す。**空の場所にしか写せない**（サーバーも弾く） */
+  const copy = useMutation({
+    mutationFn: (fromId: string) =>
+      api.post(`/pricing/locations/${activeLocation}/copy-from`, { from_location_id: fromId }),
+    onSuccess: (r) => {
+      invalidate();
+      const d = r.data.data as { categories: number; items: number };
+      notifySuccess(`写しました（分類 ${d.categories} ／ 品目 ${d.items}）`, {
+        description: '金額はこの場所のぶんだけ直せます。元の場所の料金は変わりません。',
+      });
+    },
+    onError: (e) => notifyApiError('写せませんでした', e),
+  });
 
   /** 品目名と補足の両方で探す。**補足に部屋名が入っている**ので、そこも当たらないと引けない */
   const needle = q.trim().toLowerCase();
@@ -125,7 +159,7 @@ export default function PricingListPage() {
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
       <PageHeader
         title="料金表"
-        sub={`見積の元になる表です ・ 分類 ${categories.length} ／ 品目 ${totalCount}`}
+        sub={`${activeName} の料金表 ・ 分類 ${categories.length} ／ 品目 ${totalCount}`}
         primaryAction={canEditCategory ? (
           <Button onClick={() => { setEditingCat(null); setCatOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />分類を足す
@@ -144,15 +178,18 @@ export default function PricingListPage() {
         </div>
       </PageHeader>
 
-      {/*
-        決めごと。**画面に書いておかないと必ず訊かれる**もの。
-        モックの4項目のうち「場所ごと」に関する2つは、いまの作りに無いので載せていません
-        （書いてあるのに無い、がいちばん困る）。
-      */}
+      <LocationTabs
+        locations={locations.data ?? []}
+        value={activeLocation}
+        onChange={(id) => { setLocationId(id); setQ(''); }}
+      />
+
+      {/* 決めごと。**画面に書いておかないと必ず訊かれる**もの */}
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
           <strong className="font-bold">ここを直しても、すでに作った見積の金額は変わりません。</strong>
+          <strong className="font-bold">料金表は場所ごとに別</strong>です（この表は {activeName} のぶん）。
           グループ内価格が「設定なし」の品目は、グループ内の案件では選べません（逆も同じ）。
           直せるのは権限のある人だけで、ほかの人は見るだけになります。
         </p>
@@ -169,14 +206,13 @@ export default function PricingListPage() {
       ) : isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : categories.length === 0 ? (
-        <EmptyState
-          title="料金表がまだありません"
-          description="分類（スタジオ利用料・技術スタッフ など）をつくってから、品目を入れていきます。"
-          action={canEditCategory
-            ? <Button onClick={() => { setEditingCat(null); setCatOpen(true); }}>
-                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />分類を足す
-              </Button>
-            : undefined}
+        <EmptyTable
+          locationName={activeName}
+          sources={(locations.data ?? []).filter((l) => l.id !== activeLocation && l.item_count > 0)}
+          canEdit={canEditCategory}
+          copying={copy.isPending}
+          onCopy={(fromId) => copy.mutate(fromId)}
+          onStartEmpty={() => { setEditingCat(null); setCatOpen(true); }}
         />
       ) : (
         shown.map(({ category, items }, i) => (
@@ -208,6 +244,8 @@ export default function PricingListPage() {
         editing={editingCat}
         // 末尾に置く。**先頭に割り込ませない** (既存の並びを勝手に変えない)
         nextSortOrder={Math.max(0, ...categories.map((c) => c.sort_order ?? 0)) + 10}
+        locationId={activeLocation}
+        locationName={activeName}
       />
       <ItemDialog
         open={itemOpen}

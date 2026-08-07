@@ -2024,10 +2024,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       <PricingItemPicker
         open={pricingPickerOpen}
         onOpenChange={setPricingPickerOpen}
-        customerType={
-          (project as any)?.customer_type === "internal" ? "internal" : "external"
-        }
+        customerType={(project as any)?.customer_type === "internal" ? "internal" : "external"}
         onSelect={applyPricingItem}
+        projectId={projectId}
       />
 
       {/* 料金シミュレーション */}

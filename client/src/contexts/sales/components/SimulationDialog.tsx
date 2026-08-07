@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { PricingCategory, SimulationItem, CalcType } from "@/types";
+import type { PricingCategory, SimulationItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
@@ -14,6 +14,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Loader2, Calculator, Save, ArrowRight } from "lucide-react";
+import { LocationPicker } from "../pages/pricing/LocationPicker";
+import { calcSubtotal, calcTypeUnit, type ItemState } from "./simulation/calc";
 
 export interface SimulationAppliedItem {
   description: string;
@@ -31,45 +33,16 @@ interface SimulationDialogProps {
   onApply: (total: number, items: SimulationAppliedItem[]) => void;
 }
 
-interface ItemState {
-  checked: boolean;
-  quantity: number;
-  days: number;
-  unitPrice: number;
-}
-
-function calcSubtotal(calcType: CalcType, state: ItemState): number {
-  if (!state.checked) return 0;
-  switch (calcType) {
-    case "days": return state.days * state.unitPrice;
-    case "hours": return state.days * state.unitPrice;
-    case "fixed": return state.unitPrice;
-    case "days_qty": return state.quantity * state.days * state.unitPrice;
-    case "days_people": return state.quantity * state.days * state.unitPrice;
-    case "toggle": return state.unitPrice;
-    case "qty": return state.quantity * state.unitPrice;
-    default: return 0;
-  }
-}
-
-const calcTypeUnit: Record<string, { qtyLabel?: string; daysLabel: string }> = {
-  days: { daysLabel: "日" },
-  hours: { daysLabel: "時間" },
-  fixed: { daysLabel: "" },
-  days_qty: { qtyLabel: "台", daysLabel: "日" },
-  days_people: { qtyLabel: "人", daysLabel: "日" },
-  toggle: { daysLabel: "" },
-  qty: { qtyLabel: "数", daysLabel: "" },
-};
-
 export default function SimulationDialog({ open, onOpenChange, projectId: propProjectId, opportunityId, onApply }: SimulationDialogProps) {
   const projectId = propProjectId || opportunityId;
   const [itemStates, setItemStates] = useState<Record<string, ItemState>>({});
+  // **料金表は場所ごとに別** (v4 大③)。案件の予約から既定を決め、選び直せる
+  const [locationId, setLocationId] = useState("");
 
   const { data: categoriesData, isLoading: loadingCategories } = useQuery({
-    queryKey: ["pricing-categories"],
-    queryFn: async () => (await api.get("/pricing/categories")).data,
-    enabled: open,
+    queryKey: ["pricing-categories", locationId],
+    queryFn: async () => (await api.get("/pricing/categories", { params: { location_id: locationId } })).data,
+    enabled: open && !!locationId,
   });
 
   const { data: simulationData, isLoading: loadingSimulation } = useQuery({
@@ -198,6 +171,10 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
             を初期値として反映しますが、明細ごとに上書き可能です。
           </DialogDescription>
         </DialogHeader>
+
+        <div className="shrink-0 border-b border-border pb-3">
+          <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
+        </div>
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
           {isLoading ? (
