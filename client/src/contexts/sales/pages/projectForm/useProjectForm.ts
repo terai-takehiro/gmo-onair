@@ -151,6 +151,16 @@ export function useProjectForm(id: string | undefined) {
       const body: Record<string, unknown> = { ...values };
       if (!values.assigned_to) delete body.assigned_to;
       if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
+
+      /**
+       * **新しく作るときだけ「入口」を送る** (migration 165)。
+       * ダッシュボードの受付カードから「電話・打合せを取り込む」で来ると
+       * `?intake=phone` が付いているので、それを引き継ぐ。
+       * **確信 (`intake_confidence`) は送らない** — 人が入れた案件に
+       * AI の見立てを付けると、受付の読む順が狂う
+       */
+      const intake = new URLSearchParams(window.location.search).get('intake');
+      if (intake) body.intake_channel = intake;
       return (await api.post('/projects', body)).data.data;
     },
     onError: (err) => notifyApiError('案件を保存できませんでした', err),

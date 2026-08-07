@@ -10,16 +10,23 @@
  * PC は3列（届いたもの ／ 確かめる ／ きめる）。スマホは**1列で行き来**します
  * （3列を縦に積むと、決めるボタンに着くまで2画面ぶんスクロールする）。
  *
- * ── モックと違えたところ ────────────────────────────────────
+ * ── モックどおり引き合いだけを出します ──────────────────────
  *
- * ① **4種類のまま**にしています。モックの受付は引き合い（メール・電話）だけを
- *    描いていますが、この受信箱は「お客様を待たせているもの」を集める別の目的で
- *    既に使われており、片方を消すと**期限超過のアクションを見る場所が無くなります**。
- *    3ステップを通せるのは**ネタ案件だけ**なので、そこだけ作業台を出します
- * ② **確信度（高/中/低）は出しません。** いまの起票にその値が無いためです
- *    （`DecidePanel` の冒頭に理由）
- * ③ **「聞き方の下書き」は AI ではありません。** 決まった型から組み立てています
- *    （`inbox/ask.ts` の冒頭に理由）
+ * 出すのは **ネタ案件と問い合わせの2つ**（`INTAKE_KINDS`）。
+ * 受信箱の口 (`GET /dashboard/inbox`) は4種類を返したままですが、
+ * **ホームの「お待たせ中」とタイルの件数が同じ口を読んでいる**ので、
+ * 口ではなく画面側で絞っています。
+ *
+ * 外した2つは**先に行き先を作ってから**外しました:
+ *  ・期限超過 → 案件管理ダッシュボードの「期限が過ぎたやること」（`OverduePanel`）
+ *  ・見積・請求の書類 → 財務の「受け取った書類」(`/budget/documents`)
+ *
+ * ── そのほかの決めごと ──────────────────────────────────────
+ *
+ * ・**「聞き方の下書き」は AI ではありません。** 決まった型から組み立てています
+ *   （`inbox/ask.ts` の冒頭に理由）
+ * ・**確信（高/中/低）は引き合い1件ぶん**を見出しに出します（migration 165）。
+ *   項目ごとの値は AI が返さないので、項目には「必須なのに空」を赤で名指しします
  *
  * ── AI に返る仕組み（会社方針「AI を使い捨てにしない」）────────
  *
@@ -30,7 +37,7 @@
  * 見送りにしたときは「拾いすぎ」の手がかりとして不採用が残ります。
  */
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, FileWarning } from 'lucide-react';
 import api from '@/lib/api';
@@ -42,7 +49,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { useAuth } from '@/contexts/platform/AuthContext';
-import { KINDS, KIND_ORDER, type InboxData, type InboxKind } from './inbox/kinds';
+import { KINDS, INTAKE_KINDS, type InboxData, type InboxKind } from './inbox/kinds';
 import { InboxList } from './inbox/InboxList';
 import { VerifyPanel } from './inbox/VerifyPanel';
 import { DecidePanel } from './inbox/DecidePanel';
@@ -70,7 +77,12 @@ export default function InboxPage() {
     refetchInterval: 60_000,   // 経過時間を1分の粒度で描き直す
   });
 
-  const items = useMemo(() => data?.items ?? [], [data]);
+  // **受付に出すのは引き合いだけ**（モックどおり）。口は4種類返してくるので
+  // ここで絞る。件数のチップもこの絞ったあとの並びから数える
+  const items = useMemo(
+    () => (data?.items ?? []).filter((i) => INTAKE_KINDS.includes(i.kind)),
+    [data],
+  );
   const shown = useMemo(
     () => (kind === 'all' ? items : items.filter((i) => i.kind === kind)),
     [items, kind],
@@ -110,35 +122,21 @@ export default function InboxPage() {
     onError: (e) => notifyApiError('見送りにできませんでした', e),
   });
 
-  const action = useMutation({
-    mutationFn: (p: { id: string; kind: 'complete' | 'postpone'; date?: string }) =>
-      p.kind === 'complete'
-        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
-        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
-    onSuccess: () => done('片づけました'),
-    onError: (e) => notifyApiError('更新できませんでした', e),
-  });
   const handle = useMutation({
     mutationFn: (id: string) => api.post(`/dailyops/inquiries/${id}/handle`),
     onSuccess: () => done('対応済みにしました'),
     onError: (e) => notifyApiError('更新できませんでした', e),
   });
 
-  const dateAfter = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
   const chips = [
     { key: 'all', label: 'すべて', count: data ? items.length : null },
-    ...KIND_ORDER.map((k) => ({
+    ...INTAKE_KINDS.map((k) => ({
       key: k, label: KINDS[k].label,
       count: data ? items.filter((i) => i.kind === k).length : null,
     })),
   ];
 
-  const busy = promote.isPending || keep.isPending || drop.isPending || action.isPending || handle.isPending;
+  const busy = promote.isPending || keep.isPending || drop.isPending || handle.isPending;
 
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
@@ -247,8 +245,6 @@ export default function InboxPage() {
                   item={selected}
                   busy={busy}
                   canHandle={!!data?.dailyops.editable}
-                  onComplete={() => action.mutate({ id: String(selected.meta.activity_id), kind: 'complete' })}
-                  onPostpone={(d) => action.mutate({ id: String(selected.meta.activity_id), kind: 'postpone', date: dateAfter(d) })}
                   onHandle={() => handle.mutate(String(selected.meta.id))}
                 />
               </div>
@@ -280,6 +276,19 @@ export default function InboxPage() {
           </ul>
         </section>
       )}
+
+      {/* **外した2つの行き先を書く。** 受付にあったものが消えたと思われないように */}
+      <p className="text-note text-muted-foreground">
+        期限が過ぎたやることは{' '}
+        <Link to="/sales/dashboard" className="font-bold text-primary hover:underline">
+          案件管理ダッシュボード
+        </Link>
+        、受け取った見積・請求の書類は{' '}
+        <Link to="/budget/documents" className="font-bold text-primary hover:underline">
+          財務の「受け取った書類」
+        </Link>
+        にあります。この画面は<strong className="font-bold">引き合いだけ</strong>を扱います。
+      </p>
     </div>
   );
 }

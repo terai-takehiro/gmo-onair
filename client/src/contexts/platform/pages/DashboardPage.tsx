@@ -42,6 +42,7 @@ import { KpiStrip } from './salesDashboard/KpiStrip';
 import { IntakePanel } from './salesDashboard/IntakePanel';
 import { MovingPanel } from './salesDashboard/MovingPanel';
 import { StuckPanel } from './salesDashboard/StuckPanel';
+import { OverduePanel } from './salesDashboard/OverduePanel';
 import { StagePanel } from './salesDashboard/StagePanel';
 import { WeekPanel } from './salesDashboard/WeekPanel';
 import type { SalesOverview, PipelineStage, WeekDay } from './salesDashboard/types';
@@ -107,11 +108,17 @@ export default function DashboardPage() {
 
       {/*
         2列。左が広い (3:2) のは、左に置く2枚が**案件を名指しする枚**だからです。
-        スマホでは1列になり、順番は「動いている → 止まっている → ステージ別 → 今週」。
-        止まっているものを上から2番目に置くのは、**下に送ると見られないため**。
+        スマホでは1列になり、順番は「動いている → 期限超過 → 止まっている →
+        ステージ別 → 今週」。
+
+        **「期限が過ぎたやること」は上のほうに置く。** 受付（②）を
+        モックどおり引き合いだけにしたので、**相手を待たせているものを見る場所は
+        ここだけ**になりました。下に送ると見られません。
       */}
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <MovingPanel />
+
+        <OverduePanel />
 
         {overview.data ? (
           <StuckPanel overview={overview.data} />

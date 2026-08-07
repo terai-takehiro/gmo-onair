@@ -12,6 +12,13 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
 
+/**
+ * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
+ * 知らない値をそのまま渡すと CHECK に弾かれ、案件の登録ごと 500 になる。
+ */
+const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'other'];
+const INTAKE_CONFIDENCES = ['high', 'mid', 'low'];
+
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
   return value === 'A' || value === 'B' ? value : null;
@@ -438,7 +445,8 @@ export class ProjectService {
   async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
-            event_start, event_end, dates, gls_category } = data;
+            event_start, event_end, dates, gls_category,
+            intake_channel, intake_confidence } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
@@ -461,16 +469,21 @@ export class ProjectService {
       }
     }
 
+    // 入口と確信 (migration 165)。**知らない値は入れない** — DB の CHECK が弾くので、
+    // 弾かれると案件の登録そのものが 500 になる。ここで NULL に落とす
+    const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
+    const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
+
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, assigned_to,
                              event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
-                             application_form, logo_permission, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                             application_form, logo_permission, intake_channel, intake_confidence, created_by)
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, customer_id, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
-       application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
+       application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence, userId]
     );
 
     // **最初のステージも履歴に残す** (migration 164)。

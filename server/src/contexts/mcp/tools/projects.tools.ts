@@ -120,7 +120,9 @@ export function registerProjectTools(server: McpServer): void {
         'assigned_to は担当者の users.id (必須) — list_users で名前から解決する。' +
         'gls_category: A=スタジオ案件 / B=ビジネス案件。副作用: BOX に案件フォルダが自動作成される。' +
         '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの案件が既にあれば新規作成せず既存を返す (無人バッチの二重登録防止)。' +
-        'message_id (由来メールの Message-ID) と source_channel (info@ / sales@cc / 電話 等) も分かれば渡す。',
+        'message_id (由来メールの Message-ID) と source_channel (info@ / sales@cc / 電話 等) も分かれば渡す。' +
+        '**intake_channel と intake_confidence も必ず渡すこと** — 受付の一覧が「どこから来た引き合いか」と' +
+        '「案件になりそうか」を列に出す。分からないときは渡さない (推測で埋めない)。',
       inputSchema: {
         name: z.string().min(1).describe('案件名'),
         customer_id: z.string().min(1).describe('顧客 ID (list_customers で解決)'),
@@ -138,6 +140,11 @@ export function registerProjectTools(server: McpServer): void {
           .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:project")。同じキーが既存なら再作成しない'),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
         source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
+        intake_channel: z.enum(['mail', 'phone', 'meeting', 'web', 'referral', 'other']).optional()
+          .describe('引き合いの入口。受付の一覧に列で出る。**分からなければ渡さない** (推測しない)'),
+        intake_confidence: z.enum(['high', 'mid', 'low']).optional()
+          .describe('案件になりそうか。high=会社も日程も予算も読めた / mid=どれか欠ける / low=名刺程度。'
+            + '**根拠が無ければ渡さない** — 受付はこの値で読む順を決めるので、当てずっぽうは害になる'),
         ...REQUESTED_BY,
       },
     },
@@ -167,6 +174,8 @@ export function registerProjectTools(server: McpServer): void {
           event_end: args.event_end,
           dates: args.dates,
           notes: args.notes,
+          intake_channel: args.intake_channel,
+          intake_confidence: args.intake_confidence,
         },
         currentActorId(),
       ) as any;

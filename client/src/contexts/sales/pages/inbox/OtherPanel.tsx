@@ -1,6 +1,11 @@
 /**
  * ネタ案件**以外**の「確かめる」(v4 ②)
  *
+ * **いま受付に出るのは問い合わせだけ**です（モックどおり引き合いに絞ったため）。
+ * 期限超過は案件管理ダッシュボードの「期限が過ぎたやること」、見積・請求の書類は
+ * 財務の「受け取った書類」に移しました。この部品は**ホームなど他の場所から
+ * 同じ形で呼べるように**、それらの描き方も残してあります。
+ *
  * 期限超過のアクション・問い合わせ・見積/請求は、
  * **案件にするものではありません**。3ステップ（入れる→確かめる→案件にする）は
  * 通らないので、作業台ではなく「中身を見て、終わらせる」だけを出します。
@@ -31,8 +36,9 @@ export function OtherPanel({
   item, onComplete, onPostpone, onHandle, canHandle, busy,
 }: {
   item: InboxItem;
-  onComplete: () => void;
-  onPostpone: (days: number) => void;
+  /** 期限超過の片づけ。**受付からは外した**ので渡ってこない (ダッシュボードにある) */
+  onComplete?: () => void;
+  onPostpone?: (days: number) => void;
   onHandle: () => void;
   canHandle: boolean;
   busy: boolean;
@@ -83,10 +89,10 @@ export function OtherPanel({
             <Button disabled={busy} onClick={onComplete}>
               <Check className="mr-2 h-4 w-4" aria-hidden="true" />やった
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => onPostpone(1)}>
+            <Button variant="outline" disabled={busy} onClick={() => onPostpone?.(1)}>
               <CalendarClock className="mr-2 h-4 w-4" aria-hidden="true" />明日に延ばす
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => onPostpone(7)}>1週間 延ばす</Button>
+            <Button variant="outline" disabled={busy} onClick={() => onPostpone?.(7)}>1週間 延ばす</Button>
             <Button variant="outline" onClick={() => navigate(`/sales/projects/${m.project_id}`)}>案件を開く</Button>
           </>
         )}

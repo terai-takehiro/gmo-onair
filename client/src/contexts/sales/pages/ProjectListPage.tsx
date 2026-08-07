@@ -7,15 +7,20 @@
  * (旧実装はボードが別画面 `/sales/pipeline` で別のエンドポイントを叩いており、
  *  一覧は確定売上・ボードは想定金額を合計していて数字が合いませんでした)。
  *
- * **「ネタ」の見え方はまだ作っていません。** モックのネタ表は
- * 入口 (メール/電話) と確信 (高/中/低) を列に持ちますが、**その2つは DB にありません**。
- * 引き合いを受け取るところは ② 受付 (`/sales/inbox`) が持っているので、
- * ネタ表はそちらと一緒に作ります。ここでは「ネタ」チップで絞り込めます。
+ * ── 「ネタ」の見え方 ────────────────────────────────────────
+ *
+ * 3つ目の見え方は**列が違います**（お客様 ／ 要点 ／ 入口 ／ 確信 ／ 状態 ／ 受けた日）。
+ * ネタは金額も実施日もほとんど空なので、リストと同じ列だと空欄が並ぶだけです。
+ * 入口と確信は migration 165 で足した列で、**AI が起票したときだけ入っています**。
+ *
+ * この見え方は**ステージを「ネタ」に固定します**（見送りも見えるように失注も含む）。
+ * ステージのチップは押せなくなります — 「ネタの見え方」で「受注済」を選ぶのは
+ * 意味を持たないためです。
  */
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, List, LayoutGrid } from 'lucide-react';
+import { Plus, List, LayoutGrid, Inbox } from 'lucide-react';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -26,6 +31,7 @@ import ExcelToolbar from '@/components/ExcelToolbar';
 import { STAGE_CHIPS } from './projectList/stages';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { ProjectBoard } from './projectList/ProjectBoard';
+import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
 import { FilterBar, TermHint, SORT_OPTIONS, type EventPeriodMode } from './projectList/FilterBar';
 import type { ProjectListResponse } from './projectList/types';
 
@@ -36,10 +42,12 @@ const BOARD_SIZE = 200;
 export default function ProjectListPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const view = params.get('view') === 'board' ? 'board' : 'list';
-  const setView = (v: 'list' | 'board') => {
+  const rawView = params.get('view');
+  const view: 'list' | 'board' | 'seed' =
+    rawView === 'board' ? 'board' : rawView === 'seed' ? 'seed' : 'list';
+  const setView = (v: 'list' | 'board' | 'seed') => {
     const next = new URLSearchParams(params);
-    if (v === 'board') next.set('view', 'board'); else next.delete('view');
+    if (v === 'list') next.delete('view'); else next.set('view', v);
     setParams(next, { replace: true });
   };
 
@@ -76,7 +84,11 @@ export default function ProjectListPage() {
     return { from: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`, to: localDateStr(end) };
   }, [eventMode, eventMonth, eventYear, eventQuarter, now]);
 
-  const stages = STAGE_CHIPS.find((c) => c.key === stageKey)?.stages ?? [];
+  // **「ネタ」の見え方はステージを固定する。** 見送り (`e_lost`) も出すのは、
+  // モックが「過去のネタと見送りもここで探せます」と書いているため
+  const stages = view === 'seed'
+    ? ['neta', 'e_lost']
+    : STAGE_CHIPS.find((c) => c.key === stageKey)?.stages ?? [];
   const [sortKey, sortDir] = sort.split(':');
   const limit = view === 'board' ? BOARD_SIZE : PAGE_SIZE;
 
@@ -137,7 +149,7 @@ export default function ProjectListPage() {
         <div className="flex shrink-0 items-center gap-2">
           <ExcelToolbar resource="/projects" name="案件" queryKey={['projects']} />
           <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
-            {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
+            {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid], ['seed', 'ネタ', Inbox]] as const).map(([v, label, Icon], i) => (
               <button
                 key={v}
                 type="button"
@@ -154,7 +166,11 @@ export default function ProjectListPage() {
         </div>
       </PageHeader>
 
-      <FilterChips label="ステージで絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
+      {/* **「ネタ」の見え方ではステージのチップを出さない。** ステージは固定なので、
+          押せるように見せると「押しても変わらない」ことになる */}
+      {view !== 'seed' && (
+        <FilterChips label="ステージで絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
+      )}
 
       <FilterBar
         search={search} onSearch={reset(setSearch)}
@@ -183,6 +199,24 @@ export default function ProjectListPage() {
         )
       ) : view === 'board' ? (
         <ProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+      ) : view === 'seed' ? (
+        <>
+          <div className="overflow-hidden rounded-card border border-border bg-card">
+            <SeedRowsHeader />
+            {rows.map((p) => (
+              <SeedRow key={p.id} p={p} onOpen={() => navigate(`/sales/projects/${p.id}`)} />
+            ))}
+          </div>
+          <p className="text-note text-muted-foreground">
+            ネタは案件の数には入りません（ヨミにも乗りません）。
+            引き合いを片づけるのは{' '}
+            <button type="button" onClick={() => navigate('/sales/inbox')} className="font-bold text-primary hover:underline">
+              受付
+            </button>
+            です。<strong className="font-bold">入口と確信は AI が起票したときだけ</strong>入ります
+            （手で登録したものは「—」）。
+          </p>
+        </>
       ) : (
         <>
           <div className="overflow-hidden rounded-card border border-border bg-card">

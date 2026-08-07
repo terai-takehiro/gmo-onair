@@ -272,6 +272,7 @@ router.get('/sales-board', async (_req, res) => {
 // AI 起票の未確認案件 SQL (ai-inbox と 受信箱 /inbox が共用)
 const AI_INBOX_SQL =
   `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+          p.intake_channel, p.intake_confidence,
           c.name AS customer_name, u.name AS assigned_to_name,
           ai.requested_by AS ai_requested_by
    FROM projects p

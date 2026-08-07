@@ -39,6 +39,9 @@ export interface IntakeProject {
   is_ai_created?: boolean | null;
   ai_requested_by?: string | null;
   ai_reviewed_at?: string | null;
+  /** 引き合いの入口と、AI が見た確からしさ (migration 165)。手で登録すると NULL */
+  intake_channel?: string | null;
+  intake_confidence?: string | null;
 }
 
 export interface AskItem {

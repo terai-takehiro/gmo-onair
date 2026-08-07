@@ -1,23 +1,27 @@
 /**
  * 「案件受付」(v4 ① の上辺)
  *
- * ── モックとの違い。**動く入口だけを出します** ──────────────
+ * ── モックどおり3つのタイル ──────────────────────────────────
  *
- * モックはここに3つのタイルを置きます:
- *   ① メールから取り込む（MCP が自動で取り込み済み）
- *   ② 電話・打合せを取り込む（貼るか、その場で録音する）
- *   ③ 手で登録する
+ *   ① メールから取り込む       → 受付 (`/sales/inbox`)。未処理の数を出す
+ *   ② 電話・打合せを取り込む   → 入口を「電話」にして案件登録へ
+ *   ③ 手で登録する             → 案件登録へ
  *
- * ①③ は**今日から動きます** — ① は受付 (`/sales/inbox`) に届いている
- * 未処理の数をそのまま出し、③ は案件の新規作成に行きます。
- * ② の**録音は入っていません** (v4.0 で入れると決まっていますが、
- * 会社方針「AI を使い捨てにしない」の充足表を先に通す必要があるため別立て)。
+ * ② は `?intake=phone` を付けて登録画面に行きます。保存すると
+ * `projects.intake_channel = 'phone'` が入り、案件一覧の「ネタ」の見え方で
+ * **どこから来た引き合いか**が読めます (migration 165)。
+ *
+ * ── 「その場で録音する」はまだ案件を作ってから ──────────────
+ *
+ * 録音 → 文字起こし → 議事録は**案件詳細のやり取りタブ**にあります
+ * (`project_minutes`)。**案件が無いと録音を置く先がありません** — 議事録は
+ * `project_id` にぶら下がるためです。②のタイルにその旨を書いてあります。
+ * 「録音してから案件を作る」は、録音の置き場を先に決める別の作業です。
  *
  * **押せないタイルを並べません。** 押しても何も起きないボタンは、
  * 「壊れている」と受け取られて以後ここ全体が信用されなくなります。
- * 入っていないものは、そう書いて出します。
  */
-import { Inbox, FolderPlus, Mic, ChevronRight } from 'lucide-react';
+import { Inbox, FolderPlus, Mic, Phone, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
@@ -49,7 +53,7 @@ export function IntakePanel() {
         </p>
       </div>
 
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           to="/sales/inbox"
           className="rounded-control min-h-tap flex items-center gap-3 border border-primary-border bg-primary-surface-weak px-3.5 py-3 hover:border-primary-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -75,6 +79,20 @@ export function IntakePanel() {
         </Link>
 
         <Link
+          to="/sales/projects/new?intake=phone"
+          className="rounded-control min-h-tap flex items-center gap-3 border border-border bg-card px-3.5 py-3 hover:border-primary-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="rounded-control flex h-9 w-9 shrink-0 items-center justify-center bg-muted">
+            <Phone className="h-[18px] w-[18px] text-secondary-foreground" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="text-list block truncate">電話・打合せを取り込む</span>
+            <span className="text-sub-sm block text-muted-foreground">聞いたことをメモから起こす</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-fg-disabled" aria-hidden="true" />
+        </Link>
+
+        <Link
           to="/sales/projects/new"
           className="rounded-control min-h-tap flex items-center gap-3 border border-border bg-card px-3.5 py-3 hover:border-primary-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -92,8 +110,9 @@ export function IntakePanel() {
       <p className="text-note mt-2.5 flex items-start gap-1.5 text-muted-foreground">
         <Mic className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>
-          <strong className="font-bold">電話・打合せをその場で録音して取り込む</strong>のは、まだ入っていません
-          （v4.0 で入れる予定です）。いまは受付から手で登録してください。
+          <strong className="font-bold">打合せの録音と文字起こし</strong>は、案件をつくったあとに
+          <strong className="font-bold">案件詳細の「やり取り」タブ</strong>から使えます
+          （議事録は案件にぶら下がるので、置き先の案件が要ります）。
         </span>
       </p>
     </section>
