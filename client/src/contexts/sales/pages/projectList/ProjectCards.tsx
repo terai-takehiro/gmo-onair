@@ -51,7 +51,8 @@ export function ProjectCards({
   onOpen: (id: string) => void;
 }) {
   return (
-    <ul className="flex flex-col gap-2">
+    // 読み込みの枠から中身に入れ替わる瞬間（モックの `cardIn`）
+    <ul className="v4-card-in flex flex-col gap-2">
       {rows.map((p) => {
         const revenue = Number(p.total_revenue) || 0;
         const expected = Number(p.expected_amount) || 0;

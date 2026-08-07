@@ -62,7 +62,7 @@ export function StagePanel({ stages }: { stages: PipelineStage[] }) {
               <span className="font-number text-list w-8 shrink-0 text-right">{r.count}</span>
               <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                 <span
-                  className={`block h-full rounded-full ${BAR[r.stage]}`}
+                  className={`v4-bar block h-full rounded-full ${BAR[r.stage]}`}
                   style={{ width: `${Math.round((r.amount / max) * 100)}%` }}
                 />
               </span>

@@ -169,7 +169,8 @@ export function MobileToday() {
           description="「部屋の空きを見る」で空いている時間を確かめられます。"
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        // 読み込みの枠から中身に入れ替わる瞬間が「パッ」と出ていた（モックの `cardIn`）
+        <ul className="v4-card-in flex flex-col gap-2">
           {rows.map((b) => {
             const k = KIND[b.booking_type ?? 'other'] ?? KIND.other;
             const allDay = isAllDay(b);

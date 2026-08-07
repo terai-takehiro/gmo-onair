@@ -397,6 +397,11 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 - **`prefers-reduced-motion: reduce` を必ず見る。** 止め方は
   `animation-duration: 0.01ms`。**0 にすると `both` の最終状態が当たらず、
   要素が消えたままになる**
+- **キーボードの現在地は `tokens-v4.css` の既定に任せる。** 実測で
+  **219 個中 179 個（82%）に何も出ていなかった**ので、部品ごとに
+  `focus-visible:ring-2` を足して回るのをやめ、`:where(...):focus-visible` の
+  既定を1つ置いた（詳細度 0 なので、既に持っている部品はそのまま勝つ）。
+  **`:focus` にしないこと** — マウスで押しただけで枠が残る
 - **押している間の 0.97 倍は消さないこと。** `base.css` が
   `-webkit-tap-highlight-color: transparent` を当てているので、
   これが無いとスマホで**押しても画面が1ドットも変わりません**
