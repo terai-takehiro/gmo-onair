@@ -1,4 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { RackList, type RackSummary } from "./rack/RackList";
+import {
+  CELL_H, RACK_W, PANEL_LABEL, slotToColumn, loadRackConfigs, saveRackConfigs,
+  type CellConfig, type RackConfig,
+} from "./rack/printConstants";
+import { DefaultCellContent, ConfiguredCellContent } from "./rack/cellContent";
+import { PrintRackArea } from "./rack/PrintRackArea";
+import { RackUnitTable, type RackUnitRow } from "./rack/RackUnitTable";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -14,54 +22,6 @@ import {
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-const CELL_H = 32;
-const RACK_W = 240;
-const PRINT_U_H = 20;  // 基準 px/U（A4縦に余裕を持って収まる最大値）
-const PRINT_U_H_MIN = 8; // 文字が読める最低 px/U（これ以下にはしない）
-const PRINT_RACK_BODY_BUDGET_PX = 850; // ラック本体に割り当てるA4縦の最大高（chrome除く安全値）
-const PRINT_RACK_W = 290; // px for rack body in print (2 racks fit A4 portrait)
-
-// ── Cell display config ───────────────────────────────────────────────────────
-type CellConfig = {
-  primary: "model" | "name" | "custom";
-  showName: boolean;
-  showModel: boolean;
-  showNo: boolean;
-  showCustom: boolean;
-  customText: string;
-};
-
-// ── Rack subtitle config ──────────────────────────────────────────────────────
-type RackConfig = {
-  subtitleMode: "auto" | "hidden" | "custom";
-  subtitleText: string;
-};
-
-const RACK_CONFIG_LS_KEY = "rack-header-configs-v1";
-
-function loadRackConfigs(): Record<string, RackConfig> {
-  try { return JSON.parse(localStorage.getItem(RACK_CONFIG_LS_KEY) ?? "{}"); }
-  catch { return {}; }
-}
-
-function saveRackConfigs(configs: Record<string, RackConfig>) {
-  localStorage.setItem(RACK_CONFIG_LS_KEY, JSON.stringify(configs));
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function slotToColumn(slot: string): { start: number; span: number } {
-  switch (slot) {
-    case "left-1_2":  return { start: 1, span: 3 };
-    case "right-1_2": return { start: 4, span: 3 };
-    case "left-1_3":  return { start: 1, span: 2 };
-    case "mid-1_3":   return { start: 3, span: 2 };
-    case "right-1_3": return { start: 5, span: 2 };
-    default:          return { start: 1, span: 6 };
-  }
-}
-
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RackLayoutPage() {
@@ -81,6 +41,7 @@ export default function RackLayoutPage() {
   const setRackTypeFilter = (v: string) =>
     setSp(prev => { const n = new URLSearchParams(prev); n.set("rackType", v); return n; }, { replace: true });
 
+  const [selectedRackId, setSelectedRackId] = useState<string>("");
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
   const [inventoryNotice, setInventoryNotice] = useState<string>("");
@@ -366,6 +327,68 @@ export default function RackLayoutPage() {
     });
   }, [racks, branchFilter, rackTypeFilter]);
 
+  /**
+   * v4 大④: **12本を横に並べるのをやめて、左に一覧・右に1本**にした。
+   * 横並びだと1本が画面に収まらず、どのラックを見ているかも分からなくなる。
+   * **印刷は今までどおり `filteredRacks` を全部出す**（紙は全部並べるためのもの）。
+   */
+  const rackSummaries: RackSummary[] = useMemo(() => filteredRacks.map((r: any) => {
+    const units: number = r.location.rack_units ?? 20;
+    // 実装Uは**面をまたいで数える**（前面だけで数えると背面に詰まっているラックが空いて見える）。
+    // 同じUを前後で使っていても1つと数える
+    const used = new Set<number>();
+    for (const it of (r.items ?? [])) {
+      const pos = it.rack_position ?? 0;
+      for (let u = pos; u < pos + (it.rack_height ?? 1); u++) used.add(u);
+    }
+    return {
+      id: r.location.id,
+      name: r.location.name,
+      units,
+      used: used.size,
+      branchName: r.location.branch_name ?? null,
+      where: [r.location.rack_type_name, r.location.building, r.location.floor].filter(Boolean).join(" ") || null,
+    };
+  }), [filteredRacks]);
+
+  const currentRack = filteredRacks.find((r: any) => r.location.id === selectedRackId) ?? filteredRacks[0];
+  const currentUnits: number = currentRack?.location.rack_units ?? 20;
+
+  /** 開いている面に実装されているもの（機材＋パネル）。**表はここから作る** */
+  const currentRows: RackUnitRow[] = useMemo(() => {
+    if (!currentRack) return [];
+    const items = (currentRack.items ?? [])
+      .filter((it: any) => it.rack_side === side)
+      .map((it: any) => ({
+        id: it.id,
+        position: it.rack_position ?? 0,
+        height: it.rack_height ?? 1,
+        slot: it.rack_slot ?? "full",
+        code: it.management_no ?? it.asset_no ?? null,
+        name: it.name,
+        model: it.model_number ?? null,
+        category: it.category_name ?? null,
+        isPanel: false,
+      }));
+    const panels = (currentRack.blanks ?? [])
+      .filter((b: any) => b.rack_side === side)
+      .map((b: any) => ({
+        id: b.id,
+        position: b.rack_position ?? 0,
+        height: b.rack_height ?? 1,
+        slot: b.rack_slot ?? "full",
+        code: null,
+        name: b.label || PANEL_LABEL[b.panel_type] || "パネル",
+        model: null,
+        category: null,
+        isPanel: true,
+      }));
+    return [...items, ...panels];
+  }, [currentRack, side]);
+
+  const totalUsed = rackSummaries.reduce((n, r) => n + r.used, 0);
+  const totalSize = rackSummaries.reduce((n, r) => n + r.units, 0);
+
   const oppositeSideHasContent = useMemo(() => {
     const opposite = side === "front" ? "back" : "front";
     return filteredRacks.some((r: any) => r.items?.some((it: any) => it.rack_side === opposite));
@@ -390,13 +413,26 @@ export default function RackLayoutPage() {
   }
 
   return (
-    <div className="space-y-3 p-3 sm:p-4 lg:p-6">
+    <>
+    {/*
+      **画面の中身は印刷から外す** (`print:hidden` = display:none)。
+      `body * { visibility: hidden }` だけだと**場所は取ったまま**なので、
+      印刷用の図を刷り終わったあとに**白紙のページが1枚増えます**
+      （v4 大④ で左に一覧を置いたときに実測: 2ページ → 3ページ）。
+      印刷用の領域はこの外に置いてあるので影響を受けません。
+    */}
+    <div className="space-y-3 p-3 sm:p-4 lg:p-6 print:hidden">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h1 className="heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2">
             <Server className="h-5 w-5 text-amber-500" />
-            ラック実装ビュー
+            ラック図
+            <span className="text-sub font-normal text-muted-foreground">
+              ラック <span className="font-number font-bold">{rackSummaries.length}本</span>
+              {" ・ "}実装 <span className="font-number font-bold">{totalUsed}U</span>
+              {" ／ "}<span className="font-number">{totalSize}U</span>
+            </span>
           </h1>
 
           {/* 前面/背面 (モバイルでも常時表示) */}
@@ -536,25 +572,48 @@ export default function RackLayoutPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto pb-4 -mx-3 sm:-mx-0 px-3 sm:px-0">
-            <div className="flex gap-3 sm:gap-5 lg:gap-6 min-w-max items-end">
-              {filteredRacks.map((rackData: any) => (
-                <RackDisplay
-                  key={rackData.location.id}
-                  rackData={rackData}
-                  side={side}
-                  inventoryMode={inventoryMode && !!selectedCheckId}
-                  inventoryMap={inventoryMap}
-                  displayEditMode={displayEditMode}
-                  rackConfig={rackConfigs[rackData.location.id]}
-                  onCellClick={handleCellClick}
-                  onEmptySlotClick={handleEmptySlotClick}
-                  onDeleteBlank={handleDeleteBlank}
-                  onEditRackSubtitle={handleEditRackSubtitle}
-                  onItemHover={handleItemHover}
-                  onItemLeave={handleItemLeave}
-                />
-              ))}
+          <div className="flex flex-col items-start gap-3.5 lg:flex-row">
+            <RackList racks={rackSummaries} value={currentRack?.location.id ?? ""} onChange={setSelectedRackId} />
+
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              {currentRack && (
+                <div className="rounded-card flex flex-col items-start gap-5 border border-border bg-card p-4 lg:flex-row">
+                  <div className="overflow-x-auto">
+                    <RackDisplay
+                      key={currentRack.location.id}
+                      rackData={currentRack}
+                      side={side}
+                      inventoryMode={inventoryMode && !!selectedCheckId}
+                      inventoryMap={inventoryMap}
+                      displayEditMode={displayEditMode}
+                      rackConfig={rackConfigs[currentRack.location.id]}
+                      onCellClick={handleCellClick}
+                      onEmptySlotClick={handleEmptySlotClick}
+                      onDeleteBlank={handleDeleteBlank}
+                      onEditRackSubtitle={handleEditRackSubtitle}
+                      onItemHover={handleItemHover}
+                      onItemLeave={handleItemLeave}
+                    />
+                  </div>
+
+                  <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                    <p className="text-note flex items-center gap-1.5 text-muted-foreground">
+                      <span className="inline-block h-3 w-3 shrink-0 rounded-sm bg-warning" aria-hidden="true" />
+                      右のU番号が色付き＝<strong className="font-bold">反対の面にも機材がある</strong>（抜く前に裏を見る）
+                    </p>
+                    <RackUnitTable
+                      units={currentUnits}
+                      rows={currentRows}
+                      canEdit={!displayEditMode && !inventoryMode}
+                      onOpen={(id) => {
+                        const it = (currentRack.items ?? []).find((x: any) => x.id === id);
+                        if (it) handleCellClick(it);
+                      }}
+                      onAddPanel={() => handleEmptySlotClick(currentRack.location.id, 1)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -740,14 +799,16 @@ export default function RackLayoutPage() {
       {/* ホバーツールチップ */}
       {tooltip && <ItemTooltip item={tooltip.item} x={tooltip.x} y={tooltip.y} />}
 
-      {/* 印刷用ラック実装図（スクリーンでは非表示） */}
-      <PrintRackArea
-        racks={filteredRacks}
-        side={side}
-        rackConfigs={rackConfigs}
-        colors={colors}
-      />
     </div>
+
+    {/* 印刷用ラック実装図（スクリーンでは非表示）。**画面の枠の外**に置く */}
+    <PrintRackArea
+      racks={filteredRacks}
+      side={side}
+      rackConfigs={rackConfigs}
+      colors={colors}
+    />
+    </>
   );
 }
 
@@ -1206,297 +1267,3 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 }
 
 // ── Default cell rendering ────────────────────────────────────────────────────
-function DefaultCellContent({ it, height }: { it: any; height: number }) {
-  if (height <= CELL_H) {
-    // 1U: 型名 + No.バッジ
-    return (
-      <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
-        <span className="font-bold truncate leading-none tracking-tight" style={{ fontSize: 12 }}>
-          {it.model_number || it.name}
-        </span>
-        {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
-      </div>
-    );
-  }
-  if (height <= CELL_H * 2) {
-    // 2U: 型名+バッジ上段、機材名下段
-    return (
-      <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-bold truncate leading-tight tracking-tight" style={{ fontSize: 13 }}>
-            {it.model_number || it.name}
-          </span>
-          {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
-        </div>
-        <span className="font-semibold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
-          {it.name}
-        </span>
-      </div>
-    );
-  }
-  // 3U+: 機材名上段、型名+バッジ下段
-  return (
-    <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
-      <span className="font-bold truncate leading-tight" style={{ fontSize: 13 }}>
-        {it.name}
-      </span>
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="font-semibold truncate leading-tight opacity-80 tracking-tight" style={{ fontSize: 12 }}>
-          {it.model_number}
-        </span>
-        {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
-      </div>
-    </div>
-  );
-}
-
-// ── Configured cell rendering ─────────────────────────────────────────────────
-function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; height: number }) {
-  const is1U = height <= CELL_H;
-
-  const primaryText =
-    cfg.primary === "model" ? (it.model_number || it.name) :
-    cfg.primary === "name"  ? it.name :
-    cfg.customText || "—";
-
-  const extras: { text: string; mono?: boolean }[] = [];
-  if (cfg.showName  && cfg.primary !== "name"   && it.name)         extras.push({ text: it.name });
-  if (cfg.showModel && cfg.primary !== "model"  && it.model_number) extras.push({ text: it.model_number, mono: true });
-  if (cfg.showCustom && cfg.primary !== "custom" && cfg.customText)  extras.push({ text: cfg.customText });
-
-  if (is1U) {
-    return (
-      <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
-        <span className="truncate leading-none font-bold tracking-tight" style={{ fontSize: 12 }}>
-          {primaryText}
-        </span>
-        {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="truncate leading-tight font-bold tracking-tight" style={{ fontSize: 13 }}>
-          {primaryText}
-        </span>
-        {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
-      </div>
-      {extras.map((ex, i) => (
-        <span key={i} className="truncate leading-tight font-semibold opacity-60" style={{ fontSize: 11 }}>
-          {ex.text}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── UnitBadge ─────────────────────────────────────────────────────────────────
-function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-[18px] px-1.5 text-[10px]" : "h-5 px-1.5 text-[11px]";
-  return (
-    <span
-      className={`shrink-0 inline-flex items-center justify-center rounded-sm bg-slate-600 text-white font-bold leading-none tabular-nums ${dim}`}
-    >
-      {n}
-    </span>
-  );
-}
-
-// ── PrintRackArea (hidden on screen, visible in print) ────────────────────────
-function PrintRackArea({ racks, side, rackConfigs, colors }: {
-  racks: any[];
-  side: "front" | "back";
-  rackConfigs: Record<string, RackConfig>;
-  colors: any[];
-}) {
-  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-
-  // 最も背の高いラックがA4縦1ページ内に収まるよう px/U を自動調整。
-  // 全ラックで同じスケールを使うことで見た目の比較ができる。
-  const maxUnits = racks.reduce(
-    (m: number, r: any) => Math.max(m, r.location.rack_units ?? 20),
-    1
-  );
-  const printUH = Math.max(
-    PRINT_U_H_MIN,
-    Math.min(PRINT_U_H, PRINT_RACK_BODY_BUDGET_PX / maxUnits)
-  );
-  const fontScale = printUH / PRINT_U_H;
-
-  return (
-    <div id="rack-print-area-wrapper">
-      <div className="rack-print-title">
-        ラック実装ビュー — {side === "front" ? "前面" : "背面"}
-      </div>
-      <div className="rack-print-meta">
-        {today} ／ {racks.length} ラック
-      </div>
-      <div className="rack-print-grid">
-        {racks.map((rackData: any) => (
-          <PrintRackDisplay
-            key={rackData.location.id}
-            rackData={rackData}
-            side={side}
-            rackConfig={rackConfigs[rackData.location.id]}
-            printUH={printUH}
-            fontScale={fontScale}
-          />
-        ))}
-      </div>
-      {colors.length > 0 && (
-        <div className="rack-print-legend">
-          <div className="rack-print-legend-title">凡例</div>
-          <div className="rack-print-legend-row">
-            {colors.map((c: any) => (
-              <div key={c.id} className="rack-print-legend-item">
-                <span className="rack-print-legend-swatch" style={{ background: c.color_hex }} />
-                <span>{c.name}</span>
-                {c.description && <span style={{ opacity: 0.65 }}>（{c.description}）</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PrintRackDisplay({ rackData, side, rackConfig, printUH, fontScale }: {
-  rackData: { location: any; items: any[]; blanks?: any[] };
-  side: "front" | "back";
-  rackConfig?: RackConfig;
-  printUH: number;
-  fontScale: number;
-}) {
-  const { location, items, blanks = [] } = rackData;
-  const rackUnits: number = location.rack_units ?? 20;
-  const sideItems = items.filter((it: any) => it.rack_side === side);
-  const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
-
-  const autoSubtitle = [location.branch_name, location.rack_type_name, location.building, location.floor]
-    .filter(Boolean).join(" ");
-  const subtitle =
-    rackConfig?.subtitleMode === "hidden" ? null :
-    rackConfig?.subtitleMode === "custom" ? (rackConfig.subtitleText || null) :
-    autoSubtitle || null;
-
-  // 縮小時は U番号 / 本体内文字も比例して縮小（最低値で頭打ち）
-  const uNumPx = Math.max(5, 5.5 * fontScale);
-  const primaryPt = Math.max(4.5, 6.5 * fontScale);
-  const secondaryPt = Math.max(4, 5.5 * fontScale);
-  const noPt = Math.max(4, 5.5 * fontScale);
-
-  return (
-    <div className="rack-print-item">
-      <div className="rack-print-rack-header">{location.name}</div>
-      {subtitle && <div className="rack-print-rack-subtitle">{subtitle}</div>}
-      <div className="rack-print-body-row">
-        {/* Left U numbers (every 5 + U1) */}
-        <div className="rack-print-u-col">
-          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} className="rack-print-u-cell" style={{ height: printUH, fontSize: `${uNumPx}pt` }}>
-              {(u % 5 === 0 || u === 1) ? u : ""}
-            </div>
-          ))}
-        </div>
-
-        {/* Rack body */}
-        <div
-          className="rack-print-body"
-          style={{ width: PRINT_RACK_W, height: rackUnits * printUH }}
-        >
-          {Array.from({ length: rackUnits }, (_, i) => (
-            <div
-              key={i}
-              className="rack-print-gridline"
-              style={{ top: i * printUH, height: printUH }}
-            />
-          ))}
-
-          {sideBlanks.map((b: any) => {
-            const { start, span } = slotToColumn(b.rack_slot);
-            const height = (b.rack_height ?? 1) * printUH;
-            const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * printUH;
-            const left = ((start - 1) / 6) * PRINT_RACK_W;
-            const width = (span / 6) * PRINT_RACK_W;
-            const label =
-              b.panel_type === "cable"  ? "通線口" :
-              b.panel_type === "drawer" ? "引出" :
-              b.panel_type === "custom" ? (b.label || "—") : "";
-            return (
-              <div
-                key={b.id}
-                className="rack-print-blank-item"
-                style={{ top, left, width, height, fontSize: `${noPt}pt` }}
-              >
-                {label}
-              </div>
-            );
-          })}
-
-          {sideItems.map((it: any) => {
-            const { start, span } = slotToColumn(it.rack_slot);
-            const height = (it.rack_height ?? 1) * printUH;
-            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * printUH;
-            const left = ((start - 1) / 6) * PRINT_RACK_W;
-            const width = (span / 6) * PRINT_RACK_W;
-            const bg = it.color_hex ?? TYPE_BG[it.equipment_type_code] ?? "#e5e7eb";
-            const cfg: CellConfig | undefined = it.display_config ?? undefined;
-
-            const primary =
-              cfg?.primary === "model"  ? (it.model_number || it.name) :
-              cfg?.primary === "name"   ? it.name :
-              cfg?.primary === "custom" ? (cfg.customText || "—") :
-              (it.model_number || it.name);
-
-            const secondary = !cfg || cfg.primary === "model" ? it.name :
-              cfg.primary === "name" ? it.model_number : null;
-
-            return (
-              <div
-                key={it.id}
-                className="rack-print-cell-item"
-                style={{ top, left, width, height, background: bg }}
-              >
-                <div
-                  className="rack-print-cell-primary"
-                  style={{ fontSize: `${primaryPt}pt` }}
-                >
-                  {primary}
-                </div>
-                {height > printUH && secondary && (
-                  <div
-                    className="rack-print-cell-secondary"
-                    style={{ fontSize: `${secondaryPt}pt` }}
-                  >
-                    {secondary}
-                  </div>
-                )}
-                {it.unit_number != null && (
-                  <div
-                    className="rack-print-cell-no"
-                    style={{ fontSize: `${noPt}pt` }}
-                  >
-                    No.{it.unit_number}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right U numbers */}
-        <div className="rack-print-u-col">
-          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} className="rack-print-u-cell-r" style={{ height: printUH, fontSize: `${uNumPx}pt` }}>
-              {(u % 5 === 0 || u === 1) ? u : ""}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rack-print-u-footer">{rackUnits}U</div>
-    </div>
-  );
-}
