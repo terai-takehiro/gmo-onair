@@ -28,7 +28,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ClipboardPaste } from 'lucide-react';
 import api from '@/lib/api';
 import { APPS } from '@gmo-onair/shared/src/client/apps';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
@@ -170,6 +170,27 @@ export default function HomePage() {
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える） */}
         {canSeeDailyops && <TaskIntakeBox />}
+
+        {/*
+            スマホの「貼って送る」（モックの ① にある **貼る・撮る**）。
+            **スマホにだけ出す** — PC には受付の作業台（`/sales/inbox`）があり、
+            そちらのほうができることが多い。外にいるときの1段目だけをここに置く。
+            **「撮る」は出さない** — 名刺を読む口が無い（`InquiryQuickPage` に理由）
+        */}
+        {canSeeSales && (
+          <button
+            type="button"
+            onClick={() => navigate('/sales/inbox/new')}
+            className="rounded-card min-h-tap flex w-full items-center gap-3 border border-dashed border-primary-border bg-primary-surface-weak px-4 py-3 text-left lg:hidden"
+          >
+            <ClipboardPaste className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="text-list block text-primary">電話・その他を貼る</span>
+              <span className="text-note block text-muted-foreground">聞いた話をそのまま送る。整理は PC で</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          </button>
+        )}
 
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>
