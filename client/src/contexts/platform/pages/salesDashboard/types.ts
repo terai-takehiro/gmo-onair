@@ -4,6 +4,8 @@ import type { ProjectStage } from '@/types';
 export interface SalesOverview {
   /** 何日動いていなければ「止まっている」とするか (サーバーが決める) */
   stuck_days: number;
+  /** ステージの記録を始めた日 `YYYY-MM-DD`。まだ1件も無ければ null */
+  stage_history_since: string | null;
   kpi: {
     active_projects: number;
     moved_this_week: number;
@@ -14,6 +16,9 @@ export interface SalesOverview {
     quote_waiting_amount: number;
     month_revenue: number;
     month_revenue_count: number;
+    /** 今月 受注になった案件（migration 164 以降のぶんだけ） */
+    month_won_count: number;
+    month_won_amount: number;
   };
   stuck: {
     id: string;

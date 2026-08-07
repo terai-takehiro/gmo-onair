@@ -14,15 +14,18 @@
  * | 進行中の案件 | 完了・失注以外。**GLS 発番前 (ネタ) も含む** |
  * | 今週の実施 | 実施日が今日から7日以内に重なる案件 |
  * | 見積の返事待ち | `estimates` の `sent`。合計は値引きを引いたあと |
- * | 今月の売上 | `revenues` の**確定分だけ** |
+ * | 今月の受注 | `projects.won_at` (migration 164)。**モックの KPI はここ** |
  * | 止まっている案件 | 7日以上、案件もタスクも活動記録も動いていない |
  *
- * **「今月の受注」ではなく「今月の売上（確定）」です。** モックは受注額を
- * 出していますが、いまの DB は**ステージが変わった日を記録していない**ので、
- * 「今月 受注になった案件」を数えられません (`projects.updated_at` は
- * 名前を直しただけでも動くので代わりになりません)。**数えられないものを
- * それらしく出すより、実際にある数字を出します。** 履歴を残すようにしたら
- * 受注額に差し替えます。
+ * ── 「今月の受注」は記録を始めた日から ────────────────────────
+ *
+ * migration 164 で `projects.won_at` を足したので、モックどおり受注を出せます。
+ * ただし**それより前に受注した案件は数に入りません** — いつ受注になったかが
+ * どこにも残っていないためです（`updated_at` は名前を直しただけでも動くので
+ * 代わりになりません）。
+ *
+ * **その旨を数字の下に必ず書きます。** 書かないと「受注が 0 件＝壊れた」と
+ * 読まれます。1か月ぶん記録が溜まれば注記は消えます。
  */
 import { FolderKanban, CalendarCheck, Receipt, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -40,6 +43,23 @@ interface Kpi {
   /** 0 でないときだけ赤くする。**常に赤い数字は色として働きません** */
   danger?: boolean;
   to?: string;
+}
+
+/** `YYYY-MM-DD` を「8/7」に */
+function fmtDate(iso: string | null): string {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  return `${Number(m)}/${Number(d)}`;
+}
+
+/**
+ * 受注の記録を始めたのが今月かどうか。
+ * 今月なら「いつから数えているか」を出す（先月ぶんは入っていないため）。
+ */
+function startedThisMonth(since: string | null): boolean {
+  if (!since) return true;      // 1件も記録が無い = まだ何も数えていない
+  const now = new Date();
+  return since.slice(0, 7) >= `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export function kpisOf(o: SalesOverview): Kpi[] {
@@ -64,10 +84,13 @@ export function kpisOf(o: SalesOverview): Kpi[] {
       sub: k.quote_waiting > 0 ? `合計 ${manYen(k.quote_waiting_amount)}` : '出したままの見積はありません',
     },
     {
-      key: 'revenue', label: '今月の売上（確定）', icon: TrendingUp,
-      value: manYen(k.month_revenue), unit: '',
-      sub: `${k.month_revenue_count}件ぶん`,
-      to: '/budget/revenues',
+      key: 'won', label: '今月の受注', icon: TrendingUp,
+      value: manYen(k.month_won_amount), unit: '',
+      // **記録を始めた日が今月なら、そう書く。** 0 件を黙って出すと壊れて見える
+      sub: startedThisMonth(o.stage_history_since)
+        ? `${k.month_won_count}件 ・ ${fmtDate(o.stage_history_since)}から記録`
+        : `${k.month_won_count}件ぶん`,
+      to: '/sales/projects?stage=a_won',
     },
     {
       key: 'stuck', label: '止まっている案件', icon: AlertTriangle,

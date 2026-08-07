@@ -473,6 +473,14 @@ export class ProjectService {
        application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
     );
 
+    // **最初のステージも履歴に残す** (migration 164)。
+    // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
+    await execute(
+      `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+       VALUES (?, ?, NULL, 'neta', ?)`,
+      [uuidv4(), id, userId],
+    );
+
     // project_dates にINSERT
     for (let i = 0; i < datesToInsert.length; i++) {
       const d = datesToInsert[i];
@@ -677,6 +685,17 @@ export class ProjectService {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
+    /**
+     * **ステージが変わった記録を残す** (migration 164)。
+     *
+     * `projects.updated_at` では代われない — 案件名を直しただけでも動くので、
+     * 「今月 受注になった案件」を数えられず、止まっている理由も言えない。
+     *
+     * **同じステージへの押し直しは記録しない。** 記録すると
+     * 「1日に3回 受注になった」ことになり、今月の受注が水増しされる。
+     */
+    const stageChanged = project.stage !== stage;
+
     if (stage === 'e_lost') {
       await execute(
         `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -686,10 +705,27 @@ export class ProjectService {
       // 受注/失注そのものはステージから読めるので記録しないが、
       // 「AI 出力が業務にならなかった」は不採用として残す
       await recordIntakeDecision(id, 'dropped', userId, (data.lost_reason_note as string) || (data.lost_reason as string) || null);
+    } else if (stage === 'a_won') {
+      // **受注の時刻を残す** — 失注に `lost_at` があるのに受注に無かった。
+      // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
+      // (`won_at IS NULL` のときだけ入れる)。受注した月が後ろにずれると
+      // 「今月の受注」が二重に立つ
+      await execute(
+        `UPDATE projects SET stage=?, won_at=COALESCE(won_at, NOW()), updated_at=NOW(), updated_by=? WHERE id=?`,
+        [stage, userId, id]
+      );
     } else {
       await execute(
         `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, userId, id]
+      );
+    }
+
+    if (stageChanged) {
+      await execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, ?, ?, ?)`,
+        [uuidv4(), id, project.stage ?? null, stage, userId],
       );
     }
 
@@ -788,6 +824,16 @@ export class ProjectService {
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
+
+    // **この SQL はステージも上げる。** 上げたときは履歴に残す (migration 164) —
+    // 残さないと「口頭決定になったのはいつか」が抜け、停滞理由が言えなくなる
+    if (['neta', 'd_hold', 'c_proposal'].includes(project.stage as string)) {
+      await execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, ?, 'b_verbal', ?)`,
+        [uuidv4(), id, project.stage, userId],
+      );
+    }
 
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);
