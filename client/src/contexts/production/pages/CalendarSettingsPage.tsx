@@ -52,8 +52,10 @@ export default function CalendarSettingsPage() {
   const [sp, setSp] = useSearchParams();
   const raw = sp.get('tab') ?? '';
   const tab: TabKey = (TABS.some((t) => t.key === raw) ? raw : 'rooms') as TabKey;
-  const { hasPermission } = useAuth();
-  const canEditRooms = hasPermission('studio', 'manager');
+  const { currentUser } = useAuth();
+  // **サーバーは `requireRole('system_admin')` を掛けている**（`studio.routes.ts` の
+  // `adminOnly`）。`studio` の manager に管理ボタンを出すと、押した先が 403 になる
+  const canEditRooms = currentUser?.role === 'system_admin';
 
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);

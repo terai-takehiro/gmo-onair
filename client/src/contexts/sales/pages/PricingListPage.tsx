@@ -31,6 +31,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Info } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,11 @@ export default function PricingListPage() {
   const canDeleteItem = hasPermission('sales', 'manager');
 
   const [q, setQ] = useState('');
-  const [locationId, setLocationId] = useState<string>('');
+  // **開いている場所を URL に持つ。** 設定の「拠点・部屋」から
+  // 「用賀の料金表」へ直接来られるようにするため（画面の中の状態だけだと、
+  // 送られた側は毎回タブを押し直すことになる）
+  const [sp, setSp] = useSearchParams();
+  const locationId = sp.get('location') ?? '';
   const [catOpen, setCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<PricingCategory | null>(null);
   const [itemOpen, setItemOpen] = useState(false);
@@ -181,7 +186,10 @@ export default function PricingListPage() {
       <LocationTabs
         locations={locations.data ?? []}
         value={activeLocation}
-        onChange={(id) => { setLocationId(id); setQ(''); }}
+        onChange={(id) => {
+          setSp((prev) => { const n = new URLSearchParams(prev); n.set('location', id); return n; }, { replace: true });
+          setQ('');
+        }}
       />
 
       {/* 決めごと。**画面に書いておかないと必ず訊かれる**もの */}

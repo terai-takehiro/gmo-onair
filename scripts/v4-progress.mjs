@@ -80,10 +80,37 @@ const TREE = [
       '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで'],
   ]],
   ['設定', [
-    ['設定トップ', '/settings', 'client/src/contexts/platform/pages/SettingsPage.tsx'],
-    ['権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/UserListPage.tsx'],
-    ['データ', '/settings/data-viewer', 'client/src/contexts/platform/pages/DataViewerPage.tsx'],
-    ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx'],
+    ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',
+      './settings/hubCards',
+      '**8枚のうち3枚は「これから作ります」**（お金のルール / 休日・営業時間 / 通知とテンプレート）。' +
+      '持つ表がまだ無いので、押せない形で並べ、何が足りないかを画面に書いています。' +
+      '**権限が無いカードはカードごと出しません**（押せば 403 になるだけなので）'],
+    ['② 拠点・部屋', '/settings/sites', 'client/src/contexts/platform/pages/SitesPage.tsx', undefined,
+      '拠点は**カレンダーと料金表の両方**で使われるので設定に置きました（migration 172）。' +
+      '部屋の一覧はカレンダーの設定と**同じ部品**（`RoomsTab`）を使っています'],
+    ['③ 権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/UserListPage.tsx',
+      '@@意図して据え置き@@',
+      'モックは**役割5種 × 権限8項目 × 3レベル**ですが、いまの DB は' +
+      '**人ごとにモジュール権限を持つ**形です。役割に付け替えるとサーバーの権限判定を' +
+      '全部通ることになるので、**別の回**にします（値引き上限も役割ごとなので同じ回で決める）'],
+    ['④ 取引先・仕入先', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx', undefined,
+      '財務の ⑧ で作り直した画面をそのまま使います（**同じ相手を2か所から直せるようにしない**）'],
+    ['⑤ お金のルール', '—', null, undefined,
+      '締め日・支払サイト・税の扱いを入れる表がまだありません。' +
+      '**どの単位で決めるか**（会社ぜんぶ／取引先ごと／案件ごと）を決めてから作ります'],
+    ['⑥ 休日・営業時間', '—', null, undefined,
+      '休日と営業時間の表がまだありません。入れると予約が「その時間は取れません」と言えますが、' +
+      '**いま入っている予約に営業時間外のものがある**ので、既存分の扱いを決めてから作ります'],
+    ['⑦ 通知とテンプレート', '—', null, undefined,
+      'メール文面を貯める場所がまだありません。**どの通知を誰に送るか**の一覧が先です'],
+    ['システムの情報 (版・バックアップ・パスワード)', '/settings/system',
+      'client/src/contexts/platform/pages/SystemInfoPage.tsx', undefined,
+      '旧 `/settings` の中身。**権限を掛けていません** — 旧画面は `admin` 必須だったので' +
+      '**パスワードを変えたい人が管理者しか来られませんでした**'],
+    ['データビューア', '/settings/data-viewer', 'client/src/contexts/platform/pages/DataViewerPage.tsx',
+      '@@意図して据え置き@@', 'DB を直接見る道具。モックに無く、毎日使うものでもないので畳んであります'],
+    ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx',
+      '@@意図して据え置き@@'],
   ]],
   ['共通', [
     ['トップページ', '/', 'client/src/contexts/platform/pages/HomePage.tsx',
@@ -96,10 +123,9 @@ const TREE = [
     ['共通シェル (上辺バー64px・左メニュー248px・スマホ下タブ)', '—',
       'client/src/components/layout/AppShell.tsx', 'shared/src/client/shell'],
     ['左メニューの項目・並び・ラベル', '—',
-      'client/src/components/layout/nav.ts', '@@意図して据え置き@@',
-      '**案件管理だけ v4 の情報設計に差し替え済み**（業務／全案件／設定 の3つ＋折りたたみの「そのほか」）。' +
-      '財務・カレンダー・設定・日常業務・機材管理は**今までのまま**で、' +
-      'その入口の画面を作り終えたときに差し替えます。' +
+      'client/src/components/layout/nav.ts', undefined,
+      '**4つの入口すべて v4 の情報設計に差し替え済み**（案件管理・財務管理・カレンダー・設定）。' +
+      '作り直していない画面は消さず「そのほか（作り直し前）」に畳んであります。' +
       '前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が却下されたときに ' +
       '**枠まで一緒に捨てられました**。今回は画面ができた入口から順に変えています'],
   ]],

@@ -43,6 +43,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | ⑤ 見積・請求（全案件） | `contexts/sales/pages/BillingListPage.tsx` ＋ `pages/billing/` | 下記 |
 | ⑧ 料金表 | `contexts/sales/pages/PricingListPage.tsx` ＋ `pages/pricing/` | 下記 |
 | カレンダー ①〜④ | `contexts/production/pages/{UnifiedCalendarPage,RoomAvailabilityPage,HoldListPage,CalendarSettingsPage}.tsx` ＋ `pages/{holds,rooms,calendarSettings}/` | 下記 |
+| 設定 ①② ＋ システムの情報 | `contexts/platform/pages/{SettingsHubPage,SitesPage,SystemInfoPage}.tsx` ＋ `pages/settings/` | 下記 |
 | 財務 ③④⑤ 売上・仕入・販管費 | `contexts/finance/pages/{Revenue,Purchase,Sga}ListPage.tsx` ＋ `pages/ledger/` | 下記 |
 | 財務 ⑥ 受け取った書類 | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/` | 下記 |
 | 財務 ⑦ 取り込み | `contexts/finance/pages/ImportPage.tsx` ＋ `pages/import/` | 下記 |
@@ -333,6 +334,40 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   トークンの作り直しは配ってある URL を全部無効にするので system_admin だけ
 - **ICS は黙って止まる**（URL 変更・期限切れ）。予定が増えないだけなので
   見ている人は気づけない。**最後に取れた時刻とエラーを必ず出す**
+
+**設定（①② ＋ システムの情報）で決めたこと**
+- **設定トップは「案内板」にした**（`SettingsHubPage`）。旧 `/settings` はアプリの版と
+  Excel バックアップが置いてあるだけで、**設定を探しに来た人が欲しいもの
+  （拠点・料金表・権限）へは行けなかった**。それらは左メニューの別々の場所にあり、
+  **どこにあるか知っている人しか辿り着けなかった**
+- **まだ無い3枚も並べる**（お金のルール / 休日・営業時間 / 通知とテンプレート）。
+  消すと「設定にそんな項目は無い」と読まれ、押せる形で置くと壊れて見える。
+  **並べたうえで押せなくし、何が足りないかを書く**（`settings/hubCards.ts`）
+- **「直せるのは誰か」をカードに書く。** 設定は権限の分かれ方が細かく、
+  **押してから 403 で気づく**ことが多い場所。権限が無いカードは**カードごと出さない**
+- **設定トップとシステムの情報には権限を掛けていない。** 掛けると
+  料金表（`sales`）や取引先（`budget`）だけを直す人が来られない。
+  旧 `/settings` は `admin` 必須だったので、**パスワードを変えたい人が
+  管理者しか来られなかった**。全データバックアップだけ画面の中で `system_admin` に絞る
+- **拠点・部屋を設定に置いた理由。** 拠点はカレンダーだけのものではない —
+  migration 172 で**料金表が拠点ごと**になったので、拠点を1つ足すと
+  「予約できる部屋」と「見積に出る金額」の両方が変わる。
+  **部屋の一覧はカレンダーの設定と同じ部品**（`calendarSettings/RoomsTab`）を使う。
+  この画面が足しているのは**拠点の段**（部屋数と料金表の品目数）だけ
+- **拠点・部屋を直せるのは `system_admin` だけ。** サーバーが
+  `requireRole('system_admin')` を掛けている（`studio.routes.ts` の `adminOnly`）。
+  **`studio` の manager にボタンを出していたのは間違いで、押すと 403 だった**
+  （カレンダーの設定も同じ間違いをしていたので直した）
+- **料金表の場所を URL に持たせた**（`/sales/pricing?location=`）。
+  画面の中の状態だけだと、拠点・部屋から送られた側は毎回タブを押し直すことになる
+- **メニューの `module` を書いていなかったのを直した。** データビューア・
+  DBバックアップ・権限とメンバーは無指定で、**`admin` が無い人にも出ていた**。
+  旧 `/settings` 自体が admin 必須だったので気づけなかったが、
+  設定トップを開放した以上そのままにはできない
+- **権限とメンバー（`UserListPage`）は作り直していない。** モックは
+  **役割5種 × 権限8項目 × 3レベル**だが、いまの DB は**人ごとにモジュール権限**を持つ形。
+  役割に付け替えるとサーバーの権限判定を全部通ることになるので**別の回**にする
+  （値引き上限も役割ごとなので同じ回で決める）
 
 **⑧ 取引先（財務）で決めたこと**
 - **仕入先とパートナーを1画面のタブにまとめた**（`pages/CounterpartyPage.tsx`）。

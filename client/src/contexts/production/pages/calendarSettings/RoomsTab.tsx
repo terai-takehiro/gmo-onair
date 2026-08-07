@@ -107,6 +107,7 @@ export function RoomsTab({
       <p className="text-note text-muted-foreground">
         部屋の色は<strong className="font-bold">予定の帯と「部屋の空き」にそのまま出ます</strong>。
         似た色を2つ作ると、カレンダーの上でどちらの部屋か読めなくなります。
+        {!canEdit && <>　足す・直すができるのは<strong className="font-bold">管理者</strong>だけです。</>}
       </p>
     </div>
   );

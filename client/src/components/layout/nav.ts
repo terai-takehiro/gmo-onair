@@ -2,9 +2,7 @@
  * 案件管理・財務管理・カレンダー・設定の左メニュー
  *
  * **入口ごとに、画面を作り終えたときだけ情報設計を差し替えます。**
- * いま v4 の並びになっているのは**案件管理**と**財務管理**の2つ。
- * カレンダーと設定は旧 `Sidebar.tsx` の `APP_NAV` からの逐語コピーのままで、
- * その入口の画面を作り終えたときに差し替えます。
+ * 4つの入口すべてが v4 の並びになりました（案件管理・財務管理・カレンダー・設定）。
  *
  * 前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が
  * 却下されたときに**枠まで一緒に捨てられました**。だから画面ができた入口から順に変えます。
@@ -32,6 +30,7 @@ import {
   GitBranch,
   HardDrive,
   Inbox,
+  Info,
   Layers,
   LayoutDashboard,
   ListTodo,
@@ -230,13 +229,42 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
   ],
+  /**
+   * 設定 — v4 の情報設計（モックの ① 設定トップ）。
+   *
+   * 旧メニューは4項目が横並びで、**「全体の設定」が最後**にありました。
+   * ところがそこが設定の入口（案内板）なので、**入口が末尾にある**状態でした。
+   *
+   * v4 は **設定（案内板）を先頭**に置き、そこから行ける先を
+   * 「よく直すもの」として並べ、DB を直接見る道具は
+   * 「データベース」に分けます（毎日使うものではないため）。
+   *
+   * **拠点・部屋・料金表・取引先は `/settings` の案内板から行きます。**
+   * ここに全部並べると、それぞれの入口（案件管理・財務・カレンダー）の
+   * メニューにも同じ項目があるので、同じものが2か所に出ます。
+   */
   admin: [
     {
       items: [
-        { label: "ユーザー管理", to: "/settings/users", icon: UserCog },
-        { label: "データビューア", to: "/settings/data-viewer", icon: Database },
-        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive },
-        { label: "全体の設定", to: "/settings", icon: Settings, end: true },
+        // **案内板とシステムの情報だけ権限を掛けない。** 設定は
+        // 料金表 (sales) や取引先 (budget) だけを直す人も来る場所で、
+        // パスワード変更は全員が使う
+        { label: "設定", to: "/settings", icon: Settings, end: true },
+        { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "studio" },
+        { label: "権限とメンバー", to: "/settings/users", icon: UserCog, module: "admin" },
+      ],
+    },
+    {
+      title: "データベース",
+      collapsible: true,
+      note: "中身を直接見る道具です。毎日は使いません",
+      items: [
+        // **`module` を書かないと権限が無い人にも出る。** 旧メニューは
+        // 3項目とも無指定で、`admin` が無い人が押すと 403 になっていた
+        // （旧 `/settings` 自体が admin 必須だったので気づけなかった）
+        { label: "データビューア", to: "/settings/data-viewer", icon: Database, module: "admin" },
+        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive, module: "admin" },
+        { label: "システムの情報", to: "/settings/system", icon: Info },
       ],
     },
   ],

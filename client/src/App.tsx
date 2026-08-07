@@ -68,7 +68,9 @@ import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
-import SettingsPage from "@/contexts/platform/pages/SettingsPage";
+import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
+import SitesPage from "@/contexts/platform/pages/SitesPage";
+import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -243,7 +245,21 @@ function AppRoutes() {
             旧 URL はブックマークを生かすためにまとめて転送する
         */}
         <Route path="/admin/*" element={<RedirectAdminToSettings />} />
-        <Route path="/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        {/*
+            v4 設定トップは**案内板**なので権限を掛けない。掛けると
+            料金表 (sales) や取引先 (budget) だけを直す人が来られなくなる。
+            **カードは1枚ずつ権限で出し分ける**ので、ここで見えるのは
+            その人が実際に開けるものだけ (`settings/hubCards.ts`)
+        */}
+        <Route path="/settings" element={<SettingsHubPage />} />
+        <Route path="/settings/sites" element={<PermissionRoute module="studio"><SitesPage /></PermissionRoute>} />
+        {/*
+            旧 `/settings` の中身 (版・バックアップ・パスワード変更・アプリ一覧)。
+            **権限を掛けない** — 旧画面は `admin` 必須だったので
+            **パスワードを変えたい人が管理者しか来られなかった**。
+            全データバックアップだけ画面の中で `system_admin` に絞る
+        */}
+        <Route path="/settings/system" element={<SystemInfoPage />} />
 
         {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
         {/*
