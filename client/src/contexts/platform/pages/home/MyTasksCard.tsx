@@ -78,7 +78,7 @@ export function MyTasksCard() {
         <button
           type="button"
           onClick={() => navigate('/sales/tasks/list')}
-          className="text-note flex items-center gap-0.5 font-bold text-primary hover:underline"
+          className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
         >
           全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
         </button>
@@ -106,9 +106,14 @@ export function MyTasksCard() {
                 aria-label={`「${t.title}」を完了にする`}
                 disabled={complete.isPending}
                 onClick={() => complete.mutate(t.id)}
-                className="rounded-badge-xs mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px] border-border-disabled hover:border-primary hover:bg-primary-surface"
+                // **スマホでは 44×44。** 四角そのものは 18px のまま中に置く —
+                // 「完了にする」は押し間違えると取り消しに行くことになるので、
+                // 指で確実に当たる大きさが要る（PC は今までどおり 18px）
+                className="group -m-3 flex h-11 w-11 shrink-0 items-center justify-center lg:m-0 lg:mt-0.5 lg:h-[18px] lg:w-[18px]"
               >
-                <Check className="h-3 w-3 text-transparent hover:text-primary" aria-hidden="true" />
+                <span className="rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px] border-border-disabled group-hover:border-primary group-hover:bg-primary-surface">
+                  <Check className="h-3 w-3 text-transparent group-hover:text-primary" aria-hidden="true" />
+                </span>
               </button>
               <span className="min-w-0 flex-1">
                 <span className="text-sub block [overflow-wrap:anywhere]">{t.title}</span>

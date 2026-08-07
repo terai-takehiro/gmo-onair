@@ -2,9 +2,7 @@
  * 案件管理・財務管理・カレンダー・設定の左メニュー
  *
  * **入口ごとに、画面を作り終えたときだけ情報設計を差し替えます。**
- * いま v4 の並びになっているのは**案件管理**と**財務管理**の2つ。
- * カレンダーと設定は旧 `Sidebar.tsx` の `APP_NAV` からの逐語コピーのままで、
- * その入口の画面を作り終えたときに差し替えます。
+ * 4つの入口すべてが v4 の並びになりました（案件管理・財務管理・カレンダー・設定）。
  *
  * 前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が
  * 却下されたときに**枠まで一緒に捨てられました**。だから画面ができた入口から順に変えます。
@@ -32,6 +30,7 @@ import {
   GitBranch,
   HardDrive,
   Inbox,
+  Info,
   Layers,
   LayoutDashboard,
   ListTodo,
@@ -46,7 +45,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { Home, ListTodo as ListTodoTab, Menu } from "lucide-react";
+import { Home, ListTodo as ListTodoTab, Search as SearchTab } from "lucide-react";
 import type { ShellMobileTab, ShellNavSection } from "@gmo-onair/shared/src/client/shell";
 
 export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
@@ -193,38 +192,96 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
   ],
+  /**
+   * カレンダー — v4 の情報設計（モックの `MENU`）。
+   *
+   * **見る**（予定 / 部屋の空き / 仮押さえ）と**設定**の2つだけ。
+   * 旧メニューは「統合」「スタジオ」「パートナー」「マイ」の4本のカレンダーが
+   * 並んでおり、**どれを開けばよいか分かりませんでした**（中身はほぼ同じで、
+   * 見えるレイヤーが違うだけ）。v4 は **カレンダーは1本・レイヤーで切り替え**です。
+   *
+   * パートナーとマイは**予定を作る導線がそこにしかない**ので、
+   * 「そのほか（作り直し前）」に畳んで残します（消すと作れなくなる）。
+   */
   studio: [
     {
+      title: "見る",
       items: [
-        { label: "統合カレンダー", to: "/studio/all", icon: Layers, modules: ["studio", "partner_schedule"] },
-        { label: "スタジオカレンダー", to: "/studio/calendar", icon: Calendar },
+        { label: "予定", to: "/studio/calendar", icon: Calendar, modules: ["studio", "partner_schedule"] },
+        { label: "部屋の空き", to: "/studio/rooms", icon: Layers, module: "studio" },
+        { label: "仮押さえ", to: "/studio/holds", icon: CalendarClock, module: "studio" },
+      ],
+    },
+    {
+      title: "設定",
+      items: [
+        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, module: "studio" },
+      ],
+    },
+    {
+      title: "そのほか（作り直し前）",
+      collapsible: true,
+      note: "予定を作る導線がここにしかないので残しています",
+      items: [
+        { label: "スタジオカレンダー", to: "/studio/studio-calendar", icon: Calendar, module: "studio" },
         { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
         { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
       ],
     },
   ],
+  /**
+   * 設定 — v4 の情報設計（モックの ① 設定トップ）。
+   *
+   * 旧メニューは4項目が横並びで、**「全体の設定」が最後**にありました。
+   * ところがそこが設定の入口（案内板）なので、**入口が末尾にある**状態でした。
+   *
+   * v4 は **設定（案内板）を先頭**に置き、そこから行ける先を
+   * 「よく直すもの」として並べ、DB を直接見る道具は
+   * 「データベース」に分けます（毎日使うものではないため）。
+   *
+   * **拠点・部屋・料金表・取引先は `/settings` の案内板から行きます。**
+   * ここに全部並べると、それぞれの入口（案件管理・財務・カレンダー）の
+   * メニューにも同じ項目があるので、同じものが2か所に出ます。
+   */
   admin: [
     {
       items: [
-        { label: "ユーザー管理", to: "/settings/users", icon: UserCog },
-        { label: "データビューア", to: "/settings/data-viewer", icon: Database },
-        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive },
-        { label: "全体の設定", to: "/settings", icon: Settings, end: true },
+        // **案内板とシステムの情報だけ権限を掛けない。** 設定は
+        // 料金表 (sales) や取引先 (budget) だけを直す人も来る場所で、
+        // パスワード変更は全員が使う
+        { label: "設定", to: "/settings", icon: Settings, end: true },
+        { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "studio" },
+        { label: "権限とメンバー", to: "/settings/users", icon: UserCog, module: "admin" },
+      ],
+    },
+    {
+      title: "データベース",
+      collapsible: true,
+      note: "中身を直接見る道具です。毎日は使いません",
+      items: [
+        // **`module` を書かないと権限が無い人にも出る。** 旧メニューは
+        // 3項目とも無指定で、`admin` が無い人が押すと 403 になっていた
+        // （旧 `/settings` 自体が admin 必須だったので気づけなかった）
+        { label: "データビューア", to: "/settings/data-viewer", icon: Database, module: "admin" },
+        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive, module: "admin" },
+        { label: "システムの情報", to: "/settings/system", icon: Info },
       ],
     },
   ],
 };
 
 /**
- * スマホ下端のタブ。
+ * スマホ下端のタブ — **ホーム / やること / 検索**（v4 の決めごと）。
  *
- * v4 の決めごとは **ホーム / やること / 検索** の3つです。検索は上辺バーにありますが
- * スマホでは畳んでいる (入力欄を出すと 375px でアプリ名が入らない) ので、
- * いまは**メニューを開くタブ**にしてあります。Phase 6 (スマホ) で
- * 検索のシートを作るときに差し替えます。
+ * 3つ目は S2 の時点では「メニューを開く」でした。**スマホに検索が1つも無かった**
+ * ためです（上辺バーの `GlobalSearch` は `hidden sm:block` で 375px では出ない）。
+ * Phase 6 で `/search` を作ったので、本来の「探す」に戻しました。
+ *
+ * **メニューは上辺バーの ☰ から開けます。** 下タブと ☰ の両方をメニューに
+ * 使っていたので、1枠が二重の入口になっていました。
  */
 export const CLIENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: "ホーム", to: "/", icon: Home, end: true },
   { label: "やること", to: "/sales/tasks/list", icon: ListTodoTab },
-  { label: "メニュー", icon: Menu, action: "menu" },
+  { label: "探す", to: "/search", icon: SearchTab },
 ];

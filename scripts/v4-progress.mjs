@@ -67,16 +67,50 @@ const TREE = [
     ['取り込み (精算PDF・総勘定元帳・二重計上)', '/budget/import', 'client/src/contexts/finance/pages/ImportPage.tsx'],
   ]],
   ['カレンダー', [
-    ['予定', '/studio/calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx'],
-    ['部屋の空き', '/studio/all', 'client/src/contexts/production/pages/AllStudiosPage.tsx'],
-    ['パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx'],
-    ['自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx'],
+    // v4: モックの4画面。① 予定は**統合カレンダー1本＋レイヤー**（旧 `/studio/all`）
+    ['① 予定', '/studio/calendar', 'client/src/contexts/production/pages/UnifiedCalendarPage.tsx', undefined,
+      '**カレンダーを1本にしました**（旧メニューは「統合／スタジオ／パートナー／マイ」の4本が並んでいて、どれを開けばよいか分かりませんでした — 中身はほぼ同じで見えるレイヤーが違うだけ）。ただし**やったのは行き先の付け替えだけで、画面の中身はまだ v4 の枠に載せ替えていません**。FullCalendar の描画に手を入れる作業なので、②③④ と同じ回では触りません'],
+    ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx'],
+    ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
+    ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
+    ['（旧）スタジオカレンダー', '/studio/studio-calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx', '@@意図して据え置き@@',
+      '**予約を作る導線がここにしかない**ので残しています（消すと作れなくなる）。メニューでは「そのほか（作り直し前）」に畳んであります'],
+    ['（旧）パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx', '@@意図して据え置き@@'],
+    ['（旧）自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx', '@@意図して据え置き@@',
+      '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで'],
   ]],
   ['設定', [
-    ['設定トップ', '/settings', 'client/src/contexts/platform/pages/SettingsPage.tsx'],
-    ['権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/UserListPage.tsx'],
-    ['データ', '/settings/data-viewer', 'client/src/contexts/platform/pages/DataViewerPage.tsx'],
-    ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx'],
+    ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',
+      './settings/hubCards',
+      '**8枚のうち3枚は「これから作ります」**（お金のルール / 休日・営業時間 / 通知とテンプレート）。' +
+      '持つ表がまだ無いので、押せない形で並べ、何が足りないかを画面に書いています。' +
+      '**権限が無いカードはカードごと出しません**（押せば 403 になるだけなので）'],
+    ['② 拠点・部屋', '/settings/sites', 'client/src/contexts/platform/pages/SitesPage.tsx', undefined,
+      '拠点は**カレンダーと料金表の両方**で使われるので設定に置きました（migration 172）。' +
+      '部屋の一覧はカレンダーの設定と**同じ部品**（`RoomsTab`）を使っています'],
+    ['③ 権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/UserListPage.tsx',
+      '@@意図して据え置き@@',
+      'モックは**役割5種 × 権限8項目 × 3レベル**ですが、いまの DB は' +
+      '**人ごとにモジュール権限を持つ**形です。役割に付け替えるとサーバーの権限判定を' +
+      '全部通ることになるので、**別の回**にします（値引き上限も役割ごとなので同じ回で決める）'],
+    ['④ 取引先・仕入先', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx', undefined,
+      '財務の ⑧ で作り直した画面をそのまま使います（**同じ相手を2か所から直せるようにしない**）'],
+    ['⑤ お金のルール', '—', null, undefined,
+      '締め日・支払サイト・税の扱いを入れる表がまだありません。' +
+      '**どの単位で決めるか**（会社ぜんぶ／取引先ごと／案件ごと）を決めてから作ります'],
+    ['⑥ 休日・営業時間', '—', null, undefined,
+      '休日と営業時間の表がまだありません。入れると予約が「その時間は取れません」と言えますが、' +
+      '**いま入っている予約に営業時間外のものがある**ので、既存分の扱いを決めてから作ります'],
+    ['⑦ 通知とテンプレート', '—', null, undefined,
+      'メール文面を貯める場所がまだありません。**どの通知を誰に送るか**の一覧が先です'],
+    ['システムの情報 (版・バックアップ・パスワード)', '/settings/system',
+      'client/src/contexts/platform/pages/SystemInfoPage.tsx', undefined,
+      '旧 `/settings` の中身。**権限を掛けていません** — 旧画面は `admin` 必須だったので' +
+      '**パスワードを変えたい人が管理者しか来られませんでした**'],
+    ['データビューア', '/settings/data-viewer', 'client/src/contexts/platform/pages/DataViewerPage.tsx',
+      '@@意図して据え置き@@', 'DB を直接見る道具。モックに無く、毎日使うものでもないので畳んであります'],
+    ['DBバックアップ', '/settings/db-backups', 'client/src/contexts/platform/pages/DbBackupsPage.tsx',
+      '@@意図して据え置き@@'],
   ]],
   ['共通', [
     ['トップページ', '/', 'client/src/contexts/platform/pages/HomePage.tsx',
@@ -84,15 +118,19 @@ const TREE = [
       'v4 は**上＝アプリの入口 ／ 下＝自分の今日**に絞りました。旧トップにあった KPI・営業ダッシュボード・' +
       'AI活動フィード・直近の案件は、**各アプリのダッシュボードと同じ中身を二重に見ていた**ので外し、' +
       'それぞれの画面へ送っています（理由と行き先は `HomePage.tsx` の冒頭）'],
+    ['探す（スマホの下タブ 3つ目）', '/search', 'client/src/contexts/platform/pages/SearchPage.tsx',
+      undefined,
+      'v4 の決めごとは下タブ **ホーム / やること / 検索** だが、**スマホには検索が1つも無かった**' +
+      '（上辺バーの検索は `hidden sm:block`）ので3つ目は「メニュー」で代用していた。' +
+      'メニューは上辺バーの ☰ からも開けるので、1枠が二重の入口になっていた'],
     // シェルは画面ではないので `<PageHeader>` を持たない。**3アプリが共通シェルを
     // 読んでいるか**で判定する (S2 / S3 で載せ替え済み)
     ['共通シェル (上辺バー64px・左メニュー248px・スマホ下タブ)', '—',
       'client/src/components/layout/AppShell.tsx', 'shared/src/client/shell'],
     ['左メニューの項目・並び・ラベル', '—',
-      'client/src/components/layout/nav.ts', '@@意図して据え置き@@',
-      '**案件管理だけ v4 の情報設計に差し替え済み**（業務／全案件／設定 の3つ＋折りたたみの「そのほか」）。' +
-      '財務・カレンダー・設定・日常業務・機材管理は**今までのまま**で、' +
-      'その入口の画面を作り終えたときに差し替えます。' +
+      'client/src/components/layout/nav.ts', undefined,
+      '**4つの入口すべて v4 の情報設計に差し替え済み**（案件管理・財務管理・カレンダー・設定）。' +
+      '作り直していない画面は消さず「そのほか（作り直し前）」に畳んであります。' +
       '前回の刷新は「枠の作り替え」と「情報設計の変更」を同じ回でやり、情報設計が却下されたときに ' +
       '**枠まで一緒に捨てられました**。今回は画面ができた入口から順に変えています'],
   ]],
@@ -218,7 +256,7 @@ lines.push('## 凍結（v4.0.0 では作り直さない）', '',
 lines.push('## まだ入っていない機能', '',
   '- **持ち帰り事項からタスクを作る**（議事録）— いまはタスクタブから手で入れます',
   '- **BOX にファイルを置く**（書類タブ）— いまは中を見るだけ',
-  '- **スマホ専用の13画面**（Phase 6）',
+  '- **スマホの1画面1目的への絞り込み**（Phase 6 の残り）— 375px の手触り（タップ 44px・本文 13px・横はみ出し 0px）は**29 画面で実測して直し済み**ですが、モックが言う「PC の情報をそのまま載せない・表をやめて縦積みカードにする」までは行っていません。画面ごとに出す情報を選び直す作業なので、その画面を作り直す回に含めます',
   '- **標準工程テンプレート** — 社内で整理中のため後回し（スタジオ案件とプロジェクトで別の表を作ります）',
   '');
 

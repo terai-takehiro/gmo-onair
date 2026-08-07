@@ -196,9 +196,14 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
     activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [current]);
 
+  // **v4 でカレンダーの URL が入れ替わった。**
+  // `/studio/calendar` は v4 の ① 予定（統合＋レイヤー）になり、
+  // `/studio/all` はそこへの転送になった。スタジオだけのカレンダーは
+  // `/studio/studio-calendar` へ移った（予約を作る導線がそこにしかないので残してある）。
+  // **直さないと「統合」と「スタジオ」が同じ画面に着く**（実ブラウザで確認した）
   const pills = [
-    { key: "all", label: "統合", to: "/studio/all", icon: Layers, show: canStudio || canPartner },
-    { key: "studio", label: "スタジオ", to: "/studio/calendar", icon: CalendarDays, show: canStudio },
+    { key: "all", label: "予定（すべて）", to: "/studio/calendar", icon: Layers, show: canStudio || canPartner },
+    { key: "studio", label: "スタジオ", to: "/studio/studio-calendar", icon: CalendarDays, show: canStudio },
     { key: "partners", label: "パートナー", to: "/studio/partners", icon: Users, show: canPartner },
     { key: "my", label: "マイ", to: "/studio/my-calendar", icon: CalendarClock, show: canPartner },
   ].filter((p) => p.show);
@@ -211,7 +216,8 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
           to={p.to}
           ref={current === p.key ? activeRef : undefined}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            // スマホは 44px（v4 の決めごと）。PC は今までどおり
+            "min-h-tap flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors lg:min-h-0",
             current === p.key
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-accent hover:text-foreground"

@@ -238,7 +238,8 @@ export default function UnifiedCalendarPage() {
               type="button"
               onClick={() => toggleLayer(c.key)}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                // スマホは 44px（v4 の決めごと）。PC は今までどおり
+                "min-h-tap flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors lg:min-h-0",
                 layers[c.key]
                   ? "border-transparent text-white"
                   : "text-muted-foreground opacity-60 hover:bg-accent"

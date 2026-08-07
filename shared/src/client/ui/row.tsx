@@ -128,7 +128,9 @@ export function Row({
         DENSITY[density],
         // 行間の罫は最も薄い段。外枠 (--border) と同じにすると行が箱に見える
         divider && 'border-b border-border-faint last:border-b-0',
-        interactive && 'hover:bg-background',
+        // **押せる行はスマホで 44px 以上**（v4 の決めごと「タップ対象は最低 44px」）。
+        // 一覧の行は 42〜48px で、短い行が 44px を割る。PC は今までどおり
+        interactive && 'hover:bg-background min-h-tap lg:min-h-0',
         stackOnMobile &&
           'flex-wrap sm:flex-nowrap [&>[data-row-main]]:basis-full sm:[&>[data-row-main]]:basis-auto',
         className,

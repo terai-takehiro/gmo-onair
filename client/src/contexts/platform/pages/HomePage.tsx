@@ -160,7 +160,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => navigate('/sales/tasks/list')}
-              className="text-note flex items-center gap-0.5 font-bold text-primary hover:underline"
+              className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
             >
               自分のタスクを全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
             </button>

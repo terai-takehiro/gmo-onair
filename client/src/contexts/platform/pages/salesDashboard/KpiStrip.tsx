@@ -113,7 +113,7 @@ function Cell({ k }: { k: Kpi }) {
         <StatValue size="sm" className={cn(k.danger && 'text-destructive')}>{k.value}</StatValue>
         {k.unit && <span className="text-note text-muted-foreground">{k.unit}</span>}
       </p>
-      <p className="text-sub-sm truncate text-muted-foreground">{k.sub}</p>
+      <p className="text-note truncate text-muted-foreground">{k.sub}</p>
     </>
   );
 }

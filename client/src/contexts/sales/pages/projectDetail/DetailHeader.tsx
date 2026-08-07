@@ -86,7 +86,7 @@ export function DetailHeader({
         <Link
           to="/sales/projects"
           aria-label="案件一覧に戻る"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control-lg border border-border hover:bg-muted"
+          className="min-h-tap min-w-tap flex h-11 w-11 shrink-0 items-center justify-center rounded-control-lg border border-border hover:bg-muted lg:h-10 lg:w-10 lg:min-h-0 lg:min-w-0"
         >
           <ArrowLeft className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
         </Link>
@@ -99,7 +99,7 @@ export function DetailHeader({
               onClick={() => navigate(`/sales/projects/${id}/edit`)}
               aria-label="案件の内容を直す"
               title="案件の内容を直す"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md hover:bg-muted"
+              className="min-h-tap min-w-tap flex h-11 w-11 shrink-0 items-center justify-center rounded-control-md hover:bg-muted lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             </button>

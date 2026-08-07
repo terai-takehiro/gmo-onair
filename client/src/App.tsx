@@ -46,6 +46,9 @@ import GpmTaskListPage from "@/contexts/gpm/pages/GpmTaskListPage";
 import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
 
 // Production (スタジオ予約)
+import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
+import HoldListPage from '@/contexts/production/pages/HoldListPage';
+import CalendarSettingsPage from '@/contexts/production/pages/CalendarSettingsPage';
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
@@ -65,7 +68,10 @@ import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
-import SettingsPage from "@/contexts/platform/pages/SettingsPage";
+import SearchPage from "@/contexts/platform/pages/SearchPage";
+import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
+import SitesPage from "@/contexts/platform/pages/SitesPage";
+import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -132,6 +138,12 @@ function AppRoutes() {
       >
         {/* ホーム（アプリランチャー） */}
         <Route path="/" element={<HomePage />} />
+        {/*
+            探す（スマホの下タブ 3つ目）。**権限を掛けない** —
+            `GET /search` が種類ごとに権限を見て、権限が無い種類は空で返す
+            （画面で止めると、案件だけの人・経理だけの人が検索そのものを使えなくなる）
+        */}
+        <Route path="/search" element={<SearchPage />} />
 
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
@@ -210,10 +222,21 @@ function AppRoutes() {
         <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
-        <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
+        {/*
+          v4 カレンダー: モックの4画面（① 予定 / ② 部屋の空き / ③ 仮押さえ / ④ 設定）。
+          **① 予定は「1本のカレンダー＋レイヤー」** なので、いままで `/studio/all` に
+          いた統合カレンダーをここへ持ってきた（`/studio/all` は転送）。
+          スタジオだけのカレンダーは「そのほか（作り直し前）」に残す — 予約を作る導線が
+          あちらにしかないため、先に消すと作れなくなる
+        */}
+        <Route path="/studio/calendar" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/rooms" element={<PermissionRoute module="studio"><RoomAvailabilityPage /></PermissionRoute>} />
+        <Route path="/studio/holds" element={<PermissionRoute module="studio"><HoldListPage /></PermissionRoute>} />
+        <Route path="/studio/settings" element={<PermissionRoute module="studio"><CalendarSettingsPage /></PermissionRoute>} />
+        <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
         <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
         <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/all" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/all" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
@@ -229,7 +252,21 @@ function AppRoutes() {
             旧 URL はブックマークを生かすためにまとめて転送する
         */}
         <Route path="/admin/*" element={<RedirectAdminToSettings />} />
-        <Route path="/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        {/*
+            v4 設定トップは**案内板**なので権限を掛けない。掛けると
+            料金表 (sales) や取引先 (budget) だけを直す人が来られなくなる。
+            **カードは1枚ずつ権限で出し分ける**ので、ここで見えるのは
+            その人が実際に開けるものだけ (`settings/hubCards.ts`)
+        */}
+        <Route path="/settings" element={<SettingsHubPage />} />
+        <Route path="/settings/sites" element={<PermissionRoute module="studio"><SitesPage /></PermissionRoute>} />
+        {/*
+            旧 `/settings` の中身 (版・バックアップ・パスワード変更・アプリ一覧)。
+            **権限を掛けない** — 旧画面は `admin` 必須だったので
+            **パスワードを変えたい人が管理者しか来られなかった**。
+            全データバックアップだけ画面の中で `system_admin` に絞る
+        */}
+        <Route path="/settings/system" element={<SystemInfoPage />} />
 
         {/* 入口の URL からその中の最初の画面へ (アプリ登録の path に対応) */}
         {/*
