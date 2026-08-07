@@ -215,7 +215,10 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "設定",
       items: [
-        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, module: "studio" },
+        // **`partner_schedule` だけの人にも出す。** 外部カレンダーの購読は
+        // その権限の持ち物で、ここにしか入口が無い（出さないと URL を
+        // 直打ちしないと辿り着けない）。開けるタブは画面の中で出し分ける
+        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, modules: ["studio", "partner_schedule"] },
       ],
     },
     {

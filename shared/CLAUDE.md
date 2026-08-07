@@ -381,6 +381,21 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 > **凍結3アプリの CSS に2規則・61 バイト**入りました（実測して気づいた）。
 > `shared/src/client/` では、コメントの中でも Tailwind のクラス名を書かないこと。
 
+### スマホ専用の部品は `client-v4/` に置く（M0）
+
+| 部品 | 何を強制するか |
+| --- | --- |
+| `client-v4/sheet.tsx` の `<Sheet>` | **下から出るシート**。一覧から1件ずつ片づける画面で**画面遷移させない**（決めごと「終わらせるのはシートで」）。主ボタンは下端に固定・中身だけスクロール・`safe-area-inset-bottom` を足す |
+| `client-v4/mobile.ts` の `useIsMobile()` | スマホか PC かの判定。**`lg`(1023px) と同じ値**を使う（CSS と JS がずれると片方だけ切り替わる） |
+| `client-v4/mobile.ts` の `duePresets()` | 期限は **明日18:00 / 3日後18:00 / 日時を選ぶ**（決めごと「入力は端末に任せる」。自作の日付ホイールを作らない） |
+| `client-v4/mobile.ts` の `dueLabel()` | **過ぎたものを「あと -2日」と出さない** |
+
+- **`useIsMobile()` で早期 return しない。** 同じ部品の中で `if (mobile) return …` と
+  書くと、幅が変わったときに**フックの数が変わって React が落ちます**。
+  「どちらを描くか決めるだけ」の薄い親を作り、**部品ごと入れ替える**こと
+- 計算だけの2つ（`duePresets` / `dueLabel`）は `shared/tests/mobile.test.ts` で固定してある
+  （日付の足し算は画面を見ても間違いに気づけない）
+
 ### 段を足したら `cn()` にも教える（P2 で判明・最重要）
 
 `src/client/utils.ts` の `cn()` は tailwind-merge で「あとに書いたクラスが前を打ち消す」を

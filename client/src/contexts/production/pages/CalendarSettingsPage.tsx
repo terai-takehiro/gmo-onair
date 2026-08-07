@@ -11,6 +11,19 @@
  * モックの ④ のとおり **部屋 / 外部カレンダー / サイネージ の3タブ**にして、
  * 左メニューから直接来られるようにします。
  *
+ * ── タブごとに要る権限が違う（レビューで直した）──────────────
+ *
+ * 3つのタブは**別々のサーバーの口**を叩きます:
+ *
+ *   部屋 / サイネージ … `/studios/*`   → `studio` の reader
+ *   外部カレンダー   … `/schedule/*`  → **`partner_schedule` の editor**
+ *
+ * 画面全体を `studio` で括っていたため、
+ * **① `studio` だけの人は外部カレンダーのタブを開けるのに中身が全部 403**、
+ * **② `partner_schedule` だけの人はこの画面自体に来られない**、の2つが起きていました。
+ * **タブごとに出し分け、ルートはどちらかの権限で通します**
+ * （財務の「取り込み」と同じやり方 — 選べないタブは出さない）。
+ *
  * ── 中身は作り替えていない ──────────────────────────────────
  *
  * 足す・直すは**今までのダイアログをそのまま開きます**
@@ -50,12 +63,20 @@ const LEAD: Record<TabKey, string> = {
 
 export default function CalendarSettingsPage() {
   const [sp, setSp] = useSearchParams();
-  const raw = sp.get('tab') ?? '';
-  const tab: TabKey = (TABS.some((t) => t.key === raw) ? raw : 'rooms') as TabKey;
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   // **サーバーは `requireRole('system_admin')` を掛けている**（`studio.routes.ts` の
   // `adminOnly`）。`studio` の manager に管理ボタンを出すと、押した先が 403 になる
   const canEditRooms = currentUser?.role === 'system_admin';
+
+  // タブごとに要る権限が違う。**開けないタブは出さない**（押せば 403 になるだけ）
+  const canStudio = hasPermission('studio');
+  const canFeeds = hasPermission('partner_schedule', 'editor');
+  const shown = TABS.filter((t) => (t.key === 'feed' ? canFeeds : canStudio));
+
+  const raw = sp.get('tab') ?? '';
+  // **開けないタブが指定されたら、開ける最初のタブに落とす。**
+  // そのまま開くと中身が全部 403 になり「壊れている」と読まれる
+  const tab: TabKey = (shown.some((t) => t.key === raw) ? raw : shown[0]?.key ?? 'rooms') as TabKey;
 
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);
@@ -64,13 +85,14 @@ export default function CalendarSettingsPage() {
     queryKey: ['studio-locations'],
     queryFn: async () => (await api.get('/studios/locations')).data.data as LocationRow[],
     staleTime: 5 * 60_000,
+    enabled: canStudio,
   });
 
   // サイネージの URL とフィードのトークンは同じ口から来る
   const feeds = useQuery({
     queryKey: ['studio-room-feeds'],
     queryFn: async () => (await api.get('/studios/rooms/feeds')).data.data as FeedsPayload,
-    enabled: tab === 'sign',
+    enabled: tab === 'sign' && canStudio,
   });
 
   const roomCount = (locations.data ?? []).reduce((n, l) => n + (l.rooms?.length ?? 0), 0);
@@ -79,9 +101,11 @@ export default function CalendarSettingsPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader title="カレンダーの設定" sub={LEAD[tab].replace(/\*\*/g, '')} />
 
+      {/* **タブが1つしか無い人には並びを出さない**（選べないものを選ばせない） */}
+      {shown.length > 1 && (
       <FilterChips
         label="設定の種類"
-        items={TABS.map((t) => ({
+        items={shown.map((t) => ({
           key: t.key,
           label: t.label,
           // **件数を出せるものだけ出す。** 出せないものに 0 を置くと「無い」と読まれる
@@ -90,8 +114,21 @@ export default function CalendarSettingsPage() {
         value={tab}
         onChange={(k) => setSp((prev) => { const n = new URLSearchParams(prev); n.set('tab', k); return n; }, { replace: true })}
       />
+      )}
 
-      {locations.isError ? (
+      {/*
+          **見られるタブが1つも無いときに、中身を描かない。**
+          `partner_schedule` の reader（editor ではない）はルートを通るが
+          外部カレンダーは editor 必須なので開けるタブが無い。そのまま描くと
+          部屋タブに落ちて、問い合わせを止めているだけなのに
+          **「部屋が登録されていません」と嘘をつく**（レビューで直した）
+      */}
+      {shown.length === 0 ? (
+        <p className="rounded-card border border-border bg-surface-subtle p-4 text-sub text-secondary-foreground">
+          この画面で開ける設定はありません。部屋とサイネージは<strong className="font-bold">カレンダーの閲覧権限</strong>、
+          外部カレンダーの購読は<strong className="font-bold">パートナー予定の編集権限</strong>が要ります。
+        </p>
+      ) : locations.isError ? (
         <ErrorPanel title="設定を読み込めませんでした" error={locations.error} onRetry={() => locations.refetch()} />
       ) : (
         <>

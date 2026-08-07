@@ -44,6 +44,9 @@ export default function HoldListPage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('studio', 'editor');
+  // **落とすのは manager から。** `DELETE /studios/bookings/:id` が manager を要求するので、
+  // editor に出すと押した先が必ず 403 になる（確定にするほうは editor で通る）
+  const canDrop = hasPermission('studio', 'manager');
   const [chip, setChip] = useState<Chip>('all');
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -180,6 +183,7 @@ export default function HoldListPage() {
                     >
                       <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />確定にする
                     </Button>
+                    {canDrop && (
                     <Button
                       variant="outline"
                       className="w-full justify-start"
@@ -188,6 +192,7 @@ export default function HoldListPage() {
                     >
                       <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden="true" />落とす
                     </Button>
+                    )}
                   </span>
                 )}
               </RowSlot>
