@@ -57,6 +57,9 @@ export interface InquiryInput {
   url?: string | null;
   received_at?: string | null;
   notes?: string | null;
+  source?: string | null;
+  /** 渡さなければ**今の値を保つ**（サーバー側も同じ約束） */
+  tags?: string[];
 }
 
 export function useInquiries(params: { importance?: Importance; unhandled?: boolean } = {}) {
@@ -67,9 +70,24 @@ export function useInquiries(params: { importance?: Importance; unhandled?: bool
   });
 }
 
+/**
+ * よく使うタグ。**サーバーが数えたものを使う。**
+ * 画面で数えると、タブを切り替えるたびに同じタグの件数が変わる
+ */
+export function useInquiryTags() {
+  return useQuery({
+    queryKey: ['inquiry-tags'],
+    queryFn: () => api.get('/dailyops/inquiries/tags').then((r) => r.data.data as { tag: string; count: number }[]),
+  });
+}
+
 function useInvalidateInq() {
   const qc = useQueryClient();
-  return () => { qc.invalidateQueries({ queryKey: ['inquiries'] }); qc.invalidateQueries({ queryKey: ['dailyops-alerts'] }); };
+  return () => {
+    qc.invalidateQueries({ queryKey: ['inquiries'] });
+    qc.invalidateQueries({ queryKey: ['inquiry-tags'] });
+    qc.invalidateQueries({ queryKey: ['dailyops-alerts'] });
+  };
 }
 
 export function useCreateInquiry() {
@@ -80,9 +98,31 @@ export function useUpdateInquiry() {
   const inv = useInvalidateInq();
   return useMutation({ mutationFn: ({ id, fields }: { id: string; fields: InquiryInput }) => api.put(`/dailyops/inquiries/${id}`, fields).then((r) => r.data.data as MiscInquiry), onSuccess: inv });
 }
-export function useHandleInquiry() {
+/**
+ * 行き先を動かす（ストック / 見送り / 未仕分けに戻す）。
+ *
+ * **チケットと案件はここでは指定できません** — 実体（タスク・案件）を
+ * 作ったときだけ入る値なので、サーバーが弾きます。
+ */
+export function useMoveInquiry() {
   const inv = useInvalidateInq();
-  return useMutation({ mutationFn: ({ id, handled }: { id: string; handled: boolean }) => api.post(`/dailyops/inquiries/${id}/handle`, { handled }).then((r) => r.data.data as MiscInquiry), onSuccess: inv });
+  return useMutation({
+    mutationFn: ({ id, state }: { id: string; state: 'unsorted' | 'stock' | 'dropped' }) =>
+      api.post(`/dailyops/inquiries/${id}/state`, { state }).then((r) => r.data.data as MiscInquiry),
+    onSuccess: inv,
+  });
+}
+
+export interface TicketInput { title: string; assigned_to?: string; due_at?: string | null; description?: string | null }
+
+/** チケットにする = 案件管理のタスクを1本作る。**2回押しても増えない** */
+export function useMakeTicket() {
+  const inv = useInvalidateInq();
+  return useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: TicketInput }) =>
+      api.post(`/dailyops/inquiries/${id}/ticket`, fields).then((r) => r.data as { data: MiscInquiry; already: boolean }),
+    onSuccess: inv,
+  });
 }
 export function useDeleteInquiry() {
   const inv = useInvalidateInq();

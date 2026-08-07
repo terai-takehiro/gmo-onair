@@ -170,8 +170,22 @@ kind と運用契約:
 |---|---|---|
 | `record_finance_doc` | write | メール受信の 見積書/請求書/注文書 を取込 (doc_type / 送付者 / 金額 / 締月 / 支払期日 / message_id で重複ガード)。status=new。承認/却下/処理完了は人がアプリで操作 |
 | `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
-| `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / category / action_needed を付与 |
-| `list_inquiries` | read | その他問い合わせの一覧 (importance / unhandled) |
+| `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / source / tags / action_needed を付与 |
+| `list_inquiries` | read | その他問い合わせの一覧 (importance / **state** / **tag** / unhandled) |
+
+**v4 大②: 出どころ・行き先・タグを持つようになりました**（migration 171）。
+
+| 引数 | 中身 |
+|---|---|
+| `source` | 出どころ `mail` / `slack` / `phone` / `talk`（既定 `mail`）。**旧 `email` は `mail` に読み替えます** |
+| `tags` | 後から引くための短い語を1〜3個（8個まで・各24文字まで）。旧 `category` は tags の1つ目として畳まれます |
+
+- **行き先 (`state`) は AI が決めません。** 取り込んだものは必ず「未仕分け」で入り、人が
+  ストック / チケット（案件管理のタスクになる）/ 案件の受付へ送る / 見送り のどれかに仕分けます
+- その仕分けの結果は `get_ai_feedback_digest`（`kind=inquiry_intake`）の **`inquiry.dropped_rate`
+  （見送り率）** として返ってきます。**取り込む前に一度読み、拾いすぎていないかを確かめること**
+- AI が入れた行かどうかは `ai_outputs` に記録があるかで判定します。
+  **`source` は出どころであって「誰が入れたか」ではありません**（v4 より前は混同していました）
 
 **v4: メールの中身を「読める形」で渡せるようになりました**（migration 160）。
 `record_finance_doc` / `record_inquiry` に**任意の引数**が2つ増えています。
@@ -194,7 +208,22 @@ kind と運用契約:
 
 > ⚠️ **本番のメール取込スキルは `/root/.claude/skills/sales-mail-gmoonair/` にあり Git 管理外です。**
 > ツール側に引数を足しても**スキルが追随しないと1件も埋まりません**。
-> スキルの手順6（notes に全部詰める）を、`details` を渡す形に直す必要があります。
+> このリポジトリからは触れないので、**人が直す必要があります**。
+>
+> **スキルに入れる変更（3つ）**
+> 1. 手順6（`notes` に全部詰める）を `details` ＋ `body_text` を渡す形に直す（migration 160 の分・未対応）
+> 2. `record_inquiry` に **`source`** を渡す。メールからの取込なら `mail`。
+>    Slack を読ませているなら `slack`（渡さないと全部メール扱いになり、出どころ別の内訳が嘘になる）
+> 3. `category`（1つ）をやめて **`tags`（配列）** を渡す。
+>    協業 / 取材 / 採用 / 設備 / 営業資料 / 先の話 など短い語を1〜3個。
+>    関係する GLS 番号が分かるならそれもタグに入れる
+>
+> **加えて、取り込む前に `get_ai_feedback_digest`（`kind=inquiry_intake`）を1回読む**手順を
+> 冒頭に足してください。見送り率が返るので、**拾いすぎていれば次の実行から絞れます**
+> （これが無いと、人が毎朝見送っている労力がどこにも戻りません）。
+>
+> **直すまでの間も壊れません** — `source` を渡さなければ `mail`、`category` だけでも
+> tags の1つ目として入ります。ただし**出どころ別の内訳とタグの引き直しは効きません**。
 
 ### スタジオ セキュリティカード (dailyops — security cards)
 GMOサムライスタジオ用賀のセキュリティカード 24 枚。カードはセキュリティレベルに応じて解錠できる部屋が異なる。貸出対応者は GMO ONAiR ユーザー。

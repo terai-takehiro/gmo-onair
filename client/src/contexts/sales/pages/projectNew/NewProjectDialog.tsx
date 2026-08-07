@@ -38,6 +38,7 @@ import {
   CREATABLE_STAGES, EMPTY_NEW_PROJECT, RECURRENCE_LABEL, WANTS_HINTS,
   missingOf, type NewProjectValues,
 } from './fields';
+import { useInquirySeed, linkInquiryToProject } from './fromInquiry';
 
 interface Named { id: string; name: string; short_name?: string | null }
 
@@ -93,6 +94,9 @@ export default function NewProjectDialog() {
 
   const missing = useMemo(() => missingOf(v), [v]);
 
+  const inquiryId = params.get('inquiry');
+  const inquiry = useInquirySeed(inquiryId, setV);
+
   const create = useMutation({
     mutationFn: async () => {
       const body: Record<string, unknown> = {
@@ -123,9 +127,19 @@ export default function NewProjectDialog() {
       }
       return (await api.post('/projects', body)).data.data as { id: string; code: string };
     },
-    onSuccess: (row) => {
+    onSuccess: async (row) => {
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+      // 元の情報に「案件になった」と書き戻す。**これが無いと未仕分けに残り、
+      // 翌日また送られて同じ引き合いから案件が2件できる**。
+      // 書き戻せなくても案件は出来ているので、**作成そのものは失敗にしない**
+      if (inquiryId) {
+        try {
+          await linkInquiryToProject(inquiryId, row.id);
+        } catch (e) {
+          notifyApiError('案件はつくれましたが、元の情報に印を付けられませんでした', e);
+        }
+      }
       notifySuccess('案件をつくりました', {
         description: v.first_task_title.trim()
           ? '最初のタスクも入れました。'
@@ -166,6 +180,27 @@ export default function NewProjectDialog() {
           つくる
         </Button>
       </div>
+
+      {inquiry && (
+        <p className={`border-b px-4 py-2 text-sub lg:px-6 ${inquiry.project_id
+          ? 'border-warning-border bg-warning-surface text-warning'
+          : 'border-info-border bg-info-surface text-secondary-foreground'}`}
+        >
+          {inquiry.project_id ? (
+            <>
+              この情報はすでに <strong className="font-bold">「{inquiry.project_name}」</strong> になっています。
+              このまま作ると<strong className="font-bold">同じ引き合いから案件が2件</strong>できます。
+              直したいだけなら、その案件を開いてください。
+            </>
+          ) : (
+            <>
+              日常業務の<strong className="font-bold">「入ってきた情報」</strong>から起こしています。
+              件名・要約・原文を写しました。<strong className="font-bold">お客様は選び直してください</strong>
+              （どの会社かは情報からは決められません）。
+            </>
+          )}
+        </p>
+      )}
 
       {missing.length > 0 && (
         <p className="border-b border-warning-border bg-warning-surface px-4 py-2 text-sub text-warning lg:px-6">

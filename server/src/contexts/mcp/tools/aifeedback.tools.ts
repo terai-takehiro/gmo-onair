@@ -30,7 +30,9 @@ export function registerAiFeedbackTools(server: McpServer): void {
         '`by_model` はモデル / プロンプト版ごとの無修正採用率で、改善したかを比較する単位。' +
         '`intake` (kind=task_intake のとき) は誤検知率 (人がチェックを外した割合) と、' +
         '投入から生まれたタスクの期限内完了率を含む。' +
-        '誤検知率が高いなら拾いすぎ、期限内完了率が低いなら置いた期限が短すぎる疑いがある。',
+        '誤検知率が高いなら拾いすぎ、期限内完了率が低いなら置いた期限が短すぎる疑いがある。' +
+        '`inquiry` (kind=inquiry_intake のとき) は取り込んだ情報の行き先 ' +
+        '(チケット / 案件 / ストック / 見送り) と見送り率。**見送り率が高いなら拾いすぎ。**',
       inputSchema: {
         kind: z
           .string()
@@ -38,7 +40,9 @@ export function registerAiFeedbackTools(server: McpServer): void {
           .describe(
             'AI出力の種別 (既定 estimate_draft)。記録があるのは ' +
             'estimate_draft (見積の下書き) / task_intake (投入欄からのタスク下書き) / ' +
-            'project_draft (create_project で起票したネタ案件。受付で人が直した差分が入る)'
+            'project_draft (create_project で起票したネタ案件。受付で人が直した差分が入る) / ' +
+            'inquiry_intake (record_inquiry で取り込んだ情報。仕分けの行き先と見送り率が入る) / ' +
+            'finance_doc_intake (record_finance_doc で取り込んだ書類)'
           ),
         window_days: z
           .number()

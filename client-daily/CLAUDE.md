@@ -10,7 +10,7 @@
 | デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
 | 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
-| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` |
+| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,SidePanels,TicketDialog,InquiryDialog}.tsx` |
 | セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
 
 - `pages/TasksPage` は**案件管理へ寄せる**方針（v4 では `/daily/tasks` を案件管理のタスクへ転送）。
@@ -28,6 +28,24 @@
 - **内覧会**: 検索は**回をまたぐ**（申し込んだ回を覚えていない人が普通にいる）。
   正規化は NFKC → 小文字 → カタカナをひらがなへ → 区切り記号を落とす（`pages/inview/logic.ts`）。
   **同行者は1人ずつ受付**する（代表だけ先に来るのが普通）。受付人数は**組数ではなく人数**で数える
+- **入ってきた情報**は「届いたものを4つの行き先に仕分ける台」（migration 171）。
+  - **正は `state` の1本**（未仕分け / ストック / チケット / 案件にした / 見送り）。
+    `handled_at` は「誰がいつ触ったか」の記録として残っているが、**絞り込みには使わない**
+    （両方で絞れるようにすると片方だけ動いた行が一覧から消える）
+  - **チケット = 案件管理のタスク。** `project_tasks` を1本作り（`project_id` は空・
+    `source='inquiry'` / `source_ref=<情報の id>`）、`misc_inquiries.task_id` で結ぶ。
+    **2回押しても増えない**（既にあればそれを返す）
+  - **案件はこの画面では作らない。** `/sales/projects/new?inquiry=<id>` へ送り、
+    案件管理の登録モーダルが作ってから `POST /dailyops/inquiries/:id/link-project` で
+    書き戻す。写しの登録画面を作ると必須項目が片方だけ増えて食い違う
+  - **モックのタブは4つだが5つにしてある。** 「案件の受付へ送る」の置き場が無く、
+    そのままだと送ったものが未仕分けに残り続け、**翌日また送って案件が2件できる**。
+    理由は `pages/inquiries/state.ts` の冒頭
+  - **チケット・案件から戻しても、作ったタスク・案件は消さない。** 結びつきだけ外す
+  - **AI の印は `source` では判定しない。** `ai_outputs`(kind=`inquiry_intake`) に
+    記録があるかで決める（`source` は出どころで、誰が入れたかではない）
+  - **タグの件数はサーバーが数える**（`GET /dailyops/inquiries/tags`）。
+    画面で数えるとタブを切り替えるたびに同じタグの件数が変わる
 - **セキュリティカード**は機材の貸出とは**別台帳**（エリア解錠権限で分かれる。24枚・10エリア）。
   **レベルは DB（migration 133 の6つ: master / room_a / room_b / room_c / meeting / vip）が正**。
   v4 のモックはレベルを3つに畳んでいるが**実データと一致しないので採らない**

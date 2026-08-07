@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { financeDocService, inquiryService, FINANCE_DOC_TYPES, FINANCE_DOC_STATUSES } from '../../dailyops/services/inbox.service';
+import { financeDocService, inquiryService, FINANCE_DOC_TYPES, FINANCE_DOC_STATUSES, INQUIRY_STATES } from '../../dailyops/services/inbox.service';
 import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { RICH_CONTENT_ARGS } from './richContentSchema';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
@@ -97,13 +97,23 @@ export function registerInboxTools(server: McpServer): void {
         '他のどのカテゴリ (案件・営業活動・見積/請求・内覧会) にも属さないメールのうち、' +
         '**弊社にとって有益なもの** だけを登録する。' +
         '⚠️ 次のメールは登録しない (呼び出し前に AI が除外すること): 外部からの営業・売り込み / スパム / メルマガ・広告 / 自動通知の類 / 既に他ツールで扱う内容 (見積請求→record_finance_doc、内覧会→register_inview_attendee、案件の問い合わせ→create_project/create_activity_log)。' +
-        'summary は内容の1行要約、importance は high(要即対応)/medium/low、category は分類タグ (協業・取材・採用・技術相談 等の自由文字列)、action_needed は推奨アクションを簡潔に。' +
-        'message_id を渡すと再取込時に重複せず更新される。',
+        'summary は内容の1行要約、importance は high(要即対応)/medium/low、action_needed は推奨アクションを簡潔に。' +
+        'source は出どころ (mail / slack / phone / talk)。tags は後から引くための短い語を1〜3個 ' +
+        '(協業・取材・採用・設備・営業資料・先の話 など。関係する GLS 番号があればそれもタグに入れてよい)。' +
+        '\n\n**行き先 (state) は AI が決めない。** 取り込んだものは必ず「未仕分け」で入り、' +
+        '人が ストック / チケット(案件管理のタスクになる) / 案件の受付へ送る / 見送り のどれかに仕分ける。' +
+        'その仕分けの結果は `get_ai_feedback_digest` (kind=inquiry_intake) の見送り率として返ってくるので、' +
+        '**取り込む前に一度読み、拾いすぎていないかを確かめること。**' +
+        '\n\nmessage_id を渡すと再取込時に重複せず更新される。',
       inputSchema: {
         summary: z.string().min(1).describe('内容の1行要約 (必須)'),
-        sender: z.string().optional().describe('送信者 (氏名・会社)'),
-        subject: z.string().optional().describe('メール件名'),
-        category: z.string().optional().describe('分類タグ (協業/取材/採用/技術相談 等・自由)'),
+        sender: z.string().optional().describe('送信者 (氏名・会社・Slack のチャンネルと人)'),
+        subject: z.string().optional().describe('メール件名 / スレッド名'),
+        source: z.enum(['mail', 'slack', 'phone', 'talk']).optional()
+          .describe('出どころ mail=メール / slack=Slack / phone=電話メモ / talk=口頭 (既定 mail)'),
+        tags: z.array(z.string()).max(8).optional()
+          .describe('後から引くための短い語 (1〜3個推奨・各24文字まで)。例: 協業 / 取材 / 採用 / 設備 / GLS-2607-009'),
+        category: z.string().optional().describe('【旧】分類。tags の1つ目として扱われる。新しくは tags を使う'),
         importance: z.enum(['high', 'medium', 'low']).optional().describe('重要度 (既定 medium)'),
         action_needed: z.string().optional().describe('推奨アクション (誰が何をすべきか)'),
         url: z.string().optional(),
@@ -114,24 +124,26 @@ export function registerInboxTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
+      // `category` は tags の1つ目として畳む（両方来たら tags を優先）
+      const tags = args.tags?.length ? args.tags : args.category ? [args.category] : [];
       const { row, action } = await inquiryService.create({
         summary: args.summary, sender: args.sender ?? null, subject: args.subject ?? null,
-        category: args.category ?? null, importance: args.importance ?? 'medium',
+        tags, importance: args.importance ?? 'medium',
         action_needed: args.action_needed ?? null, url: args.url ?? null,
-        received_at: args.received_at ?? null, source: 'email', message_id: args.message_id ?? null,
+        received_at: args.received_at ?? null, source: args.source ?? 'mail', message_id: args.message_id ?? null,
         details: args.details, body_text: args.body_text ?? null,
         requested_by: args.requested_by ?? null, created_by: currentActorId(),
       });
-      audit('record_inquiry', { subject: args.subject, sender: args.sender, importance: args.importance, category: args.category },
+      audit('record_inquiry', { subject: args.subject, sender: args.sender, importance: args.importance, source: args.source, tags },
         { id: row.id, action }, args.requested_by);
       await recordAiOutput({
         kind: INQUIRY_INTAKE_KIND,
         targetTable: 'misc_inquiries', targetId: String(row.id),
         payload: args, toolName: 'record_inquiry',
         actorId: currentActorId(), requestedBy: args.requested_by ?? null,
-        sourceChannel: 'email', messageId: args.message_id ?? null,
+        sourceChannel: args.source ?? 'mail', messageId: args.message_id ?? null,
       });
-      return ok({ [action]: true, id: row.id, action, importance: row.importance });
+      return ok({ [action]: true, id: row.id, action, importance: row.importance, state: row.state });
     }),
   );
 
@@ -139,14 +151,21 @@ export function registerInboxTools(server: McpServer): void {
     'list_inquiries',
     {
       title: 'その他問い合わせの一覧',
-      description: 'その他問い合わせを一覧する。importance で絞り込み、unhandled=true で未対応のみ。',
+      description:
+        'その他問い合わせを一覧する。importance / state / tag で絞り込める。' +
+        'state は unsorted(未仕分け) / stock(ストック) / ticket(チケットにした) / project(案件にした) / dropped(見送り)。' +
+        'unhandled=true は未仕分けのみ (state=unsorted と同じ)。',
       inputSchema: {
         importance: z.enum(['high', 'medium', 'low']).optional(),
-        unhandled: z.boolean().optional().describe('true で未対応のみ'),
+        state: z.enum(INQUIRY_STATES).optional().describe('行き先で絞る'),
+        tag: z.string().optional().describe('このタグが付いたものだけ'),
+        unhandled: z.boolean().optional().describe('true で未仕分けのみ'),
       },
     },
     async (args) => runTool(async () => {
-      const rows = await inquiryService.list({ importance: args.importance, unhandledOnly: args.unhandled });
+      const rows = await inquiryService.list({
+        importance: args.importance, state: args.state, tag: args.tag, unhandledOnly: args.unhandled,
+      });
       return ok({ total: rows.length, inquiries: rows });
     }),
   );

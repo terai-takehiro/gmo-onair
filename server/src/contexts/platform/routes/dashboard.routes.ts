@@ -326,7 +326,9 @@ router.get('/inbox', async (req, res) => {
           `SELECT id, sender, subject, summary, category, importance, action_needed, url,
                   received_at, created_at
            FROM misc_inquiries
-           WHERE deleted_at IS NULL AND handled_at IS NULL
+           -- 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
+           -- 記録が打たれていない行が受信箱に残り続ける
+           WHERE deleted_at IS NULL AND state = 'unsorted'
            ORDER BY created_at ASC
            LIMIT 100`
         )

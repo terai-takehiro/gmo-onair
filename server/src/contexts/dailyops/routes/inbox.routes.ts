@@ -97,9 +97,29 @@ router.post('/finance-docs/:id/handoff/undo', ...docsEdit, async (req, res) => {
 router.get('/inquiries', ...canRead, async (req, res) => {
   const rows = await inquiryService.list({
     importance: req.query.importance ? String(req.query.importance) : undefined,
+    state: req.query.state ? String(req.query.state) : undefined,
+    tag: req.query.tag ? String(req.query.tag) : undefined,
     unhandledOnly: req.query.unhandled === '1' || req.query.unhandled === 'true',
   });
   res.json({ success: true, data: rows });
+});
+
+/** よく使うタグ。**画面で数えない**（絞り込むたびに件数が変わってしまう） */
+router.get('/inquiries/tags', ...canRead, async (_req, res) => {
+  res.json({ success: true, data: await inquiryService.tagStats() });
+});
+
+/**
+ * 1件だけ読む。**案件管理からも読む**ので `sales` でも通す。
+ *
+ * 「案件の受付へ送る」は案件登録モーダル（案件管理アプリ）へ中身を持っていく形なので、
+ * 送り先の画面がこれを読みます。`dailyops` だけを要求すると、
+ * **営業の人が送られてきた中身を見られません**。
+ */
+router.get('/inquiries/:id', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'reader'), async (req, res) => {
+  const row = await inquiryService.getById(String(req.params.id));
+  if (!row) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
+  res.json({ success: true, data: row });
 });
 
 router.post('/inquiries', ...canEdit, async (req, res) => {
@@ -113,10 +133,39 @@ router.put('/inquiries/:id', ...canEdit, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/inquiries/:id/handle', ...canEdit, async (req, res) => {
-  const handled = req.body?.handled !== false; // 既定 true
-  const row = await inquiryService.setHandled(String(req.params.id), handled, req.user!.name);
+/**
+ * 行き先を動かす（ストックする / 見送りにする / 未仕分けに戻す）。
+ *
+ * 旧 `POST /inquiries/:id/handle`（対応済みの入切）はここに畳みました。
+ * 「対応済み」の1つでは、ストックしたのか見送ったのかチケットにしたのかが
+ * 区別できず、**あとで引き直せません**。
+ */
+router.post('/inquiries/:id/state', ...canEdit, async (req, res) => {
+  const row = await inquiryService.setState(String(req.params.id), String(req.body?.state ?? ''), req.user!.name);
   res.json({ success: true, data: row });
+});
+
+/** チケットにする = 案件管理のタスクを1本作る */
+router.post('/inquiries/:id/ticket', ...canEdit, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const result = await inquiryService.makeTicket(String(req.params.id), {
+    title: typeof b.title === 'string' ? b.title : null,
+    assigned_to: typeof b.assigned_to === 'string' ? b.assigned_to : null,
+    due_at: typeof b.due_at === 'string' ? b.due_at : null,
+    description: typeof b.description === 'string' ? b.description : null,
+  }, req.user!.id, req.user!.name);
+  res.status(result.already ? 200 : 201).json({ success: true, data: result.row, already: result.already, task_id: result.task_id });
+});
+
+/**
+ * 案件の受付へ送った結果を書き留める。**書くのは案件管理の画面から**なので
+ * `sales` でも通す（`dailyops` を持たない営業が案件を作った直後に呼ぶ）。
+ */
+router.post('/inquiries/:id/link-project', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor'), async (req, res) => {
+  const projectId = String((req.body ?? {}).project_id ?? '');
+  if (!projectId) throw new AppError(400, 'VALIDATION_ERROR', '案件を指定してください');
+  const result = await inquiryService.linkProject(String(req.params.id), projectId, req.user!.name);
+  res.json({ success: true, data: result.row, already: result.already });
 });
 
 router.delete('/inquiries/:id', ...canEdit, async (req, res) => {
