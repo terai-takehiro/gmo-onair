@@ -15,16 +15,25 @@
  *   要約      伸びる ここだけが伸びる
  *   メモ      160px  (180px の直書きだった)
  *   記入者    96px   AI が入れたものはアイコンを付ける
- *   操作      96px   編集・削除
+ *   操作      128px  週報へ送る・編集・削除
+ *
+ * ── 「週報に送る」(モックのボタン・migration 167) ────────────
+ *
+ * 押すと**その日が属する週の週報へ写します**（移すのではなく写す —
+ * ニュースはその日の記録として残り続けるため）。週は**ニュースの日付**で
+ * 決まるので、金曜のぶんを月曜に送っても先週の週報に入ります。
+ *
+ * 送り済みの行は**押せない印**にします（消すと「送ったか分からない」に戻る）。
+ * 週報側でその行を消せば、また送れるようになります。
  */
 import { useState } from 'react';
-import { Bot, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Bot, CheckCheck, ExternalLink, Pencil, Send, Trash2 } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { Button } from '@/components/ui/button';
-import { useDeleteItem, useUpdateItem } from '@/lib/reportsApi';
+import { useDeleteItem, useSendToWeekly, useUpdateItem } from '@/lib/reportsApi';
 import type { OpsReportItem } from '@/lib/types';
 import { NewsForm, type NewsFields } from './NewsForm';
 
@@ -37,7 +46,7 @@ export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
       <RowMain>要約</RowMain>
       <RowSlot w={160}>メモ</RowSlot>
       <RowSlot w={96}>記入者</RowSlot>
-      {canEdit && <RowSlot w={96} />}
+      {canEdit && <RowSlot w={128} />}
     </RowHeader>
   );
 }
@@ -45,7 +54,17 @@ export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
 export function NewsRow({ item, canEdit }: { item: OpsReportItem; canEdit: boolean }) {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
+  const sendToWeekly = useSendToWeekly();
   const [editing, setEditing] = useState(false);
+
+  const toWeekly = () => sendToWeekly.mutate(item.id, {
+    onSuccess: (r) => notifySuccess(
+      r.already
+        ? 'この行はすでに週報へ送られています'
+        : `${r.weekStart} の週の週報に写しました`,
+    ),
+    onError: (e) => notifyApiError('週報に送れませんでした', e),
+  });
 
   const setPick = (pick: number | null) =>
     updateItem.mutate({ itemId: item.id, fields: { pick } }, {
@@ -158,8 +177,20 @@ export function NewsRow({ item, canEdit }: { item: OpsReportItem; canEdit: boole
       </RowSlot>
 
       {canEdit && (
-        <RowSlot w={96} placeholder="">
+        <RowSlot w={128} placeholder="">
           <span className="flex gap-0.5">
+            <Button
+              variant="ghost" size="icon"
+              className={`min-h-tap lg:min-h-[36px] ${item.sent_to_weekly ? 'text-success' : ''}`}
+              disabled={item.sent_to_weekly || sendToWeekly.isPending}
+              onClick={toWeekly}
+              aria-label={item.sent_to_weekly ? '週報に送り済み' : '週報に送る'}
+              title={item.sent_to_weekly ? 'この行は週報へ送り済みです' : 'この日が入る週の週報へ写します'}
+            >
+              {item.sent_to_weekly
+                ? <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                : <Send className="h-4 w-4" aria-hidden="true" />}
+            </Button>
             <Button variant="ghost" size="icon" className="min-h-tap lg:min-h-[36px]" onClick={() => setEditing(true)} aria-label="編集">
               <Pencil className="h-4 w-4" aria-hidden="true" />
             </Button>

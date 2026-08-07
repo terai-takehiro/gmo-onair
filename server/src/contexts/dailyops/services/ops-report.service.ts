@@ -178,12 +178,83 @@ export const opsReportService = {
   },
 
   async getReportItems(reportId: string): Promise<Record<string, unknown>[]> {
+    /**
+     * `sent_to_weekly` は**この行がもう週報へ送られているか** (migration 167)。
+     * ニュース側のボタンを「送る / 送り済み」で出し分けるために要る。
+     * 週報側の行は `source_item_id` を自分で持っているのでそのまま読める。
+     */
     return queryAll(
-      `SELECT * FROM ops_report_items
-       WHERE report_id = ? AND deleted_at IS NULL
-       ORDER BY sort_order ASC, created_at ASC`,
+      `SELECT i.*,
+              EXISTS (SELECT 1 FROM ops_report_items w
+                       WHERE w.source_item_id = i.id AND w.deleted_at IS NULL) AS sent_to_weekly
+         FROM ops_report_items i
+        WHERE i.report_id = ? AND i.deleted_at IS NULL
+        ORDER BY i.sort_order ASC, i.created_at ASC`,
       [reportId],
     );
+  },
+
+  /**
+   * デイリーニュースの1行を**その日が属する週の週報へ写す** (migration 167)。
+   *
+   * ── なぜ「移す」ではなく「写す」なのか ──────────────────────
+   *
+   * ニュースはその日の記録として残り続けます。移してしまうと
+   * 「その日に何があったか」が後から読めなくなります。
+   *
+   * ── 週は「ニュースの日付」で決める ──────────────────────────
+   *
+   * 押した日ではありません。金曜のニュースを月曜に送っても、**先週の週報**に
+   * 入ります（押した日の週にすると、週明けにまとめる運用で全部ずれる）。
+   *
+   * ── 2回押しても増えない ────────────────────────────────────
+   *
+   * `source_item_id` に部分一意索引を張ってあります。すでに送っていれば
+   * 何もせず `already: true` を返します（エラーにすると、押した人には
+   * 「壊れた」ようにしか見えない）。
+   */
+  async sendItemToWeekly(
+    itemId: string,
+    userId: string,
+  ): Promise<{ already: boolean; weekStart: string; item: Record<string, unknown> }> {
+    const src = await queryOne(
+      `SELECT i.*, r.kind, r.period_key
+         FROM ops_report_items i
+         JOIN ops_reports r ON r.id = i.report_id
+        WHERE i.id = ? AND i.deleted_at IS NULL`,
+      [itemId],
+    ) as Record<string, unknown> | undefined;
+    if (!src) throw new AppError(404, '行が見つかりません', 'NOT_FOUND');
+    if (src.kind !== 'daily_news') {
+      throw new AppError(400, '週報へ送れるのはデイリーニュースの行だけです', 'VALIDATION_ERROR');
+    }
+
+    const weekStart = normalizeWeekStart(String(src.period_key));
+
+    const dup = await queryOne(
+      `SELECT * FROM ops_report_items WHERE source_item_id = ? AND deleted_at IS NULL`,
+      [itemId],
+    ) as Record<string, unknown> | undefined;
+    if (dup) return { already: true, weekStart, item: dup };
+
+    const weekly = await this.ensureReport('weekly_activity', weekStart, userId);
+    const maxRow = await queryOne(
+      `SELECT COALESCE(MAX(sort_order), 0) AS m FROM ops_report_items WHERE report_id = ?`,
+      [weekly.id],
+    );
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO ops_report_items
+         (id, report_id, category, content, note, url, ai_related, pick, recorded_by, source, sort_order, source_item_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'human', ?, ?)`,
+      [
+        id, weekly.id, src.category ?? null, src.content, src.note ?? null, src.url ?? null,
+        src.ai_related ?? null, src.pick ?? null, userId,
+        Number(maxRow?.m ?? 0) + 1, itemId,
+      ],
+    );
+    const item = await queryOne(`SELECT * FROM ops_report_items WHERE id = ?`, [id]);
+    return { already: false, weekStart, item: item! };
   },
 
   async getReportById(id: string): Promise<Record<string, unknown> | undefined> {

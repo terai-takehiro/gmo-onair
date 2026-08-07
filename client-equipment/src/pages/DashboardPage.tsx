@@ -8,12 +8,14 @@
  * **ケーブルとコネクタの合計本数をここでも数えていました**
  * (機材台帳が数えているのと同じもの = 同じものを2か所で数えない)。
  *
- * ── モックにあって出さないもの ────────────────────────────
+ * ── 本日・明日の入出庫 (モックどおり・migration 168) ──────────
  *
- * モックの「本日・明日の入出庫」は**予定**を出しますが、`equipment_lendings` は
- * 持ち出した瞬間に作られる記録で、**「これから出す予定」を持っていません**。
- * 数えられないものをそれらしく出さないので、代わりに
- * **返却予定日が近い/過ぎているもの**を出します (こちらは持っている値です)。
+ * **出庫は予定** (`equipment_lendings.status = 'planned'` ＋ `planned_out_date`)、
+ * **入庫は返却予定日**で数えます。貸出の行は持ち出した瞬間に作られるので、
+ * 出す予定を `lent_at` で代用すると「まだ出していないのに貸出中」になります。
+ *
+ * 予定を1件も入れていないうちは 0 が並びます。**それは正しい 0** です
+ * (「予定を入れていない」ことが見える)。下の「返してもらう」が実物の一覧です。
  */
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -29,6 +31,8 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonKpi, SkeletonRows } from '@gmo
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 
 interface Stats {
+  /** 本日・明日の入出庫 (migration 168)。出庫は予定・入庫は返却予定日 */
+  in_out: { out_today: number; out_tomorrow: number; in_today: number; in_tomorrow: number };
   total_items: number;
   active_items: number;
   in_repair: number;
@@ -47,6 +51,19 @@ interface Stats {
 }
 
 const md = (d: string | null) => (d && d.length >= 10 ? `${d.slice(5, 7)}/${d.slice(8, 10)}` : '—');
+
+/** 入出庫の1つ。**0 も出す** — 隠すと「読み込み中」に見える */
+function InOut({ label, n }: { label: string; n: number }) {
+  return (
+    <div className="min-w-0 px-1">
+      <p className="text-note truncate text-muted-foreground">{label}</p>
+      <p className="mt-0.5 flex items-baseline gap-1">
+        <span className={`font-number text-h2 ${n > 0 ? '' : 'text-fg-disabled'}`}>{n}</span>
+        <span className="text-note text-muted-foreground">点</span>
+      </p>
+    </div>
+  );
+}
 
 /** 返却予定日から「あと何日 / 何日超過」を出す。日付が無ければ null */
 function dueIn(due: string | null): number | null {
@@ -146,6 +163,29 @@ export default function DashboardPage() {
               to="/equipment/inventory"
             />
           </div>
+
+          {/* 本日・明日の入出庫。**4つの数字を1枚に**（モックの並び）。
+              押すと貸出・返却の画面へ行く */}
+          <section className="rounded-card border border-border bg-card p-4 lg:px-5" aria-labelledby="eq-inout">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <h2 id="eq-inout" className="text-cardtitle flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />本日・明日の入出庫
+              </h2>
+              <p className="text-note text-muted-foreground">
+                出庫は登録した予定、入庫は返却予定日で数えています
+              </p>
+              <div className="flex-1" />
+              <Link to="/equipment/lendings" className="text-sub font-bold text-primary hover:underline">
+                貸出・返却へ →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-y-3 lg:grid-cols-4">
+              <InOut label="今日 出す" n={s.in_out?.out_today ?? 0} />
+              <InOut label="明日 出す" n={s.in_out?.out_tomorrow ?? 0} />
+              <InOut label="今日 返る" n={s.in_out?.in_today ?? 0} />
+              <InOut label="明日 返る" n={s.in_out?.in_tomorrow ?? 0} />
+            </div>
+          </section>
 
           <section className="flex flex-col gap-2" aria-labelledby="eq-overdue">
             <div className="flex items-center gap-2">

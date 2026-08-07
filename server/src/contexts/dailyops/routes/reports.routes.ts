@@ -70,6 +70,17 @@ router.post('/reports/:id/items', ...canEdit, async (req, res) => {
   res.status(201).json({ success: true, data: report });
 });
 
+/**
+ * デイリーニュースの行を**その日が属する週の週報へ写す** (migration 167)。
+ *
+ * 移すのではなく写す — ニュースはその日の記録として残り続ける。
+ * 2回押しても増えない（`already: true` を返すだけ）。
+ */
+router.post('/items/:itemId/to-weekly', ...canEdit, async (req, res) => {
+  const r = await opsReportService.sendItemToWeekly(String(req.params.itemId), req.user!.id);
+  res.json({ success: true, data: r });
+});
+
 // 行編集
 router.put('/items/:itemId', ...canEdit, async (req, res) => {
   const { category, content, note, url, ai_related, pick } = req.body ?? {};

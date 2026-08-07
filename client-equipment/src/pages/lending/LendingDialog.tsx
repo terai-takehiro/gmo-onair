@@ -37,6 +37,8 @@ export interface LendingPayload {
   due_date: string | null;
   notes: string;
   project_id: string | null;
+  /** 出庫予定日 (migration 168)。入れると「予定」の行になり、まだ持ち出していない扱いになる */
+  planned_out_date: string | null;
 }
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -56,6 +58,8 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
   const [form, setForm] = useState({
     borrower_name: '', purpose: '', lent_at: today(), due_date: '', notes: '', project_id: '',
   });
+  /** 出庫予定として登録するか (migration 168)。入だと「まだ持ち出していない」行になる */
+  const [planned, setPlanned] = useState(false);
 
   const lendable = useQuery({
     queryKey: ['equipment-lendable'],
@@ -114,6 +118,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
     setKind('standalone');
     setProjectSearch('');
     setForm({ borrower_name: '', purpose: '', lent_at: today(), due_date: '', notes: '', project_id: '' });
+    setPlanned(false);
   };
 
   return (
@@ -321,9 +326,27 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
                 placeholder="夏フェス 中継"
               />
             </div>
+            {/* **予定と実物を分ける** (migration 168)。予定の行は「まだ外に出ていない」ので、
+                貸出中の一覧には出ず、ダッシュボードの「今日/明日 出す」に出る。
+                入れておかないと、先の予定を入れた瞬間に「いま貸出中」になってしまう */}
+            <label className="flex min-h-tap cursor-pointer items-start gap-2 rounded-control border border-border bg-surface-subtle p-3 lg:min-h-[44px]">
+              <input
+                type="checkbox"
+                checked={planned}
+                onChange={(e) => setPlanned(e.target.checked)}
+                className="mt-0.5 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="text-list block">まだ持ち出さない（出庫の予定として登録する）</span>
+                <span className="text-sub-sm block text-muted-foreground">
+                  予定のあいだは「貸出中」になりません。出した日に一覧の「出した」を押します
+                </span>
+              </span>
+            </label>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>持ち出す日</Label>
+                <Label>{planned ? '出庫の予定日' : '持ち出す日'}</Label>
                 <Input type="date" value={form.lent_at} onChange={(e) => setForm((f) => ({ ...f, lent_at: e.target.value }))} />
               </div>
               <div className="space-y-1">
@@ -346,11 +369,12 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
                   notes: form.notes,
                   due_date: form.due_date || null,
                   project_id: kind === 'program' ? (form.project_id || null) : null,
+                  planned_out_date: planned ? (form.lent_at || null) : null,
                 })}
                 disabled={!form.borrower_name || (kind === 'program' && !form.project_id) || saving}
               >
                 {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                {selectedIds.size} 台の貸出を記録
+                {selectedIds.size} 台を{planned ? '出庫予定に入れる' : '貸出として記録'}
               </Button>
             </div>
           </div>

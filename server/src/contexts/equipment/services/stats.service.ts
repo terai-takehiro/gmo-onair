@@ -76,7 +76,30 @@ export const statsService = {
       /* 同上 */
     }
 
+    /**
+     * 「本日・明日の入出庫」(モックのダッシュボード・migration 168)。
+     *
+     * **出庫は予定 (`status='planned'`)、入庫は返却予定日**で数える。
+     * 貸出の行は持ち出した瞬間に作られるので、出す予定を `lent_at` で
+     * 代用すると「まだ出していないのに貸出中」になる。
+     */
+    const inOut = (await queryOne(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'planned' AND planned_out_date = CURRENT_DATE::text)::int  AS out_today,
+         COUNT(*) FILTER (WHERE status = 'planned' AND planned_out_date = (CURRENT_DATE + 1)::text)::int AS out_tomorrow,
+         COUNT(*) FILTER (WHERE status = '${EQUIPMENT_LENDING_STATUS.LENT}' AND due_date = CURRENT_DATE::text)::int AS in_today,
+         COUNT(*) FILTER (WHERE status = '${EQUIPMENT_LENDING_STATUS.LENT}' AND due_date = (CURRENT_DATE + 1)::text)::int AS in_tomorrow
+       FROM equipment_lendings`,
+    )) as Record<string, number> | null;
+
     return {
+      /** 本日・明日の入出庫。出庫は予定の行、入庫は返却予定日 */
+      in_out: {
+        out_today: Number(inOut?.out_today ?? 0),
+        out_tomorrow: Number(inOut?.out_tomorrow ?? 0),
+        in_today: Number(inOut?.in_today ?? 0),
+        in_tomorrow: Number(inOut?.in_tomorrow ?? 0),
+      },
       total_items: toInt(totalItems),
       active_items: toInt(activeItems),
       in_repair: toInt(inRepair),

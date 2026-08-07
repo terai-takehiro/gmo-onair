@@ -22,6 +22,12 @@ export interface CreateInput {
   due_date?: string | null;
   condition_out?: string | null;
   notes?: string | null;
+  /**
+   * 出庫予定日 (migration 168)。**入れると「予定」の行になり、まだ持ち出していない**扱い。
+   * ダッシュボードの「今日/明日 出す」はこれを数える。
+   * 入れなければ従来どおり、その場で持ち出した記録になる。
+   */
+  planned_out_date?: string | null;
 }
 
 export interface BatchCreateInput {
@@ -33,6 +39,8 @@ export interface BatchCreateInput {
   due_date?: string | null;
   condition_out?: string | null;
   notes?: string | null;
+  /** 出庫予定日 (migration 168)。入れると「予定」の行になる（まだ持ち出していない） */
+  planned_out_date?: string | null;
 }
 
 async function findActiveLending(equipmentId: string) {
@@ -72,18 +80,53 @@ export const lendingService = {
     const active = await findActiveLending(input.equipment_id);
     if (active) throw new AppError(400, 'ALREADY_LENT', 'この機材は貸出中です');
 
+    /**
+     * **出庫予定なら「予定」の行にする** (migration 168)。
+     *
+     * 予定は「まだ持ち出していない」ので、二重貸出の判定 (`findActiveLending`) は
+     * `status='lent'` だけを見ます。同じ機材に予定を2本入れられますが、
+     * それは**予定の重なりに気づくため**にわざとそうしています
+     * (予定の段階で弾くと、日付をずらして入れ直すたびに前のを消すことになる)。
+     */
+    const planned = !!input.planned_out_date;
+
     const id = uuid();
     await execute(
-      `INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by, planned_out_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         id, input.equipment_id, input.project_id ?? null, input.borrower_name,
         input.purpose ?? null, input.lent_at, input.due_date ?? null,
         input.condition_out ?? null, input.notes ?? null,
-        EQUIPMENT_LENDING_STATUS.LENT, userId,
+        planned ? 'planned' : EQUIPMENT_LENDING_STATUS.LENT, userId,
+        input.planned_out_date ?? null,
       ],
     );
     return { id };
+  },
+
+  /**
+   * 予定の行を「持ち出した」に変える (migration 168)。
+   *
+   * **予定の行を消して貸出を作り直さない** — 作り直すと、いつ予定を立てたかが
+   * 消え、予定どおりに出せたのかが後から分からなくなります。
+   */
+  async markPlannedAsLent(id: string, userId: string | null): Promise<void> {
+    const row = await queryOne(
+      `SELECT equipment_id FROM equipment_lendings WHERE id = $1 AND status = 'planned'`, [id],
+    ) as { equipment_id: string } | null;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '出庫予定が見つかりません');
+
+    const active = await findActiveLending(row.equipment_id);
+    if (active) throw new AppError(400, 'ALREADY_LENT', 'この機材は貸出中です');
+
+    await execute(
+      `UPDATE equipment_lendings
+          SET status = '${EQUIPMENT_LENDING_STATUS.LENT}', lent_at = CURRENT_DATE::text,
+              lent_by = COALESCE($1, lent_by), updated_at = NOW()
+        WHERE id = $2 AND status = 'planned'`,
+      [userId, id],
+    );
   },
 
   /** 一括貸出。エラーは部分適用 (作成できたもの + エラーリスト) */
@@ -107,13 +150,14 @@ export const lendingService = {
       }
       const id = uuid();
       await execute(
-        `INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        `INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by, planned_out_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           id, equipmentId, input.project_id ?? null, input.borrower_name,
           input.purpose ?? null, input.lent_at, input.due_date ?? null,
           input.condition_out ?? null, input.notes ?? null,
-          EQUIPMENT_LENDING_STATUS.LENT, userId,
+          input.planned_out_date ? 'planned' : EQUIPMENT_LENDING_STATUS.LENT, userId,
+          input.planned_out_date ?? null,
         ],
       );
       createdIds.push(id);

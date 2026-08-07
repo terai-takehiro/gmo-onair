@@ -17,6 +17,10 @@ export interface OpsReportItem {
   recorded_by: string | null;
   source: 'ai' | 'human';
   sort_order: number;
+  /** この行の元になった行 (デイリーニュース → 週報)。手で書いた行は null */
+  source_item_id?: string | null;
+  /** この行はもう週報へ送ったか (ニュース側だけが持つ・migration 167) */
+  sent_to_weekly?: boolean;
   created_at: string;
   updated_at: string;
 }

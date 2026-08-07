@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuid } from 'uuid';
+import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
@@ -289,6 +290,17 @@ router.post('/lendings/batch', async (req, res, next) => {
   try {
     const result = await lendingService.createBatch(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+/**
+ * 出庫予定を「持ち出した」に変える (migration 168)。
+ * **予定の行を消して作り直さない** — いつ予定を立てたかが消える。
+ */
+router.put('/lendings/:id/checkout', async (req, res, next) => {
+  try {
+    await lendingService.markPlannedAsLent(String(req.params.id), req.user?.id ?? null);
+    res.json({ success: true, data: { id: req.params.id, status: 'lent' } });
   } catch (err) { next(err); }
 });
 
@@ -745,6 +757,107 @@ router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Re
   }
 });
 
+
+// ============================================================
+// 貸出の決めごと (migration 168・モックの設定タブの6つ)
+//
+// 値は `equipment_settings` の キー×値。**設定が増えるたびに列を足さない** —
+// 足すたびにマイグレーションが要り、増やすのが億劫になって画面に嘘の
+// スイッチが並ぶ（いままさにそうなっていた）。
+// ============================================================
+
+/** 画面から書き換えてよいキーと、入れてよい値。**知らないキーは受け付けない** */
+const RENTAL_RULES: Record<string, string[] | 'boolean'> = {
+  default_due_days: ['3', '7', '14'],
+  overdue_notify: ['same', 'next', 'after3'],
+  allow_external: 'boolean',
+  external_approval: 'boolean',
+  qr_lend_return: 'boolean',
+  block_broken_lending: 'boolean',
+};
+
+router.get('/settings', async (_req: Request, res: Response) => {
+  const rows = await queryAll('SELECT key, value, updated_at FROM equipment_settings');
+  res.json({
+    success: true,
+    data: Object.fromEntries(rows.map((r) => [String(r.key), String(r.value)])),
+  });
+});
+
+/**
+ * 決めごとを1つ変える。**owner だけ**（貸出のルールは運用の根っこなので）。
+ *
+ * 知らないキー・知らない値は 400 で止める。素通しさせると、
+ * 画面が読むときに「知らない値だから既定に戻す」ことになり、
+ * **押したのに戻る**という一番分かりにくい壊れ方をする。
+ */
+router.put('/settings/:key', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
+  const key = String(req.params.key);
+  const spec = RENTAL_RULES[key];
+  if (!spec) throw new AppError(400, 'UNKNOWN_SETTING', `この決めごとは変えられません: ${key}`);
+
+  const value = String(req.body?.value ?? '');
+  const okValue = spec === 'boolean' ? ['true', 'false'].includes(value) : spec.includes(value);
+  if (!okValue) {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      `「${key}」に入れられるのは ${spec === 'boolean' ? 'true / false' : spec.join(' / ')} です`);
+  }
+
+  await execute(
+    `INSERT INTO equipment_settings (key, value, updated_by) VALUES (?, ?, ?)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+    [key, value, req.user!.id],
+  );
+  res.json({ success: true, data: { key, value } });
+});
+
+// ============================================================
+// QR の読み取り履歴 (migration 168)
+//
+// **見つからなかった読み取りも残す。** 見つかったものだけ残すと
+// 「読めないシールがある」ことに誰も気づけない。
+// ============================================================
+router.get('/scans', async (req: Request, res: Response) => {
+  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+  // `mine=1` で自分のぶんだけ。現場では自分がさっき読んだものだけ見たい
+  const mine = req.query.mine === '1';
+  const params: unknown[] = [];
+  let where = '';
+  if (mine) { where = 'WHERE s.scanned_by = ?'; params.push(req.user!.id); }
+  const rows = await queryAll(
+    `SELECT s.id, s.raw_code, s.equipment_id, s.action, s.scanned_at,
+            u.name AS scanned_by_name,
+            ei.name AS equipment_name, ei.eq_code, ei.unit_number
+       FROM equipment_scans s
+       LEFT JOIN users u ON u.id = s.scanned_by
+       LEFT JOIN equipment_items ei ON ei.id = s.equipment_id
+     ${where}
+      ORDER BY s.scanned_at DESC
+      LIMIT ?`,
+    [...params, limit],
+  );
+  res.json({ success: true, data: rows });
+});
+
+router.post('/scans', requirePermission('equipment', 'editor'), async (req: Request, res: Response) => {
+  const raw = String(req.body?.raw_code ?? '').trim();
+  if (!raw) throw new AppError(400, 'VALIDATION_ERROR', '読み取った文字列がありません');
+  const action = String(req.body?.action ?? 'lookup');
+  if (!['lookup', 'lend', 'return', 'inventory'].includes(action)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '知らない読み取りの種類です');
+  }
+  // 機材 ID は**渡されたものを信じない**。読み取った文字列から引き直す
+  const item = await queryOne(
+    'SELECT id FROM equipment_items WHERE eq_code = ? AND deleted_at IS NULL', [raw],
+  ) as { id: string } | null;
+
+  const id = uuid();
+  await execute(
+    'INSERT INTO equipment_scans (id, raw_code, equipment_id, action, scanned_by) VALUES (?, ?, ?, ?, ?)',
+    [id, raw, item?.id ?? null, action, req.user!.id],
+  );
+  res.status(201).json({ success: true, data: { id, raw_code: raw, equipment_id: item?.id ?? null, action } });
+});
 
 // ============================================================
 // 貸出機材設定 (is_rental_listed フラグ管理)
