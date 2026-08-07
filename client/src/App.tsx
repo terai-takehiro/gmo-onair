@@ -20,6 +20,7 @@ import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InboxPage from "@/contexts/sales/pages/InboxPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
+import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
@@ -136,7 +137,10 @@ function AppRoutes() {
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
-        <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        {/* **つくるのは全画面1枚（v4 のモック）、直すのは今までのフォーム。**
+            あちらは BOX の URL・按分・申込書・見積のシミュレーションまで扱う画面で、
+            登録の16項目とは目的が違う（電話中に開く画面に使わない欄が数十個並ぶ） */}
+        <Route path="/sales/projects/new" element={<PermissionRoute module="sales" minLevel="editor"><NewProjectDialog /></PermissionRoute>} />
         {/*
             v4 ⑥: 案件詳細は**読む画面**（タブ付き）になった。直すのは /edit の
             いままでのフォームそのまま。枠の入れ替えと中身の作り直しを同じ回でやると、

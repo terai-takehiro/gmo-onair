@@ -27,6 +27,15 @@ export interface ProjectDetail {
   is_ai_created?: boolean;
   /** 「確認した」を押した時刻。押されるまで null */
   ai_reviewed_at?: string | null;
+  /** 登録の16項目のうち、migration 170 で足したぶん */
+  contact_name?: string | null;
+  recurrence?: 'single' | 'regular' | null;
+  attendee_count?: number | null;
+  goal?: string | null;
+  reply_due?: string | null;
+  wants?: string | null;
+  /** 引き合いの入口 (migration 165) */
+  intake_channel?: string | null;
 }
 
 /** `GET /studios/bookings?project_id=` の1行 */

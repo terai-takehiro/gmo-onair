@@ -50,6 +50,15 @@ const FIELDS: { path: string; label: string }[] = [
   { path: 'gls_category', label: '案件分類' },
   { path: 'assigned_to', label: '担当者' },
   { path: 'notes', label: '備考' },
+  // 登録の16項目のうち AI が入れられるもの (migration 165 / 170)。
+  // **足したら必ずここにも足す** — 抜けるとその項目だけ黙って差分が取れなくなる
+  { path: 'contact_name', label: 'ご担当' },
+  { path: 'recurrence', label: '継続区分' },
+  { path: 'attendee_count', label: '規模' },
+  { path: 'goal', label: 'やりたいこと' },
+  { path: 'reply_due', label: '返事の期限' },
+  { path: 'wants', label: '求められているもの' },
+  { path: 'intake_channel', label: '入手経路' },
 ];
 
 /** 見た目が違うだけの値を「直した」と数えないための正規化 */

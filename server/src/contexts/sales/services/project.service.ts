@@ -446,7 +446,10 @@ export class ProjectService {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
             event_start, event_end, dates, gls_category,
-            intake_channel, intake_confidence } = data;
+            intake_channel, intake_confidence,
+            // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
+            contact_name, recurrence, attendee_count, goal, reply_due, wants,
+            stage, first_task } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
@@ -474,25 +477,61 @@ export class ProjectService {
     const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
     const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
 
+    /**
+     * **ステージを選べるようにした** (v4 の登録モーダル)。
+     *
+     * 「もう仮押さえまで進んでいる引き合いを登録する」が普通に起きるのに、
+     * これまでは必ず `neta` から始めて、作ってから押し直すことになっていました。
+     * **知らない値は `neta` に落とす** — 素通しさせるとどの一覧にも出ない案件ができます。
+     *
+     * **受注以降では作れません。** GLS 番号を採る流れ（確認ダイアログ付き）を
+     * 飛ばしてしまうためです。作ってからステージを上げてもらいます。
+     */
+    const initialStage = STAGES.includes(String(stage)) ? String(stage) : 'neta';
+    const safeStage = ['a_won', 's_completed', 'e_lost'].includes(initialStage) ? 'neta' : initialStage;
+
+    const recur = recurrence === 'regular' ? 'regular' : 'single';
+    const scale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
+      ? Math.floor(Number(attendee_count)) : null;
+
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, assigned_to,
                              event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
-                             application_form, logo_permission, intake_channel, intake_confidence, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
+                             application_form, logo_permission, intake_channel, intake_confidence,
+                             contact_name, recurrence, attendee_count, goal, reply_due, wants, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, safeStage, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
-       application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence, userId]
+       application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
+       contact_name || null, recur, scale, goal || null, reply_due || null, wants || null, userId]
     );
 
     // **最初のステージも履歴に残す** (migration 164)。
     // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
     await execute(
       `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-       VALUES (?, ?, NULL, 'neta', ?)`,
-      [uuidv4(), id, userId],
+       VALUES (?, ?, NULL, ?, ?)`,
+      [uuidv4(), id, safeStage, userId],
     );
+
+    /**
+     * 最初のタスク（登録モーダルの16項目め）。
+     *
+     * **入れなくても作れます。** 入れたときだけ1件作ります。
+     * 期限は `docs/wording.md` の決めどおり**時刻まで**持ちます
+     * （日付だけ渡されたら 18:00 を補い、補ったことは画面が出す）。
+     */
+    const task = first_task as { title?: string; assigned_to?: string; due_at?: string; due_date?: string } | undefined;
+    if (task && typeof task.title === 'string' && task.title.trim()) {
+      const dueAt = task.due_at || (task.due_date ? `${task.due_date}T18:00:00` : null);
+      await execute(
+        `INSERT INTO project_tasks (id, project_id, title, assigned_to, due_at, is_completed, sort_order, created_by)
+         VALUES (?, ?, ?, ?, ?, false, 1, ?)`,
+        [uuidv4(), id, task.title.trim(), task.assigned_to || assigned_to || userId, dueAt, userId],
+      );
+    }
 
     // project_dates にINSERT
     for (let i = 0; i < datesToInsert.length; i++) {
@@ -573,6 +612,25 @@ export class ProjectService {
      * 明示的に空文字を送ったときは消せます（＝人が消したいときは消える）。
      */
     const tagsValue = tags === undefined ? ((existing.tags as string | null) ?? '') : (tags || '');
+
+    /**
+     * **登録の16項目（migration 170）も「渡さなければ今の値を保つ」。**
+     *
+     * 直す画面（`ProjectFormPage`）にはこれらの欄がまだ無いので、
+     * 保つ形にしていないと**保存するたびに全部空になります**
+     * （タグで実際に起きたのと同じ壊れ方）。
+     */
+    const keep = <T,>(v: unknown, cur: T): unknown => (v === undefined ? cur : (v === '' ? null : v));
+    const contactName = keep(data.contact_name, existing.contact_name);
+    const recurrenceValue = data.recurrence === undefined
+      ? existing.recurrence
+      : (data.recurrence === 'regular' ? 'regular' : 'single');
+    const attendeeCount = data.attendee_count === undefined
+      ? existing.attendee_count
+      : (Number(data.attendee_count) > 0 ? Math.floor(Number(data.attendee_count)) : null);
+    const goalValue = keep(data.goal, existing.goal);
+    const replyDue = keep(data.reply_due, existing.reply_due);
+    const wantsValue = keep(data.wants, existing.wants);
     const projectTypeOther = project_type_other === undefined
       ? ((existing.project_type_other as string | null) ?? null)
       : (project_type_other || null);
@@ -614,6 +672,7 @@ export class ProjectService {
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -621,6 +680,7 @@ export class ProjectService {
          project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
+         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -630,6 +690,7 @@ export class ProjectService {
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -637,6 +698,7 @@ export class ProjectService {
          project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
+         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
