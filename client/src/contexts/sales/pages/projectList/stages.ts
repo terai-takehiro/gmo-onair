@@ -11,24 +11,22 @@
  *
  * → **バッジは和文だけ (2〜4字)**、記号つきの正式名は絞り込みのチップ側に出します。
  *
- * ── モックとの違い (意図した2点) ────────────────────────────
+ * ── 記号と色はモックに合わせてある ─────────────────────────
  *
- * ① モックはネタを **「E 問合せ」**と呼び、失注を**「終了」**に畳んでいます。
- *    ここでは**いまの記号のまま**にしました — `stage` の値・他画面・
- *    受注確度 (`ProjectStageProbability`) が「E = 失注」で書かれており、
- *    一覧だけ E の意味を変えると読み手が取り違えます。付け替えるなら
- *    全画面と DB のコード表を同時に変える別の作業です
- * ② モックは「ネタ」と「D 仮押さえ」を**どちらも灰**にしています。
- *    ここでは仮押さえを淡い青にしました — 一覧の「すべて」では両方が
- *    並ぶので、同じ灰だと**まだ何も動いていない案件と、部屋を押さえた案件が
- *    見分けられません**。色は「進み具合」を表します
- *    (灰 → 淡い青 → 青 → 緑、終わったものは灰)。
+ * A〜E は**受注に近い順**で、E は **問合せ**（DB の `neta`）です。完了と失注は
+ * 記号を持たず「終了」に畳みます（モックの `plChips`）。DB の値は変えていません
+ * — 画面に出す名前だけを合わせています（`ProjectStageLabels` の説明を参照）。
+ *
+ * 色も**モックの実測値**です（`onair-data.js` の `plRows`）。
+ * **問合せと仮押さえは同じ灰**（bg `#f2f4f7` / fg `#5d6470` ＝ `muted`）で、
+ * 見積提案と口頭決定が同じ淡い青、受注済だけ緑になります。
+ * 「まだ金額が動いていない段」を1つの灰にまとめる見せ方です。
  */
 import type { ProjectStage } from '@/types';
 
 /** バッジに出す和文 (2〜4字。`TableBadge` が 62px に均等割り付けする) */
 export const STAGE_BADGE_LABEL: Record<ProjectStage, string> = {
-  neta: 'ネタ',
+  neta: '問合せ',
   d_hold: '仮押さえ',
   c_proposal: '見積提案',
   b_verbal: '口頭決定',
@@ -40,7 +38,7 @@ export const STAGE_BADGE_LABEL: Record<ProjectStage, string> = {
 /** バッジの色。**生のパレットは使わない** — 状態の色トークンから選ぶ */
 export const STAGE_BADGE_TONE: Record<ProjectStage, string> = {
   neta: 'border-transparent bg-muted text-muted-foreground',
-  d_hold: 'border-transparent bg-primary-surface-weak text-primary',
+  d_hold: 'border-transparent bg-muted text-muted-foreground',
   c_proposal: 'border-transparent bg-primary-surface text-primary',
   b_verbal: 'border-transparent bg-primary-surface text-primary',
   a_won: 'border-transparent bg-success-surface text-success',
@@ -61,7 +59,7 @@ export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }
   { key: 'b_verbal', label: 'B 口頭決定', stages: ['b_verbal'] },
   { key: 'c_proposal', label: 'C 見積提案', stages: ['c_proposal'] },
   { key: 'd_hold', label: 'D 仮押さえ', stages: ['d_hold'] },
-  { key: 'neta', label: 'ネタ', stages: ['neta'] },
+  { key: 'neta', label: 'E 問合せ', stages: ['neta'] },
   { key: 'done', label: '終了', stages: ['s_completed', 'e_lost'] },
 ];
 

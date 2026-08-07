@@ -5,50 +5,54 @@
  * `<RowSlot>` に入れて**値が無い行でも列が保たれる**ようにしています。
  * 以前は 10 列を `<td>` で手書きし、列の出し入れを利用者ごとに保存していたため、
  * 同じ台帳を2人で見ると列の並びが違いました。
+ *
+ * ── ケーブルとコネクタは1枚の表（モックどおり）──────────────
+ *
+ * 先頭の列は**種別**（ケーブル／コネクタ）です。用途（映像・音声…）は
+ * モックの表に無いので出さず、絞り込みのチップに残してあります。
+ * コネクタは m と 色 を持たないので `—` を出します。**列ごと消しません** —
+ * 消すと行ごとに列の位置がずれて、数字が縦にそろわなくなります。
  */
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Button } from '@/components/ui/button';
-import { KIND_LABELS, KIND_TONE, type CatalogConfig, type CatalogItem } from './types';
+import { CONFIG_BY_SOURCE, SOURCE_TONE, type SupplyItem } from './types';
 
-export function CatalogRowHeader({ config, showActions }: { config: CatalogConfig; showActions: boolean }) {
+export function CatalogRowHeader({ showActions }: { showActions: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
-      <RowSlot w={72}>用途</RowSlot>
+      <RowSlot w={72}>種別</RowSlot>
       <RowMain>商品名 ／ メーカー・型名</RowMain>
-      {config.hasLength && <RowSlot w={56} align="right">m</RowSlot>}
-      {config.hasLength && <RowSlot w={72}>色</RowSlot>}
+      <RowSlot w={56} align="right">m</RowSlot>
+      <RowSlot w={72}>色</RowSlot>
       <RowSlot w={160}>設置場所</RowSlot>
       <RowSlot w={96}>収納方法</RowSlot>
-      <RowSlot w={96} align="right">{config.unit}数</RowSlot>
+      <RowSlot w={96} align="right">本数・個数</RowSlot>
       {showActions && <RowSlot w={96} align="right">{''}</RowSlot>}
     </RowHeader>
   );
 }
 
 export function CatalogRow({
-  config, item, canEdit, canDelete, onEdit, onCopy, onDelete,
+  item, canEdit, canDelete, onEdit, onCopy, onDelete,
 }: {
-  config: CatalogConfig;
-  item: CatalogItem;
+  item: SupplyItem;
   canEdit: boolean;
   canDelete: boolean;
-  onEdit: (it: CatalogItem) => void;
-  onCopy: (it: CatalogItem) => void;
-  onDelete: (it: CatalogItem) => void;
+  onEdit: (it: SupplyItem) => void;
+  onCopy: (it: SupplyItem) => void;
+  onDelete: (it: SupplyItem) => void;
 }) {
   const showActions = canEdit || canDelete;
+  const config = CONFIG_BY_SOURCE[item.source];
+  const hasLength = config.hasLength;
   const length = item.length_m == null || item.length_m === '' ? null : String(item.length_m);
 
   return (
     <Row divider interactive stackOnMobile>
       <RowSlot w={72}>
-        <TableBadge
-          label={KIND_LABELS[item.kind] ?? item.kind}
-          w={null}
-          className={KIND_TONE[item.kind] ?? KIND_TONE.other}
-        />
+        <TableBadge label={config.label} w={null} className={SOURCE_TONE[item.source]} />
       </RowSlot>
 
       <RowMain>
@@ -58,16 +62,16 @@ export function CatalogRow({
         </RowSub>
       </RowMain>
 
-      {config.hasLength && (
-        <RowSlot w={56} align="right" hideOnMobile>
-          {length && <span className="font-number text-sub-sm text-secondary-foreground">{length}</span>}
-        </RowSlot>
-      )}
-      {config.hasLength && (
-        <RowSlot w={72} hideOnMobile>
-          {item.color && <span className="truncate text-sub-sm text-secondary-foreground">{item.color}</span>}
-        </RowSlot>
-      )}
+      <RowSlot w={56} align="right" hideOnMobile>
+        {hasLength
+          ? (length && <span className="font-number text-sub-sm text-secondary-foreground">{length}</span>)
+          : <span className="text-sub-sm text-fg-disabled">—</span>}
+      </RowSlot>
+      <RowSlot w={72} hideOnMobile>
+        {hasLength
+          ? (item.color && <span className="truncate text-sub-sm text-secondary-foreground">{item.color}</span>)
+          : <span className="text-sub-sm text-fg-disabled">—</span>}
+      </RowSlot>
 
       <RowSlot w={160} hideOnMobile>
         {item.location_name && (

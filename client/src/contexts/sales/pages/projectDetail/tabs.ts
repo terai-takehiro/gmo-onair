@@ -10,6 +10,13 @@
  * タブを押した瞬間に**枠ごと消えて古い画面に飛びます**。
  * ⑥-B / ⑥-C で古い画面をこの枠に畳んだら、綴りを揃え直します。
  *
+ * ── ラベルはモックどおり ──────────────────────────────────────
+ *
+ * 「エピソード」は `docs/wording.md` で一度「回」に言い換える決めにしていましたが、
+ * **モックが v4 の正**なのでモックの語に戻しました（`check-ui-tokens` の
+ * `forbidden-wording` からも外してあります）。「見積」も同じで、請求は
+ * ⑤ 見積・請求（全案件）で見ます。
+ *
  * ── 「ふりかえり」だけ中身が無い ──────────────────────────────
  *
  * **モック自身が「このタブの中身はこれから作ります」と書いています。**
@@ -38,9 +45,9 @@ export interface ProjectTabDef {
 export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'overview', label: '概要', icon: LayoutDashboard },
   { key: 'thread', label: 'やり取り', icon: MessageSquare },
-  { key: 'episode', label: '回', icon: Clapperboard, seriesOnly: true },
+  { key: 'episode', label: 'エピソード', icon: Clapperboard, seriesOnly: true },
   { key: 'task', label: 'タスク', icon: ListChecks },
-  { key: 'estimate', label: '見積・請求', icon: Receipt },
+  { key: 'estimate', label: '見積', icon: Receipt },
   { key: 'files', label: '書類', icon: FolderCheck },
   { key: 'day', label: '当日', icon: ClipboardList },
   { key: 'review', label: 'ふりかえり', icon: LineChart, todo: true },

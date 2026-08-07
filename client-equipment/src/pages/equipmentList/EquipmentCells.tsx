@@ -19,6 +19,11 @@ export interface CellContext {
   edits: Record<string, Record<string, string>>;
   onEditChange: (id: string, field: string, value: string) => void;
   onEditCommit: (id: string) => void;
+  /** 「貸出可」を押せるか（`equipment` の owner だけ）。無ければ印だけ出す */
+  canSetRental: boolean;
+  onToggleRental: (item: EquipmentRecord) => void;
+  /** いま切り替え中の機材 id（二度押しを止める） */
+  rentalBusyId: string | null;
 }
 
 function InlineInput({ item, field, ctx, type, className }: {
@@ -35,6 +40,49 @@ function InlineInput({ item, field, ctx, type, className }: {
       aria-label={field}
       className={`w-full border-b border-primary-border bg-transparent text-sub focus:border-primary focus:outline-none ${className ?? ''}`}
     />
+  );
+}
+
+/**
+ * 「貸出可」のセル。
+ *
+ * 子機材は**親の設定を受け継ぐ**（サーバーの `effective_rental_listed`）ので、
+ * 子の行では切り替えさせず「親から」と出す。切り替えられるように見せると、
+ * 押しても親が優先されて何も変わりません。
+ */
+function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) {
+  const inherited = !!item.parent_id && item.parent_rental_listed != null;
+  const on = inherited ? !!item.effective_rental_listed : !!item.is_rental_listed;
+
+  if (inherited) {
+    return (
+      <span className="text-sub-sm text-muted-foreground" title="親の機材の設定を受け継いでいます">
+        {on ? '貸出可' : '常設'}（親から）
+      </span>
+    );
+  }
+  if (!ctx.canSetRental) {
+    return (
+      <span
+        className={`text-sub-sm ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}
+        title="変えるには機材管理の「所有者」権限が要ります"
+      >
+        {on ? '貸出可' : '常設'}
+      </span>
+    );
+  }
+  return (
+    <label className="flex min-h-tap cursor-pointer items-center gap-1.5 lg:min-h-[32px]" onClick={(e) => e.stopPropagation()}>
+      <EnhancedCheckbox
+        checked={on}
+        disabled={ctx.rentalBusyId === item.id}
+        onCheckedChange={() => ctx.onToggleRental(item)}
+        aria-label={`${item.name} を貸出可にする`}
+      />
+      <span className={`text-sub-sm ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}>
+        {on ? '貸出可' : '常設'}
+      </span>
+    </label>
   );
 }
 
@@ -115,6 +163,8 @@ export function standardCells(
               : <div className="line-clamp-2 max-w-[200px] break-words">{item.notes || '–'}</div>}
           </td>
         );
+      case 'rental':
+        return <td key={key} className={`${pad} whitespace-nowrap`}><RentalCell item={item} ctx={ctx} /></td>;
       default: return null;
     }
   });

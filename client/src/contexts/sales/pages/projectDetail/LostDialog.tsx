@@ -15,11 +15,16 @@
  * 読む画面の見出し**（`DetailHeader`）に集約し、この理由入力も一緒に移しました。
  * フォーム側に残すと、ステージを変えるために編集画面を開くことになります。
  *
- * ── 「教訓・学び」を消していない ────────────────────────────
+ * ── 「教訓・学び」は欄ごと外した（モックどおり）──────────────
  *
- * v4 のモックはこの欄を落としていますが、**営業レビューの失注分析が読んでいる**
- * ため残しました（`projects.lessons_learned`）。消すかどうかは業務の決めごとなので、
- * 画面の作り直しと同じ回では決めません。
+ * **列（`projects.lessons_learned`）は残しています。** 失注のときだけ
+ * `UPDATE` する経路なので、欄を外しても既存の値は消えません（送らなければ
+ * `null` で上書きされますが、これは**新しく失注にする案件だけ**が対象で、
+ * すでに書かれている過去の案件には触りません）。営業レビューの失注分析は
+ * 引き続き過去の値を読めます。
+ *
+ * 失注の理由そのもの（`lost_reason` / `lost_reason_note`）はモックにも
+ * あるので残しています。
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -35,7 +40,6 @@ import {
 export interface LostPayload {
   lost_reason: string;
   lost_reason_note: string;
-  lessons_learned: string;
 }
 
 export function LostDialog({
@@ -48,7 +52,6 @@ export function LostDialog({
 }) {
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
-  const [lessons, setLessons] = useState('');
 
   // 理由の選択肢は DB のマスタ。画面に並べ直すと、増やしたときに片方だけ古くなる
   const { data } = useQuery({
@@ -60,7 +63,7 @@ export function LostDialog({
 
   const close = (v: boolean) => {
     onOpenChange(v);
-    if (!v) { setReason(''); setNote(''); setLessons(''); }
+    if (!v) { setReason(''); setNote(''); }
   };
 
   return (
@@ -109,19 +112,6 @@ export function LostDialog({
               rows={2}
             />
           </div>
-
-          <div>
-            <Label>教訓・学び</Label>
-            <Textarea
-              value={lessons}
-              onChange={(e) => setLessons(e.target.value)}
-              placeholder="次回に活かすべきポイント、改善すべき点など"
-              rows={3}
-            />
-            <p className="text-note mt-1 text-muted-foreground">
-              ここに書いた内容は営業レビューの失注分析で共有されます。
-            </p>
-          </div>
         </div>
 
         <DialogFooter>
@@ -129,7 +119,7 @@ export function LostDialog({
           <Button
             variant="destructive"
             disabled={!reason || busy}
-            onClick={() => onConfirm({ lost_reason: reason, lost_reason_note: note, lessons_learned: lessons })}
+            onClick={() => onConfirm({ lost_reason: reason, lost_reason_note: note })}
           >
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             失注にする

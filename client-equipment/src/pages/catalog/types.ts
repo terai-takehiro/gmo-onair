@@ -139,6 +139,28 @@ export const CONNECTOR_CONFIG: CatalogConfig = {
 
 export const CATALOG_CONFIGS: CatalogConfig[] = [CABLE_CONFIG, CONNECTOR_CONFIG];
 
+export type CatalogSource = 'cable' | 'connector';
+
+export const CONFIG_BY_SOURCE: Record<CatalogSource, CatalogConfig> = {
+  cable: CABLE_CONFIG,
+  connector: CONNECTOR_CONFIG,
+};
+
+/**
+ * 1つの一覧に混ぜるための形。**どちらの台帳から来た行か**を持たせる。
+ *
+ * モックの「ケーブル・コネクタ」は1枚の表で、コネクタの行は
+ * m と 色 に `—` が入ります（列を消すのではなく、無いことを出す）。
+ * 保存先はテーブルが別なので、行ごとに宛先を覚えておかないと直せません。
+ */
+export type SupplyItem = CatalogItem & { source: CatalogSource };
+
+/** 種別バッジの色。**用途の色（cat-1〜）とは別**にする（意味が違う軸なので） */
+export const SOURCE_TONE: Record<CatalogSource, string> = {
+  cable: 'bg-primary-surface text-primary border-transparent',
+  connector: 'bg-muted text-muted-foreground border-transparent',
+};
+
 /** 品目を並べ替えて数える (合計本数)。0 は値として扱う */
 export function totalQuantity(items: CatalogItem[]): number {
   return items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);

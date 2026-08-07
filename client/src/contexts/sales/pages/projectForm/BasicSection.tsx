@@ -1,5 +1,5 @@
 /**
- * 基本情報 — 案件名 / お客様 / 種類 / 分類 / グループ区分 / メモ / タグ (v4)
+ * 基本情報 — 案件名 / お客様 / 種類 / 分類 / グループ区分 / メモ (v4)
  *
  * ── 「案件分類」を消していない ──────────────────────────────
  *
@@ -7,12 +7,12 @@
  * 分類ごとに違うので、**発番したあとは押しただけでは変えられません**
  * （番号の採り直し・回のコード・BOX フォルダ名がまとめて動くため、確認を挟みます）。
  *
- * ── タグと「案件種類（その他）」を残してある ────────────────────
+ * ── タグと「案件種類（その他）」は欄ごと外した（モックどおり）──────
  *
- * v4 のモックはどちらも欄ごと落としますが、**サーバーの更新は送られた値で
- * そのまま上書きします**（`tags = ?` / `project_type_other = ?`）。
- * 欄を消すと、この画面で保存するたびに既存の値が空になります。
- * 消すかどうかは業務の決めごとなので、この回では残して確認に回します。
+ * **列は残しています。** この UPDATE は送られた値でそのまま上書きするので、
+ * 欄だけ消すと**保存のたびに既存の値が空になります**（本番データが黙って消える）。
+ * 先に `project.service.ts` を「未指定なら今の値を保つ」形にしてから外しました。
+ * 既存のタグは案件一覧の絞り込み（`filter.tag`）でこれまでどおり効きます。
  */
 import type { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
@@ -77,12 +77,6 @@ export function BasicSection({
         </Field>
       </div>
 
-      {projectType === 'other' && (
-        <Field label="案件種類（その他）" htmlFor="pf-type-other">
-          <Input id="pf-type-other" {...register('project_type_other')} placeholder="案件種類を入力" />
-        </Field>
-      )}
-
       <Field label="案件分類 *">
         {hasGls ? (
           <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -143,14 +137,6 @@ export function BasicSection({
 
       <Field label="メモ" htmlFor="pf-notes">
         <Textarea id="pf-notes" {...register('notes')} rows={3} />
-      </Field>
-
-      <Field
-        label="タグ"
-        htmlFor="pf-tags"
-        hint="カンマ区切りで書きます（例: 定期案件,重要顧客）。案件一覧の絞り込みに使えます。"
-      >
-        <Input id="pf-tags" {...register('tags')} placeholder="例: 定期案件,重要顧客" />
       </Field>
     </FormSection>
   );

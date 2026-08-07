@@ -542,6 +542,20 @@ export class ProjectService {
     const assigned_to = (data.assigned_to === undefined || data.assigned_to === null || data.assigned_to === '')
       ? existing.assigned_to
       : data.assigned_to;
+    /**
+     * **画面に無い項目は今の値を保つ。**
+     *
+     * v4 のモックはタグと「案件種類（その他）」の入力欄を落としました。
+     * この UPDATE は送られた値でそのまま上書きするので、欄を消しただけだと
+     * **保存のたびに既存の値が空になります**（本番データが黙って消える）。
+     * 列は残したまま、**未指定なら今の値を保つ**形にしてから欄を外しました。
+     * 明示的に空文字を送ったときは消せます（＝人が消したいときは消える）。
+     */
+    const tagsValue = tags === undefined ? ((existing.tags as string | null) ?? '') : (tags || '');
+    const projectTypeOther = project_type_other === undefined
+      ? ((existing.project_type_other as string | null) ?? null)
+      : (project_type_other || null);
+
     const cType = normalizeCustomerType(customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
@@ -583,9 +597,9 @@ export class ProjectService {
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', project_type_other || null,
+         project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tags || '',
+         broadcast_type || null, media_platform || null, tagsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -599,9 +613,9 @@ export class ProjectService {
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', project_type_other || null,
+         project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tags || '',
+         broadcast_type || null, media_platform || null, tagsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]

@@ -18,9 +18,12 @@
  * (`equipment_items.is_rental_listed`)。旧「貸出機材設定」の画面がこれで、
  * メニューに別項目として出ていました。決めごとはここに集めます。
  *
- * モックはこの切り替えを機材台帳の列に置いていますが、**書き込みに
- * `equipment` の owner 権限が要る** (`PUT /equipment/rental-settings/:id`) ので、
- * 台帳に出すと大多数の利用者が押して 403 になります。設定に置いてあります。
+ * **モックどおり、切り替えは機材台帳の列にも置きました**
+ * (`equipmentList/EquipmentCells.tsx` の `RentalCell`)。権限が無い人には
+ * 押せない印として出すので 403 にはなりません。
+ * ここに残してあるのは**まとめて切り替える**ための一覧です
+ * (台帳の絞り込みとは別に、貸出可だけを並べて見直す用途)。
+ * 書き込むのは同じ1つの列 (`equipment_items.is_rental_listed`) なので食い違いません。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

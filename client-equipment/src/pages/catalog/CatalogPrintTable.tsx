@@ -12,13 +12,12 @@
  * 印刷の CSS は `index.css` (ラック図と共用) なので**触らず**、
  * 出す側をその入れ物の中に移しています。
  */
-import { KIND_LABELS, type CatalogConfig, type CatalogItem } from './types';
+import { CONFIG_BY_SOURCE, KIND_LABELS, type SupplyItem } from './types';
 
 export function CatalogPrintTable({
-  config, items, title, filterLabel,
+  items, title, filterLabel,
 }: {
-  config: CatalogConfig;
-  items: CatalogItem[];
+  items: SupplyItem[];
   title: string;
   filterLabel: string;
 }) {
@@ -35,31 +34,33 @@ export function CatalogPrintTable({
           <thead>
             <tr>
               <th className="check-col">✓</th>
+              <th>種別</th>
               <th>用途</th>
               <th>設置場所</th>
               <th className="col-name">商品名</th>
               <th>メーカー</th>
               <th className="col-id">型名</th>
-              {config.hasLength && <th>m</th>}
-              {config.hasLength && <th>色</th>}
-              <th>{config.unit}数</th>
+              <th>m</th>
+              <th>色</th>
+              <th>本数・個数</th>
               <th>収納方法</th>
               <th className="col-notes">備考</th>
             </tr>
           </thead>
           <tbody>
             {items.map((it) => (
-              <tr key={it.id} className="depth-0">
+              <tr key={`${it.source}:${it.id}`} className="depth-0">
                 <td className="check-col">
                   <span style={{ display: 'block', width: 13, height: 13, border: '1px solid #000', margin: '0 auto' }} />
                 </td>
+                <td>{CONFIG_BY_SOURCE[it.source].label}</td>
                 <td>{KIND_LABELS[it.kind] ?? it.kind}</td>
                 <td>{it.location_name || ''}</td>
                 <td className="col-name">{it.name}</td>
                 <td>{it.manufacturer_name || ''}</td>
                 <td className="col-id">{it.model_number || ''}</td>
-                {config.hasLength && <td>{it.length_m ?? ''}</td>}
-                {config.hasLength && <td>{it.color || ''}</td>}
+                <td>{it.source === 'cable' ? (it.length_m ?? '') : '—'}</td>
+                <td>{it.source === 'cable' ? (it.color || '') : '—'}</td>
                 <td>{it.quantity}</td>
                 <td>{it.storage_method || ''}</td>
                 <td className="col-notes">{it.notes || ''}</td>

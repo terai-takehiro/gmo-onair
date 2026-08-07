@@ -1,9 +1,14 @@
 /**
  * ② 機材台帳 ／ ケーブル・コネクタ (v4)
  *
- * ケーブルとコネクタは**同じ形の台帳**なので1つの部品にしました
- * (`types.ts` の `CatalogConfig` が違いを全部持っています)。
- * 台帳のタブから `config` を差し替えて呼ばれます。
+ * **モックどおり1枚の表**です。ケーブルとコネクタはテーブルが別ですが、
+ * 探す人にとっては「配線まわりの在庫」という1つのまとまりで、
+ * どちらに入っているかを先に思い出させるのは筋が悪いためです。
+ * 行の先頭に種別（ケーブル／コネクタ）を出し、コネクタの m と 色 は `—` にします。
+ *
+ * **保存先は行ごとに違います。** `SupplyItem.source` が宛先
+ * (`/equipment/cables` / `/equipment/connectors`) を決めます。
+ * ここを間違えると、コネクタをケーブルの表に書き込むことになります。
  *
  * ── v4 で出さなくしたもの ──────────────────────────────────
  *
@@ -32,16 +37,26 @@ import { CatalogDialog, type DialogMode } from './CatalogDialog';
 import { CatalogPrintTable } from './CatalogPrintTable';
 import { CatalogRow, CatalogRowHeader } from './CatalogRows';
 import {
-  CATALOG_KINDS, KIND_LABELS, totalQuantity,
-  type CatalogConfig, type CatalogForm, type CatalogItem,
+  CABLE_CONFIG, CATALOG_KINDS, CONFIG_BY_SOURCE, CONNECTOR_CONFIG, KIND_LABELS,
+  type CatalogForm, type CatalogItem, type CatalogSource, type SupplyItem,
 } from './types';
 
-export function CatalogPanel({ config }: { config: CatalogConfig }) {
+const SUPPLY_QUERY_KEY = 'equipment-supplies';
+
+/** 種別の絞り込み。空 = 両方 */
+const SOURCE_FILTERS: { key: string; label: string }[] = [
+  { key: '', label: 'すべて' },
+  { key: 'cable', label: 'ケーブル' },
+  { key: 'connector', label: 'コネクタ' },
+];
+
+export function CatalogPanel() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('equipment', 'editor');
   const canDelete = hasPermission('equipment', 'manager');
 
+  const [source, setSource] = useState('');
   const [kind, setKind] = useState('');
   const [locationId, setLocationId] = useState('');
   const [manufacturerId, setManufacturerId] = useState('');
@@ -51,23 +66,17 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
   const [dialog, setDialog] = useState<DialogMode | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importTarget, setImportTarget] = useState<CatalogSource>('cable');
 
-  // 一覧は絞り込みつき。**件数のチップは絞り込み無しで数える** —
-  // 押す前に 0 件だと分かるようにするため (docs/design/v4 の決めごと)
-  const list = useQuery({
-    queryKey: [config.queryKey, kind, locationId, manufacturerId, debounced],
-    queryFn: async () => {
-      const params: Record<string, string> = {};
-      if (kind) params.kind = kind;
-      if (locationId) params.location_id = locationId;
-      if (manufacturerId) params.manufacturer_id = manufacturerId;
-      if (debounced) params.search = debounced;
-      return (await api.get(config.endpoint, { params })).data.data as CatalogItem[];
-    },
+  // **どちらの台帳も常に引く。** 片方だけにすると、種別の絞り込みチップに出る
+  // 件数が古いまま残る（案件一覧の `stage_counts` と同じ考え方）
+  const cables = useQuery({
+    queryKey: [SUPPLY_QUERY_KEY, 'cable'],
+    queryFn: async () => (await api.get(CABLE_CONFIG.endpoint)).data.data as CatalogItem[],
   });
-  const all = useQuery({
-    queryKey: [config.queryKey, 'all'],
-    queryFn: async () => (await api.get(config.endpoint)).data.data as CatalogItem[],
+  const connectors = useQuery({
+    queryKey: [SUPPLY_QUERY_KEY, 'connector'],
+    queryFn: async () => (await api.get(CONNECTOR_CONFIG.endpoint)).data.data as CatalogItem[],
   });
 
   const { data: locationsData } = useQuery({
@@ -81,11 +90,46 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
   const locations: { id: string; name: string }[] = locationsData ?? [];
   const manufacturers: { id: string; name: string }[] = manufacturersData ?? [];
 
-  const items = list.data ?? [];
-  const everything = useMemo(() => all.data ?? [], [all.data]);
+  /**
+   * 混ぜたうえで**種別 → 用途 → 商品名**の順に並べる。
+   * サーバー側で並べ替えられないので画面で並べる（2つの取得結果を混ぜるため）。
+   */
+  const everything = useMemo<SupplyItem[]>(() => {
+    const rows: SupplyItem[] = [
+      ...(cables.data ?? []).map((it) => ({ ...it, source: 'cable' as const })),
+      ...(connectors.data ?? []).map((it) => ({ ...it, source: 'connector' as const })),
+    ];
+    return rows.sort((a, b) =>
+      a.source.localeCompare(b.source)
+      || a.kind.localeCompare(b.kind)
+      || a.name.localeCompare(b.name, 'ja'));
+  }, [cables.data, connectors.data]);
 
-  const chips = useMemo(() => ([
-    { key: '', label: 'すべて', count: everything.length },
+  /** 絞り込みは画面で掛ける（サーバーを2回叩き分けるより速く、件数もその場で数えられる） */
+  const items = useMemo(() => {
+    const q = debounced.trim().toLowerCase();
+    return everything.filter((it) => {
+      if (source && it.source !== source) return false;
+      if (kind && it.kind !== kind) return false;
+      if (locationId && it.location_id !== locationId) return false;
+      if (manufacturerId && it.manufacturer_id !== manufacturerId) return false;
+      if (q) {
+        const hay = [it.name, it.model_number, it.manufacturer_name, it.notes]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [everything, source, kind, locationId, manufacturerId, debounced]);
+
+  const sourceChips = useMemo(() => SOURCE_FILTERS.map((f) => ({
+    key: f.key,
+    label: f.label,
+    count: f.key ? everything.filter((it) => it.source === f.key).length : everything.length,
+  })), [everything]);
+
+  const kindChips = useMemo(() => ([
+    { key: '', label: '用途すべて', count: everything.length },
     ...CATALOG_KINDS.map((k) => ({
       key: k.code as string,
       label: k.label,
@@ -94,12 +138,14 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
   ]), [everything]);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: [config.queryKey] });
+    qc.invalidateQueries({ queryKey: [SUPPLY_QUERY_KEY] });
     qc.invalidateQueries({ queryKey: ['equipment-stats'] });
   };
 
   const save = useMutation({
     mutationFn: (form: CatalogForm) => {
+      const target: CatalogSource = dialog?.kind === 'new' ? dialog.source : dialog?.item.source ?? 'cable';
+      const config = CONFIG_BY_SOURCE[target];
       const body: Record<string, unknown> = {
         kind: form.kind,
         location_id: form.location_id || null,
@@ -125,7 +171,7 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
       setSaveError(null);
       const done = dialog?.kind === 'edit' ? '直しました' : '足しました';
       setDialog(null);
-      notifySuccess(`${config.label}を${done}`);
+      notifySuccess(`品目を${done}`);
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
@@ -134,28 +180,33 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`${config.endpoint}/${id}`),
-    onSuccess: () => { invalidate(); notifySuccess(`${config.label}を消しました`); },
+    mutationFn: (it: SupplyItem) => api.delete(`${CONFIG_BY_SOURCE[it.source].endpoint}/${it.id}`),
+    onSuccess: () => { invalidate(); notifySuccess('品目を消しました'); },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
 
-  const onDelete = async (it: CatalogItem) => {
+  const onDelete = async (it: SupplyItem) => {
+    const config = CONFIG_BY_SOURCE[it.source];
     const ok = await confirmAction({
       title: `「${it.name}」を台帳から消しますか`,
       description: `在庫 ${it.quantity}${config.unit} の記録もいっしょに消えます。取り消せません。`,
       confirmLabel: '消す',
       tone: 'danger',
     });
-    if (ok) remove.mutate(it.id);
+    if (ok) remove.mutate(it);
   };
+
+  /** Excel は**テーブルごと**にしか出せない（列が違う）。いま絞っている種別で出す */
+  const excelTarget: CatalogSource = source === 'connector' ? 'connector' : 'cable';
+  const excelConfig = CONFIG_BY_SOURCE[excelTarget];
 
   const downloadExcel = async () => {
     try {
-      const res = await api.get(`${config.endpoint}/export-xlsx`, { responseType: 'blob' });
+      const res = await api.get(`${excelConfig.endpoint}/export-xlsx`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${config.exportFileName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `${excelConfig.exportFileName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -164,42 +215,63 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
   };
 
   const filterLabel = [
+    source ? CONFIG_BY_SOURCE[source as CatalogSource].label : '',
     kind ? KIND_LABELS[kind] : '',
     locationId ? locations.find((l) => l.id === locationId)?.name : '',
     manufacturerId ? manufacturers.find((m) => m.id === manufacturerId)?.name : '',
     debounced ? `"${debounced}"` : '',
   ].filter(Boolean).join(' / ');
 
-  const filtering = !!(kind || locationId || manufacturerId || debounced);
+  const filtering = !!(source || kind || locationId || manufacturerId || debounced);
+  const loading = cables.isLoading || connectors.isLoading;
+  const failed = cables.isError || connectors.isError;
+
+  const totalQty = useMemo(() => everything.reduce((n, it) => n + (Number(it.quantity) || 0), 0), [everything]);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sub text-muted-foreground">
-          {config.label} <span className="font-number font-bold">{everything.length}</span> 品目 ・
-          合計 <span className="font-number font-bold">{totalQuantity(everything).toLocaleString('ja-JP')}</span>{config.unit}
+          <span className="font-number font-bold">{everything.length}</span> 品目 ・
+          合計 <span className="font-number font-bold">{totalQty.toLocaleString('ja-JP')}</span> 本・個
         </p>
         <div className="flex-1" />
         {canEdit && (
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />Excel 取込
+          <Button
+            variant="outline"
+            onClick={() => { setImportTarget(excelTarget); setImportOpen(true); }}
+          >
+            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />{excelConfig.label}を Excel 取込
           </Button>
         )}
         <Button variant="outline" onClick={downloadExcel}>
-          <Download className="mr-1 h-4 w-4" aria-hidden="true" />Excel 出力
+          <Download className="mr-1 h-4 w-4" aria-hidden="true" />{excelConfig.label}を Excel 出力
         </Button>
         <Button variant="outline" onClick={() => window.print()}>
           <Printer className="mr-1 h-4 w-4" aria-hidden="true" />印刷
         </Button>
         {canEdit && (
-          <Button onClick={() => { setSaveError(null); setDialog({ kind: 'new' }); }}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />{config.label}を足す
+          <Button
+            onClick={() => {
+              setSaveError(null);
+              setDialog({ kind: 'new', source: source === 'connector' ? 'connector' : 'cable' });
+            }}
+          >
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />品目を登録
           </Button>
         )}
       </div>
 
+      {/* Excel はケーブルとコネクタで列が違うので、**いま絞っている種別のぶんだけ**
+          出し入れできる。「すべて」のときはケーブル側になることを書いておく */}
+      <p className="text-note text-muted-foreground">
+        Excel の取込・出力は<strong className="font-bold">{excelConfig.label}</strong>が対象です
+        （列が違うので1つのファイルにまとめられません）。種別のチップで切り替えてください。
+      </p>
+
       <div className="flex flex-wrap items-center gap-2">
-        <FilterChips label="用途で絞り込む" items={chips} value={kind} onChange={setKind} />
+        <FilterChips label="種別で絞り込む" items={sourceChips} value={source} onChange={setSource} />
+        <FilterChips label="用途で絞り込む" items={kindChips} value={kind} onChange={setKind} />
         <Select value={locationId || 'all'} onValueChange={(v) => setLocationId(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-40" aria-label="設置場所で絞り込む">
             <SelectValue placeholder="場所すべて" />
@@ -221,37 +293,39 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
         <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・備考で探す" />
       </div>
 
-      {list.isError ? (
+      {failed ? (
         <ErrorPanel
-          title={`${config.label}を読み込めませんでした`}
-          error={list.error}
-          onRetry={() => list.refetch()}
+          title="ケーブル・コネクタを読み込めませんでした"
+          error={cables.error ?? connectors.error}
+          onRetry={() => { cables.refetch(); connectors.refetch(); }}
         />
-      ) : list.isLoading ? (
+      ) : loading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : items.length === 0 && filtering ? (
         <NoSearchResults
           keyword={debounced || undefined}
           activeFilters={[
+            source ? `種別: ${CONFIG_BY_SOURCE[source as CatalogSource].label}` : '',
             kind ? `用途: ${KIND_LABELS[kind]}` : '',
             locationId ? `設置場所: ${locations.find((l) => l.id === locationId)?.name ?? ''}` : '',
             manufacturerId ? `メーカー: ${manufacturers.find((m) => m.id === manufacturerId)?.name ?? ''}` : '',
           ].filter(Boolean)}
-          onClearFilters={() => { setKind(''); setLocationId(''); setManufacturerId(''); setSearch(''); }}
+          onClearFilters={() => {
+            setSource(''); setKind(''); setLocationId(''); setManufacturerId(''); setSearch('');
+          }}
         />
       ) : items.length === 0 ? (
         <EmptyState
-          title={`${config.label}がまだ1件もありません`}
-          description={`「${config.label}を足す」から1件ずつ、まとめて入れるときは Excel 取込から登録します。`}
+          title="ケーブル・コネクタがまだ1件もありません"
+          description="「品目を登録」から1件ずつ、まとめて入れるときは Excel 取込から登録します。"
         />
       ) : (
         <>
           <div className="flex flex-col rounded-card border border-border bg-card">
-            <CatalogRowHeader config={config} showActions={canEdit || canDelete} />
+            <CatalogRowHeader showActions={canEdit || canDelete} />
             {items.map((it) => (
               <CatalogRow
-                key={it.id}
-                config={config}
+                key={`${it.source}:${it.id}`}
                 item={it}
                 canEdit={canEdit}
                 canDelete={canDelete}
@@ -271,14 +345,13 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
       <ConsumableExcelImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        endpoint={config.endpoint}
-        resourceLabel={config.label}
-        invalidateKey={[config.queryKey]}
-        templateFileName={config.templateFileName}
+        endpoint={CONFIG_BY_SOURCE[importTarget].endpoint}
+        resourceLabel={CONFIG_BY_SOURCE[importTarget].label}
+        invalidateKey={[SUPPLY_QUERY_KEY]}
+        templateFileName={CONFIG_BY_SOURCE[importTarget].templateFileName}
       />
 
       <CatalogDialog
-        config={config}
         mode={dialog}
         locations={locations}
         manufacturers={manufacturers}
@@ -286,12 +359,12 @@ export function CatalogPanel({ config }: { config: CatalogConfig }) {
         error={saveError}
         onClose={() => setDialog(null)}
         onSubmit={(form) => save.mutate(form)}
+        onChangeSource={(s) => setDialog({ kind: 'new', source: s })}
       />
 
       <CatalogPrintTable
-        config={config}
         items={items}
-        title={`${config.label}一覧`}
+        title="ケーブル・コネクタ一覧"
         filterLabel={filterLabel}
       />
     </div>

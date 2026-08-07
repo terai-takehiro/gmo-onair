@@ -65,10 +65,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "業務",
       items: [
+        // **受付はここに出さない**（モックの PC サイドバーに無い）。
+        // 入口はダッシュボードの受付カード。スマホは下タブから開く
         { label: "ダッシュボード", to: "/sales/dashboard", icon: LayoutDashboard },
-        // モックの PC サイドバーには無いが、スマホメニューには「案件受付」がある。
-        // 毎日開く画面なので、ダッシュボードのカード経由だけだと遠回りになる（ご判断）
-        { label: "受付", to: "/sales/inbox", icon: Inbox },
         { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
       ],
     },
