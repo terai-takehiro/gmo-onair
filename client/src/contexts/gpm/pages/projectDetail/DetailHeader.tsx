@@ -24,6 +24,8 @@ export const DETAIL_TABS = [
   { key: 'overview', label: '概要' },
   { key: 'asks', label: '未確認事項' },
   { key: 'members', label: '体制' },
+  // v4 大⑤: 提出先ごとの個別見積（migration 173）
+  { key: 'estimates', label: '見積' },
   { key: 'files', label: '書類' },
 ] as const;
 

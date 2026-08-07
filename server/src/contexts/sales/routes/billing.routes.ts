@@ -44,7 +44,7 @@ router.get('/estimates', async (req, res) => {
   const mine = req.query.scope === 'mine';
   const status = typeof req.query.status === 'string' ? req.query.status : '';
   const params: unknown[] = [];
-  let where = `WHERE e.deleted_at IS NULL AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
+  let where = `WHERE e.deleted_at IS NULL AND e.gpm_project_id IS NULL AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND e.created_by = ?'; params.push(req.user!.id); }
   if (status) {
@@ -62,6 +62,9 @@ router.get('/estimates', async (req, res) => {
             c.name AS customer_name,
             u.name AS created_by_name
        FROM estimates e
+       -- 案件の見積だけ。estimates にはプロジェクト管理 (GPM) の見積も入る
+       -- (migration 173)。内部結合で自然に落ちるが、偶然そうなっている状態に
+       -- 頼らず where で明示する (左結合に直した瞬間に GPM の見積が混ざる)
        JOIN projects p ON p.id = e.project_id
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = e.created_by

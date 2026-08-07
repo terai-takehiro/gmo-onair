@@ -11,6 +11,8 @@
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
 import { queryOne, execute } from '../../shared/db/connection';
+import { estimateService } from '../sales/services/estimate.service';
+import { gpmEstimateSummary } from './services/gpm-estimate.service';
 import { AppError } from '../../shared/middleware/errorHandler';
 import {
   templateService, projectService, openItemService, phaseService, memberService, gpmTaskService,
@@ -121,6 +123,27 @@ export function createGpmRoutes(): Router {
       success: true,
       data: await gpmTaskService.setDone(String(req.params.id), req.body?.done !== false, req.user!.id),
     });
+  });
+
+  /**
+   * ── 見積（⑥ 見積・請求・v4 大⑤・migration 173）────────────
+   *
+   * `estimates` を案件と共用します（別表にすると版・明細・合計の作りが2つになり、
+   * 片方だけ直る形が生まれる）。**案件管理側に混ざらないこと**は
+   * `salesOverview`（返事待ち）と `billing.routes`（一覧）の2か所を実測して塞いだ。
+   */
+  router.get('/projects/:id/estimates', ...canRead, async (req, res) => {
+    res.json({ success: true, data: await estimateService.listByGpmProject(String(req.params.id)) });
+  });
+
+  router.post('/projects/:id/estimates', ...canEdit, async (req, res) => {
+    const row = await estimateService.createForGpm(String(req.params.id), req.body ?? {}, req.user!.id);
+    res.status(201).json({ success: true, data: row });
+  });
+
+  /** 見積のまとめ（ダッシュボードの KPI 2枚ぶん） */
+  router.get('/estimates/summary', ...canRead, async (_req, res) => {
+    res.json({ success: true, data: await gpmEstimateSummary() });
   });
 
   // ── 体制（組織図のメンバー・migration 169）────────────────

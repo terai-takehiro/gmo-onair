@@ -31,7 +31,51 @@ export const gpmKeys = {
   openItems: (status: string) => ['gpm-open-items', status] as const,
   templates: () => ['gpm-templates'] as const,
   users: () => ['gpm-users'] as const,
+  estimates: (projectId: string) => ['gpm-estimates', projectId] as const,
+  estimateSummary: () => ['gpm-estimate-summary'] as const,
 };
+
+/**
+ * 見積 (v4 大⑤)。**案件（GLS）の見積とは混ざりません** —
+ * `estimates` は同じ表ですが `project_id` と `gpm_project_id` が排他で、
+ * サーバー側で片方だけを引いています。
+ */
+export interface GpmEstimate {
+  id: string;
+  gpm_project_id: string;
+  submit_to: 'self' | 'client' | 'pm' | null;
+  group_id: string;
+  version: number;
+  title: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
+  subtotal: number;
+  discount: number;
+  valid_until: string | null;
+  sent_at: string | null;
+  decided_at: string | null;
+  updated_at: string;
+}
+
+export interface GpmEstimateSummary {
+  draft: number; draft_amount: number;
+  sent: number; sent_amount: number;
+  awaiting_inspection: number; awaiting_inspection_amount: number;
+}
+
+export function useGpmEstimates(projectId: string) {
+  return useQuery<GpmEstimate[]>({
+    queryKey: gpmKeys.estimates(projectId),
+    queryFn: async () => (await api.get(`/gpm/projects/${projectId}/estimates`)).data.data,
+    enabled: !!projectId,
+  });
+}
+
+export function useGpmEstimateSummary() {
+  return useQuery<GpmEstimateSummary>({
+    queryKey: gpmKeys.estimateSummary(),
+    queryFn: async () => (await api.get('/gpm/estimates/summary')).data.data,
+  });
+}
 
 /**
  * プロジェクト一覧。`q`（探している言葉）だけサーバーに渡します
@@ -110,6 +154,9 @@ export function useInvalidateGpm() {
     qc.invalidateQueries({ queryKey: ['gpm-projects'] });
     qc.invalidateQueries({ queryKey: ['gpm-open-items'] });
     qc.invalidateQueries({ queryKey: ['gpm-templates'] });
+    // 見積を書き換えるとダッシュボードの KPI 2枚が変わる。**一緒に落とす**
+    qc.invalidateQueries({ queryKey: ['gpm-estimates'] });
+    qc.invalidateQueries({ queryKey: ['gpm-estimate-summary'] });
     for (const id of ids) qc.invalidateQueries({ queryKey: gpmKeys.project(id) });
   };
 }

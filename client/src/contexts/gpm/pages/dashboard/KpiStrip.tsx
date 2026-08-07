@@ -1,15 +1,14 @@
 /**
  * ① ダッシュボード上辺の数字（GPM）
  *
- * ── モックは5枚、ここは3枚 ──────────────────────────────────
+ * ── モックどおり5枚（v4 大⑤で2枚足した）────────────────────
  *
- * モックの5枚は 進行中プロジェクト / 今週の工程期限 / 未確認事項 /
- * **個別見積 未提出** / **検収待ち** ですが、後ろの2枚は出しません。
- * プロジェクト管理には**見積・請求のデータがまだ1件もありません**
- * （既存の `estimates` は案件（GLS）にぶら下がる作りで、モックが持つ
- *  「提出先（自社／依頼元／PM会社）」の列がありません）。
- * **数えられないものをそれらしく出さない** — 0 と出すのも「無い」と
- * 言い切ることになるので、枠ごと出さずに理由を画面に書きます。
+ * 進行中プロジェクト / 今週の工程期限 / 未確認事項 /
+ * **個別見積 未提出** / **検収待ち**。
+ *
+ * 後ろの2枚は migration 173 まで出していませんでした（`estimates` が案件に
+ * しかぶら下がれず、提出先の列も無かったため）。**数えられるようになったので
+ * 0 は「無い」という正しい答え**です — 数えられなかった頃は枠ごと出しませんでした。
  *
  * ── 「今週の期限」の数え方を書く ────────────────────────────
  *
@@ -17,11 +16,14 @@
  * ここで数えるのも1プロジェクト1件です。工程の下のタスクを全部数えるには
  * サーバーに口が要ります。**数え方を補足に書いて**、数字を読み違えないようにします。
  */
-import { AlertTriangle, CalendarDays, CircleHelp, FolderOpen } from 'lucide-react';
+import { CalendarDays, CircleHelp, ClipboardCheck, FileText, FolderOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StatValue } from '@gmo-onair/shared/src/client/ui/numbers';
+// 金額は**万円で丸めない**（桁が読めないと判断に使えない）。組み立ては共通の1本に通す
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { ymd, type GpmOpenItem, type GpmProjectRow } from '../../types';
+import type { GpmEstimateSummary } from '../../queries';
 
 export interface GpmKpis {
   active: number;
@@ -71,7 +73,7 @@ interface Cell {
   to?: string;
 }
 
-export function KpiStrip({ kpis }: { kpis: GpmKpis }) {
+export function KpiStrip({ kpis, est }: { kpis: GpmKpis; est?: GpmEstimateSummary }) {
   const cells: Cell[] = [
     {
       key: 'active', label: '進行中プロジェクト', icon: FolderOpen,
@@ -95,10 +97,27 @@ export function KpiStrip({ kpis }: { kpis: GpmKpis }) {
       danger: kpis.openAsks > 0,
       to: '/gpm/tasks',
     },
+    {
+      key: 'estimate', label: '個別見積 未提出', icon: FileText,
+      value: est?.draft ?? 0, unit: '件',
+      // **金額も出す。** 件数だけだと、1件が小さいのか大きいのかが読めない
+      sub: est ? `作成中 ${formatCurrency(est.draft_amount)} ・ 返事待ち ${est.sent}件` : '読み込み中',
+      to: '/gpm/projects',
+    },
+    {
+      key: 'inspection', label: '検収待ち', icon: ClipboardCheck,
+      value: est?.awaiting_inspection ?? 0, unit: '件',
+      // **但し書きを出す。** プロジェクトの見積は売上に変換できない
+      // （`revenues.project_id` が NOT NULL）ので、請求が立っていない受注も
+      // ここに入る。書かないと「検収待ち」の意味を読み違える
+      sub: est ? `${formatCurrency(est.awaiting_inspection_amount)} ・ 請求前のものも含む` : '読み込み中',
+      danger: (est?.awaiting_inspection ?? 0) > 0,
+      to: '/gpm/projects',
+    },
   ];
 
   return (
-    <div className="rounded-card grid grid-cols-1 gap-y-3 border border-border bg-card px-1 py-3 sm:grid-cols-3 sm:gap-y-0">
+    <div className="rounded-card grid grid-cols-1 gap-y-3 border border-border bg-card px-1 py-3 sm:grid-cols-3 sm:gap-y-0 xl:grid-cols-5">
       {cells.map((c, i) => {
         const Icon = c.icon;
         const body = (
@@ -115,7 +134,15 @@ export function KpiStrip({ kpis }: { kpis: GpmKpis }) {
           </>
         );
         return (
-          <div key={c.key} className={cn('min-w-0 px-3.5 lg:px-5', i > 0 && 'sm:border-l sm:border-border')}>
+          <div
+            key={c.key}
+            className={cn(
+              'min-w-0 px-3.5 lg:px-5',
+              // 3列のときは4枚目で行が変わるので、そこだけ区切り線を消す
+              i > 0 && 'sm:border-l sm:border-border',
+              i === 3 && 'sm:border-l-0 xl:border-l',
+            )}
+          >
             {c.to ? (
               <Link
                 to={c.to}
@@ -128,22 +155,5 @@ export function KpiStrip({ kpis }: { kpis: GpmKpis }) {
         );
       })}
     </div>
-  );
-}
-
-/**
- * 出していない数字とその理由。
- * **書かないと「まだ作っていない」のか「0 件」なのか分かりません。**
- */
-export function NotCounted() {
-  return (
-    <p className="text-note flex items-start gap-2 text-muted-foreground">
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>
-        モックにある「個別見積 未提出」「検収待ち」は出していません。プロジェクト管理には
-        見積・請求のデータがまだ無く（見積は案件に紐づく作りで、提出先を持つ列がありません）、
-        <strong>数えられないものをそれらしく出さない</strong>と決めているためです。
-      </span>
-    </p>
   );
 }

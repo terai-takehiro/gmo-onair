@@ -110,10 +110,17 @@ export async function getSalesOverview(now = new Date()) {
     ),
 
     // ── 見積の返事待ち ── 出した (`sent`) まま決まっていない版だけ。
-    // 値引きは単価を下げず別建てなので、合計は subtotal から引く
+    // 値引きは単価を下げず別建てなので、合計は subtotal から引く。
+    //
+    // **`project_id IS NOT NULL` を必ず付ける** (v4 大⑤・migration 173)。
+    // `estimates` はプロジェクト管理（GPM）の見積も入るようになったので、
+    // 外すと **案件管理のダッシュボードに GPM の見積が足されます**。
+    // `revenues` を読む 41 か所が `status` を見ていなかったのと同じ形の穴で、
+    // ここは実測して**この1か所だけ**だと確かめてある
     queryOne(
       `SELECT COUNT(*)::int AS n, COALESCE(SUM(subtotal - discount),0)::int AS amount
-       FROM estimates WHERE status = 'sent' AND deleted_at IS NULL`
+       FROM estimates WHERE status = 'sent' AND deleted_at IS NULL
+         AND project_id IS NOT NULL`
     ),
 
     // ── 今月の売上 ── **`status='confirmed'` で必ず絞る。**

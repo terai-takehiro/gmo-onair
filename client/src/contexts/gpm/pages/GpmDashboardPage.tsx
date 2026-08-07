@@ -10,7 +10,6 @@
  *
  * ── 出さないと決めたもの ────────────────────────────────────
  *
- *   ・**個別見積 未提出 ／ 検収待ち** … データが無い（`KpiStrip` に理由を出す）
  *   ・**活動履歴** … GPM には活動記録のテーブルがありません。案件管理の
  *     `activity_logs` は `projects` に紐づくので、GPM の行は1件も返りません
  *   ・**今週の工程（曜日ごとの割り付け）** … 工程の日付を全プロジェクトぶん
@@ -25,9 +24,9 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { useGpmOpenItems, useGpmProjects } from '../queries';
+import { useGpmEstimateSummary, useGpmOpenItems, useGpmProjects } from '../queries';
 import { TO_KIND_LABEL, dueLabel, dueTone, progressPct, ymd, type GpmOpenItem } from '../types';
-import { KpiStrip, NotCounted, countKpis } from './dashboard/KpiStrip';
+import { KpiStrip, countKpis } from './dashboard/KpiStrip';
 import { Panel } from './dashboard/Panel';
 
 /** 何日前に訊いたか。**「3日前から待ち」は読み手が判断に使う数字** */
@@ -53,6 +52,9 @@ export default function GpmDashboardPage() {
 
   const projects = useGpmProjects('');
   const asks = useGpmOpenItems('all');
+  // KPI の後ろ2枚（個別見積 未提出 / 検収待ち）。**サーバーが数える** —
+  // 見積は画面が持っていないので、ここで数えると 0 のままになる
+  const estimates = useGpmEstimateSummary();
 
   const loading = projects.isLoading || asks.isLoading;
   const rows = useMemo(() => projects.data ?? [], [projects.data]);
@@ -99,8 +101,7 @@ export default function GpmDashboardPage() {
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : (
         <>
-          <KpiStrip kpis={kpis} />
-          <NotCounted />
+          <KpiStrip kpis={kpis} est={estimates.data} />
 
           <div className="grid gap-3.5 lg:grid-cols-3">
             <div className="space-y-3.5 lg:col-span-2">

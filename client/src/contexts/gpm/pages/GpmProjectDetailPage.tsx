@@ -31,6 +31,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { useGpmProject, useInvalidateGpm } from '../queries';
 import { STATUS_LABEL, type GpmOpenItem, type GpmPhase, type GpmStatus, type PhaseState } from '../types';
 import { DetailHeader, isDetailTab, type DetailTabKey } from './projectDetail/DetailHeader';
+import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { PhaseRow, PhaseRowsHeader } from './projectDetail/PhaseRows';
 import { PhaseDialog } from './projectDetail/PhaseDialog';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
@@ -250,6 +251,7 @@ export default function GpmProjectDetailPage() {
       )}
 
       {tab === 'members' && <MembersTab projectId={id} members={p.members} canEdit={canEdit} />}
+      {tab === 'estimates' && <EstimatesTab projectId={id} canEdit={canEdit} />}
       {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
       {editing && <EditProjectDialog project={p} onClose={() => setEditing(false)} />}
