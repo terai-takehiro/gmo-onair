@@ -130,7 +130,9 @@ export function KpiStrip({ kpis, est }: { kpis: GpmKpis; est?: GpmEstimateSummar
               <StatValue size="sm" className={cn(c.danger && 'text-destructive')}>{c.value}</StatValue>
               <span className="text-note text-muted-foreground">{c.unit}</span>
             </p>
-            <p className="text-sub-sm truncate text-muted-foreground">{c.sub}</p>
+            {/* **カードの但し書きは読ませる文**なので `text-note`（スマホで 13px に上がる）。
+                `text-sub-sm` は件数の数字や札のための段で、上がらない */}
+            <p className="text-note truncate text-muted-foreground">{c.sub}</p>
           </>
         );
         return (

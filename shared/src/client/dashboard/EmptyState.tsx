@@ -36,7 +36,9 @@ export function EmptyState({
       </div>
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description ? (
-        <p className="max-w-md text-xs text-muted-foreground">{description}</p>
+        // `data-ui` は**属性だけ**。v4 の3アプリはこれを目印にスマホで 13px へ上げる
+        // (`tokens-v4.css`)。凍結4アプリはあのファイルを読まないので描画は変わらない
+        <p data-ui="empty-desc" className="max-w-md text-xs text-muted-foreground">{description}</p>
       ) : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>

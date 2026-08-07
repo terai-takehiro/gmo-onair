@@ -126,6 +126,20 @@ export function AppSideMenu({
       )}
       <nav
         aria-label="メニュー"
+        /*
+         * **閉じた引き出しをタブ順と読み上げから外す印。**
+         * `-translate-x-full` だけだと画面の外にあるだけで、スマホで Tab を押すと
+         * 見えないメニューの 20 項目を順に通ってから本文に着きます。
+         *
+         * 隠すのは `tokens-v4.css` の側 (`visibility: hidden`)。**Tailwind の
+         * 該当クラスをここに書いてはいけません** — 凍結4アプリの CSS に
+         * その2規則が入ります (実測 +61 バイト)。各アプリの Tailwind が
+         * `shared/src/client/**` を走査するためで、**コメントの中に書いた
+         * クラス名まで拾われます** (これで一度踏みました)。
+         * 描かない規則でも「見た目を今日のまま」に反するので、
+         * **属性だけ足して規則は v4 側に置きます**（`data-ui="button"` と同じやり方）。
+         */
+        data-drawer={open ? 'open' : 'closed'}
         className={cn(
           'z-50 flex w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border bg-card px-3 pb-5 pt-3.5',
           // PC は常に居座る。スマホは引き出し

@@ -55,7 +55,7 @@ export function TodayCard({ days }: { days: ScheduleDay[] | undefined }) {
         <button
           type="button"
           onClick={() => navigate('/studio/calendar')}
-          className="text-note flex items-center gap-0.5 font-bold text-primary hover:underline"
+          className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
         >
           カレンダー<ArrowRight className="h-3 w-3" aria-hidden="true" />
         </button>

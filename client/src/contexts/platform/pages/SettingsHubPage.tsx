@@ -102,7 +102,7 @@ export default function SettingsHubPage() {
 
       <p className="text-note text-muted-foreground">
         アプリのバージョンとバックアップの取り出しは
-        <Link to="/settings/system" className="ml-1 text-primary underline">システムの情報</Link>
+        <Link to="/settings/system" className="inline-block py-[13px] -my-[13px] ml-1 text-primary underline">システムの情報</Link>
         に移しました（毎日使うものではないため）。
       </p>
     </div>

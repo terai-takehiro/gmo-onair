@@ -45,7 +45,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { Home, ListTodo as ListTodoTab, Menu } from "lucide-react";
+import { Home, ListTodo as ListTodoTab, Search as SearchTab } from "lucide-react";
 import type { ShellMobileTab, ShellNavSection } from "@gmo-onair/shared/src/client/shell";
 
 export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
@@ -271,15 +271,17 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
 };
 
 /**
- * スマホ下端のタブ。
+ * スマホ下端のタブ — **ホーム / やること / 検索**（v4 の決めごと）。
  *
- * v4 の決めごとは **ホーム / やること / 検索** の3つです。検索は上辺バーにありますが
- * スマホでは畳んでいる (入力欄を出すと 375px でアプリ名が入らない) ので、
- * いまは**メニューを開くタブ**にしてあります。Phase 6 (スマホ) で
- * 検索のシートを作るときに差し替えます。
+ * 3つ目は S2 の時点では「メニューを開く」でした。**スマホに検索が1つも無かった**
+ * ためです（上辺バーの `GlobalSearch` は `hidden sm:block` で 375px では出ない）。
+ * Phase 6 で `/search` を作ったので、本来の「探す」に戻しました。
+ *
+ * **メニューは上辺バーの ☰ から開けます。** 下タブと ☰ の両方をメニューに
+ * 使っていたので、1枠が二重の入口になっていました。
  */
 export const CLIENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: "ホーム", to: "/", icon: Home, end: true },
   { label: "やること", to: "/sales/tasks/list", icon: ListTodoTab },
-  { label: "メニュー", icon: Menu, action: "menu" },
+  { label: "探す", to: "/search", icon: SearchTab },
 ];

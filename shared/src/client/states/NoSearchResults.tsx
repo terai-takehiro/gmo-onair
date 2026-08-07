@@ -59,7 +59,7 @@ export function NoSearchResults({ keyword, activeFilters = [], onClearFilters, c
         <button
           type="button"
           onClick={onClearFilters}
-          className="mt-3 rounded-control border border-border bg-card px-4 py-2 text-list text-foreground transition-colors hover:bg-secondary"
+          className="min-h-tap mt-3 rounded-control border border-border bg-card px-4 py-2 text-list text-foreground transition-colors hover:bg-secondary lg:min-h-0"
         >
           絞り込みをすべて外す
         </button>

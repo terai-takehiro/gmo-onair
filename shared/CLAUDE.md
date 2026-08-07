@@ -352,6 +352,35 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 - **`client-awards` は `tokens.css` を読んでいない**（自前の変数を持ち、共通 preset も継承していない）。
   凍結なのでこれは**直さない**
 
+### スマホの手触りは部品と型スケールで一度に効かせる（Phase 6）
+
+375px の 29 画面を実ブラウザで測ったところ、**44px 未満のタップ対象が 263 件・
+13px 未満の文字が 728 種**ありました（横はみ出しと JS エラーは 0 でした）。
+**画面ごとに直すと必ず取り残しが出る**ので、`tokens-v4.css` の
+`@media (max-width: 1023px)` に置いてあります:
+
+| 規則 | 効く先 |
+| --- | --- |
+| `:root [data-ui='button'] { min-height/min-width: 44px }` | `Button` 全部（アイコンだけのボタンを含む） |
+| `:root .text-note { font-size: 13px }` | 画面の説明文・注記帯 |
+| `:root .text-sub { font-size: 13px }` | 行の2行目・絞り込みチップ |
+| `:root [data-ui='empty-desc'] { font-size: 13px }` | `EmptyState` の説明文 |
+| `:root [data-drawer='closed'] { visibility: hidden }` | 閉じた左メニュー（タブ順・読み上げから外す） |
+
+**上げていないもの（意図的）**: `.text-sub-sm`(11.5px) / `.text-th`(11.5px) /
+`.text-badge`(11px)。件数の数字・列見出し・バッジの札で、決めごとが言う「本文」ではなく、
+**上げると `TableBadge` の固定幅（56/72/96…）に収まらず札の文字が切れます**。
+
+- **`button.tsx` と Tailwind の型スケールを直接書き換えないこと。** どちらも凍結4アプリが
+  使っており、共通側を変えると4アプリのスマホの見た目が動きます
+- `Row interactive` と `searchable-select` は**凍結アプリが使っていない**ので、
+  部品の側に直接 `min-h-tap ... lg:min-h-0` を書いてあります
+
+> ⚠️ **コメントに書いたクラス名も Tailwind に拾われます。**
+> `AppSideMenu.tsx` のコメントに `in​visible` と書いただけで、
+> **凍結3アプリの CSS に2規則・61 バイト**入りました（実測して気づいた）。
+> `shared/src/client/` では、コメントの中でも Tailwind のクラス名を書かないこと。
+
 ### 段を足したら `cn()` にも教える（P2 で判明・最重要）
 
 `src/client/utils.ts` の `cn()` は tailwind-merge で「あとに書いたクラスが前を打ち消す」を

@@ -68,6 +68,7 @@ import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
+import SearchPage from "@/contexts/platform/pages/SearchPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 import SitesPage from "@/contexts/platform/pages/SitesPage";
 import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
@@ -137,6 +138,12 @@ function AppRoutes() {
       >
         {/* ホーム（アプリランチャー） */}
         <Route path="/" element={<HomePage />} />
+        {/*
+            探す（スマホの下タブ 3つ目）。**権限を掛けない** —
+            `GET /search` が種類ごとに権限を見て、権限が無い種類は空で返す
+            （画面で止めると、案件だけの人・経理だけの人が検索そのものを使えなくなる）
+        */}
+        <Route path="/search" element={<SearchPage />} />
 
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />

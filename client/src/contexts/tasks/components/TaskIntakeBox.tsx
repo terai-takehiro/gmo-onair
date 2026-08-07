@@ -225,7 +225,7 @@ export function TaskIntakeBox() {
                 type="button"
                 onClick={() => setKind(v)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-xs transition-colors",
+                  "min-h-tap rounded-md px-2.5 py-1 text-xs transition-colors lg:min-h-0", // スマホ 44px
                   kind === v ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"
                 )}
               >
@@ -248,7 +248,7 @@ export function TaskIntakeBox() {
         />
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-note text-muted-foreground">
             期限は<span className="font-medium text-foreground">何月何日何時何分まで</span>で書くと、そのまま登録できます。
           </p>
           <Button

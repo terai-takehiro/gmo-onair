@@ -50,9 +50,17 @@
     display: flex;
     align-items: center;
   }
+  /*
+   * FullCalendar のツールバー（前/次/今日/月・週・一覧）。
+   * **v4 の決めごとは「タップ対象は最低 44px」** で、ここは 24px しか
+   * ありませんでした（実測 29×24）。前後の移動はカレンダーでいちばん押す
+   * ボタンなので、押し損ねると別の日が開きます。
+   */
   .studio-calendar .fc .fc-button {
+    min-height: 44px;
+    min-width: 44px;
     padding: 0.3rem 0.5rem;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     line-height: 1;
   }
   .studio-calendar .fc .fc-button-group .fc-button {

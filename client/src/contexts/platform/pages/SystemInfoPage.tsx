@@ -77,7 +77,7 @@ export default function SystemInfoPage() {
             <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
               <Database className="h-4 w-4" aria-hidden="true" />
               全データバックアップ
-              <Badge variant="secondary" className="text-[10px]">管理者専用</Badge>
+              <Badge variant="secondary" className="text-badge">管理者専用</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">

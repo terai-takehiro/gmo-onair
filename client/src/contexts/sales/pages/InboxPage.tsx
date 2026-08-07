@@ -280,11 +280,11 @@ export default function InboxPage() {
       {/* **外した2つの行き先を書く。** 受付にあったものが消えたと思われないように */}
       <p className="text-note text-muted-foreground">
         期限が過ぎたやることは{' '}
-        <Link to="/sales/dashboard" className="font-bold text-primary hover:underline">
+        <Link to="/sales/dashboard" className="inline-block py-[13px] -my-[13px] font-bold text-primary hover:underline">
           案件管理ダッシュボード
         </Link>
         、受け取った見積・請求の書類は{' '}
-        <Link to="/budget/documents" className="font-bold text-primary hover:underline">
+        <Link to="/budget/documents" className="inline-block py-[13px] -my-[13px] font-bold text-primary hover:underline">
           財務の「受け取った書類」
         </Link>
         にあります。この画面は<strong className="font-bold">引き合いだけ</strong>を扱います。
