@@ -21,6 +21,8 @@ export interface BookingListFilter {
   to?: string;
   roomId?: string;
   projectId?: string;
+  /** confirmed 確定 / tentative 仮押さえ (v4 カレンダー③)。**知らない値は素通しさせない** */
+  status?: string;
 }
 
 export interface CreateBookingInput {
@@ -55,13 +57,16 @@ export const studioBookingService = {
 
   /** 予約一覧 (rooms[] 付き)。from/to は TEXT の start_time/end_time と文字列比較 */
   async listBookings(filter: BookingListFilter): Promise<any[]> {
-    const { from, to, roomId, projectId } = filter;
+    const { from, to, roomId, projectId, status } = filter;
 
     let where = 'WHERE b.deleted_at IS NULL';
     const params: unknown[] = [];
     if (from) { where += ' AND b.end_time >= ?'; params.push(from); }
     if (to) { where += ' AND b.start_time <= ?'; params.push(to); }
     if (projectId) { where += ' AND b.project_id = ?'; params.push(projectId); }
+    // **知らない状態名で絞ると全件返る**（絞ったのに全部出ると気づけない）ので、
+    // 知っている2つだけを通す。それ以外は絞らない
+    if (status === 'confirmed' || status === 'tentative') { where += ' AND b.status = ?'; params.push(status); }
 
     const bookings = await queryAll(
       `SELECT b.*, p.name as project_name, p.gls_number, p.event_end as project_event_end, e.episode_code

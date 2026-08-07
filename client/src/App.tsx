@@ -46,6 +46,9 @@ import GpmTaskListPage from "@/contexts/gpm/pages/GpmTaskListPage";
 import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
 
 // Production (スタジオ予約)
+import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
+import HoldListPage from '@/contexts/production/pages/HoldListPage';
+import CalendarSettingsPage from '@/contexts/production/pages/CalendarSettingsPage';
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
@@ -210,10 +213,21 @@ function AppRoutes() {
         <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
-        <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
+        {/*
+          v4 カレンダー: モックの4画面（① 予定 / ② 部屋の空き / ③ 仮押さえ / ④ 設定）。
+          **① 予定は「1本のカレンダー＋レイヤー」** なので、いままで `/studio/all` に
+          いた統合カレンダーをここへ持ってきた（`/studio/all` は転送）。
+          スタジオだけのカレンダーは「そのほか（作り直し前）」に残す — 予約を作る導線が
+          あちらにしかないため、先に消すと作れなくなる
+        */}
+        <Route path="/studio/calendar" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/rooms" element={<PermissionRoute module="studio"><RoomAvailabilityPage /></PermissionRoute>} />
+        <Route path="/studio/holds" element={<PermissionRoute module="studio"><HoldListPage /></PermissionRoute>} />
+        <Route path="/studio/settings" element={<PermissionRoute module="studio"><CalendarSettingsPage /></PermissionRoute>} />
+        <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
         <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
         <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/all" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/all" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 

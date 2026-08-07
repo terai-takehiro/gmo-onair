@@ -67,10 +67,17 @@ const TREE = [
     ['取り込み (精算PDF・総勘定元帳・二重計上)', '/budget/import', 'client/src/contexts/finance/pages/ImportPage.tsx'],
   ]],
   ['カレンダー', [
-    ['予定', '/studio/calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx'],
-    ['部屋の空き', '/studio/all', 'client/src/contexts/production/pages/AllStudiosPage.tsx'],
-    ['パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx'],
-    ['自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx'],
+    // v4: モックの4画面。① 予定は**統合カレンダー1本＋レイヤー**（旧 `/studio/all`）
+    ['① 予定', '/studio/calendar', 'client/src/contexts/production/pages/UnifiedCalendarPage.tsx', undefined,
+      '**カレンダーを1本にしました**（旧メニューは「統合／スタジオ／パートナー／マイ」の4本が並んでいて、どれを開けばよいか分かりませんでした — 中身はほぼ同じで見えるレイヤーが違うだけ）。ただし**やったのは行き先の付け替えだけで、画面の中身はまだ v4 の枠に載せ替えていません**。FullCalendar の描画に手を入れる作業なので、②③④ と同じ回では触りません'],
+    ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx'],
+    ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
+    ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
+    ['（旧）スタジオカレンダー', '/studio/studio-calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx', '@@意図して据え置き@@',
+      '**予約を作る導線がここにしかない**ので残しています（消すと作れなくなる）。メニューでは「そのほか（作り直し前）」に畳んであります'],
+    ['（旧）パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx', '@@意図して据え置き@@'],
+    ['（旧）自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx', '@@意図して据え置き@@',
+      '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで'],
   ]],
   ['設定', [
     ['設定トップ', '/settings', 'client/src/contexts/platform/pages/SettingsPage.tsx'],

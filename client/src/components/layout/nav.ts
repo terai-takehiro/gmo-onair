@@ -193,11 +193,38 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
   ],
+  /**
+   * カレンダー — v4 の情報設計（モックの `MENU`）。
+   *
+   * **見る**（予定 / 部屋の空き / 仮押さえ）と**設定**の2つだけ。
+   * 旧メニューは「統合」「スタジオ」「パートナー」「マイ」の4本のカレンダーが
+   * 並んでおり、**どれを開けばよいか分かりませんでした**（中身はほぼ同じで、
+   * 見えるレイヤーが違うだけ）。v4 は **カレンダーは1本・レイヤーで切り替え**です。
+   *
+   * パートナーとマイは**予定を作る導線がそこにしかない**ので、
+   * 「そのほか（作り直し前）」に畳んで残します（消すと作れなくなる）。
+   */
   studio: [
     {
+      title: "見る",
       items: [
-        { label: "統合カレンダー", to: "/studio/all", icon: Layers, modules: ["studio", "partner_schedule"] },
-        { label: "スタジオカレンダー", to: "/studio/calendar", icon: Calendar },
+        { label: "予定", to: "/studio/calendar", icon: Calendar, modules: ["studio", "partner_schedule"] },
+        { label: "部屋の空き", to: "/studio/rooms", icon: Layers, module: "studio" },
+        { label: "仮押さえ", to: "/studio/holds", icon: CalendarClock, module: "studio" },
+      ],
+    },
+    {
+      title: "設定",
+      items: [
+        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, module: "studio" },
+      ],
+    },
+    {
+      title: "そのほか（作り直し前）",
+      collapsible: true,
+      note: "予定を作る導線がここにしかないので残しています",
+      items: [
+        { label: "スタジオカレンダー", to: "/studio/studio-calendar", icon: Calendar, module: "studio" },
         { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
         { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
       ],

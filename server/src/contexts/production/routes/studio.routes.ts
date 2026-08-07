@@ -390,6 +390,7 @@ router.get('/bookings', async (req, res) => {
     to: req.query.to as string,
     roomId: req.query.room_id as string,
     projectId: req.query.project_id as string,
+    status: req.query.status as string,
   });
   res.json({ success: true, data: result });
 });
@@ -442,18 +443,40 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
   const existing = await queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
-  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status } = req.body;
-  const bookingStatus = ['confirmed', 'tentative'].includes(status) ? status : undefined;
-  await execute(
-    `UPDATE studio_bookings SET title=?, booking_type=?, project_id=?, episode_id=?, all_day=?,
-     start_time=?, end_time=?, location_note=?, notes=?,
-     ${bookingStatus ? 'status=?,' : ''} updated_at=NOW(), updated_by=? WHERE id=?`,
-    bookingStatus
-      ? [title, booking_type || 'other', project_id || null, episode_id || null,
-         all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, bookingStatus, req.user!.id, req.params.id]
-      : [title, booking_type || 'other', project_id || null, episode_id || null,
-         all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id, req.params.id]
-  );
+  /**
+   * **渡さなかった項目は今の値を保つ** (v4 カレンダー③)。
+   *
+   * ここは元は**全置換**でした。`{ status: 'confirmed' }` だけを送ると
+   * 件名・日時・部屋が空で上書きされ、**予約が壊れます**
+   * （`start_time` は NOT NULL なので運が良ければ 500、悪ければ空の予約が残る）。
+   * 仮押さえの一覧から「確定にする」だけを送りたいので、部分更新にしました。
+   * **全部を送っている既存の呼び出しは今までどおり動きます。**
+   */
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  const set = (col: string, v: unknown) => { sets.push(`${col}=?`); params.push(v); };
+
+  if (b.title !== undefined) set('title', b.title);
+  if (b.booking_type !== undefined) set('booking_type', b.booking_type || 'other');
+  if (b.project_id !== undefined) set('project_id', b.project_id || null);
+  if (b.episode_id !== undefined) set('episode_id', b.episode_id || null);
+  if (b.all_day !== undefined) set('all_day', b.all_day ? 1 : 0);
+  if (b.start_time !== undefined) set('start_time', b.start_time);
+  if (b.end_time !== undefined) set('end_time', b.end_time);
+  if (b.location_note !== undefined) set('location_note', b.location_note || null);
+  if (b.notes !== undefined) set('notes', b.notes || null);
+  // **知らない状態名は素通しさせない**（黙って別の状態になるより、変わらないほうがよい）
+  if (b.status === 'confirmed' || b.status === 'tentative') set('status', b.status);
+
+  const { room_ids, room_details } = b as { room_ids?: unknown; room_details?: unknown };
+
+  if (sets.length > 0) {
+    sets.push('updated_at=NOW()');
+    set('updated_by', req.user!.id);
+    params.push(req.params.id);
+    await execute(`UPDATE studio_bookings SET ${sets.join(', ')} WHERE id=?`, params);
+  }
 
   // Replace room associations
   if (Array.isArray(room_details) || Array.isArray(room_ids)) {
