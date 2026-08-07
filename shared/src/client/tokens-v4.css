@@ -223,3 +223,140 @@
     transition: transform 0.15s, visibility 0s 0.15s;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   動き（手触り）— v4 対象3アプリだけ
+   ───────────────────────────────────────────────────────────────────
+   出どころはモックの CSS そのものです（`mockups/v4-mockup-main.dc.html`
+   の 20〜31 行目と、各画面の `animation:` 指定）。
+   `docs/design/v4/_tokens.md`「動き」に2行でまとめてありますが、
+   **実際のモックはもう少し持っています**（下の表）。
+
+   | モックにあるもの | どこで使うか |
+   | --- | --- |
+   | `screenIn .34s cubic-bezier(.22,.61,.36,1)` | 画面が切り替わったとき本文ぜんぶ |
+   | `cardIn`（6px 上がりながら出る） | 一覧・カードが読み込み終わったとき |
+   | `toastIn`（下から14px・0.96倍から） | お知らせ帯 |
+   | `barGrow .6s`（横に伸びる） | 進捗・割合の帯 |
+   | `button, a, [cursor:pointer]` の共通 transition | すべての押せるもの |
+
+   ── なぜ Tailwind の `animation` キーに足さないか ────────────────
+
+   `tailwind.preset.ts` に足すと**凍結4アプリの Tailwind も知ることになり**、
+   あちらの CSS が増えます。素の CSS クラスとして書けば、
+   **クラス名を知らない Tailwind は何も生成しません**（content の走査対象は
+   `.{js,ts,jsx,tsx}` だけで、この CSS ファイルは読まれません）。
+
+   ── 動きを止めたい人がいる ──────────────────────────────────
+
+   `prefers-reduced-motion: reduce`（OS の「視差効果を減らす」）を入れている人には
+   **全部止めます**。目が回る人がいる設定で、無視すると画面を開けなくなります。
+   **止めるのは動きだけで、`opacity` の最終状態は残す**（`both` を付けたまま
+   アニメーションだけ 0 秒にすると、要素が消えたままになる）。
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes barGrow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/**
+ * 画面が切り替わったとき。**シェルの本文に1つだけ**当てます
+ * （`shell/AppShell.tsx` が URL を鍵にして掛け直す）。
+ * 画面ごとに書くと、掛け忘れた画面だけカクッと出ることになります。
+ */
+.v4-screen-in { animation: screenIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.v4-card-in   { animation: cardIn 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.v4-toast-in  { animation: toastIn 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+/** 進捗の帯。**左端から伸ばす**（中央から広がると割合が読めない） */
+.v4-bar-grow  { transform-origin: left center; animation: barGrow 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+/**
+ * 押せるものぜんぶ（モックの 25 行目そのまま）。
+ *
+ * **`all` にしない。** `transition: all` は高さ・幅・`display` の切り替えまで
+ * 拾うので、開閉するパネルがぬるっと伸びて逆に遅く見えます。
+ * 色・罫線・影・変形の4つだけを名指しします。
+ */
+:where(button, a, [role='button'], summary, [data-ui='button']) {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.2s ease,
+    transform 0.14s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/**
+ * **押した瞬間の手応え。**
+ *
+ * `base.css` が `-webkit-tap-highlight-color: transparent` を当てているので、
+ * いまスマホで押しても**画面は1ドットも変わりません**（端末の既定の
+ * 灰色の点滅を消してあるため）。通信が返るまで無反応なので、
+ * 押せたのか分からず**もう一度押される**（＝二重に登録される）。
+ *
+ * 押している間だけ 0.97 倍にします。**離せば戻る**ので、
+ * 「hover は色・罫線のみ」（`_tokens.md`）とは別のものです
+ * — あちらはマウスを乗せただけの状態の話です。
+ */
+:where(button, [role='button'], [data-ui='button']):not(:disabled):active {
+  transform: scale(0.97);
+}
+/** 行・カードは大きいので、縮むと画面が波打つ。**沈むだけ**にする */
+:where([data-row-main]) { transition: background-color 0.16s ease; }
+
+/**
+ * **大きいタイルは持ち上がる**（モックのトップページ 120〜163 行目）。
+ * `_tokens.md` は「hover は色・罫線のみ」と要約していますが、
+ * モック自身はアプリのタイルと大きいカードを `translateY(-2〜-4px)` で
+ * 持ち上げています。**モックが正**なので、そちらに合わせました。
+ * 行（`Row`）や小さいボタンは今までどおり色・罫線だけです。
+ */
+.v4-lift { transition: transform 0.34s cubic-bezier(0.2, 0.9, 0.25, 1), box-shadow 0.34s ease, border-color 0.24s ease; }
+@media (hover: hover) {
+  .v4-lift:hover { transform: translateY(-3px); }
+}
+/** タイルの中のアイコンだけ少し跳ねる（モックの `cubic-bezier(.34,1.56,.5,1)`） */
+.v4-lift .v4-lift-icon { transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.5, 1); }
+@media (hover: hover) {
+  .v4-lift:hover .v4-lift-icon { transform: scale(1.08); }
+}
+
+/**
+ * **動きを減らす設定の人には全部止める。**
+ * `animation-duration: 0.01ms` にしているのは、0 にすると
+ * `both` の最終状態が当たらず**要素が消えたままになる**ため
+ * （`opacity: 0` で終わる）。1コマだけ流して終わらせます。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .v4-lift:hover, .v4-lift:hover .v4-lift-icon,
+  :where(button, [role='button'], [data-ui='button']):active { transform: none !important; }
+}
+
+/**
+ * 探して選ぶ欄で、矢印キーがいま指している候補（`searchable-select.tsx`）。
+ *
+ * **クラス名（`bg-accent`）で書けません** — `shared/src/client/` に
+ * 新しいクラス名を書くと**凍結4アプリの CSS が増えます**
+ * （実測: この1つで 1 規則・92 バイト）。属性だけ付けて、色はここで当てます。
+ * hover と同じ色なので、マウスと矢印で見え方が揃います。
+ */
+:root [data-cursor='on'] { background-color: rgb(var(--accent)); }

@@ -21,7 +21,7 @@
  * 項目は出して（無いと入れ忘れたと思われる）、行き先だけ書きます。
  */
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Loader2, MapPin, Plus, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -31,14 +31,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { ProjectStageLabels, ProjectTypeLabels, type ProjectStage } from '@/types';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
 import {
   CREATABLE_STAGES, EMPTY_NEW_PROJECT, RECURRENCE_LABEL, WANTS_HINTS,
   missingOf, type NewProjectValues,
 } from './fields';
-import { useInquirySeed, linkInquiryToProject } from './fromInquiry';
+import { useInquirySeed } from './fromInquiry';
+import { useCreateProject } from './useCreateProject';
+import { MobileNewProject } from './MobileNewProject';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 
 interface Named { id: string; name: string; short_name?: string | null }
 
@@ -65,9 +67,18 @@ function Field({
   );
 }
 
+/**
+ * 幅で選ぶだけの薄い親。**中で `if (mobile) return …` と書かない**
+ * （幅が変わった瞬間にフックの数が変わって React が落ちる）。
+ * スマホは ④ の3段組み（`MobileNewProject`）。16項目の1枚ものを
+ * 375px に積むと、どこまで入れたか分からない長い巻物になります。
+ */
 export default function NewProjectDialog() {
+  return useIsMobile() ? <MobileNewProject /> : <DesktopNewProject />;
+}
+
+function DesktopNewProject() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [params] = useSearchParams();
 
   const [v, setV] = useState<NewProjectValues>(() => ({
@@ -97,58 +108,7 @@ export default function NewProjectDialog() {
   const inquiryId = params.get('inquiry');
   const inquiry = useInquirySeed(inquiryId, setV);
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const body: Record<string, unknown> = {
-        customer_id: v.customer_id,
-        contact_name: v.contact_name.trim() || null,
-        name: v.name.trim(),
-        project_type: v.project_type,
-        gls_category: v.gls_category,
-        recurrence: v.recurrence,
-        stage: v.stage,
-        assigned_to: v.assigned_to,
-        attendee_count: v.attendee_count ? Number(v.attendee_count) : null,
-        goal: v.goal.trim() || null,
-        expected_amount: v.expected_amount ? Number(v.expected_amount) : 0,
-        reply_due: v.reply_due || null,
-        wants: v.wants.trim() || null,
-        intake_channel: v.intake_channel || undefined,
-        notes: v.notes.trim() || null,
-      };
-      // 実施日は**複数日**を持てる（飛び日）。1日でも同じ形で送る
-      if (v.dates.length > 0) body.dates = v.dates.map((d) => ({ date: d }));
-      if (v.first_task_title.trim()) {
-        body.first_task = {
-          title: v.first_task_title.trim(),
-          assigned_to: v.assigned_to,
-          due_date: v.first_task_due || null,
-        };
-      }
-      return (await api.post('/projects', body)).data.data as { id: string; code: string };
-    },
-    onSuccess: async (row) => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
-      // 元の情報に「案件になった」と書き戻す。**これが無いと未仕分けに残り、
-      // 翌日また送られて同じ引き合いから案件が2件できる**。
-      // 書き戻せなくても案件は出来ているので、**作成そのものは失敗にしない**
-      if (inquiryId) {
-        try {
-          await linkInquiryToProject(inquiryId, row.id);
-        } catch (e) {
-          notifyApiError('案件はつくれましたが、元の情報に印を付けられませんでした', e);
-        }
-      }
-      notifySuccess('案件をつくりました', {
-        description: v.first_task_title.trim()
-          ? '最初のタスクも入れました。'
-          : 'タスクは案件詳細から足せます。',
-      });
-      navigate(`/sales/projects/${row.id}`);
-    },
-    onError: (e) => notifyApiError('案件をつくれませんでした', e),
-  });
+  const create = useCreateProject(v, inquiryId);
 
   const addDate = () => {
     if (!newDate || v.dates.includes(newDate)) return;

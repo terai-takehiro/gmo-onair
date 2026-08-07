@@ -96,7 +96,15 @@ export function NoticeBar({ className }: { className?: string }): ReactNode {
   return (
     <div
       role={n.tone === 'error' ? 'alert' : 'status'}
-      className={cn('text-sub sticky top-0 z-[70] flex items-start gap-2 border-b px-4 py-2.5', cls, className)}
+      /*
+       * **鍵に帯の中身を入れて、出るたびに動かす。** 鍵が無いと、
+       * 続けて2回操作したとき（保存 → 保存）2回目の帯が**前の帯と同じ位置に
+       * 黙って差し替わる**ので、出たことに気づけません。
+       * 動きは `tokens-v4.css` の `.v4-toast-in`（モックの `toastIn` そのまま）。
+       * 凍結4アプリはこのクラスを知らないので、今までどおり静かに出ます。
+       */
+      key={`${n.tone}:${n.title}`}
+      className={cn('text-sub v4-toast-in sticky top-0 z-[70] flex items-start gap-2 border-b px-4 py-2.5', cls, className)}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">

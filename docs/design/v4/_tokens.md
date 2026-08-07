@@ -184,8 +184,32 @@ Tailwind 側は `rgb(var(--primary) / <alpha-value>)` の形で参照します
 - スマホ筐体: `0 30px 60px -24px rgba(16,24,40,.5)`
 
 ## 動き
-- 画面遷移: `animation: screenIn .34s cubic-bezier(.22,.61,.36,1) both`
-- hover: **色・罫線のみ**（`transform` は使わない）
+
+**この節は最初2行しかなく、モックの実物より少なく書いてありました。**
+モックの CSS（`mockups/v4-mockup-main.dc.html` の 20〜31 行目）から起こし直したものが下です。
+実装は `shared/src/client/tokens-v4.css` の末尾（v4 対象3アプリだけが読む）。
+
+| 動き | 値 | どこで |
+| --- | --- | --- |
+| `screenIn` | `.34s cubic-bezier(.22,.61,.36,1) both`（10px 下から・0.995 倍から） | **画面が切り替わったとき本文ぜんぶ**。シェルが URL を鍵にして1回だけ掛ける |
+| `cardIn` | 6px 下から・0.26s | カードが読み込み終わったとき |
+| `toastIn` | 14px 下から・0.96 倍から・0.26s | お知らせ帯 |
+| `barGrow` | `scaleX(0)→1`・0.6s・**左端から** | 進捗・割合の帯 |
+| 押せるもの共通 | `background-color .16s / border-color .16s / color .16s / box-shadow .2s / transform .14s` | `button, a, [role=button]` |
+
+- **hover は行と小さいボタンでは色・罫線のみ**（`transform` は使わない）。
+  ただし**モック自身はアプリのタイルと大きいカードを `translateY(-2〜-4px)` で
+  持ち上げています**（120〜163 行目・5407 行目）。**モックが正**なので、
+  大きいタイルだけ持ち上げます（`.v4-lift` ／ マウスのある端末だけ）
+- **押している間の縮み（`:active` 0.97 倍）は別途足しました。** モックには
+  ありませんが、`base.css` が `-webkit-tap-highlight-color: transparent` を
+  当てているため、**スマホで押しても画面が1ドットも変わりません**。
+  通信が返るまで無反応だと、押せたか分からず**もう一度押されます**
+- **`prefers-reduced-motion: reduce` では全部止めます。** 止め方は
+  `animation-duration: 0.01ms`（0 にすると `both` の最終状態が当たらず
+  **要素が消えたままになる**）
+- **`transition: all` を使わないこと。** 高さ・幅の切り替えまで拾うので、
+  開閉するパネルがぬるっと伸びて逆に遅く見えます
 
 ## アイコン
 **lucide**（実装では `lucide-react` のコンポーネントを直接使う）。
