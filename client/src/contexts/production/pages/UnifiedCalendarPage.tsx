@@ -21,6 +21,7 @@ import {
   loadCalState, saveCalState, clampView,
   CalendarShell, type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
+import { MobileToday } from './rooms/MobileToday';
 
 // 統合カレンダー — スタジオ予約 + パートナースケジュール + 個人予定 を 1 画面にマージ表示。
 // レイヤーは権限のあるものだけ表示され、トグルで ON/OFF できる (localStorage に永続化)。
@@ -63,8 +64,8 @@ function loadLayerPrefs(): Record<LayerKey, boolean> {
   return { studio: true, partner: true, my: true };
 }
 
-export default function UnifiedCalendarPage() {
-  const isMobile = useIsMobile(1024);
+function DesktopUnifiedCalendar() {
+  const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
   const qc = useQueryClient();
   const { currentUser, hasPermission } = useAuth();
@@ -328,4 +329,20 @@ export default function UnifiedCalendarPage() {
         />
     </CalendarShell>
   );
+}
+
+/**
+ * スマホと PC で**別の画面**を出す（Phase 6・M3）。
+ *
+ * ── 月表示は 375px で読めない ────────────────────────────────
+ *
+ * FullCalendar の月表示は1日ぶんの升が数ミリ角になります。現場で見たいのは
+ * 「**今日、何がどこであるか**」だけなので、**その日ぶんの縦並び**にします
+ * （モックの ⑬ 今日の予約）。
+ *
+ * **早期 return にしないこと** — 同じ部品の中で切り替えると、幅が変わったときに
+ * フックの数が変わって React が落ちます。ここは「どちらを描くか決めるだけ」。
+ */
+export default function UnifiedCalendarPage() {
+  return useIsMobile() ? <MobileToday /> : <DesktopUnifiedCalendar />;
 }

@@ -36,6 +36,8 @@ import { LedgerTabs } from './ledger/LedgerTabs';
 import { MonthPicker } from './ledger/LedgerParts';
 import { ClosingRows } from './billing/ClosingRows';
 import type { ClosingResponse, ClosingRow, ClosingTab } from './billing/types';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { MobileCollect } from './closing/MobileCollect';
 
 const TABS: { key: ClosingTab; label: string; icon: JSX.Element }[] = [
   { key: 'issue', label: '請求書を出す', icon: <Receipt className="h-4 w-4" aria-hidden="true" /> },
@@ -49,7 +51,7 @@ const FOOT: Record<ClosingTab, string> = {
   inspect: '検収日を記録します。請求書を出したかどうかとは別の記録です（先に検収する取引先もあります）。',
 };
 
-export default function ClosingPage() {
+function DesktopClosing() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('budget', 'editor') || hasPermission('sales', 'editor');
@@ -209,4 +211,18 @@ export default function ClosingPage() {
       )}
     </div>
   );
+}
+
+/**
+ * スマホと PC で**別の画面**を出す（Phase 6・M3）。
+ *
+ * PC は月ぶんを**まとめて**処理する画面（請求書を出す／入金／検収の3タブ・複数選択）。
+ * スマホは **入金の記録1つだけ**にします（モックの ⑫）。
+ * モックの「スマホに置かないもの」に**お金**が挙がっているのは**台帳の表**のことで、
+ * **片づく1つの仕事**は置く、という切り分けです。
+ *
+ * **早期 return にしないこと** — 幅が変わったときにフックの数が変わって落ちます。
+ */
+export default function ClosingPage() {
+  return useIsMobile() ? <MobileCollect /> : <DesktopClosing />;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type ElementType } from "react";
+import { useEffect, useRef, type ReactNode, type ElementType } from "react";
 import { NavLink } from "react-router-dom";
 import { CalendarDays, Users, CalendarClock, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
@@ -112,19 +112,16 @@ export const JP_HOLIDAYS = new Set([
   "2027-10-11","2027-11-03","2027-11-23",
 ]);
 
-export function useIsMobile(breakpoint = 1024) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
-  );
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    setIsMobile(mq.matches);
-    return () => mq.removeEventListener("change", handler);
-  }, [breakpoint]);
-  return isMobile;
-}
+/**
+ * スマホ幅か。**実装は `shared/src/client-v4/mobile.ts` の1本だけ**にする。
+ *
+ * ここには同じものが独立して書かれており（引数つき・既定 1024）、
+ * `StudioCalendarPage` にも**3つ目の写し**（既定 640）がありました。
+ * 呼び出しは全部 1024 だったので挙動は同じでしたが、
+ * **CSS の `lg` と揃っているかを確かめる場所が3つ**あることになります。
+ * 再エクスポートに畳んで、直す場所を1つにしました。
+ */
+export { useIsMobile } from "@gmo-onair/shared/src/client-v4/mobile";
 
 /** 祝日/土日のセル背景 (FullCalendar dayCellDidMount 用) */
 export function paintHolidayCell(arg: { date: Date; el: HTMLElement }) {

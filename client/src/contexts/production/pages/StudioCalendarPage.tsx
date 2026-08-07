@@ -18,6 +18,8 @@ import StudioBookingDialog from "../components/studio/StudioBookingDialog";
 import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailDialog";
 import KoubanView from "../components/studio/KoubanView";
 import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDialog";
+// **写しを持たない。** スマホ判定は `shared/src/client-v4/mobile.ts` の1本だけ
+import { useIsMobile } from "@gmo-onair/shared/src/client-v4/mobile";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { Settings, CalendarSync, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -127,19 +129,6 @@ const JP_HOLIDAYS = new Set([
   "2027-10-11","2027-11-03","2027-11-23",
 ]);
 
-function useIsMobile(breakpoint = 640) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
-  );
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    setIsMobile(mq.matches);
-    return () => mq.removeEventListener("change", handler);
-  }, [breakpoint]);
-  return isMobile;
-}
 
 export default function StudioCalendarPage() {
   const navigate = useNavigate();
@@ -148,7 +137,7 @@ export default function StudioCalendarPage() {
   const filterProjectId = searchParams.get("project_id") || "";
   const filterProjectName = searchParams.get("project_name") || "";
   const qc = useQueryClient();
-  const isMobile = useIsMobile(1024);
+  const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
