@@ -249,7 +249,7 @@ export default function GpmProjectDetailPage() {
         </div>
       )}
 
-      {tab === 'members' && <MembersTab members={p.members} />}
+      {tab === 'members' && <MembersTab projectId={id} members={p.members} canEdit={canEdit} />}
       {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
       {editing && <EditProjectDialog project={p} onClose={() => setEditing(false)} />}

@@ -220,7 +220,8 @@ export const projectService = {
                  due_date NULLS LAST, raised_at`, [id],
     );
     const members = await queryAll(
-      'SELECT * FROM gpm_members WHERE gpm_project_id = ? ORDER BY sort_order, name', [id],
+      `SELECT * FROM gpm_members WHERE gpm_project_id = ?
+        ORDER BY CASE tier WHEN 'top' THEN 0 WHEN 'lead' THEN 1 ELSE 2 END, sort_order, name`, [id],
     );
     return { ...p, phases, open_items: openItems, members };
   },
@@ -285,6 +286,89 @@ export const projectService = {
 };
 
 /**
+ * 体制（組織図）のメンバー (migration 169)。
+ *
+ * ── 箱は「名前が同じ人の集まり」 ────────────────────────────
+ *
+ * `group_label` が同じ人が1つの箱に入り、`tier` でどの段かが決まります。
+ * **箱を別テーブルにしていません** — 箱そのものに持たせる値が無く、
+ * 分けると人を消したときに空の箱が残って、それを消す画面がまた要ります。
+ *
+ * ── 消すのは1人ずつ ────────────────────────────────────────
+ *
+ * 「箱ごと消す」は作りません。押した人は「箱の名前を消した」つもりでも
+ * **中の人が全員消えます**。1人ずつ消せば、最後の1人が消えたときに箱も消えます。
+ */
+const MEMBER_SIDES = ['internal', 'client', 'pm', 'vendor'];
+const MEMBER_TIERS = ['top', 'lead', 'unit'];
+
+export const memberService = {
+  async add(gpmProjectId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const project = await queryOne(
+      'SELECT id FROM gpm_projects WHERE id = ? AND deleted_at IS NULL', [gpmProjectId],
+    );
+    if (!project) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+
+    const name = String(input.name ?? '').trim();
+    if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前を入れてください');
+    const side = String(input.side ?? 'internal');
+    assertIn(side, MEMBER_SIDES, 'side');
+    const tier = String(input.tier ?? 'unit');
+    assertIn(tier, MEMBER_TIERS, 'tier');
+
+    // 並び順は**同じ段の末尾**。段をまたいで通し番号にすると、
+    // 段を変えたときに他の段の並びまで動く
+    const maxRow = await queryOne(
+      'SELECT COALESCE(MAX(sort_order), 0) AS m FROM gpm_members WHERE gpm_project_id = ? AND tier = ?',
+      [gpmProjectId, tier],
+    );
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO gpm_members
+         (id, gpm_project_id, user_id, name, org, role, email, side, tier, group_label, badge, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, gpmProjectId, input.user_id ?? null, name,
+        input.org ?? null, input.role ?? null, input.email ?? null,
+        side, tier, (input.group_label as string) || null, (input.badge as string) || null,
+        Number(maxRow?.m ?? 0) + 1,
+      ],
+    );
+    return (await queryOne('SELECT * FROM gpm_members WHERE id = ?', [id]))!;
+  },
+
+  async update(id: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const existing = await queryOne('SELECT * FROM gpm_members WHERE id = ?', [id]) as Record<string, unknown> | undefined;
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'メンバーが見つかりません');
+    if (typeof input.side === 'string') assertIn(input.side, MEMBER_SIDES, 'side');
+    if (typeof input.tier === 'string') assertIn(input.tier, MEMBER_TIERS, 'tier');
+
+    // **渡さなかった項目は今の値を保つ。** 画面が一部だけ送っても消えない
+    const keep = <T>(v: unknown, cur: T) => (v === undefined ? cur : v);
+    await execute(
+      `UPDATE gpm_members SET
+         name = ?, org = ?, role = ?, email = ?, side = ?, tier = ?, group_label = ?, badge = ?, user_id = ?
+       WHERE id = ?`,
+      [
+        keep(input.name, existing.name), keep(input.org, existing.org),
+        keep(input.role, existing.role), keep(input.email, existing.email),
+        keep(input.side, existing.side), keep(input.tier, existing.tier),
+        keep(input.group_label, existing.group_label), keep(input.badge, existing.badge),
+        keep(input.user_id, existing.user_id), id,
+      ],
+    );
+    return (await queryOne('SELECT * FROM gpm_members WHERE id = ?', [id]))!;
+  },
+
+  async remove(id: string): Promise<void> {
+    const row = await queryOne('SELECT id FROM gpm_members WHERE id = ?', [id]);
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'メンバーが見つかりません');
+    // **物理削除。** 体制は「いま誰がやっているか」で、履歴を残す表ではない
+    await execute('DELETE FROM gpm_members WHERE id = ?', [id]);
+  },
+};
+
+/**
  * テンプレートを写してフェーズと配下タスクを作る。
  * **前の工程の終わりの翌日が次の工程の始まり**（モックの新規作成プレビューと同じ数え方）。
  * 開始日を入れていなければ日付は入れない（**推測しない**）。
@@ -327,6 +411,69 @@ async function expandTemplate(
     if (end) cursor = addDays(end, 1);
   }
 }
+
+// ══ タスク（⑤ 全プロジェクトのタスク一覧）════════════════════
+
+/**
+ * GPM のタスクは既存 `project_tasks` にあり、**`project_id` は NULL** で
+ * `gpm_phase_id` だけを持ちます。既存のタスク一覧・かんばん・ガント・MCP は
+ * どれも `JOIN projects` するので、**GPM のタスクは1件も返りません**。
+ *
+ * ここは `gpm_phases` を経由して引く**GPM 専用の口**です。
+ * **既存の一覧に相乗りさせません** — `project_id` を埋めると、案件の
+ * タスク一覧・週報・MCP に工事のタスクが混ざります（`docs/design/gpm-model.md`）。
+ */
+export const gpmTaskService = {
+  async listAll(filter: { status?: string; gpm_project_id?: string } = {}): Promise<Record<string, unknown>[]> {
+    const conds = ['t.deleted_at IS NULL', 't.gpm_phase_id IS NOT NULL', 'gp.deleted_at IS NULL'];
+    const params: unknown[] = [];
+
+    // 状態は**完了したかどうか**が正（`is_completed`）。止まり方は `work_state`
+    if (filter.status === 'open') conds.push('t.is_completed = false');
+    else if (filter.status === 'done') conds.push('t.is_completed = true');
+    else if (filter.status === 'overdue') {
+      conds.push("t.is_completed = false AND t.due_at IS NOT NULL AND t.due_at < NOW()");
+    } else if (filter.status && filter.status !== 'all') {
+      // **知らない状態は空で返す。** 素通しすると「絞ったのに全件」で気づけない
+      conds.push('FALSE');
+    }
+    if (filter.gpm_project_id) { conds.push('gp.id = ?'); params.push(filter.gpm_project_id); }
+
+    return queryAll(
+      `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
+              t.due_at, t.sort_order, t.assigned_to,
+              u.name AS assigned_to_name,
+              ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
+              gp.id AS gpm_project_id, gp.name AS gpm_project_name, gp.kind AS gpm_project_kind
+         FROM project_tasks t
+         JOIN gpm_phases ph ON ph.id = t.gpm_phase_id
+         JOIN gpm_projects gp ON gp.id = ph.gpm_project_id
+         LEFT JOIN users u ON u.id = t.assigned_to
+        WHERE ${conds.join(' AND ')}
+        ORDER BY t.is_completed ASC,
+                 t.due_at ASC NULLS LAST,
+                 gp.name ASC, ph.sort_order ASC, t.sort_order ASC`,
+      params,
+    );
+  },
+
+  /** 完了の入切。**`is_completed` だけを触る** — 止まり方 (`work_state`) は別の列 */
+  async setDone(taskId: string, done: boolean, userId: string): Promise<Record<string, unknown>> {
+    const row = await queryOne(
+      'SELECT id FROM project_tasks WHERE id = ? AND gpm_phase_id IS NOT NULL AND deleted_at IS NULL',
+      [taskId],
+    );
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    await execute(
+      `UPDATE project_tasks
+          SET is_completed = ?, completed_at = CASE WHEN ? THEN NOW() ELSE NULL END,
+              updated_by = ?, updated_at = NOW()
+        WHERE id = ?`,
+      [done, done, userId, taskId],
+    );
+    return (await queryOne('SELECT * FROM project_tasks WHERE id = ?', [taskId]))!;
+  },
+};
 
 // ══ 未確認事項 ════════════════════════════════════════════
 

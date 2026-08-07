@@ -23,7 +23,7 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import type { GpmOpenItem, GpmProjectDetail, GpmProjectRow, GpmTemplate } from './types';
+import type { GpmOpenItem, GpmProjectDetail, GpmProjectRow, GpmTask, GpmTemplate } from './types';
 
 export const gpmKeys = {
   projects: (q: string) => ['gpm-projects', q] as const,
@@ -63,6 +63,21 @@ export function useGpmOpenItems(status = '') {
     queryKey: gpmKeys.openItems(status),
     queryFn: async () =>
       (await api.get('/gpm/open-items', { params: status ? { status } : undefined })).data.data,
+  });
+}
+
+/**
+ * ⑤ 全プロジェクトのタスク (migration 169 の回で足した `GET /gpm/tasks`)。
+ *
+ * **既存の `/tasks` では引けません** — GPM のタスクは `project_id` が NULL で、
+ * 既存の一覧は `JOIN projects` するため1件も返りません。
+ */
+export function useGpmTasks(status = 'open') {
+  return useQuery({
+    queryKey: ['gpm', 'tasks', status],
+    queryFn: async () =>
+      (await api.get('/gpm/tasks', { params: status ? { status } : {} })).data.data as GpmTask[],
+    staleTime: 30_000,
   });
 }
 

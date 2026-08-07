@@ -12,7 +12,9 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
 import { queryOne, execute } from '../../shared/db/connection';
 import { AppError } from '../../shared/middleware/errorHandler';
-import { templateService, projectService, openItemService, phaseService } from './services/gpm.service';
+import {
+  templateService, projectService, openItemService, phaseService, memberService, gpmTaskService,
+} from './services/gpm.service';
 import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
 export function createGpmRoutes(): Router {
@@ -97,6 +99,43 @@ export function createGpmRoutes(): Router {
       [made.internal?.folderUrl ?? null, made.external?.folderUrl ?? null, id],
     );
     res.json({ success: true, data: await projectService.getById(id) });
+  });
+
+  /**
+   * ── タスク（⑤ 全プロジェクトのタスク一覧）────────────────
+   *
+   * **GPM 専用の口**。既存 `/tasks` は `JOIN projects` するので GPM のタスクを
+   * 1件も返しません（`project_id` が NULL のため）。
+   */
+  router.get('/tasks', ...canRead, async (req, res) => {
+    res.json({
+      success: true,
+      data: await gpmTaskService.listAll({
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+        gpm_project_id: typeof req.query.gpm_project_id === 'string' ? req.query.gpm_project_id : undefined,
+      }),
+    });
+  });
+  router.put('/tasks/:id/done', ...canEdit, async (req, res) => {
+    res.json({
+      success: true,
+      data: await gpmTaskService.setDone(String(req.params.id), req.body?.done !== false, req.user!.id),
+    });
+  });
+
+  // ── 体制（組織図のメンバー・migration 169）────────────────
+  router.post('/projects/:id/members', ...canEdit, async (req, res) => {
+    res.status(201).json({
+      success: true,
+      data: await memberService.add(String(req.params.id), req.body ?? {}),
+    });
+  });
+  router.put('/members/:id', ...canEdit, async (req, res) => {
+    res.json({ success: true, data: await memberService.update(String(req.params.id), req.body ?? {}) });
+  });
+  router.delete('/members/:id', ...canEdit, async (req, res) => {
+    await memberService.remove(String(req.params.id));
+    res.json({ success: true, data: { deleted: true } });
   });
 
   // ── 工程 ────────────────────────────────────────────────

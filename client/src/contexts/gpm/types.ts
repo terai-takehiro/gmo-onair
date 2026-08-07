@@ -106,8 +106,29 @@ export interface GpmMember {
   role: string | null;
   email: string | null;
   side: MemberSide;
+  /** 組織図の段 (migration 169) */
+  tier: MemberTier;
+  /** 組織図の箱の名前。同じ名前の人が1つの箱に入る。空なら立場の名前で束ねる */
+  group_label: string | null;
+  /** 箱の中で目立たせる印（決裁 / 進行 / 議事録 など） */
+  badge: string | null;
   sort_order: number;
 }
+
+/**
+ * 組織図の段 (migration 169・モックの `GP_ORG2`)。
+ *
+ *   top   上段  オブザーバー ／ 責任者（オーナー） ／ 管理業務・財務
+ *   lead  中段  全体統括（PM会社）
+ *   unit  下段  設計ユニット ／ テクニカルユニット ／ 施工ユニット
+ */
+export type MemberTier = 'top' | 'lead' | 'unit';
+
+export const TIER_LABEL: Record<MemberTier, string> = {
+  top: '決める人',
+  lead: '進める人',
+  unit: '手を動かす人',
+};
 
 /**
  * `GET /gpm/projects/:id`。
@@ -124,6 +145,31 @@ export interface GpmProjectDetail extends GpmProjectBase {
   /** 未確認事項の**中身**（一覧の `open_items` は件数なので別物） */
   open_items: GpmOpenItem[];
   members: GpmMember[];
+}
+
+/**
+ * ⑤ 全プロジェクトのタスク1件（`GET /gpm/tasks`）。
+ *
+ * 実体は既存 `project_tasks` の行ですが、**`project_id` は NULL** で
+ * `gpm_phase_id` だけを持ちます。案件のタスクとは別物なので型も分けています
+ * （同じ型にすると、案件のタスクを期待している画面に渡せてしまう）。
+ */
+export interface GpmTask {
+  id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  work_state: string | null;
+  due_at: string | null;
+  sort_order: number;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  phase_id: string;
+  phase_label: string;
+  phase_state: PhaseState;
+  gpm_project_id: string;
+  gpm_project_name: string;
+  gpm_project_kind: GpmKind;
 }
 
 export interface GpmTemplateTask {
@@ -229,6 +275,14 @@ export const SIDE_LABEL: Record<MemberSide, string> = {
 };
 
 /** 社外は同じ淡い色にする（自社／社外の2つだけ見分けばよい） */
+/** 箱の枠の色。段ではなく**立場**で決める（どこの会社かが読めるほうが役に立つ） */
+export const SIDE_BORDER: Record<MemberSide, string> = {
+  internal: 'border-primary-border',
+  client: 'border-warning-border',
+  pm: 'border-info-border',
+  vendor: 'border-border',
+};
+
 export const SIDE_TONE: Record<MemberSide, string> = {
   internal: 'bg-primary-surface-weak text-primary',
   client: 'bg-muted text-muted-foreground',
