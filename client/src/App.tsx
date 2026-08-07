@@ -18,6 +18,8 @@ import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InboxPage from "@/contexts/sales/pages/InboxPage";
+import InquiryQuickPage from "@/contexts/sales/pages/InquiryQuickPage";
+import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
@@ -172,6 +174,19 @@ function AppRoutes() {
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/inbox" element={<PermissionRoute module="sales"><InboxPage /></PermissionRoute>} />
+        {/*
+            ⑦ 受付（貼って送るだけ）— スマホで外から入れる口。
+            **`dailyops` か `sales` のどちらかで通す** — 受け側の
+            `POST /dailyops/inquiries` がその2つを見るので、片方だけにすると
+            もう片方の人が送れない
+        */}
+        <Route path="/sales/inbox/new" element={<PermissionRoute anyOf={["sales", "dailyops"]} minLevel="editor"><InquiryQuickPage /></PermissionRoute>} />
+        {/*
+            ⑤ 打合せを録音（スマホ）。録音の部品と送り先は案件詳細の
+            「やり取り」と**同じもの**（`RecordDialog` / `POST /projects/:id/minutes`）。
+            サーバーは `sales` の editor を要求する
+        */}
+        <Route path="/sales/record" element={<PermissionRoute module="sales" minLevel="editor"><MeetingRecordPage /></PermissionRoute>} />
         {/* v4: ヨミ・パイプラインは案件一覧の「ボード」表示に畳んだ (別画面だと絞り込みが引き継げず、
             一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
         <Route path="/sales/pipeline" element={<Navigate to="/sales/projects?view=board" replace />} />

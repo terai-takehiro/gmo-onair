@@ -122,7 +122,16 @@ router.get('/inquiries/:id', requireAuth, requireAnyPermission(['dailyops', 'sal
   res.json({ success: true, data: row });
 });
 
-router.post('/inquiries', ...canEdit, async (req, res) => {
+/**
+ * 引き合いを1件入れる。
+ *
+ * **`dailyops` か `sales` のどちらかで通す。** 受付（`/sales/inbox`）は
+ * `sales` の画面で、スマホの「電話・その他を貼る」もそこに属します。
+ * `dailyops` だけを要求すると**営業の人が自分で聞いた話を入れられません**。
+ * 同じ表を読む `GET /inquiries/:id` と `link-project` は大② で既に
+ * この2つを見るようにしてあり、**入れる口だけ狭いまま**でした。
+ */
+router.post('/inquiries', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor'), async (req, res) => {
   if (!req.body?.summary) throw new AppError(400, '要約 (summary) は必須です', 'VALIDATION_ERROR');
   const { row, action } = await inquiryService.create({ ...req.body, source: req.body?.source ?? 'manual', created_by: req.user!.id });
   res.status(action === 'created' ? 201 : 200).json({ success: true, data: row, action });

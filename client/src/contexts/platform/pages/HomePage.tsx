@@ -28,7 +28,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ClipboardPaste, Mic } from 'lucide-react';
 import api from '@/lib/api';
 import { APPS } from '@gmo-onair/shared/src/client/apps';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
@@ -170,6 +170,35 @@ export default function HomePage() {
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える） */}
         {canSeeDailyops && <TaskIntakeBox />}
+
+        {/*
+            スマホの「貼って送る」（モックの ① にある **貼る・撮る**）。
+            **スマホにだけ出す** — PC には受付の作業台（`/sales/inbox`）があり、
+            そちらのほうができることが多い。外にいるときの1段目だけをここに置く。
+            **「撮る」は出さない** — 名刺を読む口が無い（`InquiryQuickPage` に理由）
+        */}
+        {canSeeSales && (
+          <div className="flex flex-col gap-2 lg:hidden">
+            {([
+              { to: '/sales/inbox/new', icon: ClipboardPaste, label: '電話・その他を貼る', sub: '聞いた話をそのまま送る。整理は PC で' },
+              { to: '/sales/record', icon: Mic, label: '打合せを録音する', sub: '文字起こしは裏で走ります' },
+            ] as const).map((e) => (
+              <button
+                key={e.to}
+                type="button"
+                onClick={() => navigate(e.to)}
+                className="rounded-card min-h-tap flex w-full items-center gap-3 border border-dashed border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
+              >
+                <e.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="text-list block text-primary">{e.label}</span>
+                  <span className="text-note block text-muted-foreground">{e.sub}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        )}
 
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>

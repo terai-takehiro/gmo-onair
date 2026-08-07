@@ -122,8 +122,16 @@ export default function InboxPage() {
     onError: (e) => notifyApiError('見送りにできませんでした', e),
   });
 
+  /**
+   * 「対応済みにする」。
+   *
+   * **旧 `POST /inquiries/:id/handle` は大② で無くなっています**（行き先を
+   * 5つに分けた `state` に畳んだ）。ここだけ古い口を呼び続けていたため、
+   * **押すと必ず 404** になっていました（メニューからは押せてしまう）。
+   * 旧「対応済み」に当たる行き先は **`stock`（ストックする）** です。
+   */
   const handle = useMutation({
-    mutationFn: (id: string) => api.post(`/dailyops/inquiries/${id}/handle`),
+    mutationFn: (id: string) => api.post(`/dailyops/inquiries/${id}/state`, { state: 'stock' }),
     onSuccess: () => done('対応済みにしました'),
     onError: (e) => notifyApiError('更新できませんでした', e),
   });
