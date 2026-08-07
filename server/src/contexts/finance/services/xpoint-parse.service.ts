@@ -83,6 +83,69 @@ export interface XpointParsed {
   warnings: string[];
 }
 
+/**
+ * 読み取りの確からしさ (v4・モックの「読み取り 98%」)。
+ *
+ * ── これは AI のスコアではありません ────────────────────────
+ *
+ * 解析は正規表現のパーサで、機械学習の確信度のようなものは持っていません。
+ * **モックの数字をそれらしく真似ることはしません。** 代わりに
+ * **実際に数えられるもの**を出します:
+ *
+ *   台帳に入れるのに要る項目のうち、**何項目を読めたか**
+ *
+ * さらに「読めたが当てずっぽう」の警告 (フォームの版が違う・金額を最大値で拾った)
+ * があれば、その分だけ引きます。**同じ PDF なら必ず同じ数字**になるので、
+ * 低いときに何が足りないのかを追えます。
+ *
+ * `missing` に**何が読めなかったか**を入れます。パーセントだけ出しても
+ * 「で、何を直せばいいのか」が分かりません。
+ */
+export interface ParseScore {
+  /** 0〜100 */
+  score: number;
+  filled: number;
+  total: number;
+  /** 読めなかった項目の名前 (画面にそのまま出す) */
+  missing: string[];
+}
+
+/** 「当てずっぽうで埋めた」ことを表す警告。**当たったぶんだけ点を引く** */
+const GUESS_PENALTIES: { re: RegExp; points: number; why: string }[] = [
+  { re: /バージョン行 \(ver/, points: 20, why: 'フォームの版が違う' },
+  { re: /本文中の最大金額を採用/, points: 25, why: '金額を当てずっぽうで拾った' },
+];
+
+export function scoreXpoint(p: XpointParsed): ParseScore {
+  // 台帳に入れるのに要る項目。**仕入のときだけ GLS 番号が要る**
+  const required: { label: string; ok: boolean }[] = [
+    { label: '精算番号', ok: !!p.xpNumber },
+    { label: '件名', ok: !!p.subject },
+    { label: '種別（仕入／販管費）', ok: !!p.kind },
+    { label: '取引先', ok: !!p.vendorName },
+    { label: '金額', ok: !!p.amountInclusive },
+    { label: '計上日', ok: !!p.recognitionDate },
+    { label: '支払予定日', ok: !!p.paymentDueDate },
+  ];
+  if (p.kind === 'purchase') required.push({ label: 'GLS番号', ok: !!p.glsNumber });
+
+  const filled = required.filter((r) => r.ok).length;
+  const base = Math.round((filled / required.length) * 100);
+
+  // **税率の警告は引かない。** あれは毎回必ず出る文（X-Point は常に税込表記）で、
+  // 引くと全部の行が同じだけ下がって数字が意味を持たなくなる
+  const penalty = GUESS_PENALTIES
+    .filter((g) => p.warnings.some((w) => g.re.test(w)))
+    .reduce((n, g) => n + g.points, 0);
+
+  return {
+    score: Math.max(0, base - penalty),
+    filled,
+    total: required.length,
+    missing: required.filter((r) => !r.ok).map((r) => r.label),
+  };
+}
+
 const DATE_RE = /(\d{4})\/(\d{1,2})\/(\d{1,2})/g;
 const PAYMENT_METHODS = ['銀行振込', '口座振替', 'クレジットカード', 'クレジット', '現金', '手形', '振込'];
 
@@ -442,6 +505,28 @@ export function parseRakurakuText(text: string): RakurakuParsed {
 }
 
 /** 楽楽精算の明細を (種別 × GLS番号 × 税区分) でグループ化して登録単位に変換 */
+/**
+ * 楽楽精算の読み取りの確からしさ。**X-Point と同じ数え方** (要る項目を何個読めたか)。
+ * 明細を持つ形式なので「明細が1行でもあるか」も1項目として数える。
+ */
+export function scoreRakuraku(p: RakurakuParsed): ParseScore {
+  const required: { label: string; ok: boolean }[] = [
+    { label: '伝票No', ok: !!p.denpyoNumber },
+    { label: '申請者', ok: !!p.applicantName },
+    { label: '申請日', ok: !!p.applicationDate },
+    { label: '合計金額', ok: !!p.totalInclusive },
+    { label: '明細', ok: p.items.length > 0 },
+    { label: '税区分', ok: p.items.length > 0 && p.items.every((it) => !!it.taxCategory) },
+  ];
+  const filled = required.filter((r) => r.ok).length;
+  return {
+    score: Math.round((filled / required.length) * 100),
+    filled,
+    total: required.length,
+    missing: required.filter((r) => !r.ok).map((r) => r.label),
+  };
+}
+
 export function buildRakurakuUnits(parsed: RakurakuParsed): RegistrationUnit[] {
   const groups = new Map<string, RegistrationUnit>();
   for (const it of parsed.items) {

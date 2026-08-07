@@ -13,11 +13,17 @@
  * 同じものを2か所から直せるようにすると、片方だけ直された相手ができます。
  * ここからは**その画面へ送るだけ**にしました。
  *
- * ── 取引額は出していません ──────────────────────────────────
+ * ── 取引額は「今年度」で出します ────────────────────────────
  *
- * モックは相手ごとの取引額を出しますが、**期間の取り方（今年度／直近12か月／
- * 全期間）が決まっていません**。仕入先だけは「仕入先集計」があるので、
- * そこへ送るボタンを置いています。
+ * モックの「取引額」列です。**期間は今年度（暦年）に決めました** —
+ * 全期間にすると、5年前に1回だけ使った相手が上に来て、いま使っている相手が
+ * 埋もれます。切り替えは後から足せます（まず1つに決めるのが先）。
+ *
+ * 額は**仕入と販管費の両方**を足しています。仕入だけだと、家賃や通信費の
+ * 相手が「取引ゼロ」に見えます。
+ *
+ * **パートナーには出しません。** `partners` は仕入にも販管費にも紐づかず
+ * （`vendor_id` を持つのは `vendors`）、0 と書くと「取引が無い」と読まれます。
  */
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -27,6 +33,7 @@ import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { CrudFormDialog } from '@gmo-onair/shared/src/client/ui/crud-form-dialog';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { Button } from '@/components/ui/button';
@@ -49,6 +56,9 @@ interface Party {
   phone?: string;
   invoice_registration_number?: string;
   specialties?: string[];
+  /** 今年度の取引額（仕入 + 販管費）。仕入先だけが持つ */
+  ytd_amount?: number | string | null;
+  ytd_count?: number | null;
 }
 
 interface PartyForm {
@@ -216,6 +226,8 @@ export default function CounterpartyPage() {
               <RowSlot w={160}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
               <RowSlot w={160}>電話</RowSlot>
               <RowSlot w={200}>{def.extraLabel}</RowSlot>
+              {/* 取引額は仕入先だけ。**パートナーの列に 0 を並べない** */}
+              {kind === 'vendor' && <RowSlot w={128} align="right">今年度の取引</RowSlot>}
               <RowSlot w={96}>{canEdit ? '操作' : ''}</RowSlot>
             </RowHeader>
 
@@ -236,6 +248,16 @@ export default function CounterpartyPage() {
                 <RowSlot w={200} hideOnMobile>
                   <span className="truncate text-sub text-muted-foreground">{extraOf(p, kind) || '—'}</span>
                 </RowSlot>
+                {kind === 'vendor' && (
+                  Number(p.ytd_amount ?? 0) > 0
+                    ? <MoneyCell width={128} value={Number(p.ytd_amount)} className="text-sub" />
+                    : (
+                      <RowSlot w={128} align="right" hideOnMobile>
+                        {/* **0 円と「今年は取引なし」は別物。** 0 と書くと 0 円の取引があるように読める */}
+                        <span className="text-sub-sm text-fg-disabled">今年はなし</span>
+                      </RowSlot>
+                    )
+                )}
                 <RowSlot w={96}>
                   {canEdit && (
                     <span className="flex gap-0.5">

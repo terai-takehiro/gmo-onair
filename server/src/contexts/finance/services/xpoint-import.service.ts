@@ -12,7 +12,7 @@
 import { getBoxClient, extractFolderId } from '../../../shared/services/box';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import {
-  parseXpointText, XpointParsed,
+  parseXpointText, scoreXpoint, scoreRakuraku, XpointParsed, type ParseScore,
   parseRakurakuText, RakurakuParsed,
   detectVoucherFormat, buildXpointUnits, buildRakurakuUnits, RegistrationUnit,
 } from './xpoint-parse.service';
@@ -176,6 +176,11 @@ export interface XpointParseResult {
   units: UnitWithMatch[];
   /** 解析上の注意点 (人間のレビューで確認すべき点) */
   warnings: string[];
+  /**
+   * 読み取りの確からしさ。**AI のスコアではなく「要る項目を何個読めたか」**。
+   * 同じ PDF なら必ず同じ数字になる (`scoreXpoint` / `scoreRakuraku`)
+   */
+  score: ParseScore;
   match: {
     vendor: VendorMatch | null;
     vendorCandidates: VendorMatch[];
@@ -280,6 +285,7 @@ export async function parseXpointFile(boxFileId: string, fileName?: string): Pro
     let warnings: string[];
     let settlementNumber: string | null;
     let format: 'xpoint' | 'rakuraku';
+    let score: ParseScore;
 
     if (detected === 'rakuraku') {
       format = 'rakuraku';
@@ -287,12 +293,14 @@ export async function parseXpointFile(boxFileId: string, fileName?: string): Pro
       units = buildRakurakuUnits(voucher);
       warnings = voucher.warnings;
       settlementNumber = voucher.denpyoNumber;
+      score = scoreRakuraku(voucher);
     } else {
       format = 'xpoint';
       parsed = parseXpointText(text);
       units = buildXpointUnits(parsed);
       warnings = [...parsed.warnings];
       settlementNumber = parsed.xpNumber;
+      score = scoreXpoint(parsed);
       if (detected === 'unknown') {
         warnings.unshift('フォーマット (X-Point / 楽楽精算) を判定できませんでした。X-Point として解析していますが全項目を確認してください。');
       }
@@ -306,6 +314,7 @@ export async function parseXpointFile(boxFileId: string, fileName?: string): Pro
     const duplicates = await findDuplicates(method, settlementNumber);
 
     const result: XpointParseResult = {
+      score,
       format,
       settlementMethod: method,
       settlementNumber,
