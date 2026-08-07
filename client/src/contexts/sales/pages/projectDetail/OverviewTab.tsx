@@ -17,6 +17,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { ProjectTypeLabels } from '@/types';
+import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
@@ -119,13 +120,31 @@ export function OverviewTab({
           </Fact>
         </div>
 
+        {/*
+          並びは**登録の16項目と同じ**にしてある（`projectNew/fields.ts`）。
+          入れた順に読めないと、どこに入れた値なのかを探すことになる。
+          `Field` は中身が空なら「—」を出すので、空欄でも列がずれない
+        */}
         <Section title="この案件のこと">
           <Field label="お客様">{project.customer_name}</Field>
+          <Field label="ご担当">{project.contact_name}</Field>
           <Field label="種類">
             {project.project_type
               ? ProjectTypeLabels[project.project_type as keyof typeof ProjectTypeLabels] ?? project.project_type
               : null}
           </Field>
+          <Field label="継続区分">
+            {project.recurrence === 'regular' ? 'レギュラー（回を持つ）' : '単発'}
+          </Field>
+          <Field label="規模">
+            {project.attendee_count ? <><span className="font-number">{project.attendee_count}</span> 名</> : null}
+          </Field>
+          <Field label="やりたいこと">{project.goal}</Field>
+          <Field label="返事の期限">
+            {project.reply_due ? <span className="font-number">{project.reply_due}</span> : null}
+          </Field>
+          <Field label="求められているもの">{project.wants}</Field>
+          <Field label="入手経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             {project.gls_number ?? <span className="text-muted-foreground">まだ発番していません（ヨミ段階）</span>}
           </Field>

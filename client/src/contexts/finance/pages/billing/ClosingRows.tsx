@@ -58,6 +58,9 @@ export function ClosingRows({
       <RowHeader className="hidden sm:flex">
         <RowSlot w={96}>GLS番号</RowSlot>
         <RowMain>案件 ／ 請求先</RowMain>
+        {/* **出したものだけ番号を持つ。** 出す前の一覧では列ごと出さない
+            （空の列が並ぶと「採番に失敗した」ように見える） */}
+        {tab !== 'issue' && <RowSlot w={128}>請求書番号</RowSlot>}
         <RowSlot w={128} align="right">金額（税抜）</RowSlot>
         {tab === 'collect' && <RowSlot w={96}>入金期日</RowSlot>}
         <RowSlot w={96}>{tab === 'issue' ? '状態' : tab === 'collect' ? '入金' : '検収'}</RowSlot>
@@ -101,6 +104,14 @@ export function ClosingRows({
                   .filter(Boolean).join(' ・ ')}
               </RowSub>
             </RowMain>
+
+            {tab !== 'issue' && (
+              <RowSlot w={128} hideOnMobile>
+                {r.invoice_no
+                  ? <span className="font-number truncate text-sub-sm text-secondary-foreground">{r.invoice_no}</span>
+                  : <span className="text-sub-sm text-fg-disabled" title="この画面より前に出した請求書には番号がありません">（番号なし）</span>}
+              </RowSlot>
+            )}
 
             <MoneyCell value={r.amount} width={128} />
 

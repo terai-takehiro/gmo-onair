@@ -13,14 +13,14 @@
  * 空のとき・読み込み中・確認と知らせ) だけです。
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Download, Edit3, Plus, Printer, Upload, X } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
 import CustomColumnDialog, { type CustomColumn } from '@/components/CustomColumnDialog';
@@ -51,6 +51,12 @@ export function ItemsPanel() {
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('equipment', 'editor');
   const canDelete = hasPermission('equipment', 'manager');
+  // 「貸出可」の書き込みは `PUT /equipment/rental-settings/:id`（`owner` 指定）。
+  // ただしサーバーの段位表は **owner と manager が同じ 3** なので、
+  // 画面側は `manager` で判定する（`owner` で判定すると manager の人に
+  // 押せない印が出るのに、押せば通ってしまい食い違う）
+  const canSetRental = hasPermission('equipment', 'manager');
+  const qc = useQueryClient();
   const canBulkEdit = currentUser?.role === 'system_admin'
     || currentUser?.permissions?.equipment === 'manager'
     || currentUser?.permissions?.equipment === 'owner';
@@ -127,6 +133,27 @@ export function ItemsPanel() {
       setBulkValue('');
       notifySuccess(`${count} 件を直しました`);
     },
+  });
+
+  /**
+   * 「貸出可」の切り替え。**台帳の列から直接押せる**（モックどおり）。
+   *
+   * 貸出の一覧・設定タブ・ダッシュボードの数はどれも同じフラグを見ているので、
+   * まとめて読み直す（片方だけ古いままだと「押したのに増えない」になる）。
+   */
+  const [rentalBusyId, setRentalBusyId] = useState<string | null>(null);
+  const toggleRental = useMutation({
+    mutationFn: (item: EquipmentRecord) =>
+      api.put(`/equipment/rental-settings/${item.id}`, { is_rental_listed: !item.is_rental_listed }),
+    onMutate: (item) => { setRentalBusyId(item.id); },
+    onSettled: () => setRentalBusyId(null),
+    onSuccess: (_res, item) => {
+      qc.invalidateQueries({ queryKey: ['equipment-items'] });
+      qc.invalidateQueries({ queryKey: ['equipment-rental-settings'] });
+      qc.invalidateQueries({ queryKey: ['equipment-stats'] });
+      notifySuccess(`${item.name} を${item.is_rental_listed ? '常設に戻しました' : '貸出可にしました'}`);
+    },
+    onError: (e) => notifyApiError('貸出可を切り替えられませんでした', e),
   });
 
   const onDelete = async (item: EquipmentRecord, parentId?: string) => {
@@ -295,6 +322,9 @@ export function ItemsPanel() {
                 m.inlineEdit.mutate({ id, data });
                 setEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
               },
+              canSetRental,
+              rentalBusyId,
+              onToggleRental: (item) => toggleRental.mutate(item),
             }}
             customCtx={{
               columns: orderedCustom,

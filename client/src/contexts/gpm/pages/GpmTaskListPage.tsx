@@ -1,23 +1,16 @@
 /**
- * ⑤ 全プロジェクトのやること (v4 GPM) — 未確認事項 ／ 次にやること
+ * ⑤ 全プロジェクトのタスク (v4 GPM) — タスク ／ 未確認事項
  *
- * ── モックの「タスク一覧」をそのまま作れなかった理由 ────────
+ * ── GPM 専用の口で引きます ──────────────────────────────────
  *
- * モック（`GP_TK`）は全プロジェクトのタスクを1枚に並べますが、
- * **GPM のタスクを読む API がありません**。タスクは既存 `project_tasks` に
- * `gpm_phase_id` で紐づいていて、**`project_id` は NULL** です。既存の
- * タスク一覧・かんばん・ガント・MCP はどれも `JOIN projects` するので、
- * GPM のタスクは**1件も返りません**（サーバーの SQL を読んで確認しました）。
+ * モック（`GP_TK`）どおり全プロジェクトのタスクを1枚に並べます。
+ * 引くのは **`GET /gpm/tasks`**（GPM 専用）です。
  *
- * 出せるのは `GET /gpm/projects` が返す**プロジェクトごとの「次の1件」**
- * （`next_task` / `next_due`）だけです。なので:
- *
- *   ・タブの名前を「タスク」ではなく **「次にやること」** にする
- *     — 全部のタスクが並んでいると思わせない
- *   ・**プロジェクトごとに1件だけ**であることを画面に書く
- *
- * 全件を並べるには「`gpm_phase_id` からタスクを引く口」をサーバーに足す
- * 必要があります。それは画面の作り直しとは別の作業です。
+ * **既存の `/tasks` では引けません。** GPM のタスクは既存 `project_tasks` に
+ * `gpm_phase_id` で紐づいていますが **`project_id` は NULL** で、既存の
+ * タスク一覧・かんばん・ガント・MCP はどれも `JOIN projects` するため
+ * 1件も返りません。`project_id` を埋めて相乗りさせると、**案件のタスク一覧・
+ * 週報・MCP に工事のタスクが混ざります**（`docs/design/gpm-model.md`）。
  *
  * ── 未確認事項はここが本体 ──────────────────────────────────
  *
@@ -28,7 +21,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CircleHelp, ListTodo } from 'lucide-react';
+import { Check, CircleHelp, ListTodo } from 'lucide-react';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -39,8 +32,11 @@ import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { useGpmOpenItems, useGpmProjects, useInvalidateGpm } from '../queries';
-import { dueLabel, dueTone, ymd, type GpmOpenItem, type OpenItemStatus } from '../types';
+import { useGpmOpenItems, useGpmTasks, useInvalidateGpm } from '../queries';
+import {
+  PHASE_STATE_LABEL, PHASE_STATE_TONE, dueLabel, dueTone, ymd,
+  type GpmOpenItem, type GpmTask, type OpenItemStatus,
+} from '../types';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
 
@@ -55,12 +51,16 @@ const CHIPS: { key: string; label: string; statuses: OpenItemStatus[] }[] = [
 export default function GpmTaskListPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'next' ? 'next' : 'asks';
-  const setTab = (v: 'asks' | 'next') => {
+  const raw = params.get('tab');
+  const tab: 'tasks' | 'asks' = raw === 'asks' ? 'asks' : 'tasks';
+  const setTab = (v: 'tasks' | 'asks') => {
     const next = new URLSearchParams(params);
-    if (v === 'next') next.set('tab', 'next'); else next.delete('tab');
+    if (v === 'asks') next.set('tab', 'asks'); else next.delete('tab');
     setParams(next, { replace: true });
   };
+
+  /** タスクの絞り込み。**知らない値はサーバーが空で返す** */
+  const [taskChip, setTaskChip] = useState('open');
 
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('gpm', 'editor');
@@ -73,7 +73,9 @@ export default function GpmTaskListPage() {
   // **解決済みも含めて1回で取る。** 開いているタブだけ取ると、
   // 閉じているチップの件数が 0 のままになって数字が嘘になる
   const asks = useGpmOpenItems('all');
-  const projects = useGpmProjects('');
+  // **すべて取ってから画面で分ける。** 開いているチップだけ取ると、
+  // 閉じているチップの件数が古いまま残って数字が嘘になる
+  const tasks = useGpmTasks('all');
 
   const allAsks = useMemo(() => asks.data ?? [], [asks.data]);
   const askRows = useMemo(() => {
@@ -81,12 +83,30 @@ export default function GpmTaskListPage() {
     return allAsks.filter((a) => statuses.includes(a.status));
   }, [allAsks, chip]);
 
-  const nextRows = useMemo(
-    () => (projects.data ?? [])
-      .filter((p) => p.next_task && p.status !== 'done')
-      .sort((a, b) => (ymd(a.next_due) ?? '9999').localeCompare(ymd(b.next_due) ?? '9999')),
-    [projects.data],
-  );
+  const allTasks = useMemo(() => tasks.data ?? [], [tasks.data]);
+  const taskCounts = useMemo(() => ({
+    open: allTasks.filter((t) => !t.is_completed).length,
+    overdue: allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today).length,
+    done: allTasks.filter((t) => t.is_completed).length,
+    all: allTasks.length,
+  }), [allTasks, today]);
+  const taskRows = useMemo(() => {
+    if (taskChip === 'all') return allTasks;
+    if (taskChip === 'done') return allTasks.filter((t) => t.is_completed);
+    if (taskChip === 'overdue') {
+      return allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today);
+    }
+    return allTasks.filter((t) => !t.is_completed);
+  }, [allTasks, taskChip, today]);
+
+  const setDone = useMutation({
+    mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
+    onSuccess: (_r, t) => {
+      invalidate(t.gpm_project_id);
+      notifySuccess(t.is_completed ? '未完了に戻しました' : '完了にしました');
+    },
+    onError: (e) => notifyApiError('タスクを変えられませんでした', e),
+  });
 
   const toggle = useMutation({
     mutationFn: (item: GpmOpenItem) =>
@@ -126,11 +146,13 @@ export default function GpmTaskListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="全プロジェクトのやること"
-        sub={asks.data ? `止まっているもの ${openCount}件` : 'プロジェクトをまたいで見ます'}
+        title="全プロジェクトのタスク"
+        sub={tasks.data
+          ? `未完了 ${taskCounts.open}件 ・ 止まっている未確認事項 ${openCount}件`
+          : 'プロジェクトをまたいで見ます'}
       >
         <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
-          {([['asks', '未確認事項', CircleHelp], ['next', '次にやること', ListTodo]] as const).map(([v, label, Icon], i) => (
+          {([['tasks', 'タスク', ListTodo], ['asks', '未確認事項', CircleHelp]] as const).map(([v, label, Icon], i) => (
             <button
               key={v}
               type="button"
@@ -148,7 +170,94 @@ export default function GpmTaskListPage() {
         </div>
       </PageHeader>
 
-      {tab === 'asks' ? (
+      {tab === 'tasks' ? (
+        <>
+          <FilterChips
+            label="タスクの状態で絞り込む"
+            items={[
+              { key: 'open', label: '未完了', count: tasks.data ? taskCounts.open : null },
+              { key: 'overdue', label: '期限超過', count: tasks.data ? taskCounts.overdue : null },
+              { key: 'done', label: '完了', count: tasks.data ? taskCounts.done : null },
+              { key: 'all', label: 'すべて', count: tasks.data ? taskCounts.all : null },
+            ]}
+            value={taskChip}
+            onChange={setTaskChip}
+          />
+
+          {tasks.isError ? (
+            <ErrorPanel title="タスクを読み込めませんでした" onRetry={() => tasks.refetch()} />
+          ) : tasks.isLoading ? (
+            <Delayed><SkeletonRows rows={6} /></Delayed>
+          ) : taskRows.length === 0 ? (
+            <EmptyState
+              icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
+              title={taskChip === 'open' ? '未完了のタスクはありません' : '当てはまるタスクはありません'}
+              description="標準工程からプロジェクトを作ると、工程の下にタスクが日付付きで入ります。"
+            />
+          ) : (
+            <div className="overflow-hidden rounded-card border border-border bg-card">
+              <RowHeader className="hidden sm:flex">
+                {canEdit && <RowSlot w={56} align="center">完了</RowSlot>}
+                <RowMain>タスク ／ プロジェクト</RowMain>
+                <RowSlot w={128}>工程</RowSlot>
+                <RowSlot w={96}>担当</RowSlot>
+                <RowSlot w={96}>期限</RowSlot>
+              </RowHeader>
+              {taskRows.map((t) => {
+                const due = ymd(t.due_at);
+                return (
+                  <Row key={t.id} divider stackOnMobile className={cn(t.is_completed && 'opacity-60')}>
+                    {canEdit && (
+                      <RowSlot w={56} align="center">
+                        <button
+                          type="button"
+                          onClick={() => setDone.mutate(t)}
+                          disabled={setDone.isPending}
+                          aria-label={t.is_completed ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`}
+                          className={cn(
+                            'rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
+                            t.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
+                          )}
+                        >
+                          {t.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
+                        </button>
+                      </RowSlot>
+                    )}
+                    <RowMain>
+                      <RowTitle className={cn(t.is_completed && 'line-through')}>{t.title}</RowTitle>
+                      <RowSub>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/gpm/projects/${t.gpm_project_id}`)}
+                          className="text-primary hover:underline"
+                        >
+                          {t.gpm_project_name}
+                        </button>
+                      </RowSub>
+                    </RowMain>
+                    <RowSlot w={128} hideOnMobile>
+                      <span className={cn('text-badge rounded-badge px-1.5 py-0.5 truncate', PHASE_STATE_TONE[t.phase_state])}>
+                        {t.phase_label}
+                      </span>
+                    </RowSlot>
+                    <RowSlot w={96} hideOnMobile>
+                      <span className="truncate text-sub-sm text-muted-foreground">{t.assigned_to_name ?? '—'}</span>
+                    </RowSlot>
+                    <RowSlot w={96} className={cn('text-sub font-number', t.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
+                      {dueLabel(due, today)}
+                    </RowSlot>
+                  </Row>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="text-note text-muted-foreground">
+            工程の状態は色で出しています（{PHASE_STATE_LABEL.doing}／{PHASE_STATE_LABEL.blocked}／{PHASE_STATE_LABEL.done}）。
+            タスクを足す・直すのは<strong className="font-bold">プロジェクト詳細の工程</strong>からです。
+          </p>
+        </>
+      ) : tab === 'asks' ? (
         <>
           <FilterChips
             label="状態で絞り込む"
@@ -190,64 +299,7 @@ export default function GpmTaskListPage() {
             </div>
           )}
         </>
-      ) : (
-        <>
-          {projects.isError ? (
-            <ErrorPanel title="プロジェクトを読み込めませんでした" onRetry={() => projects.refetch()} />
-          ) : projects.isLoading ? (
-            <Delayed><SkeletonRows rows={5} /></Delayed>
-          ) : nextRows.length === 0 ? (
-            <EmptyState
-              icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
-              title="次にやることはありません"
-              description="標準工程からプロジェクトを作ると、工程の下にタスクが日付付きで入り、期限がいちばん近いものがここに出ます。"
-            />
-          ) : (
-            <div className="overflow-hidden rounded-card border border-border bg-card">
-              <RowHeader className="hidden sm:flex">
-                <RowMain>次にやること ／ プロジェクト</RowMain>
-                <RowSlot w={128}>いまの工程</RowSlot>
-                <RowSlot w={96}>期限</RowSlot>
-              </RowHeader>
-              {nextRows.map((p) => {
-                const due = ymd(p.next_due);
-                return (
-                  <Row
-                    key={p.id}
-                    divider
-                    interactive
-                    stackOnMobile
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/gpm/projects/${p.id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/gpm/projects/${p.id}`); }
-                    }}
-                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <RowMain>
-                      <RowTitle>{p.next_task}</RowTitle>
-                      <RowSub>{p.name}</RowSub>
-                    </RowMain>
-                    <RowSlot w={128} className="text-sub min-w-0" hideOnMobile>
-                      {p.current_phase ? <span className="truncate">{p.current_phase}</span> : null}
-                    </RowSlot>
-                    <RowSlot w={96} className={cn('text-sub font-number', dueTone(due, today))}>
-                      {dueLabel(due, today)}
-                    </RowSlot>
-                  </Row>
-                );
-              })}
-            </div>
-          )}
-
-          <p className="text-note text-muted-foreground">
-            ここに出るのは<strong>プロジェクトごとに期限がいちばん近い1件だけ</strong>です。
-            工程の下のタスクを全部並べるには、サーバーに「工程からタスクを引く口」を足す必要があります
-            （いまのタスク一覧は案件に紐づくものしか返しません）。
-          </p>
-        </>
-      )}
+      ) : null}
 
       {editing && (
         <OpenItemDialog

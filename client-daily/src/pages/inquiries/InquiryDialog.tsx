@@ -22,23 +22,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { IMPORTANCE_LABELS, type MiscInquiry, type Importance } from '@/lib/types';
+import {
+  IMPORTANCE_LABELS, INQUIRY_SOURCES, INQUIRY_SOURCE_LABELS,
+  type MiscInquiry, type Importance,
+} from '@/lib/types';
 import { useCreateInquiry, useUpdateInquiry, type InquiryInput } from '@/lib/inboxApi';
 
 export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | null; onClose: () => void }) {
   const create = useCreateInquiry();
   const update = useUpdateInquiry();
+  /**
+   * 手で足すときの出どころの既定は**電話**。
+   * 手で入れるものは電話メモか口頭で、メールなら AI が取り込むためです
+   * （メールを選び直すことはできます）。
+   */
   const [f, setF] = useState<InquiryInput>({
     summary: initial?.summary ?? '',
     sender: initial?.sender ?? '',
     subject: initial?.subject ?? '',
-    category: initial?.category ?? '',
     importance: initial?.importance ?? 'medium',
     action_needed: initial?.action_needed ?? '',
     url: initial?.url ?? '',
     received_at: initial?.received_at ?? '',
     notes: initial?.notes ?? '',
+    source: initial?.source ?? 'phone',
+    tags: initial?.tags ?? [],
   });
+  const [tagText, setTagText] = useState((initial?.tags ?? []).join('、'));
   const pending = create.isPending || update.isPending;
   const set = (k: keyof InquiryInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }));
@@ -46,8 +56,10 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
   const submit = () => {
     const done = () => { notifySuccess(initial ? '直しました' : '足しました'); onClose(); };
     const fail = (e: unknown) => notifyApiError(initial ? '直せませんでした' : '足せませんでした', e);
-    if (initial) update.mutate({ id: initial.id, fields: f }, { onSuccess: done, onError: fail });
-    else create.mutate(f, { onSuccess: done, onError: fail });
+    // 読点・カンマ・空白のどれで区切っても同じに扱う（打ち方で結果が変わらないように）
+    const fields = { ...f, tags: tagText.split(/[、,\s]+/).map((t) => t.trim()).filter(Boolean) };
+    if (initial) update.mutate({ id: initial.id, fields }, { onSuccess: done, onError: fail });
+    else create.mutate(fields, { onSuccess: done, onError: fail });
   };
 
   return (
@@ -55,9 +67,9 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initial ? '問い合わせを直す' : '問い合わせを足す'}</DialogTitle>
-          {initial?.source === 'email' && (
+          {initial?.is_ai && (
             <DialogDescription>
-              これは <strong className="font-bold">AI がメールから取り込んだもの</strong>です。
+              これは <strong className="font-bold">AI が取り込んだもの</strong>です。
               直した内容は AI の改善に使われます（何を直したかを入力する必要はありません）。
             </DialogDescription>
           )}
@@ -93,8 +105,27 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
           </div>
           <div><Label>件名</Label><Input value={f.subject ?? ''} onChange={set('subject')} /></div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div><Label>分類</Label><Input value={f.category ?? ''} onChange={set('category')} placeholder="協業 / 取材 / 採用 など" /></div>
+            <div>
+              <Label>出どころ</Label>
+              <Select value={f.source ?? 'phone'} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INQUIRY_SOURCES.map((k) => (
+                    <SelectItem key={k} value={k}>{INQUIRY_SOURCE_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>受信日</Label><Input type="date" value={f.received_at ?? ''} onChange={set('received_at')} /></div>
+          </div>
+          <div>
+            <Label>タグ</Label>
+            <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
+            <p className="text-note mt-1 text-muted-foreground">
+              読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
+              <strong className="font-bold">ストックしたものを後から引く</strong>ための手がかりなので、
+              短い語にしてください。
+            </p>
           </div>
           <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
           <div><Label>参考URL</Label><Input value={f.url ?? ''} onChange={set('url')} placeholder="https://..." /></div>

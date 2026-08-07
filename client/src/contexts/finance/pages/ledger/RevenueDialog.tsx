@@ -16,8 +16,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2, Download, Link2, Percent } from 'lucide-react';
 import api from '@/lib/api';
-import { localDateStr } from '@/lib/format';
-import { previousBusinessDay } from '@gmo-onair/shared/src/utils/businessDays';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
@@ -31,6 +29,7 @@ import { RevenueItemsTable } from './RevenueItemsTable';
 import { RevenueProjectFields } from './RevenueProjectFields';
 import { RevenueDateFields } from './RevenueDateFields';
 import { useRevenueItems } from './useRevenueItems';
+import { defaultsFromProject, formFromRevenue } from './revenuePrefill';
 import type { EpisodeOption, ProjectOption, RevenueItem, RevenueRow } from './types';
 
 export function RevenueDialog({
@@ -134,44 +133,28 @@ export function RevenueDialog({
   useEffect(() => {
     if (editing || !selectedProject) return;
     setExistingRevenueId('');
-    if (selectedProject.expected_amount) setAmount(selectedProject.expected_amount);
-    const endDate = selectedProject.event_end || undefined;
-    if (endDate) {
-      const [ey, em] = endDate.split('-').map(Number);
-      if (ey && em) {
-        setRecognitionMonth(`${ey}-${String(em).padStart(2, '0')}`);
-        // v2.8.103+: 末日が土日祝のときは前営業日に調整
-        setBillingDate(localDateStr(previousBusinessDay(new Date(ey, em, 0))));
-        setPaymentDueDate(localDateStr(previousBusinessDay(new Date(ey, em + 1, 0))));
-      }
-    }
+    const d = defaultsFromProject(selectedProject);
+    if (d.amount !== undefined) setAmount(d.amount);
+    if (d.recognitionMonth) setRecognitionMonth(d.recognitionMonth);
+    if (d.billingDate) setBillingDate(d.billingDate);
+    if (d.paymentDueDate) setPaymentDueDate(d.paymentDueDate);
   }, [selectedProjectId, selectedProject?.event_end]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 既存売上が見つかったら上書き（更新モード）。空の項目は案件ベースの自動入力を残す
   useEffect(() => {
     if (editing || !primaryRevenue) return;
+    const v = formFromRevenue(primaryRevenue);
     setExistingRevenueId(primaryRevenue.id);
-    setAmount(primaryRevenue.amount || 0);
-    setTaxCategory(primaryRevenue.tax_category || 'tax10');
-    if (primaryRevenue.recognition_date) setRecognitionMonth(primaryRevenue.recognition_date.slice(0, 7));
-    if (primaryRevenue.billing_date) setBillingDate(primaryRevenue.billing_date.slice(0, 10));
-    if (primaryRevenue.payment_due_date) setPaymentDueDate(primaryRevenue.payment_due_date.slice(0, 10));
-    setNotes(primaryRevenue.notes || '');
-    setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
-    setInvoiceIssued(!!primaryRevenue.invoice_issued);
-    if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
-      setItems(primaryRevenue.items.map((it) => ({
-        description: it.description || '',
-        quantity: it.quantity || 1,
-        unit_price: it.unit_price || 0,
-        amount: it.amount || 0,
-        pricing_item_id: it.pricing_item_id,
-        period_start: it.period_start || null,
-        period_end: it.period_end || null,
-        item_notes: it.item_notes || null,
-        category: it.category || null,
-      })));
-    }
+    setAmount(v.amount);
+    setTaxCategory(v.taxCategory);
+    if (v.recognitionMonth) setRecognitionMonth(v.recognitionMonth);
+    if (v.billingDate) setBillingDate(v.billingDate);
+    if (v.paymentDueDate) setPaymentDueDate(v.paymentDueDate);
+    setNotes(v.notes);
+    setIsAdvancePayment(v.isAdvancePayment);
+    setInvoiceIssued(v.invoiceIssued);
+    // **明細が空なら触らない** — 空配列で上書きすると元の明細が全部消える
+    if (v.items) setItems(v.items);
   }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const billingKeyPreview = useMemo(() => {
@@ -384,6 +367,7 @@ export function RevenueDialog({
         onOpenChange={setPricingPickerOpen}
         customerType={selectedProject?.customer_type === 'internal' ? 'internal' : 'external'}
         onSelect={pickPricingItem}
+        projectId={selectedProject?.id ?? null}
       />
 
       <DiscountDialog

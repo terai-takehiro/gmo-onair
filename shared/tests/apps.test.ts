@@ -107,8 +107,21 @@ describe('visibleApps — メニューに出す一覧', () => {
   });
 
   it('準備中は既定で出さない', () => {
-    expect(visibleApps(admin).map((a) => a.key)).not.toContain('gpm');
-    expect(visibleApps({ ...admin, includeComingSoon: true }).map((a) => a.key)).toContain('gpm');
+    // **`gpm` はもう準備中ではありません**（v4 で7画面つくったので `comingSoon` を外した）。
+    // 準備中の印がまだ付いているのは 制作支援 / 素材納品 の2つ
+    for (const k of ['assign', 'delivery']) {
+      expect(visibleApps(admin).map((a) => a.key)).not.toContain(k);
+      expect(visibleApps({ ...admin, includeComingSoon: true }).map((a) => a.key)).toContain(k);
+    }
+  });
+
+  /**
+   * **プロジェクト管理は出す。** モックのトップページに並んでいて、画面も出来ている。
+   * ここを固定しておかないと、`comingSoon` を戻したときに黙って一覧から消える
+   * （利用者から見ると「アプリが無くなった」）。
+   */
+  it('プロジェクト管理は既定で出る', () => {
+    expect(visibleApps(admin).map((a) => a.key)).toContain('gpm');
   });
 
   it('ホームは既定で出さない (トップページ自身なので)', () => {

@@ -86,6 +86,22 @@ export function useDeleteItem() {
   });
 }
 
+/**
+ * デイリーニュースの行を**その日が属する週の週報へ写す** (migration 167)。
+ *
+ * 週は**ニュースの日付**で決まります（押した日ではありません）。金曜のニュースを
+ * 月曜に送っても先週の週報に入ります。2回押しても増えません。
+ */
+export function useSendToWeekly() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      api.post(`/dailyops/items/${itemId}/to-weekly`)
+        .then((r) => r.data.data as { already: boolean; weekStart: string }),
+    onSuccess: invalidate,
+  });
+}
+
 export function usePublishReport() {
   const invalidate = useInvalidateReports();
   return useMutation({

@@ -13,6 +13,8 @@ export interface ClosingRow {
   billing_date: string | null;
   payment_due_date: string | null;
   invoice_issued: boolean;
+  /** 請求書番号 `INV-<年>-<4桁>`。出す前は null（migration 163） */
+  invoice_no: string | null;
   inspection_date: string | null;
   paid_date: string | null;
   /** 申込書が揃っていない。**選べない**（請求書を出すときだけ効く） */

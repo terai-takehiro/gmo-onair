@@ -70,7 +70,22 @@ export interface DuplicateRow {
   description: string | null;
 }
 
+/**
+ * 読み取りの確からしさ。**AI のスコアではありません** —
+ * 「台帳に入れるのに要る項目のうち何個読めたか」を数えたものです
+ * (`server/.../xpoint-parse.service.ts` の `scoreXpoint` / `scoreRakuraku`)。
+ * 同じ PDF なら必ず同じ数字になります。
+ */
+export interface ParseScore {
+  score: number;
+  filled: number;
+  total: number;
+  /** 読めなかった項目の名前。**% だけでは何を直せばよいか分からない** */
+  missing: string[];
+}
+
 export interface XpointParseResult {
+  score: ParseScore;
   format: 'xpoint' | 'rakuraku';
   settlementMethod: 'xpoint' | 'rakuraku';
   settlementNumber: string | null;

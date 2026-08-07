@@ -3,18 +3,22 @@
  *
  * **案件に紐づかない費用**です。ダッシュボードでは最後に引かれます。
  *
- * ── モックの「勘定科目」で絞る機能は入れていません ─────────────
+ * ── 勘定科目で絞れます（migration 166）──────────────────────
  *
- * モックは 通信費／地代家賃／旅費交通費／その他 で絞れる形ですが、
- * **`sga_expenses` に勘定科目の列がありません**。足すには
- * ①科目の一覧を決める ②既存データの割り当て ③取り込み（楽楽精算・総勘定元帳）が
- * 科目を持つ — が同時に要ります。**画面の作り直しとは別の仕事**なので、
- * いま持っている軸（固定費／都度、社員／経理）で絞れるようにしました。
- * 無い列で絞れるように見せると、押しても何も変わらない絞り込みが並びます。
+ * モックどおり 通信費／地代家賃／旅費交通費／その他 で絞れます。
+ * 科目は**マスター表**（`sga_account_titles`）から取るので、増やすときは
+ * マイグレーションではなくデータを足すだけで済みます
+ * （会計側で科目が増えた月に取り込みが全部落ちる、を避けるため）。
+ *
+ * **166 より前の行は科目を持ちません。** どの科目だったかはどこにも残っていないので
+ * 埋めていません（埋めると作り話になる）。「未設定」のチップで探せます。
+ *
+ * 固定費／都度・社員／経理の絞り込みも残しています — 科目とは別の軸で、
+ * どちらも経理が使います。
  *
  * ── 一覧の左端 ────────────────────────────────────────────
  *
- * 勘定科目の代わりに**精算番号**を出します（旧実装もそうでした）。
+ * **精算番号**を出します（旧実装もそうでした）。
  * 経理が楽楽精算の番号で突き合わせるので、ここに無いと画面を行き来します。
  */
 import { useMemo, useState } from 'react';
@@ -37,7 +41,7 @@ import { LedgerRows } from './ledger/LedgerRows';
 import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
 import type { LedgerRow } from './ledger/types';
 
-/** 持っている軸だけで絞る（勘定科目の列が無い理由はファイル冒頭に書いた） */
+/** 科目とは別の軸。**どちらも経理が使う**ので両方残す */
 const CHIPS = [
   { key: 'all', label: 'すべて', expense_type: '', source: '', count: 'all' },
   { key: 'fixed', label: '固定費', expense_type: 'fixed', source: '', count: 'fixed' },
@@ -70,18 +74,34 @@ export default function SgaListPage() {
 
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
+  /** 勘定科目の絞り込み。空 = すべて ／ `none` = 科目が入っていない行 */
+  const [titleKey, setTitleKey] = useState('');
+
+  const { data: titlesData } = useQuery({
+    queryKey: ['sga-account-titles'],
+    queryFn: async () => (await api.get('/sga/account-titles')).data.data as { id: string; name: string }[],
+    staleTime: 60 * 60 * 1000,
+  });
+  const titles = useMemo(() => titlesData ?? [], [titlesData]);
+
   const crud = useCrudPage<SgaExpense>({
     endpoint: '/sga',
     queryKey: ['sga-list'],
     extraParams: {
       source: cur.source || undefined,
       expense_type: cur.expense_type || undefined,
+      account_title_id: titleKey || undefined,
       recognition_month: month || undefined,
     },
   });
 
-  const raw = crud.raw as { total_amount?: number; state_counts?: Record<string, number> } | undefined;
+  const raw = crud.raw as {
+    total_amount?: number;
+    state_counts?: Record<string, number>;
+    account_title_counts?: Record<string, number>;
+  } | undefined;
   const counts = raw?.state_counts ?? {};
+  const titleCounts = raw?.account_title_counts ?? {};
 
   const [form, setForm] = useState<SgaFormData>(initialFormData);
 
@@ -118,6 +138,7 @@ export default function SgaListPage() {
         payment_due_date: item.payment_due_date?.slice(0, 10) ?? '',
         assigned_to: item.assigned_to ?? currentUser?.id ?? '',
         expense_type: item.expense_type ?? 'spot',
+        account_title_id: (item as { account_title_id?: string | null }).account_title_id ?? '',
         amortize_enabled: !!item.amortize_start,
         amortize_start: item.amortize_start ?? '',
         amortize_end: item.amortize_end ?? '',
@@ -159,6 +180,7 @@ export default function SgaListPage() {
       payment_due_date: form.payment_due_date || null,
       assigned_to: form.assigned_to || null,
       expense_type: form.expense_type,
+      account_title_id: form.account_title_id || null,
       amortize_start:
         form.expense_type === 'spot' && form.amortize_enabled && form.amortize_start
           ? form.amortize_start : null,
@@ -247,6 +269,19 @@ export default function SgaListPage() {
         onChange={(k) => { setChip(k); crud.setPage(1); }}
       />
 
+      {/* 勘定科目（migration 166）。**「未設定」は 166 より前の行**で、
+          どの科目だったか記録が無い。数えられるので隠さない */}
+      <FilterChips
+        label="勘定科目で絞り込む"
+        items={[
+          { key: '', label: '科目すべて', count: counts.all ?? null },
+          ...titles.map((t) => ({ key: t.id, label: t.name, count: titleCounts[t.id] ?? 0 })),
+          { key: 'none', label: '未設定', count: titleCounts.none ?? 0 },
+        ]}
+        value={titleKey}
+        onChange={(k) => { setTitleKey(k); crud.setPage(1); }}
+      />
+
       {crud.isError ? (
         <ErrorPanel title="販管費を読み込めませんでした" error={crud.error} onRetry={() => crud.refetch()} />
       ) : crud.isLoading ? (
@@ -257,6 +292,7 @@ export default function SgaListPage() {
             keyword={crud.search}
             activeFilters={[
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
+              titleKey ? `勘定科目: ${titleKey === 'none' ? '未設定' : (titles.find((t) => t.id === titleKey)?.name ?? '')}` : '',
               month ? `発生月: ${month}` : '',
             ].filter(Boolean)}
             onClearFilters={() => { crud.setSearch(''); setChip('all'); setMonth(''); }}
@@ -306,6 +342,7 @@ export default function SgaListPage() {
         setForm={setForm}
         vendors={vendors}
         users={users}
+        accountTitles={titles}
         editingId={crud.editingItem?.id ?? null}
         isSaving={crud.save.isPending}
         isDeleting={crud.remove.isPending}

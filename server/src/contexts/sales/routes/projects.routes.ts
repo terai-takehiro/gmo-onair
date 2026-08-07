@@ -143,7 +143,18 @@ router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res
   res.json({ success: true, data: result });
 });
 
-// GLS発番
+/**
+ * 次に出る GLS 番号を**採らずに**見る。
+ *
+ * 受注に上げる前の確認ダイアログが「GLS-A012 を採ります」と出すために使う。
+ * **採番はしない**ので、先に別の人が発番すると1つ後ろになる（画面にそう書く）。
+ */
+router.get('/:id/next-gls', requirePermission('sales', 'reader'), async (req, res) => {
+  res.json({ success: true, data: await projectService.peekGls(req.params.id as string) });
+});
+
+// GLS発番（受注に上げると `PATCH /:id/stage` から自動で呼ばれる。
+// この口は「口頭決定のうちに先に番号が要る」ときのために残してある）
 router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });

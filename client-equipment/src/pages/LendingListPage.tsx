@@ -14,7 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, RotateCcw } from 'lucide-react';
+import { PackageCheck, Plus, RotateCcw } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -22,7 +22,7 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { LendingDialog, type LendingPayload } from './lending/LendingDialog';
 import { ReturnDialog } from './lending/ReturnDialog';
 
@@ -33,6 +33,8 @@ interface Lending {
   borrower_name: string;
   purpose: string | null;
   status: string;
+  /** 出庫予定日 (migration 168)。`status='planned'` のときだけ意味を持つ */
+  planned_out_date?: string | null;
   lent_at: string | null;
   due_date: string | null;
   returned_at: string | null;
@@ -63,18 +65,32 @@ export default function LendingListPage() {
   const all = useMemo(() => list.data ?? [], [list.data]);
 
   const groups = useMemo(() => ({
+    // **予定はまだ出していない。** 貸出中に混ぜると「いま何が外に出ているか」が狂う
+    planned: all.filter((l) => l.status === 'planned'),
     lent: all.filter((l) => l.status === 'lent'),
     late: all.filter(isLate),
-    returned: all.filter((l) => l.status !== 'lent'),
+    returned: all.filter((l) => l.status !== 'lent' && l.status !== 'planned'),
   }), [all]);
 
-  const rows = chip === 'late' ? groups.late : chip === 'returned' ? groups.returned : groups.lent;
+  const rows = chip === 'planned' ? groups.planned
+    : chip === 'late' ? groups.late
+      : chip === 'returned' ? groups.returned : groups.lent;
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['equipment-lendings'] });
     qc.invalidateQueries({ queryKey: ['equipment-stats'] });
     qc.invalidateQueries({ queryKey: ['equipment-lendable'] });
   };
+
+  /**
+   * 出庫予定を「持ち出した」に変える (migration 168)。
+   * **予定の行を消して作り直さない** — いつ予定を立てたかが消える
+   */
+  const checkout = useMutation({
+    mutationFn: (id: string) => api.put(`/equipment/lendings/${id}/checkout`),
+    onSuccess: () => { invalidate(); notifySuccess('持ち出しました'); },
+    onError: (e) => notifyApiError('持ち出しを記録できませんでした', e),
+  });
 
   const lend = useMutation({
     mutationFn: (payload: LendingPayload) => api.post('/equipment/lendings/batch', payload),
@@ -120,6 +136,7 @@ export default function LendingListPage() {
       <FilterChips
         label="状態で絞り込む"
         items={[
+          { key: 'planned', label: '出庫予定', count: groups.planned.length },
           { key: 'lent', label: '貸出中', count: groups.lent.length },
           { key: 'late', label: '返却遅延', count: groups.late.length },
           { key: 'returned', label: '返却済', count: groups.returned.length },
@@ -135,9 +152,10 @@ export default function LendingListPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           title={
-            chip === 'late' ? '返却が遅れているものはありません'
-              : chip === 'returned' ? '返却済の記録はまだありません'
-                : 'いま出ている機材はありません'
+            chip === 'planned' ? '出庫の予定はありません'
+              : chip === 'late' ? '返却が遅れているものはありません'
+                : chip === 'returned' ? '返却済の記録はまだありません'
+                  : 'いま出ている機材はありません'
           }
           description="「貸出を記録」から持ち出しを登録します。貸出可にした機材だけが選べます。"
         />
@@ -146,7 +164,7 @@ export default function LendingListPage() {
           <RowHeader className="hidden sm:flex">
             <RowMain>機材 ／ 借りている人・案件</RowMain>
             <RowSlot w={96}>状態</RowSlot>
-            <RowSlot w={72} align="right">持出</RowSlot>
+            <RowSlot w={72} align="right">{chip === 'planned' ? '出庫予定' : '持出'}</RowSlot>
             <RowSlot w={72} align="right">返却予定</RowSlot>
             <RowSlot w={96} align="right">{''}</RowSlot>
           </RowHeader>
@@ -165,17 +183,22 @@ export default function LendingListPage() {
                 </RowMain>
                 <RowSlot w={96}>
                   <TableBadge
-                    label={l.status === 'lent' ? (late ? '返却遅延' : '貸出中') : '返却済'}
+                    label={l.status === 'planned' ? '出庫予定'
+                      : l.status === 'lent' ? (late ? '返却遅延' : '貸出中') : '返却済'}
                     w={null}
                     className={late
                       ? 'bg-destructive-surface text-destructive border-transparent'
-                      : l.status === 'lent'
-                        ? 'bg-primary-surface-weak text-primary border-transparent'
-                        : 'bg-muted text-muted-foreground border-transparent'}
+                      : l.status === 'planned'
+                        ? 'bg-warning-surface text-warning border-transparent'
+                        : l.status === 'lent'
+                          ? 'bg-primary-surface-weak text-primary border-transparent'
+                          : 'bg-muted text-muted-foreground border-transparent'}
                   />
                 </RowSlot>
                 <RowSlot w={72} align="right" hideOnMobile>
-                  <span className="font-number text-sub-sm text-muted-foreground">{md(l.lent_at)}</span>
+                  <span className="font-number text-sub-sm text-muted-foreground">
+                    {l.status === 'planned' ? md(l.planned_out_date ?? null) : md(l.lent_at)}
+                  </span>
                 </RowSlot>
                 <RowSlot w={72} align="right">
                   <span className={`font-number text-sub ${late ? 'text-destructive' : 'text-secondary-foreground'}`}>
@@ -183,6 +206,11 @@ export default function LendingListPage() {
                   </span>
                 </RowSlot>
                 <RowSlot w={96} align="right" placeholder="">
+                  {l.status === 'planned' && (
+                    <Button variant="outline" disabled={checkout.isPending} onClick={() => checkout.mutate(l.id)}>
+                      <PackageCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />出した
+                    </Button>
+                  )}
                   {l.status === 'lent' && (
                     <Button variant="outline" onClick={() => { setReturnError(null); setReturnTarget(l); }}>
                       <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />返却

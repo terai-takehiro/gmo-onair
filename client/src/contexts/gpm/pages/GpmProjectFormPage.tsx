@@ -1,19 +1,26 @@
 /**
  * ④ プロジェクト新規作成 (v4 GPM)
  *
- * ── モックは5段、ここは3段 ──────────────────────────────────
+ * ── モックどおり5段 ────────────────────────────────────────
  *
- * モックの段は「基本情報 → 標準工程 → 着手日と工程 → 体制（組織図） →
- * メンバー・書類」の5つですが、**後ろの2つは作っていません**:
+ * 基本情報 → 標準工程 → 着手日と工程 → 体制（組織図） → メンバー・書類。
+ * 4段目と5段目は**同じ入力**（体制に入れる人）を扱うので1つの部品にし、
+ * 5段目は「確かめて作る」段にしてあります。
  *
- *   ・**体制（組織図）** … 箱と線を描く組織図は別の仕事です
- *     （`docs/design/gpm-model.md`「やらないと決めたこと」）。
- *     体制は `gpm_members` の一覧として詳細画面で見られます
- *   ・**メンバー・書類** … `gpm_members` に**書き込む API がありません**
- *     （読むだけ）。BOX のフォルダ構成も既存 `box-folder.service.ts` と
- *     食い違い、**本番の BOX に実際にフォルダが作られる**ので勝手に入れません
+ * ── 人はプロジェクトを作ってから登録する ────────────────────
  *
- * **押しても何も起きない段を置かないため**に、出せる3段だけにしてあります。
+ * `gpm_members` は `gpm_project_id` が必須なので、**作る前には保存できません**。
+ * 入力は画面で貯めておき、「作る」を押したときに
+ * **プロジェクト → 人 の順**で登録します。
+ *
+ * **人の登録で失敗してもプロジェクトは残します。** 作り直させるほうが害が大きく、
+ * 人はあとから体制タブで足せます。そのときは「何人入らなかったか」を出します。
+ *
+ * ── 書類（BOX）はここで作らない ─────────────────────────────
+ *
+ * 押すと**本番の BOX に実際にフォルダができ、ONAiR からは消せません**。
+ * 新規作成の流れに混ぜると、名前を間違えたまま作ってしまいます。
+ * **作ったあとの「書類」タブ**で、何ができるかを見せてから押してもらいます。
  *
  * ── 段を「進む」だけにしない ────────────────────────────────
  *
@@ -35,11 +42,14 @@ import type { GpmProjectDetail } from '../types';
 import { BasicStep, type BasicValues } from './projectForm/BasicStep';
 import { TemplateStep } from './projectForm/TemplateStep';
 import { PreviewStep } from './projectForm/PreviewStep';
+import { OrgStep, type DraftMember } from './projectForm/OrgStep';
 
 const STEPS = [
   { n: 1, label: '基本情報' },
   { n: 2, label: '標準工程を選ぶ' },
   { n: 3, label: '着手日と工程の確認' },
+  { n: 4, label: '体制（組織図）' },
+  { n: 5, label: 'メンバー・書類' },
 ] as const;
 
 export default function GpmProjectFormPage() {
@@ -53,6 +63,8 @@ export default function GpmProjectFormPage() {
   });
   const [templateId, setTemplateId] = useState('');
   const [startedOn, setStartedOn] = useState('');
+  /** 4段目・5段目で貯める体制。**作ったあとに登録する**（id がまだ無いため） */
+  const [members, setMembers] = useState<DraftMember[]>([]);
 
   const templates = useGpmTemplates();
   const users = useGpmUsers();
@@ -75,12 +87,33 @@ export default function GpmProjectFormPage() {
         started_on: startedOn || null,
         template_id: templateId || null,
       })).data.data,
-    onSuccess: (row) => {
+    onSuccess: async (row) => {
+      /**
+       * 体制を続けて登録する。**1人ずつ**送るのは、途中で失敗しても
+       * そこまでの人は残るようにするため（まとめて送って全部落とすより、
+       * 「3人のうち2人入りました」のほうが直しやすい）。
+       */
+      let failed = 0;
+      for (const m of members) {
+        try {
+          await api.post(`/gpm/projects/${row.id}/members`, {
+            name: m.name, side: m.side, tier: m.tier,
+            group_label: m.group_label || null, role: m.role || null,
+            org: m.org || null, email: m.email || null, badge: m.badge || null,
+          });
+        } catch { failed += 1; }
+      }
+
       invalidate(row.id);
       notifySuccess('プロジェクトを作りました', {
-        description: templateId
-          ? '標準工程から工程とタスクを入れました。ここから直せます。'
-          : '工程はまだありません。詳細画面から足せます。',
+        description: [
+          templateId
+            ? '標準工程から工程とタスクを入れました。ここから直せます。'
+            : '工程はまだありません。詳細画面から足せます。',
+          members.length > 0 && failed === 0 ? `体制に ${members.length}名 を入れました。` : '',
+          // **入らなかった人を黙らない。** 気づかないと体制が欠けたまま進む
+          failed > 0 ? `体制の ${failed}名 は入れられませんでした。体制タブから足してください。` : '',
+        ].filter(Boolean).join(' '),
       });
       navigate(`/gpm/projects/${row.id}`);
     },
@@ -164,6 +197,9 @@ export default function GpmProjectFormPage() {
           templateName={template?.name ?? null}
         />
       )}
+      {(step === 4 || step === 5) && (
+        <OrgStep members={members} onChange={setMembers} />
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         {step > 1 && (
@@ -182,9 +218,9 @@ export default function GpmProjectFormPage() {
       </div>
 
       <p className="text-note text-muted-foreground">
-        体制（誰がやるか）と BOX の書類は、この画面では入れません。体制は読む一覧だけ用意してあり、
-        書き込む口がまだサーバーにありません。BOX は作ると本番のフォルダが実際にできるので、
-        既存の作り方と揃えてから足します。
+        <strong className="font-bold">作るのは最後の段でなくても押せます</strong>
+        （プロジェクト名と依頼元さえ入っていればよい）。
+        体制は空のままでも作れて、あとから体制タブで足せます。
       </p>
     </div>
   );

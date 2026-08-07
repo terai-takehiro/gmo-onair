@@ -22,7 +22,8 @@
  *
  * ── 数えない列 ────────────────────────────────────────────
  *
- * `status` / `handled_at` / `processed_by` / `linked_*` は**業務が進んだ印**であって
+ * `status` / `state` / `handled_at` / `processed_by` / `task_id` / `project_id` / `linked_*` は
+ * **業務が進んだ印**であって
  * AI の誤りではありません。承認しただけで「AI が間違えた」と数えると、
  * 修正率が「処理した件数」と同じ数字になります。
  *
@@ -57,11 +58,14 @@ const IQ_FIELDS: { path: string; label: string }[] = [
   { path: 'sender', label: '送信者' },
   { path: 'subject', label: '件名' },
   { path: 'summary', label: '要約' },
-  { path: 'category', label: '分類' },
   { path: 'importance', label: '重要度' },
   { path: 'action_needed', label: '推奨アクション' },
   { path: 'url', label: '参考URL' },
   { path: 'details', label: '読める形の中身' },
+  // 171: 出どころとタグも AI が埋める。**足さないと、直されても記録に残らない**
+  { path: 'source', label: '出どころ' },
+  { path: 'tags', label: 'タグ' },
+  // `category` は `tags` の1つ目の写しなので**数えない** — 同じ修正が2件に見える
 ];
 
 /**
@@ -72,6 +76,11 @@ const IQ_FIELDS: { path: string; label: string }[] = [
  */
 function norm(v: unknown): string {
   if (v === null || v === undefined || v === '') return '';
+  // タグは**並べ替えただけを「直した」と数えない**（順序に意味が無い）。
+  // `details` は要素がオブジェクトなのでここには来ない（順序に意味がある）
+  if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
+    return stableJson([...(v as string[])].sort());
+  }
   if (typeof v === 'object') return stableJson(v);
   if (typeof v === 'number') return String(v);
   const s = String(v).trim();

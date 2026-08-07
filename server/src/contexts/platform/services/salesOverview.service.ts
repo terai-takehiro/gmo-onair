@@ -38,12 +38,15 @@ const LAST_MOVE = `
 const STUCK_DAYS = 7;
 
 /**
- * 「止まっている」理由。**ステージから導いている** (作り話をしない)。
+ * 「止まっている」理由。**ステージ変更の履歴 (migration 164) から言う。**
  *
- * モックは「見積を送ったまま連絡がありません」のような具体的な理由を出しているが、
- * それを本当に言うには**ステージが変わった履歴**が要る。いまの DB は
- * ステージ変更を記録していないので、**今のステージから言えることだけ**を出す。
- * 履歴を残すようにしたら、ここを実際の出来事に差し替える。
+ * モックの「見積を送ったまま連絡がありません」は、**いつそのステージになったか**が
+ * 分かって初めて言える文です。履歴を持つようになったので、
+ * 「そのステージになってから何日か」を添えます。
+ *
+ * **履歴が無い案件 (migration 164 より前から動いているもの) は日数を出しません。**
+ * `updated_at` で代わりにすると、案件名を直しただけで「たった今そのステージになった」
+ * ことになり、嘘の日数が出ます。
  */
 const STUCK_WHY: Record<string, string> = {
   neta: 'ネタのまま動いていません',
@@ -52,6 +55,12 @@ const STUCK_WHY: Record<string, string> = {
   b_verbal: '口頭決定のまま、書面が進んでいません',
   a_won: '受注してから動きがありません',
 };
+
+/** ステージになってからの日数を添える。分からなければ添えない（作り話をしない） */
+function stuckWhy(stage: string, sinceDays: number | null): string {
+  const base = STUCK_WHY[stage] ?? '動きがありません';
+  return sinceDays == null ? base : `${base}（${sinceDays}日）`;
+}
 
 export interface StuckProject {
   id: string;
@@ -73,7 +82,7 @@ export async function getSalesOverview(now = new Date()) {
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
 
-  const [moves, week, quotes, revenue, stuckRows] = await Promise.all([
+  const [moves, week, quotes, revenue, stuckRows, won, history] = await Promise.all([
     // ── 進行中の件数と、そのうち直近7日に動いたもの / 止まっているもの ──
     // 1回のスキャンで3つ数える (3本に分けると同じ式を3回書くことになる)
     queryOne(
@@ -101,10 +110,17 @@ export async function getSalesOverview(now = new Date()) {
     ),
 
     // ── 見積の返事待ち ── 出した (`sent`) まま決まっていない版だけ。
-    // 値引きは単価を下げず別建てなので、合計は subtotal から引く
+    // 値引きは単価を下げず別建てなので、合計は subtotal から引く。
+    //
+    // **`project_id IS NOT NULL` を必ず付ける** (v4 大⑤・migration 173)。
+    // `estimates` はプロジェクト管理（GPM）の見積も入るようになったので、
+    // 外すと **案件管理のダッシュボードに GPM の見積が足されます**。
+    // `revenues` を読む 41 か所が `status` を見ていなかったのと同じ形の穴で、
+    // ここは実測して**この1か所だけ**だと確かめてある
     queryOne(
       `SELECT COUNT(*)::int AS n, COALESCE(SUM(subtotal - discount),0)::int AS amount
-       FROM estimates WHERE status = 'sent' AND deleted_at IS NULL`
+       FROM estimates WHERE status = 'sent' AND deleted_at IS NULL
+         AND project_id IS NOT NULL`
     ),
 
     // ── 今月の売上 ── **`status='confirmed'` で必ず絞る。**
@@ -119,10 +135,15 @@ export async function getSalesOverview(now = new Date()) {
       [monthStart, monthEnd]
     ),
 
-    // ── 止まっている案件 ── 長く止まっている順に5件
+    // ── 止まっている案件 ── 長く止まっている順に5件。
+    // **いまのステージになった時刻**も採る (migration 164)。無ければ NULL のまま
     queryAll(
       `SELECT p.id, p.name, p.stage, c.name AS customer_name,
-              FLOOR(EXTRACT(EPOCH FROM (NOW() - ${LAST_MOVE})) / 86400)::int AS days
+              FLOOR(EXTRACT(EPOCH FROM (NOW() - ${LAST_MOVE})) / 86400)::int AS days,
+              (SELECT FLOOR(EXTRACT(EPOCH FROM (NOW() - sc.changed_at)) / 86400)::int
+                 FROM project_stage_changes sc
+                WHERE sc.project_id = p.id AND sc.to_stage = p.stage
+                ORDER BY sc.changed_at DESC LIMIT 1) AS stage_days
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        WHERE p.deleted_at IS NULL AND p.stage NOT IN ('s_completed','e_lost')
@@ -130,6 +151,20 @@ export async function getSalesOverview(now = new Date()) {
        ORDER BY ${LAST_MOVE} ASC
        LIMIT 5`
     ),
+
+    // ── 今月の受注 ── **`projects.won_at` で数える** (migration 164)。
+    // モックの KPI はここ。`updated_at` では代われない (名前を直しただけでも動く)
+    queryOne(
+      `SELECT COUNT(*)::int AS n, COALESCE(SUM(expected_amount),0)::int AS amount
+         FROM projects
+        WHERE deleted_at IS NULL AND won_at IS NOT NULL
+          AND won_at >= ?::date AND won_at < (?::date + INTERVAL '1 month')`,
+      [monthStart, monthStart]
+    ),
+
+    // ── いつから記録しているか ── 「ここより前は数えていません」と画面に出すため。
+    // **設定表には持たない** — 履歴そのものの最初の1件が答えになる
+    queryOne('SELECT MIN(changed_at) AS since FROM project_stage_changes'),
   ]);
 
   const stuck: StuckProject[] = (stuckRows as Record<string, unknown>[]).map((r) => ({
@@ -138,7 +173,7 @@ export async function getSalesOverview(now = new Date()) {
     customer_name: (r.customer_name as string) ?? null,
     stage: r.stage as string,
     days: r.days as number,
-    why: STUCK_WHY[r.stage as string] ?? '動きがありません',
+    why: stuckWhy(r.stage as string, (r.stage_days as number | null) ?? null),
   }));
 
   return {
@@ -153,7 +188,18 @@ export async function getSalesOverview(now = new Date()) {
       quote_waiting_amount: (quotes as any)?.amount ?? 0,
       month_revenue: (revenue as any)?.amount ?? 0,
       month_revenue_count: (revenue as any)?.n ?? 0,
+      /** 今月 受注になった案件 (migration 164 以降のぶんだけ) */
+      month_won_count: (won as any)?.n ?? 0,
+      month_won_amount: (won as any)?.amount ?? 0,
     },
+    /**
+     * ステージの記録を始めた日 (`YYYY-MM-DD`)。**画面はこれを出す** —
+     * これより前に受注した案件は「今月の受注」に入らないので、
+     * 書かないと「受注が 0 件になった＝壊れた」と読まれる
+     */
+    stage_history_since: (history as any)?.since
+      ? new Date((history as any).since as string).toISOString().slice(0, 10)
+      : null,
     stuck,
   };
 }

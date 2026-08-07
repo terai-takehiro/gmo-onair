@@ -45,11 +45,10 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
 /**
  * 日々の業務アプリ（イベント用と外部リンクを除いたもの）。**並びはモックのまま**。
  *
- * **プロジェクト管理 (`gpm`) は入れていません。** モックには載っていますが
- * 画面がまだ無く、押しても何も起きないタイルは「壊れている」と受け取られます
- * （以後この並び全体が信用されなくなる）。作ったら足します。
+ * **プロジェクト管理 (`gpm`) はモックどおり並びに入れています。**
+ * 権限 (`gpm`) を持つ人にだけ出ます（タイルの絞り込みは `visibleApps` が権限で行う）。
  */
-const DAILY_KEYS = ['sales', 'budget', 'studio', 'dailyops', 'equipment', 'qsheet', 'techsheet', 'admin'];
+const DAILY_KEYS = ['sales', 'budget', 'gpm', 'studio', 'dailyops', 'equipment', 'qsheet', 'techsheet', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();

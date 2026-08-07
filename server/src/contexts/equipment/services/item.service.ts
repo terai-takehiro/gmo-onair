@@ -140,6 +140,8 @@ export const itemService = {
                   THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                   ELSE NULL END as warranty_end,
              (SELECT COUNT(*)::int FROM equipment_items c WHERE c.parent_id = ei.id AND c.deleted_at IS NULL) AS children_count,
+             ei.is_rental_listed,
+             p.is_rental_listed AS parent_rental_listed,
              COALESCE(p.is_rental_listed, ei.is_rental_listed) AS effective_rental_listed
       FROM equipment_items ei
       LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id

@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import {
   SECURITY_AREAS, useCardLendings, useUpdateCard, type Lending, type SecurityCard,
 } from '@/lib/securityCardApi';
-import { levelTone, statusOf } from './types';
+import { groupLabel, groupTone, levelTone, statusOf } from './types';
 
 export function CardDetailPanel({
   card, canEdit, onLend, onReturn,
@@ -68,8 +68,14 @@ function CardDetail({
             {card.card_no}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-cardtitle flex items-center gap-1.5">
-              <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{card.level_label}
+            <p className="text-cardtitle flex flex-wrap items-center gap-1.5">
+              <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              {/* **6レベルの名前を主役にする。** 渡すカードを間違えないための名前で、
+                  3分類 (全域/技術/共用) は探すための入口なので添えるだけ */}
+              {card.level_label}
+              <span className={`text-badge rounded-badge border px-1.5 py-0.5 ${groupTone(card.security_level)}`}>
+                {groupLabel(card.security_level)}
+              </span>
             </p>
             {card.label && <p className="text-sub text-muted-foreground">{card.label}</p>}
           </div>

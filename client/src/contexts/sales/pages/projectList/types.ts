@@ -26,6 +26,11 @@ export interface ProjectListRow {
   next_task_assignee: string | null;
   /** 案件・タスク・活動記録のうちいちばん新しい時刻 */
   last_activity_at: string | null;
+  /** 「ネタ」の見え方だけが使う (migration 165)。手で登録した案件は NULL */
+  intake_channel?: string | null;
+  intake_confidence?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
 }
 
 export interface ProjectListResponse {

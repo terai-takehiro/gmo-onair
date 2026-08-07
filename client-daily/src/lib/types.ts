@@ -17,6 +17,10 @@ export interface OpsReportItem {
   recorded_by: string | null;
   source: 'ai' | 'human';
   sort_order: number;
+  /** この行の元になった行 (デイリーニュース → 週報)。手で書いた行は null */
+  source_item_id?: string | null;
+  /** この行はもう週報へ送ったか (ニュース側だけが持つ・migration 167) */
+  sent_to_weekly?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -150,10 +154,41 @@ export interface MiscInquiry {
   details: RichBlock[] | null;
   /** メール本文の全文。切り詰めていない */
   body_text: string | null;
+  /** 行き先（migration 171）。**絞り込みはこれだけを見る**（`handled_at` は記録） */
+  state: InquiryState;
+  tags: string[];
+  /** チケットにしたときに作った案件管理のタスク */
+  task_id: string | null;
+  task_title: string | null;
+  task_due_at: string | null;
+  task_done: boolean | null;
+  /** 案件の受付へ送って出来た案件 */
+  project_id: string | null;
+  project_name: string | null;
+  project_stage: string | null;
+  /**
+   * AI が取り込んだ行か。**`source` では判定しない** —
+   * あれは出どころ（メール／Slack）であって、誰が入れたかではない
+   */
+  is_ai: boolean;
   created_at: string;
   updated_at: string;
 }
 export const IMPORTANCE_LABELS: Record<Importance, string> = { high: '高', medium: '中', low: '低' };
+
+/** 行き先（モックの4タブ ＋「案件にした」）。並びはそのままタブの並び */
+export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped'] as const;
+export type InquiryState = (typeof INQUIRY_STATES)[number];
+export const INQUIRY_STATE_LABELS: Record<InquiryState, string> = {
+  unsorted: '未仕分け', stock: 'ストック', ticket: 'チケット', project: '案件にした', dropped: '見送り',
+};
+
+/** 出どころ。`manual` は**出どころが分からない既存行**（新規では入らない） */
+export const INQUIRY_SOURCES = ['mail', 'slack', 'phone', 'talk'] as const;
+export type InquirySource = (typeof INQUIRY_SOURCES)[number];
+export const INQUIRY_SOURCE_LABELS: Record<string, string> = {
+  mail: 'メール', slack: 'Slack', phone: '電話', talk: '口頭', manual: '手で足した',
+};
 
 /** ホームのメニュー定義 — 今後の小メニュー追加はこの配列に 1 行足してページを作るだけ */
 export interface DailyMenu {

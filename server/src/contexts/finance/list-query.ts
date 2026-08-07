@@ -149,10 +149,17 @@ export function buildSgaWhere(q: Query): { where: string; params: unknown[] } {
   const params: unknown[] = [];
   const source = s(q.source);
   if (source === 'staff' || source === 'accounting') { where += ` AND s.source = ?`; params.push(source); }
-  // 固定費 / 都度。**勘定科目では絞れません** — `sga_expenses` に勘定科目の列が無いため
   const et = s(q.expense_type);
   if (et === 'fixed' || et === 'spot') { where += ` AND s.expense_type = ?`; params.push(et); }
   else if (et) { where += ` AND FALSE`; }
+  /**
+   * 勘定科目 (migration 166)。**`none` は「未設定」を出す**ための特別な値。
+   * 166 より前の行は科目を持たないので、それだけを見たいことがある。
+   * 知らない値は素通しせず空で返す（絞ったのに全件出ると気づけない）。
+   */
+  const at = s(q.account_title_id);
+  if (at === 'none') { where += ` AND s.account_title_id IS NULL`; }
+  else if (at) { where += ` AND s.account_title_id = ?`; params.push(at); }
   const search = s(q.search);
   if (search) { where += ` AND (s.vendor_name ILIKE ? OR s.description ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   const dateFrom = s(q.date_from);

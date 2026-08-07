@@ -45,6 +45,11 @@ export interface EquipmentRecord {
   rack_height?: number | null;
   rack_slot?: string | null;
   rack_side?: string | null;
+  /** この機材そのものの「貸出可」 */
+  is_rental_listed?: boolean | null;
+  /** 親の「貸出可」。子は親を受け継ぐ（`effective_rental_listed`） */
+  parent_rental_listed?: boolean | null;
+  effective_rental_listed?: boolean | null;
   [key: string]: unknown;
 }
 
@@ -78,6 +83,11 @@ export const COL_DEFS = [
   { key: 'condition', label: '状態', sortKey: 'condition', default: false },
   { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
   { key: 'notes', label: '備考', sortKey: 'notes', default: true },
+  // **モックはこの切り替えを台帳の列に置いている**（「チェックはこの一覧から
+  // その場で切り替えられます」）。書き込みには `equipment` の owner 権限が要るので、
+  // 権限が無い人には**押せない印**として出す（列ごと消すと、なぜ貸出画面に
+  // 出てこないのかが台帳から分からなくなる）
+  { key: 'rental', label: '貸出可', sortKey: 'is_rental_listed', default: true },
 ] as const;
 
 export type ColKey = (typeof COL_DEFS)[number]['key'];

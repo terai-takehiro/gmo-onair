@@ -112,9 +112,13 @@ const TREE = [
     ['機材台帳 (機材・貸出機材・ケーブル・コネクタ)', '/equipment/items', 'client-equipment/src/pages/EquipmentLedgerPage.tsx', undefined,
       '**枠は v4・行の載せ替えは途中**。この一覧だけがカスタム列・その場編集・親子の入れ子を' +
       '同時に持っており、`<Row>` に載せ替えるとその3つを作り直すことになるので分けています'],
-    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx', undefined,
-      '**意図して据え置き**。1,502行に 座標計算・印刷・棚卸しモード が同居しており、' +
-      '**触ると印刷が1ページ目で切れます**。分割しても印刷が壊れないことを実機で確かめてから'],
+    // v4 大④: 12本の横並び → 左に一覧・右に1本＋実装一覧の表。
+    // このページは `PageHeader` を使わない（独自の見出し）ので、v4 で足した部品で判定する
+    ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx', 'rack/RackUnitTable',
+      '**印刷は今までどおり絞り込んだラックを全部出します**（画面で1本ずつ見るのと紙に全部並べるのは別の用途）。' +
+      '印刷の寸法（`rack/printConstants.ts`）は実機で合わせた値なので触っていません。' +
+      '**A4 の PDF を実際に出して1ページ目で切れないことを確認済み**（画面の中身が印刷で場所を取り、' +
+      '白紙が1枚増えていたのもここで見つけて直しました）'],
     ['メンテナンス', '/equipment/maintenance', 'client-equipment/src/pages/MaintenancePage.tsx'],
     ['棚卸し', '/equipment/inventory', 'client-equipment/src/pages/InventoryPage.tsx'],
     ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/ScanPage.tsx'],
@@ -130,11 +134,13 @@ const TREE = [
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
-    ['⑥ 見積・請求', '—', null, undefined,
-      '**意図して作っていません。** `estimates.project_id` が `NOT NULL REFERENCES projects(id)` なので、' +
-      '自社構築（案件に紐づかない）プロジェクトは見積を1枚も持てません。モックの「提出先」に相当する列も 0 件。' +
-      '足すとサーバー12か所・画面4か所（案件詳細の見積タブ・見積請求一覧・案件ダッシュボードの KPI）に同時に効きます。' +
-      '**見積のデータ設計の変更**なので設計から。理由と手順は `docs/design/gpm-model.md` の「決め⑤」'],
+    // v4 大⑤: 独立した画面ではなく**プロジェクト詳細のタブ**（migration 173）
+    ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id?tab=estimates',
+      'client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx', 'ui/row',
+      '提出先（自社／依頼元／PM会社）ごとに1本。`estimates` を案件と共用し、' +
+      '`project_id` と `gpm_project_id` は**排他**（両方入ると合計が二重になる）。' +
+      '**明細（品目と金額）の入力はまだ**です — 案件の見積と同じ部品を使う予定で、' +
+      '写しを作ると合計の計算が2か所になります'],
   ]],
 ];
 

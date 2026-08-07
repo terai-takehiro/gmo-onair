@@ -16,6 +16,7 @@ import { Router } from 'express';
 import { requireAuth, requireAnyPermission } from '../../../shared/middleware/auth';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/estimates', async (req, res) => {
   const mine = req.query.scope === 'mine';
   const status = typeof req.query.status === 'string' ? req.query.status : '';
   const params: unknown[] = [];
-  let where = `WHERE e.deleted_at IS NULL AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
+  let where = `WHERE e.deleted_at IS NULL AND e.gpm_project_id IS NULL AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND e.created_by = ?'; params.push(req.user!.id); }
   if (status) {
@@ -61,6 +62,9 @@ router.get('/estimates', async (req, res) => {
             c.name AS customer_name,
             u.name AS created_by_name
        FROM estimates e
+       -- 案件の見積だけ。estimates にはプロジェクト管理 (GPM) の見積も入る
+       -- (migration 173)。内部結合で自然に落ちるが、偶然そうなっている状態に
+       -- 頼らず where で明示する (左結合に直した瞬間に GPM の見積が混ざる)
        JOIN projects p ON p.id = e.project_id
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = e.created_by
@@ -97,7 +101,7 @@ router.get('/invoices', async (req, res) => {
 
   const rows = await queryAll(
     `SELECT r.id, r.project_id, r.episode_id, r.subtitle, r.amount, r.tax_category,
-            r.billing_date, r.payment_due_date, r.invoice_issued,
+            r.billing_date, r.payment_due_date, r.invoice_issued, r.invoice_no,
             r.inspection_date, r.paid_date,
             p.name AS project_name, p.gls_number,
             c.name AS customer_name,
@@ -160,6 +164,13 @@ router.patch('/invoices/:id', canEdit, async (req, res) => {
     `UPDATE revenues SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ? WHERE id = ?`,
     params,
   );
+
+  // **請求書を出した瞬間に番号を採る** (migration 163)。
+  // すでに番号があれば飛ばすので、取り消して出し直しても番号は変わらない
+  if ('invoice_issued' in body && body.invoice_issued === true) {
+    await assignInvoiceNumbers([String(req.params.id)]);
+  }
+
   res.json({ success: true, data: await queryOne('SELECT * FROM revenues WHERE id = ?', [req.params.id]) });
 });
 
@@ -196,7 +207,7 @@ router.get('/closing', async (req, res) => {
   const rows = await queryAll(
     `SELECT r.id, r.project_id, r.amount, r.tax_category,
             r.recognition_date, r.billing_date, r.payment_due_date,
-            r.invoice_issued, r.inspection_date, r.paid_date,
+            r.invoice_issued, r.invoice_no, r.inspection_date, r.paid_date,
             p.name AS project_name, p.gls_number,
             -- 申込書が揃っていない案件は選ばせない (0 = 未提出)
             (COALESCE(p.application_form, 0) = 0) AS blocked,
@@ -292,12 +303,18 @@ router.post('/invoices/bulk', canEdit, async (req, res) => {
     [...values, req.user!.id, finalIds],
   );
 
+  // 締めからまとめて発行したぶんにも番号を採る。**1件ずつと同じ経路**を通す
+  // (2つ書くと、片方だけ直したときに月次締めからだけ番号が付かなくなる)
+  const numbered = issuing ? await assignInvoiceNumbers(finalIds) : [];
+
   res.json({
     success: true,
     data: {
       updated: finalIds.length,
       // **飛ばしたものを返す。** 黙って一部だけ処理するのがいちばん困る
       skipped_blocked: issuing ? [...blockedIds] : [],
+      // 採った請求書番号。画面はこれを出して「何番で出したか」を見せる
+      invoice_numbers: numbered,
     },
   });
 });

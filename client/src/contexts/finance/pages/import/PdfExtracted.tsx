@@ -4,16 +4,49 @@
  * **人が原本と突き合わせるための面**です。ここを編集できるようにすると
  * 「PDF に何と書いてあったか」が残らなくなり、あとで数字を疑えなくなります。
  *
- * ── AI の信頼度 % は出さない ────────────────────────────────
+ * ── 読み取り % は「数えられるもの」で出す ────────────────────
  *
- * モックは行ごとに「読み取り 98% / 74%」を出していますが、
- * `xpoint-parse.service.ts` は正規表現のパーサで**スコアという概念がありません**。
- * それらしい数字を置くと、他の画面で守っている「数えられないものを出さない」を
- * ここだけ破ることになります。代わりに**警告の中身**をそのまま出します。
+ * モックは「読み取り 98% / 74%（80未満は橙）」を出します。ただし解析は
+ * 正規表現のパーサで、機械学習の確信度のようなものは持っていません。
+ * **数字をそれらしく真似ることはしません。** 代わりに
+ * **台帳に入れるのに要る項目のうち何個読めたか**を出します
+ * （`scoreXpoint` / `scoreRakuraku`）。同じ PDF なら必ず同じ数字になります。
+ *
+ * **% の隣に「何が読めなかったか」を必ず出す。** 74% とだけ書かれても、
+ * 何を直せばよいのかが分かりません。
  */
 import { AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
-import { settlementPrefix, type XpointParseResult } from './types';
+import { settlementPrefix, type ParseScore, type XpointParseResult } from './types';
+
+/**
+ * 読み取りの確からしさ。**80 未満を橙にする**（モックの決め）。
+ * 100% でも「税率は 10% と仮定」の警告は別に出るので、緑＝そのまま登録してよい、ではない。
+ */
+function ScoreBar({ score }: { score: ParseScore }) {
+  const low = score.score < 80;
+  return (
+    <div
+      className={`rounded-control-lg flex flex-wrap items-center gap-x-3 gap-y-1 border p-3 ${
+        low ? 'border-warning-border bg-warning-surface' : 'border-border bg-muted'
+      }`}
+    >
+      <span className="text-sub-sm text-muted-foreground">読み取り</span>
+      <span className={`font-number text-h3 ${low ? 'text-warning' : 'text-success'}`}>
+        {score.score}<span className="text-sub-sm">%</span>
+      </span>
+      <span className="text-sub-sm text-muted-foreground">
+        要る項目 <span className="font-number">{score.total}</span> のうち{' '}
+        <span className="font-number">{score.filled}</span> 個を読めました
+      </span>
+      {score.missing.length > 0 && (
+        <span className="text-sub-sm min-w-0 flex-1 text-warning">
+          読めなかったもの: <strong className="font-bold">{score.missing.join(' / ')}</strong>
+        </span>
+      )}
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -32,6 +65,8 @@ export function PdfExtracted({ result }: { result: XpointParseResult }) {
 
   return (
     <>
+      <ScoreBar score={result.score} />
+
       {p && (
         <div className="rounded-control-lg border border-border bg-muted p-3">
           <p className="text-sub-sm mb-1 font-bold text-secondary-foreground">PDF から読み取った内容（参照用）</p>

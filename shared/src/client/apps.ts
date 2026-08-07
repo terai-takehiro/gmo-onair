@@ -132,7 +132,7 @@ export const APPS: AppDef[] = [
   { key: 'translate',   label: '翻訳',               description: 'GMO 翻訳ツール (外部)',                 icon: Languages,     color: '#16a34a', path: 'https://gmo-translate.jp/',         external: 'https://gmo-translate.jp/' },
 
   /* ── まだ無いもの ─────────────────────────────────────────── */
-  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'gpm',     comingSoon: true },
+  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'gpm' },
   { key: 'assign',      label: '制作支援',           description: 'スケジュール・スタッフ配置',            icon: Users,         color: '#ea580c', path: '/prodsheet',                               comingSoon: true },
   { key: 'delivery',    label: '素材納品',           description: 'VTR・素材の納品管理',                   icon: Truck,         color: '#14b8a6', path: '/delivery',                                comingSoon: true },
 ];

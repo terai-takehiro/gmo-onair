@@ -12,7 +12,7 @@
  * 数えられないものを、それらしく出さない。
  */
 import { useState } from 'react';
-import { Check, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Sparkles, Trash2, X, Newspaper } from 'lucide-react';
 import { Row, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -180,7 +180,16 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
         </span>
       </RowSlot>
       <RowMain>
-        <p className="text-list whitespace-pre-wrap">{item.content}</p>
+        <p className="text-list whitespace-pre-wrap">
+          {item.content}
+          {/* **ニュース由来** (migration 167)。どこから来た行かが分かると、
+              週報を読む人が「元の記事」を辿れる。手で書いた行には付かない */}
+          {item.source_item_id && (
+            <span className="text-badge ml-2 inline-flex shrink-0 items-center gap-0.5 rounded-badge-xs bg-primary-surface px-1.5 py-0.5 align-middle text-primary">
+              <Newspaper className="h-3 w-3" aria-hidden="true" />ニュース由来
+            </span>
+          )}
+        </p>
         {item.note && <p className="text-sub mt-0.5 whitespace-pre-wrap text-muted-foreground">{item.note}</p>}
       </RowMain>
       <RowSlot w={96} placeholder="">

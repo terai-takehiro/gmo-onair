@@ -272,6 +272,7 @@ router.get('/sales-board', async (_req, res) => {
 // AI 起票の未確認案件 SQL (ai-inbox と 受信箱 /inbox が共用)
 const AI_INBOX_SQL =
   `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+          p.intake_channel, p.intake_confidence,
           c.name AS customer_name, u.name AS assigned_to_name,
           ai.requested_by AS ai_requested_by
    FROM projects p
@@ -325,7 +326,9 @@ router.get('/inbox', async (req, res) => {
           `SELECT id, sender, subject, summary, category, importance, action_needed, url,
                   received_at, created_at
            FROM misc_inquiries
-           WHERE deleted_at IS NULL AND handled_at IS NULL
+           -- 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
+           -- 記録が打たれていない行が受信箱に残り続ける
+           WHERE deleted_at IS NULL AND state = 'unsorted'
            ORDER BY created_at ASC
            LIMIT 100`
         )

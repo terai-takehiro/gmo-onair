@@ -94,6 +94,20 @@ export interface FeedbackDigest {
   };
   /** 投入の指標 (kind=task_intake のときのみ) */
   intake?: IntakeStat;
+  /**
+   * 取り込んだ情報の行き先 (kind=inquiry_intake のときのみ)。
+   * **拾いすぎていないか**を見る指標 — 見送りの割合が高ければ拾いすぎ。
+   * `misc_inquiries.state` から導出する (`ai_outcomes` に行を足さない)
+   */
+  inquiry?: {
+    total: number;
+    unsorted: number;
+    stock: number;
+    ticket: number;
+    project: number;
+    dropped: number;
+    dropped_rate: number | null;
+  };
   /** AI への助言 (集計から機械的に組み立てた文。プロンプト更新を待たず効かせる) */
   advice: string[];
 }
@@ -253,6 +267,34 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
     };
   }
 
+  // 取り込んだ情報の行き先。**同じく既存データから導出する**。
+  // 「有益なものだけ取り込め」と言っているツールなので、見送りの割合が
+  // そのまま拾いすぎの度合いになる。
+  if (kind === 'inquiry_intake') {
+    const iq = await queryOne(
+      `SELECT COUNT(DISTINCT q.id)                                      AS total,
+              COUNT(DISTINCT q.id) FILTER (WHERE q.state = 'unsorted')  AS unsorted,
+              COUNT(DISTINCT q.id) FILTER (WHERE q.state = 'stock')     AS stock,
+              COUNT(DISTINCT q.id) FILTER (WHERE q.state = 'ticket')    AS ticket,
+              COUNT(DISTINCT q.id) FILTER (WHERE q.state = 'project')   AS project,
+              COUNT(DISTINCT q.id) FILTER (WHERE q.state = 'dropped')   AS dropped
+         FROM ai_outputs o
+         JOIN misc_inquiries q ON q.id = o.target_id
+          AND o.target_table = 'misc_inquiries' AND q.deleted_at IS NULL
+        WHERE o.kind = ?
+          AND o.created_at >= NOW() - (? || ' days')::interval`,
+      [kind, w],
+    ) as any;
+    // **仕分けが済んだものだけを分母にする。** 未仕分けを混ぜると、
+    // 溜めている人が多い週ほど「拾いすぎていない」ように見える
+    const sorted = num(iq?.stock) + num(iq?.ticket) + num(iq?.project) + num(iq?.dropped);
+    digest.inquiry = {
+      total: num(iq?.total), unsorted: num(iq?.unsorted), stock: num(iq?.stock),
+      ticket: num(iq?.ticket), project: num(iq?.project), dropped: num(iq?.dropped),
+      dropped_rate: sorted > 0 ? num(iq?.dropped) / sorted : null,
+    };
+  }
+
   // 投入の指標。こちらも読み取り時に導出する (バッチを作らない)。
   // 「拾いすぎていないか (誤検知)」と「置いた期限が現実的だったか」を見る。
   if (kind === 'task_intake') {
@@ -320,10 +362,30 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
  * AI がツール応答としてこれを読むことで、**プロンプトを更新しなくても
  * 次の実行から傾向を踏まえられる**のが狙い (条件4の一番効く経路)。
  */
+/** 取り込んだ情報の行き先（kind=inquiry_intake のときだけ中身が出る） */
+function inquiryAdvice(d: FeedbackDigest): string[] {
+  const q = d.inquiry;
+  if (!q || q.dropped_rate == null) return [];
+  const dr = Math.round(q.dropped_rate * 100);
+  const out = [
+    `取り込んだ情報の行き先: チケット${q.ticket}件 / 案件${q.project}件 / ストック${q.stock}件 / 見送り${q.dropped}件`
+    + `（未仕分け${q.unsorted}件は仕分けが済んでいないので数えていない）。見送り率 ${dr}%。`,
+  ];
+  if (dr >= 40) {
+    out.push('拾いすぎている。営業・売り込み・メルマガ・自動通知を除ききれていないか、'
+      + '「弊社にとって有益か」をより厳しく見ること。');
+  }
+  return out;
+}
+
 function buildAdvice(d: FeedbackDigest): string[] {
   const out: string[] = [];
+  // **行き先は「人が直したか」とは別の信号**なので、修正が1件も無くても出す。
+  // 誰も中身を直さずに全部見送っている、というのがまさに拾いすぎの形で、
+  // 修正差分が無いことを理由に黙ると**その状態こそ気づけない**
+  out.push(...inquiryAdvice(d));
   if (d.reviewed_outputs === 0) {
-    out.push('まだレビュー済みの出力がないため傾向は不明。通常どおり作成してよい。');
+    out.push('まだレビュー済みの出力がないため、直され方の傾向は不明。通常どおり作成してよい。');
     return out;
   }
   if (d.as_is_rate != null) {

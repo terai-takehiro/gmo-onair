@@ -12,12 +12,12 @@
  *   目で拾う作業になっていた。**押す前に件数が見える**形にする
  * ・`window.confirm` を `confirmAction` に置き換えた (削除は元に戻せない)
  *
- * ── モックにあるが実装しないもの ────────────────────────────
+ * ── 「週報に送る」(モックのボタン・migration 167) ────────────
  *
- * **「採用した行を週報に送る」は出していない。** モックにはボタンがあるが、
- * サーバーにニュースの行をウィークリーのトピックへ移す口が無い
- * (`/dailyops/reports/:id/items` は行を新しく作るだけで、由来を記録する列も無い)。
- * 押しても何も起きないボタンを置かない、が v4 の決めごとなので出さない。
+ * 行の右にあります。押すと**その日が属する週の週報へ写します**
+ * （移すのではなく写す — ニュースはその日の記録として残り続けるため）。
+ * 週は**ニュースの日付**で決まるので、金曜のぶんを月曜に送っても
+ * 先週の週報に入ります。2回押しても増えません。
  */
 import { useMemo, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
@@ -195,9 +195,10 @@ export default function DailyNewsPage() {
       )}
 
       <p className="text-note text-muted-foreground">
-        「採用」の数字は、後でウィークリー活動報告に書くときの目印です。
-        <strong className="font-bold">この画面から週報へ自動では送られません</strong>
-        （送る仕組みがまだサーバーにありません）。ウィークリー活動報告のトピックに書き写してください。
+        「採用」の数字は、週報に書くときの目印です。
+        行の右の<strong className="font-bold">送るボタン</strong>を押すと、
+        その日が入る週のウィークリー活動報告へ写せます（週報側に「ニュース由来」と出ます）。
+        <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
       </p>
     </div>
   );

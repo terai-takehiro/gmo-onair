@@ -10,7 +10,14 @@
  */
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
-import { templateService, projectService, openItemService, phaseService } from './services/gpm.service';
+import { queryOne, execute } from '../../shared/db/connection';
+import { estimateService } from '../sales/services/estimate.service';
+import { gpmEstimateSummary } from './services/gpm-estimate.service';
+import { AppError } from '../../shared/middleware/errorHandler';
+import {
+  templateService, projectService, openItemService, phaseService, memberService, gpmTaskService,
+} from './services/gpm.service';
+import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
 export function createGpmRoutes(): Router {
   const router = Router();
@@ -60,6 +67,97 @@ export function createGpmRoutes(): Router {
   });
   router.delete('/projects/:id', ...canManage, async (req, res) => {
     await projectService.remove(String(req.params.id));
+    res.json({ success: true, data: { deleted: true } });
+  });
+
+  /**
+   * ── BOX フォルダ ────────────────────────────────────────
+   *
+   * **押したときだけ作る。** プロジェクトを作った流れで自動では作らない —
+   * BOX に作ったフォルダはこのアプリからは消せず、人が手で消すことになる。
+   * すでに URL を持っていたら 409 で止める（二重に作ると片方が迷子になる）。
+   */
+  router.get('/projects/:id/box-preview', ...canRead, async (_req, res) => {
+    res.json({ success: true, data: GPM_FOLDER_PREVIEW });
+  });
+
+  router.post('/projects/:id/box-folder', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await queryOne(
+      'SELECT name, box_url_internal, box_url_external FROM gpm_projects WHERE id = ? AND deleted_at IS NULL',
+      [id],
+    ) as { name: string; box_url_internal: string | null; box_url_external: string | null } | null;
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+    if (row.box_url_internal || row.box_url_external) {
+      throw new AppError(409, 'ALREADY_EXISTS', 'このプロジェクトの BOX フォルダはすでに作られています');
+    }
+
+    const made = await createGpmFolderTree(row.name);
+    if (!made.internal && !made.external) {
+      throw new AppError(503, 'BOX_UNAVAILABLE', 'BOX にフォルダを作れませんでした。時間をおいて試してください');
+    }
+    await execute(
+      'UPDATE gpm_projects SET box_url_internal = ?, box_url_external = ?, updated_at = NOW() WHERE id = ?',
+      [made.internal?.folderUrl ?? null, made.external?.folderUrl ?? null, id],
+    );
+    res.json({ success: true, data: await projectService.getById(id) });
+  });
+
+  /**
+   * ── タスク（⑤ 全プロジェクトのタスク一覧）────────────────
+   *
+   * **GPM 専用の口**。既存 `/tasks` は `JOIN projects` するので GPM のタスクを
+   * 1件も返しません（`project_id` が NULL のため）。
+   */
+  router.get('/tasks', ...canRead, async (req, res) => {
+    res.json({
+      success: true,
+      data: await gpmTaskService.listAll({
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+        gpm_project_id: typeof req.query.gpm_project_id === 'string' ? req.query.gpm_project_id : undefined,
+      }),
+    });
+  });
+  router.put('/tasks/:id/done', ...canEdit, async (req, res) => {
+    res.json({
+      success: true,
+      data: await gpmTaskService.setDone(String(req.params.id), req.body?.done !== false, req.user!.id),
+    });
+  });
+
+  /**
+   * ── 見積（⑥ 見積・請求・v4 大⑤・migration 173）────────────
+   *
+   * `estimates` を案件と共用します（別表にすると版・明細・合計の作りが2つになり、
+   * 片方だけ直る形が生まれる）。**案件管理側に混ざらないこと**は
+   * `salesOverview`（返事待ち）と `billing.routes`（一覧）の2か所を実測して塞いだ。
+   */
+  router.get('/projects/:id/estimates', ...canRead, async (req, res) => {
+    res.json({ success: true, data: await estimateService.listByGpmProject(String(req.params.id)) });
+  });
+
+  router.post('/projects/:id/estimates', ...canEdit, async (req, res) => {
+    const row = await estimateService.createForGpm(String(req.params.id), req.body ?? {}, req.user!.id);
+    res.status(201).json({ success: true, data: row });
+  });
+
+  /** 見積のまとめ（ダッシュボードの KPI 2枚ぶん） */
+  router.get('/estimates/summary', ...canRead, async (_req, res) => {
+    res.json({ success: true, data: await gpmEstimateSummary() });
+  });
+
+  // ── 体制（組織図のメンバー・migration 169）────────────────
+  router.post('/projects/:id/members', ...canEdit, async (req, res) => {
+    res.status(201).json({
+      success: true,
+      data: await memberService.add(String(req.params.id), req.body ?? {}),
+    });
+  });
+  router.put('/members/:id', ...canEdit, async (req, res) => {
+    res.json({ success: true, data: await memberService.update(String(req.params.id), req.body ?? {}) });
+  });
+  router.delete('/members/:id', ...canEdit, async (req, res) => {
+    await memberService.remove(String(req.params.id));
     res.json({ success: true, data: { deleted: true } });
   });
 

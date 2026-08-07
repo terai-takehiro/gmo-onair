@@ -4,6 +4,10 @@
  * **ケーブルとコネクタで1つ**です。違うのは「m」と「色」を出すかどうかだけなので、
  * `config.hasLength` で分けています (以前は2つのファイルに同じ入力欄が並んでいて、
  * 片方だけ並び順が違っていました)。
+ *
+ * 台帳が1枚になったので、**新しく足すときは種別（ケーブル／コネクタ）を先に選びます**。
+ * 直すときは選べません — 種別を変えると保存先のテーブルが変わり、
+ * 「直した」ではなく「片方を消してもう片方に作った」ことになるためです。
  */
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -13,11 +17,14 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  CATALOG_KINDS, EMPTY_FORM,
-  type CatalogConfig, type CatalogForm, type CatalogItem, type KindCode,
+  CATALOG_KINDS, CONFIG_BY_SOURCE, EMPTY_FORM,
+  type CatalogForm, type CatalogSource, type KindCode, type SupplyItem,
 } from './types';
 
-export type DialogMode = { kind: 'new' } | { kind: 'edit'; item: CatalogItem } | { kind: 'copy'; item: CatalogItem };
+export type DialogMode =
+  | { kind: 'new'; source: CatalogSource }
+  | { kind: 'edit'; item: SupplyItem }
+  | { kind: 'copy'; item: SupplyItem };
 
 /** 品目 → 入力欄。**コピーのときだけ本数を 0 に戻す** (在庫数は個体ごとの値) */
 function toForm(mode: DialogMode, fallbackKind: KindCode): CatalogForm {
@@ -38,9 +45,8 @@ function toForm(mode: DialogMode, fallbackKind: KindCode): CatalogForm {
 }
 
 export function CatalogDialog({
-  config, mode, locations, manufacturers, saving, error, onClose, onSubmit,
+  mode, locations, manufacturers, saving, error, onClose, onSubmit, onChangeSource,
 }: {
-  config: CatalogConfig;
   mode: DialogMode | null;
   locations: { id: string; name: string }[];
   manufacturers: { id: string; name: string }[];
@@ -48,6 +54,8 @@ export function CatalogDialog({
   error: string | null;
   onClose: () => void;
   onSubmit: (form: CatalogForm) => void;
+  /** 新しく足すときだけ、種別を切り替える */
+  onChangeSource: (source: CatalogSource) => void;
 }) {
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
 
@@ -56,6 +64,9 @@ export function CatalogDialog({
   }, [mode]);
 
   if (!mode) return null;
+
+  const source: CatalogSource = mode.kind === 'new' ? mode.source : mode.item.source;
+  const config = CONFIG_BY_SOURCE[source];
 
   const title = mode.kind === 'edit'
     ? `${config.label}を直す`
@@ -78,6 +89,19 @@ export function CatalogDialog({
         )}
 
         <div className="space-y-3">
+          {mode.kind === 'new' && (
+            <div className="space-y-1">
+              <Label>種別 *</Label>
+              <Select value={source} onValueChange={(v) => onChangeSource(v as CatalogSource)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cable">ケーブル（長さと色を持ちます）</SelectItem>
+                  <SelectItem value="connector">コネクタ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>用途 *</Label>

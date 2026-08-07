@@ -22,6 +22,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { ProjectTypeLabels } from '@/types';
 import { internalTodos, blockedReason, type IntakeProject } from './ask';
+import { channelLabel, confidenceLabel, confidenceTone } from '../projectList/intake';
 
 /**
  * 案件種類の名前。**`@/types` の対応表をそのまま使う。**
@@ -68,7 +69,13 @@ function fieldsOf(p: IntakeProject): FieldRow[] {
       required: true, filled: !!p.gls_category,
     },
     { label: '社内の担当', value: p.assigned_to_name, required: true, filled: !!p.assigned_to_name },
-    { label: '入口', value: p.source_channel, filled: !!p.source_channel },
+    // 入口は `intake_channel` (migration 165) を先に見る。**`source_channel` は
+    // 取込の経路 (info@ / sales@cc) で、お客様から見た入口とは別物**
+    {
+      label: '入口',
+      value: p.intake_channel ? channelLabel(p.intake_channel) : p.source_channel,
+      filled: !!(p.intake_channel || p.source_channel),
+    },
   ];
 }
 
@@ -90,6 +97,13 @@ export function DecidePanel({
       <section className="rounded-card overflow-hidden border border-border bg-card">
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 p-4 pb-2.5 lg:px-5">
           <h2 className="text-cardtitle">読み取ったこと</h2>
+          {/* **確信は引き合い1件ぶん。** AI が根拠を持てなければ渡ってこないので、
+              無いときは出さない（「低い」と読み違えられる） */}
+          {project.intake_confidence && (
+            <span className={`text-badge rounded-badge border px-1.5 py-0.5 ${confidenceTone(project.intake_confidence)}`}>
+              確信 {confidenceLabel(project.intake_confidence)}
+            </span>
+          )}
           <p className="text-note text-muted-foreground">項目は登録画面と同じです</p>
         </div>
         <dl>

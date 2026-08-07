@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { generateSequenceNumber, generateGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
+import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   createProjectFolderTree,
@@ -11,6 +11,13 @@ import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
+
+/**
+ * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
+ * 知らない値をそのまま渡すと CHECK に弾かれ、案件の登録ごと 500 になる。
+ */
+const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'other'];
+const INTAKE_CONFIDENCES = ['high', 'mid', 'low'];
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -438,7 +445,11 @@ export class ProjectService {
   async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
-            event_start, event_end, dates, gls_category } = data;
+            event_start, event_end, dates, gls_category,
+            intake_channel, intake_confidence,
+            // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
+            contact_name, recurrence, attendee_count, goal, reply_due, wants,
+            stage, first_task } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
@@ -461,17 +472,66 @@ export class ProjectService {
       }
     }
 
+    // 入口と確信 (migration 165)。**知らない値は入れない** — DB の CHECK が弾くので、
+    // 弾かれると案件の登録そのものが 500 になる。ここで NULL に落とす
+    const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
+    const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
+
+    /**
+     * **ステージを選べるようにした** (v4 の登録モーダル)。
+     *
+     * 「もう仮押さえまで進んでいる引き合いを登録する」が普通に起きるのに、
+     * これまでは必ず `neta` から始めて、作ってから押し直すことになっていました。
+     * **知らない値は `neta` に落とす** — 素通しさせるとどの一覧にも出ない案件ができます。
+     *
+     * **受注以降では作れません。** GLS 番号を採る流れ（確認ダイアログ付き）を
+     * 飛ばしてしまうためです。作ってからステージを上げてもらいます。
+     */
+    const initialStage = STAGES.includes(String(stage)) ? String(stage) : 'neta';
+    const safeStage = ['a_won', 's_completed', 'e_lost'].includes(initialStage) ? 'neta' : initialStage;
+
+    const recur = recurrence === 'regular' ? 'regular' : 'single';
+    const scale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
+      ? Math.floor(Number(attendee_count)) : null;
+
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, assigned_to,
                              event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
-                             application_form, logo_permission, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
+                             application_form, logo_permission, intake_channel, intake_confidence,
+                             contact_name, recurrence, attendee_count, goal, reply_due, wants, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, safeStage, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
-       application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
+       application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
+       contact_name || null, recur, scale, goal || null, reply_due || null, wants || null, userId]
     );
+
+    // **最初のステージも履歴に残す** (migration 164)。
+    // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
+    await execute(
+      `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+       VALUES (?, ?, NULL, ?, ?)`,
+      [uuidv4(), id, safeStage, userId],
+    );
+
+    /**
+     * 最初のタスク（登録モーダルの16項目め）。
+     *
+     * **入れなくても作れます。** 入れたときだけ1件作ります。
+     * 期限は `docs/wording.md` の決めどおり**時刻まで**持ちます
+     * （日付だけ渡されたら 18:00 を補い、補ったことは画面が出す）。
+     */
+    const task = first_task as { title?: string; assigned_to?: string; due_at?: string; due_date?: string } | undefined;
+    if (task && typeof task.title === 'string' && task.title.trim()) {
+      const dueAt = task.due_at || (task.due_date ? `${task.due_date}T18:00:00` : null);
+      await execute(
+        `INSERT INTO project_tasks (id, project_id, title, assigned_to, due_at, is_completed, sort_order, created_by)
+         VALUES (?, ?, ?, ?, ?, false, 1, ?)`,
+        [uuidv4(), id, task.title.trim(), task.assigned_to || assigned_to || userId, dueAt, userId],
+      );
+    }
 
     // project_dates にINSERT
     for (let i = 0; i < datesToInsert.length; i++) {
@@ -542,6 +602,39 @@ export class ProjectService {
     const assigned_to = (data.assigned_to === undefined || data.assigned_to === null || data.assigned_to === '')
       ? existing.assigned_to
       : data.assigned_to;
+    /**
+     * **画面に無い項目は今の値を保つ。**
+     *
+     * v4 のモックはタグと「案件種類（その他）」の入力欄を落としました。
+     * この UPDATE は送られた値でそのまま上書きするので、欄を消しただけだと
+     * **保存のたびに既存の値が空になります**（本番データが黙って消える）。
+     * 列は残したまま、**未指定なら今の値を保つ**形にしてから欄を外しました。
+     * 明示的に空文字を送ったときは消せます（＝人が消したいときは消える）。
+     */
+    const tagsValue = tags === undefined ? ((existing.tags as string | null) ?? '') : (tags || '');
+
+    /**
+     * **登録の16項目（migration 170）も「渡さなければ今の値を保つ」。**
+     *
+     * 直す画面（`ProjectFormPage`）にはこれらの欄がまだ無いので、
+     * 保つ形にしていないと**保存するたびに全部空になります**
+     * （タグで実際に起きたのと同じ壊れ方）。
+     */
+    const keep = <T,>(v: unknown, cur: T): unknown => (v === undefined ? cur : (v === '' ? null : v));
+    const contactName = keep(data.contact_name, existing.contact_name);
+    const recurrenceValue = data.recurrence === undefined
+      ? existing.recurrence
+      : (data.recurrence === 'regular' ? 'regular' : 'single');
+    const attendeeCount = data.attendee_count === undefined
+      ? existing.attendee_count
+      : (Number(data.attendee_count) > 0 ? Math.floor(Number(data.attendee_count)) : null);
+    const goalValue = keep(data.goal, existing.goal);
+    const replyDue = keep(data.reply_due, existing.reply_due);
+    const wantsValue = keep(data.wants, existing.wants);
+    const projectTypeOther = project_type_other === undefined
+      ? ((existing.project_type_other as string | null) ?? null)
+      : (project_type_other || null);
+
     const cType = normalizeCustomerType(customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
@@ -579,13 +672,15 @@ export class ProjectService {
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', project_type_other || null,
+         project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tags || '',
+         broadcast_type || null, media_platform || null, tagsValue,
+         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -595,13 +690,15 @@ export class ProjectService {
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', project_type_other || null,
+         project_type || 'other', projectTypeOther,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tags || '',
+         broadcast_type || null, media_platform || null, tagsValue,
+         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
@@ -663,6 +760,17 @@ export class ProjectService {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
+    /**
+     * **ステージが変わった記録を残す** (migration 164)。
+     *
+     * `projects.updated_at` では代われない — 案件名を直しただけでも動くので、
+     * 「今月 受注になった案件」を数えられず、止まっている理由も言えない。
+     *
+     * **同じステージへの押し直しは記録しない。** 記録すると
+     * 「1日に3回 受注になった」ことになり、今月の受注が水増しされる。
+     */
+    const stageChanged = project.stage !== stage;
+
     if (stage === 'e_lost') {
       await execute(
         `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -672,11 +780,54 @@ export class ProjectService {
       // 受注/失注そのものはステージから読めるので記録しないが、
       // 「AI 出力が業務にならなかった」は不採用として残す
       await recordIntakeDecision(id, 'dropped', userId, (data.lost_reason_note as string) || (data.lost_reason as string) || null);
+    } else if (stage === 'a_won') {
+      // **受注の時刻を残す** — 失注に `lost_at` があるのに受注に無かった。
+      // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
+      // (`won_at IS NULL` のときだけ入れる)。受注した月が後ろにずれると
+      // 「今月の受注」が二重に立つ
+      await execute(
+        `UPDATE projects SET stage=?, won_at=COALESCE(won_at, NOW()), updated_at=NOW(), updated_by=? WHERE id=?`,
+        [stage, userId, id]
+      );
     } else {
       await execute(
         `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, userId, id]
       );
+    }
+
+    if (stageChanged) {
+      await execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, ?, ?, ?)`,
+        [uuidv4(), id, project.stage ?? null, stage, userId],
+      );
+    }
+
+    /**
+     * **受注 (`a_won`) にしたら GLS 番号を自動で採る**（v4・モックの決めごと）。
+     *
+     * これまでは `POST /projects/:id/issue-gls` を人が明示的に叩く形でした。
+     * モックは「受注が決まったときに自動で採る」と決めているのでそちらに合わせます。
+     *
+     * **押し間違いで番号が焼けるのを止める仕掛けは画面側**にあります
+     * （`GET /projects/:id/next-gls` で採る番号を見せてから確認する）。
+     * ここでは 2 つだけ守ります:
+     *
+     *  ・**すでに番号があれば採らない**（`issueGls` が 400 を返すので手前で弾く）。
+     *    受注 → 口頭決定 → 受注 と往復しても番号は変わりません
+     *  ・**分類が無いときは受注そのものは通す。** ここで例外にすると、
+     *    古い案件（分類が入っていない）を受注にできなくなります。
+     *    採れなかったことは `gls_error` で返し、画面がそう出します
+     */
+    let glsError: string | null = null;
+    if (stage === 'a_won' && !project.gls_number) {
+      try {
+        await this.issueGls(id, {}, userId);
+      } catch (err) {
+        glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+        console.warn('[changeStage] GLS auto-issue failed:', id, glsError);
+      }
     }
 
     // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成。
@@ -699,7 +850,31 @@ export class ProjectService {
       }
     }
 
-    return this.getById(id);
+    const result = await this.getById(id);
+    // 採れなかった理由を**そのまま返す**。黙って番号なしで受注になると、
+    // 請求のときに「番号が無い」と気づいて手戻りになる
+    return glsError ? { ...(result as Record<string, unknown>), gls_error: glsError } : result;
+  }
+
+  /**
+   * 次に出る GLS 番号を**採らずに**見る。受注に上げる前の確認に使う。
+   * 分類が無い案件は `null` を返す（画面は「先に分類を選んでください」と出す）。
+   */
+  async peekGls(id: string) {
+    const project = await queryOne(
+      'SELECT gls_number, gls_category FROM projects WHERE id = ? AND deleted_at IS NULL', [id],
+    ) as { gls_number: string | null; gls_category: string | null } | null;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    if (project.gls_number) {
+      return { already: true, gls_number: project.gls_number, next: null, category: project.gls_category };
+    }
+    const category = normalizeGlsCategory(project.gls_category);
+    return {
+      already: false,
+      gls_number: null,
+      next: category ? await peekNextGlsNumber(category) : null,
+      category,
+    };
   }
 
   /**
@@ -724,6 +899,16 @@ export class ProjectService {
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
+
+    // **この SQL はステージも上げる。** 上げたときは履歴に残す (migration 164) —
+    // 残さないと「口頭決定になったのはいつか」が抜け、停滞理由が言えなくなる
+    if (['neta', 'd_hold', 'c_proposal'].includes(project.stage as string)) {
+      await execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, ?, 'b_verbal', ?)`,
+        [uuidv4(), id, project.stage, userId],
+      );
+    }
 
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);

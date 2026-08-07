@@ -5,8 +5,10 @@
  *
  * モックの詳細は 工程・体制・お金・書類・議事録・活動履歴 を1画面に積みますが、
  * このうち**サーバーが持っているのは工程・未確認事項・体制の3つだけ**です。
- * お金（個別見積・請求）と BOX の書類と議事録は GPM のデータがまだ無いので
- * 出しません（`docs/design/gpm-model.md`）。**枠だけのタブを並べない**。
+ * お金（個別見積・請求）と議事録は GPM のデータがまだ無いので出しません
+ * （`docs/design/gpm-model.md`）。**枠だけのタブを並べない**。
+ * 書類（BOX）は 2026-08-07 に足しました — 構成をプロジェクト用に別に決めて、
+ * **押したときだけ作る**形にしてあります（`FilesTab`）。
  *
  * ── 工程配下のタスクの一覧は出せない ────────────────────────
  *
@@ -29,12 +31,14 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { useGpmProject, useInvalidateGpm } from '../queries';
 import { STATUS_LABEL, type GpmOpenItem, type GpmPhase, type GpmStatus, type PhaseState } from '../types';
 import { DetailHeader, isDetailTab, type DetailTabKey } from './projectDetail/DetailHeader';
+import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { PhaseRow, PhaseRowsHeader } from './projectDetail/PhaseRows';
 import { PhaseDialog } from './projectDetail/PhaseDialog';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
 import { EditProjectDialog } from './projectDetail/EditProjectDialog';
 import { MembersTab } from './projectDetail/MembersTab';
+import { FilesTab } from './projectDetail/FilesTab';
 
 export default function GpmProjectDetailPage() {
   const { id = '', tab: rawTab } = useParams<{ id: string; tab: string }>();
@@ -246,7 +250,9 @@ export default function GpmProjectDetailPage() {
         </div>
       )}
 
-      {tab === 'members' && <MembersTab members={p.members} />}
+      {tab === 'members' && <MembersTab projectId={id} members={p.members} canEdit={canEdit} />}
+      {tab === 'estimates' && <EstimatesTab projectId={id} canEdit={canEdit} />}
+      {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
       {editing && <EditProjectDialog project={p} onClose={() => setEditing(false)} />}
       {phaseEdit && <PhaseDialog projectId={id} phase={phaseEdit} onClose={() => setPhaseEdit(null)} />}

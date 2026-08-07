@@ -8,8 +8,8 @@
  * 戻り続けることはありません。
  *
  *   /equipment/model-groups      → /equipment/items?view=lend
- *   /equipment/cables            → /equipment/items?view=cable
- *   /equipment/connectors        → /equipment/items?view=connector
+ *   /equipment/cables            → /equipment/items?view=supply
+ *   /equipment/connectors        → /equipment/items?view=supply
  *   /equipment/locations         → /equipment/settings?tab=loc
  *   /equipment/manufacturers     → /equipment/settings?tab=maker
  *   /equipment/colors            → /equipment/settings?tab=maker  (色はメーカーと同じタブ)
@@ -72,8 +72,8 @@ export default function App() {
 
         {/* 畳んだ画面の旧 URL (ブックマークを生かす) */}
         <Route path="/equipment/model-groups" element={<Navigate to="/equipment/items?view=lend" replace />} />
-        <Route path="/equipment/cables" element={<Navigate to="/equipment/items?view=cable" replace />} />
-        <Route path="/equipment/connectors" element={<Navigate to="/equipment/items?view=connector" replace />} />
+        <Route path="/equipment/cables" element={<Navigate to="/equipment/items?view=supply" replace />} />
+        <Route path="/equipment/connectors" element={<Navigate to="/equipment/items?view=supply" replace />} />
         <Route path="/equipment/locations" element={<Navigate to="/equipment/settings?tab=loc" replace />} />
         <Route path="/equipment/manufacturers" element={<Navigate to="/equipment/settings?tab=maker" replace />} />
         <Route path="/equipment/colors" element={<Navigate to="/equipment/settings?tab=maker" replace />} />

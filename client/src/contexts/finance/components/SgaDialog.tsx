@@ -42,6 +42,8 @@ export interface SgaFormData {
   payment_due_date: string;
   assigned_to: string;
   expense_type: 'fixed' | 'spot';
+  /** 勘定科目 (migration 166)。空 = 未設定 */
+  account_title_id: string;
   amortize_enabled: boolean;
   amortize_start: string;
   amortize_end: string;
@@ -64,6 +66,7 @@ export const initialFormData: SgaFormData = {
   payment_due_date: "",
   assigned_to: "",
   expense_type: "spot",
+  account_title_id: "",
   amortize_enabled: false,
   amortize_start: "",
   amortize_end: "",
@@ -113,6 +116,8 @@ interface SgaDialogProps {
   setForm: React.Dispatch<React.SetStateAction<SgaFormData>>;
   vendors: Vendor[];
   users: { id: string; name: string }[];
+  /** 勘定科目のマスター (`GET /sga/account-titles`)。空なら欄を出さない */
+  accountTitles?: { id: string; name: string }[];
   isSaving: boolean;
   /** 消している最中か。**編集のときだけ「消す」を出す** */
   isDeleting?: boolean;
@@ -130,6 +135,7 @@ export default function SgaDialog({
   setForm,
   vendors,
   users,
+  accountTitles = [],
   isSaving,
   isDeleting = false,
   onSubmit,
@@ -290,6 +296,24 @@ export default function SgaDialog({
               />
             </div>
           </div>
+
+          {/* 勘定科目 (migration 166)。**マスターが空なら欄ごと出さない** —
+              選べない Select を置いても押した人が困るだけ */}
+          {accountTitles.length > 0 && (
+            <div className="space-y-1">
+              <Label>勘定科目</Label>
+              <Select
+                value={form.account_title_id || 'none'}
+                onValueChange={(val) => setForm((f) => ({ ...f, account_title_id: val === 'none' ? '' : val }))}
+              >
+                <SelectTrigger><SelectValue placeholder="選んでください" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {accountTitles.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Row 5.5: source */}
           <div className="space-y-1">

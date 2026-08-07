@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Search, Link2, Check } from "lucide-react";
+import { LocationPicker } from "@/contexts/sales/pages/pricing/LocationPicker";
 
 export interface PickedPricingItem {
   pricing_item_id: string;
@@ -22,6 +23,8 @@ interface PricingItemPickerProps {
   onOpenChange: (open: boolean) => void;
   customerType: "internal" | "external";
   onSelect: (item: PickedPricingItem) => void;
+  /** 案件が分かれば、その予約から料金表の場所を決める (v4 大③) */
+  projectId?: string | null;
 }
 
 interface PricingItem {
@@ -46,16 +49,19 @@ export default function PricingItemPicker({
   onOpenChange,
   customerType,
   onSelect,
+  projectId,
 }: PricingItemPickerProps) {
   const [search, setSearch] = useState("");
+  // **料金表は場所ごとに別** (v4 大③)。混ざったまま選ぶと別の拠点の値段が入る
+  const [locationId, setLocationId] = useState("");
   // このセッションで追加した項目一覧（項目名）とカウンタ
   const [addedNames, setAddedNames] = useState<string[]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["pricing-categories"],
-    queryFn: async () => (await api.get("/pricing/categories")).data,
-    enabled: open,
+    queryKey: ["pricing-categories", locationId],
+    queryFn: async () => (await api.get("/pricing/categories", { params: { location_id: locationId } })).data,
+    enabled: open && !!locationId,
   });
   const categories: PricingCategory[] = data?.data ?? [];
 
@@ -118,6 +124,10 @@ export default function PricingItemPicker({
             {customerType === "internal" ? "（グループ内価格）" : "（定価）"}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="shrink-0 border-b border-border pb-3">
+          <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
+        </div>
 
         <div className="relative shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

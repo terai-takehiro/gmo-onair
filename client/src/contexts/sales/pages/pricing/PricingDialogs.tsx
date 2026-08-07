@@ -35,13 +35,16 @@ import { CalcTypeLabels, type CalcType, type PricingCategory, type PricingItem }
 const KEY = ['pricing-categories'];
 
 export function CategoryDialog({
-  open, onOpenChange, editing, nextSortOrder,
+  open, onOpenChange, editing, nextSortOrder, locationId, locationName,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: PricingCategory | null;
   /** 新しく足すときの並び順。**末尾に置く** (先頭に割り込ませない) */
   nextSortOrder: number;
+  /** どの場所の表に足すか (v4 大③)。**いま開いているタブの場所** */
+  locationId: string;
+  locationName: string;
 }) {
   const qc = useQueryClient();
   const form = useForm<{ name: string }>({ values: { name: editing?.name ?? '' } });
@@ -49,7 +52,9 @@ export function CategoryDialog({
   const save = useMutation({
     mutationFn: async (v: { name: string }) => (editing
       ? api.put(`/pricing/categories/${editing.id}`, { name: v.name, sort_order: editing.sort_order })
-      : api.post('/pricing/categories', { name: v.name, sort_order: nextSortOrder })),
+      // **場所は開いているタブから決める。** ここで選ばせると、
+      // 用賀のタブを見ながら渋谷に足す、が起きる
+      : api.post('/pricing/categories', { name: v.name, sort_order: nextSortOrder, location_id: locationId })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
       notifySuccess(editing ? '分類の名前を変えました' : '分類を足しました');
@@ -65,6 +70,8 @@ export function CategoryDialog({
           <DialogTitle>{editing ? '分類の名前を変える' : '分類を足す'}</DialogTitle>
           <DialogDescription>
             見積の明細をまとめる単位です（スタジオ／技術・人員／制作 など）。
+            {!editing && <> <strong className="font-bold">{locationName}</strong> の料金表に足します。</>}
+            {editing && <> 分類を別の場所へ移すことはできません（過去の見積の根拠が変わってしまうため）。</>}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
