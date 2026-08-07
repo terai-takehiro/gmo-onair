@@ -14,8 +14,12 @@
  *   タイルとチップの2か所に出すと、片方だけ古くなったときに気づけない
  * ・**タブ (カード / 貸出履歴 / アクセス表) をやめた。** 開けられる部屋も
  *   貸し借りも「選んだ1枚について知りたいこと」なので、右に集めた
- * ・レベルは **DB (migration 133 の6つ) を正**にした。モックはレベルを3つに
- *   畳んでいるが、実データと一致しないので採らない (`securityCards/types.ts`)
+ * ・**まとめ方はモックの3分類 (全域 / 技術 / 共用)、1枚の名前は DB の6レベル。**
+ *   モックの番号の帯 (全域 = No.1-4) は実データ (No.1-9) と違うので採らず、
+ *   **まとめ方だけ**を採った。実データにぴったり合う
+ *   (全域 = master ／ 技術 = ROOM A/B/C ／ 共用 = 会議室・VIP)。
+ *   3つに畳んで名前まで置き換えると、ROOM A と ROOM B のカードが同じに見えて
+ *   **違う部屋のカードを渡す**ので、1枚に出す名前は6レベルのまま
  */
 import { useMemo, useState } from 'react';
 import { DoorOpen, Search, X } from 'lucide-react';
@@ -28,7 +32,10 @@ import { useSecurityCards } from '@/lib/securityCardApi';
 import { CardDetailPanel } from './securityCards/CardDetailPanel';
 import { CardGrid } from './securityCards/CardGrid';
 import { LendDialog, ReturnDialog } from './securityCards/LendDialog';
-import { FILTER_LABELS, matchesFilter, matchesSearch, type CardFilter } from './securityCards/types';
+import {
+  FILTER_LABELS, GROUP_LABELS, GROUP_ORDER, groupOf, matchesFilter, matchesSearch,
+  type CardFilter, type LevelGroup,
+} from './securityCards/types';
 
 const STUDIO_LABEL = 'GMOサムライスタジオ用賀';
 
@@ -36,6 +43,8 @@ export default function SecurityCardsPage() {
   const { canEdit } = usePermissions();
   const cards = useSecurityCards();
   const [filter, setFilter] = useState<CardFilter>('all');
+  /** モックの3分類での絞り込み。空 = すべて */
+  const [group, setGroup] = useState<string>('');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'lend' | 'return' | null>(null);
@@ -51,9 +60,17 @@ export default function SecurityCardsPage() {
     overdue: all.filter((c) => matchesFilter(c, 'overdue')).length,
   }), [all]);
 
+  const groupCounts = useMemo(() => ({
+    '': all.length,
+    ...Object.fromEntries(GROUP_ORDER.map((g) => [g, all.filter((c) => groupOf(c.security_level) === g).length])),
+  } as Record<string, number>), [all]);
+
   const visible = useMemo(
-    () => all.filter((c) => matchesFilter(c, filter) && matchesSearch(c, search)),
-    [all, filter, search],
+    () => all.filter((c) =>
+      matchesFilter(c, filter)
+      && matchesSearch(c, search)
+      && (!group || groupOf(c.security_level) === group)),
+    [all, filter, search, group],
   );
 
   // 絞り込みで消えたカードを右に出したままにしない (左に無いものを操作させない)
@@ -75,6 +92,19 @@ export default function SecurityCardsPage() {
           }))}
           value={filter}
           onChange={(k) => setFilter(k as CardFilter)}
+        />
+        {/* モックの3分類。**探すための入口**で、渡すときに確かめる名前は
+            一覧の小見出しと右のカードに6レベルで出る */}
+        <FilterChips
+          label="開けられる範囲で絞り込む"
+          items={[
+            { key: '', label: 'すべての範囲', count: groupCounts[''] },
+            ...GROUP_ORDER.map((g: LevelGroup) => ({
+              key: g as string, label: GROUP_LABELS[g], count: groupCounts[g] ?? 0,
+            })),
+          ]}
+          value={group}
+          onChange={setGroup}
         />
         <div className="relative min-w-0 flex-1 sm:max-w-[240px]">
           <Search
@@ -120,8 +150,11 @@ export default function SecurityCardsPage() {
             {visible.length === 0 ? (
               <NoSearchResults
                 keyword={search || undefined}
-                activeFilters={filter === 'all' ? [] : [`状態: ${FILTER_LABELS[filter]}`]}
-                onClearFilters={() => { setFilter('all'); setSearch(''); }}
+                activeFilters={[
+                  filter === 'all' ? '' : `状態: ${FILTER_LABELS[filter]}`,
+                  group ? `範囲: ${GROUP_LABELS[group as LevelGroup]}` : '',
+                ].filter(Boolean)}
+                onClearFilters={() => { setFilter('all'); setGroup(''); setSearch(''); }}
               />
             ) : (
               <CardGrid

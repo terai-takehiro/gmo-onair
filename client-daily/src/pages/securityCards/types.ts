@@ -7,14 +7,26 @@
  * (`master` / `room_a` / `room_b` / `room_c` / `meeting` / `vip`)。
  * 解錠できる部屋は `access` (JSONB) に1部屋ずつ入っており、**カードごとに違う**。
  *
- * v4 のモックはレベルを3つに畳んでいるが、**実データと一致しないので採らない**。
- * 3つに畳むと「ROOM A のカード」と「ROOM B のカード」が同じ帯に見え、
- * 受付が違う部屋のカードを渡す。
+ * ── モックの3分類は「まとめ方」として採る ─────────────────────
  *
- * ── 色は `cat-1`〜`cat-8` を使う ─────────────────────────────
+ * モックは 全域 / 技術 / 共用 の3つに畳んでいる。**番号の帯は実データと違う**
+ * (モックは全域 No.1-4 だが、実データは No.1-9) ので採らない。
+ * ただし**まとめ方そのものは実データとぴったり合う**:
  *
- * レベルの違いは**危ない / 安全ではない**ので、状態の色 (success / warning /
- * destructive) を当ててはいけない。並べて見分けるための色 = `cat-*` を使う。
+ *   全域 = `master`                       (No.1-9  ・10エリア)
+ *   技術 = `room_a` / `room_b` / `room_c` (No.10-18・スタジオ ＋ 会議室)
+ *   共用 = `meeting` / `vip`              (No.19-24・会議室まわりだけ)
+ *
+ * **カード1枚に出す名前は 6 レベルのまま**にする。3つに畳んだ名前だけを出すと
+ * 「ROOM A のカード」と「ROOM B のカード」が同じに見え、受付が違う部屋の
+ * カードを渡す。**まとめ方は3つ・1枚の名前は6つ**、が実データに合った形。
+ *
+ * ── 色はモックの実測値 ───────────────────────────────────────
+ *
+ * 全域 = 赤 (`#c7243a` / 地 `#fef6f7`)、技術 = 青 (`#005bac` / 地 `#eaf4fb`)、
+ * 共用 = 灰 (`#5d6470` / 地 `#f2f4f7`)。ここでの赤は「危ない」ではなく
+ * **「このカードは全部開く。渡す相手を確かめて」**という意味なので、
+ * 状態の色を当てて差し支えない (モックがそう決めている)。
  */
 import type { SecurityCard } from '@/lib/securityCardApi';
 
@@ -39,6 +51,49 @@ export const LEVEL_TONE: Record<string, string> = {
 };
 
 export const levelTone = (level: string) => LEVEL_TONE[level] ?? 'border-border text-muted-foreground';
+
+// ── モックの3分類 (まとめ方・絞り込み・帯の色) ────────────────────
+
+export type LevelGroup = 'all_area' | 'tech' | 'shared';
+
+/** 6つのレベル → モックの3分類。知らないレベルは「共用」に寄せない (`null`) */
+export const LEVEL_GROUP: Record<string, LevelGroup> = {
+  master: 'all_area',
+  room_a: 'tech',
+  room_b: 'tech',
+  room_c: 'tech',
+  meeting: 'shared',
+  vip: 'shared',
+};
+
+export const GROUP_ORDER: LevelGroup[] = ['all_area', 'tech', 'shared'];
+
+export const GROUP_LABELS: Record<LevelGroup, string> = {
+  all_area: '全域',
+  tech: '技術',
+  shared: '共用',
+};
+
+/** モックの色。全域だけ赤なのは「全部開くカード」だと一目で分かるようにするため */
+export const GROUP_TONE: Record<LevelGroup, string> = {
+  all_area: 'border-destructive-border bg-destructive-surface text-destructive',
+  tech: 'border-primary-border bg-primary-surface text-primary',
+  shared: 'border-border bg-muted text-muted-foreground',
+};
+
+export function groupOf(level: string): LevelGroup | null {
+  return LEVEL_GROUP[level] ?? null;
+}
+
+export function groupLabel(level: string): string {
+  const g = groupOf(level);
+  return g ? GROUP_LABELS[g] : 'その他';
+}
+
+export function groupTone(level: string): string {
+  const g = groupOf(level);
+  return g ? GROUP_TONE[g] : 'border-border bg-muted text-muted-foreground';
+}
 
 // ── いまの状態 ──────────────────────────────────────────────
 

@@ -74,11 +74,25 @@ export default function ProjectDetailPage() {
   const changeStage = useMutation({
     mutationFn: (v: { stage: ProjectStage } & Partial<LostPayload>) =>
       api.patch(`/projects/${id}/stage`, v),
-    onSuccess: (_r, v) => {
+    onSuccess: (res, v) => {
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
       setLostOpen(false);
-      notifySuccess(`ステージを「${ProjectStageLabels[v.stage]}」にしました`);
+      const data = (res?.data?.data ?? {}) as { gls_number?: string | null; gls_error?: string };
+      // **採れなかったときは黙らない。** 番号なしで受注になると、
+      // 請求のときに気づいて手戻りになる
+      if (data.gls_error) {
+        notifyApiError(
+          `ステージは「${ProjectStageLabels[v.stage]}」にしましたが、GLS番号を採れませんでした`,
+          { message: data.gls_error },
+        );
+        return;
+      }
+      notifySuccess(
+        v.stage === 'a_won' && data.gls_number
+          ? `受注済にして GLS番号 ${data.gls_number} を採りました`
+          : `ステージを「${ProjectStageLabels[v.stage]}」にしました`,
+      );
     },
     onError: (err) => notifyApiError('ステージを変えられませんでした', err),
   });
@@ -104,12 +118,38 @@ export default function ProjectDetailPage() {
   const onChangeStage = async (next: ProjectStage) => {
     // 失注は理由が要るので、確認ではなく専用のダイアログを開く
     if (next === 'e_lost') { setLostOpen(true); return; }
+
+    /**
+     * **受注にすると GLS 番号を採る**（モックの決めごと）。
+     *
+     * 番号は BOX のフォルダ名・Qシート・請求書に載り、**取り消しても戻せません**。
+     * 押し間違いで番号が焼けるので、**採る番号をここで見せてから**確認します
+     * （`GET /projects/:id/next-gls` は採らずに見るだけ）。
+     */
+    let glsLines: string[] = [];
+    if (next === 'a_won' && !p.gls_number) {
+      try {
+        const peek = (await api.get(`/projects/${id}/next-gls`)).data.data as
+          { next: string | null; category: string | null };
+        glsLines = peek.next
+          ? [
+              `GLS番号 ${peek.next} を採ります（取り消しても番号は戻せません）。`,
+              '先に別の人が発番すると1つ後ろの番号になります。',
+            ]
+          : ['案件分類（スタジオ / ビジネス）が未設定なので、GLS番号は採れません。先に案件を直してください。'];
+      } catch {
+        // 見えなくても受注そのものは止めない（採番はサーバー側で行う）
+        glsLines = ['GLS番号を自動で採ります（何番になるかはいま確かめられませんでした）。'];
+      }
+    }
+
     const ok = await confirmAction({
       title: `ステージを「${ProjectStageLabels[next]}」にしますか？`,
       description: [
         `いま: ${ProjectStageLabels[p.stage]} → ${ProjectStageLabels[next]}`,
         // 終わった案件を戻すのは間違いを直すときなので、そうと分かるように言う
         wasTerminal ? '終わった案件を進行中に戻します。' : '',
+        ...glsLines,
         'ヨミの一覧と、ステージごとの想定金額の集計が同時に変わります。',
       ].filter(Boolean).join('\n'),
       confirmLabel: 'ステージを変える',

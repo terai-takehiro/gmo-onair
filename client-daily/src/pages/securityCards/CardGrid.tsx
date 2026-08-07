@@ -1,9 +1,13 @@
 /**
  * セキュリティカード — 左の一覧 (master) (v4)
  *
- * **レベルごとにまとめて並べる。** 貸すときに最初に決めるのは「どの部屋を
- * 開けさせるか」で、番号ではない。24枚を番号順にべた並べすると、
- * ROOM A のカードを探すのに全部を目で追うことになる。
+ * **まとめ方はモックの3分類 (全域 / 技術 / 共用)**、その中は**6レベルの小見出し**で
+ * さらに分ける。貸すときに最初に決めるのは「どの部屋を開けさせるか」なので、
+ * 24枚を番号順にべた並べすると ROOM A のカードを探すのに全部を目で追うことになる。
+ *
+ * **3分類だけにしない。** 畳んでしまうと ROOM A と ROOM B のカードが同じに見え、
+ * 受付が違う部屋のカードを渡す (`types.ts` の説明)。分類は探すための入口、
+ * レベルは渡すときに確かめる名前。
  *
  * タイルは 1行 = 1枚 の `Row` にした。以前は3列のタイルで、貸出先の会社名が
  * タイルごとに違う位置に出ていたので、誰に貸しているかを縦に流し読みできなかった。
@@ -11,7 +15,10 @@
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import type { SecurityCard } from '@/lib/securityCardApi';
-import { LEVEL_ORDER, levelTone, statusOf } from './types';
+import {
+  GROUP_LABELS, GROUP_ORDER, GROUP_TONE, LEVEL_ORDER, groupOf, levelTone, statusOf,
+  type LevelGroup,
+} from './types';
 
 export function CardGrid({
   cards, selectedId, onSelect,
@@ -21,7 +28,7 @@ export function CardGrid({
   onSelect: (id: string) => void;
 }) {
   // レベルごとにまとめる。DB に無いレベルが来ても落とさない (末尾に置く)
-  const groups = [...LEVEL_ORDER as readonly string[], ...new Set(cards.map((c) => c.security_level))]
+  const byLevel = [...LEVEL_ORDER as readonly string[], ...new Set(cards.map((c) => c.security_level))]
     .filter((lv, i, arr) => arr.indexOf(lv) === i)
     .map((level) => ({
       level,
@@ -30,16 +37,39 @@ export function CardGrid({
     }))
     .filter((g) => g.items.length > 0);
 
+  // モックの3分類でさらに束ねる。分類に載らないレベルは「その他」として最後に置く
+  const sections: { key: string; label: string; tone: string; levels: typeof byLevel }[] = [
+    ...GROUP_ORDER.map((g: LevelGroup) => ({
+      key: g,
+      label: GROUP_LABELS[g],
+      tone: GROUP_TONE[g],
+      levels: byLevel.filter((l) => groupOf(l.level) === g),
+    })),
+    { key: 'other', label: 'その他', tone: 'border-border bg-muted text-muted-foreground',
+      levels: byLevel.filter((l) => groupOf(l.level) === null) },
+  ].filter((s) => s.levels.length > 0);
+
   return (
     <div className="flex flex-col gap-4">
-      {groups.map((g) => (
-        <div key={g.level} className="rounded-card border border-border bg-card">
-          <div className={`text-th flex items-center gap-2 border-b border-border-subtle px-4 py-2 ${levelTone(g.level)}`}>
-            <span className="border-l-2 border-current pl-2">{g.label}</span>
-            <span className="font-number ml-auto text-muted-foreground">{g.items.length}枚</span>
+      {sections.map((sec) => (
+        <div key={sec.key} className="rounded-card border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2">
+            <span className={`text-badge rounded-badge border px-2 py-0.5 ${sec.tone}`}>{sec.label}</span>
+            <span className="font-number ml-auto text-sub-sm text-muted-foreground">
+              {sec.levels.reduce((n, l) => n + l.items.length, 0)}枚
+            </span>
           </div>
-          {g.items.map((c) => (
-            <CardRow key={c.id} card={c} selected={c.id === selectedId} onSelect={() => onSelect(c.id)} />
+          {sec.levels.map((g) => (
+            <div key={g.level}>
+              {/* **6レベルの名前はここで必ず出す。** 3分類だけだと渡すカードを間違える */}
+              <div className={`text-th flex items-center gap-2 border-b border-border-faint bg-surface-subtle px-4 py-1.5 ${levelTone(g.level)}`}>
+                <span className="border-l-2 border-current pl-2">{g.label}</span>
+                <span className="font-number ml-auto text-muted-foreground">{g.items.length}枚</span>
+              </div>
+              {g.items.map((c) => (
+                <CardRow key={c.id} card={c} selected={c.id === selectedId} onSelect={() => onSelect(c.id)} />
+              ))}
+            </div>
           ))}
         </div>
       ))}

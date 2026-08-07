@@ -42,6 +42,9 @@ export interface GpmProjectBase {
   template_id: string | null;
   project_id: string | null;
   notes: string | null;
+  /** BOX フォルダ。**作るまで null**（作るのは押したときだけ・消せないため） */
+  box_url_internal: string | null;
+  box_url_external: string | null;
   created_at: string;
   updated_at: string;
 }

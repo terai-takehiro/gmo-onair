@@ -24,6 +24,7 @@ export const DETAIL_TABS = [
   { key: 'overview', label: '概要' },
   { key: 'asks', label: '未確認事項' },
   { key: 'members', label: '体制' },
+  { key: 'files', label: '書類' },
 ] as const;
 
 export type DetailTabKey = (typeof DETAIL_TABS)[number]['key'];

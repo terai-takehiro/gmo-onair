@@ -45,6 +45,23 @@ export async function generateGlsNumber(category: GlsCategory): Promise<string> 
   return `GLS-${category}${String(counter).padStart(3, '0')}`;
 }
 
+/**
+ * 次に出る GLS 番号を**採らずに**見るだけ。
+ *
+ * 受注に上げるときの確認ダイアログに「GLS-A012 を採ります」と出すため。
+ * **採番はしない**ので、先に別の人が発番すると1つ後ろになる。
+ * その旨は画面に書くこと（黙って違う番号が付くと「間違えた」と思われる）。
+ */
+export async function peekNextGlsNumber(category: GlsCategory): Promise<string | null> {
+  if (category !== 'A' && category !== 'B') return null;
+  const row = await queryOne(
+    'SELECT counter FROM sequences WHERE seq_name = ?',
+    [`gls_${category.toLowerCase()}`],
+  );
+  const next = ((row?.counter as number | undefined) ?? 0) + 1;
+  return `GLS-${category}${String(next).padStart(3, '0')}`;
+}
+
 // エピソードコード生成: GLS-A001-001
 export function generateEpisodeCode(glsNumber: string, episodeNumber: number): string {
   return `${glsNumber}-${String(episodeNumber).padStart(3, '0')}`;

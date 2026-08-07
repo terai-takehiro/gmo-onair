@@ -10,7 +10,10 @@
  */
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
+import { queryOne, execute } from '../../shared/db/connection';
+import { AppError } from '../../shared/middleware/errorHandler';
 import { templateService, projectService, openItemService, phaseService } from './services/gpm.service';
+import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
 export function createGpmRoutes(): Router {
   const router = Router();
@@ -61,6 +64,39 @@ export function createGpmRoutes(): Router {
   router.delete('/projects/:id', ...canManage, async (req, res) => {
     await projectService.remove(String(req.params.id));
     res.json({ success: true, data: { deleted: true } });
+  });
+
+  /**
+   * ── BOX フォルダ ────────────────────────────────────────
+   *
+   * **押したときだけ作る。** プロジェクトを作った流れで自動では作らない —
+   * BOX に作ったフォルダはこのアプリからは消せず、人が手で消すことになる。
+   * すでに URL を持っていたら 409 で止める（二重に作ると片方が迷子になる）。
+   */
+  router.get('/projects/:id/box-preview', ...canRead, async (_req, res) => {
+    res.json({ success: true, data: GPM_FOLDER_PREVIEW });
+  });
+
+  router.post('/projects/:id/box-folder', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await queryOne(
+      'SELECT name, box_url_internal, box_url_external FROM gpm_projects WHERE id = ? AND deleted_at IS NULL',
+      [id],
+    ) as { name: string; box_url_internal: string | null; box_url_external: string | null } | null;
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+    if (row.box_url_internal || row.box_url_external) {
+      throw new AppError(409, 'ALREADY_EXISTS', 'このプロジェクトの BOX フォルダはすでに作られています');
+    }
+
+    const made = await createGpmFolderTree(row.name);
+    if (!made.internal && !made.external) {
+      throw new AppError(503, 'BOX_UNAVAILABLE', 'BOX にフォルダを作れませんでした。時間をおいて試してください');
+    }
+    await execute(
+      'UPDATE gpm_projects SET box_url_internal = ?, box_url_external = ?, updated_at = NOW() WHERE id = ?',
+      [made.internal?.folderUrl ?? null, made.external?.folderUrl ?? null, id],
+    );
+    res.json({ success: true, data: await projectService.getById(id) });
   });
 
   // ── 工程 ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { generateSequenceNumber, generateGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
+import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   createProjectFolderTree,
@@ -693,6 +693,32 @@ export class ProjectService {
       );
     }
 
+    /**
+     * **受注 (`a_won`) にしたら GLS 番号を自動で採る**（v4・モックの決めごと）。
+     *
+     * これまでは `POST /projects/:id/issue-gls` を人が明示的に叩く形でした。
+     * モックは「受注が決まったときに自動で採る」と決めているのでそちらに合わせます。
+     *
+     * **押し間違いで番号が焼けるのを止める仕掛けは画面側**にあります
+     * （`GET /projects/:id/next-gls` で採る番号を見せてから確認する）。
+     * ここでは 2 つだけ守ります:
+     *
+     *  ・**すでに番号があれば採らない**（`issueGls` が 400 を返すので手前で弾く）。
+     *    受注 → 口頭決定 → 受注 と往復しても番号は変わりません
+     *  ・**分類が無いときは受注そのものは通す。** ここで例外にすると、
+     *    古い案件（分類が入っていない）を受注にできなくなります。
+     *    採れなかったことは `gls_error` で返し、画面がそう出します
+     */
+    let glsError: string | null = null;
+    if (stage === 'a_won' && !project.gls_number) {
+      try {
+        await this.issueGls(id, {}, userId);
+      } catch (err) {
+        glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+        console.warn('[changeStage] GLS auto-issue failed:', id, glsError);
+      }
+    }
+
     // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成。
     // 重複防止: この案件に既に予約 (種別問わず: 本番/リハ/仮押さえ/手動登録) があれば作らない。
     // (旧実装は booking_type='hold' のみ照合していたため、新規作成時に作られた本番予約と
@@ -713,7 +739,31 @@ export class ProjectService {
       }
     }
 
-    return this.getById(id);
+    const result = await this.getById(id);
+    // 採れなかった理由を**そのまま返す**。黙って番号なしで受注になると、
+    // 請求のときに「番号が無い」と気づいて手戻りになる
+    return glsError ? { ...(result as Record<string, unknown>), gls_error: glsError } : result;
+  }
+
+  /**
+   * 次に出る GLS 番号を**採らずに**見る。受注に上げる前の確認に使う。
+   * 分類が無い案件は `null` を返す（画面は「先に分類を選んでください」と出す）。
+   */
+  async peekGls(id: string) {
+    const project = await queryOne(
+      'SELECT gls_number, gls_category FROM projects WHERE id = ? AND deleted_at IS NULL', [id],
+    ) as { gls_number: string | null; gls_category: string | null } | null;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    if (project.gls_number) {
+      return { already: true, gls_number: project.gls_number, next: null, category: project.gls_category };
+    }
+    const category = normalizeGlsCategory(project.gls_category);
+    return {
+      already: false,
+      gls_number: null,
+      next: category ? await peekNextGlsNumber(category) : null,
+      category,
+    };
   }
 
   /**
