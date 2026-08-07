@@ -50,7 +50,8 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
       <div className="flex items-center gap-2">
         <span className="text-sub text-muted-foreground">進み具合</span>
         <div className="h-2 w-28 overflow-hidden rounded-chip bg-muted">
-          <div className="h-full rounded-chip bg-primary" style={{ width: `${progress}%` }} />
+          {/* 帯は**左端から伸びる**（モックの `barGrow`）。中央から広がると割合が読めない */}
+          <div className="v4-bar h-full rounded-chip bg-primary" style={{ width: `${progress}%` }} />
         </div>
         <span className="text-list font-number">{progress}%</span>
         <span className="text-sub-sm font-number text-muted-foreground">({done}/{total})</span>

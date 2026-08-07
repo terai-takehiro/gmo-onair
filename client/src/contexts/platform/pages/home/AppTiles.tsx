@@ -67,10 +67,17 @@ export function AppTiles({ apps }: { apps: TileApp[] }) {
           key={a.key}
           type="button"
           onClick={() => open(a)}
-          className="rounded-app flex min-h-tap items-center gap-4 border border-border bg-card p-5 text-left hover:border-primary-border-strong"
+          /*
+           * **モックはアプリのタイルを持ち上げます**（`translateY(-2〜-4px)` ＋ 影 ＋
+           * アイコンが少し跳ねる）。`_tokens.md` の「hover は色・罫線のみ」は
+           * 行や小さいボタンの話で、**モック自身はタイルを持ち上げている**ので
+           * そちらに合わせました。動きは `tokens-v4.css` の `.v4-lift`
+           * （マウスがある端末だけ・動きを減らす設定では止まる）。
+           */
+          className="rounded-app v4-lift flex min-h-tap items-center gap-4 border border-border bg-card p-5 text-left hover:border-primary-border-strong hover:shadow-lg"
         >
           <span
-            className="rounded-app flex h-14 w-14 shrink-0 items-center justify-center"
+            className="rounded-app v4-lift-icon flex h-14 w-14 shrink-0 items-center justify-center"
             style={{ backgroundColor: `${a.color}1a` }}
           >
             <a.icon className="h-7 w-7" style={{ color: a.color }} aria-hidden="true" />
@@ -122,10 +129,10 @@ export function EventTiles() {
             key={a.key}
             type="button"
             onClick={() => open(a)}
-            className="rounded-card flex min-h-tap items-center gap-3 border border-border bg-card px-4 py-3 text-left hover:border-primary-border-strong"
+            className="rounded-card v4-lift flex min-h-tap items-center gap-3 border border-border bg-card px-4 py-3 text-left hover:border-primary-border-strong hover:shadow-md"
           >
             <span
-              className="rounded-control-lg flex h-10 w-10 shrink-0 items-center justify-center"
+              className="rounded-control-lg v4-lift-icon flex h-10 w-10 shrink-0 items-center justify-center"
               style={{ backgroundColor: `${a.color}1a` }}
             >
               <a.icon className="h-5 w-5" style={{ color: a.color }} aria-hidden="true" />

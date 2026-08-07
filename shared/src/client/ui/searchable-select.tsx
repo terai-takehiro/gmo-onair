@@ -1,3 +1,27 @@
+/**
+ * 探して選ぶ欄
+ *
+ * ── キーボードと読み上げに対応させた（手触りの回） ────────────
+ *
+ * 開いたあと**矢印キーで動かせず、Enter でも選べません**でした。
+ * 選べるのはマウスの click だけで、Tab で送ると候補を1つずつ通ります。
+ * 読み上げにも「これは選択欄だ」と伝わっていません（`role` が無い）。
+ *
+ * 足したのは **`role` と `aria-*`、そして ↑↓ / Enter / Esc / Home / End** です。
+ * **クラス名は1つも足していません** — `shared/src/client/` に新しいクラス名を
+ * 書くと凍結4アプリの CSS が増えるためです（ビルドして 1 バイトも
+ * 増えないことを確かめました）。
+ *
+ * ── いま指しているものを見た目で出す ────────────────────────
+ *
+ * 矢印で動かしても色が変わらないと、Enter で何が入るのか分かりません。
+ * `aria-selected` と、**hover と同じ色**（`--accent`）で出します。
+ * ただし**その面の色を Tailwind のクラスで書くと、凍結4アプリの CSS が
+ * 92 バイト増えます**（実測）。しかも **Tailwind はコメントの中の
+ * クラス名も拾う**ので、ここに実物を書くこともできません
+ * （それで1度やり直しました）。`data-cursor` という属性だけ付けて、
+ * 色は `tokens-v4.css` が当てます。
+ */
 import { useState, useRef, useEffect } from "react";
 import { Input } from "./input";
 import { Search, ChevronDown, X } from "lucide-react";
@@ -29,8 +53,11 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  /** 矢印キーでいま指しているもの。**マウスとは別に持つ** */
+  const [cursor, setCursor] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
 
@@ -61,6 +88,45 @@ export function SearchableSelect({
     }
   }, [open]);
 
+  /** 開いたら「いま選ばれているもの」を指す（先頭ではない） */
+  useEffect(() => {
+    if (!open) return;
+    const i = options.findIndex((o) => o.value === value);
+    setCursor(i >= 0 ? i : 0);
+  }, [open, options, value]);
+
+  /** 絞り込むと候補の数が変わる。**指し先が範囲の外に残らないようにする** */
+  useEffect(() => { setCursor(0); }, [search]);
+
+  /** 指しているものが見えていないと、Enter で何が入るのか分からない */
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${cursor}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [cursor, open]);
+
+  const pick = (v: string) => { onChange(v); setOpen(false); setSearch(""); };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!open) {
+      // 閉じているときは ↓ か Enter で開く（選択欄のふつうの振る舞い）
+      if (e.key === "ArrowDown" || e.key === "Enter") { e.preventDefault(); setOpen(true); setSearch(""); }
+      return;
+    }
+    if (e.key === "Escape") { e.preventDefault(); setOpen(false); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setCursor((n) => Math.min(n + 1, filtered.length - 1)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setCursor((n) => Math.max(n - 1, 0)); return; }
+    if (e.key === "Home") { e.preventDefault(); setCursor(0); return; }
+    if (e.key === "End") { e.preventDefault(); setCursor(Math.max(filtered.length - 1, 0)); return; }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = filtered[cursor];
+      // **候補が無いときは何もしない。** 空の Enter で欄が閉じると、
+      // 打ち間違いに気づかないまま先に進む
+      if (hit) pick(hit.value);
+    }
+  };
+
   useEffect(() => {
     if (!onSearchChange) return;
     const timer = setTimeout(() => onSearchChange(search), 200);
@@ -68,10 +134,13 @@ export function SearchableSelect({
   }, [search, onSearchChange]);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative ${className}`} onKeyDown={onKey}>
       <button
         type="button"
         disabled={disabled}
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => { setOpen(!open); setSearch(""); }}
         className="min-h-tap flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm lg:h-10 lg:min-h-0 ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -82,6 +151,7 @@ export function SearchableSelect({
           {value && (
             <X
               className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
+              aria-label="選んだものを外す"
               onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false); }}
             />
           )}
@@ -103,17 +173,29 @@ export function SearchableSelect({
               />
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto">
+          <div ref={listRef} role="listbox" className="max-h-60 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                 該当なし
               </div>
             ) : (
-              filtered.map((option) => (
+              filtered.map((option, i) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => { onChange(option.value); setOpen(false); setSearch(""); }}
+                  role="option"
+                  aria-selected={option.value === value}
+                  data-idx={i}
+                  /*
+                   * **クラス名ではなく属性で指す。** 面の色をクラスで書いたら
+                   * 凍結4アプリの CSS に1規則・92バイト増えました（実測）。
+                   * 見た目は `tokens-v4.css` の `:root [data-cursor='on']` が付けます
+                   * （v4 対象3アプリだけが読む）。凍結アプリは属性が増えるだけです。
+                   */
+                  data-cursor={i === cursor ? 'on' : undefined}
+                  // マウスを乗せたら指し先もそちらへ。**2つの現在地を出さない**
+                  onMouseEnter={() => setCursor(i)}
+                  onClick={() => pick(option.value)}
                   className={`flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
                     option.value === value ? "bg-primary/10 font-medium" : ""
                   }`}

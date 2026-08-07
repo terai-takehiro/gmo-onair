@@ -47,7 +47,7 @@ export function ProgressBar({ done, count }: { done: number; count: number }) {
   return (
     <span className="block w-full">
       <span className="block h-1.5 overflow-hidden rounded-chip bg-muted">
-        <span className="block h-1.5 rounded-chip bg-primary" style={{ width: `${pct}%` }} />
+        <span className="v4-bar block h-1.5 rounded-chip bg-primary" style={{ width: `${pct}%` }} />
       </span>
       <span className="text-sub-sm font-number mt-1 block text-muted-foreground">
         {done} / {count} 工程

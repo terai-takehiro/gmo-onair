@@ -110,7 +110,8 @@ export function MobileCollect() {
           description={`${month.replace('-', '年')}月に計上した確定売上のうち、入金がまだのものが出ます。`}
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        // 読み込みの枠から中身に入れ替わる瞬間（モックの `cardIn`）
+        <ul className="v4-card-in flex flex-col gap-2">
           {rows.map((r) => {
             const d = dueLabel(r.payment_due_date, today);
             return (

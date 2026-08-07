@@ -29,8 +29,18 @@
  * 下タブのすぐ上に**差し込み口を1つ**持ちます (`primaryAction.ts`)。
  * `<PageHeader primaryAction={…}>` がここへ描くので、**画面側は
  * `fixed bottom-0` を書きません**。中身が無い画面では消えます。
+ *
+ * ── 画面が切り替わるときの動き ──────────────────────────────
+ *
+ * モックは画面ぜんぶに `screenIn`（10px 下から・0.995 倍から 0.34 秒）を
+ * 掛けています。**ここで1回だけ掛けます** — 画面ごとに書くと、
+ * 掛け忘れた画面だけカクッと出ることになります。
+ * URL を鍵にしているので、**同じ画面の中で状態が変わっただけでは再生しません**
+ * （タブを押すたびに全体が動くと、目が追いつかず酔います）。
+ * 動きを減らす設定の人には `tokens-v4.css` の側で止めてあります。
  */
 import { useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PrimaryActionSlotContext } from './primaryAction';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
@@ -78,6 +88,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
   const [manualOpen, setManualOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
@@ -125,7 +136,11 @@ export function AppShell({
               下にスクロールしているときに気づけない */}
           <NoticeBar />
           <PrimaryActionSlotContext.Provider value={actionSlot}>
-            {children}
+            {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
+                まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
+            <div key={pathname} className="v4-screen-in">
+              {children}
+            </div>
           </PrimaryActionSlotContext.Provider>
         </main>
       </div>
