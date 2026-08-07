@@ -39,6 +39,8 @@ import TaskDialog from '@/contexts/tasks/components/TaskDialog';
 import { TaskRow, TaskRowsHeader } from './taskList/TaskRows';
 import { AddTaskDialog } from './taskList/AddTaskDialog';
 import { stateRank } from './taskList/state';
+import { MobileTaskList } from './taskList/MobileTaskList';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { DashboardTask } from '@/types';
 
 type Scope = 'all' | 'mine';
@@ -51,7 +53,7 @@ const SORTS: { key: Sort; label: string }[] = [
   { key: 'state', label: '状態' },
 ];
 
-export default function TaskDashboardPage() {
+function DesktopTaskDashboard() {
   const { view } = useParams<{ view: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -244,4 +246,49 @@ export default function TaskDashboardPage() {
       )}
     </div>
   );
+}
+
+/**
+ * スマホと PC で**別の画面**を出す（Phase 6・M1）。
+ *
+ * ── 同じファイルの中で `sm:hidden` を足して分岐させない ──────
+ *
+ * v4 の決めごとは「**PCの情報をそのまま縮小して載せない**」です。
+ * 1つのファイルが2つの情報設計を持つと、どちらを直しているのか分からなくなります
+ * （`docs/design/v4/mobile.md`「実装のときに守ること」）。
+ * **部品ごと入れ替え**ます — PC 版は1行も変えていません。
+ *
+ * **早期 return にしないこと。** 同じ部品の中で `if (mobile) return …` と書くと、
+ * 幅が変わったときに**フックの数が変わって React が落ちます**。
+ * だからここは「どちらを描くか決めるだけ」の薄い部品にしてあります。
+ *
+ * ── ガントはスマホに出さない ────────────────────────────────
+ *
+ * モックの「スマホに置かないもの」に **ガント（PCで見る・リストへ誘導）** が
+ * 挙がっています。横に長い時間軸は 375px では読めません。
+ * **黙ってリストにすり替えず**、PC で見る旨を書いて「やること」へ送ります。
+ */
+export default function TaskDashboardPage() {
+  const mobile = useIsMobile();
+  const { view } = useParams<{ view: string }>();
+  const navigate = useNavigate();
+
+  if (!mobile) return <DesktopTaskDashboard />;
+  if (view === 'gantt') {
+    return (
+      <div className="p-3">
+        <PageHeader title="ガントチャート" sub="横に長い時間軸は、この画面の幅では読めません" />
+        <div className="rounded-card mt-3.5 border border-border bg-card p-4">
+          <p className="text-sub text-secondary-foreground">
+            ガントは<strong className="font-bold">PC で見る画面</strong>です。
+            スマホでは「やること」で1件ずつ片づけてください。
+          </p>
+          <Button className="mt-3 w-full" onClick={() => navigate('/sales/tasks/list')}>
+            やることを開く
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return <MobileTaskList />;
 }
