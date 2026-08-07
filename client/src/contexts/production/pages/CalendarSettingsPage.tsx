@@ -116,7 +116,19 @@ export default function CalendarSettingsPage() {
       />
       )}
 
-      {locations.isError ? (
+      {/*
+          **見られるタブが1つも無いときに、中身を描かない。**
+          `partner_schedule` の reader（editor ではない）はルートを通るが
+          外部カレンダーは editor 必須なので開けるタブが無い。そのまま描くと
+          部屋タブに落ちて、問い合わせを止めているだけなのに
+          **「部屋が登録されていません」と嘘をつく**（レビューで直した）
+      */}
+      {shown.length === 0 ? (
+        <p className="rounded-card border border-border bg-surface-subtle p-4 text-sub text-secondary-foreground">
+          この画面で開ける設定はありません。部屋とサイネージは<strong className="font-bold">カレンダーの閲覧権限</strong>、
+          外部カレンダーの購読は<strong className="font-bold">パートナー予定の編集権限</strong>が要ります。
+        </p>
+      ) : locations.isError ? (
         <ErrorPanel title="設定を読み込めませんでした" error={locations.error} onRetry={() => locations.refetch()} />
       ) : (
         <>

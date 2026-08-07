@@ -52,10 +52,17 @@ export default function RoomAvailabilityPage() {
 
   const bookings = useQuery({
     queryKey: ['studio-bookings', 'day', day],
-    // 1日ぶんだけ。**終わりは翌日の 00:00 ではなく同じ日の終わり**にする
-    // （`listBookings` は end_time >= from / start_time <= to の重なり判定）
+    // 1日ぶんだけ。**下限は日付だけにする**（レビューで直した）。
+    //
+    // 終日の予約は `start_time` / `end_time` に**日付だけ**が入ります
+    // （`StudioBookingDialog` が `all_day` のとき `2026-08-07` の形で保存する）。
+    // 一方サーバーの絞り込みは **TEXT の文字列比較**なので、
+    // `'2026-08-07' >= '2026-08-07T00:00'` は **false** になり、
+    // **その日の終日の予約がまるごと落ちて**いました（実際に Postgres で確認）。
+    // 下限を `2026-08-07` にすると、日付だけの行も時刻つきの行も両方拾えます。
+    // 上限は `T23:59` のまま（翌日始まりの行を入れないため）
     queryFn: async () => (await api.get('/studios/bookings', {
-      params: { from: `${day}T00:00`, to: `${day}T23:59` },
+      params: { from: day, to: `${day}T23:59` },
     })).data.data as AvailBooking[],
   });
 

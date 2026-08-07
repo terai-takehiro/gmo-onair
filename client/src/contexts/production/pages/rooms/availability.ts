@@ -78,14 +78,25 @@ function hhmm(iso: string): string {
 
 /**
  * 見ている日から見た、その予約の始まりと終わり（0:00 からの分）。
- * **終わりが始まり以前になったら、その日の終わりまで**として扱う
- * （壊れた値・終了なしの予約で幅が消えるのを避ける）。
+ *
+ * ── 「0時ちょうどに終わる」を丸1日にしない（レビューで直した）──
+ *
+ * 8/1 20:00〜8/2 0:00 の予約を 8/2 で見ると、始まりも終わりも 0 になります。
+ * ここで「終わり ≦ 始まりなら その日の終わりまで」と畳んでいたため、
+ * **前の晩に終わった予約が翌日を丸ごと埋めて**いました。
+ * **0 は 0 のまま返し**、幅ゼロとして `laneBlocks` に捨てさせます。
+ * その日の終わりまで伸ばすのは**値が壊れている／終了が無いとき**だけです。
  */
 export function clipToDay(b: AvailBooking, day: string): { from: number; to: number } {
   if (isAllDay(b)) return { from: 0, to: DAY_MIN };
   const from = minutesOnDay(b.start_time, day, 0);
+  // 終了が空・読めない → その日の終わりまで（幅が消えるのを避ける）
+  const raw = (b.end_time ?? '').slice(11, 16);
+  const broken = !b.end_time || !Number.isFinite(Number(raw.split(':')[0]));
+  if (broken && b.end_time?.slice(0, 10) === day) return { from, to: DAY_MIN };
   const to = minutesOnDay(b.end_time, day, DAY_MIN);
-  return { from, to: to > from ? to : DAY_MIN };
+  // 逆転しているとき（同じ日で終わりが始まりより前）だけ、その日の終わりまで
+  return { from, to: to < from ? DAY_MIN : to };
 }
 
 /**
