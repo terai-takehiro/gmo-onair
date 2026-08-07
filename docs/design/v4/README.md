@@ -67,3 +67,4 @@ node scripts/extract-v4-design.mjs
 - [`mockups/DESIGN_POLICY.md`](mockups/DESIGN_POLICY.md) — 設計方針の原文
 - [`mockups/github.md`](mockups/github.md) — v4 の画面 → 現行の実装ファイルの対応表
   （**どのファイルを触るか調べるときはここが一番速い**）
+- [mobile.md](mobile.md) — **スマホ 13 画面**（モックの端末枠から切り出し）・決めごと8つ・作る順番
