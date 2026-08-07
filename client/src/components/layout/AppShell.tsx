@@ -4,6 +4,7 @@ import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { appOfPath } from "@gmo-onair/shared/src/client/apps";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/contexts/platform/AuthContext";
+import { RecentTracker } from "@/contexts/platform/RecentTracker";
 import { SALES_MANUAL } from "@/manual/content";
 import GlobalSearch from "./GlobalSearch";
 import { CLIENT_MOBILE_TABS, CLIENT_NAV } from "./nav";
@@ -108,6 +109,8 @@ export default function AppShell() {
       permissions={permissions}
       can={(m) => hasPermission(m)}
     >
+      {/* 「最近見たもの」を積む係（⑪ 探す）。画面は描かない */}
+      <RecentTracker />
       <PageErrorBoundary>
         <Outlet />
       </PageErrorBoundary>

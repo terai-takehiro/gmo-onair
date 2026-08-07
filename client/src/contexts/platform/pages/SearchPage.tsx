@@ -32,10 +32,20 @@
  * 投げたあとの通信は止まりません。「みら」の結果が「みらいてっく」の結果より
  * **後に届く**と、新しい結果が古いもので上書きされます。
  * 投げるたびに番号を振り、**最後に投げたぶんだけを画面に出します**。
+ *
+ * ── 打ち込む前に出すもの（モックの ⑪） ──────────────────────
+ *
+ * モックの ⑪ は検索欄の下に **やること4つ・場所6つ・最近見たもの**を並べます。
+ * 「探す」を開く理由の半分は**探すことではなく、そこから始めること**なので、
+ * 空欄のまま「探す言葉を入れてください」だけ出すのは1画面ぶんの無駄です。
+ *
+ * 行き先と権限は `search/shortcuts.ts` の表に置いてあります
+ * （画面に直接並べると、権限の書き忘れがそのまま「押すと 403」になる）。
+ * **最近見たものは端末の中だけ**（`client-v4/recent.ts`）。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, Loader2, FolderKanban, Building2, Truck } from 'lucide-react';
+import { Search, Loader2, FolderKanban, Building2, Truck, Clock, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -43,6 +53,9 @@ import { Row, RowMain, RowTitle, RowSub } from '@gmo-onair/shared/src/client/ui/
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { PROJECT_STAGE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
+import { readRecent, type RecentItem } from '@gmo-onair/shared/src/client-v4/recent';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { DO_ITEMS, PLACES, type Shortcut } from './search/shortcuts';
 
 interface SearchResults {
   projects: Array<{ id: string; code: string; gls_number: string | null; name: string; stage: string }>;
@@ -52,6 +65,7 @@ interface SearchResults {
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [sp, setSp] = useSearchParams();
   const initial = sp.get('q') ?? '';
   const [query, setQuery] = useState(initial);
@@ -59,6 +73,9 @@ export default function SearchPage() {
   const [failed, setFailed] = useState<unknown>(null);
   const [searching, setSearching] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // **一度だけ読む。** 描画のたびに `localStorage` を読むと、
+  // この画面から開いたものが戻ってきた瞬間に並びが動く
+  const [recent] = useState<RecentItem[]>(() => readRecent());
   // **投げた順番。** 遅れて届いた古い結果で新しい結果を上書きしないための番号
   const seq = useRef(0);
 
@@ -106,6 +123,16 @@ export default function SearchPage() {
     ? results.projects.length + results.customers.length + results.vendors.length
     : 0;
 
+  /** 権限が無いものは**出さない**（押してから 403 で気づかせない） */
+  const allowed = (s: Shortcut) => !s.module || hasPermission(s.module, s.minLevel);
+  const doItems = DO_ITEMS.filter(allowed);
+  const places = PLACES.filter(allowed);
+  const go = (s: Shortcut) => {
+    // **別のバンドルは `navigate()` では飛べない**（React Router は同じアプリしか知らない）
+    if (s.external) window.location.href = s.to;
+    else navigate(s.to);
+  };
+
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
@@ -133,11 +160,40 @@ export default function SearchPage() {
 
       {/* **打ち込む前と 0件 を分ける。** 打つ前に「該当なし」と出さない */}
       {!query.trim() ? (
-        <EmptyState
-          icon={<Search className="h-6 w-6" aria-hidden="true" />}
-          title="探す言葉を入れてください"
-          description="案件名の一部・GLS番号・お客様名・仕入先名で探せます。"
-        />
+        <div className="flex flex-col gap-3.5">
+          {doItems.length > 0 && (
+            <Group icon={Search} label="やること" n={doItems.length}>
+              {doItems.map((s) => (
+                <ShortcutRow key={s.key} item={s} onOpen={() => go(s)} />
+              ))}
+            </Group>
+          )}
+
+          {recent.length > 0 && (
+            <Group icon={Clock} label="最近見たもの" n={recent.length}>
+              {recent.map((r) => (
+                <ClickRow key={r.to} onOpen={() => navigate(r.to)}>
+                  <RowMain>
+                    <RowTitle>{r.label}</RowTitle>
+                    <RowSub>{[r.kind === 'customer' ? 'お客様' : '案件', r.sub].filter(Boolean).join(' ・ ')}</RowSub>
+                  </RowMain>
+                </ClickRow>
+              ))}
+            </Group>
+          )}
+
+          <Group icon={Building2} label="場所" n={places.length}>
+            {places.map((s) => (
+              <ShortcutRow key={s.key} item={s} onOpen={() => go(s)} />
+            ))}
+          </Group>
+
+          <p className="text-note text-muted-foreground">
+            案件名の一部・GLS番号・お客様名・仕入先名で探せます。
+            <strong className="font-bold">見る権限が無いものはここに出ません。</strong>
+            {recent.length > 0 && '「最近見たもの」はこの端末で開いたものだけです（別の端末では出ません）。'}
+          </p>
+        </div>
       ) : failed ? (
         // **失敗を読み込み中に化けさせない。** もう一度押せる口を必ず置く
         <ErrorPanel title="探せませんでした" error={failed} onRetry={() => run(query.trim())} />
@@ -219,6 +275,21 @@ function ClickRow({ onOpen, children }: { onOpen: () => void; children: React.Re
     >
       {children}
     </Row>
+  );
+}
+
+/** やること・場所の1行。**行き先の名前ではなく「何が起きるか」を下に書く** */
+function ShortcutRow({ item, onOpen }: { item: Shortcut; onOpen: () => void }) {
+  const Icon = item.icon;
+  return (
+    <ClickRow onOpen={onOpen}>
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <RowMain>
+        <RowTitle>{item.label}</RowTitle>
+        <RowSub>{item.sub}</RowSub>
+      </RowMain>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </ClickRow>
   );
 }
 

@@ -34,7 +34,7 @@
 import { ArrowLeft, Pencil, Mic, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PROJECT_TABS, type ProjectTabKey } from './tabs';
+import { PROJECT_TABS, MOBILE_TAB_KEYS, type ProjectTabKey } from './tabs';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 
 /** ステージの並び。モックと同じ「問合せ → 受注」。終わったもの2つは横に並べない */
@@ -72,13 +72,18 @@ export interface DetailHeaderProps {
   tab: ProjectTabKey;
   counts: Partial<Record<ProjectTabKey, number>>;
   onChangeStage: (next: ProjectStage) => void;
+  /** スマホ。タブを3つに絞り、上辺のボタン2つを畳む */
+  mobile?: boolean;
 }
 
 export function DetailHeader({
-  id, name, customerName, glsNumber, code, stage, isSeries, tab, counts, onChangeStage,
+  id, name, customerName, glsNumber, code, stage, isSeries, tab, counts, onChangeStage, mobile,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
-  const tabs = PROJECT_TABS.filter((t) => !t.seriesOnly || isSeries);
+  const tabs = PROJECT_TABS
+    .filter((t) => !t.seriesOnly || isSeries)
+    // **スマホは3つだけ。** 8タブを 375px に並べると1つ 40px 弱になり押し分けられない
+    .filter((t) => !mobile || MOBILE_TAB_KEYS.includes(t.key));
 
   return (
     <div className="border-b border-border bg-card">
@@ -93,7 +98,8 @@ export function DetailHeader({
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-h1 min-w-0 truncate" title={name}>{name}</h1>
+            {/* **スマホでは案件名を折り返す。** 似た名前の案件を truncate で見分けられない */}
+          <h1 className={mobile ? 'text-h1 min-w-0 [overflow-wrap:anywhere]' : 'text-h1 min-w-0 truncate'} title={name}>{name}</h1>
             <button
               type="button"
               onClick={() => navigate(`/sales/projects/${id}/edit`)}
@@ -110,6 +116,13 @@ export function DetailHeader({
           </p>
         </div>
 
+        {/*
+          **スマホでは上辺のボタン2つを出しません。** 「打合せを録音」は
+          やり取りタブ（スマホでは開かない）への入口で、そちらは
+          `/sales/record` から案件を選んで入るのが正しい道です。
+          「タスクを追加」はタスクタブの中に同じものがあります。
+        */}
+        {!mobile && (
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/*
             打合せを録音 — **中身はやり取りタブが持っています**。
@@ -127,6 +140,7 @@ export function DetailHeader({
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを追加
           </Button>
         </div>
+        )}
       </div>
 
       {/* タブ ＋ ステージ。**横に入りきらないときは折り返さず横スクロール** */}

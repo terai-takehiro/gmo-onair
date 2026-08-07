@@ -26,6 +26,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Hammer } from 'lucide-react';
 import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
@@ -39,14 +40,20 @@ import { DayTab } from './projectDetail/DayTab';
 import { ThreadTab } from './projectDetail/ThreadTab';
 import { LegacyViewTab } from './projectDetail/LegacyViewTab';
 import { EstimateTab } from './projectDetail/EstimateTab';
-import { PROJECT_TABS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
+import { MobileTools } from './projectDetail/MobileTools';
+import { PROJECT_TABS, MOBILE_TAB_KEYS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
 export default function ProjectDetailPage() {
   const { id = '', tab: rawTab } = useParams<{ id: string; tab: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const tab: ProjectTabKey = isProjectTab(rawTab) ? rawTab : 'overview';
+  // **スマホで開けないタブを黙って概要にすり替えない。** URL を共有された人が
+  // 「見積を見せたのに概要が出た」ことになる。**PC で見る画面だと書いて止める**
+  const offPhone = isMobile && !MOBILE_TAB_KEYS.includes(tab);
   /**
    * 失注だけは「はい / いいえ」で済ませません。**理由を残さないと失注分析が
    * 「不明」だらけ**になるので、理由を選ばないと押せないダイアログを開きます。
@@ -174,18 +181,23 @@ export default function ProjectDetailPage() {
         tab={tab}
         counts={counts}
         onChangeStage={onChangeStage}
+        mobile={isMobile}
       />
 
-      {tab === 'overview' && (
+      {offPhone && <OffPhoneTab tab={tab} onBack={() => navigate(`/sales/projects/${id}`)} />}
+
+      {!offPhone && tab === 'overview' && (
         <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
       )}
-      {tab === 'thread' && <ThreadTab projectId={id} />}
-      {tab === 'episode' && <LegacyViewTab project={p} />}
-      {tab === 'task' && <TasksTab project={p} />}
-      {tab === 'estimate' && <EstimateTab project={p} />}
-      {tab === 'files' && <FilesTab project={p} />}
-      {tab === 'day' && <DayTab projectId={id} />}
-      {PROJECT_TABS.find((t) => t.key === tab)?.todo && (
+      {!offPhone && tab === 'thread' && <ThreadTab projectId={id} />}
+      {!offPhone && tab === 'episode' && <LegacyViewTab project={p} />}
+      {!offPhone && tab === 'task' && <TasksTab project={p} />}
+      {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
+      {!offPhone && tab === 'files' && <FilesTab project={p} />}
+      {!offPhone && tab === 'day' && <DayTab projectId={id} />}
+      {!offPhone && tab === 'overview' && isMobile && <MobileTools project={p} />}
+
+      {!offPhone && PROJECT_TABS.find((t) => t.key === tab)?.todo && (
         <TabTodo tab={tab} onBack={() => navigate(`/sales/projects/${id}`)} />
       )}
 
@@ -228,6 +240,35 @@ function TabTodo({ tab, onBack }: { tab: ProjectTabKey; onBack: () => void }) {
       <button type="button" onClick={onBack} className="min-h-tap text-sub text-primary hover:underline lg:min-h-[36px]">
         概要に戻る
       </button>
+    </div>
+  );
+}
+
+/**
+ * スマホで開けないタブ。
+ *
+ * **概要にすり替えない。** URL を共有された人が「見積を見せたつもりが
+ * 概要が出た」ことになります（⑧ のガントと同じ扱い＝黙って別のものを出さない）。
+ */
+function OffPhoneTab({ tab, onBack }: { tab: ProjectTabKey; onBack: () => void }) {
+  const def = PROJECT_TABS.find((t) => t.key === tab)!;
+  const why: Partial<Record<ProjectTabKey, string>> = {
+    thread: 'やり取りは長い文章と議事録が並ぶので、読むのは PC が向いています。',
+    estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。375px では桁が読めません。',
+    files: '書類は BOX のフォルダを1階層ずつ開く画面です。',
+    episode: '回ごとの一覧は横に長い表です。',
+    review: 'ふりかえりはこれから作ります。',
+  };
+  return (
+    <div className="p-3">
+      <div className="rounded-card border border-border bg-card p-4">
+        <h2 className="text-cardtitle">「{def.label}」は PC で見る画面です</h2>
+        <p className="text-sub mt-1.5 text-secondary-foreground">
+          {why[tab] ?? 'この幅では読み切れないので、スマホには出していません。'}
+          <strong className="font-bold">消したのではなく、PC にあります。</strong>
+        </p>
+        <Button variant="outline" className="mt-3" onClick={onBack}>概要にもどる</Button>
+      </div>
     </div>
   );
 }

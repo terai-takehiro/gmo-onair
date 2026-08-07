@@ -121,16 +121,27 @@ export default function HomePage() {
         <div className="min-w-0">
           <h1 className="text-h1">{greeting}、{currentUser?.name} さん</h1>
           {canCount && (
-            <p className="text-sub mt-1 text-secondary-foreground">
-              {waitingTotal === 0 && myOverdue === 0 ? (
-                '待たせているものも、期限を過ぎたものもありません。'
-              ) : (
-                <>
-                  お客様を待たせているものが <strong className="font-bold text-destructive">{waitingTotal}件</strong>、
-                  自分の期限を過ぎたものが <strong className="font-bold text-destructive">{myOverdue}件</strong> あります。
-                </>
-              )}
-            </p>
+            waitingTotal === 0 && myOverdue === 0 ? (
+              <p className="text-sub mt-1 text-secondary-foreground">
+                待たせているものも、期限を過ぎたものもありません。
+              </p>
+            ) : (
+              /**
+               * **モックの形（`お待たせ 3件 ・ 期限切れ 2件`）に合わせた。**
+               * 文章にすると 375px で2行になり、挨拶の下が読み飛ばされる。
+               * **押せるようにしてある** — 件数を見た人が次にやるのは「開く」なので、
+               * 数字を読んでからメニューを探し直すのは1手だけ無駄。
+               * 数えられない種類（権限が無い）は `canCount` ごと出さない
+               */
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {waitingTotal > 0 && (
+                  <CountChip label="お待たせ" n={waitingTotal} onClick={() => navigate('/sales/inbox')} />
+                )}
+                {myOverdue > 0 && (
+                  <CountChip label="期限切れ" n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
+                )}
+              </div>
+            )
           )}
         </div>
       </div>
@@ -216,5 +227,22 @@ export default function HomePage() {
         GMO ONAiR v{__APP_VERSION__}
       </p>
     </div>
+  );
+}
+
+/**
+ * 挨拶の下の件数チップ（モックの `お待たせ 3件 ・ 期限切れ 2件`）。
+ * **0 件のときは呼び出し側が出さない** — 「0件」を赤で出すと目を引くだけで何も起きない。
+ */
+function CountChip({ label, n, onClick }: { label: string; n: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-badge min-h-tap inline-flex items-center gap-1.5 border border-destructive-border bg-destructive-surface px-2.5 py-1 text-sub text-destructive lg:min-h-0"
+    >
+      {label}
+      <span className="font-number font-bold">{n}件</span>
+    </button>
   );
 }
