@@ -12,6 +12,7 @@ import InviewPage from './pages/InviewPage';
 import InviewDayPage from './pages/InviewDayPage';
 import InquiriesPage from './pages/InquiriesPage';
 import SecurityCardsPage from './pages/SecurityCardsPage';
+import SearchPage from './pages/SearchPage';
 import TasksPage from './pages/TasksPage';
 
 /** 受け取った書類は財務（別バンドル）へ移した。**フルリロードが要る** */
@@ -58,6 +59,8 @@ export default function App() {
             <Route path="/finance" element={<RedirectToFinanceDocs />} />
             <Route path="/inquiries" element={<InquiriesPage />} />
             <Route path="/security-cards" element={<SecurityCardsPage />} />
+            {/* スマホ下タブの3つ目（M9）。PC でも開けるが、入口はスマホの下タブ */}
+            <Route path="/search" element={<SearchPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />

@@ -29,6 +29,7 @@ import LendingListPage from "@/pages/LendingListPage";
 import MaintenancePage from "@/pages/MaintenancePage";
 import InventoryPage from "@/pages/InventoryPage";
 import ScanPage from "@/pages/ScanPage";
+import SearchPage from './pages/SearchPage';
 import RackLayoutPage from "@/pages/RackLayoutPage";
 import SettingsPage from "@/pages/SettingsPage";
 
@@ -67,6 +68,8 @@ export default function App() {
         <Route path="/equipment/maintenance" element={<MaintenancePage />} />
         <Route path="/equipment/inventory" element={<InventoryPage />} />
         <Route path="/equipment/scan" element={<ScanPage />} />
+        {/* スマホ下タブの3つ目（M9）。PC でも開けるが、入口はスマホの下タブ */}
+        <Route path="/equipment/search" element={<SearchPage />} />
         <Route path="/equipment/lendings" element={<LendingListPage />} />
         <Route path="/equipment/settings" element={<SettingsPage />} />
 

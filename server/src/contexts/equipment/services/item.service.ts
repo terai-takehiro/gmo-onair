@@ -164,10 +164,33 @@ export const itemService = {
     if (filter.equipment_type_code) { sql += ` AND ei.equipment_type_code = $${i++}`; params.push(filter.equipment_type_code); }
     if (filter.is_rental_listed === 'true') { sql += ` AND COALESCE(p.is_rental_listed, ei.is_rental_listed) = true`; }
     if (filter.search) {
-      sql += ` AND (ei.name ILIKE $${i} OR ei.eq_code ILIKE $${i + 1} OR em.name ILIKE $${i + 2} OR ei.model_number ILIKE $${i + 3} OR ei.serial_number ILIKE $${i + 4})`;
+      /**
+       * **区切り記号を落として突き合わせる列を足した。**
+       *
+       * 機材 ID は `EQ-0001`、型名は `HDX-3000` のようにハイフンが入るが、
+       * **打つ人は入れたり入れなかったりする**（現場では `eq0001` と打つ）。
+       * `ILIKE '%eq0001%'` は `EQ-0001` に当たらないので、
+       * **「見えているのに出てこない」**が起きていた（実ブラウザで確認）。
+       *
+       * ID・型名・製造番号だけ、**両側からハイフン・空白・アンダースコアを
+       * 落とした形でも**比べる。落とした側は OR で足すだけなので、
+       * **いままで当たっていたものは全部当たる**（広がるだけ）。
+       * 名前 (`ei.name`) は素のままにする — 日本語の中黒や括弧まで
+       * 落とすと、別の機材が混ざって出る。
+       *
+       * `ILIKE '%…%'` はもともと索引を使えないので、`REPLACE` を挟んでも
+       * 速さは変わらない。
+       */
+      const strip = (col: string) => `REPLACE(REPLACE(REPLACE(${col}, '-', ''), ' ', ''), '_', '')`;
+      sql += ` AND (ei.name ILIKE $${i} OR ei.eq_code ILIKE $${i + 1} OR em.name ILIKE $${i + 2}`
+        + ` OR ei.model_number ILIKE $${i + 3} OR ei.serial_number ILIKE $${i + 4}`
+        + ` OR ${strip('ei.eq_code')} ILIKE $${i + 5}`
+        + ` OR ${strip('ei.model_number')} ILIKE $${i + 6}`
+        + ` OR ${strip('ei.serial_number')} ILIKE $${i + 7})`;
       const s = `%${filter.search}%`;
-      params.push(s, s, s, s, s);
-      i += 5;
+      const bare = `%${filter.search.replace(/[-\s_]/g, '')}%`;
+      params.push(s, s, s, s, s, bare, bare, bare);
+      i += 8;
     }
 
     // Count (where 句を流用するため、本体クエリを wrap)

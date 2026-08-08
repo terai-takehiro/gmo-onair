@@ -34,4 +34,5 @@ export const DAILY_MOBILE_OK: string[] = [
   '/inview',           // 内覧会（開催日を選ぶ）
   '/inview/:date',     // 当日の受付 — **現場でいちばん使う**
   '/security-cards',   // カードの貸出・返却
+  '/search',           // 探す — **スマホの下タブ3つ目**（M9）
 ];
