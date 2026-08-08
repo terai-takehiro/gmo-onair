@@ -33,6 +33,7 @@ import {
   Info,
   Layers,
   LayoutDashboard,
+  ListChecks,
   ListTodo,
   Presentation,
   Receipt,
@@ -82,9 +83,8 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "設定",
       items: [
-        // 「標準工程テンプレート」はまだ画面が無いので出さない
-        // （押しても何も起きない項目は「壊れている」と受け取られる）
         { label: "料金表", to: "/sales/pricing", icon: DollarSign },
+        { label: "標準工程テンプレート", to: "/sales/flow-templates", icon: ListChecks },
       ],
     },
     {

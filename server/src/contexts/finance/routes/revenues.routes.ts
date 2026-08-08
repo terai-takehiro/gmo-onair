@@ -8,7 +8,7 @@ import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
-import { taxRateOf, taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS } from '../../../shared/services/tax-category.service';
+import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 
 const router = Router();
@@ -217,9 +217,10 @@ router.get('/:id/excel', async (req, res, next) => {
     // 以前はここで三項演算子を連ねており、**知らない区分は 10% に落ちていた**。
     // migration 156 で足した不課税 (nontax) がまさにそれに当たり、
     // 税額 0 円であるべき請求書・見積書が 10% 課税で出てしまう。
-    const rate = taxRateOf(tc);
     const rateLabel = TAX_RATE_LABELS[normalizeTaxCategory(tc)];
-    const inclusive = (net: number): number => (rate === 0 ? net : Math.round(net * (1 + rate)));
+    // 端数の丸め方は**お金のルール ⑤** が持つ (既定 = 切り捨て)。
+    // ここで `Math.round` を書くと、設定を切り替えても帳票だけ四捨五入のまま残る
+    const inclusive = (net: number): number => toIncludedAmount(net, tc);
 
     // 請求先住所は 1 カラムのため住所1 に全文を入れる (郵便番号/建物名は分離保持していない)
     const addr1 = (row.customer_address || '').replace(/\n/g, ' ').trim();

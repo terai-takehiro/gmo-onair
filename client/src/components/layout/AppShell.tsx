@@ -1,6 +1,9 @@
 import React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
+import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import api from "@/lib/api";
+
 import { appOfPath } from "@gmo-onair/shared/src/client/apps";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/contexts/platform/AuthContext";
@@ -101,6 +104,7 @@ export default function AppShell() {
       showOtherApps={!isHome}
       mobileTabs={CLIENT_MOBILE_TABS}
       searchSlot={<GlobalSearch />}
+      notificationSlot={<NotificationBell api={api} />}
       manualContent={SALES_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
       onLogout={logout}

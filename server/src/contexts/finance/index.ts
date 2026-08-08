@@ -5,6 +5,7 @@ import sgaRoutes from './routes/sga.routes';
 import vendorsRoutes from './routes/vendors.routes';
 import partnersRoutes from './routes/partners.routes';
 import xpointRoutes from './routes/xpoint.routes';
+import moneyRulesRoutes from './routes/money-rules.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
@@ -30,6 +31,7 @@ export function createFinanceRoutes(): Router {
   router.use('/vendors', vendorsRoutes);
   router.use('/partners', partnersRoutes);
   router.use('/xpoint', xpointRoutes);
+  router.use('/money-rules', moneyRulesRoutes);
   router.use(createFinanceExcelRouter()); // /revenues/excel/*, /purchases/excel/*, /sga-expenses/excel/*
 
   return router;

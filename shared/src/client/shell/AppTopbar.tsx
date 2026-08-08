@@ -31,6 +31,9 @@ export interface AppTopbarProps extends ShellAccess {
   appLabel: string;
   crumb?: ReactNode;
   searchSlot?: ReactNode;
+  /** お知らせのベル（v4 設定 ⑦）。**部品は `client-v4/` 側**に置いてある —
+   *  ここに置くと凍結4アプリの CSS が増えるため。ここは受け口だけ */
+  notificationSlot?: ReactNode;
   user: ShellUser | null;
   onLogout: () => void;
   onSwitchUser?: () => void;
@@ -69,6 +72,7 @@ export function AppTopbar({
   appLabel,
   crumb,
   searchSlot,
+  notificationSlot,
   user,
   onLogout,
   onSwitchUser,
@@ -169,6 +173,8 @@ export function AppTopbar({
       <div className="flex-1" />
 
       {searchSlot}
+
+      {notificationSlot}
 
       {/* ── 補助 (マニュアル / 版の履歴 / MCP) ────────────────────── */}
       <div className="hidden items-center gap-0.5 sm:flex">

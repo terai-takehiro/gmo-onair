@@ -14,7 +14,12 @@ export interface Minutes {
   summary: string | null;
   /** 決まったこと。`quote` は文字起こしからの引用（**根拠が無いものは決定にしない**） */
   decisions: { text: string; quote?: string }[] | null;
-  open_items: { text: string; owner?: string; due?: string }[] | null;
+  /**
+   * 持ち帰り・未確認。`task_id` は**タスクにしたときにサーバーが書き戻す印**で、
+   * これがあると二度作れない（画面のボタンを隠すだけでは、同時に開いた
+   * 別の画面が古いままボタンを出す）
+   */
+  open_items: { text: string; owner?: string; due?: string; task_id?: string }[] | null;
   next_meeting: string | null;
   model: string | null;
   prompt_version: string | null;
@@ -29,7 +34,7 @@ export interface MinutesPatch {
   met_on?: string | null;
   next_meeting?: string | null;
   decisions?: { text: string; quote?: string }[];
-  open_items?: { text: string; owner?: string; due?: string }[];
+  open_items?: { text: string; owner?: string; due?: string; task_id?: string }[];
   /** true で確定。**確定した時点でサーバーが差分を残す** */
   confirm?: boolean;
 }

@@ -36,6 +36,11 @@ export interface ProjectDetail {
   wants?: string | null;
   /** 引き合いの入口 (migration 165) */
   intake_channel?: string | null;
+  /**
+   * 標準工程を入れた時刻 (migration 178)。**入っていれば二度は入れられない**
+   * （押し直しで同じタスクが2組できると、どちらを消すか分からなくなる）
+   */
+  flow_applied_at?: string | null;
 }
 
 /** `GET /studios/bookings?project_id=` の1行 */

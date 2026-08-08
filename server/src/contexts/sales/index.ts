@@ -13,6 +13,7 @@ import pricingRoutes from './routes/pricing.routes';
 import activityLogsRoutes from './routes/activity-logs.routes';
 import salesAnalyticsRoutes from './routes/sales-analytics.routes';
 import keepReportRoutes from './routes/keep-report.routes';
+import flowTemplatesRoutes from './routes/flow-templates.routes';
 import { createSalesExcelRouter } from './routes/excel.routes';
 
 export function createSalesRoutes(): Router {
@@ -21,6 +22,8 @@ export function createSalesRoutes(): Router {
   // 案件をまたぐ見積・請求 (v4 ⑤)。案件ごとの `/projects/:id/estimates` とは
   // **別の接頭辞**にしてある (同じ下にぶら下げると `:id` に "billing" が入る)
   router.use('/billing', billingRoutes);
+  // `/projects/...` の下に置くと `/projects/:projectId` と当たる
+  router.use('/flow-templates', flowTemplatesRoutes);
   router.use('/project-groups', projectGroupsRoutes);
   router.use('/projects/:projectId/estimates', estimatesRoutes);
   router.use('/projects/:projectId/minutes', minutesRoutes);

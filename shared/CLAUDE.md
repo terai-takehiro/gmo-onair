@@ -417,6 +417,7 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | `client-v4/mobile.ts` の `dueLabel()` | **過ぎたものを「あと -2日」と出さない** |
 | `client-v4/recent.ts` | **最近見たもの**（⑪ 探す）。**端末の中だけ・8件**。サーバーに表を作ると案件を開くたびに1行 INSERT することになり、しかも「見た」は業務の記録ではない。**別の端末では出ないことを画面に書くこと** |
 | **`tokens-v4.css` の末尾（動き）** | **画面遷移 `screenIn`・カード `cardIn`・お知らせ帯 `toastIn`・帯 `barGrow`・押せるもの共通の `transition`・押した瞬間の 0.97 倍・大きいタイルの持ち上がり**。出どころはモックの CSS（`_tokens.md`「動き」に表がある）。**Tailwind の `animation` キーに足さない** — 凍結4アプリの CSS が増える。素の CSS クラス（`.v4-*`）なら Tailwind は何も生成しない |
+| `client-v4/NotificationBell.tsx` | **上辺バーのベル**（社内通知）。**`src/client/` に置かないこと** — 凍結4アプリの CSS が増える。シェル側（`shell/AppTopbar`）は `notificationSlot` の受け口だけで、新しいクラス名を持たない。押したときの移動は**素の遷移**（行き先がアプリをまたぐのでルーターでは動けない） |
 | `client-v4/offlineQueue.ts` | **端末に溜めて後で送る列**（⑨ 現場）。**鍵で上書き**なので同じ操作は列に1つしか載らない。**載せてよいのは何回やっても結果が同じ操作だけ**（棚卸しの印・返却）。**貸出のような「行を作る操作」を載せてはいけない** — 載せるとこの仕組みが二重登録の原因になる。1件失敗しても止めず、送れたものだけ消す |
 
 - **`useIsMobile()` で早期 return しない。** 同じ部品の中で `if (mobile) return …` と

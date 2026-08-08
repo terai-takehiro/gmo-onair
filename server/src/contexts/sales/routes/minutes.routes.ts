@@ -15,7 +15,7 @@ import multer from 'multer';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  listMinutes, getMinutes, startTranscription, updateMinutes, deleteMinutes,
+  listMinutes, getMinutes, startTranscription, updateMinutes, deleteMinutes, openItemToTask,
 } from '../services/minutes.service';
 import { MAX_AUDIO_BYTES, isSttConfigured } from '../services/minutes-ai.service';
 
@@ -66,6 +66,23 @@ router.post('/', canEdit, upload.single('audio'), async (req, res) => {
 
 router.put('/:id', canEdit, async (req, res) => {
   res.json({ success: true, data: await updateMinutes(paramsOf(req).id, req.body ?? {}, req.user!.id) });
+});
+
+/**
+ * 持ち帰り（未確認事項）をタスクにする。
+ *
+ * **二度作れない** — 作ると `open_items` のその要素に印が付く。
+ * 画面のボタンを隠すだけだと、同時に開いた別の画面は古いままボタンを出す。
+ */
+router.post('/:id/open-items/:index/task', canEdit, async (req, res) => {
+  const index = Number(paramsOf(req).index);
+  if (!Number.isInteger(index) || index < 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', '持ち帰りの位置が正しくありません');
+  }
+  res.status(201).json({
+    success: true,
+    data: await openItemToTask(paramsOf(req).id, index, req.user!.id),
+  });
 });
 
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {

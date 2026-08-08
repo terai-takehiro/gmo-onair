@@ -6,7 +6,10 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
-import { extractFolderId, isBoxConfigured, listFolderItems } from '../../../shared/services/box';
+import multer from 'multer';
+import {
+  extractFolderId, isBoxConfigured, listFolderItems, uploadToFolder, MAX_UPLOAD_BYTES,
+} from '../../../shared/services/box';
 
 const router = Router();
 
@@ -166,6 +169,76 @@ router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (
   const result = await projectService.changeGlsCategory(req.params.id as string, gls_category, req.user!.id);
   res.json({ success: true, data: result });
 });
+
+/**
+ * 案件の BOX フォルダにファイルを置く (v4 ⑥ 書類タブ)。
+ *
+ * ── 読み取りと違って、失敗は隠さない ────────────────────────
+ *
+ * 中身を出すほうは BOX が落ちていても 200 で返します（案件を止めないため）。
+ * **置くほうは違います** — 上がっていないのに上がったように見えるのが一番困るので、
+ * 理由を付けて失敗を返します。
+ *
+ * ── どこに置くかを画面に選ばせる ────────────────────────────
+ *
+ * 社内限り（発注・請求・原価）と社外共有（見積・台本・納品物）は
+ * **取り違えると原価が外に出ます**。既定を持たず、`scope` を必須にします。
+ */
+const boxUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 5 },
+});
+
+router.post(
+  '/:id/box-files',
+  requirePermission('sales', 'editor'),
+  boxUpload.array('files', 5),
+  async (req, res) => {
+    const scope = req.query.scope === 'internal' ? 'internal'
+      : req.query.scope === 'external' ? 'external' : null;
+    if (!scope) throw new AppError(400, 'VALIDATION_ERROR', '置き場所（社内限り／社外共有）を指定してください');
+
+    const files = (req.files ?? []) as Express.Multer.File[];
+    if (files.length === 0) throw new AppError(400, 'VALIDATION_ERROR', 'ファイルを選んでください');
+
+    const project = await queryOne(
+      'SELECT box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
+      [req.params.id],
+    ) as { box_url_internal: string | null; box_url_external: string | null } | undefined;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+    const folderId = extractFolderId(
+      scope === 'internal' ? project.box_url_internal : project.box_url_external,
+    );
+    if (!folderId) {
+      throw new AppError(400, 'NO_FOLDER',
+        'この案件の BOX フォルダがまだ作られていません。GLS を発番するか、フォルダを作ってからお試しください。');
+    }
+    if (!isBoxConfigured()) {
+      throw new AppError(503, 'NOT_CONFIGURED', 'この環境は BOX につないでいないので、置けません。');
+    }
+
+    // **1つずつ上げて、上がった分だけ返す。** まとめて失敗にすると
+    // 「3つ中2つは入っている」ことに気づけず、同じものをもう一度上げることになる
+    const done = [];
+    const failed = [];
+    for (const f of files) {
+      // multer は multipart のファイル名を latin1 で読む。日本語のファイル名が
+      // 文字化けしたまま BOX に載ると、探せないうえ直せない
+      const name = Buffer.from(f.originalname, 'latin1').toString('utf8');
+      try {
+        done.push(await uploadToFolder(folderId, name, f.buffer));
+      } catch (err) {
+        console.error('[box] upload failed:', name, (err as Error).message);
+        failed.push(name);
+      }
+    }
+    if (done.length === 0) {
+      throw new AppError(502, 'BOX_UNAVAILABLE', 'BOX に置けませんでした。あとでもう一度お試しください。');
+    }
+    res.status(201).json({ success: true, data: { uploaded: done, failed } });
+  },
+);
 
 // BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)
 router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {

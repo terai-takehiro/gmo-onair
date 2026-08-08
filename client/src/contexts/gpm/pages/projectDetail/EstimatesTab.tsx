@@ -14,16 +14,18 @@
  * 片方だけ直る形が生まれるためです。**混ざらないこと**は、
  * `estimates` を読む3か所を実測して塞いであります（migration 173 の冒頭）。
  *
- * ── 明細はここでは編集しない ────────────────────────────────
+ * ── 明細は案件の見積と**同じ部品** ──────────────────────────
  *
- * 版・提出先・状態までをここで扱い、**明細（品目と金額）は案件の見積画面と
- * 同じ部品**を使う予定です。ここに写しの明細編集を作ると、合計の計算が
- * 2か所になります（案件側と食い違ったときにどちらが正か分からない）。
- * いまは**まだ作っていない**とはっきり書いてあります。
+ * `EstimateItems`（`sales/pages/projectDetail/`）をそのまま呼びます。
+ * ここに写しを作ると合計と粗利の計算が2か所になり、片方だけ直した日から
+ * **同じ見積が画面によって違う金額**を出します。
+ * 保存する口だけ GPM 側（`PUT /gpm/estimates/:id/items`）に向けていて、
+ * サーバーは**プロジェクトの見積しか受け付けません** — 案件の見積を
+ * `gpm` だけの人が書き換えられないようにするためです。
  */
 import { useState } from 'react';
 import { FileText, Plus, Loader2 } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +41,9 @@ import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useGpmEstimates, useInvalidateGpm, type GpmEstimate } from '../../queries';
+import {
+  EstimateItems, type EstimateForItems, type EstimateItemRow,
+} from '@/contexts/sales/pages/projectDetail/EstimateItems';
 
 export const SUBMIT_TO_LABEL: Record<string, string> = {
   self: '自社', client: '依頼元', pm: 'PM会社',
@@ -59,6 +64,8 @@ const STATUS_LABEL: Record<GpmEstimate['status'], string> = {
 export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const query = useGpmEstimates(projectId);
   const [adding, setAdding] = useState(false);
+  /** 明細を開いている見積。**一覧には明細を積まない**ので、開いたときだけ引く */
+  const [openId, setOpenId] = useState<string | null>(null);
   const rows = query.data ?? [];
 
   // **旧版も出す。** 「いくらで出して、いくらで決まったか」を追うための表なので、
@@ -103,7 +110,13 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
             <RowSlot w={128}>金額</RowSlot>
           </RowHeader>
           {rows.map((e) => (
-            <Row key={e.id} className={e.status === 'superseded' ? 'opacity-60' : undefined}>
+            <Row
+              key={e.id}
+              interactive
+              divider
+              onClick={() => setOpenId(openId === e.id ? null : e.id)}
+              className={e.status === 'superseded' ? 'opacity-60' : undefined}
+            >
               <RowSlot w={72}>
                 <TableBadge
                   label={e.submit_to ? SUBMIT_TO_LABEL[e.submit_to] : '—'}
@@ -130,10 +143,14 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         </div>
       )}
 
+      {openId && <ItemsPanel estimateId={openId} canEdit={canEdit} />}
+
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">明細（品目と金額）の入力はまだ作っていません。</strong>
-        案件の見積と同じ部品を使う予定です — ここに写しを作ると合計の計算が2か所になり、
-        食い違ったときにどちらが正しいか分からなくなります。
+        行を押すと<strong className="font-bold">明細</strong>を開けます。
+        中身は<strong className="font-bold">案件の見積と同じ部品</strong>で、
+        合計と粗利の計算も1か所です（写しを作ると、片方だけ直した日から金額が食い違います）。
+        <strong className="font-bold">出したあと（送付済・受注・旧版）は直せません</strong> —
+        直すなら次の版をつくってください。
       </p>
 
       {adding && <NewEstimateDialog projectId={projectId} onClose={() => setAdding(false)} />}
@@ -201,5 +218,44 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * 明細の枠。**一覧が明細まで抱えない**ようにここで1本だけ引きます
+ * （一覧に積むと、見積が増えるほど開くのが遅くなる）。
+ */
+function ItemsPanel({ estimateId, canEdit }: { estimateId: string; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const invalidate = useInvalidateGpm();
+
+  const detail = useQuery<EstimateForItems>({
+    queryKey: ['gpm-estimate', estimateId],
+    queryFn: async () => (await api.get(`/gpm/estimates/${estimateId}`)).data.data,
+  });
+
+  const save = useMutation({
+    mutationFn: (items: EstimateItemRow[]) => api.put(`/gpm/estimates/${estimateId}/items`, { items }),
+    onSuccess: () => {
+      // **一覧の金額も落とす。** 合計はサーバーが出し直すので、
+      // ここを忘れると明細を直したのに一覧の金額が古いままになる
+      qc.invalidateQueries({ queryKey: ['gpm-estimate', estimateId] });
+      invalidate();
+      notifySuccess('明細を保存しました');
+    },
+    onError: (e) => notifyApiError('明細を保存できませんでした', e),
+  });
+
+  if (detail.isError) {
+    return <ErrorPanel title="明細を読み込めませんでした" error={detail.error} onRetry={() => detail.refetch()} />;
+  }
+  if (!detail.data) return <Delayed><SkeletonRows rows={4} /></Delayed>;
+
+  return (
+    <EstimateItems
+      estimate={detail.data}
+      onSave={(items) => canEdit && save.mutate(items)}
+      saving={save.isPending}
+    />
   );
 }

@@ -1,5 +1,8 @@
 import { Outlet } from 'react-router-dom';
 import { AppShell as SharedAppShell } from '@gmo-onair/shared/src/client/shell';
+import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import api from "@/lib/api";
+
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -31,6 +34,7 @@ export default function AppShell() {
       appKey="dailyops"
       sections={DAILY_NAV}
       mobileTabs={DAILY_MOBILE_TABS}
+      notificationSlot={<NotificationBell api={api} />}
       manualContent={DAILY_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
       onLogout={logout}

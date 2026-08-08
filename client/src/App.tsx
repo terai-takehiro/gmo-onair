@@ -10,7 +10,7 @@ import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
-import UserListPage from "@/contexts/platform/pages/UserListPage";
+import MembersPage from "@/contexts/platform/pages/members/MembersPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 
@@ -28,6 +28,7 @@ import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
+import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
@@ -74,6 +75,9 @@ import SearchPage from "@/contexts/platform/pages/SearchPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 import SitesPage from "@/contexts/platform/pages/SitesPage";
 import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
+import MoneyRulesPage from "@/contexts/platform/pages/money/MoneyRulesPage";
+import HoursPage from "@/contexts/platform/pages/hours/HoursPage";
+import NotifyPage from "@/contexts/platform/pages/notify/NotifyPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -198,6 +202,7 @@ function AppRoutes() {
         <Route path="/sales/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />
         <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
+        <Route path="/sales/flow-templates" element={<PermissionRoute module="sales"><FlowTemplatePage /></PermissionRoute>} />
         <Route path="/sales/billing" element={<PermissionRoute module="sales"><BillingListPage /></PermissionRoute>} />
 
         {/* ===== プロジェクト管理 (gpm) — v4 で新規 =====
@@ -262,7 +267,13 @@ function AppRoutes() {
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
-        <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/settings/users" element={<PermissionRoute module="admin"><MembersPage /></PermissionRoute>} />
+        {/* ⑤ お金のルール。**読むのは budget の reader**（見積を作る人は税率と期日を知る必要がある）。直せるのは manager だけで、それは画面とサーバーの両方で見ている */}
+        <Route path="/settings/money" element={<PermissionRoute module="budget"><MoneyRulesPage /></PermissionRoute>} />
+        {/* ⑥ 休日・営業時間。読むのは `studio` の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
+        <Route path="/settings/hours" element={<PermissionRoute module="studio"><HoursPage /></PermissionRoute>} />
+        {/* ⑦ 通知とテンプレート。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
+        <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}

@@ -68,9 +68,58 @@ export function taxBillingSuffix(taxCategory: string | null | undefined): string
   }
 }
 
-/** 税込 → 税抜 (四捨五入)。非課税・不課税はそのまま */
+// ───────────────────────────────────────────────────────────
+// 端数の扱い (お金のルール ⑤)
+// ───────────────────────────────────────────────────────────
+
+/**
+ * 端数の丸め方。**この 1 か所だけが持つ。**
+ *
+ * ── なぜ引数ではなくモジュールの状態なのか ────────────────
+ *
+ * 税額を出すのは帳票・取込・見積・請求と散っており、全部に「丸め方」を
+ * 引き回すと**渡し忘れた所だけ既定に落ちて、同じ売上が入口によって
+ * 1 円ずれます**（税枝番が 4 か所に散って食い違っていたのと同じ形）。
+ * 設定は 1 行しかない会社ぜんぶの決めごとなので、ここに 1 つ持ちます。
+ *
+ * 値の出どころは `money-rules.service` で、起動時と保存時に
+ * `setTaxRounding` が呼ばれます。**呼ばれなくても既定 (切り捨て) で動きます** —
+ * DB が読めないときに 500 で止めるより、決めた既定で出すほうがよい。
+ */
+export type TaxRounding = 'floor' | 'round' | 'ceil';
+
+let taxRounding: TaxRounding = 'floor';
+
+export function setTaxRounding(mode: TaxRounding): void { taxRounding = mode; }
+export function getTaxRounding(): TaxRounding { return taxRounding; }
+
+/** 決めた丸め方で 1 円未満を落とす */
+export function roundByRule(n: number): number {
+  if (taxRounding === 'ceil') return Math.ceil(n);
+  if (taxRounding === 'round') return Math.round(n);
+  return Math.floor(n);
+}
+
+/** 税抜 → 税額。非課税・不課税は 0 */
+export function taxAmountOf(excludedAmount: number, taxCategory: string | null | undefined): number {
+  const rate = taxRateOf(taxCategory);
+  if (rate === 0) return 0;
+  return roundByRule(excludedAmount * rate);
+}
+
+/** 税抜 → 税込 */
+export function toIncludedAmount(excludedAmount: number, taxCategory: string | null | undefined): number {
+  return excludedAmount + taxAmountOf(excludedAmount, taxCategory);
+}
+
+/**
+ * 税込 → 税抜。非課税・不課税はそのまま。
+ *
+ * **税抜を直接丸めない。** 先に税額を出して引きます。
+ * 直接丸めると 税抜 + 税額 ≠ 税込 になり、帳票の合計が 1 円合いません。
+ */
 export function toExcludedAmount(includedAmount: number, taxCategory: string | null | undefined): number {
   const rate = taxRateOf(taxCategory);
   if (rate === 0) return Math.round(includedAmount);
-  return Math.round(includedAmount / (1 + rate));
+  return includedAmount - roundByRule((includedAmount * rate) / (1 + rate));
 }

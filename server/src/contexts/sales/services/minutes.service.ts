@@ -321,3 +321,58 @@ export async function deleteMinutes(id: string, userId: string): Promise<void> {
     'UPDATE project_minutes SET deleted_at = NOW(), updated_by = ? WHERE id = ?', [userId, id],
   );
 }
+
+/**
+ * 持ち帰り（未確認事項）を案件のタスクにする。
+ *
+ * ── 二度作らない ────────────────────────────────────────────
+ *
+ * 作ったら **`open_items` のその要素に `task_id` を書き戻します**。
+ * 印を付けないと、押し直しや2人が同時に開いたときに**同じタスクが2つ**でき、
+ * どちらを消すか分からなくなります（画面のボタンを隠すだけでは足りません —
+ * もう一方の画面は古いままボタンを出しています）。
+ *
+ * ── 担当は入れない ──────────────────────────────────────────
+ *
+ * `open_items[].owner` は **AI が文字起こしから拾った名前の文字列**で、
+ * 利用者の id ではありません。名前で人を突き合わせると、同姓の人や
+ * 取引先の名前を社内の誰かに割り当てます。**説明に書くだけ**にします。
+ */
+export async function openItemToTask(
+  minutesId: string, index: number, userId: string,
+): Promise<{ task_id: string; title: string }> {
+  const m = await getMinutes(minutesId);
+  const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
+  const item = items[index];
+  if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
+  if (item.task_id) {
+    throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもうタスクにしてあります');
+  }
+
+  const text = String(item.text ?? '').trim();
+  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りはタスクにできません');
+
+  const owner = String(item.owner ?? '').trim();
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(String(item.due ?? '')) ? String(item.due) : null;
+
+  const taskId = uuidv4();
+  await execute(
+    `INSERT INTO project_tasks (id, project_id, title, description, due_date, source, created_by, updated_by)
+     VALUES (?, ?, ?, ?, ?, 'minutes', ?, ?)`,
+    [
+      taskId, m.project_id, text,
+      // **どの打合せから来たかを残す。** タスクだけを見た人が
+      // 「誰が言ったことか」を追えないと、勝手に消される
+      [`議事録「${m.title || '（表題なし）'}」${m.met_on ? `（${m.met_on}）` : ''}から`,
+        owner ? `打合せでの担当: ${owner}` : null].filter(Boolean).join('\n'),
+      due, userId, userId,
+    ],
+  );
+
+  items[index] = { ...item, task_id: taskId };
+  await execute(
+    'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
+    [JSON.stringify(items), userId, minutesId],
+  );
+  return { task_id: taskId, title: text };
+}

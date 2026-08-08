@@ -90,6 +90,25 @@ export function ThreadTab({ projectId }: { projectId: string }) {
     onError: (e) => notifyApiError('消せませんでした', e),
   });
 
+  /**
+   * 持ち帰り → タスク。**タスクの鍵も落とす** — 落とさないと、
+   * タスクタブに切り替えても新しい行が出ず「作れなかった」と見える
+   */
+  const makeTask = useMutation({
+    mutationFn: (v: { id: string; index: number }) =>
+      api.post(`/projects/${projectId}/minutes/${v.id}/open-items/${v.index}/task`),
+    onSuccess: (r) => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['task-columns', projectId] });
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      notifySuccess('タスクにしました', {
+        description: `「${(r.data?.data?.title ?? '').slice(0, 40)}」をタスクタブに入れました。担当と期限はそちらで決めてください。`,
+      });
+    },
+    onError: (e) => notifyApiError('タスクにできませんでした', e),
+  });
+
   const { data, isLoading } = useQuery<{ data: ThreadItem[] }>({
     queryKey: ['project-activities', projectId],
     queryFn: async () =>
@@ -165,8 +184,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               key={m.id}
               m={m}
               canEdit={canEdit}
-              busy={save.isPending || remove.isPending}
+              busy={save.isPending || remove.isPending || makeTask.isPending}
               onSave={(patch) => save.mutate({ id: m.id, patch })}
+              onMakeTask={(index) => makeTask.mutate({ id: m.id, index })}
               onDelete={async () => {
                 const ok = await confirmAction({
                   title: '議事録を消しますか',
@@ -186,7 +206,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
         <p className="text-note text-secondary-foreground">
           <strong className="font-bold">録音した音声は文字にしたら保存せずに捨てます。</strong>
           残るのは文字起こしと議事録だけです。録音を残したい打合せは、BOX の社内限りフォルダに置いてください。
-          <strong className="font-bold">持ち帰りからタスクを作る機能は、まだ入れていません。</strong>
+          <strong className="font-bold">持ち帰りは1件ずつタスクにできます</strong>（議事録を開くとボタンが出ます）。
         </p>
       </div>
 

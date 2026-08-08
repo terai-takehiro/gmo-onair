@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import authRoutes from './routes/auth.routes';
 import usersRoutes from './routes/users.routes';
+import permissionRolesRoutes from './routes/permission-roles.routes';
+import notificationsRoutes from './routes/notifications.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import searchRoutes from './routes/search.routes';
 import dataViewerRoutes from './routes/data-viewer.routes';
@@ -14,6 +16,9 @@ export function createPlatformRoutes(): Router {
   router.use('/auth', authRoutes);
   router.use('/dashboard', dashboardRoutes);
   router.use('/users', usersRoutes);
+  // `/users/roles` にすると `/users/:id` が `roles` を id として拾う
+  router.use('/permission-roles', permissionRolesRoutes);
+  router.use('/notifications', notificationsRoutes);
   router.use('/search', searchRoutes);
   router.use('/data-viewer', dataViewerRoutes);
   router.use('/lookup', lookupRoutes);

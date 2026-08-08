@@ -66,9 +66,27 @@
   **閲覧のフロント側ゲートは足していない** — 無いのが現状で、新設すると
   権限を持たない既存の利用者が突然入れなくなる
 
+- **機材台帳の行は `Row` に載せ替えた**（`equipmentList/EquipmentTable.tsx` ＋ `EquipmentCells.tsx`）。
+  `<table>` の列幅は**中身が決める**ので、絞り込みを変えるたびに列が動き、
+  同じ「種別」の列が画面によって違う幅になっていた。7段の固定幅
+  （`types.ts` の `COL_W`）に寄せると、**出す列を変えても残った列は同じ位置**のまま。
+  - **この一覧が持っている3つはそのまま**（列の出し入れ・その場編集・親子の入れ子）。
+    実ブラウザで **11 列 × 34 行の左端が 1px 以内で揃っている**ことを測ってある
+    （列を増やしても・子を開いても・その場編集の間も揃ったまま）
+  - **段差は行の頭（`LEAD_W`）の中だけ**に出す。列側に入れると子の行だけずれる
+  - **伸びるのは商品名だけ**（`RowMain`）。行に1つだけ、が `Row` の決まり
+  - 既定の8列でも 1,300px を超えるので**枠ごと横に流す**（列は潰さない）。
+    そのぶん**「操作」は右に貼り付ける** — 流れる形にすると直す・消すが既定で
+    画面の外に出て、毎日使う画面で横に送らないと押せなくなる。
+    **貼り付ける枠は下が透けてはいけない**ので、行に必ず背景の色を持たせ
+    （`bg-card` / `bg-primary-surface-weak` / `bg-muted`）、操作の枠は `bg-inherit` で受け取る
+  - **印刷は触っていない。** `PrintTable.tsx` は本物の `<table>` のままで、
+    `index.css` の `#eq-print-area table` もそのまま効く（紙は表のほうが正しい）
 - **1ファイル400行を上限にする。** いま超過しているもの:
-  `pages/EquipmentListPage.tsx` 2,017行 / `pages/RackLayoutPage.tsx` 1,270行 /
-  `pages/EquipmentDetailPage.tsx` 1,090行 / `pages/CablePage.tsx` 839行
+  `pages/RackLayoutPage.tsx` 1,269行 / `pages/EquipmentDetailPage.tsx` 1,090行 /
+  `manual/content.tsx` 443行 / `components/ExcelImportDialog.tsx` 414行
+  （`EquipmentListPage.tsx` 2,017行 と `CablePage.tsx` 839行は分割済み。
+  台帳は `pages/EquipmentLedgerPage.tsx` 67行 ＋ `pages/equipmentList/` に分かれている）
 - Excel の取込・出力が複数ページにある（機材・ケーブル・コネクタ）。列定義は各ページに散っている
 - **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
   `shared/src/client/base.css`（F2 で集約済み）。`.heading-*` / `.font-number` の複製も削除済み

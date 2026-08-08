@@ -22,6 +22,8 @@ declare module 'box-node-sdk' {
       delete(fileId: string): Promise<void>;
       getReadStream(fileId: string): Promise<NodeJS.ReadableStream>;
       uploadFile(folderId: string, name: string, content: NodeJS.ReadableStream | Buffer | string): Promise<{ entries?: BoxItem[]; id?: string; name?: string }>;
+      /** 同じ名前のファイルがあったときに、新しい版として上げ直す */
+      uploadFileVersion(fileId: string, name: string, content: NodeJS.ReadableStream | Buffer | string): Promise<{ entries?: BoxItem[]; id?: string; name?: string }>;
     };
   }
 

@@ -14,6 +14,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { checkDiscount, NO_LIMIT, type DiscountLimit } from '../../../shared/services/discountLimit';
 
 export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -46,6 +47,10 @@ export interface Estimate {
   subtotal: number;
   discount: number;
   valid_until: string | null;
+  /** 値引きが上限を超えたか。`pending` の間は送れない (お金のルール ⑤) */
+  approval_state?: 'none' | 'pending' | 'approved';
+  approved_by?: string | null;
+  approved_at?: string | null;
   sent_at: string | null;
   decided_at: string | null;
   revenue_id: string | null;
@@ -57,6 +62,7 @@ export interface Estimate {
 const SELECT_ESTIMATE = `
   SELECT id, project_id, gpm_project_id, submit_to, customer_id, group_id, version, title, status,
          tax_category, subtotal, discount, valid_until,
+         approval_state, approved_by, approved_at,
          sent_at, decided_at, revenue_id, notes, created_at, updated_at
   FROM estimates
 `;
@@ -76,6 +82,73 @@ async function recalc(estimateId: string): Promise<void> {
      ), updated_at = NOW() WHERE id = $1`,
     [estimateId]
   );
+  await refreshApproval(estimateId);
+}
+
+// ───────────────────────────────────────────────────────────
+// 値引きの上限（お金のルール ⑤）
+// ───────────────────────────────────────────────────────────
+
+/**
+ * その人の役割の上限。**役割が無い人・上限を決めていない役割は「上限なし」。**
+ *
+ * 「決めていない = 出せない」にすると、役割を1つ足した瞬間その役割の人が
+ * 見積を出せなくなります（気づけるのは出そうとした人だけ）。
+ * 決めていないことは設定の画面に一覧で出して見えるようにしてあります。
+ */
+async function limitOf(userId: string): Promise<DiscountLimit> {
+  const row = await queryOne(
+    `SELECT u.role, l.max_rate, l.max_amount, l.can_estimate,
+            l.approver_role_id, a.name AS approver_name
+       FROM users u
+       LEFT JOIN role_discount_limits l ON l.role_id = u.permission_role_id
+       LEFT JOIN permission_roles a ON a.id = l.approver_role_id
+      WHERE u.id = $1`,
+    [userId],
+  ) as Record<string, unknown> | null;
+  // system_admin はすべての判定を素通りする（権限の仕組みと揃える）
+  if (!row || row.role === 'system_admin') return NO_LIMIT;
+  return {
+    maxRate: row.max_rate == null ? null : Number(row.max_rate),
+    maxAmount: row.max_amount == null ? null : Number(row.max_amount),
+    canEstimate: row.can_estimate !== false,
+  };
+}
+
+async function approverNameOf(userId: string): Promise<string | null> {
+  const row = await queryOne(
+    `SELECT a.name FROM users u
+       JOIN role_discount_limits l ON l.role_id = u.permission_role_id
+       JOIN permission_roles a ON a.id = l.approver_role_id
+      WHERE u.id = $1`,
+    [userId],
+  ) as { name?: string } | null;
+  return row?.name ?? null;
+}
+
+/**
+ * 値引きが上限を超えていれば「承認待ち」にする。**保存は止めません**
+ * （モック:「保存はできますが承認待ちになり、お客様に出せません」）。
+ * 止まるのは `status = 'sent'` にするときだけ。
+ *
+ * **一度 approved にしたものは戻しません** — 承認したあとに明細を1行足しただけで
+ * 承認が消えると、承認者を何度も呼ぶことになります。金額を大きく変えるときは
+ * 版を上げる運用（新しい版は `none` から始まる）。
+ */
+async function refreshApproval(estimateId: string): Promise<void> {
+  const est = await queryOne(
+    `SELECT subtotal, discount, approval_state, updated_by, created_by
+       FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
+    [estimateId],
+  ) as Record<string, unknown> | null;
+  if (!est) return;
+  if (est.approval_state === 'approved') return;
+
+  const owner = String(est.updated_by ?? est.created_by ?? '');
+  if (!owner) return;
+  const { needsApproval } = checkDiscount(Number(est.subtotal) || 0, Number(est.discount) || 0, await limitOf(owner));
+  await execute(`UPDATE estimates SET approval_state = $2 WHERE id = $1`,
+    [estimateId, needsApproval ? 'pending' : 'none']);
 }
 
 export const estimateService = {
@@ -210,8 +283,28 @@ export const estimateService = {
       discount: number; valid_until: string | null; notes: string | null }>,
     userId: string
   ): Promise<Estimate> {
-    const existing = await queryOne(`SELECT id, status FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [id]);
+    const existing = await queryOne(
+      `SELECT id, status, subtotal, discount, approval_state FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
+      [id],
+    ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+
+    // ── 送るときだけ止める（お金のルール ⑤）──────────────────
+    //
+    // 値引きの保存そのものは通します。**送付だけ**を止めるのがモックの決めごと。
+    // ここで止めないと、上限を決めても誰も止まりません。
+    if (data.status === 'sent' && existing.approval_state !== 'approved') {
+      // 同じ呼び出しで値引きも変えているときは**新しい値**で判定する
+      // (保存してから判定すると、上限超えの値引きで送れてしまう一瞬ができる)
+      const discount = 'discount' in data ? Number(data.discount) : Number(existing.discount);
+      const { needsApproval, reasons } = checkDiscount(Number(existing.subtotal), discount, await limitOf(userId));
+      if (needsApproval) {
+        await execute(`UPDATE estimates SET approval_state = 'pending' WHERE id = $1`, [id]);
+        const approver = await approverNameOf(userId);
+        throw new AppError(400, 'APPROVAL_REQUIRED',
+          `${reasons.join('。')}。${approver ? `${approver} の承認を受けてから送ってください。` : '承認者が決まっていないため、設定のお金のルールで決めてください。'}`);
+      }
+    }
 
     const sets = ['updated_at = NOW()', 'updated_by = $2'];
     const params: unknown[] = [id, userId];
@@ -226,6 +319,49 @@ export const estimateService = {
       if (data.status === 'accepted' || data.status === 'rejected') sets.push('decided_at = NOW()');
     }
     await execute(`UPDATE estimates SET ${sets.join(', ')} WHERE id = $1`, params);
+    // 値引きを直したら承認待ちかどうかを見直す（**送付を止める根拠になる値**）
+    if ('discount' in data) await refreshApproval(id);
+    return (await this.getById(id))!;
+  },
+
+  /**
+   * 承認する。**承認できるのは、その見積を作った人の役割に決めた承認者だけ。**
+   *
+   * 「誰でも承認できる」にすると上限そのものが意味を失います。
+   * 承認者を決めていない役割は承認できない（設定で決めてもらう）。
+   */
+  async approve(id: string, approverId: string): Promise<Estimate> {
+    const est = await queryOne(
+      `SELECT id, approval_state, COALESCE(updated_by, created_by) AS owner
+         FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
+      [id],
+    ) as Record<string, unknown> | null;
+    if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    if (est.approval_state !== 'pending') {
+      throw new AppError(400, 'VALIDATION_ERROR', 'この見積は承認待ちではありません');
+    }
+
+    const me = await queryOne(
+      'SELECT role, permission_role_id FROM users WHERE id = $1', [approverId],
+    ) as Record<string, unknown> | null;
+    const wanted = await queryOne(
+      `SELECT l.approver_role_id FROM users u
+         JOIN role_discount_limits l ON l.role_id = u.permission_role_id
+        WHERE u.id = $1`,
+      [String(est.owner ?? '')],
+    ) as { approver_role_id?: string } | null;
+
+    const isAdmin = me?.role === 'system_admin';
+    const isApprover = !!wanted?.approver_role_id && me?.permission_role_id === wanted.approver_role_id;
+    if (!isAdmin && !isApprover) {
+      throw new AppError(403, 'FORBIDDEN', 'この見積を承認できる役割ではありません');
+    }
+
+    await execute(
+      `UPDATE estimates SET approval_state = 'approved', approved_by = $2, approved_at = NOW(),
+                            updated_at = NOW() WHERE id = $1`,
+      [id, approverId],
+    );
     return (await this.getById(id))!;
   },
 

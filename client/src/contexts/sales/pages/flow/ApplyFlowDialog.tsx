@@ -1,0 +1,225 @@
+/**
+ * 標準工程を案件に入れる前の一覧（⑦）
+ *
+ * ── 黙って入れない（ご判断）────────────────────────────────
+ *
+ * 種類を選んだら 26 件のタスクが勝手に立つ、にはしません。小さい案件でも
+ * 26 行並び、**使わないタスクの山でタスクタブが読めなくなります**。
+ * 入る物を先に見せ、**チェックを外してから**入れます。
+ *
+ * ── 期限が出せない工程も隠さない ────────────────────────────
+ *
+ * 実施日が未定の案件では「実施日から逆算する」工程の期限が出せません。
+ * **落とすと「入るはずの工程が入っていない」ことに誰も気づけない**ので、
+ * 期限なしで入れます（実施日を入れたあとに手で入れ直す形）。
+ * 何件が期限なしになるかは押す前に出します。
+ *
+ * ── 一度入れたら二度入れられない ────────────────────────────
+ *
+ * サーバーが `projects.flow_applied_at` で止めます。押し直しで**同じタスクが
+ * 2 組**できると、どちらを消せばよいのか分からなくなるためです。
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2, CalendarOff, Lock } from 'lucide-react';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
+import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { cn } from '@gmo-onair/shared/src/client/utils';
+import { ROLE_TONE, type FlowTemplate, type PreviewTask } from './flowTypes';
+
+export function ApplyFlowDialog({
+  open, onOpenChange, projectId, projectType, eventDate,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectId: string;
+  /** 案件の種類。合う型を上に出すためだけに使う（合う型が無くても全部出す） */
+  projectType: string | null;
+  /** 実施日。**未定なら null** — 逆算の工程は期限なしで入る */
+  eventDate: string | null;
+}) {
+  const qc = useQueryClient();
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [off, setOff] = useState<Set<string>>(new Set());
+
+  const tpls = useQuery<FlowTemplate[]>({
+    queryKey: ['flow-templates', 'for', projectType],
+    queryFn: async () => (
+      await api.get('/flow-templates', { params: projectType ? { project_type: projectType } : undefined })
+    ).data.data,
+    enabled: open,
+  });
+
+  const picked = tpls.data?.find((t) => t.id === templateId) ?? tpls.data?.[0] ?? null;
+
+  // **日付はサーバーが案件から読む。** 画面から送ると、下見に出た期限と
+  // 実際に入る期限が食い違う（時差・時刻の切り落としで1日ずれる）
+  const rows = useQuery<PreviewTask[]>({
+    queryKey: ['flow-templates', 'preview', picked?.id, projectId],
+    queryFn: async () => (
+      await api.post(`/flow-templates/${picked!.id}/preview`, { project_id: projectId })
+    ).data.data,
+    enabled: open && !!picked,
+  });
+
+  // 型を選び直したらチェックを入れ直す（前の型で外したものを持ち越さない）
+  useEffect(() => { setOff(new Set()); }, [picked?.id]);
+
+  const chosen = useMemo(
+    () => (rows.data ?? []).filter((r) => r.is_required || !off.has(r.id)),
+    [rows.data, off],
+  );
+  const noDue = chosen.filter((r) => !r.due).length;
+
+  const apply = useMutation({
+    mutationFn: () => api.post(`/flow-templates/${picked!.id}/apply`, {
+      project_id: projectId,
+      task_ids: chosen.map((r) => r.id),
+    }),
+    onSuccess: () => {
+      // **4つとも落とすこと。** 同じタスクを別の鍵で持つ画面が3つある
+      // （かんばんは `task-columns`・リストとガントは `project-tasks`・
+      // 全案件のタスク一覧は `task-dashboard`）。1つ落とし忘れると、
+      // その見え方だけ古いまま = 「入れたのに出てこない」になる。
+      // `project` は帯を消すため（`flow_applied_at` を読み直す）
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['task-columns', projectId] });
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      onOpenChange(false);
+      notifySuccess(`${chosen.length} 件の工程を入れました`, {
+        description: noDue > 0
+          ? `うち ${noDue} 件は実施日が決まっていないので期限なしです。実施日を入れたあとタスクタブで入れてください。`
+          : 'タスクタブから担当と期限を直せます。',
+      });
+    },
+    onError: (e) => notifyApiError('入れられませんでした', e),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[720px]">
+        <DialogHeader>
+          <DialogTitle>標準の工程を入れる</DialogTitle>
+          <DialogDescription>
+            入る工程を確かめて、要らないもののチェックを外してください。
+            <strong className="font-bold">担当は入りません</strong> — 型が持っているのは職種で、
+            誰がやるかは案件ごとに決まります。
+          </DialogDescription>
+        </DialogHeader>
+
+        {tpls.isError && <ErrorPanel title="工程の型を読み込めませんでした" error={tpls.error} onRetry={() => tpls.refetch()} />}
+        {tpls.isLoading && <Delayed><SkeletonRows rows={5} /></Delayed>}
+
+        {tpls.data && tpls.data.length === 0 && (
+          <EmptyState
+            title="使える工程の型がありません"
+            description="設定 → 標準工程テンプレートで作ってから、もう一度お試しください。"
+          />
+        )}
+
+        {tpls.data && tpls.data.length > 1 && (
+          <div className="flex flex-wrap gap-1">
+            {tpls.data.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTemplateId(t.id)}
+                className={cn(
+                  'text-note min-h-tap rounded-note border px-2.5 font-bold lg:min-h-[32px]',
+                  picked?.id === t.id
+                    ? 'border-transparent bg-primary-surface text-primary'
+                    : 'border-border bg-card text-muted-foreground',
+                )}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {picked && (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border">
+            {rows.isError && <ErrorPanel title="工程を読み込めませんでした" error={rows.error} onRetry={() => rows.refetch()} />}
+            {rows.isLoading && <div className="p-3"><Delayed><SkeletonRows rows={8} /></Delayed></div>}
+            {rows.data?.map((r) => {
+              const on = r.is_required || !off.has(r.id);
+              return (
+                <label
+                  key={r.id}
+                  className={cn(
+                    'min-h-tap flex items-start gap-2.5 border-b border-border-faint px-3.5 py-2.5 last:border-b-0',
+                    !on && 'opacity-60',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={r.is_required}
+                    onChange={() => setOff((s) => {
+                      const next = new Set(s);
+                      if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                      return next;
+                    })}
+                    className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-badge-xs border-border"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-list block truncate">
+                      <span className="text-muted-foreground">{r.phase_name}｜</span>{r.title}
+                    </span>
+                    <span className="text-note flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground">
+                      {r.due ? (
+                        <span className="font-number">{r.due}</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-warning">
+                          <CalendarOff className="h-3.5 w-3.5" aria-hidden="true" />期限なし
+                        </span>
+                      )}
+                      <span>{r.when}</span>
+                      {r.is_required && (
+                        <span className="flex items-center gap-1">
+                          <Lock className="h-3.5 w-3.5" aria-hidden="true" />外せません
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                  {r.role && (
+                    <span className={cn('text-badge rounded-badge shrink-0 px-2 py-0.5 font-bold', ROLE_TONE[r.role] ?? 'bg-surface-subtle text-muted-foreground')}>
+                      {r.role}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {!eventDate && (
+          <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-2.5 text-secondary-foreground">
+            この案件は<strong className="font-bold">実施日が決まっていません</strong>。
+            実施日から逆算する工程は<strong className="font-bold">期限なし</strong>で入ります
+            （推測の日付は作りません）。
+          </p>
+        )}
+
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <p className="text-note flex-1 text-muted-foreground">
+            <span className="font-number">{chosen.length}</span> 件を入れます
+            {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限なし）</>}。
+            <strong className="font-bold">入れられるのは一度だけ</strong>です。
+          </p>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button disabled={!picked || chosen.length === 0 || apply.isPending} onClick={() => apply.mutate()}>
+            {apply.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+            入れる
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

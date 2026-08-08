@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { checkBooking, locationOfRooms, stampOutOfHours } from './business-hours.service';
 
 /** from〜to (YYYY-MM-DD, 両端含む) の日付を昇順で列挙。UTC 基準で TZ ドリフトを回避。 */
 function enumerateDates(from: string, to: string): string[] {
@@ -224,6 +225,22 @@ export const studioBookingService = {
       );
     }
 
-    return queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]);
+    // ── 営業時間の外なら印を付ける（v4 設定 ⑥）────────────────
+    //
+    // **止めません**（ご判断）。当日いま入れたい予約が入らないと業務が止まる。
+    // 印を残しておけば、あとから一覧で拾って個別に連絡できる。
+    // 拠点が分からない予約（部屋を押さえない予定）は判定しない。
+    const loc = await locationOfRooms(
+      Array.isArray(room_details) && room_details.length > 0
+        ? room_details.map((rd) => rd.room_id)
+        : (room_ids ?? []),
+    );
+    const check = await checkBooking(loc, start_time, end_time);
+    if (check.outside) await stampOutOfHours(id, check);
+
+    const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]) as Record<string, unknown>;
+    // 画面が注意を出せるように、判定の結果を**行とは別に**返す
+    // （列に入れた文言をそのまま出すと、設定を直しても古い文が残る）
+    return { ...row, hours_check: check };
   },
 };

@@ -163,3 +163,62 @@ export function mapBoxItems(entries: Record<string, unknown>[]): BoxItem[] {
     (a.type === b.type ? 0 : a.type === 'folder' ? -1 : 1)
     || a.name.localeCompare(b.name, 'ja'));
 }
+
+/** 1回に上げられる大きさ。**BOX の分割アップロードは使わない**（この用途では要らない） */
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * フォルダにファイルを1つ置く。
+ *
+ * ── 同じ名前のときは版を足す ────────────────────────────────
+ *
+ * BOX は同名のファイルがあると 409 を返します。ここで諦めると
+ * 「見積_v2.pdf を上げ直したのに入らない」が起き、しかも**理由が画面に出ない**と
+ * 押し直され続けます。**同名があれば新しい版として上げる**（BOX の版履歴に残るので、
+ * 前の中身も追えます）。
+ *
+ * ── 失敗は投げる ────────────────────────────────────────────
+ *
+ * 読み取り（`listFolderItems`）は「つながらなくても案件を止めない」ために
+ * 呼び出し側で握りつぶしますが、**書き込みは握りつぶしてはいけません** —
+ * 上がっていないのに上がったように見えるのが一番困ります。
+ */
+export async function uploadToFolder(
+  folderId: string, filename: string, buffer: Buffer,
+): Promise<BoxItem> {
+  const client = getBoxClient();
+  if (!client) throw new Error('BOX_NOT_CONFIGURED');
+
+  const put = async () => {
+    const res = await client.files.uploadFile(folderId, filename, buffer) as
+      { entries?: Record<string, unknown>[]; id?: string };
+    const entry = res.entries?.[0];
+    if (entry) return mapBoxItems([entry])[0];
+    if (res.id) return mapBoxItems([{ id: res.id, type: 'file', name: filename, size: buffer.length }])[0];
+    throw new Error('BOX_UPLOAD_NO_ID');
+  };
+
+  try {
+    return await put();
+  } catch (err) {
+    // 409 = 同じ名前のファイルがある。その id に新しい版として上げ直す
+    const conflictId = conflictFileId(err);
+    if (!conflictId) throw err;
+    const res = await client.files.uploadFileVersion(conflictId, filename, buffer) as
+      { entries?: Record<string, unknown>[]; id?: string };
+    const entry = res.entries?.[0];
+    return entry
+      ? mapBoxItems([entry])[0]
+      : mapBoxItems([{ id: conflictId, type: 'file', name: filename, size: buffer.length }])[0];
+  }
+}
+
+/** 409 のときに BOX が教えてくれる「ぶつかった相手の id」。無ければ null */
+function conflictFileId(err: unknown): string | null {
+  const e = err as { statusCode?: number; response?: { body?: unknown }; context_info?: unknown };
+  const status = e?.statusCode ?? (e as { status?: number })?.status;
+  if (status !== 409) return null;
+  const body = (e.response?.body ?? e) as { context_info?: { conflicts?: { id?: string } } };
+  const id = body?.context_info?.conflicts?.id;
+  return id ? String(id) : null;
+}

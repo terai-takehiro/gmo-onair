@@ -1,15 +1,16 @@
 /**
  * 設定トップに並べるカード（v4・モックの `hub.groups`）
  *
- * ── 「まだ無い」を隠さない ──────────────────────────────────
+ * ── 7枚すべて開くようになりました ──────────────────────────
  *
- * モックは7つのカードを並べますが、**3つはまだ画面がありません**
- * （お金のルール / 休日・営業時間 / 通知とテンプレート）。
- * 押しても何も起きないカードを置くと、以後この画面全体が信用されなくなります。
- * かといって消すと「設定にそんな項目は無い」と読まれます。
+ * 着手時は3枚（お金のルール / 休日・営業時間 / 通知とテンプレート）が
+ * 画面を持たず、`to: null` と `todo` で「これから作ります」と出していました。
+ * **いまは 7 枚とも押せます。**
  *
- * → **並べたうえで「これから作ります」と書き、押せなくします。**
- *   何が足りないかが分かる形にしておくのが、いちばん害が小さい。
+ * `to: null` ＋ `todo` の仕組みは残してあります — 今後また
+ * 「並べるが押せない」枚が出たときに、押しても何も起きないカードを
+ * 置かずに済むようにするためです（押せないカードが1枚あると、
+ * 以後この画面全体が信用されなくなる）。
  */
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -51,7 +52,16 @@ export const HUB_GROUPS: HubGroup[] = [
         to: '/sales/pricing', module: 'sales', who: '案件管理の所有者',
       },
       {
-        key: 'flow', title: '標準工程テンプレート', desc: '案件の種類ごとに立つ工程のひな形',
+        key: 'flow', title: '標準工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程のひな形',
+        icon: ListChecks, tone: 'bg-info-surface text-info',
+        to: '/sales/flow-templates', module: 'sales', who: '案件管理の管理者',
+      },
+      {
+        // **案件とプロジェクトで別系統。** 工事・構築の工程は
+        // 「発注確定 → 設計 → 調達 → 施工 → 検収」で、放送案件の工程
+        // （企画 → 準備 → リハ → 本番 → 精算）とは1つも重なりません。
+        // 1つの表にまとめると、どちらの画面にも要らない工程が並びます
+        key: 'gpm-flow', title: '標準工程テンプレート（プロジェクト）', desc: '工事・構築の段取りのひな形',
         icon: ListChecks, tone: 'bg-info-surface text-info',
         to: '/gpm/templates', module: 'gpm', who: 'プロジェクト管理の編集者',
       },
@@ -68,19 +78,12 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'money', title: 'お金のルール', desc: '締め日・支払サイト・消費税の扱い',
         icon: Scale, tone: 'bg-success-surface text-success',
-        to: null,
-        todo: '締め日・支払サイト・税の扱いを入れる場所がまだありません（いまは取引先ごとに手で入れています）。'
-          + '**どの単位で決めるか**（会社ぜんぶ／取引先ごと／案件ごと）を決めてから作ります',
-        module: 'budget', who: '経理',
+        to: '/settings/money', module: 'budget', who: '経理',
       },
       {
         key: 'cal', title: '休日・営業時間', desc: '予約できる時間帯と休業日',
         icon: CalendarClock, tone: 'bg-warning-surface text-warning',
-        to: null,
-        todo: '休日と営業時間を持つ表がまだありません。'
-          + '**入れると予約の画面が「その時間は取れません」と言えるようになります**が、'
-          + 'いま入っている予約に営業時間外のものがあるはずなので、既存分の扱いを決めてから作ります',
-        module: 'studio', who: 'カレンダーの管理者',
+        to: '/settings/hours', module: 'studio', who: 'システム管理者',
       },
     ],
   },
@@ -95,10 +98,7 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'notify', title: '通知とテンプレート', desc: 'メール文面と通知の送り先',
         icon: Mail, tone: 'bg-primary-surface text-primary',
-        to: null,
-        todo: 'メールの文面を貯める場所がまだありません（いまは送るたびに書いています）。'
-          + '**どの通知を誰に送るか**の一覧を先に作る必要があります',
-        module: 'admin', who: '管理者',
+        to: '/settings/notify', module: 'admin', who: 'システム管理者',
       },
     ],
   },

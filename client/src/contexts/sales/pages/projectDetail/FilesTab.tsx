@@ -14,11 +14,16 @@
  * 画面はその理由を1行で出すだけで、**他のタブは普通に使えます**。
  * ここでエラー画面にすると、BOX が落ちた日に案件詳細が全部開けなくなります。
  *
- * ── ファイルを置くのはまだできません ────────────────────────
+ * ── ファイルを置ける ────────────────────────────────────────
  *
- * モックは「ここに落としたファイルは、選んだフォルダにそのまま入ります」と
- * 書いていますが、**アップロードは入れていません** (読み取りとは別の作業)。
- * できないことは画面に書きます。
+ * モックの「ここに落としたファイルは、選んだフォルダにそのまま入ります」を
+ * 入れました。**社内と社外は別のカードで、置き場所を選ばせません** —
+ * 1つの枠にまとめて「どちらに入れますか」と訊く形にすると、
+ * 急いでいるときに取り違えて**原価が外に出ます**。
+ *
+ * **同じ名前のファイルは新しい版として上がります**（BOX の版履歴に残る）。
+ * 上げられなかったものは名前を出します — 「3つ中2つ入った」を黙ると、
+ * 同じものをもう一度上げることになります。
  *
  * ── なぜ社内と社外を分けて出すか ────────────────────────────
  *
@@ -26,7 +31,8 @@
  * 発注・請求・原価は社内。この画面でも**赤（社内）と緑（社外）で分けて出します**」。
  * 取り違えると原価が外に出るので、色と言葉の両方で分けます。
  */
-import { FolderLock, FolderOpen, ExternalLink, Info, File, Folder } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FolderLock, FolderOpen, ExternalLink, Info, File, Folder, Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -34,6 +40,7 @@ import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/c
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import type { ProjectDetail } from './types';
 
 interface BoxItem {
@@ -57,7 +64,7 @@ function size(n: number | null): string | null {
 }
 
 function FolderCard({
-  projectId, tone, icon: Icon, title, what, url,
+  projectId, tone, icon: Icon, title, what, url, canEdit,
 }: {
   projectId: string;
   tone: 'internal' | 'external';
@@ -65,9 +72,14 @@ function FolderCard({
   title: string;
   what: string;
   url: string | null;
+  canEdit: boolean;
 }) {
   const inside = tone === 'internal';
   const scope = inside ? 'internal' : 'external';
+  const qc = useQueryClient();
+  const pick = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+
   const { data, isLoading } = useQuery<{ data: BoxItem[]; reason?: string }>({
     queryKey: ['box-files', projectId, scope],
     queryFn: async () => (await api.get(`/projects/${projectId}/box-files`, { params: { scope } })).data,
@@ -75,6 +87,32 @@ function FolderCard({
     staleTime: 60_000,
   });
   const items = data?.data ?? [];
+
+  const upload = useMutation({
+    mutationFn: async (files: File[]) => {
+      const fd = new FormData();
+      // **5つまで。** それ以上は BOX を直接開いてもらう（1つずつ上げるので待たせすぎる）
+      for (const f of files.slice(0, 5)) fd.append('files', f);
+      return (await api.post(`/projects/${projectId}/box-files?scope=${scope}`, fd)).data.data as
+        { uploaded: BoxItem[]; failed: string[] };
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['box-files', projectId, scope] });
+      notifySuccess(`${r.uploaded.length} 件を${title}に置きました`, {
+        description: r.failed.length > 0
+          ? `置けなかったもの: ${r.failed.join(' / ')}`
+          : '同じ名前があったものは、新しい版として上がっています。',
+      });
+    },
+    onError: (e) => notifyApiError('BOX に置けませんでした', e),
+  });
+
+  const send = (list: FileList | null) => {
+    const files = Array.from(list ?? []);
+    if (files.length > 0) upload.mutate(files);
+  };
+  /** フォルダが無い・BOX 未接続のときは置き場所が無い */
+  const canPut = canEdit && !!url && data?.reason !== 'NOT_CONFIGURED';
 
   return (
     <section className="overflow-hidden rounded-card border border-border bg-card">
@@ -130,12 +168,43 @@ function FolderCard({
           </Row>
         ))
       )}
+
+      {canPut && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => { e.preventDefault(); setOver(false); send(e.dataTransfer.files); }}
+          className={`m-3 flex flex-col items-center gap-2 rounded-note border border-dashed p-4 text-center ${
+            over ? 'border-primary bg-primary-surface-weak' : 'border-border bg-surface-subtle'
+          }`}
+        >
+          <input
+            ref={pick}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => { send(e.target.files); e.target.value = ''; }}
+          />
+          <p className="text-note text-muted-foreground">
+            ここに落とすと<strong className="font-bold">{title}</strong>に入ります（5つまで）。
+          </p>
+          <Button variant="outline" disabled={upload.isPending} onClick={() => pick.current?.click()}>
+            {upload.isPending
+              ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+              : <Upload className="mr-1.5 h-4 w-4" aria-hidden="true" />}
+            ファイルを選ぶ
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
 export function FilesTab({ project }: { project: ProjectDetail }) {
   const qc = useQueryClient();
+  const { currentUser, permissions } = useAuth();
+  const canEdit = currentUser?.role === 'system_admin'
+    || ['editor', 'manager', 'owner'].includes(permissions?.sales ?? '');
   const hasFolders = !!(project.box_url_internal || project.box_url_external);
 
   const createFolders = useMutation({
@@ -157,6 +226,7 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
           title="社内限り"
           what="発注・請求・原価。お客様には見せません。"
           url={project.box_url_internal}
+          canEdit={canEdit}
         />
         <FolderCard
           projectId={project.id}
@@ -165,6 +235,7 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
           title="社外と共有"
           what="見積・台本・納品物。お客様と共有します。"
           url={project.box_url_external}
+          canEdit={canEdit}
         />
       </div>
 
