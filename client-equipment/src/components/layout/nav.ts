@@ -28,9 +28,9 @@ import {
   ClipboardCheck,
   ClipboardList,
   Layers,
-  Menu,
   Package,
   QrCode,
+  Search,
   Server,
   Settings,
   Wrench,
@@ -70,12 +70,16 @@ export const EQUIPMENT_NAV: ShellNavSection[] = [
 ];
 
 /**
- * スマホ下端のタブ。v4 の決めごとは ホーム / やること / 検索 の3つですが、
- * 機材管理にはまだ「検索」の画面がありません (QRスキャンは別物)。
- * 無い画面のタブを置くと押しても何も起きないので、いまはメニューを開くタブです。
+ * スマホ下端のタブ。**v4 の決めごとどおり ホーム / やること / 探す**（M9）。
+ *
+ * 3つ目は長らく「メニューを開く」でした（検索の画面が無かったため）。
+ * ですが**メニューは上辺バーの ☰ からも開けます** — 3枠しかないうちの1枠を
+ * 二重の入口に使っていて、決めごとにある検索がどこにも無い状態でした。
+ * `/equipment/search` を作って本来の形に戻しています
+ * （QRスキャンはその画面の中にいちばん大きく置いてあります）。
  */
 export const EQUIPMENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: 'ホーム', to: '/equipment', icon: BarChart3, end: true },
   { label: 'やること', to: '/equipment/lendings', icon: ClipboardList },
-  { label: 'メニュー', icon: Menu, action: 'menu' },
+  { label: '探す', to: '/equipment/search', icon: Search },
 ];

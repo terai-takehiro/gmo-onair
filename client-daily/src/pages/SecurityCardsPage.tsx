@@ -46,7 +46,13 @@ export default function SecurityCardsPage() {
   /** モックの3分類での絞り込み。空 = すべて */
   const [group, setGroup] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /**
+   * `?card=<id>` で開いた1枚を選んだ状態にする（M9）。「探す」からここへ来たとき、
+   * **24枚の中から目でもう一度探させない**ため。絞り込みは既定（すべて）のままなので、
+   * 指した1枚は必ず一覧に居ます
+   */
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('card'));
   const [dialog, setDialog] = useState<'lend' | 'return' | null>(null);
 
   const all = useMemo(() => cards.data ?? [], [cards.data]);

@@ -49,5 +49,6 @@ export const EQUIPMENT_MOBILE_OK: string[] = [
   '/equipment/lendings',    // 貸出・返却 — **現場で使う**
   '/equipment/inventory',   // 棚卸し — スマホでは現場のスキャンになる
   '/equipment/scan',        // QRスキャン
+  '/equipment/search',      // 探す — **スマホの下タブ3つ目**（M9）
   '/equipment/maintenance', // メンテナンス — **現場で「壊れている」を登録する**（ご判断）
 ];
