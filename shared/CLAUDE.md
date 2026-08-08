@@ -481,6 +481,7 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | --- | --- |
 | `client-v4/sheet.tsx` の `<Sheet>` | **下から出るシート**。一覧から1件ずつ片づける画面で**画面遷移させない**（決めごと「終わらせるのはシートで」）。主ボタンは下端に固定・中身だけスクロール・`safe-area-inset-bottom` を足す |
 | **`client-v4/mobileFilterBar.tsx` の `<MobileFilterBar>`** | **一覧の絞り込みを1行に畳んでシートで開く**（M8）。検索だけ外に出す／効いている数をボタンに出す（0 なら出さない）／下端に「ぜんぶ外す」と「結果を見る」。**数え方は呼ぶ側が渡す** — 何が既定かは画面ごとに違う（案件一覧は「半年・既定の並び」、機材台帳は「絞り込みなし」）ので、共通側に持たせると必ずどちらかが嘘になる。中身は `<MobileFilterField>`（見出し＋操作）と `<MobileFilterSegments>`（段の切り替え。`min-h-tap` と均等割りを固定） |
+| **`client-v4/collapseOnScroll.ts` の `useCollapseOnScroll()`** | **下にスクロールしたら上辺バーを畳む**（M9）。スマホは上辺バー 64px ＋ 下タブ 56px が常に居座り、667px の端末では **18%** が枠だった。**下タブは畳まない**（行き先そのもので、消すと戻る道が無くなる）。判定だけを持ち、見た目は `tokens-v4.css`（`[data-shell-collapsed]`）。**`transform` ではなく `height: 0`** — `translateY(-100%)` だと場所は取ったままで本文が1行も増えない。**焦点は CSS の `:not(:focus-within)` で守る**（JS で見張ると焦点の移り変わりに1フレーム遅れる）。**下端の 32px では状態を変えない** — 外すと、下端でわずかに戻したときに上辺バーが飛び出す（実測で確認済み） |
 | `client-v4/mobile.ts` の `useIsMobile()` | スマホか PC かの判定。**`lg`(1023px) と同じ値**を使う（CSS と JS がずれると片方だけ切り替わる） |
 | `client-v4/mobile.ts` の `duePresets()` | 期限は **明日18:00 / 3日後18:00 / 日時を選ぶ**（決めごと「入力は端末に任せる」。自作の日付ホイールを作らない） |
 | `client-v4/mobile.ts` の `dueLabel()` | **過ぎたものを「あと -2日」と出さない** |

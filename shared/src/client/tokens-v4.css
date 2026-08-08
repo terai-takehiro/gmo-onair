@@ -230,6 +230,34 @@
   :root [data-shell-title]:not(:empty) + [data-shell-applabel] { display: none; }
 
   /*
+   * **下にスクロールしたら上辺バーを畳む。**（M9）
+   *
+   * スマホは上辺バー 64px ＋ 下タブ 56px が常に居座り、画面の高さが 667px の
+   * 端末では **18%** が枠でした。読んでいるあいだは枠が要らないので、
+   * 下へ動かしたら畳み、上へ戻したら出します
+   * （判定は `client-v4/collapseOnScroll.ts`。ここは見た目だけ）。
+   *
+   * **`transform` ではなく `height` を 0 にする。** `translateY(-100%)` だと
+   * 場所は取ったままなので、64px の空白が残るだけで本文は1行も増えません。
+   *
+   * **`:not(:focus-within)` が要点。** 畳んだ状態でも Tab は中の ☰ やベルに
+   * 入れるので、**焦点が入ったら開きます**。JS で見張ると焦点の移り変わりに
+   * 1フレーム遅れて畳み直すことになるので、CSS 側で守ります。
+   *
+   * 下タブは畳みません — あれは行き先そのもので、消すと戻る道が無くなります。
+   */
+  :root [data-shell-topbar] {
+    /* 動きを減らす設定の人には、下の `prefers-reduced-motion` が 0 秒にします */
+    transition: height 180ms ease, border-bottom-width 180ms ease;
+  }
+  :root [data-shell-collapsed] [data-shell-topbar]:not(:focus-within) {
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-bottom-width: 0;
+  }
+
+  /*
    * **バッジの均等割り付けはスマホでやめる。**（M8）
    *
    * `TableBadge` は和文4字までを **62px に均等割り付け**します。目的は
