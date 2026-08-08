@@ -115,6 +115,14 @@ export interface AppDef {
 export const APPS: AppDef[] = [
   { key: 'home',        label: 'ホーム',             description: 'ONAiR のトップページ',                  icon: Home,          color: '#475569', path: '/' },
   { key: 'sales',       label: '案件管理',           description: '案件パイプライン・顧客・見積',          icon: FolderKanban,  color: '#2563eb', path: '/sales',      permissionModule: 'sales' },
+  /**
+   * **案件管理の隣に置く**（ご指示）。旧来の呼び方では
+   * **案件管理 = GLS-A ／ プロジェクト管理 = GLS-B** で、この2つは対になる。
+   * 間に財務管理が入っていると対に見えない。
+   * ⚠️ **並び順はここが唯一の正** — トップのタイル・上辺バーのアプリ切替の
+   * どちらも `APPS` の順で描くので、動かすときはここだけを動かす。
+   */
+  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'gpm' },
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'budget' },
   { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'studio' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
@@ -132,7 +140,6 @@ export const APPS: AppDef[] = [
   { key: 'translate',   label: '翻訳',               description: 'GMO 翻訳ツール (外部)',                 icon: Languages,     color: '#16a34a', path: 'https://gmo-translate.jp/',         external: 'https://gmo-translate.jp/' },
 
   /* ── まだ無いもの ─────────────────────────────────────────── */
-  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'gpm' },
   { key: 'assign',      label: '制作支援',           description: 'スケジュール・スタッフ配置',            icon: Users,         color: '#ea580c', path: '/prodsheet',                               comingSoon: true },
   { key: 'delivery',    label: '素材納品',           description: 'VTR・素材の納品管理',                   icon: Truck,         color: '#14b8a6', path: '/delivery',                                comingSoon: true },
 ];

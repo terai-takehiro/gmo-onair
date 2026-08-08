@@ -3,11 +3,18 @@
  *
  * ── 全部の項目を必ず送る ────────────────────────────────────
  *
- * `PUT /gpm/projects/:id` は名前・区分・状態だけが `COALESCE` で、
- * **依頼元・PM会社・PM・開始日・終了日・メモ・案件リンクは素の代入**です。
+ * `PUT /gpm/projects/:id` は名前・区分・ステージ・依頼元・担当だけが `COALESCE` で、
+ * **PM会社・着手日・完了予定日・メモは素の代入**です。
  * 送らなかった項目は `null` で上書きされます（サーバーの SQL を読んで確認）。
  * だから**いま入っている値を初期値にして、必ず全部送ります** —
  * 「名前だけ直したら PM が消えた」を作らないため。
+ *
+ * ── 依頼元はここでは変えられない ────────────────────────────
+ *
+ * migration 179 でプロジェクトは GLS-B の案件になり、依頼元は
+ * **お客様マスターへの参照**になりました（自由入力ではなくなった）。
+ * ここに文字を打つ欄を残すと、打った名前がどこにも保存されません。
+ * 付け替えは案件の「直す」画面（お客様の選択欄）で行います。
  *
  * ── 直す画面をダイアログにした理由 ──────────────────────────
  *
@@ -41,10 +48,9 @@ export function EditProjectDialog({
   const users = useGpmUsers();
 
   const [name, setName] = useState(project.name);
-  const [kind, setKind] = useState<GpmKind>(project.kind);
-  const [clientName, setClientName] = useState(project.client_name ?? '');
+  const [kind, setKind] = useState<GpmKind>(project.gpm_kind ?? 'self_build');
   const [pmCompany, setPmCompany] = useState(project.pm_company ?? '');
-  const [pmUserId, setPmUserId] = useState(project.pm_user_id ?? '');
+  const [pmUserId, setPmUserId] = useState(project.assigned_to ?? '');
   const [startedOn, setStartedOn] = useState(ymd(project.started_on) ?? '');
   const [endsOn, setEndsOn] = useState(ymd(project.ends_on) ?? '');
   const [notes, setNotes] = useState(project.notes ?? '');
@@ -54,15 +60,13 @@ export function EditProjectDialog({
       // **全項目を送る。** 送らないと null で上書きされる（冒頭の注記）
       api.put(`/gpm/projects/${project.id}`, {
         name: name.trim(),
-        kind,
-        status: project.status,
-        client_name: clientName.trim() || null,
+        gpm_kind: kind,
+        stage: project.stage,
         customer_id: project.customer_id,
         pm_company: pmCompany.trim() || null,
-        pm_user_id: pmUserId || null,
+        assigned_to: pmUserId || null,
         started_on: startedOn || null,
         ends_on: endsOn || null,
-        project_id: project.project_id,
         notes: notes.trim() || null,
       }),
     onSuccess: () => {
@@ -106,8 +110,14 @@ export function EditProjectDialog({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="ep-client">依頼元</Label>
-              <Input id="ep-client" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+              <Label>依頼元</Label>
+              {/* **読むだけ。** お客様マスターへの参照なので、ここで打っても保存されない */}
+              <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">
+                {project.customer_name ?? '未設定'}
+              </p>
+              <p className="text-note text-muted-foreground">
+                付け替えは案件の「直す」画面から行います
+              </p>
             </div>
             <div>
               <Label htmlFor="ep-pmco">PM会社</Label>

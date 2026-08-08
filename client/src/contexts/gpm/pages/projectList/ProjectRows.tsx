@@ -21,9 +21,17 @@ import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/s
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import {
-  KIND_LABEL, STATUS_LABEL, STATUS_TONE, dueLabel, dueTone, progressPct, ymd,
+  KIND_LABEL, dueLabel, dueTone, progressPct, ymd,
   type GpmProjectRow,
 } from '../../types';
+/**
+ * **ステージのバッジは案件一覧と同じものを使う** (migration 179)。
+ * プロジェクトは GLS-B の案件なので、同じステージに別の色・別の言葉を当てると
+ * 「同じ段なのに画面によって見え方が違う」ことになる。
+ */
+import {
+  STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES,
+} from '@/contexts/sales/pages/projectList/stages';
 
 export function ProjectRowsHeader() {
   return (
@@ -66,9 +74,9 @@ export function ProjectRow({
   const due = ymd(p.next_due);
   const dueText = dueLabel(due, today);
   const pmLine = [
-    p.client_name,
+    p.customer_name,
     p.pm_company ? `PM会社 ${p.pm_company}` : '自社PM',
-    p.pm_name ? `担当 ${p.pm_name}` : null,
+    p.assigned_to_name ? `担当 ${p.assigned_to_name}` : null,
   ].filter(Boolean).join(' ・ ');
 
   return (
@@ -84,20 +92,20 @@ export function ProjectRow({
       }}
       className={cn(
         'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        p.status === 'done' && 'opacity-70 hover:opacity-100',
+        TERMINAL_STAGES.includes(p.stage) && 'opacity-70 hover:opacity-100',
       )}
     >
       <RowMain>
         <div className="flex items-center gap-2">
           <RowTitle>{p.name}</RowTitle>
           <span className="text-badge shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
-            {KIND_LABEL[p.kind]}
+            {p.gpm_kind ? KIND_LABEL[p.gpm_kind] : '区分なし'}
           </span>
         </div>
         <RowSub>{pmLine || '依頼元 未設定'}</RowSub>
       </RowMain>
 
-      <TableBadge w={96} label={STATUS_LABEL[p.status]} className={STATUS_TONE[p.status]} />
+      <TableBadge w={96} label={STAGE_BADGE_LABEL[p.stage]} className={STAGE_BADGE_TONE[p.stage]} />
 
       <RowSlot w={128} className="text-sub min-w-0" hideOnMobile>
         {p.current_phase ? <span className="truncate">{p.current_phase}</span> : null}

@@ -26,6 +26,7 @@ router.get('/', async (req, res) => {
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
+    issued: req.query.issued === '1' || req.query.issued === 'true',
     source: req.query.source === 'kessan' ? 'kessan' : undefined,
     kessanMarker: req.query.kessan_marker as string,
     aiCreated: req.query.ai_created === '1' || req.query.ai_created === 'true',

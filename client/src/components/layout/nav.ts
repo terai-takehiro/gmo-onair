@@ -16,7 +16,6 @@
 import {
   Award,
   BarChart3,
-  Briefcase,
   Building2,
   Calendar,
   CalendarClock,
@@ -94,8 +93,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       items: [
         { label: "顧客", to: "/sales/customers", icon: Building2 },
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+        // **ビジネス（GLS-B）はプロジェクト管理へ移した** (migration 179)。
+        // 旧 URL は `App.tsx` が `/gpm/projects` へ転送する
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
-        { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
         { label: "ガントチャート", to: "/sales/tasks/gantt", icon: GanttChart },

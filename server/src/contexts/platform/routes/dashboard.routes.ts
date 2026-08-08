@@ -243,7 +243,9 @@ router.get('/sales-board', async (_req, res) => {
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
-     WHERE p.deleted_at IS NULL
+     -- **GLS-A（案件）だけ** (migration 179)。期限超過の次アクションは営業の道具で、
+     -- GLS-B（プロジェクト）の「相手待ち」はプロジェクト管理の未確認事項が持つ
+     WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
        AND p.stage NOT IN ('s_completed','e_lost')
      ORDER BY
        CASE WHEN la.activity_date IS NOT NULL
@@ -284,7 +286,9 @@ const AI_INBOX_SQL =
      ORDER BY m.created_at ASC
      LIMIT 1
    ) ai ON TRUE
-   WHERE p.deleted_at IS NULL
+   -- **GLS-A（案件）だけ** (migration 179)。受付は案件管理の画面で、
+   -- GLS-B（プロジェクト）はプロジェクト管理で受け取る
+   WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
      AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
      AND p.ai_reviewed_at IS NULL
    ORDER BY p.created_at DESC
@@ -317,6 +321,7 @@ router.get('/inbox', async (req, res) => {
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
+         AND p.gls_category = 'A'
          AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
        ORDER BY p.updated_at DESC
        LIMIT 100`

@@ -51,7 +51,13 @@ export interface ProjectFilter {
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   tag?: string;
+  /**
+   * 案件分類。`'A'` = 案件（スタジオ）／ `'B'` = プロジェクト。
+   * **発番済かどうかは含まない**（それは `issued`）。
+   */
   glsCategory?: 'A' | 'B';
+  /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
+  issued?: boolean;
   /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
   source?: 'kessan';
   /** 決算インポートのマーカー (例 '2026-01' / '2025-08〜2026-01') で絞り込み */
@@ -219,11 +225,22 @@ export class ProjectService {
     } else if (filter.aiReviewed === 'unreviewed') {
       where += ` AND p.ai_reviewed_at IS NULL`;
     }
-    // v2.8.113+: gls_category カラム (DB) を真実とする。発番済の旧データは migration 086 でバックフィル済
-    if (filter.glsCategory === 'A') {
-      where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'A'`;
-    } else if (filter.glsCategory === 'B') {
-      where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'B'`;
+    /**
+     * 案件分類。v2.8.113+ は `gls_category` カラム (DB) を真実とする
+     * (発番済の旧データは migration 086 でバックフィル済)。
+     *
+     * **migration 179 から、この絞り込みは「発番済か」を含まない。**
+     * 以前は `gls_number IS NOT NULL` を一緒に付けていた (確定案件ページ専用だったため) が、
+     * 案件管理の一覧が **GLS-A だけを出す**ようになり、ヨミ段階の A も要るようになった。
+     * 「発番済だけ」は `issued` で別に指定する — 1つの絞り込みに2つの意味を持たせると、
+     * 片方が欲しいだけの画面が**もう片方も黙って掛けられる**。
+     */
+    if (filter.glsCategory === 'A' || filter.glsCategory === 'B') {
+      where += ` AND p.gls_category = ?`;
+      params.push(filter.glsCategory);
+    }
+    if (filter.issued) {
+      where += ` AND p.gls_number IS NOT NULL`;
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する

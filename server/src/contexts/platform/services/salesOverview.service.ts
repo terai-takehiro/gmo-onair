@@ -38,6 +38,19 @@ const LAST_MOVE = `
 const STUCK_DAYS = 7;
 
 /**
+ * **この画面は GLS-A（案件）だけを数える** (migration 179・決め⑩)。
+ *
+ * GLS-B はプロジェクト管理の持ち物で、**自社構築は売上が立ちません**。
+ * 混ぜると受注率と平均単価が意味を持たなくなります
+ * （売上 0 の構築案件が「受注」に並ぶ）。
+ *
+ * **財務・決算・週報・MCP はここと違って GLS-B も数えます** — あちらは
+ * 「実際に出入りしたお金」を見る場所で、売上 0・仕入ありの案件も対象です。
+ * 数え方が違うこと自体はもともとそうです（財務は確定売上、営業はステージ）。
+ */
+const ONLY_A = `p.gls_category = 'A'`;
+
+/**
  * 「止まっている」理由。**ステージ変更の履歴 (migration 164) から言う。**
  *
  * モックの「見積を送ったまま連絡がありません」は、**いつそのステージになったか**が
@@ -91,7 +104,7 @@ export async function getSalesOverview(now = new Date()) {
          COUNT(*) FILTER (WHERE ${LAST_MOVE} >= NOW() - INTERVAL '${STUCK_DAYS} days')::int AS moved,
          COUNT(*) FILTER (WHERE ${LAST_MOVE} <  NOW() - INTERVAL '${STUCK_DAYS} days')::int AS stuck
        FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage NOT IN ('s_completed','e_lost')`
+       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')`
     ),
 
     // ── 今週の実施 ── 日付は TEXT なので文字列比較 (ISO 表記なので順序は正しい)。
@@ -102,7 +115,7 @@ export async function getSalesOverview(now = new Date()) {
          COUNT(*) FILTER (WHERE p.event_start <= ?
                             AND COALESCE(NULLIF(p.event_end,''), p.event_start) >= ?)::int AS today
        FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage NOT IN ('e_lost')
+       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('e_lost')
          AND p.event_start IS NOT NULL AND p.event_start <> ''
          AND p.event_start <= ?
          AND COALESCE(NULLIF(p.event_end,''), p.event_start) >= ?`,
@@ -112,15 +125,17 @@ export async function getSalesOverview(now = new Date()) {
     // ── 見積の返事待ち ── 出した (`sent`) まま決まっていない版だけ。
     // 値引きは単価を下げず別建てなので、合計は subtotal から引く。
     //
-    // **`project_id IS NOT NULL` を必ず付ける** (v4 大⑤・migration 173)。
-    // `estimates` はプロジェクト管理（GPM）の見積も入るようになったので、
-    // 外すと **案件管理のダッシュボードに GPM の見積が足されます**。
+    // **`gls_category = 'A'` を必ず付ける** (migration 179)。
+    // `estimates` はプロジェクト管理（GLS-B）の見積も入るので、
+    // 外すと **案件管理のダッシュボードにプロジェクトの見積が足されます**。
     // `revenues` を読む 41 か所が `status` を見ていなかったのと同じ形の穴で、
     // ここは実測して**この1か所だけ**だと確かめてある
+    // （migration 179 より前は `project_id IS NOT NULL` が同じ役目をしていた）
     queryOne(
-      `SELECT COUNT(*)::int AS n, COALESCE(SUM(subtotal - discount),0)::int AS amount
-       FROM estimates WHERE status = 'sent' AND deleted_at IS NULL
-         AND project_id IS NOT NULL`
+      `SELECT COUNT(*)::int AS n, COALESCE(SUM(e.subtotal - e.discount),0)::int AS amount
+       FROM estimates e JOIN projects p ON p.id = e.project_id
+       WHERE e.status = 'sent' AND e.deleted_at IS NULL
+         AND p.gls_category = 'A' AND p.deleted_at IS NULL`
     ),
 
     // ── 今月の売上 ── **`status='confirmed'` で必ず絞る。**
@@ -128,10 +143,11 @@ export async function getSalesOverview(now = new Date()) {
     // status を見ておらず、実際に混ざっていた)。
     // `group_id IS NULL` は按分の親行を二重に数えないため (既存の集計と同じ形)
     queryOne(
-      `SELECT COALESCE(SUM(amount),0)::int AS amount, COUNT(*)::int AS n
-       FROM revenues
-       WHERE status = 'confirmed' AND deleted_at IS NULL AND group_id IS NULL
-         AND recognition_date BETWEEN ? AND ?`,
+      `SELECT COALESCE(SUM(r.amount),0)::int AS amount, COUNT(*)::int AS n
+       FROM revenues r JOIN projects p ON p.id = r.project_id
+       WHERE r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL
+         AND ${ONLY_A} AND p.deleted_at IS NULL
+         AND r.recognition_date BETWEEN ? AND ?`,
       [monthStart, monthEnd]
     ),
 
@@ -146,7 +162,7 @@ export async function getSalesOverview(now = new Date()) {
                 ORDER BY sc.changed_at DESC LIMIT 1) AS stage_days
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.deleted_at IS NULL AND p.stage NOT IN ('s_completed','e_lost')
+       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')
          AND ${LAST_MOVE} < NOW() - INTERVAL '${STUCK_DAYS} days'
        ORDER BY ${LAST_MOVE} ASC
        LIMIT 5`
@@ -156,9 +172,9 @@ export async function getSalesOverview(now = new Date()) {
     // モックの KPI はここ。`updated_at` では代われない (名前を直しただけでも動く)
     queryOne(
       `SELECT COUNT(*)::int AS n, COALESCE(SUM(expected_amount),0)::int AS amount
-         FROM projects
-        WHERE deleted_at IS NULL AND won_at IS NOT NULL
-          AND won_at >= ?::date AND won_at < (?::date + INTERVAL '1 month')`,
+         FROM projects p
+        WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.won_at IS NOT NULL
+          AND p.won_at >= ?::date AND p.won_at < (?::date + INTERVAL '1 month')`,
       [monthStart, monthStart]
     ),
 

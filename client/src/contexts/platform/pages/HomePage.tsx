@@ -60,8 +60,13 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * **上辺バーのアプリ切替にも左メニューにも凍結アプリは出ていません**。
  * つまり**押して開ける場所はトップのタイルだけ**で、消すと Qシート・技術資料・
  * 計時LIVE・リアルタイムCG が URL 直打ちでしか開けなくなります（放送が止まる）。
+ *
+ * ⚠️ **この配列は「出す・出さない」だけを決めます。並び順は決めません** —
+ * 下の `tiles` は `APPS.filter(...)` なので、**描かれる順は `apps.ts` の
+ * `APPS` の順**です。ここを並べ替えてもタイルは動きません
+ * （プロジェクト管理を `apps.ts` で案件管理の隣へ移したのはそのため）。
  */
-const DAILY_KEYS = ['sales', 'budget', 'gpm', 'studio', 'dailyops', 'equipment', 'admin'];
+const DAILY_KEYS = ['sales', 'gpm', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();

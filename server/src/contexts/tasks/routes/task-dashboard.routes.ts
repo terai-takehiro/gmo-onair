@@ -12,9 +12,12 @@ router.use(requireAuth, requirePermission('sales'));
 // 完了・失注を除く全案件のカラム + タスクを返す
 router.get('/', wrap(async (req, res) => {
   const projects = (await queryAll(
+    // **GLS-A（案件）だけ** (migration 179)。GLS-B はプロジェクト管理の持ち物で、
+    // 工程のタスクがここに並ぶと案件のタスクが埋もれる。
+    // 「自分のタスク」「期限超過」には今までどおり出る（GLS-B 案件のタスクなので正しい）
     `SELECT id, gls_number, gls_category, name, stage
      FROM projects
-     WHERE deleted_at IS NULL
+     WHERE deleted_at IS NULL AND gls_category = 'A'
        AND stage NOT IN ('s_completed', 'e_lost')
      ORDER BY gls_number NULLS LAST, name`
   )) as unknown as { id: string; gls_number: string | null; gls_category: string | null; name: string; stage: string }[];

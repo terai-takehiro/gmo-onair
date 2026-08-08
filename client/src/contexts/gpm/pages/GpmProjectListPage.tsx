@@ -28,17 +28,19 @@ import {
 } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useGpmProjects } from '../queries';
-import { KIND_LABEL, type GpmKind, type GpmStatus } from '../types';
+import { KIND_LABEL, STAGE_GROUPS, type GpmKind } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 
-/** 状態のチップ。「動いているもの」を先頭に置く（毎日見るのはここ） */
-const STATUS_CHIPS: { key: string; label: string; statuses: GpmStatus[] }[] = [
-  { key: 'open', label: '動いているもの', statuses: ['active', 'planning'] },
-  { key: 'active', label: '進行中', statuses: ['active'] },
-  { key: 'planning', label: '準備中', statuses: ['planning'] },
-  { key: 'onhold', label: '保留', statuses: ['onhold'] },
-  { key: 'done', label: '完了', statuses: ['done'] },
-  { key: 'all', label: 'すべて', statuses: ['active', 'planning', 'onhold', 'done'] },
+/**
+ * 状態のチップ。**束ねるのは読むときだけ** — 保存するのはいつも `stage` そのもの
+ * （`types.ts` の `STAGE_GROUPS`。サーバーの `STAGE_GROUPS` と同じ束ね方）。
+ * 「動いているもの」を先頭に置く（毎日見るのはここ）。
+ */
+const STAGE_CHIPS = [
+  { key: 'open', label: '動いているもの',
+    stages: [...STAGE_GROUPS[1].stages, ...STAGE_GROUPS[2].stages] },
+  ...STAGE_GROUPS.filter((g) => g.key !== 'all'),
+  { key: 'all', label: 'すべて', stages: [] as typeof STAGE_GROUPS[number]['stages'] },
 ];
 
 const KINDS: GpmKind[] = ['self_build', 'group_order'];
@@ -48,7 +50,7 @@ export default function GpmProjectListPage() {
   // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('gpm', 'editor');
-  const [statusKey, setStatusKey] = useState('open');
+  const [stageKey, setStageKey] = useState('open');
   const [kind, setKind] = useState<GpmKind | ''>('');
   const [search, setSearch] = useState('');
 
@@ -57,26 +59,29 @@ export default function GpmProjectListPage() {
   const all = useMemo(() => data ?? [], [data]);
 
   // 区分だけを掛けた集合。**状態チップの件数はここから数える**
-  const byKind = useMemo(() => (kind ? all.filter((p) => p.kind === kind) : all), [all, kind]);
+  const byKind = useMemo(() => (kind ? all.filter((p) => p.gpm_kind === kind) : all), [all, kind]);
   const rows = useMemo(() => {
-    const statuses = STATUS_CHIPS.find((c) => c.key === statusKey)?.statuses ?? [];
-    return byKind.filter((p) => statuses.includes(p.status));
-  }, [byKind, statusKey]);
+    const stages = STAGE_CHIPS.find((c) => c.key === stageKey)?.stages ?? [];
+    // 「すべて」は畳まない（見送りも含めて全部出す）
+    return stages.length === 0 ? byKind : byKind.filter((p) => stages.includes(p.stage));
+  }, [byKind, stageKey]);
 
-  const chips = STATUS_CHIPS.map((c) => ({
+  const chips = STAGE_CHIPS.map((c) => ({
     key: c.key,
     label: c.label,
     // 読み込み前は数字を出さない（0 と紛らわしい）
-    count: data ? byKind.filter((p) => c.statuses.includes(p.status)).length : null,
+    count: data
+      ? (c.stages.length === 0 ? byKind.length : byKind.filter((p) => c.stages.includes(p.stage)).length)
+      : null,
   }));
 
   const activeFilters = [
     search.trim() ? `探している言葉: ${search.trim()}` : null,
     kind ? `区分: ${KIND_LABEL[kind]}` : null,
-    statusKey !== 'all' ? `状態: ${STATUS_CHIPS.find((c) => c.key === statusKey)?.label}` : null,
+    stageKey !== 'all' ? `状態: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
   ].filter((f): f is string => f !== null);
 
-  const clearFilters = () => { setSearch(''); setKind(''); setStatusKey('all'); };
+  const clearFilters = () => { setSearch(''); setKind(''); setStageKey('all'); };
 
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
@@ -96,7 +101,7 @@ export default function GpmProjectListPage() {
         }
       />
 
-      <FilterChips label="状態で絞り込む" items={chips} value={statusKey} onChange={setStatusKey} />
+      <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:max-w-md">

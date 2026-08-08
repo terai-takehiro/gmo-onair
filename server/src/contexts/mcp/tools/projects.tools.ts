@@ -60,7 +60,7 @@ export function registerProjectTools(server: McpServer): void {
         search: z.string().max(100).optional().describe('案件名 / 案件コード / GLS番号 / 顧客名の部分一致検索'),
         stage: z.enum(STAGES).optional(),
         tab: z.enum(['all', 'yomi', 'active', 'completed', 'lost']).optional(),
-        gls_category: z.enum(['A', 'B']).optional().describe('A=スタジオ案件 / B=ビジネス案件 (GLS発番済のみ)'),
+        gls_category: z.enum(['A', 'B']).optional().describe('A=案件（スタジオ） / B=プロジェクト（プロジェクト管理）'),
         tag: z.string().optional(),
         event_month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('開催月 (YYYY-MM)。イベント期間がこの月に重なる案件'),
         event_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催期間レンジ開始 (YYYY-MM-DD)。event_to とセットで指定'),
@@ -118,7 +118,8 @@ export function registerProjectTools(server: McpServer): void {
       description:
         '新規案件をヨミ (stage=neta) として登録する。customer_id は必須 — 先に list_customers で検索し、無ければ create_customer で作成する。' +
         'assigned_to は担当者の users.id (必須) — list_users で名前から解決する。' +
-        'gls_category: A=スタジオ案件 / B=ビジネス案件。副作用: BOX に案件フォルダが自動作成される。' +
+        'gls_category: A=案件（スタジオ） / B=プロジェクト（プロジェクト管理・工事や構築）。' +
+        '副作用: BOX に案件フォルダが自動作成される。' +
         '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの案件が既にあれば新規作成せず既存を返す (無人バッチの二重登録防止)。' +
         'message_id (由来メールの Message-ID) と source_channel (info@ / sales@cc / 電話 等) も分かれば渡す。' +
         '**intake_channel と intake_confidence も必ず渡すこと** — 受付の一覧が「どこから来た引き合いか」と' +
