@@ -26,7 +26,24 @@ const DEFAULT_DUE_HOUR = 18;
 /** これより先の期限は「長い」とみなして注意を添える (イズム: 期限は短く) */
 const LONG_DUE_DAYS = 14;
 
+/**
+ * 下書きの行き先 (v4 の投入口の1本化)。
+ *
+ * 投入口は1つで、**1件ずつ AI が行き先を決める**。判断が付かないものは
+ * `task` に倒す — 一番取り消しやすく、誰の目にも触れる場所だから
+ * (ネタ案件や活動記録に落とすと、間違っていても気づかれないまま残る)。
+ */
+export type IntakeDest = 'task' | 'neta' | 'log' | 'minutes';
+
+export const INTAKE_DESTS: IntakeDest[] = ['task', 'neta', 'log', 'minutes'];
+
+export function normalizeDest(v: unknown): IntakeDest {
+  return INTAKE_DESTS.includes(v as IntakeDest) ? (v as IntakeDest) : 'task';
+}
+
 export interface ParsedDraft {
+  /** 行き先。**規則ベースは常に `task`**（規則で案件やお客様は読み取れない） */
+  dest?: IntakeDest;
   title: string;
   assigned_to?: string | null;
   assignee_name_raw?: string | null;
@@ -39,6 +56,27 @@ export interface ParsedDraft {
   /** 期限が遠い (イズム: できるだけ短く) */
   due_far?: boolean;
   quote: string;
+
+  // ── 行き先ごとの中身 ───────────────────────────────────────
+  // どれも「空 = 読み取れなかった」。**推測で埋めない**（要確認に倒す）
+
+  /** 関係する案件の id。候補一覧に無いものは捨てる（存在しない id で作らない） */
+  project_id?: string | null;
+  /** お客様（会社）の名前。ネタ案件は commit のときに find-or-create する */
+  customer_name?: string | null;
+  /** 本文。ネタ案件の要望 / 活動記録の詳細 */
+  detail?: string | null;
+  /** ネタ案件の分類 A=スタジオ / B=ビジネス。空なら要確認 */
+  gls_category?: 'A' | 'B' | null;
+  /** 活動記録の種別 (meeting / call / email / other) */
+  activity_type?: string | null;
+  /** 活動記録の次回アクション */
+  next_action?: string | null;
+  next_action_date?: string | null;
+  /** 議事録の要約・決定事項・持ち帰り */
+  summary?: string | null;
+  decisions?: { text: string; quote: string }[];
+  open_items?: { text: string; owner: string; due: string }[];
 }
 
 export interface ParseResult {
@@ -339,6 +377,9 @@ export function parseIntakeText(
       : false;
 
     drafts.push({
+      // **規則ベースは行き先を判断しない。** 正規表現でお客様や案件は読めないので、
+      // 全部タスクに倒す（AI が落ちた日に、勝手に案件が作られるほうが困る）
+      dest: 'task',
       title,
       assigned_to: who.userId ?? opts.defaultAssignee ?? null,
       assignee_name_raw: who.nameRaw,

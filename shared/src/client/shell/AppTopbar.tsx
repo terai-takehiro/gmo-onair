@@ -129,39 +129,43 @@ export function AppTopbar({
       )}
 
       {/*
-        ── ロゴ。**トップページではスマホにも出す** ─────────────────
-        モックの端末枠は上辺バーが**2種類**あります:
-          ・トップ      … **ロゴ** ／ 余白 ／ ベル ／ 本人（`☰` もページ名も無い）
-          ・ほかの画面  … `☰` ／ アプリ名 ／ 余白 ／ 検索（**ロゴは無い**）
-        実装は `hidden sm:flex` で**640px 未満ではどの画面でもロゴが出ていません**
-        でした（S2 でこのバーを作ったときから）。トップはロゴが画面の名前そのもの
-        なので、**スマホのトップでロゴが無いと何のアプリか分からない**状態でした。
+        ── ロゴ。**スマホではどの画面でもロゴを出す**（モック `v4-live`）─────
 
-        ほかの画面ではスマホに出しません（モックどおり）。375px では
-        `☰` ＋ アプリ名 ＋ ベル ＋ 本人 が並ぶので、ロゴを足すと
-        アプリ名が切れます — いまどのアプリにいるかのほうが優先です。
+        スマホの上辺バーは **`☰` ／ ロゴ ／ 余白 ／ ベル ／ 本人** の1種類に
+        しました（トップだけ形を変えない）。以前はここに**アプリ名のチップ**が
+        入っていましたが、375px では `☰` ＋ チップ ＋ ベル ＋ 本人 で
+        横がいっぱいになり、**上辺バーが「いまどこか」を言うためだけに
+        1行まるごと**使っていました。
+
+        **現在地はパンくずと左メニューが示します。** 上辺バーはロゴだけにして、
+        本文の見出しに場所を譲ります。PC は今までどおり
+        ロゴ ／ 区切り ／ アプリ切替 ／ パンくず です。
+
+        ロゴは押すとトップへ戻る**リンク**なので、当たり判定を 44px 取ります
+        （絵は 20px・スマホでは 18px。高さは `tokens-v4.css` が
+         `[data-shell-logo]` を見て当てる — ここにクラス名を書くと
+         凍結4アプリの CSS が増えるため）。
       */}
-      {/* ロゴは押すとトップへ戻る**リンク**なので、当たり判定を 44px 取る
-          （絵は 20px のまま。上辺バーは 64px で中身は上下中央なので見た目は変わらない） */}
-      <a
-        href="/"
-        className={cn('min-h-tap shrink-0 items-center', isHome ? 'flex' : 'hidden sm:flex')}
-        title="ONAiR トップページへ"
-      >
-        <img src={`${base}logo-onair.svg`} alt="GMO ONAiR" className="h-5 w-auto" />
+      <a href="/" className="min-h-tap flex shrink-0 items-center" title="ONAiR トップページへ">
+        <img data-shell-logo src={`${base}logo-onair.svg`} alt="GMO ONAiR" className="h-5 w-auto" />
       </a>
-      <span className="hidden h-[22px] w-px bg-border sm:block" aria-hidden="true" />
+      <span className="v4-wide-only h-[22px] w-px bg-border" aria-hidden="true" />
 
       {/*
-        ── アプリ切替 (アプリ名がそのままボタン)。**トップページには出さない** ──
-        モックの端末枠は、トップ以外のスマホの上辺バーが
-        **`☰` ／ アプリ名のチップ ／ 余白 ／ 検索**です。ページ名は本文の見出しが
-        出します。M7 で「スマホは上辺バーがページ名・本文の見出しは消す」形に
-        していましたが、**モックに戻す**というご判断でこちらに戻しました。
-        （トップはアプリの一覧そのものなので、切替は同じ物への2つ目の入口になる）
+        ── アプリ切替 (アプリ名がそのままボタン) ─────────────────────
+        **トップページには出しません**（トップはアプリの一覧そのものなので、
+        切替は同じ物への2つ目の入口になる）。
+
+        **スマホにも出しません**（モック `v4-live`）。375px では
+        `☰` ＋ チップ ＋ ベル ＋ 本人 で横がいっぱいになり、
+        上辺バーが「いまどこか」を言うためだけに 1 行使っていました。
+        いまいるアプリは**左メニュー**（`☰`）が開けば先頭に出ます。
+        `v4-wide-only` は 1024px 以上でだけ出す指定で、実体は `tokens-v4.css`。
+        ⚠️ ここで Tailwind の幅つきクラスを使わないこと（凍結4アプリの CSS が増えます）。
+        **説明の文の中にも実物を書かないこと** — 3 度踏んでいます。
       */}
       {!isHome && (
-      <div ref={swRef} className="relative shrink-0">
+      <div ref={swRef} className="v4-wide-only relative shrink-0">
         <button
           type="button"
           onClick={() => setSwOpen((v) => !v)}
@@ -217,7 +221,7 @@ export function AppTopbar({
       )}
 
       {!isHome && crumb && (
-        <span className="text-sub hidden truncate text-muted-foreground md:block">／ {crumb}</span>
+        <span className="text-sub v4-wide-only truncate text-muted-foreground">／ {crumb}</span>
       )}
 
       {/* **トップページの検索は左** (モック: ロゴ ／ 区切り ／ 検索)。

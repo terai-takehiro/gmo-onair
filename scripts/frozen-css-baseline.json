@@ -1,16 +1,16 @@
 {
   "apps": {
     "qsheet": {
-      "md5": "629a861af5916c3f439bd59b80e89260",
-      "bytes": 100014
+      "md5": "6e61cb51b17a64ed16cf84b0cf5f2c3e",
+      "bytes": 99989
     },
     "techsheet": {
-      "md5": "24f3c732e348f0371f59cceaeda09928",
-      "bytes": 64034
+      "md5": "a63a991e22bda5c576afe9be8538ed93",
+      "bytes": 64009
     },
     "live": {
-      "md5": "fa7d8794da52ce0f1b7d5be359960518",
-      "bytes": 67000
+      "md5": "9aaceb7b698e94e7a5ad8ab112e2a63a",
+      "bytes": 66975
     },
     "awards": {
       "md5": "387a209af341598ce915a1dade2b0ed2",
@@ -24,6 +24,27 @@
       "to": "24f3c732e348f0371f59cceaeda09928",
       "bytes": -25,
       "reason": "PR #68 が shared/src/client/shell/AppTopbar.tsx から pt-1 を消したので、技術資料の CSS から .pt-1{padding-top:.25rem} が落ちて 25 バイト縮んだ。技術資料は自分のソースで pt-1 を1か所も使っていないので描画は1ピクセルも変わらない（qsheet 1か所・live 2か所は自前で使っているため md5 は不変。awards は共通 preset を継承していないので影響を受けない）"
+    },
+    {
+      "app": "qsheet",
+      "from": "629a861af5916c3f439bd59b80e89260",
+      "to": "6e61cb51b17a64ed16cf84b0cf5f2c3e",
+      "bytes": -25,
+      "reason": "スマホの上辺バーをロゴだけにした回。shared の AppTopbar からパンくずの md:block を外したため、凍結3アプリの CSS から .md\\:block（25バイト）が消えた。3アプリとも自分の src で md:block を使っていない（実測 0 件）ので描画は不変"
+    },
+    {
+      "app": "techsheet",
+      "from": "24f3c732e348f0371f59cceaeda09928",
+      "to": "a63a991e22bda5c576afe9be8538ed93",
+      "bytes": -25,
+      "reason": "スマホの上辺バーをロゴだけにした回。shared の AppTopbar からパンくずの md:block を外したため、凍結3アプリの CSS から .md\\:block（25バイト）が消えた。3アプリとも自分の src で md:block を使っていない（実測 0 件）ので描画は不変"
+    },
+    {
+      "app": "live",
+      "from": "fa7d8794da52ce0f1b7d5be359960518",
+      "to": "9aaceb7b698e94e7a5ad8ab112e2a63a",
+      "bytes": -25,
+      "reason": "スマホの上辺バーをロゴだけにした回。shared の AppTopbar からパンくずの md:block を外したため、凍結3アプリの CSS から .md\\:block（25バイト）が消えた。3アプリとも自分の src で md:block を使っていない（実測 0 件）ので描画は不変"
     }
   ]
 }
