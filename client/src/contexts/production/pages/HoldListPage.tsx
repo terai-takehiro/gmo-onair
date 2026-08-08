@@ -32,8 +32,10 @@ import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { HOLD_KEY, daysLeft, leftTone, leftLabel, type HoldRow } from './holds/holdLogic';
+import { HoldCards } from './holds/HoldCards';
 
 type Chip = 'all' | 'soon' | 'later';
 
@@ -48,6 +50,7 @@ export default function HoldListPage() {
   // editor に出すと押した先が必ず 403 になる（確定にするほうは editor で通る）
   const canDrop = hasPermission('studio', 'manager');
   const [chip, setChip] = useState<Chip>('all');
+  const isMobile = useIsMobile();
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const until = useMemo(() => {
@@ -140,6 +143,20 @@ export default function HoldListPage() {
           icon={<CalendarClock className="h-6 w-6" aria-hidden="true" />}
           title={chip === 'all' ? '仮押さえはありません' : 'この期間の仮押さえはありません'}
           description="部屋を仮に押さえると、確定するまでここに出ます。放っておくと部屋が塞がったままになります。"
+        />
+      ) : isMobile ? (
+        /*
+          **スマホは縦に積む**（M10）。PC の行だと「決める」160px と「あと」72px で
+          名前が 150px しか残らず、`検証E 仮…` としか読めませんでした
+          （＝何の予約か分からないまま「確定にする」を押させる形）。
+        */
+        <HoldCards
+          rows={rows}
+          canEdit={canEdit}
+          canDrop={canDrop}
+          busy={fix.isPending || drop.isPending}
+          onFix={(id) => fix.mutate(id)}
+          onDrop={askDrop}
         />
       ) : (
         <div className="flex flex-col">

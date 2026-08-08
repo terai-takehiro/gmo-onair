@@ -484,6 +484,17 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 > 消したつもりが残っていました（`shared/CLAUDE.md` に2度踏んだと書いてあるのに）。
 > **見た目の切り替えは属性 ＋ `tokens-v4.css`** に寄せること。
 > **ビルドして md5 を突き合わせるまで「変えていない」と言わないこと。**
+>
+> → **突き合わせは `npm run check:frozen` が機械でやります**（M10 で作った）。
+> 基準は `scripts/frozen-css-baseline.json`。`npm run build:all` のあとに回してください
+> （`dist` の CSS を見るので、`npm run lint` には入れていません）。
+> **基準はそれまでどこにも書かれておらず、人の記憶の中にありました** — その結果、
+> `pt-1` が shared から消えて技術資料の CSS が 25 バイト縮んだとき、
+> 「自分が漏らしたのか」を切り分けるところから始めることになりました。
+>
+> - **増えたときは原則ダメ。** 属性 ＋ `tokens-v4.css` に逃がす
+> - **減ったときは、そのアプリがその規則を使っていないことを確かめてから**
+>   `npm run check:frozen -- --update "理由"`。理由は基準ファイルの `history` に残ります
 
 ### スマホ専用の部品は `client-v4/` に置く（M0）
 

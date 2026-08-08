@@ -214,8 +214,15 @@ export default function GpmTaskListPage() {
                           onClick={() => setDone.mutate(t)}
                           disabled={setDone.isPending}
                           aria-label={t.is_completed ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`}
+                          /*
+                            **`v4-tap` で当たり判定だけ 44px にする**（M10）。
+                            18px の四角は大きくすると別の部品に見えるので、
+                            見た目は変えずに透明な擬似要素をかぶせる
+                            （`tokens-v4.css`。押し間違えると取り消しに行くので、
+                             指で確実に当たる大きさが要る）
+                          */
                           className={cn(
-                            'rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
+                            'v4-tap rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
                             t.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
                           )}
                         >
@@ -229,7 +236,9 @@ export default function GpmTaskListPage() {
                         <button
                           type="button"
                           onClick={() => navigate(`/gpm/projects/${t.project_id}`)}
-                          className="text-primary hover:underline"
+                          /* 文中のリンクは **行の高さを変えずに当たり判定だけ広げる**（M10）。
+                             素で高さを足すと行送りが崩れる */
+                          className="inline-block py-[13px] -my-[13px] text-primary hover:underline"
                         >
                           {t.project_name}
                         </button>

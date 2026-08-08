@@ -79,10 +79,20 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     instead: PROJECTS,
   },
   { path: '/sales/keep-report', what: '報告資料', why: '印刷して配る形なので、紙と同じ横幅を前提にしています。', hidden: true },
-  { path: '/sales/companies', what: '取引先マスター', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
-  { path: '/sales/customers', what: '顧客', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
-  { path: '/sales/customers/:id', what: 'お客様の詳細', why: '取引の履歴と担当者が横に並ぶ画面です。' },
-  { path: '/sales/activity-logs', what: '営業活動記録', why: '日付・相手・内容が横に並ぶ表です。' },
+  /*
+    ⚠️ **この3枚の理由は書き直しました**（M10）。
+    元は「会社ごとに列が多く、この幅では1社ぶんも並びません」でしたが、
+    **390px で開いて測ったら普通にカードで並びました**（表ですらなかった）。
+    嘘の理由を出したままにはできないので、本当の理由に差し替えています。
+
+    本当の理由は「**v4 でまだ作り直していない**」— 見出しの下に
+    Excel の取込・出力・新規追加が縦に積まれ、指で押しにくい形のままです。
+    作り直したらスマホに開放します（ご判断「外で判断するものは開ける」）。
+  */
+  { path: '/sales/companies', what: '取引先マスター', why: 'v4 でまだ作り直していない画面で、道具のボタンが縦に積まれていて指で押しにくい形です。' },
+  { path: '/sales/customers', what: '顧客', why: 'v4 でまだ作り直していない画面で、道具のボタンが縦に積まれていて指で押しにくい形です。' },
+  { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
+  { path: '/sales/activity-logs', what: '営業活動記録', why: 'v4 でまだ作り直していない画面です。' },
   { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
   {
     path: '/sales/projects/confirmed/:category',
@@ -99,7 +109,6 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/sga', what: '販管費の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
-  { path: '/budget/vendors', what: '取引先（仕入先・パートナー）', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
   { path: '/budget/detail', what: '案件月別詳細', why: '月を横に並べる表です。', hidden: true },
   { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
@@ -108,12 +117,6 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     path: '/studio/rooms',
     what: '部屋の空き',
     why: '部屋を縦・時間を横に並べて空いている幅を見る画面なので、畳むと目的そのものが消えます。',
-    instead: { label: '今日の予約を見る', to: '/studio/calendar' },
-  },
-  {
-    path: '/studio/holds',
-    what: '仮押さえ',
-    why: '残り日数と部屋と金額を並べて、どれを本予約にするか決める画面です。',
     instead: { label: '今日の予約を見る', to: '/studio/calendar' },
   },
   { path: '/studio/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
@@ -135,11 +138,8 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── プロジェクト管理（工事・構築）────────────────────────
   //   **`new` を `:id` より前に置くこと**（後ろだと「詳細」と案内される）
   { path: '/gpm/projects/new', what: 'プロジェクトを作る', why: '5段のフォームで、体制・工程・金額をまとめて決めます。' },
-  { path: '/gpm/dashboard', what: 'プロジェクト管理ダッシュボード', why: '工程をガント風に横へ並べる画面です。' },
-  { path: '/gpm/projects', what: 'プロジェクト一覧', why: '進捗・金額・期日が横に並ぶ表です。' },
   { path: '/gpm/projects/:id', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
   { path: '/gpm/projects/:id/:tab', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
-  { path: '/gpm/tasks', what: 'やること（未確認事項）', why: 'プロジェクトごとの未確認事項を並べて突き合わせる画面です。' },
   { path: '/gpm/templates', what: 'プロジェクトの標準工程', why: '型を変えると以後すべてのプロジェクトに効きます。' },
 ];
 
@@ -168,6 +168,16 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/inbox/new',                   // 貼って送る
   '/sales/record',                      // 打合せを録音
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
+  /*
+    ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──
+    どれも **読む／1タップで進める** 画面で、390px で開いて崩れないことを実測済み。
+    「入力欄が並ぶもの・設定・データを入れる道具」は PC のままにしてある。
+  */
+  '/budget/vendors',                    // 取引先（電話の前に相手を調べる）
+  '/studio/holds',                      // 仮押さえ（外で「確定にする」を押す・HoldCards）
+  '/gpm/dashboard',                     // プロジェクト管理ダッシュボード（読むだけ）
+  '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
+  '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
   '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
   '/settings',                          // 案内板
   '/settings/system',                   // パスワード変更
