@@ -1,0 +1,157 @@
+/**
+ * ① 予定 / 「部屋で絞る」「人で絞る」
+ *
+ * ── 絞ると何が消えるかを先に書く（モックの指定）──────────────
+ *
+ * 部屋で絞ると、**部屋を持たない自分・パートナーの予定は出なくなります**。
+ * 人で絞ると、**人を持たないスタジオ予約が出なくなります**。
+ * どちらも「消えた＝壊れた」と読まれるので、押す前にダイアログへ書きます。
+ */
+import { useQuery } from '@tanstack/react-query';
+import { Info } from 'lucide-react';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
+import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
+import { cn } from '@gmo-onair/shared/src/client/utils';
+
+interface LocationRow {
+  id: string;
+  name: string;
+  rooms?: Array<{ id: string; name: string; color?: string | null }>;
+}
+interface UserRow { id: string; name: string }
+
+function Note({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-note text-note flex items-start gap-2 border border-info-border bg-info-surface px-3 py-2.5 text-secondary-foreground">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function Chip({ on, label, dot, onClick }: { on: boolean; label: string; dot?: string | null; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={cn(
+        'min-h-tap text-note inline-flex items-center gap-1.5 rounded-note border px-2.5 font-bold lg:min-h-[32px]',
+        on ? 'border-primary bg-primary-surface text-primary' : 'border-border bg-card text-muted-foreground',
+      )}
+    >
+      {dot && <span className="h-2.5 w-2.5 shrink-0 rounded-chip" style={{ backgroundColor: dot }} />}
+      {label}
+    </button>
+  );
+}
+
+export function RoomFilterDialog({
+  open, onOpenChange, value, onChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const q = useQuery({
+    queryKey: ['studio-locations'],
+    queryFn: async () => (await api.get('/studios/locations')).data.data as LocationRow[],
+    staleTime: 5 * 60_000,
+    enabled: open,
+  });
+
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>部屋で絞る</DialogTitle>
+          <DialogDescription>選んだ部屋を押さえている予約だけを出します。</DialogDescription>
+        </DialogHeader>
+
+        <Note>
+          自分・パートナーの予定は<strong className="font-bold">部屋を持たない</strong>ので、
+          絞ると出なくなります。部屋の埋まり方だけを見たいときにお使いください。
+        </Note>
+
+        {q.isLoading && <Delayed><SkeletonRows rows={4} /></Delayed>}
+        {q.data?.length === 0 && <EmptyState title="部屋がありません" description="設定 → 拠点・部屋から入れてください。" />}
+
+        {q.data?.map((loc) => (
+          <div key={loc.id} className="flex flex-col gap-1.5">
+            <p className="text-th text-muted-foreground">{loc.name}</p>
+            <div className="flex flex-wrap gap-1">
+              {(loc.rooms ?? []).map((r) => (
+                <Chip key={r.id} on={value.includes(r.id)} label={r.name} dot={r.color} onClick={() => toggle(r.id)} />
+              ))}
+              {(loc.rooms ?? []).length === 0 && (
+                <span className="text-note text-muted-foreground">この拠点にはまだ部屋がありません。</span>
+              )}
+            </div>
+          </div>
+        ))}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>すべて出す</Button>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function UserFilterDialog({
+  open, onOpenChange, value, onChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const q = useQuery({
+    queryKey: ['partner-schedule-users'],
+    queryFn: async () => (await api.get('/users/by-module/partner_schedule')).data.data as UserRow[],
+    staleTime: 5 * 60_000,
+    enabled: open,
+  });
+
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>人で絞る</DialogTitle>
+          <DialogDescription>パートナーの予定を人で絞ります。アサインの空きを見るときに使います。</DialogDescription>
+        </DialogHeader>
+
+        <Note>
+          スタジオの予約は<strong className="font-bold">人を持たない</strong>ので、絞ると出なくなります。
+          自分の予定も出しません（人ごとの空きが読めなくなるため）。
+        </Note>
+
+        {q.isLoading && <Delayed><SkeletonRows rows={4} /></Delayed>}
+        {q.data?.length === 0 && <EmptyState title="対象の人がいません" description="設定 → 権限とメンバーで「予定」の権限を付けてください。" />}
+
+        <div className="flex flex-wrap gap-1">
+          {q.data?.map((u) => (
+            <Chip key={u.id} on={value.includes(u.id)} label={u.name} onClick={() => toggle(u.id)} />
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>全員出す</Button>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

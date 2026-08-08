@@ -1,348 +1,299 @@
-import { useState, useCallback, useMemo, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
-import interactionPlugin from "@fullcalendar/interaction";
-import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
-import api from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Layers, CalendarDays, Users, CalendarClock } from "lucide-react";
-import { useAuth } from "@/contexts/platform/AuthContext";
-import { cn } from "@/lib/utils";
-import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailDialog";
-import PartnerScheduleDialog from "../components/schedule/PartnerScheduleDialog";
-import PersonalEventDialog from "../components/schedule/PersonalEventDialog";
+/**
+ * ① 予定（v4 カレンダー・モックの1枚目）
+ *
+ * ── FullCalendar をやめて自分で描いた ───────────────────────
+ *
+ * 着手前はこの画面だけが FullCalendar でした。**v4 の月マスは 17px の帯に
+ * 「3px の色棒 + 時刻 + 題名」**、週・日は重なりを横に割った角丸の札で、
+ * あちらの DOM とは組み立てが違います。CSS で寄せていくと `.fc-*` に
+ * 依存した規則が何十行も積み上がり、**版が上がるたびに黙って崩れます**。
+ * 置き方の計算は `calendar/calendarLayout.ts` に出して、素で試せるように
+ * してあります（`shared/tests/calendarLayout.test.ts` で 26 項目）。
+ *
+ * **旧スタジオ・パートナー・マイの3画面は FullCalendar のままです**
+ * （作り直し前の画面なので、同じ回で触らない）。
+ *
+ * ── 「予定を入れる」を足した ────────────────────────────────
+ *
+ * 着手前の統合カレンダーには**新規作成が1つもありません**でした
+ * （「入れるときは各カレンダーへ」と書いてあるだけ）。v4 は ① 予定が
+ * 1本なので、ここから入れられないと**入れる場所が消えます**。
+ * 3つは入れ方が違うので、まず何を入れるか選んでもらいます。
+ *
+ * ── 祝日は設定 ⑥ の表から読む ───────────────────────────────
+ *
+ * 着手前は画面に **2025〜2027 が直書き**されていて、2028 年になると
+ * 祝日が1つも出なくなる状態でした。
+ */
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarSync, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { useMutation } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
+import StudioBookingDialog from '../components/studio/StudioBookingDialog';
+import PartnerScheduleDialog from '../components/schedule/PartnerScheduleDialog';
+import PersonalEventDialog from '../components/schedule/PersonalEventDialog';
 import {
-  SCHEDULE_TYPE_COLORS,
-  BOOKING_TYPE_COLORS,
-  useIsMobile, paintHolidayCell, toExclusiveEnd,
-  loadCalState, saveCalState, clampView,
-  CalendarShell, type PartnerSchedule, type PersonalEvent,
-} from "../components/schedule/scheduleShared";
+  useIsMobile, type PartnerSchedule, type PersonalEvent,
+} from '../components/schedule/scheduleShared';
 import { MobileToday } from './rooms/MobileToday';
+import {
+  ymd, addDays, addMonths, startOfWeek, weekDays, eventsOn, type CalLayer,
+} from './calendar/calendarLayout';
+import { useCalendarEvents, type CalBooking } from './calendar/useCalendarEvents';
+import { CalToolbar, type CalView, type LayerDef } from './calendar/CalToolbar';
+import { MonthGrid } from './calendar/MonthGrid';
+import { TimeGrid } from './calendar/TimeGrid';
+import { EventTable } from './calendar/EventTable';
+import { SideRail } from './calendar/SideRail';
+import { RoomFilterDialog, UserFilterDialog } from './calendar/FilterDialogs';
+import { NewEventChooser, type NewKind } from './calendar/NewEventChooser';
 
-// 統合カレンダー — スタジオ予約 + パートナースケジュール + 個人予定 を 1 画面にマージ表示。
-// レイヤーは権限のあるものだけ表示され、トグルで ON/OFF できる (localStorage に永続化)。
-// 新規作成は種別が曖昧なためここでは行わず、各専用ページ (回遊ピル) で行う。
-// クリック時: スタジオ予約 = 詳細ダイアログ (閲覧のみ) / パートナー・個人 = 編集ダイアログ。
+const LAYER_KEY = 'unified-cal-layers';
+const VIEW_KEY = 'unified-cal-view';
 
-interface StudioBooking {
-  id: string;
-  title: string;
-  booking_type: string;
-  project_id: string | null;
-  episode_id: string | null;
-  all_day: number;
-  start_time: string;
-  end_time: string;
-  location_note: string | null;
-  notes: string | null;
-  project_name: string | null;
-  gls_number: string | null;
-  episode_code: string | null;
-  status?: string;
-  rooms: Array<{
-    room_id: string; room_name: string; room_abbreviation?: string | null;
-    room_color: string; room_type?: string; location_id: string;
-    occupant?: string; usage_note?: string;
-  }>;
-}
-
-const MANUAL_COLOR = "#2563eb";
-const ICS_COLOR = "#64748b";
-
-type LayerKey = "studio" | "partner" | "my";
-const LAYERS_STORAGE_KEY = "unified-cal-layers";
-
-function loadLayerPrefs(): Record<LayerKey, boolean> {
+function loadLayers(): Record<CalLayer, boolean> {
   try {
-    const raw = localStorage.getItem(LAYERS_STORAGE_KEY);
+    const raw = localStorage.getItem(LAYER_KEY);
     if (raw) return { studio: true, partner: true, my: true, ...JSON.parse(raw) };
-  } catch { /* ignore */ }
+  } catch { /* 壊れていたら既定に戻す */ }
   return { studio: true, partner: true, my: true };
 }
 
-function DesktopUnifiedCalendar() {
-  const isMobile = useIsMobile();
-  const calendarRef = useRef<any>(null);
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
+function DesktopCalendar() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
-  const isAdmin = currentUser?.role === "system_admin";
-  const canStudio = isAdmin || hasPermission("studio");
-  const canPartner = isAdmin || hasPermission("partner_schedule");
-  const canPersonal = isAdmin || hasPermission("partner_schedule", "editor");
-  const isPartnerManager = isAdmin || hasPermission("partner_schedule", "manager");
-  const canDeleteBooking = isAdmin || hasPermission("studio", "manager");
+  const isAdmin = currentUser?.role === 'system_admin';
+  const canStudioEdit = isAdmin || hasPermission('studio', 'editor');
+  const canDeleteBooking = isAdmin || hasPermission('studio', 'manager');
+  const isPartnerManager = isAdmin || hasPermission('partner_schedule', 'manager');
+  const canPartnerEdit = isAdmin || hasPermission('partner_schedule', 'editor');
 
-  const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
-    to: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split("T")[0],
-  });
-  // カレンダー間で表示中の月・ビューを共有 (切り替え時にリセットしない)
-  const calState = useRef(loadCalState()).current;
-  const allowedViews = isMobile
-    ? ["listMonth", "dayGridMonth"]
-    : ["dayGridMonth", "timeGridWeek", "listWeek"];
-  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+  const today = ymd(new Date());
+  const now = useMemo(() => new Date(), []);
+  const [view, setView] = useState<CalView>(
+    () => (localStorage.getItem(VIEW_KEY) as CalView) || 'month',
+  );
+  /** 見ている位置。**月表・一覧はその月の1日、週は週の頭、日はその日** */
+  const [anchor, setAnchor] = useState(today);
+  const [layers, setLayers] = useState<Record<CalLayer, boolean>>(loadLayers);
+  const [roomIds, setRoomIds] = useState<string[]>([]);
+  const [userIds, setUserIds] = useState<string[]>([]);
 
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(loadLayerPrefs);
-  const toggleLayer = (key: LayerKey) => {
+  const [roomFilterOpen, setRoomFilterOpen] = useState(false);
+  const [userFilterOpen, setUserFilterOpen] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [newKind, setNewKind] = useState<NewKind | null>(null);
+  const [detail, setDetail] = useState<CalBooking | null>(null);
+  const [editSchedule, setEditSchedule] = useState<PartnerSchedule | null>(null);
+  const [editEvent, setEditEvent] = useState<PersonalEvent | null>(null);
+
+  // 引く期間。**見えている分より広く取る** — 月表は前後の月の日が並ぶので、
+  // その月ちょうどで引くと端の列が空になる
+  const { from, to } = useMemo(() => {
+    if (view === 'week') { const w = weekDays(anchor); return { from: w[0], to: `${w[6]}T23:59` }; }
+    if (view === 'day') return { from: anchor, to: `${anchor}T23:59` };
+    const first = `${anchor.slice(0, 7)}-01`;
+    return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
+  }, [view, anchor]);
+
+  const cal = useCalendarEvents(from, to, { layers, roomIds, userIds });
+
+  const toggleLayer = (k: CalLayer) => {
     setLayers((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      try { localStorage.setItem(LAYERS_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      const next = { ...prev, [k]: !prev[k] };
+      try { localStorage.setItem(LAYER_KEY, JSON.stringify(next)); } catch { /* 保存できなくても動く */ }
       return next;
     });
   };
+  const pickView = (v: CalView) => {
+    setView(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* 同上 */ }
+  };
 
-  // ダイアログ state
-  const [detailBooking, setDetailBooking] = useState<StudioBooking | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<PartnerSchedule | null>(null);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
-  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const step = (dir: 1 | -1) => {
+    if (view === 'day') setAnchor(addDays(anchor, dir));
+    else if (view === 'week') setAnchor(addDays(anchor, dir * 7));
+    else setAnchor(addMonths(`${anchor.slice(0, 7)}-01`, dir));
+  };
 
-  // ── データ取得 (権限のあるレイヤーのみ) ─────────────────────────────
-  const { data: bookings = [], isLoading: l1 } = useQuery<StudioBooking[]>({
-    queryKey: ["studio-bookings", dateRange.from, dateRange.to, ""],
-    queryFn: async () =>
-      (await api.get(`/studios/bookings?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
-    enabled: canStudio,
-    placeholderData: (prev) => prev,
-  });
-
-  const { data: schedules = [], isLoading: l2 } = useQuery<PartnerSchedule[]>({
-    queryKey: ["partner-schedules", dateRange.from, dateRange.to],
-    queryFn: async () =>
-      (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
-    enabled: canPartner,
-    placeholderData: (prev) => prev,
-  });
-
-  const { data: personalEvents = [], isLoading: l3 } = useQuery<PersonalEvent[]>({
-    queryKey: ["personal-events", dateRange.from, dateRange.to],
-    queryFn: async () =>
-      (await api.get(`/schedule/personal?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
-    enabled: canPersonal,
-    placeholderData: (prev) => prev,
-  });
-
-  const isLoading = l1 || l2 || l3;
-
-  // ── イベントのマージ ────────────────────────────────────────────────
-  const calendarEvents = useMemo(() => {
-    const list: any[] = [];
-    if (canStudio && layers.studio) {
-      for (const b of bookings) {
-        const color = BOOKING_TYPE_COLORS[b.booking_type] || BOOKING_TYPE_COLORS.other;
-        const isAllDay = !!b.all_day;
-        const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, "").trim() || b.title;
-        list.push({
-          id: `bk-${b.id}`,
-          title: displayTitle,
-          start: isAllDay ? b.start_time.split("T")[0] : b.start_time,
-          end: isAllDay ? toExclusiveEnd(b.end_time) : b.end_time,
-          allDay: isAllDay,
-          backgroundColor: color,
-          borderColor: color,
-          extendedProps: { kind: "booking", refId: b.id },
-        });
-      }
+  const title = useMemo(() => {
+    if (view === 'day') {
+      return `${Number(anchor.slice(5, 7))}/${Number(anchor.slice(8))}（${DOW[new Date(`${anchor}T00:00:00`).getDay()]}）`;
     }
-    if (canPartner && layers.partner) {
-      for (const s of schedules) {
-        const color = SCHEDULE_TYPE_COLORS[s.schedule_type] || SCHEDULE_TYPE_COLORS.other;
-        const isAllDay = !!s.all_day;
-        list.push({
-          id: `ps-${s.id}`,
-          title: `${s.user_name}: ${s.title}`,
-          start: isAllDay ? s.start_time.split("T")[0] : s.start_time,
-          end: isAllDay ? toExclusiveEnd(s.end_time) : s.end_time,
-          allDay: isAllDay,
-          backgroundColor: color,
-          borderColor: color,
-          extendedProps: { kind: "partner", refId: s.id },
-        });
-      }
+    if (view === 'week') {
+      const w = weekDays(anchor);
+      return `${Number(w[0].slice(5, 7))}/${Number(w[0].slice(8))} – ${Number(w[6].slice(5, 7))}/${Number(w[6].slice(8))}`;
     }
-    if (canPersonal && layers.my) {
-      for (const e of personalEvents) {
-        const color = e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
-        const isAllDay = !!e.all_day;
-        list.push({
-          id: `pe-${e.id}`,
-          title: e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
-          start: isAllDay ? e.start_time.split("T")[0] : e.start_time,
-          end: isAllDay ? toExclusiveEnd(e.end_time) : e.end_time,
-          allDay: isAllDay,
-          backgroundColor: color,
-          borderColor: color,
-          extendedProps: { kind: "personal", refId: e.id },
-        });
-      }
-    }
-    return list;
-  }, [bookings, schedules, personalEvents, layers, canStudio, canPartner, canPersonal]);
+    return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
+  }, [view, anchor]);
 
-  const handleDatesSet = useCallback((info: DatesSetArg) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    setDateRange({ from: fmt(info.start), to: fmt(info.end) });
-    saveCalState(info.view.type, info.view.currentStart);
-  }, []);
-
-  const handleEventClick = useCallback((info: EventClickArg) => {
-    const props = info.event.extendedProps as { kind: string; refId: string };
-    if (props.kind === "booking") {
-      const b = bookings.find((x) => x.id === props.refId);
-      if (b) { setDetailBooking(b); setDetailOpen(true); }
-    } else if (props.kind === "partner") {
-      const s = schedules.find((x) => x.id === props.refId);
-      if (s) { setEditingSchedule(s); setScheduleDialogOpen(true); }
-    } else if (props.kind === "personal") {
-      const e = personalEvents.find((x) => x.id === props.refId);
-      if (e) { setEditingEvent(e); setEventDialogOpen(true); }
-    }
-  }, [bookings, schedules, personalEvents]);
-
-  // スタジオ予約の削除 (詳細ダイアログから。studio manager のみボタン表示)
-  const deleteBookingMutation = useMutation({
-    mutationFn: async (id: string) => api.delete(`/studios/bookings/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-      // 案件詳細の予約一覧も読み直す (消したのに残って見えると、もう一度消しに行くことになる)
-      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
-      setDetailOpen(false);
-    },
-  });
-
-  const layerChips: Array<{ key: LayerKey; label: string; icon: React.ElementType; show: boolean; color: string }> = [
-    { key: "studio", label: "スタジオ予約", icon: CalendarDays, show: canStudio, color: BOOKING_TYPE_COLORS.performance },
-    { key: "partner", label: "パートナー", icon: Users, show: canPartner, color: SCHEDULE_TYPE_COLORS.daikyu },
-    { key: "my", label: "マイ（個人）", icon: CalendarClock, show: canPersonal, color: MANUAL_COLOR },
+  const layerDefs: LayerDef[] = [
+    { key: 'studio', label: 'スタジオ', dot: '#dc2626', show: cal.can.studio },
+    { key: 'partner', label: 'パートナー', dot: '#8b5cf6', show: cal.can.partner },
+    { key: 'my', label: '自分', dot: '#2563eb', show: cal.can.personal },
   ];
 
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['studio-bookings'] });
+      // 案件詳細の予約一覧も読み直す（消したのに残って見えると、もう一度消しに行く）
+      qc.invalidateQueries({ queryKey: ['project-studio-bookings'] });
+      setDetail(null);
+      notifySuccess('予約を消しました');
+    },
+    onError: (e) => notifyApiError('消せませんでした', e),
+  });
+
+  /** 予約を作るダイアログが要る拠点と部屋の一覧 */
+  const locations = useQuery({
+    queryKey: ['studio-locations'],
+    queryFn: async () => (await api.get('/studios/locations')).data.data,
+    staleTime: 5 * 60_000,
+    enabled: cal.can.studio,
+  });
+
+  const open = (key: string) => {
+    const [kind, ...rest] = key.split('-');
+    const id = rest.join('-');
+    if (kind === 'bk') { const b = cal.bookings.find((x) => x.id === id); if (b) setDetail(b); }
+    if (kind === 'ps') { const s = cal.partners.find((x) => x.id === id); if (s) setEditSchedule(s); }
+    if (kind === 'pe') { const e = cal.mine.find((x) => x.id === id); if (e) setEditEvent(e); }
+  };
+
+  const lead = useMemo(() => {
+    const shown = view === 'day' ? eventsOn(cal.events, anchor) : cal.events;
+    const on = layerDefs.filter((l) => l.show && layers[l.key]).length;
+    const all = layerDefs.filter((l) => l.show).length;
+    return `${shown.length} 件 ・ 出しているもの ${on}／${all}`;
+  }, [cal.events, view, anchor, layers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <CalendarShell
-      current="all"
-      icon={Layers}
-      title="統合カレンダー"
-      description="スタジオ予約・パートナースケジュール・個人予定をまとめて表示します。予定の新規登録は各カレンダーで行ってください。"
-    >
-        {/* レイヤートグル */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {layerChips.filter((c) => c.show).map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => toggleLayer(c.key)}
-              className={cn(
-                // スマホは 44px（v4 の決めごと）。PC は今までどおり
-                "min-h-tap flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors lg:min-h-0",
-                layers[c.key]
-                  ? "border-transparent text-white"
-                  : "text-muted-foreground opacity-60 hover:bg-accent"
-              )}
-              style={layers[c.key] ? { backgroundColor: c.color } : undefined}
-            >
-              <c.icon className="h-3.5 w-3.5 shrink-0" />
-              {c.label}
-            </button>
-          ))}
+    <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
+      <PageHeader
+        title="予定"
+        sub={`スタジオの予約・パートナーの予定・自分の予定を1枚で見ます。${lead}`}
+        primaryAction={(canStudioEdit || canPartnerEdit) ? (
+          <Button onClick={() => setChooserOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />予定を入れる
+          </Button>
+        ) : undefined}
+      >
+        {/* 2つ目以降は `children`。**`primaryAction` に2つ入れない** —
+            スマホでは下端の1枠に両方入って、どちらが主役か分からなくなる */}
+        <Button variant="outline" onClick={() => navigate('/studio/settings?tab=feed')}>
+          <CalendarSync className="mr-1.5 h-4 w-4" aria-hidden="true" />カレンダー連携
+        </Button>
+      </PageHeader>
+
+      <CalToolbar
+        view={view} onView={pickView} title={title}
+        onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)}
+        layers={layers} onToggleLayer={toggleLayer} layerDefs={layerDefs}
+        roomCount={roomIds.length} userCount={userIds.length}
+        onPickRooms={() => setRoomFilterOpen(true)} onPickUsers={() => setUserFilterOpen(true)}
+        onClearFilters={() => { setRoomIds([]); setUserIds([]); }}
+      />
+
+      {cal.isError && <ErrorPanel title="予定を読み込めませんでした" error={cal.error} onRetry={cal.refetch} />}
+
+      <div className="flex flex-col items-start gap-3.5 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          {cal.isLoading && cal.events.length === 0 ? (
+            <Delayed><SkeletonRows rows={8} /></Delayed>
+          ) : view === 'month' ? (
+            <MonthGrid
+              anchor={`${anchor.slice(0, 7)}-01`} today={today} events={cal.events} holidays={cal.holidays}
+              onPickDay={(d) => { setAnchor(d); pickView('day'); }} onOpen={(e) => open(e.key)}
+            />
+          ) : view === 'list' ? (
+            <EventTable events={cal.events} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
+          ) : (
+            <TimeGrid
+              days={view === 'week' ? weekDays(anchor) : [anchor]}
+              today={today} now={now} events={cal.events} holidays={cal.holidays}
+              onOpen={(e) => open(e.key)}
+              onPickDay={(d) => { setAnchor(d); pickView('day'); }}
+            />
+          )}
         </div>
 
-        {/* カレンダー */}
-        <Card>
-          <CardContent className="relative p-2 sm:p-4">
-            {isLoading && calendarEvents.length === 0 && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            )}
-            <div className="studio-calendar">
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={initialView}
-                initialDate={calState.dateStr}
-                locale="ja"
-                headerToolbar={isMobile ? {
-                  left: "prev,next",
-                  center: "title",
-                  right: "listMonth,dayGridMonth",
-                } : {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,listWeek",
-                }}
-                buttonText={{ prev: "＜", next: "＞", today: "今日", month: "月", week: "週", day: "日", list: "一覧" }}
-                noEventsText="この期間に予定はありません"
-                buttonIcons={false}
-                events={calendarEvents}
-                datesSet={handleDatesSet}
-                eventClick={handleEventClick}
-                selectable={false}
-                height="auto"
-                eventDisplay="block"
-                dayMaxEvents={isMobile ? 3 : 5}
-                firstDay={0}
-                allDaySlot={true}
-                allDayText="終日"
-                nowIndicator={true}
-                stickyHeaderDates={true}
-                eventTimeFormat={{ hour: "2-digit", minute: "2-digit", meridiem: false, hour12: false }}
-                titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
-                dayCellDidMount={paintHolidayCell}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <SideRail today={today} events={cal.events} canStudio={cal.can.studio} onOpen={(e) => open(e.key)} />
+      </div>
 
-        {/* スタジオ予約: 詳細 (編集はスタジオカレンダーで行うため閲覧のみ) */}
-        <StudioBookingDetailDialog
-          open={detailOpen}
-          onOpenChange={setDetailOpen}
-          booking={detailBooking as any}
-          onEdit={() => { /* 統合ビューでは編集しない */ }}
-          onDelete={(id) => { if (confirm("この予約を削除しますか？")) deleteBookingMutation.mutate(id); }}
-          canEdit={false}
-          canDelete={canDeleteBooking}
-        />
+      <RoomFilterDialog open={roomFilterOpen} onOpenChange={setRoomFilterOpen} value={roomIds} onChange={setRoomIds} />
+      <UserFilterDialog open={userFilterOpen} onOpenChange={setUserFilterOpen} value={userIds} onChange={setUserIds} />
 
-        {/* パートナー予定: 編集ダイアログ */}
-        <PartnerScheduleDialog
-          open={scheduleDialogOpen}
-          onOpenChange={(v) => { setScheduleDialogOpen(v); if (!v) setEditingSchedule(null); }}
-          editing={editingSchedule}
-          presetRange={null}
-          isManager={isPartnerManager}
-        />
+      <NewEventChooser
+        open={chooserOpen} onOpenChange={setChooserOpen}
+        allow={{ room: canStudioEdit, mine: canPartnerEdit, partner: canPartnerEdit }}
+        onPick={setNewKind}
+      />
 
-        {/* 個人予定: 編集ダイアログ */}
-        <PersonalEventDialog
-          open={eventDialogOpen}
-          onOpenChange={(v) => { setEventDialogOpen(v); if (!v) setEditingEvent(null); }}
-          editing={editingEvent}
-          presetRange={null}
-        />
-    </CalendarShell>
+      {/* 部屋を押さえる。**既存のダイアログをそのまま呼ぶ**（入れ方の作り直しは別の回） */}
+      <StudioBookingDialog
+        open={newKind === 'room'}
+        onOpenChange={(v) => !v && setNewKind(null)}
+        locations={locations.data ?? []}
+        editingBooking={null}
+        presetDate={{ start: anchor, end: anchor, allDay: false }}
+      />
+
+      <PartnerScheduleDialog
+        open={newKind === 'partner' || !!editSchedule}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); } }}
+        editing={editSchedule}
+        presetRange={editSchedule ? null : { start: anchor, end: anchor }}
+        isManager={isPartnerManager}
+      />
+
+      <PersonalEventDialog
+        open={newKind === 'mine' || !!editEvent}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); } }}
+        editing={editEvent}
+        presetRange={editEvent ? null : { start: anchor, end: anchor, allDay: false }}
+      />
+
+      {/* スタジオ予約は**読むだけ**。直すのはスタジオカレンダー（作る導線がそこにある） */}
+      <StudioBookingDetailDialog
+        open={!!detail}
+        onOpenChange={(v) => !v && setDetail(null)}
+        booking={detail as never}
+        onEdit={() => { /* この画面では直さない */ }}
+        onDelete={(id) => confirmAction({
+          title: 'この予約を消しますか',
+          description: '押さえていた部屋が空きになります。取り消せません。',
+          confirmLabel: '消す', tone: 'danger',
+        }).then((ok) => ok && del.mutate(id))}
+        canEdit={false}
+        canDelete={canDeleteBooking}
+      />
+    </div>
   );
 }
 
 /**
  * スマホと PC で**別の画面**を出す（Phase 6・M3）。
  *
- * ── 月表示は 375px で読めない ────────────────────────────────
- *
- * FullCalendar の月表示は1日ぶんの升が数ミリ角になります。現場で見たいのは
- * 「**今日、何がどこであるか**」だけなので、**その日ぶんの縦並び**にします
+ * 月表は 375px で1日ぶんの升が数ミリ角になります。現場で見たいのは
+ * 「**今日、何がどこであるか**」だけなので、その日ぶんの縦並びにします
  * （モックの ⑬ 今日の予約）。
  *
  * **早期 return にしないこと** — 同じ部品の中で切り替えると、幅が変わったときに
  * フックの数が変わって React が落ちます。ここは「どちらを描くか決めるだけ」。
  */
 export default function UnifiedCalendarPage() {
-  return useIsMobile() ? <MobileToday /> : <DesktopUnifiedCalendar />;
+  return useIsMobile() ? <MobileToday /> : <DesktopCalendar />;
 }

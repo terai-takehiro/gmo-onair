@@ -169,3 +169,44 @@ export async function bookingsInRange(
     params,
   )) as unknown as { id: string; title: string; start_time: string; end_time: string }[];
 }
+
+/**
+ * カレンダーの日付に出す祝日。**全拠点に効く祝日の行だけ**を日ごとにばらす。
+ *
+ * ── なぜ画面に一覧を持たせないか ────────────────────────────
+ *
+ * 着手前は画面側に **2025〜2027 の祝日が直書き**されていました（`JP_HOLIDAYS`）。
+ * 2028 年になると**祝日が1つも出なくなる**うえ、設定 ⑥ が持っている表と
+ * 二重になります（そちらは 2026〜2030 の 89 件）。読む先を表に寄せます。
+ *
+ * ── 権限を掛けない ──────────────────────────────────────────
+ *
+ * 祝日は国が決めた公開情報で、会社の予定ではありません。`studio` を要求すると
+ * **パートナーの予定しか見ない人のカレンダーで日付が黒いまま**になります。
+ * 拠点ごとの休業日（＝会社の情報）はここでは返しません。
+ */
+export async function holidaysBetween(
+  from: string, to: string,
+): Promise<Array<{ date: string; name: string; estimated: boolean }>> {
+  const rows = (await queryAll(
+    `SELECT from_date, to_date, name, estimated
+       FROM closed_days
+      WHERE deleted_at IS NULL AND kind = 'holiday' AND location_id IS NULL
+        AND from_date <= ? AND to_date >= ?
+      ORDER BY from_date`,
+    [to, from],
+  )) as unknown as Array<{ from_date: string; to_date: string; name: string; estimated: boolean }>;
+
+  const out: Array<{ date: string; name: string; estimated: boolean }> = [];
+  for (const r of rows) {
+    // 連休の行（`from_date` < `to_date`）は1日ずつに開く。画面はマス単位で描くので、
+    // 期間のまま渡すと真ん中の日に何も出ない
+    for (let d = new Date(`${r.from_date}T00:00:00Z`);
+      d <= new Date(`${r.to_date}T00:00:00Z`);
+      d = new Date(d.getTime() + 86400000)) {
+      const s = d.toISOString().slice(0, 10);
+      if (s >= from && s <= to) out.push({ date: s, name: r.name, estimated: !!r.estimated });
+    }
+  }
+  return out;
+}

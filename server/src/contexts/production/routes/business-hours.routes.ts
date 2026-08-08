@@ -11,7 +11,7 @@ import { queryAll, execute } from '../../../shared/db/connection';
 import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  listSettings, saveHours, upsertClosedDay, bookingsInRange, checkBooking,
+  listSettings, saveHours, upsertClosedDay, bookingsInRange, checkBooking, holidaysBetween,
 } from '../services/business-hours.service';
 
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -36,6 +36,28 @@ router.get('/locations', requirePermission('studio', 'reader'), wrap(async (_req
       ORDER BY l.sort_order, l.name`,
   );
   res.json({ success: true, data: rows });
+}));
+
+/**
+ * カレンダーに出す祝日。**`/:locationId` より前に置くこと** —
+ * あとに書くと `holidays` が拠点 id として読まれて 404 になる。
+ *
+ * **権限を掛けない。** 祝日は国が決めた公開情報で、会社の予定ではない。
+ * `studio` を要求すると、パートナーの予定しか見ない人のカレンダーで
+ * 日付が黒いままになる。
+ */
+router.get('/holidays', wrap(async (req, res) => {
+  // **時刻が付いていても通す。** この製品の期間指定は
+  // `to=2026-08-08T23:59` の形で渡す所が多く（予約の一覧がそう）、
+  // 日付だけを要求すると呼ぶ側が2通りになって片方が 400 になる
+  // （実ブラウザで日表に切り替えたときに踏んだ）
+  const from = String(req.query.from ?? '').slice(0, 10);
+  const to = String(req.query.to ?? '').slice(0, 10);
+  const ymd = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ymd.test(from) || !ymd.test(to)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '期間（from・to）を YYYY-MM-DD で指定してください');
+  }
+  res.json({ success: true, data: await holidaysBetween(from, to) });
 }));
 
 router.get('/:locationId', requirePermission('studio', 'reader'), wrap(async (req, res) => {

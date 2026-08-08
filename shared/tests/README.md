@@ -46,3 +46,9 @@
 （実際に並びをずらして4件落ちることを確認済み）。
 
 実行: `npm test`（ルート）または `npm run test -w shared`
+
+- `calendarLayout.test.ts` — **① 予定の置き方**（26 項目）。月マスの並べ方・
+  時間から縦の位置・**重なった予定の列の割り方**・表示（8:00〜22:00）の外の切り方。
+  間違えると**予定が画面から消える**（外に飛ぶ・幅 0 になる）のに、
+  画面を見ても「無い」としか分からない。実体は
+  `client/src/contexts/production/pages/calendar/calendarLayout.ts`
