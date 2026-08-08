@@ -40,3 +40,7 @@ client/public/mcp-tools.json
 # リポジトリに入れてはいけない (v2.9.294 で消し忘れた 1 本が CI の lint を落とした)。
 # ここに置けば消し忘れても混入しない。
 **/verify-scratch/
+
+# 検証用ブラウザに渡す書体の取り置き (scripts/lib/google-fonts-cache.mjs)
+# Google Fonts から落とした CSS と woff2 (約20MB)。手元で作り直せるのでコミットしない。
+.cache/

@@ -20,6 +20,8 @@
  *   node scripts/verify-ui.mjs qsheet awards   # 名前に含むページだけ
  *   BASE=http://localhost:3001 node scripts/verify-ui.mjs
  */
+import { ensureFontCache, installFontCache } from './lib/google-fonts-cache.mjs';
+
 // playwright-core はリポジトリの依存に入れない (CI では動かさないので重いだけ)。
 // 検証用に入れた場所を `PW` で渡す。既定は Dev Container 内の置き場。
 const { chromium } = await import(process.env.PW || '/tmp/node_modules/playwright-core/index.mjs');
@@ -338,7 +340,10 @@ function measure() {
       const w = (family) => {
         const el = document.createElement('span');
         el.textContent = 'Handgloves 12345';
-        el.style.cssText = `position:absolute;visibility:hidden;font-size:40px;font-family:${family}`;
+        // **`white-space:pre` が要る。** 付け忘れると狭い画面では文字列が折り返して
+        // **どの書体でも幅＝画面幅 (375px)** になり、比べても必ず「同じ」になる
+        // (スマホだけ「書体が届いていない」と出続けていたのはこれが原因)
+        el.style.cssText = `position:absolute;left:0;top:0;visibility:hidden;white-space:pre;font-size:40px;font-family:${family}`;
         document.body.appendChild(el);
         const x = el.getBoundingClientRect().width;
         el.remove();
@@ -358,13 +363,16 @@ function measure() {
   };
 }
 
-async function runViewport(browser, { width, height, tag }) {
+async function runViewport(browser, { width, height, tag }, fonts) {
   const results = [];
   const ok = (n, c, d = '') => results.push({ n: `${tag} ${n}`, c, d });
   const ctx = await browser.newContext({
     viewport: { width, height },
     extraHTTPHeaders: { 'x-user-id': USER },
   });
+  // **書体を手元の取り置きから返す。** ブラウザは Google Fonts に出られないので、
+  // これが無いと全ページが代替書体の字幅で測られる (理由は lib 側に書いてある)
+  await installFontCache(ctx, fonts);
   await ctx.addInitScript((id) => {
     localStorage.setItem('gmo_onair_user', JSON.stringify({
       id, name: '検証 管理者', email: 'v-admin@example.com', role: 'system_admin',
@@ -384,6 +392,23 @@ async function runViewport(browser, { width, height, tag }) {
       continue;
     }
     await pg.waitForTimeout(opt.slow ? 2500 : 900);
+    /*
+     * **書体が描き終わるのを待ってから測る。**
+     *
+     * 書体は非同期に届くので、待たずに測ると「待ち時間のあいだに間に合ったか」で
+     * 結果が変わる (座標の検査が日によって通ったり落ちたりする)。
+     *
+     * `document.fonts.ready` を待つだけでは足りない。Google Fonts は文字の範囲ごとに
+     * woff2 を分けて配っていて、**その画面に出ていない範囲は最初から取りに行かない**。
+     * 幅はラテンで比べる (和文は書体が変わっても全角 1em で幅が動かない) ので、
+     * 和文しか出ていない画面ではラテンの分が来ておらず、比べる相手が無い。
+     * 測る前に**測るのと同じ文字**を明示的に読み込ませて、画面の中身に左右されないようにする。
+     */
+    await pg.evaluate(() => {
+      const fam = getComputedStyle(document.body).fontFamily.split(',')[0].trim();
+      return document.fonts.load(`40px ${fam}`, 'Handgloves 12345')
+        .then(() => document.fonts.ready).then(() => true);
+    }).catch(() => {});
     const m = await pg.evaluate(measure);
 
     ok(`${label} 横はみ出し 0px`, m.overflowX === 0, `${m.overflowX}px`);
@@ -418,11 +443,19 @@ async function runViewport(browser, { width, height, tag }) {
       }
     } else {
       ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
-      // **宣言ではなく実際に届いたか。** 落ちたら書体は代替で描かれている
-      // (この開発コンテナは Google Fonts に出られないので、ここは必ず落ちます。
-      //  書体の確認は検証環境でしかできません)
-      ok(`${label} 書体が実際に届いている`, m.fontLoaded,
-        m.fontLoaded ? '' : '代替書体で描かれています (配信に出られていない可能性)');
+      /*
+       * **宣言ではなく実際に描かれたか。** 落ちたら書体は代替で描かれている。
+       *
+       * 開発用のコンテナのブラウザは Google Fonts に出られないので、以前はここが
+       * **必ず落ちていた** (毎回出る、直しようのない赤)。いまは `curl` で落とした
+       * 取り置きを差し込んでいるので**通るのが普通**。落ちたときは
+       *   ① 取り置きに失敗した (冒頭に「取り置きに失敗」と出る)
+       *   ② `index.html` の書体の書き方を変えた (URL が変わって取り置きに当たらない)
+       * のどちらか。**配信そのものが生きているかは検証環境で見る** — ここが見ているのは
+       * 「この字幅で測っている」であって、Google Fonts の可用性ではない。
+       */
+      ok(`${label} 書体が実際に描かれている`, m.fontLoaded,
+        m.fontLoaded ? '' : '代替書体で描かれています (取り置きに当たっていない)');
       ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);
     }
     ok(`${label} シェルが画面いっぱい`, m.shellH >= m.vh - 2, `${m.shellH}/${m.vh}`);
@@ -465,11 +498,19 @@ async function runViewport(browser, { width, height, tag }) {
 }
 
 const started = Date.now();
+/*
+ * **測る前に書体を手元へ取り置く。** 初回だけ 10 秒ほどかかる (以後は一瞬)。
+ * 失敗しても検証は止めない — その場合は今日までと同じ「代替書体で測る」に戻り、
+ * 「書体が実際に描かれている」が落ちることで**それが見て分かる**ようにしてある。
+ */
+const fonts = await ensureFontCache({ log: (m) => console.log(m) });
+if (!fonts.ready) console.log(`※ 書体の取り置きに失敗 (${fonts.note}) — 代替書体で測ります`);
+
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
 // PC とスマホを同時に走らせる (直列だと単純に2倍かかる)
 const all = (await Promise.all([
-  runViewport(browser, { width: 1440, height: 900, tag: 'PC' }),
-  runViewport(browser, { width: 375, height: 812, tag: 'スマホ' }),
+  runViewport(browser, { width: 1440, height: 900, tag: 'PC' }, fonts),
+  runViewport(browser, { width: 375, height: 812, tag: 'スマホ' }, fonts),
 ])).flat();
 await browser.close();
 

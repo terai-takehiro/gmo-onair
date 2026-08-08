@@ -36,6 +36,7 @@
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh",
     "verify:ui": "node scripts/verify-ui.mjs",
+    "verify:font": "node scripts/fetch-google-fonts.mjs",
     "lint": "node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && node scripts/check-ui-tokens.mjs && node scripts/check-mobile-declared.mjs && eslint .",
     "lint:eslint": "eslint .",
     "check:file-size": "node scripts/check-file-size.mjs",
