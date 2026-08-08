@@ -94,6 +94,17 @@
 - **機材台帳は 768px 未満でカードに切り替わる**（`equipmentList/EquipmentCards.tsx`）。
   PC 用の行（`EquipmentTable.tsx`）は `hidden md:block` の中なので、
   **スマホに 1,300px の表は出ていない**。ここを触るときは両方を直すこと
+- **スマホでは道具帯のボタンを5つ落とす**（M8・`equipmentList/ItemsToolbar.tsx`）。
+  Excel 取込・Excel 出力・印刷・出す列・表で直す は**どれも表に効くもの**で、
+  上のとおり 768px 未満では**表そのものが出ていません**。押しても何も起きない
+  ボタンが5つ並ぶと画面が壊れて見えます。残すのは「機材を足す」だけ
+  （現場で「これ増えた」を入れるのは実際に起きる）
+- **スマホの絞り込みは `equipmentList/MobileFilters.tsx`**（M8）。枠は共通の
+  `shared/src/client-v4/mobileFilterBar.tsx`。**送る値は PC と同じ**で、
+  `ItemsPanel` の `applyFilterPatch` 1か所に集めてある（写すと片方だけ軸が増える）。
+  設置場所だけ形が違う — PC は押すと開くドロップダウンだが、シートの中に
+  さらにドロップダウンを重ねないため**そのまま並べる**。
+  実測: 最初のカードに着くまで **約 1,100px → 約 285px**
 - **1ファイル400行を上限にする。** いま超過しているもの:
   `pages/RackLayoutPage.tsx` 1,269行 / `pages/EquipmentDetailPage.tsx` 1,090行 /
   `manual/content.tsx` 443行 / `components/ExcelImportDialog.tsx` 414行

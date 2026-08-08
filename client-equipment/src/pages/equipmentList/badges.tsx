@@ -26,9 +26,20 @@ const TYPE_TONE: Record<string, string> = {
   E: 'bg-muted text-muted-foreground border-transparent',
 };
 
-export function SectionBadge({ typeCode, section }: { typeCode?: string | null; section?: string | null }) {
+export function SectionBadge({ typeCode, section, placeholder = true }: {
+  typeCode?: string | null;
+  section?: string | null;
+  /**
+   * 種別が無いときに `—` を出すか。**表では出す**（列を空にすると
+   * その行だけ幅が詰まって隣の列がずれる）。**カードでは出さない**（M8）—
+   * 揃える列が無いので、ID の前に意味の無い横棒が1本付くだけになる。
+   */
+  placeholder?: boolean;
+}) {
   const label = sectionDisplay(typeCode, section);
-  if (!label || label === '-') return <span className="text-sub-sm text-muted-foreground">—</span>;
+  if (!label || label === '-') {
+    return placeholder ? <span className="text-sub-sm text-muted-foreground">—</span> : null;
+  }
   return (
     <TableBadge
       label={label}

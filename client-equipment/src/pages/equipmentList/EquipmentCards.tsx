@@ -28,7 +28,7 @@ export function EquipmentCards({ items, onOpen }: {
         >
           <span className="mb-1 flex items-center justify-between gap-2">
             <span className="flex min-w-0 flex-wrap items-center gap-2">
-              <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
+              <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} placeholder={false} />
               <span className="font-number text-sub-sm text-muted-foreground">{item.eq_code}</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
