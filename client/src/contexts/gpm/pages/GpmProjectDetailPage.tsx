@@ -29,9 +29,12 @@ import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel, EmptyState } from '@g
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmProject, useInvalidateGpm } from '../queries';
-import { STATUS_LABEL, type GpmOpenItem, type GpmPhase, type GpmStatus, type PhaseState } from '../types';
+import type { ProjectStage } from '@/types';
+import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
+import { type GpmOpenItem, type GpmPhase, type PhaseState } from '../types';
 import { DetailHeader, isDetailTab, type DetailTabKey } from './projectDetail/DetailHeader';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
+import { BillingTab } from './projectDetail/BillingTab';
 import { PhaseRow, PhaseRowsHeader } from './projectDetail/PhaseRows';
 import { PhaseDialog } from './projectDetail/PhaseDialog';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
@@ -57,13 +60,13 @@ export default function GpmProjectDetailPage() {
 
   const query = useGpmProject(id);
 
-  const changeStatus = useMutation({
-    mutationFn: (status: GpmStatus) => api.put(`/gpm/projects/${id}`, fullBody(query.data!, { status })),
-    onSuccess: (_r, status) => {
+  const changeStage = useMutation({
+    mutationFn: (stage: ProjectStage) => api.put(`/gpm/projects/${id}`, fullBody(query.data!, { stage })),
+    onSuccess: (_r, stage) => {
       invalidate(id);
-      notifySuccess(`状態を「${STATUS_LABEL[status]}」にしました`);
+      notifySuccess(`ステージを「${STAGE_BADGE_LABEL[stage]}」にしました`);
     },
-    onError: (err) => notifyApiError('状態を変えられませんでした', err),
+    onError: (err) => notifyApiError('ステージを変えられませんでした', err),
   });
 
   const changePhaseState = useMutation({
@@ -121,16 +124,18 @@ export default function GpmProjectDetailPage() {
   const p = query.data!;
   const openAsks = p.open_items.filter((a) => a.status !== 'resolved');
 
-  const onChangeStatus = async (next: GpmStatus) => {
+  const onChangeStage = async (next: ProjectStage) => {
     const ok = await confirmAction({
-      title: `状態を「${STATUS_LABEL[next]}」にしますか？`,
+      title: `ステージを「${STAGE_BADGE_LABEL[next]}」にしますか？`,
       description: [
-        `いま: ${STATUS_LABEL[p.status]} → ${STATUS_LABEL[next]}`,
-        'ダッシュボードの「進行中プロジェクト」と一覧の絞り込みが同時に変わります。',
+        `いま: ${STAGE_BADGE_LABEL[p.stage]} → ${STAGE_BADGE_LABEL[next]}`,
+        'ダッシュボードの件数と一覧の絞り込みが同時に変わります。',
+        // **案件と同じステージ**なので、財務・決算の見え方にも効くことを書く
+        'これは案件と同じステージです（財務・決算からも同じ段として見えます）。',
       ].join('\n'),
-      confirmLabel: '状態を変える',
+      confirmLabel: 'ステージを変える',
     });
-    if (ok) changeStatus.mutate(next);
+    if (ok) changeStage.mutate(next);
   };
 
   const onDeleteAsk = async (item: GpmOpenItem) => {
@@ -160,9 +165,12 @@ export default function GpmProjectDetailPage() {
         tab={tab}
         counts={{ overview: p.phases.length, asks: openAsks.length, members: p.members.length }}
         canEdit={canEdit}
-        onChangeStatus={onChangeStatus}
+        onChangeStage={onChangeStage}
         onEdit={() => setEditing(true)}
       />
+
+      {/* 月次請求（月締め）。**案件詳細から移したもの** (migration 179) */}
+      {tab === 'billing' && <BillingTab projectId={p.id} />}
 
       {tab === 'overview' && (
         <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
@@ -270,26 +278,24 @@ export default function GpmProjectDetailPage() {
 
 /**
  * `PUT /gpm/projects/:id` に送る全項目。
- * **一部だけ送ると残りが `null` で上書きされます**（依頼元・PM・日付・メモ）。
- * 状態を変えるだけのときも、いま入っている値をそのまま添えます。
+ * **一部だけ送ると残りが `null` で上書きされます**（PM会社・日付・メモ）。
+ * ステージを変えるだけのときも、いま入っている値をそのまま添えます。
  */
 function fullBody(
-  p: { name: string; kind: string; status: string; client_name: string | null; customer_id: string | null;
-       pm_company: string | null; pm_user_id: string | null; started_on: string | null;
-       ends_on: string | null; project_id: string | null; notes: string | null },
+  p: { name: string; gpm_kind: string | null; stage: string; customer_id: string | null;
+       pm_company: string | null; assigned_to: string | null; started_on: string | null;
+       ends_on: string | null; notes: string | null },
   patch: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
     name: p.name,
-    kind: p.kind,
-    status: p.status,
-    client_name: p.client_name,
+    gpm_kind: p.gpm_kind,
+    stage: p.stage,
     customer_id: p.customer_id,
     pm_company: p.pm_company,
-    pm_user_id: p.pm_user_id,
+    assigned_to: p.assigned_to,
     started_on: p.started_on ? String(p.started_on).slice(0, 10) : null,
     ends_on: p.ends_on ? String(p.ends_on).slice(0, 10) : null,
-    project_id: p.project_id,
     notes: p.notes,
     ...patch,
   };

@@ -169,6 +169,13 @@ function AppRoutes() {
         <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
         <Route path="/sales/projects/:id/edit" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/:id/:tab" element={<PermissionRoute module="sales"><ProjectDetailPage /></PermissionRoute>} />
+        {/*
+            **ビジネス（GLS-B）はプロジェクト管理へ移した** (migration 179)。
+            旧 URL はブックマークされているので転送する。
+            `/studio` より先に置くこと（React Router は静的な区切りを優先するが、
+            同じ深さの動的区間より前に書いておくほうが読み違えない）
+        */}
+        <Route path="/sales/projects/confirmed/business" element={<Navigate to="/gpm/projects" replace />} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="episode" />} />
         <Route path="/sales/projects/:projectId/estimates" element={<RedirectToDetailTab tab="estimate" />} />

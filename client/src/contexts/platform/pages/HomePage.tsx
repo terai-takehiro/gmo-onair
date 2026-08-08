@@ -25,13 +25,15 @@
  * **設定とプロジェクト管理には数字を出しません**（前者は片づける物という概念が無く、
  * 後者はまだ画面がありません）。
  *
- * ── PC とスマホの違いは「形」で、並びはモックと同じ ──────────
+ * ── PC とスマホで変えるのは「形」だけ ──────────────────────
  *
- * モックはどちらも **挨拶 → アプリ → イベントで使うもの → 今日** の順です。
- * M3 でスマホだけ「今日」を先に出していましたが、その理由は
- * **アプリのタイルが1列に落ちて 1,676px あった**ことでした。
- * スマホのタイルを**モックの形（2列の正方形・イベントはピル）**に戻したので
- * 理由が消え、**並びをモックに戻しました**（`home/AppTiles.tsx`）。
+ * タイルの形はモックのとおり **PC は横長3列 / スマホは2列の正方形**、
+ * イベントは **PC は小さいタイル / スマホはピル**にします（`home/AppTiles.tsx`）。
+ *
+ * **並び順はモックと1か所だけ違います。** モックはどちらも
+ * 挨拶 → アプリ → 今日 ですが、**スマホだけ「今日」を先に出します**（M3 / M7）。
+ * 375px では自分のタスクに着くまでの距離がそのまま体験になるためで、
+ * 実測で **2,273px → 411px** になりました。**並べ替えるだけで、消していません。**
  */
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -66,8 +68,13 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * **上辺バーのアプリ切替にも左メニューにも凍結アプリは出ていません**。
  * つまり**押して開ける場所はトップのタイルだけ**で、消すと Qシート・技術資料・
  * 計時LIVE・リアルタイムCG が URL 直打ちでしか開けなくなります（放送が止まる）。
+ *
+ * ⚠️ **この配列は「出す・出さない」だけを決めます。並び順は決めません** —
+ * 下の `tiles` は `APPS.filter(...)` なので、**描かれる順は `apps.ts` の
+ * `APPS` の順**です。ここを並べ替えてもタイルは動きません
+ * （プロジェクト管理を `apps.ts` で案件管理の隣へ移したのはそのため）。
  */
-const DAILY_KEYS = ['sales', 'budget', 'gpm', 'studio', 'dailyops', 'equipment', 'admin'];
+const DAILY_KEYS = ['sales', 'gpm', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
 
 /** 「最終更新 07/31 08:04」（モック）。**数字の出どころは取得の時刻** */
 function updatedAt(ms: number): string {
@@ -163,12 +170,38 @@ export default function HomePage() {
       .map((a) => ({ ...a, badge: badge[a.key]?.n, urgent: badge[a.key]?.urgent }));
   }, [badges.data, salesWaiting, dailyWaiting, canSeeSales, canSeeDailyops, hasPermission]);
 
+  // ── アプリ ─────────────────────────────────────────────────
+  const appsSection = (
+    <section className="flex flex-col gap-3.5">
+      <SectionHeading
+        mobile={isMobile}
+        title="アプリ"
+        note="使えるものだけ並びます。数字は「あなたが押せば片づくもの」の件数です"
+      />
+      <AppTiles apps={tiles} mobile={isMobile} />
+
+      <div className="border-t border-dashed border-border pt-3.5">
+        <SectionHeading
+          mobile={isMobile}
+          level={3}
+          title="イベントで使うもの"
+          note="案件の本番でだけ開きます。日々の業務アプリとは別の並びです"
+        />
+        <div className="mt-2.5">
+          <EventTiles mobile={isMobile} />
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <div className="mx-auto flex max-w-screen-2xl flex-col gap-5 p-3 lg:gap-6 lg:p-6">
       {/* ── 挨拶。**数えられた件数だけを書く** ───────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-h1">{greeting}、{currentUser?.name} さん</h1>
+          {/* **スマホでは名前を出さない**（M7）。自分の端末なので誰かは分かっており、
+              「おはようございます、○○ さん」は 390px で2行になって 140px 使っていた */}
+          <h1 className="text-h1">{greeting}{isMobile ? '' : `、${currentUser?.name} さん`}</h1>
           {canCount && (
             waitingTotal === 0 && myOverdue === 0 ? (
               <p className="text-sub mt-1 text-secondary-foreground">
@@ -226,37 +259,27 @@ export default function HomePage() {
       {/* スマホは「AIに任せる」を挨拶の直下に1本（モック）。中身は押すと開く */}
       {isMobile && <MobileAiBar canIntake={canSeeDailyops} canPaste={canSeeSales} />}
 
-      {/* ── アプリ ─────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-3.5">
-        <SectionHeading
-          mobile={isMobile}
-          title="アプリ"
-          note="使えるものだけ並びます。数字は「あなたが押せば片づくもの」の件数です"
-        />
-        <AppTiles apps={tiles} mobile={isMobile} />
-
-        <div className="border-t border-dashed border-border pt-3.5">
-          <SectionHeading
-            mobile={isMobile}
-            level={3}
-            title="イベントで使うもの"
-            note="案件の本番でだけ開きます。日々の業務アプリとは別の並びです"
-          />
-          <div className="mt-2.5">
-            <EventTiles mobile={isMobile} />
-          </div>
-        </div>
-      </section>
+      {/* **PC はアプリが先、スマホは「今日」が先**（M3 / M7）。
+          モックの並びはどちらもアプリ → 今日だが、375px では自分のタスクに
+          着くまでの距離がそのまま体験になる（実測 2,273px → 411px）。
+          **中身は同じものを並べ替えるだけ** */}
+      {!isMobile && appsSection}
 
       {/* ── 今日 ─────────────────────────────────────────────── */}
       {hasToday && (
       <section className="flex flex-col gap-3.5">
+        {/*
+          **スマホでは見出しだけにする**（M7 のご判断をそのまま引き継ぐ）。
+          ・「AI は下書きまでで…」は畳んだ入口のほうに書いてある（二重にしない）
+          ・「自分のタスクを全部ひらく」は `MyTasksCard` の「全部ひらく」と
+            **同じ行き先で二重**だったので、スマホでは出さない
+        */}
         <SectionHeading
           mobile={isMobile}
           title="今日"
           note="あなたの秘書。AI は下書きまでで、押すまで登録しません"
           action={
-            canSeeDailyops ? (
+            canSeeDailyops && !isMobile ? (
               <button
                 type="button"
                 onClick={() => navigate('/sales/tasks/list')}
@@ -270,7 +293,8 @@ export default function HomePage() {
 
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える）。
-            **スマホでは挨拶の下の青いバーの中**にあるので、ここには出さない */}
+            **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない。
+            「貼る」「録音する」も同じバーの中に畳んである */}
         {!isMobile && canSeeDailyops && <TaskIntakeBox />}
 
         {inbox.isLoading && !inbox.data ? (
@@ -284,6 +308,8 @@ export default function HomePage() {
         )}
       </section>
       )}
+
+      {isMobile && appsSection}
 
       <p className="text-note pt-2 text-center text-muted-foreground">
         GMO ONAiR v{__APP_VERSION__}

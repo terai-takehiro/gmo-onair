@@ -221,7 +221,8 @@ const TREE = [
     ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id/estimates',
       'client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx', 'ui/row',
       '提出先（自社／依頼元／PM会社）ごとに1本。`estimates` を案件と共用し、' +
-      '`project_id` と `gpm_project_id` は**排他**（両方入ると合計が二重になる）。' +
+      '行き先は `project_id` 1本（migration 179）。案件（GLS-A）の見積と混ざらないよう、' +
+      'サーバーが `gls_category` で分けています（外すと案件管理のダッシュボードに足される）。' +
       '**明細（品目と金額）は案件の見積と同じ部品**（`EstimateItems`）。' +
       '合計と粗利の計算は1か所で、写しを作ると片方だけ直した日から金額が食い違います。' +
       '保存する口だけ GPM 側に向けていて、サーバーは**プロジェクトの見積しか受け付けません**' +

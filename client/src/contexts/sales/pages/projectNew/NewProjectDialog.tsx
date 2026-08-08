@@ -219,15 +219,11 @@ function DesktopNewProject() {
           </Select>
         </Field>
 
-        <Field label="案件分類" required hint="A=スタジオ案件 ／ B=ビジネス案件。GLS番号の採り方が変わります">
-          <Select value={v.gls_category} onValueChange={(x) => set('gls_category', x as 'A' | 'B')}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="A">A スタジオ案件</SelectItem>
-              <SelectItem value="B">B ビジネス案件</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        {/*
+            **案件分類は選ばせない** (migration 179)。この画面が作るのは案件（GLS-A）だけで、
+            工事・構築のプロジェクト（GLS-B）はプロジェクト管理から作ります。
+            選べると、作った直後に案件一覧から消えます（一覧は GLS-A だけを出すため）。
+        */}
 
         <Field label="実施日" full hint="未定のままでも登録できます。飛び日は「足す」で何日でも入れられます">
           <div className="flex flex-wrap items-center gap-2">

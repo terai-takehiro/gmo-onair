@@ -41,7 +41,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { PrimaryActionSlotContext } from './primaryAction';
+import { PrimaryActionSlotContext, PageTitleSlotContext } from './primaryAction';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
 import ManualModal from '../manual/ManualModal';
@@ -57,6 +57,13 @@ import type { ShellAccess, ShellChrome, ShellMobileTab, ShellNavSection, ShellUs
 export interface AppShellProps extends ShellChrome, ShellAccess {
   /** 左メニューの中身。**空を渡すと左メニューを出さない** (トップページなど) */
   sections?: ShellNavSection[];
+  /**
+   * **スマホのときだけ左メニューから落とすルート**（ご判断）。
+   * 出どころは各アプリの `pcOnlyScreens.ts` の `hidden: true`。
+   * データを入れる道具は案件の仕事に出てこないので、**選べること自体が邪魔**。
+   * **ルートは消しません**（共有された URL は今までどおり案内が出る）。
+   */
+  mobileHiddenPaths?: string[];
   user: ShellUser | null;
   onLogout: () => void;
   onSwitchUser?: () => void;
@@ -74,6 +81,7 @@ export function AppShell({
   searchSlot,
   notificationSlot,
   note,
+  mobileHiddenPaths,
   sections = [],
   user,
   onLogout,
@@ -93,6 +101,8 @@ export function AppShell({
   // 差し込み口は「ref」ではなく state で受ける。ref のままだと最初の描画で
   // まだ DOM が無く、子 (PageHeader) が描き直されないので何も出ない
   const [actionSlot, setActionSlot] = useState<HTMLDivElement | null>(null);
+  // ページ名の差し込み口（M7）。**スマホの上辺バーが現在地を出す**
+  const [titleSlot, setTitleSlot] = useState<HTMLSpanElement | null>(null);
 
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
   const hasMenu = sections.length > 0;
@@ -112,6 +122,7 @@ export function AppShell({
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
         onOpenVersionHistory={() => setVersionOpen(true)}
         onOpenMcpInfo={() => setMcpOpen(true)}
+        titleSlotRef={setTitleSlot}
         role={role}
         permissions={permissions}
       />
@@ -121,6 +132,7 @@ export function AppShell({
           <AppSideMenu
             sections={sections}
             note={note}
+            mobileHiddenPaths={mobileHiddenPaths}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
             role={role}
@@ -133,11 +145,13 @@ export function AppShell({
               下にスクロールしているときに気づけない */}
           <NoticeBar />
           <PrimaryActionSlotContext.Provider value={actionSlot}>
+            <PageTitleSlotContext.Provider value={titleSlot}>
             {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
                 まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
             <div key={pathname} className="v4-screen-in">
               {children}
             </div>
+            </PageTitleSlotContext.Provider>
           </PrimaryActionSlotContext.Provider>
         </main>
       </div>

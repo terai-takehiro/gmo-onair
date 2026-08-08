@@ -15,6 +15,7 @@
  * 既存のタグは案件一覧の絞り込み（`filter.tag`）でこれまでどおり効きます。
  */
 import type { UseFormReturn } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,6 @@ import {
 } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ProjectTypeLabels } from '@/types';
-import { cn } from '@/lib/utils';
 import { FormSection, Field } from './FormSection';
 import type { FormValues } from './types';
 
@@ -39,7 +39,6 @@ export function BasicSection({
 }) {
   const { register, setValue, watch, formState: { errors } } = form;
   const projectType = watch('project_type');
-  const glsCategory = watch('gls_category');
 
   return (
     <FormSection title="基本情報">
@@ -77,50 +76,40 @@ export function BasicSection({
         </Field>
       </div>
 
-      <Field label="案件分類 *">
-        {hasGls ? (
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <Badge variant="outline">
-              {glsCategory === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
-            </Badge>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => onSwitchCategory(glsCategory === 'A' ? 'B' : 'A')}
-            >
-              {glsCategory === 'A' ? 'ビジネス案件 (B) に変える…' : 'スタジオ案件 (A) に変える…'}
-            </Button>
+      {/*
+          **この画面は案件（GLS-A）専用になりました** (migration 179)。
+          GLS-B はプロジェクト管理の持ち物なので、ここでは選ばせません
+          — 選べると、作った直後にこの画面から見えなくなります
+          （案件一覧は GLS-A だけを出すため）。
+          発番済みの案件を**プロジェクトへ移す**道だけは残してあります
+          （番号を採り直す既存の仕組みをそのまま使う）。
+      */}
+      <Field label="案件分類">
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <Badge variant="outline">案件（GLS-A）</Badge>
+          {hasGls ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onSwitchCategory('B')}
+              >
+                プロジェクト管理へ移す…
+              </Button>
+              <p className="text-note w-full text-muted-foreground">
+                GLS 発番済みなので、移すと GLS 番号を採り直します
+                （BOX フォルダ名・回のコードも一緒に変わります）。
+              </p>
+            </>
+          ) : (
             <p className="text-note w-full text-muted-foreground">
-              GLS 発番済みなので、分類を変えると GLS 番号を採り直します
-              （BOX フォルダ名・回のコードも一緒に変わります）。
+              工事・構築のプロジェクト（GLS-B）は
+              <Link to="/gpm/projects/new" className="text-primary hover:underline">プロジェクト管理</Link>
+              から作ります。
             </p>
-          </div>
-        ) : (
-          <>
-            <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {(['A', 'B'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setValue('gls_category', cat, { shouldDirty: true })}
-                  aria-pressed={glsCategory === cat}
-                  className={cn(
-                    'text-sub min-h-tap rounded-control-lg border px-3 py-2 lg:min-h-[44px]',
-                    glsCategory === cat
-                      ? 'border-primary-border-strong bg-primary-surface text-primary'
-                      : 'border-input bg-background text-foreground hover:bg-muted',
-                  )}
-                >
-                  {cat === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
-                </button>
-              ))}
-            </div>
-            <p className="text-note mt-1 text-muted-foreground">
-              スタジオ収録・配信・イベントは「スタジオ案件」、コンサル・GMO 内部の案件は「ビジネス案件」です。
-            </p>
-          </>
-        )}
+          )}
+        </div>
       </Field>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

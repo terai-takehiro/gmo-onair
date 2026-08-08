@@ -9,7 +9,7 @@
  *
  * ── 人はプロジェクトを作ってから登録する ────────────────────
  *
- * `gpm_members` は `gpm_project_id` が必須なので、**作る前には保存できません**。
+ * `gpm_members` は `project_id` が必須なので、**作る前には保存できません**。
  * 入力は画面で貯めておき、「作る」を押したときに
  * **プロジェクト → 人 の順**で登録します。
  *
@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { useGpmTemplates, useGpmUsers, useInvalidateGpm } from '../queries';
+import { useGpmCustomers, useGpmTemplates, useGpmUsers, useInvalidateGpm } from '../queries';
 import type { GpmProjectDetail } from '../types';
 import { BasicStep, type BasicValues } from './projectForm/BasicStep';
 import { TemplateStep } from './projectForm/TemplateStep';
@@ -58,8 +58,8 @@ export default function GpmProjectFormPage() {
   const [step, setStep] = useState(1);
 
   const [basic, setBasic] = useState<BasicValues>({
-    name: '', kind: 'self_build', clientName: '', pmCompany: '', pmUserId: '',
-    status: 'active', notes: '',
+    name: '', kind: 'self_build', customerId: '', pmCompany: '', pmUserId: '',
+    stage: 'a_won', notes: '',
   });
   const [templateId, setTemplateId] = useState('');
   const [startedOn, setStartedOn] = useState('');
@@ -68,6 +68,7 @@ export default function GpmProjectFormPage() {
 
   const templates = useGpmTemplates();
   const users = useGpmUsers();
+  const customers = useGpmCustomers();
 
   const template = useMemo(
     () => templates.data?.find((t) => t.id === templateId),
@@ -78,14 +79,15 @@ export default function GpmProjectFormPage() {
     mutationFn: async () =>
       (await api.post<{ data: GpmProjectDetail }>('/gpm/projects', {
         name: basic.name.trim(),
-        kind: basic.kind,
-        client_name: basic.clientName.trim() || null,
+        gpm_kind: basic.kind,
+        // **自社構築と「未定」は送らない** — サーバーが自社の行に寄せる
+        customer_id: basic.kind === 'group_order' ? (basic.customerId || null) : null,
         pm_company: basic.pmCompany.trim() || null,
-        pm_user_id: basic.pmUserId || null,
-        status: basic.status,
+        assigned_to: basic.pmUserId || null,
+        stage: basic.stage,
         notes: basic.notes.trim() || null,
         started_on: startedOn || null,
-        template_id: templateId || null,
+        gpm_template_id: templateId || null,
       })).data.data,
     onSuccess: async (row) => {
       /**
@@ -123,7 +125,8 @@ export default function GpmProjectFormPage() {
   /** 足りない項目。**押せなくするのではなく名指しする** */
   const missing = [
     basic.name.trim() ? null : 'プロジェクト名',
-    basic.clientName.trim() ? null : '依頼元',
+    // **自社構築に依頼元は要らない**（相手がいない）。グループ受託だけ名指しする
+    basic.kind === 'group_order' && !basic.customerId ? '依頼元' : null,
   ].filter((m): m is string => m !== null);
 
   return (
@@ -179,7 +182,12 @@ export default function GpmProjectFormPage() {
       </div>
 
       {step === 1 && (
-        <BasicStep values={basic} onChange={(p) => setBasic((v) => ({ ...v, ...p }))} users={users.data ?? []} />
+        <BasicStep
+          values={basic}
+          onChange={(p) => setBasic((v) => ({ ...v, ...p }))}
+          users={users.data ?? []}
+          customers={customers.data ?? []}
+        />
       )}
       {step === 2 && (
         <TemplateStep

@@ -26,6 +26,9 @@
  * - **`instead` をなるべく書く。** 無いと行き止まりになる
  * - **並び順が効く。** 先に一致したものが勝つので、`/gpm/projects/new` は
  *   `/gpm/projects/:id` より**前**に置くこと（後ろだと `new` が「詳細」と案内される）
+ * - **`hidden: true` はスマホの左メニューからも消す**（ご判断）。データを入れる道具
+ *   （決算の取込・DB バックアップ・データビューア）と、案件の仕事に出てこない設定です。
+ *   **ルートは消しません** — 共有された URL を開いたときは今までどおり案内が出ます
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
@@ -66,20 +69,21 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     path: '/sales/project-groups',
     what: 'グループ（費用の分け合い）',
     why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
+    hidden: true,
   },
-  { path: '/sales/gls-import', what: '旧GLS（決算取込）', why: '会計の取り込みは、確かめる行が多く途中で止められません。' },
+  { path: '/sales/gls-import', what: '旧GLS（決算取込）', why: '会計の取り込みは、確かめる行が多く途中で止められません。', hidden: true },
   {
     path: '/sales/review',
     what: '営業レビュー',
     why: '3列を並べて見る画面で、打合せの場で映すためのものです。',
     instead: PROJECTS,
   },
-  { path: '/sales/keep-report', what: '報告資料', why: '印刷して配る形なので、紙と同じ横幅を前提にしています。' },
+  { path: '/sales/keep-report', what: '報告資料', why: '印刷して配る形なので、紙と同じ横幅を前提にしています。', hidden: true },
   { path: '/sales/companies', what: '取引先マスター', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
   { path: '/sales/customers', what: '顧客', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: '取引の履歴と担当者が横に並ぶ画面です。' },
   { path: '/sales/activity-logs', what: '営業活動記録', why: '日付・相手・内容が横に並ぶ表です。' },
-  { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。' },
+  { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
   {
     path: '/sales/projects/confirmed/:category',
     what: '確定案件の一覧',
@@ -94,10 +98,10 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/purchases', what: '仕入の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/sga', what: '販管費の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
-  { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。' },
+  { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
   { path: '/budget/vendors', what: '取引先（仕入先・パートナー）', why: '会社ごとに列が多く、この幅では1社ぶんも並びません。' },
-  { path: '/budget/detail', what: '案件月別詳細', why: '月を横に並べる表です。' },
-  { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。' },
+  { path: '/budget/detail', what: '案件月別詳細', why: '月を横に並べる表です。', hidden: true },
+  { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
   // ── カレンダー ────────────────────────────────────────────
   {
@@ -122,11 +126,11 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   //   案内板とパスワード変更は全員が使い、畳んでも読める
   { path: '/settings/sites', what: '拠点・部屋', why: '拠点を1つ足すと予約できる部屋と見積の金額の両方が変わります。' },
   { path: '/settings/users', what: '権限とメンバー', why: '12 区画 × 5 段の表で、押し間違えると人の仕事が止まります。' },
-  { path: '/settings/money', what: 'お金のルール', why: '支払期日・消費税の端数・値引きの上限が、以後つくる書類すべてに効きます。' },
-  { path: '/settings/hours', what: '休日・営業時間', why: '時刻を選ぶ欄が縦に並ぶ画面で、押し間違えると予約に注意が出続けます。' },
-  { path: '/settings/notify', what: '通知とテンプレート', why: '文面を貯める画面で、落ち着いて読み直してから直すものです。' },
-  { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま出す道具です。' },
-  { path: '/settings/db-backups', what: 'DBバックアップ', why: '復元は取り消せない操作なので、手元が広い場所で行います。' },
+  { path: '/settings/money', what: 'お金のルール', why: '支払期日・消費税の端数・値引きの上限が、以後つくる書類すべてに効きます。', hidden: true },
+  { path: '/settings/hours', what: '休日・営業時間', why: '時刻を選ぶ欄が縦に並ぶ画面で、押し間違えると予約に注意が出続けます。', hidden: true },
+  { path: '/settings/notify', what: '通知とテンプレート', why: '文面を貯める画面で、落ち着いて読み直してから直すものです。', hidden: true },
+  { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま出す道具です。', hidden: true },
+  { path: '/settings/db-backups', what: 'DBバックアップ', why: '復元は取り消せない操作なので、手元が広い場所で行います。', hidden: true },
 
   // ── プロジェクト管理（工事・構築）────────────────────────
   //   **`new` を `:id` より前に置くこと**（後ろだと「詳細」と案内される）
@@ -138,6 +142,12 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/gpm/tasks', what: 'やること（未確認事項）', why: 'プロジェクトごとの未確認事項を並べて突き合わせる画面です。' },
   { path: '/gpm/templates', what: 'プロジェクトの標準工程', why: '型を変えると以後すべてのプロジェクトに効きます。' },
 ];
+
+/**
+ * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
+ * シェルに渡すと、スマホのときだけ項目が消えます。**ルートは生きています。**
+ */
+export const CLIENT_MOBILE_HIDDEN = CLIENT_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
 
 /**
  * **スマホで触る／読む画面**（`check-mobile-declared.mjs` が使う）。

@@ -16,9 +16,10 @@
  * **`new Date()` に通さないこと** — 端末の時間帯で1日ずれます。
  * 先頭10文字を切るだけの `ymd()` を通してください。
  */
+import type { ProjectStage } from '@/types';
+
 
 export type GpmKind = 'self_build' | 'group_order';
-export type GpmStatus = 'planning' | 'active' | 'done' | 'onhold';
 export type PhaseState = 'done' | 'doing' | 'blocked' | 'todo';
 export type OpenItemStatus = 'waiting' | 'checking' | 'resolved';
 export type OpenItemToKind = 'client' | 'pm' | 'vendor' | 'internal';
@@ -26,21 +27,33 @@ export type MemberSide = 'internal' | 'client' | 'pm' | 'vendor';
 
 // ── サーバーが返す形 ────────────────────────────────────────
 
-/** 一覧にも詳細にも入っている列（`gpm_projects` そのもの） */
+/**
+ * 一覧にも詳細にも入っている列。
+ *
+ * **実体は `projects` の行です**（`gls_category = 'B'`・migration 179）。
+ * だから `stage` は案件と同じ 7 段で、売上・仕入・見積・請求がそのままぶら下がります。
+ */
 export interface GpmProjectBase {
   id: string;
   name: string;
-  kind: GpmKind;
-  client_name: string | null;
+  /** GLS 番号。**発番するまで null**（発番は案件と同じ流れ） */
+  gls_number: string | null;
+  gpm_kind: GpmKind | null;
   customer_id: string | null;
+  customer_name: string | null;
   pm_company: string | null;
-  pm_user_id: string | null;
-  pm_name: string | null;
+  /** 社内の担当（案件の `assigned_to` と同じ列） */
+  assigned_to: string | null;
+  assigned_to_name: string | null;
   started_on: string | null;
   ends_on: string | null;
-  status: GpmStatus;
-  template_id: string | null;
-  project_id: string | null;
+  /**
+   * **案件と同じ 7 段**。`status`（準備中/進行中/完了/保留）という別の列は持ちません —
+   * 同じ軸の粗さ違いで、両方持つと必ず片方だけ古くなります。
+   * 一覧の絞り込みだけ 4 つに束ねますが、**保存するのは常にこの値**です。
+   */
+  stage: ProjectStage;
+  gpm_template_id: string | null;
   notes: string | null;
   /** BOX フォルダ。**作るまで null**（作るのは押したときだけ・消せないため） */
   box_url_internal: string | null;
@@ -69,7 +82,7 @@ export interface GpmProjectRow extends GpmProjectBase {
 
 export interface GpmPhase {
   id: string;
-  gpm_project_id: string;
+  project_id: string;
   label: string;
   state: PhaseState;
   started_on: string | null;
@@ -82,7 +95,7 @@ export interface GpmPhase {
 
 export interface GpmOpenItem {
   id: string;
-  gpm_project_id: string;
+  project_id: string;
   phase_id: string | null;
   question: string;
   to_kind: OpenItemToKind;
@@ -99,7 +112,7 @@ export interface GpmOpenItem {
 
 export interface GpmMember {
   id: string;
-  gpm_project_id: string;
+  project_id: string;
   user_id: string | null;
   name: string;
   org: string | null;
@@ -139,7 +152,6 @@ export const TIER_LABEL: Record<MemberTier, string> = {
  * 集計を写して持たせると、同じ数字を2か所で数えることになります。
  */
 export interface GpmProjectDetail extends GpmProjectBase {
-  customer_name: string | null;
   template_name: string | null;
   phases: GpmPhase[];
   /** 未確認事項の**中身**（一覧の `open_items` は件数なので別物） */
@@ -150,9 +162,9 @@ export interface GpmProjectDetail extends GpmProjectBase {
 /**
  * ⑤ 全プロジェクトのタスク1件（`GET /gpm/tasks`）。
  *
- * 実体は既存 `project_tasks` の行ですが、**`project_id` は NULL** で
- * `gpm_phase_id` だけを持ちます。案件のタスクとは別物なので型も分けています
- * （同じ型にすると、案件のタスクを期待している画面に渡せてしまう）。
+ * 実体は既存 `project_tasks` の行で、**GLS-B の案件にぶら下がっています**
+ * （migration 179）。工程に付いていないタスクも同じプロジェクトのものなので返します
+ * — だから `phase_id` は null になりえます。
  */
 export interface GpmTask {
   id: string;
@@ -164,12 +176,13 @@ export interface GpmTask {
   sort_order: number;
   assigned_to: string | null;
   assigned_to_name: string | null;
-  phase_id: string;
-  phase_label: string;
-  phase_state: PhaseState;
-  gpm_project_id: string;
-  gpm_project_name: string;
-  gpm_project_kind: GpmKind;
+  /** 工程に付いていないタスクは null */
+  phase_id: string | null;
+  phase_label: string | null;
+  phase_state: PhaseState | null;
+  project_id: string;
+  project_name: string;
+  project_kind: GpmKind | null;
 }
 
 export interface GpmTemplateTask {
@@ -216,23 +229,29 @@ export const KIND_NOTE: Record<GpmKind, string> = {
   group_order: 'グループ本体から依頼を受けて作る',
 };
 
-export const STATUS_LABEL: Record<GpmStatus, string> = {
-  planning: '準備中',
-  active: '進行中',
-  done: '完了',
-  onhold: '保留',
-};
+/**
+ * 一覧の絞り込みで束ねる 4 つ。**読むときだけの束ね方**で、保存するのは常に `stage`。
+ *
+ * 4 段で保存して 7 段に戻す形にすると、**触っていないのにステージが動きます**
+ * （`neta` のプロジェクトを開いて「準備中」のまま保存 → `c_proposal` になる）。
+ * サーバー側の `STAGE_GROUPS`（`gpm.service.ts`）と**同じ束ね方**にしてあります。
+ */
+export const STAGE_GROUPS: { key: string; label: string; stages: ProjectStage[] }[] = [
+  { key: 'all', label: 'すべて', stages: [] },
+  { key: 'active', label: '進行中', stages: ['a_won'] },
+  { key: 'planning', label: '準備中', stages: ['neta', 'd_hold', 'c_proposal', 'b_verbal'] },
+  { key: 'done', label: '完了', stages: ['s_completed'] },
+  { key: 'lost', label: '見送り', stages: ['e_lost'] },
+];
 
 /**
- * 状態の色。**進行中に色を付けない** — ほとんどが進行中なので、
- * 色を付けると一覧が同じ色で埋まって「保留」と「完了」が拾えなくなる。
+ * そのステージが束ねの何番に入るか。**チップの絞り込みと KPI の数え方を1本にする** —
+ * 別々に書くと「進行中 3 件」と出ているのに開くと 4 件、が起きる。
  */
-export const STATUS_TONE: Record<GpmStatus, string> = {
-  planning: 'bg-info-surface text-info',
-  active: 'bg-muted text-muted-foreground',
-  done: 'bg-success-surface text-success',
-  onhold: 'bg-warning-surface text-warning',
-};
+export function inStageGroup(stage: ProjectStage, key: string): boolean {
+  const g = STAGE_GROUPS.find((x) => x.key === key);
+  return !!g && g.stages.includes(stage);
+}
 
 export const PHASE_STATE_LABEL: Record<PhaseState, string> = {
   done: '完了',

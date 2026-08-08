@@ -27,6 +27,13 @@ const stageTabs: { value: StageFilter; label: string }[] = [
   { value: "completed", label: "完了" },
 ];
 
+/**
+ * 確定案件（スタジオ）＝ GLS-A の発番済み案件。
+ *
+ * **ビジネス（GLS-B）はプロジェクト管理へ移りました** (migration 179)。
+ * `/sales/projects/confirmed/business` は `App.tsx` が `/gpm/projects` へ転送します。
+ * `category` を残してあるのは、`/studio` 以外で来たときに黙って別の一覧を出さないためです。
+ */
 export default function ConfirmedProjectsPage() {
   const { category } = useParams<{ category: string }>();
   const glsCategory = category === "business" ? "B" : "A";
@@ -44,6 +51,9 @@ export default function ConfirmedProjectsPage() {
         page,
         limit: 20,
         gls_category: glsCategory,
+        // **発番済みだけ。** migration 179 で `gls_category` は「発番済か」を
+        // 含まなくなったので、ここで明示する（外すとヨミ段階の案件も並ぶ）
+        issued: 1,
       };
       if (search) params.search = search;
       if (stageFilter === "active") params.tab = "active";

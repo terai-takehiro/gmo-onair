@@ -32,9 +32,7 @@ export interface EstimateItem {
 }
 
 export interface Estimate {
-  /** プロジェクト管理の見積 (v4 大⑤)。`project_id` とは排他 */
-  gpm_project_id?: string | null;
-  /** 提出先 self / client / pm。案件の見積では null */
+  /** 提出先 self / client / pm。GLS-B（プロジェクト）の見積だけが使う */
   submit_to?: string | null;
   id: string;
   project_id: string;
@@ -60,7 +58,7 @@ export interface Estimate {
 }
 
 const SELECT_ESTIMATE = `
-  SELECT id, project_id, gpm_project_id, submit_to, customer_id, group_id, version, title, status,
+  SELECT id, project_id, submit_to, customer_id, group_id, version, title, status,
          tax_category, subtotal, discount, valid_until,
          approval_state, approved_by, approved_at,
          sent_at, decided_at, revenue_id, notes, created_at, updated_at
@@ -162,27 +160,19 @@ export const estimateService = {
   },
 
   /**
-   * プロジェクト（GPM）の見積 (v4 大⑤)。
-   * **案件の見積とは混ざりません** — `project_id` と `gpm_project_id` は排他
-   * （migration 173 の CHECK）。
-   */
-  async listByGpmProject(gpmProjectId: string): Promise<Estimate[]> {
-    return (await queryAll(
-      `${SELECT_ESTIMATE} WHERE gpm_project_id = $1 AND deleted_at IS NULL
-       ORDER BY group_id, version DESC`,
-      [gpmProjectId]
-    )) as unknown as Estimate[];
-  },
-
-  /**
-   * プロジェクトの見積を1本（v1）作る。
+   * プロジェクト（GLS-B）の見積を1本（v1）作る (v4 大⑤・migration 179)。
    *
-   * **提出先を必須にします。** モックの GPM 見積は「誰に出すか」で金額も
-   * 中身も変わる（自社への社内見積とPM会社への見積は別物）ので、
-   * 空のまま作れると**どちらの見積か分からない行**が残ります。
+   * **行き先は `project_id` 1 本**です。migration 179 より前は
+   * `gpm_project_id` という別の列に入れて CHECK で排他していましたが、
+   * プロジェクトも案件の行になったので分ける必要がなくなりました。
+   * 案件管理の一覧・ダッシュボードには `gls_category = 'A'` で絞って出しません。
+   *
+   * **提出先を必須にします。** GPM の見積は「誰に出すか」で金額も中身も変わる
+   * （自社への社内見積と PM 会社への見積は別物）ので、空のまま作れると
+   * **どちらの見積か分からない行**が残ります。
    */
   async createForGpm(
-    gpmProjectId: string,
+    projectId: string,
     data: { title?: string; submit_to?: string; tax_category?: string; valid_until?: string | null },
     userId: string
   ): Promise<Estimate> {
@@ -190,15 +180,20 @@ export const estimateService = {
     if (!(SUBMIT_TO as readonly string[]).includes(submitTo)) {
       throw new AppError(400, 'VALIDATION_ERROR', '提出先（自社 / 依頼元 / PM会社）を選んでください');
     }
-    const proj = await queryOne('SELECT id FROM gpm_projects WHERE id = $1 AND deleted_at IS NULL', [gpmProjectId]);
+    // **プロジェクト（GLS-B）以外には作らせない。** 案件（A）を渡されたら 404 —
+    // ここを通せば `gpm` だけの人が案件の見積を増やせてしまう
+    const proj = await queryOne(
+      `SELECT id FROM projects WHERE id = $1 AND gls_category = 'B' AND deleted_at IS NULL`,
+      [projectId],
+    );
     if (!proj) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
 
     const id = uuidv4();
     await execute(
-      `INSERT INTO estimates (id, project_id, gpm_project_id, submit_to, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, submit_to, group_id, version, title,
          tax_category, valid_until, created_by, updated_by)
-       VALUES ($1, NULL, $2, $3, $1, 1, $4, $5, $6, $7, $7)`,
-      [id, gpmProjectId, submitTo, data.title ?? '', data.tax_category ?? 'tax10',
+       VALUES ($1, $2, $3, $1, 1, $4, $5, $6, $7, $7)`,
+      [id, projectId, submitTo, data.title ?? '', data.tax_category ?? 'tax10',
        data.valid_until ?? null, userId]
     );
     return (await this.getById(id))!;
@@ -248,12 +243,12 @@ export const estimateService = {
 
     const id = uuidv4();
     await execute(
-      // **どちらにぶら下がっているかを写す** (v4 大⑤)。片方だけ写すと
-      // CHECK に弾かれるか、案件とプロジェクトの両方に出る行ができる
-      `INSERT INTO estimates (id, project_id, gpm_project_id, submit_to, customer_id, group_id, version, title,
+      // **提出先も写す** (v4 大⑤)。写さないと、v2 を作った瞬間に
+      // 「自社への見積」だったものが行き先の分からない見積になる
+      `INSERT INTO estimates (id, project_id, submit_to, customer_id, group_id, version, title,
          tax_category, discount, valid_until, notes, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)`,
-      [id, from.project_id, from.gpm_project_id, from.submit_to, from.customer_id, from.group_id,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
+      [id, from.project_id, from.submit_to, from.customer_id, from.group_id,
        Number(maxRow.v) + 1,
        from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId]
     );

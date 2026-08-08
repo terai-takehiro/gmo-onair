@@ -15,9 +15,11 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Pencil } from 'lucide-react';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import type { ProjectStage } from '@/types';
+import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import {
-  KIND_LABEL, STATUS_LABEL, phaseProgress, ymd,
-  type GpmProjectDetail, type GpmStatus,
+  KIND_LABEL, phaseProgress, ymd,
+  type GpmProjectDetail,
 } from '../../types';
 
 export const DETAIL_TABS = [
@@ -26,6 +28,8 @@ export const DETAIL_TABS = [
   { key: 'members', label: '体制' },
   // v4 大⑤: 提出先ごとの個別見積（migration 173）
   { key: 'estimates', label: '見積' },
+  // migration 179 で案件詳細から移した「月次請求（月締め）」
+  { key: 'billing', label: '請求' },
   { key: 'files', label: '書類' },
 ] as const;
 
@@ -35,24 +39,29 @@ export function isDetailTab(v: string | undefined): v is DetailTabKey {
   return DETAIL_TABS.some((t) => t.key === v);
 }
 
-const STATUS_STEPS: GpmStatus[] = ['planning', 'active', 'onhold', 'done'];
+/**
+ * 押して切り替えられるステージ。**案件と同じ 7 段のうち、よく使う4つだけ**を出す。
+ * 残り（ネタ・仮押さえ・失注）は「直す」から変える — ここに 7 つ並べると
+ * 帯が横に伸びてスマホで押せなくなるうえ、押し間違いが起きやすい。
+ */
+const STAGE_STEPS: ProjectStage[] = ['c_proposal', 'b_verbal', 'a_won', 's_completed'];
 
 export function DetailHeader({
-  project, tab, counts, canEdit, onChangeStatus, onEdit,
+  project, tab, counts, canEdit, onChangeStage, onEdit,
 }: {
   project: GpmProjectDetail;
   tab: DetailTabKey;
   counts: Partial<Record<DetailTabKey, number>>;
   canEdit: boolean;
-  onChangeStatus: (next: GpmStatus) => void;
+  onChangeStage: (next: ProjectStage) => void;
   onEdit: () => void;
 }) {
   const progress = phaseProgress(project.phases);
   const sub = [
-    project.client_name,
-    KIND_LABEL[project.kind],
+    project.customer_name,
+    project.gpm_kind ? KIND_LABEL[project.gpm_kind] : null,
     project.pm_company ? `PM会社 ${project.pm_company}` : '自社PM',
-    project.pm_name ? `担当 ${project.pm_name}` : null,
+    project.assigned_to_name ? `担当 ${project.assigned_to_name}` : null,
   ].filter(Boolean).join(' ・ ');
 
   return (
@@ -134,15 +143,15 @@ export function DetailHeader({
           <div
             className="mb-2 inline-flex shrink-0 overflow-hidden rounded-control border border-border"
             role="group"
-            aria-label="状態を変える"
+            aria-label="ステージを変える"
           >
-            {STATUS_STEPS.map((s, i) => {
-              const on = s === project.status;
+            {STAGE_STEPS.map((s, i) => {
+              const on = s === project.stage;
               return (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => { if (!on) onChangeStatus(s); }}
+                  onClick={() => { if (!on) onChangeStage(s); }}
                   aria-pressed={on}
                   className={cn(
                     'min-h-tap text-sub inline-flex items-center px-3 lg:min-h-[36px]',
@@ -150,14 +159,14 @@ export function DetailHeader({
                     on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted',
                   )}
                 >
-                  {STATUS_LABEL[s]}
+                  {STAGE_BADGE_LABEL[s]}
                 </button>
               );
             })}
           </div>
         ) : (
           <span className="text-sub mb-2 shrink-0 rounded-control border border-border px-3 py-1.5 text-muted-foreground">
-            {STATUS_LABEL[project.status]}
+            {STAGE_BADGE_LABEL[project.stage]}
           </span>
         )}
       </div>

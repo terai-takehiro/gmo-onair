@@ -25,10 +25,18 @@ export const EQUIPMENT_PC_ONLY: PcOnlyEntry[] = [
     what: '機材管理の設定',
     why: '保管場所・メーカー・色・貸出の決めごとをまとめて触る画面です。',
     instead: ITEMS,
+    // **スマホのメニューには出さない。** 現場で開く画面ではありません
+    hidden: true,
   },
   // **旧 URL（`/equipment/locations` など8本）はここに書かない。** どれも
   // `/equipment/settings?tab=…` や台帳のタブへの転送で、画面ではありません
 ];
+
+/**
+ * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
+ * シェルに渡すと、スマホのときだけ項目が消えます。**ルートは生きています。**
+ */
+export const EQUIPMENT_MOBILE_HIDDEN = EQUIPMENT_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
 
 /**
  * **スマホで触る／読む画面。** ここと `EQUIPMENT_PC_ONLY` のどちらにも入っていない

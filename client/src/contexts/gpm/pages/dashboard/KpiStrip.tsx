@@ -22,7 +22,8 @@ import { StatValue } from '@gmo-onair/shared/src/client/ui/numbers';
 // 金額は**万円で丸めない**（桁が読めないと判断に使えない）。組み立ては共通の1本に通す
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { ymd, type GpmOpenItem, type GpmProjectRow } from '../../types';
+import { TERMINAL_STAGES } from '@/contexts/sales/pages/projectList/stages';
+import { inStageGroup, ymd, type GpmOpenItem, type GpmProjectRow } from '../../types';
 import type { GpmEstimateSummary } from '../../queries';
 
 export interface GpmKpis {
@@ -45,13 +46,15 @@ export function countKpis(
   today: string,
   weekEnd: string,
 ): GpmKpis {
-  const live = projects.filter((p) => p.status !== 'done');
+  // **終わったものを除く。** 完了と見送りは「いま抱えているもの」ではない
+  const live = projects.filter((p) => !TERMINAL_STAGES.includes(p.stage));
   const dues = live.map((p) => ymd(p.next_due)).filter((d): d is string => d !== null);
   const openAsks = asks.filter((a) => a.status !== 'resolved');
   return {
-    active: projects.filter((p) => p.status === 'active').length,
-    planning: projects.filter((p) => p.status === 'planning').length,
-    onhold: projects.filter((p) => p.status === 'onhold').length,
+    // ステージの束ね方は `types.ts` の `STAGE_GROUPS` が正（サーバーとも同じ）
+    active: projects.filter((p) => inStageGroup(p.stage, 'active')).length,
+    planning: projects.filter((p) => inStageGroup(p.stage, 'planning')).length,
+    onhold: projects.filter((p) => inStageGroup(p.stage, 'lost')).length,
     weekDue: dues.filter((d) => d >= today && d <= weekEnd).length,
     overdueTasks: dues.filter((d) => d < today).length,
     openAsks: openAsks.length,

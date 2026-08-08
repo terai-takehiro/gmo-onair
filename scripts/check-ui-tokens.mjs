@@ -257,11 +257,16 @@ const RULES = [
     // **「エピソード」は 2026-08-07 に外した。** v4 のモックがタブ名として
     // 「エピソード」を使っており、モックが v4 の正だと決まったため
     // (`docs/v4-plan.md` の「大前提」)。ルールのほうをモックに合わせる。
-    re: /按分|データがありません|共用キー|タイムアウト|トースト/,
+    //
+    // **「ビジネス案件」は 2026-08-08 に足した** (migration 179・`docs/design/gpm-merge.md` 決め⑪)。
+    // GLS-B はプロジェクト管理へ移り、画面での呼び名は「プロジェクト」に決めた。
+    // 同じものを指す言葉が2つ残ると、移ったことが伝わらない。
+    re: /按分|データがありません|共用キー|タイムアウト|トースト|ビジネス案件/,
     why: '画面に出さないと決めた言葉です（デザイン 4章 ことばの設計）。'
        + '「按分」→「費用を分け合う」「分け方」「分けた額」／'
        + '「データがありません」→ **何が無いのかと次にやること**／'
-       + '「共用キー」→「AI が自動実行」。'
+       + '「共用キー」→「AI が自動実行」／'
+       + '「ビジネス案件」→「プロジェクト」（GLS-B はプロジェクト管理の持ち物）。'
        + '技術用語（トースト・タイムアウト）はそのまま出さず、起きたことを日本語で書きます',
     // コメント行は開発者向けなので対象外 (概念名を残しておかないと DB と対応が取れない)
     extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
@@ -627,67 +632,62 @@ for (const file of serverFiles) {
  */
 const BASELINE = {
     "ai-person-name": {
-      "client": 20,
-      "client-daily": 1
+      "client": 13
     },
     "browser-dialog": {
-      "client": 57,
+      "client": 35,
       "client-awards": 17,
-      "client-daily": 9,
-      "client-equipment": 16,
+      "client-daily": 1,
       "client-live": 4,
       "client-qsheet": 17,
       "client-techsheet": 2
     },
     "col-width-by-hand": {
       "client": 29,
-      "client-daily": 7,
-      "client-equipment": 19
+      "client-equipment": 6
     },
     "control-height": {
-      "client": 31,
-      "client-equipment": 3
+      "client": 21,
+      "client-equipment": 2
     },
     "date-range-by-hand": {
       "client": 8,
-      "client-daily": 6
+      "client-daily": 1
     },
     "empty-by-hand": {
-      "client": 10,
-      "client-daily": 4,
-      "client-equipment": 2,
+      "client": 8,
+      "client-equipment": 1,
       "shared": 2
     },
     "forbidden-wording": {
-      "client": 84,
+      "client": 58,
       "client-live": 1,
-      "client-qsheet": 6,
-      "client-techsheet": 5,
+      "client-qsheet": 3,
       "shared": 1
     },
     "grow-column-min-w0": {
       "client": 4,
-      "client-equipment": 3,
+      "client-equipment": 2,
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 383,
-      "client-daily": 95,
-      "client-equipment": 132
+      "client": 250,
+      "client-daily": 34,
+      "client-equipment": 46
     },
     "money-by-hand": {
       "client": 4,
-      "client-equipment": 2
+      "client-equipment": 1
     },
     "page-title-by-hand": {
-      "client": 24,
-      "client-equipment": 14,
+      "client": 13,
+      "client-equipment": 1,
       "shared": 1
     },
     "raw-palette": {
-      "client": 372,
-      "client-daily": 116,
-      "client-equipment": 111,
+      "client": 178,
+      "client-daily": 33,
+      "client-equipment": 65,
       "shared": 6
     },
     "raw-xlsx-read": {
@@ -696,13 +696,10 @@ const BASELINE = {
     "stat-size-by-hand": {
       "client": 2
     },
-    "tap-target": {
-      "client": 1
-    },
     "translucent-text": {
-      "client": 24,
-      "client-daily": 5,
-      "client-equipment": 15,
+      "client": 13,
+      "client-daily": 2,
+      "client-equipment": 5,
       "shared": 5
     }
   };

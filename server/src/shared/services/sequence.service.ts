@@ -23,7 +23,7 @@ export async function generateSequenceNumber(seqName: string, prefix: string): P
   return `${prefix}-${ym}-${String(counter).padStart(4, '0')}`;
 }
 
-// GLS番号: GLS-A001 (スタジオ案件) / GLS-B001 (ビジネス案件)
+// GLS番号: GLS-A001 (案件＝スタジオ) / GLS-B001 (プロジェクト＝プロジェクト管理)
 // v2.8.113+ より案件登録時にユーザーが明示的に選択した category を受け取る
 export async function generateGlsNumber(category: GlsCategory): Promise<string> {
   if (category !== 'A' && category !== 'B') {

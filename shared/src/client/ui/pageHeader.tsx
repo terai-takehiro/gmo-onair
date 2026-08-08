@@ -36,7 +36,7 @@
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils';
-import { usePrimaryActionSlot } from '../shell/primaryAction';
+import { usePrimaryActionSlot, usePageTitleSlot } from '../shell/primaryAction';
 
 export interface PageHeaderProps {
   /** 画面の名前。`text-h1` (23px / 800) */
@@ -64,16 +64,35 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   const slot = usePrimaryActionSlot();
+  const titleSlot = usePageTitleSlot();
 
   return (
     <div className={cn('flex flex-wrap items-end gap-3', className)}>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-h1 flex items-center gap-2 [overflow-wrap:anywhere]">
+      <div className="min-w-0 flex-1 empty:hidden">
+        {/*
+          **スマホでは上辺バーが名前を出すので、ここは消します**（M7）。
+          消すのは属性 (`data-page-title`) 経由で、規則は `tokens-v4.css` の側です
+          — ここにクラス名を書くと**凍結4アプリの CSS が増えます**。
+          差し込み口が無いとき（シェルの外）は消しません。名前を失うので。
+        */}
+        <h1
+          data-page-title={titleSlot ? '' : undefined}
+          className="text-h1 flex items-center gap-2 [overflow-wrap:anywhere]"
+        >
           {icon}
           {title}
         </h1>
-        {sub && <p className="text-note mt-1 text-muted-foreground">{sub}</p>}
+        {/*
+          **スマホでは1行に留める**（M7）。「43件 ・ 全員が同じものを見ています」が
+          2行に折り返して、隣の切替ボタンを潰していました。件数は先頭にあるので、
+          切り詰めても知りたいことは残ります。規則は `tokens-v4.css` の側
+          （ここにクラス名を書くと凍結4アプリの CSS が増える）
+        */}
+        {sub && <p data-page-sub className="text-note mt-1 text-muted-foreground">{sub}</p>}
       </div>
+
+      {/* 上辺バーへ。**アイコンは持っていかない**（44px の帯に収まらない） */}
+      {titleSlot ? createPortal(<>{title}</>, titleSlot) : null}
 
       {children}
 

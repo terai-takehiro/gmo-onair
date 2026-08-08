@@ -12,7 +12,7 @@ export interface FormValues {
   customer_type: string;
   project_type: string;
   project_type_other: string;
-  /** 'A' = スタジオ案件 (GLS-A) / 'B' = ビジネス案件 (GLS-B) */
+  /** 'A' = 案件 (GLS-A) / 'B' = プロジェクト (GLS-B・プロジェクト管理の持ち物) */
   gls_category: '' | 'A' | 'B';
   event_start: string;
   event_end: string;

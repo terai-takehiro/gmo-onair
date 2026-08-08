@@ -23,7 +23,7 @@
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Hammer } from 'lucide-react';
 import api from '@/lib/api';
 import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/shared/src/client/states';
@@ -119,6 +119,18 @@ export default function ProjectDetailPage() {
       : <div className="p-4 lg:p-6"><ErrorPanel title="案件を読み込めませんでした" onRetry={() => project.refetch()} /></div>;
   }
   const p = project.data!;
+
+  /**
+   * **GLS-B はプロジェクト管理の持ち物** (migration 179)。
+   *
+   * 分類を移した直後や、共有された古い URL でここに来ることがあります。
+   * 「見つかりません」にすると**移ったのか消えたのか分からない**ので、
+   * そのままプロジェクト管理の同じ id へ送ります（id は変わりません）。
+   * `replace` にするのは、戻るを押したときにここへ戻って再び転送されるのを防ぐため。
+   */
+  if (p.gls_category === 'B') {
+    return <Navigate to={`/gpm/projects/${p.id}`} replace />;
+  }
 
   /**
    * ステージを押したときの確認。**何が動くかを出す**のが要点で、

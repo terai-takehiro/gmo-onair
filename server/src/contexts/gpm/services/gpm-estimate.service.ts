@@ -4,19 +4,16 @@
  * モックの KPI は5枚で、後ろの2枚が **個別見積 未提出** と **検収待ち** です。
  * migration 173 で `estimates` にぶら下げられるようになったので数えられます。
  *
- * ── 「検収待ち」の数え方（実測して直したところ）──────────────
+ * ── 「検収待ち」の数え方 ────────────────────────────────────
  *
- * 検収したかは売上 (`revenues.inspection_date`) が持っています。案件の見積は
+ * 検収したかは売上 (`revenues.inspection_date`) が持っています。見積は
  * 受注（`accepted`）になると売上に変換され `revenue_id` が入るので、
  * そこから検収の有無が読めます。
  *
- * **ところがプロジェクトの見積は、いまは売上に変換できません** —
- * `revenues.project_id` が **NOT NULL** で、案件（GLS）を持たない
- * 自社構築のプロジェクトでは行を作れないためです（実 DB で確認）。
- * `revenues` を NULL 可にするには**同じ表を読む 53 か所**を見直すことになり、
- * migration 138 が「41 か所が `status` を見ていない」を理由に避けた道です。
- *
- * そこで **受注（`accepted`）にした見積のうち、検収が済んでいないもの**を数えます:
+ * **migration 179 でプロジェクトも案件（GLS-B）になったので、売上に変換できます**
+ * （それまでは `revenues.project_id` が NOT NULL で、案件を持たない
+ * 自社構築のプロジェクトでは行を作れませんでした）。
+ * ただし**変換していない見積も検収待ちに数えます**:
  *
  *   ・売上に変換済み → その売上の `inspection_date` が空なら検収待ち
  *   ・変換していない → 検収待ち（まだ請求も立っていない）
@@ -50,22 +47,26 @@ const num = (v: unknown): number => Number(v ?? 0) || 0;
 
 export async function gpmEstimateSummary(): Promise<GpmEstimateSummary> {
   // 値引きは単価を下げず別建てなので、合計は subtotal から引く（案件側と同じ）
+  // **`gls_category = 'B'` で絞る。** ここを落とすと案件（GLS-A）の見積が
+  // プロジェクト管理のダッシュボードに足される（`salesOverview` と対の穴）
   const est = await queryOne(
     `SELECT
-       COUNT(*) FILTER (WHERE status = 'draft')                              AS draft,
-       COALESCE(SUM(subtotal - discount) FILTER (WHERE status = 'draft'), 0) AS draft_amount,
-       COUNT(*) FILTER (WHERE status = 'sent')                               AS sent,
-       COALESCE(SUM(subtotal - discount) FILTER (WHERE status = 'sent'), 0)  AS sent_amount
-     FROM estimates
-     WHERE deleted_at IS NULL AND gpm_project_id IS NOT NULL`,
+       COUNT(*) FILTER (WHERE e.status = 'draft')                                AS draft,
+       COALESCE(SUM(e.subtotal - e.discount) FILTER (WHERE e.status = 'draft'), 0) AS draft_amount,
+       COUNT(*) FILTER (WHERE e.status = 'sent')                                 AS sent,
+       COALESCE(SUM(e.subtotal - e.discount) FILTER (WHERE e.status = 'sent'), 0)  AS sent_amount
+     FROM estimates e
+     JOIN projects p ON p.id = e.project_id
+     WHERE e.deleted_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL`,
   );
 
   const insp = await queryOne(
     `SELECT COUNT(*) AS n,
             COALESCE(SUM(COALESCE(r.amount, e.subtotal - e.discount)), 0) AS amount
        FROM estimates e
+       JOIN projects p ON p.id = e.project_id
        LEFT JOIN revenues r ON r.id = e.revenue_id AND r.deleted_at IS NULL
-      WHERE e.deleted_at IS NULL AND e.gpm_project_id IS NOT NULL
+      WHERE e.deleted_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL
         AND e.status = 'accepted'
         AND (r.id IS NULL OR r.inspection_date IS NULL)`,
   );

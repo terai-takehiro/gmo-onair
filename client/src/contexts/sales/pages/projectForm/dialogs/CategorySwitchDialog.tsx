@@ -12,7 +12,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 
-const LABEL = { A: 'スタジオ案件 (GLS-A)', B: 'ビジネス案件 (GLS-B)' } as const;
+// **呼び名は「案件」と「プロジェクト」** (migration 179・決め⑪)。
+// 「ビジネス案件」はもう使わない — プロジェクト管理へ移ったものを指す言葉が2つあると迷う
+const LABEL = { A: '案件（GLS-A）', B: 'プロジェクト（GLS-B）' } as const;
 
 export function CategorySwitchDialog({
   state, setState, currentCategory, currentGls, busy, onConfirm,

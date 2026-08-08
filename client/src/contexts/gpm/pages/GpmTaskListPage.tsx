@@ -102,7 +102,7 @@ export default function GpmTaskListPage() {
   const setDone = useMutation({
     mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
     onSuccess: (_r, t) => {
-      invalidate(t.gpm_project_id);
+      invalidate(t.project_id);
       notifySuccess(t.is_completed ? '未完了に戻しました' : '完了にしました');
     },
     onError: (e) => notifyApiError('タスクを変えられませんでした', e),
@@ -119,7 +119,7 @@ export default function GpmTaskListPage() {
         status: item.status === 'resolved' ? 'waiting' : 'resolved',
       }),
     onSuccess: (_r, item) => {
-      invalidate(item.gpm_project_id);
+      invalidate(item.project_id);
       notifySuccess(item.status === 'resolved' ? '返事待ちに戻しました' : '解決にしました');
     },
     onError: (err) => notifyApiError('未確認事項を変えられませんでした', err),
@@ -127,7 +127,7 @@ export default function GpmTaskListPage() {
 
   const remove = useMutation({
     mutationFn: (item: GpmOpenItem) => api.delete(`/gpm/open-items/${item.id}`),
-    onSuccess: (_r, item) => { invalidate(item.gpm_project_id); notifySuccess('未確認事項を消しました'); },
+    onSuccess: (_r, item) => { invalidate(item.project_id); notifySuccess('未確認事項を消しました'); },
     onError: (err) => notifyApiError('未確認事項を消せませんでした', err),
   });
 
@@ -228,17 +228,21 @@ export default function GpmTaskListPage() {
                       <RowSub>
                         <button
                           type="button"
-                          onClick={() => navigate(`/gpm/projects/${t.gpm_project_id}`)}
+                          onClick={() => navigate(`/gpm/projects/${t.project_id}`)}
                           className="text-primary hover:underline"
                         >
-                          {t.gpm_project_name}
+                          {t.project_name}
                         </button>
                       </RowSub>
                     </RowMain>
-                    <RowSlot w={128} hideOnMobile>
-                      <span className={cn('text-badge rounded-badge px-1.5 py-0.5 truncate', PHASE_STATE_TONE[t.phase_state])}>
-                        {t.phase_label}
-                      </span>
+                    {/* **工程に付いていないタスクもある** (migration 179)。
+                        枠は残す — 値が無い行だけ列が詰まると桁がずれる */}
+                    <RowSlot w={128} hideOnMobile placeholder="工程なし">
+                      {t.phase_state && t.phase_label ? (
+                        <span className={cn('text-badge rounded-badge px-1.5 py-0.5 truncate', PHASE_STATE_TONE[t.phase_state])}>
+                          {t.phase_label}
+                        </span>
+                      ) : null}
                     </RowSlot>
                     <RowSlot w={96} hideOnMobile>
                       <span className="truncate text-sub-sm text-muted-foreground">{t.assigned_to_name ?? '—'}</span>
@@ -293,7 +297,7 @@ export default function GpmTaskListPage() {
                   onToggleResolved={(item) => toggle.mutate(item)}
                   onEdit={setEditing}
                   onDelete={onDelete}
-                  onOpen={(item) => navigate(`/gpm/projects/${item.gpm_project_id}/asks`)}
+                  onOpen={(item) => navigate(`/gpm/projects/${item.project_id}/asks`)}
                 />
               ))}
             </div>
@@ -303,7 +307,7 @@ export default function GpmTaskListPage() {
 
       {editing && (
         <OpenItemDialog
-          projectId={editing.gpm_project_id}
+          projectId={editing.project_id}
           item={editing}
           onClose={() => setEditing(null)}
         />

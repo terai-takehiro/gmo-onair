@@ -25,7 +25,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Info, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -102,7 +102,8 @@ export function MobileTaskList() {
 
   return (
     <div className="flex flex-col gap-3.5 p-3">
-      <PageHeader title="やること" sub="押して消し込むだけ。並べ替えや割り当ての変更は PC で行います" />
+      {/* **説明はここ1か所だけ。** 以前は同じ文が画面末尾にもう一度出ていた（M7） */}
+      <PageHeader title="やること" sub="押して消し込むだけ。並べ替え・担当の変更・追加は PC で" />
 
       <FilterChips
         label="絞り込む"
@@ -172,14 +173,6 @@ export function MobileTaskList() {
           })}
         </ul>
       )}
-
-      <p className="rounded-note flex items-start gap-2 border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-secondary-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <span>
-          <strong className="font-bold">押して消し込むだけ</strong>の画面です。
-          並べ替え・担当の変更・新しく足すのは PC で行います。
-        </span>
-      </p>
 
       {open && (
         <Sheet

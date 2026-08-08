@@ -31,18 +31,19 @@ export const gpmKeys = {
   openItems: (status: string) => ['gpm-open-items', status] as const,
   templates: () => ['gpm-templates'] as const,
   users: () => ['gpm-users'] as const,
+  customers: () => ['gpm-customers'] as const,
   estimates: (projectId: string) => ['gpm-estimates', projectId] as const,
   estimateSummary: () => ['gpm-estimate-summary'] as const,
 };
 
 /**
  * 見積 (v4 大⑤)。**案件（GLS）の見積とは混ざりません** —
- * `estimates` は同じ表ですが `project_id` と `gpm_project_id` が排他で、
+ * `estimates` は同じ表ですが `project_id` と `project_id` が排他で、
  * サーバー側で片方だけを引いています。
  */
 export interface GpmEstimate {
   id: string;
-  gpm_project_id: string;
+  project_id: string;
   submit_to: 'self' | 'client' | 'pm' | null;
   group_id: string;
   version: number;
@@ -133,6 +134,20 @@ export function useGpmTemplates() {
 }
 
 /** PM に選べる人＝`gpm` の権限を持っている人。持っていない人を選べても意味が無い */
+/**
+ * 依頼元に選べるお客様。
+ *
+ * **自由入力ではありません** (migration 179)。プロジェクトは GLS-B の案件になり、
+ * 依頼元は `customers` への参照（`customer_id`）です。文字を打たせると
+ * 打った名前がどこにも保存されないうえ、同じ会社が表記ゆれで増えます。
+ */
+export function useGpmCustomers() {
+  return useQuery<{ id: string; name: string }[]>({
+    queryKey: gpmKeys.customers(),
+    queryFn: async () => (await api.get('/customers', { params: { limit: 200 } })).data.data,
+  });
+}
+
 export function useGpmUsers() {
   return useQuery<{ id: string; name: string; email: string }[]>({
     queryKey: gpmKeys.users(),

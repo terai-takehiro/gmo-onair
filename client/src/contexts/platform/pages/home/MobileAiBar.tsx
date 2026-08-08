@@ -20,6 +20,13 @@
  * **戻ってきたときにトップの続きが読めません**（モックの決めごと
  * 「終わらせるのはシートで／一覧の行から画面遷移させない」と同じ理由）。
  *
+ * ── 開いたら閉じない（M7 の決めごとを引き継ぐ）────────────────
+ *
+ * この部品は M7 で入れた `MobileIntake`（1行の点線の箱）を**モックの形**に
+ * 置き換えたものです。畳む考え方（**場所は最上部のまま・大きさだけ小さく**）と、
+ * **開いたら閉じない**という決めごとはそのまま引き継いでいます —
+ * 書いている途中で畳めると、入力が消えたように見えるためです。
+ *
  * ── 「撮る」は出さない ──────────────────────────────────────
  *
  * モックの右肩は「貼る・撮る」ですが、**名刺を読む口がありません**。
@@ -28,13 +35,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronDown, ClipboardPaste, Mic, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { TaskIntakeBox } from '@/contexts/tasks/components/TaskIntakeBox';
 
 export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPaste: boolean }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   if (!canIntake && !canPaste) return null;
+  // **開いたら閉じない**（M7）。畳むボタンにすると、書きかけを消したように見える
 
   // 右肩の言葉は**できることだけ**書く（できないことを書かない）
   const hint = canIntake && canPaste ? '書き留める・貼る' : canIntake ? '書き留める' : '貼る・録る';
@@ -43,17 +50,14 @@ export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPa
     <div className="flex flex-col gap-2">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         aria-expanded={open}
         className="rounded-card flex min-h-[60px] w-full items-center gap-3 bg-primary px-4 py-3 text-left"
       >
         <Sparkles className="h-5 w-5 shrink-0 text-primary-foreground" aria-hidden="true" />
         <span className="text-cardtitle min-w-0 flex-1 text-primary-foreground">AIに任せる</span>
         <span className="text-note shrink-0 text-primary-foreground">{hint}</span>
-        <ChevronDown
-          className={cn('h-4 w-4 shrink-0 text-primary-foreground transition-transform', open && 'rotate-180')}
-          aria-hidden="true"
-        />
+        {!open && <ChevronDown className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />}
       </button>
 
       {open && (
