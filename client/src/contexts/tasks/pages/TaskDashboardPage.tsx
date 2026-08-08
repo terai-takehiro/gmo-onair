@@ -266,29 +266,15 @@ function DesktopTaskDashboard() {
  *
  * モックの「スマホに置かないもの」に **ガント（PCで見る・リストへ誘導）** が
  * 挙がっています。横に長い時間軸は 375px では読めません。
- * **黙ってリストにすり替えず**、PC で見る旨を書いて「やること」へ送ります。
+ * **黙ってリストにすり替えず**、PC で触る旨を書いて「やること」へ送ります。
+ * 案内そのものは `@/pcOnlyScreens`（`/sales/tasks/gantt`）が出します
+ * — 文面と見た目を10か所に散らさないためです。
  */
 export default function TaskDashboardPage() {
   const mobile = useIsMobile();
-  const { view } = useParams<{ view: string }>();
-  const navigate = useNavigate();
 
   if (!mobile) return <DesktopTaskDashboard />;
-  if (view === 'gantt') {
-    return (
-      <div className="p-3">
-        <PageHeader title="ガントチャート" sub="横に長い時間軸は、この画面の幅では読めません" />
-        <div className="rounded-card mt-3.5 border border-border bg-card p-4">
-          <p className="text-sub text-secondary-foreground">
-            ガントは<strong className="font-bold">PC で見る画面</strong>です。
-            スマホでは「やること」で1件ずつ片づけてください。
-          </p>
-          <Button className="mt-3 w-full" onClick={() => navigate('/sales/tasks/list')}>
-            やることを開く
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // **ガントの案内はここに書かない。** `@/pcOnlyScreens` の表が
+  // `/sales/tasks/gantt` を受け持つので、ここに来る時点でスマホ向きの見え方だけ
   return <MobileTaskList />;
 }

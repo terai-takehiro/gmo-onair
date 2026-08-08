@@ -175,7 +175,7 @@ export default function DashboardPage() {
                 出庫は登録した予定、入庫は返却予定日で数えています
               </p>
               <div className="flex-1" />
-              <Link to="/equipment/lendings" className="text-sub font-bold text-primary hover:underline">
+              <Link to="/equipment/lendings" className="v4-tap text-sub font-bold text-primary hover:underline">
                 貸出・返却へ →
               </Link>
             </div>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
               <h2 id="eq-overdue" className="text-h2">返してもらう</h2>
               <span className="text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
               <div className="flex-1" />
-              <Link to="/equipment/lendings" className="text-sub text-primary hover:underline">すべて見る</Link>
+              <Link to="/equipment/lendings" className="v4-tap text-sub text-primary hover:underline">すべて見る</Link>
             </div>
             {overdueLendings.length + soonLendings.length === 0 ? (
               <EmptyState
@@ -247,7 +247,7 @@ export default function DashboardPage() {
               <h2 id="eq-maint" className="text-h2">稼働停止中の機材</h2>
               <span className="text-sub text-muted-foreground">修理・点検で使えない状態のもの</span>
               <div className="flex-1" />
-              <Link to="/equipment/maintenance" className="text-sub text-primary hover:underline">すべて見る</Link>
+              <Link to="/equipment/maintenance" className="v4-tap text-sub text-primary hover:underline">すべて見る</Link>
             </div>
             {query.isLoading ? (
               <Delayed><SkeletonRows rows={3} /></Delayed>

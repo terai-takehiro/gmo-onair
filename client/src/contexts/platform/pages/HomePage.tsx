@@ -33,6 +33,7 @@ import api from '@/lib/api';
 import { APPS } from '@gmo-onair/shared/src/client/apps';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { TaskIntakeBox } from '@/contexts/tasks/components/TaskIntakeBox';
 import type { InboxData } from '@/contexts/sales/pages/inbox/kinds';
@@ -47,12 +48,32 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  *
  * **プロジェクト管理 (`gpm`) はモックどおり並びに入れています。**
  * 権限 (`gpm`) を持つ人にだけ出ます（タイルの絞り込みは `visibleApps` が権限で行う）。
+ *
+ * **制作資料 (`qsheet`) と技術資料 (`techsheet`) はここから外し、
+ * 「イベントで使うもの」の段へ移しました**（M3）。どちらも凍結アプリで、
+ * 案件の本番の日に開くものです。375px では大きいタイルが1列に落ちるので、
+ * 9枚あると**「今日」に着くまで 2.5 画面ぶんこすることになっていました**
+ * （実測 1,676px）。
+ *
+ * ⚠️ **消してはいけません。** `visibleApps()` は凍結4アプリを既定で外すので、
+ * **上辺バーのアプリ切替にも左メニューにも凍結アプリは出ていません**。
+ * つまり**押して開ける場所はトップのタイルだけ**で、消すと Qシート・技術資料・
+ * 計時LIVE・リアルタイムCG が URL 直打ちでしか開けなくなります（放送が止まる）。
  */
-const DAILY_KEYS = ['sales', 'budget', 'gpm', 'studio', 'dailyops', 'equipment', 'qsheet', 'techsheet', 'admin'];
+const DAILY_KEYS = ['sales', 'budget', 'gpm', 'studio', 'dailyops', 'equipment', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
+  /**
+   * **スマホでは「今日」を先に出す**（M3）。
+   *
+   * PC は横3列なのでアプリのタイルが2〜3段に収まりますが、375px では1列に落ちて
+   * **「今日」に着くまで 1,676px（2.5 画面ぶん）こする**ことになっていました（実測）。
+   * 外にいる人が開きたいのは自分のタスクと予定で、アプリの入口は下タブと
+   * 上辺バーのアプリ切替からも行けます。**並べ替えるだけで、消していません。**
+   */
+  const isMobile = useIsMobile();
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'おはようございます' : 'お疲れさまです';
@@ -114,6 +135,20 @@ export default function HomePage() {
       .map((a) => ({ ...a, badge: badge[a.key]?.n, urgent: badge[a.key]?.urgent }));
   }, [badges.data, salesWaiting, dailyWaiting, canSeeSales, canSeeDailyops, hasPermission]);
 
+  // ── アプリ ─────────────────────────────────────────────────
+  const appsSection = (
+    <section className="flex flex-col gap-3.5">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <h2 className="text-h2">アプリ</h2>
+        <span className="text-note text-muted-foreground">
+          使えるものだけ並びます。数字は「あなたが押せば片づくもの」の件数です
+        </span>
+      </div>
+      <AppTiles apps={tiles} />
+      <EventTiles />
+    </section>
+  );
+
   return (
     <div className="mx-auto flex max-w-screen-2xl flex-col gap-5 p-3 lg:gap-6 lg:p-6">
       {/* ── 挨拶。**数えられた件数だけを書く** ───────────────────── */}
@@ -146,17 +181,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── アプリ ───────────────────────────────────────────── */}
-      <section className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="text-h2">アプリ</h2>
-          <span className="text-note text-muted-foreground">
-            使えるものだけ並びます。数字は「あなたが押せば片づくもの」の件数です
-          </span>
-        </div>
-        <AppTiles apps={tiles} />
-        <EventTiles />
-      </section>
+      {/* **PC はアプリが先、スマホは「今日」が先。** 中身は同じものを並べ替えるだけ */}
+      {!isMobile && appsSection}
 
       {/* ── 今日 ─────────────────────────────────────────────── */}
       {hasToday && (
@@ -222,6 +248,8 @@ export default function HomePage() {
         )}
       </section>
       )}
+
+      {isMobile && appsSection}
 
       <p className="text-note pt-2 text-center text-muted-foreground">
         GMO ONAiR v{__APP_VERSION__}

@@ -64,8 +64,6 @@ export interface AppShellProps extends ShellChrome, ShellAccess {
   manualContent?: ManualContent;
   /** スマホ下端のタブ。省略すると出さない */
   mobileTabs?: ShellMobileTab[];
-  /** 「他のアプリ」を左メニューの下に出す (既定 true) */
-  showOtherApps?: boolean;
   children: ReactNode;
 }
 
@@ -82,7 +80,6 @@ export function AppShell({
   onSwitchUser,
   manualContent,
   mobileTabs = [],
-  showOtherApps = true,
   role,
   permissions,
   can,
@@ -98,7 +95,7 @@ export function AppShell({
   const [actionSlot, setActionSlot] = useState<HTMLDivElement | null>(null);
 
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
-  const hasMenu = sections.length > 0 || showOtherApps;
+  const hasMenu = sections.length > 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -122,12 +119,10 @@ export function AppShell({
       <div className="flex min-h-0 flex-1">
         {hasMenu && (
           <AppSideMenu
-            appKey={appKey}
             sections={sections}
             note={note}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
-            showOtherApps={showOtherApps}
             role={role}
             permissions={permissions}
             can={can}

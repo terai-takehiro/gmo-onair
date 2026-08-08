@@ -48,6 +48,7 @@ import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
 import { FilterBar, TermHint, SORT_OPTIONS, type EventPeriodMode } from './projectList/FilterBar';
 import { ProjectCards } from './projectList/ProjectCards';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import type { ProjectListResponse } from './projectList/types';
 
 /** 1ページの件数。ボードは列に並べるので**まとめて取る** (5列に 20 件だと各列 4 件しか出ない) */
@@ -267,12 +268,15 @@ export default function ProjectListPage() {
         </>
       )}
 
+      {/*
+        **画面ぜんぶを止めない。** リストは出せるので、出せないのはボードだけだと書く
+        （`PcOnlyNote` は共通の帯。見た目と言い回しを10か所に散らさないため）
+      */}
       {isMobile && rawViewKey === 'board' && (
-        <p className="text-note text-muted-foreground">
-          <strong className="font-bold">ボードは PC で見る画面です。</strong>
-          5つのステージを横に並べるので、この幅では1列も入りません。
-          いまはリストを出しています。
-        </p>
+        <PcOnlyNote
+          what="ボード"
+          why="5つのステージを横に並べるので、この幅では1列も入りません。いまはリストを出しています。"
+        />
       )}
 
       {view === 'board' && rows.length >= BOARD_SIZE && (

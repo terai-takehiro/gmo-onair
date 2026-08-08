@@ -1,7 +1,9 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { AppShell as SharedAppShell } from '@gmo-onair/shared/src/client/shell';
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
+import { DAILY_PC_ONLY } from '@/pcOnlyScreens';
 
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +21,7 @@ import { DAILY_MANUAL } from '@/manual/content';
 export default function AppShell() {
   const { currentUser, logout } = useAuth();
   const { canView, permissionsLoading } = usePermissions();
+  const navigate = useNavigate();
 
   // 権限が無い人に白紙を出さない。何の権限が要るかを名前で出す (P3 の共通部品)
   if (!permissionsLoading && !canView) {
@@ -42,7 +45,10 @@ export default function AppShell() {
       role={currentUser?.role}
       permissions={currentUser?.permissions as Record<string, string> | undefined}
     >
-      <Outlet />
+      {/* **PC で触る画面はスマホで縮めない**（M2）。宣言は `@/pcOnlyScreens` の1つの表 */}
+      <PcOnlyGate table={DAILY_PC_ONLY} onGoInstead={(to) => navigate(to)}>
+        <Outlet />
+      </PcOnlyGate>
     </SharedAppShell>
   );
 }

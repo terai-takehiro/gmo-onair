@@ -331,7 +331,7 @@ export function TaskIntakeBox() {
                         aria-label={r.checked ? "登録しない" : "登録する"}
                         onClick={() => update(r.draft_key, { checked: !r.checked })}
                         className={cn(
-                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
+                          "v4-tap mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
                           r.checked ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background"
                         )}
                       >

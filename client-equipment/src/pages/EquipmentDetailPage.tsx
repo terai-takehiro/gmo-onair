@@ -340,7 +340,7 @@ export default function EquipmentDetailPage() {
           </h1>
           <button
             onClick={copyEqCode}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
+            className="v4-tap flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
             title="IDをコピー"
           >
             <QrCode className="h-3 w-3" />
@@ -922,7 +922,7 @@ export default function EquipmentDetailPage() {
                   {item.children.map((c: any) => (
                     <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                       <button
-                        className="flex items-center gap-2 hover:underline text-left"
+                        className="min-h-tap lg:min-h-0 flex items-center gap-2 hover:underline text-left"
                         onClick={() => navigate(`/equipment/items/${c.id}`)}
                       >
                         <span className=" text-xs text-muted-foreground">{c.eq_code}</span>
@@ -985,7 +985,7 @@ export default function EquipmentDetailPage() {
               <p className="text-xs font-semibold text-muted-foreground mb-2">親機材（この機材が付属している先）</p>
               {item.parent ? (
                 <button
-                  className="flex items-center gap-2 text-sm hover:underline"
+                  className="min-h-tap lg:min-h-0 flex items-center gap-2 text-sm hover:underline"
                   onClick={() => navigate(`/equipment/items/${item.parent.id}`)}
                 >
                   <span className=" text-xs text-muted-foreground">{item.parent.eq_code}</span>
@@ -1043,7 +1043,7 @@ function SearchableSelect({ value, onChange, items, placeholder }: {
     <div ref={ref} className="relative flex-1">
       <button
         type="button"
-        className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
+        className="min-h-tap lg:min-h-0 w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
         onClick={() => {
           setOpen((o) => !o);
           if (!open) setTimeout(() => inputRef.current?.focus(), 50);

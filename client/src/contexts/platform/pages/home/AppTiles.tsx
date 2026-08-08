@@ -26,8 +26,15 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 /** 別バンドル = フルリロードが要るアプリ */
 const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards'];
 
-/** 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの** */
-const EVENT_KEYS = ['liveops', 'awards'];
+/**
+ * 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの**
+ *
+ * M3 で**制作資料 (`qsheet`) と技術資料 (`techsheet`) をここへ移しました**。
+ * 4つとも凍結アプリで、案件の本番に合わせて開きます。
+ * **`HomePage.tsx` の `DAILY_KEYS` と対になっている**ので、片方だけ直すと
+ * タイルが二重に出るか、どこにも出なくなります。
+ */
+const EVENT_KEYS = ['qsheet', 'techsheet', 'liveops', 'awards'];
 
 export interface TileApp extends AppDef {
   /** 押せば片づくものの件数。`undefined` なら数字を出さない */

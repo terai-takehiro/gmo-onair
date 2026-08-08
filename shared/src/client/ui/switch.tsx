@@ -7,6 +7,12 @@ const Switch = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
 >(({ className, ...props }, ref) => (
   <SwitchPrimitives.Root
+    /*
+     * **属性だけ足す。** 帯そのものは 24px のままで、スマホでは
+     * `tokens-v4.css` が透明な擬似要素をかぶせて当たり判定を 44px にする。
+     * ここにクラス名を書くと**凍結4アプリの CSS が増える**ので書かないこと。
+     */
+    data-ui="switch"
     className={cn(
       "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

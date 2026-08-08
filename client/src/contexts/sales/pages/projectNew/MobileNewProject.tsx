@@ -214,7 +214,8 @@ export function MobileNewProject() {
                     )}
                   >
                     <span className={cn(
-                      'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                      // `v4-tap` = 見た目そのまま・スマホでの当たり判定だけ 44px（`tokens-v4.css`）
+                      'v4-tap mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                       on ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
                     )}>
                       {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}

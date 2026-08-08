@@ -26,7 +26,6 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Hammer } from 'lucide-react';
 import api from '@/lib/api';
-import { Button } from '@/components/ui/button';
 import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
@@ -44,6 +43,7 @@ import { EstimateTab } from './projectDetail/EstimateTab';
 import { MobileTools } from './projectDetail/MobileTools';
 import { PROJECT_TABS, MOBILE_TAB_KEYS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
 export default function ProjectDetailPage() {
@@ -54,7 +54,10 @@ export default function ProjectDetailPage() {
   const tab: ProjectTabKey = isProjectTab(rawTab) ? rawTab : 'overview';
   // **スマホで開けないタブを黙って概要にすり替えない。** URL を共有された人が
   // 「見積を見せたのに概要が出た」ことになる。**PC で見る画面だと書いて止める**
-  const offPhone = isMobile && !MOBILE_TAB_KEYS.includes(tab);
+  // **「それでもこのまま開く」で1タブだけ解除できる**（`PcOnlyPanel` と同じ考え方）。
+  // タブを覚えておくのが要点で、真偽値にすると別のタブへ移っても解除が残る
+  const [forcedTab, setForcedTab] = useState<ProjectTabKey | null>(null);
+  const offPhone = isMobile && !MOBILE_TAB_KEYS.includes(tab) && forcedTab !== tab;
   /**
    * 失注だけは「はい / いいえ」で済ませません。**理由を残さないと失注分析が
    * 「不明」だらけ**になるので、理由を選ばないと押せないダイアログを開きます。
@@ -185,7 +188,13 @@ export default function ProjectDetailPage() {
         mobile={isMobile}
       />
 
-      {offPhone && <OffPhoneTab tab={tab} onBack={() => navigate(`/sales/projects/${id}`)} />}
+      {offPhone && (
+        <OffPhoneTab
+          tab={tab}
+          onBack={() => navigate(`/sales/projects/${id}`)}
+          onOpenAnyway={() => setForcedTab(tab)}
+        />
+      )}
 
       {!offPhone && tab === 'overview' && (
         <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
@@ -252,25 +261,24 @@ function TabTodo({ tab, onBack }: { tab: ProjectTabKey; onBack: () => void }) {
  * **概要にすり替えない。** URL を共有された人が「見積を見せたつもりが
  * 概要が出た」ことになります（⑧ のガントと同じ扱い＝黙って別のものを出さない）。
  */
-function OffPhoneTab({ tab, onBack }: { tab: ProjectTabKey; onBack: () => void }) {
+function OffPhoneTab({ tab, onBack, onOpenAnyway }: { tab: ProjectTabKey; onBack: () => void; onOpenAnyway: () => void }) {
   const def = PROJECT_TABS.find((t) => t.key === tab)!;
+  // **見た目と言い回しは共通部品に寄せてある**（`client-v4/pcOnly`）。
+  // 以前はこの画面だけ独自の枠で、ほかの9か所と文面も体裁も違っていた
   const why: Partial<Record<ProjectTabKey, string>> = {
     thread: 'やり取りは長い文章と議事録が並ぶので、読むのは PC が向いています。',
-    estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。375px では桁が読めません。',
+    estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。この幅では桁が読めません。',
     files: '書類は BOX のフォルダを1階層ずつ開く画面です。',
     episode: '回ごとの一覧は横に長い表です。',
-    review: 'ふりかえりはこれから作ります。',
+    review: 'ふりかえりは金額の内訳を縦にそろえて読む画面です。',
   };
   return (
-    <div className="p-3">
-      <div className="rounded-card border border-border bg-card p-4">
-        <h2 className="text-cardtitle">「{def.label}」は PC で見る画面です</h2>
-        <p className="text-sub mt-1.5 text-secondary-foreground">
-          {why[tab] ?? 'この幅では読み切れないので、スマホには出していません。'}
-          <strong className="font-bold">消したのではなく、PC にあります。</strong>
-        </p>
-        <Button variant="outline" className="mt-3" onClick={onBack}>概要にもどる</Button>
-      </div>
-    </div>
+    <PcOnlyPanel
+      what={def.label}
+      why={why[tab] ?? 'この幅では読み切れないので、スマホには出していません。'}
+      instead={{ label: '概要にもどる', to: 'back' }}
+      onGoInstead={onBack}
+      onOpenAnyway={onOpenAnyway}
+    />
   );
 }

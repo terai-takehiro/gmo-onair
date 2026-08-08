@@ -21,7 +21,8 @@
  *   BOX         `box_url_internal` が入っているときだけ。
  *               **無い案件では出しません** — 押しても開かないボタンを置かない
  */
-import { CalendarDays, Package, FileText, FolderOpen, ExternalLink, Monitor } from 'lucide-react';
+import { CalendarDays, Package, FileText, FolderOpen, ExternalLink } from 'lucide-react';
+import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import type { ProjectDetail } from './types';
@@ -77,14 +78,11 @@ export function MobileTools({ project }: { project: ProjectDetail }) {
         </div>
       </section>
 
-      <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">
-        <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-        <span>
-          <strong className="font-bold">見積・書類・やり取りは PC で見ます。</strong>
-          金額の明細は横に伸びる表、書類は BOX のフォルダ、やり取りは長い文章で、
-          どれも 375px では読み切れません。<strong className="font-bold">消したのではなく、PC にあります。</strong>
-        </span>
-      </p>
+      {/* 帯は共通部品（`client-v4/pcOnly`）。文面と見た目を10か所に散らさない */}
+      <PcOnlyNote
+        what="見積・書類・やり取り"
+        why="金額の明細は横に伸びる表、書類は BOX のフォルダ、やり取りは長い文章で、どれもこの幅では読み切れません。消したのではなく、PC にあります。"
+      />
     </div>
   );
 }

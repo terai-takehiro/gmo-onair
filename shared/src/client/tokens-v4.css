@@ -207,6 +207,63 @@
   :root [data-ui='empty-desc'] { font-size: 13px; }
 
   /*
+   * **入力欄と選択欄も 44px。**（M5）
+   *
+   * 実測すると `<select>` が 36px、`<input>` が 36〜40px でした
+   * （休日・営業時間の時刻の欄だけで 8 個）。`Button` には既に効いて
+   * いましたが、**素の `<input>` / `<select>` は誰も上げていませんでした**。
+   * `min-height` なので、既に高いものは1ピクセルも動きません。
+   *
+   * チェックボックス・ラジオ・スライダーは**外します** — 四角そのものが
+   * 44px になると行の高さが崩れ、隣の文字と縦位置が合わなくなります
+   * （押せる範囲は囲っている `<label>` 側で確保する）。
+   */
+  :root input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']),
+  :root select {
+    min-height: 44px;
+  }
+
+  /*
+   * **`min-h-tap` は幅も 44px にする。**（M5）
+   *
+   * 段の切り替え（A / B / C / D のステージ、月 / 年）は**高さは 44px なのに
+   * 幅が 34〜38px** で、隣のボタンとの間が 2px しかありませんでした。
+   * `min-width` は**狭いものを広げるだけ**なので、元から広いボタンは変わりません。
+   */
+  :root .min-h-tap {
+    min-width: 44px;
+  }
+
+  /*
+   * **小さすぎる操作は、見た目を変えずに当たり判定だけ広げる。**（M5）
+   *
+   * トグルの帯 (24px) や ○ の印 (20px) は、**大きくすると意味が変わります**
+   * （トグルの帯を 44px にすると別の部品に見える）。透明な擬似要素を
+   * かぶせて、**描画はそのまま・指の当たる範囲だけ 44px** にします。
+   *
+   * 使い方は2つ:
+   *   ・`data-ui="switch"`  … `Switch` が自分で付ける
+   *   ・`.v4-tap`           … 画面側で小さい丸などに付ける
+   *
+   * **`overflow: hidden` の中では効きません**（はみ出した分が切られる）。
+   * その場合は素直に大きさを変えてください。
+   */
+  :root [data-ui='switch'],
+  :root .v4-tap {
+    position: relative;
+  }
+  :root [data-ui='switch']::after,
+  :root .v4-tap::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /*
    * **閉じた引き出しは、見えないだけでなく触れないようにする。**
    *
    * 左メニューは閉じているとき `-translate-x-full` で画面の外に出しますが、

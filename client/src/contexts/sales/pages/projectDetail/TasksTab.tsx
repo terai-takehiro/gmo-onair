@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Users, ListChecks } from 'lucide-react';
+import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { ApplyFlowDialog } from '@/contexts/sales/pages/flow/ApplyFlowDialog';
@@ -162,9 +163,12 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
             <div className="hidden h-full flex-col sm:flex">
               <GanttView projectId={project.id} episodeId={episodeId} />
             </div>
-            {/* ガントはスマホでは読めない。**閉じずに逃げ道を出す** */}
-            <div className="flex flex-col items-center gap-3 py-12 text-center sm:hidden">
-              <p className="text-sub text-muted-foreground">工程表は横に広いので、PC で見てください。</p>
+            {/* ガントはスマホでは読めない。**閉じずに逃げ道を出す**（帯は共通部品） */}
+            <div className="flex flex-col gap-3 py-6 sm:hidden">
+              <PcOnlyNote
+                what="工程表（ガント）"
+                why="横に長い時間軸なので、この幅では1週間ぶんも入りません。"
+              />
               <button
                 type="button"
                 onClick={() => setView('list')}
