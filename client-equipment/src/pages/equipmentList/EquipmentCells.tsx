@@ -1,20 +1,29 @@
 /**
- * 機材台帳の1行ぶんのセル (標準の列 ＋ 自分で作った列)
+ * 機材台帳の1行ぶんの列 (標準の列 ＋ 自分で作った列)
  *
- * 表そのものは `<table>` のままにしてあります。この一覧だけが
- * **列の出し入れ・その場編集・親子の入れ子**の3つを同時に持っており、
- * 行の部品 (`<Row>`) に載せ替えるにはその3つを作り直す必要があるためです
- * (v4 の第1段階＝分割まで。載せ替えは第2段階)。
+ * ── `<td>` から `<RowSlot>` に載せ替えました ────────────────
+ *
+ * 前は素の `<table>` でした。`<table>` の列幅は**中身が決める**ので、
+ * 絞り込みを変えるたびに列が動き、同じ「種別」の列が画面によって違う幅に
+ * なります。7段の固定幅（`COL_W`）に寄せると、**出す列を変えても
+ * 残った列は同じ位置のまま**です。
+ *
+ * この一覧が持っている3つ（列の出し入れ・その場編集・親子の入れ子）は
+ * そのまま残しています:
+ *
+ *   ・列の出し入れ … `colOrder` / `visibleCols` で並べる順序も保つ
+ *   ・その場編集   … `editMode` のとき入力欄に変わる（中身は1文字も変えていない）
+ *   ・親子の入れ子 … 行の頭（`LEAD_W`）に段差を出す。列は親子で同じ位置
  */
 import type { ReactNode } from 'react';
+import { RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
 import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { CONDITION_LABELS } from '@/lib/constants';
 import { SectionBadge } from './badges';
-import { COL_DEFS, type ColKey, type EquipmentRecord } from './types';
+import { COL_DEFS, COL_W, CUSTOM_COL_W, type ColKey, type EquipmentRecord } from './types';
 
 export interface CellContext {
-  py: string;
   editMode: boolean;
   edits: Record<string, Record<string, string>>;
   onEditChange: (id: string, field: string, value: string) => void;
@@ -43,8 +52,13 @@ function InlineInput({ item, field, ctx, type, className }: {
   );
 }
 
+/** 素の文字。**列の幅で切る**（折り返すと行の高さがそろわない） */
+function Text({ children }: { children: ReactNode }) {
+  return <span className="text-sub-sm truncate text-muted-foreground">{children}</span>;
+}
+
 /**
- * 「貸出可」のセル。
+ * 「貸出可」の列。
  *
  * 子機材は**親の設定を受け継ぐ**（サーバーの `effective_rental_listed`）ので、
  * 子の行では切り替えさせず「親から」と出す。切り替えられるように見せると、
@@ -56,7 +70,7 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
 
   if (inherited) {
     return (
-      <span className="text-sub-sm text-muted-foreground" title="親の機材の設定を受け継いでいます">
+      <span className="text-sub-sm truncate text-muted-foreground" title="親の機材の設定を受け継いでいます">
         {on ? '貸出可' : '常設'}（親から）
       </span>
     );
@@ -64,7 +78,7 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
   if (!ctx.canSetRental) {
     return (
       <span
-        className={`text-sub-sm ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}
+        className={`text-sub-sm truncate ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}
         title="変えるには機材管理の「所有者」権限が要ります"
       >
         {on ? '貸出可' : '常設'}
@@ -86,7 +100,12 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
   );
 }
 
-/** 標準の列のセル。**出す列と並びは利用者ごとの設定に従う** */
+/**
+ * 標準の列。**出す列と並びは利用者ごとの設定に従う。**
+ *
+ * `name`（商品名）だけ `RowMain`（伸びる列）。**行に1つだけ**が `Row` の決まりで、
+ * これがあるので長い商品名があっても右側の列が押し出されません。
+ */
 export function standardCells(
   item: EquipmentRecord,
   colOrder: ColKey[],
@@ -97,81 +116,101 @@ export function standardCells(
   return colOrder.filter((k) => visibleCols.has(k)).map((key) => {
     const col = COL_DEFS.find((c) => c.key === key);
     if (!col) return null;
-    const pad = `px-3 ${ctx.py}`;
     switch (col.key) {
       case 'eq_code':
-        return <td key={key} className={`${pad} font-number whitespace-nowrap text-sub-sm text-muted-foreground`}>{item.eq_code}</td>;
+        return (
+          <RowSlot key={key} w={COL_W.eq_code}>
+            <span className="font-number text-sub-sm truncate text-muted-foreground">{item.eq_code}</span>
+          </RowSlot>
+        );
       case 'equipment_type':
         return (
-          <td key={key} className={`${pad} whitespace-nowrap`}>
+          <RowSlot key={key} w={COL_W.equipment_type}>
             <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
-          </td>
+          </RowSlot>
         );
       case 'location': {
-        const text = item.location_name || item.location_detail || '–';
+        const text = item.location_name || item.location_detail || '';
         return (
-          <td key={key} className={`${pad} text-sub-sm text-muted-foreground`}>
-            <div className="max-w-[128px] truncate" title={text}>{text}</div>
-          </td>
+          <RowSlot key={key} w={COL_W.location} title={text || undefined}>
+            {text ? <Text>{text}</Text> : null}
+          </RowSlot>
         );
       }
       case 'name':
         return (
-          <td key={key} className={`${pad} text-list`}>
+          <RowMain key={key}>
             {ctx.editMode
               ? <InlineInput item={item} field="name" ctx={ctx} />
-              : <div className="line-clamp-2 max-w-[160px] break-words">{item.name}{nameSuffix}</div>}
-          </td>
+              : <div className="text-list truncate" title={item.name}>{item.name}{nameSuffix}</div>}
+          </RowMain>
         );
       case 'manufacturer':
-        return <td key={key} className={`${pad} whitespace-nowrap text-sub-sm text-muted-foreground`}>{item.manufacturer_name || '–'}</td>;
+        return (
+          <RowSlot key={key} w={COL_W.manufacturer} title={item.manufacturer_name || undefined}>
+            {item.manufacturer_name ? <Text>{item.manufacturer_name}</Text> : null}
+          </RowSlot>
+        );
       case 'model_number':
         return (
-          <td key={key} className={`${pad} text-sub-sm text-muted-foreground`}>
+          <RowSlot key={key} w={COL_W.model_number} title={item.model_number || undefined}>
             {ctx.editMode
               ? <InlineInput item={item} field="model_number" ctx={ctx} />
-              : <div className="line-clamp-2 max-w-[128px] break-all">{item.model_number || '–'}</div>}
-          </td>
+              : (item.model_number ? <Text>{item.model_number}</Text> : null)}
+          </RowSlot>
         );
       case 'serial_number':
         return (
-          <td key={key} className={`${pad} whitespace-nowrap text-sub-sm text-muted-foreground`}>
-            {ctx.editMode ? <InlineInput item={item} field="serial_number" ctx={ctx} /> : (item.serial_number || '–')}
-          </td>
+          <RowSlot key={key} w={COL_W.serial_number} title={item.serial_number || undefined}>
+            {ctx.editMode
+              ? <InlineInput item={item} field="serial_number" ctx={ctx} />
+              : (item.serial_number ? <Text>{item.serial_number}</Text> : null)}
+          </RowSlot>
         );
       case 'unit_number':
         return (
-          <td key={key} className={`${pad} font-number whitespace-nowrap text-right text-sub-sm text-muted-foreground`}>
+          <RowSlot key={key} w={COL_W.unit_number} align="right">
             {ctx.editMode
               ? <InlineInput item={item} field="unit_number" ctx={ctx} type="number" className="text-right" />
-              : (item.unit_number ?? '–')}
-          </td>
+              : (item.unit_number ?? null) !== null
+                ? <span className="font-number text-sub-sm text-muted-foreground">{item.unit_number}</span>
+                : null}
+          </RowSlot>
         );
       case 'condition':
-        return <td key={key} className={`${pad} whitespace-nowrap text-sub-sm text-muted-foreground`}>{CONDITION_LABELS[item.condition ?? ''] || '–'}</td>;
+        return (
+          <RowSlot key={key} w={COL_W.condition}>
+            {CONDITION_LABELS[item.condition ?? ''] ? <Text>{CONDITION_LABELS[item.condition ?? '']}</Text> : null}
+          </RowSlot>
+        );
       case 'fixed_asset_code':
         return (
-          <td key={key} className={`${pad} whitespace-nowrap text-sub-sm text-muted-foreground`}>
-            {ctx.editMode ? <InlineInput item={item} field="fixed_asset_code" ctx={ctx} /> : (item.fixed_asset_code || '–')}
-          </td>
+          <RowSlot key={key} w={COL_W.fixed_asset_code} title={item.fixed_asset_code || undefined}>
+            {ctx.editMode
+              ? <InlineInput item={item} field="fixed_asset_code" ctx={ctx} />
+              : (item.fixed_asset_code ? <Text>{item.fixed_asset_code}</Text> : null)}
+          </RowSlot>
         );
       case 'notes':
         return (
-          <td key={key} className={`${pad} text-sub-sm text-muted-foreground`}>
+          <RowSlot key={key} w={COL_W.notes} title={item.notes || undefined}>
             {ctx.editMode
               ? <InlineInput item={item} field="notes" ctx={ctx} />
-              : <div className="line-clamp-2 max-w-[200px] break-words">{item.notes || '–'}</div>}
-          </td>
+              : (item.notes ? <Text>{item.notes}</Text> : null)}
+          </RowSlot>
         );
       case 'rental':
-        return <td key={key} className={`${pad} whitespace-nowrap`}><RentalCell item={item} ctx={ctx} /></td>;
+        return (
+          <RowSlot key={key} w={COL_W.rental} placeholder={null}>
+            <RentalCell item={item} ctx={ctx} />
+          </RowSlot>
+        );
       default: return null;
     }
   });
 }
 
 export interface CustomCellContext {
-  py: string;
   columns: CustomColumn[];
   visible: Set<string>;
   values: Record<string, Record<string, string>>;
@@ -180,30 +219,30 @@ export interface CustomCellContext {
   write: (equipmentId: string, columnId: string, value: string) => void;
 }
 
-/** 自分で作った列のセル。押すとその場で書ける */
+/** 自分で作った列。押すとその場で書ける。**幅は全部同じ**（`CUSTOM_COL_W`） */
 export function customCells(item: EquipmentRecord, ctx: CustomCellContext): ReactNode[] {
   return ctx.columns.filter((c) => ctx.visible.has(c.id)).map((col) => {
     const val = ctx.values[item.id]?.[col.id] ?? '';
     const isEditing = ctx.editing?.equipmentId === item.id && ctx.editing?.columnId === col.id;
-    const pad = `px-3 ${ctx.py}`;
 
     if (col.col_type === 'checkbox') {
       const checked = val === 'true' || val === '1';
       return (
-        <td key={col.id} className={`${pad} text-center`} onClick={(e) => e.stopPropagation()}>
+        <RowSlot key={col.id} w={CUSTOM_COL_W} align="center" placeholder={null} onClick={(e) => e.stopPropagation()}>
           <EnhancedCheckbox
             checked={checked}
+            aria-label={col.name}
             onCheckedChange={(v) => ctx.write(item.id, col.id, v ? 'true' : 'false')}
           />
-        </td>
+        </RowSlot>
       );
     }
     if (isEditing) {
       return (
-        <td key={col.id} className={pad} onClick={(e) => e.stopPropagation()}>
+        <RowSlot key={col.id} w={CUSTOM_COL_W} placeholder={null} onClick={(e) => e.stopPropagation()}>
           <input
             type={col.col_type === 'number' ? 'number' : 'text'}
-            className="w-full min-w-[72px] border-b border-primary-border bg-transparent text-sub focus:border-primary focus:outline-none"
+            className="text-sub w-full border-b border-primary-border bg-transparent focus:border-primary focus:outline-none"
             defaultValue={val}
             aria-label={col.name}
             autoFocus
@@ -213,18 +252,19 @@ export function customCells(item: EquipmentRecord, ctx: CustomCellContext): Reac
               if (e.key === 'Escape') ctx.setEditing(null);
             }}
           />
-        </td>
+        </RowSlot>
       );
     }
     return (
-      <td
+      <RowSlot
         key={col.id}
-        className={`${pad} max-w-[128px] cursor-text truncate text-sub-sm text-muted-foreground hover:bg-muted`}
+        w={CUSTOM_COL_W}
+        className="cursor-text hover:bg-muted"
         title={val || '(押すと書けます)'}
         onClick={(e) => { e.stopPropagation(); ctx.setEditing({ equipmentId: item.id, columnId: col.id }); }}
       >
-        {val || <span className="text-fg-disabled">—</span>}
-      </td>
+        {val ? <Text>{val}</Text> : null}
+      </RowSlot>
     );
   });
 }

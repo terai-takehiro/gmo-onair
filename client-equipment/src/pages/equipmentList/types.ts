@@ -92,6 +92,43 @@ export const COL_DEFS = [
 
 export type ColKey = (typeof COL_DEFS)[number]['key'];
 
+/**
+ * 列幅。**7段（`SlotWidth`）からしか選べない**（`shared/src/client/ui/row.tsx`）。
+ *
+ * ── なぜ表から `<Row>` に載せ替えたか ───────────────────────
+ *
+ * `<table>` の列幅は**中身が決めます**。だから絞り込みを変えるたびに列が動き、
+ * 同じ「種別」の列が画面によって違う幅になります。7段に寄せると、
+ * 出す列を変えても**残った列は同じ位置のまま**です。
+ *
+ * `name`（商品名）だけは**伸びる列**（`RowMain`）なのでここに幅を持ちません。
+ * 伸びる列は行に1つだけ、が `Row` の決まりです。
+ */
+export const COL_W = {
+  eq_code: 96,
+  equipment_type: 72,
+  location: 128,
+  manufacturer: 128,
+  model_number: 128,
+  serial_number: 128,
+  unit_number: 56,
+  condition: 72,
+  fixed_asset_code: 128,
+  notes: 200,
+  rental: 96,
+} as const satisfies Partial<Record<ColKey, number>>;
+
+/** 自分で作った列の幅。**1つに決める** — 中身で決めると列ごとにばらつく */
+export const CUSTOM_COL_W = 128;
+
+/** 行の頭（開閉）・選ぶ四角・操作の幅。本文と表頭で同じ値を使う */
+export const LEAD_W = 56;
+export const CHECK_W = 56;
+export const ACTION_W = 128;
+
+/** 伸びる列（商品名）に最低これだけ残す。狭いと1文字も読めない */
+export const NAME_MIN_PX = 200;
+
 export const PRINT_COLS = [
   { key: 'eq_code', label: 'ID' },
   { key: 'equipment_type', label: '種別' },
