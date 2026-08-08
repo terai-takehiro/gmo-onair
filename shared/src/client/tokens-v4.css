@@ -230,6 +230,33 @@
   :root [data-shell-title]:not(:empty) + [data-shell-applabel] { display: none; }
 
   /*
+   * **バッジの均等割り付けはスマホでやめる。**（M8）
+   *
+   * `TableBadge` は和文4字までを **62px に均等割り付け**します。目的は
+   * **列に縦に並んだときに色の塊の形をそろえる**ことで、PC の表では正しい。
+   *
+   * ところが**スマホには列がありません** — `Row` は `stackOnMobile` /
+   * `hideOnMobile` で列を畳み、機材台帳・セキュリティカード・内覧会は
+   * そもそもカードで描いています。**揃える相手がいないのに字だけ離れる**ので、
+   * 「固定資産」が「固 定 資 産」、「貸せる」が「貸 せ る」に見えていました
+   * （390px の 18 画面で **61 か所**を実測）。
+   *
+   * **`!important` が要ります。** 幅と `text-align` は `TableBadge` が
+   * `style` 属性で直に書いており（62px という数字を JS 側の計算と共有するため）、
+   * インライン指定は普通の規則では上書きできません。**ここは例外**です。
+   *
+   * padding を戻すのは、割り付けをやめると `px-0` のままでは
+   * 文字が枠にぴたりと付くためです。
+   */
+  :root [data-badge-slot],
+  :root [data-badge-slot] > * {
+    width: auto !important;
+    text-align: center !important;
+    text-align-last: center !important;
+  }
+  :root [data-badge-slot] > * { padding-left: 0.5rem; padding-right: 0.5rem; }
+
+  /*
    * **型スケールをスマホ用に詰める。**（M6）
    *
    * ここまでの型スケールは **PC の文書向け**でした（本文 15px・行間 1.75・

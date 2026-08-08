@@ -24,6 +24,10 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronRight, Download, Search, UserPlus, X } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import {
+  MobileFilterBar, MobileFilterField, MobileFilterSegments,
+} from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
@@ -58,6 +62,7 @@ const isUpcoming = (r: InviewRegistration, today: string) => !r.session_date || 
 
 export default function InviewPage() {
   const { canEdit } = usePermissions();
+  const isMobile = useIsMobile();
   // **一覧は1回だけ引く。** 今後かどうかは日付の比較で決まるので、
   // 絞り込みのたびにサーバーへ行かない (チップの件数も同じ1本から数える)
   const list = useInviewList();
@@ -134,41 +139,87 @@ export default function InviewPage() {
           </Button>
         ) : undefined}
       >
-        <Button variant="outline" disabled={!all.length} onClick={() => downloadCsv(all, '全期間')}>
-          <Download className="mr-1 h-4 w-4" aria-hidden="true" />CSV出力（全期間）
-        </Button>
+        {/*
+          **CSV はスマホに出しません**（M8）。書き出したファイルを開いて確かめる
+          相手が端末に無く、受付で使うのは検索です（ご判断の
+          「データを出し入れする道具はスマホに出さない」に当たる）
+        */}
+        {!isMobile && (
+          <Button variant="outline" disabled={!all.length} onClick={() => downloadCsv(all, '全期間')}>
+            <Download className="mr-1 h-4 w-4" aria-hidden="true" />CSV出力（全期間）
+          </Button>
+        )}
       </PageHeader>
 
-      {/* 全部の回をまたぐ検索 — 受付で「どの回か分からない人」を探す入口 */}
-      <div className="rounded-card border border-border bg-card p-3 lg:px-4">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="氏名・会社名・電話番号などで全部の回から探す"
-            aria-label="来場者を検索"
-            className="pl-9 pr-9"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="検索を消す"
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
+      {/*
+        全部の回をまたぐ検索 — 受付で「どの回か分からない人」を探す入口。
+
+        **スマホでは枠と説明を畳みます**（M8）。390px で実測すると、
+        カード枠 ＋ 4行の説明で **約 250px** を使い、名簿に着く前に
+        1画面の6割が説明でした。探し方の但し書きは**打ち込んでから効くもの**
+        （カタカナ・全角半角を区別しない）なので、1行に縮めます。
+      */}
+      {isMobile ? (
+        <MobileFilterBar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: '氏名・会社名・電話で探す',
+            label: '来場者を検索',
+          }}
+          activeCount={(scope === 'all' ? 0 : 1) + (dateAsc ? 1 : 0)}
+          onClearAll={() => { setScope('all'); setDateAsc(false); }}
+          title="開催日の絞り込み"
+          note="かな・全角半角・ハイフンは区別せず、絞り込みに関係なく全部の回から探します"
+        >
+          <MobileFilterField label="開催の時期" hint={`すべて ${counts.all}組 ／ 今後のみ ${counts.upcoming}組`}>
+            <MobileFilterSegments
+              label="開催の時期で絞り込む"
+              items={[['all', 'すべて'], ['upcoming', '今後のみ']]}
+              value={scope}
+              onChange={setScope}
+            />
+          </MobileFilterField>
+          <MobileFilterField label="並び順">
+            <MobileFilterSegments
+              label="開催日の並び順"
+              items={[['desc', '新しい順'], ['asc', '古い順']]}
+              value={dateAsc ? 'asc' : 'desc'}
+              onChange={(v) => setDateAsc(v === 'asc')}
+            />
+          </MobileFilterField>
+        </MobileFilterBar>
+      ) : (
+        <div className="rounded-card border border-border bg-card p-3 lg:px-4">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="氏名・会社名・電話番号などで全部の回から探す"
+              aria-label="来場者を検索"
+              className="pl-9 pr-9"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="検索を消す"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <p className="text-note mt-2 text-muted-foreground">
+            氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 / 回 を探します。
+            カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。<strong className="font-bold">絞り込みに関係なく全部の回</strong>から探します。
+          </p>
         </div>
-        <p className="text-note mt-2 text-muted-foreground">
-          氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 / 回 を探します。
-          カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。<strong className="font-bold">絞り込みに関係なく全部の回</strong>から探します。
-        </p>
-      </div>
+      )}
 
       {list.isError ? (
         <ErrorPanel title="来場予約を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
@@ -184,19 +235,24 @@ export default function InviewPage() {
         />
       ) : (
         <>
+          {/* スマホでは時期と並び順がシートの中にあるので、件数だけ出す */}
           <div className="flex flex-wrap items-center gap-3">
-            <FilterChips
-              label="開催の時期で絞り込む"
-              items={[
-                { key: 'all', label: 'すべて', count: counts.all },
-                { key: 'upcoming', label: '今後のみ', count: counts.upcoming },
-              ]}
-              value={scope}
-              onChange={(k) => setScope(k as Scope)}
-            />
-            <Button variant="ghost" onClick={() => setDateAsc((v) => !v)}>
-              開催日 {dateAsc ? '古い順' : '新しい順'}
-            </Button>
+            {!isMobile && (
+              <>
+                <FilterChips
+                  label="開催の時期で絞り込む"
+                  items={[
+                    { key: 'all', label: 'すべて', count: counts.all },
+                    { key: 'upcoming', label: '今後のみ', count: counts.upcoming },
+                  ]}
+                  value={scope}
+                  onChange={(k) => setScope(k as Scope)}
+                />
+                <Button variant="ghost" onClick={() => setDateAsc((v) => !v)}>
+                  開催日 {dateAsc ? '古い順' : '新しい順'}
+                </Button>
+              </>
+            )}
             <span className="text-sub ml-auto font-number text-muted-foreground">
               {days.length}日 ・ {rows.length}組 ・ {totalHead}名
             </span>

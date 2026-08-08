@@ -28,7 +28,12 @@ export function MobileIntake() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="rounded-card min-h-tap flex w-full items-center gap-2.5 border border-dashed border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
+      /*
+        **破線をやめた**（M8）。この下に「電話・その他を貼る」「打合せを録音する」が
+        続くので、**破線の箱が3つ縦に並んで**いた。破線は「まだ中身が無い」の印なので、
+        動いている入口が未完成に見える。淡い青の面と青い文字だけで入口だと伝わる。
+      */
+      className="rounded-card min-h-tap flex w-full items-center gap-2.5 border border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
     >
       <Sparkles className="h-5 w-5 shrink-0 text-ai" aria-hidden="true" />
       <span className="min-w-0 flex-1">

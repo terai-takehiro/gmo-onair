@@ -241,7 +241,14 @@ export default function HomePage() {
                 key={e.to}
                 type="button"
                 onClick={() => navigate(e.to)}
-                className="rounded-card min-h-tap flex w-full items-center gap-3 border border-dashed border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
+                /*
+                  **破線をやめた**（M8）。トップのスマホ表示ではこの2枚と
+                  `MobileIntake` が縦に並び、**破線の箱が3つ続く**ことになる。
+                  破線は「まだ中身が無い／ここに落とす」の印なので、
+                  動いている入口が「未完成」に見えていた。淡い青の面と
+                  青い文字だけで「押せる入口」は十分に伝わる。
+                */
+                className="rounded-card min-h-tap flex w-full items-center gap-3 border border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
               >
                 <e.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
