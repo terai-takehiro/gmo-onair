@@ -1,7 +1,21 @@
 /**
  * 上辺バー — 高さ **64px** (docs/design/v4/mockups/AppTopbar.dc.html)
  *
- * 左から: ロゴ ／ 区切り ／ **アプリ切替ボタン** ／ パンくず … 検索 ／ 補助 ／ 本人
+ * 左から: ロゴ ／ 区切り ／ **アプリ切替ボタン** ／ パンくず … 検索 ／ 通知 ／ 本人
+ *
+ * ── トップページだけ形が違う (モックの main 側 83〜99 行目) ──────
+ *
+ * **トップページ (`appKey === 'home'`) では、アプリ切替ボタンとパンくずを
+ * 出さず、検索を左に置きます** (幅もモックは 400px と広い)。トップページは
+ * **アプリの一覧そのもの**なので、切替ボタンは同じ物への2つ目の入口になり、
+ * 「ホーム ／ …」というパンくずも行き先を持ちません。
+ *
+ * ── 補助3つ (マニュアル・履歴・MCP) は本人メニューの中 ──────────
+ *
+ * モックの上辺バーにアイコンは1つもありません (検索・通知・本人だけ)。
+ * **消してはいけない機能**なので、**本人メニューの中に移しました** —
+ * もともとスマホでは本人メニューに出していたものを、PC でも同じ場所にします
+ * (置き場所が幅で変わると「さっきあった所に無い」が起きる)。
  *
  * ── 旧ヘッダーとの違い ──────────────────────────────────────
  *
@@ -16,7 +30,10 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Menu, Search, LogOut, ArrowLeftRight, HelpCircle, History, Plug, Home } from 'lucide-react';
+import {
+  ChevronDown, Menu, LogOut, ArrowLeftRight, HelpCircle, History, Plug, Home,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '../utils';
 import { APP_BY_KEY, visibleApps } from '../apps';
 import type { ShellAccess, ShellUser } from './types';
@@ -94,6 +111,8 @@ export function AppTopbar({
   const AppIcon = app?.icon;
   const apps = visibleApps({ current: appKey, role, permissions });
   const base = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL ?? '/') : '/';
+  /** トップページ。アプリ切替とパンくずを出さず、検索を左に置く (モック) */
+  const isHome = appKey === 'home';
 
   return (
     <header data-shell-topbar className="flex h-16 shrink-0 items-center gap-3.5 border-b border-border bg-card px-4 sm:px-6">
@@ -114,7 +133,8 @@ export function AppTopbar({
       </a>
       <span className="hidden h-[22px] w-px bg-border sm:block" aria-hidden="true" />
 
-      {/* ── アプリ切替 (アプリ名がそのままボタン) ────────────────── */}
+      {/* ── アプリ切替 (アプリ名がそのままボタン)。**トップページには出さない** ── */}
+      {!isHome && (
       <div ref={swRef} className="relative shrink-0">
         <button
           type="button"
@@ -137,7 +157,8 @@ export function AppTopbar({
             role="menu"
             className="absolute left-0 top-[46px] z-[60] w-[min(600px,calc(100vw-2rem))] rounded-card border border-border bg-card p-4 shadow-2xl shadow-black/10"
           >
-            <p className="text-th mb-2 text-muted-foreground">アプリを切り替え</p>
+            {/* 字間 .1em の小見出し (モック)。クラスの実体は `tokens-v4.css` */}
+            <p className="v4-eyebrow mb-2">アプリを切り替え</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {apps.map((a) => (
                 <a
@@ -167,21 +188,21 @@ export function AppTopbar({
           </div>
         )}
       </div>
+      )}
 
-      {crumb && <span className="text-sub hidden truncate text-muted-foreground md:block">／ {crumb}</span>}
+      {!isHome && crumb && (
+        <span className="text-sub hidden truncate text-muted-foreground md:block">／ {crumb}</span>
+      )}
+
+      {/* **トップページの検索は左** (モック: ロゴ ／ 区切り ／ 検索)。
+          ほかの画面は右に置く (モックの共通上辺バー) */}
+      {isHome && searchSlot}
 
       <div className="flex-1" />
 
-      {searchSlot}
+      {!isHome && searchSlot}
 
       {notificationSlot}
-
-      {/* ── 補助 (マニュアル / 版の履歴 / MCP) ────────────────────── */}
-      <div className="hidden items-center gap-0.5 sm:flex">
-        {onOpenManual && <IconButton onClick={onOpenManual} label="利用マニュアル" icon={HelpCircle} />}
-        {onOpenVersionHistory && <IconButton onClick={onOpenVersionHistory} label="バージョン履歴" icon={History} />}
-        {onOpenMcpInfo && <IconButton onClick={onOpenMcpInfo} label="MCP コネクタ" icon={Plug} />}
-      </div>
 
       {/* ── 本人 ─────────────────────────────────────────────── */}
       {user && (
@@ -198,11 +219,14 @@ export function AppTopbar({
             aria-expanded={userOpen}
             aria-haspopup="menu"
             aria-label={`${user.name} のメニュー`}
-            className="min-h-tap min-w-tap flex items-center justify-center"
+            className="min-h-tap min-w-tap flex items-center justify-center gap-2.5"
           >
-            <span className="text-list flex h-8 w-8 items-center justify-center rounded-chip bg-primary-surface text-primary">
+            <span className="text-list flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-primary-surface text-primary">
               {user.name.trim().charAt(0) || '?'}
             </span>
+            {/* **氏名を丸の横に出す** (モック)。丸だけだと、誰でログインしているのかが
+                メニューを開かないと分からない。狭い画面では丸だけにする */}
+            <span className="text-sub v4-wide-only whitespace-nowrap text-foreground">{user.name}</span>
           </button>
           {userOpen &&
             createPortal(
@@ -217,7 +241,9 @@ export function AppTopbar({
                     {user.email ? ` ・ ${user.email}` : ''}
                   </p>
                 </div>
-                <div className="pt-1 sm:hidden">
+                {/* 補助3つ。**幅にかかわらずここに置く** — 上辺バーのアイコン列を
+                    やめたので、PC とスマホで置き場所が変わらない */}
+                <div>
                   {onOpenManual && <MenuRow onClick={() => { setUserOpen(false); onOpenManual(); }} icon={HelpCircle}>利用マニュアル</MenuRow>}
                   {onOpenVersionHistory && <MenuRow onClick={() => { setUserOpen(false); onOpenVersionHistory(); }} icon={History}>バージョン履歴</MenuRow>}
                   {onOpenMcpInfo && <MenuRow onClick={() => { setUserOpen(false); onOpenMcpInfo(); }} icon={Plug}>MCP コネクタ</MenuRow>}
@@ -235,20 +261,6 @@ export function AppTopbar({
   );
 }
 
-function IconButton({ onClick, label, icon: Icon }: { onClick: () => void; label: string; icon: typeof Search }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="min-h-tap min-w-tap flex items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="h-[18px] w-[18px]" />
-    </button>
-  );
-}
-
 function MenuRow({
   onClick,
   icon: Icon,
@@ -256,7 +268,7 @@ function MenuRow({
   children,
 }: {
   onClick: () => void;
-  icon: typeof Search;
+  icon: LucideIcon;
   danger?: boolean;
   children: ReactNode;
 }) {

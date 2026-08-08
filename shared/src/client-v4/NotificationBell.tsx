@@ -99,18 +99,26 @@ export function NotificationBell({ api }: Props) {
 
   return (
     <div ref={ref} className="relative shrink-0">
+      {/*
+        **PC は枠つきの「通知」ボタン、スマホはベルだけ**（モック）。
+        PC の上辺バーには余白があり、アイコンだけだと**何のアイコンか**を
+        覚えている人しか押しません。スマホは幅が無いのでベルだけにします。
+        件数は同じ1つの要素で、PC では文字の右に並び（`lg:static`）、
+        スマホではベルの右上に重なります。
+      */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={unread > 0 ? `お知らせ ${unread} 件` : 'お知らせ'}
-        className="min-h-tap min-w-tap relative flex items-center justify-center text-muted-foreground"
+        className="min-h-tap min-w-tap relative flex items-center justify-center gap-2 text-muted-foreground lg:h-10 lg:min-h-0 lg:min-w-0 lg:rounded-control-lg lg:border lg:border-border lg:bg-card lg:px-3 lg:text-foreground lg:hover:bg-muted"
       >
-        <Bell className="h-4 w-4" aria-hidden="true" />
+        <Bell className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="text-sub hidden whitespace-nowrap lg:block">通知</span>
         {unread > 0 && (
           <span
-            className="text-badge absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-chip bg-destructive px-1 text-destructive-foreground"
+            className="text-badge absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-chip bg-destructive px-1 text-destructive-foreground lg:static"
             data-testid="bell-count"
           >
             {unread > 99 ? '99+' : unread}
