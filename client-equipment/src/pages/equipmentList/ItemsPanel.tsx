@@ -1,13 +1,9 @@
 /**
  * ② 機材台帳 ／ 機材 (v4)
  *
- * `EquipmentListPage.tsx` (2,017行) を分けた本体です。分けた先:
- *
- *   types.ts / badges.tsx / useEquipmentListState.ts / useColumnPrefs.ts /
- *   useCustomValues.ts / EquipmentFilters.tsx / EquipmentTable.tsx /
- *   EquipmentCells.tsx / EquipmentCards.tsx / EquipmentDialog.tsx /
- *   EquipmentAssetFields.tsx / BulkEditDialog.tsx / ColumnPicker.tsx /
- *   PrintDialog.tsx / PrintTable.tsx
+ * `EquipmentListPage.tsx` (2,017行) を分けた本体です。分けた先は
+ * この `equipmentList/` の中（状態・絞り込み・道具帯・表・カード・
+ * ダイアログ・印刷）。ここは**それらをつなぐ係**だけを持ちます。
  *
  * **表の中身と送る値は変えていません。** 変えたのは枠 (見出し・絞り込み・
  * 空のとき・読み込み中・確認と知らせ) だけです。
@@ -15,11 +11,12 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Download, Edit3, Plus, Printer, Upload, X } from 'lucide-react';
+import { Edit3, X } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
@@ -29,8 +26,10 @@ import { BulkEditDialog } from './BulkEditDialog';
 import { ColumnPicker } from './ColumnPicker';
 import { EquipmentCards } from './EquipmentCards';
 import { EquipmentDialog, type EquipmentDialogMode } from './EquipmentDialog';
-import { EquipmentFilters } from './EquipmentFilters';
+import { EquipmentFilters, type FilterState } from './EquipmentFilters';
 import { EquipmentTable } from './EquipmentTable';
+import { ItemsToolbar } from './ItemsToolbar';
+import { MobileFilters } from './MobileFilters';
 import { PrintDialog, type PrintSettings } from './PrintDialog';
 import { PrintTable } from './PrintTable';
 import { useColumnPrefs } from './useColumnPrefs';
@@ -48,6 +47,7 @@ const DEFAULT_PRINT: PrintSettings = {
 
 export function ItemsPanel() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('equipment', 'editor');
   const canDelete = hasPermission('equipment', 'manager');
@@ -195,6 +195,14 @@ export function ItemsPanel() {
     navigate(`/equipment/items/${id}`);
   };
 
+  const applyFilterPatch = (patch: Partial<FilterState>) => {
+    if (patch.type !== undefined) s.setType(patch.type);
+    if (patch.section !== undefined) s.setSection(patch.section);
+    if (patch.locs !== undefined) s.setLocs(patch.locs);
+    if (patch.search !== undefined) s.setSearch(patch.search);
+    if (patch.includeChildren !== undefined) s.setIncludeChildren(patch.includeChildren);
+  };
+
   const filterLabel = [
     s.filters.type ? TYPE_LABELS[s.filters.type] : '',
     s.filters.section === 'equipment' ? '設備' : s.filters.section === 'rental' ? '貸出' : '',
@@ -206,61 +214,53 @@ export function ItemsPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sub text-muted-foreground">
-          機材 <span className="font-number font-bold">{s.items.length.toLocaleString('ja-JP')}</span> 点
-          {filtering && `（絞り込み: ${filterLabel}）`}
-        </p>
-        <div className="flex-1" />
-        {canEdit && (
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-1 h-4 w-4" aria-hidden="true" />Excel 取込
-          </Button>
-        )}
-        <Button variant="outline" onClick={downloadItemsExcel}>
-          <Download className="mr-1 h-4 w-4" aria-hidden="true" />Excel 出力
-        </Button>
-        <Button variant="outline" onClick={() => setPrintOpen(true)}>
-          <Printer className="mr-1 h-4 w-4" aria-hidden="true" />印刷
-        </Button>
-        <ColumnPicker
-          open={pickerOpen}
-          onOpenChange={setPickerOpen}
-          prefs={prefs}
-          customColumns={orderedCustom}
-          onManageCustom={() => setCustomColOpen(true)}
-        />
-        {canEdit && (
-          <Button
-            variant={editMode ? 'default' : 'outline'}
-            onClick={() => { setEditMode((v) => !v); setEdits({}); }}
-          >
-            <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />{editMode ? '直し終わり' : '表で直す'}
-          </Button>
-        )}
-        {canEdit && (
-          <Button onClick={() => { setSaveError(null); setSavedOnce(false); setDialog({ kind: 'new' }); }}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を足す
-          </Button>
-        )}
-      </div>
-
-      <EquipmentFilters
-        state={s.filters}
-        base={{ forType: s.baseForType, forSection: s.baseForSection }}
-        locations={locations}
-        locOpen={locOpen}
-        onLocOpenChange={setLocOpen}
-        onChange={(patch) => {
-          if (patch.type !== undefined) s.setType(patch.type);
-          if (patch.section !== undefined) s.setSection(patch.section);
-          if (patch.locs !== undefined) s.setLocs(patch.locs);
-          if (patch.search !== undefined) s.setSearch(patch.search);
-          if (patch.includeChildren !== undefined) s.setIncludeChildren(patch.includeChildren);
-        }}
-        onToggleLoc={s.toggleLoc}
-        onClear={s.clearFilters}
+      <ItemsToolbar
+        count={s.items.length}
+        filterLabel={filterLabel}
+        isMobile={isMobile}
+        canEdit={canEdit}
+        editMode={editMode}
+        columnPicker={
+          <ColumnPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            prefs={prefs}
+            customColumns={orderedCustom}
+            onManageCustom={() => setCustomColOpen(true)}
+          />
+        }
+        onImport={() => setImportOpen(true)}
+        onExport={downloadItemsExcel}
+        onPrint={() => setPrintOpen(true)}
+        onToggleEdit={() => { setEditMode((v) => !v); setEdits({}); }}
+        onNew={() => { setSaveError(null); setSavedOnce(false); setDialog({ kind: 'new' }); }}
       />
+
+      {/*
+        **絞り込みは中身を変えずに、置き方だけ幅で入れ替えます**（M8）。
+        `onChange` の割り振りは1か所（写すと片方だけ軸が増える）。
+      */}
+      {isMobile ? (
+        <MobileFilters
+          state={s.filters}
+          base={{ forType: s.baseForType, forSection: s.baseForSection }}
+          locations={locations}
+          onChange={applyFilterPatch}
+          onToggleLoc={s.toggleLoc}
+          onClear={s.clearFilters}
+        />
+      ) : (
+        <EquipmentFilters
+          state={s.filters}
+          base={{ forType: s.baseForType, forSection: s.baseForSection }}
+          locations={locations}
+          locOpen={locOpen}
+          onLocOpenChange={setLocOpen}
+          onChange={applyFilterPatch}
+          onToggleLoc={s.toggleLoc}
+          onClear={s.clearFilters}
+        />
+      )}
 
       {canBulkEdit && sel.selectedIds.size > 0 && (
         <div className="sticky top-0 z-20 flex items-center justify-between rounded-card bg-primary px-4 py-2 text-primary-foreground">

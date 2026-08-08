@@ -48,6 +48,7 @@ import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { KINDS, INTAKE_KINDS, type InboxData, type InboxKind } from './inbox/kinds';
 import { InboxList } from './inbox/InboxList';
@@ -64,6 +65,7 @@ const STEPS = [
 
 export default function InboxPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const qc = useQueryClient();
   const { currentUser } = useAuth();
   const [kind, setKind] = useState<InboxKind | 'all'>('all');
@@ -158,16 +160,40 @@ export default function InboxPage() {
           選んだものを片づけること (右の「案件にする」など) で、
           **戻るボタンを下端に貼り付けると、主役でないものが主役の位置に出ます**。
         */}
-        <Button variant="outline" onClick={() => navigate('/sales/dashboard')}>
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />ダッシュボードに戻る
+        {/*
+          **スマホでは字を落としてアイコンだけにする**（M8）。390px では
+          この2つが横幅いっぱいを取り、「ダッシュボードに戻る」が
+          いちばん目立つボタンになっていました（主役は届いたものを片づけること）。
+          消さないのは、**戻る道と読み直す道を無くさない**ため。
+          読み上げには `aria-label` で名前が残ります。
+        */}
+        <Button
+          variant="outline"
+          onClick={() => navigate('/sales/dashboard')}
+          aria-label="ダッシュボードに戻る"
+        >
+          <ArrowLeft className={isMobile ? 'h-4 w-4' : 'mr-2 h-4 w-4'} aria-hidden="true" />
+          {!isMobile && 'ダッシュボードに戻る'}
         </Button>
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />更新
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching} aria-label="更新">
+          <RefreshCw
+            className={`${isMobile ? '' : 'mr-2 '}h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          {!isMobile && '更新'}
         </Button>
       </PageHeader>
 
-      {/* 3つのステップ。**見出しの行に入れない** — 見出しと並べると
-          タイトルが 190px まで潰れて2行になる (1440px で実測) */}
+      {/*
+        3つのステップ。**見出しの行に入れない** — 見出しと並べると
+        タイトルが 190px まで潰れて2行になる (1440px で実測)。
+
+        **スマホでは説明文を落とす**（M8）。390px では3つのチップが縦に積まれ、
+        **届いたものに着くまで約 350px**（1画面の半分）を使っていました。
+        ステップの名前だけなら1行に収まり **約 40px** です。説明文
+        （「メールは自動、電話は手で」など）は**初回に一度読めば済むもの**で、
+        毎日開く画面で毎回同じ高さを取るほうが害が大きい。
+      */}
         <div className="flex flex-wrap items-center gap-2">
           {STEPS.map((s) => (
             <span
@@ -181,7 +207,7 @@ export default function InboxPage() {
               }`}>{s.n}</span>
               <span className="min-w-0">
                 <span className={`text-sub block font-bold ${s.n === 2 ? 'text-primary' : ''}`}>{s.label}</span>
-                <span className="text-sub-sm block text-muted-foreground">{s.sub}</span>
+                {!isMobile && <span className="text-sub-sm block text-muted-foreground">{s.sub}</span>}
               </span>
             </span>
           ))}
