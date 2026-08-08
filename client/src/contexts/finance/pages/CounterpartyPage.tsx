@@ -30,6 +30,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Truck, Users, Building2, ArrowRight, BarChart3 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
@@ -101,6 +102,7 @@ export default function CounterpartyPage() {
   const [params, setParams] = useSearchParams();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('budget', 'editor');
+  const isMobile = useIsMobile();
 
   const kind: Kind = params.get('tab') === 'partner' ? 'partner' : 'vendor';
   const def = DEF[kind];
@@ -170,14 +172,23 @@ export default function CounterpartyPage() {
           ) : undefined
         }
       >
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <ExcelToolbar resource={def.endpoint} name={def.excelName} queryKey={[def.queryKey]} />
-          {kind === 'vendor' && (
-            <Button variant="outline" onClick={() => navigate('/budget/reports/vendors')}>
-              <BarChart3 className="mr-1.5 h-4 w-4" aria-hidden="true" />仕入先集計
-            </Button>
-          )}
-        </div>
+        {/*
+          **スマホでは道具を出しません**（M10）。この画面をスマホから開けるように
+          したのは「電話の前に相手を調べる」ためで、
+          ・Excel の取込・出力 … 書き出したファイルを開く相手が端末に無い
+          ・仕入先集計 … **行き先が PC 専用**なので、押すと案内に着いて行き止まりになる
+          どちらも押せても何も片づかないので、外します。
+        */}
+        {!isMobile && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <ExcelToolbar resource={def.endpoint} name={def.excelName} queryKey={[def.queryKey]} />
+            {kind === 'vendor' && (
+              <Button variant="outline" onClick={() => navigate('/budget/reports/vendors')}>
+                <BarChart3 className="mr-1.5 h-4 w-4" aria-hidden="true" />仕入先集計
+              </Button>
+            )}
+          </div>
+        )}
       </PageHeader>
 
       <LedgerTabs
@@ -189,19 +200,32 @@ export default function CounterpartyPage() {
         ]}
       />
 
-      {/* 請求先はここで編集しない。**同じものを2か所から直せるようにしない** */}
-      <button
-        type="button"
-        onClick={() => navigate('/sales/companies')}
-        className="rounded-card min-h-tap flex items-center gap-2.5 border border-dashed border-border px-4 py-2.5 text-left hover:border-primary-border-strong"
-      >
-        <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="text-sub min-w-0 flex-1 text-secondary-foreground">
-          <strong className="font-bold">請求先（顧客）は案件管理の「取引先マスター」で管理します。</strong>
-          {' '}同じ相手を2か所から直せるようにすると、片方だけ直された相手ができます。
-        </span>
-        <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-      </button>
+      {/*
+        請求先はここで編集しない。**同じものを2か所から直せるようにしない**。
+
+        **スマホでは押せる形にしません**（M10）。行き先の「取引先マスター」は
+        PC 専用のままなので、押しても案内に着くだけです。ここで要るのは
+        「ここには居ません」と分かることなので、1行の注記に落とします。
+      */}
+      {isMobile ? (
+        <p className="text-note text-muted-foreground">
+          <strong className="font-bold">請求先（顧客）はここにはありません。</strong>
+          {' '}案件管理の「取引先マスター」で管理しています（PC で開いてください）。
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => navigate('/sales/companies')}
+          className="rounded-card min-h-tap flex items-center gap-2.5 border border-border px-4 py-2.5 text-left hover:border-primary-border-strong"
+        >
+          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="text-sub min-w-0 flex-1 text-secondary-foreground">
+            <strong className="font-bold">請求先（顧客）は案件管理の「取引先マスター」で管理します。</strong>
+            {' '}同じ相手を2か所から直せるようにすると、片方だけ直された相手ができます。
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        </button>
+      )}
 
       <LedgerSearch value={crud.search} onChange={crud.setSearch} placeholder={def.searchPh} />
 

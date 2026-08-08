@@ -44,7 +44,8 @@
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:ui-tokens": "node scripts/check-ui-tokens.mjs",
     "check:version": "node scripts/check-version-consistency.mjs",
-    "design:extract": "node scripts/extract-v4-design.mjs"
+    "design:extract": "node scripts/extract-v4-design.mjs",
+    "check:frozen": "node scripts/check-frozen-css.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
