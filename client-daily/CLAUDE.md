@@ -64,6 +64,15 @@
   `components/layout/AppShell.tsx`（設定を渡すだけ）と `components/layout/nav.ts`（メニューの中身）。
   **旧 `Header.tsx` / `Sidebar.tsx` は削除済み**
 
+- **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
+  `DAILY_PC_ONLY` か `DAILY_MOBILE_OK` で、**どちらにも入っていないと
+  `npm run lint` が止まります**。決め方は `client/src/pcOnlyScreens.ts` の冒頭。
+  - **このアプリは現場で開くものが多い**ので PC 向きは1枚だけ（入ってきた情報）。
+    内覧会の当日受付・セキュリティカードの貸出・やること は**スマホが主戦場**
+  - **下タブの3つ目がまだ「メニュー」**（`nav.ts` の `DAILY_MOBILE_TABS`）。
+    上辺バーの ☰ と二重の入口になっているので、`/search` にあたる画面を
+    作ったら「探す」に差し替える（案件管理は差し替え済み）
+
 - **1ファイル400行を上限にする。** いま `pages/TasksPage.tsx` が 1,005行
 - `src/index.css` にタイマー・視聴者数のクラスが残っている（計時LIVE から流用された跡）。
   `switcher-in` の keyframes は `shared` のトークンと**重複定義**

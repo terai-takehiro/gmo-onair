@@ -82,6 +82,18 @@
     （`bg-card` / `bg-primary-surface-weak` / `bg-muted`）、操作の枠は `bg-inherit` で受け取る
   - **印刷は触っていない。** `PrintTable.tsx` は本物の `<table>` のままで、
     `index.css` の `#eq-print-area table` もそのまま効く（紙は表のほうが正しい）
+- **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
+  `EQUIPMENT_PC_ONLY` か `EQUIPMENT_MOBILE_OK` で、**どちらにも入っていないと
+  `npm run lint` が止まります**。決め方は `client/src/pcOnlyScreens.ts` の冒頭。
+  - PC 向きは**ラック図と設定の2枚だけ**。棚卸し・QRスキャン・貸出・返却・
+    機材を探す は現場で使うのでスマホに残す
+  - **メンテナンスはスマホに残す**（ご判断）。現場で「これ壊れている」を
+    その場で登録したい、が実際に起きるため
+  - `/equipment/locations` など8本の旧 URL は**表に書かない** — どれも
+    `/equipment/settings?tab=…` や台帳のタブへの転送で、画面ではない
+- **機材台帳は 768px 未満でカードに切り替わる**（`equipmentList/EquipmentCards.tsx`）。
+  PC 用の行（`EquipmentTable.tsx`）は `hidden md:block` の中なので、
+  **スマホに 1,300px の表は出ていない**。ここを触るときは両方を直すこと
 - **1ファイル400行を上限にする。** いま超過しているもの:
   `pages/RackLayoutPage.tsx` 1,269行 / `pages/EquipmentDetailPage.tsx` 1,090行 /
   `manual/content.tsx` 443行 / `components/ExcelImportDialog.tsx` 414行

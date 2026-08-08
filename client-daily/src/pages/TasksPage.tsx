@@ -74,7 +74,7 @@ export default function TasksPage() {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={cn(
-                  'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 py-2 text-sm font-medium transition-colors',
+                  'min-h-tap lg:min-h-0 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 py-2 text-sm font-medium transition-colors',
                   active
                     ? 'border-b-2 border-primary bg-primary/10 text-primary'
                     : 'border-b-2 border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -163,7 +163,7 @@ function MyTasksTab() {
         </div>
         <button
           onClick={() => setShowDone((v) => !v)}
-          className={cn('rounded-md px-3 py-1.5 text-sm', showDone ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}
+          className={cn('min-h-tap lg:min-h-0 rounded-md px-3 py-1.5 text-sm', showDone ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}
         >
           完了も表示
         </button>
@@ -219,7 +219,7 @@ function ViewBtn({ active, onClick, icon: Icon, children }: {
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+        'min-h-tap lg:min-h-0 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
         active ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'
       )}
     >
@@ -313,7 +313,7 @@ function TaskRow({ t, canEdit, canOpenProject, onEdit }: {
             onClick={() => update.mutate({ id: t.id, patch: { is_completed: !t.is_completed } })}
             disabled={update.isPending}
             className={cn(
-              'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
+              'v4-tap mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
               t.is_completed ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-muted-foreground/40 hover:border-primary'
             )}
             title={t.is_completed ? '未完了に戻す' : '完了にする'}
@@ -395,7 +395,7 @@ function DelegationsTab() {
     <div className="space-y-5">
       <button
         onClick={() => setIncludeDone((v) => !v)}
-        className={cn('rounded-md px-3 py-1.5 text-sm', includeDone ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}
+        className={cn('min-h-tap lg:min-h-0 rounded-md px-3 py-1.5 text-sm', includeDone ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}
       >
         完了した依頼も表示
       </button>

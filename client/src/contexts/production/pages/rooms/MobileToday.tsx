@@ -33,7 +33,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, CalendarDays, Info, ArrowRight, PackageOpen, Undo2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ArrowRight, PackageOpen, Undo2 } from 'lucide-react';
+import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -235,14 +236,11 @@ export function MobileToday() {
         </section>
       ) : null}
 
-      <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-        <span>
-          <strong className="font-bold">予約を作るのは PC です。</strong>
-          部屋・時間・案件・用途を決める作業なので、この画面では見るだけにしています。
-          空いている時間は「部屋の空き」で確かめられます。
-        </span>
-      </p>
+      {/* 帯は共通部品（`client-v4/pcOnly`）。文面と見た目を10か所に散らさない */}
+      <PcOnlyNote
+        what="予約を作るの"
+        why="部屋・時間・案件・用途を決める作業なので、この画面では見るだけにしています。空いている時間は「部屋の空き」で確かめられます。"
+      />
     </div>
   );
 }

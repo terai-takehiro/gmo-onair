@@ -14,6 +14,17 @@
  * **項目・並び・ラベルはいまのまま**です。v4 で入れ替えるのは枠だけで、
  * 情報設計の変更は Phase 2 以降にアプリごとに相談します。
  *
+ * ── 「他のアプリ」を外しました (M4) ─────────────────────────
+ *
+ * 下に並べていた「他のアプリ」6行は、**上辺バーのアプリ切替と完全に重複**して
+ * いました (どちらも `visibleApps()` の同じ一覧)。案件管理では
+ * v4 の 6 項目に対して**作り直し前 11 ＋ 他のアプリ 6 = 23 行**あり、
+ * 整理した部分より整理していない部分のほうが多い状態でした。
+ *
+ * **凍結4アプリはもともとここに出ていません** (`visibleApps()` の既定が外す)。
+ * 押して開ける唯一の場所は**トップページのタイル**なので、外すときは
+ * そちらを消さないこと — 消すと放送で使う4アプリが URL 直打ちでしか開けなくなります。
+ *
  * ── 権限で消えることの重さ ──────────────────────────────────
  *
  * ここのフィルタが壊れると**利用者から黙ってメニュー項目が消えます**。
@@ -25,7 +36,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../utils';
-import { visibleApps } from '../apps';
 import type { ShellAccess, ShellNavSection } from './types';
 
 /**
@@ -69,17 +79,11 @@ export function currentTo(pathname: string, sections: ShellNavSection[]): string
 }
 
 export interface AppSideMenuProps extends ShellAccess {
-  appKey: string;
   sections: ShellNavSection[];
   note?: ReactNode;
   /** スマホで開いているか。PC では常に出る */
   open: boolean;
   onClose: () => void;
-  /**
-   * 「他のアプリ」を下に並べる。**凍結4アプリは出さない** (v4 のシェルなので)。
-   * 旧シェルは今までどおり全部出す。
-   */
-  showOtherApps?: boolean;
 }
 
 function useCan({ role, permissions, can }: ShellAccess) {
@@ -88,12 +92,10 @@ function useCan({ role, permissions, can }: ShellAccess) {
 }
 
 export function AppSideMenu({
-  appKey,
   sections,
   note,
   open,
   onClose,
-  showOtherApps = true,
   role,
   permissions,
   can,
@@ -101,7 +103,6 @@ export function AppSideMenu({
   const { pathname } = useLocation();
   const allow = useCan({ role, permissions, can });
   const isAdmin = role === 'system_admin';
-  const others = showOtherApps ? visibleApps({ current: appKey, role, permissions }) : [];
 
   const visible = sections
     .map((s) => ({
@@ -201,23 +202,6 @@ export function AppSideMenu({
             )}
           </Section>
         ))}
-
-        {others.length > 0 && (
-          <div className="mt-3.5 border-t border-border-faint pt-2">
-            <p className="text-th mb-1 px-2.5 text-muted-foreground">他のアプリ</p>
-            {others.map((a) => (
-              <a
-                key={a.key}
-                href={a.external ?? a.path}
-                {...(a.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="text-list min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted lg:min-h-[38px]"
-              >
-                <a.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{a.label}</span>
-              </a>
-            ))}
-          </div>
-        )}
 
         {note && (
           <div className="mt-4 rounded-control-lg border border-dashed border-border px-3 py-2.5">

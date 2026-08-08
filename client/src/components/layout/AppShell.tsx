@@ -1,8 +1,10 @@
 import React from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
+import { CLIENT_PC_ONLY } from "@/pcOnlyScreens";
 
 import { appOfPath } from "@gmo-onair/shared/src/client/apps";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
@@ -90,18 +92,17 @@ class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, E
  */
 export default function AppShell() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { currentUser, logout, hasPermission, permissions } = useAuth();
 
   const app = appOfPath(pathname);
   const sections = app ? (CLIENT_NAV[app.key] ?? []) : [];
-  const isHome = !app;
 
   return (
     <SharedAppShell
       appKey={app?.key ?? "home"}
       appLabel={app?.label ?? "ONAiR"}
       sections={sections}
-      showOtherApps={!isHome}
       mobileTabs={CLIENT_MOBILE_TABS}
       searchSlot={<GlobalSearch />}
       notificationSlot={<NotificationBell api={api} />}
@@ -116,7 +117,13 @@ export default function AppShell() {
       {/* 「最近見たもの」を積む係（⑪ 探す）。画面は描かない */}
       <RecentTracker />
       <PageErrorBoundary>
-        <Outlet />
+        {/*
+          **PC で触る画面はスマホで縮めない**（M2）。宣言は `@/pcOnlyScreens` の1つの表。
+          画面ごとに `useIsMobile()` を書くと書き忘れに気づけず、しかも数えられない
+        */}
+        <PcOnlyGate table={CLIENT_PC_ONLY} onGoInstead={(to) => navigate(to)}>
+          <Outlet />
+        </PcOnlyGate>
       </PageErrorBoundary>
     </SharedAppShell>
   );

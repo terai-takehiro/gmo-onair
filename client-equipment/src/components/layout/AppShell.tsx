@@ -1,7 +1,9 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
+import { EQUIPMENT_PC_ONLY } from "@/pcOnlyScreens";
 
 import { useAuth } from "@/hooks/useAuth";
 import { EQUIPMENT_MANUAL } from "@/manual/content";
@@ -19,6 +21,7 @@ import { EQUIPMENT_MOBILE_TABS, EQUIPMENT_NAV } from "./nav";
  */
 export default function AppShell() {
   const { currentUser, logout, hasPermission } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <SharedAppShell
@@ -34,7 +37,10 @@ export default function AppShell() {
       permissions={currentUser?.permissions as Record<string, string> | undefined}
       can={(m) => hasPermission(m)}
     >
-      <Outlet />
+      {/* **PC で触る画面はスマホで縮めない**（M2）。宣言は `@/pcOnlyScreens` の1つの表 */}
+      <PcOnlyGate table={EQUIPMENT_PC_ONLY} onGoInstead={(to) => navigate(to)}>
+        <Outlet />
+      </PcOnlyGate>
     </SharedAppShell>
   );
 }
