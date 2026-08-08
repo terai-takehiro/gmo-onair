@@ -41,3 +41,35 @@ export const PrimaryActionSlotContext = createContext<HTMLElement | null>(null);
 export function usePrimaryActionSlot(): HTMLElement | null {
   return useContext(PrimaryActionSlotContext);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ページ名の差し込み口（M7）
+   ───────────────────────────────────────────────────────────────────
+   **スマホでページ名が二重に出ていました。** 上辺バーはアプリ切替のチップ
+   （「案件管理 ▾」）に幅を使い、そのすぐ下で本文が「案件一覧」ともう一度
+   名乗ります。**64px の帯が現在地を1文字も伝えていない**状態でした。
+
+   スマホでは**上辺バーがページ名を出し、本文の大見出しは消します**。
+   仕組みは主アクションとまったく同じ（シェルが空の要素を1つ配り、
+   `PageHeader` が `createPortal` でそこへ描く）。
+   状態を配ると「描画 → setState → 再描画」が回り続けるため、
+   **配るのは DOM 要素だけ**です。
+
+   ⚠️ **まだ `PageTitle`（v4 より前の見出し）を使っている画面が 38 あります。**
+   その画面は何も描かないので差し込み口は空のままです。上辺バーは
+   **空のときだけアプリ名に戻します**（`tokens-v4.css` の
+   `[data-shell-title]:not(:empty) + [data-shell-applabel]` で切り替え）。
+   ここを JS で判定すると、`PageHeader` が描くたびにシェルが再描画します。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** シェルが用意するページ名の差し込み口。シェルの外では `null` */
+export const PageTitleSlotContext = createContext<HTMLElement | null>(null);
+
+/**
+ * ページ名を描く先。`null` のときは**本文の見出しをそのまま出す**
+ * （シェルの外で `<PageHeader>` を使う画面が、名前を失わないため）。
+ */
+export function usePageTitleSlot(): HTMLElement | null {
+  return useContext(PageTitleSlotContext);
+}

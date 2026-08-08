@@ -39,6 +39,11 @@ export interface AppTopbarProps extends ShellAccess {
   onSwitchUser?: () => void;
   /** スマホのハンバーガー。渡さないと出ない (左メニューが無い画面) */
   onToggleMenu?: () => void;
+  /**
+   * **ページ名の差し込み口**（M7）。スマホでは上辺バーが現在地を出します。
+   * 中身は `PageHeader` が `createPortal` で描くので、ここは器だけです。
+   */
+  titleSlotRef?: (el: HTMLSpanElement | null) => void;
   onOpenManual?: () => void;
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
@@ -77,6 +82,7 @@ export function AppTopbar({
   onLogout,
   onSwitchUser,
   onToggleMenu,
+  titleSlotRef,
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
@@ -90,6 +96,7 @@ export function AppTopbar({
   useDismiss(swOpen, () => setSwOpen(false), swRef);
   useDismiss(userOpen, () => setUserOpen(false), userRef);
 
+  const label = appLabel;
   const app = APP_BY_KEY[appKey];
   const AppIcon = app?.icon;
   const apps = visibleApps({ current: appKey, role, permissions });
@@ -114,8 +121,28 @@ export function AppTopbar({
       </a>
       <span className="hidden h-[22px] w-px bg-border sm:block" aria-hidden="true" />
 
-      {/* ── アプリ切替 (アプリ名がそのままボタン) ────────────────── */}
-      <div ref={swRef} className="relative shrink-0">
+      {/*
+        ── スマホ: ここが**ページ名**（M7）──────────────────────
+        以前はアプリ切替のチップが幅を取り、そのすぐ下で本文が同じ名前を
+        もう一度出していました（64px の帯が現在地を1文字も伝えていない）。
+        中身は `PageHeader` が差し込みます。**まだ `PageTitle` を使っている
+        38 画面では空のまま**なので、そのときだけアプリ名に戻します
+        （切り替えは `tokens-v4.css` の CSS。JS で判定すると再描画が回る）。
+        アプリの切替はスマホでは左メニュー（☰）から行います。
+
+        ⚠️ **文字の大きさをここでクラス指定しないこと。** 見出し用の型スケールを
+        1つ書いただけで**凍結4アプリの CSS に1規則増えました**（実測。描かないのに入る）。
+        見た目は `tokens-v4.css` の `[data-shell-title]` 側で当てます。
+        **この注意書きの中にも実物のクラス名を書かないこと** — Tailwind は
+        コメントも走査するので、説明のつもりで書いた1語がそのまま CSS になります。
+      */}
+      <div className="flex min-w-0 flex-1 items-center lg:hidden">
+        <span ref={titleSlotRef} data-shell-title className="min-w-0 truncate" />
+        <span data-shell-applabel className="min-w-0 truncate">{label}</span>
+      </div>
+
+      {/* ── アプリ切替 (アプリ名がそのままボタン)。**PC だけ** ────── */}
+      <div ref={swRef} data-shell-switch className="relative shrink-0">
         <button
           type="button"
           onClick={() => setSwOpen((v) => !v)}
@@ -170,7 +197,9 @@ export function AppTopbar({
 
       {crumb && <span className="text-sub hidden truncate text-muted-foreground md:block">／ {crumb}</span>}
 
-      <div className="flex-1" />
+      {/* 押しのけ用の伸び代。**スマホではページ名が伸びる**ので、あちらでは消す
+          （消すのは属性経由。ここに幅の切り替えを書くと凍結アプリの CSS が増える） */}
+      <div data-shell-spacer className="flex-1" />
 
       {searchSlot}
 
