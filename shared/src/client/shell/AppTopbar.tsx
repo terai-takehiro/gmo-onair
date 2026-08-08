@@ -135,7 +135,26 @@ export function AppTopbar({
         </button>
       )}
 
-      <a href="/" className="hidden shrink-0 items-center sm:flex" title="ONAiR トップページへ">
+      {/*
+        ── ロゴ。**トップページではスマホにも出す** ─────────────────
+        モックの端末枠は上辺バーが**2種類**あります:
+          ・トップ      … **ロゴ** ／ 余白 ／ ベル ／ 本人（`☰` もページ名も無い）
+          ・ほかの画面  … `☰` ／ アプリ名 ／ 余白 ／ 検索（**ロゴは無い**）
+        実装は `hidden sm:flex` で**640px 未満ではどの画面でもロゴが出ていません**
+        でした（S2 でこのバーを作ったときから）。トップはロゴが画面の名前そのもの
+        なので、**スマホのトップでロゴが無いと何のアプリか分からない**状態でした。
+
+        ほかの画面ではスマホに出しません（モックどおり）。375px では
+        `☰` ＋ ページ名（M7）＋ ベル ＋ 本人 が並ぶので、ロゴを足すと
+        **ページ名が数文字で切れます** — 現在地のほうが優先です。
+      */}
+      {/* ロゴは押すとトップへ戻る**リンク**なので、当たり判定を 44px 取る
+          （絵は 20px のまま。上辺バーは 64px で中身は上下中央なので見た目は変わらない） */}
+      <a
+        href="/"
+        className={cn('min-h-tap shrink-0 items-center', isHome ? 'flex' : 'hidden sm:flex')}
+        title="ONAiR トップページへ"
+      >
         <img src={`${base}logo-onair.svg`} alt="GMO ONAiR" className="h-5 w-auto" />
       </a>
       <span className="hidden h-[22px] w-px bg-border sm:block" aria-hidden="true" />
