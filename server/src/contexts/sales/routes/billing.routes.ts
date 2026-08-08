@@ -44,7 +44,10 @@ router.get('/estimates', async (req, res) => {
   const mine = req.query.scope === 'mine';
   const status = typeof req.query.status === 'string' ? req.query.status : '';
   const params: unknown[] = [];
-  let where = `WHERE e.deleted_at IS NULL AND e.gpm_project_id IS NULL AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
+  // **`gls_category = 'A'` を必ず付ける。** `estimates` にはプロジェクト（GLS-B）の
+  // 見積も入るので、外すと案件管理の見積・請求一覧にプロジェクトの見積が並ぶ
+  // （migration 179 より前は `e.gpm_project_id IS NULL` が同じ役目をしていた）
+  let where = `WHERE e.deleted_at IS NULL AND p.gls_category = 'A' AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND e.created_by = ?'; params.push(req.user!.id); }
   if (status) {

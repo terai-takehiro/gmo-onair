@@ -19,6 +19,28 @@ import {
 } from './services/gpm.service';
 import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
+/**
+ * **その id はプロジェクト（GLS-B）か。**
+ *
+ * この口を通せば `gpm` の権限だけで案件（GLS-A）の見積を読み書きできてしまうので、
+ * 見積を触るルートは必ずこれを通します。**`gls_category` を落とした瞬間に
+ * 権限の壁が消える**ので、書き写さずにこの1本を呼ぶこと。
+ */
+async function isGpmProject(projectId: string | null | undefined): Promise<boolean> {
+  if (!projectId) return false;
+  const row = await queryOne(
+    `SELECT id FROM projects WHERE id = ? AND gls_category = 'B' AND deleted_at IS NULL`,
+    [projectId],
+  );
+  return !!row;
+}
+
+async function assertGpmProject(projectId: string): Promise<void> {
+  if (!(await isGpmProject(projectId))) {
+    throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+  }
+}
+
 export function createGpmRoutes(): Router {
   const router = Router();
   const canRead = [requireAuth, requirePermission('gpm', 'reader')] as const;
@@ -43,12 +65,12 @@ export function createGpmRoutes(): Router {
     res.json({ success: true, data: { deleted: true } });
   });
 
-  // ── プロジェクト ────────────────────────────────────────
+  // ── プロジェクト（= GLS-B の案件）──────────────────────────
   router.get('/projects', ...canRead, async (req, res) => {
     res.json({
       success: true,
       data: await projectService.list({
-        status: req.query.status ? String(req.query.status) : undefined,
+        stage: req.query.stage ? String(req.query.stage) : undefined,
         kind: req.query.kind ? String(req.query.kind) : undefined,
         q: req.query.q ? String(req.query.q) : undefined,
       }),
@@ -84,7 +106,8 @@ export function createGpmRoutes(): Router {
   router.post('/projects/:id/box-folder', ...canEdit, async (req, res) => {
     const id = String(req.params.id);
     const row = await queryOne(
-      'SELECT name, box_url_internal, box_url_external FROM gpm_projects WHERE id = ? AND deleted_at IS NULL',
+      `SELECT name, box_url_internal, box_url_external FROM projects
+        WHERE id = ? AND gls_category = 'B' AND deleted_at IS NULL`,
       [id],
     ) as { name: string; box_url_internal: string | null; box_url_external: string | null } | null;
     if (!row) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
@@ -97,7 +120,7 @@ export function createGpmRoutes(): Router {
       throw new AppError(503, 'BOX_UNAVAILABLE', 'BOX にフォルダを作れませんでした。時間をおいて試してください');
     }
     await execute(
-      'UPDATE gpm_projects SET box_url_internal = ?, box_url_external = ?, updated_at = NOW() WHERE id = ?',
+      'UPDATE projects SET box_url_internal = ?, box_url_external = ?, updated_at = NOW() WHERE id = ?',
       [made.internal?.folderUrl ?? null, made.external?.folderUrl ?? null, id],
     );
     res.json({ success: true, data: await projectService.getById(id) });
@@ -106,15 +129,17 @@ export function createGpmRoutes(): Router {
   /**
    * ── タスク（⑤ 全プロジェクトのタスク一覧）────────────────
    *
-   * **GPM 専用の口**。既存 `/tasks` は `JOIN projects` するので GPM のタスクを
-   * 1件も返しません（`project_id` が NULL のため）。
+   * **GLS-B のタスクだけを横断で見る口**。案件（GLS-A）のタスクは返しません。
+   * migration 179 でタスクにも `project_id` が入ったので、案件管理の一覧・週報・
+   * 「自分のタスク」にも出るようになりました（**GLS-B 案件のタスクなので正しい**）。
+   * 案件管理の画面には `gls_category = 'A'` の絞り込みで出ません。
    */
   router.get('/tasks', ...canRead, async (req, res) => {
     res.json({
       success: true,
       data: await gpmTaskService.listAll({
         status: typeof req.query.status === 'string' ? req.query.status : undefined,
-        gpm_project_id: typeof req.query.gpm_project_id === 'string' ? req.query.gpm_project_id : undefined,
+        project_id: typeof req.query.project_id === 'string' ? req.query.project_id : undefined,
       }),
     });
   });
@@ -130,10 +155,13 @@ export function createGpmRoutes(): Router {
    *
    * `estimates` を案件と共用します（別表にすると版・明細・合計の作りが2つになり、
    * 片方だけ直る形が生まれる）。**案件管理側に混ざらないこと**は
-   * `salesOverview`（返事待ち）と `billing.routes`（一覧）の2か所を実測して塞いだ。
+   * `salesOverview`（返事待ち）と `billing.routes`（一覧）の2か所を実測して塞いだ
+   * （migration 179 からは、どちらも `gls_category = 'A'` で絞っている）。
    */
   router.get('/projects/:id/estimates', ...canRead, async (req, res) => {
-    res.json({ success: true, data: await estimateService.listByGpmProject(String(req.params.id)) });
+    const id = String(req.params.id);
+    await assertGpmProject(id);
+    res.json({ success: true, data: await estimateService.listByProject(id) });
   });
 
   router.post('/projects/:id/estimates', ...canEdit, async (req, res) => {
@@ -152,7 +180,9 @@ export function createGpmRoutes(): Router {
   /** 1本ぶん（**明細つき**）。一覧は明細を積まない（重いので） */
   router.get('/estimates/:id', ...canRead, async (req, res) => {
     const row = await estimateService.getById(String(req.params.id));
-    if (!row || !row.gpm_project_id) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    if (!row || !(await isGpmProject(row.project_id))) {
+      throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    }
     res.json({ success: true, data: row });
   });
 
@@ -160,7 +190,7 @@ export function createGpmRoutes(): Router {
     const id = String(req.params.id);
     const row = await estimateService.getById(id);
     if (!row) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
-    if (!row.gpm_project_id) {
+    if (!(await isGpmProject(row.project_id))) {
       throw new AppError(403, 'FORBIDDEN', 'これは案件の見積です。案件管理の画面から直してください。');
     }
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
