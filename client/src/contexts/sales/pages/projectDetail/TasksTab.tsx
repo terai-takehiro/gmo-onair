@@ -18,8 +18,11 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Users } from 'lucide-react';
+import { AlertTriangle, Users, ListChecks } from 'lucide-react';
 import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { ApplyFlowDialog } from '@/contexts/sales/pages/flow/ApplyFlowDialog';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import ViewToggle, { type TaskView } from '@/contexts/tasks/components/ViewToggle';
 import EpisodeScopeToggle from '@/contexts/tasks/components/EpisodeScopeToggle';
 import KanbanView from '@/contexts/tasks/components/KanbanView/KanbanView';
@@ -93,6 +96,42 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
   );
 }
 
+/**
+ * 標準工程をまだ入れていない案件にだけ出す誘い (⑦)。
+ *
+ * **案件をつくったときに黙って入れていません** (ご判断)。小さい案件でも
+ * 26 行並ぶとタスクタブが読めなくなるので、入る物を見せてから入れます。
+ * 一度入れると `flow_applied_at` が付いてこの帯は消えます。
+ */
+function ApplyFlowBanner({ project }: { project: ProjectDetail }) {
+  const { currentUser, permissions } = useAuth();
+  const [open, setOpen] = useState(false);
+  const canApply = currentUser?.role === 'system_admin'
+    || ['editor', 'manager', 'owner'].includes(permissions?.sales ?? '');
+
+  if (project.flow_applied_at || !canApply) return null;
+
+  return (
+    <div className="rounded-card flex flex-wrap items-center gap-x-3 gap-y-2 border border-border bg-surface-subtle px-4 py-2.5">
+      <ListChecks className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+      <p className="text-sub min-w-0 flex-1 text-muted-foreground">
+        この案件にはまだ<strong className="font-bold">標準の工程</strong>が入っていません。
+        入る物を見て、要らないものを外してから入れられます。
+      </p>
+      <Button variant="outline" onClick={() => setOpen(true)}>工程を入れる</Button>
+      {open && (
+        <ApplyFlowDialog
+          open={open}
+          onOpenChange={setOpen}
+          projectId={project.id}
+          projectType={project.project_type}
+          eventDate={project.event_start}
+        />
+      )}
+    </div>
+  );
+}
+
 export function TasksTab({ project }: { project: ProjectDetail }) {
   // 連続もの (GLS-A) だけ回ごとの絞り込みを出す
   const isSeries = project.gls_category === 'A';
@@ -102,6 +141,8 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 lg:p-6">
+      <ApplyFlowBanner project={project} />
+
       <div className="flex flex-wrap items-center gap-3">
         <HealthStrip projectId={project.id} episodeId={episodeId} />
         <div className="ml-auto"><ViewToggle current={view} onChange={setView} /></div>

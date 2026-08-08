@@ -49,9 +49,11 @@ const TREE = [
     ['④ タスク一覧', '/sales/tasks/list', 'client/src/contexts/tasks/pages/TaskDashboardPage.tsx'],
     ['⑤ 見積・請求 (全案件)', '/sales/billing', 'client/src/contexts/sales/pages/BillingListPage.tsx'],
     ['⑥ 案件詳細', '/sales/projects/:id', 'client/src/contexts/sales/pages/ProjectDetailPage.tsx'],
-    ['⑦ 標準工程 (設定)', '—', null, undefined,
-      '**社内で工程を整理中のため後回し**（ご判断）。**スタジオ案件とプロジェクトで工程がまったく別**になるので、' +
-      'テンプレートは2系統つくります。工程の並び・期限の決め方・担当の職種をいただければ着手できます'],
+    ['⑦ 標準工程テンプレート', '/sales/flow-templates',
+      'client/src/contexts/sales/pages/flow/FlowTemplatePage.tsx', undefined,
+      'モックの **6 段 26 工程**（担当の職種・実施日からの逆算日数・外せるかどうか）を初期値に入れてある。' +
+      '**案件をつくったときに黙って入れない** — タスクタブの帯から一覧を見せ、チェックを外してから入れる。' +
+      '**二度は入れられない**（`projects.flow_applied_at`）。**プロジェクト管理とは別系統**'],
     ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
   ]],
   ['財務管理', [
@@ -294,7 +296,6 @@ lines.push('## まだ入っていない機能', '',
   '- **持ち帰り事項からタスクを作る**（議事録）— いまはタスクタブから手で入れます',
   '- **BOX にファイルを置く**（書類タブ）— いまは中を見るだけ',
   '- **① 予定（カレンダー）の中身** — 行き先の付け替えは済んでいますが、FullCalendar の描画を v4 の枠に載せ替える作業が残っています。**ここだけは決めごと待ちではありません**（他の 🆕 はご判断待ち）',
-  '- **標準工程テンプレート** — 社内で整理中のため後回し（スタジオ案件とプロジェクトで別の表を作ります）',
   '');
 
 lines.unshift('');

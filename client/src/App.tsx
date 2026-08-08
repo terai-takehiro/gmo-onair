@@ -28,6 +28,7 @@ import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
+import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
@@ -201,6 +202,7 @@ function AppRoutes() {
         <Route path="/sales/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />
         <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
+        <Route path="/sales/flow-templates" element={<PermissionRoute module="sales"><FlowTemplatePage /></PermissionRoute>} />
         <Route path="/sales/billing" element={<PermissionRoute module="sales"><BillingListPage /></PermissionRoute>} />
 
         {/* ===== プロジェクト管理 (gpm) — v4 で新規 =====
