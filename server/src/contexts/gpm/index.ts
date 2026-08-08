@@ -175,8 +175,18 @@ export function createGpmRoutes(): Router {
    *
    * **プロジェクトの見積しか触らせない。** 案件の見積は `sales` の持ち物で、
    * ここを通せば `gpm` だけの人が案件の金額を書き換えられてしまう
-   * （`gpm_project_id IS NULL` を弾く）。
+   * （`isGpmProject()` で `gls_category = 'B'` を確かめる）。
    */
+  /**
+   * 見積のまとめ（ダッシュボードの KPI 2枚ぶん）。
+   *
+   * ⚠️ **`/estimates/:id` より前に置くこと。** 後ろに置くと `summary` が id として
+   * 食われ、**常に 404** になります（実 API を叩いて見つけた。型にも lint にも出ない）。
+   */
+  router.get('/estimates/summary', ...canRead, async (_req, res) => {
+    res.json({ success: true, data: await gpmEstimateSummary() });
+  });
+
   /** 1本ぶん（**明細つき**）。一覧は明細を積まない（重いので） */
   router.get('/estimates/:id', ...canRead, async (req, res) => {
     const row = await estimateService.getById(String(req.params.id));
@@ -195,11 +205,6 @@ export function createGpmRoutes(): Router {
     }
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     res.json({ success: true, data: await estimateService.replaceItems(id, items) });
-  });
-
-  /** 見積のまとめ（ダッシュボードの KPI 2枚ぶん） */
-  router.get('/estimates/summary', ...canRead, async (_req, res) => {
-    res.json({ success: true, data: await gpmEstimateSummary() });
   });
 
   // ── 体制（組織図のメンバー・migration 169）────────────────

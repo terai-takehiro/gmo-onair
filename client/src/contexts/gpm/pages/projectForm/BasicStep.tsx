@@ -18,15 +18,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { KIND_LABEL, KIND_NOTE, STATUS_LABEL, type GpmKind, type GpmStatus } from '../../types';
+import type { ProjectStage } from '@/types';
+import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
+import { KIND_LABEL, KIND_NOTE, type GpmKind } from '../../types';
 
 export interface BasicValues {
   name: string;
   kind: GpmKind;
-  clientName: string;
+  /** 依頼元。**お客様マスターの id**（自社構築は空 = 自社の行に寄せる） */
+  customerId: string;
   pmCompany: string;
   pmUserId: string;
-  status: GpmStatus;
+  stage: ProjectStage;
   notes: string;
 }
 
@@ -34,13 +37,17 @@ export interface BasicStepProps {
   values: BasicValues;
   onChange: (patch: Partial<BasicValues>) => void;
   users: { id: string; name: string }[];
+  customers: { id: string; name: string }[];
 }
 
 const KINDS: GpmKind[] = ['self_build', 'group_order'];
-/** 作った直後に「完了」にすることはない。**選べる状態を絞る**と迷わない */
-const STATUSES: GpmStatus[] = ['active', 'planning'];
+/**
+ * 作った直後に選べるステージ。**案件と同じ 7 段のうち手前の4つだけ**を出す。
+ * 完了・見送りで作ることはないので出さない（作ってから変えられる）。
+ */
+const STAGES: ProjectStage[] = ['a_won', 'b_verbal', 'c_proposal', 'neta'];
 
-export function BasicStep({ values, onChange, users }: BasicStepProps) {
+export function BasicStep({ values, onChange, users, customers }: BasicStepProps) {
   return (
     <div className="rounded-card space-y-4 border border-border bg-card p-4 lg:p-5">
       <div>
@@ -93,15 +100,33 @@ export function BasicStep({ values, onChange, users }: BasicStepProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label htmlFor="gpm-client">
-            依頼元 <span className="text-destructive">必須</span>
-          </Label>
-          <Input
-            id="gpm-client"
-            value={values.clientName}
-            onChange={(e) => onChange({ clientName: e.target.value })}
-            placeholder={values.kind === 'self_build' ? '自社（GMOグローバルスタジオ）' : 'グループ本体 コーポレート'}
-          />
+          <Label htmlFor="gpm-client">依頼元</Label>
+          {/*
+            **自由入力にしない** (migration 179)。プロジェクトは GLS-B の案件で、
+            依頼元はお客様マスターへの参照。文字を打たせると保存されないうえ、
+            同じ会社が表記ゆれで増える。自社構築は相手がいないので選ばせない
+          */}
+          {values.kind === 'self_build' ? (
+            <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">
+              自社（GMOグローバルスタジオ）
+            </p>
+          ) : (
+            <Select
+              value={values.customerId || '_none_'}
+              onValueChange={(v) => onChange({ customerId: v === '_none_' ? '' : v })}
+            >
+              <SelectTrigger id="gpm-client"><SelectValue placeholder="選んでください" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">未定（自社として登録）</SelectItem>
+                {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <p className="text-sub-sm mt-1 text-muted-foreground">
+            {values.kind === 'self_build'
+              ? '自社構築なので相手はいません。'
+              : 'お客様マスターから選びます。無ければ案件管理の取引先で先に登録してください。'}
+          </p>
         </div>
         <div>
           <Label htmlFor="gpm-pmco">PM会社</Label>
@@ -135,13 +160,16 @@ export function BasicStep({ values, onChange, users }: BasicStepProps) {
           </p>
         </div>
         <div>
-          <Label htmlFor="gpm-status">いまの状態</Label>
-          <Select value={values.status} onValueChange={(v) => onChange({ status: v as GpmStatus })}>
-            <SelectTrigger id="gpm-status"><SelectValue /></SelectTrigger>
+          <Label htmlFor="gpm-stage">いまの段</Label>
+          <Select value={values.stage} onValueChange={(v) => onChange({ stage: v as ProjectStage })}>
+            <SelectTrigger id="gpm-stage"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+              {STAGES.map((s) => <SelectItem key={s} value={s}>{STAGE_BADGE_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <p className="text-sub-sm mt-1 text-muted-foreground">
+            案件と同じ段です。GLS 番号は受注してから採ります。
+          </p>
         </div>
       </div>
 

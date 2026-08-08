@@ -33,7 +33,11 @@ export function MovingPanel() {
   const { data, isLoading } = useQuery<ProjectListResponse>({
     queryKey: ['projects', 'dashboard-moving'],
     queryFn: async () => (await api.get('/projects', {
-      params: { tab: 'active', sort_by: 'last_move', sort_dir: 'desc', page: 1, limit: ROWS },
+      // **GLS-A（案件）だけ** (migration 179)。この画面は案件管理のダッシュボード
+      params: {
+        tab: 'active', gls_category: 'A',
+        sort_by: 'last_move', sort_dir: 'desc', page: 1, limit: ROWS,
+      },
     })).data,
   });
   const rows = data?.data ?? [];

@@ -25,6 +25,7 @@ import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useGpmEstimateSummary, useGpmOpenItems, useGpmProjects } from '../queries';
+import { TERMINAL_STAGES } from '@/contexts/sales/pages/projectList/stages';
 import { TO_KIND_LABEL, dueLabel, dueTone, progressPct, ymd, type GpmOpenItem } from '../types';
 import { KpiStrip, countKpis } from './dashboard/KpiStrip';
 import { Panel } from './dashboard/Panel';
@@ -68,7 +69,7 @@ export default function GpmDashboardPage() {
   );
   const openAsks = useMemo(() => allAsks.filter((a) => a.status !== 'resolved'), [allAsks]);
   const active = useMemo(
-    () => rows.filter((p) => p.status === 'active' || p.status === 'planning').slice(0, 6),
+    () => rows.filter((p) => !TERMINAL_STAGES.includes(p.stage)).slice(0, 6),
     [rows],
   );
 
@@ -152,7 +153,7 @@ export default function GpmDashboardPage() {
                               <span className="text-list block truncate">{p.name}</span>
                               <span className="text-sub-sm block truncate text-muted-foreground">
                                 {p.current_phase ?? '工程なし'}
-                                {p.pm_name ? ` ・ 担当 ${p.pm_name}` : ''}
+                                {p.assigned_to_name ? ` ・ 担当 ${p.assigned_to_name}` : ''}
                               </span>
                             </span>
                             <span className="w-24 shrink-0">
@@ -195,7 +196,7 @@ export default function GpmDashboardPage() {
                 <ul className="divide-y divide-border-faint">
                   {openAsks.slice(0, 6).map((a) => (
                     <li key={a.id} className="py-2.5 first:pt-0">
-                      <Link to={`/gpm/projects/${a.gpm_project_id}/asks`} className="block hover:underline">
+                      <Link to={`/gpm/projects/${a.project_id}/asks`} className="block hover:underline">
                         <span className="text-list block">{a.question}</span>
                       </Link>
                       <p className="text-sub-sm text-muted-foreground">
@@ -222,7 +223,7 @@ function StuckRow({ a, today }: { a: GpmOpenItem; today: string }) {
   return (
     <li className="py-2.5 first:pt-0">
       <Link
-        to={`/gpm/projects/${a.gpm_project_id}/asks`}
+        to={`/gpm/projects/${a.project_id}/asks`}
         className="min-h-tap -mx-2 flex flex-wrap items-center gap-3 rounded-note px-2 py-1 hover:bg-background"
       >
         <span className="min-w-0 flex-1">

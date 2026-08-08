@@ -116,7 +116,11 @@ export default function ProjectListPage() {
   const { data, isLoading } = useQuery<ProjectListResponse>({
     queryKey: ['projects', view, page, limit, search, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly],
     queryFn: async () => {
-      const q: Record<string, string | number> = { page: view === 'board' ? 1 : page, limit };
+      // **GLS-A（案件）だけ** (migration 179)。GLS-B はプロジェクト管理の一覧に出る。
+      // サーバー側でも受付・タスク一覧・ダッシュボードに同じ絞り込みを入れてある
+      const q: Record<string, string | number> = {
+        page: view === 'board' ? 1 : page, limit, gls_category: 'A',
+      };
       if (search) q.search = search;
       if (stages.length > 0) q.stage = stages.join(',');
       if (eventRange) { q.event_from = eventRange.from; q.event_to = eventRange.to; }
