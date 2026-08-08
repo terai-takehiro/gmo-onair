@@ -90,6 +90,12 @@ async function canOpenProject(userId: string): Promise<boolean> {
  * 上限は 1 件 20MB・合わせて 6 件。音声（`audio`）だけは Whisper の 25MB に合わせる。
  */
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * 投入口の録音を諦めるまでの時間。**nginx の 60 秒より十分手前**にする。
+ * 解析（LLM）に 30 秒かかりうるので、文字起こしはここまで。
+ */
+const INTAKE_STT_TIMEOUT_MS = 25_000;
 const intakeUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: Math.max(MAX_FILE_BYTES, MAX_AUDIO_BYTES), files: 7 },
@@ -164,14 +170,36 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
   }
 
   // ── 録音は先に文字にする ────────────────────────────────
+  //
+  // ⚠️ **ここは押した人を待たせている経路です。** 議事録（`/projects/:id/minutes`）は
+  // 行を先に作って裏で走らせますが、投入口は**その場で確認画面を出す**のが要件なので
+  // 待つしかありません。**nginx の `/api/` は既定の 60 秒で切ります**
+  // （`nginx/gmo-onair.conf` に `proxy_read_timeout` が無い）。
+  //
+  // そこで 2 つで守ります:
+  //   ① 画面が録音を **3 分で自動的に止める**（`IntakeComposer` の `MAX_REC_SEC`）
+  //   ② ここで **35 秒**で諦める。既定の 10 分のままだと、nginx が切ったあとも
+  //      サーバーだけが走り続け、押した人には**理由の出ない失敗**として見えます
+  //
+  // 長い打合せは「打合せを録音」（案件の やり取り）へ。あちらは裏で走ります。
   let transcript: string | null = null;
   if (audio) {
     if (!isSttConfigured()) {
       throw new AppError(400, 'NOT_CONFIGURED',
         'この環境は文字起こしにつないでいません（OPENAI_API_KEY 未設定）。管理者にご連絡ください');
     }
-    const stt = await transcribeAudio(audio.buffer, fileName(audio));
-    transcript = stt.text;
+    try {
+      const stt = await transcribeAudio(audio.buffer, fileName(audio), { timeoutMs: INTAKE_STT_TIMEOUT_MS });
+      transcript = stt.text;
+    } catch (e) {
+      // **理由を出して断る。** 黙って規則ベースに落とすと、録った内容が
+      // どこにも入らないまま「登録しました」になる
+      throw new AppError(
+        400, 'STT_FAILED',
+        `録音を文字にできませんでした（${(e as Error).message}）。`
+        + '長い打合せは案件の「やり取り」→「打合せを録音」から投げてください（あちらは裏で進みます）',
+      );
+    }
   }
 
   const parts = [rawText, transcript ? `--- 録音の文字起こし ---\n${transcript}` : '', ...extraTexts]

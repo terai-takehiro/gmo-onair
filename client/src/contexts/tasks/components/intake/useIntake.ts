@@ -5,24 +5,31 @@
  * 起きます。**投げ方（見た目）だけが違い、投げるものと確認するものは同じ**です。
  */
 import { useCallback, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
-import { DEST_INFO, destOf, type IntakeResponse, type Row } from './types';
+import { DEST_INFO, destOf, type Dest, type IntakeResponse, type Row } from './types';
 
 /** 添付 1 件の上限（サーバーと同じ 20MB）。超えたら**送る前に**断る */
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 /** 添付の件数の上限（サーバーと同じ） */
 export const MAX_FILES = 6;
 
-export function useIntake() {
+/** commit で作られたもの（行き先つき）。案件への遷移とリンクに使う */
+export interface Created { dest: Dest; id: string; title: string }
+
+export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [intake, setIntake] = useState<IntakeResponse | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
+  /** 作った案件（ネタ）。**2件以上のときだけ**リンクとして出す（下の onSuccess） */
+  const [createdProjects, setCreatedProjects] = useState<Created[]>([]);
   /** 録音は解析の直前に渡すだけなので、描き直しを起こさない ref に置く */
   const audioRef = useRef<File | null>(null);
 
@@ -100,13 +107,33 @@ export function useIntake() {
         open_items: r.open_items ?? undefined,
       }));
       return (await api.post(`/dailyops/tasks/intake/${intake!.id}/commit`, { rows: picked })).data.data as {
-        created?: { dest: keyof typeof DEST_INFO; id: string }[];
+        created?: Created[];
         created_ids: string[];
       };
     },
     onSuccess: (data) => {
-      setDoneMsg(summarize(data.created ?? [], data.created_ids.length));
+      const created = data.created ?? [];
+      /**
+       * ── 案件（ネタ）を作ったら、その案件を開く ────────────────────
+       *
+       * 投入口を1本にして AI が行き先を決めるようになった以上、
+       * **「引き合いを貼る」ための別の入口は要りません**（同じ文をどちらに
+       * 入れるかを押す人に選ばせることになる）。代わりに、
+       * **AI が案件と判断して登録したら、その案件をそのまま開きます** —
+       * 引き合いを入れた人が次にやるのは、たいてい中身を足すことだからです。
+       *
+       * - **`sales` が無い人には遷移しません。** 案件詳細は `sales` を要求するので、
+       *   送ると 403 の画面に着きます（`canOpenProject` で見る）
+       * - **2件以上できたときは遷移しません。** どれか1つを勝手に開くと、
+       *   残りが登録されたことに気づけません。**リンクを並べて選ばせます**
+       */
+      const netas = created.filter((c) => c.dest === 'neta');
+      setDoneMsg(summarize(created, data.created_ids.length));
+      setCreatedProjects(opts.canOpenProject && netas.length > 1 ? netas : []);
       reset();
+      if (opts.canOpenProject && netas.length === 1) {
+        navigate(`/sales/projects/${netas[0].id}`);
+      }
       // 行き先が 4 つに増えたので、**案件・活動記録の一覧も落とす**。
       // タスクの鍵だけ落としていると「登録したのに一覧に出ない」が起きる
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
@@ -139,6 +166,13 @@ export function useIntake() {
     setError(null);
   }
 
+  /** 「閉じる」は作ったもののリンクも片づける（登録し直すときに古い案内が残らない） */
+  const dismiss = useCallback(() => {
+    reset();
+    setDoneMsg(null);
+    setCreatedProjects([]);
+  }, []);
+
   const updateRow = useCallback((key: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.draft_key === key ? { ...r, ...patch } : r)));
   }, []);
@@ -154,7 +188,8 @@ export function useIntake() {
     files, addFiles, removeFile,
     intake, rows, updateRow,
     error, setError, doneMsg, setDoneMsg,
-    submit, commit, discard, reset, submitWithAudio,
+    createdProjects,
+    submit, commit, discard, reset, dismiss, submitWithAudio,
     canSubmit: (text.trim().length > 0 || files.length > 0) && !submit.isPending,
   };
 }

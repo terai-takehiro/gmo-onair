@@ -6,7 +6,7 @@
  * モックのスマホのトップは、挨拶のすぐ下が**高さ 60px の青いバー1本**です。
  * 外で開く人がまず見たいのは自分のタスクと予定なので、ここは 1 本に畳みます。
  *
- * ── 開き方をボトムシートに変えた（この版）────────────────────
+ * ── 開き方をボトムシートに変えた ────────────────────────────
  *
  * 以前は**その場で下に開く**形で、「開いたら閉じない」ことにしていました
  * （書いている途中で畳むと、入力が消えたように見えるため）。
@@ -17,24 +17,42 @@
  * 状態（`useIntake`）は**この部品が持ちます** — シートの中で持つと、
  * 閉じた瞬間に部品ごと消えて**書きかけが消えます**（実際に起きる事故）。
  *
+ * ── 「受付に貼る」のボタンは置かない（ご判断）────────────────
+ *
+ * いちど、`sales` の人の入口として `/sales/inbox/new` へのボタンを置いていました。
+ * **やめました** — 投入口を 1 本にして AI が行き先を決める形にした以上、
+ * **同じ文をどちらの口に入れるかを押す人に選ばせる**ことになり、
+ * 1 本化の意味が消えます。
+ *
+ * 代わりに、**AI が「案件（ネタ）」と判断して登録したら、その案件を開きます**
+ * （`useIntake` の commit）。引き合いを入れた人が次にやるのは、
+ * たいてい中身を足すことだからです。
+ *
  * ── 中身は PC と同じ ──────────────────────────────────────
  *
  * 入力欄 1 つ ＋ `ファイル` `写真を撮る` `録音` ＋ `内容を確認する`。
  * 確認もシートの中で終わります（画面遷移させない）。
  */
 import { useState } from 'react';
-import { ArrowRight, ChevronRight, ClipboardPaste, Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles } from 'lucide-react';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { IntakeComposer } from '@/contexts/tasks/components/intake/IntakeComposer';
 import { IntakeReview } from '@/contexts/tasks/components/intake/IntakeReview';
 import { useIntake } from '@/contexts/tasks/components/intake/useIntake';
 
-export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPaste: boolean }) {
+export function MobileAiBar({
+  canIntake, canOpenProject,
+}: {
+  /** `dailyops` の editor。投入できる人 */
+  canIntake: boolean;
+  /** `sales` の reader。**作った案件を開ける人**（無い人を送ると 403 になる） */
+  canOpenProject: boolean;
+}) {
   const [open, setOpen] = useState(false);
   // **フックは常に呼ぶ**（権限で早期 return すると、権限の読み込みが終わった
   // 瞬間にフックの数が変わって React が落ちる）
-  const it = useIntake();
-  if (!canIntake && !canPaste) return null;
+  const it = useIntake({ canOpenProject });
+  if (!canIntake) return null;
 
   return (
     <>
@@ -61,7 +79,7 @@ export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPa
         sub="書いても貼っても録っても大丈夫です。行き先は AI が決めます"
       >
         <div className="flex flex-col gap-2.5">
-          {canIntake && !it.intake && (
+          {!it.intake && (
             <IntakeComposer
               compact
               text={it.text}
@@ -75,6 +93,7 @@ export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPa
               pending={it.submit.isPending}
               error={it.error}
               doneMsg={it.doneMsg}
+              createdProjects={it.createdProjects}
             />
           )}
 
@@ -93,30 +112,11 @@ export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPa
               onChange={it.updateRow}
               onCommit={() => it.commit.mutate()}
               onDiscard={() => it.discard.mutate()}
-              onClose={it.reset}
+              onClose={it.dismiss}
               committing={it.commit.isPending}
               discarding={it.discard.isPending}
               error={it.error}
             />
-          )}
-
-          {/*
-            **受付への道を消さない。** `sales` はあるが `dailyops` が無い人には
-            上の投入欄が出ないので、ここを消すと**スマホから引き合いを入れる道が
-            1 つも無くなります**（M8 で入れた入口）。
-          */}
-          {canPaste && !it.intake && (
-            <a
-              href="/sales/inbox/new"
-              className="rounded-card min-h-tap flex w-full items-center gap-3 border border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
-            >
-              <ClipboardPaste className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="text-list block text-primary">受付に貼る</span>
-                <span className="text-note block text-muted-foreground">引き合いとして整理したいとき</span>
-              </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-            </a>
           )}
         </div>
       </Sheet>
