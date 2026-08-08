@@ -105,7 +105,7 @@ inview_registrations(promoted_project_id) / misc_inquiries / gpm_projects
 | `kind`（`self_build` / `group_order`） | 対応なし | **足す**（`project_type` は別軸・決め③） |
 | `pm_company` | 対応なし | **足す** |
 | `started_on` `ends_on`（`date`） | `event_start` `event_end`（**`text`**） | **足す**（型が違う・決め③） |
-| `status`（`planning`/`active`/`done`/`onhold`） | `stage`（7 段） | **足さない**（決め③で対応表にする） |
+| `status`（`planning`/`active`/`done`/`onhold`） | `stage`（7 段） | **足さない**（決め③で `stage` 1 本にする） |
 
 **`projects` に足すのは 5 列**（`gpm_kind` / `pm_company` / `started_on` / `ends_on` と、
 決め⑥ の `gpm_template_id`）。20 列のうち 15 列は既にあるものに乗ります。
@@ -120,7 +120,7 @@ inview_registrations(promoted_project_id) / misc_inquiries / gpm_projects
 
 ---
 
-## 決め③ `status` は `stage` に写さず、**両方持つ**
+## 決め③ `status` は持たない。状態は `stage` 1 本にする
 
 `projects.stage` は 7 段（`neta` → `d_hold` → `c_proposal` → `b_verbal` → `a_won` →
 `s_completed` / `e_lost`）で、**売れるかどうかの段**です。
@@ -187,10 +187,9 @@ NOT NULL を外すほうは採りません — `customer_id` は
 **`projects` を読む 102 か所のほとんどが JOIN していて**、NULL を許すと
 内部結合しているところから **GLS-B が黙って消えます**（エラーが出ないので気づけない）。
 
-> **要確認**: 自社構築は**売上を生まない社内の設備投資**です。
-> これを GLS-B として番号を採るのか（＝案件として数えるのか）、
-> 番号を採らない種類として持つのかは、業務側で決めていただく必要があります。
-> 採る場合、財務の集計に**売上 0・仕入あり**の案件が並びます（粗利がマイナスに見える）。
+> 自社構築が GLS-B の番号を採るかは **決め⑩ で「採る」と決まりました**（ご判断）。
+> 財務の集計に**売上 0・仕入あり**の案件が並びますが、実際にお金は出ているので
+> それが正しい姿です。営業の数字にだけ混ぜません。
 
 ---
 
