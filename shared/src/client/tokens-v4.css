@@ -207,6 +207,29 @@
   :root [data-ui='empty-desc'] { font-size: 13px; }
 
   /*
+   * **ページ名は上辺バーが出す。本文の大見出しは消す。**（M7）
+   *
+   * 以前はスマホで**同じ名前が2回**出ていました — 上辺バーのアプリ切替
+   * チップ（「案件管理 ▾」）と、そのすぐ下の本文の見出し（「案件一覧」）。
+   * 64px の帯が現在地を1文字も伝えず、本文の見出しが約 90px 使っていました。
+   *
+   * `PageHeader` が上辺バーの差し込み口へ名前を描き、ここで本文側を消します。
+   * **まだ `PageTitle`（v4 より前）を使う 38 画面では差し込み口が空**なので、
+   * そのときだけアプリ名に戻します（下の `:not(:empty)`）。
+   */
+  :root [data-page-title] { display: none; }
+  /* 上辺バーのページ名。**クラスではなく属性に当てる**（凍結4アプリの CSS を増やさない） */
+  :root [data-shell-title],
+  :root [data-shell-applabel] { font-size: 17px; line-height: 1.35; font-weight: 800; }
+  /* スマホではページ名が伸びるので、押しのけ用の伸び代とアプリ切替は出さない
+     （アプリの切替は左メニューから）。**属性で消す**のは、幅の切り替えを
+     クラスで書くと凍結4アプリの CSS が増えるため（実測で1規則入った） */
+  :root [data-shell-spacer],
+  :root [data-shell-switch] { display: none; }
+  :root [data-page-sub] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :root [data-shell-title]:not(:empty) + [data-shell-applabel] { display: none; }
+
+  /*
    * **型スケールをスマホ用に詰める。**（M6）
    *
    * ここまでの型スケールは **PC の文書向け**でした（本文 15px・行間 1.75・

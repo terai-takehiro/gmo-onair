@@ -36,6 +36,7 @@ import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { TaskIntakeBox } from '@/contexts/tasks/components/TaskIntakeBox';
+import { MobileIntake } from './home/MobileIntake';
 import type { InboxData } from '@/contexts/sales/pages/inbox/kinds';
 import { AppTiles, EventTiles, type TileApp } from './home/AppTiles';
 import { WaitingCard } from './home/WaitingCard';
@@ -154,7 +155,9 @@ export default function HomePage() {
       {/* ── 挨拶。**数えられた件数だけを書く** ───────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-h1">{greeting}、{currentUser?.name} さん</h1>
+          {/* **スマホでは名前を出さない**（M7）。自分の端末なので誰かは分かっており、
+              「おはようございます、○○ さん」は 390px で2行になって 140px 使っていた */}
+          <h1 className="text-h1">{greeting}{isMobile ? '' : `、${currentUser?.name} さん`}</h1>
           {canCount && (
             waitingTotal === 0 && myOverdue === 0 ? (
               <p className="text-sub mt-1 text-secondary-foreground">
@@ -187,13 +190,21 @@ export default function HomePage() {
       {/* ── 今日 ─────────────────────────────────────────────── */}
       {hasToday && (
       <section className="flex flex-col gap-3.5">
+        {/*
+          **スマホでは見出しだけにする**（M7）。
+          ・「AI は下書きまでで…」は畳んだ入口のほうに書いてある（二重にしない）
+          ・「自分のタスクを全部ひらく」は `MyTasksCard` の「全部ひらく」と
+            **同じ行き先で二重**だったので、スマホでは出さない
+        */}
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="text-h2">今日</h2>
-          <span className="text-note text-muted-foreground">
-            AI は下書きまでで、押すまで登録しません
-          </span>
+          {!isMobile && (
+            <span className="text-note text-muted-foreground">
+              AI は下書きまでで、押すまで登録しません
+            </span>
+          )}
           <div className="flex-1" />
-          {canSeeDailyops && (
+          {canSeeDailyops && !isMobile && (
             <button
               type="button"
               onClick={() => navigate('/sales/tasks/list')}
@@ -205,8 +216,9 @@ export default function HomePage() {
         </div>
 
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
-            （奥に置くと「あとでいいか」になり、口頭のまま消える） */}
-        {canSeeDailyops && <TaskIntakeBox />}
+            （奥に置くと「あとでいいか」になり、口頭のまま消える）。
+            スマホは**場所はそのまま・大きさだけ1行**に畳む（約 500px → 72px） */}
+        {canSeeDailyops && (isMobile ? <MobileIntake /> : <TaskIntakeBox />)}
 
         {/*
             スマホの「貼って送る」（モックの ① にある **貼る・撮る**）。
