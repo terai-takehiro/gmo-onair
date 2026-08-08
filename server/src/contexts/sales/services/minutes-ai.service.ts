@@ -58,7 +58,14 @@ const STRUCTURE_TIMEOUT_MS = 120_000;
 const MAX_TRANSCRIPT_CHARS = 60_000;
 
 export function isSttConfigured(): boolean {
-  return !!process.env.OPENAI_API_KEY;
+  // 空文字（`OPENAI_API_KEY=` と書いてしまった）も「入っていない」扱いにする。
+  // そのまま通すと、押せるのに必ず失敗する形になる
+  return !!process.env.OPENAI_API_KEY?.trim();
+}
+
+/** いま使う文字起こしのモデル名。**設定画面に出す**（秘密ではない） */
+export function sttModel(): string {
+  return WHISPER_MODEL;
 }
 
 export function structureModel(provider?: IntakeAiProvider | null): string {
@@ -85,16 +92,27 @@ export interface TranscriptResult {
 export async function transcribeAudio(
   audio: Buffer,
   filename: string,
-  opts: { language?: string } = {},
+  opts: {
+    language?: string;
+    /**
+     * 諦めるまでの時間。**呼ぶ側が待たされている経路では短くすること。**
+     *
+     * 既定の 10 分は「裏で走らせる」議事録のための値です。
+     * **リクエストの中で待つ経路（投入口の録音）でこれを使うと、
+     * nginx が 60 秒で切ったあともサーバーだけが 10 分走り続け、
+     * 押した人には理由の出ない失敗として見えます。**
+     */
+    timeoutMs?: number;
+  } = {},
 ): Promise<TranscriptResult> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isSttConfigured()) {
     throw new Error('OPENAI_API_KEY が未設定です（文字起こしは Whisper を使います）');
   }
   if (audio.byteLength > MAX_AUDIO_BYTES) {
     throw new Error(`音声が大きすぎます（${Math.round(audio.byteLength / 1024 / 1024)}MB / 上限 25MB）。分けて録ってください`);
   }
 
-  const client = new OpenAI({ timeout: STT_TIMEOUT_MS, maxRetries: 1 });
+  const client = new OpenAI({ timeout: opts.timeoutMs ?? STT_TIMEOUT_MS, maxRetries: 1 });
   const res = await client.audio.transcriptions.create({
     file: await OpenAI.toFile(audio, filename),
     model: WHISPER_MODEL,

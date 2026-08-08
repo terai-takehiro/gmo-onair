@@ -29,6 +29,7 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { APPS } from "@gmo-onair/shared/src/client/apps";
 import api from "@/lib/api";
+import { IntegrationsCard } from "./settings/IntegrationsCard";
 
 export default function SystemInfoPage() {
   const { currentUser } = useAuth();
@@ -69,6 +70,10 @@ export default function SystemInfoPage() {
           </dl>
         </CardContent>
       </Card>
+
+      {/* 外部サービスにつながっているか。**アプリ情報のすぐ下**に置く —
+          「動かない」と気づいた人が最初に見る場所だから（下に置くと見つからない） */}
+      <IntegrationsCard />
 
       {/* 管理者専用: 全データバックアップ */}
       {isAdmin && (

@@ -31,6 +31,24 @@ import type { Created } from './useIntake';
 /** 32kbps。**既定の 128kbps だと 25 分で Whisper の 25MB 上限に当たる** */
 const BITRATE = 32_000;
 
+/**
+ * 投入口の録音の上限（**3 分で自動的に止める**）。
+ *
+ * ── なぜ上限が要るか ────────────────────────────────────────
+ *
+ * ここは**押した人を待たせたまま**文字起こし → 解析 → 確認画面まで走ります
+ * （その場で確認させるのが要件なので、裏で走らせられない）。
+ * **nginx の `/api/` は既定の 60 秒で切る**ので、長い録音を投げると
+ * 「送れませんでした」としか出ない形になります。
+ *
+ * 長い打合せは案件の「やり取り」→「打合せを録音」へ。
+ * **あちらは行を先に作って裏で走る**ので、何分でも投げられます。
+ * その行き先を画面にも書いてあります（無いものは無い、で終わらせない）。
+ */
+const MAX_REC_SEC = 180;
+/** 残りがこれを切ったら数字を赤くする（黙って止まると録れていないと思われる） */
+const REC_WARN_SEC = 30;
+
 function mmss(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 }
@@ -93,7 +111,15 @@ export function IntakeComposer({
       recorder.current = mr;
       setRecording(true);
       setSeconds(0);
-      timer.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      // **上限で自分から止める。** 止めずに投げさせると、nginx が 60 秒で切って
+      // 「送れませんでした」としか出ない（録った本人は理由が分からない）
+      timer.current = setInterval(() => {
+        setSeconds((s) => {
+          const next = s + 1;
+          if (next >= MAX_REC_SEC) stop(true);
+          return next;
+        });
+      }, 1000);
     } catch {
       // 権限を断られた / マイクが無い。**理由を出す** — 押しても何も起きないのが最悪
       setMicError('マイクを使えませんでした。ブラウザの許可を確認するか、ファイルを添付してください。');
@@ -110,6 +136,7 @@ export function IntakeComposer({
 
   // ── 録音中 ────────────────────────────────────────────────
   if (recording) {
+    const left = MAX_REC_SEC - seconds;
     return (
       <div className="rounded-card border border-destructive-border bg-destructive-surface p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -117,6 +144,11 @@ export function IntakeComposer({
           <span className="font-number text-h2 text-destructive" aria-live="polite">{mmss(seconds)}</span>
           <span className="v4-wave" aria-hidden="true">
             <i /><i /><i /><i /><i /><i /><i />
+          </span>
+          {/* **あと何秒で自動的に止まるかを出す。** 黙って止まると、
+              録れていないのか終わったのか分からない */}
+          <span className={cn('text-note', left <= REC_WARN_SEC ? 'font-bold text-destructive' : 'text-secondary-foreground')}>
+            あと {mmss(Math.max(0, left))} で自動で止まります
           </span>
           <div className="flex-1" />
           <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => stop(false)}>
@@ -129,7 +161,8 @@ export function IntakeComposer({
         <p className="text-note mt-2 text-secondary-foreground">
           <strong className="font-bold">録音することを相手にお伝えください。</strong>
           音声は文字にしたら<strong className="font-bold">保存せずに捨てます</strong>（残るのは文字だけです）。
-          約100分まで録れます。
+          ここは<strong className="font-bold">3分まで</strong> — 長い打合せは案件の「やり取り」→「打合せを録音」へ
+          （あちらは裏で進むので何分でも投げられます）。
         </p>
       </div>
     );
