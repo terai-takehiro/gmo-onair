@@ -74,6 +74,7 @@ export function AppShell({
   appLabel,
   crumb,
   searchSlot,
+  notificationSlot,
   note,
   sections = [],
   user,
@@ -106,6 +107,7 @@ export function AppShell({
         appLabel={label}
         crumb={crumb}
         searchSlot={searchSlot}
+        notificationSlot={notificationSlot}
         user={user}
         onLogout={onLogout}
         onSwitchUser={onSwitchUser}

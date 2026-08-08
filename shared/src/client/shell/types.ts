@@ -83,6 +83,8 @@ export interface ShellChrome {
   crumb?: ReactNode;
   /** 上辺バーの検索スロット。案件管理のグローバル検索がここに入る */
   searchSlot?: ReactNode;
+  /** お知らせのベル。部品は `client-v4/NotificationBell` にある（凍結アプリの CSS を増やさないため） */
+  notificationSlot?: ReactNode;
   /** 左メニューの一番下に出す注記 */
   note?: ReactNode;
 }

@@ -1,5 +1,8 @@
 import { Outlet } from "react-router-dom";
 import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
+import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
+import api from "@/lib/api";
+
 import { useAuth } from "@/hooks/useAuth";
 import { EQUIPMENT_MANUAL } from "@/manual/content";
 import { EQUIPMENT_MOBILE_TABS, EQUIPMENT_NAV } from "./nav";
@@ -22,6 +25,7 @@ export default function AppShell() {
       appKey="equipment"
       sections={EQUIPMENT_NAV}
       mobileTabs={EQUIPMENT_MOBILE_TABS}
+      notificationSlot={<NotificationBell api={api} />}
       manualContent={EQUIPMENT_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
       onLogout={logout}

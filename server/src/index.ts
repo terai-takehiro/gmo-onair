@@ -55,6 +55,11 @@ async function main() {
     console.warn('[startup] primeMoneyRules failed:', (e as Error).message)
   );
 
+  // 定時実行（v4 設定 ⑦）。**その日ぶんの記録があれば何もしない**ので、
+  // デプロイのたびに再起動しても督促が二重に出ることはない
+  const { startScheduler } = await import('./contexts/platform/services/scheduler.service');
+  startScheduler();
+
   const app = createApp();
   const httpServer = http.createServer(app);
 
