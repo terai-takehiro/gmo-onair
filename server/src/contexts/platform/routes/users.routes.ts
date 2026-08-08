@@ -26,12 +26,13 @@ router.get('/', wrap(async (req, res) => {
     params.push(`%${safeSearch}%`, `%${safeSearch}%`);
   }
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM users ${where}`, params)) as any).c;
-  const rows = await queryAll(`SELECT id, name, email, role, status, phone, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  // `permission_role_id` は v4 の「役割」(権限の型)。`role` (system_admin/staff) とは別物
+  const rows = await queryAll(`SELECT id, name, email, role, status, phone, permission_role_id, last_login_at, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
 }));
 
 router.get('/:id', wrap(async (req, res) => {
-  const row = await queryOne('SELECT id, name, email, role, status, phone, created_at FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const row = await queryOne('SELECT id, name, email, role, status, phone, permission_role_id, last_login_at, created_at FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   res.json({ success: true, data: row });
 }));

@@ -10,7 +10,7 @@ import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
-import UserListPage from "@/contexts/platform/pages/UserListPage";
+import MembersPage from "@/contexts/platform/pages/members/MembersPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 
@@ -262,7 +262,7 @@ function AppRoutes() {
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
-        <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/settings/users" element={<PermissionRoute module="admin"><MembersPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}
