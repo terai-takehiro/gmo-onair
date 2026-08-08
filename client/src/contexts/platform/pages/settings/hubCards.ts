@@ -68,10 +68,7 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'money', title: 'お金のルール', desc: '締め日・支払サイト・消費税の扱い',
         icon: Scale, tone: 'bg-success-surface text-success',
-        to: null,
-        todo: '締め日・支払サイト・税の扱いを入れる場所がまだありません（いまは取引先ごとに手で入れています）。'
-          + '**どの単位で決めるか**（会社ぜんぶ／取引先ごと／案件ごと）を決めてから作ります',
-        module: 'budget', who: '経理',
+        to: '/settings/money', module: 'budget', who: '経理',
       },
       {
         key: 'cal', title: '休日・営業時間', desc: '予約できる時間帯と休業日',

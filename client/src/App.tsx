@@ -74,6 +74,7 @@ import SearchPage from "@/contexts/platform/pages/SearchPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 import SitesPage from "@/contexts/platform/pages/SitesPage";
 import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
+import MoneyRulesPage from "@/contexts/platform/pages/money/MoneyRulesPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -263,6 +264,8 @@ function AppRoutes() {
 
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/settings/users" element={<PermissionRoute module="admin"><MembersPage /></PermissionRoute>} />
+        {/* ⑤ お金のルール。**読むのは budget の reader**（見積を作る人は税率と期日を知る必要がある）。直せるのは manager だけで、それは画面とサーバーの両方で見ている */}
+        <Route path="/settings/money" element={<PermissionRoute module="budget"><MoneyRulesPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}

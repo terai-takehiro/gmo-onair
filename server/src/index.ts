@@ -48,6 +48,13 @@ async function main() {
     console.log('[startup] Seed skipped — admin user ensured');
   }
 
+  // お金のルール (v4 設定 ⑤) を先に読む。**税の端数の丸め方がここで決まる**ので、
+  // 読む前に帳票を出されると既定 (切り捨て) のまま出てしまう
+  const { primeMoneyRules } = await import('./contexts/finance/services/money-rules.service');
+  await primeMoneyRules().catch((e) =>
+    console.warn('[startup] primeMoneyRules failed:', (e as Error).message)
+  );
+
   const app = createApp();
   const httpServer = http.createServer(app);
 

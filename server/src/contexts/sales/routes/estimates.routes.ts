@@ -57,6 +57,18 @@ router.put('/:id/items', canEdit, wrap(async (req, res) => {
   res.json({ success: true, data: await estimateService.replaceItems(id, items) });
 }));
 
+/**
+ * POST /projects/:projectId/estimates/:id/approve — 値引き上限を超えた見積を承認する
+ *
+ * **`canEdit` では守れません。** 承認できるのは「その見積を作った人の役割に
+ * 決めた承認者」だけで、それは編集権限とは別の話（同じ営業担当どうしで
+ * 承認し合えたら上限に意味がない）。判定はサービス側が持ちます。
+ */
+router.post('/:id/approve', canEdit, wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  res.json({ success: true, data: await estimateService.approve(id, userOf(req)) });
+}));
+
 // DELETE /projects/:projectId/estimates/:id
 router.delete('/:id', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;

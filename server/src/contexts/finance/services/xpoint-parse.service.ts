@@ -14,6 +14,7 @@
  * どちらもレイアウト依存を最小限にしたパターンマッチ中心で抽出し、
  * 曖昧なものは warnings に積んで人間のレビューに委ねる。
  */
+import { toExcludedAmount } from '../../../shared/services/tax-category.service';
 
 export type VoucherFormat = 'xpoint' | 'rakuraku' | 'unknown';
 
@@ -155,11 +156,16 @@ function toIsoDate(s: string): string {
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 }
 
-/** 税込金額から税抜金額を計算 (四捨五入)。非課税・不課税は据え置き */
+/**
+ * 税込金額から税抜金額を計算。
+ *
+ * **中身は `tax-category.service` に寄せた。** ここは税率を 1.1 / 1.08 で
+ * 直書きしており、お金のルールで端数を切り捨てに変えても**取込だけ
+ * 四捨五入のまま**になっていた（同じ請求が入口によって 1 円ずれる）。
+ * 名前は呼び出し側の 2 か所で使われているので残す。
+ */
 export function toExclusiveAmount(inclusive: number, taxCategory: 'tax10' | 'tax8' | 'exempt' | 'nontax'): number {
-  if (taxCategory === 'tax10') return Math.round(inclusive / 1.1);
-  if (taxCategory === 'tax8') return Math.round(inclusive / 1.08);
-  return inclusive;
+  return toExcludedAmount(inclusive, taxCategory);
 }
 
 export function parseXpointText(text: string): XpointParsed {
