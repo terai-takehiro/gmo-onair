@@ -45,6 +45,7 @@ import {
 import { APPS, type AppDef } from '@gmo-onair/shared/src/client/apps';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
+import { CountUp } from './Reveal';
 
 /** 別バンドル = フルリロードが要るアプリ */
 const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards'];
@@ -105,7 +106,7 @@ function useOpen() {
   };
 }
 
-/** 件数の丸。PC は行の右端、スマホはタイルの右上 */
+/** 件数の丸。PC は行の右端、スマホはタイルの右上。**数字は数え上げて出す** */
 function Badge({ n, urgent, className }: { n: number; urgent?: boolean; className?: string }) {
   return (
     <span
@@ -115,7 +116,7 @@ function Badge({ n, urgent, className }: { n: number; urgent?: boolean; classNam
         className,
       )}
     >
-      {n}
+      <CountUp n={n} />
     </span>
   );
 }
@@ -195,9 +196,11 @@ function DesktopTile({ app, onOpen }: { app: TileApp; onOpen: () => void }) {
        * そちらに合わせました。動きは `tokens-v4.css` の `.v4-lift`
        * （マウスがある端末だけ・動きを減らす設定では止まる）。
        */}
+      {/* `v4-gloss` は光を1本走らせる（モック `v4-live`）。**マウスがある端末だけ**で、
+          動きを減らす設定では止まる（どちらも `tokens-v4.css` 側で見ている） */}
       <div
         className={cn(
-          'rounded-app v4-lift flex items-center gap-4 border border-border bg-card p-5',
+          'rounded-app v4-lift v4-gloss flex items-center gap-4 border border-border bg-card p-5',
           'hover:border-primary-border-strong hover:shadow-lg',
           open && 'border-primary-border-strong shadow-lg',
         )}

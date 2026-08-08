@@ -46,10 +46,19 @@ export interface SheetProps {
   sub?: string;
   /** 下端に固定するボタン。**ここに置いたものだけが親指の届く位置に出る** */
   footer?: React.ReactNode;
+  /**
+   * **24px だけせり上がる**（トップページの AI シート。モック `v4-live`）。
+   *
+   * 既定は画面の外（100%）から出る動きです。書きかけを持ったまま開け閉めする
+   * シートでは、毎回いちばん下から上がってくると**開くたびに待たされて見える**ので、
+   * 短い距離にします。**opt-in にしてあるのは、既にあるシートの手触りを
+   * この回で変えないため**（`data-v4-sheet` を見て `tokens-v4.css` が当てる）。
+   */
+  rise?: boolean;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onOpenChange, title, sub, footer, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }: SheetProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -61,6 +70,7 @@ export function Sheet({ open, onOpenChange, title, sub, footer, children }: Shee
           )}
         />
         <DialogPrimitive.Content
+          data-v4-sheet={rise ? 'rise' : undefined}
           className={cn(
             // スマホ: 下からせり上がる。PC: 中央のダイアログに寄せる
             'fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col',

@@ -30,16 +30,24 @@
  * タイルの形はモックのとおり **PC は横長3列 / スマホは2列の正方形**、
  * イベントは **PC は小さいタイル / スマホはピル**にします（`home/AppTiles.tsx`）。
  *
- * **並び順はモックと1か所だけ違います。** モックはどちらも
- * 挨拶 → アプリ → 今日 ですが、**スマホだけ「今日」を先に出します**（M3 / M7）。
- * 375px では自分のタスクに着くまでの距離がそのまま体験になるためで、
- * 実測で **2,273px → 411px** になりました。**並べ替えるだけで、消していません。**
+ * **並びは PC・スマホとも 挨拶 → AI → アプリ → 今日**（モック `v4-live`）。
+ * M3 / M7 ではスマホだけ「今日」を先に出していましたが、
+ * **モックに合わせるというご判断でアプリを先に戻しました**。
+ * AI バーの直下がアプリタイルになります。
+ *
+ * ── 節の見出しと説明文を出さない（モック `v4-live`）──────────
+ *
+ * 「アプリ」「今日」の見出しは**どちらも出しません**。タイルを見れば
+ * アプリの並びだと分かり、カードを見れば今日のことだと分かるので、
+ * 見出しは縦を食っているだけでした。**「イベントで使うもの」だけは残します** —
+ * 上のタイルと見た目が違う理由が、見出しが無いと読み取れないためです。
  */
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { APPS } from '@gmo-onair/shared/src/client/apps';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -52,6 +60,8 @@ import { MobileAiBar } from './home/MobileAiBar';
 import { WaitingCard } from './home/WaitingCard';
 import { TodayCard } from './home/TodayCard';
 import { MyTasksCard } from './home/MyTasksCard';
+import { Greeting } from './home/Greeting';
+import { Reveal } from './home/Reveal';
 import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
 
 /**
@@ -75,13 +85,6 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * （プロジェクト管理を `apps.ts` で案件管理の隣へ移したのはそのため）。
  */
 const DAILY_KEYS = ['sales', 'gpm', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
-
-/** 「最終更新 07/31 08:04」（モック）。**数字の出どころは取得の時刻** */
-function updatedAt(ms: number): string {
-  const d = new Date(ms);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -170,146 +173,86 @@ export default function HomePage() {
       .map((a) => ({ ...a, badge: badge[a.key]?.n, urgent: badge[a.key]?.urgent }));
   }, [badges.data, salesWaiting, dailyWaiting, canSeeSales, canSeeDailyops, hasPermission]);
 
-  // ── アプリ ─────────────────────────────────────────────────
+  // ── アプリ（見出しは出さない・モック `v4-live`）────────────────
   const appsSection = (
-    <section className="flex flex-col gap-3.5">
-      <SectionHeading
-        mobile={isMobile}
-        title="アプリ"
-        note="使えるものだけ並びます。数字は「あなたが押せば片づくもの」の件数です"
-      />
-      <AppTiles apps={tiles} mobile={isMobile} />
+    <Reveal>
+      <section className="flex flex-col gap-3.5">
+        {/* **読み込み中は骨組みを出す。** 空白のまま数字だけ後から入ると、
+            タイルが増えたように見えて押し間違える */}
+        {badges.isLoading && !badges.data
+          ? <TileSkeleton mobile={isMobile} />
+          : <AppTiles apps={tiles} mobile={isMobile} />}
 
-      <div className="border-t border-dashed border-border pt-3.5">
-        <SectionHeading
-          mobile={isMobile}
-          level={3}
-          title="イベントで使うもの"
-          note="案件の本番でだけ開きます。日々の業務アプリとは別の並びです"
-        />
-        <div className="mt-2.5">
-          <EventTiles mobile={isMobile} />
+        <div className="border-t border-dashed border-border pt-3.5">
+          {/* **ここだけ見出しを残す。** 上のタイルと見た目が違う理由は、
+              見出しが無いと読み取れない（説明文はモックどおり出さない） */}
+          <SectionHeading mobile={isMobile} level={3} title="イベントで使うもの" />
+          <div className="mt-2.5">
+            <EventTiles mobile={isMobile} />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </Reveal>
   );
 
   return (
     <div className="mx-auto flex max-w-screen-2xl flex-col gap-5 p-3 lg:gap-6 lg:p-6">
       {/* ── 挨拶。**数えられた件数だけを書く** ───────────────────── */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          {/* **スマホでは名前を出さない**（M7）。自分の端末なので誰かは分かっており、
-              「おはようございます、○○ さん」は 390px で2行になって 140px 使っていた */}
-          <h1 className="text-h1">{greeting}{isMobile ? '' : `、${currentUser?.name} さん`}</h1>
-          {canCount && (
-            waitingTotal === 0 && myOverdue === 0 ? (
-              <p className="text-sub mt-1 text-secondary-foreground">
-                待たせているものも、期限を過ぎたものもありません。
-              </p>
-            ) : isMobile ? (
-              /**
-               * **スマホはチップ**（モックの `お待たせ 3件 ・ 期限切れ 2件`）。
-               * 文章にすると 375px で2行になり、挨拶の下が読み飛ばされる。
-               * **押せるようにしてある** — 件数を見た人が次にやるのは「開く」なので、
-               * 数字を読んでからメニューを探し直すのは1手だけ無駄
-               */
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {waitingTotal > 0 && (
-                  <CountChip label="お待たせ" n={waitingTotal} onClick={() => navigate('/sales/inbox')} />
-                )}
-                {myOverdue > 0 && (
-                  <CountChip label="期限切れ" n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
-                )}
-              </div>
-            ) : (
-              /**
-               * **PC は文章**（モック:「お客様を待たせているものが 3件、
-               * 自分の期限を過ぎたものが 2件 あります。」）。
-               * 幅があるので1行に収まり、**チップより何の件数かがはっきりする**。
-               * 数字は押せる（行き先はチップと同じ）
-               */
-              <p className="text-sub mt-1 text-secondary-foreground">
-                {waitingTotal > 0 && (
-                  <>
-                    お客様を待たせているものが{' '}
-                    <CountLink n={waitingTotal} onClick={() => navigate('/sales/inbox')} />
-                  </>
-                )}
-                {waitingTotal > 0 && myOverdue > 0 && '、'}
-                {myOverdue > 0 && (
-                  <>
-                    自分の期限を過ぎたものが{' '}
-                    <CountLink n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
-                  </>
-                )}
-                {' '}あります。
-              </p>
-            )
-          )}
-        </div>
-        {/* **いつの数字かを書く**（モック右上）。取得できていないうちは出さない。
-            **スマホには出さない** — 375px では挨拶の下に1行まるごと足すことになり、
-            モックのスマホにも無い（PC は右端の空きに収まる） */}
-        {!isMobile && lastLoaded > 0 && (
-          <span className="text-sub shrink-0 text-muted-foreground">最終更新 {updatedAt(lastLoaded)}</span>
-        )}
-      </div>
+      <Greeting
+        greeting={greeting}
+        userName={currentUser?.name}
+        mobile={isMobile}
+        canCount={canCount}
+        waitingTotal={waitingTotal}
+        myOverdue={myOverdue}
+        lastLoaded={lastLoaded}
+      />
 
-      {/* スマホは「AIに任せる」を挨拶の直下に1本（モック）。中身は押すと開く */}
+      {/* スマホは「AIに任せる」を挨拶の直下に1本（モック）。押すとシートが開く */}
       {isMobile && <MobileAiBar canIntake={canSeeDailyops} canPaste={canSeeSales} />}
 
-      {/* **PC はアプリが先、スマホは「今日」が先**（M3 / M7）。
-          モックの並びはどちらもアプリ → 今日だが、375px では自分のタスクに
-          着くまでの距離がそのまま体験になる（実測 2,273px → 411px）。
-          **中身は同じものを並べ替えるだけ** */}
-      {!isMobile && appsSection}
+      {/* **PC・スマホとも アプリ → 今日**（モック `v4-live`）。
+          M3 / M7 ではスマホだけ「今日」を先に出していたが、モックに戻した */}
+      {appsSection}
 
-      {/* ── 今日 ─────────────────────────────────────────────── */}
+      {/* ── 今日（見出しは出さない・モック `v4-live`）───────────── */}
       {hasToday && (
+      <Reveal>
       <section className="flex flex-col gap-3.5">
-        {/*
-          **スマホでは見出しだけにする**（M7 のご判断をそのまま引き継ぐ）。
-          ・「AI は下書きまでで…」は畳んだ入口のほうに書いてある（二重にしない）
-          ・「自分のタスクを全部ひらく」は `MyTasksCard` の「全部ひらく」と
-            **同じ行き先で二重**だったので、スマホでは出さない
-        */}
-        <SectionHeading
-          mobile={isMobile}
-          title="今日"
-          note="あなたの秘書。AI は下書きまでで、押すまで登録しません"
-          action={
-            canSeeDailyops && !isMobile ? (
-              <button
-                type="button"
-                onClick={() => navigate('/sales/tasks/list')}
-                className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
-              >
-                自分のタスクを全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
-              </button>
-            ) : null
-          }
-        />
-
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える）。
-            **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない。
-            「貼る」「録音する」も同じバーの中に畳んである */}
+            **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない */}
         {!isMobile && canSeeDailyops && <TaskIntakeBox />}
+
+        {/* **「自分のタスクを全部ひらく」は残す**（モック）。見出しが無くなったので
+            右端ではなく右揃えの1行にする。スマホでは出さない —
+            `MyTasksCard` の「全部ひらく」と同じ行き先で二重になる */}
+        {canSeeDailyops && !isMobile && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => navigate('/sales/tasks/list')}
+              className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
+            >
+              自分のタスクを全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>
         ) : (
+          /* **並びは 今日の予定 → 自分のやること → お待たせ中**（モック `v4-live`）。
+             中身は変えていない — 並べ替えただけ */
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
+            {hasPermission('studio') && <TodayCard days={schedule.data} />}
             {canSeeDailyops && <MyTasksCard />}
             {(canSeeSales || canSeeDailyops) && <WaitingCard data={inbox.data} />}
-            {hasPermission('studio') && <TodayCard days={schedule.data} />}
           </div>
         )}
       </section>
+      </Reveal>
       )}
-
-      {isMobile && appsSection}
 
       <p className="text-note pt-2 text-center text-muted-foreground">
         GMO ONAiR v{__APP_VERSION__}
@@ -322,20 +265,20 @@ export default function HomePage() {
  * 節の見出し。**スマホは字間 .1em の小見出し**（モック 12px/800）、
  * **PC は `text-h2`**（19px/800）。
  *
- * 375px で PC と同じ大きさの見出しを使うと、見出しだけで縦を食って
- * 中身の密度が落ちます（実装はここが PC と同じになっていました）。
+ * ⚠️ **いま使っているのは「イベントで使うもの」1か所だけです。**
+ * 「アプリ」「今日」の見出しはモック `v4-live` に合わせて出さなくしました。
+ * **説明文（`note`）は全部やめました** — 出していたのは PC だけで、
+ * 毎日開く画面で毎日同じ説明を読ませることになっていたためです。
  * 見出しの大きさが変わっても**読み上げの段（h2 / h3）は変えません**。
  */
 function SectionHeading({
   mobile,
   title,
-  note,
   action,
   level = 2,
 }: {
   mobile: boolean;
   title: string;
-  note: string;
   action?: ReactNode;
   level?: 2 | 3;
 }) {
@@ -343,9 +286,6 @@ function SectionHeading({
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Tag className={mobile ? 'v4-eyebrow' : level === 2 ? 'text-h2' : 'text-cardtitle'}>{title}</Tag>
-      {/* **説明はスマホでは出さない。** 見出しの下に2行の説明が続くと、
-          押すものに着くまでの距離がそのぶん伸びる（モックも出していない） */}
-      {!mobile && <span className="text-note text-muted-foreground">{note}</span>}
       {action && (
         <>
           <div className="flex-1" />
@@ -357,27 +297,19 @@ function SectionHeading({
 }
 
 /**
- * 挨拶の下の件数（PC の文章の中）。**赤くして押せるようにする**。
- * 0 件のときは呼び出し側が出さない — 「0件」を赤で出すと目を引くだけで何も起きない。
+ * アプリタイルの骨組み（読み込み中）。**枚数は本物と同じ 7 枚**にする —
+ * 少なく出すと、数字が来た瞬間に下の「今日」が押し下げられて押し間違える。
  */
-function CountLink({ n, onClick }: { n: number; onClick: () => void }) {
+function TileSkeleton({ mobile }: { mobile: boolean }) {
+  const n = 7;
   return (
-    <button type="button" onClick={onClick} className="font-number font-bold text-destructive hover:underline">
-      {n}件
-    </button>
-  );
-}
-
-/** 挨拶の下の件数チップ（スマホ。モックの `お待たせ 3件 ・ 期限切れ 2件`） */
-function CountChip({ label, n, onClick }: { label: string; n: number; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-badge min-h-tap inline-flex items-center gap-1.5 border border-destructive-border bg-destructive-surface px-2.5 py-1 text-sub text-destructive lg:min-h-0"
+    <div
+      className={mobile ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3'}
+      aria-hidden="true"
     >
-      {label}
-      <span className="font-number font-bold">{n}件</span>
-    </button>
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className={cn('v4-skeleton rounded-app block', mobile ? 'h-[92px]' : 'h-[96px]')} />
+      ))}
+    </div>
   );
 }

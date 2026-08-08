@@ -3,92 +3,123 @@
  *
  * ── なぜバー1本にするか ────────────────────────────────────
  *
- * モックのスマホのトップは、挨拶のすぐ下が**高さ 60px の青いバー1本**
- * （`AIに任せる` ＋ `貼る・撮る`）です。実装は**白いフォーム型の投入欄**
- * （見出し ＋ ひとこと／議事録の切り替え ＋ テキスト欄 ＋「内容を確認する」）と
- * **点線のカード2枚**に分かれていて、**上から3画面ぶんが入口の説明**でした。
- * 外で開く人がまず見たいのは自分のタスクと予定なので、ここは1本に畳みます。
+ * モックのスマホのトップは、挨拶のすぐ下が**高さ 60px の青いバー1本**です。
+ * 外で開く人がまず見たいのは自分のタスクと予定なので、ここは 1 本に畳みます。
  *
- * ── 畳むだけで、消していない ────────────────────────────────
+ * ── 開き方をボトムシートに変えた（この版）────────────────────
  *
- * バーを押すと下に開き、**中身は今までと同じもの**が出ます:
- *   ・依頼・タスクを書き留める（`TaskIntakeBox`。中身は1行も変えていない）
- *   ・電話・その他を貼る（⑦）／打合せを録音する（⑤）
+ * 以前は**その場で下に開く**形で、「開いたら閉じない」ことにしていました
+ * （書いている途中で畳むと、入力が消えたように見えるため）。
+ * **シートにするとその心配が要りません** — 画面を覆うので書きかけが
+ * 隠れることがなく、閉じる操作も 1 つ（シートの外を押す）に決まります。
  *
- * モックのバーは `chevron-right`（＝別の画面へ移る）ですが、**開く形にしました** —
- * 投入欄は「その場で書いて渡す」ためのもので、画面を移ると
- * **戻ってきたときにトップの続きが読めません**（モックの決めごと
- * 「終わらせるのはシートで／一覧の行から画面遷移させない」と同じ理由）。
+ * ⚠️ **ただし「入力中の文字はシートを閉じても保持する」。**
+ * 状態（`useIntake`）は**この部品が持ちます** — シートの中で持つと、
+ * 閉じた瞬間に部品ごと消えて**書きかけが消えます**（実際に起きる事故）。
  *
- * ── 開いたら閉じない（M7 の決めごとを引き継ぐ）────────────────
+ * ── 中身は PC と同じ ──────────────────────────────────────
  *
- * この部品は M7 で入れた `MobileIntake`（1行の点線の箱）を**モックの形**に
- * 置き換えたものです。畳む考え方（**場所は最上部のまま・大きさだけ小さく**）と、
- * **開いたら閉じない**という決めごとはそのまま引き継いでいます —
- * 書いている途中で畳めると、入力が消えたように見えるためです。
- *
- * ── 「撮る」は出さない ──────────────────────────────────────
- *
- * モックの右肩は「貼る・撮る」ですが、**名刺を読む口がありません**。
- * 押しても何も起きない言葉を書くと、この枠ごと信用されなくなります。
+ * 入力欄 1 つ ＋ `ファイル` `写真を撮る` `録音` ＋ `内容を確認する`。
+ * 確認もシートの中で終わります（画面遷移させない）。
  */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, ClipboardPaste, Mic, Sparkles } from 'lucide-react';
-import { TaskIntakeBox } from '@/contexts/tasks/components/TaskIntakeBox';
+import { ArrowRight, ChevronRight, ClipboardPaste, Sparkles } from 'lucide-react';
+import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { IntakeComposer } from '@/contexts/tasks/components/intake/IntakeComposer';
+import { IntakeReview } from '@/contexts/tasks/components/intake/IntakeReview';
+import { useIntake } from '@/contexts/tasks/components/intake/useIntake';
 
 export function MobileAiBar({ canIntake, canPaste }: { canIntake: boolean; canPaste: boolean }) {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  // **フックは常に呼ぶ**（権限で早期 return すると、権限の読み込みが終わった
+  // 瞬間にフックの数が変わって React が落ちる）
+  const it = useIntake();
   if (!canIntake && !canPaste) return null;
-  // **開いたら閉じない**（M7）。畳むボタンにすると、書きかけを消したように見える
-
-  // 右肩の言葉は**できることだけ**書く（できないことを書かない）
-  const hint = canIntake && canPaste ? '書き留める・貼る' : canIntake ? '書き留める' : '貼る・録る';
 
   return (
-    <div className="flex flex-col gap-2">
+    <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-expanded={open}
         className="rounded-card flex min-h-[60px] w-full items-center gap-3 bg-primary px-4 py-3 text-left"
       >
         <Sparkles className="h-5 w-5 shrink-0 text-primary-foreground" aria-hidden="true" />
         <span className="text-cardtitle min-w-0 flex-1 text-primary-foreground">AIに任せる</span>
-        <span className="text-note shrink-0 text-primary-foreground">{hint}</span>
-        {!open && <ChevronDown className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />}
+        {/* 書きかけが残っていることを**バーに出す**。出さないと、閉じた人は
+            消えたと思ってもう一度書き始める */}
+        {it.text.trim() && (
+          <span className="text-note shrink-0 text-primary-foreground">書きかけあり</span>
+        )}
+        <ChevronRight className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />
       </button>
 
-      {open && (
-        <div className="flex flex-col gap-2">
-          {canIntake && <TaskIntakeBox />}
-          {canPaste &&
-            ([
-              { to: '/sales/inbox/new', icon: ClipboardPaste, label: '電話・その他を貼る', sub: '聞いた話をそのまま送る。整理は PC で' },
-              { to: '/sales/record', icon: Mic, label: '打合せを録音する', sub: '文字起こしは裏で走ります' },
-            ] as const).map((e) => (
-              <button
-                key={e.to}
-                type="button"
-                onClick={() => navigate(e.to)}
-                /*
-                  **破線を使わない**（M8）。破線は「まだ中身が無い／ここに落とす」の
-                  印なので、動いている入口が「未完成」に見える。淡い青の面と
-                  青い文字だけで「押せる入口」は十分に伝わる
-                */
-                className="rounded-card min-h-tap flex w-full items-center gap-3 border border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
-              >
-                <e.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="text-list block text-primary">{e.label}</span>
-                  <span className="text-note block text-muted-foreground">{e.sub}</span>
-                </span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-              </button>
-            ))}
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        rise
+        title="AIに任せる"
+        sub="書いても貼っても録っても大丈夫です。行き先は AI が決めます"
+      >
+        <div className="flex flex-col gap-2.5">
+          {canIntake && !it.intake && (
+            <IntakeComposer
+              compact
+              text={it.text}
+              onTextChange={(v) => { it.setText(v); it.setDoneMsg(null); }}
+              files={it.files}
+              onAddFiles={it.addFiles}
+              onRemoveFile={it.removeFile}
+              onSubmit={() => it.submit.mutate()}
+              onAudio={it.submitWithAudio}
+              canSubmit={it.canSubmit}
+              pending={it.submit.isPending}
+              error={it.error}
+              doneMsg={it.doneMsg}
+            />
+          )}
+
+          {/* 解析中は骨組みを出す。**押したのに何も変わらない時間を作らない** */}
+          {it.submit.isPending && (
+            <div className="flex flex-col gap-2" aria-hidden="true">
+              {[0, 1, 2].map((i) => <span key={i} className="v4-skeleton h-16 w-full rounded-card" />)}
+            </div>
+          )}
+
+          {it.intake && (
+            <IntakeReview
+              embedded
+              intake={it.intake}
+              rows={it.rows}
+              onChange={it.updateRow}
+              onCommit={() => it.commit.mutate()}
+              onDiscard={() => it.discard.mutate()}
+              onClose={it.reset}
+              committing={it.commit.isPending}
+              discarding={it.discard.isPending}
+              error={it.error}
+            />
+          )}
+
+          {/*
+            **受付への道を消さない。** `sales` はあるが `dailyops` が無い人には
+            上の投入欄が出ないので、ここを消すと**スマホから引き合いを入れる道が
+            1 つも無くなります**（M8 で入れた入口）。
+          */}
+          {canPaste && !it.intake && (
+            <a
+              href="/sales/inbox/new"
+              className="rounded-card min-h-tap flex w-full items-center gap-3 border border-primary-border bg-primary-surface-weak px-4 py-3 text-left"
+            >
+              <ClipboardPaste className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="text-list block text-primary">受付に貼る</span>
+                <span className="text-note block text-muted-foreground">引き合いとして整理したいとき</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            </a>
+          )}
         </div>
-      )}
-    </div>
+      </Sheet>
+    </>
   );
 }

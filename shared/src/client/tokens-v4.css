@@ -525,3 +525,148 @@
 @media (min-width: 1024px) {
   .v4-wide-only { display: block; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   トップページの動き（v4-live のモック）— v4 対象3アプリだけ
+   ───────────────────────────────────────────────────────────────────
+   足したのは5つです:
+
+   | 動き | どこに |
+   | --- | --- |
+   | スクロールで下から14pxフェードイン（一度だけ） | トップの各節・カード |
+   | スケルトン → 実データ | アプリタイル・今日の3枚 |
+   | 数字のカウントアップ | 挨拶の件数・タイルの件数バッジ（JS 側） |
+   | タイルの持ち上がり ＋ 光沢の走り | アプリタイル |
+   | ボトムシートのせり上がり（24px） | スマホの AI シート |
+
+   ⚠️ **既定は「見える」。** スクロール出現は `[data-reveal]` が付いた要素だけ
+   隠します。**属性を付けるのは JS（IntersectionObserver）**なので、
+   JS が動かない環境・古いブラウザでは**何も隠れません**。
+   CSS で先に隠して JS で見せる形にすると、JS が落ちた日に
+   **トップページが白紙**になります（一度やると誰も気づけない壊れ方）。
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes skeletonSweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@keyframes tileGloss {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to   { transform: translateX(320%) skewX(-18deg); }
+}
+@keyframes sheetUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes recPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.82); }
+}
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+
+/**
+ * スクロールで出す。**`data-reveal="hidden"` が付いている間だけ隠れます。**
+ * 見えたら JS が `shown` に変え、そこで1回だけ流れます（戻しません）。
+ */
+[data-reveal='hidden'] { opacity: 0; }
+[data-reveal='shown'] { animation: revealUp 0.44s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+/**
+ * 読み込み中の骨組み。**灰色の箱を置くだけにしない** — 止まっているのか
+ * 読み込んでいるのか分からないので、光を1本流します。
+ */
+.v4-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--muted)) 25%,
+    rgb(var(--surface-subtle)) 37%,
+    rgb(var(--muted)) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeletonSweep 1.4s ease-in-out infinite;
+}
+
+/**
+ * タイルの光沢。`.v4-lift` の上に重ねます（**マウスがある端末だけ**）。
+ * `overflow: hidden` が要るので、掛ける側に `.v4-gloss` を足すこと。
+ */
+.v4-gloss { position: relative; overflow: hidden; }
+.v4-gloss::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+}
+@media (hover: hover) {
+  .v4-gloss:hover::after { animation: tileGloss 0.7s cubic-bezier(0.22, 0.61, 0.36, 1); }
+}
+
+/** ボトムシートのせり上がり（`client-v4/sheet.tsx` の `rise`）。**24px だけ** */
+[data-v4-sheet='rise'][data-state='open'] {
+  animation: sheetUp 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/** 録音中の赤い点と波形（投入欄）。**止まって見えると録れているか分からない** */
+.v4-rec-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: rgb(var(--destructive));
+  animation: recPulse 1.1s ease-in-out infinite;
+}
+.v4-wave { display: inline-flex; align-items: center; gap: 3px; height: 20px; }
+.v4-wave i {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background-color: rgb(var(--destructive));
+  transform-origin: center;
+  animation: waveBar 0.9s ease-in-out infinite;
+}
+.v4-wave i:nth-child(2) { animation-delay: 0.1s; }
+.v4-wave i:nth-child(3) { animation-delay: 0.2s; }
+.v4-wave i:nth-child(4) { animation-delay: 0.3s; }
+.v4-wave i:nth-child(5) { animation-delay: 0.15s; }
+.v4-wave i:nth-child(6) { animation-delay: 0.25s; }
+.v4-wave i:nth-child(7) { animation-delay: 0.05s; }
+
+/**
+ * **動きを減らす設定の人には全部止める。**
+ * 上のほうにも同じ塊がありますが、あちらは `*` の一括なので
+ * `animation-duration: 0.01ms` で 1 コマだけ流れて終わります
+ * （0 にすると `both` の最終状態が当たらず要素が消えたままになる）。
+ * ここでは**繰り返すもの**（骨組み・録音の点・波形）を名指しで止めます —
+ * 1 コマだけ流して止まると、骨組みが半端な明るさで固まるためです。
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='hidden'] { opacity: 1 !important; }
+  .v4-skeleton { animation: none !important; background-image: none; background-color: rgb(var(--muted)); }
+  .v4-rec-dot, .v4-wave i { animation: none !important; }
+  .v4-gloss:hover::after { animation: none !important; }
+}
+
+/**
+ * **スマホの上辺バーのロゴは 18px**（モック `v4-live`）。PC は 20px のまま。
+ *
+ * `h-[18px] sm:h-5` と書けば済みますが、**`shared/src/client/` に無い
+ * クラス名を1つ書くと凍結4アプリの CSS がそのぶん増えます**
+ * （そのアプリが描かない部品の分まで生成されるため）。属性だけ付けて、
+ * 高さはここで当てます。幅の値は `useIsMobile()` と同じ 1023px です。
+ */
+@media (max-width: 1023px) {
+  :root [data-shell-logo] { height: 18px; }
+}

@@ -21,12 +21,27 @@ import {
   diffByKey,
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
+import { normalizeDest, type IntakeDest } from './intake-parser.service';
 
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
 export type IntakeStatus = 'pending' | 'committed' | 'discarded';
 
+/**
+ * 行き先ごとの日本語。**画面とサーバーで同じ言葉を使う**ため、
+ * エラー文にもここを使う（画面には「タスク」と出ているのに
+ * 「やること」と返すと、どの行のことか分からなくなる）。
+ */
+export const DEST_LABEL: Record<IntakeDest, string> = {
+  task: 'タスク',
+  neta: '案件（ネタ）',
+  log: '活動記録',
+  minutes: '議事録',
+};
+
 /** AI が出したタスク案 1 件 */
 export interface TaskDraft {
+  /** 行き先。**無いときは `task`**（旧い呼び出しは全部タスクだった） */
+  dest?: IntakeDest;
   /** 差分突合用の安定キー (サーバーが d1, d2, … で振る) */
   draft_key: string;
   title: string;
@@ -53,6 +68,29 @@ export interface TaskDraft {
   quote?: string | null;
   /** 確認画面の既定チェック状態 (宛先・期限が揃っていれば ON) */
   suggested_default?: boolean;
+
+  // ── 行き先ごとの中身。**空 = 読み取れなかった**（推測で埋めない） ──
+  /** お客様（会社）の名前。`neta` は commit のときに find-or-create する */
+  customer_name?: string | null;
+  /** 本文。`neta` の要望 / `log` の詳細 */
+  detail?: string | null;
+  /** `neta` の分類 A=スタジオ / B=ビジネス */
+  gls_category?: 'A' | 'B' | null;
+  /** `log` の種別 */
+  activity_type?: string | null;
+  next_action?: string | null;
+  next_action_date?: string | null;
+  /** `minutes` の中身 */
+  summary?: string | null;
+  decisions?: { text: string; quote: string }[];
+  open_items?: { text: string; owner: string; due: string }[];
+}
+
+/** commit の結果。**行き先ごとに何件入ったか**を画面に返す */
+export interface CommitResult {
+  intake: TaskIntake;
+  created_ids: string[];
+  created: { dest: IntakeDest; id: string; title: string }[];
 }
 
 export interface TaskIntake {
@@ -82,24 +120,109 @@ const SELECT_INTAKE = `
   LEFT JOIN users u ON u.id = i.created_by
 `;
 
-/** 宛先と期限が揃っていれば既定チェック ON。曖昧なら OFF にして人に聞く (要件 D4) */
+/**
+ * 既定チェック ON にしてよいか。**足りないものがある行は OFF** にして人に聞く (要件 D4)。
+ * 行き先ごとに「揃っている」の意味が違う。
+ */
 function computeDefault(d: TaskDraft): boolean {
-  if (d.assignee_unclear || !d.assigned_to) return false;
-  if (d.due_unclear || !d.due_at) return false;
-  return true;
+  switch (normalizeDest(d.dest)) {
+    case 'task':
+      if (d.assignee_unclear || !d.assigned_to) return false;
+      if (d.due_unclear || !d.due_at) return false;
+      return true;
+    case 'neta':
+      // お客様と分類が読めていないと案件が作れない
+      return !!d.customer_name?.trim() && (d.gls_category === 'A' || d.gls_category === 'B');
+    case 'log':
+      return !!d.title?.trim();
+    case 'minutes':
+      // 議事録は案件にぶら下がる。案件が読めていないと入れる場所が無い
+      return !!d.project_id;
+    default:
+      return false;
+  }
 }
 
 /** AI から受け取った案に draft_key と既定チェックを振る */
 function normalizeDrafts(input: Omit<TaskDraft, 'draft_key'>[]): TaskDraft[] {
   return (input ?? []).map((d, i) => {
-    const draft: TaskDraft = { ...d, draft_key: `d${i + 1}` };
+    const draft: TaskDraft = { ...d, dest: normalizeDest(d.dest), draft_key: `d${i + 1}` };
     draft.suggested_default = computeDefault(draft);
     return draft;
   });
 }
 
-// 差分を取る対象。振り分け結果そのものなので、ここが教師データになる (要件 第6章)
-const DIFF_FIELDS = ['title', 'assigned_to', 'project_id', 'due_at', 'importance', 'urgency'];
+/**
+ * 差分を取る対象。振り分け結果そのものなので、ここが教師データになる (要件 第6章)。
+ *
+ * **`dest` を先頭に入れているのがこの版の要点。** 投入口を1本にして
+ * 行き先まで AI に決めさせた以上、「ネタ案件に振ったのを人がタスクに直した」が
+ * いちばん価値のある教師データになる。ここを外すと、
+ * **一番よく間違える項目だけが記録に残らない**。
+ */
+const DIFF_FIELDS = [
+  'dest',
+  'title', 'assigned_to', 'project_id', 'due_at', 'importance', 'urgency',
+  'customer_name', 'gls_category', 'activity_type', 'next_action', 'next_action_date',
+  'summary',
+];
+
+/** `withTransaction` が渡してくる口。ここで要るのは 2 つだけ */
+type Tx = { execute(sql: string, params?: unknown[]): Promise<void>; queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined> };
+
+/**
+ * OPP コードを採る。**`sequence.service` を写していない**（同じ SQL）—
+ * あちらはプールから別の接続を取るので、このトランザクションの中で
+ * 呼ぶと採番だけがロールバックされずに残る（番号が飛ぶ）。
+ */
+async function nextOppCode(tx: Tx): Promise<string> {
+  const now = new Date();
+  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const row = await tx.queryOne(
+    `INSERT INTO sequences (seq_name, prefix, year_month, counter)
+     VALUES ('opp_code', 'OPP', ?, 1)
+     ON CONFLICT (seq_name) DO UPDATE SET
+       counter = CASE WHEN sequences.year_month = EXCLUDED.year_month THEN sequences.counter + 1 ELSE 1 END,
+       year_month = EXCLUDED.year_month
+     RETURNING counter`,
+    [ym]
+  );
+  return `OPP-${ym}-${String(Number(row?.counter ?? 1)).padStart(4, '0')}`;
+}
+
+/**
+ * お客様を名前で引く。**作らない。**
+ *
+ * 突合は前後の空白を落とすだけの完全一致。ゆるく当てると
+ * 「GMO」で別会社に紐づくほうが、紐づかないより悪い（気づけない）。
+ */
+async function findCustomerId(tx: Tx, name: string): Promise<string | null> {
+  const row = await tx.queryOne(
+    `SELECT id FROM customers WHERE deleted_at IS NULL AND btrim(name) = btrim(?) ORDER BY created_at LIMIT 1`,
+    [name]
+  );
+  return row ? String(row.id) : null;
+}
+
+/**
+ * お客様を名前で引き、無ければ作る（ネタ案件だけ）。
+ *
+ * **ネタ案件でだけ作るのは要件のとおり。** 新しい引き合いは新しい会社から来るので、
+ * ここで作れないと「まず取引先を登録してください」と言うことになり、
+ * 投入口の意味（1 か所に放り込むだけ）が消える。
+ * 活動記録では作らない — 済んだやり取りの記録から会社を増やすと、
+ * 綴り違いの重複が台帳に溜まる。
+ */
+async function findOrCreateCustomer(tx: Tx, name: string, userId: string): Promise<string> {
+  const found = await findCustomerId(tx, name);
+  if (found) return found;
+  const id = uuidv4();
+  await tx.execute(
+    `INSERT INTO customers (id, name, created_by) VALUES (?, ?, ?)`,
+    [id, name, userId]
+  );
+  return id;
+}
 
 export const taskIntakeService = {
   /**
@@ -157,82 +280,177 @@ export const taskIntakeService = {
   },
 
   /**
-   * 確認済みのタスク案を本登録する。
+   * 確認済みの下書きを本登録する。**行き先 (`dest`) ごとに入れる先が違う。**
    *
-   * - 渡された tasks だけを作る (外されたものは作らない = 不採用として差分に残る)
+   * - 渡された rows だけを作る (外されたものは作らない = 不採用として差分に残る)
    * - 下書きとの差分を ai_corrections に積む。**無修正で採用したものは 'none'**
    *   (正解ラベル。これが無いと無修正採用率の分母が壊れる)
    * - 依頼 (requester_id あり) は期限を必須にする (要件 D9)
+   *
+   * ── 4 つの行き先を 1 つのトランザクションで書く ────────────────
+   *
+   * 分けると「タスクは入ったが活動記録は入っていない」が起き、
+   * **人は「登録した」と思っているので、もう一度は投げません**（黙って消える）。
+   *
+   * ── 作ったものに `idempotency_key` を残す（列を足さずに済ませる）────
+   *
+   * `projects` / `activity_logs` には `idempotency_key`（部分一意索引つき）と
+   * `source_channel` が既にあります（migration 126）。`intake:<投入id>:<draft_key>` を
+   * 入れておくと、①押し直しによる二重登録を **DB が**拒否し、
+   * ②あとから「投入口から生まれた案件が受注に至ったか」を
+   * **新しい表を作らずに**数えられます（AI 改善の条件3）。
    */
   async commitIntake(
     intakeId: string,
-    tasks: TaskDraft[],
+    rows: TaskDraft[],
     userId: string
-  ): Promise<{ intake: TaskIntake; created_ids: string[] }> {
+  ): Promise<CommitResult> {
     const intake = await this.get(intakeId);
     if (intake.status === 'committed') {
       throw new AppError(400, 'VALIDATION_ERROR', 'この投入はすでに登録済みです');
     }
-    if (!tasks?.length) {
-      throw new AppError(400, 'VALIDATION_ERROR', '登録するタスクがありません。破棄する場合は破棄してください');
+    if (!rows?.length) {
+      throw new AppError(400, 'VALIDATION_ERROR', '登録するものがありません。破棄する場合は破棄してください');
     }
 
-    // 事前検証 (トランザクションに入る前に弾く)
-    for (const t of tasks) {
-      if (!t.title?.trim()) throw new AppError(400, 'VALIDATION_ERROR', 'タイトルが空のタスクがあります');
-      if (!t.assigned_to) {
-        throw new AppError(400, 'VALIDATION_ERROR', `「${t.title}」の担当者が決まっていません`);
+    // 事前検証 (トランザクションに入る前に弾く)。**行き先ごとに要るものが違う**
+    for (const t of rows) {
+      const dest = normalizeDest(t.dest);
+      const label = DEST_LABEL[dest];
+      if (!t.title?.trim()) {
+        throw new AppError(400, 'VALIDATION_ERROR', `内容が空の${label}があります`);
       }
-      if (t.requester_id && !t.due_at) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `「${t.title}」は依頼なので期限が必要です。何月何日何時何分までかを指定してください`
-        );
+      if (dest === 'task') {
+        if (!t.assigned_to) {
+          throw new AppError(400, 'VALIDATION_ERROR', `「${t.title}」の担当者が決まっていません`);
+        }
+        if (t.requester_id && !t.due_at) {
+          throw new AppError(
+            400,
+            'VALIDATION_ERROR',
+            `「${t.title}」は依頼なので期限が必要です。何月何日何時何分までかを指定してください`
+          );
+        }
+        if (t.importance != null && (t.importance < 1 || t.importance > 3)) {
+          throw new AppError(400, 'VALIDATION_ERROR', '重要度は 1〜3 で指定してください');
+        }
+        if (t.urgency != null && (t.urgency < 1 || t.urgency > 3)) {
+          throw new AppError(400, 'VALIDATION_ERROR', '緊急度は 1〜3 で指定してください');
+        }
       }
-      if (t.importance != null && (t.importance < 1 || t.importance > 3)) {
-        throw new AppError(400, 'VALIDATION_ERROR', '重要度は 1〜3 で指定してください');
+      if (dest === 'neta') {
+        if (!t.customer_name?.trim()) {
+          throw new AppError(400, 'VALIDATION_ERROR', `「${t.title}」のお客様が決まっていません`);
+        }
+        if (t.gls_category !== 'A' && t.gls_category !== 'B') {
+          throw new AppError(400, 'VALIDATION_ERROR', `「${t.title}」の案件分類（スタジオ / ビジネス）を選んでください`);
+        }
       }
-      if (t.urgency != null && (t.urgency < 1 || t.urgency > 3)) {
-        throw new AppError(400, 'VALIDATION_ERROR', '緊急度は 1〜3 で指定してください');
+      if (dest === 'minutes' && !t.project_id) {
+        // 議事録は案件にぶら下がる（`project_minutes.project_id` は NOT NULL）
+        throw new AppError(400, 'VALIDATION_ERROR', `「${t.title}」をどの案件の議事録にするか選んでください`);
       }
     }
 
-    const createdIds = await withTransaction(async (tx) => {
-      const ids: string[] = [];
-      for (const t of tasks) {
+    const created = await withTransaction(async (tx) => {
+      const out: { dest: IntakeDest; id: string; title: string }[] = [];
+      for (const t of rows) {
+        const dest = normalizeDest(t.dest);
+        const key = `intake:${intakeId}:${t.draft_key}`;
         const id = uuidv4();
-        const isDelegation = !!t.requester_id;
-        await tx.execute(
-          `INSERT INTO project_tasks
-             (id, project_id, title, description, task_type,
-              assigned_to, requester_id, requested_at, delegation_status,
-              due_at, importance, urgency, source, source_ref, visibility,
-              sort_order, created_by, updated_by)
-           VALUES (?, ?, ?, ?, 'free',
-                   ?, ?, ?, ?,
-                   ?, ?, ?, ?, ?, 'team',
-                   0, ?, ?)`,
-          [
-            id,
-            t.project_id ?? null,
-            t.title.trim(),
-            t.description ?? null,
-            t.assigned_to,
-            t.requester_id ?? null,
-            isDelegation ? new Date().toISOString() : null,
-            isDelegation ? 'requested' : null,
-            t.due_at ?? null,
-            t.importance ?? 2,
-            t.urgency ?? 2,
-            // 投入経由であることを残す。source_ref から元テキストへ遡れる
-            `intake:${intake.kind}`,
-            intakeId,
-            userId,
-            userId,
-          ]
-        );
-        ids.push(id);
+
+        if (dest === 'task') {
+          const isDelegation = !!t.requester_id;
+          await tx.execute(
+            `INSERT INTO project_tasks
+               (id, project_id, title, description, task_type,
+                assigned_to, requester_id, requested_at, delegation_status,
+                due_at, importance, urgency, source, source_ref, visibility,
+                sort_order, created_by, updated_by)
+             VALUES (?, ?, ?, ?, 'free',
+                     ?, ?, ?, ?,
+                     ?, ?, ?, ?, ?, 'team',
+                     0, ?, ?)`,
+            [
+              id,
+              t.project_id ?? null,
+              t.title.trim(),
+              t.description ?? t.detail ?? null,
+              t.assigned_to,
+              t.requester_id ?? null,
+              isDelegation ? new Date().toISOString() : null,
+              isDelegation ? 'requested' : null,
+              t.due_at ?? null,
+              t.importance ?? 2,
+              t.urgency ?? 2,
+              // 投入経由であることを残す。source_ref から元テキストへ遡れる
+              `intake:${intake.kind}`,
+              intakeId,
+              userId,
+              userId,
+            ]
+          );
+        } else if (dest === 'neta') {
+          const customerId = await findOrCreateCustomer(tx, t.customer_name!.trim(), userId);
+          const code = await nextOppCode(tx);
+          await tx.execute(
+            `INSERT INTO projects
+               (id, code, name, customer_id, stage, project_type, gls_category,
+                expected_amount, assigned_to, notes, customer_type,
+                intake_channel, idempotency_key, source_channel, created_by)
+             /* customer_type は internal / external の2値（社内案件か外のお客様か）で、
+                投入口から入るのは外からの引き合いなので external。
+                intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた */
+             VALUES (?, ?, ?, ?, 'neta', 'other', ?, 0, ?, ?, 'external', 'other', ?, 'intake', ?)`,
+            [id, code, t.title.trim(), customerId, t.gls_category, userId, t.detail ?? null, key, userId]
+          );
+          // **最初のステージも履歴に残す**（`project.service` の create と同じ理由 —
+          // 1件目が無いと「ネタでいた期間」が測れない）
+          await tx.execute(
+            `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+             VALUES (?, ?, NULL, 'neta', ?)`,
+            [uuidv4(), id, userId]
+          );
+        } else if (dest === 'log') {
+          // お客様は**照合するだけ**で作らない。活動記録は相手が分からなくても
+          // 記録として成立する（作ると、綴り違いの会社が台帳に増える）
+          const customerId = t.customer_name?.trim()
+            ? await findCustomerId(tx, t.customer_name.trim())
+            : null;
+          await tx.execute(
+            `INSERT INTO activity_logs
+               (id, project_id, customer_id, user_id, activity_type, activity_date,
+                subject, description, next_action, next_action_date,
+                idempotency_key, source_channel, created_by)
+             VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, ?, ?, 'intake', ?)`,
+            [
+              id, t.project_id ?? null, customerId, userId,
+              t.activity_type || 'other',
+              t.title.trim(), t.detail ?? null,
+              t.next_action ?? null, t.next_action_date ?? null,
+              key, userId,
+            ]
+          );
+        } else {
+          // 議事録。**原文をそのまま `transcript` に残す** — 録音から起こしたものと
+          // 同じ形にしておくと、あとで整形をやり直せる（`minutes.service` と同じ考え方）
+          await tx.execute(
+            `INSERT INTO project_minutes
+               (id, project_id, status, title, met_on, transcript,
+                summary, decisions, open_items,
+                ai_output_id, model, prompt_version, created_by, updated_by)
+             VALUES (?, ?, 'draft', ?, to_char(CURRENT_DATE, 'YYYY-MM-DD'), ?,
+                     ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)`,
+            [
+              id, t.project_id, t.title.trim(), intake.raw_text,
+              t.summary ?? null,
+              JSON.stringify(t.decisions ?? []),
+              JSON.stringify(t.open_items ?? []),
+              intake.ai_output_id, null, null, userId, userId,
+            ]
+          );
+        }
+        out.push({ dest, id, title: t.title.trim() });
       }
       await tx.execute(
         `UPDATE task_intake
@@ -240,8 +458,10 @@ export const taskIntakeService = {
          WHERE id = ?`,
         [intakeId]
       );
-      return ids;
+      return out;
     });
+    const createdIds = created.map((c) => c.id);
+    const tasks = rows;
 
     // 差分を記録 (業務を壊さない best-effort)。draft_key で突合する
     if (intake.ai_output_id) {
@@ -269,7 +489,7 @@ export const taskIntakeService = {
       }
     }
 
-    return { intake: await this.get(intakeId), created_ids: createdIds };
+    return { intake: await this.get(intakeId), created_ids: createdIds, created };
   },
 
   /** 下書きを破棄する。**生テキストは残す** (投げた事実は消さない) */
