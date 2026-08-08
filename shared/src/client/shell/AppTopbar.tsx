@@ -56,11 +56,6 @@ export interface AppTopbarProps extends ShellAccess {
   onSwitchUser?: () => void;
   /** スマホのハンバーガー。渡さないと出ない (左メニューが無い画面) */
   onToggleMenu?: () => void;
-  /**
-   * **ページ名の差し込み口**（M7）。スマホでは上辺バーが現在地を出します。
-   * 中身は `PageHeader` が `createPortal` で描くので、ここは器だけです。
-   */
-  titleSlotRef?: (el: HTMLSpanElement | null) => void;
   onOpenManual?: () => void;
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
@@ -99,7 +94,6 @@ export function AppTopbar({
   onLogout,
   onSwitchUser,
   onToggleMenu,
-  titleSlotRef,
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
@@ -113,7 +107,6 @@ export function AppTopbar({
   useDismiss(swOpen, () => setSwOpen(false), swRef);
   useDismiss(userOpen, () => setUserOpen(false), userRef);
 
-  const label = appLabel;
   const app = APP_BY_KEY[appKey];
   const AppIcon = app?.icon;
   const apps = visibleApps({ current: appKey, role, permissions });
@@ -145,8 +138,8 @@ export function AppTopbar({
         なので、**スマホのトップでロゴが無いと何のアプリか分からない**状態でした。
 
         ほかの画面ではスマホに出しません（モックどおり）。375px では
-        `☰` ＋ ページ名（M7）＋ ベル ＋ 本人 が並ぶので、ロゴを足すと
-        **ページ名が数文字で切れます** — 現在地のほうが優先です。
+        `☰` ＋ アプリ名 ＋ ベル ＋ 本人 が並ぶので、ロゴを足すと
+        アプリ名が切れます — いまどのアプリにいるかのほうが優先です。
       */}
       {/* ロゴは押すとトップへ戻る**リンク**なので、当たり判定を 44px 取る
           （絵は 20px のまま。上辺バーは 64px で中身は上下中央なので見た目は変わらない） */}
@@ -160,32 +153,15 @@ export function AppTopbar({
       <span className="hidden h-[22px] w-px bg-border sm:block" aria-hidden="true" />
 
       {/*
-        ── スマホ: ここが**ページ名**（M7）──────────────────────
-        以前はアプリ切替のチップが幅を取り、そのすぐ下で本文が同じ名前を
-        もう一度出していました（64px の帯が現在地を1文字も伝えていない）。
-        中身は `PageHeader` が差し込みます。**まだ `PageTitle` を使っている
-        38 画面では空のまま**なので、そのときだけアプリ名に戻します
-        （切り替えは `tokens-v4.css` の CSS。JS で判定すると再描画が回る）。
-        アプリの切替はスマホでは左メニュー（☰）から行います。
-
-        **トップページではアプリ名を出しません** — 差し込み口は器として置きます
-        （`flex-1` が押しのけ役なので、消すとベルと本人がロゴの隣に寄る）。
-        トップの名前はロゴそのもので、「ONAiR」と重ねて出す意味がありません。
-
-        ⚠️ **文字の大きさをここでクラス指定しないこと。** 見出し用の型スケールを
-        1つ書いただけで**凍結4アプリの CSS に1規則増えました**（実測。描かないのに入る）。
-        見た目は `tokens-v4.css` の `[data-shell-title]` 側で当てます。
-        **この注意書きの中にも実物のクラス名を書かないこと** — Tailwind は
-        コメントも走査するので、説明のつもりで書いた1語がそのまま CSS になります。
+        ── アプリ切替 (アプリ名がそのままボタン)。**トップページには出さない** ──
+        モックの端末枠は、トップ以外のスマホの上辺バーが
+        **`☰` ／ アプリ名のチップ ／ 余白 ／ 検索**です。ページ名は本文の見出しが
+        出します。M7 で「スマホは上辺バーがページ名・本文の見出しは消す」形に
+        していましたが、**モックに戻す**というご判断でこちらに戻しました。
+        （トップはアプリの一覧そのものなので、切替は同じ物への2つ目の入口になる）
       */}
-      <div className="flex min-w-0 flex-1 items-center lg:hidden">
-        <span ref={titleSlotRef} data-shell-title className="min-w-0 truncate" />
-        {!isHome && <span data-shell-applabel className="min-w-0 truncate">{label}</span>}
-      </div>
-
-      {/* ── アプリ切替 (アプリ名がそのままボタン)。**PC だけ・トップには出さない** ── */}
       {!isHome && (
-      <div ref={swRef} data-shell-switch className="relative shrink-0">
+      <div ref={swRef} className="relative shrink-0">
         <button
           type="button"
           onClick={() => setSwOpen((v) => !v)}
@@ -248,9 +224,7 @@ export function AppTopbar({
           ほかの画面は右に置く (モックの共通上辺バー) */}
       {isHome && searchSlot}
 
-      {/* 押しのけ用の伸び代。**スマホではページ名が伸びる**ので、あちらでは消す
-          （消すのは属性経由。ここに幅の切り替えを書くと凍結アプリの CSS が増える） */}
-      <div data-shell-spacer className="flex-1" />
+      <div className="flex-1" />
 
       {!isHome && searchSlot}
 
