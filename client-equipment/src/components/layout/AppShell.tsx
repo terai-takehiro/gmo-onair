@@ -3,7 +3,7 @@ import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
 import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
-import { EQUIPMENT_PC_ONLY } from "@/pcOnlyScreens";
+import { EQUIPMENT_PC_ONLY, EQUIPMENT_MOBILE_HIDDEN } from "@/pcOnlyScreens";
 
 import { useAuth } from "@/hooks/useAuth";
 import { EQUIPMENT_MANUAL } from "@/manual/content";
@@ -26,6 +26,7 @@ export default function AppShell() {
   return (
     <SharedAppShell
       appKey="equipment"
+      mobileHiddenPaths={EQUIPMENT_MOBILE_HIDDEN}
       sections={EQUIPMENT_NAV}
       mobileTabs={EQUIPMENT_MOBILE_TABS}
       notificationSlot={<NotificationBell api={api} />}

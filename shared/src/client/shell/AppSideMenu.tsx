@@ -32,10 +32,11 @@
  * 自分の権限では見えているので気づきません。`shared/tests/apps.test.ts` で固定してあります。
  */
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, matchPath } from 'react-router-dom';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../utils';
+import { useIsMobile } from '../../client-v4/mobile';
 import type { ShellAccess, ShellNavSection } from './types';
 
 /**
@@ -84,6 +85,16 @@ export interface AppSideMenuProps extends ShellAccess {
   /** スマホで開いているか。PC では常に出る */
   open: boolean;
   onClose: () => void;
+  /**
+   * **スマホのときだけメニューから落とすルート**（ご判断）。
+   *
+   * データを入れる道具（決算の取込・DB バックアップ・データビューア）は
+   * 案件の仕事に出てこないので、**スマホでは選べること自体が邪魔**です。
+   * 出どころは各アプリの `pcOnlyScreens.ts` の `hidden: true`。
+   *
+   * **ルートは消しません。** 共有された URL を開けば今までどおり案内が出ます。
+   */
+  mobileHiddenPaths?: string[];
 }
 
 function useCan({ role, permissions, can }: ShellAccess) {
@@ -96,18 +107,28 @@ export function AppSideMenu({
   note,
   open,
   onClose,
+  mobileHiddenPaths,
   role,
   permissions,
   can,
 }: AppSideMenuProps) {
   const { pathname } = useLocation();
+  const mobile = useIsMobile();
   const allow = useCan({ role, permissions, can });
   const isAdmin = role === 'system_admin';
+
+  /**
+   * スマホで出さない項目か。**前方一致ではなくルートの型で照合する** —
+   * `/settings` を前方一致にすると `/settings/sites` まで巻き込みます。
+   */
+  const hiddenHere = (to: string) =>
+    mobile && !!mobileHiddenPaths?.some((pat) => matchPath({ path: pat, end: true }, to));
 
   const visible = sections
     .map((s) => ({
       ...s,
       items: s.items.filter((item) => {
+        if (hiddenHere(item.to)) return false;
         if (item.adminOnly) return isAdmin;
         if (item.modules?.length) return item.modules.some(allow);
         if (item.module) return allow(item.module);
