@@ -64,14 +64,15 @@ export const DAILY_NAV: ShellNavSection[] = [
 ];
 
 /**
- * スマホ下端のタブ。
+ * スマホ下端のタブ。**v4 の決めごとどおり ホーム / やること / 探す**（M9）。
  *
- * v4 の決めごとは **ホーム / やること / 検索** の3つですが、
- * 日常業務にはまだ「検索」の画面がありません。無い画面のタブを置くと
- * 押しても何も起きないので、**いまはメニューを開くタブ**にしてあります。
+ * 3つ目は長らく「メニューを開く」でした（検索の画面が無かったため）。
+ * ですが**メニューは上辺バーの ☰ からも開けます** — 3枠しかないうちの1枠を
+ * 二重の入口に使っていて、決めごとにある検索がどこにも無い状態でした。
+ * `/search` を作って本来の形に戻しています。
  */
 export const DAILY_MOBILE_TABS: ShellMobileTab[] = [
   { label: 'ホーム', to: '/', icon: LayoutDashboard, end: true },
   { label: 'やること', to: '/tasks', icon: ListChecks },
-  { label: 'メニュー', icon: Search, action: 'menu' },
+  { label: '探す', to: '/search', icon: Search },
 ];

@@ -23,6 +23,10 @@ import {
   ArrowLeft, ArrowDownUp, CalendarDays, CheckCircle2, Download, PieChart, Search, UserPlus, X,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import {
+  MobileFilterBar, MobileFilterField,
+} from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
@@ -52,6 +56,7 @@ export default function InviewDayPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<InviewRegistration | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
 
   // 受付はまず検索欄を打つ画面なので、開いたらそこにカーソルを置く
   // (スマホでキーボードが勝手に出ると邪魔なので、指で押せない幅では当てない)
@@ -110,72 +115,125 @@ export default function InviewDayPage() {
         ) : undefined}
       />
 
-      {/* 受付の検索欄 — この画面の主役 */}
-      <div className="rounded-card border border-border bg-card p-3 lg:px-4">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="氏名・会社名・電話番号などで探す"
-            aria-label="この日の来場者を検索"
-            className="pl-9 pr-9"
-          />
-          {query && (
+      {/*
+        受付の検索欄 — この画面の主役。
+
+        **スマホでは枠と説明を畳みます**（M9）。当日いちばん開く画面なのに、
+        390px ではカード枠 ＋ 3行の説明 ＋ 並び替え ＋ ボタン2つで
+        **最初の来場者に着くまで約 700px**（1画面ぶん）を使っていました。
+        目の前に人が立っている画面なので、**打つ欄と名簿以外は畳みます**。
+        探し方の但し書き（かな・全角半角・ハイフンを区別しない）は
+        **打ち込んでから効くもの**なので、シートの中に移しました。
+      */}
+      {isMobile ? (
+        <MobileFilterBar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: '氏名・会社名・電話で探す',
+            label: 'この日の来場者を検索',
+          }}
+          activeCount={sortKey === 'default' ? 0 : 1}
+          onClearAll={() => setSortKey('default')}
+          title="並び順"
+          note={searching
+            ? `「${query}」に当てはまる ${hitCount} 件 / この日 ${dayRows.length} 件`
+            : 'かな・全角半角・ハイフンは区別せず、この日のすべての回から探します'}
+        >
+          <MobileFilterField label="並び替え">
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              aria-label="並び替え"
+              className="text-list min-h-tap rounded-control border border-border bg-background px-2 text-foreground"
+            >
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <option key={k} value={k}>{SORT_LABELS[k]}</option>
+              ))}
+            </select>
+          </MobileFilterField>
+          <MobileFilterField label="会社別のまとめ" hint="同じ会社から何名来るかを1枚にします">
             <button
               type="button"
-              onClick={() => setQuery('')}
-              aria-label="検索を消す"
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+              onClick={() => setShowSummary((v) => !v)}
+              className={`rounded-control min-h-tap text-list border px-3 ${
+                showSummary ? 'border-primary-border-strong bg-primary-surface font-bold text-primary' : 'border-border bg-card'
+              }`}
             >
-              <X className="h-4 w-4" aria-hidden="true" />
+              {showSummary ? 'まとめを閉じる' : 'まとめを出す'}
             </button>
-          )}
-        </div>
-        <p className="text-note mt-2 text-muted-foreground">
-          氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 を探します。
-          カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。
-          {sessions.length > 1 ? 'この日のすべての回をまたいで探します。' : ''}
-        </p>
-        {searching && (
-          <p className="text-sub mt-1.5">
-            「{query}」に当てはまる <span className="font-number font-bold">{hitCount}</span> 件 / この日 {dayRows.length} 件
-          </p>
-        )}
-      </div>
+          </MobileFilterField>
+          {/* **CSV はスマホに出しません** — 書き出したファイルを開く相手が端末に無い */}
+        </MobileFilterBar>
+      ) : (
+        <>
+          <div className="rounded-card border border-border bg-card p-3 lg:px-4">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="氏名・会社名・電話番号などで探す"
+                aria-label="この日の来場者を検索"
+                className="pl-9 pr-9"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="検索を消す"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <p className="text-note mt-2 text-muted-foreground">
+              氏名 / ふりがな / 会社 / 役職 / メール / 電話 / 携帯 / 住所 / 同行者名 を探します。
+              カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。
+              {sessions.length > 1 ? 'この日のすべての回をまたいで探します。' : ''}
+            </p>
+            {searching && (
+              <p className="text-sub mt-1.5">
+                「{query}」に当てはまる <span className="font-number font-bold">{hitCount}</span> 件 / この日 {dayRows.length} 件
+              </p>
+            )}
+          </div>
 
-      {/* 並び替えと書き出し */}
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="text-sub flex items-center gap-1.5 text-muted-foreground">
-          <ArrowDownUp className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="sr-only">並び替え</span>
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="text-sub min-h-tap rounded-control border border-border bg-background px-2 text-foreground lg:min-h-[36px]"
-          >
-            {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-              <option key={k} value={k}>{SORT_LABELS[k]}</option>
-            ))}
-          </select>
-        </label>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant={showSummary ? 'default' : 'outline'} onClick={() => setShowSummary((v) => !v)}>
-            <PieChart className="mr-1 h-4 w-4" aria-hidden="true" /> 会社別のまとめ
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!dayRows.length}
-            onClick={() => downloadCsv(dayRows, date === UNDATED ? '日付未定' : date)}
-          >
-            <Download className="mr-1 h-4 w-4" aria-hidden="true" /> CSV出力（この日）
-          </Button>
-        </div>
-      </div>
+          {/* 並び替えと書き出し */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sub flex items-center gap-1.5 text-muted-foreground">
+              <ArrowDownUp className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">並び替え</span>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="text-sub min-h-tap rounded-control border border-border bg-background px-2 text-foreground lg:min-h-[36px]"
+              >
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                  <option key={k} value={k}>{SORT_LABELS[k]}</option>
+                ))}
+              </select>
+            </label>
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant={showSummary ? 'default' : 'outline'} onClick={() => setShowSummary((v) => !v)}>
+                <PieChart className="mr-1 h-4 w-4" aria-hidden="true" /> 会社別のまとめ
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!dayRows.length}
+                onClick={() => downloadCsv(dayRows, date === UNDATED ? '日付未定' : date)}
+              >
+                <Download className="mr-1 h-4 w-4" aria-hidden="true" /> CSV出力（この日）
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
       {list.isError ? (
         <ErrorPanel title="来場予約を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
