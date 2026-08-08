@@ -374,6 +374,7 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | `:root [data-drawer='closed'] { visibility: hidden }` | 閉じた左メニュー（タブ順・読み上げから外す） |
 | **`:root input:not(...)`, `:root select { min-height: 44px }`** | 素の入力欄・選択欄（M5）。`Button` には効いていたが**`<input>` / `<select>` は誰も上げていなかった**（時刻の欄だけで 8 個が 36px） |
 | **`:root .min-h-tap { min-width: 44px }`** | 段の切り替え（A/B/C/D・月/年）。**高さは 44px なのに幅が 34〜38px** だった。`min-width` は狭いものを広げるだけなので広いボタンは動かない |
+| **`--line-height-jp: 1.6` ／ `.text-h1` 20px ／ `.text-h2` 17px**（M6） | 型スケールが **PC の文書向け**（本文 15px・行間 1.75・見出し 23px）だった。行間だけ詰める — **文字は小さくしない**（決めごとの「本文 13px 以上」を割る）。**効果は 2% ほど**で、スマホが長い主因は型ではなく**構造**（絞り込みの常時展開・カードの入れ子）だと実測で分かった |
 | **`[data-ui='switch']::after` / `.v4-tap::after`** | **見た目を変えずに当たり判定だけ 44px**。トグルの帯(24px)や ○ の印(20px) は大きくすると別の部品に見えるので、透明な擬似要素をかぶせる。**`overflow: hidden` の中では効かない**（はみ出しが切られる） |
 
 **上げていないもの（意図的）**: `.text-sub-sm`(11.5px) / `.text-th`(11.5px) /
@@ -441,6 +442,10 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
   **先に理由を読ませてから本人に選ばせる**形にしてあります
 - **`src/client/` ではなく `src/client-v4/` に置くこと**（凍結4アプリの CSS を増やさない）
 - 転送（`<Navigate>` と `Redirect…` という名前の部品）は画面として数えません
+- **`hidden: true` を付けると、スマホの左メニューからも消えます**（M6・ご判断）。
+  シェルに `mobileHiddenPaths` で渡すと `AppSideMenu` が落とします。
+  **前方一致ではなく `matchPath` で照合する** — `/settings` を前方一致にすると
+  `/settings/sites` まで巻き込みます。**ルートは消しません**（共有 URL は案内が出る）
 
 ### スマホ専用の部品は `client-v4/` に置く（M0）
 

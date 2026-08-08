@@ -3,7 +3,7 @@ import { AppShell as SharedAppShell } from '@gmo-onair/shared/src/client/shell';
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
 import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
-import { DAILY_PC_ONLY } from '@/pcOnlyScreens';
+import { DAILY_PC_ONLY, DAILY_MOBILE_HIDDEN } from '@/pcOnlyScreens';
 
 import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,6 +35,7 @@ export default function AppShell() {
   return (
     <SharedAppShell
       appKey="dailyops"
+      mobileHiddenPaths={DAILY_MOBILE_HIDDEN}
       sections={DAILY_NAV}
       mobileTabs={DAILY_MOBILE_TABS}
       notificationSlot={<NotificationBell api={api} />}

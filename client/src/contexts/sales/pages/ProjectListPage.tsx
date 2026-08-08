@@ -46,6 +46,7 @@ import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { ProjectBoard } from './projectList/ProjectBoard';
 import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
 import { FilterBar, TermHint, SORT_OPTIONS, type EventPeriodMode } from './projectList/FilterBar';
+import { MobileFilterBar } from './projectList/MobileFilterBar';
 import { ProjectCards } from './projectList/ProjectCards';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
@@ -196,6 +197,24 @@ export default function ProjectListPage() {
         <FilterChips label="ステージで絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
       )}
 
+      {/*
+        **スマホは絞り込みを1行に畳む**（M6）。PC の帯をそのまま縦に積むと
+        約 450px になり、最初の案件に着くまで1画面の7割が枠でした（実測）。
+        中身は同じ props を渡すだけで、絞り込みの仕組みは1つのままです
+      */}
+      {isMobile ? (
+        <MobileFilterBar
+          search={search} onSearch={reset(setSearch)}
+          sort={sort} onSort={reset(setSort)}
+          eventMode={eventMode} onEventMode={reset(setEventMode)}
+          eventMonth={eventMonth} onEventMonth={reset(setEventMonth)}
+          eventYear={eventYear} onEventYear={reset(setEventYear)}
+          eventQuarter={eventQuarter} onEventQuarter={reset(setEventQuarter)}
+          aiOnly={aiOnly} onAiOnly={reset(setAiOnly)}
+          aiUnreviewedOnly={aiUnreviewedOnly} onAiUnreviewedOnly={reset(setAiUnreviewedOnly)}
+          termOpen={termOpen} onTermOpen={setTermOpen}
+        />
+      ) : (
       <FilterBar
         search={search} onSearch={reset(setSearch)}
         sort={sort} onSort={reset(setSort)}
@@ -207,6 +226,7 @@ export default function ProjectListPage() {
         aiUnreviewedOnly={aiUnreviewedOnly} onAiUnreviewedOnly={reset(setAiUnreviewedOnly)}
         termOpen={termOpen} onTermOpen={setTermOpen}
       />
+      )}
       {termOpen && <TermHint onClose={() => setTermOpen(false)} />}
 
       {isLoading ? (

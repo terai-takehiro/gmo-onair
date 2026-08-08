@@ -49,6 +49,17 @@ export interface PcOnlyEntry {
    * 既存の手書き 10 か所のうち 7 か所がこれを書いていませんでした。
    */
   instead?: { label: string; to: string };
+  /**
+   * **スマホの左メニューにも出さない**（ご判断）。
+   *
+   * データを入れる道具（DB バックアップ・データビューア・決算の取込）は
+   * 案件の仕事に出てこないので、**スマホでは選べること自体が邪魔**です。
+   * メニューが長くなるほど、毎日使う項目が見つかりにくくなります。
+   *
+   * **ルートは消しません。** 共有された URL を開いたときは今までどおり案内が出ます
+   * （消すと「昨日まで開けたのに」になる）。
+   */
+  hidden?: boolean;
 }
 
 export interface PcOnlyPanelProps extends Omit<PcOnlyEntry, 'path'> {

@@ -4,7 +4,7 @@ import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from '@gmo-onair/shared/src/client-v4/NotificationBell';
 import { PcOnlyGate } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from "@/lib/api";
-import { CLIENT_PC_ONLY } from "@/pcOnlyScreens";
+import { CLIENT_PC_ONLY, CLIENT_MOBILE_HIDDEN } from "@/pcOnlyScreens";
 
 import { appOfPath } from "@gmo-onair/shared/src/client/apps";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
@@ -102,6 +102,7 @@ export default function AppShell() {
     <SharedAppShell
       appKey={app?.key ?? "home"}
       appLabel={app?.label ?? "ONAiR"}
+      mobileHiddenPaths={CLIENT_MOBILE_HIDDEN}
       sections={sections}
       mobileTabs={CLIENT_MOBILE_TABS}
       searchSlot={<GlobalSearch />}

@@ -19,12 +19,21 @@
  *
  * 設定は権限の分かれ方が細かく、**押してから 403 で気づく**ことが多い場所です。
  * カードに「直せるのは◯◯」と書いておけば、押す前に分かります。
+ *
+ * ── スマホでは PC 向きのカードを出さない（M6）────────────────
+ *
+ * **この画面はメニューです。** 左メニューから消した項目をここに残すと、
+ * 押した先で「PC で触る画面です」と言われるだけの札が並びます。
+ * 落とす一覧は左メニューと**同じ表**（`@/pcOnlyScreens` の `hidden: true`）から取ります
+ * — 2つに分けると、片方だけ直したときに食い違います。
  */
 import { Link } from 'react-router-dom';
 import { Info, Lock } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
+import { CLIENT_MOBILE_HIDDEN } from '@/pcOnlyScreens';
 import { HUB_GROUPS, type HubCard } from './settings/hubCards';
 
 function Card({ c }: { c: HubCard }) {
@@ -66,8 +75,15 @@ export default function SettingsHubPage() {
 
   // **権限が無いものはカードごと出さない。** 押せば 403 になるだけで、
   // 並んでいると「自分が直せるはず」と読まれる
+  const mobile = useIsMobile();
   const groups = HUB_GROUPS
-    .map((g) => ({ ...g, cards: g.cards.filter((c) => !c.module || hasPermission(c.module)) }))
+    .map((g) => ({
+      ...g,
+      cards: g.cards.filter((c) => {
+        if (mobile && c.to && CLIENT_MOBILE_HIDDEN.includes(c.to)) return false;
+        return !c.module || hasPermission(c.module);
+      }),
+    }))
     .filter((g) => g.cards.length > 0);
 
   return (

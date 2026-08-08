@@ -57,6 +57,13 @@ import type { ShellAccess, ShellChrome, ShellMobileTab, ShellNavSection, ShellUs
 export interface AppShellProps extends ShellChrome, ShellAccess {
   /** 左メニューの中身。**空を渡すと左メニューを出さない** (トップページなど) */
   sections?: ShellNavSection[];
+  /**
+   * **スマホのときだけ左メニューから落とすルート**（ご判断）。
+   * 出どころは各アプリの `pcOnlyScreens.ts` の `hidden: true`。
+   * データを入れる道具は案件の仕事に出てこないので、**選べること自体が邪魔**。
+   * **ルートは消しません**（共有された URL は今までどおり案内が出る）。
+   */
+  mobileHiddenPaths?: string[];
   user: ShellUser | null;
   onLogout: () => void;
   onSwitchUser?: () => void;
@@ -74,6 +81,7 @@ export function AppShell({
   searchSlot,
   notificationSlot,
   note,
+  mobileHiddenPaths,
   sections = [],
   user,
   onLogout,
@@ -121,6 +129,7 @@ export function AppShell({
           <AppSideMenu
             sections={sections}
             note={note}
+            mobileHiddenPaths={mobileHiddenPaths}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
             role={role}

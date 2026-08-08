@@ -16,6 +16,12 @@ export const DAILY_PC_ONLY: PcOnlyEntry[] = [
 ];
 
 /**
+ * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
+ * シェルに渡すと、スマホのときだけ項目が消えます。**ルートは生きています。**
+ */
+export const DAILY_MOBILE_HIDDEN = DAILY_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
+
+/**
  * **スマホで触る／読む画面。** ここと `DAILY_PC_ONLY` のどちらにも入っていない
  * ルートがあると `npm run lint` が止まります（決めないまま出さないため）。
  */
