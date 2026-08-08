@@ -50,7 +50,7 @@ export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'estimate', label: '見積', icon: Receipt },
   { key: 'files', label: '書類', icon: FolderCheck },
   { key: 'day', label: '当日', icon: ClipboardList },
-  { key: 'review', label: 'ふりかえり', icon: LineChart, todo: true },
+  { key: 'review', label: 'ふりかえり', icon: LineChart },
 ];
 
 /**

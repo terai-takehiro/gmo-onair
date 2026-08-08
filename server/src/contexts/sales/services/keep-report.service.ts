@@ -53,8 +53,20 @@ export const keepReportService = {
   async getEventReportWithProject(projectId: string) {
     const project = await assertProject(projectId);
     const report = await this.getEventReportByProject(projectId);
-    if (!report) return { found: false as const, project: { id: project.id, name: project.name, gls_number: project.gls_number } };
+    // **まだ書いていなくてもお金の実績は返す。** 売上・仕入は書いたかどうかと
+    // 関係なく存在するので、`found=false` のときに落とすと
+    // ふりかえりの画面が「売上 —」で始まる（実測して直した）
     const summary = await projectService.getSummary(projectId);
+    if (!report) {
+      return {
+        found: false as const,
+        project: {
+          id: project.id, name: project.name, gls_number: project.gls_number,
+          event_start: project.event_start, event_end: project.event_end,
+        },
+        summary,
+      };
+    }
     return {
       found: true as const,
       report,

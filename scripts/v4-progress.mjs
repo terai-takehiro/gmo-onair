@@ -218,12 +218,14 @@ const TREE = [
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
     // v4 大⑤: 独立した画面ではなく**プロジェクト詳細のタブ**（migration 173）
-    ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id?tab=estimates',
+    ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id/estimates',
       'client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx', 'ui/row',
       '提出先（自社／依頼元／PM会社）ごとに1本。`estimates` を案件と共用し、' +
       '`project_id` と `gpm_project_id` は**排他**（両方入ると合計が二重になる）。' +
-      '**明細（品目と金額）の入力はまだ**です — 案件の見積と同じ部品を使う予定で、' +
-      '写しを作ると合計の計算が2か所になります'],
+      '**明細（品目と金額）は案件の見積と同じ部品**（`EstimateItems`）。' +
+      '合計と粗利の計算は1か所で、写しを作ると片方だけ直した日から金額が食い違います。' +
+      '保存する口だけ GPM 側に向けていて、サーバーは**プロジェクトの見積しか受け付けません**' +
+      '（`gpm` だけの人に案件の金額を書かせない）'],
   ]],
 ];
 
@@ -299,8 +301,7 @@ lines.push('## 凍結（v4.0.0 では作り直さない）', '',
   '⬜ 制作資料（Qシート） ／ ⬜ 技術資料 ／ ⬜ 計時LIVE ／ ⬜ リアルタイムCG', '');
 
 lines.push('## まだ入っていない機能', '',
-  '- **持ち帰り事項からタスクを作る**（議事録）— いまはタスクタブから手で入れます',
-  '- **BOX にファイルを置く**（書類タブ）— いまは中を見るだけ',
+  '- **機材台帳の一覧が `Row` に載っていない** — 見た目は v4 だが、行の組み立てだけ素の `<table>` のまま',
   '');
 
 lines.unshift('');

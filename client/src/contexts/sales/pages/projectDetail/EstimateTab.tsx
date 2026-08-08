@@ -22,7 +22,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Copy, Send, Trash2, Receipt, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -30,14 +29,11 @@ import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { LegacyViewTab } from './LegacyViewTab';
+import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import type { ProjectDetail } from './types';
 
 type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
-interface Item {
-  id?: string; description: string; quantity: number; unit: string | null;
-  unit_price: number; amount: number; cost: number; category: string | null;
-}
 interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
   subtotal: number; discount: number; sent_at: string | null; items?: Item[];
@@ -53,21 +49,6 @@ const STATUS_TONE: Record<Status, string> = {
   rejected: 'border-transparent bg-destructive-surface text-destructive',
   superseded: 'border-transparent bg-muted text-muted-foreground',
 };
-
-/** v4 の3グループ (docs/design/v4 — 明細はこの3つで見せる) */
-const CATEGORIES: { key: string; label: string }[] = [
-  { key: 'studio', label: 'スタジオ' },
-  { key: 'tech', label: '技術・人員' },
-  { key: 'other', label: '制作・その他' },
-];
-
-/** 粗利率。**30% を切ると赤くするが保存は止めない** (_rules.md「フォームの決めごと」) */
-function margin(items: Item[], discount: number): { profit: number; rate: number | null } {
-  const sales = items.reduce((s, i) => s + i.amount, 0) - discount;
-  const cost = items.reduce((s, i) => s + i.cost, 0);
-  const profit = sales - cost;
-  return { profit, rate: sales > 0 ? Math.round((profit / sales) * 100) : null };
-}
 
 export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
@@ -216,111 +197,13 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           </div>
 
           {openId && detail.data && (
-            <ItemEditor
+            <EstimateItems
               estimate={detail.data}
               onSave={(items) => saveItems.mutate({ id: openId, items })}
               saving={saveItems.isPending}
             />
           )}
         </>
-      )}
-    </div>
-  );
-}
-
-/**
- * 明細。**粗利率がその場で動きます** (行ごとに仕入の見込みを入れる)。
- * 30% を切ると赤くなりますが**保存は止めません** — 止めると、赤字でも
- * 出さざるを得ない案件のときに保存できなくなるためです。
- */
-function ItemEditor({
-  estimate, onSave, saving,
-}: { estimate: Estimate; onSave: (items: Item[]) => void; saving: boolean }) {
-  const [items, setItems] = useState<Item[]>(estimate.items ?? []);
-  const m = margin(items, estimate.discount);
-  const locked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
-
-  const upd = (i: number, patch: Partial<Item>) =>
-    setItems((prev) => prev.map((it, n) => {
-      if (n !== i) return it;
-      const next = { ...it, ...patch };
-      next.amount = Math.max(0, next.quantity) * Math.round(next.unit_price);
-      return next;
-    }));
-
-  return (
-    <div className="rounded-card border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-3">
-        <h2 className="text-cardtitle">v{estimate.version} の明細</h2>
-        {locked && (
-          <span className="text-sub text-warning">
-            出したあと（または旧版）なので直せません。直すなら次の版をつくってください。
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-4">
-          <span className="text-sub text-muted-foreground">粗利</span>
-          <Money value={m.profit} className={`text-list w-32 ${m.rate !== null && m.rate < 30 ? 'text-destructive' : ''}`} />
-          {m.rate !== null && (
-            <span className={`text-list font-number ${m.rate < 30 ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {m.rate}%
-            </span>
-          )}
-        </div>
-      </div>
-
-      {CATEGORIES.map((c) => {
-        const rows = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.category ?? 'other') === c.key);
-        if (rows.length === 0 && locked) return null;
-        return (
-          <div key={c.key} className="border-b border-border-faint last:border-b-0">
-            <p className="text-th bg-surface-subtle px-4 py-2 text-muted-foreground">{c.label}</p>
-            {rows.map(({ it, i }) => (
-              <Row key={i} divider stackOnMobile align="center">
-                <RowMain>
-                  <Input value={it.description} disabled={locked} placeholder="品目"
-                    onChange={(e) => upd(i, { description: e.target.value })} />
-                </RowMain>
-                <RowSlot w={72}>
-                  <Input type="number" value={it.quantity} disabled={locked} aria-label="数量"
-                    onChange={(e) => upd(i, { quantity: Number(e.target.value) || 0 })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価"
-                    onChange={(e) => upd(i, { unit_price: Number(e.target.value) || 0 })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="number" value={it.cost} disabled={locked} aria-label="仕入 (見込み)"
-                    onChange={(e) => upd(i, { cost: Number(e.target.value) || 0 })} />
-                </RowSlot>
-                <Money value={it.amount} className="text-sub w-32 shrink-0" />
-                {!locked && (
-                  <RowSlot w={56} align="right">
-                    <Button variant="ghost" size="sm" aria-label="この行を消す"
-                      onClick={() => setItems((prev) => prev.filter((_, n) => n !== i))}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                    </Button>
-                  </RowSlot>
-                )}
-              </Row>
-            ))}
-            {!locked && (
-              <div className="px-4 py-2">
-                <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev,
-                  { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: c.key }])}>
-                  <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に行を足す
-                </Button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {!locked && (
-        <div className="flex items-center gap-3 border-t border-border-subtle px-4 py-3">
-          <span className="text-sub text-muted-foreground">合計（税抜）</span>
-          <Money value={items.reduce((s, i) => s + i.amount, 0) - estimate.discount} className="text-list w-40" />
-          <Button className="ml-auto" disabled={saving} onClick={() => onSave(items)}>明細を保存する</Button>
-        </div>
       )}
     </div>
   );

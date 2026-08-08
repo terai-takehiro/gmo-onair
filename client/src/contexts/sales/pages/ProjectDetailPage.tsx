@@ -37,6 +37,7 @@ import { OverviewTab } from './projectDetail/OverviewTab';
 import { TasksTab } from './projectDetail/TasksTab';
 import { FilesTab } from './projectDetail/FilesTab';
 import { DayTab } from './projectDetail/DayTab';
+import { ReviewTab } from './projectDetail/ReviewTab';
 import { ThreadTab } from './projectDetail/ThreadTab';
 import { LegacyViewTab } from './projectDetail/LegacyViewTab';
 import { EstimateTab } from './projectDetail/EstimateTab';
@@ -195,6 +196,7 @@ export default function ProjectDetailPage() {
       {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
       {!offPhone && tab === 'files' && <FilesTab project={p} />}
       {!offPhone && tab === 'day' && <DayTab projectId={id} />}
+      {!offPhone && tab === 'review' && <ReviewTab project={p} />}
       {!offPhone && tab === 'overview' && isMobile && <MobileTools project={p} />}
 
       {!offPhone && PROJECT_TABS.find((t) => t.key === tab)?.todo && (

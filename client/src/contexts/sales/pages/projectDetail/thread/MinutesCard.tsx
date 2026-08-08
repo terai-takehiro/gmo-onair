@@ -15,7 +15,7 @@
  * これが無いと「本当にそう言ったのか」を確かめられません。
  */
 import { useState } from 'react';
-import { Sparkles, Check, Trash2, ChevronDown, ChevronRight, Quote, AlertTriangle, Loader2 } from 'lucide-react';
+import { Sparkles, Check, Trash2, ChevronDown, ChevronRight, Quote, AlertTriangle, Loader2, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,13 +37,15 @@ function minutesOf(sec: number | null): string | null {
 }
 
 export function MinutesCard({
-  m, canEdit, busy, onSave, onDelete,
+  m, canEdit, busy, onSave, onDelete, onMakeTask,
 }: {
   m: Minutes;
   canEdit: boolean;
   busy: boolean;
   onSave: (patch: MinutesPatch) => void;
   onDelete: () => void;
+  /** 持ち帰りの `index` 番目をタスクにする */
+  onMakeTask: (index: number) => void;
 }) {
   const [open, setOpen] = useState(m.status === 'draft');
   const [showTranscript, setShowTranscript] = useState(false);
@@ -187,17 +189,28 @@ export function MinutesCard({
             ) : (
               <ul className="mt-1 flex flex-col gap-1.5">
                 {openItems.map((o, i) => (
-                  <li key={i} className="text-list flex flex-wrap items-baseline gap-x-2 border-t border-border-subtle pt-1.5 first:border-t-0 first:pt-0">
+                  <li key={i} className="text-list flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-subtle pt-1.5 first:border-t-0 first:pt-0">
                     <span className="min-w-0 flex-1">{o.text}</span>
                     {o.owner && <span className="text-sub text-muted-foreground">{o.owner}</span>}
                     {o.due && <span className="font-number text-sub text-muted-foreground">{o.due}</span>}
+                    {o.task_id ? (
+                      <span className="text-note inline-flex items-center gap-1 text-success">
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />タスクにしました
+                      </span>
+                    ) : canEdit && (
+                      <Button variant="outline" size="sm" disabled={busy} onClick={() => onMakeTask(i)}>
+                        <ListPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />タスクにする
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
             <p className="text-note mt-1.5 text-muted-foreground">
-              <strong className="font-bold">ここからタスクを作る機能は、まだ入れていません。</strong>
-              いまはタスクタブから手で入れてください。
+              タスクにすると、この案件のタスクタブに入ります。
+              <strong className="font-bold">担当は入りません</strong> — 打合せで出た名前は
+              文字起こしから拾った文字列で、利用者と結びついていないためです（説明に書いてあります）。
+              <strong className="font-bold">同じ持ち帰りからは1つしか作れません。</strong>
             </p>
           </div>
 

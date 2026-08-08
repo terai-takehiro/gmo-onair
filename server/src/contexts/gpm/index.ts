@@ -141,6 +141,32 @@ export function createGpmRoutes(): Router {
     res.status(201).json({ success: true, data: row });
   });
 
+  /**
+   * 明細をまとめて置き換える。**案件の見積と同じサービス**（`replaceItems`）を呼ぶ。
+   * 合計の計算を写すと、片方だけ直したときに同じ見積が2つの金額を持つ。
+   *
+   * **プロジェクトの見積しか触らせない。** 案件の見積は `sales` の持ち物で、
+   * ここを通せば `gpm` だけの人が案件の金額を書き換えられてしまう
+   * （`gpm_project_id IS NULL` を弾く）。
+   */
+  /** 1本ぶん（**明細つき**）。一覧は明細を積まない（重いので） */
+  router.get('/estimates/:id', ...canRead, async (req, res) => {
+    const row = await estimateService.getById(String(req.params.id));
+    if (!row || !row.gpm_project_id) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    res.json({ success: true, data: row });
+  });
+
+  router.put('/estimates/:id/items', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await estimateService.getById(id);
+    if (!row) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    if (!row.gpm_project_id) {
+      throw new AppError(403, 'FORBIDDEN', 'これは案件の見積です。案件管理の画面から直してください。');
+    }
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    res.json({ success: true, data: await estimateService.replaceItems(id, items) });
+  });
+
   /** 見積のまとめ（ダッシュボードの KPI 2枚ぶん） */
   router.get('/estimates/summary', ...canRead, async (_req, res) => {
     res.json({ success: true, data: await gpmEstimateSummary() });
