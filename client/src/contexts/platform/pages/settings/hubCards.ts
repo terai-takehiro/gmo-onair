@@ -73,11 +73,7 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'cal', title: '休日・営業時間', desc: '予約できる時間帯と休業日',
         icon: CalendarClock, tone: 'bg-warning-surface text-warning',
-        to: null,
-        todo: '休日と営業時間を持つ表がまだありません。'
-          + '**入れると予約の画面が「その時間は取れません」と言えるようになります**が、'
-          + 'いま入っている予約に営業時間外のものがあるはずなので、既存分の扱いを決めてから作ります',
-        module: 'studio', who: 'カレンダーの管理者',
+        to: '/settings/hours', module: 'studio', who: 'システム管理者',
       },
     ],
   },
