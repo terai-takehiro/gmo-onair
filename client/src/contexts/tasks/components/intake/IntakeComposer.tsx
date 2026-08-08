@@ -21,10 +21,12 @@
  * ここを書かないと、黙って録る運用が既定になってしまいます。
  */
 import { useEffect, useRef, useState } from 'react';
-import { Image as ImageIcon, Loader2, Mic, Paperclip, Send, Square, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Image as ImageIcon, Loader2, Mic, Paperclip, Send, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import type { Created } from './useIntake';
 
 /** 32kbps。**既定の 128kbps だと 25 分で Whisper の 25MB 上限に当たる** */
 const BITRATE = 32_000;
@@ -45,13 +47,18 @@ export interface IntakeComposerProps {
   pending: boolean;
   error?: string | null;
   doneMsg?: string | null;
+  /**
+   * 作った案件（ネタ）。**2件以上のときだけ**渡ってきます —
+   * 1件なら登録した時点でその案件を開いているので、リンクは出しません。
+   */
+  createdProjects?: Created[];
   /** スマホのシートの中。ボタンの言葉と並びを変える */
   compact?: boolean;
 }
 
 export function IntakeComposer({
   text, onTextChange, files, onAddFiles, onRemoveFile,
-  onSubmit, onAudio, canSubmit, pending, error, doneMsg, compact,
+  onSubmit, onAudio, canSubmit, pending, error, doneMsg, createdProjects, compact,
 }: IntakeComposerProps) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -210,6 +217,22 @@ export function IntakeComposer({
         <p className="text-note mt-2 flex items-center gap-1.5 text-success">
           <Send className="h-3.5 w-3.5" aria-hidden="true" />{doneMsg}
         </p>
+      )}
+      {/* **2件以上できたときだけ並べる。** どれか1つを勝手に開くと、
+          残りが登録されたことに気づけない */}
+      {createdProjects && createdProjects.length > 0 && (
+        <ul className="mt-1.5 flex flex-col gap-1">
+          {createdProjects.map((p) => (
+            <li key={p.id}>
+              <Link
+                to={`/sales/projects/${p.id}`}
+                className="text-note min-h-tap inline-flex items-center gap-1 font-bold text-primary hover:underline lg:min-h-0"
+              >
+                {p.title} を開く<ArrowRight className="h-3 w-3" aria-hidden="true" />
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
       {micError && <p className="text-note mt-2 text-destructive">{micError}</p>}
       {error && <p className="text-note mt-2 text-destructive">{error}</p>}

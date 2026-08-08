@@ -209,7 +209,7 @@ export default function HomePage() {
       />
 
       {/* スマホは「AIに任せる」を挨拶の直下に1本（モック）。押すとシートが開く */}
-      {isMobile && <MobileAiBar canIntake={canSeeDailyops} canPaste={canSeeSales} />}
+      {isMobile && <MobileAiBar canIntake={canSeeDailyops} canOpenProject={canSeeSales} />}
 
       {/* **PC・スマホとも アプリ → 今日**（モック `v4-live`）。
           M3 / M7 ではスマホだけ「今日」を先に出していたが、モックに戻した */}
@@ -222,7 +222,7 @@ export default function HomePage() {
         {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える）。
             **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない */}
-        {!isMobile && canSeeDailyops && <TaskIntakeBox />}
+        {!isMobile && canSeeDailyops && <TaskIntakeBox canOpenProject={canSeeSales} />}
 
         {/* **「自分のタスクを全部ひらく」は残す**（モック）。見出しが無くなったので
             右端ではなく右揃えの1行にする。スマホでは出さない —

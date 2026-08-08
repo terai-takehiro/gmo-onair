@@ -16,6 +16,9 @@
 //     切替は押す人に AI の都合を選ばせていただけで、行き先はどちらもタスクだった。
 //   - **行き先は AI が 1 件ずつ決める**（タスク / ネタ案件 / 活動記録 / 議事録）。
 //     確認画面の 1 行目に札で出し、人が付け替えられる。
+//   - **案件（ネタ）を作ったら、その案件を開く**（`canOpenProject` を渡された人だけ）。
+//     「引き合いを貼る」ための別の入口は置かない — 同じ文をどちらの口に入れるかを
+//     押す人に選ばせることになり、1 本化の意味が消える。
 //   - 投げた直後に**同じ画面のモーダル**で確認させる (別ページに飛ばすと離脱する)
 //   - 既定はチェック済み (opt-out)。ただし足りないものがある行は既定 OFF
 //   - 確定するまで**何も登録しない** (AI の誤読がそのまま相手に飛ぶのを防ぐ)
@@ -27,8 +30,8 @@ import { IntakeComposer } from './intake/IntakeComposer';
 import { IntakeReview } from './intake/IntakeReview';
 import { useIntake } from './intake/useIntake';
 
-export function TaskIntakeBox() {
-  const it = useIntake();
+export function TaskIntakeBox({ canOpenProject = false }: { canOpenProject?: boolean }) {
+  const it = useIntake({ canOpenProject });
 
   return (
     <>
@@ -44,6 +47,7 @@ export function TaskIntakeBox() {
         pending={it.submit.isPending}
         error={it.intake ? null : it.error}
         doneMsg={it.doneMsg}
+        createdProjects={it.createdProjects}
       />
 
       {it.intake && (
@@ -53,7 +57,7 @@ export function TaskIntakeBox() {
           onChange={it.updateRow}
           onCommit={() => it.commit.mutate()}
           onDiscard={() => it.discard.mutate()}
-          onClose={it.reset}
+          onClose={it.dismiss}
           committing={it.commit.isPending}
           discarding={it.discard.isPending}
           error={it.error}
