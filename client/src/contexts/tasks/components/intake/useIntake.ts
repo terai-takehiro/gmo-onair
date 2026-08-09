@@ -4,7 +4,7 @@
  * 2 つ書くと、片方だけ直した日から「PC では登録できるのにスマホでは落ちる」が
  * 起きます。**投げ方（見た目）だけが違い、投げるものと確認するものは同じ**です。
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -60,6 +60,48 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
     setFiles((prev) => prev.filter((x) => x !== f));
   }, []);
 
+  /** 下書きが出来たら確認画面に載せる（同期・裏の両方から呼ぶ） */
+  const applyIntake = useCallback((data: IntakeResponse) => {
+    setIntake(data);
+    setRows((data.drafts ?? []).map((d) => ({ ...d, checked: d.suggested_default !== false })));
+  }, []);
+
+  /**
+   * 録音の待ち受け。**`status` が `transcribing` の間だけ 3 秒ごとに読みに行く。**
+   *
+   * `useQuery` の `refetchInterval` ではなく手で回しているのは、
+   * **シートを閉じても止めたくない**からです（`MobileAiBar` が状態を持つので、
+   * 閉じても部品は生きています）。止めるのは終わったときと `reset()` のときだけ。
+   */
+  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPolling = useCallback(() => {
+    if (poll.current) { clearInterval(poll.current); poll.current = null; }
+  }, []);
+
+  const startPolling = useCallback((id: string) => {
+    stopPolling();
+    poll.current = setInterval(async () => {
+      try {
+        const data = (await api.get(`/dailyops/tasks/intakes/${id}`)).data.data as IntakeResponse;
+        if (data.status === 'transcribing') { setIntake(data); return; }
+        stopPolling();
+        if (data.status === 'failed') {
+          setIntake(null);
+          setError(data.error_message ?? '録音を文字にできませんでした');
+          return;
+        }
+        applyIntake(data);
+      } catch (e) {
+        // **1 回失敗しても止めない**（通信が一瞬切れただけのことがある）。
+        // 本当に駄目なら 30 分で「止まっています」に変わる（サーバー側で判定）
+        console.warn('[intake] 文字起こしの様子を読めませんでした:', (e as Error).message);
+      }
+    }, 3000);
+  }, [applyIntake, stopPolling]);
+
+  // 部品ごと消えるときは必ず止める（残すとページを移っても叩き続ける）
+  useEffect(() => stopPolling, [stopPolling]);
+
   const submit = useMutation({
     mutationFn: async () => {
       const audio = audioRef.current;
@@ -71,13 +113,22 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
       fd.append('raw_text', text);
       for (const f of files) fd.append('files', f);
       if (audio) fd.append('audio', audio);
+      // ⚠️ **Content-Type は書かないこと。** この axios instance は JSON を既定に
+      // しており、**書くと axios が FormData を JSON に変換してファイルが消えます**。
+      // 外すのは `shared/src/client/createApi.ts` の request interceptor の仕事
       return (await api.post('/dailyops/tasks/intake', fd)).data.data as IntakeResponse;
     },
     onSuccess: (data) => {
       audioRef.current = null;
-      setIntake(data);
-      setRows((data.drafts ?? []).map((d) => ({ ...d, checked: d.suggested_default !== false })));
       setError(null);
+      // 録音は裏で進む。行だけ出来て返ってくるので、出来上がりを待ちに行く
+      if (data.status === 'transcribing') {
+        setIntake(data);
+        setRows([]);
+        startPolling(data.id);
+        return;
+      }
+      applyIntake(data);
     },
     onError: (e: unknown) => setError(apiMessage(e, '読み取りに失敗しました')),
     // 画面が自分で理由を出すので、共通の受け皿は黙らせる
@@ -158,6 +209,7 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   });
 
   function reset() {
+    stopPolling();
     setIntake(null);
     setRows([]);
     setText('');
@@ -167,11 +219,11 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   }
 
   /** 「閉じる」は作ったもののリンクも片づける（登録し直すときに古い案内が残らない） */
-  const dismiss = useCallback(() => {
+  const dismiss = () => {
     reset();
     setDoneMsg(null);
     setCreatedProjects([]);
-  }, []);
+  };
 
   const updateRow = useCallback((key: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.draft_key === key ? { ...r, ...patch } : r)));
@@ -190,6 +242,8 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
     error, setError, doneMsg, setDoneMsg,
     createdProjects,
     submit, commit, discard, reset, dismiss, submitWithAudio,
+    /** 録音を裏で文字にしている最中か（画面は待ち受けの表示を出す） */
+    transcribing: intake?.status === 'transcribing',
     canSubmit: (text.trim().length > 0 || files.length > 0) && !submit.isPending,
   };
 }

@@ -24,7 +24,16 @@ import {
 import { normalizeDest, type IntakeDest } from './intake-parser.service';
 
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
-export type IntakeStatus = 'pending' | 'committed' | 'discarded';
+export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
+
+/**
+ * 文字起こしが「止まっている」と見なすまでの時間 (migration 180)。
+ *
+ * コンテナが途中で再起動すると、誰も終わらせないまま `transcribing` が残ります。
+ * **DB は書き換えず**、読むときに経過時間で失敗として見せます
+ * （`minutes.service` と同じ扱い。書き換えると、生き返った処理と競合する）。
+ */
+export const TRANSCRIBE_STALE_MS = 30 * 60_000;
 
 /**
  * 行き先ごとの日本語。**画面とサーバーで同じ言葉を使う**ため、
@@ -103,6 +112,9 @@ export interface TaskIntake {
   committed_at: string | null;
   discarded_at: string | null;
   note: string | null;
+  /** 文字起こし・解析に失敗した理由 (migration 180)。**画面に出す** */
+  error_message: string | null;
+  transcribed_at: string | null;
   created_at: string;
   created_by: string;
   created_by_name: string | null;
@@ -113,6 +125,7 @@ export interface TaskIntake {
 const SELECT_INTAKE = `
   SELECT i.id, i.raw_text, i.kind, i.status, i.drafts, i.ai_output_id,
          i.committed_at, i.discarded_at, i.note,
+         i.error_message, i.transcribed_at,
          i.created_at, i.created_by, u.name AS created_by_name,
          (SELECT COUNT(*) FROM project_tasks t
            WHERE t.source_ref = i.id AND t.deleted_at IS NULL) AS task_count
@@ -166,6 +179,25 @@ const DIFF_FIELDS = [
   'customer_name', 'gls_category', 'activity_type', 'next_action', 'next_action_date',
   'summary',
 ];
+
+/**
+ * 「文字起こし中のまま止まった行」を**読むときだけ**失敗として見せる。
+ *
+ * コンテナが再起動すると誰も終わらせないまま `transcribing` が残ります。
+ * **DB は書き換えません** — 書き換えると、生き返った処理が
+ * `pending` に戻したときに競合します（`minutes.service` と同じ扱い）。
+ */
+function withStaleCheck(row: TaskIntake): TaskIntake {
+  if (row.status !== 'transcribing') return row;
+  const started = new Date(String(row.created_at).replace(' ', 'T')).getTime();
+  if (Number.isNaN(started) || Date.now() - started < TRANSCRIBE_STALE_MS) return row;
+  return {
+    ...row,
+    status: 'failed',
+    error_message: row.error_message
+      ?? '文字起こしが終わらないまま止まっています（サーバーが途中で再起動した可能性があります）。もう一度投げ直してください',
+  };
+}
 
 /** `withTransaction` が渡してくる口。ここで要るのは 2 つだけ */
 type Tx = { execute(sql: string, params?: unknown[]): Promise<void>; queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined> };
@@ -277,6 +309,80 @@ export const taskIntakeService = {
       ]
     );
     return this.get(id);
+  },
+
+  /**
+   * 録音つきの投入を**先に行だけ作る**（migration 180）。
+   *
+   * ── なぜ待たせないか ──────────────────────────────────────
+   *
+   * 文字起こしは 1 時間の録音で数分かかります。**nginx の `/api/` は
+   * 既定の 60 秒で切る**ので、リクエストの中で待つと長い録音が投げられません
+   * （実質 3 分が上限になり、打合せには短すぎる）。議事録が最初から
+   * この形なので、投入口も同じにします。
+   *
+   * **`raw_text` は NOT NULL** なので、打ち込みが空のときは印を入れておき、
+   * 文字起こしが終わったときに本文へ差し替えます。
+   */
+  async createTranscribingIntake(typedText: string, userId: string): Promise<TaskIntake> {
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO task_intake (id, raw_text, kind, status, created_by, updated_at)
+       VALUES (?, ?, 'other', 'transcribing', ?, NOW())`,
+      [id, typedText.trim() || '（録音を文字起こししています）', userId],
+    );
+    return this.get(id);
+  },
+
+  /**
+   * 文字起こしと解析が終わったので、下書きを入れて `pending` にする。
+   *
+   * **`ai_outputs` はここで作る**（条件1）。行を作った時点では
+   * AI の出力がまだ無いので、先に作ると空の記録が残ります。
+   */
+  async finishTranscribing(
+    intakeId: string,
+    data: {
+      raw_text: string;
+      drafts: Omit<TaskDraft, 'draft_key'>[];
+      model?: string | null;
+      prompt_version?: string | null;
+    },
+    userId: string,
+  ): Promise<TaskIntake> {
+    const drafts = normalizeDrafts(data.drafts ?? []);
+    const aiOutputId = await recordAiOutput({
+      kind: 'task_intake',
+      targetTable: 'task_intake',
+      targetId: intakeId,
+      payload: { raw_text: data.raw_text, kind: 'other', drafts },
+      toolName: 'ui:intake:audio',
+      model: data.model ?? null,
+      promptVersion: data.prompt_version ?? null,
+      actorId: userId,
+      requestedBy: null,
+    });
+    await execute(
+      `UPDATE task_intake
+       SET raw_text = ?, drafts = ?::jsonb, ai_output_id = ?,
+           status = 'pending', transcribed_at = NOW(), error_message = NULL, updated_at = NOW()
+       WHERE id = ?`,
+      [data.raw_text, JSON.stringify(drafts), aiOutputId, intakeId],
+    );
+    return this.get(intakeId);
+  },
+
+  /**
+   * 文字起こしか解析に失敗した。**行は消さない** —
+   * 何を投げたのかと、なぜ駄目だったのかを残す（消すと録り直すしかなくなる）。
+   */
+  async failTranscribing(intakeId: string, message: string): Promise<void> {
+    await execute(
+      `UPDATE task_intake
+       SET status = 'failed', error_message = ?, updated_at = NOW()
+       WHERE id = ? AND status = 'transcribing'`,
+      [message.slice(0, 1000), intakeId],
+    );
   },
 
   /**
@@ -522,10 +628,10 @@ export const taskIntakeService = {
   async get(id: string): Promise<TaskIntake> {
     const row = await queryOne(`${SELECT_INTAKE} WHERE i.id = ? AND i.deleted_at IS NULL`, [id]);
     if (!row) throw new AppError(404, 'NOT_FOUND', '投入が見つかりません');
-    return {
+    return withStaleCheck({
       ...(row as unknown as TaskIntake),
       task_count: Number(row.task_count ?? 0),
-    };
+    });
   },
 
   /**

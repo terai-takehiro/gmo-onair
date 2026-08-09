@@ -76,10 +76,16 @@ export interface IntakeProject {
   customer_name?: string | null;
 }
 
+export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
+
 export interface IntakeResponse {
   id: string;
   raw_text: string;
   kind: string;
+  /** `transcribing` = 録音を裏で文字にしている最中（下書きはまだ無い） */
+  status?: IntakeStatus;
+  /** 文字起こし・解析に失敗した理由。**画面に出す** */
+  error_message?: string | null;
   drafts: Draft[] | null;
   skipped?: { line: string; reason: string }[];
   far_due_keys?: string[];

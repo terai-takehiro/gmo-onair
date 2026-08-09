@@ -91,11 +91,6 @@ async function canOpenProject(userId: string): Promise<boolean> {
  */
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
-/**
- * 投入口の録音を諦めるまでの時間。**nginx の 60 秒より十分手前**にする。
- * 解析（LLM）に 30 秒かかりうるので、文字起こしはここまで。
- */
-const INTAKE_STT_TIMEOUT_MS = 25_000;
 const intakeUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: Math.max(MAX_FILE_BYTES, MAX_AUDIO_BYTES), files: 7 },
@@ -127,6 +122,163 @@ function attachmentToText(f: Express.Multer.File, name: string): string {
     );
   }
   return f.buffer.toString('utf8');
+}
+
+
+/** 宛先解決に使うユーザー一覧 (名前 → users.id) */
+async function loadUsers(): Promise<{ id: string; name: string }[]> {
+  return (await queryAll(
+    `SELECT id, name FROM users WHERE deleted_at IS NULL ORDER BY name`
+  )) as { id: string; name: string }[];
+}
+
+/**
+ * 議事録・活動記録の紐づけ先の候補。**動いている案件だけ**を新しい順に出す。
+ * 全件渡すと、終わった案件に議事録がぶら下がる（しかも誰も見に行かない）。
+ */
+async function loadProjectCandidates(): Promise<ParserProject[]> {
+  return (await queryAll(
+    `SELECT id, name, COALESCE(gls_number, code) AS code,
+            (SELECT c.name FROM customers c WHERE c.id = p.customer_id) AS customer_name
+     FROM projects p
+     WHERE deleted_at IS NULL AND stage IN ('neta','d_hold','c_proposal','b_verbal','a_won')
+     ORDER BY updated_at DESC
+     LIMIT 80`
+  )) as unknown as ParserProject[];
+}
+
+interface AnalyzeResult {
+  parsed: ParseResult;
+  users: { id: string; name: string }[];
+  projects: ParserProject[];
+  model: string;
+  promptVersion: string | null;
+  aiError: string | null;
+}
+
+/**
+ * 投入テキスト（＋添付）を解析する。**同期の経路と、録音の裏の経路で同じものを使う。**
+ * 2 つ書くと、片方だけ直した日から「打って投げたときと録って投げたときで
+ * 行き先の決まり方が違う」が起きます。
+ *
+ * 解析は ChatGPT API (OpenAI) を主経路、規則ベースをフォールバックにする。
+ * API キー未設定・障害・タイムアウトでも **投入口は必ず動く**ようにする
+ * (ここが動かないと依頼が口頭のまま消え、この仕組みの目的が失われるため)。
+ */
+async function analyzeIntake(
+  rawText: string,
+  userId: string,
+  attachments: IntakeAttachment[],
+): Promise<AnalyzeResult> {
+  const users = await loadUsers();
+  const projects = await loadProjectCandidates();
+  const now = new Date();
+  let parsed: ParseResult;
+  let model = 'rules';
+  let promptVersion: string | null = null;
+  let aiError: string | null = null;
+
+  if (isIntakeAiConfigured()) {
+    try {
+      const advice = await getIntakeAdvice();
+      const ai = await parseIntakeWithAi(rawText, users, {
+        now, submitterId: userId, advice, projects, attachments,
+      });
+      parsed = { drafts: ai.drafts, skipped: ai.skipped };
+      model = ai.model;
+      promptVersion = ai.promptVersion;
+    } catch (e) {
+      // 解析が落ちても投入自体は通す。規則ベースに縮退して人に確認させる
+      aiError = (e as Error).message;
+      console.warn(
+        `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
+      );
+      parsed = parseIntakeText(rawText, users, { now });
+    }
+  } else {
+    parsed = parseIntakeText(rawText, users, { now });
+  }
+  return { parsed, users, projects, model, promptVersion, aiError };
+}
+
+/**
+ * 下書きを画面・DB に渡す形に整える。
+ *
+ * 投入者が「依頼した」ものなので、依頼者は投入者本人。
+ * 自分自身が担当のものは依頼ではなく個人タスクなので requester_id を付けない。
+ * **タスク以外には依頼者を付けない**（活動記録や議事録に「依頼」は無い）。
+ */
+function toDrafts(parsed: ParseResult, userId: string) {
+  return parsed.drafts.map((d) => ({
+    dest: d.dest ?? 'task',
+    title: d.title,
+    assigned_to: d.assigned_to ?? undefined,
+    requester_id: d.dest === 'task' && d.assigned_to && d.assigned_to !== userId ? userId : undefined,
+    due_at: d.due_at ?? undefined,
+    importance: d.importance,
+    urgency: d.urgency,
+    due_time_assumed: d.due_time_assumed,
+    due_unclear: d.due_unclear,
+    assignee_unclear: d.assignee_unclear,
+    quote: d.quote,
+    project_id: d.project_id ?? undefined,
+    customer_name: d.customer_name ?? undefined,
+    detail: d.detail ?? undefined,
+    gls_category: d.gls_category ?? undefined,
+    activity_type: d.activity_type ?? undefined,
+    next_action: d.next_action ?? undefined,
+    next_action_date: d.next_action_date ?? undefined,
+    summary: d.summary ?? undefined,
+    decisions: d.decisions ?? undefined,
+    open_items: d.open_items ?? undefined,
+  }));
+}
+
+/** イズム: 期限が遠いものは短くするよう促す */
+function farDueKeys(parsed: ParseResult): string[] {
+  return parsed.drafts.map((d, i) => (d.due_far ? `d${i + 1}` : null)).filter((x): x is string => x !== null);
+}
+
+/**
+ * 録音を裏で文字にして解析まで進める（migration 180）。
+ *
+ * **ここは誰も待っていません。** 投げっぱなしなので、
+ * **失敗しても必ず行に残す** — 残さないと `transcribing` のまま宙に浮きます。
+ */
+async function runIntakeTranscription(
+  intakeId: string,
+  p: {
+    audio: Buffer;
+    filename: string;
+    typedText: string;
+    extraTexts: string[];
+    attachments: IntakeAttachment[];
+    userId: string;
+  },
+): Promise<void> {
+  try {
+    // **上限を渡さない。** 議事録と同じ既定 (10 分) で、長い録音も通す。
+    // リクエストの中ではないので nginx の 60 秒とは関係がない
+    const stt = await transcribeAudio(p.audio, p.filename);
+    const rawText = [p.typedText, `--- 録音の文字起こし ---\n${stt.text}`, ...p.extraTexts]
+      .filter((s) => s && s.trim())
+      .join('\n\n');
+
+    const a = await analyzeIntake(rawText, p.userId, p.attachments);
+    await taskIntakeService.finishTranscribing(
+      intakeId,
+      { raw_text: rawText, drafts: toDrafts(a.parsed, p.userId), model: a.model, prompt_version: a.promptVersion },
+      p.userId,
+    );
+  } catch (e) {
+    const msg = (e as Error).message;
+    console.warn(`[task-intake] 録音の文字起こしに失敗 (intake=${intakeId}): ${msg}`);
+    await taskIntakeService.failTranscribing(intakeId, msg).catch((e2) => {
+      // ここまで落ちると行が `transcribing` のまま残るが、読むときに
+      // 経過時間で失敗として見せるので画面は止まらない
+      console.error('[task-intake] 失敗の記録にも失敗:', (e2 as Error).message);
+    });
+  }
 }
 
 /**
@@ -169,41 +321,38 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
     }
   }
 
-  // ── 録音は先に文字にする ────────────────────────────────
+  // ── 録音は裏で文字にする ────────────────────────────────
   //
-  // ⚠️ **ここは押した人を待たせている経路です。** 議事録（`/projects/:id/minutes`）は
-  // 行を先に作って裏で走らせますが、投入口は**その場で確認画面を出す**のが要件なので
-  // 待つしかありません。**nginx の `/api/` は既定の 60 秒で切ります**
-  // （`nginx/gmo-onair.conf` に `proxy_read_timeout` が無い）。
+  // **リクエストの中で待たない。** nginx の `/api/` は `proxy_read_timeout` を
+  // 書いていないので**既定の 60 秒で切れます**。待つ形にすると 3 分程度の録音しか
+  // 投げられず、打合せには短すぎます（いちど画面側で 3 分に制限しましたが、
+  // それでは意味がないというご指摘をいただいて作り直しました）。
   //
-  // そこで 2 つで守ります:
-  //   ① 画面が録音を **3 分で自動的に止める**（`IntakeComposer` の `MAX_REC_SEC`）
-  //   ② ここで **35 秒**で諦める。既定の 10 分のままだと、nginx が切ったあとも
-  //      サーバーだけが走り続け、押した人には**理由の出ない失敗**として見えます
-  //
-  // 長い打合せは「打合せを録音」（案件の やり取り）へ。あちらは裏で走ります。
-  let transcript: string | null = null;
+  // 議事録（`/projects/:id/minutes`）と同じく、**行を先に作って 202 を返し**、
+  // 文字起こしと解析は裏で進めます。画面はその行を読みに来ます。
   if (audio) {
     if (!isSttConfigured()) {
       throw new AppError(400, 'NOT_CONFIGURED',
         'この環境は文字起こしにつないでいません（OPENAI_API_KEY 未設定）。管理者にご連絡ください');
     }
-    try {
-      const stt = await transcribeAudio(audio.buffer, fileName(audio), { timeoutMs: INTAKE_STT_TIMEOUT_MS });
-      transcript = stt.text;
-    } catch (e) {
-      // **理由を出して断る。** 黙って規則ベースに落とすと、録った内容が
-      // どこにも入らないまま「登録しました」になる
-      throw new AppError(
-        400, 'STT_FAILED',
-        `録音を文字にできませんでした（${(e as Error).message}）。`
-        + '長い打合せは案件の「やり取り」→「打合せを録音」から投げてください（あちらは裏で進みます）',
-      );
-    }
+    const intake = await taskIntakeService.createTranscribingIntake(rawText, userId);
+    // **await しない。** ここで待つと 60 秒で切れる（この形にした理由そのもの）
+    void runIntakeTranscription(intake.id, {
+      audio: audio.buffer,
+      filename: fileName(audio),
+      typedText: rawText,
+      extraTexts,
+      attachments,
+      userId,
+    });
+    res.status(202).json({
+      success: true,
+      data: { ...intake, users: [], projects: [], parsed_by: null, skipped: [], far_due_keys: [] },
+    });
+    return;
   }
 
-  const parts = [rawText, transcript ? `--- 録音の文字起こし ---\n${transcript}` : '', ...extraTexts]
-    .filter((s) => s && s.trim());
+  const parts = [rawText, ...extraTexts].filter((s) => s && s.trim());
   rawText = parts.join('\n\n');
 
   if (!rawText && attachments.length === 0) {
@@ -214,83 +363,15 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
     rawText = attachments.map((a) => `（添付のみ）${a.name}`).join('\n');
   }
 
-  // 宛先解決に使うユーザー一覧 (名前 → users.id)
-  const users = (await queryAll(
-    `SELECT id, name FROM users WHERE deleted_at IS NULL ORDER BY name`
-  )) as { id: string; name: string }[];
-
-  /**
-   * 議事録・活動記録の紐づけ先の候補。**動いている案件だけ**を新しい順に出す。
-   * 全件渡すと、終わった案件に議事録がぶら下がる（しかも誰も見に行かない）。
-   */
-  const projects = (await queryAll(
-    `SELECT id, name, COALESCE(gls_number, code) AS code,
-            (SELECT c.name FROM customers c WHERE c.id = p.customer_id) AS customer_name
-     FROM projects p
-     WHERE deleted_at IS NULL AND stage IN ('neta','d_hold','c_proposal','b_verbal','a_won')
-     ORDER BY updated_at DESC
-     LIMIT 80`
-  )) as unknown as ParserProject[];
-
-  const now = new Date();
-  let parsed: ParseResult;
-  let model = 'rules';
-  let promptVersion: string | null = null;
-  let aiError: string | null = null;
-
-  if (isIntakeAiConfigured()) {
-    try {
-      const advice = await getIntakeAdvice();
-      const ai = await parseIntakeWithAi(rawText, users, {
-        now, submitterId: userId, advice, projects, attachments,
-      });
-      parsed = { drafts: ai.drafts, skipped: ai.skipped };
-      model = ai.model;
-      promptVersion = ai.promptVersion;
-    } catch (e) {
-      // 解析が落ちても投入自体は通す。規則ベースに縮退して人に確認させる
-      aiError = (e as Error).message;
-      console.warn(
-        `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
-      );
-      parsed = parseIntakeText(rawText, users, { now });
-    }
-  } else {
-    parsed = parseIntakeText(rawText, users, { now });
-  }
-
-  // 投入者が「依頼した」ものなので、依頼者は投入者本人。
-  // 自分自身が担当のものは依頼ではなく個人タスクなので requester_id を付けない。
-  // **タスク以外には依頼者を付けない**（活動記録や議事録に「依頼」は無い）。
-  const drafts = parsed.drafts.map((d) => ({
-    dest: d.dest ?? 'task',
-    title: d.title,
-    assigned_to: d.assigned_to ?? undefined,
-    requester_id: d.dest === 'task' && d.assigned_to && d.assigned_to !== userId ? userId : undefined,
-    due_at: d.due_at ?? undefined,
-    importance: d.importance,
-    urgency: d.urgency,
-    due_time_assumed: d.due_time_assumed,
-    due_unclear: d.due_unclear,
-    assignee_unclear: d.assignee_unclear,
-    quote: d.quote,
-    project_id: d.project_id ?? undefined,
-    customer_name: d.customer_name ?? undefined,
-    detail: d.detail ?? undefined,
-    gls_category: d.gls_category ?? undefined,
-    activity_type: d.activity_type ?? undefined,
-    next_action: d.next_action ?? undefined,
-    next_action_date: d.next_action_date ?? undefined,
-    summary: d.summary ?? undefined,
-    decisions: d.decisions ?? undefined,
-    open_items: d.open_items ?? undefined,
-  }));
+  const { parsed, users, projects, model, promptVersion, aiError } =
+    await analyzeIntake(rawText, userId, attachments);
+  const drafts = toDrafts(parsed, userId);
 
   const intake = await taskIntakeService.createIntake(
     {
       raw_text: rawText,
       // **`kind` は投入の種類（何から入ったか）だけを表す。** 行き先は draft の `dest`
-      kind: audio ? 'other' : 'freeform',
+      kind: 'freeform',
       drafts, tool_name: 'ui:intake',
       model, prompt_version: promptVersion,
     },
@@ -303,10 +384,7 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
       ...intake,
       // 拾わなかった行も返す。「決定事項なのでタスクにしなかった」を人に見せるため
       skipped: parsed.skipped,
-      // イズム: 期限が遠いものは短くするよう促す
-      far_due_keys: parsed.drafts
-        .map((d, i) => (d.due_far ? `d${i + 1}` : null))
-        .filter((x): x is string => x !== null),
+      far_due_keys: farDueKeys(parsed),
       users,
       // 確認画面で案件を選び直せるようにする（AI が読み違えたときの逃げ道）
       projects,
@@ -359,11 +437,26 @@ router.get('/tasks/intakes', ...canRead, async (req, res) => {
   res.json({ success: true, data: rows });
 });
 
-/** 投入 1 件 + そこから生まれたタスク (遡ってレビューする) */
+/**
+ * 投入 1 件 + そこから生まれたタスク (遡ってレビューする)。
+ *
+ * **録音の待ち受けもここを読みます**（`status='transcribing'` の間だけ画面が繰り返し叩く）。
+ * 下書きが出来ていたら、確認画面に必要な**担当者と案件の候補も一緒に返します** —
+ * 別の口に取りに行かせると、その 1 本だけ落ちたときに確認画面が空の選択肢で出ます。
+ */
 router.get('/tasks/intakes/:id', ...canRead, async (req, res) => {
   const intake = await taskIntakeService.get(String(req.params.id));
   const generated = await taskIntakeService.listGeneratedTasks(String(req.params.id));
-  res.json({ success: true, data: { ...intake, generated_tasks: generated } });
+  const needsPickers = intake.status === 'pending' && (intake.drafts?.length ?? 0) > 0;
+  res.json({
+    success: true,
+    data: {
+      ...intake,
+      generated_tasks: generated,
+      users: needsPickers ? await loadUsers() : [],
+      projects: needsPickers ? await loadProjectCandidates() : [],
+    },
+  });
 });
 
 // ══════════════════════════════════════════════

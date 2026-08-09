@@ -38,6 +38,7 @@ import { ChevronRight, Sparkles } from 'lucide-react';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { IntakeComposer } from '@/contexts/tasks/components/intake/IntakeComposer';
 import { IntakeReview } from '@/contexts/tasks/components/intake/IntakeReview';
+import { Transcribing } from '@/contexts/tasks/components/intake/Transcribing';
 import { useIntake } from '@/contexts/tasks/components/intake/useIntake';
 
 export function MobileAiBar({
@@ -104,7 +105,9 @@ export function MobileAiBar({
             </div>
           )}
 
-          {it.intake && (
+          {it.transcribing && <Transcribing />}
+
+          {it.intake && !it.transcribing && (
             <IntakeReview
               embedded
               intake={it.intake}
