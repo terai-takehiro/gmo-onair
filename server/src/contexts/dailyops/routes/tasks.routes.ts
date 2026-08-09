@@ -10,7 +10,9 @@ import {
   parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment,
   type IntakeAttachment, type ParserProject,
 } from '../../tasks/services/intake-ai.service';
-import { transcribeAudio, isSttConfigured, MAX_AUDIO_BYTES } from '../../sales/services/minutes-ai.service';
+import {
+  transcribeAudio, isSttConfigured, normalizeAudioName, MAX_AUDIO_BYTES,
+} from '../../sales/services/minutes-ai.service';
 
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 
@@ -339,7 +341,8 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
     // **await しない。** ここで待つと 60 秒で切れる（この形にした理由そのもの）
     void runIntakeTranscription(intake.id, {
       audio: audio.buffer,
-      filename: fileName(audio),
+      // 中身と名前が食い違っていたら直す（Safari は mp4 を返すのに `.webm` で飛んでくる）
+      filename: normalizeAudioName(fileName(audio), audio.mimetype),
       typedText: rawText,
       extraTexts,
       attachments,

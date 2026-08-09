@@ -57,6 +57,46 @@ const STRUCTURE_TIMEOUT_MS = 120_000;
 /** 整形に渡す文字数の上限。超えたら**切らずに断る** (黙って切ると後半の決定事項が消える) */
 const MAX_TRANSCRIPT_CHARS = 60_000;
 
+/**
+ * Whisper が受け付ける拡張子（OpenAI のドキュメントの一覧）。
+ * **拡張子で形式を判断される**ので、中身と食い違うと断られる。
+ */
+const STT_EXTENSIONS = ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'];
+
+/** MIME → 拡張子。画面側（`shared/src/client-v4/recording.ts`）と同じ対応表 */
+const MIME_TO_EXT: Record<string, string> = {
+  'audio/mp4': 'mp4', 'video/mp4': 'mp4',
+  'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
+  'audio/ogg': 'ogg', 'application/ogg': 'ogg',
+  'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
+  'audio/webm': 'webm', 'video/webm': 'webm',
+};
+
+/**
+ * 送られてきた名前が中身と食い違っていたら直す。
+ *
+ * ── なぜサーバー側にも要るか ────────────────────────────────
+ *
+ * 画面側でも拡張子を付け直しますが、**古い画面を開いたままの端末**からは
+ * 今までどおり `.webm` 決め打ちで飛んできます（`MediaRecorder` の実際の形式が
+ * Safari では mp4 なので中身と食い違う）。**受け取る側で直せば、
+ * 画面を開き直していない人の録音も通ります。**
+ */
+export function normalizeAudioName(filename: string, mimeType?: string | null): string {
+  const ext = (filename.split('.').pop() ?? '').toLowerCase();
+  const fromMime = MIME_TO_EXT[String(mimeType ?? '').split(';')[0].trim().toLowerCase()];
+  // 中身から分かるならそちらを正とする（食い違っていたら名前のほうを直す）
+  if (fromMime) {
+    if (ext === fromMime) return filename;
+    const base = filename.replace(/\.[^.]+$/, '');
+    return `${base}.${fromMime}`;
+  }
+  // 中身が分からないときは、せめて受け付けられる拡張子にしておく
+  if (STT_EXTENSIONS.includes(ext)) return filename;
+  return `${filename.replace(/\.[^.]+$/, '')}.webm`;
+}
+
 export function isSttConfigured(): boolean {
   // 空文字（`OPENAI_API_KEY=` と書いてしまった）も「入っていない」扱いにする。
   // そのまま通すと、押せるのに必ず失敗する形になる

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { StatValue } from '@gmo-onair/shared/src/client/ui/numbers';
 import { localDateStr } from '@/lib/format';
+import { recordingFileName } from '@gmo-onair/shared/src/client-v4/recording';
 
 /** Whisper の上限。サーバー側 (`minutes-ai.service`) と同じ値 */
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -80,7 +81,13 @@ export function RecordDialog({
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: mr.mimeType || 'audio/webm' });
-        setFile(new File([blob], `打合せ_${metOn}.webm`, { type: blob.type }));
+        // ⚠️ 拡張子は **`mr.mimeType` から決める** — `.webm` 決め打ちだと
+        // **iPhone / Safari（mp4）で必ず文字起こしに失敗する**（Whisper は拡張子で判断する）
+        setFile(new File(
+          [blob],
+          recordingFileName(`打合せ_${metOn}`, mr.mimeType || blob.type),
+          { type: blob.type },
+        ));
       };
       mr.start(1000);
       recorder.current = mr;

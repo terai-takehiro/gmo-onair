@@ -26,6 +26,7 @@ import { ArrowRight, Image as ImageIcon, Loader2, Mic, Paperclip, Send, Square, 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { recordingFileName } from '@gmo-onair/shared/src/client-v4/recording';
 import type { Created } from './useIntake';
 
 /** 32kbps。**既定の 128kbps だと 25 分で Whisper の 25MB 上限に当たる** */
@@ -108,8 +109,14 @@ export function IntakeComposer({
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: mr.mimeType || 'audio/webm' });
-        // **止めたらそのまま解析まで進む。** もう一度押させない
-        onAudio(new File([blob], `録音_${new Date().toISOString().slice(0, 10)}.webm`, { type: blob.type }));
+        // **止めたらそのまま解析まで進む。** もう一度押させない。
+        // ⚠️ 拡張子は **`mr.mimeType` から決める** — `.webm` 決め打ちにすると
+        // **iPhone / Safari（mp4）で必ず文字起こしに失敗する**（Whisper は拡張子で判断する）
+        onAudio(new File(
+          [blob],
+          recordingFileName(`録音_${new Date().toISOString().slice(0, 10)}`, mr.mimeType || blob.type),
+          { type: blob.type },
+        ));
       };
       mr.start(1000);
       recorder.current = mr;

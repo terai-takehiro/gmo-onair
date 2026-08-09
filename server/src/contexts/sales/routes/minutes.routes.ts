@@ -17,7 +17,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   listMinutes, getMinutes, startTranscription, updateMinutes, deleteMinutes, openItemToTask,
 } from '../services/minutes.service';
-import { MAX_AUDIO_BYTES, isSttConfigured } from '../services/minutes-ai.service';
+import { MAX_AUDIO_BYTES, isSttConfigured, normalizeAudioName } from '../services/minutes-ai.service';
 
 // `mergeParams` で親の `:projectId` を受け取る。型は既定が `{}` なので、
 // 既存の `estimates.routes.ts` と同じく取り出すときに書く
@@ -57,7 +57,13 @@ router.post('/', canEdit, upload.single('audio'), async (req, res) => {
   const row = await startTranscription(
     paramsOf(req).projectId,
     file.buffer,
-    file.originalname || 'recording.webm',
+    // multer は multipart のファイル名を latin1 で読む（日本語が化ける）。
+    // あわせて、**中身と拡張子が食い違っていたら直す** —
+    // Safari は mp4 を返すのに画面が `.webm` で送っており、Whisper に断られていた
+    normalizeAudioName(
+      Buffer.from(file.originalname || 'recording.webm', 'latin1').toString('utf8'),
+      file.mimetype,
+    ),
     metOn,
     req.user!.id,
   );
