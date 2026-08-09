@@ -44,7 +44,8 @@ export interface SeedProject {
   goal: string | null;
   expected_amount: number | string | null;
   intake_channel: string | null;
-  notes: string | null;
+  /** いちばん新しいメモ（migration 184 でメモはやり取りに畳んだ） */
+  memo_excerpt: string | null;
   event_start: string | null;
   event_end: string | null;
   gls_number: string | null;
@@ -77,7 +78,7 @@ function fromProject(p: SeedProject): NewProjectValues {
     expected_amount: Number(p.expected_amount) > 0 ? String(Number(p.expected_amount)) : '',
     intake_channel: p.intake_channel ?? '',
     assigned_to: p.assigned_to ?? '',
-    notes: p.notes ?? '',
+    notes: p.memo_excerpt ?? '',
   };
 }
 

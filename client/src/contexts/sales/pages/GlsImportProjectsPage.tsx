@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { formatShortDate } from "@/lib/format";
+import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { ProjectStageLabels, ProjectTypeLabels, type ProjectStage, type ProjectType } from "@/types";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -33,18 +34,13 @@ interface Row {
   event_end: string | null;
   total_revenue: number;
   total_purchase: number;
-  notes: string | null;
+  /** 決算取込が作った案件の印 (migration 184 で `notes` の文字列から列に移した) */
+  kessan_marker: string | null;
 }
 
 interface Marker { marker: string; count: number }
 
 const PAGE_SIZE = 50;
-
-/** notes の [kessan:XXX] からマーカー文字列を取り出す */
-function markerOf(notes: string | null): string {
-  const m = (notes || "").match(/^\[kessan:([^\]]+)\]/);
-  return m ? m[1] : "";
-}
 
 type EditState = {
   customer: boolean; customer_id: string;
@@ -259,9 +255,10 @@ export default function GlsImportProjectsPage() {
                       {r.gls_category ? <Badge variant="outline">{r.gls_category}</Badge> : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{r.event_start ? formatShortDate(r.event_start) : "—"}</td>
-                    <td className="px-3 py-2 text-right font-number whitespace-nowrap">{formatCurrency(r.total_revenue)}</td>
-                    <td className="px-3 py-2 text-right font-number whitespace-nowrap">{formatCurrency(r.total_purchase)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">{markerOf(r.notes)}</td>
+                    {/* 金額は `<Money>`（¥ と数字を別要素にしないと右端が揃わない） */}
+                    <td className="px-3 py-2"><Money value={r.total_revenue} /></td>
+                    <td className="px-3 py-2"><Money value={r.total_purchase} /></td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">{r.kessan_marker || "—"}</td>
                   </tr>
                 ))}
               </tbody>

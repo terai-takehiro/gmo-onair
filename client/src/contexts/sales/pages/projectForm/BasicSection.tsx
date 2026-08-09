@@ -1,5 +1,5 @@
 /**
- * 基本情報 — 案件名 / お客様 / 種類 / 分類 / グループ区分 / メモ (v4)
+ * 基本情報 — 案件名 / お客様 / 種類 / 分類 / グループ区分 (v4)
  *
  * ── 「案件分類」を消していない ──────────────────────────────
  *
@@ -13,11 +13,17 @@
  * 欄だけ消すと**保存のたびに既存の値が空になります**（本番データが黙って消える）。
  * 先に `project.service.ts` を「未指定なら今の値を保つ」形にしてから外しました。
  * 既存のタグは案件一覧の絞り込み（`filter.tag`）でこれまでどおり効きます。
+ *
+ * ── メモの欄は外した（migration 184）────────────────────────────
+ *
+ * メモはやり取り（`activity_logs` の `memo`）に畳んだので、`projects.notes` の
+ * 列そのものがありません。**ここに欄を残すと、開くたびに空欄が出て、
+ * 保存するたびに同じ本文のメモが1件ずつ増えます。**
+ * 書くのは案件詳細のやり取りタブです。
  */
 import type { UseFormReturn } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -124,9 +130,6 @@ export function BasicSection({
         </Field>
       </div>
 
-      <Field label="メモ" htmlFor="pf-notes">
-        <Textarea id="pf-notes" {...register('notes')} rows={3} />
-      </Field>
     </FormSection>
   );
 }

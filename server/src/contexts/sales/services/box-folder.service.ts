@@ -18,7 +18,7 @@
  *
  * サブフォルダ配分:
  *   社内限り:   02_発注・契約 / 03_請求 / 07_原価・利益管理
- *   社外共有可: 01_見積・提案 / 04_Qシート / 05_台本・進行表 / 06_納品物
+ *   社外共有可: 01_見積・提案 / 04_Qシート / 05_台本・進行表 / 06_納品物 / 08_写真
  */
 import { getBoxClient, isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
 
@@ -28,11 +28,24 @@ const INTERNAL_SUBFOLDERS = [
   '07_原価・利益管理',
 ];
 
+/**
+ * 当日の写真を貯めるフォルダ（v4 ⑥ ふりかえり）。
+ *
+ * **社外と共有するフォルダの下**に置きます（ご指示）。報告資料はお客様に出すもので、
+ * 写真もその材料だからです。**社内限りの下に作らないこと** — 取り違えると
+ * 原価と同じ事故（社外に出してはいけないものが出る／出したいものが出せない）になります。
+ *
+ * 番号を振ってあるのは、BOX の一覧が名前順で並ぶためです。
+ * 番号が無いと、既存の `01_` 〜 `06_` の**間**ではなく先頭か末尾に飛びます。
+ */
+export const PHOTOS_SUBFOLDER = '08_写真';
+
 const EXTERNAL_SUBFOLDERS = [
   '01_見積・提案',
   '04_Qシート',
   '05_台本・進行表',
   '06_納品物',
+  PHOTOS_SUBFOLDER,
 ];
 
 export type CustomerType = 'internal' | 'external';
@@ -180,4 +193,54 @@ export async function renameProjectFolderPair(
     internalFolderId ? renameProjectFolder(internalFolderId, `${INTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
     externalFolderId ? renameProjectFolder(externalFolderId, `${EXTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
   ]);
+}
+
+/**
+ * 案件のフォルダ配下から、名前でサブフォルダを探す。無ければ作る。
+ *
+ * ── なぜ「無ければ作る」なのか ──────────────────────────────
+ *
+ * `08_写真` は migration 186 の回で足したものなので、**それ以前に作られた案件の
+ * フォルダには入っていません**。発番時の自動生成に足すだけだと、
+ * 過去の案件では写真を1枚も置けません（そして理由が画面に出ません）。
+ * 初回のアップロードのときに無ければ作ります。
+ *
+ * ── 競り合いに強くする ──────────────────────────────────────
+ *
+ * 2人が同時に1枚目を上げると、`create` が **409（同名あり）** で片方だけ落ちます。
+ * 落ちたほうは**探し直して**、見つかったらそれを使います
+ * （BOX の書類アップロードが 409 を拾って版にするのと同じ考え方）。
+ */
+export async function ensureSubfolder(
+  parentFolderId: string,
+  name: string,
+): Promise<string | null> {
+  if (!isBoxConfigured()) return null;
+  const client = getBoxClient();
+  if (!client) return null;
+
+  const find = async (): Promise<string | null> => {
+    try {
+      const res = (await client.folders.getItems(parentFolderId, { limit: 200 })) as
+        { entries?: { type?: string; id?: string; name?: string }[] };
+      const hit = (res.entries ?? []).find((e) => e.type === 'folder' && e.name === name);
+      return hit?.id ?? null;
+    } catch (err) {
+      console.warn(`[box-folder] Failed to list ${parentFolderId}:`, (err as Error).message);
+      return null;
+    }
+  };
+
+  const existing = await find();
+  if (existing) return existing;
+  try {
+    const created = (await client.folders.create(parentFolderId, name)) as { id: string };
+    return created.id;
+  } catch (err) {
+    // 同名あり (409) は、他の人が先に作ったということ。探し直して使う
+    const again = await find();
+    if (again) return again;
+    console.warn(`[box-folder] Failed to create '${name}' under ${parentFolderId}:`, (err as Error).message);
+    return null;
+  }
 }

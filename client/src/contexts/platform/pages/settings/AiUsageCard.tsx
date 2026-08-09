@@ -54,6 +54,8 @@ interface Payload {
 const KIND_LABEL: Record<string, string> = {
   intake: '投入口の行き先判断',
   minutes: '議事録の整形',
+  activity: 'やり取りの整形',
+  kpt: 'ふりかえりの下書き',
   stt: '文字起こし（本番）',
   stt_preview: '下読み（録音中）',
 };

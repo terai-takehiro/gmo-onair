@@ -1,11 +1,21 @@
 /**
- * 案件詳細 / やり取りタブ (v4 ⑥-C)
+ * 案件詳細 / やり取りタブ (v4 ⑥ 案件記録)
  *
- * お客様とのやり取りを**時系列で1本**にします。いまの元は活動記録
- * (`activity_logs`) だけです。メールの取り込みは AI が活動記録に書くので、
- * ここに出れば同じ流れの中に並びます。
+ * お客様とのやり取りを**時系列で1本**にします。元は活動記録 (`activity_logs`) で、
+ * migration 184 から**社内の書き置き（メモ）も同じ流れ**に並びます
+ * （案件の `notes` という別の入れ物をやめました）。
  *
- * **打合せの録音から議事録を起こせます** (v4)。録音 → Whisper で文字起こし →
+ * ── ここから書ける ──────────────────────────────────────────
+ *
+ * 以前この枠にあったのは「打合せを録音」と「営業活動の画面で記録する」だけで、
+ * **この画面からは1行も書けませんでした**。読むために開いた画面で
+ * 書けないので、結局みんな別の画面へ移っていました。
+ *
+ * 書く枠は**件名を訊きません**（`thread/ComposeBox.tsx`）。打ちっぱなしで送ると、
+ * 保存時に AI が 見出し・整えた本文・要点・次にやること を起こします。
+ * **原文は必ず残る**ので、整形が的外れなときは戻せます。
+ *
+ * **打合せの録音から議事録を起こせます**。録音 → Whisper で文字起こし →
  * AI が決定事項と持ち帰りを下書き → 人が直して確定、の順です。
  * 確定するときに**どこを直したかがサーバーで自動記録され**、次の下書きに効きます
  * (会社方針「AI を使い捨てにしない」の条件2と4)。
@@ -13,37 +23,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Mic, Info, Phone, Mail, Users, Presentation, MoreHorizontal } from 'lucide-react';
+import { Info } from 'lucide-react';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { RecordDialog } from './thread/RecordDialog';
 import { MinutesCard } from './thread/MinutesCard';
+import { ComposeBox, type ComposeKind } from './thread/ComposeBox';
+import { ThreadRow } from './thread/ThreadRow';
 import type { MinutesResponse, MinutesPatch } from './thread/types';
-import { Row, RowMain, RowTitle, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { Button } from '@/components/ui/button';
 import { localDateStr } from '@/lib/format';
 import type { ActivityLog } from './types';
-
-/** 活動の種類。DB の `activity_type` と同じ集合 */
-const KIND: Record<string, { label: string; icon: typeof Phone }> = {
-  call: { label: '電話', icon: Phone },
-  email: { label: 'メール', icon: Mail },
-  meeting: { label: '打合せ', icon: Users },
-  visit: { label: '訪問', icon: Users },
-  proposal: { label: '提案', icon: Presentation },
-  followup: { label: '追いかけ', icon: MoreHorizontal },
-  other: { label: 'その他', icon: MoreHorizontal },
-};
-
-interface ThreadItem extends ActivityLog {
-  activity_type: string;
-  description: string | null;
-  user_name?: string | null;
-}
 
 export function ThreadTab({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
@@ -60,6 +52,10 @@ export function ThreadTab({ projectId }: { projectId: string }) {
   });
   const rows = minutes.data?.data ?? [];
   const sttAvailable = minutes.data?.stt_available !== false;
+  // **整形は文字起こしとは別の鍵で動く**（Whisper は OpenAI 固定、整形は
+  // OpenAI / Anthropic のどちらでもよい）。まとめて判定すると、
+  // 「文字起こしは使えないが整形はできる」環境で書く枠から AI の案内が消える
+  const aiAvailable = minutes.data?.ai_available !== false;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['project-minutes', projectId] });
 
   const start = useMutation({
@@ -109,7 +105,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
     onError: (e) => notifyApiError('タスクにできませんでした', e),
   });
 
-  const { data, isLoading } = useQuery<{ data: ThreadItem[] }>({
+  const { data, isLoading } = useQuery<{ data: ActivityLog[] }>({
     queryKey: ['project-activities', projectId],
     queryFn: async () =>
       (await api.get('/activity-logs', { params: { project_id: projectId, limit: 100 } })).data,
@@ -118,63 +114,63 @@ export function ThreadTab({ projectId }: { projectId: string }) {
   const items = data?.data ?? [];
   const today = localDateStr(new Date());
 
+  /**
+   * 書いたものを記録する。**整形はサーバーが保存時にやります**（`format: true`）。
+   *
+   * 画面で整形して送る形にすると、**整形に失敗したとき打った文ごと消えます**。
+   * サーバー側なら、失敗しても原文のまま記録が残ります。
+   */
+  const write = useMutation({
+    mutationFn: (p: { kind: ComposeKind; text: string }) =>
+      api.post('/activity-logs', {
+        project_id: projectId,
+        activity_type: p.kind,
+        activity_date: localDateStr(new Date()),
+        description: p.text,
+        format: true,
+      }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['project-activities', projectId] });
+      // 概要タブの「お客様とのやり取り」と、タブの件数も読み直す
+      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      const why = (r.data?.data as { format_error?: string } | undefined)?.format_error;
+      // **整えられなかったことを黙らない。** 黙ると「AI が効いていない」に気づけない
+      notifySuccess(why ? '記録しました（整えられませんでした）' : '整えて記録しました',
+        why ? { description: why } : undefined);
+    },
+    onError: (e) => notifyApiError('記録できませんでした', e),
+  });
+
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* **押してから「使えません」を出さない。** 設定が無い環境では理由を添えて止める */}
-        <Button
-          variant="outline"
-          disabled={!canEdit || !sttAvailable}
-          title={!sttAvailable ? 'この環境は文字起こしにつないでいません（管理者にご連絡ください）' : undefined}
-          onClick={() => setRecOpen(true)}
-        >
-          <Mic className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />打合せを録音
-        </Button>
-        <Link
-          to="/sales/activity-logs"
-          className="text-sub min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-[36px]"
-        >
-          営業活動の画面で記録する
-        </Link>
-      </div>
+      <ComposeBox
+        busy={write.isPending}
+        canEdit={canEdit}
+        aiAvailable={aiAvailable}
+        sttAvailable={sttAvailable}
+        onSubmit={(kind, text) => write.mutate({ kind, text })}
+        onRecord={() => setRecOpen(true)}
+      />
 
       {isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : items.length === 0 ? (
         <EmptyState
           title="やり取りの記録はまだありません"
-          description="電話・打合せは営業活動の画面から記録できます。メールは AI が自動で取り込みます。"
+          description="上の欄に打って「整えて記録する」を押してください。メールは AI が自動で取り込みます。"
         />
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-card">
-          {items.map((a) => {
-            const k = KIND[a.activity_type] ?? KIND.other;
-            const overdue = a.next_action && !a.next_action_done_at
-              && !!a.next_action_date && a.next_action_date < today;
-            return (
-              <Row key={a.id} divider align="start" stackOnMobile>
-                <RowMain>
-                  <RowTitle>{a.subject}</RowTitle>
-                  {a.description && (
-                    <p className="text-sub mt-0.5 whitespace-pre-line text-muted-foreground">{a.description}</p>
-                  )}
-                  {a.next_action && (
-                    <p className={`text-sub-sm mt-1 ${overdue ? 'font-bold text-destructive' : 'text-muted-foreground'}`}>
-                      次にやること: {a.next_action}
-                      {a.next_action_date && `（${a.next_action_date}${overdue ? ' 過ぎています' : ''}）`}
-                      {a.next_action_done_at && '（済み）'}
-                    </p>
-                  )}
-                </RowMain>
-                <TableBadge w={96} label={k.label} variant="outline" />
-                <RowSlot w={96} align="right" className="text-sub font-number text-muted-foreground">
-                  {a.activity_date}
-                </RowSlot>
-              </Row>
-            );
-          })}
+          {items.map((a) => <ThreadRow key={a.id} a={a} today={today} />)}
         </div>
       )}
+
+      <Link
+        to="/sales/activity-logs"
+        className="text-sub min-h-tap inline-flex items-center self-start text-primary hover:underline lg:min-h-[36px]"
+      >
+        営業活動の画面で見る（案件をまたいだ一覧）
+      </Link>
 
       {rows.length > 0 && (
         <>

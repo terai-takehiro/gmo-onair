@@ -17,6 +17,20 @@
  * 同じ場所にしました。押すと確認を出します (`confirmAction`) — ステージは
  * 売上の見込みと連動していて、取り違えると数字が動くためです。
  *
+ * ── PC は固定2段。**選んでも動かない** ──────────────────────
+ *
+ * 前は タブとステージ帯を1行に並べていました。入り切らないので横スクロールになり、
+ * さらに**選択中のステージだけ名前を出していた**ので、押すたびに帯の幅が動いて
+ * タブの位置がずれました（押した先が別のタブになる）。
+ *
+ * 行数と高さを決め打ちます:
+ *   1段目（42px）ラベル「ステージ」＋ E〜A の5つ（**各104px の等幅**）
+ *                ＋ 完了・失注（各60px）＋ 右端に「最後の更新」
+ *   2段目（44px）タブを**均等割り**（`flex:1`）。横スクロールにしない
+ *
+ * ステージは**常に「E 問合せ」のように記号＋名前**を出します。
+ * 幅が変わらないので、選んでも1pxも動きません。
+ *
  * ── 「完了」と「失注」を別の組にして必ず出す ──────────────────
  *
  * 最初は E〜A の5段だけを出し、終わった案件では帯ごと消して名前を書いていました。
@@ -31,10 +45,10 @@
  * 終わった案件では E〜A のどれも光りません（居ないので嘘になる）。押せば戻せます —
  * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
-import { ArrowLeft, Pencil, Mic, Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PROJECT_TABS, MOBILE_TAB_KEYS, type ProjectTabKey } from './tabs';
+import { PROJECT_TABS, MOBILE_TABS_BY_PHASE, type ProjectPhase, type ProjectTabKey } from './tabs';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 
 /** ステージの並び。モックと同じ「問合せ → 受注」。終わったもの2つは横に並べない */
@@ -55,6 +69,14 @@ const END_STEPS: { stage: ProjectStage; label: string }[] = [
   { stage: 'e_lost', label: '失注' },
 ];
 
+/**
+ * ステージ帯の寸法（指示書 第5章の指定）。**7段の列幅とは別の物差し**です —
+ * 表の列ではなく、**選んでも動かないための等幅**なので、
+ * 「E 問合せ」〜「A 受注済」が同じ幅で収まる値を決め打ちます。
+ */
+const STAGE_W = 'w-[104px]';  // ui-tokens-ok: E〜A の5つを等幅にする（記号＋名前が入る幅）
+const END_W = 'w-[60px]';     // ui-tokens-ok: 完了・失注。2文字ぶん
+
 /** ステージの短い名前 (押せる帯に入る長さ) */
 const STAGE_SHORT: Record<string, string> = {
   neta: '問合せ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定', a_won: '受注済',
@@ -72,18 +94,24 @@ export interface DetailHeaderProps {
   tab: ProjectTabKey;
   counts: Partial<Record<ProjectTabKey, number>>;
   onChangeStage: (next: ProjectStage) => void;
-  /** スマホ。タブを3つに絞り、上辺のボタン2つを畳む */
+  /** スマホ。タブを3つに絞り、上辺のボタン1つを畳む */
   mobile?: boolean;
+  /** 案件の段階。**スマホのタブの組**を決める（PC は7タブのまま変えない） */
+  phase: ProjectPhase;
+  /** 最後の更新。**1段目の右端**に出す（概要タブの右カラムから移した） */
+  updatedAt?: string | null;
 }
 
 export function DetailHeader({
-  id, name, customerName, glsNumber, code, stage, isSeries, tab, counts, onChangeStage, mobile,
+  id, name, customerName, glsNumber, code, stage, isSeries, tab, counts,
+  onChangeStage, mobile, phase, updatedAt,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
+  const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
   const tabs = PROJECT_TABS
     .filter((t) => !t.seriesOnly || isSeries)
     // **スマホは3つだけ。** 8タブを 375px に並べると1つ 40px 弱になり押し分けられない
-    .filter((t) => !mobile || MOBILE_TAB_KEYS.includes(t.key));
+    .filter((t) => !mobile || mobileKeys.includes(t.key));
 
   return (
     <div className="border-b border-border bg-card">
@@ -117,25 +145,15 @@ export function DetailHeader({
         </div>
 
         {/*
-          **スマホでは上辺のボタン2つを出しません。** 「打合せを録音」は
-          やり取りタブ（スマホでは開かない）への入口で、そちらは
-          `/sales/record` から案件を選んで入るのが正しい道です。
-          「タスクを追加」はタスクタブの中に同じものがあります。
+          **「打合せを録音」はここから外しました**（指示書 1-5）。
+          トップページの投入口に同じ機能があり、案件詳細のヘッダーにも置くと
+          **同じことをする入口が2つ**になります。案件の中で録るときは
+          やり取りタブの書く枠にある「録音から起こす」を使います。
+
+          **スマホでは「タスクを追加」も出しません。** タスクタブの中に同じものがあります。
         */}
         {!mobile && (
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/*
-            打合せを録音 — **中身はやり取りタブが持っています**。
-            ここは入口なのでタブへ送るだけにします (同じダイアログを2か所から
-            開けるようにすると、状態を持つ場所が2つになって必ずずれます)。
-          */}
-          <Button
-            variant="outline"
-            title="やり取りタブで録音します"
-            onClick={() => navigate(`/sales/projects/${id}/thread`)}
-          >
-            <Mic className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />打合せを録音
-          </Button>
           <Button onClick={() => navigate(`/sales/projects/${id}/task`)}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを追加
           </Button>
@@ -143,84 +161,98 @@ export function DetailHeader({
         )}
       </div>
 
-      {/* タブ ＋ ステージ。**横に入りきらないときは折り返さず横スクロール** */}
-      <div className="flex flex-wrap items-end gap-3 px-4 lg:px-6">
-        <div className="-mb-px flex min-w-0 flex-1 overflow-x-auto">
-          {tabs.map((t) => {
-            const on = t.key === tab;
-            const n = counts[t.key];
+      {/*
+        ── 1段目（42px）: ステージ ───────────────────────────────
+        **各104px の等幅**。記号＋名前を常に出すので、選んでも幅が変わりません。
+        スマホでは横に並べきれないので、**押せる帯のまま横スクロール**にします
+        （畳んでシートにすると、ステージを変えるのに2タップ増えます）。
+      */}
+      <div className="flex h-[42px] items-center gap-2 overflow-x-auto px-4 lg:px-6">
+        <span className="text-note shrink-0 font-bold text-muted-foreground">ステージ</span>
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
+          {STAGE_STEPS.map((st, i) => {
+            const on = st.stage === stage;
             return (
-              <Link
-                key={t.key}
-                to={`/sales/projects/${id}/${t.key}`}
-                aria-current={on ? 'page' : undefined}
-                className={`min-h-tap text-list inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 lg:min-h-[44px] ${
-                  on ? 'border-primary text-primary' : 'border-transparent font-normal text-muted-foreground hover:text-foreground'
-                }`}
+              <button
+                key={st.key}
+                type="button"
+                onClick={() => { if (!on) onChangeStage(st.stage); }}
+                aria-pressed={on}
+                className={`text-sub inline-flex h-8 ${STAGE_W} shrink-0 items-center justify-center gap-1.5 ${
+                  i > 0 ? 'border-l border-border' : ''
+                } ${on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               >
-                <t.icon className="h-4 w-4" aria-hidden="true" />
-                {t.label}
-                {n !== undefined && n > 0 && (
-                  <span className="text-badge font-number inline-flex h-[19px] min-w-[19px] items-center justify-center rounded-chip bg-muted px-1.5 text-muted-foreground">
-                    {n}
-                  </span>
-                )}
-              </Link>
+                <span className="font-number">{st.key}</span>
+                {STAGE_SHORT[st.stage]}
+              </button>
             );
           })}
         </div>
 
-        {/*
-          ステージ。**進む5段と終わり方2つを別の組**にしてあります。
-          終わった案件では E〜A のどれも光りません (居ないので嘘になる)。
-        */}
-        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
-            {STAGE_STEPS.map((s, i) => {
-              const on = s.stage === stage;
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => { if (!on) onChangeStage(s.stage); }}
-                  aria-pressed={on}
-                  title={`${s.key} ${STAGE_SHORT[s.stage]}`}
-                  className={`min-h-tap text-sub inline-flex items-center gap-1.5 px-3 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
-                    on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  <span className="font-number">{s.key}</span>
-                  {on && STAGE_SHORT[s.stage]}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="案件を終わらせる">
-            {END_STEPS.map((s, i) => {
-              const on = s.stage === stage;
-              const lost = s.stage === 'e_lost';
-              return (
-                <button
-                  key={s.stage}
-                  type="button"
-                  onClick={() => { if (!on) onChangeStage(s.stage); }}
-                  aria-pressed={on}
-                  title={ProjectStageLabels[s.stage]}
-                  className={`min-h-tap text-sub inline-flex items-center px-3 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
-                    on
-                      ? lost
-                        ? 'bg-destructive font-bold text-destructive-foreground'
-                        : 'bg-secondary font-bold text-secondary-foreground'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="案件を終わらせる">
+          {END_STEPS.map((st, i) => {
+            const on = st.stage === stage;
+            const lost = st.stage === 'e_lost';
+            return (
+              <button
+                key={st.stage}
+                type="button"
+                onClick={() => { if (!on) onChangeStage(st.stage); }}
+                aria-pressed={on}
+                title={ProjectStageLabels[st.stage]}
+                className={`text-sub inline-flex h-8 ${END_W} shrink-0 items-center justify-center ${
+                  i > 0 ? 'border-l border-border' : ''
+                } ${
+                  on
+                    ? lost
+                      ? 'bg-destructive font-bold text-destructive-foreground'
+                      : 'bg-secondary font-bold text-secondary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {st.label}
+              </button>
+            );
+          })}
         </div>
+
+        <span className="flex-1" />
+        {/* 最後の更新。**概要タブの右カラムから移した**（どのタブでも同じ位置に出る） */}
+        {updatedAt && !mobile && (
+          <span className="text-note font-number shrink-0 text-muted-foreground">
+            最後の更新 {String(updatedAt).slice(0, 10)}
+          </span>
+        )}
+      </div>
+
+      {/*
+        ── 2段目（44px）: タブ ───────────────────────────────────
+        **均等割り**（`flex-1`）。横スクロールにしません — スクロールすると
+        「まだ右にタブがある」ことに気づけず、押されないタブができます。
+      */}
+      <div className="flex h-11 px-4 lg:px-6">
+        {tabs.map((t) => {
+          const on = t.key === tab;
+          const n = counts[t.key];
+          return (
+            <Link
+              key={t.key}
+              to={`/sales/projects/${id}/${t.key}`}
+              aria-current={on ? 'page' : undefined}
+              className={`text-list -mb-px inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 ${
+                on ? 'border-primary text-primary' : 'border-transparent font-normal text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <t.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">{t.label}</span>
+              {n !== undefined && n > 0 && (
+                <span className="text-badge font-number inline-flex h-[19px] min-w-[19px] shrink-0 items-center justify-center rounded-chip bg-muted px-1.5 text-muted-foreground">
+                  {n}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

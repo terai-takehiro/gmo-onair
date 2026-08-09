@@ -30,6 +30,46 @@ function normalizeGlsCategory(value: unknown): GlsCategory | null {
 }
 
 /**
+ * 案件のメモを**やり取りの1件**として書く (migration 184)。
+ *
+ * `projects.notes` の列は無くなりましたが、**引数としては受け取り続けます** —
+ * MCP の `create_project` / `update_project` を本番のメール取込スキルが
+ * 毎日叩いており、引数を消すと呼び出しごと落ちるためです
+ * (`.claude/skills/ai-feedback-loop/references/onair-current-state.md` の
+ * 「既存の呼び出しを壊さない」)。
+ *
+ * `skipIfSame` は更新のときだけ true にします。同じ本文で保存し直すたびに
+ * メモが積み上がると、やり取りがメモで埋まって読めなくなります。
+ */
+async function addMemoActivity(
+  projectId: string,
+  customerId: string | null,
+  notes: unknown,
+  userId: string,
+  skipIfSame = false,
+): Promise<void> {
+  const body = typeof notes === 'string' ? notes.trim() : '';
+  if (!body) return;
+  if (skipIfSame) {
+    const dup = await queryOne(
+      `SELECT id FROM activity_logs
+        WHERE project_id = ? AND activity_type = 'memo' AND btrim(description) = ? AND deleted_at IS NULL
+        LIMIT 1`,
+      [projectId, body],
+    );
+    if (dup) return;
+  }
+  // 日付は**サーバーの今日**（JST）。メモは日付を持たないので、書かれた日に寄せる
+  const today = await queryOne(`SELECT to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD') AS d`) as { d: string };
+  await execute(
+    `INSERT INTO activity_logs
+       (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, created_by, updated_by)
+     VALUES (?, ?, ?, ?, 'memo', 'メモ', ?, ?, ?, ?)`,
+    [uuidv4(), projectId, customerId || null, userId, body, today.d, userId, userId],
+  );
+}
+
+/**
  * BOX フォルダ名のフォーマット: `{idCode}_{案件名}`
  * idCode は GLS 発番済みなら gls_number、未発番なら code (OPP コード)
  */
@@ -196,6 +236,22 @@ const NEXT_TASK_LATERAL = `
  * 見積・請求は入れていない (`revenues` は締め処理で一斉に更新されるので、
  * 誰も触っていない案件まで「たった今」になる)。
  */
+/**
+ * いちばん新しいメモ (migration 184 でメモをやり取りに畳んだ)。
+ *
+ * ネタの一覧が「案件名 ＋ メモの1行目」を要点として出しているので、
+ * **列が無くなったぶんをここで引き直します**。無いと、ネタの段で
+ * 何の引き合いだったのかが案件名だけになります。
+ */
+const MEMO_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT a.description FROM activity_logs a
+      WHERE a.project_id = p.id AND a.activity_type = 'memo' AND a.deleted_at IS NULL
+      ORDER BY a.activity_date DESC, a.created_at DESC
+      LIMIT 1
+  ) memo ON TRUE
+`;
+
 const LAST_MOVE_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT MAX(x.at) AS last_at FROM (
@@ -272,13 +328,16 @@ export class ProjectService {
       where += ` AND (',' || p.tags || ',') LIKE ?`;
       params.push(`%,${filter.tag},%`);
     }
-    // 決算インポート分のみ (notes が [kessan: で始まる)。LIKE の [ は Postgres では通常文字
+    // 決算インポート分のみ。**印は `kessan_marker` の列が持つ**（migration 184）。
+    // 以前は `notes` の先頭の `[kessan:2026-03]` という文字列を読んでいたが、
+    // メモをやり取りへ畳んだので `notes` の列そのものが無い。
+    // 列にしたことで、人が `[kessan:` で始まるメモを書いても誤判定しなくなった
     if (filter.source === 'kessan') {
-      where += ` AND p.notes LIKE '[kessan:%'`;
+      where += ` AND p.kessan_marker IS NOT NULL`;
     }
     if (filter.kessanMarker) {
-      where += ` AND p.notes LIKE ?`;
-      params.push(`[kessan:${filter.kessanMarker}]%`);
+      where += ` AND p.kessan_marker = ?`;
+      params.push(filter.kessanMarker);
     }
     // AI (MCP) 起票フィルタ。判定は created_by=mcpActor (静的キー) OR mcp_audit_log 照合
     // (OAuth 経由は created_by が本人名義になるため、監査ログの created_id 一致でも検出する)
@@ -387,6 +446,7 @@ export class ProjectService {
        ai.requested_by as ai_requested_by,
        nt.title as next_task_title, nt.due_date as next_task_due, nt.assignee_name as next_task_assignee,
        COALESCE(est.amount, 0) as estimate_amount,
+       memo.description as memo_excerpt,
        GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -399,6 +459,7 @@ export class ProjectService {
        ${NEXT_TASK_LATERAL}
        ${LAST_MOVE_LATERAL}
        ${ESTIMATE_AMOUNT_LATERAL}
+       ${MEMO_LATERAL}
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [config.mcpActorId, ...params, limit, offset]
     );
@@ -425,10 +486,12 @@ export class ProjectService {
     const row = await queryOne(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
-       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase
+       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
+       memo.description as memo_excerpt
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
+       ${MEMO_LATERAL}
        WHERE p.id = ? AND p.deleted_at IS NULL`,
       [id]
     );
@@ -444,19 +507,15 @@ export class ProjectService {
 
   /**
    * 決算インポートのマーカー一覧 (取込バッチ) を件数つきで返す。
-   * notes の `[kessan:XXX]` の XXX を抽出して集計。
+   * 印は `projects.kessan_marker` の列 (migration 184)。
    */
   async getKessanMarkers() {
     return await queryAll(
-      `SELECT m.marker, COUNT(*)::int AS count
-       FROM (
-         SELECT substring(notes from '\\[kessan:([^\\]]+)\\]') AS marker
-         FROM projects
-         WHERE deleted_at IS NULL AND notes LIKE '[kessan:%'
-       ) m
-       WHERE m.marker IS NOT NULL
-       GROUP BY m.marker
-       ORDER BY m.marker DESC`
+      `SELECT kessan_marker AS marker, COUNT(*)::int AS count
+       FROM projects
+       WHERE deleted_at IS NULL AND kessan_marker IS NOT NULL
+       GROUP BY kessan_marker
+       ORDER BY kessan_marker DESC`
     );
   }
 
@@ -604,17 +663,27 @@ export class ProjectService {
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category,
                              gls_category, expected_amount, assigned_to,
                              event_start, event_end,
-                             notes, customer_type, box_url_internal, box_url_external,
+                             customer_type, box_url_internal, box_url_external,
                              application_form, logo_permission, intake_channel, intake_confidence,
                              contact_name, recurrence, attendee_count, goal, reply_due, wants, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
        glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
-       notes || null, cType, box_url_internal || null, box_url_external || null,
+       cType, box_url_internal || null, box_url_external || null,
        application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
        contact_name || null, recur, scale, goal || null, reply_due || null, wants || null, userId]
     );
+
+    /**
+     * **メモはやり取りに書く** (migration 184)。`projects.notes` の列は無くなりました。
+     *
+     * `notes` の引数そのものは**受け取り続けます** — MCP の `create_project` を
+     * 本番のメール取込スキルが毎日叩いており、引数を消すと次の実行から
+     * 「備考が入らない」ではなく**呼び出しごと落ちます**。受け取ったものは
+     * `activity_type='memo'` の1件として、他のやり取りと同じ時系列に並べます。
+     */
+    await addMemoActivity(id, customer_id as string, notes, userId);
 
     // **最初のステージも履歴に残す** (migration 164)。
     // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
@@ -798,7 +867,7 @@ export class ProjectService {
          project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         application_form=?, logo_permission=?, notes=?, customer_type=?,
+         application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
@@ -806,7 +875,7 @@ export class ProjectService {
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
          contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
+         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
       );
@@ -816,7 +885,7 @@ export class ProjectService {
          project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         application_form=?, logo_permission=?, notes=?, customer_type=?,
+         application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
@@ -824,10 +893,22 @@ export class ProjectService {
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
          contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
+         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
       );
+    }
+
+    /**
+     * **メモが渡されたらやり取りに1件足す** (migration 184)。
+     *
+     * 直す画面はメモ欄を持たなくなったので、ここに来るのは
+     * MCP の `update_project`（「備考を足しておいて」）だけです。
+     * **同じ本文なら足しません** — 案件を保存し直すたびに同じメモが
+     * 積み上がると、やり取りがメモで埋まります。
+     */
+    if (typeof notes === 'string' && notes.trim()) {
+      await addMemoActivity(id, (customer_id as string) ?? (existing.customer_id as string), notes, userId, true);
     }
 
     // 想定金額が「変更された」場合のみ、確定売上の代表レコードにも反映する。

@@ -38,7 +38,11 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 });
 
 router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
-  res.json({ success: true, data: await activityLogService.update(req.params.id as string, req.body) });
+  res.json({
+    success: true,
+    // 直した人を渡す。**AI が整えた行を人が直した差分**の「誰が」に入る（条件2）
+    data: await activityLogService.update(req.params.id as string, req.body, req.user!.id),
+  });
 });
 
 // 次回アクションを完了 (営業ダッシュボードのワンタップ操作)

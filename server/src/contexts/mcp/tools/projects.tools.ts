@@ -17,7 +17,15 @@ const STAGE_LABELS: Record<string, string> = {
   a_won: 'A 受注済', s_completed: 'S 案件終了', e_lost: 'E 失注',
 };
 
-/** update の read-merge-write 対象フィールド (project.service.ts update の UPDATE 文と一致させること) */
+/**
+ * update の read-merge-write 対象フィールド (project.service.ts update の UPDATE 文と一致させること)。
+ *
+ * **`notes` だけは列ではありません** (migration 184 で `projects.notes` を落とし、
+ * メモはやり取り `activity_logs` の1件になりました)。既存行に `notes` が無いので
+ * ラウンドトリップでは `undefined` になり、**明示的に渡したときだけ**
+ * メモが1件足されます。これが欲しい挙動です — 案件を保存し直すたびに
+ * 同じメモが積み上がると、やり取りがメモで埋まります。
+ */
 const UPDATE_FIELDS = [
   'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type', 'project_type_other',
   'event_start', 'event_end', 'broadcast_type', 'media_platform', 'tags',
@@ -141,7 +149,8 @@ export function registerProjectTools(server: McpServer): void {
         event_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
           .optional().describe('複数日程 (飛び日対応)。指定すると event_start/end は MIN/MAX に自動同期'),
-        notes: z.string().optional().describe('備考 (問合せ経緯など)'),
+        notes: z.string().optional()
+          .describe('備考 (問合せ経緯など)。**やり取りに「メモ」として1件残ります**（案件の列ではありません）'),
         idempotency_key: z.string().max(200).optional()
           .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:project")。同じキーが既存なら再作成しない'),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
@@ -273,7 +282,9 @@ export function registerProjectTools(server: McpServer): void {
         tags: z.string().optional().describe('カンマ区切りタグ文字列'),
         application_form: z.boolean().optional().describe('申込書受領フラグ'),
         logo_permission: z.boolean().optional().describe('ロゴ使用許諾フラグ'),
-        notes: z.string().nullable().optional(),
+        notes: z.string().nullable().optional()
+          .describe('備考。**やり取りに「メモ」として1件足します**（案件の列ではありません）。'
+            + '同じ本文が既にあるときは足しません'),
         customer_type: z.enum(['internal', 'external']).optional(),
         gls_category: z.enum(['A', 'B']).optional().describe('GLS 発番前のみ変更可'),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))

@@ -21,7 +21,6 @@ export interface FormValues {
   broadcast_type: string;
   media_platform: string;
   tags: string;
-  notes: string;
   box_url_internal: string;
   box_url_external: string;
   application_form: boolean;
@@ -32,7 +31,7 @@ export const EMPTY_FORM: FormValues = {
   name: '', customer_id: '', customer_type: 'external', project_type: '', project_type_other: '',
   gls_category: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
-  broadcast_type: '', media_platform: '', tags: '', notes: '',
+  broadcast_type: '', media_platform: '', tags: '',
   box_url_internal: '', box_url_external: '',
   application_form: false, logo_permission: false,
 };

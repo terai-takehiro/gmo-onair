@@ -91,10 +91,14 @@ export function SeedRow({ p, row, onOpen }: { p: ProjectListRow; row?: RowAnim; 
         <span className="truncate text-list">{p.customer_name || 'お客様 未設定'}</span>
       </RowSlot>
 
-      {/* 要点は**案件名 ＋ メモの1行目**。ネタの段では案件名がそのまま用件になっている */}
+      {/*
+        要点は**案件名 ＋ メモの1行目**。ネタの段では案件名がそのまま用件になっている。
+        メモは migration 184 でやり取り（`activity_logs`）に畳んだので、
+        一覧はいちばん新しいメモを `memo_excerpt` として受け取る
+      */}
       <RowMain>
         <RowTitle>{p.name}</RowTitle>
-        {p.notes && <RowSub>{p.notes.split('\n')[0]}</RowSub>}
+        {p.memo_excerpt && <RowSub>{p.memo_excerpt.split('\n')[0]}</RowSub>}
       </RowMain>
 
       <RowSlot w={96} hideOnMobile>

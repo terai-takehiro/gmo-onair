@@ -159,7 +159,12 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
         </div>
       </Field>
 
-      <Field label="メモ" full htmlFor="np-notes">
+      {/*
+        メモは**やり取りの1件**として残ります（migration 184）。案件の列ではありません。
+        書いた本人と日付が付いて、あとから足したメモや電話の記録と同じ時系列に並びます。
+        **そう書いてあるのは、どこに残るのかが分からないと書きにくいから**です
+      */}
+      <Field label="メモ" full htmlFor="np-notes" hint="やり取りに「メモ」として残ります">
         <Textarea id="np-notes" rows={3} value={v.notes} onChange={(e) => set('notes', e.target.value)} placeholder="会場はこれから探すとのこと。" />
       </Field>
 

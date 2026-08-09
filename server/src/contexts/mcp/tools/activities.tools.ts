@@ -7,7 +7,12 @@ import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../hel
 // 営業活動記録 (activity_logs) の MCP ツール — activityLogService を再利用。
 // activity_type の選択肢は UI (ActivityLogPage) と同一 (migration 115 で DB CHECK も整合済み)。
 
-const ACTIVITY_TYPES = ['call', 'email', 'visit', 'meeting', 'proposal', 'demo', 'follow_up', 'other'] as const;
+/**
+ * 種類。**DB の CHECK（migration 184）と画面の選択肢と同じ集合**にすること。
+ * 3か所のどれか1つが古いと、そこからは登録できるのに別の口で弾かれます。
+ * `memo` は相手とのやり取りではない社内の書き置き（migration 184 でメモを畳んだ先）。
+ */
+const ACTIVITY_TYPES = ['call', 'email', 'visit', 'meeting', 'proposal', 'demo', 'follow_up', 'memo', 'other'] as const;
 
 export function registerActivityTools(server: McpServer): void {
   server.registerTool(

@@ -24,6 +24,8 @@
  */
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { notifyMany, usersWithPermission, fill, type NotifyInput } from './notification.service';
+import { generateKptDraft } from '../../sales/services/kpt.service';
+import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 
 /** サーバーの時計から `YYYY-MM-DD` と `HH:MM`。**時差を持ち込まない** */
 function nowParts(): { date: string; time: string } {
@@ -226,12 +228,75 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
   return out;
 }
 
+/**
+ * ふりかえり（KPT）の下書き → 案件の担当に「できました」
+ *
+ * ── なぜ「実施日の翌日」なのか ──────────────────────────────
+ *
+ * 当日はまだ撤収中で、材料（当日のやり取り）も出そろっていません。
+ * かといって1週間置くと**書ける人が覚えていません**。翌日が境目です。
+ *
+ * ── 二度は起こさない ────────────────────────────────────────
+ *
+ * `scheduled_job_runs` がその日ぶんを1回に絞り、さらに
+ * `generateKptDraft` が**未確認の下書きが残っている案件を飛ばします**。
+ * 押し直しても同じ内容が2組できません。
+ *
+ * ── AI につないでいない環境では何もしない ──────────────────
+ *
+ * 検証環境や手元では鍵が無いことがあります。**毎日エラーを出さない** —
+ * 出すと本当の失敗が埋もれます。
+ */
+async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
+  if (!isKptAiConfigured()) return [];
+  const yesterday = shiftDate(today, -1);
+
+  /*
+   * **終わった案件だけ**。`event_end` が空なら `event_start` を見ます（1日の案件）。
+   * 失注は対象外 — 実施していないので、ふりかえる中身がありません。
+   * 既に KPT が1件でもある案件も外します（人が先に書いていたら邪魔しない）。
+   */
+  const rows = await queryAll(
+    `SELECT p.id, p.name, p.assigned_to
+       FROM projects p
+      WHERE p.deleted_at IS NULL
+        AND p.stage <> 'e_lost'
+        AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) = ?
+        AND NOT EXISTS (SELECT 1 FROM event_report_kpt k WHERE k.project_id = p.id)
+      LIMIT 20`,
+    [yesterday],
+  ) as { id: string; name: string; assigned_to: string }[];
+
+  const out: NotifyInput[] = [];
+  for (const p of rows) {
+    try {
+      // **起票する人は案件の担当。** 定時実行には押した人が居ないので、
+      // 「誰の名前で書かれたか」は担当に寄せる（`kpt.service` と同じ）
+      const { created } = await generateKptDraft(p.id, p.assigned_to);
+      if (created === 0) continue;
+      out.push({
+        userId: p.assigned_to, templateId: 'kpt_draft',
+        title: fill('［ふりかえり］{案件名} の下書きができました', { '案件名': p.name }),
+        body: fill('{件数} 件の下書きをつくりました。まだ確かめられていません', { '件数': String(created) }),
+        link: `/sales/projects/${p.id}/review`, refType: 'project', refId: p.id, refDate: today,
+      });
+    } catch (e) {
+      // **1件の失敗で他の案件を止めない。** 材料が薄い案件・API が混んでいる回がある
+      console.error('[scheduler] kpt_draft failed:', p.id, (e as Error).message);
+    }
+  }
+  return out;
+}
+
 const JOBS: Job[] = [
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
   { key: 'eq_return', at: '09:00', templateId: 'eq_return', run: equipmentOverdue },
   { key: 'inv_send_todo', at: '09:30', templateId: 'inv_send_todo', run: invoiceSendTodo },
   { key: 'bk_remind_todo', at: '17:00', templateId: 'bk_remind_todo', run: bookingRemindTodo },
+  // 9:30 にするのは、9:00 の3本（期限・督促・返却）と重ねないため。
+  // AI を呼ぶので他より時間がかかり、重ねると朝いちの通知が遅れる
+  { key: 'kpt_draft', at: '09:30', templateId: 'kpt_draft', run: kptDraftYesterday },
 ];
 
 /**
