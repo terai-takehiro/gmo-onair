@@ -53,6 +53,7 @@ npm run dev            # v4 対象3アプリ + server  (全7アプリは dev:all
 npm run typecheck      # v4 対象3アプリ + server  (CI は全7アプリの typecheck:all を使う)
 npm run build:changed  # 変更したワークスペースだけビルド (全部だと2分)
 npm run verify:ui      # 実ブラウザで書体・桁揃い・横はみ出しを実測
+npm run fonts          # LINE Seed JP を同梱し直す (v4の3アプリは Google Fonts を読まない)
 npm run lint           # eslint    /  npm run check:version  # バージョン表記の整合
 npm run check:frozen   # 凍結4アプリの CSS が変わっていないか (build:all のあとに回す)
 npm run test           # shared の Vitest (**CI が回す。手元の gate にも必ず入れる**)
