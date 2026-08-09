@@ -14,8 +14,8 @@
  */
 import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, Tag, ExternalLink } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
-import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { ProjectTypeLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
@@ -37,7 +37,7 @@ function Fact({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-card border border-border bg-card">
       <h2 className="text-cardtitle border-b border-border-subtle px-4 py-3">{title}</h2>
@@ -164,9 +164,11 @@ export function OverviewTab({
             {project.gls_number ?? <span className="text-muted-foreground">まだ発番していません（ヨミ段階）</span>}
           </Field>
           <Field label="社内コード">{project.code}</Field>
-          <Field label="メモ">
-            {project.notes ? <span className="whitespace-pre-line">{project.notes}</span> : null}
-          </Field>
+          {/*
+            **メモの行は外しました**（migration 184）。メモという入れ物をやめて
+            やり取りに一本化したので、`projects.notes` の列そのものがありません。
+            社内の書き置きは、やり取りタブで「メモ」として同じ時系列に並びます
+          */}
         </Section>
 
         <Section title="お客様とのやり取り">
@@ -198,7 +200,11 @@ export function OverviewTab({
 
       {/* 右の欄。スマホでは本文の下に回ります */}
       <div className="flex flex-col gap-3.5">
-        <Section title="BOX">
+        {/*
+          **「BOX」という文字は併記しません**（指示書 第6章）。ロゴ＋行き先で足ります。
+          文字を並べると同じことを2回言うことになり、行が長くなります
+        */}
+        <Section title={<BoxLogo className="h-3.5 w-auto" />}>
           {project.box_url_internal || project.box_url_external ? (
             <div className="flex flex-col gap-2">
               {project.box_url_internal && (
@@ -255,9 +261,11 @@ export function OverviewTab({
           )}
         </Section>
 
-        <p className="text-sub-sm px-1 text-muted-foreground">
-          最後の更新 {formatRelativeTime(project.updated_at)}
-        </p>
+        {/*
+          **「最後の更新」はヘッダーの1段目へ移しました**（指示書 第5章）。
+          どのタブでも同じ位置に出したいものなので、概要タブの末尾に置くと
+          他のタブでは見えません
+        */}
       </div>
     </div>
   );

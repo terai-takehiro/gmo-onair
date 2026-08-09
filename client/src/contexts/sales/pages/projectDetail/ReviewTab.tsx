@@ -1,50 +1,54 @@
 /**
- * 案件詳細 / ふりかえりタブ (v4 ⑥)
+ * 案件詳細 / ふりかえりタブ (v4 ⑥ 案件記録)
  *
- * ── モックに絵が無い ────────────────────────────────────────
+ * ── 実施記録がメイン、お金と進み方がサブ ────────────────────
  *
- * このタブはモック自身が「これから作ります」と書いている分です。
- * **絵が無いので、いま持っている数字だけで組みました** — 新しい欄を作って
- * 「入力してください」と言うと、入れない欄が増えるだけになります。
+ * 前の版は お金 → 進み方 → 実施の記録 の縦一列でした。開くと**数字が先に3枚**あり、
+ * 書く場所（実施の記録）に着くまでスクロールが要ります。ふりかえりは
+ * **書く画面**なので、書くところを先頭に置きます（指示書 2-1）。
+ * PC は左に実施記録（`minmax(0,1fr)`）・右 340px に お金 → 進み方、
+ * スマホは実施記録が先頭です。
  *
- * ── 出しているもの ──────────────────────────────────────────
+ * ── 実施記録は KPT ────────────────────────────────────────
  *
- *   ① お金       想定 → 見積 → 確定売上 → 仕入 → 粗利（引き算の順に並べる）
- *   ② 進み方     タスクの終わり具合・期限を過ぎたまま終わったもの・かかった日数
- *   ③ 実施の記録 `event_reports`（見出し・topics・来場者数）
+ * 「よかったこと・次に活かすこと」の自由行をやめ、K / P / T の3枠にしました
+ * （`review/KptPanel.tsx`・migration 185）。**書いた人と日付を1件ずつ残します**。
  *
- * ── ③ は隔週キープと**同じ表・同じ口** ──────────────────────
+ * ── 当日の写真 ──────────────────────────────────────────────
  *
- * `GET/PUT /keep/event-reports/:projectId`。写しを作ると、案件から書いた内容が
- * 隔週キープの資料に出てこない（またはその逆）が起きます。
+ * BOX の「社外と共有するフォルダ／08_写真」に貯めます（`review/PhotoGrid.tsx`）。
+ * **報告資料の生成そのものはこの回では作りません** — 貯めるところまでです。
  *
  * ── 作り話をしない ──────────────────────────────────────────
  *
  * 「見積より N% 高く売れた」のような気の利いた文は出しません。
- * **数字を並べて、差だけ出します。** どう読むかは人が決めることです。
+ * **数字を並べるだけ**にして、どう読むかは人が決めます。
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { LineChart, Wallet, ListChecks, NotebookPen, Plus, Trash2, Loader2 } from 'lucide-react';
+import { LineChart, NotebookPen, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { cn } from '@gmo-onair/shared/src/client/utils';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useProjectTasks } from '@/contexts/tasks/hooks/useProjectTasks';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
+// **姓の取り出しは1か所**（トップの挨拶と同じ関数）。写すと、空白の扱いを
+// 片方だけ直したときに「寺井さん」と「寺井 隆宏 さん」が画面によって混ざる
+import { familyName } from '@/contexts/platform/pages/home/Greeting';
+import { KptPanel, type KptItem } from './review/KptPanel';
+import { ReviewSide } from './review/ReviewSide';
+import { PhotoGrid, type PhotoItem, MAX_PHOTOS } from './review/PhotoGrid';
 import type { ProjectDetail } from './types';
+import type { ReviewSummary } from './review/ReviewSide';
 
-interface Summary {
-  total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number;
-}
 interface Report {
   headline: string | null;
-  highlights: string[] | null;
   attendees_onsite: number | null;
   attendees_online: number | null;
   attendees_note: string | null;
@@ -54,35 +58,17 @@ interface Report {
 interface ReportPayload {
   found: boolean;
   report?: Report;
-  summary?: Summary;
+  summary?: ReviewSummary;
+  kpt?: KptItem[];
 }
 interface EstimateRow { status: string; version: number; subtotal: number; discount: number }
 
 const num = (v: unknown): number => Number(v) || 0;
 
-/** 引き算の1段。**利益だけ枠と色を変える**（財務ダッシュボードと同じ考え方） */
-function Line({
-  label, value, note, result, bad,
-}: { label: string; value: number | null; note?: string; result?: boolean; bad?: boolean }) {
-  return (
-    <div className={cn(
-      'flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5',
-      result ? 'rounded-note border border-border bg-surface-subtle' : 'border-b border-border-faint',
-    )}>
-      <span className={cn('min-w-0 flex-1', result ? 'text-list' : 'text-sub text-muted-foreground')}>
-        {label}
-        {note && <span className="text-note ml-2 text-muted-foreground">{note}</span>}
-      </span>
-      {value === null
-        ? <span className="text-sub text-muted-foreground">—</span>
-        : <Money value={value} className={cn('w-40 justify-end', result && 'text-list', bad && 'text-destructive')} />}
-    </div>
-  );
-}
-
 export function ReviewTab({ project }: { project: ProjectDetail }) {
   const qc = useQueryClient();
   const { currentUser, permissions } = useAuth();
+  const isMobile = useIsMobile();
   const canEdit = currentUser?.role === 'system_admin'
     || ['editor', 'manager', 'owner'].includes(permissions?.sales ?? '');
 
@@ -96,6 +82,17 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
     queryFn: async () => (await api.get(`/projects/${project.id}/estimates`)).data.data,
   });
 
+  /**
+   * 当日の写真。**BOX が落ちていてもふりかえりは開ける** — サーバーは
+   * 失敗しても 200 で返し、`reason` に理由を入れます（書類タブと同じ決め）。
+   */
+  const photos = useQuery<{ data: PhotoItem[]; reason?: string }>({
+    queryKey: ['project-photos', project.id],
+    queryFn: async () =>
+      (await api.get(`/projects/${project.id}/box-files`, { params: { scope: 'external', subfolder: 'photos' } })).data,
+    staleTime: 60_000,
+  });
+
   const { data: tasks = [] } = useProjectTasks(project.id, null);
 
   const [draft, setDraft] = useState<Partial<Report> | null>(null);
@@ -103,23 +100,73 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
   const dirty = draft !== null && Object.keys(draft).length > 0;
   const set = (patch: Partial<Report>) => setDraft((d) => ({ ...(d ?? {}), ...patch }));
 
+  const invalidateReport = () => {
+    qc.invalidateQueries({ queryKey: ['event-report', project.id] });
+    // 隔週キープの一覧も読み直す（同じ表を出しているので、片方だけ古いと食い違う）
+    qc.invalidateQueries({ queryKey: ['keep-event-reports'] });
+  };
+
   const save = useMutation({
     mutationFn: () => api.put(`/keep/event-reports/${project.id}`, {
       headline: cur.headline ?? null,
-      highlights: cur.highlights ?? [],
       attendees_onsite: cur.attendees_onsite ?? null,
       attendees_online: cur.attendees_online ?? null,
       attendees_note: cur.attendees_note ?? null,
       report_status: cur.report_status ?? 'draft',
     }),
-    onSuccess: () => {
-      setDraft(null);
-      qc.invalidateQueries({ queryKey: ['event-report', project.id] });
-      // 隔週キープの一覧も読み直す（同じ表を出しているので、片方だけ古いと食い違う）
-      qc.invalidateQueries({ queryKey: ['keep-event-reports'] });
-      notifySuccess('ふりかえりを保存しました');
-    },
+    onSuccess: () => { setDraft(null); invalidateReport(); notifySuccess('ふりかえりを保存しました'); },
     onError: (e) => notifyApiError('保存できませんでした', e),
+  });
+
+  // KPT の書き込みは4つとも同じ鍵を落とす。**1つ忘れると、その操作だけ画面が古いまま**
+  const kptAdd = useMutation({
+    mutationFn: (v: { kind: KptItem['kind']; body: string }) =>
+      api.post(`/keep/event-reports/${project.id}/kpt`, v),
+    onSuccess: invalidateReport,
+    onError: (e) => notifyApiError('足せませんでした', e),
+  });
+  const kptUpdate = useMutation({
+    mutationFn: (v: { id: string; body: string }) => api.put(`/keep/kpt/${v.id}`, { body: v.body }),
+    onSuccess: invalidateReport,
+    onError: (e) => notifyApiError('直せませんでした', e),
+  });
+  const kptConfirm = useMutation({
+    mutationFn: (id: string) => api.post(`/keep/kpt/${id}/confirm`),
+    onSuccess: invalidateReport,
+    onError: (e) => notifyApiError('確かめられませんでした', e),
+  });
+  const kptDelete = useMutation({
+    mutationFn: (id: string) => api.delete(`/keep/kpt/${id}`),
+    onSuccess: invalidateReport,
+    onError: (e) => notifyApiError('消せませんでした', e),
+  });
+  const kptDraft = useMutation({
+    mutationFn: () => api.post(`/keep/event-reports/${project.id}/kpt/draft`),
+    onSuccess: (r) => {
+      invalidateReport();
+      const d = r.data?.data as { created: number; skipped?: string };
+      // **起こせなかった理由を黙らない。** 押しても何も起きないのが一番困る
+      notifySuccess(
+        d.created > 0 ? `下書きを ${d.created} 件つくりました` : '下書きは作りませんでした',
+        d.skipped ? { description: d.skipped } : { description: '確かめてから確定にしてください。' },
+      );
+    },
+    onError: (e) => notifyApiError('下書きを作れませんでした', e),
+  });
+
+  const upload = useMutation({
+    mutationFn: async (files: File[]) => {
+      const fd = new FormData();
+      for (const f of files.slice(0, MAX_PHOTOS)) fd.append('files', f);
+      return api.post(`/projects/${project.id}/box-files`, fd, { params: { scope: 'external', subfolder: 'photos' } });
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['project-photos', project.id] });
+      const failed = (r.data?.data?.failed ?? []) as string[];
+      notifySuccess('写真を BOX に置きました',
+        failed.length > 0 ? { description: `入らなかったもの: ${failed.join(' / ')}` } : undefined);
+    },
+    onError: (e) => notifyApiError('写真を置けませんでした', e),
   });
 
   if (q.isError) return <ErrorPanel title="ふりかえりを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
@@ -137,10 +184,11 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
   const today = localDateStr(new Date());
   const late = tasks.filter((t) => t.due_date && !t.is_completed && t.due_date < today).length;
 
-  const highlights = cur.highlights ?? [];
+  const kptBusy = kptAdd.isPending || kptUpdate.isPending || kptConfirm.isPending
+    || kptDelete.isPending || kptDraft.isPending;
 
   return (
-    <div className="flex flex-col gap-3.5 p-4 lg:gap-4 lg:p-6">
+    <div className="flex flex-col gap-3.5 p-4 lg:p-6">
       <div className="flex flex-wrap items-center gap-2">
         <LineChart className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <h2 className="text-h2 min-w-0 flex-1">ふりかえり</h2>
@@ -149,162 +197,130 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
         )}
       </div>
 
-      {/* ① お金 */}
-      <section className="rounded-card overflow-hidden border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border-faint px-4 py-2.5">
-          <Wallet className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-cardtitle min-w-0 flex-1">お金</h3>
-        </div>
-        <Line label="想定していた金額" value={project.expected_amount === null ? null : num(project.expected_amount)}
-          note="案件をつくったときの見込み" />
-        <Line label="出した見積" value={quoted} note={sent ? `v${sent.version}（値引きのあと）` : '出した見積がありません'} />
-        <Line label="確定した売上" value={s ? s.total_revenue : null} />
-        <Line label="仕入（原価）" value={s ? -s.total_purchase : null} />
-        <div className="p-3">
-          <Line
-            label="粗利"
-            value={s ? s.gross_profit : null}
-            note={s && s.total_revenue > 0 ? `${s.gross_margin}%` : undefined}
-            result
-            bad={!!s && s.gross_profit < 0}
-          />
-        </div>
-        <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-2.5 text-muted-foreground">
-          売上と仕入は<strong className="font-bold">分け合った額も足した実績</strong>です（財務管理と同じ数え方）。
-          <strong className="font-bold">見積との差の読み方はここでは書きません</strong> —
-          値引きなのか追加受注なのかは数字からは分からないためです。
-        </p>
-      </section>
+      {/*
+        **実施記録が主・お金と進み方が従。** スマホは1列なので、
+        この並びのまま上から積まれます（実施記録が先頭に来る）
+      */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* ① 実施記録（メイン） */}
+        <section className="rounded-card overflow-hidden border border-border bg-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border-faint px-4 py-2.5">
+            <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <h3 className="text-cardtitle min-w-0 flex-1">実施記録</h3>
+          </div>
 
-      {/* ② 進み方 */}
-      <section className="rounded-card overflow-hidden border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border-faint px-4 py-2.5">
-          <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-cardtitle min-w-0 flex-1">進み方</h3>
-        </div>
-        {total === 0 ? (
-          <p className="text-sub px-4 py-3 text-muted-foreground">タスクを1つも入れていない案件です。</p>
-        ) : (
-          <div className="flex flex-wrap gap-x-8 gap-y-2 px-4 py-3">
-            <span className="flex items-baseline gap-2">
-              <span className="text-sub text-muted-foreground">終わったタスク</span>
-              <span className="font-number text-list">{done} / {total}</span>
-            </span>
-            <span className="flex items-baseline gap-2">
-              <span className="text-sub text-muted-foreground">期限を過ぎたまま</span>
-              <span className={cn('font-number text-list', late > 0 && 'text-destructive')}>{late}</span>
-            </span>
-            {project.event_start && (
-              <span className="flex items-baseline gap-2">
-                <span className="text-sub text-muted-foreground">実施日</span>
-                <span className="font-number text-list">{project.event_start}</span>
-              </span>
+          <div className="flex flex-col gap-3.5 p-4">
+            <div>
+              <Label htmlFor="rv-headline">ひとことで言うと</Label>
+              <Input
+                id="rv-headline"
+                value={cur.headline ?? ''}
+                disabled={!canEdit}
+                maxLength={120}
+                placeholder="例）ハイブリッド配信で現地 120 名・オンライン 480 名。機材トラブルなし。"
+                onChange={(e) => set({ headline: e.target.value })}
+              />
+            </div>
+
+            <KptPanel
+              items={q.data?.kpt ?? []}
+              myName={familyName(currentUser?.name) || 'わたし'}
+              canEdit={canEdit}
+              busy={kptBusy}
+              aiAvailable
+              onAdd={(kind, body) => kptAdd.mutate({ kind, body })}
+              onUpdate={(id, body) => kptUpdate.mutate({ id, body })}
+              onConfirm={(id) => kptConfirm.mutate(id)}
+              onDelete={async (id) => {
+                const ok = await confirmAction({
+                  title: 'この行を消しますか',
+                  description: '戻せません。AI が起こした行を消した記録は、次の下書きに効きます。',
+                  confirmLabel: '消す',
+                  tone: 'danger',
+                });
+                if (ok) kptDelete.mutate(id);
+              }}
+              onDraft={() => kptDraft.mutate()}
+            />
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label htmlFor="rv-onsite">来場（現地）</Label>
+                <Input id="rv-onsite" type="number" className="font-number" disabled={!canEdit}
+                  value={cur.attendees_onsite ?? ''}
+                  onChange={(e) => set({ attendees_onsite: e.target.value === '' ? null : Number(e.target.value) })} />
+              </div>
+              <div>
+                <Label htmlFor="rv-online">視聴（オンライン）</Label>
+                <Input id="rv-online" type="number" className="font-number" disabled={!canEdit}
+                  value={cur.attendees_online ?? ''}
+                  onChange={(e) => set({ attendees_online: e.target.value === '' ? null : Number(e.target.value) })} />
+              </div>
+              <div>
+                <Label htmlFor="rv-note">数え方のメモ</Label>
+                <Input id="rv-note" disabled={!canEdit} value={cur.attendees_note ?? ''}
+                  placeholder="例）同時接続の最大値"
+                  onChange={(e) => set({ attendees_note: e.target.value })} />
+              </div>
+            </div>
+            <p className="text-note text-muted-foreground">
+              <strong className="font-bold">空欄は「数えていない」</strong>として扱います（0 と区別します）。
+            </p>
+
+            <PhotoGrid
+              projectId={project.id}
+              photos={photos.data?.data ?? []}
+              canEdit={canEdit}
+              busy={upload.isPending}
+              mobile={isMobile}
+              reason={photoReason(photos.data?.reason)}
+              onUpload={(files) => upload.mutate(files)}
+            />
+
+            {canEdit && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
+                <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+                  {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+                  保存する
+                </Button>
+                {cur.report_status !== 'confirmed' ? (
+                  <Button variant="outline" disabled={save.isPending} onClick={() => set({ report_status: 'confirmed' })}>
+                    確定にする
+                  </Button>
+                ) : (
+                  <Button variant="outline" disabled={save.isPending} onClick={() => set({ report_status: 'draft' })}>
+                    下書きに戻す
+                  </Button>
+                )}
+                {dirty && <span className="text-note text-muted-foreground">保存していない直しがあります</span>}
+              </div>
             )}
           </div>
-        )}
-      </section>
+        </section>
 
-      {/* ③ 実施の記録 */}
-      <section className="rounded-card overflow-hidden border border-border bg-card">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border-faint px-4 py-2.5">
-          <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-cardtitle min-w-0 flex-1">実施の記録</h3>
-          <span className="text-note text-muted-foreground">隔週キープの資料に出ます</span>
-        </div>
-
-        <div className="flex flex-col gap-3.5 p-4">
-          <div>
-            <Label htmlFor="rv-headline">ひとことで言うと</Label>
-            <Input
-              id="rv-headline"
-              value={cur.headline ?? ''}
-              disabled={!canEdit}
-              maxLength={120}
-              placeholder="例）ハイブリッド配信で現地 120 名・オンライン 480 名。機材トラブルなし。"
-              onChange={(e) => set({ headline: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <Label>よかったこと・次に活かすこと</Label>
-            <div className="mt-1 flex flex-col gap-1.5">
-              {highlights.map((h, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    value={h}
-                    aria-label={`よかったこと・次に活かすこと ${i + 1} 行目`}
-                    disabled={!canEdit}
-                    onChange={(e) => set({ highlights: highlights.map((x, n) => (n === i ? e.target.value : x)) })}
-                  />
-                  {canEdit && (
-                    <Button variant="ghost" size="icon" aria-label={`${i + 1} 行目を消す`}
-                      onClick={() => set({ highlights: highlights.filter((_, n) => n !== i) })}>
-                      <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              {canEdit && (
-                <Button variant="outline" size="sm" className="self-start"
-                  onClick={() => set({ highlights: [...highlights, ''] })}>
-                  <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />行を足す
-                </Button>
-              )}
-              {highlights.length === 0 && !canEdit && (
-                <p className="text-sub text-muted-foreground">まだ書かれていません。</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <Label htmlFor="rv-onsite">来場（現地）</Label>
-              <Input id="rv-onsite" type="number" className="font-number" disabled={!canEdit}
-                value={cur.attendees_onsite ?? ''}
-                onChange={(e) => set({ attendees_onsite: e.target.value === '' ? null : Number(e.target.value) })} />
-            </div>
-            <div>
-              <Label htmlFor="rv-online">視聴（オンライン）</Label>
-              <Input id="rv-online" type="number" className="font-number" disabled={!canEdit}
-                value={cur.attendees_online ?? ''}
-                onChange={(e) => set({ attendees_online: e.target.value === '' ? null : Number(e.target.value) })} />
-            </div>
-            <div>
-              <Label htmlFor="rv-note">数え方のメモ</Label>
-              <Input id="rv-note" disabled={!canEdit} value={cur.attendees_note ?? ''}
-                placeholder="例）同時接続の最大値"
-                onChange={(e) => set({ attendees_note: e.target.value })} />
-            </div>
-          </div>
-          <p className="text-note text-muted-foreground">
-            <strong className="font-bold">空欄は「数えていない」</strong>として扱います（0 と区別します）。
-          </p>
-
-          {canEdit && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
-              <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
-                {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-                保存する
-              </Button>
-              {cur.report_status !== 'confirmed' ? (
-                <Button
-                  variant="outline"
-                  disabled={save.isPending}
-                  onClick={() => { set({ report_status: 'confirmed' }); }}
-                >
-                  確定にする
-                </Button>
-              ) : (
-                <Button variant="outline" disabled={save.isPending}
-                  onClick={() => set({ report_status: 'draft' })}>
-                  下書きに戻す
-                </Button>
-              )}
-              {dirty && <span className="text-note text-muted-foreground">保存していない直しがあります</span>}
-            </div>
-          )}
-        </div>
-      </section>
+        <ReviewSide
+          expectedAmount={project.expected_amount}
+          quoted={quoted}
+          sentVersion={sent ? sent.version : null}
+          summary={s}
+          taskTotal={total}
+          taskDone={done}
+          taskLate={late}
+          eventStart={project.event_start}
+        />
+      </div>
     </div>
   );
+}
+
+/**
+ * 写真が出せない理由。**「まだ1枚もありません」とは書きません** —
+ * BOX につながっていないのか、本当に0枚なのかは別のことです
+ * （書類タブと同じ言い分け）。
+ */
+function photoReason(reason: string | undefined): string | null {
+  if (!reason) return null;
+  if (reason === 'NO_FOLDER') return 'この案件の BOX フォルダがまだ作られていません（GLS を発番すると作られます）。';
+  if (reason === 'NOT_CONFIGURED') return 'この環境は BOX につないでいないので、写真は置けません。';
+  return 'BOX につながりませんでした。あとでもう一度見てください。';
 }

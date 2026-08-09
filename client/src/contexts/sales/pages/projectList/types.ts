@@ -34,7 +34,8 @@ export interface ProjectListRow {
   /** 「ネタ」の見え方だけが使う (migration 165)。手で登録した案件は NULL */
   intake_channel?: string | null;
   intake_confidence?: string | null;
-  notes?: string | null;
+  /** いちばん新しいメモの本文（migration 184 でメモはやり取りに畳んだ） */
+  memo_excerpt?: string | null;
   created_at?: string | null;
 }
 

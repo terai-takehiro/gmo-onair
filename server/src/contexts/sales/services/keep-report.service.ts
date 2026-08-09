@@ -3,6 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from './project.service';
 import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
+import { listKpt } from './kpt.service';
 
 // 隔週キープ資料 (報告資料) の基礎データ service。
 // UI (案件管理アプリの報告資料ページ) と MCP ツール (eventreports/budget/minutes.tools) の
@@ -20,7 +21,6 @@ export interface PhotoEntry {
 
 export interface EventReportUpsert {
   headline?: string;
-  highlights?: string[];
   attendees_onsite?: number;
   attendees_online?: number;
   attendees_note?: string;
@@ -57,6 +57,10 @@ export const keepReportService = {
     // 関係なく存在するので、`found=false` のときに落とすと
     // ふりかえりの画面が「売上 —」で始まる（実測して直した）
     const summary = await projectService.getSummary(projectId);
+    // **KPT は報告そのものが無くても返す。** `highlights` を畳んだ先が別の表に
+    // なったので (migration 185)、`found=false` のときに落とすと
+    // 「AI の下書きだけ入っている案件」の中身が画面から消えます
+    const kpt = await listKpt(projectId);
     if (!report) {
       return {
         found: false as const,
@@ -65,6 +69,7 @@ export const keepReportService = {
           event_start: project.event_start, event_end: project.event_end,
         },
         summary,
+        kpt,
       };
     }
     return {
@@ -72,6 +77,7 @@ export const keepReportService = {
       report,
       project: { id: project.id, name: project.name, gls_number: project.gls_number, event_start: project.event_start, event_end: project.event_end },
       summary,
+      kpt,
     };
   },
 
@@ -95,6 +101,7 @@ export const keepReportService = {
     return await Promise.all(rows.map(async (r) => ({
       ...r,
       summary: await projectService.getSummary(r.project_id as string),
+      kpt: await listKpt(r.project_id as string),
     })));
   },
 
@@ -132,9 +139,9 @@ export const keepReportService = {
       id = uuidv4();
       action = 'created';
       await execute(
-        `INSERT INTO event_reports (id, project_id, headline, highlights, attendees_onsite, attendees_online, attendees_note, report_status, reported_at)
-         VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)`,
-        [id, projectId, fields.headline ?? null, JSON.stringify(fields.highlights ?? []),
+        `INSERT INTO event_reports (id, project_id, headline, attendees_onsite, attendees_online, attendees_note, report_status, reported_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, projectId, fields.headline ?? null,
          fields.attendees_onsite ?? null, fields.attendees_online ?? null, fields.attendees_note ?? null,
          fields.report_status ?? 'draft', fields.reported_at ?? null],
       );
@@ -144,7 +151,6 @@ export const keepReportService = {
       const sets: string[] = ['updated_at = NOW()'];
       const params: unknown[] = [];
       if (fields.headline !== undefined) { sets.push('headline = ?'); params.push(fields.headline); }
-      if (fields.highlights !== undefined) { sets.push('highlights = ?::jsonb'); params.push(JSON.stringify(fields.highlights)); }
       if (fields.attendees_onsite !== undefined) { sets.push('attendees_onsite = ?'); params.push(fields.attendees_onsite); }
       if (fields.attendees_online !== undefined) { sets.push('attendees_online = ?'); params.push(fields.attendees_online); }
       if (fields.attendees_note !== undefined) { sets.push('attendees_note = ?'); params.push(fields.attendees_note); }

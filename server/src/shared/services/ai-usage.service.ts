@@ -28,7 +28,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { execute, queryAll } from '../db/connection';
 
-export type AiUsageKind = 'intake' | 'minutes' | 'stt' | 'stt_preview';
+export type AiUsageKind = 'intake' | 'minutes' | 'activity' | 'kpt' | 'stt' | 'stt_preview';
 
 export interface AiUsageInput {
   kind: AiUsageKind;

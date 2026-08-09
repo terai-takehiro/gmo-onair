@@ -18,6 +18,7 @@ import {
   listMinutes, getMinutes, startTranscription, updateMinutes, deleteMinutes, openItemToTask,
 } from '../services/minutes.service';
 import { MAX_AUDIO_BYTES, isSttConfigured, normalizeAudioName } from '../services/minutes-ai.service';
+import { isActivityAiConfigured } from '../services/activity-ai.service';
 
 // `mergeParams` で親の `:projectId` を受け取る。型は既定が `{}` なので、
 // 既存の `estimates.routes.ts` と同じく取り出すときに書く
@@ -35,7 +36,11 @@ const canEdit = requirePermission('sales', 'editor');
 router.get('/', async (req, res) => {
   const rows = await listMinutes(paramsOf(req).projectId);
   // 文字起こしができる設定かどうかを画面に渡す。**押してから「使えません」は最悪**
-  res.json({ success: true, data: rows, stt_available: isSttConfigured() });
+  // **整形と文字起こしは別の鍵**（文字起こしは Whisper = OpenAI 固定、
+  // やり取りの整形は OpenAI / Anthropic のどちらでもよい）。
+  // 1つにまとめると「文字起こしは使えないが整形はできる」環境で
+  // 書く枠の案内が消える
+  res.json({ success: true, data: rows, stt_available: isSttConfigured(), ai_available: isActivityAiConfigured() });
 });
 
 router.get('/:id', async (req, res) => {

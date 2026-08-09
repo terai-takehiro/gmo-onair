@@ -41,8 +41,11 @@ import { ThreadTab } from './projectDetail/ThreadTab';
 import { LegacyViewTab } from './projectDetail/LegacyViewTab';
 import { EstimateTab } from './projectDetail/EstimateTab';
 import { MobileTools } from './projectDetail/MobileTools';
-import { PROJECT_TABS, MOBILE_TAB_KEYS, isProjectTab, type ProjectTabKey } from './projectDetail/tabs';
+import {
+  PROJECT_TABS, MOBILE_TABS_BY_PHASE, projectPhase, isProjectTab, type ProjectTabKey,
+} from './projectDetail/tabs';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { localDateStr } from '@/lib/format';
 import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './projectDetail/types';
 
@@ -57,7 +60,6 @@ export default function ProjectDetailPage() {
   // **「それでもこのまま開く」で1タブだけ解除できる**（`PcOnlyPanel` と同じ考え方）。
   // タブを覚えておくのが要点で、真偽値にすると別のタブへ移っても解除が残る
   const [forcedTab, setForcedTab] = useState<ProjectTabKey | null>(null);
-  const offPhone = isMobile && !MOBILE_TAB_KEYS.includes(tab) && forcedTab !== tab;
   /**
    * 失注だけは「はい / いいえ」で済ませません。**理由を残さないと失注分析が
    * 「不明」だらけ**になるので、理由を選ばないと押せないダイアログを開きます。
@@ -184,6 +186,35 @@ export default function ProjectDetailPage() {
     thread: activities.data?.data?.length,
   };
 
+  /*
+   * スマホのタブは**段階で入れ替わります**（`tabs.ts`）。
+   *
+   * ⚠️ **段階が変わってタブが消えたときに、URL がその値のままだと中身が空になります。**
+   * 「本番の日だけ出る当日タブ」を開いたまま日付が変わる、共有された URL を
+   * 翌日に開く、のどちらでも起きます。**組に無いタブを指していたら概要に落とします。**
+   *
+   * PC は7タブのまま段階で変えません（幅があるので絞る理由がない）。
+   */
+  const phase = projectPhase(p, localDateStr(new Date()));
+  const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
+  /*
+   * **2種類の「開けない」を混ぜません。**
+   *
+   *   ① どの段階でもスマホに出さないタブ（見積・書類・回）
+   *      → 今までどおり**すり替えず**「PC で見る画面です」と出す。
+   *        URL を共有された人が「見積を見せたのに概要が出た」ことにならないように
+   *   ② 別の段階なら出るタブ（当日・やり取り・ふりかえり・タスク）
+   *      → **概要に落とす**（指示書 第4章）。こちらは幅の問題ではなく
+   *        「今日は使わない」だけなので、「PC で見てください」は嘘になります
+   */
+  const everMobile = Object.values(MOBILE_TABS_BY_PHASE).some((keys) => keys.includes(tab));
+  const wrongPhase = isMobile && !mobileKeys.includes(tab) && everMobile;
+  const offPhone = isMobile && !mobileKeys.includes(tab) && !everMobile && forcedTab !== tab;
+
+  // 段階の組に無いタブは概要へ。`replace` にするのは、戻るを押したときに
+  // ここへ戻ってまた飛ばされるのを防ぐため
+  if (wrongPhase) return <Navigate to={`/sales/projects/${id}`} replace />;
+
   return (
     <div className="flex min-h-full flex-col">
       <DetailHeader
@@ -198,6 +229,8 @@ export default function ProjectDetailPage() {
         counts={counts}
         onChangeStage={onChangeStage}
         mobile={isMobile}
+        phase={phase}
+        updatedAt={p.updated_at}
       />
 
       {offPhone && (

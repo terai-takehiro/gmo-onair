@@ -109,7 +109,6 @@ export function useProjectForm(id: string | undefined) {
       broadcast_type: project.broadcast_type || '',
       media_platform: project.media_platform || '',
       tags: project.tags || '',
-      notes: project.notes || '',
       box_url_internal: project.box_url_internal || '',
       box_url_external: project.box_url_external || '',
       application_form: !!project.application_form,

@@ -54,17 +54,59 @@ export const PROJECT_TABS: ProjectTabDef[] = [
 ];
 
 /**
- * スマホで開けるタブ（⑥・モックの端末枠 6枚目）。
+ * スマホのタブは**案件の段階で入れ替える**（v4 ⑥ 案件記録・指示書 第4章）。
  *
- * モックの端末枠は **概要（実施日・会場・標準工程・個別タスク）だけ**で、
- * その下に「**見積・書類・やり取りは PC で**」と書いてあります。
- * 8タブを 375px に並べると1タブが 40px 弱になり、押し分けられません。
+ * ── なぜ固定ではだめか ──────────────────────────────────────
  *
- * **当日を入れているのはモックに無い足し算です。** 本番当日に現場で開く
- * 資料への入口で、**スマホで開く場面がいちばん多いタブ**だからです
- * （中身は既にある画面へのリンクだけなので、幅の問題もありません）。
+ * 8タブを 375px に並べると1タブが 40px 弱になり押し分けられないので、
+ * スマホは3つに絞ります。ところが**3つを固定にすると、どの段階でも
+ * 1つは使わないタブが混ざります** —
+ *
+ *   ・ふだんは「当日」を開かない（本番の日だけ）
+ *   ・本番の日は「やり取り」を書いている暇がない
+ *   ・終わった案件では「当日」も「タスク」も終わっている
+ *
+ * 段階で入れ替えると、3つとも**その日に使うもの**になります。
+ *
+ * ── 「当日」はいちばん右 ────────────────────────────────────
+ *
+ * 本番の日にいちばん押すタブですが、**左端に置くと押し間違いで開きます**。
+ * 現場では片手で持っているので、親指の届く右端が安全です（指示書の指定）。
  */
-export const MOBILE_TAB_KEYS: ProjectTabKey[] = ['overview', 'task', 'day'];
+export type ProjectPhase = 'base' | 'day' | 'done';
+
+export const MOBILE_TABS_BY_PHASE: Record<ProjectPhase, ProjectTabKey[]> = {
+  base: ['overview', 'thread', 'task'],
+  day: ['overview', 'task', 'day'],
+  done: ['overview', 'thread', 'review'],
+};
+
+/**
+ * どの段階か。
+ *
+ * **実施日は「いずれかの日が今日なら本番日」**（指示書 第9章の確認事項への答え）。
+ * 飛び日の案件があるので、`event_start` だけを見ると中日が本番日になりません。
+ * かといって期間で判定するのも違います — 3日空いた飛び日の真ん中は
+ * 本番ではないためです。`dates`（`project_dates`）があるときはそれを見て、
+ * 無ければ開始・終了の**両端**だけを見ます。
+ */
+export function projectPhase(p: {
+  stage: string;
+  event_start?: string | null;
+  event_end?: string | null;
+  dates?: { date: string }[];
+}, today: string): ProjectPhase {
+  if (p.stage === 's_completed' || p.stage === 'e_lost') return 'done';
+  const days = (p.dates ?? []).map((d) => d.date).filter(Boolean);
+  const all = days.length > 0 ? days : ([p.event_start, p.event_end].filter(Boolean) as string[]);
+  return all.includes(today) ? 'day' : 'base';
+}
+
+/**
+ * ふだんの3つ。**段階が分からない場所（部品の既定値）だけが使う。**
+ * 画面は `MOBILE_TABS_BY_PHASE` を段階で引くこと
+ */
+export const MOBILE_TAB_KEYS: ProjectTabKey[] = MOBILE_TABS_BY_PHASE.base;
 
 export function isProjectTab(value: string | undefined): value is ProjectTabKey {
   return PROJECT_TABS.some((t) => t.key === value);

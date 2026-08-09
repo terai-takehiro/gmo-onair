@@ -679,9 +679,13 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         if (!cid) { cache.projects.set(cacheKey, null); return null; }
         const id = randomUUID();
         await client.query(
-          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
+          // 印は **`kessan_marker` の列**に入れる (migration 184)。
+          // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
+          // メモをやり取りへ畳んだので `notes` の列そのものが無い。
+          // 列に持つと、人が書いたメモと印を取り違えなくなる
+          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
            VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-          [id, key, isFixed ? null : key, name || key, cid, fallbackUser, MARKER, fallbackUser]
+          [id, key, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
         );
         p = { id, customer_id: cid };
         report.masters.created.projects++;
@@ -771,7 +775,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
                AND pu.recognition_date IS NOT NULL AND pu.recognition_date <> ''
            ) x ON true
            WHERE p.deleted_at IS NULL
-             AND p.notes LIKE '[kessan:%'
+             AND p.kessan_marker IS NOT NULL
              AND (p.event_start IS NULL OR p.event_start = '')
            GROUP BY p.id
          )

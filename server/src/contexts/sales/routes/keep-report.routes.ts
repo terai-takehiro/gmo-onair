@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { keepReportService } from '../services/keep-report.service';
+import {
+  addKpt, updateKpt, confirmKpt, deleteKpt, generateKptDraft, isKptKind,
+} from '../services/kpt.service';
 
 // 隔週キープ資料 (報告資料) の基礎データ編集 API。
 // UI (案件管理アプリ /sales/keep-report) 用 — MCP ツールと同じ keepReportService を通る。
@@ -34,7 +37,7 @@ router.get('/event-reports/:projectId', async (req, res) => {
 });
 
 router.put('/event-reports/:projectId', requirePermission('sales', 'editor'), async (req, res) => {
-  const { headline, highlights, attendees_onsite, attendees_online, attendees_note, report_status, reported_at } = req.body;
+  const { headline, attendees_onsite, attendees_online, attendees_note, report_status, reported_at } = req.body;
   if (report_status !== undefined && !['draft', 'confirmed'].includes(report_status)) {
     throw new AppError(400, 'VALIDATION_ERROR', 'report_status は draft / confirmed');
   }
@@ -42,10 +45,47 @@ router.put('/event-reports/:projectId', requirePermission('sales', 'editor'), as
     throw new AppError(400, 'VALIDATION_ERROR', 'reported_at は YYYY-MM-DD');
   }
   const result = await keepReportService.upsertEventReport(req.params.projectId as string, {
-    headline, highlights, attendees_onsite, attendees_online, attendees_note, report_status,
+    headline, attendees_onsite, attendees_online, attendees_note, report_status,
     reported_at: reported_at === '' ? undefined : reported_at,
   });
   res.json({ success: true, data: result });
+});
+
+/*
+ * ふりかえりの KPT (migration 185)。
+ *
+ * **書いた人は押した本人**で、呼ぶ側からは指定できません — 誰として書くのかを
+ * 呼び出し側に決めさせると、他人の名前で書けてしまいます
+ * (画面の追加ボタンが「寺井 として足す」と自分の名前を出すのはこのため)。
+ */
+router.post('/event-reports/:projectId/kpt', requirePermission('sales', 'editor'), async (req, res) => {
+  const { kind, body } = req.body ?? {};
+  if (!isKptKind(kind)) throw new AppError(400, 'VALIDATION_ERROR', 'kind は keep / problem / try');
+  if (typeof body !== 'string') throw new AppError(400, 'VALIDATION_ERROR', 'body は必須です');
+  res.status(201).json({
+    success: true,
+    data: await addKpt(req.params.projectId as string, kind, body, req.user!.id),
+  });
+});
+
+router.put('/kpt/:id', requirePermission('sales', 'editor'), async (req, res) => {
+  const { body } = req.body ?? {};
+  if (typeof body !== 'string') throw new AppError(400, 'VALIDATION_ERROR', 'body は必須です');
+  res.json({ success: true, data: await updateKpt(req.params.id as string, body, req.user!.id) });
+});
+
+/** AI の下書きを「そのまま採る」。**無修正で採ったことが教師データになる** */
+router.post('/kpt/:id/confirm', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await confirmKpt(req.params.id as string, req.user!.id) });
+});
+
+router.delete('/kpt/:id', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await deleteKpt(req.params.id as string, req.user!.id) });
+});
+
+/** AI に下書きを起こさせる (手で押す口。定時実行は scheduler が同じ関数を呼ぶ) */
+router.post('/event-reports/:projectId/kpt/draft', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await generateKptDraft(req.params.projectId as string, req.user!.id) });
 });
 
 router.post('/event-reports/:projectId/photos', requirePermission('sales', 'editor'), async (req, res) => {

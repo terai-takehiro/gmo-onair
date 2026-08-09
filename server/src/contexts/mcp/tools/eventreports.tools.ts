@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { keepReportService } from '../../sales/services/keep-report.service';
+import { replaceKptKind } from '../../sales/services/kpt.service';
 import { ok, runTool, audit, clampLimit, REQUESTED_BY } from '../helpers';
 
 // 隔週キープ資料 Phase 1: イベント実施報告 (event_reports)。
@@ -60,12 +61,16 @@ export function registerEventReportTools(server: McpServer): void {
       title: 'イベント実施報告の作成/更新',
       description:
         '案件のイベント実施報告を作成または更新する。**渡したフィールドだけ更新** (未指定は既存値を保持)。' +
-        'highlights は箇条書きトピックの全置換 (3-5点・各60字目安)。headline 未設定時は資料側で案件名を使用。' +
+        'ふりかえりは KPT (keep/problem/try) の3枠。**渡した枠だけ全置換**する。' +
+        'highlights は keep の別名 (旧仕様との互換。両方渡したら keep が勝つ)。headline 未設定時は資料側で案件名を使用。' +
         'report_status を confirmed にすると資料掲載対象になる (既定 draft)。reported_at は報告対象会議日。',
       inputSchema: {
         project_id: z.string().min(1).describe('案件 ID'),
         headline: z.string().max(120).optional().describe('資料タイトル下の1行サマリ'),
-        highlights: z.array(z.string().max(200)).max(10).optional().describe('箇条書きトピック (全置換)'),
+        highlights: z.array(z.string().max(200)).max(10).optional().describe('【旧】箇条書きトピック = keep の別名 (全置換)'),
+        keep: z.array(z.string().max(200)).max(10).optional().describe('Keep 続けること (全置換)'),
+        problem: z.array(z.string().max(200)).max(10).optional().describe('Problem 困ったこと (全置換)。**人を名指ししない**'),
+        try: z.array(z.string().max(200)).max(10).optional().describe('Try 次に試すこと (全置換)'),
         attendees_onsite: z.number().int().min(0).optional().describe('リアル来場者数'),
         attendees_online: z.number().int().min(0).optional().describe('オンライン参加者数'),
         attendees_note: z.string().optional().describe('「速報値」等の注記'),
@@ -77,13 +82,17 @@ export function registerEventReportTools(server: McpServer): void {
     async (args) => runTool(async () => {
       const { id, action, report } = await keepReportService.upsertEventReport(args.project_id, {
         headline: args.headline,
-        highlights: args.highlights,
         attendees_onsite: args.attendees_onsite,
         attendees_online: args.attendees_online,
         attendees_note: args.attendees_note,
         report_status: args.report_status,
         reported_at: args.reported_at,
       });
+      // KPT は別の表 (migration 185)。**渡した枠だけ**入れ替える
+      const keep = args.keep ?? args.highlights;
+      if (keep !== undefined) await replaceKptKind(args.project_id, 'keep', keep);
+      if (args.problem !== undefined) await replaceKptKind(args.project_id, 'problem', args.problem);
+      if (args.try !== undefined) await replaceKptKind(args.project_id, 'try', args.try);
       audit('upsert_event_report',
         { project_id: args.project_id, fields: Object.keys(args).filter((k) => k !== 'requested_by' && k !== 'project_id') },
         { id, action, project_id: args.project_id, report_status: report.report_status }, args.requested_by);

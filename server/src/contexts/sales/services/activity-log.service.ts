@@ -1,6 +1,27 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import {
+  recordAiOutput, recordCorrections, findLatestAiOutput, type CorrectionInput,
+} from '../../../shared/services/ai-output.service';
+import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
+import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
+import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
+
+/** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
+export const ACTIVITY_FORMAT_KIND = 'activity_format';
+
+/** 種類の集合。**DB の CHECK（migration 184）と同じにすること** */
+export const ACTIVITY_TYPES = [
+  'call', 'email', 'meeting', 'visit', 'proposal', 'demo', 'followup', 'follow_up', 'memo', 'other',
+] as const;
+
+/** 整形のプロンプトに渡す種類の名前（AI が「電話の記録なのか議事なのか」を踏まえられる） */
+const KIND_LABEL: Record<string, string> = {
+  call: '電話', email: 'メール', meeting: '打合せ', visit: '訪問',
+  proposal: '提案', demo: 'デモ', followup: '追いかけ', follow_up: '追いかけ',
+  memo: '社内のメモ', other: 'その他',
+};
 
 export interface ActivityLogFilter {
   projectId?: string;
@@ -90,30 +111,162 @@ export class ActivityLogService {
     return row;
   }
 
+  /**
+   * 記録を1件作る。
+   *
+   * ── `format: true` で「整えて記録する」──────────────────────
+   *
+   * 案件詳細のやり取りタブは、**件名を訊かずに自由入力1つ**で受けます。
+   * その代わり保存時に AI が 見出し・整えた本文・要点・次にやること を作ります。
+   *
+   * **原文は必ず `description` に残します。** 整形が的外れなときに人が戻せますし、
+   * 整形プロンプトを直したあと**同じ原文でやり直せます**
+   * （議事録が `transcript` を残しているのと同じ）。
+   *
+   * **整形に失敗しても記録は残します。** ここで 500 を返すと、
+   * 打った文がまるごと消えます — 記録が残らないほうが、形が整っていないより困る。
+   */
   async create(data: Record<string, unknown>, userId: string) {
-    const { project_id, customer_id, activity_type, activity_date, subject, description, next_action, next_action_date } = data;
-    if (!activity_type || !activity_date || !subject) {
+    const { project_id, customer_id, activity_type, activity_date, description, next_action, next_action_date } = data;
+    let { subject } = data;
+    const wantFormat = data.format === true;
+    if (!activity_type || !activity_date) {
+      throw new AppError(400, 'VALIDATION_ERROR', '活動種別と日付は必須です');
+    }
+    // **知らない種類は DB の CHECK に当たる前に断る。** 当たると 500 になり、
+    // 画面には理由が出ません（実 DB に当てて確かめた）
+    if (!(ACTIVITY_TYPES as readonly string[]).includes(String(activity_type))) {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        `知らない活動種別です（${ACTIVITY_TYPES.join(' / ')} のどれか）`);
+    }
+    // 整形するときは件名を訊かない（AI が作る）。しない経路は今までどおり必須
+    if (!wantFormat && !subject) {
       throw new AppError(400, 'VALIDATION_ERROR', '活動種別、日付、件名は必須です');
     }
+    const original = typeof description === 'string' ? description.trim() : '';
+    if (wantFormat && !original) {
+      throw new AppError(400, 'VALIDATION_ERROR', '整えるための本文が空です');
+    }
+
+    let bodyHtml = sanitizeBodyHtml(data.body_html);
+    let keyPoints = sanitizeKeyPoints(data.key_points);
+    let aiFormatted = false;
+    let aiOutputId: string | null = null;
+    let action = typeof next_action === 'string' ? next_action : null;
+    let actionDate = typeof next_action_date === 'string' ? next_action_date : null;
+    let formatError: string | null = null;
+
+    if (wantFormat) {
+      if (!isActivityAiConfigured()) {
+        // **押してから「使えません」を出さない**のが本筋だが、設定が途中で外れることもある。
+        // そのときも記録は残し、整えられなかったことだけ返す
+        formatError = 'この環境は AI につないでいないので、整えずにそのまま記録しました';
+        subject = subject || original.split('\n')[0]?.slice(0, 60) || 'やり取りの記録';
+      } else {
+        try {
+          // 過去に人がどう直したかを整形プロンプトに載せる (条件4)。
+          // **失敗しても整形は続ける** — 助言が無いだけで、整形はできる
+          let advice: string[] = [];
+          try {
+            advice = (await getFeedbackDigest(ACTIVITY_FORMAT_KIND, 90)).advice ?? [];
+          } catch { /* 助言が取れなくても続ける */ }
+
+          const s = await formatActivity(original, {
+            activityDate: activity_date as string,
+            kindLabel: KIND_LABEL[String(activity_type)] ?? null,
+            advice,
+          });
+          subject = s.subject;
+          bodyHtml = s.bodyHtml;
+          keyPoints = s.keyPoints;
+          // **人が入れた次にやることを AI で上書きしない。** 書いてあるほうが正
+          action = action || s.nextAction;
+          actionDate = actionDate || s.nextActionDate;
+          aiFormatted = true;
+
+          // AI が出したものの**全文**を残す (条件1)。
+          // ここが後で「人がどこを直したか」の before になる
+          aiOutputId = await recordAiOutput({
+            kind: ACTIVITY_FORMAT_KIND,
+            targetTable: 'activity_logs',
+            targetId: null,   // 行を作る前なので、作ってから埋める
+            payload: {
+              original,
+              subject: s.subject, body_html: s.bodyHtml, key_points: s.keyPoints,
+              next_action: s.nextAction, next_action_date: s.nextActionDate,
+            },
+            toolName: 'activity.format',
+            model: s.model,
+            promptVersion: s.promptVersion,
+            actorId: userId,
+          });
+        } catch (e) {
+          formatError = (e as Error).message || '整えられませんでした';
+          console.error('[activity] format failed:', formatError);
+          subject = subject || original.split('\n')[0]?.slice(0, 60) || 'やり取りの記録';
+        }
+      }
+    }
+
     const id = uuidv4();
     await execute(
-      `INSERT INTO activity_logs (id, project_id, customer_id, user_id, activity_type, activity_date, subject, description, next_action, next_action_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, project_id || null, customer_id || null, userId, activity_type, activity_date, subject, description || null, next_action || null, next_action_date || null, userId]
+      `INSERT INTO activity_logs
+         (id, project_id, customer_id, user_id, activity_type, activity_date, subject, description,
+          body_html, key_points, ai_formatted, ai_output_id, next_action, next_action_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)`,
+      [id, project_id || null, customer_id || null, userId, activity_type, activity_date,
+       subject, original || (typeof description === 'string' ? description : null),
+       bodyHtml, JSON.stringify(keyPoints), aiFormatted, aiOutputId,
+       action || null, actionDate || null, userId],
     );
-    return this.getById(id);
+    if (aiOutputId) {
+      // 行ができたので、AI 出力から**その行を指せる**ようにする
+      // （指せないと、人が直したときに before を引けない = 条件2 が閉じない）
+      await execute('UPDATE ai_outputs SET target_id = ? WHERE id = ?', [id, aiOutputId])
+        .catch(() => { /* 記録の失敗で業務を止めない */ });
+    }
+    const row = await this.getById(id) as Record<string, unknown>;
+    if (formatError) row.format_error = formatError;
+    return row;
   }
 
-  async update(id: string, data: Record<string, unknown>) {
-    const existing = await queryOne('SELECT id FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id]);
+  /**
+   * 直して保存する。
+   *
+   * AI が整えた行を人が直したときは、**サーバーが自動で before/after を比べ**、
+   * `ai_corrections` に入れます（条件2）。**人には何も入力させません。**
+   */
+  async update(id: string, data: Record<string, unknown>, userId?: string | null) {
+    const existing = await queryOne(
+      'SELECT id, ai_output_id, ai_formatted FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id],
+    ) as { id: string; ai_output_id: string | null; ai_formatted: boolean } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
     const { project_id, customer_id, activity_type, activity_date, subject, description, next_action, next_action_date } = data;
+    if (activity_type !== undefined && !(ACTIVITY_TYPES as readonly string[]).includes(String(activity_type))) {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        `知らない活動種別です（${ACTIVITY_TYPES.join(' / ')} のどれか）`);
+    }
+    // **本文と要点は渡されたときだけ触る。** 欄を持たない古い画面から保存されるだけで
+    // AI が整えた本文が消えると、直した人にも気づけない（タグ・登録16項目と同じ壊れ方）
+    const sets = [
+      'project_id=?', 'customer_id=?', 'activity_type=?', 'activity_date=?',
+      'subject=?', 'description=?', 'next_action=?', 'next_action_date=?',
+    ];
+    const params: unknown[] = [
+      project_id || null, customer_id || null, activity_type, activity_date,
+      subject, description || null, next_action || null, next_action_date || null,
+    ];
+    if (data.body_html !== undefined) { sets.push('body_html=?'); params.push(sanitizeBodyHtml(data.body_html)); }
+    if (data.key_points !== undefined) { sets.push('key_points=?::jsonb'); params.push(JSON.stringify(sanitizeKeyPoints(data.key_points))); }
+
     await execute(
-      `UPDATE activity_logs SET project_id=?, customer_id=?, activity_type=?, activity_date=?, subject=?, description=?, next_action=?, next_action_date=?, updated_at=NOW() WHERE id=?`,
-      [project_id || null, customer_id || null, activity_type, activity_date, subject, description || null, next_action || null, next_action_date || null, id]
+      `UPDATE activity_logs SET ${sets.join(', ')}, updated_at=NOW() WHERE id=?`,
+      [...params, id],
     );
-    return this.getById(id);
+    const after = await this.getById(id) as Record<string, unknown>;
+    if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+    return after;
   }
 
   async delete(id: string) {
@@ -157,6 +310,75 @@ export class ActivityLogService {
       [userId, daysAhead]
     );
   }
+}
+
+/**
+ * 人がどこを直したかを残す（条件2）。
+ *
+ * ── before は「**AI が出したもの**」。直前の行の状態ではない ──────
+ *
+ * 議事録で実測して分かったのと同じ落とし穴です。「保存する直前の行」と比べると、
+ * **一度保存してからもう一度直した分がすべて『無修正』になります**。
+ * 比べる相手は `ai_outputs.payload_snapshot` = AI が出した中身そのもの。
+ *
+ * ── 7日窓 ────────────────────────────────────────────────────
+ *
+ * `findLatestAiOutput` の既定（7日）に乗ります。3か月後に次のアクションを
+ * 書き換えたのは AI の誤りではなく、ふつうの業務更新です。
+ */
+async function recordActivityCorrections(
+  id: string, after: Record<string, unknown>, userId: string | null,
+): Promise<void> {
+  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_FORMAT_KIND);
+  if (!out) return;
+  const ai = (out.payload ?? {}) as Record<string, unknown>;
+
+  const norm = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
+  const diffs: CorrectionInput[] = [];
+  const fields: [string, string][] = [
+    ['subject', 'subject'],
+    ['body_html', 'body_html'],
+    ['next_action', 'next_action'],
+    ['next_action_date', 'next_action_date'],
+  ];
+  for (const [aiKey, rowKey] of fields) {
+    const b = norm(ai[aiKey]);
+    const a = norm(after[rowKey]);
+    if (b === a) continue;
+    diffs.push({
+      fieldPath: rowKey,
+      before: ai[aiKey] ?? null,
+      after: after[rowKey] ?? null,
+      // 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
+      // 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**
+      type: b === '' ? 'enrich' : a === '' ? 'reject' : 'fix',
+    });
+  }
+  // 要点は行ごとの対応が取れない（並びが変わる）ので、丸ごと1項目として扱う
+  const beforePoints = JSON.stringify(ai.key_points ?? []);
+  const afterPoints = JSON.stringify(after.key_points ?? []);
+  if (beforePoints !== afterPoints) {
+    diffs.push({
+      fieldPath: 'key_points',
+      before: ai.key_points ?? null,
+      after: after.key_points ?? null,
+      type: beforePoints === '[]' ? 'enrich' : 'fix',
+    });
+  }
+
+  const all = ['subject', 'body_html', 'next_action', 'next_action_date', 'key_points'];
+  if (diffs.length === 0) {
+    // **無修正で通した**ことを残す。これが正解ラベルで、
+    // 無いと「無修正採用率」の分母が壊れる
+    await recordCorrections(out.id, [{ fieldPath: '(全体)', type: 'none' }], userId);
+    return;
+  }
+  // 直さなかった項目も残す（分母）
+  for (const col of all) {
+    if (diffs.some((d) => d.fieldPath === col)) continue;
+    diffs.push({ fieldPath: col, type: 'none' });
+  }
+  await recordCorrections(out.id, diffs, userId);
 }
 
 export const activityLogService = new ActivityLogService();

@@ -740,3 +740,34 @@
   [data-row-in] { animation: none !important; }
   .v4-press:active { transform: none; }
 }
+
+/**
+ * AI が整えたやり取りの本文（`ThreadRow` の `body_html`）。
+ *
+ * ── なぜ CSS が要るのか ──────────────────────────────────────
+ *
+ * Tailwind の preflight は `ul` の点や `h4` の大きさを**全部消します**。
+ * そのままだと、AI が箇条書きに整えても**素の行が並ぶだけ**で、
+ * 整えた意味がありません（「AI 整形」のバッジだけが付いた同じ見た目になる）。
+ *
+ * ── 中身は HTML だが、書けるのは9つのタグだけ ──────────────
+ *
+ * サーバーが保存前に削っています（`server/src/shared/services/html-sanitize.ts`）。
+ * ここで**指定していないタグは届きません**ので、規則もその9つぶんだけです。
+ */
+.thread-body > * + * { margin-top: 0.5em; }
+.thread-body h4 { font-size: 1em; font-weight: 700; color: rgb(var(--foreground)); }
+.thread-body ul,
+.thread-body ol { padding-left: 1.25em; }
+.thread-body ul { list-style: disc; }
+.thread-body ol { list-style: decimal; }
+.thread-body li { margin-top: 0.15em; }
+.thread-body strong { font-weight: 700; color: rgb(var(--foreground)); }
+.thread-body em { font-style: italic; }
+.thread-body code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgb(var(--muted));
+  font-family: var(--font-mono-ui, ui-monospace, monospace);
+  font-size: 0.92em;
+}

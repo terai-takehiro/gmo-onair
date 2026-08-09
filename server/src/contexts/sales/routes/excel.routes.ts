@@ -259,15 +259,26 @@ const PROJECTS_CONFIG: ResourceConfig = {
       { col: 'ステージ', desc: 'neta/d_hold/c_proposal/b_verbal/a_won/s_completed/e_lost (日本語OK: ネタ/保留/提案中/口頭内示/受注/完了/失注)' },
       { col: '担当者Email', desc: '【必須】事前に登録済みのユーザーEmailと完全一致' },
       { col: 'タグ', desc: 'カンマ区切り文字列' },
+      { col: '備考', desc: '案件の「やり取り」にメモとして1件残ります。取り込み直しても、同じ本文なら増えません。書き出しはいちばん新しいメモ' },
     ],
   },
   exportQuery: `
     SELECT p.code, p.gls_number, p.name, c.name as customer_name,
            p.stage, p.project_type, p.expected_amount, p.event_start, p.event_end,
-           p.broadcast_type, p.media_platform, u.email as assigned_to_email, p.tags, p.notes
+           p.broadcast_type, p.media_platform, u.email as assigned_to_email, p.tags,
+           memo.description AS notes
     FROM projects p
     LEFT JOIN customers c ON c.id = p.customer_id
     LEFT JOIN users u ON u.id = p.assigned_to
+    -- 備考 = いちばん新しいメモ。migration 184 で projects.notes を落とし、
+    -- メモはやり取り (activity_logs の memo) に畳んだ。
+    -- 列を消さずに中身を差し替えているのは、配ってある Excel の様式を変えないため
+    -- (列が1つ減ると、手元の古い様式で取り込んだ人の備考が別の列に入る)
+    LEFT JOIN LATERAL (
+      SELECT a.description FROM activity_logs a
+        WHERE a.project_id = p.id AND a.activity_type = 'memo' AND a.deleted_at IS NULL
+        ORDER BY a.activity_date DESC, a.created_at DESC LIMIT 1
+    ) memo ON TRUE
     WHERE p.deleted_at IS NULL ORDER BY p.created_at DESC`,
   preloadLookups: async (client) => {
     const cust = await client.query('SELECT id, name FROM customers WHERE deleted_at IS NULL');
@@ -324,28 +335,67 @@ const PROJECTS_CONFIG: ResourceConfig = {
     };
   },
   insert: async (client, d, userId) => {
+    const id = newId();
     await client.query(
       `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type,
                              expected_amount, event_start, event_end, broadcast_type, media_platform,
-                             assigned_to, tags, notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [newId(), d.code, d.gls_number, d.name, d.customer_id, d.stage, d.project_type,
+                             assigned_to, tags, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id, d.code, d.gls_number, d.name, d.customer_id, d.stage, d.project_type,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
-       d.assigned_to, d.tags, d.notes, userId, userId],
+       d.assigned_to, d.tags, userId, userId],
     );
+    await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
   update: async (client, id, d, userId) => {
     await client.query(
       `UPDATE projects SET code=$1, gls_number=$2, name=$3, customer_id=$4, stage=$5, project_type=$6,
                            expected_amount=$7, event_start=$8, event_end=$9, broadcast_type=$10, media_platform=$11,
-                           assigned_to=$12, tags=$13, notes=$14, updated_by=$15, updated_at=NOW()
-       WHERE id=$16`,
+                           assigned_to=$12, tags=$13, updated_by=$14, updated_at=NOW()
+       WHERE id=$15`,
       [d.code, d.gls_number, d.name, d.customer_id, d.stage, d.project_type,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
-       d.assigned_to, d.tags, d.notes, userId, id],
+       d.assigned_to, d.tags, userId, id],
     );
+    await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
 };
+
+/**
+ * Excel の「備考」を**やり取りのメモ1件**として書く (migration 184)。
+ *
+ * **同じ本文なら足しません。** Excel の取り込みは同じファイルを直して
+ * 何度も流すものなので、毎回足すと1件の案件にメモが何十件も並びます。
+ */
+async function upsertProjectMemo(
+  client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> },
+  projectId: string,
+  customerId: string | null,
+  notes: unknown,
+  userId: string | null,
+): Promise<void> {
+  const body = typeof notes === 'string' ? notes.trim() : '';
+  if (!body) return;
+  const dup = await client.query(
+    `SELECT 1 FROM activity_logs
+      WHERE project_id = $1 AND activity_type = 'memo' AND btrim(description) = $2 AND deleted_at IS NULL
+      LIMIT 1`,
+    [projectId, body],
+  );
+  if (dup.rows.length > 0) return;
+  // user_id は NOT NULL。取り込みを流した人が分からないときは**案件の担当**に寄せる
+  // (assigned_to は NOT NULL + users への外部キーなので必ず引ける)。
+  // ここで諦めると、Excel に書いた備考が黙って消える
+  await client.query(
+    `INSERT INTO activity_logs
+       (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, created_by, updated_by)
+     SELECT $1, $2, $3, COALESCE($4, p.assigned_to), 'memo', 'メモ', $5,
+            to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD'),
+            COALESCE($4, p.assigned_to), COALESCE($4, p.assigned_to)
+       FROM projects p WHERE p.id = $2`,
+    [newId(), projectId, customerId, userId, body],
+  );
+}
 
 // ============================================================
 // エピソード (episodes) — project_idは GLS番号 or code でlookup

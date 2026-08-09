@@ -43,4 +43,6 @@ export interface MinutesResponse {
   data: Minutes[];
   /** この環境で文字起こしが使えるか。**押してから「使えません」を出さない**ため */
   stt_available: boolean;
+  /** やり取りの整形（AI）が使えるか。**文字起こしとは別の鍵**で動く */
+  ai_available?: boolean;
 }

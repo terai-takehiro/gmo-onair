@@ -1,0 +1,243 @@
+/**
+ * やり取りの「整えて記録する」— 打ちっぱなしの文 → 見出し・本文・要点・次にやること
+ *
+ * ── なぜ人に整えさせないか ──────────────────────────────────
+ *
+ * 電話を切った直後に書けるのは、たいてい**箇条書きにもなっていない走り書き**です。
+ * ここで「件名」「本文」「次のアクション」の3つの欄を出すと、
+ * **書くのが面倒になって記録そのものが残らなくなります**。
+ * 人は打ちっぱなしで良い形にして、**形にするのは保存時に AI がやる**ことにしました。
+ *
+ * ── 議事録との違い ──────────────────────────────────────────
+ *
+ * 議事録（`minutes-ai.service`）は**取引先との合意の記録**なので、
+ * 決定事項に引用を必須にし、言い切れないものは持ち帰りへ落とします。
+ * こちらは**社内の記録**で、材料も1人が書いた短い文です。
+ * 守ることは同じで**書かれていないことを足さない** — ただし
+ * 落とすのではなく「読み取れなければ空にする」形にします。
+ *
+ * ── AI に返る仕組み（会社方針「AI を使い捨てにしない」）────────
+ *
+ *   条件1 記録   原文と整形結果を `ai_outputs`(kind=`activity_format`) に全文で
+ *   条件2 差分   人が直して保存したときにサーバーが自動比較 → `ai_corrections`
+ *   条件3 成果   「次にやること」が期限内に済んだか（`next_action_done_at` から導出）
+ *   条件4 還流   `get_ai_feedback_digest` の advice を次の整形プロンプトに載せる
+ *   条件5 レビュー 月1回・営業のマネージャー（既存の運用の決めに乗る）
+ */
+import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
+import Anthropic from '@anthropic-ai/sdk';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import * as z from 'zod/v4';
+import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
+import { recordAiUsage } from '../../../shared/services/ai-usage.service';
+import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
+
+/** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
+export const ACTIVITY_PROMPT_VERSION = 'activity-v1';
+/** 過去の修正傾向を載せた版。**混ぜない** — 載せた効果を後から数字で言えなくなる */
+export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v1+fb';
+
+/** 整形のモデル。議事録と同じ既定に寄せる（別々にすると片方だけ古いモデルで残る） */
+const DEFAULT_MODELS: Record<IntakeAiProvider, string> = {
+  openai: 'gpt-5.4',
+  anthropic: 'claude-opus-5',
+};
+
+const TIMEOUT_MS = 60_000;
+
+/**
+ * 整形に渡す文字数の上限。**超えたら切らずに断る**
+ * （黙って切ると、後半に書いた「次にやること」が消えたことに気づけない）。
+ */
+export const MAX_ACTIVITY_CHARS = 20_000;
+
+const ActivitySchema = z.object({
+  subject: z.string().describe('件名。30字以内。何の話かが一目で分かる短い文。例「配信の回線を確認」'),
+  body_html: z.string().describe(
+    '本文を読みやすく整えた HTML。使ってよいタグは p / strong / em / ul / ol / li / br / h4 / code だけ。'
+    + '**属性は書かない**（class も style も href も不可）。'
+    + '**書かれていないことを足さない**。言い換えて意味を強めない。原文の内容だけを、段落と箇条書きに分ける',
+  ),
+  key_points: z.array(z.string()).describe('要点。1件20字程度、多くて4件。原文に書かれていることだけ。無ければ空配列'),
+  next_action: z.string().describe('次にやること。原文に書かれているものだけ。無ければ空文字。**推測しない**'),
+  next_action_date: z.string().describe('その期限。"YYYY-MM-DD"。はっきり書かれていなければ空文字。**推測しない**'),
+});
+
+const SYSTEM_PROMPT = `あなたは制作会社の営業事務です。
+担当者が打ちっぱなしで書いた「やり取りの記録」を、あとから読める形に整えます。
+
+## 絶対に守ること
+
+1. **書かれていないことを書かない。** 補う・整合させる・言い換えて意味を強めることは
+   すべて誤りです。読み取れないものは空にしてください。
+   これは社内の記録ですが、**あとで取引先との話の根拠に使われます**。
+
+2. **言葉を勝手に置き換えない。** 「見積」を「お見積書」に、「NG」を「不可」に直すような
+   書き換えはしないでください。整えるのは**形**（段落・箇条書き・強調）だけです。
+
+3. **次にやることは、原文にあるものだけ。** 「〜しないと」「〜する」と書かれているものを拾います。
+   書かれていなければ空文字にしてください。**気を利かせて作らないこと。**
+
+4. **日付を推測しない。** 「来週」「そのうち」「なるべく早く」は空文字です。
+   「11月14日」のようにはっきり書かれているものだけ YYYY-MM-DD にします。
+   年が書かれていないときは、渡された「やり取りの日」から**最も近い将来の日付**にしてください。
+
+5. **HTML に属性を書かない。** class / style / href / onclick などを書くと落とされます。
+   リンクは作れません。URL は素の文字のまま残してください。
+
+6. **評価を書かない。** 「良い打合せでした」「前向きです」のような感想は入れないこと。
+
+原文が1行しかないときは、body_html も1段落で構いません。**無理に膨らませないこと。**`;
+
+export interface StructuredActivity {
+  subject: string;
+  bodyHtml: string | null;
+  keyPoints: string[];
+  nextAction: string | null;
+  nextActionDate: string | null;
+}
+
+export interface ActivityFormatResult extends StructuredActivity {
+  provider: IntakeAiProvider;
+  model: string;
+  promptVersion: string;
+}
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+export function isActivityAiConfigured(): boolean {
+  return resolveProvider() !== null;
+}
+
+export function activityModel(provider?: IntakeAiProvider | null): string {
+  const p = provider ?? resolveProvider();
+  if (!p) return 'none';
+  return process.env.ACTIVITY_AI_MODEL || process.env.MINUTES_AI_MODEL || DEFAULT_MODELS[p];
+}
+
+/**
+ * LLM の出力を検査する。**そのまま信じない**。
+ *
+ * - 本文は必ずサニタイズを通す（属性は1つも残さない）
+ * - 壊れた日付は空にする（壊れた値で予定を作らない）
+ * - 件名が空なら**原文の1行目**で埋める（空の件名は一覧で「無題」に見える）
+ *
+ * ネットワークに触らないので、素で試せます。
+ */
+export function normalizeActivity(raw: unknown, original: string): StructuredActivity {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const firstLine = original.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+  const subject = str(r.subject).slice(0, 120) || firstLine.slice(0, 60) || 'やり取りの記録';
+  const date = str(r.next_action_date);
+  const nextAction = str(r.next_action);
+  return {
+    subject,
+    bodyHtml: sanitizeBodyHtml(r.body_html),
+    keyPoints: sanitizeKeyPoints(r.key_points, 4),
+    nextAction: nextAction || null,
+    // **次にやることが無いのに期限だけ残さない。** 期限だけの行は画面のどこにも出ない
+    nextActionDate: nextAction && YMD.test(date) ? date : null,
+  };
+}
+
+export async function formatActivity(
+  text: string,
+  opts: { activityDate?: string | null; kindLabel?: string | null; advice?: string[] } = {},
+): Promise<ActivityFormatResult> {
+  const provider = resolveProvider();
+  if (!provider) throw new Error('OPENAI_API_KEY / ANTHROPIC_API_KEY のどちらも未設定です');
+  if (text.length > MAX_ACTIVITY_CHARS) {
+    throw new Error(`長すぎます（${text.length} 文字）。分けて記録してください`);
+  }
+
+  const model = activityModel(provider);
+  // 過去に人がどう直したかを渡す。**ここがループを閉じている部分**
+  const lessons = (opts.advice ?? []).slice(0, 8);
+  const lessonBlock = lessons.length
+    ? `\n## 前回までの傾向（人があなたの整形をどう直したか）
+実測値です。同じ間違いを繰り返さないでください。
+ただし**原文に無いことを補ってはいけません**。傾向は形の整え方にだけ使うこと。
+${lessons.map((l) => `- ${l}`).join('\n')}\n`
+    : '';
+
+  /*
+   * **並び順に意味がある。** 入力の「先頭から共通している部分」だけが安く再利用されるので、
+   * 毎回変わるもの（日付・本文）を後ろに置きます
+   * （投入口の `buildUserPrompt` で測って決めた並べ方と同じ）。
+   */
+  const userPrompt = `${lessonBlock}やり取りの種類: ${opts.kindLabel || '（指定なし）'}
+やり取りの日: ${opts.activityDate || '（不明）'}
+
+## 担当者が書いたもの
+"""
+${text}
+"""`;
+
+  const out = provider === 'openai'
+    ? await callOpenAi(model, userPrompt)
+    : await callAnthropic(model, userPrompt);
+
+  await recordAiUsage({
+    kind: 'activity', provider, model,
+    inputTokens: out.usage.inputTokens,
+    cachedInputTokens: out.usage.cachedInputTokens,
+    outputTokens: out.usage.outputTokens,
+  });
+
+  return {
+    ...normalizeActivity(out.raw, text),
+    provider,
+    model,
+    promptVersion: lessons.length ? ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK : ACTIVITY_PROMPT_VERSION,
+  };
+}
+
+interface FormatCall { raw: unknown; usage: { inputTokens: number; cachedInputTokens: number; outputTokens: number } }
+
+/** SDK の返す使用量を1つの形に揃える（プロバイダで名前が違う） */
+function readUsage(raw: unknown): FormatCall['usage'] {
+  const u = (raw ?? {}) as Record<string, unknown>;
+  const det = (u.input_tokens_details ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0);
+  return {
+    inputTokens: num(u.input_tokens),
+    cachedInputTokens: num(det.cached_tokens) || num(u.cache_read_input_tokens),
+    outputTokens: num(u.output_tokens),
+  };
+}
+
+async function callOpenAi(model: string, userPrompt: string): Promise<FormatCall> {
+  const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  const response = await client.responses.parse({
+    model,
+    instructions: SYSTEM_PROMPT,
+    input: userPrompt,
+    text: { format: zodTextFormat(ActivitySchema, 'activity_log') },
+  });
+  if (response.status === 'incomplete') {
+    throw new Error(`整形が途中で終わりました: ${response.incomplete_details?.reason ?? '理由不明'}`);
+  }
+  const parsed = response.output_parsed;
+  if (!parsed) throw new Error(`整形の結果を読み取れませんでした (status=${response.status ?? '不明'})`);
+  return { raw: parsed, usage: readUsage(response.usage) };
+}
+
+async function callAnthropic(model: string, userPrompt: string): Promise<FormatCall> {
+  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  const response = await client.messages.parse({
+    model,
+    max_tokens: 4000,
+    thinking: { type: 'adaptive' },
+    output_config: { effort: 'low', format: zodOutputFormat(ActivitySchema) },
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+  if (response.stop_reason === 'refusal') {
+    throw new Error(`整形が拒否されました: ${response.stop_details?.explanation ?? '理由不明'}`);
+  }
+  const parsed = response.parsed_output;
+  if (!parsed) throw new Error('整形の結果を読み取れませんでした');
+  return { raw: parsed, usage: readUsage(response.usage) };
+}

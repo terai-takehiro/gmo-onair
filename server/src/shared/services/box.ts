@@ -222,3 +222,37 @@ function conflictFileId(err: unknown): string | null {
   const id = body?.context_info?.conflicts?.id;
   return id ? String(id) : null;
 }
+
+/**
+ * ファイルのサムネイル（320px の JPEG）を**流して**返す。
+ *
+ * ── こちらに画像を貯めない ──────────────────────────────────
+ *
+ * ご指示どおり、写真の実体は BOX にだけ置きます。ここでやるのは
+ * **BOX が作ったサムネイルをそのまま流すこと**だけで、保存もキャッシュもしません
+ * （貯めると、BOX 側で消した写真がこちらに残ります）。
+ *
+ * ── 使えないことがある ──────────────────────────────────────
+ *
+ * サムネイル（representation）は BOX の契約プランと**変換が終わっているか**に
+ * 依存します。まだ変換中や、対応していない形式では出せません。
+ * そのときは投げて、**呼び出し側がファイル名だけの表示に落とします** —
+ * 画面が壊れるより、絵が出ないほうがましです。
+ */
+export async function getThumbnailStream(fileId: string): Promise<NodeJS.ReadableStream> {
+  const client = getBoxClient();
+  if (!client) throw new Error('BOX_NOT_CONFIGURED');
+  const files = client.files as unknown as {
+    representation: Record<string, string>;
+    getRepresentationContent: (id: string, rep: string) => Promise<NodeJS.ReadableStream>;
+  };
+  return await files.getRepresentationContent(fileId, files.representation.THUMBNAIL);
+}
+
+/** 画像として扱う拡張子。**BOX に訊かずに決める** — 一覧のたびに問い合わせると遅い */
+const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tif', 'tiff'];
+
+export function isImageName(name: string): boolean {
+  const ext = (name.split('.').pop() ?? '').toLowerCase();
+  return IMAGE_EXT.includes(ext);
+}

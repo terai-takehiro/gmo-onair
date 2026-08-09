@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { ACTIVITY_TYPES, getActivityType } from "./activityLog/kinds";
 
 // v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
 function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
@@ -56,19 +57,6 @@ function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
     </span>
   );
 }
-
-const ACTIVITY_TYPES = [
-  { value: "call", label: "電話", color: "bg-blue-100 text-blue-700" },
-  { value: "email", label: "メール", color: "bg-green-100 text-green-700" },
-  { value: "visit", label: "訪問", color: "bg-purple-100 text-purple-700" },
-  { value: "meeting", label: "打合せ", color: "bg-orange-100 text-orange-700" },
-  { value: "proposal", label: "提案", color: "bg-red-100 text-red-700" },
-  { value: "demo", label: "デモ/見学", color: "bg-pink-100 text-pink-700" },
-  { value: "follow_up", label: "フォロー", color: "bg-cyan-100 text-cyan-700" },
-  { value: "other", label: "その他", color: "bg-gray-100 text-gray-700" },
-];
-
-const getActivityType = (value: string) => ACTIVITY_TYPES.find(t => t.value === value) || ACTIVITY_TYPES[7];
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 /** YYYY-MM-DD → 「7月16日 (水)」。今日/昨日はラベルを併記して視認性を上げる */

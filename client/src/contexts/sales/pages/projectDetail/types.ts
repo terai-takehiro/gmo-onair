@@ -22,7 +22,6 @@ export interface ProjectDetail {
   expected_amount: number | string | null;
   total_revenue: number | string | null;
   tags: string | null;
-  notes: string | null;
   box_url_internal: string | null;
   box_url_external: string | null;
   updated_at: string;
@@ -48,6 +47,11 @@ export interface ProjectDetail {
    * （押し直しで同じタスクが2組できると、どちらを消すか分からなくなる）
    */
   flow_applied_at?: string | null;
+  /**
+   * 飛び日を含む実施日（`project_dates`）。**スマホのタブを段階で切り替える**ときに
+   * 「いずれかの日が今日か」を見るために使う（`tabs.ts` の `projectPhase`）
+   */
+  dates?: { date: string }[];
 }
 
 /** `GET /studios/bookings?project_id=` の1行 */
@@ -68,4 +72,19 @@ export interface ActivityLog {
   next_action: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
+  /** 種類。`memo` は社内の書き置き（migration 184 でメモをここに畳んだ） */
+  activity_type?: string;
+  /** **原文**。AI が整形しても、打った文はここに残る */
+  description?: string | null;
+  /**
+   * AI が整えた本文。**サーバーが保存前にサニタイズ済み**
+   * （許可タグ9つ・属性なし。`server/src/shared/services/html-sanitize.ts`）。
+   * 画面側で削り直さない — 守りは入口に1か所だけ置く
+   */
+  body_html?: string | null;
+  /** 要点。画面ではチェック付きのチップ */
+  key_points?: string[] | null;
+  /** AI が整形したか（紫のバッジ） */
+  ai_formatted?: boolean;
+  user_name?: string | null;
 }

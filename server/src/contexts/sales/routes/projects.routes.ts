@@ -9,7 +9,9 @@ import { config } from '../../../config';
 import multer from 'multer';
 import {
   extractFolderId, isBoxConfigured, listFolderItems, uploadToFolder, MAX_UPLOAD_BYTES,
+  getThumbnailStream, isImageName,
 } from '../../../shared/services/box';
+import { ensureSubfolder, PHOTOS_SUBFOLDER } from '../services/box-folder.service';
 
 const router = Router();
 
@@ -208,15 +210,39 @@ router.post(
     ) as { box_url_internal: string | null; box_url_external: string | null } | undefined;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const folderId = extractFolderId(
+    const rootId = extractFolderId(
       scope === 'internal' ? project.box_url_internal : project.box_url_external,
     );
-    if (!folderId) {
+    if (!rootId) {
       throw new AppError(400, 'NO_FOLDER',
         'この案件の BOX フォルダがまだ作られていません。GLS を発番するか、フォルダを作ってからお試しください。');
     }
     if (!isBoxConfigured()) {
       throw new AppError(503, 'NOT_CONFIGURED', 'この環境は BOX につないでいないので、置けません。');
+    }
+
+    /*
+     * 当日の写真 (v4 ⑥ ふりかえり)。`subfolder=photos` で
+     * **社外と共有するフォルダの下の `08_写真`** に入れます。
+     *
+     * **社内限りには作りません。** 写真は報告資料の材料でお客様に出すものです。
+     * 社内限りの下に貯めると、出したいときに出せません（逆に、社内限りのつもりの
+     * 原価資料を写真として置かれると外に出ます）。だから `scope` も見て弾きます。
+     *
+     * `08_写真` は migration 186 の回で足したので、**それ以前の案件のフォルダには
+     * 入っていません**。初回に無ければ作ります（`ensureSubfolder`）。
+     */
+    let folderId = rootId;
+    if (req.query.subfolder === 'photos') {
+      if (scope !== 'external') {
+        throw new AppError(400, 'VALIDATION_ERROR',
+          '写真は「社外と共有するフォルダ」に入れます（社内限りには置けません）。');
+      }
+      const photos = await ensureSubfolder(rootId, PHOTOS_SUBFOLDER);
+      if (!photos) {
+        throw new AppError(502, 'BOX_UNAVAILABLE', '写真のフォルダを用意できませんでした。あとでもう一度お試しください。');
+      }
+      folderId = photos;
     }
 
     // **1つずつ上げて、上がった分だけ返す。** まとめて失敗にすると
@@ -259,16 +285,17 @@ router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), asy
  */
 router.get('/:id/box-files', async (req, res) => {
   const scope = req.query.scope === 'internal' ? 'internal' : 'external';
+  const wantPhotos = req.query.subfolder === 'photos';
   const project = await queryOne(
     'SELECT box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
     [req.params.id]
   ) as { box_url_internal: string | null; box_url_external: string | null } | undefined;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-  const folderId = extractFolderId(
+  const rootId = extractFolderId(
     scope === 'internal' ? project.box_url_internal : project.box_url_external
   );
-  if (!folderId) {
+  if (!rootId) {
     res.json({ success: true, data: [], reason: 'NO_FOLDER' });
     return;
   }
@@ -277,10 +304,57 @@ router.get('/:id/box-files', async (req, res) => {
     return;
   }
   try {
-    res.json({ success: true, data: await listFolderItems(folderId) });
+    /*
+     * 写真のフォルダは**読むだけのときは作りません**。
+     * 開いただけで空のフォルダが増えると、BOX 側が案件ごとのゴミで埋まります。
+     * まだ無い＝1枚も無いので、空で返して画面に「まだありません」を出させます。
+     */
+    let folderId = rootId;
+    if (wantPhotos) {
+      const items = await listFolderItems(rootId);
+      const photos = items.find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
+      if (!photos) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+      folderId = photos.id;
+    }
+    const items = await listFolderItems(folderId);
+    // 写真の一覧は**画像だけ**に絞る。間違って置かれた PDF が格子に並ぶと、
+    // サムネイルの出ない枠が混ざって「壊れている」に見える
+    res.json({ success: true, data: wantPhotos ? items.filter((i) => i.type === 'file' && isImageName(i.name)) : items });
   } catch (err) {
     console.error('[box] listFolderItems failed:', (err as Error).message);
     res.json({ success: true, data: [], reason: 'UNAVAILABLE' });
+  }
+});
+
+/**
+ * 写真のサムネイル。**画像をこちらに複製しません** — BOX が作ったものを流すだけです。
+ *
+ * ── なぜ中継するのか ────────────────────────────────────────
+ *
+ * BOX の URL を画面に直接貼ると、**ログインしていない人にも見える形**にするか、
+ * 利用者ごとの BOX ログインを要求するかのどちらかになります。ONAiR は
+ * アプリの権限で見せたいので、サーバーが取りに行って流します。
+ *
+ * ── 出せないときは 404 にする ────────────────────────────────
+ *
+ * 変換中・対応していない形式・契約プランで使えない、のどれでも起こります。
+ * **画面はファイル名だけの表示に落とします** — 絵が出ないのは我慢できますが、
+ * 500 にすると案件詳細ごと落ちます。
+ */
+router.get('/:id/box-files/:fileId/thumbnail', async (req, res) => {
+  if (!isBoxConfigured()) throw new AppError(404, 'NOT_CONFIGURED', 'この環境は BOX につないでいません');
+  try {
+    const stream = await getThumbnailStream(req.params.fileId as string);
+    res.setHeader('Content-Type', 'image/jpeg');
+    // 同じ写真を何度も取りに行かない。**こちらには残さない**ので、持つのはブラウザ側だけ
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    stream.pipe(res);
+  } catch (err) {
+    console.warn('[box] thumbnail failed:', (err as Error).message);
+    throw new AppError(404, 'NO_THUMBNAIL', 'サムネイルを出せませんでした');
   }
 });
 
