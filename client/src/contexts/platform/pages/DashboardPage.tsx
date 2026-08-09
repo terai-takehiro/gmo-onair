@@ -39,7 +39,7 @@ import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, SkeletonKpi, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { KpiStrip } from './salesDashboard/KpiStrip';
-import { IntakePanel } from './salesDashboard/IntakePanel';
+import { IntakeButton } from './salesDashboard/IntakeButton';
 import { MovingPanel } from './salesDashboard/MovingPanel';
 import { StuckPanel } from './salesDashboard/StuckPanel';
 import { OverduePanel } from './salesDashboard/OverduePanel';
@@ -48,13 +48,6 @@ import { WeekPanel } from './salesDashboard/WeekPanel';
 import { MobileSalesDashboard } from './salesDashboard/MobileSalesDashboard';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { SalesOverview, PipelineStage, WeekDay } from './salesDashboard/types';
-
-/** 「2026年7月31日（金）時点」。**日付を出す** — 数字がいつのものか分からないと使えない */
-function asOf(now: Date): string {
-  return now.toLocaleDateString('ja-JP', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
-  });
-}
 
 /**
  * 幅で選ぶだけの薄い親。
@@ -93,17 +86,29 @@ function DesktopSalesDashboard() {
 
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
+      {/*
+        **見出しの下に説明を置かない**（モック）。モックの見出しは h2 が1行あるだけです。
+        「案件はみんなで見ます。個人の持ち物にはしません」は**方針の説明**で、
+        毎日開く画面で毎日読ませるものではありません（決めごとは
+        `client/CLAUDE.md`・画面には「動いている案件」の副題として1行だけ残しています）。
+        「◯時◯分 時点」も落としました — この画面は開くたびに引き直すので、
+        **出しても常に「たった今」**にしかなりません。
+      */}
       <PageHeader
         title="ダッシュボード"
-        sub={`${asOf(new Date())} 時点 ・ 案件はみんなで見ます。個人の持ち物にはしません`}
         primaryAction={
           <Button onClick={() => navigate('/sales/projects/new')}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />案件をつくる
           </Button>
         }
-      />
-
-      <IntakePanel />
+      >
+        {/*
+          **届いたものは見出しの右のボタン1つ**（モック）。以前はここに
+          「案件受付」の大きなカード（3タイル）を置いていましたが、
+          3つとも行き先が案件作成で同じでした（`IntakeButton.tsx` に理由）。
+        */}
+        <IntakeButton />
+      </PageHeader>
 
       {overview.isError ? (
         <ErrorPanel
@@ -147,13 +152,19 @@ function DesktopSalesDashboard() {
           </div>
         )}
 
-        {week.data ? (
-          <WeekPanel days={week.data} />
-        ) : (
-          <div className="rounded-card border border-border bg-card p-4">
-            <Delayed><SkeletonRows rows={5} /></Delayed>
-          </div>
-        )}
+        {/*
+          **今週の現場は全幅**（モックの `grid-column: 1 / -1`）。
+          7日ぶんを縦に積むので、右の 1fr に入れると日付と予定名で折り返します。
+        */}
+        <div className="lg:col-span-2">
+          {week.data ? (
+            <WeekPanel days={week.data} />
+          ) : (
+            <div className="rounded-card border border-border bg-card p-4">
+              <Delayed><SkeletonRows rows={5} /></Delayed>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -62,6 +62,7 @@ export function OverduePanel() {
       note={rows.length > SHOW ? `${rows.length}件のうち古い順に${SHOW}件` : '相手を待たせています'}
       to="/sales/tasks/list"
       toLabel="やること一覧で見る"
+      linkAt="foot"
     >
       {isLoading ? (
         <Delayed><SkeletonRows rows={3} /></Delayed>

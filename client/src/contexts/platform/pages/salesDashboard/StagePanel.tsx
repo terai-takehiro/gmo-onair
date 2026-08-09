@@ -62,8 +62,11 @@ export function StagePanel({ stages }: { stages: PipelineStage[] }) {
   const max = Math.max(1, ...rows.map((r) => r.amount));
   const total = rows.reduce((n, r) => n + r.count, 0);
 
+  // 補足は「受注に近い順」だけ（モックは補足そのものが無い）。
+  // 右の狭い列では、見出し＋補足＋リンクが1行に収まらないと
+  // **リンクだけが2行目に折り返す**。「棒は金額の大きさ」は棒を見れば分かる
   return (
-    <Panel title="ステージ別" note="受注に近い順。棒は金額の大きさです" to="/sales/projects?view=board" toLabel="ボードで見る">
+    <Panel title="ステージ別" note="受注に近い順" to="/sales/projects?view=board" toLabel="ボードで見る">
       {total === 0 ? (
         <EmptyState title="進行中の案件がありません" description="問合せを入れると、ここに積み上がっていきます。" />
       ) : (
