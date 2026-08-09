@@ -23,12 +23,35 @@ export interface PanelProps {
   /** 右端のリンク。行き先が無い枚は省く */
   to?: string;
   toLabel?: string;
+  /**
+   * リンクを**見出しの右ではなく枚の下端**に置く（モックの「期限が過ぎたやること」）。
+   *
+   * 右の狭い列（1fr）に入る枚では、見出し＋補足＋リンクが1行に収まらず
+   * **リンクだけが2行目に折り返して**見出しの下にぶら下がります。
+   * 下端に横いっぱいの区切り線を引いて中央に置けば、幅に関係なく1行で収まり、
+   * 「ここから先は全部見る」という意味も読み取れます。
+   */
+  linkAt?: 'header' | 'foot';
   tone?: 'default' | 'alert';
   children: React.ReactNode;
 }
 
-export function Panel({ title, note, icon, to, toLabel, tone = 'default', children }: PanelProps) {
+export function Panel({
+  title,
+  note,
+  icon,
+  to,
+  toLabel,
+  linkAt = 'header',
+  tone = 'default',
+  children,
+}: PanelProps) {
   const alert = tone === 'alert';
+  const link = to && (
+    <Link to={to} className="text-sub min-h-tap flex items-center font-bold text-primary hover:underline lg:min-h-0">
+      {toLabel ?? '見る'} →
+    </Link>
+  );
   return (
     <section
       className={cn(
@@ -43,13 +66,16 @@ export function Panel({ title, note, icon, to, toLabel, tone = 'default', childr
         </h2>
         {note && <p className="text-note text-muted-foreground">{note}</p>}
         <div className="flex-1" />
-        {to && (
-          <Link to={to} className="text-sub min-h-tap flex items-center font-bold text-primary hover:underline lg:min-h-0">
-            {toLabel ?? '見る'} →
-          </Link>
-        )}
+        {linkAt === 'header' && link}
       </div>
       <div className="flex-1">{children}</div>
+      {/* 下端のリンクは**枚の幅いっぱいに区切って中央**（モック）。
+          `p-4 lg:px-5` の内側なので、負の余白で左右と下の余白を打ち消す */}
+      {linkAt === 'foot' && link && (
+        <div className="-mx-4 -mb-4 mt-3 flex shrink-0 justify-center border-t border-border pt-2 lg:-mx-5">
+          {link}
+        </div>
+      )}
     </section>
   );
 }

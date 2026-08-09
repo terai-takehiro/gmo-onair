@@ -52,7 +52,7 @@ import McpInfoModal from '../mcpInfo/McpInfoModal';
 import type { ManualContent } from '../manual/types';
 import { APP_BY_KEY } from '../apps';
 import { AppTopbar } from './AppTopbar';
-import { AppSideMenu } from './AppSideMenu';
+import { AppSideMenu, currentTo } from './AppSideMenu';
 import { MobileTabs } from './MobileTabs';
 import type { ShellAccess, ShellChrome, ShellMobileTab, ShellNavSection, ShellUser } from './types';
 
@@ -118,6 +118,25 @@ export function AppShell({
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
   const hasMenu = sections.length > 0;
 
+  /**
+   * **パンくずは左メニューの現在地から作る**（モックの上辺バーは
+   * 「案件管理 ／ ダッシュボード」）。
+   *
+   * 画面側で `crumb` を書かせると**書いた画面にしか出ません** — 73 画面ぶん
+   * 書き写すことになり、書き忘れた画面だけパンくずが消えます。左メニューが
+   * どの項目を光らせているか (`currentTo`) は既に決まっているので、
+   * **同じ答えを上辺バーにも出す**だけにします（2か所で別々に判定すると、
+   * メニューは「案件一覧」が光っているのにパンくずは「ダッシュボード」、
+   * という食い違いが起きます）。
+   *
+   * 明示的に渡された `crumb` はそのまま優先します（メニューに項目を持たない
+   * 画面で名前を出したいとき用）。
+   */
+  const activeTo = hasMenu ? currentTo(pathname, sections) : null;
+  const crumbText =
+    crumb ??
+    (activeTo ? sections.flatMap((s) => s.items).find((i) => i.to === activeTo)?.label : undefined);
+
   return (
     <div
       className="flex h-full flex-col overflow-hidden"
@@ -126,7 +145,7 @@ export function AppShell({
       <AppTopbar
         appKey={appKey}
         appLabel={label}
-        crumb={crumb}
+        crumb={crumbText}
         searchSlot={searchSlot}
         notificationSlot={notificationSlot}
         user={user}
