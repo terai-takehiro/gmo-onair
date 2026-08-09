@@ -28,6 +28,7 @@
 
 import { IntakeComposer } from './intake/IntakeComposer';
 import { IntakeReview } from './intake/IntakeReview';
+import { Transcribing } from './intake/Transcribing';
 import { useIntake } from './intake/useIntake';
 
 export function TaskIntakeBox({ canOpenProject = false }: { canOpenProject?: boolean }) {
@@ -50,7 +51,9 @@ export function TaskIntakeBox({ canOpenProject = false }: { canOpenProject?: boo
         createdProjects={it.createdProjects}
       />
 
-      {it.intake && (
+      {it.transcribing && <Transcribing />}
+
+      {it.intake && !it.transcribing && (
         <IntakeReview
           intake={it.intake}
           rows={it.rows}

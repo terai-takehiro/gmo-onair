@@ -26,28 +26,33 @@ import { ArrowRight, Image as ImageIcon, Loader2, Mic, Paperclip, Send, Square, 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { recordingFileName } from '@gmo-onair/shared/src/client-v4/recording';
 import type { Created } from './useIntake';
 
 /** 32kbps。**既定の 128kbps だと 25 分で Whisper の 25MB 上限に当たる** */
 const BITRATE = 32_000;
 
 /**
- * 投入口の録音の上限（**3 分で自動的に止める**）。
+ * 録音の上限は **Whisper の 25MB** だけ（32kbps でおよそ 100 分）。
  *
- * ── なぜ上限が要るか ────────────────────────────────────────
+ * ── 3 分の制限はやめました ──────────────────────────────────
  *
- * ここは**押した人を待たせたまま**文字起こし → 解析 → 確認画面まで走ります
- * （その場で確認させるのが要件なので、裏で走らせられない）。
- * **nginx の `/api/` は既定の 60 秒で切る**ので、長い録音を投げると
- * 「送れませんでした」としか出ない形になります。
+ * いちど「3 分で自動的に止める」を入れていましたが、**打合せには短すぎて
+ * 意味がない**というご指摘をいただいて作り直しました。制限の理由は
+ * 「文字起こしをリクエストの中で待っていたので nginx の 60 秒で切れる」
+ * ことでしたが、**待つのをやめました** — 行を先に作って裏で進め、
+ * 画面はその行を読みに行きます（議事録と同じ形）。
  *
- * 長い打合せは案件の「やり取り」→「打合せを録音」へ。
- * **あちらは行を先に作って裏で走る**ので、何分でも投げられます。
- * その行き先を画面にも書いてあります（無いものは無い、で終わらせない）。
+ * ここで見るのは**録れる量**だけです。25MB に近づいたら自分から止めます
+ * （超えて投げると Whisper に断られ、録った内容が丸ごと無駄になる）。
  */
-const MAX_REC_SEC = 180;
-/** 残りがこれを切ったら数字を赤くする（黙って止まると録れていないと思われる） */
-const REC_WARN_SEC = 30;
+const MAX_REC_BYTES = 25 * 1024 * 1024;
+/** 32kbps ≒ 4KB/秒。残り時間の目安を出すのに使う（正確でなくてよい） */
+const BYTES_PER_SEC = BITRATE / 8;
+/** 残りがこれを切ったら赤くする */
+const REC_WARN_SEC = 120;
+/** 上限の目安（秒）。**画面に出すのはこの値ではなく残り時間** */
+const MAX_REC_SEC = Math.floor(MAX_REC_BYTES / BYTES_PER_SEC);
 
 function mmss(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -104,8 +109,14 @@ export function IntakeComposer({
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: mr.mimeType || 'audio/webm' });
-        // **止めたらそのまま解析まで進む。** もう一度押させない
-        onAudio(new File([blob], `録音_${new Date().toISOString().slice(0, 10)}.webm`, { type: blob.type }));
+        // **止めたらそのまま解析まで進む。** もう一度押させない。
+        // ⚠️ 拡張子は **`mr.mimeType` から決める** — `.webm` 決め打ちにすると
+        // **iPhone / Safari（mp4）で必ず文字起こしに失敗する**（Whisper は拡張子で判断する）
+        onAudio(new File(
+          [blob],
+          recordingFileName(`録音_${new Date().toISOString().slice(0, 10)}`, mr.mimeType || blob.type),
+          { type: blob.type },
+        ));
       };
       mr.start(1000);
       recorder.current = mr;
@@ -145,11 +156,13 @@ export function IntakeComposer({
           <span className="v4-wave" aria-hidden="true">
             <i /><i /><i /><i /><i /><i /><i />
           </span>
-          {/* **あと何秒で自動的に止まるかを出す。** 黙って止まると、
-              録れていないのか終わったのか分からない */}
-          <span className={cn('text-note', left <= REC_WARN_SEC ? 'font-bold text-destructive' : 'text-secondary-foreground')}>
-            あと {mmss(Math.max(0, left))} で自動で止まります
-          </span>
+          {/* **残りが少なくなってから出す。** 100分の録音でずっと
+              「あと 97:12」と出ていても読む理由がない */}
+          {left <= REC_WARN_SEC && (
+            <span className="text-note font-bold text-destructive">
+              あと {mmss(Math.max(0, left))} で自動で止まります
+            </span>
+          )}
           <div className="flex-1" />
           <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => stop(false)}>
             やめる
@@ -161,8 +174,8 @@ export function IntakeComposer({
         <p className="text-note mt-2 text-secondary-foreground">
           <strong className="font-bold">録音することを相手にお伝えください。</strong>
           音声は文字にしたら<strong className="font-bold">保存せずに捨てます</strong>（残るのは文字だけです）。
-          ここは<strong className="font-bold">3分まで</strong> — 長い打合せは案件の「やり取り」→「打合せを録音」へ
-          （あちらは裏で進むので何分でも投げられます）。
+          <strong className="font-bold">約100分まで</strong>録れます。
+          止めたあとの文字起こしは<strong className="font-bold">裏で進みます</strong> — 画面を閉じても止まりません。
         </p>
       </div>
     );

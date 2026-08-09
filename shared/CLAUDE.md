@@ -45,6 +45,25 @@
 | `src/client/dashboard/` | `DashboardHeader` / `KpiCard` / `SectionCard` / `EmptyState` / `chart-colors` |
 | `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | **旧ヘッダー。凍結4アプリだけが使う**（v4 対象3アプリは `src/client/shell/` に移行済み） |
 | `src/client/{createApi,createAuthHook,queryClient,uiStore}.ts` | axios・認証フック・react-query・UIストアのファクトリ |
+
+> ⚠️ **ファイルを送るときは Content-Type を書かないこと**（`createApi.ts`・実際に踏んだ）。
+> この instance は `headers: { 'Content-Type': 'application/json' }` を**全リクエストに固定**
+> しており、**axios 1.x は中身が FormData でも Content-Type が JSON なら
+> `formDataToJSON()` で素の JSON に変換して送ります**。`File` は列挙できる
+> プロパティを持たないので、**`{"audio":{}}` になってファイルが丸ごと消えます**。
+>
+> **実際に壊れていたもの**（どれも「押しても何も起きない / 400 が返る」形で、
+> しかも**理由が画面に出ませんでした**）:
+> ・打合せを録音（`/projects/:id/minutes`）… **録音が投げられていなかった**
+> ・BOX にファイルを置く（`/projects/:id/box-files`）
+> ・トップの投入口の添付・録音
+> 動いていたのは、呼び出し側が `multipart/form-data` を**手で書いていた** 3 か所だけ
+> （Excel 取込・精算PDF・表彰の写真）。
+>
+> **いまは request interceptor が入口で 1 回外します。** 呼び出し側で直して回らないこと —
+> 書き込みは 296 か所あり、どれがファイルを送るかは増えていきます。
+> 外したあとは **axios の XHR アダプタが境界文字列つきの `multipart/form-data` を
+> ブラウザに任せて付けます**（手で書いている 3 か所も同じ道を通るので壊れません）。
 | `src/client/{manual,mcpInfo,versionHistory}/` | ヘッダーから開くモーダル3種 |
 | `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
 | `src/constants/statuses.ts`, `src/utils/businessDays.ts`, `src/enums.ts`, `src/types.ts` | 業務の共通定義 |
