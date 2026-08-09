@@ -111,7 +111,7 @@ export function MobileNewProject() {
 
             {missing.length > 0 && (
               <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-sub text-warning">
-                {missing.join(' ・ ')} が入っていないので、まだつくれません
+                {missing.join(' ・ ')} が入っていないので、まだ案件にできません
               </p>
             )}
           </>

@@ -107,10 +107,12 @@ function DesktopNewProject() {
         )}
 
         {/* **足りない項目を名指しする。** 押せないボタンだけだと何が足りないか探すことになる。
-            文面はモックのまま（スマホの最後のボタンが「つくる」なので、PC・スマホで同じ文が使える） */}
+            ⚠️ **文面はボタンと同じ言い方にそろえる**（ご指示）。モックはここだけ
+            「まだつくれません」だが、モック自身のボタンは「案件にする（与件化）」で、
+            **できないと言われている操作と、押すボタンの名前が違う**状態だった */}
         {missing.length > 0 && (
           <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2 text-sub text-warning">
-            {missing.join(' ・ ')} が入っていないので、まだつくれません
+            {missing.join(' ・ ')} が入っていないので、まだ案件にできません
           </p>
         )}
 
