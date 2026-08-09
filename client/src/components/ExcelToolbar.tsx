@@ -39,7 +39,7 @@ interface Props {
   queryKey?: unknown[];
   /** 重複検出キーが利用可能か (skip/update/error の選択肢を出すか) */
   hasDuplicateKey?: boolean;
-  /** Excel出力時に付与するクエリパラメータ (一覧の絞り込み/並び替えを反映) */
+  /** Excel 入出力時に付与するクエリパラメータ (一覧の絞り込み/並び替えを反映) */
   exportParams?: Record<string, string | number | undefined>;
 }
 
@@ -124,7 +124,7 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
       </Button>
       <Button size="sm" variant="outline" onClick={downloadExport}>
         <Download className="h-4 w-4 mr-1" />
-        Excel出力
+        Excel 入出力
       </Button>
 
       <Dialog open={open} onOpenChange={handleClose}>

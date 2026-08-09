@@ -487,11 +487,15 @@ export class ProjectService {
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
-       memo.description as memo_excerpt
+       memo.description as memo_excerpt,
+       -- 案件詳細の「事実の帯」が**見積金額**を出す（モックの指定）。
+       -- 一覧と**同じ計算**を使う（写すと、同じ案件が画面によって違う額になる）
+       COALESCE(est.amount, 0) as estimate_amount
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
        ${MEMO_LATERAL}
+       ${ESTIMATE_AMOUNT_LATERAL}
        WHERE p.id = ? AND p.deleted_at IS NULL`,
       [id]
     );

@@ -34,7 +34,7 @@
  * 確認もシートの中で終わります（画面遷移させない）。
  */
 import { useState } from 'react';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronUp, Sparkles } from 'lucide-react';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { IntakeComposer } from '@/contexts/tasks/components/intake/IntakeComposer';
 import { IntakeReview } from '@/contexts/tasks/components/intake/IntakeReview';
@@ -57,19 +57,28 @@ export function MobileAiBar({
 
   return (
     <>
+      {/*
+        モックの実測: 高さ 52px ／ 角丸 12px ／ 青から藍への横グラデーション。
+        色は**トークンから組む**（`--primary` #005bac → `--info` #4338ca）。
+        生の hex を書くと、色を決め直したときにここだけ取り残される
+      */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-card flex min-h-[60px] w-full items-center gap-3 bg-primary px-4 py-3 text-left"
+        className={
+          'rounded-note flex min-h-[52px] w-full items-center gap-2.5 px-3.5 py-2 text-left '
+          + 'bg-[linear-gradient(100deg,rgb(var(--primary)),rgb(var(--info)))]'
+        }
       >
-        <Sparkles className="h-5 w-5 shrink-0 text-primary-foreground" aria-hidden="true" />
-        <span className="text-cardtitle min-w-0 flex-1 text-primary-foreground">AIに任せる</span>
-        {/* 書きかけが残っていることを**バーに出す**。出さないと、閉じた人は
-            消えたと思ってもう一度書き始める */}
-        {it.text.trim() && (
-          <span className="text-note shrink-0 text-primary-foreground">書きかけあり</span>
-        )}
-        <ChevronRight className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />
+        <Sparkles className="h-[18px] w-[18px] shrink-0 text-primary-foreground" aria-hidden="true" />
+        <span className="text-cardtitle min-w-0 text-primary-foreground">AIに任せる</span>
+        <span className="flex-1" />
+        {/* 何ができる口なのかを右端に添える（モック）。ただし**書きかけがあるときは
+            そちらを優先**する — 出さないと、閉じた人は消えたと思ってもう一度書き始める */}
+        <span className="text-note shrink-0 text-primary-foreground opacity-85">
+          {it.text.trim() ? '書きかけあり' : '書く・貼る・録音'}
+        </span>
+        <ChevronUp className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />
       </button>
 
       <Sheet

@@ -242,7 +242,7 @@ export default function HomePage() {
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>
         ) : (
-          /* **並びは 今日の予定 → 自分のやること → お待たせ中**（モック `v4-live`）。
+          /* **並びは 今日の予定 → わたしのタスク → お待たせ中**（モック `v4-live`）。
              中身は変えていない — 並べ替えただけ */
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
             {hasPermission('studio') && <TodayCard days={schedule.data} />}

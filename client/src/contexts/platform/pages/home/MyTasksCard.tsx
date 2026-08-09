@@ -1,5 +1,5 @@
 /**
- * トップページの「自分のやること」 (v4)
+ * トップページの「わたしのタスク」 (v4)
  *
  * **お待たせ中（相手を待たせているもの）と分けています。** 混ぜると、
  * 相手を待たせているものが自分の雑務に埋もれます。
@@ -73,7 +73,7 @@ export function MyTasksCard() {
     <section className="rounded-card flex h-full flex-col border border-primary-border-strong bg-card p-4 lg:px-5">
       <div className="flex items-center gap-2.5">
         <UserCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <h3 className="text-cardtitle text-primary">自分のやること</h3>
+        <h3 className="text-cardtitle text-primary">わたしのタスク</h3>
         <div className="flex-1" />
         <button
           type="button"

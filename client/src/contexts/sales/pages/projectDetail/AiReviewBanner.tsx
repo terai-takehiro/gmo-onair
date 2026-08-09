@@ -49,8 +49,12 @@ export function AiReviewBanner({
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-card border border-ai-border bg-ai-surface p-3">
       <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
-      <span className="text-sub min-w-0 flex-1 text-foreground">
-        AI がメールから作った案件です。内容が合っているか見てください。
+      {/* 文言はモック（`v4-live-sales.dc.html` の案件詳細）のまま */}
+      <span className="min-w-0 flex-1">
+        <span className="text-list block text-foreground">この案件は AI が起票しました</span>
+        <span className="text-note block text-muted-foreground">
+          まだ誰も内容を確かめていません。確認するまで「未確認」として残ります。
+        </span>
       </span>
       {reviewedAt ? (
         <span className="text-sub font-number flex shrink-0 items-center gap-1.5 text-success">

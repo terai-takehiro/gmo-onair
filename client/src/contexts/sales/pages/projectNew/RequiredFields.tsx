@@ -48,7 +48,7 @@ export function RequiredFields({ f }: { f: NewProjectForm }) {
           options={f.users.map((u) => ({ value: u.id, label: u.name }))}
           value={v.assigned_to}
           onChange={(id) => set('assigned_to', id)}
-          placeholder="担当を探す"
+          placeholder="担当を選ぶ"
         />
       </Field>
 

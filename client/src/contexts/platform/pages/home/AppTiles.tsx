@@ -260,7 +260,7 @@ function DesktopTile({ app, onOpen }: { app: TileApp; onOpen: () => void }) {
  *
  * **ここも権限で絞る。** 凍結アプリにも権限モジュールがあり、
  * 絞らないと権限の無い人にも出て、押すと 403 になる。
- * 外部リンクは別サイトなので権限を見ない（もともと誰でも開ける）。
+ * 外部リンクは別サイト ↗なので権限を見ない（もともと誰でも開ける）。
  */
 export function EventTiles({ mobile }: { mobile?: boolean }) {
   const open = useOpen();
@@ -308,7 +308,7 @@ export function EventTiles({ mobile }: { mobile?: boolean }) {
             <span className="text-cardtitle block truncate">{a.label}</span>
             {a.external && (
               <span className="text-note flex items-center gap-0.5 text-muted-foreground">
-                別サイト<ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                別サイト ↗<ArrowUpRight className="h-3 w-3" aria-hidden="true" />
               </span>
             )}
           </span>

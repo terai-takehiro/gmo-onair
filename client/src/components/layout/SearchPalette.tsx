@@ -22,7 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Search, Building2, Truck, FolderKanban, Clock, CornerDownLeft } from 'lucide-react';
+import { Loader2, Search, Building2, Truck, Wrench, FolderKanban, Clock, CornerDownLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ interface SearchResults {
   projects: Array<{ id: string; code: string; gls_number: string | null; name: string; stage: string }>;
   customers: Array<{ id: string; name: string; short_name: string }>;
   vendors: Array<{ id: string; name: string; vendor_type: string }>;
+  /** 機材（別バンドル。`navigate()` では飛べないので `external` で開く） */
+  equipment?: Array<{ id: string; eq_code: string; name: string; model_number: string | null }>;
 }
 
 /** 窓の中の1行。**種類が違っても同じ形**にして、上下キーで一直線に動かす */
@@ -158,6 +160,14 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
     for (const v of results?.vendors ?? []) {
       out.push({ key: `v:${v.id}`, group: '仕入先', label: v.name, sub: v.vendor_type, icon: Truck, to: '/budget/vendors' });
     }
+    for (const e of results?.equipment ?? []) {
+      // **機材管理は別のバンドル**なので `external`（素の遷移）で開く
+      out.push({
+        key: `e:${e.id}`, group: '機材', label: e.name,
+        sub: [e.eq_code, e.model_number].filter(Boolean).join(' ・ '),
+        icon: Wrench, to: `/equipment/items/${e.id}`, external: true,
+      });
+    }
     return out;
   }, [query, results, recent, allowed]);
 
@@ -212,8 +222,8 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            aria-label="案件・顧客・機能を検索"
-            placeholder="案件・顧客・機能を検索"
+            aria-label="案件・お客様・機材を探す"
+            placeholder="案件・お客様・機材を探す"
             className="h-9 border-0 px-0 shadow-none focus-visible:ring-0"
           />
           {searching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
