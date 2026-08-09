@@ -26,7 +26,7 @@ const userOf = (req: Request) => req.user!.id;
 /**
  * 型の一覧。`classification`（`客入れ:分類`）で絞れる。
  *
- * **旧 `project_type` でも受けます。** migration 181 より前から動いている
+ * **旧 `project_type` でも受けます。** migration 182 より前から動いている
  * 呼び出し（旧い画面・MCP）を 400 で止めると、工程を入れる導線が黙って消えます。
  * 受けたら2段に読み替えてから当てるので、返るものは同じです。
  */

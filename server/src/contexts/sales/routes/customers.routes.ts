@@ -155,7 +155,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   /**
-   * **渡されなければ今の値を保つ** (migration 181)。この UPDATE は送られた値で
+   * **渡されなければ今の値を保つ** (migration 182)。この UPDATE は送られた値で
    * そのまま上書きするので、欄を持たない古い画面から保存されるだけで
    * グループ会社の印が黙って外れます（リード経路が「グループ案件」に固定されなくなる）。
    */

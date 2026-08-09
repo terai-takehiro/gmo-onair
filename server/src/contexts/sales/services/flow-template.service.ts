@@ -82,7 +82,7 @@ export async function listTemplates(): Promise<FlowTemplate[]> {
  * その案件の分類に合う型。**`project_types` が空の型はどの分類でも使える。**
  * 分類を指定した型があればそちらを先に出す（より具体的なものを上に）。
  *
- * ⚠️ 渡すのは **migration 181 の「客入れ:分類」の鍵**
+ * ⚠️ 渡すのは **migration 182 の「客入れ:分類」の鍵**
  * （例 `with_audience:broadcast`）で、旧 `project_type` の値ではありません。
  * 旧の値を渡すと**1つも当たらず、どの型も「すべての分類で使える」ものだけ**になります
  * （黙って全部出るので気づけない）。呼ぶ側は `classificationKey()` を通してください。

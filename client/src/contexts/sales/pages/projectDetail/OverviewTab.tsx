@@ -130,7 +130,7 @@ export function OverviewTab({
           <Field label="お客様">{project.customer_name}</Field>
           <Field label="ご担当">{project.contact_name}</Field>
           {/*
-            **案件分類は2段**（migration 181）。2つ揃っているときはそれを出し、
+            **案件分類は2段**（migration 182）。2つ揃っているときはそれを出し、
             揃っていない古い案件は旧「種類」を出します — **どちらも出さないと
             分類が空欄に見えます**（2段が入る前の案件は全部そう見える）。
           */}

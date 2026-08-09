@@ -3,8 +3,8 @@
  *
  * ── ここが唯一の対応表 ──────────────────────────────────────
  *
- * migration 181 で `projects.audience` / `projects.project_category` を足しましたが、
- * **`project_type` を捨てていません**（理由は 181 の冒頭）。2つの持ち方が並ぶので、
+ * migration 182 で `projects.audience` / `projects.project_category` を足しましたが、
+ * **`project_type` を捨てていません**（理由は 182 の冒頭）。2つの持ち方が並ぶので、
  * 対応表を書き写すと**片方だけ直した日から一覧と詳細で分類が食い違います**。
  *
  * → **書くのはサーバーのここだけ。** 画面からは2段の値だけを受け取り、
@@ -73,7 +73,7 @@ export function isProjectCategory(v: unknown): v is ProjectCategory {
   return typeof v === 'string' && (PROJECT_CATEGORIES as readonly string[]).includes(v);
 }
 
-/** 標準工程テンプレートの鍵。migration 181 が `project_types` に入れているのと同じ形 */
+/** 標準工程テンプレートの鍵。migration 182 が `project_types` に入れているのと同じ形 */
 export function classificationKey(audience: Audience, category: ProjectCategory): string {
   return `${audience}:${category}`;
 }

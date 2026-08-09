@@ -170,7 +170,7 @@ export default function FlowTemplatePage() {
                 {/* どの種類で使うか */}
                 <div className="border-b border-border-faint px-4 py-3">
                   {/*
-                    **選択肢は2段分類の6通り**（migration 181）。
+                    **選択肢は2段分類の6通り**（migration 182）。
                     旧「案件の種類」7つのうち3つ（GMO案件・コンサル・その他）は
                     プロジェクト管理側に回っており、放送案件の工程とは1つも重なりません。
                     残る4つは「客入れの有無 × 配信/収録/イベント」に置き換わったので、

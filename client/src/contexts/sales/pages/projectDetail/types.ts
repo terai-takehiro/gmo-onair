@@ -10,7 +10,7 @@ export interface ProjectDetail {
   stage: ProjectStage;
   project_type: string | null;
   /**
-   * 案件分類の2段（migration 181）。**旧 `project_type` と併存**しており、
+   * 案件分類の2段（migration 182）。**旧 `project_type` と併存**しており、
    * 書くのはサーバーだけです（`server/.../project-classification.ts`）。
    * GLS-B の案件と、2段が入る前に作られた案件は null。
    */

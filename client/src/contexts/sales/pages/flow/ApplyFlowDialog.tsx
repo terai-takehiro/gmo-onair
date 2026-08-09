@@ -40,7 +40,7 @@ export function ApplyFlowDialog({
   onOpenChange: (open: boolean) => void;
   projectId: string;
   /**
-   * 案件の2段分類（migration 181）。合う型を上に出すためだけに使う
+   * 案件の2段分類（migration 182）。合う型を上に出すためだけに使う
    * （合う型が無くても全部出す）。**どちらか欠けていたら絞らない** —
    * 「有観客」だけでは型を選べないので、中途半端に絞ると
    * 使うべき型が下に沈みます。

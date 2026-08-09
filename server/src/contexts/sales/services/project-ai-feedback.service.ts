@@ -59,7 +59,7 @@ const FIELDS: { path: string; label: string }[] = [
   { path: 'reply_due', label: '返事の期限' },
   { path: 'wants', label: '求められているもの' },
   { path: 'intake_channel', label: 'リード経路' },
-  // 2段分類 (migration 181)。**`project_type` と両方見る** — 旧分類は4種しかなく
+  // 2段分類 (migration 182)。**`project_type` と両方見る** — 旧分類は4種しかなく
   // 「有観客の収録」と「有観客の配信」が同じ `hybrid_event` に寄るので、
   // 種類だけを見ていると人が直した分類の半分が「無修正」に数えられる
   { path: 'audience', label: '客入れの有無' },

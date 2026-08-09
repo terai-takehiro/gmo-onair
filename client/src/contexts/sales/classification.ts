@@ -13,7 +13,7 @@
  *
  * ── 値は DB と同じ集合 ──────────────────────────────────────
  *
- * `projects.audience` / `projects.project_category`（migration 181）の CHECK と
+ * `projects.audience` / `projects.project_category`（migration 182）の CHECK と
  * **同じ文字列**です。旧 `project_type` への読み替えは**サーバーだけが持ちます**
  * （`server/.../project-classification.ts`）。ここに対応表を書き写すと、
  * 片方だけ直した日から一覧と詳細で分類が食い違います。

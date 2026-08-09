@@ -26,7 +26,7 @@ export interface CustomerOption {
   id: string;
   name: string;
   short_name?: string | null;
-  /** GMOインターネットグループのグループ会社か（migration 181） */
+  /** GMOインターネットグループのグループ会社か（migration 182） */
   is_gmo_group?: boolean | null;
 }
 

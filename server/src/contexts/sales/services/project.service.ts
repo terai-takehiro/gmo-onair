@@ -16,7 +16,7 @@ import { resolveClassification } from './project-classification';
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
  * 知らない値をそのまま渡すと CHECK に弾かれ、案件の登録ごと 500 になる。
- * `group`（グループ案件）は migration 181 で足した — お客様がグループ会社のとき
+ * `group`（グループ案件）は migration 182 で足した — お客様がグループ会社のとき
  * 画面が固定表示にし、この値で保存する。
  */
 const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'group', 'other'];
@@ -583,7 +583,7 @@ export class ProjectService {
 
     const recur = recurrence === 'regular' ? 'regular' : 'single';
     /**
-     * **無観客の案件には来場人数を持たせない** (migration 181)。
+     * **無観客の案件には来場人数を持たせない** (migration 182)。
      * 画面が欄を出さないので値は来ませんが、MCP や旧フォームから来ることがあります。
      * 入ってしまうと「無観客なのに 150 名」の行ができ、規模別の集計が狂います。
      */
@@ -592,7 +592,7 @@ export class ProjectService {
     const scale = audience === 'no_audience' ? null : rawScale;
 
     /**
-     * 客入れの有無 × 案件分類（migration 181）。**旧 `project_type` はここで導く。**
+     * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
      * 画面から両方送らせると、片方だけ更新された行ができます
      * （`project-classification.ts` の冒頭）。
      */
@@ -742,7 +742,7 @@ export class ProjectService {
       : (project_type_other || null);
 
     /**
-     * 客入れの有無 × 案件分類（migration 181）。**渡されなければ今の値を保つ。**
+     * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
      *
      * 直す画面（`ProjectFormPage`）にはまだ2段の欄が無いので、保つ形にしていないと
      * **保存するたびに分類が消えます**（タグ・登録16項目と同じ壊れ方）。

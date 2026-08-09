@@ -25,7 +25,7 @@ interface Customer {
   email?: string;
   phone?: string;
   address?: string;
-  /** GMOインターネットグループのグループ会社か (migration 181) */
+  /** GMOインターネットグループのグループ会社か (migration 182) */
   is_gmo_group?: boolean;
   is_ai_created?: boolean;
   ai_requested_by?: string | null;
@@ -216,7 +216,7 @@ export default function CustomerListPage() {
           <div><Label>電話</Label><Input {...form.register("phone")} /></div>
           <div><Label>住所</Label><Input {...form.register("address")} /></div>
           {/*
-            **グループ会社の印**（migration 181）。ここを付けると、案件作成の
+            **グループ会社の印**（migration 182）。ここを付けると、案件作成の
             「リード経路」がプルダウンではなく**「グループ案件」の固定表示**になります。
             社名の文字列一致では判定しません — 社名は変わりますし、
             GMO を含む社外の会社を誤判定します。
