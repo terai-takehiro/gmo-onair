@@ -1,24 +1,31 @@
 /**
- * 受付に届くものの種類 (v4 ②)
+ * 受信箱に届くものの種類（`GET /dashboard/inbox`）
+ *
+ * ── 「受付」は無くなりました ────────────────────────────────
+ *
+ * 旧 `/sales/inbox`（受付）は**案件作成に畳みました**（`/sales/projects/new`）。
+ * 届いたものを読んで、足りないところを埋めて、案件にするかどうかを決める仕事は
+ * 案件作成と同じだったので、1画面にしています。
+ *
+ * このファイルが残っているのは、**種類の見せ方を2か所が使う**ためです:
+ *
+ *   ・案件作成の「自動で届いたもの」レール（`projectNew/IntakeRail.tsx`）
+ *   ・ホームの「お待たせ中」（`platform/pages/home/WaitingCard.tsx`）
+ *
+ * 見出しの作り方を書き写すと、片方だけ直したときに**同じ引き合いが画面によって
+ * 違う名前で出ます**。
+ *
+ * ── 口は4種類を返したまま ────────────────────────────────────
  *
  * `GET /dashboard/inbox` は4種類を1本のキューにして返します。
- * **受付の画面はそのうち引き合いの2つ (`ai_project` / `inquiry`) だけを出します**
- * — モックの受付は引き合い (メール・電話) だけだからです。
+ * **案件作成のレールに出すのは引き合いの2つ（`INTAKE_KINDS`）だけ**です。
+ * 外した2つには行き先があります:
  *
- * ── 外した2つの行き先 ──────────────────────────────────────
+ *  ・**期限超過** → 案件管理ダッシュボードの「期限が過ぎたやること」
+ *  ・**見積・請求の書類** → 財務の「受け取った書類」（`/budget/documents`）
  *
- *  ・**期限超過** → 案件管理ダッシュボードの「期限が過ぎたやること」。
- *    **先にそちらを作ってから**外しました（消すだけだと、お客様を待たせている
- *    ものを見る場所が無くなる）
- *  ・**見積・請求の書類** → 財務の「受け取った書類」(`/budget/documents`)。
- *    元からそこが本来の置き場で、受付には重複して出ていました
- *
- * `GET /dashboard/inbox` そのものは4種類を返したままです — ホームの
- * 「お待たせ中」とタイルの件数が同じ口を読んでおり、
- * **口を変えると受付以外の数字も動きます**。絞るのは画面側だけ。
- *
- * 3ステップ (入れる → 確かめる → 案件にする) を通せるのは
- * **ネタ案件だけ**なので、そこだけ作業台 (中央+右) を出します。
+ * **口そのものは変えません** — ホームの「お待たせ中」とタイルの件数が
+ * 同じ口を読んでおり、口を変えると受付以外の数字も動きます。絞るのは画面側だけ。
  */
 import { Sparkles, AlertTriangle, MessageSquare, Receipt } from 'lucide-react';
 
@@ -29,33 +36,31 @@ export interface KindDef {
   icon: typeof Sparkles;
   /** バッジの色。**生のパレットを使わない** (状態の色トークンから選ぶ) */
   tone: string;
-  /** 3ステップの「確かめる」を通せるか = 中央の作業台を出すか */
-  workbench: boolean;
 }
 
 export const KINDS: Record<InboxKind, KindDef> = {
   ai_project: {
     label: 'ネタ案件', icon: Sparkles,
-    tone: 'border-transparent bg-ai-surface text-ai', workbench: true,
+    tone: 'border-transparent bg-ai-surface text-ai',
   },
   overdue_action: {
     label: '期限超過', icon: AlertTriangle,
-    tone: 'border-transparent bg-destructive-surface text-destructive', workbench: false,
+    tone: 'border-transparent bg-destructive-surface text-destructive',
   },
   inquiry: {
     label: '問い合わせ', icon: MessageSquare,
-    tone: 'border-transparent bg-primary-surface text-primary', workbench: false,
+    tone: 'border-transparent bg-primary-surface text-primary',
   },
   finance_doc: {
     label: '見積・請求', icon: Receipt,
-    tone: 'border-transparent bg-warning-surface text-warning', workbench: false,
+    tone: 'border-transparent bg-warning-surface text-warning',
   },
 };
 
 export const KIND_ORDER: InboxKind[] = ['ai_project', 'overdue_action', 'inquiry', 'finance_doc'];
 
 /**
- * **受付の画面に出す種類**（モックどおり引き合いだけ）。
+ * **案件作成のレールに出す種類**（引き合いだけ）。
  * `KIND_ORDER` は `GET /dashboard/inbox` が返す全部で、ホームの「お待たせ中」が使う。
  */
 export const INTAKE_KINDS: InboxKind[] = ['ai_project', 'inquiry'];

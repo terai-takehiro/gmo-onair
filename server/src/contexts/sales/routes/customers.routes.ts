@@ -139,21 +139,29 @@ router.get('/:id/overview', async (req, res) => {
 });
 
 router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
-  const { name, short_name, contact_name, email, phone, address, notes } = req.body;
+  const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   const id = uuidv4();
-  await execute('INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, req.user!.id]);
+  await execute('INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, is_gmo_group, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, is_gmo_group === true, req.user!.id]);
   const row = await queryOne('SELECT * FROM customers WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
-  const existing = await queryOne('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const existing = await queryOne(
+    'SELECT id, is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { is_gmo_group?: boolean } | null;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
-  const { name, short_name, contact_name, email, phone, address, notes } = req.body;
-  await execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, req.user!.id, req.params.id]);
+  const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
+  /**
+   * **渡されなければ今の値を保つ** (migration 181)。この UPDATE は送られた値で
+   * そのまま上書きするので、欄を持たない古い画面から保存されるだけで
+   * グループ会社の印が黙って外れます（リード経路が「グループ案件」に固定されなくなる）。
+   */
+  const groupFlag = is_gmo_group === undefined ? (existing.is_gmo_group === true) : (is_gmo_group === true);
+  await execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+    [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id, req.params.id]);
   const row = await queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });

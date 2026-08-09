@@ -20,8 +20,8 @@
 import { ListChecks } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
-import type { ProjectStage } from '@/types';
-import { STAGE_BADGE_LABEL, isStale } from './stages';
+import { ProjectStageLabels, type ProjectStage } from '@/types';
+import { isStale } from './stages';
 import type { ProjectListRow } from './types';
 
 /** 左から「まだ何も無い」→「受注済」。終わったもの (完了・失注) は並べない */
@@ -72,7 +72,10 @@ export function ProjectBoard({
         <div key={col.stage} className="flex w-60 shrink-0 flex-col gap-2">
           <div className="flex items-center gap-2 rounded-card border border-border bg-card px-3 py-2">
             <span className={`h-2 w-2 shrink-0 rounded-chip ${DOT[col.stage]}`} aria-hidden="true" />
-            <span className="text-list">{STAGE_BADGE_LABEL[col.stage]}</span>
+            {/* **列名は記号つきの正式名**（指示書 5）。行の中のバッジは和文だけ
+                （`STAGE_BADGE_LABEL`）だが、こちらは列の見出しで幅が広く、
+                受注に近い順であることを記号が示す */}
+            <span className="text-list">{ProjectStageLabels[col.stage]}</span>
             <span className="text-sub-sm font-number text-muted-foreground">{col.items.length}</span>
             <Money value={col.total || null} className="text-sub-sm ml-auto w-24 text-muted-foreground" />
           </div>

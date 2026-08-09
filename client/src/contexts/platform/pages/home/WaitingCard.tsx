@@ -17,7 +17,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { KINDS, titleOf, subtitleOf, type InboxData } from '@/contexts/sales/pages/inbox/kinds';
 
-/** トップに出すのは4件まで。**残りは件数で示して受付へ送る** */
+/** トップに出すのは4件まで。**残りは件数で示して案件作成へ送る** */
 const SHOWN = 4;
 
 export function WaitingCard({ data }: { data: InboxData | undefined }) {
@@ -52,7 +52,7 @@ export function WaitingCard({ data }: { data: InboxData | undefined }) {
               <button
                 key={it.key}
                 type="button"
-                onClick={() => navigate('/sales/inbox')}
+                onClick={() => navigate('/sales/projects/new')}
                 className="min-h-tap flex items-start gap-2.5 border-t border-border-subtle px-4 py-2.5 text-left hover:bg-surface-subtle lg:px-5"
               >
                 <span className="min-w-0 flex-1">
@@ -68,10 +68,10 @@ export function WaitingCard({ data }: { data: InboxData | undefined }) {
           })}
           <button
             type="button"
-            onClick={() => navigate('/sales/inbox')}
+            onClick={() => navigate('/sales/projects/new')}
             className="text-sub min-h-tap mt-auto flex items-center justify-center gap-1 border-t border-border-subtle font-bold text-primary hover:bg-surface-subtle"
           >
-            {items.length > SHOWN ? `受付で残り ${items.length - SHOWN} 件を見る` : '受付をひらく'}
+            {items.length > SHOWN ? `案件作成で残り ${items.length - SHOWN} 件を見る` : '案件作成をひらく'}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </>

@@ -79,13 +79,18 @@ export async function listTemplates(): Promise<FlowTemplate[]> {
 }
 
 /**
- * その案件の種類に合う型。**`project_types` が空の型はどの種類でも使える。**
- * 種類を指定した型があればそちらを先に出す（より具体的なものを上に）。
+ * その案件の分類に合う型。**`project_types` が空の型はどの分類でも使える。**
+ * 分類を指定した型があればそちらを先に出す（より具体的なものを上に）。
+ *
+ * ⚠️ 渡すのは **migration 181 の「客入れ:分類」の鍵**
+ * （例 `with_audience:broadcast`）で、旧 `project_type` の値ではありません。
+ * 旧の値を渡すと**1つも当たらず、どの型も「すべての分類で使える」ものだけ**になります
+ * （黙って全部出るので気づけない）。呼ぶ側は `classificationKey()` を通してください。
  */
-export async function templatesFor(projectType: string | null): Promise<FlowTemplate[]> {
+export async function templatesFor(classification: string | null): Promise<FlowTemplate[]> {
   const all = await listTemplates();
-  if (!projectType) return all;
-  const specific = all.filter((t) => t.project_types.includes(projectType));
+  if (!classification) return all;
+  const specific = all.filter((t) => t.project_types.includes(classification));
   const generic = all.filter((t) => t.project_types.length === 0);
   return [...specific, ...generic];
 }

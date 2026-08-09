@@ -1,137 +1,276 @@
 /**
- * 案件一覧の絞り込み — **スマホ版**（M6 → M8 で共通部品に載せ替え）
+ * 案件一覧の絞り込み — **スマホ版**（指示書 4-6）
  *
- * ── なぜ作り直したか ────────────────────────────────────────
+ * ── 横スクロールのチップをやめた ────────────────────────────
  *
- * PC の絞り込み帯をそのまま縦に畳むと、375px では
- * 検索 ＋ 期間5個 ＋ 並び順 ＋ トグル2個 が積み上がって **約 450px**。
- * ステージのチップと見出しを足すと、**最初の案件に着くまで約 470px**
- * ＝ 1画面の 7割が「まだ何も見えていない」状態でした（実測）。畳んで **258px**。
+ * 旧実装は絞り込みを1行に畳んだうえで、ステージだけ**横スクロールのチップ列**で
+ * 出していました。390px では 6 個のうち 3 個しか見えず、
  *
- * ── 畳み方そのものは `client-v4/mobileFilterBar` に移した ────
+ *  ・**残りがあることに気づけない**（端が切れているだけに見える）
+ *  ・**押したいものが画面外**なので、まず横に払ってから押すことになる
+ *  ・払うつもりが押してしまい、絞り込みが変わる
  *
- * 同じ形を 受付・機材台帳・内覧会 にも広げたので、**枠は共通部品**に置きました。
- * ここに残っているのは**この画面固有のもの2つ**だけです:
+ * → **1行のボタン**（「ステージ｜すべて 6 ▾」）にして、押すと
+ *   **下から出るシート**で選ばせます。シートなら6つとも同時に見えて、
+ *   1タップで決まります。
  *
- *   1. `activeFilterCount()` — 何を「既定」と見なすか
- *   2. シートの中身（実施日・並び順・AI・用語）
+ * ── 3本の行 ─────────────────────────────────────────────────
  *
- * **数え方を共通部品に持たせていない**のが要点です。既定は画面ごとに違う
- * （案件一覧は「半年・既定の並び」、機材台帳は「絞り込みなし」）ので、
- * 共通側に置くと必ずどちらかが嘘になります。
+ *   ステージ ｜ すべて 6      ▾
+ *   期間     ｜ 半年 ・ 2026年 下期 ▾     ← 単位 → 対象 の2段シート
+ *   検索欄                    ｜ 並び順 ▾
+ *
+ * 検索欄の右は「絞り込み」ではなく **並び順**です。絞り込みは上の2行が
+ * 持っているので、そこに畳むものがもうありません。
  */
-import { Sparkles, Info } from 'lucide-react';
-import {
-  MobileFilterBar as Bar, MobileFilterField as Field, MobileFilterSegments as Segments,
-} from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
+import { useState } from 'react';
+import { Search, ChevronDown, Check, Sparkles, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { cn } from '@gmo-onair/shared/src/client/utils';
+import { STAGE_CHIPS } from './stages';
+import { SORT_OPTIONS, type FilterBarProps } from './FilterBar';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { SORT_OPTIONS, type FilterBarProps, type EventPeriodMode } from './FilterBar';
+  PERIOD_MODES, options, toValue, fromValue, label, switchMode, defaultPeriod,
+} from './period';
 
-const PERIOD_MODES: [EventPeriodMode, string][] = [
-  ['half', '半年'], ['month', '月'], ['quarter', '四半期'], ['year', '年'], ['all', '全件'],
-];
+export interface MobileFilterBarProps extends FilterBarProps {
+  stageKey: string;
+  onStageKey: (v: string) => void;
+  /** チップに出す件数（PC と同じ数え方）。まだ読み込んでいなければ null */
+  stageCounts: Record<string, number | null>;
+  /** 並びが変わる直前に呼ぶ（行を滑らせる）。シートは次のコマで閉じる */
+  beforeChange?: (apply: () => void) => void;
+}
 
-/** 既定から動いている絞り込みの数。**既定と同じものは数えない**（数が常に付くと意味が消える） */
-export function activeFilterCount(p: FilterBarProps): number {
+/** 既定から動いている絞り込みの数。**既定と同じものは数えない** */
+export function activeFilterCount(p: MobileFilterBarProps, now: Date): number {
+  const d = defaultPeriod(now);
   let n = 0;
-  if (p.eventMode !== 'half') n += 1;
-  if (p.sort !== 'default:asc') n += 1;
+  if (p.stageKey !== 'all') n += 1;
+  if (p.period.mode !== d.mode || p.period.year !== d.year || p.period.index !== d.index) n += 1;
   if (p.aiOnly) n += 1;
   return n;
 }
 
-export function MobileFilterBar(p: FilterBarProps) {
-  const clearAll = () => {
-    p.onEventMode('half');
-    p.onSort('default:asc');
-    p.onAiOnly(false);
-    p.onAiUnreviewedOnly(false);
+/** 並び順の札の上限。これより広げると 390px で検索欄が2文字ぶんしか残らない */
+const SORT_LABEL_W = 'max-w-[110px]';  // ui-tokens-ok: 検索欄を潰さないための上限
+
+/** 52px の行。**シートの中も外も同じ高さ**にする（指の当たり所を変えない） */
+function Row({
+  label: text, value, onClick,
+}: { label: string; value: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-[52px] w-full items-center gap-2 rounded-control border border-border bg-card px-3.5 text-left"
+    >
+      <span className="text-sub shrink-0 font-bold text-muted-foreground">{text}</span>
+      <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+      <span className="text-list min-w-0 flex-1 truncate">{value}</span>
+      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** シートの中の1行。**チェックは右**（左に置くと文字の頭が揃わない） */
+function Choice({
+  label: text, sub, on, onClick,
+}: { label: string; sub?: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={cn(
+        'flex h-[52px] w-full items-center gap-2 border-b border-border-faint px-1 text-left last:border-b-0',
+        on && 'font-bold text-primary',
+      )}
+    >
+      <span className="text-list min-w-0 flex-1 truncate">{text}</span>
+      {sub && <span className="text-sub font-number shrink-0 text-muted-foreground">{sub}</span>}
+      {on
+        ? <Check className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+        : <span className="h-5 w-5 shrink-0" aria-hidden="true" />}
+    </button>
+  );
+}
+
+export function MobileFilterBar(p: MobileFilterBarProps) {
+  const [open, setOpen] = useState<null | 'stage' | 'period' | 'sort'>(null);
+  /** 期間のシートは2段。単位を選んだら対象へ進む */
+  const [periodStep, setPeriodStep] = useState<'mode' | 'target'>('mode');
+
+  const close = () => setOpen(null);
+  /**
+   * **シートを閉じるのと同じコマで並びを測らない**（`beforeChange`）。
+   * 閉じかけの高さが混ざって行が飛びます。閉じるのは次のコマに回します。
+   */
+  const apply = (fn: () => void) => {
+    if (p.beforeChange) p.beforeChange(fn); else fn();
+    close();
   };
 
+  const stage = STAGE_CHIPS.find((c) => c.key === p.stageKey) ?? STAGE_CHIPS[0];
+  const stageCount = p.stageCounts[p.stageKey];
+  const periodLabel = p.period.mode === 'all'
+    ? '全件'
+    : `${PERIOD_MODES.find((m) => m.mode === p.period.mode)?.label} ・ ${label(p.period)}`;
+
   return (
-    <Bar
-      search={{
-        value: p.search,
-        onChange: p.onSearch,
-        placeholder: '案件名・お客様名で探す',
-        label: '案件を探す',
-      }}
-      activeCount={activeFilterCount(p)}
-      onClearAll={clearAll}
-      /* **検索中は期間が効かないことを、その場に書く**（探したのに出ない、を防ぐ） */
-      note={p.search ? '探しているあいだは実施日の絞り込みを外して、全期間から当てます' : undefined}
-    >
-      <Field
-        label="実施日"
-        hint={p.eventMode === 'all' ? '全部の案件を出します。件数が多いと読み込みに少しかかります' : undefined}
-      >
-        <Segments label="実施日で絞り込む" items={PERIOD_MODES} value={p.eventMode} onChange={p.onEventMode} />
-        {p.eventMode === 'month' && (
-          <Input type="month" value={p.eventMonth} onChange={(e) => p.onEventMonth(e.target.value)} aria-label="実施月で絞り込む" />
-        )}
-        {p.eventMode === 'quarter' && (
-          <div className="flex gap-2">
-            <Input type="number" value={p.eventYear} onChange={(e) => p.onEventYear(Number(e.target.value) || p.eventYear)} className="w-24" aria-label="年" />
-            <Select value={String(p.eventQuarter)} onValueChange={(v) => p.onEventQuarter(Number(v))}>
-              <SelectTrigger className="flex-1" aria-label="四半期"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1Q（1〜3月）</SelectItem>
-                <SelectItem value="2">2Q（4〜6月）</SelectItem>
-                <SelectItem value="3">3Q（7〜9月）</SelectItem>
-                <SelectItem value="4">4Q（10〜12月）</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        {p.eventMode === 'year' && (
-          <Input type="number" value={p.eventYear} onChange={(e) => p.onEventYear(Number(e.target.value) || p.eventYear)} className="w-28" aria-label="年" />
-        )}
-      </Field>
+    <div className="flex flex-col gap-2">
+      <Row
+        label="ステージ"
+        value={stageCount != null ? `${stage.label} ${stageCount}` : stage.label}
+        onClick={() => setOpen('stage')}
+      />
+      <Row
+        label="期間"
+        value={periodLabel}
+        onClick={() => { setPeriodStep('mode'); setOpen('period'); }}
+      />
 
-      <Field label="並び順">
-        <Select value={p.sort} onValueChange={p.onSort}>
-          <SelectTrigger aria-label="並び順"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <Field label="AI が作ったもの">
-        <label className="flex min-h-tap items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={p.aiOnly}
-            onChange={(e) => p.onAiOnly(e.target.checked)}
-            className="v4-tap h-5 w-5 shrink-0 accent-primary"
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="案件名・お客様名で探す"
+            value={p.search}
+            onChange={(e) => p.onSearch(e.target.value)}
+            className="pl-9"
+            aria-label="案件を探す"
           />
-          <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
-          <span className="text-list">AI が起票した案件だけ出す</span>
-        </label>
-        {p.aiOnly && (
-          <label className="flex min-h-tap items-center gap-2.5 pl-7">
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen('sort')}
+          className="min-h-tap flex shrink-0 items-center gap-1.5 rounded-control border border-border bg-card px-3 text-sub"
+        >
+          {/* **選んでいる並び順を出す。** 「並び順」とだけ書くと、
+              何順で並んでいるのかを知るのに毎回シートを開くことになる */}
+          <span className={`${SORT_LABEL_W} truncate`}>
+            {SORT_OPTIONS.find((s) => s.value === p.sort)?.label ?? SORT_OPTIONS[0].label}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* **検索中は期間が効かないことを、その場に書く**（探したのに出ない、を防ぐ） */}
+      {p.search && (
+        <p className="text-note text-muted-foreground">
+          探しているあいだは実施日の絞り込みを外して、全期間から当てます
+        </p>
+      )}
+
+      {/* ── ステージ ─────────────────────────────────────── */}
+      <Sheet open={open === 'stage'} onOpenChange={(v) => !v && close()} title="ステージ" rise>
+        {STAGE_CHIPS.map((c) => (
+          <Choice
+            key={c.key}
+            label={c.label}
+            sub={p.stageCounts[c.key] != null ? String(p.stageCounts[c.key]) : undefined}
+            on={c.key === p.stageKey}
+            onClick={() => apply(() => p.onStageKey(c.key))}
+          />
+        ))}
+        <p className="text-note pt-2 text-muted-foreground">
+          ネタは「ネタ」の見え方で見ます。終了（完了・失注）は「終了」を選んだときだけ出ます。
+        </p>
+      </Sheet>
+
+      {/* ── 期間（単位 → 対象 の2段）────────────────────── */}
+      <Sheet
+        open={open === 'period'}
+        onOpenChange={(v) => !v && close()}
+        title={periodStep === 'mode' ? '期間の単位' : '期間の対象'}
+        sub={periodStep === 'target' ? PERIOD_MODES.find((m) => m.mode === p.period.mode)?.label : undefined}
+        rise
+      >
+        {periodStep === 'mode'
+          ? PERIOD_MODES.map(({ mode, label: text }) => (
+            <Choice
+              key={mode}
+              label={text}
+              on={mode === p.period.mode}
+              onClick={() => {
+                const next = switchMode(p.period, mode);
+                // **全件は対象を選ばせない**（選ぶものが無い）。そのまま閉じる
+                if (mode === 'all') { apply(() => p.onPeriod(next)); return; }
+                p.onPeriod(next);
+                setPeriodStep('target');
+              }}
+            />
+          ))
+          : options(p.period, p.now).map((o) => (
+            <Choice
+              key={o.value}
+              label={o.label}
+              on={o.value === toValue(p.period)}
+              onClick={() => apply(() => p.onPeriod(fromValue(p.period, o.value)))}
+            />
+          ))}
+        {periodStep === 'target' && (
+          <button
+            type="button"
+            onClick={() => setPeriodStep('mode')}
+            className="min-h-tap text-sub w-full pt-2 text-left text-primary"
+          >
+            単位を選び直す
+          </button>
+        )}
+      </Sheet>
+
+      {/* ── 並び順（AI と用語もここ）──────────────────── */}
+      <Sheet open={open === 'sort'} onOpenChange={(v) => !v && close()} title="並び順" rise>
+        {SORT_OPTIONS.map((s) => (
+          <Choice
+            key={s.value}
+            label={s.label}
+            on={s.value === p.sort}
+            onClick={() => apply(() => p.onSort(s.value))}
+          />
+        ))}
+
+        <div className="mt-3 border-t border-border pt-3">
+          <label className="flex min-h-tap items-center gap-2.5">
             <input
               type="checkbox"
-              checked={p.aiUnreviewedOnly}
-              onChange={(e) => p.onAiUnreviewedOnly(e.target.checked)}
+              checked={p.aiOnly}
+              onChange={(e) => p.onAiOnly(e.target.checked)}
               className="v4-tap h-5 w-5 shrink-0 accent-primary"
             />
-            <span className="text-list">まだ人が確認していないものだけ</span>
+            <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
+            <span className="text-list">AI が起票した案件だけ出す</span>
           </label>
-        )}
-      </Field>
-
-      <button
-        type="button"
-        onClick={() => p.onTermOpen(!p.termOpen)}
-        className="min-h-tap flex w-full items-center gap-1.5 text-sub text-primary"
-      >
-        <Info className="h-3.5 w-3.5" aria-hidden="true" />
-        ネタ・ヨミ・GLS などの言葉の意味
-      </button>
-    </Bar>
+          {p.aiOnly && (
+            <label className="flex min-h-tap items-center gap-2.5 pl-7">
+              <input
+                type="checkbox"
+                checked={p.aiUnreviewedOnly}
+                onChange={(e) => p.onAiUnreviewedOnly(e.target.checked)}
+                className="v4-tap h-5 w-5 shrink-0 accent-primary"
+              />
+              <span className="text-list">まだ人が確認していないものだけ</span>
+            </label>
+          )}
+          <button
+            type="button"
+            onClick={() => { close(); p.onTermOpen(!p.termOpen); }}
+            className="min-h-tap flex w-full items-center gap-1.5 text-sub text-primary"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            ネタ・ヨミ・GLS などの言葉の意味
+          </button>
+        </div>
+      </Sheet>
+    </div>
   );
+}
+
+/** 並びが変わったときの「全部やめる」。**既定に戻す** */
+export function clearFilters(p: MobileFilterBarProps, now: Date): void {
+  p.onStageKey('all');
+  p.onPeriod(defaultPeriod(now));
+  p.onAiOnly(false);
 }

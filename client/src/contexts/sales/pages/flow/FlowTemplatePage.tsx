@@ -32,7 +32,7 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
-import { ProjectTypeLabels, type ProjectType } from '@/types';
+import { CLASSIFICATION_COMBOS } from '@/contexts/sales/classification';
 import { FlowTaskRow } from './FlowTaskRow';
 import type { FlowTemplate } from './flowTypes';
 
@@ -129,7 +129,7 @@ export default function FlowTemplatePage() {
                 <span className="min-w-0 flex-1">
                   <span className={cn('text-list block truncate', tpl?.id === t.id && 'text-primary')}>{t.name}</span>
                   <span className="text-note block text-muted-foreground">
-                    {n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 種類` : ' ・ すべての種類'}
+                    {n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}
                   </span>
                 </span>
               </button>
@@ -169,17 +169,24 @@ export default function FlowTemplatePage() {
 
                 {/* どの種類で使うか */}
                 <div className="border-b border-border-faint px-4 py-3">
-                  <p className="text-th mb-1.5 text-muted-foreground">この型を使う案件の種類</p>
+                  {/*
+                    **選択肢は2段分類の6通り**（migration 181）。
+                    旧「案件の種類」7つのうち3つ（GMO案件・コンサル・その他）は
+                    プロジェクト管理側に回っており、放送案件の工程とは1つも重なりません。
+                    残る4つは「客入れの有無 × 配信/収録/イベント」に置き換わったので、
+                    ここもその6通りで選びます。
+                  */}
+                  <p className="text-th mb-1.5 text-muted-foreground">この型を使う案件の分類</p>
                   <div className="flex flex-wrap gap-1">
-                    {(Object.keys(ProjectTypeLabels) as ProjectType[]).map((pt) => {
-                      const on = tpl.project_types.includes(pt);
+                    {CLASSIFICATION_COMBOS.map((combo) => {
+                      const on = tpl.project_types.includes(combo.key);
                       return (
                         <button
-                          key={pt}
+                          key={combo.key}
                           type="button"
                           disabled={!canEdit}
                           onClick={() => setTypes.mutate(
-                            on ? tpl.project_types.filter((x) => x !== pt) : [...tpl.project_types, pt],
+                            on ? tpl.project_types.filter((x) => x !== combo.key) : [...tpl.project_types, combo.key],
                           )}
                           className={cn(
                             'text-note min-h-tap rounded-note border px-2.5 font-bold lg:min-h-[32px]',
@@ -187,13 +194,13 @@ export default function FlowTemplatePage() {
                             !canEdit && 'opacity-60',
                           )}
                         >
-                          {ProjectTypeLabels[pt]}
+                          {combo.label}
                         </button>
                       );
                     })}
                   </div>
                   <p className="text-note mt-1.5 text-muted-foreground">
-                    1つも選ばないと<strong className="font-bold">すべての種類</strong>で使えます。
+                    1つも選ばないと<strong className="font-bold">すべての分類</strong>で使えます。
                   </p>
                 </div>
 

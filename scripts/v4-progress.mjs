@@ -44,7 +44,15 @@ const V4_EXTRA_MARK = 'projectDetail/DetailHeader';
 const TREE = [
   ['案件管理', [
     ['① ダッシュボード', '/sales/dashboard', 'client/src/contexts/platform/pages/DashboardPage.tsx'],
-    ['② 受付', '/sales/inbox', 'client/src/contexts/sales/pages/InboxPage.tsx'],
+    // この画面は `PageHeader` を使わない（決めるボタンを上辺に貼り付ける独自の見出し）ので、
+    // **この画面にしかない部品**（届いたもののレール）で判定する
+    ['② 案件作成（受付を統合）', '/sales/projects/new',
+      'client/src/contexts/sales/pages/projectNew/NewProjectDialog.tsx', './IntakeRail',
+      '**旧「受付」（`/sales/inbox`）を畳んだ画面**。届いたものを読んで、足りないところを埋めて、' +
+      '案件にするかどうかを決める仕事は案件作成と同じだったので1枚にした。' +
+      '上に「自動で届いたもの」のレール、下にフォーム（必須5つ ＋ 畳んだ「進んだら聞く」）、' +
+      '上辺に **ネタのまま残す ／ 見送りにする ／ 案件にする（与件化）**。' +
+      '**GLS はここで発番しない**（受注が固まってから）。旧 URL は転送する'],
     ['③ 案件一覧', '/sales/projects', 'client/src/contexts/sales/pages/ProjectListPage.tsx'],
     ['④ タスク一覧', '/sales/tasks/list', 'client/src/contexts/tasks/pages/TaskDashboardPage.tsx'],
     ['⑤ 見積・請求 (全案件)', '/sales/billing', 'client/src/contexts/sales/pages/BillingListPage.tsx'],

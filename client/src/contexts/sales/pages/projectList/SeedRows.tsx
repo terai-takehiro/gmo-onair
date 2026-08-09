@@ -24,6 +24,7 @@ import { Mail, Phone, Users, Globe, Handshake, HelpCircle } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { channelLabel, confidenceLabel, confidenceTone } from './intake';
+import { rowInProps, type RowAnim } from './rowAnim';
 import type { ProjectListRow } from './types';
 
 const CHANNEL_ICON: Record<string, typeof Mail> = {
@@ -67,7 +68,7 @@ function md(iso: string | null | undefined): string {
   return `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function SeedRow({ p, onOpen }: { p: ProjectListRow; onOpen: () => void }) {
+export function SeedRow({ p, row, onOpen }: { p: ProjectListRow; row?: RowAnim; onOpen: () => void }) {
   const Icon = CHANNEL_ICON[p.intake_channel ?? ''] ?? HelpCircle;
   const state = stateOf(p);
 
@@ -75,6 +76,8 @@ export function SeedRow({ p, onOpen }: { p: ProjectListRow; onOpen: () => void }
     <Row
       divider
       interactive
+      data-flip-key={p.id}
+      {...rowInProps(row)}
       stackOnMobile
       role="button"
       tabIndex={0}

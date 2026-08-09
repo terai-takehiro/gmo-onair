@@ -125,7 +125,8 @@ function ApplyFlowBanner({ project }: { project: ProjectDetail }) {
           open={open}
           onOpenChange={setOpen}
           projectId={project.id}
-          projectType={project.project_type}
+          audience={project.audience ?? null}
+          projectCategory={project.project_category ?? null}
           eventDate={project.event_start}
         />
       )}
