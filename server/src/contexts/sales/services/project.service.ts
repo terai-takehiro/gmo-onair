@@ -18,8 +18,10 @@ import { resolveClassification } from './project-classification';
  * 知らない値をそのまま渡すと CHECK に弾かれ、案件の登録ごと 500 になる。
  * `group`（グループ案件）は migration 182 で足した — お客様がグループ会社のとき
  * 画面が固定表示にし、この値で保存する。
+ * `inview`（内覧会）は migration 183。**`web` は問い合わせフォーム**で、
+ * 画面のラベルは「WEBフォーム」（値は変えていない）。
  */
-const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'group', 'other'];
+const INTAKE_CHANNELS = ['mail', 'phone', 'inview', 'referral', 'web', 'meeting', 'group', 'other'];
 const INTAKE_CONFIDENCES = ['high', 'mid', 'low'];
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */

@@ -20,7 +20,7 @@
  * お客様 200 ／ 要点 伸びる ／ 入口 96 ／ 確信 56 ／ 状態 72 ／ 受けた日 72。
  * モックの実測 (200 / flex / 86 / 52 / 76 / 78) にいちばん近い段に寄せています。
  */
-import { Mail, Phone, Users, Globe, Handshake, HelpCircle } from 'lucide-react';
+import { Mail, Phone, Users, Globe, Handshake, Building2, HelpCircle } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { channelLabel, confidenceLabel, confidenceTone } from './intake';
@@ -30,9 +30,11 @@ import type { ProjectListRow } from './types';
 const CHANNEL_ICON: Record<string, typeof Mail> = {
   mail: Mail,
   phone: Phone,
-  meeting: Users,
-  web: Globe,
+  inview: Building2,
   referral: Handshake,
+  web: Globe,
+  meeting: Users,
+  group: Building2,
   other: HelpCircle,
 };
 

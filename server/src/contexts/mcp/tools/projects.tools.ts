@@ -131,6 +131,11 @@ export function registerProjectTools(server: McpServer): void {
         assigned_to: z.string().min(1).describe('担当者の users.id (list_users で名前→id を解決。必須)'),
         expected_amount: z.number().int().min(0).optional().describe('想定金額 (円・税抜)'),
         project_type: z.string().optional(),
+        audience: z.enum(['with_audience', 'no_audience']).optional()
+          .describe('客入れの有無。**分からなければ渡さない**（推測しない）'),
+        project_category: z.enum(['broadcast', 'recording', 'event']).optional()
+          .describe('案件分類 broadcast=配信/生放送 / recording=収録 / event=イベント（会場のみ）。'
+            + '**audience と2つ揃って初めて標準工程が決まる**。分からなければ渡さない'),
         customer_type: z.enum(['internal', 'external']).optional().describe('internal=社内 / external=社外 (既定)'),
         event_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催開始日 (YYYY-MM-DD)'),
         event_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -141,8 +146,11 @@ export function registerProjectTools(server: McpServer): void {
           .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:project")。同じキーが既存なら再作成しない'),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
         source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
-        intake_channel: z.enum(['mail', 'phone', 'meeting', 'web', 'referral', 'other']).optional()
-          .describe('引き合いの入口。受付の一覧に列で出る。**分からなければ渡さない** (推測しない)'),
+        intake_channel: z.enum(['mail', 'phone', 'inview', 'referral', 'web', 'meeting', 'other']).optional()
+          .describe('引き合いの入口（リード経路）。ネタの一覧に列で出る。'
+            + 'inview=定期内覧会の来場から / web=問い合わせフォーム（画面では「WEBフォーム」）。'
+            + '**分からなければ渡さない**（推測しない）。'
+            + 'グループ会社かどうかは取引先マスターが決めるので `group` は渡せない'),
         contact_name: z.string().max(200).optional().describe('この案件の窓口（例「宮田 里香 様（広報部）」）。会社の代表窓口とは別'),
         recurrence: z.enum(['single', 'regular']).optional()
           .describe('単発 single / レギュラー regular（回を持つ）。既定は single'),
@@ -186,6 +194,8 @@ export function registerProjectTools(server: McpServer): void {
           dates: args.dates,
           notes: args.notes,
           intake_channel: args.intake_channel,
+          audience: args.audience,
+          project_category: args.project_category,
           intake_confidence: args.intake_confidence,
           contact_name: args.contact_name,
           recurrence: args.recurrence,
@@ -250,6 +260,11 @@ export function registerProjectTools(server: McpServer): void {
         expected_amount: z.number().int().min(0).optional(),
         assigned_to: z.string().optional().describe('担当者の users.id (list_users で解決)'),
         project_type: z.string().optional(),
+        audience: z.enum(['with_audience', 'no_audience']).optional()
+          .describe('客入れの有無。**分からなければ渡さない**（推測しない）'),
+        project_category: z.enum(['broadcast', 'recording', 'event']).optional()
+          .describe('案件分類 broadcast=配信/生放送 / recording=収録 / event=イベント（会場のみ）。'
+            + '**audience と2つ揃って初めて標準工程が決まる**。分からなければ渡さない'),
         project_type_other: z.string().nullable().optional(),
         event_start: z.string().nullable().optional().describe('YYYY-MM-DD。null で解除'),
         event_end: z.string().nullable().optional(),
