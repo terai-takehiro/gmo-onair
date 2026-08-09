@@ -9,7 +9,8 @@
  *   > **読み取った内容の細かい修正はPCで行います。ここでは送るところまで。**
  *
  * だから項目を増やしません。出どころ・いつ・誰から・本文の4つだけです。
- * 案件にするか・見送るかは PC の受付（`/sales/inbox`）で決めます。
+ * 案件にするか・見送るかは PC の**案件作成**（`/sales/projects/new`）で決めます
+ * （旧「受付」はそこに畳みました）。
  *
  * ── スマホには受付の入口が無かった ──────────────────────────
  *
@@ -178,10 +179,10 @@ export default function InquiryQuickPage() {
 
       <button
         type="button"
-        onClick={() => navigate('/sales/inbox')}
+        onClick={() => navigate('/sales/projects/new')}
         className="min-h-tap text-sub self-start text-primary underline lg:min-h-0"
       >
-        受付をひらく
+        案件作成をひらく
       </button>
     </div>
   );

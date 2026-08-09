@@ -18,6 +18,11 @@ export interface ProjectListRow {
   event_end: string | null;
   expected_amount: number | string | null;
   total_revenue: number | string | null;
+  /**
+   * 見積金額（`estimates` の**束ごとの最新版**の合計・税抜）。
+   * 見積がまだ無い案件は 0 で返ります（`project.service.ts` の `ESTIMATE_AMOUNT_LATERAL`）。
+   */
+  estimate_amount: number | string | null;
   is_ai_created?: boolean | null;
   ai_reviewed_at?: string | null;
   /** 未完了のうち期限がいちばん近いタスク (サーバーが1件だけ返す) */

@@ -100,8 +100,8 @@ export function MobileSalesDashboard() {
           <IntakeRow
             icon={Inbox}
             label="メールから取り込む"
-            sub="受付に溜まっているものを見る"
-            onOpen={() => navigate('/sales/inbox')}
+            sub="自動で届いたものを見る"
+            onOpen={() => navigate('/sales/projects/new')}
           />
           {canEdit && (
             <IntakeRow

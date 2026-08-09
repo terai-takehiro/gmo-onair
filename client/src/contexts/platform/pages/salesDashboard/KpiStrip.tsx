@@ -15,6 +15,12 @@
  * | 今週の実施 | 実施日が今日から7日以内に重なる案件 |
  * | 見積の返事待ち | `estimates` の `sent`。合計は値引きを引いたあと |
  * | 今月の受注 | `projects.won_at` (migration 164)。**モックの KPI はここ** |
+ *
+ * ── 単位は数字と別に描く（指示書 5）────────────────────────
+ *
+ * 「860万円」を1つの文字列にすると**単位まで 22px で描かれ**、5つ並べたときに
+ * 数字の桁が縦にそろいません。**数字だけを大きく、単位は 12px のグレー**にして、
+ * 5つとも同じ形（数字 ＋ 小さい単位）にそろえます。カウントアップも数字にだけ効きます。
  * | 止まっている案件 | 7日以上、案件もタスクも活動記録も動いていない |
  *
  * ── 「今月の受注」は記録を始めた日から ────────────────────────
@@ -29,15 +35,24 @@
  */
 import { FolderKanban, CalendarCheck, Receipt, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StatValue, manYen } from '@gmo-onair/shared/src/client/ui/numbers';
+import { StatValue, manYen, toMan } from '@gmo-onair/shared/src/client/ui/numbers';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useCountUp } from '../home/motion';
 import type { SalesOverview } from './types';
 
 interface Kpi {
   key: string;
   label: string;
   icon: typeof FolderKanban;
-  value: string;
+  /**
+   * 数字そのもの。**単位を混ぜた文字列にしない**（指示書 5）。
+   *
+   * 「860万円」を1つの文字列にすると、**単位まで大きい字で描かれ**、
+   * 5つ並べたときに数字の桁が縦にそろいません。数え上げ（カウントアップ）も
+   * 文字列では効きません。
+   */
+  value: number;
+  /** 単位。**12px のグレー**で数字の右に添える */
   unit: string;
   sub: string;
   /** 0 でないときだけ赤くする。**常に赤い数字は色として働きません** */
@@ -67,25 +82,27 @@ export function kpisOf(o: SalesOverview): Kpi[] {
   return [
     {
       key: 'active', label: '進行中の案件', icon: FolderKanban,
-      value: String(k.active_projects), unit: '件',
+      value: k.active_projects, unit: '件',
       sub: `今週動いたもの ${k.moved_this_week}件`,
       to: '/sales/projects',
     },
     {
       key: 'week', label: '今週の実施', icon: CalendarCheck,
-      value: String(k.week_events), unit: '件',
+      value: k.week_events, unit: '件',
       sub: k.today_events > 0 ? `うち今日 ${k.today_events}件` : '今日はありません',
       to: '/studio/calendar',
     },
     {
       key: 'quote', label: '見積の返事待ち', icon: Receipt,
-      value: String(k.quote_waiting), unit: '件',
+      value: k.quote_waiting, unit: '件',
       // 0 件のときに「合計 ¥0万」と出すと、金額が 0 円の見積があるように読める
       sub: k.quote_waiting > 0 ? `合計 ${manYen(k.quote_waiting_amount)}` : '出したままの見積はありません',
     },
     {
       key: 'won', label: '今月の受注', icon: TrendingUp,
-      value: manYen(k.month_won_amount), unit: '',
+      // **万円に丸めるのは `toMan` 1本**（`manYen` と同じ丸め方）。
+      // ここで割り算を書くと、同じ金額が画面によって違う値に丸められる
+      value: toMan(k.month_won_amount) ?? 0, unit: '万円',
       // **記録を始めた日が今月なら、そう書く。** 0 件を黙って出すと壊れて見える
       sub: startedThisMonth(o.stage_history_since)
         ? `${k.month_won_count}件 ・ ${fmtDate(o.stage_history_since)}から記録`
@@ -94,7 +111,7 @@ export function kpisOf(o: SalesOverview): Kpi[] {
     },
     {
       key: 'stuck', label: '止まっている案件', icon: AlertTriangle,
-      value: String(k.stuck_projects), unit: '件',
+      value: k.stuck_projects, unit: '件',
       sub: `${o.stuck_days}日以上動いていません`,
       danger: k.stuck_projects > 0,
     },
@@ -103,15 +120,23 @@ export function kpisOf(o: SalesOverview): Kpi[] {
 
 function Cell({ k }: { k: Kpi }) {
   const Icon = k.icon;
+  // **数え上げる**（620ms・ease-out）。動きを減らす設定の人には最初から最終値が返る
+  const shown = useCountUp(k.value) ?? k.value;
   return (
     <>
       <p className="text-note flex items-center gap-1.5 truncate text-muted-foreground">
         <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {k.label}
       </p>
+      {/*
+        **数字だけを大きく、単位は 12px のグレー**（指示書 5）。
+        5つのセルで単位の扱いを揃えるので、桁の右端が縦にそろいます
+      */}
       <p className="mt-0.5 flex items-baseline gap-1">
-        <StatValue size="sm" className={cn(k.danger && 'text-destructive')}>{k.value}</StatValue>
-        {k.unit && <span className="text-note text-muted-foreground">{k.unit}</span>}
+        <StatValue size="sm" className={cn(k.danger && 'text-destructive')}>
+          {shown.toLocaleString('ja-JP')}
+        </StatValue>
+        <span className="text-note text-muted-foreground">{k.unit}</span>
       </p>
       <p className="text-note truncate text-muted-foreground">{k.sub}</p>
     </>

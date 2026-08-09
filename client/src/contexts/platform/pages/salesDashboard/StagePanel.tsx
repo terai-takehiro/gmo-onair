@@ -14,8 +14,7 @@
 import { Link } from 'react-router-dom';
 import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
-import { STAGE_CHIPS } from '@/contexts/sales/pages/projectList/stages';
-import type { ProjectStage } from '@/types';
+import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { Panel } from './Panel';
 import type { PipelineStage } from './types';
 
@@ -30,8 +29,25 @@ const BAR: Record<string, string> = {
   neta: 'bg-muted-foreground/30',
 };
 
+/**
+ * 札の名前は **`ProjectStageLabels`（記号つきの正式名）** を使う（指示書 5）。
+ *
+ * 一覧のチップから「E 問合せ」を外したので、チップの表から引くと
+ * **ネタだけ名前が見つからず、生の `neta` が画面に出ます**。
+ * ここは内訳の表なので、**5段すべてを記号つきで並べる**のが正しい
+ * （旧「ネタ」表記との混在をやめる）。
+ */
 function labelOf(stage: ProjectStage): string {
-  return STAGE_CHIPS.find((c) => c.stages.length === 1 && c.stages[0] === stage)?.label ?? stage;
+  return ProjectStageLabels[stage] ?? stage;
+}
+
+/**
+ * 押したときの行き先。**ネタは「ネタ」の見え方へ送る** —
+ * 一覧の「すべて」にはネタを出していないので、`?stage=neta` で送ると
+ * 0 件の一覧に着きます。
+ */
+function linkOf(stage: ProjectStage): string {
+  return stage === 'neta' ? '/sales/projects?view=seed' : `/sales/projects?stage=${stage}`;
 }
 
 export function StagePanel({ stages }: { stages: PipelineStage[] }) {
@@ -49,13 +65,13 @@ export function StagePanel({ stages }: { stages: PipelineStage[] }) {
   return (
     <Panel title="ステージ別" note="受注に近い順。棒は金額の大きさです" to="/sales/projects?view=board" toLabel="ボードで見る">
       {total === 0 ? (
-        <EmptyState title="進行中の案件がありません" description="ネタを入れると、ここに積み上がっていきます。" />
+        <EmptyState title="進行中の案件がありません" description="問合せを入れると、ここに積み上がっていきます。" />
       ) : (
         <div className="flex flex-col gap-0.5">
           {rows.map((r) => (
             <Link
               key={r.stage}
-              to={`/sales/projects?stage=${r.stage}`}
+              to={linkOf(r.stage)}
               className="rounded-note flex min-h-tap items-center gap-3 px-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-[34px]"
             >
               <span className="text-list w-[6.5rem] shrink-0 truncate">{r.label}</span>

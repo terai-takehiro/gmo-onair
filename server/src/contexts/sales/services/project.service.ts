@@ -11,12 +11,15 @@ import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
+import { resolveClassification } from './project-classification';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
  * 知らない値をそのまま渡すと CHECK に弾かれ、案件の登録ごと 500 になる。
+ * `group`（グループ案件）は migration 182 で足した — お客様がグループ会社のとき
+ * 画面が固定表示にし、この値で保存する。
  */
-const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'other'];
+const INTAKE_CHANNELS = ['mail', 'phone', 'meeting', 'web', 'referral', 'group', 'other'];
 const INTAKE_CONFIDENCES = ['high', 'mid', 'low'];
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
@@ -88,6 +91,12 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   event_start: 'p.event_start',
   assigned_to: 'u.name',
   created_at: 'p.created_at',
+  // 「見積金額が大きい順」。SELECT 句で組み立てた別名をそのまま使う
+  // (`last_move` と同じ理由 — 式を書き写すと並び順と表示が食い違う)
+  estimate_amount: 'estimate_amount',
+  // 「期限が近い順」= **次のタスクの期限**。返事の期限 (`reply_due`) ではない
+  // (v4 の案件作成フォームから返事の期限を外したので、新しい案件には入らない)
+  next_task_due: 'nt.due_date',
   // 「最後の動き」順。SELECT 句で組み立てた別名をそのまま並べ替えに使う
   // (PostgreSQL は ORDER BY に SELECT の別名を書ける)。**式を書き写さないこと** —
   // 写すと片方だけ直したときに「並び順と表示が食い違う」になる
@@ -111,6 +120,32 @@ const DEFAULT_SORT_SQL = `
     WHEN 'e_lost'      THEN 7
     ELSE 8
   END ASC,
+  p.event_start ASC NULLS LAST,
+  p.created_at DESC
+`;
+
+/**
+ * 「おすすめ順」(v4 案件一覧の既定)。**止まっているものを上げ、次に期限が近い順**。
+ *
+ * ── なぜ `default` を作り直さず別の鍵にしたか ────────────────
+ *
+ * `default` は MCP の `list_projects`・Excel の書き出し・確定案件の一覧など、
+ * **案件一覧以外からも既定として使われています**。定義を差し替えると、
+ * 何も指定していない呼び出し全部の並びが黙って変わります。
+ * 一覧の「おすすめ順」は `sort_by=recommended` として別に持ちます。
+ *
+ * ── 何を「止まっている」と見なすか ──────────────────────────
+ *
+ * 画面の「止まっている」バッジ (`projectList/stages.ts` の `STALE_DAYS`) と
+ * **同じ7日**です。ここだけ別の日数にすると、バッジが付いていない行が
+ * 先頭に来る（またはその逆）ことになり、並び順の理由が読めなくなります。
+ * 終わった案件 (完了・失注) は動かないのが正しいので上げません。
+ */
+const RECOMMENDED_SORT_SQL = `
+  CASE WHEN p.stage NOT IN ('s_completed', 'e_lost')
+        AND GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) < NOW() - INTERVAL '7 days'
+       THEN 0 ELSE 1 END ASC,
+  nt.due_date ASC NULLS LAST,
   p.event_start ASC NULLS LAST,
   p.created_at DESC
 `;
@@ -169,6 +204,38 @@ const LAST_MOVE_LATERAL = `
         WHERE a.project_id = p.id AND a.deleted_at IS NULL
     ) x
   ) mv ON TRUE
+`;
+
+/**
+ * 「見積金額」— v4 の案件一覧の列（列名も「見積金額」）。
+ *
+ * ── どの版を出すか ──────────────────────────────────────────
+ *
+ * 見積は**版ごとに1行**で、同じ見積の版どうしは `group_id` で束ねます
+ * (migration 138)。ここで出したいのは「いまお客様に出ている金額」なので、
+ * **旧版 (`superseded`) と失注 (`rejected`) を外し、いちばん新しい版**を採ります。
+ *
+ * ── なぜ合計を1本にしないのか ──────────────────────────────
+ *
+ * 1つの案件に**別々の見積が複数ぶら下がることがあります**（本体と追加分など）。
+ * 束ごとに最新版を採ってから足すので、**同じ見積の v1 と v2 が二重に入りません**。
+ * `group_id` を無視して SUM すると、版を重ねた案件ほど金額が膨らみます。
+ *
+ * 金額は `subtotal - discount`（値引きは単価を下げず別建て・`_rules.md`）。
+ * **税は乗せません** — 一覧の他の金額（想定金額・確定売上）が税抜なので、
+ * ここだけ税込にすると同じ列で単位が変わります。
+ */
+const ESTIMATE_AMOUNT_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT SUM(latest.amount)::bigint AS amount FROM (
+      SELECT DISTINCT ON (e.group_id) (e.subtotal - e.discount) AS amount
+      FROM estimates e
+      WHERE e.project_id = p.id
+        AND e.deleted_at IS NULL
+        AND e.status NOT IN ('superseded', 'rejected')
+      ORDER BY e.group_id, e.version DESC
+    ) latest
+  ) est ON TRUE
 `;
 
 export class ProjectService {
@@ -294,11 +361,15 @@ export class ProjectService {
     let orderBy: string;
     if (!filter.sortBy || filter.sortBy === 'default') {
       orderBy = DEFAULT_SORT_SQL;
+    } else if (filter.sortBy === 'recommended') {
+      orderBy = RECOMMENDED_SORT_SQL;
     } else {
       const sortCol = SORT_COLUMN_MAP[filter.sortBy] || 'p.created_at';
       const sortDir = filter.sortDir === 'asc' ? 'ASC' : 'DESC';
-      // event_start を選んだときは NULL を最後に置く
-      const nullsClause = filter.sortBy === 'event_start' ? ` NULLS ${sortDir === 'ASC' ? 'LAST' : 'FIRST'}` : '';
+      // **日付の列は NULL を最後に置く。** 「実施日が近い順」「期限が近い順」で
+      // 未定のものが先頭に固まると、いちばん近いものが画面外に押し出される
+      const nullsClause = filter.sortBy === 'event_start' || filter.sortBy === 'next_task_due'
+        ? ` NULLS ${sortDir === 'ASC' ? 'LAST' : 'FIRST'}` : '';
       orderBy = `${sortCol} ${sortDir}${nullsClause}`;
     }
 
@@ -313,6 +384,7 @@ export class ProjectService {
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
        ai.requested_by as ai_requested_by,
        nt.title as next_task_title, nt.due_date as next_task_due, nt.assignee_name as next_task_assignee,
+       COALESCE(est.amount, 0) as estimate_amount,
        GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -324,6 +396,7 @@ export class ProjectService {
        ) ai ON TRUE
        ${NEXT_TASK_LATERAL}
        ${LAST_MOVE_LATERAL}
+       ${ESTIMATE_AMOUNT_LATERAL}
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [config.mcpActorId, ...params, limit, offset]
     );
@@ -466,6 +539,7 @@ export class ProjectService {
             intake_channel, intake_confidence,
             // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
             contact_name, recurrence, attendee_count, goal, reply_due, wants,
+            audience, project_category,
             stage, first_task } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
@@ -508,17 +582,32 @@ export class ProjectService {
     const safeStage = ['a_won', 's_completed', 'e_lost'].includes(initialStage) ? 'neta' : initialStage;
 
     const recur = recurrence === 'regular' ? 'regular' : 'single';
-    const scale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
+    /**
+     * **無観客の案件には来場人数を持たせない** (migration 182)。
+     * 画面が欄を出さないので値は来ませんが、MCP や旧フォームから来ることがあります。
+     * 入ってしまうと「無観客なのに 150 名」の行ができ、規模別の集計が狂います。
+     */
+    const rawScale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
       ? Math.floor(Number(attendee_count)) : null;
+    const scale = audience === 'no_audience' ? null : rawScale;
+
+    /**
+     * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
+     * 画面から両方送らせると、片方だけ更新された行ができます
+     * （`project-classification.ts` の冒頭）。
+     */
+    const cls = resolveClassification(audience, project_category, project_type);
 
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, assigned_to,
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category,
+                             gls_category, expected_amount, assigned_to,
                              event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
                              application_form, logo_permission, intake_channel, intake_confidence,
                              contact_name, recurrence, attendee_count, goal, reply_due, wants, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, safeStage, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
+       glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
        application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
@@ -652,6 +741,23 @@ export class ProjectService {
       ? ((existing.project_type_other as string | null) ?? null)
       : (project_type_other || null);
 
+    /**
+     * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
+     *
+     * 直す画面（`ProjectFormPage`）にはまだ2段の欄が無いので、保つ形にしていないと
+     * **保存するたびに分類が消えます**（タグ・登録16項目と同じ壊れ方）。
+     * `project_type` は2段から導きます — 2段が入っている案件で旧分類だけ送られても、
+     * 導いた値が勝つので**分類と種類がずれた行はできません**。
+     */
+    const askedAudience = data.audience === undefined ? existing.audience : data.audience;
+    const askedCategory = data.project_category === undefined ? existing.project_category : data.project_category;
+    const cls = resolveClassification(
+      askedAudience, askedCategory,
+      project_type === undefined ? existing.project_type : project_type,
+    );
+    // 無観客にしたら来場人数は落とす（create と同じ理由）
+    const attendeeFinal = cls.audience === 'no_audience' ? null : attendeeCount;
+
     const cType = normalizeCustomerType(customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
@@ -687,17 +793,17 @@ export class ProjectService {
     if (allowCategoryUpdate) {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, project_type_other=?, event_start=?, event_end=?,
+         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
+         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -705,17 +811,17 @@ export class ProjectService {
     } else {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, project_type_other=?, event_start=?, event_end=?,
+         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
          application_form=?, logo_permission=?, notes=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         project_type || 'other', projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeCount, goalValue, replyDue, wantsValue,
+         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]

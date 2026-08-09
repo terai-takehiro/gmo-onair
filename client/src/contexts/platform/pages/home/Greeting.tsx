@@ -67,7 +67,7 @@ export function Greeting({
              */
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {waitingTotal > 0 && (
-                <CountChip label="お待たせ" n={waitingTotal} onClick={() => navigate('/sales/inbox')} />
+                <CountChip label="お待たせ" n={waitingTotal} onClick={() => navigate('/sales/projects/new')} />
               )}
               {myOverdue > 0 && (
                 <CountChip label="期限切れ" n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
@@ -84,7 +84,7 @@ export function Greeting({
               {waitingTotal > 0 && (
                 <>
                   お客様を待たせているものが{' '}
-                  <CountLink n={waitingTotal} onClick={() => navigate('/sales/inbox')} />
+                  <CountLink n={waitingTotal} onClick={() => navigate('/sales/projects/new')} />
                 </>
               )}
               {waitingTotal > 0 && myOverdue > 0 && '、'}

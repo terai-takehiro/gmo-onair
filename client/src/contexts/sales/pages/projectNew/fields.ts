@@ -1,34 +1,51 @@
 /**
- * 案件登録の16項目 (v4・モックの `inManualFields`・migration 165/170)
+ * 案件作成の項目（v4・migration 165/170/181）
  *
- * ── 並びと必須はモックのまま ────────────────────────────────
+ * ── 「受付」と「案件登録」を1画面にした ──────────────────────
  *
- *   1 お客様 *          2 ご担当              3 案件名 *
- *   4 案件の種類 *      5 継続区分 *          6 ステージ *
- *   7 実施日            8 会場・スタジオ      9 規模
- *  10 やりたいこと     11 予算               12 返事の期限
- *  13 求められているもの 14 入手経路          15 最初のタスク
- *  16 メモ
+ * 受付（旧 `/sales/inbox`）と案件登録は**同じ仕事**でした。届いたものを読んで、
+ * 足りないところを埋めて、案件にするかどうかを決める。2画面に分けていたので
+ * 「受付で確かめてから登録画面でもう一度同じ項目を入れる」ことになっていました。
+ * → **1画面**にして、上に「自動で届いたもの」のレール、下にフォームを置きます。
  *
- * ── 8「会場・スタジオ」はここでは選べません ──────────────────
+ * ── 必須は5つだけ ──────────────────────────────────────────
  *
- * 部屋を押さえるのは `studio_bookings` への書き込みで、**空きの確認が要ります**。
- * 登録の流れに混ぜると、押さえられなかったときに案件だけできて
- * 「押さえたつもり」になります。作ったあとにカレンダーから押さえます。
- * その旨を画面に書いてあります（項目自体は出す — 無いと「入れ忘れた」と思われる）。
+ *   お客様 ／ 案件名 ／ 客入れの有無 ／ 案件分類 ／ 社内の担当
  *
- * ── 6「ステージ」は受注以降を選べません ──────────────────────
+ * 残りは「進んだら聞く」に畳みます。**電話を切る前に入れ終わる**のが目標なので、
+ * 最初の画面に並ぶものを減らします（畳んだものも1回押せば全部出ます）。
  *
- * 受注にすると GLS 番号を採ります（確認ダイアログ付き）。登録の流れで
- * 採ってしまうと、番号を見せてから確認する仕掛けを飛ばします。
+ * ── この版で削った2つ ───────────────────────────────────────
+ *
+ *  ・**返事の期限**（`reply_due`）… タスクの期限と役割が重なっており、
+ *    どちらに入れるか毎回迷う欄でした。相手を待たせているものは
+ *    「最初のタスク」に期限付きで入れれば、期限切れとして拾われます。
+ *    **列は消していません** — 既に入っている値は案件詳細から読めます
+ *  ・**求められているもの**（`wants`）… 「見積」「資料」と書いても、
+ *    次にやることが決まるわけではありませんでした（決まるのはタスク）
+ *
+ * ── 改名した3つ（言葉だけ・列は同じ）─────────────────────────
+ *
+ *   やりたいこと → **案件内容**（`goal`）
+ *   規模         → **来場人数**（`attendee_count`）… 無観客のときは欄ごと出さない
+ *   入手経路     → **リード経路**（`intake_channel`）
+ *
+ * ── GLS 番号はここで発番しない ──────────────────────────────
+ *
+ * ボタンは「**案件にする（与件化）**」です。GLS は**受注が固まった時点**で採ります
+ * （案件詳細から）。ここで採ると、まだ受注していないものに正式な番号が並びます。
  */
 import type { ProjectStage } from '@/types';
+import type { Audience, ProjectCategory } from '../../classification';
 
 export interface NewProjectValues {
   customer_id: string;
   contact_name: string;
   name: string;
-  project_type: string;
+  /** 客入れの有無（必須）。空 = まだ選んでいない */
+  audience: Audience | '';
+  /** 案件分類（必須）。空 = まだ選んでいない */
+  project_category: ProjectCategory | '';
   gls_category: 'A' | 'B';
   recurrence: 'single' | 'regular';
   stage: ProjectStage;
@@ -36,8 +53,6 @@ export interface NewProjectValues {
   attendee_count: string;
   goal: string;
   expected_amount: string;
-  reply_due: string;
-  wants: string;
   intake_channel: string;
   assigned_to: string;
   first_task_title: string;
@@ -49,7 +64,10 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   customer_id: '',
   contact_name: '',
   name: '',
-  project_type: 'live_broadcast',
+  // **既定を入れない。** 入れると「選んだ」と「選んでいない」が見分けられず、
+  // 押す人が確かめないまま標準工程がその分類で立ちます
+  audience: '',
+  project_category: '',
   gls_category: 'A',
   recurrence: 'single',
   stage: 'neta',
@@ -57,8 +75,6 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   attendee_count: '',
   goal: '',
   expected_amount: '',
-  reply_due: '',
-  wants: '',
   intake_channel: '',
   assigned_to: '',
   first_task_title: '',
@@ -74,18 +90,17 @@ export const RECURRENCE_LABEL: Record<'single' | 'regular', string> = {
   regular: 'レギュラー（回を持つ）',
 };
 
-/** 求められているものの候補。**自由入力もできる**ようにテキストで持つ */
-export const WANTS_HINTS = ['見積', '資料', '見積 と 資料', '相場感', '空き状況'];
-
 /**
  * 足りない項目。**押せなくするのではなく名指しする** —
  * 押せないボタンだけだと「何が足りないのか」を探すことになる。
+ * 並びはフォームの並びと同じにする（上から順に埋めれば消える）。
  */
 export function missingOf(v: NewProjectValues): string[] {
   return [
     v.customer_id ? null : 'お客様',
     v.name.trim() ? null : '案件名',
-    v.project_type ? null : '案件の種類',
+    v.audience ? null : '客入れの有無',
+    v.project_category ? null : '案件分類',
     v.assigned_to ? null : '社内の担当',
   ].filter((m): m is string => m !== null);
 }

@@ -1,43 +1,61 @@
 /**
- * 案件一覧の絞り込み帯 (v4)
+ * 案件一覧の絞り込み帯（v4・指示書 4-2 / 4-3 / 4-4）
  *
- * モックは「絞り込み」「実施日が近い順」の2つのボタンだけですが、
- * **いま実際に使われている絞り込みを減らしていません** — 検索・開催期間・
- * 並び順・AI 起票は既存の機能で、消すと今の運用が止まります。
- * v4 で変えたのは**置き場所と見た目**だけです
- * (ステージの絞り込みは上のチップに出したので、ここからは外しました)。
+ * ── 段数と幅を固定する ──────────────────────────────────────
+ *
+ * 旧実装は `flex-wrap` に任せていたので、**期間の単位を変えるたびに帯が
+ * 1行 ↔ 2行で動いていました**（月なら `<input type=month>`、四半期なら
+ * 年＋Q の2つ…と、単位ごとに置くものが違ったため）。押した直後に下の一覧が
+ * 上下にずれるので、目で追っている行を見失います。
+ *
+ * → **最初から2段で組み、各枠の幅を決めます。**
+ *
+ *   1段目（40px）… 検索欄（唯一伸びる）／ 期間の単位（各66pxの等幅）／ 対象を選ぶ枠（236px）
+ *   2段目（36px）… 並び順（236px）／ AI作成のみ（118px）／ 用語（86px）／ 右端に現在の期間
+ *
+ * ── 「全件」でも対象の枠を消さない ──────────────────────────
+ *
+ * `display:none` にすると、その瞬間に右側のものが左へ詰まって**位置が動きます**。
+ * 薄くして押せなくするだけにします（`opacity` ＋ `pointer-events:none`）。
  */
-import { Search, SlidersHorizontal, Sparkles, Info } from 'lucide-react';
+import { Search, Sparkles, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  PERIOD_MODES, options, toValue, fromValue, label, step, switchMode,
+  type EventPeriodMode, type PeriodValue,
+} from './period';
 
-export type EventPeriodMode = 'half' | 'month' | 'quarter' | 'year' | 'all';
+export type { EventPeriodMode, PeriodValue };
 
 /**
- * 並び順。**ラベルは 224px の枠に1行で収まる長さにする。**
+ * 帯の中の固定幅（指示書 4-4）。**段（`SlotWidth`）に無い値**なので1か所にまとめ、
+ * それぞれ理由を書いてあります。字数なりに伸ばすと、単位を変えるたびに
+ * 帯の段数と各枠の位置が動きます。
+ */
+const SEGMENT_W = 'w-[66px]';          // ui-tokens-ok: 期間の単位は各66pxの等幅（「四半期」だけ広がらないように）
+const TARGET_W = 'w-[236px]';          // ui-tokens-ok: 対象を選ぶ枠。「2026年 下期（7〜12月）」が入る幅
+const SORT_W = 'h-9 w-[236px]';        // ui-tokens-ok: 並び順。上の枠と同じ幅にそろえる
+
+/**
+ * 並び順（指示書 4-2）。**5つだけ**にしました。
  *
- * 旧実装の「おすすめ (ネタ → 提案中 → 受注済)」は枠の中で2行に折り返し、
- * **2行目が切れて読めませんでした** (実ブラウザで計測: 中身 40px / 枠 20px)。
- * `<SelectValue>` は選んだ項目の文字をそのまま出すので、
- * 説明を足すなら枠の外 (「用語」) に書きます。
+ * 旧実装は9つあり、逆順（実施日が遠い順・作成が古い順・金額が安い順）が
+ * 半分を占めていました。**逆順を選ぶ理由がある場面が無く**、
+ * 224px の枠に9行のプルダウンが開くだけで、目当ての1つを探すのが遅くなります。
+ *
+ * ラベルは **236px の枠に1行で収まる長さ**にすること。`<SelectValue>` は
+ * 選んだ項目の文字をそのまま出すので、はみ出すと2行目が切れて読めません。
  */
 export const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'default:asc', label: 'おすすめ順' },
+  { value: 'recommended:asc', label: 'おすすめ順' },
+  { value: 'estimate_amount:desc', label: '見積金額が大きい順' },
   { value: 'event_start:asc', label: '実施日が近い順' },
-  { value: 'event_start:desc', label: '実施日が遠い順' },
-  { value: 'created_at:desc', label: '作成が新しい順' },
-  { value: 'created_at:asc', label: '作成が古い順' },
-  { value: 'expected_amount:desc', label: '金額が高い順' },
-  { value: 'expected_amount:asc', label: '金額が安い順' },
-  { value: 'name:asc', label: '案件名 (50音)' },
-  { value: 'customer:asc', label: 'お客様名 (50音)' },
-];
-
-const PERIOD_MODES: [EventPeriodMode, string][] = [
-  ['half', '半年'], ['month', '月'], ['quarter', '四半期'], ['year', '年'], ['all', '全件'],
+  { value: 'next_task_due:asc', label: '期限が近い順' },
+  { value: 'last_move:asc', label: '最後の動きが古い順' },
 ];
 
 export interface FilterBarProps {
@@ -45,14 +63,10 @@ export interface FilterBarProps {
   onSearch: (v: string) => void;
   sort: string;
   onSort: (v: string) => void;
-  eventMode: EventPeriodMode;
-  onEventMode: (v: EventPeriodMode) => void;
-  eventMonth: string;
-  onEventMonth: (v: string) => void;
-  eventYear: number;
-  onEventYear: (v: number) => void;
-  eventQuarter: number;
-  onEventQuarter: (v: number) => void;
+  period: PeriodValue;
+  onPeriod: (v: PeriodValue) => void;
+  /** いまの日付。プルダウンに出す年の幅を決める（テストで固定できるように渡す） */
+  now: Date;
   aiOnly: boolean;
   onAiOnly: (v: boolean) => void;
   aiUnreviewedOnly: boolean;
@@ -62,20 +76,168 @@ export interface FilterBarProps {
   onTermOpen: (v: boolean) => void;
 }
 
-/** 帯の中の小さな押しボタン。**高さは 44px 以上** (スマホでも指で押す) */
-function ChipButton({
-  active, onClick, title, children,
-}: { active?: boolean; onClick: () => void; title?: string; children: React.ReactNode }) {
+export function FilterBar(p: FilterBarProps) {
+  const off = p.period.mode === 'all';
+  // 年（と全件）は対象のプルダウンを出すが、◀▶ の意味が変わる
+  const opts = options(p.period, p.now);
+
+  return (
+    <div className="rounded-card flex flex-col gap-2 border border-border bg-card px-3 py-2.5">
+      {/* ── 1段目（40px 固定）─────────────────────────────── */}
+      <div className="flex h-10 items-stretch gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="案件名・GLS番号・お客様名で探す"
+            value={p.search}
+            onChange={(e) => p.onSearch(e.target.value)}
+            className="h-10 pl-9"
+            aria-label="案件を探す"
+          />
+        </div>
+
+        {/*
+          期間の単位。**各66pxの等幅**。
+          **罫線は枠ではなくボタン自身に置く。** 枠に置くと中のボタンが
+          40 − 1 − 1 = 38px になり、寸法表のボタンの段（32/36/40/44/48）から外れます
+          （`verify-ui` の「ボタンの高さが段のみ」で実測して直しました）。
+        */}
+        <div className="inline-flex shrink-0" role="group" aria-label="期間の単位">
+          {PERIOD_MODES.map(({ mode, label: text }, i) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => p.onPeriod(switchMode(p.period, mode))}
+              aria-pressed={p.period.mode === mode}
+              className={`text-sub h-10 ${SEGMENT_W} shrink-0 border border-border ${
+                i > 0 ? '-ml-px' : 'rounded-l-control'
+              } ${i === PERIOD_MODES.length - 1 ? 'rounded-r-control' : ''} ${
+                p.period.mode === mode ? 'bg-primary-surface font-bold text-primary' : 'bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+
+        {/*
+          対象を選ぶ枠（236px 固定）。**「全件」でも消さない** —
+          消すと右側が詰まって位置が動く（上の説明）
+        */}
+        <div
+          className={`inline-flex ${TARGET_W} shrink-0 ${off ? 'pointer-events-none opacity-35' : ''}`}
+          aria-hidden={off}
+        >
+          <button
+            type="button"
+            onClick={() => p.onPeriod(step(p.period, -1))}
+            aria-label="1つ前の期間"
+            className="h-10 w-8 shrink-0 rounded-l-control border border-border bg-card text-muted-foreground hover:bg-muted"
+          >
+            <ChevronLeft className="mx-auto h-4 w-4" aria-hidden="true" />
+          </button>
+          <Select
+            value={toValue(p.period)}
+            onValueChange={(x) => p.onPeriod(fromValue(p.period, x))}
+            disabled={off}
+          >
+            <SelectTrigger
+              className="-mx-px h-10 min-w-0 flex-1 justify-center rounded-none border-x-0 text-center"
+              aria-label="期間の対象"
+            >
+              {/* 中身は中央寄せ＋省略。枠の幅は変えない */}
+              <span className="truncate">{label(p.period)}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {opts.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <button
+            type="button"
+            onClick={() => p.onPeriod(step(p.period, 1))}
+            aria-label="1つ後の期間"
+            className="h-10 w-8 shrink-0 rounded-r-control border border-border bg-card text-muted-foreground hover:bg-muted"
+          >
+            <ChevronRight className="mx-auto h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2段目（36px 固定）─────────────────────────────── */}
+      <div className="flex h-9 items-stretch gap-2">
+        <Select value={p.sort} onValueChange={p.onSort}>
+          <SelectTrigger className={`${SORT_W} shrink-0`} aria-label="並び順"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <BarButton
+          w={118}
+          active={p.aiOnly}
+          onClick={() => p.onAiOnly(!p.aiOnly)}
+          title="AI が作った案件だけを出す"
+        >
+          <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />AI作成のみ
+        </BarButton>
+
+        {/*
+          「未確認のみ」は AI 作成のみを押したときだけ意味を持つ。
+          **枠は常に置いて、押せないときは薄くする**（消すと段が詰まって動く）
+        */}
+        <BarButton
+          w={118}
+          active={p.aiUnreviewedOnly && p.aiOnly}
+          disabled={!p.aiOnly}
+          onClick={() => p.onAiUnreviewedOnly(!p.aiUnreviewedOnly)}
+        >
+          {p.aiUnreviewedOnly ? '未確認のみ' : '確認済みも'}
+        </BarButton>
+
+        <BarButton w={86} active={p.termOpen} onClick={() => p.onTermOpen(!p.termOpen)} title="ネタ・ヨミ・GLS などの用語">
+          <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />用語
+        </BarButton>
+
+        <span className="flex-1" />
+
+        {/* 右端に現在の期間。**押せるものではない**ので枠を持たせない */}
+        <span className="text-sub-sm flex items-center truncate text-muted-foreground">
+          {p.search
+            ? '探しているあいだは全期間から当てます'
+            : off ? '期間で絞っていません' : label(p.period)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** 2段目の押しボタン。**幅を固定する**（中身の字数で段が揺れないように） */
+function BarButton({
+  w, active, disabled, onClick, title, children,
+}: {
+  w: number;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
+      disabled={disabled}
       aria-pressed={active}
-      className={`min-h-tap text-sub inline-flex shrink-0 items-center gap-1.5 rounded-control border px-3 lg:min-h-[36px] ${
-        active
-          ? 'border-primary-border-strong bg-primary-surface font-bold text-primary'
-          : 'border-border bg-card text-muted-foreground hover:bg-muted'
+      style={{ width: w }}
+      className={`text-sub inline-flex shrink-0 items-center justify-center gap-1.5 rounded-control border px-2 ${
+        disabled
+          // **`fg-disabled` は使わない**（白地で 2.61:1 しかなく `verify-ui` の
+          // 「薄すぎる文字」で落ちる）。押せないことは `opacity` が示す
+          ? 'pointer-events-none border-border bg-card text-muted-foreground opacity-35'
+          : active
+            ? 'border-primary-border-strong bg-primary-surface font-bold text-primary'
+            : 'border-border bg-card text-muted-foreground hover:bg-muted'
       }`}
     >
       {children}
@@ -83,98 +245,16 @@ function ChipButton({
   );
 }
 
-export function FilterBar(p: FilterBarProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-card border border-border bg-card px-3 py-2.5">
-      <div className="relative min-w-[200px] flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input
-          placeholder="案件名・GLS番号・お客様名で探す"
-          value={p.search}
-          onChange={(e) => p.onSearch(e.target.value)}
-          className="pl-9"
-          aria-label="案件を探す"
-        />
-      </div>
-
-      {/* 開催期間。**検索中は効きません**とその場に出す (探したのに出ない、を防ぐ) */}
-      <div className="inline-flex shrink-0 items-center gap-1.5">
-        <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <div className="inline-flex overflow-hidden rounded-control border border-border">
-          {PERIOD_MODES.map(([m, label], i) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => p.onEventMode(m)}
-              aria-pressed={p.eventMode === m}
-              className={`min-h-tap text-sub px-3 lg:min-h-[36px] ${i > 0 ? 'border-l border-border' : ''} ${
-                p.eventMode === m ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {p.eventMode === 'month' && (
-        <Input type="month" value={p.eventMonth} onChange={(e) => p.onEventMonth(e.target.value)} className="w-36 shrink-0" aria-label="実施月で絞り込む" />
-      )}
-      {p.eventMode === 'quarter' && (
-        <>
-          <Input type="number" value={p.eventYear} onChange={(e) => p.onEventYear(Number(e.target.value) || p.eventYear)} className="w-24 shrink-0" aria-label="年" />
-          <Select value={String(p.eventQuarter)} onValueChange={(v) => p.onEventQuarter(Number(v))}>
-            <SelectTrigger className="w-36 shrink-0"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">1Q（1〜3月）</SelectItem>
-              <SelectItem value="2">2Q（4〜6月）</SelectItem>
-              <SelectItem value="3">3Q（7〜9月）</SelectItem>
-              <SelectItem value="4">4Q（10〜12月）</SelectItem>
-            </SelectContent>
-          </Select>
-        </>
-      )}
-      {p.eventMode === 'year' && (
-        <Input type="number" value={p.eventYear} onChange={(e) => p.onEventYear(Number(e.target.value) || p.eventYear)} className="w-24 shrink-0" aria-label="年" />
-      )}
-
-      <Select value={p.sort} onValueChange={p.onSort}>
-        <SelectTrigger className="w-full shrink-0 sm:w-56" aria-label="並び順"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {SORT_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-
-      <ChipButton active={p.aiOnly} onClick={() => p.onAiOnly(!p.aiOnly)} title="AI が作った案件だけを出す">
-        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />AI作成のみ
-      </ChipButton>
-      {p.aiOnly && (
-        <ChipButton active={p.aiUnreviewedOnly} onClick={() => p.onAiUnreviewedOnly(!p.aiUnreviewedOnly)}>
-          {p.aiUnreviewedOnly ? '未確認のみ' : '確認済みも出す'}
-        </ChipButton>
-      )}
-      <ChipButton active={p.termOpen} onClick={() => p.onTermOpen(!p.termOpen)} title="ネタ・ヨミ・GLS などの用語">
-        <Info className="h-3.5 w-3.5" aria-hidden="true" />用語
-      </ChipButton>
-
-      {p.search && (
-        <p className="text-sub-sm w-full text-muted-foreground">
-          探しているあいだは実施日の絞り込みを外して、全期間から当てます
-        </p>
-      )}
-    </div>
-  );
-}
-
 /** 「用語」を押したときに出る説明 */
 export function TermHint({ onClose }: { onClose: () => void }) {
   return (
     <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
-      <p><span className="font-bold text-foreground">ネタ</span> … 最初の見込み。まだ提案していない「案件のタネ」。</p>
-      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件ぜんぶ (ネタ → 提案 → 口頭決定)。受注の確度を読む段階。</p>
-      <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号 (GLS-A… / GLS-B…)。</p>
-      <p><span className="font-bold text-foreground">おすすめ順</span> … ネタ → 提案中 (口頭決定 → 見積提案 → 仮押さえ) → 受注済 → 失注 の順。同じまとまりの中は実施日が近い順。</p>
+      <p><span className="font-bold text-foreground">ネタ</span> … 最初の見込み。まだ提案していない「案件のタネ」。3つ目の見え方「ネタ」で見ます（「すべて」には出ません）。</p>
+      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件ぜんぶ（ネタ → 提案 → 口頭決定）。受注の確度を読む段階。</p>
+      <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号（GLS-A… / GLS-B…）。案件作成では発番しません。</p>
+      <p><span className="font-bold text-foreground">おすすめ順</span> … 止まっている案件が先。その中は期限（次のタスク）が近い順。</p>
       <p><span className="font-bold text-foreground">止まっている</span> … 案件・タスク・活動記録のどれも1週間動いていない。終わった案件には出しません。</p>
+      <p><span className="font-bold text-foreground">終了</span> … 完了 と 失注。「終了」のチップを押したときだけ出ます。</p>
       <Button variant="outline" size="sm" className="mt-2" onClick={onClose}>閉じる</Button>
     </div>
   );

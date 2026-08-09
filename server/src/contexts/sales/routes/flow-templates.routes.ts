@@ -12,6 +12,7 @@ import {
   listTemplates, templatesFor, preview, apply, duplicate, datesOf,
   updateTemplate, updateTask, addTask, removeTask, removeTemplate,
 } from '../services/flow-template.service';
+import { classificationKey, classificationOf } from '../services/project-classification';
 
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -22,9 +23,19 @@ router.use(requireAuth, requirePermission('sales'));
 const canEdit = requirePermission('sales', 'manager');
 const userOf = (req: Request) => req.user!.id;
 
+/**
+ * 型の一覧。`classification`（`客入れ:分類`）で絞れる。
+ *
+ * **旧 `project_type` でも受けます。** migration 182 より前から動いている
+ * 呼び出し（旧い画面・MCP）を 400 で止めると、工程を入れる導線が黙って消えます。
+ * 受けたら2段に読み替えてから当てるので、返るものは同じです。
+ */
 router.get('/', wrap(async (req, res) => {
-  const type = req.query.project_type ? String(req.query.project_type) : null;
-  res.json({ success: true, data: type ? await templatesFor(type) : await listTemplates() });
+  const asked = req.query.classification ? String(req.query.classification) : null;
+  const legacy = req.query.project_type ? String(req.query.project_type) : null;
+  const back = legacy ? classificationOf(legacy) : null;
+  const key = asked ?? (back ? classificationKey(back.audience, back.project_category) : null);
+  res.json({ success: true, data: key ? await templatesFor(key) : await listTemplates() });
 }));
 
 /**

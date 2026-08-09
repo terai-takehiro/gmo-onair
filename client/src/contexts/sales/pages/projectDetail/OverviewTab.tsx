@@ -17,6 +17,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { ProjectTypeLabels } from '@/types';
+import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
@@ -128,23 +129,37 @@ export function OverviewTab({
         <Section title="この案件のこと">
           <Field label="お客様">{project.customer_name}</Field>
           <Field label="ご担当">{project.contact_name}</Field>
-          <Field label="種類">
-            {project.project_type
-              ? ProjectTypeLabels[project.project_type as keyof typeof ProjectTypeLabels] ?? project.project_type
-              : null}
+          {/*
+            **案件分類は2段**（migration 182）。2つ揃っているときはそれを出し、
+            揃っていない古い案件は旧「種類」を出します — **どちらも出さないと
+            分類が空欄に見えます**（2段が入る前の案件は全部そう見える）。
+          */}
+          <Field label="案件分類">
+            {classificationLabel(project.audience, project.project_category)
+              ?? (project.project_type
+                ? ProjectTypeLabels[project.project_type as keyof typeof ProjectTypeLabels] ?? project.project_type
+                : null)}
           </Field>
           <Field label="継続区分">
             {project.recurrence === 'regular' ? 'レギュラー（回を持つ）' : '単発'}
           </Field>
-          <Field label="規模">
-            {project.attendee_count ? <><span className="font-number">{project.attendee_count}</span> 名</> : null}
-          </Field>
-          <Field label="やりたいこと">{project.goal}</Field>
-          <Field label="返事の期限">
-            {project.reply_due ? <span className="font-number">{project.reply_due}</span> : null}
-          </Field>
-          <Field label="求められているもの">{project.wants}</Field>
-          <Field label="入手経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
+          {/* **無観客の案件には来場人数を出さない**（人が来ないので欄ごと意味が無い） */}
+          {project.audience !== 'no_audience' && (
+            <Field label="来場人数">
+              {project.attendee_count ? <><span className="font-number">{project.attendee_count}</span> 名</> : null}
+            </Field>
+          )}
+          <Field label="案件内容">{project.goal}</Field>
+          {/*
+            **返事の期限と求められているものは、案件作成のフォームから外しました。**
+            列は残っているので、**すでに入っている案件では読めるようにしておきます**
+            （新しい案件には入りません）。空の案件では欄ごと出しません
+          */}
+          {project.reply_due && (
+            <Field label="返事の期限"><span className="font-number">{project.reply_due}</span></Field>
+          )}
+          {project.wants && <Field label="求められているもの">{project.wants}</Field>}
+          <Field label="リード経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             {project.gls_number ?? <span className="text-muted-foreground">まだ発番していません（ヨミ段階）</span>}
           </Field>

@@ -670,3 +670,73 @@
 @media (max-width: 1023px) {
   :root [data-shell-logo] { height: 18px; }
 }
+
+/* ==========================================================================
+ * 一覧の並び替え・絞り込みと、横スクロールのレール（v4 案件一覧・案件作成）
+ *
+ * **画面ごとに書かないこと。** 案件一覧・タスク一覧・受け取った書類…と
+ * 同じ動きを何枚もの画面が使うので、名前を分けると片方だけ直った日から
+ * 「同じ操作なのに画面によって動きが違う」になります。
+ * ========================================================================== */
+
+/**
+ * 並びが変わったときに行を滑らせる（FLIP・`client-v4/flip.ts` が付ける）。
+ *
+ * **`transition` は付けっぱなしにしない。** 常時付けておくと、ページを
+ * めくったときや検索の1文字ごとに**関係ない行まで滑り**、見ている行が
+ * どれか分からなくなります。動かす回だけ `data-flip="run"` を付けて、
+ * 1コマ後に外します。
+ */
+[data-flip='run'] {
+  transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+/**
+ * 新しく現れた行。**8px 下からフェードイン**し、
+ * **1行あたり 18ms ずらして**順に立ち上がります（`--v4-row` に順番が入る）。
+ *
+ * ずらす上限を 12 行にしているのは、20 行目が 360ms 待つと
+ * 「読み込みが遅い」と受け取られるためです（実際にはもう出ている）。
+ */
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+[data-row-in] {
+  animation: rowIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: calc(min(var(--v4-row, 0), 12) * 18ms);
+}
+
+/**
+ * 横スクロールのレール。**スクロールバーは隠す**（掴んで動かすため。
+ * 帯の下に灰色の棒が出ると、カードの列がもう1段あるように見える）。
+ *
+ * `touch-action: pan-x` は、指で横に払ったときに**後ろのページが縦に動かない**ため。
+ * `user-select: none` は、掴んで動かしたときにカードの文字が青く選択されないため。
+ */
+.v4-rail {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.v4-rail::-webkit-scrollbar { display: none; }
+.v4-rail:active { cursor: grabbing; }
+.v4-rail > * { scroll-snap-align: start; }
+
+/** 押した手応え。**カードとボタンだけ**（行に付けると一覧全体が沈む） */
+@media (hover: hover) {
+  .v4-press:active { transform: scale(0.97); }
+}
+.v4-press { transition: transform 0.12s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-flip='run'] { transition: none !important; }
+  [data-row-in] { animation: none !important; }
+  .v4-press:active { transform: none; }
+}

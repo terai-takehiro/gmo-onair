@@ -54,11 +54,16 @@ const FIELDS: { path: string; label: string }[] = [
   // **足したら必ずここにも足す** — 抜けるとその項目だけ黙って差分が取れなくなる
   { path: 'contact_name', label: 'ご担当' },
   { path: 'recurrence', label: '継続区分' },
-  { path: 'attendee_count', label: '規模' },
-  { path: 'goal', label: 'やりたいこと' },
+  { path: 'attendee_count', label: '来場人数' },
+  { path: 'goal', label: '案件内容' },
   { path: 'reply_due', label: '返事の期限' },
   { path: 'wants', label: '求められているもの' },
-  { path: 'intake_channel', label: '入手経路' },
+  { path: 'intake_channel', label: 'リード経路' },
+  // 2段分類 (migration 182)。**`project_type` と両方見る** — 旧分類は4種しかなく
+  // 「有観客の収録」と「有観客の配信」が同じ `hybrid_event` に寄るので、
+  // 種類だけを見ていると人が直した分類の半分が「無修正」に数えられる
+  { path: 'audience', label: '客入れの有無' },
+  { path: 'project_category', label: '案件分類（配信/収録/イベント）' },
 ];
 
 /** 見た目が違うだけの値を「直した」と数えないための正規化 */

@@ -25,6 +25,8 @@ interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  /** GMOインターネットグループのグループ会社か (migration 182) */
+  is_gmo_group?: boolean;
   is_ai_created?: boolean;
   ai_requested_by?: string | null;
 }
@@ -48,6 +50,7 @@ interface CustomerForm {
   email: string;
   phone: string;
   address: string;
+  is_gmo_group: boolean;
 }
 
 const EMPTY_FORM: CustomerForm = {
@@ -56,6 +59,7 @@ const EMPTY_FORM: CustomerForm = {
   email: "",
   phone: "",
   address: "",
+  is_gmo_group: false,
 };
 
 export default function CustomerListPage() {
@@ -75,6 +79,9 @@ export default function CustomerListPage() {
         email: crud.editingItem.email || "",
         phone: crud.editingItem.phone || "",
         address: crud.editingItem.address || "",
+        // **既定を false にしない。** 編集で開くたびに印が外れ、
+        // 保存すると黙ってグループ会社でなくなる
+        is_gmo_group: crud.editingItem.is_gmo_group === true,
       });
     } else {
       form.reset(EMPTY_FORM);
@@ -208,6 +215,27 @@ export default function CustomerListPage() {
           <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
           <div><Label>電話</Label><Input {...form.register("phone")} /></div>
           <div><Label>住所</Label><Input {...form.register("address")} /></div>
+          {/*
+            **グループ会社の印**（migration 182）。ここを付けると、案件作成の
+            「リード経路」がプルダウンではなく**「グループ案件」の固定表示**になります。
+            社名の文字列一致では判定しません — 社名は変わりますし、
+            GMO を含む社外の会社を誤判定します。
+          */}
+          <div>
+            <label className="flex min-h-tap items-center gap-2.5">
+              <input
+                type="checkbox"
+                {...form.register("is_gmo_group")}
+                className="v4-tap h-5 w-5 shrink-0 accent-primary"
+              />
+              <span>
+                <span className="block">GMOインターネットグループのグループ会社</span>
+                <span className="text-note block text-muted-foreground">
+                  付けると、この会社の案件のリード経路は「グループ案件」に固定されます
+                </span>
+              </span>
+            </label>
+          </div>
         </CrudFormDialog>
       </div>
     </PageTransition>

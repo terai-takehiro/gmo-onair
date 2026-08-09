@@ -31,15 +31,22 @@ import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { ROLE_TONE, type FlowTemplate, type PreviewTask } from './flowTypes';
+import { classificationKey, type Audience, type ProjectCategory } from '@/contexts/sales/classification';
 
 export function ApplyFlowDialog({
-  open, onOpenChange, projectId, projectType, eventDate,
+  open, onOpenChange, projectId, audience, projectCategory, eventDate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
-  /** 案件の種類。合う型を上に出すためだけに使う（合う型が無くても全部出す） */
-  projectType: string | null;
+  /**
+   * 案件の2段分類（migration 182）。合う型を上に出すためだけに使う
+   * （合う型が無くても全部出す）。**どちらか欠けていたら絞らない** —
+   * 「有観客」だけでは型を選べないので、中途半端に絞ると
+   * 使うべき型が下に沈みます。
+   */
+  audience: string | null;
+  projectCategory: string | null;
   /** 実施日。**未定なら null** — 逆算の工程は期限なしで入る */
   eventDate: string | null;
 }) {
@@ -47,10 +54,14 @@ export function ApplyFlowDialog({
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set());
 
+  const classification = audience && projectCategory
+    ? classificationKey(audience as Audience, projectCategory as ProjectCategory)
+    : null;
+
   const tpls = useQuery<FlowTemplate[]>({
-    queryKey: ['flow-templates', 'for', projectType],
+    queryKey: ['flow-templates', 'for', classification],
     queryFn: async () => (
-      await api.get('/flow-templates', { params: projectType ? { project_type: projectType } : undefined })
+      await api.get('/flow-templates', { params: classification ? { classification } : undefined })
     ).data.data,
     enabled: open,
   });

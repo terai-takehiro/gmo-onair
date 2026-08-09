@@ -17,7 +17,6 @@ import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
-import InboxPage from "@/contexts/sales/pages/InboxPage";
 import InquiryQuickPage from "@/contexts/sales/pages/InquiryQuickPage";
 import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
@@ -184,7 +183,14 @@ function AppRoutes() {
         <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
-        <Route path="/sales/inbox" element={<PermissionRoute module="sales"><InboxPage /></PermissionRoute>} />
+        {/*
+            ② 受付は**案件作成に畳みました**（指示書 第1章）。届いたものを読んで、
+            足りないところを埋めて、案件にするかどうかを決める仕事は案件作成と
+            同じだったので、1画面にしています。
+            **URL は生かします** — ブックマーク・ホームの「お待たせ中」・
+            通知から来る道があり、消すと 404 に着きます
+        */}
+        <Route path="/sales/inbox" element={<Navigate to="/sales/projects/new" replace />} />
         {/*
             ⑦ 受付（貼って送るだけ）— スマホで外から入れる口。
             **`dailyops` か `sales` のどちらかで通す** — 受け側の

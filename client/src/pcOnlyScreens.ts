@@ -164,8 +164,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/projects/:id',                // ⑥ 概要・タスク・当日の3タブ
   '/sales/projects/:id/:tab',           // 同上（PC 向きのタブは画面の中で案内を出す）
   '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
-  '/sales/inbox',                       // ② 受付
-  '/sales/inbox/new',                   // 貼って送る
+  '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*

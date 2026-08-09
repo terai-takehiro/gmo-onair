@@ -64,8 +64,10 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "業務",
       items: [
-        // **受付はここに出さない**（モックの PC サイドバーに無い）。
-        // 入口はダッシュボードの受付カード。スマホは下タブから開く
+        // **受付は無くなりました**（案件作成に統合）。旧 `/sales/inbox` は
+        // `/sales/projects/new` へ転送します。案件作成をメニューに出さないのは
+        // モックの PC サイドバーに無いため — 入口はダッシュボードの受付カードと
+        // 一覧の「案件をつくる」で、どちらも同じ画面に着きます
         { label: "ダッシュボード", to: "/sales/dashboard", icon: LayoutDashboard },
         { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
       ],

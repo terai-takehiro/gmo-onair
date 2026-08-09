@@ -3,7 +3,7 @@
  *
  * ── モックどおり3つのタイル ──────────────────────────────────
  *
- *   ① メールから取り込む       → 受付 (`/sales/inbox`)。未処理の数を出す
+ *   ① 自動で届いたものを見る   → 案件作成 (`/sales/projects/new`)。未処理の数を出す
  *   ② 電話・打合せを取り込む   → 入口を「電話」にして案件登録へ
  *   ③ 手で登録する             → 案件登録へ
  *
@@ -30,7 +30,7 @@ import api from '@/lib/api';
 interface InboxResponse { counts?: { total?: number } }
 
 export function IntakePanel() {
-  // **受付ページと同じ鍵**で引く。別の鍵にすると、受付で片づけた直後に
+  // **案件作成のレールと同じ鍵**で引く。別の鍵にすると、片づけた直後に
   // ダッシュボードへ戻ったとき数字が古いまま残る
   const { data } = useQuery<InboxResponse>({
     queryKey: queryKeys.dashboard.inbox(),
@@ -55,14 +55,14 @@ export function IntakePanel() {
 
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         <Link
-          to="/sales/inbox"
+          to="/sales/projects/new"
           className="rounded-control min-h-tap flex items-center gap-3 border border-primary-border bg-primary-surface-weak px-3.5 py-3 hover:border-primary-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="rounded-control flex h-9 w-9 shrink-0 items-center justify-center bg-primary-surface">
             <Inbox className="h-[18px] w-[18px] text-primary" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="text-list block truncate">受付をひらく</span>
+            <span className="text-list block truncate">自動で届いたものを見る</span>
             <span className="text-sub-sm block text-muted-foreground">メール・問い合わせ・AI が起こした案件</span>
           </span>
           {/* 数字は 0 のときも出す。**0 を隠すと「まだ読み込み中」に見える** */}

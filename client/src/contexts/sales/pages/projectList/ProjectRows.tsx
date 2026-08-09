@@ -7,7 +7,9 @@
  *   ステージ         96px (`TableBadge`)     モック 98px
  *   実施日           96px (`RowSlot`)        モック 62px → 期間 (開始〜終了) を
  *                                            出すので 96px に上げた
- *   金額             128px (`MoneyCell`)     モック 108px
+ *   見積金額         128px (`MoneyCell`)     モック 108px
+ *                                            → **段（`SlotWidth`）に無い幅は作らない。**
+ *                                              9桁（¥126,400,000）を想定して 128px。
  *   次のタスク       200px (`RowSlot`)       モック 210px
  *   最後の動き       72px (`RowSlot`)        モック 74px
  *
@@ -24,6 +26,7 @@ import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES, isStale } from './stages';
+import { rowInProps, type RowAnim } from './rowAnim';
 import type { ProjectListRow } from './types';
 
 /**
@@ -36,7 +39,9 @@ export function ProjectRowsHeader() {
       <RowMain>案件 ／ お客様</RowMain>
       <RowSlot w={96}>ステージ</RowSlot>
       <RowSlot w={96}>実施日</RowSlot>
-      <RowSlot w={128} align="right">金額</RowSlot>
+      {/* **列名は左揃え・数値は右揃え。** 名前まで右に寄せると、
+          数字の右端と列名の右端が重なって桁が読みにくい */}
+      <RowSlot w={128}>見積金額</RowSlot>
       <RowSlot w={200}>次のタスク</RowSlot>
       <RowSlot w={72} align="right">最後の動き</RowSlot>
     </RowHeader>
@@ -51,6 +56,31 @@ function dueTone(due: string | null, today: string): string {
   return 'text-muted-foreground';
 }
 
+/**
+ * 次のタスクの担当。**名前だけの角丸ピル**にする（指示書 4-5）。
+ *
+ * 「山田：見積を送る」のように文中に混ぜると、**タスク名と担当が同じ字面**になり、
+ * 誰がやるのか目で拾えません。ピルにすると列の中で位置が揃うので、
+ * 一覧を縦に流したときに「担当が決まっていない行」がすぐ見つかります。
+ *
+ * **頭文字のアバターは出しません。** 同姓の人が同じ丸になるうえ、
+ * 200px の列で 20px を色の丸に使うと、タスク名が読めなくなります。
+ *
+ * 担当がいない行にも**同じ位置に薄いピル**を置いて列を保ちます
+ * （消すと期限だけが左に寄って、担当がいる行とずれる）。
+ */
+function AssigneePill({ name }: { name: string | null }) {
+  return (
+    <span
+      className={`text-badge inline-flex max-w-[96px] shrink-0 items-center truncate rounded-chip px-2 py-0.5 ${
+        name ? 'bg-muted text-foreground' : 'bg-muted/60 text-fg-disabled'
+      }`}
+    >
+      {name || '未定'}
+    </span>
+  );
+}
+
 function dueLabel(due: string | null, today: string): string | null {
   if (!due) return null;
   const short = due.slice(5).replace('-', '/');
@@ -62,18 +92,25 @@ function dueLabel(due: string | null, today: string): string | null {
 export function ProjectRow({
   p,
   today,
+  row,
   onOpen,
 }: {
   p: ProjectListRow;
   today: string;
+  row?: RowAnim;
   onOpen: () => void;
 }) {
-  const revenue = Number(p.total_revenue) || 0;
+  /**
+   * **見積金額**。出した見積があればその金額、まだ無ければ**想定金額を薄字**で出す。
+   *
+   * 確定売上（`total_revenue`）は出しません — 列名が「見積金額」なので、
+   * 受注済の行だけ中身が売上に変わると**同じ列で意味が2つ**になります。
+   * 実績は案件詳細の見積・請求タブと財務の台帳で見ます。
+   */
+  const estimate = Number(p.estimate_amount) || 0;
   const expected = Number(p.expected_amount) || 0;
-  // 確定売上があればそれ。無ければ想定金額を**薄く**出す
-  // (同じ列に確定と想定が混ざるので、色で区別できないと足し算してしまう)
-  const amount = revenue > 0 ? revenue : expected > 0 ? expected : null;
-  const isExpected = revenue === 0 && expected > 0;
+  const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
+  const isExpected = estimate === 0 && expected > 0;
   const terminal = TERMINAL_STAGES.includes(p.stage);
   const stale = isStale(p.stage, p.last_activity_at);
   const due = dueLabel(p.next_task_due, today);
@@ -83,6 +120,11 @@ export function ProjectRow({
       divider
       interactive
       stackOnMobile
+      /* 並び替え・絞り込みで滑らせるための鍵（`client-v4/flip.ts`）。
+         **位置ではなく鍵で覚える** — 行数が変わったときに別の案件どうしを結ばない。
+         `data-row`（検査の印）とは別の属性にしてある */
+      data-flip-key={p.id}
+      {...rowInProps(row)}
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -132,16 +174,17 @@ export function ProjectRow({
         width={128}
         value={amount}
         className={`text-sub ${isExpected ? 'text-muted-foreground' : ''}`}
-        title={isExpected ? '想定金額 (確定した売上はまだありません)' : undefined}
+        title={isExpected ? '想定金額 (まだ見積を出していません)' : undefined}
       />
 
       <RowSlot w={200} hideOnMobile className="flex-col items-start justify-center gap-0.5">
         {p.next_task_title ? (
           <>
-            <span className="text-sub w-full truncate font-bold">
-              {p.next_task_assignee ? `${p.next_task_assignee}：` : ''}{p.next_task_title}
+            <span className="text-sub w-full truncate font-bold">{p.next_task_title}</span>
+            <span className="flex w-full items-center gap-1.5">
+              <AssigneePill name={p.next_task_assignee} />
+              {due && <span className={`text-sub-sm font-number ${dueTone(p.next_task_due, today)}`}>{due}</span>}
             </span>
-            {due && <span className={`text-sub-sm font-number ${dueTone(p.next_task_due, today)}`}>{due}</span>}
           </>
         ) : null}
       </RowSlot>

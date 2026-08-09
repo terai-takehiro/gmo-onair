@@ -13,7 +13,7 @@
  *
  *   1行目  案件名（折り返してよい）＋ ステージ
  *   2行目  お客様 ・ GLS番号
- *   3行目  実施日 ／ 金額（右）
+ *   3行目  実施日 ／ 見積金額（右）
  *   4行目  次のタスク（担当・期限つき）。無ければ出さない
  *
  * ── 「止まっている」は出す ──────────────────────────────────
@@ -26,6 +26,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES, isStale } from './stages';
+import { rowInProps } from './rowAnim';
 import type { ProjectListRow } from './types';
 
 function dueTone(due: string | null, today: string): string {
@@ -44,28 +45,30 @@ function dueLabel(due: string | null, today: string): string | null {
 }
 
 export function ProjectCards({
-  rows, today, onOpen,
+  rows, today, isNew, onOpen,
 }: {
   rows: ProjectListRow[];
   today: string;
+  /** この更新で新しく現れたか（`client-v4/flip.ts`）。渡さなければ動かさない */
+  isNew?: (id: string) => boolean;
   onOpen: (id: string) => void;
 }) {
   return (
     // 読み込みの枠から中身に入れ替わる瞬間（モックの `cardIn`）
     <ul className="v4-card-in flex flex-col gap-2">
-      {rows.map((p) => {
-        const revenue = Number(p.total_revenue) || 0;
+      {rows.map((p, i) => {
+        const estimate = Number(p.estimate_amount) || 0;
         const expected = Number(p.expected_amount) || 0;
-        // 確定売上が無ければ想定金額を**薄く**出す（PC と同じ扱い。
-        // 色で区別できないと確定と想定を足し算してしまう）
-        const amount = revenue > 0 ? revenue : expected > 0 ? expected : null;
-        const isExpected = revenue === 0 && expected > 0;
+        // **見積金額**。まだ見積が無ければ想定金額を**薄く**出す（PC と同じ扱い。
+        // 色で区別できないと見積額と目安を足し算してしまう）
+        const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
+        const isExpected = estimate === 0 && expected > 0;
         const terminal = TERMINAL_STAGES.includes(p.stage);
         const stale = isStale(p.stage, p.last_activity_at);
         const due = dueLabel(p.next_task_due, today);
 
         return (
-          <li key={p.id}>
+          <li key={p.id} data-flip-key={p.id} {...rowInProps({ index: i, isNew: isNew?.(p.id) ?? false })}>
             <button
               type="button"
               onClick={() => onOpen(p.id)}

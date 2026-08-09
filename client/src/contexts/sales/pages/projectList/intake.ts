@@ -29,6 +29,9 @@ export const INTAKE_CHANNEL_LABEL: Record<string, string> = {
   meeting: '打合せ',
   web: 'Web',
   referral: '紹介',
+  // **人が選ぶ値ではありません**（migration 182）。お客様が取引先マスターで
+  // グループ会社になっているとき、案件作成が固定でこの値を入れます
+  group: 'グループ案件',
   other: 'その他',
 };
 
