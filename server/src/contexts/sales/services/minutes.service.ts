@@ -27,6 +27,7 @@ import {
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { transcribeAudio, structureMinutes } from './minutes-ai.service';
+import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 
 export const MINUTES_KIND = 'minutes_draft';
 
@@ -122,6 +123,11 @@ async function runTranscription(
 ): Promise<void> {
   try {
     const stt = await transcribeAudio(audio, filename);
+    // 費用を見るために残す（文字起こしは**分**で課金されるのでトークンではなく秒）
+    await recordAiUsage({
+      kind: 'stt', provider: 'openai', model: stt.model,
+      audioSeconds: stt.durationSec ?? 0, actorId: userId,
+    });
 
     // 文字起こしは先に保存する。**整形に失敗しても文字は残す** —
     // ここが消えると録音し直しになる

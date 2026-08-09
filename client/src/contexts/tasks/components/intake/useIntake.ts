@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
+import { downscaleImage } from '@gmo-onair/shared/src/client-v4/downscaleImage';
 import { DEST_INFO, destOf, type Dest, type IntakeResponse, type Row } from './types';
 
 /** 添付 1 件の上限（サーバーと同じ 20MB）。超えたら**送る前に**断る */
@@ -33,9 +34,11 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   /** 録音は解析の直前に渡すだけなので、描き直しを起こさない ref に置く */
   const audioRef = useRef<File | null>(null);
 
-  const addFiles = useCallback((picked: FileList | File[] | null) => {
+  const addFiles = useCallback(async (picked: FileList | File[] | null) => {
     if (!picked) return;
-    const list = Array.from(picked);
+    // **送る前に写真を縮める**（AI の費用は画素数で決まる。名刺やホワイトボードは
+    // 長辺 1600px で十分に読める）。縮められなかったら元のまま送る
+    const list = await Promise.all(Array.from(picked).map((f) => downscaleImage(f)));
     setError(null);
     setFiles((prev) => {
       const out = [...prev];
