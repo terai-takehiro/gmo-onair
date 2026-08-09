@@ -79,7 +79,11 @@ export interface ShellChrome {
   appKey: string;
   /** 上辺バーに出すアプリ名。省略すると登録から引く */
   appLabel?: string;
-  /** アプリ名の右のパンくず (「／ ダッシュボード」) */
+  /**
+   * アプリ名の右のパンくず (「／ ダッシュボード」)。
+   * **省略すると左メニューで光っている項目の名前**が出る（`AppShell.tsx`）。
+   * メニューに項目が無い画面で名前を出したいときだけ渡す。
+   */
   crumb?: ReactNode;
   /** 上辺バーの検索スロット。案件管理のグローバル検索がここに入る */
   searchSlot?: ReactNode;
