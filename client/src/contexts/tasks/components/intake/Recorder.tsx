@@ -41,8 +41,21 @@ const BYTES_PER_SEC = BITRATE / 8;
 const MAX_REC_SEC = Math.floor(MAX_REC_BYTES / BYTES_PER_SEC);
 /** 残りがこれを切ったら赤くする */
 const REC_WARN_SEC = 120;
-/** 下読みの間隔。短くすると単語が割れやすく、長くすると出るまで待たされる */
+/**
+ * 下読みの間隔。**費用を抑えるために段階を付けます。**
+ *
+ * 目的は「**本当に拾えているか**を確かめる」ことなので、
+ * **最初の 1 分だけ細かく**出せば足ります。そのあとは
+ * 「まだ動いている」ことが分かればよいので、間隔を空けます。
+ *
+ *   1 時間の打合せ: 20秒 × 3 ＋ 5分ごと × 11 = **14 回 ≒ 4.7 分ぶん**
+ *   （ずっと 20 秒ごとだと 180 回 ＝ 60 分ぶん。**12 分の 1** になります）
+ */
 const PREVIEW_SEC = 20;
+/** 細かく出すのは最初のこの秒数まで */
+const PREVIEW_DENSE_UNTIL_SEC = 60;
+/** そのあとの間隔 */
+const PREVIEW_SPARSE_SEC = 300;
 /** 画面に出す下読みの行数（ご要望: 3〜4行） */
 const PREVIEW_LINES = 4;
 
@@ -73,6 +86,9 @@ export function Recorder({
   const peek = useRef<MediaRecorder | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const peekTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** 経過秒（下読みの間隔の判定に使う。state だと閉じ込められて古い値を見る） */
+  const elapsed = useRef(0);
+  const lastPeekAt = useRef(0);
 
   /** 画面を離れてもマイクを掴んだままにしない（録音インジケータが消えない） */
   useEffect(() => () => {
@@ -149,16 +165,25 @@ export function Recorder({
       main.current = mr;
       setRecording(true);
       setSeconds(0);
+      elapsed.current = 0;
+      lastPeekAt.current = 0;
       setPreview([]);
       timer.current = setInterval(() => {
         setSeconds((v) => {
           const next = v + 1;
+          elapsed.current = next;
           if (next >= MAX_REC_SEC) stop(true);
           return next;
         });
       }, 1000);
       startPeek();
-      peekTimer.current = setInterval(cyclePeek, PREVIEW_SEC * 1000);
+      // **1 秒ごとに見て、そのときの間隔で回す。** `setInterval` を張り替えると
+      // 切り替わりの瞬間に 1 本ぶん飛ぶ
+      peekTimer.current = setInterval(() => {
+        const t = elapsed.current;
+        const every = t <= PREVIEW_DENSE_UNTIL_SEC ? PREVIEW_SEC : PREVIEW_SPARSE_SEC;
+        if (t > 0 && t - lastPeekAt.current >= every) { lastPeekAt.current = t; cyclePeek(); }
+      }, 1000);
     } catch {
       // 権限を断られた / マイクが無い。**理由を出す** — 押しても何も起きないのが最悪
       setError('マイクを使えませんでした。ブラウザの許可を確認するか、ファイルを添付してください。');
@@ -259,8 +284,12 @@ export function Recorder({
         )}
       </div>
       <p className="text-note mt-1.5 text-secondary-foreground">
-        下読みは<strong className="font-bold">{PREVIEW_SEC}秒ごとの切れ端</strong>なので、単語が割れることがあります。
+        下読みは<strong className="font-bold">切れ端</strong>なので、単語が割れることがあります。
         <strong className="font-bold">本文は止めたあとに録音まるごとから作ります。</strong>
+        {/* **間隔が空くことを先に言う。** 言わないと「止まった」と読まれる */}
+        {seconds > PREVIEW_DENSE_UNTIL_SEC
+          ? `　いまは ${PREVIEW_SPARSE_SEC / 60} 分ごとに出しています（費用を抑えるため）。`
+          : `　最初の1分は ${PREVIEW_SEC} 秒ごと、そのあとは ${PREVIEW_SPARSE_SEC / 60} 分ごとです。`}
       </p>
     </div>
   );

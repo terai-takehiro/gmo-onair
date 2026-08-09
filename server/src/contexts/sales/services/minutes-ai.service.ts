@@ -29,6 +29,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
+import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
 export const MINUTES_PROMPT_VERSION = 'minutes-v1';
@@ -310,19 +311,41 @@ ${lessonBlock}
 ${transcript}
 """`;
 
-  const raw = provider === 'openai'
+  const out = provider === 'openai'
     ? await callOpenAi(model, userPrompt)
     : await callAnthropic(model, userPrompt);
 
+  // 費用を見るために残す（`ai_outputs` は「出力」の器なので、ここでは足りない）
+  await recordAiUsage({
+    kind: 'minutes', provider, model,
+    inputTokens: out.usage.inputTokens,
+    cachedInputTokens: out.usage.cachedInputTokens,
+    outputTokens: out.usage.outputTokens,
+  });
+
   return {
-    ...normalizeMinutes(raw),
+    ...normalizeMinutes(out.raw),
     provider,
     model,
     promptVersion: lessons.length ? MINUTES_PROMPT_VERSION_WITH_FEEDBACK : MINUTES_PROMPT_VERSION,
   };
 }
 
-async function callOpenAi(model: string, userPrompt: string): Promise<unknown> {
+interface StructureCall { raw: unknown; usage: { inputTokens: number; cachedInputTokens: number; outputTokens: number } }
+
+/** SDK の返す使用量を 1 つの形に揃える（プロバイダで名前が違う） */
+function readUsage(raw: unknown): StructureCall['usage'] {
+  const u = (raw ?? {}) as Record<string, unknown>;
+  const det = (u.input_tokens_details ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0);
+  return {
+    inputTokens: num(u.input_tokens),
+    cachedInputTokens: num(det.cached_tokens) || num(u.cache_read_input_tokens),
+    outputTokens: num(u.output_tokens),
+  };
+}
+
+async function callOpenAi(model: string, userPrompt: string): Promise<StructureCall> {
   const client = new OpenAI({ timeout: STRUCTURE_TIMEOUT_MS, maxRetries: 1 });
   const response = await client.responses.parse({
     model,
@@ -335,10 +358,10 @@ async function callOpenAi(model: string, userPrompt: string): Promise<unknown> {
   }
   const parsed = response.output_parsed;
   if (!parsed) throw new Error(`整形の結果を読み取れませんでした (status=${response.status ?? '不明'})`);
-  return parsed;
+  return { raw: parsed, usage: readUsage(response.usage) };
 }
 
-async function callAnthropic(model: string, userPrompt: string): Promise<unknown> {
+async function callAnthropic(model: string, userPrompt: string): Promise<StructureCall> {
   const client = new Anthropic({ timeout: STRUCTURE_TIMEOUT_MS, maxRetries: 1 });
   const response = await client.messages.parse({
     model,
@@ -353,5 +376,5 @@ async function callAnthropic(model: string, userPrompt: string): Promise<unknown
   }
   const parsed = response.parsed_output;
   if (!parsed) throw new Error('整形の結果を読み取れませんでした');
-  return parsed;
+  return { raw: parsed, usage: readUsage(response.usage) };
 }

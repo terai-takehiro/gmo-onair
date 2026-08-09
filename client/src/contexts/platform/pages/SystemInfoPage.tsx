@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { APPS } from "@gmo-onair/shared/src/client/apps";
 import api from "@/lib/api";
 import { IntegrationsCard } from "./settings/IntegrationsCard";
+import { AiUsageCard } from "./settings/AiUsageCard";
 
 export default function SystemInfoPage() {
   const { currentUser } = useAuth();
@@ -74,6 +75,10 @@ export default function SystemInfoPage() {
       {/* 外部サービスにつながっているか。**アプリ情報のすぐ下**に置く —
           「動かない」と気づいた人が最初に見る場所だから（下に置くと見つからない） */}
       <IntegrationsCard />
+
+      {/* **つながっているかのすぐ下**に置く — 「使えている / いくら掛かっている」は
+          続けて見るもの。離すと、費用を確かめに来た人がここまで来ない */}
+      <AiUsageCard />
 
       {/* 管理者専用: 全データバックアップ */}
       {isAdmin && (
