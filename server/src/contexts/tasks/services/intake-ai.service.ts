@@ -112,6 +112,42 @@ export function intakeAiModel(provider?: IntakeAiProvider | null): string {
   return process.env.INTAKE_AI_MODEL || DEFAULT_MODELS[p];
 }
 
+/**
+ * **軽いもの用のモデル**（費用を下げるため）。
+ *
+ * 投入の大半は「山田さんに明日18時までに請求書を送るよう頼んだ」程度の 1 行で、
+ * そこに上位モデルを使う理由はありません。**短くて添付の無いもの**だけ
+ * こちらに回します（長い文・写真・PDF・録音の文字起こしは今までどおり上位モデル）。
+ *
+ * ⚠️ **落ちたら上位モデルで 1 回だけやり直します**（下の `parseIntakeWithAi`）。
+ * モデル名が使えない環境で**黙って規則ベースに落ちる**と、
+ * 「行き先を決めてくれなくなった」という劣化になるためです。
+ * 止めたいときは `INTAKE_AI_MODEL_LIGHT=off`。
+ */
+const DEFAULT_LIGHT_MODELS: Record<IntakeAiProvider, string> = {
+  openai: 'gpt-5.4-mini',
+  anthropic: 'claude-haiku-4-5-20251001',
+};
+
+export function intakeAiLightModel(provider: IntakeAiProvider): string | null {
+  const v = (process.env.INTAKE_AI_MODEL_LIGHT ?? '').trim();
+  if (v.toLowerCase() === 'off') return null;
+  return v || DEFAULT_LIGHT_MODELS[provider];
+}
+
+/**
+ * 軽いモデルで足りるか。**迷ったら上位モデル**に倒します
+ * （読み落として依頼が消えるほうが、数円より高くつく）。
+ */
+export const LIGHT_MAX_CHARS = 400;
+
+export function canUseLightModel(text: string, attachments: IntakeAttachment[]): boolean {
+  if (attachments.length > 0) return false;              // 写真・PDF は読む力が要る
+  if (text.length > LIGHT_MAX_CHARS) return false;       // 議事録・長いメールは上位モデル
+  if (text.split('\n').filter((l) => l.trim()).length > 6) return false; // 箇条書きが多い
+  return true;
+}
+
 // ── 出力スキーマ ────────────────────────────────────────────
 // 不明を null ではなく空文字で表す。null 許容は JSON Schema 変換で
 // type: ["string","null"] になり strict モードの扱いがモデル・SDK 版で揺れるため、
@@ -279,6 +315,23 @@ export interface ParserProject {
   customer_name?: string | null;
 }
 
+/**
+ * ⚠️ **並び順が費用に効きます（変えるときは読んでください）。**
+ *
+ * OpenAI も Anthropic も**入力の「先頭から共通している部分」だけ**を
+ * キャッシュして安くします。つまり **先頭に変わるものを置くと、
+ * 後ろが全部同じでもキャッシュに当たりません**。
+ *
+ * この関数は**動かないもの → 動くもの**の順に組み立てます:
+ *   ① 担当者の一覧（人が増減したときだけ変わる）
+ *   ② 案件の候補（案件が動いたときだけ変わる）
+ *   ③ 過去の傾向（5 分キャッシュなので準静的）
+ *   ④ **現在の日時**（毎回変わる）
+ *   ⑤ **投入されたテキスト**（毎回変わる）
+ *
+ * 以前は ④ が先頭にあり、**毎回すべてが「新しい入力」**として課金されていました。
+ * 並べ替えただけで中身は 1 文字も変えていないので、**読み取りの精度は変わりません**。
+ */
 function buildUserPrompt(
   text: string,
   users: ParserUser[],
@@ -307,12 +360,13 @@ ${projectList.length
 ${lessons.map((l) => `- ${l}`).join('\n')}\n`
     : '';
 
-  return `現在の日時: ${describeNow(now)}
-相対的な日付（「明日」「金曜」「来週月曜」など）はこの日時を基準に解決してください。
-
-## 担当者として使えるユーザー一覧（この id 以外は使わない）
+  // ⚠️ **動かないもの → 動くもの**の順（上のコメント）。並べ替えないこと
+  return `## 担当者として使えるユーザー一覧（この id 以外は使わない）
 ${roster}
 ${projectBlock}${lessonBlock}
+## 現在の日時: ${describeNow(now)}
+相対的な日付（「明日」「金曜」「来週月曜」など）はこの日時を基準に解決してください。
+
 ## 投入されたテキスト
 """
 ${text}
@@ -342,6 +396,22 @@ export interface IntakeAiResult extends ParseResult {
   provider: IntakeAiProvider;
   model: string;
   promptVersion: string;
+  /** 使用量（費用を見るため）。取れなかったら 0 */
+  usage: { inputTokens: number; cachedInputTokens: number; outputTokens: number };
+}
+
+/** SDK の返す使用量を 1 つの形に揃える（プロバイダで名前が違う） */
+function readUsage(raw: unknown): { inputTokens: number; cachedInputTokens: number; outputTokens: number } {
+  const u = (raw ?? {}) as Record<string, unknown>;
+  const det = (u.input_tokens_details ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0);
+  return {
+    // OpenAI: input_tokens / Anthropic: input_tokens
+    inputTokens: num(u.input_tokens),
+    // OpenAI: input_tokens_details.cached_tokens / Anthropic: cache_read_input_tokens
+    cachedInputTokens: num(det.cached_tokens) || num(u.cache_read_input_tokens),
+    outputTokens: num(u.output_tokens),
+  };
 }
 
 /** LLM が返した生の形 (検証前) */
@@ -558,26 +628,46 @@ export async function parseIntakeWithAi(
   }
 
   const now = opts.now ?? new Date();
-  const model = intakeAiModel(provider);
   const projects = opts.projects ?? [];
   const attachments = (opts.attachments ?? []).filter((a) => isViewableAttachment(a.mime));
   const userPrompt = buildUserPrompt(text, users, now, opts.submitterId, opts.advice, projects);
 
-  const raw = provider === 'openai'
-    ? await callOpenAi(model, userPrompt, attachments)
-    : await callAnthropic(model, userPrompt, attachments);
+  const heavy = intakeAiModel(provider);
+  const light = intakeAiLightModel(provider);
+  // **短くて添付の無いものは軽いモデルで。** 迷ったら上位モデルに倒す
+  const useLight = light !== null && light !== heavy && canUseLightModel(text, attachments);
 
-  const normalized = normalizeAiResult(raw, users, now, projects);
+  const call = (m: string) => (provider === 'openai'
+    ? callOpenAi(m, userPrompt, attachments)
+    : callAnthropic(m, userPrompt, attachments));
+
+  let model = useLight ? light! : heavy;
+  let out: { raw: RawAiResult; usage: IntakeAiResult['usage'] };
+  try {
+    out = await call(model);
+  } catch (e) {
+    // **軽いモデルで落ちたら上位モデルで 1 回だけやり直す。**
+    // モデル名が使えない環境で黙って規則ベースに落ちると、
+    // 「行き先を決めてくれなくなった」という劣化になる
+    if (!useLight) throw e;
+    console.warn(
+      `[intake-ai] 軽いモデル (${model}) で失敗したので ${heavy} でやり直します: ${(e as Error).message}`,
+    );
+    model = heavy;
+    out = await call(model);
+  }
+
+  const normalized = normalizeAiResult(out.raw, users, now, projects);
   const promptVersion = (opts.advice?.length ?? 0) > 0
     ? INTAKE_PROMPT_VERSION_WITH_FEEDBACK
     : INTAKE_PROMPT_VERSION;
-  return { ...normalized, provider, model, promptVersion };
+  return { ...normalized, provider, model, promptVersion, usage: out.usage };
 }
 
 /** OpenAI (Responses API + structured output) */
 async function callOpenAi(
   model: string, userPrompt: string, attachments: IntakeAttachment[] = []
-): Promise<RawAiResult> {
+): Promise<{ raw: RawAiResult; usage: IntakeAiResult['usage'] }> {
   const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
   const response = await client.responses.parse({
     model,
@@ -594,13 +684,13 @@ async function callOpenAi(
   }
   const parsed = response.output_parsed;
   if (!parsed) throw new Error(`解析結果を読み取れませんでした (status=${response.status ?? '不明'})`);
-  return parsed as RawAiResult;
+  return { raw: parsed as RawAiResult, usage: readUsage(response.usage) };
 }
 
 /** Anthropic (Messages API + structured output) */
 async function callAnthropic(
   model: string, userPrompt: string, attachments: IntakeAttachment[] = []
-): Promise<RawAiResult> {
+): Promise<{ raw: RawAiResult; usage: IntakeAiResult['usage'] }> {
   const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
   const response = await client.messages.parse({
     model,
@@ -620,5 +710,5 @@ async function callAnthropic(
   }
   const parsed = response.parsed_output;
   if (!parsed) throw new Error('解析結果を読み取れませんでした');
-  return parsed as RawAiResult;
+  return { raw: parsed as RawAiResult, usage: readUsage(response.usage) };
 }

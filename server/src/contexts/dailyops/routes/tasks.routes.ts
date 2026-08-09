@@ -7,7 +7,7 @@ import { myTasksService } from '../../tasks/services/my-tasks.service';
 import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-intake.service';
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import {
-  parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment,
+  parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment, intakeAiModel,
   type IntakeAttachment, type ParserProject,
 } from '../../tasks/services/intake-ai.service';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../sales/services/minutes-ai.service';
 
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
+import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 
 // 日常業務アプリ (dailyops) — 「タスク・依頼」メニューの API。
 //
@@ -189,12 +190,24 @@ async function analyzeIntake(
       parsed = { drafts: ai.drafts, skipped: ai.skipped };
       model = ai.model;
       promptVersion = ai.promptVersion;
+      // 費用を見るために残す（`ai_outputs` は「出力」の器なので、ここでは足りない）
+      await recordAiUsage({
+        kind: 'intake', provider: ai.provider, model: ai.model, actorId: userId,
+        inputTokens: ai.usage.inputTokens,
+        cachedInputTokens: ai.usage.cachedInputTokens,
+        outputTokens: ai.usage.outputTokens,
+      });
     } catch (e) {
       // 解析が落ちても投入自体は通す。規則ベースに縮退して人に確認させる
       aiError = (e as Error).message;
       console.warn(
         `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
       );
+      // **失敗も残す。** 課金されることがあるので、外すと総額が合わない
+      await recordAiUsage({
+        kind: 'intake', provider: resolveProvider(), model: intakeAiModel(),
+        actorId: userId, ok: false, errorMessage: aiError,
+      });
       parsed = parseIntakeText(rawText, users, { now });
     }
   } else {
@@ -262,6 +275,10 @@ async function runIntakeTranscription(
     // **上限を渡さない。** 議事録と同じ既定 (10 分) で、長い録音も通す。
     // リクエストの中ではないので nginx の 60 秒とは関係がない
     const stt = await transcribeAudio(p.audio, p.filename);
+    await recordAiUsage({
+      kind: 'stt', provider: 'openai', model: stt.model,
+      audioSeconds: stt.durationSec ?? 0, actorId: p.userId,
+    });
     const rawText = [p.typedText, `--- 録音の文字起こし ---\n${stt.text}`, ...p.extraTexts]
       .filter((s) => s && s.trim())
       .join('\n\n');
@@ -333,8 +350,16 @@ router.post('/tasks/intake/preview-transcribe', ...canEdit, previewUpload, async
       normalizeAudioName(fileName(file), file.mimetype),
       { timeoutMs: PREVIEW_STT_TIMEOUT_MS },
     );
+    await recordAiUsage({
+      kind: 'stt_preview', provider: 'openai', model: stt.model,
+      audioSeconds: stt.durationSec ?? 0, actorId: req.user?.id ?? null,
+    });
     res.json({ success: true, data: { text: stt.text } });
   } catch (e) {
+    await recordAiUsage({
+      kind: 'stt_preview', provider: 'openai', model: null,
+      ok: false, errorMessage: (e as Error).message, actorId: req.user?.id ?? null,
+    });
     // **失敗しても 200。** 下読みが 1 回抜けただけで録音を止めない
     res.json({ success: true, data: { text: '', reason: (e as Error).message } });
   }
