@@ -21,6 +21,8 @@ export interface ProjectDetail {
   event_end: string | null;
   expected_amount: number | string | null;
   total_revenue: number | string | null;
+  /** 見積金額（束ごとの最新版の合計・税抜）。一覧と同じ計算をサーバーが出す */
+  estimate_amount?: number | string | null;
   tags: string | null;
   box_url_internal: string | null;
   box_url_external: string | null;

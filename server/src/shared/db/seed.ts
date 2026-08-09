@@ -690,36 +690,42 @@ export async function seed() {
 
   // ============================================================
   // Studio Bookings (サンプル予約)
+  //
+  // **`booking_type` に `'project'` は使えない。** migration 051 が許可値を
+  // performance / rehearsal / hold / tour / consultation / maintenance /
+  // internal / setup / other に入れ替えたときに落ちた値で、
+  // ここが `'project'` のままだったため **まっさらな DB では seed が
+  // 途中で止まっていた**（studio_bookings 以降の投入が丸ごと入らない）。
   // ============================================================
   const bkSql = `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const bkRoomSql = `INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`;
 
   // GLS-A001 IR説明会 → WORLD STUDIO + MEETING ROOM + VIP LOUNGE
   const bk1 = uuidv4();
-  await ins(bkSql, [bk1, 'GLS-A001 GH春季IR説明会 リハーサル', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
+  await ins(bkSql, [bk1, 'GLS-A001 GH春季IR説明会 リハーサル', 'rehearsal', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
   await ins(bkRoomSql, [bk1, ROOMS['WORLD STUDIO'], null, null]);
   await ins(bkRoomSql, [bk1, ROOMS['MEETING ROOM'], 'スタッフ控室', '技術チーム待機']);
 
   const bk2 = uuidv4();
-  await ins(bkSql, [bk2, 'GLS-A001 GH春季IR説明会 本番', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
+  await ins(bkSql, [bk2, 'GLS-A001 GH春季IR説明会 本番', 'performance', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
   await ins(bkRoomSql, [bk2, ROOMS['WORLD STUDIO'], null, null]);
   await ins(bkRoomSql, [bk2, ROOMS['MEETING ROOM'], 'GH社 田村様ほか5名', '来賓控室']);
   await ins(bkRoomSql, [bk2, ROOMS['VIP LOUNGE'], 'GH社 代表取締役', 'VIP控室']);
 
   // GLS-A002 サイエンス・フロンティア 収録 (時間指定)
   const bk3 = uuidv4();
-  await ins(bkSql, [bk3, 'GLS-A002 #001 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], 0, '2026-04-07T09:00', '2026-04-07T18:00', null, '第1話収録', USERS.staff2]);
+  await ins(bkSql, [bk3, 'GLS-A002 #001 サイエンスF 収録', 'performance', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], 0, '2026-04-07T09:00', '2026-04-07T18:00', null, '第1話収録', USERS.staff2]);
   await ins(bkRoomSql, [bk3, ROOMS['SKY STUDIO'], null, null]);
   await ins(bkRoomSql, [bk3, ROOMS['第1調整室'], null, null]);
 
   const bk4 = uuidv4();
-  await ins(bkSql, [bk4, 'GLS-A002 #002 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], 0, '2026-04-14T09:00', '2026-04-14T18:00', null, '第2話収録', USERS.staff2]);
+  await ins(bkSql, [bk4, 'GLS-A002 #002 サイエンスF 収録', 'performance', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], 0, '2026-04-14T09:00', '2026-04-14T18:00', null, '第2話収録', USERS.staff2]);
   await ins(bkRoomSql, [bk4, ROOMS['SKY STUDIO'], null, null]);
   await ins(bkRoomSql, [bk4, ROOMS['第1調整室'], null, null]);
 
   // GLS-A003 ネットライブ配信 (LOUNGE STUDIO)
   const bk5 = uuidv4();
-  await ins(bkSql, [bk5, 'GLS-A003 #001 ネットライブ配信', 'project', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
+  await ins(bkSql, [bk5, 'GLS-A003 #001 ネットライブ配信', 'performance', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
   await ins(bkRoomSql, [bk5, ROOMS['LOUNGE STUDIO'], null, null]);
   await ins(bkRoomSql, [bk5, ROOMS['第2調整室'], null, null]);
 
@@ -736,12 +742,12 @@ export async function seed() {
 
   // 渋谷 (GMOサムライスタジオ渋谷) 予約
   const bk8 = uuidv4();
-  await ins(bkSql, [bk8, 'GLS-A008 富士見 CM収録', 'project', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
+  await ins(bkSql, [bk8, 'GLS-A008 富士見 CM収録', 'performance', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
   await ins(bkRoomSql, [bk8, ROOMS['第1スタジオ'], null, null]);
 
   // 外現場
   const bk9 = uuidv4();
-  await ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'project', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
+  await ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'performance', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
 
   // ==========================================================
   // Equipment (機材管理)

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:248px; box-sizing:border-box; flex-shrink:0; display:flex; flex-direction:column; background:#fff; border-right:1px solid #e6e9ed; padding:14px 12px 20px; overflow-y:auto">
+  <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+    <div style="{{ s.wrap }}">
+      <sc-if value="{{ s.plainTitle }}" hint-placeholder-val="{{ true }}">
+        <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; line-height:1.4; color:#5d6470">{{ s.plainTitle }}</p>
+      </sc-if>
+
+      <sc-if value="{{ s.foldTitle }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ s.toggle }}" style="display:flex; align-items:center; gap:4px; min-height:44px; padding:0 10px; font-size:11.5px; font-weight:800; line-height:1.4; color:#5d6470; cursor:pointer" style-hover="color:#1a1d24">
+          <i data-lucide="{{ s.chevron }}" style="width:14px;height:14px"></i>
+          <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ s.foldTitle }}</span>
+          <span class="num">{{ s.count }}</span>
+        </span>
+        <sc-if value="{{ s.note }}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0 0 4px; padding:0 10px; font-size:12px; line-height:1.75; color:#5d6470">{{ s.note }}</p>
+        </sc-if>
+      </sc-if>
+
+      <sc-for list="{{ s.items }}" as="i" hint-placeholder-count="2">
+        <span onClick="{{ i.go }}" style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:{{ i.weight }}; line-height:1.5; color:{{ i.fg }}; background:{{ i.bg }}; cursor:pointer" style-hover="background:#f2f4f7">
+          <span style="width:6px; height:6px; border-radius:999px; background:{{ i.dot }}; flex-shrink:0"></span>
+          <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ i.label }}</span>
+          <sc-if value="{{ i.tag }}" hint-placeholder-val="{{ false }}">
+            <span class="num" style="height:19px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 6px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:11.5px; font-weight:700; flex-shrink:0">{{ i.tag }}</span>
+          </sc-if>
+        </span>
+      </sc-for>
+    </div>
+  </sc-for>
+
+  <sc-if value="{{ note }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:16px; padding:10px 12px; border:1px dashed #e6e9ed; border-radius:10px">
+      <p style="margin:0; font-size:12px; line-height:1.75; color:#5d6470">{{ note }}</p>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:248,&quot;height&quot;:660},&quot;sections&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;any[]&quot;},&quot;note&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}"></script>
+</body>
+</html>

@@ -10,11 +10,12 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- LINE Seed JP は 400 / 700 / 800 しか配信されていない (500/600 を要求しても返らない)。
-         font-medium / font-semibold は黙って 400 / 700 に落ちる -->
-    <link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet" />
+    <!-- LINE Seed JP は **リポジトリに同梱**しています (shared/src/client/fonts/)。
+         Google Fonts を読みません — 外に出られない開発コンテナでは代替書体になり、
+         本番も先方が届かない日に全画面が崩れるためです。
+         400 / 700 / 800 だけ入れてあります (LINE Seed JP はこの3つしか無く、
+         font-medium / font-semibold は黙って 400 / 700 に落ちます)。
+         入れ直しは `node scripts/vendor-fonts.mjs`。 -->
     <title>日常業務 - GMO ONAiR</title>
   </head>
   <!-- min-h-screen は付けない。base.css が html/body/#root に height:100% を配っており、

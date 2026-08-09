@@ -300,10 +300,21 @@ export default function ProjectListPage() {
               ))}
             </div>
 
+            {/*
+              **1ページで収まるときも件数を出す**（モック）。出さないと、
+              絞り込んだ結果が「これで全部」なのか「続きがあるのに切れている」のか
+              画面から読み取れない
+            */}
+            {pagination && pagination.totalPages <= 1 && (
+              <p className="text-sub text-muted-foreground">
+                全<span className="font-number">{pagination.total}</span>件を表示しています
+              </p>
+            )}
+
             {pagination && pagination.totalPages > 1 && (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sub text-muted-foreground">
-                  全{pagination.total}件のうち{' '}
+                  全<span className="font-number">{pagination.total}</span>件のうち{' '}
                   <span className="font-number">{(pagination.page - 1) * pagination.limit + 1}</span>–
                   <span className="font-number">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>件
                 </p>

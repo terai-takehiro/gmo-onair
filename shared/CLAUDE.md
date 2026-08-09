@@ -588,3 +588,23 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
   計時LIVE のアイコンがどの対応表にも無く既定の箱に落ちていた）。
   **アイコンは部品そのもの**を持つので、名前→部品の対応表（7個あった）はもう要らない
 - `src/collab/` を変えたら `server/src/shared/collab/` も同じに直す（検査で止まる）
+
+## 書体は同梱している（v4 の3アプリだけ）
+
+`src/client/fonts/lineseedjp/` に **LINE Seed JP の woff2 372 個（6.07MB）**が入っています
+（`scripts/vendor-fonts.mjs` の生成物 / **SIL Open Font License 1.1** © LY Corporation）。
+`fonts/lineseedjp.css` を `tokens-v4.css` から読むので、**v4 の3アプリだけ**に効きます。
+
+- **なぜ外から読むのをやめたか**: 開発コンテナのブラウザは `fonts.googleapis.com` に
+  出られないので、`npm run dev` は**ずっと代替書体**でした（本物になるのは
+  `verify:ui` が取り置きを差し込んだときだけ）。字幅はラテンで最大 13% 違い、
+  **一覧の GLS番号・日付・金額の桁揃えを本番と違う幅で見ていた**ことになります。
+  本番も Google Fonts が届く前提で、社内ネットで塞がれた日に全画面が崩れました
+- **6MB を配るわけではない**: Google の `unicode-range` の刻み方をそのまま持ってきたので、
+  ブラウザは**使う範囲だけ**落とします。利用者が最初に受け取る量は今までと同じ
+- **凍結4アプリは触っていない**: Noto Sans JP は **79.7MB** あり、
+  そもそも見た目を変えない側です。今までどおり Google Fonts を読みます
+- **`OFL.txt` を消さないこと**。OFL は license を書体と一緒に配ることを求めます
+- 入れ直しは `npm run fonts`。**欠けたら `npm run lint` が止まります**
+  （`check-fonts-vendored.mjs`）— 欠けても画面は出てしまうので、
+  「なんとなく字が違う」以外に気づく手がかりがありません

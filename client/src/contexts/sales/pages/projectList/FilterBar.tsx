@@ -182,7 +182,7 @@ export function FilterBar(p: FilterBarProps) {
         </BarButton>
 
         {/*
-          「未確認のみ」は AI 作成のみを押したときだけ意味を持つ。
+          「AI・未確認」は AI 作成のみを押したときだけ意味を持つ。
           **枠は常に置いて、押せないときは薄くする**（消すと段が詰まって動く）
         */}
         <BarButton
@@ -191,7 +191,7 @@ export function FilterBar(p: FilterBarProps) {
           disabled={!p.aiOnly}
           onClick={() => p.onAiUnreviewedOnly(!p.aiUnreviewedOnly)}
         >
-          {p.aiUnreviewedOnly ? '未確認のみ' : '確認済みも'}
+          {p.aiUnreviewedOnly ? 'AI・未確認' : '確認済みも'}
         </BarButton>
 
         <BarButton w={86} active={p.termOpen} onClick={() => p.onTermOpen(!p.termOpen)} title="ネタ・ヨミ・GLS などの用語">

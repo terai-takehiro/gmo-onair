@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.470.0/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; background:#e9ebee; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; }
+  a:hover { color:#0068b8; text-decoration:underline; }
+  .num { font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  @keyframes screenIn { from { opacity:0; transform:translateY(10px) scale(.995);} to { opacity:1; transform:none; } }
+  @keyframes sheetUp { from { opacity:0; transform:translateY(24px);} to { opacity:1; transform:none; } }
+  @keyframes shimmer { from { background-position:-320px 0; } to { background-position:320px 0; } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+  @keyframes wave { 0%,100% { transform:scaleY(.4); } 50% { transform:scaleY(1); } }
+  @keyframes toastIn { from { opacity:0; transform:translate(-50%,14px) scale(.96);} to { opacity:1; transform:translate(-50%,0) scale(1); } }
+  .sk { background:linear-gradient(90deg,#eef0f3 25%,#f7f8fa 50%,#eef0f3 75%); background-size:320px 100%; animation:shimmer 1.1s linear infinite; border-radius:7px; }
+  [data-reveal] { transition:opacity .5s cubic-bezier(.22,.61,.36,1), transform .5s cubic-bezier(.22,.61,.36,1); }
+  .reveal-ready [data-reveal] { opacity:0; transform:translateY(14px); }
+  .reveal-ready [data-reveal].vis { opacity:1; transform:none; }
+  button, [style*="cursor:pointer"] { transition:background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .14s cubic-bezier(.22,.61,.36,1); }
+  button:active, [style*="cursor:pointer"]:active { transform:scale(.97); }
+  .tile { transition:transform .34s cubic-bezier(.2,.9,.25,1), box-shadow .34s ease, border-color .24s ease; position:relative; overflow:hidden; }
+  .tile::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s ease; background:linear-gradient(115deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 62%); }
+  @media (hover:hover) {
+    .tile:hover { transform:translateY(-3px); box-shadow:0 18px 34px -22px rgba(16,24,40,.4); border-color:#cfd6de; }
+    .tile:hover::after { opacity:1; }
+    .tile:hover .ti { transform:scale(1.08); }
+  }
+  .ti { transition:transform .42s cubic-bezier(.34,1.56,.5,1); }
+  .trow:hover { background:#f7f8fa; }
+  @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } [data-reveal] { opacity:1 !important; transform:none !important; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column">
+
+  <div style="position:sticky; top:0; z-index:70; background:rgba(233,235,238,.92); backdrop-filter:blur(10px); border-bottom:1px solid #dcdfe4">
+    <div style="max-width:1780px; margin:0 auto; padding:14px 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+      <span style="display:flex; align-items:baseline; gap:10px; flex-shrink:0">
+        <span class="num" style="font-size:13px; font-weight:800; color:#005bac; letter-spacing:.1em">v3.2.2</span>
+        <span style="font-size:17px; font-weight:800">実装の再現 — PC ／ スマホ並列</span>
+      </span>
+      <span style="width:1px; height:20px; background:#cbd2da"></span>
+      <span style="font-size:12.5px; line-height:1.7; color:#5d6470">実装（main）の情報設計をそのまま写した並列モック。下のサイトツリーから各アプリへ移動できます</span>
+    </div>
+  </div>
+
+  <div style="max-width:1780px; margin:0 auto; width:100%; box-sizing:border-box; padding:24px 28px 80px; display:flex; flex-direction:column; gap:26px">
+
+    <div data-reveal style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap">
+      <div style="min-width:0">
+        <h1 style="margin:0; font-size:24px; font-weight:800; line-height:1.3">トップページ</h1>
+        <p style="margin:6px 0 0; font-size:13.5px; line-height:1.7; color:#5d6470">上＝アプリの入口／下＝自分の今日。<strong>左メニューは出しません</strong>（どの入口でもないため）。スマホだけ「今日」が先に出ます</p>
+      </div>
+      <span class="num" style="display:inline-flex; align-items:center; height:30px; padding:0 11px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#5d6470">/ ・ HomePage.tsx</span>
+    </div>
+
+    <div style="display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap">
+
+      <div data-reveal style="position:relative; flex:1 1 900px; min-width:720px; background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26)">
+        <div style="display:flex; align-items:center; gap:8px; height:34px; padding:0 14px; background:#fff; border-bottom:1px solid #eef0f3">
+          <span style="width:9px;height:9px;border-radius:999px;background:#e6e9ed"></span>
+          <span style="width:9px;height:9px;border-radius:999px;background:#e6e9ed"></span>
+          <span style="flex:1"></span>
+          <span class="num" style="font-size:11px; font-weight:800; letter-spacing:.08em; color:#9aa1ab">PC 1440px</span>
+        </div>
+        <dc-import name="ShellTopbar" app-label="ホーム" app-icon="house" crumb="" user-initial="寺" notice="3" sw-open="{{ ui.swOpen }}" apps="{{ ui.swApps }}" on-home="{{ ui.noop }}" on-toggle="{{ ui.toggleSw }}" on-close="{{ ui.closeSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+        <div style="padding:22px; display:flex; flex-direction:column; gap:22px">
+
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:0">
+              <h2 style="margin:0; font-size:23px; font-weight:800; line-height:1.3">おはようございます、寺井さん</h2>
+              <p style="margin:5px 0 0; font-size:13px; line-height:1.7; color:#3c424c">お客様を待たせているものが <span class="num" data-count="3" style="font-weight:700; color:#c7243a">3</span><span style="font-weight:700; color:#c7243a">件</span>、自分の期限を過ぎたものが <span class="num" data-count="2" style="font-weight:700; color:#c7243a">2</span><span style="font-weight:700; color:#c7243a">件</span> あります。</p>
+            </div>
+            <span class="num" style="font-size:13px; color:#5d6470; flex-shrink:0">最終更新 08/08 09:16</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <sc-if value="{{ ui.loading }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px">
+                <sc-for list="{{ ui.skels }}" as="s" hint-placeholder-count="6">
+                  <div class="sk" style="height:92px"></div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ ui.loaded }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px">
+                <sc-for list="{{ top.apps }}" as="a" hint-placeholder-count="6">
+                  <div style="position:relative" onMouseEnter="{{ a.enter }}" onMouseLeave="{{ a.leave }}">
+                    <div class="tile" style="display:flex; align-items:center; gap:16px; padding:20px; border:1px solid {{ a.bd }}; border-radius:16px; background:#fff">
+                      <span class="ti" style="width:56px; height:56px; border-radius:16px; background:{{ a.tint }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+                        <i data-lucide="{{ a.icon }}" style="width:28px;height:28px;color:{{ a.color }}"></i>
+                      </span>
+                      <a href="{{ a.href }}" style="flex:1; min-width:0; font-size:19px; font-weight:800; line-height:1.35; color:inherit; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ a.label }}</a>
+                      <span class="num" style="{{ a.badgeStyle }}" data-count="{{ a.badge }}">{{ a.badge }}</span>
+                      <sc-if value="{{ a.hasMini }}" hint-placeholder-val="{{ false }}">
+                        <span onClick="{{ a.toggleMini }}" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#5d6470">
+                          <i data-lucide="{{ a.chevron }}" style="width:16px;height:16px"></i>
+                        </span>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ a.miniOpen }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute; left:0; right:0; top:100%; z-index:20; padding-top:8px">
+                        <div style="border:1px solid #cfe4f4; border-radius:14px; background:#fff; padding:10px; box-shadow:0 24px 48px -24px rgba(16,24,40,.45); animation:cardIn .2s cubic-bezier(.22,.61,.36,1) both">
+                          <p style="margin:0 0 6px; padding:0 6px; font-size:12px; font-weight:800; letter-spacing:.1em; color:#5d6470">この中のミニアプリ</p>
+                          <sc-for list="{{ a.mini }}" as="m" hint-placeholder-count="6">
+                            <a class="trow" href="#" style="display:flex; align-items:center; gap:10px; min-height:36px; padding:6px 8px; border-radius:10px; color:inherit; text-decoration:none">
+                              <span style="width:28px; height:28px; border-radius:8px; background:#eaf4fb; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+                                <i data-lucide="{{ m.icon }}" style="width:14px;height:14px;color:#005bac"></i>
+                              </span>
+                              <span style="flex:1; min-width:0; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ m.label }}</span>
+                            </a>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <div style="border-top:1px dashed #e6e9ed; padding-top:12px; display:flex; flex-direction:column; gap:9px">
+              <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+                <h4 style="margin:0; font-size:14.5px; font-weight:800; line-height:1.4">イベントで使うもの</h4>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px">
+                <sc-for list="{{ top.event }}" as="e" hint-placeholder-count="4">
+                  <span class="tile" style="display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #e6e9ed; border-radius:12px; background:#fff; cursor:pointer">
+                    <span class="ti" style="width:40px; height:40px; border-radius:12px; background:{{ e.tint }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+                      <i data-lucide="{{ e.icon }}" style="width:20px;height:20px;color:{{ e.color }}"></i>
+                    </span>
+                    <span style="flex:1; min-width:0; display:block">
+                      <span style="display:block; font-size:14.5px; font-weight:800; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ e.label }}</span>
+                      <span style="display:flex; align-items:center; gap:3px; font-size:12px; color:#5d6470">{{ e.tag }}</span>
+                    </span>
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+              <span style="flex:1"></span>
+              <span style="display:inline-flex; align-items:center; gap:3px; font-size:12px; font-weight:700; color:#005bac; cursor:pointer">自分のタスクを全部ひらく<i data-lucide="arrow-right" style="width:12px;height:12px"></i></span>
+            </div>
+
+            <div style="border:1px solid #e6e9ed; border-radius:14px; background:#fff; padding:14px; display:flex; flex-direction:column; gap:10px">
+              <div style="display:flex; align-items:center; gap:9px">
+                <i data-lucide="sparkles" style="width:16px;height:16px;color:#4338ca"></i>
+                <span style="font-size:14.5px; font-weight:800">依頼・タスクを書き留める</span>
+                <span style="flex:1"></span>
+                <span style="display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border:1px solid #e6e9ed; border-radius:8px; background:#fbfcfd; font-size:11.5px; font-weight:700; color:#5d6470">
+                  <i data-lucide="git-branch" style="width:12px;height:12px"></i>行き先は AI が振り分けます
+                </span>
+              </div>
+              <textarea onInput="{{ ai.onInput }}" placeholder="{{ ai.placeholder }}" style="min-height:70px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:10px; background:#f7f8fa; padding:11px 12px; font-size:13px; line-height:1.7; color:#1a1d24; font-family:inherit; resize:vertical; outline:none"></textarea>
+              <sc-if value="{{ ai.files }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-wrap:wrap; gap:6px">
+                  <sc-for list="{{ ai.fileList }}" as="f" hint-placeholder-count="1">
+                    <span style="display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 10px; border:1px solid #cfe4f4; border-radius:8px; background:#f4faff; font-size:12px; font-weight:700; color:#005bac">
+                      <i data-lucide="{{ f.icon }}" style="width:13px;height:13px"></i>{{ f.name }}
+                      <span class="num" style="font-weight:400; color:#5d6470">{{ f.size }}</span>
+                      <span onClick="{{ f.remove }}" style="display:inline-flex; cursor:pointer"><i data-lucide="x" style="width:13px;height:13px;color:#5d6470"></i></span>
+                    </span>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ ai.rec }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; align-items:center; gap:11px; padding:10px 12px; border:1px solid #f6cdd2; border-radius:10px; background:#fef6f7">
+                  <span style="width:9px; height:9px; border-radius:999px; background:#c7243a; animation:pulse 1.1s ease-in-out infinite"></span>
+                  <span style="font-size:13px; font-weight:700; color:#c7243a">録音中</span>
+                  <span class="num" style="font-size:13px; font-weight:700; color:#c7243a">{{ ai.recTime }}</span>
+                  <span style="display:flex; align-items:flex-end; gap:2px; height:18px">
+                    <sc-for list="{{ ai.bars }}" as="b" hint-placeholder-count="12">
+                      <span style="width:3px; border-radius:2px; background:#e8909c; height:{{ b.h }}; animation:wave 1s ease-in-out infinite; animation-delay:{{ b.d }}"></span>
+                    </sc-for>
+                  </span>
+                  <span style="flex:1"></span>
+                  <span onClick="{{ ai.stopRec }}" style="display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 13px; border-radius:9px; background:#c7243a; color:#fff; font-size:12.5px; font-weight:700; cursor:pointer">
+                    <i data-lucide="square" style="width:13px;height:13px"></i>停止して読み取る
+                  </span>
+                </div>
+              </sc-if>
+
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <sc-for list="{{ ai.tools }}" as="t" hint-placeholder-count="3">
+                  <span onClick="{{ t.go }}" style="display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer" style-hover="border-color:#a6ceeb; color:#005bac">
+                    <i data-lucide="{{ t.icon }}" style="width:14px;height:14px"></i>{{ t.label }}
+                  </span>
+                </sc-for>
+                <span style="flex:1"></span>
+                <span onClick="{{ ai.parse }}" style="display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 16px; border-radius:10px; background:#005bac; color:#fff; font-size:13px; font-weight:700; cursor:pointer" style-hover="background:#0068b8">
+                  <i data-lucide="sparkles" style="width:14px;height:14px"></i>内容を確認する
+                </span>
+              </div>
+              <span style="font-size:12px; line-height:1.75; color:#5d6470">誰に・何を・いつまでに を AI が読み取ります。画像・PDF は文字を起こして同じ確認画面に出します。<strong>押すまで登録しません</strong></span>
+            </div>
+
+            <sc-if value="{{ ui.loading }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px">
+                <div class="sk" style="height:190px"></div>
+                <div class="sk" style="height:190px"></div>
+                <div class="sk" style="height:190px"></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ ui.loaded }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px">
+                <sc-for list="{{ top.cards }}" as="c" hint-placeholder-count="3">
+                  <div style="border:1px solid #e6e9ed; border-radius:14px; background:#fff; overflow:hidden; display:flex; flex-direction:column">
+                    <div style="display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="{{ c.icon }}" style="width:16px;height:16px;color:{{ c.color }}"></i>
+                      <span style="font-size:14.5px; font-weight:800">{{ c.title }}</span>
+                      <span style="flex:1"></span>
+                      <span class="num" style="height:19px; display:inline-flex; align-items:center; padding:0 7px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:11.5px; font-weight:700">{{ c.count }}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column">
+                      <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="3">
+                        <div class="trow" style="display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid #f7f8fa; cursor:pointer">
+                          <span style="width:62px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:21px; border-radius:6px; background:{{ r.bg }}; color:{{ r.fg }}; font-size:11px; font-weight:700; text-align-last:justify; padding:0 6px; box-sizing:border-box; white-space:nowrap; overflow:hidden">{{ r.tag }}</span>
+                          <span style="flex:1; min-width:0; font-size:13px; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.label }}</span>
+                          <span class="num" style="flex-shrink:0; font-size:12px; color:#5d6470">{{ r.meta }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <p class="num" style="margin:0; text-align:center; font-size:12px; color:#5d6470">GMO ONAiR v3.2.2</p>
+        </div>
+
+        <sc-if value="{{ ai.busy }}" hint-placeholder-val="{{ false }}">
+          <span style="position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(16,24,40,.18); backdrop-filter:blur(2px)">
+            <span style="display:flex; align-items:center; gap:11px; padding:14px 20px; border-radius:14px; background:#fff; border:1px solid #e6e9ed; box-shadow:0 24px 50px -28px rgba(16,24,40,.4)">
+              <i data-lucide="loader-circle" style="width:18px;height:18px;color:#4338ca;animation:spin 1s linear infinite"></i>
+              <span style="font-size:13.5px; font-weight:700">読み取っています…</span>
+            </span>
+          </span>
+        </sc-if>
+
+        <sc-if value="{{ ai.confirm }}" hint-placeholder-val="{{ false }}">
+          <span onClick="{{ ai.cancel }}" style="position:fixed; inset:0; z-index:210; display:block; background:rgba(16,24,40,.4)"></span>
+          <span style="position:fixed; z-index:211; top:50%; left:50%; transform:translate(-50%,-50%); width:640px; max-width:calc(100vw - 40px); max-height:calc(100vh - 48px); overflow-y:auto; box-sizing:border-box; display:block; background:#fff; border:1px solid #e6e9ed; border-radius:16px; box-shadow:0 40px 80px -30px rgba(16,24,40,.5); padding:18px; animation:sheetUp .26s cubic-bezier(.22,.61,.36,1) both">
+            <span style="display:flex; align-items:center; gap:9px">
+              <i data-lucide="sparkles" style="width:17px;height:17px;color:#4338ca"></i>
+              <span style="font-size:17px; font-weight:800">AI が読み取りました</span>
+              <span style="display:inline-flex; align-items:center; height:20px; padding:0 7px; border-radius:6px; background:#eeecfb; color:#4338ca; font-size:11px; font-weight:700">下書き</span>
+              <span style="flex:1"></span>
+              <span onClick="{{ ai.cancel }}" style="width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="x" style="width:17px;height:17px;color:#5d6470"></i></span>
+            </span>
+            <span style="display:block; margin:6px 0 12px; font-size:12.5px; line-height:1.75; color:#5d6470">読み取れなかったところは<strong>要確認</strong>に倒しています。直してから登録してください</span>
+
+            <span style="display:flex; flex-direction:column; gap:10px">
+              <sc-for list="{{ ai.drafts }}" as="d" hint-placeholder-count="1">
+                <span style="display:block; border:1px solid {{ d.bd }}; border-radius:12px; background:{{ d.bg }}; padding:12px">
+                  <span style="display:flex; align-items:flex-start; gap:10px">
+                    <span onClick="{{ d.toggle }}" style="width:20px; height:20px; flex-shrink:0; margin-top:2px; border:1.5px solid {{ d.ckBd }}; border-radius:6px; background:{{ d.ckBg }}; display:inline-flex; align-items:center; justify-content:center; cursor:pointer">
+                      <i data-lucide="check" style="width:13px;height:13px;color:{{ d.ckFg }}"></i>
+                    </span>
+                    <span style="flex:1; min-width:0; display:block">
+                      <span style="display:flex; align-items:center; gap:8px">
+                        <span style="display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px; border-radius:6px; background:{{ d.destBg }}; color:{{ d.destFg }}; font-size:11px; font-weight:700">
+                          <i data-lucide="{{ d.destIcon }}" style="width:11px;height:11px"></i>{{ d.dest }}
+                        </span>
+                        <span style="font-size:11.5px; color:#9aa1ab">{{ d.destNote }}</span>
+                      </span>
+                      <span style="display:block; margin-top:5px; font-size:14px; font-weight:700; line-height:1.6">{{ d.what }}</span>
+                      <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px">
+                        <span style="display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 9px; border:1px solid {{ d.whoBd }}; border-radius:8px; background:{{ d.whoBg }}; font-size:12px; font-weight:700; color:{{ d.whoFg }}; cursor:pointer">
+                          <i data-lucide="user" style="width:12px;height:12px"></i>{{ d.who }}
+                        </span>
+                        <span class="num" style="display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 9px; border:1px solid {{ d.dueBd }}; border-radius:8px; background:{{ d.dueBg }}; font-size:12px; font-weight:700; color:{{ d.dueFg }}; cursor:pointer">
+                          <i data-lucide="calendar" style="width:12px;height:12px"></i>{{ d.due }}
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 9px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; color:#5d6470; cursor:pointer">
+                          <i data-lucide="folder-kanban" style="width:12px;height:12px"></i>{{ d.proj }}
+                        </span>
+                        <span style="display:inline-flex; align-items:center; height:26px; padding:0 9px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; color:#5d6470">{{ d.imp }}</span>
+                        <span style="display:inline-flex; align-items:center; height:26px; padding:0 9px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:12px; color:#5d6470">{{ d.urg }}</span>
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </sc-for>
+            </span>
+
+            <span style="display:flex; align-items:center; gap:8px; margin-top:12px; padding:10px 12px; border:1px dashed #e6e9ed; border-radius:10px">
+              <i data-lucide="file-text" style="width:14px;height:14px;color:#5d6470"></i>
+              <span style="flex:1; min-width:0; font-size:12px; line-height:1.7; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">元の文はそのまま残ります：{{ ai.source }}</span>
+            </span>
+
+            <span style="display:flex; align-items:center; gap:10px; margin-top:14px">
+              <span style="font-size:12px; color:#5d6470">Claude が読み取り、規則ベースで検証しています</span>
+              <span style="flex:1"></span>
+              <span onClick="{{ ai.cancel }}" style="display:inline-flex; align-items:center; height:40px; padding:0 16px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:13px; font-weight:700; color:#3c424c; cursor:pointer" style-hover="background:#f2f4f7">やめる</span>
+              <span onClick="{{ ai.commit }}" style="display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 18px; border-radius:10px; background:#005bac; color:#fff; font-size:13px; font-weight:700; cursor:pointer" style-hover="background:#0068b8">
+                <i data-lucide="check" style="width:14px;height:14px"></i>{{ ai.commitLabel }}
+              </span>
+            </span>
+          </span>
+        </sc-if>
+
+        <sc-if value="{{ ai.toast }}" hint-placeholder-val="{{ false }}">
+          <span style="position:fixed; z-index:220; left:50%; bottom:24px; transform:translateX(-50%); display:flex; align-items:center; gap:9px; padding:11px 16px; border-radius:12px; background:#1a1d24; color:#fff; font-size:13px; font-weight:700; box-shadow:0 20px 40px -20px rgba(16,24,40,.6); animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:#7ee2b8"></i>{{ ai.toast }}
+          </span>
+        </sc-if>
+      </div>
+
+      <div data-reveal style="flex:0 0 auto; display:flex; flex-direction:column; gap:10px; align-items:center">
+        <span class="num" style="font-size:11px; font-weight:800; letter-spacing:.08em; color:#9aa1ab">SP 390px</span>
+        <div style="width:390px; height:800px; box-sizing:border-box; border:9px solid #1a1d24; border-radius:38px; background:#f7f8fa; overflow:hidden; position:relative; box-shadow:0 40px 80px -40px rgba(16,24,40,.5); display:flex; flex-direction:column">
+          <div style="height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:#fff">
+            <span class="num" style="font-size:12.5px; font-weight:700">9:16</span>
+            <span style="display:flex; gap:5px; align-items:center">
+              <i data-lucide="signal" style="width:14px;height:14px"></i>
+              <i data-lucide="wifi" style="width:14px;height:14px"></i>
+              <i data-lucide="battery-full" style="width:16px;height:16px"></i>
+            </span>
+          </div>
+
+          <div style="height:52px; flex-shrink:0; display:flex; align-items:center; gap:10px; padding:0 14px; background:#fff; border-bottom:1px solid #e6e9ed">
+            <i data-lucide="menu" style="width:20px;height:20px;color:#3c424c"></i>
+            <img src="logo-onair.svg" alt="GMO ONAiR" style="height:18px; width:auto">
+            <span style="flex:1"></span>
+            <span style="position:relative; display:inline-flex">
+              <i data-lucide="bell" style="width:19px;height:19px;color:#5d6470"></i>
+              <span class="num" style="position:absolute; top:-4px; right:-5px; min-width:15px; height:15px; box-sizing:border-box; padding:0 4px; border-radius:999px; background:#c7243a; color:#fff; font-size:9.5px; font-weight:800; display:inline-flex; align-items:center; justify-content:center">3</span>
+            </span>
+            <span style="width:28px; height:28px; border-radius:999px; background:#eaf4fb; color:#005bac; display:inline-flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700">寺</span>
+          </div>
+
+          <div style="flex:1; min-height:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:14px">
+            <div>
+              <h2 style="margin:0; font-size:20px; font-weight:800; line-height:1.3">おはようございます</h2>
+              <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap">
+                <sc-for list="{{ top.chips }}" as="c" hint-placeholder-count="2">
+                  <span style="display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:0 10px; border:1px solid #f6cdd2; border-radius:8px; background:#fef6f7; color:#c7243a; font-size:13px; cursor:pointer">{{ c.label }}<span class="num" style="font-weight:700">{{ c.n }}件</span></span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div onClick="{{ ai.sp.openCompose }}" style="display:flex; align-items:center; gap:10px; min-height:52px; padding:0 14px; border-radius:12px; background:linear-gradient(100deg,#005bac,#4338ca); color:#fff; cursor:pointer">
+              <i data-lucide="sparkles" style="width:18px;height:18px"></i>
+              <span style="font-size:14px; font-weight:800">AIに任せる</span>
+              <span style="flex:1"></span>
+              <span style="font-size:12px; opacity:.85">書く・貼る・録音</span>
+              <i data-lucide="chevron-up" style="width:16px;height:16px"></i>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px">
+                <sc-for list="{{ top.apps }}" as="a" hint-placeholder-count="6">
+                  <a class="tile" href="{{ a.href }}" style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid #e6e9ed; border-radius:12px; background:#fff; text-decoration:none; color:inherit; min-height:88px; box-sizing:border-box">
+                    <span style="display:flex; align-items:center; gap:8px">
+                      <span class="ti" style="width:32px; height:32px; border-radius:10px; background:{{ a.tint }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+                        <i data-lucide="{{ a.icon }}" style="width:17px;height:17px;color:{{ a.color }}"></i>
+                      </span>
+                      <span style="flex:1"></span>
+                      <span class="num" style="{{ a.badgeStyle }}">{{ a.badge }}</span>
+                    </span>
+                    <span style="font-size:13.5px; font-weight:800; line-height:1.4">{{ a.label }}</span>
+                  </a>
+                </sc-for>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; padding-top:8px; border-top:1px dashed #e6e9ed">
+                <sc-for list="{{ top.event }}" as="e" hint-placeholder-count="4">
+                  <span style="display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 11px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; font-size:12.5px; font-weight:700">
+                    <i data-lucide="{{ e.icon }}" style="width:14px;height:14px;color:{{ e.color }}"></i>{{ e.label }}
+                  </span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <sc-if value="{{ ui.loading }}" hint-placeholder-val="{{ true }}">
+                <div class="sk" style="height:112px"></div>
+                <div class="sk" style="height:112px"></div>
+              </sc-if>
+              <sc-if value="{{ ui.loaded }}" hint-placeholder-val="{{ false }}">
+                <sc-for list="{{ top.cards }}" as="c" hint-placeholder-count="3">
+                  <div style="border:1px solid #e6e9ed; border-radius:12px; background:#fff; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #f2f4f7">
+                      <i data-lucide="{{ c.icon }}" style="width:15px;height:15px;color:{{ c.color }}"></i>
+                      <span style="font-size:14px; font-weight:800">{{ c.title }}</span>
+                      <span style="flex:1"></span>
+                      <span class="num" style="height:19px; display:inline-flex; align-items:center; padding:0 7px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:11.5px; font-weight:700">{{ c.count }}</span>
+                    </div>
+                    <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="2">
+                      <div style="display:flex; align-items:center; gap:9px; min-height:48px; padding:8px 12px; border-bottom:1px solid #f7f8fa">
+                        <span style="width:58px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:21px; border-radius:6px; background:{{ r.bg }}; color:{{ r.fg }}; font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden">{{ r.tag }}</span>
+                        <span style="flex:1; min-width:0; font-size:13px; line-height:1.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.label }}</span>
+                        <span class="num" style="flex-shrink:0; font-size:12px; color:#5d6470">{{ r.meta }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+
+            <div style="height:8px"></div>
+          </div>
+
+          <sc-if value="{{ ai.sp.open }}" hint-placeholder-val="{{ false }}">
+            <span onClick="{{ ai.sp.close }}" style="position:absolute; inset:0; z-index:8; display:block; background:rgba(16,24,40,.38)"></span>
+            <span style="position:absolute; left:0; right:0; bottom:0; z-index:9; display:block; background:#fff; border-radius:20px 20px 0 0; padding:10px 14px 18px; animation:sheetUp .28s cubic-bezier(.22,.61,.36,1) both">
+              <span style="display:block; width:38px; height:4px; border-radius:999px; background:#e6e9ed; margin:0 auto 12px"></span>
+
+              <sc-if value="{{ ai.sp.isCompose }}" hint-placeholder-val="{{ true }}">
+                <span style="display:flex; align-items:center; gap:8px; margin-bottom:4px">
+                  <i data-lucide="sparkles" style="width:16px;height:16px;color:#4338ca"></i>
+                  <span style="font-size:15px; font-weight:800">AIに任せる</span>
+                </span>
+                <span style="display:block; margin-bottom:9px; font-size:12px; line-height:1.6; color:#5d6470">書いても貼ってもよいです。行き先は AI が振り分けます</span>
+                <textarea onInput="{{ ai.sp.onInput }}" placeholder="{{ ai.placeholder }}" style="width:100%; min-height:110px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:12px; background:#f7f8fa; padding:12px; font-size:13px; line-height:1.7; font-family:inherit; color:#1a1d24; resize:none; outline:none"></textarea>
+                <sc-if value="{{ ai.sp.rec }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex; flex-direction:column; gap:12px; padding:18px 0 6px; align-items:center">
+                    <span style="display:flex; align-items:center; gap:9px">
+                      <span style="width:10px; height:10px; border-radius:999px; background:#c7243a; animation:pulse 1.1s ease-in-out infinite"></span>
+                      <span style="font-size:14px; font-weight:800; color:#c7243a">録音中</span>
+                      <span class="num" style="font-size:14px; font-weight:800; color:#c7243a">{{ ai.sp.recTime }}</span>
+                    </span>
+                    <span style="display:flex; align-items:flex-end; gap:3px; height:34px">
+                      <sc-for list="{{ ai.bars }}" as="b" hint-placeholder-count="12">
+                        <span style="width:4px; border-radius:2px; background:#e8909c; height:{{ b.h }}; animation:wave 1s ease-in-out infinite; animation-delay:{{ b.d }}"></span>
+                      </sc-for>
+                    </span>
+                    <span style="font-size:12px; color:#5d6470">文字起こしは裏で走ります。このまま他の画面を見ても大丈夫です</span>
+                    <span style="display:flex; gap:8px; width:100%; margin-top:4px">
+                      <span onClick="{{ ai.sp.cancelRec }}" style="display:inline-flex; align-items:center; justify-content:center; min-height:52px; padding:0 18px; border:1px solid #e6e9ed; border-radius:12px; background:#fff; font-size:14px; font-weight:700; color:#3c424c; cursor:pointer">やめる</span>
+                      <span onClick="{{ ai.sp.stopRec }}" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:52px; border-radius:12px; background:#c7243a; color:#fff; font-size:14px; font-weight:700; cursor:pointer"><i data-lucide="square" style="width:15px;height:15px"></i>停止して読み取る</span>
+                    </span>
+                  </span>
+                </sc-if>
+
+                <sc-if value="{{ ai.sp.hasFiles }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex; flex-direction:column; gap:6px; margin-top:8px">
+                    <sc-for list="{{ ai.sp.files }}" as="f" hint-placeholder-count="1">
+                      <span style="display:flex; align-items:center; gap:9px; min-height:44px; padding:0 11px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff">
+                        <i data-lucide="{{ f.icon }}" style="width:15px;height:15px;color:#005bac"></i>
+                        <span style="flex:1; min-width:0; font-size:12.5px; font-weight:700; color:#005bac; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ f.name }}</span>
+                        <span class="num" style="font-size:11.5px; color:#5d6470; flex-shrink:0">{{ f.size }}</span>
+                        <span onClick="{{ f.remove }}" style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0"><i data-lucide="x" style="width:15px;height:15px;color:#5d6470"></i></span>
+                      </span>
+                    </sc-for>
+                  </span>
+                </sc-if>
+
+                <span style="display:flex; gap:8px; margin-top:8px">
+                  <sc-for list="{{ ai.sp.tools }}" as="t" hint-placeholder-count="2">
+                    <span onClick="{{ t.go }}" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; cursor:pointer">
+                      <i data-lucide="{{ t.icon }}" style="width:15px;height:15px"></i>{{ t.label }}
+                    </span>
+                  </sc-for>
+                </span>
+                <span onClick="{{ ai.sp.parse }}" style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; min-height:52px; border-radius:12px; background:#005bac; color:#fff; font-size:14px; font-weight:700; cursor:pointer">
+                  <i data-lucide="sparkles" style="width:16px;height:16px"></i>内容を確認する
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ ai.sp.isBusy }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:26px 0 32px">
+                  <i data-lucide="loader-circle" style="width:24px;height:24px;color:#4338ca;animation:spin 1s linear infinite"></i>
+                  <span style="font-size:13.5px; font-weight:700">読み取っています…</span>
+                  <span style="display:block; width:100%"><span class="sk" style="display:block; height:56px; margin-bottom:8px"></span><span class="sk" style="display:block; height:56px"></span></span>
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ ai.sp.isConfirm }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex; align-items:center; gap:8px; margin-bottom:4px">
+                  <i data-lucide="sparkles" style="width:16px;height:16px;color:#4338ca"></i>
+                  <span style="font-size:15px; font-weight:800">読み取りました</span>
+                  <span style="display:inline-flex; align-items:center; height:20px; padding:0 7px; border-radius:6px; background:#eeecfb; color:#4338ca; font-size:11px; font-weight:700">下書き</span>
+                </span>
+                <span style="display:block; margin-bottom:10px; font-size:12px; line-height:1.6; color:#5d6470">押すまで登録しません。要確認のところはタップして直せます</span>
+                <span style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto">
+                  <sc-for list="{{ ai.sp.drafts }}" as="d" hint-placeholder-count="2">
+                    <span style="display:block; border:1px solid {{ d.bd }}; border-radius:12px; background:{{ d.bg }}; padding:11px">
+                      <span style="display:flex; align-items:flex-start; gap:10px">
+                        <span onClick="{{ d.toggle }}" style="width:22px; height:22px; flex-shrink:0; margin-top:1px; border:1.5px solid {{ d.ckBd }}; border-radius:6px; background:{{ d.ckBg }}; display:inline-flex; align-items:center; justify-content:center; cursor:pointer">
+                          <i data-lucide="check" style="width:14px;height:14px;color:{{ d.ckFg }}"></i>
+                        </span>
+                        <span style="flex:1; min-width:0; display:block">
+                          <span style="display:inline-flex; align-items:center; gap:5px; height:21px; padding:0 8px; border-radius:6px; background:{{ d.destBg }}; color:{{ d.destFg }}; font-size:11px; font-weight:700"><i data-lucide="{{ d.destIcon }}" style="width:11px;height:11px"></i>{{ d.dest }}</span>
+                          <span style="display:block; margin-top:5px; font-size:13.5px; font-weight:700; line-height:1.6">{{ d.what }}</span>
+                          <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:7px">
+                            <span style="display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 9px; border:1px solid {{ d.whoBd }}; border-radius:8px; background:{{ d.whoBg }}; font-size:12px; font-weight:700; color:{{ d.whoFg }}"><i data-lucide="user" style="width:12px;height:12px"></i>{{ d.who }}</span>
+                            <span class="num" style="display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 9px; border:1px solid {{ d.dueBd }}; border-radius:8px; background:{{ d.dueBg }}; font-size:12px; font-weight:700; color:{{ d.dueFg }}"><i data-lucide="calendar" style="width:12px;height:12px"></i>{{ d.due }}</span>
+                          </span>
+                        </span>
+                      </span>
+                    </span>
+                  </sc-for>
+                </span>
+                <span style="display:flex; gap:8px; margin-top:12px">
+                  <span onClick="{{ ai.sp.close }}" style="display:inline-flex; align-items:center; justify-content:center; min-height:52px; padding:0 18px; border:1px solid #e6e9ed; border-radius:12px; background:#fff; font-size:14px; font-weight:700; color:#3c424c; cursor:pointer">やめる</span>
+                  <span onClick="{{ ai.sp.commit }}" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:52px; border-radius:12px; background:#005bac; color:#fff; font-size:14px; font-weight:700; cursor:pointer"><i data-lucide="check" style="width:16px;height:16px"></i>{{ ai.sp.commitLabel }}</span>
+                </span>
+              </sc-if>
+            </span>
+          </sc-if>
+
+          <sc-if value="{{ ai.sp.toast }}" hint-placeholder-val="{{ false }}">
+            <span style="position:absolute; z-index:12; left:50%; bottom:70px; transform:translateX(-50%); display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:#1a1d24; color:#fff; font-size:12.5px; font-weight:700; white-space:nowrap; animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+              <i data-lucide="check-circle-2" style="width:15px;height:15px;color:#7ee2b8"></i>{{ ai.sp.toast }}
+            </span>
+          </sc-if>
+
+          <div style="height:58px; flex-shrink:0; display:flex; align-items:stretch; background:#fff; border-top:1px solid #e6e9ed">
+            <sc-for list="{{ top.tabs }}" as="t" hint-placeholder-count="3">
+              <span style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:{{ t.fg }}">
+                <i data-lucide="{{ t.icon }}" style="width:20px;height:20px"></i>
+                <span style="font-size:10.5px; font-weight:700">{{ t.label }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div data-reveal style="height:1px; background:#dcdfe4; margin-top:6px"></div>
+
+    <div data-reveal style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap">
+      <div style="min-width:0">
+        <h2 style="margin:0; font-size:22px; font-weight:800; line-height:1.3">サイトツリー（備考）</h2>
+        <p style="margin:6px 0 0; font-size:13.5px; line-height:1.7; color:#5d6470">実装の左メニューをそのまま並べたものです。作った画面はここから直接開けます</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#5d6470"><span style="width:8px;height:8px;border-radius:999px;background:#197a4b"></span>再現ずみ</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#5d6470"><span style="width:8px;height:8px;border-radius:999px;background:#d7dbe0"></span>これから</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:14px">
+      <sc-for list="{{ tree.apps }}" as="app" hint-placeholder-count="8">
+        <div data-reveal style="border:1px solid #e6e9ed; border-radius:16px; background:#fff; overflow:hidden; display:flex; flex-direction:column">
+          <div style="display:flex; align-items:center; gap:10px; padding:13px 14px; border-bottom:1px solid #f2f4f7; background:#fbfcfd">
+            <span style="width:30px; height:30px; border-radius:9px; background:{{ app.tint }}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">
+              <i data-lucide="{{ app.icon }}" style="width:16px;height:16px;color:{{ app.color }}"></i>
+            </span>
+            <span style="flex:1; min-width:0; display:block">
+              <span style="display:block; font-size:14.5px; font-weight:800; line-height:1.4">{{ app.label }}</span>
+              <span class="num" style="display:block; font-size:11.5px; color:#5d6470">{{ app.path }}</span>
+            </span>
+            <span style="flex-shrink:0; display:inline-flex; align-items:center; height:21px; padding:0 8px; border-radius:6px; background:{{ app.stBg }}; color:{{ app.stFg }}; font-size:11px; font-weight:700">{{ app.status }}</span>
+          </div>
+          <div style="padding:6px 8px 10px; display:flex; flex-direction:column">
+            <sc-for list="{{ app.groups }}" as="g" hint-placeholder-count="2">
+              <div style="display:flex; flex-direction:column">
+                <sc-if value="{{ g.title }}" hint-placeholder-val="{{ true }}">
+                  <p style="margin:10px 0 3px; padding:0 8px; font-size:11.5px; font-weight:800; letter-spacing:.06em; color:#5d6470">{{ g.title }}</p>
+                </sc-if>
+                <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="3">
+                  <a class="trow" href="{{ i.href }}" style="display:flex; align-items:center; gap:9px; min-height:34px; padding:5px 8px; border-radius:9px; text-decoration:none; color:inherit">
+                    <span style="width:7px; height:7px; border-radius:999px; background:{{ i.dot }}; flex-shrink:0"></span>
+                    <span style="flex:1; min-width:0; font-size:13px; line-height:1.5; color:{{ i.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ i.label }}</span>
+                    <span class="num" style="flex-shrink:0; font-size:11px; color:#9aa1ab; white-space:nowrap">{{ i.url }}</span>
+                  </a>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1780}}">
+const T = {
+  sales:['#2563eb','#eaf1fe'], gpm:['#4338ca','#eeecfb'], budget:['#059669','#e7f6f0'],
+  studio:['#7c3aed','#f1ebfe'], dailyops:['#0d9488','#e6f5f3'], equipment:['#d97706','#fdf1e0'],
+  admin:['#475569','#eef1f4'], qsheet:['#e11d48','#fdeaef'], techsheet:['#0891b2','#e5f4f8'],
+  liveops:['#ef4444','#fdecec'], awards:['#f59e0b','#fdf3e0'], interactive:['#db2777','#fdebf4'],
+  translate:['#16a34a','#e9f6ec']
+};
+const MINI = {
+  dailyops: [
+    { label:'ウィークリー活動報告', icon:'calendar-check' },
+    { label:'デイリーニュース報告', icon:'newspaper' },
+    { label:'入ってきた情報', icon:'inbox' },
+    { label:'受け取った書類', icon:'file-text' },
+    { label:'内覧会 来場予約', icon:'door-open' },
+    { label:'セキュリティカード', icon:'key-round' }
+  ]
+};
+const badgeOn = 'height:28px; min-width:28px; box-sizing:border-box; padding:0 8px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background:#c7243a; color:#fff; flex-shrink:0';
+const badgeMuted = 'height:28px; min-width:28px; box-sizing:border-box; padding:0 8px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background:#005bac; color:#fff; flex-shrink:0';
+
+// 作った画面（ここに足すとツリーのリンクが有効になる）
+const BUILT = { '/': 'v4-live.dc.html', '/sales/dashboard': 'v4-live-sales.dc.html' };
+
+function it(label, url) { return { label, url }; }
+
+const TREE = [
+  { key:'sales', label:'案件管理', icon:'folder-kanban', path:'/sales', groups:[
+    { title:'業務', items:[it('ダッシュボード','/sales/dashboard'), it('案件一覧','/sales/projects'), it('案件詳細','/sales/projects/:id')] },
+    { title:'全案件', items:[it('タスク一覧','/sales/tasks/list'), it('見積・請求','/sales/billing')] },
+    { title:'設定', items:[it('料金表','/sales/pricing'), it('標準工程テンプレート','/sales/flow-templates')] },
+    { title:'そのほか（作り直し前）', items:[it('顧客','/sales/customers'), it('営業活動記録','/sales/activity-logs'), it('確定案件（スタジオ）','/sales/projects/confirmed/studio'), it('按分グループ','/sales/project-groups'), it('旧GLS（決算取込）','/sales/gls-import'), it('ガントチャート','/sales/tasks/gantt'), it('営業レビュー','/sales/review'), it('報告資料','/sales/keep-report'), it('AI活動履歴','/sales/ai-activity'), it('取引先マスター','/sales/companies')] },
+    { title:'スマホからの入口', items:[it('受付（貼って送る）','/sales/inbox/new'), it('打合せを録音','/sales/record')] }
+  ]},
+  { key:'gpm', label:'プロジェクト管理', icon:'layout-grid', path:'/gpm', groups:[
+    { title:'プロジェクト', items:[it('ダッシュボード','/gpm/dashboard'), it('プロジェクト一覧','/gpm/projects'), it('プロジェクト詳細','/gpm/projects/:id')] },
+    { title:'全体', items:[it('やること（未確認事項）','/gpm/tasks')] },
+    { title:'設定', items:[it('標準工程テンプレート','/gpm/templates')] }
+  ]},
+  { key:'budget', label:'財務管理', icon:'piggy-bank', path:'/budget', groups:[
+    { title:'見る', items:[it('財務ダッシュボード','/budget/dashboard'), it('請求・入金','/budget/billing')] },
+    { title:'明細', items:[it('売上','/budget/revenues'), it('仕入','/budget/purchases'), it('販管費','/budget/sga'), it('受け取った書類','/budget/documents')] },
+    { title:'取り込み', items:[it('取り込み（3タブ）','/budget/import')] },
+    { title:'設定', items:[it('取引先（仕入先・パートナー）','/budget/vendors')] },
+    { title:'そのほか（作り直し前）', items:[it('案件月別詳細','/budget/detail'), it('仕入先集計','/budget/reports/vendors')] }
+  ]},
+  { key:'studio', label:'カレンダー', icon:'calendar', path:'/studio', groups:[
+    { title:'見る', items:[it('予定','/studio/calendar'), it('部屋の空き','/studio/rooms'), it('仮押さえ','/studio/holds')] },
+    { title:'設定', items:[it('カレンダーの設定','/studio/settings')] },
+    { title:'そのほか（作り直し前）', items:[it('スタジオカレンダー','/studio/studio-calendar'), it('パートナースケジュール','/studio/partners'), it('マイカレンダー','/studio/my-calendar')] },
+    { title:'画面外', items:[it('サイネージ','/signage/:roomId')] }
+  ]},
+  { key:'dailyops', label:'日常業務', icon:'clipboard-list', path:'/daily', groups:[
+    { items:[it('ホーム','/daily'), it('タスク・依頼','/daily/tasks')] },
+    { title:'定期報告', items:[it('ウィークリー活動報告','/daily/weekly'), it('デイリーニュース報告','/daily/news')] },
+    { title:'届いたもの', items:[it('入ってきた情報','/daily/inquiries'), it('受け取った書類','/daily/finance')] },
+    { title:'現場の受付', items:[it('内覧会 来場予約','/daily/inview'), it('その日の受付','/daily/inview/:date'), it('セキュリティカード','/daily/security-cards')] }
+  ]},
+  { key:'equipment', label:'機材管理', icon:'package', path:'/equipment', groups:[
+    { title:'現場', items:[it('ダッシュボード','/equipment'), it('機材台帳','/equipment/items'), it('機材詳細','/equipment/items/:id'), it('ラック図','/equipment/racks'), it('メンテナンス','/equipment/maintenance'), it('棚卸し','/equipment/inventory'), it('QRスキャン','/equipment/scan')] },
+    { title:'貸出', items:[it('貸出・返却','/equipment/lendings'), it('貸出対象の機材','/equipment/items?view=lend')] },
+    { title:'設定', items:[it('設定（4タブ）','/equipment/settings')] }
+  ]},
+  { key:'admin', label:'設定', icon:'settings', path:'/settings', groups:[
+    { items:[it('設定（案内板）','/settings'), it('拠点・部屋','/settings/sites'), it('権限とメンバー','/settings/users')] },
+    { title:'業務の決めごと', items:[it('お金のルール','/settings/money'), it('休日・営業時間','/settings/hours'), it('通知とテンプレート','/settings/notify')] },
+    { title:'データベース', items:[it('データビューア','/settings/data-viewer'), it('DBバックアップ','/settings/db-backups'), it('システムの情報','/settings/system')] }
+  ]},
+  { key:'home', label:'共通', icon:'house', path:'/', color:'#005bac', tint:'#eaf4fb', groups:[
+    { items:[it('トップページ','/'), it('探す','/search')] },
+    { title:'凍結アプリ（見た目は現行のまま）', items:[it('制作資料（Qシート）','/qsheet'), it('技術資料','/techsheet'), it('計時LIVE','/live'), it('リアルタイムCG','/awards')] },
+    { title:'外部（別タブ）', items:[it('インタラクティブ','interactive.gmo-onair.jp'), it('翻訳','gmo-translate.jp')] }
+  ]}
+];
+
+const DEST = {
+  task:   ['タスク','list-todo','#eaf1fe','#2563eb','project_tasks に登録'],
+  neta:   ['案件（ネタ）','folder-kanban','#eeecfb','#4338ca','projects に stage=neta で登録'],
+  log:    ['活動記録','clipboard-list','#e6f5f3','#0d9488','activity_logs に追記'],
+  minutes:['議事録','file-text','#f2f4f7','#5d6470','案件のやり取りに保存']
+};
+
+const ALL = [
+  { id:'d1', dest:'task', what:'東急CM 収録の見積を送る', who:'田中 亮太', whoOk:true, due:'08/12（水）18:00', dueOk:true, proj:'GLS-A118 東急CM 収録', imp:'重要度 高', urg:'緊急度 中' },
+  { id:'d2', dest:'task', what:'サムライ渋谷の空き状況を先方へ共有', who:'宛先要確認', whoOk:false, due:'08/11（火）', dueOk:true, proj:'GLS-A118 東急CM 収録', imp:'重要度 中', urg:'緊急度 高' },
+  { id:'d3', dest:'neta', what:'配信付き社内表彰の相談（8月末・150名規模）', who:'寺井', whoOk:true, due:'期限不明', dueOk:false, proj:'新規（お客様：博報堂DY）', imp:'重要度 高', urg:'緊急度 中' },
+  { id:'d4', dest:'log', what:'08/08 定例：予算は据え置き、配信は2カメで確定', who:'寺井', whoOk:true, due:'—', dueOk:true, proj:'GLS-A118 東急CM 収録', imp:'種別 打合せ', urg:'次回 08/15' }
+];
+
+const DRAFTS = { all: ALL };
+
+class Component extends DCLogic {
+  state = { loaded: false, swOpen: false,
+    aiTab: 'note', aiStep: 'idle', aiOff: {}, aiToast: '',
+    spStep: 'closed', spKind: 'note', spOff: {}, spToast: '', added: [],
+    aiFiles: [], aiRec: false, aiSec: 0,
+    spFiles: [], spRec: false, spSec: 0, mini: '' };
+
+  draftView(kind, off, toggle) {
+    return ALL.map((d) => {
+      const on = !off[d.id];
+      const dd = DEST[d.dest];
+      return Object.assign({}, d, {
+        on,
+        dest: dd[0], destIcon: dd[1], destBg: dd[2], destFg: dd[3], destNote: dd[4],
+        bd: on ? '#cfe4f4' : '#e6e9ed', bg: on ? '#f8fcff' : '#fff',
+        ckBd: on ? '#005bac' : '#cfd6de', ckBg: on ? '#005bac' : '#fff', ckFg: on ? '#fff' : 'transparent',
+        whoBd: d.whoOk ? '#e6e9ed' : '#f6d9c7', whoBg: d.whoOk ? '#fff' : '#fdf3e8', whoFg: d.whoOk ? '#3c424c' : '#c2410e',
+        dueBd: d.dueOk ? '#e6e9ed' : '#f6d9c7', dueBg: d.dueOk ? '#fff' : '#fdf3e8', dueFg: d.dueOk ? '#3c424c' : '#c2410e',
+        toggle: () => toggle(d.id)
+      });
+    });
+  }
+
+  attach(f) { this.setState((p) => ({ aiFiles: p.aiFiles.concat([f]) })); }
+
+  startRec() {
+    this.setState({ aiRec: true, aiSec: 0 });
+    clearInterval(this._r);
+    this._r = setInterval(() => this.setState((p) => ({ aiSec: (p.aiSec + 1) % 60 })), 1000);
+  }
+
+  stopRec() {
+    clearInterval(this._r);
+    this.setState({ aiRec: false, aiStep: 'busy' });
+    clearTimeout(this._p);
+    this._p = setTimeout(() => this.setState({ aiStep: 'confirm', aiOff: {} }), 1200);
+  }
+
+  register(kind, off) {
+    const picked = ALL.filter((d) => !off[d.id]);
+    const rows = picked.filter((d) => d.dest === 'task').map((d) => ({ tag:'登録', bg:'#e7f6f0', fg:'#197a4b', label:d.what, meta:d.dueOk ? d.due.slice(0,5) : '未定' }));
+    this.setState((s) => ({ added: rows.concat(s.added) }));
+    return picked.length;
+  }
+
+  componentDidMount() {
+    this._t = setTimeout(() => this.setState({ loaded: true }), 780);
+    const showAll = () => document.querySelectorAll('[data-reveal]').forEach((el) => el.classList.add('vis'));
+    if (typeof IntersectionObserver === 'undefined' || document.hidden) { showAll(); return; }
+    document.documentElement.classList.add('reveal-ready');
+    // 保険：IO が発火しない環境（非表示タブ・印刷）でも中身は必ず出す
+    this._f = setTimeout(showAll, 900);
+    this._io = new IntersectionObserver((es) => {
+      es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('vis'); this._io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    this.scan();
+  }
+  componentDidUpdate() { this.scan(); }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._f); if (this._io) this._io.disconnect(); }
+
+  scan() {
+    clearTimeout(this._s);
+    this._s = setTimeout(() => {
+      this.icons();
+      if (this._io) document.querySelectorAll('[data-reveal]:not(.vis)').forEach((el) => this._io.observe(el));
+      this.countUp();
+    }, 30);
+  }
+
+  icons() {
+    if (!window.lucide) return;
+    document.querySelectorAll('svg.lucide').forEach((svg) => {
+      const p = svg.parentElement; if (!p) return;
+      if (p.querySelector(':scope > i[data-lucide]')) { svg.remove(); return; }
+      const sib = p.querySelectorAll(':scope > svg.lucide');
+      if (sib.length > 1) { for (let i = 1; i < sib.length; i++) sib[i].remove(); }
+    });
+    window.lucide.createIcons();
+  }
+
+  countUp() {
+    document.querySelectorAll('[data-count]').forEach((el) => {
+      if (el.dataset.done) return;
+      const to = parseInt(el.dataset.count, 10);
+      if (!to || to > 999) { el.dataset.done = '1'; return; }
+      el.dataset.done = '1';
+      const t0 = performance.now(), dur = 620;
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / dur);
+        el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  renderVals() {
+    const apps = [
+      ['sales','案件管理','folder-kanban','案件パイプライン・顧客・見積','3',true],
+      ['gpm','プロジェクト管理','layout-grid','自社構築・グループ受託の工程管理','',false],
+      ['budget','財務管理','piggy-bank','売上・仕入・販管費・損益','2',false],
+      ['studio','カレンダー','calendar','スタジオカレンダー・ブッキング','1',false],
+      ['dailyops','日常業務','clipboard-list','AI 週次活動報告・業界ニュース収集','4',true],
+      ['equipment','機材管理','package','機材台帳・貸出・メンテナンス','2',true],
+      ['admin','設定','settings','権限・ユーザー・データ・バックアップ','',false]
+    ].map(([k,label,icon,desc,badge,urgent]) => {
+      const open = this.state.mini === k;
+      const mini = MINI[k];
+      return {
+        key:k, label, icon, desc, badge, href:'#',
+        color:T[k][0], tint:T[k][1],
+        bd: open ? '#a6ceeb' : '#e6e9ed',
+        badgeStyle: badge ? (urgent ? badgeOn : badgeMuted) : 'display:none',
+        hasMini: !!mini, mini: mini || [], miniOpen: open, chevron: open ? 'chevron-up' : 'chevron-down',
+        enter: () => { if (mini) this.setState({ mini: k }); },
+        leave: () => { if (mini) this.setState({ mini: '' }); },
+        toggleMini: () => this.setState((p) => ({ mini: p.mini === k ? '' : k }))
+      };
+    });
+
+    const event = [
+      ['qsheet','制作資料','file-text','本番で開く'],
+      ['techsheet','技術資料','wrench','本番で開く'],
+      ['liveops','計時LIVE','timer','本番で開く'],
+      ['awards','リアルタイムCG','tv','本番で開く'],
+      ['interactive','インタラクティブ','sparkles','別サイト ↗'],
+      ['translate','翻訳','languages','別サイト ↗']
+    ].map(([k,label,icon,tag]) => ({ label, icon, tag, color:T[k][0], tint:T[k][1] }));
+
+    const tag = (t, kind) => {
+      const c = { red:['#fef6f7','#c7243a'], amber:['#fdf3e8','#c2410e'], green:['#e7f6f0','#197a4b'], indigo:['#eeecfb','#4338ca'], gray:['#f2f4f7','#5d6470'] }[kind];
+      return { tag:t, bg:c[0], fg:c[1] };
+    };
+    const cards = [
+      { title:'今日の現場', icon:'calendar-clock', color:'#7c3aed', count:'2件', rows:[
+        Object.assign(tag('本番','green'), { label:'用賀 STUDIO A ／ 収録', meta:'10:00' }),
+        Object.assign(tag('仮押さえ','amber'), { label:'渋谷 STUDIO B ／ 下見', meta:'15:30' })
+      ]},
+      { title:'わたしのタスク', icon:'list-todo', color:'#005bac', count:(6 + this.state.added.length) + '件', rows: this.state.added.concat([
+        Object.assign(tag('期限切れ','red'), { label:'東急CM 見積の再提出', meta:'08/06' }),
+        Object.assign(tag('今日','amber'), { label:'GLS-A118 香盤の確認', meta:'17:00' }),
+        Object.assign(tag('今週','gray'), { label:'内覧会の名簿を案件化', meta:'08/11' })
+      ]) },
+      { title:'お待たせ中', icon:'inbox', color:'#c7243a', count:'3件', rows:[
+        Object.assign(tag('問合せ','indigo'), { label:'サムライ用賀の見学希望', meta:'2日' }),
+        Object.assign(tag('AI起票','indigo'), { label:'ネタ：配信付き社内表彰', meta:'1日' }),
+        Object.assign(tag('期限超過','red'), { label:'博報堂DY 次回アクション', meta:'4日' })
+      ]}
+    ];
+
+    const tabs = [
+      { label:'ホーム', icon:'house', fg:'#005bac' },
+      { label:'やること', icon:'list-todo', fg:'#5d6470' },
+      { label:'探す', icon:'search', fg:'#5d6470' }
+    ];
+
+    const treeApps = TREE.map((a) => {
+      const done = a.groups.some((g) => g.items.some((i) => BUILT[i.url]));
+      return {
+        label:a.label, icon:a.icon, path:a.path,
+        color:a.color || T[a.key][0], tint:a.tint || T[a.key][1],
+        status: done ? '一部あり' : 'これから',
+        stBg: done ? '#e7f6f0' : '#f2f4f7',
+        stFg: done ? '#197a4b' : '#5d6470',
+        groups: a.groups.map((g) => ({
+          title: g.title || '',
+          items: g.items.map((i) => {
+            const href = BUILT[i.url];
+            return { label:i.label, url:i.url, href: href || '#',
+              dot: href ? '#197a4b' : '#d7dbe0', fg: href ? '#1a1d24' : '#5d6470' };
+          })
+        }))
+      };
+    });
+
+    const s = this.state;
+    const pcOffCount = ALL.filter((d) => s.aiOff[d.id]).length;
+    const spOffCount = ALL.filter((d) => s.spOff[d.id]).length;
+
+    const ai = {
+      placeholder: '書く・貼る。ひとことでも、議事録やメールの丸ごと貼り付けでも構いません',
+      source: this._text ? this._text.slice(0, 42) : '08/08 東急CM 定例（文字起こし 3,412字）',
+      onInput: (e) => { this._text = e.target.value; },
+      busy: s.aiStep === 'busy',
+      confirm: s.aiStep === 'confirm',
+      drafts: this.draftView('all', s.aiOff, (id) => this.setState((p) => ({ aiOff: Object.assign({}, p.aiOff, { [id]: !p.aiOff[id] }) }))),
+      commitLabel: '登録する（' + (ALL.length - pcOffCount) + '件）',
+      toast: s.aiToast,
+      files: s.aiFiles.length > 0,
+      fileList: s.aiFiles.map((f, k) => Object.assign({}, f, {
+        remove: () => this.setState((p) => ({ aiFiles: p.aiFiles.filter((_, j) => j !== k) }))
+      })),
+      rec: s.aiRec,
+      recTime: '0:' + String(s.aiSec).padStart(2, '0'),
+      bars: [10,16,7,14,18,9,13,6,15,11,17,8].map((h, k) => ({ h: h + 'px', d: (k * 0.07).toFixed(2) + 's' })),
+      tools: [
+        { icon:'paperclip', label:'ファイルを添付', go: () => this.attach({ icon:'file-text', name:'見積_東急CM.pdf', size:'214 KB' }) },
+        { icon:'image', label:'画像を添付', go: () => this.attach({ icon:'image', name:'名刺_田中様.jpg', size:'1.2 MB' }) },
+        { icon:'mic', label:'録音する', go: () => this.startRec() }
+      ],
+      parse: () => {
+        this.setState({ aiStep: 'busy' });
+        clearTimeout(this._p);
+        this._p = setTimeout(() => this.setState({ aiStep: 'confirm', aiOff: {} }), 1100);
+      },
+      stopRec: () => this.stopRec(),
+      cancel: () => this.setState({ aiStep: 'idle' }),
+      commit: () => {
+        const n = this.register('all', s.aiOff);
+        this.setState({ aiStep: 'idle', aiToast: n + '件を振り分けて登録しました（元の文も残しました）' });
+        clearTimeout(this._tt);
+        this._tt = setTimeout(() => this.setState({ aiToast: '' }), 3200);
+      },
+      sp: {
+        open: s.spStep !== 'closed',
+        isCompose: s.spStep === 'compose',
+        isBusy: s.spStep === 'busy',
+        isConfirm: s.spStep === 'confirm',
+        toast: s.spToast,
+        openCompose: () => this.setState({ spStep: 'compose', spOff: {} }),
+        close: () => this.setState({ spStep: 'closed' }),
+        onInput: (e) => { this._spText = e.target.value; },
+        hasFiles: s.spFiles.length > 0,
+        files: s.spFiles.map((f, k) => Object.assign({}, f, {
+          remove: () => this.setState((p) => ({ spFiles: p.spFiles.filter((_, j) => j !== k) }))
+        })),
+        rec: s.spRec,
+        recTime: '0:' + String(s.spSec).padStart(2, '0'),
+        cancelRec: () => { clearInterval(this._sr); this.setState({ spRec: false }); },
+        stopRec: () => {
+          clearInterval(this._sr);
+          this.setState({ spRec: false, spStep: 'busy' });
+          clearTimeout(this._sp);
+          this._sp = setTimeout(() => this.setState({ spStep: 'confirm' }), 1200);
+        },
+        tools: [
+          { icon:'paperclip', label:'ファイル', go: () => this.setState((p) => ({ spFiles: p.spFiles.concat([{ icon:'file-text', name:'見積_東急CM.pdf', size:'214 KB' }]) })) },
+          { icon:'image', label:'写真を撮る', go: () => this.setState((p) => ({ spFiles: p.spFiles.concat([{ icon:'image', name:'名刺_田中様.jpg', size:'1.2 MB' }]) })) },
+          { icon:'mic', label:'録音', go: () => { this.setState({ spRec: true, spSec: 0 }); clearInterval(this._sr); this._sr = setInterval(() => this.setState((p) => ({ spSec: (p.spSec + 1) % 60 })), 1000); } }
+        ],
+        drafts: this.draftView('all', s.spOff, (id) => this.setState((p) => ({ spOff: Object.assign({}, p.spOff, { [id]: !p.spOff[id] }) }))),
+        commitLabel: '登録する（' + (ALL.length - spOffCount) + '件）',
+        parse: () => { this.setState({ spStep: 'busy' }); clearTimeout(this._sp); this._sp = setTimeout(() => this.setState({ spStep: 'confirm' }), 1100); },
+        commit: () => {
+          const n = this.register('all', s.spOff);
+          this.setState({ spStep: 'closed', spToast: n + '件を振り分けて登録しました' });
+          clearTimeout(this._st);
+          this._st = setTimeout(() => this.setState({ spToast: '' }), 3000);
+        }
+      }
+    };
+
+    return {
+      ai,
+      ui: {
+        loading: !this.state.loaded,
+        loaded: this.state.loaded,
+        skels: [1,2,3,4,5,6],
+        swOpen: this.state.swOpen,
+        sheet: this.state.sheet,
+        noop: () => {},
+        toggleSw: () => this.setState((s) => ({ swOpen: !s.swOpen })),
+        closeSw: () => this.setState({ swOpen: false }),
+        openSheet: () => this.setState({ sheet: true }),
+        closeSheet: () => this.setState({ sheet: false }),
+        swApps: apps.filter((a) => a.key !== 'admin').map((a) => ({ label:a.label, icon:a.icon, color:a.color, tint:a.tint, pick: () => this.setState({ swOpen:false }) }))
+      },
+      top: {
+        apps, event, cards, tabs,
+        chips: [{ label:'お待たせ', n:'3' }, { label:'期限切れ', n:'2' }],
+        sheet: [
+          { icon:'pencil', label:'ひとことで書く', note:'誰に・何を・いつまでに を読み取ります' },
+          { icon:'clipboard-paste', label:'メールを貼る', note:'問い合わせとして受け付けます' },
+          { icon:'mic', label:'打合せを録音する', note:'議事録から決定事項と宿題を抽出' }
+        ]
+      },
+      tree: { apps: treeApps }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

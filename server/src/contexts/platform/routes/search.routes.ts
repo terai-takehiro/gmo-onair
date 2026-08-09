@@ -22,6 +22,10 @@ const SEARCH_MODULES = {
   projects: 'sales',
   customers: 'sales',
   vendors: 'budget',
+  // **機材を足したのはモックの文言に合わせるため**（上辺バーは
+  // 「案件・お客様・機材を探す」と書いてある）。書いてあるのに探せないと、
+  // 押した人は「壊れている」と受け取り、以後この窓を使わなくなる
+  equipment: 'equipment',
 } as const;
 
 // GET /search?q=keyword - Cross-search across entities
@@ -32,7 +36,7 @@ router.get('/', requireAuth, async (req, res) => {
     meetsPermissionLevel(req.user?.role, req.user?.permissions?.[SEARCH_MODULES[kind]], 'reader');
 
   if (!q || q.length < 1) {
-    res.json({ success: true, data: { projects: [], customers: [], vendors: [] } });
+    res.json({ success: true, data: { projects: [], customers: [], vendors: [], equipment: [] } });
     return;
   }
 
@@ -60,7 +64,17 @@ router.get('/', requireAuth, async (req, res) => {
       )
     : [];
 
-  res.json({ success: true, data: { projects, customers, vendors } });
+  // 機材は名前・機材コード・型番で引く（現場は型番で探すことが多い）
+  const equipment = can('equipment')
+    ? await queryAll(
+        `SELECT id, eq_code, name, model_number FROM equipment_items
+          WHERE (name ILIKE ? ESCAPE '\\' OR eq_code ILIKE ? ESCAPE '\\' OR model_number ILIKE ? ESCAPE '\\')
+            AND deleted_at IS NULL LIMIT 5`,
+        [like, like, like],
+      )
+    : [];
+
+  res.json({ success: true, data: { projects, customers, vendors, equipment } });
 });
 
 export default router;

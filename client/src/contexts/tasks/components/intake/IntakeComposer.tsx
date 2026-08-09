@@ -19,7 +19,9 @@
  */
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Image as ImageIcon, Loader2, Mic, Paperclip, Send, X } from 'lucide-react';
+import {
+  ArrowRight, GitBranch, Image as ImageIcon, Loader2, Mic, Paperclip, Send, Sparkles, X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -68,7 +70,29 @@ export function IntakeComposer({
   }
 
   return (
-    <div className="rounded-card border border-primary-border bg-primary-surface-weak/40 p-3 sm:p-4">
+    <div className={cn(
+      'rounded-card p-3 sm:p-4',
+      // モックの投入口は**白いカード**（`#fff` ＋ 既定の罫）。淡い青の面にすると
+      // トップの中でここだけ色が付き、「お知らせ」の帯に見える
+      compact ? 'border border-primary-border bg-primary-surface-weak/40' : 'border border-border bg-card',
+    )}
+    >
+      {/*
+        見出し。**スマホでは出さない** — シートが同じことを言う枠を既に持っており、
+        2 行に増えると書く場所が下がる
+      */}
+      {!compact && (
+        <div className="mb-2.5 flex flex-wrap items-center gap-2">
+          <Sparkles className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+          <span className="text-cardtitle">依頼・タスクを書き留める</span>
+          <div className="flex-1" />
+          {/* **行き先を人に選ばせない**ことを、書く前に見えるところに出す */}
+          <span className="rounded-control text-sub-sm inline-flex items-center gap-1.5 border border-border bg-surface-subtle px-2.5 py-1 font-bold text-muted-foreground">
+            <GitBranch className="h-3 w-3 shrink-0" aria-hidden="true" />行き先は AI が振り分けます
+          </span>
+        </div>
+      )}
+
       <Textarea
         value={text}
         onChange={(e) => onTextChange(e.target.value)}
@@ -140,9 +164,13 @@ export function IntakeComposer({
         </Button>
       </div>
 
+      {/*
+        **「押すまで登録しません」を必ず残す。** 書いた瞬間に登録されると思われると、
+        言い回しを気にして書く手が止まる（この投入口はまず書いてもらうことが目的）
+      */}
       <p className="text-note mt-2 text-muted-foreground">
-        期限は<span className="font-bold text-foreground">何月何日何時何分まで</span>で書くと、そのまま登録できます。
-        PDF・画像は文字を読み取ってから、同じ確認画面に出します。
+        誰に・何を・いつまでに を AI が読み取ります。画像・PDF は文字を起こして同じ確認画面に出します。
+        <span className="font-bold text-foreground">押すまで登録しません</span>
       </p>
 
       {doneMsg && (

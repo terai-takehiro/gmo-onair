@@ -14,6 +14,7 @@
  */
 import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, Tag, ExternalLink } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { ProjectTypeLabels } from '@/types';
@@ -63,9 +64,16 @@ export function OverviewTab({
   bookings: StudioBooking[];
   activities: ActivityLog[];
 }) {
-  const revenue = Number(project.total_revenue) || 0;
+  /*
+   * 事実の帯の3つ目は**見積金額**（モックの指定）。
+   * **一覧と同じ数え方**にそろえる — 見積があればその額、まだ無ければ
+   * 想定金額を薄字で出す（`ProjectRows` と同じ）。ここで別の計算を書くと、
+   * 同じ案件が一覧と詳細で違う額になる。
+   */
+  const estimate = Number(project.estimate_amount) || 0;
   const expected = Number(project.expected_amount) || 0;
-  const amount = revenue > 0 ? revenue : expected > 0 ? expected : null;
+  const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
+  const isEstimate = estimate > 0;
 
   // 未完了で期限がいちばん近い次回アクション。**無いことも出す** (空欄にしない)
   const nextAction = activities
@@ -99,13 +107,14 @@ export function OverviewTab({
                   </span>
                 ))}
                 {bookings.length > 4 && (
-                  <span className="text-sub-sm self-center text-muted-foreground">ほか {bookings.length - 4}</span>
+                  <span className="text-sub-sm self-center text-muted-foreground">ほか {bookings.length - 4}室</span>
                 )}
               </div>
             )}
           </Fact>
-          <Fact icon={Wallet} label={revenue > 0 ? '確定した売上' : '想定金額'}>
-            <Money value={amount} className="text-list w-full" />
+          <Fact icon={Wallet} label="見積金額">
+            {/* 見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方） */}
+            <Money value={amount} className={cn('text-list w-full', !isEstimate && 'text-muted-foreground')} />
           </Fact>
           <Fact icon={CalendarClock} label="次にやること">
             {nextAction ? (
