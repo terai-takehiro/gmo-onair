@@ -284,6 +284,63 @@ async function runIntakeTranscription(
 }
 
 /**
+ * 録音中の**下読み**（`POST /tasks/intake/preview-transcribe`）
+ *
+ * ── 何のためにあるか ────────────────────────────────────────
+ *
+ * 録音は「押したあと、本当に録れているのか」が分からない操作です。
+ * 赤い点と経過時間だけでは、**マイクが別の機器を向いていても同じ見た目**になります。
+ * 20 秒ごとの短い断片をその場で文字にして 3〜4 行だけ出すと、
+ * **自分の声が拾えているかがその場で分かります**。
+ *
+ * ── ここで作った文字は「使い捨て」──────────────────────────
+ *
+ * **最終的な文字起こしは、止めたあとに録音まるごとを 1 回で通したもの**です。
+ * 下読みは 20 秒で切っているので**切れ目で単語が割れます**。議事録は
+ * 取引先との合意の記録なので、割れた文字をそのまま本文にはしません。
+ * ⚠️ そのぶん Whisper を 2 回通します（下読み ＋ 本番）。費用が気になる場合は
+ * 下読みの間隔を延ばすか、この口を止めてください（録音自体は止まりません）。
+ *
+ * ── 何も残さない ────────────────────────────────────────────
+ *
+ * DB にも `ai_outputs` にも書きません。**AI の出力として記録するのは
+ * 本番の文字起こしだけ**です（下読みを混ぜると、同じ録音が 2 回
+ * 教師データに入って無修正採用率がぶれます）。
+ */
+const previewUpload = multer({
+  storage: multer.memoryStorage(),
+  // 20 秒の断片は 32kbps で 80KB ほど。**大きいものはここで断る**
+  limits: { fileSize: 3 * 1024 * 1024, files: 1 },
+}).single('audio');
+
+/** 下読みは押した人を待たせるので短く諦める（録音は止めない） */
+const PREVIEW_STT_TIMEOUT_MS = 20_000;
+
+router.post('/tasks/intake/preview-transcribe', ...canEdit, previewUpload, async (req, res) => {
+  me(req);
+  if (!isSttConfigured()) {
+    // **200 で返す。** 下読みが出ないだけで録音は続けられるので、
+    // 画面をエラーにしない（赤い帯を出すと録音を止めてしまう人がいる）
+    res.json({ success: true, data: { text: '', reason: 'NOT_CONFIGURED' } });
+    return;
+  }
+  const file = req.file;
+  if (!file) throw new AppError(400, 'VALIDATION_ERROR', '音声が添付されていません');
+
+  try {
+    const stt = await transcribeAudio(
+      file.buffer,
+      normalizeAudioName(fileName(file), file.mimetype),
+      { timeoutMs: PREVIEW_STT_TIMEOUT_MS },
+    );
+    res.json({ success: true, data: { text: stt.text } });
+  } catch (e) {
+    // **失敗しても 200。** 下読みが 1 回抜けただけで録音を止めない
+    res.json({ success: true, data: { text: '', reason: (e as Error).message } });
+  }
+});
+
+/**
  * 投入する。**何も登録しない**（下書きを返すだけ）。
  *
  * ── 投入口は 1 つ（v4）─────────────────────────────────────
