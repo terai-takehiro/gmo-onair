@@ -17,8 +17,7 @@ import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { useAuth } from "@/hooks/useAuth";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
 import { useCollabDoc } from "@/lib/collab/useCollabDoc";
-import { applyDataDiff } from "@/lib/collab/ydocDiff";
-import { yDocToData } from "@gmo-onair/shared/src/collab/yjsDoc";
+import { applyDataUpdate } from "@/lib/collab/ydocDiff";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
@@ -325,17 +324,16 @@ export default function EditorPage() {
   const updateData = useCallback((updater: (data: DocumentData) => DocumentData) => {
     if (collabEnabled) {
       // collab: Y.Doc を真実源に。現在の Y 状態を prev として updater を適用し、差分を Y 操作へ翻訳。
-      collabMutate((ydoc) => {
-        const prev = yDocToData(ydoc) as DocumentData;
-        const next = updater(prev);
-        applyDataDiff(ydoc, prev, next);
-      });
+      // (id の後付けは applyDataUpdate が持つ。id 無しのまま差分を取ると倍々に増える)
+      collabMutate((ydoc) => applyDataUpdate(ydoc, (prev) => updater(prev as DocumentData)));
       // React 表示は collabData→doc.data 同期 effect が更新する (ここでは setDoc しない)
       return;
     }
     setDoc((prev) => {
       if (!prev) return prev;
-      return { ...prev, data: updater({ ...prev.data }) };
+      // collab 経路と同じ不変条件 (全 section/row に id) をここでも保つ。
+      // 保存された JSONB を次に collab で開いたときに id 無しから始めないため。
+      return { ...prev, data: ensureStableIds(updater({ ...prev.data })).data as DocumentData };
     });
     setDirty(true);
     // 競合状態は編集しても解除しない (バナーで「最新を読み込む」を促す)

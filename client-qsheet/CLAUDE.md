@@ -38,3 +38,16 @@ v4.1 以降で順に v4 へ載せ替える。
   **音声サポートだけログイン不要の公開URL**（`/qsheet/audio/:id`）— 認証を付けないこと
 - **Socket.IO** `/qsheet` ネームスペース: OnAir↔ランダウンの同期（`cue:update/sync/next/prev/jump/play/pause/reset`）
 - サーバー側は `server/src/contexts/qsheet`（`collab.ts` が Yjs の部屋を持つ）
+
+## 不変条件: 全ての section / row は `id` を持つ
+
+同時編集の差分器（`src/lib/collab/ydocDiff.ts`）は **`id` を鍵に prev と next を突き合わせる**。
+id が無い section / row は毎回「Y.Doc にまだ無いもの」と判定され、
+**1 回の編集ごとに全部がもう一度追加される**（倍々に増える）。
+
+- 実際に **CSV 取込が id を付けておらず**、取り込んだあと打鍵するたびに倍増して落ちた
+  （実測: 8 回の編集で 3 → 769 ロール。20 回で百万件）
+- section / row を新しく作るところでは **必ず `genId("sec")` / `genId("row")`**（`src/lib/stableIds.ts`）
+- 付け忘れても壊れないよう、`updateData` は `applyDataUpdate` を通す
+  （① Y 側の id 無しを埋める → ② prev を読む → ③ next に id を付ける、の順。順番を崩すと増殖する）
+- 固定してあるテスト: `shared/tests/qsheetCsvImport.test.ts`（`npm run test`）
