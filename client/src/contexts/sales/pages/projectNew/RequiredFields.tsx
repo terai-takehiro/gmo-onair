@@ -1,5 +1,5 @@
 /**
- * 「いま必要な5つ」（案件作成・PC とスマホで**共通**）
+ * 「いま必要な5つ」（**案件作成と案件を直す・PC とスマホで共通**）
  *
  *   お客様 ／ 社内の担当 ／ 案件名 ／ 客入れの有無 ／ 案件分類（＋ ステージ）
  *
@@ -10,6 +10,14 @@
  * **PC とスマホで同じ部品を使います。** 並びは1列（`grid-cols-1`）で、
  * 640px 以上でだけ2列に開きます — スマホ（390px）では自然に縦積みになるので、
  * 画面ごとに書き分ける必要がありません。
+ *
+ * ── 直す画面ではステージだけ出しません（`mode="edit"`）────────
+ *
+ * 段を動かすと**履歴（`project_stage_changes`）が1行増え**、失注なら理由が要り、
+ * 受注なら GLS 発番の確認が挟まります。この保存（`PUT /projects/:id`）は
+ * `stage` を1文字も見ないので、**ここに置くと押せるのに何も起きない欄**になります。
+ * 直す画面のステージは見出しの札で見せ、変えるのは案件詳細のヘッダーです
+ * （`PATCH /projects/:id/stage`）。
  */
 import { Users, UserX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -20,11 +28,10 @@ import {
   AUDIENCES, AUDIENCE_LABEL, PROJECT_CATEGORIES, PROJECT_CATEGORY_LABEL,
   flowHint, type Audience, type ProjectCategory,
 } from '../../classification';
-import { CREATABLE_STAGES } from './fields';
+import { CREATABLE_STAGES, type FieldsMode, type ProjectFieldsState } from './fields';
 import { Field } from './Field';
-import type { NewProjectForm } from './useNewProjectForm';
 
-export function RequiredFields({ f }: { f: NewProjectForm }) {
+export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; mode?: FieldsMode }) {
   const { v, set } = f;
   const hint = flowHint(v.audience, v.project_category);
 
@@ -103,16 +110,19 @@ export function RequiredFields({ f }: { f: NewProjectForm }) {
         {hint && <p className="text-note mt-1 font-bold text-primary">{hint}</p>}
       </Field>
 
-      <Field label="ステージ" hint="受注はここでは選べません（GLS の発番は受注が固まってからです）">
-        <Select value={v.stage} onValueChange={(x) => set('stage', x as ProjectStage)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {CREATABLE_STAGES.map((st) => (
-              <SelectItem key={st} value={st}>{ProjectStageLabels[st]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+      {/* 直す画面では出しません（この保存は `stage` を見ないため。冒頭の理由） */}
+      {mode === 'create' && (
+        <Field label="ステージ" hint="受注はここでは選べません（GLS の発番は受注が固まってからです）">
+          <Select value={v.stage} onValueChange={(x) => set('stage', x as ProjectStage)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CREATABLE_STAGES.map((st) => (
+                <SelectItem key={st} value={st}>{ProjectStageLabels[st]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
     </div>
   );
 }

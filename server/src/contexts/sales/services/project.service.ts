@@ -765,7 +765,7 @@ export class ProjectService {
     const { name, customer_id, expected_amount, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external,
-            dates, gls_category } = data;
+            dates, gls_category, intake_channel } = data;
     /**
      * **主担当は空にできない。** `projects.assigned_to` は NOT NULL の外部キーなので、
      * 空文字や未指定をそのまま渡すと FK 違反で 500 になります。
@@ -833,7 +833,30 @@ export class ProjectService {
     // 無観客にしたら来場人数は落とす（create と同じ理由）
     const attendeeFinal = cls.audience === 'no_audience' ? null : attendeeCount;
 
-    const cType = normalizeCustomerType(customer_type);
+    /**
+     * **リード経路も「渡さなければ今の値を保つ」** (migration 165 の列)。
+     *
+     * これまで `update()` はこの列を1度も書いていませんでした。作るときだけ入り、
+     * **あとから直す道がどこにも無かった**（直す画面に欄が無かったので気づけない）。
+     * `project-ai-feedback.service` の突き合わせ項目には最初から入っているので、
+     * 人が経路を直しても差分は必ず「無修正」になっていました。
+     *
+     * **知らない値は NULL に落とす** — DB の CHECK が弾くと保存ごと 500 になります
+     * （`create` と同じ守り方）。空文字は「分からない」＝ NULL です。
+     */
+    const channelValue = intake_channel === undefined
+      ? existing.intake_channel
+      : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
+
+    /**
+     * **グループ区分も未指定なら今の値を保つ。** `normalizeCustomerType` は
+     * 知らない値を `external` に倒すので、欄を持たない呼び出しから保存されるだけで
+     * **グループ内の案件が黙って社外に戻り**、見積がグループ内価格を選ばなくなります
+     * （`pricing.tools.ts` / `SimulationDialog` がこの列で単価を選ぶ）。
+     */
+    const cType = customer_type === undefined
+      ? normalizeCustomerType(existing.customer_type)
+      : normalizeCustomerType(customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
     // changeGlsCategory() を使う (リクエスト経路は PATCH /projects/:id/gls-category)。
@@ -871,6 +894,7 @@ export class ProjectService {
          project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
+         intake_channel=?,
          application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -879,6 +903,7 @@ export class ProjectService {
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
          contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
+         channelValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -889,6 +914,7 @@ export class ProjectService {
          project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
+         intake_channel=?,
          application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -897,6 +923,7 @@ export class ProjectService {
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
          contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
+         channelValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]

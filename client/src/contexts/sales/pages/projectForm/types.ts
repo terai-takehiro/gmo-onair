@@ -1,19 +1,45 @@
 /**
  * 案件フォームの値と、日付まわりの小さな道具 (v4)
  *
- * 画面を持たない部分だけを置きます。**中のロジックは分割前と同じ**です
- * (枠の入れ替えと中身の作り直しを同じ回でやると、どちらが原因で壊れたのか
- *  切り分けられなくなるため)。
+ * 画面を持たない部分だけを置きます。
+ *
+ * ── 項目は案件作成（`projectNew/fields.ts`）が正 ──────────────
+ *
+ * 入力欄は `projectNew/RequiredFields` / `projectNew/MoreFields` を
+ * **そのまま呼びます**。ここに残っているのは、そのどちらにも出さないもの
+ * （BOX の URL・申込書・番組情報・日程）と、react-hook-form が持つ形だけです。
+ * **新しい項目をここにだけ足さないこと** — 作る画面に無い欄がまた増えます。
  */
+import type { Audience, ProjectCategory } from '../../classification';
 
 export interface FormValues {
   name: string;
   customer_id: string;
-  customer_type: string;
+  customer_type: 'internal' | 'external';
+  /**
+   * 旧1段の案件種類。**この画面はもう欄を持ちません**（読むだけ）。
+   * 分類は下の2段が正で、`project_type` はサーバーが2段から導きます
+   * （`project-classification.ts`）。**保存では送りません** —
+   * 送ると2段と種類がずれた行ができます。
+   */
   project_type: string;
   project_type_other: string;
+  /**
+   * 客入れの有無 × 案件分類（migration 182）。**案件作成と同じ2段**です。
+   * ここが空のまま保存すると分類の無い案件になるので、必須にしてあります
+   * （GLS-B だけは訊きません。`missingOf`）。
+   */
+  audience: Audience | '';
+  project_category: ProjectCategory | '';
   /** 'A' = 案件 (GLS-A) / 'B' = プロジェクト (GLS-B・プロジェクト管理の持ち物) */
   gls_category: '' | 'A' | 'B';
+  /** 登録の項目（migration 165 / 170）。**案件作成と同じものを直せます** */
+  contact_name: string;
+  recurrence: 'single' | 'regular';
+  /** 来場人数。**文字列で持つ** — 空欄と 0 名を見分けるため（数値だと両方 0） */
+  attendee_count: string;
+  goal: string;
+  intake_channel: string;
   event_start: string;
   event_end: string;
   expected_amount: number;
@@ -29,7 +55,9 @@ export interface FormValues {
 
 export const EMPTY_FORM: FormValues = {
   name: '', customer_id: '', customer_type: 'external', project_type: '', project_type_other: '',
+  audience: '', project_category: '',
   gls_category: '',
+  contact_name: '', recurrence: 'single', attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
   broadcast_type: '', media_platform: '', tags: '',
   box_url_internal: '', box_url_external: '',

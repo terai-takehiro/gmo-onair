@@ -34,9 +34,21 @@
  *
  * ボタンは「**案件にする（与件化）**」です。GLS は**受注が固まった時点**で採ります
  * （案件詳細から）。ここで採ると、まだ受注していないものに正式な番号が並びます。
+ *
+ * ── ここが「直す画面」の正でもある ──────────────────────────
+ *
+ * `/sales/projects/:id/edit`（案件を直す）は**この値の形と、この項目の部品
+ * （`RequiredFields` / `MoreFields`）をそのまま使います**。
+ * 直す画面が自前の欄を持っていた頃は、作るときに訊いた
+ * 客入れの有無・案件分類・ご担当・継続区分・来場人数・案件内容・リード経路が
+ * **直す画面にひとつも無く**、代わりに旧 `project_type` の1段プルダウンが
+ * 残っていました（同じ案件が画面によって違う分類で見えていた）。
+ *
+ * → **項目を足すときはここに足すだけ**で両方の画面に出ます。
+ *   どちらか片方にだけ欄を作らないこと。
  */
 import type { ProjectStage } from '@/types';
-import type { Audience, ProjectCategory } from '../../classification';
+import { asksAttendees, type Audience, type ProjectCategory } from '../../classification';
 
 export interface NewProjectValues {
   customer_id: string;
@@ -47,6 +59,12 @@ export interface NewProjectValues {
   /** 案件分類（必須）。空 = まだ選んでいない */
   project_category: ProjectCategory | '';
   gls_category: 'A' | 'B';
+  /**
+   * グループ区分。**直す画面だけが欄を出します**（作るときは訊きません）。
+   * 見積の単価（定価 / グループ内価格）がこの値で決まるので、
+   * 列を消せません（`pricing.tools.ts` / `SimulationDialog`）。
+   */
+  customer_type: 'internal' | 'external';
   recurrence: 'single' | 'regular';
   stage: ProjectStage;
   dates: string[];
@@ -60,6 +78,43 @@ export interface NewProjectValues {
   notes: string;
 }
 
+/** お客様の候補。`is_gmo_group` はリード経路を「グループ案件」に固定するために要る */
+export interface CustomerOption {
+  id: string;
+  name: string;
+  short_name?: string | null;
+  /** GMOインターネットグループのグループ会社か（migration 182） */
+  is_gmo_group?: boolean | null;
+}
+
+export interface UserOption { id: string; name: string }
+
+/**
+ * どちらの画面が項目を並べているか。
+ *
+ *   `create` … 案件作成（`/sales/projects/new`）
+ *   `edit`   … 案件を直す（`/sales/projects/:id/edit`）
+ *
+ * **出し分けは項目の部品の中に書きます**（呼ぶ側で欄を組み直さない）。
+ * 呼ぶ側に書くと、片方の画面にだけ欄が増えた状態にまた戻ります。
+ */
+export type FieldsMode = 'create' | 'edit';
+
+/**
+ * `RequiredFields` / `MoreFields` が要るものだけ。
+ *
+ * 案件作成は `useNewProjectForm`、直す画面は `useProjectForm` が
+ * （react-hook-form の値を写して）これを組み立てます。
+ */
+export interface ProjectFieldsState {
+  v: NewProjectValues;
+  set: <K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => void;
+  customers: CustomerOption[];
+  users: UserOption[];
+  /** お客様がグループ会社か。リード経路を「グループ案件」に固定する */
+  isGroup: boolean;
+}
+
 export const EMPTY_NEW_PROJECT: NewProjectValues = {
   customer_id: '',
   contact_name: '',
@@ -69,6 +124,7 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   audience: '',
   project_category: '',
   gls_category: 'A',
+  customer_type: 'external',
   recurrence: 'single',
   stage: 'neta',
   dates: [],
@@ -91,16 +147,41 @@ export const RECURRENCE_LABEL: Record<'single' | 'regular', string> = {
 };
 
 /**
+ * 「進んだら聞く」の畳んだ札に出す数。**来場人数は無観客のとき出ない**ので数も変わります。
+ *
+ *   作る画面 … ご担当・継続区分・実施日・案件内容・予算・リード経路・
+ *              最初のタスク・メモ ＝ 8（＋来場人数）
+ *   直す画面 … ご担当・継続区分・案件内容・予算・リード経路・グループ区分 ＝ 6（＋来場人数）
+ *
+ * **`MoreFields` ではなくここに置いてあります** — 欄を足したときに数だけ
+ * 直し忘れると、畳んだ札の数と中身が食い違って**開くまで気づけません**。
+ * `shared/tests/projectFields.test.ts` が両方の段を固定しています。
+ */
+export function moreFieldCount(audience: string, mode: FieldsMode = 'create'): number {
+  const base = mode === 'create' ? 8 : 6;
+  return asksAttendees(audience) ? base + 1 : base;
+}
+
+/**
  * 足りない項目。**押せなくするのではなく名指しする** —
  * 押せないボタンだけだと「何が足りないのか」を探すことになる。
  * 並びはフォームの並びと同じにする（上から順に埋めれば消える）。
+ *
+ * **作る画面と直す画面で同じ関数を使います。** 写すと、片方だけ必須が増えたときに
+ * 「作れたのに保存できない案件」ができます。
+ *
+ * ⚠️ **2段分類は GLS-B のときだけ訊きません。** 工事・構築のプロジェクトには
+ * 「客入れの有無」も「配信か収録か」も意味が無く、サーバーも NULL のままにします
+ * （`project-classification.ts`）。作る画面は必ず GLS-A なので、ここが効くのは
+ * 直す画面で古い GLS-B の行を開いたときだけです。
  */
 export function missingOf(v: NewProjectValues): string[] {
+  const asksClassification = v.gls_category !== 'B';
   return [
     v.customer_id ? null : 'お客様',
     v.name.trim() ? null : '案件名',
-    v.audience ? null : '客入れの有無',
-    v.project_category ? null : '案件分類',
+    !asksClassification || v.audience ? null : '客入れの有無',
+    !asksClassification || v.project_category ? null : '案件分類',
     v.assigned_to ? null : '社内の担当',
   ].filter((m): m is string => m !== null);
 }

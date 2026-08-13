@@ -16,34 +16,26 @@ import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
-import { EMPTY_NEW_PROJECT, missingOf, type NewProjectValues } from './fields';
+import {
+  EMPTY_NEW_PROJECT, missingOf,
+  type CustomerOption, type NewProjectValues, type ProjectFieldsState, type UserOption,
+} from './fields';
 import { useProjectDecisions, type ProjectDecisions } from './useCreateProject';
 import { useIntakeItems } from './IntakeRail';
 import { useIntakeSeed, type IntakeSelection } from './useIntakeSeed';
 import type { InboxItem } from '../inbox/kinds';
 
-export interface CustomerOption {
-  id: string;
-  name: string;
-  short_name?: string | null;
-  /** GMOインターネットグループのグループ会社か（migration 182） */
-  is_gmo_group?: boolean | null;
-}
-
-export interface UserOption { id: string; name: string }
-
-export interface NewProjectForm {
-  v: NewProjectValues;
-  set: <K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => void;
+/**
+ * 案件作成の状態。**項目の部品が要るぶん（`ProjectFieldsState`）を必ず含みます** —
+ * `RequiredFields` / `MoreFields` は直す画面とも共用なので、
+ * ここで別の形にすると片方の画面だけ型が合わなくなります。
+ */
+export interface NewProjectForm extends ProjectFieldsState {
   items: InboxItem[];
   selected: InboxItem | null;
   setSelected: (item: InboxItem | null) => void;
   selection: IntakeSelection | null;
-  customers: CustomerOption[];
-  users: UserOption[];
   customer: CustomerOption | null;
-  /** お客様がグループ会社か。リード経路を「グループ案件」に固定する */
-  isGroup: boolean;
   missing: string[];
   decisions: ProjectDecisions;
 }
