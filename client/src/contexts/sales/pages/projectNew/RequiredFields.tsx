@@ -39,7 +39,7 @@ export function RequiredFields({ f }: { f: NewProjectForm }) {
           }))}
           value={v.customer_id}
           onChange={(id) => set('customer_id', id)}
-          placeholder="会社を探す"
+          placeholder="会社を選ぶ"
         />
       </Field>
 

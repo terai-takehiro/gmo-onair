@@ -71,7 +71,7 @@ export function IntakeRail({
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-card border border-info-border bg-info-surface-weak px-3.5 py-3">
+    <div className="rounded-card border border-primary-border bg-primary-surface-weak px-3.5 py-3">
       <p className="text-sub mb-2 flex flex-wrap items-center gap-2 font-bold">
         <Inbox className="h-4 w-4 text-primary" aria-hidden="true" />
         自動で届いたもの

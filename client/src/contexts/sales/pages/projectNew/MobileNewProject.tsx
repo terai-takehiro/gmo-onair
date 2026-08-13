@@ -150,11 +150,15 @@ export function MobileNewProject() {
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
           {last ? (
+            // **スマホは「つくる」1語**（モック）。PC の見出しボタンは
+            // 「案件にする（与件化）」だが、375px の下端ボタンでは長い —
+            // 与件化の意味はこの前の画面（進んだら聞く・最初のタスク）で
+            // 十分に伝わっている
             <Button className="flex-1" onClick={decisions.promote} disabled={missing.length > 0 || decisions.busy}>
               {decisions.busy
                 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 : <Check className="mr-2 h-4 w-4" aria-hidden="true" />}
-              案件にする（与件化）
+              つくる
             </Button>
           ) : (
             <Button className="flex-1" onClick={() => setStep((s) => s + 1)} disabled={stepMissing.length > 0}>
