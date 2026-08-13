@@ -30,11 +30,20 @@ function BufferedInput({ value, onCommit, ...rest }: {
   );
 }
 
-/** value が 1 レンダー遅れて返ってくるドキュメント state (collab 経路と同じ形) */
+/**
+ * value が 1 レンダー遅れて返ってくるドキュメント state (collab 経路と同じ形)。
+ *
+ * `window.__remote(id, value)` で「他ユーザーがこの欄を書き換えた」を再現できる
+ * (フォーカスを奪わずにドキュメント側だけを変えたいので、ボタンではなく関数で公開する)。
+ */
 function LaggedDoc({ id, render }: { id: string; render: (value: string, store: (v: string) => void) => React.ReactNode }) {
   const [stored, setStored] = useState('');
   const [shown, setShown] = useState('');
   useEffect(() => { setShown(stored); }, [stored]);
+  useEffect(() => {
+    const w = window as unknown as { __remote?: Record<string, (v: string) => void> };
+    w.__remote = { ...(w.__remote || {}), [id]: setStored };
+  }, [id]);
   return (
     <p>
       {render(shown, setStored)}
