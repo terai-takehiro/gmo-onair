@@ -39,6 +39,21 @@ v4.1 以降で順に v4 へ載せ替える。
 - **Socket.IO** `/qsheet` ネームスペース: OnAir↔ランダウンの同期（`cue:update/sync/next/prev/jump/play/pause/reset`）
 - サーバー側は `server/src/contexts/qsheet`（`collab.ts` が Yjs の部屋を持つ）
 
+## 入力欄は素の `<input value onChange>` で書かない（日本語が壊れる）
+
+台本の内容を編集する欄は、**必ず `BufferedInput` / `BufferedTextarea`**
+（`src/components/editor/BufferedInput.tsx` / `CueRow.tsx`。中身は `src/lib/useBufferedValue.ts`）を使う。
+
+打つ → ドキュメント全体を作り直す → collab (Y.Doc) を経由して props が返る、という流れなので
+**value が返るのは 1 レンダー後**。素の controlled input だと、変換 (composition) の途中で
+React が DOM の値を古い props へ書き戻し、**変換中の文字が二重に入る**。
+
+- 実測: LED/XR シーンで「さくら」と打つと **「ささくさくらさくら」**（v3.2.3 まで）
+- **型でも lint でも気づけない。** `page.keyboard.type()` でも再現しない
+  （composition が起きないため）。確かめ方は `npm run verify:ime`
+  （CDP の `Input.imeSetComposition` で実際の変換を再現する）
+- `<select>` と数値・日付の欄はそのままでよい（変換が起きない）
+
 ## 不変条件: 全ての section / row は `id` を持つ
 
 同時編集の差分器（`src/lib/collab/ydocDiff.ts`）は **`id` を鍵に prev と next を突き合わせる**。

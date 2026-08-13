@@ -36,6 +36,7 @@
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh",
     "verify:ui": "node scripts/verify-ui.mjs",
+    "verify:ime": "node scripts/verify-ime.mjs",
     "fonts": "node scripts/vendor-fonts.mjs",
     "check:fonts": "node scripts/vendor-fonts.mjs --check",
     "verify:font": "node scripts/fetch-google-fonts.mjs",
