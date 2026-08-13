@@ -122,6 +122,8 @@ export interface Episode extends BaseEntity {
   project_id: string;
   episode_number: number;
   episode_code: string;
+  title: string | null;
+  status: string | null;
   recording_date: string | null;
   broadcast_date: string | null;
   delivery_date: string | null;
@@ -131,6 +133,9 @@ export interface Episode extends BaseEntity {
   actual_cost?: number;
   revenue_count?: number;
   purchase_count?: number;
+  /** この回に紐づく最上位タスクの件数・完了件数（v4 タスクタブの簡易一覧が使う） */
+  task_count?: number;
+  task_done_count?: number;
 }
 
 // 発注バッチ
@@ -164,9 +169,16 @@ export interface Revenue extends BaseEntity {
   assigned_to: string | null;
   tax_category: TaxCategory;
   amount: number;
+  subtitle: string | null;
+  /** 'estimate'（概算見積）/ 'confirmed'（確定） */
+  status: string;
   recognition_date: string | null;
   billing_date: string | null;
   payment_due_date: string | null;
+  invoice_issued: boolean;
+  invoice_no: string | null;
+  inspection_date: string | null;
+  paid_date: string | null;
   notes: string | null;
   // Joined
   project_name?: string;

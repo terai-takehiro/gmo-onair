@@ -116,7 +116,7 @@ function DesktopNewProject() {
           </p>
         )}
 
-        <div className="rounded-card border border-info-border bg-card px-4 py-4 lg:px-5">
+        <div className="rounded-card border border-primary-border bg-card px-4 py-4 lg:px-5">
           <p className="text-cardtitle mb-3">いま必要な5つ</p>
           <RequiredFields f={f} />
         </div>

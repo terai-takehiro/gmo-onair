@@ -18,7 +18,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Users, ListChecks } from 'lucide-react';
+import { AlertTriangle, Users, ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
 import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { ApplyFlowDialog } from '@/contexts/sales/pages/flow/ApplyFlowDialog';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import ViewToggle, { type TaskView } from '@/contexts/tasks/components/ViewToggle';
 import EpisodeScopeToggle from '@/contexts/tasks/components/EpisodeScopeToggle';
+import { EpisodesPanel } from '@/contexts/tasks/components/EpisodesPanel';
 import KanbanView from '@/contexts/tasks/components/KanbanView/KanbanView';
 import TaskListView from '@/contexts/tasks/components/TaskListView/TaskListView';
 import GanttView from '@/contexts/tasks/components/GanttView/GanttView';
@@ -140,6 +141,9 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
   // ビジネス案件は既定でガント (工程を追うのが目的なので)
   const [view, setView] = useState<TaskView>(project.gls_category === 'B' ? 'gantt' : 'kanban');
   const [episodeId, setEpisodeId] = useState<string | null>(null);
+  // 回の一覧（回を足す・進み具合を見る）は既定で畳む。**タブの主役はタスクの一覧**
+  // なので、常に開いていると案件を開くたびに縦に長い表を読むことになる
+  const [episodesOpen, setEpisodesOpen] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 lg:p-6">
@@ -151,8 +155,27 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
       </div>
 
       {isSeries && (
-        <div className="overflow-x-auto">
-          <EpisodeScopeToggle projectId={project.id} selectedEpisodeId={episodeId} onChange={setEpisodeId} />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="overflow-x-auto">
+              <EpisodeScopeToggle projectId={project.id} selectedEpisodeId={episodeId} onChange={setEpisodeId} />
+            </div>
+            {/*
+              旧「エピソード」タブを外した代わりの入口（v4 ⑥）。最新モックの
+              見えるタブバーには無いが、回を新しく作る手段がここにしか無いため
+              （`docs/v4-mock-deviations.md` 参照）。回そのものはこの絞り込みの
+              すぐ下に畳んで置く
+            */}
+            <button
+              type="button"
+              onClick={() => setEpisodesOpen((o) => !o)}
+              className="text-sub flex items-center gap-1 font-bold text-primary hover:underline"
+            >
+              {episodesOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+              回の一覧・回を足す
+            </button>
+          </div>
+          {episodesOpen && <EpisodesPanel projectId={project.id} />}
         </div>
       )}
 

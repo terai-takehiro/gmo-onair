@@ -170,8 +170,8 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
 
       {/* 会場・スタジオ。**ここでは押さえない** — 空きの確認が要る操作なので */}
       <div className="sm:col-span-2">
-        <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3 py-2 text-sub text-secondary-foreground">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+        <p className="rounded-note flex items-start gap-2 border border-primary-border bg-primary-surface-weak px-3 py-2 text-sub text-secondary-foreground">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span>
             部屋はここでは押さえません（空きの確認が要るためです）。
             つくったあと<strong className="font-bold">案件詳細の「予約」</strong>か

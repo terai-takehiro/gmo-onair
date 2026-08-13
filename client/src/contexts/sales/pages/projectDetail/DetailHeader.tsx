@@ -89,8 +89,6 @@ export interface DetailHeaderProps {
   glsNumber: string | null;
   code: string | null;
   stage: ProjectStage;
-  /** 連続もの (回を持つ) か。タブの出し分けに使う */
-  isSeries: boolean;
   tab: ProjectTabKey;
   counts: Partial<Record<ProjectTabKey, number>>;
   onChangeStage: (next: ProjectStage) => void;
@@ -103,14 +101,13 @@ export interface DetailHeaderProps {
 }
 
 export function DetailHeader({
-  id, name, customerName, glsNumber, code, stage, isSeries, tab, counts,
+  id, name, customerName, glsNumber, code, stage, tab, counts,
   onChangeStage, mobile, phase, updatedAt,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
   const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
   const tabs = PROJECT_TABS
-    .filter((t) => !t.seriesOnly || isSeries)
-    // **スマホは3つだけ。** 8タブを 375px に並べると1つ 40px 弱になり押し分けられない
+    // **スマホは3つだけ。** 7タブを 375px に並べると1つ 40px 弱になり押し分けられない
     .filter((t) => !mobile || mobileKeys.includes(t.key));
 
   return (

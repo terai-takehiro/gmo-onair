@@ -55,11 +55,20 @@ export function Panel({
   return (
     <section
       className={cn(
-        'rounded-card flex h-full flex-col border bg-card p-4 lg:px-5',
+        // **`overflow-hidden` が要る。** alert 帯は角丸の外まで四角く伸びるので、
+        // 切らないと角の丸みからはみ出た四角い隅が見える
+        'rounded-card flex h-full flex-col overflow-hidden border bg-card p-4 lg:px-5',
         alert ? 'border-destructive-border' : 'border-border'
       )}
     >
-      <div className="mb-3 flex shrink-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
+      <div
+        className={cn(
+          'mb-3 -mx-4 -mt-4 flex shrink-0 flex-wrap items-baseline gap-x-2.5 gap-y-1 px-4 py-3 lg:-mx-5 lg:px-5',
+          // **「止まっている案件」だけの帯**（モックの実測: 背景 `destructive-surface` +
+          // 下の罫線 `destructive-border`）。枠の赤だけだと目に入りにくい
+          alert && 'border-b border-destructive-border bg-destructive-surface'
+        )}
+      >
         <h2 className={cn('text-cardtitle flex items-center gap-2', alert && 'text-destructive')}>
           {icon}
           {title}

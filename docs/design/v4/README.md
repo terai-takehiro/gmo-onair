@@ -3,6 +3,16 @@
 v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイモックアップ）を、
 **実装で必要な分だけ**取り出して置いてあります。
 
+> ⚠️ **`projects.md` は案件管理の一部しかカバーしていません（2026-08-13 判明）。**
+> `mockups/README.md` が指定するとおり、案件管理の**ダッシュボード・案件作成・
+> 案件一覧・案件詳細**は `mockups/v4-live-sales.dc.html` が正であり、
+> `projects.md` を作る `extract-v4-design.mjs` は古い `v4-mockup-main.dc.html` しか
+> 読んでいません（この4画面は JS の書き方が違うため機械抽出が効きません）。
+> この4画面を触るときは `projects.md` だけで判断せず、
+> [`../v4-mock-deviations.md`](../v4-mock-deviations.md) の
+> 「`v4-live-sales.dc.html` との突き合わせ」節と、モック本体を必ず確認してください。
+> `projects.md` は料金表・標準工程テンプレートなど、他の画面のぶんはそのまま使えます。
+
 ## どれを読むか
 
 | 知りたいこと | 読む場所 | 大きさ |

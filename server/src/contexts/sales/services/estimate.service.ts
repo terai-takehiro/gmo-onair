@@ -12,9 +12,10 @@
  * 後から書き換えられると「何を出したか」が追えなくなる)。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkDiscount, NO_LIMIT, type DiscountLimit } from '../../../shared/services/discountLimit';
+import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 
 export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -392,5 +393,91 @@ export const estimateService = {
       `UPDATE estimates SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
       [id, userId]
     );
+  },
+
+  /**
+   * 受注が決まった見積を売上 (`revenues`) に変換する。
+   *
+   * migration 138 が「確定したら売上に変換します」と予告していたきり、
+   * 変換する場所がどこにも無かった（見積を出す画面はできたが、
+   * 受注後の行き先が無いまま止まっていた）。
+   *
+   * **`accepted`（受注）の見積だけ**変換できる。draft/sent のまま変換すると、
+   * まだ決まっていない金額が確定売上に計上されてしまう。
+   *
+   * **二度は変換しない**（`revenue_id` を見る）。押し直しで売上が2行できると、
+   * 同じ受注が二重に計上され、当月売上・請求の集計が実態よりふくらむ。
+   *
+   * `revenues` を直接組み立てるのは、`POST /revenues`（財務の売上作成）と
+   * **billing_key の作り方を合わせるため**（別の式で書くと、見積からの変換だけ
+   * 違う形の請求KEYが混ざる）。
+   */
+  async convertToRevenue(id: string, userId: string): Promise<Estimate> {
+    const est = await queryOne(
+      `SELECT e.*, p.gls_number AS project_gls_number, p.customer_id AS project_customer_id
+         FROM estimates e JOIN projects p ON p.id = e.project_id
+        WHERE e.id = $1 AND e.deleted_at IS NULL AND p.deleted_at IS NULL`,
+      [id],
+    ) as Record<string, unknown> | null;
+    if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    if (est.status !== 'accepted') {
+      throw new AppError(400, 'VALIDATION_ERROR', '受注が決まった見積だけ売上・請求に登録できます');
+    }
+    if (est.revenue_id) {
+      throw new AppError(400, 'ALREADY_CONVERTED', 'この見積はすでに売上・請求に登録されています');
+    }
+    const customerId = (est.customer_id as string | null) ?? (est.project_customer_id as string | null);
+    if (!customerId) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'お客様が決まっていないので売上・請求に登録できません（案件詳細の概要でお客様を選んでください）');
+    }
+
+    const items = (await queryAll(
+      `SELECT description, quantity, unit_price, amount, category, pricing_item_id, item_notes, sort_order
+         FROM estimate_items WHERE estimate_id = $1 ORDER BY sort_order, created_at`,
+      [id],
+    )) as Record<string, unknown>[];
+
+    const projectId = String(est.project_id);
+    const amount = (Number(est.subtotal) || 0) - (Number(est.discount) || 0);
+    const taxCategory = String(est.tax_category ?? 'tax10');
+
+    // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
+    // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
+    const existingCount = ((await queryOne(
+      `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
+      [projectId],
+    )) as { c: string }).c;
+    const seqNum = String(Number(existingCount) + 1).padStart(3, '0');
+    const base = (est.project_gls_number as string | null) || 'REV';
+    const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
+
+    const revenueId = uuidv4();
+    await withTransaction(async (tx) => {
+      await tx.execute(
+        `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
+           subtitle, notes, status, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9, $9)`,
+        [revenueId, billingKey, projectId, customerId, taxCategory, amount,
+         (est.title as string) || null, `見積 v${est.version} から登録`, userId],
+      );
+      let order = 1;
+      for (const it of items) {
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+             category, pricing_item_id, item_notes, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
+           it.category, it.pricing_item_id, it.item_notes, order++],
+        );
+      }
+      // **見積の側にも売上の id を残す。** 「いくらで出して、いくらで決まったか」を
+      // あとから見積タブから追えるようにする（migration 138 の `revenue_id` 列）
+      await tx.execute(
+        `UPDATE estimates SET revenue_id = $2, updated_at = NOW(), updated_by = $3 WHERE id = $1`,
+        [id, revenueId, userId],
+      );
+    });
+
+    return (await this.getById(id))!;
   },
 };

@@ -4,40 +4,60 @@
  * ── URL の鍵が「短い英語」なのはなぜか ────────────────────────
  *
  * `/sales/projects/:id/:tab` の `:tab` に入る値です。
- * **`episodes` / `tasks` にしていないのは、既存のルートとぶつかるから**です
- * (`/sales/projects/:projectId/episodes` と `/tasks` は別画面として生きています)。
+ * **`tasks` にしていないのは、既存のルートとぶつかるから**です
+ * (`/sales/projects/:projectId/tasks` は別画面として生きています)。
  * React Router は静的な区切りを優先するので、同じ綴りにすると
  * タブを押した瞬間に**枠ごと消えて古い画面に飛びます**。
- * ⑥-B / ⑥-C で古い画面をこの枠に畳んだら、綴りを揃え直します。
+ * ⑥-B で古い画面をこの枠に畳んだら、綴りを揃え直します。
  *
  * ── ラベルはモックどおり ──────────────────────────────────────
  *
- * 「エピソード」は `docs/wording.md` で一度「回」に言い換える決めにしていましたが、
- * **モックが v4 の正**なのでモックの語に戻しました（`check-ui-tokens` の
- * `forbidden-wording` からも外してあります）。「見積」も同じで、請求は
- * ⑤ 見積・請求（全案件）で見ます。
+ * 「見積」は請求の分もここで見ます。請求は
+ * ⑤ 見積・請求（全案件）でも見られます。
  *
- * ── 「ふりかえり」だけ中身が無い ──────────────────────────────
+ * ── 「ふりかえり」の中身は最新モックにある（この節は 2026-08 に訂正） ──────
  *
- * **モック自身が「このタブの中身はこれから作ります」と書いています。**
- * 勝手に想像で作らず、枠だけ置いて同じことを画面に出します
- * (タブが無いより「これから」と分かるほうがよい)。
+ * ここは以前「モック自身が『これから作ります』と書いている」としていましたが、
+ * それは古い `v4-mockup-main.dc.html` の話でした。**v4 の正は `v4-live-sales.dc.html`**
+ * （`docs/design/v4/mockups/README.md` が明示）で、そちらには KPT・写真・お金の内訳を
+ * 持つ完成した「ふりかえり」の絵があります。実測すると `ReviewTab.tsx` / `ReviewSide.tsx` /
+ * `review/KptPanel.tsx` / `review/PhotoGrid.tsx` は文言までほぼ一致していました
+ * （お金の並び「想定していた金額／出した見積／確定した売上／仕入（原価）／粗利」等）。
+ * つまり**中身はすでに合っている**が、この説明文だけが古いままだったので直しました。
+ *
+ * ── 「エピソード」タブを外した（2026-08・ご判断） ─────────────────────
+ *
+ * `v4-live-sales.dc.html` の `det.tabs` 配列は 概要／やり取り／タスク／見積／書類／
+ * 当日／ふりかえり の**7つだけ**で、エピソード（回）は含まれていない
+ * （`det.isEpisode` の描画コードは残るが、どのタブにも紐づかない死んだコードだった）。
+ * モックに合わせてタブごと外した。
+ *
+ * ただし**回を新しく作る手段がこのタブにしかなかった**（`EpisodeScopeToggle`・
+ * スタジオ予約ダイアログは「既存の回から選ぶ」だけ）。レギュラー（GLS-A）案件は
+ * 今日も回を増やしながら運用しているので、モックが持っていた簡易表（回・名前・
+ * 実施日・タスク進捗・状態）と「回を足す」ボタンは**タスクタブの回の絞り込みの
+ * すぐ隣**に移した（`contexts/tasks/components/EpisodesPanel.tsx`）。
+ *
+ * ── 「売上・請求」ペインもモックの3カード設計に置き換えた（同時期） ────────
+ *
+ * 旧 `LegacyViewTab.tsx`（`BusinessProjectView.tsx` を呼ぶだけの薄いラッパー）は
+ * この置き換えで呼び手が無くなったため削除した。`BusinessProjectView.tsx` 自体は
+ * **プロジェクト管理（GPM）の見積タブ**（`contexts/gpm/pages/projectDetail/BillingTab.tsx`）
+ * がいまも直接呼んでいるので残してある。
  */
 import {
-  LayoutDashboard, MessageSquare, Clapperboard, ListChecks,
+  LayoutDashboard, MessageSquare, ListChecks,
   Receipt, FolderCheck, ClipboardList, LineChart,
   type LucideIcon,
 } from 'lucide-react';
 
 export type ProjectTabKey =
-  | 'overview' | 'thread' | 'episode' | 'task' | 'estimate' | 'files' | 'day' | 'review';
+  | 'overview' | 'thread' | 'task' | 'estimate' | 'files' | 'day' | 'review';
 
 export interface ProjectTabDef {
   key: ProjectTabKey;
   label: string;
   icon: LucideIcon;
-  /** 連続もの (GLS-A・回を持つもの) のときだけ出すタブ */
-  seriesOnly?: boolean;
   /** まだ作っていない (「これから作ります」と出す) */
   todo?: boolean;
 }
@@ -45,7 +65,6 @@ export interface ProjectTabDef {
 export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'overview', label: '概要', icon: LayoutDashboard },
   { key: 'thread', label: 'やり取り', icon: MessageSquare },
-  { key: 'episode', label: 'エピソード', icon: Clapperboard, seriesOnly: true },
   { key: 'task', label: 'タスク', icon: ListChecks },
   { key: 'estimate', label: '見積', icon: Receipt },
   { key: 'files', label: '書類', icon: FolderCheck },

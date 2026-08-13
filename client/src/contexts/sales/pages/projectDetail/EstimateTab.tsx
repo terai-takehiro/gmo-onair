@@ -12,15 +12,17 @@
  * `revenues` を読む **41 か所が `status` を見ていません** (トップの当月売上を含む)。
  * 見積を相乗りさせると**そのまま売上に足されます**。詳細は migration 138。
  *
- * ── 「売上・請求」は今までの画面のまま ──────────────────────
+ * ── 「売上・請求」はモックの3カード設計に置き換えた ──────────────
  *
- * 右の切り替えで開くのは既存の `BusinessProjectView` です。**1行も変えていません**。
- * 見積を新しく作ったので、売上・請求の作り直しは別の回にします。
+ * 右の切り替えで開くのは `RevenueBillingPane`（売上／請求／仕入（原価）の
+ * 3枚のカード）。旧 `BusinessProjectView`（フル機能コンソール）からの
+ * 置き換えの理由は `RevenueBillingPane.tsx` の頭のコメントを参照。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Copy, Send, Trash2, Receipt, Wallet } from 'lucide-react';
+import { Plus, Copy, Send, Trash2, Receipt, Wallet, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
+import { formatCurrency } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
@@ -28,7 +30,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { LegacyViewTab } from './LegacyViewTab';
+import { RevenueBillingPane } from './RevenueBillingPane';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import type { ProjectDetail } from './types';
 
@@ -36,7 +38,10 @@ type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
 interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
-  subtotal: number; discount: number; sent_at: string | null; items?: Item[];
+  subtotal: number; discount: number; sent_at: string | null;
+  /** 受注して売上に変換したときの行。追跡用（migration 138）。無ければ未変換 */
+  revenue_id: string | null;
+  items?: Item[];
 }
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -105,6 +110,21 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     onError: (e) => notifyApiError('見積を消せませんでした', e),
   });
 
+  /**
+   * 受注した見積を売上・請求 (`revenues`) に登録する。
+   * migration 138 が予告していたまま行き先が無かった変換（`estimate.service.ts` 参照）。
+   */
+  const convertToRevenue = useMutation({
+    mutationFn: (id: string) => api.post(`${base}/${id}/convert-to-revenue`),
+    onSuccess: () => {
+      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
+      // 財務の台帳・締め処理・案件一覧の見積金額はすべて `revenues` を読み直す
+      qc.invalidateQueries({ queryKey: ['revenues'] });
+      notifySuccess('売上・請求に登録しました（「売上・請求」の切り替えから見られます）');
+    },
+    onError: (e) => notifyApiError('売上・請求に登録できませんでした', e),
+  });
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 p-4 lg:p-6">
       <div className="inline-flex w-fit shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
@@ -124,7 +144,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       </div>
 
       {pane === 'revenue' ? (
-        <LegacyViewTab project={project} estimateMode />
+        <RevenueBillingPane projectId={project.id} />
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (list.data ?? []).length === 0 ? (
@@ -150,7 +170,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
               <RowMain>見積</RowMain>
               <RowSlot w={128} align="right">金額（税抜）</RowSlot>
               <RowSlot w={96}>状態</RowSlot>
-              <RowSlot w={160} align="right">操作</RowSlot>
+              <RowSlot w={240} align="right">操作</RowSlot>
             </RowHeader>
             {(list.data ?? []).map((e) => (
               <Row key={e.id} divider interactive stackOnMobile align="center">
@@ -170,27 +190,63 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
                 </RowMain>
                 <Money value={e.subtotal - e.discount} className="text-sub w-32 shrink-0" />
                 <TableBadge w={96} label={STATUS_LABEL[e.status]} className={STATUS_TONE[e.status]} />
-                <RowSlot w={160} align="right" className="gap-1">
+                <RowSlot w={240} align="right" className="flex-wrap gap-1">
                   {e.status === 'draft' && (
                     <Button variant="outline" size="sm" title="お客様に出したことにする"
                       onClick={() => setStatus.mutate({ id: e.id, status: 'sent' })}>
                       <Send className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   )}
+                  {e.status === 'sent' && (
+                    <>
+                      <Button variant="outline" size="sm" title="受注にする"
+                        onClick={() => setStatus.mutate({ id: e.id, status: 'accepted' })}>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+                      </Button>
+                      <Button variant="outline" size="sm" title="失注にする" onClick={async () => {
+                        const ok = await confirmAction({
+                          title: '失注にしますか？',
+                          description: 'この見積は失注として残ります。取り消したいときは次の版をつくってください。',
+                          confirmLabel: '失注にする', tone: 'danger',
+                        });
+                        if (ok) setStatus.mutate({ id: e.id, status: 'rejected' });
+                      }}>
+                        <XCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
+                      </Button>
+                    </>
+                  )}
+                  {e.status === 'accepted' && (
+                    e.revenue_id ? (
+                      <span className="text-sub-sm whitespace-nowrap text-success">登録済み</span>
+                    ) : (
+                      <Button size="sm" title="この見積の金額で売上・請求に登録する" onClick={async () => {
+                        const ok = await confirmAction({
+                          title: '売上・請求に登録しますか？',
+                          description: `見積の金額（税抜 ${formatCurrency(e.subtotal - e.discount)}）で「売上・請求」に1件登録します。あとから金額だけをここで直しても登録済みの売上には反映されません。`,
+                          confirmLabel: '登録する',
+                        });
+                        if (ok) convertToRevenue.mutate(e.id);
+                      }}>
+                        <ArrowRight className="mr-1 h-3.5 w-3.5" aria-hidden="true" />売上・請求へ
+                      </Button>
+                    )
+                  )}
                   <Button variant="outline" size="sm" title="この版を写して次の版をつくる"
                     onClick={() => nextVersion.mutate(e.id)}>
                     <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                  <Button variant="outline" size="sm" title="消す" onClick={async () => {
-                    const ok = await confirmAction({
-                      title: `v${e.version} を消しますか？`,
-                      description: '明細もいっしょに消えます。ほかの版は残ります。元に戻せません。',
-                      confirmLabel: '消す', tone: 'danger',
-                    });
-                    if (ok) remove.mutate(e.id);
-                  }}>
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                  </Button>
+                  {!e.revenue_id && (
+                    <Button variant="outline" size="sm" title="消す" onClick={async () => {
+                      const ok = await confirmAction({
+                        title: `v${e.version} を消しますか？`,
+                        description: '明細もいっしょに消えます。ほかの版は残ります。元に戻せません。',
+                        confirmLabel: '消す', tone: 'danger',
+                      });
+                      if (ok) remove.mutate(e.id);
+                    }}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
+                    </Button>
+                  )}
                 </RowSlot>
               </Row>
             ))}
