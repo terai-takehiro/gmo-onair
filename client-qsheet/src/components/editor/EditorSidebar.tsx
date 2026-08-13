@@ -26,6 +26,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@gmo-onair/shared/src/client/ui";
+import BufferedInput from "./BufferedInput";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -292,9 +293,9 @@ function LedSceneSection({
                 <span className="size-5 rounded-md bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-none" aria-hidden>
                   {i + 1}
                 </span>
-                <input
+                <BufferedInput
                   value={s.name}
-                  onChange={(e) => updateScene(i, { name: e.target.value })}
+                  onCommit={(v) => updateScene(i, { name: v })}
                   placeholder="シーン名 (例: S1)"
                   className="flex-1 px-1 py-0.5 text-[12px] font-bold bg-transparent border-none outline-none focus:bg-card rounded transition-colors"
                   aria-label={`シーン ${i + 1} の名前`}
@@ -327,9 +328,9 @@ function LedSceneSection({
               <div className="grid grid-cols-2 gap-1.5 p-1.5">
                 <label className="block rounded-md border border-primary/20 bg-primary/5 p-1.5">
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-primary/80 mb-0.5">壁</span>
-                  <input
+                  <BufferedInput
                     value={s.wall}
-                    onChange={(e) => updateScene(i, { wall: e.target.value })}
+                    onCommit={(v) => updateScene(i, { wall: v })}
                     placeholder="例: KVループ＋PC1"
                     className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate"
                     aria-label="壁演出"
@@ -337,9 +338,9 @@ function LedSceneSection({
                 </label>
                 <label className="block rounded-md border border-warning/30 bg-warning/5 p-1.5">
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-warning/90 mb-0.5">床</span>
-                  <input
+                  <BufferedInput
                     value={s.floor}
-                    onChange={(e) => updateScene(i, { floor: e.target.value })}
+                    onCommit={(v) => updateScene(i, { floor: v })}
                     placeholder="例: KV"
                     className="w-full text-[11px] font-medium bg-transparent border-none outline-none placeholder:text-muted-foreground/50 truncate"
                     aria-label="床演出"
