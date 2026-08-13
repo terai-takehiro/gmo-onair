@@ -13,14 +13,17 @@
  * (いまの 2,178 行の画面がまさにそれでした)。
  */
 import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, Tag, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
+import { localDateStr } from '@/lib/format';
 import { ProjectTypeLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
+import { ThreadDigest } from './ThreadDigest';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
 /** 事実の帯の1枠 */
@@ -74,6 +77,8 @@ export function OverviewTab({
   const expected = Number(project.expected_amount) || 0;
   const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
   const isEstimate = estimate > 0;
+  // 期限切れの判定に使う。やり取りタブと同じ作り方にそろえる
+  const today = localDateStr(new Date());
 
   // 未完了で期限がいちばん近い次回アクション。**無いことも出す** (空欄にしない)
   const nextAction = activities
@@ -180,29 +185,24 @@ export function OverviewTab({
           */}
         </Section>
 
-        <Section title="お客様とのやり取り">
+        <Section
+          title={
+            <span className="flex items-baseline justify-between gap-3">
+              <span>お客様とのやり取り</span>
+              {activities.length > 0 && (
+                <Link to="?tab=thread" className="text-note min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0">
+                  すべて見る（{activities.length}件）
+                </Link>
+              )}
+            </span>
+          }
+        >
           {activities.length === 0 ? (
             <p className="text-sub text-muted-foreground">
               記録はまだありません。メールは AI が自動で取り込みます。
             </p>
           ) : (
-            <ul className="flex flex-col">
-              {activities.slice(0, 5).map((a) => (
-                <li key={a.id} className="flex gap-3 border-b border-border-faint py-2 last:border-b-0">
-                  <span className="text-sub-sm font-number w-20 shrink-0 text-muted-foreground">
-                    {a.activity_date}
-                  </span>
-                  <span className="text-sub min-w-0 flex-1">
-                    <span className="block truncate font-bold">{a.subject}</span>
-                    {a.next_action && (
-                      <span className="text-sub-sm block truncate text-muted-foreground">
-                        次: {a.next_action}
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <ThreadDigest items={activities.slice(0, 5)} today={today} />
           )}
         </Section>
       </div>

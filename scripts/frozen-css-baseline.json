@@ -1,16 +1,16 @@
 {
   "apps": {
     "qsheet": {
-      "md5": "6e61cb51b17a64ed16cf84b0cf5f2c3e",
-      "bytes": 99989
+      "md5": "8e7f7a8f7b1a67ddea2570dadb2281c5",
+      "bytes": 99952
     },
     "techsheet": {
-      "md5": "a63a991e22bda5c576afe9be8538ed93",
-      "bytes": 64009
+      "md5": "4d6b48979731d5b9aa5b6e87266538b6",
+      "bytes": 63972
     },
     "live": {
-      "md5": "9aaceb7b698e94e7a5ad8ab112e2a63a",
-      "bytes": 66975
+      "md5": "652fa685a0f91d5858d4d242bf66480e",
+      "bytes": 66938
     },
     "awards": {
       "md5": "387a209af341598ce915a1dade2b0ed2",
@@ -45,6 +45,27 @@
       "to": "9aaceb7b698e94e7a5ad8ab112e2a63a",
       "bytes": -25,
       "reason": "スマホの上辺バーをロゴだけにした回。shared の AppTopbar からパンくずの md:block を外したため、凍結3アプリの CSS から .md\\:block（25バイト）が消えた。3アプリとも自分の src で md:block を使っていない（実測 0 件）ので描画は不変"
+    },
+    {
+      "app": "techsheet",
+      "from": "a63a991e22bda5c576afe9be8538ed93",
+      "to": "4d6b48979731d5b9aa5b6e87266538b6",
+      "bytes": -37,
+      "reason": "TableBadge の均等割り付けをやめてモックどおり中央寄せに戻した際、shared で px-0 を使う箇所が無くなり .px-0 の1規則(37バイト)が消えた。凍結4アプリはいずれも px-0 を使っておらず(px-0.5 のみ)、TableBadge 自体も使わないため描画は不変。修正前後の CSS を規則単位で突き合わせ、差分がこの1規則のみであることを実測済み"
+    },
+    {
+      "app": "live",
+      "from": "9aaceb7b698e94e7a5ad8ab112e2a63a",
+      "to": "652fa685a0f91d5858d4d242bf66480e",
+      "bytes": -37,
+      "reason": "TableBadge の均等割り付けをやめてモックどおり中央寄せに戻した際、shared で px-0 を使う箇所が無くなり .px-0 の1規則(37バイト)が消えた。凍結4アプリはいずれも px-0 を使っておらず(px-0.5 のみ)、TableBadge 自体も使わないため描画は不変。修正前後の CSS を規則単位で突き合わせ、差分がこの1規則のみであることを実測済み"
+    },
+    {
+      "app": "qsheet",
+      "from": "6e61cb51b17a64ed16cf84b0cf5f2c3e",
+      "to": "8e7f7a8f7b1a67ddea2570dadb2281c5",
+      "bytes": -37,
+      "reason": "TableBadge の均等割り付けをやめてモックどおり中央寄せに戻した際、shared で px-0 を使う箇所が無くなり .px-0 の1規則(37バイト)が消えた。凍結4アプリはいずれも px-0 を使っておらず(px-0.5 のみ)、TableBadge 自体も使わないため描画は不変。修正前後の CSS を規則単位で突き合わせ、差分がこの1規則のみであることを実測済み"
     }
   ]
 }

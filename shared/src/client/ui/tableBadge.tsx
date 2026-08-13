@@ -7,45 +7,57 @@
  * **バッジの右端が行ごとにずれます**。目は文字ではなく「色の塊の形」で行を追うので、
  * 形がそろっていないと縦に流し読みできません。だから**列ごとに幅を固定**します。
  *
- * ── 和文2字と4字を同じ幅で見せる ────────────────────────────
+ * ── 文字は「中央寄せ」。均等割り付けにはしない ──────────────
  *
- * 幅を固定しただけだと「受信」(2字) と「処理完了」(4字) で字の詰まり方が違って
- * 見えます。**和文は 62px で均等割り付け** (`text-align-last: justify`) にすると、
- * 2字は広がり4字はそのままで、どちらも同じ帯に収まります。
- * 1字とラテン略語 (AI・GLS) は割り付けると不自然なので中央寄せのままにします。
+ * **モックのバッジは中央寄せです。** 以前ここは 62px の帯に
+ * `text-align-last: justify` で均等割り付けしていましたが、これは
+ * **モックの読み間違い**でした。モックの指定はこうなっています:
  *
- * ── 62px という数字の根拠 (変えるときはここを実測し直すこと) ──
+ *   width:62px; display:inline-flex; justify-content:center;
+ *   text-align-last:justify;   ← inline-flex では効かない
+ *   padding:0 6px; white-space:nowrap; overflow:hidden
  *
- * **和文は割り付けたい幅より自然幅のほうが広いと2行に折り返します**
- * (和文は単語区切りが無いのでどこでも改行される)。折り返すと行高が倍になり
- * 行がそろわないので、**中身に使える幅 ≥ 自然幅**でなければいけません。
+ * **`text-align` 系は flex コンテナの中身の配置には効きません**
+ * (テキストは匿名フレックスアイテムになり、置き場所は `justify-content` が決める)。
+ * つまりモックではこの1行は最初から死んでいて、実際には
+ * `justify-content: center` で**中央に寄って描かれていました**。
  *
- *   `Badge` の既定 `px-2.5` のまま → 62 − 10×2 − 罫線 1×2 = **中身 40px**
- *   `px-0` に上書き            → 62 −  0    − 罫線 1×2 = **中身 60px**
+ * 実装側はこの死んだ指定を「割り付けたいのだ」と読み、**表示を block 系に変え
+ * padding を 0 にして**わざわざ効くようにしてしまったため、「口頭決定」が
+ * 「口 頭 決 定」に、「固定資産」が「固 定 資 産」に見えていました。
+ * `docs/v4-plan.md`「実装がモックと違ったらモックに合わせる」に従って戻します。
  *
- * 実ブラウザで測った自然幅 (LINE Seed JP 700 / 11px / 字間 0.3px・中身の幅):
+ * **縦の整列は幅の固定だけで足りています。** 色の塊 (62px) と枠 (列幅) は
+ * どちらも固定なので、文字をどう寄せても**左端・右端は動きません**
+ * (`verify-ui.mjs` が見ているのは枠 `[data-badge-slot]` の座標)。
+ * 割り付けは「帯の中で文字幅までそろえる」だけのもので、整列には要りません。
+ *
+ * ── 62px に収めるための padding (変えるときは実測し直すこと) ──
+ *
+ * 実ブラウザで測った自然幅 (LINE Seed JP 700 / 11px / 字間 0.3px):
  *
  *   2字「受信」22.6px ／ 3字「確認中」33.9px ／ 4字「処理完了」45.2px ／ 6字 67.8px
  *
- * 4字 45.2px は 60px に余裕をもって収まり、6字は入りません。
- * 5字は約 56.5px で数字の上は収まりますが**残りが 3.5px しかなく、書体が
- * 届く前の代替書体では溢れます**。だから割り付けは4字までにして、それ以上は
- * 自然幅 + 折り返し禁止にします (`JUSTIFY_MAX`)。
- * padding は割り付けると見えなくなるので 0 にして構いません。
+ * 左右の padding をモックと同じ **6px** にすると中身は 62 − 6×2 = **50px** で、
+ * 4字 45.2px が収まります (`Badge` の既定は 10px なので 42px しか無く
+ * **4字が収まりません**)。5字以上は 62px に入らないので**自然幅**にします
+ * (`FIXED_MAX`)。さらにモックと同じく**折り返しを禁止し、あふれ分は隠す**ので、
+ * **万一あふれても2行になりません** — 折り返すと行高が倍になり、
+ * そろえたかった行そのものがずれます。
  *
  * **`text-badge` を効かせるのに `cn()` の設定が要る。** 詳細は
  * `shared/src/client/utils.ts` — 教えていないと `Badge` の既定 `text-xs`(12px) が
- * 勝ち、自然幅が 61.2px になって4字が折り返します (実際に踏んだ)。
+ * 勝ち、自然幅が 61.2px になって4字が収まりません (実際に踏んだ)。
  */
 import { cn } from '../utils';
 import { Badge, type BadgeProps } from './badge';
 import { type SlotWidth } from './row';
 
-/** 均等割り付けにする幅 (docs/design/v4 で 62px と決めてある) */
-const JUSTIFY_W = 62;
+/** 幅を固定する帯の幅 (docs/design/v4 のモックで 62px と決めてある) */
+const FIXED_W = 62;
 
-/** 均等割り付けにする文字数の上限。これを超えると 62px に収まらない */
-const JUSTIFY_MAX = 4;
+/** 幅を固定する文字数の上限。これを超えると 62px に収まらない */
+const FIXED_MAX = 4;
 
 /** 和文 (ひらがな・カタカナ・漢字) を2字以上含むか */
 function isJapanese(text: string): boolean {
@@ -54,7 +66,7 @@ function isJapanese(text: string): boolean {
 }
 
 export interface TableBadgeProps extends Omit<BadgeProps, 'children'> {
-  /** バッジに出す文字。**文字列で渡す** — 均等割り付けの判定に文字数を使うため */
+  /** バッジに出す文字。**文字列で渡す** — 幅を固定するかの判定に文字数を使うため */
   label: string;
   /**
    * 列幅。`RowSlot` と同じ7段から選ぶ。既定は 96px (ステータス列)。
@@ -64,7 +76,7 @@ export interface TableBadgeProps extends Omit<BadgeProps, 'children'> {
 }
 
 export function TableBadge({ label, w = 96, className, style, ...rest }: TableBadgeProps) {
-  const justify = isJapanese(label) && label.length <= JUSTIFY_MAX;
+  const fixed = isJapanese(label) && label.length <= FIXED_MAX;
 
   const badge = (
     <Badge
@@ -81,25 +93,16 @@ export function TableBadge({ label, w = 96, className, style, ...rest }: TableBa
       // `shared/CLAUDE.md` が繰り返し警告している「クラス漏れ」を実際に踏んだ）
       data-ui="table-badge"
       className={cn(
-        'text-badge max-w-full font-bold',
-        // 均等割り付けのときは padding を落として中身の幅を稼ぐ (上の計算参照)。
-        // **`inline-block` にするのが必須。** `Badge` の既定は `inline-flex` で、
-        // flex の中の文字には `text-align` が効かない (実測: 2字が 48px の帯に
-        // 広がらず 24.6px のままだった)。表示を block 系に変えて初めて割り付く。
-        justify ? 'inline-block px-0' : 'whitespace-nowrap',
+        'text-badge max-w-full whitespace-nowrap font-bold',
+        // 幅を固定するときはモックと同じ形にする — 中央に寄せ、左右の padding を
+        // 6px に落として中身の幅を稼ぎ (既定の 10px では 4字が収まらない。
+        // 上の計算参照)、あふれ分は隠す (モックにもある)。
+        // **`Badge` の既定の表示 (flex) を block 系に変えないこと** —
+        // 変えると `text-align` 系が効くようになり、均等割り付けの事故が戻る。
+        fixed && 'justify-center overflow-hidden px-1.5',
         className,
       )}
-      style={
-        justify
-          ? {
-              // `text-align-last` は「最終行」に効く。1行なのでこの行に効く
-              width: JUSTIFY_W,
-              textAlign: 'justify',
-              textAlignLast: 'justify',
-              ...style,
-            }
-          : style
-      }
+      style={fixed ? { width: FIXED_W, ...style } : style}
       {...rest}
     >
       {label}
