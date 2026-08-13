@@ -108,32 +108,67 @@ async function typeWithIme(selector) {
   await page.waitForTimeout(200);
 }
 
+const state = async (id) => ({
+  shown: await page.inputValue(`#${id}`),
+  stored: await page.textContent(`#${id}-stored`),
+});
+/** 他ユーザーがこの欄を書き換えた (フォーカスは奪わない) */
+const remoteEdit = async (id, v) =>
+  page.evaluate(([i, val]) => window.__remote[i](val), [id, v]);
+
 const result = {};
 for (const id of ['raw', 'buffered']) {
   await typeWithIme(`#${id}`);
-  result[id] = {
-    shown: await page.inputValue(`#${id}`),
-    stored: await page.textContent(`#${id}-stored`),
-  };
+  result[id] = await state(id);
 }
+
+// ── 4) 同時編集: フォーカス中に他ユーザーが変えた値を取りこぼさないか ──
+// 取りこぼすと画面は古い値を出し続け、**次にこの欄を編集したときに相手の変更を
+// 古い文字列で上書きする** (自分では気づけない消え方)。
+await page.click('#buffered');
+await remoteEdit('buffered', '他の人の値');
+const whileFocused = await state('buffered');   // フォーカス中は取り込まない (カーソルが飛ぶため)
+await page.click('body');                        // blur
+await page.waitForTimeout(200);
+const afterBlur = await state('buffered');       // ここで取り込む
+
+// 自分が打っていたときは、自分の変更が勝つ (相手の値で上書きされない)
+await page.click('#buffered');
+await page.fill('#buffered', 'わたしの値');
+await remoteEdit('buffered', '他の人の値2');
+await page.click('body');
+await page.waitForTimeout(200);
+const localWins = await state('buffered');
+
 await browser.close();
 server.close();
 rmSync(work, { recursive: true, force: true });
 
-// ── 4) 判定 ──
+// ── 5) 判定 ──
 const fmt = (r) => `入力欄「${r.shown}」/ 保存された値「${r.stored}」`;
-console.log(`[verify-ime] 「${WORD}」を IME で変換入力した結果`);
-console.log(`[verify-ime]   buffered (useBufferedValue 経由・本番の入力欄と同じ形): ${fmt(result.buffered)}`);
-console.log(`[verify-ime]   raw      (生の controlled input・参考)                : ${fmt(result.raw)}`);
+let failed = false;
+const check = (label, cond, detail) => {
+  console.log(`[verify-ime] ${cond ? '✓' : '✗'} ${label}${detail ? ` — ${detail}` : ''}`);
+  if (!cond) failed = true;
+};
 
-const ok = result.buffered.shown === WORD && result.buffered.stored === WORD;
-if (!ok) {
-  console.error(`[verify-ime] ❌ 変換した文字が正しく入りません (期待: 「${WORD}」)`);
-  console.error('[verify-ime]    ドキュメントに書き込む入力欄は BufferedInput / BufferedTextarea を使うこと');
-  process.exit(1);
-}
+console.log(`[verify-ime] ① 「${WORD}」を IME で変換入力する`);
+console.log(`[verify-ime]    buffered (useBufferedValue 経由・本番の入力欄と同じ形): ${fmt(result.buffered)}`);
+console.log(`[verify-ime]    raw      (生の controlled input・参考)                : ${fmt(result.raw)}`);
+check(
+  `変換した文字がそのまま入る (期待「${WORD}」)`,
+  result.buffered.shown === WORD && result.buffered.stored === WORD,
+  'ドキュメントに書き込む入力欄は BufferedInput / BufferedTextarea を使うこと',
+);
 if (result.raw.stored === WORD) {
   console.warn('[verify-ime] ⚠ 生の input でも通ってしまいました。ブラウザ側の composition の扱いが');
   console.warn('[verify-ime]    変わった可能性があります (この検証が空振りしていないか確認してください)');
 }
+
+console.log('[verify-ime] ② フォーカス中に他ユーザーが書き換えたとき');
+check('フォーカス中は取り込まない (カーソルが飛ばない)', whileFocused.shown === WORD, fmt(whileFocused));
+check('blur で相手の値を取り込む', afterBlur.shown === '他の人の値', fmt(afterBlur));
+check('自分が打っていたときは自分の変更が勝つ', localWins.stored === 'わたしの値', fmt(localWins));
+
+if (failed) process.exit(1);
 console.log('[verify-ime] OK');
