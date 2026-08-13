@@ -67,8 +67,12 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
               */}
               <span className="text-sub mt-0.5 line-clamp-2 font-bold leading-5">{a.subject}</span>
               {a.next_action && (
+                // **`text-sub-sm`(11.5px) は使わない。** スマホでも上げない段なので
+                // （`shared/CLAUDE.md`。件数の数字・列見出し・バッジの札のための段）、
+                // ここに当てると**読ませる文が 375px で 11.5px** になり、
+                // 決めごとの「本文は 13px 以上」を割る（実測して直した）
                 <span className={cn(
-                  'text-sub-sm mt-1 flex gap-1.5',
+                  'text-sub mt-1 flex gap-1.5',
                   overdue ? 'font-bold text-destructive' : 'text-muted-foreground',
                 )}>
                   <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />

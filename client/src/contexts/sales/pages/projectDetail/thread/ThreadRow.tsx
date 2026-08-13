@@ -85,8 +85,13 @@ export function ThreadRow({ a, today }: { a: ActivityLog; today: string }) {
           </div>
         )}
 
+        {/*
+          「次にやること」は `text-sub-sm`(11.5px) から上げた。あの段は**スマホでも
+          上げない**ので（件数の数字・列見出し・バッジの札のための段）、読ませる文が
+          375px で 11.5px になっていた（概要のダイジェストと同じ理由）
+        */}
         {a.next_action && (
-          <p className={cn('text-sub-sm mt-1', overdue ? 'font-bold text-destructive' : 'text-muted-foreground')}>
+          <p className={cn('text-sub mt-1', overdue ? 'font-bold text-destructive' : 'text-muted-foreground')}>
             次にやること: {a.next_action}
             {a.next_action_date && `（${a.next_action_date}${overdue ? ' 過ぎています' : ''}）`}
             {a.next_action_done_at && '（済み）'}
