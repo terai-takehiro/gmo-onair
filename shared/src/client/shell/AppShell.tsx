@@ -41,8 +41,6 @@
  */
 import { useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useIsMobile } from '../../client-v4/mobile';
-import { useCollapseOnScroll } from '../../client-v4/collapseOnScroll';
 import { PrimaryActionSlotContext } from './primaryAction';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
@@ -104,17 +102,6 @@ export function AppShell({
   // まだ DOM が無く、子 (PageHeader) が描き直されないので何も出ない
   const [actionSlot, setActionSlot] = useState<HTMLDivElement | null>(null);
 
-  /**
-   * **下にスクロールしたら上辺バーを畳む**（M9）。スマホでは
-   * 上辺バー 64px ＋ 下タブ 56px が常に居座り、667px の端末では 18% が枠だった。
-   * **下タブは畳まない** — あれは行き先そのもので、消すと戻る道が無くなる。
-   * 印は属性1つだけで、見た目は `tokens-v4.css` が決める
-   * （クラス名をここに書くと凍結4アプリの CSS が増える）。
-   */
-  const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
-  const isMobile = useIsMobile();
-  const collapsed = useCollapseOnScroll(mainEl, isMobile);
-
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
   const hasMenu = sections.length > 0;
 
@@ -138,10 +125,7 @@ export function AppShell({
     (activeTo ? sections.flatMap((s) => s.items).find((i) => i.to === activeTo)?.label : undefined);
 
   return (
-    <div
-      className="flex h-full flex-col overflow-hidden"
-      data-shell-collapsed={collapsed ? '' : undefined}
-    >
+    <div className="flex h-full flex-col overflow-hidden">
       <AppTopbar
         appKey={appKey}
         appLabel={label}
@@ -172,7 +156,7 @@ export function AppShell({
             can={can}
           />
         )}
-        <main ref={setMainEl} className="min-w-0 flex-1 overflow-y-auto">
+        <main className="min-w-0 flex-1 overflow-y-auto">
           {/* お知らせ帯はスクロール領域の中の上端 (sticky)。ヘッダーの外に出すと
               下にスクロールしているときに気づけない */}
           <NoticeBar />
