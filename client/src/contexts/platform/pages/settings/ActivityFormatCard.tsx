@@ -55,13 +55,13 @@ export function ActivityFormatCard() {
 
   const q = useQuery({
     queryKey: ['activity-format-status'],
-    queryFn: async () => (await api.get('/activities/format-status')).data.data as Status,
+    queryFn: async () => (await api.get('/activity-logs/format-status')).data.data as Status,
     // 流している間は減りを見たいので短く。**止まっているときは読み直さない**
     refetchInterval: running ? 5_000 : false,
   });
 
   const run = useMutation({
-    mutationFn: async () => (await api.post('/activities/format-run', { limit: BATCH })).data,
+    mutationFn: async () => (await api.post('/activity-logs/format-run', { limit: BATCH })).data,
     meta: { action: 'やり取りの整形' },
     onSuccess: (res) => {
       setRunning(true);
@@ -73,7 +73,7 @@ export function ActivityFormatCard() {
   });
 
   const reset = useMutation({
-    mutationFn: async () => (await api.post('/activities/format-reset-failed')).data,
+    mutationFn: async () => (await api.post('/activity-logs/format-reset-failed')).data,
     meta: { action: '失敗した記録の戻し' },
     onSuccess: (res) => {
       notifySuccess(res?.message ?? '対象に戻しました');
