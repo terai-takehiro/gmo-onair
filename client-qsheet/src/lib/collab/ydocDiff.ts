@@ -10,6 +10,8 @@
 
 import * as Y from 'yjs';
 import * as ops from './ydocOps';
+import { yDocToData } from '@gmo-onair/shared/src/collab/yjsDoc';
+import { ensureStableIds } from '../stableIds';
 
 function deepEq(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -165,4 +167,27 @@ export function applyDataDiff(ydoc: Y.Doc, prev: any, next: any): void {
     if (TOP_KEYS.has(k)) continue;
     if (!deepEq(p[k], n[k])) ops.setExtra(ydoc, k, n[k]);
   }
+}
+
+/**
+ * updater を Y.Doc へ適用する (EditorPage の updateData から呼ぶ唯一の入口)。
+ *
+ * **id の保証をここに集約している。** 差分は id を鍵に突き合わせるので、
+ * id の無い section / row が prev と next の両方に居ると毎回「新規」と判定され、
+ * **1 回の編集ごとに全部がもう一度追加されて倍々に増える**
+ * (CSV 取込が id を付けていなかったため、取り込んだあと打鍵するたびに倍増し、
+ *  20 回ほどでブラウザとサーバーが落ちた)。
+ *
+ * 順番が要点:
+ *   ① 先に Y 側の id 無しを埋める (prev を読む前。あとで埋めるとその回の差分が増殖する)
+ *   ② prev を読む
+ *   ③ next にも id を付ける (updater が新しく足したロール/行の分)
+ * これで「id を付け忘れた機能」が将来増えても、増殖という壊れ方はしなくなる。
+ */
+export function applyDataUpdate(ydoc: Y.Doc, updater: (prev: any) => any): any {
+  ops.backfillIds(ydoc);
+  const prev = yDocToData(ydoc);
+  const next = ensureStableIds(updater(prev)).data;
+  applyDataDiff(ydoc, prev, next);
+  return next;
 }

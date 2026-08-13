@@ -6,9 +6,54 @@
 
 import * as Y from 'yjs';
 import { toYValue, fromYValue } from '@gmo-onair/shared/src/collab/yjsDoc';
+import { genId } from '../stableIds';
 
 type YMap = Y.Map<any>;
 type YArr = Y.Array<any>;
+
+/**
+ * 挿入する section / row に id が無ければ付ける。
+ * **id 無しの Y ノードを 1 つも作らせない**のがこの関数の役割。
+ * id が無いと差分器 (ydocDiff) が毎回「まだ無いもの」と判定し、編集のたびに再追加して
+ * 倍々に増える (CSV 取込が id を付けていなかったときに実際に起きた)。
+ */
+function withId(node: any, prefix: 'sec' | 'row'): any {
+  if (!node || typeof node !== 'object') return node;
+  let out = node;
+  if (!out.id) out = { ...out, id: genId(prefix) };
+  if (prefix === 'sec' && Array.isArray(out.rows) && out.rows.some((r: any) => r && typeof r === 'object' && !r.id)) {
+    out = { ...out, rows: out.rows.map((r: any) => withId(r, 'row')) };
+  }
+  return out;
+}
+
+/**
+ * Y.Doc に既に入っている id 無しの section / row に id を後付けする (変更があれば true)。
+ * 旧版が書き込んだ文書を開いたときの回復用。**差分を取る前に呼ぶこと** —
+ * 後から呼ぶと、その回の差分がまだ id 無しの prev/next を見て増殖させてしまう。
+ */
+export function backfillIds(ydoc: Y.Doc): boolean {
+  let changed = false;
+  const secs = getSections(ydoc);
+  for (let i = 0; i < secs.length; i++) {
+    const sec = secs.get(i);
+    if (!(sec instanceof Y.Map)) continue;
+    if (!sec.get('id')) {
+      sec.set('id', genId('sec'));
+      changed = true;
+    }
+    const rows = sec.get('rows');
+    if (!(rows instanceof Y.Array)) continue;
+    for (let j = 0; j < rows.length; j++) {
+      const row = rows.get(j);
+      if (row instanceof Y.Map && !row.get('id')) {
+        row.set('id', genId('row'));
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
 
 export function getSections(ydoc: Y.Doc): YArr {
   return ydoc.getArray('sections');
@@ -102,7 +147,7 @@ export function setExtra(ydoc: Y.Doc, key: string, value: unknown): void {
 export function addSection(ydoc: Y.Doc, section: any, atIndex?: number): void {
   const arr = getSections(ydoc);
   const idx = atIndex === undefined ? arr.length : Math.max(0, Math.min(atIndex, arr.length));
-  arr.insert(idx, [toYValue(section)]);
+  arr.insert(idx, [toYValue(withId(section, 'sec'))]);
 }
 export function deleteSection(ydoc: Y.Doc, sectionId: string): void {
   const arr = getSections(ydoc);
@@ -152,7 +197,7 @@ export function insertRowAfter(ydoc: Y.Doc, sectionId: string, afterRowId: strin
     const at = indexById(rows, afterRowId);
     if (at >= 0) idx = at + 1;
   }
-  rows.insert(idx, [toYValue(row)]);
+  rows.insert(idx, [toYValue(withId(row, 'row'))]);
 }
 export function deleteRowCell(ydoc: Y.Doc, sectionId: string, rowId: string, blockId: string): void {
   const row = findRow(ydoc, sectionId, rowId);

@@ -1,6 +1,9 @@
 // CSV インポート: CSV エクスポート (#, セクション, 尺, ...ブロック列) と往復可能な形式を読み込み、
 // sections[] に変換する。Excel で編集した CSV (引用符・改行・カンマ内包) にも対応。
-import { parseDur } from "@/lib/time";
+// (相対パスで書く: この層は画面を持たない純粋関数なので、
+//  エイリアスを解決しないテスト実行環境からもそのまま読めるようにする)
+import { parseDur } from "./time";
+import { genId } from "./stableIds";
 
 // ─── CSV パーサ (RFC 4180 準拠: "" エスケープ / セル内改行 / CRLF) ───
 export function parseCsv(text: string): string[][] {
@@ -117,6 +120,12 @@ function parseCell(block: Block, text: string): any {
 }
 
 // ─── CSV 行列 → sections[] ───
+//
+// ⚠️ ここで作る section / row には **必ず `id` を付けること**。
+// 同時共同編集の差分器 (lib/collab/ydocDiff) は id を鍵に prev/next を突き合わせるため、
+// id が無いと「まだ Y.Doc に無いもの」と毎回判定され、編集のたびに全部が再追加される
+// (取り込んだロールが倍々に増えてブラウザとサーバーが落ちる)。
+
 export interface CsvImportResult {
   sections: any[];
   rowCount: number;
@@ -139,13 +148,13 @@ export function buildSectionsFromCsv(rows: string[][], map: CsvColumnMap): CsvIm
     // VTR 行: 「VTR: タイトル」「VTR」「ＶＴＲ」(全角/コロン無しも許容)
     const vtrMatch = label.match(/^(?:VTR|ＶＴＲ)(?:[:：]\s*(.*))?$/i);
     if (vtrMatch && !hasBlockContent) {
-      sections.push({ _vtr: true, label: (vtrMatch[1] || "").trim() || "VTR", duration: duration || "0:30", rows: [] });
+      sections.push({ id: genId("sec"), _vtr: true, label: (vtrMatch[1] || "").trim() || "VTR", duration: duration || "0:30", rows: [] });
       current = null;
       return;
     }
     // CM 行: ラベルが CM で始まりブロック内容なし (「CM」「ＣＭ」「CM②」等、名前はそのまま保持)
     if (/^(?:CM|ＣＭ)/i.test(label) && !hasBlockContent) {
-      sections.push({ _break: true, label, duration: duration || "1:00", rows: [] });
+      sections.push({ id: genId("sec"), _break: true, label, duration: duration || "1:00", rows: [] });
       current = null;
       return;
     }
@@ -154,7 +163,7 @@ export function buildSectionsFromCsv(rows: string[][], map: CsvColumnMap): CsvIm
     // 新セクションの先頭行がブロック内容なしなら「ロール見出し行」とみなし、
     // その尺をロール尺 (section.duration) に設定する (空行は作らない)。
     if (!current || current.label !== label) {
-      current = { label: label || "【無題ロール】", rows: [] };
+      current = { id: genId("sec"), label: label || "【無題ロール】", rows: [] };
       sections.push(current);
       if (!hasBlockContent) {
         if (duration) current.duration = duration;
@@ -172,7 +181,7 @@ export function buildSectionsFromCsv(rows: string[][], map: CsvColumnMap): CsvIm
         }
       }
     });
-    current.rows.push({ duration, cells });
+    current.rows.push({ id: genId("row"), duration, cells });
     rowCount++;
   });
 
