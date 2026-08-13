@@ -4,7 +4,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { activityLogService } from '../services/activity-log.service';
 import {
-  formatQueueStats, runFormatPass, resetFailed, DEFAULT_BATCH,
+  formatQueueStats, runFormatPass, resetFailed, redoFormat, DEFAULT_BATCH,
 } from '../services/activity-format.service';
 
 const router = Router();
@@ -99,6 +99,24 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
     // 直した人を渡す。**AI が整えた行を人が直した差分**の「誰が」に入る（条件2）
     data: await activityLogService.update(req.params.id as string, req.body, req.user!.id),
   });
+});
+
+/*
+ * 「この整形は違う」— 1件を待ち行列に戻す（migration 188）。
+ *
+ * **`editor` で通す。** その記録を直せる人なら押せてよい（バッチの `manager` と違い、
+ * 効くのは1行だけで、しかも原文は残る）。押した事実は `ai_corrections` に
+ * `reject` として残り、プロンプト改善の材料になる（条件2）。
+ */
+router.post('/:id/format-redo', requirePermission('sales', 'editor'), async (req, res, next) => {
+  try {
+    await redoFormat(req.params.id as string, req.user!.id);
+    res.json({
+      success: true,
+      data: await activityLogService.getById(req.params.id as string),
+      message: '整え直しの順番に戻しました（毎晩 3:00 に自動で整えます）',
+    });
+  } catch (e) { next(e); }
 });
 
 // 次回アクションを完了 (営業ダッシュボードのワンタップ操作)

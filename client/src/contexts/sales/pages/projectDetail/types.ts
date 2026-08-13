@@ -84,8 +84,13 @@ export interface ActivityLog {
    * 画面側で削り直さない — 守りは入口に1か所だけ置く
    */
   body_html?: string | null;
-  /** 要点。画面ではチェック付きのチップ */
+  /** 要点。**v1 の欄**（構造がある行では `facts` が同じ役割を担うので出さない） */
   key_points?: string[] | null;
+  /**
+   * 整えた本文の**構造**（migration 188）。状態・事実・発言に分かれている。
+   * 読み取りと型は `thread/struct.ts`。**これがある行は会話の形で描く**
+   */
+  body_struct?: unknown;
   /** AI が整形したか（紫のバッジ） */
   ai_formatted?: boolean;
   user_name?: string | null;

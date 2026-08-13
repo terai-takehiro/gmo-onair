@@ -18,9 +18,13 @@
  *
  * ── 一度整えたものは触らない ────────────────────────────────
  *
- * 待ち行列は行の状態（`body_html` が空か）で決まるので、整え終わった行は
+ * 待ち行列は行の状態（`body_struct` が空か）で決まるので、整え終わった行は
  * 二度と対象になりません。**原文（`description`）は1バイトも触りません**
  * — 整形が的外れなときは、やり取りの「打った文をみる」から戻せます。
+ *
+ * ⚠️ **v1（HTML 1本）で整えた行は、もう一度対象になります**（migration 188）。
+ * 画面は構造がある行だけ会話の形で描くので、作り直さないと同じ一覧に
+ * 2つの見た目が混ざります。**件数と推定費用はここに出ている数字のとおり**です。
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +35,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/
 import { Num } from '@gmo-onair/shared/src/client/ui/numbers';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import api from '@/lib/api';
 
@@ -38,6 +43,8 @@ interface Status {
   pending: number;
   failed: number;
   formatted: number;
+  /** 人が入れた本文があるので触らない件数。**0 のときは出さない** */
+  skipped: number;
   total: number;
   usdPerRow: number | null;
   usdEstimate: number | null;
@@ -93,7 +100,7 @@ export function ActivityFormatCard() {
     const ok = await confirmAction({
       title: `${taking} 件を整えますか`,
       // **何が起きて何が起きないかを両方書く**（原文が消えないことが一番の不安になる）
-      description: `AI が本文を読みやすく整えて「要点」を付けます。${cost}。\n\n`
+      description: `AI が本文を「誰が・何を」に分けて整えます。${cost}。\n\n`
         + '打った文（原文）はそのまま残るので、整形が的外れなときは各記録の「打った文をみる」から確かめられます。'
         + '件名と「次にやること」は書き換えません。\n\n'
         + `残りは ${s.pending - taking} 件です（何回かに分けて流せます）。`,
@@ -119,15 +126,19 @@ export function ActivityFormatCard() {
         ) : s ? (
           <div className="flex flex-col gap-3">
             <p className="text-note text-muted-foreground">
-              メールから取り込んだ記録は素の文のまま入ります。ここで整えると、見出し・箇条書き・強調のある本文になります。
+              メールから取り込んだ記録は素の文のまま入ります。ここで整えると、
+              誰が言ったことか・何が決まったか・日時や体制の事実が分かれた形になります。
               毎晩 3:00 に 40 件ずつ自動で整えるので、急がなければそのまま置いても構いません。
             </p>
 
-            <dl className="grid grid-cols-3 gap-3">
+            {/* **触らない件数は 0 のときだけ隠す。** 出さないと合計が合わず、
+                「残り＋済み＋失敗」が全体と違う理由を誰も説明できない */}
+            <dl className={cn('grid gap-3', s.skipped > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3')}>
               {[
                 { label: 'まだ整えていない', value: s.pending },
                 { label: '整え終わった', value: s.formatted },
                 { label: '整えられなかった', value: s.failed },
+                ...(s.skipped > 0 ? [{ label: '人が書いたので触らない', value: s.skipped }] : []),
               ].map((it) => (
                 <div key={it.label} className="rounded-note border border-border-subtle bg-surface-subtle px-3 py-2">
                   <dt className="text-note text-muted-foreground">{it.label}</dt>

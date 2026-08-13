@@ -2,7 +2,7 @@
  * 後追い整形で「どの値を行に書くか」（`activity-format.service` の `mergeFormatted`）
  *
  * **なぜここをテストするか**: 間違えると**取込スキルが作った精度の高い件名と
- * 次にやることが、AI の30字の件名で潰れます**。しかも潰れたことは
+ * 次にやることが、AI の20字の件名で潰れます**。しかも潰れたことは
  * 画面を見ても分かりません（もっともらしい件名が出るだけ）。
  *
  * server は `shared` を import しない構成なので、**server のファイルを直接読みます**
@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { mergeFormatted, type FormatTargetRow } from '../../server/src/contexts/sales/services/activity-format.service';
 import type { StructuredActivity } from '../../server/src/contexts/sales/services/activity-ai.service';
+import type { ActivityStruct } from '../../server/src/shared/services/activity-struct';
 
 const row = (over: Partial<FormatTargetRow> = {}): FormatTargetRow => ({
   id: 'a1',
@@ -23,25 +24,39 @@ const row = (over: Partial<FormatTargetRow> = {}): FormatTargetRow => ({
   ...over,
 });
 
+const struct = (): ActivityStruct => ({
+  v: 1,
+  subtitle: '搬入申請・掲載ロゴを依頼',
+  statuses: [{ label: '撮影決定', tone: 'decided' }],
+  facts: [{ icon: 'date', value: '8/10 5:00–20:00' }],
+  lead: '先方より撮影決定の確定連絡。',
+  turns: [{ side: 'them', name: '露崎様', org: 'エンブレム', at: '7/30 21:54', quote: '「撮影は決定で」', note: null, fields: [] }],
+});
+
 const ai = (over: Partial<StructuredActivity> = {}): StructuredActivity => ({
   subject: 'LEDの納品仕様を確認',            // 整形器が作る短い件名
-  bodyHtml: '<p>整えた本文</p>',
-  keyPoints: ['要点1', '要点2'],
+  struct: struct(),
   nextAction: 'AI が読み取った次の一手',
   nextActionDate: '2026-08-20',
   ...over,
 });
 
 describe('mergeFormatted', () => {
-  it('本文と要点は AI のものを採る（ここが埋めたい欄）', () => {
+  it('本文の構造は AI のものを採る（ここが埋めたい欄）', () => {
     const m = mergeFormatted(row(), ai());
-    expect(m.bodyHtml).toBe('<p>整えた本文</p>');
-    expect(m.keyPoints).toEqual(['要点1', '要点2']);
+    expect(m.struct?.lead).toBe('先方より撮影決定の確定連絡。');
+    expect(m.struct?.turns).toHaveLength(1);
   });
 
   it('件名は返さない = 呼ぶ側が上書きできない（取込スキルの件名を守る）', () => {
     const m = mergeFormatted(row(), ai());
     expect(m).not.toHaveProperty('subject');
+  });
+
+  it('原文（description）も返さない = 書き戻す先が無い', () => {
+    // 「打った文をみる」で戻せることが、整形を任せられる前提になっている
+    const m = mergeFormatted(row(), ai());
+    expect(m).not.toHaveProperty('description');
   });
 
   it('次にやることが入っている行は上書きしない', () => {
@@ -78,8 +93,8 @@ describe('mergeFormatted', () => {
     expect(m.nextActionDate).toBeNull();
   });
 
-  it('本文が空なら null を返す（呼ぶ側が失敗として扱える）', () => {
-    const m = mergeFormatted(row(), ai({ bodyHtml: null }));
-    expect(m.bodyHtml).toBeNull();
+  it('構造が空なら null を返す（呼ぶ側が失敗として扱える）', () => {
+    const m = mergeFormatted(row(), ai({ struct: null }));
+    expect(m.struct).toBeNull();
   });
 });

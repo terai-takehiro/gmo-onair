@@ -7,6 +7,7 @@ import {
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
+import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
 
 /** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
 export const ACTIVITY_FORMAT_KIND = 'activity_format';
@@ -148,8 +149,11 @@ export class ActivityLogService {
       throw new AppError(400, 'VALIDATION_ERROR', '整えるための本文が空です');
     }
 
-    let bodyHtml = sanitizeBodyHtml(data.body_html);
-    let keyPoints = sanitizeKeyPoints(data.key_points);
+    // **`body_html` / `key_points` は v1 の欄。** 整形器はもう作りませんが、
+    // API から直接渡す経路（外の道具・過去の取込）を 400 で止めないので残します
+    const bodyHtml = sanitizeBodyHtml(data.body_html);
+    const keyPoints = sanitizeKeyPoints(data.key_points);
+    let bodyStruct: ActivityStruct | null = normalizeActivityStruct(data.body_struct);
     let aiFormatted = false;
     let aiOutputId: string | null = null;
     let action = typeof next_action === 'string' ? next_action : null;
@@ -176,9 +180,11 @@ export class ActivityLogService {
             kindLabel: KIND_LABEL[String(activity_type)] ?? null,
             advice,
           });
+          // **構造が組み立てられなかったら失敗として扱う。** 件名だけ差し替えて
+          // 本文を残さないと、画面には整形前より薄いものが出る
+          if (!s.struct) throw new Error('整えた本文が空でした');
           subject = s.subject;
-          bodyHtml = s.bodyHtml;
-          keyPoints = s.keyPoints;
+          bodyStruct = s.struct;
           // **人が入れた次にやることを AI で上書きしない。** 書いてあるほうが正
           action = action || s.nextAction;
           actionDate = actionDate || s.nextActionDate;
@@ -192,7 +198,7 @@ export class ActivityLogService {
             targetId: null,   // 行を作る前なので、作ってから埋める
             payload: {
               original,
-              subject: s.subject, body_html: s.bodyHtml, key_points: s.keyPoints,
+              subject: s.subject, body_struct: s.struct,
               next_action: s.nextAction, next_action_date: s.nextActionDate,
             },
             toolName: 'activity.format',
@@ -212,11 +218,13 @@ export class ActivityLogService {
     await execute(
       `INSERT INTO activity_logs
          (id, project_id, customer_id, user_id, activity_type, activity_date, subject, description,
-          body_html, key_points, ai_formatted, ai_output_id, next_action, next_action_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)`,
+          body_html, key_points, body_struct, ai_formatted, ai_output_id, next_action, next_action_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)`,
       [id, project_id || null, customer_id || null, userId, activity_type, activity_date,
        subject, original || (typeof description === 'string' ? description : null),
-       bodyHtml, JSON.stringify(keyPoints), aiFormatted, aiOutputId,
+       bodyHtml, JSON.stringify(keyPoints),
+       bodyStruct ? JSON.stringify(bodyStruct) : null,
+       aiFormatted, aiOutputId,
        action || null, actionDate || null, userId],
     );
     if (aiOutputId) {
@@ -259,6 +267,11 @@ export class ActivityLogService {
     ];
     if (data.body_html !== undefined) { sets.push('body_html=?'); params.push(sanitizeBodyHtml(data.body_html)); }
     if (data.key_points !== undefined) { sets.push('key_points=?::jsonb'); params.push(JSON.stringify(sanitizeKeyPoints(data.key_points))); }
+    if (data.body_struct !== undefined) {
+      const s = normalizeActivityStruct(data.body_struct);
+      sets.push('body_struct=?::jsonb');
+      params.push(s ? JSON.stringify(s) : null);
+    }
 
     await execute(
       `UPDATE activity_logs SET ${sets.join(', ')}, updated_at=NOW() WHERE id=?`,
@@ -326,6 +339,28 @@ export class ActivityLogService {
  * `findLatestAiOutput` の既定（7日）に乗ります。3か月後に次のアクションを
  * 書き換えたのは AI の誤りではなく、ふつうの業務更新です。
  */
+/**
+ * 鍵の並びを揃えて JSON 文字列にする（比較のためだけに使う）。
+ *
+ * **JSONB は鍵を並べ替えて保存します**（書いた並びと読み出す並びが違う）。
+ * いまは比べる両側とも JSONB 経由なので並びは揃いますが、
+ * **そこに寄りかかった比較は、片側が JS のオブジェクトのまま来た日に黙って壊れます**
+ * — 中身が同じでも別物と判定され、差分が全部「人が直した」になります。
+ */
+export function stableJson(v: unknown): string {
+  const walk = (x: unknown): unknown => {
+    if (Array.isArray(x)) return x.map(walk);
+    if (x && typeof x === 'object') {
+      const o = x as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(o).sort()) out[k] = walk(o[k]);
+      return out;
+    }
+    return x;
+  };
+  return JSON.stringify(walk(v));
+}
+
 async function recordActivityCorrections(
   id: string, after: Record<string, unknown>, userId: string | null,
 ): Promise<void> {
@@ -365,8 +400,26 @@ async function recordActivityCorrections(
       type: beforePoints === '[]' ? 'enrich' : 'fix',
     });
   }
+  // 本文の構造（migration 188）も丸ごと1項目。**鍵の並びを揃えてから比べる**。
+  //
+  // いまは両側とも JSONB を読んだもので、**JSONB は鍵を並べ替えて保存する**
+  // （`{v, subtitle, turns, lead}` → `{v, lead, turns, subtitle}`。実測）ため
+  // 並びは揃っています。ただし**それに寄りかかると、片側を JS の
+  // オブジェクトのまま渡す経路が1つ増えた日に、1文字も直していない行が
+  // 全部「直した」に数えられます**（無修正採用率が意味を失う）。
+  // 並びに依存しない比較にしておくこと。
+  const beforeStruct = stableJson(ai.body_struct ?? null);
+  const afterStruct = stableJson(after.body_struct ?? null);
+  if (beforeStruct !== afterStruct) {
+    diffs.push({
+      fieldPath: 'body_struct',
+      before: ai.body_struct ?? null,
+      after: after.body_struct ?? null,
+      type: beforeStruct === 'null' ? 'enrich' : afterStruct === 'null' ? 'reject' : 'fix',
+    });
+  }
 
-  const all = ['subject', 'body_html', 'next_action', 'next_action_date', 'key_points'];
+  const all = ['subject', 'body_html', 'body_struct', 'next_action', 'next_action_date', 'key_points'];
   if (diffs.length === 0) {
     // **無修正で通した**ことを残す。これが正解ラベルで、
     // 無いと「無修正採用率」の分母が壊れる
