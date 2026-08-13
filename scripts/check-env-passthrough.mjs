@@ -53,9 +53,21 @@ function walk(dir, out = []) {
   return out;
 }
 
+/**
+ * コメントを落としてから数える。
+ *
+ * **説明文の中に `process.env.FOO` と書いただけで検査が止まる**のを避けるため
+ * （実際に踏んだ: この検査の使い方を説明したコメントで `process.env.X` と書き、
+ * 「X という変数が渡されていない」と言われた）。Tailwind がコメントの中の
+ * クラス名まで拾うのと同じ踏み方なので、**数える前に落とす**。
+ */
+const stripComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
 const used = new Set();
 for (const file of walk(path.join(root, 'server', 'src'))) {
-  const src = fs.readFileSync(file, 'utf-8');
+  const src = stripComments(fs.readFileSync(file, 'utf-8'));
   for (const m of src.matchAll(/process\.env\.([A-Z0-9_]+)/g)) used.add(m[1]);
 }
 

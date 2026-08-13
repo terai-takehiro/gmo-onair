@@ -43,17 +43,13 @@ import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
+import { modelFor, tierFor } from '../../../shared/services/ai-model';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
 export const ACTIVITY_PROMPT_VERSION = 'activity-v2';
 /** 過去の修正傾向を載せた版。**混ぜない** — 載せた効果を後から数字で言えなくなる */
 export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v2+fb';
 
-/** 整形のモデル。議事録と同じ既定に寄せる（別々にすると片方だけ古いモデルで残る） */
-const DEFAULT_MODELS: Record<IntakeAiProvider, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-opus-5',
-};
 
 const TIMEOUT_MS = 60_000;
 
@@ -177,10 +173,20 @@ export function isActivityAiConfigured(): boolean {
   return resolveProvider() !== null;
 }
 
-export function activityModel(provider?: IntakeAiProvider | null): string {
+/**
+ * この整形に使うモデル。**段は入力の長さで決まる**（`shared/services/ai-model.ts`）。
+ *
+ * やり取りの整形は**形を整えるだけ**で、崩れていれば画面を見た人がその場で
+ * 気づけるので **light が既定**です。長い記録だけ heavy に上げます。
+ *
+ * ⚠️ 着手前は `ACTIVITY_AI_MODEL || MINUTES_AI_MODEL || 既定` の順でした。
+ * **`MINUTES_AI_MODEL` を1つ入れるとやり取りまで巻き添えで変わる**という、
+ * 名前から読み取れない結びつきだったので外してあります。
+ */
+export function activityModel(provider?: IntakeAiProvider | null, chars = 0): string {
   const p = provider ?? resolveProvider();
   if (!p) return 'none';
-  return process.env.ACTIVITY_AI_MODEL || process.env.MINUTES_AI_MODEL || DEFAULT_MODELS[p];
+  return modelFor('activity', tierFor('activity', { chars }), p);
 }
 
 /**
@@ -219,7 +225,8 @@ export async function formatActivity(
     throw new Error(`長すぎます（${text.length} 文字）。分けて記録してください`);
   }
 
-  const model = activityModel(provider);
+  // **長さで段が決まる。** 短い記録は軽いモデルで足りる（`shared/services/ai-model.ts`）
+  const model = activityModel(provider, text.length);
   // 過去に人がどう直したかを渡す。**ここがループを閉じている部分**
   const lessons = (opts.advice ?? []).slice(0, 8);
   const lessonBlock = lessons.length
@@ -242,12 +249,35 @@ ${lessons.map((l) => `- ${l}`).join('\n')}\n`
 ${text}
 """`;
 
-  const out = provider === 'openai'
-    ? await callOpenAi(model, userPrompt)
-    : await callAnthropic(model, userPrompt);
+  const call = (m: string) => (provider === 'openai'
+    ? callOpenAi(m, userPrompt)
+    : callAnthropic(m, userPrompt));
+
+  /*
+   * **軽いモデルで落ちたら、上位モデルで1回だけやり直す**（投入口と同じ決めごと）。
+   *
+   * モデル名が使えない環境・構造化出力に対応していない版で**黙って失敗すると**、
+   * その行は `format_error` が立って待ち行列から外れ、
+   * **「整わない記録がある」としか分からなくなります**。
+   *
+   * ⚠️ **やり直すのは落ちたときだけ。** 中身が気に入らないときはやり直しません —
+   * 「もっともらしいが違う」は例外にならないので、**人が「整え直す」を押す**のが
+   * 正しい直し方です（`activity-format.service` の `redoFormat`）。
+   */
+  const heavy = modelFor('activity', 'heavy', provider);
+  let used = model;
+  let out: FormatCall;
+  try {
+    out = await call(model);
+  } catch (e) {
+    if (model === heavy) throw e;
+    console.warn(`[activity] ${model} で落ちたので ${heavy} でやり直します:`, (e as Error).message);
+    used = heavy;
+    out = await call(heavy);
+  }
 
   await recordAiUsage({
-    kind: 'activity', provider, model,
+    kind: 'activity', provider, model: used,
     inputTokens: out.usage.inputTokens,
     cachedInputTokens: out.usage.cachedInputTokens,
     outputTokens: out.usage.outputTokens,
@@ -256,7 +286,7 @@ ${text}
   return {
     ...normalizeActivity(out.raw, text),
     provider,
-    model,
+    model: used,
     promptVersion: lessons.length ? ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK : ACTIVITY_PROMPT_VERSION,
   };
 }
