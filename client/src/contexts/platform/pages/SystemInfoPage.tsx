@@ -31,6 +31,7 @@ import { APPS } from "@gmo-onair/shared/src/client/apps";
 import api from "@/lib/api";
 import { IntegrationsCard } from "./settings/IntegrationsCard";
 import { AiUsageCard } from "./settings/AiUsageCard";
+import { ActivityFormatCard } from "./settings/ActivityFormatCard";
 
 export default function SystemInfoPage() {
   const { currentUser } = useAuth();
@@ -79,6 +80,9 @@ export default function SystemInfoPage() {
       {/* **つながっているかのすぐ下**に置く — 「使えている / いくら掛かっている」は
           続けて見るもの。離すと、費用を確かめに来た人がここまで来ない */}
       <AiUsageCard />
+
+      {/* 取り込んだやり取りの本文を後から整える（migration 187） */}
+      <ActivityFormatCard />
 
       {/* 管理者専用: 全データバックアップ */}
       {isAdmin && (

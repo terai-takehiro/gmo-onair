@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { AppError } from '../../../shared/middleware/errorHandler';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { activityLogService } from '../services/activity-log.service';
+import {
+  formatQueueStats, runFormatPass, resetFailed, DEFAULT_BATCH,
+} from '../services/activity-format.service';
 
 const router = Router();
 
@@ -27,6 +31,58 @@ router.get('/', async (req, res) => {
 router.get('/upcoming', async (req, res) => {
   const days = parseInt(req.query.days as string) || 7;
   res.json({ success: true, data: await activityLogService.getUpcomingActions(req.user!.id, days) });
+});
+
+/*
+ * 本文をあとから整える（バックフィル・migration 187）
+ *
+ * ⚠️ **`/:id` より前に置くこと。** 後ろに置くと `/format-status` が
+ * `/:id` に食われ、「format-status という id の活動記録」を探して 404 になる
+ * （`/upcoming` が前にあるのと同じ理由）。
+ */
+router.get('/format-status', async (_req, res, next) => {
+  try {
+    res.json({ success: true, data: await formatQueueStats() });
+  } catch (e) { next(e); }
+});
+
+/*
+ * **走らせるのは manager 以上。** 1行1コールで課金され、しかも
+ * **全案件の記録に一度に効く**（標準工程テンプレートを直せるのが manager なのと同じ重さ）。
+ *
+ * **返事を待たせない。** 20 件で 2 分ほどかかるので nginx の 60 秒に当たる
+ * （`proxy_read_timeout` は書かれていない）。**先に 202 を返して裏で流し**、
+ * 画面は `/format-status` を読み直して件数の減りを見る。
+ */
+router.post('/format-run', requirePermission('sales', 'manager'), async (req, res, next) => {
+  try {
+    const stats = await formatQueueStats();
+    if (!stats.configured) {
+      throw new AppError(400, 'AI_NOT_CONFIGURED', 'この環境は AI につないでいないので整えられません');
+    }
+    if (stats.pending === 0) {
+      res.json({ success: true, data: { started: false, pending: 0 }, message: '整えていない記録はありません' });
+      return;
+    }
+    const limit = Number(req.body?.limit) || DEFAULT_BATCH;
+    res.status(202).json({
+      success: true,
+      data: { started: true, taking: Math.min(limit, stats.pending), pending: stats.pending },
+      message: '裏で整えています。件数の減りは画面を読み直すと分かります',
+    });
+    // **応答を返したあとに流す。** ここで await しない（返事が返らなくなる）
+    runFormatPass({ limit, actorId: req.user!.id })
+      .then((r) => console.log('[activity-format] pass done:', JSON.stringify(r)))
+      .catch((e) => console.error('[activity-format] pass failed:', (e as Error).message));
+  } catch (e) { next(e); }
+});
+
+/** 失敗した行をもう一度対象に戻す（プロンプトを直したあとに使う） */
+router.post('/format-reset-failed', requirePermission('sales', 'manager'), async (_req, res, next) => {
+  try {
+    const reset = await resetFailed();
+    res.json({ success: true, data: { reset }, message: `${reset} 件を対象に戻しました` });
+  } catch (e) { next(e); }
 });
 
 router.get('/:id', async (req, res) => {

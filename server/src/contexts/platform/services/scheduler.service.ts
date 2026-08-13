@@ -26,6 +26,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { notifyMany, usersWithPermission, fill, type NotifyInput } from './notification.service';
 import { generateKptDraft } from '../../sales/services/kpt.service';
 import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
+import { runFormatPass } from '../../sales/services/activity-format.service';
 
 /** サーバーの時計から `YYYY-MM-DD` と `HH:MM`。**時差を持ち込まない** */
 function nowParts(): { date: string; time: string } {
@@ -48,8 +49,14 @@ interface Job {
   key: string;
   /** この時刻を過ぎたら流す（`HH:MM`） */
   at: string;
-  /** ひな形の id。無効にされていたら流さない */
-  templateId: string;
+  /**
+   * ひな形の id。無効にされていたら流さない。
+   *
+   * **`null` = ひな形を持たない仕事**（通知を出さない裏方の仕事）。
+   * `notification_templates` は文面の表（件名・本文・宛先・社外か社内か）なので、
+   * 通知しない仕事のためにダミー行を作らない。**止め方は環境変数**で持つ
+   */
+  templateId: string | null;
   run: (today: string) => Promise<NotifyInput[]>;
 }
 
@@ -288,6 +295,33 @@ async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
   return out;
 }
 
+/**
+ * 前日までに取り込まれた「まだ整えていないやり取り」を整える（migration 187）。
+ *
+ * メール取込（MCP `create_activity_log`）は整形器を通らないので、
+ * **放っておくと素のテキストのまま溜まります**。ここで毎晩ぶんを整えます。
+ *
+ * - **通知は出しません**（`[]` を返す）。整形は裏方の仕事で、
+ *   毎朝「N件整えました」が届くと通知が意味を失う
+ * - **1回の上限を置きます。** 溜まっている分を一晩で全部呼ぶと、
+ *   費用が読めないまま朝には終わっている。**過去ぶんは設定画面から人が流す**
+ * - **深夜に置きます。** AI を呼ぶので他の仕事と重ねない（`kpt_draft` と同じ理由）
+ */
+async function formatPendingActivities(): Promise<NotifyInput[]> {
+  // **止められるようにしておく。** 費用が気になるときに毎晩の呼び出しを切れる
+  // （過去ぶんは設定画面から人が流せるので、切っても手が無くなるわけではない）
+  if ((process.env.ACTIVITY_FORMAT_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    const r = await runFormatPass({ limit: 40, actorId: null });
+    if (r.formatted || r.failed) {
+      console.log('[scheduler] activity_format:', JSON.stringify(r));
+    }
+  } catch (e) {
+    console.error('[scheduler] activity_format failed:', (e as Error).message);
+  }
+  return [];
+}
+
 const JOBS: Job[] = [
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
@@ -297,6 +331,9 @@ const JOBS: Job[] = [
   // 9:30 にするのは、9:00 の3本（期限・督促・返却）と重ねないため。
   // AI を呼ぶので他より時間がかかり、重ねると朝いちの通知が遅れる
   { key: 'kpt_draft', at: '09:30', templateId: 'kpt_draft', run: kptDraftYesterday },
+  // 通知を出さない裏方の仕事（ひな形なし）。深夜に置くのは AI を呼ぶ仕事を朝と重ねないため。
+  // 止めたいときは `ACTIVITY_FORMAT_NIGHTLY=off`
+  { key: 'activity_format', at: '03:00', templateId: null, run: formatPendingActivities },
 ];
 
 /**
@@ -310,11 +347,15 @@ export async function runDueJobs(force = false): Promise<{ key: string; created:
   for (const job of JOBS) {
     if (!force && time < job.at) continue;
 
-    // ひな形が無効にされていたら流さない（設定の画面で止められる）
-    const tpl = await queryOne(
-      'SELECT enabled FROM notification_templates WHERE id = ?', [job.templateId],
-    ) as { enabled?: boolean } | null;
-    if (!tpl?.enabled) continue;
+    // ひな形が無効にされていたら流さない（設定の画面で止められる）。
+    // **ひな形を持たない仕事（通知を出さない裏方）はこの検査を通さない** —
+    // 通さないと、ダミー行を作るまで黙って1回も走らない
+    if (job.templateId !== null) {
+      const tpl = await queryOne(
+        'SELECT enabled FROM notification_templates WHERE id = ?', [job.templateId],
+      ) as { enabled?: boolean } | null;
+      if (!tpl?.enabled) continue;
+    }
 
     // **その日その仕事を始めたら行を作る。** 主キーなので2つ目は入らず、
     // ここで弾かれる（再起動しても二重に流れない）
