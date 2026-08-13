@@ -6,7 +6,8 @@
  */
 import { CalendarClock } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { KIND } from './thread/ThreadRow';
+import { KIND } from './thread/kinds';
+import { shortYmd } from './thread/format';
 import type { ActivityLog } from './types';
 
 /**
@@ -76,9 +77,12 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                   overdue ? 'font-bold text-destructive' : 'text-muted-foreground',
                 )}>
                   <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {/* 期限の書き方は**やり取りタブと同じ関数**（`thread/format.ts`）。
+                      書き写すと、同じ期限が画面によって違う形で出る */}
                   <span className="min-w-0 flex-1 line-clamp-2">
                     {a.next_action}
-                    {a.next_action_date && `（${a.next_action_date}${overdue ? ' 過ぎています' : ''}）`}
+                    {a.next_action_date
+                      && `（${shortYmd(a.next_action_date, a.activity_date)} まで${overdue ? '・過ぎています' : ''}）`}
                     {a.next_action_done_at && '（済み）'}
                   </span>
                 </span>

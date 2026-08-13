@@ -31,7 +31,7 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { RecordDialog } from './thread/RecordDialog';
 import { MinutesCard } from './thread/MinutesCard';
 import { ComposeBox, type ComposeKind } from './thread/ComposeBox';
-import { ThreadRow } from './thread/ThreadRow';
+import { ThreadCard } from './thread/ThreadCard';
 import type { MinutesResponse, MinutesPatch } from './thread/types';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { localDateStr } from '@/lib/format';
@@ -85,6 +85,36 @@ export function ThreadTab({ projectId }: { projectId: string }) {
     onSuccess: () => { invalidate(); notifySuccess('消しました'); },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
+
+  /**
+   * 「この整形は違う」— 待ち行列に戻す。
+   *
+   * **その場では整え直しません。** 1件でも AI の呼び出しは10秒近くかかり、
+   * 待たせているあいだに画面を閉じられると、押したのに何も起きなかったように見えます。
+   * 定時実行（毎晩 3:00）に任せ、**そのことを押す前に書きます**。
+   */
+  const redo = useMutation({
+    mutationFn: (id: string) => api.post(`/activity-logs/${id}/format-redo`),
+    meta: { action: '整え直し' },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['project-activities', projectId] });
+      notifySuccess((r.data as { message?: string })?.message ?? '整え直しの順番に戻しました');
+    },
+  });
+
+  const onRedo = async (id: string) => {
+    const ok = await confirmAction({
+      title: 'この整形をやめますか',
+      description: 'いま出ている整形を消して、整え直しの順番に戻します。'
+        + '**打った文（原文）はそのまま残ります。**\n\n'
+        + '整え直すのは毎晩 3:00 の自動処理なので、すぐには変わりません。'
+        + 'それまでは打った文のまま出ます。\n\n'
+        + '「違う」と押したことは記録され、整形の精度を上げる材料になります。',
+      confirmLabel: '整え直す',
+      tone: 'default',
+    });
+    if (ok) redo.mutate(id);
+  };
 
   /**
    * 持ち帰り → タスク。**タスクの鍵も落とす** — 落とさないと、
@@ -160,8 +190,19 @@ export function ThreadTab({ projectId }: { projectId: string }) {
           description="上の欄に打って「整えて記録する」を押してください。メールは AI が自動で取り込みます。"
         />
       ) : (
-        <div className="overflow-hidden rounded-card border border-border bg-card">
-          {items.map((a) => <ThreadRow key={a.id} a={a} today={today} />)}
+        // **1つの枠に行を詰めるのをやめた。** 1件ずつが会話の形を持つので、
+        // 区切り線で並べると「どこまでが1件か」が読めない（カードごとに離す）
+        <div className="flex flex-col gap-3">
+          {items.map((a) => (
+            <ThreadCard
+              key={a.id}
+              a={a}
+              today={today}
+              canEdit={canEdit}
+              onRedo={onRedo}
+              redoing={redo.isPending}
+            />
+          ))}
         </div>
       )}
 

@@ -39,21 +39,22 @@ describe('normalizeActivity — 次にやること', () => {
   });
 });
 
-describe('normalizeActivity — 本文と要点', () => {
-  it('本文はサニタイズを通る（属性は残らない）', () => {
-    const r = normalizeActivity({ body_html: '<p onclick="alert(1)">本文</p>' }, 'x');
-    expect(r.bodyHtml).toBe('<p>本文</p>');
+describe('normalizeActivity — 本文の構造 (migration 188)', () => {
+  it('構造は AI の出力の**同じ階層**から読む（入れ子にさせない）', () => {
+    // プロンプトの返す形は平らな1つのオブジェクト。`{ struct: {...} }` に
+    // させると、モデルによって入れ子の有無が揺れて読めない回ができる
+    const r = normalizeActivity({ lead: '折り返しの電話。', turns: [{ side: 'us', note: '日程を再調整' }] }, 'x');
+    expect(r.struct?.lead).toBe('折り返しの電話。');
+    expect(r.struct?.turns).toHaveLength(1);
   });
-  it('本文が無ければ null（空の枠を保存しない）', () => {
-    expect(normalizeActivity({ body_html: '' }, 'x').bodyHtml).toBeNull();
-    expect(normalizeActivity({}, 'x').bodyHtml).toBeNull();
+  it('中身が薄ければ null（空の枠を保存しない）', () => {
+    // ここを通すと待ち行列から外れるので**もう二度と整わない**
+    expect(normalizeActivity({ subject: '件名だけ' }, 'x').struct).toBeNull();
+    expect(normalizeActivity({}, 'x').struct).toBeNull();
   });
-  it('要点は4件まで（画面のチップが折り返さない数）', () => {
-    const r = normalizeActivity({ key_points: ['1', '2', '3', '4', '5'] }, 'x');
-    expect(r.keyPoints).toEqual(['1', '2', '3', '4']);
-  });
-  it('文字列以外の要点は落とす', () => {
-    expect(normalizeActivity({ key_points: ['ok', { t: 1 }, null] }, 'x').keyPoints).toEqual(['ok']);
+  it('HTML はもう受け取らない（v1 の `body_html` は無視される）', () => {
+    expect(normalizeActivity({ body_html: '<p onclick="alert(1)">本文</p>' }, 'x').struct).toBeNull();
+    expect(normalizeActivity({ lead: 'あり' }, 'x')).not.toHaveProperty('bodyHtml');
   });
 });
 
