@@ -19,6 +19,21 @@
  * これで「AI に HTML を書かせない」という取込側の決めごと
  * （`rich-content.ts` の冒頭）と、やり取り側の作りが揃いました。
  *
+ * ── v3 で「次にやること」の形を決めた ──────────────────────────
+ *
+ * `next_action` は自由文のままにしていたので、**言い切りとぶら下がる作業が
+ * 1本に繋がった長文**が出ていました（画面は1つの段落として太字で流し込むので、
+ * 10 行ぶんの塊になる。利用者から「読みづらい」とご指摘）。
+ * v3 は **1文目で言い切り、ぶら下がる作業は `①` から順**と決めています
+ * （画面が読み取って行に分ける: `projectDetail/thread/nextAction.ts`）。
+ *
+ * ⚠️ **これで直るのは、これから整える記録だけです。**
+ * 取込メールは MCP の `create_activity_log` が `next_action` を直接書き、
+ * **整形はすでに値がある行の `next_action` を上書きしません**
+ * （`activity-format.service` の `has(row.next_action)`）。
+ * **いま入っている値を読めるようにできるのは画面側だけ**なので、
+ * 分ける処理は画面が持ちます（プロンプトはその形に寄せるだけ）。
+ *
  * ── 議事録との違い ──────────────────────────────────────────
  *
  * 議事録（`minutes-ai.service`）は**取引先との合意の記録**なので、
@@ -46,9 +61,9 @@ import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/se
 import { modelFor, tierFor } from '../../../shared/services/ai-model';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
-export const ACTIVITY_PROMPT_VERSION = 'activity-v2';
+export const ACTIVITY_PROMPT_VERSION = 'activity-v3';
 /** 過去の修正傾向を載せた版。**混ぜない** — 載せた効果を後から数字で言えなくなる */
-export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v2+fb';
+export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v3+fb';
 
 
 const TIMEOUT_MS = 60_000;
@@ -100,7 +115,12 @@ const ActivitySchema = z.object({
     'やり取りを時間の順に並べる。多くて6件。**やり取りが1回しか無ければ1件**。'
     + '相手と当社の発言が読み取れないときは空配列（lead だけで足りる）',
   ),
-  next_action: z.string().describe('次にやること。原文に書かれているものだけ。無ければ空文字。**推測しない**'),
+  next_action: z.string().describe(
+    '次にやること。原文に書かれているものだけ。無ければ空文字。**推測しない**。'
+    + '**1文目に「いつまでに何をするか」を言い切る**（一覧と概要はこの1文しか出さない）。'
+    + 'ぶら下がる作業が複数あるときだけ、2文目以降を `①` から順に丸数字で並べる'
+    + '（`・` や `-` を使わない。番号を合わせるために作業を作らない）',
+  ),
   next_action_date: z.string().describe('その期限。"YYYY-MM-DD"。はっきり書かれていなければ空文字。**推測しない**'),
 });
 
@@ -121,6 +141,10 @@ const SYSTEM_PROMPT = `あなたは制作会社の営業事務です。
 
 3. **次にやることは、原文にあるものだけ。** 「〜しないと」「〜する」と書かれているものを拾います。
    書かれていなければ空文字にしてください。**気を利かせて作らないこと。**
+
+   **1文目で言い切ってください** —「いつまでに何をするか」。一覧・概要タブに出るのはこの1文だけです。
+   ぶら下がる作業が複数あるときだけ、2文目以降を \`①\` から順に丸数字で並べます
+   （画面が丸数字を読み取って1件ずつの行にします）。**作業が1つなら1文で終えること。**
 
 4. **日付を推測しない。** 「来週」「そのうち」「なるべく早く」は空文字です。
    「11月14日」のようにはっきり書かれているものだけ YYYY-MM-DD にします。

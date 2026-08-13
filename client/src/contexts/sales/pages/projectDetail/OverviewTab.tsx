@@ -24,6 +24,7 @@ import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
+import { parseNextAction } from './thread/nextAction';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
 /** 事実の帯の1枠 */
@@ -124,7 +125,14 @@ export function OverviewTab({
           <Fact icon={CalendarClock} label="次にやること">
             {nextAction ? (
               <>
-                <p className="text-sub truncate font-bold" title={nextAction.next_action ?? ''}>{nextAction.next_action}</p>
+                {/*
+                  **1行しか出せない枠なので、言い切りの1文だけを出す**（`thread/nextAction.ts`）。
+                  全文を `truncate` すると、付随してやることの1件目の途中で切れる。
+                  全文は `title` で読めるうえ、やり取りタブに行けば並びのまま出る
+                */}
+                <p className="text-sub truncate font-bold" title={nextAction.next_action ?? ''}>
+                  {parseNextAction(nextAction.next_action).headline}
+                </p>
                 {nextAction.next_action_date && (
                   <p className="text-sub-sm font-number text-muted-foreground">{nextAction.next_action_date}</p>
                 )}

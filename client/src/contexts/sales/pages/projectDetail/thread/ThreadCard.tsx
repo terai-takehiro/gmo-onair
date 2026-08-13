@@ -45,6 +45,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { ActivityLog } from '../types';
 import { kindOf } from './kinds';
 import { shortYmd } from './format';
+import { parseNextAction } from './nextAction';
 import {
   readActivityStruct, initialOf,
   type ActivityStruct, type ActivityStatusTone, type ActivityFactIcon, type ActivityTurn,
@@ -165,6 +166,68 @@ function Turn({ t }: { t: ActivityTurn }) {
   );
 }
 
+/**
+ * 次にやること。
+ *
+ * **色を使う枠はここだけ。** 複数の枠に色を付けると、どれが行動なのか読めない。
+ * 期限切れは赤にする（概要タブのダイジェストと同じ判定 — 片方だけ灰色だと手遅れに気づけない）。
+ *
+ * ── 1つの段落にしない ──────────────────────────────────────
+ *
+ * 中身は自由文ですが、実際には**言い切り1文 ＋ 付随してやること数件**の形で
+ * 書かれています（`nextAction.ts`）。1つの段落に太字で流し込むと**画面 10 行ぶんの
+ * 塊**になり、しかも**期限が塊の最後**に付くので目に入りません
+ * （利用者から「読みづらい」とご指摘）。
+ *
+ * - **見出しだけを太字**にする。全部太字は、太字を使っていないのと同じ
+ * - **期限は見出しの直後**に置く。並びの後ろに回すと 10 行スクロールしないと読めない
+ * - **並びは赤くしない。** 期限切れでも赤いのは枠と見出し（＝期限を持つ行）だけ。
+ *   4行とも赤いと、何が期限切れなのか読めない
+ */
+function NextAction({ a, overdue }: { a: ActivityLog; overdue: boolean }) {
+  const na = parseNextAction(a.next_action);
+  return (
+    <div className={cn(
+      'rounded-note mt-3 flex items-start gap-2.5 border px-3 py-2.5',
+      overdue ? 'border-destructive-border bg-destructive-surface' : 'border-primary-border bg-primary-surface',
+    )}>
+      <ArrowRight
+        className={cn('mt-0.5 h-4 w-4 shrink-0', overdue ? 'text-destructive' : 'text-primary')}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-sub break-words font-bold', overdue ? 'text-destructive' : 'text-foreground')}>
+          <InlineText text={na.headline} />
+          {/*
+            **`text-sub-sm`(11.5px) を使わないこと。** スマホでも上げない段なので
+            （件数の数字・列見出し・バッジの札のための段）、ここに当てると
+            **期限切れの知らせが 375px で 11.5px** になる。数字だけは `font-number`
+          */}
+          {a.next_action_date && (
+            <span className={cn('text-sub ml-2', overdue ? 'text-destructive' : 'text-primary')}>
+              <span className="font-number">{shortYmd(a.next_action_date, a.activity_date)}</span>
+              {' まで'}{overdue && '（過ぎています）'}
+            </span>
+          )}
+          {a.next_action_done_at && <span className="text-sub ml-2 text-muted-foreground">済み</span>}
+        </p>
+
+        {na.items.length > 0 && (
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {na.items.map((it, i) => (
+              <li key={`${it.marker ?? ''}-${i}`} className="text-sub flex gap-1.5 text-secondary-foreground">
+                {/* 印は**原文に書かれていたものだけ**。無ければ `・` を描く（番号を作らない） */}
+                <span aria-hidden="true" className="shrink-0 text-muted-foreground">{it.marker ?? '・'}</span>
+                <span className="min-w-0 flex-1 break-words"><InlineText text={it.text} /></span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
   a: ActivityLog;
   today: string;
@@ -256,36 +319,7 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
         </div>
       )}
 
-      {/*
-        **色を使う枠はここだけ。** 複数の枠に色を付けると、どれが行動なのか読めない。
-        期限切れは赤にする（概要タブのダイジェストと同じ判定 — 片方だけ灰色だと手遅れに気づけない）
-      */}
-      {a.next_action && (
-        <div className={cn(
-          'rounded-note mt-3 flex items-start gap-2.5 border px-3 py-2.5',
-          overdue ? 'border-destructive-border bg-destructive-surface' : 'border-primary-border bg-primary-surface',
-        )}>
-          <ArrowRight
-            className={cn('mt-0.5 h-4 w-4 shrink-0', overdue ? 'text-destructive' : 'text-primary')}
-            aria-hidden="true"
-          />
-          <p className={cn('text-sub min-w-0 flex-1 font-bold', overdue ? 'text-destructive' : 'text-foreground')}>
-            {a.next_action}
-            {/*
-              **`text-sub-sm`(11.5px) を使わないこと。** スマホでも上げない段なので
-              （件数の数字・列見出し・バッジの札のための段）、ここに当てると
-              **期限切れの知らせが 375px で 11.5px** になる。数字だけは `font-number`
-            */}
-            {a.next_action_date && (
-              <span className={cn('text-sub ml-2', overdue ? 'text-destructive' : 'text-primary')}>
-                <span className="font-number">{shortYmd(a.next_action_date, a.activity_date)}</span>
-                {' まで'}{overdue && '（過ぎています）'}
-              </span>
-            )}
-            {a.next_action_done_at && <span className="text-sub ml-2 text-muted-foreground">済み</span>}
-          </p>
-        </div>
-      )}
+      {a.next_action && <NextAction a={a} overdue={!!overdue} />}
 
       {waitingRedo && (
         <p className="text-sub mt-3 text-muted-foreground">
