@@ -68,6 +68,18 @@ export function TableBadge({ label, w = 96, className, style, ...rest }: TableBa
 
   const badge = (
     <Badge
+      // `Badge` の既定は角丸が完全に丸い「カプセル」形（丸ボタンに見える）。
+      // モックのバッジは角丸の小さい四角なので、v4 対象3アプリだけ角を上書きする。
+      // 上書きし忘れていたのが v4 の一覧・状態バッジ全般で「ボタンのような形」に
+      // 見えていた原因（`docs/design/v4/mockups` の実測: stage/status バッジは
+      // すべて小さい四角。カプセル形は1つも無い）。
+      //
+      // **属性だけを足し、上書きは `tokens-v4.css` に置く**（`button.tsx` の
+      // `data-ui="button"` と同じやり方）。ここは全アプリの Tailwind が走査する
+      // 場所なので、角丸の役割名クラスを直に書くと**凍結4アプリの CSS にも
+      // その分の規則が増える**（実測: qsheet/techsheet/live で +33 バイト。
+      // `shared/CLAUDE.md` が繰り返し警告している「クラス漏れ」を実際に踏んだ）
+      data-ui="table-badge"
       className={cn(
         'text-badge max-w-full font-bold',
         // 均等割り付けのときは padding を落として中身の幅を稼ぐ (上の計算参照)。

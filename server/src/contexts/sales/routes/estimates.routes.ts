@@ -5,7 +5,7 @@
  * 触れると出した額が変わってしまう。
  */
 import { Router, Request, Response, NextFunction } from 'express';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, requireAnyPermission } from '../../../shared/middleware/auth';
 import { estimateService } from '../services/estimate.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
@@ -74,6 +74,18 @@ router.delete('/:id', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;
   await estimateService.remove(id, userOf(req));
   res.json({ success: true });
+}));
+
+/**
+ * POST /projects/:projectId/estimates/:id/convert-to-revenue
+ * — 受注が決まった見積を売上・請求 (`revenues`) に登録する。
+ *
+ * **`sales` か `budget` のどちらかの editor で通す**（`billing.routes.ts` と同じ考え方）。
+ * 案件管理から確定させる担当者と、売上を扱う経理の両方が押せる必要がある。
+ */
+router.post('/:id/convert-to-revenue', requireAnyPermission(['sales', 'budget'], 'editor'), wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  res.status(201).json({ success: true, data: await estimateService.convertToRevenue(id, userOf(req)) });
 }));
 
 export default router;
