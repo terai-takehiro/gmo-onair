@@ -23,14 +23,11 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
+import { modelFor, tierFor } from '../../../shared/services/ai-model';
 
 export const KPT_PROMPT_VERSION = 'kpt-v1';
 export const KPT_PROMPT_VERSION_WITH_FEEDBACK = 'kpt-v1+fb';
 
-const DEFAULT_MODELS: Record<IntakeAiProvider, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-opus-5',
-};
 
 const TIMEOUT_MS = 90_000;
 
@@ -81,10 +78,17 @@ export function isKptAiConfigured(): boolean {
   return resolveProvider() !== null;
 }
 
+/**
+ * KPT の下書きに使うモデル。**常に heavy**（`shared/services/ai-model.ts` の表）。
+ *
+ * 材料は やり取り＋議事録＋遅れたタスク を束ねた長い文で、
+ * **長い文から要点を抜くのは軽いモデルがいちばん苦手な仕事**です。
+ * しかも出来上がりは隔週キープの資料に出ます。
+ */
 export function kptModel(provider?: IntakeAiProvider | null): string {
   const p = provider ?? resolveProvider();
   if (!p) return 'none';
-  return process.env.KPT_AI_MODEL || process.env.MINUTES_AI_MODEL || DEFAULT_MODELS[p];
+  return modelFor('kpt', tierFor('kpt'), p);
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');

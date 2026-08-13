@@ -86,6 +86,10 @@ services:
       # ⚠️ **environment: は許可リストです。** ここに書かない変数は .env にあっても
       # コンテナに届きません（書いたのに効かない、という気づけない形になる）。
       # 増やしたら scripts/check-env-passthrough.mjs が照合します。
+      # モデルの段（`server/src/shared/services/ai-model.ts`）。**機能をまたいで効く**
+      AI_MODEL_HEAVY: ${AI_MODEL_HEAVY:-}
+      AI_MODEL_LIGHT: ${AI_MODEL_LIGHT:-}
+      # 機能ごとの名指し。**段より先に効く**（入れると長い入力でも上がらない）
       INTAKE_AI_MODEL_LIGHT: ${INTAKE_AI_MODEL_LIGHT:-}
       ACTIVITY_AI_MODEL: ${ACTIVITY_AI_MODEL:-}
       KPT_AI_MODEL: ${KPT_AI_MODEL:-}
@@ -159,6 +163,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY_DEV:-${ANTHROPIC_API_KEY:-}}
       INTAKE_AI_PROVIDER: ${INTAKE_AI_PROVIDER_DEV:-${INTAKE_AI_PROVIDER:-}}
       INTAKE_AI_MODEL: ${INTAKE_AI_MODEL_DEV:-${INTAKE_AI_MODEL:-}}
+      AI_MODEL_HEAVY: ${AI_MODEL_HEAVY_DEV:-${AI_MODEL_HEAVY:-}}
+      AI_MODEL_LIGHT: ${AI_MODEL_LIGHT_DEV:-${AI_MODEL_LIGHT:-}}
       INTAKE_AI_MODEL_LIGHT: ${INTAKE_AI_MODEL_LIGHT:-}
       ACTIVITY_AI_MODEL: ${ACTIVITY_AI_MODEL:-}
       KPT_AI_MODEL: ${KPT_AI_MODEL:-}

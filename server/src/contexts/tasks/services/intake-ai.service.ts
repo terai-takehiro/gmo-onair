@@ -35,6 +35,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import * as z from 'zod/v4';
+import { modelFor, isLightDisabled } from '../../../shared/services/ai-model';
 import {
   normalizeDest, suggestUrgency,
   type ParsedDraft, type ParseResult, type ParserUser,
@@ -60,16 +61,12 @@ export const INTAKE_PROMPT_VERSION_WITH_FEEDBACK = 'task-intake-v2+fb';
 
 export type IntakeAiProvider = 'openai' | 'anthropic';
 
-/**
- * 既定モデル。
- * どちらも**上位モデルを既定にしている**。ここで読み落とすと依頼が口頭のまま消えるので、
- * この機能ではコストより解析精度を優先する。1 日に数件〜十数件の投入なので費用は小さい。
- * コストを詰めたい場合は INTAKE_AI_MODEL で mini 系に下げられる。
+/*
+ * **モデルの決め方は `shared/services/ai-model.ts` が持ちます。**
+ * 着手前はここを含む4つの service にばらばらに書かれており、落とし方も
+ * 食い違っていました（`MINUTES_AI_MODEL` を1つ入れると、やり取りと KPT まで
+ * 巻き添えで変わる、という名前から読み取れない結びつきがあった）。
  */
-const DEFAULT_MODELS: Record<IntakeAiProvider, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-opus-5',
-};
 
 /** 解析は対話 UI の中で待たせるので、nginx の 60 秒より十分手前で諦める */
 const TIMEOUT_MS = 30_000;
@@ -109,7 +106,7 @@ export function isIntakeAiConfigured(): boolean {
 export function intakeAiModel(provider?: IntakeAiProvider | null): string {
   const p = provider ?? resolveProvider();
   if (!p) return 'rules';
-  return process.env.INTAKE_AI_MODEL || DEFAULT_MODELS[p];
+  return modelFor('intake', 'heavy', p);
 }
 
 /**
@@ -124,15 +121,12 @@ export function intakeAiModel(provider?: IntakeAiProvider | null): string {
  * 「行き先を決めてくれなくなった」という劣化になるためです。
  * 止めたいときは `INTAKE_AI_MODEL_LIGHT=off`。
  */
-const DEFAULT_LIGHT_MODELS: Record<IntakeAiProvider, string> = {
-  openai: 'gpt-5.4-mini',
-  anthropic: 'claude-haiku-4-5-20251001',
-};
-
 export function intakeAiLightModel(provider: IntakeAiProvider): string | null {
   const v = (process.env.INTAKE_AI_MODEL_LIGHT ?? '').trim();
   if (v.toLowerCase() === 'off') return null;
-  return v || DEFAULT_LIGHT_MODELS[provider];
+  if (v) return v;
+  if (isLightDisabled()) return null;      // 全体で軽いモデルを止めているとき
+  return modelFor('intake', 'light', provider);
 }
 
 /**
