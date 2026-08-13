@@ -12,10 +12,11 @@
  * `revenues` を読む **41 か所が `status` を見ていません** (トップの当月売上を含む)。
  * 見積を相乗りさせると**そのまま売上に足されます**。詳細は migration 138。
  *
- * ── 「売上・請求」は今までの画面のまま ──────────────────────
+ * ── 「売上・請求」はモックの3カード設計に置き換えた ──────────────
  *
- * 右の切り替えで開くのは既存の `BusinessProjectView` です。**1行も変えていません**。
- * 見積を新しく作ったので、売上・請求の作り直しは別の回にします。
+ * 右の切り替えで開くのは `RevenueBillingPane`（売上／請求／仕入（原価）の
+ * 3枚のカード）。旧 `BusinessProjectView`（フル機能コンソール）からの
+ * 置き換えの理由は `RevenueBillingPane.tsx` の頭のコメントを参照。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,7 +30,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { LegacyViewTab } from './LegacyViewTab';
+import { RevenueBillingPane } from './RevenueBillingPane';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import type { ProjectDetail } from './types';
 
@@ -143,7 +144,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       </div>
 
       {pane === 'revenue' ? (
-        <LegacyViewTab project={project} estimateMode />
+        <RevenueBillingPane projectId={project.id} />
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (list.data ?? []).length === 0 ? (

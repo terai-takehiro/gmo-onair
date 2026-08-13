@@ -30,12 +30,18 @@ router.get('/:projectId/episodes', async (req, res) => {
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM episodes e ${where}`, params)) as any).c;
 
+  // **タスクの進み具合を2本の数で持つ。** v4 のタスクタブに「回」の簡易一覧
+  // （旧「エピソード」タブ）を移したときに追加。フラグではなく件数にするのは、
+  // 完了かどうかの正が `is_completed`（migration 137）で、割合はここで
+  // 出し直せば足りるため（別の判定を持つと `taskState()` とずれる）
   const rows = await queryAll(
     `SELECT e.*,
       (SELECT COALESCE(SUM(amount),0) FROM revenues WHERE episode_id = e.id AND deleted_at IS NULL) as actual_revenue,
       (SELECT COALESCE(SUM(amount),0) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as actual_cost,
       (SELECT COUNT(*) FROM revenues WHERE episode_id = e.id AND deleted_at IS NULL) as revenue_count,
-      (SELECT COUNT(*) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as purchase_count
+      (SELECT COUNT(*) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as purchase_count,
+      (SELECT COUNT(*) FROM project_tasks WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL) as task_count,
+      (SELECT COUNT(*) FROM project_tasks WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL AND is_completed = true) as task_done_count
     FROM episodes e
     ${where}
     ORDER BY e.episode_number ASC

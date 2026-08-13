@@ -38,7 +38,6 @@ import { FilesTab } from './projectDetail/FilesTab';
 import { DayTab } from './projectDetail/DayTab';
 import { ReviewTab } from './projectDetail/ReviewTab';
 import { ThreadTab } from './projectDetail/ThreadTab';
-import { LegacyViewTab } from './projectDetail/LegacyViewTab';
 import { EstimateTab } from './projectDetail/EstimateTab';
 import { MobileTools } from './projectDetail/MobileTools';
 import {
@@ -224,7 +223,6 @@ export default function ProjectDetailPage() {
         glsNumber={p.gls_number}
         code={p.code}
         stage={p.stage}
-        isSeries={p.gls_category === 'A'}
         tab={tab}
         counts={counts}
         onChangeStage={onChangeStage}
@@ -245,7 +243,6 @@ export default function ProjectDetailPage() {
         <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
       )}
       {!offPhone && tab === 'thread' && <ThreadTab projectId={id} />}
-      {!offPhone && tab === 'episode' && <LegacyViewTab project={p} />}
       {!offPhone && tab === 'task' && <TasksTab project={p} />}
       {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
       {!offPhone && tab === 'files' && <FilesTab project={p} />}
@@ -277,7 +274,6 @@ function TabTodo({ tab, onBack }: { tab: ProjectTabKey; onBack: () => void }) {
   const def = PROJECT_TABS.find((t) => t.key === tab)!;
   const what: Record<string, string> = {
     thread: 'メール・打合せ・電話のやり取りを時系列で1本にまとめます。打合せの録音から議事録を起こす機能もここに入ります。',
-    episode: '連続ものの回ごとの日程と進み具合を並べます。いまは回の一覧の画面で見られます。',
     task: 'この案件のタスクをかんばん・リスト・ガントで見ます。いまは「タスク」画面で見られます。',
     estimate: '見積と請求をここにまとめます。いまは「見積」画面と財務管理で見られます。',
     files: 'BOX の書類を社内限り／社外共有に分けて置きます。',
@@ -314,7 +310,6 @@ function OffPhoneTab({ tab, onBack, onOpenAnyway }: { tab: ProjectTabKey; onBack
     thread: 'やり取りは長い文章と議事録が並ぶので、読むのは PC が向いています。',
     estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。この幅では桁が読めません。',
     files: '書類は BOX のフォルダを1階層ずつ開く画面です。',
-    episode: '回ごとの一覧は横に長い表です。',
     review: 'ふりかえりは金額の内訳を縦にそろえて読む画面です。',
   };
   return (
