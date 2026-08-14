@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { issueDocPdf, type DocKind } from "@/lib/docPdf";
 import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import {
@@ -462,24 +463,16 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setInlineItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleDownloadPdf = async (revenueId: string, type: 'estimate' | 'invoice' | 'inspection') => {
-    try {
-      const res = await api.get(`/revenues/${revenueId}/pdf`, { params: { type }, responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const disposition = res.headers['content-disposition'] || '';
-      const match = disposition.match(/filename\*=UTF-8''(.+)/);
-      a.download = match ? decodeURIComponent(match[1]) : 'document.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('PDF生成に失敗しました');
-    }
-  };
+  /**
+   * 帳票を発行する（v4 で共通部品に寄せた）。
+   *
+   * 元はここに blob の受け取りとファイル名の取り出しが直に書いてあり、
+   * 失敗すると `alert('PDF生成に失敗しました')` だけが出ていました
+   * （権限が無いのか BOX が落ちているのか押した人には分からない）。
+   * いまは `lib/docPdf.ts` が1つだけ持ち、**BOX に入ったかどうかも出します**。
+   */
+  const handleDownloadPdf = (revenueId: string, type: DocKind) =>
+    issueDocPdf(`/revenues/${revenueId}/pdf`, type, { type });
 
   // 請求書 Excel (業務推進への監査提出用・BOX格納フォーマット) をダウンロード
   const handleDownloadExcel = async (revenueId: string) => {

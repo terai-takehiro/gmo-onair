@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Copy, Send, Trash2, Receipt, Wallet, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
+import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { Button } from '@/components/ui/button';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
@@ -191,6 +192,11 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
                 <Money value={e.subtotal - e.discount} className="text-sub w-32 shrink-0" />
                 <TableBadge w={96} label={STATUS_LABEL[e.status]} className={STATUS_TONE[e.status]} />
                 <RowSlot w={240} align="right" className="flex-wrap gap-1">
+                  {/* **見積書 PDF はどの版からも出せる。** 出したあと（`sent`）や
+                      旧版（`superseded`）こそ「何を出したか」を紙で確かめたい場面が多く、
+                      ここで状態を見て隠すと、いちばん要るときに押せなくなる。
+                      押すと BOX の社外と共有するフォルダにも入る（`docPdf.ts`）*/}
+                  <DocPdfButton path={`${base}/${e.id}/pdf`} kind="estimate" />
                   {e.status === 'draft' && (
                     <Button variant="outline" size="sm" title="お客様に出したことにする"
                       onClick={() => setStatus.mutate({ id: e.id, status: 'sent' })}>
