@@ -9,11 +9,20 @@
  *   状態           96px  (`TableBadge`)   モック 96px
  *   担当           96px  (`RowSlot`)      モック 96px
  *   提出・期限     96px  (`RowSlot`)      モック 104px
+ *   帳票           56px  (`RowSlot`)      **モックには無い**（下記）
  *
  * **旧版はサーバーが外しています** (`status <> 'superseded'`)。
  * 差し替え済みの版が並ぶと「返事待ちが何件か」が読めません。
+ *
+ * ── 「帳票」列だけモックに無い ──────────────────────────────
+ *
+ * 見積書 PDF を出す口が v4 のどこにも無くなっていた（ご指摘）ため足しました。
+ * ここは**案件をまたいで返事待ちを追う画面**なので、「まだ出していない見積を
+ * 見つけて、その場で出す」がそのまま片づく仕事になります。押すと BOX の
+ * 社外と共有するフォルダにも入ります（`lib/docPdf.ts`）。
  */
 import { useNavigate } from 'react-router-dom';
+import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
@@ -45,6 +54,7 @@ export function EstimateRows({ rows, today }: { rows: BillingEstimate[]; today: 
         <RowSlot w={96}>状態</RowSlot>
         <RowSlot w={96}>担当</RowSlot>
         <RowSlot w={96} align="right">提出・期限</RowSlot>
+        <RowSlot w={56} align="right">帳票</RowSlot>
       </RowHeader>
       {rows.map((e) => {
         // 値引きは単価を下げず別建てなので、見せる金額は引いたあと
@@ -90,6 +100,9 @@ export function EstimateRows({ rows, today }: { rows: BillingEstimate[]; today: 
                   )}
                 </span>
               )}
+            </RowSlot>
+            <RowSlot w={56} align="right">
+              <DocPdfButton path={`/projects/${e.project_id}/estimates/${e.id}/pdf`} kind="estimate" />
             </RowSlot>
           </Row>
         );

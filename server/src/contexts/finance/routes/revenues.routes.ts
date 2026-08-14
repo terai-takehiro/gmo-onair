@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../../shared/services/doc-box.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
@@ -148,6 +149,8 @@ router.get('/:id/pdf', async (req, res, next) => {
       status: docStatus,
       project_start: row.project_start || null,
       project_end: row.project_end || null,
+      // 発行済みなら請求書番号を紙に出す (migration 163)。未発行なら請求KEYのまま
+      invoice_no: row.invoice_no || null,
       items: items.map((it: any) => ({
         description: it.description,
         quantity: it.quantity,
@@ -174,6 +177,29 @@ router.get('/:id/pdf', async (req, res, next) => {
       }
     }
     const filename = `${docLabel}_${filenameKey}.pdf`;
+
+    /*
+     * ── 出したら BOX に入る（ご指示）────────────────────────────
+     *
+     * 「PDF を出す」操作がそのまま発行なので、その場で案件の BOX フォルダへ
+     * 置きます。行き先は `doc-box.service` の表（請求書・検収書は社内限りの
+     * `03_請求`、見積書は社外と共有する `01_見積・提案`）。
+     *
+     * **ダウンロードは止めません。** BOX が落ちている日に請求書を出せなく
+     * なるほうが困ります。ただし**入ったかどうかは必ずヘッダーで返し**、
+     * 画面がそのまま出します（黙って落とすと「保存されたつもり」になる）。
+     *
+     * 置くのは `budget` の editor 以上。この口は reader でも通る
+     * （レガシー画面・プロジェクト管理の見積タブも呼んでいる）ので、
+     * 権限で分けずに置くと**読むだけの人が BOX に書けて**しまいます。
+     */
+    const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
+    const canStore = meetsPermissionLevel(user?.role, user?.permissions?.budget, 'editor');
+    const boxKind = docStatus === 'estimate' ? 'estimate'
+      : docStatus === 'inspection' ? 'inspection' : 'invoice';
+    applyDocBoxHeaders(res, canStore
+      ? await fileFinanceDocToBox(row.project_id, boxKind, filename, pdfBuffer)
+      : docBoxSkipped(boxKind, 'NO_PERMISSION'));
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);

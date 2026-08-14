@@ -5,8 +5,12 @@
  * 触れると出した額が変わってしまう。
  */
 import { Router, Request, Response, NextFunction } from 'express';
-import { requireAuth, requirePermission, requireAnyPermission } from '../../../shared/middleware/auth';
+import {
+  requireAuth, requirePermission, requireAnyPermission, meetsPermissionLevel,
+} from '../../../shared/middleware/auth';
 import { estimateService } from '../services/estimate.service';
+import { buildEstimatePdf } from '../services/estimate-pdf.service';
+import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../../shared/services/doc-box.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
@@ -29,6 +33,40 @@ router.get('/:id', wrap(async (req, res) => {
   const est = await estimateService.getById((req.params as Record<string, string>).id);
   if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
   res.json({ success: true, data: est });
+}));
+
+/**
+ * GET /projects/:projectId/estimates/:id/pdf — 見積書 PDF を発行する
+ *
+ * ── 「出す」＝「BOX に入る」──────────────────────────────────
+ *
+ * ご指示どおり、**PDF を出す操作がそのまま発行**です。作った PDF は
+ * 社外と共有するフォルダの `01_見積・提案` に置き（`doc-box.service` の表）、
+ * 同じものを手元にもダウンロードします。同じ名前は BOX の**新しい版**になるので、
+ * 出し直しても行は増えません。
+ *
+ * ── 読むだけの人でも PDF は出せる ───────────────────────────
+ *
+ * ダウンロードは `sales` の reader で通します（見積の金額はこの人たちも
+ * 画面で見えているので、紙にするだけなら止める理由がない）。
+ * **BOX に置くのは editor 以上**にして、入らなかったことを
+ * `X-Box-Reason: NO_PERMISSION` で画面に出します —
+ * 黙って落とすと「保存されたつもり」になります。
+ */
+router.get('/:id/pdf', wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  const { buffer, filename, projectId } = await buildEstimatePdf(id);
+
+  const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
+  const canStore = meetsPermissionLevel(user?.role, user?.permissions?.sales, 'editor');
+  applyDocBoxHeaders(res, canStore
+    ? await fileFinanceDocToBox(projectId, 'estimate', filename, buffer)
+    : docBoxSkipped('estimate', 'NO_PERMISSION'));
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.setHeader('Content-Length', buffer.length);
+  res.send(buffer);
 }));
 
 // POST /projects/:projectId/estimates — 新しい見積 (v1)

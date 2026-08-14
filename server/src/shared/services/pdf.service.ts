@@ -36,6 +36,16 @@ interface PdfRevenueData {
   status:           string;
   project_start:    string | null;
   project_end:      string | null;
+  /**
+   * 見積の有効期限。**入っているときだけ日付で書く**。
+   * 無ければ従来どおり「提出後１ヶ月」と書く（決めていない期限を作らない）。
+   */
+  valid_until?:     string | null;
+  /**
+   * 請求書番号 (`INV-2026-0001`)。**発行済みのものにしか入らない** (migration 163)。
+   * 入っていれば請求書にはこちらを出す（`billing_key` は社内の請求KEY）。
+   */
+  invoice_no?:      string | null;
   items:            PdfRevenueItem[];
 }
 
@@ -168,7 +178,8 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       rect(xS3, y, s3, sHH, '#f5f5f5', '#cccccc');
       txt('定価',       xS1, y + 5, { sz: 7, f: B, w: s1, align: 'center' });
       txt('割引額',     xS2, y + 5, { sz: 7, f: B, w: s2, align: 'center' });
-      txt('お見積金額', xS3, y + 5, { sz: 7, f: B, w: s3, align: 'center' });
+      // 請求書に「お見積金額」と印字されていたのを直した（相手に渡す紙なので言葉を合わせる）
+      txt(isEstimate ? 'お見積金額' : 'ご請求金額', xS3, y + 5, { sz: 7, f: B, w: s3, align: 'center' });
       y += sHH;
 
       rect(xS1, y, s1, sDH, undefined, '#cccccc');
@@ -181,10 +192,20 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       } // showMoney
 
       // ── ⑥ コード＋注記 ───────────────────────────────────────
-      const codeLabel = isInspection ? '見積書コード' : '見積コード';
-      txt(`${codeLabel}　：　${data.billing_key || ''}`, ML, y, { sz: 8 }); y += 14;
+      //
+      // **請求書には請求書番号を出す。** これまでは3種とも「見積コード」と書いて
+      // `billing_key`（社内の請求KEY）を出していたので、相手に渡す請求書に
+      // 「見積コード：GLS001-001-1」と印字されていた。番号は発行時にだけ採るので
+      // (migration 163)、まだ無いものは今までどおり請求KEYを出す。
+      const codeLabel = isInspection ? '見積書コード' : isEstimate ? '見積コード' : '請求書番号';
+      const codeValue = (!isEstimate && !isInspection && data.invoice_no) || data.billing_key || '';
+      txt(`${codeLabel}　：　${codeValue}`, ML, y, { sz: 8 }); y += 14;
       if (isEstimate) {
-        txt('＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
+        // 有効期限を決めてあるなら**その日付**を書く。決めていなければ従来の一文
+        const validity = data.valid_until
+          ? `＊本見積書の有効期限：${dateJP(data.valid_until)}`
+          : '＊御見積有効期間：本見積書提出後１ヶ月';
+        txt(`${validity}　　＊本見積書には消費税等は含まれておりません。`,
             ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
       } else if (isInspection) {
         txt('＊本書は上記役務の検収を確認するものです。金額は当初見積および別途発行の請求書に準じます。',
@@ -256,8 +277,11 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
         for (const it of groupItems) {
           const isDisc  = (it.amount || 0) < 0;
           const itColor = isDisc ? '#d97706' : '#000000';
-          const pS = it.period_start || data.project_start;
-          const pE = it.period_end   || data.project_end;
+          // **値引きの行には期間を出さない。** 期間を書いていない明細は案件の実施日で
+          // 補うが、値引きは期間にわたって提供する役務ではないので、補うと
+          // 「9/1〜9/2 のお値引き」という読めない行になる（実際に紙で見つけた）
+          const pS = isDisc ? it.period_start : (it.period_start || data.project_start);
+          const pE = isDisc ? it.period_end   : (it.period_end   || data.project_end);
           const periodStr = (pS || pE) ? `期間: ${dateSlash(pS)}${pE ? ' 〜 ' + dateSlash(pE) : ''}` : '';
 
           const descH   = textH(it.description || '', R, 8, wDesc - 6);
