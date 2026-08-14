@@ -14,8 +14,8 @@
  * 入っていなければ**トークン数と時間だけ**を出します
  * （それだけでも「どこが重いか」は分かります）。
  *
- *   AI_PRICING_JSON={"gpt-5.4":{"in":1.25,"cached_in":0.125,"out":10},
- *                    "gpt-5.4-mini":{"in":0.25,"cached_in":0.025,"out":2},
+ *   AI_PRICING_JSON={"gpt-5.6-terra":{"in":2,"cached_in":0.2,"out":12},
+ *                    "gpt-5.6-luna":{"in":0.2,"cached_in":0.02,"out":1.2},
  *                    "whisper-1":{"per_min":0.006}}
  *
  *   in / cached_in / out … 100万トークンあたりの USD
