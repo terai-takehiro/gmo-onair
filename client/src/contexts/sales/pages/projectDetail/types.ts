@@ -56,14 +56,29 @@ export interface ProjectDetail {
   dates?: { date: string }[];
 }
 
-/** `GET /studios/bookings?project_id=` の1行 */
+/**
+ * `GET /studios/bookings?project_id=` の1行。
+ *
+ * ⚠️ **ここは実際に返ってくる形に合わせてあります。** 元は `booking_date` /
+ * `room_name` / `location_name` を宣言していましたが、**サーバーはその3つを
+ * 1つも返しません**（`studio-booking.service.ts` の `listBookings`）。
+ * 日付は `start_time` / `end_time`、部屋は `rooms[]`、外現場は `location_note` です。
+ * 型が嘘をついていたので、**押さえている部屋が必ず「部屋 未設定」と出ていました** —
+ * 型チェックにも lint にも出ない壊れ方です。**存在しない項目を足さないこと。**
+ */
 export interface StudioBooking {
   id: string;
-  booking_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  room_name: string | null;
-  location_name: string | null;
+  title: string;
+  booking_type: string;
+  /** `YYYY-MM-DDTHH:mm`（TEXT 列）。**日付だけの列は無い** */
+  start_time: string;
+  end_time: string;
+  all_day?: number;
+  status?: string;
+  /** 外現場など、部屋マスターに無い場所の手入力 */
+  location_note: string | null;
+  /** 押さえている部屋。**予約に部屋が1つも無いこともある**（外現場・場所未定） */
+  rooms?: { room_id: string; room_name: string | null }[];
 }
 
 /** `GET /activity-logs?project_id=` の1行 */

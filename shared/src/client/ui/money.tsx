@@ -18,6 +18,16 @@ export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   currency?: string;
   /** マイナスを赤にする (値引き行など「引かれている」ことを見せたいとき) */
   negativeIsDanger?: boolean;
+  /**
+   * **縦に並べない場所で使う** (帯の中・文中・カードの1つだけの金額)。
+   * `¥` を数字の**すぐ左**に付ける (モックの事実の帯: `gap:4px`)。
+   *
+   * 既定 (`inline` なし) は列で使う形で、枠の幅いっぱいに
+   * **`¥` を左端・数字を右端**へ引き離す。桁をそろえるための形なので、
+   * 縦に1つしか無い金額に当てると**円記号だけが遠くに離れて見える**
+   * (利用者からのご指摘。案件詳細の「見積金額」がこれだった)。
+   */
+  inline?: boolean;
 }
 
 /** 桁区切り。null / 空 / 数値でないものは「—」にする (0 と未入力を区別する) */
@@ -28,7 +38,7 @@ function digits(value: number | string | null | undefined): string | null {
   return Math.round(Math.abs(n)).toLocaleString('ja-JP');
 }
 
-export function Money({ value, currency = '¥', negativeIsDanger, className, ...rest }: MoneyProps) {
+export function Money({ value, currency = '¥', negativeIsDanger, inline, className, ...rest }: MoneyProps) {
   const d = digits(value);
   const n = Number(value);
   const isNegative = d !== null && Number.isFinite(n) && n < 0;
@@ -42,6 +52,8 @@ export function Money({ value, currency = '¥', negativeIsDanger, className, ...
     <span
       className={cn(
         'font-number flex items-baseline justify-between gap-1.5 whitespace-nowrap',
+        // 幅を内容に合わせる (block の flex は幅いっぱいに広がるので justify-between が効いてしまう)
+        inline && 'inline-flex justify-start gap-1',
         isNegative && negativeIsDanger && 'text-destructive',
         className,
       )}
