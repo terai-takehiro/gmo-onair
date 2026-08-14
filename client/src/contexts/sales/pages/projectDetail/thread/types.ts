@@ -1,3 +1,17 @@
+/**
+ * 持ち帰り1件。**印は行き先ごとに別の鍵**です:
+ *   `task_id` … 案件（GLS-A）でタスクにしたとき
+ *   `ask_id`  … プロジェクト（GLS-B）で未確認事項にしたとき
+ * どちらもサーバーが書き戻すもので、**あると二度作れません**。
+ */
+export interface MinutesOpenItem {
+  text: string;
+  owner?: string;
+  due?: string;
+  task_id?: string;
+  ask_id?: string;
+}
+
 /** `GET /projects/:id/minutes` の1件 */
 export interface Minutes {
   id: string;
@@ -19,7 +33,7 @@ export interface Minutes {
    * これがあると二度作れない（画面のボタンを隠すだけでは、同時に開いた
    * 別の画面が古いままボタンを出す）
    */
-  open_items: { text: string; owner?: string; due?: string; task_id?: string }[] | null;
+  open_items: MinutesOpenItem[] | null;
   next_meeting: string | null;
   model: string | null;
   prompt_version: string | null;
@@ -34,7 +48,7 @@ export interface MinutesPatch {
   met_on?: string | null;
   next_meeting?: string | null;
   decisions?: { text: string; quote?: string }[];
-  open_items?: { text: string; owner?: string; due?: string; task_id?: string }[];
+  open_items?: MinutesOpenItem[];
   /** true で確定。**確定した時点でサーバーが差分を残す** */
   confirm?: boolean;
 }

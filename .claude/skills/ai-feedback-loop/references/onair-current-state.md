@@ -15,10 +15,16 @@ ONAiR で AI 機能を設計するとき、この調査をやり直さずに済�
 | 見積の下書き (`set_project_simulation`) | `estimate_draft` | ○ | ○ (simulations 確定時) | ○ (stage から導出) | ○ |
 | タスクの投入欄 | `task_intake` | ○ | ○ (commit / discard) | ○ (期限内完了率) | ○ |
 | **案件の起票 (`create_project`)** | `project_draft` | ○ | ○ (受付/案件編集の保存時・7日窓) | ○ (stage から導出) | ○ |
-| **打合せの議事録 (Whisper + LLM)** | `minutes_draft` | ○ (文字起こし全文 + 下書き) | ○ (確定時・**AI 出力と比較**) | △ (持ち帰り→タスクの導出は未) | ○ (advice を整形プロンプトに載せる) |
+| **打合せの議事録 (Whisper + LLM)** | `minutes_draft` | ○ (文字起こし全文 + 下書き) | ○ (確定時・**AI 出力と比較**) | ○ (**持ち帰りの追跡率**を読み取り時に導出) | ○ (advice を整形プロンプトに載せる) |
 | **やり取りの整形 (画面 / バックフィル)** | `activity_format` | ○ (原文 + 整形結果) | ○ (保存時に自動比較 / 「整え直す」= reject) | ○ (無修正採用率・期限内完了) | ○ (advice をプロンプトに載せる) |
 | **「次にやること」を1行に (migration 190)** | `next_action_short` | ○ (材料の全文 + 出力) | ○ (人が直すと自動比較 = fix / 「違う」= reject) | ○ (無修正採用率 ＋ 期限内完了) | ○ (advice を次のプロンプトに載せる) |
 | Slack の返信案・概算見積 | — | ✕ | ✕ | ✕ | ✕ |
+
+**議事録の成果 (2026-08 に塞いだ)**: 持ち帰りは案件では**タスク** (`open_items[].task_id`)、
+プロジェクト管理では**未確認事項** (`open_items[].ask_id`) になる。`getFeedbackDigest('minutes_draft')` が
+**確定した議事録の持ち帰りのうち印が付いた数**を数えて `minutes.tracked_rate` で返す
+(`ai_outcomes` に行は足していない)。⚠️ **これは「AI が正しかった率」ではない** —
+人が言い換えて登録すると印が付かないので、**拾いすぎの目安**として読む。
 
 **残っている穴**: ONAiR の外に出る生成物 (Slack / Gmail / Box)。
 `ai_outputs` に登録して ID を発行し、リアクションや送信済みメールと突合する
@@ -30,7 +36,7 @@ ONAiR で AI 機能を設計するとき、この調査をやり直さずに済�
 |---|---|---|
 | 1. AI出力の記録 | `ai_outputs.payload_snapshot` (JSONB・**切り詰めない**)。役割を分けてあり、`mcp_audit_log` は監査用のまま（`args` を 1000 文字で切るので教師データにならない） | **○**（上の表に無い機能は ✕。Slack に出す返信案など ONAiR 外の生成物は未保存） |
 | 2. 人間の修正差分 | `ai_corrections` (migration 134)。`simulations` 確定時 / タスク投入の commit・discard 時 / **案件の保存時 (`project-ai-feedback.service`)** に**サーバーが自動比較**して入れる。`projects.ai_reviewed_at` は「見た」時刻だけなので差分の代わりにはならない | **○**（上の表に無い機能は ✕） |
-| 3. 顧客反応・成果の紐づけ | `getFeedbackDigest` が**読み取り時に導出**する（`estimate_draft` / `project_draft` は `projects.stage` と確定売上、`task_intake` は期限内完了率）。**`ai_outcomes` に日次バッチで焼かない** — 既存データで表現できるものに行を足すと、書き忘れた日から数字が嘘になる | **○** 満足度だけ未構造化 |
+| 3. 顧客反応・成果の紐づけ | `getFeedbackDigest` が**読み取り時に導出**する（`estimate_draft` / `project_draft` は `projects.stage` と確定売上、`task_intake` は期限内完了率、`minutes_draft` は**持ち帰りがタスク／未確認事項になった率**）。**`ai_outcomes` に日次バッチで焼かない** — 既存データで表現できるものに行を足すと、書き忘れた日から数字が嘘になる | **○** 満足度だけ未構造化 |
 | 4. AI改善への還流 | `get_ai_feedback_digest` (MCP)。`kind` ごとに無修正採用率・よく直される項目・成果を返し、**下書きを作る前に読ませる**運用 | **○** |
 | 5. レビュー頻度と担当 | **決定済み（2026-08）: 月1回・営業のマネージャー**が `get_ai_feedback_digest` の「よく直される項目」を見て、プロンプト／ナレッジの直し方を決める。器は `ops_reports`（`kind` に CHECK 制約が無いので `kind='ai_review'` を足すだけで載る） | **△** 決めは済み・**仕組みへの落とし込みが未** |
 

@@ -20,6 +20,31 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSequenceNumber } from '../../../shared/services/sequence.service';
+/**
+ * 見積金額の出し方は**案件一覧と同じ式を読む**（写さない）。
+ * 束ごとに最新版を採る・旧版と失注を外す・値引きは別建て・税を乗せない、の
+ * 4つを写すと、片方だけ直した日から同じ見積が画面によって違う金額になります
+ * （`project.service.ts` の `ESTIMATE_AMOUNT_LATERAL` に理由が書いてある）。
+ */
+/**
+ * ⚠️ **メモは `projects.notes` ではなくやり取りの1件**（migration 184 が列を落とした）。
+ *
+ * 列が落ちたときにプロジェクト管理側が直っておらず、**一覧・詳細・作る・直すの
+ * 4つとも 500 で落ちていました**（`column "notes" does not exist`）。
+ * つまりプロジェクト管理は画面がぜんぶ開けない状態でした。型検査は SQL の中身を
+ * 見ないので、実 Postgres に当てるまで出ません。
+ *
+ * 案件と**同じ関数・同じ式**を読みます（写すと、メモの置き場所を次に変えた日に
+ * また片方だけ取り残されます）。
+ */
+import { ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity } from '../../sales/services/project.service';
+/**
+ * 議事録は**案件と同じ表・同じサービス**（`project_minutes` / `minutes.service`）。
+ * `project_minutes.project_id` は `projects(id)` を指し、プロジェクトは GLS-B の案件なので、
+ * **文字起こし → AI 整形 → 決定事項・持ち帰り の仕組みがそのまま使えます**。
+ * 別表にすると、Whisper の投げ方・整形のプロンプト・差分の記録が2つになります。
+ */
+import { getMinutes } from '../../sales/services/minutes.service';
 
 export const GPM_KINDS = ['self_build', 'group_order'] as const;
 export const OPEN_ITEM_STATUSES = ['waiting', 'checking', 'resolved'] as const;
@@ -220,7 +245,9 @@ export const projectService = {
     }
     return queryAll(
       `SELECT p.id, p.name, p.gls_number, p.stage, p.gpm_kind, p.pm_company,
-              p.started_on, p.ends_on, p.gpm_template_id, p.notes,
+              p.started_on, p.ends_on, p.gpm_template_id,
+              -- メモは列ではなくやり取りのいちばん新しい1件（migration 184）
+              memo.description AS notes,
               p.box_url_internal, p.box_url_external, p.customer_id,
               p.assigned_to, p.created_at, p.updated_at,
               c.name AS customer_name, u.name AS assigned_to_name,
@@ -240,10 +267,27 @@ export const projectService = {
                 ORDER BY t.due_at NULLS LAST LIMIT 1) AS next_task,
               (SELECT t.due_at FROM project_tasks t
                 WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
-                ORDER BY t.due_at NULLS LAST LIMIT 1) AS next_due
+                ORDER BY t.due_at NULLS LAST LIMIT 1) AS next_due,
+              -- お金の列（モックの money = 「個別見積 v2 提出済」）。
+              -- 金額は案件一覧と同じ式（ESTIMATE_AMOUNT_LATERAL）、
+              -- 版と状態は**いちばん新しい1本**から採る（何本ぶら下がっていても
+              -- 「いま出ているのはこれ」が読めればよい）
+              -- ⚠️ この文字列はテンプレートリテラルなので、注釈にバッククォートを書かないこと
+              --    （書くと SQL の途中で文字列が終わり、構文エラーになる）
+              est.amount AS estimate_amount,
+              last_est.version AS estimate_version,
+              last_est.status AS estimate_status
          FROM projects p
          LEFT JOIN customers c ON c.id = p.customer_id
          LEFT JOIN users u ON u.id = p.assigned_to
+         ${MEMO_LATERAL}
+         ${ESTIMATE_AMOUNT_LATERAL}
+         LEFT JOIN LATERAL (
+           SELECT e.version, e.status FROM estimates e
+            WHERE e.project_id = p.id AND e.deleted_at IS NULL
+              AND e.status NOT IN ('superseded', 'rejected')
+            ORDER BY e.updated_at DESC, e.version DESC LIMIT 1
+         ) last_est ON TRUE
         WHERE ${conds.join(' AND ')}
         ORDER BY CASE p.stage WHEN 'a_won' THEN 0 WHEN 'b_verbal' THEN 1 WHEN 'c_proposal' THEN 2
                               WHEN 'd_hold' THEN 3 WHEN 'neta' THEN 4 WHEN 's_completed' THEN 5 ELSE 6 END,
@@ -255,7 +299,8 @@ export const projectService = {
   async getById(id: string): Promise<Record<string, unknown> | undefined> {
     const p = await queryOne(
       `SELECT p.id, p.name, p.gls_number, p.stage, p.gpm_kind, p.pm_company,
-              p.started_on, p.ends_on, p.gpm_template_id, p.notes,
+              p.started_on, p.ends_on, p.gpm_template_id,
+              memo.description AS notes,
               p.box_url_internal, p.box_url_external, p.customer_id,
               p.assigned_to, p.created_at, p.updated_at,
               u.name AS assigned_to_name, c.name AS customer_name, t.name AS template_name
@@ -263,6 +308,7 @@ export const projectService = {
          LEFT JOIN users u ON u.id = p.assigned_to
          LEFT JOIN customers c ON c.id = p.customer_id
          LEFT JOIN gpm_templates t ON t.id = p.gpm_template_id
+         ${MEMO_LATERAL}
         WHERE p.id = ? AND ${IS_PROJECT}`, [id],
     );
     if (!p) return undefined;
@@ -316,17 +362,20 @@ export const projectService = {
       await tx.execute(
         `INSERT INTO projects
            (id, code, name, customer_id, stage, gls_category, customer_type, assigned_to,
-            gpm_kind, pm_company, started_on, ends_on, gpm_template_id, notes,
+            gpm_kind, pm_company, started_on, ends_on, gpm_template_id,
             created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, customerId, stage,
          customerId === SELF_CUSTOMER_ID ? 'internal' : 'external',
          (input.assigned_to as string) || userId,
          kind, input.pm_company ?? null, startedOn, dateOrNull(input.ends_on),
-         templateId, input.notes ?? null, userId, userId],
+         templateId, userId, userId],
       );
       if (templateId) await expandTemplate(tx, id, templateId, startedOn, userId);
     });
+    // **メモはやり取りの1件として、行ができたあとに書く。** 取引の外で書くので、
+    // ここで失敗してもプロジェクトは残る（メモが1件無いほうが、案件ごと無いよりよい）
+    await addMemoActivity(id, customerId, input.notes, userId);
     return (await this.getById(id))!;
   },
 
@@ -339,14 +388,18 @@ export const projectService = {
          name = COALESCE(?, name), gpm_kind = COALESCE(?, gpm_kind),
          customer_id = COALESCE(?, customer_id),
          pm_company = ?, assigned_to = COALESCE(?, assigned_to),
-         started_on = ?, ends_on = ?, stage = COALESCE(?, stage), notes = ?,
+         started_on = ?, ends_on = ?, stage = COALESCE(?, stage),
          updated_by = ?, updated_at = NOW()
        WHERE id = ?`,
       [input.name ?? null, input.gpm_kind ?? null, input.customer_id ?? null,
        input.pm_company ?? null, input.assigned_to ?? null,
        dateOrNull(input.started_on), dateOrNull(input.ends_on),
-       input.stage ?? null, input.notes ?? null, userId, id],
+       input.stage ?? null, userId, id],
     );
+    // **同じ本文なら足さない**（`skipIfSame`）。保存し直すたびに同じメモが積むと、
+    // やり取りがメモで埋まって読めなくなる（案件側と同じ決めごと）
+    const cur = await queryOne('SELECT customer_id FROM projects WHERE id = ?', [id]) as { customer_id: string } | null;
+    await addMemoActivity(id, cur?.customer_id ?? null, input.notes, userId, true);
     return (await this.getById(id))!;
   },
 
@@ -529,16 +582,111 @@ export const gpmTaskService = {
     );
   },
 
-  /** 完了の入切。**`is_completed` だけを触る** — 止まり方 (`work_state`) は別の列 */
-  async setDone(taskId: string, done: boolean, userId: string): Promise<Record<string, unknown>> {
-    // **案件（GLS-A）のタスクは触らせない。** ここを通せば `gpm` だけの人が
-    // 案件のタスクを完了にできてしまう
-    const row = await queryOne(
-      `SELECT t.id FROM project_tasks t JOIN projects p ON p.id = t.project_id
+  /** 1件ぶん。**一覧と同じ形で返す**（画面が同じ型で受けられるように） */
+  async getById(taskId: string): Promise<Record<string, unknown> | undefined> {
+    const rows = await queryAll(
+      `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
+              t.due_at, t.sort_order, t.assigned_to,
+              u.name AS assigned_to_name,
+              ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
+              p.id AS project_id, p.name AS project_name, p.gpm_kind AS project_kind
+         FROM project_tasks t
+         JOIN projects p ON p.id = t.project_id
+         LEFT JOIN gpm_phases ph ON ph.id = t.gpm_phase_id
+         LEFT JOIN users u ON u.id = t.assigned_to
         WHERE t.id = ? AND t.deleted_at IS NULL AND ${IS_PROJECT}`,
       [taskId],
     );
-    if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    return rows[0];
+  },
+
+  /**
+   * 足す。**工程に付けるかどうかは任意**（`gpm_phase_id` が NULL のタスクもある）。
+   *
+   * 期限は `due_at`（時刻つき）に **18:00** で入れます。ひな形から写すときと
+   * 同じ形にしないと、同じプロジェクトのタスクが2つの列に分かれて
+   * 「自分のタスク」の並び (`COALESCE(due_at, due_date+18:00)`) が日によって入れ替わります。
+   */
+  async create(projectId: string, input: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
+    await assertProject(projectId);
+    const title = String(input.title ?? '').trim();
+    if (!title) throw new AppError(400, 'VALIDATION_ERROR', 'タスクの名前を入れてください');
+
+    const phaseId = await resolvePhaseId(projectId, input.gpm_phase_id);
+    const due = dateOrNull(input.due_date);
+    // 並びは**同じ工程の末尾**。工程をまたいで通し番号にすると、
+    // 工程を付け替えたときに他の工程の並びまで動く
+    const maxRow = await queryOne(
+      `SELECT COALESCE(MAX(sort_order), -1) AS m FROM project_tasks
+        WHERE project_id = ? AND gpm_phase_id IS NOT DISTINCT FROM ? AND deleted_at IS NULL`,
+      [projectId, phaseId],
+    ) as { m: number } | undefined;
+
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO project_tasks
+         (id, project_id, title, description, is_completed, sort_order, due_at,
+          assigned_to, gpm_phase_id, created_by, updated_by)
+       VALUES (?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?)`,
+      [id, projectId, title, input.description ?? null, Number(maxRow?.m ?? -1) + 1,
+       due ? `${due}T18:00:00` : null,
+       (typeof input.assigned_to === 'string' && input.assigned_to) ? input.assigned_to : null,
+       phaseId, userId, userId],
+    );
+    return (await this.getById(id))!;
+  },
+
+  /**
+   * 直す。**渡した項目だけを書き換えます** — 画面が持っていない項目
+   * （担当・工程）を空で送られて黙って外れるのを防ぐため。
+   * 期限は「空にする」を送れないと直せないので、**`due_date` が キーとして
+   * 入っていれば** `null` でも書き換えます。
+   */
+  async update(taskId: string, input: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
+    const task = await assertGpmTask(taskId);
+    const sets: string[] = ['updated_at = NOW()', 'updated_by = ?'];
+    const params: unknown[] = [userId];
+
+    if (typeof input.title === 'string') {
+      const title = input.title.trim();
+      if (!title) throw new AppError(400, 'VALIDATION_ERROR', 'タスクの名前を入れてください');
+      sets.push('title = ?'); params.push(title);
+    }
+    if ('description' in input) { sets.push('description = ?'); params.push(input.description ?? null); }
+    if ('assigned_to' in input) {
+      sets.push('assigned_to = ?');
+      params.push((typeof input.assigned_to === 'string' && input.assigned_to) ? input.assigned_to : null);
+    }
+    if ('due_date' in input) {
+      const due = dateOrNull(input.due_date);
+      sets.push('due_at = ?'); params.push(due ? `${due}T18:00:00` : null);
+    }
+    if ('gpm_phase_id' in input) {
+      const phaseId = await resolvePhaseId(String(task.project_id), input.gpm_phase_id);
+      sets.push('gpm_phase_id = ?'); params.push(phaseId);
+    }
+    if ('is_completed' in input) {
+      const done = input.is_completed !== false;
+      sets.push('is_completed = ?', 'completed_at = CASE WHEN ? THEN COALESCE(completed_at, NOW()) ELSE NULL END');
+      params.push(done, done);
+    }
+    params.push(taskId);
+    await execute(`UPDATE project_tasks SET ${sets.join(', ')} WHERE id = ?`, params);
+    return (await this.getById(taskId))!;
+  },
+
+  /** 消す（論理削除）。**完了とは別**なので、終わったタスクは消さずに完了にする */
+  async remove(taskId: string, userId: string): Promise<void> {
+    await assertGpmTask(taskId);
+    await execute(
+      'UPDATE project_tasks SET deleted_at = NOW(), updated_at = NOW(), updated_by = ? WHERE id = ?',
+      [userId, taskId],
+    );
+  },
+
+  /** 完了の入切。**`is_completed` だけを触る** — 止まり方 (`work_state`) は別の列 */
+  async setDone(taskId: string, done: boolean, userId: string): Promise<Record<string, unknown>> {
+    await assertGpmTask(taskId);
     await execute(
       `UPDATE project_tasks
           SET is_completed = ?, completed_at = CASE WHEN ? THEN NOW() ELSE NULL END,
@@ -549,6 +697,33 @@ export const gpmTaskService = {
     return (await queryOne('SELECT * FROM project_tasks WHERE id = ?', [taskId]))!;
   },
 };
+
+/**
+ * **案件（GLS-A）のタスクは触らせない。** この確認を通さない口を1つ作ると、
+ * `gpm` の権限しか無い人が案件のタスクを直せます（`setDone` を書いたときに
+ * インラインで書いていたものを、足す・直す・消すでも使うので1本にした）。
+ */
+async function assertGpmTask(taskId: string): Promise<{ project_id: string }> {
+  const row = await queryOne(
+    `SELECT t.id, t.project_id FROM project_tasks t JOIN projects p ON p.id = t.project_id
+      WHERE t.id = ? AND t.deleted_at IS NULL AND ${IS_PROJECT}`,
+    [taskId],
+  ) as { project_id: string } | null;
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+  return row;
+}
+
+/**
+ * 工程の id を確かめる。**他のプロジェクトの工程には付けさせない** —
+ * 付いてしまうと、そのタスクが別のプロジェクトの工程の下に並び、
+ * 進み具合の分母（`task_count`）も相手側に足されます。
+ */
+async function resolvePhaseId(projectId: string, raw: unknown): Promise<string | null> {
+  if (typeof raw !== 'string' || !raw) return null;
+  const row = await queryOne('SELECT id FROM gpm_phases WHERE id = ? AND project_id = ?', [raw, projectId]);
+  if (!row) throw new AppError(400, 'VALIDATION_ERROR', 'その工程はこのプロジェクトのものではありません');
+  return raw;
+}
 
 // ══ 未確認事項 ════════════════════════════════════════════
 
@@ -627,9 +802,91 @@ export const openItemService = {
   },
 };
 
+/**
+ * 議事録の持ち帰りを**未確認事項にする** (migration 161 の `source_minutes_id`)。
+ *
+ * ── なぜタスクではなく未確認事項か ──────────────────────────
+ *
+ * 案件側の同じ操作（`openItemToTask`）はタスクを作りますが、工事・構築で
+ * 打合せから出てくる持ち帰りは**「先方の判断待ち」がほとんど**です。
+ * タスクにすると「自分がやること」の一覧に相手待ちのものが混ざり、
+ * **プロジェクトをまたいで「いま何件止まっているか」を数えられません**
+ * （それが `gpm_open_items` を作った理由そのもの）。
+ *
+ * ── 二度作れない ────────────────────────────────────────────
+ *
+ * 作ると `open_items` のその要素に `ask_id` を書き戻します。
+ * 画面のボタンを隠すだけだと、**同時に開いた別の画面が古いままボタンを出す**。
+ *
+ * ── 担当（誰に訊くか）は入れない ────────────────────────────
+ *
+ * `open_items[].owner` は **AI が文字起こしから拾った名前の文字列**で、
+ * 取引先の担当者名も社内の名前も同じ形で入っています。`to_kind`
+ * （発注者／PM会社／業者／社内）を機械で決めると必ず取り違えるので、
+ * **既定は「発注者」にして、拾った名前は `to_name` に文字として残す**だけにします。
+ */
+export async function openItemToAsk(
+  minutesId: string, index: number, userId: string,
+): Promise<{ ask_id: string; question: string }> {
+  const m = await getMinutes(minutesId);
+  await assertProject(String(m.project_id));
+
+  const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
+  const item = items[index];
+  if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
+  if (item.ask_id) throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもう未確認事項にしてあります');
+
+  const text = String(item.text ?? '').trim();
+  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りは未確認事項にできません');
+  const owner = String(item.owner ?? '').trim();
+  const due = dateOrNull(item.due);
+
+  const id = uuidv4();
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `INSERT INTO gpm_open_items
+         (id, project_id, question, to_kind, to_name, due_date, source_minutes_id, raised_by)
+       VALUES (?, ?, ?, 'client', ?, ?, ?, ?)`,
+      [id, m.project_id, text, owner || null, due, minutesId, userId],
+    );
+    items[index] = { ...item, ask_id: id };
+    await tx.execute(
+      'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
+      [JSON.stringify(items), userId, minutesId],
+    );
+  });
+  return { ask_id: id, question: text };
+}
+
 // ══ フェーズ ══════════════════════════════════════════════
 
 export const phaseService = {
+  /**
+   * 足す。**いちばん後ろに付けます**（差し込む位置は並べ替えで動かす）。
+   *
+   * ひな形を選ばずに作ったプロジェクトも、ここから工程を組めます
+   * — 選び直すには作り直すしかない、という状態を無くすため。
+   */
+  async create(projectId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+    await assertProject(projectId);
+    const label = String(input.label ?? '').trim();
+    if (!label) throw new AppError(400, 'VALIDATION_ERROR', '工程の名前を入れてください');
+    const state = String(input.state ?? 'todo');
+    assertIn(state, PHASE_STATES, 'state');
+
+    const maxRow = await queryOne(
+      'SELECT COALESCE(MAX(sort_order), -1) AS m FROM gpm_phases WHERE project_id = ?', [projectId],
+    ) as { m: number } | undefined;
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO gpm_phases (id, project_id, label, state, started_on, ends_on, role, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, projectId, label, state, dateOrNull(input.started_on), dateOrNull(input.ends_on),
+       input.role ?? null, Number(maxRow?.m ?? -1) + 1],
+    );
+    return (await queryOne('SELECT * FROM gpm_phases WHERE id = ?', [id]))!;
+  },
+
   async update(id: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
     const existing = await queryOne('SELECT id FROM gpm_phases WHERE id = ?', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '工程が見つかりません');
@@ -641,5 +898,58 @@ export const phaseService = {
        dateOrNull(input.ends_on), input.role ?? null, id],
     );
     return (await queryOne('SELECT * FROM gpm_phases WHERE id = ?', [id]))!;
+  },
+
+  /**
+   * 隣と入れ替える。**押した工程と隣の2行だけを書き換えます** —
+   * 並び全体を採番し直す作りにすると、2人が同時に押したときに
+   * 片方の並びが丸ごと巻き戻ります。
+   */
+  async move(id: string, dir: 'up' | 'down'): Promise<Record<string, unknown>[]> {
+    const me = await queryOne(
+      'SELECT id, project_id, sort_order FROM gpm_phases WHERE id = ?', [id],
+    ) as { id: string; project_id: string; sort_order: number } | null;
+    if (!me) throw new AppError(404, 'NOT_FOUND', '工程が見つかりません');
+
+    const neighbor = await queryOne(
+      dir === 'up'
+        ? `SELECT id, sort_order FROM gpm_phases WHERE project_id = ? AND sort_order < ?
+             ORDER BY sort_order DESC LIMIT 1`
+        : `SELECT id, sort_order FROM gpm_phases WHERE project_id = ? AND sort_order > ?
+             ORDER BY sort_order ASC LIMIT 1`,
+      [me.project_id, me.sort_order],
+    ) as { id: string; sort_order: number } | null;
+    // **端では何もしない。** 400 を返すと、端の工程で押した人にだけ赤い札が出る
+    if (!neighbor) return [];
+
+    await withTransaction(async (tx) => {
+      await tx.execute('UPDATE gpm_phases SET sort_order = ?, updated_at = NOW() WHERE id = ?',
+        [neighbor.sort_order, me.id]);
+      await tx.execute('UPDATE gpm_phases SET sort_order = ?, updated_at = NOW() WHERE id = ?',
+        [me.sort_order, neighbor.id]);
+    });
+    return queryAll('SELECT * FROM gpm_phases WHERE id IN (?, ?)', [me.id, neighbor.id]);
+  },
+
+  /**
+   * 消す。**配下のタスクは消しません** — 工程から外すだけです
+   * （`gpm_phase_id` を NULL にする）。
+   *
+   * 一緒に消す作りにすると、「工程の名前を直したかっただけ」の人が
+   * **タスクを何十件も消します**。外れたタスクは詳細画面の「工程なし」の束と
+   * ⑤ 全プロジェクトのタスクに残るので、付け直せます。
+   */
+  async remove(id: string): Promise<{ detached: number }> {
+    const row = await queryOne('SELECT id FROM gpm_phases WHERE id = ?', [id]);
+    if (!row) throw new AppError(404, 'NOT_FOUND', '工程が見つかりません');
+    const detached = await queryOne(
+      'SELECT COUNT(*)::int AS n FROM project_tasks WHERE gpm_phase_id = ? AND deleted_at IS NULL', [id],
+    ) as { n: number } | undefined;
+    await withTransaction(async (tx) => {
+      await tx.execute('UPDATE project_tasks SET gpm_phase_id = NULL, updated_at = NOW() WHERE gpm_phase_id = ?', [id]);
+      // 未確認事項の `phase_id` は `ON DELETE SET NULL`（migration 161）なので任せる
+      await tx.execute('DELETE FROM gpm_phases WHERE id = ?', [id]);
+    });
+    return { detached: Number(detached?.n ?? 0) };
   },
 };

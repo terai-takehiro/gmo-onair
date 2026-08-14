@@ -24,6 +24,35 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed } from '@gmo-onair/shared/src/client/states';
 import type { Minutes, MinutesPatch } from './types';
 
+/**
+ * 持ち帰りの行き先の決めごと。**`markKey` がサーバーが書き戻す印**で、
+ * これがあると二度作れません（画面でボタンを隠すだけだと、同時に開いた
+ * 別の画面が古いままボタンを出す）。
+ */
+export interface MinutesTrack {
+  markKey: 'task_id' | 'ask_id';
+  label: string;
+  doneLabel: string;
+  note: string;
+}
+
+/** 案件（GLS-A）の既定。持ち帰りはタスクになる */
+export const TASK_TRACK: MinutesTrack = {
+  markKey: 'task_id',
+  label: 'タスクにする',
+  doneLabel: 'タスクにしました',
+  note: 'タスクにすると、この案件のタスクタブに入ります。',
+};
+
+/** プロジェクト管理（GLS-B）。持ち帰りは未確認事項になる */
+export const ASK_TRACK: MinutesTrack = {
+  markKey: 'ask_id',
+  label: '未確認事項にする',
+  doneLabel: '未確認事項にしました',
+  note: '未確認事項にすると、「未確認事項」タブと全プロジェクトの一覧に出て、'
+    + '止まっている件数として数えられます。',
+};
+
 const STATUS: Record<string, { label: string; tone: string }> = {
   transcribing: { label: '処理中', tone: 'border-transparent bg-muted text-muted-foreground' },
   draft: { label: '下書き', tone: 'border-transparent bg-ai-surface text-ai' },
@@ -37,15 +66,22 @@ function minutesOf(sec: number | null): string | null {
 }
 
 export function MinutesCard({
-  m, canEdit, busy, onSave, onDelete, onMakeTask,
+  m, canEdit, busy, onSave, onDelete, onMakeTask, track = TASK_TRACK,
 }: {
   m: Minutes;
   canEdit: boolean;
   busy: boolean;
   onSave: (patch: MinutesPatch) => void;
   onDelete: () => void;
-  /** 持ち帰りの `index` 番目をタスクにする */
+  /** 持ち帰りの `index` 番目を追いかける形にする（案件=タスク／プロジェクト=未確認事項） */
   onMakeTask: (index: number) => void;
+  /**
+   * 持ち帰りの行き先。**案件はタスク、プロジェクトは未確認事項**です
+   * （工事・構築の持ち帰りはほとんどが「先方の判断待ち」で、タスクにすると
+   * 「自分がやること」に相手待ちが混ざり、止まっている件数を数えられない）。
+   * 部品を写さずここで差し替えます — 写すと、引用の出し方や確定の扱いが2つになります。
+   */
+  track?: MinutesTrack;
 }) {
   const [open, setOpen] = useState(m.status === 'draft');
   const [showTranscript, setShowTranscript] = useState(false);
@@ -193,13 +229,13 @@ export function MinutesCard({
                     <span className="min-w-0 flex-1">{o.text}</span>
                     {o.owner && <span className="text-sub text-muted-foreground">{o.owner}</span>}
                     {o.due && <span className="font-number text-sub text-muted-foreground">{o.due}</span>}
-                    {o.task_id ? (
+                    {o[track.markKey] ? (
                       <span className="text-note inline-flex items-center gap-1 text-success">
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" />タスクにしました
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />{track.doneLabel}
                       </span>
                     ) : canEdit && (
                       <Button variant="outline" size="sm" disabled={busy} onClick={() => onMakeTask(i)}>
-                        <ListPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />タスクにする
+                        <ListPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{track.label}
                       </Button>
                     )}
                   </li>
@@ -207,7 +243,7 @@ export function MinutesCard({
               </ul>
             )}
             <p className="text-note mt-1.5 text-muted-foreground">
-              タスクにすると、この案件のタスクタブに入ります。
+              {track.note}
               <strong className="font-bold">担当は入りません</strong> — 打合せで出た名前は
               文字起こしから拾った文字列で、利用者と結びついていないためです（説明に書いてあります）。
               <strong className="font-bold">同じ持ち帰りからは1つしか作れません。</strong>

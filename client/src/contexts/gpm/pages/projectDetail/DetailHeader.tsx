@@ -26,6 +26,9 @@ export const DETAIL_TABS = [
   { key: 'overview', label: '概要' },
   { key: 'asks', label: '未確認事項' },
   { key: 'members', label: '体制' },
+  // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
+  // （`project_minutes` は `projects` にぶら下がる）。持ち帰りの行き先だけが違う
+  { key: 'minutes', label: '議事録' },
   // v4 大⑤: 提出先ごとの個別見積（migration 173）
   { key: 'estimates', label: '見積' },
   // migration 179 で案件詳細から移した「月次請求（月締め）」

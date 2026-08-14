@@ -13,6 +13,11 @@
  *    「よく直されるフィールド」だけ見えて、改善したかどうかが分からない。
  */
 import { queryAll, queryOne } from '../db/connection';
+/**
+ * 議事録の `kind`。**文字列を書き写さない** — 書き写すと、`kind` を変えた日に
+ * 集計だけが黙って 0 件になる（画面には「まだレビュー済みの出力がない」と出るだけ）。
+ */
+import { MINUTES_KIND } from '../../contexts/sales/services/minutes.service';
 
 export interface FieldStat {
   field_path: string;
@@ -94,6 +99,28 @@ export interface FeedbackDigest {
   };
   /** 投入の指標 (kind=task_intake のときのみ) */
   intake?: IntakeStat;
+  /**
+   * 議事録の持ち帰りのその後 (kind=minutes_draft のときのみ)。
+   *
+   * **AI が拾った持ち帰りが、実際に追いかけられたか**を見る。
+   * 案件ではタスク (`open_items[].task_id`)、プロジェクトでは未確認事項
+   * (`open_items[].ask_id`) になるので、**印が付いた要素の数**で数える
+   * （`ai_outcomes` に行を足さない — 既存データで表現できる）。
+   *
+   * ⚠️ **追跡率を「AI が正しかった率」と読まないこと。** 人が言い換えて
+   * 登録することもあり、その場合は印が付かない。**拾いすぎの目安**として見る
+   * （率が低いほど「タスクにも未確認事項にもならない持ち帰り」を出しすぎている）。
+   */
+  minutes?: {
+    /** 確定した議事録の数 */
+    confirmed: number;
+    /** そこに載っていた持ち帰りの総数 */
+    open_items_total: number;
+    /** タスク or 未確認事項になった数 */
+    open_items_tracked: number;
+    /** 追跡率 (0〜1) */
+    tracked_rate: number | null;
+  };
   /**
    * 取り込んだ情報の行き先 (kind=inquiry_intake のときのみ)。
    * **拾いすぎていないか**を見る指標 — 見送りの割合が高ければ拾いすぎ。
@@ -267,6 +294,46 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
     };
   }
 
+  /*
+    議事録の持ち帰りのその後。**読み取り時に導出する**（バッチを作らない）。
+
+    ここは長らく穴だった（`.claude/skills/ai-feedback-loop/references/onair-current-state.md`
+    の「成果 △ 持ち帰り→タスクの導出は未」）。プロジェクト管理から
+    **持ち帰り → 未確認事項**を作れるようにしたので、案件のタスクと合わせて
+    「拾った持ち帰りが追いかけられたか」を数えられるようになった。
+
+    **確定した議事録だけを分母にする** — 下書きのままのものを混ぜると、
+    確定していない（＝まだ誰も持ち帰りを処理していない）ぶんで率が下がる。
+  */
+  if (kind === MINUTES_KIND) {
+    const mn = await queryOne(
+      `SELECT COUNT(DISTINCT m.id) AS confirmed,
+              COALESCE(SUM(jsonb_array_length(m.open_items)), 0) AS items_total,
+              COALESCE(SUM((
+                SELECT COUNT(*) FROM jsonb_array_elements(m.open_items) e
+                 -- ⚠️ jsonb の存在演算子（疑問符）は使えない。この製品の DB 層は
+                 --    それをプレースホルダとして数えるので、syntax error で落ちる（実際に踏んだ）。
+                 --    ->> は鍵が無ければ NULL を返すので同じことが言える。
+                 --    （SQL の注釈にバッククォートも書かない。テンプレート文字列が途中で終わる）
+                 WHERE e->>'task_id' IS NOT NULL OR e->>'ask_id' IS NOT NULL
+              )), 0) AS items_tracked
+         FROM ai_outputs o
+         JOIN project_minutes m ON m.id = o.target_id
+          AND o.target_table = 'project_minutes' AND m.deleted_at IS NULL
+        WHERE o.kind = ?
+          AND m.confirmed_at IS NOT NULL
+          AND o.created_at >= NOW() - (? || ' days')::interval`,
+      [kind, w],
+    ) as any;
+    const total = num(mn?.items_total);
+    digest.minutes = {
+      confirmed: num(mn?.confirmed),
+      open_items_total: total,
+      open_items_tracked: num(mn?.items_tracked),
+      tracked_rate: total > 0 ? num(mn?.items_tracked) / total : null,
+    };
+  }
+
   // 取り込んだ情報の行き先。**同じく既存データから導出する**。
   // 「有益なものだけ取り込め」と言っているツールなので、見送りの割合が
   // そのまま拾いすぎの度合いになる。
@@ -407,6 +474,21 @@ function buildAdvice(d: FeedbackDigest): string[] {
     if (f.reject) kinds.push(`不採用${f.reject}件`);
     if (f.enrich) kinds.push(`人が追加${f.enrich}件`);
     out.push(`${f.field_path} は ${f.corrections}件修正 (${denomLabel} ${share}%) — ${kinds.join(' / ')}。`);
+  }
+  if (d.minutes && d.minutes.open_items_total > 0) {
+    const m = d.minutes;
+    const pct = m.tracked_rate == null ? null : Math.round(m.tracked_rate * 100);
+    out.push(
+      `確定した議事録${m.confirmed}件に載せた持ち帰り${m.open_items_total}件のうち、`
+      + `タスクか未確認事項になったのは${m.open_items_tracked}件`
+      + (pct == null ? '。' : `（${pct}%）。`),
+    );
+    // **半分以上が追われていないなら拾いすぎ**。ただし「AI が間違えた」とは言わない —
+    // 人が言い換えて登録した場合も印が付かないので、断定すると誤った学習になる
+    if (pct != null && pct < 50) {
+      out.push('持ち帰りを出しすぎている可能性がある（言い換えて登録された分は数に入らない）。'
+        + '相手の判断を待つもの・次にやることが決まるものだけを持ち帰りに入れること。');
+    }
   }
   if (d.outcomes && (d.outcomes.won || d.outcomes.lost)) {
     out.push(`成果: 受注${d.outcomes.won}件 / 失注${d.outcomes.lost}件 / 進行中${d.outcomes.in_progress}件。`);

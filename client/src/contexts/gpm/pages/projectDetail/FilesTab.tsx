@@ -14,19 +14,22 @@
  * 構成は `server/src/contexts/gpm/services/gpm-box-folder.service.ts` が正で、
  * ここはサーバーから取ってきて出すだけです（写すと片方だけ古くなる）。
  *
- * ── 中のファイルは出しません ────────────────────────────────
+ * ── 中のファイルを出し、置けるようにした ────────────────────
  *
- * 案件詳細の書類タブは1階層ぶんのファイルを出しますが、こちらは
- * **フォルダを開くリンクだけ**です。GPM 用のファイル一覧の口がまだサーバーに
- * ありません。無いものを空の一覧として出すと「1件も無い」と読まれます。
+ * **案件詳細の書類タブと同じ部品**（`sales/.../FilesTab` の `FolderCard`）を呼びます。
+ * 口の前置き（`/gpm/projects`）だけが違い、決めごと（1階層だけ・**再帰しない**／
+ * BOX が落ちても 200 で理由を出す／社内と社外を混ぜない／5つまで／
+ * 上げられなかったものは名前を出す）は同じものを読ませます。
+ * 写すと、どちらかだけ直した日に**片方が原価を外に出す**形が生まれます。
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ExternalLink, FolderPlus, Lock, Users } from 'lucide-react';
+import { FolderLock, FolderOpen, FolderPlus } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { FolderCard } from '@/contexts/sales/pages/projectDetail/FilesTab';
 import { useInvalidateGpm } from '../../queries';
 import type { GpmProjectDetail } from '../../types';
 
@@ -66,73 +69,58 @@ export function FilesTab({ project, canEdit }: { project: GpmProjectDetail; canE
   };
 
   if (!has) {
+    // **枠の余白はこのタブが持つ。** 詳細画面はタブごとの中身を素で置くので、
+    // ここで持たないと BOX のカードだけ画面の端に貼り付く（他のタブと段が合わない）
     return (
-      <EmptyState
-        icon={<FolderPlus className="h-6 w-6" aria-hidden="true" />}
-        title="BOX フォルダはまだ作っていません"
-        description={
-          preview.data
-            ? `作ると 社内限り（${preview.data.internal.join(' / ')}）と `
-              + `社外共有可（${preview.data.external.join(' / ')}）の2つができます。`
-              + 'ONAiR からは消せないので、要るときだけ作ってください。'
-            : 'ONAiR からは消せないので、要るときだけ作ってください。'
-        }
-        action={canEdit
-          ? <Button onClick={onCreate} disabled={create.isPending}>
-              <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />BOX フォルダを作る
-            </Button>
-          : undefined}
-      />
+      <div className="p-4 lg:px-6 lg:pb-6 lg:pt-5">
+        <EmptyState
+          icon={<FolderPlus className="h-6 w-6" aria-hidden="true" />}
+          title="BOX フォルダはまだ作っていません"
+          description={
+            preview.data
+              ? `作ると 社内限り（${preview.data.internal.join(' / ')}）と `
+                + `社外共有可（${preview.data.external.join(' / ')}）の2つができます。`
+                + 'ONAiR からは消せないので、要るときだけ作ってください。'
+              : 'ONAiR からは消せないので、要るときだけ作ってください。'
+          }
+          action={canEdit
+            ? (
+              <Button onClick={onCreate} disabled={create.isPending}>
+                <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />BOX フォルダを作る
+              </Button>
+            )
+            : undefined}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <FolderCard
-        url={project.box_url_internal}
-        icon={<Lock className="h-4 w-4 text-warning" aria-hidden="true" />}
+        base="/gpm/projects"
+        projectId={project.id}
+        tone="internal"
+        icon={FolderLock}
         title="社内限り"
-        sub="仕入値・発注書。発注者にも PM 会社にも見せません"
+        what="仕入値・発注書・原価。発注者にも PM 会社にも見せません"
+        url={project.box_url_internal}
+        canEdit={canEdit}
       />
       <FolderCard
-        url={project.box_url_external}
-        icon={<Users className="h-4 w-4 text-primary" aria-hidden="true" />}
+        base="/gpm/projects"
+        projectId={project.id}
+        tone="external"
+        icon={FolderOpen}
         title="社外共有可"
-        sub="個別見積・議事メモ・図面・仕様書・工程表。相手と一緒に進めるもの"
+        what="個別見積・議事メモ・図面・仕様書・工程表。相手と一緒に進めるもの"
+        url={project.box_url_external}
+        canEdit={canEdit}
       />
       <p className="text-note text-muted-foreground">
-        中のファイルの一覧はここには出しません（BOX を開いて見てください）。
-        <strong className="font-bold">ONAiR からファイルを置くことはまだできません。</strong>
+        深いフォルダの中は出しません（1階層だけ）。その先は<strong className="font-bold">BOX で開いて</strong>見てください。
+        同じ名前のファイルは<strong className="font-bold">新しい版</strong>として上がります（BOX の版履歴に残ります）。
       </p>
     </div>
-  );
-}
-
-function FolderCard({
-  url, icon, title, sub,
-}: {
-  url: string | null;
-  icon: React.ReactNode;
-  title: string;
-  sub: string;
-}) {
-  return (
-    <section className="rounded-card flex flex-wrap items-center gap-3 border border-border bg-card p-3 lg:px-4">
-      <span className="rounded-control flex h-9 w-9 shrink-0 items-center justify-center bg-muted">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="text-cardtitle block">{title}</span>
-        <span className="text-sub-sm block text-muted-foreground">{sub}</span>
-      </span>
-      {url ? (
-        <Button variant="outline" size="sm" asChild>
-          <a href={url} target="_blank" rel="noreferrer">
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />BOX で開く
-          </a>
-        </Button>
-      ) : (
-        // 片方だけ作れたときは、作れなかったほうをそう書く（黙って消すと気づけない）
-        <span className="text-sub-sm text-muted-foreground">作れていません</span>
-      )}
-    </section>
   );
 }

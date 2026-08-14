@@ -61,6 +61,9 @@ export async function seed() {
     [USERS.staff1, 'liveops',     'editor'],
     [USERS.staff1, 'awards',      'editor'],
     [USERS.staff1, 'dailyops',    'editor'],
+    // プロジェクト管理。**ここに書かないと system_admin 以外は誰も開けません**
+    // （画面から付けることはできるが、検証環境が「権限なし」で始まる）
+    [USERS.staff1, 'gpm',         'manager'],
 
     // staff2 — 鈴木（制作マネージャー寄り）
     [USERS.staff2, 'sales',       'editor'],
@@ -73,6 +76,7 @@ export async function seed() {
     [USERS.staff2, 'liveops',     'manager'],
     [USERS.staff2, 'awards',      'manager'],
     [USERS.staff2, 'dailyops',    'manager'],
+    [USERS.staff2, 'gpm',         'editor'],
 
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',       'reader'],
@@ -84,6 +88,7 @@ export async function seed() {
     [USERS.staff3, 'liveops',     'editor'],
     [USERS.staff3, 'awards',      'editor'],
     [USERS.staff3, 'dailyops',    'editor'],
+    [USERS.staff3, 'gpm',         'reader'],
 
     // staff4 — 田中（経営層・主に閲覧）
     [USERS.staff4, 'sales',       'reader'],
@@ -96,6 +101,7 @@ export async function seed() {
     [USERS.staff4, 'liveops',     'reader'],
     [USERS.staff4, 'awards',      'reader'],
     [USERS.staff4, 'dailyops',    'reader'],
+    [USERS.staff4, 'gpm',         'reader'],
 
     // staff5 — 山田（限定アクセス）
     [USERS.staff5, 'studio',      'reader'],
@@ -869,6 +875,189 @@ export async function seed() {
   const maint1 = uuidv4();
   await ins(`INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, status, vendor_name, repair_cost) VALUES (?,?,?,?,?,?,?,?,?)`,
     [maint1, eqItemIds['light2'], 'maintenance', '定期点検 2026年3月', 'ファンの異音確認 → 清掃で改善', USERS.staff3, 'completed', null, null]);
+
+  // ============================================================
+  // プロジェクト管理 (GPM) — 工程・タスク・未確認事項・体制・見積
+  //
+  // **無いと検証環境のプロジェクト管理が空っぽで開きます。** 着手時から
+  // データが1件も無く、`gpm` の権限も誰にも付いていなかったので、
+  // system_admin で開いて「プロジェクトがまだありません」を見るしかありませんでした。
+  //
+  // **id は固定**（`gpm-1` / `gpm-2`）。詳細画面を検査スクリプト
+  // (`scripts/verify-ui.mjs`) から開くのに、毎回変わる uuid では狙えません。
+  //
+  // 工程は「完了・進行中・待ち・未着手」を**1つずつ入れてあります** —
+  // どれか1つの状態しか無いと、色と並びの決めごとが画面で確かめられません。
+  // ============================================================
+  {
+    const GPM1 = 'gpm-1';
+    const GPM2 = 'gpm-2';
+    await ins(
+      `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, customer_type,
+         stage, gpm_kind, pm_company, started_on, ends_on, expected_amount, assigned_to, created_by)
+       VALUES (?, ?, ?, 'B', ?, ?, 'internal', 'a_won', 'self_build', ?, ?, ?, ?, ?, ?)`,
+      [GPM1, 'OPP-202605-0101', 'GLS-B101', '用賀スタジオ 第2副調整室 構築',
+       CUSTOMERS[Object.keys(CUSTOMERS)[0]], '日建設計', '2026-05-12', '2026-09-30',
+       18400000, USERS.staff1, USERS.admin],
+    );
+    await ins(
+      `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, customer_type,
+         stage, gpm_kind, started_on, ends_on, expected_amount, assigned_to, created_by)
+       VALUES (?, ?, ?, 'B', ?, ?, 'internal', 'c_proposal', 'group_order', ?, ?, ?, ?, ?)`,
+      [GPM2, 'OPP-202607-0102', null, 'グループ本社 21F 会議室 AV 更新',
+       CUSTOMERS[Object.keys(CUSTOMERS)[0]], '2026-07-01', '2026-12-20',
+       7200000, USERS.staff2, USERS.admin],
+    );
+
+    // 工程（`gpm-1` は 6 段・状態を1つずつ）
+    const phaseSql = `INSERT INTO gpm_phases (id, project_id, label, state, started_on, ends_on, role, sort_order) VALUES (?,?,?,?,?,?,?,?)`;
+    const phases: [string, string, string, string, string, string, number][] = [
+      ['gpm-1-ph1', '発注確定・要件整理', 'done',    '2026-05-12', '2026-05-31', 'PM',   0],
+      ['gpm-1-ph2', '個別見積・稟議',     'done',    '2026-06-01', '2026-06-20', 'PM',   1],
+      ['gpm-1-ph3', '設計・機材選定',     'doing',   '2026-06-21', '2026-07-31', '技術', 2],
+      ['gpm-1-ph4', '調達・工事手配',     'blocked', '2026-08-01', '2026-08-25', 'PM',   3],
+      ['gpm-1-ph5', '施工・据付',         'todo',    '2026-08-26', '2026-09-15', '技術', 4],
+      ['gpm-1-ph6', '検収・引渡し',       'todo',    '2026-09-16', '2026-09-30', 'PM',   5],
+    ];
+    for (const [id, label, state, from, to, role, order] of phases) {
+      await ins(phaseSql, [id, GPM1, label, state, from, to, role, order]);
+    }
+    await ins(phaseSql, ['gpm-2-ph1', GPM2, '現地調査・要件整理', 'doing', '2026-07-01', '2026-07-20', 'PM', 0]);
+    await ins(phaseSql, ['gpm-2-ph2', GPM2, '基本計画・機器選定', 'todo',  '2026-07-21', '2026-08-10', '技術', 1]);
+
+    /*
+      工程の下のタスク。**`project_id` を必ず入れる** (migration 179) —
+      NULL のまま入れると「自分のタスク」にも週報にも出ず、
+      GPM のタスク一覧 (`JOIN projects`) からも1件も返りません。
+
+      **期限は `due_at` の 18:00**（`gpm_phase_id` を持つタスクの決めごと）。
+      1件だけ期限切れにしてあります — 赤く出る行が無いと、期限の色を確かめられません。
+    */
+    const gTaskSql = `INSERT INTO project_tasks (id, project_id, gpm_phase_id, title, description, is_completed, completed_at, due_at, assigned_to, sort_order, created_by)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+    /** [工程id, 名前, 補足, 完了か, 期限(18:00), 担当, 並び]。**順番を変えるときは型も直す** */
+    const gTasks: [string, string, string | null, boolean, string | null, string | null, number][] = [
+      ['gpm-1-ph1', '要件のヒアリング（副調の使い方）', null, true,  '2026-05-20T18:00', USERS.staff1, 0],
+      ['gpm-1-ph1', '既存設備の棚卸し（型番・年式）',   null, true,  '2026-05-28T18:00', USERS.staff3, 1],
+      ['gpm-1-ph2', '個別見積 v2 を出す',              null, true,  '2026-06-18T18:00', USERS.staff1, 0],
+      ['gpm-1-ph3', 'カメラ制御盤の型番を確定する',      '代替案を2つ出してから決める', false, '2026-08-05T18:00', USERS.staff1, 0],
+      ['gpm-1-ph3', 'モニター壁の割り付け図を引く',      null, false, '2026-08-12T18:00', USERS.staff3, 1],
+      ['gpm-1-ph3', '空調の増設範囲をビル側に確認する',  '総務経由。8/5 までに回答をもらう', false, '2026-08-05T18:00', USERS.staff1, 2],
+      ['gpm-1-ph4', '中継回線の引込工事を手配する',      null, false, '2026-08-10T18:00', USERS.staff2, 0],
+      ['gpm-1-ph4', '主要機材を発注する',               null, false, '2026-08-19T18:00', USERS.staff1, 1],
+      ['gpm-1-ph5', '据付の立会日を決める',             null, false, null,                USERS.staff2, 0],
+      ['gpm-1-ph6', '検収の項目表を作る',               null, false, null,                null,         0],
+      ['gpm-2-ph1', '会議室の現況を撮る',               null, false, '2026-07-15T18:00', USERS.staff2, 0],
+      ['gpm-2-ph1', '利用シーンのヒアリング',           null, false, '2026-07-18T18:00', USERS.staff3, 1],
+    ];
+    let gi = 0;
+    for (const [phaseId, title, desc, done, due, who, order] of gTasks) {
+      const project = phaseId.startsWith('gpm-1') ? GPM1 : GPM2;
+      await ins(gTaskSql, [`gpm-task-${++gi}`, project, phaseId, title, desc, done,
+        done ? '2026-06-20T10:00' : null, due, who, order, USERS.admin]);
+    }
+    // **工程に付いていないタスク**（工程が決まる前のもの）。詳細画面の下の束に出る
+    await ins(gTaskSql, ['gpm-task-loose', GPM1, null, '引渡し後の保守契約をどうするか整理する',
+      null, false, null, null, USERS.staff1, 0, USERS.admin]);
+
+    // 未確認事項（返事待ち・確認中・解決を1つずつ）
+    const askSql = `INSERT INTO gpm_open_items (id, project_id, phase_id, question, to_kind, to_name, status, blocks, due_date, raised_by, raised_at, resolved_at, resolved_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    await ins(askSql, ['gpm-ask-1', GPM1, 'gpm-1-ph3', '副調のモニター壁は据置か可動か（先方判断待ち）',
+      'client', 'グループ総務 佐野様', 'waiting', '調達・工事手配', '2026-08-05', USERS.staff1, '2026-08-11T10:00', null, null]);
+    await ins(askSql, ['gpm-ask-2', GPM1, 'gpm-1-ph4', '空調の増設はビル側の工事範囲に入るか',
+      'pm', 'PM会社 井上様', 'checking', '施工・据付', '2026-08-08', USERS.staff1, '2026-08-12T14:00', null, null]);
+    await ins(askSql, ['gpm-ask-3', GPM1, 'gpm-1-ph2', '稟議の決裁者は本部長か部長か',
+      'internal', '経営管理部', 'resolved', null, '2026-06-10', USERS.staff1, '2026-06-05T09:00', '2026-06-09T11:00', USERS.staff1]);
+    await ins(askSql, ['gpm-ask-4', GPM2, 'gpm-2-ph1', '既存のマイクを流用してよいか',
+      'client', 'グループ本社 総務', 'waiting', '基本計画・機器選定', '2026-07-25', USERS.staff2, '2026-07-14T16:00', null, null]);
+
+    // 体制（3段。**同じ `group_label` が1つの箱になる**）
+    const memSql = `INSERT INTO gpm_members (id, project_id, user_id, name, org, role, email, side, tier, group_label, badge, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const members: [string, string | null, string, string, string, string | null, string, string, string, string | null, number][] = [
+      ['gpm-mem-1', null,          '佐野様', 'グループ本体 コーポレート', '発注・意思決定', 'sano@example.co.jp', 'client',   'top',  '発注者',        '決裁', 0],
+      ['gpm-mem-2', null,          '田中様', 'グループ本体 総務',         '窓口',           null,                 'client',   'top',  '発注者',        null,   1],
+      ['gpm-mem-3', null,          '井上様', '日建設計',                   '全体統括',       null,                 'pm',       'lead', 'PM会社',        '進行', 0],
+      ['gpm-mem-4', USERS.staff1,  '佐藤 花子', '自社 ／ 技術',            'PM',             'sato@globalstudio.example.com', 'internal', 'lead', '自社',   '議事録', 1],
+      ['gpm-mem-5', USERS.staff3,  '高橋 美咲', '自社 ／ 技術',            '設計',           null,                 'internal', 'unit', '設計ユニット',  null,   0],
+      ['gpm-mem-6', null,          '山本様',  '音響設備工業',               '施工',           null,                 'vendor',   'unit', '施工ユニット',  null,   1],
+    ];
+    for (const [id, userId, name, org, role, email, side, tier, group, badge, order] of members) {
+      await ins(memSql, [id, GPM1, userId, name, org, role, email, side, tier, group, badge, order]);
+    }
+
+    /*
+      見積（提出先ごとに1本・migration 173）。**一覧の「見積」の列と
+      ダッシュボードの KPI 2枚がここを読みます** — 1本も無いと
+      「見積なし」と「0円」の見分けが画面で確かめられません。
+      合計 (`subtotal`) は明細から出るので、`recalc` と同じ値を入れてあります。
+    */
+    const estSql = `INSERT INTO estimates (id, project_id, submit_to, group_id, version, title, status, tax_category, subtotal, discount, sent_at, valid_until, created_by, updated_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    await ins(estSql, ['gpm-est-1', GPM1, 'self', 'gpm-est-1', 2,
+      '第2副調整室 構築一式（設計・機材・工事）', 'sent', 'tax10', 18400000, 0,
+      '2026-06-18T17:00', '2026-07-29', USERS.staff1, USERS.staff1]);
+    await ins(estSql, ['gpm-est-2', GPM2, 'client', 'gpm-est-2', 1,
+      '21F 会議室 AV 更新一式', 'draft', 'tax10', 7200000, 200000,
+      null, null, USERS.staff2, USERS.staff2]);
+    /*
+      議事録（打合せの録音 → 文字起こし → AI の下書き）。
+      **案件と同じ表**（`project_minutes` は `projects` にぶら下がる）。
+
+      **下書きと確定を1件ずつ**入れてあります — 下書きだけだと「AI が書いた印」の
+      出方しか確かめられず、確定だけだと直す前の姿が見られません。
+      持ち帰りは**印が付いたものと付いていないものを混ぜて**います
+      （`ask_id` があると「未確認事項にしました」に変わる）。
+    */
+    const minSql = `INSERT INTO project_minutes
+      (id, project_id, status, title, met_on, attendees, transcript, duration_sec, summary,
+       decisions, open_items, next_meeting, model, prompt_version, created_by, confirmed_at, confirmed_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?::jsonb,?::jsonb,?,?,?,?,?,?)`;
+    await ins(minSql, [
+      'gpm-min-1', GPM1, 'confirmed', '第7回 定例（中継回線と引込口）', '2026-07-18',
+      '寺井 ・ 井上様（日建） ・ 佐野様',
+      '（文字起こし）引込口をどちらにするか… 27F 側で実測してから決めましょう…',
+      3120,
+      '中継回線の引込口は27F側で進める。実測は7/25までに行い、立会は井上様と寺井で。',
+      JSON.stringify([
+        { text: '中継回線の引込口は27F側にする', quote: '27F 側で実測してから決めましょう' },
+        { text: '実測の立会は井上様と寺井の2名', quote: '立会はお二人でお願いします' },
+      ]),
+      JSON.stringify([
+        { text: '27F の分電盤の空き容量を確認する', owner: '井上様', due: '2026-07-25' },
+      ]),
+      '2026-08-01', 'gpt-5.6-terra', 'minutes-v3', USERS.staff1, '2026-07-19T10:00', USERS.staff1,
+    ]);
+    await ins(minSql, [
+      'gpm-min-2', GPM1, 'draft', '第8回 定例（副調・空調の扱い）', '2026-08-01',
+      '寺井 ・ 中西 ・ 井上様（日建） ・ 佐野様',
+      '（文字起こし）副調の空調増設をどちらが手配するか… ビル側の範囲を総務に確認します…',
+      3900,
+      '副調の空調増設をどちらが手配するかが未決。ビル側の工事範囲を総務が確認し、8/5 までに回答をもらう。',
+      JSON.stringify([
+        { text: '機材選定は代替案を2つ出したうえで8/8に確定させる', quote: '代替を2案いただいて8/8に決めます' },
+      ]),
+      JSON.stringify([
+        { text: '副調のモニター壁は据置か可動か（先方判断待ち）', owner: '佐野様', due: '2026-08-05' },
+        { text: '空調の増設はビル側の工事範囲に入るか', owner: 'グループ総務' },
+      ]),
+      '2026-08-08', 'gpt-5.6-terra', 'minutes-v3', USERS.staff1, null, null,
+    ]);
+
+    const estItemSql = `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price, amount, cost, category, sort_order)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)`;
+    const estItems: [string, string, string, number, string, number, number, number, string, number][] = [
+      ['gpm-esti-1', 'gpm-est-1', '設計・監理費',           1, '式',  2400000, 2400000, 1200000, 'production', 0],
+      ['gpm-esti-2', 'gpm-est-1', '映像機材（カメラ・スイッチャー）', 1, '式', 9800000, 9800000, 7600000, 'technical', 1],
+      ['gpm-esti-3', 'gpm-est-1', '電気・造作工事',         1, '式',  6200000, 6200000, 5100000, 'production', 2],
+      ['gpm-esti-4', 'gpm-est-2', '音響設備一式',           1, '式',  4200000, 4200000, 3300000, 'technical', 0],
+      ['gpm-esti-5', 'gpm-est-2', '設置・調整',             1, '式',  3000000, 3000000, 2100000, 'production', 1],
+    ];
+    for (const [id, est, desc, qty, unit, price, amount, cost, cat, order] of estItems) {
+      await ins(estItemSql, [id, est, desc, qty, unit, price, amount, cost, cat, order]);
+    }
+  }
 
   // サブアプリデータ (Qシート/技術資料/インタラクティブ) は
   // seedSubApps() で投入する（重複防止）

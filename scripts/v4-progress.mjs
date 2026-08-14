@@ -220,11 +220,39 @@ const TREE = [
   // v4 で新しく作ったアプリ。DB・API・画面すべて新規（migration 161/162）
   ['プロジェクト管理 (新規)', [
     ['① ダッシュボード', '/gpm/dashboard', 'client/src/contexts/gpm/pages/GpmDashboardPage.tsx'],
-    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx'],
-    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx'],
+    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx',
+      null,
+      '**「見積」の列はいま出ている金額**（束ごとに最新版・値引きを引いた税抜）。' +
+      '案件一覧の「見積金額」と**同じ式**（サーバーの `ESTIMATE_AMOUNT_LATERAL`）を読んでいます — ' +
+      '写すと、同じ見積が画面によって違う金額に見えます。見積が1本も無い行は「見積なし」（0円ではない）'],
+    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx',
+      null,
+      '**工程の名前を押すとその工程のタスクが出ます**（`projectDetail/OverviewTab.tsx`）。' +
+      '足す・直す・消す・完了にするがこの画面でできます。件数（`3 / 7`）だけだった頃は' +
+      '**何が残っているのかがここから分からず**、⑤ 全プロジェクトのタスクで絞り込み直していました。' +
+      '**工程に付いていないタスクも下の束に出します** — 工程を消してもタスクは消えない' +
+      '（サーバーは `gpm_phase_id` を NULL にするだけ）ので、出さないと外れたタスクが迷子になります。' +
+      '工程は足す・並べ替える（隣と入れ替え）・消すができます'],
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
+    // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
+    ['議事録（プロジェクト詳細のタブ）', '/gpm/projects/:id/minutes',
+      'client/src/contexts/gpm/pages/projectDetail/MinutesTab.tsx', 'ASK_TRACK',
+      '`project_minutes` は `projects` にぶら下がる表で、プロジェクトは GLS-B の案件なので、' +
+      '**表・サービス・Whisper の投げ方・整形のプロンプト・差分の記録を1つも作り直していません**' +
+      '（写すと、同じ打合せが画面によって違う整形になります）。分けたのは口だけ — ' +
+      '案件側のルートは `sales` を要求するので、`gpm` だけの人は開けませんでした。' +
+      '**持ち帰りの行き先だけが違います**: 案件はタスク、プロジェクトは**未確認事項**' +
+      '（工事の持ち帰りはほとんどが先方の判断待ちで、タスクにすると「自分がやること」に' +
+      '相手待ちが混ざり、止まっている件数を数えられない）。' +
+      '**同じ持ち帰りから二度は作れません**（`open_items[].ask_id` をサーバーが書き戻す）'],
+    ['書類（BOX・プロジェクト詳細のタブ）', '/gpm/projects/:id/files',
+      'client/src/contexts/gpm/pages/projectDetail/FilesTab.tsx', 'FolderCard',
+      '**中のファイルを1階層ぶん出し、置けます**（案件詳細と同じ部品・同じ決めごと）。' +
+      '社内限りと社外共有は別のカードで、置き場所を選ばせません（取り違えると原価が外に出る）。' +
+      '**見るほうは BOX が落ちても 200 で理由を出し**、置くほうは失敗を返します。' +
+      'フォルダは**押したときだけ作ります**（BOX に作ったものは ONAiR から消せない）'],
     // v4 大⑤: 独立した画面ではなく**プロジェクト詳細のタブ**（migration 173）
     ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id/estimates',
       'client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx', 'ui/row',

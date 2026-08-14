@@ -84,6 +84,18 @@ const PAGES = [
   ['プロジェクト管理 新規', '/gpm/projects/new'],
   ['プロジェクト管理 やること', '/gpm/tasks'],
   ['プロジェクト管理 標準工程', '/gpm/templates'],
+  /*
+    詳細の4タブ。**`gpm-1` はシードが固定 id で入れているプロジェクト**
+    (`server/src/shared/db/seed.ts`)。ここが抜けていたので、
+    **いちばん操作の多い画面が見た目の検査に1度も載っていませんでした**
+    (工程・その下のタスク・体制の3段・見積の明細が全部この4タブにある)。
+  */
+  ['プロジェクト管理 詳細', '/gpm/projects/gpm-1'],
+  ['プロジェクト管理 詳細 未確認事項', '/gpm/projects/gpm-1/asks'],
+  ['プロジェクト管理 詳細 体制', '/gpm/projects/gpm-1/members'],
+  ['プロジェクト管理 詳細 議事録', '/gpm/projects/gpm-1/minutes'],
+  ['プロジェクト管理 詳細 書類', '/gpm/projects/gpm-1/files'],
+  ['プロジェクト管理 詳細 見積', '/gpm/projects/gpm-1/estimates'],
   ['設定 メンバー', '/settings/users'],
   ['設定 データ', '/settings/data-viewer'],
   ['設定 DBバックアップ', '/settings/db-backups'],
