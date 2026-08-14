@@ -170,10 +170,14 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
               key={m.id}
               m={m}
               canEdit={canEdit}
+              // **消すのは manager。** editor に出すと押しても何も起きない
+              // （前は `canEdit` で出して、押したあと黙って無視していた）
+              canDelete={canManage}
+              detailPath={(id) => `/gpm/minutes/${id}`}
               busy={save.isPending || remove.isPending || makeAsk.isPending}
               track={ASK_TRACK}
               onSave={(patch) => save.mutate({ id: m.id, patch })}
-              onDelete={() => { if (canManage) onDelete(m.id, m.title); }}
+              onDelete={() => onDelete(m.id, m.title)}
               onMakeTask={(index) => makeAsk.mutate({ id: m.id, index })}
             />
           ))}
