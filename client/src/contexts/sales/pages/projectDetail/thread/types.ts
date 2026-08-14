@@ -22,8 +22,14 @@ export interface Minutes {
   title: string;
   met_on: string | null;
   attendees: string | null;
-  /** 一覧では返ってこない（重いので詳細のときだけ） */
+  /** 一覧では返ってこない（重いので詳細のときだけ）。押されたら取りに行く */
   transcript?: string | null;
+  /**
+   * 本文の文字数。**一覧でも返ってきます** — これが無いと画面は
+   * 「文字起こしがあるのか」を知れず、「文字起こしを見る」を出せません
+   * （本文の有無で判定していたので、一覧からは永久に出ませんでした）。
+   */
+  transcript_chars?: number | null;
   duration_sec: number | null;
   summary: string | null;
   /** 決まったこと。`quote` は文字起こしからの引用（**根拠が無いものは決定にしない**） */

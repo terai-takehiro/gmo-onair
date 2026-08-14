@@ -20,7 +20,7 @@
  *   条件5 レビュー 月1回・営業のマネージャー（運用の決め）
  */
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   recordAiOutput, recordCorrections, type CorrectionInput,
@@ -53,17 +53,26 @@ export interface MinutesRow {
   prompt_version: string | null;
   created_at: string;
   confirmed_at: string | null;
+  /** 一覧でだけ付く。本文の文字数（本文そのものは詳細で取る） */
+  transcript_chars?: number;
 }
 
 /**
- * 一覧。**`transcript` は返しません** — 1件で数万字あり、一覧に載せると重い。
- * 詳細を開いたときだけ取ります。
+ * 一覧。**`transcript` の本文は返しません** — 1件で数万字あり、一覧に載せると重い。
+ * 本文は詳細（`getMinutes`）を開いたときだけ取ります。
+ *
+ * ⚠️ **文字数だけは返します**（`transcript_chars`）。返さないと画面は
+ * 「文字起こしがあるのか無いのか」を知る方法が無く、**「文字起こしを見る」を
+ * 出す条件が永久に偽**になります（実際にそうなっていて、案件もプロジェクトも
+ * 文字起こしを開けませんでした。Codex の指摘・PR #103）。
  */
 export async function listMinutes(projectId: string): Promise<MinutesRow[]> {
   const rows = await queryAll(
     `SELECT id, project_id, status, error_message, title, met_on, attendees,
             duration_sec, summary, decisions, open_items, next_meeting,
             ai_output_id, model, prompt_version, created_at, confirmed_at,
+            -- 本文は積まないが「あるか・何字か」は返す（上の注意書き）
+            COALESCE(char_length(transcript), 0) AS transcript_chars,
             -- 処理中のまま止まっているものを見分ける
             (status = 'transcribing' AND created_at < NOW() - INTERVAL '${STUCK_MINUTES} minutes') AS stuck
        FROM project_minutes
@@ -347,38 +356,53 @@ export async function deleteMinutes(id: string, userId: string): Promise<void> {
 export async function openItemToTask(
   minutesId: string, index: number, userId: string,
 ): Promise<{ task_id: string; title: string }> {
-  const m = await getMinutes(minutesId);
-  const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
-  const item = items[index];
-  if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
-  if (item.task_id) {
-    throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもうタスクにしてあります');
-  }
-
-  const text = String(item.text ?? '').trim();
-  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りはタスクにできません');
-
-  const owner = String(item.owner ?? '').trim();
-  const due = /^\d{4}-\d{2}-\d{2}$/.test(String(item.due ?? '')) ? String(item.due) : null;
-
   const taskId = uuidv4();
-  await execute(
-    `INSERT INTO project_tasks (id, project_id, title, description, due_date, source, created_by, updated_by)
-     VALUES (?, ?, ?, ?, ?, 'minutes', ?, ?)`,
-    [
-      taskId, m.project_id, text,
-      // **どの打合せから来たかを残す。** タスクだけを見た人が
-      // 「誰が言ったことか」を追えないと、勝手に消される
-      [`議事録「${m.title || '（表題なし）'}」${m.met_on ? `（${m.met_on}）` : ''}から`,
-        owner ? `打合せでの担当: ${owner}` : null].filter(Boolean).join('\n'),
-      due, userId, userId,
-    ],
-  );
+  return withTransaction(async (tx) => {
+    /*
+      ⚠️ **行を押さえてから印を確かめる**（`FOR UPDATE`）。
+      取引の外で確かめると、2人が古いタブからほぼ同時に押したときに
+      **両方が確認を通り、タスクが2件でき、印は後から書いた1つだけが残ります** —
+      参照の無い1件が誰の持ち物か分からないまま一覧に残ります
+      （プロジェクト管理の `openItemToAsk` で Codex に指摘され、こちらも同じ形でした）。
+    */
+    const m = await tx.queryOne(
+      `SELECT project_id, title, met_on, open_items FROM project_minutes
+        WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+      [minutesId],
+    ) as { project_id: string; title: string | null; met_on: string | null; open_items: unknown } | undefined;
+    if (!m) throw new AppError(404, 'NOT_FOUND', '議事録が見つかりません');
 
-  items[index] = { ...item, task_id: taskId };
-  await execute(
-    'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
-    [JSON.stringify(items), userId, minutesId],
-  );
-  return { task_id: taskId, title: text };
+    const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
+    const item = items[index];
+    if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
+    if (item.task_id) {
+      throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもうタスクにしてあります');
+    }
+
+    const text = String(item.text ?? '').trim();
+    if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りはタスクにできません');
+
+    const owner = String(item.owner ?? '').trim();
+    const due = /^\d{4}-\d{2}-\d{2}$/.test(String(item.due ?? '')) ? String(item.due) : null;
+
+    await tx.execute(
+      `INSERT INTO project_tasks (id, project_id, title, description, due_date, source, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, 'minutes', ?, ?)`,
+      [
+        taskId, m.project_id, text,
+        // **どの打合せから来たかを残す。** タスクだけを見た人が
+        // 「誰が言ったことか」を追えないと、勝手に消される
+        [`議事録「${m.title || '（表題なし）'}」${m.met_on ? `（${m.met_on}）` : ''}から`,
+          owner ? `打合せでの担当: ${owner}` : null].filter(Boolean).join('\n'),
+        due, userId, userId,
+      ],
+    );
+
+    items[index] = { ...item, task_id: taskId };
+    await tx.execute(
+      'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
+      [JSON.stringify(items), userId, minutesId],
+    );
+    return { task_id: taskId, title: text };
+  });
 }

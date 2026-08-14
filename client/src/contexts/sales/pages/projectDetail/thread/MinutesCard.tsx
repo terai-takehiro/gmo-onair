@@ -15,7 +15,9 @@
  * これが無いと「本当にそう言ったのか」を確かめられません。
  */
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Sparkles, Check, Trash2, ChevronDown, ChevronRight, Quote, AlertTriangle, Loader2, ListPlus } from 'lucide-react';
+import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,12 +67,67 @@ function minutesOf(sec: number | null): string | null {
   return `${Math.max(1, Math.round(sec / 60))}分`;
 }
 
+/**
+ * 文字起こしを開く枠。**失敗した行でも出します** — 整形で落ちても
+ * 文字起こしだけは残っていることがあり、それを取り出せないと録音し直しになります
+ * （失敗の行に「下の『文字起こしを見る』から取り出せます」と書いてあるのに、
+ *  その枠が無い状態でした。Codex の指摘・PR #103）。
+ */
+function TranscriptBlock({
+  chars, transcript, loading, open, onToggle,
+}: {
+  chars: number;
+  transcript: string | null;
+  loading: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (chars <= 0) return null;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="text-sub min-h-tap flex items-center gap-1.5 font-bold text-primary hover:underline lg:min-h-[32px]"
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
+        文字起こしを見る（{chars.toLocaleString()}字）
+      </button>
+      {open && (
+        loading && !transcript ? (
+          <p className="text-sub mt-1.5 flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />読み込んでいます
+          </p>
+        ) : (
+          <pre className="rounded-note text-sub mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap border border-border bg-surface-subtle p-3 font-sans leading-[1.9]">
+            {transcript ?? '文字起こしを取り出せませんでした。'}
+          </pre>
+        )
+      )}
+    </div>
+  );
+}
+
 export function MinutesCard({
-  m, canEdit, busy, onSave, onDelete, onMakeTask, track = TASK_TRACK,
+  m, canEdit, canDelete, busy, detailPath, onSave, onDelete, onMakeTask, track = TASK_TRACK,
 }: {
   m: Minutes;
   canEdit: boolean;
+  /**
+   * 消せるか。**`canEdit` と分ける** — サーバーは消すのを manager に絞っているので、
+   * editor に消すボタンを出すと**押しても何も起きない**（プロジェクト管理側では
+   * 黙って無視され、案件側では 403 が返るだけ）。Codex の指摘・PR #103。
+   */
+  canDelete: boolean;
   busy: boolean;
+  /**
+   * 文字起こしの本文を取りに行く先。**一覧は本文を積まない**ので、
+   * 「文字起こしを見る」を押したときにここから取ります
+   * （案件 `/projects/:pid/minutes/:id` ／ プロジェクト `/gpm/minutes/:id`）。
+   */
+  detailPath: (id: string) => string;
   onSave: (patch: MinutesPatch) => void;
   onDelete: () => void;
   /** 持ち帰りの `index` 番目を追いかける形にする（案件=タスク／プロジェクト=未確認事項） */
@@ -85,6 +142,18 @@ export function MinutesCard({
 }) {
   const [open, setOpen] = useState(m.status === 'draft');
   const [showTranscript, setShowTranscript] = useState(false);
+  /**
+   * 文字起こしの本文。**押されてから取りに行きます**（数万字あるので一覧には載らない）。
+   * 一覧が返す `transcript_chars` で「あるか・何字か」だけ先に分かります。
+   */
+  const chars = m.transcript?.length ?? m.transcript_chars ?? 0;
+  const detail = useQuery({
+    queryKey: ['minutes-transcript', m.id],
+    queryFn: async () => (await api.get(detailPath(m.id))).data.data as { transcript: string | null },
+    enabled: showTranscript && !m.transcript && chars > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  const transcript = m.transcript ?? detail.data?.transcript ?? null;
   const [draft, setDraft] = useState<MinutesPatch>({});
   const st = STATUS[m.status] ?? STATUS.draft;
 
@@ -116,7 +185,7 @@ export function MinutesCard({
           <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
           <h3 className="text-cardtitle text-destructive">文字起こしができませんでした</h3>
           <div className="flex-1" />
-          {canEdit && (
+          {canDelete && (
             <Button variant="outline" onClick={onDelete} disabled={busy}>
               <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />消す
             </Button>
@@ -124,10 +193,19 @@ export function MinutesCard({
         </div>
         <p className="text-sub mt-1.5 text-secondary-foreground">{m.error_message ?? '理由が分かりません'}</p>
         {/* **文字起こしだけ残っていることがある**（整形で落ちた場合）。捨てさせない */}
-        {m.transcript && (
-          <p className="text-note mt-1.5 text-muted-foreground">
-            文字起こしは残っています。下の「文字起こしを見る」から取り出せます。
-          </p>
+        {chars > 0 && (
+          <>
+            <p className="text-note mb-1.5 mt-1.5 text-muted-foreground">
+              文字起こしは残っています。下の「文字起こしを見る」から取り出せます。
+            </p>
+            <TranscriptBlock
+              chars={chars}
+              transcript={transcript}
+              loading={detail.isFetching}
+              open={showTranscript}
+              onToggle={() => setShowTranscript((v) => !v)}
+            />
+          </>
         )}
       </section>
     );
@@ -250,21 +328,13 @@ export function MinutesCard({
             </p>
           </div>
 
-          {m.transcript && (
-            <div>
-              <button type="button" onClick={() => setShowTranscript((v) => !v)}
-                className="text-sub min-h-tap flex items-center gap-1.5 font-bold text-primary hover:underline lg:min-h-[32px]">
-                {showTranscript ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                  : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-                文字起こしを見る（{m.transcript.length.toLocaleString()}字）
-              </button>
-              {showTranscript && (
-                <pre className="rounded-note text-sub mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap border border-border bg-surface-subtle p-3 font-sans leading-[1.9]">
-                  {m.transcript}
-                </pre>
-              )}
-            </div>
-          )}
+          <TranscriptBlock
+            chars={chars}
+            transcript={transcript}
+            loading={detail.isFetching}
+            open={showTranscript}
+            onToggle={() => setShowTranscript((v) => !v)}
+          />
 
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
@@ -279,9 +349,12 @@ export function MinutesCard({
                 <span className="text-note text-muted-foreground">直したところは確定時に記録されます</span>
               )}
               <div className="flex-1" />
-              <Button variant="outline" disabled={busy} onClick={onDelete}>
-                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />消す
-              </Button>
+              {/* **消すのは manager だけ。** editor に出すと押しても何も起きない */}
+              {canDelete && (
+                <Button variant="outline" disabled={busy} onClick={onDelete}>
+                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />消す
+                </Button>
+              )}
             </div>
           )}
 

@@ -818,6 +818,12 @@ export const openItemService = {
  * 作ると `open_items` のその要素に `ask_id` を書き戻します。
  * 画面のボタンを隠すだけだと、**同時に開いた別の画面が古いままボタンを出す**。
  *
+ * ⚠️ **印の確認は取引の中で、行を押さえてから行います**（`FOR UPDATE`）。
+ * 取引の外で確かめると、2人が古いタブからほぼ同時に押したときに
+ * **両方が確認を通り、未確認事項が2件でき、印は後から書いた1つだけが残ります** —
+ * 参照の無い1件が「止まっているもの」として数えられ続け、
+ * 議事録の画面からは消せません（Codex の指摘・PR #103）。
+ *
  * ── 担当（誰に訊くか）は入れない ────────────────────────────
  *
  * `open_items[].owner` は **AI が文字起こしから拾った名前の文字列**で、
@@ -828,34 +834,47 @@ export const openItemService = {
 export async function openItemToAsk(
   minutesId: string, index: number, userId: string,
 ): Promise<{ ask_id: string; question: string }> {
-  const m = await getMinutes(minutesId);
-  await assertProject(String(m.project_id));
-
-  const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
-  const item = items[index];
-  if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
-  if (item.ask_id) throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもう未確認事項にしてあります');
-
-  const text = String(item.text ?? '').trim();
-  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りは未確認事項にできません');
-  const owner = String(item.owner ?? '').trim();
-  const due = dateOrNull(item.due);
+  // プロジェクト（GLS-B）のものかは先に確かめる（案件の議事録を触らせない）
+  const head = await getMinutes(minutesId);
+  await assertProject(String(head.project_id));
 
   const id = uuidv4();
-  await withTransaction(async (tx) => {
+  return withTransaction(async (tx) => {
+    /*
+      **行を押さえてから読み直す。** ここで読んだ `open_items` が、この取引が
+      commit するまで他の取引に書き換えられないことが要点で、印の確認と
+      書き戻しのあいだに割り込まれないようにしています。
+    */
+    const locked = await tx.queryOne(
+      'SELECT project_id, open_items FROM project_minutes WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [minutesId],
+    ) as { project_id: string; open_items: unknown } | undefined;
+    if (!locked) throw new AppError(404, 'NOT_FOUND', '議事録が見つかりません');
+
+    const items = Array.isArray(locked.open_items)
+      ? [...(locked.open_items as Record<string, unknown>[])] : [];
+    const item = items[index];
+    if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
+    if (item.ask_id) throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもう未確認事項にしてあります');
+
+    const text = String(item.text ?? '').trim();
+    if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りは未確認事項にできません');
+    const owner = String(item.owner ?? '').trim();
+    const due = dateOrNull(item.due);
+
     await tx.execute(
       `INSERT INTO gpm_open_items
          (id, project_id, question, to_kind, to_name, due_date, source_minutes_id, raised_by)
        VALUES (?, ?, ?, 'client', ?, ?, ?, ?)`,
-      [id, m.project_id, text, owner || null, due, minutesId, userId],
+      [id, locked.project_id, text, owner || null, due, minutesId, userId],
     );
     items[index] = { ...item, ask_id: id };
     await tx.execute(
       'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
       [JSON.stringify(items), userId, minutesId],
     );
+    return { ask_id: id, question: text };
   });
-  return { ask_id: id, question: text };
 }
 
 // ══ フェーズ ══════════════════════════════════════════════

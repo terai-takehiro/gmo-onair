@@ -41,6 +41,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
+  // **消すのは manager。** サーバーが `requirePermission('sales','manager')` で止めるので、
+  // editor に出すと押して 403 を受け取るだけになる（Codex の指摘・PR #103）
+  const canDeleteMinutes = hasPermission('sales', 'manager');
   const [recOpen, setRecOpen] = useState(false);
 
   const minutes = useQuery<MinutesResponse>({
@@ -221,6 +224,8 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               key={m.id}
               m={m}
               canEdit={canEdit}
+              canDelete={canDeleteMinutes}
+              detailPath={(id) => `/projects/${projectId}/minutes/${id}`}
               busy={save.isPending || remove.isPending || makeTask.isPending}
               onSave={(patch) => save.mutate({ id: m.id, patch })}
               onMakeTask={(index) => makeTask.mutate({ id: m.id, index })}
