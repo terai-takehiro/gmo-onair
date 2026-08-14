@@ -29,6 +29,7 @@ export const gpmKeys = {
   projects: (q: string) => ['gpm-projects', q] as const,
   project: (id: string) => ['gpm-project', id] as const,
   openItems: (status: string) => ['gpm-open-items', status] as const,
+  projectTasks: (projectId: string) => ['gpm-project-tasks', projectId] as const,
   templates: () => ['gpm-templates'] as const,
   users: () => ['gpm-users'] as const,
   customers: () => ['gpm-customers'] as const,
@@ -126,6 +127,22 @@ export function useGpmTasks(status = 'open') {
   });
 }
 
+/**
+ * ③ プロジェクト詳細の工程の下に出すタスク。**完了したものも含めて全部**取ります
+ * （工程の「3 / 7」の分母と、下に並ぶ行の数が食い違わないように）。
+ *
+ * `GET /gpm/projects/:id` は工程の**件数だけ**を返します。中身をそこに積むと、
+ * 未確認事項・体制と一緒に毎回運ぶことになるので、タスクは別の口で引きます。
+ */
+export function useGpmProjectTasks(projectId: string) {
+  return useQuery({
+    queryKey: gpmKeys.projectTasks(projectId),
+    queryFn: async () =>
+      (await api.get('/gpm/tasks', { params: { project_id: projectId, status: 'all' } })).data.data as GpmTask[],
+    enabled: !!projectId,
+  });
+}
+
 export function useGpmTemplates() {
   return useQuery<GpmTemplate[]>({
     queryKey: gpmKeys.templates(),
@@ -172,6 +189,14 @@ export function useInvalidateGpm() {
     // 見積を書き換えるとダッシュボードの KPI 2枚が変わる。**一緒に落とす**
     qc.invalidateQueries({ queryKey: ['gpm-estimates'] });
     qc.invalidateQueries({ queryKey: ['gpm-estimate-summary'] });
+    /*
+      タスクの鍵も落とす。**ここに無かったので ⑤ の完了チェックが画面に出ていなかった**
+      （「完了にしました」の札は出るのに行が変わらない。鍵が違うだけなので
+       型検査にも lint にも出ない — この文書の頭に書いてある形そのもの）。
+      工程の「3 / 7」は `gpm-project` 側が数えているので、そちらも一緒に落ちる。
+    */
+    qc.invalidateQueries({ queryKey: ['gpm', 'tasks'] });
+    qc.invalidateQueries({ queryKey: ['gpm-project-tasks'] });
     for (const id of ids) qc.invalidateQueries({ queryKey: gpmKeys.project(id) });
   };
 }

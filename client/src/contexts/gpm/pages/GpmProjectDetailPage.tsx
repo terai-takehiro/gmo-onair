@@ -1,26 +1,29 @@
 /**
  * ③ プロジェクト詳細 (v4 GPM) — 概要（工程）／未確認事項／体制
  *
- * ── 3タブにした理由 ────────────────────────────────────────
+ * ── タブを増やしてきた順番 ──────────────────────────────────
  *
- * モックの詳細は 工程・体制・お金・書類・議事録・活動履歴 を1画面に積みますが、
- * このうち**サーバーが持っているのは工程・未確認事項・体制の3つだけ**です。
- * お金（個別見積・請求）と議事録は GPM のデータがまだ無いので出しません
- * （`docs/design/gpm-model.md`）。**枠だけのタブを並べない**。
- * 書類（BOX）は 2026-08-07 に足しました — 構成をプロジェクト用に別に決めて、
- * **押したときだけ作る**形にしてあります（`FilesTab`）。
+ * モックの詳細は 工程・体制・お金・書類・議事録・活動履歴 を1画面に積みます。
+ * 着手時にサーバーが持っていたのは工程・未確認事項・体制の3つだけで、
+ * **枠だけのタブを並べない**ために3タブから始めました。いまは見積
+ * （migration 173）・請求（同 179）・書類（BOX）が入って6タブです。
+ * **議事録だけがまだ空**なので出していません（`docs/design/gpm-model.md`）。
  *
- * ── 工程配下のタスクの一覧は出せない ────────────────────────
+ * ── 工程配下のタスクは工程の中に出す ────────────────────────
  *
- * タスクは既存 `project_tasks` に `gpm_phase_id` で紐づいていますが、
- * **`project_id` が NULL** なので、既存のタスク一覧（`JOIN projects`）からは
- * 1件も返りません。工程ごとの件数（`task_count` / `task_done`）だけは
- * サーバーが数えているので、それを出しています。
+ * タスクは既存 `project_tasks` の行で、migration 179 から **`project_id` が
+ * 入っている**（GLS-B の案件にぶら下がる）ので `GET /gpm/tasks?project_id=` で
+ * 引けます。工程の名前を押すとその工程のタスクが下に出て、足す・直す・消す・
+ * 完了にするができます。**件数だけだった頃は「何が残っているか」がこの画面から
+ * 分からず**、⑤ 全プロジェクトのタスクで絞り込み直すことになっていました。
+ *
+ * **工程に付いていないタスクも出します**（いちばん下の束）。同じプロジェクトの
+ * ものなので、工程の有無で見える・見えないが変わるほうが分かりにくい。
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -31,12 +34,11 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { useGpmProject, useInvalidateGpm } from '../queries';
 import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
-import { type GpmOpenItem, type GpmPhase, type PhaseState } from '../types';
+import { type GpmOpenItem } from '../types';
 import { DetailHeader, isDetailTab, type DetailTabKey } from './projectDetail/DetailHeader';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
-import { PhaseRow, PhaseRowsHeader } from './projectDetail/PhaseRows';
-import { PhaseDialog } from './projectDetail/PhaseDialog';
+import { OverviewTab } from './projectDetail/OverviewTab';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
 import { EditProjectDialog } from './projectDetail/EditProjectDialog';
@@ -54,10 +56,8 @@ export default function GpmProjectDetailPage() {
 
   const today = useMemo(() => localDateStr(new Date()), []);
   const [editing, setEditing] = useState(false);
-  const [phaseEdit, setPhaseEdit] = useState<GpmPhase | null>(null);
   const [askEdit, setAskEdit] = useState<GpmOpenItem | null>(null);
   const [askAdding, setAskAdding] = useState(false);
-
   const query = useGpmProject(id);
 
   const changeStage = useMutation({
@@ -67,20 +67,6 @@ export default function GpmProjectDetailPage() {
       notifySuccess(`ステージを「${STAGE_BADGE_LABEL[stage]}」にしました`);
     },
     onError: (err) => notifyApiError('ステージを変えられませんでした', err),
-  });
-
-  const changePhaseState = useMutation({
-    mutationFn: ({ phase, state }: { phase: GpmPhase; state: PhaseState }) =>
-      // **日付とロールも一緒に送る。** サーバーは素の代入なので、送らないと消える
-      api.put(`/gpm/phases/${phase.id}`, {
-        label: phase.label,
-        state,
-        role: phase.role,
-        started_on: phase.started_on ? String(phase.started_on).slice(0, 10) : null,
-        ends_on: phase.ends_on ? String(phase.ends_on).slice(0, 10) : null,
-      }),
-    onSuccess: () => invalidate(id),
-    onError: (err) => notifyApiError('工程の状態を変えられませんでした', err),
   });
 
   const toggleAsk = useMutation({
@@ -173,50 +159,13 @@ export default function GpmProjectDetailPage() {
       {tab === 'billing' && <BillingTab projectId={p.id} />}
 
       {tab === 'overview' && (
-        <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
-          {p.phases.length === 0 ? (
-            <EmptyState
-              title="工程がまだありません"
-              description="標準工程を選んで作ると、工程とタスクが日付付きで入ります。あとから工程だけを足す口はまだサーバーにありません。"
-            />
-          ) : (
-            <div className="overflow-hidden rounded-card border border-border bg-card">
-              <PhaseRowsHeader />
-              {p.phases.map((ph, i) => (
-                <PhaseRow
-                  key={ph.id}
-                  phase={ph}
-                  index={i}
-                  canEdit={canEdit}
-                  onChangeState={(phase, state) => changePhaseState.mutate({ phase, state })}
-                  onEdit={setPhaseEdit}
-                />
-              ))}
-            </div>
-          )}
-
-          {p.notes && (
-            <section className="rounded-card border border-border bg-card p-4 lg:px-5">
-              <h2 className="text-cardtitle mb-1.5">メモ</h2>
-              <p className="text-sub whitespace-pre-wrap text-foreground">{p.notes}</p>
-            </section>
-          )}
-
-          <p className="text-note text-muted-foreground">
-            「タスク」の欄は<strong>件数だけ</strong>です。工程の下のタスクを1件ずつ読む口がサーバーにまだありません
-            {p.template_name ? `（この工程は標準工程「${p.template_name}」から写したものです）` : ''}。
-            見積・請求・書類・議事録は、プロジェクト管理側のデータがまだ無いので出していません。
-          </p>
-
-          {canManage && (
-            <div className="pt-2">
-              <Button variant="outline" onClick={onDeleteProject}>
-                <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
-                このプロジェクトを消す
-              </Button>
-            </div>
-          )}
-        </div>
+        <OverviewTab
+          project={p}
+          today={today}
+          canEdit={canEdit}
+          canManage={canManage}
+          onDeleteProject={onDeleteProject}
+        />
       )}
 
       {tab === 'asks' && (
@@ -263,7 +212,6 @@ export default function GpmProjectDetailPage() {
       {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
       {editing && <EditProjectDialog project={p} onClose={() => setEditing(false)} />}
-      {phaseEdit && <PhaseDialog projectId={id} phase={phaseEdit} onClose={() => setPhaseEdit(null)} />}
       {(askAdding || askEdit) && (
         <OpenItemDialog
           projectId={id}

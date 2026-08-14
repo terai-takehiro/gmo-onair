@@ -151,6 +151,28 @@ export function createGpmRoutes(): Router {
   });
 
   /**
+   * 足す・直す・消す。**工程の下のタスクを組み替える口**で、
+   * 「タスクを足すのは詳細の工程から」と画面に書いてある行き先がこれです。
+   *
+   * `gpmTaskService` の中で **GLS-B のタスクかどうかを必ず確かめています**
+   * （`assertGpmTask`）。ここを通せば `gpm` の権限だけで案件のタスクを
+   * 直せてしまうので、確認を飛ばす近道を作らないこと。
+   */
+  router.post('/projects/:id/tasks', ...canEdit, async (req, res) => {
+    res.status(201).json({
+      success: true,
+      data: await gpmTaskService.create(String(req.params.id), req.body ?? {}, req.user!.id),
+    });
+  });
+  router.put('/tasks/:id', ...canEdit, async (req, res) => {
+    res.json({ success: true, data: await gpmTaskService.update(String(req.params.id), req.body ?? {}, req.user!.id) });
+  });
+  router.delete('/tasks/:id', ...canEdit, async (req, res) => {
+    await gpmTaskService.remove(String(req.params.id), req.user!.id);
+    res.json({ success: true, data: { deleted: true } });
+  });
+
+  /**
    * ── 見積（⑥ 見積・請求・v4 大⑤・migration 173）────────────
    *
    * `estimates` を案件と共用します（別表にすると版・明細・合計の作りが2つになり、
@@ -222,9 +244,28 @@ export function createGpmRoutes(): Router {
     res.json({ success: true, data: { deleted: true } });
   });
 
-  // ── 工程 ────────────────────────────────────────────────
+  /**
+   * ── 工程 ────────────────────────────────────────────────
+   *
+   * **消すのは配下のタスクを外すだけ**（`phaseService.remove` が
+   * `gpm_phase_id` を NULL にする）。タスクごと消える口は作りません —
+   * 工程を1つ消しただけで何十件のタスクが消えるのは元に戻せません。
+   */
+  router.post('/projects/:id/phases', ...canEdit, async (req, res) => {
+    res.status(201).json({
+      success: true,
+      data: await phaseService.create(String(req.params.id), req.body ?? {}),
+    });
+  });
   router.put('/phases/:id', ...canEdit, async (req, res) => {
     res.json({ success: true, data: await phaseService.update(String(req.params.id), req.body ?? {}) });
+  });
+  router.put('/phases/:id/move', ...canEdit, async (req, res) => {
+    const dir = req.body?.dir === 'up' ? 'up' : 'down';
+    res.json({ success: true, data: await phaseService.move(String(req.params.id), dir) });
+  });
+  router.delete('/phases/:id', ...canEdit, async (req, res) => {
+    res.json({ success: true, data: await phaseService.remove(String(req.params.id)) });
   });
 
   // ── 未確認事項 ──────────────────────────────────────────

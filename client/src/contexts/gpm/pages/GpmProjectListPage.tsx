@@ -166,8 +166,9 @@ export default function GpmProjectListPage() {
       )}
 
       <p className="text-note text-muted-foreground">
-        金額の列はありません。プロジェクト管理には見積・請求のデータがまだ入っていないので、
-        持っていない数字を並べないようにしています。
+        「見積」は<strong className="font-bold">いま出ている金額</strong>です
+        （束ごとに最新版・値引きを引いた税抜。数え方は案件一覧の「見積金額」と同じ式）。
+        請求の状況はプロジェクトを開いて「請求」タブで見ます。
       </p>
     </div>
   );

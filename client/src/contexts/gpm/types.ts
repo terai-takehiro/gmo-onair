@@ -78,7 +78,31 @@ export interface GpmProjectRow extends GpmProjectBase {
   open_items: number;
   next_task: string | null;
   next_due: string | null;
+  /**
+   * いま出ている見積の合計（税抜・値引きを引いたもの）。**1本も無ければ null**
+   * （`0` は「0円の見積がある」なので別）。数え方は案件一覧と同じ式。
+   */
+  estimate_amount: number | null;
+  /** いちばん新しい1本の版と状態（`v2 提出済`） */
+  estimate_version: number | null;
+  estimate_status: EstimateStatus | null;
 }
+
+/** 見積の状態。`estimates.status`（案件と共用の表・migration 138） */
+export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
+
+/**
+ * 一覧に出す見積の状態。**旧版（`superseded`）と失注（`rejected`）は
+ * サーバー側で外している**ので出てこないが、型としては来うるので言葉を持たせる
+ * （持たせないと生の英語が画面に出る）。
+ */
+export const ESTIMATE_STATUS_LABEL: Record<EstimateStatus, string> = {
+  draft: '作成中',
+  sent: '提出済',
+  accepted: '受注',
+  rejected: '失注',
+  superseded: '旧版',
+};
 
 export interface GpmPhase {
   id: string;

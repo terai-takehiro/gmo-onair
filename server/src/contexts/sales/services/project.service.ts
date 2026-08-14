@@ -41,7 +41,7 @@ function normalizeGlsCategory(value: unknown): GlsCategory | null {
  * `skipIfSame` は更新のときだけ true にします。同じ本文で保存し直すたびに
  * メモが積み上がると、やり取りがメモで埋まって読めなくなります。
  */
-async function addMemoActivity(
+export async function addMemoActivity(
   projectId: string,
   customerId: string | null,
   notes: unknown,
@@ -243,7 +243,7 @@ const NEXT_TASK_LATERAL = `
  * **列が無くなったぶんをここで引き直します**。無いと、ネタの段で
  * 何の引き合いだったのかが案件名だけになります。
  */
-const MEMO_LATERAL = `
+export const MEMO_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT a.description FROM activity_logs a
       WHERE a.project_id = p.id AND a.activity_type = 'memo' AND a.deleted_at IS NULL
@@ -283,7 +283,7 @@ const LAST_MOVE_LATERAL = `
  * **税は乗せません** — 一覧の他の金額（想定金額・確定売上）が税抜なので、
  * ここだけ税込にすると同じ列で単位が変わります。
  */
-const ESTIMATE_AMOUNT_LATERAL = `
+export const ESTIMATE_AMOUNT_LATERAL = `
   LEFT JOIN LATERAL (
     SELECT SUM(latest.amount)::bigint AS amount FROM (
       SELECT DISTINCT ON (e.group_id) (e.subtotal - e.discount) AS amount

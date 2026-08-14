@@ -220,8 +220,19 @@ const TREE = [
   // v4 で新しく作ったアプリ。DB・API・画面すべて新規（migration 161/162）
   ['プロジェクト管理 (新規)', [
     ['① ダッシュボード', '/gpm/dashboard', 'client/src/contexts/gpm/pages/GpmDashboardPage.tsx'],
-    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx'],
-    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx'],
+    ['② プロジェクト一覧', '/gpm/projects', 'client/src/contexts/gpm/pages/GpmProjectListPage.tsx',
+      null,
+      '**「見積」の列はいま出ている金額**（束ごとに最新版・値引きを引いた税抜）。' +
+      '案件一覧の「見積金額」と**同じ式**（サーバーの `ESTIMATE_AMOUNT_LATERAL`）を読んでいます — ' +
+      '写すと、同じ見積が画面によって違う金額に見えます。見積が1本も無い行は「見積なし」（0円ではない）'],
+    ['③ プロジェクト詳細', '/gpm/projects/:id', 'client/src/contexts/gpm/pages/GpmProjectDetailPage.tsx',
+      null,
+      '**工程の名前を押すとその工程のタスクが出ます**（`projectDetail/OverviewTab.tsx`）。' +
+      '足す・直す・消す・完了にするがこの画面でできます。件数（`3 / 7`）だけだった頃は' +
+      '**何が残っているのかがここから分からず**、⑤ 全プロジェクトのタスクで絞り込み直していました。' +
+      '**工程に付いていないタスクも下の束に出します** — 工程を消してもタスクは消えない' +
+      '（サーバーは `gpm_phase_id` を NULL にするだけ）ので、出さないと外れたタスクが迷子になります。' +
+      '工程は足す・並べ替える（隣と入れ替え）・消すができます'],
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],

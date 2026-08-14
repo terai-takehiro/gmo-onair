@@ -502,14 +502,34 @@ export const taskIntakeService = {
           await tx.execute(
             `INSERT INTO projects
                (id, code, name, customer_id, stage, project_type, gls_category,
-                expected_amount, assigned_to, notes, customer_type,
+                expected_amount, assigned_to, customer_type,
                 intake_channel, idempotency_key, source_channel, created_by)
              /* customer_type は internal / external の2値（社内案件か外のお客様か）で、
                 投入口から入るのは外からの引き合いなので external。
                 intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた */
-             VALUES (?, ?, ?, ?, 'neta', 'other', ?, 0, ?, ?, 'external', 'other', ?, 'intake', ?)`,
-            [id, code, t.title.trim(), customerId, t.gls_category, userId, t.detail ?? null, key, userId]
+             VALUES (?, ?, ?, ?, 'neta', 'other', ?, 0, ?, 'external', 'other', ?, 'intake', ?)`,
+            [id, code, t.title.trim(), customerId, t.gls_category, userId, key, userId]
           );
+          /*
+            **投入した本文はやり取りの「メモ」1件にする** (migration 184)。
+            `projects.notes` の列はもう無く、ここは**列を落としたときに
+            取り残されていました** — つまり投入口からネタ案件を作ると
+            `column "notes" does not exist` で 500 になっていました
+            （`shared/tests/droppedColumns.test.ts` がこれを見つけた）。
+
+            **同じトランザクションの中で書く。** 外に出すと「案件はできたが
+            本文が消えた」が起きて、入れた人は登録したつもりなので入れ直しません。
+            書き方は案件管理の `addMemoActivity`（`project.service.ts`）と同じ形。
+          */
+          if (t.detail && t.detail.trim()) {
+            await tx.execute(
+              `INSERT INTO activity_logs
+                 (id, project_id, customer_id, user_id, activity_type, subject, description,
+                  activity_date, source_channel, created_by, updated_by)
+               VALUES (?, ?, ?, ?, 'memo', 'メモ', ?, CURRENT_DATE, 'intake', ?, ?)`,
+              [uuidv4(), id, customerId, userId, t.detail.trim(), userId, userId]
+            );
+          }
           // **最初のステージも履歴に残す**（`project.service` の create と同じ理由 —
           // 1件目が無いと「ネタでいた期間」が測れない）
           await tx.execute(
