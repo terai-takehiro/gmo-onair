@@ -34,6 +34,18 @@
  *
  * ⚠️ **迷ったら heavy に倒すこと。** 読み落として依頼が消えるほうが、
  * 数円より高くつきます（投入口の `canUseLightModel` と同じ決めごと）。
+ *
+ * ── モデル名を新しい世代に上げるとき ────────────────────────
+ *
+ * **先に環境変数（`AI_MODEL_HEAVY` / `AI_MODEL_LIGHT`）で検証環境に当てて、
+ * 実際に呼んでから**ここを書き換えてください。**構造化出力（JSON スキーマ）に
+ * 対応していない世代・名前があります** — 対応していないと、
+ * 軽いほうは上位モデルへ逃げ（`formatActivity` のやり直し）、
+ * 上位も落ちれば `format_error` が立って**待ち行列から外れます**。
+ * つまり「整わない記録が増える」という**理由の分かりにくい形**で出ます。
+ *
+ * ⚠️ **上げたら `AI_PRICING_JSON` の鍵も足すこと。** モデル名が変わると
+ * 古い鍵は当たらなくなり、**その行は合計に足されず静かに安く見えます**。
  */
 
 export type AiProvider = 'openai' | 'anthropic';
@@ -51,8 +63,8 @@ export type AiJob = 'intake' | 'activity' | 'minutes' | 'kpt';
  * 焼き込むと「いつの値段か」が分からないまま金額が独り歩きします。
  */
 export const BUILTIN_MODELS: Record<AiTier, Record<AiProvider, string>> = {
-  heavy: { openai: 'gpt-5.4', anthropic: 'claude-opus-5' },
-  light: { openai: 'gpt-5.4-mini', anthropic: 'claude-haiku-4-5-20251001' },
+  heavy: { openai: 'gpt-5.6-terra', anthropic: 'claude-opus-5' },
+  light: { openai: 'gpt-5.6-luna', anthropic: 'claude-haiku-4-5-20251001' },
 };
 
 const env = (name: string): string | null => {

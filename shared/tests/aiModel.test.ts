@@ -96,7 +96,7 @@ describe('isLightDisabled — 軽いモデルを全部止める', () => {
     expect(isLightDisabled()).toBe(true);
     process.env.AI_MODEL_LIGHT = 'OFF';
     expect(isLightDisabled()).toBe(true);
-    process.env.AI_MODEL_LIGHT = 'gpt-5.4-mini';
+    process.env.AI_MODEL_LIGHT = 'gpt-5.6-luna';
     expect(isLightDisabled()).toBe(false);
   });
 });
