@@ -113,6 +113,28 @@ function RedirectToDetailTab({ tab }: { tab: string }) {
   return <Navigate to={`/sales/projects/${projectId}/${tab}`} replace />;
 }
 
+/**
+ * 旧 URL からの転送で**クエリ文字列を落とさない**。
+ *
+ * `<Navigate to="/sales/projects/new" replace />` はパスだけを見るので、
+ * `/sales/inbox?inquiry=123` から来た人は**引き合いの id を失ったまま**
+ * 案件作成に着きます。案件作成は `?inquiry=` を読んで「元の情報に案件になったと
+ * 書き戻す」ので、落ちると**未仕分けに残って翌日また送られ、同じ引き合いから
+ * 案件が2件できます**（`projectNew/useCreateProject.ts` が警戒している壊れ方）。
+ *
+ * 行き先が自分でクエリを持っているとき（`?src=pdf` など）は**行き先を勝つ**
+ * ようにして混ぜます — 転送先を決めているのはこちらなので、
+ * 元 URL の同名の値で上書きされると転送の意味が消えます。
+ */
+function RedirectKeepQuery({ to }: { to: string }) {
+  const { search } = useLocation();
+  const [path, ownQuery] = to.split('?');
+  const params = new URLSearchParams(search);
+  for (const [k, v] of new URLSearchParams(ownQuery || '')) params.set(k, v);
+  const q = params.toString();
+  return <Navigate to={q ? `${path}?${q}` : path} replace />;
+}
+
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -154,14 +176,15 @@ function AppRoutes() {
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
-        {/* **つくるのは全画面1枚（v4 のモック）、直すのは今までのフォーム。**
-            あちらは BOX の URL・按分・申込書・見積のシミュレーションまで扱う画面で、
-            登録の16項目とは目的が違う（電話中に開く画面に使わない欄が数十個並ぶ） */}
+        {/* **つくると直すは同じ項目・同じ見た目。** 入力欄はどちらも
+            `projectNew/RequiredFields` と `projectNew/MoreFields` を使う。
+            直す画面（`/edit`）だけが持つのは、BOX の URL・申込書・番組情報・
+            スタジオの日程・担当メンバーと、GLS の操作 */}
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales" minLevel="editor"><NewProjectDialog /></PermissionRoute>} />
         {/*
-            v4 ⑥: 案件詳細は**読む画面**（タブ付き）になった。直すのは /edit の
-            いままでのフォームそのまま。枠の入れ替えと中身の作り直しを同じ回でやると、
-            どちらが原因で壊れたのか切り分けられなくなるので分けてある。
+            v4 ⑥: 案件詳細は**読む画面**（タブ付き）で、直すのは `/edit`。
+            1つの画面で読むと直すを兼ねると、開いた瞬間に入力欄が縦に並んで
+            「いまどうなっているか」が読めなくなる。
             `:tab` は `/sales/projects/:projectId/episodes` などの静的なルートより
             後に評価される（React Router は静的な区切りを優先する）
         */}
@@ -174,13 +197,20 @@ function AppRoutes() {
             `/studio` より先に置くこと（React Router は静的な区切りを優先するが、
             同じ深さの動的区間より前に書いておくほうが読み違えない）
         */}
-        <Route path="/sales/projects/confirmed/business" element={<Navigate to="/gpm/projects" replace />} />
+        <Route path="/sales/projects/confirmed/business" element={<RedirectKeepQuery to="/gpm/projects" />} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="episode" />} />
+        {/*
+            ⚠️ **転送先は `task` です。** 2026-08 に「エピソード（回）」タブごと
+            外し（正のモックのタブバーに無かった）、**回の表と「回を足す」は
+            タスクタブへ移しました**（`tasks/components/EpisodesPanel.tsx`）。
+            ここが `episode` を指したままだと `ProjectTabKey` に無い値なので
+            **黙って概要タブに落ち**、回を見に来た人が探す場所を失います。
+        */}
+        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="task" />} />
         <Route path="/sales/projects/:projectId/estimates" element={<RedirectToDetailTab tab="estimate" />} />
         {/* v4 ⑥-B: 案件のタスクは案件詳細の「タスク」タブに畳んだ (ブックマークは生かす) */}
         <Route path="/sales/projects/:projectId/tasks" element={<RedirectToDetailTab tab="task" />} />
-        <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
+        <Route path="/sales/tasks" element={<RedirectKeepQuery to="/sales/tasks/kanban" />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         {/*
@@ -190,7 +220,7 @@ function AppRoutes() {
             **URL は生かします** — ブックマーク・ホームの「お待たせ中」・
             通知から来る道があり、消すと 404 に着きます
         */}
-        <Route path="/sales/inbox" element={<Navigate to="/sales/projects/new" replace />} />
+        <Route path="/sales/inbox" element={<RedirectKeepQuery to="/sales/projects/new" />} />
         {/*
             ⑦ 受付（貼って送るだけ）— スマホで外から入れる口。
             **`dailyops` か `sales` のどちらかで通す** — 受け側の
@@ -206,7 +236,7 @@ function AppRoutes() {
         <Route path="/sales/record" element={<PermissionRoute module="sales" minLevel="editor"><MeetingRecordPage /></PermissionRoute>} />
         {/* v4: ヨミ・パイプラインは案件一覧の「ボード」表示に畳んだ (別画面だと絞り込みが引き継げず、
             一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
-        <Route path="/sales/pipeline" element={<Navigate to="/sales/projects?view=board" replace />} />
+        <Route path="/sales/pipeline" element={<RedirectKeepQuery to="/sales/projects?view=board" />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
@@ -244,12 +274,12 @@ function AppRoutes() {
             **旧 URL は毎月使う業務画面なので必ず生かす**（転送先はタブ）。
             権限は画面の中で出し分ける（総勘定元帳と二重計上は system_admin だけ） */}
         <Route path="/budget/import" element={<PermissionRoute anyOf={["budget", "admin"]}><ImportPage /></PermissionRoute>} />
-        <Route path="/budget/xpoint-import" element={<Navigate to="/budget/import?src=pdf" replace />} />
-        <Route path="/budget/kessan-import" element={<Navigate to="/budget/import?src=gl" replace />} />
-        <Route path="/budget/dedup-screening" element={<Navigate to="/budget/import?src=dedup" replace />} />
+        <Route path="/budget/xpoint-import" element={<RedirectKeepQuery to="/budget/import?src=pdf" />} />
+        <Route path="/budget/kessan-import" element={<RedirectKeepQuery to="/budget/import?src=gl" />} />
+        <Route path="/budget/dedup-screening" element={<RedirectKeepQuery to="/budget/import?src=dedup" />} />
         {/* v4 ⑧: 仕入先とパートナーを1画面のタブにまとめた。旧 URL は転送する */}
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><CounterpartyPage /></PermissionRoute>} />
-        <Route path="/budget/partners" element={<Navigate to="/budget/vendors?tab=partner" replace />} />
+        <Route path="/budget/partners" element={<RedirectKeepQuery to="/budget/vendors?tab=partner" />} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
         <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
         <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
@@ -275,7 +305,7 @@ function AppRoutes() {
         <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
         <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
         <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/all" element={<Navigate to="/studio/calendar" replace />} />
+        <Route path="/studio/all" element={<RedirectKeepQuery to="/studio/calendar" />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
@@ -290,7 +320,7 @@ function AppRoutes() {
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}
-        <Route path="/admin/kessan-import" element={<Navigate to="/budget/import?src=gl" replace />} />
+        <Route path="/admin/kessan-import" element={<RedirectKeepQuery to="/budget/import?src=gl" />} />
         {/*
             v4: 設定は `/admin/*` → `/settings/*` に改名した。「設定」は権限・お金のルール・
             休日など**管理者専用ではない業務設定**を含むので `/admin` は誤解を招く。
@@ -326,17 +356,17 @@ function AppRoutes() {
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 旧URLリダイレクト */}
-        <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
+        <Route path="/projects" element={<RedirectKeepQuery to="/sales/projects" />} />
         <Route path="/projects/*" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/revenues" element={<Navigate to="/budget/revenues" replace />} />
-        <Route path="/purchases" element={<Navigate to="/budget/purchases" replace />} />
-        <Route path="/sga" element={<Navigate to="/budget/sga" replace />} />
-        <Route path="/calendar" element={<Navigate to="/studio/calendar" replace />} />
-        <Route path="/masters/customers" element={<Navigate to="/sales/customers" replace />} />
-        <Route path="/masters/pricing" element={<Navigate to="/sales/pricing" replace />} />
-        <Route path="/masters/vendors" element={<Navigate to="/budget/vendors" replace />} />
-        <Route path="/masters/partners" element={<Navigate to="/budget/partners" replace />} />
-        <Route path="/reports/vendors" element={<Navigate to="/budget/reports/vendors" replace />} />
+        <Route path="/revenues" element={<RedirectKeepQuery to="/budget/revenues" />} />
+        <Route path="/purchases" element={<RedirectKeepQuery to="/budget/purchases" />} />
+        <Route path="/sga" element={<RedirectKeepQuery to="/budget/sga" />} />
+        <Route path="/calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
+        <Route path="/masters/customers" element={<RedirectKeepQuery to="/sales/customers" />} />
+        <Route path="/masters/pricing" element={<RedirectKeepQuery to="/sales/pricing" />} />
+        <Route path="/masters/vendors" element={<RedirectKeepQuery to="/budget/vendors" />} />
+        <Route path="/masters/partners" element={<RedirectKeepQuery to="/budget/partners" />} />
+        <Route path="/reports/vendors" element={<RedirectKeepQuery to="/budget/reports/vendors" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

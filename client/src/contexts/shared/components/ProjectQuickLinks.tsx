@@ -38,7 +38,15 @@ export default function ProjectQuickLinks({
     { key: "project",   label: "案件",    icon: <Briefcase className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}` },
     { key: "revenues",  label: "売上",    icon: <Wallet    className="h-3.5 w-3.5" />, to: `/budget/revenues?project_id=${projectId}${nameParam}` },
     { key: "purchases", label: "仕入",    icon: <Truck     className="h-3.5 w-3.5" />, to: `/budget/purchases?project_id=${projectId}${nameParam}` },
-    { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: `/studio/calendar?project_id=${projectId}${nameParam}` },
+    /*
+      ⚠️ **カレンダーには `?project_id=` を付けません。** v4 の ① 予定
+      （`UnifiedCalendarPage`）は案件で絞る機能を持っておらず、付けても
+      **誰も読まないまま全件のカレンダーが出ます**（案件で絞られたと
+      読まれるぶん、無いほうがまし）。旧カレンダーの頃の書き方の残りです。
+      案件の日と部屋を持って開きたいときは、案件を直す画面の
+      「カレンダーで空きを見る」を使ってください（`state` で渡します）。
+    */
+    { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: '/studio/calendar' },
     { key: "tasks",     label: "タスク",     icon: <KanbanSquare className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}/task` },
   ];
 

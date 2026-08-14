@@ -25,10 +25,10 @@
  * 着手前は画面に **2025〜2027 が直書き**されていて、2028 年になると
  * 祝日が1つも出なくなる状態でした。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarSync, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -73,6 +73,7 @@ const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 function DesktopCalendar() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
   const canStudioEdit = isAdmin || hasPermission('studio', 'editor');
@@ -90,6 +91,34 @@ function DesktopCalendar() {
   const [layers, setLayers] = useState<Record<CalLayer, boolean>>(loadLayers);
   const [roomIds, setRoomIds] = useState<string[]>([]);
   const [userIds, setUserIds] = useState<string[]>([]);
+
+  /**
+   * 案件から「カレンダーで空きを見る」で来たときの持ち込み
+   * （`ProjectFormPage` が `navigate('/studio/calendar', { state })` で渡す）。
+   *
+   * ⚠️ **この受け口は v4 でこの画面を作り直したときに落ちていました。**
+   * 送る側は残っていたので、押すと**今日の月表**が出るだけで、
+   * 案件の日にも部屋にも寄らない ＝ 押しても何も起きないように見えていました。
+   * 旧 `StudioCalendarPage` は同じ state で**予約ダイアログを開いて**いましたが、
+   * ボタンの名前は「**空きを見る**」なので、ここでは
+   * **その日・その部屋を見せる**（日表に切り替えて部屋で絞る）ところまでにします。
+   * 入れるのは見てからで、上の「予定を入れる」がその口です。
+   */
+  useEffect(() => {
+    const s = location.state as {
+      presetRoomIds?: string[];
+      presetDate?: { start: string; end: string; allDay: boolean } | null;
+    } | null;
+    if (!s) return;
+    if (s.presetDate?.start) { setAnchor(s.presetDate.start); setView('day'); }
+    if (s.presetRoomIds?.length) setRoomIds(s.presetRoomIds);
+    // **一度きり**。消さないと、戻る・再読み込みのたびに同じ日へ引き戻される
+    if (s.presetDate?.start || s.presetRoomIds?.length) {
+      window.history.replaceState({}, document.title);
+    }
+    // 持ち込みは開いたときの1回だけ見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [roomFilterOpen, setRoomFilterOpen] = useState(false);
   const [userFilterOpen, setUserFilterOpen] = useState(false);
