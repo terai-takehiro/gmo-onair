@@ -154,7 +154,12 @@ export default function PurchaseListPage() {
               state: cur.state || undefined,
             }}
           />
-          <Button variant="outline" onClick={() => navigate('/project-groups')}>按分グループ</Button>
+          {/*
+            ⚠️ **`/project-groups` ではありません。** 案件管理の下（`/sales/…`）です。
+            接頭辞の無い旧 URL はルート表に無く、`<Route path="*">` が拾って
+            **黙ってホームに戻ります**（押しても何も起きないように見える）。
+          */}
+          <Button variant="outline" onClick={() => navigate('/sales/project-groups')}>按分グループ</Button>
         </div>
       </PageHeader>
 

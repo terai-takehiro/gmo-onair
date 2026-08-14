@@ -40,7 +40,7 @@
     "fonts": "node scripts/vendor-fonts.mjs",
     "check:fonts": "node scripts/vendor-fonts.mjs --check",
     "verify:font": "node scripts/fetch-google-fonts.mjs",
-    "lint": "node scripts/check-fonts-vendored.mjs && node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && node scripts/check-ui-tokens.mjs && node scripts/check-mobile-declared.mjs && node scripts/check-env-passthrough.mjs && eslint .",
+    "lint": "node scripts/check-fonts-vendored.mjs && node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && node scripts/check-ui-tokens.mjs && node scripts/check-mobile-declared.mjs && node scripts/check-env-passthrough.mjs && node scripts/check-links.mjs && eslint .",
     "lint:eslint": "eslint .",
     "check:file-size": "node scripts/check-file-size.mjs",
     "check:shared-wiring": "node scripts/check-shared-wiring.mjs",

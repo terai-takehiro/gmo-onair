@@ -198,7 +198,16 @@ export function OverviewTab({
             <span className="flex items-baseline justify-between gap-3">
               <span>お客様とのやり取り</span>
               {activities.length > 0 && (
-                <Link to="?tab=thread" className="text-note min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0">
+                /*
+                  ⚠️ **タブは URL の区間で持っています**（`/sales/projects/:id/:tab`）。
+                  `?tab=thread` と書くと**アドレスだけ変わってタブは動きません** —
+                  押しても何も起きないリンクに見えます（実際そうなっていました）。
+                  クエリで持っていた頃の書き方が残っていたものです。
+                */
+                <Link
+                  to={`/sales/projects/${project.id}/thread`}
+                  className="text-note min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0"
+                >
                   すべて見る（{activities.length}件）
                 </Link>
               )}
@@ -264,8 +273,16 @@ export function OverviewTab({
           )}
         </Section>
 
-        <Section title="タグ">
-          {project.tags ? (
+        {/*
+          **タグは付いている案件にだけ出します**（v3 の置き土産）。
+          v4 は入力欄を外し（モックどおり）、**絞り込む口も画面に1つも
+          ありません**。空でも節を出していたので、ほぼ全部の案件で
+          「タグ：付いていません。」という**永久に埋まらない枠**が並んでいました。
+          **列と、すでに入っている値は消しません** — v3 で付けたタグを
+          読む場所がここしか無いためです。
+        */}
+        {project.tags && (
+          <Section title="タグ">
             <div className="flex flex-wrap gap-1.5">
               {project.tags.split(',').filter(Boolean).map((t) => (
                 <span key={t} className="text-sub inline-flex items-center gap-1 rounded-chip bg-muted px-2.5 py-1">
@@ -273,10 +290,8 @@ export function OverviewTab({
                 </span>
               ))}
             </div>
-          ) : (
-            <p className="text-sub text-muted-foreground">付いていません。</p>
-          )}
-        </Section>
+          </Section>
+        )}
 
         {/*
           **「最後の更新」はヘッダーの1段目へ移しました**（指示書 第5章）。

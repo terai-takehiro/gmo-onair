@@ -1,37 +1,60 @@
 /**
- * 「進んだら聞く」（案件作成・PC とスマホで**共通**）
+ * 「進んだら聞く」（**案件作成と案件を直す・PC とスマホで共通**）
  *
- * ご担当 ／ 継続区分 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／ リード経路 ／
- * 最初のタスク ／ メモ ／ 会場の案内。
+ * 作る画面 … ご担当 ／ 継続区分 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／
+ *            リード経路 ／ 最初のタスク ／ メモ ／ 会場の案内
+ * 直す画面 … ご担当 ／ 継続区分 ／ 来場人数 ／ 案件内容 ／ 予算 ／
+ *            リード経路 ／ グループ区分
  *
  * ── ここに置いたものは全部「あとから足せる」──────────────────
  *
  * 必須は上の5つだけなので、この枠は畳んであります。**畳んだものを
  * 押さずに登録できる**のが要点で、電話を切る前に入れ終わるのが目標です。
+ * （直す画面では既に値が入っているので**開いた状態で出します**。
+ *  枠と項目は同じで、初めから開いているかどうかだけが違います。）
  *
  * ── 無観客のときは来場人数の欄ごと出さない ──────────────────
  *
  * 出しておいて 0 を入れさせると、「0 名だった」と「聞いていない」が
  * 見分けられなくなります。
+ *
+ * ── 直す画面で出し入れするもの（`mode="edit"`）────────────────
+ *
+ *  ・**実施日を出さない** … 直す画面は「スタジオの日程」（本番日・リハーサル・
+ *    飛び日）が `project_dates` の唯一のもとです。ここにも日付の欄を置くと
+ *    **同じ列を2か所から全置換**することになり、片方で足した日が消えます
+ *  ・**最初のタスクを出さない** … タスクは案件詳細のタスクタブが持ちます。
+ *    直すたびに同じタスクがもう1件できます
+ *  ・**メモを出さない** … メモはやり取り（`activity_logs`）の1件で、
+ *    `projects.notes` の列はありません。開くたび空欄が出て、
+ *    保存するたび同じ本文が1件ずつ増えます（書くのはやり取りタブ）
+ *  ・**会場の案内を出さない** … 直す画面には本物の部屋の欄と予約の一覧があります
+ *  ・**グループ区分を出す** … 見積の単価（定価 / グループ内価格）がこの値で
+ *    決まるので、直せる場所がここ以外にありません
  */
 import { Lock, MapPin, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
 import { asksAttendees } from '../../classification';
-import { RECURRENCE_LABEL } from './fields';
+import { RECURRENCE_LABEL, type FieldsMode, type ProjectFieldsState } from './fields';
 import { Field } from './Field';
-import type { NewProjectForm } from './useNewProjectForm';
 
-/** 「進んだら聞く」に並ぶ数。**来場人数は無観客のとき出ない**ので数も変わる */
-export function moreFieldCount(audience: string): number {
-  return asksAttendees(audience) ? 9 : 8;
-}
-
-export function MoreFields({ f }: { f: NewProjectForm }) {
+export function MoreFields({
+  f, mode = 'create', amountExtra,
+}: {
+  f: ProjectFieldsState;
+  mode?: FieldsMode;
+  /**
+   * 予算の欄のすぐ下に置くもの。直す画面が料金シミュレーションと
+   * AI の見積下書きを差し込みます — **金額の欄から離すと、
+   * 「確定する」を押した結果がどこに入ったのか分かりません**。
+   */
+  amountExtra?: ReactNode;
+}) {
   const { v, set } = f;
   const [newDate, setNewDate] = useState('');
   const addDate = () => {
@@ -57,7 +80,9 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
         </Select>
       </Field>
 
-      {/* **実施日は「足す」で飛び日を何日でも。** 以前はスマホだけ足せなかった */}
+      {/* **実施日は「足す」で飛び日を何日でも。** 以前はスマホだけ足せなかった。
+          直す画面では出しません（「スタジオの日程」が同じ列を持つ。冒頭の理由） */}
+      {mode === 'create' && (
       <Field label="実施日" full hint="未定のままでも登録できます。飛び日は「足す」で何日でも入れられます">
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -86,6 +111,7 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
           ))}
         </div>
       </Field>
+      )}
 
       {asksAttendees(v.audience) && (
         <Field label="来場人数" htmlFor="np-scale" hint="何名か。数で持つので、あとで規模別に数えられます">
@@ -115,6 +141,7 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
             placeholder="1500000"
           />
         </div>
+        {amountExtra}
       </Field>
 
       <Field
@@ -143,6 +170,30 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
         )}
       </Field>
 
+      {/*
+        **グループ区分は直す画面だけ。** 作るときは訊きません（お客様を選べば
+        取引先マスターの印でリード経路が決まるので、その場で2つ訊く意味が薄い）。
+        ここで訊くのは、**見積の単価がこの値で決まる**ためです — グループ内に
+        しておかないと、社内の案件にも定価が並びます。
+      */}
+      {mode === 'edit' && (
+        <Field label="グループ区分" hint="グループ内にすると、見積の単価がグループ内価格になります">
+          <Select
+            value={v.customer_type}
+            onValueChange={(x) => set('customer_type', x as 'internal' | 'external')}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="external">グループ外</SelectItem>
+              <SelectItem value="internal">グループ内</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+
+      {/* 以下は作るときだけ。直す画面での理由は冒頭に書いてあります */}
+      {mode === 'create' && (
+      <>
       <Field label="最初のタスク" full hint="入れなくても大丈夫です。期限は日付だけ入れると 18:00 になります">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           <Input
@@ -179,6 +230,8 @@ export function MoreFields({ f }: { f: NewProjectForm }) {
           </span>
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }

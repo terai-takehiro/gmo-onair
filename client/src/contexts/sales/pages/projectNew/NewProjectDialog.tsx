@@ -25,11 +25,13 @@
  * 項目そのものは `RequiredFields` / `MoreFields`、状態は `useNewProjectForm`。
  * このファイルが持つのは **PC の並べ方**だけです。
  *
- * ── 直すのは別の画面 ────────────────────────────────────────
+ * ── 直す画面もこの項目を使います ────────────────────────────
  *
- * `/sales/projects/:id/edit` は今までのフォームのままです。あちらは
- * BOX の URL・按分・申込書・見積のシミュレーションまで扱う画面で、
- * **この画面とは目的が違います**。
+ * `/sales/projects/:id/edit`（案件を直す）は **`RequiredFields` /
+ * `MoreFields` をそのまま呼びます**（`mode="edit"`）。項目を足すときは
+ * `fields.ts` に足すだけで両方に出ます。**片方にだけ欄を作らないこと。**
+ * 直す画面だけが持つのは、BOX の URL・申込書・番組情報・スタジオの日程・
+ * 担当メンバーと、GLS の操作です。
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +41,8 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useNewProjectForm } from './useNewProjectForm';
 import { RequiredFields } from './RequiredFields';
-import { MoreFields, moreFieldCount } from './MoreFields';
+import { moreFieldCount } from './fields';
+import { MoreFields } from './MoreFields';
 import { IntakeRail } from './IntakeRail';
 import { AskPanel } from './AskPanel';
 import { MobileNewProject } from './MobileNewProject';

@@ -1,9 +1,17 @@
 /**
- * 案件を作る／直すフォームの中身 (v4)
+ * 案件を直すフォームの中身 (v4)
  *
  * 画面（`ProjectFormPage.tsx` と `projectForm/*Section.tsx`）から
  * **読み込み・検証・保存**をぜんぶ引き取ります。分割の目的は行数ではなく、
  * 「保存すると日程が消える」のような事故が**1か所を読めば分かる**ようにすることです。
+ *
+ * ── 入力欄は案件作成のものをそのまま呼ぶ ──────────────────────
+ *
+ * `fields`（`ProjectFieldsState`）が `projectNew/RequiredFields` と
+ * `projectNew/MoreFields` に渡す値です。react-hook-form の値を**写して**
+ * 作りますが、写しているのは**入れ物の形だけ**で、欄そのものは1つも
+ * こちらに書きません。書くと、作る画面に足した項目が直す画面に出ない
+ * （そして誰も気づかない）状態に戻ります。
  *
  * ── 触ってはいけない3つ ────────────────────────────────────
  *
@@ -15,7 +23,7 @@
  *  3. 新規登録のときだけスタジオ予約を作る。編集では作りません
  *     （編集は「登録済みの予約」から足す・直すのが唯一の道）
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,6 +31,11 @@ import api from '@/lib/api';
 import { formatShortDate } from '@/lib/format';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { getProjectCategory, type ProjectStage } from '@/types';
+import {
+  missingOf,
+  type CustomerOption, type NewProjectValues, type ProjectFieldsState, type UserOption,
+} from '../projectNew/fields';
+import type { Audience, ProjectCategory } from '../../classification';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
 import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
 import { useProjectActions } from './useProjectActions';
@@ -34,7 +47,6 @@ export function useProjectForm(id: string | undefined) {
 
   const form = useForm<FormValues>({ defaultValues: EMPTY_FORM });
   const { setValue, watch, reset } = form;
-  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
   const [simOpen, setSimOpen] = useState(false);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
@@ -52,13 +64,13 @@ export function useProjectForm(id: string | undefined) {
     queryKey: ['customers-select'],
     queryFn: async () => (await api.get('/customers', { params: { limit: 200 } })).data,
   });
-  const customers: { id: string; name: string; short_name?: string }[] = customersData?.data ?? [];
+  const customers: CustomerOption[] = customersData?.data ?? [];
 
   const { data: usersData } = useQuery({
     queryKey: ['users-by-module-sales'],
     queryFn: async () => (await api.get('/users/by-module/sales')).data.data,
   });
-  const users: { id: string; name: string }[] = usersData ?? [];
+  const users: UserOption[] = usersData ?? [];
 
   const { data: studioLocationsData } = useQuery({
     queryKey: ['studio-locations'],
@@ -98,9 +110,21 @@ export function useProjectForm(id: string | undefined) {
     reset({
       name: project.name || '',
       customer_id: project.customer_id || '',
-      customer_type: project.customer_type || 'external',
+      customer_type: project.customer_type === 'internal' ? 'internal' : 'external',
       project_type: project.project_type || 'other',
       project_type_other: project.project_type_other || '',
+      // 2段分類（migration 182）。**旧 `project_type` から埋め直さない** —
+      // 旧分類は4種しかないので「有観客の収録」が「有観客の配信」に化ける。
+      // 入っていない案件は空で出し、人に選んでもらう（必須にしてある）
+      audience: (project.audience || '') as Audience | '',
+      project_category: (project.project_category || '') as ProjectCategory | '',
+      contact_name: project.contact_name || '',
+      recurrence: project.recurrence === 'regular' ? 'regular' : 'single',
+      // 数値の 0 は「0 名」ではなく「入っていない」ことが多いので、
+      // **null / 0 はどちらも空欄**にする（入れ直せば数として保存される）
+      attendee_count: project.attendee_count ? String(project.attendee_count) : '',
+      goal: project.goal || '',
+      intake_channel: project.intake_channel || '',
       gls_category: (project.gls_category === 'A' || project.gls_category === 'B') ? project.gls_category : '',
       event_start: project.event_start || '',
       event_end: project.event_end || '',
@@ -115,6 +139,73 @@ export function useProjectForm(id: string | undefined) {
       logo_permission: !!project.logo_permission,
     });
   }, [project, reset]);
+
+  /* ── 案件作成の入力欄に渡す形（`ProjectFieldsState`）─────────────────
+   *
+   * **欄はこちらに1つも書きません。** `projectNew/RequiredFields` と
+   * `projectNew/MoreFields` をそのまま呼び、値の出し入れだけを繋ぎます。
+   */
+  const values = watch();
+  const customer = customers.find((c) => c.id === values.customer_id) ?? null;
+  /**
+   * お客様がグループ会社か。判定は**取引先マスターの印**（`customers.is_gmo_group`）で、
+   * 社名の文字列一致では見ません（案件作成と同じ。写すと片方だけ直る）。
+   */
+  const isGroup = customer?.is_gmo_group === true;
+
+  /**
+   * **直す画面が出している欄だけ受ける。** 実施日・最初のタスク・メモ・ステージは
+   * `MoreFields` / `RequiredFields` が `mode="edit"` で出さないので来ませんが、
+   * 万一来ても `FormValues` に無い鍵を `setValue` に渡すと
+   * **react-hook-form が黙って別の値を作り、保存で送られます**。ここで止めます。
+   */
+  const EDITABLE_KEYS = useMemo(() => new Set<keyof NewProjectValues>([
+    'customer_id', 'contact_name', 'name', 'audience', 'project_category',
+    'customer_type', 'recurrence', 'attendee_count', 'goal', 'expected_amount',
+    'intake_channel', 'assigned_to',
+  ]), []);
+
+  const setField = useCallback(<K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => {
+    if (!EDITABLE_KEYS.has(k)) return;
+    // 金額だけ形が違う（画面は文字列・この控えは数値）
+    if (k === 'expected_amount') {
+      setValue('expected_amount', Number(value) || 0, { shouldDirty: true });
+      return;
+    }
+    setValue(k as keyof FormValues, value as never, { shouldDirty: true });
+  }, [EDITABLE_KEYS, setValue]);
+
+  const fieldValues: NewProjectValues = {
+    customer_id: values.customer_id,
+    contact_name: values.contact_name,
+    name: values.name,
+    audience: values.audience,
+    project_category: values.project_category,
+    gls_category: values.gls_category === 'B' ? 'B' : 'A',
+    customer_type: values.customer_type,
+    recurrence: values.recurrence,
+    stage: (project?.stage || 'neta') as ProjectStage,
+    attendee_count: values.attendee_count,
+    goal: values.goal,
+    expected_amount: values.expected_amount ? String(values.expected_amount) : '',
+    intake_channel: values.intake_channel,
+    assigned_to: values.assigned_to,
+    // 直す画面が出さない欄。`EDITABLE_KEYS` の外なので書き戻りません
+    dates: [],
+    first_task_title: '',
+    first_task_due: '',
+    notes: '',
+  };
+
+  const fields: ProjectFieldsState = { v: fieldValues, set: setField, customers, users, isGroup };
+
+  /**
+   * 足りない必須項目。**案件作成と同じ `missingOf`** を使います
+   * （写すと「作れたのに保存できない案件」ができる）。
+   * 読み込みが終わるまでは出しません — 空のフォームに一瞬だけ出ると、
+   * 開いた瞬間に「何か足りない」と読まれます。
+   */
+  const missing = project ? missingOf(fieldValues) : [];
 
   const projectType = watch('project_type');
   const glsCategory = watch('gls_category');
@@ -149,6 +240,27 @@ export function useProjectForm(id: string | undefined) {
       // 送らなければサーバーは既存の値を保つ
       const body: Record<string, unknown> = { ...values };
       if (!values.assigned_to) delete body.assigned_to;
+      /**
+       * **旧1段の案件種類は送らない。** この画面はもう欄を持っておらず、
+       * `project_type` はサーバーが2段（客入れの有無 × 案件分類）から導きます。
+       * 読み込んだ値をそのまま送り返すと、2段を直しても**古い種類が一緒に来て**
+       * 分類と種類がずれた行ができます（`project-classification.ts`）。
+       * 送らなければサーバーは今の値を保ちます（2段が揃っていればそちらが勝つ）。
+       */
+      delete body.project_type;
+      delete body.project_type_other;
+      /**
+       * **2段が空なら送らない。** GLS-B（工事・構築）は2段を持たないので、
+       * 空文字を送るとサーバーが「分類を消したい」と受け取ります。
+       */
+      if (!values.audience) delete body.audience;
+      if (!values.project_category) delete body.project_category;
+      /**
+       * グループ会社のときはリード経路を固定で送る（案件作成と同じ）。
+       * 画面が「グループ案件」と出している以上、保存される値も同じでなければ
+       * あとから数えたときに食い違います。
+       */
+      if (isGroup) body.intake_channel = 'group';
       if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
 
       /**
@@ -176,16 +288,15 @@ export function useProjectForm(id: string | undefined) {
   });
 
   const onSubmit = async (values: FormValues) => {
-    const errs: string[] = [];
-    if (!values.customer_id) errs.push('顧客を選択してください');
-    if (!values.project_type) errs.push('案件種類を選択してください');
-    if (!values.gls_category) errs.push('案件分類（スタジオ / ビジネス）を選択してください');
-    if (errs.length > 0) {
-      setSubmitErrors(errs);
+    /**
+     * 検証は**案件作成と同じ5項目だけ**（`missingOf`）。
+     * 足りないものは帯で名指ししてあり、保存ボタンも押せません。
+     * ここは Enter で送られたときのための最後の砦です。
+     */
+    if (missing.length > 0) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    setSubmitErrors([]);
 
     // event_start/event_end をスタジオ日程から自動設定
     const prodEnd = schedule.productionLastDay;
@@ -268,7 +379,8 @@ export function useProjectForm(id: string | undefined) {
     isLoadError: isEdit && projectQuery.isError,
     customers, users, studioLocations,
     schedule, actions,
-    submitErrors, onSubmit, saveMutation,
+    fields, missing, isGroup,
+    onSubmit, saveMutation,
     simOpen, setSimOpen, customerDialogOpen, setCustomerDialogOpen,
     hasDraftSimulation, draftSimulationTotal, aiDraftCreatedAt, finalizeSim,
     hasGls, isYomi, isCategoryA, currentStage, projectType, glsCategory,
