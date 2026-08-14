@@ -40,9 +40,15 @@ export const DOC_BOX_DEST: Record<FinanceDocKind, DocBoxDest> = {
   inspection: { scope: 'internal', subfolder: '03_請求' },
 };
 
-/** 画面に出す言い方。**サーバーの表から作る** — 写すと出る場所と入る場所が食い違う */
-export function describeDocBoxDest(kind: FinanceDocKind): string {
+/**
+ * 画面に出す言い方。**サーバーの表から作る** — 写すと出る場所と入る場所が食い違う。
+ *
+ * @param actualSubfolder **実際に入ったフォルダの名前**（`ensureSubfolder` が返すもの）。
+ *   昔の綴りのフォルダ（プロジェクト管理の `01_個別見積`）を掴んだときに渡します。
+ *   渡さなければ表の綴り＝**これから入るはずの場所**を言います（まだ入れていないとき）。
+ */
+export function describeDocBoxDest(kind: FinanceDocKind, actualSubfolder?: string): string {
   const d = DOC_BOX_DEST[kind];
   const parent = d.scope === 'internal' ? '社内限りフォルダ' : '社外と共有するフォルダ';
-  return `${parent}の「${d.subfolder}」`;
+  return `${parent}の「${actualSubfolder || d.subfolder}」`;
 }

@@ -98,13 +98,16 @@ export async function fileFinanceDocToBox(
     // 発番前に作られた案件にはサブフォルダが揃っていないことがある。
     // **置くときだけ作る**（読むだけで作ると BOX が空フォルダで埋まる）。
     // 昔の綴りのフォルダがあればそれを使う（隣に空の双子を作らない）
-    const folderId = await ensureSubfolder(
+    const folder = await ensureSubfolder(
       rootId, dest.subfolder, LEGACY_SUBFOLDER_ALIASES[dest.subfolder] ?? [],
     );
-    if (!folderId) return no('NO_SUBFOLDER');
-    const stored = await uploadToFolder(folderId, filename, buffer);
-    console.log(`[doc-box] ${kind} → ${dest.scope}/${dest.subfolder} : ${filename}`);
-    return { stored, reason: null, where };
+    if (!folder) return no('NO_SUBFOLDER');
+    const stored = await uploadToFolder(folder.id, filename, buffer);
+    // **入った先の名前で答える。** 昔の綴りのフォルダを使ったときに表の綴りを返すと、
+    // その案件でだけ「01_見積・提案 に入れました」と嘘になり、
+    // 人は**空のフォルダを探しに行く**（受け入れが要る案件でこそ外れる）
+    console.log(`[doc-box] ${kind} → ${dest.scope}/${folder.name} : ${filename}`);
+    return { stored, reason: null, where: describeDocBoxDest(kind, folder.name) };
   } catch (err) {
     console.error(`[doc-box] failed to store ${kind} '${filename}':`, (err as Error).message);
     return no('UNAVAILABLE');

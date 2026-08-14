@@ -96,6 +96,25 @@ describe('describeDocBoxDest', () => {
     expect(describeDocBoxDest('inspection')).toBe('社内限りフォルダの「03_請求」');
   });
 
+  // 昔の綴りのフォルダに入ったときは**そのフォルダの名前で答える**。
+  // 表の綴りを返すと、受け入れが要る案件でだけ「01_見積・提案 に入れました」と嘘になり、
+  // 人は**空のフォルダを探しに行く**（`doc-box.service` が `ensureSubfolder` の
+  // 返り値の名前を渡している。渡し忘れるとここが落ちる）
+  it('実際に入ったフォルダの名前で答える (昔の綴りを掴んだとき)', () => {
+    expect(describeDocBoxDest('estimate', '01_個別見積'))
+      .toBe('社外と共有するフォルダの「01_個別見積」');
+    // 親フォルダ (社内/社外) は表のまま — 名前を渡しても scope は変わらない
+    expect(describeDocBoxDest('invoice', '03_請求ほか')).toBe('社内限りフォルダの「03_請求ほか」');
+  });
+
+  it('名前を渡さなければ表の綴りを言う (まだ入れていないとき)', () => {
+    for (const kind of Object.keys(DOC_BOX_DEST) as FinanceDocKind[]) {
+      expect(describeDocBoxDest(kind, undefined)).toBe(describeDocBoxDest(kind));
+      // 空文字が来ても「」にしない（`ensureSubfolder` が名前を取れなかったとき）
+      expect(describeDocBoxDest(kind, '')).toBe(describeDocBoxDest(kind));
+    }
+  });
+
   it('社内と社外を言い間違えない (取り違えると原価が外に出たと読める)', () => {
     for (const kind of Object.keys(DOC_BOX_DEST) as FinanceDocKind[]) {
       const text = describeDocBoxDest(kind);
