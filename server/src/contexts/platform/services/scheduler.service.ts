@@ -27,6 +27,7 @@ import { notifyMany, usersWithPermission, fill, type NotifyInput } from './notif
 import { generateKptDraft } from '../../sales/services/kpt.service';
 import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 import { runFormatPass } from '../../sales/services/activity-format.service';
+import { runShortPass } from '../../sales/services/next-action-short.service';
 
 /** サーバーの時計から `YYYY-MM-DD` と `HH:MM`。**時差を持ち込まない** */
 function nowParts(): { date: string; time: string } {
@@ -322,6 +323,27 @@ async function formatPendingActivities(): Promise<NotifyInput[]> {
   return [];
 }
 
+/**
+ * 「次にやること」の長文を、帯の1行に収まる短い一文にする（migration 190）。
+ *
+ * **3:10 に置くのは 3:00 の整形のあとにするため。** 整形が `next_action` を
+ * 埋めた行を、その晩のうちに短くできます（逆順だと1日遅れる）。
+ *
+ * - **通知は出しません**（`[]`）。裏方の仕事で、毎朝「N件短くしました」は要らない
+ * - **1回の上限を置きます**（過去ぶんは `POST /activity-logs/short-run` で人が流す）
+ * - 止めたいときは `NEXT_ACTION_SHORT_NIGHTLY=off`（整形と同じ形）
+ */
+async function shortenPendingNextActions(): Promise<NotifyInput[]> {
+  if ((process.env.NEXT_ACTION_SHORT_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    const r = await runShortPass({ limit: 40, actorId: null });
+    if (r.shortened || r.failed) console.log('[scheduler] next_action_short:', JSON.stringify(r));
+  } catch (e) {
+    console.error('[scheduler] next_action_short failed:', (e as Error).message);
+  }
+  return [];
+}
+
 const JOBS: Job[] = [
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
@@ -334,6 +356,8 @@ const JOBS: Job[] = [
   // 通知を出さない裏方の仕事（ひな形なし）。深夜に置くのは AI を呼ぶ仕事を朝と重ねないため。
   // 止めたいときは `ACTIVITY_FORMAT_NIGHTLY=off`
   { key: 'activity_format', at: '03:00', templateId: null, run: formatPendingActivities },
+  // 整形のあとに置く（整形が `next_action` を埋めた行を同じ晩に短くする）
+  { key: 'next_action_short', at: '03:10', templateId: null, run: shortenPendingNextActions },
 ];
 
 /**

@@ -28,7 +28,16 @@
 import { v4 as uuidv4 } from 'uuid';
 import { execute, queryAll } from '../db/connection';
 
-export type AiUsageKind = 'intake' | 'minutes' | 'activity' | 'kpt' | 'stt' | 'stt_preview';
+/**
+ * 種類。**画面のラベル（`settings/AiUsageCard.tsx` の `KIND_LABEL`）と対**（増やすときは両方直す）。
+ *
+ * ⚠️ **1回の呼び出しの重さが違うものは分けること。** `activity`（やり取りの整形）と
+ * `activity_short`（次にやることを1行にする）を1つにすると、
+ * **「1件あたりいくら」が混ざって、どちらの待ち行列の推定費用も嘘になります**
+ * （整形は本文まるごと・短縮は1文だけで、桁が違う）。
+ */
+export type AiUsageKind =
+  | 'intake' | 'minutes' | 'activity' | 'activity_short' | 'kpt' | 'stt' | 'stt_preview';
 
 export interface AiUsageInput {
   kind: AiUsageKind;

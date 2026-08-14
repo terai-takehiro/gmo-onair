@@ -56,14 +56,36 @@ export interface ProjectDetail {
   dates?: { date: string }[];
 }
 
-/** `GET /studios/bookings?project_id=` の1行 */
+/**
+ * `GET /studios/bookings?project_id=` の1行。
+ *
+ * ⚠️ **ここは実際に返ってくる形に合わせてあります。** 元は `booking_date` /
+ * `room_name` / `location_name` を宣言していましたが、**サーバーはその3つを
+ * 1つも返しません**（`studio-booking.service.ts` の `listBookings`）。
+ * 日付は `start_time` / `end_time`、部屋は `rooms[]`、外現場は `location_note` です。
+ * 型が嘘をついていたので、**押さえている部屋が必ず「部屋 未設定」と出ていました** —
+ * 型チェックにも lint にも出ない壊れ方です。**存在しない項目を足さないこと。**
+ */
 export interface StudioBooking {
   id: string;
-  booking_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  room_name: string | null;
-  location_name: string | null;
+  title: string;
+  booking_type: string;
+  /** `YYYY-MM-DDTHH:mm`（TEXT 列）。**日付だけの列は無い** */
+  start_time: string;
+  end_time: string;
+  all_day?: number;
+  status?: string;
+  /** 外現場など、部屋マスターに無い場所の手入力 */
+  location_note: string | null;
+  /**
+   * 押さえている部屋。**予約に部屋が1つも無いこともある**（外現場・場所未定）。
+   * `location_abbreviation` は拠点の略称（migration 189・**決めていなければ null**）
+   */
+  rooms?: {
+    room_id: string;
+    room_name: string | null;
+    location_abbreviation?: string | null;
+  }[];
 }
 
 /** `GET /activity-logs?project_id=` の1行 */
@@ -72,6 +94,15 @@ export interface ActivityLog {
   activity_date: string;
   subject: string;
   next_action: string | null;
+  /**
+   * 「次にやること」を**帯の1行に収めた短い一文**（AI が作る・migration 190）。
+   *
+   * **原文（`next_action`）の代わりではありません** — 狭い枠でだけ使う表示用の値で、
+   * 全文はやり取りタブに並びのまま出ます。**まだ作られていない行では null**
+   * （毎晩 3:10 に作られる）なので、**呼ぶ側は必ず規則で作る見出しに落ちること**
+   * （`nextActionLine()`）。
+   */
+  next_action_short?: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
   /** 種類。`memo` は社内の書き置き（migration 184 でメモをここに畳んだ） */

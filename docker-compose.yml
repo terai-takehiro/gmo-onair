@@ -97,6 +97,7 @@ services:
       MINUTES_STT_MODEL: ${MINUTES_STT_MODEL:-}
       # 毎晩 3:00 のやり取り整形 (v4.0.1+)。off と書くと止まる
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY:-}
+      NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY:-}
       # AI の使用量を金額で出すための単価。**未設定ならトークン数と分数だけ出る**
       AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — 未設定ならマイカレンダーの Google 連携は無効。
@@ -173,6 +174,7 @@ services:
       # **検証だけ止められるようにする。** 本番と検証は同じ鍵を共用できるので、
       # 両方が毎晩走ると同じ請求書に2つぶん載る
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY_DEV:-${ACTIVITY_FORMAT_NIGHTLY:-}}
+      NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY_DEV:-${NEXT_ACTION_SHORT_NIGHTLY:-}}
       # 単価は prod と共有する（値段は環境で変わらない。分けると必ず片方が古くなる）
       AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — prod と同じ OAuth クライアントを共有 (redirect は CLIENT_URL から自動生成)

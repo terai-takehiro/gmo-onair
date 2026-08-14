@@ -6,6 +6,9 @@ import {
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
+import {
+  needsShort, shortenNextAction, recordShortCorrections, NEXT_ACTION_SHORT_KIND,
+} from './next-action-short.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
 import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
 
@@ -159,6 +162,8 @@ export class ActivityLogService {
     let action = typeof next_action === 'string' ? next_action : null;
     let actionDate = typeof next_action_date === 'string' ? next_action_date : null;
     let formatError: string | null = null;
+    /** 短い一文の記録（条件1）。**行を作ってから入れる** ので、いったん持っておく */
+    let pendingShort: { source: string; short: string; model: string; promptVersion: string } | null = null;
 
     if (wantFormat) {
       if (!isActivityAiConfigured()) {
@@ -214,19 +219,61 @@ export class ActivityLogService {
       }
     }
 
+    /*
+     * **人が待っている画面のときだけ、短い一文もここで作る**（migration 190）。
+     * 「次にやること」が長いと案件詳細の帯で文字が切れるので、AI に1行に収まる
+     * 一文を作らせます（`next-action-short.service`）。
+     *
+     * ⚠️ **無人の取込（MCP / メール）では作りません。** ここは `wantFormat`（画面の
+     * 「整えて記録する」）の中だけで、**すでに整形で待たせている同じ待ち時間に収めます**。
+     * 取込に AI の待ちを足すと、最短1時間おきの無人バッチが遅くなり、
+     * 落ちたときに**記録そのものが入らなくなります**（毎晩の定時実行が拾います）。
+     *
+     * **失敗しても記録は残す。** 短い一文が無いだけで、画面は規則で作った見出しに落ちます
+     */
+    let shortAction: string | null = null;
+    let shortError: string | null = null;
+    if (wantFormat && needsShort(action)) {
+      try {
+        const r = await shortenNextAction(String(action));
+        shortAction = r.short;
+        if (!shortAction) throw new Error('短い一文になりませんでした');
+        pendingShort = { source: String(action), short: shortAction, model: r.model, promptVersion: r.promptVersion };
+      } catch (e) {
+        // **印を立てる。** 立てないと毎晩の定時実行が同じ行を呼び直して課金される
+        shortError = ((e as Error).message || '短くできませんでした').slice(0, 500);
+        console.error('[na-short] create failed:', shortError);
+      }
+    }
+
     const id = uuidv4();
     await execute(
       `INSERT INTO activity_logs
          (id, project_id, customer_id, user_id, activity_type, activity_date, subject, description,
-          body_html, key_points, body_struct, ai_formatted, ai_output_id, next_action, next_action_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)`,
+          body_html, key_points, body_struct, ai_formatted, ai_output_id, next_action, next_action_date,
+          next_action_short, next_action_short_error, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?, ?, ?)`,
       [id, project_id || null, customer_id || null, userId, activity_type, activity_date,
        subject, original || (typeof description === 'string' ? description : null),
        bodyHtml, JSON.stringify(keyPoints),
        bodyStruct ? JSON.stringify(bodyStruct) : null,
        aiFormatted, aiOutputId,
-       action || null, actionDate || null, userId],
+       action || null, actionDate || null,
+       shortAction, shortError, userId],
     );
+    if (pendingShort) {
+      // **材料と出力の全文を残す**（条件1）。行ができてから入れるので `target_id` が埋まる
+      await recordAiOutput({
+        kind: NEXT_ACTION_SHORT_KIND,
+        targetTable: 'activity_logs',
+        targetId: id,
+        payload: { next_action: pendingShort.source, next_action_short: pendingShort.short },
+        toolName: 'activity.next_action_short',
+        model: pendingShort.model,
+        promptVersion: pendingShort.promptVersion,
+        actorId: userId ?? null,
+      }).catch(() => { /* 記録の失敗で業務を止めない */ });
+    }
     if (aiOutputId) {
       // 行ができたので、AI 出力から**その行を指せる**ようにする
       // （指せないと、人が直したときに before を引けない = 条件2 が閉じない）
@@ -246,8 +293,12 @@ export class ActivityLogService {
    */
   async update(id: string, data: Record<string, unknown>, userId?: string | null) {
     const existing = await queryOne(
-      'SELECT id, ai_output_id, ai_formatted FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id],
-    ) as { id: string; ai_output_id: string | null; ai_formatted: boolean } | undefined;
+      `SELECT id, ai_output_id, ai_formatted, next_action, next_action_short
+         FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
+    ) as {
+      id: string; ai_output_id: string | null; ai_formatted: boolean;
+      next_action: string | null; next_action_short: string | null;
+    } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
     const { project_id, customer_id, activity_type, activity_date, subject, description, next_action, next_action_date } = data;
@@ -273,12 +324,40 @@ export class ActivityLogService {
       params.push(s ? JSON.stringify(s) : null);
     }
 
+    /*
+     * ── 短い一文（migration 190）の扱い ──────────────────────
+     *
+     * ⚠️ **材料が変わったら、短い一文は必ず捨てる。** `next_action` を直したのに
+     * 前の要約が残ると、**帯には古いやることが出たまま**になります
+     * （画面を見ても中身と食い違っていることに気づけません）。
+     * 捨てれば毎晩の定時実行が作り直します。
+     *
+     * **人が短い一文自体を直したときはその値を採り**、`ai_corrections` に差分を残します
+     * （条件2）。人が直した文を定時実行が上書きしないよう、印（`_error`）も消します。
+     */
+    const nextActionChanged = next_action !== undefined
+      && String(next_action ?? '').trim() !== String(existing.next_action ?? '').trim();
+    const shortEdited = data.next_action_short !== undefined;
+    if (shortEdited) {
+      const s = String(data.next_action_short ?? '').trim();
+      sets.push('next_action_short=?', 'next_action_short_error=?');
+      params.push(s || null, null);
+    } else if (nextActionChanged) {
+      sets.push('next_action_short=?', 'next_action_short_error=?');
+      params.push(null, null);
+    }
+
     await execute(
       `UPDATE activity_logs SET ${sets.join(', ')}, updated_at=NOW() WHERE id=?`,
       [...params, id],
     );
     const after = await this.getById(id) as Record<string, unknown>;
     if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+    // **AI が作った一文を人が直した**ときだけ差分を残す（材料を変えて消えた回は誤りではない）
+    if (shortEdited) {
+      await recordShortCorrections(id, (after.next_action_short as string | null) ?? null, userId ?? null)
+        .catch(() => { /* 記録の失敗で保存を止めない */ });
+    }
     return after;
   }
 

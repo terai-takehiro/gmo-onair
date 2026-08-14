@@ -18,21 +18,27 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
-import { localDateStr } from '@/lib/format';
+import { localDateStr, formatShortDate } from '@/lib/format';
 import { ProjectTypeLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
-import { parseNextAction } from './thread/nextAction';
+import { nextActionLine } from './thread/nextAction';
+import { venueSummary, venuesOf, venueLine } from './venue';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
-/** 事実の帯の1枠 */
+/**
+ * 事実の帯の1枠。
+ *
+ * `className` は**枠の取り方を変えるためだけ**に渡す（「次にやること」は
+ * 1行ぶんまるごと使う。下記「なぜ4列にしないか」）。中身の書き方は渡す側が決めない
+ */
 function Fact({
-  icon: Icon, label, children,
-}: { icon: typeof CalendarDays; label: string; children: React.ReactNode }) {
+  icon: Icon, label, children, className,
+}: { icon: typeof CalendarDays; label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="min-w-0 border-l border-border-subtle px-4 first:border-l-0">
+    <div className={cn('min-w-0 border-l border-border-subtle px-4 first:border-l-0', className)}>
       <div className="mb-1 flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         <span className="text-sub-sm text-muted-foreground">{label}</span>
@@ -86,6 +92,13 @@ export function OverviewTab({
     .filter((a) => a.next_action && !a.next_action_done_at)
     .sort((a, b) => (a.next_action_date ?? '9999').localeCompare(b.next_action_date ?? '9999'))[0];
 
+  /*
+   * 会場。**予約が持っているのは `rooms[]`（部屋マスター）と `location_note`（外現場）**の
+   * 2つだけで、`room_name` という項目は返ってきません（`venue.ts` の冒頭に経緯）
+   */
+  const venue = venueSummary(bookings);
+  const venueTitle = venuesOf(bookings).map((v) => v.name).join('・');
+
   return (
     <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-6">
       <div className="flex min-w-0 flex-col gap-3.5">
@@ -97,41 +110,80 @@ export function OverviewTab({
           <AiReviewBanner projectId={project.id} reviewedAt={project.ai_reviewed_at} />
         )}
 
-        {/* 事実の帯 */}
-        <div className="grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-4">
+        {/*
+          事実の帯。
+
+          ⚠️ **モックは4列だが、「次にやること」だけ1行ぶん使う**
+          （`docs/v4-mock-deviations.md` に記録）。モックの値は「田中：見積を送る」の
+          **8文字**だが、本番に入っている言い切りの1文は
+          「★8/14(金)までに 8/28分の備品レンタル発注可否を確定し発注する(…)」で
+          **40〜60文字**ある。4列だと1枠 200px（12〜13文字）で、**2行に折り返しても
+          半分以上が読めない**（利用者からのご指摘。実測で確認）。
+          幅をやるほうが、文を縮めたり隠したりするより素直
+        */}
+        <div className="grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-3">
           <Fact icon={CalendarDays} label="実施日">
             <DateRange start={project.event_start} end={project.event_end} className="text-list" />
           </Fact>
+          {/*
+            会場は**予約の `rooms[]` と `location_note`** から組み立てる（`venue.ts`）。
+            ここは `b.room_name ?? b.location_name` を読んでいて、**サーバーがその
+            どちらも返さないので必ず「部屋 未設定」**になっていました（ご指摘）。
+            **札を並べるのをやめてモックの形（先頭1つ ＋ 「ほか N室」）**にしたのは、
+            札を4つ並べると1枠 250px では2行目以降が読めず、しかも会場の1つ目が
+            どれなのか分からなくなるため
+          */}
           <Fact icon={MapPin} label="会場・スタジオ">
-            {bookings.length === 0 ? (
-              <span className="text-sub text-muted-foreground">押さえていません</span>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {bookings.slice(0, 4).map((b) => (
-                  <span key={b.id} className="text-sub rounded-control-md bg-muted px-2 py-0.5 font-bold">
-                    {b.room_name ?? b.location_name ?? '部屋 未設定'}
-                  </span>
-                ))}
-                {bookings.length > 4 && (
-                  <span className="text-sub-sm self-center text-muted-foreground">ほか {bookings.length - 4}室</span>
+            {venue ? (
+              <>
+                <p className="text-list truncate" title={venueTitle}>{venue.first}</p>
+                {venue.extra > 0 && (
+                  <p className="text-sub-sm text-muted-foreground">ほか {venue.extra}{venue.unit}</p>
                 )}
-              </div>
+              </>
+            ) : (
+              /*
+                **「押さえていない」と「押さえたが場所が入っていない」は別**。
+                前者は予約を取るところから、後者は予約を開いて部屋を選ぶだけ
+              */
+              <span className="text-sub text-muted-foreground">
+                {bookings.length === 0 ? '押さえていません' : '場所が未設定'}
+              </span>
             )}
           </Fact>
           <Fact icon={Wallet} label="見積金額">
-            {/* 見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方） */}
-            <Money value={amount} className={cn('text-list w-full', !isEstimate && 'text-muted-foreground')} />
+            {/*
+              見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方）。
+              **`inline`** は「¥ を数字のすぐ左に付ける」指定（モックの帯は `gap:4px`）。
+              既定は列で桁をそろえる形なので、枠いっぱいに ¥ と数字が引き離される
+              — 縦に1つしか無いここでは円記号だけが遠くに見えていた（ご指摘）
+            */}
+            <Money inline value={amount} className={cn('text-list', !isEstimate && 'text-muted-foreground')} />
           </Fact>
-          <Fact icon={CalendarClock} label="次にやること">
+          {/*
+            **1行ぶんまるごと使う**（上記）。行の頭に来るので左の罫線は消し、
+            上に細い罫線を引いて「別の段」だと分かるようにする
+          */}
+          <Fact
+            icon={CalendarClock}
+            label="次にやること"
+            className="col-span-2 border-l-0 border-t border-border-faint pt-3 lg:col-span-3"
+          >
             {nextAction ? (
               <>
                 {/*
-                  **1行しか出せない枠なので、言い切りの1文だけを出す**（`thread/nextAction.ts`）。
-                  全文を `truncate` すると、付随してやることの1件目の途中で切れる。
-                  全文は `title` で読めるうえ、やり取りタブに行けば並びのまま出る
+                  **AI が作った「この枠に収まる一文」を出す**（migration 190・ご指示）。
+                  本番の言い切り1文は 40〜60 字あり、枠を1行ぶんに広げてもスマホでは
+                  収まりません。規則で切ると必ず途中で切れるので、
+                  `next-action-short.service` が 28 字以内の一文を作って持っています。
+
+                  **まだ作られていない行（取り込んだ直後・毎晩 3:10 に作る）では
+                  規則で作った見出しに落ちます**（`nextActionLine`）。
+                  `line-clamp` は残す — 落ちた先は長いので、**画面の最後の守り**として要る。
+                  **全文は `title` と、やり取りタブで並びのまま読める**
                 */}
-                <p className="text-sub truncate font-bold" title={nextAction.next_action ?? ''}>
-                  {parseNextAction(nextAction.next_action).headline}
+                <p className="text-sub line-clamp-3 font-bold lg:line-clamp-2" title={nextAction.next_action ?? ''}>
+                  {nextActionLine(nextAction)}
                 </p>
                 {nextAction.next_action_date && (
                   <p className="text-sub-sm font-number text-muted-foreground">{nextAction.next_action_date}</p>
@@ -251,6 +303,11 @@ export function OverviewTab({
           )}
         </Section>
 
+        {/*
+          事実の帯と**同じ組み立て**（`venue.ts`）を使う。ここも
+          `b.room_name ?? b.location_name` で「部屋 未設定」だけが並び、
+          しかも日付は**存在しない `booking_date`** を描いていたので**空行**でした
+        */}
         <Section title="押さえている部屋">
           {bookings.length === 0 ? (
             <p className="text-sub text-muted-foreground">押さえていません。</p>
@@ -261,10 +318,12 @@ export function OverviewTab({
                   <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="text-sub block truncate font-bold">
-                      {b.room_name ?? b.location_name ?? '部屋 未設定'}
+                      {venueLine(b) ?? <span className="font-normal text-muted-foreground">場所が未設定</span>}
                     </span>
+                    {/* 日付は `start_time`（`YYYY-MM-DDTHH:mm`）から。終日の予約は時刻を出さない */}
                     <span className="text-sub-sm font-number block text-muted-foreground">
-                      {b.booking_date}{b.start_time ? ` ${b.start_time.slice(0, 5)}` : ''}
+                      {formatShortDate(b.start_time)}
+                      {!b.all_day && b.start_time.length > 10 ? ` ${b.start_time.slice(11, 16)}` : ''}
                     </span>
                   </span>
                 </li>

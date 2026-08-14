@@ -82,9 +82,15 @@ export const studioBookingService = {
     // Attach rooms (with occupant info) to each booking
     // ロケーションの sort_order → 部屋の sort_order の順でソートし、マスターの並びと一致させる
     const allBookingRooms = await queryAll(
+      /*
+       * **拠点の名前と略称も返す**（migration 189）。案件詳細の会場は
+       * 「用賀 WORLD STUDIO」と出すので、`location_id` だけでは足りない。
+       * 略称は画面から直せる値で、**決めていなければ NULL**（画面が前置きを付けない）
+       */
       `SELECT br.booking_id, br.room_id, br.occupant, br.usage_note,
               r.name as room_name, r.abbreviation as room_abbreviation,
               r.color as room_color, r.room_type, r.location_id,
+              l.name as location_name, l.abbreviation as location_abbreviation,
               l.sort_order as location_sort_order, r.sort_order as room_sort_order
        FROM studio_booking_rooms br
        JOIN studio_rooms r ON r.id = br.room_id
