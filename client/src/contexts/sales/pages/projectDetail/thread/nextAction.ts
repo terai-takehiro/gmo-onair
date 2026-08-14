@@ -151,6 +151,30 @@ function splitBySentence(text: string): ParsedNextAction | null {
 }
 
 /**
+ * 狭い枠（案件詳細の事実の帯・一覧）に出す1行。
+ *
+ * **AI が作った短い一文（`next_action_short`・migration 190）があればそれを使い、
+ * 無ければ規則で作った見出しに落ちます。**
+ *
+ * ── なぜ落ち先が要るのか ────────────────────────────────────
+ *
+ * 短い一文は**毎晩の定時実行で作られる**ので、**取り込まれた直後の記録には
+ * まだ入っていません**。ここで空を返すと、いちばん新しい「次にやること」だけが
+ * 画面から消えます（いちばん見たい行が消える、といういやな壊れ方）。
+ *
+ * ⚠️ **短い一文を「原文の代わり」にしないこと。** 全文は必ず読める場所
+ * （やり取りタブ・`title`）に残します。AI が要約を間違えた日に、
+ * **やることが1件消えたことに誰も気づけなくなる**ためです。
+ */
+export function nextActionLine(
+  a: { next_action?: string | null; next_action_short?: string | null },
+): string {
+  const short = String(a.next_action_short ?? '').trim();
+  if (short) return short;
+  return parseNextAction(a.next_action).headline;
+}
+
+/**
  * 「次にやること」を見出しと並びに分ける。
  *
  * **分けられなければ全文が `headline`** になります（呼ぶ側は今までどおり1行で描ける）。

@@ -6,6 +6,9 @@ import { activityLogService } from '../services/activity-log.service';
 import {
   formatQueueStats, runFormatPass, resetFailed, redoFormat, DEFAULT_BATCH,
 } from '../services/activity-format.service';
+import {
+  shortQueueStats, runShortPass, resetShortFailed, redoShort,
+} from '../services/next-action-short.service';
 
 const router = Router();
 
@@ -85,6 +88,50 @@ router.post('/format-reset-failed', requirePermission('sales', 'manager'), async
   } catch (e) { next(e); }
 });
 
+/*
+ * 「次にやること」を帯の1行に収める短い一文（migration 190）
+ *
+ * ⚠️ **`/:id` より前に置くこと**（`/format-status` と同じ理由）。
+ * 形は整形のバックフィルと**わざと同じ**にしてある — 2つの待ち行列を
+ * 別々の作りにすると、片方だけ直したときに運用が食い違う。
+ */
+router.get('/short-status', async (_req, res, next) => {
+  try {
+    res.json({ success: true, data: await shortQueueStats() });
+  } catch (e) { next(e); }
+});
+
+/** **返事を待たせない**（1行1コール・全案件に効くので `manager`）。整形と同じ決めごと */
+router.post('/short-run', requirePermission('sales', 'manager'), async (req, res, next) => {
+  try {
+    const stats = await shortQueueStats();
+    if (!stats.configured) {
+      throw new AppError(400, 'AI_NOT_CONFIGURED', 'この環境は AI につないでいないので短くできません');
+    }
+    if (stats.pending === 0) {
+      res.json({ success: true, data: { started: false, pending: 0 }, message: '短くしていない「次にやること」はありません' });
+      return;
+    }
+    const limit = Number(req.body?.limit) || 40;
+    res.status(202).json({
+      success: true,
+      data: { started: true, taking: Math.min(limit, stats.pending), pending: stats.pending },
+      message: '裏で短くしています。件数の減りは画面を読み直すと分かります',
+    });
+    runShortPass({ limit, actorId: req.user!.id })
+      .then((r) => console.log('[na-short] pass done:', JSON.stringify(r)))
+      .catch((e) => console.error('[na-short] pass failed:', (e as Error).message));
+  } catch (e) { next(e); }
+});
+
+/** 失敗した行をもう一度対象に戻す（プロンプト・字数を直したあとに使う） */
+router.post('/short-reset-failed', requirePermission('sales', 'manager'), async (_req, res, next) => {
+  try {
+    const reset = await resetShortFailed();
+    res.json({ success: true, data: { reset }, message: `${reset} 件を対象に戻しました` });
+  } catch (e) { next(e); }
+});
+
 router.get('/:id', async (req, res) => {
   res.json({ success: true, data: await activityLogService.getById(req.params.id as string) });
 });
@@ -115,6 +162,23 @@ router.post('/:id/format-redo', requirePermission('sales', 'editor'), async (req
       success: true,
       data: await activityLogService.getById(req.params.id as string),
       message: '整え直しの順番に戻しました（毎晩 3:00 に自動で整えます）',
+    });
+  } catch (e) { next(e); }
+});
+
+/*
+ * 「この短い一文は違う」— 1件を待ち行列に戻す（migration 190・条件2）。
+ *
+ * **`editor` で通す**（`format-redo` と同じ。効くのは1行で、`next_action` の
+ * 全文は1バイトも触らない）。押した事実は `ai_corrections` に `reject` で残る。
+ */
+router.post('/:id/short-redo', requirePermission('sales', 'editor'), async (req, res, next) => {
+  try {
+    await redoShort(req.params.id as string, req.user!.id);
+    res.json({
+      success: true,
+      data: await activityLogService.getById(req.params.id as string),
+      message: '短い一文を作り直す順番に戻しました（毎晩 3:10 に自動で作ります）',
     });
   } catch (e) { next(e); }
 });

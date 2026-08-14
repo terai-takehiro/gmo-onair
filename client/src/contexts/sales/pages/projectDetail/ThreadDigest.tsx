@@ -8,7 +8,7 @@ import { CalendarClock } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { KIND } from './thread/kinds';
 import { shortYmd } from './thread/format';
-import { parseNextAction } from './thread/nextAction';
+import { parseNextAction, nextActionLine } from './thread/nextAction';
 import type { ActivityLog } from './types';
 
 /**
@@ -89,7 +89,12 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                       **件数は必ず添える** — 消したのではなく続きがあることが分からないと、
                       ここで読んだつもりになって残りが見落とされる
                     */}
-                    {nextAction.headline}
+                    {/*
+                      **AI が作った短い一文があればそちらを出す**（migration 190）。
+                      無ければ規則で作った見出し。**件数は原文から数える** —
+                      AI に数えさせない（数え違いに誰も気づけない）
+                    */}
+                    {nextActionLine(a)}
                     {nextAction.items.length > 0 && ` ほか${nextAction.items.length}件`}
                     {a.next_action_date
                       && `（${shortYmd(a.next_action_date, a.activity_date)} まで${overdue ? '・過ぎています' : ''}）`}

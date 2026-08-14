@@ -94,6 +94,15 @@ export interface ActivityLog {
   activity_date: string;
   subject: string;
   next_action: string | null;
+  /**
+   * 「次にやること」を**帯の1行に収めた短い一文**（AI が作る・migration 190）。
+   *
+   * **原文（`next_action`）の代わりではありません** — 狭い枠でだけ使う表示用の値で、
+   * 全文はやり取りタブに並びのまま出ます。**まだ作られていない行では null**
+   * （毎晩 3:10 に作られる）なので、**呼ぶ側は必ず規則で作る見出しに落ちること**
+   * （`nextActionLine()`）。
+   */
+  next_action_short?: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
   /** 種類。`memo` は社内の書き置き（migration 184 でメモをここに畳んだ） */

@@ -24,7 +24,7 @@ import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
-import { parseNextAction } from './thread/nextAction';
+import { nextActionLine } from './thread/nextAction';
 import { venueSummary, venuesOf, venueLine } from './venue';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
@@ -172,18 +172,18 @@ export function OverviewTab({
             {nextAction ? (
               <>
                 {/*
-                  出すのは**言い切りの1文だけ**（`thread/nextAction.ts`。付随してやることは
-                  やり取りタブが並びのまま出す）。ただし**その1文も 1 行には収まりません** —
-                  枠は約 250px（20 字ほど）で、本番の見出しは「★8/14(金)までに…確定し発注する」の
-                  ように 40〜60 字あります。`truncate`（1行）だと**期限だけ見えて
-                  何をするのかが消えていました**（ご指摘「文字切れしてますね」）。
-                  枠を1行ぶんに広げたので **PC では 2 行 ＝ 約 120 字**入る。
-                  上限を置くのは、これ以上長い文で帯が案件ごとに伸び縮みしないため
-                  （**入り切らない分は `title` と、やり取りタブで並びのまま読める**）。
-                  スマホは1行が短いので 3 行まで許す
+                  **AI が作った「この枠に収まる一文」を出す**（migration 190・ご指示）。
+                  本番の言い切り1文は 40〜60 字あり、枠を1行ぶんに広げてもスマホでは
+                  収まりません。規則で切ると必ず途中で切れるので、
+                  `next-action-short.service` が 28 字以内の一文を作って持っています。
+
+                  **まだ作られていない行（取り込んだ直後・毎晩 3:10 に作る）では
+                  規則で作った見出しに落ちます**（`nextActionLine`）。
+                  `line-clamp` は残す — 落ちた先は長いので、**画面の最後の守り**として要る。
+                  **全文は `title` と、やり取りタブで並びのまま読める**
                 */}
                 <p className="text-sub line-clamp-3 font-bold lg:line-clamp-2" title={nextAction.next_action ?? ''}>
-                  {parseNextAction(nextAction.next_action).headline}
+                  {nextActionLine(nextAction)}
                 </p>
                 {nextAction.next_action_date && (
                   <p className="text-sub-sm font-number text-muted-foreground">{nextAction.next_action_date}</p>
