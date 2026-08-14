@@ -12,11 +12,24 @@
  * ── 何を残し、何を畳んだか ─────────────────────────────────
  *
  * このペインは**読むだけ**（モックどおり、行を押しても編集は開かない）。
- * 金額を直す・PDF/Excelを出す・月次ユニットを作るといった編集は、
+ * 金額を直す・月次ユニットを作るといった編集は、
  * 既存の財務台帳（`/budget/revenues` `/budget/purchases`）と
  * ⑤ 見積・請求（全案件）にすでにある。同じ `revenues`/`purchases` を
  * 2か所で編集できるようにすると、片方だけ直された行ができる
  * （財務の台帳3画面の決めごとと同じ理由）。
+ *
+ * ── 帳票の発行だけは残す（ご指摘で戻したもの）──────────────
+ *
+ * **請求書・検収書の PDF はここから出せます。** これは「読むだけ」に反しません —
+ * 数字を1つも書き換えず、いま見えている売上をそのまま紙にするだけだからです。
+ * v4 でこのペインに置き換えたとき、旧 `BusinessProjectView` が持っていた
+ * 3つのボタン（見積書・請求書・検収書）ごと落ちてしまい、**案件から帳票を
+ * 出す道がどこにも無くなっていました**。
+ *
+ * **見積書はここに置きません。** v4 の見積は `estimates`（版が残る表）が持ち、
+ * 左の「見積」から版ごとに出せます。売上からも出せるようにすると、
+ * 同じ案件の見積書が2種類（版のあるもの・売上に変換したあとのもの）できて、
+ * どちらを相手に出したのかが分からなくなります。
  *
  * ── データの出どころ ───────────────────────────────────────
  *
@@ -31,7 +44,23 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import type { Revenue, Purchase } from '@gmo-onair/shared/src/types';
+
+/**
+ * 帳票を出すボタン2つ（請求書・検収書）。
+ *
+ * **見積書はここに出さない** — 版を持つ「見積」から出す（冒頭のコメント参照）。
+ */
+function DocButtons({ revenueId }: { revenueId: string }) {
+  return (
+    <RowSlot w={96} align="right" className="gap-1">
+      {(['invoice', 'inspection'] as const).map((type) => (
+        <DocPdfButton key={type} path={`/revenues/${revenueId}/pdf`} kind={type} params={{ type }} />
+      ))}
+    </RowSlot>
+  );
+}
 
 const REV_STATUS_LABEL: Record<string, string> = { estimate: '見込み', confirmed: '確定' };
 const REV_STATUS_TONE: Record<string, string> = {
@@ -80,6 +109,7 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
               <RowSlot w={96}>計上月</RowSlot>
               <RowSlot w={128} align="right">金額</RowSlot>
               <RowSlot w={96}>状態</RowSlot>
+              <RowSlot w={96} align="right">帳票</RowSlot>
             </RowHeader>
             {revenueRows.map((r) => (
               <Row key={r.id} divider stackOnMobile align="center">
@@ -87,6 +117,7 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
                 <RowSlot w={96}><span className="text-sub font-number">{r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}</span></RowSlot>
                 <Money value={r.amount} className="text-sub w-32 shrink-0" />
                 <TableBadge w={96} label={REV_STATUS_LABEL[r.status] ?? r.status} className={REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate} />
+                <DocButtons revenueId={r.id} />
               </Row>
             ))}
           </>

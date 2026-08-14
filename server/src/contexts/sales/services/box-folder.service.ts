@@ -198,49 +198,9 @@ export async function renameProjectFolderPair(
 /**
  * 案件のフォルダ配下から、名前でサブフォルダを探す。無ければ作る。
  *
- * ── なぜ「無ければ作る」なのか ──────────────────────────────
- *
- * `08_写真` は migration 186 の回で足したものなので、**それ以前に作られた案件の
- * フォルダには入っていません**。発番時の自動生成に足すだけだと、
- * 過去の案件では写真を1枚も置けません（そして理由が画面に出ません）。
- * 初回のアップロードのときに無ければ作ります。
- *
- * ── 競り合いに強くする ──────────────────────────────────────
- *
- * 2人が同時に1枚目を上げると、`create` が **409（同名あり）** で片方だけ落ちます。
- * 落ちたほうは**探し直して**、見つかったらそれを使います
- * （BOX の書類アップロードが 409 を拾って版にするのと同じ考え方）。
+ * **実体は `shared/services/box.ts` に移しました** — 案件の写真だけでなく
+ * 財務の帳票（見積書・請求書・検収書）も同じことをするようになり、
+ * `shared` から `contexts` を読む形にはできないためです。
+ * ここは既存の呼び出し元（`projects.routes.ts`）のための入口として残しています。
  */
-export async function ensureSubfolder(
-  parentFolderId: string,
-  name: string,
-): Promise<string | null> {
-  if (!isBoxConfigured()) return null;
-  const client = getBoxClient();
-  if (!client) return null;
-
-  const find = async (): Promise<string | null> => {
-    try {
-      const res = (await client.folders.getItems(parentFolderId, { limit: 200 })) as
-        { entries?: { type?: string; id?: string; name?: string }[] };
-      const hit = (res.entries ?? []).find((e) => e.type === 'folder' && e.name === name);
-      return hit?.id ?? null;
-    } catch (err) {
-      console.warn(`[box-folder] Failed to list ${parentFolderId}:`, (err as Error).message);
-      return null;
-    }
-  };
-
-  const existing = await find();
-  if (existing) return existing;
-  try {
-    const created = (await client.folders.create(parentFolderId, name)) as { id: string };
-    return created.id;
-  } catch (err) {
-    // 同名あり (409) は、他の人が先に作ったということ。探し直して使う
-    const again = await find();
-    if (again) return again;
-    console.warn(`[box-folder] Failed to create '${name}' under ${parentFolderId}:`, (err as Error).message);
-    return null;
-  }
-}
+export { ensureSubfolder } from '../../../shared/services/box';

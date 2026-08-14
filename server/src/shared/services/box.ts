@@ -164,6 +164,61 @@ export function mapBoxItems(entries: Record<string, unknown>[]): BoxItem[] {
     || a.name.localeCompare(b.name, 'ja'));
 }
 
+/**
+ * 親フォルダの下から名前でサブフォルダを探す。無ければ作る。
+ *
+ * ── なぜ「無ければ作る」なのか ──────────────────────────────
+ *
+ * サブフォルダの構成はあとから足されます（`08_写真` は migration 186 の回）。
+ * 発番時の自動生成に足すだけだと、**それ以前に作られた案件のフォルダには
+ * 入っていない**ので、そこには1枚も置けません（そして理由が画面に出ません）。
+ * 初回に使うときに無ければ作ります。
+ *
+ * ── 競り合いに強くする ──────────────────────────────────────
+ *
+ * 2人が同時に1枚目を上げると、`create` が **409（同名あり）** で片方だけ落ちます。
+ * 落ちたほうは**探し直して**、見つかったらそれを使います
+ * （`uploadToFolder` が 409 を版にするのと同じ考え方）。
+ *
+ * ⚠️ **ここに置いてあるのは、案件の写真と帳票の両方が使うためです。**
+ * 元は `contexts/sales/services/box-folder.service.ts` にありましたが、
+ * 財務（`revenues` の帳票）からも呼ぶことになったので BOX の土台側へ移しました
+ * （`shared` が `contexts` を読む形にはしない）。
+ */
+export async function ensureSubfolder(
+  parentFolderId: string,
+  name: string,
+): Promise<string | null> {
+  if (!isBoxConfigured()) return null;
+  const client = getBoxClient();
+  if (!client) return null;
+
+  const find = async (): Promise<string | null> => {
+    try {
+      const res = (await client.folders.getItems(parentFolderId, { limit: 200 })) as
+        { entries?: { type?: string; id?: string; name?: string }[] };
+      const hit = (res.entries ?? []).find((e) => e.type === 'folder' && e.name === name);
+      return hit?.id ?? null;
+    } catch (err) {
+      console.warn(`[box] Failed to list ${parentFolderId}:`, (err as Error).message);
+      return null;
+    }
+  };
+
+  const existing = await find();
+  if (existing) return existing;
+  try {
+    const created = (await client.folders.create(parentFolderId, name)) as { id: string };
+    return created.id;
+  } catch (err) {
+    // 同名あり (409) は、他の人が先に作ったということ。探し直して使う
+    const again = await find();
+    if (again) return again;
+    console.warn(`[box] Failed to create '${name}' under ${parentFolderId}:`, (err as Error).message);
+    return null;
+  }
+}
+
 /** 1回に上げられる大きさ。**BOX の分割アップロードは使わない**（この用途では要らない） */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 

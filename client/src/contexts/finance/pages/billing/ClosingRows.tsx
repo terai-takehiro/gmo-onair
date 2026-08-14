@@ -9,6 +9,16 @@
  *   金額（税抜） 128px  **￥は左端・数字は右端**
  *   期日         96px   入金の確認だけ。**超過は赤**
  *   状態         96px
+ *   帳票         56px   請求書を出す／検収書を出す のタブだけ（下記）
+ *
+ * ── 「帳票」列だけモックに無い ──────────────────────────────
+ *
+ * 「請求書を出す」「検収を記録する」は**日付を記録するだけ**で、
+ * 相手に渡す紙はどこからも出せませんでした（v4 で PDF の口ごと落ちていた）。
+ * 記録する画面で紙も出せないと、**別の画面を開き直して同じ行を探す**ことになります。
+ * 押すと BOX の社内限りフォルダ `03_請求` にも入ります（`lib/docPdf.ts`）。
+ *
+ * **入金の確認タブには出しません** — 入金は相手が払う話で、こちらが出す紙はありません。
  *
  * ── 選べない行を「押せるように見せない」──────────────────────
  *
@@ -19,6 +29,7 @@ import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/s
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Check, Lock } from 'lucide-react';
+import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import type { ClosingRow, ClosingTab } from './types';
 
 /** `2026-08-31` → `08/31`。期日は月日だけで足りる */
@@ -64,6 +75,7 @@ export function ClosingRows({
         <RowSlot w={128} align="right">金額（税抜）</RowSlot>
         {tab === 'collect' && <RowSlot w={96}>入金期日</RowSlot>}
         <RowSlot w={96}>{tab === 'issue' ? '状態' : tab === 'collect' ? '入金' : '検収'}</RowSlot>
+        {tab !== 'collect' && <RowSlot w={56} align="right">帳票</RowSlot>}
       </RowHeader>
 
       {rows.map((r) => {
@@ -132,6 +144,16 @@ export function ClosingRows({
             <RowSlot w={96}>
               <TableBadge label={st.label} w={null} className={`w-full ${st.tone}`} />
             </RowSlot>
+
+            {tab !== 'collect' && (
+              <RowSlot w={56} align="right">
+                <DocPdfButton
+                  path={`/revenues/${r.id}/pdf`}
+                  kind={tab === 'issue' ? 'invoice' : 'inspection'}
+                  params={{ type: tab === 'issue' ? 'invoice' : 'inspection' }}
+                />
+              </RowSlot>
+            )}
           </Row>
         );
       })}
