@@ -188,17 +188,29 @@ export function mapBoxItems(entries: Record<string, unknown>[]): BoxItem[] {
 export async function ensureSubfolder(
   parentFolderId: string,
   name: string,
+  /**
+   * 昔の綴り。**すでにあるならそれを使い、新しい名前で作り直しません** —
+   * 作ると同じ用途のフォルダが隣に2つ並び、どちらに入ったのか誰も分からなくなります
+   * （プロジェクト管理の `01_個別見積` → `01_見積・提案` の言い換えで要る）。
+   * 探す順は「新しい名前 → 昔の名前」で、**どちらも無いときだけ新しい名前で作ります**。
+   */
+  alsoAccept: string[] = [],
 ): Promise<string | null> {
   if (!isBoxConfigured()) return null;
   const client = getBoxClient();
   if (!client) return null;
 
+  const wanted = [name, ...alsoAccept];
   const find = async (): Promise<string | null> => {
     try {
       const res = (await client.folders.getItems(parentFolderId, { limit: 200 })) as
         { entries?: { type?: string; id?: string; name?: string }[] };
-      const hit = (res.entries ?? []).find((e) => e.type === 'folder' && e.name === name);
-      return hit?.id ?? null;
+      const folders = (res.entries ?? []).filter((e) => e.type === 'folder');
+      for (const w of wanted) {
+        const hit = folders.find((e) => e.name === w);
+        if (hit?.id) return hit.id;
+      }
+      return null;
     } catch (err) {
       console.warn(`[box] Failed to list ${parentFolderId}:`, (err as Error).message);
       return null;

@@ -10,7 +10,7 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
-import { requireAuth, requirePermission } from '../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../shared/middleware/auth';
 import { queryOne, execute } from '../../shared/db/connection';
 import { estimateService } from '../sales/services/estimate.service';
 import { gpmEstimateSummary } from './services/gpm-estimate.service';
@@ -33,6 +33,14 @@ import {
   requireScope, requireFiles, projectFolderId, uploadFiles, listProjectFolder,
 } from '../sales/services/project-box-files.service';
 import { MAX_UPLOAD_BYTES } from '../../shared/services/box';
+/**
+ * 帳票（見積書）は**案件と同じ道具**で作り、**同じ行き先表**（`doc-box-dest`）に入れる。
+ * 様式や行き先を写すと、片方だけ直した日からプロジェクトの帳票だけ古くなる。
+ */
+import { buildEstimatePdf } from '../sales/services/estimate-pdf.service';
+import {
+  fileFinanceDocToBox, docBoxSkipped, applyDocBoxHeaders,
+} from '../../shared/services/doc-box.service';
 import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
 /**
@@ -274,6 +282,42 @@ export function createGpmRoutes(): Router {
       throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     }
     res.json({ success: true, data: row });
+  });
+
+  /**
+   * 見積書 PDF を発行する。**案件と同じ道具・同じ行き先表**を呼びます
+   * （`buildEstimatePdf` ＋ `fileFinanceDocToBox`）。写すと、様式を直した日から
+   * プロジェクトの見積書だけ古い形で出ます。
+   *
+   * ── なぜ GPM 側に口が要るのか ────────────────────────────────
+   *
+   * 案件側の `GET /projects/:pid/estimates/:id/pdf` は **`sales` を要求**するので、
+   * `gpm` だけの人は自分のプロジェクトの見積書を出せませんでした
+   * （議事録・書類と同じ形の穴）。ここは `gpm` で通し、**プロジェクトの見積しか
+   * 受け付けません**（`isGpmProject`）。
+   *
+   * ── 出すのは reader・BOX に置くのは editor 以上（案件と同じ）──
+   *
+   * 金額はこの人たちも画面で見えているので、紙にするだけなら止める理由がない。
+   * 置けなかったときは**理由を応答ヘッダーで返す** — 黙って落とすと
+   * 「保存したつもり」で手元にしか無い帳票ができます。
+   */
+  router.get('/estimates/:id/pdf', ...canRead, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await estimateService.getById(id);
+    if (!row || !(await isGpmProject(row.project_id))) {
+      throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    }
+    const { buffer, filename, projectId } = await buildEstimatePdf(id);
+    const canStore = meetsPermissionLevel(req.user!.role, req.user!.permissions?.gpm, 'editor');
+    applyDocBoxHeaders(res, canStore
+      ? await fileFinanceDocToBox(projectId, 'estimate', filename, buffer)
+      : docBoxSkipped('estimate', 'NO_PERMISSION'));
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   });
 
   router.put('/estimates/:id/items', ...canEdit, async (req, res) => {

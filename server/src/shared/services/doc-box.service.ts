@@ -28,6 +28,13 @@ import {
   isBoxConfigured, extractFolderId, ensureSubfolder, uploadToFolder, type BoxItem,
 } from './box';
 import { DOC_BOX_DEST, describeDocBoxDest, type FinanceDocKind } from './doc-box-dest';
+/**
+ * プロジェクト管理の昔の綴り。**すでにあるならそのフォルダを使う** —
+ * 言い換えた新しい名前で作り直すと、同じ用途のフォルダが隣に2つ並びます
+ * （`01_個別見積` → `01_見積・提案`）。案件のフォルダには昔の綴りが無いので、
+ * この表を通しても案件の振る舞いは1つも変わりません。
+ */
+import { LEGACY_SUBFOLDER_ALIASES } from '../../contexts/gpm/services/gpm-box-folder.service';
 
 export type { FinanceDocKind };
 
@@ -89,8 +96,11 @@ export async function fileFinanceDocToBox(
 
   try {
     // 発番前に作られた案件にはサブフォルダが揃っていないことがある。
-    // **置くときだけ作る**（読むだけで作ると BOX が空フォルダで埋まる）
-    const folderId = await ensureSubfolder(rootId, dest.subfolder);
+    // **置くときだけ作る**（読むだけで作ると BOX が空フォルダで埋まる）。
+    // 昔の綴りのフォルダがあればそれを使う（隣に空の双子を作らない）
+    const folderId = await ensureSubfolder(
+      rootId, dest.subfolder, LEGACY_SUBFOLDER_ALIASES[dest.subfolder] ?? [],
+    );
     if (!folderId) return no('NO_SUBFOLDER');
     const stored = await uploadToFolder(folderId, filename, buffer);
     console.log(`[doc-box] ${kind} → ${dest.scope}/${dest.subfolder} : ${filename}`);

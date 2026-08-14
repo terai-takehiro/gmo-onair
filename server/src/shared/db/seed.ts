@@ -997,7 +997,10 @@ export async function seed() {
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     await ins(estSql, ['gpm-est-1', GPM1, 'self', 'gpm-est-1', 2,
       '第2副調整室 構築一式（設計・機材・工事）', 'sent', 'tax10', 18400000, 0,
-      '2026-06-18T17:00', '2026-07-29', USERS.staff1, USERS.staff1]);
+      // `sent_at` は時間帯を持たない列に `NOW()` を入れる運用（＝DB の設定の壁時計。
+      // コンテナは UTC）。**JST の日付で書かないこと** — 紙の発行日は UTC → JST に
+      // 直して出すので、JST の 17:00 を入れると翌日として出ます（02:00Z = 11:00 JST）
+      '2026-06-18T02:00', '2026-07-29', USERS.staff1, USERS.staff1]);
     await ins(estSql, ['gpm-est-2', GPM2, 'client', 'gpm-est-2', 1,
       '21F 会議室 AV 更新一式', 'draft', 'tax10', 7200000, 200000,
       null, null, USERS.staff2, USERS.staff2]);
@@ -1047,12 +1050,16 @@ export async function seed() {
 
     const estItemSql = `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price, amount, cost, category, sort_order)
                         VALUES (?,?,?,?,?,?,?,?,?,?)`;
+    // ⚠️ **分類は画面が持つ3つの鍵だけ**（`EstimateItems.tsx` の `CATEGORIES` =
+    // `studio` / `tech` / `other`）。着手時は `production` / `technical` と書いていて、
+    // 画面は鍵で3つの帯に振り分けるので**明細が1行も出ていなかった**
+    // （合計は `estimates.subtotal` から出るので、金額だけ合っていて中身が空に見える）
     const estItems: [string, string, string, number, string, number, number, number, string, number][] = [
-      ['gpm-esti-1', 'gpm-est-1', '設計・監理費',           1, '式',  2400000, 2400000, 1200000, 'production', 0],
-      ['gpm-esti-2', 'gpm-est-1', '映像機材（カメラ・スイッチャー）', 1, '式', 9800000, 9800000, 7600000, 'technical', 1],
-      ['gpm-esti-3', 'gpm-est-1', '電気・造作工事',         1, '式',  6200000, 6200000, 5100000, 'production', 2],
-      ['gpm-esti-4', 'gpm-est-2', '音響設備一式',           1, '式',  4200000, 4200000, 3300000, 'technical', 0],
-      ['gpm-esti-5', 'gpm-est-2', '設置・調整',             1, '式',  3000000, 3000000, 2100000, 'production', 1],
+      ['gpm-esti-1', 'gpm-est-1', '設計・監理費',           1, '式',  2400000, 2400000, 1200000, 'other', 0],
+      ['gpm-esti-2', 'gpm-est-1', '映像機材（カメラ・スイッチャー）', 1, '式', 9800000, 9800000, 7600000, 'tech', 1],
+      ['gpm-esti-3', 'gpm-est-1', '電気・造作工事',         1, '式',  6200000, 6200000, 5100000, 'other', 2],
+      ['gpm-esti-4', 'gpm-est-2', '音響設備一式',           1, '式',  4200000, 4200000, 3300000, 'tech', 0],
+      ['gpm-esti-5', 'gpm-est-2', '設置・調整',             1, '式',  3000000, 3000000, 2100000, 'other', 1],
     ];
     for (const [id, est, desc, qty, unit, price, amount, cost, cat, order] of estItems) {
       await ins(estItemSql, [id, est, desc, qty, unit, price, amount, cost, cat, order]);
