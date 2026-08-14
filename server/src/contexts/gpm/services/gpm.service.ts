@@ -38,6 +38,13 @@ import { generateSequenceNumber } from '../../../shared/services/sequence.servic
  * また片方だけ取り残されます）。
  */
 import { ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity } from '../../sales/services/project.service';
+/**
+ * 議事録は**案件と同じ表・同じサービス**（`project_minutes` / `minutes.service`）。
+ * `project_minutes.project_id` は `projects(id)` を指し、プロジェクトは GLS-B の案件なので、
+ * **文字起こし → AI 整形 → 決定事項・持ち帰り の仕組みがそのまま使えます**。
+ * 別表にすると、Whisper の投げ方・整形のプロンプト・差分の記録が2つになります。
+ */
+import { getMinutes } from '../../sales/services/minutes.service';
 
 export const GPM_KINDS = ['self_build', 'group_order'] as const;
 export const OPEN_ITEM_STATUSES = ['waiting', 'checking', 'resolved'] as const;
@@ -794,6 +801,62 @@ export const openItemService = {
     await execute('UPDATE gpm_open_items SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?', [id]);
   },
 };
+
+/**
+ * 議事録の持ち帰りを**未確認事項にする** (migration 161 の `source_minutes_id`)。
+ *
+ * ── なぜタスクではなく未確認事項か ──────────────────────────
+ *
+ * 案件側の同じ操作（`openItemToTask`）はタスクを作りますが、工事・構築で
+ * 打合せから出てくる持ち帰りは**「先方の判断待ち」がほとんど**です。
+ * タスクにすると「自分がやること」の一覧に相手待ちのものが混ざり、
+ * **プロジェクトをまたいで「いま何件止まっているか」を数えられません**
+ * （それが `gpm_open_items` を作った理由そのもの）。
+ *
+ * ── 二度作れない ────────────────────────────────────────────
+ *
+ * 作ると `open_items` のその要素に `ask_id` を書き戻します。
+ * 画面のボタンを隠すだけだと、**同時に開いた別の画面が古いままボタンを出す**。
+ *
+ * ── 担当（誰に訊くか）は入れない ────────────────────────────
+ *
+ * `open_items[].owner` は **AI が文字起こしから拾った名前の文字列**で、
+ * 取引先の担当者名も社内の名前も同じ形で入っています。`to_kind`
+ * （発注者／PM会社／業者／社内）を機械で決めると必ず取り違えるので、
+ * **既定は「発注者」にして、拾った名前は `to_name` に文字として残す**だけにします。
+ */
+export async function openItemToAsk(
+  minutesId: string, index: number, userId: string,
+): Promise<{ ask_id: string; question: string }> {
+  const m = await getMinutes(minutesId);
+  await assertProject(String(m.project_id));
+
+  const items = Array.isArray(m.open_items) ? [...(m.open_items as Record<string, unknown>[])] : [];
+  const item = items[index];
+  if (!item) throw new AppError(404, 'NOT_FOUND', 'その持ち帰りはありません');
+  if (item.ask_id) throw new AppError(400, 'ALREADY_EXISTS', 'この持ち帰りはもう未確認事項にしてあります');
+
+  const text = String(item.text ?? '').trim();
+  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '中身が空の持ち帰りは未確認事項にできません');
+  const owner = String(item.owner ?? '').trim();
+  const due = dateOrNull(item.due);
+
+  const id = uuidv4();
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `INSERT INTO gpm_open_items
+         (id, project_id, question, to_kind, to_name, due_date, source_minutes_id, raised_by)
+       VALUES (?, ?, ?, 'client', ?, ?, ?, ?)`,
+      [id, m.project_id, text, owner || null, due, minutesId, userId],
+    );
+    items[index] = { ...item, ask_id: id };
+    await tx.execute(
+      'UPDATE project_minutes SET open_items = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
+      [JSON.stringify(items), userId, minutesId],
+    );
+  });
+  return { ask_id: id, question: text };
+}
 
 // ══ フェーズ ══════════════════════════════════════════════
 

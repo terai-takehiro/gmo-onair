@@ -9,6 +9,7 @@
  * この2つに入っておらず**誰にも付与できない状態**だった）。
  */
 import { Router } from 'express';
+import multer from 'multer';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
 import { queryOne, execute } from '../../shared/db/connection';
 import { estimateService } from '../sales/services/estimate.service';
@@ -16,7 +17,22 @@ import { gpmEstimateSummary } from './services/gpm-estimate.service';
 import { AppError } from '../../shared/middleware/errorHandler';
 import {
   templateService, projectService, openItemService, phaseService, memberService, gpmTaskService,
+  openItemToAsk,
 } from './services/gpm.service';
+/**
+ * 議事録は**案件と同じサービス**を呼ぶ（`project_minutes` は `projects` にぶら下がる）。
+ * 写すと、文字起こしの投げ方・整形のプロンプト・差分の記録が2つになる。
+ */
+import {
+  listMinutes, getMinutes, startTranscription, updateMinutes, deleteMinutes,
+} from '../sales/services/minutes.service';
+import { MAX_AUDIO_BYTES, isSttConfigured, normalizeAudioName } from '../sales/services/minutes-ai.service';
+import { isActivityAiConfigured } from '../sales/services/activity-ai.service';
+/** BOX にファイルを置く・中を見る決めごとは**案件と同じ1本** */
+import {
+  requireScope, requireFiles, projectFolderId, uploadFiles, listProjectFolder,
+} from '../sales/services/project-box-files.service';
+import { MAX_UPLOAD_BYTES } from '../../shared/services/box';
 import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
 
 /**
@@ -127,6 +143,48 @@ export function createGpmRoutes(): Router {
   });
 
   /**
+   * ── 書類（BOX にファイルを置く／中を見る）────────────────────
+   *
+   * **決めごとは案件と同じ1本**（`project-box-files.service`）。社内限りと社外共有を
+   * 取り違えると原価が外に出るので、`scope` に既定を持たせません。
+   *
+   * **見るほうは BOX が落ちても 200 で返します**（`reason` を添える）— 500 にすると
+   * BOX が落ちた日にプロジェクト詳細が全部開けなくなります。**置くほうは失敗を返します** —
+   * 上がっていないのに上がったように見えるのが一番困ります。
+   *
+   * ⚠️ 案件側の「当日の写真」（`subfolder=photos`）は**持ち込んでいません**。
+   * プロジェクトのフォルダ構成に `08_写真` は無く（`gpm-box-folder.service`）、
+   * 工事の写真をどのフォルダに貯めるかを決めていないためです。
+   */
+  const fileUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 5 },
+  });
+
+  router.get('/projects/:id/box-files', ...canRead, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmProject(id);
+    const scope = req.query.scope === 'internal' ? 'internal' : 'external';
+    const { items, reason } = await listProjectFolder(id, scope, 'プロジェクトが見つかりません');
+    res.json({ success: true, data: items, ...(reason ? { reason } : {}) });
+  });
+
+  router.post('/projects/:id/box-files', ...canEdit, fileUpload.array('files', 5), async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmProject(id);
+    const scope = requireScope(req.query.scope);
+    // **順番を変えない。** ファイルを選ばずに押した人には
+    // 「フォルダがありません」ではなく「ファイルを選んでください」を出す
+    const files = requireFiles((req.files ?? []) as Express.Multer.File[]);
+    const folderId = await projectFolderId(id, scope, {
+      notFound: 'プロジェクトが見つかりません',
+      noFolder: 'このプロジェクトの BOX フォルダがまだ作られていません。'
+        + '書類タブの「BOX フォルダを作る」を押してからお試しください。',
+    });
+    res.status(201).json({ success: true, data: await uploadFiles(folderId, files) });
+  });
+
+  /**
    * ── タスク（⑤ 全プロジェクトのタスク一覧）────────────────
    *
    * **GLS-B のタスクだけを横断で見る口**。案件（GLS-A）のタスクは返しません。
@@ -227,6 +285,113 @@ export function createGpmRoutes(): Router {
     }
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     res.json({ success: true, data: await estimateService.replaceItems(id, items) });
+  });
+
+  /**
+   * ── 議事録（打合せを録音 → 文字起こし → AI 整形）────────────
+   *
+   * **案件と同じ表・同じサービス**（`project_minutes` / `minutes.service`）を呼びます。
+   * `project_minutes.project_id` は `projects(id)` を指し、プロジェクトは GLS-B の案件なので
+   * そのまま載ります。**別表にすると、Whisper の投げ方・整形のプロンプト・
+   * 差分の記録（`ai_corrections`）が2つになり、片方だけ直る形が生まれます。**
+   *
+   * 口を分けているのは**権限だけ**です — 案件側のルートは `sales` を要求するので、
+   * `gpm` だけの人は自分のプロジェクトの議事録を開けません。逆に、この口から
+   * 案件（GLS-A）の議事録を触れないよう `assertGpmProject` / `assertGpmMinutes` を通します。
+   *
+   * ⚠️ **音声はディスクに置きません**（`memoryStorage`）。文字起こしが済んだら捨てます —
+   * 取引先の声が入るものを、消し忘れの起きる場所に置かない（案件側と同じ決めごと）。
+   */
+  const audioUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_AUDIO_BYTES, files: 1 },
+  });
+
+  /** その議事録はプロジェクト（GLS-B）のものか。**案件の議事録を触らせない** */
+  async function assertGpmMinutes(minutesId: string): Promise<void> {
+    const row = await queryOne(
+      `SELECT m.id FROM project_minutes m
+         JOIN projects p ON p.id = m.project_id
+        WHERE m.id = ? AND m.deleted_at IS NULL
+          AND p.gls_category = 'B' AND p.deleted_at IS NULL`,
+      [minutesId],
+    );
+    if (!row) throw new AppError(404, 'NOT_FOUND', '議事録が見つかりません');
+  }
+
+  router.get('/projects/:id/minutes', ...canRead, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmProject(id);
+    res.json({
+      success: true,
+      data: await listMinutes(id),
+      // **押してから「使えません」は最悪**。文字起こしと整形は別の鍵で動く
+      stt_available: isSttConfigured(),
+      ai_available: isActivityAiConfigured(),
+    });
+  });
+
+  /** 1件（**文字起こし全文つき**）。一覧は全文を積まない（重いので） */
+  router.get('/minutes/:id', ...canRead, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmMinutes(id);
+    res.json({ success: true, data: await getMinutes(id) });
+  });
+
+  router.post('/projects/:id/minutes', ...canEdit, audioUpload.single('audio'), async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmProject(id);
+    if (!isSttConfigured()) {
+      // **400 で理由を返す。** 500 だと「壊れた」と読まれるが、これは設定の話
+      throw new AppError(400, 'NOT_CONFIGURED',
+        'この環境は文字起こしにつないでいません（OPENAI_API_KEY 未設定）。管理者にご連絡ください');
+    }
+    const file = req.file;
+    if (!file) throw new AppError(400, 'VALIDATION_ERROR', '音声が添付されていません');
+    const metOn = typeof req.body?.met_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.met_on)
+      ? req.body.met_on : null;
+    const row = await startTranscription(
+      id,
+      file.buffer,
+      // multer は multipart のファイル名を latin1 で読む（日本語が化ける）。
+      // 中身と拡張子が食い違っていたら直す（Safari は mp4 を返すのに `.webm` で送られる）
+      normalizeAudioName(
+        Buffer.from(file.originalname || 'recording.webm', 'latin1').toString('utf8'),
+        file.mimetype,
+      ),
+      metOn,
+      req.user!.id,
+    );
+    res.status(202).json({ success: true, data: row });
+  });
+
+  router.put('/minutes/:id', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmMinutes(id);
+    res.json({ success: true, data: await updateMinutes(id, req.body ?? {}, req.user!.id) });
+  });
+
+  /**
+   * 持ち帰りを**未確認事項にする**（案件側はタスクにする）。
+   * 工事・構築の持ち帰りはほとんどが「先方の判断待ち」で、タスクにすると
+   * 「自分がやること」に相手待ちが混ざり、**止まっている件数が数えられません**。
+   */
+  router.post('/minutes/:id/open-items/:index/ask', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmMinutes(id);
+    const index = Number(req.params.index);
+    if (!Number.isInteger(index) || index < 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', '持ち帰りの位置が正しくありません');
+    }
+    res.status(201).json({ success: true, data: await openItemToAsk(id, index, req.user!.id) });
+  });
+
+  // **消すのは manager。** 取引先との合意の記録なので、1人の判断で消させない
+  router.delete('/minutes/:id', ...canManage, async (req, res) => {
+    const id = String(req.params.id);
+    await assertGpmMinutes(id);
+    await deleteMinutes(id, req.user!.id);
+    res.json({ success: true, data: { deleted: true } });
   });
 
   // ── 体制（組織図のメンバー・migration 169）────────────────

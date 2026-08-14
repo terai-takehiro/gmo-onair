@@ -8,10 +8,17 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
 import multer from 'multer';
 import {
-  extractFolderId, isBoxConfigured, listFolderItems, uploadToFolder, MAX_UPLOAD_BYTES,
+  extractFolderId, isBoxConfigured, listFolderItems, MAX_UPLOAD_BYTES,
   getThumbnailStream, isImageName,
 } from '../../../shared/services/box';
 import { ensureSubfolder, PHOTOS_SUBFOLDER } from '../services/box-folder.service';
+/**
+ * 置き場所の読み方・フォルダの解決・上げ方は**プロジェクト管理と共通の1本**。
+ * ここに書いたまま写すと、どちらかだけ直した日に片方が原価を外に出す。
+ */
+import {
+  requireScope, requireFiles, projectFolderId, uploadFiles,
+} from '../services/project-box-files.service';
 
 const router = Router();
 
@@ -197,29 +204,17 @@ router.post(
   requirePermission('sales', 'editor'),
   boxUpload.array('files', 5),
   async (req, res) => {
-    const scope = req.query.scope === 'internal' ? 'internal'
-      : req.query.scope === 'external' ? 'external' : null;
-    if (!scope) throw new AppError(400, 'VALIDATION_ERROR', '置き場所（社内限り／社外共有）を指定してください');
-
-    const files = (req.files ?? []) as Express.Multer.File[];
-    if (files.length === 0) throw new AppError(400, 'VALIDATION_ERROR', 'ファイルを選んでください');
-
-    const project = await queryOne(
-      'SELECT box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
-      [req.params.id],
-    ) as { box_url_internal: string | null; box_url_external: string | null } | undefined;
-    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-
-    const rootId = extractFolderId(
-      scope === 'internal' ? project.box_url_internal : project.box_url_external,
-    );
-    if (!rootId) {
-      throw new AppError(400, 'NO_FOLDER',
-        'この案件の BOX フォルダがまだ作られていません。GLS を発番するか、フォルダを作ってからお試しください。');
-    }
-    if (!isBoxConfigured()) {
-      throw new AppError(503, 'NOT_CONFIGURED', 'この環境は BOX につないでいないので、置けません。');
-    }
+    // 置き場所の読み方・上げ方は**プロジェクト管理と同じ1本**
+    // (`project-box-files.service`)。ルートに書いたまま写すと、
+    // どちらかだけ直した日に片方が原価を外に出す
+    const scope = requireScope(req.query.scope);
+    // **順番を変えない。** ファイルを選ばずに押した人には
+    // 「フォルダがありません」ではなく「ファイルを選んでください」を出す
+    const files = requireFiles((req.files ?? []) as Express.Multer.File[]);
+    const rootId = await projectFolderId(req.params.id as string, scope, {
+      noFolder: 'この案件の BOX フォルダがまだ作られていません。'
+        + 'GLS を発番するか、フォルダを作ってからお試しください。',
+    });
 
     /*
      * 当日の写真 (v4 ⑥ ふりかえり)。`subfolder=photos` で
@@ -245,24 +240,7 @@ router.post(
       folderId = photos;
     }
 
-    // **1つずつ上げて、上がった分だけ返す。** まとめて失敗にすると
-    // 「3つ中2つは入っている」ことに気づけず、同じものをもう一度上げることになる
-    const done = [];
-    const failed = [];
-    for (const f of files) {
-      // multer は multipart のファイル名を latin1 で読む。日本語のファイル名が
-      // 文字化けしたまま BOX に載ると、探せないうえ直せない
-      const name = Buffer.from(f.originalname, 'latin1').toString('utf8');
-      try {
-        done.push(await uploadToFolder(folderId, name, f.buffer));
-      } catch (err) {
-        console.error('[box] upload failed:', name, (err as Error).message);
-        failed.push(name);
-      }
-    }
-    if (done.length === 0) {
-      throw new AppError(502, 'BOX_UNAVAILABLE', 'BOX に置けませんでした。あとでもう一度お試しください。');
-    }
+    const { uploaded: done, failed } = await uploadFiles(folderId, files);
     res.status(201).json({ success: true, data: { uploaded: done, failed } });
   },
 );

@@ -1001,6 +1001,50 @@ export async function seed() {
     await ins(estSql, ['gpm-est-2', GPM2, 'client', 'gpm-est-2', 1,
       '21F 会議室 AV 更新一式', 'draft', 'tax10', 7200000, 200000,
       null, null, USERS.staff2, USERS.staff2]);
+    /*
+      議事録（打合せの録音 → 文字起こし → AI の下書き）。
+      **案件と同じ表**（`project_minutes` は `projects` にぶら下がる）。
+
+      **下書きと確定を1件ずつ**入れてあります — 下書きだけだと「AI が書いた印」の
+      出方しか確かめられず、確定だけだと直す前の姿が見られません。
+      持ち帰りは**印が付いたものと付いていないものを混ぜて**います
+      （`ask_id` があると「未確認事項にしました」に変わる）。
+    */
+    const minSql = `INSERT INTO project_minutes
+      (id, project_id, status, title, met_on, attendees, transcript, duration_sec, summary,
+       decisions, open_items, next_meeting, model, prompt_version, created_by, confirmed_at, confirmed_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?::jsonb,?::jsonb,?,?,?,?,?,?)`;
+    await ins(minSql, [
+      'gpm-min-1', GPM1, 'confirmed', '第7回 定例（中継回線と引込口）', '2026-07-18',
+      '寺井 ・ 井上様（日建） ・ 佐野様',
+      '（文字起こし）引込口をどちらにするか… 27F 側で実測してから決めましょう…',
+      3120,
+      '中継回線の引込口は27F側で進める。実測は7/25までに行い、立会は井上様と寺井で。',
+      JSON.stringify([
+        { text: '中継回線の引込口は27F側にする', quote: '27F 側で実測してから決めましょう' },
+        { text: '実測の立会は井上様と寺井の2名', quote: '立会はお二人でお願いします' },
+      ]),
+      JSON.stringify([
+        { text: '27F の分電盤の空き容量を確認する', owner: '井上様', due: '2026-07-25' },
+      ]),
+      '2026-08-01', 'gpt-5.6-terra', 'minutes-v3', USERS.staff1, '2026-07-19T10:00', USERS.staff1,
+    ]);
+    await ins(minSql, [
+      'gpm-min-2', GPM1, 'draft', '第8回 定例（副調・空調の扱い）', '2026-08-01',
+      '寺井 ・ 中西 ・ 井上様（日建） ・ 佐野様',
+      '（文字起こし）副調の空調増設をどちらが手配するか… ビル側の範囲を総務に確認します…',
+      3900,
+      '副調の空調増設をどちらが手配するかが未決。ビル側の工事範囲を総務が確認し、8/5 までに回答をもらう。',
+      JSON.stringify([
+        { text: '機材選定は代替案を2つ出したうえで8/8に確定させる', quote: '代替を2案いただいて8/8に決めます' },
+      ]),
+      JSON.stringify([
+        { text: '副調のモニター壁は据置か可動か（先方判断待ち）', owner: '佐野様', due: '2026-08-05' },
+        { text: '空調の増設はビル側の工事範囲に入るか', owner: 'グループ総務' },
+      ]),
+      '2026-08-08', 'gpt-5.6-terra', 'minutes-v3', USERS.staff1, null, null,
+    ]);
+
     const estItemSql = `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price, amount, cost, category, sort_order)
                         VALUES (?,?,?,?,?,?,?,?,?,?)`;
     const estItems: [string, string, string, number, string, number, number, number, string, number][] = [

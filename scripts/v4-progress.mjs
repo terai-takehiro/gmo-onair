@@ -236,6 +236,23 @@ const TREE = [
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
+    // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
+    ['議事録（プロジェクト詳細のタブ）', '/gpm/projects/:id/minutes',
+      'client/src/contexts/gpm/pages/projectDetail/MinutesTab.tsx', 'ASK_TRACK',
+      '`project_minutes` は `projects` にぶら下がる表で、プロジェクトは GLS-B の案件なので、' +
+      '**表・サービス・Whisper の投げ方・整形のプロンプト・差分の記録を1つも作り直していません**' +
+      '（写すと、同じ打合せが画面によって違う整形になります）。分けたのは口だけ — ' +
+      '案件側のルートは `sales` を要求するので、`gpm` だけの人は開けませんでした。' +
+      '**持ち帰りの行き先だけが違います**: 案件はタスク、プロジェクトは**未確認事項**' +
+      '（工事の持ち帰りはほとんどが先方の判断待ちで、タスクにすると「自分がやること」に' +
+      '相手待ちが混ざり、止まっている件数を数えられない）。' +
+      '**同じ持ち帰りから二度は作れません**（`open_items[].ask_id` をサーバーが書き戻す）'],
+    ['書類（BOX・プロジェクト詳細のタブ）', '/gpm/projects/:id/files',
+      'client/src/contexts/gpm/pages/projectDetail/FilesTab.tsx', 'FolderCard',
+      '**中のファイルを1階層ぶん出し、置けます**（案件詳細と同じ部品・同じ決めごと）。' +
+      '社内限りと社外共有は別のカードで、置き場所を選ばせません（取り違えると原価が外に出る）。' +
+      '**見るほうは BOX が落ちても 200 で理由を出し**、置くほうは失敗を返します。' +
+      'フォルダは**押したときだけ作ります**（BOX に作ったものは ONAiR から消せない）'],
     // v4 大⑤: 独立した画面ではなく**プロジェクト詳細のタブ**（migration 173）
     ['⑥ 見積（プロジェクト詳細のタブ）', '/gpm/projects/:id/estimates',
       'client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx', 'ui/row',

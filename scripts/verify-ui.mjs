@@ -93,6 +93,8 @@ const PAGES = [
   ['プロジェクト管理 詳細', '/gpm/projects/gpm-1'],
   ['プロジェクト管理 詳細 未確認事項', '/gpm/projects/gpm-1/asks'],
   ['プロジェクト管理 詳細 体制', '/gpm/projects/gpm-1/members'],
+  ['プロジェクト管理 詳細 議事録', '/gpm/projects/gpm-1/minutes'],
+  ['プロジェクト管理 詳細 書類', '/gpm/projects/gpm-1/files'],
   ['プロジェクト管理 詳細 見積', '/gpm/projects/gpm-1/estimates'],
   ['設定 メンバー', '/settings/users'],
   ['設定 データ', '/settings/data-viewer'],

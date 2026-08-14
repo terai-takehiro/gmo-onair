@@ -63,8 +63,16 @@ function size(n: number | null): string | null {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function FolderCard({
-  projectId, tone, icon: Icon, title, what, url, canEdit,
+/**
+ * フォルダ1枚（中身の一覧 ＋ ここに落とすと入る枠）。
+ *
+ * **プロジェクト管理（GPM）もこの部品を使います。** 違うのは口の前置き（`base`）だけで、
+ * 決めごと（社内と社外を混ぜない・置けない理由を1行で出す・5つまで・
+ * 上げられなかったものは名前を出す）は同じものを読ませます —
+ * 写すと、どちらかだけ直した日に**片方が原価を外に出す**形が生まれます。
+ */
+export function FolderCard({
+  projectId, tone, icon: Icon, title, what, url, canEdit, base = '/projects',
 }: {
   projectId: string;
   tone: 'internal' | 'external';
@@ -73,6 +81,8 @@ function FolderCard({
   what: string;
   url: string | null;
   canEdit: boolean;
+  /** 口の前置き。案件は `/projects`、プロジェクトは `/gpm/projects` */
+  base?: string;
 }) {
   const inside = tone === 'internal';
   const scope = inside ? 'internal' : 'external';
@@ -81,8 +91,10 @@ function FolderCard({
   const [over, setOver] = useState(false);
 
   const { data, isLoading } = useQuery<{ data: BoxItem[]; reason?: string }>({
-    queryKey: ['box-files', projectId, scope],
-    queryFn: async () => (await api.get(`/projects/${projectId}/box-files`, { params: { scope } })).data,
+    // **`base` も鍵に入れる。** 入れないと、案件とプロジェクトで同じ id を持つことは
+    // 無いとはいえ、口が違うのに同じ鍵になる（片方の結果がもう片方に出うる）
+    queryKey: ['box-files', base, projectId, scope],
+    queryFn: async () => (await api.get(`${base}/${projectId}/box-files`, { params: { scope } })).data,
     // BOX の呼び出しは重いので、タブを行き来するたびには引き直さない
     staleTime: 60_000,
   });
@@ -93,11 +105,11 @@ function FolderCard({
       const fd = new FormData();
       // **5つまで。** それ以上は BOX を直接開いてもらう（1つずつ上げるので待たせすぎる）
       for (const f of files.slice(0, 5)) fd.append('files', f);
-      return (await api.post(`/projects/${projectId}/box-files?scope=${scope}`, fd)).data.data as
+      return (await api.post(`${base}/${projectId}/box-files?scope=${scope}`, fd)).data.data as
         { uploaded: BoxItem[]; failed: string[] };
     },
     onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ['box-files', projectId, scope] });
+      qc.invalidateQueries({ queryKey: ['box-files', base, projectId, scope] });
       notifySuccess(`${r.uploaded.length} 件を${title}に置きました`, {
         description: r.failed.length > 0
           ? `置けなかったもの: ${r.failed.join(' / ')}`

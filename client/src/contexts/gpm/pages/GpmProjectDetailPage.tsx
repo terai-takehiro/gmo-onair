@@ -7,7 +7,8 @@
  * 着手時にサーバーが持っていたのは工程・未確認事項・体制の3つだけで、
  * **枠だけのタブを並べない**ために3タブから始めました。いまは見積
  * （migration 173）・請求（同 179）・書類（BOX）が入って6タブです。
- * **議事録だけがまだ空**なので出していません（`docs/design/gpm-model.md`）。
+ * 議事録も**案件と同じ表・同じサービス**（`project_minutes`）に載るので足しました
+ * （持ち帰りの行き先だけが違う＝プロジェクトでは未確認事項になる）。7タブです。
  *
  * ── 工程配下のタスクは工程の中に出す ────────────────────────
  *
@@ -43,6 +44,7 @@ import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
 import { EditProjectDialog } from './projectDetail/EditProjectDialog';
 import { MembersTab } from './projectDetail/MembersTab';
+import { MinutesTab } from './projectDetail/MinutesTab';
 import { FilesTab } from './projectDetail/FilesTab';
 
 export default function GpmProjectDetailPage() {
@@ -208,6 +210,7 @@ export default function GpmProjectDetailPage() {
       )}
 
       {tab === 'members' && <MembersTab projectId={id} members={p.members} canEdit={canEdit} />}
+      {tab === 'minutes' && <MinutesTab projectId={id} canEdit={canEdit} canManage={canManage} />}
       {tab === 'estimates' && <EstimatesTab projectId={id} canEdit={canEdit} />}
       {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
