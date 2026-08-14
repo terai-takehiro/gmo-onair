@@ -11,13 +11,40 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  venuesOfBooking, venuesOf, venueSummary, venueLine,
+  venuesOfBooking, venuesOf, venueSummary, venueLine, roomLabel,
 } from '../../client/src/contexts/sales/pages/projectDetail/venue';
 
 /** 実際に返ってきた形（項目名を写し違えないよう、実測の並びのまま） */
 const booking = (rooms: string[], location_note: string | null = null) => ({
   rooms: rooms.map((name, i) => ({ room_id: `r${i}`, room_name: name })),
   location_note,
+});
+
+describe('roomLabel — 拠点の略称を前に付ける（migration 189）', () => {
+  it('略称があれば「用賀 WORLD STUDIO」', () => {
+    expect(roomLabel({ room_name: 'WORLD STUDIO', location_abbreviation: '用賀' }))
+      .toBe('用賀 WORLD STUDIO');
+  });
+
+  /*
+   * **決めていない拠点には前置きを付けない。** 正式名
+   * （「GMOサムライスタジオ用賀」= 12文字）で代用すると、案件詳細の枠では
+   * 拠点名だけで埋まって部屋名が消える。だから `location_name` は受け取らない
+   */
+  it('略称が無ければ部屋名だけ（正式名で代用しない）', () => {
+    expect(roomLabel({ room_name: 'WORLD STUDIO' })).toBe('WORLD STUDIO');
+    expect(roomLabel({ room_name: 'WORLD STUDIO', location_abbreviation: null })).toBe('WORLD STUDIO');
+    expect(roomLabel({ room_name: 'WORLD STUDIO', location_abbreviation: '  ' })).toBe('WORLD STUDIO');
+  });
+
+  // 「外現場」拠点の部屋名に拠点名が入っているような場合。**同じ語を2回言わない**
+  it('部屋名に略称が入っていれば重ねない', () => {
+    expect(roomLabel({ room_name: '用賀スタジオ', location_abbreviation: '用賀' })).toBe('用賀スタジオ');
+  });
+
+  it('部屋名が無ければ空（呼ぶ側が落とす）', () => {
+    expect(roomLabel({ room_name: null, location_abbreviation: '用賀' })).toBe('');
+  });
 });
 
 describe('venuesOfBooking — 予約1件の場所', () => {
@@ -60,6 +87,15 @@ describe('venuesOf — 案件の予約すべて', () => {
     expect(venuesOf(bookings).map((v) => v.name)).toEqual(['第3スタジオ', '第1スタジオ']);
   });
 
+  // **拠点が違えば同じ部屋名でも別の場所**（「第1スタジオ」は渋谷にも福岡にもありうる）
+  it('拠点の略称まで含めて重複を見る', () => {
+    const bookings = [
+      { rooms: [{ room_id: 'a', room_name: '第1スタジオ', location_abbreviation: '渋谷' }], location_note: null },
+      { rooms: [{ room_id: 'b', room_name: '第1スタジオ', location_abbreviation: '福岡' }], location_note: null },
+    ];
+    expect(venuesOf(bookings).map((v) => v.name)).toEqual(['渋谷 第1スタジオ', '福岡 第1スタジオ']);
+  });
+
   it('予約が1件も無ければ空', () => {
     expect(venuesOf([])).toEqual([]);
   });
@@ -100,5 +136,38 @@ describe('venueLine — 右の欄の1行', () => {
 
   it('場所が無ければ null', () => {
     expect(venueLine(booking([]))).toBeNull();
+  });
+
+  // **同じ語を2回言わない。** 「用賀 A・用賀 B」だと部屋名に使える幅が減る
+  it('同じ拠点の部屋が並ぶときは略称を1回だけ前に出す', () => {
+    const b = {
+      rooms: [
+        { room_id: 'a', room_name: 'WORLD STUDIO', location_abbreviation: '用賀' },
+        { room_id: 'b', room_name: '第1調整室', location_abbreviation: '用賀' },
+      ],
+      location_note: null,
+    };
+    expect(venueLine(b)).toBe('用賀 WORLD STUDIO・第1調整室');
+  });
+
+  // 拠点をまたぐ予約で畳むと、どちらの部屋がどの拠点か分からなくなる
+  it('拠点が違えば1つずつ略称を付ける', () => {
+    const b = {
+      rooms: [
+        { room_id: 'a', room_name: 'WORLD STUDIO', location_abbreviation: '用賀' },
+        { room_id: 'b', room_name: '第1スタジオ', location_abbreviation: '渋谷' },
+      ],
+      location_note: null,
+    };
+    expect(venueLine(b)).toBe('用賀 WORLD STUDIO・渋谷 第1スタジオ');
+  });
+
+  // **外現場のメモは畳みの対象にしない**（消えると押さえた場所が行から落ちる）
+  it('部屋を畳んでも外現場のメモは必ず出す', () => {
+    const b = {
+      rooms: ['A', 'B', 'C', 'D'].map((n, i) => ({ room_id: `r${i}`, room_name: n })),
+      location_note: '幕張メッセ',
+    };
+    expect(venueLine(b)).toBe('A・B・C +1・幕張メッセ');
   });
 });

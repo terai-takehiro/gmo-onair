@@ -77,8 +77,15 @@ export interface StudioBooking {
   status?: string;
   /** 外現場など、部屋マスターに無い場所の手入力 */
   location_note: string | null;
-  /** 押さえている部屋。**予約に部屋が1つも無いこともある**（外現場・場所未定） */
-  rooms?: { room_id: string; room_name: string | null }[];
+  /**
+   * 押さえている部屋。**予約に部屋が1つも無いこともある**（外現場・場所未定）。
+   * `location_abbreviation` は拠点の略称（migration 189・**決めていなければ null**）
+   */
+  rooms?: {
+    room_id: string;
+    room_name: string | null;
+    location_abbreviation?: string | null;
+  }[];
 }
 
 /** `GET /activity-logs?project_id=` の1行 */

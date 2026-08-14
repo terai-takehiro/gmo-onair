@@ -319,22 +319,40 @@ router.get('/locations', async (_req, res) => {
 // ロケーション・部屋の追加/更新/削除は system_admin 専用
 const adminOnly = requireRole('system_admin');
 
+/** 略称は**空文字を保存しない**（NULL = 決めていない、と区別する。migration 189） */
+const normalizeAbbr = (v: unknown): string | null => {
+  const s = typeof v === 'string' ? v.trim() : '';
+  return s || null;
+};
+
 // POST /studios/locations — ロケーション追加
 router.post('/locations', adminOnly, async (req, res) => {
-  const { name, sort_order } = req.body;
+  const { name, sort_order, abbreviation } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
   const id = uuidv4();
-  await execute(`INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`, [id, name, sort_order ?? 0]);
+  await execute(
+    `INSERT INTO studio_locations (id, name, sort_order, abbreviation) VALUES (?, ?, ?, ?)`,
+    [id, name, sort_order ?? 0, normalizeAbbr(abbreviation)],
+  );
   const row = await queryOne('SELECT * FROM studio_locations WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 // PUT /studios/locations/:id
 router.put('/locations/:id', adminOnly, async (req, res) => {
-  const { name, sort_order } = req.body;
+  const { name, sort_order, abbreviation } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
-  await execute(`UPDATE studio_locations SET name = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL`,
-    [name, sort_order ?? 0, req.params.id]);
+  /*
+   * **`abbreviation` を渡さなければ今の値を保つ**（この製品の決めごと）。
+   * 全置換にすると、**この欄を持たない古い呼び出しから拠点名を直すだけで
+   * 略称が黙って消えます**（タグ・リード経路・グループ区分と同じ壊れ方）。
+   * 消したいときは空文字を渡す＝ NULL になる
+   */
+  const sets = ['name = ?', 'sort_order = ?'];
+  const params: unknown[] = [name, sort_order ?? 0];
+  if (abbreviation !== undefined) { sets.push('abbreviation = ?'); params.push(normalizeAbbr(abbreviation)); }
+  params.push(req.params.id);
+  await execute(`UPDATE studio_locations SET ${sets.join(', ')} WHERE id = ? AND deleted_at IS NULL`, params);
   const row = await queryOne('SELECT * FROM studio_locations WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
@@ -419,9 +437,12 @@ router.get('/bookings/:id', async (req, res) => {
   if (!booking) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
   const rooms = await queryAll(
+    // 一覧（`listBookings`）と**同じ項目**を返す。片方だけ持たせると、
+    // 「一覧では拠点が出るのに1件だけ開くと出ない」という食い違いになる
     `SELECT br.room_id, br.occupant, br.usage_note,
             r.name as room_name, r.abbreviation as room_abbreviation,
-            r.color as room_color, r.room_type, r.location_id
+            r.color as room_color, r.room_type, r.location_id,
+            l.name as location_name, l.abbreviation as location_abbreviation
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id
      LEFT JOIN studio_locations l ON l.id = r.location_id

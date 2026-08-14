@@ -82,6 +82,10 @@ export default function SitesPage() {
           拠点は<strong className="font-bold">カレンダーと料金表の両方</strong>で使われます。
           拠点を1つ足すと、そこに部屋を作れるようになり、
           <strong className="font-bold">その拠点ぶんの料金表</strong>も別に持てるようになります。
+          <strong className="font-bold">略称</strong>は、正式名が長くて入らない狭い枠
+          （案件詳細の「会場・スタジオ」など）で正式名の代わりに出ます
+          — 「GMOサムライスタジオ用賀」→「<strong className="font-bold">用賀 WORLD STUDIO</strong>」。
+          決めていない拠点は<strong className="font-bold">部屋名だけ</strong>になります。
           {!canEdit && <>直せるのは<strong className="font-bold">管理者</strong>だけです。</>}
         </span>
       </p>
@@ -110,7 +114,8 @@ export default function SitesPage() {
             </div>
 
             <RowHeader className="hidden sm:flex">
-              <RowMain>拠点</RowMain>
+              <RowMain>拠点（正式名）</RowMain>
+              <RowSlot w={96}>略称</RowSlot>
               <RowSlot w={96}>部屋</RowSlot>
               {canSeePricing && <RowSlot w={160}>料金表</RowSlot>}
             </RowHeader>
@@ -126,6 +131,18 @@ export default function SitesPage() {
                         : (loc.rooms ?? []).map((r) => r.abbreviation || r.name).join('・')}
                     </RowSub>
                   </RowMain>
+                  {/*
+                    **略称の対照表**（migration 189）。狭い枠では正式名の代わりに
+                    これが出るので、**決めていないことも1行で分かるようにする** —
+                    空欄にすると「短く出せる」ことに気づけない
+                  */}
+                  <RowSlot w={96}>
+                    {loc.abbreviation ? (
+                      <span className="text-sub font-bold text-foreground">{loc.abbreviation}</span>
+                    ) : (
+                      <span className="text-sub-sm text-muted-foreground">未設定</span>
+                    )}
+                  </RowSlot>
                   <RowSlot w={96}>
                     <span className="text-sub font-number text-secondary-foreground">
                       {(loc.rooms ?? []).length} 部屋

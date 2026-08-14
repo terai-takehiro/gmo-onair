@@ -17,6 +17,12 @@ export interface RoomRow {
 export interface LocationRow {
   id: string;
   name: string;
+  /**
+   * 拠点の略称（migration 189・**決めていなければ null**）。
+   * 正式名「GMOサムライスタジオ用賀」は長いので、案件詳細の会場などの
+   * 狭い枠では**これを部屋名の前に付ける**（決めていなければ何も付けない）
+   */
+  abbreviation?: string | null;
   sort_order: number;
   rooms: RoomRow[];
 }

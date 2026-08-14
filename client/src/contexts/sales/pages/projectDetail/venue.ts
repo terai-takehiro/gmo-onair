@@ -19,17 +19,23 @@
  * - **部屋も外現場も「押さえた場所」として同じ並びに入れる。** 予約は
  *   ①部屋だけ ②外現場のメモだけ ③両方 の3通りがあり、どれかを落とすと
  *   **押さえたのに画面に出ない場所**ができる（いちばん困る壊れ方）
- * - **拠点名は出さない。** `studio_locations` に略称が無く、正式名は
- *   「GMOサムライスタジオ用賀」で、事実の帯の1枠（約250px）では部屋名が消える。
- *   `GMOサムライスタジオ` を機械的に削る細工はしない（拠点が増えた日に崩れる）
+ * - **拠点は略称だけを前に付ける**（`studio_locations.abbreviation`・migration 189）。
+ *   正式名「GMOサムライスタジオ用賀」は12文字あり、帯の1枠（200〜270px）では
+ *   **拠点名だけで埋まって部屋名が消える**。**略称が決まっていなければ前置きを
+ *   付けない**（部屋名だけ）— 正式名で代用すると枠が壊れる。
+ *   ⚠️ **正式名を機械的に短くしない。**「GMOサムライスタジオ」を削る細工は、
+ *   拠点が増えた日・名前が変わった日に黙って崩れる。**略称は人が決めるもの**で、
+ *   設定 → 拠点・部屋（`/settings/sites`）で直せる
  * - **同じ部屋を2回数えない。** 本番とリハで同じ部屋を押さえるのが普通なので、
- *   数えると「WORLD STUDIO ほか1室」が実際は1室になる
+ *   数えると「用賀 WORLD STUDIO ほか1室」が実際は1室になる
  * - **並べ替えない。** サーバーが 拠点 → 部屋 の並びで返すので、その順のまま
  */
 
 /** `GET /studios/bookings` の `rooms[]` のうち、表示に使う項目だけ */
 export interface VenueRoom {
   room_name: string | null;
+  /** 拠点の略称。**決めていなければ NULL**（正式名では代用しない） */
+  location_abbreviation?: string | null;
 }
 
 /** 場所を持つもの（予約）。`StudioBooking` もこの形を満たす */
@@ -46,11 +52,24 @@ export interface Venue {
 
 const clean = (s: string | null | undefined): string => (s ?? '').trim();
 
+/**
+ * 部屋1つの書き方。**拠点の略称があれば前に付ける**（「用賀 WORLD STUDIO」）。
+ * 略称を決めていない拠点は**部屋名だけ**（正式名は長すぎて枠が壊れる）
+ */
+export function roomLabel(r: VenueRoom): string {
+  const name = clean(r?.room_name);
+  if (!name) return '';
+  const loc = clean(r?.location_abbreviation);
+  // **略称が部屋名にすでに入っているときは重ねない**（「用賀 用賀スタジオ」を作らない）
+  if (!loc || name.includes(loc)) return name;
+  return `${loc} ${name}`;
+}
+
 /** 予約1件が押さえている場所。**部屋 ＋ 外現場のメモ**（どちらも落とさない） */
 export function venuesOfBooking(b: VenueBooking): Venue[] {
   const out: Venue[] = [];
   for (const r of b.rooms ?? []) {
-    const name = clean(r?.room_name);
+    const name = roomLabel(r);
     if (name) out.push({ name, kind: 'room' });
   }
   const note = clean(b.location_note);
@@ -98,10 +117,32 @@ export function venueSummary(bookings: VenueBooking[]): VenueSummary | null {
   };
 }
 
-/** 上限を超えた分を `+N` に畳んで並べる（右の欄の1行）。既定は3つまで */
+/**
+ * 予約1件を1行で書く（右の欄）。上限を超えた部屋は `+N` に畳む（既定は3つまで）。
+ *
+ * **同じ拠点の部屋が並ぶときは、略称を1回だけ前に出す**
+ * （「用賀 WORLD STUDIO・用賀 第1調整室」→「用賀 WORLD STUDIO・第1調整室」）。
+ * 同じ語を2回言うと、そのぶん部屋名を出せる幅が減る。
+ * **拠点をまたぐ予約では畳まない** — どちらの部屋がどの拠点か分からなくなる。
+ *
+ * ⚠️ **外現場のメモは畳みの対象にしない。** 上限で消えると
+ * 「幕張メッセで押さえてある」ことが行から丸ごと落ちる
+ */
 export function venueLine(b: VenueBooking, max = 3): string | null {
-  const names = venuesOfBooking(b).map((v) => v.name);
-  if (names.length === 0) return null;
-  if (names.length <= max) return names.join('・');
-  return `${names.slice(0, max).join('・')} +${names.length - max}`;
+  const rooms = (b.rooms ?? []).filter((r) => clean(r?.room_name));
+  const note = clean(b.location_note);
+
+  const abbrs = new Set(rooms.map((r) => clean(r.location_abbreviation)));
+  const shared = abbrs.size === 1 ? [...abbrs][0] : '';
+  // 略称が部屋名に入っている拠点では畳まない（「用賀 用賀スタジオ」を作らない）
+  const group = rooms.length > 1 && !!shared
+    && rooms.every((r) => !clean(r.room_name).includes(shared));
+
+  const names = group ? rooms.map((r) => clean(r.room_name)) : rooms.map(roomLabel);
+  const rest = Math.max(0, names.length - max);
+  const roomSeg = names.length === 0 ? null
+    : `${group ? `${shared} ` : ''}${names.slice(0, max).join('・')}${rest ? ` +${rest}` : ''}`;
+
+  const line = [roomSeg, note || null].filter(Boolean).join('・');
+  return line || null;
 }
