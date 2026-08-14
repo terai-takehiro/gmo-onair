@@ -8,6 +8,7 @@ import { CalendarClock } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { KIND } from './thread/kinds';
 import { shortYmd } from './thread/format';
+import { parseNextAction } from './thread/nextAction';
 import type { ActivityLog } from './types';
 
 /**
@@ -41,6 +42,7 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
         // 年は「前の行と違うとき」だけ出す（いちばん上の行は必ず出す）
         const prev = items[i - 1]?.activity_date;
         const showYear = i === 0 || a.activity_date?.slice(0, 4) !== prev?.slice(0, 4);
+        const nextAction = parseNextAction(a.next_action);
 
         return (
           <li key={a.id} className="flex gap-3 border-b border-border-faint py-2.5 last:border-b-0">
@@ -80,7 +82,15 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                   {/* 期限の書き方は**やり取りタブと同じ関数**（`thread/format.ts`）。
                       書き写すと、同じ期限が画面によって違う形で出る */}
                   <span className="min-w-0 flex-1 line-clamp-2">
-                    {a.next_action}
+                    {/*
+                      **言い切りの1文だけを出す**（`thread/nextAction.ts`）。
+                      「次にやること」は言い切り1文 ＋ 付随してやること数件で書かれているので、
+                      全文を2行で切ると**2件目の途中で切れた文**が並ぶ。
+                      **件数は必ず添える** — 消したのではなく続きがあることが分からないと、
+                      ここで読んだつもりになって残りが見落とされる
+                    */}
+                    {nextAction.headline}
+                    {nextAction.items.length > 0 && ` ほか${nextAction.items.length}件`}
                     {a.next_action_date
                       && `（${shortYmd(a.next_action_date, a.activity_date)} まで${overdue ? '・過ぎています' : ''}）`}
                     {a.next_action_done_at && '（済み）'}

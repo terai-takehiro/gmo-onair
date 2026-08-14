@@ -30,6 +30,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
+import { modelFor, tierFor } from '../../../shared/services/ai-model';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
 export const MINUTES_PROMPT_VERSION = 'minutes-v1';
@@ -39,11 +40,6 @@ export const MINUTES_PROMPT_VERSION_WITH_FEEDBACK = 'minutes-v1+fb';
 /** 文字起こしのモデル。差し替えたいときのために環境変数で上書きできる */
 const WHISPER_MODEL = process.env.MINUTES_STT_MODEL || 'whisper-1';
 
-/** 整形のモデル。未指定なら投入欄と同じ既定に寄せる */
-const DEFAULT_STRUCTURE_MODELS: Record<IntakeAiProvider, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-opus-5',
-};
 
 /**
  * 音声の上限。**Whisper API の上限が 25MB** なので、それを超える前に断る。
@@ -109,10 +105,18 @@ export function sttModel(): string {
   return WHISPER_MODEL;
 }
 
+/**
+ * 議事録の構造化に使うモデル。**常に heavy**（`shared/services/ai-model.ts` の表）。
+ *
+ * ここは**取引先との合意の記録**です。決定事項には引用を必須にしてあり、
+ * 話を補われると**そのまま「言った / 言わない」の材料**になります。
+ * 読む人は文字起こしの全文と突き合わせないので、**間違いに気づけません**。
+ * 費用がいくら下がっても、ここを軽くする理由にはなりません。
+ */
 export function structureModel(provider?: IntakeAiProvider | null): string {
   const p = provider ?? resolveProvider();
   if (!p) return 'none';
-  return process.env.MINUTES_AI_MODEL || DEFAULT_STRUCTURE_MODELS[p];
+  return modelFor('minutes', tierFor('minutes'), p);
 }
 
 // ── ① 文字起こし ───────────────────────────────────────────

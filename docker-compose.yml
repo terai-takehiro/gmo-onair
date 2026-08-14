@@ -59,10 +59,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@gmo-onair.jp}
+      # 465 番（暗黙 TLS）を使うときは true。587 番（STARTTLS）は未設定でよい
+      SMTP_SECURE: ${SMTP_SECURE:-}
       # BOX 連携 (v2.7.0+ / v2.7.10 で社内/社外フォルダ分離)
       BOX_CONFIG_JSON: ${BOX_CONFIG_JSON:-}
       BOX_PROJECT_PARENT_FOLDER_ID: ${BOX_PROJECT_PARENT_FOLDER_ID:-}
       BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL: ${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL:-}
+      # 取り込みの置き場所。未設定ならコード側の既定フォルダを見る
+      XPOINT_BOX_FOLDER_ID: ${XPOINT_BOX_FOLDER_ID:-}
+      KESSAN_BOX_FOLDER_ID: ${KESSAN_BOX_FOLDER_ID:-}
       # CoNoHa VPS スケーリング (v2.7.1+) — 未設定なら resize は 503 NOT_CONFIGURED
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}
@@ -78,6 +83,22 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       INTAKE_AI_PROVIDER: ${INTAKE_AI_PROVIDER:-}
       INTAKE_AI_MODEL: ${INTAKE_AI_MODEL:-}
+      # ⚠️ **environment: は許可リストです。** ここに書かない変数は .env にあっても
+      # コンテナに届きません（書いたのに効かない、という気づけない形になる）。
+      # 増やしたら scripts/check-env-passthrough.mjs が照合します。
+      # モデルの段（`server/src/shared/services/ai-model.ts`）。**機能をまたいで効く**
+      AI_MODEL_HEAVY: ${AI_MODEL_HEAVY:-}
+      AI_MODEL_LIGHT: ${AI_MODEL_LIGHT:-}
+      # 機能ごとの名指し。**段より先に効く**（入れると長い入力でも上がらない）
+      INTAKE_AI_MODEL_LIGHT: ${INTAKE_AI_MODEL_LIGHT:-}
+      ACTIVITY_AI_MODEL: ${ACTIVITY_AI_MODEL:-}
+      KPT_AI_MODEL: ${KPT_AI_MODEL:-}
+      MINUTES_AI_MODEL: ${MINUTES_AI_MODEL:-}
+      MINUTES_STT_MODEL: ${MINUTES_STT_MODEL:-}
+      # 毎晩 3:00 のやり取り整形 (v4.0.1+)。off と書くと止まる
+      ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY:-}
+      # AI の使用量を金額で出すための単価。**未設定ならトークン数と分数だけ出る**
+      AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — 未設定ならマイカレンダーの Google 連携は無効。
       # prod/dev で同じ OAuth クライアントを使う (Google Cloud に両ドメインの redirect URI を登録)。
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -126,6 +147,8 @@ services:
       BOX_CONFIG_JSON: ${BOX_CONFIG_JSON_DEV:-${BOX_CONFIG_JSON:-}}
       BOX_PROJECT_PARENT_FOLDER_ID: ${BOX_PROJECT_PARENT_FOLDER_ID_DEV:-${BOX_PROJECT_PARENT_FOLDER_ID:-}}
       BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL: ${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL_DEV:-${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL:-}}
+      XPOINT_BOX_FOLDER_ID: ${XPOINT_BOX_FOLDER_ID_DEV:-${XPOINT_BOX_FOLDER_ID:-}}
+      KESSAN_BOX_FOLDER_ID: ${KESSAN_BOX_FOLDER_ID_DEV:-${KESSAN_BOX_FOLDER_ID:-}}
       # CoNoHa VPS スケーリング (v2.7.1+) — dev も同じ VPS をリサイズするので prod と共有
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}
@@ -140,6 +163,18 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY_DEV:-${ANTHROPIC_API_KEY:-}}
       INTAKE_AI_PROVIDER: ${INTAKE_AI_PROVIDER_DEV:-${INTAKE_AI_PROVIDER:-}}
       INTAKE_AI_MODEL: ${INTAKE_AI_MODEL_DEV:-${INTAKE_AI_MODEL:-}}
+      AI_MODEL_HEAVY: ${AI_MODEL_HEAVY_DEV:-${AI_MODEL_HEAVY:-}}
+      AI_MODEL_LIGHT: ${AI_MODEL_LIGHT_DEV:-${AI_MODEL_LIGHT:-}}
+      INTAKE_AI_MODEL_LIGHT: ${INTAKE_AI_MODEL_LIGHT:-}
+      ACTIVITY_AI_MODEL: ${ACTIVITY_AI_MODEL:-}
+      KPT_AI_MODEL: ${KPT_AI_MODEL:-}
+      MINUTES_AI_MODEL: ${MINUTES_AI_MODEL:-}
+      MINUTES_STT_MODEL: ${MINUTES_STT_MODEL:-}
+      # **検証だけ止められるようにする。** 本番と検証は同じ鍵を共用できるので、
+      # 両方が毎晩走ると同じ請求書に2つぶん載る
+      ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY_DEV:-${ACTIVITY_FORMAT_NIGHTLY:-}}
+      # 単価は prod と共有する（値段は環境で変わらない。分けると必ず片方が古くなる）
+      AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — prod と同じ OAuth クライアントを共有 (redirect は CLIENT_URL から自動生成)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
