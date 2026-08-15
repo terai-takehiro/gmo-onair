@@ -163,6 +163,17 @@ export function moreFieldCount(audience: string, mode: FieldsMode = 'create'): n
 }
 
 /**
+ * 2段分類（客入れの有無 × 案件分類）が**片方だけ**入っているか。
+ *
+ * サーバーは**2つ揃ったときだけ**保存します（`resolveClassification`）。
+ * 片方だけ送ると導けないので**黙って捨てられ**、押した人には
+ * 「選んだのに入っていない」としか見えません。だから片方入れたら片方も要ります。
+ */
+export function isPartialClassification(v: NewProjectValues): boolean {
+  return !!v.audience !== !!v.project_category;
+}
+
+/**
  * 足りない項目。**押せなくするのではなく名指しする** —
  * 押せないボタンだけだと「何が足りないのか」を探すことになる。
  * 並びはフォームの並びと同じにする（上から順に埋めれば消える）。
@@ -172,16 +183,32 @@ export function moreFieldCount(audience: string, mode: FieldsMode = 'create'): n
  *
  * ⚠️ **2段分類は GLS-B のときだけ訊きません。** 工事・構築のプロジェクトには
  * 「客入れの有無」も「配信か収録か」も意味が無く、サーバーも NULL のままにします
- * （`project-classification.ts`）。作る画面は必ず GLS-A なので、ここが効くのは
- * 直す画面で古い GLS-B の行を開いたときだけです。
+ * （`project-classification.ts`）。
+ *
+ * ⚠️ **直す画面では「もともと分類が空の案件」を止めません**（ご指示）。
+ *
+ * migration 182 が埋め戻したのは旧 `project_type` の**4種だけ**で、
+ * **`other` は列の既定値**です。つまり
+ * **AI（MCP）が起こしたネタ案件・決算取込・Excel/GLS 取込で作られた案件**は
+ * どれも分類が**空のまま GLS-A に残って**います。ここを必須のままにすると、
+ * **案件名を直したいだけでも、知らない分類を選ばされて保存が押せません**
+ * （画面には「選ぶ」と出るので、**画面が値を戻したように見えます**）。
+ *
+ * → **両方とも空なら通す。片方だけ入れたら、もう片方を訊く**
+ *   （片方だけではサーバーが導けず、選んだ値が黙って捨てられるため）。
+ *   **作る画面は今までどおり5つとも必須**です — 新しく作るものに
+ *   分類が入らないと、標準工程の型が1つも当たりません。
  */
-export function missingOf(v: NewProjectValues): string[] {
+export function missingOf(v: NewProjectValues, mode: FieldsMode = 'create'): string[] {
   const asksClassification = v.gls_category !== 'B';
+  // 直す画面は「まったく入っていない」ときだけ見逃す（片方だけは見逃さない）
+  const needsClassification = asksClassification
+    && (mode === 'create' || !!v.audience || !!v.project_category);
   return [
     v.customer_id ? null : 'お客様',
     v.name.trim() ? null : '案件名',
-    !asksClassification || v.audience ? null : '客入れの有無',
-    !asksClassification || v.project_category ? null : '案件分類',
+    !needsClassification || v.audience ? null : '客入れの有無',
+    !needsClassification || v.project_category ? null : '案件分類',
     v.assigned_to ? null : '社内の担当',
   ].filter((m): m is string => m !== null);
 }
