@@ -74,27 +74,65 @@ function invoiceState(r: Revenue): { label: string; tone: string } {
     : { label: '未収', tone: 'border-transparent bg-warning-surface text-warning' };
 }
 
+/**
+ * 一覧の応答。**合計はサーバーが出したものを使います**（レビューでの指摘 #87）。
+ *
+ * ⚠️ **行を足し算しないこと。** ①分け合う請求（グループ）の `amount` は
+ * **グループ全体の額**なので、そのまま足すと**1案件の粗利が他案件のぶんだけ
+ * 膨らみます**。②行は 100 件で切っているので、**101 件目からは合計に入りません**。
+ * どちらも画面を見ても気づけません（それらしい数字が出るだけ）。
+ */
+interface ListResponse<T> {
+  data: T[];
+  /** 件数は `pagination.total`（`paginatedResponse` の形） */
+  pagination?: { total?: number };
+  /** 分け合うぶんを配分額で足した合計（案件で絞ったときだけ返る） */
+  total_allocated_amount?: number;
+  /** 同上・確定した売上だけ */
+  confirmed_allocated_amount?: number;
+}
+
+/**
+ * **切ったことを書く。** 行は 100 件までしか出しません（全部出すと画面が固まる）。
+ * 黙って切ると「これで全部」と読まれます。**合計には入っています**（サーバーが出す）。
+ */
+function MoreNote({ n }: { n: number }) {
+  return (
+    <p className="text-note border-t border-border-subtle px-4 py-2.5 text-muted-foreground">
+      ほか {n} 件（多いのでここには出していません。合計には入っています。財務管理の台帳で全部見られます）
+    </p>
+  );
+}
+
 export function RevenueBillingPane({ projectId }: { projectId: string }) {
-  const revenues = useQuery<Revenue[]>({
+  const revenues = useQuery<ListResponse<Revenue>>({
     queryKey: ['revenues', 'project', projectId],
-    queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data.data,
+    queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data,
   });
-  const purchases = useQuery<Purchase[]>({
+  const purchases = useQuery<ListResponse<Purchase>>({
     queryKey: ['purchases', 'project', projectId],
-    queryFn: async () => (await api.get('/purchases', { params: { project_id: projectId, limit: 100 } })).data.data,
+    queryFn: async () => (await api.get('/purchases', { params: { project_id: projectId, limit: 100 } })).data,
   });
 
   if (revenues.isLoading || purchases.isLoading) {
     return <Delayed><SkeletonRows rows={4} /></Delayed>;
   }
 
-  const revenueRows = revenues.data ?? [];
+  const revenueRows = revenues.data?.data ?? [];
   const invoiceRows = revenueRows.filter((r) => r.invoice_issued);
-  const purchaseRows = purchases.data ?? [];
+  const purchaseRows = purchases.data?.data ?? [];
 
-  const confirmedRevenue = revenueRows.filter((r) => r.status === 'confirmed').reduce((n, r) => n + (r.amount || 0), 0);
-  const totalCost = purchaseRows.reduce((n, p) => n + (p.amount || 0), 0);
+  // **合計はサーバーが出したものを使う**（上の注意書き）。古い応答が返ってきた
+  // ときだけ、今までどおり行を足す（数字が消えるより、多少ずれても出すほうがまし）
+  const confirmedRevenue = revenues.data?.confirmed_allocated_amount
+    ?? revenueRows.filter((r) => r.status === 'confirmed').reduce((n, r) => n + (r.amount || 0), 0);
+  const totalCost = purchases.data?.total_allocated_amount
+    ?? purchaseRows.reduce((n, p) => n + (p.amount || 0), 0);
   const grossProfit = confirmedRevenue - totalCost;
+
+  /** 行は 100 件までしか出せないので、**残りがあることを書く**（黙って切らない） */
+  const moreRevenue = Math.max(0, (revenues.data?.pagination?.total ?? 0) - revenueRows.length);
+  const morePurchase = Math.max(0, (purchases.data?.pagination?.total ?? 0) - purchaseRows.length);
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -120,6 +158,7 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
                 <DocButtons revenueId={r.id} />
               </Row>
             ))}
+            {moreRevenue > 0 && <MoreNote n={moreRevenue} />}
           </>
         )}
       </div>
@@ -150,12 +189,15 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
           {purchaseRows.length === 0 ? (
             <EmptyState title="仕入はまだありません" description="財務管理の仕入台帳から登録できます。" />
           ) : (
-            purchaseRows.map((p) => (
-              <Row key={p.id} divider align="center">
-                <RowMain><span className="text-list block truncate">{p.vendor_name || p.description || '（内容未設定）'}</span></RowMain>
-                <Money value={p.amount} className="text-sub w-28 shrink-0" />
-              </Row>
-            ))
+            <>
+              {purchaseRows.map((p) => (
+                <Row key={p.id} divider align="center">
+                  <RowMain><span className="text-list block truncate">{p.vendor_name || p.description || '（内容未設定）'}</span></RowMain>
+                  <Money value={p.amount} className="text-sub w-28 shrink-0" />
+                </Row>
+              ))}
+              {morePurchase > 0 && <MoreNote n={morePurchase} />}
+            </>
           )}
         </div>
       </div>

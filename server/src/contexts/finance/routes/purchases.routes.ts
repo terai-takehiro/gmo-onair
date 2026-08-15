@@ -44,6 +44,16 @@ router.get('/', async (req, res) => {
   const sum = (await queryOne(
     `SELECT COALESCE(SUM(pu.amount), 0) as s ${joins} ${where}`, [...allocParams, ...params])) as { s: string } | null;
 
+  /*
+   * ⚠️ **案件で絞ったときは「この案件のぶん」も返す**（レビューでの指摘 #87・売上と同じ形）。
+   * `pu.amount` は分け合う仕入なら全体の額なので、案件詳細が行を足すと
+   * 他案件のぶんまで原価に乗ります。しかも 100 件で切って足していました。
+   */
+  const alloc = projectId ? (await queryOne(
+    `SELECT COALESCE(SUM(COALESCE(pa.allocated_amount, pu.amount)), 0) AS s ${joins} ${where}`,
+    [...allocParams, ...params],
+  )) as { s: string } | null : null;
+
   // 絞り込みチップの件数。**state 以外の絞り込みだけ**を掛けて数える
   const { state: _state, ...restQuery } = req.query as Record<string, unknown>;
   const base = buildPurchaseWhere(restQuery as typeof req.query);
@@ -57,6 +67,8 @@ router.get('/', async (req, res) => {
   res.json({
     ...paginatedResponse(rows, total, page, limit),
     total_amount: Number(sum?.s ?? 0),
+    // 案件で絞ったときだけ。分け合う仕入は**この案件への配分額**で足す
+    ...(alloc ? { total_allocated_amount: Number(alloc.s) } : {}),
     state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
   });
 });

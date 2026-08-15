@@ -31,6 +31,11 @@ export interface EstimatePdf {
   filename: string;
   /** BOX の格納先を引くための案件 id */
   projectId: string;
+  /**
+   * **承認待ちかどうか**（`none` / `pending` / `approved`）。
+   * 呼ぶ側（口）が「社外フォルダに置くか」を決めるのに使います。
+   */
+  approvalState: string;
 }
 
 /**
@@ -83,7 +88,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     //    `AT TIME ZONE 'Asia/Tokyo'` で日本の壁時計にする
     // 片方だけ書くと、夕方に出した見積の発行日が1日ずれます（JST の朝 = 前日の UTC）。
     // 'UTC' とベタ書きしないのは、DB の時間帯が JST の環境で逆に9時間ずれるため
-    `SELECT e.id, e.project_id, e.version, e.title, e.status, e.tax_category,
+    `SELECT e.id, e.project_id, e.version, e.title, e.status, e.tax_category, e.approval_state,
             e.subtotal, e.discount, e.valid_until, e.notes, e.created_at,
             to_char(e.sent_at AT TIME ZONE current_setting('TimeZone') AT TIME ZONE 'Asia/Tokyo',
                     'YYYY-MM-DD') AS sent_on,
@@ -160,5 +165,11 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     buffer,
     filename: `見積書_${label || est.id}.pdf`,
     projectId: String(est.project_id),
+    /**
+     * **承認待ちかどうか。** 呼ぶ側（口）が「社外フォルダに置くか」を決めます —
+     * 値引きが上限を超えた見積は送れない決めごとなのに、置き先は社外と
+     * 共有するフォルダなので、置いた時点で送ったのと同じになります
+     */
+    approvalState: (est.approval_state as string | null) ?? 'none',
   };
 }

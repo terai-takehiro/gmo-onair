@@ -194,6 +194,30 @@ router.get('/', async (req, res) => {
      LEFT JOIN projects p ON p.id = r.project_id
      LEFT JOIN customers c ON c.id = r.customer_id ${where}`, params)) as { s: string } | null;
 
+  /*
+   * ⚠️ **案件で絞ったときは「この案件のぶん」も返す**（レビューでの指摘 #87）。
+   *
+   * `r.amount` は**グループ請求ならグループ全体の額**です。案件詳細が行を足し算して
+   * いたので、**1案件の粗利が他案件のぶんだけ膨らんで**いました。しかも画面は
+   * 100 件で切って足しており、**101 件目からは合計に入っていません**でした。
+   *
+   * 分け合っている行は `revenue_allocations` の配分額を使います
+   * （`COALESCE` なので、分け合っていない行は今までどおり `amount`）。
+   * **確定した売上だけの合計も別に返します** — 画面が状態で絞って足し直すと、
+   * また「表示中のぶんだけ」に戻ります。
+   */
+  const alloc = projectId ? (await queryOne(
+    `SELECT COALESCE(SUM(COALESCE(ra.allocated_amount, r.amount)), 0) AS s,
+            COALESCE(SUM(CASE WHEN r.status = 'confirmed'
+                              THEN COALESCE(ra.allocated_amount, r.amount) ELSE 0 END), 0) AS confirmed
+       FROM revenues r
+       LEFT JOIN projects p ON p.id = r.project_id
+       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = ?
+       ${where}`,
+    [projectId, ...params],
+  )) as { s: string; confirmed: string } | null : null;
+
   // 絞り込みチップの件数。**state 以外の絞り込みだけ**を掛けて数える
   // (全件の内訳を出すと、検索中に押した先が 0 件になる)。
   const { state: _state, ...restQuery } = req.query as Record<string, unknown>;
@@ -211,6 +235,11 @@ router.get('/', async (req, res) => {
   res.json({
     ...paginatedResponse(rows, total, page, limit),
     total_amount: Number(sum?.s ?? 0),
+    // 案件で絞ったときだけ。分け合う請求は**この案件への配分額**で足す
+    ...(alloc ? {
+      total_allocated_amount: Number(alloc.s),
+      confirmed_allocated_amount: Number(alloc.confirmed),
+    } : {}),
     state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
   });
 });
