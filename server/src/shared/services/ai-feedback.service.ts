@@ -95,7 +95,13 @@ export interface FeedbackDigest {
     won: number;
     lost: number;
     in_progress: number;
+    /**
+     * 受注になった案件の金額。**確定した売上があればそれ、無ければ起票時の見込み**
+     * （レビューでの指摘 #87 / #52）。見込みのままの件数は `won_without_revenue`。
+     */
     won_amount_total: number;
+    /** 受注のうち、まだ確定売上が1行も無い件数（＝見込みで数えたもの） */
+    won_without_revenue: number;
   };
   /** 投入の指標 (kind=task_intake のときのみ) */
   intake?: IntakeStat;
@@ -276,21 +282,50 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
   // **`ai_outcomes` に行を足さない**: 既存データから導出できるものに
   // 新しいテーブルを作ると、書き忘れた日から数字が嘘になる
   if (kind === 'estimate_draft' || kind === 'project_draft') {
+    /*
+     * ⚠️ **`SUM(DISTINCT 金額)` は使わない**（レビューでの指摘 #52）。
+     *
+     * 1つの案件に AI の出力が何回も付く（起票 → 直し → 再起票）ので、素直に結合すると
+     * 案件が何行にもなります。前の版はそれを `SUM(DISTINCT p.expected_amount)` で
+     * 避けていましたが、これは**「同じ金額の案件」を1件に潰します** — 定型の案件は
+     * 金額が揃うのが普通なので（50万円の配信が3件なら 150万円ではなく **50万円**）、
+     * **受注額が実際より小さく出ます**。しかも**それらしい数字**なので、
+     * 台帳と突き合わせるまで誰も気づけません。
+     *
+     * **先に案件を1行に畳んでから**足します（`DISTINCT p.id, ...` の内側）。
+     *
+     * ⚠️ **受注額は確定した売上で数える**（レビューでの指摘 #87）。`expected_amount` は
+     * **起票のときの見込み**で、見積が受注になっても更新されません（**更新しない**のが
+     * 正しい — 上書きすると「AI がいくらと見込んだか」が消え、この digest が
+     * 比べる相手そのものを失います）。**確定した売上があればそれを、無ければ見込みを**使い、
+     * どちらで数えたかは呼ぶ側に返します。
+     */
     const oc = await queryOne(
-      `SELECT
-         COUNT(DISTINCT p.id) FILTER (WHERE p.stage IN ('a_won','s_completed')) AS won,
-         COUNT(DISTINCT p.id) FILTER (WHERE p.stage = 'e_lost')                AS lost,
-         COUNT(DISTINCT p.id) FILTER (WHERE p.stage NOT IN ('a_won','s_completed','e_lost')) AS in_progress,
-         COALESCE(SUM(DISTINCT p.expected_amount) FILTER (WHERE p.stage IN ('a_won','s_completed')), 0) AS won_amount_total
-       FROM ai_outputs o
-       JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL
-      WHERE o.kind = ?
-        AND o.created_at >= NOW() - (? || ' days')::interval`,
+      `SELECT COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed')) AS won,
+              COUNT(*) FILTER (WHERE stage = 'e_lost')                AS lost,
+              COUNT(*) FILTER (WHERE stage NOT IN ('a_won','s_completed','e_lost')) AS in_progress,
+              COALESCE(SUM(amount) FILTER (WHERE stage IN ('a_won','s_completed')), 0) AS won_amount_total,
+              COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed') AND confirmed = 0) AS won_without_revenue
+         FROM (
+           SELECT DISTINCT p.id, p.stage,
+                  COALESCE(NULLIF(r.confirmed, 0), p.expected_amount, 0) AS amount,
+                  COALESCE(r.confirmed, 0) AS confirmed
+             FROM ai_outputs o
+             JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL
+             LEFT JOIN LATERAL (
+               SELECT COALESCE(SUM(rv.amount), 0) AS confirmed
+                 FROM revenues rv
+                WHERE rv.project_id = p.id AND rv.deleted_at IS NULL AND rv.status = 'confirmed'
+             ) r ON TRUE
+            WHERE o.kind = ?
+              AND o.created_at >= NOW() - (? || ' days')::interval
+         ) AS one_row_per_project`,
       [kind, w],
     ) as any;
     digest.outcomes = {
       won: num(oc?.won), lost: num(oc?.lost), in_progress: num(oc?.in_progress),
       won_amount_total: num(oc?.won_amount_total),
+      won_without_revenue: num(oc?.won_without_revenue),
     };
   }
 
@@ -492,6 +527,12 @@ function buildAdvice(d: FeedbackDigest): string[] {
   }
   if (d.outcomes && (d.outcomes.won || d.outcomes.lost)) {
     out.push(`成果: 受注${d.outcomes.won}件 / 失注${d.outcomes.lost}件 / 進行中${d.outcomes.in_progress}件。`);
+    // **どうやって数えた金額かを書く**（レビューでの指摘 #87）。確定売上がまだ無い案件は
+    // 起票時の見込みで数えているので、書かないと「受注額」だと読まれる
+    if (d.outcomes.won_without_revenue > 0) {
+      out.push(`受注額 ${d.outcomes.won_amount_total.toLocaleString()} 円のうち、`
+        + `${d.outcomes.won_without_revenue}件はまだ確定売上が無く、起票時の見込みで数えている。`);
+    }
   }
   if (d.intake) {
     const s = d.intake;

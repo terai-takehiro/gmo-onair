@@ -49,14 +49,16 @@ describe('roomLabel — 拠点の略称を前に付ける（migration 189）', (
 
 describe('venuesOfBooking — 予約1件の場所', () => {
   it('部屋を押さえている予約は部屋名を返す', () => {
-    expect(venuesOfBooking(booking(['WORLD STUDIO', '第1調整室']))).toEqual([
+    // **`toMatchObject`**（`toEqual` ではない）。重複を除くための鍵（`key`）が
+    // 増えたが、ここで見たいのは**名前と種類**だけ（レビューでの指摘 #101）
+    expect(venuesOfBooking(booking(['WORLD STUDIO', '第1調整室']))).toMatchObject([
       { name: 'WORLD STUDIO', kind: 'room' },
       { name: '第1調整室', kind: 'room' },
     ]);
   });
 
   it('外現場は `location_note` を場所として返す', () => {
-    expect(venuesOfBooking(booking([], '幕張メッセ 展示ホール9'))).toEqual([
+    expect(venuesOfBooking(booking([], '幕張メッセ 展示ホール9'))).toMatchObject([
       { name: '幕張メッセ 展示ホール9', kind: 'place' },
     ]);
   });
