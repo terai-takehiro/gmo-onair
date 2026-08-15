@@ -34,6 +34,14 @@ import { Field } from './Field';
 export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; mode?: FieldsMode }) {
   const { v, set } = f;
   const hint = flowHint(v.audience, v.project_category);
+  /**
+   * 2段分類に**もう手を付けたか**。直す画面では、まったく空の案件は
+   * そのまま保存できますが、**片方だけ入れたら片方も要ります**
+   * （サーバーは2つ揃ったときだけ保存するので、片方は黙って捨てられる）。
+   * `*` の出し入れを `missingOf` と同じ条件にしておかないと、
+   * **印は付いていないのに保存が押せない**という読めない状態になります。
+   */
+  const started = !!v.audience || !!v.project_category;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -67,7 +75,7 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
         **客入れの有無はプルダウンにしない。** 2択なので、開いて選ぶより
         並べて押すほうが速く、いま何を選んでいるかが常に見えます
       */}
-      <Field label="客入れの有無" required>
+      <Field label="客入れの有無" required={mode === 'create' || started}>
         <div className="flex gap-2">
           {AUDIENCES.map((a) => {
             const on = v.audience === a;
@@ -91,7 +99,7 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
         </div>
       </Field>
 
-      <Field label="案件分類" required>
+      <Field label="案件分類" required={mode === 'create' || started}>
         <Select
           value={v.project_category || undefined}
           onValueChange={(x) => set('project_category', x as ProjectCategory)}
@@ -108,6 +116,18 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
           決定キーそのものなので、片方だけで出すと嘘になります
         */}
         {hint && <p className="text-note mt-1 font-bold text-primary">{hint}</p>}
+        {/*
+          ⚠️ **「選ぶ」のままなのは、画面が戻したからではありません**（ご指摘）。
+          その案件に分類が**まだ入っていない**だけです — migration 182 が埋め戻したのは
+          旧「案件種類」の4種だけで、AI が起こしたネタ・決算取込・Excel/GLS 取込で
+          できた案件は空のまま残っています。**そう書かないと「入れたのに消えた」と読まれます。**
+          直す画面でだけ・**まだ何も入れていないとき**に出します。
+        */}
+        {mode === 'edit' && !started && (
+          <p className="text-note mt-1 text-muted-foreground">
+            この案件にはまだ分類が入っていません（空のままでも保存できます）
+          </p>
+        )}
       </Field>
 
       {/* 直す画面では出しません（この保存は `stage` を見ないため。冒頭の理由） */}
