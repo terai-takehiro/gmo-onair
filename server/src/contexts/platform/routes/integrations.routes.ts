@@ -30,6 +30,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { resolveProvider, intakeAiModel } from '../../tasks/services/intake-ai.service';
 import { isSttConfigured, sttModel, structureModel } from '../../sales/services/minutes-ai.service';
+import { isBoxConfigured } from '../../../shared/services/box';
 
 const router = Router();
 
@@ -82,9 +83,23 @@ router.get('/integrations', requireAuth, (_req, res) => {
     {
       key: 'box',
       label: 'BOX（案件フォルダ・書類）',
-      ok: has('BOX_CONFIG_JSON'),
+      /*
+       * ⚠️ **変数が「入っているか」ではなく「使えるか」を見る**（レビューでの指摘 #76）。
+       *
+       * `BOX_CONFIG_JSON` は**1行に潰した JSON**なので、貼り付けで欠けることが
+       * 普通に起きます。前の版は**空でなければ「つながっています」**と出していましたが、
+       * `box.ts` は JSON として読めて `boxAppSettings` と `enterpriseID` が揃って
+       * いなければ**クライアントを作りません**（＝BOX は全部落ちます）。
+       * つまり**壊れた設定ほど「大丈夫」と出て**、フォルダが作られない理由を
+       * 設定画面から追えませんでした。`isBoxConfigured()` が本物の判定です。
+       */
+      ok: isBoxConfigured(),
       impact: '案件のフォルダが作られず、書類タブが空になります',
       envs: ['BOX_CONFIG_JSON', 'BOX_PROJECT_PARENT_FOLDER_ID'],
+      // **壊れているのか、そもそも入れていないのかを分ける**（次にやることが違う）
+      detail: !isBoxConfigured() && has('BOX_CONFIG_JSON')
+        ? 'BOX_CONFIG_JSON は入っていますが読み取れません（JSON が壊れているか、boxAppSettings / enterpriseID が足りません）'
+        : undefined,
     },
     {
       key: 'mcp',
