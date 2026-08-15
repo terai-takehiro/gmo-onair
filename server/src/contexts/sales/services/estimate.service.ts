@@ -413,6 +413,29 @@ export const estimateService = {
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
 
+    /*
+     * ⚠️ **出した版（`sent`）・受注／失注した版・差し替え済みの版（`superseded`）の
+     * 中身は直せません**（v4 の決めごと。「直すなら次の版を作る」）。
+     *
+     * ここに守りが無く、**画面がボタンを出さないだけ**でした（レビューでの指摘 #50）。
+     * 古いタブ・MCP・直接叩けば通るので、**送った見積の金額が後から変わり**、
+     * しかも「何を出したか」を見返せるという要件そのものが壊れます。
+     *
+     * **`status` だけの更新は通します** — 送る・受注・失注は記録そのもので、
+     * 中身を変える操作ではありません（`superseded` からは動かしません）。
+     */
+    const CONTENT = ['title', 'tax_category', 'discount', 'valid_until', 'notes'] as const;
+    const touchesContent = CONTENT.some((k) => k in data);
+    if (touchesContent && existing.status !== 'draft') {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        'この版はもう直せません（送付済み・受注済み・差し替え済み）。'
+        + '内容を変えるときは「次の版をつくる」を押してください');
+    }
+    if (data.status && existing.status === 'superseded') {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        'この版は次の版に置き換わっています。新しい版で操作してください');
+    }
+
     // ── 送るときだけ止める（お金のルール ⑤）──────────────────
     //
     // 値引きの保存そのものは通します。**送付だけ**を止めるのがモックの決めごと。
@@ -518,28 +541,61 @@ export const estimateService = {
    * 計算の実装が画面とサーバーで2つになって必ず食い違う。
    */
   async replaceItems(estimateId: string, items: Partial<EstimateItem>[]): Promise<Estimate> {
-    const existing = await queryOne(`SELECT id FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [estimateId]);
+    const existing = await queryOne(
+      `SELECT id, status FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [estimateId],
+    ) as { status: string } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
-
-    await execute(`DELETE FROM estimate_items WHERE estimate_id = $1`, [estimateId]);
-    let order = 0;
-    for (const it of items) {
-      const qty = Math.max(0, Number(it.quantity) || 0);
-      const price = Math.round(Number(it.unit_price) || 0);
-      await execute(
-        `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-           amount, cost, category, item_notes, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
-         qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
-         it.item_notes ?? null, order++]
-      );
+    // **出した版の明細も直せません**（`update` と同じ決めごと）。
+    // 中身を守るのに合計だけ止めても、明細から金額を変えられては意味がない
+    if (existing.status !== 'draft') {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        'この版の明細はもう直せません（送付済み・受注済み・差し替え済み）。'
+        + '「次の版をつくる」を押してください');
     }
+
+    /*
+     * ⚠️ **消してから入れるので、取引にする**（レビューでの指摘 #50）。
+     * 取引の外でやっていたため、**途中で1行でも失敗すると前の明細が消えたまま**
+     * 残りました（画面には「保存できませんでした」と出るので、押した人は
+     * 直っていないと思うだけ ── 実際には**明細が空になっている**）。
+     */
+    await withTransaction(async (tx) => {
+      await tx.execute(`DELETE FROM estimate_items WHERE estimate_id = $1`, [estimateId]);
+      let order = 0;
+      for (const it of items) {
+        const qty = Math.max(0, Number(it.quantity) || 0);
+        const price = Math.round(Number(it.unit_price) || 0);
+        await tx.execute(
+          `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
+             amount, cost, category, item_notes, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
+           qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
+           it.item_notes ?? null, order++]
+        );
+      }
+    });
     await recalc(estimateId);
     return (await this.getById(estimateId))!;
   },
 
+  /**
+   * 消す。**下書きだけ**（レビューでの指摘 #50）。
+   *
+   * 守りが無く、**出した版・受注した版・差し替え済みの版まで消せました**
+   * （画面は `revenue_id` が無いことだけを見てボタンを出していた）。
+   * 送った見積は**お客様に渡した記録**で、消えると「何を出したか」を追えません。
+   * 差し替え済みの版も、版を重ねた経緯そのものです。
+   */
   async remove(id: string, userId: string): Promise<void> {
+    const est = await queryOne(
+      `SELECT status FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [id],
+    ) as { status: string } | undefined;
+    if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    if (est.status !== 'draft') {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        '下書きの見積だけ消せます（送付済み・受注済み・差し替え済みの版は記録として残します）');
+    }
     await execute(
       `UPDATE estimates SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
       [id, userId]

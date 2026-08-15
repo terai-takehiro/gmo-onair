@@ -255,7 +255,11 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
                     onClick={() => nextVersion.mutate(e.id)}>
                     <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                  {!e.revenue_id && (
+                  {/* ⚠️ **消せるのは下書きだけ**（レビューでの指摘 #50）。
+                      `revenue_id` が無いことだけを見ていたので、**出した版・受注した版・
+                      差し替え済みの版まで消せました** — 送った見積はお客様に渡した記録で、
+                      消えると「何を出したか」を追えません。サーバーも同じ条件で断ります */}
+                  {!e.revenue_id && e.status === 'draft' && (
                     <Button variant="outline" size="sm" title="消す" onClick={async () => {
                       const ok = await confirmAction({
                         title: `v${e.version} を消しますか？`,

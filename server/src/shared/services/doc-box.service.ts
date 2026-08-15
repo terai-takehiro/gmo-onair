@@ -52,7 +52,13 @@ export type DocBoxReason =
   /** BOX が応答しない・アップロードに失敗した */
   | 'UNAVAILABLE'
   /** 読むだけの権限なので保存しなかった */
-  | 'NO_PERMISSION';
+  | 'NO_PERMISSION'
+  /**
+   * **承認待ちの見積なので社外フォルダに置かなかった。**
+   * 値引きが上限を超えた見積は送れない決めごと（お金のルール ⑤）なのに、
+   * 置き先は社外と共有するフォルダなので、置いた時点で送ったのと同じになります
+   */
+  | 'NOT_APPROVED';
 
 export interface DocBoxResult {
   /** 入ったファイル。入らなかったときは null */

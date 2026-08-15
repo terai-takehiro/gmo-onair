@@ -178,9 +178,16 @@ router.patch('/invoices/:id', canEdit, async (req, res) => {
   if (sets.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '変更する項目がありません');
 
   const existing = await queryOne(
-    'SELECT id FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id],
-  );
+    'SELECT id, status FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { status: string } | undefined;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '請求が見つかりません');
+  // ⚠️ **確定した売上だけ**（レビューでの指摘 #53）。`status` を見ていなかったので、
+  // **見積段階（`estimate`）の行にも請求書の発行・入金・検収を記録できました** —
+  // 一覧はこの状態の行を出さないので、記録したことに誰も気づけません
+  if (existing.status !== 'confirmed') {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      '確定した売上だけ請求書の発行・入金・検収を記録できます（見積段階の行は対象外です）');
+  }
 
   params.push(req.user!.id, req.params.id);
   await execute(

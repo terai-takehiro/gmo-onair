@@ -87,13 +87,27 @@ router.get('/:id', wrap(async (req, res) => {
  */
 router.get('/:id/pdf', wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;
-  const { buffer, filename, projectId } = await buildEstimatePdf(id);
+  const { buffer, filename, projectId, approvalState } = await buildEstimatePdf(id);
 
   const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
   const canStore = meetsPermissionLevel(user?.role, user?.permissions?.sales, 'editor');
-  applyDocBoxHeaders(res, canStore
-    ? await fileFinanceDocToBox(projectId, 'estimate', filename, buffer)
-    : docBoxSkipped('estimate', 'NO_PERMISSION'));
+  /*
+   * ⚠️ **承認待ちの見積は社外フォルダに置きません**（レビューでの指摘 #102）。
+   *
+   * 値引きが上限を超えた見積は**お客様に出せない**決めごと（お金のルール ⑤）なのに、
+   * 行き先は**社外と共有するフォルダ**（`01_見積・提案`）です。置いた時点で
+   * 相手から見えるので、**送付を止めている意味が消えます**。
+   *
+   * **紙にするのは止めません** — 承認を頼む相手に見せるのに要ります。
+   * 入らなかったことは `X-Box-Reason: NOT_APPROVED` で画面に出ます
+   * （黙って落とすと「保存されたつもり」になる）。
+   */
+  const pending = approvalState === 'pending';
+  applyDocBoxHeaders(res, pending
+    ? docBoxSkipped('estimate', 'NOT_APPROVED')
+    : canStore
+      ? await fileFinanceDocToBox(projectId, 'estimate', filename, buffer)
+      : docBoxSkipped('estimate', 'NO_PERMISSION'));
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
