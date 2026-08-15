@@ -69,6 +69,40 @@ describe('お金の二重計上・取りこぼし', () => {
       .toBeGreaterThanOrEqual(2);   // ⑤ 見積・請求と ② 締め処理の2か所
   });
 
+  it('グループ請求だと画面に分かるように出す（満額の請求に見せない）', () => {
+    // ⚠️ 一覧に出すようにした以上、**印を出さないと「その案件1件ぶんの満額の請求」**に
+    // 見える（金額はグループ全体・案件名は代表の1件）。請求書を出す人・入金を
+    // 記録する人が分け合っていることに気づけない（レビューでの指摘）
+    const tag = read('client', 'src', 'contexts', 'shared', 'components', 'GroupTag.tsx');
+    expect(tag).toMatch(/export function GroupTag/);
+    expect(tag).toMatch(/export function groupNote/);
+    // グループでなければ何も描かない
+    expect(tag).toMatch(/if \(!name\) return null/);
+    // ⚠️ **画面に出さないと決めた言葉を使わない**（`check-ui-tokens` の言葉の決めごと）。
+    // 札は「分け合う」。`npm run lint` も止めるが、ここでも見ておく
+    expect(tag).not.toMatch(/>\s*按分\s*</);
+
+    // **出す先は3か所**（⑤ 見積・請求／② 締め処理／スマホの入金の確認）。
+    // 1つ足りないと、その画面だけ満額の請求に見えたままになる
+    for (const p of [
+      ['client', 'src', 'contexts', 'sales', 'pages', 'billing', 'InvoiceRows.tsx'],
+      ['client', 'src', 'contexts', 'finance', 'pages', 'billing', 'ClosingRows.tsx'],
+      ['client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'],
+    ]) {
+      const src = read(...p);
+      expect(src).toMatch(/<GroupTag name=\{r\.group_name\} \/>/);
+      expect(src).toMatch(/groupNote\(r\.group_name\)/);
+    }
+
+    // 型にも載せる（載せ忘れると画面が受け取れない）
+    for (const p of [
+      ['client', 'src', 'contexts', 'sales', 'pages', 'billing', 'types.ts'],
+      ['client', 'src', 'contexts', 'finance', 'pages', 'billing', 'types.ts'],
+    ]) {
+      expect(read(...p)).toMatch(/group_name\?: string \| null/);
+    }
+  });
+
   it('書類の台帳への引き渡しは、取引の中で書類を押さえてから書く', () => {
     const body = txBody(HANDOFF, HANDOFF.indexOf('export async function handoffDoc'));
     expect(body).toMatch(/SELECT linked_id, status FROM finance_docs WHERE id = \? FOR UPDATE/);

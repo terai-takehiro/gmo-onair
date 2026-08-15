@@ -23,6 +23,7 @@
  * やるべきです。**スマホで戻せると、誰がいつ戻したのか分からなくなります。**
  */
 import { useMemo, useState } from 'react';
+import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Wallet, Info, Check } from 'lucide-react';
 import api from '@/lib/api';
@@ -124,9 +125,11 @@ export function MobileCollect() {
                   <span className="min-w-0 flex-1">
                     <span className="text-list block [overflow-wrap:anywhere]">
                       {r.customer_name || r.project_name || r.gls_number || '（名前なし）'}
+                      <GroupTag name={r.group_name} />
                     </span>
                     <span className="text-note mt-0.5 block truncate text-muted-foreground">
-                      {[r.gls_number, r.project_name, r.invoice_no].filter(Boolean).join(' ・ ')}
+                      {[r.gls_number, r.project_name, r.invoice_no, groupNote(r.group_name)]
+                        .filter(Boolean).join(' ・ ')}
                     </span>
                     <span className={cn('text-note mt-1 block font-bold', TONE[d.tone])}>
                       {/* `dueLabel` はタスクの「期限」用なので、期日が無いときの文言だけ差し替える
