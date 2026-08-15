@@ -167,7 +167,13 @@ export function useGpmTemplates() {
 export function useGpmCustomers() {
   return useQuery<{ id: string; name: string }[]>({
     queryKey: gpmKeys.customers(),
-    queryFn: async () => (await api.get('/customers', { params: { limit: 200 } })).data.data,
+    /*
+     * ⚠️ **`/customers` を直接引かないこと**（レビューでの指摘 #67）。
+     * あちらは `sales` を要求するので、`gpm` だけの人には 403 が返り、
+     * **依頼元を1件も選べず、プロジェクトを作れません**でした。
+     * `gpm` の口は id と名前だけを返します（選ぶのに要るのはそれだけ）。
+     */
+    queryFn: async () => (await api.get('/gpm/customers')).data.data,
   });
 }
 
