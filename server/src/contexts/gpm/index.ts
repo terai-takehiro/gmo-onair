@@ -202,8 +202,10 @@ export function createGpmRoutes(): Router {
     const id = String(req.params.id);
     await assertGpmProject(id);
     const scope = req.query.scope === 'internal' ? 'internal' : 'external';
-    const { items, reason } = await listProjectFolder(id, scope, 'プロジェクトが見つかりません');
-    res.json({ success: true, data: items, ...(reason ? { reason } : {}) });
+    const { items, total, truncated, reason } = await listProjectFolder(id, scope, 'プロジェクトが見つかりません');
+    // **切ったことを画面に渡す**（レビューでの指摘 #51）。黙って切ると
+    // 「まだ上がっていない」と読まれ、同じファイルがもう一度上がる
+    res.json({ success: true, data: items, total, truncated, ...(reason ? { reason } : {}) });
   });
 
   router.post('/projects/:id/box-files', ...canEdit, fileUpload.array('files', 5), async (req, res) => {

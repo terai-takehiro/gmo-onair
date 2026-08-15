@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Search, Building2, Truck, Wrench, FolderKanban, Clock, CornerDownLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
@@ -60,8 +60,20 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
   // 最近見たものは**いま入っている人のものだけ**（端末を共有したときの持ち越しを防ぐ）
   const uid = currentUser?.id ?? '';
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResults | null>(null);
+  /**
+   * **どの言葉の結果か**を一緒に持ちます（レビューでの指摘 #68）。
+   *
+   * 番号（`seq`）は「遅れて届いた古い結果で新しい結果を上書きしない」ためのもので、
+   * **打ち替えた瞬間に前の言葉の結果を画面から消しはしません**。前の版は
+   * 「みらい」の案件が並んだまま「サムライ」と打ち替えられ、**新しい結果が届くまでの
+   * 250ms＋通信のあいだ、古い候補が新しい語の下に並んで**いました。
+   * その状態で Enter を押すと**打った言葉と関係ないものが開きます**
+   * （しかも開いた先は普通の画面なので、誤りに気づくのはそこを読んでからです）。
+   */
+  const [results, setResults] = useState<{ q: string; data: SearchResults } | null>(null);
   const [searching, setSearching] = useState(false);
+  /** サーバーに訊けなかった（機能の候補は手元で出せるので窓は使えたまま） */
+  const [failed, setFailed] = useState(false);
   const [cursor, setCursor] = useState(0);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const seq = useRef(0);
@@ -80,13 +92,17 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
   const run = useCallback(async (q: string) => {
     const mine = ++seq.current;
     setSearching(true);
+    setFailed(false);
     try {
       const data = (await api.get('/search', { params: { q } })).data.data as SearchResults;
       if (mine !== seq.current) return;
-      setResults(data);
+      setResults({ q, data });
     } catch {
-      // **黙って落とす。** 機能の候補は手元で出せるので、窓は使えたまま
-      if (mine === seq.current) setResults(null);
+      // **窓は使えたまま**（機能の候補は手元で出せる）。ただし**黙らない** —
+      // 何も出ないのを「そんな案件は無い」と読まれると、探すのをやめてしまう
+      if (mine !== seq.current) return;
+      setResults(null);
+      setFailed(true);
     } finally {
       if (mine === seq.current) setSearching(false);
     }
@@ -98,10 +114,16 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
       seq.current += 1;
       setResults(null);
       setSearching(false);
+      setFailed(false);
       return;
     }
+    // **打ち替えたら「探している最中」に見せる**（古い結果は下の `hits` が落とす）
+    if (results && results.q !== q) setSearching(true);
     const t = setTimeout(() => run(q), 250);
     return () => clearTimeout(t);
+    // `results` は「言葉が変わったか」を見るだけ。依存に入れると
+    // 結果が届くたびに投げ直すことになるので入れない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, run]);
 
   /** 権限が無いものは出さない（押してから 403 で気づかせない） */
@@ -118,6 +140,9 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
   const hits: Hit[] = useMemo(() => {
     const q = query.trim();
     const out: Hit[] = [];
+    // **いま打っている言葉の結果だけを使う**（上の説明。前の言葉の候補が
+    // 新しい語の下に残ると、Enter で違うものが開く）
+    const found = results && results.q === q ? results.data : null;
 
     if (!q) {
       // **打つ前は「よく行く先」と「最近見たもの」。**
@@ -145,7 +170,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
       out.push({ key: `f:${f.to}`, group: '機能', label: f.label, sub: f.sub, icon: f.icon, to: f.to, external: f.external });
       if (out.length >= 6) break;
     }
-    for (const p of results?.projects ?? []) {
+    for (const p of found?.projects ?? []) {
       out.push({
         key: `p:${p.id}`,
         group: '案件',
@@ -156,13 +181,13 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
         to: `/sales/projects/${p.id}`,
       });
     }
-    for (const c of results?.customers ?? []) {
+    for (const c of found?.customers ?? []) {
       out.push({ key: `c:${c.id}`, group: 'お客様', label: c.name, sub: c.short_name, icon: Building2, to: `/sales/customers/${c.id}` });
     }
-    for (const v of results?.vendors ?? []) {
+    for (const v of found?.vendors ?? []) {
       out.push({ key: `v:${v.id}`, group: '仕入先', label: v.name, sub: v.vendor_type, icon: Truck, to: '/budget/vendors' });
     }
-    for (const e of results?.equipment ?? []) {
+    for (const e of found?.equipment ?? []) {
       // **機材管理は別のバンドル**なので `external`（素の遷移）で開く
       out.push({
         key: `e:${e.id}`, group: '機材', label: e.name,
@@ -214,8 +239,15 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-xl" aria-describedby={undefined}>
-        {/* 見出しは置かない。**探す窓は打ち始められることが全部**なので、
-            1行ぶんの高さも候補に使う（読み上げ用の名前は入力欄が持つ） */}
+        {/*
+          見出しは**目には出さない**。探す窓は打ち始められることが全部なので、
+          1行ぶんの高さも候補に使う。
+          ⚠️ **ただし読み上げ用には要る。** 「入力欄が名前を持つ」と書いてあったが、
+          Radix の Dialog は `DialogTitle` が無いと**名前の無いダイアログ**として扱い、
+          開くたびに console にエラーを出していた（実ブラウザで実測）。
+          読み上げでは「何の窓が開いたのか」が分からないまま候補だけが読まれる。
+        */}
+        <DialogTitle className="sr-only">探す</DialogTitle>
         <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Input
@@ -232,11 +264,23 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
         </div>
 
         <div ref={listRef} className="max-h-[52vh] overflow-y-auto p-1.5">
+          {/* ⚠️ **訊けなかったことを「見つかりませんでした」と言わない**（#68）。
+              サーバーに届かなかっただけなのに、無いと言い切ると探すのをやめる */}
+          {failed && (
+            <p className="text-sub rounded-control m-1.5 bg-warning-surface px-3 py-2 text-secondary-foreground">
+              案件・お客様・機材は<strong className="font-bold">いま探せませんでした</strong>（画面の名前だけ出しています）。
+              打ち直すともう一度試します。
+            </p>
+          )}
           {hits.length === 0 ? (
             <p className="text-sub px-3 py-6 text-center text-muted-foreground">
-              {query.trim()
-                ? '見つかりませんでした。案件名の一部・GLS番号・お客様名・仕入先名でも探せます'
-                : '案件名・GLS番号・お客様名・仕入先名・画面の名前で探せます'}
+              {!query.trim()
+                ? '案件名・GLS番号・お客様名・仕入先名・画面の名前で探せます'
+                : searching
+                  ? '探しています…'
+                  : failed
+                    ? '打ち直すともう一度試します'
+                    : '見つかりませんでした。案件名の一部・GLS番号・お客様名・仕入先名でも探せます'}
             </p>
           ) : (
             hits.map((hit, i) => {

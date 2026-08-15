@@ -64,6 +64,24 @@ const INVOICE_CHIPS = [
   { key: 'paid', label: '入金済', state: 'paid' },
 ];
 
+/**
+ * 一覧の応答。**件数も合計もサーバーが数えたもの**を使います（レビューでの指摘 #53）。
+ *
+ * ⚠️ **並んだ行を数えない・足さない。** 行は 300 件で切っているので、
+ * 数えると「300 件」、足すと **301 件目からが落ちた合計**になります。
+ * どちらも画面を見ても気づけません（それらしい数字が出るだけで、
+ * 月末に突き合わせるまで分かりません）。
+ */
+interface ListResponse<T> {
+  data: T[];
+  /** 絞り込み全体の件数 */
+  total_count?: number;
+  /** 同上の合計（税抜・見積は値引きを引いたあと） */
+  total_amount?: number;
+  /** 行を切ったか */
+  truncated?: boolean;
+}
+
 export default function BillingListPage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
@@ -92,11 +110,11 @@ export default function BillingListPage() {
   // 閉じている側のタブに出る件数が 0 のままになり**数字が嘘になる**
   // (実ブラウザで「見積 0 / 請求 2」と出て気づいた)。
   // 切り替えも待ちなしになる。
-  const estimates = useQuery<{ data: BillingEstimate[] }>({
+  const estimates = useQuery<ListResponse<BillingEstimate>>({
     queryKey: ['billing', 'estimates', scope, status, approval],
     queryFn: async () => (await api.get('/billing/estimates', { params: { scope, status, approval } })).data,
   });
-  const invoices = useQuery<{ data: BillingInvoice[] }>({
+  const invoices = useQuery<ListResponse<BillingInvoice>>({
     queryKey: ['billing', 'invoices', scope, state],
     queryFn: async () => (await api.get('/billing/invoices', { params: { scope, state } })).data,
   });
@@ -135,10 +153,24 @@ export default function BillingListPage() {
   const eRows = useMemo(() => estimates.data?.data ?? [], [estimates.data]);
   const iRows = useMemo(() => invoices.data?.data ?? [], [invoices.data]);
 
-  /** 合計。**いま見えている行の合計**（絞り込みを掛けたあと）。値引きは引いたあと */
-  const total = useMemo(() => (tab === 'estimate'
-    ? eRows.reduce((n, e) => n + Number(e.subtotal ?? 0) - Number(e.discount ?? 0), 0)
-    : iRows.reduce((n, r) => n + Number(r.amount ?? 0), 0)), [tab, eRows, iRows]);
+  /**
+   * 合計。**絞り込み全体の合計**（サーバーが数えたもの）。値引きは引いたあと。
+   * 古い応答が返ってきたときだけ、今までどおり行を足す
+   * （数字が消えるより、多少ずれても出るほうがまし）。
+   */
+  const total = useMemo(() => {
+    const server = tab === 'estimate' ? estimates.data?.total_amount : invoices.data?.total_amount;
+    if (typeof server === 'number') return server;
+    return tab === 'estimate'
+      ? eRows.reduce((n, e) => n + Number(e.subtotal ?? 0) - Number(e.discount ?? 0), 0)
+      : iRows.reduce((n, r) => n + Number(r.amount ?? 0), 0);
+  }, [tab, eRows, iRows, estimates.data, invoices.data]);
+
+  /** タブに出す件数も**絞り込み全体**（並んだ行の数ではない） */
+  const eCount = estimates.data?.total_count ?? eRows.length;
+  const iCount = invoices.data?.total_count ?? iRows.length;
+  /** 出していない行の数。**黙って切らない** */
+  const hidden = tab === 'estimate' ? eCount - eRows.length : iCount - iRows.length;
 
   const loading = tab === 'estimate' ? estimates.isLoading : invoices.isLoading;
   const err = tab === 'estimate' ? estimates.error : invoices.error;
@@ -156,8 +188,8 @@ export default function BillingListPage() {
       {/* タブ。**URL に持たせる** — 共有したリンクが同じ画面で開く */}
       <div className="flex gap-1 border-b border-border">
         {([
-          ['estimate', '見積', FileText, eRows.length],
-          ['invoice', '請求', Receipt, iRows.length],
+          ['estimate', '見積', FileText, eCount],
+          ['invoice', '請求', Receipt, iCount],
         ] as const).map(([key, label, Icon, n]) => (
           <button
             key={key}
@@ -203,7 +235,8 @@ export default function BillingListPage() {
           />
         )}
         <div className="flex-1" />
-        {/* 合計は**いま見えている行**のもの。絞り込みを変えると動く */}
+        {/* 合計は**絞り込み全体**のもの（並んでいる行のぶんではない）。
+            絞り込みを変えると動く */}
         <span className="text-note text-muted-foreground">合計（税抜）</span>
         <Money value={total} className="w-40 text-[17px] font-bold" />
       </div>
@@ -244,6 +277,15 @@ export default function BillingListPage() {
           <EstimateRows rows={eRows} today={today} />
         ) : (
           <InvoiceRows rows={iRows} today={today} canEdit={canEdit} busyId={busyId} onMark={onMark} />
+        )}
+
+        {/* **切ったことを書く**（レビューでの指摘 #53）。黙って切ると
+            「これで全部」と読まれる。**合計と件数には入っている** */}
+        {hidden > 0 && (
+          <p className="text-note border-t border-border-subtle px-4 py-2.5 text-muted-foreground">
+            ほか <span className="font-number">{hidden}</span> 件（多いのでここには出していません。
+            上の件数と合計には入っています。絞り込むと出せます）
+          </p>
         )}
       </section>
 

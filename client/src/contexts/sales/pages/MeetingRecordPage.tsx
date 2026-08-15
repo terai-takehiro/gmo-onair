@@ -25,7 +25,7 @@
  *
  * > モックの原文: **「文字起こし全文は案件の『やり取り』に入ります。読むのはPCが向いています。」**
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Mic, Search, Info, ArrowRight, Check } from 'lucide-react';
@@ -47,11 +47,28 @@ export default function MeetingRecordPage() {
   const [recOpen, setRecOpen] = useState(false);
   const [sent, setSent] = useState(false);
 
+  /*
+   * ⚠️ **絞り込みはサーバーに投げる**（レビューでの指摘 #60）。
+   *
+   * 前の版は「最後に動いた 50 件」を1回引いて、**打った言葉は手元の 50 件の中だけ**を
+   * 見ていました。つまり **51 件目以降の案件は、名前を正しく打っても出てきません**。
+   * 探した人には「この案件は無い」としか見えないので、**別の案件に録音を付ける**か、
+   * 録るのをやめます（どちらも画面には何も出ません）。
+   */
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
   // **動いている案件から出す。** 終わった案件の打合せを録ることは無い
   const list = useQuery({
-    queryKey: ['projects', 'for-record'],
+    queryKey: ['projects', 'for-record', debounced],
     queryFn: async () => (await api.get('/projects', {
-      params: { limit: 50, sort_by: 'last_move', stage: 'neta,d_hold,c_proposal,b_verbal,a_won' },
+      params: {
+        limit: 50, sort_by: 'last_move', stage: 'neta,d_hold,c_proposal,b_verbal,a_won',
+        ...(debounced ? { search: debounced } : {}),
+      },
     })).data.data as Row[],
     staleTime: 60_000,
   });
@@ -63,12 +80,27 @@ export default function MeetingRecordPage() {
     enabled: !!picked,
   });
 
-  const rows = useMemo(() => {
-    const all = list.data ?? [];
-    const k = q.trim();
-    if (!k) return all;
-    return all.filter((r) => `${r.name} ${r.gls_number ?? ''} ${r.customer_name ?? ''}`.includes(k));
-  }, [list.data, q]);
+  /**
+   * サーバーが絞ったものをそのまま出す。**手元でもう一度絞らない** —
+   * サーバーの検索は案件名・GLS番号・お客様名を見るので、
+   * ここで素の文字列一致を重ねると**サーバーが当てたものを画面が落とします**
+   * （全角半角・大文字小文字の扱いが両者で違う）。
+   */
+  const rows = list.data ?? [];
+
+  /**
+   * ⚠️ **打った言葉と、並んでいる案件が食い違う瞬間を出さない**
+   * （この PR のレビューで指摘された）。
+   *
+   * ①打ってから 300ms は `debounced` が前の言葉のまま＝**前の言葉の一覧**が並び、
+   * ②通信のあいだも同じです。手元での絞り込みをやめたので、**画面には
+   * 打った言葉と関係ない案件が押せる状態で並びます**。ここで選ぶと、
+   * **録音がその案件に付きます**（送ったあとは案件名しか出ないので、
+   * 間違いに気づくのは相手の議事録を読んだときです）。
+   *
+   * ⌘K の窓と同じ決めごと — **どの言葉の結果かが一致しているときだけ出す**。
+   */
+  const searching = q.trim() !== debounced || list.isFetching;
 
   const send = useMutation({
     mutationFn: async (p: { file: File; metOn: string }) => {
@@ -101,7 +133,10 @@ export default function MeetingRecordPage() {
             引用と突き合わせながら直す作業なので、小さい画面では読み切れません。
           </p>
         </div>
-        <Button className="w-full" onClick={() => navigate(`/sales/projects/${picked.id}/log`)}>
+        {/* ⚠️ **タブの鍵は `thread`**（レビューでの指摘 #60）。`log` というタブは
+            無いので、押すと**概要タブに落ちて**いました。落ちても画面は出るので、
+            押した人は「やり取りに何も入っていない」と読みます */}
+        <Button className="w-full" onClick={() => navigate(`/sales/projects/${picked.id}/thread`)}>
           この案件のやり取りを開く<ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
         </Button>
         <Button variant="outline" className="w-full" onClick={() => { setSent(false); setPicked(null); setQ(''); }}>
@@ -151,7 +186,8 @@ export default function MeetingRecordPage() {
 
       {list.isError ? (
         <ErrorPanel title="案件を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
-      ) : list.isLoading ? (
+      ) : list.isLoading || searching ? (
+        /* **打った言葉と食い違う一覧を押させない**（上の `searching` の説明） */
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
         <EmptyState
@@ -160,6 +196,14 @@ export default function MeetingRecordPage() {
         />
       ) : (
         <ul className="flex flex-col gap-2">
+          {/* **何が並んでいるかを書く**（レビューでの指摘 #60）。書かないと
+              「動いている案件はこれで全部」と読まれ、51 件目の案件は
+              打てば出ることに気づけない */}
+          <li className="text-note text-muted-foreground">
+            {debounced
+              ? <>「{debounced}」に当たる案件（最大 50 件）</>
+              : <>最後に動いた <span className="font-number">50</span> 件です。無ければ案件名・GLS番号で絞ってください</>}
+          </li>
           {rows.map((r) => (
             <li key={r.id}>
               <button

@@ -14,7 +14,7 @@
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryOne } from '../../../shared/db/connection';
 import {
-  isBoxConfigured, extractFolderId, uploadToFolder, listFolderItems,
+  isBoxConfigured, extractFolderId, uploadToFolder, listFolderItems, type BoxItem,
 } from '../../../shared/services/box';
 
 export type BoxScope = 'internal' | 'external';
@@ -115,7 +115,7 @@ export async function uploadFiles(
  */
 export async function listProjectFolder(
   projectId: string, scope: BoxScope, notFoundMessage = '案件が見つかりません',
-): Promise<{ items: Awaited<ReturnType<typeof listFolderItems>>; reason?: string }> {
+): Promise<{ items: BoxItem[]; total: number; truncated: boolean; reason?: string }> {
   const row = await queryOne(
     'SELECT box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
     [projectId],
@@ -123,12 +123,14 @@ export async function listProjectFolder(
   if (!row) throw new AppError(404, 'NOT_FOUND', notFoundMessage);
 
   const id = extractFolderId(scope === 'internal' ? row.box_url_internal : row.box_url_external);
-  if (!id) return { items: [], reason: 'NO_FOLDER' };
-  if (!isBoxConfigured()) return { items: [], reason: 'NOT_CONFIGURED' };
+  if (!id) return { items: [], total: 0, truncated: false, reason: 'NO_FOLDER' };
+  if (!isBoxConfigured()) return { items: [], total: 0, truncated: false, reason: 'NOT_CONFIGURED' };
   try {
-    return { items: await listFolderItems(id) };
+    // **総数と「切ったか」も返す**（レビューでの指摘 #51）。100 件で黙って
+    // 切れていたので、置いた人には「上げたのに無い」としか見えなかった
+    return await listFolderItems(id);
   } catch (err) {
     console.error('[box] listFolderItems failed:', (err as Error).message);
-    return { items: [], reason: 'UNAVAILABLE' };
+    return { items: [], total: 0, truncated: false, reason: 'UNAVAILABLE' };
   }
 }
