@@ -74,8 +74,14 @@ export function MobileCollect() {
    */
   const q = useQuery<{ data: Row[]; total_count?: number; total_amount?: number; truncated?: boolean }>({
     // **PC の ⑤ 見積・請求と同じ鍵**にする（片方だけ古いままにならない）
-    queryKey: ['billing', 'invoices', 'all', 'unpaid'],
-    queryFn: async () => (await api.get('/billing/invoices', { params: { state: 'unpaid' } })).data,
+    queryKey: ['billing', 'invoices', 'all', 'unpaid_issued'],
+    /*
+     * **請求書を出したものだけ**（`unpaid` ではなく `unpaid_issued`）。
+     * `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**まで
+     * 並び、**請求していないのに入金済みの行**を作れてしまいます
+     * （月次の締めの `collect` は前から `invoice_issued` を要求していました）。
+     */
+    queryFn: async () => (await api.get('/billing/invoices', { params: { state: 'unpaid_issued' } })).data,
   });
 
   // サーバーが期日の近い順に返す（並べ直さない — 2か所で並びを決めると食い違う）
@@ -85,11 +91,20 @@ export function MobileCollect() {
   const total = q.data?.total_amount ?? rows.reduce((n, r) => n + (Number(r.amount) || 0), 0);
   const count = q.data?.total_count ?? rows.length;
   const overdue = rows.filter((r) => !!r.payment_due_date && r.payment_due_date.slice(0, 10) < today).length;
+  /** 出していない行の数（サーバーは 300 件で切る）。**黙って切らない** */
+  const hidden = Math.max(0, count - rows.length);
 
   const record = useMutation({
     mutationFn: (r: Row) => api.post('/billing/invoices/bulk', { ids: [r.id], paid_date: today }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['billing', 'closing'] });
+      /*
+       * ⚠️ **いま引いている鍵を落とす**（レビューでの指摘）。
+       * 画面の鍵を `['billing','invoices',…]` に替えたのに、落とすほうは
+       * 締めの鍵のままでした。**記録したのに行が消えず、合計も件数も変わらない**ので、
+       * 「入金を記録しました」の帯が出たあとに**もう一度押されます**（二重に記録される）。
+       * `['billing']` で両方（締め・請求の一覧）を落とします。
+       */
+      qc.invalidateQueries({ queryKey: ['billing'] });
       qc.invalidateQueries({ queryKey: ['revenues'] });
       setOpen(null);
       notifySuccess('入金を記録しました');
@@ -156,6 +171,18 @@ export function MobileCollect() {
             );
           })}
         </ul>
+      )}
+
+      {/*
+        ⚠️ **切ったことを書く**（レビューでの指摘）。サーバーは 300 件で行を切りますが、
+        件数と合計は絞り込み全体のものです。書かないと「これで全部」と読まれ、
+        **301 件目からはスマホから入金を記録できない**ことに気づけません。
+      */}
+      {hidden > 0 && (
+        <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-3 text-note text-secondary-foreground">
+          ほか <span className="font-number">{hidden}</span> 件は多いのでここに出していません
+          （上の件数と合計には入っています）。<strong className="font-bold">PC の「請求・入金」から記録してください。</strong>
+        </p>
       )}
 
       <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">

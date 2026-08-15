@@ -320,7 +320,7 @@ describe('スマホの入金の確認は月で切らない（レビューでの�
       join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
       'utf8',
     );
-    expect(src).toMatch(/params: \{ state: 'unpaid' \}/);
+    expect(src).toMatch(/params: \{ state: 'unpaid_issued' \}/);
     // **注釈は外してから探す**（この製品は前の版の形を説明として残す決めごと）
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/billing\/closing/);
@@ -328,5 +328,41 @@ describe('スマホの入金の確認は月で切らない（レビューでの�
     expect(src).toMatch(/const total = q\.data\?\.total_amount \?\?/);
     // 月で切っていないことを画面に書く
     expect(src).toMatch(/月をまたいで全部/);
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された3つ**（どれも実ブラウザ・実 Postgres で再現）。
+   */
+  it('請求書を出したものだけを並べる（出す前に入金を記録させない）', () => {
+    // `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**も並ぶ。
+    // そこから記録できると**請求していないのに入金済みの行**ができる
+    // （実測: `unpaid` は 40 件・未発行を含む / `unpaid_issued` は 3 件・含まない）
+    const routes = readFileSync(
+      join(__dirname, '..', '..', 'server', 'src', 'contexts', 'sales', 'routes', 'billing.routes.ts'),
+      'utf8',
+    );
+    expect(routes).toMatch(/state === 'unpaid_issued'\) where \+= ' AND r\.invoice_issued = true AND r\.paid_date IS NULL'/);
+    // **`unpaid` の意味は変えていない**（⑤ の「入金前」チップが読んでいる）
+    expect(routes).toMatch(/if \(state === 'unpaid'\) where \+= ' AND r\.paid_date IS NULL';/);
+  });
+
+  it('記録したら、いま引いている鍵を落とす', () => {
+    // 画面の鍵を替えたのに落とす鍵が古いままだと、**記録したのに行が消えず**、
+    // 「記録しました」の帯のあとに**もう一度押されます**（実測: 3件 → 3件のまま）
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/qc\.invalidateQueries\(\{ queryKey: \['billing'\] \}\)/);
+  });
+
+  it('300 件で切れたことを書く（スマホから記録できない行を黙らない）', () => {
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/const hidden = Math\.max\(0, count - rows\.length\);/);
+    expect(src).toMatch(/\{hidden > 0 && \(/);
+    expect(src).toMatch(/PC の「請求・入金」から記録してください/);
   });
 });
