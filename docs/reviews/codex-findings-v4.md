@@ -167,9 +167,9 @@
 | #83 | P2 | `scheduler.service` | 同じ日に終わる案件が20件を超えると、残りに KPT が作られない | ❓ |
 | #82 | P2 | `AppShell` | パンくずがクエリ違いの項目を取り違える | ❓ |
 | #82 | P2 | `AppShell` | パンくずが**権限で隠した項目の名前**を出す | ❓ |
-| #81 | P2 | `projects.tools` (MCP) | `update_project` の分類が**黙って無視される**（`updated: true` は返る） | ❓ |
-| #80 | P2 | `useNewProjectForm` | `?inquiry=` から開いても**引き合いの中身が写らない** | ❓ |
-| #80 | P2 | `project.service` | 旧 API 経由で「客入れなし」なのに来場人数が残る | ❓ |
+| #81 | P2 | `projects.tools` (MCP) | `update_project` の分類が**黙って無視される**（`updated: true` は返る） | ⭕️ #117 |
+| #80 | P2 | `useNewProjectForm` | `?inquiry=` から開いても**引き合いの中身が写らない** | ⭕️ #117 |
+| #80 | P2 | `project.service` | 旧 API 経由で「客入れなし」なのに来場人数が残る | ⭕️ 済（`create` / `update` とも落とす・#117 で実測） |
 | #79 | **P1** | `Recorder` | 下読みが**5分まるごと**を毎回送る（費用削減が効いていない） | ⭕️ #114 |
 | #79 | **P1** | `useIntake` | 画像の縮小が終わる前に送れて、**添付が黙って消える** | ⭕️ #114 |
 | #79 | P2 | `intake-ai.service` | 失敗した light の呼び出しが記録されない（費用が過少に出る） | ⭕️ #114 |
