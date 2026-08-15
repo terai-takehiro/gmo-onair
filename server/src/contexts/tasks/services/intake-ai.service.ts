@@ -541,6 +541,44 @@ export function isViewableAttachment(mime: string): boolean {
 }
 
 /**
+ * **その相手（プロバイダ）が本当に読める画像か。**
+ *
+ * ⚠️ **OpenAI も Anthropic も、画像は4種類だけ**です
+ * （jpeg / png / gif / webp）。**iPhone の写真（HEIC）や SVG は読めません。**
+ *
+ * ⚠️ **相手ごとに違う、と思い込まないこと**（レビューでの指摘・この PR で直した）。
+ * 最初の版は Anthropic だけを見ていましたが、**主経路は OpenAI** です。
+ * そちらへ HEIC を渡すと **API が 400 を返し、解析まるごとが規則ベースへ落ちます** —
+ * つまり**下書きが全部タスクになる**うえ、**どのファイルが原因かは
+ * どこにも出ません**（直そうとした「黙って消える」がそのまま残っていました）。
+ */
+const AI_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+
+/** その相手に渡してよい添付か（画像4種類 ＋ PDF） */
+export function readableForProvider(provider: 'openai' | 'anthropic' | null, mime: string): boolean {
+  if (!provider) return false;   // 規則ベースは添付を1つも読まない
+  return (AI_IMAGE_TYPES as readonly string[]).includes(mime) || mime === 'application/pdf';
+}
+
+/**
+ * **読めなかった添付**。確認画面に並べるために返します。
+ *
+ * 落とすこと自体は変えません（渡して 400 にすると**解析まるごと**が落ちる）。
+ * 変えたのは**黙らないこと**だけです。
+ *
+ * ⚠️ **AI につないでいない環境（規則ベースのみ）では、添付は1つも読まれません。**
+ * そこで「0件」と返すと、**いちばん読まれていない環境で何も出ない**ことになります。
+ */
+export function unreadableAttachments(
+  provider: 'openai' | 'anthropic' | null,
+  attachments: IntakeAttachment[],
+): { name: string; mime: string }[] {
+  return attachments
+    .filter((a) => !readableForProvider(provider, a.mime))
+    .map((a) => ({ name: a.name, mime: a.mime }));
+}
+
+/**
  * ChatGPT (Responses API) に渡す入力を組み立てる。
  *
  * **同じ確認画面に出す**のが要件なので、添付も「別の解析」ではなく
@@ -572,15 +610,12 @@ function openAiInput(
 }
 
 /** Anthropic に渡す content ブロック（プロバイダを差し替えても添付が消えないように） */
-/** Anthropic の画像は種類が 4 つに限られる。それ以外は落とす（400 で解析ごと失敗させない） */
-const ANTHROPIC_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
-
 function anthropicContent(
   userPrompt: string, attachments: IntakeAttachment[]
 ): Anthropic.ContentBlockParam[] {
   const content: Anthropic.ContentBlockParam[] = [{ type: 'text', text: userPrompt }];
   for (const a of attachments) {
-    const imageType = ANTHROPIC_IMAGE_TYPES.find((t) => t === a.mime);
+    const imageType = AI_IMAGE_TYPES.find((t) => t === a.mime);
     if (imageType) {
       content.push({
         type: 'image',
@@ -624,7 +659,13 @@ export async function parseIntakeWithAi(
 
   const now = opts.now ?? new Date();
   const projects = opts.projects ?? [];
-  const attachments = (opts.attachments ?? []).filter((a) => isViewableAttachment(a.mime));
+  /*
+   * ⚠️ **読めないものは渡さない。** 前の版は「見せられる種類か」（画像 or PDF）だけで
+   * 絞っていたので、**HEIC をそのまま OpenAI に渡して 400** になり、
+   * **解析まるごとが規則ベースへ落ちて**いました（下書きが全部タスクになる）。
+   * 落としたものは `unreadableAttachments` が呼ぶ側に返し、確認画面に並びます。
+   */
+  const attachments = (opts.attachments ?? []).filter((a) => readableForProvider(provider, a.mime));
   const userPrompt = buildUserPrompt(text, users, now, opts.submitterId, opts.advice, projects);
 
   const heavy = intakeAiModel(provider);

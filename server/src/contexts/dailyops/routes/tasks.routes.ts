@@ -8,6 +8,7 @@ import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-int
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import {
   parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment, intakeAiModel,
+  unreadableAttachments,
   type IntakeAttachment, type ParserProject,
 } from '../../tasks/services/intake-ai.service';
 import {
@@ -93,6 +94,30 @@ function canWriteProjects(req: Request): boolean {
 }
 
 // ══════════════════════════════════════════════
+/**
+ * 画面に出す「拾わなかったもの」を1つの形にまとめる（migration 191）。
+ *
+ * **形は `{ line, reason }`** — 確認画面（`IntakeReview`）がすでに読んでいる形。
+ * 別の形にすると、出す場所を2つ書くことになります。
+ */
+function intakeWarnings(
+  skipped: { line: string; reason: string }[] | undefined,
+  aiError: string | null,
+  dropped: { name: string; mime: string }[],
+): { line: string; reason: string }[] {
+  const out = [...(skipped ?? [])];
+  for (const d of dropped) {
+    out.push({ line: d.name, reason: `この形式（${d.mime}）は読めなかったので、AI に渡していません` });
+  }
+  if (aiError) {
+    out.push({
+      line: '（AI の解析）',
+      reason: '解析に失敗したので、規則ベースで読み取りました。行き先はすべてタスクになります',
+    });
+  }
+  return out;
+}
+
 // 投入 (intake) — すべての依頼はここから入る
 // ══════════════════════════════════════════════
 
@@ -171,6 +196,8 @@ interface AnalyzeResult {
   model: string;
   promptVersion: string | null;
   aiError: string | null;
+  /** その相手が読めなかった添付（#75）。**確認画面に並べる** */
+  droppedAttachments: { name: string; mime: string }[];
 }
 
 /**
@@ -233,7 +260,10 @@ async function analyzeIntake(
   } else {
     parsed = parseIntakeText(rawText, users, { now });
   }
-  return { parsed, users, projects, model, promptVersion, aiError };
+  return {
+    parsed, users, projects, model, promptVersion, aiError,
+    droppedAttachments: unreadableAttachments(resolveProvider(), attachments),
+  };
 }
 
 /**
@@ -308,7 +338,15 @@ async function runIntakeTranscription(
     const a = await analyzeIntake(rawText, p.userId, p.attachments, p.withProjects);
     await taskIntakeService.finishTranscribing(
       intakeId,
-      { raw_text: rawText, drafts: toDrafts(a.parsed, p.userId), model: a.model, prompt_version: a.promptVersion },
+      {
+        raw_text: rawText,
+        drafts: toDrafts(a.parsed, p.userId),
+        model: a.model,
+        prompt_version: a.promptVersion,
+        // **拾わなかったものを行に残す**（録音は裏で解析するので、
+        // その場の応答に載せても画面には届かない）
+        warnings: intakeWarnings(a.parsed.skipped, a.aiError, a.droppedAttachments),
+      },
       p.userId,
     );
   } catch (e) {
@@ -472,7 +510,7 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
     rawText = attachments.map((a) => `（添付のみ）${a.name}`).join('\n');
   }
 
-  const { parsed, users, projects, model, promptVersion, aiError } =
+  const { parsed, users, projects, model, promptVersion, aiError, droppedAttachments } =
     await analyzeIntake(rawText, userId, attachments, canSeeProjects(req));
   const drafts = toDrafts(parsed, userId);
 
@@ -492,7 +530,8 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
     data: {
       ...intake,
       // 拾わなかった行も返す。「決定事項なのでタスクにしなかった」を人に見せるため
-      skipped: parsed.skipped,
+      // 拾わなかった行・読めなかった添付・規則ベースへの縮退を**1つの列**で返す
+      skipped: intakeWarnings(parsed.skipped, aiError, droppedAttachments),
       far_due_keys: farDueKeys(parsed),
       users,
       // 確認画面で案件を選び直せるようにする（AI が読み違えたときの逃げ道）

@@ -88,6 +88,12 @@ export interface IntakeResponse {
   error_message?: string | null;
   drafts: Draft[] | null;
   skipped?: { line: string; reason: string }[];
+  /**
+   * 行に残した「拾わなかったもの」（migration 191）。
+   * **録音から投げたときはこちらに入ります** — 解析が裏で走るので、
+   * その場の応答（`skipped`）には載りません。画面は**両方を見て**出します。
+   */
+  warnings?: { line: string; reason: string }[];
   far_due_keys?: string[];
   users?: IntakeUser[];
   projects?: IntakeProject[];
