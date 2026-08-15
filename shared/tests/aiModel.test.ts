@@ -9,6 +9,8 @@
  * server は `shared` を import しない構成なので、**server のファイルを直接読みます**
  * （`dueDate.test.ts` と同じやり方）。
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   modelFor, tierFor, isLightDisabled, BUILTIN_MODELS,
@@ -105,5 +107,61 @@ describe('組み込みの既定', () => {
   it('light と heavy が別のモデルであること（同じなら段を分ける意味がない）', () => {
     expect(BUILTIN_MODELS.light.openai).not.toBe(BUILTIN_MODELS.heavy.openai);
     expect(BUILTIN_MODELS.light.anthropic).not.toBe(BUILTIN_MODELS.heavy.anthropic);
+  });
+});
+
+/**
+ * **`off` はモデル名ではない**（レビューでの指摘 #96）
+ *
+ * `AI_MODEL_LIGHT=off` は「軽いモデルを使わない」という印なのに、前の版は
+ * **その文字列をそのままモデル名として送って**いました。呼ぶ側は
+ * 「軽いので落ちたら上位で1回だけやり直す」作りなので、**必ず1回失敗してから
+ * heavy に落ちます** — 待たされ、失敗した呼び出しにも課金され、
+ * ログには理由の分からない失敗が並びます。
+ */
+describe('AI_MODEL_LIGHT=off', () => {
+  it('軽い仕事にも heavy のモデル名を返す（"off" を送らない）', () => {
+    process.env.AI_MODEL_LIGHT = 'off';
+    expect(modelFor('activity', 'light', 'openai')).toBe(BUILTIN_MODELS.heavy.openai);
+    expect(modelFor('intake', 'light', 'anthropic')).toBe(BUILTIN_MODELS.heavy.anthropic);
+    // 大文字でも同じ（`isLightDisabled` と同じ読み方）
+    process.env.AI_MODEL_LIGHT = 'OFF';
+    expect(modelFor('activity', 'light', 'openai')).toBe(BUILTIN_MODELS.heavy.openai);
+  });
+
+  it('止めた先も `AI_MODEL_HEAVY` の上書きに従う', () => {
+    process.env.AI_MODEL_LIGHT = 'off';
+    process.env.AI_MODEL_HEAVY = 'my-heavy';
+    expect(modelFor('activity', 'light', 'openai')).toBe('my-heavy');
+  });
+
+  it('heavy を頼んだときは今までどおり', () => {
+    process.env.AI_MODEL_LIGHT = 'off';
+    expect(modelFor('minutes', 'heavy', 'openai')).toBe(BUILTIN_MODELS.heavy.openai);
+  });
+});
+
+describe('環境変数は `process.env.X` の形で読む（検査から見えるように）', () => {
+  it('動的に引かない', () => {
+    // 動的に引くと `scripts/check-env-passthrough.mjs` から**1つも見えず**、
+    // `docker-compose.yml` から消しても検査が通る（＝入れたのに効かない）
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'server', 'src', 'shared', 'services', 'ai-model.ts'), 'utf8',
+    );
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/process\.env\[/);
+    for (const name of ['AI_MODEL_HEAVY', 'AI_MODEL_LIGHT', 'INTAKE_AI_MODEL',
+      'ACTIVITY_AI_MODEL', 'MINUTES_AI_MODEL', 'KPT_AI_MODEL']) {
+      expect(code).toContain(`process.env.${name}`);
+    }
+  });
+
+  it('検査はサービスごとに見る（片方だけに足しても止まる）', () => {
+    const chk = readFileSync(join(__dirname, '..', '..', 'scripts', 'check-env-passthrough.mjs'), 'utf8');
+    expect(chk).toMatch(/const SERVICES = \['app_prod', 'app_dev'\];/);
+    expect(chk).toMatch(/SERVICES\.some\(\(s\) => !byService\.get\(s\)\.has\(v\)\)/);
+    // 片方だけが正しいものは**理由つきで**名指しする
+    expect(chk).toMatch(/const ONE_SIDED = \{/);
+    expect(chk).toMatch(/SMTP_HOST: 'app_prod — ⚠️ 検証から送ると取引先に本物のメールが届く'/);
   });
 });
