@@ -124,15 +124,20 @@ export default function PricingListPage() {
   });
 
   /**
-   * 並べ替え。**2つの `sort_order` を入れ替える**だけ。
-   * 全件に連番を振り直すと、同時に別の人が触っていたとき、
-   * 見ていない分類まで動きます。
+   * 並べ替え。**隣と入れ替えるだけ**。全件に連番を振り直すと、
+   * 同時に別の人が触っていたとき、見ていない分類まで動きます。
+   *
+   * ⚠️ **入れ替えはサーバーの取引に任せます**（レビューでの指摘 #52）。
+   * 前の版はここから `PUT` を**2本続けて**投げていたので、
+   * **1本目が通って2本目が落ちると2つが同じ `sort_order`** になりました
+   * （通信が切れた・権限が無かった・タブを閉じた）。並びは
+   * `sort_order, created_at` の順なので**入れ替わったようで入れ替わらない**か
+   * **関係ない順**になり、画面には「並べ替えられませんでした」と出るのに
+   * **半分だけ動いています**。取引の中でやれば、落ちた回は**1ドットも動きません**。
    */
   const move = useMutation({
-    mutationFn: async (p: { a: PricingCategory; b: PricingCategory }) => {
-      await api.put(`/pricing/categories/${p.a.id}`, { name: p.a.name, sort_order: p.b.sort_order });
-      await api.put(`/pricing/categories/${p.b.id}`, { name: p.b.name, sort_order: p.a.sort_order });
-    },
+    mutationFn: (p: { id: string; dir: 'up' | 'down' }) =>
+      api.put(`/pricing/categories/${p.id}/move`, { dir: p.dir }),
     onSuccess: invalidate,
     onError: (e) => notifyApiError('並べ替えられませんでした', e),
   });
@@ -233,10 +238,8 @@ export default function PricingListPage() {
             canDeleteItem={canDeleteItem}
             first={i === 0}
             last={i === shown.length - 1}
-            onMove={(dir) => {
-              const other = shown[i + dir]?.category;
-              if (other) move.mutate({ a: category, b: other });
-            }}
+            // **どちらへ動かすかだけ渡す。** 隣を探すのはサーバー（取引の中）
+            onMove={(dir) => move.mutate({ id: category.id, dir: dir < 0 ? 'up' : 'down' })}
             onRename={() => { setEditingCat(category); setCatOpen(true); }}
             onDelete={() => askDeleteCategory(category)}
             onAddItem={() => { setItemCatId(category.id); setEditingItem(null); setItemOpen(true); }}

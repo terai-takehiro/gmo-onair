@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { pricingLocationService } from '../services/pricing-location.service';
@@ -105,6 +105,69 @@ router.put('/categories/:id', requirePermission('sales', 'owner'), async (req, r
   );
   const row = await queryOne('SELECT * FROM pricing_categories WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
+});
+
+/**
+ * 並べ替え（分類・品目とも）。**隣と入れ替えるだけ**を、**サーバーの取引の中で**やる。
+ *
+ * ⚠️ **画面から2本の更新を続けて投げないこと**（レビューでの指摘 #52）。
+ * 前の版は `PUT /categories/:a` → `PUT /categories/:b` を画面から順に投げており、
+ * **1本目が通って2本目が落ちると、2つが同じ `sort_order` になります**
+ * （通信が切れた・権限が無かった・タブを閉じた）。並びは
+ * `ORDER BY sort_order, created_at` なので**入れ替わったようで入れ替わっていない**、
+ * あるいは**関係ない順で並ぶ**状態になり、画面には「並べ替えられませんでした」と
+ * 出るのに**data は半分だけ動いています**。
+ *
+ * **端では何もしない**（`[]` を返す）。400 にすると、いちばん上の分類で
+ * 押した人にだけ赤い札が出ます（`gpm.service` の `phaseService.move` と同じ）。
+ */
+async function moveRow(
+  table: 'pricing_categories' | 'pricing_items',
+  scopeCol: 'location_id' | 'category_id',
+  id: string, dir: 'up' | 'down', userId: string,
+): Promise<Record<string, unknown>[]> {
+  const me = await queryOne(
+    `SELECT id, ${scopeCol} AS scope, sort_order FROM ${table} WHERE id = ? AND deleted_at IS NULL`, [id],
+  ) as { id: string; scope: string; sort_order: number } | null;
+  if (!me) throw new AppError(404, 'NOT_FOUND', '並べ替える行が見つかりません');
+
+  const neighbor = await queryOne(
+    dir === 'up'
+      ? `SELECT id, sort_order FROM ${table}
+          WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order < ?
+          ORDER BY sort_order DESC LIMIT 1`
+      : `SELECT id, sort_order FROM ${table}
+          WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order > ?
+          ORDER BY sort_order ASC LIMIT 1`,
+    [me.scope, me.sort_order],
+  ) as { id: string; sort_order: number } | null;
+  if (!neighbor) return [];
+
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `UPDATE ${table} SET sort_order = ?, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+      [neighbor.sort_order, userId, me.id]);
+    await tx.execute(
+      `UPDATE ${table} SET sort_order = ?, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+      [me.sort_order, userId, neighbor.id]);
+  });
+  return queryAll(`SELECT * FROM ${table} WHERE id IN (?, ?)`, [me.id, neighbor.id]);
+}
+
+const dirOf = (v: unknown): 'up' | 'down' => (v === 'up' ? 'up' : 'down');
+
+// PUT /pricing/categories/:id/move — 分類を1つ上/下へ
+router.put('/categories/:id/move', requirePermission('sales', 'owner'), async (req, res) => {
+  const rows = await moveRow('pricing_categories', 'location_id',
+    String(req.params.id), dirOf(req.body?.dir), req.user!.id);
+  res.json({ success: true, data: rows });
+});
+
+// PUT /pricing/items/:id/move — 品目を1つ上/下へ（同じ分類の中で）
+router.put('/items/:id/move', requirePermission('sales', 'editor'), async (req, res) => {
+  const rows = await moveRow('pricing_items', 'category_id',
+    String(req.params.id), dirOf(req.body?.dir), req.user!.id);
+  res.json({ success: true, data: rows });
 });
 
 // DELETE /pricing/categories/:id - Soft delete category
