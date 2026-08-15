@@ -25,7 +25,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Columns3, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
+import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,8 @@ import { IntegrityPanel } from './projectLedger/IntegrityPanel';
 import { useLedgerCsv } from './projectLedger/useLedgerCsv';
 import { CSV_MAX_ROWS } from './projectLedger/csv';
 import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
+import { useLedgerGrid } from './projectLedger/useLedgerGrid';
+import { PastePlanDialog } from './projectLedger/PastePlanDialog';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -75,12 +77,25 @@ export default function ProjectLedgerPage() {
   const { data: usersData } = useQuery({
     queryKey: ['users-list'],
     queryFn: async () => (await api.get('/users?limit=200')).data,
-    enabled: bulkOpen,
+    enabled: bulkOpen || canEdit,
   });
   const { data: customersData } = useQuery({
     queryKey: ['customers-for-new-project'],
     queryFn: async () => (await api.get('/customers?limit=500')).data,
-    enabled: bulkOpen,
+    enabled: bulkOpen || canEdit,
+  });
+
+  const users = (usersData?.data ?? []) as { id: string; name: string }[];
+  const customers = (customersData?.data ?? []) as { id: string; name: string }[];
+
+  /**
+   * 升目としての操作（選ぶ・コピー・貼り付け・その場で直す）。
+   * ⚠️ **コピーは閲覧モードでもできます**（読むだけなので壊せない）。
+   * 書き換えは `canEdit` のときだけ（`useLedgerGrid` が見ています）。
+   */
+  const grid = useLedgerGrid({
+    rows: s.rows, shown: prefs.shown, canEdit, users, customers,
+    onDone: s.clearSelection,
   });
 
   const targets = s.rows.filter((r) => s.selected.has(r.id)).map((r) => ({ id: r.id, name: r.name }));
@@ -224,8 +239,36 @@ export default function ProjectLedgerPage() {
           <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <p className="text-sub text-warning">
             <strong className="font-bold">編集モードです。</strong>
-            行を選んでまとめて直せます。<strong className="font-bold">直したものは元に戻せません。</strong>
+            行を選んでまとめて直す／
+            <strong className="font-bold">セルを二度押しでその場で直す</strong>／
+            <strong className="font-bold">Excel から貼り付ける（Ctrl+V）</strong>ことができます。
+            <strong className="font-bold">直したものは元に戻せません。</strong>
           </p>
+        </div>
+      )}
+
+      {/*
+        **押し方を画面に出す。** Ctrl+C / Ctrl+V は、書いていなければ
+        誰も試しません（「Excel のように使える」ことに気づけない）。
+        ⚠️ **コピーはボタンでもできるようにする** — キーが効くのは表に
+        焦点があるときだけで、押した人には効かない理由が分かりません。
+      */}
+      {grid.rangeCount > 0 && (
+        <div className="rounded-note flex flex-wrap items-center gap-2 border border-primary-border bg-primary-surface-weak px-3.5 py-2">
+          <p className="text-sub">
+            <strong className="font-number font-bold">{grid.rangeCount}</strong> 升を選んでいます
+            （Shift ＋ クリックで広げられます）
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void grid.copy()}>
+            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />コピー（Ctrl+C）
+          </Button>
+          {canEdit && (
+            <span className="text-note text-muted-foreground">
+              Excel からは <strong className="font-bold">Ctrl+V</strong> で貼れます
+              （書き換える前に、何がどう変わるかを出します）
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={grid.clear}>選択をやめる</Button>
         </div>
       )}
 
@@ -252,6 +295,9 @@ export default function ProjectLedgerPage() {
           canEdit={canEdit}
           sort={s.sort}
           onSort={s.onSort}
+          grid={grid}
+          users={users}
+          customers={customers}
         />
       )}
 
@@ -277,13 +323,19 @@ export default function ProjectLedgerPage() {
         （このページの {s.rows.length} 件だけではありません／一度に {CSV_MAX_ROWS} 件まで）。
       </p>
 
+      <PastePlanDialog
+        plan={grid.plan}
+        saving={grid.saving}
+        onClose={() => grid.setPlan(null)}
+        onApply={grid.apply}
+      />
       <ColumnPicker open={colsOpen} onOpenChange={setColsOpen} prefs={prefs} />
       <BulkEditDialog
         open={bulkOpen}
         onOpenChange={setBulkOpen}
         targets={targets}
-        users={(usersData?.data ?? []) as { id: string; name: string }[]}
-        customers={(customersData?.data ?? []) as { id: string; name: string }[]}
+        users={users}
+        customers={customers}
         saving={s.bulk.isPending}
         onSubmit={(set) => s.bulk.mutate(set, { onSuccess: () => setBulkOpen(false) })}
       />

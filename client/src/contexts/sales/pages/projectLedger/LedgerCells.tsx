@@ -56,24 +56,28 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
       **全文はマウスを当てれば出ます**（`title`）— 切ったことに気づけないと、
       それが正式な名前だと読まれます。
     */
-    case 'name': {
-      const { text, cut } = truncateName(row.name);
+    case 'name':
       return (
         <Link
           to={`/sales/projects/${row.id}`}
           className="block truncate font-bold text-primary hover:underline"
-          title={cut ? row.name : undefined}
+          /*
+            ⚠️ **いつも全文を持たせる**（実測で直した）。切ったときだけにすると、
+            **20 文字ちょうどの名前が列に収まらず、CSS が切ったのに全文が出ません**
+            （240px は寸法表のいちばん広い段で、全角 20 文字＝約 260px は入らない）。
+            同じ文字が出るだけなので、いつも持たせて困ることはありません。
+          */
+          title={row.name}
         >
-          {text}
+          {truncateName(row.name).text}
         </Link>
       );
-    }
 
     case 'customer_name':
-      return row.customer_name ? <span className="truncate">{row.customer_name}</span> : <Dash />;
+      return row.customer_name ? <span className="truncate" title={row.customer_name}>{row.customer_name}</span> : <Dash />;
 
     case 'contact_name':
-      return row.contact_name ? <span className="truncate">{row.contact_name}</span> : <Dash />;
+      return row.contact_name ? <span className="truncate" title={row.contact_name}>{row.contact_name}</span> : <Dash />;
 
     /*
       **バッジは `<TableBadge>` を使う。** 自分で幅を書くと「この画面だけの幅」ができ、
@@ -100,8 +104,10 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
     */
     case 'classification': {
       const label = classificationLabel(row.audience, row.project_category);
+      // **切れたときに全文が読めるようにする**（「無観客 ・ 配信…」だけでは
+      // 配信なのか収録なのか分からない）
       return label
-        ? <span className="truncate">{label}</span>
+        ? <span className="truncate" title={label}>{label}</span>
         : <span className="text-note text-muted-foreground">入っていません</span>;
     }
 
@@ -112,6 +118,11 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
       return row.event_start
         ? <span className="font-number">{row.event_start}</span>
         : <span className="text-note text-muted-foreground">未定</span>;
+
+    case 'event_end':
+      return row.event_end
+        ? <span className="font-number">{row.event_end}</span>
+        : <Dash />;
 
     case 'attendee_count':
       return row.attendee_count ? <Num value={row.attendee_count} unit="名" /> : <Dash />;
@@ -129,7 +140,7 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
       return num(row.total_purchase) > 0 ? <Money value={num(row.total_purchase)} /> : <Dash />;
 
     case 'assigned_to_name':
-      return row.assigned_to_name ? <span className="truncate">{row.assigned_to_name}</span> : <Dash />;
+      return row.assigned_to_name ? <span className="truncate" title={row.assigned_to_name}>{row.assigned_to_name}</span> : <Dash />;
 
     case 'intake_channel':
       return row.intake_channel

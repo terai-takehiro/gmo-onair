@@ -66,6 +66,7 @@ export function cellText(col: LedgerColKey, row: LedgerRow): string | undefined 
     case 'classification': return classificationLabel(row.audience, row.project_category) ?? '';
     case 'recurrence': return row.recurrence === 'regular' ? 'レギュラー' : '単発';
     case 'event_start': return row.event_start ?? '';
+    case 'event_end': return row.event_end ?? '';
     case 'attendee_count': return numeric(row.attendee_count);
     case 'estimate_amount': return numeric(row.estimate_amount);
     case 'expected_amount': return numeric(row.expected_amount);

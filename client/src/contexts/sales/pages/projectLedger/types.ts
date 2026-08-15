@@ -89,7 +89,8 @@ export const COL_DEFS = [
   { key: 'gls_category', label: 'GLS分類', default: false, width: 72 },
   { key: 'classification', label: '案件分類', default: true, width: 128 },
   { key: 'recurrence', label: '継続区分', default: false, width: 96 },
-  { key: 'event_start', label: '実施日', default: true, width: 96, sort: 'event_start' },
+  { key: 'event_start', label: '実施日', default: true, width: 128, sort: 'event_start' },
+  { key: 'event_end', label: '実施日（終了）', default: false, width: 128 },
   { key: 'attendee_count', label: '来場人数', default: false, width: 96, numeric: true },
   { key: 'estimate_amount', label: '見積金額', default: true, width: 128, numeric: true, sort: 'estimate_amount' },
   { key: 'expected_amount', label: '想定金額', default: false, width: 128, numeric: true, sort: 'expected_amount' },
@@ -98,7 +99,7 @@ export const COL_DEFS = [
   { key: 'assigned_to_name', label: '社内の担当', default: true, width: 128, sort: 'assigned_to' },
   { key: 'intake_channel', label: 'リード経路', default: false, width: 128 },
   { key: 'application_form', label: '申込書', default: false, width: 72 },
-  { key: 'next_task_due', label: '次の期限', default: false, width: 96, sort: 'next_task_due' },
+  { key: 'next_task_due', label: '次の期限', default: false, width: 128, sort: 'next_task_due' },
   { key: 'last_activity_at', label: '最後の動き', default: true, width: 128, sort: 'last_move' },
 ] as const satisfies readonly LedgerColDef[];
 

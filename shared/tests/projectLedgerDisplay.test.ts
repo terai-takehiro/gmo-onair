@@ -53,9 +53,16 @@ describe('案件名の切り詰め', () => {
     expect(truncateName('')).toEqual({ text: '', cut: false });
   });
 
-  it('画面は切ったときだけ全文を出す（いつも出すと邪魔なだけ）', () => {
+  /**
+   * ⚠️ **実測で直した。** 「切ったときだけ全文を出す」形にしていたが、
+   * **20 文字ちょうどの名前は文字数では切られないのに、240px の列には収まらず
+   * CSS が切る**ので、全文の出ないマスができていた（列幅は寸法表のいちばん広い段で、
+   * 全角 20 文字＝約 260px は入らない）。
+   */
+  it('案件名はいつも全文を持たせる（CSS が先に切ることがある）', () => {
     const cells = readSrc('client/src/contexts/sales/pages/projectLedger/LedgerCells.tsx');
-    expect(cells).toContain('title={cut ? row.name : undefined}');
+    expect(cells).toContain('title={row.name}');
+    expect(cells).not.toContain('title={cut ?');
   });
 });
 

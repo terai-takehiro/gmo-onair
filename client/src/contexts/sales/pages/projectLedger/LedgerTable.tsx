@@ -33,6 +33,10 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil } from 'lucide-react';
 import { colDef, type LedgerColKey, type LedgerRow } from './types';
 import { LedgerCell } from './LedgerCells';
 import { sortMark, type SortState } from './display';
+import { inRange, isEditable, type EditableCol, type NamedRow } from './editable';
+import { CellEditor } from './CellEditor';
+import { cellText } from './ledgerCsv';
+import type { LedgerGrid } from './useLedgerGrid';
 
 /** チェックの列・操作の列。**`SLOT_WIDTHS` の段**（この画面だけの幅を作らない） */
 const PICK_W = 56;
@@ -40,16 +44,20 @@ const ACT_W = 56;
 
 export function LedgerTable({
   rows, shown, selected, onToggle, onToggleAll, canEdit, sort, onSort,
+  grid, users, customers,
 }: {
   rows: LedgerRow[];
   shown: LedgerColKey[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
-  /** 編集モードのときだけ true（チェックを出す） */
+  /** 編集モードのときだけ true（チェックを出す・その場で直せる） */
   canEdit: boolean;
   sort: SortState;
   onSort: (key: string) => void;
+  grid: LedgerGrid;
+  users: NamedRow[];
+  customers: NamedRow[];
 }) {
   const allOn = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
@@ -81,7 +89,26 @@ export function LedgerTable({
   );
 
   return (
-    <div className="rounded-card overflow-x-auto border border-border bg-card">
+    /*
+      **キー操作はこの箱が受ける。** `document` に付けると、別の画面の入力欄で
+      Ctrl+C を押しただけで表のコピーが走ります。`tabIndex` が要るのは、
+      箱が焦点を持てないとキーが届かないため。
+    */
+    <div
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        const ctrl = e.ctrlKey || e.metaKey;
+        if (ctrl && e.key.toLowerCase() === 'c') { e.preventDefault(); void grid.copy(); }
+        if (e.key === 'Escape') grid.clear();
+      }}
+      onPaste={(e) => {
+        // **編集モードでないときは貼り付けを受けない**（閲覧は読むだけ）
+        if (!canEdit || !grid.anchor) return;
+        e.preventDefault();
+        grid.planPaste(e.clipboardData.getData('text/plain'));
+      }}
+      className="rounded-card overflow-x-auto border border-border bg-card focus:outline-none"
+    >
       {/*
         ⚠️ **`min-w-max` を付けないこと。** 付けると表は必ず中身いっぱいまで
         広がり、`table-layout: fixed` の意味が無くなります。
@@ -161,7 +188,7 @@ export function LedgerTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row, ri) => (
             <tr
               key={row.id}
               data-row
@@ -180,24 +207,47 @@ export function LedgerTable({
                   />
                 </td>
               )}
-              {shown.map((key) => {
+              {shown.map((key, ci) => {
                 const c = colDef(key);
                 // 貼り付ける列の地の色は**行の状態と同じもの**にする
                 // （選んだ行だけ名前の欄が白く抜けると、選択が読み取れない）
                 const st = stickyOf(key, selected.has(row.id) ? 'bg-primary-surface-weak' : 'bg-card');
+                const on = inRange(grid.range, ri, ci);
+                const isAnchor = grid.anchor?.row === ri && grid.anchor?.col === ci;
+                const nowEditing = canEdit && grid.editing?.row === ri && grid.editing?.col === ci;
+                const canCell = canEdit && isEditable(key);
                 return (
                   <td
                     key={key}
                     style={st.style}
-                    className={`text-sub overflow-hidden px-3 py-2 ${c.numeric ? 'text-right' : ''} ${st.className}`}
+                    onMouseDown={(e) => grid.pick(ri, ci, e.shiftKey)}
+                    /* **その場で直すのは二度押し**（表計算と同じ）。一度押しだと
+                       範囲を選ぶだけのつもりで入力欄が開いてしまう */
+                    onDoubleClick={() => { if (canCell) grid.setEditing({ row: ri, col: ci }); }}
+                    className={`text-sub overflow-hidden px-3 py-2 ${c.numeric ? 'text-right' : ''} ${st.className} ${
+                      on ? 'bg-primary-surface' : ''
+                    } ${isAnchor ? 'outline outline-2 -outline-offset-2 outline-primary' : ''} ${
+                      canCell ? 'cursor-cell' : ''
+                    }`}
                   >
-                    {/*
-                      **中身は必ず1行に収める。** `td` に直接 `truncate` を書くと
-                      表の作り方によっては効かないので、中の箱で切ります
-                    */}
-                    <div className="truncate">
-                      <LedgerCell col={key} row={row} />
-                    </div>
+                    {nowEditing ? (
+                      <CellEditor
+                        col={key as EditableCol}
+                        initial={cellText(key, row) ?? ''}
+                        users={users}
+                        customers={customers}
+                        onCommit={(raw) => grid.commitCell(row, key as EditableCol, raw)}
+                        onCancel={() => grid.setEditing(null)}
+                      />
+                    ) : (
+                      /*
+                        **中身は必ず1行に収める。** `td` に直接 `truncate` を書くと
+                        表の作り方によっては効かないので、中の箱で切ります
+                      */
+                      <div className="truncate">
+                        <LedgerCell col={key} row={row} />
+                      </div>
+                    )}
                   </td>
                 );
               })}
