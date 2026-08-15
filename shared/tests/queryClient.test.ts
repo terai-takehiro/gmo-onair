@@ -16,6 +16,8 @@
  * 書き込みは7アプリで 296 か所あり、この受け皿が効かないと
  * そのうち 240 か所以上が**押しても何も起きない**ままになります。
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MutationObserver } from '@tanstack/react-query';
 import { queryClient } from '../src/client/queryClient';
@@ -95,5 +97,31 @@ describe('MutationCache の最後の受け皿', () => {
     });
     await observer.mutate().catch(() => {});
     expect(calls).toBe(1);
+  });
+});
+
+/**
+ * **同じ文言を続けて出しても、出たことが分かる**（レビューでの指摘 #62）
+ *
+ * 帯の鍵が中身（`tone:title`）だったので、**いちばん多い「同じ操作を続けたとき」**
+ * （「記録しました」→「記録しました」）に鍵が変わらず、React が要素を使い回して
+ * **動きが再生されません**でした。前の帯と同じ位置に黙って差し替わるので、
+ * 押した人には**2回目が出たのかどうか分かりません**（そしてもう一度押されます）。
+ */
+describe('お知らせの帯は、出すたびに別の回として扱う', () => {
+  it('同じ文言でも通し番号が変わる', () => {
+    setNotice({ tone: 'success', title: '記録しました' });
+    const first = getNotice()?.seq;
+    setNotice({ tone: 'success', title: '記録しました' });
+    const second = getNotice()?.seq;
+    expect(first).toBeTypeOf('number');
+    expect(second).toBe((first as number) + 1);
+  });
+
+  it('画面は通し番号を鍵にする（中身ではない）', () => {
+    const src = readFileSync(
+      join(__dirname, '..', 'src', 'client', 'ui', 'notice.tsx'), 'utf8',
+    );
+    expect(src).toMatch(/key=\{n\.seq \?\? `\$\{n\.tone\}:\$\{n\.title\}`\}/);
   });
 });
