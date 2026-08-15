@@ -28,23 +28,20 @@ import { generateKptDraft } from '../../sales/services/kpt.service';
 import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 import { runFormatPass } from '../../sales/services/activity-format.service';
 import { runShortPass } from '../../sales/services/next-action-short.service';
+import { jstParts, shiftYmd } from '../../../shared/utils/jst';
 
-/** サーバーの時計から `YYYY-MM-DD` と `HH:MM`。**時差を持ち込まない** */
+/**
+ * いまの `YYYY-MM-DD` と `HH:MM`。**日本の壁時計**で返す。
+ *
+ * ⚠️ 以前はここで `new Date().getHours()` を使っていた。コンテナは **UTC で動く**ので、
+ * **`at: '09:00'` の仕事が JST 18:00 に、3時の夜間整形が正午に走っていた**
+ * （`jst.ts` に理由を書いてある。`TZ` を渡しても Alpine は tzdata を持たないので効かない）。
+ */
 function nowParts(): { date: string; time: string } {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return {
-    date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
-    time: `${p(d.getHours())}:${p(d.getMinutes())}`,
-  };
+  return jstParts();
 }
 
-function shiftDate(date: string, days: number): string {
-  const [y, m, d] = date.split('-').map(Number);
-  const t = new Date(Date.UTC(y, m - 1, d + days));
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${t.getUTCFullYear()}-${p(t.getUTCMonth() + 1)}-${p(t.getUTCDate())}`;
-}
+const shiftDate = shiftYmd;
 
 interface Job {
   key: string;
