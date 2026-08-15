@@ -11,7 +11,7 @@
 import { Router, Request } from 'express';
 import multer from 'multer';
 import { requireAuth, requirePermission, meetsPermissionLevel } from '../../shared/middleware/auth';
-import { queryOne, execute } from '../../shared/db/connection';
+import { queryOne, queryAll, execute } from '../../shared/db/connection';
 import { estimateService, withCanApprove } from '../sales/services/estimate.service';
 import { gpmEstimateSummary } from './services/gpm-estimate.service';
 import { AppError } from '../../shared/middleware/errorHandler';
@@ -114,6 +114,26 @@ export function createGpmRoutes(): Router {
     if (!row) { res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'プロジェクトが見つかりません' } }); return; }
     res.json({ success: true, data: row });
   });
+  /**
+   * 依頼元（お客様）の一覧 — **選ぶためだけの、名前だけ**。
+   *
+   * ⚠️ **`GET /customers` は `sales` を要求します**（レビューでの指摘 #67）。
+   * プロジェクト管理の登録画面はそちらを引いていたので、`gpm` だけの人は
+   * **一覧が 403 で空のまま＝依頼元を選べず、プロジェクトを作れません**
+   * でした（画面には「読み込み中」も出ないので、理由が分かりません）。
+   *
+   * **返すのは id と名前だけ。** 連絡先・備考・グループ判定は案件管理の持ち物で、
+   * ここで必要なのは選ぶことだけです（広げると見せなくてよいものまで出ます）。
+   */
+  router.get('/customers', ...canRead, async (_req, res) => {
+    res.json({
+      success: true,
+      data: await queryAll(
+        `SELECT id, name, short_name FROM customers WHERE deleted_at IS NULL ORDER BY name LIMIT 500`,
+      ),
+    });
+  });
+
   router.post('/projects', ...canEdit, async (req, res) => {
     res.status(201).json({ success: true, data: await projectService.create(req.body ?? {}, req.user!.id) });
   });

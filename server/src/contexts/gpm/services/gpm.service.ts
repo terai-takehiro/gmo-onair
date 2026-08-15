@@ -37,7 +37,12 @@ import { generateSequenceNumber } from '../../../shared/services/sequence.servic
  * 案件と**同じ関数・同じ式**を読みます（写すと、メモの置き場所を次に変えた日に
  * また片方だけ取り残されます）。
  */
-import { ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity } from '../../sales/services/project.service';
+import {
+  ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity,
+  // ⚠️ このファイルも `projectService` を export している（プロジェクト管理のほう）。
+  // **別名で受ける** — 同じ名前だと GLS の発番が自分自身を呼びに行く
+  projectService as salesProjectService,
+} from '../../sales/services/project.service';
 /**
  * 議事録は**案件と同じ表・同じサービス**（`project_minutes` / `minutes.service`）。
  * `project_minutes.project_id` は `projects(id)` を指し、プロジェクトは GLS-B の案件なので、
@@ -383,6 +388,12 @@ export const projectService = {
     await assertProject(id);
     if (typeof input.stage === 'string') assertIn(input.stage, STAGES, 'stage');
     if (typeof input.gpm_kind === 'string') assertIn(input.gpm_kind, GPM_KINDS, 'gpm_kind');
+    // 段が動いたかを**書き換える前に**見る（履歴と発番の判断に要る）
+    const before = await queryOne(
+      'SELECT stage, gls_number, gls_category FROM projects WHERE id = ?', [id],
+    ) as { stage: string | null; gls_number: string | null; gls_category: string | null };
+    const nextStage = typeof input.stage === 'string' ? input.stage : null;
+    const stageChanged = !!nextStage && nextStage !== before.stage;
     await execute(
       `UPDATE projects SET
          name = COALESCE(?, name), gpm_kind = COALESCE(?, gpm_kind),
@@ -400,7 +411,39 @@ export const projectService = {
     // やり取りがメモで埋まって読めなくなる（案件側と同じ決めごと）
     const cur = await queryOne('SELECT customer_id FROM projects WHERE id = ?', [id]) as { customer_id: string } | null;
     await addMemoActivity(id, cur?.customer_id ?? null, input.notes, userId, true);
-    return (await this.getById(id))!;
+
+    /*
+     * ⚠️ **段が動いたら履歴に残し、受注なら GLS を採る**（レビューでの指摘 #67）。
+     *
+     * 案件管理は `changeStage` がこの2つをやっていますが、プロジェクト管理は
+     * **`stage` の列を書き換えるだけ**でした。つまり:
+     *
+     *  ・**いつ受注になったか**がどこにも残らない（停滞の理由が言えない）
+     *  ・**GLS-B が永久に採られない**。しかも発番の口は案件側にしかなく
+     *    `sales` を要求するので、`gpm` だけの人には**採る手段がありません**。
+     *    番号が無いと請求（月次）にも上がらず、BOX のフォルダ名も OPP のまま
+     *
+     * **分類が無いときは受注そのものを止めない**（案件側と同じ判断）。
+     * 採れなかったことは `gls_error` で返し、画面がそう出します。
+     */
+    let glsError: string | null = null;
+    if (stageChanged) {
+      await execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, ?, ?, ?)`,
+        [uuidv4(), id, before.stage ?? null, nextStage, userId],
+      );
+      if (nextStage === 'a_won' && !before.gls_number) {
+        try {
+          await salesProjectService.issueGls(id, {}, userId);
+        } catch (err) {
+          glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+          console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
+        }
+      }
+    }
+    const saved = (await this.getById(id))!;
+    return glsError ? { ...saved, gls_error: glsError } : saved;
   },
 
   async remove(id: string): Promise<void> {

@@ -32,6 +32,14 @@ export interface NoPermissionPanelProps {
   modules: string[];
   /** 必要なアクセスレベル */
   level?: 'reader' | 'editor' | 'manager';
+  /**
+   * **全部要る**とき true（既定は「いずれか1つ」）。
+   *
+   * ⚠️ 既定の文面は「A か B のいずれか」です。**両方要る画面でそのまま出すと、
+   * 片方だけ足してもらって、また同じ所で止まります**（依頼した人にも
+   * 足した管理者にも理由が分かりません）。
+   */
+  requireAll?: boolean;
   /** 何をしようとしたか。例: 「売上の一覧」 */
   target?: string;
   /** 権限を依頼する (管理者への依頼を作る)。渡さないときは連絡先の案内だけ出す */
@@ -43,11 +51,14 @@ export function NoPermissionPanel({
   modules,
   level = 'reader',
   target,
+  requireAll = false,
   onRequestAccess,
   className,
 }: NoPermissionPanelProps) {
   const names = modules.map((m) => MODULE_LABELS[m] ?? m);
-  const needed = names.length > 1 ? `${names.join(' か ')} のいずれか` : names[0];
+  const needed = names.length > 1
+    ? (requireAll ? `${names.join(' と ')} の両方` : `${names.join(' か ')} のいずれか`)
+    : names[0];
 
   return (
     <div
