@@ -108,7 +108,25 @@ export function resolveClassification(
   audience: unknown,
   category: unknown,
   fallbackProjectType: unknown,
+  glsCategory?: string | null,
 ): { audience: Audience | null; project_category: ProjectCategory | null; project_type: string } {
+  const type = typeof fallbackProjectType === 'string' && fallbackProjectType ? fallbackProjectType : 'other';
+
+  /*
+   * ⚠️ **GLS-B は2段を持たない**（この文書の冒頭の決めごと）。**ここで守る** —
+   * 呼ぶ側で「2段に null を渡す」だけでは足りません（レビューでの指摘 #99）。
+   * 下の `classificationOf(type)` が**旧種類から2段を組み立て直す**ので、
+   * 発番前の案件を A から B に切り替えると `project_type` は `recording` のまま残り、
+   * **B の行に `no_audience` / `recording` が入ります**（直したはずのものがそのまま入る）。
+   * 旧種類を渡してくる呼び出しでも同じ抜け方をします。
+   *
+   * **旧種類は残します。** `gmo_project` / `consulting` / `other` は GLS-B の
+   * 正しい値なので、ここで消すと**分類そのものを失います**。
+   */
+  if (glsCategory === 'B') {
+    return { audience: null, project_category: null, project_type: type };
+  }
+
   const derived = projectTypeOf(audience, category);
   if (derived) {
     return {
@@ -117,9 +135,8 @@ export function resolveClassification(
       project_type: derived,
     };
   }
-  // 2段が来ていない（＝ GLS-B / 旧フォーム / MCP からの登録）。
+  // 2段が来ていない（＝ 旧フォーム / MCP からの登録）。
   // 旧分類から埋められるなら埋める。埋められなければ2段は NULL のまま
-  const type = typeof fallbackProjectType === 'string' && fallbackProjectType ? fallbackProjectType : 'other';
   const back = classificationOf(type);
   return {
     audience: back?.audience ?? null,

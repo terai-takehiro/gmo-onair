@@ -743,7 +743,9 @@ export class ProjectService {
      * 画面から両方送らせると、片方だけ更新された行ができます
      * （`project-classification.ts` の冒頭）。
      */
-    const cls = resolveClassification(audience, project_category, project_type);
+    // **GLS-B は2段を持たない**（`project-classification.ts`）。作る画面は必ず
+    // GLS-A だが、MCP の `create_project` は両方を受け取れるのでここでも渡す
+    const cls = resolveClassification(audience, project_category, project_type, glsCategory);
 
     /*
      * **同じ意図で2回作らせない**（レビューでの指摘 #62）。
@@ -969,11 +971,12 @@ export class ProjectService {
      */
     const effectiveGls = (allowCategoryUpdate ? reqCategory : null)
       ?? (existing as { gls_category?: string | null }).gls_category;
-    const isGlsB = effectiveGls === 'B';
     const cls = resolveClassification(
-      isGlsB ? null : askedAudience,
-      isGlsB ? null : askedCategory,
+      askedAudience, askedCategory,
       project_type === undefined ? existing.project_type : project_type,
+      // **この保存で変わる区分を渡す。** 既存の値だけを見ると、
+      // 同じ保存で A から B にした案件に2段が入る（発番前は切り替えられる）
+      effectiveGls,
     );
     // 無観客にしたら来場人数は落とす（create と同じ理由）
     const attendeeFinal = cls.audience === 'no_audience' ? null : attendeeCount;
