@@ -88,11 +88,23 @@ for (const [set, name] of [[light, ':root'], [dark, '.dark']]) {
 // v4 の画面を暗くするときにまとめて決める。
 // (暗い配色を使っているのは凍結アプリの放送画面 = Qシートの OnAir / ランダウンだけで、
 //  そこは v4 のトークンを1つも参照しない)
+//
+// ⚠️ **必ず両端を留めること** (レビューでの指摘 #43)。
+// 前の版は `/-surface(-weak)?$/` と `/-border(-strong)?$/` を**頭を留めずに**
+// 書いていたので、**`--surface` と `--border` そのもの**まで例外になっていました
+// (`--border` は "-border" で終わる文字列なので当たります)。
+//
+// `--border` は**カードと行の罫線ほぼ全部**が参照する色で、暗い配色から抜けると
+// **放送中の画面が明るい配色の罫線で描かれます**。それを見逃すための検査ではありません。
+// `--sidebar-border` も同じ理由で巻き込まれていました (こちらは実際には
+// 暗い配色にも定義があるので実害は出ていませんでしたが、**守られていませんでした**)。
+//
+// v4 で足した一群だけを、**名前を数え上げて**例外にします。
+const STATE = 'success|warning|destructive|info|primary|ai';
 const LIGHT_ONLY = [
-  /-surface(-weak)?$/,          // 帯の背景 (success-surface など)
+  new RegExp(`^--(${STATE})-surface(-weak)?$`),   // 帯の背景 (success-surface など)
+  new RegExp(`^--(${STATE})-border(-strong)?$`),  // 状態の帯の枠 (success-border など)
   /^--border-(subtle|faint|disabled)$/,
-  /^--primary-border(-strong)?$/,
-  /-border(-strong)?$/,         // 状態の帯の枠 (success-border など)
   /^--surface-subtle$/,
   /^--fg-disabled$/,
   /^--ai(-foreground)?$/,

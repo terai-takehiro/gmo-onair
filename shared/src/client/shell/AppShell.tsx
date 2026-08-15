@@ -185,10 +185,23 @@ export function AppShell({
         </main>
       </div>
 
-      {/* スマホの主アクションの差し込み口。中身が無い画面では罫線ごと消える */}
+      {/*
+        スマホの主アクションの差し込み口。中身が無い画面では罫線ごと消える。
+
+        ⚠️ **下タブが無いときは自分で safe-area を足す**（レビューでの指摘 #40）。
+        ホームバーの逃げ（`env(safe-area-inset-bottom)`）を持っているのは
+        すぐ下の `MobileTabs` で、**タブが 0 本のときは `null` を返します**。
+        そのとき**いちばん下に来るのはこの差し込み口**なので、
+        主アクションが**ホームバーに重なります**（iPhone で押せない）。
+        いまは3アプリとも下タブを3本持っているので起きませんが、
+        **タブを持たないアプリを載せた日に、誰も気づかないまま押せなくなります**。
+      */}
       <div
         ref={setActionSlot}
         className="shrink-0 border-t border-border bg-card px-4 py-3 empty:hidden sm:hidden"
+        style={mobileTabs.length === 0
+          ? { paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }
+          : undefined}
       />
 
       <MobileTabs tabs={mobileTabs} onOpenMenu={() => setMenuOpen(true)} />

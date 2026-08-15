@@ -395,8 +395,8 @@ grep -c '| ❓ |$' docs/reviews/codex-findings-v4.md
 | #46 | P2 | `PricingListPage` | スマホで金額が改行される（`Money` が flex） | ⭕️ 済（**再現せず**。375px で「それでも開く」から開いて実測 — `Money` は 128px・**高さ 24px の1行**・横はみ出し 0px。`justify-between` で数字が右端に寄るのは意図どおり。#141 で確認） |
 | #45 | P2 | `base.css` | `tabular-nums` だけの金額に `palt` が掛かり桁がずれる | ⭕️ 済（**前提が違った** — `palt` は数字の幅を1ピクセルも変えない。ただし**`tnum` も効いていない**ことが分かった（下記）。#141 で実測） |
 | #43 | P2 | `tailwind.preset` | `text-card` が色と衝突（→ `cardtitle` に改名済み） | ⭕️ |
-| #43 | P2 | `check-tokens` | 例外の正規表現が広すぎ、`--border` の欠落を見逃す | ❓ |
-| #40 | P2 | `client-daily` | iPhone の下端に操作が隠れる（`safe-area` 不足） | ❓ |
+| #43 | P2 | `check-tokens` | 例外の正規表現が広すぎ、`--border` の欠落を見逃す | ⭕️ #143（`--surface` も巻き込んでいた。**反証: `--border` を落とすと前の版は OK で通る**） |
+| #40 | P2 | `client-daily` | iPhone の下端に操作が隠れる（`safe-area` 不足） | ⭕️ #143（**指摘の形では再現せず** — 下タブもシートも逃げを持っている。**下タブが 0 本のときだけ主アクションが重なる**ので、そこを塞いだ） |
 | #39 | P2 | `check-shared-wiring` | 二重引用符の import を検査が見落とす | ⭕️ #129（落ちてはいたが**理由が嘘**だった） |
 
 ## この文書の使い方
