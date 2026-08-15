@@ -12,9 +12,10 @@
  * 一覧の N 件ぶん問い合わせが増えます。**保存したときだけ読み直す**形で
  * 覚えておきます（プロセスが 1 つの構成なので、保存 = 自分のキャッシュを捨てる）。
  */
-import { queryOne, execute } from '../../../shared/db/connection';
+import { queryOne, queryAll, execute } from '../../../shared/db/connection';
 import { setTaxRounding, type TaxRounding } from '../../../shared/services/tax-category.service';
 import { dueDateOf, mergeRule, type DueDateRule } from '../../../shared/services/dueDate';
+import { holidaysOf } from '../../../shared/services/holidays';
 
 export interface MoneyRules {
   closing_day: number;
@@ -104,6 +105,41 @@ async function customerException(customerId: string | null | undefined): Promise
   };
 }
 
+/**
+ * 「その日は振り込めないか」を返す関数を作る（支払期日を寄せるのに使う）。
+ *
+ * ── 何を休業日と見るか ──────────────────────────────────────
+ *
+ *   ・**土日**（銀行が動かない）
+ *   ・**祝日**（`shared/services/holidays.ts` の計算。振替休日・国民の休日を含む）
+ *   ・**全社の休業日**（`closed_days` のうち `location_id IS NULL` で
+ *     `availability <> 'open'` のもの。夏季休業・年末年始）
+ *
+ * ⚠️ **拠点ごとの休業日は見ません。** あれは「その部屋が使えない」であって、
+ * 会社が休みという意味ではありません（スタジオが1室点検で閉まっている日に
+ * 支払期日が動いたら、経理には理由が分かりません）。
+ * ⚠️ **祝日の `availability` も見ません** — 祝日の行は「スタジオは稼働する」の
+ * 意味で既定が `open` です（migration 176）。銀行はそれとは関係なく閉まります。
+ */
+async function closedDayChecker(): Promise<(ymd: string) => boolean> {
+  const rows = await queryAll(
+    `SELECT from_date, to_date FROM closed_days
+      WHERE deleted_at IS NULL AND location_id IS NULL AND availability <> 'open'`,
+  ) as { from_date: string; to_date: string }[];
+  const holidays = new Map<number, Set<string>>();
+  const isHoliday = (d: string): boolean => {
+    const y = Number(d.slice(0, 4));
+    if (!holidays.has(y)) holidays.set(y, new Set(holidaysOf(y).map((h) => h.date)));
+    return holidays.get(y)!.has(d);
+  };
+  return (d: string): boolean => {
+    const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
+    if (dow === 0 || dow === 6) return true;
+    if (isHoliday(d)) return true;
+    return rows.some((r) => d >= r.from_date && d <= r.to_date);
+  };
+}
+
 export async function ruleForCustomer(customerId: string | null | undefined): Promise<DueDateRule> {
   const r = await getMoneyRules();
   const company: DueDateRule = {
@@ -121,7 +157,23 @@ export async function computeDueDate(
   customerId: string | null | undefined,
 ): Promise<string | null> {
   if (!recognitionDate) return null;
-  return dueDateOf(recognitionDate, await ruleForCustomer(customerId));
+  const r = await getMoneyRules();
+  return dueDateOf(recognitionDate, await ruleForCustomer(customerId), {
+    shift: r.payment_holiday_shift,
+    isClosed: await closedDayChecker(),
+  });
+}
+
+/**
+ * 保存前のルールで期日を試す（設定の画面の下見）。**保存しない。**
+ * 休業日の寄せまで含めて出すので、**見せた日と入る日が同じ**になる。
+ */
+export async function previewDueDate(
+  recognitionDate: string,
+  rule: DueDateRule,
+  shift: MoneyRules['payment_holiday_shift'],
+): Promise<string | null> {
+  return dueDateOf(recognitionDate, rule, { shift, isClosed: await closedDayChecker() });
 }
 
 /** 仕入・販管費の支払日（払う側）。取引先ごとの例外は仕入先の列を見る */
@@ -147,7 +199,7 @@ export async function computeVendorDueDate(
     closingDay: r.closing_day,
     paymentMonths: r.purchase_payment_months,
     paymentDay: r.purchase_payment_day,
-  }, ex));
+  }, ex), { shift: r.payment_holiday_shift, isClosed: await closedDayChecker() });
 }
 
 // ───────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import {
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { computeDueDate } from '../services/money-rules.service';
 import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../../shared/services/doc-box.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
@@ -448,11 +449,24 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const isAdvancePayment = is_advance_payment ? true : false;
   const invoiceIssued = invoice_issued ? true : false;
 
+  /*
+   * ⚠️ **支払期日は設定から埋める**（レビューでの指摘 #63 の周辺で分かったこと）。
+   *
+   * お金のルール（設定 ⑤）は締め日・支払日・休業日の寄せ方まで決められますが、
+   * **`computeDueDate` を呼んでいる場所が1つもありませんでした** — 下見の画面が
+   * 使うだけで、**保存される行には入りません**。つまり設定を直しても
+   * 台帳の期日は空のままで、「遅れているもの」も数えられません。
+   *
+   * **人が入れた期日は上書きしません**（渡ってきたらそちらが勝つ）。
+   * 埋めるのは**空のときだけ**です。
+   */
+  const dueDate = payment_due_date || await computeDueDate(recognition_date, customer_id);
+
   // 本体 + 明細 + 案件想定金額の同期を単一トランザクションで実行 (途中失敗で明細が
   // 半端に残らないように)
   await withTransaction(async (tx) => {
     await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
     // 明細行を保存
     if (Array.isArray(items)) {
