@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { initDb, saveDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 import { hashPassword } from '../auth/password';
+import { looksLikeGmoGroup } from '../services/gmo-group';
 
 const USERS = {
   admin: '00000000-0000-0000-0000-000000000001',
@@ -119,7 +120,10 @@ export async function seed() {
   // ============================================================
   // Customers
   // ============================================================
-  const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  // **グループの印は社名から見立てる**（migration 192）。検証環境で
+  // 「グループ内 / グループ外」の見え方を確かめられるように、
+  // GMO とついたお客様（＝グループ会社）を1件入れてある
+  const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, is_gmo_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
   const customerData: [string, string, string, string, string, string][] = [
     ['株式会社グローバルホールディングス', 'GH', '中村 洋介', 'nakamura@global-hd.example.com', '03-1234-5678', '東京都渋谷区桜丘町26-1'],
     ['株式会社ペイメントワークス', 'PW', '小林 真理', 'kobayashi@paymentworks.example.com', '03-2345-6789', '東京都渋谷区道玄坂1-14-6'],
@@ -131,11 +135,12 @@ export async function seed() {
     ['富士見放送株式会社', '富士見', '木村 大輔', 'kimura@fujimi-bc.example.com', '03-8901-2345', '東京都新宿区河田町1-1'],
     ['株式会社デジタルアドバンス', 'DA', '山口 芳恵', 'yamaguchi@digital-adv.example.com', '03-9012-3456', '東京都千代田区神田錦町3-1'],
     ['中央放送株式会社', '中央放送', '藤田 修一', 'fujita@chuo-bc.example.com', '03-0123-4567', '東京都港区虎ノ門4-3-12'],
+    ['GMOデジタルソリューションズ株式会社', 'GMO-DS', '青木 拓真', 'aoki@gmo-ds.example.com', '03-1357-2468', '東京都渋谷区桜丘町26-1'],
   ];
   for (const [name, short, contact, email, phone, address] of customerData) {
     const id = uuidv4();
     CUSTOMERS[short] = id;
-    await ins(custSql, [id, name, short, contact, email, phone, address]);
+    await ins(custSql, [id, name, short, contact, email, phone, address, looksLikeGmoGroup(name)]);
   }
 
   // ============================================================

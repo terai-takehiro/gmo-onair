@@ -48,7 +48,9 @@ const FIELDS: { path: string; label: string }[] = [
   { path: 'event_start', label: '開始日' },
   { path: 'event_end', label: '終了日' },
   { path: 'project_type', label: '案件種別' },
-  { path: 'customer_type', label: '社内 / 社外' },
+  // ⚠️ `customer_type`（グループ内 / グループ外）は**外しました**（migration 192）。
+  // 取引先マスターの印から自動で決まる列になったので、**人が直せません** —
+  // 残すと必ず「無修正」に数えられ、無修正採用率の分母だけが水増しされます
   { path: 'gls_category', label: '案件分類' },
   { path: 'assigned_to', label: '担当者' },
   { path: 'notes', label: '備考' },

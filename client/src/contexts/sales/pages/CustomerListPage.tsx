@@ -2,13 +2,14 @@
  * CustomerListPage — Phase 2A 移行 (v2.6.4)
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
+import { looksLikeGmoGroup } from "@gmo-onair/shared/src/utils/gmoGroup";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,21 @@ export default function CustomerListPage() {
   });
 
   const form = useForm<CustomerForm>({ defaultValues: EMPTY_FORM });
+  const watchName = form.watch("name");
+
+  /**
+   * **グループの印を社名から自動で入れる**（ご指示・migration 192。取引先マスターと
+   * 同じ関数・同じ決めごと）。新しく登録するときだけで、**人が触ったらもう触りません**。
+   */
+  const groupTouched = useRef(false);
+  const dialogOpen = crud.dialogOpen;
+  useEffect(() => { if (dialogOpen) groupTouched.current = false; }, [dialogOpen]);
+  useEffect(() => {
+    if (crud.editingItem || groupTouched.current) return;
+    if (looksLikeGmoGroup(watchName) && !form.getValues("is_gmo_group")) {
+      form.setValue("is_gmo_group", true);
+    }
+  }, [watchName, crud.editingItem, form]);
 
   useEffect(() => {
     if (crud.editingItem) {
@@ -86,7 +102,16 @@ export default function CustomerListPage() {
     } else {
       form.reset(EMPTY_FORM);
     }
-  }, [crud.editingItem, form]);
+    /**
+     * **開くたびに見立てを効かせ直す**（PR #129 のレビュー・P2）。
+     *
+     * ⚠️ `crud.editingItem` だけを見ていると、**続けて2件登録するとき**に
+     * 効きません（新規は2回とも `null` なので、この効果が走らない）。
+     * 1件目で印を外した人が2件目に GMO の社名を打っても**チェックが入らず**、
+     * しかも `false` を送るのでサーバーは「人が外した」と受け取ります
+     * （社名からの既定が当たらない）。**同じ理由で欄の中身も残っていました。**
+     */
+  }, [crud.editingItem, dialogOpen, form]);
 
   const handleDelete = (c: Customer) => {
     if (!confirm(`「${c.name}」を削除しますか？`)) return;
@@ -216,22 +241,29 @@ export default function CustomerListPage() {
           <div><Label>電話</Label><Input {...form.register("phone")} /></div>
           <div><Label>住所</Label><Input {...form.register("address")} /></div>
           {/*
-            **グループ会社の印**（migration 182）。ここを付けると、案件作成の
-            「リード経路」がプルダウンではなく**「グループ案件」の固定表示**になります。
-            社名の文字列一致では判定しません — 社名は変わりますし、
-            GMO を含む社外の会社を誤判定します。
+            **グループ会社の印**（migration 182 → 192）。ここが
+            **案件のグループ内 / グループ外を決めます**（見積の単価が定価か
+            グループ内価格かも、これで決まります）。リード経路も「グループ案件」に固定されます。
+
+            **社名に GMO が入っていると、新しく登録するときだけ自動で入ります**（ご指示）。
+            外した印は保存し直しても戻りません — 戻ると「直しても直らない」ことになります。
+            ここと取引先マスターは**保存のたびに双方向で同期**します。
           */}
           <div>
             <label className="flex min-h-tap items-center gap-2.5">
               <input
                 type="checkbox"
-                {...form.register("is_gmo_group")}
+                {...form.register("is_gmo_group", {
+                  // 人が触ったら、以後この登録では社名から入れ直さない
+                  onChange: () => { groupTouched.current = true; },
+                })}
                 className="v4-tap h-5 w-5 shrink-0 accent-primary"
               />
               <span>
                 <span className="block">GMOインターネットグループのグループ会社</span>
                 <span className="text-note block text-muted-foreground">
-                  付けると、この会社の案件のリード経路は「グループ案件」に固定されます
+                  付けると、この会社の案件は<strong className="font-bold">グループ内</strong>になり、
+                  見積の単価がグループ内価格になります（リード経路も「グループ案件」に固定）
                 </span>
               </span>
             </label>

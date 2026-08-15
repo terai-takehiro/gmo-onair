@@ -29,11 +29,13 @@
  *    `projects.notes` の列はありません。開くたび空欄が出て、
  *    保存するたび同じ本文が1件ずつ増えます（書くのはやり取りタブ）
  *  ・**会場の案内を出さない** … 直す画面には本物の部屋の欄と予約の一覧があります
- *  ・**グループ区分を出す** … 見積の単価（定価 / グループ内価格）がこの値で
- *    決まるので、直せる場所がここ以外にありません
+ *  ・**グループ区分を出す（読むだけ）** … 見積の単価（定価 / グループ内価格）が
+ *    この値で決まるので、案件を直しに来た人がここで確かめられるようにします。
+ *    **選べません** — 決めるのは取引先マスターの「グループ会社」の印です（migration 192）
  */
 import { Lock, MapPin, Plus, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -171,23 +173,41 @@ export function MoreFields({
       </Field>
 
       {/*
-        **グループ区分は直す画面だけ。** 作るときは訊きません（お客様を選べば
-        取引先マスターの印でリード経路が決まるので、その場で2つ訊く意味が薄い）。
-        ここで訊くのは、**見積の単価がこの値で決まる**ためです — グループ内に
-        しておかないと、社内の案件にも定価が並びます。
+        **グループ区分は選ぶ欄をやめました**（ご指示・migration 192）。
+
+        見積の単価（定価 / グループ内価格）がこの値で決まるのに、**選び忘れても
+        画面には何も出ません** — グループ会社の案件に定価が並んでも、気づくのは
+        見積を送ったあとです。決めるのは**取引先マスターのチェックボックス1か所**に
+        して、ここはその結果を出すだけにしました。
+
+        **消さずに出しておく**のは、見積の単価がどちらで出るかを、案件を直しに来た
+        人がここで確かめられるようにするためです（欄ごと消すと、なぜグループ内価格に
+        ならないのかを調べる取っかかりがどこにも無くなります）。
+        直したいときの行き先も書いておきます。
       */}
       {mode === 'edit' && (
-        <Field label="グループ区分" hint="グループ内にすると、見積の単価がグループ内価格になります">
-          <Select
-            value={v.customer_type}
-            onValueChange={(x) => set('customer_type', x as 'internal' | 'external')}
-          >
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="external">グループ外</SelectItem>
-              <SelectItem value="internal">グループ内</SelectItem>
-            </SelectContent>
-          </Select>
+        <Field
+          label="グループ区分"
+          hint="取引先マスターの「グループ会社」の印から決まります（案件ごとには選べません）"
+        >
+          <p className={`min-h-tap flex items-center gap-2 rounded-control border px-3 text-sub font-bold lg:min-h-[40px] ${
+            f.isGroup
+              ? 'border-ai-border bg-ai-surface text-ai'
+              : 'border-border bg-muted/40 text-secondary-foreground'
+          }`}>
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {f.isGroup ? 'グループ内' : 'グループ外'}
+          </p>
+          <p className="text-note mt-1 text-muted-foreground">
+            {f.isGroup
+              ? '見積の単価はグループ内価格になります。'
+              : '見積の単価は定価になります。'}
+            違うときは
+            <Link to="/sales/companies" className="mx-0.5 -my-[13px] inline-block py-[13px] text-primary underline">
+              取引先マスター
+            </Link>
+            でこのお客様の印を直してください。
+          </p>
         </Field>
       )}
 

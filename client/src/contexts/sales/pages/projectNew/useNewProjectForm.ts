@@ -104,9 +104,12 @@ export function useNewProjectForm(): NewProjectForm {
   const missing = useMemo(() => missingOf(v), [v]);
   const inquiryId = params.get('inquiry');
   const decisions = useProjectDecisions(
-    // グループ会社のときは経路を上書きして送る。画面が固定表示にしている以上、
-    // 保存される値も固定でなければ、あとから数えたときに食い違う
-    isGroup ? { ...v, intake_channel: 'group' } : v,
+    // グループ会社のときは経路とグループ区分を上書きして送る。画面が固定表示に
+    // している以上、保存される値も固定でなければ、あとから数えたときに食い違う。
+    // **グループ区分はサーバーもお客様から決めます**（migration 192）— ここで
+    // 送るのは、送らない形にすると「作るときだけ既定の external が入る」と
+    // 読まれるためで、値そのものは同じ規則から出しています
+    isGroup ? { ...v, intake_channel: 'group', customer_type: 'internal' as const } : v,
     selection,
     inquiryId,
   );

@@ -85,6 +85,49 @@ function normalizeCustomerType(value: unknown): CustomerType {
   return value === 'internal' ? 'internal' : 'external';
 }
 
+/**
+ * グループ内 / グループ外を**お客様から決める**（migration 192・ご指示）
+ *
+ * ── 人は案件ごとに選びません ────────────────────────────────
+ *
+ * 見積の単価（定価 / グループ内価格）はこの値で決まるのに、選び忘れても
+ * **画面には何も出ません** — グループ会社の案件に定価が並んでも、気づくのは
+ * 見積を送ったあとです。決めるのは**取引先マスターのチェックボックス1か所**に
+ * して、案件は保存のたびにそこから引き直します。
+ *
+ * ── それでも列に持つ理由 ────────────────────────────────────
+ *
+ * 毎回 `customers` を見に行けば列は要りませんが、**あとから「グループ内の案件が
+ * 何件あったか」を数えるとき、取引先マスターの「いまの」印で数えることになり、
+ * 案件を取った当時の姿と食い違います**（リード経路の `group` と同じ理由）。
+ *
+ * ── お客様が分からないときは今の値を保つ ─────────────────────
+ *
+ * 古い行は `customer_id` が空のことがあります。**どちらとも言えないものを
+ * 機械で決めると、決めたことに誰も気づけません**。
+ */
+async function resolveCustomerType(
+  customerId: unknown,
+  fallback: unknown,
+): Promise<CustomerType> {
+  if (typeof customerId !== 'string' || !customerId) return normalizeCustomerType(fallback);
+  const row = await queryOne(
+    'SELECT is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL',
+    [customerId],
+  ) as { is_gmo_group?: boolean } | null;
+  if (!row) return normalizeCustomerType(fallback);
+  return row.is_gmo_group === true ? 'internal' : 'external';
+}
+
+/**
+ * お客様がグループ会社か。**プロジェクト管理（GPM）もこれを呼びます** —
+ * 書き写すと、グループの決め方を次に変えた日にどちらかが取り残されます
+ * （`addMemoActivity` を共用しているのと同じ理由）。
+ */
+export async function customerIsGroup(customerId: unknown): Promise<boolean> {
+  return (await resolveCustomerType(customerId, 'external')) === 'internal';
+}
+
 export interface ProjectFilter {
   search?: string;
   /**
@@ -649,7 +692,9 @@ export class ProjectService {
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
-    const cType = normalizeCustomerType(customer_type);
+    // **グループ区分はお客様が決める**（migration 192）。渡された値は、お客様が
+    // 見つからないときの控えとしてだけ使う（`resolveCustomerType` の理由）
+    const cType = await resolveCustomerType(customer_id, customer_type);
 
     // dates 配列がある場合は MIN/MAX を event_start/event_end に同期
     let finalEventStart: string | null = (event_start as string) || null;
@@ -837,8 +882,11 @@ export class ProjectService {
 
     const { name, customer_id, expected_amount, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external,
+            application_form, logo_permission, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
+    // ⚠️ `customer_type` は**受け取っても使いません**（migration 192）。
+    // グループ内 / グループ外はお客様から導くので、渡された値は無視されます
+    // （MCP の `update_project` の説明にもそう書いてあります）
     /**
      * **主担当は空にできない。** `projects.assigned_to` は NOT NULL の外部キーなので、
      * 空文字や未指定をそのまま渡すと FK 違反で 500 になります。
@@ -922,14 +970,19 @@ export class ProjectService {
       : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
 
     /**
-     * **グループ区分も未指定なら今の値を保つ。** `normalizeCustomerType` は
-     * 知らない値を `external` に倒すので、欄を持たない呼び出しから保存されるだけで
-     * **グループ内の案件が黙って社外に戻り**、見積がグループ内価格を選ばなくなります
-     * （`pricing.tools.ts` / `SimulationDialog` がこの列で単価を選ぶ）。
+     * **グループ区分はお客様から引き直す**（migration 192・ご指示）。
+     *
+     * 以前はここで「渡されなければ今の値を保つ」としていました。欄を持たない
+     * 呼び出しから保存されるだけで**グループ内の案件が黙って社外に戻る**のを
+     * 防ぐためでしたが、いまは**人が選ぶ値ではない**ので、保つ必要がありません
+     * （お客様が変われば区分も変わるべきで、保つと**お客様を差し替えたときだけ
+     * 古い区分が残ります**）。
+     *
+     * お客様が見つからない古い行では**今の値を保ちます**
+     * （`resolveCustomerType` の控えに `existing.customer_type` を渡す）。
      */
-    const cType = customer_type === undefined
-      ? normalizeCustomerType(existing.customer_type)
-      : normalizeCustomerType(customer_type);
+    const targetCustomer = customer_id === undefined ? existing.customer_id : customer_id;
+    const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
     // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
     // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
     // changeGlsCategory() を使う (リクエスト経路は PATCH /projects/:id/gls-category)。

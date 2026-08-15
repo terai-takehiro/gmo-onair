@@ -162,7 +162,10 @@ export function registerProjectTools(server: McpServer): void {
         project_category: z.enum(['broadcast', 'recording', 'event']).optional()
           .describe('案件分類 broadcast=配信/生放送 / recording=収録 / event=イベント（会場のみ）。'
             + '**audience と2つ揃って初めて標準工程が決まる**。分からなければ渡さない'),
-        customer_type: z.enum(['internal', 'external']).optional().describe('internal=社内 / external=社外 (既定)'),
+        customer_type: z.enum(['internal', 'external']).optional()
+          .describe('⚠️ **渡しても無視されます**（migration 192）。グループ内 / グループ外は '
+            + '取引先マスターの印（customers.is_gmo_group）から自動で決まります。'
+            + 'グループ会社なのに external になるときは、案件ではなく取引先マスターを直してください'),
         event_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催開始日 (YYYY-MM-DD)'),
         event_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
@@ -303,7 +306,8 @@ export function registerProjectTools(server: McpServer): void {
         notes: z.string().nullable().optional()
           .describe('備考。**やり取りに「メモ」として1件足します**（案件の列ではありません）。'
             + '同じ本文が既にあるときは足しません'),
-        customer_type: z.enum(['internal', 'external']).optional(),
+        customer_type: z.enum(['internal', 'external']).optional()
+          .describe('⚠️ **渡しても無視されます** — 取引先マスターの印から自動で決まります（migration 192）'),
         gls_category: z.enum(['A', 'B']).optional().describe('GLS 発番前のみ変更可'),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
           .optional().describe('渡した場合のみ日程を全置換 (event_start/end も自動同期)'),

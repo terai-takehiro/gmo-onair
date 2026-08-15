@@ -21,6 +21,7 @@ import {
   diffByKey,
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { normalizeDest, type IntakeDest } from './intake-parser.service';
 import { MINUTES_KIND } from '../../sales/services/minutes.service';
 
@@ -255,9 +256,11 @@ async function findOrCreateCustomer(tx: Tx, name: string, userId: string): Promi
   const found = await findCustomerId(tx, name);
   if (found) return found;
   const id = uuidv4();
+  // グループの印は社名から見立てる（migration 192）。投入口は印を持たないので、
+  // ここで入れないと AI が起こしたネタ案件だけグループ外のまま残る
   await tx.execute(
-    `INSERT INTO customers (id, name, created_by) VALUES (?, ?, ?)`,
-    [id, name, userId]
+    `INSERT INTO customers (id, name, is_gmo_group, created_by) VALUES (?, ?, ?, ?)`,
+    [id, name, looksLikeGmoGroup(name), userId]
   );
   return id;
 }

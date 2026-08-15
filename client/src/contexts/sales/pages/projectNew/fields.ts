@@ -60,9 +60,14 @@ export interface NewProjectValues {
   project_category: ProjectCategory | '';
   gls_category: 'A' | 'B';
   /**
-   * グループ区分。**直す画面だけが欄を出します**（作るときは訊きません）。
-   * 見積の単価（定価 / グループ内価格）がこの値で決まるので、
-   * 列を消せません（`pricing.tools.ts` / `SimulationDialog`）。
+   * グループ区分。**人は選びません**（migration 192・ご指示）。
+   * お客様がグループ会社か（`customers.is_gmo_group`）から決まり、
+   * 直す画面は**読むだけ**の欄として出します（作る画面は出しません）。
+   * 見積の単価（定価 / グループ内価格）がこの値で決まります
+   * （`pricing.tools.ts` / `SimulationDialog`）。
+   *
+   * ⚠️ **保存する値もサーバーが同じ規則で決めます。** 画面が送った値は使われません —
+   * 画面とサーバーで別々に決めると、出ている区分と保存された区分が食い違います。
    */
   customer_type: 'internal' | 'external';
   recurrence: 'single' | 'regular';
@@ -151,7 +156,7 @@ export const RECURRENCE_LABEL: Record<'single' | 'regular', string> = {
  *
  *   作る画面 … ご担当・継続区分・実施日・案件内容・予算・リード経路・
  *              最初のタスク・メモ ＝ 8（＋来場人数）
- *   直す画面 … ご担当・継続区分・案件内容・予算・リード経路・グループ区分 ＝ 6（＋来場人数）
+ *   直す画面 … ご担当・継続区分・案件内容・予算・リード経路・グループ区分（読むだけ）＝ 6（＋来場人数）
  *
  * **`MoreFields` ではなくここに置いてあります** — 欄を足したときに数だけ
  * 直し忘れると、畳んだ札の数と中身が食い違って**開くまで気づけません**。
