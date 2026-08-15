@@ -144,6 +144,19 @@ router.get('/invoices', async (req, res) => {
 
   if (mine) { where += ' AND r.assigned_to = ?'; params.push(req.user!.id); }
   if (state === 'unpaid') where += ' AND r.paid_date IS NULL';
+  /*
+   * ⚠️ **請求書を出したもののうち、入金がまだ**（レビューでの指摘）。
+   *
+   * `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**も
+   * 含みます。⑫ 入金の確認（スマホ）はそこから**入金を記録できてしまう**ので、
+   * **請求していないのに入金済みの行**ができます（月次の締めの `collect` は
+   * 前から `invoice_issued` を要求しています）。
+   *
+   * **`unpaid` の意味は変えていません** — ⑤ 見積・請求の「入金前」チップが読んでおり、
+   * そちらは「出していないものも含めて入金がまだ」を見たい場面があります。
+   * ここは**別の値**として足します（PC の「入金前」との食い違いは棚卸しに記録）。
+   */
+  else if (state === 'unpaid_issued') where += ' AND r.invoice_issued = true AND r.paid_date IS NULL';
   else if (state === 'overdue') where += ` AND r.paid_date IS NULL AND r.payment_due_date < to_char(NOW(), 'YYYY-MM-DD')`;
   else if (state === 'uninspected') where += ' AND r.inspection_date IS NULL';
   else if (state === 'paid') where += ' AND r.paid_date IS NOT NULL';
