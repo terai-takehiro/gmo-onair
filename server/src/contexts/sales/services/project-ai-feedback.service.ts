@@ -24,8 +24,10 @@
  * 記録に失敗しても案件の保存は成功させます（`ai-output.service` 側が
  * すべて try/catch で握りつぶす作り）。**学習の都合で保存を落とさない。**
  */
+import { config } from '../../../config';
 import {
   findLatestAiOutput,
+  hasCorrections,
   recordCorrections,
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
@@ -88,6 +90,19 @@ export async function recordProjectCorrections(
   after: Record<string, unknown>,
   userId: string,
 ): Promise<void> {
+  /*
+   * ⚠️ **AI が自分で直した分を「人の修正」として数えない**（レビューでの指摘 #52）。
+   *
+   * MCP の `update_project` は**人が居ないときは `config.mcpActorId` で呼ばれます**
+   * （メール取込のスキルが毎日叩く）。同じ AI が下書きを直しているだけなのに、
+   * 前の版はそれを**人が直した差分**として記録していました
+   * ＝ **自分の間違いを自分で直すたびに修正率が上がる**ので、
+   * 数字を見ても「人がどれだけ直しているか」は分かりません。
+   * 人が MCP 越しに操作したときは `currentActorId()` がその人を返すので、
+   * **本当に AI 単独のときだけ**外れます。
+   */
+  if (userId === config.mcpActorId) return;
+
   const output = await findLatestAiOutput('projects', projectId, PROJECT_DRAFT_KIND);
   if (!output) return;   // AI 起票でない / 7日を過ぎている
 
@@ -115,6 +130,33 @@ export async function recordProjectCorrections(
   }
 
   await recordCorrections(output.id, diffs, userId);
+}
+
+/**
+ * **人が確かめて、1文字も直さなかった**ことを記録する（無修正採用）。
+ *
+ * ⚠️ これが無いと**受入率が永久に 0** になります（レビューでの指摘 #52）。
+ * `recordProjectCorrections` は「直したときだけ」書くので、
+ * **直さずに承認した案件は分母にも分子にも入りません** —
+ * つまり「AI の下書きがそのまま通った」という**いちばん良い結果が
+ * 1件も記録されない**ことになります。
+ *
+ * ⚠️ **開くたびに積まないこと。** よく開かれる案件ほど精度が高く見えます。
+ * 積むのは**「確認しました」を押した1回だけ**（`ai_reviewed_at` が入る瞬間）で、
+ * すでに差分が残っている案件（＝人が直した）には積みません。
+ */
+export async function recordProjectAccepted(
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  const output = await findLatestAiOutput('projects', projectId, PROJECT_DRAFT_KIND);
+  if (!output) return;
+  if (await hasCorrections(output.id)) return;   // 直した記録があるなら無修正ではない
+  await recordCorrections(
+    output.id,
+    FIELDS.map((f) => ({ fieldPath: f.path, type: 'none' as const })),
+    userId,
+  );
 }
 
 /**

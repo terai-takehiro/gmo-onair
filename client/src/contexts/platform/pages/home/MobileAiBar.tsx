@@ -100,6 +100,7 @@ export function MobileAiBar({
               onSubmit={() => it.submit.mutate()}
               onAudio={it.submitWithAudio}
               canSubmit={it.canSubmit}
+              preparingFiles={it.preparingFiles}
               pending={it.submit.isPending}
               error={it.error}
               doneMsg={it.doneMsg}

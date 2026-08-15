@@ -95,6 +95,25 @@ export async function findLatestAiOutput(
   }
 }
 
+/**
+ * その出力に**もう差分が残っているか**。
+ *
+ * 無修正採用（`type: 'none'` を一式）を書く前に見ます。**同じ出力に二度積まない**
+ * ため — 積むと、よく開かれる案件ほど精度が高く見えます。
+ */
+export async function hasCorrections(outputId: string): Promise<boolean> {
+  try {
+    const row = await queryOne(
+      'SELECT 1 AS x FROM ai_corrections WHERE output_id = ? LIMIT 1', [outputId],
+    );
+    return !!row;
+  } catch (e) {
+    console.warn('[ai-output] correction lookup failed (non-blocking):', (e as Error).message);
+    // 分からないときは**書かない側**に倒す（二重に積むより、1件記録しないほうが安全）
+    return true;
+  }
+}
+
 /** 人間の修正差分を記録する (best-effort)。 */
 export async function recordCorrections(
   outputId: string,

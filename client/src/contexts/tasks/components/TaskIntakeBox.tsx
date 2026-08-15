@@ -45,6 +45,7 @@ export function TaskIntakeBox({ canOpenProject = false }: { canOpenProject?: boo
         onSubmit={() => it.submit.mutate()}
         onAudio={it.submitWithAudio}
         canSubmit={it.canSubmit}
+        preparingFiles={it.preparingFiles}
         pending={it.submit.isPending}
         error={it.intake ? null : it.error}
         doneMsg={it.doneMsg}

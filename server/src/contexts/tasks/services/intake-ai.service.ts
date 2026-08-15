@@ -36,6 +36,7 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import * as z from 'zod/v4';
 import { modelFor, isLightDisabled } from '../../../shared/services/ai-model';
+import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 import {
   normalizeDest, suggestUrgency,
   type ParsedDraft, type ParseResult, type ParserUser,
@@ -644,6 +645,17 @@ export async function parseIntakeWithAi(
     // モデル名が使えない環境で黙って規則ベースに落ちると、
     // 「行き先を決めてくれなくなった」という劣化になる
     if (!useLight) throw e;
+    /*
+     * ⚠️ **落ちた1回目も使用量に残す**（レビューでの指摘 #79）。
+     * ここで握りつぶすと、**上位モデルでやり直せた回の費用が半分しか出ません**
+     * （落ちた呼び出しにも課金されることがあります）。しかも
+     * 「軽いモデルがどれくらい失敗しているか」＝ **軽くする判断が
+     * 正しかったか**を後から確かめる唯一の手がかりが消えます。
+     */
+    await recordAiUsage({
+      kind: 'intake', provider, model, actorId: opts.submitterId ?? null,
+      ok: false, errorMessage: (e as Error).message,
+    });
     console.warn(
       `[intake-ai] 軽いモデル (${model}) で失敗したので ${heavy} でやり直します: ${(e as Error).message}`,
     );
