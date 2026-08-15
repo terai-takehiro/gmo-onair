@@ -12,7 +12,7 @@
  * 列が1つ増えたときに片方だけ送らなくなり、しかも気づけません
  * （`useCreateProject.ts` の冒頭）。
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
@@ -56,6 +56,29 @@ export function useNewProjectForm(): NewProjectForm {
   const [selected, setSelected] = useState<InboxItem | null>(null);
   const { items } = useIntakeItems();
   const selection = useIntakeSeed(selected, replace);
+
+  /**
+   * `?inquiry=<id>` で開かれたら、その引き合いを**選んだ状態にする**
+   * （レビューでの指摘 #80）。
+   *
+   * 日常業務の「案件の受付へ送る」からはこの URL で来ますが、これまでは
+   * **id を書き戻しに使うだけ**で、フォームは空のままでした ＝ すでに
+   * 記録してある会社名・要件・希望日を**もう一度打ち直す**ことになります
+   * （送った側は「送れば向こうで案件になる」と思っているので、
+   * 打ち直しが起きていること自体が誰にも見えません）。
+   *
+   * **写す処理は増やしません** — レールで選んだときと**同じ道**（`useIntakeSeed`）を
+   * 通します。別に書くと、片方だけ項目が増えたときに写り方が食い違います。
+   */
+  const seededFrom = useRef<string | null>(null);
+  const inquiryParam = params.get('inquiry');
+  useEffect(() => {
+    if (!inquiryParam || seededFrom.current === inquiryParam) return;
+    const hit = items.find((i) => i.key === `inquiry:${inquiryParam}`);
+    if (!hit) return;   // まだ読み込んでいない／もう仕分け済みで一覧に無い
+    seededFrom.current = inquiryParam;
+    setSelected(hit);
+  }, [inquiryParam, items]);
 
   const { data: customersData } = useQuery({
     queryKey: ['customers-for-new-project'],

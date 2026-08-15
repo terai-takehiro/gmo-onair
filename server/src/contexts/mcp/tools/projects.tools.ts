@@ -26,11 +26,29 @@ const STAGE_LABELS: Record<string, string> = {
  * メモが1件足されます。これが欲しい挙動です — 案件を保存し直すたびに
  * 同じメモが積み上がると、やり取りがメモで埋まります。
  */
+/**
+ * `update_project` が実際に書き換える項目。
+ *
+ * ⚠️ **ここに無い項目は、受け取っても黙って捨てられます**（レビューでの指摘 #81）。
+ * 引数としては受け付け、`changed_fields` にも並べ、`updated: true` を返すのに
+ * **1文字も入っていません** — AI にも人にも「直った」と見えます。
+ *
+ * 実際に落ちていたのは **2段分類（`audience` / `project_category`）と
+ * 登録の16項目（migration 170）** で、どれも `create_project` では受けている
+ * ものです（作るときは入るのに、直すと入らない）。
+ * **`projectService.update` が受ける項目を足したら、ここにも足すこと。**
+ */
 const UPDATE_FIELDS = [
   'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type', 'project_type_other',
   'event_start', 'event_end', 'broadcast_type', 'media_platform', 'tags',
   'application_form', 'logo_permission', 'notes', 'customer_type',
   'box_url_internal', 'box_url_external', 'gls_category',
+  // 2段分類（migration 182）。**`project_type` は両方から導かれる**ので、
+  // これが落ちると「作るときは配信、直すとハイブリッド」のような食い違いになる
+  'audience', 'project_category',
+  // 登録の16項目のうち列を足したぶん（migration 165 / 170）
+  'intake_channel', 'intake_confidence',
+  'contact_name', 'recurrence', 'attendee_count', 'goal', 'reply_due', 'wants',
 ] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
@@ -314,9 +332,26 @@ export function registerProjectTools(server: McpServer): void {
       if (args.dates !== undefined) payload.dates = args.dates; // 明示指定時のみ全置換
 
       const row = await projectService.update(args.id, payload, currentActorId()) as any;
-      const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
+      /*
+       * ⚠️ **「渡した項目」ではなく「実際に書き換えた項目」を返す。**
+       * 前の版は `args` の鍵をそのまま並べていたので、**捨てた項目まで
+       * 「変えました」と報告して**いました（AI はそれを見て次に進みます）。
+       */
+      const applied = new Set<string>(UPDATE_FIELDS);
+      const changedFields = Object.keys(args)
+        .filter((k) => !['id', 'requested_by'].includes(k))
+        .filter((k) => applied.has(k) || k === 'dates');
+      const ignored = Object.keys(args)
+        .filter((k) => !['id', 'requested_by', 'dates'].includes(k))
+        .filter((k) => !applied.has(k));
       audit('update_project', args, { updated_id: row.id, changed_fields: changedFields }, args.requested_by);
-      return ok({ updated: true, changed_fields: changedFields, project: row });
+      return ok({
+        updated: true,
+        changed_fields: changedFields,
+        // **捨てた項目は黙らない**（次に何を直せばよいかが分かる）
+        ...(ignored.length ? { ignored_fields: ignored } : {}),
+        project: row,
+      });
     }),
   );
 
