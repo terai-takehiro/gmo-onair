@@ -49,6 +49,18 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     why: '金額・期日・状態が横に並ぶ表で、桁を読み違えると請求を間違えます。',
     instead: PROJECTS,
   },
+  /*
+    ⚠️ **`/sales/projects/:id` より前に置くこと**（この表は先に一致したものが勝つ）。
+    台帳は 20 列を出し入れして、選んだ行をまとめて書き換える画面です。
+    375px では列が読めないうえ、**取り消せない一括更新を指で押すことになります**。
+    行き先は案件一覧 — そちらはスマホ対応済みなので、外で見る道は残ります。
+  */
+  {
+    path: '/sales/projects/ledger',
+    what: '案件台帳',
+    why: '列が 20 あり、選んだ案件をまとめて書き換える画面です。この幅では列が読めず、戻せない操作を指で押すことになります。',
+    instead: PROJECTS,
+  },
   {
     path: '/sales/projects/:id/edit',
     what: '案件を直す',

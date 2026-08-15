@@ -22,6 +22,7 @@ import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
+import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
 import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
@@ -181,6 +182,17 @@ function AppRoutes() {
             直す画面（`/edit`）だけが持つのは、BOX の URL・申込書・番組情報・
             スタジオの日程・担当メンバーと、GLS の操作 */}
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales" minLevel="editor"><NewProjectDialog /></PermissionRoute>} />
+        {/*
+            案件台帳。**案件一覧（`/sales/projects`）とは役割が別**で、
+            列を出し入れして網羅して見る・選んでまとめて直すための画面
+            （機材台帳と同じ役割）。読むのは `sales` があれば誰でも —
+            まとめて直すところだけ画面の中で manager に絞る
+            （サーバーの `PATCH /projects/bulk` も manager で止めている）。
+            ⚠️ **`/sales/projects/:id` より前に置く**。React Router は静的な区切りを
+            優先するので順番でも動くが、`pcOnlyScreens` の表は**先に一致したものが勝つ**ので
+            そちらと並びを揃えておく
+        */}
+        <Route path="/sales/projects/ledger" element={<PermissionRoute module="sales"><ProjectLedgerPage /></PermissionRoute>} />
         {/*
             v4 ⑥: 案件詳細は**読む画面**（タブ付き）で、直すのは `/edit`。
             1つの画面で読むと直すを兼ねると、開いた瞬間に入力欄が縦に並んで
