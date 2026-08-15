@@ -6,6 +6,8 @@ import { requireAuth, requirePermission, requireRole } from '../../../shared/mid
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
+import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/business-hours.service';
+import type { HoursCheck } from '../../../shared/services/businessHours';
 
 const router = Router();
 
@@ -514,8 +516,42 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
     }
   }
 
-  const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [req.params.id]);
-  res.json({ success: true, data: row });
+  /**
+   * ⚠️ **時間外の印を付け直す**（レビューでの指摘 #63）。
+   *
+   * 印を書いていたのは**作るときだけ**でした。直したときに見直さないので:
+   *
+   * ・22:00 → 14:00 に**動かしても印が残り**、時間外の一覧に出続けます
+   *   （連絡する必要が無いものを毎回확かめることになる）
+   * ・**14:00 → 22:00 に動かしても印が付きません**。こちらが本命の壊れ方で、
+   *   **時間外の一覧に一度も出ない** — 一覧は「あとから拾って個別に連絡する」
+   *   ためのものなので、出ないものは**無いことになります**
+   *
+   * 部屋を替えると拠点が変わる（拠点ごとに営業時間が違う）ので、
+   * **時刻を直したときと部屋を替えたときの両方**で見直します。
+   * 拠点が分からない予約は今までどおり判定しません（`checkBooking` が false を返す）。
+   */
+  const timeChanged = b.start_time !== undefined || b.end_time !== undefined;
+  const roomsChanged = Array.isArray(room_details) || Array.isArray(room_ids);
+  const after = await queryOne(
+    'SELECT * FROM studio_bookings WHERE id = ?', [req.params.id],
+  ) as Record<string, unknown>;
+
+  let hoursCheck: HoursCheck | null = null;
+  if (timeChanged || roomsChanged) {
+    // **部屋を入れ替えたあとの拠点**を見る（入れ替えは上で済んでいる）
+    const loc = await locationOfBooking(String(req.params.id));
+    hoursCheck = await checkBooking(
+      loc, String(after.start_time), after.end_time ? String(after.end_time) : null,
+    );
+    // **中に戻したときも書き直す。** `stampOutOfHours` は false も書くので印が外れる
+    await stampOutOfHours(String(req.params.id), hoursCheck);
+    after.out_of_hours = hoursCheck.outside;
+    after.out_of_hours_reason = hoursCheck.outside ? hoursCheck.reason : null;
+  }
+
+  // 画面が注意を出せるように、判定の結果を**行とは別に**返す（作るときと同じ形）
+  res.json({ success: true, data: hoursCheck ? { ...after, hours_check: hoursCheck } : after });
 });
 
 // DELETE /studios/bookings/:id
