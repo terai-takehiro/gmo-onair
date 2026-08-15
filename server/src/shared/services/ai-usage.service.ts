@@ -170,3 +170,63 @@ export async function usageSummary(days = 30): Promise<{
     total_cost_usd: known.length ? known.reduce((s, r) => s + (r.cost_usd ?? 0), 0) : null,
   };
 }
+
+/**
+ * ある仕事（`kind`）の**1件あたりの実費**と、出せないときの**理由**。
+ *
+ * ── なぜ理由まで返すのか ────────────────────────────────────
+ *
+ * 金額が出せない状況は**3つ**あり、**打ち手がそれぞれ違います**:
+ *
+ *   no_pricing      … 単価そのものが入っていない       → `AI_PRICING_JSON` を入れる
+ *   no_history      … 単価はあるが、この仕事の実績がまだ無い → 待つ（直すところは無い）
+ *   no_model_price  … 実績はあるが、**その仕事が呼んだモデルの単価が無い**
+ *                     → そのモデルの鍵を足す
+ *
+ * ⚠️ **3つ目を2つ目と混ぜないこと**（レビューでの指摘）。
+ * `AI_PRICING_JSON` に鍵が1つでもあれば「単価はある」と見なすと、
+ * **`whisper-1` しか入っていない環境**や**モデルを乗り換えて古い鍵を落とした環境**で
+ * 「実績がまだありません」と出ます。実績はあるのに、です。
+ * 読んだ人は待ちますが、**待っても永久に出ません** — 直すべきなのは単価の側で、
+ * これは `.env.example` が警告している「鍵を落とすと静かに消える」そのものです。
+ *
+ * **モデル名も返します**（`unpricedModels`）。どの鍵を足せばよいかが分からないと、
+ * 理由だけ分かっても直せません。
+ */
+export type CostReason = 'ok' | 'no_pricing' | 'no_history' | 'no_model_price';
+
+export interface PerRowCost {
+  /** 1件あたりの実費（USD）。出せなければ null */
+  usdPerRow: number | null;
+  reason: CostReason;
+  /** 単価が無くて数えられなかったモデル（`no_model_price` のときだけ中身がある） */
+  unpricedModels: string[];
+}
+
+export async function perRowCost(kind: string, days = 90): Promise<PerRowCost> {
+  if (Object.keys(pricing()).length === 0) {
+    return { usdPerRow: null, reason: 'no_pricing', unpricedModels: [] };
+  }
+  let rows: UsageRow[];
+  try {
+    rows = (await usageSummary(days)).rows.filter((r) => r.kind === kind && r.calls > 0);
+  } catch {
+    // 実績が読めなくても件数は出す（金額だけ出さない）
+    return { usdPerRow: null, reason: 'no_history', unpricedModels: [] };
+  }
+  if (rows.length === 0) return { usdPerRow: null, reason: 'no_history', unpricedModels: [] };
+
+  // **単価の分からないモデルは分母から外す**（0 として混ぜると総額が嘘になる）
+  const priced = rows.filter((r) => r.cost_usd !== null);
+  if (priced.length === 0) {
+    return {
+      usdPerRow: null,
+      reason: 'no_model_price',
+      unpricedModels: [...new Set(rows.map((r) => r.model ?? '（モデル名なし）'))],
+    };
+  }
+  const calls = priced.reduce((s, r) => s + r.calls, 0);
+  const usd = priced.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
+  if (calls === 0 || usd <= 0) return { usdPerRow: null, reason: 'no_history', unpricedModels: [] };
+  return { usdPerRow: usd / calls, reason: 'ok', unpricedModels: [] };
+}

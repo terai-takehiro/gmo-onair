@@ -51,7 +51,7 @@ import {
   recordAiOutput, findLatestAiOutput, recordCorrections, type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
-import { recordAiUsage, usageSummary, pricing } from '../../../shared/services/ai-usage.service';
+import { recordAiUsage, perRowCost, type CostReason } from '../../../shared/services/ai-usage.service';
 import { modelFor } from '../../../shared/services/ai-model';
 import { resolveProvider } from '../../tasks/services/intake-ai.service';
 import { isActivityAiConfigured } from './activity-ai.service';
@@ -256,15 +256,12 @@ export interface ShortQueueStats {
   /** 未完了で「次にやること」がある行の総数 */
   total: number;
   /**
-   * **単価そのものが入っているか**（`AI_PRICING_JSON`）。
-   *
-   * ⚠️ `usdPerRow` が `null` になる理由は**2つある**のに、画面はどちらも
-   * 「単価が未設定です」と書いていました。単価は入っているが
-   * **この仕事の実績がまだ無い**だけのとき（新しい環境・初回）、
-   * 読んだ人は `.env` を直しに行き、**すでに入っている**のを見て途方に暮れます。
-   * 理由を書き分けるために持ちます。
+   * 金額が出せないときの**理由**。`usdPerRow` が `null` になる状況は**3つ**あり、
+   * **打ち手がそれぞれ違います**（`perRowCost` の説明）。
    */
-  hasPricing: boolean;
+  costReason: CostReason;
+  /** 単価が無くて数えられなかったモデル。**どの鍵を足せばよいか**を画面に出す */
+  unpricedModels: string[];
   usdPerRow: number | null;
   usdEstimate: number | null;
   configured: boolean;
@@ -289,15 +286,8 @@ export async function shortQueueStats(): Promise<ShortQueueStats> {
   const num = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
   const pending = num(row?.pending);
 
-  let usdPerRow: number | null = null;
-  try {
-    const u = await usageSummary(90);
-    // **単価の分からないモデルは分母から外す**（0 として混ぜると総額が嘘になる）
-    const act = u.rows.filter((r) => r.kind === 'activity_short' && r.cost_usd !== null && r.calls > 0);
-    const calls = act.reduce((s, r) => s + r.calls, 0);
-    const usd = act.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
-    if (calls > 0 && usd > 0) usdPerRow = usd / calls;
-  } catch { /* 実績が読めなくても件数は出す */ }
+  const cost = await perRowCost('activity_short');
+  const usdPerRow = cost.usdPerRow;
 
   return {
     pending,
@@ -305,7 +295,8 @@ export async function shortQueueStats(): Promise<ShortQueueStats> {
     done: num(row?.done),
     fits: num(row?.fits),
     total: num(row?.total),
-    hasPricing: Object.keys(pricing()).length > 0,
+    costReason: cost.reason,
+    unpricedModels: cost.unpricedModels,
     usdPerRow,
     usdEstimate: usdPerRow === null ? null : usdPerRow * pending,
     configured: isActivityAiConfigured(),
