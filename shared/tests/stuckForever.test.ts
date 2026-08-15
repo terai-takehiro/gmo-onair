@@ -36,8 +36,13 @@ const sql = (s: string) => code(s).replace(/^\s*--.*$/gm, '');
 
 const SCHEDULER = sql(read('server', 'src', 'contexts', 'platform', 'services', 'scheduler.service.ts'));
 const INTAKE = sql(read('server', 'src', 'contexts', 'tasks', 'services', 'task-intake.service.ts'));
+const KPT = code(read('server', 'src', 'contexts', 'sales', 'services', 'kpt.service.ts'));
 const MCP = code(read('server', 'src', 'contexts', 'mcp', 'tools', 'mytasks.tools.ts'));
-const TASKS_PAGE = code(read('client-daily', 'src', 'pages', 'TasksPage.tsx'));
+/**
+ * **投入ログは `TasksPage.tsx` から切り出してあります**（`check-file-size` が
+ * 1,000 行超のファイルに足すことを止めるため。中身は移しただけ）。
+ */
+const INTAKE_TAB = code(read('client-daily', 'src', 'pages', 'tasks', 'IntakeLogTab.tsx'));
 const TASKS_API = code(read('client-daily', 'src', 'lib', 'tasksApi.ts'));
 
 describe('KPT の下書き — 1晩で切ったぶんを翌晩に拾う', () => {
@@ -62,7 +67,31 @@ describe('KPT の下書き — 1晩で切ったぶんを翌晩に拾う', () => 
 
   it('⚠️ 切ったことを黙らせない', () => {
     // 黙って切ると「作られない案件がある」ことに誰も気づけない
-    expect(SCHEDULER).toMatch(/if \(rows\.length >= KPT_PER_NIGHT\) \{[\s\S]{0,200}console\.warn/);
+    expect(SCHEDULER).toMatch(/leftOver > 0 \|\| rows\.length >= KPT_SCAN_MAX/);
+    expect(SCHEDULER).toMatch(/console\.warn\('\[scheduler\] kpt_draft:'/);
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された P1**。**引いた行で数えると、
+   * AI を呼ばずに諦める案件が毎晩いちばん古い側の枠を全部埋め**、
+   * 新しい案件は窓（7日）から出るまで一度も下書きが作られません
+   * （古い順に並べたこの版だけが持つ壊れ方 — 前の版は毎日対象が入れ替わっていた）。
+   */
+  it('⚠️ 上限は「AI を呼んだ回数」で数える（引いた行数ではない）', () => {
+    expect(SCHEDULER).toMatch(/\[from, yesterday, KPT_SCAN_MAX\]/);
+    expect(SCHEDULER).not.toMatch(/\[from, yesterday, KPT_PER_NIGHT\]/);
+    expect(SCHEDULER).toMatch(/if \(calls >= KPT_PER_NIGHT\) \{ leftOver = rows\.length - i; break; \}/);
+    expect(SCHEDULER).toMatch(/if \(aiCalled\) calls \+= 1; else passed \+= 1;/);
+  });
+
+  it('AI を呼ぶ前に諦めたかどうかを下書き側が返す', () => {
+    // 呼ぶ前の2通り（未確認の下書きが残っている／材料が1件も無い）は**費用ゼロ**。
+    // 呼んだあとの「書けることが無い」は**費用が掛かっている**ので数える
+    expect(KPT).toMatch(/Promise<\{ created: number; skipped\?: string; aiCalled: boolean \}>/);
+    expect(KPT).toMatch(/created: 0, aiCalled: false, skipped: '確かめていない下書きが残っています/);
+    expect(KPT).toMatch(/created: 0, aiCalled: false, skipped: 'この案件には、下書きの材料/);
+    expect(KPT).toMatch(/created: 0, aiCalled: true, skipped: '材料からは書けること/);
+    expect(KPT).toMatch(/return \{ created: items\.length, aiCalled: true \};/);
   });
 });
 
@@ -72,14 +101,15 @@ describe('録音の投入 — 止まった行を失敗として見せる', () =>
     // `String(row.created_at).replace(' ', 'T')` は必ず `Invalid Date` になる。
     // 実測: `String(v)` = `Sat Aug 15 2026 10:53:12 GMT+0000 (…)` → `Date.parse` は NaN
     expect(INTAKE).not.toMatch(/new Date\(String\(row\.created_at\)/);
-    expect(INTAKE).toMatch(/i\.created_at < NOW\(\) - \(INTERVAL '1 millisecond' \* \$\{TRANSCRIBE_STALE_MS\}\)\) AS stuck/);
+    expect(INTAKE).toMatch(/i\.created_at < NOW\(\) - \(INTERVAL '1 millisecond' \* \$\{TRANSCRIBE_STALE_MS\}\)/);
+    expect(INTAKE).toMatch(/\$\{STUCK_SQL\} AS stuck/);
   });
 
   it('詳細も一覧も同じ1か所を通す', () => {
     // 前の版は詳細だけが判定を呼んでおり、**同じ投入が一覧と詳細で違う状態**に見えた
     expect(INTAKE).toMatch(/function toIntake\(row: Record<string, unknown>\): TaskIntake/);
     expect(INTAKE).toMatch(/return toIntake\(row\);/);          // 詳細
-    expect(INTAKE).toMatch(/const list = rows\.map\(toIntake\);/); // 一覧
+    expect(INTAKE).toMatch(/return rows\.map\(toIntake\);/);       // 一覧
   });
 
   it('判定用の列は応答から落とす', () => {
@@ -89,9 +119,21 @@ describe('録音の投入 — 止まった行を失敗として見せる', () =>
   it('⚠️ 「失敗だけ」で絞っても止まった行が出る', () => {
     // DB には `transcribing` のまま残っているので、SQL にそのまま渡すと
     // **いちばん取り出したい行が1件も出ない**（実測: 前の版は 0 件、この版は 1 件）
-    expect(INTAKE).toMatch(/asked === 'failed' \|\| asked === 'transcribing'/);
-    expect(INTAKE).toMatch(/i\.status IN \('failed', 'transcribing'\)/);
-    expect(INTAKE).toMatch(/list\.filter\(\(r\) => r\.status === asked\)/);
+    expect(INTAKE).toMatch(/AND \(i\.status = 'failed' OR \$\{STUCK_SQL\}\)/);
+    expect(INTAKE).toMatch(/AND i\.status = 'transcribing' AND NOT \$\{STUCK_SQL\}/);
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された P2**。読んでから絞ると **`LIMIT` が先に効く**ので、
+   * いま録っている新しい投入が 50 件あるだけで**「失敗だけ」が空になります**
+   * （古い失敗は 51 件目より後ろに居る）。**実測: 前の版 0 件 → この版 1 件**。
+   */
+  it('絞るのは SQL の中（読んでから絞らない）', () => {
+    expect(INTAKE).toMatch(/return rows\.map\(toIntake\);/);
+    expect(INTAKE).not.toMatch(/list\.filter\(\(r\) => r\.status === asked\)/);
+    // 判定の式は1か所（2か所に書くと片方だけ直る）
+    expect(INTAKE).toMatch(/const STUCK_SQL =/);
+    expect((INTAKE.match(/i\.created_at < NOW\(\) -/g) ?? []).length).toBe(1);
   });
 
   it('MCP からも録音の2つで絞れる', () => {
@@ -105,7 +147,7 @@ describe('投入ログ（日常業務）— 英語のまま出さない', () => 
     // 応答は `as TaskIntake[]` で受けるので**型チェックには出ない**。
     // 抜けていた2つは `?? it.status` に落ちて **`transcribing` と英語で**出ていた
     for (const k of ['pending', 'committed', 'discarded', 'transcribing', 'failed']) {
-      expect(TASKS_PAGE).toMatch(new RegExp(`${k}: '`));
+      expect(INTAKE_TAB).toMatch(new RegExp(`${k}: '`));
     }
   });
 
@@ -115,7 +157,7 @@ describe('投入ログ（日常業務）— 英語のまま出さない', () => 
 
   it('失敗した理由を行に出す', () => {
     // 出さないと「録音したのに何も出てこない」で終わり、録り直すかどうかも決められない
-    expect(TASKS_PAGE).toMatch(/it\.status === 'failed'/);
-    expect(TASKS_PAGE).toMatch(/it\.error_message \?\?/);
+    expect(INTAKE_TAB).toMatch(/it\.status === 'failed'/);
+    expect(INTAKE_TAB).toMatch(/it\.error_message \?\?/);
   });
 });

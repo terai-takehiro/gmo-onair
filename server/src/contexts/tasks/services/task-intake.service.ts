@@ -129,15 +129,24 @@ export interface TaskIntake {
   task_count?: number;
 }
 
+/**
+ * 「文字起こし中のまま止まっている」の判定（SQL）。
+ *
+ * **JS で日付を組み立て直さない** — pg は `timestamp` を `Date` で返すので、
+ * `String(...).replace(' ', 'T')` は必ず `Invalid Date` になります（下の
+ * `withStaleCheck` の説明）。**絞り込みでも同じ式を使う**ので定数にしてあります
+ * （2か所に書くと、片方だけ直した日に「一覧には失敗と出るのに、
+ * 失敗で絞ると出てこない」が起きます）。
+ */
+const STUCK_SQL =
+  `(i.status = 'transcribing' AND i.created_at < NOW() - (INTERVAL '1 millisecond' * ${TRANSCRIBE_STALE_MS}))`;
+
 const SELECT_INTAKE = `
   SELECT i.id, i.raw_text, i.kind, i.status, i.drafts, i.ai_output_id, i.warnings,
          i.committed_at, i.discarded_at, i.note,
          i.error_message, i.transcribed_at,
          i.created_at, i.created_by, u.name AS created_by_name,
-         -- 文字起こし中のまま止まっている行（withStaleCheck が読む）。
-         -- **JS で日付を組み立て直さない** — pg は Date を返すので必ず壊れる
-         (i.status = 'transcribing'
-           AND i.created_at < NOW() - (INTERVAL '1 millisecond' * ${TRANSCRIBE_STALE_MS})) AS stuck,
+         ${STUCK_SQL} AS stuck,
          (SELECT COUNT(*) FROM project_tasks t
            WHERE t.source_ref = i.id AND t.deleted_at IS NULL) AS task_count
   FROM task_intake i
@@ -752,11 +761,15 @@ export const taskIntakeService = {
    * **「確認待ち」の催促にも「失敗」の一覧にも出ません** — つまり
    * 投げた本人には**録音が消えたようにしか見えず、理由もどこにも出ません**。
    *
-   * **絞り込みも読んだあとの状態で合わせる。** DB には `transcribing` のまま
+   * **絞り込みも「見せる状態」で合わせる。** DB には `transcribing` のまま
    * 残っているので、`status='failed'` を SQL にそのまま渡すと
    * **止まった行が1件も出ません**（いちばん取り出したい行が落ちる）。
-   * その2つを訊かれたときは両方引いてから、見せる状態で絞ります
-   * （そのぶん返る件数が `limit` より少なくなることがあります）。
+   *
+   * ⚠️ **絞るのは SQL の中で**（レビューでの指摘）。読んでから絞ると
+   * **`LIMIT` が先に効く**ので、いま録っている新しい投入が 50 件あるだけで
+   * **「失敗だけ」が空になります**（古い失敗は 51 件目より後ろに居る）。
+   * 逆向きも同じで、止まった行が並ぶと録音中の行が消えます。
+   * `STUCK_SQL` を条件にそのまま使い、**絞ってから `LIMIT`** を掛けます。
    */
   async list(
     opts: { userId?: string; status?: IntakeStatus; kind?: IntakeKind; limit?: number } = {}
@@ -765,8 +778,12 @@ export const taskIntakeService = {
     const params: unknown[] = [];
     if (opts.userId) { where += ' AND i.created_by = ?'; params.push(opts.userId); }
     const asked = opts.status;
-    if (asked === 'failed' || asked === 'transcribing') {
-      where += " AND i.status IN ('failed', 'transcribing')";
+    if (asked === 'failed') {
+      // 本当に失敗した行 ＋ 止まったまま動かない行
+      where += ` AND (i.status = 'failed' OR ${STUCK_SQL})`;
+    } else if (asked === 'transcribing') {
+      // **いま動いているものだけ。** 止まった行は上の `failed` が拾う
+      where += ` AND i.status = 'transcribing' AND NOT ${STUCK_SQL}`;
     } else if (asked) {
       where += ' AND i.status = ?'; params.push(asked);
     }
@@ -777,8 +794,8 @@ export const taskIntakeService = {
       `${SELECT_INTAKE} ${where} ORDER BY i.created_at DESC LIMIT ?`,
       [...params, limit]
     );
-    const list = rows.map(toIntake);
-    return asked ? list.filter((r) => r.status === asked) : list;
+    // **読んでから絞らない**（上の理由）。SQL が既に絞っている
+    return rows.map(toIntake);
   },
 
   /** この投入から生まれたタスク (遡ってレビューするため) */
