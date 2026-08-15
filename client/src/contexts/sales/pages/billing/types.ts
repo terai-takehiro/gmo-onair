@@ -14,6 +14,12 @@ export interface BillingEstimate {
   gls_number: string | null;
   customer_name: string | null;
   created_by_name: string | null;
+  /** 値引きの承認。`pending` の間は送れない（お金のルール ⑤） */
+  approval_state?: 'none' | 'pending' | 'approved' | null;
+  /** いま見ている人が承認できるか。**サーバーが決める**（押して 403 にしない） */
+  can_approve?: boolean;
+  /** 承認者に決められているか（編集権限は見ない）。できない理由を名指しするために使う */
+  is_approver?: boolean;
 }
 
 /** `GET /billing/invoices` の1行 */

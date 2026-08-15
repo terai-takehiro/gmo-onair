@@ -78,10 +78,17 @@ export function EstimateRows({ rows, today }: { rows: BillingEstimate[]; today: 
             </RowSlot>
             <MoneyCell value={amount} width={128} />
             <RowSlot w={96}>
+              {/* **承認待ちは状態より先に出す。** 「作成中」と出ていると
+                  ただの下書きに見えるが、実際は**上限超えで送れない**行なので、
+                  ここで気づけないと承認者に回らない */}
               <TableBadge
-                label={ESTIMATE_STATUS_LABEL[e.status] ?? e.status}
+                label={e.approval_state === 'pending'
+                  ? '承認待ち'
+                  : (ESTIMATE_STATUS_LABEL[e.status] ?? e.status)}
                 w={null}
-                className={ESTIMATE_STATUS_TONE[e.status]}
+                className={e.approval_state === 'pending'
+                  ? 'border-transparent bg-warning-surface text-warning'
+                  : ESTIMATE_STATUS_TONE[e.status]}
               />
             </RowSlot>
             <RowSlot w={96} placeholder="—" hideOnMobile>
