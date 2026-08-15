@@ -124,7 +124,7 @@ export function EquipmentFilters({
         <SearchField
           value={state.search}
           onChange={(v) => onChange({ search: v })}
-          placeholder="名前・ID・型名で探す"
+          placeholder="名前・ID・型名・置き場所で探す"
         />
         <label className="flex items-center gap-2 whitespace-nowrap text-sub text-muted-foreground">
           <Switch

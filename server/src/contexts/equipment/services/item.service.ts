@@ -182,15 +182,29 @@ export const itemService = {
        * 速さは変わらない。
        */
       const strip = (col: string) => `REPLACE(REPLACE(REPLACE(${col}, '-', ''), ' ', ''), '_', '')`;
+      /*
+       * ⚠️ **全角で打っても当たるようにする**（レビューでの指摘 #70）。
+       * 画面には「全角半角・ハイフンは区別しません」と書いてあるのに、
+       * サーバーは打たれた文字をそのまま `ILIKE` に渡していました
+       * （`ＥＱ－０００１` は `EQ-0001` に当たりません）。
+       * **NFKC で半角に寄せる** — 画面側（ケーブル・コネクタ）と同じ正規化です。
+       *
+       * ⚠️ **置き場所も見る。** 「探す」の画面は
+       * 「名前・機材ID・型名・製造番号・メーカー・**置き場所**から探します」と
+       * 書いているのに、置き場所だけ見ていませんでした
+       * （書いてあるのに当たらない ＝ 打った人は「無い」と思います）。
+       */
+      const term = String(filter.search).normalize('NFKC');
       sql += ` AND (ei.name ILIKE $${i} OR ei.eq_code ILIKE $${i + 1} OR em.name ILIKE $${i + 2}`
         + ` OR ei.model_number ILIKE $${i + 3} OR ei.serial_number ILIKE $${i + 4}`
-        + ` OR ${strip('ei.eq_code')} ILIKE $${i + 5}`
-        + ` OR ${strip('ei.model_number')} ILIKE $${i + 6}`
-        + ` OR ${strip('ei.serial_number')} ILIKE $${i + 7})`;
-      const s = `%${filter.search}%`;
-      const bare = `%${filter.search.replace(/[-\s_]/g, '')}%`;
-      params.push(s, s, s, s, s, bare, bare, bare);
-      i += 8;
+        + ` OR el.name ILIKE $${i + 5} OR ei.location_detail ILIKE $${i + 6}`
+        + ` OR ${strip('ei.eq_code')} ILIKE $${i + 7}`
+        + ` OR ${strip('ei.model_number')} ILIKE $${i + 8}`
+        + ` OR ${strip('ei.serial_number')} ILIKE $${i + 9})`;
+      const s = `%${term}%`;
+      const bare = `%${term.replace(/[-\s_]/g, '')}%`;
+      params.push(s, s, s, s, s, s, s, bare, bare, bare);
+      i += 10;
     }
 
     // Count (where 句を流用するため、本体クエリを wrap)
