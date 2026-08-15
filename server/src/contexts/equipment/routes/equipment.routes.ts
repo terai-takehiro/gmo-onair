@@ -846,9 +846,19 @@ router.post('/scans', requirePermission('equipment', 'editor'), async (req: Requ
   if (!['lookup', 'lend', 'return', 'inventory'].includes(action)) {
     throw new AppError(400, 'VALIDATION_ERROR', '知らない読み取りの種類です');
   }
-  // 機材 ID は**渡されたものを信じない**。読み取った文字列から引き直す
+  /*
+   * 機材 ID は**渡されたものを信じない**。読み取った文字列から引き直す。
+   *
+   * ⚠️ **機材IDでも id でも引く**（レビューでの指摘 #57）。QR は2通りあります —
+   * シールの機材ID（`Y-C-000001`）と、**URL に id が入ったもの**
+   * （`/equipment/items/<uuid>`。`client-equipment/src/lib/qrCode.ts` が
+   * `type: 'id'` として取り出します）。前の版は `eq_code` だけを引いていたので、
+   * **URL の QR を読むと画面はその機材を開くのに、履歴には「見つからない」として
+   * 残って**いました（`equipment_id` が NULL）。あとから
+   * 「誰がどれを読んだか」を数えるとき、**その読み取りだけ機材に結びつきません**。
+   */
   const item = await queryOne(
-    'SELECT id FROM equipment_items WHERE eq_code = ? AND deleted_at IS NULL', [raw],
+    'SELECT id FROM equipment_items WHERE (eq_code = ? OR id = ?) AND deleted_at IS NULL', [raw, raw],
   ) as { id: string } | null;
 
   const id = uuid();

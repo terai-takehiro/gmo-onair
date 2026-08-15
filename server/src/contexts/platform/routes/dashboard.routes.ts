@@ -498,7 +498,16 @@ router.get('/weekly-schedule', async (_req, res) => {
       date: dateStr,
       dayLabel: dayLabels[d.getDay()],
       events: [...projects, ...episodes.map((ep: any) => ({
-        ...ep, type: ep.recording_date === dateStr ? 'recording' : 'broadcast',
+        ...ep,
+        /*
+         * ⚠️ **名前を必ず入れる**（レビューでの指摘 #55）。
+         * 画面（`home/TodayCard.tsx`）は `ev.name` を出しますが、この行は
+         * `project_name` と `episode_code` しか持っていなかったので、
+         * **収録・放送の予定だけ名前が空**で並んでいました
+         * （札と時刻はあるのに、何の予定か分からない）。
+         */
+        name: [ep.project_name, ep.episode_code].filter(Boolean).join(' ') || '(名前なし)',
+        type: ep.recording_date === dateStr ? 'recording' : 'broadcast',
       })), ...bookingEvents],
     });
   }
