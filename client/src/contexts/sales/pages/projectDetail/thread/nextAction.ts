@@ -63,6 +63,18 @@ const circledValue = (ch: string): number => (ch.codePointAt(0) ?? 0) - 0x245f;
 const LINE_MARKER = /^(?:([・･‐-―-])|(\d{1,2}[).）.]|[①-⑳]|[→⇒]))\s*/;
 
 /**
+ * ⚠️ **数の頭のマイナスを印として食わない**（レビューでの指摘 #97）。
+ *
+ * `-` は行頭の印（`- 見積を送る`）でもありますが、**`-10万円` の `-` は数の一部**です。
+ * 前の版は区別せずに落としていたので、**「-10万円で調整」が「10万円で調整」**になり、
+ * **符号が逆の金額が画面に出て**いました（原文には残っているので、
+ * 読んだ人はそれが正しいと思います）。
+ *
+ * 印として落とすのは**うしろに数字が続かないとき**だけにします。
+ */
+const MINUS_NUMBER = /^[-‐−ー]\s*\d/;
+
+/**
  * 文で分けるかどうかの下限。**短い文は分けません** —
  * 「見積書を送付する。」を2行にしても読みやすくならず、行だけが増えます。
  */
@@ -83,7 +95,14 @@ function splitByLines(text: string): ParsedNextAction | null {
   const head: string[] = [];
   const items: NextActionItem[] = [];
   for (const line of lines) {
-    const m = LINE_MARKER.exec(line);
+    // 数の頭のマイナスは印ではない（`MINUS_NUMBER` の説明）。
+    // **1件として立てる**（前の行にくっつけると2件が1件に減る）が、
+    // **印は付けない** — 原文の `-` は数の一部なので、文字として本文に残す
+    if (MINUS_NUMBER.test(line) && (items.length > 0 || head.length > 0)) {
+      items.push({ marker: null, text: clean(line) });
+      continue;
+    }
+    const m = MINUS_NUMBER.test(line) ? null : LINE_MARKER.exec(line);
     if (m) {
       items.push({ marker: m[2] ?? null, text: clean(line.slice(m[0].length)) });
     } else if (items.length > 0) {
@@ -183,9 +202,24 @@ export function parseNextAction(raw: string | null | undefined): ParsedNextActio
   const text = clean((raw ?? '').replace(/\r\n?/g, '\n'));
   if (!text) return { headline: '', items: [] };
 
+  /*
+   * ⚠️ **改行があっても、行の中の丸数字を見にいく**（レビューでの指摘 #97）。
+   *
+   * 本番データは**改行と行中の丸数字が混ざります**（この文書の頭の例がそれです）。
+   * 前の版は「改行があれば行ごとに分ける」で打ち切っていたので、
+   * **`①②③` が1行に並んでいる回はまるごと1件**になり、
+   * 画面には「やることが1つ」に見えていました（**残りは行の中に埋まったまま**）。
+   *
+   * 行で分けた結果が**1件しか無いとき**（＝行頭の印が実質1つも無かったとき）だけ、
+   * 丸数字での分け方を試します。**行で分けられているものは触りません**。
+   */
   const byLine = text.includes('\n') ? splitByLines(text) : null;
+  if (byLine && byLine.items.length >= 2) return byLine;
+
+  const byCircled = splitByCircled(text.replace(/\n/g, ''));
+  if (byCircled) return byCircled;
+
   return byLine
-    ?? splitByCircled(text)
     ?? splitBySentence(text)
     ?? { headline: text, items: [] };
 }

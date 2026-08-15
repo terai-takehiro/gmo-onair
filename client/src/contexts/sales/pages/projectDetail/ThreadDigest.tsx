@@ -46,16 +46,33 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
 
         return (
           <li key={a.id} className="flex gap-3 border-b border-border-faint py-2.5 last:border-b-0">
-            {/* 時系列の柱。丸の位置を1行目の文字の高さに合わせる */}
-            <span className="flex w-11 shrink-0 flex-col items-end" aria-hidden="true">
-              <span className="text-sub-sm font-number leading-5 text-muted-foreground">
-                {a.activity_date?.slice(5).replace('-', '/')}
-              </span>
-              {showYear && (
-                <span className="text-note font-number text-muted-foreground">
-                  {a.activity_date?.slice(0, 4)}
+            {/*
+              時系列の柱。丸の位置を1行目の文字の高さに合わせる。
+
+              ⚠️ **日付を読み上げから外さない**（レビューでの指摘 #90）。
+              前の版はこの枠ごと `aria-hidden` にしていたので、読み上げでは
+              **いつのやり取りか分からないまま本文だけが並んで**いました
+              （やり取りは時系列がすべてなので、日付が落ちると順序の意味も消えます）。
+              **飾りは飾りとして隠し、日付は `<time>` で1つの読み方にまとめます**
+              （「08/14」「2026」と2つに割れていると、2つの数として読まれる）。
+            */}
+            <span className="flex w-11 shrink-0 flex-col items-end">
+              <time
+                dateTime={a.activity_date ?? undefined}
+                aria-label={a.activity_date
+                  ? `${a.activity_date.slice(0, 4)}年${Number(a.activity_date.slice(5, 7))}月${Number(a.activity_date.slice(8, 10))}日`
+                  : undefined}
+                className="flex flex-col items-end"
+              >
+                <span className="text-sub-sm font-number leading-5 text-muted-foreground" aria-hidden="true">
+                  {a.activity_date?.slice(5).replace('-', '/')}
                 </span>
-              )}
+                {showYear && (
+                  <span className="text-note font-number text-muted-foreground" aria-hidden="true">
+                    {a.activity_date?.slice(0, 4)}
+                  </span>
+                )}
+              </time>
             </span>
 
             <span className="min-w-0 flex-1">
