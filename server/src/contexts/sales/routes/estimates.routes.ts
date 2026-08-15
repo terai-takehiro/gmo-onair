@@ -17,6 +17,26 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
 const router = Router({ mergeParams: true });
+/**
+ * POST /projects/:projectId/estimates/:id/convert-to-revenue
+ * — 受注が決まった見積を売上・請求 (`revenues`) に登録する。
+ *
+ * **`sales` か `budget` のどちらかの editor で通す**（`billing.routes.ts` と同じ考え方）。
+ * 案件管理から確定させる担当者と、売上を扱う経理の両方が押せる必要がある。
+ *
+ * ⚠️ **全体のゲートより前に置く。** この router は下で `sales` を全ルートに
+ * 要求するので、`requireAnyPermission` を書いていても**`budget` だけの人は
+ * そこに到達できません**でした（レビューでの指摘 #87 — 書いてあるのに効かない、
+ * いちばん気づけない形）。売上は経理の持ち物なので、経理が押せないと
+ * 受注が売上に上がらないまま止まります。
+ */
+router.post('/:id/convert-to-revenue',
+  requireAuth, requireAnyPermission(['sales', 'budget'], 'editor'),
+  wrap(async (req, res) => {
+    const { id } = req.params as Record<string, string>;
+    res.status(201).json({ success: true, data: await estimateService.convertToRevenue(id, userOf(req)) });
+  }));
+
 router.use(requireAuth, requirePermission('sales'));
 
 const canEdit = requirePermission('sales', 'editor');
@@ -124,18 +144,6 @@ router.delete('/:id', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;
   await estimateService.remove(id, userOf(req));
   res.json({ success: true });
-}));
-
-/**
- * POST /projects/:projectId/estimates/:id/convert-to-revenue
- * — 受注が決まった見積を売上・請求 (`revenues`) に登録する。
- *
- * **`sales` か `budget` のどちらかの editor で通す**（`billing.routes.ts` と同じ考え方）。
- * 案件管理から確定させる担当者と、売上を扱う経理の両方が押せる必要がある。
- */
-router.post('/:id/convert-to-revenue', requireAnyPermission(['sales', 'budget'], 'editor'), wrap(async (req, res) => {
-  const { id } = req.params as Record<string, string>;
-  res.status(201).json({ success: true, data: await estimateService.convertToRevenue(id, userOf(req)) });
 }));
 
 export default router;

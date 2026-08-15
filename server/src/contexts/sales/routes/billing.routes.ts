@@ -9,8 +9,14 @@
  *
  * ── 「回」ごとに1行にしない ──────────────────────────────
  *
- * 請求は `revenues` の1行 = 1請求です。按分の親行 (`group_id` が入っている行) は
- * **子行と二重に数えない**よう、他の集計と同じく `group_id IS NULL` で絞ります。
+ * 請求は `revenues` の1行 = 1請求です。
+ *
+ * ⚠️ **按分（グループ請求）も1行です。** 以前ここには「按分の親行は子行と
+ * 二重に数えないよう `group_id IS NULL` で絞る」と書いてありましたが、
+ * **`revenues` に子行はありません** — 按分の内訳は別表（`revenue_allocations`）で、
+ * グループ請求は `group_id` が入った**1行だけ**です（migration 006）。
+ * 絞っていたせいで、**グループ請求はこの一覧にも締め処理にも1行も出ず、
+ * 請求書も入金も検収も記録できませんでした**（レビューでの指摘 #53）。
  */
 import { Router } from 'express';
 import { withCanApprove } from '../services/estimate.service';
@@ -101,8 +107,9 @@ router.get('/invoices', async (req, res) => {
   const mine = req.query.scope === 'mine';
   const state = typeof req.query.state === 'string' ? req.query.state : '';
   const params: unknown[] = [];
+  // **グループ請求も出す**（`revenues` の1行 = 1請求。子行は無い）
   let where = `WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
-                 AND r.group_id IS NULL AND p.deleted_at IS NULL`;
+                 AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND r.assigned_to = ?'; params.push(req.user!.id); }
   if (state === 'unpaid') where += ' AND r.paid_date IS NULL';
@@ -118,11 +125,15 @@ router.get('/invoices', async (req, res) => {
             p.name AS project_name, p.gls_number,
             c.name AS customer_name,
             e.episode_code,
+            -- **按分（グループ請求）だと分かるようにする。** 金額はグループ全体のもので、
+            -- 出ている案件名は代表の1件でしかない（内訳は按分グループの画面）
+            r.group_id, g.name AS group_name,
             u.name AS assigned_to_name
        FROM revenues r
        JOIN projects p ON p.id = r.project_id
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
+       LEFT JOIN project_groups g ON g.id = r.group_id
        LEFT JOIN users u ON u.id = r.assigned_to
        ${where}
       ORDER BY
@@ -224,13 +235,16 @@ router.get('/closing', async (req, res) => {
             -- 申込書が揃っていない案件は選ばせない (0 = 未提出)
             (COALESCE(p.application_form, 0) = 0) AS blocked,
             c.name AS customer_name,
-            e.episode_code
+            e.episode_code,
+            -- 按分（グループ請求）も締められる。金額はグループ全体のもの
+            r.group_id, g.name AS group_name
        FROM revenues r
        JOIN projects p ON p.id = r.project_id
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
+       LEFT JOIN project_groups g ON g.id = r.group_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
-        AND r.group_id IS NULL AND p.deleted_at IS NULL
+        AND p.deleted_at IS NULL
         AND r.recognition_date LIKE ?
       ORDER BY p.gls_number ASC NULLS LAST, r.amount DESC`,
     [`${month}-%`],

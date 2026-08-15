@@ -589,21 +589,39 @@ export const estimateService = {
     )) as Record<string, unknown>[];
 
     const projectId = String(est.project_id);
-    const amount = (Number(est.subtotal) || 0) - (Number(est.discount) || 0);
+    const discount = Number(est.discount) || 0;
+    const amount = (Number(est.subtotal) || 0) - discount;
     const taxCategory = String(est.tax_category ?? 'tax10');
-
-    // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
-    // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
-    const existingCount = ((await queryOne(
-      `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
-      [projectId],
-    )) as { c: string }).c;
-    const seqNum = String(Number(existingCount) + 1).padStart(3, '0');
-    const base = (est.project_gls_number as string | null) || 'REV';
-    const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
 
     const revenueId = uuidv4();
     await withTransaction(async (tx) => {
+      /*
+       * ⚠️ **確かめるのも採番するのも取引の中で、行を押さえてから**（レビューでの指摘）。
+       *
+       * 上の `est.revenue_id` の確認と連番の数え上げを取引の外でやっていたので、
+       * **2人が同時に押すと両方が確認を通り**、売上が2行できていました
+       * （`estimates.revenue_id` は後から書いたほうだけが残るので、
+       * **もう1行はどこからも参照されないまま台帳に載り続けます** = 二重計上）。
+       * `billing_key` も同じ数え方をしていたので**同じ鍵の行が2つ**できます。
+       * 議事録の持ち帰り（v4.0.10）とまったく同じ形です。
+       */
+      const locked = await tx.queryOne(
+        `SELECT revenue_id FROM estimates WHERE id = $1 FOR UPDATE`, [id],
+      ) as { revenue_id: string | null } | undefined;
+      if (locked?.revenue_id) {
+        throw new AppError(400, 'ALREADY_CONVERTED', 'この見積はすでに売上・請求に登録されています');
+      }
+
+      // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
+      // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
+      const existingCount = ((await tx.queryOne(
+        `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
+        [projectId],
+      )) as { c: string }).c;
+      const seqNum = String(Number(existingCount) + 1).padStart(3, '0');
+      const base = (est.project_gls_number as string | null) || 'REV';
+      const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
+
       await tx.execute(
         `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
            subtitle, notes, status, created_by, updated_by)
@@ -619,6 +637,28 @@ export const estimateService = {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
            it.category, it.pricing_item_id, it.item_notes, order++],
+        );
+      }
+      /*
+       * ⚠️ **値引きも1行として写す**（レビューでの指摘）。
+       *
+       * 見積の値引きは**単価を下げずに別建て**する決めごと（v4 の設計判断）なので、
+       * 明細をそのまま写すと**定価のまま**になります。売上の合計（`revenues.amount`）は
+       * 値引き後なのに、**明細を足すと合計より大きい** — 請求書 PDF は明細と合計の
+       * 両方を刷るので、**紙の上で数字が合いません**。明細を足して数える画面
+       * （案件詳細の売上・請求）も定価で数えます。
+       *
+       * **単価を按分して下げないこと** — どの品目をいくら引いたのかは決めていないので、
+       * 勝手に配ると「この品目はこの値段で受けた」という誤った記録になります。
+       */
+      // **明細が1行も無い見積には書かない** — 値引きだけの明細になり、
+      // 「明細の合計 = マイナス／ヘッダーはプラス」というもっと読めない形になる
+      if (discount > 0 && items.length > 0) {
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+             category, sort_order)
+           VALUES ($1, $2, $3, 1, $4, $4, $5, $6)`,
+          [uuidv4(), revenueId, `値引き（見積 v${est.version}）`, -discount, 'other', order++],
         );
       }
       // **見積の側にも売上の id を残す。** 「いくらで出して、いくらで決まったか」を

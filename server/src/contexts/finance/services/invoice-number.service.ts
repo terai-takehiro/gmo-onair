@@ -23,7 +23,7 @@
  * 発行しても同じ番号は出ない。さらに `revenues.invoice_no` に部分一意索引を
  * 張ってあるので、経路が増えても DB が最後の砦になる。
  */
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, withTransaction } from '../../../shared/db/connection';
 
 /**
  * 年度の始まり月 (1 = 暦年)。
@@ -43,9 +43,17 @@ export function formatInvoiceNo(year: number, counter: number): string {
   return `INV-${year}-${String(counter).padStart(4, '0')}`;
 }
 
-/** 年度ごとの次の番号を1つ採る。**アトミック** */
-async function nextInvoiceNo(year: number): Promise<string> {
-  const row = await queryOne(
+/** 取引の中でも外でも同じ SQL を使うための最小の口 */
+interface Q { queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined> }
+
+/**
+ * 年度ごとの次の番号を1つ採る。**アトミック**。
+ * `tx` を渡すと**その取引の中で**採る — 渡さないと、行を押さえている取引の外で
+ * 採ることになり、書き込みが巻き戻っても番号だけ進む。
+ */
+async function nextInvoiceNo(year: number, tx?: Q): Promise<string> {
+  const q: Q = tx ?? { queryOne };
+  const row = await q.queryOne(
     `INSERT INTO sequences (seq_name, prefix, year_month, counter)
      VALUES (?, ?, ?, 1)
      ON CONFLICT (seq_name) DO UPDATE SET counter = sequences.counter + 1
@@ -80,15 +88,36 @@ export async function assignInvoiceNumbers(
   const year = fiscalYearOf(now);
   const assigned: { id: string; invoice_no: string }[] = [];
 
-  // **1件ずつ採る。** まとめて採ると、途中で失敗したときに採った番号が
-  // どこにも付かないまま欠番になる (欠番は許すが、理由なく作らない)
+  /*
+   * **1件ずつ採る。** まとめて採ると、途中で失敗したときに採った番号が
+   * どこにも付かないまま欠番になる (欠番は許すが、理由なく作らない)。
+   *
+   * ⚠️ **行を押さえてから採る**（レビューでの指摘 #57）。以前は
+   * 「番号を採る → `WHERE invoice_no IS NULL` で書く」の順だったので、
+   * 2人が同時に発行を押すと**片方の書き込みが 0 行**になり、
+   * ①**採った番号が誰にも付かないまま消費され**（理由の無い欠番）、
+   * ②**その番号を「採れました」と返して**いました — 画面はその番号を出すのに、
+   * **行に入っているのは別の番号**です（相手に渡す紙の番号なので、食い違うと追えない）。
+   *
+   * 押さえてから採れば①は起きず、②はそもそも起こりえません。
+   * すでに番号を持っていた行は**入っている番号のほうを返します**（真実を返す）。
+   */
   for (const row of pending) {
-    const invoiceNo = await nextInvoiceNo(year);
-    await execute(
-      'UPDATE revenues SET invoice_no = ?, updated_at = NOW() WHERE id = ? AND invoice_no IS NULL',
-      [invoiceNo, row.id],
-    );
-    assigned.push({ id: row.id, invoice_no: invoiceNo });
+    const done = await withTransaction(async (tx) => {
+      const cur = await tx.queryOne(
+        'SELECT invoice_no FROM revenues WHERE id = ? FOR UPDATE', [row.id],
+      ) as { invoice_no: string | null } | undefined;
+      if (!cur) return null;                      // 押さえる間に消えた
+      if (cur.invoice_no) return cur.invoice_no;  // 先に採られていた = その番号が正
+
+      const minted = await nextInvoiceNo(year, tx);
+      await tx.execute(
+        'UPDATE revenues SET invoice_no = ?, updated_at = NOW() WHERE id = ?',
+        [minted, row.id],
+      );
+      return minted;
+    });
+    if (done) assigned.push({ id: row.id, invoice_no: done });
   }
   return assigned;
 }
