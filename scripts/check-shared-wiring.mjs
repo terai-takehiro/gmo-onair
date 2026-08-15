@@ -70,7 +70,14 @@ for (const app of APPS) {
     bad(app, 'vite.config.ts', 'ファイルが無い');
   } else {
     const vite = readFileSync(viteFile, 'utf8');
-    const m = vite.match(new RegExp(`'${PKG}':\\s*path\\.resolve\\(__dirname,\\s*'([^']+)'\\)`));
+    /*
+     * ⚠️ **引用符はどちらでも受ける**（レビューでの指摘 #39）。
+     * 前の版は `'` で書いたときしか当たらず、`"` で書いた設定では
+     * **「resolve.alias が無い」と出て**いました（実際にはあるのに）。
+     * 落ちること自体は正しいのですが、**理由が嘘**なので直す場所を探しに行けません
+     * （しかも「shared 以外を指している」の判定にも一生たどり着きません）。
+     */
+    const m = vite.match(new RegExp(`['"]${PKG}['"]:\\s*path\\.resolve\\(__dirname,\\s*['"]([^'"]+)['"]\\)`));
     if (!m) {
       bad(app, 'vite.config.ts', `resolve.alias に '${PKG}' が無い`);
     } else if (realOf(app, m[1]) !== SHARED) {

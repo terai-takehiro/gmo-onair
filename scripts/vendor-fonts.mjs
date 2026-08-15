@@ -65,6 +65,13 @@ const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Geck
 
 const check = process.argv.includes('--check');
 
+/**
+ * これ未満なら「途中で切れている」と見なすバイト数。
+ * LINE Seed JP の断片は**いちばん小さいものでも 1KB 台**（実測）なので、
+ * 200 バイトは「明らかに壊れている」側だけを拾う値です。
+ */
+const MIN_WOFF2_BYTES = 200;
+
 async function curlText(url) {
   const { stdout } = await execFileP('curl', ['-sSfL', '--max-time', '60', '-A', UA, url], {
     maxBuffer: 1 << 24,
@@ -111,7 +118,52 @@ async function main() {
       console.error('        node scripts/vendor-fonts.mjs で取得してください');
       process.exit(1);
     }
-    console.log(`[fonts] OK (${FAMILY} ${n} ファイル同梱)`);
+
+    /*
+     * ⚠️ **数えるだけでは足りない**（レビューでの指摘 #84）。
+     *
+     * 前の版は「woff2 が1つ以上あって CSS と OFL がある」で通していました。
+     * ところが壊れ方は**1つの断片だけ**で起きます:
+     *
+     * ・取得が途中で切れて **0 バイト / 途中まで**のファイルが残る
+     * ・プロキシがエラーページ（HTML）を返し、それが `.woff2` として保存される
+     * ・CSS が参照しているのに**そのファイルだけ無い**
+     *
+     * どれも**その `unicode-range` の文字だけ**が代替書体で描かれます。
+     * 「なんとなく字が違う」以外に手がかりが無く、**画面を見ても気づけません**。
+     *
+     * CSS が参照しているファイルを1つずつ当たり、**在ること・中身が woff2 で
+     * あること**（先頭4バイトが `wOF2`）を見ます。
+     */
+    const css = fs.readFileSync(CSS_OUT, 'utf8');
+    const refs = [...new Set([...css.matchAll(/url\(([^)]+)\)/g)]
+      .map((m) => path.basename(m[1].replace(/['"]/g, '').split('?')[0]))
+      .filter((f) => f.endsWith('.woff2')))];
+
+    const broken = [];
+    for (const f of refs) {
+      const p = path.join(OUT, f);
+      if (!fs.existsSync(p)) { broken.push(`${f} … CSS が参照しているのに無い`); continue; }
+      const size = fs.statSync(p).size;
+      if (size < MIN_WOFF2_BYTES) { broken.push(`${f} … ${size} バイトしかない（途中で切れている）`); continue; }
+      const head = Buffer.alloc(4);
+      const fd = fs.openSync(p, 'r');
+      try { fs.readSync(fd, head, 0, 4, 0); } finally { fs.closeSync(fd); }
+      if (head.toString('latin1') !== 'wOF2') {
+        broken.push(`${f} … woff2 ではない（先頭が ${JSON.stringify(head.toString('latin1'))}。エラーページを保存していないか）`);
+      }
+    }
+
+    if (broken.length) {
+      console.error(`[fonts] 壊れている断片が ${broken.length} 件あります:`);
+      for (const b of broken.slice(0, 10)) console.error(`  - ${b}`);
+      if (broken.length > 10) console.error(`  … ほか ${broken.length - 10} 件`);
+      console.error('        その unicode-range の文字だけが代替書体で描かれます（画面では気づけません）');
+      console.error('        直し方: 壊れたファイルを消して node scripts/vendor-fonts.mjs');
+      process.exit(1);
+    }
+
+    console.log(`[fonts] OK (${FAMILY} ${n} ファイル同梱 / CSS が参照する ${refs.length} 件をすべて確認)`);
     return;
   }
 
