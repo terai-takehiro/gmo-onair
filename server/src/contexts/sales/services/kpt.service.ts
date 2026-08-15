@@ -235,7 +235,7 @@ export async function replaceKptKind(
  */
 export async function generateKptDraft(
   projectId: string, userId: string,
-): Promise<{ created: number; skipped?: string }> {
+): Promise<{ created: number; skipped?: string; aiCalled: boolean }> {
   await assertProject(projectId);
   if (!isKptAiConfigured()) {
     throw new AppError(503, 'NOT_CONFIGURED', 'この環境は AI につないでいないので、下書きは作れません');
@@ -246,7 +246,10 @@ export async function generateKptDraft(
     [projectId],
   ) as { n: number };
   if (Number(pending.n) > 0) {
-    return { created: 0, skipped: '確かめていない下書きが残っています。先に確かめるか消してください' };
+    // **AI は呼んでいません**（`aiCalled: false`）。夜間の仕事はこれを見て
+    // 「1晩の上限」を数えるので、ここで数えると**費用が掛かっていないのに
+    // 枠だけ埋まり、新しい案件に下書きが作られなくなります**（レビューでの指摘）
+    return { created: 0, aiCalled: false, skipped: '確かめていない下書きが残っています。先に確かめるか消してください' };
   }
 
   const project = await queryOne(
@@ -285,7 +288,8 @@ export async function generateKptDraft(
   ) as Record<string, unknown>[];
 
   if (activities.length === 0 && minutes.length === 0 && lateTasks.length === 0) {
-    return { created: 0, skipped: 'この案件には、下書きの材料になるやり取り・議事録・遅れたタスクがありません' };
+    // ここも AI を呼ぶ前（同上）
+    return { created: 0, aiCalled: false, skipped: 'この案件には、下書きの材料になるやり取り・議事録・遅れたタスクがありません' };
   }
 
   let advice: string[] = [];
@@ -307,7 +311,10 @@ export async function generateKptDraft(
     ...draft.try.map((body) => ({ kind: 'try' as KptKind, body })),
   ].filter((x) => x.body.trim());
 
-  if (items.length === 0) return { created: 0, skipped: '材料からは書けることが見つかりませんでした' };
+  // ⚠️ **ここは AI を呼んだあと**なので `aiCalled: true`。行は残らないので
+  // 翌晩また対象になりますが、**費用は実際に掛かっている**ので枠は数えます
+  // （窓は7日なので、繰り返されるのは最大7晩）
+  if (items.length === 0) return { created: 0, aiCalled: true, skipped: '材料からは書けることが見つかりませんでした' };
 
   // AI が出したものの**全文**を残す（条件1）
   const outputId = await recordAiOutput({
@@ -335,5 +342,5 @@ export async function generateKptDraft(
        await nextOrder(projectId, item.kind)],
     );
   }
-  return { created: items.length };
+  return { created: items.length, aiCalled: true };
 }
