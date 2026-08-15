@@ -220,6 +220,13 @@ async function analyzeIntake(
    */
   withProjects: boolean,
 ): Promise<AnalyzeResult> {
+  /*
+   * **総枠の起点はここ**（`intake-ai.service` の `TOTAL_BUDGET_MS`）。
+   * 解析を始めた時刻ではなく、**この仕事を始めた時刻**にします —
+   * 担当者一覧・案件候補・過去の傾向を引く時間も、押した人は待っています。
+   * AI の呼び出しだけを数えると、**前段が遅い日に nginx の 60 秒を超えます**。
+   */
+  const startedAt = Date.now();
   const users = await loadUsers();
   const projects = withProjects ? await loadProjectCandidates() : [];
   const now = new Date();
@@ -232,7 +239,7 @@ async function analyzeIntake(
     try {
       const advice = await getIntakeAdvice();
       const ai = await parseIntakeWithAi(rawText, users, {
-        now, submitterId: userId, advice, projects, attachments,
+        now, submitterId: userId, advice, projects, attachments, startedAt,
       });
       parsed = { drafts: ai.drafts, skipped: ai.skipped };
       model = ai.model;
@@ -408,7 +415,9 @@ router.post('/tasks/intake/preview-transcribe', ...canEdit, previewUpload, async
     const stt = await transcribeAudio(
       file.buffer,
       normalizeAudioName(fileName(file), file.mimetype),
-      { timeoutMs: PREVIEW_STT_TIMEOUT_MS },
+      // **やり直さない。** 押した人が待っているので、20 秒が 40 秒になる
+      // （`maxRetries` の既定は 1）と「短く諦める」が嘘になる
+      { timeoutMs: PREVIEW_STT_TIMEOUT_MS, maxRetries: 0 },
     );
     await recordAiUsage({
       kind: 'stt_preview', provider: 'openai', model: stt.model,

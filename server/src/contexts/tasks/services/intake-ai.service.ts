@@ -69,8 +69,31 @@ export type IntakeAiProvider = 'openai' | 'anthropic';
  * 巻き添えで変わる、という名前から読み取れない結びつきがあった）。
  */
 
-/** 解析は対話 UI の中で待たせるので、nginx の 60 秒より十分手前で諦める */
-const TIMEOUT_MS = 30_000;
+/**
+ * 1回の呼び出しの上限。**これだけでは足りません**（下の `TOTAL_BUDGET_MS`）。
+ *
+ * ⚠️ 前の版はこの1つだけを見て「nginx の 60 秒より十分手前」と書いていましたが、
+ * **実際に掛かりうる時間は 4 倍**でした（レビューでの指摘 #76）:
+ * SDK に `maxRetries: 1` を渡しているので**1回の呼び出しが 2 回**になり、
+ * さらに**軽いモデルで落ちたら上位モデルでやり直す**ので、
+ * 30 秒 × 2 × 2 = **最大 120 秒**。nginx の `/api/` は
+ * `proxy_read_timeout` を書いていないので**既定の 60 秒で切れます**。
+ *
+ * 切れると押した人には「押しても何も起きない」としか見えません
+ * （しかもサーバー側では解析が続いていて、費用は掛かっています）。
+ */
+const TIMEOUT_MS = 20_000;
+
+/**
+ * **やり直しまで含めた総枠。** nginx の 60 秒の手前で必ず諦めます。
+ *
+ * 残り時間で1回ずつの上限を絞り、**残りが少なければ上位モデルのやり直しをしません**
+ * （やり直しても切られるので、費用だけ掛かって結果が届かない）。
+ */
+const TOTAL_BUDGET_MS = 45_000;
+
+/** やり直しに要る最低の残り。これを切ったら諦めて規則ベースに落とす */
+const RETRY_FLOOR_MS = 8_000;
 
 /** 投入テキストの上限。これを超える分は切らずに **エラーにして人に分けさせる** (黙って切ると依頼が消える) */
 const MAX_INPUT_CHARS = 20_000;
@@ -647,6 +670,11 @@ export async function parseIntakeWithAi(
     projects?: ParserProject[];
     /** 添付（画像・PDF）。**同じ解析に載せる** — 別画面を作らない */
     attachments?: IntakeAttachment[];
+    /**
+     * 解析を始めた時刻（ミリ秒）。**総枠（`TOTAL_BUDGET_MS`）の起点**です。
+     * 省略すると呼ばれた瞬間。**試験から時間を進めるために受け取ります。**
+     */
+    startedAt?: number;
   } = {}
 ): Promise<IntakeAiResult> {
   const provider = resolveProvider();
@@ -673,9 +701,19 @@ export async function parseIntakeWithAi(
   // **短くて添付の無いものは軽いモデルで。** 迷ったら上位モデルに倒す
   const useLight = light !== null && light !== heavy && canUseLightModel(text, attachments);
 
-  const call = (m: string) => (provider === 'openai'
-    ? callOpenAi(m, userPrompt, attachments)
-    : callAnthropic(m, userPrompt, attachments));
+  /*
+   * **総枠を持って呼ぶ**（上の `TOTAL_BUDGET_MS`）。1回ずつの上限ではなく、
+   * **やり直しまで含めて 60 秒を超えない**ことを守ります。
+   * `startedAt` は呼ぶ側から渡せるようにしてあります（試験のため）。
+   */
+  const startedAt = opts.startedAt ?? Date.now();
+  const remaining = () => TOTAL_BUDGET_MS - (Date.now() - startedAt);
+  const call = (m: string) => {
+    const ms = Math.min(TIMEOUT_MS, Math.max(1_000, remaining()));
+    return provider === 'openai'
+      ? callOpenAi(m, userPrompt, attachments, ms)
+      : callAnthropic(m, userPrompt, attachments, ms);
+  };
 
   let model = useLight ? light! : heavy;
   let out: { raw: RawAiResult; usage: IntakeAiResult['usage'] };
@@ -686,6 +724,17 @@ export async function parseIntakeWithAi(
     // モデル名が使えない環境で黙って規則ベースに落ちると、
     // 「行き先を決めてくれなくなった」という劣化になる
     if (!useLight) throw e;
+    /*
+     * ⚠️ **残り時間が無ければやり直さない**（同じ指摘）。やり直しても
+     * nginx に切られるので、**費用だけ掛かって結果は届きません**。
+     * 諦めた回は規則ベースに落ちます（画面はそう出ることを書いています）。
+     */
+    if (remaining() < RETRY_FLOOR_MS) {
+      console.warn(
+        `[intake-ai] 残り ${Math.max(0, remaining())}ms なので ${heavy} でのやり直しをやめます`,
+      );
+      throw e;
+    }
     /*
      * ⚠️ **落ちた1回目も使用量に残す**（レビューでの指摘 #79）。
      * ここで握りつぶすと、**上位モデルでやり直せた回の費用が半分しか出ません**
@@ -713,9 +762,11 @@ export async function parseIntakeWithAi(
 
 /** OpenAI (Responses API + structured output) */
 async function callOpenAi(
-  model: string, userPrompt: string, attachments: IntakeAttachment[] = []
+  model: string, userPrompt: string, attachments: IntakeAttachment[] = [],
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<{ raw: RawAiResult; usage: IntakeAiResult['usage'] }> {
-  const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  // **`maxRetries: 0`。** SDK に黙って2回呼ばせると、上の総枠が意味を失う
+  const client = new OpenAI({ timeout: timeoutMs, maxRetries: 0 });
   const response = await client.responses.parse({
     model,
     instructions: SYSTEM_PROMPT,
@@ -736,9 +787,11 @@ async function callOpenAi(
 
 /** Anthropic (Messages API + structured output) */
 async function callAnthropic(
-  model: string, userPrompt: string, attachments: IntakeAttachment[] = []
+  model: string, userPrompt: string, attachments: IntakeAttachment[] = [],
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<{ raw: RawAiResult; usage: IntakeAiResult['usage'] }> {
-  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  // **`maxRetries: 0`**（`callOpenAi` と同じ理由）
+  const client = new Anthropic({ timeout: timeoutMs, maxRetries: 0 });
   const response = await client.messages.parse({
     model,
     max_tokens: 8000,
