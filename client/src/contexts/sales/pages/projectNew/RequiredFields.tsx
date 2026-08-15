@@ -42,6 +42,22 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
    * **印は付いていないのに保存が押せない**という読めない状態になります。
    */
   const started = !!v.audience || !!v.project_category;
+  /**
+   * ⚠️ **GLS-B（工事・構築）には2段分類の欄そのものを出しません**（レビューでの指摘 #99）。
+   *
+   * `missingOf` は前から GLS-B を訊かない形でしたが、**欄は出したまま**でした。
+   * つまり古い GLS-B の案件を直す画面で開くと、
+   * **「客入れの有無」と「案件分類」が押せて、押せば保存されます**。
+   * サーバーは2段から `project_type` を導くので、**工事のプロジェクトが
+   * `hybrid_event`（ハイブリッド）になり**、標準工程の型・Excel・集計が
+   * 放送の案件として扱います（`project-classification.ts` の「NULL のままにする」に反する）。
+   * しかも**押した人には何も出ません** — 選べたのだから正しいと思います。
+   *
+   * **作る画面は必ず GLS-A** なので、効くのは古い GLS-B の行を開いたときだけです。
+   * **欄ごと消さずに理由を1行書きます** — 消すだけだと
+   * 「案件分類が無い画面」に見えて、壊れていると読まれます。
+   */
+  const isGlsB = v.gls_category === 'B';
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -72,9 +88,23 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
       </Field>
 
       {/*
+        **GLS-B は2段分類を持ちません**（上の `isGlsB` の理由）。
+        代わりに**なぜ無いのか**を1行だけ出します（欄が消えただけだと壊れて見える）。
+      */}
+      {isGlsB && (
+        <div className="sm:col-span-2">
+          <p className="text-note rounded-note border border-border bg-muted/40 px-3 py-2 text-muted-foreground">
+            このプロジェクト（GLS-B）には「客入れの有無」と「案件分類」がありません。
+            工事・構築の案件なので、放送の分類は当てはめません。
+          </p>
+        </div>
+      )}
+
+      {/*
         **客入れの有無はプルダウンにしない。** 2択なので、開いて選ぶより
         並べて押すほうが速く、いま何を選んでいるかが常に見えます
       */}
+      {!isGlsB && (
       <Field label="客入れの有無" required={mode === 'create' || started}>
         <div className="flex gap-2">
           {AUDIENCES.map((a) => {
@@ -98,7 +128,9 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
           })}
         </div>
       </Field>
+      )}
 
+      {!isGlsB && (
       <Field label="案件分類" required={mode === 'create' || started}>
         <Select
           value={v.project_category || undefined}
@@ -129,6 +161,7 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
           </p>
         )}
       </Field>
+      )}
 
       {/* 直す画面では出しません（この保存は `stage` を見ないため。冒頭の理由） */}
       {mode === 'create' && (

@@ -83,7 +83,17 @@ export function AiUsageCard() {
   });
 
   const rows = q.data?.rows ?? [];
-  const unknownPrice = rows.some((r) => r.cost_usd === null);
+  /**
+   * 単価が入っていないモデル。**名前で出します**（レビューでの指摘 #98）。
+   *
+   * 「一部は出せません」だけだと、**どのモデルが落ちているのか分かりません**。
+   * いちばん多いのは `AI_PRICING_JSON` を**丸ごと差し替えて古い鍵を落とした**ときで、
+   * そのモデルの費用は**合計から静かに消えます**（総額が下がるので、
+   * 「安くなった」と読めてしまいます）。
+   */
+  const unpriced = [...new Set(rows.filter((r) => r.cost_usd === null)
+    .map((r) => r.model ?? '（モデル名なし）'))];
+  const unknownPrice = unpriced.length > 0;
 
   return (
     <Card>
@@ -181,7 +191,24 @@ export function AiUsageCard() {
                 <>
                   直近 {days} 日の概算は
                   <strong className="font-number font-bold"> ${q.data.total_cost_usd.toFixed(2)}</strong> です。
-                  {unknownPrice && '（単価を入れていないモデルは合計に含めていません）'}
+                  {/*
+                    ⚠️ **いつの単価で出したのかを書く**（レビューでの指摘 #98）。
+                    金額は**いま `.env` に入っている単価**をその場で掛けたもので、
+                    呼んだ当時の値段は残していません。**単価を書き替えると、
+                    過去の金額も一緒に変わります** — 「先月いくらだったか」の
+                    記録にはならないので、そう読まれないように書いておきます。
+                  */}
+                  金額は<strong className="font-bold">いま設定してある単価</strong>で計算しています
+                  （単価を変えると過去の金額も変わります）。
+                  {unknownPrice && (
+                    <>
+                      {' '}
+                      <strong className="font-bold">
+                        単価を入れていない {unpriced.length} 個のモデルは合計に含めていません
+                      </strong>
+                      （{unpriced.join('・')}）。
+                    </>
+                  )}
                 </>
               ) : (
                 <>
