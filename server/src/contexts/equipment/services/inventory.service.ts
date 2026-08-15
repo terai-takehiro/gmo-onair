@@ -94,6 +94,27 @@ export const inventoryService = {
   },
 
   async updateItem(checkId: string, itemId: string, input: UpdateItemInput) {
+    /*
+     * ⚠️ **終わりにした棚卸しには印を付けられません**（レビューでの指摘 #61）。
+     *
+     * PC の画面は `status==='completed'` のときボタンを止めていますが、
+     * **スマホの読み取り画面は状態を見ておらず**、サーバーも見ていませんでした。
+     * つまり**終わったはずの棚卸しの結果が、あとから静かに変わり**ます
+     * （数え終えて報告したあとに数字が動くので、突き合わせるまで気づけません）。
+     *
+     * 直したいときは PC の「もう一度開く」で `in_progress` に戻します。
+     * **断る文にその手順を書く** — 書かないと現場で行き止まりになります。
+     */
+    const check = await queryOne(
+      'SELECT id, status FROM inventory_checks WHERE id=$1', [checkId],
+    ) as { id: string; status: string } | null;
+    if (!check) throw new AppError(404, 'NOT_FOUND', '棚卸しが見つかりません');
+    if (check.status === INVENTORY_STATUS.COMPLETED) {
+      throw new AppError(
+        400, 'VALIDATION_ERROR',
+        'この棚卸しは終わっています。直すには棚卸しの画面で「もう一度開く」を押してください',
+      );
+    }
     await execute(
       `UPDATE inventory_check_items SET found=$1, actual_location=$2, condition=$3, note=$4, checked_at=NOW()
        WHERE id=$5 AND check_id=$6`,

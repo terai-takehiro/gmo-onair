@@ -16,7 +16,7 @@ async function resolveCard(args: { card_no?: number; card_id?: string; studio?: 
   let card: Record<string, unknown> | undefined;
   if (args.card_id) card = await securityCardService.getCard(args.card_id);
   else if (typeof args.card_no === 'number') card = await securityCardService.getCardByNo(args.card_no, args.studio ?? 'yoga');
-  if (!card) throw new AppError(404, 'セキュリティカードが見つかりません (card_no または card_id を確認してください)', 'NOT_FOUND');
+  if (!card) throw new AppError(404, 'NOT_FOUND', 'セキュリティカードが見つかりません (card_no または card_id を確認してください)');
   return card;
 }
 

@@ -141,7 +141,7 @@ router.get('/inquiries/:id', requireAuth, requireAnyPermission(['dailyops', 'sal
  * この2つを見るようにしてあり、**入れる口だけ狭いまま**でした。
  */
 router.post('/inquiries', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor'), async (req, res) => {
-  if (!req.body?.summary) throw new AppError(400, '要約 (summary) は必須です', 'VALIDATION_ERROR');
+  if (!req.body?.summary) throw new AppError(400, 'VALIDATION_ERROR', '要約 (summary) は必須です');
   const { row, action } = await inquiryService.create({ ...req.body, source: req.body?.source ?? 'manual', created_by: req.user!.id });
   res.status(action === 'created' ? 201 : 200).json({ success: true, data: row, action });
 });

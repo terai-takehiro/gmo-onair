@@ -1128,13 +1128,33 @@ export class ProjectService {
       throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）が未設定です。先に案件編集で分類を選択してください。');
     }
     const glsNumber = await generateGlsNumber(category);
-    const { broadcast_type, media_platform } = data;
+
+    /*
+     * ⚠️ **渡されなかった項目は触らない**（レビューでの指摘 #57）。
+     *
+     * ここは2つの入口から呼ばれます:
+     *   ・発番ダイアログ … 放送種別・媒体を**人が選んで**渡す（空を選べば消す）
+     *   ・受注への昇格 … `changeStage` が **`{}` で呼ぶ**（選ぶ画面が無い）
+     *
+     * 以前は常に `broadcast_type=?, media_platform=?` を書いていたので、
+     * **受注にした瞬間に、案件登録のときに入れた放送種別・媒体が消えて**いました。
+     * 消えたことは画面に出ません（欄が空になるだけで、誰も理由を知らない）。
+     *
+     * **値が渡されたときだけ書く。** ダイアログは常に両方を送るので、
+     * そちらの「空にする」（`null`）は今までどおり効きます。
+     * ⚠️ `'key' in data` で見ないこと — MCP は指定が無くても
+     * `{ broadcast_type: undefined }` の形で渡すので、また消えます。
+     */
+    const sets = ['gls_number=?'];
+    const params: unknown[] = [glsNumber];
+    if (data.broadcast_type !== undefined) { sets.push('broadcast_type=?'); params.push(data.broadcast_type || null); }
+    if (data.media_platform !== undefined) { sets.push('media_platform=?'); params.push(data.media_platform || null); }
 
     await execute(
-      `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
+      `UPDATE projects SET ${sets.join(', ')},
        stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
        updated_at=NOW(), updated_by=? WHERE id=?`,
-      [glsNumber, broadcast_type || null, media_platform || null, userId, id]
+      [...params, userId, id]
     );
 
     // **この SQL はステージも上げる。** 上げたときは履歴に残す (migration 164) —

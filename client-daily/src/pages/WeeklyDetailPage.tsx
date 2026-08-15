@@ -19,7 +19,7 @@
  */
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { BarChart3, Bot, CheckCircle2, ListChecks, Sparkles } from 'lucide-react';
+import { BarChart3, Bot, CheckCircle2, ListChecks, Sparkles, Undo2 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
@@ -30,7 +30,7 @@ import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/noti
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
-import { usePublishReport, useReport, useReports } from '@/lib/reportsApi';
+import { usePublishReport, useReopenReport, useReport, useReports } from '@/lib/reportsApi';
 import { formatWeekJa } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
@@ -43,6 +43,7 @@ export default function WeeklyDetailPage() {
   const detail = useReport(id);
   const { canEdit } = usePermissions();
   const publish = usePublishReport();
+  const reopen = useReopenReport();
 
   const report = detail.data;
   const stats = (report?.payload as { stats?: StatsShape } | null)?.stats;
@@ -60,6 +61,25 @@ export default function WeeklyDetailPage() {
     publish.mutate(report.id, {
       onSuccess: () => notifySuccess('この週の報告を確定しました'),
       onError: (e) => notifyApiError('確定できませんでした', e),
+    });
+  };
+
+  /**
+   * 確定を解く。**サーバーが確定した週報への書き込みを断る**ようになったので
+   * （ニュースからの「週報へ送る」も含む）、直す道をここに置く。
+   * 無いと「もう1行入れたい」で行き止まりになる。
+   */
+  const onReopen = async () => {
+    if (!report) return;
+    const ok = await confirmAction({
+      title: 'この週の報告の確定を解きますか',
+      description: 'トピックをまた足せるようになります。確定した日付は記録に残ります。直したら、もう一度確定してください。',
+      confirmLabel: '確定を解く',
+    });
+    if (!ok) return;
+    reopen.mutate(report.id, {
+      onSuccess: () => notifySuccess('確定を解きました。直したら、もう一度確定してください'),
+      onError: (e) => notifyApiError('確定を解けませんでした', e),
     });
   };
 
@@ -87,6 +107,10 @@ export default function WeeklyDetailPage() {
                 <Button onClick={onPublish} disabled={publish.isPending}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />確定する
                 </Button>
+              ) : canEdit && isPublished ? (
+                <Button variant="outline" onClick={onReopen} disabled={reopen.isPending}>
+                  <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />確定を解く
+                </Button>
               ) : undefined}
             >
               <div className="flex flex-wrap items-center gap-1.5">
@@ -101,7 +125,9 @@ export default function WeeklyDetailPage() {
 
             {isPublished && report.published_at && (
               <p className="text-note text-muted-foreground">
-                {new Date(report.published_at).toLocaleString('ja-JP')} に確定しました
+                {new Date(report.published_at).toLocaleString('ja-JP')} に確定しました。
+                足すことも直すこともできません（ニュースからの「週報へ送る」も入りません）。
+                直すときは「確定を解く」を押してください。
               </p>
             )}
 

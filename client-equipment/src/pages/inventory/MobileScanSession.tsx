@@ -38,7 +38,7 @@
  * 待つと「押したのに変わらない」ので、同じものを何度も読むことになります。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import {
   ArrowLeft, Camera, CameraOff, Check, CloudOff, Keyboard, Loader2, PackageSearch, X,
@@ -49,39 +49,20 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { createQueue, flushQueue } from '@gmo-onair/shared/src/client-v4/offlineQueue';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { extractCode } from '@/lib/qrCode';
-import type { CheckItem } from './CheckDetail';
+import { useScanQueue, type CheckDetailData, type ScanMessage } from './useScanQueue';
 
 const SCAN_REGION_ID = 'inv-scan-region';
-
-interface CheckDetailData {
-  id: string; title: string; check_date: string; status: string; items: CheckItem[];
-}
-
-/** 溜める中身。**送るのに要るものだけ**（画面の状態は入れない） */
-interface MarkOp {
-  checkId: string;
-  itemId: string;
-  found: number;
-  actual_location: string | null;
-  condition: string | null;
-  note: string | null;
-}
-
-const queue = createQueue<MarkOp>('gmo_onair_inv_queue');
 
 type Chip = 'rest' | 'done' | 'missing';
 
 export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack: () => void }) {
-  const qc = useQueryClient();
   const [chip, setChip] = useState<Chip>('rest');
   const [cameraOn, setCameraOn] = useState(false);
   const [manual, setManual] = useState('');
   const [manualOpen, setManualOpen] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'ng'; text: string } | null>(null);
-  const [pending, setPending] = useState(() => queue.pending());
+  const [message, setMessage] = useState<ScanMessage | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
   const detailQuery = useQuery({
@@ -90,45 +71,10 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
   });
   const detail = detailQuery.data;
   const items = useMemo(() => detail?.items ?? [], [detail]);
-
-  /** 溜まっているものを送る。**失敗しても止めない**（列に残って次の機会に出る） */
-  const flush = useCallback(async () => {
-    if (queue.pending() === 0) return;
-    const r = await flushQueue(queue, async (op) => {
-      await api.put(`/equipment/inventory-checks/${op.checkId}/items/${op.itemId}`, {
-        found: op.found,
-        actual_location: op.actual_location,
-        condition: op.condition,
-        note: op.note,
-      });
-    });
-    setPending(queue.pending());
-    if (r.sent > 0) qc.invalidateQueries({ queryKey: ['inventory-check', checkId] });
-  }, [qc, checkId]);
-
-  // 電波が戻ったら送る。**開いたときにも1回送る**（前回の現場ぶんが残っている）
-  useEffect(() => {
-    flush();
-    const on = () => { flush(); };
-    window.addEventListener('online', on);
-    return () => window.removeEventListener('online', on);
-  }, [flush]);
-
-  /**
-   * 印を付ける。**端末に溜めてから画面を先に変える**。
-   * 送信は待ちません（待つと「押したのに変わらない」ので何度も読むことになる）。
-   */
-  const mark = useCallback((item: CheckItem, found: number) => {
-    queue.push(`${checkId}:${item.id}`, {
-      checkId, itemId: item.id, found,
-      actual_location: item.actual_location, condition: item.condition, note: item.note,
-    }, Date.now());
-    setPending(queue.pending());
-    // 画面の見た目を先に進める（送れたら問い合わせが上書きする）
-    qc.setQueryData(['inventory-check', checkId], (old: CheckDetailData | undefined) =>
-      old ? { ...old, items: old.items.map((i) => (i.id === item.id ? { ...i, found } : i)) } : old);
-    flush();
-  }, [checkId, qc, flush]);
+  /** 終わりにした棚卸し。**印を付けさせない**（PC の画面と同じ判断） */
+  const closed = detail?.status === 'completed';
+  // 溜めて送るところは `useScanQueue`（画面の見た目と混ぜない）
+  const { pending, flush, mark } = useScanQueue(checkId, closed, setMessage);
 
   /**
    * 読んだ（打った）文字から、この棚卸しの中の1件を探す。
@@ -215,9 +161,11 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
 
       <PageHeader
         title={detail.title}
-        sub={`${detail.check_date} ・ QR を読むと「あった」が付きます`}
+        sub={closed
+          ? `${detail.check_date} ・ 終わった棚卸しです（読むだけ）`
+          : `${detail.check_date} ・ QR を読むと「あった」が付きます`}
         primaryAction={
-          cameraOn ? (
+          closed ? undefined : cameraOn ? (
             <Button className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
               <CameraOff className="mr-1.5 h-4 w-4" aria-hidden="true" />カメラを止める
             </Button>
@@ -235,6 +183,14 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         <Count label="見つからない" n={missing.length} tone={missing.length > 0 ? 'ng' : 'plain'} />
         <Count label="のこり" n={rest.length} tone="plain" />
       </div>
+
+      {/* 終わった棚卸しは**読むだけ**。理由と直し方を出す（PC 側と同じ判断） */}
+      {closed && (
+        <p className="rounded-note border border-border bg-muted px-3.5 py-3 text-note text-secondary-foreground">
+          <strong className="font-bold">この棚卸しは終わっています。</strong>
+          印は付けられません。直すときは PC の棚卸し画面で「もう一度開く」を押してください。
+        </p>
+      )}
 
       {/* **送れていないことを黙らない。** 0 のときは出さない（読む物を増やさない） */}
       {pending > 0 && (
@@ -263,11 +219,13 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
-          <Keyboard className="mr-1.5 h-4 w-4" aria-hidden="true" />手で入れる
-        </Button>
-      </div>
+      {!closed && (
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
+            <Keyboard className="mr-1.5 h-4 w-4" aria-hidden="true" />手で入れる
+          </Button>
+        </div>
+      )}
 
       {manualOpen && (
         <form
@@ -319,6 +277,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
                 variant={i.found === 1 ? 'default' : 'outline'}
                 size="icon"
                 aria-label="あった"
+                disabled={closed}
                 onClick={() => mark(i, 1)}
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -327,6 +286,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
                 variant={i.found === 2 ? 'destructive' : 'outline'}
                 size="icon"
                 aria-label="無かった"
+                disabled={closed}
                 onClick={() => mark(i, 2)}
               >
                 <X className="h-4 w-4" aria-hidden="true" />

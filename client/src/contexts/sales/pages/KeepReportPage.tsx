@@ -18,23 +18,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { EventReportDialog } from "./keepReport/EventReportDialog";
+import type { EventReport, Summary } from "./keepReport/types";
 import {
-  Presentation, Loader2, Check, Plus, Trash2, Image as ImageIcon,
+  Presentation, Loader2, Plus, Trash2, Image as ImageIcon,
   CalendarDays, TrendingUp, FileText, Users,
 } from "lucide-react";
 
 // ============================================================
 // 型
 // ============================================================
-interface PhotoEntry { id: string; box_file_id: string; caption: string | null; sort_order: number }
-interface Summary { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }
-interface EventReport {
-  id: string; project_id: string; headline: string | null; highlights: string[];
-  attendees_onsite: number | null; attendees_online: number | null; attendees_note: string | null;
-  photos: PhotoEntry[]; report_status: "draft" | "confirmed"; reported_at: string | null;
-  project_name?: string; gls_number?: string | null; event_start?: string | null; event_end?: string | null;
-  summary?: Summary;
-}
 interface Candidate {
   id: string; name: string; gls_number: string | null; stage: string;
   event_start: string | null; event_end: string | null; summary?: Summary;
@@ -127,7 +120,7 @@ function EventReportsTab() {
                   {r.headline && <p className="mt-1 text-sm text-muted-foreground truncate">{r.headline}</p>}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {r.reported_at && <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />報告 {r.reported_at}</span>}
-                    <span>トピック {r.highlights.length}点</span>
+                    <span>ふりかえり {(r.kpt ?? []).length}点</span>
                     <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />
                       来場 {r.attendees_onsite ?? "-"} / オンライン {r.attendees_online ?? "-"}
                     </span>
@@ -150,130 +143,6 @@ function EventReportsTab() {
         />
       )}
     </div>
-  );
-}
-
-function EventReportDialog({ projectId, projectName, report, onClose }: {
-  projectId: string; projectName: string; report: EventReport | null; onClose: () => void;
-}) {
-  const qc = useQueryClient();
-  const [headline, setHeadline] = useState(report?.headline ?? "");
-  const [highlightsText, setHighlightsText] = useState((report?.highlights ?? []).join("\n"));
-  const [onsite, setOnsite] = useState(report?.attendees_onsite != null ? String(report.attendees_onsite) : "");
-  const [online, setOnline] = useState(report?.attendees_online != null ? String(report.attendees_online) : "");
-  const [note, setNote] = useState(report?.attendees_note ?? "");
-  const [reportedAt, setReportedAt] = useState(report?.reported_at ?? "");
-  const [photos, setPhotos] = useState<PhotoEntry[]>(report?.photos ?? []);
-  const [newBoxId, setNewBoxId] = useState("");
-  const [newCaption, setNewCaption] = useState("");
-
-  const save = useMutation({
-    mutationFn: async (status: "draft" | "confirmed") => (await api.put(`/keep/event-reports/${projectId}`, {
-      headline: headline || null,
-      highlights: highlightsText.split("\n").map((s) => s.trim()).filter(Boolean),
-      attendees_onsite: onsite === "" ? null : Number(onsite),
-      attendees_online: online === "" ? null : Number(online),
-      attendees_note: note || null,
-      reported_at: reportedAt || null,
-      report_status: status,
-    })).data,
-    onSuccess: onClose,
-  });
-
-  const addPhoto = useMutation({
-    mutationFn: async () => (await api.post(`/keep/event-reports/${projectId}/photos`, {
-      box_file_id: newBoxId.trim(), caption: newCaption.trim() || null,
-    })).data.data,
-    onSuccess: (d: { photos: PhotoEntry[] }) => {
-      setPhotos(d.photos);
-      setNewBoxId(""); setNewCaption("");
-      qc.invalidateQueries({ queryKey: ["keep-event-reports"] });
-    },
-  });
-  const removePhoto = useMutation({
-    mutationFn: async (photoId: string) => (await api.delete(`/keep/event-photos/${photoId}`)).data,
-    onSuccess: (_d, photoId) => {
-      setPhotos((p) => p.filter((x) => x.id !== photoId));
-      qc.invalidateQueries({ queryKey: ["keep-event-reports"] });
-    },
-  });
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug">イベント実施報告 — {projectName}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>1行サマリ (headline)</Label>
-            <Input value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={120} placeholder="未入力なら資料側で案件名を使用" />
-          </div>
-          <div>
-            <Label>トピック (1行 = 1点・3〜5点目安)</Label>
-            <Textarea rows={4} value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)}
-              placeholder={"来場者アンケート満足度98%\n配信同時視聴が過去最高の1,200人"} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>リアル来場者数</Label>
-              <Input type="number" min={0} value={onsite} onChange={(e) => setOnsite(e.target.value)} />
-            </div>
-            <div>
-              <Label>オンライン参加者数</Label>
-              <Input type="number" min={0} value={online} onChange={(e) => setOnline(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>来場者数の注記</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="速報値 等" />
-            </div>
-            <div>
-              <Label>報告対象会議日</Label>
-              <Input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} />
-            </div>
-          </div>
-
-          {/* 写真 (Box 参照) */}
-          <div className="rounded-lg border p-3">
-            <p className="mb-2 text-sm font-medium flex items-center gap-1.5">
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />写真 (Box ファイル参照 · {photos.length}枚)
-            </p>
-            {photos.length > 0 && (
-              <ul className="mb-2 space-y-1">
-                {photos.map((p) => (
-                  <li key={p.id} className="flex items-center gap-2 text-sm min-w-0">
-                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">{p.box_file_id}</span>
-                    <span className="truncate text-muted-foreground">{p.caption ?? "(キャプションなし)"}</span>
-                    <Button variant="ghost" size="icon" className="ml-auto h-6 w-6 shrink-0 text-destructive"
-                      onClick={() => removePhoto.mutate(p.id)} aria-label="写真を削除">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="Box ファイル ID" value={newBoxId} onChange={(e) => setNewBoxId(e.target.value)} />
-              <Input className="h-8 flex-1 min-w-[120px] text-sm" placeholder="キャプション (任意)" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
-              <Button size="sm" variant="outline" className="h-8" disabled={!newBoxId.trim() || addPhoto.isPending} onClick={() => addPhoto.mutate()}>
-                <Plus className="h-3.5 w-3.5 mr-1" />追加
-              </Button>
-            </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">実体は Box に保管し ID のみ参照します (資料生成時にサムネイルを取得)。</p>
-          </div>
-        </div>
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>閉じる</Button>
-          <Button variant="secondary" disabled={save.isPending} onClick={() => save.mutate("draft")}>下書き保存</Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate("confirmed")} className="bg-emerald-600 hover:bg-emerald-700">
-            {save.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-            確定して保存
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

@@ -51,7 +51,12 @@ export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-export function NewsRow({ item, canEdit }: { item: OpsReportItem; canEdit: boolean }) {
+export function NewsRow({ item, canEdit, weeklyLocked = false }: {
+  item: OpsReportItem;
+  canEdit: boolean;
+  /** 送り先の週報が確定済み。**押す前に止める**（サーバーも断る） */
+  weeklyLocked?: boolean;
+}) {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   const sendToWeekly = useSendToWeekly();
@@ -182,10 +187,14 @@ export function NewsRow({ item, canEdit }: { item: OpsReportItem; canEdit: boole
             <Button
               variant="ghost" size="icon"
               className={`min-h-tap lg:min-h-[36px] ${item.sent_to_weekly ? 'text-success' : ''}`}
-              disabled={item.sent_to_weekly || sendToWeekly.isPending}
+              disabled={item.sent_to_weekly || weeklyLocked || sendToWeekly.isPending}
               onClick={toWeekly}
               aria-label={item.sent_to_weekly ? '週報に送り済み' : '週報に送る'}
-              title={item.sent_to_weekly ? 'この行は週報へ送り済みです' : 'この日が入る週の週報へ写します'}
+              title={item.sent_to_weekly
+                ? 'この行は週報へ送り済みです'
+                : weeklyLocked
+                  ? 'この週の週報は確定済みです。週報の画面で「確定を解く」を押すと送れます'
+                  : 'この日が入る週の週報へ写します'}
             >
               {item.sent_to_weekly
                 ? <CheckCheck className="h-4 w-4" aria-hidden="true" />

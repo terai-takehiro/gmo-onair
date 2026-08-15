@@ -138,7 +138,7 @@ export const securityCardService = {
   /** カードの軽微な編集 (表示名 / メモ / 運用有効フラグ)。アクセス権は固定のため変更しない。 */
   async updateCard(id: string, input: { label?: string | null; notes?: string | null; is_active?: boolean }): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT id FROM security_cards WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, 'セキュリティカードが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'セキュリティカードが見つかりません');
     const sets: string[] = [];
     const params: unknown[] = [];
     if (input.label !== undefined) { sets.push('label = ?'); params.push(input.label ?? null); }
@@ -158,19 +158,19 @@ export const securityCardService = {
    */
   async lend(cardId: string, input: LendInput): Promise<Record<string, unknown>> {
     const card = await queryOne(`SELECT id, is_active FROM security_cards WHERE id = ? AND deleted_at IS NULL`, [cardId]);
-    if (!card) throw new AppError(404, 'セキュリティカードが見つかりません', 'NOT_FOUND');
-    if (!card.is_active) throw new AppError(400, 'このカードは運用対象外です (紛失/廃止など)', 'VALIDATION_ERROR');
+    if (!card) throw new AppError(404, 'NOT_FOUND', 'セキュリティカードが見つかりません');
+    if (!card.is_active) throw new AppError(400, 'VALIDATION_ERROR', 'このカードは運用対象外です (紛失/廃止など)');
 
     const active = await queryOne(
       `SELECT id, borrower_person, borrower_company FROM security_card_lendings WHERE card_id = ? AND status = 'active' AND deleted_at IS NULL`,
       [cardId],
     );
     if (active) {
-      throw new AppError(409, `このカードは既に貸出中です (${active.borrower_company || ''} ${active.borrower_person || ''})。先に返却してください`, 'ALREADY_LENT');
+      throw new AppError(409, 'ALREADY_LENT', `このカードは既に貸出中です (${active.borrower_company || ''} ${active.borrower_person || ''})。先に返却してください`);
     }
 
     const person = (input.borrower_person ?? '').trim();
-    if (!person) throw new AppError(400, '貸出先の担当者 (borrower_person) は必須です', 'VALIDATION_ERROR');
+    if (!person) throw new AppError(400, 'VALIDATION_ERROR', '貸出先の担当者 (borrower_person) は必須です');
 
     const id = uuidv4();
     await execute(
@@ -192,12 +192,12 @@ export const securityCardService = {
   /** 返却。カードの active な貸出を returned にする。 */
   async returnCard(cardId: string, input: ReturnInput): Promise<Record<string, unknown>> {
     const card = await queryOne(`SELECT id FROM security_cards WHERE id = ? AND deleted_at IS NULL`, [cardId]);
-    if (!card) throw new AppError(404, 'セキュリティカードが見つかりません', 'NOT_FOUND');
+    if (!card) throw new AppError(404, 'NOT_FOUND', 'セキュリティカードが見つかりません');
     const active = await queryOne(
       `SELECT id, notes FROM security_card_lendings WHERE card_id = ? AND status = 'active' AND deleted_at IS NULL`,
       [cardId],
     );
-    if (!active) throw new AppError(400, 'このカードは貸出中ではありません', 'NOT_LENT');
+    if (!active) throw new AppError(400, 'NOT_LENT', 'このカードは貸出中ではありません');
 
     // 返却時のメモは既存メモに追記 (貸出時の備考を消さない)
     const combinedNotes = input.notes

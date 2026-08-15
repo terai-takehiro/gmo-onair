@@ -52,14 +52,34 @@ export function isKptKind(v: unknown): v is KptKind {
   return typeof v === 'string' && (KPT_KINDS as string[]).includes(v);
 }
 
-/** 案件の KPT を並び順で返す。**書いた人の名前も返す**（画面がピルで出す） */
-export async function listKpt(projectId: string): Promise<KptRow[]> {
+/**
+ * 案件の KPT を並び順で返す。**書いた人の名前も返す**（画面がピルで出す）。
+ *
+ * ⚠️ **`confirmedOnly` を渡す先を間違えないこと**（レビューでの指摘 #83）。
+ *
+ *   ・**ふりかえりの画面**（案件詳細）… 全部返す。**未確認の下書きを確かめる場所**
+ *     なので、ここで隠すと確かめる手段が消えます
+ *   ・**隔週キープの資料・MCP の一覧** … `confirmedOnly`。人が確かめていない
+ *     AI の推測が**そのまま実施報告として資料に載って**いました
+ *     （migration 185 に「人が確かめずに資料へ出ると、AI の推測が実施報告になる」と
+ *     書いてあるのに、絞りがどこにも入っていなかった）
+ *
+ * **人が書いた行（`ai_generated=false`）は `confirmed_at` を持ちません** —
+ * 確かめる相手がいないので、絞りは「AI が起こした行のうち未確認のもの」だけを外します。
+ */
+export async function listKpt(
+  projectId: string,
+  opts: { confirmedOnly?: boolean } = {},
+): Promise<KptRow[]> {
+  const gate = opts.confirmedOnly
+    ? 'AND (k.ai_generated = FALSE OR k.confirmed_at IS NOT NULL)'
+    : '';
   return await queryAll(
     `SELECT k.id, k.project_id, k.kind, k.body, k.author_id, u.name AS author_name,
             k.ai_generated, k.confirmed_at, k.sort_order, k.created_at
        FROM event_report_kpt k
        LEFT JOIN users u ON u.id = k.author_id
-      WHERE k.project_id = ?
+      WHERE k.project_id = ? ${gate}
       ORDER BY k.kind, k.sort_order, k.created_at`,
     [projectId],
   ) as unknown as KptRow[];

@@ -101,7 +101,14 @@ export const keepReportService = {
     return await Promise.all(rows.map(async (r) => ({
       ...r,
       summary: await projectService.getSummary(r.project_id as string),
-      kpt: await listKpt(r.project_id as string),
+      /*
+       * ⚠️ **確かめた行だけ**（レビューでの指摘 #83）。
+       * この一覧は**隔週キープの資料**と MCP の `list_event_reports` が読みます。
+       * AI が起こしたまま誰も確かめていない K/P/T が混ざると、
+       * **AI の推測がそのまま実施報告として資料に載ります**
+       * （migration 185 が禁じている形。案件詳細のふりかえりでは全部見えます）。
+       */
+      kpt: await listKpt(r.project_id as string, { confirmedOnly: true }),
     })));
   },
 

@@ -26,7 +26,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function assertDateStr(value: string, label: string): void {
   if (!DATE_RE.test(value) || Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())) {
-    throw new AppError(400, `${label} は YYYY-MM-DD 形式で指定してください`, 'VALIDATION_ERROR');
+    throw new AppError(400, 'VALIDATION_ERROR', `${label} は YYYY-MM-DD 形式で指定してください`);
   }
 }
 
@@ -69,9 +69,39 @@ export function normalizePeriodKey(kind: string, periodKey: string): string {
   return periodKey;
 }
 
+/**
+ * **確定した週報はもう直せない**（レビューでの指摘 #57）。
+ *
+ * ⚠️ **`status='published'` だけで判断しないこと。** デイリーニュースは
+ * *閲覧型*で、`published` は「確定の操作が要らない種類」の印として使っています
+ * （MCP が毎日 `published` で作り、人もそこへ行を足す）。種類で分けずに塞ぐと、
+ * **ニュースが1行も書けなくなります**。
+ *
+ * 週報は違います。`published` は**人が読んで確定した**という記録で、
+ * 画面もそこから先は編集させません（`WeeklyDetailPage` の `editable`）。
+ * ところが守りが画面の側にしかなく、**ニュースの「週報へ送る」・MCP・
+ * 直接叩き**から後から行が増えていました（送った人には成功に見えます）。
+ */
+const LOCKING_KINDS: readonly string[] = ['weekly_activity'];
+
+export function isReportLocked(report: { kind?: unknown; status?: unknown }): boolean {
+  return LOCKING_KINDS.includes(String(report.kind)) && report.status === 'published';
+}
+
+/** 直せない週報に書こうとしたときの断り方（**解き方まで書く**） */
+function assertReportOpen(report: { kind?: unknown; status?: unknown }): void {
+  if (isReportLocked(report)) {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      'この週報は確定済みです。直すには週報の画面で「確定を解く」を押してください',
+    );
+  }
+}
+
 function assertKind(kind: string): asserts kind is OpsReportKind {
   if (!(OPS_REPORT_KINDS as readonly string[]).includes(kind)) {
-    throw new AppError(400, `kind は ${OPS_REPORT_KINDS.join(' / ')} のいずれかを指定してください`, 'VALIDATION_ERROR');
+    throw new AppError(400, 'VALIDATION_ERROR', `kind は ${OPS_REPORT_KINDS.join(' / ')} のいずれかを指定してください`);
   }
 }
 
@@ -96,7 +126,7 @@ export const opsReportService = {
     assertKind(input.kind);
     const periodKey = normalizePeriodKey(input.kind, input.period_key);
     if (input.status && !['draft', 'published'].includes(input.status)) {
-      throw new AppError(400, 'status は draft / published のいずれかです', 'VALIDATION_ERROR');
+      throw new AppError(400, 'VALIDATION_ERROR', 'status は draft / published のいずれかです');
     }
 
     const existing = await queryOne(
@@ -120,6 +150,14 @@ export const opsReportService = {
       const report = await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]);
       return { report: report!, action: 'created' };
     }
+
+    /*
+     * ⚠️ 「published 済みを draft に戻さない」だけでは足りませんでした
+     * （レビューでの指摘 #57）。**本文・題名・集計は素通しで上書きされて**いたので、
+     * AI をもう一度走らせると**確定した週報の中身が書き換わり**ます
+     * （確定した人が読んだ文章と、いま出ている文章が別物になる）。
+     */
+    assertReportOpen(existing);
 
     const sets: string[] = [];
     const params: unknown[] = [];
@@ -177,6 +215,15 @@ export const opsReportService = {
     return { rows, total: Number(totalRow?.c ?? 0) };
   },
 
+  /** 行から親のレポートを引く（確定済みかを見るのに使う） */
+  async reportOf(reportId: string): Promise<Record<string, unknown>> {
+    const r = await queryOne(
+      `SELECT id, kind, status FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [reportId],
+    );
+    if (!r) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    return r;
+  },
+
   async getReportItems(reportId: string): Promise<Record<string, unknown>[]> {
     /**
      * `sent_to_weekly` は**この行がもう週報へ送られているか** (migration 167)。
@@ -216,6 +263,7 @@ export const opsReportService = {
   async sendItemToWeekly(
     itemId: string,
     userId: string,
+    userName?: string | null,
   ): Promise<{ already: boolean; weekStart: string; item: Record<string, unknown> }> {
     const src = await queryOne(
       `SELECT i.*, r.kind, r.period_key
@@ -224,9 +272,9 @@ export const opsReportService = {
         WHERE i.id = ? AND i.deleted_at IS NULL`,
       [itemId],
     ) as Record<string, unknown> | undefined;
-    if (!src) throw new AppError(404, '行が見つかりません', 'NOT_FOUND');
+    if (!src) throw new AppError(404, 'NOT_FOUND', '行が見つかりません');
     if (src.kind !== 'daily_news') {
-      throw new AppError(400, '週報へ送れるのはデイリーニュースの行だけです', 'VALIDATION_ERROR');
+      throw new AppError(400, 'VALIDATION_ERROR', '週報へ送れるのはデイリーニュースの行だけです');
     }
 
     const weekStart = normalizeWeekStart(String(src.period_key));
@@ -238,6 +286,12 @@ export const opsReportService = {
     if (dup) return { already: true, weekStart, item: dup };
 
     const weekly = await this.ensureReport('weekly_activity', weekStart, userId);
+    /*
+     * ⚠️ **確定した週報には送れません**（レビューでの指摘 #57）。
+     * ニュースの画面は週報の状態を知らないので、押した人には成功に見えたまま
+     * **確定済みの週報に行が増えて**いました（読んで確定した内容と食い違う）。
+     */
+    assertReportOpen(weekly);
     const maxRow = await queryOne(
       `SELECT COALESCE(MAX(sort_order), 0) AS m FROM ops_report_items WHERE report_id = ?`,
       [weekly.id],
@@ -249,7 +303,14 @@ export const opsReportService = {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'human', ?, ?)`,
       [
         id, weekly.id, src.category ?? null, src.content, src.note ?? null, src.url ?? null,
-        src.ai_related ?? null, src.pick ?? null, userId,
+        src.ai_related ?? null, src.pick ?? null,
+        /*
+         * `recorded_by` は**画面にそのまま出る名前**です（`TopicsSection` の記録者列）。
+         * ここだけ**利用者 ID（UUID）を入れて**いたので、週報の記録者に
+         * `9f3c…` が並んでいました（レビューでの指摘 #57）。
+         * 送った人の名前を入れ、取れないときは**元のニュースの記録者**に落とす。
+         */
+        userName ?? src.recorded_by ?? null,
         Number(maxRow?.m ?? 0) + 1, itemId,
       ],
     );
@@ -282,8 +343,9 @@ export const opsReportService = {
     items: OpsReportItemInput[],
     opts: { source: 'ai' | 'human'; recordedBy?: string | null; dedupeUrl?: boolean },
   ): Promise<{ added: number; skipped: number }> {
-    const report = await queryOne(`SELECT id FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [reportId]);
-    if (!report) throw new AppError(404, 'レポートが見つかりません', 'NOT_FOUND');
+    const report = await queryOne(`SELECT id, kind, status FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [reportId]);
+    if (!report) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    assertReportOpen(report);
 
     const existingUrls = new Set<string>();
     if (opts.dedupeUrl) {
@@ -326,13 +388,14 @@ export const opsReportService = {
 
   async updateItem(itemId: string, fields: Partial<OpsReportItemInput>): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM ops_report_items WHERE id = ? AND deleted_at IS NULL`, [itemId]);
-    if (!existing) throw new AppError(404, '行が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '行が見つかりません');
+    assertReportOpen(await this.reportOf(existing.report_id as string));
     const sets: string[] = [];
     const params: unknown[] = [];
     if (fields.category !== undefined) { sets.push('category = ?'); params.push(fields.category ?? null); }
     if (fields.content !== undefined) {
       const content = (fields.content ?? '').trim();
-      if (!content) throw new AppError(400, '内容 (content) は必須です', 'VALIDATION_ERROR');
+      if (!content) throw new AppError(400, 'VALIDATION_ERROR', '内容 (content) は必須です');
       sets.push('content = ?'); params.push(content);
     }
     if (fields.note !== undefined) { sets.push('note = ?'); params.push(fields.note ?? null); }
@@ -347,15 +410,16 @@ export const opsReportService = {
   },
 
   async deleteItem(itemId: string): Promise<void> {
-    const existing = await queryOne(`SELECT id FROM ops_report_items WHERE id = ? AND deleted_at IS NULL`, [itemId]);
-    if (!existing) throw new AppError(404, '行が見つかりません', 'NOT_FOUND');
+    const existing = await queryOne(`SELECT id, report_id FROM ops_report_items WHERE id = ? AND deleted_at IS NULL`, [itemId]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '行が見つかりません');
+    assertReportOpen(await this.reportOf(existing.report_id as string));
     await execute(`UPDATE ops_report_items SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [itemId]);
   },
 
   /** 週報の確定: published + published_at + reviewed_at/by を打刻 */
   async publishReport(id: string, userId: string): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, 'レポートが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
     await execute(
       `UPDATE ops_reports SET status = 'published', published_at = COALESCE(published_at, NOW()),
               reviewed_at = NOW(), reviewed_by = ?, updated_at = NOW()
@@ -365,10 +429,35 @@ export const opsReportService = {
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
   },
 
+  /**
+   * 週報の確定を解く（`draft` に戻す）。
+   *
+   * ⚠️ **これが無いと、確定を守った瞬間に行き止まりになります。**
+   * 確定した週報は直せず、戻す口もどこにも無かった（`upsertReport` は
+   * `published` から `draft` へ動かさない）ので、**書き足りない1行を
+   * 入れる手段が消えます**。確定と同じ `editor` で解けるようにし、
+   * **いつ確定したか（`published_at`）は消しません** — 一度出した事実は記録です。
+   */
+  async reopenReport(id: string): Promise<Record<string, unknown>> {
+    const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    if (!isReportLocked(existing)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'この週報は確定していません');
+    }
+    // 確認の記録（`reviewed_at` / `reviewed_by`）は外す — もう一度確定するときに
+    // 打ち直します。**`published_at` は残す**（いつ一度出したかは記録）
+    await execute(
+      `UPDATE ops_reports SET status = 'draft', reviewed_at = NULL, reviewed_by = NULL, updated_at = NOW()
+       WHERE id = ?`,
+      [id],
+    );
+    return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
+  },
+
   /** 確認のみ (日次ニュースの既読相当): reviewed_at/by だけ記録 */
   async reviewReport(id: string, userId: string): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, 'レポートが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
     await execute(
       `UPDATE ops_reports SET reviewed_at = NOW(), reviewed_by = ?, updated_at = NOW() WHERE id = ?`,
       [userId, id],

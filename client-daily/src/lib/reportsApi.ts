@@ -111,6 +111,19 @@ export function usePublishReport() {
   });
 }
 
+/**
+ * 確定を解く。**確定した週報は直せない**ので、直したいときはここを通る
+ * （サーバーも同じ条件で断る。画面の出し分けだけに頼らない）。
+ */
+export function useReopenReport() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (reportId: string) =>
+      api.post(`/dailyops/reports/${reportId}/reopen`).then((r) => r.data.data as OpsReport),
+    onSuccess: invalidate,
+  });
+}
+
 export function useReviewReport() {
   const invalidate = useInvalidateReports();
   return useMutation({
