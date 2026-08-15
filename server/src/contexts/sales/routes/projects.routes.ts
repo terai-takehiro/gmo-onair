@@ -19,6 +19,7 @@ import { ensureSubfolder, PHOTOS_SUBFOLDER } from '../services/box-folder.servic
 import {
   requireScope, requireFiles, projectFolderId, uploadFiles,
 } from '../services/project-box-files.service';
+import { createPhotoAccess } from '../services/project-photo-access.service';
 
 const router = Router();
 
@@ -241,6 +242,9 @@ router.post(
     }
 
     const { uploaded: done, failed } = await uploadFiles(folderId, files);
+    // **上げたら覚えているものを捨てる。** そうしないと、いま上げた写真の
+    // サムネイルが「この案件の写真ではありません」で最大 1 分出ません
+    if (req.query.subfolder === 'photos') photoAccess.forget(String(req.params.id));
     res.status(201).json({ success: true, data: { uploaded: done, failed } });
   },
 );
@@ -308,29 +312,37 @@ router.get('/:id/box-files', async (req, res) => {
 });
 
 /**
- * その `fileId` は、この案件の**写真フォルダ**（社外と共有する `08_写真`）にあるか。
+ * その案件の**写真フォルダ**（社外と共有する `08_写真`）にあるファイルの id。
  *
  * **無ければ作りません**（読むだけでフォルダを増やさない）。フォルダが無い＝
- * 写真は1枚も無いので false です。
+ * 写真は1枚も無いので `null` を返して、呼ぶ側は通しません。
  */
-async function isProjectPhoto(projectId: string, fileId: string): Promise<boolean> {
+async function loadProjectPhotoIds(projectId: string): Promise<Set<string> | null> {
   const project = await queryOne(
     'SELECT box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
     [projectId],
   ) as { box_url_external: string | null } | undefined;
   const rootId = extractFolderId(project?.box_url_external ?? null);
-  if (!rootId) return false;
+  if (!rootId) return null;
   try {
     const photos = (await listFolderItems(rootId))
       .find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
-    if (!photos) return false;
-    return (await listFolderItems(photos.id)).some((i) => i.type === 'file' && i.id === fileId);
+    if (!photos) return null;
+    const items = await listFolderItems(photos.id);
+    return new Set(items.filter((i) => i.type === 'file').map((i) => i.id));
   } catch (err) {
     // BOX が落ちているときは**通さない**。ここで通すと、障害の日だけ確認が消える
     console.warn('[box] 写真の持ち主を確かめられませんでした:', (err as Error).message);
-    return false;
+    return null;
   }
 }
+
+/**
+ * 持ち主の確認。**案件ごとに短く覚えます** — 写真の格子は `<img>` ごとに
+ * 別のリクエストなので、毎回2回 BOX に訊くと 100 枚で 200 回になり、
+ * **絞られて正しい写真まで 404 になります**（`project-photo-access.service` に理由）。
+ */
+const photoAccess = createPhotoAccess(loadProjectPhotoIds);
 
 /**
  * 写真のサムネイル。**画像をこちらに複製しません** — BOX が作ったものを流すだけです。
@@ -361,7 +373,7 @@ router.get('/:id/box-files/:fileId/thumbnail', async (req, res) => {
    * すると、フォルダを移した写真が「持ち主は合っているのに別の場所」で通ってしまう）。
    */
   const fileId = String(req.params.fileId);
-  if (!(await isProjectPhoto(String(req.params.id), fileId))) {
+  if (!(await photoAccess.isProjectPhoto(String(req.params.id), fileId))) {
     throw new AppError(404, 'NOT_FOUND', 'この案件の写真ではありません');
   }
   try {
