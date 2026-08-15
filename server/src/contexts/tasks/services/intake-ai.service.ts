@@ -541,6 +541,28 @@ export function isViewableAttachment(mime: string): boolean {
 }
 
 /**
+ * **その相手（プロバイダ）が本当に読める添付か。**
+ *
+ * ⚠️ Anthropic は画像を4種類しか受け取りません。**iPhone の写真（HEIC）や
+ * SVG は落ちます**（レビューでの指摘 #75）。前の版は黙って捨てていたので、
+ * 添付した人には「読まれていない」ことが**画面のどこにも出ません**でした
+ * （名刺を貼ったのに会社名が入っていない、が「AI が下手」に見える）。
+ *
+ * 落とすこと自体は変えません（400 で解析ごと落とすより良い）。
+ * **落としたものを呼ぶ側に返して、確認画面に並べます。**
+ */
+export function unreadableAttachments(
+  provider: 'openai' | 'anthropic' | null,
+  attachments: IntakeAttachment[],
+): { name: string; mime: string }[] {
+  if (provider !== 'anthropic') return [];
+  return attachments
+    .filter((a) => !(ANTHROPIC_IMAGE_TYPES as readonly string[]).includes(a.mime)
+      && a.mime !== 'application/pdf')
+    .map((a) => ({ name: a.name, mime: a.mime }));
+}
+
+/**
  * ChatGPT (Responses API) に渡す入力を組み立てる。
  *
  * **同じ確認画面に出す**のが要件なので、添付も「別の解析」ではなく

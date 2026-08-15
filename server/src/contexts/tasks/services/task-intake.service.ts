@@ -115,6 +115,11 @@ export interface TaskIntake {
   note: string | null;
   /** 文字起こし・解析に失敗した理由 (migration 180)。**画面に出す** */
   error_message: string | null;
+  /**
+   * 拾わなかった行・落とした添付・規則ベースへの縮退 (migration 191)。
+   * **画面に出す** — 出ないと「読み落とした」と思ってもう一度投げられる。
+   */
+  warnings: { line: string; reason: string }[] | null;
   transcribed_at: string | null;
   created_at: string;
   created_by: string;
@@ -124,7 +129,7 @@ export interface TaskIntake {
 }
 
 const SELECT_INTAKE = `
-  SELECT i.id, i.raw_text, i.kind, i.status, i.drafts, i.ai_output_id,
+  SELECT i.id, i.raw_text, i.kind, i.status, i.drafts, i.ai_output_id, i.warnings,
          i.committed_at, i.discarded_at, i.note,
          i.error_message, i.transcribed_at,
          i.created_at, i.created_by, u.name AS created_by_name,
@@ -348,6 +353,13 @@ export const taskIntakeService = {
       drafts: Omit<TaskDraft, 'draft_key'>[];
       model?: string | null;
       prompt_version?: string | null;
+      /**
+       * 拾わなかった行・落とした添付・規則ベースへの縮退（migration 191）。
+       * ⚠️ **行に残さないと、録音から投げたときだけ警告が消えます** —
+       * 打ち込んだときはその場の応答に載るので画面に出るのに、
+       * 録音は裏で解析するため**あとから読む道にしか載りません**。
+       */
+      warnings?: { line: string; reason: string }[];
     },
     userId: string,
   ): Promise<TaskIntake> {
@@ -365,10 +377,14 @@ export const taskIntakeService = {
     });
     await execute(
       `UPDATE task_intake
-       SET raw_text = ?, drafts = ?::jsonb, ai_output_id = ?,
+       SET raw_text = ?, drafts = ?::jsonb, ai_output_id = ?, warnings = ?::jsonb,
            status = 'pending', transcribed_at = NOW(), error_message = NULL, updated_at = NOW()
        WHERE id = ?`,
-      [data.raw_text, JSON.stringify(drafts), aiOutputId, intakeId],
+      [
+        data.raw_text, JSON.stringify(drafts), aiOutputId,
+        data.warnings?.length ? JSON.stringify(data.warnings) : null,
+        intakeId,
+      ],
     );
     return this.get(intakeId);
   },
