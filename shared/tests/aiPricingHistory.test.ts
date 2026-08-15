@@ -73,3 +73,41 @@ describe('サーバーの数え方は変えていない', () => {
     expect(USAGE).toMatch(/if \(!p\) return null;/);
   });
 });
+
+/**
+ * ⚠️ **「出せない理由」が2つあるのに、片方の言葉しか書いていなかった**
+ * （#98 を直しているときに実測して見つけたもの）。
+ *
+ * `usdPerRow` が `null` になるのは ①単価そのものが入っていない ②単価は入っているが
+ * **この仕事の実績がまだ無い**（新しい環境・初めて流すとき）の2通りです。
+ * 前の版はどちらも「単価が未設定です」と書いていたので、②の人は `.env` を直しに行き、
+ * **すでに入っている**のを見て途方に暮れます。
+ *
+ * **実測**（実ブラウザ）: 単価を入れて実績が無いとき
+ * 「費用の目安はまだ出せません（この仕事の実績がまだ無いためです）」／
+ * 単価が無いとき「費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）」。
+ */
+describe('費用の目安が出せない理由を書き分ける', () => {
+  const FORMAT_CARD = read('client', 'src', 'contexts', 'platform', 'pages', 'settings', 'ActivityFormatCard.tsx');
+  const FORMAT_SVC = read('server', 'src', 'contexts', 'sales', 'services', 'activity-format.service.ts');
+  const SHORT_SVC = read('server', 'src', 'contexts', 'sales', 'services', 'next-action-short.service.ts');
+
+  it('サーバーが「単価が入っているか」を返す', () => {
+    // 2つの仕事は同じ形なので**両方**に持たせる（片方だけだと次に足す人が迷う）
+    for (const svc of [FORMAT_SVC, SHORT_SVC]) {
+      expect(svc).toMatch(/hasPricing: boolean;/);
+      expect(svc).toMatch(/hasPricing: Object\.keys\(pricing\(\)\)\.length > 0,/);
+    }
+  });
+
+  it('画面は理由を1か所で決める', () => {
+    expect(FORMAT_CARD).toMatch(/function noCostReason\(hasPricing: boolean\): string/);
+    expect(FORMAT_CARD).toMatch(/この仕事の実績がまだ無いためです/);
+    expect(FORMAT_CARD).toMatch(/単価 `AI_PRICING_JSON` が未設定です/);
+  });
+
+  it('2か所とも同じ関数を通す（片方だけ直らないように）', () => {
+    expect((FORMAT_CARD.match(/noCostReason\(s\.hasPricing\)/g) ?? []).length).toBe(2);
+  });
+});
+

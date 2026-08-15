@@ -48,7 +48,23 @@ interface Status {
   total: number;
   usdPerRow: number | null;
   usdEstimate: number | null;
+  /** `AI_PRICING_JSON` が入っているか（`usdPerRow` が null の理由を書き分ける） */
+  hasPricing: boolean;
   configured: boolean;
+}
+
+/**
+ * 費用の目安が出せないときの理由。
+ *
+ * ⚠️ **`usdPerRow` が `null` になる理由は2つあります**（この作業中に実測）。
+ * 前の版はどちらも「単価が未設定です」と書いていたので、**単価は入っているのに
+ * 実績がまだ無いだけ**のとき（新しい環境・初めて流すとき）、読んだ人は
+ * `.env` を直しに行き、**すでに入っている**のを見て途方に暮れます。
+ */
+function noCostReason(hasPricing: boolean): string {
+  return hasPricing
+    ? '費用の目安はまだ出せません（この仕事の実績がまだ無いためです）'
+    : '費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）';
 }
 
 /** 1回で流す件数。**既定は控えめ** — 落ちたときに課金だけ進むのを避ける */
@@ -95,7 +111,7 @@ export function ActivityFormatCard() {
     if (!s) return;
     const taking = Math.min(BATCH, s.pending);
     const cost = s.usdPerRow === null
-      ? '費用の目安は出せません（単価が未設定です）'
+      ? noCostReason(s.hasPricing)
       : `費用の目安は約 $${(s.usdPerRow * taking).toFixed(2)}（1件あたり $${s.usdPerRow.toFixed(3)}）`;
     const ok = await confirmAction({
       title: `${taking} 件を整えますか`,
@@ -151,7 +167,7 @@ export function ActivityFormatCard() {
             {s.pending > 0 && (
               <p className="text-note text-muted-foreground">
                 {s.usdPerRow === null
-                  ? '費用の目安は出せません（単価が未設定です）。1件あたり1回 AI を呼びます'
+                  ? `${noCostReason(s.hasPricing)}。1件あたり1回 AI を呼びます`
                   : `残り全部を整えると約 $${(s.usdEstimate ?? 0).toFixed(2)}（実績の1件あたり $${s.usdPerRow.toFixed(3)} × ${s.pending} 件）`}
               </p>
             )}

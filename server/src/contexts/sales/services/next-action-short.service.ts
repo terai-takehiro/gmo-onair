@@ -51,7 +51,7 @@ import {
   recordAiOutput, findLatestAiOutput, recordCorrections, type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
-import { recordAiUsage, usageSummary } from '../../../shared/services/ai-usage.service';
+import { recordAiUsage, usageSummary, pricing } from '../../../shared/services/ai-usage.service';
 import { modelFor } from '../../../shared/services/ai-model';
 import { resolveProvider } from '../../tasks/services/intake-ai.service';
 import { isActivityAiConfigured } from './activity-ai.service';
@@ -255,6 +255,16 @@ export interface ShortQueueStats {
   fits: number;
   /** 未完了で「次にやること」がある行の総数 */
   total: number;
+  /**
+   * **単価そのものが入っているか**（`AI_PRICING_JSON`）。
+   *
+   * ⚠️ `usdPerRow` が `null` になる理由は**2つある**のに、画面はどちらも
+   * 「単価が未設定です」と書いていました。単価は入っているが
+   * **この仕事の実績がまだ無い**だけのとき（新しい環境・初回）、
+   * 読んだ人は `.env` を直しに行き、**すでに入っている**のを見て途方に暮れます。
+   * 理由を書き分けるために持ちます。
+   */
+  hasPricing: boolean;
   usdPerRow: number | null;
   usdEstimate: number | null;
   configured: boolean;
@@ -295,6 +305,7 @@ export async function shortQueueStats(): Promise<ShortQueueStats> {
     done: num(row?.done),
     fits: num(row?.fits),
     total: num(row?.total),
+    hasPricing: Object.keys(pricing()).length > 0,
     usdPerRow,
     usdEstimate: usdPerRow === null ? null : usdPerRow * pending,
     configured: isActivityAiConfigured(),

@@ -246,8 +246,25 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
   const points = s ? [] : (a.key_points ?? []);
   // **AI が整えたと言えるのは、整えた中身があるときだけ。** 「整え直す」を押した直後は
   // `ai_formatted` が立ったまま中身が空になるので、印だけで判定すると嘘になる
-  const hasFormatted = !!s || !!a.body_html;
-  const waitingRedo = !!a.ai_formatted && !hasFormatted;
+  const hasBody = !!s || !!a.body_html;
+  /**
+   * ⚠️ **「整った本文がある」と「AI が整えた」は別物**（レビューでの指摘 #93）。
+   *
+   * 前の版はどちらも `!!s || !!a.body_html` で判定していました。ところが
+   * **`body_html` は人が書いた本文にも入ります**（AI を通していない古い記録）。
+   * その行では:
+   *
+   * ・**「AI 整形」の札が出ます** — AI は一度も触っていないのに
+   * ・**「整え直す」が出て、押しても何も起きません**。サーバーの待ち行列は
+   *   `body_html IS NULL OR ai_formatted` を要求するので、
+   *   **人が書いた本文の行は永久に対象になりません**（`PENDING_SQL`）。
+   *   押すと `format_attempted_at` が消えるだけで、画面は1ドットも変わらず、
+   *   「待っています」も出ません（それも `ai_formatted` を見ているため）
+   *
+   * **AI の印がある行だけ**を AI 扱いにします。
+   */
+  const aiFormatted = !!a.ai_formatted && hasBody;
+  const waitingRedo = !!a.ai_formatted && !hasBody;
 
   return (
     <article className="rounded-card border border-border bg-card p-4 shadow-sm lg:p-5">
@@ -258,7 +275,7 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
             <KindIcon className="h-3.5 w-3.5" aria-hidden="true" />{k.label}
           </span>
         </div>
-        {hasFormatted && (
+        {aiFormatted && (
           <span className="text-badge inline-flex shrink-0 items-center gap-1 rounded-badge bg-ai-surface px-1.5 py-0.5 font-bold text-ai">
             <Sparkles className="h-3 w-3" aria-hidden="true" />AI 整形
           </span>
@@ -347,7 +364,7 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
             押すと待ち行列に戻り、押した事実は `ai_corrections` に `reject` で残る
             （会社方針「AI を使い捨てにしない」の条件2）
           */}
-          {canEdit && hasFormatted && onRedo && (
+          {canEdit && aiFormatted && onRedo && (
             <button
               type="button"
               onClick={() => onRedo(a.id)}
