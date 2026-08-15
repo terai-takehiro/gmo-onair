@@ -209,6 +209,13 @@ export function useInvalidateGpm() {
     */
     qc.invalidateQueries({ queryKey: ['gpm', 'tasks'] });
     qc.invalidateQueries({ queryKey: ['gpm-project-tasks'] });
+    /*
+      BOX の中身も落とす（レビューでの指摘 #51 の案件側と同じ形）。
+      **フォルダを作る前に読んだ結果**（「フォルダがまだ作られていません。」）は
+      `staleTime: 60_000` で1分残るので、落とさないと**作った直後に
+      「まだありません」と出たまま**になります。
+    */
+    qc.invalidateQueries({ queryKey: ['box-files'] });
     for (const id of ids) qc.invalidateQueries({ queryKey: gpmKeys.project(id) });
   };
 }

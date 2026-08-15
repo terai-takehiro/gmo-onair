@@ -305,18 +305,21 @@ router.get('/:id/box-files', async (req, res) => {
      */
     let folderId = rootId;
     if (wantPhotos) {
-      const items = await listFolderItems(rootId);
-      const photos = items.find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
+      const root = await listFolderItems(rootId);
+      const photos = root.items.find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
       if (!photos) {
-        res.json({ success: true, data: [] });
+        res.json({ success: true, data: [], total: 0, truncated: false });
         return;
       }
       folderId = photos.id;
     }
-    const items = await listFolderItems(folderId);
+    const { items, total, truncated } = await listFolderItems(folderId);
     // 写真の一覧は**画像だけ**に絞る。間違って置かれた PDF が格子に並ぶと、
     // サムネイルの出ない枠が混ざって「壊れている」に見える
-    res.json({ success: true, data: wantPhotos ? items.filter((i) => i.type === 'file' && isImageName(i.name)) : items });
+    const data = wantPhotos ? items.filter((i) => i.type === 'file' && isImageName(i.name)) : items;
+    // **切ったことを渡す**（レビューでの指摘 #51）。前の版は 100 件で黙って
+    // 切れており、101 枚目からの写真は画面に一度も出なかった
+    res.json({ success: true, data, total: wantPhotos ? data.length : total, truncated });
   } catch (err) {
     console.error('[box] listFolderItems failed:', (err as Error).message);
     res.json({ success: true, data: [], reason: 'UNAVAILABLE' });
@@ -337,10 +340,10 @@ async function loadProjectPhotoIds(projectId: string): Promise<Set<string> | nul
   const rootId = extractFolderId(project?.box_url_external ?? null);
   if (!rootId) return null;
   try {
-    const photos = (await listFolderItems(rootId))
+    const photos = (await listFolderItems(rootId)).items
       .find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
     if (!photos) return null;
-    const items = await listFolderItems(photos.id);
+    const { items } = await listFolderItems(photos.id);
     return new Set(items.filter((i) => i.type === 'file').map((i) => i.id));
   } catch (err) {
     // BOX が落ちているときは**通さない**。ここで通すと、障害の日だけ確認が消える

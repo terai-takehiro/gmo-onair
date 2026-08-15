@@ -43,6 +43,12 @@ const canEdit = requireAnyPermission(['sales', 'budget'], 'editor');
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * 一覧に並べる上限。**件数と合計はこれとは別に数えます**（レビューでの指摘 #53）。
+ * 行を切るのは画面を固まらせないためで、**数字まで切ってよい理由にはなりません**。
+ */
+const LIST_LIMIT = 300;
+
+/**
  * 見積の一覧。**旧版 (`superseded`) は出しません** — 一覧に出す意味が
  * 「返事待ちを取りこぼさない」なので、差し替え済みの版が並ぶと数が合いません。
  * 版そのものは案件詳細で見られます。
@@ -87,15 +93,40 @@ router.get('/estimates', async (req, res) => {
         CASE e.status WHEN 'sent' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END,
         e.valid_until ASC NULLS LAST,
         e.updated_at DESC
-      LIMIT 300`,
+      LIMIT ${LIST_LIMIT}`,
     params,
   );
+  /*
+   * ⚠️ **件数と合計はサーバーが数える**（レビューでの指摘 #53）。
+   *
+   * 行は 300 件で切っています（全部並べると画面が固まる）。ところが画面は
+   * **並んだ行を数えて「見積 300」と出し、並んだ行を足して合計を出して**いました。
+   * つまり 301 件目からは**件数にも合計にも入りません**。しかも画面には
+   * それらしい数字が出るだけなので、**月末に合計が合わないまで気づけません**。
+   */
+  const agg = await queryOne(
+    `SELECT COUNT(*) AS n,
+            COALESCE(SUM(COALESCE(e.subtotal, 0) - COALESCE(e.discount, 0)), 0) AS amount
+       FROM estimates e
+       JOIN projects p ON p.id = e.project_id
+       ${where}`,
+    params,
+  ) as { n: string; amount: string } | undefined;
+
   // 「あなたは承認できるか」をサーバーが決めて渡す（押して 403 にしない）。
   // ここに並ぶのは**案件（GLS-A）の見積だけ**なので、承認の口が要求するのは
   // `sales` の編集権限（この一覧は `budget` だけの人も開けるので、
   // その人には false になる — 押せる口がそもそも無い）
   const canEditSales = meetsPermissionLevel(req.user?.role, req.user?.permissions?.sales, 'editor');
-  res.json({ success: true, data: await withCanApprove(rows as never[], req.user!.id, canEditSales) });
+  res.json({
+    success: true,
+    data: await withCanApprove(rows as never[], req.user!.id, canEditSales),
+    // 絞り込み全体の件数と合計（**並んだ行のぶんではない**）
+    total_count: Number(agg?.n ?? 0),
+    total_amount: Number(agg?.amount ?? 0),
+    /** 行を切ったか。**画面はこれを見て「ほか N 件」を出す** */
+    truncated: Number(agg?.n ?? 0) > rows.length,
+  });
 });
 
 /**
@@ -141,10 +172,27 @@ router.get('/invoices', async (req, res) => {
         CASE WHEN r.paid_date IS NULL THEN 0 ELSE 1 END,
         r.payment_due_date ASC NULLS LAST,
         r.billing_date DESC NULLS LAST
-      LIMIT 300`,
+      LIMIT ${LIST_LIMIT}`,
     params,
   );
-  res.json({ success: true, data: rows });
+  // **件数と合計はサーバーが数える**（上の見積と同じ理由・レビューでの指摘 #53）。
+  // 請求は1行 = 1請求なので、`amount` をそのまま足す（分け合う請求の
+  // `amount` はグループ全体の額で、それがこの一覧に出す金額そのもの）
+  const agg = await queryOne(
+    `SELECT COUNT(*) AS n, COALESCE(SUM(r.amount), 0) AS amount
+       FROM revenues r
+       JOIN projects p ON p.id = r.project_id
+       ${where}`,
+    params,
+  ) as { n: string; amount: string } | undefined;
+
+  res.json({
+    success: true,
+    data: rows,
+    total_count: Number(agg?.n ?? 0),
+    total_amount: Number(agg?.amount ?? 0),
+    truncated: Number(agg?.n ?? 0) > rows.length,
+  });
 });
 
 /**

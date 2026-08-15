@@ -111,6 +111,20 @@ export interface BoxItem {
   url: string;
 }
 
+/** フォルダの中身と、**出し切れたかどうか** */
+export interface FolderListing {
+  items: BoxItem[];
+  /** そのフォルダにある総数（BOX が返す `total_count`）。分からなければ `items.length` */
+  total: number;
+  /** 上限に当たって途中で止めたか。**true のときは画面に「ほか N 件」を書くこと** */
+  truncated: boolean;
+}
+
+/** 1回の呼び出しで取る件数（BOX の上限は 1000。既定の 100 は少なすぎる） */
+const PAGE = 200;
+/** 何件まで取るか。**これを超えたら「ほか N 件」と書いて BOX を開いてもらう** */
+export const FOLDER_ITEMS_MAX = 600;
+
 /**
  * フォルダの中身を1階層ぶん返す。
  *
@@ -123,17 +137,70 @@ export interface BoxItem {
  * ・**BOX が未設定・障害のときは投げます。** 呼び出し側が「BOX につながりません」と
  *   出して、案件の作成や更新は普通に続けられるようにするためです
  *   (このファイルの冒頭の設計方針)
+ *
+ * ── ⚠️ 1回で取り切れると思わないこと（レビューでの指摘 #51）─────
+ *
+ * `getItems` は既定で **100 件**しか返しません。前の版は `limit = 100` を
+ * 渡して1回呼ぶだけだったので、**101 個目からのファイルは画面に出ませんでした**。
+ * しかも**出ないだけ**なので手がかりがありません — 置いた人は「上げたのに無い」、
+ * 見る人は「まだ入っていない」と読み、**同じファイルがもう一度上がります**。
+ * 当日の写真（`08_写真`）は1つの現場で 100 枚を軽く超えます。
+ *
+ * **端まで送りながら集めます。** それでも上限（`FOLDER_ITEMS_MAX`）は置きます —
+ * 何千件あるフォルダを全部引くと画面が固まるので。**上限に当たったことは
+ * `truncated` で返し、呼ぶ側が必ず画面に書きます**（黙って切らない）。
  */
-export async function listFolderItems(folderId: string, limit = 100): Promise<BoxItem[]> {
+export async function listFolderItems(
+  folderId: string, max = FOLDER_ITEMS_MAX,
+): Promise<FolderListing> {
   const client = getBoxClient();
   if (!client) throw new Error('BOX_NOT_CONFIGURED');
 
-  const res = await client.folders.getItems(folderId, {
-    fields: 'id,type,name,size,modified_at,modified_by',
-    limit,
-  }) as unknown as { entries?: Record<string, unknown>[] };
+  return await collectFolderItems(
+    (limit, offset) => client.folders.getItems(folderId, {
+      fields: 'id,type,name,size,modified_at,modified_by',
+      limit,
+      offset,
+    }) as unknown as Promise<BoxPage>,
+    max,
+  );
+}
 
-  return mapBoxItems(res.entries ?? []);
+/** BOX の `folders.getItems` の返事のうち、ここで見るぶんだけ */
+export interface BoxPage { entries?: Record<string, unknown>[]; total_count?: number }
+
+/**
+ * 端まで送りながら集める部分だけを取り出したもの。
+ *
+ * **BOX につないでいない環境（検証用の Postgres だけ立てたとき）でも
+ * 送り方を確かめられるように**、取ってくるところを引数にしてあります
+ * （`mapBoxItems` を純関数にしてあるのと同じ理由）。
+ * 数え方を間違えると**黙って足りない一覧**になり、画面を見ても気づけません。
+ */
+export async function collectFolderItems(
+  getPage: (limit: number, offset: number) => Promise<BoxPage>,
+  max = FOLDER_ITEMS_MAX,
+): Promise<FolderListing> {
+  const entries: Record<string, unknown>[] = [];
+  let total = 0;
+
+  for (let offset = 0; entries.length < max; offset += PAGE) {
+    const want = Math.min(PAGE, max - entries.length);
+    const res = await getPage(want, offset);
+
+    const page = res.entries ?? [];
+    entries.push(...page);
+    if (typeof res.total_count === 'number') total = res.total_count;
+    // 頼んだ数より少ない = 端まで来た（`total_count` を信じ切らない）
+    if (page.length < want) break;
+  }
+
+  return {
+    items: mapBoxItems(entries),
+    total: Math.max(total, entries.length),
+    // **総数が分からない BOX の応答でも黙らない** — 上限まで取れたなら続きがある扱い
+    truncated: entries.length >= max && (total === 0 || total > entries.length),
+  };
 }
 
 /**

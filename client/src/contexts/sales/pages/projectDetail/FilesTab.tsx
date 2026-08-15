@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -90,7 +90,9 @@ export function FolderCard({
   const pick = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
-  const { data, isLoading } = useQuery<{ data: BoxItem[]; reason?: string }>({
+  const { data, isLoading, isError, error, refetch } = useQuery<{
+    data: BoxItem[]; reason?: string; total?: number; truncated?: boolean;
+  }>({
     // **`base` も鍵に入れる。** 入れないと、案件とプロジェクトで同じ id を持つことは
     // 無いとはいえ、口が違うのに同じ鍵になる（片方の結果がもう片方に出うる）
     queryKey: ['box-files', base, projectId, scope],
@@ -133,8 +135,12 @@ export function FolderCard({
       }`}>
         <h2 className={`text-cardtitle flex items-center gap-2 ${inside ? 'text-destructive' : 'text-success'}`}>
           <Icon className="h-4 w-4" aria-hidden="true" />{title}
-          {items.length > 0 && (
-            <span className="text-sub-sm font-number ml-auto text-secondary-foreground">{items.length}</span>
+          {/* **数はフォルダにある総数**（並べた行の数ではない）。
+              300 件あるのに「100」と出ると、上げた人は入っていないと読む */}
+          {(data?.total ?? items.length) > 0 && (
+            <span className="text-sub-sm font-number ml-auto text-secondary-foreground">
+              {data?.total ?? items.length}
+            </span>
           )}
         </h2>
         <p className="text-note mt-1 text-secondary-foreground">{what}</p>
@@ -152,6 +158,17 @@ export function FolderCard({
 
       {isLoading ? (
         <div className="p-3"><Delayed><SkeletonRows rows={3} /></Delayed></div>
+      ) : isError ? (
+        /*
+         * ⚠️ **通信そのものが失敗したときを「空」と混ぜない**（レビューでの指摘 #51）。
+         * サーバーは BOX の障害を `reason` に載せて 200 で返しますが、**サーバーに
+         * 届かなかったとき**（通信断・500・権限）は `data` が無いだけなので、
+         * 前の版は下の「まだ何も入っていません。」に落ちていました。
+         * **入っているのに空と言われる**ので、上げた人は同じファイルをもう一度上げます。
+         */
+        <div className="p-4">
+          <ErrorPanel title="中身を読み込めませんでした" error={error} onRetry={() => refetch()} />
+        </div>
       ) : data?.reason ? (
         <p className="text-sub px-4 py-4 text-muted-foreground">{REASON[data.reason] ?? data.reason}</p>
       ) : items.length === 0 ? (
@@ -179,6 +196,14 @@ export function FolderCard({
             </RowSlot>
           </Row>
         ))
+      )}
+
+      {/* **切ったことを書く**（レビューでの指摘 #51）。BOX は1回に 100 件しか
+          返さないので、前の版は 101 件目から**黙って出ていなかった** */}
+      {data?.truncated && (
+        <p className="text-note border-t border-border-subtle px-4 py-2.5 text-muted-foreground">
+          多いのでここには{items.length} 件だけ出しています。残りは「BOX で開く」から見てください。
+        </p>
       )}
 
       {canPut && (
@@ -223,6 +248,14 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
     mutationFn: () => api.post(`/projects/${project.id}/create-box-folder`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project', project.id] });
+      /*
+       * ⚠️ **中身の鍵も落とす**（レビューでの指摘 #51）。作る前に読んだ結果
+       * （`reason: 'NO_FOLDER'` ＝「フォルダがまだ作られていません。」）は
+       * `staleTime: 60_000` で1分間そのまま残るので、**作った直後に
+       * 「まだありません」と出たまま**でした。作った人には成功の帯と
+       * 矛盾した画面が同時に見えます（そして押し直します）。
+       */
+      qc.invalidateQueries({ queryKey: ['box-files'] });
       notifySuccess('BOX にフォルダを作りました');
     },
     onError: (err) => notifyApiError('BOX のフォルダを作れませんでした', err),
@@ -267,7 +300,11 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
           出しているのは<strong className="font-bold">1階層ぶん</strong>です。その先はフォルダを押して BOX で見てください。
-          <strong className="font-bold">ここにファイルを落として入れられるようにするのは、次のバージョンで対応予定です。</strong>
+          {/* ⚠️ **古い但し書きを残さない。** ここには「ファイルを落として入れられる
+              ようにするのは、次の版の予定です」という趣旨の1文が残っていましたが、
+              **その口はもう上の枠にあります**（`canPut` の枠）。読んだ人は
+              使える機能を使わずに BOX を開きに行きます */}
+          <strong className="font-bold">同じ名前のファイルを置くと、新しい版として上がります</strong>（前の版は BOX に残ります）。
         </p>
       </div>
     </div>

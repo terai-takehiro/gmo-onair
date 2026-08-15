@@ -217,8 +217,15 @@ function DesktopTile({ app, onOpen }: { app: TileApp; onOpen: () => void }) {
             <app.icon className="h-7 w-7" style={{ color: app.color }} aria-hidden="true" />
           </span>
           <span className="text-h2 min-w-0 flex-1 truncate">{app.label}</span>
+          {/*
+            ⚠️ **件数はタイルを開くボタンの中に置く**（レビューでの指摘 #68）。
+            前の版はボタンの**外**（枠の直下）にあったので、**数字を押しても
+            何も起きませんでした**。件数は「押せば片づくものが N 件ある」という
+            意味なので、いちばん押されるのがこの数字です。
+            スマホ側はタイルまるごとが1つのボタンなので、もともと押せています。
+          */}
+          {app.badge !== undefined && app.badge > 0 && <Badge n={app.badge} urgent={app.urgent} />}
         </button>
-        {app.badge !== undefined && app.badge > 0 && <Badge n={app.badge} urgent={app.urgent} />}
         {mini && (
           <button
             type="button"
