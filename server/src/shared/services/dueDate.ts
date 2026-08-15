@@ -31,6 +31,12 @@ function ymd(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/**
+ * 支払日が休業日に当たったときの寄せ方（設定「支払日が休業日のとき」）。
+ * `none` は寄せない（そのままの日付を使う）。
+ */
+export type HolidayShift = 'before' | 'after' | 'none';
+
 export interface DueDateRule {
   /** 締め日 1〜31（31 = 末日） */
   closingDay: number;
@@ -57,11 +63,55 @@ export function closingDateOf(recognitionDate: string, closingDay: number): stri
   return ymd(ny, nm, cap(ny, nm));
 }
 
+/** 1日ずらす（`YYYY-MM-DD` のまま。時刻を持ち込まない） */
+function addDay(s: string, delta: number): string {
+  const p = parseYmd(s)!;
+  const d = new Date(Date.UTC(p.y, p.m - 1, p.d + delta));
+  return ymd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
+/**
+ * 休業日に当たった支払期日を、営業日へ寄せる。
+ *
+ * ⚠️ **設定はあるのに、どこも読んでいませんでした**（レビューでの指摘 #63）。
+ * 「支払日が休業日のとき → 前の営業日へ」を選んでも**日曜のままの期日**が入り、
+ * しかも隣の欄には「休業日のときの寄せ方は下で決めます」と書いてあります
+ * （設定したのに効かない、いちばん気づけない形）。
+ *
+ * **休業日かどうかは呼ぶ側が渡します**（`isClosed`）。ここは純粋な計算だけに
+ * しておかないと、画面の下見（`/money-rules/preview`）と保存で別の道になります。
+ *
+ * **60 日で打ち切ります。** 表の入れ方を間違えて「全部休業日」になっても
+ * 無限に回らないようにするためで、そのときは**寄せずに元の日を返します**
+ * （日付が入らないより、寄っていない日付のほうが直せる）。
+ */
+export function shiftForHoliday(
+  date: string,
+  shift: HolidayShift,
+  isClosed: (ymd: string) => boolean,
+): string {
+  if (shift === 'none') return date;
+  const step = shift === 'before' ? -1 : 1;
+  let d = date;
+  for (let i = 0; i < 60; i += 1) {
+    if (!isClosed(d)) return d;
+    d = addDay(d, step);
+  }
+  return date;
+}
+
 /**
  * 計上日 → 支払期日。読めない日付は `null`（**推測で日付を作らない** —
  * 間違った期日が入ると「遅れている」の一覧が狂う）。
+ *
+ * `opts` を渡すと、休業日に当たった期日を営業日へ寄せます。
+ * **渡さなければ今までどおり**（寄せない）。
  */
-export function dueDateOf(recognitionDate: string, rule: DueDateRule): string | null {
+export function dueDateOf(
+  recognitionDate: string,
+  rule: DueDateRule,
+  opts?: { shift?: HolidayShift; isClosed?: (ymd: string) => boolean },
+): string | null {
   const closing = closingDateOf(recognitionDate, rule.closingDay);
   if (!closing) return null;
   const c = parseYmd(closing)!;
@@ -69,7 +119,9 @@ export function dueDateOf(recognitionDate: string, rule: DueDateRule): string | 
   const total = c.m - 1 + rule.paymentMonths;
   const y = c.y + Math.floor(total / 12);
   const m = (total % 12) + 1;
-  return ymd(y, m, Math.min(rule.paymentDay, daysInMonth(y, m)));
+  const due = ymd(y, m, Math.min(rule.paymentDay, daysInMonth(y, m)));
+  if (!opts?.shift || !opts.isClosed) return due;
+  return shiftForHoliday(due, opts.shift, opts.isClosed);
 }
 
 /**

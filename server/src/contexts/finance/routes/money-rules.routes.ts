@@ -15,8 +15,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { queryAll, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { getMoneyRules, saveMoneyRules, ruleForCustomer, computeDueDate } from '../services/money-rules.service';
-import { dueDateOf, describeRule, type DueDateRule } from '../../../shared/services/dueDate';
+import {
+  getMoneyRules, saveMoneyRules, ruleForCustomer, computeDueDate, previewDueDate,
+} from '../services/money-rules.service';
+import { describeRule, type DueDateRule, type HolidayShift } from '../../../shared/services/dueDate';
+
+/** 画面から来た寄せ方が読める値か（知らない値は保存済みの設定に落とす） */
+const HOLIDAY_SHIFTS: readonly unknown[] = ['before', 'after', 'none'];
 
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -76,7 +81,23 @@ router.post('/preview', requirePermission('budget', 'reader'), wrap(async (req, 
     const r: DueDateRule = {
       closingDay: Number(rule.closingDay), paymentMonths: Number(rule.paymentMonths), paymentDay: Number(rule.paymentDay),
     };
-    res.json({ success: true, data: { due_date: dueDateOf(recognition_date, r), describe: describeRule(r) } });
+    /*
+     * ⚠️ **下見でも休業日の寄せを掛ける**（レビューでの指摘 #63）。
+     * 掛けないと、設定の画面が出した日と実際に入る日が食い違います
+     * （「8/31 になります」と見せて 8/29 が入る）。
+     * 寄せ方は**画面が試している値**を優先し、無ければ保存済みの設定を使う。
+     */
+    const saved = await getMoneyRules();
+    const shift = HOLIDAY_SHIFTS.includes(rule.payment_holiday_shift)
+      ? rule.payment_holiday_shift as HolidayShift
+      : saved.payment_holiday_shift;
+    res.json({
+      success: true,
+      data: {
+        due_date: await previewDueDate(recognition_date, r, shift),
+        describe: describeRule(r),
+      },
+    });
     return;
   }
   const used = await ruleForCustomer(customer_id ?? null);

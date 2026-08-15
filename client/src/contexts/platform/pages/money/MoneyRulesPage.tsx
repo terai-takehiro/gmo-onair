@@ -120,16 +120,19 @@ export default function MoneyRulesPage() {
   const closingDay = draft?.closing_day;
   const paymentMonths = draft?.payment_months;
   const paymentDay = draft?.payment_day;
+  // **寄せ方も一緒に送る。** 送らないと、いま選んでいる「前の営業日へ」が
+  // 下見に反映されず、**見せた日と入る日が食い違う**
+  const holidayShift = draft?.payment_holiday_shift;
   useEffect(() => {
     if (closingDay === undefined || paymentMonths === undefined || paymentDay === undefined) return;
     let alive = true;
     api.post('/money-rules/preview', {
       recognition_date: today,
-      rule: { closingDay, paymentMonths, paymentDay },
+      rule: { closingDay, paymentMonths, paymentDay, payment_holiday_shift: holidayShift },
     }).then((r) => { if (alive) setPreview({ due: r.data.data.due_date, describe: r.data.data.describe }); })
       .catch(() => { if (alive) setPreview(null); });
     return () => { alive = false; };
-  }, [closingDay, paymentMonths, paymentDay, today]);
+  }, [closingDay, paymentMonths, paymentDay, holidayShift, today]);
 
   const save = useMutation({
     mutationFn: async () => (await api.put('/money-rules', draft)).data.data,
@@ -191,7 +194,10 @@ export default function MoneyRulesPage() {
               <Pick value={draft.purchase_payment_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('purchase_payment_day', Number(v))} />
             </Line>
-            <Line label="支払日が休業日のとき" hint="休業日の表は「休日・営業時間」で持ちます（これから）">
+            <Line
+              label="支払日が休業日のとき"
+              hint="土日・祝日と、全社の休業日（「休日・営業時間」の表）に当たったとき"
+            >
               <Pick value={draft.payment_holiday_shift} choices={HOLIDAY_SHIFT_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('payment_holiday_shift', v as MoneyRules['payment_holiday_shift'])} />
             </Line>

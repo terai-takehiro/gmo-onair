@@ -663,21 +663,57 @@ export class ProjectService {
      */
     const cls = resolveClassification(audience, project_category, project_type);
 
-    await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category,
-                             gls_category, expected_amount, assigned_to,
-                             event_start, event_end,
-                             customer_type, box_url_internal, box_url_external,
-                             application_form, logo_permission, intake_channel, intake_confidence,
-                             contact_name, recurrence, attendee_count, goal, reply_due, wants, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
-       glsCategory, expected_amount || 0, assigned_to || userId,
-       finalEventStart, finalEventEnd,
-       cType, box_url_internal || null, box_url_external || null,
-       application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
-       contact_name || null, recur, scale, goal || null, reply_due || null, wants || null, userId]
-    );
+    /*
+     * **同じ意図で2回作らせない**（レビューでの指摘 #62）。
+     *
+     * 引き合いから案件にするとき、画面は `inquiry:<id>:project` を渡します。
+     * `projects.idempotency_key` には一意索引があるので（migration 126）、
+     * **2回目は DB が拒否します**。
+     *
+     * ⚠️ **画面の `disabled` だけでは足りません。** react-query の `isPending` は
+     * 描き直しが1回入ってから効くので、**同じ瞬間に2回押すと2回とも通ります**
+     * （スマホでは通信が返るまで無反応に見えるので、二度押しが普通に起きます）。
+     * しかも出来てしまうと、**印を書き戻せるのは片方だけ**なので、
+     * もう1件は未仕分けのまま残り、翌日また案件になります。
+     *
+     * **ぶつかったら、そのとき出来ている案件を返します**（エラーにしない）。
+     * 押した人にとっては「案件が1件できた」で正しく、
+     * エラーを出すと**出来ているのに失敗したと思って、もう一度作ります**。
+     */
+    const idem = typeof data.idempotency_key === 'string' && data.idempotency_key.trim()
+      ? data.idempotency_key.trim() : null;
+    if (idem) {
+      const dup = await queryOne(
+        'SELECT id FROM projects WHERE idempotency_key = ? AND deleted_at IS NULL', [idem],
+      ) as { id: string } | null;
+      if (dup) return await this.getById(dup.id);
+    }
+    try {
+      await execute(
+        `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category,
+                               gls_category, expected_amount, assigned_to,
+                               event_start, event_end,
+                               customer_type, box_url_internal, box_url_external,
+                               application_form, logo_permission, intake_channel, intake_confidence,
+                               contact_name, recurrence, attendee_count, goal, reply_due, wants,
+                               idempotency_key, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
+         glsCategory, expected_amount || 0, assigned_to || userId,
+         finalEventStart, finalEventEnd,
+         cType, box_url_internal || null, box_url_external || null,
+         application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
+         contact_name || null, recur, scale, goal || null, reply_due || null, wants || null,
+         idem, userId]
+      );
+    } catch (e) {
+      // 同時に押されたときは一意索引が止める。**先に出来たほうを返す**
+      const already = idem
+        ? await queryOne('SELECT id FROM projects WHERE idempotency_key = ? AND deleted_at IS NULL', [idem]) as { id: string } | null
+        : null;
+      if (already) return await this.getById(already.id);
+      throw e;
+    }
 
     /**
      * **メモはやり取りに書く** (migration 184)。`projects.notes` の列は無くなりました。

@@ -100,7 +100,18 @@ export function useProjectDecisions(
 
   /** 新しく作って、引き合いがあれば印を付けて、その案件を開く */
   const createNew = async (stage: string) => {
-    const row = (await api.post('/projects', { ...buildProjectBody(v), stage })).data.data as { id: string };
+    /*
+     * ⚠️ **同じ引き合いから2件作らせない**（レビューでの指摘 #62）。
+     * ボタンの `disabled` は描き直しが1回入ってから効くので、
+     * **同じ瞬間に2回押すと2回とも通ります**（スマホでは通信が返るまで
+     * 無反応に見えるので、二度押しが普通に起きます）。
+     * 鍵を渡すとサーバー（DB の一意索引）が2件目を止め、**先に出来たほうを返します**。
+     */
+    const row = (await api.post('/projects', {
+      ...buildProjectBody(v),
+      stage,
+      ...(inquiryId ? { idempotency_key: `inquiry:${inquiryId}:project` } : {}),
+    })).data.data as { id: string };
     // 元の情報に「案件になった」と書き戻す。**これが無いと未仕分けに残り、
     // 翌日また送られて同じ引き合いから案件が2件できる**。
     // 書き戻せなくても案件は出来ているので、**作成そのものは失敗にしない**
