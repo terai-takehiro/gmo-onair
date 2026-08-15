@@ -143,11 +143,30 @@ async function refreshApproval(estimateId: string): Promise<void> {
   if (!est) return;
   if (est.approval_state === 'approved') return;
 
-  const owner = String(est.updated_by ?? est.created_by ?? '');
+  // 持ち主は**作った人**。`updated_by` を先に見ると、上司が触った瞬間に
+  // その人の（緩い）限度で判定され、承認待ちが黙って解ける
+  const owner = String(est.created_by ?? est.updated_by ?? '');
   if (!owner) return;
   const { needsApproval } = checkDiscount(Number(est.subtotal) || 0, Number(est.discount) || 0, await limitOf(owner));
   await execute(`UPDATE estimates SET approval_state = $2 WHERE id = $1`,
     [estimateId, needsApproval ? 'pending' : 'none']);
+}
+
+/**
+ * その人は見積を作ってよいか。**設定の「お金のルール」で役割ごとに決める**
+ * （`role_discount_limits.can_estimate`）。
+ *
+ * ⚠️ この値は**読み込んではいたが、どこからも見られていませんでした**。
+ * 既定の「制作」役割は `can_estimate = false` かつ `gpm` の編集権限を持つので、
+ * **設定で禁止したはずの人が見積を作れていました**（設定の画面には「作れません」と出る）。
+ */
+async function assertCanEstimate(userId: string): Promise<void> {
+  const { canEstimate } = await limitOf(userId);
+  if (!canEstimate) {
+    throw new AppError(403, 'FORBIDDEN',
+      'この役割は見積を作れません（設定 → お金のルールで決めています）。'
+      + '作れる方に依頼するか、設定を見直してください');
+  }
 }
 
 export const estimateService = {
@@ -188,6 +207,7 @@ export const estimateService = {
       [projectId],
     );
     if (!proj) throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+    await assertCanEstimate(userId);
 
     const id = uuidv4();
     await execute(
@@ -218,6 +238,7 @@ export const estimateService = {
     data: { title?: string; customer_id?: string | null; tax_category?: string; valid_until?: string | null },
     userId: string
   ): Promise<Estimate> {
+    await assertCanEstimate(userId);
     const id = uuidv4();
     await execute(
       `INSERT INTO estimates (id, project_id, customer_id, group_id, version, title,
@@ -236,6 +257,8 @@ export const estimateService = {
   async createNextVersion(fromId: string, userId: string): Promise<Estimate> {
     const from = await this.getById(fromId);
     if (!from) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    // 次の版も「作る」— ここを通すと、作れない役割でも版を重ねられる
+    await assertCanEstimate(userId);
 
     const maxRow = (await queryOne(
       `SELECT COALESCE(MAX(version), 0) AS v FROM estimates WHERE group_id = $1 AND deleted_at IS NULL`,
@@ -280,7 +303,8 @@ export const estimateService = {
     userId: string
   ): Promise<Estimate> {
     const existing = await queryOne(
-      `SELECT id, status, subtotal, discount, approval_state FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT id, status, subtotal, discount, approval_state, created_by, updated_by
+         FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
@@ -293,10 +317,25 @@ export const estimateService = {
       // 同じ呼び出しで値引きも変えているときは**新しい値**で判定する
       // (保存してから判定すると、上限超えの値引きで送れてしまう一瞬ができる)
       const discount = 'discount' in data ? Number(data.discount) : Number(existing.discount);
-      const { needsApproval, reasons } = checkDiscount(Number(existing.subtotal), discount, await limitOf(userId));
+      /*
+       * ⚠️ **限度は「作った人」の役割で見る。送る人ではない。**
+       *
+       * ここは `limitOf(userId)`（＝いま送ろうとしている人）を見ていました。
+       * その結果、**上司が部下の上限超えの見積を、承認せずにそのまま送れました**
+       * （上司の限度で通ってしまう）。しかも `approval_state` は `pending` のまま
+       * `sent` になるので、**承認待ちなのに出ている**行が残ります。
+       * `refreshApproval` は最初から作った人で見ており、ここだけ食い違っていました。
+       */
+      /*
+       * 持ち主は **`created_by`（作った人）**。`updated_by`（最後に触った人）に
+       * すると、**上司が保存ボタンを押しただけで限度がその人のものに上がります**
+       * （実測: 上司が一度触った見積は、以後 15% 引きでも素通りした）。
+       */
+      const owner = String(existing.created_by ?? existing.updated_by ?? userId);
+      const { needsApproval, reasons } = checkDiscount(Number(existing.subtotal), discount, await limitOf(owner));
       if (needsApproval) {
         await execute(`UPDATE estimates SET approval_state = 'pending' WHERE id = $1`, [id]);
-        const approver = await approverNameOf(userId);
+        const approver = await approverNameOf(owner);
         throw new AppError(400, 'APPROVAL_REQUIRED',
           `${reasons.join('。')}。${approver ? `${approver} の承認を受けてから送ってください。` : '承認者が決まっていないため、設定のお金のルールで決めてください。'}`);
       }
