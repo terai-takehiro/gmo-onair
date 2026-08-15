@@ -204,8 +204,14 @@ export function useProjectForm(id: string | undefined) {
    * （写すと「作れたのに保存できない案件」ができる）。
    * 読み込みが終わるまでは出しません — 空のフォームに一瞬だけ出ると、
    * 開いた瞬間に「何か足りない」と読まれます。
+   *
+   * **`'edit'` を渡すのが要点**（ご指示）。もともと分類が空の案件
+   * （AI が起こしたネタ・決算取込・Excel/GLS 取込）は**空のままでも保存できます** —
+   * 必須のままだと、案件名を直したいだけでも知らない分類を選ばされ、
+   * しかも画面には「選ぶ」と出るので**画面が値を戻したように見えます**。
+   * 片方だけ入れたときは今までどおり止めます（`fields.ts` の理由）。
    */
-  const missing = project ? missingOf(fieldValues) : [];
+  const missing = project ? missingOf(fieldValues, 'edit') : [];
 
   const projectType = watch('project_type');
   const glsCategory = watch('gls_category');
