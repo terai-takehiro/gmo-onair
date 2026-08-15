@@ -72,14 +72,74 @@ for (const file of walk(path.join(root, 'server', 'src'))) {
 }
 
 const compose = fs.readFileSync(path.join(root, 'docker-compose.yml'), 'utf-8');
-// `environment:` の下の `NAME: ...`（コメント行は取らない）
-const passed = new Set(
-  [...compose.matchAll(/^\s{6}([A-Z0-9_]+):/gm)].map((m) => m[1]),
-);
 
-const missing = [...used].filter((v) => !passed.has(v) && !(v in INTENTIONAL)).sort();
+/*
+ * ⚠️ **サービスごとに数える**（レビューでの指摘 #95）。
+ *
+ * 前の版はファイル全体から `NAME:` を集めた**1つの集合**と突き合わせていたので、
+ * **`app_prod` にだけ足して `app_dev` に足し忘れても通って**いました。
+ * ところが検証環境（`app_dev`）は**最初に試す場所**なので、そこに届いていないと
+ * 「入れたのに効かない」を**いちばん確かめたい環境で**踏みます
+ * （しかもこの検査の文面自身が「app_prod と app_dev の environment: に足して」と
+ * 言っているので、通ったら両方に入っていると読まれます）。
+ */
+const SERVICES = ['app_prod', 'app_dev'];
+
+/**
+ * **片方だけが正しい変数**。⚠️ **理由を必ず書くこと** —
+ * 理由の無い除外が増えると、この検査は「いつも通る」だけの飾りになります。
+ */
+const ONE_SIDED = {
+  // 本番だけ
+  ADMIN_EMAIL: 'app_prod — 本番だけマスター管理者を自動で作る（検証は mockAuth のユーザーカード）',
+  ENCRYPTION_KEY: 'app_prod — 本番のみ必須。検証は NODE_ENV=development なので JWT secret から導く（contexts/liveops/crypto.ts）',
+  SKIP_SEED: 'app_prod — 本番だけシード投入を止める（検証は毎回入れて自由に壊せるようにする）',
+  SMTP_HOST: 'app_prod — ⚠️ 検証から送ると取引先に本物のメールが届く',
+  SMTP_PORT: 'app_prod — 同上',
+  SMTP_SECURE: 'app_prod — 同上',
+  SMTP_USER: 'app_prod — 同上',
+  SMTP_PASS: 'app_prod — 同上',
+  SMTP_FROM: 'app_prod — 同上',
+  TWILIO_ACCOUNT_SID: 'app_prod — ⚠️ 検証から送ると本物の SMS が飛ぶ（2FA）',
+  TWILIO_AUTH_TOKEN: 'app_prod — 同上',
+  TWILIO_PHONE_NUMBER: 'app_prod — 同上',
+  // 検証だけ
+  AUTH_MODE: 'app_dev — 検証だけ mockAuth に切り替える（本番は Google / パスワード固定）',
+};
+
+/** そのサービスの `environment:` に並んでいる変数名 */
+function envOf(service) {
+  const head = new RegExp(`^  ${service}:\\s*$`, 'm');
+  const at = compose.search(head);
+  if (at < 0) return null;                       // サービスごと無い（構成が変わった）
+  const rest = compose.slice(at + 1);
+  const end = rest.search(/^ {2}[a-z0-9_-]+:\s*$/m);
+  const block = end < 0 ? rest : rest.slice(0, end);
+  return new Set([...block.matchAll(/^\s{6}([A-Z0-9_]+):/gm)].map((m) => m[1]));
+}
+
+const byService = new Map(SERVICES.map((s) => [s, envOf(s)]));
+for (const [s, set] of byService) {
+  if (!set) {
+    console.error(`[env-passthrough] docker-compose.yml に ${s} が見つかりません（構成が変わった？）`);
+    process.exit(1);
+  }
+}
+
+/** どちらか一方にでも欠けていたら足りない扱い */
+const missing = [...used]
+  .filter((v) => !(v in INTENTIONAL) && !(v in ONE_SIDED)
+    && SERVICES.some((s) => !byService.get(s).has(v)))
+  .sort();
 
 if (missing.length) {
+  for (const v of missing) {
+    const only = SERVICES.filter((s) => byService.get(s).has(v));
+    if (only.length > 0) {
+      console.error(`[env-passthrough] ⚠️ ${v} は ${only.join(' / ')} にしかありません`
+        + `（片方だけだと、入っていないほうの環境で「入れたのに効かない」になります）`);
+    }
+  }
   console.error('[env-passthrough] docker-compose.yml が渡していない環境変数があります:\n');
   for (const v of missing) console.error(`  - ${v}`);
   console.error(`

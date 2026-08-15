@@ -15,8 +15,10 @@
  * 1つにまとめた直後なので、写し間違いをここで止めます。
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { APPS, APP_BY_KEY, APP_LABELS, canOpenApp, visibleApps, appOfPath } from '../src/client/apps';
-import { isCurrent, currentTo } from '../src/client/shell/AppSideMenu';
+import { isCurrent, currentTo, visibleSections } from '../src/client/shell/AppSideMenu';
 
 const admin = { role: 'system_admin', permissions: {} };
 const nobody = { role: 'staff', permissions: {} };
@@ -240,5 +242,127 @@ describe('currentTo — 光るのは1つだけ', () => {
 
   it('どれにも当たらなければ null', () => {
     expect(currentTo('/sales/customers', SECTIONS)).toBeNull();
+  });
+});
+
+/**
+ * **上辺バーのパンくずが、左メニューと同じ答えを出す**（レビューでの指摘 #82）
+ *
+ * 前の版は上辺バーが**絞る前の並び**から名前を引いていたので、
+ * ①**権限で消した項目の名前が出る**（メニューには無いのに）
+ * ②`?view=lend` のような**絞り込みつきの行き先**は、道が同じ別の項目の名前になる
+ * （押した先と違う名前が上辺バーに出る）、という食い違いがありました。
+ */
+describe('currentTo — 絞り込みつきの行き先（クエリ）', () => {
+  const ITEMS = [{
+    label: '台帳',
+    items: [
+      { label: '機材台帳', to: '/equipment/items' },
+      { label: '貸出対象の機材', to: '/equipment/items?view=lend' },
+    ],
+  }];
+
+  it('クエリまで一致する項目を現在地にする', () => {
+    expect(currentTo('/equipment/items', ITEMS, '?view=lend')).toBe('/equipment/items?view=lend');
+  });
+
+  it('クエリが無いときは、クエリを持たない項目', () => {
+    expect(currentTo('/equipment/items', ITEMS, '')).toBe('/equipment/items');
+  });
+
+  it('別のクエリのときは、クエリを持たない項目に落ちる（食い違う名前を出さない）', () => {
+    expect(currentTo('/equipment/items', ITEMS, '?view=cable')).toBe('/equipment/items');
+  });
+
+  it('クエリつきの行き先でも、道の判定は道だけで見る（子の画面）', () => {
+    expect(isCurrent('/equipment/items/abc', '/equipment/items?view=lend')).toBe(true);
+  });
+});
+
+describe('visibleSections — 見えない項目の名前を出さない', () => {
+  const SECTIONS = [{
+    label: '業務',
+    items: [
+      { label: 'ダッシュボード', to: '/sales/dashboard', module: 'sales' },
+      { label: '取引先', to: '/budget/vendors', module: 'budget' },
+      { label: 'システム管理', to: '/settings/system', adminOnly: true },
+    ],
+  }];
+
+  it('権限が無い項目は落とす（メニューと同じ答え）', () => {
+    const v = visibleSections(SECTIONS, { role: 'staff', permissions: { sales: 'reader' } });
+    expect(v.flatMap((s) => s.items).map((i) => i.label)).toEqual(['ダッシュボード']);
+    // その人にとって「取引先」は現在地になりえない（＝パンくずにも出ない）
+    expect(currentTo('/budget/vendors', v)).toBeNull();
+  });
+
+  it('system_admin は全部見える', () => {
+    const v = visibleSections(SECTIONS, { role: 'system_admin' });
+    expect(v.flatMap((s) => s.items)).toHaveLength(3);
+  });
+
+  it('スマホで落とす項目は、道の型で照合する（前方一致にしない）', () => {
+    const v = visibleSections(SECTIONS, {
+      role: 'system_admin', mobile: true, mobileHiddenPaths: ['/settings/system'],
+    });
+    expect(v.flatMap((s) => s.items).map((i) => i.to)).toEqual(['/sales/dashboard', '/budget/vendors']);
+  });
+});
+
+describe('スマホの入金の確認は月で切らない（レビューでの指摘 #61）', () => {
+  it('月をまたぐ口（`/billing/invoices?state=unpaid`）を引く', () => {
+    // 前の版は今月の締め（`/billing/closing?month=`）だったので、
+    // **先月以前の未入金がこの画面から丸ごと消えて**いた。
+    // いちばん危ないのはその古い未入金（期日超過はそこから出る）で、
+    // しかもスマホで入金を記録できるのはこの画面だけ。
+    // 実測: 未入金 39 件・期日超過 1 件のとき、前の版は **0 件**
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/params: \{ state: 'unpaid_issued' \}/);
+    // **注釈は外してから探す**（この製品は前の版の形を説明として残す決めごと）
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/billing\/closing/);
+    // 合計もサーバーが絞り込み全体で数えたものを使う（並んだ行を足さない）
+    expect(src).toMatch(/const total = q\.data\?\.total_amount \?\?/);
+    // 月で切っていないことを画面に書く
+    expect(src).toMatch(/月をまたいで全部/);
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された3つ**（どれも実ブラウザ・実 Postgres で再現）。
+   */
+  it('請求書を出したものだけを並べる（出す前に入金を記録させない）', () => {
+    // `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**も並ぶ。
+    // そこから記録できると**請求していないのに入金済みの行**ができる
+    // （実測: `unpaid` は 40 件・未発行を含む / `unpaid_issued` は 3 件・含まない）
+    const routes = readFileSync(
+      join(__dirname, '..', '..', 'server', 'src', 'contexts', 'sales', 'routes', 'billing.routes.ts'),
+      'utf8',
+    );
+    expect(routes).toMatch(/state === 'unpaid_issued'\) where \+= ' AND r\.invoice_issued = true AND r\.paid_date IS NULL'/);
+    // **`unpaid` の意味は変えていない**（⑤ の「入金前」チップが読んでいる）
+    expect(routes).toMatch(/if \(state === 'unpaid'\) where \+= ' AND r\.paid_date IS NULL';/);
+  });
+
+  it('記録したら、いま引いている鍵を落とす', () => {
+    // 画面の鍵を替えたのに落とす鍵が古いままだと、**記録したのに行が消えず**、
+    // 「記録しました」の帯のあとに**もう一度押されます**（実測: 3件 → 3件のまま）
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/qc\.invalidateQueries\(\{ queryKey: \['billing'\] \}\)/);
+  });
+
+  it('300 件で切れたことを書く（スマホから記録できない行を黙らない）', () => {
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/const hidden = Math\.max\(0, count - rows\.length\);/);
+    expect(src).toMatch(/\{hidden > 0 && \(/);
+    expect(src).toMatch(/PC の「請求・入金」から記録してください/);
   });
 });

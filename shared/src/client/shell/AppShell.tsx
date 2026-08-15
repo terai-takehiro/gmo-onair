@@ -41,6 +41,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useIsMobile } from '../../client-v4/mobile';
 import { PrimaryActionSlotContext } from './primaryAction';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
@@ -50,7 +51,7 @@ import McpInfoModal from '../mcpInfo/McpInfoModal';
 import type { ManualContent } from '../manual/types';
 import { APP_BY_KEY } from '../apps';
 import { AppTopbar } from './AppTopbar';
-import { AppSideMenu, currentTo } from './AppSideMenu';
+import { AppSideMenu, currentTo, visibleSections } from './AppSideMenu';
 import { MobileTabs } from './MobileTabs';
 import type { ShellAccess, ShellChrome, ShellMobileTab, ShellNavSection, ShellUser } from './types';
 
@@ -94,7 +95,8 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const isMobile = useIsMobile();
   const [manualOpen, setManualOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
@@ -119,10 +121,23 @@ export function AppShell({
    * 明示的に渡された `crumb` はそのまま優先します（メニューに項目を持たない
    * 画面で名前を出したいとき用）。
    */
-  const activeTo = hasMenu ? currentTo(pathname, sections) : null;
+  /*
+   * ⚠️ **左メニューとまったく同じ並びから引く**（レビューでの指摘 #82）。
+   *
+   * 前の版は**絞る前の `sections`** から名前を探していたので、
+   * ①**権限で消した項目の名前が上辺バーに出る**（メニューには無いのに）
+   * ②現在地の判定がメニューと2か所で別々になり、**メニューは何も光っていないのに
+   *   パンくずだけ名前を出す**、が起きます。
+   * ③`?view=lend` のような**絞り込みつきの行き先**は、道が同じ別の項目
+   *   （「機材台帳」）の名前になっていました — 押した先と違う名前が出ます。
+   */
+  const menuSections = hasMenu
+    ? visibleSections(sections, { role, permissions, can, mobile: isMobile, mobileHiddenPaths })
+    : [];
+  const activeTo = hasMenu ? currentTo(pathname, menuSections, search) : null;
   const crumbText =
     crumb ??
-    (activeTo ? sections.flatMap((s) => s.items).find((i) => i.to === activeTo)?.label : undefined);
+    (activeTo ? menuSections.flatMap((s) => s.items).find((i) => i.to === activeTo)?.label : undefined);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

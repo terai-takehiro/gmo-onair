@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "4.0.28",
+  "version": "4.0.30",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
@@ -40,13 +40,14 @@
     "fonts": "node scripts/vendor-fonts.mjs",
     "check:fonts": "node scripts/vendor-fonts.mjs --check",
     "verify:font": "node scripts/fetch-google-fonts.mjs",
-    "lint": "node scripts/check-fonts-vendored.mjs && node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && node scripts/check-ui-tokens.mjs && node scripts/check-mobile-declared.mjs && node scripts/check-env-passthrough.mjs && node scripts/check-links.mjs && eslint .",
+    "lint": "node scripts/check-changelog.mjs && node scripts/check-fonts-vendored.mjs && node scripts/check-tokens.mjs && node scripts/check-shared-wiring.mjs && node scripts/check-file-size.mjs && node scripts/check-ui-tokens.mjs && node scripts/check-mobile-declared.mjs && node scripts/check-env-passthrough.mjs && node scripts/check-links.mjs && eslint .",
     "lint:eslint": "eslint .",
     "check:file-size": "node scripts/check-file-size.mjs",
     "check:shared-wiring": "node scripts/check-shared-wiring.mjs",
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:ui-tokens": "node scripts/check-ui-tokens.mjs",
     "check:version": "node scripts/check-version-consistency.mjs",
+    "release:notes": "node scripts/collect-changelog.mjs",
     "design:extract": "node scripts/extract-v4-design.mjs",
     "check:frozen": "node scripts/check-frozen-css.mjs"
   },

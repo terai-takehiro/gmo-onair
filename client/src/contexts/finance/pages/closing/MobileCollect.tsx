@@ -36,14 +36,14 @@ import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { dueLabel } from '@gmo-onair/shared/src/client-v4/mobile';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { localDateStr } from '@/lib/format';
-import type { ClosingResponse, ClosingRow } from '../billing/types';
+import type { BillingInvoice } from '@/contexts/sales/pages/billing/types';
 
 /**
- * **行の形は PC と同じ `ClosingRow` を使う。**
+ * **行の形は ⑤ 見積・請求（PC）と同じ `BillingInvoice`。**
  * ここで書き写すと、サーバーが列を変えたときに片方だけ古くなります
  * （実際に最初 `payment_due` と書いていて、正しくは `payment_due_date` でした）。
  */
-type Row = ClosingRow;
+type Row = BillingInvoice;
 
 const TONE: Record<string, string> = {
   over: 'text-destructive',
@@ -56,29 +56,55 @@ const TONE: Record<string, string> = {
 export function MobileCollect() {
   const qc = useQueryClient();
   const today = localDateStr(new Date());
-  const month = today.slice(0, 7);
   const [open, setOpen] = useState<Row | null>(null);
 
-  // **PC の締め画面と同じ鍵**にする。片方だけ古いままにならない
-  const q = useQuery<ClosingResponse>({
-    queryKey: ['billing', 'closing', month],
-    queryFn: async () => (await api.get('/billing/closing', { params: { month } })).data,
+  /*
+   * ⚠️ **月で切らない**（レビューでの指摘 #61）。
+   *
+   * 前の版は締め画面と同じ `GET /billing/closing?month=<今月>` を引いていたので、
+   * **先月以前に計上した未入金がこの画面から丸ごと消えて**いました。
+   * ところが**いちばん危ないのは、まさにその古い未入金**です
+   * （期日を過ぎたものは前の月のぶんから出ます）。しかもスマホで入金を
+   * 記録できるのはこの画面だけなので、**出てこない＝無いことにされます**。
+   *
+   * 入金待ちは `GET /billing/invoices?state=unpaid` が**月をまたいで**返します
+   * （サーバーが期日の近い順に並べ、件数と合計も絞り込み全体で数えます）。
+   * **申込書の有無（`blocked`）は要りません** — あれが要るのは請求書を出すときで、
+   * 入金の記録は止めない、という決めごとです（`billing.routes.ts`）。
+   */
+  const q = useQuery<{ data: Row[]; total_count?: number; total_amount?: number; truncated?: boolean }>({
+    // **PC の ⑤ 見積・請求と同じ鍵**にする（片方だけ古いままにならない）
+    queryKey: ['billing', 'invoices', 'all', 'unpaid_issued'],
+    /*
+     * **請求書を出したものだけ**（`unpaid` ではなく `unpaid_issued`）。
+     * `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**まで
+     * 並び、**請求していないのに入金済みの行**を作れてしまいます
+     * （月次の締めの `collect` は前から `invoice_issued` を要求していました）。
+     */
+    queryFn: async () => (await api.get('/billing/invoices', { params: { state: 'unpaid_issued' } })).data,
   });
 
-  const rows = useMemo(() => {
-    // 返りは `{ data: { issue, collect, inspect }, counts }`（PC の締め画面と同じ）
-    const all = (q.data?.data?.collect ?? []) as Row[];
-    // **期日の近い順。** 期日なしは最後（急ぐ理由が無い）
-    return [...all].sort((a, b) => (a.payment_due_date ?? '9999').localeCompare(b.payment_due_date ?? '9999'));
-  }, [q.data]);
+  // サーバーが期日の近い順に返す（並べ直さない — 2か所で並びを決めると食い違う）
+  const rows = useMemo(() => (q.data?.data ?? []) as Row[], [q.data]);
 
-  const total = rows.reduce((n, r) => n + (Number(r.amount) || 0), 0);
+  // **合計はサーバーが絞り込み全体で数えたもの**（並んだ行を足さない）
+  const total = q.data?.total_amount ?? rows.reduce((n, r) => n + (Number(r.amount) || 0), 0);
+  const count = q.data?.total_count ?? rows.length;
   const overdue = rows.filter((r) => !!r.payment_due_date && r.payment_due_date.slice(0, 10) < today).length;
+  /** 出していない行の数（サーバーは 300 件で切る）。**黙って切らない** */
+  const hidden = Math.max(0, count - rows.length);
 
   const record = useMutation({
     mutationFn: (r: Row) => api.post('/billing/invoices/bulk', { ids: [r.id], paid_date: today }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['billing', 'closing'] });
+      /*
+       * ⚠️ **いま引いている鍵を落とす**（レビューでの指摘）。
+       * 画面の鍵を `['billing','invoices',…]` に替えたのに、落とすほうは
+       * 締めの鍵のままでした。**記録したのに行が消えず、合計も件数も変わらない**ので、
+       * 「入金を記録しました」の帯が出たあとに**もう一度押されます**（二重に記録される）。
+       * `['billing']` で両方（締め・請求の一覧）を落とします。
+       */
+      qc.invalidateQueries({ queryKey: ['billing'] });
       qc.invalidateQueries({ queryKey: ['revenues'] });
       setOpen(null);
       notifySuccess('入金を記録しました');
@@ -90,7 +116,9 @@ export function MobileCollect() {
     <div className="flex flex-col gap-3.5 p-3">
       <PageHeader
         title="入金の確認"
-        sub={`${month.replace('-', '年')}月締め ・ 入金待ち ${rows.length}件${overdue > 0 ? ` ・ 期日を過ぎたもの ${overdue}件` : ''}`}
+        /* **月で切っていないことを書く。** 「今月ぶんだけ」と読まれると、
+           出ていない古い未入金があると気づけない */
+        sub={`入金待ち ${count}件（月をまたいで全部）${overdue > 0 ? ` ・ 期日を過ぎたもの ${overdue}件` : ''}`}
       />
 
       {rows.length > 0 && (
@@ -108,7 +136,7 @@ export function MobileCollect() {
         <EmptyState
           icon={<Wallet className="h-6 w-6" aria-hidden="true" />}
           title="入金待ちはありません"
-          description={`${month.replace('-', '年')}月に計上した確定売上のうち、入金がまだのものが出ます。`}
+          description="確定した売上のうち、入金がまだのものが月をまたいで出ます。"
         />
       ) : (
         // 読み込みの枠から中身に入れ替わる瞬間（モックの `cardIn`）
@@ -143,6 +171,18 @@ export function MobileCollect() {
             );
           })}
         </ul>
+      )}
+
+      {/*
+        ⚠️ **切ったことを書く**（レビューでの指摘）。サーバーは 300 件で行を切りますが、
+        件数と合計は絞り込み全体のものです。書かないと「これで全部」と読まれ、
+        **301 件目からはスマホから入金を記録できない**ことに気づけません。
+      */}
+      {hidden > 0 && (
+        <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-3 text-note text-secondary-foreground">
+          ほか <span className="font-number">{hidden}</span> 件は多いのでここに出していません
+          （上の件数と合計には入っています）。<strong className="font-bold">PC の「請求・入金」から記録してください。</strong>
+        </p>
       )}
 
       <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">

@@ -11,7 +11,7 @@ import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
-import { resolveClassification } from './project-classification';
+import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -591,8 +591,45 @@ export class ProjectService {
     if (set.gls_category === 'A' || set.gls_category === 'B') {
       setClauses.push('gls_category = ?'); params.push(set.gls_category);
     }
-    if (typeof set.project_type === 'string' && set.project_type) {
+    /**
+     * **2段分類（客入れの有無 × 案件分類）と旧 `project_type` を必ず一緒に書く**
+     * （案件台帳の一括編集で足した・migration 182）。
+     *
+     * ⚠️ ここは長いあいだ **`project_type` だけを直接書いて**いました。旧種類は
+     * **2段から導くのがこの製品の決めごと**（`project-classification.ts`）なので、
+     * 片方だけ書くと**分類と種類がずれた行**ができます。ずれると
+     * **一覧（種類で見る画面）と詳細（2段で見る画面）で違う分類が出て**、
+     * しかも画面を見ても「どちらが正しいのか」が分かりません。
+     *
+     * 受け方は2通り。**どちらで来ても3つの列が揃います**:
+     *
+     *   ① 2段で来る（案件台帳）… `project_type` を導いて3つとも書く
+     *   ② 旧種類で来る（旧 GLS 取込の画面）… 2段を**逆に埋め戻して**3つとも書く
+     *
+     * **片方だけの2段は受け付けません。** 通すと `resolveClassification` が
+     * 導けずに黙って捨て、押した人には「選んだのに入っていない」としか見えません。
+     */
+    const asked2 = set.audience !== undefined || set.project_category !== undefined;
+    if (asked2) {
+      const derived = projectTypeOf(set.audience, set.project_category);
+      if (!derived) {
+        throw new AppError(
+          400, 'VALIDATION_ERROR',
+          '案件分類は「客入れの有無」と「配信/収録/イベント」の2つをそろえて指定してください',
+        );
+      }
+      setClauses.push('audience = ?'); params.push(set.audience);
+      setClauses.push('project_category = ?'); params.push(set.project_category);
+      setClauses.push('project_type = ?'); params.push(derived);
+      // 無観客にしたら来場人数は落とす（`create` / `update` と同じ理由）
+      if (set.audience === 'no_audience') setClauses.push('attendee_count = NULL');
+    } else if (typeof set.project_type === 'string' && set.project_type) {
+      // 旧い呼び出し（GLS 取込の画面）。**400 で止めない** — 名前を変えただけで
+      // 古い画面から一括編集できなくなるのは割に合わない
       setClauses.push('project_type = ?'); params.push(set.project_type);
+      const back = classificationOf(set.project_type);
+      setClauses.push('audience = ?'); params.push(back?.audience ?? null);
+      setClauses.push('project_category = ?'); params.push(back?.project_category ?? null);
     }
     if (typeof set.stage === 'string' && STAGES.includes(set.stage)) {
       setClauses.push('stage = ?'); params.push(set.stage);

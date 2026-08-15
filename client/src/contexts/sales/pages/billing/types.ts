@@ -32,6 +32,11 @@ export interface BillingInvoice {
   billing_date: string | null;
   payment_due_date: string | null;
   invoice_issued: boolean | number | null;
+  /**
+   * 請求書番号（出したときに採る・migration 163）。**サーバーは前から返しています**が、
+   * 型に無かったので画面から読めませんでした（レビューでの指摘 #61 で必要になった）。
+   */
+  invoice_no: string | null;
   /** 検収日。**フラグではなく日付**。入っていれば検収済み */
   inspection_date: string | null;
   /** 入金日。同上 */

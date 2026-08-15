@@ -63,6 +63,30 @@ const QUOTE_OPEN = /^[「『]/;
 const QUOTE_CLOSE = /[」』]\s*$/;
 
 /**
+ * 行の終わりで鉤括弧がいくつ開いたままか。
+ *
+ * ⚠️ **開いたかどうかだけで引用を始めないこと**（レビューでの指摘 #90）。
+ * 前の版は「行頭が `「` で、行末が `」` でなければ複数行の引用」と決めていたので、
+ *
+ *   「至急」対応をお願いします。詳細は明日ご連絡します。
+ *
+ * のように**行の途中で閉じている**文が引用の始まりと読まれ、
+ * **そのあとの行が全部その引用に飲まれて**いました（閉じる行が現れるまで、
+ * ふつうは本文の最後まで）。読む側には**1件の記録がまるごと引用の帯**に見え、
+ * 決定事項も次にやることも帯の中に埋まります。
+ *
+ * 開いた数と閉じた数を数え、**行の終わりでまだ開いているときだけ**引用にします。
+ */
+function openDepth(line: string, start = 0): number {
+  let depth = start;
+  for (const ch of line) {
+    if (ch === '「' || ch === '『') depth += 1;
+    else if (ch === '」' || ch === '』') depth = Math.max(0, depth - 1);
+  }
+  return depth;
+}
+
+/**
  * 文が終わっている行末。ここで終わっていない行は**文の途中で折り返されている**
  * （取り込んだ本文は読みやすさのために途中で改行されている）
  */
@@ -93,7 +117,8 @@ type Pending =
   | { kind: 'para'; lines: string[] }
   | { kind: 'bullets'; items: string[] }
   | { kind: 'arrows'; items: string[] }
-  | { kind: 'quote'; lines: string[] }
+  /** `depth` = いま開いたままの鉤括弧の数。0 に戻った行で閉じる */
+  | { kind: 'quote'; lines: string[]; depth: number }
   | null;
 
 /**
@@ -137,7 +162,9 @@ export function parseNoteText(raw: string | null | undefined): RichBlock[] {
     // 引用の中は印を読み取らない (引用の中の `・` は引用元の文字)
     if (pending?.kind === 'quote') {
       pending.lines.push(line);
-      if (QUOTE_CLOSE.test(line)) flush();
+      pending.depth = openDepth(line, pending.depth);
+      // **閉じたら終わり。** 行末が `」` かどうかではなく、開いた数が 0 に戻ったか
+      if (pending.depth === 0 || QUOTE_CLOSE.test(line)) flush();
       continue;
     }
 
@@ -154,10 +181,20 @@ export function parseNoteText(raw: string | null | undefined): RichBlock[] {
     }
 
     if (QUOTE_OPEN.test(line)) {
+      const depth = openDepth(line);
+      // **行の中で閉じているものは引用の塊にしない**（上の `openDepth` の説明）。
+      // 「至急」対応をお願いします … は引用ではなく、鉤括弧で始まる普通の文
+      if (depth === 0 && !QUOTE_CLOSE.test(line)) {
+        // 段落として扱う（この下の段落の処理に落とす）
+        if (pending?.kind !== 'para') flush();
+        if (pending?.kind === 'para') pending.lines.push(line);
+        else pending = { kind: 'para', lines: [line] };
+        continue;
+      }
       flush();
-      pending = { kind: 'quote', lines: [line] };
+      pending = { kind: 'quote', lines: [line], depth };
       // 1行で閉じている引用もある
-      if (QUOTE_CLOSE.test(line)) flush();
+      if (depth === 0 || QUOTE_CLOSE.test(line)) flush();
       continue;
     }
 

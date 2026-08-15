@@ -67,10 +67,42 @@ export const BUILTIN_MODELS: Record<AiTier, Record<AiProvider, string>> = {
   light: { openai: 'gpt-5.6-luna', anthropic: 'claude-haiku-4-5-20251001' },
 };
 
-const env = (name: string): string | null => {
-  const v = (process.env[name] ?? '').trim();
-  return v || null;
+/**
+ * 環境変数の読み方。**`process.env.X` の形で1つずつ書きます**（レビューでの指摘 #96）。
+ *
+ * ⚠️ **`process.env[名前]` のように動的に引かないこと。** `.env` に書いた変数が
+ * コンテナに届いているかを見る検査（`scripts/check-env-passthrough.mjs`）は
+ * **`process.env.X` の literal を数えている**ので、動的に引くと**この service が
+ * 読んでいる変数が1つも見えません**。つまり `docker-compose.yml` から
+ * `AI_MODEL_HEAVY` を消しても検査は通り、**入れたのに効かない**状態に気づけません
+ * （このファイルの下のコメントが最初からそう書いているのに、ここが動的でした）。
+ *
+ * **読むのは実行のたび**（module の読み込み時ではない）— 試験が
+ * `process.env` を差し替えてから呼ぶため。
+ */
+const clean = (v: string | undefined): string | null => {
+  const s = (v ?? '').trim();
+  return s || null;
 };
+
+type EnvName =
+  | 'AI_MODEL_HEAVY' | 'AI_MODEL_LIGHT'
+  | 'INTAKE_AI_MODEL' | 'ACTIVITY_AI_MODEL' | 'MINUTES_AI_MODEL' | 'KPT_AI_MODEL';
+
+const env = (name: EnvName): string | null => {
+  switch (name) {
+    case 'AI_MODEL_HEAVY': return clean(process.env.AI_MODEL_HEAVY);
+    case 'AI_MODEL_LIGHT': return clean(process.env.AI_MODEL_LIGHT);
+    case 'INTAKE_AI_MODEL': return clean(process.env.INTAKE_AI_MODEL);
+    case 'ACTIVITY_AI_MODEL': return clean(process.env.ACTIVITY_AI_MODEL);
+    case 'MINUTES_AI_MODEL': return clean(process.env.MINUTES_AI_MODEL);
+    case 'KPT_AI_MODEL': return clean(process.env.KPT_AI_MODEL);
+    default: return null;
+  }
+};
+
+/** 「軽いモデルを使わない」の印。**モデル名ではありません** */
+const OFF = 'off';
 
 /**
  * 段ごとの上書き（環境変数）。**機能をまたいで効く**。
@@ -91,7 +123,7 @@ function tierEnv(tier: AiTier): string | null {
  * 読む場所が増えます。ここにあるのは**すでに運用で使われている名前**で、
  * 消すと入れてある環境の挙動が黙って変わるため残しています。
  */
-const JOB_ENV: Record<AiJob, string[]> = {
+const JOB_ENV: Record<AiJob, EnvName[]> = {
   intake: ['INTAKE_AI_MODEL'],
   activity: ['ACTIVITY_AI_MODEL'],
   minutes: ['MINUTES_AI_MODEL'],
@@ -114,7 +146,21 @@ export function modelFor(job: AiJob, tier: AiTier, provider: AiProvider): string
     const v = env(name);
     if (v) return v;
   }
-  return tierEnv(tier) ?? BUILTIN_MODELS[tier][provider];
+  const override = tierEnv(tier);
+  /*
+   * ⚠️ **`off` はモデル名ではありません**（レビューでの指摘 #96）。
+   *
+   * `AI_MODEL_LIGHT=off` は「軽いモデルを使わない」という印なのに、前の版は
+   * **その文字列をそのままモデル名として送って**いました。呼ぶ側は
+   * 「軽いので落ちたら上位で1回だけやり直す」作りなので、**必ず1回失敗してから
+   * heavy に落ちます** — 待たされ、失敗した呼び出しにも課金され、
+   * ログには理由の分からない失敗が並びます（`isLightDisabled()` を見ているのは
+   * 投入口だけで、ほかの呼び出しはここを通ります）。
+   *
+   * **止めたいのだから、はじめから heavy を返します。**
+   */
+  if (override?.toLowerCase() === OFF) return tierEnv('heavy') ?? BUILTIN_MODELS.heavy[provider];
+  return override ?? BUILTIN_MODELS[tier][provider];
 }
 
 /** 段を決めるときに渡す材料。**持っているものだけ渡せばよい** */
@@ -177,5 +223,5 @@ export function tierFor(job: AiJob, input: TierInput = {}): AiTier {
 
 /** その仕事で軽いモデルを使わない設定になっているか（`off` で止める） */
 export function isLightDisabled(): boolean {
-  return (process.env.AI_MODEL_LIGHT ?? '').trim().toLowerCase() === 'off';
+  return env('AI_MODEL_LIGHT')?.toLowerCase() === OFF;
 }

@@ -75,11 +75,18 @@ export default function ProjectDetailPage() {
     enabled: !!id,
   });
 
-  const activities = useQuery<{ data: ActivityLog[] }>({
+  /*
+   * ⚠️ **件数は `pagination.total` を読む**（レビューでの指摘 #90）。
+   * 引いているのは 20 件までなので、並んだ行を数えると**どの案件も「20」**になります
+   * （実データで 45 件の案件が 20 件と出ていました）。タブの数字も、概要の
+   * 「すべて見る（N件）」も、**押す前に量を知るためのもの**です。
+   */
+  const activities = useQuery<{ data: ActivityLog[]; pagination?: { total?: number } }>({
     queryKey: ['project-activities', id],
     queryFn: async () => (await api.get('/activity-logs', { params: { project_id: id, limit: 20 } })).data,
     enabled: !!id,
   });
+  const activityTotal = activities.data?.pagination?.total ?? activities.data?.data?.length;
 
   const changeStage = useMutation({
     mutationFn: (v: { stage: ProjectStage } & Partial<LostPayload>) =>
@@ -180,7 +187,7 @@ export default function ProjectDetailPage() {
   };
 
   const counts: Partial<Record<ProjectTabKey, number>> = {
-    thread: activities.data?.data?.length,
+    thread: activityTotal,
   };
 
   /*
@@ -238,7 +245,7 @@ export default function ProjectDetailPage() {
       )}
 
       {!offPhone && tab === 'overview' && (
-        <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} />
+        <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} activityTotal={activityTotal} />
       )}
       {!offPhone && tab === 'thread' && <ThreadTab projectId={id} />}
       {!offPhone && tab === 'task' && <TasksTab project={p} />}
