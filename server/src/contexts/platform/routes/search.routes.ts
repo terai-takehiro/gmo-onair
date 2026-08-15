@@ -52,7 +52,15 @@ router.get('/', requireAuth, async (req, res) => {
 
   const customers = can('customers')
     ? await queryAll(
-        `SELECT id, name, short_name FROM customers WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
+        /*
+         * ⚠️ **電話番号と担当者も返す**（レビューでの指摘 #73）。
+         * お客様の詳細（`/sales/customers/:id`）は**スマホでは PC 専用の案内**に
+         * 差し替わるので、**外から電話をかけたい人は番号に辿り着けません**
+         * （仕入先は `/budget/vendors` を開けるのに、お客様だけ道が無い）。
+         * 探すの行に番号を出せば、**画面を開かずに答えになります**。
+         */
+        `SELECT id, name, short_name, phone, contact_name FROM customers
+          WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
         [like, like]
       )
     : [];

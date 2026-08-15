@@ -59,7 +59,7 @@ import { DO_ITEMS, PLACES, type Shortcut } from './search/shortcuts';
 
 interface SearchResults {
   projects: Array<{ id: string; code: string; gls_number: string | null; name: string; stage: string }>;
-  customers: Array<{ id: string; name: string; short_name: string }>;
+  customers: Array<{ id: string; name: string; short_name: string; phone?: string | null; contact_name?: string | null }>;
   vendors: Array<{ id: string; name: string; vendor_type: string }>;
 }
 
@@ -232,6 +232,25 @@ export default function SearchPage() {
                   <RowMain>
                     <RowTitle>{c.name}</RowTitle>
                     {c.short_name && <RowSub>{c.short_name}</RowSub>}
+                    {/*
+                      ⚠️ **電話番号はここに出す**（レビューでの指摘 #73）。
+                      お客様の詳細はスマホでは PC 専用の案内に差し替わるので、
+                      **外から電話をかけたい人は番号に辿り着けません**
+                      （仕入先は `/budget/vendors` を開けるのに、お客様だけ道が無い）。
+                      **画面を開かずに答えにする**のがいちばん短い道です。
+                    */}
+                    {c.phone && (
+                      <RowSub>
+                        <a
+                          href={`tel:${c.phone.replace(/[^0-9+]/g, '')}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="v4-tap font-number font-bold text-primary hover:underline"
+                        >
+                          {c.phone}
+                        </a>
+                        {c.contact_name && <span className="ml-2">{c.contact_name}</span>}
+                      </RowSub>
+                    )}
                   </RowMain>
                 </ClickRow>
               ))}
