@@ -945,10 +945,34 @@ export class ProjectService {
      * `project_type` は2段から導きます — 2段が入っている案件で旧分類だけ送られても、
      * 導いた値が勝つので**分類と種類がずれた行はできません**。
      */
+    // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
+    // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
+    // changeGlsCategory() を使う (リクエスト経路は PATCH /projects/:id/gls-category)。
+    const reqCategory = normalizeGlsCategory(gls_category);
+    const allowCategoryUpdate = reqCategory && !(existing as { gls_number?: string | null }).gls_number;
+
     const askedAudience = data.audience === undefined ? existing.audience : data.audience;
     const askedCategory = data.project_category === undefined ? existing.project_category : data.project_category;
+    /**
+     * ⚠️ **GLS-B（工事・構築）には2段分類を付けません**（レビューでの指摘 #99）。
+     *
+     * `project-classification.ts` は「GLS-B は2段を持たない・NULL のままにする」と
+     * 決めていますが、**書く側で守っていませんでした**。2段が来ると
+     * `resolveClassification` が `project_type` を導くので、
+     * **工事のプロジェクトが `hybrid_event`（ハイブリッド）になり**、
+     * 標準工程の型・Excel・集計が放送の案件として扱います。
+     * 画面の欄を消しただけでは足りません — MCP・古いタブ・直接叩きから通ります。
+     *
+     * **落とすのは2段だけ**（旧 `project_type` は落としません）。GLS-B の
+     * `gmo_project` / `consulting` / `other` は正しい値なので、
+     * ここで消すと**分類そのものを失います**。
+     */
+    const effectiveGls = (allowCategoryUpdate ? reqCategory : null)
+      ?? (existing as { gls_category?: string | null }).gls_category;
+    const isGlsB = effectiveGls === 'B';
     const cls = resolveClassification(
-      askedAudience, askedCategory,
+      isGlsB ? null : askedAudience,
+      isGlsB ? null : askedCategory,
       project_type === undefined ? existing.project_type : project_type,
     );
     // 無観客にしたら来場人数は落とす（create と同じ理由）
@@ -983,11 +1007,6 @@ export class ProjectService {
      */
     const targetCustomer = customer_id === undefined ? existing.customer_id : customer_id;
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
-    // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
-    // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
-    // changeGlsCategory() を使う (リクエスト経路は PATCH /projects/:id/gls-category)。
-    const reqCategory = normalizeGlsCategory(gls_category);
-    const allowCategoryUpdate = reqCategory && !(existing as { gls_number?: string | null }).gls_number;
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。
     // 同時に event_start = MIN(date), event_end = MAX(date) を自動同期
