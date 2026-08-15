@@ -26,6 +26,7 @@
  * **押せない四角と理由**を出します（消すと「なぜ選べないのか」が分からない）。
  */
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Check, Lock } from 'lucide-react';
@@ -110,9 +111,11 @@ export function ClosingRows({
             </RowSlot>
 
             <RowMain>
-              <RowTitle>{r.project_name || '（案件名なし）'}</RowTitle>
+              <RowTitle>{r.project_name || '（案件名なし）'}<GroupTag name={r.group_name} /></RowTitle>
               <RowSub>
-                {[r.customer_name, tab !== 'collect' && r.payment_due_date ? `期日 ${md(r.payment_due_date)}` : null]
+                {[r.customer_name,
+                  tab !== 'collect' && r.payment_due_date ? `期日 ${md(r.payment_due_date)}` : null,
+                  groupNote(r.group_name)]
                   .filter(Boolean).join(' ・ ')}
               </RowSub>
             </RowMain>

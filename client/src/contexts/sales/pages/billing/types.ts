@@ -40,6 +40,12 @@ export interface BillingInvoice {
   gls_number: string | null;
   customer_name: string | null;
   episode_code: string | null;
+  /**
+   * **按分（グループ請求）だとこれが入る。** 金額はグループ全体のもので、
+   * `project_name` は代表の1件でしかない — 印を出さないと満額の請求に見える
+   */
+  group_id?: string | null;
+  group_name?: string | null;
   assigned_to_name: string | null;
 }
 

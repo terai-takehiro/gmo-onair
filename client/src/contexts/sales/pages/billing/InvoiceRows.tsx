@@ -28,6 +28,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import type { BillingInvoice } from './types';
@@ -118,8 +119,11 @@ export function InvoiceRows({
             onClick={() => navigate(`/sales/projects/${r.project_id}/estimate`)}
           >
             <RowMain>
-              <RowTitle>{r.project_name}</RowTitle>
-              <RowSub>{[r.customer_name, r.subtitle].filter(Boolean).join(' ・ ') || '（表題なし）'}</RowSub>
+              <RowTitle>{r.project_name}<GroupTag name={r.group_name} /></RowTitle>
+              <RowSub>
+                {[r.customer_name, r.subtitle, groupNote(r.group_name)]
+                  .filter(Boolean).join(' ・ ') || '（表題なし）'}
+              </RowSub>
             </RowMain>
             <RowSlot w={96} placeholder="—" hideOnMobile>
               {r.episode_code && <span className="font-number text-sub-sm truncate">{r.episode_code}</span>}

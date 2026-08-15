@@ -71,7 +71,7 @@ export async function handoffDoc(
   ) as Record<string, unknown> | null;
   if (!doc) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
 
-  // **二度渡せない。** 渡し済みをもう一度渡すと台帳に二重に載る
+  // ここでの確認は**早く断るため**だけのもの。**正は取引の中の確認**です（下記）
   if (doc.linked_id) {
     throw new AppError(409, 'ALREADY_LINKED',
       'この書類はすでに台帳へ渡しています。取り消してから渡し直してください');
@@ -93,6 +93,26 @@ export async function handoffDoc(
   let created: HandoffResult;
 
   await withTransaction(async (tx) => {
+    /*
+     * ⚠️ **確かめるのは取引の中で、行を押さえてから**（レビューでの指摘 #56）。
+     *
+     * 上の確認は取引の外なので、**2人が同時に押すと両方が通り**、
+     * 台帳に**同じ請求書の行が2つ**できていました（`linked_id` は後から書いた
+     * ほうだけが残るので、**もう1行はどこからも参照されないまま原価に載り続けます**）。
+     * 議事録の持ち帰り（v4.0.10）・見積の売上変換とまったく同じ形です。
+     */
+    const locked = await tx.queryOne(
+      'SELECT linked_id, status FROM finance_docs WHERE id = ? FOR UPDATE', [docId],
+    ) as { linked_id: string | null; status: string } | undefined;
+    if (locked?.linked_id) {
+      throw new AppError(409, 'ALREADY_LINKED',
+        'この書類はすでに台帳へ渡しています。取り消してから渡し直してください');
+    }
+    if (locked?.status !== 'approved') {
+      throw new AppError(400, 'NOT_APPROVED',
+        '承認済みの書類だけ台帳へ渡せます（確認中のものは先に承認してください）');
+    }
+
     if (input.kind === 'purchase') {
       if (!input.project_id || !input.vendor_id) {
         throw new AppError(400, 'VALIDATION_ERROR', '仕入にするには案件と仕入先が必要です');
