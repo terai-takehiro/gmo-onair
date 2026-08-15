@@ -252,6 +252,33 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
  * 検証環境や手元では鍵が無いことがあります。**毎日エラーを出さない** —
  * 出すと本当の失敗が埋もれます。
  */
+/**
+ * 1晩に **AI を呼ぶ**回数の上限。**増やす前に費用と所要時間を測ること**
+ * （1件が数十秒かかります）。
+ *
+ * ⚠️ **数えるのは「引いた行」ではなく「AI を呼んだ回数」**（レビューでの指摘）。
+ * `generateKptDraft` は **AI を呼ぶ前に**2通りで諦めます（未確認の下書きが
+ * 残っている／材料になるやり取りが1件も無い）。これらは行を作らないので
+ * **翌晩もまた対象になります** — 引いた行で数えると、
+ * **その 20 件が毎晩いちばん古い側の枠を全部埋め**、新しい案件は
+ * 窓（7日）から出るまで一度も下書きが作られません。
+ * **費用が掛かっていないものは枠を使わない**のが正しい数え方です。
+ */
+const KPT_PER_NIGHT = 20;
+
+/**
+ * 1晩に見にいく案件の上限。**上の上限とは別**（諦めるものは費用が掛からないので、
+ * 通り過ぎるだけです）。それでも無制限にはしない — 窓の中の案件が増えたときに
+ * 夜間の仕事が終わらなくなる。
+ */
+const KPT_SCAN_MAX = 200;
+
+/**
+ * さかのぼって拾う日数。**上限で切ったぶんを翌晩以降に拾う**ための窓で、
+ * 短すぎると取りこぼしが消え、長すぎると「もう振り返らない案件」まで起こします。
+ */
+const KPT_LOOKBACK_DAYS = 7;
+
 async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
   if (!isKptAiConfigured()) return [];
   const yesterday = shiftDate(today, -1);
@@ -261,23 +288,47 @@ async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
    * 失注は対象外 — 実施していないので、ふりかえる中身がありません。
    * 既に KPT が1件でもある案件も外します（人が先に書いていたら邪魔しない）。
    */
+  /*
+   * ⚠️ **1晩で片づかなかったぶんを翌晩に拾う**（レビューでの指摘 #83）。
+   *
+   * 前の版は「**昨日**終わった案件」だけを見て `LIMIT 20` で切っていました。
+   * 同じ日に 21 件以上終わる週（大きなイベントの前後では普通に起きます）では、
+   * **21 件目からは下書きが一生作られません** — この仕事は日に1回で、
+   * 翌日はまた「その日の昨日」を見るので、**取りこぼしは二度と拾われません**。
+   * しかも作られなかったことは**どこにも出ません**。
+   *
+   * **窓を7日にして、古いものから順に**片づけます。1晩あたりの上限（20 件）は
+   * そのままなので、AI の呼び出しが増えることはありません。
+   * すでに KPT がある案件は `NOT EXISTS` が外すので、二度作られません。
+   */
+  const from = shiftDate(today, -KPT_LOOKBACK_DAYS);
   const rows = await queryAll(
-    `SELECT p.id, p.name, p.assigned_to
+    `SELECT p.id, p.name, p.assigned_to,
+            COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) AS ended_on
        FROM projects p
       WHERE p.deleted_at IS NULL
         AND p.stage <> 'e_lost'
-        AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) = ?
+        AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) BETWEEN ? AND ?
         AND NOT EXISTS (SELECT 1 FROM event_report_kpt k WHERE k.project_id = p.id)
-      LIMIT 20`,
-    [yesterday],
-  ) as { id: string; name: string; assigned_to: string }[];
+      ORDER BY ended_on ASC
+      LIMIT ?`,
+    [from, yesterday, KPT_SCAN_MAX],
+  ) as { id: string; name: string; assigned_to: string; ended_on: string }[];
 
   const out: NotifyInput[] = [];
-  for (const p of rows) {
+  /** AI を呼んだ回数。**引いた行数ではない**（上の `KPT_PER_NIGHT` の理由） */
+  let calls = 0;
+  /** 費用の掛からない理由で通り過ぎた件数（記録に出す） */
+  let passed = 0;
+  let leftOver = 0;
+
+  for (const [i, p] of rows.entries()) {
+    if (calls >= KPT_PER_NIGHT) { leftOver = rows.length - i; break; }
     try {
       // **起票する人は案件の担当。** 定時実行には押した人が居ないので、
       // 「誰の名前で書かれたか」は担当に寄せる（`kpt.service` と同じ）
-      const { created } = await generateKptDraft(p.id, p.assigned_to);
+      const { created, aiCalled } = await generateKptDraft(p.id, p.assigned_to);
+      if (aiCalled) calls += 1; else passed += 1;
       if (created === 0) continue;
       out.push({
         userId: p.assigned_to, templateId: 'kpt_draft',
@@ -289,6 +340,19 @@ async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
       // **1件の失敗で他の案件を止めない。** 材料が薄い案件・API が混んでいる回がある
       console.error('[scheduler] kpt_draft failed:', p.id, (e as Error).message);
     }
+  }
+
+  /*
+   * **黙って切らない。** 作られなかった案件があることは画面に出ないので、
+   * 記録に残さないと誰も気づけません。
+   * `leftOver` は上限で明晩に回した数、`passed` は費用の掛からない理由で
+   * 通り過ぎた数（材料が無い／未確認の下書きが残っている）です。
+   */
+  if (leftOver > 0 || rows.length >= KPT_SCAN_MAX) {
+    console.warn('[scheduler] kpt_draft:', JSON.stringify({
+      scanned: rows.length, calls, passed, leftOver,
+      scanCapped: rows.length >= KPT_SCAN_MAX,
+    }));
   }
   return out;
 }

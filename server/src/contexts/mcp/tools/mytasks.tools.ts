@@ -158,10 +158,15 @@ export function registerMyTaskTools(server: McpServer): void {
       description:
         '過去に投げたテキストを一覧する。**後から遡ってレビューするための入口**。' +
         'status=pending で「確認待ち (宙に浮いている投入)」だけを取れる — ' +
-        '投入したのに登録し忘れているものを催促するのに使う。',
+        '投入したのに登録し忘れているものを催促するのに使う。' +
+        'status=failed は**文字起こしが失敗した投入**（サーバーが途中で再起動して' +
+        '止まったものを含む）。録音が消えたように見えている人を拾える。',
       inputSchema: {
         user_id: z.string().optional().describe('投入者で絞り込み (省略すると全員)'),
-        status: z.enum(['pending', 'committed', 'discarded']).optional(),
+        // **録音の2つも渡せるようにする**（レビューでの指摘 #77）。
+        // 止まった行は `pending` でも `committed` でもないので、
+        // ここに無いと**どの絞り込みでも取り出せない**
+        status: z.enum(['pending', 'committed', 'discarded', 'transcribing', 'failed']).optional(),
         kind: z.enum(['freeform', 'minutes', 'mail', 'chat', 'other']).optional(),
         limit: z.number().int().min(1).max(200).default(50),
       },
