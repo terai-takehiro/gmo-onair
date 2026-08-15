@@ -26,13 +26,21 @@ export interface Notice {
   tone: NoticeTone;
   title: string;
   description?: string;
+  /**
+   * 出した回ごとの通し番号。**画面の鍵に使います**（レビューでの指摘 #62）。
+   * 呼ぶ側は渡しません（`setNotice` が振ります）。
+   */
+  seq?: number;
 }
 
 let current: Notice | null = null;
+/** 出した回数。**同じ文言でも別の回だと分かるように**（下の `key` の説明） */
+let seq = 0;
 const listeners = new Set<(n: Notice | null) => void>();
 
 export function setNotice(n: Notice | null) {
-  current = n;
+  seq += 1;
+  current = n ? { ...n, seq } : null;
   listeners.forEach((l) => l(current));
 }
 
@@ -97,13 +105,19 @@ export function NoticeBar({ className }: { className?: string }): ReactNode {
     <div
       role={n.tone === 'error' ? 'alert' : 'status'}
       /*
-       * **鍵に帯の中身を入れて、出るたびに動かす。** 鍵が無いと、
-       * 続けて2回操作したとき（保存 → 保存）2回目の帯が**前の帯と同じ位置に
-       * 黙って差し替わる**ので、出たことに気づけません。
+       * **出した回ごとの番号を鍵にして、出るたびに動かす。**
+       * 鍵が変わらないと、続けて2回操作したとき（保存 → 保存）2回目の帯が
+       * **前の帯と同じ位置に黙って差し替わる**ので、出たことに気づけません。
+       *
+       * ⚠️ **中身（`tone:title`）を鍵にしてはいけません**（レビューでの指摘 #62）。
+       * **いちばん多いのは同じ操作を続けるとき**で、そのとき文言も同じ
+       * （「記録しました」→「記録しました」）なので、**鍵が変わらず動きません** —
+       * 直したかったその場面だけが直っていませんでした。
+       *
        * 動きは `tokens-v4.css` の `.v4-toast-in`（モックの `toastIn` そのまま）。
        * 凍結4アプリはこのクラスを知らないので、今までどおり静かに出ます。
        */
-      key={`${n.tone}:${n.title}`}
+      key={n.seq ?? `${n.tone}:${n.title}`}
       className={cn('text-sub v4-toast-in sticky top-0 z-[70] flex items-start gap-2 border-b px-4 py-2.5', cls, className)}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
