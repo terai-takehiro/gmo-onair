@@ -13,6 +13,9 @@ import { taxBillingSuffix } from '../../../shared/services/tax-category.service'
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
+import {
+  JAPANESE_SORT_KEYS, japaneseCollationAvailable, withJapaneseCollation,
+} from './japanese-sort';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -494,7 +497,17 @@ export class ProjectService {
       // 未定のものが先頭に固まると、いちばん近いものが画面外に押し出される
       const nullsClause = filter.sortBy === 'event_start' || filter.sortBy === 'next_task_due'
         ? ` NULLS ${sortDir === 'ASC' ? 'LAST' : 'FIRST'}` : '';
-      orderBy = `${sortCol} ${sortDir}${nullsClause}`;
+      /**
+       * **名前は五十音で並べる**（`japanese-sort.ts`）。この DB の照合順序は
+       * 文字コード順なので、素で並べると**ひらがなが全部先・カタカナが全部後**に
+       * 固まり、「あ行を探しているのにカタカナの会社が画面の下」になる。
+       * ⚠️ **漢字は読みを持っていないので五十音にはならない**（画面にそう書いてある）。
+       * `ja-x-icu` の無い環境では素の順に落とす（500 にしない）。
+       */
+      const jaCol = JAPANESE_SORT_KEYS.has(filter.sortBy)
+        ? withJapaneseCollation(sortCol, await japaneseCollationAvailable())
+        : sortCol;
+      orderBy = `${jaCol} ${sortDir}${nullsClause}`;
     }
 
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;

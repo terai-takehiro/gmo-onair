@@ -25,7 +25,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Columns3, Download, Loader2, Pencil } from 'lucide-react';
+import { Columns3, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ import { BulkEditDialog } from './projectLedger/BulkEditDialog';
 import { IntegrityPanel } from './projectLedger/IntegrityPanel';
 import { useLedgerCsv } from './projectLedger/useLedgerCsv';
 import { CSV_MAX_ROWS } from './projectLedger/csv';
+import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -56,6 +57,19 @@ export default function ProjectLedgerPage() {
   const csv = useLedgerCsv();
   const [colsOpen, setColsOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  /**
+   * 閲覧モード／編集モード（ご指示）。**既定は閲覧**です。
+   *
+   * ⚠️ この画面の書き換えは**取り消せません**（どの案件が元は何だったかを
+   * 持っていない）。開いた瞬間から書き換えられる状態だと、
+   * **読みに来ただけの人が指1本で N 件を書き換えられます**。
+   * モードを1つ挟むと「いま自分は直す側にいる」と分かります。
+   *
+   * **憶えません**（`localStorage` に入れない）— 前に開いたときのモードで
+   * 開くと、読むつもりで開いた日に編集モードで始まります。
+   */
+  const [editMode, setEditMode] = useState(false);
+  const canEdit = canBulk && editMode;
 
   /** まとめて直すダイアログが要る候補。**開くときだけ引く** */
   const { data: usersData } = useQuery({
@@ -147,8 +161,44 @@ export default function ProjectLedgerPage() {
           全 <strong className="font-number font-bold text-foreground">{s.total}</strong> 件
           {s.totalPages > 1 && <>（この画面は {s.rows.length} 件・{s.page} / {s.totalPages} ページ）</>}
         </p>
+        {/* 並べ替えの但し書き。**「五十音順」と言い切らない**（漢字は読みを持っていない） */}
+        {JA_SORT_KEYS.includes(s.sort.by) && (
+          <span className="text-note text-muted-foreground">{JA_SORT_NOTE}</span>
+        )}
         <span className="flex-1" />
-        {s.selected.size > 0 && canBulk && (
+
+        {/*
+          ⚠️ **閲覧 / 編集の切り替え**（ご指示）。既定は閲覧です。
+          書き換えは取り消せないので、**読みに来ただけの人が指1本で
+          N 件を書き換えられる**状態にしません。
+        */}
+        {canBulk && (
+          <div className="flex rounded-control border border-border p-0.5" role="group" aria-label="モード">
+            {([
+              ['閲覧', false, Eye],
+              ['編集', true, PencilLine],
+            ] as const).map(([label, on, Icon]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={editMode === on}
+                onClick={() => {
+                  setEditMode(on);
+                  // **切り替えたら選択を捨てる。** 残すと、閲覧に戻って
+                  // また編集にしたときに「いつ選んだか分からない行」が選ばれたまま
+                  if (!on) s.clearSelection();
+                }}
+                className={`text-sub flex min-h-tap items-center gap-1.5 rounded-control px-3 lg:min-h-[32px] ${
+                  editMode === on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {s.selected.size > 0 && canEdit && (
           <>
             <span className="text-sub font-bold">{s.selected.size} 件を選んでいます</span>
             <Button variant="outline" onClick={s.clearSelection}>選択をやめる</Button>
@@ -164,6 +214,20 @@ export default function ProjectLedgerPage() {
           </span>
         )}
       </div>
+
+      {/*
+        **編集モードに入ったことを画面に出す。** 上の小さな切り替えだけだと、
+        いま自分がどちら側にいるか見落とします（取り消せない書き換えができる側です）
+      */}
+      {canEdit && (
+        <div className="rounded-note flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2">
+          <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          <p className="text-sub text-warning">
+            <strong className="font-bold">編集モードです。</strong>
+            行を選んでまとめて直せます。<strong className="font-bold">直したものは元に戻せません。</strong>
+          </p>
+        </div>
+      )}
 
       {s.isError && <ErrorPanel title="案件を読み込めませんでした" />}
 
@@ -185,7 +249,9 @@ export default function ProjectLedgerPage() {
           selected={s.selected}
           onToggle={s.toggle}
           onToggleAll={s.toggleAll}
-          canEdit={canBulk}
+          canEdit={canEdit}
+          sort={s.sort}
+          onSort={s.onSort}
         />
       )}
 

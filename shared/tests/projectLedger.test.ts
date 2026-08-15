@@ -46,9 +46,11 @@ describe('列の表（COL_DEFS）', () => {
    * 行ごとにどちらが伸びるかが変わって縦の線が崩れます
    * （`RowMain` が「唯一伸びる子」なのと同じ決めごと）。
    */
-  it('伸びる列は案件名の1つだけ', () => {
+  it('伸びる列は1つも無い（あると table-layout: fixed が使えない）', () => {
+    // ⚠️ **実測で見つけた**: 伸びる列があるとブラウザが中身に合わせて広げ、
+    // 1440px の画面で表が 1376px になって**いちばん右の列が画面の外**に出ていた
     const flex = COL_DEFS.filter((c) => c.width === undefined);
-    expect(flex.map((c) => c.key)).toEqual(['name']);
+    expect(flex.map((c) => c.key)).toEqual([]);
   });
 
   it('既定で出す列は多すぎない（開いた瞬間に横スクロールにしない）', () => {

@@ -21,6 +21,7 @@ import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
+import { DEFAULT_SORT, nextSort, type SortState } from './display';
 
 interface IntegrityResponse { total: number; checks: IntegrityCheck[] }
 
@@ -65,6 +66,22 @@ export function useLedgerState() {
     setSelected(new Set());
   }, []);
 
+  /**
+   * 並べ替え。⚠️ **サーバーに渡します**（画面で並べ替えません）—
+   * 出ているのは 100 件だけなので、画面で並べ替えると**そのページの中だけ**が
+   * 並び替わり、「いちばん古いもの」を探しているのに 2 ページ目の行が出ません。
+   * 空のときは渡さない＝サーバーの既定（おすすめ順）。
+   */
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
+
+  const onSort = useCallback((key: string) => {
+    setSort((cur) => nextSort(cur, key));
+    setPage(1);
+    // 並びが変われば「見えている行」が変わる。**選択は捨てる**
+    // （見ていない行をまとめて書き換えないための決めごと）
+    setSelected(new Set());
+  }, []);
+
   const params = useMemo(() => ({
     page,
     limit: PAGE_SIZE,
@@ -72,9 +89,9 @@ export function useLedgerState() {
     stage: filters.stage || undefined,
     gls_category: filters.glsCategory || undefined,
     issue: filters.issue || undefined,
-    sort_by: 'created_at',
-    sort_dir: 'desc',
-  }), [page, filters]);
+    sort_by: sort.by || undefined,
+    sort_dir: sort.by ? sort.dir : undefined,
+  }), [page, filters, sort]);
 
   const query = useQuery<LedgerResponse>({
     queryKey: ['project-ledger', params],
@@ -158,6 +175,7 @@ export function useLedgerState() {
      * **表と書き出しで違う案件が出る**（しかも数が近いので気づけない）。
      */
     params,
+    sort, onSort,
     rows, total, totalPages, page, goPage,
     integrity: integrity.data ?? { total: 0, checks: [] },
     integrityLoading: integrity.isLoading,

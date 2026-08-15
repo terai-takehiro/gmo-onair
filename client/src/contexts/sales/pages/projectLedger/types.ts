@@ -43,10 +43,21 @@ export interface LedgerColDef {
   label: string;
   /** 既定で出すか。**出しすぎると横スクロールが長くなって読めない** */
   default: boolean;
-  /** 固定幅。名前の列だけ `flex`（唯一伸びる列） */
-  width?: LedgerColWidth;
+  /** 固定幅。**全部の列が持ちます**（伸びる列を作らない・上の理由） */
+  width: LedgerColWidth;
   /** 右寄せにするか（金額・件数） */
   numeric?: boolean;
+  /**
+   * 表頭を押したときにサーバーへ渡す並べ替えの鍵（`GET /projects` の `sort_by`）。
+   *
+   * ⚠️ **画面で並べ替えないこと。** 出ているのは 100 件だけなので、
+   * 画面で並べ替えると**そのページの中だけが並び替わり**、
+   * 「いちばん古いもの」を探しているのに 2 ページ目の行が出てきません
+   * （整合性の件数を画面で数えてはいけないのと同じ理由）。
+   *
+   * **無い列は押せません**（サーバーが並べ替えられないものを押させない）。
+   */
+  sort?: string;
 }
 
 /**
@@ -57,26 +68,38 @@ export interface LedgerColDef {
  * （最初から 20 列出すと、開いた瞬間に横スクロールが 3 画面ぶんになる）。
  */
 export const COL_DEFS = [
-  { key: 'gls_number', label: 'GLS番号', default: true, width: 128 },
+  /**
+   * ⚠️ **96px にしない**（実測）。表頭に並べ替えの印が入るぶんだけ文字の場所が
+   * 減り、「GLS番号」「最後の動き」が **「GLS…」「最後の…」に切れて**いました。
+   * 表頭が読めないと、その列が何なのか分かりません。
+   */
+  { key: 'gls_number', label: 'GLS番号', default: true, width: 128, sort: 'code' },
   { key: 'code', label: '社内コード', default: false, width: 128 },
-  { key: 'name', label: '案件名', default: true },
-  { key: 'customer_name', label: 'お客様', default: true, width: 160 },
+  /**
+   * ⚠️ **案件名にも幅を持たせています**（伸びる列を作っていません）。
+   * 伸びる列があると `table-layout: fixed` が使えず、**ブラウザが中身に合わせて
+   * 列を広げます** — 実測すると 1440px の画面で表が 1376px になり、
+   * **いちばん右の列（最後の動き）が黙って画面の外**に出ていました。
+   * 幅が決まっていれば、どの端末でも同じ位置で切れます。
+   */
+  { key: 'name', label: '案件名', default: true, width: 240, sort: 'name' },
+  { key: 'customer_name', label: 'お客様', default: true, width: 160, sort: 'customer' },
   { key: 'contact_name', label: 'ご担当', default: false, width: 128 },
-  { key: 'stage', label: 'ステージ', default: true, width: 96 },
+  { key: 'stage', label: 'ステージ', default: true, width: 96, sort: 'stage' },
   { key: 'gls_category', label: 'GLS分類', default: false, width: 72 },
-  { key: 'classification', label: '案件分類', default: true, width: 160 },
+  { key: 'classification', label: '案件分類', default: true, width: 128 },
   { key: 'recurrence', label: '継続区分', default: false, width: 96 },
-  { key: 'event_start', label: '実施日', default: true, width: 128 },
+  { key: 'event_start', label: '実施日', default: true, width: 96, sort: 'event_start' },
   { key: 'attendee_count', label: '来場人数', default: false, width: 96, numeric: true },
-  { key: 'estimate_amount', label: '見積金額', default: true, width: 128, numeric: true },
-  { key: 'expected_amount', label: '想定金額', default: false, width: 128, numeric: true },
+  { key: 'estimate_amount', label: '見積金額', default: true, width: 128, numeric: true, sort: 'estimate_amount' },
+  { key: 'expected_amount', label: '想定金額', default: false, width: 128, numeric: true, sort: 'expected_amount' },
   { key: 'total_revenue', label: '確定売上', default: false, width: 128, numeric: true },
   { key: 'total_purchase', label: '仕入', default: false, width: 128, numeric: true },
-  { key: 'assigned_to_name', label: '社内の担当', default: true, width: 128 },
+  { key: 'assigned_to_name', label: '社内の担当', default: true, width: 128, sort: 'assigned_to' },
   { key: 'intake_channel', label: 'リード経路', default: false, width: 128 },
   { key: 'application_form', label: '申込書', default: false, width: 72 },
-  { key: 'next_task_due', label: '次の期限', default: false, width: 128 },
-  { key: 'last_activity_at', label: '最後の動き', default: true, width: 128 },
+  { key: 'next_task_due', label: '次の期限', default: false, width: 96, sort: 'next_task_due' },
+  { key: 'last_activity_at', label: '最後の動き', default: true, width: 128, sort: 'last_move' },
 ] as const satisfies readonly LedgerColDef[];
 
 export const DEFAULT_COL_ORDER: LedgerColKey[] = COL_DEFS.map((c) => c.key);

@@ -25,6 +25,7 @@ import { ProjectStageLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE } from '../projectList/stages';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
+import { truncateName } from './display';
 import type { LedgerColKey, LedgerRow } from './types';
 
 /** 値が無いことをはっきり出す（空文字にすると列のずれと見分けが付かない） */
@@ -47,17 +48,26 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
     case 'code':
       return row.code ? <span className="font-number">{row.code}</span> : <Dash />;
 
-    /* 名前だけが伸びる列。**押すと案件詳細へ**（台帳は読むだけの画面ではない） */
-    case 'name':
+    /*
+      **押すと案件詳細へ**（台帳は読むだけの画面ではない）。
+      ⚠️ **20 文字で切る**（ご指示）。CSS の `…` だけに任せると、
+      端末と書体で**切れる位置が変わり**、行によって読める文字数がばらばらに
+      なります。文字数で切れば**どの端末でも同じところで切れます**。
+      **全文はマウスを当てれば出ます**（`title`）— 切ったことに気づけないと、
+      それが正式な名前だと読まれます。
+    */
+    case 'name': {
+      const { text, cut } = truncateName(row.name);
       return (
         <Link
           to={`/sales/projects/${row.id}`}
           className="block truncate font-bold text-primary hover:underline"
-          title={row.name}
+          title={cut ? row.name : undefined}
         >
-          {row.name}
+          {text}
         </Link>
       );
+    }
 
     case 'customer_name':
       return row.customer_name ? <span className="truncate">{row.customer_name}</span> : <Dash />;
