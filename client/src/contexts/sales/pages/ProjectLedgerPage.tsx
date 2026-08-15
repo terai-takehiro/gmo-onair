@@ -25,7 +25,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Columns3, Loader2, Pencil } from 'lucide-react';
+import { Columns3, Download, Loader2, Pencil } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,8 @@ import { LedgerTable } from './projectLedger/LedgerTable';
 import { ColumnPicker } from './projectLedger/ColumnPicker';
 import { BulkEditDialog } from './projectLedger/BulkEditDialog';
 import { IntegrityPanel } from './projectLedger/IntegrityPanel';
+import { useLedgerCsv } from './projectLedger/useLedgerCsv';
+import { CSV_MAX_ROWS } from './projectLedger/csv';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -51,6 +53,7 @@ export default function ProjectLedgerPage() {
   const canBulk = hasPermission('sales', 'manager');
   const s = useLedgerState();
   const prefs = useColumnPrefs();
+  const csv = useLedgerCsv();
   const [colsOpen, setColsOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -118,6 +121,22 @@ export default function ProjectLedgerPage() {
         <Button variant="outline" onClick={() => setColsOpen(true)}>
           <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
         </Button>
+        {/*
+          **書き出すのは絞り込み全体**（並んでいる行だけではありません）。
+          1ページ 100 件しか出せないので、画面の行を書き出すと
+          101 件目から黙って落ちます（`ledgerCsv.ts` の冒頭）。
+          3つ目に渡すのはファイル名に入れる絞り込みで、**日本語ではなく鍵**（`csv.ts`）
+        */}
+        <Button
+          variant="outline"
+          disabled={csv.busy || s.total === 0}
+          onClick={() => csv.download(s.params, prefs.shown, s.filters.issue || null)}
+        >
+          {csv.busy
+            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            : <Download className="mr-2 h-4 w-4" aria-hidden="true" />}
+          CSV で書き出す
+        </Button>
       </div>
 
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}
@@ -183,6 +202,13 @@ export default function ProjectLedgerPage() {
         1ページに出せるのは {PAGE_SIZE} 件までです（サーバーの上限）。
         まとめて直せるのは<strong className="font-bold">いま見えている行だけ</strong>です —
         見ていない行まで書き換えると、何を変えたのか確かめられなくなるためです。
+        {/*
+          **書き出しだけは別。** 読むだけなので全部出さないと確認に使えません。
+          ⚠️ **上限も一緒に書く** — 「全部」とだけ書くと、2,000 件で切れた日に
+          「これで全部だ」と読まれます（切れたことは帯にも出します）
+        */}
+        <strong className="font-bold">CSV は絞り込みに当たるものを全部書き出します</strong>
+        （このページの {s.rows.length} 件だけではありません／一度に {CSV_MAX_ROWS} 件まで）。
       </p>
 
       <ColumnPicker open={colsOpen} onOpenChange={setColsOpen} prefs={prefs} />

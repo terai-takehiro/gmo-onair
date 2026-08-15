@@ -152,6 +152,12 @@ export function useLedgerState() {
 
   return {
     filters, setFilter,
+    /**
+     * 引くときに渡しているもの。**書き出しが同じものを使う**ため外に出している —
+     * 書き出し側で組み直すと、絞り込みを1つ足したときに
+     * **表と書き出しで違う案件が出る**（しかも数が近いので気づけない）。
+     */
+    params,
     rows, total, totalPages, page, goPage,
     integrity: integrity.data ?? { total: 0, checks: [] },
     integrityLoading: integrity.isLoading,
