@@ -8,7 +8,7 @@ import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-int
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import {
   parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment, intakeAiModel,
-  unreadableAttachments,
+  unreadableAttachments, type IntakeAiFailure,
   type IntakeAttachment, type ParserProject,
 } from '../../tasks/services/intake-ai.service';
 import {
@@ -257,11 +257,22 @@ async function analyzeIntake(
       console.warn(
         `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
       );
-      // **失敗も残す。** 課金されることがあるので、外すと総額が合わない
-      await recordAiUsage({
-        kind: 'intake', provider: resolveProvider(), model: intakeAiModel(),
-        actorId: userId, ok: false, errorMessage: aiError,
-      });
+      /*
+       * **失敗も残す。** 課金されることがあるので、外すと総額が合わない。
+       *
+       * ⚠️ **呼んだモデルの名前で書くこと**（レビューでの指摘）。
+       * `intakeAiModel()` を決め打ちにすると、**軽いモデルだけを呼んで
+       * 落ちた回が上位モデルのせい**になり、軽いモデルの失敗率が見えません。
+       * **もう書いてある回は書きません**（`usageRecorded`）— 同じ失敗を
+       * 2回数えると、失敗率も費用も倍に出ます。
+       */
+      const f = e as IntakeAiFailure;
+      if (!f.usageRecorded) {
+        await recordAiUsage({
+          kind: 'intake', provider: resolveProvider(), model: f.attemptedModel ?? intakeAiModel(),
+          actorId: userId, ok: false, errorMessage: aiError,
+        });
+      }
       parsed = parseIntakeText(rawText, users, { now });
     }
   } else {

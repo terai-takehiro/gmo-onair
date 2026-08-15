@@ -723,7 +723,27 @@ export async function parseIntakeWithAi(
     // **軽いモデルで落ちたら上位モデルで 1 回だけやり直す。**
     // モデル名が使えない環境で黙って規則ベースに落ちると、
     // 「行き先を決めてくれなくなった」という劣化になる
-    if (!useLight) throw e;
+    // 上位モデルだけを呼んで落ちた回。**使用量は外側が書く**（ここでは書いていない）
+    if (!useLight) fail(e, model, false);
+    /*
+     * ⚠️ **落ちた1回目も使用量に残す**（レビューでの指摘 #79）。
+     * ここで握りつぶすと、**上位モデルでやり直せた回の費用が半分しか出ません**
+     * （落ちた呼び出しにも課金されることがあります）。しかも
+     * 「軽いモデルがどれくらい失敗しているか」＝ **軽くする判断が
+     * 正しかったか**を後から確かめる唯一の手がかりが消えます。
+     *
+     * ⚠️ **やり直すかどうかを決める前に書くこと**（レビューでの指摘）。
+     * 残り時間が足りなくて諦める道に**先に**分けてしまうと、
+     * この行を通らないまま外へ抜けます。外側（`tasks.routes`）の受け皿は
+     * **`intakeAiModel()`（上位モデル）の名前で**失敗を記録するので、
+     * **一度も呼んでいない上位モデルのせいにされ**、
+     * **軽いモデルが時間切れした率は誰にも見えません**
+     * （そして「軽くしたのは正しかったか」を確かめる手がかりが消えます）。
+     */
+    await recordAiUsage({
+      kind: 'intake', provider, model, actorId: opts.submitterId ?? null,
+      ok: false, errorMessage: (e as Error).message,
+    });
     /*
      * ⚠️ **残り時間が無ければやり直さない**（同じ指摘）。やり直しても
      * nginx に切られるので、**費用だけ掛かって結果は届きません**。
@@ -733,24 +753,21 @@ export async function parseIntakeWithAi(
       console.warn(
         `[intake-ai] 残り ${Math.max(0, remaining())}ms なので ${heavy} でのやり直しをやめます`,
       );
-      throw e;
+      // **もう書いてある**ので外側は書かない（同じ失敗を2回数えない）
+      fail(e, model, true);
     }
-    /*
-     * ⚠️ **落ちた1回目も使用量に残す**（レビューでの指摘 #79）。
-     * ここで握りつぶすと、**上位モデルでやり直せた回の費用が半分しか出ません**
-     * （落ちた呼び出しにも課金されることがあります）。しかも
-     * 「軽いモデルがどれくらい失敗しているか」＝ **軽くする判断が
-     * 正しかったか**を後から確かめる唯一の手がかりが消えます。
-     */
-    await recordAiUsage({
-      kind: 'intake', provider, model, actorId: opts.submitterId ?? null,
-      ok: false, errorMessage: (e as Error).message,
-    });
     console.warn(
       `[intake-ai] 軽いモデル (${model}) で失敗したので ${heavy} でやり直します: ${(e as Error).message}`,
     );
+    const lightModel = model;
     model = heavy;
-    out = await call(model);
+    try {
+      out = await call(model);
+    } catch (e2) {
+      // 上位モデルでも落ちた。**軽いぶんは書いてあるので、外側は上位ぶんを書く**
+      console.warn(`[intake-ai] ${lightModel} に続いて ${model} でも失敗しました`);
+      fail(e2, model, false);
+    }
   }
 
   const normalized = normalizeAiResult(out.raw, users, now, projects);
@@ -758,6 +775,30 @@ export async function parseIntakeWithAi(
     ? INTAKE_PROMPT_VERSION_WITH_FEEDBACK
     : INTAKE_PROMPT_VERSION;
   return { ...normalized, provider, model, promptVersion, usage: out.usage };
+}
+
+/**
+ * 解析が落ちたときに、**実際に呼んだモデル**と「使用量をもう書いたか」を
+ * 例外に添えて外へ出す。
+ *
+ * ⚠️ **外側（`tasks.routes`）の受け皿は `intakeAiModel()`（上位モデル）で
+ * 記録します**（レビューでの指摘）。軽いモデルだけを呼んで落ちた回に
+ * そのまま外へ出すと、**一度も呼んでいない上位モデルのせい**になり、
+ * **軽いモデルの失敗率が見えなくなります**。さらに、ここで既に書いた回まで
+ * 外側がもう1行書くので**同じ失敗が2回数えられます**。
+ */
+export interface IntakeAiFailure extends Error {
+  /** 実際に呼んだモデル。外側はこれを使って記録する */
+  attemptedModel?: string;
+  /** ここで既に `ai_usage` に書いたか。true なら外側は書かない */
+  usageRecorded?: boolean;
+}
+
+function fail(e: unknown, attemptedModel: string, usageRecorded: boolean): never {
+  const err: IntakeAiFailure = e instanceof Error ? e : new Error(String(e));
+  err.attemptedModel = attemptedModel;
+  err.usageRecorded = usageRecorded;
+  throw err;
 }
 
 /** OpenAI (Responses API + structured output) */

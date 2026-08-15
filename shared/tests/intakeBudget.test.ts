@@ -136,3 +136,72 @@ describe('一緒にできたものを黙らせない', () => {
     expect(USE_INTAKE).toMatch(/setCreatedProjects\(opts\.canOpenProject && !jumps \? netas : \[\]\);/);
   });
 });
+
+/**
+ * ⚠️ **落ちたときに「誰の名前で」記録するか**（この PR のレビューでの指摘）。
+ *
+ * 私の初版は**残り時間の判定を使用量の記録より前**に置いていたので、
+ * **軽いモデルが落ちてやり直しをやめた回**はその行を通らずに外へ抜けます。
+ * 外側（`tasks.routes`）の受け皿は `intakeAiModel()`（上位モデル）で書くので:
+ *
+ * ・**一度も呼んでいない上位モデル**のせいになる
+ * ・**軽いモデルが時間切れした率が誰にも見えない**（軽くする判断が正しかったかを
+ *   確かめる唯一の手がかりが消える）
+ *
+ * 直したあとは**呼んだモデルの名前で1行だけ**書きます（`attemptedModel` /
+ * `usageRecorded` を例外に添える）。
+ */
+describe('落ちたときは「呼んだモデル」の名前で1行だけ残す', () => {
+  const LIGHT = 'light-model', HEAVY = 'heavy-model';
+
+  /** 実装と同じ順番。`recorded` が true なら外側は書かない */
+  function rowsFor(o: { useLight: boolean; lightFails: boolean; heavyFails: boolean; remainingMs: number }) {
+    const rows: string[] = [];
+    let err: { model: string; recorded: boolean } | null = null;
+    if (!o.useLight) {
+      if (o.heavyFails) err = { model: HEAVY, recorded: false };
+    } else if (o.lightFails) {
+      rows.push(LIGHT);                                   // **判定より前に書く**
+      if (o.remainingMs < RETRY_FLOOR_MS) err = { model: LIGHT, recorded: true };
+      else if (o.heavyFails) err = { model: HEAVY, recorded: false };
+    }
+    if (err && !err.recorded) rows.push(err.model);
+    return rows;
+  }
+
+  it('残り不足でやめた回は「軽いモデル」だけが1行', () => {
+    expect(rowsFor({ useLight: true, lightFails: true, heavyFails: false, remainingMs: 3_000 }))
+      .toEqual([LIGHT]);
+  });
+
+  it('どちらも落ちた回は2行（呼んだ順）', () => {
+    expect(rowsFor({ useLight: true, lightFails: true, heavyFails: true, remainingMs: 40_000 }))
+      .toEqual([LIGHT, HEAVY]);
+  });
+
+  it('上位モデルだけ呼んで落ちた回は1行', () => {
+    expect(rowsFor({ useLight: false, lightFails: false, heavyFails: true, remainingMs: 40_000 }))
+      .toEqual([HEAVY]);
+  });
+
+  it('成功した回は失敗の行を書かない', () => {
+    expect(rowsFor({ useLight: true, lightFails: false, heavyFails: false, remainingMs: 40_000 }))
+      .toEqual([]);
+  });
+
+  it('記録は「やり直すか」を決める前に置く', () => {
+    // 順番が逆だと、諦める道がこの行を通らない
+    const at = INTAKE_AI.indexOf('await recordAiUsage({');
+    const floor = INTAKE_AI.indexOf('if (remaining() < RETRY_FLOOR_MS) {');
+    expect(at).toBeGreaterThan(0);
+    expect(at).toBeLessThan(floor);
+  });
+
+  it('呼んだモデルと「もう書いたか」を例外に添える', () => {
+    expect(INTAKE_AI).toMatch(/export interface IntakeAiFailure extends Error \{/);
+    expect(INTAKE_AI).toMatch(/function fail\(e: unknown, attemptedModel: string, usageRecorded: boolean\): never/);
+    expect(TASKS_ROUTES).toMatch(/if \(!f\.usageRecorded\) \{/);
+    expect(TASKS_ROUTES).toMatch(/model: f\.attemptedModel \?\? intakeAiModel\(\),/);
+  });
+});
+
