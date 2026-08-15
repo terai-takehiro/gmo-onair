@@ -89,6 +89,23 @@ async function recalc(estimateId: string): Promise<void> {
 // ───────────────────────────────────────────────────────────
 
 /**
+ * 見積の**持ち主 = 作った人**（`created_by`）。
+ *
+ * ⚠️ **`updated_by`（最後に触った人）を持ち主にしないこと。** 値引きの限度も
+ * 承認できる人も持ち主の役割で決まるので、`updated_by` にすると
+ * **上司が保存ボタンを押しただけで限度がその人のものに上がり**、
+ * **承認者も上司の承認者（＝もっと上）に変わって、本来の承認者が承認できなくなります**。
+ *
+ * ここが**3か所（送付の判定・承認待ちの見直し・承認の可否）に散っていて、
+ * 実際に食い違っていました**（レビューで2度指摘された）。**この2つが正**です。
+ * `created_by` が空の古い行だけ `updated_by` に落とします。
+ */
+const OWNER_SQL = 'COALESCE(created_by, updated_by)';
+function ownerOf(row: Record<string, unknown>): string {
+  return String(row.created_by ?? row.updated_by ?? '');
+}
+
+/**
  * その人の役割の上限。**役割が無い人・上限を決めていない役割は「上限なし」。**
  *
  * 「決めていない = 出せない」にすると、役割を1つ足した瞬間その役割の人が
@@ -143,9 +160,7 @@ async function refreshApproval(estimateId: string): Promise<void> {
   if (!est) return;
   if (est.approval_state === 'approved') return;
 
-  // 持ち主は**作った人**。`updated_by` を先に見ると、上司が触った瞬間に
-  // その人の（緩い）限度で判定され、承認待ちが黙って解ける
-  const owner = String(est.created_by ?? est.updated_by ?? '');
+  const owner = ownerOf(est);
   if (!owner) return;
   const { needsApproval } = checkDiscount(Number(est.subtotal) || 0, Number(est.discount) || 0, await limitOf(owner));
   await execute(`UPDATE estimates SET approval_state = $2 WHERE id = $1`,
@@ -326,12 +341,7 @@ export const estimateService = {
        * `sent` になるので、**承認待ちなのに出ている**行が残ります。
        * `refreshApproval` は最初から作った人で見ており、ここだけ食い違っていました。
        */
-      /*
-       * 持ち主は **`created_by`（作った人）**。`updated_by`（最後に触った人）に
-       * すると、**上司が保存ボタンを押しただけで限度がその人のものに上がります**
-       * （実測: 上司が一度触った見積は、以後 15% 引きでも素通りした）。
-       */
-      const owner = String(existing.created_by ?? existing.updated_by ?? userId);
+      const owner = ownerOf(existing) || userId;
       const { needsApproval, reasons } = checkDiscount(Number(existing.subtotal), discount, await limitOf(owner));
       if (needsApproval) {
         await execute(`UPDATE estimates SET approval_state = 'pending' WHERE id = $1`, [id]);
@@ -367,7 +377,10 @@ export const estimateService = {
    */
   async approve(id: string, approverId: string): Promise<Estimate> {
     const est = await queryOne(
-      `SELECT id, approval_state, COALESCE(updated_by, created_by) AS owner
+      // **持ち主は作った人**（`OWNER_SQL`）。ここが `updated_by` を先に見ていたため、
+      // **上司が下書きを1文字直しただけで「承認できる人」が上司の承認者に変わり**、
+      // 本来の承認者（上司自身）が 403 になっていた
+      `SELECT id, approval_state, ${OWNER_SQL} AS owner
          FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
       [id],
     ) as Record<string, unknown> | null;
