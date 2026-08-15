@@ -377,10 +377,21 @@ export async function runShortPass(
     } catch (e) {
       const message = (e as Error).message || '短くできませんでした';
       console.error('[na-short] failed:', row.id, message);
-      // **印を必ず立てる。** 立てないと次の回も同じ行を呼んで課金され、待ち行列も減らない
+      /*
+       * **印を必ず立てる。** 立てないと次の回も同じ行を呼んで課金され、待ち行列も減らない。
+       *
+       * ⚠️ **ただし、いま失敗した本文にだけ立てる**（レビューでの指摘 #101）。
+       * 成功のほうには `btrim(next_action) = ?` が付いているのに、こちらには
+       * 付いていませんでした。**引いてから失敗するまでの間に人が「次にやること」を
+       * 直していると、失敗の印は新しい本文に付きます** — その本文は一度も試して
+       * いないのに、`PENDING_SQL` が印のある行を外すので**二度と短くされません**
+       * （画面には長い原文が出たままで、失敗したことも出ません）。
+       * 直された行は次の回が拾い直します。
+       */
       await execute(
-        `UPDATE activity_logs SET next_action_short_error = ? WHERE id = ?`,
-        [message.slice(0, 500), row.id],
+        `UPDATE activity_logs SET next_action_short_error = ?
+          WHERE id = ? AND btrim(next_action) = ?`,
+        [message.slice(0, 500), row.id, source],
       ).catch(() => { /* 印が書けなくても他の行を続ける */ });
       failed += 1;
     }

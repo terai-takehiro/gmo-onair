@@ -36,6 +36,13 @@ export interface VenueRoom {
   room_name: string | null;
   /** 拠点の略称。**決めていなければ NULL**（正式名では代用しない） */
   location_abbreviation?: string | null;
+  /**
+   * 部屋マスターの id。**重複を除くときの鍵**（レビューでの指摘 #101）。
+   * 画面に出す名前で数えると、**別の拠点にある同じ名前の部屋**（「第1スタジオ」が
+   * 用賀にも渋谷にもある・どちらも略称を決めていない）が同じものと見なされ、
+   * **押さえた部屋が1つ画面から消えます**（「ほか1室」が出ない）。
+   */
+  room_id?: string | null;
 }
 
 /** 場所を持つもの（予約）。`StudioBooking` もこの形を満たす */
@@ -48,6 +55,11 @@ export interface Venue {
   name: string;
   /** 部屋マスターの部屋か、手入力の場所（外現場）か。数え方の単位が変わる */
   kind: 'room' | 'place';
+  /**
+   * 重複を除くための鍵。**部屋は id、外現場は文字**（`venuesOf` の説明）。
+   * 画面には出しません。
+   */
+  key: string;
 }
 
 const clean = (s: string | null | undefined): string => (s ?? '').trim();
@@ -70,21 +82,38 @@ export function venuesOfBooking(b: VenueBooking): Venue[] {
   const out: Venue[] = [];
   for (const r of b.rooms ?? []) {
     const name = roomLabel(r);
-    if (name) out.push({ name, kind: 'room' });
+    /*
+     * **鍵は id と名前の両方**。id だけにすると、id が付いていない応答や
+     * 予約ごとに番号を振り直す作りの相手に当たったとき、**別の部屋が
+     * 同じ鍵になって消えます**（消えても画面には何も出ません）。
+     * 両方が一致したときだけ同じものと見なす＝**多く出るほうに倒す**
+     * （同じ部屋が2回並ぶのは目で分かるが、消えたことは分からない）。
+     */
+    if (name) out.push({ name, kind: 'room', key: `room:${clean(r?.room_id)}|${name}` });
   }
   const note = clean(b.location_note);
-  if (note) out.push({ name: note, kind: 'place' });
+  if (note) out.push({ name: note, kind: 'place', key: `place:${note}` });
   return out;
 }
 
-/** 案件の予約すべてから、重複を除いた場所の並び（サーバーが返した順のまま） */
+/**
+ * 案件の予約すべてから、重複を除いた場所の並び（サーバーが返した順のまま）。
+ *
+ * ⚠️ **数えるのは名前ではなく部屋の id**（レビューでの指摘 #101）。
+ * 本番とリハで同じ部屋を押さえるのは普通なので重複は除きますが、
+ * **名前で除くと「別の拠点の同じ名前の部屋」まで消えます**
+ * （略称を決めていない拠点どうしだと、画面上の名前がまったく同じになる）。
+ * 消えたことは画面に出ないので、**押さえた部屋が1つ無いこと**に誰も気づけません。
+ */
 export function venuesOf(bookings: VenueBooking[]): Venue[] {
   const seen = new Set<string>();
   const out: Venue[] = [];
   for (const b of bookings ?? []) {
     for (const v of venuesOfBooking(b)) {
-      if (seen.has(v.name)) continue;
-      seen.add(v.name);
+      // 部屋は id、外現場のメモは文字そのものが鍵（id を持たない）
+      const key = v.key;
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push(v);
     }
   }

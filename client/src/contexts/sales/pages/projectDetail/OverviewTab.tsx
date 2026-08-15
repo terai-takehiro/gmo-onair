@@ -24,7 +24,7 @@ import { classificationLabel } from '@/contexts/sales/classification';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
-import { nextActionLine } from './thread/nextAction';
+import { nextActionLine, parseNextAction } from './thread/nextAction';
 import { venueSummary, venuesOf, venueLine } from './venue';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
@@ -68,11 +68,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function OverviewTab({
-  project, bookings, activities,
+  project, bookings, activities, activityTotal,
 }: {
   project: ProjectDetail;
   bookings: StudioBooking[];
   activities: ActivityLog[];
+  /**
+   * ⚠️ **やり取りの総数**（レビューでの指摘 #90）。並んでいる行の数ではありません。
+   * 引いているのは 20 件までなので、`activities.length` を出すと
+   * **どの案件も「20件」**になります（実データで 45 件の案件が 20 件と出ていました）。
+   * 「すべて見る（N件）」は**押す前に量が分かる**ための数字なので、
+   * ここが頭打ちだと「全部見た」と思って開かなくなります。
+   */
+  activityTotal?: number;
 }) {
   /*
    * 事実の帯の3つ目は**見積金額**（モックの指定）。
@@ -91,6 +99,13 @@ export function OverviewTab({
   const nextAction = activities
     .filter((a) => a.next_action && !a.next_action_done_at)
     .sort((a, b) => (a.next_action_date ?? '9999').localeCompare(b.next_action_date ?? '9999'))[0];
+
+  /**
+   * ぶら下がっている作業の数（原文の `①②③…`）。**帯には出せないので数だけ出す**
+   * （レビューでの指摘 #97）。数え方は**やり取りタブと同じ関数**を通す —
+   * 書き写すと、同じ記録が画面によって違う件数になる。
+   */
+  const subTasks = nextAction ? parseNextAction(nextAction.next_action).items.length : 0;
 
   /*
    * 会場。**予約が持っているのは `rooms[]`（部屋マスター）と `location_note`（外現場）**の
@@ -185,6 +200,22 @@ export function OverviewTab({
                 <p className="text-sub line-clamp-3 font-bold lg:line-clamp-2" title={nextAction.next_action ?? ''}>
                   {nextActionLine(nextAction)}
                 </p>
+                {/*
+                  ⚠️ **ぶら下がる作業の数を出す**（レビューでの指摘 #97）。
+                  ここに出るのは**言い切りの1文だけ**で、原文にぶら下がっている
+                  「①…②…③…」は出しません（帯に入りません）。数も出さないと、
+                  **やることは1つだと読まれます** — 実データでは1件の記録に
+                  3〜5件ぶら下がっているので、**残りは誰にも見えないまま**でした。
+                  「ほか N 件」を押すとやり取りタブで全部読めます。
+                */}
+                {subTasks > 0 && (
+                  <Link
+                    to={`/sales/projects/${project.id}/thread`}
+                    className="text-sub-sm min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0"
+                  >
+                    ほか <span className="font-number">{subTasks}</span> 件（全部読む）
+                  </Link>
+                )}
                 {nextAction.next_action_date && (
                   <p className="text-sub-sm font-number text-muted-foreground">{nextAction.next_action_date}</p>
                 )}
@@ -260,7 +291,7 @@ export function OverviewTab({
                   to={`/sales/projects/${project.id}/thread`}
                   className="text-note min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0"
                 >
-                  すべて見る（{activities.length}件）
+                  すべて見る（{activityTotal ?? activities.length}件）
                 </Link>
               )}
             </span>
