@@ -63,6 +63,7 @@ import { ProjectBoard } from './projectList/ProjectBoard';
 import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
 import { FilterBar, TermHint, SORT_OPTIONS } from './projectList/FilterBar';
 import { MobileFilterBar } from './projectList/MobileFilterBar';
+import { PageNav } from './projectList/PageNav';
 import { ProjectCards } from './projectList/ProjectCards';
 import { defaultPeriod, range as periodRange, label as periodLabel, type PeriodValue } from './projectList/period';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
@@ -74,47 +75,6 @@ import type { ProjectListResponse } from './projectList/types';
 const PAGE_SIZE = 20;
 const BOARD_SIZE = 200;
 
-/**
- * 件数とページ送り。**PC の一覧とスマホのカードで同じものを出します**
- * （レビューでの指摘 #61）。
- *
- * 前の版はこの中身が PC の一覧の中に直接書いてあったので、
- * **スマホには前へ／次へが1つも無く、21 件目以降の案件を開けませんでした**。
- * 写して置くと、片方だけ直したときにまた同じことが起きます。
- *
- * **1ページで収まるときも件数を出します**（モック）。出さないと、
- * 絞り込んだ結果が「これで全部」なのか「続きがあるのに切れている」のか
- * 画面から読み取れません。
- */
-function PageNav({
-  pagination, page, onPage,
-}: {
-  pagination: ProjectListResponse['pagination'] | undefined;
-  page: number;
-  onPage: (next: number) => void;
-}) {
-  if (!pagination) return null;
-  if (pagination.totalPages <= 1) {
-    return (
-      <p className="text-sub text-muted-foreground">
-        全<span className="font-number">{pagination.total}</span>件を表示しています
-      </p>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="text-sub text-muted-foreground">
-        全<span className="font-number">{pagination.total}</span>件のうち{' '}
-        <span className="font-number">{(pagination.page - 1) * pagination.limit + 1}</span>–
-        <span className="font-number">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>件
-      </p>
-      <div className="flex gap-2">
-        <Button variant="outline" disabled={page <= 1} onClick={() => onPage(page - 1)}>前へ</Button>
-        <Button variant="outline" disabled={page >= pagination.totalPages} onClick={() => onPage(page + 1)}>次へ</Button>
-      </div>
-    </div>
-  );
-}
 
 export default function ProjectListPage() {
   const navigate = useNavigate();
@@ -327,6 +287,7 @@ export default function ProjectListPage() {
               pagination={pagination}
               page={page}
               onPage={(n) => { flip.capture(); setPage(n); }}
+              filtered={activeFilters.length > 0}
             />
           </div>
         ) : view === 'seed' ? (
@@ -360,6 +321,7 @@ export default function ProjectListPage() {
               pagination={pagination}
               page={page}
               onPage={(n) => { flip.capture(); setPage(n); }}
+              filtered={activeFilters.length > 0}
             />
           </div>
         )}

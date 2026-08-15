@@ -136,8 +136,11 @@ describe('書類タブ（BOX）', () => {
 
 describe('スマホからも 21 件目以降を開ける', () => {
   it('件数とページ送りは PC とスマホで同じ部品', () => {
-    // 前の版は PC の一覧の中に直接書いてあり、スマホには1つも無かった
-    expect(LIST_PAGE).toMatch(/function PageNav\(\{/);
+    // 前の版は PC の一覧の中に直接書いてあり、スマホには1つも無かった。
+    // **置き場所は別ファイルに移った**（一覧が 400 行を超えたため）が、
+    // 「1つの部品を2か所から使う」という中身は同じ
+    const NAV = read('client', 'src', 'contexts', 'sales', 'pages', 'projectList', 'PageNav.tsx');
+    expect(NAV).toMatch(/export function PageNav\(\{/);
     const uses = LIST_PAGE.match(/<PageNav/g) ?? [];
     expect(uses.length).toBe(2);
   });
