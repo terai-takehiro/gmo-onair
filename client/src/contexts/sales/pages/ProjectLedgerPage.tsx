@@ -25,7 +25,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Columns3, Loader2, Pencil } from 'lucide-react';
+import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,12 @@ import { useColumnPrefs } from './projectLedger/useColumnPrefs';
 import { LedgerTable } from './projectLedger/LedgerTable';
 import { ColumnPicker } from './projectLedger/ColumnPicker';
 import { BulkEditDialog } from './projectLedger/BulkEditDialog';
+import { IntegrityPanel } from './projectLedger/IntegrityPanel';
+import { useLedgerCsv } from './projectLedger/useLedgerCsv';
+import { CSV_MAX_ROWS } from './projectLedger/csv';
+import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
+import { useLedgerGrid } from './projectLedger/useLedgerGrid';
+import { PastePlanDialog } from './projectLedger/PastePlanDialog';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -50,19 +56,46 @@ export default function ProjectLedgerPage() {
   const canBulk = hasPermission('sales', 'manager');
   const s = useLedgerState();
   const prefs = useColumnPrefs();
+  const csv = useLedgerCsv();
   const [colsOpen, setColsOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  /**
+   * 閲覧モード／編集モード（ご指示）。**既定は閲覧**です。
+   *
+   * ⚠️ この画面の書き換えは**取り消せません**（どの案件が元は何だったかを
+   * 持っていない）。開いた瞬間から書き換えられる状態だと、
+   * **読みに来ただけの人が指1本で N 件を書き換えられます**。
+   * モードを1つ挟むと「いま自分は直す側にいる」と分かります。
+   *
+   * **憶えません**（`localStorage` に入れない）— 前に開いたときのモードで
+   * 開くと、読むつもりで開いた日に編集モードで始まります。
+   */
+  const [editMode, setEditMode] = useState(false);
+  const canEdit = canBulk && editMode;
 
   /** まとめて直すダイアログが要る候補。**開くときだけ引く** */
   const { data: usersData } = useQuery({
     queryKey: ['users-list'],
     queryFn: async () => (await api.get('/users?limit=200')).data,
-    enabled: bulkOpen,
+    enabled: bulkOpen || canEdit,
   });
   const { data: customersData } = useQuery({
     queryKey: ['customers-for-new-project'],
     queryFn: async () => (await api.get('/customers?limit=500')).data,
-    enabled: bulkOpen,
+    enabled: bulkOpen || canEdit,
+  });
+
+  const users = (usersData?.data ?? []) as { id: string; name: string }[];
+  const customers = (customersData?.data ?? []) as { id: string; name: string }[];
+
+  /**
+   * 升目としての操作（選ぶ・コピー・貼り付け・その場で直す）。
+   * ⚠️ **コピーは閲覧モードでもできます**（読むだけなので壊せない）。
+   * 書き換えは `canEdit` のときだけ（`useLedgerGrid` が見ています）。
+   */
+  const grid = useLedgerGrid({
+    rows: s.rows, shown: prefs.shown, canEdit, users, customers,
+    onDone: s.clearSelection,
   });
 
   const targets = s.rows.filter((r) => s.selected.has(r.id)).map((r) => ({ id: r.id, name: r.name }));
@@ -71,7 +104,20 @@ export default function ProjectLedgerPage() {
     <div className="space-y-4">
       <PageHeader
         title="案件台帳"
-        sub="案件のデータを列で見て、まとめて直す画面です。毎日の仕事は「案件一覧」から"
+        sub="案件のデータを列で見て、揃っているかを確かめて、まとめて直す画面です。毎日の仕事は「案件一覧」から"
+      />
+
+      {/*
+        **いちばん上に置く。** この画面のもう1つの目的が
+        「v4 より前のデータが揃っているか確かめる」ことなので、
+        表を眺めても分からないもの（空欄・ずれ）を先に名指しします
+      */}
+      <IntegrityPanel
+        checks={s.integrity.checks}
+        total={s.integrity.total}
+        loading={s.integrityLoading}
+        active={s.filters.issue}
+        onPick={(k) => s.setFilter('issue', k)}
       />
 
       {/* ── 絞り込み（1段目）──────────────────────────────── */}
@@ -100,38 +146,74 @@ export default function ProjectLedgerPage() {
             <SelectItem value="all">どちらも</SelectItem>
           </SelectContent>
         </Select>
-        {/*
-          **この画面の主目的の1つ。** 分類が空の案件は標準工程の型が1つも当たらず、
-          しかも一覧では気づけません（空欄が目立たない）。ここから拾って直せます
-        */}
-        <label className="min-h-tap text-sub flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={s.filters.onlyNoClass}
-            onChange={(e) => s.setFilter('onlyNoClass', e.target.checked)}
-            className="h-[18px] w-[18px]"
-          />
-          分類が入っていないものだけ
-        </label>
         <span className="flex-1" />
         <Button variant="outline" onClick={() => setColsOpen(true)}>
           <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
+        </Button>
+        {/*
+          **書き出すのは絞り込み全体**（並んでいる行だけではありません）。
+          1ページ 100 件しか出せないので、画面の行を書き出すと
+          101 件目から黙って落ちます（`ledgerCsv.ts` の冒頭）。
+          3つ目に渡すのはファイル名に入れる絞り込みで、**日本語ではなく鍵**（`csv.ts`）
+        */}
+        <Button
+          variant="outline"
+          disabled={csv.busy || s.total === 0}
+          onClick={() => csv.download(s.params, prefs.shown, s.filters.issue || null)}
+        >
+          {csv.busy
+            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            : <Download className="mr-2 h-4 w-4" aria-hidden="true" />}
+          CSV で書き出す
         </Button>
       </div>
 
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sub text-muted-foreground">
+          {/* **絞り込み全体の件数**（サーバーが数えたもの）。並んだ行を数えると
+              100 件目までしか数えられず「これで全部だ」と読まれる */}
           全 <strong className="font-number font-bold text-foreground">{s.total}</strong> 件
           {s.totalPages > 1 && <>（この画面は {s.rows.length} 件・{s.page} / {s.totalPages} ページ）</>}
-          {s.filters.onlyNoClass && (
-            <>　<strong className="font-bold text-warning">
-              「分類が入っていないものだけ」はこのページの中だけを絞っています
-            </strong></>
-          )}
         </p>
+        {/* 並べ替えの但し書き。**「五十音順」と言い切らない**（漢字は読みを持っていない） */}
+        {JA_SORT_KEYS.includes(s.sort.by) && (
+          <span className="text-note text-muted-foreground">{JA_SORT_NOTE}</span>
+        )}
         <span className="flex-1" />
-        {s.selected.size > 0 && canBulk && (
+
+        {/*
+          ⚠️ **閲覧 / 編集の切り替え**（ご指示）。既定は閲覧です。
+          書き換えは取り消せないので、**読みに来ただけの人が指1本で
+          N 件を書き換えられる**状態にしません。
+        */}
+        {canBulk && (
+          <div className="flex rounded-control border border-border p-0.5" role="group" aria-label="モード">
+            {([
+              ['閲覧', false, Eye],
+              ['編集', true, PencilLine],
+            ] as const).map(([label, on, Icon]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={editMode === on}
+                onClick={() => {
+                  setEditMode(on);
+                  // **切り替えたら選択を捨てる。** 残すと、閲覧に戻って
+                  // また編集にしたときに「いつ選んだか分からない行」が選ばれたまま
+                  if (!on) s.clearSelection();
+                }}
+                className={`text-sub flex min-h-tap items-center gap-1.5 rounded-control px-3 lg:min-h-[32px] ${
+                  editMode === on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {s.selected.size > 0 && canEdit && (
           <>
             <span className="text-sub font-bold">{s.selected.size} 件を選んでいます</span>
             <Button variant="outline" onClick={s.clearSelection}>選択をやめる</Button>
@@ -148,6 +230,48 @@ export default function ProjectLedgerPage() {
         )}
       </div>
 
+      {/*
+        **編集モードに入ったことを画面に出す。** 上の小さな切り替えだけだと、
+        いま自分がどちら側にいるか見落とします（取り消せない書き換えができる側です）
+      */}
+      {canEdit && (
+        <div className="rounded-note flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2">
+          <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          <p className="text-sub text-warning">
+            <strong className="font-bold">編集モードです。</strong>
+            行を選んでまとめて直す／
+            <strong className="font-bold">セルを二度押しでその場で直す</strong>／
+            <strong className="font-bold">Excel から貼り付ける（Ctrl+V）</strong>ことができます。
+            <strong className="font-bold">直したものは元に戻せません。</strong>
+          </p>
+        </div>
+      )}
+
+      {/*
+        **押し方を画面に出す。** Ctrl+C / Ctrl+V は、書いていなければ
+        誰も試しません（「Excel のように使える」ことに気づけない）。
+        ⚠️ **コピーはボタンでもできるようにする** — キーが効くのは表に
+        焦点があるときだけで、押した人には効かない理由が分かりません。
+      */}
+      {grid.rangeCount > 0 && (
+        <div className="rounded-note flex flex-wrap items-center gap-2 border border-primary-border bg-primary-surface-weak px-3.5 py-2">
+          <p className="text-sub">
+            <strong className="font-number font-bold">{grid.rangeCount}</strong> 升を選んでいます
+            （Shift ＋ クリックで広げられます）
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void grid.copy()}>
+            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />コピー（Ctrl+C）
+          </Button>
+          {canEdit && (
+            <span className="text-note text-muted-foreground">
+              Excel からは <strong className="font-bold">Ctrl+V</strong> で貼れます
+              （書き換える前に、何がどう変わるかを出します）
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={grid.clear}>選択をやめる</Button>
+        </div>
+      )}
+
       {s.isError && <ErrorPanel title="案件を読み込めませんでした" />}
 
       {s.isLoading ? (
@@ -157,8 +281,8 @@ export default function ProjectLedgerPage() {
       ) : s.rows.length === 0 ? (
         <EmptyState
           title="この条件に合う案件はありません"
-          description={s.filters.onlyNoClass
-            ? '分類が入っていない案件はこのページにはありません。ページを送るか、絞り込みを外してください。'
+          description={s.filters.issue
+            ? 'このチェックに当たる案件はありません。上の「絞り込みを外す」で全部に戻せます。'
             : '絞り込みを外すか、探す言葉を変えてみてください。'}
         />
       ) : (
@@ -168,7 +292,12 @@ export default function ProjectLedgerPage() {
           selected={s.selected}
           onToggle={s.toggle}
           onToggleAll={s.toggleAll}
-          canEdit={canBulk}
+          canEdit={canEdit}
+          sort={s.sort}
+          onSort={s.onSort}
+          grid={grid}
+          users={users}
+          customers={customers}
         />
       )}
 
@@ -185,15 +314,28 @@ export default function ProjectLedgerPage() {
         1ページに出せるのは {PAGE_SIZE} 件までです（サーバーの上限）。
         まとめて直せるのは<strong className="font-bold">いま見えている行だけ</strong>です —
         見ていない行まで書き換えると、何を変えたのか確かめられなくなるためです。
+        {/*
+          **書き出しだけは別。** 読むだけなので全部出さないと確認に使えません。
+          ⚠️ **上限も一緒に書く** — 「全部」とだけ書くと、2,000 件で切れた日に
+          「これで全部だ」と読まれます（切れたことは帯にも出します）
+        */}
+        <strong className="font-bold">CSV は絞り込みに当たるものを全部書き出します</strong>
+        （このページの {s.rows.length} 件だけではありません／一度に {CSV_MAX_ROWS} 件まで）。
       </p>
 
+      <PastePlanDialog
+        plan={grid.plan}
+        saving={grid.saving}
+        onClose={() => grid.setPlan(null)}
+        onApply={grid.apply}
+      />
       <ColumnPicker open={colsOpen} onOpenChange={setColsOpen} prefs={prefs} />
       <BulkEditDialog
         open={bulkOpen}
         onOpenChange={setBulkOpen}
         targets={targets}
-        users={(usersData?.data ?? []) as { id: string; name: string }[]}
-        customers={(customersData?.data ?? []) as { id: string; name: string }[]}
+        users={users}
+        customers={customers}
         saving={s.bulk.isPending}
         onSubmit={(set) => s.bulk.mutate(set, { onSuccess: () => setBulkOpen(false) })}
       />

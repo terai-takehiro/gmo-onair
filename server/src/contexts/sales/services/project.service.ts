@@ -12,6 +12,10 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
+import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
+import {
+  JAPANESE_SORT_KEYS, japaneseCollationAvailable, withJapaneseCollation,
+} from './japanese-sort';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -154,6 +158,15 @@ export interface ProjectFilter {
   aiCreated?: boolean;
   /** AI 起票案件の確認状態フィルタ ('reviewed'=確認済 / 'unreviewed'=未確認) */
   aiReviewed?: 'reviewed' | 'unreviewed';
+  /**
+   * 整合性チェックの鍵（案件台帳）。`INTEGRITY_CHECKS` の `key`。
+   *
+   * **数えるのと同じ式で絞ります**（`project-integrity.ts`）。別に書くと
+   * 「12 件」と出したのに開くと 9 行、という食い違いが起き、
+   * **どちらが本当か画面からは分かりません**。
+   * **知らない鍵は素通ししません** — 絞ったつもりで全件が返ると気づけないため。
+   */
+  issue?: string;
   /** 開催月 (YYYY-MM)。イベント期間がこの月に重なる案件のみ */
   eventMonth?: string;
   /** 開催期間レンジ (YYYY-MM-DD)。イベント期間がこのレンジに重なる案件のみ */
@@ -397,6 +410,16 @@ export class ProjectService {
       where += ` AND p.ai_reviewed_at IS NULL`;
     }
     /**
+     * 整合性チェック（案件台帳）。**数えるのと同じ式**を使う
+     * （`project-integrity.ts` の `sql`）。写すと件数と行数が食い違う。
+     * **知らない鍵は当たらない条件に落とす** — 素通しすると
+     * 「絞ったのに全件が返っている」ことに気づけない（ステージと同じ守り方）。
+     */
+    if (filter.issue) {
+      const check = findCheck(filter.issue);
+      where += check ? ` AND (${check.sql})` : ' AND FALSE';
+    }
+    /**
      * 案件分類。v2.8.113+ は `gls_category` カラム (DB) を真実とする
      * (発番済の旧データは migration 086 でバックフィル済)。
      *
@@ -474,7 +497,17 @@ export class ProjectService {
       // 未定のものが先頭に固まると、いちばん近いものが画面外に押し出される
       const nullsClause = filter.sortBy === 'event_start' || filter.sortBy === 'next_task_due'
         ? ` NULLS ${sortDir === 'ASC' ? 'LAST' : 'FIRST'}` : '';
-      orderBy = `${sortCol} ${sortDir}${nullsClause}`;
+      /**
+       * **名前は五十音で並べる**（`japanese-sort.ts`）。この DB の照合順序は
+       * 文字コード順なので、素で並べると**ひらがなが全部先・カタカナが全部後**に
+       * 固まり、「あ行を探しているのにカタカナの会社が画面の下」になる。
+       * ⚠️ **漢字は読みを持っていないので五十音にはならない**（画面にそう書いてある）。
+       * `ja-x-icu` の無い環境では素の順に落とす（500 にしない）。
+       */
+      const jaCol = JAPANESE_SORT_KEYS.has(filter.sortBy)
+        ? withJapaneseCollation(sortCol, await japaneseCollationAvailable())
+        : sortCol;
+      orderBy = `${jaCol} ${sortDir}${nullsClause}`;
     }
 
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
@@ -564,6 +597,28 @@ export class ProjectService {
        GROUP BY kessan_marker
        ORDER BY kessan_marker DESC`
     );
+  }
+
+  /**
+   * 整合性チェックの件数（案件台帳の「確かめる」）。
+   *
+   * **1回の SQL で全部数えます**（`buildIntegrityCountSql`）。チェックごとに
+   * 問い合わせると、増えるほど画面が遅くなり、しかも**数え終わった順に
+   * 数字が入れ替わって読み間違えます**。
+   *
+   * 返すのは規則そのもの（名前・なぜ困るか・どう直すか）＋件数です —
+   * **画面に規則を書き写さない**ため（写すと片方だけ直った日から、
+   * 画面の説明と実際に数えているものが食い違います）。
+   */
+  async getIntegrity() {
+    const row = (await queryOne(buildIntegrityCountSql())) as Record<string, number>;
+    return {
+      total: Number(row?._total ?? 0),
+      checks: INTEGRITY_CHECKS.map((c) => ({
+        key: c.key, label: c.label, why: c.why, how: c.how,
+        count: Number(row?.[c.key] ?? 0),
+      })),
+    };
   }
 
   /**
