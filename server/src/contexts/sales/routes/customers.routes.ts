@@ -4,6 +4,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 
 const router = Router();
 
@@ -142,8 +143,14 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   const id = uuidv4();
+  /**
+   * **渡してこない道では社名から見立てる**（migration 192・ご指示: GMO と
+   * ついているものはすべてグループ）。渡してきたらそちらが正 — 画面の
+   * チェックボックスで外せます。
+   */
+  const groupFlag = is_gmo_group === undefined ? looksLikeGmoGroup(name) : is_gmo_group === true;
   await execute('INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, is_gmo_group, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, is_gmo_group === true, req.user!.id]);
+    [id, name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id]);
   const row = await queryOne('SELECT * FROM customers WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -162,6 +169,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const groupFlag = is_gmo_group === undefined ? (existing.is_gmo_group === true) : (is_gmo_group === true);
   await execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id, req.params.id]);
+  /**
+   * **取引先マスター側にも写す**（migration 192）。同じ相手が2つの画面に出るので、
+   * 片方だけ直ると「取引先マスターではグループなのに顧客マスターでは外」という
+   * 見え方になり、どちらが本当か画面からは分かりません。
+   * （紐付いていない顧客＝`company_id IS NULL` は何も起きません）
+   */
+  await execute(
+    `UPDATE companies SET is_gmo_group=?, updated_at=NOW(), updated_by=?
+      WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL`,
+    [groupFlag, req.user!.id, req.params.id]);
   const row = await queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });

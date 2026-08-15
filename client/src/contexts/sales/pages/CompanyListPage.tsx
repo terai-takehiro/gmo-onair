@@ -1,140 +1,32 @@
 /**
- * CompanyListPage — Phase 2A 移行 (v2.6.4)
+ * CompanyListPage — 取引先マスターの一覧
+ *
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
- * 削除確認 / 収支サマリーは独立ダイアログのため別 useState で管理。
+ * **入力欄は `company/CompanyFormFields`、収支サマリーは
+ * `company/CompanySummaryDialog`** に切り出してある（この画面は一覧と
+ * 削除確認だけを持つ）。値の形は `company/types.ts` が1つだけ持つ。
  */
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
-import api from "@/lib/api";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, ExternalLink, Building2, BarChart3 } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { CompanyFormFields } from "./company/CompanyFormFields";
+import { CompanySummaryDialog } from "./company/CompanySummaryDialog";
+import { EMPTY_COMPANY_FORM, type Company, type CompanyForm } from "./company/types";
 
 type RoleFilter = "all" | "customer" | "vendor" | "sga_payee" | "both" | "other";
-
-interface CompanySummary {
-  company_id: string;
-  revenue: { total: number; count: number };
-  purchase: { total: number; count: number };
-  sga: { total: number; count: number };
-}
-
-function CompanySummaryDialog({ open, onOpenChange, company }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  company: { id: string; name: string } | null;
-}) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["company-summary", company?.id],
-    queryFn: async () => (await api.get(`/companies/${company!.id}/summary`)).data,
-    enabled: open && !!company?.id,
-  });
-  const summary: CompanySummary | null = data?.data ?? null;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            {company?.name} の収支サマリー
-          </DialogTitle>
-          <DialogDescription>この取引先を相手方とする売上・仕入・販管費の累計</DialogDescription>
-        </DialogHeader>
-        {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : summary ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
-                <p className="text-xs text-blue-700 dark:text-blue-300">売上</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.revenue.total)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.revenue.count}件</p>
-              </div>
-              <div className="rounded-lg border bg-orange-50 dark:bg-orange-950/30 p-3 text-center">
-                <p className="text-xs text-orange-700 dark:text-orange-300">仕入</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.purchase.total)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.purchase.count}件</p>
-              </div>
-              <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-3 text-center">
-                <p className="text-xs text-amber-700 dark:text-amber-300">販管費</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.sga.total)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.sga.count}件</p>
-              </div>
-            </div>
-            <div className="rounded-lg border p-3 bg-muted/30">
-              <p className="text-xs text-muted-foreground">収支バランス（売上 - 仕入 - 販管費）</p>
-              <p className={`text-lg font-bold font-number mt-1 ${
-                summary.revenue.total - summary.purchase.total - summary.sga.total >= 0
-                  ? "text-green-700" : "text-red-700"
-              }`}>
-                {formatCurrency(summary.revenue.total - summary.purchase.total - summary.sga.total)}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground py-4 text-center">データがありません</p>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface Company {
-  id: string;
-  name: string;
-  short_name?: string;
-  contact_name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  is_customer: boolean;
-  is_vendor: boolean;
-  is_sga_payee?: boolean;
-  vendor_type?: string;
-  invoice_registration_number?: string;
-  notes?: string;
-  customer_id?: string;
-  vendor_id?: string;
-}
-
-interface CompanyForm {
-  name: string;
-  short_name: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  is_customer: boolean;
-  is_vendor: boolean;
-  is_sga_payee?: boolean;
-  vendor_type: string;
-  invoice_registration_number: string;
-  notes: string;
-}
-
-const EMPTY_FORM: CompanyForm = {
-  name: "", short_name: "", contact_name: "", email: "", phone: "",
-  address: "", is_customer: false, is_vendor: false, is_sga_payee: false,
-  vendor_type: "", invoice_registration_number: "", notes: "",
-};
 
 const roleTabs: { value: RoleFilter; label: string }[] = [
   { value: "all",       label: "全て" },
@@ -158,8 +50,7 @@ export default function CompanyListPage() {
     extraParams: { role: role === "all" ? undefined : role },
   });
 
-  const form = useForm<CompanyForm>({ defaultValues: EMPTY_FORM });
-  const watchIsVendor = form.watch("is_vendor");
+  const form = useForm<CompanyForm>({ defaultValues: EMPTY_COMPANY_FORM });
 
   useEffect(() => {
     if (crud.editingItem) {
@@ -174,12 +65,13 @@ export default function CompanyListPage() {
         is_customer: !!c.is_customer,
         is_vendor: !!c.is_vendor,
         is_sga_payee: !!c.is_sga_payee,
+        is_gmo_group: !!c.is_gmo_group,
         vendor_type: c.vendor_type || "",
         invoice_registration_number: c.invoice_registration_number || "",
         notes: c.notes || "",
       });
     } else {
-      form.reset(EMPTY_FORM);
+      form.reset(EMPTY_COMPANY_FORM);
     }
   }, [crud.editingItem, form]);
 
@@ -235,6 +127,7 @@ export default function CompanyListPage() {
                         {c.short_name && <span className="text-xs text-muted-foreground">({c.short_name})</span>}
                       </div>
                       <div className="flex gap-1 mt-1 flex-wrap">
+                        {c.is_gmo_group && <Badge variant="outline" className="text-xs border-primary text-primary">グループ</Badge>}
                         {c.is_customer && <Badge variant="secondary" className="text-xs">顧客</Badge>}
                         {c.is_vendor && <Badge variant="outline" className="text-xs">{c.vendor_type || "仕入先"}</Badge>}
                         {c.is_sga_payee && <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">販管費支払先</Badge>}
@@ -286,7 +179,14 @@ export default function CompanyListPage() {
                     defaultWidth: 220,
                     cell: (c) => (
                       <div>
-                        <p className="font-medium truncate">{c.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium truncate">{c.name}</p>
+                          {/* **グループは役割の列に混ぜない** — 顧客・仕入先とは別の軸で、
+                              混ぜると「グループという役割がある」と読まれる */}
+                          {c.is_gmo_group && (
+                            <Badge variant="outline" className="shrink-0 text-xs border-primary text-primary">グループ</Badge>
+                          )}
+                        </div>
                         {c.short_name && <p className="text-xs text-muted-foreground truncate">{c.short_name}</p>}
                       </div>
                     ),
@@ -380,78 +280,7 @@ export default function CompanyListPage() {
           submitLabel={{ create: "登録", edit: "更新" }}
           onSubmit={handleSave}
         >
-              <div className="space-y-2">
-                <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
-                <ToggleButtonGroup
-                  options={[
-                    { value: 'customer',  label: '顧客',           description: '売上管理で選択可能' },
-                    { value: 'vendor',    label: '仕入先',         description: '仕入管理で選択可能' },
-                    { value: 'sga_payee', label: '販管費支払先',   description: '販管費管理で選択可能' },
-                  ]}
-                  value={[
-                    ...(form.watch("is_customer")   ? ['customer'] : []),
-                    ...(form.watch("is_vendor")     ? ['vendor'] : []),
-                    ...(form.watch("is_sga_payee")  ? ['sga_payee'] : []),
-                  ]}
-                  onChange={(next) => {
-                    form.setValue("is_customer",  next.includes('customer'));
-                    form.setValue("is_vendor",    next.includes('vendor'));
-                    form.setValue("is_sga_payee", next.includes('sga_payee'));
-                  }}
-                  multi
-                  cols={{ base: 1, sm: 3 }}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <Label htmlFor="name">取引先名 *</Label>
-                  <Input id="name" {...form.register("name", { required: true })} placeholder="株式会社〇〇" />
-                </div>
-                <div>
-                  <Label htmlFor="short_name">略称</Label>
-                  <Input id="short_name" {...form.register("short_name")} placeholder="〇〇" />
-                </div>
-                <div>
-                  <Label htmlFor="contact_name">担当者名</Label>
-                  <Input id="contact_name" {...form.register("contact_name")} placeholder="山田 太郎" />
-                </div>
-                <div>
-                  <Label htmlFor="email">メールアドレス</Label>
-                  <Input id="email" type="email" {...form.register("email")} />
-                </div>
-                <div>
-                  <Label htmlFor="phone">電話番号</Label>
-                  <Input id="phone" {...form.register("phone")} />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="address">住所</Label>
-                <Input id="address" {...form.register("address")} />
-              </div>
-
-              {watchIsVendor && (
-                <div className="space-y-3 rounded-md border p-3 bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">仕入先設定</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="vendor_type">種別</Label>
-                      <Input id="vendor_type" {...form.register("vendor_type")} placeholder="制作会社・フリーランス等" />
-                    </div>
-                    <div>
-                      <Label htmlFor="invoice_registration_number">インボイス登録番号</Label>
-                      <Input id="invoice_registration_number" {...form.register("invoice_registration_number")} placeholder="T1234567890123" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="notes">備考</Label>
-                <Textarea id="notes" {...form.register("notes")} rows={2} />
-              </div>
-
+          <CompanyFormFields form={form} editing={!!crud.editingItem} />
         </CrudFormDialog>
 
         <CompanySummaryDialog

@@ -4,6 +4,7 @@ import { Router } from 'express';
 import {
   createExcelResourceRouter, ResourceConfig, newId, asString, asInt, asDate,
 } from '../../../shared/utils/excel-resource';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 
 // ============================================================
 // 顧客 (customers)
@@ -50,9 +51,13 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [newId(), d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes, userId, userId],
+      // グループの印は社名から見立てる（migration 192）。取込は印を持たないので、
+      // ここで入れないとその会社の案件だけグループ外のまま残る
+      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
+         is_gmo_group, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [newId(), d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes,
+       looksLikeGmoGroup(asString(d.name)), userId, userId],
     );
   },
   update: async (client, id, d, userId) => {

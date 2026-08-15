@@ -147,11 +147,10 @@ export function useProjectForm(id: string | undefined) {
    */
   const values = watch();
   const customer = customers.find((c) => c.id === values.customer_id) ?? null;
-  /**
-   * お客様がグループ会社か。判定は**取引先マスターの印**（`customers.is_gmo_group`）で、
-   * 社名の文字列一致では見ません（案件作成と同じ。写すと片方だけ直る）。
-   */
+  // お客様がグループ会社か（**取引先マスターの印** `customers.is_gmo_group`）。
+  // リード経路と**グループ区分**（`customer_type`・migration 192）がここから決まる
   const isGroup = customer?.is_gmo_group === true;
+  const groupType = isGroup ? 'internal' as const : 'external' as const;
 
   /**
    * **直す画面が出している欄だけ受ける。** 実施日・最初のタスク・メモ・ステージは
@@ -161,7 +160,7 @@ export function useProjectForm(id: string | undefined) {
    */
   const EDITABLE_KEYS = useMemo(() => new Set<keyof NewProjectValues>([
     'customer_id', 'contact_name', 'name', 'audience', 'project_category',
-    'customer_type', 'recurrence', 'attendee_count', 'goal', 'expected_amount',
+    'recurrence', 'attendee_count', 'goal', 'expected_amount',   // `customer_type` は入れない（読むだけ）
     'intake_channel', 'assigned_to',
   ]), []);
 
@@ -182,7 +181,7 @@ export function useProjectForm(id: string | undefined) {
     audience: values.audience,
     project_category: values.project_category,
     gls_category: values.gls_category === 'B' ? 'B' : 'A',
-    customer_type: values.customer_type,
+    customer_type: groupType,   // お客様から導く（保存値ではない。サーバーも同じ規則）
     recurrence: values.recurrence,
     stage: (project?.stage || 'neta') as ProjectStage,
     attendee_count: values.attendee_count,
@@ -267,6 +266,8 @@ export function useProjectForm(id: string | undefined) {
        * あとから数えたときに食い違います。
        */
       if (isGroup) body.intake_channel = 'group';
+      // **グループ区分は送らない**（migration 192）— 決めるのはサーバー（お客様から導く）
+      delete body.customer_type;
       if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
 
       /**

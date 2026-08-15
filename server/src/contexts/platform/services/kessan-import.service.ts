@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 
 export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
@@ -648,7 +649,11 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (id) return id;
       if (!createMasters) return null;
       const nid = randomUUID();
-      await client.query('INSERT INTO customers (id, name, notes, created_by) VALUES ($1,$2,$3,$4)', [nid, name, MARKER, fallbackUser]);
+      // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
+      // ここで入れないとこの会社の案件だけグループ外のまま残る
+      await client.query(
+        'INSERT INTO customers (id, name, notes, is_gmo_group, created_by) VALUES ($1,$2,$3,$4,$5)',
+        [nid, name, MARKER, looksLikeGmoGroup(name), fallbackUser]);
       cache.customers.set(name, nid); report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {

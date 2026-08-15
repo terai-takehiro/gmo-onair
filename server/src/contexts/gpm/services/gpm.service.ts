@@ -38,7 +38,7 @@ import { generateSequenceNumber } from '../../../shared/services/sequence.servic
  * また片方だけ取り残されます）。
  */
 import {
-  ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity,
+  ESTIMATE_AMOUNT_LATERAL, MEMO_LATERAL, addMemoActivity, customerIsGroup,
   // ⚠️ このファイルも `projectService` を export している（プロジェクト管理のほう）。
   // **別名で受ける** — 同じ名前だと GLS の発番が自分自身を呼びに行く
   projectService as salesProjectService,
@@ -371,7 +371,10 @@ export const projectService = {
             created_by, updated_by)
          VALUES (?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, customerId, stage,
-         customerId === SELF_CUSTOMER_ID ? 'internal' : 'external',
+         // グループ内 / グループ外は**お客様の印から決める**（migration 192）。
+         // 自社の行（`cust-self-gms` ＝「自社（GMOグローバルスタジオ）」）にも
+         // 印が付くので、自社構築はこれまでどおり internal になる
+         await customerIsGroup(customerId) ? 'internal' : 'external',
          (input.assigned_to as string) || userId,
          kind, input.pm_company ?? null, startedOn, dateOrNull(input.ends_on),
          templateId, userId, userId],

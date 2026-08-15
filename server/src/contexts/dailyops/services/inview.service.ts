@@ -3,6 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from '../../sales/services/project.service';
 import { activityLogService } from '../../sales/services/activity-log.service';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 
 // 日常業務アプリ (dailyops) — 内覧会 来場予約の service 層。
 // API (inview.routes) と MCP (inview.tools) の両方から使う。
@@ -316,11 +317,12 @@ export const inviewService = {
       if (!customerId) {
         const cid = uuidv4();
         await execute(
-          `INSERT INTO customers (id, name, contact_name, email, phone, address, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          // グループの印は社名から見立てる（migration 192）
+          `INSERT INTO customers (id, name, contact_name, email, phone, address, is_gmo_group, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [cid, key || '（内覧会来場者）', personName || null,
            (reg.email as string) || null, (reg.phone as string) || (reg.mobile as string) || null,
-           (reg.address as string) || null, actor.userId],
+           (reg.address as string) || null, looksLikeGmoGroup(key), actor.userId],
         );
         customerId = cid;
         customerCreated = true;

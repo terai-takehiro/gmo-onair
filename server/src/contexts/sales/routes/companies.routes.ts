@@ -4,6 +4,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 
 const router = Router();
 
@@ -156,6 +157,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
+    is_gmo_group,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
@@ -163,25 +165,37 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
   }
 
+  /**
+   * **グループ会社の印**（migration 192）。渡してこない道（MCP・取込）では
+   * 社名から見立てる（ご指示: GMO とついているものはすべてグループ）。
+   * **渡してきたらそちらが正** — 画面のチェックボックスで外せます。
+   */
+  const groupFlag = is_gmo_group === undefined ? looksLikeGmoGroup(name) : is_gmo_group === true;
+
   const id = uuidv4();
   await execute(
     `INSERT INTO companies (id, name, short_name, contact_name, email, phone, address,
-       is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
+       is_gmo_group, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
-     vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id]
+     vendor_type || null, invoice_registration_number || null, notes || null,
+     groupFlag, req.user!.id]
   );
 
   // 顧客ロールあり → customers レコード自動生成
+  // **印も一緒に渡す。** 案件のグループ区分は `customers` 側を見るので、
+  // ここで落とすと取引先マスターでチェックを付けても案件に効きません
   if (is_customer) {
     const cid = uuidv4();
     await execute(
-      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
+         is_gmo_group, company_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-       address || null, notes || null, id, req.user!.id]
+       address || null, notes || null, groupFlag, id, req.user!.id]
     );
   }
 
@@ -219,29 +233,43 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
+    is_gmo_group,
   } = req.body;
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (!canEditBudget && (existing.is_vendor || is_vendor || vendor_type !== undefined || invoice_registration_number !== undefined)) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を更新する権限がありません');
   }
 
+  /**
+   * **渡されなければ今の値を保つ**（`customers.routes` と同じ守り方）。
+   * この UPDATE は送られた値でそのまま上書きするので、欄を持たない古い画面から
+   * 保存されるだけで**グループの印が黙って外れます** — 印が外れると、その会社の
+   * 案件が次に保存されたときグループ外になり、見積に定価が並びます。
+   * **社名から見立て直しません** — 一度外した印が保存のたびに戻ると、
+   * 外した人には「直したのに直らない」としか見えません。
+   */
+  const groupFlag = is_gmo_group === undefined
+    ? existing.is_gmo_group === true
+    : is_gmo_group === true;
+
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
        is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
-       updated_at=NOW(), updated_by=? WHERE id=?`,
+       is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
-     req.user!.id, req.params.id]
+     groupFlag, req.user!.id, req.params.id]
   );
 
   // 紐付き customers / vendors の基本情報も同期
+  // **印もここで写す**（正は `customers` 側。写さないと画面のチェックが案件に効かない）
   await execute(
     `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
-       notes=?, updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
+       notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
-     address || null, notes || null, req.user!.id, req.params.id]
+     address || null, notes || null, groupFlag, req.user!.id, req.params.id]
   );
   if (canEditBudget) {
     await execute(
@@ -262,10 +290,11 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     if (!linked) {
       const cid = uuidv4();
       await execute(
-        `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
+           is_gmo_group, company_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-         address || null, notes || null, req.params.id, req.user!.id]
+         address || null, notes || null, groupFlag, req.params.id, req.user!.id]
       );
     }
   }
