@@ -89,6 +89,8 @@ export function Recorder({
   /** 経過秒（下読みの間隔の判定に使う。state だと閉じ込められて古い値を見る） */
   const elapsed = useRef(0);
   const lastPeekAt = useRef(0);
+  /** いまの下読みを録り始めた秒。**`PREVIEW_SEC` を超えたら止める**（送る長さの上限） */
+  const peekStartedAt = useRef(0);
 
   /** 画面を離れてもマイクを掴んだままにしない（録音インジケータが消えない） */
   useEffect(() => () => {
@@ -114,14 +116,19 @@ export function Recorder({
   };
 
   /** 下読み用の録音機を 1 本ぶん回す（止める → 送る → 録り直す） */
-  const cyclePeek = () => {
-    const s = stream.current;
-    if (!s) return;
-    const prev = peek.current;
-    if (prev && prev.state !== 'inactive') { prev.stop(); return; } // onstop の中で次を始める
-    startPeek();
-  };
 
+
+  /**
+   * 下読み用の録音機を 1 本始める。**`PREVIEW_SEC` ぶんだけ録って止める。**
+   *
+   * ⚠️ **止めたその場で次を始めないこと**（レビューでの指摘 #79）。
+   * 前の版は `onstop` の中で必ず録り直していたので、間隔が 5 分になった
+   * あとも**録りっぱなし**になり、5 分ごとに**5 分まるごと**を送っていました
+   * ＝ 打合せの音声を**丸ごと2回**文字にしていたことになります
+   * （画面には「費用を抑えるため 5 分ごと」と出ているのに、実際は 12 分の1に
+   * なっていません。**送っている長さは画面のどこにも出ない**ので気づけません）。
+   * 次を始めるのは下の見張り（`peekTimer`）だけです。
+   */
   const startPeek = () => {
     const s = stream.current;
     if (!s) return;
@@ -130,12 +137,12 @@ export function Recorder({
       const chunks: Blob[] = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       mr.onstop = () => {
+        peek.current = null;
         void sendPeek(new Blob(chunks, { type: mr.mimeType || 'audio/webm' }), mr.mimeType);
-        // まだ録音中なら次の 20 秒を始める
-        if (main.current?.state === 'recording') startPeek();
       };
       mr.start();
       peek.current = mr;
+      peekStartedAt.current = elapsed.current;
     } catch {
       // 2 本目の録音機を作れない端末がある。**下読みだけ諦める**（録音は続く）
       setPreviewOff(true);
@@ -181,8 +188,15 @@ export function Recorder({
       // 切り替わりの瞬間に 1 本ぶん飛ぶ
       peekTimer.current = setInterval(() => {
         const t = elapsed.current;
+        const p = peek.current;
+        // ① 録っている途中なら、**20 秒たったところで止める**（＝送る長さの上限）
+        if (p && p.state !== 'inactive') {
+          if (t - peekStartedAt.current >= PREVIEW_SEC) p.stop();
+          return;
+        }
+        // ② 空いていて、次の番が来ていれば始める
         const every = t <= PREVIEW_DENSE_UNTIL_SEC ? PREVIEW_SEC : PREVIEW_SPARSE_SEC;
-        if (t > 0 && t - lastPeekAt.current >= every) { lastPeekAt.current = t; cyclePeek(); }
+        if (t > 0 && t - lastPeekAt.current >= every) { lastPeekAt.current = t; startPeek(); }
       }, 1000);
     } catch {
       // 権限を断られた / マイクが無い。**理由を出す** — 押しても何も起きないのが最悪

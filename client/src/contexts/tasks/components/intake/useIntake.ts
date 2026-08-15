@@ -25,6 +25,12 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  /**
+   * いまの添付。**送るところはこちらを読む**。
+   * `mutationFn` は作られたときの `files` を掴んだままなので、
+   * 縮小を待ってから読むと**待つ前の値**（＝空）を見てしまう。
+   */
+  const filesRef = useRef<File[]>([]);
   const [intake, setIntake] = useState<IntakeResponse | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -33,34 +39,60 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
   const [createdProjects, setCreatedProjects] = useState<Created[]>([]);
   /** 録音は解析の直前に渡すだけなので、描き直しを起こさない ref に置く */
   const audioRef = useRef<File | null>(null);
+  /**
+   * 写真を縮めている最中の件数。**0 でないあいだは送らせない**（レビューでの指摘 #79）。
+   *
+   * 縮めるのは非同期なので、**選んですぐ送ると `files` がまだ空**です。
+   * 前の版は押せてしまい、**添付が1枚も付いていない解析が走って**いました
+   * （押した人は付けたつもり、AI は写真を見ていない、画面には何も出ない）。
+   */
+  const [preparing, setPreparing] = useState(0);
+  /**
+   * 縮め終わるまでの約束。**送るところが必ずこれを待つ**。
+   *
+   * ⚠️ **押せなくするだけでは足りません**（実測して分かった）。
+   * ボタンの `disabled` は React の描き直しが1回入ってから効くので、
+   * **選んだのと同じ瞬間に押すと素通り**します（現場では「選んで即送信」が普通）。
+   * `useRef` なら**その場で**見えるので、送る側で待てば取りこぼしません。
+   */
+  const preparePromise = useRef<Promise<void>>(Promise.resolve());
 
   const addFiles = useCallback(async (picked: FileList | File[] | null) => {
     if (!picked) return;
     // **送る前に写真を縮める**（AI の費用は画素数で決まる。名刺やホワイトボードは
     // 長辺 1600px で十分に読める）。縮められなかったら元のまま送る
-    const list = await Promise.all(Array.from(picked).map((f) => downscaleImage(f)));
+    setPreparing((n) => n + 1);
+    const job = Promise.all(Array.from(picked).map((f) => downscaleImage(f)));
+    // 送る側が待てるように、いま走っている縮小を数珠つなぎにしておく
+    preparePromise.current = preparePromise.current.then(() => job.then(() => undefined, () => undefined));
+    let list: File[];
+    try {
+      list = await job;
+    } finally {
+      setPreparing((n) => n - 1);
+    }
     setError(null);
-    setFiles((prev) => {
-      const out = [...prev];
-      for (const f of list) {
-        if (f.size > MAX_FILE_BYTES) {
-          setError(`「${f.name}」が大きすぎます（上限 ${MAX_FILE_BYTES / 1024 / 1024}MB）`);
-          continue;
-        }
-        // 同じものを 2 回選んだときに 2 枚並べない（名前と大きさで見る）
-        if (out.some((x) => x.name === f.name && x.size === f.size)) continue;
-        if (out.length >= MAX_FILES) {
-          setError(`添付は ${MAX_FILES} 件までです`);
-          break;
-        }
-        out.push(f);
+    const out = [...filesRef.current];
+    for (const f of list) {
+      if (f.size > MAX_FILE_BYTES) {
+        setError(`「${f.name}」が大きすぎます（上限 ${MAX_FILE_BYTES / 1024 / 1024}MB）`);
+        continue;
       }
-      return out;
-    });
+      // 同じものを 2 回選んだときに 2 枚並べない（名前と大きさで見る）
+      if (out.some((x) => x.name === f.name && x.size === f.size)) continue;
+      if (out.length >= MAX_FILES) {
+        setError(`添付は ${MAX_FILES} 件までです`);
+        break;
+      }
+      out.push(f);
+    }
+    filesRef.current = out;
+    setFiles(out);
   }, []);
 
   const removeFile = useCallback((f: File) => {
-    setFiles((prev) => prev.filter((x) => x !== f));
+    filesRef.current = filesRef.current.filter((x) => x !== f);
+    setFiles(filesRef.current);
   }, []);
 
   /** 下書きが出来たら確認画面に載せる（同期・裏の両方から呼ぶ） */
@@ -107,14 +139,18 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
 
   const submit = useMutation({
     mutationFn: async () => {
+      // **縮め終わるまで待つ。** 待たないと `files` がまだ空で、
+      // **添付の無い解析**が走る（押した人は付けたつもりのまま）
+      await preparePromise.current;
       const audio = audioRef.current;
+      const attached = filesRef.current;   // **待ったあとの値**を読む（上の理由）
       // 添付が無いときは今までどおり JSON で投げる（形を増やさない）
-      if (files.length === 0 && !audio) {
+      if (attached.length === 0 && !audio) {
         return (await api.post('/dailyops/tasks/intake', { raw_text: text })).data.data as IntakeResponse;
       }
       const fd = new FormData();
       fd.append('raw_text', text);
-      for (const f of files) fd.append('files', f);
+      for (const f of attached) fd.append('files', f);
       if (audio) fd.append('audio', audio);
       // ⚠️ **Content-Type は書かないこと。** この axios instance は JSON を既定に
       // しており、**書くと axios が FormData を JSON に変換してファイルが消えます**。
@@ -216,6 +252,7 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
     setIntake(null);
     setRows([]);
     setText('');
+    filesRef.current = [];
     setFiles([]);
     audioRef.current = null;
     setError(null);
@@ -247,7 +284,10 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
     submit, commit, discard, reset, dismiss, submitWithAudio,
     /** 録音を裏で文字にしている最中か（画面は待ち受けの表示を出す） */
     transcribing: intake?.status === 'transcribing',
-    canSubmit: (text.trim().length > 0 || files.length > 0) && !submit.isPending,
+    /** 写真を縮めている最中。**画面はそう書く**（押せない理由が要る） */
+    preparingFiles: preparing > 0,
+    canSubmit: (text.trim().length > 0 || files.length > 0)
+      && preparing === 0 && !submit.isPending,
   };
 }
 

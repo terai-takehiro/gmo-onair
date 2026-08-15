@@ -22,6 +22,7 @@ import {
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { normalizeDest, type IntakeDest } from './intake-parser.service';
+import { MINUTES_KIND } from '../../sales/services/minutes.service';
 
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
 export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
@@ -577,8 +578,32 @@ export const taskIntakeService = {
             ]
           );
         } else {
-          // 議事録。**原文をそのまま `transcript` に残す** — 録音から起こしたものと
-          // 同じ形にしておくと、あとで整形をやり直せる（`minutes.service` と同じ考え方）
+          /*
+           * 議事録。**原文をそのまま `transcript` に残す** — 録音から起こしたものと
+           * 同じ形にしておくと、あとで整形をやり直せる（`minutes.service` と同じ考え方）。
+           *
+           * ⚠️ **投入口の `ai_output_id` を持たせないこと**（レビューでの指摘 #75）。
+           * 議事録を人が確定すると `minutes.service` が**その出力に対して差分を書く**ので、
+           * 投入口（`task_intake`）の記録に**議事録の直しが混ざり**ます。
+           * 項目名も違う（投入口は `tasks[...]`、議事録は `summary` / `decisions`）ので、
+           * **どちらの無修正採用率も読めなくなります**。
+           * 議事録には**議事録の種類（`minutes_draft`）の出力を1本立てる** —
+           * 中身は AI がここで出した下書きそのもの（条件1）。
+           */
+          const minutesOutputId = await recordAiOutput({
+            kind: MINUTES_KIND,
+            targetTable: 'project_minutes',
+            targetId: id,
+            payload: {
+              transcript: intake.raw_text,
+              title: t.title.trim(),
+              summary: t.summary ?? null,
+              decisions: t.decisions ?? [],
+              open_items: t.open_items ?? [],
+            },
+            toolName: 'task-intake.commit',
+            actorId: userId,
+          });
           await tx.execute(
             `INSERT INTO project_minutes
                (id, project_id, status, title, met_on, transcript,
@@ -591,7 +616,7 @@ export const taskIntakeService = {
               t.summary ?? null,
               JSON.stringify(t.decisions ?? []),
               JSON.stringify(t.open_items ?? []),
-              intake.ai_output_id, null, null, userId, userId,
+              minutesOutputId, null, null, userId, userId,
             ]
           );
         }

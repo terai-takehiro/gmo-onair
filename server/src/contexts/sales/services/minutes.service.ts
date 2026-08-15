@@ -188,6 +188,17 @@ async function runTranscription(
   } catch (e) {
     const message = (e as Error).message || '文字起こしに失敗しました';
     console.error('[minutes] transcription failed:', projectId, message);
+    /*
+     * ⚠️ **落ちた回も使用量に残す**（レビューでの指摘 #79）。
+     * 文字起こしは**分**で課金されるので、途中で落ちても払っていることがあります。
+     * 残さないと、設定の「AI の使用量」は**成功した回だけの総額**を出し、
+     * 「思ったより高い」の原因がどこにも出てきません。
+     * **`ai_usage` の記録で業務を止めない**（失敗しても握りつぶす）。
+     */
+    await recordAiUsage({
+      kind: 'minutes', provider: null, model: null, actorId: userId,
+      ok: false, errorMessage: message,
+    }).catch(() => { /* 記録に失敗しても行の更新は続ける */ });
     await execute(
       `UPDATE project_minutes SET status = 'failed', error_message = ?, updated_at = NOW() WHERE id = ?`,
       [message.slice(0, 500), id],

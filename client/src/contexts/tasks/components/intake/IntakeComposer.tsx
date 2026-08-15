@@ -38,6 +38,11 @@ export interface IntakeComposerProps {
   onAudio: (f: File) => void;
   canSubmit: boolean;
   pending: boolean;
+  /**
+   * 写真を縮めている最中。**押せない理由を画面に出す**ためだけに要る
+   * （黙って押せないと「壊れている」と読まれ、押し直される）
+   */
+  preparingFiles?: boolean;
   error?: string | null;
   doneMsg?: string | null;
   /**
@@ -51,7 +56,8 @@ export interface IntakeComposerProps {
 
 export function IntakeComposer({
   text, onTextChange, files, onAddFiles, onRemoveFile,
-  onSubmit, onAudio, canSubmit, pending, error, doneMsg, createdProjects, compact,
+  onSubmit, onAudio, canSubmit, pending, preparingFiles, error, doneMsg,
+  createdProjects, compact,
 }: IntakeComposerProps) {
   /** 録音の画面を出しているか。**出しただけではまだ録っていない** */
   const [recorderOpen, setRecorderOpen] = useState(false);
@@ -157,8 +163,12 @@ export function IntakeComposer({
         <SmallButton icon={Mic} onClick={() => setRecorderOpen(true)}>{compact ? '録音' : '録音する'}</SmallButton>
 
         <div className="flex-1" />
+        {preparingFiles && (
+          <span className="text-note text-muted-foreground">写真を準備しています…</span>
+        )}
         <Button type="button" size="sm" className="h-9 gap-1.5" disabled={!canSubmit} onClick={onSubmit}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          {pending || preparingFiles
+            ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             : <Send className="h-4 w-4" aria-hidden="true" />}
           内容を確認する
         </Button>

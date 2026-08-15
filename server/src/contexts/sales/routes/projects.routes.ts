@@ -6,6 +6,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
+import { recordProjectAccepted } from '../services/project-ai-feedback.service';
 import multer from 'multer';
 import {
   extractFolderId, isBoxConfigured, listFolderItems, MAX_UPLOAD_BYTES,
@@ -106,13 +107,22 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: project });
 });
 
-// AI 起票案件の内容確認を記録 (ホームの AI 起票インボックス / 案件編集のバナーから)
+/**
+ * AI 起票案件の内容確認を記録 (ホームの AI 起票インボックス / 案件編集のバナーから)。
+ *
+ * ⚠️ **「直さずに承認した」ことを記録する**（レビューでの指摘 #52）。
+ * `ai_reviewed_at` は「人が見た」時刻でしかなく、**何が合っていたかを
+ * 1バイトも残しません**。差分は直したときにしか書かれないので、
+ * このひと押しを記録しないと**無修正採用が永久に 0 件**になります
+ * （＝ AI がうまくいった回だけが数字に出ない）。
+ */
 router.post('/:id/ai-review', requirePermission('sales', 'editor'), async (req, res) => {
   await execute(
     `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
      WHERE id = ? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]
   );
+  await recordProjectAccepted(req.params.id as string, req.user!.id);
   res.json({ success: true, data: { reviewed: true } });
 });
 
@@ -130,6 +140,8 @@ router.post('/ai-review-bulk', requirePermission('sales', 'editor'), async (req,
      WHERE id IN (${placeholders}) AND deleted_at IS NULL AND ai_reviewed_at IS NULL`,
     [req.user!.id, ...idList]
   );
+  // まとめて確認した分も1件ずつ記録する（記録の入口を分けると必ず片方だけ抜ける）
+  for (const id of idList) await recordProjectAccepted(id, req.user!.id);
   res.json({ success: true, data: { reviewed: idList.length } });
 });
 
