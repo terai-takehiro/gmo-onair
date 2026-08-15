@@ -172,16 +172,37 @@ export async function installFontCache(ctx, cache) {
 
   // **glob ではなく正規表現で書く。** Playwright の glob は版によって
   // クエリ文字列 (`?family=...`) の扱いが変わるので、当たらなくなっても静かに素通りする
+  /*
+   * **CORS を明示して返す**（レビューでの指摘 #71）。
+   *
+   * ⚠️ **いまの版では無くても書体は届いています**（実測。下記）。Playwright が
+   * `route.fulfill()` で返した応答を Chromium が受け入れるためです。
+   * ただし `@font-face` の取得は本来 CORS を要求する経路なので、
+   * **Playwright の版が変わって素直に検査するようになった日**に、
+   * 何も言わずに代替書体で測り始めます — この検査は**書体の幅**を見るものなので、
+   * そうなると**数字だけが出て中身が変わります**（いちばん困る壊れ方）。
+   * 1行で防げるので付けておきます。
+   *
+   * 実測（取り置きあり / なし・16px の文字幅）:
+   *   Bebas Neue     157.36px / 246.97px
+   *   Roboto Condensed 208.11px / 246.97px   ← 無いと2つが同じ幅＝代替書体
+   */
+  const CORS = { 'access-control-allow-origin': '*' };
+
   await ctx.route(/^https:\/\/fonts\.googleapis\.com\//, (route) => {
     const body = cache.css.get(route.request().url());
     if (!body) return pass(route);
-    return route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body });
+    return route.fulfill({
+      status: 200, contentType: 'text/css; charset=utf-8', headers: CORS, body,
+    });
   });
 
   await ctx.route(/^https:\/\/fonts\.gstatic\.com\//, (route) => {
     const file = path.join(fileDir, path.basename(new URL(route.request().url()).pathname));
     if (!fs.existsSync(file)) return pass(route);
-    return route.fulfill({ status: 200, contentType: 'font/woff2', body: fs.readFileSync(file) });
+    return route.fulfill({
+      status: 200, contentType: 'font/woff2', headers: CORS, body: fs.readFileSync(file),
+    });
   });
 
   return true;
