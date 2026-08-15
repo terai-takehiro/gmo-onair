@@ -13,6 +13,15 @@
  *
  * 押して別画面に飛んでから完了する形だと、朝の5分では片づきません。
  * 四角を押すとその場で完了にします（`PATCH /dailyops/tasks/:id`）。
+ *
+ * ── ⚠️ 押せるのに 403 にしない（レビューでの指摘）──────────────
+ *
+ * ①**四角は `dailyops` の editor から。** 一覧を読む口は reader で通るので、
+ *   reader にもこのカードは出ます。四角まで出すと**押した先が必ず 403**でした。
+ * ②**「全部ひらく」は `sales` を持つ人だけ。** 行き先の全案件タスク一覧
+ *   （`/sales/tasks/list`）は `sales` を要求するので、**`dailyops` だけの人は
+ *   タスクを見ているのに押すと「権限がありません」の画面**に着いていました。
+ *   その人にはここの数件がタスクの全体なので、リンクごと出しません。
  */
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +30,7 @@ import { UserCheck, ArrowRight, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import type { MyTaskRow, MyTaskSummary } from './types';
 
 /** 期限を「7/31 17:00」で。**分まで出す**（イズム: 何月何日何時何分まで） */
@@ -36,6 +46,11 @@ const SHOWN = 4;
 export function MyTasksCard() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  /** 完了にできるか。`PATCH /dailyops/tasks/:id` が editor を要求する */
+  const canComplete = hasPermission('dailyops', 'editor');
+  /** 行き先（全案件タスク一覧）を開けるか。あちらは `sales` を要求する */
+  const canOpenList = hasPermission('sales');
 
   const summary = useQuery<MyTaskSummary>({
     queryKey: queryKeys.dashboard.myTaskSummary(),
@@ -75,13 +90,15 @@ export function MyTasksCard() {
         <UserCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <h3 className="text-cardtitle text-primary">わたしのタスク</h3>
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => navigate('/sales/tasks/list')}
-          className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
-        >
-          全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
-        </button>
+        {canOpenList && (
+          <button
+            type="button"
+            onClick={() => navigate('/sales/tasks/list')}
+            className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
+          >
+            全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="mt-2.5 flex gap-2">
@@ -101,6 +118,8 @@ export function MyTasksCard() {
         <div className="mt-1.5 flex flex-col">
           {rows.slice(0, SHOWN).map((t) => (
             <div key={t.id} className="flex items-start gap-2.5 border-t border-border-subtle py-2">
+              {/* ⚠️ **完了にできる人にだけ出す。** 読むだけの人に出すと押した先が 403 */}
+              {canComplete && (
               <button
                 type="button"
                 aria-label={`「${t.title}」を完了にする`}
@@ -115,6 +134,7 @@ export function MyTasksCard() {
                   <Check className="h-3 w-3 text-transparent group-hover:text-primary" aria-hidden="true" />
                 </span>
               </button>
+              )}
               <span className="min-w-0 flex-1">
                 <span className="text-sub block [overflow-wrap:anywhere]">{t.title}</span>
                 <span className="text-note block truncate text-muted-foreground">

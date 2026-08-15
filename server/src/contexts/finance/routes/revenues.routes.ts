@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
-import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
+import {
+  requireAuth, requirePermission, requireAnyPermission, meetsPermissionLevel,
+} from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
@@ -13,6 +15,139 @@ import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmou
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 
 const router = Router();
+
+/**
+ * ⚠️ **帳票 PDF だけは全体のゲートより前に置きます。**
+ *
+ * この router は下で `requirePermission('budget')` を全ルートに掛けますが、
+ * **請求書・検収書を出すボタンは ⑤ 見積・請求（全案件）にもあります** —
+ * あの画面は `sales` か `budget` のどちらかで開けるので、
+ * **`sales` だけの人が押すと必ず 403** でした（レビューでの指摘 #102）。
+ *
+ * 押せるのに 403 は v4 の決めごとに反します。かといって台帳ぜんぶを
+ * `sales` に開けるわけにはいかないので、**この1本だけ**を
+ * `requireAnyPermission` にします（`billing.routes` と同じ考え方 —
+ * 同じ請求を案件管理と財務の2つの入口から扱うため）。
+ *
+ * **紙にするだけなら止めない。** 金額は ⑤ の一覧にすでに出ているので、
+ * 見えているものを PDF にするだけの操作を権限で分ける理由がありません
+ * （見積書 PDF を reader に通したときと同じ判断・v4.0.11）。
+ * **BOX に置くのは editor 以上**で、こちらは下の `canStore` が見ます。
+ */
+router.get('/:id/pdf',
+  requireAuth, requireAnyPermission(['sales', 'budget']),
+  async (req, res, next) => {
+  try {
+    const row = await queryOne(
+      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
+              p.event_start as project_start, p.event_end as project_end,
+              c.name as customer_name,
+              c.address as customer_address,
+              c.contact_name as customer_contact
+       FROM revenues r
+       LEFT JOIN projects p ON p.id = r.project_id
+       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN episodes e ON e.id = r.episode_id
+       WHERE r.id = ? AND r.deleted_at IS NULL`,
+      [req.params.id]
+    ) as any;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+
+    const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
+
+    // ?type=estimate|invoice|inspection で帳票種別を明示指定可 (未指定は売上ステータスに従う)。
+    // これにより確定売上からも「見積書」を、概算見積からも「請求書」を、いずれからも「検収書」を発行できる。
+    const typeParam = req.query.type as string | undefined;
+    const docStatus = typeParam === 'estimate' ? 'estimate'
+      : typeParam === 'invoice' ? 'confirmed'
+      : typeParam === 'inspection' ? 'inspection'
+      : (row.status || 'confirmed');
+
+    const pdfBuffer = await generateEstimatePdf({
+      billing_key: row.billing_key,
+      subtitle: row.subtitle,
+      customer_name: row.customer_name || '',
+      customer_address: row.customer_address || null,
+      customer_contact: row.customer_contact || null,
+      project_name: row.project_name || '',
+      // 月次ユニット等エピソード紐づき時は帳票ヘッダーにも月コード (GLS-B005-2607) を出す
+      gls_number: row.episode_code || row.gls_number,
+      tax_category: row.tax_category,
+      amount: row.amount,
+      recognition_date: row.recognition_date,
+      billing_date: row.billing_date,
+      payment_due_date: row.payment_due_date,
+      notes: row.notes,
+      status: docStatus,
+      project_start: row.project_start || null,
+      project_end: row.project_end || null,
+      // 発行済みなら請求書番号を紙に出す (migration 163)。未発行なら請求KEYのまま
+      invoice_no: row.invoice_no || null,
+      items: items.map((it: any) => ({
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        amount: it.amount,
+        period_start: it.period_start || null,
+        period_end: it.period_end || null,
+        item_notes: it.item_notes || null,
+        category: it.category || null,
+      })),
+    });
+
+    const docLabel = docStatus === 'estimate' ? '見積書' : docStatus === 'inspection' ? '検収書' : '請求書';
+    // v2.8.107+: ファイル名は project.gls_number (live) を使う。
+    // billing_key は revenue 作成時のスナップショット (例: "GLS001-001-1") のため、
+    // 後で project の GLS を変更してもそのままだと古い GLS のファイル名で出てしまう。
+    // billing_key の最初のダッシュまでが GLS-prefix なので、そこだけを live gls_number で
+    // 置換し、エピソード/税枝番のサフィックスは保つ。GLS 未発番ケースは billing_key そのまま。
+    let filenameKey = row.billing_key || '';
+    if (row.gls_number && filenameKey) {
+      const dash = filenameKey.indexOf('-');
+      if (dash > 0 && /^GLS\d+$/i.test(filenameKey.slice(0, dash))) {
+        filenameKey = row.gls_number + filenameKey.slice(dash);
+      }
+    }
+    const filename = `${docLabel}_${filenameKey}.pdf`;
+
+    /*
+     * ── 出したら BOX に入る（ご指示）────────────────────────────
+     *
+     * 「PDF を出す」操作がそのまま発行なので、その場で案件の BOX フォルダへ
+     * 置きます。行き先は `doc-box.service` の表（請求書・検収書は社内限りの
+     * `03_請求`、見積書は社外と共有する `01_見積・提案`）。
+     *
+     * **ダウンロードは止めません。** BOX が落ちている日に請求書を出せなく
+     * なるほうが困ります。ただし**入ったかどうかは必ずヘッダーで返し**、
+     * 画面がそのまま出します（黙って落とすと「保存されたつもり」になる）。
+     *
+     * 置くのは editor 以上。この口は reader でも通る
+     * （レガシー画面・プロジェクト管理の見積タブも呼んでいる）ので、
+     * 権限で分けずに置くと**読むだけの人が BOX に書けて**しまいます。
+     *
+     * **`sales` か `budget` のどちらかの editor で通します** — 出す口を
+     * 両方に開けた以上、置くほうだけ `budget` に固定すると、
+     * ⑤ 見積・請求から出した ⼈だけ**毎回「保存されませんでした」**になります
+     * （`billing.routes` の請求書発行が同じ2つの区画で通るのと揃えた）。
+     */
+    const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
+    const canStore = meetsPermissionLevel(user?.role, user?.permissions?.budget, 'editor')
+      || meetsPermissionLevel(user?.role, user?.permissions?.sales, 'editor');
+    const boxKind = docStatus === 'estimate' ? 'estimate'
+      : docStatus === 'inspection' ? 'inspection' : 'invoice';
+    applyDocBoxHeaders(res, canStore
+      ? await fileFinanceDocToBox(row.project_id, boxKind, filename, pdfBuffer)
+      : docBoxSkipped(boxKind, 'NO_PERMISSION'));
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('budget'));
@@ -101,113 +236,6 @@ router.get('/:id', async (req, res) => {
   const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);
   row.items = items;
   res.json({ success: true, data: row });
-});
-
-// PDF出力
-router.get('/:id/pdf', async (req, res, next) => {
-  try {
-    const row = await queryOne(
-      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
-              p.event_start as project_start, p.event_end as project_end,
-              c.name as customer_name,
-              c.address as customer_address,
-              c.contact_name as customer_contact
-       FROM revenues r
-       LEFT JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = r.customer_id
-       LEFT JOIN episodes e ON e.id = r.episode_id
-       WHERE r.id = ? AND r.deleted_at IS NULL`,
-      [req.params.id]
-    ) as any;
-    if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
-
-    const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
-
-    // ?type=estimate|invoice|inspection で帳票種別を明示指定可 (未指定は売上ステータスに従う)。
-    // これにより確定売上からも「見積書」を、概算見積からも「請求書」を、いずれからも「検収書」を発行できる。
-    const typeParam = req.query.type as string | undefined;
-    const docStatus = typeParam === 'estimate' ? 'estimate'
-      : typeParam === 'invoice' ? 'confirmed'
-      : typeParam === 'inspection' ? 'inspection'
-      : (row.status || 'confirmed');
-
-    const pdfBuffer = await generateEstimatePdf({
-      billing_key: row.billing_key,
-      subtitle: row.subtitle,
-      customer_name: row.customer_name || '',
-      customer_address: row.customer_address || null,
-      customer_contact: row.customer_contact || null,
-      project_name: row.project_name || '',
-      // 月次ユニット等エピソード紐づき時は帳票ヘッダーにも月コード (GLS-B005-2607) を出す
-      gls_number: row.episode_code || row.gls_number,
-      tax_category: row.tax_category,
-      amount: row.amount,
-      recognition_date: row.recognition_date,
-      billing_date: row.billing_date,
-      payment_due_date: row.payment_due_date,
-      notes: row.notes,
-      status: docStatus,
-      project_start: row.project_start || null,
-      project_end: row.project_end || null,
-      // 発行済みなら請求書番号を紙に出す (migration 163)。未発行なら請求KEYのまま
-      invoice_no: row.invoice_no || null,
-      items: items.map((it: any) => ({
-        description: it.description,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        amount: it.amount,
-        period_start: it.period_start || null,
-        period_end: it.period_end || null,
-        item_notes: it.item_notes || null,
-        category: it.category || null,
-      })),
-    });
-
-    const docLabel = docStatus === 'estimate' ? '見積書' : docStatus === 'inspection' ? '検収書' : '請求書';
-    // v2.8.107+: ファイル名は project.gls_number (live) を使う。
-    // billing_key は revenue 作成時のスナップショット (例: "GLS001-001-1") のため、
-    // 後で project の GLS を変更してもそのままだと古い GLS のファイル名で出てしまう。
-    // billing_key の最初のダッシュまでが GLS-prefix なので、そこだけを live gls_number で
-    // 置換し、エピソード/税枝番のサフィックスは保つ。GLS 未発番ケースは billing_key そのまま。
-    let filenameKey = row.billing_key || '';
-    if (row.gls_number && filenameKey) {
-      const dash = filenameKey.indexOf('-');
-      if (dash > 0 && /^GLS\d+$/i.test(filenameKey.slice(0, dash))) {
-        filenameKey = row.gls_number + filenameKey.slice(dash);
-      }
-    }
-    const filename = `${docLabel}_${filenameKey}.pdf`;
-
-    /*
-     * ── 出したら BOX に入る（ご指示）────────────────────────────
-     *
-     * 「PDF を出す」操作がそのまま発行なので、その場で案件の BOX フォルダへ
-     * 置きます。行き先は `doc-box.service` の表（請求書・検収書は社内限りの
-     * `03_請求`、見積書は社外と共有する `01_見積・提案`）。
-     *
-     * **ダウンロードは止めません。** BOX が落ちている日に請求書を出せなく
-     * なるほうが困ります。ただし**入ったかどうかは必ずヘッダーで返し**、
-     * 画面がそのまま出します（黙って落とすと「保存されたつもり」になる）。
-     *
-     * 置くのは `budget` の editor 以上。この口は reader でも通る
-     * （レガシー画面・プロジェクト管理の見積タブも呼んでいる）ので、
-     * 権限で分けずに置くと**読むだけの人が BOX に書けて**しまいます。
-     */
-    const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
-    const canStore = meetsPermissionLevel(user?.role, user?.permissions?.budget, 'editor');
-    const boxKind = docStatus === 'estimate' ? 'estimate'
-      : docStatus === 'inspection' ? 'inspection' : 'invoice';
-    applyDocBoxHeaders(res, canStore
-      ? await fileFinanceDocToBox(row.project_id, boxKind, filename, pdfBuffer)
-      : docBoxSkipped(boxKind, 'NO_PERMISSION'));
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.send(pdfBuffer);
-  } catch (err) {
-    next(err);
-  }
 });
 
 // 請求書 Excel 出力 (業務推進への監査提出用・BOX 格納フォーマット準拠)

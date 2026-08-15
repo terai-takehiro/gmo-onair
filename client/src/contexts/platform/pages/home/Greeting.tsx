@@ -12,7 +12,6 @@
  * `sales` も `dailyops` も無い人に「0件です」と書くと、
  * **見えていないだけなのに「無い」と言い切る**ことになります。その1行ごと出しません。
  */
-import { useNavigate } from 'react-router-dom';
 import { CountUp } from './Reveal';
 
 /**
@@ -35,6 +34,7 @@ export function updatedAt(ms: number): string {
 
 export function Greeting({
   greeting, userName, mobile, canCount, waitingTotal, myOverdue, lastLoaded,
+  onWaiting, onOverdue,
 }: {
   greeting: string;
   userName?: string | null;
@@ -43,10 +43,18 @@ export function Greeting({
   canCount: boolean;
   waitingTotal: number;
   myOverdue: number;
+  /**
+   * 数字を押したときの動き。**開けない人には渡さない**（`undefined`）で、
+   * そのときは押せない字で出します。
+   * ⚠️ ここで行き先を決め打ちにすると、`dailyops` だけの人は押した先が
+   * 「権限がありません」になります（レビューでの指摘）。**行き先を知っているのは
+   * 呼ぶ側**（`HomePage`）で、この部品は見た目だけを持ちます。
+   */
+  onWaiting?: () => void;
+  onOverdue?: () => void;
   /** 数字を取ってきた時刻（0 = まだ取れていない） */
   lastLoaded: number;
 }) {
-  const navigate = useNavigate();
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
@@ -67,10 +75,10 @@ export function Greeting({
              */
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {waitingTotal > 0 && (
-                <CountChip label="お待たせ" n={waitingTotal} onClick={() => navigate('/sales/projects/new')} />
+                <CountChip label="お待たせ" n={waitingTotal} onClick={onWaiting} />
               )}
               {myOverdue > 0 && (
-                <CountChip label="期限切れ" n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
+                <CountChip label="期限切れ" n={myOverdue} onClick={onOverdue} />
               )}
             </div>
           ) : (
@@ -84,14 +92,14 @@ export function Greeting({
               {waitingTotal > 0 && (
                 <>
                   お客様を待たせているものが{' '}
-                  <CountLink n={waitingTotal} onClick={() => navigate('/sales/projects/new')} />
+                  <CountLink n={waitingTotal} onClick={onWaiting} />
                 </>
               )}
               {waitingTotal > 0 && myOverdue > 0 && '、'}
               {myOverdue > 0 && (
                 <>
                   自分の期限を過ぎたものが{' '}
-                  <CountLink n={myOverdue} onClick={() => navigate('/sales/tasks/list')} />
+                  <CountLink n={myOverdue} onClick={onOverdue} />
                 </>
               )}
               {' '}あります。
@@ -113,7 +121,11 @@ export function Greeting({
  * 挨拶の下の件数（PC の文章の中）。**赤くして押せるようにする**。
  * 0 件のときは呼び出し側が出さない — 「0件」を赤で出すと目を引くだけで何も起きない。
  */
-function CountLink({ n, onClick }: { n: number; onClick: () => void }) {
+/** ⚠️ **行き先が無いときは押せない字にする**（押して「権限がありません」に送らない） */
+function CountLink({ n, onClick }: { n: number; onClick?: () => void }) {
+  if (!onClick) {
+    return <span className="font-number font-bold text-destructive"><CountUp n={n} />件</span>;
+  }
   return (
     <button type="button" onClick={onClick} className="font-number font-bold text-destructive hover:underline">
       <CountUp n={n} />件
@@ -122,15 +134,17 @@ function CountLink({ n, onClick }: { n: number; onClick: () => void }) {
 }
 
 /** 挨拶の下の件数チップ（スマホ。モックの `お待たせ 3件 ・ 期限切れ 2件`） */
-function CountChip({ label, n, onClick }: { label: string; n: number; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-badge min-h-tap inline-flex items-center gap-1.5 border border-destructive-border bg-destructive-surface px-2.5 py-1 text-sub text-destructive lg:min-h-0"
-    >
+function CountChip({ label, n, onClick }: { label: string; n: number; onClick?: () => void }) {
+  const cls = 'rounded-badge min-h-tap inline-flex items-center gap-1.5 border border-destructive-border bg-destructive-surface px-2.5 py-1 text-sub text-destructive lg:min-h-0';
+  const body = (
+    <>
       {label}
       <span className="font-number font-bold"><CountUp n={n} />件</span>
-    </button>
+    </>
+  );
+  // 行き先が無いときは押せない札にする（消さない — 件数は読ませたい）
+  if (!onClick) return <span className={cls}>{body}</span>;
+  return (
+    <button type="button" onClick={onClick} className={cls}>{body}</button>
   );
 }
