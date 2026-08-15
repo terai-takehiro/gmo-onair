@@ -37,6 +37,7 @@ import {
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -108,6 +109,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
             <RowMain>件名</RowMain>
             <RowSlot w={72}>状態</RowSlot>
             <RowSlot w={128}>金額</RowSlot>
+            <RowSlot w={56} align="right" placeholder="" />
           </RowHeader>
           {rows.map((e) => (
             <Row
@@ -138,6 +140,14 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
               <RowSlot w={128}>
                 <Money value={e.subtotal - e.discount} className="w-full justify-end" />
               </RowSlot>
+              {/* **見積書 PDF はどの版からも出せる**（案件の見積タブと同じ決めごと）。
+                  出したあと（`sent`）や旧版（`superseded`）こそ「何を出したか」を
+                  紙で確かめたい場面が多く、状態で隠すといちばん要るときに押せない。
+                  押すと**社外と共有するフォルダの `01_見積・提案`** にも入る
+                  （行き先は `doc-box-dest.ts` の1つの表・案件と共用）*/}
+              <RowSlot w={56} align="right" placeholder="">
+                <DocPdfButton path={`/gpm/estimates/${e.id}/pdf`} kind="estimate" />
+              </RowSlot>
             </Row>
           ))}
         </div>
@@ -146,6 +156,9 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
       {openId && <ItemsPanel estimateId={openId} canEdit={canEdit} />}
 
       <p className="text-note text-muted-foreground">
+        行の右の書類のアイコンで<strong className="font-bold">見積書 PDF</strong>を出せます
+        （出すと<strong className="font-bold">社外と共有するフォルダの「01_見積・提案」</strong>にも入ります。
+        行き先は案件の帳票と同じ表です）。
         行を押すと<strong className="font-bold">明細</strong>を開けます。
         中身は<strong className="font-bold">案件の見積と同じ部品</strong>で、
         合計と粗利の計算も1か所です（写しを作ると、片方だけ直した日から金額が食い違います）。

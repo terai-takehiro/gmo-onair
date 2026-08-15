@@ -185,20 +185,44 @@ export function mapBoxItems(entries: Record<string, unknown>[]): BoxItem[] {
  * 財務（`revenues` の帳票）からも呼ぶことになったので BOX の土台側へ移しました
  * （`shared` が `contexts` を読む形にはしない）。
  */
+export interface EnsuredFolder {
+  id: string;
+  /**
+   * **実際に使ったフォルダの名前。** 昔の綴りのフォルダを掴んだときは
+   * `name` ではなくそちらが入ります。**呼ぶ側はこれを画面に出すこと** —
+   * 頼んだ名前をそのまま出すと、**昔の綴りのままの案件でだけ
+   * 「01_見積・提案 に入れました」と嘘になり、人は空のフォルダを探しに行きます**
+   * （まさにこの受け入れが要る案件で外れる）。
+   */
+  name: string;
+}
+
 export async function ensureSubfolder(
   parentFolderId: string,
   name: string,
-): Promise<string | null> {
+  /**
+   * 昔の綴り。**すでにあるならそれを使い、新しい名前で作り直しません** —
+   * 作ると同じ用途のフォルダが隣に2つ並び、どちらに入ったのか誰も分からなくなります
+   * （プロジェクト管理の `01_個別見積` → `01_見積・提案` の言い換えで要る）。
+   * 探す順は「新しい名前 → 昔の名前」で、**どちらも無いときだけ新しい名前で作ります**。
+   */
+  alsoAccept: string[] = [],
+): Promise<EnsuredFolder | null> {
   if (!isBoxConfigured()) return null;
   const client = getBoxClient();
   if (!client) return null;
 
-  const find = async (): Promise<string | null> => {
+  const wanted = [name, ...alsoAccept];
+  const find = async (): Promise<EnsuredFolder | null> => {
     try {
       const res = (await client.folders.getItems(parentFolderId, { limit: 200 })) as
         { entries?: { type?: string; id?: string; name?: string }[] };
-      const hit = (res.entries ?? []).find((e) => e.type === 'folder' && e.name === name);
-      return hit?.id ?? null;
+      const folders = (res.entries ?? []).filter((e) => e.type === 'folder');
+      for (const w of wanted) {
+        const hit = folders.find((e) => e.name === w);
+        if (hit?.id) return { id: hit.id, name: w };
+      }
+      return null;
     } catch (err) {
       console.warn(`[box] Failed to list ${parentFolderId}:`, (err as Error).message);
       return null;
@@ -209,7 +233,7 @@ export async function ensureSubfolder(
   if (existing) return existing;
   try {
     const created = (await client.folders.create(parentFolderId, name)) as { id: string };
-    return created.id;
+    return { id: created.id, name };
   } catch (err) {
     // 同名あり (409) は、他の人が先に作ったということ。探し直して使う
     const again = await find();

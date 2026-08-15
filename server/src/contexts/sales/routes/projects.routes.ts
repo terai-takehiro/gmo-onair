@@ -237,7 +237,7 @@ router.post(
       if (!photos) {
         throw new AppError(502, 'BOX_UNAVAILABLE', '写真のフォルダを用意できませんでした。あとでもう一度お試しください。');
       }
-      folderId = photos;
+      folderId = photos.id;
     }
 
     const { uploaded: done, failed } = await uploadFiles(folderId, files);

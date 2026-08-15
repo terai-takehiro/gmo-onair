@@ -33,6 +33,31 @@ export interface EstimatePdf {
   projectId: string;
 }
 
+/**
+ * 明細の分類（帯の文字）。
+ *
+ * `estimate_items.category` に入るのは**画面が持つ3つの鍵**
+ * （`client/src/contexts/sales/pages/projectDetail/EstimateItems.tsx` の `CATEGORIES`）で、
+ * **そのまま紙に出すと帯が「studio」「tech」と英語で並びます**（実際にそう出ていた）。
+ *
+ * 知らない値は**そのまま出します** — 売上の明細（請求書・検収書）は分類が自由入力で、
+ * 「音響」のように日本語がそのまま入っており、ここで落とすと帯が消えます。
+ * 値引きの行（`値引き`）も同じ道を通ります。
+ *
+ * ⚠️ 画面と食い違うと**同じ見積が画面と紙で違う分け方に見える**ので、
+ * `shared/tests/estimateCategory.test.ts` が画面側の表と突き合わせます。
+ */
+export const ESTIMATE_CATEGORY_LABEL: Record<string, string> = {
+  studio: 'スタジオ',
+  tech: '技術・人員',
+  other: '制作・その他',
+};
+
+function categoryLabel(category: string | null): string | null {
+  if (!category) return null;
+  return ESTIMATE_CATEGORY_LABEL[category] ?? category;
+}
+
 /** BOX / OS のファイル名で使えない文字を落とす（案件名がそのまま入るため） */
 function safeName(name: string): string {
   return name.replace(/[/\\:?*|"<>]/g, '').trim();
@@ -47,8 +72,21 @@ function safeName(name: string): string {
  */
 export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf> {
   const est = await queryOne(
+    // **`sent_at` だけは TIMESTAMP**（ほかの日付は全部 TEXT）なので、
+    // pg は文字列ではなく Date を返します。`String(...).slice(0, 10)` にすると
+    // 紙の右上が **「Thu Jun 18」**になる（`toDateString()` の頭を切った形。実際にそう出ていた）。
+    //
+    // 日付は SQL で作ります。**時間帯を2回変える**のが要点で:
+    //  ・`sent_at` は時間帯を持たない列に `NOW()` を入れたもの＝**DB の設定の壁時計**
+    //    （コンテナは UTC なので UTC の時刻が入っている）
+    //  ・`AT TIME ZONE current_setting('TimeZone')` で**書いたときと同じ時間帯として読み**、
+    //    `AT TIME ZONE 'Asia/Tokyo'` で日本の壁時計にする
+    // 片方だけ書くと、夕方に出した見積の発行日が1日ずれます（JST の朝 = 前日の UTC）。
+    // 'UTC' とベタ書きしないのは、DB の時間帯が JST の環境で逆に9時間ずれるため
     `SELECT e.id, e.project_id, e.version, e.title, e.status, e.tax_category,
-            e.subtotal, e.discount, e.valid_until, e.notes, e.sent_at, e.created_at,
+            e.subtotal, e.discount, e.valid_until, e.notes, e.created_at,
+            to_char(e.sent_at AT TIME ZONE current_setting('TimeZone') AT TIME ZONE 'Asia/Tokyo',
+                    'YYYY-MM-DD') AS sent_on,
             p.name AS project_name, p.gls_number,
             p.event_start AS project_start, p.event_end AS project_end,
             c.name AS customer_name, c.address AS customer_address,
@@ -76,7 +114,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     period_start: null,
     period_end:   null,
     item_notes:   (it.item_notes as string | null) ?? null,
-    category:     (it.category as string | null) ?? null,
+    category:     categoryLabel(it.category as string | null),
   }));
   if (discount > 0) {
     // **明細と同じ分類には入れない。** 入れるとその分類の小計から値引きが引かれ、
@@ -107,7 +145,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     amount: (Number(est.subtotal) || 0) - discount,
     // 発行日は「出した日」。まだ出していない下書きは今日の日付で出す
     recognition_date: null,
-    billing_date: est.sent_at ? String(est.sent_at).slice(0, 10) : null,
+    billing_date: (est.sent_on as string | null) || null,
     payment_due_date: null,
     notes: (est.notes as string | null) || null,
     status: 'estimate',

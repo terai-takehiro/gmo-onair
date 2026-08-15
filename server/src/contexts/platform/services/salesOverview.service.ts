@@ -13,6 +13,7 @@
  * 同じ数字を2か所で数えると必ず食い違う。
  */
 import { queryAll, queryOne } from '../../../shared/db/connection';
+import { jstDate, jstMonthRange, shiftYmd } from '../../../shared/utils/jst';
 
 /**
  * 「最後の動き」の式。**案件一覧 (`project.service`) と同じ考え方**で、
@@ -84,16 +85,23 @@ export interface StuckProject {
   why: string;
 }
 
-/** YYYY-MM-DD。**ローカル日付で作る** — `toISOString()` は UTC なので日本時間の朝が前日になる */
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+/*
+ * ⚠️ ここには `ymd()` があり、こう書いてあった:
+ *   「**ローカル日付で作る** — `toISOString()` は UTC なので日本時間の朝が前日になる」
+ * 危険は正しく見えていたのに、**コンテナのローカルがそもそも UTC** なので
+ * 直っていなかった（`TZ` はどこにも設定していない）。`jst.ts` に寄せた。
+ */
 
 export async function getSalesOverview(now = new Date()) {
-  const today = ymd(now);
-  const weekEnd = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+  // ⚠️ **日本の壁時計で数える。** ここは以前 `now.getFullYear()` のような
+  // ローカル時刻の取得を使っていたが、コンテナは **UTC で動く**ので
+  // **JST の 00:00〜08:59 は「今日」が前日**になり、月初は先月の集計が出ていた
+  // （画面のヘッダーは端末の時計なので今日の日付。数字だけ前日という食い違い方をする）。
+  // 週の終わりは**日付の足し算**で出す — `new Date(y, m, d + 6)` は
+  // サーバーの時間帯で解釈されるので、ここでも時差が混じる
+  const today = jstDate(now);
+  const weekEnd = shiftYmd(today, 6);
+  const { start: monthStart, end: monthEnd } = jstMonthRange(now);
 
   const [moves, week, quotes, revenue, stuckRows, won, history] = await Promise.all([
     // ── 進行中の件数と、そのうち直近7日に動いたもの / 止まっているもの ──
