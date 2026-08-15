@@ -43,10 +43,22 @@ describe('拾わなかったものを画面に出す', () => {
   });
 
   it('読めなかった添付も同じ列に並べる', () => {
-    // Anthropic は画像4種類だけ。**落とすのは変えず、落としたことを返す**（#75）
+    // **落とすのは変えず、落としたことを返す**（#75）
     expect(AI).toMatch(/export function unreadableAttachments/);
-    expect(AI).toMatch(/if \(provider !== 'anthropic'\) return \[\];/);
     expect(ROUTES).toMatch(/この形式（\$\{d\.mime\}）は読めなかったので、AI に渡していません/);
+  });
+
+  /**
+   * ⚠️ **相手ごとに違う、と思い込まないこと**（この PR のレビューで指摘された）。
+   * 最初の版は Anthropic だけを見ていましたが、**主経路は OpenAI** です。
+   * そちらへ HEIC を渡すと **400 で解析まるごとが規則ベースへ落ち**、
+   * どのファイルが原因かは出ません＝**直そうとした形がそのまま残っていました**。
+   */
+  it('OpenAI でも規則ベースだけの環境でも、読めない添付を数える', () => {
+    expect(AI).toMatch(/const AI_IMAGE_TYPES = \['image\/jpeg', 'image\/png', 'image\/gif', 'image\/webp'\]/);
+    expect(AI).toMatch(/if \(!provider\) return false;\s+\/\/ 規則ベースは添付を1つも読まない/);
+    // **読めないものは渡さない**（渡すと解析まるごとが落ちる）
+    expect(AI).toMatch(/\.filter\(\(a\) => readableForProvider\(provider, a\.mime\)\)/);
   });
 
   it('規則ベースに落ちたことも並べる', () => {
