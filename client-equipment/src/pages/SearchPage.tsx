@@ -73,7 +73,16 @@ export default function SearchPage() {
     // **どちらが先に走ったかで結果が変わる**（気づけない壊れ方）
     queryKey: ['equipment-search', debounced],
     queryFn: async () =>
-      (await api.get('/equipment/items', { params: { search: debounced } })).data.data as EquipmentRecord[],
+      /*
+       * ⚠️ **`include_children=1` を渡す**（レビューでの指摘 #70）。
+       * 台帳は木で見せるので既定では親だけを返しますが、**ここは
+       * 「その1点を当てる」画面**です。渡さないと**カメラセットの中の
+       * レンズが1つも出ません** — 画面の下には「付属品も一緒に出ます」と
+       * 書いてあるので、書いてあるのに出ない状態でした。
+       */
+      (await api.get('/equipment/items', {
+        params: { search: debounced, include_children: '1' },
+      })).data.data as EquipmentRecord[],
     enabled: searching,
   });
   // ケーブル・コネクタは表が小さいので丸ごと引いて画面側で当てる

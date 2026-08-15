@@ -182,15 +182,44 @@ export const itemService = {
        * 速さは変わらない。
        */
       const strip = (col: string) => `REPLACE(REPLACE(REPLACE(${col}, '-', ''), ' ', ''), '_', '')`;
-      sql += ` AND (ei.name ILIKE $${i} OR ei.eq_code ILIKE $${i + 1} OR em.name ILIKE $${i + 2}`
-        + ` OR ei.model_number ILIKE $${i + 3} OR ei.serial_number ILIKE $${i + 4}`
-        + ` OR ${strip('ei.eq_code')} ILIKE $${i + 5}`
-        + ` OR ${strip('ei.model_number')} ILIKE $${i + 6}`
-        + ` OR ${strip('ei.serial_number')} ILIKE $${i + 7})`;
-      const s = `%${filter.search}%`;
-      const bare = `%${filter.search.replace(/[-\s_]/g, '')}%`;
-      params.push(s, s, s, s, s, bare, bare, bare);
-      i += 8;
+      /*
+       * ⚠️ **打った文字だけを寄せてはいけない**（レビューでの指摘・この PR で直した）。
+       *
+       * 最初の版は打たれた語だけを NFKC で半角に寄せていました。すると
+       * **台帳の値のほうが全角だったとき**（Excel 取込で `ＦＸ９` と入っている等）、
+       * `ＦＸ９` と打つと語だけ `FX9` になり、**今まで当たっていたものが
+       * 当たらなくなります** — 直したつもりで、別の当たり方を壊していました。
+       *
+       * **両側を寄せて比べます**（Postgres の `normalize(…, NFKC)`。PG 13 以降）。
+       * これで 全角↔半角 のどちらの組み合わせでも当たります。
+       * **素のままの比較も残す** ので、いままで当たっていたものは全部当たります
+       * （`ILIKE '%…%'` はもともと索引を使えないので、関数を挟んでも速さは変わりません）。
+       */
+      const norm = (col: string) => `normalize(${col}, NFKC)`;
+      /** 素のまま比べる列（今までの当たり方を1つも失わないため） */
+      const RAW_COLS = [
+        'ei.name', 'ei.eq_code', 'em.name', 'ei.model_number', 'ei.serial_number',
+        'el.name', 'ei.location_detail',
+      ];
+      /** 寄せて比べる列（全角↔半角）。**同じ並び**にしておく */
+      const NORM_COLS = RAW_COLS;
+      /**
+       * 区切り記号（ハイフン・空白・アンダースコア）を落として比べる列。
+       * **ID・型名・製造番号だけ**にする — 名前まで落とすと、日本語の中黒や
+       * 括弧が消えて別の機材が混ざって出ます。
+       */
+      const BARE_COLS = ['ei.eq_code', 'ei.model_number', 'ei.serial_number'];
+
+      const raw = String(filter.search);
+      const term = raw.normalize('NFKC');
+      const conds: string[] = [];
+      for (const c of RAW_COLS) { conds.push(`${c} ILIKE $${i++}`); params.push(`%${raw}%`); }
+      for (const c of NORM_COLS) { conds.push(`${norm(c)} ILIKE $${i++}`); params.push(`%${term}%`); }
+      for (const c of BARE_COLS) {
+        conds.push(`${strip(norm(c))} ILIKE $${i++}`);
+        params.push(`%${term.replace(/[-\s_]/g, '')}%`);
+      }
+      sql += ` AND (${conds.join(' OR ')})`;
     }
 
     // Count (where 句を流用するため、本体クエリを wrap)
