@@ -581,8 +581,15 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
 // 投入ログ — 後から遡ってレビューする画面
 // ══════════════════════════════════════════════════
 
+/**
+ * ⚠️ **5つとも書くこと**（レビューでの指摘 #77）。前の版は録音の2つ
+ * （`transcribing` / `failed`）が抜けており、`?? it.status` に落ちて
+ * **投入ログに英語のまま**（`transcribing`）出ていました。
+ * 応答は `as TaskIntake[]` で受けるので**型チェックには出ません**。
+ */
 const INTAKE_STATUS_LABELS: Record<string, string> = {
   pending: '確認待ち', committed: '登録済み', discarded: '破棄',
+  transcribing: '文字起こし中', failed: '文字起こし失敗',
 };
 const INTAKE_KIND_LABELS: Record<string, string> = {
   freeform: 'ひとこと', minutes: '議事録', mail: 'メール', chat: 'チャット', other: 'その他',
@@ -647,6 +654,15 @@ function IntakeRow({ it, onOpen }: { it: TaskIntake; onOpen: () => void }) {
         {pending && (
           <p className="mt-1.5 text-[11px] text-sky-800">
             確認待ちです。登録しないと相手には届きません。案件管理アプリのトップから確認してください。
+          </p>
+        )}
+        {/*
+          **失敗した理由をここに出す。** 出さないと「録音したのに何も出てこない」で終わり、
+          投げた本人は録り直すかどうかも決められない（サーバーは理由を返している）
+        */}
+        {it.status === 'failed' && (
+          <p className="mt-1.5 text-[11px] text-destructive">
+            {it.error_message ?? '文字起こしに失敗しました。もう一度投げ直してください'}
           </p>
         )}
       </CardContent>

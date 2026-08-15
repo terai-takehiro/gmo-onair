@@ -134,6 +134,10 @@ const SELECT_INTAKE = `
          i.committed_at, i.discarded_at, i.note,
          i.error_message, i.transcribed_at,
          i.created_at, i.created_by, u.name AS created_by_name,
+         -- 文字起こし中のまま止まっている行（withStaleCheck が読む）。
+         -- **JS で日付を組み立て直さない** — pg は Date を返すので必ず壊れる
+         (i.status = 'transcribing'
+           AND i.created_at < NOW() - (INTERVAL '1 millisecond' * ${TRANSCRIBE_STALE_MS})) AS stuck,
          (SELECT COUNT(*) FROM project_tasks t
            WHERE t.source_ref = i.id AND t.deleted_at IS NULL) AS task_count
   FROM task_intake i
@@ -193,17 +197,40 @@ const DIFF_FIELDS = [
  * コンテナが再起動すると誰も終わらせないまま `transcribing` が残ります。
  * **DB は書き換えません** — 書き換えると、生き返った処理が
  * `pending` に戻したときに競合します（`minutes.service` と同じ扱い）。
+ *
+ * ⚠️ **止まったかどうかは SQL で数える**（`SELECT_INTAKE` の `stuck`）。
+ * 前の版は JS で `new Date(String(row.created_at).replace(' ', 'T'))` と
+ * 書いていましたが、**pg は `timestamp` を `Date` で返します** —
+ * `String(Date)` は `Sat Aug 15 2026 10:53:12 GMT+0000 (…)` なので、
+ * 空白を1つ `T` に替えると `SatTAug …` になり **必ず `Invalid Date`** です。
+ * `Number.isNaN(started)` で早期に返していたので、
+ * **この関数は一度も失敗として見せたことがありませんでした**（実測）。
+ * 型チェックにも lint にも出ません（`created_at` の宣言は `string`）。
+ * 動いている `minutes.service`（`listMinutes` の `stuck`）と同じ形にします。
  */
-function withStaleCheck(row: TaskIntake): TaskIntake {
-  if (row.status !== 'transcribing') return row;
-  const started = new Date(String(row.created_at).replace(' ', 'T')).getTime();
-  if (Number.isNaN(started) || Date.now() - started < TRANSCRIBE_STALE_MS) return row;
+export function withStaleCheck(row: TaskIntake, stuck: boolean): TaskIntake {
+  if (row.status !== 'transcribing' || !stuck) return row;
   return {
     ...row,
     status: 'failed',
     error_message: row.error_message
       ?? '文字起こしが終わらないまま止まっています（サーバーが途中で再起動した可能性があります）。もう一度投げ直してください',
   };
+}
+
+/**
+ * 行を1件ぶんの応答にする。**詳細も一覧もここを通す**（レビューでの指摘 #77）—
+ * 前の版は詳細だけが `withStaleCheck` を呼んでおり、**同じ投入が
+ * 一覧と詳細で違う状態**に見えていました（一覧だけ永久に「文字起こし中」）。
+ *
+ * `stuck` は判定のための列なので**応答からは落とす**（画面が読む値ではない）。
+ */
+function toIntake(row: Record<string, unknown>): TaskIntake {
+  const { stuck, ...rest } = row as Record<string, unknown> & { stuck?: boolean };
+  return withStaleCheck({
+    ...(rest as unknown as TaskIntake),
+    task_count: Number(row.task_count ?? 0),
+  }, Boolean(stuck));
 }
 
 /** `withTransaction` が渡してくる口。ここで要るのは 2 つだけ */
@@ -711,15 +738,25 @@ export const taskIntakeService = {
   async get(id: string): Promise<TaskIntake> {
     const row = await queryOne(`${SELECT_INTAKE} WHERE i.id = ? AND i.deleted_at IS NULL`, [id]);
     if (!row) throw new AppError(404, 'NOT_FOUND', '投入が見つかりません');
-    return withStaleCheck({
-      ...(row as unknown as TaskIntake),
-      task_count: Number(row.task_count ?? 0),
-    });
+    return toIntake(row);
   },
 
   /**
    * 投入ログ。既定は本人の分だけ (投げたテキストは個人の記録なので)。
    * status を指定すれば「確認待ちだけ」を取れる。
+   *
+   * ⚠️ **一覧も `withStaleCheck` を通すこと**（レビューでの指摘 #77）。
+   * 前の版は詳細（`get`）だけが通しており、**投入ログでは
+   * サーバーが再起動して止まった行が永久に「文字起こし中」のまま**でした。
+   * 止まった行は `pending` でも `failed` でもないので、
+   * **「確認待ち」の催促にも「失敗」の一覧にも出ません** — つまり
+   * 投げた本人には**録音が消えたようにしか見えず、理由もどこにも出ません**。
+   *
+   * **絞り込みも読んだあとの状態で合わせる。** DB には `transcribing` のまま
+   * 残っているので、`status='failed'` を SQL にそのまま渡すと
+   * **止まった行が1件も出ません**（いちばん取り出したい行が落ちる）。
+   * その2つを訊かれたときは両方引いてから、見せる状態で絞ります
+   * （そのぶん返る件数が `limit` より少なくなることがあります）。
    */
   async list(
     opts: { userId?: string; status?: IntakeStatus; kind?: IntakeKind; limit?: number } = {}
@@ -727,7 +764,12 @@ export const taskIntakeService = {
     let where = 'WHERE i.deleted_at IS NULL';
     const params: unknown[] = [];
     if (opts.userId) { where += ' AND i.created_by = ?'; params.push(opts.userId); }
-    if (opts.status) { where += ' AND i.status = ?'; params.push(opts.status); }
+    const asked = opts.status;
+    if (asked === 'failed' || asked === 'transcribing') {
+      where += " AND i.status IN ('failed', 'transcribing')";
+    } else if (asked) {
+      where += ' AND i.status = ?'; params.push(asked);
+    }
     if (opts.kind) { where += ' AND i.kind = ?'; params.push(opts.kind); }
 
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
@@ -735,10 +777,8 @@ export const taskIntakeService = {
       `${SELECT_INTAKE} ${where} ORDER BY i.created_at DESC LIMIT ?`,
       [...params, limit]
     );
-    return rows.map((r) => ({
-      ...(r as unknown as TaskIntake),
-      task_count: Number(r.task_count ?? 0),
-    }));
+    const list = rows.map(toIntake);
+    return asked ? list.filter((r) => r.status === asked) : list;
   },
 
   /** この投入から生まれたタスク (遡ってレビューするため) */

@@ -10,7 +10,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './api';
 
 export type DelegationStatus = 'requested' | 'accepted' | 'declined' | 'consulting' | 'done';
-export type IntakeStatus = 'pending' | 'committed' | 'discarded';
+/**
+ * 投入の状態。**サーバー（`task-intake.service`）の `IntakeStatus` と同じ5つ**。
+ *
+ * ⚠️ 前の版はここに `transcribing` / `failed` が無く、しかも
+ * 一覧の応答は `as TaskIntake[]` で受けているので**型チェックには出ませんでした**。
+ * その結果、録音の投入は投入ログに**英語のまま**（`transcribing`）出ていました。
+ */
+export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
 
 export interface MyTask {
@@ -66,6 +73,8 @@ export interface TaskIntake {
   created_at: string;
   created_by: string;
   created_by_name?: string | null;
+  /** 文字起こしが失敗した理由。**残さないと「押しても何も起きない」になる** */
+  error_message?: string | null;
   /** この投入から生まれたタスクの件数 */
   task_count: number;
 }

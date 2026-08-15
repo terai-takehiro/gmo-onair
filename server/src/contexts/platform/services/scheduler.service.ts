@@ -252,6 +252,18 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
  * 検証環境や手元では鍵が無いことがあります。**毎日エラーを出さない** —
  * 出すと本当の失敗が埋もれます。
  */
+/**
+ * 1晩に作る下書きの上限。**増やす前に AI の費用と所要時間を測ること**
+ * （1件が数十秒かかります）。
+ */
+const KPT_PER_NIGHT = 20;
+
+/**
+ * さかのぼって拾う日数。**上限で切ったぶんを翌晩以降に拾う**ための窓で、
+ * 短すぎると取りこぼしが消え、長すぎると「もう振り返らない案件」まで起こします。
+ */
+const KPT_LOOKBACK_DAYS = 7;
+
 async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
   if (!isKptAiConfigured()) return [];
   const yesterday = shiftDate(today, -1);
@@ -261,16 +273,37 @@ async function kptDraftYesterday(today: string): Promise<NotifyInput[]> {
    * 失注は対象外 — 実施していないので、ふりかえる中身がありません。
    * 既に KPT が1件でもある案件も外します（人が先に書いていたら邪魔しない）。
    */
+  /*
+   * ⚠️ **1晩で片づかなかったぶんを翌晩に拾う**（レビューでの指摘 #83）。
+   *
+   * 前の版は「**昨日**終わった案件」だけを見て `LIMIT 20` で切っていました。
+   * 同じ日に 21 件以上終わる週（大きなイベントの前後では普通に起きます）では、
+   * **21 件目からは下書きが一生作られません** — この仕事は日に1回で、
+   * 翌日はまた「その日の昨日」を見るので、**取りこぼしは二度と拾われません**。
+   * しかも作られなかったことは**どこにも出ません**。
+   *
+   * **窓を7日にして、古いものから順に**片づけます。1晩あたりの上限（20 件）は
+   * そのままなので、AI の呼び出しが増えることはありません。
+   * すでに KPT がある案件は `NOT EXISTS` が外すので、二度作られません。
+   */
+  const from = shiftDate(today, -KPT_LOOKBACK_DAYS);
   const rows = await queryAll(
-    `SELECT p.id, p.name, p.assigned_to
+    `SELECT p.id, p.name, p.assigned_to,
+            COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) AS ended_on
        FROM projects p
       WHERE p.deleted_at IS NULL
         AND p.stage <> 'e_lost'
-        AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) = ?
+        AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, '')) BETWEEN ? AND ?
         AND NOT EXISTS (SELECT 1 FROM event_report_kpt k WHERE k.project_id = p.id)
-      LIMIT 20`,
-    [yesterday],
-  ) as { id: string; name: string; assigned_to: string }[];
+      ORDER BY ended_on ASC
+      LIMIT ?`,
+    [from, yesterday, KPT_PER_NIGHT],
+  ) as { id: string; name: string; assigned_to: string; ended_on: string }[];
+
+  // **切ったことを残す。** 黙って切ると「作られない案件がある」ことに誰も気づけない
+  if (rows.length >= KPT_PER_NIGHT) {
+    console.warn(`[scheduler] kpt_draft: ${KPT_PER_NIGHT} 件で切りました（残りは明晩に回します）`);
+  }
 
   const out: NotifyInput[] = [];
   for (const p of rows) {
