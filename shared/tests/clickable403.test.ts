@@ -87,6 +87,36 @@ describe('押せるのに 403 にしない', () => {
     expect(home).toMatch(/inbox\.data\?\.dailyops\?\.visible \? \{ n: dailyWaiting/);
   });
 
+  it('受信箱の行き先は「案件作成」に固定しない（開ける場所へ送る）', () => {
+    // ⚠️ 受信箱を `dailyops` にも開けた以上、行き先を案件作成に固定すると
+    // **API の 403 を画面の「権限がありません」に移し替えただけ**になる
+    // （`/sales/projects/new` は `sales` の editor が要る）。レビューでの指摘
+    const kinds = read('client', 'src', 'contexts', 'sales', 'pages', 'inbox', 'kinds.ts');
+    expect(kinds).toMatch(/export function inboxHrefOf/);
+    expect(kinds).toMatch(/export function inboxAllHrefOf/);
+    // 種類ごとの行き先（問い合わせ → 入ってきた情報／書類 → 受け取った書類）
+    expect(kinds).toContain("'/daily/inquiries'");
+    expect(kinds).toContain("'/budget/documents'");
+    // **別バンドルへは素の遷移**（ルーターでは動けない）
+    expect(kinds).toMatch(/export function isCrossApp/);
+
+    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'WaitingCard.tsx');
+    // 行き先が無い行は押せなくする（押して権限エラーに送らない）
+    expect(card).toMatch(/const href = inboxHrefOf\(it\.kind, can\)/);
+    expect(card).toMatch(/return href \? \(/);
+    expect(card).not.toContain("navigate('/sales/projects/new')");
+
+    // 挨拶の件数も同じ。**行き先を知っているのは呼ぶ側**（部品は見た目だけ持つ）
+    const greeting = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'Greeting.tsx');
+    expect(greeting).not.toContain("navigate('/sales/projects/new')");
+    expect(greeting).not.toContain("navigate('/sales/tasks/list')");
+    expect(greeting).toMatch(/onWaiting\?: \(\) => void/);
+
+    const home = read('client', 'src', 'contexts', 'platform', 'pages', 'HomePage.tsx');
+    expect(home).toMatch(/onWaiting=\{waitingHref \? \(\) => go\(waitingHref\) : undefined\}/);
+    expect(home).toMatch(/overdueHref = canSeeSales \? '\/sales\/tasks\/list' : null/);
+  });
+
   it('仮押さえの「落とす」は manager にだけ出す（PC もスマホも）', () => {
     // `DELETE /studios/bookings/:id` は manager を要求する。**確定にするほうは editor**
     // なので、1つの `canEdit` でまとめると editor に「落とす」が出て 403 になる

@@ -65,6 +65,54 @@ export const KIND_ORDER: InboxKind[] = ['ai_project', 'overdue_action', 'inquiry
  */
 export const INTAKE_KINDS: InboxKind[] = ['ai_project', 'inquiry'];
 
+/**
+ * **その人が開ける画面**。呼ぶ側が権限から作って渡します
+ * （ここで `useAuth` を読むと、受付・トップ・将来の呼び出しで判定が増える）。
+ */
+export interface InboxOpenable {
+  /** 案件作成（`/sales/projects/new`）— `sales` の **editor** が要る */
+  intake: boolean;
+  /** 入ってきた情報（`/daily/inquiries`）— `dailyops`。**別バンドル** */
+  inquiries: boolean;
+  /** 受け取った書類（`/budget/documents`）— `budget` か `dailyops` */
+  documents: boolean;
+}
+
+/**
+ * 受信箱の1件を**開ける場所**。開けないときは `null`（**押して 403 にしない**）。
+ *
+ * ⚠️ **行き先を「案件作成」に固定しないこと。** 受信箱には日常業務のもの
+ * （問い合わせ・受け取った書類）も入っており、`dailyops` だけの人には
+ * 案件作成が開けません。固定すると、**API の 403 を画面の「権限がありません」に
+ * 移し替えただけ**になります（レビューでの指摘）。
+ *
+ * `sales` の人は今までどおり全部**案件作成**へ送ります — 引き合いはそこで
+ * 案件にするのが仕事の流れで、レールに問い合わせも並んでいます（`INTAKE_KINDS`）。
+ */
+export function inboxHrefOf(kind: InboxKind, can: InboxOpenable): string | null {
+  if (can.intake) return '/sales/projects/new';
+  if (kind === 'inquiry') return can.inquiries ? '/daily/inquiries' : null;
+  if (kind === 'finance_doc') return can.documents ? '/budget/documents' : null;
+  // ネタ案件・期限超過は案件の画面しか行き先が無い
+  return null;
+}
+
+/** 「残りを見る」の行き先と札。開ける場所が1つも無ければ `null`（出さない） */
+export function inboxAllHrefOf(can: InboxOpenable): { href: string; label: string } | null {
+  if (can.intake) return { href: '/sales/projects/new', label: '案件作成' };
+  if (can.inquiries) return { href: '/daily/inquiries', label: '入ってきた情報' };
+  if (can.documents) return { href: '/budget/documents', label: '受け取った書類' };
+  return null;
+}
+
+/**
+ * 行き先へ移動する。**別バンドルへは素の遷移**（`/daily/` は日常業務アプリ）。
+ * ルーターでは動けません（上辺バーの通知と同じ理由）。
+ */
+export function isCrossApp(href: string): boolean {
+  return href.startsWith('/daily/');
+}
+
 export interface InboxItem {
   key: string;
   kind: InboxKind;

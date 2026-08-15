@@ -54,7 +54,9 @@ import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { TaskIntakeBox } from '@/contexts/tasks/components/TaskIntakeBox';
-import type { InboxData } from '@/contexts/sales/pages/inbox/kinds';
+import {
+  inboxAllHrefOf, isCrossApp, type InboxData, type InboxOpenable,
+} from '@/contexts/sales/pages/inbox/kinds';
 import { AppTiles, EventTiles, type TileApp } from './home/AppTiles';
 import { MobileAiBar } from './home/MobileAiBar';
 import { WaitingCard } from './home/WaitingCard';
@@ -145,6 +147,25 @@ export default function HomePage() {
   // 数字を出すと、**数えていないのに「0件です」と言い切る**ことになります
   // （`dailyops` だけの人はこの口が 403 で、お待たせ中がいつも「ありません」でした）
   const canCount = (canSeeSales || canSeeDailyops) && !!inbox.data;
+
+  /**
+   * **受信箱の1件をどこで開けるか。** ⚠️ 案件作成に固定しないこと —
+   * `dailyops` だけの人は案件作成（`sales` の editor）を開けないので、
+   * **API の 403 を画面の「権限がありません」に移し替えただけ**になります
+   * （レビューでの指摘）。判定は `inbox/kinds.ts` の1か所。
+   */
+  const openable: InboxOpenable = useMemo(() => ({
+    intake: hasPermission('sales', 'editor'),
+    inquiries: canSeeDailyops,
+    documents: hasPermission('budget') || canSeeDailyops,
+  }), [hasPermission, canSeeDailyops]);
+  const waitingHref = inboxAllHrefOf(openable)?.href ?? null;
+  // 「期限切れ」の行き先は全案件タスク一覧（`sales` が要る）
+  const overdueHref = canSeeSales ? '/sales/tasks/list' : null;
+  /** **別バンドルへは素の遷移**（`/daily/` は日常業務アプリ・ルーターでは動けない） */
+  const go = (href: string) => {
+    if (isCrossApp(href)) window.location.href = href; else navigate(href);
+  };
   // 「今日」の3枚が1枚も出ないなら、節ごと出さない（見出しだけ残ると壊れて見える）
   const hasToday = canSeeDailyops || canSeeSales || hasPermission('studio');
 
@@ -210,6 +231,8 @@ export default function HomePage() {
         userName={currentUser?.name}
         mobile={isMobile}
         canCount={canCount}
+        onWaiting={waitingHref ? () => go(waitingHref) : undefined}
+        onOverdue={overdueHref ? () => go(overdueHref) : undefined}
         waitingTotal={waitingTotal}
         myOverdue={myOverdue}
         lastLoaded={lastLoaded}
@@ -257,7 +280,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
             {hasPermission('studio') && <TodayCard days={schedule.data} />}
             {canSeeDailyops && <MyTasksCard />}
-            {(canSeeSales || canSeeDailyops) && <WaitingCard data={inbox.data} />}
+            {(canSeeSales || canSeeDailyops) && <WaitingCard data={inbox.data} can={openable} />}
           </div>
         )}
       </section>
