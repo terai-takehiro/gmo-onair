@@ -28,7 +28,7 @@ router.get('/inview/sessions', ...canRead, async (_req, res) => {
 // 詳細
 router.get('/inview/:id', ...canRead, async (req, res) => {
   const row = await inviewService.getById(String(req.params.id));
-  if (!row) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+  if (!row) throw new AppError(404, 'NOT_FOUND', '来場予約が見つかりません');
   res.json({ success: true, data: row });
 });
 

@@ -52,8 +52,17 @@ describe('端末に溜める列', () => {
     const q = createQueue<string>('t');
     q.push('a', 'A', 100);
     q.push('b', 'B', 200);
-    q.done(['a']);
+    q.done([{ key: 'a', at: 100 }]);
     expect(q.all().map((v) => v.key)).toEqual(['b']);
+  });
+
+  it('**積み直したものは、古い印では消えない**（送信中の付け直しを守る）', () => {
+    const q = createQueue<string>('t');
+    q.push('a', '古い', 100);
+    q.push('a', '新しい', 300);      // 送っている最中に付け直した
+    q.done([{ key: 'a', at: 100 }]); // 送れたのは古いほう
+    expect(q.pending()).toBe(1);
+    expect(q.all()[0].payload).toBe('新しい');
   });
 
   it('壊れた値が入っていても落ちない', () => {
@@ -79,7 +88,7 @@ describe('溜まったものを送る', () => {
     q.push('a', 'A', 1); q.push('b', 'B', 2);
     const sent: string[] = [];
     const r = await flushQueue(q, async (p) => { sent.push(p); });
-    expect(r).toEqual({ sent: 2, failed: 0 });
+    expect(r).toMatchObject({ sent: 2, failed: 0, dropped: 0 });
     expect(sent).toEqual(['A', 'B']);
     expect(q.pending()).toBe(0);
   });
@@ -93,7 +102,7 @@ describe('溜まったものを送る', () => {
       sent.push(p);
     });
     expect(sent).toEqual(['A', 'C']);
-    expect(r).toEqual({ sent: 2, failed: 1 });
+    expect(r).toMatchObject({ sent: 2, failed: 1, dropped: 0 });
     // 失敗した1件だけ残る（次の機会に送る）
     expect(q.all().map((v) => v.key)).toEqual(['b']);
   });
@@ -102,16 +111,39 @@ describe('溜まったものを送る', () => {
     const q = createQueue<string>('t');
     q.push('a', 'A', 1); q.push('b', 'B', 2);
     const r = await flushQueue(q, async () => { throw new Error('圏外'); });
-    expect(r).toEqual({ sent: 0, failed: 2 });
+    expect(r).toMatchObject({ sent: 0, failed: 2, dropped: 0 });
     expect(q.pending()).toBe(2);
   });
 
-  it('送っている間に同じ鍵を積み直しても、送れた印で消えるのは送ったぶんだけ', async () => {
+  /**
+   * ⚠️ **前の版のこの試験は、送り終わってから積み直していました** —
+   * つまり競合を1度も起こしておらず、「守れている」ように読めるだけでした。
+   * 実際に**送っている最中に**付け直します。
+   */
+  it('**送っている最中に付け直した印は消えない**（古い値がサーバーに残らない）', async () => {
     const q = createQueue<string>('t');
-    q.push('a', 'A', 1);
-    await flushQueue(q, async () => { /* 送れた */ });
-    expect(q.pending()).toBe(0);
-    q.push('a', 'A2', 2);
+    q.push('a', 'あった', 1);
+    const r = await flushQueue(q, async () => {
+      // 送信の往復の間に、現場で「やっぱり無かった」を押した
+      q.push('a', '無かった', 2);
+    });
+    expect(r.sent).toBe(1);
     expect(q.pending()).toBe(1);
+    expect(q.all()[0].payload).toBe('無かった');
+  });
+
+  it('**断られたものは列から外す**（「送れていません」が永久に消えないのを防ぐ）', async () => {
+    const q = createQueue<string>('t');
+    q.push('a', 'A', 1); q.push('b', 'B', 2);
+    const r = await flushQueue(
+      q,
+      async (p) => { throw p === 'A' ? { response: { status: 400 } } : new Error('圏外'); },
+      { drop: (err) => (err as { response?: { status?: number } })?.response?.status === 400 },
+    );
+    expect(r).toMatchObject({ sent: 0, failed: 1, dropped: 1 });
+    // 圏外のぶんは残す（次の機会に送る）
+    expect(q.all().map((v) => v.key)).toEqual(['b']);
+    // 断られた理由は呼ぶ側に渡す（画面に出すため）
+    expect(r.dropErrors).toHaveLength(1);
   });
 });

@@ -27,7 +27,7 @@ router.get('/reports', ...canRead, async (req, res) => {
 // kind + period_key で 1 本取得 (日付ナビ用)。無ければ data: null (404 にしない)
 router.get('/reports/by-period', ...canRead, async (req, res) => {
   const { kind, period_key } = req.query;
-  if (!kind || !period_key) throw new AppError(400, 'kind と period_key は必須です', 'VALIDATION_ERROR');
+  if (!kind || !period_key) throw new AppError(400, 'VALIDATION_ERROR', 'kind と period_key は必須です');
   const report = await opsReportService.getReportByPeriod(String(kind), String(period_key));
   res.json({ success: true, data: report ?? null });
 });
@@ -42,14 +42,14 @@ router.get('/weekly-stats', ...canRead, async (req, res) => {
 // 詳細 (items 込み)
 router.get('/reports/:id', ...canRead, async (req, res) => {
   const report = await opsReportService.getReportById(String(req.params.id));
-  if (!report) throw new AppError(404, 'レポートが見つかりません', 'NOT_FOUND');
+  if (!report) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
   res.json({ success: true, data: report });
 });
 
 // 空レポートの確保 (人が AI より先に記入し始めるケース用)
 router.post('/reports/ensure', ...canEdit, async (req, res) => {
   const { kind, period_key } = req.body ?? {};
-  if (!kind || !period_key) throw new AppError(400, 'kind と period_key は必須です', 'VALIDATION_ERROR');
+  if (!kind || !period_key) throw new AppError(400, 'VALIDATION_ERROR', 'kind と period_key は必須です');
   const report = await opsReportService.ensureReport(String(kind), String(period_key), req.user!.id);
   res.json({ success: true, data: { ...report, items: await opsReportService.getReportItems(report.id as string) } });
 });
@@ -57,7 +57,7 @@ router.post('/reports/ensure', ...canEdit, async (req, res) => {
 // 行追加 (人間)
 router.post('/reports/:id/items', ...canEdit, async (req, res) => {
   const { category, content, note, url, ai_related, pick } = req.body ?? {};
-  if (!content || !String(content).trim()) throw new AppError(400, '内容 (content) は必須です', 'VALIDATION_ERROR');
+  if (!content || !String(content).trim()) throw new AppError(400, 'VALIDATION_ERROR', '内容 (content) は必須です');
   await opsReportService.addItems(String(req.params.id), [{
     category: category ?? null,
     content: String(content),
@@ -77,7 +77,9 @@ router.post('/reports/:id/items', ...canEdit, async (req, res) => {
  * 2回押しても増えない（`already: true` を返すだけ）。
  */
 router.post('/items/:itemId/to-weekly', ...canEdit, async (req, res) => {
-  const r = await opsReportService.sendItemToWeekly(String(req.params.itemId), req.user!.id);
+  const r = await opsReportService.sendItemToWeekly(
+    String(req.params.itemId), req.user!.id, req.user!.name,
+  );
   res.json({ success: true, data: r });
 });
 
@@ -104,6 +106,18 @@ router.delete('/items/:itemId', ...canEdit, async (req, res) => {
 // 確定 (週報: published + reviewed)
 router.post('/reports/:id/publish', ...canEdit, async (req, res) => {
   const report = await opsReportService.publishReport(String(req.params.id), req.user!.id);
+  res.json({ success: true, data: report });
+});
+
+/**
+ * 確定を解く (週報だけ)。**確定と同じ editor** で解ける。
+ *
+ * ⚠️ **この口が無いと、確定を守った瞬間に行き止まり**になります —
+ * 確定済みの週報は直せず、戻す手段がどこにも無いので、書き足りない1行を
+ * 入れられなくなります。
+ */
+router.post('/reports/:id/reopen', ...canEdit, async (req, res) => {
+  const report = await opsReportService.reopenReport(String(req.params.id));
   res.json({ success: true, data: report });
 });
 

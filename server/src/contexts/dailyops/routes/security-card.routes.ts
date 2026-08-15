@@ -47,7 +47,7 @@ router.get('/security-cards', ...canRead, async (req, res) => {
 // カード詳細 (+貸出履歴)
 router.get('/security-cards/:id', ...canRead, async (req, res) => {
   const row = await securityCardService.getCard(String(req.params.id));
-  if (!row) throw new AppError(404, 'セキュリティカードが見つかりません', 'NOT_FOUND');
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'セキュリティカードが見つかりません');
   res.json({ success: true, data: row });
 });
 

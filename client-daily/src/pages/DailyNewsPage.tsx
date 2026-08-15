@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAddItem, useEnsureReport, useReportByPeriod, useReviewReport } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
-import { addDays, formatDateJa, toDateStr, type OpsReportItem } from '@/lib/types';
+import { addDays, formatDateJa, toDateStr, weekStartOf, type OpsReportItem } from '@/lib/types';
 import { NewsForm, type NewsFields } from './news/NewsForm';
 import { NewsRow, NewsRowsHeader } from './news/NewsRows';
 
@@ -58,6 +58,13 @@ export default function DailyNewsPage() {
   const [chip, setChip] = useState<Chip>('all');
   const [adding, setAdding] = useState(false);
   const report = useReportByPeriod('daily_news', date);
+  /*
+   * 送り先の週報が**確定済みかどうか**。確定した週報には足せません
+   * （サーバーが断ります）。引かずにボタンだけ出すと、押した人には
+   * 「壊れた」ようにしか見えないので、**押す前に理由を出します**。
+   */
+  const weekly = useReportByPeriod('weekly_activity', weekStartOf(date));
+  const weeklyLocked = weekly.data?.status === 'published';
   const { canEdit } = usePermissions();
   const ensure = useEnsureReport();
   const review = useReviewReport();
@@ -179,7 +186,7 @@ export default function DailyNewsPage() {
             <div className="flex flex-col">
               <NewsRowsHeader canEdit={canEdit} />
               {visible.map((item) => (
-                <NewsRow key={item.id} item={item} canEdit={canEdit} />
+                <NewsRow key={item.id} item={item} canEdit={canEdit} weeklyLocked={weeklyLocked} />
               ))}
             </div>
           )}
@@ -199,6 +206,10 @@ export default function DailyNewsPage() {
         行の右の<strong className="font-bold">送るボタン</strong>を押すと、
         その日が入る週のウィークリー活動報告へ写せます（週報側に「ニュース由来」と出ます）。
         <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
+        {weeklyLocked && (
+          <> この日が入る週の週報は<strong className="font-bold">確定済み</strong>なので、
+          いまは送れません（週報の画面で「確定を解く」を押すと送れるようになります）。</>
+        )}
       </p>
     </div>
   );

@@ -57,7 +57,7 @@ function jsonOrNull(v: unknown): string | null {
 
 function assertIn<T extends string>(val: string, allowed: readonly T[], label: string): void {
   if (!(allowed as readonly string[]).includes(val)) {
-    throw new AppError(400, `${label} は ${allowed.join(' / ')} のいずれかです`, 'VALIDATION_ERROR');
+    throw new AppError(400, 'VALIDATION_ERROR', `${label} は ${allowed.join(' / ')} のいずれかです`);
   }
 }
 
@@ -117,7 +117,7 @@ export const financeDocService = {
 
   async update(id: string, input: FinanceDocInput & { processed_by_user?: string | null }): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '書類が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
     const sets: string[] = [];
     const params: unknown[] = [];
     const set = (c: string, v: unknown) => { sets.push(`${c} = ?`); params.push(v); };
@@ -160,7 +160,7 @@ export const financeDocService = {
 
   async remove(id: string): Promise<void> {
     const existing = await queryOne(`SELECT id FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '書類が見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
     await execute(`UPDATE finance_docs SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
   },
 };
@@ -287,7 +287,7 @@ export const inquiryService = {
 
   async create(input: InquiryInput): Promise<{ row: Record<string, unknown>; action: 'created' | 'updated' }> {
     const summary = (input.summary ?? '').trim();
-    if (!summary) throw new AppError(400, '要約 (summary) は必須です', 'VALIDATION_ERROR');
+    if (!summary) throw new AppError(400, 'VALIDATION_ERROR', '要約 (summary) は必須です');
     const importance = (input.importance ?? 'medium').trim() || 'medium';
     assertIn(importance, INQUIRY_IMPORTANCE, 'importance');
     if (input.message_id) {
@@ -317,7 +317,7 @@ export const inquiryService = {
 
   async update(id: string, input: InquiryInput): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
     const sets: string[] = [];
     const params: unknown[] = [];
     const set = (c: string, v: unknown) => { sets.push(`${c} = ?`); params.push(v); };
@@ -325,7 +325,7 @@ export const inquiryService = {
     if (input.subject !== undefined) set('subject', input.subject ?? null);
     if (input.summary !== undefined) {
       const s = (input.summary ?? '').trim();
-      if (!s) throw new AppError(400, '要約 (summary) は必須です', 'VALIDATION_ERROR');
+      if (!s) throw new AppError(400, 'VALIDATION_ERROR', '要約 (summary) は必須です');
       set('summary', s);
     }
     // タグを渡してきたら分類も揃える（片方だけ直すと受信箱の分類が古いままになる）
@@ -367,7 +367,7 @@ export const inquiryService = {
    */
   async setState(id: string, state: string, userName?: string | null): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT id, state FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
     assertIn(state, INQUIRY_MOVABLE_STATES, 'state');
 
     // チケット・案件から戻すのは許す（間違えて作ることはある）。
@@ -404,7 +404,7 @@ export const inquiryService = {
   ): Promise<{ row: Record<string, unknown>; task_id: string; already: boolean }> {
     const existing = await queryOne(
       `SELECT id, summary, subject, action_needed, task_id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
 
     if (existing.task_id) {
       const alive = await queryOne(`SELECT id FROM project_tasks WHERE id = ? AND deleted_at IS NULL`, [existing.task_id]);
@@ -447,7 +447,7 @@ export const inquiryService = {
    */
   async linkProject(id: string, projectId: string, userName?: string | null): Promise<{ row: Record<string, unknown>; already: boolean }> {
     const existing = await queryOne(`SELECT id, project_id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
     const project = await queryOne(`SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL`, [projectId]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
@@ -479,7 +479,7 @@ export const inquiryService = {
 
   async remove(id: string): Promise<void> {
     const existing = await queryOne(`SELECT id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
     await execute(`UPDATE misc_inquiries SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
   },
 };
