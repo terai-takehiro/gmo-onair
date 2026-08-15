@@ -34,7 +34,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { RevenueBillingPane } from './RevenueBillingPane';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import type { ProjectDetail } from './types';
-import { ApprovalNotice } from '@/contexts/shared/components/ApprovalRow';
+import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
 
 type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -45,6 +45,8 @@ interface Estimate {
   approval_state?: 'none' | 'pending' | 'approved' | null;
   /** いま見ている人が承認できるか。**サーバーが決める**（押して 403 にしない） */
   can_approve?: boolean;
+  /** 承認者に決められているか（編集権限は見ない）。できない理由を名指しするために使う */
+  is_approver?: boolean;
   /** 受注して売上に変換したときの行。追跡用（migration 138）。無ければ未変換 */
   revenue_id: string | null;
   items?: Item[];
@@ -172,7 +174,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
 
           {/* **承認待ちは一覧の上に出す。** 行の中に畳むと、
               「送れない理由」が横に長い行の右端に埋もれて読まれない */}
-          {(list.data ?? []).filter((e) => e.approval_state === 'pending').map((e) => (
+          {(list.data ?? []).filter(needsApproval).map((e) => (
             <ApprovalNotice key={`approval-${e.id}`} estimate={e} base={base}
               onDone={() => list.refetch()} />
           ))}

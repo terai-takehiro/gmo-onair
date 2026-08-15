@@ -33,9 +33,32 @@ export interface ApprovalTarget {
   version: number;
   subtotal: number;
   discount: number;
+  /**
+   * **必須にしてあります。** `needsApproval` が見るので、渡し忘れると
+   * 帯が黙って出なくなります（「出ないだけ」は誰も報告しないので気づけない）。
+   */
+  status: string;
   approval_state?: 'none' | 'pending' | 'approved' | null;
   /** いま見ている人が承認できるか。**サーバーが決める** */
   can_approve?: boolean;
+  /** 承認者に決められているか（編集権限は見ない）。理由を名指しするために使う */
+  is_approver?: boolean;
+}
+
+/**
+ * **この見積に承認の帯を出すか。** 出す側2か所（案件・GPM）が同じ関数を使います。
+ *
+ * ⚠️ **`approval_state === 'pending'` だけで判定しないこと**（レビューでの指摘）。
+ * 次の版を作ると前の版は `superseded` になりますが、**中身は触らない決めごと**なので
+ * `approval_state` は `pending` のまま残ります。そのまま出すと、
+ * **もう送れない版の帯が新しい版の帯と並んで2枚**出ます。
+ *
+ * `draft` に絞るのは、**承認が解くのは「送れない」だけ**だからです
+ * （却下・差し替え済みの版は、承認しても送れるようにはなりません）。
+ * サーバーも同じ条件で弾きます（古いタブから直接叩かれても通さないため）。
+ */
+export function needsApproval(e: ApprovalTarget): boolean {
+  return e.approval_state === 'pending' && e.status === 'draft';
 }
 
 export function ApprovalNotice({ estimate, base, onDone }: {
@@ -57,7 +80,7 @@ export function ApprovalNotice({ estimate, base, onDone }: {
     onError: (e) => notifyApiError('承認できませんでした', e),
   });
 
-  if (estimate.approval_state !== 'pending') return null;
+  if (!needsApproval(estimate)) return null;
 
   const rate = estimate.subtotal > 0
     ? Math.round((estimate.discount / estimate.subtotal) * 1000) / 10
@@ -73,9 +96,14 @@ export function ApprovalNotice({ estimate, base, onDone }: {
           </p>
           <p className="text-sub mt-1 text-foreground">
             値引きが役割の上限を超えているため、<strong className="font-bold">このままではお客様に出せません</strong>。
+            {/* ⚠️ **3通りある。** 「承認者だが編集権限が無い」を
+                「承認者ではない」と同じ文にすると、**その人にだけ理由の分からない
+                行き止まり**になり、見積はまた誰にも送れないまま止まる（#63 と同じ形） */}
             {estimate.can_approve
               ? '承認すると出せるようになります。'
-              : '承認できるのは、この見積を作った方の役割に決めた承認者だけです（設定 → お金のルール）。'}
+              : estimate.is_approver
+                ? 'あなたはこの見積の承認者ですが、案件・プロジェクトの編集権限が無いため承認できません（設定 → 権限とメンバー）。'
+                : '承認できるのは、この見積を作った方の役割に決めた承認者だけです（設定 → お金のルール）。'}
           </p>
         </div>
         {/* **承認できる人にだけ出す。** 出して 403 にすると、押した人には

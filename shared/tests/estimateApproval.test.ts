@@ -62,4 +62,32 @@ describe('値引きの承認', () => {
     // 作った人の役割で見る（送った人ではない）
     expect(ESTIMATE_SERVICE).toContain('OWNER_SQL');
   });
+
+  // ── レビュー（Codex）で指摘された2件 ──────────────────────────
+
+  it('承認の口が要求する編集権限も can_approve に混ぜる', () => {
+    // 役割だけで出すと、承認者でも編集権限が無い人は押した先が 403 になる
+    expect(ESTIMATE_SERVICE).toMatch(/canEditModule/);
+    expect(ESTIMATE_SERVICE).toMatch(/can_approve: approver\.has\(r\.id\) && canEditModule/);
+    // 呼ぶ側3か所が必ず渡す（型が強制するが、渡し忘れを目でも読めるように）
+    for (const src of [
+      read('server', 'src', 'contexts', 'sales', 'routes', 'estimates.routes.ts'),
+      read('server', 'src', 'contexts', 'gpm', 'index.ts'),
+      read('server', 'src', 'contexts', 'sales', 'routes', 'billing.routes.ts'),
+    ]) {
+      expect(src).toMatch(/meetsPermissionLevel/);
+    }
+  });
+
+  it('「承認者だが編集権限が無い」を名指しする（理由の分からない行き止まりにしない）', () => {
+    expect(APPROVAL_ROW).toContain('is_approver');
+    expect(ESTIMATE_SERVICE).toMatch(/is_approver: approver\.has\(r\.id\)/);
+  });
+
+  it('次の版に置き換わった見積には帯を出さない', () => {
+    // 画面: pending だけで判定しない（superseded も pending のまま残る）
+    expect(APPROVAL_ROW).toMatch(/e\.approval_state === 'pending' && e\.status === 'draft'/);
+    // ⚠️ 画面の出し分けだけに頼らない。古いタブから直接叩かれても通さない
+    expect(ESTIMATE_SERVICE).toMatch(/est\.status !== 'draft'/);
+  });
 });

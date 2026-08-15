@@ -56,6 +56,12 @@ export interface Estimate {
    * 承認者の決め方を変えた日に**ボタンだけ古い規則で出ます**。
    */
   can_approve?: boolean;
+  /**
+   * **承認者に決められているか**（編集権限は見ない）。`can_approve` が false でも
+   * ここが true なら「承認者だが編集権限が無い」— 画面はその理由を名指しします。
+   * 分けないと、**その人にだけ理由の分からない行き止まり**になります。
+   */
+  is_approver?: boolean;
   approved_by?: string | null;
   approved_at?: string | null;
   sent_at: string | null;
@@ -194,6 +200,25 @@ async function assertCanEstimate(userId: string): Promise<void> {
 
 
 /**
+ * **承認の帯を出すのはこの見積か。**
+ *
+ * 承認待ち（`approval_state = 'pending'`）でも、**次の版に置き換わったもの
+ * （`superseded`）には出しません。** `createNextVersion` は前の版の中身を
+ * 触らない決めごとなので、**`approval_state` は `pending` のまま残ります** —
+ * そのまま出すと、**もう送れない版の帯が新しい版の帯と並んで2枚**出て、
+ * しかも**送れない版に承認を記録できて**しまいます（レビューでの指摘）。
+ *
+ * ⚠️ **前の版の `approval_state` を書き換えて解かないこと。** 送った見積を
+ * 見返せることが要件そのもので、承認待ちのまま置き換えた事実も記録です。
+ *
+ * 判定を `draft` に絞るのは、**承認が解くのが「送れない」だけ**だからです
+ * （`rejected` も `superseded` も、承認しても送れるようにはならない）。
+ */
+function isApprovable(e: Estimate): boolean {
+  return e.approval_state === 'pending' && e.status === 'draft';
+}
+
+/**
  * その人が承認できる見積はどれか。**まとめて1回で引きます** —
  * 一覧の行ごとに引くと、版が10本あれば10回になります。
  *
@@ -201,8 +226,8 @@ async function assertCanEstimate(userId: string): Promise<void> {
  * ⚠️ 規則そのものを2か所に書かないこと — ここは「誰に出すか」、`approve()` は
  * 「実際に通すか」で、**食い違うと画面にボタンが出るのに押すと 403**になります。
  */
-async function approvableIds(estimates: Estimate[], viewerId: string): Promise<Set<string>> {
-  const pending = estimates.filter((e) => e.approval_state === 'pending');
+async function approverIds(estimates: Estimate[], viewerId: string): Promise<Set<string>> {
+  const pending = estimates.filter(isApprovable);
   if (pending.length === 0 || !viewerId) return new Set();
 
   const me = await queryOne(
@@ -223,10 +248,29 @@ async function approvableIds(estimates: Estimate[], viewerId: string): Promise<S
   return new Set(rows.map((r) => r.id));
 }
 
-/** 一覧・詳細に「あなたは承認できるか」を付ける */
-export async function withCanApprove<T extends Estimate>(rows: T[], viewerId: string): Promise<T[]> {
-  const ok = await approvableIds(rows, viewerId);
-  return rows.map((r) => ({ ...r, can_approve: ok.has(r.id) }));
+/**
+ * 一覧・詳細に「あなたは承認できるか」を付ける。
+ *
+ * ⚠️ **役割だけでは決まりません**（レビューでの指摘）。承認の口は案件も GPM も
+ * **その画面の編集権限**を要求するので、承認者に決められていても
+ * **編集権限が無い人にボタンを出すと、押した先は 403** です
+ * （この版が塞ごうとしている壊れ方そのもの）。`canEditModule` は
+ * **呼ぶ側が渡します** — 案件の口なら `sales`、GPM の口なら `gpm` で、
+ * どの区画を要求するかは口ごとに違うためです。
+ *
+ * **`is_approver` も一緒に返します。** 「承認者だが編集権限が無い」を
+ * 画面が名指しできないと、**その人には理由の分からない行き止まり**になり、
+ * 見積はまた誰にも送れないままになります（#63 と同じ形）。
+ */
+export async function withCanApprove<T extends Estimate>(
+  rows: T[], viewerId: string, canEditModule: boolean,
+): Promise<T[]> {
+  const approver = await approverIds(rows, viewerId);
+  return rows.map((r) => ({
+    ...r,
+    is_approver: approver.has(r.id),
+    can_approve: approver.has(r.id) && canEditModule,
+  }));
 }
 
 export const estimateService = {
@@ -425,13 +469,23 @@ export const estimateService = {
       // **持ち主は作った人**（`OWNER_SQL`）。ここが `updated_by` を先に見ていたため、
       // **上司が下書きを1文字直しただけで「承認できる人」が上司の承認者に変わり**、
       // 本来の承認者（上司自身）が 403 になっていた
-      `SELECT id, approval_state, ${OWNER_SQL} AS owner
+      `SELECT id, status, approval_state, ${OWNER_SQL} AS owner
          FROM estimates WHERE id = $1 AND deleted_at IS NULL`,
       [id],
     ) as Record<string, unknown> | null;
     if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     if (est.approval_state !== 'pending') {
       throw new AppError(400, 'VALIDATION_ERROR', 'この見積は承認待ちではありません');
+    }
+    // ⚠️ **次の版に置き換わったものは承認しない**（レビューでの指摘）。
+    // `createNextVersion` は前の版の中身を触らないので `approval_state` は
+    // `pending` のまま残り、**もう送れない版に承認を記録できてしまう**。
+    // 画面の出し分け（`isApprovable`）だけに頼らないこと — 古いタブから
+    // 直接叩けば通ってしまう
+    if (est.status !== 'draft') {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        'この見積はもう送れません（次の版に置き換わっている・却下済みなど）。'
+        + '新しい版を承認してください');
     }
 
     const me = await queryOne(

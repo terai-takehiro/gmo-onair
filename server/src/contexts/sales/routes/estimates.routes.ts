@@ -22,20 +22,29 @@ router.use(requireAuth, requirePermission('sales'));
 const canEdit = requirePermission('sales', 'editor');
 const userOf = (req: Request) => (req as { user?: { id: string } }).user!.id;
 
+/**
+ * 承認の口（`POST /:id/approve`）が要求するもの。**承認できるかの判定に混ぜます** —
+ * 承認者に決められていても、**`sales` の編集権限が無ければ押した先は 403** です。
+ * 認証がすでに読んだ `req.user.permissions` を使う（引き直すと答えが2つになる）。
+ */
+const canEditSales = (req: Request) => meetsPermissionLevel(
+  req.user?.role, req.user?.permissions?.sales, 'editor',
+);
+
 // GET /projects/:projectId/estimates
 router.get('/', wrap(async (req, res) => {
   const { projectId } = req.params as Record<string, string>;
   const rows = await estimateService.listByProject(projectId);
   // **「あなたは承認できるか」をサーバーが決めて渡す。** 画面はこれを見て
   // 「承認する」を出す（押して 403 にしないため）
-  res.json({ success: true, data: await withCanApprove(rows, userOf(req)) });
+  res.json({ success: true, data: await withCanApprove(rows, userOf(req), canEditSales(req)) });
 }));
 
 // GET /projects/:projectId/estimates/:id — 明細つき
 router.get('/:id', wrap(async (req, res) => {
   const est = await estimateService.getById((req.params as Record<string, string>).id);
   if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
-  res.json({ success: true, data: (await withCanApprove([est], userOf(req)))[0] });
+  res.json({ success: true, data: (await withCanApprove([est], userOf(req), canEditSales(req)))[0] });
 }));
 
 /**

@@ -14,7 +14,7 @@
  */
 import { Router } from 'express';
 import { withCanApprove } from '../services/estimate.service';
-import { requireAuth, requireAnyPermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireAnyPermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
@@ -84,8 +84,12 @@ router.get('/estimates', async (req, res) => {
       LIMIT 300`,
     params,
   );
-  // 「あなたは承認できるか」をサーバーが決めて渡す（押して 403 にしない）
-  res.json({ success: true, data: await withCanApprove(rows as never[], req.user!.id) });
+  // 「あなたは承認できるか」をサーバーが決めて渡す（押して 403 にしない）。
+  // ここに並ぶのは**案件（GLS-A）の見積だけ**なので、承認の口が要求するのは
+  // `sales` の編集権限（この一覧は `budget` だけの人も開けるので、
+  // その人には false になる — 押せる口がそもそも無い）
+  const canEditSales = meetsPermissionLevel(req.user?.role, req.user?.permissions?.sales, 'editor');
+  res.json({ success: true, data: await withCanApprove(rows as never[], req.user!.id, canEditSales) });
 });
 
 /**

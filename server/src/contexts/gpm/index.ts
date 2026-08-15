@@ -8,7 +8,7 @@
  * 画面から権限を付けることもできなくなる（`apps.ts` は前から `gpm` を宣言していたのに、
  * この2つに入っておらず**誰にも付与できない状態**だった）。
  */
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import multer from 'multer';
 import { requireAuth, requirePermission, meetsPermissionLevel } from '../../shared/middleware/auth';
 import { queryOne, execute } from '../../shared/db/connection';
@@ -69,6 +69,15 @@ export function createGpmRoutes(): Router {
   const router = Router();
   const canRead = [requireAuth, requirePermission('gpm', 'reader')] as const;
   const canEdit = [requireAuth, requirePermission('gpm', 'editor')] as const;
+
+  /**
+   * 承認の口（`POST /estimates/:id/approve`）が要求するもの。
+   * **承認できるかの判定に混ぜます** — 承認者に決められていても、
+   * `gpm` の編集権限が無ければ押した先は 403 です（案件側と同じ形）。
+   */
+  const canEditGpm = (req: Request) => meetsPermissionLevel(
+    req.user?.role, req.user?.permissions?.gpm, 'editor',
+  );
   const canManage = [requireAuth, requirePermission('gpm', 'manager')] as const;
 
   // ── 標準工程テンプレート ────────────────────────────────
@@ -251,7 +260,7 @@ export function createGpmRoutes(): Router {
     await assertGpmProject(id);
     const rows = await estimateService.listByProject(id);
     // 「あなたは承認できるか」はサーバーが決める（押して 403 にしない）
-    res.json({ success: true, data: await withCanApprove(rows, req.user!.id) });
+    res.json({ success: true, data: await withCanApprove(rows, req.user!.id, canEditGpm(req)) });
   });
 
   router.post('/projects/:id/estimates', ...canEdit, async (req, res) => {
@@ -283,7 +292,7 @@ export function createGpmRoutes(): Router {
     if (!row || !(await isGpmProject(row.project_id))) {
       throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     }
-    res.json({ success: true, data: (await withCanApprove([row], req.user!.id))[0] });
+    res.json({ success: true, data: (await withCanApprove([row], req.user!.id, canEditGpm(req)))[0] });
   });
 
   /**
