@@ -40,6 +40,7 @@ import {
   ShoppingCart,
   Sparkles,
   Store,
+  Table2,
   Truck,
   UserCog,
   Users,
@@ -79,6 +80,12 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // `kanban` と `list` は同じ画面（v4 でカンバンを畳んだ）
         { label: "タスク一覧", to: "/sales/tasks/list", icon: ListTodo },
         { label: "見積・請求", to: "/sales/billing", icon: Receipt },
+        // **「案件一覧」とは別の画面**。上の案件一覧は毎日開いて次の一手を決める
+        // ためのもの（1行に4つ）で、こちらは**列を出し入れして網羅して見る・
+        // 選んでまとめて直す**ための台帳（機材台帳と同じ役割）。
+        // 名前を分けているのは、メニューに同じ名前が2つ並ぶと
+        // **どちらを開けばよいか名前から分からなくなる**ため
+        { label: "案件台帳", to: "/sales/projects/ledger", icon: Table2 },
       ],
     },
     {

@@ -63,6 +63,15 @@ const TREE = [
       '**案件をつくったときに黙って入れない** — タスクタブの帯から一覧を見せ、チェックを外してから入れる。' +
       '**二度は入れられない**（`projects.flow_applied_at`）。**プロジェクト管理とは別系統**'],
     ['⑧ 料金表', '/sales/pricing', 'client/src/contexts/sales/pages/PricingListPage.tsx'],
+    ['案件台帳 (新規)', '/sales/projects/ledger',
+      'client/src/contexts/sales/pages/ProjectLedgerPage.tsx', undefined,
+      '**③ 案件一覧とは役割が別**。あちらは毎日開いて次の一手を決める画面（1行に4つ）で、' +
+      'こちらは**列を出し入れして網羅して見る・選んでまとめて直す**ための台帳（機材台帳と同じ役割）。' +
+      '**引くのは案件一覧と同じ口**（`GET /projects`）— 別の口を作ると2つの画面で違う数が出る。' +
+      '列は 20 個（既定 9 個）で、出し入れと並びは**その端末に残る**。' +
+      '**まとめて直せるのは8項目**で1回に1項目、押す前に件数と「元に戻せません」を出す。' +
+      '⚠️ **ステージは入れていない** — 履歴・失注理由・GLS 発番の確認を飛ばしてしまうため。' +
+      '**PC 専用**（取り消せない一括更新を指で押させない）'],
   ]],
   ['財務管理', [
     ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/BudgetDashboardPage.tsx'],
