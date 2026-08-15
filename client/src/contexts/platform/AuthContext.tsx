@@ -1,6 +1,7 @@
 import { APP_LABELS } from "@gmo-onair/shared/src/client/apps";
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import api from "@/lib/api";
+import { clearRecent } from "@gmo-onair/shared/src/client-v4/recent";
 import { useUiStore } from "@/stores/uiStore";
 
 interface User {
@@ -182,6 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
     localStorage.removeItem("gmo_onair_token");
+    // **「最近見たもの」も消す。** 読むときに持ち主を突き合わせてはいるが、
+    // 端末に案件名・お客様名が残り続ける理由が無い（辞めた人の分も残らない）
+    clearRecent();
     try { await api.post("/auth/logout"); } catch { /* ignore */ }
     // フルリロードでReact stateを完全リセット
     window.location.href = "/login";

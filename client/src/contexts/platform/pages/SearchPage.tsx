@@ -65,7 +65,7 @@ interface SearchResults {
 
 export default function SearchPage() {
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { hasPermission, currentUser } = useAuth();
   const [sp, setSp] = useSearchParams();
   const initial = sp.get('q') ?? '';
   const [query, setQuery] = useState(initial);
@@ -75,7 +75,7 @@ export default function SearchPage() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // **一度だけ読む。** 描画のたびに `localStorage` を読むと、
   // この画面から開いたものが戻ってきた瞬間に並びが動く
-  const [recent] = useState<RecentItem[]>(() => readRecent());
+  const [recent] = useState<RecentItem[]>(() => readRecent(currentUser?.id ?? ''));
   // **投げた順番。** 遅れて届いた古い結果で新しい結果を上書きしないための番号
   const seq = useRef(0);
 

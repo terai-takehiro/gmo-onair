@@ -409,7 +409,16 @@ export const taskIntakeService = {
   async commitIntake(
     intakeId: string,
     rows: TaskDraft[],
-    userId: string
+    userId: string,
+    /**
+     * 案件（`sales`）に書いてよい人か。**呼ぶ側（ルート）が渡します。**
+     *
+     * ⚠️ 投入口は `dailyops` の口ですが、ここは行き先によって
+     * `projects` / `customers` / `activity_logs` / `project_minutes` に**直接書きます**。
+     * 既定を `true` にしていないのは、**渡し忘れた口から素通りさせない**ため
+     * （既定で通す形にすると、新しい呼び出しを足した日に穴が開いて誰も気づかない）。
+     */
+    canWriteSales: boolean,
   ): Promise<CommitResult> {
     const intake = await this.get(intakeId);
     if (intake.status === 'committed') {
@@ -423,6 +432,16 @@ export const taskIntakeService = {
     for (const t of rows) {
       const dest = normalizeDest(t.dest);
       const label = DEST_LABEL[dest];
+      // **案件に書く行き先は `sales` の編集権限が要る。** 自分のタスク（`task`）だけは
+      // `dailyops` で通す — 投入口そのものは全員が使うもので、ここで全部止めると
+      // 「打ったのに何も残らない」になる
+      if (dest !== 'task' && !canWriteSales) {
+        throw new AppError(
+          403, 'FORBIDDEN',
+          `${label}は案件の記録なので、案件管理の編集権限が要ります`
+          + `（「${t.title ?? ''}」）。自分のタスクとしてなら登録できます`,
+        );
+      }
       if (!t.title?.trim()) {
         throw new AppError(400, 'VALIDATION_ERROR', `内容が空の${label}があります`);
       }

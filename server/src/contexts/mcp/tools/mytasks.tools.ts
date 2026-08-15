@@ -116,7 +116,11 @@ export function registerMyTaskTools(server: McpServer): void {
       const result = await taskIntakeService.commitIntake(
         args.intake_id,
         args.tasks as TaskDraft[],
-        currentActorId()
+        currentActorId(),
+        // MCP は**案件を作る道具（`create_project` ほか）をすでに持っている**別経路で、
+        // 鍵で認証している。ここだけ止めても意味が無いので通す
+        // （画面の投入口は `sales` の編集権限を見る）
+        true,
       );
       audit('commit_task_intake', args,
         { intake_id: args.intake_id, created_count: result.created_ids.length,

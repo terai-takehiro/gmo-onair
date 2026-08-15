@@ -1,93 +1,104 @@
 /**
- * 最近見たもの（⑪ 探す）
+ * 「最近見たもの」は**いま入っている人のものだけ**を出す。
  *
- * **画面では確かめにくい**もの（同じものが2つ並ばないか・上限で切れるか・
- * 壊れた値が入っていても落ちないか）なので素で固定します。
+ * ── なぜ試験にするのか ──────────────────────────────────────
+ *
+ * `localStorage` は**ログアウトしても残ります**。持ち主を書いていなかったので、
+ * 1台の端末を別の人が使ったとき（共用の PC・引き継いだ端末）に
+ * **前の人が見た案件名・お客様名・GLS 番号がそのまま出ていました**
+ * （開けば 403 になりますが、**名前はもう読まれています**）。
+ *
+ * 画面を見ても分かりません — 前の人と同じ端末で、同じ見た目のまま出るからです。
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readRecent, pushRecent, clearRecent } from '../src/client-v4/recent';
 
-/** テスト用の `localStorage`（Node には無い） */
-function installStorage(impl?: Partial<Storage>) {
+/** `localStorage` の代わり（Node には無い） */
+function fakeStorage() {
   const map = new Map<string, string>();
-  const base: Storage = {
-    get length() { return map.size; },
+  return {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => { map.set(k, v); },
+    removeItem: (k: string) => { map.delete(k); },
     clear: () => map.clear(),
-    getItem: (k) => map.get(k) ?? null,
-    key: (i) => [...map.keys()][i] ?? null,
-    removeItem: (k) => { map.delete(k); },
-    setItem: (k, v) => { map.set(k, v); },
+    get size() { return map.size; },
+    raw: (k: string) => map.get(k),
   };
-  (globalThis as { localStorage?: Storage }).localStorage = { ...base, ...impl };
-  return map;
 }
 
+let store: ReturnType<typeof fakeStorage>;
+
+beforeEach(() => {
+  store = fakeStorage();
+  vi.stubGlobal('localStorage', store);
+});
+
+const item = (to: string, label: string) => ({ to, label, kind: 'project' as const });
+
 describe('最近見たもの', () => {
-  beforeEach(() => { installStorage(); });
-  afterEach(() => { vi.restoreAllMocks(); });
-
-  it('何も無いときは空', () => {
-    expect(readRecent()).toEqual([]);
+  it('自分が見たものは出る', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    expect(readRecent('u1').map((v) => v.label)).toEqual(['GH IR説明会']);
   });
 
-  it('積んだものが先頭に来る', () => {
-    pushRecent({ to: '/a', label: 'A', kind: 'project' });
-    pushRecent({ to: '/b', label: 'B', kind: 'customer' });
-    expect(readRecent().map((r) => r.to)).toEqual(['/b', '/a']);
+  // ⚠️ ここが壊れていた側
+  it('別の人には出さない（同じ端末に前の人の分が残っていても）', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    expect(readRecent('u2')).toEqual([]);
   });
 
-  it('同じ行き先を2回開いても1つにまとまる（先頭に上がる）', () => {
-    pushRecent({ to: '/a', label: 'A', kind: 'project' });
-    pushRecent({ to: '/b', label: 'B', kind: 'project' });
-    pushRecent({ to: '/a', label: 'A（名前が変わった）', kind: 'project' });
-    const r = readRecent();
-    expect(r.map((v) => v.to)).toEqual(['/a', '/b']);
-    // **新しいほうの名前を採用する**（案件名を直した直後に古い名前が出ない）
-    expect(r[0].label).toBe('A（名前が変わった）');
+  it('持ち主が分からない古い形は出さない', () => {
+    store.setItem('gmo_onair_recent', JSON.stringify([
+      { to: '/sales/projects/1', label: '前の版が書いた案件', kind: 'project', at: 1 },
+    ]));
+    expect(readRecent('u1')).toEqual([]);
+  });
+
+  it('人が変わって積み直すと、前の人の分は消える', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    pushRecent(item('/sales/projects/2', 'PW 動画'), 'u2');
+    expect(readRecent('u2').map((v) => v.label)).toEqual(['PW 動画']);
+    expect(readRecent('u1')).toEqual([]);
+    // 端末に前の人の案件名が**文字として残っていない**こと
+    expect(store.raw('gmo_onair_recent')).not.toContain('GH IR説明会');
+  });
+
+  it('ログインしていない（uid が空）ときは読まない・書かない', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), '');
+    expect(store.size).toBe(0);
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    expect(readRecent('')).toEqual([]);
+  });
+
+  it('同じ行き先は1つにまとまり、新しいほうが先に来る', () => {
+    pushRecent(item('/sales/projects/1', '古い名前'), 'u1');
+    pushRecent(item('/sales/projects/2', 'ほか'), 'u1');
+    pushRecent(item('/sales/projects/1', '新しい名前'), 'u1');
+    expect(readRecent('u1').map((v) => v.label)).toEqual(['新しい名前', 'ほか']);
   });
 
   it('8件を超えたら古いものから落ちる', () => {
-    for (let i = 0; i < 12; i++) pushRecent({ to: `/p${i}`, label: `P${i}`, kind: 'project' });
-    const r = readRecent();
-    expect(r).toHaveLength(8);
-    expect(r[0].to).toBe('/p11');
-    expect(r[7].to).toBe('/p4');
+    for (let i = 0; i < 10; i++) pushRecent(item(`/sales/projects/${i}`, `案件${i}`), 'u1');
+    const got = readRecent('u1');
+    expect(got).toHaveLength(8);
+    expect(got[0].label).toBe('案件9');
   });
 
-  it('行き先か名前が空のものは積まない（押せない行を作らない）', () => {
-    pushRecent({ to: '', label: 'A', kind: 'project' });
-    pushRecent({ to: '/a', label: '', kind: 'project' });
-    expect(readRecent()).toEqual([]);
-  });
-
-  it('壊れた値が入っていても落ちない', () => {
-    localStorage.setItem('gmo_onair_recent', '{壊れている');
-    expect(readRecent()).toEqual([]);
-  });
-
-  it('形の違う要素は捨てる（古い版が書いた値が残っていても画面を壊さない）', () => {
-    localStorage.setItem('gmo_onair_recent', JSON.stringify([
-      { to: '/ok', label: 'OK', kind: 'project', at: 1 },
-      { label: '行き先が無い', kind: 'project', at: 2 },
-      null,
-    ]));
-    expect(readRecent().map((r) => r.to)).toEqual(['/ok']);
-  });
-
-  it('書けない端末でも例外を投げない（プライベートモード・容量切れ）', () => {
-    installStorage({ setItem: () => { throw new Error('QuotaExceededError'); } });
-    expect(() => pushRecent({ to: '/a', label: 'A', kind: 'project' })).not.toThrow();
-    expect(readRecent()).toEqual([]);
-  });
-
-  it('読めない端末でも例外を投げない', () => {
-    installStorage({ getItem: () => { throw new Error('SecurityError'); } });
-    expect(readRecent()).toEqual([]);
-  });
-
-  it('消せる', () => {
-    pushRecent({ to: '/a', label: 'A', kind: 'project' });
+  it('消せる（ログアウトで呼ぶ）', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
     clearRecent();
-    expect(readRecent()).toEqual([]);
+    expect(readRecent('u1')).toEqual([]);
+  });
+
+  // `localStorage` が使えない端末（プライベートモード・容量切れ）でも画面を壊さない
+  it('読めない・書けないときは何も無かったことにする', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('SecurityError'); },
+      setItem: () => { throw new Error('QuotaExceededError'); },
+      removeItem: () => { throw new Error('SecurityError'); },
+    });
+    expect(readRecent('u1')).toEqual([]);
+    expect(() => pushRecent(item('/x', 'y'), 'u1')).not.toThrow();
+    expect(() => clearRecent()).not.toThrow();
   });
 });

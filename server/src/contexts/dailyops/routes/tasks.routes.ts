@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import multer from 'multer';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll } from '../../../shared/db/connection';
 import { myTasksService } from '../../tasks/services/my-tasks.service';
@@ -69,17 +69,27 @@ function invalidateAdviceCache(): void {
   adviceCache = null;
 }
 
-/** sales 権限 (reader 以上) を持つか。案件リンクを出すかの判定に使う */
-async function canOpenProject(userId: string): Promise<boolean> {
-  const rows = await queryAll(
-    `SELECT 1 FROM user_permissions WHERE user_id = ? AND module = 'sales' LIMIT 1`,
-    [userId]
-  );
-  if (rows.length > 0) return true;
-  const admin = await queryAll(
-    `SELECT 1 FROM users WHERE id = ? AND role = 'system_admin' LIMIT 1`, [userId]
-  );
-  return admin.length > 0;
+/**
+ * この人は案件（`sales`）を見てよいか。**案件リンクを出すか**と
+ * **投入口が案件を触れるか**の両方がここを読む。
+ *
+ * ⚠️ 以前はここで `user_permissions` を引き直していたが、
+ * **認証がすでに読んで `req.user.permissions` に載せている**（`auth.ts`）。
+ * 2 か所で答えを出すと、片方だけ直した日から「リンクは出るのに 403」になる。
+ */
+function canSeeProjects(req: Request): boolean {
+  return meetsPermissionLevel(req.user?.role, req.user?.permissions?.sales, 'reader');
+}
+
+/**
+ * 案件に**書ける**か。ネタ案件・活動記録・議事録はどれも `sales` の表に入る。
+ *
+ * ⚠️ **投入口は `dailyops` の口**なのに、確定（`commitIntake`）は
+ * `projects` / `customers` / `activity_logs` / `project_minutes` に**直接書いていた**。
+ * つまり `dailyops` だけの人が、案件を1件も開けないまま案件を作れていた。
+ */
+function canWriteProjects(req: Request): boolean {
+  return meetsPermissionLevel(req.user?.role, req.user?.permissions?.sales, 'editor');
 }
 
 // ══════════════════════════════════════════════
@@ -138,6 +148,10 @@ async function loadUsers(): Promise<{ id: string; name: string }[]> {
 /**
  * 議事録・活動記録の紐づけ先の候補。**動いている案件だけ**を新しい順に出す。
  * 全件渡すと、終わった案件に議事録がぶら下がる（しかも誰も見に行かない）。
+ *
+ * **案件を見る権限が無い人には空で返します**（呼ぶ側が判定して渡す）。
+ * AI に候補を渡さなければ、下書きに案件が出てこないので、
+ * **「候補は見えるのに開けない」という食い違いも起きません**。
  */
 async function loadProjectCandidates(): Promise<ParserProject[]> {
   return (await queryAll(
@@ -172,9 +186,15 @@ async function analyzeIntake(
   rawText: string,
   userId: string,
   attachments: IntakeAttachment[],
+  /**
+   * 案件を見てよい人か。**false なら候補を1件も渡さない** —
+   * AI に候補を渡さなければ下書きに案件が出ないので、
+   * 「候補には出るのに開けない・確定できない」という食い違いが起きない
+   */
+  withProjects: boolean,
 ): Promise<AnalyzeResult> {
   const users = await loadUsers();
-  const projects = await loadProjectCandidates();
+  const projects = withProjects ? await loadProjectCandidates() : [];
   const now = new Date();
   let parsed: ParseResult;
   let model = 'rules';
@@ -269,6 +289,8 @@ async function runIntakeTranscription(
     extraTexts: string[];
     attachments: IntakeAttachment[];
     userId: string;
+    /** 投げた人が案件を見てよいか（`req` はここには来ないので投げるときに決める） */
+    withProjects: boolean;
   },
 ): Promise<void> {
   try {
@@ -283,7 +305,7 @@ async function runIntakeTranscription(
       .filter((s) => s && s.trim())
       .join('\n\n');
 
-    const a = await analyzeIntake(rawText, p.userId, p.attachments);
+    const a = await analyzeIntake(rawText, p.userId, p.attachments, p.withProjects);
     await taskIntakeService.finishTranscribing(
       intakeId,
       { raw_text: rawText, drafts: toDrafts(a.parsed, p.userId), model: a.model, prompt_version: a.promptVersion },
@@ -429,6 +451,8 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
       extraTexts,
       attachments,
       userId,
+      // **裏で走るので `req` が無い。** 投げた時点の権限をここで決めて持たせる
+      withProjects: canSeeProjects(req),
     });
     res.status(202).json({
       success: true,
@@ -449,7 +473,7 @@ router.post('/tasks/intake', ...canEdit, intakeUpload, async (req, res) => {
   }
 
   const { parsed, users, projects, model, promptVersion, aiError } =
-    await analyzeIntake(rawText, userId, attachments);
+    await analyzeIntake(rawText, userId, attachments, canSeeProjects(req));
   const drafts = toDrafts(parsed, userId);
 
   const intake = await taskIntakeService.createIntake(
@@ -493,7 +517,7 @@ router.post('/tasks/intake/:id/commit', ...canEdit, async (req, res) => {
     throw new AppError(400, 'VALIDATION_ERROR', '登録するものを選んでください');
   }
   const result = await taskIntakeService.commitIntake(
-    String(req.params.id), rows as TaskDraft[], userId
+    String(req.params.id), rows as TaskDraft[], userId, canWriteProjects(req),
   );
   invalidateAdviceCache();
   res.json({ success: true, data: result });
@@ -539,7 +563,7 @@ router.get('/tasks/intakes/:id', ...canRead, async (req, res) => {
       ...intake,
       generated_tasks: generated,
       users: needsPickers ? await loadUsers() : [],
-      projects: needsPickers ? await loadProjectCandidates() : [],
+      projects: needsPickers && canSeeProjects(req) ? await loadProjectCandidates() : [],
     },
   });
 });
@@ -551,15 +575,13 @@ router.get('/tasks/intakes/:id', ...canRead, async (req, res) => {
 /** 自分のタスク (案件タスク + 個人タスクを混ぜて 9 マス / スコア順) */
 router.get('/tasks/mine', ...canRead, async (req, res) => {
   const userId = me(req);
-  const [tasks, canOpen] = await Promise.all([
-    myTasksService.listMyTasks(userId, {
-      includeCompleted: req.query.include_completed === '1',
-      overdueOnly: req.query.overdue === '1',
-      dueToday: req.query.due_today === '1',
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
-    }),
-    canOpenProject(userId),
-  ]);
+  const tasks = await myTasksService.listMyTasks(userId, {
+    includeCompleted: req.query.include_completed === '1',
+    overdueOnly: req.query.overdue === '1',
+    dueToday: req.query.due_today === '1',
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  const canOpen = canSeeProjects(req);
   res.json({ success: true, data: tasks, meta: { can_open_project: canOpen } });
 });
 
@@ -567,13 +589,11 @@ router.get('/tasks/mine', ...canRead, async (req, res) => {
 router.get('/tasks/delegations', ...canRead, async (req, res) => {
   const userId = me(req);
   const direction = req.query.direction === 'sent' ? 'sent' : 'received';
-  const [rows, canOpen] = await Promise.all([
-    myTasksService.listMyDelegations(userId, direction, {
-      includeDone: req.query.include_done === '1',
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
-    }),
-    canOpenProject(userId),
-  ]);
+  const rows = await myTasksService.listMyDelegations(userId, direction, {
+    includeDone: req.query.include_done === '1',
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  const canOpen = canSeeProjects(req);
   res.json({ success: true, data: rows, meta: { can_open_project: canOpen } });
 });
 
