@@ -298,8 +298,8 @@ grep -c '| ❓ |$' docs/reviews/codex-findings-v4.md
 | #67 | **P1** | `BillingTab` | 月次モードにならない | ⭕️ #115 |
 | #67 | **P1** | `BillingTab` | `gpm` だけの人は請求タブが**開いた瞬間エラー** | ⭕️ #115 |
 | #67 | P2 | `queries.ts` | `gpm` だけの人は顧客を選べず、案件を作れない | ⭕️ #115 |
-| #66 | P2 | `tokens-v4.css` | スマホで `<h1>` が消え、読み上げで現在地が分からない | ❓ |
-| #65 | P2 | `MobileFilterBar` | 既定の半年絞り込みが「絞り込みなし」と表示される | ❓ |
+| #66 | P2 | `tokens-v4.css` | スマホで `<h1>` が消え、読み上げで現在地が分からない | ⭕️ 済（**M7 の `[data-page-title] { display:none }` を戻したときに直っていた**。375px で4画面を実測 — `<h1>` は 1 個・`visible`・20px。#139 で確認） |
+| #65 | P2 | `MobileFilterBar` | 既定の半年絞り込みが「絞り込みなし」と表示される | ⭕️ #139（**枠には期間が出ていた**が、件数の文が**「全4件」**と言い切っていた。実データ 46 件） |
 | #63 | **P1** | `scheduler.service` | **夜間ジョブが UTC で走る**（09:00 のものが 18:00 JST） | ⭕️ #106 |
 | #63 | **P1** | `gpm/index` | `/gpm/estimates/summary` が `/:id` に食われて 404 | ⭕️ |
 | #63 | **P1** | `estimate.service` | `can_estimate = false` が**効いていない** | ⭕️ #107 |
