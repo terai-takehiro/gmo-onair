@@ -71,8 +71,6 @@ export default function MeetingRecordPage() {
       },
     })).data.data as Row[],
     staleTime: 60_000,
-    // 打ち替えている間に前の言葉の結果を消さない（一覧が明滅する）
-    placeholderData: (prev) => prev,
   });
 
   // 文字起こしにつないでいない環境がある。**押せるのに必ず失敗する形を作らない**
@@ -89,6 +87,20 @@ export default function MeetingRecordPage() {
    * （全角半角・大文字小文字の扱いが両者で違う）。
    */
   const rows = list.data ?? [];
+
+  /**
+   * ⚠️ **打った言葉と、並んでいる案件が食い違う瞬間を出さない**
+   * （この PR のレビューで指摘された）。
+   *
+   * ①打ってから 300ms は `debounced` が前の言葉のまま＝**前の言葉の一覧**が並び、
+   * ②通信のあいだも同じです。手元での絞り込みをやめたので、**画面には
+   * 打った言葉と関係ない案件が押せる状態で並びます**。ここで選ぶと、
+   * **録音がその案件に付きます**（送ったあとは案件名しか出ないので、
+   * 間違いに気づくのは相手の議事録を読んだときです）。
+   *
+   * ⌘K の窓と同じ決めごと — **どの言葉の結果かが一致しているときだけ出す**。
+   */
+  const searching = q.trim() !== debounced || list.isFetching;
 
   const send = useMutation({
     mutationFn: async (p: { file: File; metOn: string }) => {
@@ -174,7 +186,8 @@ export default function MeetingRecordPage() {
 
       {list.isError ? (
         <ErrorPanel title="案件を読み込めませんでした" error={list.error} onRetry={() => list.refetch()} />
-      ) : list.isLoading ? (
+      ) : list.isLoading || searching ? (
+        /* **打った言葉と食い違う一覧を押させない**（上の `searching` の説明） */
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
         <EmptyState

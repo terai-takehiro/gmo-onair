@@ -151,6 +151,19 @@ describe('打合せの録音で 51 件目の案件を選べる', () => {
     expect(RECORD).toMatch(/const rows = list\.data \?\? \[\];/);
   });
 
+  /**
+   * ⚠️ **手元の絞り込みをやめたら、食い違う瞬間を隠すこと**（この PR のレビューで指摘された）。
+   * 打ってから 300ms ＋ 通信のあいだは**前の言葉の一覧**が並びます。
+   * そこで選ぶと**録音が別の案件に付きます**（送ったあとは案件名しか出ないので、
+   * 気づくのは相手の議事録を読んだときです）。
+   */
+  it('打った言葉と食い違う一覧を押させない', () => {
+    expect(RECORD).toMatch(/const searching = q\.trim\(\) !== debounced \|\| list\.isFetching;/);
+    expect(RECORD).toMatch(/\) : list\.isLoading \|\| searching \? \(/);
+    // 前の言葉の結果を「そのまま置いておく」形にしない
+    expect(RECORD).not.toContain('placeholderData');
+  });
+
   it('「やり取りを開く」がやり取りタブに着く（`log` というタブは無い）', () => {
     expect(RECORD).toMatch(/\/sales\/projects\/\$\{picked\.id\}\/thread/);
     expect(RECORD).not.toContain('/log`');
