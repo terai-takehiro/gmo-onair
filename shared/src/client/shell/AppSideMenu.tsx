@@ -50,11 +50,39 @@ import type { ShellAccess, ShellNavSection } from './types';
  * 末尾のスラッシュを畳んでから比べます。`end` が無い項目は配下も現在地とみなします
  * (`/sales/projects` にいるとき `/sales/projects` の項目が光る)。
  */
+/**
+ * `to` の**道の部分だけ**（`?` から先を落とす）。
+ *
+ * ⚠️ **項目は絞り込みつきの行き先を持ちます**（`/equipment/items?view=lend`）。
+ * クエリごと `pathname` と比べていたので、**その項目は一度も光らず**、
+ * パンくずには**同じ道の別の項目の名前**（「機材台帳」）が出ていました
+ * （レビューでの指摘 #82）。押した本人には、押した先と違う名前が上辺バーに出ます。
+ */
+export function pathOf(to: string): string {
+  return to.split('?')[0].split('#')[0];
+}
+
 export function isCurrent(pathname: string, to: string, end?: boolean): boolean {
   const norm = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p);
   const a = norm(pathname);
-  const b = norm(to);
+  const b = norm(pathOf(to));
   return end ? a === b : a === b || a.startsWith(`${b}/`);
+}
+
+/**
+ * 項目が持っているクエリが、いま開いている URL と**すべて一致するか**。
+ *
+ * 同じ道に項目が2つ以上あるとき（機材台帳 と 貸出対象の機材）に、
+ * **どちらにいるのか**を決めるために見ます。項目がクエリを持たなければ 0
+ * （＝一致した項目が他に無ければそれが現在地）。
+ */
+function queryScore(to: string, search: string): number {
+  const q = to.split('?')[1];
+  if (!q) return 0;
+  const now = new URLSearchParams(search);
+  const want = new URLSearchParams(q);
+  for (const [k, v] of want) if (now.get(k) !== v) return -1;
+  return [...want].length;
 }
 
 /**
@@ -67,13 +95,24 @@ export function isCurrent(pathname: string, to: string, end?: boolean): boolean 
  * これで `/sales/projects/<案件id>`（案件詳細）では `案件一覧` が光り、
  * `/sales/projects/confirmed/studio` では `確定案件（スタジオ）` だけが光ります。
  */
-export function currentTo(pathname: string, sections: ShellNavSection[]): string | null {
+export function currentTo(
+  pathname: string, sections: ShellNavSection[], search = '',
+): string | null {
   let best: string | null = null;
+  let bestScore = -1;
+  let bestLen = -1;
   for (const s of sections) {
     for (const i of s.items) {
       if (i.external) continue;
       if (!isCurrent(pathname, i.to, i.end)) continue;
-      if (best === null || i.to.length > best.length) best = i.to;
+      // **クエリが食い違う項目は現在地にしない**（`?view=lend` を見ているのに台帳を光らせない）
+      const score = queryScore(i.to, search);
+      if (score < 0) continue;
+      const len = pathOf(i.to).length;
+      // 深い道が勝つ。同じ深さなら**クエリまで一致している**ほうが勝つ
+      if (len > bestLen || (len === bestLen && score > bestScore)) {
+        best = i.to; bestLen = len; bestScore = score;
+      }
     }
   }
   return best;
@@ -97,9 +136,37 @@ export interface AppSideMenuProps extends ShellAccess {
   mobileHiddenPaths?: string[];
 }
 
-function useCan({ role, permissions, can }: ShellAccess) {
-  if (can) return can;
-  return (module: string) => role === 'system_admin' || !!permissions?.[module];
+/**
+ * その人に見える項目だけにした並び。
+ *
+ * ⚠️ **左メニューと上辺バーのパンくずが、同じ答えを使うために切り出しました**
+ * （レビューでの指摘 #82）。前の版はメニューだけが権限で絞っており、
+ * パンくずは**絞る前の並び**から名前を引いていたので、
+ * **メニューに出ていない画面の名前が上辺バーに出ます**。
+ * 現在地の判定も2か所で別々になり、**メニューは何も光っていないのに
+ * パンくずだけ名前を出す**ことが起きます。
+ */
+export function visibleSections(
+  sections: ShellNavSection[],
+  opts: ShellAccess & { mobile?: boolean; mobileHiddenPaths?: string[] },
+): ShellNavSection[] {
+  const allow = opts.can ?? ((module: string) => opts.role === 'system_admin' || !!opts.permissions?.[module]);
+  const isAdmin = opts.role === 'system_admin';
+  const hiddenHere = (to: string) => !!opts.mobile
+    && !!opts.mobileHiddenPaths?.some((pat) => matchPath({ path: pat, end: true }, pathOf(to)));
+
+  return sections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((item) => {
+        if (hiddenHere(item.to)) return false;
+        if (item.adminOnly) return isAdmin;
+        if (item.modules?.length) return item.modules.some(allow);
+        if (item.module) return allow(item.module);
+        return true;
+      }),
+    }))
+    .filter((s) => s.items.length > 0);
 }
 
 export function AppSideMenu({
@@ -112,33 +179,18 @@ export function AppSideMenu({
   permissions,
   can,
 }: AppSideMenuProps) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const mobile = useIsMobile();
-  const allow = useCan({ role, permissions, can });
-  const isAdmin = role === 'system_admin';
-
-  /**
-   * スマホで出さない項目か。**前方一致ではなくルートの型で照合する** —
-   * `/settings` を前方一致にすると `/settings/sites` まで巻き込みます。
+  /*
+   * 見える項目だけにする。**判定は `visibleSections` の1か所**（上の説明）—
+   * ここに書き写すと、パンくずと食い違います。
+   * スマホで出さない項目は**前方一致ではなくルートの型で照合**する
+   * （`/settings` を前方一致にすると `/settings/sites` まで巻き込む）。
    */
-  const hiddenHere = (to: string) =>
-    mobile && !!mobileHiddenPaths?.some((pat) => matchPath({ path: pat, end: true }, to));
-
-  const visible = sections
-    .map((s) => ({
-      ...s,
-      items: s.items.filter((item) => {
-        if (hiddenHere(item.to)) return false;
-        if (item.adminOnly) return isAdmin;
-        if (item.modules?.length) return item.modules.some(allow);
-        if (item.module) return allow(item.module);
-        return true;
-      }),
-    }))
-    .filter((s) => s.items.length > 0);
+  const visible = visibleSections(sections, { role, permissions, can, mobile, mobileHiddenPaths });
 
   // **光らせるのは1つだけ。** 権限で消えた項目は数に入れない（見えないものを現在地にしない）
-  const activeTo = currentTo(pathname, visible);
+  const activeTo = currentTo(pathname, visible, search);
 
   return (
     <>
