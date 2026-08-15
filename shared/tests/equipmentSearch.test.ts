@@ -29,14 +29,24 @@ describe('機材を探す', () => {
   it('全角で打っても当たる', () => {
     // 画面は「全角半角・ハイフンは区別しません」と書いているのに、
     // サーバーは打たれた文字をそのまま `ILIKE` に渡していた
-    expect(SERVICE).toMatch(/const term = String\(filter\.search\)\.normalize\('NFKC'\)/);
-    // 素の文字ではなく**正規化したもの**で組む（片方だけ直すと元に戻る）
-    expect(SERVICE).toMatch(/const s = `%\$\{term\}%`/);
-    expect(SERVICE).toMatch(/const bare = `%\$\{term\.replace\(\/\[-\\s_\]\/g, ''\)\}%`/);
+    expect(SERVICE).toMatch(/const term = raw\.normalize\('NFKC'\)/);
+  });
+
+  /**
+   * ⚠️ **打った文字だけを寄せてはいけない**（レビューで指摘された）。
+   * 台帳の値のほうが全角だったとき（Excel 取込で `ＦＸ９` と入っている等）、
+   * 語だけ寄せると **今まで当たっていたものが当たらなくなります** —
+   * 直したつもりで別の当たり方を壊す形でした。
+   */
+  it('台帳の値が全角でも当たる（両側を寄せる）', () => {
+    expect(SERVICE).toMatch(/const norm = \(col: string\) => `normalize\(\$\{col\}, NFKC\)`/);
+    // **素のままの比較も残す**（いままで当たっていたものを1つも失わない）
+    expect(SERVICE).toMatch(/for \(const c of RAW_COLS\) \{ conds\.push\(`\$\{c\} ILIKE/);
+    expect(SERVICE).toMatch(/for \(const c of NORM_COLS\) \{ conds\.push\(`\$\{norm\(c\)\} ILIKE/);
   });
 
   it('置き場所でも当たる', () => {
-    expect(SERVICE).toMatch(/OR el\.name ILIKE \$\$\{i \+ 5\} OR ei\.location_detail ILIKE \$\$\{i \+ 6\}/);
+    expect(SERVICE).toMatch(/'el\.name', 'ei\.location_detail',/);
   });
 
   it('付属品（子機材）も出す — 探すのは「その1点を当てる」画面', () => {
