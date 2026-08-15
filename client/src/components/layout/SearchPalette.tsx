@@ -57,6 +57,8 @@ interface Hit {
 export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
+  // 最近見たものは**いま入っている人のものだけ**（端末を共有したときの持ち越しを防ぐ）
+  const uid = currentUser?.id ?? '';
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   const [searching, setSearching] = useState(false);
@@ -68,12 +70,12 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
   // 開くたびに読み直す（閉じている間に開いた案件を次に出す）
   useEffect(() => {
     if (open) {
-      setRecent(readRecent());
+      setRecent(readRecent(uid));
       setQuery('');
       setResults(null);
       setCursor(0);
     }
-  }, [open]);
+  }, [open, uid]);
 
   const run = useCallback(async (q: string) => {
     const mine = ++seq.current;

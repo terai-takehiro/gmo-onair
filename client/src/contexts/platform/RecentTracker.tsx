@@ -26,6 +26,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { pushRecent, type RecentItem } from '@gmo-onair/shared/src/client-v4/recent';
+import { useAuth } from '@/contexts/platform/AuthContext';
 
 /** URL → 見に行くキャッシュの鍵と、そこから名前を取り出す方法 */
 function target(pathname: string): { key: unknown[]; read: (d: unknown) => Omit<RecentItem, 'at'> | null } | null {
@@ -71,6 +72,10 @@ function target(pathname: string): { key: unknown[]; read: (d: unknown) => Omit<
 export function RecentTracker() {
   const { pathname } = useLocation();
   const qc = useQueryClient();
+  // **誰が見たのかを一緒に残す。** 端末を共有したとき、
+  // 前の人が見た案件名が次の人に出ないようにするため（`recent.ts`）
+  const { currentUser } = useAuth();
+  const uid = currentUser?.id ?? '';
 
   useEffect(() => {
     const t = target(pathname);
@@ -81,12 +86,12 @@ export function RecentTracker() {
       const item = t.read(qc.getQueryData(t.key));
       // **同じ画面で1度だけ。** 名前を直したら積み直したいが、
       // キャッシュが更新されるたびに積むと並びが動き続ける
-      if (item) { done = true; pushRecent(item); }
+      if (item && uid) { done = true; pushRecent(item, uid); }
     };
     tryPush();
     // まだ読み込み中なら、取れた時点で積む
     return qc.getQueryCache().subscribe(tryPush);
-  }, [pathname, qc]);
+  }, [pathname, qc, uid]);
 
   return null;
 }

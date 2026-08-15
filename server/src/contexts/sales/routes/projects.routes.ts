@@ -308,6 +308,31 @@ router.get('/:id/box-files', async (req, res) => {
 });
 
 /**
+ * その `fileId` は、この案件の**写真フォルダ**（社外と共有する `08_写真`）にあるか。
+ *
+ * **無ければ作りません**（読むだけでフォルダを増やさない）。フォルダが無い＝
+ * 写真は1枚も無いので false です。
+ */
+async function isProjectPhoto(projectId: string, fileId: string): Promise<boolean> {
+  const project = await queryOne(
+    'SELECT box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
+    [projectId],
+  ) as { box_url_external: string | null } | undefined;
+  const rootId = extractFolderId(project?.box_url_external ?? null);
+  if (!rootId) return false;
+  try {
+    const photos = (await listFolderItems(rootId))
+      .find((i) => i.type === 'folder' && i.name === PHOTOS_SUBFOLDER);
+    if (!photos) return false;
+    return (await listFolderItems(photos.id)).some((i) => i.type === 'file' && i.id === fileId);
+  } catch (err) {
+    // BOX が落ちているときは**通さない**。ここで通すと、障害の日だけ確認が消える
+    console.warn('[box] 写真の持ち主を確かめられませんでした:', (err as Error).message);
+    return false;
+  }
+}
+
+/**
  * 写真のサムネイル。**画像をこちらに複製しません** — BOX が作ったものを流すだけです。
  *
  * ── なぜ中継するのか ────────────────────────────────────────
@@ -324,8 +349,23 @@ router.get('/:id/box-files', async (req, res) => {
  */
 router.get('/:id/box-files/:fileId/thumbnail', async (req, res) => {
   if (!isBoxConfigured()) throw new AppError(404, 'NOT_CONFIGURED', 'この環境は BOX につないでいません');
+  /*
+   * ⚠️ **その案件の写真かどうかを必ず確かめる。**
+   *
+   * 以前はここで `fileId` をそのまま BOX に渡していました。`:id`（案件）は
+   * URL に入っているだけで**一度も読まれていなかった**ので、`sales` の権限さえ
+   * あれば**別の案件の写真でも、社内限りフォルダの資料でも**、id を渡せば
+   * 中身（サムネイル）を取り出せました。id は一覧の応答に出るので推測は要りません。
+   *
+   * 確かめ方は**その案件の写真フォルダに実在するか**です（BOX に持ち主を訊く形に
+   * すると、フォルダを移した写真が「持ち主は合っているのに別の場所」で通ってしまう）。
+   */
+  const fileId = String(req.params.fileId);
+  if (!(await isProjectPhoto(String(req.params.id), fileId))) {
+    throw new AppError(404, 'NOT_FOUND', 'この案件の写真ではありません');
+  }
   try {
-    const stream = await getThumbnailStream(req.params.fileId as string);
+    const stream = await getThumbnailStream(fileId);
     res.setHeader('Content-Type', 'image/jpeg');
     // 同じ写真を何度も取りに行かない。**こちらには残さない**ので、持つのはブラウザ側だけ
     res.setHeader('Cache-Control', 'private, max-age=3600');

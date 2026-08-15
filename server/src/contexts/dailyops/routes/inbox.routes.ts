@@ -23,6 +23,15 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
  */
 const docsRead = [requireAuth, requireAnyPermission(['dailyops', 'budget'], 'reader')] as const;
 const docsEdit = [requireAuth, requireAnyPermission(['dailyops', 'budget'], 'editor')] as const;
+/**
+ * **台帳（仕入・販管費）に行を作る操作。** 受け取った書類を見る・直すのは
+ * `dailyops` でよいが、**お金の台帳に書くのは `budget` の編集権限**が要る
+ * （`purchases.routes` / `sga.routes` の作成口はどちらも `budget:editor`）。
+ *
+ * ⚠️ ここを `docsEdit` のままにすると、**`dailyops` だけの人が
+ * 仕入・販管費に直接行を作れます**（台帳側の口は閉まっているのに、こちらから入れる）。
+ */
+const ledgerWrite = [requireAuth, requirePermission('budget', 'editor')] as const;
 
 // ── アラート集計 (案件管理ホーム用: 未処理の見積/請求 + 未対応の問い合わせ 件数) ──
 router.get('/alerts', ...canRead, async (_req, res) => {
@@ -67,7 +76,7 @@ router.delete('/finance-docs/:id', ...docsEdit, async (req, res) => {
  * **これが「処理完了」の中身です。** 以前は状態が変わるだけで台帳に何も作られず、
  * 同じ請求書を2回入力していました（届いた記録 ＋ 台帳の記録）。
  */
-router.post('/finance-docs/:id/handoff', ...docsEdit, async (req, res) => {
+router.post('/finance-docs/:id/handoff', ...ledgerWrite, async (req, res) => {
   const b = (req.body ?? {}) as Record<string, unknown>;
   const kind = b.kind === 'sga' ? 'sga' : b.kind === 'purchase' ? 'purchase' : null;
   if (!kind) throw new AppError(400, 'VALIDATION_ERROR', '仕入か販管費かを指定してください');
@@ -89,7 +98,7 @@ router.post('/finance-docs/:id/handoff', ...docsEdit, async (req, res) => {
 });
 
 /** 渡したのを取り消す。**台帳の行は消さない**（経理が直しているかもしれない） */
-router.post('/finance-docs/:id/handoff/undo', ...docsEdit, async (req, res) => {
+router.post('/finance-docs/:id/handoff/undo', ...ledgerWrite, async (req, res) => {
   res.json({ success: true, data: await undoHandoff(String(req.params.id), req.user!.id) });
 });
 
