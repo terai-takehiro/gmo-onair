@@ -92,10 +92,26 @@ export function useProjectDecisions(
   const existingId = selection?.project?.id ?? null;
   const inquiryId = selection?.inquiry?.id ?? urlInquiryId;
 
-  const invalidate = () => {
+  /**
+   * 書いたあとに落とす鍵。
+   *
+   * ⚠️ **`['projects']`（一覧）は `['project', id]`（1件）に当たりません。**
+   * react-query は鍵の**前方一致**で落とすので、`'projects'` と `'project'` は
+   * 別の文字列＝別の鍵です。
+   *
+   * レールからネタ案件を選ぶと、`useIntakeSeed` が**保存前の姿**を
+   * `['project', <id>]` に載せます（詳細画面・直す画面と**同じ鍵**）。
+   * ここで落とさないと、`staleTime`（60秒）のあいだ詳細画面はその古い姿を
+   * そのまま出します — **入れたばかりの案件分類・客入れの有無・ステージが
+   * 画面に出ません**（「案件にしました」と出ているのに、分類は「その他」のまま）。
+   * 押した人には保存できなかったようにしか見えず、しかも読み込み直すと
+   * 直っているので**再現しないバグ**として扱われます。
+   */
+  const invalidate = (projectId?: string | null) => {
     qc.invalidateQueries({ queryKey: ['projects'] });
     qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
     qc.invalidateQueries({ queryKey: queryKeys.dashboard.inbox() });
+    if (projectId) qc.invalidateQueries({ queryKey: ['project', projectId] });
   };
 
   /** 新しく作って、引き合いがあれば印を付けて、その案件を開く */
@@ -144,7 +160,7 @@ export function useProjectDecisions(
       return existingId ? saveExisting(existingId, stage) : createNew(stage);
     },
     onSuccess: (id) => {
-      invalidate();
+      invalidate(id);
       notifySuccess('案件にしました', {
         description: 'GLS 番号は受注が固まってから発番します。',
       });
@@ -170,7 +186,7 @@ export function useProjectDecisions(
       return createNew('neta');
     },
     onSuccess: (id) => {
-      invalidate();
+      invalidate(id);
       notifySuccess('ネタのまま残しました');
       if (id) navigate(`/sales/projects/${id}`);
     },
@@ -190,7 +206,9 @@ export function useProjectDecisions(
       }
     },
     onSuccess: () => {
-      invalidate();
+      // 見送りは**もうある行のステージを動かす**だけなので、行き先（ダッシュボード）に
+      // 出ていなくても `['project', id]` の古い姿は残る（戻ると失注前の段が出る）
+      invalidate(existingId);
       notifySuccess('見送りにしました');
       navigate('/sales/dashboard');
     },
