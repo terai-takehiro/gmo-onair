@@ -64,6 +64,16 @@ function ReviewBody({
   const blockers = checked.flatMap(rowBlockers);
   const users = intake.users ?? [];
   const projects = intake.projects ?? [];
+  /*
+   * 拾わなかったもの。**打ち込んだときは応答（`skipped`）・録音のときは行（`warnings`）**
+   * に入るので、両方を見る（同じ行が二度並ばないように鍵で潰す）。
+   */
+  const notPicked = Array.from(
+    new Map(
+      [...(intake.skipped ?? []), ...(intake.warnings ?? [])]
+        .map((w) => [`${w.line}|${w.reason}`, w] as const),
+    ).values(),
+  );
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -90,15 +100,20 @@ function ReviewBody({
         </p>
       )}
 
-      {/* 拾わなかった行 (決定事項など) を見せる */}
-      {intake.skipped && intake.skipped.length > 0 && (
+      {/*
+        拾わなかった行（決定事項など）・読めなかった添付・規則ベースへの縮退。
+        ⚠️ **`skipped` と `warnings` の両方を見る** — 打ち込んだときは応答に載り、
+        **録音のときは行に残ります**（裏で解析するので応答に載せられない）。
+        片方だけ見ると「打つと出るのに、録音だと出ない」になります。
+      */}
+      {notPicked.length > 0 && (
         <div className="rounded-note border border-border bg-muted/40 p-2.5 text-note">
           <p className="flex items-center gap-1.5 text-muted-foreground">
             <Info className="h-3.5 w-3.5" aria-hidden="true" />
             登録しなかった行（記録には残ります）
           </p>
           <ul className="mt-1 space-y-0.5">
-            {intake.skipped.map((s, i) => (
+            {notPicked.map((s, i) => (
               <li key={i} className="text-muted-foreground">
                 <span className="text-secondary-foreground">{s.line}</span>
                 <span className="ml-1.5">— {s.reason}</span>
