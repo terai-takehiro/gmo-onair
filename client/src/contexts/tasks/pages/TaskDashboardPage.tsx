@@ -22,7 +22,7 @@
  * 一覧の作り直しと混ぜませんでした。
  */
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, ListTodo, GanttChart, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -61,9 +61,30 @@ function DesktopTaskDashboard() {
   const isGantt = view === 'gantt';
 
   const { data, isLoading, isError, refetch } = useTaskDashboard();
-  const [scope, setScope] = useState<Scope>('all');
-  const [filter, setFilter] = useState<Filter>('open');
-  const [sort, setSort] = useState<Sort>('due');
+
+  /**
+   * ⚠️ **絞り込みは URL で持つ**（レビューでの指摘 #50）。
+   *
+   * 見え方の切り替えは `navigate('/sales/tasks/gantt')` = **道を変える操作**なので、
+   * `useState` で持っていると**画面ごと作り直されて既定に戻ります**。
+   * 実測すると、リストで「すべて」を選んでからガントに切り替えた瞬間に
+   * **チップが「未完了」に戻って**いました（押した覚えのない絞り込みが掛かる）。
+   * しかもチップは**光ったまま**なので、見る人には選んだとおりに見えます。
+   *
+   * URL に置けば、道が変わっても引き継がれ、**共有した URL でも同じものが見えます**。
+   */
+  const [params, setParams] = useSearchParams();
+  const scope = (params.get('scope') === 'mine' ? 'mine' : 'all') as Scope;
+  const filter = ((['all', 'open', 'over'] as const).find((f) => f === params.get('state')) ?? 'open') as Filter;
+  const sort = ((['due', 'project', 'state'] as const).find((x) => x === params.get('sort')) ?? 'due') as Sort;
+  /** 既定は URL から落とす（`?state=open` を毎回付けて回らない） */
+  const setParam = (key: string, value: string, dflt: string) => setParams((n) => {
+    if (value === dflt) n.delete(key); else n.set(key, value);
+    return n;
+  }, { replace: true });
+  const setScope = (v: Scope) => setParam('scope', v, 'all');
+  const setFilter = (v: Filter) => setParam('state', v, 'open');
+  const setSort = (v: Sort) => setParam('sort', v, 'due');
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<DashboardTask | null>(null);
 
@@ -134,7 +155,8 @@ function DesktopTaskDashboard() {
             <button
               key={v}
               type="button"
-              onClick={() => navigate(`/sales/tasks/${v}`)}
+              // **絞り込みを引き継ぐ**（道が変わっても選んだものを保つ）
+              onClick={() => navigate({ pathname: `/sales/tasks/${v}`, search: params.toString() })}
               aria-pressed={isGantt === (v === 'gantt')}
               className={`min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px] ${i > 0 ? 'border-l border-border' : ''} ${
                 isGantt === (v === 'gantt') ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -194,10 +216,21 @@ function DesktopTaskDashboard() {
       ) : isError ? (
         <ErrorPanel title="タスクを読み込めませんでした" onRetry={() => refetch()} />
       ) : isGantt ? (
+        /*
+         * ⚠️ **ガントにも絞り込みを効かせる**（レビューでの指摘 #50）。
+         *
+         * 前の版は `scoped`（「自分の／すべて」だけを掛けたもの）を渡していたので、
+         * **「未完了だけ」「期限超過だけ」を選んでからガントに切り替えると、
+         * 全部が出ていました**。チップは選ばれたまま光っているので、
+         * 見る人には**絞り込んだ結果**に見えます（数が合わないことにも気づけない —
+         * ガントは件数を出さないため）。
+         *
+         * 並べ替えも一緒に渡しますが、ガントは日付で置くので影響しません。
+         */
         <DashboardGanttView
           projects={data?.projects ?? []}
           columns={data?.columns ?? []}
-          tasks={scoped}
+          tasks={rows}
         />
       ) : rows.length === 0 ? (
         activeFilters.length > 0 ? (

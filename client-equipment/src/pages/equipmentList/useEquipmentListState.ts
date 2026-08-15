@@ -57,9 +57,22 @@ export function useEquipmentListState() {
     setLocs(next);
   };
   const setIncludeChildren = (v: boolean) => patch((n) => { if (v) n.set('children', '1'); else n.delete('children'); });
+  /**
+   * 絞り込みを全部外す（シートの「ぜんぶ外す」と 0 件のときの案内）。
+   *
+   * ⚠️ **「付属品も出す」も外すこと**（レビューでの指摘 #69）。
+   * 数える側（`MobileFilters` の `activeCount`）は**これも1つとして数えます**
+   * — 入れたままだと件数が急に増え、畳んでいると理由が分からないためです。
+   * ところが外す側が `children` を消していなかったので、
+   * **「ぜんぶ外す」を押しても札の数字が 1 のまま残り、付属品も一覧に出たまま**でした。
+   * 押した人には**「全部外したのに外れていない」**としか見えません。
+   */
   const clearFilters = () => {
     setSearch('');
-    patch((n) => { n.delete('tab'); n.delete('sect'); n.delete('locs'); n.delete('q'); });
+    patch((n) => {
+      n.delete('tab'); n.delete('sect'); n.delete('locs'); n.delete('q');
+      n.delete('children');
+    });
   };
 
   /** 3回押すと既定の並びに戻る (昇順 → 降順 → 既定) */
