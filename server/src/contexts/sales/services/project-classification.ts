@@ -57,6 +57,27 @@ const TO_PROJECT_TYPE: Record<string, string> = {
   'no_audience:event': 'offline_event',
 };
 
+/**
+ * 2段 → 旧 `project_type` の対応を **SQL の CASE 式に組み立てる**（案件台帳の整合性チェック）。
+ *
+ * ⚠️ **SQL に対応表を書き写さないこと。** この文書の冒頭のとおり、対応表は
+ * ここが唯一の正です。SQL 側にもう1つ書くと、**片方だけ直した日から
+ * 「ずれている」と言われる案件の集合が変わり**、しかもどちらが正しいか
+ * 画面からは分かりません。だから**表そのものから式を作ります**。
+ *
+ * 値は上のリテラルだけ（外から来た文字列は1つも混ざらない）ので、
+ * 文字列として組み立てても差し込みの危険はありません。
+ */
+export function projectTypeSqlCase(audienceCol: string, categoryCol: string): string {
+  const whens = Object.entries(TO_PROJECT_TYPE)
+    .map(([key, type]) => {
+      const [a, c] = key.split(':');
+      return `WHEN ${audienceCol} = '${a}' AND ${categoryCol} = '${c}' THEN '${type}'`;
+    })
+    .join(' ');
+  return `CASE ${whens} ELSE NULL END`;
+}
+
 /** 旧 `project_type` → 2段。GLS-B の3種は `null`（2段を持たない） */
 const FROM_PROJECT_TYPE: Record<string, { audience: Audience; project_category: ProjectCategory }> = {
   hybrid_event: { audience: 'with_audience', project_category: 'broadcast' },

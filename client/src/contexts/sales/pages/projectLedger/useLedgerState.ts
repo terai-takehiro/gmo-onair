@@ -20,6 +20,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { LedgerResponse, LedgerRow } from './types';
+import type { IntegrityCheck } from './IntegrityPanel';
+
+interface IntegrityResponse { total: number; checks: IntegrityCheck[] }
 
 /** サーバーが返す上限。**ここで 200 と書いても 100 しか返りません** */
 export const PAGE_SIZE = 100;
@@ -28,12 +31,20 @@ export interface LedgerFilters {
   search: string;
   stage: string;
   glsCategory: string;
-  /** 分類が空の案件だけ（この画面の主目的の1つ。画面側で絞る） */
-  onlyNoClass: boolean;
+  /**
+   * 整合性チェックの鍵（`GET /projects/integrity` の `key`）。
+   *
+   * ⚠️ **サーバーで絞ります。** 以前この画面は「分類が入っていないものだけ」を
+   * **画面側**で絞っていましたが、それでは**そのページの 100 件の中だけ**しか
+   * 見られず、**全体で何件おかしいのかが分かりません** — 整合性を確かめるのが
+   * この画面の目的の1つなので、数えるのも絞るのもサーバーの同じ式にしました
+   * （`server/.../project-integrity.ts`）。
+   */
+  issue: string;
 }
 
 const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', onlyNoClass: false,
+  search: '', stage: '', glsCategory: 'A', issue: '',
 };
 
 export function useLedgerState() {
@@ -60,6 +71,7 @@ export function useLedgerState() {
     search: filters.search || undefined,
     stage: filters.stage || undefined,
     gls_category: filters.glsCategory || undefined,
+    issue: filters.issue || undefined,
     sort_by: 'created_at',
     sort_dir: 'desc',
   }), [page, filters]);
@@ -69,16 +81,23 @@ export function useLedgerState() {
     queryFn: async () => (await api.get('/projects', { params })).data,
   });
 
-  const allRows: LedgerRow[] = query.data?.data ?? [];
   /**
-   * **「分類が入っていない案件だけ」は画面側で絞ります。** サーバーに絞りを足すと
-   * `GET /projects` を読んでいる他の画面（一覧・ダッシュボード・MCP・Excel）にも
-   * 効く新しい引数が増えるので、**この画面だけの都合を口に足さない**。
-   * そのぶん**件数はこのページの中だけ**になるので、画面にそう書きます。
+   * ⚠️ **`?? []` をそのまま置かないこと。** 読み込み中は毎回**別の空配列**になり、
+   * `toggleAll`（`rows` を見る）が描き直しのたびに作り直されます。
+   * 表は行ごとにこの関数を渡すので、**全行が毎回描き直され**ます。
    */
-  const rows = filters.onlyNoClass
-    ? allRows.filter((r) => !r.audience || !r.project_category)
-    : allRows;
+  const rows: LedgerRow[] = useMemo(() => query.data?.data ?? [], [query.data]);
+
+  /**
+   * 整合性チェックの件数。**絞り込みとは別に、いつも全体を数えます** —
+   * 絞ったあとに数えると「絞った結果の中の食い違い」になり、
+   * **直すべき総数が画面から消えます**。
+   */
+  const integrity = useQuery<IntegrityResponse>({
+    queryKey: ['project-integrity'],
+    queryFn: async () => (await api.get('/projects/integrity')).data.data,
+    staleTime: 30_000,
+  });
 
   const pagination = query.data?.pagination;
   const total = pagination?.total ?? 0;
@@ -114,6 +133,9 @@ export function useLedgerState() {
        * 古い姿を出したままになるため。
        */
       qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      // **整合性の件数も落とす。** 落とさないと、直したのに「12 件」のままで、
+      // 押すと 9 行しか出ない（数字と中身が食い違って見える）
+      qc.invalidateQueries({ queryKey: ['project-integrity'] });
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
       for (const id of selected) qc.invalidateQueries({ queryKey: ['project', id] });
@@ -130,7 +152,9 @@ export function useLedgerState() {
 
   return {
     filters, setFilter,
-    rows, allRows, total, totalPages, page, goPage,
+    rows, total, totalPages, page, goPage,
+    integrity: integrity.data ?? { total: 0, checks: [] },
+    integrityLoading: integrity.isLoading,
     isLoading: query.isLoading, isError: query.isError,
     selected, toggle, toggleAll, clearSelection,
     bulk,

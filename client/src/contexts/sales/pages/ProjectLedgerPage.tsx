@@ -40,6 +40,7 @@ import { useColumnPrefs } from './projectLedger/useColumnPrefs';
 import { LedgerTable } from './projectLedger/LedgerTable';
 import { ColumnPicker } from './projectLedger/ColumnPicker';
 import { BulkEditDialog } from './projectLedger/BulkEditDialog';
+import { IntegrityPanel } from './projectLedger/IntegrityPanel';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -71,7 +72,20 @@ export default function ProjectLedgerPage() {
     <div className="space-y-4">
       <PageHeader
         title="案件台帳"
-        sub="案件のデータを列で見て、まとめて直す画面です。毎日の仕事は「案件一覧」から"
+        sub="案件のデータを列で見て、揃っているかを確かめて、まとめて直す画面です。毎日の仕事は「案件一覧」から"
+      />
+
+      {/*
+        **いちばん上に置く。** この画面のもう1つの目的が
+        「v4 より前のデータが揃っているか確かめる」ことなので、
+        表を眺めても分からないもの（空欄・ずれ）を先に名指しします
+      */}
+      <IntegrityPanel
+        checks={s.integrity.checks}
+        total={s.integrity.total}
+        loading={s.integrityLoading}
+        active={s.filters.issue}
+        onPick={(k) => s.setFilter('issue', k)}
       />
 
       {/* ── 絞り込み（1段目）──────────────────────────────── */}
@@ -100,19 +114,6 @@ export default function ProjectLedgerPage() {
             <SelectItem value="all">どちらも</SelectItem>
           </SelectContent>
         </Select>
-        {/*
-          **この画面の主目的の1つ。** 分類が空の案件は標準工程の型が1つも当たらず、
-          しかも一覧では気づけません（空欄が目立たない）。ここから拾って直せます
-        */}
-        <label className="min-h-tap text-sub flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={s.filters.onlyNoClass}
-            onChange={(e) => s.setFilter('onlyNoClass', e.target.checked)}
-            className="h-[18px] w-[18px]"
-          />
-          分類が入っていないものだけ
-        </label>
         <span className="flex-1" />
         <Button variant="outline" onClick={() => setColsOpen(true)}>
           <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
@@ -122,13 +123,10 @@ export default function ProjectLedgerPage() {
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sub text-muted-foreground">
+          {/* **絞り込み全体の件数**（サーバーが数えたもの）。並んだ行を数えると
+              100 件目までしか数えられず「これで全部だ」と読まれる */}
           全 <strong className="font-number font-bold text-foreground">{s.total}</strong> 件
           {s.totalPages > 1 && <>（この画面は {s.rows.length} 件・{s.page} / {s.totalPages} ページ）</>}
-          {s.filters.onlyNoClass && (
-            <>　<strong className="font-bold text-warning">
-              「分類が入っていないものだけ」はこのページの中だけを絞っています
-            </strong></>
-          )}
         </p>
         <span className="flex-1" />
         {s.selected.size > 0 && canBulk && (
@@ -157,8 +155,8 @@ export default function ProjectLedgerPage() {
       ) : s.rows.length === 0 ? (
         <EmptyState
           title="この条件に合う案件はありません"
-          description={s.filters.onlyNoClass
-            ? '分類が入っていない案件はこのページにはありません。ページを送るか、絞り込みを外してください。'
+          description={s.filters.issue
+            ? 'このチェックに当たる案件はありません。上の「絞り込みを外す」で全部に戻せます。'
             : '絞り込みを外すか、探す言葉を変えてみてください。'}
         />
       ) : (

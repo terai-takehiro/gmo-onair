@@ -46,6 +46,7 @@ router.get('/', async (req, res) => {
     eventMonth: req.query.event_month as string,
     eventFrom: req.query.event_from as string,
     eventTo: req.query.event_to as string,
+    issue: req.query.issue as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
@@ -76,6 +77,17 @@ router.get('/tags', async (_req, res) => {
 // GLS番号付き案件一覧（リンク先選択用）
 router.get('/gls-projects', async (_req, res) => {
   res.json({ success: true, data: await projectService.getGlsProjects() });
+});
+
+/**
+ * 整合性チェックの件数（案件台帳の「確かめる」）。
+ *
+ * **`/:id` より前に置くこと** — 後ろに置くと `integrity` が案件の id として
+ * 読まれ、404 になります（この製品の id は自由な文字列なので形では弾けません）。
+ * 読むだけなので `sales` があれば誰でも（このルーターが入口で要求しています）。
+ */
+router.get('/integrity', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getIntegrity() });
 });
 
 // 決算インポートのマーカー (取込バッチ) 一覧
