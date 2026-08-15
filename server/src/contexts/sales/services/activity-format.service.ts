@@ -62,7 +62,7 @@ import {
   recordAiOutput, findLatestAiOutput, recordCorrections,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
-import { usageSummary } from '../../../shared/services/ai-usage.service';
+import { perRowCost, type CostReason } from '../../../shared/services/ai-usage.service';
 import {
   formatActivity, isActivityAiConfigured, MAX_ACTIVITY_CHARS,
   type StructuredActivity,
@@ -113,6 +113,13 @@ export interface FormatQueueStats {
   /** 素の本文を持つ行の総数（pending + failed + formatted + skipped と一致する） */
   total: number;
   /** 1件あたりの平均費用（USD）。**実績が無い / 単価未設定なら null**（推測しない） */
+  /**
+   * 金額が出せないときの**理由**。`usdPerRow` が `null` になる状況は**3つ**あり、
+   * **打ち手がそれぞれ違います**（`perRowCost` の説明）。画面はこれで文言を変えます。
+   */
+  costReason: CostReason;
+  /** 単価が無くて数えられなかったモデル。**どの鍵を足せばよいか**を画面に出す */
+  unpricedModels: string[];
   usdPerRow: number | null;
   /** pending をすべて整えたときの推定費用（USD）。同上 */
   usdEstimate: number | null;
@@ -146,17 +153,8 @@ export async function formatQueueStats(): Promise<FormatQueueStats> {
   const pending = num(row?.pending);
 
   // 実績（過去90日）から1件あたりを出す。**費用が出せない回は分母から外す**
-  let usdPerRow: number | null = null;
-  try {
-    const u = await usageSummary(90);
-    // **単価の分からないモデルは分母から外す**（0 として混ぜると総額が嘘になる）
-    const act = u.rows.filter((r) => r.kind === 'activity' && r.cost_usd !== null && r.calls > 0);
-    const calls = act.reduce((s, r) => s + r.calls, 0);
-    const usd = act.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
-    if (calls > 0 && usd > 0) usdPerRow = usd / calls;
-  } catch {
-    /* 実績が読めなくても件数は出す（金額だけ出さない） */
-  }
+  const cost = await perRowCost('activity');
+  const usdPerRow = cost.usdPerRow;
 
   return {
     pending,
@@ -164,6 +162,8 @@ export async function formatQueueStats(): Promise<FormatQueueStats> {
     formatted: num(row?.formatted),
     skipped: num(row?.skipped),
     total: num(row?.total),
+    costReason: cost.reason,
+    unpricedModels: cost.unpricedModels,
     usdPerRow,
     usdEstimate: usdPerRow === null ? null : usdPerRow * pending,
     configured: isActivityAiConfigured(),
@@ -348,15 +348,40 @@ export async function runFormatPass(
  */
 export async function redoFormat(id: string, actorId: string | null): Promise<void> {
   const row = await queryOne(
-    `SELECT id, description, body_struct FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
-  ) as { id: string; description: string | null; body_struct: unknown } | undefined;
+    `SELECT id, description, body_struct, body_html, ai_formatted
+       FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
+  ) as { id: string; description: string | null; body_struct: unknown;
+         body_html: string | null; ai_formatted: boolean } | undefined;
   if (!row) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
   // **原文が無ければ整え直せない。** 戻したうえで整えられないと、いま出ているものまで消える
   if (!String(row.description ?? '').trim()) {
     throw new AppError(400, 'NO_ORIGINAL', '打った文が残っていないので整え直せません');
   }
 
-  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_FORMAT_KIND, NO_WINDOW_DAYS);
+  /**
+   * ⚠️ **人が書いた本文の行は整え直せない**（レビューでの指摘 #93）。
+   *
+   * 待ち行列は `body_html IS NULL OR ai_formatted` を要求します（`PENDING_SQL`）。
+   * つまり **`body_html` があって AI の印が無い行は、戻しても永久に対象になりません**。
+   * 前の版はここを通していたので、押しても**何も起きず、理由も出ませんでした**
+   * （画面は変わらないので、押した人は何度でも押します）。
+   *
+   * **画面で隠すだけにしない** — 古いタブ・直接叩きから通ります。
+   */
+  if (row.body_html && !row.ai_formatted) {
+    throw new AppError(400, 'NOT_AI_FORMATTED',
+      'この記録の本文は AI が整えたものではないので、整え直せません');
+  }
+
+  /**
+   * ⚠️ **中身が無いときは差分を残さない**（同じ指摘）。
+   * `before` も `after` も `null` の「不採用」は**何も否定していない記録**で、
+   * 無修正採用率の分母だけを増やします（会社方針の条件2が測れなくなる）。
+   * 続けて2回押されると、2回目がちょうどこの形になります。
+   */
+  const out = row.body_struct == null
+    ? null
+    : await findLatestAiOutput('activity_logs', id, ACTIVITY_FORMAT_KIND, NO_WINDOW_DAYS);
   if (out) {
     await recordCorrections(out.id, [{
       fieldPath: 'body_struct',

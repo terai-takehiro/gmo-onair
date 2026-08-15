@@ -213,6 +213,7 @@ grep -c '| ❓ |$' docs/reviews/codex-findings-v4.md
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
 | #125 | P2 | `billing.routes` | **「入金前」の意味が画面によって違う** — ⑤ 見積・請求のチップは「入金日が空」だけ（**請求書を出していないものも入る**）、月次の締めと ⑫ スマホは `invoice_issued` を要求。同じ言葉で違う集合を指すので、件数が食い違って見える | ❓ **この作業中に見つけた**（#125 では`unpaid_issued` を足すだけにして、`unpaid` の意味は変えていない） |
+| #134 | P2 | `ActivityFormatCard` | 費用の目安が出せない理由が**いつも「単価が未設定」** — 単価は入っていて実績がまだ無いだけのとき、`.env` を直しに行って**すでに入っている**のを見ることになる | ⭕️ #135 **この作業中に見つけた** |
 | #106 | P2 | `projects.routes` | 持ち主の確認を写真1枚ごとにやると、100 枚で BOX を 200 回叩く（絞られて 404） | ⭕️ #106 |
 | #107 | **P1** | `estimate.service` | **承認できる人**の判定だけ `updated_by` のままで、**上司が下書きを直すと本来の承認者が 403** になる | ⭕️ #108 |
 
@@ -239,7 +240,7 @@ grep -c '| ❓ |$' docs/reviews/codex-findings-v4.md
 | #96 | P2 | `ai-model.ts` | `AI_MODEL_LIGHT=off` が**モデル名として送られる**（必ず失敗してから heavy に落ちる） | ⭕️ #127 |
 | #96 | P2 | `ai-model.ts` | 動的な `process.env[name]` は検査から見えない（`.env` から落ちても lint が通る） | ⭕️ #127 |
 | #95 | P2 | `check-env-passthrough` | prod/dev の**片方だけ**に渡していても OK と出る | ⭕️ #127 |
-| #93 | P2 | `ThreadCard` | 旧データで「もう一度整える」が空振りし、`ai_corrections` を汚す | ❓ |
+| #93 | P2 | `ThreadCard` | 旧データで「もう一度整える」が空振りし、`ai_corrections` を汚す | ⭕️ #135（**空振りどころか「戻しました」と嘘をつく**） |
 | #91 | **P1** | `docker-compose` | `ACTIVITY_FORMAT_NIGHTLY=off` が**コンテナに渡っていない**（止めたつもりで課金が続く） | ⭕️ #95 |
 | #91 | P2 | `scheduler.service` | 夜間の整形が **03:00 UTC = 正午 JST** に走る | ⭕️ #106 |
 | #90 | P2 | `OverviewTab` | 「すべて見る」が `?tab=` でタブを開けない | ⭕️ #99 |

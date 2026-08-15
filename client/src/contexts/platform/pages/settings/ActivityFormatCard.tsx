@@ -48,7 +48,34 @@ interface Status {
   total: number;
   usdPerRow: number | null;
   usdEstimate: number | null;
+  /** 金額が出せない理由（打ち手が3通りに分かれる） */
+  costReason: 'ok' | 'no_pricing' | 'no_history' | 'no_model_price';
+  /** 単価が無くて数えられなかったモデル（`no_model_price` のときだけ） */
+  unpricedModels: string[];
   configured: boolean;
+}
+
+/**
+ * 費用の目安が出せないときの理由。
+ *
+ * ⚠️ **`usdPerRow` が `null` になる状況は3つあり、打ち手がそれぞれ違います。**
+ * 前の版はどれも「単価が未設定です」と書いていました。
+ *
+ *   単価が無い       → `AI_PRICING_JSON` を入れる
+ *   実績がまだ無い   → 待つ（直すところは無い）
+ *   モデルの単価が無い → **そのモデルの鍵を足す**
+ *
+ * ⚠️ **3つ目を2つ目と混ぜないこと**（レビューでの指摘）。混ぜると、
+ * モデルを乗り換えて古い鍵を落とした環境で「実績がまだありません」と出ます。
+ * 実績はあるので、**待っても永久に出ません**。**モデル名も出します** —
+ * どの鍵を足せばよいか分からないと、理由だけ分かっても直せません。
+ */
+function noCostReason(s: Pick<Status, 'costReason' | 'unpricedModels'>): string {
+  if (s.costReason === 'no_pricing') return '費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）';
+  if (s.costReason === 'no_model_price') {
+    return `費用の目安は出せません（${s.unpricedModels.join('・')} の単価が入っていません）`;
+  }
+  return '費用の目安はまだ出せません（この仕事の実績がまだ無いためです）';
 }
 
 /** 1回で流す件数。**既定は控えめ** — 落ちたときに課金だけ進むのを避ける */
@@ -95,7 +122,7 @@ export function ActivityFormatCard() {
     if (!s) return;
     const taking = Math.min(BATCH, s.pending);
     const cost = s.usdPerRow === null
-      ? '費用の目安は出せません（単価が未設定です）'
+      ? noCostReason(s)
       : `費用の目安は約 $${(s.usdPerRow * taking).toFixed(2)}（1件あたり $${s.usdPerRow.toFixed(3)}）`;
     const ok = await confirmAction({
       title: `${taking} 件を整えますか`,
@@ -151,7 +178,7 @@ export function ActivityFormatCard() {
             {s.pending > 0 && (
               <p className="text-note text-muted-foreground">
                 {s.usdPerRow === null
-                  ? '費用の目安は出せません（単価が未設定です）。1件あたり1回 AI を呼びます'
+                  ? `${noCostReason(s)}。1件あたり1回 AI を呼びます`
                   : `残り全部を整えると約 $${(s.usdEstimate ?? 0).toFixed(2)}（実績の1件あたり $${s.usdPerRow.toFixed(3)} × ${s.pending} 件）`}
               </p>
             )}

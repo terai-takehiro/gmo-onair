@@ -73,3 +73,64 @@ describe('サーバーの数え方は変えていない', () => {
     expect(USAGE).toMatch(/if \(!p\) return null;/);
   });
 });
+
+/**
+ * ⚠️ **「出せない理由」が2つあるのに、片方の言葉しか書いていなかった**
+ * （#98 を直しているときに実測して見つけたもの）。
+ *
+ * `usdPerRow` が `null` になるのは ①単価そのものが入っていない ②単価は入っているが
+ * **この仕事の実績がまだ無い**（新しい環境・初めて流すとき）の2通りです。
+ * 前の版はどちらも「単価が未設定です」と書いていたので、②の人は `.env` を直しに行き、
+ * **すでに入っている**のを見て途方に暮れます。
+ *
+ * **実測**（実ブラウザ）: 単価を入れて実績が無いとき
+ * 「費用の目安はまだ出せません（この仕事の実績がまだ無いためです）」／
+ * 単価が無いとき「費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）」。
+ */
+describe('費用の目安が出せない理由を書き分ける', () => {
+  const FORMAT_CARD = read('client', 'src', 'contexts', 'platform', 'pages', 'settings', 'ActivityFormatCard.tsx');
+  const FORMAT_SVC = read('server', 'src', 'contexts', 'sales', 'services', 'activity-format.service.ts');
+  const SHORT_SVC = read('server', 'src', 'contexts', 'sales', 'services', 'next-action-short.service.ts');
+
+  const USAGE_SVC = read('server', 'src', 'shared', 'services', 'ai-usage.service.ts');
+
+  it('数え方は1か所（2つの仕事が同じ関数を呼ぶ）', () => {
+    // 書き写すと、片方だけ直した日に「同じ理由なのに文言が違う」が起きる
+    expect(USAGE_SVC).toMatch(/export async function perRowCost\(kind: string, days = 90\): Promise<PerRowCost>/);
+    expect(FORMAT_SVC).toMatch(/const cost = await perRowCost\('activity'\);/);
+    expect(SHORT_SVC).toMatch(/const cost = await perRowCost\('activity_short'\);/);
+    for (const svc of [FORMAT_SVC, SHORT_SVC]) {
+      expect(svc).toMatch(/costReason: CostReason;/);
+      expect(svc).toMatch(/costReason: cost\.reason,/);
+      expect(svc).toMatch(/unpricedModels: cost\.unpricedModels,/);
+    }
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された P2**。鍵が1つでもあれば「単価はある」と
+   * 見なすと、**`whisper-1` しか入っていない環境**や**モデルを乗り換えて古い鍵を
+   * 落とした環境**で「実績がまだありません」と出ます。実績はあるので
+   * **待っても永久に出ません** — 直すのは単価の側です。
+   * **実測**（実ブラウザ）: `whisper-1` だけ入れた環境で
+   * 「費用の目安は出せません（gpt-5.6-luna の単価が入っていません）」。
+   */
+  it('⚠️ 「実績が無い」と「そのモデルの単価が無い」を分ける', () => {
+    expect(USAGE_SVC).toMatch(/'ok' \| 'no_pricing' \| 'no_history' \| 'no_model_price'/);
+    expect(USAGE_SVC).toMatch(/if \(priced\.length === 0\) \{/);
+    expect(USAGE_SVC).toMatch(/reason: 'no_model_price',/);
+    // どの鍵を足せばよいか分からないと、理由だけ分かっても直せない
+    expect(USAGE_SVC).toMatch(/unpricedModels: \[\.\.\.new Set\(rows\.map\(\(r\) => r\.model \?\? '（モデル名なし）'\)\)\]/);
+  });
+
+  it('画面は理由を1か所で決め、3通りとも書く', () => {
+    expect(FORMAT_CARD).toMatch(/function noCostReason\(s: Pick<Status, 'costReason' \| 'unpricedModels'>\): string/);
+    expect(FORMAT_CARD).toMatch(/単価 `AI_PRICING_JSON` が未設定です/);
+    expect(FORMAT_CARD).toMatch(/の単価が入っていません/);
+    expect(FORMAT_CARD).toMatch(/この仕事の実績がまだ無いためです/);
+  });
+
+  it('2か所とも同じ関数を通す（片方だけ直らないように）', () => {
+    expect((FORMAT_CARD.match(/noCostReason\(s\)/g) ?? []).length).toBe(2);
+  });
+});
+
