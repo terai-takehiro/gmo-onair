@@ -188,8 +188,8 @@ export function IntakeComposer({
           <Send className="h-3.5 w-3.5" aria-hidden="true" />{doneMsg}
         </p>
       )}
-      {/* **2件以上できたときだけ並べる。** どれか1つを勝手に開くと、
-          残りが登録されたことに気づけない */}
+      {/* **ネタ1件だけで終わった回以外は並べる。** 勝手に開くと、
+          一緒にできたタスクや活動記録に気づけない（`useIntake` の `jumps`） */}
       {createdProjects && createdProjects.length > 0 && (
         <ul className="mt-1.5 flex flex-col gap-1">
           {createdProjects.map((p) => (

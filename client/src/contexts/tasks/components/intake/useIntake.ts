@@ -214,16 +214,23 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
        *
        * - **`sales` が無い人には遷移しません。** 案件詳細は `sales` を要求するので、
        *   送ると 403 の画面に着きます（`canOpenProject` で見る）
-       * - **2件以上できたときは遷移しません。** どれか1つを勝手に開くと、
+       * - **1件だけのときしか遷移しません。** どれか1つを勝手に開くと、
        *   残りが登録されたことに気づけません。**リンクを並べて選ばせます**
+       *
+       * ⚠️ **数えるのは「できたもの全部」で、ネタの数ではありません**
+       * （レビューでの指摘 #76）。前の版は `netas.length === 1` で遷移していたので、
+       * **ネタ1件 ＋ タスク3件**のような回でも案件へ飛んでいました。
+       * 「案件（ネタ） 1件・タスク 3件を登録しました」は**この画面の状態**なので、
+       * 飛んだ瞬間に画面ごと消えます — つまり**タスク3件が登録されたことは
+       * どこにも出ません**（投げた人は案件を1件作ったつもりのままです）。
        */
       const netas = created.filter((c) => c.dest === 'neta');
+      // **ネタ1件だけ**が出来たとき以外は残る（下に「開く」を並べる）
+      const jumps = opts.canOpenProject && netas.length === 1 && created.length === 1;
       setDoneMsg(summarize(created, data.created_ids.length));
-      setCreatedProjects(opts.canOpenProject && netas.length > 1 ? netas : []);
+      setCreatedProjects(opts.canOpenProject && !jumps ? netas : []);
       reset();
-      if (opts.canOpenProject && netas.length === 1) {
-        navigate(`/sales/projects/${netas[0].id}`);
-      }
+      if (jumps) navigate(`/sales/projects/${netas[0].id}`);
       // 行き先が 4 つに増えたので、**案件・活動記録の一覧も落とす**。
       // タスクの鍵だけ落としていると「登録したのに一覧に出ない」が起きる
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });

@@ -148,6 +148,16 @@ export async function transcribeAudio(
      * 押した人には理由の出ない失敗として見えます。**
      */
     timeoutMs?: number;
+    /**
+     * SDK に任せるやり直しの回数。**既定は 1**（裏で走る長い文字起こしでは、
+     * 一時的な 5xx で録音まるごとを捨てたくない）。
+     *
+     * ⚠️ **リクエストの中で待つ経路では 0 にすること**（レビューでの指摘 #76）。
+     * `maxRetries: 1` は「上限 20 秒」を**上限 40 秒**に変えます — 上の
+     * `timeoutMs` は**1回ぶんの上限**で、待つ人が見る時間ではありません。
+     * 「短く諦める」と書いてあるのに倍かかるので、書いた本人も気づけません。
+     */
+    maxRetries?: number;
   } = {},
 ): Promise<TranscriptResult> {
   if (!isSttConfigured()) {
@@ -157,7 +167,7 @@ export async function transcribeAudio(
     throw new Error(`音声が大きすぎます（${Math.round(audio.byteLength / 1024 / 1024)}MB / 上限 25MB）。分けて録ってください`);
   }
 
-  const client = new OpenAI({ timeout: opts.timeoutMs ?? STT_TIMEOUT_MS, maxRetries: 1 });
+  const client = new OpenAI({ timeout: opts.timeoutMs ?? STT_TIMEOUT_MS, maxRetries: opts.maxRetries ?? 1 });
   const res = await client.audio.transcriptions.create({
     file: await OpenAI.toFile(audio, filename),
     model: WHISPER_MODEL,

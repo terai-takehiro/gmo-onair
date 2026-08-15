@@ -56,8 +56,12 @@ describe('AI の指標が汚れない', () => {
 
 describe('AI の費用が実際より安く見えない', () => {
   it('軽いモデルで落ちた回も使用量に残す', () => {
-    // やり直して成功すると、**落ちた1回目が消えていた**（#79）
-    const at = INTAKE_AI.indexOf('if (!useLight) throw e;');
+    // やり直して成功すると、**落ちた1回目が消えていた**（#79）。
+    // ⚠️ 目印は `if (!useLight) …` の行。**中身は変わりうる**ので
+    // 「上位モデルだけの回はここで抜ける」という意味で当てる
+    // （`throw e` → `fail(e, model, false)` に変わったときに気づけず落ちた）
+    const at = INTAKE_AI.indexOf('if (!useLight)');
+    expect(at).toBeGreaterThan(0);
     expect(INTAKE_AI.slice(at, at + 900)).toMatch(/recordAiUsage\(\{[\s\S]*ok: false/);
   });
 

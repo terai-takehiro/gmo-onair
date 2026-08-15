@@ -8,7 +8,7 @@ import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-int
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import {
   parseIntakeWithAi, isIntakeAiConfigured, resolveProvider, isViewableAttachment, intakeAiModel,
-  unreadableAttachments,
+  unreadableAttachments, type IntakeAiFailure,
   type IntakeAttachment, type ParserProject,
 } from '../../tasks/services/intake-ai.service';
 import {
@@ -220,6 +220,13 @@ async function analyzeIntake(
    */
   withProjects: boolean,
 ): Promise<AnalyzeResult> {
+  /*
+   * **総枠の起点はここ**（`intake-ai.service` の `TOTAL_BUDGET_MS`）。
+   * 解析を始めた時刻ではなく、**この仕事を始めた時刻**にします —
+   * 担当者一覧・案件候補・過去の傾向を引く時間も、押した人は待っています。
+   * AI の呼び出しだけを数えると、**前段が遅い日に nginx の 60 秒を超えます**。
+   */
+  const startedAt = Date.now();
   const users = await loadUsers();
   const projects = withProjects ? await loadProjectCandidates() : [];
   const now = new Date();
@@ -232,7 +239,7 @@ async function analyzeIntake(
     try {
       const advice = await getIntakeAdvice();
       const ai = await parseIntakeWithAi(rawText, users, {
-        now, submitterId: userId, advice, projects, attachments,
+        now, submitterId: userId, advice, projects, attachments, startedAt,
       });
       parsed = { drafts: ai.drafts, skipped: ai.skipped };
       model = ai.model;
@@ -250,11 +257,22 @@ async function analyzeIntake(
       console.warn(
         `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
       );
-      // **失敗も残す。** 課金されることがあるので、外すと総額が合わない
-      await recordAiUsage({
-        kind: 'intake', provider: resolveProvider(), model: intakeAiModel(),
-        actorId: userId, ok: false, errorMessage: aiError,
-      });
+      /*
+       * **失敗も残す。** 課金されることがあるので、外すと総額が合わない。
+       *
+       * ⚠️ **呼んだモデルの名前で書くこと**（レビューでの指摘）。
+       * `intakeAiModel()` を決め打ちにすると、**軽いモデルだけを呼んで
+       * 落ちた回が上位モデルのせい**になり、軽いモデルの失敗率が見えません。
+       * **もう書いてある回は書きません**（`usageRecorded`）— 同じ失敗を
+       * 2回数えると、失敗率も費用も倍に出ます。
+       */
+      const f = e as IntakeAiFailure;
+      if (!f.usageRecorded) {
+        await recordAiUsage({
+          kind: 'intake', provider: resolveProvider(), model: f.attemptedModel ?? intakeAiModel(),
+          actorId: userId, ok: false, errorMessage: aiError,
+        });
+      }
       parsed = parseIntakeText(rawText, users, { now });
     }
   } else {
@@ -408,7 +426,9 @@ router.post('/tasks/intake/preview-transcribe', ...canEdit, previewUpload, async
     const stt = await transcribeAudio(
       file.buffer,
       normalizeAudioName(fileName(file), file.mimetype),
-      { timeoutMs: PREVIEW_STT_TIMEOUT_MS },
+      // **やり直さない。** 押した人が待っているので、20 秒が 40 秒になる
+      // （`maxRetries` の既定は 1）と「短く諦める」が嘘になる
+      { timeoutMs: PREVIEW_STT_TIMEOUT_MS, maxRetries: 0 },
     );
     await recordAiUsage({
       kind: 'stt_preview', provider: 'openai', model: stt.model,
