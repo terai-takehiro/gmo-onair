@@ -78,6 +78,8 @@ export default function CustomerListPage() {
    * 同じ関数・同じ決めごと）。新しく登録するときだけで、**人が触ったらもう触りません**。
    */
   const groupTouched = useRef(false);
+  const dialogOpen = crud.dialogOpen;
+  useEffect(() => { if (dialogOpen) groupTouched.current = false; }, [dialogOpen]);
   useEffect(() => {
     if (crud.editingItem || groupTouched.current) return;
     if (looksLikeGmoGroup(watchName) && !form.getValues("is_gmo_group")) {
@@ -100,9 +102,16 @@ export default function CustomerListPage() {
     } else {
       form.reset(EMPTY_FORM);
     }
-    // 開き直したら見立てを効かせ直す（前に開いたお客様で外した印を持ち越さない）
-    groupTouched.current = false;
-  }, [crud.editingItem, form]);
+    /**
+     * **開くたびに見立てを効かせ直す**（PR #129 のレビュー・P2）。
+     *
+     * ⚠️ `crud.editingItem` だけを見ていると、**続けて2件登録するとき**に
+     * 効きません（新規は2回とも `null` なので、この効果が走らない）。
+     * 1件目で印を外した人が2件目に GMO の社名を打っても**チェックが入らず**、
+     * しかも `false` を送るのでサーバーは「人が外した」と受け取ります
+     * （社名からの既定が当たらない）。**同じ理由で欄の中身も残っていました。**
+     */
+  }, [crud.editingItem, dialogOpen, form]);
 
   const handleDelete = (c: Customer) => {
     if (!confirm(`「${c.name}」を削除しますか？`)) return;

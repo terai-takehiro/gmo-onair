@@ -39,6 +39,7 @@ import type { Audience, ProjectCategory } from '../../classification';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
 import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
 import { useProjectActions } from './useProjectActions';
+import { useSelectedCustomer } from './useSelectedCustomer';
 
 export function useProjectForm(id: string | undefined) {
   const isEdit = !!id;
@@ -146,10 +147,10 @@ export function useProjectForm(id: string | undefined) {
    * `projectNew/MoreFields` をそのまま呼び、値の出し入れだけを繋ぎます。
    */
   const values = watch();
-  const customer = customers.find((c) => c.id === values.customer_id) ?? null;
-  // お客様がグループ会社か（**取引先マスターの印** `customers.is_gmo_group`）。
-  // リード経路と**グループ区分**（`customer_type`・migration 192）がここから決まる
-  const isGroup = customer?.is_gmo_group === true;
+  // お客様がグループ会社か（`customers.is_gmo_group`）。リード経路と**グループ区分**
+  // （migration 192）がここから決まるので、**候補 200 件の外は id で引き直す**
+  const { customers: fieldCustomers, isGroup } =
+    useSelectedCustomer(values.customer_id, customers, project?.customer_type);
   const groupType = isGroup ? 'internal' as const : 'external' as const;
 
   /**
@@ -196,7 +197,7 @@ export function useProjectForm(id: string | undefined) {
     notes: '',
   };
 
-  const fields: ProjectFieldsState = { v: fieldValues, set: setField, customers, users, isGroup };
+  const fields: ProjectFieldsState = { v: fieldValues, set: setField, customers: fieldCustomers, users, isGroup };
 
   /**
    * 足りない必須項目。**案件作成と同じ `missingOf`** を使います

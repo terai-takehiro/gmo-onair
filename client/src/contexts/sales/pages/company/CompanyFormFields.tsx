@@ -35,6 +35,7 @@ import type { CompanyForm } from "./types";
 function useGmoGroupGuess(
   form: UseFormReturn<CompanyForm>,
   editing: boolean,
+  open: boolean,
 ): MutableRefObject<boolean> {
   const touched = useRef(false);
   const name = form.watch("name");
@@ -44,17 +45,29 @@ function useGmoGroupGuess(
       form.setValue("is_gmo_group", true);
     }
   }, [name, editing, form]);
-  // 開き直したら見立てを効かせ直す（前に開いた取引先で外した印を持ち越さない）
-  useEffect(() => { touched.current = false; }, [editing]);
+  /**
+   * **開くたびに見立てを効かせ直す**（PR #129 のレビュー・P2）。
+   *
+   * ⚠️ **`editing` を見るだけでは効きません** — 続けて2件登録するとき、
+   * `editing` は2回とも `false` のままだからです。1件目で印を外した人が
+   * 2件目に GMO の社名を打っても**チェックが入らず**、しかも `false` を送るので
+   * サーバーは「人が外した」と受け取ります（社名からの既定が当たらない）。
+   *
+   * いまは枠が閉じるとこの部品ごと消えるので**それでも直りますが、
+   * 消えることに頼りません** — `forceMount` を足した日に黙って戻ります。
+   */
+  useEffect(() => { if (open) touched.current = false; }, [open]);
   return touched;
 }
 
-export function CompanyFormFields({ form, editing }: {
+export function CompanyFormFields({ form, editing, open }: {
   form: UseFormReturn<CompanyForm>;
   /** 編集で開いているか。新規登録のときだけ社名から印を見立てる */
   editing: boolean;
+  /** 枠が開いているか。**開くたびに見立てを効かせ直す**（下の理由） */
+  open: boolean;
 }) {
-  const touched = useGmoGroupGuess(form, editing);
+  const touched = useGmoGroupGuess(form, editing, open);
   const isVendor = form.watch("is_vendor");
   const isGroup = form.watch("is_gmo_group");
   const name = form.watch("name");

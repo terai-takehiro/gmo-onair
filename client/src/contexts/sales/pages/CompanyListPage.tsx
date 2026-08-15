@@ -73,7 +73,9 @@ export default function CompanyListPage() {
     } else {
       form.reset(EMPTY_COMPANY_FORM);
     }
-  }, [crud.editingItem, form]);
+    // **`crud.dialogOpen` も見る**（PR #129 のレビュー・P2）。`editingItem` だけだと
+    // 続けて2件登録するとき2回とも `null` で走らず、**前の入力が残ります**
+  }, [crud.editingItem, crud.dialogOpen, form]);
 
   const handleSave = form.handleSubmit((values) => crud.save.mutate(values));
 
@@ -280,7 +282,7 @@ export default function CompanyListPage() {
           submitLabel={{ create: "登録", edit: "更新" }}
           onSubmit={handleSave}
         >
-          <CompanyFormFields form={form} editing={!!crud.editingItem} />
+          <CompanyFormFields form={form} editing={!!crud.editingItem} open={crud.dialogOpen} />
         </CrudFormDialog>
 
         <CompanySummaryDialog
