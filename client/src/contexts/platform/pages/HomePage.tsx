@@ -140,7 +140,11 @@ export default function HomePage() {
   const myOverdue = summary.data?.overdue ?? 0;
   // **数えられていないときは書かない。** 受信箱は `sales`、タスクは `dailyops` が要る。
   // どちらも無い人に「0件です」と書くと、**見えていないだけなのに「無い」と言い切る**ことになる
-  const canCount = canSeeSales || canSeeDailyops;
+  // ⚠️ **権限だけで決めない。** 受信箱は `sales` か `dailyops` のどちらかで開きますが、
+  // **中身は持っている権限のぶんだけ**返ります。取れていない（読み込み中・失敗）ときに
+  // 数字を出すと、**数えていないのに「0件です」と言い切る**ことになります
+  // （`dailyops` だけの人はこの口が 403 で、お待たせ中がいつも「ありません」でした）
+  const canCount = (canSeeSales || canSeeDailyops) && !!inbox.data;
   // 「今日」の3枚が1枚も出ないなら、節ごと出さない（見出しだけ残ると壊れて見える）
   const hasToday = canSeeDailyops || canSeeSales || hasPermission('studio');
 
@@ -161,8 +165,11 @@ export default function HomePage() {
 
   const tiles: TileApp[] = useMemo(() => {
     const badge: Record<string, { n: number; urgent?: boolean } | undefined> = {
-      sales: canSeeSales ? { n: salesWaiting, urgent: true } : undefined,
-      dailyops: canSeeDailyops ? { n: dailyWaiting, urgent: true } : undefined,
+      // **数えていない側にタイルの数字を出さない。** 応答の `sales.visible` /
+      // `dailyops.visible` は「サーバーが数えたか」で、権限の写しではない
+      // （権限はあるが応答がまだ来ていない、も数えていない側）
+      sales: inbox.data?.sales?.visible ? { n: salesWaiting, urgent: true } : undefined,
+      dailyops: inbox.data?.dailyops?.visible ? { n: dailyWaiting, urgent: true } : undefined,
       budget: badges.data?.budget !== undefined ? { n: badges.data.budget } : undefined,
       studio: badges.data?.studio !== undefined ? { n: badges.data.studio } : undefined,
       equipment: badges.data?.equipment !== undefined ? { n: badges.data.equipment, urgent: true } : undefined,
@@ -171,7 +178,7 @@ export default function HomePage() {
       .filter((a) => DAILY_KEYS.includes(a.key))
       .filter((a) => !a.permissionModule || hasPermission(a.permissionModule))
       .map((a) => ({ ...a, badge: badge[a.key]?.n, urgent: badge[a.key]?.urgent }));
-  }, [badges.data, salesWaiting, dailyWaiting, canSeeSales, canSeeDailyops, hasPermission]);
+  }, [badges.data, salesWaiting, dailyWaiting, inbox.data, hasPermission]);
 
   // ── アプリ（見出しは出さない・モック `v4-live`）────────────────
   const appsSection = (
@@ -226,8 +233,11 @@ export default function HomePage() {
 
         {/* **「自分のタスクを全部ひらく」は残す**（モック）。見出しが無くなったので
             右端ではなく右揃えの1行にする。スマホでは出さない —
-            `MyTasksCard` の「全部ひらく」と同じ行き先で二重になる */}
-        {canSeeDailyops && !isMobile && (
+            `MyTasksCard` の「全部ひらく」と同じ行き先で二重になる。
+            ⚠️ **`sales` も要る。** 行き先の全案件タスク一覧は `sales` を要求するので、
+            `dailyops` だけの人は押すと「権限がありません」の画面に着いていた
+            （レビューでの指摘。`MyTasksCard` の同じリンクも一緒に直した） */}
+        {canSeeDailyops && canSeeSales && !isMobile && (
           <div className="flex justify-end">
             <button
               type="button"

@@ -77,6 +77,13 @@ export interface InboxData {
   checklist: { key: string; kind: 'agreement'; meta: Record<string, unknown> }[];
   counts: Record<string, number>;
   dailyops: { visible: boolean; editable: boolean };
+  /**
+   * **案件側を数えたか。** 受信箱は `sales` か `dailyops` のどちらかで開くので、
+   * `dailyops` だけの人には案件のぶんが入っていません。画面はこれを見て
+   * **数えていない側に「0件です」と書かない**（見えていないだけなのに
+   * 「無い」と言い切らない）。古い応答には無いので任意。
+   */
+  sales?: { visible: boolean };
 }
 
 /** 一覧に出す1行の見出しと副題。**種類ごとに何を先に読むかが違う** */

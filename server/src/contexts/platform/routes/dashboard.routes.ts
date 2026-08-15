@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, requireAnyPermission } from '../../../shared/middleware/auth';
 import { config } from '../../../config';
 import { getSalesOverview } from '../services/salesOverview.service';
 import { getAppBadges } from '../services/appBadges.service';
@@ -24,6 +24,118 @@ const router = Router();
 router.get('/app-badges', requireAuth, async (req, res) => {
   res.json({ success: true, data: await getAppBadges(req.user!) });
 });
+
+/**
+ * 受信箱。**`sales` を要求する前に置いている**（`app-badges` と同じ理由）。
+ *
+ * この下の `router.use` は全ルートに `sales` を要求しますが、受信箱には
+ * **日常業務のもの（未対応の問い合わせ・未処理の書類）も入っています**。
+ * 内側に置いていたので、**`dailyops` だけの人はトップページで 403** になり、
+ * しかも失敗が画面に出ないため**「お待たせしているものはありません」と
+ * 表示されていました** — 数えていないだけなのに「無い」と言い切る形です
+ * （レビューでの指摘 #55 / #60）。
+ *
+ * **`sales` か `dailyops` のどちらかで通し、中身は持っている権限のぶんだけ**
+ * 返します（`salesVisible` / `dailyopsVisible`）。口を開けるだけだと、
+ * `dailyops` だけの人に案件名とお客様名が渡ります（v4.0.12 と同じ穴）。
+ */
+// ══════════════════════════════════════════════════════════
+// 受信箱 (v2.9.217+) — 「お客様を待たせているもの」を1本のキューに集約
+// items   = 終端状態を持つ inbound のみ (期限超過アクション / AI起票未確認 /
+//           未対応の問い合わせ / 未処理の見積・請求)。received_at 昇順 = 古いものが先頭。
+// checklist = 経過時間の概念が薄いチェック系 (申込書未提出)。
+// dailyops 系 (問い合わせ/見積請求) は dailyops 権限がある人にだけ含める。
+// ══════════════════════════════════════════════════════════
+router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), async (req, res) => {
+  const user = req.user!;
+  const dailyLevel = user.permissions?.['dailyops'] ?? '';
+  // **案件側も権限で絞る。** 口を `dailyops` にも開けた以上、絞らないと
+  // `dailyops` だけの人に案件名・お客様名が渡る（v4.0.12 で塞いだ穴と同じ形）
+  const salesVisible = user.role === 'system_admin' || !!(user.permissions?.['sales'] ?? '');
+  const dailyopsVisible = user.role === 'system_admin' || !!dailyLevel;
+  const dailyopsEditable =
+    user.role === 'system_admin' || ['editor', 'manager', 'owner'].includes(dailyLevel);
+
+  const [overdue, aiProjects, agreements, inquiries, financeDocs] = await Promise.all([
+    salesVisible ? queryAll(OVERDUE_ACTIONS_SQL) : Promise.resolve([]),
+    salesVisible ? queryAll(AI_INBOX_SQL, [config.mcpActorId]) : Promise.resolve([]),
+    salesVisible ? queryAll(
+      `SELECT p.id, p.gls_number, p.name, c.name AS customer_name
+       FROM projects p
+       LEFT JOIN customers c ON c.id = p.customer_id
+       WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
+         AND p.gls_category = 'A'
+         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
+       ORDER BY p.updated_at DESC
+       LIMIT 100`
+    ) : Promise.resolve([]),
+    dailyopsVisible
+      ? queryAll(
+          `SELECT id, sender, subject, summary, category, importance, action_needed, url,
+                  received_at, created_at
+           FROM misc_inquiries
+           -- 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
+           -- 記録が打たれていない行が受信箱に残り続ける
+           WHERE deleted_at IS NULL AND state = 'unsorted'
+           ORDER BY created_at ASC
+           LIMIT 100`
+        )
+      : Promise.resolve([]),
+    dailyopsVisible
+      ? queryAll(
+          `SELECT id, doc_type, sender, subject, amount, status, payment_due,
+                  received_at, created_at
+           FROM finance_docs
+           WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
+           ORDER BY created_at ASC
+           LIMIT 100`
+        )
+      : Promise.resolve([]),
+  ]);
+
+  // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
+  // 無ければ created_at。overdue は期限日 (= お客様を待たせ始めた瞬間)。
+  const toMs = (v: unknown): number => {
+    if (!v) return 0;
+    const d = new Date(String(v));
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  const items = [
+    ...overdue.map((r) => ({
+      key: `overdue:${r.activity_id}`, kind: 'overdue_action', received_at: r.next_action_date, meta: r,
+    })),
+    ...aiProjects.map((r) => ({
+      key: `ai:${r.id}`, kind: 'ai_project', received_at: r.created_at, meta: r,
+    })),
+    ...inquiries.map((r) => ({
+      key: `inquiry:${r.id}`, kind: 'inquiry', received_at: r.received_at ?? r.created_at, meta: r,
+    })),
+    ...financeDocs.map((r) => ({
+      key: `finance:${r.id}`, kind: 'finance_doc', received_at: r.received_at ?? r.created_at, meta: r,
+    })),
+  ].sort((a, b) => toMs(a.received_at) - toMs(b.received_at));
+
+  res.json({
+    success: true,
+    data: {
+      items,
+      checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
+      counts: {
+        total: items.length,
+        overdue_action: overdue.length,
+        ai_project: aiProjects.length,
+        inquiry: inquiries.length,
+        finance_doc: financeDocs.length,
+        agreement: agreements.length,
+      },
+      dailyops: { visible: dailyopsVisible, editable: dailyopsEditable },
+      // ⚠️ **数えたかどうかを渡す。** 画面はこれを見て、数えていない側に
+      // 「0件です」と書かない（見えていないだけなのに「無い」と言い切らない）
+      sales: { visible: salesVisible },
+    },
+  });
+});
+
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
@@ -297,97 +409,6 @@ const AI_INBOX_SQL =
 router.get('/ai-inbox', async (_req, res) => {
   const rows = await queryAll(AI_INBOX_SQL, [config.mcpActorId]);
   res.json({ success: true, data: rows });
-});
-
-// ══════════════════════════════════════════════════════════
-// 受信箱 (v2.9.217+) — 「お客様を待たせているもの」を1本のキューに集約
-// items   = 終端状態を持つ inbound のみ (期限超過アクション / AI起票未確認 /
-//           未対応の問い合わせ / 未処理の見積・請求)。received_at 昇順 = 古いものが先頭。
-// checklist = 経過時間の概念が薄いチェック系 (申込書未提出)。
-// dailyops 系 (問い合わせ/見積請求) は dailyops 権限がある人にだけ含める。
-// ══════════════════════════════════════════════════════════
-router.get('/inbox', async (req, res) => {
-  const user = req.user!;
-  const dailyLevel = user.permissions?.['dailyops'] ?? '';
-  const dailyopsVisible = user.role === 'system_admin' || !!dailyLevel;
-  const dailyopsEditable =
-    user.role === 'system_admin' || ['editor', 'manager', 'owner'].includes(dailyLevel);
-
-  const [overdue, aiProjects, agreements, inquiries, financeDocs] = await Promise.all([
-    queryAll(OVERDUE_ACTIONS_SQL),
-    queryAll(AI_INBOX_SQL, [config.mcpActorId]),
-    queryAll(
-      `SELECT p.id, p.gls_number, p.name, c.name AS customer_name
-       FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
-         AND p.gls_category = 'A'
-         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
-       ORDER BY p.updated_at DESC
-       LIMIT 100`
-    ),
-    dailyopsVisible
-      ? queryAll(
-          `SELECT id, sender, subject, summary, category, importance, action_needed, url,
-                  received_at, created_at
-           FROM misc_inquiries
-           -- 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
-           -- 記録が打たれていない行が受信箱に残り続ける
-           WHERE deleted_at IS NULL AND state = 'unsorted'
-           ORDER BY created_at ASC
-           LIMIT 100`
-        )
-      : Promise.resolve([]),
-    dailyopsVisible
-      ? queryAll(
-          `SELECT id, doc_type, sender, subject, amount, status, payment_due,
-                  received_at, created_at
-           FROM finance_docs
-           WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
-           ORDER BY created_at ASC
-           LIMIT 100`
-        )
-      : Promise.resolve([]),
-  ]);
-
-  // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
-  // 無ければ created_at。overdue は期限日 (= お客様を待たせ始めた瞬間)。
-  const toMs = (v: unknown): number => {
-    if (!v) return 0;
-    const d = new Date(String(v));
-    return isNaN(d.getTime()) ? 0 : d.getTime();
-  };
-  const items = [
-    ...overdue.map((r) => ({
-      key: `overdue:${r.activity_id}`, kind: 'overdue_action', received_at: r.next_action_date, meta: r,
-    })),
-    ...aiProjects.map((r) => ({
-      key: `ai:${r.id}`, kind: 'ai_project', received_at: r.created_at, meta: r,
-    })),
-    ...inquiries.map((r) => ({
-      key: `inquiry:${r.id}`, kind: 'inquiry', received_at: r.received_at ?? r.created_at, meta: r,
-    })),
-    ...financeDocs.map((r) => ({
-      key: `finance:${r.id}`, kind: 'finance_doc', received_at: r.received_at ?? r.created_at, meta: r,
-    })),
-  ].sort((a, b) => toMs(a.received_at) - toMs(b.received_at));
-
-  res.json({
-    success: true,
-    data: {
-      items,
-      checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
-      counts: {
-        total: items.length,
-        overdue_action: overdue.length,
-        ai_project: aiProjects.length,
-        inquiry: inquiries.length,
-        finance_doc: financeDocs.length,
-        agreement: agreements.length,
-      },
-      dailyops: { visible: dailyopsVisible, editable: dailyopsEditable },
-    },
-  });
 });
 
 // v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す
