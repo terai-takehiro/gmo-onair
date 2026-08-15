@@ -43,6 +43,13 @@ import type { BillingEstimate, BillingInvoice } from './billing/types';
 /** 見積の絞り込み。**「すべて」でも旧版は出ません**（サーバーで外している） */
 const ESTIMATE_CHIPS = [
   { key: 'all', label: 'すべて', status: '' },
+  /**
+   * **承認待ち**（値引きが上限を超えて止まっている見積）。
+   * 承認する人は案件を1件ずつ開いて回れないので、**ここから探せる**必要がある
+   * （承認する導線がクライアントに1つも無く、pending の見積が永久に送れなかった）。
+   * 状態（作成中・提出済…）とは別の軸なので `status` は空のまま。
+   */
+  { key: 'approval', label: '承認待ち', status: '' },
   { key: 'sent', label: '提出済', status: 'sent' },
   { key: 'draft', label: '作成中', status: 'draft' },
   { key: 'accepted', label: '受注', status: 'accepted' },
@@ -77,6 +84,8 @@ export default function BillingListPage() {
 
   const today = localDateStr(new Date());
   const status = ESTIMATE_CHIPS.find((c) => c.key === estimateKey)?.status ?? '';
+  // 承認待ちは状態ではなく別の絞り込み（`approval_state`）
+  const approval = estimateKey === 'approval' ? 'pending' : '';
   const state = INVOICE_CHIPS.find((c) => c.key === invoiceKey)?.state ?? '';
 
   // **どちらのタブも常に引く。** 開いている側だけにすると、
@@ -84,8 +93,8 @@ export default function BillingListPage() {
   // (実ブラウザで「見積 0 / 請求 2」と出て気づいた)。
   // 切り替えも待ちなしになる。
   const estimates = useQuery<{ data: BillingEstimate[] }>({
-    queryKey: ['billing', 'estimates', scope, status],
-    queryFn: async () => (await api.get('/billing/estimates', { params: { scope, status } })).data,
+    queryKey: ['billing', 'estimates', scope, status, approval],
+    queryFn: async () => (await api.get('/billing/estimates', { params: { scope, status, approval } })).data,
   });
   const invoices = useQuery<{ data: BillingInvoice[] }>({
     queryKey: ['billing', 'invoices', scope, state],

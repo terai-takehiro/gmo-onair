@@ -56,6 +56,10 @@ export interface GpmEstimate {
   sent_at: string | null;
   decided_at: string | null;
   updated_at: string;
+  /** 値引きの承認。`pending` の間は送れない（お金のルール ⑤・案件と同じ規則） */
+  approval_state?: 'none' | 'pending' | 'approved' | null;
+  /** いま見ている人が承認できるか。**サーバーが決める**（押して 403 にしない） */
+  can_approve?: boolean;
 }
 
 export interface GpmEstimateSummary {

@@ -42,6 +42,7 @@ import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useGpmEstimates, useInvalidateGpm, type GpmEstimate } from '../../queries';
+import { ApprovalNotice } from '@/contexts/shared/components/ApprovalRow';
 import {
   EstimateItems, type EstimateForItems, type EstimateItemRow,
 } from '@/contexts/sales/pages/projectDetail/EstimateItems';
@@ -90,6 +91,12 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           </Button>
         )}
       </div>
+
+      {/* 承認待ちは一覧の上に出す（案件の見積タブと同じ部品・同じ規則） */}
+      {(rows).filter((e) => e.approval_state === 'pending').map((e) => (
+        <ApprovalNotice key={`approval-${e.id}`} estimate={e} base="/gpm/estimates"
+          onDone={() => query.refetch()} />
+      ))}
 
       {query.isError ? (
         <ErrorPanel title="見積を読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />

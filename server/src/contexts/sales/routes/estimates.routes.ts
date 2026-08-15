@@ -8,7 +8,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import {
   requireAuth, requirePermission, requireAnyPermission, meetsPermissionLevel,
 } from '../../../shared/middleware/auth';
-import { estimateService } from '../services/estimate.service';
+import { estimateService, withCanApprove } from '../services/estimate.service';
 import { buildEstimatePdf } from '../services/estimate-pdf.service';
 import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../../shared/services/doc-box.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
@@ -25,14 +25,17 @@ const userOf = (req: Request) => (req as { user?: { id: string } }).user!.id;
 // GET /projects/:projectId/estimates
 router.get('/', wrap(async (req, res) => {
   const { projectId } = req.params as Record<string, string>;
-  res.json({ success: true, data: await estimateService.listByProject(projectId) });
+  const rows = await estimateService.listByProject(projectId);
+  // **「あなたは承認できるか」をサーバーが決めて渡す。** 画面はこれを見て
+  // 「承認する」を出す（押して 403 にしないため）
+  res.json({ success: true, data: await withCanApprove(rows, userOf(req)) });
 }));
 
 // GET /projects/:projectId/estimates/:id — 明細つき
 router.get('/:id', wrap(async (req, res) => {
   const est = await estimateService.getById((req.params as Record<string, string>).id);
   if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
-  res.json({ success: true, data: est });
+  res.json({ success: true, data: (await withCanApprove([est], userOf(req)))[0] });
 }));
 
 /**

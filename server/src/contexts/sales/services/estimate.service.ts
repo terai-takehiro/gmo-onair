@@ -48,6 +48,14 @@ export interface Estimate {
   valid_until: string | null;
   /** 値引きが上限を超えたか。`pending` の間は送れない (お金のルール ⑤) */
   approval_state?: 'none' | 'pending' | 'approved';
+  /**
+   * **いま見ている人が、この見積を承認できるか。**
+   *
+   * 画面はこれを見て「承認する」を出します。**押して 403 にしない**ため
+   * （v4 の決めごと）で、判定はサーバーが持ちます — 画面に写すと、
+   * 承認者の決め方を変えた日に**ボタンだけ古い規則で出ます**。
+   */
+  can_approve?: boolean;
   approved_by?: string | null;
   approved_at?: string | null;
   sent_at: string | null;
@@ -182,6 +190,43 @@ async function assertCanEstimate(userId: string): Promise<void> {
       'この役割は見積を作れません（設定 → お金のルールで決めています）。'
       + '作れる方に依頼するか、設定を見直してください');
   }
+}
+
+
+/**
+ * その人が承認できる見積はどれか。**まとめて1回で引きます** —
+ * 一覧の行ごとに引くと、版が10本あれば10回になります。
+ *
+ * 承認できるのは **その見積を作った人の役割に決めた承認者**（`approve()` と同じ規則）。
+ * ⚠️ 規則そのものを2か所に書かないこと — ここは「誰に出すか」、`approve()` は
+ * 「実際に通すか」で、**食い違うと画面にボタンが出るのに押すと 403**になります。
+ */
+async function approvableIds(estimates: Estimate[], viewerId: string): Promise<Set<string>> {
+  const pending = estimates.filter((e) => e.approval_state === 'pending');
+  if (pending.length === 0 || !viewerId) return new Set();
+
+  const me = await queryOne(
+    'SELECT role, permission_role_id FROM users WHERE id = $1', [viewerId],
+  ) as Record<string, unknown> | null;
+  // system_admin は権限の仕組みと揃えて素通り
+  if (me?.role === 'system_admin') return new Set(pending.map((e) => e.id));
+  if (!me?.permission_role_id) return new Set();
+
+  const rows = (await queryAll(
+    `SELECT e.id
+       FROM estimates e
+       JOIN users u ON u.id = ${OWNER_SQL.replace(/created_by/g, 'e.created_by').replace(/updated_by/g, 'e.updated_by')}
+       JOIN role_discount_limits l ON l.role_id = u.permission_role_id
+      WHERE e.id = ANY($1) AND l.approver_role_id = $2`,
+    [pending.map((e) => e.id), me.permission_role_id],
+  )) as { id: string }[];
+  return new Set(rows.map((r) => r.id));
+}
+
+/** 一覧・詳細に「あなたは承認できるか」を付ける */
+export async function withCanApprove<T extends Estimate>(rows: T[], viewerId: string): Promise<T[]> {
+  const ok = await approvableIds(rows, viewerId);
+  return rows.map((r) => ({ ...r, can_approve: ok.has(r.id) }));
 }
 
 export const estimateService = {

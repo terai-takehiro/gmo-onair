@@ -13,6 +13,7 @@
  * **子行と二重に数えない**よう、他の集計と同じく `group_id IS NULL` で絞ります。
  */
 import { Router } from 'express';
+import { withCanApprove } from '../services/estimate.service';
 import { requireAuth, requireAnyPermission } from '../../../shared/middleware/auth';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
@@ -50,6 +51,9 @@ router.get('/estimates', async (req, res) => {
   let where = `WHERE e.deleted_at IS NULL AND p.gls_category = 'A' AND e.status <> 'superseded' AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND e.created_by = ?'; params.push(req.user!.id); }
+  // **承認待ちだけを見る。** 承認する人は案件を1件ずつ開いて回れないので、
+  // ここから探せる必要がある（`?approval=pending`）
+  if (req.query.approval === 'pending') where += " AND e.approval_state = 'pending'";
   if (status) {
     // **知らない状態名は素通しさせない** (絞り込んだのに全件返ると気づけない)
     const list = status.split(',').map((s) => s.trim())
@@ -60,7 +64,7 @@ router.get('/estimates', async (req, res) => {
 
   const rows = await queryAll(
     `SELECT e.id, e.project_id, e.group_id, e.version, e.title, e.status,
-            e.subtotal, e.discount, e.sent_at, e.valid_until,
+            e.subtotal, e.discount, e.sent_at, e.valid_until, e.approval_state,
             p.name AS project_name, p.gls_number,
             c.name AS customer_name,
             u.name AS created_by_name
@@ -80,7 +84,8 @@ router.get('/estimates', async (req, res) => {
       LIMIT 300`,
     params,
   );
-  res.json({ success: true, data: rows });
+  // 「あなたは承認できるか」をサーバーが決めて渡す（押して 403 にしない）
+  res.json({ success: true, data: await withCanApprove(rows as never[], req.user!.id) });
 });
 
 /**
