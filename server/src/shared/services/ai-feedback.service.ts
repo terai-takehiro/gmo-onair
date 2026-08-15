@@ -300,22 +300,43 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
      * 比べる相手そのものを失います）。**確定した売上があればそれを、無ければ見込みを**使い、
      * どちらで数えたかは呼ぶ側に返します。
      */
+    /*
+     * ⚠️ **この PR のレビューで2つ直しました。**
+     *
+     * ①**分け合う請求（グループ請求）はこの案件への配分額で数える。**
+     *   `revenues.project_id` は**グループの代表1件**しか指さないので、そこだけで足すと
+     *   **代表の案件がグループ全体の額を受け取り、ほかの案件は「売上が無い」ことになって
+     *   見込みに落ちます**。財務の台帳（`revenues.routes.ts`）と同じく
+     *   `revenue_allocations.allocated_amount` を使います。
+     * ②**「売上の行が無い」と「合計が 0 円」を分ける。** `NULLIF(合計, 0)` にすると、
+     *   **0 円で計上した売上**（無償対応・相殺）を「売上が無い」と見なして見込みに
+     *   差し替え、**実績が 0 円だった案件が見込みの金額で受注額に入り**ます。
+     *   行数（`n_rows`）で分けます。
+     *
+     * ⚠️ **この文字列の中にバッククォートを書かないこと**（テンプレートリテラルが
+     * そこで終わり、型検査が読めない形になります。実際に踏みました）。
+     */
     const oc = await queryOne(
       `SELECT COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed')) AS won,
               COUNT(*) FILTER (WHERE stage = 'e_lost')                AS lost,
               COUNT(*) FILTER (WHERE stage NOT IN ('a_won','s_completed','e_lost')) AS in_progress,
               COALESCE(SUM(amount) FILTER (WHERE stage IN ('a_won','s_completed')), 0) AS won_amount_total,
-              COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed') AND confirmed = 0) AS won_without_revenue
+              COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed') AND revenue_rows = 0) AS won_without_revenue
          FROM (
            SELECT DISTINCT p.id, p.stage,
-                  COALESCE(NULLIF(r.confirmed, 0), p.expected_amount, 0) AS amount,
-                  COALESCE(r.confirmed, 0) AS confirmed
+                  -- 売上の行があればその合計、無ければ起票時の見込み（上の説明の②）
+                  CASE WHEN r.n_rows > 0 THEN r.amount ELSE COALESCE(p.expected_amount, 0) END AS amount,
+                  r.n_rows AS revenue_rows
              FROM ai_outputs o
              JOIN projects p ON p.id = o.target_id AND o.target_table = 'projects' AND p.deleted_at IS NULL
              LEFT JOIN LATERAL (
-               SELECT COALESCE(SUM(rv.amount), 0) AS confirmed
+               -- 分け合う請求はこの案件への配分額で数える（上の説明の①）
+               SELECT COALESCE(SUM(COALESCE(ra.allocated_amount, rv.amount)), 0) AS amount,
+                      COUNT(*) AS n_rows
                  FROM revenues rv
-                WHERE rv.project_id = p.id AND rv.deleted_at IS NULL AND rv.status = 'confirmed'
+                 LEFT JOIN revenue_allocations ra ON ra.revenue_id = rv.id AND ra.project_id = p.id
+                WHERE rv.deleted_at IS NULL AND rv.status = 'confirmed'
+                  AND (rv.project_id = p.id OR ra.project_id = p.id)
              ) r ON TRUE
             WHERE o.kind = ?
               AND o.created_at >= NOW() - (? || ' days')::interval

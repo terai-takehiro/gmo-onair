@@ -153,9 +153,28 @@ describe('AI の成果の金額', () => {
   it('受注額は確定売上で数え、見込みで数えた件数を書く', () => {
     // `expected_amount` は**起票のときの見込み**で、受注しても更新されない
     // （更新**しない**のが正しい — 上書きすると比べる相手が消える）
-    expect(FEEDBACK).toMatch(/COALESCE\(NULLIF\(r\.confirmed, 0\), p\.expected_amount, 0\) AS amount/);
+    expect(FEEDBACK).toMatch(/CASE WHEN r\.n_rows > 0 THEN r\.amount ELSE COALESCE\(p\.expected_amount, 0\) END AS amount/);
     expect(FEEDBACK).toMatch(/won_without_revenue/);
     expect(FEEDBACK).toMatch(/起票時の見込みで数えている/);
+  });
+
+  /**
+   * ⚠️ **この PR のレビューで指摘された2つ**（どちらも実データで再現）。
+   * 分け合う請求のある3案件で、**2,299,999 円 → 1,000,000 円**（実際に請求した額）。
+   */
+  it('分け合う請求は配分額で数える（代表が全額を受け取らない）', () => {
+    // `revenues.project_id` はグループの**代表1件**しか指さない。
+    // そこだけで足すと、**ほかの案件は「売上が無い」ことになって見込みに落ちる**
+    expect(FEEDBACK).toMatch(/LEFT JOIN revenue_allocations ra ON ra\.revenue_id = rv\.id AND ra\.project_id = p\.id/);
+    expect(FEEDBACK).toMatch(/AND \(rv\.project_id = p\.id OR ra\.project_id = p\.id\)/);
+    expect(FEEDBACK).toMatch(/COALESCE\(SUM\(COALESCE\(ra\.allocated_amount, rv\.amount\)\), 0\) AS amount/);
+  });
+
+  it('「売上の行が無い」と「合計が 0 円」を分ける', () => {
+    // 0 円で計上した売上（無償対応・相殺）を「売上が無い」と見なすと、
+    // **実績 0 円の案件が見込みの金額で受注額に入る**
+    expect(FEEDBACK).toMatch(/COUNT\(\*\) AS n_rows/);
+    expect(FEEDBACK).not.toMatch(/NULLIF\(r\.confirmed, 0\)/);
   });
 });
 
