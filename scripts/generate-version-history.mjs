@@ -28,8 +28,22 @@ const SECTION_START = "## 現在のバージョン";
 const SECTION_END = "## 開発の絶対原則";
 const HISTORY_SECTION_START = "## 過去のバージョン";
 
+/**
+ * 見出しを**行頭で**探す。
+ *
+ * ⚠️ **素の `indexOf` にしないこと**（レビューでの指摘・P2）。`docs/version-history.md` は
+ * 前置きの中で「## 過去のバージョン」直下へ移してください、と**引用として書いています**。
+ * 素の検索だとその引用に当たるので、**本当の見出しより前に置かれた版まで拾えてしまい**、
+ * 「置き場所を間違えているのに動く」状態になります（実際にそうなっていました）。
+ */
+function headingIndex(text, heading) {
+  if (text.startsWith(`${heading}\n`)) return 0;
+  const at = text.indexOf(`\n${heading}\n`);
+  return at === -1 ? -1 : at + 1;
+}
+
 function extractSection(text, start, end) {
-  const startIdx = text.indexOf(start);
+  const startIdx = headingIndex(text, start);
   if (startIdx === -1) throw new Error(`見出し「${start}」が見つかりません`);
   const bodyStart = text.indexOf("\n", startIdx) + 1;
   if (!end) return text.slice(bodyStart);
@@ -112,9 +126,19 @@ function parseEntries(sectionText) {
   for (const e of entries) {
     const prev = byVersion.get(e.version);
     if (!prev) { byVersion.set(e.version, e); continue; }
-    // 先に出たほう（CLAUDE.md 側）が `isCurrent` を持つので、印は引き継ぐ
+    /*
+     * ⚠️ **本文だけを取り替える。見出しは先に出たほう（CLAUDE.md の要約）を残す**
+     * （レビューでの指摘・P2）。
+     *
+     * 要約とアーカイブは**わざと違う見出し**を持ちます — 要約は「その版が何だったか」を
+     * 1文で言い、アーカイブは PR 1本目の見出しから始まります。まるごと差し替えると
+     * **画面の履歴だけが 28 本のうち1本目の名前でその版を呼びます**
+     * （実際に v4.1.0 が「グループ内かグループ外かを…」と出ていました。
+     * `CLAUDE.md` と `README.md` は「Codex のレビュー指摘 143 件を…」なので、
+     * **同じ版が資料と画面で違う名前**になります）。
+     */
     if (e.description.length > prev.description.length) {
-      byVersion.set(e.version, { ...e, isCurrent: prev.isCurrent });
+      byVersion.set(e.version, { ...prev, description: e.description });
     }
   }
   return [...byVersion.values()];
@@ -130,7 +154,26 @@ function main() {
   // どちらかを忘れるとここに来る。
   let archived;
   try {
-    archived = extractSection(readFileSync(HISTORY_MD, "utf8"), HISTORY_SECTION_START, null);
+    const historyMd = readFileSync(HISTORY_MD, "utf8");
+    /*
+     * ⚠️ **見出しより前に置かれた版があれば止める**（レビューでの指摘・P2）。
+     *
+     * v4.1.0 で実際にやりました — 全文を**前置きの文の途中**に差し込んでいて、
+     * 「…この下の『## 過去のバージョン』直下へ移してください」という1文が
+     * **53,000 字の版で真っ二つ**になっていました。それでも動いていたのは
+     * 見出しを素の `indexOf` で探していたからで、**正しく直した瞬間に
+     * その版が画面から消えます**（黙って消えるので誰も気づけない）。
+     */
+    const head = headingIndex(historyMd, HISTORY_SECTION_START);
+    const stray = head === -1 ? -1 : historyMd.slice(0, head).search(/\n\(v\d+\.\d+\.\d+\s*[—:]/);
+    if (stray !== -1) {
+      throw new Error(
+        `「${HISTORY_SECTION_START}」より前に版の行があります（${stray} 文字目あたり）。\n` +
+        `  版は見出しの**直下**に置いてください（前置きの引用に差し込むと、` +
+        `見出しの探し方を直した日に画面から消えます）。`
+      );
+    }
+    archived = extractSection(historyMd, HISTORY_SECTION_START, null);
   } catch (e) {
     console.error(
       `[version-history] ${path.relative(ROOT, HISTORY_MD)} を読めません: ${e.message}\n` +
