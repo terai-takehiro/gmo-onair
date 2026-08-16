@@ -121,37 +121,80 @@ router.put('/categories/:id', requirePermission('sales', 'owner'), async (req, r
  * **端では何もしない**（`[]` を返す）。400 にすると、いちばん上の分類で
  * 押した人にだけ赤い札が出ます（`gpm.service` の `phaseService.move` と同じ）。
  */
+/**
+ * 束の親（**ここを1行押さえて、同じ束の並べ替えを1本ずつにする**）。
+ * 料金の分類は場所にぶら下がり、品目は分類にぶら下がる。
+ */
+const PARENT_OF = {
+  pricing_categories: 'studio_locations',
+  pricing_items: 'pricing_categories',
+} as const;
+
 async function moveRow(
   table: 'pricing_categories' | 'pricing_items',
   scopeCol: 'location_id' | 'category_id',
   id: string, dir: 'up' | 'down', userId: string,
 ): Promise<Record<string, unknown>[]> {
-  const me = await queryOne(
-    `SELECT id, ${scopeCol} AS scope, sort_order FROM ${table} WHERE id = ? AND deleted_at IS NULL`, [id],
-  ) as { id: string; scope: string; sort_order: number } | null;
-  if (!me) throw new AppError(404, 'NOT_FOUND', '並べ替える行が見つかりません');
+  /*
+   * ⚠️ **読むのも取引の中で、束ごと押さえてから**（レビューでの指摘 #138・P1）。
+   *
+   * 前の版は `me` と `neighbor` を**取引の外で**読んでいました。2本の UPDATE は
+   * 原子的でも、**読んだ位置が古ければ古い位置を書きます**。
+   * 隣り合う行に同時に届くと、A=10 / B=20 / C=30 のところへ
+   * 「B を上へ」と「B を下へ」が重なって **A=20 / C=20 / B=30** になり、
+   * **`sort_order` がまた重複**します（#52 で直したはずのもの）。
+   * 並びは `ORDER BY sort_order, created_at` なので、重複すると
+   * **入れ替わったようで入れ替わっていない**状態になります。
+   *
+   * ⚠️ **`me` と `neighbor` を順に `FOR UPDATE` するだけでは足りません。**
+   * 向かい合わせに動かすと（「A を下へ」と「B を上へ」）**押さえる順が逆**になり、
+   * 行き詰まります（Postgres が片方を落とすので壊れはしませんが、
+   * 押した人には理由の分からない失敗が出ます）。
+   *
+   * **束の親を1行だけ押さえます** — 押さえる順が1つしか無いので行き詰まりません。
+   * 同じ場所（分類）の並べ替えが1本ずつになるだけで、他の場所は止まりません。
+   */
+  return withTransaction(async (tx) => {
+    const first = await tx.queryOne(
+      `SELECT ${scopeCol} AS scope FROM ${table} WHERE id = ? AND deleted_at IS NULL`, [id],
+    ) as { scope: string } | undefined;
+    if (!first) throw new AppError(404, 'NOT_FOUND', '並べ替える行が見つかりません');
 
-  const neighbor = await queryOne(
-    dir === 'up'
-      ? `SELECT id, sort_order FROM ${table}
-          WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order < ?
-          ORDER BY sort_order DESC LIMIT 1`
-      : `SELECT id, sort_order FROM ${table}
-          WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order > ?
-          ORDER BY sort_order ASC LIMIT 1`,
-    [me.scope, me.sort_order],
-  ) as { id: string; sort_order: number } | null;
-  if (!neighbor) return [];
+    // 束の親を押さえる。**ここを通った1本だけ**が、この束の並びを触れる
+    await tx.queryOne(`SELECT id FROM ${PARENT_OF[table]} WHERE id = ? FOR UPDATE`, [first.scope]);
 
-  await withTransaction(async (tx) => {
+    // **押さえてから読み直す。** 待っている間に前の1本が入れ替えている
+    const me = await tx.queryOne(
+      `SELECT id, ${scopeCol} AS scope, sort_order FROM ${table} WHERE id = ? AND deleted_at IS NULL`, [id],
+    ) as { id: string; scope: string; sort_order: number } | undefined;
+    if (!me) throw new AppError(404, 'NOT_FOUND', '並べ替える行が見つかりません');
+    // 待っている間に別の束へ移されていたら、押さえた親が違う（やり直してもらう）
+    if (me.scope !== first.scope) {
+      throw new AppError(409, 'CONFLICT', '並べ替えている間に別の分類へ移りました。開き直してください');
+    }
+
+    const neighbor = await tx.queryOne(
+      dir === 'up'
+        ? `SELECT id, sort_order FROM ${table}
+            WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order < ?
+            ORDER BY sort_order DESC LIMIT 1`
+        : `SELECT id, sort_order FROM ${table}
+            WHERE ${scopeCol} = ? AND deleted_at IS NULL AND sort_order > ?
+            ORDER BY sort_order ASC LIMIT 1`,
+      [me.scope, me.sort_order],
+    ) as { id: string; sort_order: number } | undefined;
+    // **端では何もしない**（400 にすると、いちばん上で押した人にだけ赤い札が出る）
+    if (!neighbor) return [];
+
     await tx.execute(
       `UPDATE ${table} SET sort_order = ?, updated_at = NOW(), updated_by = ? WHERE id = ?`,
       [neighbor.sort_order, userId, me.id]);
     await tx.execute(
       `UPDATE ${table} SET sort_order = ?, updated_at = NOW(), updated_by = ? WHERE id = ?`,
       [me.sort_order, userId, neighbor.id]);
+
+    return tx.queryAll(`SELECT * FROM ${table} WHERE id IN (?, ?)`, [me.id, neighbor.id]);
   });
-  return queryAll(`SELECT * FROM ${table} WHERE id IN (?, ?)`, [me.id, neighbor.id]);
 }
 
 const dirOf = (v: unknown): 'up' | 'down' => (v === 'up' ? 'up' : 'down');

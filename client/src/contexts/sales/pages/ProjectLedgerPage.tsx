@@ -54,6 +54,13 @@ const STAGE_OPTIONS: ProjectStage[] = [
 export default function ProjectLedgerPage() {
   const { hasPermission } = useAuth();
   const canBulk = hasPermission('sales', 'manager');
+  /**
+   * **1件ずつ「直す」画面へ行けるか**（レビューでの指摘 #127）。
+   * ⚠️ ルート（`/sales/projects/:id/edit`）は `sales` があれば通すので、
+   * **ここで出し分けないと閲覧だけの人にも鉛筆が出ます** —
+   * 押すとフォームが開いて中身も打てて、**保存して初めて 403** です。
+   */
+  const canEditOne = hasPermission('sales', 'editor');
   const s = useLedgerState();
   const prefs = useColumnPrefs();
   const csv = useLedgerCsv();
@@ -347,6 +354,7 @@ export default function ProjectLedgerPage() {
           onToggle={s.toggle}
           onToggleAll={s.toggleAll}
           canEdit={canEdit}
+          canEditOne={canEditOne}
           sort={s.sort}
           onSort={s.onSort}
           grid={grid}

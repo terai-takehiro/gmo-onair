@@ -41,8 +41,37 @@ describe('並べ替えは取引の中で入れ替える', () => {
   });
 
   it('サーバーは1つの取引で2行だけ書き換える', () => {
-    expect(PRICING).toMatch(/await withTransaction\(async \(tx\) => \{/);
+    expect(PRICING).toMatch(/withTransaction\(async \(tx\) => \{/);
     expect(PRICING).toMatch(/SET sort_order = \?, updated_at = NOW\(\), updated_by = \? WHERE id = \?/);
+  });
+
+  it('⚠️ 読むのも取引の中（位置を取引の外で読まない）', () => {
+    /*
+     * レビューでの指摘 #138（P1）。2本の UPDATE が原子的でも、
+     * **読んだ位置が古ければ古い位置を書きます**。隣り合う行に同時に届くと
+     * A=10 / B=20 / C=30 が **A=20 / C=20 / B=30** になり、`sort_order` が重複します。
+     */
+    const fn = PRICING.slice(PRICING.indexOf('async function moveRow'), PRICING.indexOf('const dirOf'));
+    const body = fn.slice(fn.indexOf('withTransaction'));
+    // 位置と隣を読むのは、取引に入ったあと
+    expect(body).toMatch(/tx\.queryOne\([\s\S]*?sort_order FROM/);
+    expect(body).toMatch(/tx\.queryOne\(\s*\n?\s*dir === 'up'/);
+    // 取引の外に読み取りを残さない
+    const beforeTx = fn.slice(0, fn.indexOf('withTransaction'));
+    expect(beforeTx).not.toMatch(/queryOne\(/);
+  });
+
+  it('⚠️ 束の親を1行だけ押さえる（向かい合わせでも行き詰まらない）', () => {
+    /*
+     * `me` と `neighbor` を順に `FOR UPDATE` するだけだと、「A を下へ」と
+     * 「B を上へ」で**押さえる順が逆**になり行き詰まります（Postgres が片方を
+     * 落とすので壊れはしませんが、押した人には理由の分からない失敗が出ます）。
+     * 押さえる先が1つなら、その順番は1通りしかありません。
+     */
+    expect(PRICING).toMatch(/const PARENT_OF = \{/);
+    expect(PRICING).toMatch(/pricing_categories: 'studio_locations'/);
+    expect(PRICING).toMatch(/pricing_items: 'pricing_categories'/);
+    expect(PRICING).toMatch(/FROM \$\{PARENT_OF\[table\]\} WHERE id = \? FOR UPDATE/);
   });
 
   it('隣を探すのはサーバー（画面は向きだけ渡す）', () => {

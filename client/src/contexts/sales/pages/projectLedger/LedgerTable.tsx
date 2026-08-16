@@ -43,7 +43,7 @@ const PICK_W = 56;
 const ACT_W = 56;
 
 export function LedgerTable({
-  rows, shown, selected, onToggle, onToggleAll, canEdit, sort, onSort,
+  rows, shown, selected, onToggle, onToggleAll, canEdit, canEditOne, sort, onSort,
   grid, users, customers,
 }: {
   rows: LedgerRow[];
@@ -53,6 +53,12 @@ export function LedgerTable({
   onToggleAll: () => void;
   /** 編集モードのときだけ true（チェックを出す・その場で直せる） */
   canEdit: boolean;
+  /**
+   * **1件ずつ「直す」画面へ行けるか**（`sales: editor` 以上）。
+   * ⚠️ `canEdit`（まとめて直す・升目を書き換える＝ manager ＋ 編集モード）とは別。
+   * 一緒にすると、編集モードに入っていない manager から鉛筆が消えます。
+   */
+  canEditOne: boolean;
   sort: SortState;
   onSort: (key: string) => void;
   grid: LedgerGrid;
@@ -251,16 +257,27 @@ export function LedgerTable({
                   </td>
                 );
               })}
-              {/* **1件だけ直す道も残す。** まとめて直せない項目（金額など）は
-                  「直す」画面から。ここが無いと台帳から編集に辿り着けない */}
+              {/*
+                **1件だけ直す道も残す。** まとめて直せない項目（金額など）は
+                「直す」画面から。ここが無いと台帳から編集に辿り着けない。
+
+                ⚠️ **直せる人にだけ出す**（レビューでの指摘 #127）。
+                `/sales/projects/:id/edit` のルートは `sales` があれば通す（＝閲覧だけの人も
+                開けてしまう）ので、前の版は **`sales: reader` の人にも全行に鉛筆が出て**
+                いました。押すと**フォームが開いて中身も打てて、保存して初めて 403**です
+                — 打ち込んだものは戻ってきません。**枠（`<td>`）は残します** —
+                消すと列の幅が行ごとに変わります。
+              */}
               <td className="px-3 py-2">
-                <Link
-                  to={`/sales/projects/${row.id}/edit`}
-                  aria-label={`${row.name} を直す`}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                {canEditOne && (
+                  <Link
+                    to={`/sales/projects/${row.id}/edit`}
+                    aria-label={`${row.name} を直す`}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                )}
               </td>
             </tr>
           ))}
