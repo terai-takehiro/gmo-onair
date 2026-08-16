@@ -89,6 +89,57 @@ describe('⚠️ 式を書き写している口が無い', () => {
   });
 });
 
+describe('⚠️ 未請求の売上に入金日を入れさせない（レビューでの指摘・P1）', () => {
+  /*
+   * 「未請求」チップを足したことで、**請求書を出していない売上が ⑤ の表に並ぶ**
+   * ようになりました。行の「入金前」ボタンは全行で押せたので、
+   * **この版が ⑫ スマホで塞いだ穴を、PC 側で開け直して**いました。
+   * できるのは「請求していないのに入金済み」という、**どの絞り込みにも出てこない行**です
+   * （`unpaid` は出したものだけ・`unissued` は入金前だけ）。
+   */
+  const code = readCode('contexts', 'sales', 'routes', 'billing.routes.ts');
+
+  it('1件ずつの口が止める（画面で隠すだけでは直接叩けば通る）', () => {
+    expect(code).toMatch(/isSettingPaidDate\(body\) && !isIssuedAfter\(body, existing\.invoice_issued\)/);
+  });
+
+  it('まとめての口も止める（片方だけ塞ぐと締めからは通る）', () => {
+    expect(code).toMatch(/isSettingPaidDate\(body\) && !issuing/);
+    expect(code).toMatch(/invoice_issued IS NOT TRUE/);
+  });
+
+  it('同じ回で発行するのは通す（「出して入金も記録する」は普通の操作）', () => {
+    expect(code).toMatch(/'invoice_issued' in body \? body\.invoice_issued === true : current === true/);
+  });
+
+  it('取り消し（`null`）は止めない（間違って入った入金日を消せなくなる）', () => {
+    expect(code).toMatch(/'paid_date' in body && body\.paid_date !== null/);
+  });
+
+  it('⚠️ まとめては落とさずに飛ばし、**飛ばしたことを返す**', () => {
+    // 200 件の締めを1件のために全部止めると、経理は原因の行を探すところから始める
+    expect(code).toMatch(/skipped_unissued: skippedUnissued/);
+  });
+
+  it('画面は飛ばした件数を出す（「10件を記録しました」だけだと全部入ったと思う）', () => {
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'ClosingPage.tsx'), 'utf8',
+    );
+    expect(src).toMatch(/請求書を出していない \$\{d\.skipped_unissued\.length\}件は飛ばしました/);
+  });
+
+  it('⑤ の行は押せなくする（理由つき・枠は残す）', () => {
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'sales', 'pages', 'billing', 'InvoiceRows.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/blocked=\{r\.invoice_issued \? undefined : '請求書を出してから記録できます/);
+    // **消さずに理由を出す** — 消すと、なぜ押せないのかが分からない
+    expect(src).toMatch(/title=\{blocked\}/);
+    expect(src).toMatch(/disabled=\{busy \|\| !!blocked\}/);
+  });
+});
+
 describe('画面の名前も1つ', () => {
   const CLIENT = join(__dirname, '..', '..', 'client', 'src', 'contexts');
 

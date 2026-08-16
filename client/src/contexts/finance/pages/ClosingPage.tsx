@@ -84,14 +84,20 @@ function DesktopClosing() {
     mutationFn: (payload: Record<string, unknown>) =>
       api.post('/billing/invoices/bulk', { ids: pickedRows.map((r) => r.id), ...payload }),
     onSuccess: (res) => {
-      const d = (res.data?.data ?? {}) as { updated?: number; skipped_blocked?: string[] };
+      const d = (res.data?.data ?? {}) as {
+        updated?: number; skipped_blocked?: string[]; skipped_unissued?: string[];
+      };
       qc.invalidateQueries({ queryKey: ['billing'] });
       // 台数の数字はトップページと売上台帳にも出る。**同じ数字なので一緒に落とす**
       qc.invalidateQueries({ queryKey: ['dashboard', 'app-badges'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
+      // ⚠️ **飛ばしたものは必ず書く。** 「10件を記録しました」だけ出すと、
+      // 押した人は**全部入ったと思って二度と見に来ません**
       notifySuccess(
         `${d.updated ?? 0}件を記録しました`
-        + (d.skipped_blocked?.length ? `（申込書が無い ${d.skipped_blocked.length}件は飛ばしました）` : ''),
+        + (d.skipped_blocked?.length ? `（申込書が無い ${d.skipped_blocked.length}件は飛ばしました）` : '')
+        + (d.skipped_unissued?.length
+          ? `（請求書を出していない ${d.skipped_unissued.length}件は飛ばしました）` : ''),
       );
       clearPick();
     },
