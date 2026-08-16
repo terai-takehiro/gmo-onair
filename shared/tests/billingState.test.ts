@@ -104,8 +104,21 @@ describe('⚠️ 未請求の売上に入金日を入れさせない（レビュ
   });
 
   it('まとめての口も止める（片方だけ塞ぐと締めからは通る）', () => {
-    expect(code).toMatch(/isSettingPaidDate\(body\) && !issuing/);
+    expect(code).toMatch(/if \(isSettingPaidDate\(body\)\) \{/);
     expect(code).toMatch(/invoice_issued IS NOT TRUE/);
+  });
+
+  it('⚠️ まとめては**更新したあとの姿**で見る（レビューでの指摘・P1・前の版の穴）', () => {
+    /*
+     * 前は**いまの `invoice_issued`** だけを引いていたので、
+     * `{ invoice_issued: false, paid_date: … }` を**発行済みの行に**送ると、
+     * その行は「いま未請求」ではないので飛ばされず、UPDATE が
+     * **発行の取り消しと入金日を同時に書きました** — 止めようとしていた
+     * 「未請求なのに入金済み」がそのままできます。
+     */
+    expect(code).toMatch(/if \('invoice_issued' in body\) \{[\s\S]*?if \(!issuing\) \{[\s\S]*?請求書の取り消しと入金の記録は同時にできません/);
+    // 飛ばす道に入るのは**発行の状態を触らないとき**だけ（あとの姿＝いまの姿）
+    expect(code).toMatch(/\} else \{[\s\S]*?invoice_issued IS NOT TRUE/);
   });
 
   it('同じ回で発行するのは通す（「出して入金も記録する」は普通の操作）', () => {
@@ -136,7 +149,25 @@ describe('⚠️ 未請求の売上に入金日を入れさせない（レビュ
     expect(src).toMatch(/blocked=\{r\.invoice_issued \? undefined : '請求書を出してから記録できます/);
     // **消さずに理由を出す** — 消すと、なぜ押せないのかが分からない
     expect(src).toMatch(/title=\{blocked\}/);
-    expect(src).toMatch(/disabled=\{busy \|\| !!blocked\}/);
+  });
+
+  it('⚠️ 理由は hover だけに置かない（レビューでの指摘・P2）', () => {
+    /*
+     * `disabled` にすると**キーボードで辿り着けず**、指で触る端末には hover がありません。
+     * その人たちに見えるのは**薄くなった「入金前」だけ**で、理由はどこにも出ません。
+     */
+    const src = readFileSync(
+      join(__dirname, '..', '..', 'client', 'src', 'contexts', 'sales', 'pages', 'billing', 'InvoiceRows.tsx'),
+      'utf8',
+    );
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    // 押せる（＝辿り着ける）まま。`disabled` は通信中だけ
+    expect(code).toMatch(/disabled=\{busy\}/);
+    expect(code).toMatch(/aria-disabled=\{blocked \? true : undefined\}/);
+    // 押したら帯で理由を出す（**押しても何も起きない形にしない** — それが元の不具合と同じ）
+    expect(code).toMatch(/notifyWarning\('入金を記録できません', \{ description: blocked \}\)/);
+    // 読み上げには理由ごと渡す
+    expect(code).toMatch(/aria-label=\{blocked \? `\$\{todoLabel\}（\$\{blocked\}）` : undefined\}/);
   });
 });
 
