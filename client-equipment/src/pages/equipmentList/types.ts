@@ -71,6 +71,21 @@ export const sectionDisplay = (typeCode: string | null | undefined, section: str
   return `${t}${s}`.trim() || '-';
 };
 
+/**
+ * 出せる列と、**既定で出す列**。
+ *
+ * ── 既定の合計が枠に収まっていること（重要） ────────────────
+ *
+ * この台帳は**いちばん右の「操作」を右端に貼り付けています**。`right: 0` の
+ * `sticky` は**必ず下の内容に重なる**ので、既定の列の合計が枠より広いと
+ * **いちばん右の列（＝「貸出可」）が、横に送るまで見えません**。
+ * 実際にそうなっており、利用者からは「レイアウトが崩れている」と見えていました。
+ *
+ * ⚠️ **`default: true` を1つ増やすと、その幅ぶんだけ隠れる量が増えます。**
+ * 増やすときは `shared/tests/equipmentLedgerWidth.test.ts` の
+ * 「既定の列が基準の枠に収まる」を必ず通すこと（通らないなら、
+ * どれを既定から外すかを決めてから足す）。
+ */
 export const COL_DEFS = [
   { key: 'eq_code', label: 'ID', sortKey: 'eq_code', default: true },
   { key: 'equipment_type', label: '種別', sortKey: 'equipment_type_code', default: true },
@@ -82,7 +97,20 @@ export const COL_DEFS = [
   { key: 'unit_number', label: 'No', sortKey: 'unit_number', default: true },
   { key: 'condition', label: '状態', sortKey: 'condition', default: false },
   { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
-  { key: 'notes', label: '備考', sortKey: 'notes', default: true },
+  /**
+   * ⚠️ **既定から外しました**（ご判断）。**消していません** —
+   * 「出す列」で1つ押せば今までどおり出ます。
+   *
+   * 既定の合計が **1,384px** で、実測した枠（1,254px）に **130px 足りず**、
+   * そのぶん右端の「貸出可」が操作の下に隠れていました。**8列のうち、
+   * 空のことがあり・常に1行で省略され・全文が `title` で読めるのはここだけ**
+   * なので、外すのはこの列です（外すと 172px 減って収まります）。
+   *
+   * **すでに「出す列」を触ったことがある人は今までどおり備考が出ます**
+   * （`localStorage` の `eq-visible-cols` が優先。勝手に消すほうが乱暴なので、
+   * そちらは変えていません）。戻したいときは「出す列」から。
+   */
+  { key: 'notes', label: '備考', sortKey: 'notes', default: false },
   // **モックはこの切り替えを台帳の列に置いている**（「チェックはこの一覧から
   // その場で切り替えられます」）。書き込みには `equipment` の owner 権限が要るので、
   // 権限が無い人には**押せない印**として出す（列ごと消すと、なぜ貸出画面に
@@ -130,13 +158,8 @@ export const COL_W = {
   unit_number: 56,
   condition: 72,
   fixed_asset_code: 128,
-  /**
-   * 種別を 72 → 128 に上げたぶん、**台帳全体を広げないためにここを1段落とす**
-   * （200 → 160）。備考は**必ず1行で省略される**列で、全文は `title` で読めます。
-   * 一方いちばん右の列は**貼り付けた「操作」に隠れる**ので、既定の合計幅を
-   * 増やすと隠れる量がそのまま増えます。
-   */
-  notes: 160,
+  /** 幅は今までのまま。**既定から外した**ので、合計には効きません（`COL_DEFS`） */
+  notes: 200,
   rental: 96,
 } as const satisfies Partial<Record<ColKey, number>>;
 

@@ -42,6 +42,22 @@ import {
 const DEFAULT_COLS = COL_DEFS.filter((c) => c.default).map((c) => c.key) as ColKey[];
 
 /**
+ * **基準の枠**（この幅に既定の列が収まること）。
+ *
+ * ⚠️ **これは飾りの数字ではありません。** 台帳はいちばん右の「操作」を
+ * `sticky right-0` で貼り付けており、**`sticky` は必ず下の内容に重なります**。
+ * 既定の合計がこの枠を超えると、**いちばん右の列は横に送るまで見えません** —
+ * そして既定の右端は「貸出可」（押せるチェック）です。
+ *
+ * 1,254px の出どころ: ご報告のスクリーンショットから割り出した実寸です。
+ * 列見出しの位置（ID 153 ／ 種別 261 ／ 設置場所 345 ／ 商品名 485px）と
+ * 画像上の位置を突き合わせると倍率は 1.241 で、枠の内側は
+ * (1592 − 33) / 1.241 ≒ **1,254px**（1,512px の画面 − 左メニュー 248 −
+ * ページの余白 48 − スクロールバー、とも合います）。
+ */
+const REFERENCE_PX = 1254;
+
+/**
  * 種別バッジの外形の実測値（上のコメント参照）。
  * **`TableBadge` は和文4字までを 62px に固定**し、それ以外は自然幅になる。
  */
@@ -115,6 +131,24 @@ describe('ledgerMinWidth', () => {
     const slots = 1 + 1 + DEFAULT_COLS.length + 1;
     const old = base - ROW_PX * 2 - (slots - 1) * ROW_GAP + slots * ROW_GAP;
     expect(base - old).toBe(20);
+  });
+
+  it('既定の列が基準の枠に収まる（右端の「貸出可」が操作の下に隠れない）', () => {
+    const need = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 0 });
+    expect(need).toBeLessThanOrEqual(REFERENCE_PX);
+
+    // **反証**: 備考を既定に戻すと収まらない（＝この検査は緩くない）
+    const withNotes = ledgerMinWidth({
+      canBulkEdit: true,
+      visibleStd: [...DEFAULT_COLS.slice(0, -1), 'notes', 'rental'] as ColKey[],
+      customCount: 0,
+    });
+    expect(withNotes).toBeGreaterThan(REFERENCE_PX);
+  });
+
+  it('備考は消していない。「出す列」から出せる', () => {
+    expect(COL_DEFS.map((c) => c.key)).toContain('notes');
+    expect(COL_DEFS.find((c) => c.key === 'notes')?.default).toBe(false);
   });
 
   it('商品名を消したら、その最低幅 200 は要求しない', () => {
