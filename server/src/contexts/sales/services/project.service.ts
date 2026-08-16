@@ -352,6 +352,40 @@ export const ESTIMATE_AMOUNT_LATERAL = `
   ) est ON TRUE
 `;
 
+/**
+ * 確定売上・仕入。**直接の行 ＋ グループ按分**（レビューでの指摘 #127）。
+ *
+ * ⚠️ **`group_id IS NULL` だけを足さないこと。** 分け合う請求（グループ請求）では
+ * `revenues.project_id` が**代表の1件**しか指さず、その案件の取り分は
+ * `revenue_allocations` に入ります。直接の行だけ足すと、
+ * **代表以外の案件は「売上 0 円」**、代表は**満額**に見えます。
+ *
+ * 前の版は案件台帳の「確定売上」「仕入」の列がこれで、
+ * **分け合う請求の案件だけ黙って少なく出て**いました（`—` に見えることもある）。
+ * しかも**それらしい数字**なので、台帳と突き合わせるまで気づけません。
+ *
+ * ⚠️ **数え方は `getSummary` に合わせてあります**（案件詳細が出す粗利と同じ）。
+ * 別々に書くと、**同じ案件が一覧と詳細で違う金額**になります。
+ * ⚠️ **按分の側に `status = 'confirmed'` が掛かっていないのは `getSummary` と同じ**です。
+ * ここだけ揃えると詳細と食い違うので**この回では変えていません**（別に見るべき論点）。
+ */
+export const TOTAL_REVENUE_SQL = `(
+  COALESCE((SELECT SUM(r.amount) FROM revenues r
+             WHERE r.project_id = p.id AND r.status = 'confirmed'
+               AND r.deleted_at IS NULL AND r.group_id IS NULL), 0)
++ COALESCE((SELECT SUM(ra.allocated_amount) FROM revenue_allocations ra
+             JOIN revenues ar ON ar.id = ra.revenue_id AND ar.deleted_at IS NULL
+             WHERE ra.project_id = p.id), 0)
+)`;
+
+export const TOTAL_PURCHASE_SQL = `(
+  COALESCE((SELECT SUM(pu.amount) FROM purchases pu
+             WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0)
++ COALESCE((SELECT SUM(pa.allocated_amount) FROM purchase_allocations pa
+             JOIN purchases ap ON ap.id = pa.purchase_id AND ap.deleted_at IS NULL
+             WHERE pa.project_id = p.id), 0)
+)`;
+
 export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
@@ -516,8 +550,8 @@ export class ProjectService {
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
        (SELECT COUNT(*) FROM project_dates pd WHERE pd.project_id = p.id) as dates_count,
-       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
-       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
+       ${TOTAL_REVENUE_SQL} as total_revenue,
+       ${TOTAL_PURCHASE_SQL} as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
        ai.requested_by as ai_requested_by,
        nt.title as next_task_title, nt.due_date as next_task_due, nt.assignee_name as next_task_assignee,
@@ -561,8 +595,8 @@ export class ProjectService {
   async getById(id: string) {
     const row = await queryOne(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
-       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
-       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
+       ${TOTAL_REVENUE_SQL} as total_revenue,
+       ${TOTAL_PURCHASE_SQL} as total_purchase,
        memo.description as memo_excerpt,
        -- 案件詳細の「事実の帯」が**見積金額**を出す（モックの指定）。
        -- 一覧と**同じ計算**を使う（写すと、同じ案件が画面によって違う額になる）
@@ -685,6 +719,17 @@ export class ProjectService {
       const back = classificationOf(set.project_type);
       setClauses.push('audience = ?'); params.push(back?.audience ?? null);
       setClauses.push('project_category = ?'); params.push(back?.project_category ?? null);
+      /*
+       * ⚠️ **こちらの道でも来場人数を落とす**（レビューでの指摘 #127）。
+       *
+       * 旧種類から2段を埋め戻すとき、`live_broadcast` / `recording` は
+       * **`no_audience` になります**。上の2段の道（679行）と `create` / `update` は
+       * そのとき来場人数を落としますが、**この道だけ残していました**。
+       * 結果、**「無観客なのに来場人数 150 名」**の行ができます — これは
+       * 整合性の確認が名指ししている食い違いそのもの（`attendee_no_audience`）で、
+       * **画面から直すためにここを通った人が、通るたびに作っていた**ことになります。
+       */
+      if (back?.audience === 'no_audience') setClauses.push('attendee_count = NULL');
     }
     if (typeof set.stage === 'string' && STAGES.includes(set.stage)) {
       setClauses.push('stage = ?'); params.push(set.stage);

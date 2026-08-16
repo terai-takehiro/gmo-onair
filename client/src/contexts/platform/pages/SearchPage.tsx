@@ -243,7 +243,18 @@ export default function SearchPage() {
                       <RowSub>
                         <a
                           href={`tel:${c.phone.replace(/[^0-9+]/g, '')}`}
+                          /*
+                            ⚠️ **押下だけでなくキー操作も止める**（レビューでの指摘 #140）。
+                            `ClickRow` は Enter / Space を拾って
+                            **`preventDefault()` してから行を開きます**。止めないと
+                            キーボードやスイッチで番号に来て Enter を押した人は、
+                            **電話が掛からずお客様の画面へ飛ばされます** —
+                            そこはスマホでは PC 専用の案内に差し替わるので、
+                            **この行を足したときに避けたかった行き止まりそのもの**です。
+                            （指で押す人だけが番号に辿り着ける状態でした）
+                          */
                           onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
                           className="v4-tap font-number font-bold text-primary hover:underline"
                         >
                           {c.phone}

@@ -185,8 +185,11 @@ describe('④ 候補は最後のページまで集める', () => {
   it('鍵を他の画面と分けている（同じ鍵に別の形を入れない）', () => {
     // `['users-list']` は案件作成と販管費、`['customers-for-new-project']` は
     // 案件作成が使っており、**応答そのもの**を入れている。行の配列を入れると壊れる
-    expect(pageCode).toMatch(/'ledger-users-all'/);
-    expect(pageCode).toMatch(/'ledger-customers-all'/);
+    const hookCode = readCode('client/src/contexts/sales/pages/projectLedger/useLedgerLookups.ts');
+    expect(hookCode).toMatch(/'ledger-users-all'/);
+    expect(hookCode).toMatch(/'ledger-customers-all'/);
+    expect(hookCode).not.toMatch(/'users-list'|'customers-for-new-project'/);
+    // 画面の側も、古い鍵を引き直していないこと
     expect(pageCode).not.toMatch(/'users-list'|'customers-for-new-project'/);
   });
 
@@ -195,6 +198,9 @@ describe('④ 候補は最後のページまで集める', () => {
     expect(hook).toMatch(/!lookupsReady && \(key === 'assigned_to_name' \|\| key === 'customer_name'\)/);
     expect(hook).toMatch(/!lookupsReady && \(col === 'assigned_to_name' \|\| col === 'customer_name'\)/);
     expect(page).toContain('候補を読み込んでいます');
+    // **引く気が無いときは `true`**（読むだけの人に永久に帯を出さない）
+    const lookups = readSrc('client/src/contexts/sales/pages/projectLedger/useLedgerLookups.ts');
+    expect(lookups).toMatch(/ready: !enabled \|\|/);
   });
 });
 
