@@ -165,6 +165,20 @@ describe('反証: 読めない書き方で実際に止まるか', () => {
     expect(r.code).toBe(0);
   });
 
+  it('⚠️ `/100` は不透明なので通る（Codex ③・締めすぎの害）', () => {
+    // `bg-warning/100` は `bg-warning` と同じ。撥ねると lint が落ちて何も進められない
+    const r = run({ 'a.tsx': '<div className="bg-warning/100 text-warning-foreground">x</div>' });
+    expect(r.code).toBe(0);
+  });
+
+  it('`/100` を通しても、半透明は撥ねたまま', () => {
+    // `/100` を通す書き方にしたせいで `/10` まで通ってしまわないこと
+    for (const cls of ['bg-warning/10', 'bg-warning/50', 'bg-warning/1000']) {
+      const r = run({ 'a.tsx': `<div className="${cls} text-warning-foreground">x</div>` });
+      expect(r.code, cls).toBe(1);
+    }
+  });
+
   it('濃い段（`bg-primary-800`）も塗りとして通る', () => {
     const r = run({ 'a.tsx': '<div className="bg-primary-800 text-primary-foreground">x</div>' });
     expect(r.code).toBe(0);
