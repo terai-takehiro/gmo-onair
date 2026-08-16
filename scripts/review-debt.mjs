@@ -92,11 +92,28 @@ export function firstLineOf(body) {
 }
 
 /**
- * 棚卸しに**その PR 番号が書かれているか**。
+ * 棚卸しの表の**1列目に書かれている PR 番号**。
+ *
+ * ⚠️ **本文のどこかに番号があるかで見ないこと**（レビューでの指摘 #150）。
+ * 表の状態欄には**「どの PR で直したか」**が入るので、
+ * 素の検索だと **#150 は「#149 を直した PR」として当たり**、
+ * **#150 自身の指摘を「記録あり」と出して**しまいます。
+ * 出た人は**書かなくてよい**と読むので、**この道具が見落としを作ります**
+ * （見落としを数えるための道具が、です）。
+ *
  * ⚠️ **「直した」ではなく「書いた」**を見ています（直したかは表の状態欄が持つ）。
  */
+export function recordedPrs(doc) {
+  const out = new Set();
+  for (const line of String(doc).split('\n')) {
+    const m = /^\|\s*#(\d+)\s*\|/.exec(line);
+    if (m) out.add(Number(m[1]));
+  }
+  return out;
+}
+
 export function isRecorded(prNumber, doc) {
-  return new RegExp(`#${prNumber}\\b`).test(doc);
+  return recordedPrs(doc).has(Number(prNumber));
 }
 
 export function formatReport(threads, doc) {
@@ -124,18 +141,55 @@ export function formatReport(threads, doc) {
   return lines.join('\n');
 }
 
+const THREAD_FIELDS = `nodes{ isResolved comments(first:1){ totalCount nodes{ body path author{login} } } }
+          pageInfo{ hasNextPage endCursor }`;
+
 const QUERY = `query($owner:String!,$repo:String!,$n:Int!){
   repository(owner:$owner,name:$repo){
     pullRequests(states:MERGED, first:$n, orderBy:{field:UPDATED_AT,direction:DESC}){
       nodes{
         number title mergedAt
-        reviewThreads(first:50){
-          nodes{ isResolved comments(first:1){ totalCount nodes{ body path author{login} } } }
-        }
+        reviewThreads(first:100){ ${THREAD_FIELDS} }
       }
     }
   }
 }`;
+
+const MORE = `query($owner:String!,$repo:String!,$num:Int!,$after:String!){
+  repository(owner:$owner,name:$repo){
+    pullRequest(number:$num){ reviewThreads(first:100, after:$after){ ${THREAD_FIELDS} } }
+  }
+}`;
+
+/** 続きを取りに行く回数の上限（100 × 20 = 2,000 スレッド） */
+const MAX_PAGES = 20;
+
+/**
+ * その PR の**全部のスレッド**を集める（レビューでの指摘 #150）。
+ *
+ * ⚠️ **1ページだけ見て終わらないこと。** 前の版は `first: 50` を1回引くだけで、
+ * **51 件目から先を黙って落として**いました。落ちたぶんに未解決の指摘があると、
+ * **この道具が「0 件でした」と言います** — **見落としを数えるための道具が、
+ * いちばんやってはいけない嘘をつく**形です。
+ *
+ * ⚠️ **続きが取れなかったときは止めます**（数を少なく出さない）。
+ * ここで黙って抜けると、また「0 件」に化けます。
+ */
+export async function allThreadsOf(pr, fetchMore) {
+  const nodes = [...(pr.reviewThreads?.nodes ?? [])];
+  let info = pr.reviewThreads?.pageInfo;
+  let pages = 0;
+  while (info?.hasNextPage) {
+    if (++pages > MAX_PAGES) {
+      throw new Error(`#${pr.number} のレビューが多すぎます（${MAX_PAGES} ページを超えました）`);
+    }
+    const page = await fetchMore(pr.number, info.endCursor);
+    if (!page) throw new Error(`#${pr.number} の続きが読めませんでした（少なく数えないため止めます）`);
+    nodes.push(...(page.nodes ?? []));
+    info = page.pageInfo;
+  }
+  return { ...pr, reviewThreads: { nodes } };
+}
 
 async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
@@ -149,21 +203,34 @@ async function main() {
     process.exit(2);
   }
   const n = Number(process.argv[2]) || 20;
-  const res = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: { authorization: `bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ query: QUERY, variables: { owner: 'terai-takehiro', repo: 'gmo-onair', n } }),
-  });
-  if (!res.ok) {
-    console.error(`[reviews] GitHub が ${res.status} を返しました`);
+  const owner = 'terai-takehiro';
+  const repo = 'gmo-onair';
+
+  const ask = async (query, variables) => {
+    const res = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: { authorization: `bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+    if (!res.ok) throw new Error(`GitHub が ${res.status} を返しました`);
+    const body = await res.json();
+    if (body.errors) throw new Error(body.errors.map((e) => e.message).join(' / '));
+    return body.data;
+  };
+
+  let prs;
+  try {
+    const data = await ask(QUERY, { owner, repo, n });
+    prs = data?.repository?.pullRequests?.nodes ?? [];
+    // **続きのあるものは全部取りに行く**（1ページで切ると「0 件」に化ける）
+    const fetchMore = async (num, after) => (
+      (await ask(MORE, { owner, repo, num, after }))?.repository?.pullRequest?.reviewThreads
+    );
+    prs = await Promise.all(prs.map((p) => allThreadsOf(p, fetchMore)));
+  } catch (e) {
+    console.error(`[reviews] ${e.message}`);
     process.exit(2);
   }
-  const body = await res.json();
-  if (body.errors) {
-    console.error(`[reviews] GitHub のエラー: ${body.errors.map((e) => e.message).join(' / ')}`);
-    process.exit(2);
-  }
-  const prs = body.data?.repository?.pullRequests?.nodes ?? [];
   const threads = prs.flatMap(openThreadsOf);
   const doc = readFileSync(join(ROOT, INVENTORY), 'utf8');
   console.log(formatReport(threads, doc));
