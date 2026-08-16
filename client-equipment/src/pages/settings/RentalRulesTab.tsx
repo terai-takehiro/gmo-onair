@@ -42,6 +42,7 @@ import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { SearchField } from '@/components/parts/SearchField';
 import { useDebounced } from '@/hooks/useDebounced';
 import { TYPE_CODES, TYPE_LABELS } from '@/lib/constants';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { RentalRulesPanel } from './RentalRulesPanel';
 
 interface RentalItem {
@@ -137,10 +138,10 @@ export function RentalRulesTab() {
             <RowHeader className="hidden sm:flex">
               <RowSlot w={56}>貸出可</RowSlot>
               <RowMain>商品名 ／ メーカー</RowMain>
-              <RowSlot w={128}>型名</RowSlot>
-              <RowSlot w={96}>No.／ID</RowSlot>
-              <RowSlot w={72}>種別</RowSlot>
-              <RowSlot w={160}>設置場所</RowSlot>
+              <RowSlot w={128} className={HIDE_UNTIL_WIDE}>型名</RowSlot>
+              <RowSlot w={96} className={HIDE_UNTIL_WIDE}>No.／ID</RowSlot>
+              <RowSlot w={72} className={HIDE_UNTIL_WIDE}>種別</RowSlot>
+              <RowSlot w={160} className={HIDE_UNTIL_WIDE}>設置場所</RowSlot>
             </RowHeader>
             {items.map((item) => (
               <Row key={item.id} divider interactive stackOnMobile>
@@ -156,24 +157,24 @@ export function RentalRulesTab() {
                   <RowTitle>{item.name}</RowTitle>
                   <RowSub>{item.manufacturer_name || 'メーカーなし'}</RowSub>
                 </RowMain>
-                <RowSlot w={128} hideOnMobile>
+                <RowSlot w={128} hideOnMobile className={HIDE_UNTIL_WIDE}>
                   {item.model_number && (
                     <span className="truncate text-sub-sm text-secondary-foreground">{item.model_number}</span>
                   )}
                 </RowSlot>
-                <RowSlot w={96} hideOnMobile>
+                <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_WIDE}>
                   <span className="font-number truncate text-sub-sm text-muted-foreground">
                     {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
                   </span>
                 </RowSlot>
-                <RowSlot w={72} hideOnMobile>
+                <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
                   <TableBadge
                     label={TYPE_LABELS[item.equipment_type_code] ?? item.equipment_type_code}
                     w={null}
                     className="bg-muted text-muted-foreground border-transparent"
                   />
                 </RowSlot>
-                <RowSlot w={160} hideOnMobile>
+                <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>
                   {item.location_name && (
                     <span className="truncate text-sub-sm text-secondary-foreground">{item.location_name}</span>
                   )}

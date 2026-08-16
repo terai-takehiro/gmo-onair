@@ -28,7 +28,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { formatShortDate } from '@/lib/format';
+import { createInitialBookings } from './createInitialBookings';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { getProjectCategory, type ProjectStage } from '@/types';
 import {
@@ -339,31 +339,10 @@ export function useProjectForm(id: string | undefined) {
         const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
         if (isEdit || !wantsBooking || !schedule.productionStart) return;
         if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
-        try {
-          await api.post('/studios/bookings', {
-            title: `${values.name} (${formatShortDate(schedule.productionStart)})`,
-            booking_type: 'performance',
-            project_id: savedProjectId,
-            all_day: true,
-            start_time: schedule.productionStart,
-            end_time: prodEnd || schedule.productionStart,
-            room_ids: schedule.roomIds,
-            location_note: schedule.locationNote.trim() || null,
-          });
-          if (schedule.hasRehearsal && schedule.rehearsalStart) {
-            const rehEnd = schedule.rehearsalMultiDay ? schedule.rehearsalEnd : schedule.rehearsalStart;
-            await api.post('/studios/bookings', {
-              title: `${values.name} (${formatShortDate(schedule.rehearsalStart)})`,
-              booking_type: 'rehearsal',
-              project_id: savedProjectId,
-              all_day: true,
-              start_time: schedule.rehearsalStart,
-              end_time: rehEnd || schedule.rehearsalStart,
-              room_ids: schedule.roomIds,
-              location_note: schedule.locationNote.trim() || null,
-            });
-          }
-        } catch { /* 予約に失敗しても案件の保存は成功している */ }
+        // 作ったあと**案件側も読み直す**（実施日が予約から引き直されるため）
+        await createInitialBookings(qc, values.name, savedProjectId as string, {
+          ...schedule, productionLastDay: prodEnd || schedule.productionStart,
+        });
       },
     });
   };

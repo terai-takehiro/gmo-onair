@@ -8,6 +8,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import api from "@/lib/api";
+import { invalidateBookingQueries } from "@/lib/bookingQueries";
 import { formatShortDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -233,9 +234,9 @@ export default function StudioCalendarPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-      // 案件詳細の予約一覧も読み直す (消したのに残って見えると、もう一度消しに行くことになる)
-      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
+      // 案件詳細の予約一覧も読み直す (消したのに残って見えると、もう一度消しに行くことになる)。
+      // **案件の実施日も残った予約から引き直される**ので案件側も落とす (`lib/bookingQueries.ts`)
+      invalidateBookingQueries(qc);
       setDetailDialogOpen(false);
     },
   });

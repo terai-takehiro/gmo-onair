@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Check, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
@@ -88,8 +89,10 @@ export default function HoldListPage() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: HOLD_KEY });
-    // 予定・部屋の空きにも同じ予約が出る。**片方だけ落とすと古いまま残る**
-    qc.invalidateQueries({ queryKey: ['studio-bookings'] });
+    // 予定・部屋の空きにも同じ予約が出る。**片方だけ落とすと古いまま残る**。
+    // 仮押さえも実施日として数える種別なので、落とすと**案件の実施日が変わる**
+    // （`lib/bookingQueries.ts` が案件詳細・案件一覧まで落とす）
+    invalidateBookingQueries(qc);
     qc.invalidateQueries({ queryKey: ['unified-calendar'] });
   };
 

@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import type { GlsDialogState, GlsProject, ProjectBooking } from './types';
@@ -172,8 +173,9 @@ export function useProjectActions({
     if (!ok) return;
     try {
       await api.delete(`/studios/bookings/${b.id}`);
-      qc.invalidateQueries({ queryKey: ['project-studio-bookings', id] });
-      qc.invalidateQueries({ queryKey: ['studio-bookings'] });
+      // **案件の実施日も残った予約から引き直される**ので案件側も落とす（`lib/bookingQueries.ts`）。
+      // 鍵は前方一致なので `['project-studio-bookings']` はこの案件の分にも当たる
+      invalidateBookingQueries(qc);
       notifySuccess('予約を消しました');
     } catch (e) {
       // 黙って失敗すると「消えていない = もう一度消す/入れ直す」ことになるので理由を出す
