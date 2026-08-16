@@ -30,7 +30,9 @@
  * 淡い面を塗りと数えてしまい、この形を**素通し**します。
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..', '..');
@@ -105,11 +107,6 @@ describe('直した7か所が戻っていない', () => {
 });
 
 describe('検査そのものが機能する形になっている', () => {
-  it('淡い面（`-surface`）を塗りと数えない', () => {
-    // `bg-warning` の直後に `-` が来るものは塗りではない、という留め方
-    expect(SCRIPT).toMatch(/bg-\$\{s\}\(\?!\[a-z-\]\)/);
-  });
-
   it('`npm run lint` から呼ばれている', () => {
     const pkg = JSON.parse(read('package.json'));
     expect(pkg.scripts.lint).toContain('check-contrast-tokens.mjs');
@@ -118,5 +115,73 @@ describe('検査そのものが機能する形になっている', () => {
   it('白かどうかは tokens.css から読む（コードに焼き込まない）', () => {
     expect(SCRIPT).toContain('tokens.css');
     expect(SCRIPT).toMatch(/lum\s*>\s*0\.5/);
+  });
+});
+
+/**
+ * **検査を実際に走らせて確かめる**（レビュー #159・Codex の2件）。
+ *
+ * 字面を読むだけの試験だと、書き方を変えたときに**通ってしまう**。
+ * 仕込みのファイルを作って `node scripts/…` を回し、**止まるか通るか**で見る。
+ * 仕込みは一時ディレクトリに置く（`client/src` に置くと失敗した回に消し残る）。
+ */
+describe('反証: 読めない書き方で実際に止まるか', () => {
+  const run = (files: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), 'contrast-'));
+    try {
+      for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body);
+      const r = spawnSync('node', [join(ROOT, 'scripts/check-contrast-tokens.mjs'), dir], { encoding: 'utf8' });
+      return { code: r.status, out: r.stdout + r.stderr };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it('素の「淡い帯 ＋ 白い文字」で止まる', () => {
+    const r = run({ 'a.tsx': '<div className="bg-warning-surface text-warning-foreground">x</div>' });
+    expect(r.code).toBe(1);
+  });
+
+  it('⚠️ `.ts` の**クラス地図**でも止まる（Codex ①）', () => {
+    // この製品はクラス名を .ts の地図に置く形が多い（hoursTypes.ts / state.ts …）。
+    // `.tsx` だけ見ていると、地図に1行足すだけで画面に出るのに検査は OK と言う
+    const r = run({ 'm.ts': "export const T = { late: 'bg-warning-surface text-warning-foreground' };" });
+    expect(r.code).toBe(1);
+  });
+
+  it('⚠️ `hover:` だけの塗りは塗りと数えない（Codex ②）', () => {
+    // 押していないときは淡い帯のまま = ふだんは読めない
+    const r = run({ 'a.tsx': '<div className="bg-warning-surface text-warning-foreground hover:bg-warning">x</div>' });
+    expect(r.code).toBe(1);
+  });
+
+  it('⚠️ 半透明（`/10`）の塗りは塗りと数えない（Codex ②）', () => {
+    const r = run({ 'a.tsx': '<div className="bg-warning/10 text-warning-foreground">x</div>' });
+    expect(r.code).toBe(1);
+  });
+
+  it('本物の塗りの上なら通る', () => {
+    const r = run({ 'a.tsx': '<div className="bg-warning text-warning-foreground">x</div>' });
+    expect(r.code).toBe(0);
+  });
+
+  it('濃い段（`bg-primary-800`）も塗りとして通る', () => {
+    const r = run({ 'a.tsx': '<div className="bg-primary-800 text-primary-foreground">x</div>' });
+    expect(r.code).toBe(0);
+  });
+
+  it('塗りが**親のタグ**にあるときは通る（チェックの四角）', () => {
+    const r = run({
+      'a.tsx': '<span className="bg-success">\n  <Check className="text-success-foreground" />\n</span>',
+    });
+    expect(r.code).toBe(0);
+  });
+
+  it('条件つきでも、文字色と塗りが**同じ条件**なら通る', () => {
+    // `data-[state=checked]:` の2つは必ず一緒に効くので白が淡い面に載ることはない
+    const r = run({
+      'a.tsx': '<div className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />',
+    });
+    expect(r.code).toBe(0);
   });
 });
