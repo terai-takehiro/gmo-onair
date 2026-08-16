@@ -42,7 +42,7 @@ function dueTone(due: string | null, today: string, paid: boolean): string {
 
 /** 済／未のボタン。**済のときは日付を出す** — 「いつ」が分からないと確認に使えない */
 function MarkCell({
-  date, doneLabel, todoLabel, canEdit, busy, onToggle,
+  date, doneLabel, todoLabel, canEdit, busy, onToggle, blocked,
 }: {
   date: string | null;
   doneLabel: string;
@@ -50,6 +50,8 @@ function MarkCell({
   canEdit: boolean;
   busy: boolean;
   onToggle: () => void;
+  /** 押せない理由（あれば押せない）。⚠️ **枠ごと消さない** — なぜ押せないかが分からなくなる */
+  blocked?: string;
 }) {
   if (date) {
     return (
@@ -74,9 +76,10 @@ function MarkCell({
       {canEdit ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !!blocked}
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary lg:h-9 lg:min-h-0"
+          title={blocked}
+          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary disabled:cursor-default disabled:opacity-50 disabled:hover:border-border disabled:hover:text-secondary-foreground lg:h-9 lg:min-h-0"
         >
           {todoLabel}
         </button>
@@ -134,8 +137,17 @@ export function InvoiceRows({
               canEdit={canEdit} busy={busyId === r.id}
               onToggle={() => onMark(r, 'inspection_date')}
             />
+            {/*
+              ⚠️ **請求書を出していない行から入金を記録させない**（レビューでの指摘・P1）。
+              「未請求」チップを足したことで、**出していない売上がこの表に並ぶ**ように
+              なりました。押せるままにすると**請求していないのに入金済みの行**ができます
+              （この版が ⑫ スマホで塞いだ穴を、PC 側で開け直すことになる）。
+              **枠は残して理由を出す** — 消すと、なぜ押せないのかが分からない。
+              取り消し（`date` がある側）は止めない。**古い行を直せなくなる**ため
+            */}
             <MarkCell
               date={r.paid_date} doneLabel="入金済" todoLabel="入金前"
+              blocked={r.invoice_issued ? undefined : '請求書を出してから記録できます（先に「請求前」を押してください）'}
               canEdit={canEdit} busy={busyId === r.id}
               onToggle={() => onMark(r, 'paid_date')}
             />

@@ -65,8 +65,13 @@ describe('見積とお金の記録を守る', () => {
 
   it('見積段階の売上には請求書の発行・入金・検収を記録できない', () => {
     const at = BILLING.indexOf("router.patch('/invoices/:id'");
-    const body = BILLING.slice(at, at + 1800);
-    expect(body).toMatch(/SELECT id, status FROM revenues/);
+    // ⚠️ **窓を字数で切らないこと**（この回で一度落ちた）。説明を1つ足しただけで
+    // 見たい行が窓の外に出て、**中身は正しいのに試験だけが赤くなる**。
+    // 次のルートまでを窓にする
+    const body = BILLING.slice(at, BILLING.indexOf('router.', at + 10));
+    // **列の並びではなく、読んでいることと弾いていることを見る**
+    // （`invoice_issued` を足したときに、この試験だけが落ちた）
+    expect(body).toMatch(/SELECT id, status[^)]*FROM revenues/);
     expect(body).toMatch(/existing\.status !== 'confirmed'/);
   });
 

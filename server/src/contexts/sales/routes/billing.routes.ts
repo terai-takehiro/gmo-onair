@@ -43,6 +43,22 @@ const canEdit = requireAnyPermission(['sales', 'budget'], 'editor');
 /** 日付の形。**画面から来た値をそのまま SQL に置かない** */
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 入金日を**入れよう**としているか（取り消し＝`null` は含まない） */
+function isSettingPaidDate(body: Record<string, unknown>): boolean {
+  return 'paid_date' in body && body.paid_date !== null;
+}
+
+/**
+ * この更新のあと、請求書を出した状態になっているか。
+ *
+ * **同じ回で `invoice_issued: true` を送っているなら出したことにする** —
+ * 「出して入金も記録する」を1回でやるのは普通の操作で、そこを弾くと
+ * 画面が2回叩くだけになる（そして片方だけ通った行ができる）。
+ */
+function isIssuedAfter(body: Record<string, unknown>, current: boolean): boolean {
+  return 'invoice_issued' in body ? body.invoice_issued === true : current === true;
+}
+
 /**
  * 一覧に並べる上限。**件数と合計はこれとは別に数えます**（レビューでの指摘 #53）。
  * 行を切るのは画面を固まらせないためで、**数字まで切ってよい理由にはなりません**。
@@ -241,9 +257,24 @@ router.patch('/invoices/:id', canEdit, async (req, res) => {
   if (sets.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '変更する項目がありません');
 
   const existing = await queryOne(
-    'SELECT id, status FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id],
-  ) as { status: string } | undefined;
+    'SELECT id, status, invoice_issued FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { status: string; invoice_issued: boolean } | undefined;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '請求が見つかりません');
+  /*
+   * ⚠️ **請求書を出していない売上に入金日を入れさせない**（レビューでの指摘・P1）。
+   *
+   * 画面で押せなくするだけでは足りません — **直接叩けば通ります**。しかも
+   * できあがるのは「**請求していないのに入金済み**」という、
+   * どの一覧にも出てこない行です（`unpaid` は出したものだけ、`unissued` は入金前だけ）。
+   *
+   * **同じ回で発行するのは通します**（「出して入金も記録する」は普通の操作）。
+   * **取り消し（`null`）は止めません** — 止めると、間違って入った入金日を
+   * 消せなくなります（いちばん直したい行が直せない）。
+   */
+  if (isSettingPaidDate(body) && !isIssuedAfter(body, existing.invoice_issued)) {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      '請求書を出してから入金を記録してください（未請求の売上には入金日を入れられません）');
+  }
   // ⚠️ **確定した売上だけ**（レビューでの指摘 #53）。`status` を見ていなかったので、
   // **見積段階（`estimate`）の行にも請求書の発行・入金・検収を記録できました** —
   // 一覧はこの状態の行を出さないので、記録したことに誰も気づけません
@@ -388,9 +419,32 @@ router.post('/invoices/bulk', canEdit, async (req, res) => {
 
   // 請求書を出すときだけ申込書を要求する。入金・検収の記録は止めない
   const issuing = 'invoice_issued' in body && body.invoice_issued === true;
-  const finalIds = issuing ? target : ids;
+  let finalIds = issuing ? target : ids;
+
+  /*
+   * ⚠️ **請求書を出していないものに入金日を入れない**（レビューでの指摘・P1）。
+   * 1件ずつの口（`PATCH /invoices/:id`）と**同じ決めごと**を、ここでも見ます —
+   * 片方だけ塞ぐと、締めからまとめて押したときだけ通ります。
+   *
+   * ここは**落とさずに飛ばす**（申込書と同じ扱い）。200 件の締めを 1 件のために
+   * 全部止めると、経理は原因の行を探すところから始めることになります。
+   */
+  let skippedUnissued: string[] = [];
+  if (isSettingPaidDate(body) && !issuing) {
+    const unissued = await queryAll(
+      `SELECT id FROM revenues WHERE id = ANY($1::text[]) AND deleted_at IS NULL
+         AND (invoice_issued IS NOT TRUE)`,
+      [finalIds],
+    ) as { id: string }[];
+    skippedUnissued = unissued.map((u) => u.id);
+    const skip = new Set(skippedUnissued);
+    finalIds = finalIds.filter((id) => !skip.has(id));
+  }
+
   if (finalIds.length === 0) {
-    throw new AppError(400, 'VALIDATION_ERROR', '選んだものはすべて申込書が揃っていません');
+    throw new AppError(400, 'VALIDATION_ERROR', skippedUnissued.length > 0
+      ? '選んだものはすべて請求書を出していません（先に請求書を出してください）'
+      : '選んだものはすべて申込書が揃っていません');
   }
 
   await execute(
@@ -409,6 +463,8 @@ router.post('/invoices/bulk', canEdit, async (req, res) => {
       updated: finalIds.length,
       // **飛ばしたものを返す。** 黙って一部だけ処理するのがいちばん困る
       skipped_blocked: issuing ? [...blockedIds] : [],
+      // 請求書を出していないので入金を記録しなかったもの（レビューでの指摘・P1）
+      skipped_unissued: skippedUnissued,
       // 採った請求書番号。画面はこれを出して「何番で出したか」を見せる
       invoice_numbers: numbered,
     },
