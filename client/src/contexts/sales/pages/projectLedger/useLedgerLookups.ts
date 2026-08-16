@@ -76,7 +76,17 @@ export function useLedgerLookups(enabled: boolean): LedgerLookups {
       users: enabled && usersQ.isError,
       customers: enabled && customersQ.isError,
     },
-    retry: () => { void usersQ.refetch(); void customersQ.refetch(); },
+    /*
+     * ⚠️ **落ちたものだけ引き直す**（レビューでの指摘 #149）。
+     * 両方引き直すと、**引けている側が一時的な失敗を踏んだときに巻き添えで
+     * 使えなくなります**（`isSuccess` → `isError` に変わり、`ready` が false になる）。
+     * 「片方が落ちても、引けたほうは直せる」ために列を分けたのに、
+     * **やり直す押下そのものが、その分け方を壊していました。**
+     */
+    retry: () => {
+      if (usersQ.isError) void usersQ.refetch();
+      if (customersQ.isError) void customersQ.refetch();
+    },
     truncated: Boolean(usersQ.data?.truncated || customersQ.data?.truncated),
   };
 }
