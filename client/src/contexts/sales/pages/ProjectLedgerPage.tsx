@@ -258,13 +258,46 @@ export default function ProjectLedgerPage() {
         ⚠️ **コピーはボタンでもできるようにする** — キーが効くのは表に
         焦点があるときだけで、押した人には効かない理由が分かりません。
       */}
-      {grid.rangeCount > 0 && (
-        <div className="rounded-note flex flex-wrap items-center gap-2 border border-primary-border bg-primary-surface-weak px-3.5 py-2">
+      {/*
+        ⚠️ **選んだときに現れる帯にしないこと**（実測で直した）。
+
+        前は `rangeCount > 0` のときだけ出していたので、**升目を押した瞬間に
+        この帯が生まれて表が 52px 下がって**いました。押し下げと押し上げの
+        間に表が動くので、**二度押しの2回目が別の場所に落ちます** —
+        つまり**その場で直す入力欄が、一度目の二度押しでは開きません**
+        （二度目からは帯がもう出ているので開く、という気づきにくい形でした）。
+
+        **枠は always 置いて、中身だけ入れ替えます。** 押し方（Ctrl+C / Ctrl+V）は
+        書いていなければ誰も試さない — 常に出しておくほうが元々の意図にも合います。
+        高さを変えないため、**コピーのボタンは選んでいなくても置き**（押せなくする）、
+        `<p>` とボタンの組み合わせを両方の状態で同じにしてあります。
+      */}
+      {s.rows.length > 0 && (
+        <div
+          className={`rounded-note flex flex-wrap items-center gap-2 border px-3.5 py-2 ${
+            grid.rangeCount > 0
+              ? 'border-primary-border bg-primary-surface-weak'
+              : 'border-border bg-surface-subtle'
+          }`}
+        >
           <p className="text-sub">
-            <strong className="font-number font-bold">{grid.rangeCount}</strong> 升を選んでいます
-            （Shift ＋ クリックで広げられます）
+            {grid.rangeCount > 0 ? (
+              <>
+                <strong className="font-number font-bold">{grid.rangeCount}</strong> 升を選んでいます
+                （Shift ＋ クリックで広げられます）
+              </>
+            ) : (
+              <span className="text-muted-foreground">
+                升目を押すと選べます（Shift ＋ クリックで広げられます）
+              </span>
+            )}
           </p>
-          <Button variant="outline" size="sm" onClick={() => void grid.copy()}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={grid.rangeCount === 0}
+            onClick={() => void grid.copy()}
+          >
             <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />コピー（Ctrl+C）
           </Button>
           {canEdit && (
@@ -273,7 +306,20 @@ export default function ProjectLedgerPage() {
               （書き換える前に、何がどう変わるかを出します）
             </span>
           )}
-          <Button variant="ghost" size="sm" onClick={grid.clear}>選択をやめる</Button>
+          {/*
+            ⚠️ **選んでいないときも同じ数のボタンを置くこと**（実測で直した）。
+            片方を出し入れすると、1280px では帯が1行から2行に折り返して
+            **高さが 54px ↔ 98px で動き**、表がまた 15px ずれます
+            （それでは帯を always にした意味がありません）。
+          */}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={grid.rangeCount === 0}
+            onClick={grid.clear}
+          >
+            選択をやめる
+          </Button>
         </div>
       )}
 

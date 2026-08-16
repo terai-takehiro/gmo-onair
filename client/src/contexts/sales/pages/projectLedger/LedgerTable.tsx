@@ -226,7 +226,15 @@ export function LedgerTable({
                   <td
                     key={key}
                     style={st.style}
-                    onMouseDown={(e) => grid.pick(ri, ci, e.shiftKey)}
+                    /*
+                      ⚠️ **直している最中の升目では選び直さない。** `pick` は
+                      いちばん先に `setEditing(null)` をするので、開いている入力欄を
+                      押した瞬間に**入力欄ごと消えます**（押し下げは升目まで上がってくる）。
+                      プルダウンは「押し下げ → 一覧が開く」の順に動くので、
+                      押し下げの時点で消えると**一覧は一度も開けません**
+                      （選ぶ・日付を出す・候補を出すの3つとも開けませんでした）。
+                    */
+                    onMouseDown={(e) => { if (!nowEditing) grid.pick(ri, ci, e.shiftKey); }}
                     /* **その場で直すのは二度押し**（表計算と同じ）。一度押しだと
                        範囲を選ぶだけのつもりで入力欄が開いてしまう */
                     onDoubleClick={() => { if (canCell) grid.setEditing({ row: ri, col: ci }); }}
