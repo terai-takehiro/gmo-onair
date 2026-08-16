@@ -82,17 +82,33 @@ if (WHITE_FG.length < 4) {
 
 /* ── 走査するファイル ────────────────────────────────────── */
 const APPS = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-techsheet', 'client-live'];
+
+/**
+ * 引数でディレクトリを渡すと**そこだけ**を見る（既定は下の APPS ＋ shared）。
+ * 1アプリだけ確かめたいときと、**試験が仕込みのファイルを当てる**ときに使う
+ * （仕込みを `client/src` に置くと、失敗した回に消し残る）。
+ */
+const argRoots = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const files = [];
 const walk = (d) => {
   if (!fs.existsSync(d)) return;
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
     const f = path.join(d, e.name);
     if (e.isDirectory()) walk(f);
-    else if (/\.tsx$/.test(e.name)) files.push(f);
+    // ⚠️ **`.ts` も見ること**（レビュー #159・Codex）。この製品はクラス名を
+    // `.ts` の**地図**に置く形が多く（`hoursTypes.ts` / `taskList/state.ts` /
+    // `inbox/kinds.ts` など10ファイル以上）、Tailwind の `content` も
+    // `**/*.{js,ts,jsx,tsx}` で拾っている。`.tsx` だけ見ていると、
+    // **地図に1行足すだけで画面に出るのに検査は OK と言う**
+    else if (/\.tsx?$/.test(e.name)) files.push(f);
   }
 };
-for (const a of APPS) walk(path.join(ROOT, a, 'src'));
-walk(path.join(ROOT, 'shared/src'));
+if (argRoots.length) {
+  for (const r of argRoots) walk(path.resolve(r));
+} else {
+  for (const a of APPS) walk(path.join(ROOT, a, 'src'));
+  walk(path.join(ROOT, 'shared/src'));
+}
 
 /**
  * 塗りを探す範囲。**その行の前後**を見る。
@@ -113,6 +129,47 @@ function windowAround(lines, lineNo) {
   return lines.slice(Math.max(0, lineNo - 1 - BACK), lineNo + FWD).join('\n');
 }
 
+/**
+ * 「塗り」と数えてよい `bg-<s>` の書き方（レビュー #159・Codex の2件目）。
+ *
+ * **いつでも不透明に塗られているものだけ**を塗りと数える。緩めると、
+ * 淡い帯の上の白い文字を**素通し**する（どちらも実際に素通りすることを確かめた）:
+ *
+ * | 書き方 | なぜ塗りではないか |
+ * | --- | --- |
+ * | `hover:bg-warning` | **押していないときは塗られていない**。ふだんは淡い帯のまま |
+ * | `bg-warning/10` | **10% の色**。下の淡い面が透けるので、白い文字は読めないまま |
+ * | `bg-warning-surface` | 淡い面（`-surface` / `-border` はそもそも塗りではない） |
+ *
+ * ⚠️ **`/100` は通すこと**（レビュー #160・Codex）。`bg-warning/100` は
+ * **`bg-warning` と同じ不透明**なのに、`/` を一律で撥ねると**塗りではない**と
+ * 判定してしまう。この検査は `npm run lint` に入っているので、
+ * **その書き方をした人は lint が通らず何も進められない**（締めすぎも害になる）。
+ *
+ * ・`(?<![-:\w])` … 直前が `:` なら `hover:` などの**条件つき**、
+ *   `-` や英数字なら別の語の一部
+ * ・`(?![\w-]|/(?!100\b))` … 直後が `-` なら `-surface` 等、
+ *   `/` なら半透明。**ただし `/100` は不透明なので通す**
+ * ・`bg-<s>-[5-9]00` は濃い段（例 `bg-primary-800` = #004d91）なので塗りと数える
+ *
+ * ⚠️ **条件つきでも、文字色が「同じ条件」なら塗り**（`sameCond`）。
+ * `data-[state=checked]:bg-primary` と `data-[state=checked]:text-primary-foreground`
+ * は**必ず一緒に効く**ので白い文字が淡い面に載ることはない（チェックボックス2件が実際にこの形）。
+ * 見るのは「条件がついているか」ではなく「**文字色と塗りの条件が揃っているか**」。
+ */
+const FILL = (s) => new RegExp(`(?<![-:\\w])bg-${s}(?:-[5-9]00)?(?![\\w-]|/(?!100\\b))`);
+
+/** 条件つきの塗り。`text-…` に付いていたのと**同じ前置き**のものだけを塗りと数える */
+const SAME_COND = (cond, s) =>
+  new RegExp(`${cond.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}bg-${s}(?:-[5-9]00)?(?![\\w-]|/(?!100\\b))`);
+
+/** `at` にあるクラス名の**前置き**（`hover:` / `data-[state=checked]:` …）を取り出す */
+function condOf(src, at) {
+  let i = at;
+  while (i > 0 && !/[\s'"`({]/.test(src[i - 1])) i--;
+  return src.slice(i, at);
+}
+
 const bad = [];
 for (const f of files) {
   const rel = path.relative(ROOT, f);
@@ -126,10 +183,10 @@ for (const f of files) {
       const key = `${rel}:${lineNo}`;
       if (ALLOW.has(key)) continue;
       const near = windowAround(lines, lineNo);
-      // `bg-<s>` の塗り。`-surface` / `-border` は**淡い面**なので塗りではない
-      const filled = new RegExp(`bg-${s}(?![a-z-])`).test(near)
-        || new RegExp(`bg-${s}-[5-9]00`).test(near)
-        || new RegExp(`var\\(--${s}\\)`).test(near);
+      const cond = condOf(src, m.index);
+      const filled = FILL(s).test(near)
+        || new RegExp(`var\\(--${s}\\)`).test(near)
+        || (cond !== '' && SAME_COND(cond, s).test(near));
       if (!filled) bad.push([key, s, lines[lineNo - 1].trim().slice(0, 120)]);
     }
   }
