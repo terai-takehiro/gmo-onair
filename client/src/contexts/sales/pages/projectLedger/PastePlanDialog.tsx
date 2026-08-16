@@ -94,6 +94,40 @@ export function PastePlanDialog({
               </>
             )}
 
+            {/*
+              ⚠️ **表からはみ出したぶんを必ず出す**（レビューでの指摘 #135）。
+              前の版は黙って捨てていたので、95 行目に 20 行貼っても
+              **入るぶんだけが並び**、貼った人は全部入ったと思っていました。
+              **入らなかった行は画面のどこにも出ません。**
+            */}
+            {plan.outOfBounds && (
+              <div className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2.5">
+                <p className="text-sub flex items-start gap-1.5 text-warning">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    <strong className="font-bold">貼り付けた中身が表からはみ出しています。</strong>
+                    {plan.outOfBounds.rows > 0 && (
+                      <>
+                        {' '}下の <strong className="font-number font-bold">{plan.outOfBounds.rows}</strong> 行は、
+                        貼る先の行がありません。
+                      </>
+                    )}
+                    {plan.outOfBounds.cols > 0 && (
+                      <>
+                        {' '}右の <strong className="font-number font-bold">{plan.outOfBounds.cols}</strong> 列は、
+                        貼る先の列がありません。
+                      </>
+                    )}
+                    {' '}
+                    <strong className="font-bold">はみ出したぶんは書き込みません。</strong>
+                    貼り始める升目を上（左）に寄せるか、
+                    {plan.outOfBounds.rows > 0 && '次のページで残りを貼るか、'}
+                    出す列を増やしてからやり直してください。
+                  </span>
+                </p>
+              </div>
+            )}
+
             {/* **読めなかったものを必ず出す。** 黙って捨てると気づけない */}
             {plan.rejected.length > 0 && (
               <div className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2.5">

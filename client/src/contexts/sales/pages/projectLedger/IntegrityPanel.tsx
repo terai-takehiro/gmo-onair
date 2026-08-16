@@ -112,6 +112,17 @@ export function IntegrityPanel({
         <div className="rounded-note mt-2.5 border border-primary-border bg-primary-surface-weak px-3.5 py-2.5">
           <p className="text-sub"><strong className="font-bold">なぜ困るか</strong>：{current.why}</p>
           <p className="text-sub mt-1"><strong className="font-bold">直し方</strong>：{current.how}</p>
+          {/*
+            ⚠️ **絞り込みを勝手に動かしたことを書く**（レビューでの指摘 #135）。
+            件数は**全案件**を数えているので、GLS の絞り込みと AND にすると
+            「GLS-B なのに…」は**必ず 0 行**になります。そこで押したときに
+            GLS を「どちらも」へ戻していますが、**黙って戻すと
+            「絞り込みが勝手に変わった」**と読まれます。
+          */}
+          <p className="text-note mt-1.5 text-muted-foreground">
+            チェックの件数は<strong className="font-bold">全案件</strong>を数えているので、
+            押したときに GLS の絞り込みは「どちらも」に戻します。
+          </p>
         </div>
       )}
     </div>

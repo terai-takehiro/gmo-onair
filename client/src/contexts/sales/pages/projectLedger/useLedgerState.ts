@@ -22,31 +22,18 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
 import { DEFAULT_SORT, nextSort, type SortState } from './display';
+import { EMPTY_FILTERS, nextFiltersForIssue, type LedgerFilters } from './filters';
 
 interface IntegrityResponse { total: number; checks: IntegrityCheck[] }
 
 /** サーバーが返す上限。**ここで 200 と書いても 100 しか返りません** */
 export const PAGE_SIZE = 100;
 
-export interface LedgerFilters {
-  search: string;
-  stage: string;
-  glsCategory: string;
-  /**
-   * 整合性チェックの鍵（`GET /projects/integrity` の `key`）。
-   *
-   * ⚠️ **サーバーで絞ります。** 以前この画面は「分類が入っていないものだけ」を
-   * **画面側**で絞っていましたが、それでは**そのページの 100 件の中だけ**しか
-   * 見られず、**全体で何件おかしいのかが分かりません** — 整合性を確かめるのが
-   * この画面の目的の1つなので、数えるのも絞るのもサーバーの同じ式にしました
-   * （`server/.../project-integrity.ts`）。
-   */
-  issue: string;
-}
-
-const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', issue: '',
-};
+/**
+ * 絞り込みの型と決め方は `filters.ts`（**画面の物を import しない純粋な module**）。
+ * ここは状態として持つだけです。
+ */
+export { type LedgerFilters, EMPTY_FILTERS, nextFiltersForIssue } from './filters';
 
 export function useLedgerState() {
   const qc = useQueryClient();
@@ -57,6 +44,13 @@ export function useLedgerState() {
   /** 絞り込みを変えたら**選択を捨てる**（見えていない行を書き換えない） */
   const setFilter = useCallback(<K extends keyof LedgerFilters>(k: K, v: LedgerFilters[K]) => {
     setFilters((f) => ({ ...f, [k]: v }));
+    setPage(1);
+    setSelected(new Set());
+  }, []);
+
+  /** 整合性チェックを選ぶ。決め方は `nextFiltersForIssue`（上）にある */
+  const pickIssue = useCallback((key: string) => {
+    setFilters((f) => nextFiltersForIssue(f, key));
     setPage(1);
     setSelected(new Set());
   }, []);
@@ -168,7 +162,7 @@ export function useLedgerState() {
   });
 
   return {
-    filters, setFilter,
+    filters, setFilter, pickIssue,
     /**
      * 引くときに渡しているもの。**書き出しが同じものを使う**ため外に出している —
      * 書き出し側で組み直すと、絞り込みを1つ足したときに

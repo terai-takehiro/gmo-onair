@@ -14,13 +14,13 @@
  *  ・**同じ中身の行はまとめて1回で送る。** Excel から1つの値を縦に貼るのが
  *    いちばん多い使い方なので、たいてい 1 回で済みます
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { CLASSIFICATION_COMBOS } from '@/contexts/sales/classification';
 import {
-  PASTE_MAX_CELLS, isEditable, parseCell, parseClipboardGrid, rangeOf, rangeSize,
+  PASTE_MAX_CELLS, isEditable, outOfBoundsOf, parseCell, parseClipboardGrid, rangeOf, rangeSize,
   toClipboardText, type CellRange, type CellRef, type EditableCol, type NamedRow,
 } from './editable';
 import { cellText } from './ledgerCsv';
@@ -34,16 +34,34 @@ export interface PastePlan {
   rejected: { name: string; col: LedgerColKey; raw: string; why: string }[];
   /** 多すぎて止めたとき */
   tooMany: number | null;
+  /**
+   * 表からはみ出したぶん（**必ず画面に出す**）。
+   *
+   * ⚠️ 前の版はここを**黙って捨てて**いました（レビューでの指摘 #135）。
+   * 95 行目に 20 行貼ると**残りの数行しか入らない**のに、下見には
+   * 入るぶんだけが並び、「N か所を書き換えます」と出ます。
+   * **貼った人は全部入ったと思う**ので、入らなかった行は誰にも気づかれません。
+   */
+  outOfBounds: { rows: number; cols: number } | null;
 }
 
 export function useLedgerGrid({
-  rows, shown, canEdit, users, customers, onDone,
+  rows, shown, canEdit, users, customers, lookupsReady, onDone,
 }: {
   rows: LedgerRow[];
   shown: LedgerColKey[];
   canEdit: boolean;
   users: NamedRow[];
   customers: NamedRow[];
+  /**
+   * 候補（利用者・取引先）を**引き終わっているか**。
+   *
+   * ⚠️ 引き終わる前は `users` / `customers` が空なので、名前の列は
+   * **「そんな利用者はいません」**と断ってしまいます（レビューでの指摘 #135）。
+   * 本当は居るのに居ないと言われるので、貼った人は**名前が間違っている**と思い、
+   * 直しようのないものを直しにいきます。
+   */
+  lookupsReady: boolean;
   onDone: () => void;
 }) {
   const qc = useQueryClient();
@@ -74,6 +92,30 @@ export function useLedgerGrid({
   const clear = useCallback(() => {
     setAnchor(null); setRange(null); setEditing(null);
   }, []);
+
+  /**
+   * ⚠️ **表の中身が入れ替わったら選択を捨てる**（レビューでの指摘 #135・P1）。
+   *
+   * 選んでいる升目は**行と列の番号**で持っています（`{row, col}`）。番号は
+   * **いまの並び方の中での位置**でしかないので、ページ送り・並べ替え・
+   * 絞り込み・列の入れ替え・編集モードの出入りで**中身がそっくり入れ替わっても、
+   * 番号だけがそのまま残ります**。
+   *
+   * そこで Ctrl+V を押すと、**選んだ覚えのない案件の・選んだ覚えのない項目**に
+   * 書きます。しかも下見には**その新しい行の名前**が正しく並ぶので、
+   * 画面を見ても取り違えに気づけません（**取り消せません**）。
+   *
+   * ⚠️ **配列の同一性ではなく中身（id の並び）で見ること。** 書き換えたあとの
+   * 引き直しでは毎回**別の配列**が返るので、同一性で見ると
+   * 「直したら選択が消える」が毎回起き、続けて直せなくなります。
+   */
+  const gridKey = useMemo(
+    () => `${rows.map((r) => r.id).join(',')}|${shown.join(',')}|${canEdit ? 'e' : 'v'}`,
+    [rows, shown, canEdit],
+  );
+  useEffect(() => {
+    setAnchor(null); setRange(null); setEditing(null);
+  }, [gridKey]);
 
   /**
    * コピー。**表に出ている文字ではなく、書き出しと同じ文字**を使います
@@ -116,20 +158,39 @@ export function useLedgerGrid({
     const grid = parseClipboardGrid(text);
     const cells = grid.length * (grid[0]?.length ?? 0);
     if (cells > PASTE_MAX_CELLS) {
-      setPlan({ changes: [], rejected: [], tooMany: cells });
+      setPlan({ changes: [], rejected: [], tooMany: cells, outOfBounds: null });
       return;
     }
+
+    /*
+     * ⚠️ **表からはみ出したぶんを数える**（レビューでの指摘 #135）。
+     * 捨てること自体は正しい（無い行には書けない）のですが、
+     * **黙って捨てると「入ったつもり」になります**。
+     */
+    const outOfBounds = outOfBoundsOf(grid, anchor, rows.length, shown.length);
 
     const changes: PastePlan['changes'] = [];
     const rejected: PastePlan['rejected'] = [];
     grid.forEach((line, dr) => {
       const row = rows[anchor.row + dr];
-      if (!row) return;                        // 表からはみ出したぶんは静かに捨てる
+      if (!row) return;                        // はみ出したぶんは `outOfBounds` で出す
       line.forEach((raw, dc) => {
         const key = shown[anchor.col + dc];
-        if (!key) return;
+        if (!key) return;                      // 同上
         if (!isEditable(key)) {
           rejected.push({ name: row.name, col: key, raw, why: 'この列は直せません（読むだけの列です）' });
+          return;
+        }
+        /*
+         * ⚠️ **候補を引き終わる前に「いません」と言わない**（同じ指摘）。
+         * 空の一覧で照合すると必ず 0 件に当たるので、実在する担当・取引先が
+         * **「そんな人はいません」**として断られます。
+         */
+        if (!lookupsReady && (key === 'assigned_to_name' || key === 'customer_name')) {
+          rejected.push({
+            name: row.name, col: key, raw,
+            why: '候補を読み込んでいます（少し待ってから貼り直してください）',
+          });
           return;
         }
         const r = parseCell(key as EditableCol, raw, ctx);
@@ -141,8 +202,8 @@ export function useLedgerGrid({
         changes.push({ id: row.id, name: row.name, col: key, from, to: r.display, set: r.set });
       });
     });
-    setPlan({ changes, rejected, tooMany: null });
-  }, [anchor, canEdit, ctx, rows, shown]);
+    setPlan({ changes, rejected, tooMany: null, outOfBounds });
+  }, [anchor, canEdit, ctx, lookupsReady, rows, shown]);
 
   const write = useMutation({
     mutationFn: async (changes: PastePlan['changes']) => {
@@ -179,12 +240,18 @@ export function useLedgerGrid({
 
   /** その場で1つ直す。**貼り付けと同じ口・同じ検査**を通す */
   const commitCell = useCallback((row: LedgerRow, col: EditableCol, raw: string) => {
+    // **候補を引き終わる前に「いません」と言わない**（`planPaste` と同じ理由）
+    if (!lookupsReady && (col === 'assigned_to_name' || col === 'customer_name')) {
+      notifyApiError('まだ直せません', new Error('候補を読み込んでいます。少し待ってからやり直してください'));
+      setEditing(null);
+      return;
+    }
     const r = parseCell(col, raw, ctx);
     if (!r.ok) { notifyApiError('直せませんでした', new Error(r.why)); return; }
     const from = cellText(col, row) ?? '';
     if (from === r.display) { setEditing(null); return; }   // 変わっていなければ何もしない
     write.mutate([{ id: row.id, name: row.name, col, from, to: r.display, set: r.set }]);
-  }, [ctx, write]);
+  }, [ctx, lookupsReady, write]);
 
   return {
     anchor, range, editing, setEditing, pick, clear, commitCell,
