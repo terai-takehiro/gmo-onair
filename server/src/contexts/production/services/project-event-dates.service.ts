@@ -41,7 +41,7 @@
  * 消えます（消えたことは画面のどこにも出ません）。予約が無くなれば直す画面に
  * 「スタジオの日程」の欄が戻るので、そこから直せます。
  */
-import { queryOne, execute } from '../../../shared/db/connection';
+import { withTransaction } from '../../../shared/db/connection';
 
 /** 実施日として数える予約の種別。**画面側の同名の表と揃えること** */
 export const EVENT_BOOKING_TYPES = ['performance', 'rehearsal', 'hold'] as const;
@@ -89,6 +89,28 @@ export function deriveEventRange(
  * **値が変わるときだけ書く。** 予約を保存し直すたびに `updated_at` が動くと、
  * 案件一覧の「止まっている」（7日動いていない）が予約の開き直しで消えてしまう。
  *
+ * ── 同じ案件を2人が同時に触ったとき ────────────────────────
+ *
+ * 集計と書き込みを別々に流すと、**あとから来た予約の変更が古い期間で
+ * 上書きされます**（レビューでの指摘 #164・P2）:
+ *
+ *   A: 8/20 の本番を消す → 集計（8/22 だけ）… ここで一息
+ *   B: 8/25 のリハを足す → 集計（8/22〜8/25）→ 書く
+ *   A: さっき数えた 8/22 を書く  ← **B の 8/25 が消える**
+ *
+ * ⚠️ **消えたことは画面のどこにも出ません。** カレンダーには 8/25 の予約が
+ * 見えているのに案件の実施日だけが古く、**どちらが本当かは予約を1件ずつ
+ * 開くまで分かりません**（この書き戻しを足した理由そのものに戻る）。
+ *
+ * そこで**案件の行を掴んでから数えます**（`FOR UPDATE`）。順番が要点で、
+ * **先に掴む**と、待たされた側は**相手が書き終えた後の予約**を数えることになり、
+ * 最後に残る期間が必ず「いまある予約」と一致します。
+ * 逆（数えてから掴む）にすると、掴めた時点で手元の集計はもう古いので直りません。
+ *
+ * **案件をまたぐ取り合いは起きません** — 掴むのは1件だけで、
+ * 付け替え（案件 A → B）はこの関数を**2回**呼ぶ形なので、
+ * 1回目の取引を閉じてから2回目に入ります（両側から掴み合って止まることがない）。
+ *
  * @returns 書き変えたときだけ新しい期間を返す（触らなかったときは `null`）
  */
 export async function syncProjectEventDates(
@@ -97,34 +119,38 @@ export async function syncProjectEventDates(
 ): Promise<{ start: string; end: string } | null> {
   if (!projectId) return null;
 
-  const range = await queryOne(
-    `SELECT MIN(substr(b.start_time, 1, 10)) AS start_day,
-            MAX(GREATEST(substr(b.start_time, 1, 10),
-                         substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10))) AS end_day
-       FROM studio_bookings b
-      WHERE b.project_id = ?
-        AND b.deleted_at IS NULL
-        AND b.booking_type IN (${EVENT_BOOKING_TYPES.map(() => '?').join(', ')})`,
-    [projectId, ...EVENT_BOOKING_TYPES],
-  ) as { start_day: string | null; end_day: string | null } | null;
+  return withTransaction(async (tx) => {
+    // **先に案件を掴む。** 同じ案件を同時に触った要求はここで順番待ちになる
+    const project = await tx.queryOne(
+      'SELECT event_start, event_end FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [projectId],
+    ) as { event_start: string | null; event_end: string | null } | undefined;
+    if (!project) return null;
 
-  const start = range?.start_day ?? null;
-  const end = range?.end_day ?? null;
-  if (!start || !end) return null;              // 数える予約が無い → 触らない
+    // 掴んだあとに数える（待たされた側は、相手が書き終えた後の予約を数える）
+    const range = await tx.queryOne(
+      `SELECT MIN(substr(b.start_time, 1, 10)) AS start_day,
+              MAX(GREATEST(substr(b.start_time, 1, 10),
+                           substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10))) AS end_day
+         FROM studio_bookings b
+        WHERE b.project_id = ?
+          AND b.deleted_at IS NULL
+          AND b.booking_type IN (${EVENT_BOOKING_TYPES.map(() => '?').join(', ')})`,
+      [projectId, ...EVENT_BOOKING_TYPES],
+    ) as { start_day: string | null; end_day: string | null } | undefined;
 
-  const project = await queryOne(
-    'SELECT event_start, event_end FROM projects WHERE id = ? AND deleted_at IS NULL',
-    [projectId],
-  ) as { event_start: string | null; event_end: string | null } | null;
-  if (!project) return null;
+    const start = range?.start_day ?? null;
+    const end = range?.end_day ?? null;
+    if (!start || !end) return null;            // 数える予約が無い → 触らない
 
-  // 列は TEXT (YYYY-MM-DD) だが、古い行に時刻付きが混ざっていても比べられるように揃える
-  if (ymd(project.event_start) === start && ymd(project.event_end) === end) return null;
+    // 列は TEXT (YYYY-MM-DD) だが、古い行に時刻付きが混ざっていても比べられるように揃える
+    if (ymd(project.event_start) === start && ymd(project.event_end) === end) return null;
 
-  await execute(
-    `UPDATE projects SET event_start = ?, event_end = ?, updated_at = NOW(), updated_by = ?
-      WHERE id = ? AND deleted_at IS NULL`,
-    [start, end, actorId, projectId],
-  );
-  return { start, end };
+    await tx.execute(
+      `UPDATE projects SET event_start = ?, event_end = ?, updated_at = NOW(), updated_by = ?
+        WHERE id = ? AND deleted_at IS NULL`,
+      [start, end, actorId, projectId],
+    );
+    return { start, end };
+  });
 }

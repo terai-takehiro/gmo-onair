@@ -30,6 +30,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarSync, Plus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
@@ -177,9 +178,9 @@ function DesktopCalendar() {
   const del = useMutation({
     mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['studio-bookings'] });
-      // 案件詳細の予約一覧も読み直す（消したのに残って見えると、もう一度消しに行く）
-      qc.invalidateQueries({ queryKey: ['project-studio-bookings'] });
+      // 案件詳細の予約一覧も読み直す（消したのに残って見えると、もう一度消しに行く）。
+      // **案件の実施日も残った予約から引き直される**ので案件側も落とす（`lib/bookingQueries.ts`）
+      invalidateBookingQueries(qc);
       setDetail(null);
       notifySuccess('予約を消しました');
     },

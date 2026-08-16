@@ -6,6 +6,7 @@ import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/c
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Button } from '@/components/ui/button';
 import { CONDITION_LABELS, TYPE_LABELS } from '@/lib/constants';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { UNIT_STATUS_LABELS, UNIT_STATUS_TONE, type ModelGroup } from './rentalTypes';
 
 export function RentalGroupRow({
@@ -61,7 +62,7 @@ export function RentalGroupRow({
         <RowSlot
           w={128}
           hideOnMobile
-          className="overflow-hidden"
+          className={`overflow-hidden ${HIDE_UNTIL_WIDE}`}
           title={group.rental_category_name || undefined}
         >
           {!showCategory && group.rental_category_name && (
@@ -78,7 +79,7 @@ export function RentalGroupRow({
           `TableBadge` が幅を固定するのは和文4字までで、6字は自然幅になる）。
           機材の台帳の「種別」と同じ壊れ方をしていたので、同じく1段上げる。
         */}
-        <RowSlot w={96} hideOnMobile className="overflow-hidden">
+        <RowSlot w={96} hideOnMobile className={`overflow-hidden ${HIDE_UNTIL_WIDE}`}>
           <TableBadge
             label={TYPE_LABELS[group.equipment_type_code] ?? group.equipment_type_code}
             w={null}

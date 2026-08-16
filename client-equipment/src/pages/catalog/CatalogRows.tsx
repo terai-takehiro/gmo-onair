@@ -18,16 +18,17 @@ import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/s
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Button } from '@/components/ui/button';
 import { CONFIG_BY_SOURCE, SOURCE_TONE, type SupplyItem } from './types';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 
 export function CatalogRowHeader({ showActions }: { showActions: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
       <RowSlot w={72}>種別</RowSlot>
       <RowMain>商品名 ／ メーカー・型名</RowMain>
-      <RowSlot w={56} align="right">m</RowSlot>
-      <RowSlot w={72}>色</RowSlot>
-      <RowSlot w={160}>設置場所</RowSlot>
-      <RowSlot w={96}>収納方法</RowSlot>
+      <RowSlot w={56} align="right" className={HIDE_UNTIL_WIDE}>m</RowSlot>
+      <RowSlot w={72} className={HIDE_UNTIL_WIDE}>色</RowSlot>
+      <RowSlot w={160} className={HIDE_UNTIL_WIDE}>設置場所</RowSlot>
+      <RowSlot w={96} className={HIDE_UNTIL_WIDE}>収納方法</RowSlot>
       <RowSlot w={96} align="right">本数・個数</RowSlot>
       {showActions && <RowSlot w={96} align="right">{''}</RowSlot>}
     </RowHeader>
@@ -62,24 +63,24 @@ export function CatalogRow({
         </RowSub>
       </RowMain>
 
-      <RowSlot w={56} align="right" hideOnMobile>
+      <RowSlot w={56} align="right" hideOnMobile className={HIDE_UNTIL_WIDE}>
         {hasLength
           ? (length && <span className="font-number text-sub-sm text-secondary-foreground">{length}</span>)
           : <span className="text-sub-sm text-fg-disabled">—</span>}
       </RowSlot>
-      <RowSlot w={72} hideOnMobile>
+      <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
         {hasLength
           ? (item.color && <span className="truncate text-sub-sm text-secondary-foreground">{item.color}</span>)
           : <span className="text-sub-sm text-fg-disabled">—</span>}
       </RowSlot>
 
-      <RowSlot w={160} hideOnMobile>
+      <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>
         {item.location_name && (
           <span className="truncate text-sub-sm text-secondary-foreground">{item.location_name}</span>
         )}
       </RowSlot>
 
-      <RowSlot w={96} hideOnMobile>
+      <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_WIDE}>
         {item.storage_method && (
           <span className="truncate text-sub-sm text-muted-foreground">{item.storage_method}</span>
         )}

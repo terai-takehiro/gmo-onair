@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DP from "@radix-ui/react-dialog";
 import api from "@/lib/api";
+import { invalidateBookingQueries } from "@/lib/bookingQueries";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -305,12 +306,10 @@ export default function StudioBookingDialog({
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
     onSuccess: () => {
-      // 同じ「案件の予約」を読む問い合わせが2つある。カレンダー側の鍵しか
-      // 無効化していなかったため、**案件詳細から登録しても予約一覧が増えず**、
-      // リロードするまで古いままだった (refetchOnWindowFocus は切ってある) =
-      // 「登録できなかった」ように見えてもう一度入れることになっていた。
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-      qc.invalidateQueries({ queryKey: ["project-studio-bookings"] });
+      // 予約を読む問い合わせは2つあり、カレンダー側しか落としていなかったため
+      // **案件詳細から登録しても予約一覧が増えず**、「登録できなかった」ように見えて
+      // もう一度入れられていた。**案件の実施日**も込みで `lib/bookingQueries.ts` が落とす
+      invalidateBookingQueries(qc);
       setSaveError(null);
       onOpenChange(false);
     },
