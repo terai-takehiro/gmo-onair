@@ -110,7 +110,21 @@ export function parseCell(col: EditableCol, raw: string, ctx: ParseCtx): ParseRe
       // **空にできる**（実施日は未定に戻すことがある）
       if (blank) return { ok: true, set: { [col]: '' }, display: '（空）' };
       const d = toIsoDate(text);
-      if (!d) return { ok: false, why: `「${raw}」は日付として読めません（2026-08-15 の形）` };
+      if (!d) {
+        /*
+         * **断る理由を分ける。** 形が違うのか、形は合っているが
+         * **その日が存在しない**（`2026-02-31`）のかで、直し方が違います。
+         * 「2026-08-15 の形で書いてください」とだけ言われると、
+         * すでにその形で書いている人には**何を直せばよいか分かりません**。
+         */
+        const shaped = /^(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})日?$/.test(text);
+        return {
+          ok: false,
+          why: shaped
+            ? `「${raw}」はカレンダーに無い日です（その月に無い日付です）`
+            : `「${raw}」は日付として読めません（2026-08-15 の形）`,
+        };
+      }
       return { ok: true, set: { [col]: d }, display: d };
     }
 
@@ -147,17 +161,37 @@ export function parseCell(col: EditableCol, raw: string, ctx: ParseCtx): ParseRe
   }
 }
 
+/** 閏年か。**4 で割れて 100 で割れない、または 400 で割れる** */
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/** その月が何日あるか。**`new Date()` を使わない**（下の理由と同じ） */
+function daysInMonth(year: number, month: number): number {
+  const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month === 2 && isLeapYear(year)) return 29;
+  return days[month - 1];
+}
+
 /**
  * 日付をならす。**「2026/8/5」も「2026-08-05」も受ける**（Excel から来る形は揺れる）。
  * ⚠️ **`new Date()` に投げない** — 環境の時間帯で1日ずれます。
+ *
+ * ⚠️ **その月に本当にある日かまで見ます**（レビューでの指摘 #135）。
+ * 前の版は「月が 1〜12・日が 1〜31」しか見ていなかったので、
+ * **`2026-02-31` や `2026-04-31` が通り**、下見にも正しい日付として並んで、
+ * そのまま実施日の列（TEXT）に入っていました。**入ってしまうと画面からは
+ * 普通の日付に見えます** — 標準工程の逆算・実施日順の並びだけが静かに狂います。
  */
 export function toIsoDate(text: string): string | null {
   const m = text.match(/^(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})日?$/);
   if (!m) return null;
   const [, y, mo, d] = m;
+  const yy = Number(y);
   const mm = Number(mo);
   const dd = Number(d);
-  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  if (mm < 1 || mm > 12) return null;
+  if (dd < 1 || dd > daysInMonth(yy, mm)) return null;
   return `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
 }
 
@@ -208,6 +242,25 @@ export function inRange(r: CellRange | null, row: number, col: number): boolean 
 
 export function rangeSize(r: CellRange): number {
   return (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1);
+}
+
+/**
+ * 貼り付けた升目が**表からどれだけはみ出すか**（レビューでの指摘 #135）。
+ *
+ * 捨てること自体は正しい（無い行・無い列には書けない）のですが、
+ * **黙って捨てると「入ったつもり」になります** — 95 行目に 20 行貼ると
+ * 残りの数行しか入らないのに、下見には入るぶんだけが並びます。
+ *
+ * **はみ出しが無ければ `null`**（呼ぶ側が「出すものが無い」と分かる形）。
+ */
+export function outOfBoundsOf(
+  grid: string[][], anchor: CellRef, rowCount: number, colCount: number,
+): { rows: number; cols: number } | null {
+  const rows = Math.max(0, grid.length - (rowCount - anchor.row));
+  // **いちばん長い行で見る。** Excel から来る行は長さが揃っていないことがある
+  const widest = grid.reduce((n, line) => Math.max(n, line.length), 0);
+  const cols = Math.max(0, widest - (colCount - anchor.col));
+  return rows > 0 || cols > 0 ? { rows, cols } : null;
 }
 
 /**

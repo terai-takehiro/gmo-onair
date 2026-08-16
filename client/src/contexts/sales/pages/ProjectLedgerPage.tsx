@@ -26,7 +26,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
-import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,6 +45,7 @@ import { CSV_MAX_ROWS } from './projectLedger/csv';
 import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
 import { useLedgerGrid } from './projectLedger/useLedgerGrid';
 import { PastePlanDialog } from './projectLedger/PastePlanDialog';
+import { fetchAllNamed } from './projectLedger/fetchAllNamed';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -73,20 +73,42 @@ export default function ProjectLedgerPage() {
   const [editMode, setEditMode] = useState(false);
   const canEdit = canBulk && editMode;
 
-  /** まとめて直すダイアログが要る候補。**開くときだけ引く** */
-  const { data: usersData } = useQuery({
-    queryKey: ['users-list'],
-    queryFn: async () => (await api.get('/users?limit=200')).data,
-    enabled: bulkOpen || canEdit,
+  /**
+   * まとめて直すダイアログと升目編集が要る候補。**開くときだけ引く**。
+   *
+   * ⚠️ **ページを最後までたどって集めます**（レビューでの指摘 #127・#135）。
+   * `?limit=500` と書いてもサーバーが 100 に丸めるので、前の版は
+   * **名前順で 101 番目以降の担当・取引先を選べず、貼っても「いません」と
+   * 断られて**いました（実在するのに）。
+   *
+   * ⚠️ **鍵を他の画面と分けています。** `['users-list']` /
+   * `['customers-for-new-project']` は案件作成（`useNewProjectForm`）と
+   * 販管費（`SgaListPage`）が使っており、**中身の形が違います**
+   * （あちらは応答そのもの・こちらは行の配列）。同じ鍵に別の形を入れると、
+   * 先に開いた画面の中身で**あとの画面が壊れます**。
+   */
+  const lookupsEnabled = bulkOpen || canEdit;
+  const usersQ = useQuery({
+    queryKey: ['ledger-users-all'],
+    queryFn: () => fetchAllNamed('/users'),
+    enabled: lookupsEnabled,
+    staleTime: 5 * 60_000,
   });
-  const { data: customersData } = useQuery({
-    queryKey: ['customers-for-new-project'],
-    queryFn: async () => (await api.get('/customers?limit=500')).data,
-    enabled: bulkOpen || canEdit,
+  const customersQ = useQuery({
+    queryKey: ['ledger-customers-all'],
+    queryFn: () => fetchAllNamed('/customers'),
+    enabled: lookupsEnabled,
+    staleTime: 5 * 60_000,
   });
 
-  const users = (usersData?.data ?? []) as { id: string; name: string }[];
-  const customers = (customersData?.data ?? []) as { id: string; name: string }[];
+  const users = usersQ.data?.rows ?? [];
+  const customers = customersQ.data?.rows ?? [];
+  /**
+   * **引き終わったか。** 引き終わる前に名前で照合すると、空の一覧に対して
+   * 引くので**必ず「いません」**になります（`useLedgerGrid` が見ています）。
+   */
+  const lookupsReady = !lookupsEnabled || (usersQ.isSuccess && customersQ.isSuccess);
+  const lookupsTruncated = Boolean(usersQ.data?.truncated || customersQ.data?.truncated);
 
   /**
    * 升目としての操作（選ぶ・コピー・貼り付け・その場で直す）。
@@ -94,7 +116,7 @@ export default function ProjectLedgerPage() {
    * 書き換えは `canEdit` のときだけ（`useLedgerGrid` が見ています）。
    */
   const grid = useLedgerGrid({
-    rows: s.rows, shown: prefs.shown, canEdit, users, customers,
+    rows: s.rows, shown: prefs.shown, canEdit, users, customers, lookupsReady,
     onDone: s.clearSelection,
   });
 
@@ -117,7 +139,10 @@ export default function ProjectLedgerPage() {
         total={s.integrity.total}
         loading={s.integrityLoading}
         active={s.filters.issue}
-        onPick={(k) => s.setFilter('issue', k)}
+        /* ⚠️ **`setFilter('issue', …)` を直接呼ばないこと。** 件数は全案件を
+           数えているので、既定の GLS-A と AND になって 0 行になります
+           （`useLedgerState` の `pickIssue`） */
+        onPick={s.pickIssue}
       />
 
       {/* ── 絞り込み（1段目）──────────────────────────────── */}
@@ -243,6 +268,35 @@ export default function ProjectLedgerPage() {
             <strong className="font-bold">セルを二度押しでその場で直す</strong>／
             <strong className="font-bold">Excel から貼り付ける（Ctrl+V）</strong>ことができます。
             <strong className="font-bold">直したものは元に戻せません。</strong>
+          </p>
+        </div>
+      )}
+
+      {/*
+        ⚠️ **候補を引いているあいだ、そう出す**（レビューでの指摘 #135）。
+        引き終わる前に名前で照合すると空の一覧に当たるので、実在する担当・
+        取引先が**「いません」**として断られます。**黙って断ると、貼った人は
+        名前が間違っていると思って直しようのないものを直しにいきます。**
+      */}
+      {canEdit && !lookupsReady && (
+        <div className="rounded-note flex items-center gap-2 border border-border bg-muted px-3.5 py-2">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
+          <p className="text-sub text-muted-foreground">
+            社内の担当・お客様の候補を読み込んでいます。
+            <strong className="font-bold">読み終わるまで、この2つの列は直せません</strong>
+            （いま貼ると、実在する名前でも「いません」と断ってしまうためです）。
+          </p>
+        </div>
+      )}
+
+      {/* **打ち切ったことを黙らせない。** 出さないと「候補が全部ある」と読まれる */}
+      {canEdit && lookupsTruncated && (
+        <div className="rounded-note flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2">
+          <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          <p className="text-sub text-warning">
+            候補が多いので<strong className="font-bold">途中まで</strong>しか読み込めませんでした。
+            名前で貼り付けると、読み込めていない担当・お客様は「いません」と断られます —
+            その行は<strong className="font-bold">「直す」画面から</strong>直してください。
           </p>
         </div>
       )}

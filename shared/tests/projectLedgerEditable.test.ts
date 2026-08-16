@@ -252,7 +252,13 @@ describe('書き換える前に必ず確かめる', () => {
   const hook = readSrc('client/src/contexts/sales/pages/projectLedger/useLedgerGrid.ts');
 
   it('貼り付けはすぐ書かない（下見を作るだけ）', () => {
-    expect(hook).toMatch(/setPlan\(\{ changes, rejected, tooMany: null \}\)/);
+    // **書く関数（`write.mutate`）を通らずに `setPlan` で終える**ことを見る。
+    // ⚠️ 前は `setPlan({ changes, rejected, tooMany: null })` と**1行そのまま**を
+    // 見ていたので、同じ意味のまま**改行を入れただけで落ちました**（実際に落ちた）。
+    // 見たいのは「すぐ書かないこと」なので、そちらを見ます
+    const paste = hook.slice(hook.indexOf('const planPaste'), hook.indexOf('const write'));
+    expect(paste).toMatch(/setPlan\(\{/);
+    expect(paste).not.toMatch(/write\.mutate/);
   });
 
   it('読めなかった升目を必ず持ち帰る（黙って捨てない）', () => {
