@@ -24,8 +24,23 @@ import type { NamedRow } from './editable';
 export interface LedgerLookups {
   users: NamedRow[];
   customers: NamedRow[];
-  /** 引き終わったか（`false` のあいだ名前の列は直せない） */
-  ready: boolean;
+  /**
+   * **列ごとに**引けたか（レビューでの指摘 #146）。
+   *
+   * ⚠️ **2つをまとめて1つの真偽にしないこと。** 片方が落ちただけで
+   * **両方の列が永久に直せなくなります**（引けたほうまで巻き添えになる）。
+   */
+  ready: { users: boolean; customers: boolean };
+  /**
+   * **引けなかったか**（403・5xx・通信断で、やり直しても駄目だったとき）。
+   *
+   * ⚠️ `ready` が false の理由が「まだ引いている」なのか
+   * 「引けなかった」なのかで、**人がやることが違います**（待つ／やり直す）。
+   * 分けないと、**永久に「読み込んでいます」と出たまま**になります。
+   */
+  failed: { users: boolean; customers: boolean };
+  /** 引き直す（画面の「やり直す」から呼ぶ） */
+  retry: () => void;
   /** 多すぎて打ち切ったか。**打ち切ったら画面に出す** */
   truncated: boolean;
 }
@@ -53,7 +68,15 @@ export function useLedgerLookups(enabled: boolean): LedgerLookups {
     customers: customersQ.data?.rows ?? [],
     // **引く前（`enabled` が false）は `true`。** 引く気が無いのに
     // 「読み込んでいます」と出すと、読むだけの人に永久に帯が出ます
-    ready: !enabled || (usersQ.isSuccess && customersQ.isSuccess),
+    ready: {
+      users: !enabled || usersQ.isSuccess,
+      customers: !enabled || customersQ.isSuccess,
+    },
+    failed: {
+      users: enabled && usersQ.isError,
+      customers: enabled && customersQ.isError,
+    },
+    retry: () => { void usersQ.refetch(); void customersQ.refetch(); },
     truncated: Boolean(usersQ.data?.truncated || customersQ.data?.truncated),
   };
 }

@@ -40,18 +40,45 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
 
+/**
+ * いま見ている枝の名前。
+ *
+ * ⚠️ **CI では `git` に訊いても分かりません**（レビューでの指摘 #147・P1）。
+ * `pull_request` の仕事は **GitHub が作ったマージ用の ref を切り離した頭で**
+ * 取り出すので、`rev-parse --abbrev-ref HEAD` は枝の名前ではなく
+ * **`HEAD` という文字**を返します。**元の枝の名前は環境変数で渡ってきます**
+ * （`GITHUB_HEAD_REF` = PR の出どころ／`GITHUB_REF_NAME` = push のとき）。
+ */
+function branchName() {
+  if (process.env.GITHUB_HEAD_REF) return process.env.GITHUB_HEAD_REF;
+  try {
+    const local = git('rev-parse', '--abbrev-ref', 'HEAD');
+    if (local && local !== 'HEAD') return local;
+  } catch { /* git が読めない */ }
+  return process.env.GITHUB_REF_NAME ?? '';
+}
+
 /** リリースの1本か */
 function isRelease() {
   if (process.env.RELEASE === '1') return true;
-  try {
-    return /^release\//.test(git('rev-parse', '--abbrev-ref', 'HEAD'));
-  } catch {
-    return false;
-  }
+  return /^release\//.test(branchName());
 }
 
+/*
+ * ⚠️ **ここを通せなくすると、リリースが出せなくなります**（同じ指摘）。
+ *
+ * リリースの PR は**版の3か所を必ず書き換えます**（`docs/branching.md` の決めごと）。
+ * 前の版は「比べる相手が無ければ飛ばす」で**たまたま**通っていました
+ * （浅い clone で `origin/main` が見えなかったため）。
+ * `fetch-depth: 0` を入れて比べられるようにした結果、**その偶然が消え**、
+ * 枝の名前を `git` に訊いていたこの関数が `HEAD` を見て
+ * 「リリースではない」と判断し、**必須チェックがリリース PR を止めます**。
+ *
+ * つまり**門を直したことが、リリースを塞ぐ**形でした。
+ */
 if (isRelease()) {
-  console.log('[changelog] リリースの枝なので版の変更を許します');
+  console.log('[changelog] リリースなので版の変更を許します'
+    + `（${process.env.RELEASE === '1' ? 'RELEASE=1' : branchName()}）`);
   process.exit(0);
 }
 
@@ -195,9 +222,7 @@ if (touched && added.length === 0) {
 
   枝の名前でファイルを作ってください（/ は - に）:
 
-      docs/changelog.d/${(() => {
-    try { return git('rev-parse', '--abbrev-ref', 'HEAD').replace(/\//g, '-'); } catch { return '<枝の名前>'; }
-  })()}.md
+      docs/changelog.d/${(branchName() || '<枝の名前>').replace(/\//g, '-')}.md
 
   中身はそのまま版の履歴に載る1行です（何が起きていたか → なぜ困るか →
   どう直したか → 検証）。リリースの1本なら RELEASE=1 npm run lint。

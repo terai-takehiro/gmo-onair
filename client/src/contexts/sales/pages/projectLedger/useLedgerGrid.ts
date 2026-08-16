@@ -46,7 +46,7 @@ export interface PastePlan {
 }
 
 export function useLedgerGrid({
-  rows, shown, canEdit, users, customers, lookupsReady, onDone,
+  rows, shown, canEdit, users, customers, lookupsReady, lookupsFailed, onDone,
 }: {
   rows: LedgerRow[];
   shown: LedgerColKey[];
@@ -54,14 +54,19 @@ export function useLedgerGrid({
   users: NamedRow[];
   customers: NamedRow[];
   /**
-   * 候補（利用者・取引先）を**引き終わっているか**。
+   * 候補（利用者・取引先）を**引き終わっているか**。**列ごとに持ちます**。
    *
    * ⚠️ 引き終わる前は `users` / `customers` が空なので、名前の列は
    * **「そんな利用者はいません」**と断ってしまいます（レビューでの指摘 #135）。
    * 本当は居るのに居ないと言われるので、貼った人は**名前が間違っている**と思い、
    * 直しようのないものを直しにいきます。
+   *
+   * ⚠️ **2つをまとめて1つの真偽にしないこと**（レビューでの指摘 #146）。
+   * 片方が落ちただけで**引けたほうの列まで永久に直せなくなります**。
    */
-  lookupsReady: boolean;
+  lookupsReady: { users: boolean; customers: boolean };
+  /** 引けなかったか（**待つ**のか**やり直す**のかで、断り文を変えるため） */
+  lookupsFailed: { users: boolean; customers: boolean };
   onDone: () => void;
 }) {
   const qc = useQueryClient();
@@ -186,10 +191,14 @@ export function useLedgerGrid({
          * 空の一覧で照合すると必ず 0 件に当たるので、実在する担当・取引先が
          * **「そんな人はいません」**として断られます。
          */
-        if (!lookupsReady && (key === 'assigned_to_name' || key === 'customer_name')) {
+        const nameCol = key === 'assigned_to_name' ? 'users'
+          : key === 'customer_name' ? 'customers' : null;
+        if (nameCol && !lookupsReady[nameCol]) {
           rejected.push({
             name: row.name, col: key, raw,
-            why: '候補を読み込んでいます（少し待ってから貼り直してください）',
+            why: lookupsFailed[nameCol]
+              ? '候補を読み込めませんでした（帯の「やり直す」を押してから貼り直してください）'
+              : '候補を読み込んでいます（少し待ってから貼り直してください）',
           });
           return;
         }
@@ -203,7 +212,7 @@ export function useLedgerGrid({
       });
     });
     setPlan({ changes, rejected, tooMany: null, outOfBounds });
-  }, [anchor, canEdit, ctx, lookupsReady, rows, shown]);
+  }, [anchor, canEdit, ctx, lookupsReady, lookupsFailed, rows, shown]);
 
   const write = useMutation({
     mutationFn: async (changes: PastePlan['changes']) => {
@@ -241,8 +250,12 @@ export function useLedgerGrid({
   /** その場で1つ直す。**貼り付けと同じ口・同じ検査**を通す */
   const commitCell = useCallback((row: LedgerRow, col: EditableCol, raw: string) => {
     // **候補を引き終わる前に「いません」と言わない**（`planPaste` と同じ理由）
-    if (!lookupsReady && (col === 'assigned_to_name' || col === 'customer_name')) {
-      notifyApiError('まだ直せません', new Error('候補を読み込んでいます。少し待ってからやり直してください'));
+    const nameCol = col === 'assigned_to_name' ? 'users'
+      : col === 'customer_name' ? 'customers' : null;
+    if (nameCol && !lookupsReady[nameCol]) {
+      notifyApiError('まだ直せません', new Error(lookupsFailed[nameCol]
+        ? '候補を読み込めませんでした。帯の「やり直す」を押してからもう一度お試しください'
+        : '候補を読み込んでいます。少し待ってからやり直してください'));
       setEditing(null);
       return;
     }
@@ -251,7 +264,7 @@ export function useLedgerGrid({
     const from = cellText(col, row) ?? '';
     if (from === r.display) { setEditing(null); return; }   // 変わっていなければ何もしない
     write.mutate([{ id: row.id, name: row.name, col, from, to: r.display, set: r.set }]);
-  }, [ctx, lookupsReady, write]);
+  }, [ctx, lookupsReady, lookupsFailed, write]);
 
   return {
     anchor, range, editing, setEditing, pick, clear, commitCell,

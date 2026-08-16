@@ -45,6 +45,7 @@ import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
 import { useLedgerGrid } from './projectLedger/useLedgerGrid';
 import { PastePlanDialog } from './projectLedger/PastePlanDialog';
 import { useLedgerLookups } from './projectLedger/useLedgerLookups';
+import { LookupNotices } from './projectLedger/LookupNotices';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -84,7 +85,7 @@ export default function ProjectLedgerPage() {
    * （ページを最後までたどる／鍵を他の画面と分ける／引き終わったかを返す）。
    */
   const lookups = useLedgerLookups(bulkOpen || canEdit);
-  const { users, customers, ready: lookupsReady, truncated: lookupsTruncated } = lookups;
+  const { users, customers, ready: lookupsReady, failed: lookupsFailed } = lookups;
 
   /**
    * 升目としての操作（選ぶ・コピー・貼り付け・その場で直す）。
@@ -92,7 +93,7 @@ export default function ProjectLedgerPage() {
    * 書き換えは `canEdit` のときだけ（`useLedgerGrid` が見ています）。
    */
   const grid = useLedgerGrid({
-    rows: s.rows, shown: prefs.shown, canEdit, users, customers, lookupsReady,
+    rows: s.rows, shown: prefs.shown, canEdit, users, customers, lookupsReady, lookupsFailed,
     onDone: s.clearSelection,
   });
 
@@ -248,34 +249,8 @@ export default function ProjectLedgerPage() {
         </div>
       )}
 
-      {/*
-        ⚠️ **候補を引いているあいだ、そう出す**（レビューでの指摘 #135）。
-        引き終わる前に名前で照合すると空の一覧に当たるので、実在する担当・
-        取引先が**「いません」**として断られます。**黙って断ると、貼った人は
-        名前が間違っていると思って直しようのないものを直しにいきます。**
-      */}
-      {canEdit && !lookupsReady && (
-        <div className="rounded-note flex items-center gap-2 border border-border bg-muted px-3.5 py-2">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
-          <p className="text-sub text-muted-foreground">
-            社内の担当・お客様の候補を読み込んでいます。
-            <strong className="font-bold">読み終わるまで、この2つの列は直せません</strong>
-            （いま貼ると、実在する名前でも「いません」と断ってしまうためです）。
-          </p>
-        </div>
-      )}
-
-      {/* **打ち切ったことを黙らせない。** 出さないと「候補が全部ある」と読まれる */}
-      {canEdit && lookupsTruncated && (
-        <div className="rounded-note flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2">
-          <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-          <p className="text-sub text-warning">
-            候補が多いので<strong className="font-bold">途中まで</strong>しか読み込めませんでした。
-            名前で貼り付けると、読み込めていない担当・お客様は「いません」と断られます —
-            その行は<strong className="font-bold">「直す」画面から</strong>直してください。
-          </p>
-        </div>
-      )}
+      {/* 候補の様子（引いている／引けなかった／打ち切った）。理由は `LookupNotices` に */}
+      {canEdit && <LookupNotices lookups={lookups} />}
 
       {/*
         **押し方を画面に出す。** Ctrl+C / Ctrl+V は、書いていなければ
