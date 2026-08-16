@@ -35,11 +35,18 @@ const HISTORY_SECTION_START = "## 過去のバージョン";
  * 前置きの中で「## 過去のバージョン」直下へ移してください、と**引用として書いています**。
  * 素の検索だとその引用に当たるので、**本当の見出しより前に置かれた版まで拾えてしまい**、
  * 「置き場所を間違えているのに動く」状態になります（実際にそうなっていました）。
+ *
+ * ⚠️ **改行を `\n` と決め打ちにしないこと**（レビューでの指摘・P2）。
+ * Windows で `core.autocrlf=true` のまま clone すると `.md` は `\r\n` になります
+ * （`.gitattributes` は `docs/version-history.md` を `merge=union` にしているだけで、
+ * 改行は固定していません）。決め打ちだと**どの見出しにも当たらず**、
+ * `predev` / `prebuild` が毎回「見出しが見つかりません」で落ちます —
+ * **その環境の人だけ、何も始められません**。
  */
-function headingIndex(text, heading) {
-  if (text.startsWith(`${heading}\n`)) return 0;
-  const at = text.indexOf(`\n${heading}\n`);
-  return at === -1 ? -1 : at + 1;
+export function headingIndex(text, heading) {
+  const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const m = new RegExp(`(^|\\r?\\n)${esc}\\r?\\n`).exec(text);
+  return m ? m.index + m[1].length : -1;
 }
 
 function extractSection(text, start, end) {
@@ -165,7 +172,7 @@ function main() {
      * その版が画面から消えます**（黙って消えるので誰も気づけない）。
      */
     const head = headingIndex(historyMd, HISTORY_SECTION_START);
-    const stray = head === -1 ? -1 : historyMd.slice(0, head).search(/\n\(v\d+\.\d+\.\d+\s*[—:]/);
+    const stray = head === -1 ? -1 : historyMd.slice(0, head).search(/\r?\n\(v\d+\.\d+\.\d+\s*[—:]/);
     if (stray !== -1) {
       throw new Error(
         `「${HISTORY_SECTION_START}」より前に版の行があります（${stray} 文字目あたり）。\n` +
@@ -210,4 +217,7 @@ function main() {
   console.log(`[version-history] ${versions.length} 件を書き出しました → ${path.relative(ROOT, OUT_FILE)}`);
 }
 
-main();
+// **CLI として起動されたときだけ走らせる**（試験から純粋な関数を読めるように）
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
