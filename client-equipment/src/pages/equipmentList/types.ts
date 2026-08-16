@@ -106,7 +106,23 @@ export type ColKey = (typeof COL_DEFS)[number]['key'];
  */
 export const COL_W = {
   eq_code: 96,
-  equipment_type: 72,
+  /**
+   * ⚠️ **72px では収まりません**（実測して 128 に上げた）。
+   *
+   * この列に出るのは `sectionDisplay()` = **種別 ＋ 区分をつないだ文字**で、
+   * 8通りのうち **5通りが 72px を超えます**。`TableBadge` は和文4字までしか
+   * 幅を固定しない（それ以上は自然幅）ので、超えたぶんは**隣の「設置場所」に
+   * かぶさって文字が重なっていました**（`RowSlot` は `shrink-0` なので
+   * 押し出されず、上に乗るだけ）。
+   *
+   * 実測（LINE Seed JP 700 / 11px / `Badge` の既定の padding 10px）:
+   *
+   *   映像設備 62（固定幅）／カメラ設備 76.7 ／ インカム設備 87.1 ／
+   *   LED/XR設備 88.7 ／ **設備/その他設備 104.0** ／ **ネットワーク設備 109.6**
+   *
+   * いちばん長い 109.6 が入る段は **128**（96 では入らない）。
+   */
+  equipment_type: 128,
   location: 128,
   manufacturer: 128,
   model_number: 128,
@@ -114,7 +130,13 @@ export const COL_W = {
   unit_number: 56,
   condition: 72,
   fixed_asset_code: 128,
-  notes: 200,
+  /**
+   * 種別を 72 → 128 に上げたぶん、**台帳全体を広げないためにここを1段落とす**
+   * （200 → 160）。備考は**必ず1行で省略される**列で、全文は `title` で読めます。
+   * 一方いちばん右の列は**貼り付けた「操作」に隠れる**ので、既定の合計幅を
+   * 増やすと隠れる量がそのまま増えます。
+   */
+  notes: 160,
   rental: 96,
 } as const satisfies Partial<Record<ColKey, number>>;
 
@@ -128,6 +150,38 @@ export const ACTION_W = 128;
 
 /** 伸びる列（商品名）に最低これだけ残す。狭いと1文字も読めない */
 export const NAME_MIN_PX = 200;
+
+/** 行の中の隙間（`<Row>` の `gap-3`）と、行の左右の余白（`density="table"` の `px-4`） */
+export const ROW_GAP = 12;
+export const ROW_PX = 16;
+
+/**
+ * 横に流し始める幅 = **固定列の合計 ＋ 隙間 ＋ 左右の余白 ＋ 商品名の最低幅**。
+ *
+ * ⚠️ **数え方を2度間違えていました**（どちらも「商品名だけが黙って痩せる」形で、
+ * 画面には何も出ません）:
+ *
+ *   ・隙間を**列の数だけ**掛けていた（正しくは **列の数 − 1**。3列なら隙間は2つ）
+ *   ・行の左右の余白（`px-4` = 16px × 2）を**足していなかった**
+ *
+ * 差し引き 20px 足りず、`min-width` に達しても**まだ商品名が 200px を割ってから**
+ * 横に流れ始めていました。関数にしてあるのは、この算数を
+ * `shared/tests/equipmentLedgerWidth.test.ts` で固定するためです。
+ */
+export function ledgerMinWidth(
+  { canBulkEdit, visibleStd, customCount }:
+  { canBulkEdit: boolean; visibleStd: ColKey[]; customCount: number },
+): number {
+  const hasName = visibleStd.includes('name');
+  const fixed = LEAD_W
+    + (canBulkEdit ? CHECK_W : 0)
+    + visibleStd.reduce((n, k) => n + (k === 'name' ? 0 : COL_W[k as keyof typeof COL_W] ?? 0), 0)
+    + customCount * CUSTOM_COL_W
+    + ACTION_W;
+  // 行の頭 ＋ 選ぶ四角 ＋ 標準の列 ＋ 自分で作った列 ＋ 操作
+  const slots = 1 + (canBulkEdit ? 1 : 0) + visibleStd.length + customCount + 1;
+  return fixed + Math.max(slots - 1, 0) * ROW_GAP + ROW_PX * 2 + (hasName ? NAME_MIN_PX : 0);
+}
 
 export const PRINT_COLS = [
   { key: 'eq_code', label: 'ID' },

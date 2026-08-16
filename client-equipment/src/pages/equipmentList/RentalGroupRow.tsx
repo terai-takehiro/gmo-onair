@@ -51,7 +51,19 @@ export function RentalGroupRow({
           </RowSub>
         </RowMain>
 
-        <RowSlot w={96} hideOnMobile>
+        {/*
+          カテゴリの名前は**利用者が設定で作る文字**なので、長さに上限がありません。
+          `RowSlot` は `shrink-0` なので、はみ出したぶんは**隣の列の上に重なります** —
+          切れて読めないより、隣に重なって**両方**読めないほうが悪いので切ります。
+          128 にしてあるのは、この行は伸びる列（商品名）が広く**32px 削っても困らない**
+          一方で、96 だと和文5字から切れ始めるため。全文は `title` で読めます。
+        */}
+        <RowSlot
+          w={128}
+          hideOnMobile
+          className="overflow-hidden"
+          title={group.rental_category_name || undefined}
+        >
           {!showCategory && group.rental_category_name && (
             <TableBadge
               label={group.rental_category_name}
@@ -61,7 +73,12 @@ export function RentalGroupRow({
           )}
         </RowSlot>
 
-        <RowSlot w={72} hideOnMobile>
+        {/*
+          ⚠️ **72px では「ネットワーク」が収まりません**（実測 87.6px。
+          `TableBadge` が幅を固定するのは和文4字までで、6字は自然幅になる）。
+          機材の台帳の「種別」と同じ壊れ方をしていたので、同じく1段上げる。
+        */}
+        <RowSlot w={96} hideOnMobile className="overflow-hidden">
           <TableBadge
             label={TYPE_LABELS[group.equipment_type_code] ?? group.equipment_type_code}
             w={null}

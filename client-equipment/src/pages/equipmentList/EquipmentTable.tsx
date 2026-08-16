@@ -28,13 +28,20 @@
  * **貼り付ける枠は下が透けてはいけない**ので、行ごとに背景の色を必ず持たせ、
  * 操作の枠は `bg-inherit` でその色を受け取ります（透明のままだと、
  * 横に送ったとき下を通る文字が操作ボタンに重なって読めなくなる）。
+ *
+ * ⚠️ **貼り付けたぶん、いちばん右の列はその下に隠れます**（`right: 0` の
+ * `sticky` は必ず下の内容に重なる。横に送りきれば操作は本来の位置に戻り、
+ * 隠れていた列が出てきます）。罫線1本だけだと**中途半端に切れた列**にしか
+ * 見えなかったので、**下に列があるあいだだけ影**を出します
+ * （`useSticksOverContent`）。既定の列で隠れるのは「貸出可」です。
  */
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ChevronsUpDown, Copy, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
 import {
-  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, NAME_MIN_PX,
+  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, ledgerMinWidth,
   type ColKey, type EquipmentRecord,
 } from './types';
 import { customCells, standardCells, type CellContext, type CustomCellContext } from './EquipmentCells';
@@ -57,6 +64,32 @@ function SortLabel({ label, sortKey, currentKey, currentDir, onSort }: {
         : <ChevronsUpDown className="h-3 w-3 shrink-0 text-fg-disabled" aria-hidden="true" />}
     </button>
   );
+}
+
+/**
+ * 貼り付けた「操作」の**下にまだ列があるか**（＝右にスクロールの余地があるか）。
+ *
+ * CSS だけでは分かりません（「はみ出しているか」を当てる仕掛けが無い）。
+ * 幅の変化（`ResizeObserver`）と横スクロールの両方を見ます —
+ * 列を出し入れしただけでもはみ出す量が変わるので、スクロールだけでは足りません。
+ */
+function useSticksOverContent(ref: React.RefObject<HTMLDivElement>) {
+  const [over, setOver] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // 1px の余裕。端まで送ったとき小数の誤差で影が残り続けるのを防ぐ
+    const read = () => setOver(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    read();
+    el.addEventListener('scroll', read, { passive: true });
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    // **中身のほうも見る。** 列を出し入れしても枠の幅は変わらないので、
+    // 枠だけ見ていると「はみ出しが増えたのに影が出ない」になる
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => { el.removeEventListener('scroll', read); ro.disconnect(); };
+  }, [ref]);
+  return over;
 }
 
 export interface EquipmentTableProps {
@@ -89,23 +122,37 @@ export function EquipmentTable(p: EquipmentTableProps) {
   const visibleCustom = p.customCtx.columns.filter((c) => p.customCtx.visible.has(c.id));
 
   /**
-   * 横に流し始める幅。**固定列の合計 ＋ 隙間 ＋ 商品名の最低幅**。
-   * 商品名（`RowMain`）は幅を持たないので、ここで足しておかないと潰れる。
+   * 横に流し始める幅。**算数は `ledgerMinWidth` の1か所**に置いてある
+   * （隙間の数と行の左右の余白を2度間違えたので、テストで固定した）。
    */
-  const fixed = LEAD_W
-    + (p.canBulkEdit ? CHECK_W : 0)
-    + visibleStd.reduce((n, k) => n + (k === 'name' ? 0 : COL_W[k as keyof typeof COL_W] ?? 0), 0)
-    + visibleCustom.length * CUSTOM_COL_W
-    + ACTION_W;
-  const gaps = (1 + (p.canBulkEdit ? 1 : 0) + visibleStd.length + visibleCustom.length + 1) * 12;
-  const minWidth = fixed + gaps + (visibleStd.includes('name') ? NAME_MIN_PX : 0);
+  const minWidth = ledgerMinWidth({
+    canBulkEdit: p.canBulkEdit,
+    visibleStd,
+    customCount: visibleCustom.length,
+  });
+
+  const scroller = useRef<HTMLDivElement>(null);
+  const overlapping = useSticksOverContent(scroller);
+
+  /**
+   * 貼り付けた「操作」の見せ方。
+   *
+   * **下に列があるあいだだけ影を出す。** 影が無いと、隠れている列
+   * （既定では「貸出可」）が**中途半端に切れた列**に見えます
+   * — 実際には横に送れば出てくるので、「壊れている」ではなく
+   * 「上に貼り付いている」と読めるようにする。右端まで送ると
+   * 操作は本来の位置に戻り、下には何も無いので影も消す。
+   */
+  const actionStick = `sticky right-0 border-l pl-2 ${
+    overlapping ? 'border-border shadow-[-8px_0_8px_-6px_rgba(0,0,0,0.12)]' : 'border-border-faint'
+  }`;
 
   const actions = (item: EquipmentRecord, parentId?: string) => (
     <RowSlot
       w={ACTION_W}
       align="right"
       placeholder={null}
-      className="sticky right-0 border-l border-border-faint bg-inherit pl-2"
+      className={`${actionStick} bg-inherit`}
       onClick={(e) => e.stopPropagation()}
     >
       <span className="flex justify-end gap-0.5">
@@ -168,7 +215,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
 
   return (
     <div className="hidden md:block">
-      <div className="rounded-card overflow-x-auto border border-border bg-card">
+      <div ref={scroller} className="rounded-card overflow-x-auto border border-border bg-card">
         <div style={{ minWidth: `${minWidth}px` }}>
           <RowHeader>
             <RowSlot w={LEAD_W} placeholder={null} />
@@ -205,7 +252,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
                 <span className="text-note ml-1 shrink-0 text-fg-disabled">{col.scope === 'shared' ? '共' : '個'}</span>
               </RowSlot>
             ))}
-            <RowSlot w={ACTION_W} align="right" className="sticky right-0 border-l border-border-faint bg-surface-subtle pl-2">
+            <RowSlot w={ACTION_W} align="right" className={`${actionStick} bg-surface-subtle`}>
               操作
             </RowSlot>
           </RowHeader>
