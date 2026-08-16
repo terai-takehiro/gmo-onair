@@ -320,7 +320,7 @@ describe('スマホの入金の確認は月で切らない（レビューでの�
       join(__dirname, '..', '..', 'client', 'src', 'contexts', 'finance', 'pages', 'closing', 'MobileCollect.tsx'),
       'utf8',
     );
-    expect(src).toMatch(/params: \{ state: 'unpaid_issued' \}/);
+    expect(src).toMatch(/params: \{ state: 'unpaid' \}/);
     // **注釈は外してから探す**（この製品は前の版の形を説明として残す決めごと）
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/billing\/closing/);
@@ -334,16 +334,20 @@ describe('スマホの入金の確認は月で切らない（レビューでの�
    * ⚠️ **この PR のレビューで指摘された3つ**（どれも実ブラウザ・実 Postgres で再現）。
    */
   it('請求書を出したものだけを並べる（出す前に入金を記録させない）', () => {
-    // `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**も並ぶ。
+    // 「入金日が入っていない」だけで絞ると**まだ請求書を出していない売上**も並ぶ。
     // そこから記録できると**請求していないのに入金済みの行**ができる
-    // （実測: `unpaid` は 40 件・未発行を含む / `unpaid_issued` は 3 件・含まない）
+    // （実測: 出していないものを含めると 40 件 / 含めないと 3 件）
+    //
+    // ⚠️ **式は口ごとに書かない**（レビューでの指摘 #125）。
+    // いまは `shared/services/billing-state.ts` の1つを両方の口が読む
+    // ので、ここでは**書き写していないこと**を見る（`shared/tests/billingState.test.ts` が中身を見る）
     const routes = readFileSync(
       join(__dirname, '..', '..', 'server', 'src', 'contexts', 'sales', 'routes', 'billing.routes.ts'),
       'utf8',
     );
-    expect(routes).toMatch(/state === 'unpaid_issued'\) where \+= ' AND r\.invoice_issued = true AND r\.paid_date IS NULL'/);
-    // **`unpaid` の意味は変えていない**（⑤ の「入金前」チップが読んでいる）
-    expect(routes).toMatch(/if \(state === 'unpaid'\) where \+= ' AND r\.paid_date IS NULL';/);
+    const code = routes.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).toMatch(/billingStateSql\(state\)/);
+    expect(code).not.toMatch(/state === 'unpaid'/);
   });
 
   it('記録したら、いま引いている鍵を落とす', () => {

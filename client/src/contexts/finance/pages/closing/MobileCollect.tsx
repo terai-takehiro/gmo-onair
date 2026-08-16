@@ -74,14 +74,17 @@ export function MobileCollect() {
    */
   const q = useQuery<{ data: Row[]; total_count?: number; total_amount?: number; truncated?: boolean }>({
     // **PC の ⑤ 見積・請求と同じ鍵**にする（片方だけ古いままにならない）
-    queryKey: ['billing', 'invoices', 'all', 'unpaid_issued'],
+    queryKey: ['billing', 'invoices', 'all', 'unpaid'],
     /*
-     * **請求書を出したものだけ**（`unpaid` ではなく `unpaid_issued`）。
-     * `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**まで
-     * 並び、**請求していないのに入金済みの行**を作れてしまいます
-     * （月次の締めの `collect` は前から `invoice_issued` を要求していました）。
+     * **`unpaid` は「請求書を出したのに入金がまだ」**です
+     * （`server/src/shared/services/billing-state.ts`・レビューでの指摘 #125）。
+     *
+     * 前はこの画面だけ `unpaid_issued` という別名を渡していました。素の `unpaid` が
+     * 「入金日が空」だけを指しており、**請求書を出していない売上から入金を記録できて**
+     * しまったためです。**言葉を1つにしたので別名は要りません** —
+     * 名前が2つあること自体が、片方だけ直されて食い違う元でした。
      */
-    queryFn: async () => (await api.get('/billing/invoices', { params: { state: 'unpaid_issued' } })).data,
+    queryFn: async () => (await api.get('/billing/invoices', { params: { state: 'unpaid' } })).data,
   });
 
   // サーバーが期日の近い順に返す（並べ直さない — 2か所で並びを決めると食い違う）

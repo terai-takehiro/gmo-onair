@@ -14,6 +14,7 @@ import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
 import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
+import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 
 const router = Router();
 
@@ -223,11 +224,15 @@ router.get('/', async (req, res) => {
   // (全件の内訳を出すと、検索中に押した先が 0 件になる)。
   const { state: _state, ...restQuery } = req.query as Record<string, unknown>;
   const base = buildRevenueWhere(restQuery as typeof req.query);
+  /*
+   * ⚠️ **数える式も絞る式と同じものを読む**（`shared/services/billing-state.ts`・指摘 #125）。
+   * ここに書き写すと、**チップの数字と押した先の行数がずれます**
+   * （どちらもそれらしい数字なので、画面を見ても気づけません）。
+   */
   const counts = (await queryOne(
-    `SELECT COUNT(*) FILTER (WHERE r.invoice_issued IS NOT TRUE) as unissued,
-            COUNT(*) FILTER (WHERE r.invoice_issued = true) as issued,
-            COUNT(*) FILTER (WHERE r.invoice_issued = true AND r.paid_date IS NULL) as unpaid,
-            COUNT(*) FILTER (WHERE r.paid_date IS NOT NULL) as paid,
+    `SELECT ${Object.entries(BILLING_STATE_SQL)
+      .map(([key, sql]) => `COUNT(*) FILTER (WHERE ${sql}) as ${key}`)
+      .join(',\n            ')},
             COUNT(*) as all
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id

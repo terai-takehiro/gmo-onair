@@ -51,7 +51,18 @@ export const mutationCache = new MutationCache({
    * → `shared/tests/queryClient.test.ts` で実際に失敗させて固定してある。
    */
   onError: (error, _variables, _context, mutation) => {
-    // 画面が自分で知らせているときは何もしない (同じ失敗を2回出さない)
+    /*
+     * 画面が自分で知らせているときは何もしない (同じ失敗を2回出さない)。
+     *
+     * ⚠️ **見えるのは `useMutation({ onError })` だけです**（レビューでの指摘 #48・実測）。
+     * `mutate(vars, { onError })` の形は react-query が**観測者の側**に持つので
+     * `mutation.options` には入らず、**ここは黙れません**。
+     *
+     * それでも画面に出るのは1つです — **受け皿が先・画面があと**の順で走り、
+     * `setNotice` は帯を1つしか持たないので**画面の文言が残ります**。
+     * つまり**順番のおかげ**なので、`shared/tests/queryClient.test.ts` で固定してあります
+     * （入れ替わると、共通の文言が画面の文言を上書きして何が失敗したか分からなくなる）。
+     */
     if (mutation.options.onError) return;
     const meta = (mutation.meta ?? {}) as MutationActionMeta;
     if (meta.silent) return;
