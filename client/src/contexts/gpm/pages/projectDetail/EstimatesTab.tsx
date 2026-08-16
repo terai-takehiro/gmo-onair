@@ -40,7 +40,6 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useGpmEstimates, useInvalidateGpm, type GpmEstimate } from '../../queries';
 import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
 import {
@@ -76,13 +75,20 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
   const total = live.reduce((n, e) => n + (e.subtotal - e.discount), 0);
 
   return (
-    <div className="flex flex-col gap-3.5">
+    // **タブの余白は中身が持つ**（枠は `GpmProjectDetailPage` が敷かない）。
+    // ここだけ書き忘れていたので、見出しも一覧も左メニューに貼り付いていた
+    // （他の6タブはすべてこの段）
+    <div className="flex flex-col gap-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-cardtitle">個別見積</h2>
           <p className="text-note mt-0.5 text-muted-foreground">
             提出先ごとに出します。最新の版の合計は{' '}
-            <Money value={total} className="font-bold" />（値引きを引いたあと）
+            {/* **`inline` を落とさないこと。** 既定は列で使う形（枠いっぱいに
+                `¥` を左端・数字を右端へ引き離す）なので、文中に置くと
+                **`¥` だけが行の左端に取り残されて数字が右端へ飛ぶ**
+                （`Money` の `inline` の説明にある、案件詳細で一度踏んだ形） */}
+            <Money inline value={total} className="font-bold" />（値引きを引いたあと）
           </p>
         </div>
         {canEdit && (
@@ -110,12 +116,16 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           action={canEdit ? <Button onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
         />
       ) : (
-        <div className="flex flex-col">
+        // 一覧は白い枠に入れる（他のタブ・⑤ 全プロジェクトの一覧と同じ形）。
+        // 枠が無いと表頭も行も背景と同じ色の上に浮き、どこからどこまでが表なのか読めない
+        <div className="overflow-hidden rounded-card border border-border bg-card">
           <RowHeader className="hidden sm:flex">
             <RowSlot w={72}>提出先</RowSlot>
             <RowMain>件名</RowMain>
             <RowSlot w={72}>状態</RowSlot>
-            <RowSlot w={128}>金額</RowSlot>
+            {/* 金額は右寄せ。**列見出しも右に寄せる** — 値が右端でそろっているのに
+                見出しだけ左端にあると、どの列の見出しなのかが読み取れない */}
+            <RowSlot w={128} align="right">金額</RowSlot>
             <RowSlot w={56} align="right" placeholder="" />
           </RowHeader>
           {rows.map((e) => (
@@ -126,12 +136,18 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
               onClick={() => setOpenId(openId === e.id ? null : e.id)}
               className={e.status === 'superseded' ? 'opacity-60' : undefined}
             >
+              {/* **提出先が無い行はバッジを出さない。** 空を「—」と書いた札にすると、
+                  和文2字以上でないので `TableBadge` の固定幅（62px）に乗らず、
+                  ダッシュ1文字のためだけの灰色の帯が並ぶ。`RowSlot` は中身が
+                  無いときに自分で「—」を出すので、枠（72px）はそのまま残る */}
               <RowSlot w={72}>
-                <TableBadge
-                  label={e.submit_to ? SUBMIT_TO_LABEL[e.submit_to] : '—'}
-                  w={null}
-                  className="w-full border-transparent bg-surface-subtle text-secondary-foreground"
-                />
+                {e.submit_to ? (
+                  <TableBadge
+                    label={SUBMIT_TO_LABEL[e.submit_to]}
+                    w={null}
+                    className="border-transparent bg-surface-subtle text-secondary-foreground"
+                  />
+                ) : null}
               </RowSlot>
               <RowMain>
                 <RowTitle>{e.title || '（件名なし）'}</RowTitle>
@@ -142,10 +158,13 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                 </RowSub>
               </RowMain>
               <RowSlot w={72}>
-                <TableBadge label={STATUS_LABEL[e.status]} w={null} className={cn('w-full', STATUS_TONE[e.status])} />
+                <TableBadge label={STATUS_LABEL[e.status]} w={null} className={STATUS_TONE[e.status]} />
               </RowSlot>
+              {/* 列の中の金額は既定の形（`¥` を枠の左端・数字を右端）。
+                  `justify-end` にすると `¥` が数字にくっついて動くので、
+                  桁数の違う行が並んだとき円記号の位置がばらつく */}
               <RowSlot w={128}>
-                <Money value={e.subtotal - e.discount} className="w-full justify-end" />
+                <Money value={e.subtotal - e.discount} className="w-full" />
               </RowSlot>
               {/* **見積書 PDF はどの版からも出せる**（案件の見積タブと同じ決めごと）。
                   出したあと（`sent`）や旧版（`superseded`）こそ「何を出したか」を
