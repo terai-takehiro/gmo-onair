@@ -65,6 +65,27 @@ describe('① 版の門は、比べる相手がある状態で走る', () => {
   it('手元では今までどおり飛ばす（枝を切った直後に止めない）', () => {
     expect(CHANGELOG).toMatch(/手元なので止めません/);
   });
+
+  it('⚠️ リリースの枝は通す — 枝の名前を git に訊かない（レビューでの指摘 #147・P1）', () => {
+    /*
+     * `pull_request` の仕事は**マージ用の ref を切り離した頭**で取り出すので、
+     * `rev-parse --abbrev-ref HEAD` は **`HEAD` という文字**を返します。
+     * 前の版はそれを見て「リリースではない」と判断していました。
+     * 比べる相手が作れるようになった（`fetch-depth: 0`）結果、
+     * **リリース PR が必須チェックで止まります** — つまり**リリースが出せません**。
+     * 実測: 切り離した頭 ＋ 版を上げた状態で、前の版は exit 1・この版は exit 0。
+     */
+    expect(CHANGELOG).toMatch(/GITHUB_HEAD_REF/);
+    expect(CHANGELOG).toMatch(/local !== 'HEAD'/);
+    // `isRelease` は `branchName()` を通す（git に直接訊かない）
+    const fn = CHANGELOG.slice(CHANGELOG.indexOf('function isRelease'), CHANGELOG.indexOf('if (isRelease())'));
+    expect(fn).toMatch(/branchName\(\)/);
+    expect(fn).not.toMatch(/rev-parse/);
+  });
+
+  it('作業 PR は緩めていない（版を触れば止まる）', () => {
+    expect(CHANGELOG).toMatch(/if \(bumped\.length > 0\)[\s\S]*?process\.exit\(1\)/);
+  });
 });
 
 // ───────────────────────────────────────────────────────

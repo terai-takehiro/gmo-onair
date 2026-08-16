@@ -158,7 +158,6 @@ describe('③ 表からはみ出した貼り付けを黙って捨てない', () 
 
 describe('④ 候補は最後のページまで集める', () => {
   const fetcher = readSrc('client/src/contexts/sales/pages/projectLedger/fetchAllNamed.ts');
-  const page = readSrc('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
   /** 「もう書いていないこと」を見るとき用（注釈を落とす） */
   const pageCode = readCode('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
 
@@ -175,7 +174,8 @@ describe('④ 候補は最後のページまで集める', () => {
 
   it('打ち切ったことを返す（黙って切らない）', () => {
     expect(fetcher).toMatch(/truncated: true/);
-    expect(page).toContain('途中まで');
+    expect(readSrc('client/src/contexts/sales/pages/projectLedger/LookupNotices.tsx'))
+      .toContain('途中まで');
   });
 
   it('画面は `?limit=200` `?limit=500` を投げない（丸められて効かない）', () => {
@@ -195,12 +195,14 @@ describe('④ 候補は最後のページまで集める', () => {
 
   it('引き終わるまで名前の列は直せない（実在するのに「いません」と言わない）', () => {
     const hook = readSrc('client/src/contexts/sales/pages/projectLedger/useLedgerGrid.ts');
-    expect(hook).toMatch(/!lookupsReady && \(key === 'assigned_to_name' \|\| key === 'customer_name'\)/);
-    expect(hook).toMatch(/!lookupsReady && \(col === 'assigned_to_name' \|\| col === 'customer_name'\)/);
-    expect(page).toContain('候補を読み込んでいます');
+    // **列ごとに見る**（片方が落ちても、引けたほうは直せる・#146）
+    expect((hook.match(/if \(nameCol && !lookupsReady\[nameCol\]\)/g) ?? []).length).toBe(2);
+    expect(readSrc('client/src/contexts/sales/pages/projectLedger/LookupNotices.tsx'))
+      .toContain('候補を読み込んでいます');
     // **引く気が無いときは `true`**（読むだけの人に永久に帯を出さない）
     const lookups = readSrc('client/src/contexts/sales/pages/projectLedger/useLedgerLookups.ts');
-    expect(lookups).toMatch(/ready: !enabled \|\|/);
+    expect(lookups).toMatch(/users: !enabled \|\| usersQ\.isSuccess/);
+    expect(lookups).toMatch(/customers: !enabled \|\| customersQ\.isSuccess/);
   });
 });
 
@@ -251,5 +253,37 @@ describe('⑤ カレンダーに無い日を通さない', () => {
     const noShape = parseCell('event_start', '来週', ctx);
     expect(noShape.ok).toBe(false);
     expect(noShape.ok === false && noShape.why).toContain('2026-08-15 の形');
+  });
+});
+
+// ───────────────────────────────────────────────────────
+// ⑥ 候補が引けなかったとき（レビューでの指摘 #146）
+// ───────────────────────────────────────────────────────
+
+describe('⑥ 候補が引けなかったら、待たせずにやり直させる', () => {
+  const lookups = readSrc('client/src/contexts/sales/pages/projectLedger/useLedgerLookups.ts');
+  const notices = readSrc('client/src/contexts/sales/pages/projectLedger/LookupNotices.tsx');
+
+  it('引けたかを列ごとに持つ（片方の失敗で両方を止めない）', () => {
+    expect(lookups).toMatch(/ready: \{\s*users:/);
+    expect(lookups).toMatch(/failed: \{\s*users:/);
+  });
+
+  it('失敗を「まだ引いている」と混ぜない（永久に読み込み中にしない）', () => {
+    expect(lookups).toMatch(/isError/);
+    // 帯は「引いている」と「引けなかった」を別に出す
+    expect(notices).toContain('候補を読み込んでいます');
+    expect(notices).toContain('読み込めませんでした');
+    expect(notices).toMatch(/loading && !broken/);
+  });
+
+  it('やり直せる（待っても直らないので）', () => {
+    expect(lookups).toMatch(/retry: \(\) =>[\s\S]*?refetch\(\)/);
+    expect(notices).toContain('やり直す');
+  });
+
+  it('落ちた列だけ名指しする（引けたほうを巻き添えにしない）', () => {
+    expect(notices).toMatch(/failed\.users && '社内の担当'/);
+    expect(notices).toMatch(/failed\.customers && 'お客様'/);
   });
 });
