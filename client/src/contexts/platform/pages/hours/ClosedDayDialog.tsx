@@ -169,7 +169,7 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
 
           {affected !== null && affected.length > 0 && (
             <div className="rounded-note overflow-hidden border border-warning-border bg-warning-surface">
-              <p className="text-note flex items-center gap-2 px-3.5 py-2.5 font-bold text-warning-foreground">
+              <p className="text-note flex items-center gap-2 px-3.5 py-2.5 font-bold text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 この期間に予約が {affected.length} 件あります（<strong className="font-bold">消しません</strong>）
               </p>

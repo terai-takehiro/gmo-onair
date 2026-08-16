@@ -131,8 +131,8 @@ export default function NotifyPage() {
       {/* ── 社外 ─────────────────────────────────────────── */}
       <div className="rounded-card overflow-hidden border border-warning-border bg-card">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-faint bg-warning-surface px-4 py-3">
-          <span className="text-cardtitle shrink-0 text-warning-foreground">社外あて（{external.length}本）</span>
-          <span className="text-note min-w-0 flex-1 text-warning-foreground">
+          <span className="text-cardtitle shrink-0 text-warning">社外あて（{external.length}本）</span>
+          <span className="text-note min-w-0 flex-1 text-secondary-foreground">
             <strong className="font-bold">ONAiR からは送りません。</strong>文面をコピーして、いつもの方法で送ってください
           </span>
         </div>

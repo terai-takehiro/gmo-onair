@@ -47,7 +47,7 @@ export function RelinkDialog({
               placeholder="GLS 番号で探す..."
             />
           </div>
-          <div className="text-note space-y-1 rounded-note border border-warning-border bg-warning-surface p-3 text-warning-foreground">
+          <div className="text-note space-y-1 rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
             <p>押すと、次のことが起きます:</p>
             <ul className="list-disc space-y-0.5 pl-4">
               <li>GLS 番号が付け替え先のものになり、回のコードは新しい番号で採り直します</li>

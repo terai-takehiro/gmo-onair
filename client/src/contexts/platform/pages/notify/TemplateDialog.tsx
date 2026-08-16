@@ -92,7 +92,7 @@ export function TemplateDialog({ template, canEdit, open, onOpenChange }: Props)
         </DialogHeader>
 
         {external && (
-          <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-3 text-warning-foreground">
+          <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-3 text-secondary-foreground">
             <strong className="font-bold">この文面は ONAiR からは送りません。</strong>
             下のボタンでコピーして、いつもの方法で送ってください。
             <strong className="font-bold">{'{'}案件名{'}'} のような語はそのまま残しています</strong> —
