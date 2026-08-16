@@ -1,0 +1,122 @@
+/**
+ * **淡い帯の上に「塗りの上の文字色」を載せると、文字はあるのに読めない**
+ *
+ * ── 何が起きていたか ────────────────────────────────────────
+ *
+ * `tokens.css` の接尾辞の文法（`shared/CLAUDE.md`）では
+ *
+ *   --<s>              塗りの色
+ *   --<s>-foreground   **塗りの上に載る**文字の色  ← 明るい配色では **白**
+ *   --<s>-surface      帯の背景                     ← **淡い面**（#fff7ed）
+ *
+ * なので `bg-warning-surface` に `text-warning-foreground` を当てると
+ * **白地に白**になります。利用者から「黄色の囲いの文字が白くて読めない」と
+ * 指摘されたのがこれで、探すと **6画面7か所**ありました。
+ *
+ * ⚠️ **型検査にも eslint にも出ません。** どちらも実在するクラス名で、
+ * 名前は1文字違い（`text-warning` / `text-warning-foreground`）です。
+ * `verify:ui` の「薄すぎる文字」は実ブラウザで拾えますが、
+ * **開いていないダイアログの中は測れません** — 7か所のうち5か所が
+ * ダイアログの中の注意書きでした（＝押す前にいちばん読んでほしい文）。
+ *
+ * ── 実測（この試験が固定している数） ───────────────────────
+ *
+ * | 前景 | 背景 (`--warning-surface` #fff7ed) | 比 | |
+ * | --- | --- | --- | --- |
+ * | `--warning-foreground` #ffffff | 淡い帯 | **1.07:1** | 読めない |
+ * | `--warning` #c2410e（v4） | 淡い帯 | **4.88:1** | AA |
+ *
+ * 反証: `scripts/check-contrast-tokens.mjs` から `-surface` の除外を外すと
+ * 淡い面を塗りと数えてしまい、この形を**素通し**します。
+ */
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ROOT = join(__dirname, '..', '..');
+const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
+
+const TOKENS = read('shared', 'src', 'client', 'tokens.css');
+const TOKENS_V4 = read('shared', 'src', 'client', 'tokens-v4.css');
+const SCRIPT = read('scripts', 'check-contrast-tokens.mjs');
+
+/**
+ * `--name: r g b;` を拾う（明るい配色 = `.dark` の**規則**より前だけ）。
+ *
+ * ⚠️ 素の `indexOf('.dark')` で切らないこと — `tokens.css` の**注釈**に
+ * 「暗い配色 (`.dark`) の値は作っていない」と書いてあり、そこに当たって
+ * **`--warning-surface` より手前で切れます**（実際に踏んだ）。行頭で探す。
+ */
+function rgb(css: string, name: string): [number, number, number] {
+  const at = css.search(/^\.dark\s*\{/m);
+  const light = at >= 0 ? css.slice(0, at) : css;
+  const m = light.match(new RegExp(`--${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*;`));
+  if (!m) throw new Error(`${name} が見つかりません`);
+  return [+m[1], +m[2], +m[3]];
+}
+
+const lin = (v: number) => {
+  const c = v / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+};
+const lum = ([r, g, b]: [number, number, number]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+const ratio = (a: [number, number, number], b: [number, number, number]) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+describe('「塗りの上の文字色」は淡い帯の上では読めない', () => {
+  it('⚠️ 前提: `-foreground` は明るい配色で白', () => {
+    // ここが白でなくなったら、この試験の前提ごと見直すこと
+    for (const s of ['warning', 'success', 'info', 'destructive', 'primary']) {
+      expect(rgb(TOKENS, `${s}-foreground`)).toEqual([255, 255, 255]);
+    }
+  });
+
+  it('白を淡い帯に載せると読めない（1.1:1 を下回る）', () => {
+    const white = rgb(TOKENS, 'warning-foreground');
+    const surface = rgb(TOKENS, 'warning-surface');
+    expect(ratio(white, surface)).toBeLessThan(1.1);
+  });
+
+  it('直し先（`text-warning`）は淡い帯の上で AA を満たす', () => {
+    // v4 の3アプリは `tokens-v4.css` が `--warning` を #c2410e に上書きしている
+    const warn = rgb(TOKENS_V4, 'warning');
+    const surface = rgb(TOKENS, 'warning-surface');
+    expect(ratio(warn, surface)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('直した7か所が戻っていない', () => {
+  // 利用者の指摘（案件分類の確認ダイアログ）と、同じ形で見つかった残り
+  const FIXED = [
+    'client/src/contexts/sales/pages/projectForm/dialogs/CategorySwitchDialog.tsx',
+    'client/src/contexts/sales/pages/projectForm/dialogs/RelinkDialog.tsx',
+    'client/src/contexts/platform/pages/notify/TemplateDialog.tsx',
+    'client/src/contexts/platform/pages/notify/NotifyPage.tsx',
+    'client/src/contexts/platform/pages/hours/ClosedDayDialog.tsx',
+    'client/src/contexts/platform/pages/members/RoleDialog.tsx',
+  ];
+  for (const f of FIXED) {
+    it(f.split('/').pop()!, () => {
+      expect(read(...f.split('/'))).not.toMatch(/text-warning-foreground/);
+    });
+  }
+});
+
+describe('検査そのものが機能する形になっている', () => {
+  it('淡い面（`-surface`）を塗りと数えない', () => {
+    // `bg-warning` の直後に `-` が来るものは塗りではない、という留め方
+    expect(SCRIPT).toMatch(/bg-\$\{s\}\(\?!\[a-z-\]\)/);
+  });
+
+  it('`npm run lint` から呼ばれている', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts.lint).toContain('check-contrast-tokens.mjs');
+  });
+
+  it('白かどうかは tokens.css から読む（コードに焼き込まない）', () => {
+    expect(SCRIPT).toContain('tokens.css');
+    expect(SCRIPT).toMatch(/lum\s*>\s*0\.5/);
+  });
+});

@@ -149,7 +149,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
                 onChange={(e) => setReapply(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0"
               />
-              <span className="text-note text-warning-foreground">
+              <span className="text-note text-secondary-foreground">
                 この役割の <strong className="font-bold">{members} 名</strong>にも反映する
                 <span className="mt-0.5 block">
                   チェックを外したままだと、<strong className="font-bold">これから押す人にだけ</strong>新しい中身が効きます。

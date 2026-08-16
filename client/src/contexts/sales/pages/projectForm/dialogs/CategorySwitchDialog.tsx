@@ -37,11 +37,11 @@ export function CategorySwitchDialog({
         </DialogHeader>
 
         <div className="py-3">
-          <div className="rounded-note border border-warning-border bg-warning-surface p-3 text-warning-foreground">
+          <div className="rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
               <div className="space-y-1.5">
-                <p className="text-list">この案件は GLS 発番済みです（{currentGls}）</p>
+                <p className="text-list text-warning">この案件は GLS 発番済みです（{currentGls}）</p>
                 <p className="text-sub">切り替えると、次のものが自動で変わります:</p>
                 <ul className="text-note list-inside list-disc space-y-0.5">
                   <li>GLS 番号を新しい分類で<strong>採り直します</strong></li>
