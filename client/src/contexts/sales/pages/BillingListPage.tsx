@@ -56,9 +56,21 @@ const ESTIMATE_CHIPS = [
   { key: 'rejected', label: '失注', status: 'rejected' },
 ];
 
+/**
+ * 請求の絞り込み。
+ *
+ * ⚠️ **名前も中身も財務の売上台帳とそろえてあります**（レビューでの指摘 #125）。
+ * 前はここだけ「入金前」で、**中身は「入金日が空」だけ**でした。台帳の「入金待ち」は
+ * **請求書を出したのに入金がまだ**だったので、**同じ話をしているのに件数が違い**、
+ * どちらが正しいか画面からは分かりませんでした（実測: 40 件 と 3 件）。
+ *
+ * 出していないものは**「未請求」で拾えます** — 消えたわけではなく、
+ * 「入金を待っている」ではなく**「こちらが請求していない」**という別の仕事なので分けました。
+ */
 const INVOICE_CHIPS = [
   { key: 'all', label: 'すべて', state: '' },
-  { key: 'unpaid', label: '入金前', state: 'unpaid' },
+  { key: 'unissued', label: '未請求', state: 'unissued' },
+  { key: 'unpaid', label: '入金待ち', state: 'unpaid' },
   { key: 'overdue', label: '期日超過', state: 'overdue' },
   { key: 'uninspected', label: '検収前', state: 'uninspected' },
   { key: 'paid', label: '入金済', state: 'paid' },

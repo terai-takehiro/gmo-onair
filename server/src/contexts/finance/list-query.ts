@@ -1,6 +1,7 @@
 // 予算管理 一覧/エクスポート共通のフィルタ + 並び替えビルダー
 // list ルートと excel エクスポートで同一の絞り込み・ソートを保証するために共有する。
 import type { Request } from 'express';
+import { billingStateSql } from '../../shared/services/billing-state';
 
 type Query = Request['query'];
 
@@ -109,12 +110,16 @@ export function buildRevenueWhere(q: Query): { where: string; params: unknown[] 
   else if (status) { where += ` AND r.status = ?`; params.push(status); }
   else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
 
-  // 請求・入金の進み具合。**日付が入っていれば済み**（フラグと日付を両方持つと必ず食い違う）
+  /*
+   * 請求・入金の進み具合。**式は `shared/services/billing-state.ts` が持ちます**
+   * （⑤ 見積・請求の `GET /billing/invoices` と**同じものを読む**。レビューでの指摘 #125）。
+   *
+   * ⚠️ **ここに書き戻さないこと。** 2か所に書いていたときは、同じ `state=unpaid` が
+   * 口によって違う集合を指しており、**2つの画面で違う件数**が出ていました。
+   */
   const state = s(q.state);
-  if (state === 'issued') where += ` AND r.invoice_issued = true`;
-  else if (state === 'unissued') where += ` AND (r.invoice_issued IS NOT TRUE)`;
-  else if (state === 'unpaid') where += ` AND r.invoice_issued = true AND r.paid_date IS NULL`;
-  else if (state === 'paid') where += ` AND r.paid_date IS NOT NULL`;
+  const sql = billingStateSql(state);
+  if (sql) where += ` AND ${sql}`;
   // 知らない値は**素通しさせない**。絞り込んだのに全件返ると気づけない
   else if (state) where += ` AND FALSE`;
   return { where, params };

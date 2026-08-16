@@ -24,6 +24,7 @@ import { requireAuth, requireAnyPermission, meetsPermissionLevel } from '../../.
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
+import { BILLING_STATE_SQL, billingStateSql } from '../../../shared/services/billing-state';
 
 const router = Router();
 
@@ -143,23 +144,24 @@ router.get('/invoices', async (req, res) => {
                  AND p.deleted_at IS NULL`;
 
   if (mine) { where += ' AND r.assigned_to = ?'; params.push(req.user!.id); }
-  if (state === 'unpaid') where += ' AND r.paid_date IS NULL';
   /*
-   * ⚠️ **請求書を出したもののうち、入金がまだ**（レビューでの指摘）。
+   * 進み具合の言葉は**財務の売上台帳（`GET /revenues`）と同じもの**を読みます
+   * （`shared/services/billing-state.ts`。レビューでの指摘 #125）。
    *
-   * `unpaid` は「入金日が入っていない」だけなので、**まだ請求書を出していない売上**も
-   * 含みます。⑫ 入金の確認（スマホ）はそこから**入金を記録できてしまう**ので、
-   * **請求していないのに入金済みの行**ができます（月次の締めの `collect` は
-   * 前から `invoice_issued` を要求しています）。
-   *
-   * **`unpaid` の意味は変えていません** — ⑤ 見積・請求の「入金前」チップが読んでおり、
-   * そちらは「出していないものも含めて入金がまだ」を見たい場面があります。
-   * ここは**別の値**として足します（PC の「入金前」との食い違いは棚卸しに記録）。
+   * ⚠️ **ここに式を直接書かないこと。** 前は `unpaid` を「入金日が空」だけにしており、
+   * 台帳の `unpaid`（請求書を出したのに入金がまだ）と**同じ言葉で違う集合**でした。
+   * 2つの画面で違う件数が出て、**どちらが正しいか画面からは分かりません**。
    */
-  else if (state === 'unpaid_issued') where += ' AND r.invoice_issued = true AND r.paid_date IS NULL';
-  else if (state === 'overdue') where += ` AND r.paid_date IS NULL AND r.payment_due_date < to_char(NOW(), 'YYYY-MM-DD')`;
+  const common = billingStateSql(state);
+  if (common) where += ` AND ${common}`;
+  /*
+   * **期日超過も「請求書を出したもの」に限る。**
+   * 出していない売上の期日が過ぎているのは「お客様が遅れている」ではなく
+   * **こちらが請求していない**という別の話で、押しても入金は来ません。
+   * 出していないものは「未請求」（`unissued`）から拾えます。
+   */
+  else if (state === 'overdue') where += ` AND ${BILLING_STATE_SQL.unpaid} AND r.payment_due_date < to_char(NOW(), 'YYYY-MM-DD')`;
   else if (state === 'uninspected') where += ' AND r.inspection_date IS NULL';
-  else if (state === 'paid') where += ' AND r.paid_date IS NOT NULL';
   else if (state) where += ' AND FALSE';   // 知らない状態は空で返す
 
   const rows = await queryAll(
