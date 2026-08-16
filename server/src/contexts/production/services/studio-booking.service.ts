@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkBooking, locationOfRooms, stampOutOfHours } from './business-hours.service';
+import { syncProjectEventDates } from './project-event-dates.service';
 
 /** from〜to (YYYY-MM-DD, 両端含む) の日付を昇順で列挙。UTC 基準で TZ ドリフトを回避。 */
 function enumerateDates(from: string, to: string): string[] {
@@ -230,6 +231,14 @@ export const studioBookingService = {
         [actorId, project_id, id]
       );
     }
+
+    /*
+     * **案件の実施日を引き直す**（`project-event-dates.service.ts`）。
+     * カレンダーで押さえた日が案件詳細の「実施日」に出ないと、
+     * 同じ案件が画面によって違う日を出す。仮押さえの掃除のあとに回すこと —
+     * 先に回すと、消える予定の仮押さえまで数えた期間で一度書いてしまう。
+     */
+    await syncProjectEventDates(project_id, actorId);
 
     // ── 営業時間の外なら印を付ける（v4 設定 ⑥）────────────────
     //

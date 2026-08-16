@@ -79,6 +79,7 @@ import { useProjectForm } from './projectForm/useProjectForm';
 import { MembersSection } from './projectForm/MembersSection';
 import { BookingListSection } from './projectForm/BookingListSection';
 import { ScheduleSection } from './projectForm/ScheduleSection';
+import { hasEventBooking } from './projectForm/eventBookings';
 import { BroadcastSection } from './projectForm/BroadcastSection';
 import { BoxSection } from './projectForm/BoxSection';
 import { DocsSection } from './projectForm/DocsSection';
@@ -319,7 +320,7 @@ export default function ProjectFormPage() {
           s={schedule}
           studioLocations={f.studioLocations}
           isEdit={isEdit}
-          hasBookings={actions.bookings.length > 0}
+          hasBookings={hasEventBooking(actions.bookings)}
           onOpenCalendar={isEdit && f.isCategoryA ? openCalendar : undefined}
         />
 

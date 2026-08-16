@@ -13,6 +13,7 @@ import { taxBillingSuffix } from '../../../shared/services/tax-category.service'
 import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
+import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
 import {
   JAPANESE_SORT_KEYS, japaneseCollationAvailable, withJapaneseCollation,
 } from './japanese-sort';
@@ -1332,6 +1333,15 @@ export class ProjectService {
            VALUES (?, ?, 'hold', ?, 1, ?, ?, 'tentative', '案件ステージ移行で自動生成', ?)`,
           [bookingId, `${project.name} 仮押さえ`, id, project.event_start, eventEnd, userId]
         );
+        /*
+         * **実施日を引き直す**（`production/services/project-event-dates.service.ts`）。
+         * ここで作った仮押さえは**実施日を決める予約**なので、以後この案件の
+         * 日程は予約が正になり、直す画面から「スタジオの日程」が消えます。
+         * 引き直しておかないと、終了日が空の案件が「2026/08/13 〜 —」のまま
+         * **どこからも直せなく**なります（作った予約は開始＝終了なので、
+         * ここでの引き直しは終了日を開始日に揃えるだけです）。
+         */
+        await syncProjectEventDates(id, userId);
       }
     }
 

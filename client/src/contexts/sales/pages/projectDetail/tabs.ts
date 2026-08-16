@@ -116,8 +116,20 @@ export function projectPhase(p: {
   dates?: { date: string }[];
 }, today: string): ProjectPhase {
   if (p.stage === 's_completed' || p.stage === 'e_lost') return 'done';
+  /*
+   * ⚠️ **実施日の両端は `dates` があっても必ず見る。**
+   *
+   * 予約（カレンダー）を直すと `event_start` / `event_end` は引き直されますが
+   * （`server/.../project-event-dates.service.ts`）、`project_dates` は
+   * **案件を作ったときのまま**です。`dates` があるときそちらだけを見ていたので、
+   * **カレンダーで動かした本番日に「当日」タブが出ませんでした**
+   * （出ないタブは現場で探しようがありません）。
+   *
+   * 足すのは**両端だけ**です。期間で判定してはいけません —
+   * 飛び日（10/01 と 10/07 だけ本番）の中日が本番になります。
+   */
   const days = (p.dates ?? []).map((d) => d.date).filter(Boolean);
-  const all = days.length > 0 ? days : ([p.event_start, p.event_end].filter(Boolean) as string[]);
+  const all = [...days, p.event_start, p.event_end].filter(Boolean) as string[];
   return all.includes(today) ? 'day' : 'base';
 }
 
