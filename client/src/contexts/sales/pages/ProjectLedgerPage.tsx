@@ -24,7 +24,6 @@
  * **権限が無い人にはチェックボックスごと出しません** — 出しても押せば 403 です。
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +44,7 @@ import { CSV_MAX_ROWS } from './projectLedger/csv';
 import { JA_SORT_KEYS, JA_SORT_NOTE } from './projectLedger/display';
 import { useLedgerGrid } from './projectLedger/useLedgerGrid';
 import { PastePlanDialog } from './projectLedger/PastePlanDialog';
-import { fetchAllNamed } from './projectLedger/fetchAllNamed';
+import { useLedgerLookups } from './projectLedger/useLedgerLookups';
 
 const STAGE_OPTIONS: ProjectStage[] = [
   'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
@@ -81,41 +80,11 @@ export default function ProjectLedgerPage() {
   const canEdit = canBulk && editMode;
 
   /**
-   * まとめて直すダイアログと升目編集が要る候補。**開くときだけ引く**。
-   *
-   * ⚠️ **ページを最後までたどって集めます**（レビューでの指摘 #127・#135）。
-   * `?limit=500` と書いてもサーバーが 100 に丸めるので、前の版は
-   * **名前順で 101 番目以降の担当・取引先を選べず、貼っても「いません」と
-   * 断られて**いました（実在するのに）。
-   *
-   * ⚠️ **鍵を他の画面と分けています。** `['users-list']` /
-   * `['customers-for-new-project']` は案件作成（`useNewProjectForm`）と
-   * 販管費（`SgaListPage`）が使っており、**中身の形が違います**
-   * （あちらは応答そのもの・こちらは行の配列）。同じ鍵に別の形を入れると、
-   * 先に開いた画面の中身で**あとの画面が壊れます**。
+   * 名前で直すための候補。引き方の決めごと3つは `useLedgerLookups` にあります
+   * （ページを最後までたどる／鍵を他の画面と分ける／引き終わったかを返す）。
    */
-  const lookupsEnabled = bulkOpen || canEdit;
-  const usersQ = useQuery({
-    queryKey: ['ledger-users-all'],
-    queryFn: () => fetchAllNamed('/users'),
-    enabled: lookupsEnabled,
-    staleTime: 5 * 60_000,
-  });
-  const customersQ = useQuery({
-    queryKey: ['ledger-customers-all'],
-    queryFn: () => fetchAllNamed('/customers'),
-    enabled: lookupsEnabled,
-    staleTime: 5 * 60_000,
-  });
-
-  const users = usersQ.data?.rows ?? [];
-  const customers = customersQ.data?.rows ?? [];
-  /**
-   * **引き終わったか。** 引き終わる前に名前で照合すると、空の一覧に対して
-   * 引くので**必ず「いません」**になります（`useLedgerGrid` が見ています）。
-   */
-  const lookupsReady = !lookupsEnabled || (usersQ.isSuccess && customersQ.isSuccess);
-  const lookupsTruncated = Boolean(usersQ.data?.truncated || customersQ.data?.truncated);
+  const lookups = useLedgerLookups(bulkOpen || canEdit);
+  const { users, customers, ready: lookupsReady, truncated: lookupsTruncated } = lookups;
 
   /**
    * 升目としての操作（選ぶ・コピー・貼り付け・その場で直す）。
