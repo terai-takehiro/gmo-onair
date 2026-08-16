@@ -138,7 +138,10 @@ export function OverviewTab({
         */}
         <div className="grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-3">
           <Fact icon={CalendarDays} label="実施日">
-            <DateRange start={project.event_start} end={project.event_end} className="text-list" />
+            {/* **`flex-wrap` が要る。** 期間(201px)は枠に入らず**隣の会場に重なって終了日が
+                読めない**（実測: 1024px で枠 127px に 90px・375px で 51px はみ出す。ページは
+                横スクロールしないので気づけない）。日付は `whitespace-nowrap` のまま割れない */}
+            <DateRange start={project.event_start} end={project.event_end} className="text-list flex-wrap" />
           </Fact>
           {/*
             会場は**予約の `rooms[]` と `location_note`** から組み立てる（`venue.ts`）。

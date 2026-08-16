@@ -41,6 +41,14 @@ describe('projectPhase — 本番日', () => {
     const dates = [{ date: '2026-10-01' }, { date: '2026-10-07' }];
     expect(projectPhase({ stage: 'a_won', event_start: '2026-10-01', event_end: '2026-10-07', dates }, TODAY)).toBe('base');
   });
+  it('**カレンダーで動かした本番日も day**（`dates` は作ったときのまま古い）', () => {
+    // 予約を 10/01 → 10/03 に動かすと `event_start` / `event_end` だけが引き直され、
+    // `project_dates` は 10/01 のまま残る。`dates` だけを見ていると当日タブが出なかった
+    const dates = [{ date: '2026-10-01' }];
+    expect(projectPhase(
+      { stage: 'a_won', event_start: '2026-10-03', event_end: '2026-10-03', dates }, TODAY,
+    )).toBe('day');
+  });
   it('日程を持たない案件は base', () => {
     expect(projectPhase({ stage: 'c_proposal' }, TODAY)).toBe('base');
     expect(projectPhase({ stage: 'c_proposal', event_start: null, event_end: null }, TODAY)).toBe('base');

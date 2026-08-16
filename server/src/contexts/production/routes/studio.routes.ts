@@ -7,6 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
 import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/business-hours.service';
+import { syncProjectEventDates } from '../services/project-event-dates.service';
 import type { HoursCheck } from '../../../shared/services/businessHours';
 
 const router = Router();
@@ -463,7 +464,11 @@ router.post('/bookings', requirePermission('studio', 'editor'), async (req, res)
 
 // PUT /studios/bookings/:id — 予約更新
 router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, res) => {
-  const existing = await queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  // **元の案件も控える。** 予約を別の案件に付け替えると、**元の案件と付け替え先の
+  // 両方**の実施日が変わる（元の案件はその予約が無くなった期間で引き直す）
+  const existing = await queryOne(
+    'SELECT id, project_id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { id: string; project_id: string | null } | undefined;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
   /**
@@ -537,6 +542,17 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
     'SELECT * FROM studio_bookings WHERE id = ?', [req.params.id],
   ) as Record<string, unknown>;
 
+  /*
+   * **案件の実施日を引き直す**（`project-event-dates.service.ts`）。
+   * 日付・種別・案件のどれを直しても期間が変わりうるので、**毎回**回す
+   * （値が変わらなければ書かないので、保存し直しでは何も起きない）。
+   * 付け替えたときは元の案件も引き直す（`existing.project_id`）。
+   */
+  await syncProjectEventDates(after.project_id as string | null, req.user!.id);
+  if (existing.project_id && existing.project_id !== after.project_id) {
+    await syncProjectEventDates(existing.project_id, req.user!.id);
+  }
+
   let hoursCheck: HoursCheck | null = null;
   if (timeChanged || roomsChanged) {
     // **部屋を入れ替えたあとの拠点**を見る（入れ替えは上で済んでいる）
@@ -556,8 +572,21 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
 
 // DELETE /studios/bookings/:id
 router.delete('/bookings/:id', requirePermission('studio', 'manager'), async (req, res) => {
+  // 消す前に案件を控える（消したあとでは、どの案件を引き直すか分からない）
+  const before = await queryOne(
+    'SELECT project_id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { project_id: string | null } | undefined;
+
   await execute(`UPDATE studio_bookings SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
+
+  /*
+   * **残った予約で実施日を引き直す。** ⚠️ 最後の1件を消したときは**触りません** —
+   * 予約を消しただけで実施日まで空にすると、Excel 取込・MCP・案件作成で入れた
+   * 日付が黙って消えます（`project-event-dates.service.ts` の冒頭）
+   */
+  await syncProjectEventDates(before?.project_id, req.user!.id);
+
   res.json({ success: true, message: '削除しました' });
 });
 
