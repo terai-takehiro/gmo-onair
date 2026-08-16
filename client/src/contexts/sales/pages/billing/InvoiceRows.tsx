@@ -30,6 +30,7 @@ import { Check } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
+import { notifyWarning } from '@gmo-onair/shared/src/client/notify';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import type { BillingInvoice } from './types';
 
@@ -74,12 +75,29 @@ function MarkCell({
   return (
     <RowSlot w={96}>
       {canEdit ? (
+        /*
+         * ⚠️ **理由を `title` だけに持たせない**（レビューでの指摘・P2）。
+         * `disabled` にすると**キーボードで辿り着けず**、指で触る端末には
+         * hover がありません。つまりその人たちに見えるのは
+         * **薄くなった「入金前」だけ**で、理由はどこにも出ません。
+         *
+         * `disabled` ではなく `aria-disabled` にして**押せる（＝辿り着ける）まま**にし、
+         * 押したら**帯で理由を出す**（`NoticeBar`。人が閉じるまで残る）。
+         * 読み上げには `aria-label` で理由ごと渡す。
+         * ⚠️ **押しても何も起きない形にしないこと** — それが元の不具合と同じ形です。
+         */
         <button
           type="button"
-          disabled={busy || !!blocked}
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          disabled={busy}
+          aria-disabled={blocked ? true : undefined}
+          aria-label={blocked ? `${todoLabel}（${blocked}）` : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (blocked) { notifyWarning('入金を記録できません', { description: blocked }); return; }
+            onToggle();
+          }}
           title={blocked}
-          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary disabled:cursor-default disabled:opacity-50 disabled:hover:border-border disabled:hover:text-secondary-foreground lg:h-9 lg:min-h-0"
+          className="rounded-badge text-sub-sm min-h-tap w-full border border-border bg-card font-bold text-secondary-foreground hover:border-primary-border hover:text-primary disabled:cursor-default disabled:opacity-50 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:border-border aria-disabled:hover:text-secondary-foreground lg:h-9 lg:min-h-0"
         >
           {todoLabel}
         </button>

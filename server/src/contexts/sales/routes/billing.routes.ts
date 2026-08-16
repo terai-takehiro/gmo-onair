@@ -430,15 +430,36 @@ router.post('/invoices/bulk', canEdit, async (req, res) => {
    * 全部止めると、経理は原因の行を探すところから始めることになります。
    */
   let skippedUnissued: string[] = [];
-  if (isSettingPaidDate(body) && !issuing) {
-    const unissued = await queryAll(
-      `SELECT id FROM revenues WHERE id = ANY($1::text[]) AND deleted_at IS NULL
-         AND (invoice_issued IS NOT TRUE)`,
-      [finalIds],
-    ) as { id: string }[];
-    skippedUnissued = unissued.map((u) => u.id);
-    const skip = new Set(skippedUnissued);
-    finalIds = finalIds.filter((id) => !skip.has(id));
+  if (isSettingPaidDate(body)) {
+    if ('invoice_issued' in body) {
+      /*
+       * ⚠️ **更新した「あと」の姿で見る**（レビューでの指摘・P1。前の版の穴）。
+       *
+       * 前は**いまの `invoice_issued`** だけを引いていたので、
+       * `{ invoice_issued: false, paid_date: … }` を**発行済みの行に**送ると、
+       * その行は「いま未請求」ではないので飛ばされず、UPDATE が
+       * **発行の取り消しと入金日を同時に書きました** — つまり
+       * **止めようとしていた「未請求なのに入金済み」がそのままできます**。
+       *
+       * ここは全件に同じ値を書くので、**`false` を送っているなら全部が該当**します。
+       * 飛ばすと 0 件になるだけなので、**理由を言って落とす**ほうが分かります。
+       */
+      if (!issuing) {
+        throw new AppError(400, 'VALIDATION_ERROR',
+          '請求書の取り消しと入金の記録は同時にできません（未請求の売上には入金日を入れられません）');
+      }
+      // `invoice_issued: true` を送っているなら、あとの姿は全件「発行済み」— 飛ばすものは無い
+    } else {
+      // 発行の状態を触らないときだけ、**いまの姿**で飛ばす（あとの姿＝いまの姿）
+      const unissued = await queryAll(
+        `SELECT id FROM revenues WHERE id = ANY($1::text[]) AND deleted_at IS NULL
+           AND (invoice_issued IS NOT TRUE)`,
+        [finalIds],
+      ) as { id: string }[];
+      skippedUnissued = unissued.map((u) => u.id);
+      const skip = new Set(skippedUnissued);
+      finalIds = finalIds.filter((id) => !skip.has(id));
+    }
   }
 
   if (finalIds.length === 0) {
