@@ -146,11 +146,31 @@ async function main() {
       if (!fs.existsSync(p)) { broken.push(`${f} … CSS が参照しているのに無い`); continue; }
       const size = fs.statSync(p).size;
       if (size < MIN_WOFF2_BYTES) { broken.push(`${f} … ${size} バイトしかない（途中で切れている）`); continue; }
-      const head = Buffer.alloc(4);
+
+      /*
+       * ⚠️ **「印があって 200 バイト以上」では途中切れを見つけられません**
+       * （レビューでの指摘 #130）。取得が**先頭 200 バイトより後ろ**で切れると、
+       * `wOF2` の印は残ったまま最小の大きさも超えるので、前の版は **OK と出ます**。
+       * 途中で切れるのは**普通に起きる壊れ方**（回線・プロキシ）で、
+       * しかも壊れているのはその `unicode-range` の文字だけなので**画面では気づけません**。
+       *
+       * WOFF2 の頭には**ファイル全体の大きさ**が書いてあります（8〜11 バイト目・
+       * ビッグエンディアンの 32bit / W3C WOFF2 の `length`）。
+       * **書いてある大きさと実際の大きさを突き合わせれば、1 バイトでも欠ければ分かります。**
+       */
+      const head = Buffer.alloc(12);
       const fd = fs.openSync(p, 'r');
-      try { fs.readSync(fd, head, 0, 4, 0); } finally { fs.closeSync(fd); }
-      if (head.toString('latin1') !== 'wOF2') {
-        broken.push(`${f} … woff2 ではない（先頭が ${JSON.stringify(head.toString('latin1'))}。エラーページを保存していないか）`);
+      let read = 0;
+      try { read = fs.readSync(fd, head, 0, 12, 0); } finally { fs.closeSync(fd); }
+      if (read < 12) { broken.push(`${f} … 頭が読めない（${read} バイトしかない）`); continue; }
+      if (head.toString('latin1', 0, 4) !== 'wOF2') {
+        broken.push(`${f} … woff2 ではない（先頭が ${JSON.stringify(head.toString('latin1', 0, 4))}。エラーページを保存していないか）`);
+        continue;
+      }
+      const declared = head.readUInt32BE(8);
+      if (declared !== size) {
+        broken.push(`${f} … 頭には ${declared} バイトと書いてあるのに ${size} バイトしかない`
+          + `（${declared > size ? '途中で切れている' : '余分が付いている'}）`);
       }
     }
 

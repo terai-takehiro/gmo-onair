@@ -50,7 +50,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # ⚠️ `fetch-depth: 0` を外さないこと (レビューでの指摘 #126)。
+      # 既定の浅い clone は PR のマージ ref を 1 コミットだけ持ってくるので
+      # `origin/main` が存在せず、check-changelog.mjs が比べる相手を作れない。
+      # あの検査は「読めなければ飛ばす」ので、**どの PR でも黙って通っていた**
+      # (版の 3 か所を書き換えても緑のまま = 門があるつもりで無かった)。
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
