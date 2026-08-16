@@ -126,6 +126,54 @@ for (const [s, set] of byService) {
   }
 }
 
+/*
+ * ⚠️ **除外した変数も、書いてあるとおりに置かれているか見る**
+ * （レビューでの指摘 #128）。
+ *
+ * 前の版は `ONE_SIDED` を**名前だけで素通り**させており、値に書いた
+ * 「どちらのサービスか」を**一度も確かめていませんでした**。そのため:
+ *
+ *  ・`SMTP_HOST` を `app_prod` から**消しても**この検査は通る
+ *    （本番のメールが黙って止まり、検査は「OK」と言う）
+ *  ・`SMTP_HOST` を `app_dev` に**移しても**通る
+ *    ⚠️ これは**検証環境から取引先に本物のメールが飛ぶ**ということです
+ *    （まさにこの除外の理由文が「危ないから片方だけ」と言っている当のもの）
+ *
+ * **書いてある側に在ること・反対側に無いこと**の両方を見ます。
+ * 反対側まで見るのは、この一覧の大半（SMTP / Twilio / AUTH_MODE）が
+ * **「片方に無いこと」が安全の理由**だからです。
+ */
+const oneSidedProblems = [];
+for (const [name, why] of Object.entries(ONE_SIDED)) {
+  const m = /^(app_prod|app_dev)\b/.exec(why);
+  if (!m) {
+    oneSidedProblems.push(`${name} … 理由が「app_prod — 」「app_dev — 」で始まっていません`
+      + `（どちらに置くのか読み取れないので検査できません）`);
+    continue;
+  }
+  const declared = m[1];
+  const other = declared === 'app_prod' ? 'app_dev' : 'app_prod';
+  if (!byService.get(declared).has(name)) {
+    oneSidedProblems.push(`${name} … ${declared} に置くと書いてあるのに、そこにありません`
+      + `（"${why}"）`);
+  }
+  if (byService.get(other).has(name)) {
+    oneSidedProblems.push(`${name} … ${declared} だけのはずが ${other} にもあります`
+      + `（"${why}"）`);
+  }
+}
+
+if (oneSidedProblems.length) {
+  console.error('[env-passthrough] ✗ 片方だけに渡すと決めた変数が、そのとおりになっていません:\n');
+  for (const p of oneSidedProblems) console.error(`  - ${p}`);
+  console.error(`
+**この一覧は「検査から外す」ためのものではなく「片方だけが正しい」という決めごと**です。
+docker-compose.yml を直すか、決めごとのほうが変わったのなら
+scripts/check-env-passthrough.mjs の ONE_SIDED の理由文を直してください。
+`);
+  process.exit(1);
+}
+
 /** どちらか一方にでも欠けていたら足りない扱い */
 const missing = [...used]
   .filter((v) => !(v in INTENTIONAL) && !(v in ONE_SIDED)

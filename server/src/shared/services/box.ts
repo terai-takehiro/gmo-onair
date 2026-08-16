@@ -18,14 +18,20 @@ type BoxClient = ReturnType<ReturnType<typeof BoxSDK.getPreconfiguredInstance>['
 let cachedClient: BoxClient | null = null;
 let initAttempted = false;
 
+/**
+ * ⚠️ **中身は全部 optional にしてある。** これは `JSON.parse` した
+ * **人が貼り付けた文字**で、型が保証するものは何もありません。
+ * 必須のつもりで書くと、欠けているのに「在る」ものとして扱われます
+ * （それが `appAuth` 欠けで「つながっています」と出た原因です・#130）。
+ */
 interface BoxConfigJson {
   boxAppSettings?: {
-    clientID: string;
-    clientSecret: string;
-    appAuth: {
-      publicKeyID: string;
-      privateKey: string;
-      passphrase: string;
+    clientID?: string;
+    clientSecret?: string;
+    appAuth?: {
+      publicKeyID?: string;
+      privateKey?: string;
+      passphrase?: string;
     };
   };
   enterpriseID?: string;
@@ -51,6 +57,42 @@ function initClient(): typeof cachedClient {
 
   if (!config.boxAppSettings || !config.enterpriseID) {
     console.error('[box] BOX_CONFIG_JSON missing boxAppSettings or enterpriseID');
+    return null;
+  }
+
+  /*
+   * ⚠️ **JWT の鍵まで見る**（レビューでの指摘 #130）。
+   *
+   * `BOX_CONFIG_JSON` は**1行に潰した JSON**なので、貼り付けで欠けるのが
+   * 普通に起きます。前の版は `boxAppSettings` と `enterpriseID` が
+   * **在るか**しか見ておらず、`appAuth`（公開鍵 ID・秘密鍵・パスフレーズ）が
+   * 丸ごと欠けていても **SDK はクライアントを組み立てられます**。
+   *
+   * その結果、設定画面は**「つながっています」**と出したまま、
+   * **最初の呼び出しで初めて落ちます** — しかも BOX の読み取りは
+   * 「案件を止めない」ために 200 で返す決めごとなので、
+   * **書類タブが空なだけ**に見えて理由がどこにも出ません。
+   *
+   * ここで落としておけば `isBoxConfigured()` が false になり、設定画面が
+   * 「読み取れません」と言い、フォルダを作る側も no-op になります。
+   */
+  const { clientID, clientSecret, appAuth } = config.boxAppSettings;
+  const lacking = [
+    !clientID && 'clientID',
+    !clientSecret && 'clientSecret',
+    !appAuth?.publicKeyID && 'appAuth.publicKeyID',
+    !appAuth?.privateKey && 'appAuth.privateKey',
+    !appAuth?.passphrase && 'appAuth.passphrase',
+  ].filter(Boolean);
+  if (lacking.length > 0 || !appAuth?.privateKey) {
+    console.error(`[box] BOX_CONFIG_JSON is incomplete: ${lacking.join(', ')}`);
+    return null;
+  }
+  // **秘密鍵は PEM のはず。** 1行 JSON の貼り付けでは改行（`\n`）ごと
+  // 落ちることがあり、そのときここに残るのは頭の数十文字だけになる
+  if (!appAuth.privateKey.includes('PRIVATE KEY')) {
+    console.error('[box] BOX_CONFIG_JSON appAuth.privateKey does not look like a PEM key'
+      + '（貼り付けで欠けていないか確かめてください）');
     return null;
   }
 
