@@ -96,11 +96,28 @@ function parseEntries(sectionText) {
     isFirst = false;
   }
 
-  // ソース側の貼り付けミス等による完全重複（同一バージョン+同一本文の連続）を除去
-  return entries.filter((e, i) => {
-    const prev = entries[i - 1];
-    return !(prev && prev.version === e.version && prev.description === e.description);
-  });
+  /*
+   * **同じ版は1つにする。**
+   *
+   * 前は「同一バージョン **かつ** 同一本文が連続したとき」だけ落としていたので、
+   * ⚠️ **CLAUDE.md に要約・アーカイブに全文**という持ち方をすると、
+   * 本文が違うため**同じ版が2回並びます**（画面の履歴に同じ番号が2つ出る）。
+   *
+   * PR が多い版では全文が 100KB を超えるので、**毎ターン文脈に載る CLAUDE.md には
+   * 要約だけ**を置き、全文はアーカイブに入れます（`docs/version-history.md`）。
+   * ここでは**長いほう＝全文**を採ります — 短いほうを採ると、
+   * **画面の履歴からその版の中身が消えます**。
+   */
+  const byVersion = new Map();
+  for (const e of entries) {
+    const prev = byVersion.get(e.version);
+    if (!prev) { byVersion.set(e.version, e); continue; }
+    // 先に出たほう（CLAUDE.md 側）が `isCurrent` を持つので、印は引き継ぐ
+    if (e.description.length > prev.description.length) {
+      byVersion.set(e.version, { ...e, isCurrent: prev.isCurrent });
+    }
+  }
+  return [...byVersion.values()];
 }
 
 function main() {

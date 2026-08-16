@@ -89,6 +89,32 @@ const isEntry = (l) => /^v\d+\.\d+\.\d+ — /.test(l);
 const firstEntry = claude.findIndex((l, i) => i > head && isEntry(l));
 if (firstEntry < 0) throw new Error('CLAUDE.md に版の行が1つもありません');
 
+/*
+ * ⚠️ **1件が大きすぎたら止める。**
+ *
+ * この節は**毎ターン文脈に載る**ので、貯めると全作業のコストが上がります
+ * （v3.2.2 の時点で 680KB ＝ 本文の 96% が履歴でした）。ところが件数の警告
+ * （`generate-version-history.mjs`）は**行の数しか見ていない**ので、
+ * **1行が 118KB でも「3件」で素通り**します — 実際に PR 28 本の版で
+ * `CLAUDE.md` が **39KB → 151KB** になり、そのまま出るところでした。
+ *
+ * PR が多い版は、**要約を CLAUDE.md に・全文をアーカイブに**入れてください
+ * （`docs/version-history.md`。画面の履歴は両方を読んで**長いほう**を採ります）。
+ */
+const MAX_ENTRY_BYTES = 12_000;
+const size = Buffer.byteLength(line, 'utf8');
+if (size > MAX_ENTRY_BYTES) {
+  console.error(`[release:notes] この版の行が大きすぎます: ${(size / 1024).toFixed(0)}KB（目安 ${Math.round(MAX_ENTRY_BYTES / 1024)}KB）
+
+  CLAUDE.md の「## 現在のバージョン」は**毎ターン文脈に載ります**。
+  ${entries.length} 本ぶんの全文をそのまま入れると、全作業のコストが上がります。
+
+  ・全文は docs/version-history.md の「## 過去のバージョン」直下へ（(…) で包んだ1行）
+  ・CLAUDE.md には要約だけを置く（同じ版番号で始める）
+  画面の「バージョン履歴」は両方を読み、同じ版なら**長いほう**を出します。`);
+  process.exit(1);
+}
+
 claude.splice(firstEntry, 0, line, '');
 
 // **最新3件だけ残す。** 4件目はアーカイブへ（この節は毎ターン文脈に載る）
