@@ -71,6 +71,21 @@ export const sectionDisplay = (typeCode: string | null | undefined, section: str
   return `${t}${s}`.trim() || '-';
 };
 
+/**
+ * 出せる列と、**既定で出す列**。
+ *
+ * ── 既定の合計が枠に収まっていること（重要） ────────────────
+ *
+ * この台帳は**いちばん右の「操作」を右端に貼り付けています**。`right: 0` の
+ * `sticky` は**必ず下の内容に重なる**ので、既定の列の合計が枠より広いと
+ * **いちばん右の列（＝「貸出可」）が、横に送るまで見えません**。
+ * 実際にそうなっており、利用者からは「レイアウトが崩れている」と見えていました。
+ *
+ * ⚠️ **`default: true` を1つ増やすと、その幅ぶんだけ隠れる量が増えます。**
+ * 増やすときは `shared/tests/equipmentLedgerWidth.test.ts` の
+ * 「既定の列が基準の枠に収まる」を必ず通すこと（通らないなら、
+ * どれを既定から外すかを決めてから足す）。
+ */
 export const COL_DEFS = [
   { key: 'eq_code', label: 'ID', sortKey: 'eq_code', default: true },
   { key: 'equipment_type', label: '種別', sortKey: 'equipment_type_code', default: true },
@@ -82,7 +97,20 @@ export const COL_DEFS = [
   { key: 'unit_number', label: 'No', sortKey: 'unit_number', default: true },
   { key: 'condition', label: '状態', sortKey: 'condition', default: false },
   { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
-  { key: 'notes', label: '備考', sortKey: 'notes', default: true },
+  /**
+   * ⚠️ **既定から外しました**（ご判断）。**消していません** —
+   * 「出す列」で1つ押せば今までどおり出ます。
+   *
+   * 既定の合計が **1,384px** で、実測した枠（1,254px）に **130px 足りず**、
+   * そのぶん右端の「貸出可」が操作の下に隠れていました。**8列のうち、
+   * 空のことがあり・常に1行で省略され・全文が `title` で読めるのはここだけ**
+   * なので、外すのはこの列です（外すと 172px 減って収まります）。
+   *
+   * **すでに「出す列」を触ったことがある人は今までどおり備考が出ます**
+   * （`localStorage` の `eq-visible-cols` が優先。勝手に消すほうが乱暴なので、
+   * そちらは変えていません）。戻したいときは「出す列」から。
+   */
+  { key: 'notes', label: '備考', sortKey: 'notes', default: false },
   // **モックはこの切り替えを台帳の列に置いている**（「チェックはこの一覧から
   // その場で切り替えられます」）。書き込みには `equipment` の owner 権限が要るので、
   // 権限が無い人には**押せない印**として出す（列ごと消すと、なぜ貸出画面に
@@ -106,7 +134,23 @@ export type ColKey = (typeof COL_DEFS)[number]['key'];
  */
 export const COL_W = {
   eq_code: 96,
-  equipment_type: 72,
+  /**
+   * ⚠️ **72px では収まりません**（実測して 128 に上げた）。
+   *
+   * この列に出るのは `sectionDisplay()` = **種別 ＋ 区分をつないだ文字**で、
+   * 8通りのうち **5通りが 72px を超えます**。`TableBadge` は和文4字までしか
+   * 幅を固定しない（それ以上は自然幅）ので、超えたぶんは**隣の「設置場所」に
+   * かぶさって文字が重なっていました**（`RowSlot` は `shrink-0` なので
+   * 押し出されず、上に乗るだけ）。
+   *
+   * 実測（LINE Seed JP 700 / 11px / `Badge` の既定の padding 10px）:
+   *
+   *   映像設備 62（固定幅）／カメラ設備 76.7 ／ インカム設備 87.1 ／
+   *   LED/XR設備 88.7 ／ **設備/その他設備 104.0** ／ **ネットワーク設備 109.6**
+   *
+   * いちばん長い 109.6 が入る段は **128**（96 では入らない）。
+   */
+  equipment_type: 128,
   location: 128,
   manufacturer: 128,
   model_number: 128,
@@ -114,6 +158,7 @@ export const COL_W = {
   unit_number: 56,
   condition: 72,
   fixed_asset_code: 128,
+  /** 幅は今までのまま。**既定から外した**ので、合計には効きません（`COL_DEFS`） */
   notes: 200,
   rental: 96,
 } as const satisfies Partial<Record<ColKey, number>>;
@@ -128,6 +173,38 @@ export const ACTION_W = 128;
 
 /** 伸びる列（商品名）に最低これだけ残す。狭いと1文字も読めない */
 export const NAME_MIN_PX = 200;
+
+/** 行の中の隙間（`<Row>` の `gap-3`）と、行の左右の余白（`density="table"` の `px-4`） */
+export const ROW_GAP = 12;
+export const ROW_PX = 16;
+
+/**
+ * 横に流し始める幅 = **固定列の合計 ＋ 隙間 ＋ 左右の余白 ＋ 商品名の最低幅**。
+ *
+ * ⚠️ **数え方を2度間違えていました**（どちらも「商品名だけが黙って痩せる」形で、
+ * 画面には何も出ません）:
+ *
+ *   ・隙間を**列の数だけ**掛けていた（正しくは **列の数 − 1**。3列なら隙間は2つ）
+ *   ・行の左右の余白（`px-4` = 16px × 2）を**足していなかった**
+ *
+ * 差し引き 20px 足りず、`min-width` に達しても**まだ商品名が 200px を割ってから**
+ * 横に流れ始めていました。関数にしてあるのは、この算数を
+ * `shared/tests/equipmentLedgerWidth.test.ts` で固定するためです。
+ */
+export function ledgerMinWidth(
+  { canBulkEdit, visibleStd, customCount }:
+  { canBulkEdit: boolean; visibleStd: ColKey[]; customCount: number },
+): number {
+  const hasName = visibleStd.includes('name');
+  const fixed = LEAD_W
+    + (canBulkEdit ? CHECK_W : 0)
+    + visibleStd.reduce((n, k) => n + (k === 'name' ? 0 : COL_W[k as keyof typeof COL_W] ?? 0), 0)
+    + customCount * CUSTOM_COL_W
+    + ACTION_W;
+  // 行の頭 ＋ 選ぶ四角 ＋ 標準の列 ＋ 自分で作った列 ＋ 操作
+  const slots = 1 + (canBulkEdit ? 1 : 0) + visibleStd.length + customCount + 1;
+  return fixed + Math.max(slots - 1, 0) * ROW_GAP + ROW_PX * 2 + (hasName ? NAME_MIN_PX : 0);
+}
 
 export const PRINT_COLS = [
   { key: 'eq_code', label: 'ID' },

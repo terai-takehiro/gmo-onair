@@ -124,8 +124,14 @@ export function standardCells(
           </RowSlot>
         );
       case 'equipment_type':
+        // ⚠️ **`overflow-hidden` を外さないこと。** バッジは和文4字までしか幅が
+        // 固定されず、それ以上は自然幅で伸びます。`RowSlot` は `shrink-0` なので
+        // はみ出したぶんは**隣の「設置場所」の上に重なって**文字が読めなくなります
+        // （実際に「設備/その他設備」が「RACK1」に重なっていた）。
+        // 幅は `COL_W.equipment_type` = 128 でいまの8通り全部が収まりますが、
+        // 種別が増えたときに**同じ壊れ方を静かにやり直さない**ための止め具です。
         return (
-          <RowSlot key={key} w={COL_W.equipment_type}>
+          <RowSlot key={key} w={COL_W.equipment_type} className="overflow-hidden">
             <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
           </RowSlot>
         );
