@@ -1,23 +1,8 @@
 /**
- * 一覧の「いま見えている行だけ描く」ための仕掛け（機材台帳）
+ * 「見えている行だけ描く」を DOM に貼り付ける（機材台帳）
  *
- * ── なぜ要るか（実測）──────────────────────────────────────
- *
- * 機材 5,000 点（親 3,800 点）の台帳を実ブラウザで開くと **30.7 秒**かかり、
- * そのうち **28.2 秒は画面が固まったまま**でした（いちばん長い1回で 17.5 秒）。
- * 内訳は DB でもサーバーでもありません — **DB 42ms・API 140ms** で、
- * 残りは全部**ブラウザが 3,800 行ぶんの DOM を作っていた時間**です。
- * DOM の要素は **260,177 個**ありました。
- *
- * 行を作る費用は行数に比例するので、**画面に入る数（数十行）だけ作れば
- * 台帳が何点になっても速さは変わりません**。上下に「無い行のぶんの高さ」を
- * 空の箱で置くので、スクロールバーの長さと位置は今までと同じです。
- *
- * ── 少ない行のときは何もしない ──────────────────────────────
- *
- * `MIN_ROWS_TO_WINDOW` 行までは全部描きます。数十行なら作る費用は元から
- * 小さく、**間引くと Ctrl+F（ブラウザの検索）で当たらない行ができる**ほうが
- * 害が大きいためです。⚠️ この一線を下げるときは、その害と釣り合うか考えること。
+ * 算数は `rowWindowMath.ts`。ここは**流れる親を見つけて、測って、
+ * 描く範囲を返す**係だけを持ちます。
  *
  * ── 縦に流れるのは `<main>` であって窓ではない ──────────────
  *
@@ -28,15 +13,12 @@
  * **スクロールしても描く行が変わらず、最初の数十行しか出ない画面**になります。
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  ESTIMATED_ROW_H, rowOffsets, rowWindow, varRowWindow,
+  type Edges, type RowWindow,
+} from './rowWindowMath';
 
-/** これ以下の行数なら間引かない（間引く害のほうが大きい） */
-export const MIN_ROWS_TO_WINDOW = 80;
-
-/** 画面の外に余分に描く行数（上下それぞれ）。速いスクロールで白が見えないだけ持つ */
-export const OVERSCAN = 12;
-
-/** 高さを測れるまで使う1行の高さ（px）。`density="table"` の実測値 */
-export const ESTIMATED_ROW_H = 41;
+export * from './rowWindowMath';
 
 /**
  * 間引く一覧の入れ物に**必ず**付ける指定。
@@ -50,61 +32,35 @@ export const ESTIMATED_ROW_H = 41;
  */
 export const WINDOWED_LIST_STYLE = { overflowAnchor: 'none' } as const;
 
-export interface RowWindow {
-  /** 描き始める行の番号（含む） */
-  start: number;
-  /** 描き終わる行の番号（含まない） */
-  end: number;
-  /** 上に置く空の箱の高さ */
-  padTop: number;
-  /** 下に置く空の箱の高さ */
-  padBottom: number;
-}
+/**
+ * 最初の一手は**0 行**。
+ *
+ * ⚠️ **ここを「とりあえず 80 行」にすると、間引く前に 80 行ぶん作ります。**
+ * 一覧が1つならすぐ直りますが、貸出機材のタブは**カテゴリごとに一覧を持つ**ので、
+ * 9 カテゴリなら **720 枚**を作ってから捨てることになります
+ * （捨てる前の「作る費用」は払い終わっています）。
+ *
+ * 0 で始めても画面がちらつきません — 範囲を決め直すのは `useLayoutEffect`、
+ * つまり**ブラウザが描く前**だからです。
+ */
+const EMPTY_WINDOW: RowWindow = { start: 0, end: 0, padTop: 0, padBottom: 0 };
 
 /**
- * 描く範囲を決める**素の算数**（テストで固定するためここだけ分けてある）。
+ * いちばん近い「縦に流れる親」。無ければ `null`（＝窓）。
  *
- * ── `gap` を引くのを忘れないこと ────────────────────────────
+ * ⚠️ **`overflow-y` の値だけで決めてはいけません。** CSS は片方の軸を
+ * `visible` 以外にすると**もう片方を自動で `auto` に格上げ**します。
+ * 機材台帳の表は横に流すために `overflow-x-auto` を持っているので、
+ * **計算後の `overflow-y` も `auto`** です。値だけで選ぶとこの枠を掴み、
+ * その `clientHeight` は**中身の高さそのもの（20万 px）**なので
+ * 「画面に全部入っている」と判断して**全 3,800 行を描きます**
+ * （実測。間引きが丸ごと効かなくなる）。
  *
- * スマホのカードは `flex flex-col gap-2` で並んでいるので、
- * **1枚ぶんの送り幅は「カードの高さ ＋ 8px」**です（`pitch`）。
- * さらに、上下に置く空の箱も flex の子なので**その両隣にも隙間が入ります**。
- * だから箱の高さは `n × pitch` ではなく **`n × pitch − gap`**。
- * 引き忘れると、送るたびに 8px ずつ位置がずれていきます
- * （PC の表は隙間 0 なので `gap = 0`＝今までと同じ式になる）。
- *
- * @param scrollTop  流れる親のスクロール位置
- * @param viewportH  流れる親の見えている高さ
- * @param listTop    流れる親の中身の原点から見た、一覧の先頭の位置
- * @param pitch      1行ぶんの送り幅（行の高さ ＋ 行間の隙間）
- * @param gap        行間の隙間（PC の表は 0）
- * @param count      行の総数
+ * **縦にはみ出しているかどうか**で見分けます。これが正しい見分け方ですが、
+ * **中身を描く前は誰もはみ出していません**。だから `read()` のたびに
+ * 探し直し、見つかったら**そのときに聞き耳を立て直します**
+ * （見つかるまでは窓を相手にする）。
  */
-export function rowWindow(
-  { scrollTop, viewportH, listTop, pitch, gap = 0, count, overscan = OVERSCAN }:
-  {
-    scrollTop: number; viewportH: number; listTop: number;
-    pitch: number; gap?: number; count: number; overscan?: number;
-  },
-): RowWindow {
-  if (count <= MIN_ROWS_TO_WINDOW || pitch <= 0) {
-    return { start: 0, end: count, padTop: 0, padBottom: 0 };
-  }
-  const clamp = (n: number) => Math.min(Math.max(n, 0), count);
-  // 一覧の先頭から見た、いま見えている範囲
-  const from = scrollTop - listTop;
-  const start = clamp(Math.floor(from / pitch) - overscan);
-  const end = Math.max(clamp(Math.ceil((from + viewportH) / pitch) + overscan), start);
-  const after = Math.max(count - end, 0);
-  return {
-    start,
-    end,
-    padTop: start > 0 ? start * pitch - gap : 0,
-    padBottom: after > 0 ? after * pitch - gap : 0,
-  };
-}
-
-/** いちばん近い「縦に流れる親」。無ければ `null`（＝窓） */
 function scrollParentOf(el: HTMLElement | null): HTMLElement | null {
   for (let p = el?.parentElement ?? null; p; p = p.parentElement) {
     const oy = getComputedStyle(p).overflowY;
@@ -114,22 +70,83 @@ function scrollParentOf(el: HTMLElement | null): HTMLElement | null {
 }
 
 /**
+ * いま端に着いているか（1px の余裕。小数の誤差で端と見なされないのを防ぐ）。
+ *
+ * ⚠️ **まだ流れない入れ物では、どちらも「着いていない」とすること。**
+ * 描き始めは 0 行なので中身が短く、**何もしなくても「いちばん下まで
+ * 見えている」状態**です。そこで「端だから最後まで描く」を当てると、
+ * **初回に全件を描いてしまい間引きが丸ごと効きません**
+ * （実測: 767px で 3,800 枚すべてを作っていた）。
+ */
+function edgesOf(scroller: HTMLElement | null): Edges {
+  const top = scroller ? scroller.scrollTop : window.scrollY;
+  const view = scroller ? scroller.clientHeight : window.innerHeight;
+  const full = scroller ? scroller.scrollHeight : document.documentElement.scrollHeight;
+  if (full <= view + 1) return {};
+  return { atStart: top <= 1, atEnd: top + view >= full - 1 };
+}
+
+/**
+ * 流れる親を見つけ、そこに聞き耳を立てる（2つのフックで共通）。
+ *
+ * **見つかった相手が変わったら付け直します。** 0 行から描き始めるので、
+ * 最初は誰もはみ出しておらず窓が相手になります。行が出てはみ出した
+ * ところで `<main>` に切り替わる、という順に必ずなります。
+ */
+function useScrollHost(listRef: React.RefObject<HTMLElement>, read: () => void) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const frame = useRef(0);
+
+  const schedule = useCallback(() => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      read();
+      setHost((prev) => {
+        const now = scrollParentOf(listRef.current);
+        return now === prev ? prev : now;
+      });
+    });
+  }, [listRef, read]);
+
+  useLayoutEffect(() => {
+    read();
+    setHost(scrollParentOf(listRef.current));
+  }, [listRef, read]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const target: HTMLElement | Window = host ?? window;
+    target.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    // 上の絞り込みが開いたり畳んだりすると一覧の先頭の位置が動く
+    const ro = new ResizeObserver(schedule);
+    ro.observe(list);
+    if (host) ro.observe(host);
+    return () => {
+      target.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      ro.disconnect();
+      if (frame.current) cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    };
+  }, [listRef, host, schedule]);
+
+  return schedule;
+}
+
+/**
  * 一覧の DOM に貼り付けて、描く範囲を返す。
  *
  * @param listRef 行を並べている入れ物（この中に上下の空の箱と行が入る）
  * @param count   行の総数
  */
 export function useRowWindow(listRef: React.RefObject<HTMLElement>, count: number): RowWindow {
-  const [win, setWin] = useState<RowWindow>(() => ({
-    start: 0,
-    end: Math.min(count, MIN_ROWS_TO_WINDOW),
-    padTop: 0,
-    padBottom: 0,
-  }));
+  const [win, setWin] = useState<RowWindow>(EMPTY_WINDOW);
   /** 実測した1行ぶんの送り幅と隙間。測れるまでは見積もりを使う */
   const pitch = useRef(ESTIMATED_ROW_H);
   const gap = useRef(0);
-  const frame = useRef(0);
 
   const read = useCallback(() => {
     const list = listRef.current;
@@ -163,6 +180,7 @@ export function useRowWindow(listRef: React.RefObject<HTMLElement>, count: numbe
 
     const next = rowWindow({
       scrollTop, viewportH, listTop, pitch: pitch.current, gap: gap.current, count,
+      ...edgesOf(scroller),
     });
     setWin((prev) => (
       prev.start === next.start && prev.end === next.end
@@ -171,33 +189,112 @@ export function useRowWindow(listRef: React.RefObject<HTMLElement>, count: numbe
     ));
   }, [listRef, count]);
 
-  /** スクロールは1フレームに1回だけ読む（1回ごとに読むと描き直しが詰まる） */
-  const schedule = useCallback(() => {
-    if (frame.current) return;
-    frame.current = requestAnimationFrame(() => { frame.current = 0; read(); });
-  }, [read]);
+  // 流れる親を見つけて聞き耳を立てるところは2つのフックで共通
+  useScrollHost(listRef, read);
 
-  useLayoutEffect(() => { read(); }, [read]);
+  return win;
+}
 
-  useEffect(() => {
+/** `useVarRowWindow` に渡す1行。`height` は**計算で出した見積もり** */
+export interface VarRow {
+  /** 行を見分ける鍵。DOM 側に `data-eq-key` で同じものを書くこと */
+  key: string;
+  /** 見積もりの高さ（px）。実物を描けたら実測で上書きする */
+  height: number;
+}
+
+/**
+ * 行ごとに高さが違う一覧を間引く。
+ *
+ * ── 見積もり ＋ 実測の二段構え ──────────────────────────────
+ *
+ * **見積もりは呼ぶ側が計算します**（貸出機材なら「カード ＋ 開いていれば
+ * 台数 × 1台ぶんの高さ」）。描いていない行の高さも数式で出せるので、
+ * **「すべて開く」を押した瞬間にスクロールバーが正しい長さになります**。
+ * 実測だけに頼る作りだと、描いていない行は高さが分からないので
+ * **送るほどスクロールバーが伸びていく**（今までの見え方と変わる）。
+ *
+ * ⚠️ **それでも実測で上書きします。** 台の下に出る「↳ 付属品」の行は
+ * 折り返すので、数式だけでは何行になるか決まりません。描けた行はそのつど
+ * 測って覚え、次の積み上げに使います（**0.5px 以上ずれたときだけ**
+ * 覚え直す — 端数で覚え直し続けると描き直しが止まりません）。
+ */
+export function useVarRowWindow(
+  listRef: React.RefObject<HTMLElement>,
+  rows: VarRow[],
+): RowWindow & { typical: number | null } {
+  const [win, setWin] = useState<RowWindow & { typical: number | null }>(
+    () => ({ ...EMPTY_WINDOW, typical: null }),
+  );
+  /** 実測して覚えた高さ（鍵 → px） */
+  const measured = useRef(new Map<string, number>());
+  const gap = useRef(0);
+  // 積み上げの計算に使う「いまの行」。`read` を作り直さずに最新を見る
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
+  const read = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
+    const current = rowsRef.current;
+
+    // 描けている行を測って覚える（鍵は DOM の `data-eq-key`）
+    const drawn = list.querySelectorAll<HTMLElement>('[data-eq-row][data-eq-key]');
+    for (const el of drawn) {
+      const key = el.dataset.eqKey;
+      if (!key) continue;
+      const h = el.getBoundingClientRect().height;
+      if (h <= 0) continue;
+      const before = measured.current.get(key);
+      if (before === undefined || Math.abs(before - h) > 0.5) measured.current.set(key, h);
+    }
+    // 隙間は連続する2行の「下端から次の上端まで」
+    if (drawn.length >= 2) {
+      const g = drawn[1].getBoundingClientRect().top - drawn[0].getBoundingClientRect().bottom;
+      if (g >= 0) gap.current = g;
+    }
+
+    const offsets = rowOffsets(
+      current.map((r) => measured.current.get(r.key) ?? r.height),
+      gap.current,
+    );
+
     const scroller = scrollParentOf(list);
-    const target: HTMLElement | Window = scroller ?? window;
-    target.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    // 上の絞り込みが開いたり畳んだりすると一覧の先頭の位置が動く
-    const ro = new ResizeObserver(schedule);
-    ro.observe(list);
-    if (scroller) ro.observe(scroller);
-    return () => {
-      target.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-      ro.disconnect();
-      if (frame.current) cancelAnimationFrame(frame.current);
-      frame.current = 0;
-    };
-  }, [listRef, schedule]);
+    const scrollTop = scroller ? scroller.scrollTop : window.scrollY;
+    const viewportH = scroller ? scroller.clientHeight : window.innerHeight;
+    const listTop = scroller
+      ? list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+      : list.getBoundingClientRect().top + window.scrollY;
+
+    /**
+     * **いちばん低かった実測値**を呼ぶ側に返す。
+     *
+     * 呼ぶ側は「まだ描いていない行」の高さを数式で見積もりますが、
+     * その土台（畳んだカード1枚の高さ）は**幅で変わります**
+     * （スマホでは行が折り返して背が高くなる）。ここで実物のいちばん低い
+     * ものを返せば、**畳んだカードの実寸**がそのまま土台になります。
+     * 決め打ちにすると、スマホで見積もりが足りず**送るほど
+     * スクロールバーが伸びていきます**。
+     */
+    let typical: number | null = null;
+    for (const h of measured.current.values()) if (typical === null || h < typical) typical = h;
+
+    const next = varRowWindow({
+      scrollTop, viewportH, listTop, offsets, gap: gap.current, ...edgesOf(scroller),
+    });
+    setWin((prev) => (
+      prev.start === next.start && prev.end === next.end
+        && prev.padTop === next.padTop && prev.padBottom === next.padBottom
+        && prev.typical === typical
+        ? prev : { ...next, typical }
+    ));
+  }, [listRef]);
+
+  const schedule = useScrollHost(listRef, read);
+
+  // 行の並びや開閉が変わったら読み直す（鍵と高さの並びを見る）
+  const shape = rows.map((r) => `${r.key}:${r.height}`).join('|');
+  useLayoutEffect(() => { schedule(); }, [schedule, shape]);
 
   return win;
 }
