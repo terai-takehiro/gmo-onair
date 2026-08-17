@@ -7,6 +7,20 @@
  *
  * **表の中身と送る値は変えていません。** 変えたのは枠 (見出し・絞り込み・
  * 空のとき・読み込み中・確認と知らせ) だけです。
+ *
+ * ── 同じ機材を3回描くのをやめた（速さ）────────────────────────
+ *
+ * 1 点の機材につき、この画面は**3か所**に行を作っていました: PC の表
+ * (`EquipmentTable`)・スマホのカード (`EquipmentCards`)・印刷用の表
+ * (`PrintTable`)。**後ろ2つは CSS で隠れているだけ**（`md:hidden` と
+ * `#eq-print-area-wrapper { display: none }`）で、DOM は作られ、React も
+ * 毎回描き直していました。実測（機材 5,000 点・幅 1440px）: DOM の要素
+ * **260,177 個**のうち、スマホのカードが 3,800 枚・印刷用の `<td>` が
+ * **34,200 個**。どちらも**画面には1ピクセルも出ていません**。
+ *
+ * ⚠️ **`hidden` を消すのではなく、描くほうを止めます** — CSS の分かれ目
+ * (`md:` = 768px) と同じ幅で出し分け、印刷用は**刷るときだけ**組み立てます
+ * (`PrintArea`)。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +31,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { MD_UP, useMediaQuery } from '@/hooks/useMediaQuery';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
@@ -30,8 +45,7 @@ import { EquipmentFilters, type FilterState } from './EquipmentFilters';
 import { EquipmentTable } from './EquipmentTable';
 import { ItemsToolbar } from './ItemsToolbar';
 import { MobileFilters } from './MobileFilters';
-import { PrintDialog, type PrintSettings } from './PrintDialog';
-import { PrintTable } from './PrintTable';
+import { PrintArea } from './PrintArea';
 import { useColumnPrefs } from './useColumnPrefs';
 import { useCustomValues } from './useCustomValues';
 import { useEquipmentListState } from './useEquipmentListState';
@@ -39,15 +53,15 @@ import { downloadItemsExcel, useItemMutations } from './useItemMutations';
 import { useItemSelection } from './useItemSelection';
 import type { BulkField, ColorRecord, EquipmentRecord, LocationRecord, NamedRecord } from './types';
 
-const DEFAULT_PRINT: PrintSettings = {
-  title: '機材一覧',
-  cols: new Set(['eq_code', 'equipment_type', 'name', 'manufacturer_name', 'model_number', 'unit_number', 'location', 'notes']),
-  checkbox: true,
-};
-
 export function ItemsPanel() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  /**
+   * 表を出す幅か（CSS の `md:` と同じ 768px）。
+   * **`isMobile` (1023px) で判断しないこと** — タブレットの幅で表とカードが
+   * 入れ替わってしまう（`hooks/useMediaQuery.ts` に理由を書いてある）。
+   */
+  const showTable = useMediaQuery(MD_UP);
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('equipment', 'editor');
   const canDelete = hasPermission('equipment', 'manager');
@@ -72,7 +86,6 @@ export function ItemsPanel() {
   const [customColOpen, setCustomColOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
-  const [print, setPrint] = useState<PrintSettings>(DEFAULT_PRINT);
   const [locOpen, setLocOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
@@ -110,7 +123,7 @@ export function ItemsPanel() {
     ...prefs.customColOrder.map((id) => customColumns.find((c) => c.id === id)).filter((c): c is CustomColumn => !!c),
     ...customColumns.filter((c) => !prefs.customColOrder.includes(c.id)),
   ];
-  const custom = useCustomValues(s.items.map((i) => i.id), customColumns);
+  const custom = useCustomValues(customColumns);
 
   const m = useItemMutations({
     editingId: dialog?.kind === 'edit' ? dialog.item.id : null,
@@ -182,12 +195,6 @@ export function ItemsPanel() {
     }
     if (['location_id', 'manufacturer_id', 'color_id'].includes(bulkField) && bulkValue === 'none') v = null;
     m.bulkUpdate.mutate({ ids, fields: { [bulkField]: v } });
-  };
-
-  const doPrint = () => {
-    setPrintOpen(false);
-    // 描き終わってから印刷を呼ぶ (すぐ呼ぶと出す列の変更が反映されない)
-    setTimeout(() => window.print(), 150);
   };
 
   const openDetail = (id: string) => {
@@ -292,8 +299,12 @@ export function ItemsPanel() {
           description="「機材を足す」から1台ずつ、まとめて入れるときは Excel 取込から登録します。"
         />
       ) : (
-        <>
-          <EquipmentCards items={s.items} onOpen={openDetail} />
+        /*
+          **どちらか片方だけを組み立てる。** 出し分けの幅は CSS の `md:` と同じで、
+          `EquipmentCards` の `md:hidden` / `EquipmentTable` の `hidden md:block` は
+          そのまま残してある（CSS と JS の二重の掛け金。片方だけ直しても崩れない）
+        */
+        showTable ? (
           <EquipmentTable
             items={s.items}
             colOrder={prefs.colOrder}
@@ -339,7 +350,9 @@ export function ItemsPanel() {
             onEdit={(item) => { setSaveError(null); setSavedOnce(false); setDialog({ kind: 'edit', item }); }}
             onDelete={onDelete}
           />
-        </>
+        ) : (
+          <EquipmentCards items={s.items} onOpen={openDetail} />
+        )
       )}
 
       <ExcelImportDialog open={importOpen} onOpenChange={setImportOpen} />
@@ -375,24 +388,12 @@ export function ItemsPanel() {
         onSubmit={submitBulk}
       />
 
-      <PrintDialog
+      <PrintArea
+        items={s.items}
+        filterLabel={filterLabel}
         open={printOpen}
-        count={s.items.length}
-        value={print}
-        onChange={setPrint}
         onClose={() => setPrintOpen(false)}
-        onPrint={doPrint}
       />
-
-      <div id="eq-print-area-wrapper">
-        <PrintTable
-          items={s.items}
-          printCols={print.cols}
-          printCheckbox={print.checkbox}
-          printTitle={print.title}
-          filterLabel={filterLabel}
-        />
-      </div>
     </div>
   );
 }

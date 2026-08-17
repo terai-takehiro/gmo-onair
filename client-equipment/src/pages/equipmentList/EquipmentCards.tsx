@@ -4,21 +4,37 @@
  * **PC の表をそのまま縮めない** (docs/design/v4/_rules.md「3. スマホ」)。
  * 出すのは「どれか1つ選ぶ」ために要るものだけ — 種別・ID・名前・型名・
  * メーカー／置き場所です。列の出し入れ・その場編集・まとめて直すは PC に任せます。
+ *
+ * ── 見えている枚数だけ作る ──────────────────────────────────
+ *
+ * カード1枚は要素 13 個です。実測（機材 5,000 点・375px）で
+ * **3,800 枚 = 要素 50,160 個**を作っており、開くのに 5.4 秒・
+ * うち **4.0 秒は画面が固まったまま**でした。**現場で使う画面**なので、
+ * PC の表と同じ仕掛け（`useRowWindow`）で見えているぶんだけ作ります。
+ * カードの中身・並び・隙間は1つも変えていません。
  */
+import { useRef } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { TYPE_BORDER_COLOR } from '@/lib/constants';
 import { AssetBadge, SectionBadge } from './badges';
+import { useRowWindow, WINDOWED_LIST_STYLE } from './useRowWindow';
 import type { EquipmentRecord } from './types';
 
 export function EquipmentCards({ items, onOpen }: {
   items: EquipmentRecord[];
   onOpen: (id: string) => void;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  const win = useRowWindow(list, items.length);
+
   return (
-    <div className="flex flex-col gap-2 md:hidden">
-      {items.map((item) => (
+    <div ref={list} style={WINDOWED_LIST_STYLE} className="flex flex-col gap-2 md:hidden">
+      {/* 上下に無いカードのぶんの高さ（送り幅は「カードの高さ ＋ 隙間」） */}
+      {win.padTop > 0 && <div style={{ height: win.padTop }} aria-hidden="true" />}
+      {items.slice(win.start, win.end).map((item) => (
         <button
           key={item.id}
+          data-eq-row
           type="button"
           onClick={() => onOpen(item.id)}
           className={`min-h-tap w-full rounded-card border border-border bg-card px-3 py-2.5 text-left hover:bg-background ${
@@ -55,6 +71,7 @@ export function EquipmentCards({ items, onOpen }: {
           </span>
         </button>
       ))}
+      {win.padBottom > 0 && <div style={{ height: win.padBottom }} aria-hidden="true" />}
     </div>
   );
 }

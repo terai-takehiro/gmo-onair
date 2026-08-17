@@ -34,17 +34,32 @@
  * 隠れていた列が出てきます）。罫線1本だけだと**中途半端に切れた列**にしか
  * 見えなかったので、**下に列があるあいだだけ影**を出します
  * （`useSticksOverContent`）。既定の列で隠れるのは「貸出可」です。
+ *
+ * ── 描くのは見えている行だけ ────────────────────────────────
+ *
+ * 行の中身・幅・並びは**1つも変えていません**。変えたのは**何行ぶんを
+ * DOM に置くか**だけです（`useRowWindow`）。5,000 点の台帳で開くのに
+ * **30.7 秒**かかり、そのうち **28.2 秒は画面が固まったまま**でしたが、
+ * これは全部「3,800 行ぶんの DOM を作る時間」でした（DB 42ms・API 140ms）。
+ *
+ * そのために**行を先に平らな配列にします**（親・付属品・読み込み中の
+ * 3 種類を1本に並べる）。前は親の行の中に付属品を入れ子で描いていたので、
+ * 「上から数えて N 行目」が数えられませんでした。
+ * ⚠️ **`onSelectOne` に渡す番号は `items` の中の番号のまま**にすること —
+ * 平らにした配列の番号を渡すと、**付属品を開いているときだけ
+ * Shift 押しの範囲がずれます**（開き方によって違う範囲が選ばれる）。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ChevronsUpDown, Copy, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
 import {
-  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, ledgerMinWidth,
+  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, flattenRows, ledgerMinWidth,
   type ColKey, type EquipmentRecord,
 } from './types';
 import { customCells, standardCells, type CellContext, type CustomCellContext } from './EquipmentCells';
+import { useRowWindow, WINDOWED_LIST_STYLE } from './useRowWindow';
 
 function SortLabel({ label, sortKey, currentKey, currentDir, onSort }: {
   label: string; sortKey: string; currentKey: string | null; currentDir: 'asc' | 'desc'; onSort: (k: string) => void;
@@ -185,19 +200,25 @@ export function EquipmentTable(p: EquipmentTableProps) {
     </>
   );
 
-  const idToItem = new Map(p.items.map((i) => [i.id, i]));
-  const depthOf = (item: EquipmentRecord) => {
-    let d = 0;
-    let pid = item.parent_id;
-    while (pid && idToItem.get(pid)?.parent_id) { d++; pid = idToItem.get(pid)?.parent_id; }
-    return d;
-  };
+  /**
+   * 出す行を平らに並べる（親・付属品・読み込み中）。**並びと段差は今までどおり**で、
+   * 「上から数えて N 行目」が数えられる形にしただけ。
+   */
+  const rows = useMemo(
+    () => flattenRows(p.items, p.expandedIds, p.childrenCache, p.loadingChildren),
+    [p.items, p.expandedIds, p.childrenCache, p.loadingChildren],
+  );
+
+  /** 見えている範囲だけ描く。上下は空の箱で高さを埋める（スクロールバーは今までと同じ） */
+  const body = useRef<HTMLDivElement>(null);
+  const win = useRowWindow(body, rows.length);
 
   /** 子の行。**列は親と同じ位置**で、段差は行の頭の中だけに出す */
-  const childRow = (child: EquipmentRecord, depth: number, parentId?: string) => (
+  const childRow = (child: EquipmentRecord, depth: number, divider: boolean, parentId?: string) => (
     <Row
       key={child.id}
-      divider
+      data-eq-row
+      divider={divider}
       density="table"
       className={`bg-muted ${p.cellCtx.editMode ? '' : 'cursor-pointer hover:bg-background'}`}
       onClick={p.cellCtx.editMode ? undefined : () => p.onOpen(child.id)}
@@ -257,20 +278,35 @@ export function EquipmentTable(p: EquipmentTableProps) {
             </RowSlot>
           </RowHeader>
 
-          {p.items.map((item, idx) => {
-            const hasChildren = (item.children_count ?? 0) > 0;
-            const isExpanded = p.expandedIds.has(item.id);
-            const kids = p.childrenCache[item.id] ?? [];
-            const loading = p.loadingChildren.has(item.id);
-            const selected = p.selectedIds.has(item.id);
+          <div ref={body} style={WINDOWED_LIST_STYLE}>
+            {/* 上に無い行のぶんの高さ（スクロールバーの長さと位置を今までと同じに保つ） */}
+            {win.padTop > 0 && <div style={{ height: win.padTop }} aria-hidden="true" />}
 
-            // 「子機材も表示」でヒットした子は、親と並んでこの一覧に来る
-            if (item.parent_id != null) return childRow(item, depthOf(item) + 1);
+            {rows.slice(win.start, win.end).map((row) => {
+              if (row.kind === 'loading') {
+                return (
+                  <div
+                    key={`loading-${row.key}`}
+                    data-eq-row
+                    className="text-sub-sm flex items-center gap-1.5 border-b border-border-faint bg-muted px-4 py-2 text-muted-foreground"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込んでいます
+                  </div>
+                );
+              }
+              if (row.kind === 'child') return childRow(row.item, row.depth, row.divider, row.parentId);
 
-            return (
-              <div key={item.id}>
+              const item = row.item;
+              const hasChildren = (item.children_count ?? 0) > 0;
+              const isExpanded = p.expandedIds.has(item.id);
+              const loading = p.loadingChildren.has(item.id);
+              const selected = p.selectedIds.has(item.id);
+
+              return (
                 <Row
-                  divider
+                  key={item.id}
+                  data-eq-row
+                  divider={row.divider}
                   density="table"
                   className={`${selected ? 'bg-primary-surface-weak' : 'bg-card'} ${p.cellCtx.editMode ? '' : 'cursor-pointer hover:bg-background'}`}
                   onClick={p.cellCtx.editMode ? undefined : () => p.onOpen(item.id)}
@@ -297,7 +333,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
                         checked={selected}
                         aria-label={`${item.name} を選ぶ`}
                         onCheckedChange={() => { /* shift 押しは onClick で見る */ }}
-                        onClick={(e) => p.onSelectOne(item.id, idx, (e as React.MouseEvent).shiftKey)}
+                        onClick={(e) => p.onSelectOne(item.id, row.index, (e as React.MouseEvent).shiftKey)}
                       />
                     </RowSlot>
                   )}
@@ -306,16 +342,12 @@ export function EquipmentTable(p: EquipmentTableProps) {
                     : undefined)}
                   {actions(item)}
                 </Row>
+              );
+            })}
 
-                {isExpanded && kids.map((child) => childRow(child, 1, item.id))}
-                {isExpanded && loading && (
-                  <div className="text-sub-sm flex items-center gap-1.5 border-b border-border-faint bg-muted px-4 py-2 text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込んでいます
-                  </div>
-                )}
-              </div>
-            );
-          })}
+            {/* 下に無い行のぶんの高さ */}
+            {win.padBottom > 0 && <div style={{ height: win.padBottom }} aria-hidden="true" />}
+          </div>
         </div>
       </div>
     </div>

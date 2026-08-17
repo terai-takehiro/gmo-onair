@@ -106,6 +106,14 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
  * `name`（商品名）だけ `RowMain`（伸びる列）。**行に1つだけ**が `Row` の決まりで、
  * これがあるので長い商品名があっても右側の列が押し出されません。
  */
+/**
+ * 列の定義を鍵で引く表。
+ *
+ * `COL_DEFS.find(...)` を**セルごと**に呼ぶと 行数 × 列数 回の総なめになります
+ * （3,800 行 × 8 列 = 30,400 回）。定義は動かないので1度だけ表にする。
+ */
+const COL_BY_KEY = new Map(COL_DEFS.map((c) => [c.key as ColKey, c]));
+
 export function standardCells(
   item: EquipmentRecord,
   colOrder: ColKey[],
@@ -114,7 +122,7 @@ export function standardCells(
   nameSuffix?: ReactNode,
 ): ReactNode[] {
   return colOrder.filter((k) => visibleCols.has(k)).map((key) => {
-    const col = COL_DEFS.find((c) => c.key === key);
+    const col = COL_BY_KEY.get(key);
     if (!col) return null;
     switch (col.key) {
       case 'eq_code':
