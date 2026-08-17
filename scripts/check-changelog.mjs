@@ -33,6 +33,7 @@
  * （枝を切った直後など、比べる相手がまだ無いのは普通のことなので）。
  */
 import { execFileSync } from 'node:child_process';
+import { isNoteFile } from './lib/changelog-summary.mjs';
 import { existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,8 +166,13 @@ const bumped = bumpedVersion();
  * この検査を信じなくなります。
  */
 function addedNotes() {
-  const inDir = (f) => f.startsWith('docs/changelog.d/')
-    && f.endsWith('.md') && !f.endsWith('/README.md');
+  /*
+   * ⚠️ **`_summary.md` はここでも下書きに数えないこと**（レビューでの指摘・P2）。
+   * 集める側（`collect-changelog.mjs`）は要約なので**集めません**。片方だけが
+   * 外していると、**`_summary.md` だけを足した PR が門を通り抜けて**、
+   * **版の履歴に1行も載らないまま**マージされます。判定は1か所（`isNoteFile`）。
+   */
+  const inDir = (f) => f.startsWith('docs/changelog.d/') && isNoteFile(f);
   const out = new Set();
   try {
     for (const f of git('diff', '--name-only', '--diff-filter=A', base, '--', 'docs/changelog.d')
@@ -181,7 +187,7 @@ function addedNotes() {
 
 const dir = join(ROOT, 'docs', 'changelog.d');
 const notes = existsSync(dir)
-  ? readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md')
+  ? readdirSync(dir).filter(isNoteFile)
   : [];
 const added = addedNotes();
 

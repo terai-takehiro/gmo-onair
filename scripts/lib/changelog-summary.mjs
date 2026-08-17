@@ -1,3 +1,5 @@
+import { parseVersionLine } from '../generate-version-history.mjs';
+
 /**
  * 版の**要約**の作り方（`scripts/collect-changelog.mjs` が使う）
  *
@@ -18,6 +20,30 @@
  */
 export const SUMMARY_FILE = '_summary.md';
 
+/** 説明の文書。下書きではない */
+export const README_FILE = 'README.md';
+
+/**
+ * その名前が**この PR の下書き**か（＝版に載せる1件か）。
+ *
+ * ⚠️ **`collect-changelog.mjs` と `check-changelog.mjs` が同じ判定を使うこと**
+ * （レビューでの指摘・P2）。片方だけが `_summary.md` を外していたので、
+ * **`_summary.md` だけを足した PR が門を通り抜けて**いました:
+ *
+ *  ・門（`check-changelog.mjs`）… 「下書きを1つ足した」と数えて **OK を出す**
+ *  ・集める側（`collect-changelog.mjs`）… 要約なので **集めない**
+ *
+ * ＝ **その PR は版の履歴に1行も載りません。** しかも 12,000 バイトを超えなければ
+ * 要約は使われないまま消されるので、**どこにも残りません**（黙って消える）。
+ *
+ * ⚠️ **名前で外すこと。** 「1行しかない」等の中身での判定にすると、
+ * 短い下書きを書いた人が「下書きが無い」と怒られます。
+ */
+export function isNoteFile(name) {
+  const base = String(name).split('/').pop();
+  return !!base && base.endsWith('.md') && base !== README_FILE && base !== SUMMARY_FILE;
+}
+
 /**
  * 下書きの**先頭の太字**を見出しとして取り出す。
  *
@@ -37,6 +63,33 @@ export function titleOf(body) {
   if (bold) return bold[1].trim();
   const first = String(body).split('。')[0].replace(/\*\*/g, '').trim();
   return first.length <= 60 ? first : `${first.slice(0, 60)}…`;
+}
+
+/**
+ * 画面が**その版の本文として数える長さ**。
+ *
+ * ⚠️ **一切パースし直しません。** `generate-version-history.mjs` の
+ * `parseVersionLine`（1行から version・title・description を取り出す**唯一の入口**）を
+ * **そのまま呼びます**。渡すのは「版の行」（`vX.Y.Z — 本文` または
+ * アーカイブの `(vX.Y.Z — 本文)` の形）で、どちらも受けます。
+ *
+ * ⚠️ **ここに数え方（前置きの外し方・括弧の外し方・見出しの切り出し方）を
+ * 二重に書かないこと。** 一部だけを写して「同じ数え方のつもり」で実装していたときは、
+ * 生成側のパイプラインが増えるたびに漏れが見つかり、**同じ場所に6件連続で
+ * レビュー指摘が付きました**（バイトと文字数／版の行の前置き／本文が空のときの
+ * `|| body`／句点2つ／`stripOuterWrap` の歴史的な閉じ括弧）。
+ * **物差しが2つある**という問題の芯は変わりません — 書き込む側の上限は**バイト**
+ * （`CLAUDE.md` が毎ターン文脈に載る費用はバイトで効く）、画面が同じ版の2つを
+ * 見比べるのは**文字数**（`description.length`）。日本語ばかりの全文と
+ * 英数字ばかりの要約では、バイトでは要約が小さくても文字数では要約のほうが
+ * 長いという組み合わせが作れ、そうなると画面はアーカイブの全文を捨てます
+ * （⚠️ エラーは出ません）。**だから比べる長さは、生成側が実際に使う関数からもらいます。**
+ */
+export function descriptionLengthOf(entry) {
+  const parsed = parseVersionLine(entry);
+  // 版の行の形に一致しない入力は呼び出し側の誤りなので、素の長さで代用する
+  // （0 を返して「常に安全」と誤解させない — 長さで判断する呼び出し側を壊さないため）
+  return parsed ? parsed.description.length : String(entry).trim().length;
 }
 
 /**

@@ -34,7 +34,7 @@ import { readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'no
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SUMMARY_FILE, titleOf, buildSummaryBody } from './lib/changelog-summary.mjs';
+import { SUMMARY_FILE, isNoteFile, titleOf, buildSummaryBody, descriptionLengthOf } from './lib/changelog-summary.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = join(ROOT, 'docs', 'changelog.d');
@@ -49,8 +49,7 @@ if (!version) {
 }
 
 /** `README.md` は説明、`_summary.md` は要約なので集めない */
-const entries = readdirSync(DIR)
-  .filter((f) => f.endsWith('.md') && f !== 'README.md' && f !== SUMMARY_FILE);
+const entries = readdirSync(DIR).filter(isNoteFile);
 if (entries.length === 0) {
   console.error(`[release:notes] ${DIR} に載せるものがありません（作業 PR がファイルを置きます）`);
   process.exit(1);
@@ -155,6 +154,29 @@ if (split) {
     : null;
   const body = handWritten || buildSummaryBody(ordered.map((f, i) => titleOf(bodies[i])));
   line = `v${version} — ${body}`;
+
+  /*
+   * ⚠️ **要約が全文より「長い」と、画面から全文が消えます**（レビューでの指摘・P2）。
+   *
+   * ここの上限は**バイト**（`CLAUDE.md` が毎ターン文脈に載る費用はバイトで効く）ですが、
+   * 生成側が同じ版の2つを見比べるのは**文字数**です。日本語は 1文字 3バイトなので、
+   * **全文が日本語ばかり・要約が英数字ばかり**だと、バイトでは要約のほうが小さいのに
+   * **文字数では要約のほうが長い**という組み合わせが作れます。そうなると生成側は
+   * **要約を本文に採り、アーカイブの全文を捨てます**。⚠️ **エラーは出ません。**
+   *
+   * **生成側と同じ数え方**（`descriptionLengthOf`）で確かめて、そうなる要約を止めます。
+   */
+  const summaryDesc = descriptionLengthOf(line);
+  const fullDesc = descriptionLengthOf(fullLine);
+  if (summaryDesc >= fullDesc) {
+    console.error(`[release:notes] 要約が全文より長い（または同じ）ので止めます: `
+      + `要約 ${summaryDesc} 文字 / 全文 ${fullDesc} 文字
+
+  画面の「バージョン履歴」は同じ版が2つあるとき**長いほう**を本文に採ります。
+  このままだと**要約が採られ、アーカイブの全文が画面から消えます**（エラーは出ません）。
+  docs/changelog.d/${SUMMARY_FILE} を短くしてください。`);
+    process.exit(1);
+  }
 
   const summarySize = Buffer.byteLength(line, 'utf8');
   if (summarySize > MAX_ENTRY_BYTES) {
