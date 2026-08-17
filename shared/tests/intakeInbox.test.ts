@@ -147,6 +147,19 @@ describe('決めたら受付から消える', () => {
     expect(body).toMatch(/\} else \{[\s\S]{0,300}?\/ai-review/);
   });
 
+  it('AI が起こす案件は必ずネタ（受付を素通りさせない）', () => {
+    // 受付はネタ行きだけを並べるので、AI が仮押さえ以降で起票できると
+    // **誰の目にも触れないまま進行中の案件が増える**。
+    // ⚠️ 引数そのものは消さない — 渡している本番のメール取込が 400 で落ちる
+    const tools = read('server', 'src', 'contexts', 'mcp', 'tools', 'projects.tools.ts');
+    const at = tools.indexOf("'create_project'");
+    expect(at).toBeGreaterThan(-1);
+    const body = tools.slice(at, tools.indexOf("'update_project'", at));
+    expect(body).toMatch(/stage: z\.enum\(\['neta', 'd_hold', 'c_proposal', 'b_verbal'\]\)\.optional\(\)/);
+    expect(body).toMatch(/stage: 'neta',/);
+    expect(body).not.toMatch(/stage: args\.stage/);
+  });
+
   it('⚠️ 3つの決め方で扱いを分けない（分けた結果が今回の不具合）', () => {
     const hook = code(read('client', 'src', 'contexts', 'sales', 'pages', 'projectNew', 'useCreateProject.ts'));
     // `/ai-review` を叩くのは `saveExisting` の中の1か所だけ。

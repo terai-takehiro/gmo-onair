@@ -142,7 +142,9 @@ export function registerProjectTools(server: McpServer): void {
     {
       title: '案件登録 (ヨミ)',
       description:
-        '新規案件をヨミ (stage=neta) として登録する。customer_id は必須 — 先に list_customers で検索し、無ければ create_customer で作成する。' +
+        '新規案件を**必ずヨミ (stage=neta) として**登録する（stage は渡しても無視する）。' +
+        '段を進めるのは人の仕事で、受付（案件作成）はネタ行きだけを並べる。' +
+        'customer_id は必須 — 先に list_customers で検索し、無ければ create_customer で作成する。' +
         'assigned_to は担当者の users.id (必須) — list_users で名前から解決する。' +
         'gls_category: A=案件（スタジオ） / B=プロジェクト（プロジェクト管理・工事や構築）。' +
         '副作用: BOX に案件フォルダが自動作成される。' +
@@ -190,7 +192,9 @@ export function registerProjectTools(server: McpServer): void {
           .describe('返事の期限 (YYYY-MM-DD)。相手を待たせている目安。**書かれていなければ渡さない**'),
         wants: z.string().max(200).optional().describe('求められているもの（見積 / 資料 / 相場感 など）'),
         stage: z.enum(['neta', 'd_hold', 'c_proposal', 'b_verbal']).optional()
-          .describe('登録時のステージ。既定 neta。**受注以降は指定できない**（GLS 発番の確認を飛ばすため）'),
+          .describe('⚠️ **渡しても無視されます。AI が起こす案件は必ずネタ (neta) です。**'
+            + '段を進めるのは人の仕事なので、`change_project_stage` を人が押してから動きます。'
+            + '（引数を残してあるのは、渡している既存の呼び出しを 400 で落とさないためだけです）'),
         intake_confidence: z.enum(['high', 'mid', 'low']).optional()
           .describe('案件になりそうか。high=会社も日程も予算も読めた / mid=どれか欠ける / low=名刺程度。'
             + '**根拠が無ければ渡さない** — 受付はこの値で読む順を決めるので、当てずっぽうは害になる'),
@@ -233,7 +237,20 @@ export function registerProjectTools(server: McpServer): void {
           goal: args.goal,
           reply_due: args.reply_due,
           wants: args.wants,
-          stage: args.stage,
+          /*
+           * ⚠️ **AI が起こす案件は必ずネタ。`args.stage` は受け取るが使わない**（ご判断）。
+           *
+           * 受付（案件作成の「自動で届いたもの」）は **ネタ行きだけ**を並べます
+           * （`AI_INBOX_SQL`）。ここで仮押さえ以降を渡せると、その案件は
+           * **受付を素通りして案件一覧に直接現れます** — つまり
+           * **誰の目にも触れないまま進行中の案件が増えます**。
+           * 段を進めるのは人の仕事なので、`change_project_stage` を人が押してから動かします。
+           *
+           * **引数は消しません**（`notes` と同じ理由）。本番のメール取込スキルが
+           * 毎日この口を叩いており、**引数を消すと渡している呼び出しが 400 で落ちます**。
+           * 受け取って無視するのが安全側です。
+           */
+          stage: 'neta',
         },
         currentActorId(),
       ) as any;
