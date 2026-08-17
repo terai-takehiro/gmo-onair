@@ -48,6 +48,12 @@ import { useGpmProjects } from '../queries';
 import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { GpmProjectBoard } from './projectList/ProjectBoard';
+/**
+ * 「止まっている」の判定は案件一覧と同じ7日（`STALE_DAYS`）を使う。
+ * ここだけ別の日数にすると、案件台帳の「おすすめ順」と並びの理由が食い違う
+ * （レビュー指摘 Codex #177 で発見: 以前は並べ替えずサーバーの順のままにしていた）。
+ */
+import { STALE_DAYS, TERMINAL_STAGES } from '@/contexts/sales/pages/projectList/stages';
 
 type SortKey = 'recommended' | 'estimate_desc' | 'due_asc';
 
@@ -57,25 +63,45 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'due_asc', label: '期限が近い順' },
 ];
 
+/** 期限なしは末尾（無いことを「近い」とは見なさない）。null 同士・値同士はそれぞれ元の順を保つ */
+function compareDue(da: string | null, db: string | null, tie: number): number {
+  if (da === db) return tie;
+  if (da === null) return 1;
+  if (db === null) return -1;
+  return da < db ? -1 : 1;
+}
+
 /**
- * **サーバーが返した順を「おすすめ順」の既定にする。** ここで作り話の重み付けを
- * しない — 画面ごとに違う「おすすめ」の式ができると、案件台帳の「おすすめ順」
- * （`sort_by=recommended`）と意味が食い違う。
+ * **「おすすめ順」は案件台帳の `sort_by=recommended` と同じ考え方で並べる**
+ * （`server/.../project.service.ts` の `RECOMMENDED_SORT_SQL`）:
+ * ① 動いている案件のうち7日動いていないもの（`STALE_DAYS`）を先に ②期限が近い順
+ * ③受注に近い段（進行中 → 準備中の中でも受注に近い順）。
+ *
+ * サーバーが返す順をそのまま使わないのは、それが「ステージ順 → 実施日 → 作成日」
+ * （`gpm.service.ts` の一覧 SQL）で、**止まっている案件を先に出す**という
+ * 案件台帳の「おすすめ」の意味を持っていないため（レビュー指摘で発見）。
+ * GPM には案件の `last_activity_at`（活動記録）に相当する列が無いので、
+ * 止まっている判定は行の `updated_at` で代用する。
  */
+function recommendedRank(p: GpmProjectRow, today: number): number {
+  if (TERMINAL_STAGES.includes(p.stage)) return 1;
+  const t = new Date(p.updated_at).getTime();
+  if (!Number.isFinite(t)) return 1;
+  return today - t >= STALE_DAYS * 86_400_000 ? 0 : 1;
+}
+
 function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
-  if (sort === 'recommended') return rows;
   const withKey = rows.map((p, i) => ({ p, i }));
   if (sort === 'estimate_desc') {
     withKey.sort((a, b) => (b.p.estimate_amount ?? -1) - (a.p.estimate_amount ?? -1) || a.i - b.i);
+  } else if (sort === 'due_asc') {
+    withKey.sort((a, b) => compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i));
   } else {
-    // 期限なしは末尾（無いことを「近い」とは見なさない）
+    const now = Date.now();
     withKey.sort((a, b) => {
-      const da = ymd(a.p.next_due);
-      const db = ymd(b.p.next_due);
-      if (da === db) return a.i - b.i;
-      if (da === null) return 1;
-      if (db === null) return -1;
-      return da < db ? -1 : 1;
+      const rankDiff = recommendedRank(a.p, now) - recommendedRank(b.p, now);
+      if (rankDiff !== 0) return rankDiff;
+      return compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i);
     });
   }
   return withKey.map((x) => x.p);
