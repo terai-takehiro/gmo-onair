@@ -429,17 +429,32 @@ router.get('/sales-board', async (_req, res) => {
 // 確認は POST /projects/:id/ai-review (projects.routes) で記録する。
 // AI 起票の未確認案件 SQL (ai-inbox と 受信箱 /inbox が共用)
 //
-// ⚠️ **決着した案件は受付に置かない**（下の stage 条件）。
+// ⚠️ **受付に出すのはネタ行きだけ**（下の stage 条件・ご判断）。
 //
 // ここには長く**ステージの条件が1つもありませんでした**。受付で「見送りにする」を
 // 押すと stage は e_lost になるのに、この一覧の条件は ai_reviewed_at IS NULL だけ
 // なので**カードはそのまま残ります** ＝ 押した人には「見送りにしても全く反応しない」
 // としか見えません（実測: 見送り・案件にする・受注・完了の4つとも残っていた）。
 //
-// 「人が見たか」は ai_reviewed_at が持ちますが、**それは印を書いた場合の話**で、
-// 印が書かれていない古い行がここに永久に溜まります。終了・失注は**どんな経緯であれ
-// 受付の仕事ではない**ので、印とは別に必ず外します
-// (projectService.markAiReviewedByStageDecision が印を書くのと二重の守り)。
+// 直し方は2通りありました:
+//
+//   (a) 決着したもの（終了・失注）だけ外す … AI が仮押さえ以降で起票したものも
+//       受付に出るが、**誰も触っていないのに段だけ進んでいる行が残り続ける**
+//   (b) **ネタ行きだけ出す** … 受付は「まだ仕分けていない引き合い」の置き場に
+//       徹する。段が1つでも進んでいれば、それは誰かが動かした＝仕分け済み
+//
+// **(b) を採りました。** 受付は毎日その順に消化する画面なので、
+// 「消えない行」が1つでもあると画面全体が信用されなくなります。
+//
+// ⚠️ **AI が仮押さえ以降で起票したものは受付に出ません**（MCP の create_project は
+// neta / d_hold / c_proposal / b_verbal を受ける）。それらは案件一覧の
+// 「AI・未確認」の札と AI 絞り込み（ai_created + ai_reviewed=unreviewed）で拾えます。
+// 受付に出したいなら **create_project 側を neta に寄せる**こと — ここを緩めると
+// また「決めても消えない行」が戻ります。
+//
+// 印 (ai_reviewed_at) のほうは案件一覧の札と教師データが使います
+// (projectService.markAiReviewedByStageDecision)。**この一覧は段で外すので、
+// 印が書かれていない古い行も自動で片づきます。**
 const AI_INBOX_BASE =
   `FROM projects p
    LEFT JOIN customers c ON c.id = p.customer_id
@@ -455,8 +470,9 @@ const AI_INBOX_BASE =
    WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
      AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
      AND p.ai_reviewed_at IS NULL
-     -- 決着した案件は受付に置かない (見送り・終了)。理由は上のコメント
-     AND p.stage NOT IN ('s_completed','e_lost')`;
+     -- 受付に出すのはネタ行きだけ。段が1つでも進んでいれば誰かが動かした
+     -- = 仕分け済みなので出さない。理由は上のコメント
+     AND p.stage = 'neta'`;
 
 const AI_INBOX_SQL =
   `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,

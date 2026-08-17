@@ -107,10 +107,13 @@ describe('決めたら受付から消える', () => {
   const routes = read('server', 'src', 'contexts', 'platform', 'routes', 'dashboard.routes.ts');
   const service = read('server', 'src', 'contexts', 'sales', 'services', 'project.service.ts');
 
-  it('決着した案件（見送り・終了）は受付の一覧に出さない', () => {
+  it('受付に出すのはネタ行きだけ（ご判断）', () => {
+    // 段が1つでも進んでいれば誰かが動かした＝仕分け済み。見送り (e_lost) も
+    // 受注 (a_won) も完了 (s_completed) も、この1行で自動的に外れる。
+    // ⚠️ 緩めると「決めても消えない行」が戻る（印が書かれていない古い行が残るため）
     const at = routes.indexOf('const AI_INBOX_BASE');
     expect(at).toBeGreaterThan(-1);
-    expect(routes.slice(at, at + 900)).toMatch(/AND p\.stage NOT IN \('s_completed','e_lost'\)/);
+    expect(routes.slice(at, at + 900)).toMatch(/AND p\.stage = 'neta'/);
   });
 
   it('人がステージを動かしたら「確認済み」の印を押す', () => {
@@ -133,9 +136,9 @@ describe('決めたら受付から消える', () => {
     expect(body).toMatch(/if \(!marked\) return;/);
   });
 
-  it('段が1つも動かないときは画面が印を押す（AI は仮押さえでも起票できる）', () => {
-    // MCP の `create_project` は `d_hold` を受けるので、**すでにその段にある案件を
-    // 「案件にする」と段が動かず**、サーバー側の印も押されない
+  it('段が1つも動かないときは画面が印を押す（「ネタのまま残す」）', () => {
+    // ネタをネタのままにする操作なので段が動かず、サーバー側の印も押されない。
+    // 押さないと、読んで残すと決めたものが明日もレールの先頭に出続ける
     const hook = read('client', 'src', 'contexts', 'sales', 'pages', 'projectNew', 'useCreateProject.ts');
     const at = hook.indexOf('const saveExisting');
     expect(at).toBeGreaterThan(-1);
