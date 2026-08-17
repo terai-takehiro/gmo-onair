@@ -233,12 +233,25 @@ export function useLedgerGrid({
       }
       return { rows: new Set(changes.map((c) => c.id)).size, cells: changes.length };
     },
-    onSuccess: (res) => {
+    onSuccess: (res, changes) => {
       // **落とす鍵を書き漏らさない**（`useLedgerState` と同じ一覧）
       qc.invalidateQueries({ queryKey: ['project-ledger'] });
       qc.invalidateQueries({ queryKey: ['project-integrity'] });
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+      /**
+       * ⚠️ **1件ずつの `['project', id]` も落とす**（`useLedgerState` の一括編集は
+       * 落としていたのに、**こちら（その場で直す・貼り付け）は漏れていました**）。
+       *
+       * `'projects'`（一覧）は `'project'`（1件）に**当たりません** — react-query は
+       * 鍵の前方一致で落とすので、別の文字列＝別の鍵です。落とさないと
+       * `staleTime` の 60 秒のあいだ**案件詳細と案件を直す画面が古い姿を出します**
+       * ＝ 台帳で案件分類を入れた直後に直す画面を開くと**未登録のまま**に見えます
+       * （エラーは出ず、60 秒経つか読み直せば直るので**誰も報告しません**）。
+       */
+      for (const id of new Set(changes.map((c) => c.id))) {
+        qc.invalidateQueries({ queryKey: ['project', id] });
+      }
       setPlan(null);
       setEditing(null);
       onDone();

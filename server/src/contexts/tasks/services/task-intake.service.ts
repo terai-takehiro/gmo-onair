@@ -576,13 +576,19 @@ export const taskIntakeService = {
           const code = await nextOppCode(tx);
           await tx.execute(
             `INSERT INTO projects
-               (id, code, name, customer_id, stage, project_type, gls_category,
+               (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category,
                 expected_amount, assigned_to, customer_type,
                 intake_channel, idempotency_key, source_channel, created_by)
              /* customer_type は internal / external の2値（社内案件か外のお客様か）で、
                 投入口から入るのは外からの引き合いなので external。
-                intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた */
-             VALUES (?, ?, ?, ?, 'neta', 'other', ?, 0, ?, 'external', 'other', ?, 'intake', ?)`,
+                intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた。
+
+                2段分類（audience / project_category）は **空を明示して書く**。
+                投入の文面から「客を入れるか」「配信か収録か」は決められないので、
+                旧種類 'other' と同じく人に決めてもらう（案件を直す画面に
+                「まだ分類が入っていません」と出る）。列ごと書かないと
+                書き忘れと見分けが付かないので、NULL と書いてある */
+             VALUES (?, ?, ?, ?, 'neta', 'other', NULL, NULL, ?, 0, ?, 'external', 'other', ?, 'intake', ?)`,
             [id, code, t.title.trim(), customerId, t.gls_category, userId, key, userId]
           );
           /*

@@ -3,6 +3,7 @@ import { initDb, saveDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 import { hashPassword } from '../auth/password';
 import { looksLikeGmoGroup } from '../services/gmo-group';
+import { classificationOf } from '../../contexts/sales/services/project-classification';
 
 const USERS = {
   admin: '00000000-0000-0000-0000-000000000001',
@@ -177,7 +178,19 @@ export async function seed() {
   // ============================================================
   // Projects (統合: ヨミ段階 + GLS発番済み)
   // ============================================================
-  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  /*
+   * ⚠️ **旧「案件種類」だけを入れないこと。** 2段分類（`audience` / `project_category`・
+   * migration 182）を空にすると、**案件詳細の概要タブには旧種類が「案件分類」として
+   * 出るのに、案件を直す画面では「選ぶ」＝未登録に見えます** — 検証環境の案件が
+   * 全部その見え方になり、実際に「登録してあるのに未登録になる」と報告されました。
+   * 導く表は `project-classification.ts`（`classificationOf`）の1か所だけ。
+   */
+  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  /** 旧種類から2段を引く。GLS-B の3種は `null`（2段を持たない） */
+  const cls2 = (projType: string) => {
+    const c = classificationOf(projType);
+    return [c?.audience ?? null, c?.project_category ?? null];
+  };
 
   // --- ヨミ段階（GLS番号なし）---
   const yomiData: [string, string, string, string, string, number, string, string][] = [
@@ -197,7 +210,7 @@ export async function seed() {
     PROJECTS[code] = id;
     // ヨミ段階のデフォルト分類: project_type からの推奨値 (A系項目なら 'A')
     const yomiCat = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B';
-    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
+    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
   }
 
   // --- 失注 ---
@@ -212,8 +225,8 @@ export async function seed() {
     const [code, name, custKey, projType, amt, date, reason, note, lessons, lostAt] = lostData[i];
     const id = uuidv4();
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType,
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, CUSTOMERS[custKey], projType, ...cls2(projType),
        ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B',
        amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
     );
@@ -244,7 +257,10 @@ export async function seed() {
     ['GLS-B001', 'GH 配信コンサルティング契約', 'GH', 'consulting', 'a_won', 3600000],
     ['GLS-B002', 'PW 動画戦略コンサルティング', 'PW', 'consulting', 'a_won', 2400000],
   ];
-  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, expected_amount, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  // **GLS-B は2段分類を持たない**（`project-classification.ts`）。**空を明示して書く** —
+  // 列ごと書かないと「書き忘れ」と見分けが付かず、そのままにしていたのが
+  // 上の A 系の壊れ方（詳細では登録済み・直す画面では未登録）の原因でした
+  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`;
   for (let i = 0; i < glsBData.length; i++) {
     const [gls, name, custKey, projType, stage, amt] = glsBData[i];
     const id = uuidv4();

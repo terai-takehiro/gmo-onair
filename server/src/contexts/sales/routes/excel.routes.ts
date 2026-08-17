@@ -1,10 +1,19 @@
 // 案件管理アプリのExcel入出力
 // customers / vendors / partners / projects / episodes
+//
+// ⚠️ **案件分類は3列そろえて書くこと**（`projects` の insert / update）。
+// この取込は長いあいだ旧 `project_type` だけを書いていました。2段
+// （`audience` / `project_category`）が空のまま入るので、
+// **案件詳細の概要タブには旧種類が「案件分類」として出る**のに
+// **案件を直す画面では「選ぶ」＝未登録に見える**、という食い違いになります
+// （ご指摘: 「すでに案件分類を登録していても、案件を直すを開くと未登録状態になる」）。
+// 導く表は `project-classification.ts` の1か所だけ。ここに書き写さないこと。
 import { Router } from 'express';
 import {
   createExcelResourceRouter, ResourceConfig, newId, asString, asInt, asDate,
 } from '../../../shared/utils/excel-resource';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
+import { resolveClassification } from '../services/project-classification';
 
 // ============================================================
 // 顧客 (customers)
@@ -341,24 +350,47 @@ const PROJECTS_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     const id = newId();
+    // **旧「案件種別」だけを書かない**（下記 `resolveClassification` の理由）。
+    // 取込は GLS 分類の列を持たないので NULL のまま = A 扱いで2段を導く
+    const cls = resolveClassification(undefined, undefined, d.project_type, null);
     await client.query(
-      `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type,
+      `INSERT INTO projects (id, code, gls_number, name, customer_id, stage,
+                             project_type, audience, project_category,
                              expected_amount, event_start, event_end, broadcast_type, media_platform,
                              assigned_to, tags, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-      [id, d.code, d.gls_number, d.name, d.customer_id, d.stage, d.project_type,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [id, d.code, d.gls_number, d.name, d.customer_id, d.stage,
+       cls.project_type, cls.audience, cls.project_category,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
        d.assigned_to, d.tags, userId, userId],
     );
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
   update: async (client, id, d, userId) => {
+    const cur = (await client.query(
+      'SELECT project_type, audience, project_category, gls_category FROM projects WHERE id=$1', [id],
+    )).rows[0] as Record<string, unknown> | undefined;
+    /**
+     * **種類を変えていないなら、人が入れた2段はそのまま残す。**
+     *
+     * 旧種類は4種しかないので、毎回導き直すと
+     * **「有観客の収録（公開収録）」が「有観客の配信」に化けます**
+     * （`hybrid_event` に寄せてあるものを逆に引くと配信になる）。
+     * Excel の「案件種別」を人が書き換えたときだけ導き直します。
+     */
+    const typeChanged = String(cur?.project_type ?? '') !== String(d.project_type ?? '');
+    const keeps2 = !typeChanged && (!!cur?.audience || !!cur?.project_category);
+    const cls = keeps2
+      ? { project_type: d.project_type, audience: cur!.audience, project_category: cur!.project_category }
+      : resolveClassification(undefined, undefined, d.project_type, (cur?.gls_category as string | null) ?? null);
     await client.query(
-      `UPDATE projects SET code=$1, gls_number=$2, name=$3, customer_id=$4, stage=$5, project_type=$6,
-                           expected_amount=$7, event_start=$8, event_end=$9, broadcast_type=$10, media_platform=$11,
-                           assigned_to=$12, tags=$13, updated_by=$14, updated_at=NOW()
-       WHERE id=$15`,
-      [d.code, d.gls_number, d.name, d.customer_id, d.stage, d.project_type,
+      `UPDATE projects SET code=$1, gls_number=$2, name=$3, customer_id=$4, stage=$5,
+                           project_type=$6, audience=$7, project_category=$8,
+                           expected_amount=$9, event_start=$10, event_end=$11, broadcast_type=$12, media_platform=$13,
+                           assigned_to=$14, tags=$15, updated_by=$16, updated_at=NOW()
+       WHERE id=$17`,
+      [d.code, d.gls_number, d.name, d.customer_id, d.stage,
+       cls.project_type, cls.audience, cls.project_category,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
        d.assigned_to, d.tags, userId, id],
     );

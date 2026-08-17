@@ -19,8 +19,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { localDateStr, formatShortDate } from '@/lib/format';
-import { ProjectTypeLabels } from '@/types';
-import { classificationLabel } from '@/contexts/sales/classification';
+import { classificationText } from './classificationText';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
@@ -238,16 +237,12 @@ export function OverviewTab({
           <Field label="お客様">{project.customer_name}</Field>
           <Field label="ご担当">{project.contact_name}</Field>
           {/*
-            **案件分類は2段**（migration 182）。2つ揃っているときはそれを出し、
-            揃っていない古い案件は旧「種類」を出します — **どちらも出さないと
-            分類が空欄に見えます**（2段が入る前の案件は全部そう見える）。
+            **案件分類は2段**（migration 182）。**出すか出さないかの決めごとは
+            `classificationText.ts`** にあります — 旧「案件種類」を出す条件を
+            間違えると、**決めていない案件がこの画面だけ登録済みに見え**、
+            案件を直す画面では未登録になります（実際にご指摘をいただいた形）。
           */}
-          <Field label="案件分類">
-            {classificationLabel(project.audience, project.project_category)
-              ?? (project.project_type
-                ? ProjectTypeLabels[project.project_type as keyof typeof ProjectTypeLabels] ?? project.project_type
-                : null)}
-          </Field>
+          <Field label="案件分類">{classificationText(project)}</Field>
           <Field label="継続区分">
             {project.recurrence === 'regular' ? 'レギュラー（回を持つ）' : '単発'}
           </Field>
