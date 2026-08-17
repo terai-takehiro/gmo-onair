@@ -59,7 +59,13 @@ export function NoSearchResults({ keyword, activeFilters = [], onClearFilters, c
         <button
           type="button"
           onClick={onClearFilters}
-          className="min-h-tap mt-3 rounded-control border border-border bg-card px-4 py-2 text-list text-foreground transition-colors hover:bg-secondary lg:min-h-0"
+          /*
+            ⚠️ **PC の高さを段に載せる。** スマホは `min-h-tap`(44px) が効くが、
+            PC では `lg:min-h-0` で床が外れ、**中身の高さのまま 38.25px** になっていた
+            （13.5px × 1.5 ＝ 20.25 ＋ 上下の余白 16 ＋ 罫線 2）。
+            段は 32/36/40/44/48 なので、`Button` の既定と同じ 40px に載せる。
+          */
+          className="min-h-tap mt-3 rounded-control border border-border bg-card px-4 py-2 text-list text-foreground transition-colors hover:bg-secondary lg:h-10 lg:min-h-0"
         >
           絞り込みをすべて外す
         </button>
