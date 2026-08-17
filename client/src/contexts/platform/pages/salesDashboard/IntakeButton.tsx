@@ -22,24 +22,32 @@
  *
  * **0 を隠すと「まだ読み込み中」に見えます。** 0 のときは赤ではなく灰にして、
  * 「見るものが無い」と「溜まっている」を色で分けます。
+ *
+ * ── ⚠️ 数えるのは「押した先に並ぶもの」だけ ────────────────────
+ *
+ * ここは長く `counts.total`（受信箱の**4種類の合計**）を出していました。
+ * ボタンの名前は「自動取込案件を確認」で、行き先の案件作成が並べるのは
+ * **ネタ案件と問い合わせの2種類だけ**（`INTAKE_KINDS`）です。残りの
+ * 期限超過・受け取った書類はそれぞれ別の画面が持っているので、
+ * **バッジの数字と、押した先で数えられる件数がまったく合いませんでした**
+ * （実測: バッジ 14 ／ レール 7）。数え方は `intakeCountOf` の1か所。
  */
 import { Inbox } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import api from '@/lib/api';
-
-interface InboxResponse { counts?: { total?: number } }
+import { intakeCountOf, type InboxData } from '@/contexts/sales/pages/inbox/kinds';
 
 export function IntakeButton() {
   // **案件作成のレールと同じ鍵**で引く。別の鍵にすると、片づけた直後に
   // ダッシュボードへ戻ったとき数字が古いまま残る
-  const { data } = useQuery<InboxResponse>({
+  const { data } = useQuery<InboxData>({
     queryKey: queryKeys.dashboard.inbox(),
     queryFn: async () => (await api.get('/dashboard/inbox')).data.data,
     staleTime: 30_000,
   });
-  const waiting = data?.counts?.total ?? null;
+  const waiting = intakeCountOf(data);
 
   return (
     <Link

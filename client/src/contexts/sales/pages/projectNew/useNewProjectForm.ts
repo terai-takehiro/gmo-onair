@@ -32,6 +32,8 @@ import type { InboxItem } from '../inbox/kinds';
  */
 export interface NewProjectForm extends ProjectFieldsState {
   items: InboxItem[];
+  /** レールに出せる**実数**（`items` は上限つき） */
+  itemsTotal: number | null;
   selected: InboxItem | null;
   setSelected: (item: InboxItem | null) => void;
   selection: IntakeSelection | null;
@@ -54,7 +56,7 @@ export function useNewProjectForm(): NewProjectForm {
   const replace = useCallback((next: NewProjectValues) => setV(next), []);
 
   const [selected, setSelected] = useState<InboxItem | null>(null);
-  const { items } = useIntakeItems();
+  const { items, total: itemsTotal } = useIntakeItems();
   const selection = useIntakeSeed(selected, replace);
 
   /**
@@ -114,5 +116,5 @@ export function useNewProjectForm(): NewProjectForm {
     inquiryId,
   );
 
-  return { v, set, items, selected, setSelected, selection, customers, users, customer, isGroup, missing, decisions };
+  return { v, set, items, itemsTotal, selected, setSelected, selection, customers, users, customer, isGroup, missing, decisions };
 }
