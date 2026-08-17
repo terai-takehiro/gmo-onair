@@ -13,7 +13,9 @@
  *    **見出しは要約のもの**を残します。つまり**要約の見出しが画面の版名**です
  */
 import { describe, it, expect } from 'vitest';
-import { titleOf, buildSummaryBody, SUMMARY_FILE } from '../../scripts/lib/changelog-summary.mjs';
+import {
+  titleOf, buildSummaryBody, SUMMARY_FILE, isNoteFile, descriptionLengthOf,
+} from '../../scripts/lib/changelog-summary.mjs';
 
 describe('titleOf — 下書きの見出しを取り出す', () => {
   it('先頭の太字をそのまま使う', () => {
@@ -87,5 +89,86 @@ describe('SUMMARY_FILE', () => {
    */
   it('.md で、名前で見分けられる', () => {
     expect(SUMMARY_FILE).toBe('_summary.md');
+  });
+});
+
+/**
+ * `isNoteFile` — **門（`check-changelog.mjs`）と集める側（`collect-changelog.mjs`）が
+ * 同じ判定を使う**ための1か所（レビューでの指摘・P2）。
+ *
+ * ⚠️ 片方だけが `_summary.md` を外していると、**それだけを足した PR が門を通り抜け**、
+ * **版の履歴に1行も載らないまま**マージされます。しかも 12,000 バイトを超えなければ
+ * 要約は使われないまま消されるので、**どこにも残りません**（黙って消える）。
+ */
+describe('isNoteFile — この PR の下書きか', () => {
+  it('ふつうの下書きは下書き', () => {
+    expect(isNoteFile('fix-something.md')).toBe(true);
+    expect(isNoteFile('docs/changelog.d/fix-something.md')).toBe(true);
+  });
+
+  it('README.md は下書きではない（説明の文書）', () => {
+    expect(isNoteFile('README.md')).toBe(false);
+    expect(isNoteFile('docs/changelog.d/README.md')).toBe(false);
+  });
+
+  /** ⚠️ ここが反証。外し忘れると門が「下書きあり」と嘘をつく */
+  it('_summary.md は下書きではない（版の要約）', () => {
+    expect(isNoteFile('_summary.md')).toBe(false);
+    expect(isNoteFile('docs/changelog.d/_summary.md')).toBe(false);
+  });
+
+  it('.md でないものは下書きではない', () => {
+    expect(isNoteFile('docs/changelog.d/notes.txt')).toBe(false);
+    expect(isNoteFile('')).toBe(false);
+  });
+
+  /** `_summary.md` を名前の一部に含むだけのものは、ふつうの下書き */
+  it('名前に summary を含むだけの下書きは外さない', () => {
+    expect(isNoteFile('docs/changelog.d/fix-summary-panel.md')).toBe(true);
+  });
+});
+
+/**
+ * `descriptionLengthOf` — **画面がその版の本文として数える長さ**。
+ *
+ * ⚠️ **物差しが2つあることが問題の芯です**（レビューでの指摘・P2）。
+ * 書き込む側の上限は**バイト**（`CLAUDE.md` が毎ターン文脈に載る費用はバイトで効く）、
+ * 画面が同じ版の2つを見比べるのは**文字数**（`description.length`）。
+ * 日本語は 1文字 3バイトなので、**全文が日本語ばかり・要約が英数字ばかり**だと
+ * 「バイトでは要約が小さいのに、文字数では要約のほうが長い」を作れます。
+ * そうなると画面は**要約を本文に採り、アーカイブの全文を捨てます**（エラーは出ません）。
+ */
+describe('descriptionLengthOf — 画面が数える本文の長さ', () => {
+  /** 生成側は先頭の太字を見出しとして切り出し、本文からは外す */
+  it('先頭の太字と直後の句点を本文に数えない', () => {
+    expect(descriptionLengthOf('**みだし**。あいう')).toBe(3);
+  });
+
+  it('太字で始まらないときは丸ごと本文', () => {
+    expect(descriptionLengthOf('あいうえお')).toBe(5);
+  });
+
+  /**
+   * ⚠️ **これが反証。** バイトで比べていると通ってしまう組み合わせ。
+   * 日本語 5,000 文字 = 15,000 バイト（上限超え）に対し、
+   * 英数字 11,000 文字 = 11,000 バイト（上限内）。
+   * **バイトなら要約のほうが小さいのに、文字数では倍以上長い。**
+   */
+  it('バイト数と文字数で大小が逆転する組み合わせを見分けられる', () => {
+    const full = `**み**。${'あ'.repeat(5000)}`;
+    const summary = `**s**。${'a'.repeat(11000)}`;
+
+    // バイトで比べると「要約のほうが小さい」＝ 上限の検査は通ってしまう
+    expect(Buffer.byteLength(summary, 'utf8')).toBeLessThan(Buffer.byteLength(full, 'utf8'));
+
+    // 文字数（＝画面の物差し）で比べると要約のほうが長い ＝ 全文が消える組み合わせ
+    expect(descriptionLengthOf(summary)).toBeGreaterThan(descriptionLengthOf(full));
+  });
+
+  /** ふつうの要約は全文よりずっと短い（止められない） */
+  it('ふつうの組み合わせでは要約のほうが短い', () => {
+    const full = `**み**。${'あ'.repeat(5000)}`;
+    const summary = buildSummaryBody(['あああ', 'いいい']);
+    expect(descriptionLengthOf(summary)).toBeLessThan(descriptionLengthOf(full));
   });
 });

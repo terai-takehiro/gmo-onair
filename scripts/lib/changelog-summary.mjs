@@ -18,6 +18,30 @@
  */
 export const SUMMARY_FILE = '_summary.md';
 
+/** 説明の文書。下書きではない */
+export const README_FILE = 'README.md';
+
+/**
+ * その名前が**この PR の下書き**か（＝版に載せる1件か）。
+ *
+ * ⚠️ **`collect-changelog.mjs` と `check-changelog.mjs` が同じ判定を使うこと**
+ * （レビューでの指摘・P2）。片方だけが `_summary.md` を外していたので、
+ * **`_summary.md` だけを足した PR が門を通り抜けて**いました:
+ *
+ *  ・門（`check-changelog.mjs`）… 「下書きを1つ足した」と数えて **OK を出す**
+ *  ・集める側（`collect-changelog.mjs`）… 要約なので **集めない**
+ *
+ * ＝ **その PR は版の履歴に1行も載りません。** しかも 12,000 バイトを超えなければ
+ * 要約は使われないまま消されるので、**どこにも残りません**（黙って消える）。
+ *
+ * ⚠️ **名前で外すこと。** 「1行しかない」等の中身での判定にすると、
+ * 短い下書きを書いた人が「下書きが無い」と怒られます。
+ */
+export function isNoteFile(name) {
+  const base = String(name).split('/').pop();
+  return !!base && base.endsWith('.md') && base !== README_FILE && base !== SUMMARY_FILE;
+}
+
 /**
  * 下書きの**先頭の太字**を見出しとして取り出す。
  *
@@ -51,6 +75,29 @@ export function titleOf(body) {
  * **先頭の太字を見出しとして切り出す**（`generate-version-history.mjs` の `TITLE_RE`）ので、
  * 太字で始めないと**本文の頭 90 文字が版の名前**になります。
  */
+/**
+ * 画面が**その版の本文として数える長さ**（`generate-version-history.mjs` と同じ数え方）。
+ *
+ * ⚠️ **バイト数ではなく文字数で数えること**（レビューでの指摘・P2）。
+ * 同じ版が2か所（`CLAUDE.md` の要約 ／ アーカイブの全文）にあるとき、生成側は
+ * **`description.length`（＝ JavaScript の文字数）が長いほう**を本文に採ります。
+ *
+ * 一方こちらの上限は**バイト数**（`CLAUDE.md` が文脈に載る費用はバイトで効くため）。
+ * **物差しが2つある**ので、次が起こりえます:
+ *
+ *  ・全文…日本語ばかり ＝ 1文字 3バイト。**12KB 超**でも **4,000 文字ほど**
+ *  ・要約…英数字ばかり ＝ 1文字 1バイト。**12KB 以内**でも **12,000 文字**
+ *
+ * → **要約のほうが「長い」と判定され、画面から全文が消えます。**
+ * ⚠️ **エラーは出ません**（版は1件出るし、要約も正しい文章です）。
+ * だから書き込む側で**同じ数え方**で確かめます。
+ */
+export function descriptionLengthOf(body) {
+  const s = String(body).trim();
+  const m = s.match(/^\*\*(.+?)\*\*[。.]?\s*/);
+  return (m ? s.slice(m[0].length).trim() : s).length;
+}
+
 export function buildSummaryBody(titles) {
   return `**${titles.length} 本ぶんの変更**`
     + `（**1件ずつの詳細は下のアーカイブに全文あります**）。`
