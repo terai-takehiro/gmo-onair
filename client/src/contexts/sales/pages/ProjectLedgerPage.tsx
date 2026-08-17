@@ -100,7 +100,10 @@ export default function ProjectLedgerPage() {
   const targets = s.rows.filter((r) => s.selected.has(r.id)).map((r) => ({ id: r.id, name: r.name }));
 
   return (
-    <div className="space-y-4">
+    /* ⚠️ **画面の余白はこの根が持つ**（`<main>` は持っていない・`shell/AppShell.tsx`）。
+       書かないと見出しも表も左メニューの罫線に貼り付く（実測 0px）。
+       段は隣の案件一覧・タスク一覧と同じ（違うと行き来したとき表の左端が動く） */
+    <div className="space-y-4 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="案件台帳"
         sub="案件のデータを列で見て、揃っているかを確かめて、まとめて直す画面です。毎日の仕事は「案件一覧」から"
