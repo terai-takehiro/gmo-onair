@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import {
   titleOf, buildSummaryBody, SUMMARY_FILE, isNoteFile, descriptionLengthOf,
 } from '../../scripts/lib/changelog-summary.mjs';
+import { titleAndDescriptionOf } from '../../scripts/generate-version-history.mjs';
 
 describe('titleOf — 下書きの見出しを取り出す', () => {
   it('先頭の太字をそのまま使う', () => {
@@ -231,5 +232,42 @@ describe('descriptionLengthOf — 見出しだけのとき', () => {
 
     // 画面の物差しでは要約のほうが長い ＝ 全文が消える組み合わせ
     expect(descriptionLengthOf(summary)).toBeGreaterThan(descriptionLengthOf(full));
+  });
+});
+
+/**
+ * ⚠️ **数え方を写さず、生成側の関数をそのまま呼ぶ**（レビューでの指摘・P2・4度目）。
+ *
+ * 手で写して**4回失敗しました** — バイトと文字数／版の行の前置き／本文が空のときの
+ * `|| body`／**句点を2つ落とす**のを1つしか落としていない。
+ * **写しがある限り何度でも起きる**ので、`generate-version-history.mjs` の
+ * `titleAndDescriptionOf` を import しています。この節はそれが**本当に同じ**であることを固定します。
+ */
+describe('descriptionLengthOf — 生成側と同じ数え方であること', () => {
+  /**
+   * ⚠️ **これが4件目の反証。** 見出しのあとに句点が2つあると、
+   * 生成側は**2つとも**落として本文が空になり `|| body` で丸ごとを採ります。
+   * 1つしか落とさない実装では「本文 1 文字」になり、検査を素通りします。
+   */
+  it('見出しのあとの句点が2つでも、生成側と同じく丸ごとを本文にする', () => {
+    const summary = `v9.9.9 — **${'a'.repeat(6000)}**。。`;
+    // 1つしか落とさない実装なら 1（残った「。」）になる
+    expect(descriptionLengthOf(summary)).toBe(6006);
+  });
+
+  /** 生成側の出力と直接突き合わせる（写しが増えたらここで落ちる） */
+  it('生成側の titleAndDescriptionOf と同じ長さを返す', () => {
+    const cases = [
+      '**みだし**。あいうえお',
+      '**みだし**あいうえお',
+      '**みだしだけ**',
+      '**みだし**。。あいう',
+      '太字で始まらない本文です。つづき',
+    ];
+    for (const body of cases) {
+      expect(descriptionLengthOf(body)).toBe(titleAndDescriptionOf(body).description.length);
+      // 版の行の形で渡しても同じ（前置きを外すのはこちらの仕事）
+      expect(descriptionLengthOf(`v9.9.9 — ${body}`)).toBe(titleAndDescriptionOf(body).description.length);
+    }
   });
 });

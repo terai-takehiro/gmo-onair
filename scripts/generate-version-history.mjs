@@ -63,6 +63,37 @@ function extractSection(text, start, end) {
 const LINE_RE = /^(\()?v(\d+\.\d+\.\d+)\s*[—:]\s*(.*)$/;
 const TITLE_RE = /^\*\*(.+?)\*\*[。.]?\s*/;
 
+/**
+ * 版の本文から**見出しと本文**を切り出す（この文書の**唯一の定義**）。
+ *
+ * ⚠️ **写さないこと。** リリースの道具（`scripts/lib/changelog-summary.mjs`）は
+ * 「要約が全文より長くなっていないか」を**画面と同じ数え方**で確かめる必要があり、
+ * そこで**この関数を import** します。
+ *
+ * 手で写していたときは、**同じ関数に4件のレビュー指摘**が付きました:
+ * バイトと文字数を取り違える／版の行の前置き（`vX.Y.Z — `）を外していない／
+ * 本文が空のときの `|| body` を落としている／**句点を2つ落とす**のを1つしか落としていない。
+ * **どれも「画面ではこう数える」を写しきれていなかった**もので、
+ * **写しがある限り何度でも起きます**。だから export して1つにしてあります。
+ */
+export function titleAndDescriptionOf(body) {
+  const titleMatch = body.match(TITLE_RE);
+  let title;
+  // title をタイトル行の先頭太字から抽出できた場合、本文側の重複表示を避けるため
+  // description からはその接頭辞（太字＋直後の句点）を取り除く。
+  let description = body;
+  if (titleMatch) {
+    title = titleMatch[1];
+    description = body.slice(titleMatch[0].length).replace(/^[。.]\s*/, "").trim();
+  } else {
+    const firstSentence = body.split("。")[0];
+    title = firstSentence.length <= 90 ? firstSentence : `${firstSentence.slice(0, 90)}…`;
+  }
+  title = title.replace(/\*\*/g, "").trim();
+  // ⚠️ **本文が空なら丸ごと使う。** 見出しだけの版がここに来る
+  return { title, description: description || body };
+}
+
 function stripOuterWrap(line, hasOpenParen) {
   let s = line;
   if (hasOpenParen) {
@@ -94,25 +125,13 @@ function parseEntries(sectionText) {
     const rest = m[3];
     const body = stripOuterWrap(`${hasOpenParen ? "(" : ""}${rest}`, hasOpenParen);
 
-    const titleMatch = body.match(TITLE_RE);
-    let title;
-    // title をタイトル行の先頭太字から抽出できた場合、本文側の重複表示を避けるため
-    // description からはその接頭辞（太字＋直後の句点）を取り除く。
-    let description = body;
-    if (titleMatch) {
-      title = titleMatch[1];
-      description = body.slice(titleMatch[0].length).replace(/^[。.]\s*/, "").trim();
-    } else {
-      const firstSentence = body.split("。")[0];
-      title = firstSentence.length <= 90 ? firstSentence : `${firstSentence.slice(0, 90)}…`;
-    }
-    title = title.replace(/\*\*/g, "").trim();
+    const { title, description } = titleAndDescriptionOf(body);
 
     entries.push({
       version,
       isCurrent: isFirst,
       title,
-      description: description || body,
+      description,
     });
     isFirst = false;
   }
