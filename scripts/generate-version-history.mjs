@@ -64,17 +64,11 @@ const LINE_RE = /^(\()?v(\d+\.\d+\.\d+)\s*[—:]\s*(.*)$/;
 const TITLE_RE = /^\*\*(.+?)\*\*[。.]?\s*/;
 
 /**
- * 版の本文から**見出しと本文**を切り出す（この文書の**唯一の定義**）。
+ * 版の**本文**（前後の前置き・括弧・版番号を外したもの）から見出しと本文を切り出す。
  *
- * ⚠️ **写さないこと。** リリースの道具（`scripts/lib/changelog-summary.mjs`）は
- * 「要約が全文より長くなっていないか」を**画面と同じ数え方**で確かめる必要があり、
- * そこで**この関数を import** します。
- *
- * 手で写していたときは、**同じ関数に4件のレビュー指摘**が付きました:
- * バイトと文字数を取り違える／版の行の前置き（`vX.Y.Z — `）を外していない／
- * 本文が空のときの `|| body` を落としている／**句点を2つ落とす**のを1つしか落としていない。
- * **どれも「画面ではこう数える」を写しきれていなかった**もので、
- * **写しがある限り何度でも起きます**。だから export して1つにしてあります。
+ * ⚠️ **単体では import しないこと。** ここだけを写すと「本文をどう作るか」
+ * （前置きの外し方・括弧の外し方）が抜け落ちます。**1行まるごとから欲しいときは
+ * `parseVersionLine` を使ってください**（このパイプライン全部を1つにまとめたもの）。
  */
 export function titleAndDescriptionOf(body) {
   const titleMatch = body.match(TITLE_RE);
@@ -94,7 +88,7 @@ export function titleAndDescriptionOf(body) {
   return { title, description: description || body };
 }
 
-function stripOuterWrap(line, hasOpenParen) {
+export function stripOuterWrap(line, hasOpenParen) {
   let s = line;
   if (hasOpenParen) {
     // 先頭 "(" を除去。対応する閉じ ")" が末尾にあれば併せて除去。
@@ -109,6 +103,37 @@ function stripOuterWrap(line, hasOpenParen) {
   return s.trim();
 }
 
+/**
+ * **1行（`vX.Y.Z — 本文` または `(vX.Y.Z — 本文)`）から version・title・description を
+ * まとめて取り出す**（`parseEntries` の1件ぶんの処理と**同じ関数**・唯一の定義）。
+ *
+ * 一致しない行（見出し外の雑記など）は `null` を返します。
+ *
+ * ⚠️ **ここが唯一の入口です。** リリースの道具
+ * （`scripts/lib/changelog-summary.mjs` の `descriptionLengthOf`）は
+ * 「要約が全文より長くなっていないか」を**画面と同じ数え方**で確かめる必要があり、
+ * この関数を import してそのまま呼びます。
+ *
+ * **手で一部だけ写していたときは、同じ場所に6件連続でレビュー指摘が付きました**:
+ * バイトと文字数を取り違える／版の行の前置きを外していない／本文が空のときの
+ * `|| body` を落としている／句点を2つ落とすのを1つしか落としていない／
+ * `stripOuterWrap`（歴史的な閉じ括弧）を経由していない。
+ * **「切り出しの一部だけを import する」を続ける限り、次に生成側のパイプラインが
+ * 増えるたびにまた同じ形で漏れます。** だから**行を渡すとまるごと処理する関数**を
+ * ここに1つだけ置き、`parseEntries` もこれ経由にしています（実装は1つ）。
+ */
+export function parseVersionLine(rawLine) {
+  const line = String(rawLine).trim();
+  const m = line.match(LINE_RE);
+  if (!m) return null;
+  const hasOpenParen = m[1] === "(";
+  const version = m[2];
+  const rest = m[3];
+  const body = stripOuterWrap(`${hasOpenParen ? "(" : ""}${rest}`, hasOpenParen);
+  const { title, description } = titleAndDescriptionOf(body);
+  return { version, title, description };
+}
+
 function parseEntries(sectionText) {
   const lines = sectionText.split("\n");
   const entries = [];
@@ -117,22 +142,10 @@ function parseEntries(sectionText) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    const m = line.match(LINE_RE);
-    if (!m) continue; // 既知の版番号パターンに一致しない行はスキップ（見出し外の雑記等）
+    const parsed = parseVersionLine(line);
+    if (!parsed) continue; // 既知の版番号パターンに一致しない行はスキップ（見出し外の雑記等）
 
-    const hasOpenParen = m[1] === "(";
-    const version = m[2];
-    const rest = m[3];
-    const body = stripOuterWrap(`${hasOpenParen ? "(" : ""}${rest}`, hasOpenParen);
-
-    const { title, description } = titleAndDescriptionOf(body);
-
-    entries.push({
-      version,
-      isCurrent: isFirst,
-      title,
-      description,
-    });
+    entries.push({ ...parsed, isCurrent: isFirst });
     isFirst = false;
   }
 
