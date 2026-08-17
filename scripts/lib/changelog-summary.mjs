@@ -91,7 +91,16 @@ export function descriptionLengthOf(entry) {
   // 版の行（`vX.Y.Z — …`）で渡されたら前置きを外して本文だけにする
   const s = String(entry).trim().replace(/^v\d+\.\d+\.\d+\s+—\s+/, '');
   const m = s.match(/^\*\*(.+?)\*\*[。.]?\s*/);
-  return (m ? s.slice(m[0].length).trim() : s).length;
+  const desc = m ? s.slice(m[0].length).trim() : s;
+  /*
+   * ⚠️ **見出しだけのときは、見出しを本文として数える**（レビューでの指摘・P2・3度目）。
+   * 生成側は `description || body` と書いており、**見出しを外すと空になる版**では
+   * **見出しを含む丸ごと**を本文に使います。ここで 0 を返すと、
+   * **見出しだけの長い要約**（`**` ＋ 英数字 6,000 文字 ＋ `**`）が
+   * 「本文 0 文字」として検査を通り、生成側では **6,004 文字**として全文に勝ちます
+   * ＝ **アーカイブの全文が画面から消えます**。**同じ落とし方をすること。**
+   */
+  return (desc || s).length;
 }
 
 /**

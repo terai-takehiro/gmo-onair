@@ -202,3 +202,34 @@ describe('descriptionLengthOf — 版の行で渡されても本文だけを数�
     expect(descriptionLengthOf(summary)).toBeGreaterThan(descriptionLengthOf(full));
   });
 });
+
+/**
+ * ⚠️ **見出しだけの版は、見出しを本文として数えること**（レビューでの指摘・P2・3度目）。
+ *
+ * 生成側は `description || body` と書いているので、**見出しを外すと空になる版**では
+ * **見出しを含む丸ごと**が本文になります。ここで 0 を返すと、
+ * **見出しだけの長い要約**が「本文 0 文字」として検査を通り、
+ * 画面では全文に勝って**アーカイブの全文が消えます**。
+ */
+describe('descriptionLengthOf — 見出しだけのとき', () => {
+  it('見出しを外すと空になるなら、見出しを含めて数える', () => {
+    expect(descriptionLengthOf('**あいうえお**')).toBe(9); // ** + 5 + **
+    expect(descriptionLengthOf('v9.9.9 — **あいうえお**')).toBe(9);
+  });
+
+  /**
+   * ⚠️ **これが反証。** 見出しだけの英数字 6,000 文字の要約は、
+   * 落とし方を合わせないと「本文 0 文字」として素通りし、
+   * 画面では 6,004 文字として日本語 5,000 文字の全文に勝ちます。
+   */
+  it('見出しだけの長い要約が全文に勝つ組み合わせを見分けられる', () => {
+    const full = `v9.9.9 — **み**。${'あ'.repeat(5000)}`;
+    const summary = `v9.9.9 — **${'a'.repeat(6000)}**`;
+
+    // 落とし方を合わせないと 0 になり、素通りしてしまう
+    expect(descriptionLengthOf(summary)).toBe(6004);
+
+    // 画面の物差しでは要約のほうが長い ＝ 全文が消える組み合わせ
+    expect(descriptionLengthOf(summary)).toBeGreaterThan(descriptionLengthOf(full));
+  });
+});
