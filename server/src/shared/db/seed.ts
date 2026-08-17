@@ -249,7 +249,7 @@ export async function seed() {
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
-    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
+    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
   }
 
   // --- B系: GLS-B (その他売上) ---
