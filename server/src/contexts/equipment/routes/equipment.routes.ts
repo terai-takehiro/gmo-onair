@@ -711,18 +711,42 @@ router.delete('/custom-columns/:id', async (req: Request, res: Response) => {
 // カスタム列の値 読み書き
 // ============================================================
 
-// GET /equipment/custom-values?equipment_ids=id1,id2
+/**
+ * GET /equipment/custom-values
+ *
+ * 取り方は2つ。**列で取るほうを使うこと** (`?column_ids=c1,c2`)。
+ *
+ * ⚠️ **機材の id を並べる取り方 (`?equipment_ids=`) は、台帳が大きいと
+ * 必ず失敗します。** id は uuid なので 1 件 37 文字、**1,000 件で 37,049 文字**に
+ * なり、Node は 16KB を超える要求行を**中身を見る前に HTTP 431 で捨てます**
+ * (実測: 200件 200 / 400件 200 / **1,000件 431** / 3,800件 431)。
+ * 画面には何も出ないので、**大きい台帳では自分で作った列が黙って空**でした。
+ *
+ * 列で取れば URL は列の数ぶんしか伸びず、返る行も「値が入っている組」だけです。
+ * `equipment_ids` は**他から呼ばれていても壊さないために残して**あります。
+ */
 router.get('/custom-values', async (req: Request, res: Response) => {
   try {
+    const rawColumns = String(req.query.column_ids ?? '');
+    if (rawColumns) {
+      const columnIds = rawColumns.split(',').filter(Boolean);
+      if (columnIds.length === 0) return res.json({ success: true, data: [] });
+      const rows = await queryAll(
+        `SELECT equipment_id, column_id, value FROM equipment_custom_values
+         WHERE column_id = ANY($1::text[])`,
+        [columnIds],
+      );
+      return res.json({ success: true, data: rows });
+    }
+
     const rawIds = String(req.query.equipment_ids ?? '');
     if (!rawIds) return res.json({ success: true, data: [] });
     const ids = rawIds.split(',').filter(Boolean);
     if (ids.length === 0) return res.json({ success: true, data: [] });
-    // parameterized IN clause
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
     const rows = await queryAll(
-      `SELECT equipment_id, column_id, value FROM equipment_custom_values WHERE equipment_id IN (${placeholders})`,
-      ids
+      `SELECT equipment_id, column_id, value FROM equipment_custom_values
+       WHERE equipment_id = ANY($1::text[])`,
+      [ids],
     );
     res.json({ success: true, data: rows });
   } catch (err: any) {

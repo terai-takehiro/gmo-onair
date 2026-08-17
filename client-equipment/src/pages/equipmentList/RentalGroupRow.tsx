@@ -10,9 +10,15 @@ import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { UNIT_STATUS_LABELS, UNIT_STATUS_TONE, type ModelGroup } from './rentalTypes';
 
 export function RentalGroupRow({
-  group, expanded, showCategory, onToggle, onEditRental, onOpenUnit,
+  group, measureKey, expanded, showCategory, onToggle, onEditRental, onOpenUnit,
 }: {
   group: ModelGroup;
+  /**
+   * 高さを覚えるときの鍵（`rentalRowKey`）。**開いているかどうかを含む。**
+   * 見えている塊だけ描くので、`useVarRowWindow` はこの鍵で実寸を覚えます。
+   * 型番だけを鍵にすると、閉じたあとも開いたときの高さを使い続けます。
+   */
+  measureKey: string;
   expanded: boolean;
   /** カテゴリの見出しが上に出ているときは、行にカテゴリを重ねて出さない */
   showCategory: boolean;
@@ -26,7 +32,7 @@ export function RentalGroupRow({
   const renamed = !!group.rental_display_name && group.rental_display_name !== group.name;
 
   return (
-    <div className="rounded-card border border-border bg-card">
+    <div data-eq-row data-eq-key={measureKey} className="rounded-card border border-border bg-card">
       <Row interactive stackOnMobile>
         <RowSlot w={56} align="center">
           <button

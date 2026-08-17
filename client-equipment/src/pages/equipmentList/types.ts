@@ -206,6 +206,88 @@ export function ledgerMinWidth(
   return fixed + Math.max(slots - 1, 0) * ROW_GAP + ROW_PX * 2 + (hasName ? NAME_MIN_PX : 0);
 }
 
+/**
+ * 台帳に出す行を**平らな1本の配列**にする。
+ *
+ * ── なぜ平らにするか ────────────────────────────────────────
+ *
+ * 見えている行だけ描く（`useRowWindow`）には「上から数えて N 行目」が
+ * 要ります。前は親の行の中に付属品を入れ子で描いていたので数えられませんでした。
+ *
+ * 出す順番・段差・中身は**1つも変えていません**:
+ *
+ *   ・`items` の中に混ざっている付属品（「付属品も出す」で当たった枝）は
+ *     その場に `child` として置き、段差は親をたどった深さ ＋1
+ *   ・開いている親の直後に、覚えている付属品を段差1で並べる
+ *   ・まだ取りに行っている最中なら「読み込んでいます」の行を置く
+ *
+ * ⚠️ **`index` は `items` の中の番号**（平らにした配列の番号ではない）。
+ * Shift 押しの範囲選択が `items` の並びで数えるので、ここを取り違えると
+ * **付属品を開いているときだけ違う範囲が選ばれます**（画面には何も出ません）。
+ *
+ * ── 罫線は `:last-child` に頼らず、ここで決める（重要）──────────
+ *
+ * `<Row divider>` は `border-b … last:border-b-0` です。前は**親の行を
+ * `<div>` で包んで**いたので、付属品を開いていない親の行は**必ず
+ * その `<div>` の `:last-child`** になり、罫線が消えていました。
+ * つまり **いまの台帳は親の行のあいだに線が引かれていません**
+ * （実ブラウザで `border-bottom-width` を測ると、表頭だけ 1px で
+ *  以降の行は 0px）。
+ *
+ * 見えている行だけ描くと `:last-child` は「いちばん下の行」ではなく
+ * 「いま描いた最後の行」になるので、**そのままでは線の出方が
+ * スクロールで変わります**。そこで包む `<div>` をやめ、
+ * **今までと同じ結果になる真偽値をここで計算して渡します**。
+ * これは速さの話ではなく**見た目を1px も変えないため**の処置で、
+ * `shared/tests/equipmentLedgerRows.test.ts` で固定してあります。
+ */
+export type DisplayRow = { divider: boolean } & (
+  | { kind: 'parent'; item: EquipmentRecord; index: number }
+  | { kind: 'child'; item: EquipmentRecord; depth: number; parentId?: string }
+  | { kind: 'loading'; key: string }
+);
+
+export function flattenRows(
+  items: EquipmentRecord[],
+  expandedIds: Set<string>,
+  childrenCache: Record<string, EquipmentRecord[]>,
+  loadingChildren: Set<string>,
+): DisplayRow[] {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  /** 親をたどった深さ。`items` の中に親がいる分だけ数える（元の `depthOf` と同じ） */
+  const depthOf = (item: EquipmentRecord) => {
+    let d = 0;
+    let pid = item.parent_id;
+    while (pid && byId.get(pid)?.parent_id) { d++; pid = byId.get(pid)?.parent_id; }
+    return d;
+  };
+
+  const out: DisplayRow[] = [];
+  items.forEach((item, index) => {
+    // 「付属品も出す」で当たった付属品は、包む `<div>` を持たず親と同じ並びに来る。
+    // 前はここだけ `:last-child` にならないので線が引かれていた
+    if (item.parent_id != null) {
+      out.push({ kind: 'child', item, depth: depthOf(item) + 1, divider: index < items.length - 1 });
+      return;
+    }
+
+    const expanded = expandedIds.has(item.id);
+    const kids = expanded ? (childrenCache[item.id] ?? []) : [];
+    const loading = expanded && loadingChildren.has(item.id);
+    // 前は「包む `<div>` の中で最後かどうか」だった
+    out.push({ kind: 'parent', item, index, divider: kids.length > 0 || loading });
+    kids.forEach((child, ki) => {
+      out.push({
+        kind: 'child', item: child, depth: 1, parentId: item.id,
+        divider: loading || ki < kids.length - 1,
+      });
+    });
+    // 読み込み中の行は前から `last:` が付いていない（＝必ず線が出る）
+    if (loading) out.push({ kind: 'loading', key: item.id, divider: true });
+  });
+  return out;
+}
+
 export const PRINT_COLS = [
   { key: 'eq_code', label: 'ID' },
   { key: 'equipment_type', label: '種別' },

@@ -26,7 +26,7 @@ import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/noti
 import { SearchField } from '@/components/parts/SearchField';
 import { useDebounced } from '@/hooks/useDebounced';
 import { TYPE_CODES, TYPE_LABELS } from '@/lib/constants';
-import { RentalGroupRow } from './RentalGroupRow';
+import { RentalSection } from './RentalSection';
 import { groupKey, type CategorySection, type ModelGroup, type RentalCategory } from './rentalTypes';
 
 export function RentalPanel() {
@@ -186,39 +186,23 @@ export function RentalPanel() {
       ) : (
         <div className="flex flex-col gap-4">
           {sections.map((section) => (
-            <div key={section.id ?? '_none'} className="flex flex-col gap-2">
-              {showSectionHeaders && (
-                <div className="flex items-center gap-3">
-                  <span className="whitespace-nowrap text-th text-muted-foreground">{section.name}</span>
-                  <span className="h-px flex-1 bg-border" />
-                  <span className="shrink-0 text-sub-sm text-muted-foreground">
-                    {section.groups.length} 型番 ／ {section.groups.reduce((s, g) => s + g.total_count, 0)} 台
-                  </span>
-                </div>
-              )}
-              {section.groups.map((g) => {
-                const key = groupKey(g);
-                return (
-                  <RentalGroupRow
-                    key={key}
-                    group={g}
-                    expanded={expanded.has(key)}
-                    showCategory={showSectionHeaders}
-                    onToggle={() => setExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(key)) next.delete(key); else next.add(key);
-                      return next;
-                    })}
-                    onEditRental={() => {
-                      setEditGroup(g);
-                      setEditCategoryId(g.rental_category_id ?? '');
-                      setEditDisplayName(g.rental_display_name ?? '');
-                    }}
-                    onOpenUnit={(id) => navigate(`/equipment/items/${id}`)}
-                  />
-                );
+            <RentalSection
+              key={section.id ?? '_none'}
+              section={section}
+              showHeader={showSectionHeaders}
+              expanded={expanded}
+              onToggle={(key) => setExpanded((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key); else next.add(key);
+                return next;
               })}
-            </div>
+              onEditRental={(g) => {
+                setEditGroup(g);
+                setEditCategoryId(g.rental_category_id ?? '');
+                setEditDisplayName(g.rental_display_name ?? '');
+              }}
+              onOpenUnit={(id) => navigate(`/equipment/items/${id}`)}
+            />
           ))}
         </div>
       )}
