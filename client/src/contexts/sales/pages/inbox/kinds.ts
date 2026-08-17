@@ -123,7 +123,10 @@ export interface InboxItem {
 export interface InboxData {
   items: InboxItem[];
   checklist: { key: string; kind: 'agreement'; meta: Record<string, unknown> }[];
+  /** **実数**（種類ごと）。`items` には上限が掛かっているので長さとは一致しない */
   counts: Record<string, number>;
+  /** いま `items` に載っている数（種類ごと）。上限に当たったかはこれとの差で分かる */
+  shown?: Record<string, number>;
   dailyops: { visible: boolean; editable: boolean };
   /**
    * **案件側を数えたか。** 受信箱は `sales` か `dailyops` のどちらかで開くので、
@@ -132,6 +135,25 @@ export interface InboxData {
    * 「無い」と言い切らない）。古い応答には無いので任意。
    */
   sales?: { visible: boolean };
+}
+
+/**
+ * **「自動取込案件」の件数**（＝案件作成のレールに出るものだけ）。
+ *
+ * ⚠️ **`counts.total` を使わないこと。** `total` は受信箱の**4種類の合計**で、
+ * 期限が過ぎたやること・受け取った書類まで入っています。ダッシュボードの
+ * 「自動取込案件を確認」はその `total` を出していたので、
+ * **押した先の画面に並ぶ件数と一致しませんでした**（実測: バッジ 14 ／ レール 7）。
+ * バッジは押す前に「何件たまっているか」を言う数字なので、
+ * **押した先で数えられるものと同じ集合**でなければ意味がありません。
+ *
+ * 出す種類（`INTAKE_KINDS`）が増えたときに1か所直せば両方に効くよう、
+ * レールも件数もこの関数を通します。**まだ読み込んでいないときは `null`**
+ * （0 と紛らわしいので数字を出さない）。
+ */
+export function intakeCountOf(data: Pick<InboxData, 'counts'> | undefined): number | null {
+  if (!data?.counts) return null;
+  return INTAKE_KINDS.reduce((n, kind) => n + (data.counts[kind] ?? 0), 0);
 }
 
 /** 一覧に出す1行の見出しと副題。**種類ごとに何を先に読むかが違う** */

@@ -141,13 +141,32 @@ export function useProjectDecisions(
     return row.id;
   };
 
-  /** もうある行を、いまフォームに入っている内容で上書きしてからステージを動かす */
+  /**
+   * もうある行を、いまフォームに入っている内容で上書きしてからステージを動かす。
+   *
+   * ⚠️ **どの道を通っても「確認しました」の印が残ること。** 印が残らないと、
+   * 決めたのにカードが受付に並び続けます（v4.1.2 までの壊れ方）。
+   *
+   *  ・**段が動くとき** … サーバーが押します（`markAiReviewedByStageDecision`）。
+   *    段を動かすのは中身を読まないとできない操作なので、そこを印にしています。
+   *    ⚠️ **ここから `/ai-review` を足さないこと** — 見送りまで「無修正で採用」に
+   *    数えられ、拾いすぎの指標が消えます
+   *  ・**段が動かないとき** … ここで押します。AI は仮押さえで起票することも
+   *    できる（MCP の `create_project` は `d_hold` を受ける）ので、
+   *    **すでにその段にある案件を「案件にする」と段が1つも動かず**、
+   *    サーバー側の印も押されません
+   */
   const saveExisting = async (id: string, stage: string) => {
     await api.put(`/projects/${id}`, buildProjectBody(v));
     if (selection?.project && selection.project.stage !== stage) {
       await api.patch(`/projects/${id}/stage`, stage === 'e_lost'
         ? { stage, lost_reason: 'other', lost_reason_note: '案件作成で見送り' }
         : { stage });
+    } else {
+      // **AI が起こしたものは「確認済み」にする。** 印を付けないと、
+      // 明日もレールの先頭に出続けて、同じものを何度も読むことになる。
+      // AI 起票でない案件では何も起きない（サーバーが判定する）
+      await api.post(`/projects/${id}/ai-review`).catch(() => undefined);
     }
     return id;
   };
@@ -171,13 +190,10 @@ export function useProjectDecisions(
 
   const keep = useMutation({
     mutationFn: async () => {
-      if (existingId) {
-        await saveExisting(existingId, 'neta');
-        // **AI が起こしたものは「確認済み」にする。** 印を付けないと、
-        // 明日もレールの先頭に出続けて、同じものを何度も読むことになる
-        await api.post(`/projects/${existingId}/ai-review`).catch(() => undefined);
-        return existingId;
-      }
+      // 「確認しました」の印は `saveExisting` が必ず残す（段が動くならサーバー、
+      // 動かないならここから）。**この3つの決め方で扱いを分けないこと** —
+      // 分けた結果が「ネタのまま残す だけ受付から消える」だった
+      if (existingId) return saveExisting(existingId, 'neta');
       if (selection?.inquiry) {
         // 問い合わせは案件にせず、あとで見るところ（ストック）へ移す
         await api.post(`/dailyops/inquiries/${selection.inquiry.id}/state`, { state: 'stock' });
@@ -207,7 +223,11 @@ export function useProjectDecisions(
     },
     onSuccess: () => {
       // 見送りは**もうある行のステージを動かす**だけなので、行き先（ダッシュボード）に
-      // 出ていなくても `['project', id]` の古い姿は残る（戻ると失注前の段が出る）
+      // 出ていなくても `['project', id]` の古い姿は残る（戻ると失注前の段が出る）。
+      // **受信箱の鍵も落とす**（`invalidate` の中）— レールとダッシュボードの
+      // バッジはこれで消える。⚠️ 消えるのは**サーバー側が失注を受付から外している**
+      // からで（`AI_INBOX_SQL` の stage 条件と `ai_reviewed_at` の印）、
+      // 落とすだけでは消えなかった（v4.1.2 まで「見送りにしても何も起きない」状態）
       invalidate(existingId);
       notifySuccess('見送りにしました');
       navigate('/sales/dashboard');

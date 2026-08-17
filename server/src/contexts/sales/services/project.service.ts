@@ -10,7 +10,7 @@ import {
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
-import { recordProjectCorrections, recordIntakeDecision } from './project-ai-feedback.service';
+import { recordProjectCorrections, recordIntakeDecision, recordProjectAccepted } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
 import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
@@ -1288,6 +1288,7 @@ export class ProjectService {
          VALUES (?, ?, ?, ?, ?)`,
         [uuidv4(), id, project.stage ?? null, stage, userId],
       );
+      await this.markAiReviewedByStageDecision(id, stage, userId);
     }
 
     /**
@@ -1349,6 +1350,56 @@ export class ProjectService {
     // 採れなかった理由を**そのまま返す**。黙って番号なしで受注になると、
     // 請求のときに「番号が無い」と気づいて手戻りになる
     return glsError ? { ...(result as Record<string, unknown>), gls_error: glsError } : result;
+  }
+
+  /**
+   * **人がステージを動かしたら、AI 起票の「未確認」を外す。**
+   *
+   * ── なぜ要るか ──────────────────────────────────────────────
+   *
+   * 受付（案件作成）の3つの決め方のうち、`ai_reviewed_at` を書いていたのは
+   * **「ネタのまま残す」だけ**でした。つまり
+   *
+   *   ・**見送りにする** … `stage = e_lost` にするだけ → 受付に残る
+   *   ・**案件にする**   … `stage = d_hold` にするだけ → 受付に残る
+   *
+   * で、**決めたのに受付から消えません**。押した人には「見送りにしても
+   * 全く反応しない」としか見えず、しかもエラーは出ないので報告もされません。
+   * 受注・完了まで進めた案件が「自動で届いたもの」に並んだままでした（実測）。
+   *
+   * ステージを動かすのは**中身を読まないとできない操作**なので、
+   * ここを「人が確かめた」の印にします。
+   *
+   * ── 数え方を壊さないための3つの守り ──────────────────────────
+   *
+   * ① **AI 自身が動かしたときは印を付けない**（`mcpActorId`）。メール取込の
+   *    スキルは毎日ステージを動かすので、付けると**誰も見ていないものが
+   *    確認済みになり、受付から静かに消えます**
+   * ② **AI 起票の案件だけ**（`created_by` が AI か、監査ログに `create_project` がある）。
+   *    条件は受信箱の一覧（`AI_INBOX_SQL`）と同じもの
+   * ③ **見送りは「無修正で採用」に数えない。** 見送りは AI 出力の**不採用**で、
+   *    `changeStage` が別途 `recordIntakeDecision(…'dropped')` を残します。
+   *    ここで `recordProjectAccepted` を呼ぶと**拾いすぎた回が正解に数えられます**
+   */
+  private async markAiReviewedByStageDecision(id: string, stage: string, userId: string) {
+    if (userId === config.mcpActorId) return;
+    // **`RETURNING` で「本当に印が付いたか」を受け取る。** `execute` は件数を返さないので、
+    // 見ずに次へ進むと **AI 起票でない案件のステージを動かすたびに「無修正で採用」が
+    // 1件積まれ**、受入率が実態より高く出る
+    const marked = await queryOne(
+      `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+       WHERE id = ? AND deleted_at IS NULL AND ai_reviewed_at IS NULL
+         AND (created_by = ? OR EXISTS (
+           SELECT 1 FROM mcp_audit_log m
+           WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
+         ))
+       RETURNING id`,
+      [userId, id, config.mcpActorId],
+    );
+    // 印が付かなかった（AI 起票ではない／すでに確認済み）ときは何も残さない
+    if (!marked) return;
+    // 見送りは `recordIntakeDecision` が不採用として残す。ここでは採用側だけ数える
+    if (stage !== 'e_lost') await recordProjectAccepted(id, userId);
   }
 
   /**

@@ -40,9 +40,8 @@ import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
+import { intakeCountOf, type InboxData } from '@/contexts/sales/pages/inbox/kinds';
 import type { SalesOverview } from './types';
-
-interface InboxResponse { counts?: { total?: number } }
 
 export function MobileSalesDashboard() {
   const navigate = useNavigate();
@@ -55,7 +54,7 @@ export function MobileSalesDashboard() {
     queryFn: async () => (await api.get('/dashboard/sales-overview')).data.data,
   });
 
-  const inbox = useQuery<InboxResponse>({
+  const inbox = useQuery<InboxData>({
     queryKey: queryKeys.dashboard.inbox(),
     queryFn: async () => (await api.get('/dashboard/inbox')).data.data,
     staleTime: 30_000,
@@ -70,7 +69,10 @@ export function MobileSalesDashboard() {
     return new Set(mine.map((t) => t.project_id)).size;
   }, [tasks.data, currentUser?.id]);
 
-  const waiting = inbox.data?.counts?.total ?? null;
+  // **PC の「自動取込案件を確認」と同じ数え方**（`intakeCountOf`）。
+  // 受信箱の4種類の合計（`counts.total`）を出していたので、押した先の
+  // 案件作成に並ぶ件数と一致していなかった
+  const waiting = intakeCountOf(inbox.data);
   const kpi = overview.data?.kpi;
 
   return (

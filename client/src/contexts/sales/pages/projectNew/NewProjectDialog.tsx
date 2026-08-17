@@ -100,7 +100,7 @@ function DesktopNewProject() {
       </div>
 
       <div className="flex flex-col gap-3.5 p-4 lg:px-6 lg:pb-6">
-        <IntakeRail items={f.items} selectedKey={f.selected?.key ?? null} onSelect={f.setSelected} />
+        <IntakeRail items={f.items} total={f.itemsTotal} selectedKey={f.selected?.key ?? null} onSelect={f.setSelected} />
 
         {f.selection?.project?.gls_number && (
           <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2 text-sub text-warning">

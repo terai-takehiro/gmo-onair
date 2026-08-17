@@ -70,7 +70,7 @@ export function MobileNewProject() {
       <div className="flex flex-1 flex-col gap-3.5 p-4 pb-2">
         {step === 0 && (
           <>
-            <IntakeRail items={f.items} selectedKey={f.selected?.key ?? null} onSelect={f.setSelected} />
+            <IntakeRail items={f.items} total={f.itemsTotal} selectedKey={f.selected?.key ?? null} onSelect={f.setSelected} />
             {stepMissing.length > 0 && (
               <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-sub text-warning">
                 {stepMissing.join(' ・ ')} が入っていません

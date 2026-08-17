@@ -28,7 +28,9 @@ import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { useRail } from '@gmo-onair/shared/src/client-v4/rail';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
-import { INTAKE_KINDS, titleOf, subtitleOf, type InboxData, type InboxItem } from '../inbox/kinds';
+import {
+  INTAKE_KINDS, intakeCountOf, titleOf, subtitleOf, type InboxData, type InboxItem,
+} from '../inbox/kinds';
 
 /**
  * レールのカードの幅。**モックの実測値（236px）**。件名の長さなりにすると
@@ -42,7 +44,7 @@ const KIND_BADGE: Record<string, { label: string; tone: string }> = {
   inquiry: { label: '問合せ', tone: 'bg-primary-surface text-primary' },
 };
 
-export function useIntakeItems(): { items: InboxItem[]; isLoading: boolean } {
+export function useIntakeItems(): { items: InboxItem[]; total: number | null; isLoading: boolean } {
   const { data, isLoading } = useQuery<InboxData>({
     queryKey: queryKeys.dashboard.inbox(),
     queryFn: async () => (await api.get('/dashboard/inbox')).data.data,
@@ -51,16 +53,25 @@ export function useIntakeItems(): { items: InboxItem[]; isLoading: boolean } {
   });
   return {
     items: (data?.items ?? []).filter((i) => INTAKE_KINDS.includes(i.kind)),
+    /**
+     * **実数**（`items.length` ではない）。サーバーは種類ごとに上限を掛けて返すので、
+     * 溜まっている環境では並べた枚数のほうが少なくなります。
+     * ダッシュボードのバッジと**同じ数え方**（`intakeCountOf`）を通します。
+     */
+    total: intakeCountOf(data),
     isLoading,
   };
 }
 
 export function IntakeRail({
   items,
+  total,
   selectedKey,
   onSelect,
 }: {
   items: InboxItem[];
+  /** 実数。並べきれなかった分は「ほかに N 件」と書く（黙って切り詰めない） */
+  total: number | null;
   selectedKey: string | null;
   onSelect: (item: InboxItem | null) => void;
 }) {
@@ -70,17 +81,28 @@ export function IntakeRail({
   // 毎回出ると、案件作成が「受付の付属品」に見える
   if (items.length === 0) return null;
 
+  // 出す数字は**実数**（ダッシュボードのバッジと同じ）。並べた枚数のほうが
+  // 少ないときは**何枚隠れているかを書く** — 黙って切り詰めると、
+  // 数字と並びが食い違う理由が画面から読み取れない
+  const shown = items.length;
+  const hidden = total !== null && total > shown ? total - shown : 0;
+
   return (
     <div className="rounded-card border border-primary-border bg-primary-surface-weak px-3.5 py-3">
       <p className="text-sub mb-2 flex flex-wrap items-center gap-2 font-bold">
         <Inbox className="h-4 w-4 text-primary" aria-hidden="true" />
         自動で届いたもの
         <span className="text-badge font-number rounded-badge-xs bg-primary-surface px-1.5 py-0.5 text-primary">
-          {items.length}
+          {total ?? shown}
         </span>
         <span className="text-note font-normal text-muted-foreground">
           選ぶと下の欄に読み取った内容が入ります
         </span>
+        {hidden > 0 && (
+          <span className="text-note font-normal text-muted-foreground">
+            ・新しい順に {shown} 件だけ出しています（ほかに {hidden} 件）
+          </span>
+        )}
         {selectedKey && (
           <button
             type="button"

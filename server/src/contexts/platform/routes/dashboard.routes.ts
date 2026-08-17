@@ -56,16 +56,35 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
   const dailyopsEditable =
     user.role === 'system_admin' || ['editor', 'manager', 'owner'].includes(dailyLevel);
 
-  const [overdue, aiProjects, agreements, inquiries, financeDocs] = await Promise.all([
+  /*
+   * 一覧は上限つき（画面に並べられる量に限りがある）だが、**件数は上限を掛けずに数える**。
+   * 上限に当たった行を数え落とすと、バッジが「50」で止まったまま実数だけが増えていく。
+   */
+  const AGREEMENT_BASE =
+    `FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
+       AND p.gls_category = 'A'
+       AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL`;
+  // 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
+  // 記録が打たれていない行が受信箱に残り続ける
+  const INQUIRY_BASE = `FROM misc_inquiries WHERE deleted_at IS NULL AND state = 'unsorted'`;
+  const FINANCE_DOC_BASE =
+    `FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')`;
+
+  const countOf = async (sql: string, params: unknown[] = []): Promise<number> =>
+    Number(((await queryOne(sql, params)) as { c?: number } | undefined)?.c ?? 0);
+  const zero = Promise.resolve(0);
+
+  const [
+    overdue, aiProjects, agreements, inquiries, financeDocs,
+    overdueTotal, aiProjectTotal, agreementTotal, inquiryTotal, financeDocTotal,
+  ] = await Promise.all([
     salesVisible ? queryAll(OVERDUE_ACTIONS_SQL) : Promise.resolve([]),
     salesVisible ? queryAll(AI_INBOX_SQL, [config.mcpActorId]) : Promise.resolve([]),
     salesVisible ? queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name AS customer_name
-       FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
-       WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
-         AND p.gls_category = 'A'
-         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
+       ${AGREEMENT_BASE}
        ORDER BY p.updated_at DESC
        LIMIT 100`
     ) : Promise.resolve([]),
@@ -73,10 +92,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
       ? queryAll(
           `SELECT id, sender, subject, summary, category, importance, action_needed, url,
                   received_at, created_at
-           FROM misc_inquiries
-           -- 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
-           -- 記録が打たれていない行が受信箱に残り続ける
-           WHERE deleted_at IS NULL AND state = 'unsorted'
+           ${INQUIRY_BASE}
            ORDER BY created_at ASC
            LIMIT 100`
         )
@@ -85,12 +101,16 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
       ? queryAll(
           `SELECT id, doc_type, sender, subject, amount, status, payment_due,
                   received_at, created_at
-           FROM finance_docs
-           WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
+           ${FINANCE_DOC_BASE}
            ORDER BY created_at ASC
            LIMIT 100`
         )
       : Promise.resolve([]),
+    salesVisible ? countOf(OVERDUE_ACTIONS_COUNT_SQL) : zero,
+    salesVisible ? countOf(AI_INBOX_COUNT_SQL, [config.mcpActorId]) : zero,
+    salesVisible ? countOf(`SELECT COUNT(*)::int AS c ${AGREEMENT_BASE}`) : zero,
+    dailyopsVisible ? countOf(`SELECT COUNT(*)::int AS c ${INQUIRY_BASE}`) : zero,
+    dailyopsVisible ? countOf(`SELECT COUNT(*)::int AS c ${FINANCE_DOC_BASE}`) : zero,
   ]);
 
   // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
@@ -120,7 +140,21 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
     data: {
       items,
       checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
+      /**
+       * **実数**（`items` の長さではない）。`items` は種類ごとに上限を掛けて
+       * 返すので、溜まっている環境では両者が食い違う。画面はこちらを数字として出し、
+       * 「並べきれなかった分がある」ことは `shown` との差で言う。
+       */
       counts: {
+        total: overdueTotal + aiProjectTotal + inquiryTotal + financeDocTotal,
+        overdue_action: overdueTotal,
+        ai_project: aiProjectTotal,
+        inquiry: inquiryTotal,
+        finance_doc: financeDocTotal,
+        agreement: agreementTotal,
+      },
+      /** いま `items` / `checklist` に載せた数。**上限に当たったかはここで分かる** */
+      shown: {
         total: items.length,
         overdue_action: overdue.length,
         ai_project: aiProjects.length,
@@ -261,12 +295,13 @@ router.get('/alerts', async (_req, res) => {
 });
 
 // 期限超過の次回アクション SQL (overdue-actions と 受信箱 /inbox が共用)
-const OVERDUE_ACTIONS_SQL =
-  `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
-          a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
-          a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
-          (CURRENT_DATE - a.next_action_date::date) AS days_overdue
-   FROM activity_logs a
+//
+// ⚠️ **一覧と件数は同じ「FROM 〜 WHERE」から組む。** 件数を `rows.length` で
+// 出していたので、`LIMIT` に当たった瞬間から**画面の数字が実数と別のもの**になる
+// （実測: 未確認の AI 起票 124 件 → バッジは 50、未仕分けの問い合わせ 132 件 → 100）。
+// しかも**エラーは出ず、増えるほどズレが広がる**ので誰も報告できない。
+const OVERDUE_ACTIONS_BASE =
+  `FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
    LEFT JOIN customers c ON c.id = p.customer_id
@@ -274,9 +309,18 @@ const OVERDUE_ACTIONS_SQL =
      AND p.stage NOT IN ('s_completed','e_lost')
      AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
      AND a.next_action_done_at IS NULL
-     AND a.next_action_date < CURRENT_DATE::text
+     AND a.next_action_date < CURRENT_DATE::text`;
+
+const OVERDUE_ACTIONS_SQL =
+  `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
+          a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
+          a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
+          (CURRENT_DATE - a.next_action_date::date) AS days_overdue
+   ${OVERDUE_ACTIONS_BASE}
    ORDER BY a.next_action_date ASC
    LIMIT 200`;
+
+const OVERDUE_ACTIONS_COUNT_SQL = `SELECT COUNT(*)::int AS c ${OVERDUE_ACTIONS_BASE}`;
 
 // 期限超過の次回アクション (エスカレーション用)。進行中案件で next_action_date < 今日 かつ 未完了。
 // 期限が古い順。ホームの「対応漏れ」アラートと、Claude スケジュール実行→Slack 通知の両方で使う。
@@ -384,12 +428,20 @@ router.get('/sales-board', async (_req, res) => {
 // 人間がまだ内容確認していないもの (ai_reviewed_at IS NULL) を新しい順に返す。
 // 確認は POST /projects/:id/ai-review (projects.routes) で記録する。
 // AI 起票の未確認案件 SQL (ai-inbox と 受信箱 /inbox が共用)
-const AI_INBOX_SQL =
-  `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
-          p.intake_channel, p.intake_confidence,
-          c.name AS customer_name, u.name AS assigned_to_name,
-          ai.requested_by AS ai_requested_by
-   FROM projects p
+//
+// ⚠️ **決着した案件は受付に置かない**（下の stage 条件）。
+//
+// ここには長く**ステージの条件が1つもありませんでした**。受付で「見送りにする」を
+// 押すと stage は e_lost になるのに、この一覧の条件は ai_reviewed_at IS NULL だけ
+// なので**カードはそのまま残ります** ＝ 押した人には「見送りにしても全く反応しない」
+// としか見えません（実測: 見送り・案件にする・受注・完了の4つとも残っていた）。
+//
+// 「人が見たか」は ai_reviewed_at が持ちますが、**それは印を書いた場合の話**で、
+// 印が書かれていない古い行がここに永久に溜まります。終了・失注は**どんな経緯であれ
+// 受付の仕事ではない**ので、印とは別に必ず外します
+// (projectService.markAiReviewedByStageDecision が印を書くのと二重の守り)。
+const AI_INBOX_BASE =
+  `FROM projects p
    LEFT JOIN customers c ON c.id = p.customer_id
    LEFT JOIN users u ON u.id = p.assigned_to
    LEFT JOIN LATERAL (
@@ -403,8 +455,19 @@ const AI_INBOX_SQL =
    WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
      AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
      AND p.ai_reviewed_at IS NULL
+     -- 決着した案件は受付に置かない (見送り・終了)。理由は上のコメント
+     AND p.stage NOT IN ('s_completed','e_lost')`;
+
+const AI_INBOX_SQL =
+  `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+          p.intake_channel, p.intake_confidence,
+          c.name AS customer_name, u.name AS assigned_to_name,
+          ai.requested_by AS ai_requested_by
+   ${AI_INBOX_BASE}
    ORDER BY p.created_at DESC
    LIMIT 50`;
+
+const AI_INBOX_COUNT_SQL = `SELECT COUNT(*)::int AS c ${AI_INBOX_BASE}`;
 
 router.get('/ai-inbox', async (_req, res) => {
   const rows = await queryAll(AI_INBOX_SQL, [config.mcpActorId]);

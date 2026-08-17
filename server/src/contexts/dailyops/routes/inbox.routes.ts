@@ -157,8 +157,16 @@ router.put('/inquiries/:id', ...canEdit, async (req, res) => {
  * 旧 `POST /inquiries/:id/handle`（対応済みの入切）はここに畳みました。
  * 「対応済み」の1つでは、ストックしたのか見送ったのかチケットにしたのかが
  * 区別できず、**あとで引き直せません**。
+ *
+ * ⚠️ **`sales` でも通す。** 案件作成（`/sales/projects/new`）の
+ * 「ネタのまま残す」＝ストック／「見送りにする」＝見送り が**この口を叩きます**。
+ * `dailyops` の editor だけを要求していたので、**`sales` の editor ＋
+ * `dailyops` の reader** という人には**レールに問い合わせのカードが出るのに
+ * どちらのボタンも 403**でした（受信箱はその人にカードを返します。実測）。
+ * 同じ表を読む `GET /inquiries/:id`・`POST /inquiries`・`link-project` は
+ * 同じ理由ですでに2つを見ており、**行き先を動かす口だけ狭いまま**でした。
  */
-router.post('/inquiries/:id/state', ...canEdit, async (req, res) => {
+router.post('/inquiries/:id/state', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor'), async (req, res) => {
   const row = await inquiryService.setState(String(req.params.id), String(req.body?.state ?? ''), req.user!.name);
   res.json({ success: true, data: row });
 });
