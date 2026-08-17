@@ -288,6 +288,14 @@ GITHUB_TOKEN=<token> npm run reviews:debt      # 直近 20 本のマージ済み
 - **`npm run lint` の門にはしていません。** 外の API に依存するものを門にすると、
   **GitHub が重い日にビルドが止まります**。これは**人がマージのあとに見る**ものです
 
+### 見張りの手順（PR を出したあと）
+
+CI 失敗とレビュー指摘を**マージまで片づける**手順は
+**[.claude/skills/pr-watch](../.claude/skills/pr-watch/SKILL.md)** にまとめてあります
+（Claude Code では `/pr-watch`）。この棚卸しはその手順の最後の1歩です。
+落ち方ごとの読み方は同 `references/ci-jobs.md`、
+⚠️ **CI が見ていない3つ**（凍結アプリの CSS・シード・実ブラウザ）もそこにあります。
+
 ---
 
 ## やってはいけないこと
