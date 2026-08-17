@@ -23,15 +23,18 @@
  * 1. `docs/changelog.d/*.md` を **git の履歴順**（マージされた順）で集める
  *    — ファイルの更新時刻で並べると、あとから直した PR が先頭に来ます
  * 2. `vX.Y.Z — <集めた本文>` を `CLAUDE.md`「## 現在のバージョン」の先頭に置く
+ *    — ⚠️ **全文が 12KB を超えたら、要約を `CLAUDE.md` に・全文をアーカイブに分ける**
+ *      （下記。要約は `docs/changelog.d/_summary.md` に書いておけばそれを使う）
  * 3. **4件目を `docs/version-history.md` へ移す**（この節は毎ターン文脈に載るため）
  * 4. `README.md` の「現在のバージョン」を差し替え、前の版を「旧 …」に落とす
  * 5. `package.json` の `version` を上げる
  * 6. 集めた `changelog.d/*.md` を消す
  */
-import { readFileSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SUMMARY_FILE, titleOf, buildSummaryBody } from './lib/changelog-summary.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = join(ROOT, 'docs', 'changelog.d');
@@ -45,8 +48,9 @@ if (!version) {
   process.exit(1);
 }
 
-/** `README.md` は説明なので集めない */
-const entries = readdirSync(DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+/** `README.md` は説明、`_summary.md` は要約なので集めない */
+const entries = readdirSync(DIR)
+  .filter((f) => f.endsWith('.md') && f !== 'README.md' && f !== SUMMARY_FILE);
 if (entries.length === 0) {
   console.error(`[release:notes] ${DIR} に載せるものがありません（作業 PR がファイルを置きます）`);
   process.exit(1);
@@ -74,10 +78,28 @@ function mergedOrder(files) {
 
 const ordered = mergedOrder(entries);
 const bodies = ordered.map((f) => readFileSync(join(DIR, f), 'utf8').trim().replace(/\s*\n\s*/g, ''));
-const line = `v${version} — ${bodies.join(' ')}`;
+const fullLine = `v${version} — ${bodies.join(' ')}`;
 
 console.log(`[release:notes] ${ordered.length} 件を v${version} にまとめます:`);
 for (const f of ordered) console.log(`  - ${f}`);
+
+/*
+ * **1本ずつの長さも見る**（決めごと: `docs/changelog.d/README.md`「載せたい文を1つ置く」）。
+ *
+ * ⚠️ **止めません**（警告だけ）。長い下書きにも書くべき中身があることはあり、
+ * ここで落とすと**リリースの日に人の文章を削る**ことになります。
+ * ただし黙っていると、全部が長くなって毎回下の上限に当たります
+ * （実際にそうなりました）。**数えて出す**のが目的です。
+ */
+const SOFT_ENTRY_BYTES = 3_000;
+const longOnes = ordered
+  .map((f, i) => ({ f, n: Buffer.byteLength(bodies[i], 'utf8') }))
+  .filter((x) => x.n > SOFT_ENTRY_BYTES);
+if (longOnes.length) {
+  console.warn(`[release:notes] ⚠️ 長い下書きが ${longOnes.length} 件あります`
+    + `（目安 ${SOFT_ENTRY_BYTES} バイト／1本）:`);
+  for (const x of longOnes) console.warn(`  - ${x.n} バイト  ${x.f}`);
+}
 
 // ── CLAUDE.md ────────────────────────────────────────────────
 const claudePath = join(ROOT, 'CLAUDE.md');
@@ -102,17 +124,60 @@ if (firstEntry < 0) throw new Error('CLAUDE.md に版の行が1つもありま�
  * （`docs/version-history.md`。画面の履歴は両方を読んで**長いほう**を採ります）。
  */
 const MAX_ENTRY_BYTES = 12_000;
-const size = Buffer.byteLength(line, 'utf8');
-if (size > MAX_ENTRY_BYTES) {
-  console.error(`[release:notes] この版の行が大きすぎます: ${(size / 1024).toFixed(0)}KB（目安 ${Math.round(MAX_ENTRY_BYTES / 1024)}KB）
+const fullSize = Buffer.byteLength(fullLine, 'utf8');
+const split = fullSize > MAX_ENTRY_BYTES;
+
+/*
+ * **超えたら、止めずに分ける。**
+ *
+ * ⚠️ 前の版はここで `exit 1` して「要約を CLAUDE.md に・全文をアーカイブに
+ * 入れてください」と**案内するだけ**でした。ところが**その分割をやる仕組みが
+ * どこにも無い**ので、踏んだ人は手で `CLAUDE.md` と `docs/version-history.md` を
+ * 編集することになります。**リリースを出そうとした人だけが踏む門**で、
+ * しかも「どう書けば画面が正しく読むか」（見出しは要約側・本文はアーカイブ側・
+ * 同じ版なら長いほうを採る）は `generate-version-history.mjs` を読まないと分かりません。
+ * 実際に `main` で 19KB になり、**次のリリースのノートが作れない**状態になりました。
+ *
+ * いまは**この道具が両方書きます**:
+ *   ・全文  → `docs/version-history.md`「## 過去のバージョン」直下（`(…)` で包んだ1行）
+ *   ・要約  → `CLAUDE.md` と `README.md`（同じ版番号で始める）
+ * 画面の「バージョン履歴」は両方を読み、**同じ版なら長いほう（＝全文）**を出します。
+ *
+ * ⚠️ **要約の中身までは作れません。** `_summary.md` があればそれを使い、
+ * 無ければ**収録した見出しを並べたもの**を置きます（`buildSummaryBody`）。
+ * どちらにせよ**人が読み直してください** — そのために下で警告を出します。
+ */
+let line = fullLine;
+if (split) {
+  const sp = join(DIR, SUMMARY_FILE);
+  const handWritten = existsSync(sp)
+    ? readFileSync(sp, 'utf8').trim().replace(/\s*\n\s*/g, '')
+    : null;
+  const body = handWritten || buildSummaryBody(ordered.map((f, i) => titleOf(bodies[i])));
+  line = `v${version} — ${body}`;
+
+  const summarySize = Buffer.byteLength(line, 'utf8');
+  if (summarySize > MAX_ENTRY_BYTES) {
+    console.error(`[release:notes] 要約も大きすぎます: ${(summarySize / 1024).toFixed(0)}KB`
+      + `（目安 ${Math.round(MAX_ENTRY_BYTES / 1024)}KB）
 
   CLAUDE.md の「## 現在のバージョン」は**毎ターン文脈に載ります**。
-  ${entries.length} 本ぶんの全文をそのまま入れると、全作業のコストが上がります。
+  docs/changelog.d/${SUMMARY_FILE} を短くしてください。`);
+    process.exit(1);
+  }
 
-  ・全文は docs/version-history.md の「## 過去のバージョン」直下へ（(…) で包んだ1行）
-  ・CLAUDE.md には要約だけを置く（同じ版番号で始める）
-  画面の「バージョン履歴」は両方を読み、同じ版なら**長いほう**を出します。`);
-  process.exit(1);
+  console.log(`[release:notes] 全文が ${(fullSize / 1024).toFixed(0)}KB`
+    + `（目安 ${Math.round(MAX_ENTRY_BYTES / 1024)}KB）なので分けます:`);
+  console.log('  ・全文  → docs/version-history.md の「## 過去のバージョン」直下');
+  console.log('  ・要約  → CLAUDE.md と README.md');
+  if (handWritten) {
+    console.log(`  要約は docs/changelog.d/${SUMMARY_FILE} の中身を使いました`);
+  } else {
+    console.warn(`[release:notes] ⚠️ 要約を機械で組み立てました（収録した見出しを並べただけです）。`);
+    console.warn(`  **その版が何だったかを1文で言う**のは人にしかできません。`);
+    console.warn(`  出す前に CLAUDE.md の先頭の行を読み直してください`);
+    console.warn(`  （次からは docs/changelog.d/${SUMMARY_FILE} に書いておくとそれを使います）。`);
+  }
 }
 
 claude.splice(firstEntry, 0, line, '');
@@ -129,13 +194,31 @@ for (let i = firstEntry; i < claude.length; i += 1) {
 if (!dry) writeFileSync(claudePath, claude.join('\n'));
 
 // ── docs/version-history.md ──────────────────────────────────
-if (archived) {
+/*
+ * アーカイブへ入れるものは最大2つ:
+ *   ① 分けたときの**この版の全文**（`CLAUDE.md` には要約しか置いていないので、
+ *      ここに入れないと**画面の履歴からその版の中身が消えます**）
+ *   ② `CLAUDE.md` から溢れた**4件目**
+ * **新しい順に並べる。** ① のほうが ② より新しいので先に書きます。
+ */
+const toArchive = [];
+if (split) toArchive.push(fullLine);
+if (archived) toArchive.push(archived);
+
+if (toArchive.length) {
   const hp = join(ROOT, 'docs', 'version-history.md');
   const h = readFileSync(hp, 'utf8');
-  const m = '## 過去のバージョン\n\n';
-  const at = h.indexOf(m) + m.length;
-  if (!dry) writeFileSync(hp, `${h.slice(0, at)}(${archived})\n\n${h.slice(at)}`);
-  console.log(`[release:notes] ${archived.slice(0, 24)}… をアーカイブへ移しました`);
+  /*
+   * ⚠️ **見出しは行頭で探す**（`generate-version-history.mjs` の `headingIndex` と同じ理由）。
+   * 素の `indexOf` だと**前置きの中の引用**に当たり、版を見出しより前に置いてしまいます。
+   * そうなると**その版は画面から消えます**（生成側は見出しより後だけを読む）。
+   */
+  const m = /^## 過去のバージョン$/m.exec(h);
+  if (!m) throw new Error('docs/version-history.md に「## 過去のバージョン」がありません');
+  const at = m.index + m[0].length;
+  const block = toArchive.map((l) => `\n\n(${l})`).join('');
+  if (!dry) writeFileSync(hp, `${h.slice(0, at)}${block}${h.slice(at)}`);
+  for (const l of toArchive) console.log(`[release:notes] ${l.slice(0, 24)}… をアーカイブへ入れました`);
 }
 
 // ── README.md ────────────────────────────────────────────────
@@ -154,7 +237,16 @@ const pkg = readFileSync(pp, 'utf8');
 if (!dry) writeFileSync(pp, pkg.replace(/"version": "\d+\.\d+\.\d+"/, `"version": "${version}"`));
 
 // ── 集めたファイルを消す ─────────────────────────────────────
-if (!dry) for (const f of ordered) rmSync(join(DIR, f));
+/*
+ * ⚠️ **`_summary.md` も消す。** 残すと**次の版がこの版の要約を名乗ります** —
+ * 中身は違うのに文章は前の版のまま、という**気づきにくい間違い**になります
+ * （版の行は番号で始まるので、番号だけ新しくて中身が古い1行ができる）。
+ */
+if (!dry) {
+  for (const f of ordered) rmSync(join(DIR, f));
+  const sp = join(DIR, SUMMARY_FILE);
+  if (existsSync(sp)) rmSync(sp);
+}
 
 console.log(dry
   ? '[release:notes] --dry なので何も書いていません'
