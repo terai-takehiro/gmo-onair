@@ -172,3 +172,33 @@ describe('descriptionLengthOf — 画面が数える本文の長さ', () => {
     expect(descriptionLengthOf(summary)).toBeLessThan(descriptionLengthOf(full));
   });
 });
+
+/**
+ * ⚠️ **版の行（`vX.Y.Z — …`）で渡しても本文だけを数えること**（レビューでの指摘・P2・2度目）。
+ *
+ * 呼ぶ側が持っているのは版の行です。前置きを外さないと `^**` に当たらないので、
+ * **見出しごと本文として数え**、比べているのは**行まるごとの長さ**になります。
+ * ⚠️ **見出しの長さが違うと逆転します** — 下の反証がその組み合わせです。
+ */
+describe('descriptionLengthOf — 版の行で渡されても本文だけを数える', () => {
+  it('`vX.Y.Z — ` の前置きを外す', () => {
+    expect(descriptionLengthOf('v4.1.3 — **みだし**。あいう')).toBe(3);
+    expect(descriptionLengthOf('**みだし**。あいう')).toBe(3);
+  });
+
+  /**
+   * ⚠️ **これが反証。** 全文の見出しだけを長くすると、
+   * **行の長さでは全文のほうが長い**のに **本文では要約のほうが長い**。
+   * 前置きを外さない実装だと**素通り**し、画面から全文が消えます。
+   */
+  it('見出しの長さで逆転する組み合わせを見分けられる', () => {
+    const full = `v9.9.9 — **${'長'.repeat(300)}**。${'あ'.repeat(1000)}`;
+    const summary = `v9.9.9 — **短**。${'あ'.repeat(1100)}`;
+
+    // 行まるごとで比べると「要約のほうが短い」＝ 前置きを外さない実装は通してしまう
+    expect(summary.length).toBeLessThan(full.length);
+
+    // 本文（＝画面の物差し）で比べると要約のほうが長い ＝ 全文が消える組み合わせ
+    expect(descriptionLengthOf(summary)).toBeGreaterThan(descriptionLengthOf(full));
+  });
+});
