@@ -19,6 +19,7 @@ import axios from 'axios';
 import ical from 'node-ical';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { decrypt } from '../../liveops/crypto';
+import { assertSafeHttpsUrl, publicHttpsAgent } from '../../../shared/security/safe-remote-url';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 分
 const WINDOW_PAST_DAYS = 30;
@@ -165,7 +166,7 @@ export async function syncFeed(feed: FeedRow): Promise<SyncResult> {
   const url = decrypt(feed.url_enc);
   if (!url) throw new Error('URL の復号に失敗しました (ENCRYPTION_KEY を確認してください)');
   const normalized = url.replace(/^webcal:\/\//i, 'https://');
-  if (!/^https:\/\//i.test(normalized)) throw new Error('https の URL のみ購読できます');
+  assertSafeHttpsUrl(normalized);
 
   const res = await axios.get<string>(normalized, {
     timeout: FETCH_TIMEOUT_MS,
@@ -174,6 +175,9 @@ export async function syncFeed(feed: FeedRow): Promise<SyncResult> {
     headers: { 'User-Agent': 'GMO-ONAiR-Calendar/1.0', Accept: 'text/calendar, text/plain, */*' },
     // ICS フィードはリダイレクトすることがある (Google の publish URL 等)
     maxRedirects: 3,
+    // URL はユーザー入力。各接続（リダイレクト先を含む）の DNS 解決時に
+    // loopback / private / link-local を拒否して SSRF と DNS rebinding を防ぐ。
+    httpsAgent: publicHttpsAgent,
   });
   const text = typeof res.data === 'string' ? res.data : String(res.data);
   if (!text.includes('BEGIN:VCALENDAR')) throw new Error('ICS 形式ではありません (URL が公開カレンダーの ICS か確認してください)');
