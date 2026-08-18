@@ -102,7 +102,9 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     作り直したらスマホに開放します（ご判断「外で判断するものは開ける」）。
   */
   { path: '/sales/companies', what: '取引先マスター', why: 'v4 でまだ作り直していない画面で、道具のボタンが縦に積まれていて指で押しにくい形です。' },
-  { path: '/sales/customers', what: '顧客', why: 'v4 でまだ作り直していない画面で、道具のボタンが縦に積まれていて指で押しにくい形です。' },
+  // **`/sales/customers`（顧客の一覧）は Phase 2 で削除した** — `/sales/companies?role=customer`
+  // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
+  // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
   { path: '/sales/activity-logs', what: '営業活動記録', why: 'v4 でまだ作り直していない画面です。' },
   { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },

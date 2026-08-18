@@ -58,7 +58,7 @@ export const DO_ITEMS: Shortcut[] = [
 
 /** 場所 — モックの6つ */
 export const PLACES: Shortcut[] = [
-  { key: 'customers', label: 'お客様', sub: '取引先と担当', to: '/sales/customers', icon: Building2, module: 'sales' },
+  { key: 'customers', label: 'お客様', sub: '取引先と担当', to: '/sales/companies?role=customer', icon: Building2, module: 'sales' },
   { key: 'money', label: 'お金', sub: '売上・仕入・損益', to: '/budget/dashboard', icon: Wallet, module: 'budget' },
   { key: 'equipment', label: '機材', sub: '台帳・ラック図・貸出', to: '/equipment', icon: Package, module: 'equipment', external: true },
   { key: 'qsheet', label: '制作資料', sub: '台本づくりと本番進行', to: '/qsheet', icon: FileText, module: 'qsheet', external: true },

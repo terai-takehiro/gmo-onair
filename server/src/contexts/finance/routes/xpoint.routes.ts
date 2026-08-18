@@ -14,6 +14,7 @@ import { queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey, generateSgaBillingKey } from '../../../shared/services/billing-key.service';
+import { createVendorRecord } from '../../../shared/services/company-directory.service';
 import { isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
 import {
   resolveXpointFolderId, scanXpointFolder, parseXpointFile, uploadXpointPdf,
@@ -143,12 +144,15 @@ router.post('/files/:id/register', async (req, res) => {
     if (existing) {
       createdVendorId = existing.id;
     } else {
-      createdVendorId = uuidv4();
-      await execute(
-        `INSERT INTO vendors (id, name, invoice_registration_number, notes, created_by)
-         VALUES (?, ?, ?, ?, ?)`,
-        [createdVendorId, new_vendor.name, new_vendor.invoice_registration_number || null,
-         `[xpoint取込] ${file.file_name} から自動作成`, req.user!.id]
+      // **`companies` にも紐づける**（company-directory.service.ts）。ここで
+      // vendors だけに INSERT すると取引先マスターに孤立した仕入先ができる
+      createdVendorId = await createVendorRecord(
+        {
+          name: new_vendor.name,
+          invoice_registration_number: new_vendor.invoice_registration_number || null,
+          notes: `[xpoint取込] ${file.file_name} から自動作成`,
+        },
+        req.user!.id,
       );
     }
   }

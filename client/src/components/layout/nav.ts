@@ -100,7 +100,11 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       note: "v4 の並びをこれから決める画面です。いまのまま使えます。",
       collapsible: true,
       items: [
-        { label: "顧客", to: "/sales/customers", icon: Building2 },
+        // **「顧客」は取引先マスターに一本化した**（Phase 2・2026-08）。旧 `/sales/customers`
+        // (顧客だけを別に編集する画面) は、取引先マスターに対応行の無い「孤立した顧客」を
+        // 作り続けていた（company-directory.service.ts）。同じ会社を2つの一覧から
+        // 別々に編集できる状態を残す理由が無いので、メニューの項目も1つに減らした。
+        // 旧 URL は `App.tsx` が `/sales/companies?role=customer` へ転送する
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
         // **ビジネス（GLS-B）はプロジェクト管理へ移した** (migration 179)。
         // 旧 URL は `App.tsx` が `/gpm/projects` へ転送する
@@ -111,7 +115,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
         { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
-        { label: "取引先マスター", to: "/sales/companies", icon: Store },
+        { label: "取引先マスター（顧客・仕入先・販管費支払先）", to: "/sales/companies", icon: Store },
       ],
     },
   ],

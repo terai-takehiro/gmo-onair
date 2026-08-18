@@ -14,6 +14,9 @@ import {
 } from '../../../shared/utils/excel-resource';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { resolveClassification } from '../services/project-classification';
+import {
+  createCustomerRecord, createVendorRecord, syncCompanyFromCustomer, syncCompanyFromVendor, execFromPgClient,
+} from '../../../shared/services/company-directory.service';
 
 // ============================================================
 // 顧客 (customers)
@@ -59,14 +62,14 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     };
   },
   insert: async (client, d, userId) => {
-    await client.query(
-      // グループの印は社名から見立てる（migration 192）。取込は印を持たないので、
-      // ここで入れないとその会社の案件だけグループ外のまま残る
-      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-         is_gmo_group, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [newId(), d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes,
-       looksLikeGmoGroup(asString(d.name)), userId, userId],
+    // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+    // グループの印は社名から見立てる（migration 192）。取込は印を持たないので、
+    // ここで入れないとその会社の案件だけグループ外のまま残る
+    await createCustomerRecord(
+      { name: asString(d.name) || '', short_name: asString(d.short_name), contact_name: asString(d.contact_name),
+        email: asString(d.email), phone: asString(d.phone), address: asString(d.address),
+        notes: asString(d.notes), is_gmo_group: looksLikeGmoGroup(asString(d.name)) },
+      userId, execFromPgClient(client),
     );
   },
   update: async (client, id, d, userId) => {
@@ -74,6 +77,16 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
       `UPDATE customers SET name=$1, short_name=$2, contact_name=$3, email=$4, phone=$5, address=$6, notes=$7,
        updated_by=$8, updated_at=NOW() WHERE id=$9`,
       [d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes, userId, id],
+    );
+    // 取引先マスター側にも写す（新規と同じ理由）
+    const existing = (await client.query('SELECT is_gmo_group FROM customers WHERE id=$1', [id]))
+      .rows[0] as { is_gmo_group?: boolean } | undefined;
+    await syncCompanyFromCustomer(
+      id as string,
+      { name: asString(d.name) || '', short_name: asString(d.short_name), contact_name: asString(d.contact_name),
+        email: asString(d.email), phone: asString(d.phone), address: asString(d.address),
+        notes: asString(d.notes), is_gmo_group: existing?.is_gmo_group === true },
+      userId, execFromPgClient(client),
     );
   },
 };
@@ -125,10 +138,12 @@ const VENDORS_CONFIG: ResourceConfig = {
     };
   },
   insert: async (client, d, userId) => {
-    await client.query(
-      `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [newId(), d.name, d.contact_name, d.email, d.phone, d.address, d.vendor_type, d.invoice_registration_number, d.notes, userId, userId],
+    // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）
+    await createVendorRecord(
+      { name: asString(d.name) || '', contact_name: asString(d.contact_name), email: asString(d.email),
+        phone: asString(d.phone), address: asString(d.address), vendor_type: asString(d.vendor_type),
+        invoice_registration_number: asString(d.invoice_registration_number), notes: asString(d.notes) },
+      userId, execFromPgClient(client),
     );
   },
   update: async (client, id, d, userId) => {
@@ -136,6 +151,14 @@ const VENDORS_CONFIG: ResourceConfig = {
       `UPDATE vendors SET name=$1, contact_name=$2, email=$3, phone=$4, address=$5, vendor_type=$6,
        invoice_registration_number=$7, notes=$8, updated_by=$9, updated_at=NOW() WHERE id=$10`,
       [d.name, d.contact_name, d.email, d.phone, d.address, d.vendor_type, d.invoice_registration_number, d.notes, userId, id],
+    );
+    // 取引先マスター側にも写す（新規と同じ理由）
+    await syncCompanyFromVendor(
+      id as string,
+      { name: asString(d.name) || '', contact_name: asString(d.contact_name), email: asString(d.email),
+        phone: asString(d.phone), address: asString(d.address), vendor_type: asString(d.vendor_type),
+        invoice_registration_number: asString(d.invoice_registration_number), notes: asString(d.notes) },
+      userId, execFromPgClient(client),
     );
   },
 };
