@@ -1,0 +1,179 @@
+# Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
+
+**別セッションで着手する前提の引き継ぎ資料。** 会社リスト一本化（`customers`/`vendors` →
+`companies`）の Phase 1/2/3-1 はマージ済み（PR #183, #184, #186, #188, #190, #192。
+#191 は重複のためクローズ）。ここからは Phase 3-2 の実装メモ。
+
+## 前提（すでに完了していること）
+
+- **Phase 1**（PR #183/#184/#186）: 顧客・仕入先の登録経路を `company-directory.service.ts`
+  経由に一本化。全 `customers`/`vendors` 行が必ず `companies.id`（`company_id` 列）に紐づく
+- **Phase 2**（PR #183 の一部）: 顧客一覧UIを取引先マスター（`/sales/companies?role=customer`）
+  に統合。顧客360°ビュー（`/sales/customers/:id`）は独立して残っている
+- **Phase 3-1**（PR #188/#190/#192）: 支払条件の取引先ごとの例外（`closing_day`/
+  `payment_months`/`payment_day`）を `companies` に一本化。旧列は**まだ残してある**
+  （ロールバック互換のため。方針Aで「イメージだけ差し替える」ロールバックが使えなくなる
+  変更を許容することにしたのは3-2から）
+
+## 学んだ教訓（3-2でも必ず守ること）
+
+1. **PRはレビュー前にマージされることがある**（自動マージが有効）。CI・レビュー結果を待たずに
+   マージされる前提で動く。レビュー指摘は毎回 `docs/reviews/codex-findings-v4.md` に記録すること
+2. **一度実行された migration ファイルは、内容を書き換えても再実行されない**
+   （`runMigrations()` は `_migrations` テーブルでファイル名を記録する）。
+   マージ後に指摘が来て直す必要がある場合は、**その回のPRの中で新しいmigrationファイルを追加する**
+   （既存ファイルの编edit ではない）
+3. **別のCodexボット（`codex/*`ブランチ）が同じ問題への重複PRを自動生成することがある**。
+   自分のPRで既に対応済みなら、コメントで理由を説明してクローズする
+
+## Phase 3-2a の内容
+
+対象は**顧客系の5つのFK**（仕入先系の `purchases.vendor_id`/`sga_expenses.vendor_id` は別PR＝3-2b）:
+
+| テーブル | 列 | NULL許容 |
+| --- | --- | --- |
+| `projects` | `customer_id` | NOT NULL |
+| `revenues` | `customer_id` | NOT NULL |
+| `activity_logs` | `customer_id` | nullable |
+| `estimates` | `customer_id` | nullable |
+| `gpm_projects` | `customer_id` | nullable |
+
+いずれも今は `customers(id)` を指す。**値そのものを `companies.id` に書き換え、FKの向き先も
+companies(id) に変える**（方針A・一気に切り替える。イメージだけのロールバックはこの変更以降
+使えなくなることを `docs/deploy-pipeline.md` に追記すること）。
+
+### migration ドラフト（未検証・そのまま使わずレビューすること）
+
+`server/src/shared/db/migrations/197_customer_fk_to_companies.sql` として書きかけていた内容:
+
+```sql
+-- 顧客系FKを customers(id) から companies(id) へ張り替える（Phase 3-2a）
+--
+-- 対象は5つ: projects.customer_id / revenues.customer_id /
+-- activity_logs.customer_id / estimates.customer_id / gpm_projects.customer_id。
+--
+-- ⚠️ これは「イメージだけ差し替える」ロールバックが使えなくなる変更（方針A）。
+-- このリリース以降は、本番を戻すときは「Releases のタグでDeployワークフローを
+-- 再実行」(DBも含めて丸ごと戻す) だけを使う — docs/deploy-pipeline.md に追記する。
+--
+-- 安全のための下ごしらえ: migration 195 は deleted_at IS NULL の customers/vendors
+-- だけ companies へ埋め戻した。論理削除済みで company_id が無い行が残っていると、
+-- NOT NULL の列（projects/revenues）で変換できずに移行が失敗するので、
+-- deleted_at を問わず埋め戻す。
+
+DO $$
+DECLARE
+  r   RECORD;
+  cid TEXT;
+BEGIN
+  FOR r IN SELECT * FROM customers WHERE company_id IS NULL ORDER BY created_at LOOP
+    cid := gen_random_uuid()::text;
+    INSERT INTO companies (
+      id, name, short_name, contact_name, email, phone, address,
+      is_customer, is_gmo_group, notes, deleted_at,
+      created_at, updated_at, created_by, updated_by
+    ) VALUES (
+      cid, r.name, r.short_name, r.contact_name, r.email, r.phone, r.address,
+      TRUE, COALESCE(r.is_gmo_group, FALSE), r.notes, r.deleted_at,
+      r.created_at, r.updated_at, r.created_by, r.updated_by
+    );
+    UPDATE customers SET company_id = cid WHERE id = r.id;
+  END LOOP;
+END $$;
+
+-- 値の付け替え（customer_id はまだ customers.id。それを company_id に書き換える）
+UPDATE projects p SET customer_id = c.company_id
+  FROM customers c WHERE c.id = p.customer_id AND c.company_id IS NOT NULL;
+UPDATE revenues r SET customer_id = c.company_id
+  FROM customers c WHERE c.id = r.customer_id AND c.company_id IS NOT NULL;
+UPDATE activity_logs a SET customer_id = c.company_id
+  FROM customers c WHERE c.id = a.customer_id AND c.company_id IS NOT NULL;
+UPDATE estimates e SET customer_id = c.company_id
+  FROM customers c WHERE c.id = e.customer_id AND c.company_id IS NOT NULL;
+UPDATE gpm_projects g SET customer_id = c.company_id
+  FROM customers c WHERE c.id = g.customer_id AND c.company_id IS NOT NULL;
+
+-- FK の向き先を companies に変える
+ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_customer_id_fkey;
+ALTER TABLE projects ADD CONSTRAINT projects_customer_id_fkey
+  FOREIGN KEY (customer_id) REFERENCES companies(id);
+ALTER TABLE revenues DROP CONSTRAINT IF EXISTS revenues_customer_id_fkey;
+ALTER TABLE revenues ADD CONSTRAINT revenues_customer_id_fkey
+  FOREIGN KEY (customer_id) REFERENCES companies(id);
+ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_customer_id_fkey;
+ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_customer_id_fkey
+  FOREIGN KEY (customer_id) REFERENCES companies(id);
+ALTER TABLE estimates DROP CONSTRAINT IF EXISTS estimates_customer_id_fkey;
+ALTER TABLE estimates ADD CONSTRAINT estimates_customer_id_fkey
+  FOREIGN KEY (customer_id) REFERENCES companies(id);
+ALTER TABLE gpm_projects DROP CONSTRAINT IF EXISTS gpm_projects_customer_id_fkey;
+ALTER TABLE gpm_projects ADD CONSTRAINT gpm_projects_customer_id_fkey
+  FOREIGN KEY (customer_id) REFERENCES companies(id);
+
+-- customers テーブル自身は消さない（customers.id は顧客360°ビューの識別子として
+-- そのまま残す。読み書きの経路をサーバー側で companies へ切り替えるのは別コミット。
+-- customers テーブルの完全な削除は Phase 3-3、互換のためのリリースを1回挟んでから）
+```
+
+**FK制約名は実DBで確認済み**（`SELECT conname, conrelid::regclass FROM pg_constraint
+WHERE confrelid='customers'::regclass`）: `projects_customer_id_fkey` /
+`revenues_customer_id_fkey` / `activity_logs_customer_id_fkey` /
+`estimates_customer_id_fkey` / `gpm_projects_customer_id_fkey`。
+
+### この migration だけでは終わらない — 読み書き経路の追随が必須
+
+FKの値が `customers.id` から `companies.id` に変わるので、`customer_id` を
+`customers` テーブルと JOIN/検索している**すべてのコード**を同じPR内で
+`companies` 参照に切り替える必要がある（さもないと `LEFT JOIN customers` は
+一致しなくなり顧客名が消える・`customers` テーブルへの名前解決で書き込む id が
+食い違う、などが起きる）。調査済みの対象一覧（2026-08-18 時点）:
+
+- `server/src/contexts/finance/services/money-rules.service.ts` —
+  `customerException()` は `customer_id` がそのまま `companies.id` になるので
+  `company_id` 経由のサブクエリが不要になり簡略化できる
+- `server/src/contexts/sales/services/project.service.ts` — `resolveCustomerType`
+  など `customers.is_gmo_group` を `customer_id` で引いている箇所、
+  `LEFT JOIN customers c ON c.id = p.customer_id` の各所（一覧・検索・PDF等）
+- `server/src/contexts/sales/services/activity-log.service.ts` / `estimate.service.ts` /
+  `estimate-pdf.service.ts` / `sales-analytics.service.ts` / `kpt.service.ts`
+- `server/src/contexts/sales/routes/customers.routes.ts` — **これ自体を
+  `companies`（`is_customer=TRUE`）参照に切り替える**。顧客一覧・案件作成の
+  「お客様」ドロップダウン（`GET /customers`）が返す `id` は、この移行後は
+  `companies.id` でなければ整合しない
+- `server/src/contexts/sales/routes/excel.routes.ts`・
+  `server/src/contexts/finance/routes/excel.routes.ts` — 名前→id解決・
+  `LEFT JOIN customers`
+- `server/src/contexts/sales/routes/project-groups.routes.ts` /
+  `projects.routes.ts` / `billing.routes.ts`
+- `server/src/contexts/platform/services/kessan-import.service.ts` — 顧客名解決
+- `server/src/contexts/dailyops/services/inview.service.ts` — 内覧会の顧客名解決
+- `server/src/contexts/tasks/services/task-intake.service.ts` — 投入口の顧客名解決
+- `server/src/contexts/platform/routes/search.routes.ts` — グローバル検索
+- `server/src/contexts/platform/routes/backup.routes.ts` — バックアップ出力のJOIN
+- `server/src/contexts/gpm/index.ts`・`gpm.service.ts` — `/gpm/customers` エンドポイント
+- `server/src/contexts/mcp/tools/customers.tools.ts` — MCPの顧客ツール一式
+  （`list_customers`/`create_customer`等）。**返す `id` が `companies.id` になる**
+  ことに注意（`create_project` へ渡す `customer_id` の契約が変わる）
+- `server/src/contexts/mcp/tools/finance.tools.ts` / `activities.tools.ts`
+
+### 検証すべきこと（このPRのマージ前に必ず）
+
+- 実DBで: 案件作成・売上作成・活動記録・見積・GPMプロジェクト作成がいずれも
+  正しい `companies.id` を書き込み、顧客名の表示が壊れていないこと
+- 顧客360°ビュー（`/sales/customers/:id`）が壊れていないこと（内部で
+  `WHERE p.customer_id = ?` を今までの `customers.id` ではなく突き合わせる
+  必要が生まれる可能性がある — 要確認）
+- MCP経由の `create_project`（本番のメール取込スキルが毎日叩いている）が
+  移行前後で同じように動くこと
+- `npm run test`（`droppedColumns.test.ts` 等）・`npm run typecheck` ・
+  `npm run lint` ・実DBでの `verify:fresh`
+
+### Phase 3-2b（このあと・別PR）
+
+`purchases.vendor_id` / `sga_expenses.vendor_id` を同じ考え方で `companies.id` へ。
+対象ファイルは3-2aより少ない（財務系のExcel/決算取込/xpoint取込が中心）。
+
+### Phase 3-3（3-2完了後）
+
+`customers`/`vendors` テーブル自体を削除する。3-1で残した旧支払条件列も
+このタイミングで削除する（互換のためのリリースを1回挟んだあと）。
