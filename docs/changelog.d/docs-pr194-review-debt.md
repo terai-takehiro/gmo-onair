@@ -1,0 +1,1 @@
+**PR #194 のレビュー指摘を棚卸しに記録した**。①Codexが付けた3件（version-history.mdの読み込み経路の誤記述、CLAUDE.md累積肥大の誤記述、typecheck/lintの9倍表現の誤記述）はいずれも同PR内で修正済み。②マージすると画面から消える指摘を残す決めごとに従い `docs/reviews/codex-findings-v4.md` に記録した。③**検証**: ドキュメントのみの変更。
