@@ -60,6 +60,18 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ⚠️ **値を書き換える前に、古い FK（customers(id) 参照）を先に外す**
+-- （レビュー指摘・PR #199 P1）。データが入っている実DBでは、制約が
+-- customers(id) を指したままだと、下の UPDATE が customer_id を
+-- customers.id と一致しない companies.id に書き換えた瞬間に違反し、
+-- migration 200 全体がロールバックする（空の検証DBでは customers.id と
+-- companies.id が作成順で偶然一致することがあり、それが隠れていた）。
+ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_customer_id_fkey;
+ALTER TABLE revenues DROP CONSTRAINT IF EXISTS revenues_customer_id_fkey;
+ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_customer_id_fkey;
+ALTER TABLE estimates DROP CONSTRAINT IF EXISTS estimates_customer_id_fkey;
+ALTER TABLE gpm_projects DROP CONSTRAINT IF EXISTS gpm_projects_customer_id_fkey;
+
 -- 値の付け替え（customer_id はまだ customers.id。それを company_id に書き換える）
 UPDATE projects p SET customer_id = c.company_id
   FROM customers c WHERE c.id = p.customer_id AND c.company_id IS NOT NULL;
@@ -73,19 +85,14 @@ UPDATE gpm_projects g SET customer_id = c.company_id
   FROM customers c WHERE c.id = g.customer_id AND c.company_id IS NOT NULL;
 
 -- FK の向き先を companies に変える
-ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_customer_id_fkey;
 ALTER TABLE projects ADD CONSTRAINT projects_customer_id_fkey
   FOREIGN KEY (customer_id) REFERENCES companies(id);
-ALTER TABLE revenues DROP CONSTRAINT IF EXISTS revenues_customer_id_fkey;
 ALTER TABLE revenues ADD CONSTRAINT revenues_customer_id_fkey
   FOREIGN KEY (customer_id) REFERENCES companies(id);
-ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_customer_id_fkey;
 ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_customer_id_fkey
   FOREIGN KEY (customer_id) REFERENCES companies(id);
-ALTER TABLE estimates DROP CONSTRAINT IF EXISTS estimates_customer_id_fkey;
 ALTER TABLE estimates ADD CONSTRAINT estimates_customer_id_fkey
   FOREIGN KEY (customer_id) REFERENCES companies(id);
-ALTER TABLE gpm_projects DROP CONSTRAINT IF EXISTS gpm_projects_customer_id_fkey;
 ALTER TABLE gpm_projects ADD CONSTRAINT gpm_projects_customer_id_fkey
   FOREIGN KEY (customer_id) REFERENCES companies(id);
 

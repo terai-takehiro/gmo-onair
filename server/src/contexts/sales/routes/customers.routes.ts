@@ -19,19 +19,28 @@ router.use(requireAuth, requirePermission('sales'));
  * （名前・連絡先などの顧客固有の欄と、AI 登録判定の逆引きキーとして残る）ので、
  * 基本情報の読み書きは `customers`（`company_id` で1段引く）に残し、一覧・検索・
  * ドロップダウンの id 空間だけ `companies` に揃える。
+ *
+ * ⚠️ **`customers` 行への INNER JOIN が必須**（レビュー指摘・PR #199 P2）。
+ * `DELETE /:id` は `customers` 側だけを論理削除し `companies.is_customer` は
+ * 触らない（companies 側の削除・仕入先ロールへは影響させない、下記参照）。
+ * ここを LEFT JOIN のままにすると、削除した顧客が `companies.is_customer = TRUE`
+ * のままなので一覧・検索・ドロップダウンに残り続けてしまう。
  */
+const CUSTOMER_JOIN = `
+     FROM companies co
+     INNER JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL`;
+
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   let where = 'WHERE co.deleted_at IS NULL AND co.is_customer = TRUE';
   const params: unknown[] = [];
   if (search) { where += ` AND (co.name ILIKE ? OR co.short_name ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c ${CUSTOMER_JOIN} ${where}`, params)) as any).c;
   // v2.9.198+: AI 登録判定 (MCP create_customer) を mcp_audit_log から逆引き (activity-log.service と同形)。
   // 監査ログの created_id はまだ customers.id なので、customers 側の id で突き合わせる
   const rows = await queryAll(
     `SELECT co.*, cu.id as legacy_customer_id, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
-     FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     ${CUSTOMER_JOIN}
      LEFT JOIN LATERAL (
        SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = cu.id
@@ -43,14 +52,34 @@ router.get('/', async (req, res) => {
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
-router.get('/:id', async (req, res) => {
-  const row = await queryOne(
+/**
+ * `companies.id`（正）で引く。見つからなければ**移行前の `customers.id`**
+ * （旧URL・端末の「最近見た」履歴・共有リンクに残っている）として解釈し直し、
+ * 見つかればその会社の正規の行を返す（レビュー指摘・PR #199 P2）。
+ */
+async function findCustomerRow(rawId: string): Promise<Record<string, unknown> | null> {
+  const byCompanyId = await queryOne(
     `SELECT co.*, cu.id as legacy_customer_id
-     FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     ${CUSTOMER_JOIN}
      WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
-    [req.params.id],
+    [rawId],
   ) as Record<string, unknown> | null;
+  if (byCompanyId) return byCompanyId;
+
+  const legacy = await queryOne(
+    'SELECT company_id FROM customers WHERE id = ? AND deleted_at IS NULL', [rawId],
+  ) as { company_id: string | null } | null;
+  if (!legacy?.company_id) return null;
+  return await queryOne(
+    `SELECT co.*, cu.id as legacy_customer_id
+     ${CUSTOMER_JOIN}
+     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
+    [legacy.company_id],
+  ) as Record<string, unknown> | null;
+}
+
+router.get('/:id', async (req, res) => {
+  const row = await findCustomerRow(req.params.id);
   if (!row) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   // AI 登録判定 (projects.routes の単体 enrichment と同形)
   const audit = row.legacy_customer_id ? await queryOne(
@@ -70,15 +99,10 @@ router.get('/:id', async (req, res) => {
 // 既存テーブルのみで成立 (新規テーブル/migration 不要)。
 // ══════════════════════════════════════════════════════════
 router.get('/:id/overview', async (req, res) => {
-  const id = req.params.id; // companies.id (Phase 3-2a)
-  const customer = await queryOne(
-    `SELECT co.*, cu.id as legacy_customer_id
-     FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
-    [id],
-  ) as Record<string, unknown> | null;
+  // companies.id（正）または移行前の customers.id（旧URL互換・下の findCustomerRow）
+  const customer = await findCustomerRow(req.params.id);
   if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
+  const id = customer.id as string; // 以降は必ず companies.id（旧URLでも解決済みの正しい id）
 
   // AI 登録判定 (一覧・単体と同形。監査ログの created_id はまだ customers.id)
   const custAudit = customer.legacy_customer_id ? await queryOne(
