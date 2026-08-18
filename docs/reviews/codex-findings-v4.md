@@ -353,6 +353,8 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #197 | P2 | `codex-findings-v4.md` | #194の指摘の状態を「⭕️ #195」と書いていたが、#195時点のツリーはまだ不正確な記述のままで、実際に直したのは#197だった（トレーサビリティが誤誘導になる） | ⭕️ 同PR内（参照先PRを修正） |
+| #197 | P2 | `claude-token-consumption-analysis-ebzhpw.md` | version-history.mdが文脈に乗る条件を「エージェントがRead/Grepで返した時だけ」と書いていたが、`cat`/`sed`/`git show`等本文を返す呼び出し全般が同様に文脈化するため範囲が狭すぎた | ⭕️ 同PR内（記述を修正） |
 | #194 | P2 | `token-consumption-analysis.md` | `docs/version-history.md` を「読む/生成するたびに直撃」と書いていたが、`v4-progress.mjs` はこのファイルを一切参照しない。`release:notes` は内部で読むが本文を文脈に返さないため乗らない。文脈に乗るのは `cat`/`sed`/`git show` 等を含め本文を返すツール呼び出しがあった時だけ | ⭕️ #197（記述を修正。#195時点はまだ不正確だった） |
 | #194 | P2 | `token-consumption-analysis.md` | 「バージョンを1つ上げるだけでCLAUDE.mdに数KB単位で文章が増える」と書いていたが、`collect-changelog.mjs` は3件超で4件目を同時にアーカイブへ退避するため累積肥大しない | ⭕️ 同PR内（記述を修正） |
 | #194 | P2 | `token-consumption-analysis.md` | `build:all`/`typecheck:all`/`lint` を「9ワークスペース分9倍」と表現していたが、`typecheck:all`は7クライアント+server、`lint`はチェックスクリプト+eslint1回のコマンド実行であり実態と異なる | ⭕️ 同PR内（記述を修正） |
