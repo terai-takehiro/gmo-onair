@@ -115,6 +115,8 @@ AI が関与しない UI 修正・CRUD・デプロイ作業には適用しない
 - **ブランチ単位で検証環境に出したいとき**は Actions → Preview → ref を入力 (本番には出せない)
 - **PR タイトルは `種類(アプリ): 何をしたか`** 例 `feat(equipment): 機材台帳を v4 の見た目にした`
   → Squash マージで `main` の1コミットになるため、`git log --oneline` がそのまま機能の一覧になる
+- ⚠️ **Claude が PR を出したら、確認を待たずにその場で `.claude/skills/pr-watch` を使って見張る（マスト）。**
+  「見張りますか」と訊いて返事を待つのも不可 — その間 CI 失敗もレビューも誰も見ない
 - ⚠️ **マージしたら、その PR のレビュー指摘を棚卸しに移す**（`npm run reviews:debt` →
   [docs/reviews/codex-findings-v4.md](docs/reviews/codex-findings-v4.md) の表）。
   **マージすると指摘は画面から消えるので、書かなければ存在ごと消えます** —

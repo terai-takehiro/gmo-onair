@@ -20,7 +20,7 @@ import {
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { MODULE_WHAT, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
-import { MODULE_LABELS } from '@/contexts/platform/AuthContext';
+import { MODULE_LABELS, useAuth } from '@/contexts/platform/AuthContext';
 import type { Role } from './types';
 
 interface Props {
@@ -32,6 +32,7 @@ interface Props {
 
 export function RoleDialog({ role, open, onOpenChange }: Props) {
   const qc = useQueryClient();
+  const { refreshPermissions } = useAuth();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [levels, setLevels] = useState<Record<string, string>>({});
@@ -62,6 +63,10 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
       // 権限が変わった人がいるなら、その人の権限の表示もつくり直す
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['user-permissions'] });
+      // `AuthContext.permissions` は react-query の外にあるので上の invalidate では
+      // 更新されない。自分の役割を直した場合はここで読み直さないと、
+      // 保存したのにメニュー・ボタンが古い権限のままリロードまで残る
+      void refreshPermissions();
       const n = data.applied?.length ?? 0;
       notifySuccess(role ? '役割を直しました' : '役割をつくりました', {
         description: n > 0 ? `この役割の ${n} 名にも反映しました。` : undefined,
