@@ -57,6 +57,15 @@ interface AuthContextType {
   permissions: Permissions;
   /** モジュールへのアクセス権があるかチェック */
   hasPermission: (module: string, minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner") => boolean;
+  /**
+   * 自分の権限をサーバーから読み直す。
+   *
+   * `permissions` は react-query の外（このコンテキストの state）に持っているため、
+   * 権限・役割の保存で invalidateQueries しても更新されない。
+   * **自分自身の権限・役割を直した直後**に呼ぶと、リロードなしで
+   * メニュー・ボタンの出し分けに反映される。
+   */
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -217,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissionsLoaded,
         permissions,
         hasPermission,
+        refreshPermissions: fetchPermissions,
       }}
     >
       {children}

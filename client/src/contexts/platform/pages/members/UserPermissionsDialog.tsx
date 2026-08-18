@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { MODULE_LABELS } from '@/contexts/platform/AuthContext';
+import { MODULE_LABELS, useAuth } from '@/contexts/platform/AuthContext';
 import {
   ALL_MODULE_ORDER, ROLE_MODULE_ORDER, MODULE_WHAT, LEVEL_CHOICES, LEVEL_TONE,
 } from './moduleLabels';
@@ -47,8 +47,10 @@ interface Props {
 
 export function UserPermissionsDialog({ user, role, open, onOpenChange }: Props) {
   const qc = useQueryClient();
+  const { currentUser, refreshPermissions } = useAuth();
   const [levels, setLevels] = useState<Record<string, string>>({});
   const isAdmin = user?.role === 'system_admin';
+  const isSelf = !!user && !!currentUser && user.id === currentUser.id;
 
   const q = useQuery<{ module: string; access_level: string }[]>({
     queryKey: ['user-permissions', user?.id],
@@ -76,7 +78,12 @@ export function UserPermissionsDialog({ user, role, open, onOpenChange }: Props)
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['user-permissions', user?.id] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
-      notifySuccess('権限を保存しました', { description: '本人がログインし直すと効きます。' });
+      // 自分自身の権限を直したときは、その場でメニュー・ボタンに反映する
+      // （`AuthContext.permissions` は react-query の外にあるため、上の invalidate では届かない）
+      if (isSelf) void refreshPermissions();
+      notifySuccess('権限を保存しました', {
+        description: isSelf ? undefined : '本人がログインし直すと効きます。',
+      });
       onOpenChange(false);
     },
     onError: (e) => notifyApiError('権限を保存できませんでした', e),
