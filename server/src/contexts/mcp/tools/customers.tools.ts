@@ -133,9 +133,10 @@ export function registerCustomerTools(server: McpServer): void {
       );
       const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
       const row = await queryOne(`SELECT ${CUSTOMER_COLS} ${CUSTOMER_FROM} AND co.id = ?`, [linked.company_id]);
-      // audit の created_id は customers.id のまま（一覧・詳細画面の AI 登録判定が
-      // customers.id で逆引きするため・`customers.routes.ts` 参照）
-      audit('create_customer', args, { created_id: cid, name: args.name }, args.requested_by);
+      // Phase 3-3-3: audit の created_id は companies.id（一覧・詳細画面の AI 登録判定が
+      // companies.id で逆引きする・`customers.routes.ts` 参照）。customers テーブル削除に
+      // 備えた切り替え（migration 202 のバックフィルと同じPR）。
+      audit('create_customer', args, { created_id: linked.company_id, name: args.name }, args.requested_by);
       return ok({ created: true, customer: row });
     }),
   );

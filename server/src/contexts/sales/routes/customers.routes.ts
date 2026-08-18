@@ -37,13 +37,13 @@ router.get('/', async (req, res) => {
   if (search) { where += ` AND (co.name ILIKE ? OR co.short_name ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   const total = ((await queryOne(`SELECT COUNT(*) as c ${CUSTOMER_JOIN} ${where}`, params)) as any).c;
   // v2.9.198+: AI 登録判定 (MCP create_customer) を mcp_audit_log から逆引き (activity-log.service と同形)。
-  // 監査ログの created_id はまだ customers.id なので、customers 側の id で突き合わせる
+  // Phase 3-3-3 (migration 202) 以降、監査ログの created_id は companies.id なので co.id で突き合わせる
   const rows = await queryAll(
     `SELECT co.*, cu.id as legacy_customer_id, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
      ${CUSTOMER_JOIN}
      LEFT JOIN LATERAL (
        SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
-       WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = cu.id
+       WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = co.id
        ORDER BY m.created_at ASC LIMIT 1
      ) ai ON TRUE
      ${where} ORDER BY co.name LIMIT ? OFFSET ?`,
@@ -100,12 +100,13 @@ async function findCustomerRow(rawId: string): Promise<Record<string, unknown> |
 router.get('/:id', async (req, res) => {
   const row = await findCustomerRow(req.params.id);
   if (!row) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
-  // AI 登録判定 (projects.routes の単体 enrichment と同形)
-  const audit = row.legacy_customer_id ? await queryOne(
+  // AI 登録判定 (projects.routes の単体 enrichment と同形)。
+  // Phase 3-3-3 (migration 202) 以降、監査ログの created_id は companies.id (= row.id)
+  const audit = row.id ? await queryOne(
     `SELECT requested_by FROM mcp_audit_log
      WHERE tool_name = 'create_customer' AND result_summary->>'created_id' = ?
      ORDER BY created_at ASC LIMIT 1`,
-    [row.legacy_customer_id]
+    [row.id]
   ) as Record<string, unknown> | null : null;
   row.is_ai_created = !!audit;
   row.ai_requested_by = audit?.requested_by ?? null;
@@ -123,13 +124,13 @@ router.get('/:id/overview', async (req, res) => {
   if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const id = customer.id as string; // 以降は必ず companies.id（旧URLでも解決済みの正しい id）
 
-  // AI 登録判定 (一覧・単体と同形。監査ログの created_id はまだ customers.id)
-  const custAudit = customer.legacy_customer_id ? await queryOne(
+  // AI 登録判定 (一覧・単体と同形。Phase 3-3-3 以降、監査ログの created_id は companies.id = id)
+  const custAudit = await queryOne(
     `SELECT requested_by FROM mcp_audit_log
      WHERE tool_name = 'create_customer' AND result_summary->>'created_id' = ?
      ORDER BY created_at ASC LIMIT 1`,
-    [customer.legacy_customer_id]
-  ) as Record<string, unknown> | null : null;
+    [id]
+  ) as Record<string, unknown> | null;
   customer.is_ai_created = !!custAudit;
   customer.ai_requested_by = custAudit?.requested_by ?? null;
 
