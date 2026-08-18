@@ -332,7 +332,8 @@ export const estimateService = {
       unknown as Estimate | undefined;
     if (!row) return undefined;
     row.items = (await queryAll(
-      `SELECT id, description, quantity, unit, unit_price, amount, cost, category, item_notes, item_date, sort_order
+      `SELECT id, description, quantity, unit, unit_price, amount, cost, category,
+              pricing_item_id, item_notes, item_date, sort_order
        FROM estimate_items WHERE estimate_id = $1 ORDER BY sort_order, created_at`,
       [id]
     )) as unknown as EstimateItem[];

@@ -47,6 +47,12 @@ export function createFinanceRoutes(): Router {
       dateFilter = 'AND recognition_date BETWEEN $1 AND $2';
       params.push(from, to);
     }
+    /*
+     * ⚠️ **按分（`revenue_allocations`/`purchase_allocations`）も見る**（Codex の指摘 P1）。
+     * `getMonthlySummary` と台帳の絞り込みは按分先の案件も見ているので、
+     * 按分だけで参加している案件（`revenues.project_id` 自身は別の案件・グループの親行）は
+     * ここに `revenues.project_id`/`purchases.project_id` だけを見ていると**また抜ける**。
+     */
     const rows = await queryAll(
       `SELECT DISTINCT p.id, p.gls_number, p.name
          FROM projects p
@@ -54,6 +60,14 @@ export function createFinanceRoutes(): Router {
           SELECT project_id FROM revenues WHERE project_id IS NOT NULL AND deleted_at IS NULL ${dateFilter}
           UNION
           SELECT project_id FROM purchases WHERE project_id IS NOT NULL AND deleted_at IS NULL ${dateFilter}
+          UNION
+          SELECT ra.project_id FROM revenue_allocations ra
+            JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+            ${dateFilter ? 'AND r.recognition_date BETWEEN $1 AND $2' : ''}
+          UNION
+          SELECT pa.project_id FROM purchase_allocations pa
+            JOIN purchases p2 ON p2.id = pa.purchase_id AND p2.deleted_at IS NULL
+            ${dateFilter ? 'AND p2.recognition_date BETWEEN $1 AND $2' : ''}
         )
         ORDER BY p.gls_number DESC NULLS LAST, p.name`,
       params,

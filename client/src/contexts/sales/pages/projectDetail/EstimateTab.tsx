@@ -76,7 +76,10 @@ function EstimateMetaCard({
 }: { estimate: Estimate; onSave: (patch: Partial<Pick<Estimate, 'title' | 'notes'>>) => void }) {
   const [title, setTitle] = useState(estimate.title ?? '');
   const [notes, setNotes] = useState(estimate.notes ?? '');
-  const locked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
+  // **サーバーは下書き以外の中身を全部拒否する**（`update` の `CONTENT` 判定）。
+  // ここが `sent`/`accepted`/`superseded` だけを見ていると、`rejected`（失注）の見積は
+  // 直せるように見えて blur で 400 が返る（Codex の指摘 P2）
+  const locked = estimate.status !== 'draft';
 
   return (
     <div className="rounded-card border border-border bg-card p-4">
