@@ -127,11 +127,16 @@ export function createGpmRoutes(): Router {
    */
   router.get('/customers', ...canRead, async (_req, res) => {
     // Phase 3-2a: gpm_projects.customer_id は companies.id を直接指すので、
-    // customers ではなく companies（is_customer=TRUE）から返す
+    // customers ではなく companies（is_customer=TRUE）から返す。
+    // **`customers` 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+    // — 消えていないと、削除済みの顧客がこのドロップダウンから選べてしまう。
     res.json({
       success: true,
       data: await queryAll(
-        `SELECT id, name, short_name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL ORDER BY name LIMIT 500`,
+        `SELECT co.id, co.name, co.short_name FROM companies co
+          WHERE co.is_customer = TRUE AND co.deleted_at IS NULL
+            AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+          ORDER BY co.name LIMIT 500`,
       ),
     });
   });

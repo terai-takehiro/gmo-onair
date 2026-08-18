@@ -274,10 +274,14 @@ async function nextOppCode(tx: Tx): Promise<string> {
  */
 async function findCustomerId(tx: Tx, name: string): Promise<string | null> {
   // Phase 3-2a: projects/activity_logs.customer_id は companies.id を直接指すので、
-  // customers ではなく companies（is_customer=TRUE）から名前で引く
+  // customers ではなく companies（is_customer=TRUE）から名前で引く。
+  // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+  // — 消えていないと、削除済みの顧客の名前でAI起票した案件が誤って紐づいてしまう。
   const row = await tx.queryOne(
-    `SELECT id FROM companies WHERE deleted_at IS NULL AND is_customer = TRUE
-       AND btrim(name) = btrim(?) ORDER BY created_at LIMIT 1`,
+    `SELECT co.id FROM companies co
+     WHERE co.deleted_at IS NULL AND co.is_customer = TRUE AND btrim(co.name) = btrim(?)
+       AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+     ORDER BY co.created_at LIMIT 1`,
     [name]
   );
   return row ? String(row.id) : null;

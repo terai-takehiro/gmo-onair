@@ -61,11 +61,15 @@ router.get('/', requireAuth, async (req, res) => {
          *
          * Phase 3-2a: `/sales/customers/:id` の id 空間は `companies.id` に
          * 揃えたので、ここも `customers` ではなく `companies`（`is_customer = TRUE`）
-         * から返す（この検索結果の id をそのままリンク先に使えるように）
+         * から返す（この検索結果の id をそのままリンク先に使えるように）。
+         * **`customers` 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+         * — 消えていないと、削除済みの顧客がこの全体検索に残り続けてしまう。
          */
-        `SELECT id, name, short_name, phone, contact_name FROM companies
-          WHERE is_customer = TRUE AND (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\')
-          AND deleted_at IS NULL LIMIT 5`,
+        `SELECT co.id, co.name, co.short_name, co.phone, co.contact_name FROM companies co
+          WHERE co.is_customer = TRUE AND (co.name ILIKE ? ESCAPE '\\' OR co.short_name ILIKE ? ESCAPE '\\')
+          AND co.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+          LIMIT 5`,
         [like, like]
       )
     : [];

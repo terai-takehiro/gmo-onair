@@ -15,6 +15,7 @@ import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
 import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -402,6 +403,9 @@ router.get('/:id/excel', async (req, res, next) => {
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment, invoice_issued } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
+  // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+  // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
+  await assertCustomerCompanyId(customer_id);
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
 
@@ -499,6 +503,9 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
+  // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
+  // POST と同じ理由。既存値は再検証しない — project.service.ts の update() と同じ判断）
+  if (customer_id) await assertCustomerCompanyId(customer_id);
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;

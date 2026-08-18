@@ -89,8 +89,14 @@ const REVENUES_CONFIG: ResourceConfig = {
   preloadLookups: async (client) => {
     const projects = await client.query('SELECT id, code, gls_number FROM projects WHERE deleted_at IS NULL');
     const episodes = await client.query('SELECT id, episode_code FROM episodes WHERE deleted_at IS NULL');
-    // Phase 3-2a: revenues.customer_id は companies.id を直接指すので companies から引く
-    const customers = await client.query("SELECT id, name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL");
+    // Phase 3-2a: revenues.customer_id は companies.id を直接指すので companies から引く。
+    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+    // — 消えていないと、削除済みの顧客の名前で取込んだ行が誤って紐づいてしまう。
+    const customers = await client.query(
+      `SELECT co.id, co.name FROM companies co
+       WHERE co.is_customer = TRUE AND co.deleted_at IS NULL
+         AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`,
+    );
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     const projMap = new Map<string, string>();
     for (const r of projects.rows) {

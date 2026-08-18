@@ -217,10 +217,24 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
 });
 
 router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
-  // :id は companies.id（Phase 3-2a）。customers 行は company_id で引く
-  const existing = await queryOne(
+  // :id は companies.id（Phase 3-2a）。customers 行は company_id で引く。
+  // **見つからなければ移行前の customers.id（旧URL）として解釈し直す**
+  // （レビュー指摘・PR #199 P2 の2巡目）— GET は `findCustomerRow` で旧URLを
+  // 解決するのに、保存はここが companies.id 専用のままだったので、詳細画面を
+  // 旧URLのまま開いて保存すると 404 になっていた。
+  let existing = await queryOne(
     'SELECT id, is_gmo_group FROM customers WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
   ) as { id: string; is_gmo_group?: boolean } | null;
+  let companyId = req.params.id;
+  if (!existing) {
+    const legacy = await queryOne(
+      'SELECT id, company_id, is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+    ) as { id: string; company_id: string | null; is_gmo_group?: boolean } | null;
+    if (legacy?.company_id) {
+      existing = { id: legacy.id, is_gmo_group: legacy.is_gmo_group };
+      companyId = legacy.company_id;
+    }
+  }
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   /**
@@ -248,7 +262,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     `SELECT co.*, cu.id as legacy_customer_id FROM companies co
      LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
      WHERE co.id = ?`,
-    [req.params.id],
+    [companyId],
   );
   res.json({ success: true, data: row });
 });
@@ -256,10 +270,11 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   // :id は companies.id（Phase 3-2a）。この画面（顧客一覧）の削除は今まで
   // customers 側だけを消していた（companies・仕入先ロールは触らない）ので、
-  // company_id で customers 行だけを論理削除する
+  // company_id で customers 行だけを論理削除する。
+  // 移行前の customers.id（旧URL）も受け付ける（PUT と同じ理由・PR #199 P2 の2巡目）
   await execute(
-    `UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
-    [req.user!.id, req.params.id],
+    `UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE deleted_at IS NULL AND (company_id=? OR id=?)`,
+    [req.user!.id, req.params.id, req.params.id],
   );
   res.json({ success: true, message: '削除しました' });
 });

@@ -309,11 +309,16 @@ export const inviewService = {
     if (!customerId) {
       const key = company || personName;
       // Phase 3-2a: projects.customer_id は companies.id を直接指すので、
-      // customers ではなく companies（is_customer=TRUE）から名前で引く
+      // customers ではなく companies（is_customer=TRUE）から名前で引く。
+      // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+      // — 消えていないと、削除済みの顧客の名前で内覧会予約が誤って紐づいてしまう。
       if (company) {
         const found = await queryOne(
-          `SELECT id FROM companies WHERE deleted_at IS NULL AND is_customer = TRUE
-             AND (name = ? OR short_name = ?) ORDER BY (name = ?) DESC LIMIT 1`,
+          `SELECT co.id FROM companies co
+           WHERE co.deleted_at IS NULL AND co.is_customer = TRUE
+             AND (co.name = ? OR co.short_name = ?)
+             AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+           ORDER BY (co.name = ?) DESC LIMIT 1`,
           [company, company, company],
         ) as any;
         if (found) customerId = String(found.id);

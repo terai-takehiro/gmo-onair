@@ -11,6 +11,7 @@ import {
 } from './next-action-short.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
 import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 
 /** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
 export const ACTIVITY_FORMAT_KIND = 'activity_format';
@@ -151,6 +152,10 @@ export class ActivityLogService {
     if (wantFormat && !original) {
       throw new AppError(400, 'VALIDATION_ERROR', '整えるための本文が空です');
     }
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目・
+    // project.service.ts の create() と同じ理由）
+    await assertCustomerCompanyId(customer_id);
 
     // **`body_html` / `key_points` は v1 の欄。** 整形器はもう作りませんが、
     // API から直接渡す経路（外の道具・過去の取込）を 400 で止めないので残します
@@ -306,6 +311,10 @@ export class ActivityLogService {
       throw new AppError(400, 'VALIDATION_ERROR',
         `知らない活動種別です（${ACTIVITY_TYPES.join(' / ')} のどれか）`);
     }
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目・
+    // create() と同じ理由）。この UPDATE は毎回全置換なので渡された値を毎回確かめる
+    await assertCustomerCompanyId(customer_id);
     // **本文と要点は渡されたときだけ触る。** 欄を持たない古い画面から保存されるだけで
     // AI が整えた本文が消えると、直した人にも気づけない（タグ・登録16項目と同じ壊れ方）
     const sets = [

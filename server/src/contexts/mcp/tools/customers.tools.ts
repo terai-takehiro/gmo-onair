@@ -15,7 +15,15 @@ import { createCustomerRecord, syncCompanyFromCustomer } from '../../../shared/s
 // （`customers.routes.ts` と同じ設計）。基本情報（名前・連絡先）の読み書きは
 // `customers` テーブル（`company_id` で1段引く）に残す。
 const CUSTOMER_COLS = 'co.id, co.name, co.short_name, co.contact_name, co.email, co.phone, co.address, co.notes, co.created_at';
-const CUSTOMER_FROM = `FROM companies co WHERE co.is_customer = TRUE AND co.deleted_at IS NULL`;
+/**
+ * **`customers` 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）。
+ * `customers.routes.ts` の `CUSTOMER_JOIN` と同じ理由 — `DELETE /customers/:id` は
+ * `customers` 側だけを論理削除し `companies.is_customer` は触らないので、ここを
+ * `companies` だけで判定すると削除済みの顧客が `list_customers` / `get_customer` /
+ * 重複ガードに残り続け、その id を `create_project` に渡せてしまう。
+ */
+const CUSTOMER_FROM = `FROM companies co WHERE co.is_customer = TRUE AND co.deleted_at IS NULL
+     AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`;
 
 export function registerCustomerTools(server: McpServer): void {
   server.registerTool(

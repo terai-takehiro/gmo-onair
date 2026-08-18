@@ -12,6 +12,7 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision, recordProjectAccepted } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
 import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
 import {
@@ -790,6 +791,10 @@ export class ProjectService {
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない。直接 API / MCP から仕入先・販管費
+    // 支払先の company_id を渡せてしまうのを防ぐ（レビュー指摘・PR #199 P2 の2巡目）
+    await assertCustomerCompanyId(customer_id);
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
@@ -1110,6 +1115,10 @@ export class ProjectService {
      * （`resolveCustomerType` の控えに `existing.customer_type` を渡す）。
      */
     const targetCustomer = customer_id === undefined ? existing.customer_id : customer_id;
+    // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
+    // create() と同じ理由）。既存値（`existing.customer_id`）は再検証しない —
+    // 過去に付いたロールが後から外れた行まで更新のたびに弾くと、無関係な直しまで止まる
+    if (customer_id !== undefined) await assertCustomerCompanyId(customer_id);
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。

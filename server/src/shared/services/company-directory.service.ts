@@ -20,8 +20,9 @@
  * 直接参照に寄せるまでの橋渡し）。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { execute as poolExecute, withTransaction, TxClient } from '../db/connection';
+import { execute as poolExecute, queryOne, withTransaction, TxClient } from '../db/connection';
 import { looksLikeGmoGroup } from './gmo-group';
+import { AppError } from '../middleware/errorHandler';
 
 /** `?` プレースホルダで SQL を投げる関数の型。既定は `shared/db/connection` の `execute`。 */
 export type Exec = (sql: string, params: unknown[]) => Promise<unknown>;
@@ -215,4 +216,32 @@ export async function syncCompanyFromVendor(
      fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
      fields.address || null, fields.notes || null, userId],
   );
+}
+
+/**
+ * `customer_id`（Phase 3-2a 以降は `companies.id` を直接指す）が
+ * **本当に顧客の会社を指しているか**を確かめる。
+ *
+ * ⚠️ FK が `companies(id)` を指すようになったことで、DB は「顧客であること」を
+ * 保証しなくなった — 仕入先だけ・販管費支払先だけ・ロール無しの会社IDでも
+ * FK 制約は通る。画面のドロップダウン（`companies.is_customer=TRUE` かつ
+ * 生きている `customers` 行がある会社だけ）は自然にそこしか選べないが、
+ * **直接 API / MCP を叩く呼び出しはこの保証を素通りする**（レビュー指摘・
+ * PR #199 P2 の2巡目）。案件・売上・活動記録・見積の書き込みはここを通す。
+ *
+ * `customerId` が `null`/`undefined`/空文字なら何もしない（お客様未設定は
+ * 別の入口が別の理由で許可・拒否する）。
+ */
+export async function assertCustomerCompanyId(
+  customerId: unknown,
+  exec: (sql: string, params: unknown[]) => Promise<unknown> = (sql, params) => queryOne(sql, params),
+): Promise<void> {
+  if (typeof customerId !== 'string' || !customerId) return;
+  const row = await exec(
+    `SELECT co.id FROM companies co
+     WHERE co.id = ? AND co.is_customer = TRUE AND co.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`,
+    [customerId],
+  ) as Record<string, unknown> | undefined;
+  if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された顧客が見つかりません（顧客ロールが外れているか、削除済みの可能性があります）');
 }

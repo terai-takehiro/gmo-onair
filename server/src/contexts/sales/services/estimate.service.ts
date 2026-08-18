@@ -16,6 +16,7 @@ import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkDiscount, NO_LIMIT, type DiscountLimit } from '../../../shared/services/discountLimit';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 
 export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -347,6 +348,9 @@ export const estimateService = {
     userId: string
   ): Promise<Estimate> {
     await assertCanEstimate(userId);
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
+    await assertCustomerCompanyId(data.customer_id);
     const id = uuidv4();
     await execute(
       `INSERT INTO estimates (id, project_id, customer_id, group_id, version, title,

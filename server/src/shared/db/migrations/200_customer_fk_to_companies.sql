@@ -60,6 +60,28 @@ BEGIN
   END LOOP;
 END $$;
 
+-- 既にリンク済みの companies 行を customers の現在値で上書きする
+-- （レビュー指摘・PR #199 P2 の2巡目）。
+--
+-- migration 195 は company_id IS NULL の行だけ companies を作って埋め戻す。
+-- migration 061 で companies を作ってから `company-directory.service.ts` の
+-- 双方向同期（`syncCompanyFromCustomer`）が入るまでの間に customers 側だけ
+-- 名前・連絡先を直した行があると、companies 側はそのときのスナップショットの
+-- まま古くなる。これ以降は一覧・詳細・PDF・Excel・検索が `companies` を
+-- 正として読むので（このファイルの後半・customers.routes.ts 等）、
+-- 古いスナップショットのほうが画面に出てしまう。
+-- customers はいまも基本情報の書き込み先（正）なので、その値で上書きする。
+UPDATE companies co SET
+  name = cu.name, short_name = cu.short_name, contact_name = cu.contact_name,
+  email = cu.email, phone = cu.phone, address = cu.address, notes = cu.notes,
+  is_gmo_group = COALESCE(cu.is_gmo_group, co.is_gmo_group), updated_at = NOW()
+FROM customers cu
+WHERE cu.company_id = co.id AND cu.deleted_at IS NULL AND co.deleted_at IS NULL
+  AND (co.name IS DISTINCT FROM cu.name OR co.short_name IS DISTINCT FROM cu.short_name
+       OR co.contact_name IS DISTINCT FROM cu.contact_name OR co.email IS DISTINCT FROM cu.email
+       OR co.phone IS DISTINCT FROM cu.phone OR co.address IS DISTINCT FROM cu.address
+       OR co.notes IS DISTINCT FROM cu.notes);
+
 -- ⚠️ **値を書き換える前に、古い FK（customers(id) 参照）を先に外す**
 -- （レビュー指摘・PR #199 P1）。データが入っている実DBでは、制約が
 -- customers(id) を指したままだと、下の UPDATE が customer_id を

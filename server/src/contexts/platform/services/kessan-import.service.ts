@@ -541,11 +541,16 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     const incKey = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
 
     // Phase 3-2a: revenues/projects.customer_id は companies.id を直接指すので、
-    // customers ではなく companies（is_customer=TRUE）から引く
+    // customers ではなく companies（is_customer=TRUE）から引く。
+    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+    // — 消えていないと、削除済みの顧客の名前で決算取込した行が誤って紐づいてしまう。
     async function findCustomer(name: string) {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
       const r = await client.query(
-        "SELECT id FROM companies WHERE is_customer = TRUE AND name=$1 AND deleted_at IS NULL LIMIT 1",
+        `SELECT co.id FROM companies co
+         WHERE co.is_customer = TRUE AND co.name=$1 AND co.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+         LIMIT 1`,
         [name],
       );
       const id = r.rows[0]?.id || null; cache.customers.set(name, id); return id;
