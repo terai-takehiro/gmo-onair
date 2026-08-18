@@ -231,6 +231,12 @@ export async function syncCompanyFromVendor(
  *
  * `customerId` が `null`/`undefined`/空文字なら何もしない（お客様未設定は
  * 別の入口が別の理由で許可・拒否する）。
+ *
+ * Phase 3-3-4（2026-08-18）: 以前は `customers` 行が生きているかの `EXISTS`
+ * チェックも必須だった（`DELETE /customers/:id` が `companies.is_customer` を
+ * 更新していなかったため）。`DELETE` が `companies.is_customer` も更新する
+ * ようになった（PR #226）ので、`is_customer = TRUE AND deleted_at IS NULL`
+ * だけで足りる（`customers.routes.ts`/`search.routes.ts` と同じ判定・同じ理由）。
  */
 export async function assertCustomerCompanyId(
   customerId: unknown,
@@ -239,8 +245,7 @@ export async function assertCustomerCompanyId(
   if (typeof customerId !== 'string' || !customerId) return;
   const row = await exec(
     `SELECT co.id FROM companies co
-     WHERE co.id = ? AND co.is_customer = TRUE AND co.deleted_at IS NULL
-       AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`,
+     WHERE co.id = ? AND co.is_customer = TRUE AND co.deleted_at IS NULL`,
     [customerId],
   ) as Record<string, unknown> | undefined;
   if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された顧客が見つかりません（顧客ロールが外れているか、削除済みの可能性があります）');
