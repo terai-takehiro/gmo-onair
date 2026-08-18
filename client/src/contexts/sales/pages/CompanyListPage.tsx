@@ -7,7 +7,7 @@
  * 削除確認だけを持つ）。値の形は `company/types.ts` が1つだけ持つ。
  */
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
@@ -37,11 +37,28 @@ const roleTabs: { value: RoleFilter; label: string }[] = [
   { value: "other",     label: "その他" },
 ];
 
+/** `roleTabs` の値だけを受け付ける。知らない値は無視して既定（全て）に落ちる */
+function isRoleFilter(v: string | null): v is RoleFilter {
+  return !!v && roleTabs.some((t) => t.value === v);
+}
+
 export default function CompanyListPage() {
   const navigate = useNavigate();
-  const [role, setRole] = useState<RoleFilter>("all");
+  // **絞り込みを URL に持たせる**（Phase 2）。`/sales/customers` → ここへの転送が
+  // `?role=customer` を付けて来るので、開いた瞬間から「顧客」タブが選ばれている
+  // 必要がある。ここが無いと「顧客一覧を開いたのに全件が出る」ことになる
+  const [params, setParams] = useSearchParams();
+  const roleParam = params.get("role");
+  const [role, setRole] = useState<RoleFilter>(isRoleFilter(roleParam) ? roleParam : "all");
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
   const [summaryTarget, setSummaryTarget] = useState<Company | null>(null);
+
+  const changeRole = (v: RoleFilter) => {
+    setRole(v);
+    const next = new URLSearchParams(params);
+    if (v === "all") next.delete("role"); else next.set("role", v);
+    setParams(next, { replace: true });
+  };
 
   const crud = useCrudPage<Company>({
     endpoint: "/companies",
@@ -85,7 +102,9 @@ export default function CompanyListPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-xl lg:text-2xl font-bold">取引先マスター</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">顧客・仕入先を統合管理します</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              顧客・仕入先・販管費支払先を1つの台帳で管理します（同じ会社は1回登録すれば足ります）
+            </p>
           </div>
           <Button onClick={crud.openAdd}>
             <Plus className="mr-1 h-4 w-4" />
@@ -100,7 +119,7 @@ export default function CompanyListPage() {
           tabs={roleTabs.map((t) => ({ value: t.value, label: t.label }))}
           activeTab={role}
           onTabChange={(v) => {
-            setRole(v as RoleFilter);
+            changeRole(v as RoleFilter);
             crud.setPage(1);
           }}
           layout="stacked"
@@ -150,9 +169,9 @@ export default function CompanyListPage() {
                     {c.customer_id && (
                       <button
                         className="text-xs text-primary hover:underline flex items-center gap-0.5"
-                        onClick={() => navigate("/sales/customers")}
+                        onClick={() => navigate(`/sales/customers/${c.customer_id}`)}
                       >
-                        <ExternalLink className="h-3 w-3" />顧客ページ
+                        <ExternalLink className="h-3 w-3" />取引実績を見る
                       </button>
                     )}
                     {c.vendor_id && (
@@ -229,9 +248,9 @@ export default function CompanyListPage() {
                         {c.customer_id && (
                           <button
                             className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
-                            onClick={(e) => { e.stopPropagation(); navigate("/sales/customers"); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/sales/customers/${c.customer_id}`); }}
                           >
-                            <ExternalLink className="h-3 w-3" />顧客
+                            <ExternalLink className="h-3 w-3" />取引実績
                           </button>
                         )}
                         {c.vendor_id && (

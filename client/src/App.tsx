@@ -24,7 +24,6 @@ import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
 import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
-import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
@@ -253,7 +252,8 @@ function AppRoutes() {
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
-        <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
+        {/* 顧客の一覧は取引先マスターの「顧客」絞り込みへ一本化した（Phase 2）。360°ビューは残す */}
+        <Route path="/sales/customers" element={<RedirectKeepQuery to="/sales/companies?role=customer" />} />
         <Route path="/sales/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />
         <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
