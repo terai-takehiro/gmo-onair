@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { createVendorRecord, syncCompanyFromVendor } from '../../../shared/services/company-directory.service';
@@ -88,12 +88,23 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   /**
    * **取引先マスター（`companies`）側にも写す。** 顧客側 (`syncCompanyFromCustomer`)
    * と同じ理由 — 片方だけ直ると社名・連絡先が画面によって食い違う。
+   *
+   * ⚠️ **`companies` を直接編集できるのは `sales:owner` だけ**（`companies.routes.ts`
+   * の PUT が要求している）。この画面は `budget:editor` で入れるので、そのまま
+   * 同期すると **`sales` 権限を持たない budget editor が、`sales:owner` の壁を
+   * すり抜けて会社名・連絡先という共有マスターを書き換えられる**ことになる
+   * （レビュー指摘・PR #183 P2）。**`sales:owner` を持つ人のときだけ**同期し、
+   * 持たない人の更新は `vendors` 側だけに留める（`companies` は次に `sales:owner`
+   * が触るまで古いままになるが、権限の壁を越えるよりまし）。
    */
-  await syncCompanyFromVendor(
-    req.params.id as string,
-    { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes },
-    req.user!.id,
-  );
+  const canSyncCompany = meetsPermissionLevel(req.user!.role, req.user!.permissions?.['sales'], 'owner');
+  if (canSyncCompany) {
+    await syncCompanyFromVendor(
+      req.params.id as string,
+      { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes },
+      req.user!.id,
+    );
+  }
   const row = await queryOne('SELECT * FROM vendors WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
