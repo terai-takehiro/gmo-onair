@@ -14,6 +14,15 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('budget'));
 
+/**
+ * ⚠️ **仕入先名は `vendors` を正としつつ、消えたときは `companies` へ落とす**
+ * （レビュー指摘・PR #207 4巡目）。財務の仕入先タブでの削除は `vendors` 側だけを
+ * 論理削除する（`companies`・過去の仕入は残る）ので、`vendors` だけを見ると
+ * 削除済み仕入先の仕入行が `vendor_name: null` になり、一覧・CSV・帳票から
+ * 相手先が読めなくなる。`vendors` が生きている間はそちらが正（`budget:editor` が
+ * `sales:owner` 無しで直した名前が反映される）、消えたあとは `companies` の
+ * 古い名前でも無いよりましなので使う。
+ */
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
   const projectId = req.query.project_id as string;
@@ -28,10 +37,11 @@ router.get('/', async (req, res) => {
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, v.name as vendor_name, pg.name as group_name, e.episode_code${allocCol}
+    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, COALESCE(v.name, vco.name) as vendor_name, pg.name as group_name, e.episode_code${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN companies vco ON vco.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
      ${allocJoin}
@@ -77,10 +87,11 @@ router.get('/', async (req, res) => {
 // CSV Export
 router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
   const rows = await queryAll(
-    `SELECT v.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
+    `SELECT COALESCE(v.name, vco.name) as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN companies vco ON vco.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL
      ORDER BY pu.recognition_date DESC, pu.created_at DESC`
   ) as Record<string, unknown>[];
@@ -90,9 +101,11 @@ router.get('/export', requirePermission('budget', 'exporter'), async (_req, res)
 
 router.get('/:id', async (req, res) => {
   const row = await queryOne(
-    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, e.episode_code
+    `SELECT pu.*, p.name as project_name, p.gls_number, COALESCE(v.name, vco.name) as vendor_name, e.episode_code
      FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
-     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL LEFT JOIN episodes e ON e.id = pu.episode_id
+     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN companies vco ON vco.id = pu.vendor_id
+     LEFT JOIN episodes e ON e.id = pu.episode_id
      WHERE pu.id = ? AND pu.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
   res.json({ success: true, data: row });

@@ -980,9 +980,13 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       })), 'revenues');
     }
     if (scopes.includes('purchases')) {
+      // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+      // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
       const r = await client.query(
-        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, v.name AS vname
-         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, COALESCE(v.name, vco.name) AS vname
+         FROM purchases pu JOIN projects p ON p.id = pu.project_id
+         LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+         LEFT JOIN companies vco ON vco.id = pu.vendor_id
          WHERE pu.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({

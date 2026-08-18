@@ -152,12 +152,15 @@ const SHEETS: SheetDef[] = [
   },
   {
     name: '仕入',
-    query: `SELECT pu.billing_key, p.gls_number, p.name as project_name, v.name as vendor_name,
+    // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+    // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
+    query: `SELECT pu.billing_key, p.gls_number, p.name as project_name, COALESCE(v.name, vco.name) as vendor_name,
                    pu.amount, pu.tax_category, pu.description, pu.recognition_date,
                    pu.payment_due_date, pu.notes
             FROM purchases pu
             LEFT JOIN projects p ON p.id = pu.project_id
             LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+            LEFT JOIN companies vco ON vco.id = pu.vendor_id
             WHERE pu.deleted_at IS NULL ORDER BY pu.recognition_date DESC`,
     columns: [
       { key: 'billing_key', header: '請求キー', width: 16 },

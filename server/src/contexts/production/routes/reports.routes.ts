@@ -294,17 +294,25 @@ router.get('/vendor-summary', async (req, res) => {
    * `JOIN`（INNER）のままだと削除済み仕入先ぶんの実績が集計・合計・CSV から
    * まるごと消え、原価を過小に見せてしまう。`vendors` が無い（削除済み）ときは
    * `companies` の名前へ落とす（会社ごと消しても実績は残る、という他画面と同じ考え方）
+   *
+   * ⚠️ **区分は「`vendors` 行が無いときだけ」`companies` へ落とす**（レビュー指摘・
+   * PR #207 4巡目）。`vendor_type` は nullable なので、`budget:editor` が区分を
+   * 空にした（`vendors.vendor_type = NULL`）行を単純な `COALESCE(v.vendor_type,
+   * co.vendor_type)` にすると、生きている vendors 行があるのに古い companies の
+   * 区分へ戻ってしまう（「消したのに消えていない」）。`v.id IS NOT NULL` で
+   * 「vendors 行そのものが無い（削除済み）」ときだけ companies へ落とす
    */
   const rows = await queryAll(
     `SELECT p.vendor_id AS vendor_id, COALESCE(v.name, co.name) as vendor_name,
-            COALESCE(v.vendor_type, co.vendor_type) as vendor_type,
+            CASE WHEN v.id IS NOT NULL THEN v.vendor_type ELSE co.vendor_type END as vendor_type,
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount
      FROM purchases p
      LEFT JOIN vendors v ON v.company_id = p.vendor_id AND v.deleted_at IS NULL
      LEFT JOIN companies co ON co.id = p.vendor_id
      WHERE ${whereClause}
-     GROUP BY p.vendor_id, COALESCE(v.name, co.name), COALESCE(v.vendor_type, co.vendor_type)
+     GROUP BY p.vendor_id, COALESCE(v.name, co.name),
+              CASE WHEN v.id IS NOT NULL THEN v.vendor_type ELSE co.vendor_type END
      ORDER BY total_amount DESC`,
     params
   ) as Record<string, any>[];

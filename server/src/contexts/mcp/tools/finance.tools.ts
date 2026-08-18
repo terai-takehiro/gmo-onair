@@ -134,16 +134,19 @@ export function registerFinanceTools(server: McpServer): void {
       });
       const { where, params } = buildPurchaseWhere(q);
       const orderBy = buildPurchaseOrder(q);
+      // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+      // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
       const joins = `FROM purchases pu
          LEFT JOIN projects p ON p.id = pu.project_id
-         LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL`;
+         LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+         LEFT JOIN companies vco ON vco.id = pu.vendor_id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;
       const rows = await queryAll(
         `SELECT pu.id, pu.description, pu.amount, pu.tax_category, pu.recognition_date,
                 pu.payment_due_date, pu.settlement_number, pu.invoice_qualified, pu.is_provisional,
-                v.name AS vendor_name, p.gls_number, p.name AS project_name
+                COALESCE(v.name, vco.name) AS vendor_name, p.gls_number, p.name AS project_name
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );
