@@ -136,12 +136,20 @@ export async function syncCompanyFromCustomer(
   exec: Exec = defaultExec,
 ): Promise<void> {
   await exec(
-    `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-       is_gmo_group=?, updated_at=NOW(), updated_by=?
-     WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL`,
+    `WITH updated_company AS (
+       UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
+         is_gmo_group=?, updated_at=NOW(), updated_by=?
+       WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL
+       RETURNING id
+     )
+     UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
+       updated_at=NOW(), updated_by=?
+     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
     [fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
      fields.phone || null, fields.address || null, fields.notes || null, fields.is_gmo_group,
-     userId, customerId],
+     userId, customerId,
+     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
+     fields.address || null, fields.notes || null, userId],
   );
 }
 
@@ -156,11 +164,19 @@ export async function syncCompanyFromVendor(
   exec: Exec = defaultExec,
 ): Promise<void> {
   await exec(
-    `UPDATE companies SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-       invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
-     WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL`,
+    `WITH updated_company AS (
+       UPDATE companies SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
+         invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
+       WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL
+       RETURNING id
+     )
+     UPDATE customers SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
+       updated_at=NOW(), updated_by=?
+     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
     [fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
      fields.address || null, fields.vendor_type || null, fields.invoice_registration_number || null,
-     fields.notes || null, userId, vendorId],
+     fields.notes || null, userId, vendorId,
+     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
+     fields.address || null, fields.notes || null, userId],
   );
 }
