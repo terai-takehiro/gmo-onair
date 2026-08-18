@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSequenceNumber } from '../../../shared/services/sequence.service';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 /**
  * 見積金額の出し方は**案件一覧と同じ式を読む**（写さない）。
  * 束ごとに最新版を採る・旧版と失注を外す・値引きは別建て・税を乗せない、の
@@ -363,6 +364,13 @@ export const projectService = {
     // （NULL を許すと、`customers` を内部結合している読み手からプロジェクトが黙って消える）
     const customerId = (typeof input.customer_id === 'string' && input.customer_id)
       ? input.customer_id : SELF_CUSTOMER_ID;
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #200 P2・案件側の
+    // project.service.ts と同じ理由）。渡された値だけ確かめる — `SELF_CUSTOMER_ID`
+    // への既定の寄せ先は内部で作った固定行なので確かめ直さない
+    if (typeof input.customer_id === 'string' && input.customer_id) {
+      await assertCustomerCompanyId(input.customer_id);
+    }
     const code = await generateSequenceNumber('opp_code', 'OPP');
 
     await withTransaction(async (tx) => {
@@ -393,6 +401,11 @@ export const projectService = {
     await assertProject(id);
     if (typeof input.stage === 'string') assertIn(input.stage, STAGES, 'stage');
     if (typeof input.gpm_kind === 'string') assertIn(input.gpm_kind, GPM_KINDS, 'gpm_kind');
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #200 P2・create() と同じ理由）
+    if (typeof input.customer_id === 'string' && input.customer_id) {
+      await assertCustomerCompanyId(input.customer_id);
+    }
     // 段が動いたかを**書き換える前に**見る（履歴と発番の判断に要る）
     const before = await queryOne(
       'SELECT stage, gls_number, gls_category FROM projects WHERE id = ?', [id],

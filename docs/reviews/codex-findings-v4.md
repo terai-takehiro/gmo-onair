@@ -289,7 +289,10 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 （`npm run reviews:debt` が拾うのは未解決分だけで、resolve 済みの指摘も
 マージすれば画面からは同じく見えなくなる）ので、完全な記録のためここに残します。
 
-**状態の確かめ方**: ⭕️ と ❌ は 2026-08-15 に**コードを読んで**付けています。
+**状態の確かめ方**: ⭕️ と ❌ は 2026-08-15 に**コードを読んで**付けています
+（#199 の9件だけは例外 — PR #199 のマージ日である 2026-08-18 に、実DB
+（`npm run verify:up`）で個別に確認しています。上の**注記の対象は #106〜#170**
+までの回で、#199 以降は都度その回の日付で確かめます）。
 `is_outdated: true`（＝同じ PR の後の commit が当該行を動かした）の指摘は、
 **本当に直っているかを1件ずつ当たり直し**ました — 4 件とも直っていました。
 
@@ -358,14 +361,19 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #200 | **P1** | `200_customer_fk_to_companies.sql` | この行（下の #199 の行）を「⭕️ 同PR内」と書いたが、`docs/deploy-pipeline.md` 本文は訂正しても migration 200 冒頭のコメントには「Releasesのタグで再実行すればDBも含めて丸ごと戻る」という誤った手順がそのまま残っていた。本番のロールバック時にこのコメントだけを見た運用者が、直したはずの危険な手順をそのまま実行できる状態だった | ⭕️ #201（コメントを訂正し `docs/ops/db-backup-restore.md` を指すよう統一） |
+| #200 | P2 | `gpm.service.ts` | 「顧客ロールを検証するようにした」という行（下の #199 の行）は案件・売上・活動記録・見積の書き込みだけを指し、プロジェクト管理（GPM）の `gpm.service.ts` の create/update（`POST`/`PUT /gpm/projects`）は別サービスで `assertCustomerCompanyId` を素通りしていた。仕入先のみ・ロール無し・削除済みの会社をGPMプロジェクトの依頼元にできる穴が残っていた | ⭕️ #201（GPM の customer_id 書き込みにも同じ検証を追加。`customer_id` 省略時に寄せる `SELF_CUSTOMER_ID` は内部の固定行なので検証しない） |
+| #200 | P2 | `codex-findings-v4.md` | 棚卸し表に #199 の1巡目レビュー5件（旧FKの外し忘れ・削除済み顧客の残留・ロールバック手順の誤記・顧客ロールを外すと過去売上が0に見える・旧URLでのoverview 404）が抜けていた。2巡目の4件だけを記録しており、マージ前にresolve済みだった1巡目分がこのまま埋もれるところだった | ⭕️ 同PR内（`ebf10bc`。1巡目5件を表に追加） |
+| #200 | P2 | `docs-pr199-review-debt.md` | changelogの下書きが「4件を棚卸しに記録した」と書いていたが、棚卸し表自身の注記は「ここに足した指摘はすべて is_resolved: false のままマージされています」と言い切っており、resolve済みの#199の指摘を足すとこの2つの記述が両立しない | ⭕️ 同PR内（`ebf10bc`。#199の5件は resolve済みの例外だと注記を追加し、changelogの下書きも巻き取った） |
+| #200 | P2 | `codex-findings-v4.md` | 「⭕️/❌ は2026-08-15にコードを読んで付けている」という検証日の注記が、2026-08-18に追加した#199の9行にもそのまま掛かって見え、実際の検証日と食い違っていた（監査としての来歴が破綻する） | ⭕️ #201（#199の9件は例外として2026-08-18に確認したことを注記に追加） |
 | #199 | **P1** | `200_customer_fk_to_companies.sql` | データが入っている実DBでは、旧FK（customers(id) 参照）が値の書き換え前に生きたままだと、`customer_id` を customers.id と一致しない companies.id に書き換えた瞬間に違反し migration 200 全体がロールバックする。空の検証DBでは customers.id と companies.id が作成順で偶然一致することがあり、それが隠れていた | ⭕️ 同PR内（`ea1262c`。値を書き換える前に旧FKを DROP → UPDATE → 新FK追加の順に直した） |
 | #199 | P2 | `customers.routes.ts` | `DELETE /customers/:id` は customers 側だけを論理削除し companies.is_customer は触らないため、一覧・詳細・検索・ドロップダウンが companies だけで判定していると削除済みの顧客が残り続ける | ⭕️ 同PR内（`ea1262c`。customers への JOIN を LEFT→INNER に変更） |
-| #199 | **P1** | `docs/deploy-pipeline.md` | 本番の production セクションは選択したコミットの checkout・イメージの pull・`app_prod` の再作成しかせず、DBの復元やmigrationの巻き戻しをしない。`_migrations` は forward-only なので、旧リリースを再実行してもFKの張り替え後の値はそのまま残り、記載どおりに読むとDBも含めて戻ると誤解する | ⭕️ 同PR内（`ea1262c`。表現を訂正し、DBを含めて戻すときは `docs/ops/db-backup-restore.md` を使うよう明記） |
+| #199 | **P1** | `docs/deploy-pipeline.md` | 本番の production セクションは選択したコミットの checkout・イメージの pull・`app_prod` の再作成しかせず、DBの復元やmigrationの巻き戻しをしない。`_migrations` は forward-only なので、旧リリースを再実行してもFKの張り替え後の値はそのまま残り、記載どおりに読むとDBも含めて戻ると誤解する | ⚠️ #199（`ea1262c`）で `docs/deploy-pipeline.md` 本文は訂正したが、**`200_customer_fk_to_companies.sql` 冒頭のコメントに同じ誤った手順（「Releasesのタグで再実行・DBも含めて丸ごと戻す」）が残っていた**（レビュー指摘・PR #200 P1）。⭕️ #200（コメントを訂正し `docs/ops/db-backup-restore.md` を指すよう統一） |
 | #199 | P2 | `companies.routes.ts` | 確定売上のある会社の顧客ロールを外すと `is_customer` は false になるが、紐づく顧客・過去の売上行はそのまま残る。会社サマリーが `is_customer` で絞っていたため、ロールを外した瞬間に過去の確定売上がゼロと表示されていた | ⭕️ 同PR内（`ea1262c`。`is_customer` での絞りを外し、常に companies.id で revenues を見るようにした） |
 | #199 | P2 | `customers.routes.ts` | 移行前の customers.id（旧URL・端末の「最近見た」履歴・共有リンク）で顧客詳細を開くと、overview は companies.id 専用になっていたため顧客が存在するのに「見つかりません」画面になっていた | ⭕️ 同PR内（`ea1262c`。companies.id で見つからなければ customers.id として解釈し直すフォールバック `findCustomerRow` を追加） |
 | #199 | P2 | `customers.routes.ts` / `CustomerDetailPage.tsx` | 移行前の customers.id（旧URL・端末の「最近見た」履歴・共有リンク）で顧客詳細を開いたまま活動を記録・保存すると、書き込みが旧IDのままで `activity_logs.customer_id` 等のFK（companies.id 参照）に反し失敗する。1巡目で足した正規ID解決は GET だけで、書き込みには使われていなかった | ⭕️ 同PR内（書き込みは正規の companies.id を優先し、`PUT`/`DELETE /customers/:id` も customers.id を解決するようにした） |
 | #199 | P2 | `mcp/tools/customers.tools.ts` ほか7か所 | `DELETE /customers/:id` は customers 側だけを論理削除するため、companies だけを見る他の読み口（MCP の list_customers/get_customer・重複ガード、GPMドロップダウン、全体検索、Excel入出力2本、決算取込、投入口、内覧会予約）には削除済みの顧客が残り続け、その id を create_project 等に渡せた。1巡目の修正は customers.routes.ts の1か所だけだった | ⭕️ 同PR内（生きている customers 行があることを要求する条件を8か所に追加） |
-| #199 | P2 | `200_customer_fk_to_companies.sql` | FKが companies(id) を直接指すようになったことで「顧客ロールの会社か」というDBの保証が失われ、仕入先のみ・販管費支払先のみ・ロール無しの company_id でも案件・売上・活動記録・見積の書き込みが通ってしまう | ⭕️ 同PR内（`assertCustomerCompanyId` を新設し各書き込みで検証） |
+| #199 | P2 | `200_customer_fk_to_companies.sql` | FKが companies(id) を直接指すようになったことで「顧客ロールの会社か」というDBの保証が失われ、仕入先のみ・販管費支払先のみ・ロール無しの company_id でも案件・売上・活動記録・見積の書き込みが通ってしまう | ⚠️ #199 で `assertCustomerCompanyId` を新設し案件・売上・活動記録・見積の書き込みに追加したが、**プロジェクト管理（GPM）の `gpm.service.ts` の create/update は別サービスで、検証を素通りしていた**（レビュー指摘・PR #200 P2）。⭕️ #200（GPM の customer_id 書き込みにも同じ検証を追加） |
 | #199 | P2 | `customers.routes.ts` | migration 061〜195 の間に customers 側だけ名前・連絡先を直した行は companies が古いスナップショットのままで、一覧・詳細・PDF・Excel・検索が companies を正として読むようになったことで古い値が出てしまう | ⭕️ 同PR内（migration 200 に、既にリンク済みの companies 行を customers の現在値で上書きする一括更新を追加） |
 | #197 | P2 | `codex-findings-v4.md` | #194の指摘の状態を「⭕️ #195」と書いていたが、#195時点のツリーはまだ不正確な記述のままで、実際に直したのは#197だった（トレーサビリティが誤誘導になる） | ⭕️ 同PR内（参照先PRを修正） |
 | #197 | P2 | `claude-token-consumption-analysis-ebzhpw.md` | version-history.mdが文脈に乗る条件を「エージェントがRead/Grepで返した時だけ」と書いていたが、`cat`/`sed`/`git show`等本文を返す呼び出し全般が同様に文脈化するため範囲が狭すぎた | ⭕️ 同PR内（記述を修正） |
