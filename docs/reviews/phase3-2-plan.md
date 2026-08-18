@@ -235,7 +235,7 @@ migration を書かない**：
 
 #### Phase 3-3 でやること（詳細化）
 
-> ⚠️ **2026-08-18 PR #211 の Codex レビュー（5巡・P2合計17件）を反映**。
+> ⚠️ **2026-08-18 PR #211 の Codex レビュー（6巡・P2合計20件）を反映**。
 > 1巡目（3件）は「読み書き経路は既に `companies` が正」という前提の誤り
 > （vendor側だけの最新値・洗い出し漏れの参照箇所・`mcp_audit_log` の旧ID）。
 > 2巡目（5件）は**1巡目を直した結果生まれた「別々のPR/デプロイに分けてよい」
@@ -251,22 +251,28 @@ migration を書かない**：
 > （PR作成前の1回だけのバックアップでは、執筆〜マージ前検証の間の書き込みを
 > 取りこぼす・`mcp_audit_log` の3点セットより先に `customers.routes.ts` の
 > `CUSTOMER_JOIN` を消す順序になっていて、AI登録判定の読み込み手段を失う窓が
-> あった）。**5巡経ても新しい抜けが見つかり続けている**ので、この表を
+> あった）。6巡目（3件）は**5巡目を直した結果でもまだ残っていた抜け**
+> （旧支払条件列の削除〔上表#4〕もテーブル削除〔#5〕と同格の不可逆変更なのに
+> バックアップ・検証ゲートが#5専用だと思われていた・vendor側の一次分析を
+> `companies` へ書き込む形にすると、`sales:owner` の承認前提で非公開に
+> してきた `budget:editor` 単独編集の値を早期に公開してしまう権限漏れがあった）。
+> **6巡経ても新しい抜けが見つかり続けている**ので、この表を
 > **完全と見なさないこと** — 着手セッションは着手前に必ずコード側を実地で
 > 再調査し、可能なら着手前にもう一度レビューを依頼すること。下の表・工程表は
-> 5巡分すべてを反映して描き直したもの。**「同じPR/デプロイでまとめて出す」
-> 「同一トランザクションで実行する」「先に行う」と書いてある箇所の順序・
-> まとまりを変えないこと** — 変えた瞬間に本番が壊れる。
+> 6巡分すべてを反映して描き直したもの。**「同じPR/デプロイでまとめて出す」
+> 「同一トランザクションで実行する」「先に行う」「書き込みは行わない」と
+> 書いてある箇所の順序・まとまりを変えないこと** — 変えた瞬間に本番が壊れるか、
+> 権限の壁を飛び越える。
 
 | # | 内容 | 対象 |
 | --- | --- | --- |
-| 1 | vendor 側だけにある最新値の突き合わせ（**一次バックフィル。最終確認は5で行う**） | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。`vendors` と `companies` の該当列を突き合わせ、`vendors` が新しい行は `companies` へ反映するバックフィルを書く。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める。**単独で着手して問題ない**（読み込み側の挙動を変えない、純粋な追いつきのバックフィルのため）。⚠️ **これは1回やって終わりではない**（3巡目レビュー指摘）: このバックフィルの後も `budget:editor` の `PUT /vendors/:id` は動き続けるため、`vendors`/`companies` の差分はまた発生し得る。**「5の直前にもう一度手で実行して差分0件を確認する」という形は依然として穴がある**（確認からPR作成・レビュー・デプロイの間も書き込みは止まらないため。4巡目レビュー指摘）。そのため**最終的な突き合わせは5のmigration自身の中に埋め込み、`DROP TABLE` と同じトランザクションの中で行う**（下記5参照）。ここでの1回目は「実DBで差分がどの程度あるか把握する・大半を先に減らしておく」ための予備であり、正式なゼロ件保証ではない |
+| 1 | vendor 側だけにある最新値の突き合わせ（**一次分析のみ。`companies` への書き込みは行わない。実際の反映は5で行う**） | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。⚠️ **この時点で `vendors` の値を `companies` へバックフィル（書き込み）してはいけない**（6巡目レビュー指摘）: `companies` は `GET /companies` 等の一覧・検索・サマリーで `sales:owner` を問わず参照されるため、`budget:editor` だけが編集した（＝`sales:owner` の承認前提で意図的に非公開のままにしてきた）値をここで書き込むと、その時点で権限の壁を飛び越えて公開してしまう。**この工程は SELECT による差分の把握・件数の見積もりだけに留める**（`UPDATE companies ...` は書かない）。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める。⚠️ **差分は把握しても消えない**（3巡目レビュー指摘）: `budget:editor` の `PUT /vendors/:id` は動き続けるため、把握した差分はすぐ古くなる。**実際に `companies` へ反映する（＝権限の壁を飛び越える）のは、`vendors` テーブル自体を消す5のタイミングだけ**にする（テーブルを消せば `vendors` 単独更新という編集経路自体が無くなるので、その時点で反映しても新しい非公開値を作り出さない。4巡目・6巡目レビュー指摘を踏まえた設計） |
 | 2 | `customers`/`vendors` を直接参照している全箇所の書き換え（**旧支払条件列への書き込みを含む。`customers.routes.ts` の `CUSTOMER_JOIN` 除去は3より後**） | legacyフォールバック（`findCustomerRow`/`findVendorRow`）以外にも本番コードが直接テーブルを触っている。**洗い出し済みの対象**（2026-08-18時点・**4巡のレビューを経てもなお漏れが見つかり続けているので、この一覧を最終と見なさず、着手前に repo 全体を再検索すること** — `grep -rn "FROM customers\|JOIN customers\|FROM vendors\|JOIN vendors\|INTO customers\|INTO vendors"` 等。特に `SELECT`/`UPDATE`/`INSERT` 文字列を組み立てている箇所は素朴な `grep` に引っかからないことがあるので、`customers`/`vendors` という識別子そのものでも検索する）: **`sales/routes/customers.routes.ts` 自身（4巡目レビューで指摘・legacyフォールバック関数だけでなく、`CUSTOMER_JOIN` を使う一覧・詳細・360°ビューなど通常の読み書きフロー全体が対象。⚠️ ただしこのファイルの `CUSTOMER_JOIN` 除去（＝`cu.id as legacy_customer_id` を含む `customers` へのJOINをやめる変更）は**3（`mcp_audit_log` 旧ID移行）が完了してから**行うこと — 先に消すと `is_ai_created`/`ai_requested_by` が3の新しい実装に切り替わる前に読み込み手段を失う。5巡目レビュー指摘）**、**`finance/routes/vendors.routes.ts` 自身（同様に、legacyフォールバック関数だけでなく通常の一覧・詳細・更新フロー全体が対象）**、`companies.routes.ts`（`/summary` 等。**POST/PUTで `customers.closing_day`/`payment_months`/`payment_day` と `vendors` の対応列へ今も書き込んでいる** — これを直さないまま4の列削除をすると通常の取引先登録・編集が `undefined_column` で落ちる）、`sales/routes/excel.routes.ts` / `finance/routes/excel.routes.ts`、`company-directory.service.ts`、`purchases.routes.ts` / `sga.routes.ts`、`kessan-import.service.ts` / `xpoint-import.service.ts`、**`finance/routes/xpoint.routes.ts`（`xpoint-import.service.ts` とは別に、このルート自体が独立して `vendors` を JOIN・参照している。4巡目レビューで発見）**、`doc-handoff.service.ts`、`project-groups.routes.ts`、`search.routes.ts`、`backup.routes.ts`、`production/routes/reports.routes.ts` の `GET /vendor-summary`（`LEFT JOIN vendors`。3巡目レビューで発見）、MCPツール一式、シード、`server/scripts/import-kessan-dev.mjs`（dev専用。`findCustomer`/`ensureCustomer` が直接 `customers`/`vendors` を select/insert している）。**特に注意**: いくつかの箇所は `customers`/`vendors` 行の `deleted_at` を「その会社が今その役割（顧客/仕入先）を持っているか」の判定に使っている（`is_customer`/`is_vendor` 相当）。テーブルを消すと同じ判定ができなくなるので、`companies` 側だけで同じ意味を表せる代替（既存の `is_customer`/`companies.company_role` 相当の列があるか、無ければ追加）を先に用意する |
 | 3 | `mcp_audit_log` の旧ID移行（バックフィル＋書き込み側＋読み込み側を**同じPR/デプロイで**切り替え。**2の `customers.routes.ts` の `CUSTOMER_JOIN` 除去より先に、または同じPRで行う**） | `customers.tools.ts`（MCP `create_customer`）が書き込む `result_summary.created_id` は今も `customers.id` のまま。`customers.routes.ts` の `is_ai_created`/`ai_requested_by` はこの値（`cu.id as legacy_customer_id`。`CUSTOMER_JOIN` から取っている）で `mcp_audit_log` を逆引きしている。**バックフィルだけを先に出すと、書き込み側がまだ旧ID空間で書き続け・読み込み側もまだ旧ID比較のままなので、バックフィル後に作られた行が未移行のまま取りこぼれる**（2巡目レビュー指摘）。そのため①バックフィルmigration ②`customers.tools.ts` の書き込み先を `company_id` に変更 ③`customers.routes.ts` の読み込みを `company_id` 比較に変更、の3つを同じPR/デプロイで出す（`vendors` 側の `create_vendor`〔あれば〕も同様）。**検証は `tool_name = 'create_customer'`（仕入先版があれば同様のツール名）に絞って**行う — `create_project`/`create_task` など他ツールの `created_id` はそれぞれ別テーブルのIDを指しており、`companies.id` として解決できなくて当然のため対象外（2巡目レビュー指摘）。⚠️ **2で `customers.routes.ts` の `CUSTOMER_JOIN`（＝`legacy_customer_id` を得る手段）を先に消してしまうと、③の読み込み切り替えが `company_id` 比較へ移る前に旧IDを得る手段そのものを失う**ので、この3点セットは**2の `customers.routes.ts` 分より先に、または同じPRで**着手する（5巡目レビュー指摘） |
-| 4 | 旧支払条件列の削除 | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列。**2で `companies.routes.ts` を含む全ての書き込み経路が `companies` の列だけに書くよう直っていることが前提**（直す前に消すと `undefined_column` で取引先登録・編集が落ちる。2巡目レビュー指摘） |
+| 4 | 旧支払条件列の削除（**これも不可逆。5と同じ扱いのゲートを課す**） | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列。**2で `companies.routes.ts` を含む全ての書き込み経路が `companies` の列だけに書くよう直っていることが前提**（直す前に消すと `undefined_column` で取引先登録・編集が落ちる。2巡目レビュー指摘）。⚠️ **列削除も不可逆な変更であり、5（テーブル削除）専用だと思われていたゲートが実はここにも要る**（6巡目レビュー指摘）: このmigrationをマージする**前**に、①本番のオンデマンドバックアップを取りリストア可能なことを確認する（5と同じ手順）②下表7の検証一式（`test`/`typecheck`/`lint`/`verify:fresh`・実DBでの確認）を通す、の両方を済ませること。`main`マージ即検証環境へ自動デプロイされ、実行済みmigrationは再実行されないため、マージ後に見落としが見つかっても列は既に無く直しようがない |
 | 5 | `customers`/`vendors` テーブル自体の削除 ＋ legacy フォールバック削除 ＋ dev専用スクリプトの書き換え（**すべて同じPR/デプロイで実施**） | migration。**1・2・3がすべて完了し、実DBで動作確認できてから**。**テーブル削除（migration）・`findCustomerRow`/`findVendorRow`〔legacyフォールバック〕の削除・`import-kessan-dev.mjs` の書き換えは3つとも分けない** — 分けると、テーブルだけ消えた中間状態で旧URL・未一致IDへのアクセス、または dev の決算取込が `relation does not exist` で落ちる（2巡目・3巡目レビュー指摘）。⚠️ **vendorの最終突き合わせは、このmigrationファイルの中で`DROP TABLE`と同じトランザクションで実行する**（4巡目レビュー指摘・下記参照。事前に別途「もう一度手で確認する」だけでは、確認からデプロイまでの間の書き込みで再度差分が発生し得る）: migrationの先頭で `LOCK TABLE vendors IN ACCESS EXCLUSIVE MODE`（`customers` も同様）を取り、以降そのトランザクションが終わるまで `vendors`/`customers` への書き込みはブロックされる状態にした上で、①差分の突き合わせ・`companies` への反映 ②`DROP TABLE` を同じトランザクション内で連続して実行する。これにより「確認した時点と削除する時点の間に別の書き込みが割り込む」余地を無くす（ロック待ちの間 `PUT /vendors/:id` は待たされ、テーブルが消えた後は正常に404/500として扱われる — 静かにデータが失われることはない）。**着手直前に必ず**: ①本番の**オンデマンドバックアップを取り、リストア可能なことを確認する**（`docs/ops/db-backup-restore.md` の手順。定期バックアップは最大3時間遅れており、かつ `deploy.yml` はmigrationのロールバックを行わないため、この一回限りのバックアップが唯一の戻し道になる。3巡目レビュー指摘）。⚠️ **このバックアップは「PR作成前」の1回では不十分**（5巡目レビュー指摘）: 執筆・レビュー・マージ前検証（下表7）には数時間〜数日かかり得、その間も本番は書き込みを受け続ける。`deploy.yml` はコンテナを作り直すだけでバックアップは取らない（`.github/workflows/deploy.yml`）。そのため**このPRをマージし、このmigrationを実行するデプロイを開始する直前にもう一度オンデマンドバックアップを取り直す**（PR作成前の1回はリハーサル、デプロイ直前の1回が本番のゲート）②実DBで「`customers.company_id`/`vendors.company_id` が NULL の行が0件」「その値が `companies.id` として実在すること」（`companies` 自体には `company_id` 列は無い。2巡目レビュー指摘で表現を訂正）「`tool_name='create_customer'` の `mcp_audit_log.created_id` が全て `companies.id` として解決できる」を確認。**この2点＋下表7の全項目がこのPRのマージ前ゲート**（3巡目レビュー指摘・下の注記参照） |
 | 6 | ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記。この `phase3-2-plan.md` を `docs/version-history.md` 側にアーカイブするか判断 |
-| 7 | 検証（**5のPRのマージ前ゲート**） | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` `GET /vendor-summary`（`reports.routes.ts`）の応答・`GET /companies/:id/summary` の権限別（`budget:editor` のみ／`sales:owner` あり）の見え方・MCP `list_customers`/`list_purchases`・`is_ai_created` 表示・`GET /companies` の役割判定（旧 `deleted_at` 判定の代替）・`import-kessan-dev.mjs` の動作を確認。⚠️ **5（テーブル削除）はメイン=検証環境という運用**（`main` マージ即 `dev.gmo-onair.jp` へ自動デプロイ・migrationは再実行されない）なので、**このチェックは5のPRをマージした後ではなく、マージする前にすべて終えること**（3巡目レビュー指摘。マージ後に不具合が見つかっても、その時点で `customers`/`vendors` は検証環境から既に消えており、テーブル削除migrationを直して直せる状態ではない）。マージ後は同じチェックを本番相当データで**繰り返す**（1回で終わりにしない） |
+| 7 | 検証（**4・5どちらのPRに対してもマージ前ゲート**） | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` `GET /vendor-summary`（`reports.routes.ts`）の応答・`GET /companies/:id/summary` の権限別（`budget:editor` のみ／`sales:owner` あり）の見え方・MCP `list_customers`/`list_purchases`・`is_ai_created` 表示・`GET /companies` の役割判定（旧 `deleted_at` 判定の代替）・`import-kessan-dev.mjs` の動作を確認。⚠️ **4・5はどちらもメイン=検証環境という運用**（`main` マージ即 `dev.gmo-onair.jp` へ自動デプロイ・migrationは再実行されない）の上に載る不可逆な変更なので、**このチェックはそれぞれのPRをマージした後ではなく、マージする前にすべて終えること**（3巡目・6巡目レビュー指摘。マージ後に不具合が見つかっても、その時点で列・テーブルは検証環境から既に消えており、migrationを直して直せる状態ではない）。4のマージ後・5のマージ後それぞれで同じチェックを本番相当データで**繰り返す**（1回で終わりにしない） |
 
 ⚠️ **1は「テーブルは残ったまま」でも単独で着手できる**（読み込み側の挙動を変えない
 純粋なバックフィルのため。ただし正式なゼロ件保証ではなく、最終確認は5のmigration内で
@@ -297,14 +303,15 @@ gantt
     本番リリース公開（3-2まで含む版・ユーザー指示待ち）      :crit, milestone1, 3, 4
     互換確認期間（最低1リリースサイクル）                    :active, wait1, 4, 5
     Phase 3-3-1 legacyフォールバック使用状況の確認           :p33_0, after wait1, 1
-    Phase 3-3-2 vendor側最新値の突き合わせ・バックフィル      :p33_1, after p33_0, 1
+    Phase 3-3-2 vendor側最新値の分析(companiesへの書き込みなし) :p33_1, after p33_0, 1
     Phase 3-3-3 mcp_audit_log旧ID移行(バックフィル+書込+読込を同時)   :p33_2b, after p33_1, 1
     Phase 3-3-4 全参照箇所の書き換え・旧列書き込み停止(companiesのみに・customers.routes.tsのCUSTOMER_JOIN除去含む) :p33_2, after p33_2b, 2
-    Phase 3-3-5 旧支払条件列の削除 (migration)               :p33_4, after p33_2, 1
-    Phase 3-3-6 直前バックアップ(1回目・PR作成前)             :p33_5a, after p33_4, 1
-    Phase 3-3-7 検証(test/typecheck/lint/verify:fresh・マージ前ゲート) :crit, p33_5c, after p33_5a, 1
-    Phase 3-3-8 直前バックアップ(2回目・デプロイ開始直前)+テーブル削除(vendor最終突合をロック内で同時実行)+フォールバック削除+dev script書換(同一デプロイ) :crit, p33_5, after p33_5c, 1
-    Phase 3-3-9 ドキュメント後始末・本番相当データでの再検証   :p33_7, after p33_5, 1
+    Phase 3-3-5 直前バックアップ+検証(旧列削除PRのマージ前ゲート) :crit, p33_3g, after p33_2, 1
+    Phase 3-3-6 旧支払条件列の削除 (migration)               :p33_4, after p33_3g, 1
+    Phase 3-3-7 直前バックアップ(1回目・テーブル削除PR作成前)  :p33_5a, after p33_4, 1
+    Phase 3-3-8 検証(test/typecheck/lint/verify:fresh・マージ前ゲート) :crit, p33_5c, after p33_5a, 1
+    Phase 3-3-9 直前バックアップ(2回目・デプロイ開始直前)+テーブル削除(vendor最終突合をロック内で同時実行)+フォールバック削除+dev script書換(同一デプロイ) :crit, p33_5, after p33_5c, 1
+    Phase 3-3-10 ドキュメント後始末・本番相当データでの再検証  :p33_7, after p33_5, 1
 ```
 
 | 順序 | 作業 | 前提 | 誰が着手を判断するか |
@@ -312,21 +319,22 @@ gantt
 | 1 | 3-2まで含む版の本番リリース | ユーザーが「本番に入れて」と明示 | ユーザー |
 | 2 | 互換確認期間（最低1リリースサイクル） | 1が完了 | 次の通常リリースが出た時点で自動的に満了 |
 | 3 | 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション（アクセスログ等で確認してから4以降に進む） |
-| 4 | 3-3-2 vendor側最新値の突き合わせ・バックフィル（上表#1・一次バックフィル。正式なゼロ件保証ではない） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション |
+| 4 | 3-3-2 vendor側最新値の分析（上表#1・**`companies` への書き込みは行わない**。差分の件数把握のみ） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション |
 | 5 | 3-3-3 `mcp_audit_log` の旧ID移行（バックフィル＋`customers.tools.ts`の書き込み切り替え＋`customers.routes.ts`の読み込み切り替えを**同一PR/デプロイ**で・上表#3） | 4と独立に着手可。**3つを分割しない**。**6より先に着手する**（5巡目レビュー指摘・下記参照） | 着手セッション |
 | 6 | 3-3-4 `customers`/`vendors` を直接参照する全箇所の書き換え・旧支払条件列への書き込み停止（上表#2。`vendors.routes.ts` 自身の通常フロー・`xpoint.routes.ts` を含む。**着手前に対象一覧をコードで再確認**） | 4の反映内容を踏まえて設計。対象が多いため複数PRに分けてよいが、**`companies.routes.ts` の旧列書き込み停止は8より前に必ず完了させる**。⚠️ **`customers.routes.ts` の `CUSTOMER_JOIN` 除去（legacyフォールバック除去とは別の、通常の一覧・詳細・360°ビューが使うJOIN）は5がマージ済みであることを確認してから着手する**（先に消すと `is_ai_created`/`ai_requested_by` が読み込み手段を失う。5巡目レビュー指摘） | 着手セッション |
-| 7 | 3-3-5 旧支払条件列の削除（migration・上表#4） | **6（`companies.routes.ts`の旧列書き込み停止）が先にマージ済みであること** | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
-| 8 | 3-3-6 オンデマンドバックアップ（1回目・PR作成前のリハーサル。上表#5①の1回目） | 4・5・6・7がすべてマージ | 着手セッション（テーブル削除PRを作る**前**に実施。**vendorの最終突き合わせはここでは行わない** — 10のmigration内でロックと同時に行う。4巡目レビュー指摘） |
-| 9 | 3-3-7 検証一式を**マージ前ゲート**として実施（`test`/`typecheck`/`lint`/`verify:fresh`・実DBでの孤立0件・エンドポイント応答・上表#7） | 8の後、10のPR（テーブル削除PR）をマージする**前** | 着手セッション |
-| 10 | 3-3-8 オンデマンドバックアップ（**2回目・このデプロイを開始する直前**。上表#5①の2回目）＋ `customers`/`vendors` テーブル削除（**`LOCK TABLE ... IN ACCESS EXCLUSIVE MODE`の中でvendor最終突き合わせを実行してから`DROP TABLE`・同一トランザクション**）＋ legacy フォールバックコード削除 ＋ dev専用スクリプト書き換え（**すべて同一PR/デプロイ**・上表#5） | 8・9が完了していること。**分割しない**。⚠️ **1回目のバックアップだけでは足りない**（執筆・レビュー・マージ前検証の間も本番は書き込みを受け続けるため。5巡目レビュー指摘） | 着手セッション |
-| 11 | 3-3-9 ドキュメント後始末（上表#6）・本番相当データでの再検証（上表#7を**繰り返す**） | 10がマージ | 着手セッション |
+| 7 | 3-3-5 オンデマンドバックアップ＋検証一式（上表#7）を**旧支払条件列削除PRのマージ前ゲート**として実施 | 6がマージ済み | 着手セッション（6巡目レビュー指摘。**列削除もテーブル削除と同格の不可逆変更**として同じゲートを課す） |
+| 8 | 3-3-6 旧支払条件列の削除（migration・上表#4） | 7が完了していること | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
+| 9 | 3-3-7 オンデマンドバックアップ（1回目・テーブル削除PR作成前のリハーサル） | 4・5・6・8がすべてマージ | 着手セッション（テーブル削除PRを作る**前**に実施。**vendorの最終突き合わせはここでは行わない** — 11のmigration内でロックと同時に行う。4巡目レビュー指摘） |
+| 10 | 3-3-8 検証一式を**マージ前ゲート**として実施（`test`/`typecheck`/`lint`/`verify:fresh`・実DBでの孤立0件・エンドポイント応答・上表#7） | 9の後、11のPR（テーブル削除PR）をマージする**前** | 着手セッション |
+| 11 | 3-3-9 オンデマンドバックアップ（**2回目・このデプロイを開始する直前**）＋ `customers`/`vendors` テーブル削除（**`LOCK TABLE ... IN ACCESS EXCLUSIVE MODE`の中でvendor最終突き合わせ〔`companies`への実際の反映はここが初めて〕を実行してから`DROP TABLE`・同一トランザクション**）＋ legacy フォールバックコード削除 ＋ dev専用スクリプト書き換え（**すべて同一PR/デプロイ**・上表#5） | 9・10が完了していること。**分割しない**。⚠️ **1回目のバックアップだけでは足りない**（執筆・レビュー・マージ前検証の間も本番は書き込みを受け続けるため。5巡目レビュー指摘） | 着手セッション |
+| 12 | 3-3-10 ドキュメント後始末（上表#6）・本番相当データでの再検証（上表#7を**繰り返す**） | 11がマージ | 着手セッション |
 
-4〜11のうち、**同一PR/デプロイで出すと明記した箇所（5の3点セット・10のバックアップ・
+4〜12のうち、**同一PR/デプロイで出すと明記した箇所（5の3点セット・11のバックアップ・
 テーブル削除・フォールバック削除・dev script書き換えの4点セット）は分割しないこと**
 — 分けた瞬間に中間状態の本番が壊れる（2026-08-18 PR #211 2巡目レビューで指摘された誤り）。
 それ以外は複数PRに分けてよい（3-2a/3-2bの実績では「migration + 読み書き経路の追随」を
-1PRにまとめている）。**7（列削除）と 10（テーブル削除）は不可逆**なので、8・9（直前の
-バックアップ・検証一式）を**10のPRをマージする前に**必ず済ませること（3巡目レビュー指摘。
+1PRにまとめている）。**8（列削除）と 11（テーブル削除）はどちらも不可逆**なので、
+それぞれの直前に必ずバックアップと検証一式を済ませること（3巡目・6巡目レビュー指摘。
 マージ後に問題が見つかっても、`main`マージ即検証環境へ自動デプロイかつmigrationは
 再実行されないため、その時点では手遅れになる）。**5（`mcp_audit_log`旧ID移行）が
 6（`customers.routes.ts`の書き換え）より先という順序も入れ替えないこと**
