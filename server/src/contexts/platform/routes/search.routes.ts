@@ -62,13 +62,17 @@ router.get('/', requireAuth, async (req, res) => {
          * Phase 3-2a: `/sales/customers/:id` の id 空間は `companies.id` に
          * 揃えたので、ここも `customers` ではなく `companies`（`is_customer = TRUE`）
          * から返す（この検索結果の id をそのままリンク先に使えるように）。
-         * **`customers` 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
-         * — 消えていないと、削除済みの顧客がこの全体検索に残り続けてしまう。
+         *
+         * Phase 3-3-4（2026-08-18）: 以前は `customers` 行が生きているかの
+         * `EXISTS` チェックも必須だった（`DELETE /customers/:id` が
+         * `companies.is_customer` を更新していなかったため）。`DELETE` が
+         * `companies.is_customer` も更新するようになった（PR #226）ので、
+         * `co.is_customer = TRUE AND co.deleted_at IS NULL` だけで足りる
+         * （`customers.routes.ts` の一覧・詳細と同じ判定・同じ理由）。
          */
         `SELECT co.id, co.name, co.short_name, co.phone, co.contact_name FROM companies co
           WHERE co.is_customer = TRUE AND (co.name ILIKE ? ESCAPE '\\' OR co.short_name ILIKE ? ESCAPE '\\')
           AND co.deleted_at IS NULL
-          AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
           LIMIT 5`,
         [like, like]
       )

@@ -42,9 +42,12 @@ const SHEETS: SheetDef[] = [
   },
   // ============ 案件管理 ============
   {
+    // Phase 3-3-4（2026-08-18）: customers ではなく companies（is_customer = TRUE）
+    // から読む（customers.routes.ts の一覧・検索と同じ理由。基本情報は companies に
+    // 同期済みで、companies.is_customer が唯一のロール判定になっている）
     name: '顧客',
     query: `SELECT name, short_name, contact_name, email, phone, address, notes
-            FROM customers WHERE deleted_at IS NULL ORDER BY name`,
+            FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL ORDER BY name`,
     columns: [
       { key: 'name', header: '会社名', width: 28 },
       { key: 'short_name', header: '略称', width: 14 },
