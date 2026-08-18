@@ -239,13 +239,27 @@ router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) =
   const byCompanyId = await queryOne(
     'SELECT id FROM vendors WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
   ) as { id: string } | null;
+  let companyId: string | null = byCompanyId ? String(req.params.id) : null;
   if (!byCompanyId) {
-    await resolveLegacyVendorId(String(req.params.id), 'delete');
+    const legacy = await resolveLegacyVendorId(String(req.params.id), 'delete');
+    if (legacy) companyId = legacy.company_id;
   }
   await execute(
     `UPDATE vendors SET deleted_at=NOW(), updated_by=? WHERE deleted_at IS NULL AND (company_id=? OR id=?)`,
     [req.user!.id, req.params.id, req.params.id],
   );
+  /**
+   * Phase 3-3-4: **`companies.is_vendor` もここで更新する**（`customers.routes.ts`
+   * の DELETE と同じ理由・`docs/reviews/phase3-2-plan.md` 表#2）。`vendors` テーブル
+   * 削除後は `companies.is_vendor` が唯一のロール判定になるので、削除操作自体が
+   * ここを更新する必要がある。`company_id` が解決できなかった場合は何もしない。
+   */
+  if (companyId) {
+    await execute(
+      `UPDATE companies SET is_vendor = FALSE, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+      [req.user!.id, companyId],
+    );
+  }
   res.json({ success: true, message: '削除しました' });
 });
 
