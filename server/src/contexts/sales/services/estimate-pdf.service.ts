@@ -105,22 +105,27 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
 
   const items = (await queryAll(
-    `SELECT description, quantity, unit_price, amount, category, item_notes
+    `SELECT description, quantity, unit_price, amount, category, item_notes, item_date
        FROM estimate_items WHERE estimate_id = ? ORDER BY sort_order, created_at`,
     [estimateId],
   )) as Record<string, unknown>[];
 
   const discount = Math.max(0, Number(est.discount) || 0);
-  const rows = items.map((it) => ({
-    description:  String(it.description ?? ''),
-    quantity:     Number(it.quantity) || 0,
-    unit_price:   Number(it.unit_price) || 0,
-    amount:       Number(it.amount) || 0,
-    period_start: null,
-    period_end:   null,
-    item_notes:   (it.item_notes as string | null) ?? null,
-    category:     categoryLabel(it.category as string | null),
-  }));
+  const rows = items.map((it) => {
+    // **行ごとの日付（migration 194）を紙にも出す。** 無ければ null のまま
+    // （PDF レンダラーは null を「期間なし」として案件全体の日付にフォールバックする）
+    const itemDate = (it.item_date as string | null) ?? null;
+    return {
+      description:  String(it.description ?? ''),
+      quantity:     Number(it.quantity) || 0,
+      unit_price:   Number(it.unit_price) || 0,
+      amount:       Number(it.amount) || 0,
+      period_start: itemDate,
+      period_end:   itemDate,
+      item_notes:   (it.item_notes as string | null) ?? null,
+      category:     categoryLabel(it.category as string | null),
+    };
+  });
   if (discount > 0) {
     // **明細と同じ分類には入れない。** 入れるとその分類の小計から値引きが引かれ、
     // 「スタジオの小計」が定価と合わなくなる（値引きは見積全体に掛かるもの）。

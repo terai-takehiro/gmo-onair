@@ -54,6 +54,11 @@ export interface ProjectDetail {
    * 「いずれかの日が今日か」を見るために使う（`tabs.ts` の `projectPhase`）
    */
   dates?: { date: string }[];
+  /**
+   * グループ内 / グループ外（migration 192）。見積の単価（定価 / グループ内価格）が
+   * この値で決まる。**読むだけの固定表示** — 直す画面は取引先マスターへ送る
+   */
+  customer_type?: 'internal' | 'external' | string | null;
 }
 
 /**
