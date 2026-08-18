@@ -1,0 +1,1 @@
+**Phase 3-3 着手条件②（互換確認）の記録の仕組みを追加した**。顧客・仕入先の画面が旧URL（移行前の `customers.id`/`vendors.id`）で開かれたとき、どれだけ使われているかを記録する仕組みが無かった。`customers.routes.ts`/`vendors.routes.ts` それぞれの旧ID解決ロジックを1箇所（`resolveLegacyCustomerId`/`resolveLegacyVendorId`）にまとめ、GET・PUT・DELETEの3箇所すべてがそこを通るようにした上で、旧IDで解決できたときだけ記録するようにした。実際の検索・保存・削除の条件（SQL）は変えていない。検証: `npm run typecheck` / `npm run lint` / `npm run test` OK。
