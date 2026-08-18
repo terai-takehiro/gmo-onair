@@ -678,9 +678,20 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
       // Phase 3-2b: purchases.vendor_id は companies.id を直接指すので、
       // `createVendorRecord` が返す vendors.id ではなく company_id を持つ
-      // （`ensureCustomer` と同じ理由・上記参照）
-      const r = await client.query('SELECT company_id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      let id: string | null = r.rows[0]?.company_id || null;
+      // （`ensureCustomer` と同じ理由・上記参照）。
+      // ⚠️ **`findCustomer` と同じ形にする**（レビュー指摘・PR #202 P1 の2巡目）—
+      // 単に `vendors.name` で引くだけだと、仕入先ロールを外された・削除済みの
+      // 会社でも vendors 行が生きていれば company_id を返してしまい、
+      // `assertVendorCompanyId` が拒否する id を purchases.vendor_id に書こうとして
+      // 落ちる。`companies.is_vendor = TRUE` かつ生きている vendors 行を要求する。
+      const r = await client.query(
+        `SELECT co.id FROM companies co
+         WHERE co.is_vendor = TRUE AND co.name=$1 AND co.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)
+         LIMIT 1`,
+        [name],
+      );
+      let id: string | null = r.rows[0]?.id || null;
       if (!id && createMasters) {
         // **`companies` にも紐づける**（company-directory.service.ts）
         const vid = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
@@ -969,7 +980,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
     if (scopes.includes('purchases')) {
       const r = await client.query(
         `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, v.name AS vname
-         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN companies v ON v.id = pu.vendor_id
+         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
          WHERE pu.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({

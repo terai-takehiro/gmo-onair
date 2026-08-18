@@ -224,7 +224,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
     FROM purchases pu
     LEFT JOIN projects p ON p.id = pu.project_id
     LEFT JOIN episodes e ON e.id = pu.episode_id
-    LEFT JOIN companies v ON v.id = pu.vendor_id
+    LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
     LEFT JOIN users u ON u.id = pu.assigned_to
     WHERE pu.deleted_at IS NULL ORDER BY pu.recognition_date DESC`,
   buildExportQuery: (q) => {
@@ -239,7 +239,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
         FROM purchases pu
         LEFT JOIN projects p ON p.id = pu.project_id
         LEFT JOIN episodes e ON e.id = pu.episode_id
-        LEFT JOIN companies v ON v.id = pu.vendor_id
+        LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
         LEFT JOIN users u ON u.id = pu.assigned_to
         ${where} ORDER BY ${orderBy}`,
       params,

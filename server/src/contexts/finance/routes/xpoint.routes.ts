@@ -140,8 +140,15 @@ router.post('/files/:id/register', async (req, res) => {
   // （`xpoint-import.service.ts` の `matchVendor` と揃える）
   let createdVendorId: string | null = null;
   if (new_vendor?.name) {
+    // ⚠️ **生きている仕入先ロールの会社だけを再利用する**（レビュー指摘・PR #202 P1
+    // の2巡目・`kessan-import.service.ts` の `ensureVendor` と同じ理由）。単に
+    // `vendors.name` で引くだけだと、仕入先ロールを外された・削除済みの会社でも
+    // vendors 行が生きていれば company_id を返してしまう
     const existing = (await queryOne(
-      'SELECT company_id FROM vendors WHERE name = ? AND deleted_at IS NULL LIMIT 1',
+      `SELECT co.id AS company_id FROM companies co
+       WHERE co.is_vendor = TRUE AND co.name = ? AND co.deleted_at IS NULL
+         AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)
+       LIMIT 1`,
       [new_vendor.name]
     )) as any;
     if (existing?.company_id) {
@@ -200,8 +207,11 @@ router.post('/files/:id/register', async (req, res) => {
     if (!s.recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
     // `vendor_id` は任意項目。渡ってきた（`createdVendorId` 経由ではない）ときだけ確かめる
     // （上の仕入と同じ理由・`sga.routes.ts` の POST と同じ形）
+    // `createdVendorId` 経由（`new_vendor` の再利用）も検証する。上の再利用ロジックが
+    // 生きている仕入先ロールの会社だけを返すよう直したので今は必ず通るはずだが、
+    // ここで確かめておけば以後どちらかが緩んでも検知できる
     const sgaVendorId = s.vendor_id || createdVendorId || null;
-    if (s.vendor_id) await assertVendorCompanyId(sgaVendorId);
+    if (sgaVendorId) await assertVendorCompanyId(sgaVendorId);
     const billing_key = generateSgaBillingKey(s.recognition_date, s.tax_category || 'tax10');
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();

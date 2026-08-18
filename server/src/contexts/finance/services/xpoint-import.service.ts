@@ -263,7 +263,7 @@ async function findDuplicates(method: string, settlementNumber: string | null): 
   if (!settlementNumber) return { purchases: [], sga: [] };
   const purchases = (await queryAll(
     `SELECT pu.id, pu.amount, pu.recognition_date, v.name as vendor_name, pu.description
-     FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id
+     FROM purchases pu LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
      WHERE pu.deleted_at IS NULL AND pu.settlement_method = ? AND pu.settlement_number = ?`,
     [method, settlementNumber]
   )) as unknown as DuplicateRow[];

@@ -157,7 +157,7 @@ const SHEETS: SheetDef[] = [
                    pu.payment_due_date, pu.notes
             FROM purchases pu
             LEFT JOIN projects p ON p.id = pu.project_id
-            LEFT JOIN companies v ON v.id = pu.vendor_id
+            LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
             WHERE pu.deleted_at IS NULL ORDER BY pu.recognition_date DESC`,
     columns: [
       { key: 'billing_key', header: '請求キー', width: 16 },

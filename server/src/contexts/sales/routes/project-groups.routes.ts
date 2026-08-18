@@ -53,7 +53,7 @@ router.get('/:id', async (req, res) => {
   const purchases = await queryAll(
     `SELECT pu.*, v.name as vendor_name
      FROM purchases pu
-     LEFT JOIN companies v ON v.id = pu.vendor_id
+     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
      WHERE pu.group_id = ? AND pu.deleted_at IS NULL
      ORDER BY pu.created_at DESC`, [req.params.id]);
 
@@ -176,7 +176,7 @@ router.post('/:id/purchases', requirePermission('sales', 'editor'), async (req, 
   }
 
   const row = await queryOne(
-    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id WHERE pu.id = ?`,
+    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL WHERE pu.id = ?`,
     [purchaseId]
   );
   const allocs = await queryAll(
@@ -292,7 +292,7 @@ router.put('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), a
   }
 
   const row = await queryOne(
-    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id WHERE pu.id = ?`,
+    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL WHERE pu.id = ?`,
     [req.params.purchaseId]
   );
   const allocs = await queryAll(

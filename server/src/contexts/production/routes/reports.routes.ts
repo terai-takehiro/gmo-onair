@@ -282,14 +282,22 @@ router.get('/vendor-summary', async (req, res) => {
     params.push(to);
   }
 
+  /*
+   * Phase 3-2b: `p.vendor_id` は companies.id を直接指すので、集計キー（グループ化・
+   * 返す `vendor_id`）はそのまま使う。**名前・区分は `vendors` から読む**
+   * （レビュー指摘・PR #202 P1 の2巡目）— `budget:editor` は `sales:owner` を
+   * 持たなくても `vendors` の名前・区分を直せるので、`companies` から読むと
+   * 保存直後もこの集計だけ古い名前のまま残る。`JOIN` のまま（`LEFT` にしない）で
+   * 元の挙動（仕入先の行が生きていない purchase は集計に出さない）を保つ。
+   */
   const rows = await queryAll(
-    `SELECT v.id as vendor_id, v.name as vendor_name, v.vendor_type,
+    `SELECT p.vendor_id AS vendor_id, v.name as vendor_name, v.vendor_type,
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount
      FROM purchases p
-     JOIN companies v ON v.id = p.vendor_id
+     JOIN vendors v ON v.company_id = p.vendor_id AND v.deleted_at IS NULL
      WHERE ${whereClause}
-     GROUP BY v.id, v.name, v.vendor_type
+     GROUP BY p.vendor_id, v.name, v.vendor_type
      ORDER BY total_amount DESC`,
     params
   ) as Record<string, any>[];
