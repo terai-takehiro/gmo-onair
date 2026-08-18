@@ -281,11 +281,10 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 決めたものも**表から消しません** — 消すと次に読んだ人には無かったことになります。
 **この段落は `#106`〜`#170` の回だけの集計です。**
 
-⚠️ **`#202`/`#205` に、直さないと決めたのとは別の理由で ❌ が3行あります**
-（レビュー指摘・PR #205 4巡目 — 上の段落だけ読むと見落とす）。**マージ済みの
-コードに残っている本物の未解決**で、直しは PR #207 に push 済みだが
-**まだマージしていない**ため、監査として ⭕️ を先取りせず ❌ のままにしています。
-#207 がマージされ次第、この3行を ⭕️ へ更新します。
+`#202`/`#205` にも一時 ❌ が3行ありましたが（レビュー指摘・PR #205 4巡目で
+発見・マージ済みコードに残っていた本物の未解決）、直しを push した PR #207 が
+2026-08-18 にマージされたのを確認し、3行とも ⭕️ に更新済みです
+（監査として、マージを確認する前に ⭕️ を先取りしない）。
 
 ⚠️ **「マージされた＝直っている」ではありません。** `#106`〜`#170` の回に足した
 指摘はすべて `is_resolved: false` のままマージされています。GitHub の画面から
@@ -373,7 +372,7 @@ resolve 済みかどうかを知りたいときは、その行の「状態」欄
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
-| #205 | P2 | `vendors.routes.ts` | 財務の仕入先タブの一覧が、表示（`VENDOR_FIELDS`）は `vendors` から読むよう直した（#202 同PR内 `28ac86a`）のに、検索条件・並び替えは `co.name`/`co.vendor_type` のままだった。`budget:editor`（`sales:owner`無し）が付けた新しい名前で検索すると0件になり、古い名前でなら検索できてしまっていた。⚠️ **この行自体、最初は誤って `#202` の欄に記録していた**（レビュー指摘・PR #205 4巡目 — `scripts/review-debt.mjs` の `recordedPrs()` は表の1列目の PR番号だけを見るため、見つかった PR（#205）ではなく原因のコードがあった PR（#202）の欄に書くと、`#205` 自身は「記録済み」と認識されない） | ❌ 修正は PR #207 に push 済みだが **まだマージしていない**。#207 マージ後にここを ⭕️ へ更新する |
+| #205 | P2 | `vendors.routes.ts` | 財務の仕入先タブの一覧が、表示（`VENDOR_FIELDS`）は `vendors` から読むよう直した（#202 同PR内 `28ac86a`）のに、検索条件・並び替えは `co.name`/`co.vendor_type` のままだった。`budget:editor`（`sales:owner`無し）が付けた新しい名前で検索すると0件になり、古い名前でなら検索できてしまっていた。⚠️ **この行自体、最初は誤って `#202` の欄に記録していた**（レビュー指摘・PR #205 4巡目 — `scripts/review-debt.mjs` の `recordedPrs()` は表の1列目の PR番号だけを見るため、見つかった PR（#205）ではなく原因のコードがあった PR（#202）の欄に書くと、`#205` 自身は「記録済み」と認識されない） | ⭕️ #207（`e72e6a2`。検索条件・並び替えも `vendors` から読む形に修正。#207 は2026-08-18にマージ済み） |
 | #205 | P1 | `codex-findings-v4.md` | 上の3行（`purchases.routes.ts`・`kessan-import.service.ts`・`vendors.routes.ts`）の修正が PR #207 に push 済みなのに、未マージのまま状態欄を `⭕️` と書きかけていた。「消えるのは未解決の指摘だけではない」ため resolve 済みかどうかは関係なく記録する決めごとと同様に、**「push 済み」と「マージ済み」も同じ理由で区別する必要がある**（マージ前のコードにはまだ穴が残っているため） | ⭕️ 同PR内（`a673b25`。該当3行の状態を「❌ 修正は push 済みだが未マージ」に訂正。#207 マージ後に改めて ⭕️ へ更新する） |
 | #205 | P2 | `codex-findings-v4.md` | リベース前の下書きに残っていた「resolve済みの例外を PR 番号で列挙する」形の注記（`#199の5件・#201の1件・#202の5件…`）が、#204 で撤廃されたのと同じ注記のまま復活しかけていた | ⭕️ 同PR内（`7968ac0`・main への rebase で #204 後の非列挙形の注記を採用し、列挙を復活させなかった） |
 | #205 | P2 | `codex-findings-v4.md` | 「未解決だったものは #146〜#150 で片づき、残っているのは1件だけ」という要約が `#106`〜`#170` の回限定の集計であることを明示しておらず、`#202`/`#205` に新しく足した3行の未マージ ❌ を読者が見落とす形になっていた | ⭕️ 同PR内（`973cca2`。要約が `#106`〜`#170` 限定であることを明記し、`#202`/`#205` に残る3行の未マージ ❌ を見落とさないよう注記を追加した） |
@@ -382,8 +381,8 @@ resolve 済みかどうかを知りたいときは、その行の「状態」欄
 | #202 | **P1** | `vendors.routes.ts` | Phase 3-2b で財務の仕入先タブの一覧・詳細・PUT応答を `companies` から読むよう変更したが、`budget:editor` が `sales:owner` を持たないと下の PUT は `companies` へ同期しない（`sales:owner` の壁を守るための意図的な仕様・PR #183 P2）。そのため保存した直後の画面にも古い値が出続け、`budget:editor` にとって仕入先の編集が実質効かなくなっていた | ⭕️ 同PR内（`28ac86a`。基本情報（名前・連絡先等）は書き込み先である `vendors` から読み、`companies` 固有の列（ロール・支払条件の例外）だけ `companies` から読む形に修正。実DBで budget:editor（sales:owner無し）が保存した直後に一覧・詳細・PUT応答すべてへ新しい値が反映され、かつ `companies` は書き換わらない（権限の壁は健在）こと、system_admin の保存では `companies` も同期されることを確認済み） |
 | #202 | P2 | `xpoint.routes.ts` | Phase 3-2b で `purchases.vendor_id` / `sga_expenses.vendor_id` が `companies.id` を直接指すようになったことで「仕入先ロールの会社か」という DB の保証が失われたが、`POST /xpoint/files/:id/register` はレビューUIから直接渡される `purchase.vendor_id` / `sga.vendor_id` を検証せず INSERT していた（他の書き込み経路は `assertVendorCompanyId` で確かめていた） | ⭕️ 同PR内（`28ac86a`。仕入・販管費どちらの登録にも `assertVendorCompanyId` を追加） |
 | #202 | P2 | `201_vendor_fk_to_companies.sql` | この FK 変更で、`company-directory.service.ts` を経由しない dev専用の決算取込フォールバックスクリプト（`server/scripts/import-kessan-dev.mjs`）の `findVendor`/`ensureVendor` が壊れる。生SQLのまま `vendors.id` を返し続けており、既存の仕入先は FK違反に、`--create-masters` で新規作成しても `company_id` の無い孤立行のまま FK違反になる | ⭕️ 同PR内（`28ac86a`。`companies` にも紐づけてから `company_id` を返すよう修正。同じ穴が Phase 3-2a の時点から `findCustomer`/`ensureCustomer` にも残っていたため、あわせて直した。検証DBに対して新しいINSERT文を単体実行し、FK違反なく `purchases.vendor_id` に `companies.id` が入ることを確認） |
-| #202 | **P1** | `purchases.routes.ts` | 1巡目の直し（`28ac86a`）は財務の仕入先タブ自身の応答だけを `vendors` から読むよう直したが、仕入台帳一覧・財務Excel入出力・MCP・バックアップ出力・グループ按分仕入・仕入先別集計・決算取込の重複チェック表示・全体検索・X-Point取込の重複チェック表示は依然として `companies` の名前を読んでおり、`budget:editor`（`sales:owner`無し）が保存した直後もそれらだけ古い社名が出続けていた（2巡目レビュー） | ❌ 修正は PR #207 に push 済みだが **まだマージしていない**（レビュー指摘・PR #205 3巡目 — 未マージの修正を ⭕️ と書くと監査として嘘になる）。#207 マージ後にここを ⭕️ へ更新する |
-| #202 | P2 | `kessan-import.service.ts` | 決算取込の `ensureVendor` が、仕入先ロールを外された・削除済みの会社でも `vendors` 行が生きていれば `company_id` を返してしまう（`findCustomer` は `companies.is_vendor`/`is_customer` の生存を確かめているのに、`ensureVendor` は `vendors.name` だけで引いていた・2巡目レビュー） | ❌ 修正は PR #207 に push 済みだが **まだマージしていない**（上の行と同じ理由）。#207 マージ後にここを ⭕️ へ更新する |
+| #202 | **P1** | `purchases.routes.ts` | 1巡目の直し（`28ac86a`）は財務の仕入先タブ自身の応答だけを `vendors` から読むよう直したが、仕入台帳一覧・財務Excel入出力・MCP・バックアップ出力・グループ按分仕入・仕入先別集計・決算取込の重複チェック表示・全体検索・X-Point取込の重複チェック表示は依然として `companies` の名前を読んでおり、`budget:editor`（`sales:owner`無し）が保存した直後もそれらだけ古い社名が出続けていた（2巡目レビュー） | ⭕️ #207（`3ad44fc`。全箇所を `vendors` から読む形に修正のうえ、3巡目・4巡目レビューで見つかった LEFT JOIN の抜け穴（仕入先削除で名前が消える）も `COALESCE(vendors.name, companies.name)` で塞いだ。#207 は2026-08-18にマージ済み） |
+| #202 | P2 | `kessan-import.service.ts` | 決算取込の `ensureVendor` が、仕入先ロールを外された・削除済みの会社でも `vendors` 行が生きていれば `company_id` を返してしまう（`findCustomer` は `companies.is_vendor`/`is_customer` の生存を確かめているのに、`ensureVendor` は `vendors.name` だけで引いていた・2巡目レビュー） | ⭕️ #207（`3ad44fc`。`companies.is_vendor = TRUE` かつ生きている `vendors` 行を要求する形に修正。#207 は2026-08-18にマージ済み） |
 | #201 | **P1** | `gpm.service.ts` | #201 が足した GPM の顧客ロール検証（下の #200 の行）は「`customer_id` が渡されたら毎回確かめる」形で、既存値との比較が無かった。GPM 詳細の段変更・直すダイアログはどちらも**今の customer_id を送り直す**ので、あとから顧客ロールを外された会社のプロジェクトは、customer_id を変えていない**無関係な直し**（段を進める・名前を直す等）まで 400 で止まってしまっていた。同じ形の穴が案件（`project.service.ts`）・活動記録（`activity-log.service.ts`）・売上（`revenues.routes.ts`）の update にも既にあった | ⭕️ 同PR内（`9223c33`。4か所とも「既存値と実際に変わったときだけ確かめる」形に直した。実DBで①生存顧客で作成→②ロール除去後もcustomer_id不変の直しは通る→③別のロール無し会社への変更は拒否、を確認済み） |
 | #200 | **P1** | `200_customer_fk_to_companies.sql` | この行（下の #199 の行）を「⭕️ 同PR内」と書いたが、`docs/deploy-pipeline.md` 本文は訂正しても migration 200 冒頭のコメントには「Releasesのタグで再実行すればDBも含めて丸ごと戻る」という誤った手順がそのまま残っていた。本番のロールバック時にこのコメントだけを見た運用者が、直したはずの危険な手順をそのまま実行できる状態だった | ⭕️ #201（コメントを訂正し `docs/ops/db-backup-restore.md` を指すよう統一） |
 | #200 | P2 | `gpm.service.ts` | 「顧客ロールを検証するようにした」という行（下の #199 の行）は案件・売上・活動記録・見積の書き込みだけを指し、プロジェクト管理（GPM）の `gpm.service.ts` の create/update（`POST`/`PUT /gpm/projects`）は別サービスで `assertCustomerCompanyId` を素通りしていた。仕入先のみ・ロール無し・削除済みの会社をGPMプロジェクトの依頼元にできる穴が残っていた | ⭕️ #201（GPM の customer_id 書き込みにも同じ検証を追加。`customer_id` 省略時に寄せる `SELF_CUSTOMER_ID` は内部の固定行なので検証しない） |
