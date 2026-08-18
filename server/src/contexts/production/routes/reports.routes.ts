@@ -287,17 +287,24 @@ router.get('/vendor-summary', async (req, res) => {
    * 返す `vendor_id`）はそのまま使う。**名前・区分は `vendors` から読む**
    * （レビュー指摘・PR #202 P1 の2巡目）— `budget:editor` は `sales:owner` を
    * 持たなくても `vendors` の名前・区分を直せるので、`companies` から読むと
-   * 保存直後もこの集計だけ古い名前のまま残る。`JOIN` のまま（`LEFT` にしない）で
-   * 元の挙動（仕入先の行が生きていない purchase は集計に出さない）を保つ。
+   * 保存直後もこの集計だけ古い名前のまま残る。
+   *
+   * ⚠️ **`vendors` へは `LEFT JOIN`**（レビュー指摘・PR #207 3巡目）。財務の仕入先
+   * タブでの削除は `vendors` 側だけを論理削除し（`companies` も過去の仕入も残る）、
+   * `JOIN`（INNER）のままだと削除済み仕入先ぶんの実績が集計・合計・CSV から
+   * まるごと消え、原価を過小に見せてしまう。`vendors` が無い（削除済み）ときは
+   * `companies` の名前へ落とす（会社ごと消しても実績は残る、という他画面と同じ考え方）
    */
   const rows = await queryAll(
-    `SELECT p.vendor_id AS vendor_id, v.name as vendor_name, v.vendor_type,
+    `SELECT p.vendor_id AS vendor_id, COALESCE(v.name, co.name) as vendor_name,
+            COALESCE(v.vendor_type, co.vendor_type) as vendor_type,
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount
      FROM purchases p
-     JOIN vendors v ON v.company_id = p.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN vendors v ON v.company_id = p.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN companies co ON co.id = p.vendor_id
      WHERE ${whereClause}
-     GROUP BY p.vendor_id, v.name, v.vendor_type
+     GROUP BY p.vendor_id, COALESCE(v.name, co.name), COALESCE(v.vendor_type, co.vendor_type)
      ORDER BY total_amount DESC`,
     params
   ) as Record<string, any>[];
