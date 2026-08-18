@@ -353,7 +353,7 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
-| #194 | P2 | `token-consumption-analysis.md` | `docs/version-history.md` を「読む/生成するたびに直撃」と書いていたが、`v4-progress.mjs` はこのファイルを一切参照しない。`release:notes` は内部で読むが本文を文脈に返さないため乗らない。文脈に乗るのはエージェントがRead/Grepで本文を返した時だけ | ⭕️ #195（記述を修正） |
+| #194 | P2 | `token-consumption-analysis.md` | `docs/version-history.md` を「読む/生成するたびに直撃」と書いていたが、`v4-progress.mjs` はこのファイルを一切参照しない。`release:notes` は内部で読むが本文を文脈に返さないため乗らない。文脈に乗るのは `cat`/`sed`/`git show` 等を含め本文を返すツール呼び出しがあった時だけ | ⭕️ #197（記述を修正。#195時点はまだ不正確だった） |
 | #194 | P2 | `token-consumption-analysis.md` | 「バージョンを1つ上げるだけでCLAUDE.mdに数KB単位で文章が増える」と書いていたが、`collect-changelog.mjs` は3件超で4件目を同時にアーカイブへ退避するため累積肥大しない | ⭕️ 同PR内（記述を修正） |
 | #194 | P2 | `token-consumption-analysis.md` | `build:all`/`typecheck:all`/`lint` を「9ワークスペース分9倍」と表現していたが、`typecheck:all`は7クライアント+server、`lint`はチェックスクリプト+eslint1回のコマンド実行であり実態と異なる | ⭕️ 同PR内（記述を修正） |
 | #192 | P2 | `198_payment_terms_compat_repair.sql` | 198は「旧列をcompaniesから埋め直す」→「companiesの範囲外月数を正規化」の順で、companiesに範囲外の値が残っていた環境ではその壊れた値が正規化前にcustomers/vendorsへコピーされ、旧列にだけ残り続けてロールバック後も壊れた期日を作り続ける | ⭕️ #192（migration 199 でcustomers/vendorsの旧列を直接正規化） |
