@@ -542,14 +542,16 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
 
     // Phase 3-2a: revenues/projects.customer_id は companies.id を直接指すので、
     // customers ではなく companies（is_customer=TRUE）から引く。
-    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
-    // — 消えていないと、削除済みの顧客の名前で決算取込した行が誤って紐づいてしまう。
+    // Phase 3-3-4（2026-08-18）: 以前は `customers` 行が生きているかの `EXISTS`
+    // チェックも必須だった（`DELETE /customers/:id` が `companies.is_customer` を
+    // 更新していなかったため）。`DELETE` が `companies.is_customer` も更新する
+    // ようになった（PR #226）ので、`is_customer = TRUE AND deleted_at IS NULL`
+    // だけで足りる（`customers.routes.ts`/`search.routes.ts` と同じ判定・同じ理由）。
     async function findCustomer(name: string) {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
       const r = await client.query(
         `SELECT co.id FROM companies co
          WHERE co.is_customer = TRUE AND co.name=$1 AND co.deleted_at IS NULL
-           AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
          LIMIT 1`,
         [name],
       );

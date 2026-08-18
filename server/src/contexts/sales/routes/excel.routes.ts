@@ -39,9 +39,12 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     { name: '株式会社サンプル', short_name: 'サンプル社', contact_name: '山田太郎',
       email: 'yamada@example.com', phone: '03-1234-5678', address: '東京都港区...', notes: '' },
   ],
+  // Phase 3-3-4（2026-08-18）: customers ではなく companies（is_customer = TRUE）
+  // から読む（backup.routes.ts の「顧客」シートと同じ理由。取込・重複チェックは
+  // 引き続き customers テーブルを対象にする＝書き込み先は変えていない）
   exportQuery: `
     SELECT name, short_name, contact_name, email, phone, address, notes
-    FROM customers WHERE deleted_at IS NULL ORDER BY name`,
+    FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL ORDER BY name`,
   validateRow: (raw) => {
     const errors: string[] = [];
     const name = asString(raw.name);
@@ -320,12 +323,14 @@ const PROJECTS_CONFIG: ResourceConfig = {
   preloadLookups: async (client) => {
     // Phase 3-2a: projects.customer_id は companies.id を直接指すので、
     // 名前解決も companies（is_customer=TRUE）から引く。
-    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
-    // — 消えていないと、削除済みの顧客の名前で取込んだ行が誤って紐づいてしまう。
+    // Phase 3-3-4（2026-08-18）: 以前は `customers` 行が生きているかの `EXISTS`
+    // チェックも必須だった（`DELETE /customers/:id` が `companies.is_customer` を
+    // 更新していなかったため）。`DELETE` が `companies.is_customer` も更新する
+    // ようになった（PR #226）ので、`is_customer = TRUE AND deleted_at IS NULL`
+    // だけで足りる（`customers.routes.ts`/`search.routes.ts` と同じ判定・同じ理由）。
     const cust = await client.query(
       `SELECT co.id, co.name FROM companies co
-       WHERE co.is_customer = TRUE AND co.deleted_at IS NULL
-         AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`,
+       WHERE co.is_customer = TRUE AND co.deleted_at IS NULL`,
     );
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     return {
