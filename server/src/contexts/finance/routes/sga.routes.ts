@@ -6,6 +6,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { buildSgaWhere, buildSgaOrder } from '../list-query';
+import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -87,6 +88,9 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   } = req.body;
 
   if (!recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
+  // `vendor_id` は任意項目（vendor_name の自由入力が正）。渡ってきたときだけ、
+  // companies.id（Phase 3-2b）を直接指すため確かめる（`purchases.routes.ts` と同じ理由）
+  if (vendor_id) await assertVendorCompanyId(vendor_id);
 
   const billing_key = generateSgaBillingKey(recognition_date, tax_category || 'tax10');
   const id = uuidv4();
@@ -123,6 +127,8 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
     expense_type, amortize_start, amortize_end, source, account_title_id
   } = req.body;
+  // 新しく渡された vendor_id だけ確かめる（POST と同じ理由。既存値は再検証しない）
+  if (vendor_id) await assertVendorCompanyId(vendor_id);
 
   // Regenerate billing_key if recognition_date or tax_category changed
   let billing_key = existing.billing_key;

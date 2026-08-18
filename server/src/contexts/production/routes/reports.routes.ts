@@ -287,7 +287,7 @@ router.get('/vendor-summary', async (req, res) => {
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount
      FROM purchases p
-     JOIN vendors v ON v.id = p.vendor_id
+     JOIN companies v ON v.id = p.vendor_id
      WHERE ${whereClause}
      GROUP BY v.id, v.name, v.vendor_type
      ORDER BY total_amount DESC`,

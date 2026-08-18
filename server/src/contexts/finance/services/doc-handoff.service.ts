@@ -28,6 +28,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
+import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 
 export type HandoffKind = 'purchase' | 'sga';
 
@@ -117,6 +118,9 @@ export async function handoffDoc(
       if (!input.project_id || !input.vendor_id) {
         throw new AppError(400, 'VALIDATION_ERROR', '仕入にするには案件と仕入先が必要です');
       }
+      // `vendor_id` は companies.id（Phase 3-2b）を直接指すため確かめる
+      // （`purchases.routes.ts` の POST と同じ理由）
+      await assertVendorCompanyId(input.vendor_id);
       const id = uuidv4();
       await tx.execute(
         `INSERT INTO purchases

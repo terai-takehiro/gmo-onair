@@ -192,21 +192,31 @@ export interface XpointParseResult {
   parsedAt: string;
 }
 
-/** 取引先マスタ照合: 名称完全一致 → 適格事業者番号 → 法人格を除いた部分一致候補 */
+/**
+ * 取引先マスタ照合: 名称完全一致 → 適格事業者番号 → 法人格を除いた部分一致候補
+ *
+ * Phase 3-2b: ここで返す `id` はレビュー UI を経て `purchases.vendor_id` /
+ * `sga_expenses.vendor_id` にそのまま書き込まれる（`xpoint.routes.ts` の
+ * `POST /files/:id/register`）。そのFKは companies.id を直接指すので、
+ * `vendors` ではなく `companies`（`is_vendor = TRUE`）から引く。
+ * **`vendors` 行が生きている会社に限る**（`preloadLookups` 等と同じ理由）。
+ */
 async function matchVendor(vendorName: string | null, invoiceNumber: string | null): Promise<{ vendor: VendorMatch | null; vendorCandidates: VendorMatch[] }> {
   let vendor: VendorMatch | null = null;
   const vendorCandidates: VendorMatch[] = [];
+  const LIVE_VENDOR = `co.is_vendor = TRUE AND co.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`;
 
   if (vendorName) {
     const exact = (await queryOne(
-      `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND name = ? LIMIT 1`,
+      `SELECT co.id, co.name FROM companies co WHERE ${LIVE_VENDOR} AND co.name = ? LIMIT 1`,
       [vendorName]
     )) as any;
     if (exact) vendor = { id: exact.id, name: exact.name, matched_by: 'name' };
   }
   if (!vendor && invoiceNumber) {
     const byInv = (await queryOne(
-      `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND invoice_registration_number = ? LIMIT 1`,
+      `SELECT co.id, co.name FROM companies co WHERE ${LIVE_VENDOR} AND co.invoice_registration_number = ? LIMIT 1`,
       [invoiceNumber]
     )) as any;
     if (byInv) vendor = { id: byInv.id, name: byInv.name, matched_by: 'invoice_number' };
@@ -216,7 +226,7 @@ async function matchVendor(vendorName: string | null, invoiceNumber: string | nu
     const core = vendorName.replace(/株式会社|有限会社|合同会社|\(株\)|（株）|\s/g, '');
     if (core.length >= 2) {
       const rows = (await queryAll(
-        `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND name ILIKE ? ORDER BY name LIMIT 5`,
+        `SELECT co.id, co.name FROM companies co WHERE ${LIVE_VENDOR} AND co.name ILIKE ? ORDER BY co.name LIMIT 5`,
         [`%${core}%`]
       )) as any[];
       for (const r of rows) vendorCandidates.push({ id: r.id, name: r.name, matched_by: 'partial' });
@@ -253,7 +263,7 @@ async function findDuplicates(method: string, settlementNumber: string | null): 
   if (!settlementNumber) return { purchases: [], sga: [] };
   const purchases = (await queryAll(
     `SELECT pu.id, pu.amount, pu.recognition_date, v.name as vendor_name, pu.description
-     FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id
+     FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL AND pu.settlement_method = ? AND pu.settlement_number = ?`,
     [method, settlementNumber]
   )) as unknown as DuplicateRow[];

@@ -195,6 +195,11 @@ export async function previewDueDate(
 /**
  * 仕入・販管費の支払日（払う側）。取引先ごとの例外は `companies` の
  * `vendor_*` 列を見る（正はもう `vendors` ではない。Phase 3-1）。
+ *
+ * **正は `companies`**（Phase 3-1・取引先マスター一本化）。`vendorId` は
+ * Phase 3-2b 以降 `companies.id` そのもの（`purchases.vendor_id` 等のFKが
+ * companies を直接指すよう張り替え済み）なので、そのまま引く（`customerException`
+ * と同じ形・以前は `vendors` テーブルを1段経由していたが不要になった）。
  * `companies.deleted_at` では絞らない理由は `customerException` と同じ
  * （会社だけ削除しても仕入先は残り続けるため）
  */
@@ -208,7 +213,7 @@ export async function computeVendorDueDate(
   if (vendorId) {
     const row = await queryOne(
       `SELECT vendor_payment_months AS payment_months, vendor_payment_day AS payment_day
-         FROM companies WHERE id = (SELECT company_id FROM vendors WHERE id = ?)`,
+         FROM companies WHERE id = ?`,
       [vendorId],
     ) as Record<string, unknown> | null;
     if (row) {

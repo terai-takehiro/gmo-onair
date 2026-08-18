@@ -6,6 +6,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../../finance/services/revenue-item-carryover.service';
+import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.get('/:id', async (req, res) => {
   const purchases = await queryAll(
     `SELECT pu.*, v.name as vendor_name
      FROM purchases pu
-     LEFT JOIN vendors v ON v.id = pu.vendor_id
+     LEFT JOIN companies v ON v.id = pu.vendor_id
      WHERE pu.group_id = ? AND pu.deleted_at IS NULL
      ORDER BY pu.created_at DESC`, [req.params.id]);
 
@@ -148,6 +149,9 @@ router.post('/:id/purchases', requirePermission('sales', 'editor'), async (req, 
   const { vendor_id, amount, description, tax_category, settlement_method, settlement_number,
           invoice_qualified, recognition_date, allocations } = req.body;
   if (!vendor_id) throw new AppError(400, 'VALIDATION_ERROR', '仕入先は必須です');
+  // `vendor_id` は companies.id（Phase 3-2b）を直接指すため確かめる
+  // （`purchases.routes.ts` の POST と同じ理由）
+  await assertVendorCompanyId(vendor_id);
   if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
     throw new AppError(400, 'VALIDATION_ERROR', '按分先を指定してください');
   }
@@ -172,7 +176,7 @@ router.post('/:id/purchases', requirePermission('sales', 'editor'), async (req, 
   }
 
   const row = await queryOne(
-    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id WHERE pu.id = ?`,
+    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id WHERE pu.id = ?`,
     [purchaseId]
   );
   const allocs = await queryAll(
@@ -265,6 +269,8 @@ router.put('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), a
 
   const { vendor_id, amount, description, tax_category, settlement_method, settlement_number,
           invoice_qualified, recognition_date, allocations } = req.body;
+  // 新しく渡された vendor_id だけ確かめる（POST と同じ理由。既存値は再検証しない）
+  if (vendor_id) await assertVendorCompanyId(vendor_id);
 
   await execute(
     `UPDATE purchases SET vendor_id=?, amount=?, description=?, tax_category=?, settlement_method=?, settlement_number=?, invoice_qualified=?, recognition_date=?, updated_at=NOW(), updated_by=? WHERE id=?`,
@@ -286,7 +292,7 @@ router.put('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), a
   }
 
   const row = await queryOne(
-    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id WHERE pu.id = ?`,
+    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id WHERE pu.id = ?`,
     [req.params.purchaseId]
   );
   const allocs = await queryAll(

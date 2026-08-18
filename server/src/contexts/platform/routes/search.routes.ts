@@ -74,9 +74,20 @@ router.get('/', requireAuth, async (req, res) => {
       )
     : [];
 
+  /*
+   * Phase 3-2b: `/budget/vendors/:id` の id 空間は `companies.id` に揃えたので、
+   * ここも `vendors` ではなく `companies`（`is_vendor = TRUE`）から返す
+   * （`customers` の検索結果と同じ理由・上のコメント参照）。
+   * **`vendors` 行が生きている会社に限る** — 消えていないと、削除済みの仕入先が
+   * この全体検索に残り続けてしまう。
+   */
   const vendors = can('vendors')
     ? await queryAll(
-        `SELECT id, name, vendor_type FROM vendors WHERE (name ILIKE ? ESCAPE '\\' OR vendor_type ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
+        `SELECT co.id, co.name, co.vendor_type FROM companies co
+          WHERE co.is_vendor = TRUE AND (co.name ILIKE ? ESCAPE '\\' OR co.vendor_type ILIKE ? ESCAPE '\\')
+          AND co.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)
+          LIMIT 5`,
         [like, like]
       )
     : [];
