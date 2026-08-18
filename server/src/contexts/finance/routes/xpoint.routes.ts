@@ -14,7 +14,7 @@ import { queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey, generateSgaBillingKey } from '../../../shared/services/billing-key.service';
-import { createVendorRecord } from '../../../shared/services/company-directory.service';
+import { createVendorRecord, assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 import { isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
 import {
   resolveXpointFolderId, scanXpointFolder, parseXpointFile, uploadXpointPdf,
@@ -171,6 +171,12 @@ router.post('/files/:id/register', async (req, res) => {
     if (!p.project_id || !vendorId) {
       throw new AppError(400, 'VALIDATION_ERROR', '案件と仕入先は必須です');
     }
+    // `p.vendor_id` はレビュー UI が直接送ってくる値（`match.vendor.id` 由来とは限らない）。
+    // `createdVendorId` は `createVendorRecord` 経由で確実に companies.id だが、
+    // `p.vendor_id` は素通しなので、companies.id を直接指すFKの保証（仕入先ロールの
+    // 会社か）をここで確かめる（`purchases.routes.ts` の POST と同じ理由・
+    // Codex レビュー指摘・PR #202 P2）
+    await assertVendorCompanyId(vendorId);
     let billing_key: string | null = null;
     if (p.episode_id) {
       const episode = (await queryOne('SELECT episode_code FROM episodes WHERE id = ?', [p.episode_id])) as any;
@@ -192,13 +198,17 @@ router.post('/files/:id/register', async (req, res) => {
   } else {
     const s = sga || {};
     if (!s.recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
+    // `vendor_id` は任意項目。渡ってきた（`createdVendorId` 経由ではない）ときだけ確かめる
+    // （上の仕入と同じ理由・`sga.routes.ts` の POST と同じ形）
+    const sgaVendorId = s.vendor_id || createdVendorId || null;
+    if (s.vendor_id) await assertVendorCompanyId(sgaVendorId);
     const billing_key = generateSgaBillingKey(s.recognition_date, s.tax_category || 'tax10');
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();
     await execute(
       `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [registeredId, billing_key, s.vendor_name || null, s.vendor_id || createdVendorId || null,
+      [registeredId, billing_key, s.vendor_name || null, sgaVendorId,
        s.settlement_method || defaultMethod, s.settlement_number || file.xp_number || null, s.settlement_url || null,
        s.description || null, s.notes || null,
        s.recognition_date, s.payment_due_date || null,

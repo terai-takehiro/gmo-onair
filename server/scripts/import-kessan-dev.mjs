@@ -293,18 +293,22 @@ async function main() {
     const u = await client.query('SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1');
     userId = u.rows[0]?.id || null;
 
+    // Phase 3-2a/3-2b: projects.customer_id / purchases.vendor_id は customers.id /
+    // vendors.id ではなく companies.id を直接指す。この dev 専用インポータは
+    // company-directory.service.ts を経由しない生SQLなので、company_id を自前で引く
+    // (Codex レビュー指摘・PR #202 P2 — このFK変更でこのスクリプトが機能しなくなる)
     const masterCache = { customers: new Map(), vendors: new Map(), projects: new Map() };
     async function findCustomer(name) {
       if (masterCache.customers.has(name)) return masterCache.customers.get(name);
-      const r = await client.query('SELECT id FROM customers WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      const id = r.rows[0]?.id || null;
+      const r = await client.query('SELECT company_id FROM customers WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
+      const id = r.rows[0]?.company_id || null;
       masterCache.customers.set(name, id);
       return id;
     }
     async function findVendor(name) {
       if (masterCache.vendors.has(name)) return masterCache.vendors.get(name);
-      const r = await client.query('SELECT id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      const id = r.rows[0]?.id || null;
+      const r = await client.query('SELECT company_id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
+      const id = r.rows[0]?.company_id || null;
       masterCache.vendors.set(name, id);
       return id;
     }
@@ -351,23 +355,43 @@ async function main() {
     await client.query('BEGIN');
     const counts = { sga: 0, rev: 0, pur: 0, projCreated: 0, custCreated: 0, vendCreated: 0, skipped: 0 };
 
+    // **`companies` にも紐づけてから customers/vendors を作る**
+    // （`company-directory.service.ts` の createCustomerRecord/createVendorRecord と
+    // 同じ形）。companies だけに INSERT すると、companies を持たない孤立した
+    // customers/vendors ができ、company_id が無いので ensureXxx はそれを二度と
+    // 見つけられず（findXxx は company_id で引く）、実行のたびに重複作成される。
+    // 返すのは companies.id — customer_id/vendor_id 系のFKはそちらを直接指す
     async function ensureCustomer(name) {
       let id = await findCustomer(name);
       if (id) return id;
       if (!CREATE_MASTERS) return null;
-      id = randomUUID();
-      await client.query('INSERT INTO customers (id, name, notes, created_by) VALUES ($1,$2,$3,$4)', [id, name, MARKER, userId]);
-      masterCache.customers.set(name, id); counts.custCreated++;
-      return id;
+      const companyId = randomUUID();
+      await client.query(
+        'INSERT INTO companies (id, name, notes, is_customer, is_gmo_group, created_by) VALUES ($1,$2,$3,TRUE,FALSE,$4)',
+        [companyId, name, MARKER, userId]
+      );
+      await client.query(
+        'INSERT INTO customers (id, name, notes, company_id, created_by) VALUES ($1,$2,$3,$4,$5)',
+        [randomUUID(), name, MARKER, companyId, userId]
+      );
+      masterCache.customers.set(name, companyId); counts.custCreated++;
+      return companyId;
     }
     async function ensureVendor(name) {
       let id = await findVendor(name);
       if (id) return id;
       if (!CREATE_MASTERS) return null;
-      id = randomUUID();
-      await client.query('INSERT INTO vendors (id, name, notes, created_by) VALUES ($1,$2,$3,$4)', [id, name, MARKER, userId]);
-      masterCache.vendors.set(name, id); counts.vendCreated++;
-      return id;
+      const companyId = randomUUID();
+      await client.query(
+        'INSERT INTO companies (id, name, notes, is_vendor, is_gmo_group, created_by) VALUES ($1,$2,$3,TRUE,FALSE,$4)',
+        [companyId, name, MARKER, userId]
+      );
+      await client.query(
+        'INSERT INTO vendors (id, name, notes, company_id, created_by) VALUES ($1,$2,$3,$4,$5)',
+        [randomUUID(), name, MARKER, companyId, userId]
+      );
+      masterCache.vendors.set(name, companyId); counts.vendCreated++;
+      return companyId;
     }
     async function ensureProject(key, name, customerId, isFixed = false) {
       const cacheKey = isFixed ? `__fixed__${key}` : key;

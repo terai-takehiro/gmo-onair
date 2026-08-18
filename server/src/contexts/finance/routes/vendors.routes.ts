@@ -29,6 +29,26 @@ const VENDOR_JOIN = `
      FROM companies co
      INNER JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL`;
 
+/**
+ * 返す列。**基本情報（名前・連絡先など）は `companies` ではなく `vendors` から読む**
+ * （レビュー指摘・PR #202 P1）。
+ *
+ * `budget:editor` が `sales:owner` を持たなければ、下の PUT は `companies` へ同期
+ * しない（`sales:owner` の壁をすり抜けさせないため・レビュー指摘 PR #183 P2）。
+ * その状態で一覧・詳細を `companies` から読むと、保存した直後の画面にも古い値が
+ * 出続け、`budget:editor` にとって編集が実質効かなくなる。`vendors` はこの画面の
+ * 実際の書き込み先＝正なので、基本情報はそちらを読む。`companies` 固有の列
+ * （ロール・支払条件の例外）だけ `co` から読む。
+ */
+const VENDOR_FIELDS = `
+     co.id, v.name, v.contact_name, v.email, v.phone, v.address, v.vendor_type,
+     v.invoice_registration_number, v.notes,
+     co.is_customer, co.is_vendor, co.is_sga_payee, co.is_gmo_group,
+     co.customer_closing_day, co.customer_payment_months, co.customer_payment_day,
+     co.vendor_payment_months, co.vendor_payment_day,
+     co.created_at, co.updated_at, co.created_by, co.updated_by, co.deleted_at,
+     v.id as legacy_vendor_id`;
+
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const sgaPayeeOnly = req.query.sga_payee_only === 'true';
@@ -53,7 +73,7 @@ router.get('/', async (req, res) => {
   const yearStart = `${new Date().getFullYear()}-01-01`;
   const yearEnd = `${new Date().getFullYear()}-12-31`;
   const rows = await queryAll(
-    `SELECT co.*, v.id as legacy_vendor_id,
+    `SELECT ${VENDOR_FIELDS},
             COALESCE(pu.amount, 0) + COALESCE(sg.amount, 0) AS ytd_amount,
             COALESCE(pu.n, 0) + COALESCE(sg.n, 0) AS ytd_count
        ${VENDOR_JOIN}
@@ -82,7 +102,7 @@ router.get('/', async (req, res) => {
  */
 async function findVendorRow(rawId: string): Promise<Record<string, unknown> | null> {
   const byCompanyId = await queryOne(
-    `SELECT co.*, v.id as legacy_vendor_id
+    `SELECT ${VENDOR_FIELDS}
      ${VENDOR_JOIN}
      WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_vendor = TRUE`,
     [rawId],
@@ -94,7 +114,7 @@ async function findVendorRow(rawId: string): Promise<Record<string, unknown> | n
   ) as { company_id: string | null } | null;
   if (!legacy?.company_id) return null;
   return await queryOne(
-    `SELECT co.*, v.id as legacy_vendor_id
+    `SELECT ${VENDOR_FIELDS}
      ${VENDOR_JOIN}
      WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_vendor = TRUE`,
     [legacy.company_id],
@@ -125,7 +145,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   );
   const linked = await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid]) as { company_id: string };
   const row = await queryOne(
-    `SELECT co.*, v.id as legacy_vendor_id FROM companies co
+    `SELECT ${VENDOR_FIELDS} FROM companies co
      LEFT JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
      WHERE co.id = ?`,
     [linked.company_id],
@@ -175,7 +195,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     );
   }
   const row = await queryOne(
-    `SELECT co.*, v.id as legacy_vendor_id FROM companies co
+    `SELECT ${VENDOR_FIELDS} FROM companies co
      LEFT JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
      WHERE co.id = ?`,
     [companyId],
