@@ -196,37 +196,9 @@ curl -sk https://dev.gmo-onair.jp/health                       # 検証稼働確
 curl -sk https://gmo-onair.jp/health                            # 本番稼働確認
 ```
 
-### DB バックアップ運用 (v2.7.12+)
-PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip → BOX「社内限り」親フォルダ配下の `00_DB_Backup/{prod|dev}/` に自動アップロード。30 日経過したファイルは自動削除。
-
-- **スクリプト本体**: `server/scripts/backup-db-to-box.mjs` (各コンテナ内で実行)
-- **cron 一括設定**: `sudo bash /root/gmo-onair/scripts/setup-backup-cron.sh` (1 度だけ実行、冪等)
-- **ログ**: `/var/log/gmo-onair-backup.log`
-- **手動実行 (動作確認用)**:
-  ```bash
-  docker exec gmo-onair-app_prod-1 node /app/server/scripts/backup-db-to-box.mjs
-  docker exec gmo-onair-app_dev-1  node /app/server/scripts/backup-db-to-box.mjs
-  ```
-- **必須環境変数** (.env): `BOX_CONFIG_JSON` + `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`
-- **保存先**: BOX 社内限り親 / `00_DB_Backup/` / `prod` または `dev` / `{db_name}_YYYYMMDD_HHMMSS.sql.gz`
-
-### DB 復元運用 (v2.8.2+)
-バックアップから DB を復元するための CLI スクリプト。**破壊的操作なので慎重に**:
-
-- **管理 UI**: `/admin/db-backups` (system_admin のみ) でバックアップ一覧 + 復元コマンドコピー機能
-- **CLI 復元**:
-  ```bash
-  # 一覧表示
-  docker exec gmo-onair-app_prod-1 node /app/server/scripts/restore-db-from-box.mjs --list
-  # 復元 (対話確認あり、"yes" 全文入力で実行)
-  docker exec -it gmo-onair-app_prod-1 node /app/server/scripts/restore-db-from-box.mjs onair_prod_YYYYMMDD_HHMMSS.sql.gz
-  ```
-- **5 層の安全策**:
-  1. 環境チェック (prod ファイル → prod のみ、クロス禁止)
-  2. 自動スナップショット (`/tmp/before-restore_*.sql.gz` に退避)
-  3. "yes" 全文タイプ確認 (`y` だけでは続行不可)
-  4. 監査ログ (`[restore] AUDIT:` で stdout)
-  5. エラー時に復旧手順を表示
+### DB バックアップ・復元運用
+3時間ごとの自動バックアップ（BOX保存）と復元CLIがある。手順は
+[docs/ops/db-backup-restore.md](docs/ops/db-backup-restore.md)。
 
 ## UI/UX ポリシー
 
@@ -243,29 +215,11 @@ PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip �
 - 実装後は DevTools のモバイルエミュレーションで動作確認
 - 既存画面もレスポンシブ不備を見つけたら随時修正すること
 
-## コード健全性ポリシー（2026-04-28 codex フルレビューからの学び）
+## コード健全性ポリシー
 
-### 依存関係のバージョン整合性
-- **`package.json` の宣言と `package-lock.json` の解決を必ず一致させる**。codex レビューで `tailwindcss` を `^3.4.16` と宣言したまま lockfile 上は `4.x` 系が解決されており、`npm ls tailwindcss` が `invalid` を返す状態が放置されていた。
-- ライブラリのメジャーバージョンを上げる際は **workspace 全体（7 クライアント + server + shared）で同時に更新** し、関連設定（PostCSS / Vite plugin / Tailwind preset 等）も同じコミット内で揃える。中途半端な更新を残さない。
-- **CI/手元で `npm ls <主要パッケージ> --depth=2` を定期確認**し、`invalid` / `extraneous` を検知したらその場で潰す。
-
-### ビルド関連設定の同期
-- Tailwind v3 → v4 のように **PostCSS API が変わるメジャー更新では `postcss.config.js` を必ず同時更新**する。v4 系は `@tailwindcss/postcss` を経由する形式で、v3 形式（`tailwindcss: {}` 直指定）のまま放置するとフロントエンド build が停止する。
-- 「ローカルでは動いた」だけで push しない。**`npm run build`（ルート、全 workspace 一括）が通ること**を最低ラインの確認項目とする。サーバー単体ビルドが通ってもフロントが落ちている可能性がある。
-
-### Lint 基盤の維持
-- ESLint 9（flat config = `eslint.config.js`）に統一するか 8 系で揃えるかをまず決め、**`shared/` 配下に共通プリセットを置いて全 workspace から参照**する形に集約する。
-- `npm run lint -w client` のような workspace 単位 lint コマンドが**設定ファイル不在で即落ちしている状態を放置しない**。ESLint を導入する以上、CI で確実に走らせる。
-
-### TODO / FIXME の管理
-- ソースに `TODO` / `FIXME` を残す場合は **必ず GitHub Issue 番号（または期限）を併記**する（例: `// TODO(#123): 実サーバースペック判定`）。
-- 残置 TODO（`server/src/contexts/interactive/services/scaling.service.ts:38` の `currentPlan: 'minimum'` 固定、`client-interactive/src/pages/AudiencePage.tsx:123` の言語固定 `ja` 等）は **issue 化して解消時期を明確に**する。
-- ハードコード値（プラン名・言語コード等）はコメントだけでなく**設定ファイル / 環境変数 / DB マスター化**して根本的に外出しする方針を優先。
-
-### 定期セルフレビュー
-- 大きめのリリース（マイナー以上、または機能盛りだくさんなパッチ）の前後で **`docs/reviews/` に簡潔なレビューメモを残す**運用を継続する（codex / Claude いずれも同じフォーマットで蓄積）。
-- レビューで検出した High/Medium 課題は **README の「コード健全性 / 既知の課題」セクションに反映**し、未解消であることを可視化する（隠さない）。
+依存関係のバージョン整合性・ビルド設定の同期・Lint基盤・TODO管理・定期セルフレビューの
+方針は [docs/reviews/2026-04-28-code-health.md](docs/reviews/2026-04-28-code-health.md)
+（2026-04-28 codex フルレビューからの学び）。
 
 ## デプロイ先の構成
 
@@ -302,36 +256,7 @@ PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip �
 - ホストマシンの認証情報やSSHキーはコンテナに渡さない
 
 ## BOXフォルダ構造 (将来: 案件ごと)
-```
-📁 GMO_Studio/
-├── 📁 GLS001_案件名/
-│   ├── 📁 01_見積・提案/      ← ONAiRが書く
-│   ├── 📁 02_発注・契約/      ← ONAiRが書く
-│   ├── 📁 03_請求/            ← ONAiRが書く
-│   ├── 📁 04_Qシート/         ← Qシートアプリが書く
-│   ├── 📁 05_台本・進行表/
-│   └── 📁 06_納品物/
-```
+未実装の将来設計。[docs/architecture/box-folder-structure.md](docs/architecture/box-folder-structure.md)。
 
-## CoNoHa VPS構成 (6ブロックアプリ)
-```
-CoNoHa VPS (2GB RAM)
-├── Nginx (リバースプロキシ + SSL)
-│   ├── /              → 案件管理 (client/)
-│   ├── /qsheet/       → Qシート (client-qsheet/)
-│   ├── /equipment/    → 機材管理 (client-equipment/)
-│   ├── /techsheet/    → 技術資料 (client-techsheet/)
-│   ├── /live/         → 計時LIVE (client-live/)
-│   └── /awards/       → リアルタイムCG (client-awards/)
-├── Express サーバー (port 3000)
-│   ├── /api/v1/internal/* — 全ブロックアプリ共通API
-│   ├── Socket.IO: /qsheet, /awards, liveops, quiz
-│   └── 各ブロックアプリの静的ファイル配信
-├── PostgreSQL 16
-│   └── 単一DB: projects, qsheet_documents, equipment_items, techsheet_documents, liveops_*, awards_*, ...
-└── Volume: pgdata
-
-## 別 VPS (外部リンク)
-- https://interactive.gmo-onair.jp/ — インタラクティブ演出 (EventStamp / リアルタイム)
-- https://gmo-translate.jp/ — GMO 翻訳ツール
-```
+VPS構成・ブロックアプリのパス対応は先頭の「ブロックアプリ一覧」表を参照
+（重複するASCII図はここでは持たない）。
