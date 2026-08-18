@@ -12,6 +12,35 @@ router.use(requireAuth);
 
 const permissionOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 } as const;
 
+/**
+ * 支払条件の例外を保存前に検査する（レビュー指摘・PR #188 P2）。
+ *
+ * DB の CHECK 制約（migration 196）と**同じ範囲**を先に見て、範囲外なら
+ * 分かりやすい 400 で止める。ここを素通しすると `dueDateOf` に負数や
+ * 極端に大きい月数が渡り、壊れた期日（1月に -1 か月で 0 月目のような日付）を
+ * 作ってしまう。DB の CHECK は「アプリを経由しない書き込み」への最後の壁として残す
+ * （2つの守りを同じ範囲に揃えないと、片方だけ緩い側で穴になる）。
+ */
+function validatePaymentTerms(body: Record<string, unknown>): void {
+  const checkDay = (key: string) => {
+    const v = body[key];
+    if (v !== undefined && v !== null && !(Number(v) >= 1 && Number(v) <= 31)) {
+      throw new AppError(400, 'VALIDATION_ERROR', `${key} は 1〜31 の日付にしてください`);
+    }
+  };
+  const checkMonths = (key: string) => {
+    const v = body[key];
+    if (v !== undefined && v !== null && !(Number(v) >= 0 && Number(v) <= 6)) {
+      throw new AppError(400, 'VALIDATION_ERROR', `${key} は 0〜6 か月にしてください`);
+    }
+  };
+  checkDay('customer_closing_day');
+  checkDay('customer_payment_day');
+  checkDay('vendor_payment_day');
+  checkMonths('customer_payment_months');
+  checkMonths('vendor_payment_months');
+}
+
 async function hasPermission(
   req: Request,
   module: string,
@@ -162,6 +191,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     vendor_payment_months, vendor_payment_day,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
+  validatePaymentTerms(req.body ?? {});
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (is_vendor && !canEditBudget) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
@@ -237,6 +267,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     'SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL', [req.params.id]
   ) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
+  validatePaymentTerms(req.body ?? {});
 
   const {
     name, short_name, contact_name, email, phone, address,
