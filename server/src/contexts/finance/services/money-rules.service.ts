@@ -97,13 +97,21 @@ export async function primeMoneyRules(): Promise<void> {
  * まだ `customers.id`（Phase 3-2 で `companies.id` へ FK を張り替えるまでの
  * 橋渡し）なので、`company_id` で1段引く。顧客としての例外は
  * `customer_*` 列（仕入先を兼ねる会社の `vendor_*` 列とは別）
+ *
+ * ⚠️ **`companies.deleted_at` では絞らない**（レビュー指摘・PR #188 P1）。
+ * 取引先マスター（`companies`）を削除しても、紐づく顧客（`customers`）は
+ * 意図して削除されないまま残り（`companies.routes.ts` の DELETE は
+ * `customers`/`vendors` を連動削除しない）、`GET /customers` や案件・売上の
+ * 顧客選択でそのまま使われ続ける。ここで `deleted_at IS NULL` を掛けると、
+ * **会社だけ消した瞬間にその顧客の支払例外が消え**、以後の売上作成が
+ * 例外の効いていない期日で静かに登録されてしまう
  */
 async function customerException(customerId: string | null | undefined): Promise<Partial<DueDateRule> | null> {
   if (!customerId) return null;
   const row = await queryOne(
     `SELECT customer_closing_day AS closing_day, customer_payment_months AS payment_months,
             customer_payment_day AS payment_day
-       FROM companies WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL`,
+       FROM companies WHERE id = (SELECT company_id FROM customers WHERE id = ?)`,
     [customerId],
   ) as Record<string, unknown> | null;
   if (!row) return null;
@@ -187,7 +195,9 @@ export async function previewDueDate(
 
 /**
  * 仕入・販管費の支払日（払う側）。取引先ごとの例外は `companies` の
- * `vendor_*` 列を見る（正はもう `vendors` ではない。Phase 3-1）
+ * `vendor_*` 列を見る（正はもう `vendors` ではない。Phase 3-1）。
+ * `companies.deleted_at` では絞らない理由は `customerException` と同じ
+ * （会社だけ削除しても仕入先は残り続けるため）
  */
 export async function computeVendorDueDate(
   recognitionDate: string | null | undefined,
@@ -199,7 +209,7 @@ export async function computeVendorDueDate(
   if (vendorId) {
     const row = await queryOne(
       `SELECT vendor_payment_months AS payment_months, vendor_payment_day AS payment_day
-         FROM companies WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL`,
+         FROM companies WHERE id = (SELECT company_id FROM vendors WHERE id = ?)`,
       [vendorId],
     ) as Record<string, unknown> | null;
     if (row) {

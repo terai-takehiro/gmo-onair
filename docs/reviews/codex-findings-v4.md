@@ -353,6 +353,14 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #190 | **P1** | `196_company_payment_terms.sql` | `runMigrations()` は `_migrations` に記録済みのファイル名を二度と実行しない仕組みなので、PR #190 で196の内容を書き換えても**196を実行したことがある環境（`main`へのマージで自動デプロイされる検証環境を含む）には一切届かない**。旧列を消さない改修・月数の範囲チェックがそこだけ欠けたままになる | ⭕️ 同PR内（migration 198 を新設し、`IF NOT EXISTS`/条件つきUPDATEで両方の環境に安全に届く形にした） |
+| #190 | P2 | `companies.routes.ts` | 支払条件の検証が `Number(v)` だけを見ており、空文字列（`Number('')===0`）や小数（`1.5`）が範囲チェックを通過したあとINTEGER列へのINSERTでPostgresが例外を返し、意図した400ではなく素の500になっていた | ⭕️ 同PR内（`toValidInt()` で整数判定を追加） |
+| #190 | P2 | `196_company_payment_terms.sql` | 月数チェックを足す前に、migration 175時点で範囲チェックの無かった既存の範囲外値（customers/vendors→companiesへ移った値）を正規化していなかった。新規デプロイで既存の範囲外legacy値があると、チェック追加そのものがトランザクション内で失敗し移行が止まる | ⭕️ 同PR内（migration 198 でチェックを足す前に範囲外値をNULLへ正規化） |
+| #190 | P2 | `196_company_payment_terms.sql` | POST/PUTで支払条件をcompaniesにだけ書いており、旧イメージへロールバックしている間は旧コードがcustomers/vendorsの旧列を読むため、新規作成した顧客の例外が消え、更新した顧客は古い値に戻って見える | ⭕️ 同PR内（companies.routes.ts のPOST/PUTでcustomers/vendorsの旧列にも同じ値を書くようにした） |
+| #188 | **P1** | `196_company_payment_terms.sql` | `customers`/`vendors` の旧支払条件列を削除すると、`docs/deploy-pipeline.md` の「その場でイメージだけ差し替える（急ぎ）」ロールバック（DBはそのまま）で1つ前のイメージに戻した瞬間 `undefined_column` になり、売上作成・支払期日の下見が全滅する | ⭕️ #190（旧列を削除せず、互換のためのリリースを1回挟んでから別migrationで消す方針にした） |
+| #188 | **P1** | `money-rules.service` | 会社（`companies`）を削除しても紐づく顧客・仕入先（`customers`/`vendors`）は連動削除されず使われ続けるのに、`companies.deleted_at IS NULL` で絞っていたため会社を消した瞬間に支払例外が消え、既定ルールへ静かに戻ってしまう | ⭕️ #190（`companies` を見るクエリから `deleted_at IS NULL` を外した） |
+| #188 | P2 | `companies.routes.ts` | `customer_payment_months`/`vendor_payment_months` に範囲検査が無く、負数や極端に大きい値が `dueDateOf` に渡って壊れた期日を作れた | ⭕️ #190（DBのCHECK制約とPOST/PUTの検査を追加） |
+| #188 | P2 | `196_company_payment_terms.sql` | バックフィルが論理削除済みの `customers`/`vendors` 行を対象にしていて、削除済みの古い例外値が生きている会社の値に紛れ込む余地があった | ⭕️ #190（`deleted_at IS NULL` をバックフィルのWHEREに追加） |
 | #183 | **P1** | `company-directory.service` | `syncCompanyFromCustomer`/`syncCompanyFromVendor` が、顧客と仕入先を兼ねる会社の**兄弟テーブルを更新していなかった**。1社が両方の役割を持つとき、片方の画面で直すと片方だけ最新になり、次にどちらかを保存したときに古い値で上書きする | ⭕️ #184（この PR は #183 マージ後に別枝で修正済み。書き込み可能CTEで1文にまとめた） |
 | #183 | P2 | `company-directory.service` | `createCustomerRecord`/`createVendorRecord` の `companies`→`customers`/`vendors` の2段INSERTが、既定の実行者（HTTPルート・MCP・内覧会・xpoint）では別々の自動コミットだった。片方だけ失敗すると孤立行が残り、押し直すと孤立 `companies` 行が増える | ⭕️ #186（`exec` を渡さない呼び出しは内部で `withTransaction` にまとめた） |
 | #183 | P2 | `vendors.routes.ts` | 財務の仕入先PUTが、取引先マスターの共有項目（社名・連絡先）を `companies.routes.ts` が要求する `sales:owner` を経ずに `budget:editor` だけで書き換えられていた（権限の壁のすり抜け） | ⭕️ #186（`sales:owner` を持つ人のときだけ `companies` へ同期するようにした） |

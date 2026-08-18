@@ -12,6 +12,51 @@ router.use(requireAuth);
 
 const permissionOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 } as const;
 
+/**
+ * 支払条件の例外を保存前に検査する（レビュー指摘・PR #188 P2）。
+ *
+ * DB の CHECK 制約（migration 196）と**同じ範囲**を先に見て、範囲外なら
+ * 分かりやすい 400 で止める。ここを素通しすると `dueDateOf` に負数や
+ * 極端に大きい月数が渡り、壊れた期日（1月に -1 か月で 0 月目のような日付）を
+ * 作ってしまう。DB の CHECK は「アプリを経由しない書き込み」への最後の壁として残す
+ * （2つの守りを同じ範囲に揃えないと、片方だけ緩い側で穴になる）。
+ */
+/**
+ * `v` が「整数として書かれた値」かを見る。**空文字列・小数・NaN はここで弾く**
+ * （レビュー指摘・PR #190 P2）。`Number('')` は `0`、`Number('1.5')` は
+ * 範囲内の小数になり、そのまま範囲チェックだけ通すと INTEGER 列への
+ * INSERT で Postgres が例外を返し、意図した 400 ではなく素の 500 になる。
+ */
+function toValidInt(v: unknown): number | null {
+  if (typeof v === 'string' && v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) ? n : null;
+}
+
+function validatePaymentTerms(body: Record<string, unknown>): void {
+  const checkDay = (key: string) => {
+    const v = body[key];
+    if (v === undefined || v === null) return;
+    const n = toValidInt(v);
+    if (n === null || n < 1 || n > 31) {
+      throw new AppError(400, 'VALIDATION_ERROR', `${key} は 1〜31 の整数にしてください`);
+    }
+  };
+  const checkMonths = (key: string) => {
+    const v = body[key];
+    if (v === undefined || v === null) return;
+    const n = toValidInt(v);
+    if (n === null || n < 0 || n > 6) {
+      throw new AppError(400, 'VALIDATION_ERROR', `${key} は 0〜6 の整数にしてください`);
+    }
+  };
+  checkDay('customer_closing_day');
+  checkDay('customer_payment_day');
+  checkDay('vendor_payment_day');
+  checkMonths('customer_payment_months');
+  checkMonths('vendor_payment_months');
+}
+
 async function hasPermission(
   req: Request,
   module: string,
@@ -162,6 +207,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     vendor_payment_months, vendor_payment_day,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
+  validatePaymentTerms(req.body ?? {});
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (is_vendor && !canEditBudget) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
@@ -199,11 +245,17 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   if (is_customer) {
     const cid = uuidv4();
     await execute(
+      // **支払条件の例外も customers 側へ写す**（レビュー指摘・PR #190 P2）。
+      // 正は companies だが、旧イメージへ戻すロールバックの間は旧コードが
+      // customers.closing_day 等を直接読む。書く先を companies だけにすると、
+      // ロールバック中に「新しく作った顧客の例外が消えている」ことになる
       `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-         is_gmo_group, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         is_gmo_group, closing_day, payment_months, payment_day, company_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-       address || null, notes || null, groupFlag, id, req.user!.id]
+       address || null, notes || null, groupFlag,
+       customer_closing_day ?? null, customer_payment_months ?? null, customer_payment_day ?? null,
+       id, req.user!.id]
     );
   }
 
@@ -211,11 +263,14 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   if (is_vendor) {
     const vid = uuidv4();
     await execute(
+      // 支払条件の例外も vendors 側へ写す（顧客側と同じ理由）
       `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-         invoice_registration_number, notes, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         invoice_registration_number, notes, payment_months, payment_day, company_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [vid, name, contact_name || null, email || null, phone || null, address || null,
-       vendor_type || null, invoice_registration_number || null, notes || null, id, req.user!.id]
+       vendor_type || null, invoice_registration_number || null, notes || null,
+       vendor_payment_months ?? null, vendor_payment_day ?? null,
+       id, req.user!.id]
     );
   }
 
@@ -237,6 +292,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     'SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL', [req.params.id]
   ) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
+  validatePaymentTerms(req.body ?? {});
 
   const {
     name, short_name, contact_name, email, phone, address,
@@ -264,6 +320,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     : is_gmo_group === true;
   const keep = (v: unknown, existingVal: unknown) => (v === undefined ? existingVal : (v ?? null));
 
+  // **`keep()` した後の値を companies と customers/vendors の両方に書く**
+  // （レビュー指摘・PR #190 P2）。ロールバックの間、旧コードは
+  // customers/vendors 側の列だけを読むので、companies にしか書かないと
+  // 「直したのに、旧イメージへ戻すと元の値に戻る」ことになる
+  const resolvedCustomerClosingDay    = keep(customer_closing_day, existing.customer_closing_day);
+  const resolvedCustomerPaymentMonths = keep(customer_payment_months, existing.customer_payment_months);
+  const resolvedCustomerPaymentDay    = keep(customer_payment_day, existing.customer_payment_day);
+  const resolvedVendorPaymentMonths   = keep(vendor_payment_months, existing.vendor_payment_months);
+  const resolvedVendorPaymentDay      = keep(vendor_payment_day, existing.vendor_payment_day);
+
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
        is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
@@ -274,11 +340,8 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
      groupFlag,
-     keep(customer_closing_day, existing.customer_closing_day),
-     keep(customer_payment_months, existing.customer_payment_months),
-     keep(customer_payment_day, existing.customer_payment_day),
-     keep(vendor_payment_months, existing.vendor_payment_months),
-     keep(vendor_payment_day, existing.vendor_payment_day),
+     resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
+     resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
      req.user!.id, req.params.id]
   );
 
@@ -286,17 +349,22 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   // **印もここで写す**（正は `customers` 側。写さないと画面のチェックが案件に効かない）
   await execute(
     `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
-       notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
+       notes=?, is_gmo_group=?, closing_day=?, payment_months=?, payment_day=?,
+       updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
-     address || null, notes || null, groupFlag, req.user!.id, req.params.id]
+     address || null, notes || null, groupFlag,
+     resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
+     req.user!.id, req.params.id]
   );
   if (canEditBudget) {
     await execute(
       `UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-         invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
+         invoice_registration_number=?, notes=?, payment_months=?, payment_day=?,
+         updated_at=NOW(), updated_by=?
          WHERE company_id=? AND deleted_at IS NULL`,
       [name, contact_name || null, email || null, phone || null, address || null,
        vendor_type || null, invoice_registration_number || null, notes || null,
+       resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
        req.user!.id, req.params.id]
     );
   }
@@ -310,10 +378,12 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
       const cid = uuidv4();
       await execute(
         `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-           is_gmo_group, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           is_gmo_group, closing_day, payment_months, payment_day, company_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-         address || null, notes || null, groupFlag, req.params.id, req.user!.id]
+         address || null, notes || null, groupFlag,
+         resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
+         req.params.id, req.user!.id]
       );
     }
   }
@@ -325,10 +395,11 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
       const vid = uuidv4();
       await execute(
         `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-           invoice_registration_number, notes, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           invoice_registration_number, notes, payment_months, payment_day, company_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [vid, name, contact_name || null, email || null, phone || null, address || null,
          vendor_type || null, invoice_registration_number || null, notes || null,
+         resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
          req.params.id, req.user!.id]
       );
     }
