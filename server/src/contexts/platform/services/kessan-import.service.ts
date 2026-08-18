@@ -676,11 +676,16 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
     async function ensureVendor(name: string): Promise<string | null> {
       if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
-      const r = await client.query('SELECT id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      let id: string | null = r.rows[0]?.id || null;
+      // Phase 3-2b: purchases.vendor_id は companies.id を直接指すので、
+      // `createVendorRecord` が返す vendors.id ではなく company_id を持つ
+      // （`ensureCustomer` と同じ理由・上記参照）
+      const r = await client.query('SELECT company_id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
+      let id: string | null = r.rows[0]?.company_id || null;
       if (!id && createMasters) {
         // **`companies` にも紐づける**（company-directory.service.ts）
-        id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+        const vid = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+        const vr = await client.query('SELECT company_id FROM vendors WHERE id=$1', [vid]);
+        id = vr.rows[0]?.company_id as string;
         report.masters.created.vendors++;
       }
       cache.vendors.set(name, id); return id;
@@ -964,7 +969,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
     if (scopes.includes('purchases')) {
       const r = await client.query(
         `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, v.name AS vname
-         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.id = pu.vendor_id
+         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN companies v ON v.id = pu.vendor_id
          WHERE pu.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({

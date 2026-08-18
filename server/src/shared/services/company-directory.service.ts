@@ -245,3 +245,26 @@ export async function assertCustomerCompanyId(
   ) as Record<string, unknown> | undefined;
   if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された顧客が見つかりません（顧客ロールが外れているか、削除済みの可能性があります）');
 }
+
+/**
+ * `vendor_id`（Phase 3-2b 以降は `companies.id` を直接指す）が
+ * **本当に仕入先の会社を指しているか**を確かめる。`assertCustomerCompanyId` の
+ * 仕入先版・同じ理由（FK は `companies(id)` を指すだけで「仕入先であること」は
+ * 保証しない）。
+ *
+ * `vendorId` が `null`/`undefined`/空文字なら何もしない（sga_expenses.vendor_id は
+ * nullable ＝ 仕入先を選ばない道があるため）。
+ */
+export async function assertVendorCompanyId(
+  vendorId: unknown,
+  exec: (sql: string, params: unknown[]) => Promise<unknown> = (sql, params) => queryOne(sql, params),
+): Promise<void> {
+  if (typeof vendorId !== 'string' || !vendorId) return;
+  const row = await exec(
+    `SELECT co.id FROM companies co
+     WHERE co.id = ? AND co.is_vendor = TRUE AND co.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`,
+    [vendorId],
+  ) as Record<string, unknown> | undefined;
+  if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された仕入先が見つかりません（仕入先ロールが外れているか、削除済みの可能性があります）');
+}

@@ -175,10 +175,32 @@ FKの値が `customers.id` から `companies.id` に変わるので、`customer_
 - `npm run test`（`droppedColumns.test.ts` 等）・`npm run typecheck` ・
   `npm run lint` ・実DBでの `verify:fresh`
 
-### Phase 3-2b（このあと・別PR）
+### Phase 3-2b（実施済み）
 
-`purchases.vendor_id` / `sga_expenses.vendor_id` を同じ考え方で `companies.id` へ。
-対象ファイルは3-2aより少ない（財務系のExcel/決算取込/xpoint取込が中心）。
+**✅ 実施済み**。migration `201_vendor_fk_to_companies.sql` を追加し、
+`purchases.vendor_id`（NOT NULL）/ `sga_expenses.vendor_id`（nullable）を
+`vendors(id)` から `companies.id` へ張り替えた（3-2a と同じ方針A）。
+
+- 読み書き経路（約20ファイル）を追随: 財務の仕入先タブ（`vendors.routes.ts` を
+  `customers.routes.ts` と同じ形に書き換え・一覧/詳細は `companies` を正として読む）、
+  仕入・販管費台帳（`purchases.routes.ts` / `sga.routes.ts`）、財務Excel入出力、
+  決算取込（`kessan-import.service.ts` の `ensureVendor`）、X-Point取込
+  （`xpoint-import.service.ts` の `matchVendor` / `xpoint.routes.ts` の新規仕入先作成）、
+  書類受け渡し（`doc-handoff.service.ts`）、グループ按分仕入
+  （`project-groups.routes.ts`）、取引先別サマリー（`companies.routes.ts` の
+  `/summary` — `vendors` サブレコードでの絞り込みをやめ `companies.id` を直接使うよう修正）、
+  横断検索、バックアップ出力、MCPの `list_purchases`、支払期日の取引先例外
+  （`money-rules.service.ts` の `computeVendorDueDate`）、シード
+- `company-directory.service.ts` に `assertVendorCompanyId`（`assertCustomerCompanyId` の
+  仕入先版）を追加し、直接APIを叩く書き込み経路（仕入・販管費・グループ按分仕入・
+  書類受け渡し）で検証
+- `vendors` テーブル自身は消さない（Phase 3-3 まで）。旧URL（移行前の `vendors.id`）は
+  `findVendorRow` の legacy フォールバックで引き続き解決する
+
+検証: `npm run test`（1,136件）/ `typecheck` / `lint`（0 errors）すべて green。
+`verify:up` → `db:seed` で実Postgresに対して migration・FK整合（孤立0件）・
+`GET /vendors` `GET /purchases` `GET /companies/:id/summary` `GET /search` の応答・
+不正な `vendor_id` を渡した `POST /purchases` の400を確認済み。
 
 ### Phase 3-3（3-2完了後）
 

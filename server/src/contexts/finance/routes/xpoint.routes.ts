@@ -135,18 +135,21 @@ router.post('/files/:id/register', async (req, res) => {
   }
 
   // 未登録取引先の新規作成 (レビュー UI でユーザーが明示的に選んだ場合のみ)
+  // Phase 3-2b: purchases.vendor_id / sga_expenses.vendor_id は companies.id を
+  // 直接指すので、`createdVendorId` も vendors.id ではなく company_id を持つ
+  // （`xpoint-import.service.ts` の `matchVendor` と揃える）
   let createdVendorId: string | null = null;
   if (new_vendor?.name) {
     const existing = (await queryOne(
-      'SELECT id FROM vendors WHERE name = ? AND deleted_at IS NULL LIMIT 1',
+      'SELECT company_id FROM vendors WHERE name = ? AND deleted_at IS NULL LIMIT 1',
       [new_vendor.name]
     )) as any;
-    if (existing) {
-      createdVendorId = existing.id;
+    if (existing?.company_id) {
+      createdVendorId = existing.company_id;
     } else {
       // **`companies` にも紐づける**（company-directory.service.ts）。ここで
       // vendors だけに INSERT すると取引先マスターに孤立した仕入先ができる
-      createdVendorId = await createVendorRecord(
+      const vid = await createVendorRecord(
         {
           name: new_vendor.name,
           invoice_registration_number: new_vendor.invoice_registration_number || null,
@@ -154,6 +157,8 @@ router.post('/files/:id/register', async (req, res) => {
         },
         req.user!.id,
       );
+      const linked = (await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid])) as { company_id: string };
+      createdVendorId = linked.company_id;
     }
   }
 

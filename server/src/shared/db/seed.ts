@@ -167,11 +167,16 @@ export async function seed() {
     ['株式会社トランスポートサービス', '運送', '中島 剛', 'nakajima@transport-sv.example.com', '03-8888-9999', '東京都板橋区成増2-17-10', 'T8901234567890'],
   ];
   for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
-    VENDORS[vType] = await createVendorRecord(
+    // Phase 3-2b: purchases/sga_expenses.vendor_id は companies.id を
+    // 直接指すので、createVendorRecord が返す vendors.id ではなく company_id を持つ
+    // (customers と同じ理由・上記参照)
+    const vid = await createVendorRecord(
       { name, contact_name: contact, email, phone, address, vendor_type: vType,
         invoice_registration_number: regNum },
       null, ins,
     );
+    const linked = await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid]) as { company_id: string };
+    VENDORS[vType] = linked.company_id;
   }
 
   // ============================================================

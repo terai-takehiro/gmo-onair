@@ -7,6 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildPurchaseWhere, buildPurchaseOrder } from '../list-query';
+import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -25,12 +26,12 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', pa.allocated_amount' : '';
   const allocParams = projectId ? [projectId] : [];
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
     `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, v.name as vendor_name, pg.name as group_name, e.episode_code${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
-     LEFT JOIN vendors v ON v.id = pu.vendor_id
+     LEFT JOIN companies v ON v.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
      ${allocJoin}
@@ -40,7 +41,7 @@ router.get('/', async (req, res) => {
   // 一覧の下に出す合計。**表示中のページではなく絞り込み全体**（めくるたびに変わらない）
   const joins = `FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
-     LEFT JOIN vendors v ON v.id = pu.vendor_id ${allocJoin}`;
+     LEFT JOIN companies v ON v.id = pu.vendor_id ${allocJoin}`;
   const sum = (await queryOne(
     `SELECT COALESCE(SUM(pu.amount), 0) as s ${joins} ${where}`, [...allocParams, ...params])) as { s: string } | null;
 
@@ -79,7 +80,7 @@ router.get('/export', requirePermission('budget', 'exporter'), async (_req, res)
     `SELECT v.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
-     LEFT JOIN vendors v ON v.id = pu.vendor_id
+     LEFT JOIN companies v ON v.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL
      ORDER BY pu.recognition_date DESC, pu.created_at DESC`
   ) as Record<string, unknown>[];
@@ -91,7 +92,7 @@ router.get('/:id', async (req, res) => {
   const row = await queryOne(
     `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, e.episode_code
      FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
-     LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN episodes e ON e.id = pu.episode_id
+     LEFT JOIN companies v ON v.id = pu.vendor_id LEFT JOIN episodes e ON e.id = pu.episode_id
      WHERE pu.id = ? AND pu.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
   res.json({ success: true, data: row });
@@ -103,6 +104,9 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
   if (!project_id || !vendor_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と仕入先は必須です');
+  // `vendor_id` は companies.id（Phase 3-2b）を直接指すため、DB の FK は
+  // 「仕入先ロールの会社か」を保証しない（`revenues.routes.ts` の customer_id と同じ理由）
+  await assertVendorCompanyId(vendor_id);
 
   let billing_key: string | null = null;
   if (episode_id) {
@@ -133,6 +137,9 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
+  // 新しく渡された vendor_id だけ確かめる（`revenues.routes.ts` の PUT と同じ理由。
+  // 既存値は再検証しない）
+  if (vendor_id) await assertVendorCompanyId(vendor_id);
   // 部分更新契約: 送られなかったフィールドは既存値を保持する (省略で NOT NULL 違反・
   // 計上日消失・適格 0 への強制降格が起きていたのを防ぐ)。空文字は null 化する。
   await execute(

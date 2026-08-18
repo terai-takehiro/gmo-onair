@@ -159,45 +159,39 @@ router.get('/:id', requirePermission('sales'), async (req, res) => {
 
 // ─── 取引先別 収支サマリー ─────────────────────────────────────────────────────
 // 売上 (customer_id 経由。Phase 3-2a 以降 revenues.customer_id は companies.id を直接指す)、
-// 仕入 (vendor_id 経由)、販管費 (vendor_id 経由) の合計を返す
+// 仕入・販管費 (vendor_id 経由。Phase 3-2b 以降 purchases/sga_expenses.vendor_id も
+// companies.id を直接指す) の合計を返す
 router.get('/:id/summary', requirePermission('sales'), async (req, res) => {
   const company = await queryOne(
-    `SELECT co.id,
-       v.id  as vendor_id
-     FROM companies co
-     LEFT JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
-     WHERE co.id = ? AND co.deleted_at IS NULL`,
+    `SELECT co.id FROM companies co WHERE co.id = ? AND co.deleted_at IS NULL`,
     [req.params.id]
   ) as any;
   if (!company) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
 
+  // ⚠️ `is_customer` / `is_vendor` では絞らない（レビュー指摘・PR #199 P2 と同じ理由）。
+  // Phase 3-2a/3-2b 以降 customer_id / vendor_id は companies.id を直接指すので、
+  // あとでロールのチェックを外しても過去の売上・仕入・販管費行はこの会社を
+  // 指したまま残る。ここでロールの列を見ると「ロールを外した瞬間に実績がゼロになる」
+  // ことになる
   const [revRow, purRow, sgaRow] = await Promise.all([
-    // ⚠️ `is_customer` では絞らない（レビュー指摘・PR #199 P2）。Phase 3-2a 以降
-    // revenues.customer_id は companies.id を直接指すので、あとで顧客ロールの
-    // チェックを外しても過去の売上行はこの会社を指したまま残る。ここで
-    // is_customer を見ると「ロールを外した瞬間に実績がゼロになる」ことになる
     queryOne(
       `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
        FROM revenues
        WHERE customer_id = ? AND deleted_at IS NULL AND status = 'confirmed'`,
       [company.id]
     ) as Promise<any>,
-    company.vendor_id
-      ? queryOne(
-          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
-           FROM purchases
-           WHERE vendor_id = ? AND deleted_at IS NULL`,
-          [company.vendor_id]
-        ) as Promise<any>
-      : Promise.resolve({ total: 0, count: 0 }),
-    company.vendor_id
-      ? queryOne(
-          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
-           FROM sga_expenses
-           WHERE vendor_id = ? AND deleted_at IS NULL`,
-          [company.vendor_id]
-        ) as Promise<any>
-      : Promise.resolve({ total: 0, count: 0 }),
+    queryOne(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+       FROM purchases
+       WHERE vendor_id = ? AND deleted_at IS NULL`,
+      [company.id]
+    ) as Promise<any>,
+    queryOne(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+       FROM sga_expenses
+       WHERE vendor_id = ? AND deleted_at IS NULL`,
+      [company.id]
+    ) as Promise<any>,
   ]);
 
   res.json({
