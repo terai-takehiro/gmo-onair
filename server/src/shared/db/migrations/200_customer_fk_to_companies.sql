@@ -3,9 +3,13 @@
 -- 対象は5つ: projects.customer_id / revenues.customer_id /
 -- activity_logs.customer_id / estimates.customer_id / gpm_projects.customer_id。
 --
--- ⚠️ これは「イメージだけ差し替える」ロールバックが使えなくなる変更（方針A）。
--- このリリース以降は、本番を戻すときは「Releases のタグでDeployワークフローを
--- 再実行」(DBも含めて丸ごと戻す) だけを使う（docs/deploy-pipeline.md に追記済み）。
+-- ⚠️ これは「イメージだけ差し替える」ロールバックも「Releases のタグで
+-- Deploy ワークフローを再実行」も、**どちらも単独では使えなくなる変更**（方針A）。
+-- customer_id の値そのものを書き換えるため、コード（イメージ・checkout）だけ戻しても
+-- DB は新しい値（companies.id）のままで、古いコードが期待する customers.id とは
+-- 食い違う。このリリース以降、本番を戻すときはコードを戻すことに加えて DB も
+-- 同時点まで復元する必要がある（`docs/ops/db-backup-restore.md`。
+-- 詳細は `docs/deploy-pipeline.md` に追記済み・レビュー指摘・PR #199 P1 / #200 P1）。
 --
 -- 安全のための下ごしらえ: migration 195 は deleted_at IS NULL の customers/vendors
 -- だけ companies へ埋め戻した。論理削除済みで company_id が無い行が残っていると、

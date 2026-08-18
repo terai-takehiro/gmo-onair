@@ -1115,10 +1115,14 @@ export class ProjectService {
      * （`resolveCustomerType` の控えに `existing.customer_type` を渡す）。
      */
     const targetCustomer = customer_id === undefined ? existing.customer_id : customer_id;
-    // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
-    // create() と同じ理由）。既存値（`existing.customer_id`）は再検証しない —
-    // 過去に付いたロールが後から外れた行まで更新のたびに弾くと、無関係な直しまで止まる
-    if (customer_id !== undefined) await assertCustomerCompanyId(customer_id);
+    // **実際に変わったときだけ確かめる**（レビュー指摘・PR #199 P2 の2巡目 → #201 P1 で
+    // 「渡されただけで再検証」の穴を修正）。直す画面（`ProjectFormPage`）は他の項目を
+    // 直すときも今の customer_id を送り直すので、`customer_id !== undefined` だけで
+    // 判定すると、あとから顧客ロールを外された会社の案件は**無関係な直し**まで
+    // 400 で止まってしまう
+    if (customer_id !== undefined && customer_id !== existing.customer_id) {
+      await assertCustomerCompanyId(customer_id);
+    }
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。

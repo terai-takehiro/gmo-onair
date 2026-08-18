@@ -503,9 +503,11 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
-  // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
-  // POST と同じ理由。既存値は再検証しない — project.service.ts の update() と同じ判断）
-  if (customer_id) await assertCustomerCompanyId(customer_id);
+  // **実際に変わったときだけ確かめる**（レビュー指摘・PR #199 P2 の2巡目 → #201 P1 で
+  // 「渡されただけで再検証」の穴を修正。project.service.ts の update() と同じ判断）—
+  // 画面は他の項目を直すときも今の customer_id を送り直すので、変化の有無を見ないと
+  // あとから顧客ロールを外された会社の売上は無関係な直しまで止まってしまう
+  if (customer_id && customer_id !== existing.customer_id) await assertCustomerCompanyId(customer_id);
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;
