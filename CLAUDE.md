@@ -39,6 +39,11 @@ GLS番号を中核として全アプリのデータが紐づく。
 - `shared/src/client/utils.ts` — cn()ユーティリティ
 - ストレージキー: `qs_user` (qsheet), `ts_user` (techsheet), `is_user` (interactive), `eq_user` (equipment)
 
+## Claude の応答言語ポリシー
+- **作業中（ツール呼び出しの説明・思考過程など）は英語で処理してよい。**
+- **チャットでユーザーに返す最後の返信は、必ず簡潔な日本語**にする
+  (処理内容の垂れ流しではなく、結論・状態・次のアクションが分かる短い要約)。
+
 ## 技術構成
 - **フロントエンド**: React 18 + Vite 6 + TailwindCSS 3 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが7アプリの静的ファイルを配信する**単一イメージ構成**
