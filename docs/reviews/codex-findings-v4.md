@@ -284,6 +284,11 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 `is_resolved: false` のままマージされています。GitHub の画面から消えるだけなので、
 **表に足さないと存在ごと消えます**（この文書を作った理由そのもの）。
 
+⚠️ **#199 の5件だけは例外**です（レビュー指摘・PR #200）。マージ前に返信・resolve
+済み（`is_resolved: true`）でしたが、**「消えるのは未解決の指摘だけではない」**
+（`npm run reviews:debt` が拾うのは未解決分だけで、resolve 済みの指摘も
+マージすれば画面からは同じく見えなくなる）ので、完全な記録のためここに残します。
+
 **状態の確かめ方**: ⭕️ と ❌ は 2026-08-15 に**コードを読んで**付けています。
 `is_outdated: true`（＝同じ PR の後の commit が当該行を動かした）の指摘は、
 **本当に直っているかを1件ずつ当たり直し**ました — 4 件とも直っていました。
@@ -353,6 +358,15 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #199 | **P1** | `200_customer_fk_to_companies.sql` | データが入っている実DBでは、旧FK（customers(id) 参照）が値の書き換え前に生きたままだと、`customer_id` を customers.id と一致しない companies.id に書き換えた瞬間に違反し migration 200 全体がロールバックする。空の検証DBでは customers.id と companies.id が作成順で偶然一致することがあり、それが隠れていた | ⭕️ 同PR内（`ea1262c`。値を書き換える前に旧FKを DROP → UPDATE → 新FK追加の順に直した） |
+| #199 | P2 | `customers.routes.ts` | `DELETE /customers/:id` は customers 側だけを論理削除し companies.is_customer は触らないため、一覧・詳細・検索・ドロップダウンが companies だけで判定していると削除済みの顧客が残り続ける | ⭕️ 同PR内（`ea1262c`。customers への JOIN を LEFT→INNER に変更） |
+| #199 | **P1** | `docs/deploy-pipeline.md` | 本番の production セクションは選択したコミットの checkout・イメージの pull・`app_prod` の再作成しかせず、DBの復元やmigrationの巻き戻しをしない。`_migrations` は forward-only なので、旧リリースを再実行してもFKの張り替え後の値はそのまま残り、記載どおりに読むとDBも含めて戻ると誤解する | ⭕️ 同PR内（`ea1262c`。表現を訂正し、DBを含めて戻すときは `docs/ops/db-backup-restore.md` を使うよう明記） |
+| #199 | P2 | `companies.routes.ts` | 確定売上のある会社の顧客ロールを外すと `is_customer` は false になるが、紐づく顧客・過去の売上行はそのまま残る。会社サマリーが `is_customer` で絞っていたため、ロールを外した瞬間に過去の確定売上がゼロと表示されていた | ⭕️ 同PR内（`ea1262c`。`is_customer` での絞りを外し、常に companies.id で revenues を見るようにした） |
+| #199 | P2 | `customers.routes.ts` | 移行前の customers.id（旧URL・端末の「最近見た」履歴・共有リンク）で顧客詳細を開くと、overview は companies.id 専用になっていたため顧客が存在するのに「見つかりません」画面になっていた | ⭕️ 同PR内（`ea1262c`。companies.id で見つからなければ customers.id として解釈し直すフォールバック `findCustomerRow` を追加） |
+| #199 | P2 | `customers.routes.ts` / `CustomerDetailPage.tsx` | 移行前の customers.id（旧URL・端末の「最近見た」履歴・共有リンク）で顧客詳細を開いたまま活動を記録・保存すると、書き込みが旧IDのままで `activity_logs.customer_id` 等のFK（companies.id 参照）に反し失敗する。1巡目で足した正規ID解決は GET だけで、書き込みには使われていなかった | ⭕️ 同PR内（書き込みは正規の companies.id を優先し、`PUT`/`DELETE /customers/:id` も customers.id を解決するようにした） |
+| #199 | P2 | `mcp/tools/customers.tools.ts` ほか7か所 | `DELETE /customers/:id` は customers 側だけを論理削除するため、companies だけを見る他の読み口（MCP の list_customers/get_customer・重複ガード、GPMドロップダウン、全体検索、Excel入出力2本、決算取込、投入口、内覧会予約）には削除済みの顧客が残り続け、その id を create_project 等に渡せた。1巡目の修正は customers.routes.ts の1か所だけだった | ⭕️ 同PR内（生きている customers 行があることを要求する条件を8か所に追加） |
+| #199 | P2 | `200_customer_fk_to_companies.sql` | FKが companies(id) を直接指すようになったことで「顧客ロールの会社か」というDBの保証が失われ、仕入先のみ・販管費支払先のみ・ロール無しの company_id でも案件・売上・活動記録・見積の書き込みが通ってしまう | ⭕️ 同PR内（`assertCustomerCompanyId` を新設し各書き込みで検証） |
+| #199 | P2 | `customers.routes.ts` | migration 061〜195 の間に customers 側だけ名前・連絡先を直した行は companies が古いスナップショットのままで、一覧・詳細・PDF・Excel・検索が companies を正として読むようになったことで古い値が出てしまう | ⭕️ 同PR内（migration 200 に、既にリンク済みの companies 行を customers の現在値で上書きする一括更新を追加） |
 | #197 | P2 | `codex-findings-v4.md` | #194の指摘の状態を「⭕️ #195」と書いていたが、#195時点のツリーはまだ不正確な記述のままで、実際に直したのは#197だった（トレーサビリティが誤誘導になる） | ⭕️ 同PR内（参照先PRを修正） |
 | #197 | P2 | `claude-token-consumption-analysis-ebzhpw.md` | version-history.mdが文脈に乗る条件を「エージェントがRead/Grepで返した時だけ」と書いていたが、`cat`/`sed`/`git show`等本文を返す呼び出し全般が同様に文脈化するため範囲が狭すぎた | ⭕️ 同PR内（記述を修正） |
 | #194 | P2 | `token-consumption-analysis.md` | `docs/version-history.md` を「読む/生成するたびに直撃」と書いていたが、`v4-progress.mjs` はこのファイルを一切参照しない。`release:notes` は内部で読むが本文を文脈に返さないため乗らない。文脈に乗るのは `cat`/`sed`/`git show` 等を含め本文を返すツール呼び出しがあった時だけ | ⭕️ #197（記述を修正。#195時点はまだ不正確だった） |
