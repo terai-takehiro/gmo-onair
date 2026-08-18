@@ -131,6 +131,25 @@ try {
   process.exit(0);
 }
 
+/**
+ * 追加された版の番号のうち、削除された行には無かった（＝新しく現れた）ものを返す。
+ *
+ * ⚠️ **見出し行に本文が同居している**（`CLAUDE.md` の `vX.Y.Z — 本文`・
+ * `README.md` の `**現在のバージョン**: vX.Y.Z — 本文`）ため、**本文だけを書き換えても
+ * git diff は行ごと `-`／`+` になる**。単に「`+vX.Y.Z` の行があるか」を見ると、
+ * 既存バージョンの本文を短くしただけの直しまで「版を上げた」と誤検知する
+ * （レビューでの指摘・Codex #209）。**削除された行にも同じ版番号があれば見送る。**
+ */
+function newVersionNumbers(diffText, lineRe) {
+  const collect = (sign) => {
+    const re = new RegExp(`^${sign}${lineRe.source}`, 'gm');
+    return [...diffText.matchAll(re)].map((m) => m[1]);
+  };
+  const added = collect('\\+');
+  const removed = new Set(collect('-'));
+  return added.filter((v) => !removed.has(v));
+}
+
 /** 版の番号そのものを動かしたか（本文だけの直しは見ない） */
 function bumpedVersion() {
   const out = [];
@@ -140,11 +159,15 @@ function bumpedVersion() {
   }
   if (changed.includes('README.md')) {
     const d = git('diff', base, '--', 'README.md');
-    if (/^\+\*\*現在のバージョン\*\*:/m.test(d)) out.push('README.md の「現在のバージョン」');
+    if (newVersionNumbers(d, /\*\*現在のバージョン\*\*: v(\d+\.\d+\.\d+)/gm).length) {
+      out.push('README.md の「現在のバージョン」');
+    }
   }
   if (changed.includes('CLAUDE.md')) {
     const d = git('diff', base, '--', 'CLAUDE.md');
-    if (/^\+v\d+\.\d+\.\d+ — /m.test(d)) out.push('CLAUDE.md の版の行');
+    if (newVersionNumbers(d, /v(\d+\.\d+\.\d+) — /gm).length) {
+      out.push('CLAUDE.md の版の行');
+    }
   }
   return out;
 }
