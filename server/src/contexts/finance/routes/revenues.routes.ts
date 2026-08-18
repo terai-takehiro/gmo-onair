@@ -15,6 +15,7 @@ import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
 import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.get('/:id/pdf',
               c.contact_name as customer_contact
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN companies c ON c.id = r.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
        WHERE r.id = ? AND r.deleted_at IS NULL`,
       [req.params.id]
@@ -161,7 +162,7 @@ router.get('/', async (req, res) => {
   const { where, params } = buildRevenueWhere(req.query);
   const orderBy = buildRevenueOrder(req.query);
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id ${where}`, params)) as any).c;
 
   // allocated_amount: グループ按分時はこのプロジェクトへの配分額
   const allocJoin = projectId
@@ -174,7 +175,7 @@ router.get('/', async (req, res) => {
     `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code${allocCol}
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
-     LEFT JOIN customers c ON c.id = r.customer_id
+     LEFT JOIN companies c ON c.id = r.customer_id
      LEFT JOIN episodes e ON e.id = r.episode_id
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
@@ -194,7 +195,7 @@ router.get('/', async (req, res) => {
   const sum = (await queryOne(
     `SELECT COALESCE(SUM(r.amount), 0) as s FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
-     LEFT JOIN customers c ON c.id = r.customer_id ${where}`, params)) as { s: string } | null;
+     LEFT JOIN companies c ON c.id = r.customer_id ${where}`, params)) as { s: string } | null;
 
   /*
    * ⚠️ **案件で絞ったときは「この案件のぶん」も返す**（レビューでの指摘 #87）。
@@ -214,7 +215,7 @@ router.get('/', async (req, res) => {
                               THEN COALESCE(ra.allocated_amount, r.amount) ELSE 0 END), 0) AS confirmed
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN companies c ON c.id = r.customer_id
        LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = ?
        ${where}`,
     [projectId, ...params],
@@ -236,7 +237,7 @@ router.get('/', async (req, res) => {
             COUNT(*) as all
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
-     LEFT JOIN customers c ON c.id = r.customer_id ${base.where}`, base.params)) as Record<string, string>;
+     LEFT JOIN companies c ON c.id = r.customer_id ${base.where}`, base.params)) as Record<string, string>;
 
   res.json({
     ...paginatedResponse(rows, total, page, limit),
@@ -265,7 +266,7 @@ router.get('/export', requirePermission('budget', 'exporter'), async (_req, res)
 
 // 売上詳細（明細行つき）
 router.get('/:id', async (req, res) => {
-  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 
   const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);
@@ -285,7 +286,7 @@ router.get('/:id/excel', async (req, res, next) => {
               c.contact_name as customer_contact
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN companies c ON c.id = r.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
        WHERE r.id = ? AND r.deleted_at IS NULL`,
       [req.params.id]
@@ -402,6 +403,9 @@ router.get('/:id/excel', async (req, res, next) => {
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment, invoice_issued } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
+  // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+  // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
+  await assertCustomerCompanyId(customer_id);
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
 
@@ -499,6 +503,9 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
+  // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
+  // POST と同じ理由。既存値は再検証しない — project.service.ts の update() と同じ判断）
+  if (customer_id) await assertCustomerCompanyId(customer_id);
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;

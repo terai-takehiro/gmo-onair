@@ -273,8 +273,15 @@ async function nextOppCode(tx: Tx): Promise<string> {
  * 「GMO」で別会社に紐づくほうが、紐づかないより悪い（気づけない）。
  */
 async function findCustomerId(tx: Tx, name: string): Promise<string | null> {
+  // Phase 3-2a: projects/activity_logs.customer_id は companies.id を直接指すので、
+  // customers ではなく companies（is_customer=TRUE）から名前で引く。
+  // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+  // — 消えていないと、削除済みの顧客の名前でAI起票した案件が誤って紐づいてしまう。
   const row = await tx.queryOne(
-    `SELECT id FROM customers WHERE deleted_at IS NULL AND btrim(name) = btrim(?) ORDER BY created_at LIMIT 1`,
+    `SELECT co.id FROM companies co
+     WHERE co.deleted_at IS NULL AND co.is_customer = TRUE AND btrim(co.name) = btrim(?)
+       AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+     ORDER BY co.created_at LIMIT 1`,
     [name]
   );
   return row ? String(row.id) : null;
@@ -294,8 +301,12 @@ async function findOrCreateCustomer(tx: Tx, name: string, userId: string): Promi
   if (found) return found;
   // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
   // グループの印は社名から見立てる（migration 192）。投入口は印を持たないので、
-  // ここで入れないと AI が起こしたネタ案件だけグループ外のまま残る
-  return createCustomerRecord({ name, is_gmo_group: looksLikeGmoGroup(name) }, userId, tx.execute.bind(tx));
+  // ここで入れないと AI が起こしたネタ案件だけグループ外のまま残る。
+  // `createCustomerRecord` は `customers.id` を返すので、作った行の
+  // company_id を引き直して customer_id（Phase 3-2a 以降 companies.id）として使う
+  const cid = await createCustomerRecord({ name, is_gmo_group: looksLikeGmoGroup(name) }, userId, tx.execute.bind(tx));
+  const row = await tx.queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]);
+  return row ? String(row.company_id) : cid;
 }
 
 export const taskIntakeService = {

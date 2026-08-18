@@ -105,7 +105,7 @@ export default function CustomerDetailPage() {
   const createActivity = useMutation({
     mutationFn: async () =>
       api.post("/activity-logs", {
-        customer_id: id,
+        customer_id: (data?.customer?.id as string | undefined) ?? id, // 旧URLでも正規の companies.id を優先（PR #199 P2）
         project_id: actProjectId === "none" ? null : actProjectId,
         activity_type: actType,
         activity_date: todayStr(),

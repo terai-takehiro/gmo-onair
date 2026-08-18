@@ -158,29 +158,30 @@ router.get('/:id', requirePermission('sales'), async (req, res) => {
 });
 
 // ─── 取引先別 収支サマリー ─────────────────────────────────────────────────────
-// 売上 (customer_id 経由)、仕入 (vendor_id 経由)、販管費 (vendor_id 経由) の合計を返す
+// 売上 (customer_id 経由。Phase 3-2a 以降 revenues.customer_id は companies.id を直接指す)、
+// 仕入 (vendor_id 経由)、販管費 (vendor_id 経由) の合計を返す
 router.get('/:id/summary', requirePermission('sales'), async (req, res) => {
   const company = await queryOne(
     `SELECT co.id,
-       cu.id as customer_id,
        v.id  as vendor_id
      FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
+     LEFT JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
      WHERE co.id = ? AND co.deleted_at IS NULL`,
     [req.params.id]
   ) as any;
   if (!company) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
 
   const [revRow, purRow, sgaRow] = await Promise.all([
-    company.customer_id
-      ? queryOne(
-          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
-           FROM revenues
-           WHERE customer_id = ? AND deleted_at IS NULL AND status = 'confirmed'`,
-          [company.customer_id]
-        ) as Promise<any>
-      : Promise.resolve({ total: 0, count: 0 }),
+    // ⚠️ `is_customer` では絞らない（レビュー指摘・PR #199 P2）。Phase 3-2a 以降
+    // revenues.customer_id は companies.id を直接指すので、あとで顧客ロールの
+    // チェックを外しても過去の売上行はこの会社を指したまま残る。ここで
+    // is_customer を見ると「ロールを外した瞬間に実績がゼロになる」ことになる
+    queryOne(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+       FROM revenues
+       WHERE customer_id = ? AND deleted_at IS NULL AND status = 'confirmed'`,
+      [company.id]
+    ) as Promise<any>,
     company.vendor_id
       ? queryOne(
           `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count

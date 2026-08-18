@@ -540,9 +540,19 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     let existPur: Map<string, number> | undefined;
     const incKey = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
 
+    // Phase 3-2a: revenues/projects.customer_id は companies.id を直接指すので、
+    // customers ではなく companies（is_customer=TRUE）から引く。
+    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+    // — 消えていないと、削除済みの顧客の名前で決算取込した行が誤って紐づいてしまう。
     async function findCustomer(name: string) {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
-      const r = await client.query('SELECT id FROM customers WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
+      const r = await client.query(
+        `SELECT co.id FROM companies co
+         WHERE co.is_customer = TRUE AND co.name=$1 AND co.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+         LIMIT 1`,
+        [name],
+      );
       const id = r.rows[0]?.id || null; cache.customers.set(name, id); return id;
     }
     async function findProjectByGls(gls: string) {
@@ -653,9 +663,15 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       // **`companies` にも紐づける**（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
       // ここで入れないとこの会社の案件だけグループ外のまま残る
-      const nid = await createCustomerRecord(
+      //
+      // `createCustomerRecord` は `customers.id` を返すが、Phase 3-2a 以降
+      // customer_id は `companies.id` を指すので、作った customers 行の
+      // company_id を引き直して使う
+      const cid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
+      const cr = await client.query('SELECT company_id FROM customers WHERE id=$1', [cid]);
+      const nid = cr.rows[0]?.company_id as string;
       cache.customers.set(name, nid); report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
@@ -935,7 +951,7 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
     if (scopes.includes('revenues')) {
       const r = await client.query(
         `SELECT r.id, r.amount, r.recognition_date, r.notes, r.created_at, r.tax_category, p.gls_number, c.name AS cname
-         FROM revenues r JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id
+         FROM revenues r JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id
          WHERE r.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({

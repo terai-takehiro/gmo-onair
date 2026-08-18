@@ -56,7 +56,7 @@ router.get('/estimate/:projectId', async (req, res) => {
 
   const project = await queryOne(
     `SELECT p.*, c.name as customer_name FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.id = ? AND p.deleted_at IS NULL`,
     [projectId]
   ) as Record<string, any> | undefined;
@@ -130,7 +130,7 @@ router.get('/invoice/:invoiceGroupId', async (req, res) => {
     `SELECT ig.*, p.name as project_name, p.gls_number, c.name as customer_name
      FROM invoice_groups ig
      LEFT JOIN projects p ON p.id = ig.project_id
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE ig.id = ? AND ig.deleted_at IS NULL`,
     [invoiceGroupId]
   ) as Record<string, any> | undefined;
@@ -201,7 +201,7 @@ router.get('/performance/:projectId', async (req, res) => {
 
   const project = await queryOne(
     `SELECT p.*, c.name as customer_name FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.id = ? AND p.deleted_at IS NULL`,
     [projectId]
   ) as Record<string, any> | undefined;

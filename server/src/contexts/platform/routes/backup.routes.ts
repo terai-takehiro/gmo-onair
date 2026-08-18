@@ -89,7 +89,7 @@ const SHEETS: SheetDef[] = [
                    p.project_type, p.expected_amount, p.event_start, p.event_end,
                    u.name as assigned_to_name, p.tags, p.lost_reason, p.created_at
             FROM projects p
-            LEFT JOIN customers c ON c.id = p.customer_id
+            LEFT JOIN companies c ON c.id = p.customer_id
             LEFT JOIN users u ON u.id = p.assigned_to
             WHERE p.deleted_at IS NULL
             ORDER BY p.created_at DESC`,
@@ -133,7 +133,7 @@ const SHEETS: SheetDef[] = [
                    r.subtitle, r.status, r.notes
             FROM revenues r
             LEFT JOIN projects p ON p.id = r.project_id
-            LEFT JOIN customers c ON c.id = r.customer_id
+            LEFT JOIN companies c ON c.id = r.customer_id
             WHERE r.deleted_at IS NULL ORDER BY r.recognition_date DESC`,
     columns: [
       { key: 'billing_key', header: '請求キー', width: 16 },

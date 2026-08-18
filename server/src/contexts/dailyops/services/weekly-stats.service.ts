@@ -36,7 +36,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
             ai.requested_by AS ai_requested_by,
             (p.created_by = ? OR ai.audit_id IS NOT NULL) AS is_ai_created
      FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      LEFT JOIN LATERAL (
        SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
@@ -111,7 +111,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
     `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.event_end,
             c.name AS customer_name
      FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
        AND NULLIF(p.event_start, '') IS NOT NULL
        AND p.event_start <= ?

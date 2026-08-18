@@ -61,7 +61,7 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
   const rows = await queryAll(
     `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.expected_amount
      FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL
      ORDER BY p.created_at DESC`
   ) as Record<string, unknown>[];

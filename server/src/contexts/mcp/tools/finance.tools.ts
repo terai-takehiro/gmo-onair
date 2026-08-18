@@ -89,7 +89,7 @@ export function registerFinanceTools(server: McpServer): void {
       const orderBy = buildRevenueOrder(q);
       const joins = `FROM revenues r
          LEFT JOIN projects p ON p.id = r.project_id
-         LEFT JOIN customers c ON c.id = r.customer_id`;
+         LEFT JOIN companies c ON c.id = r.customer_id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;

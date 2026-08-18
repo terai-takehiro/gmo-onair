@@ -163,6 +163,21 @@ APP_IMAGE_DEV=ghcr.io/terai-takehiro/gmo-onair:sha-<旧コミットhash> \
 (こちらは**イメージだけ**が古い状態になり、VPS の checkout や git 履歴とは食い違う。
 恒久的に戻すなら上のタグ再実行を使うこと。)
 
+⚠️ **v4.1.5（Phase 3-2a・顧客系FKを companies へ張り替えた版）以降、
+上の2つのロールバック手順のどちらも使えない**（レビュー指摘・PR #199 P1で表現を訂正）。
+DB マイグレーション（`200_customer_fk_to_companies.sql`）が `customer_id` の値そのものを
+書き換えており、`_migrations` テーブルに実行済みとして記録される（同じファイルは
+再実行されない・後述）。**「Releases のタグで Deploy ワークフローを再実行」は
+コード（イメージ・checkout）だけを戻し、DB には触らない**（`deploy.yml` はマイグレーションの
+逆再生もリストアも行わない）。そのため、イメージだけ・タグ再実行のどちらで戻しても、
+DB は新しい値（`companies.id`）のままで、古いコードが期待する `customers.id` とは
+食い違う（顧客名が消える・案件作成が壊れる）。
+
+**このリリース以降、本番の DB に影響する変更を戻すには、コードを戻すことに加えて
+DB も同時点まで復元する必要がある。** 手順は
+[docs/ops/db-backup-restore.md](ops/db-backup-restore.md)（3時間ごとの自動バックアップ
+からの復元）を使うこと。コードだけ戻す・DBだけ戻すのどちらも単独では正しい状態にならない。
+
 ### GHCR イメージの認証
 
 - push: build ジョブの `GITHUB_TOKEN` (`packages: write`)

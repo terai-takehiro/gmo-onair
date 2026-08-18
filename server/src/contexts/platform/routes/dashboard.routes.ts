@@ -62,7 +62,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
    */
   const AGREEMENT_BASE =
     `FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
        AND p.gls_category = 'A'
        AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL`;
@@ -304,7 +304,7 @@ const OVERDUE_ACTIONS_BASE =
   `FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
-   LEFT JOIN customers c ON c.id = p.customer_id
+   LEFT JOIN companies c ON c.id = p.customer_id
    WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
      AND p.stage NOT IN ('s_completed','e_lost')
      AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
@@ -332,7 +332,7 @@ router.get('/overdue-actions', async (_req, res) => {
 router.get('/recent-projects', async (_req, res) => {
   const rows = await queryAll(
     `SELECT p.*, c.name as customer_name FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
      AND p.event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
      ORDER BY p.event_start LIMIT 10`
@@ -368,7 +368,7 @@ router.get('/sales-board', async (_req, res) => {
                  AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
                  THEN 1 ELSE 0 END AS is_hot
      FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      LEFT JOIN LATERAL (
        SELECT a.activity_type, a.subject, a.activity_date,
               EXISTS (
@@ -457,7 +457,7 @@ router.get('/sales-board', async (_req, res) => {
 // 印が書かれていない古い行も自動で片づきます。**
 const AI_INBOX_BASE =
   `FROM projects p
-   LEFT JOIN customers c ON c.id = p.customer_id
+   LEFT JOIN companies c ON c.id = p.customer_id
    LEFT JOIN users u ON u.id = p.assigned_to
    LEFT JOIN LATERAL (
      SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m

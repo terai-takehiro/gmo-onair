@@ -181,7 +181,7 @@ async function loadUsers(): Promise<{ id: string; name: string }[]> {
 async function loadProjectCandidates(): Promise<ParserProject[]> {
   return (await queryAll(
     `SELECT id, name, COALESCE(gls_number, code) AS code,
-            (SELECT c.name FROM customers c WHERE c.id = p.customer_id) AS customer_name
+            (SELECT c.name FROM companies c WHERE c.id = p.customer_id) AS customer_name
      FROM projects p
      WHERE deleted_at IS NULL AND stage IN ('neta','d_hold','c_proposal','b_verbal','a_won')
      ORDER BY updated_at DESC

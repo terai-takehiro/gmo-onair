@@ -308,17 +308,27 @@ export const inviewService = {
     let customerCreated = false;
     if (!customerId) {
       const key = company || personName;
+      // Phase 3-2a: projects.customer_id は companies.id を直接指すので、
+      // customers ではなく companies（is_customer=TRUE）から名前で引く。
+      // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+      // — 消えていないと、削除済みの顧客の名前で内覧会予約が誤って紐づいてしまう。
       if (company) {
         const found = await queryOne(
-          `SELECT id FROM customers WHERE deleted_at IS NULL AND (name = ? OR short_name = ?) ORDER BY (name = ?) DESC LIMIT 1`,
+          `SELECT co.id FROM companies co
+           WHERE co.deleted_at IS NULL AND co.is_customer = TRUE
+             AND (co.name = ? OR co.short_name = ?)
+             AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+           ORDER BY (co.name = ?) DESC LIMIT 1`,
           [company, company, company],
         ) as any;
         if (found) customerId = String(found.id);
       }
       if (!customerId) {
         // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
-        // グループの印は社名から見立てる（migration 192）
-        customerId = await createCustomerRecord(
+        // グループの印は社名から見立てる（migration 192）。
+        // `createCustomerRecord` は `customers.id` を返すので、作った行の
+        // company_id を引き直して customer_id として使う
+        const cid = await createCustomerRecord(
           {
             name: key || '（内覧会来場者）', contact_name: personName || null,
             email: (reg.email as string) || null,
@@ -327,6 +337,8 @@ export const inviewService = {
           },
           actor.userId,
         );
+        const cr = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as any;
+        customerId = String(cr?.company_id ?? cid);
         customerCreated = true;
       }
     }

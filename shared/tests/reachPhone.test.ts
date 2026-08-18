@@ -35,7 +35,10 @@ const PC_ONLY = read('client', 'src', 'pcOnlyScreens.ts');
 
 describe('お客様の電話番号に辿り着ける', () => {
   it('探すの口が電話番号と担当者を返す', () => {
-    expect(SEARCH_API).toMatch(/SELECT id, name, short_name, phone, contact_name FROM customers/);
+    // Phase 3-2a: 顧客の id 空間を companies.id に揃えたので、customers ではなく
+    // companies（is_customer=TRUE・生きている customers 行がある会社に限る。
+    // PR #199 P2 の2巡目）から返す
+    expect(SEARCH_API).toMatch(/SELECT co\.id, co\.name, co\.short_name, co\.phone, co\.contact_name FROM companies co/);
   });
 
   it('行に押せる番号を出す', () => {

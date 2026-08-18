@@ -94,24 +94,23 @@ export async function primeMoneyRules(): Promise<void> {
  * 取引先ごとの例外。列が NULL = 決めていない（会社のルールに従う）。
  *
  * **正は `companies`**（Phase 3-1・取引先マスター一本化）。`customerId` は
- * まだ `customers.id`（Phase 3-2 で `companies.id` へ FK を張り替えるまでの
- * 橋渡し）なので、`company_id` で1段引く。顧客としての例外は
- * `customer_*` 列（仕入先を兼ねる会社の `vendor_*` 列とは別）
+ * Phase 3-2a 以降 `companies.id` そのもの（`projects.customer_id` 等のFKが
+ * companies を直接指すよう張り替え済み）なので、そのまま引く。顧客としての
+ * 例外は `customer_*` 列（仕入先を兼ねる会社の `vendor_*` 列とは別）
  *
  * ⚠️ **`companies.deleted_at` では絞らない**（レビュー指摘・PR #188 P1）。
- * 取引先マスター（`companies`）を削除しても、紐づく顧客（`customers`）は
- * 意図して削除されないまま残り（`companies.routes.ts` の DELETE は
- * `customers`/`vendors` を連動削除しない）、`GET /customers` や案件・売上の
- * 顧客選択でそのまま使われ続ける。ここで `deleted_at IS NULL` を掛けると、
- * **会社だけ消した瞬間にその顧客の支払例外が消え**、以後の売上作成が
- * 例外の効いていない期日で静かに登録されてしまう
+ * 取引先マスター（`companies`）を削除しても、紐づく顧客としての参照
+ * （案件・売上の `customer_id`）はそのまま残り続けるので、ここで
+ * `deleted_at IS NULL` を掛けると、**会社だけ消した瞬間にその顧客の
+ * 支払例外が消え**、以後の売上作成が例外の効いていない期日で
+ * 静かに登録されてしまう
  */
 async function customerException(customerId: string | null | undefined): Promise<Partial<DueDateRule> | null> {
   if (!customerId) return null;
   const row = await queryOne(
     `SELECT customer_closing_day AS closing_day, customer_payment_months AS payment_months,
             customer_payment_day AS payment_day
-       FROM companies WHERE id = (SELECT company_id FROM customers WHERE id = ?)`,
+       FROM companies WHERE id = ?`,
     [customerId],
   ) as Record<string, unknown> | null;
   if (!row) return null;

@@ -52,7 +52,7 @@ const REVENUES_CONFIG: ResourceConfig = {
     columns: [{ key: 'col', header: '項目', width: 20 }, { key: 'desc', header: '説明', width: 60 }],
     rows: [
       { col: '案件コード/GLS', desc: '【必須】projectsテーブルのcodeまたはgls_numberと一致' },
-      { col: '顧客名', desc: '【必須】customersテーブルのnameと一致' },
+      { col: '顧客名', desc: '【必須】取引先マスター(companies, 顧客)のnameと一致' },
       { col: '税区分', desc: 'tax10 (10%) / tax8 (軽減税率) / exempt (非課税)。日本語OK' },
       { col: 'エピソードコード', desc: '任意 — 空欄なら案件全体の売上扱い' },
     ],
@@ -65,7 +65,7 @@ const REVENUES_CONFIG: ResourceConfig = {
     FROM revenues r
     LEFT JOIN projects p ON p.id = r.project_id
     LEFT JOIN episodes e ON e.id = r.episode_id
-    LEFT JOIN customers c ON c.id = r.customer_id
+    LEFT JOIN companies c ON c.id = r.customer_id
     LEFT JOIN users u ON u.id = r.assigned_to
     WHERE r.deleted_at IS NULL ORDER BY r.recognition_date DESC`,
   buildExportQuery: (q) => {
@@ -80,7 +80,7 @@ const REVENUES_CONFIG: ResourceConfig = {
         FROM revenues r
         LEFT JOIN projects p ON p.id = r.project_id
         LEFT JOIN episodes e ON e.id = r.episode_id
-        LEFT JOIN customers c ON c.id = r.customer_id
+        LEFT JOIN companies c ON c.id = r.customer_id
         LEFT JOIN users u ON u.id = r.assigned_to
         ${where} ORDER BY ${orderBy}`,
       params,
@@ -89,7 +89,14 @@ const REVENUES_CONFIG: ResourceConfig = {
   preloadLookups: async (client) => {
     const projects = await client.query('SELECT id, code, gls_number FROM projects WHERE deleted_at IS NULL');
     const episodes = await client.query('SELECT id, episode_code FROM episodes WHERE deleted_at IS NULL');
-    const customers = await client.query('SELECT id, name FROM customers WHERE deleted_at IS NULL');
+    // Phase 3-2a: revenues.customer_id は companies.id を直接指すので companies から引く。
+    // **customers 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+    // — 消えていないと、削除済みの顧客の名前で取込んだ行が誤って紐づいてしまう。
+    const customers = await client.query(
+      `SELECT co.id, co.name FROM companies co
+       WHERE co.is_customer = TRUE AND co.deleted_at IS NULL
+         AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)`,
+    );
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     const projMap = new Map<string, string>();
     for (const r of projects.rows) {

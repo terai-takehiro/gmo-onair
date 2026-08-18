@@ -58,9 +58,18 @@ router.get('/', requireAuth, async (req, res) => {
          * 差し替わるので、**外から電話をかけたい人は番号に辿り着けません**
          * （仕入先は `/budget/vendors` を開けるのに、お客様だけ道が無い）。
          * 探すの行に番号を出せば、**画面を開かずに答えになります**。
+         *
+         * Phase 3-2a: `/sales/customers/:id` の id 空間は `companies.id` に
+         * 揃えたので、ここも `customers` ではなく `companies`（`is_customer = TRUE`）
+         * から返す（この検索結果の id をそのままリンク先に使えるように）。
+         * **`customers` 行が生きている会社に限る**（レビュー指摘・PR #199 P2 の2巡目）
+         * — 消えていないと、削除済みの顧客がこの全体検索に残り続けてしまう。
          */
-        `SELECT id, name, short_name, phone, contact_name FROM customers
-          WHERE (name ILIKE ? ESCAPE '\\' OR short_name ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 5`,
+        `SELECT co.id, co.name, co.short_name, co.phone, co.contact_name FROM companies co
+          WHERE co.is_customer = TRUE AND (co.name ILIKE ? ESCAPE '\\' OR co.short_name ILIKE ? ESCAPE '\\')
+          AND co.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM customers cu WHERE cu.company_id = co.id AND cu.deleted_at IS NULL)
+          LIMIT 5`,
         [like, like]
       )
     : [];

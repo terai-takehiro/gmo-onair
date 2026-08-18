@@ -12,6 +12,7 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision, recordProjectAccepted } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
+import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
 import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
 import {
@@ -117,7 +118,7 @@ async function resolveCustomerType(
 ): Promise<CustomerType> {
   if (typeof customerId !== 'string' || !customerId) return normalizeCustomerType(fallback);
   const row = await queryOne(
-    'SELECT is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL',
+    'SELECT is_gmo_group FROM companies WHERE id = ? AND deleted_at IS NULL',
     [customerId],
   ) as { is_gmo_group?: boolean } | null;
   if (!row) return normalizeCustomerType(fallback);
@@ -545,7 +546,7 @@ export class ProjectService {
       orderBy = `${jaCol} ${sortDir}${nullsClause}`;
     }
 
-    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
+    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN companies c ON c.id = p.customer_id ${where}`, params)) as any).c;
     // is_ai_created は created_by=mcpActor (静的キー) OR 監査ログ照合 (OAuth 本人名義でも検出)。
     // SELECT 句の ? が最初のプレースホルダになるため params の先頭に mcpActorId を置く。
     const rows = await queryAll(
@@ -560,7 +561,7 @@ export class ProjectService {
        memo.description as memo_excerpt,
        GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
        LEFT JOIN LATERAL (
          SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
@@ -582,7 +583,7 @@ export class ProjectService {
      */
     const stageCountRows = await queryAll(
       `SELECT p.stage, COUNT(*)::int AS n
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        ${whereWithoutStage} GROUP BY p.stage`,
       paramsWithoutStage
     ) as { stage: string; n: number }[];
@@ -603,7 +604,7 @@ export class ProjectService {
        -- 一覧と**同じ計算**を使う（写すと、同じ案件が画面によって違う額になる）
        COALESCE(est.amount, 0) as estimate_amount
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
        ${MEMO_LATERAL}
        ${ESTIMATE_AMOUNT_LATERAL}
@@ -790,6 +791,10 @@ export class ProjectService {
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない。直接 API / MCP から仕入先・販管費
+    // 支払先の company_id を渡せてしまうのを防ぐ（レビュー指摘・PR #199 P2 の2巡目）
+    await assertCustomerCompanyId(customer_id);
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
@@ -1110,6 +1115,10 @@ export class ProjectService {
      * （`resolveCustomerType` の控えに `existing.customer_type` を渡す）。
      */
     const targetCustomer = customer_id === undefined ? existing.customer_id : customer_id;
+    // 新しく渡された customer_id だけ確かめる（レビュー指摘・PR #199 P2 の2巡目・
+    // create() と同じ理由）。既存値（`existing.customer_id`）は再検証しない —
+    // 過去に付いたロールが後から外れた行まで更新のたびに弾くと、無関係な直しまで止まる
+    if (customer_id !== undefined) await assertCustomerCompanyId(customer_id);
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。
@@ -1780,7 +1789,7 @@ export class ProjectService {
   async getGlsProjects() {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
        ORDER BY p.gls_number DESC`
     );

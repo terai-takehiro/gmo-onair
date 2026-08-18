@@ -45,7 +45,10 @@ describe('プロジェクト管理が使える', () => {
     // `/customers` は `sales` を要求する（#67）
     expect(GPM_ROUTES).toMatch(/router\.get\('\/customers', \.\.\.canRead/);
     // **返すのは名前だけ** — 連絡先・備考まで広げない
-    expect(GPM_ROUTES).toMatch(/SELECT id, name, short_name FROM customers/);
+    // Phase 3-2a: gpm_projects.customer_id は companies.id を直接指すので、
+    // customers ではなく companies（is_customer=TRUE・生きている customers 行が
+    // ある会社に限る。PR #199 P2 の2巡目）から返す
+    expect(GPM_ROUTES).toMatch(/SELECT co\.id, co\.name, co\.short_name FROM companies co\s+WHERE co\.is_customer = TRUE/);
     const q = read('client', 'src', 'contexts', 'gpm', 'queries.ts');
     expect(q).toMatch(/api\.get\('\/gpm\/customers'\)/);
     expect(q).not.toMatch(/api\.get\('\/customers'/);

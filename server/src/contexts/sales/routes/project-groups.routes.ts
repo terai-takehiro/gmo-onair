@@ -45,7 +45,7 @@ router.get('/:id', async (req, res) => {
     `SELECT p.id, p.gls_number, p.name, p.stage, c.name as customer_name
      FROM project_group_members pgm
      JOIN projects p ON p.id = pgm.project_id AND p.deleted_at IS NULL
-     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN companies c ON c.id = p.customer_id
      WHERE pgm.group_id = ?
      ORDER BY p.gls_number`, [req.params.id]);
 
@@ -70,7 +70,7 @@ router.get('/:id', async (req, res) => {
     `SELECT r.*, p.name as project_name, p.gls_number, c.name as customer_name
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
-     LEFT JOIN customers c ON c.id = r.customer_id
+     LEFT JOIN companies c ON c.id = r.customer_id
      WHERE r.group_id = ? AND r.deleted_at IS NULL
      ORDER BY r.created_at DESC`, [req.params.id]);
 
@@ -245,7 +245,7 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
   }
 
   const row = await queryOne(
-    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`,
+    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN companies c ON c.id = r.customer_id WHERE r.id = ?`,
     [revenueId]
   ) as any;
   row.items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [revenueId]);
@@ -359,7 +359,7 @@ router.put('/:id/revenues/:revenueId', requirePermission('sales', 'editor'), asy
   }
 
   const row = await queryOne(
-    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`,
+    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN companies c ON c.id = r.customer_id WHERE r.id = ?`,
     [req.params.revenueId]
   ) as any;
   row.items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.revenueId]);
