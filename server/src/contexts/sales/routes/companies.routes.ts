@@ -12,49 +12,64 @@ router.use(requireAuth);
 
 const permissionOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 } as const;
 
+type PaymentTermKey =
+  | 'customer_closing_day' | 'customer_payment_day' | 'vendor_payment_day'
+  | 'customer_payment_months' | 'vendor_payment_months';
+
 /**
- * 支払条件の例外を保存前に検査する（レビュー指摘・PR #188 P2）。
- *
- * DB の CHECK 制約（migration 196）と**同じ範囲**を先に見て、範囲外なら
- * 分かりやすい 400 で止める。ここを素通しすると `dueDateOf` に負数や
- * 極端に大きい月数が渡り、壊れた期日（1月に -1 か月で 0 月目のような日付）を
- * 作ってしまう。DB の CHECK は「アプリを経由しない書き込み」への最後の壁として残す
- * （2つの守りを同じ範囲に揃えないと、片方だけ緩い側で穴になる）。
- */
-/**
- * `v` が「整数として書かれた値」かを見る。**空文字列・小数・NaN はここで弾く**
- * （レビュー指摘・PR #190 P2）。`Number('')` は `0`、`Number('1.5')` は
- * 範囲内の小数になり、そのまま範囲チェックだけ通すと INTEGER 列への
- * INSERT で Postgres が例外を返し、意図した 400 ではなく素の 500 になる。
+ * `v` が「整数として書かれた値」かを見る。**空文字列・小数・NaN・真偽値はここで弾く**
+ * （レビュー指摘・PR #190 P2）。`Number('')` は `0`、`Number(false)` も `0`、
+ * `Number('1.5')` は範囲内の小数になり、そのまま範囲チェックだけ通すと
+ * INTEGER 列への INSERT で Postgres が例外を返し、意図した 400 ではなく
+ * 素の 500 になる。**数値と数字の文字列だけ**を受け付ける
  */
 function toValidInt(v: unknown): number | null {
+  if (typeof v !== 'number' && typeof v !== 'string') return null;
   if (typeof v === 'string' && v.trim() === '') return null;
   const n = Number(v);
   return Number.isInteger(n) ? n : null;
 }
 
-function validatePaymentTerms(body: Record<string, unknown>): void {
-  const checkDay = (key: string) => {
+/**
+ * 支払条件の例外を保存前に検査し、**書き込みに使う正規化済みの値**を返す
+ * （レビュー指摘・PR #188 P2 / #190 P2）。
+ *
+ * DB の CHECK 制約（migration 196/198）と**同じ範囲**を先に見て、範囲外なら
+ * 分かりやすい 400 で止める。ここを素通しすると `dueDateOf` に負数や
+ * 極端に大きい月数が渡り、壊れた期日（1月に -1 か月で 0 月目のような日付）を
+ * 作ってしまう。DB の CHECK は「アプリを経由しない書き込み」への最後の壁として残す
+ * （2つの守りを同じ範囲に揃えないと、片方だけ緩い側で穴になる）。
+ *
+ * ⚠️ **検査を通しただけの生の値を書き込みに使わないこと。** `toValidInt` が
+ * 受け付けても元の値（文字列 "3" 等）をそのまま params に渡すと、検査と
+ * 実際に保存される値がずれる。ここで返した数値だけを使う
+ */
+function validatePaymentTerms(body: Record<string, unknown>): Record<PaymentTermKey, number | null | undefined> {
+  const dayKeys: PaymentTermKey[] = ['customer_closing_day', 'customer_payment_day', 'vendor_payment_day'];
+  const monthKeys: PaymentTermKey[] = ['customer_payment_months', 'vendor_payment_months'];
+  const out = {} as Record<PaymentTermKey, number | null | undefined>;
+
+  for (const key of dayKeys) {
     const v = body[key];
-    if (v === undefined || v === null) return;
+    if (v === undefined) { out[key] = undefined; continue; }
+    if (v === null) { out[key] = null; continue; }
     const n = toValidInt(v);
     if (n === null || n < 1 || n > 31) {
       throw new AppError(400, 'VALIDATION_ERROR', `${key} は 1〜31 の整数にしてください`);
     }
-  };
-  const checkMonths = (key: string) => {
+    out[key] = n;
+  }
+  for (const key of monthKeys) {
     const v = body[key];
-    if (v === undefined || v === null) return;
+    if (v === undefined) { out[key] = undefined; continue; }
+    if (v === null) { out[key] = null; continue; }
     const n = toValidInt(v);
     if (n === null || n < 0 || n > 6) {
       throw new AppError(400, 'VALIDATION_ERROR', `${key} は 0〜6 の整数にしてください`);
     }
-  };
-  checkDay('customer_closing_day');
-  checkDay('customer_payment_day');
-  checkDay('vendor_payment_day');
-  checkMonths('customer_payment_months');
-  checkMonths('vendor_payment_months');
+    out[key] = n;
+  }
+  return out;
 }
 
 async function hasPermission(
@@ -203,11 +218,13 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
     is_gmo_group,
-    customer_closing_day, customer_payment_months, customer_payment_day,
-    vendor_payment_months, vendor_payment_day,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
-  validatePaymentTerms(req.body ?? {});
+  // **検査を通した正規化済みの値を使う**（生の req.body の値は使わない・レビュー指摘 PR #190 P2）
+  const {
+    customer_closing_day, customer_payment_months, customer_payment_day,
+    vendor_payment_months, vendor_payment_day,
+  } = validatePaymentTerms(req.body ?? {});
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (is_vendor && !canEditBudget) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
@@ -292,14 +309,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     'SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL', [req.params.id]
   ) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
-  validatePaymentTerms(req.body ?? {});
+  // **検査を通した正規化済みの値を使う**（生の req.body の値は使わない・レビュー指摘 PR #190 P2）
+  const {
+    customer_closing_day, customer_payment_months, customer_payment_day,
+    vendor_payment_months, vendor_payment_day,
+  } = validatePaymentTerms(req.body ?? {});
 
   const {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
     is_gmo_group,
-    customer_closing_day, customer_payment_months, customer_payment_day,
-    vendor_payment_months, vendor_payment_day,
   } = req.body;
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (!canEditBudget && (existing.is_vendor || is_vendor || vendor_type !== undefined || invoice_registration_number !== undefined)) {
