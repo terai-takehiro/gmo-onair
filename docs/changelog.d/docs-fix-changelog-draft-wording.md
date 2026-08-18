@@ -1,0 +1,1 @@
+**PR #195のCodexレビュー指摘を反映し記述を修正した**。①棚卸し（`docs/reviews/codex-findings-v4.md`）に、`v4-progress.mjs`が`version-history.md`を一切参照しない旨を明記していなかった。②PR #194のchangelog下書きに残っていた古い「build/lint/typecheckが横に9倍」という表現を修正した（そのままだとリリースノートに誤った記述が昇格してしまうため）。③**検証**: ドキュメントのみの変更。
