@@ -257,16 +257,18 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   if (is_customer) {
     const cid = uuidv4();
     await execute(
-      // **支払条件の例外も customers 側へ写す**（レビュー指摘・PR #190 P2）。
-      // 正は companies だが、旧イメージへ戻すロールバックの間は旧コードが
-      // customers.closing_day 等を直接読む。書く先を companies だけにすると、
-      // ロールバック中に「新しく作った顧客の例外が消えている」ことになる
+      // Phase 3-3-4: 支払条件の例外は companies だけに書く（上の INSERT INTO companies）。
+      // 以前は customers 側にも写していた（旧イメージへ戻すロールバックの間、旧コードが
+      // customers.closing_day 等を直接読むための保険）が、migration 200/201 以降
+      // イメージだけを戻すロールバックは既に使えなくなっており（本番を戻す手段は
+      // DBバックアップからの復元のみ）、customers.closing_day/payment_months/payment_day を
+      // 読むコードも現存しない。customers テーブル削除（Phase 3-3-5）前にこの書き込みを
+      // 止めておかないと、列削除（Phase 3-3-6）で undefined_column になる
       `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-         is_gmo_group, closing_day, payment_months, payment_day, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         is_gmo_group, company_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [cid, name, short_name || null, contact_name || null, email || null, phone || null,
        address || null, notes || null, groupFlag,
-       customer_closing_day ?? null, customer_payment_months ?? null, customer_payment_day ?? null,
        id, req.user!.id]
     );
   }
@@ -275,13 +277,12 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   if (is_vendor) {
     const vid = uuidv4();
     await execute(
-      // 支払条件の例外も vendors 側へ写す（顧客側と同じ理由）
+      // Phase 3-3-4: 支払条件の例外は companies だけに書く（顧客側と同じ理由・上記コメント参照）
       `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-         invoice_registration_number, notes, payment_months, payment_day, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         invoice_registration_number, notes, company_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [vid, name, contact_name || null, email || null, phone || null, address || null,
        vendor_type || null, invoice_registration_number || null, notes || null,
-       vendor_payment_months ?? null, vendor_payment_day ?? null,
        id, req.user!.id]
     );
   }
@@ -361,24 +362,26 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
 
   // 紐付き customers / vendors の基本情報も同期
   // **印もここで写す**（正は `customers` 側。写さないと画面のチェックが案件に効かない）
+  // Phase 3-3-4: 支払条件の例外（closing_day/payment_months/payment_day）は
+  // companies だけに書く（上の UPDATE companies）。理由は POST 側と同じ
+  // （customers/vendors の同列を読むコードは無く、旧イメージへ戻すロールバックも
+  // migration 200/201 以降使えない）
   await execute(
     `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
-       notes=?, is_gmo_group=?, closing_day=?, payment_months=?, payment_day=?,
+       notes=?, is_gmo_group=?,
        updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, notes || null, groupFlag,
-     resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
      req.user!.id, req.params.id]
   );
   if (canEditBudget) {
     await execute(
       `UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-         invoice_registration_number=?, notes=?, payment_months=?, payment_day=?,
+         invoice_registration_number=?, notes=?,
          updated_at=NOW(), updated_by=?
          WHERE company_id=? AND deleted_at IS NULL`,
       [name, contact_name || null, email || null, phone || null, address || null,
        vendor_type || null, invoice_registration_number || null, notes || null,
-       resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
        req.user!.id, req.params.id]
     );
   }
@@ -390,13 +393,13 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     );
     if (!linked) {
       const cid = uuidv4();
+      // Phase 3-3-4: 支払条件の例外は companies 側にのみ既に入っている（上の UPDATE companies）
       await execute(
         `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-           is_gmo_group, closing_day, payment_months, payment_day, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           is_gmo_group, company_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [cid, name, short_name || null, contact_name || null, email || null, phone || null,
          address || null, notes || null, groupFlag,
-         resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
          req.params.id, req.user!.id]
       );
     }
@@ -407,13 +410,13 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     );
     if (!linked) {
       const vid = uuidv4();
+      // Phase 3-3-4: 支払条件の例外は companies 側にのみ既に入っている（上の UPDATE companies）
       await execute(
         `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-           invoice_registration_number, notes, payment_months, payment_day, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           invoice_registration_number, notes, company_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [vid, name, contact_name || null, email || null, phone || null, address || null,
          vendor_type || null, invoice_registration_number || null, notes || null,
-         resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
          req.params.id, req.user!.id]
       );
     }
