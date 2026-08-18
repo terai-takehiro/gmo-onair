@@ -140,8 +140,16 @@ router.post('/files/:id/register', async (req, res) => {
   // （`xpoint-import.service.ts` の `matchVendor` と揃える）
   let createdVendorId: string | null = null;
   if (new_vendor?.name) {
+    // ⚠️ **生きている仕入先ロールの会社だけを再利用し、`vendors.name`（実際の
+    // 書き込み先＝正）と突き合わせる**（レビュー指摘・PR #207 3巡目 / #202 P1）。
+    // `co.name` で突き合わせると、`budget:editor`（`sales:owner`無し）が付けた
+    // 新しい名前では見つからず重複作成してしまう（`companies` は古いまま）。
+    // ロール・削除の生存確認だけ `companies` を見て、名前の一致は `vendors` で行う
     const existing = (await queryOne(
-      'SELECT company_id FROM vendors WHERE name = ? AND deleted_at IS NULL LIMIT 1',
+      `SELECT co.id AS company_id FROM companies co
+       JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
+       WHERE co.is_vendor = TRUE AND co.deleted_at IS NULL AND v.name = ?
+       LIMIT 1`,
       [new_vendor.name]
     )) as any;
     if (existing?.company_id) {
@@ -200,8 +208,11 @@ router.post('/files/:id/register', async (req, res) => {
     if (!s.recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
     // `vendor_id` は任意項目。渡ってきた（`createdVendorId` 経由ではない）ときだけ確かめる
     // （上の仕入と同じ理由・`sga.routes.ts` の POST と同じ形）
+    // `createdVendorId` 経由（`new_vendor` の再利用）も検証する。上の再利用ロジックが
+    // 生きている仕入先ロールの会社だけを返すよう直したので今は必ず通るはずだが、
+    // ここで確かめておけば以後どちらかが緩んでも検知できる
     const sgaVendorId = s.vendor_id || createdVendorId || null;
-    if (s.vendor_id) await assertVendorCompanyId(sgaVendorId);
+    if (sgaVendorId) await assertVendorCompanyId(sgaVendorId);
     const billing_key = generateSgaBillingKey(s.recognition_date, s.tax_category || 'tax10');
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();

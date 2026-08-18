@@ -75,18 +75,24 @@ router.get('/', requireAuth, async (req, res) => {
     : [];
 
   /*
-   * Phase 3-2b: `/budget/vendors/:id` の id 空間は `companies.id` に揃えたので、
-   * ここも `vendors` ではなく `companies`（`is_vendor = TRUE`）から返す
-   * （`customers` の検索結果と同じ理由・上のコメント参照）。
-   * **`vendors` 行が生きている会社に限る** — 消えていないと、削除済みの仕入先が
-   * この全体検索に残り続けてしまう。
+   * `customers` の検索結果とは違い、この結果の `id` はどこにもリンクしていない
+   * （`/budget/vendors` を開くだけ・`SearchPage.tsx`/`SearchPalette.tsx`）ので
+   * `companies.id` に揃える理由が無い。**名前・区分は `vendors` を読む**（レビュー指摘・
+   * PR #202 P1 の2巡目）— `budget:editor` は `sales:owner` を持たなくても
+   * `vendors` の名前・区分を直せるので、`companies` から読むと保存直後も
+   * この検索結果だけ古い名前のまま残っていた。
+   *
+   * ⚠️ **仕入先ロールが外れた・削除済みの会社は除く**（レビュー指摘・PR #207 3巡目）。
+   * `vendors` を単体で読むだけだと、`companies` 側で `is_vendor` を外したり
+   * 論理削除しても `vendors` の子行はそのまま残るため、この全体検索にだけ
+   * 生き続けてしまう（`companies.routes.ts` の削除・ロール解除は `vendors` を消さない）。
    */
   const vendors = can('vendors')
     ? await queryAll(
-        `SELECT co.id, co.name, co.vendor_type FROM companies co
-          WHERE co.is_vendor = TRUE AND (co.name ILIKE ? ESCAPE '\\' OR co.vendor_type ILIKE ? ESCAPE '\\')
-          AND co.deleted_at IS NULL
-          AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)
+        `SELECT v.id, v.name, v.vendor_type
+           FROM vendors v
+           JOIN companies co ON co.id = v.company_id AND co.is_vendor = TRUE AND co.deleted_at IS NULL
+          WHERE (v.name ILIKE ? ESCAPE '\\' OR v.vendor_type ILIKE ? ESCAPE '\\') AND v.deleted_at IS NULL
           LIMIT 5`,
         [like, like]
       )

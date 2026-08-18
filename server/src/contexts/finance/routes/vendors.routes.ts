@@ -54,7 +54,12 @@ router.get('/', async (req, res) => {
   const sgaPayeeOnly = req.query.sga_payee_only === 'true';
   let where = 'WHERE co.deleted_at IS NULL AND co.is_vendor = TRUE';
   const params: unknown[] = [];
-  if (search) { where += ` AND (co.name ILIKE ? OR co.vendor_type ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  // ⚠️ **検索は `vendors` の現在値に対して行う**（`companies` ではない・レビュー指摘
+  // PR #205 P2）。`VENDOR_FIELDS` で名前・区分の表示は `vendors` から読むようにしたのに、
+  // ここを `co.name`/`co.vendor_type` のままにすると、`budget:editor`（`sales:owner`無し）
+  // が付けた新しい名前で検索しても0件になり（`companies` は古いまま）、逆に古い名前では
+  // 検索できてしまう（表示と検索の元が食い違う）
+  if (search) { where += ` AND (v.name ILIKE ? OR v.vendor_type ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   // 販管費支払先のみフィルタ (companies.is_sga_payee=TRUE に紐付いた vendor のみ)
   if (sgaPayeeOnly) { where += ` AND co.is_sga_payee = TRUE`; }
   const total = ((await queryOne(`SELECT COUNT(*) as c ${VENDOR_JOIN} ${where}`, params)) as any).c;
@@ -89,7 +94,7 @@ router.get('/', async (req, res) => {
           WHERE s.vendor_id = co.id AND s.deleted_at IS NULL
             AND s.recognition_date BETWEEN ? AND ?
        ) sg ON TRUE
-     ${where} ORDER BY co.name LIMIT ? OFFSET ?`,
+     ${where} ORDER BY v.name LIMIT ? OFFSET ?`,
     [yearStart, yearEnd, yearStart, yearEnd, ...params, limit, offset]
   );
   res.json({ ...paginatedResponse(rows, total, page, limit), ytd_year: new Date().getFullYear() });

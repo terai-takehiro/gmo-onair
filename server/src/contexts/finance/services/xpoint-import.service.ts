@@ -261,9 +261,13 @@ async function matchProjects(units: RegistrationUnit[]): Promise<UnitWithMatch[]
 /** 二重登録チェック: 同じ精算方法 + 精算番号の既存レコード */
 async function findDuplicates(method: string, settlementNumber: string | null): Promise<{ purchases: DuplicateRow[]; sga: DuplicateRow[] }> {
   if (!settlementNumber) return { purchases: [], sga: [] };
+  // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+  // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
   const purchases = (await queryAll(
-    `SELECT pu.id, pu.amount, pu.recognition_date, v.name as vendor_name, pu.description
-     FROM purchases pu LEFT JOIN companies v ON v.id = pu.vendor_id
+    `SELECT pu.id, pu.amount, pu.recognition_date, COALESCE(v.name, vco.name) as vendor_name, pu.description
+     FROM purchases pu
+     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+     LEFT JOIN companies vco ON vco.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL AND pu.settlement_method = ? AND pu.settlement_number = ?`,
     [method, settlementNumber]
   )) as unknown as DuplicateRow[];
