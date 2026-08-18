@@ -353,6 +353,8 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #192 | P2 | `198_payment_terms_compat_repair.sql` | 198は「旧列をcompaniesから埋め直す」→「companiesの範囲外月数を正規化」の順で、companiesに範囲外の値が残っていた環境ではその壊れた値が正規化前にcustomers/vendorsへコピーされ、旧列にだけ残り続けてロールバック後も壊れた期日を作り続ける | ⭕️ #192（migration 199 でcustomers/vendorsの旧列を直接正規化） |
+| #192 | P2 | `companies.routes.ts` | 支払条件の検証が `Number(false)===0` のような真偽値を数値として受理し、検査は通るが実際のINSERTでPostgresが型エラー（意図しない500）を返す | ⭕️ #192（`toValidInt()` が number/string 型以外を拒否。あわせて検査を通した正規化済みの値を書き込みに使うよう修正） |
 | #190 | **P1** | `196_company_payment_terms.sql` | `runMigrations()` は `_migrations` に記録済みのファイル名を二度と実行しない仕組みなので、PR #190 で196の内容を書き換えても**196を実行したことがある環境（`main`へのマージで自動デプロイされる検証環境を含む）には一切届かない**。旧列を消さない改修・月数の範囲チェックがそこだけ欠けたままになる | ⭕️ 同PR内（migration 198 を新設し、`IF NOT EXISTS`/条件つきUPDATEで両方の環境に安全に届く形にした） |
 | #190 | P2 | `companies.routes.ts` | 支払条件の検証が `Number(v)` だけを見ており、空文字列（`Number('')===0`）や小数（`1.5`）が範囲チェックを通過したあとINTEGER列へのINSERTでPostgresが例外を返し、意図した400ではなく素の500になっていた | ⭕️ 同PR内（`toValidInt()` で整数判定を追加） |
 | #190 | P2 | `196_company_payment_terms.sql` | 月数チェックを足す前に、migration 175時点で範囲チェックの無かった既存の範囲外値（customers/vendors→companiesへ移った値）を正規化していなかった。新規デプロイで既存の範囲外legacy値があると、チェック追加そのものがトランザクション内で失敗し移行が止まる | ⭕️ 同PR内（migration 198 でチェックを足す前に範囲外値をNULLへ正規化） |
