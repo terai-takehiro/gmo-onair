@@ -401,15 +401,19 @@ export const projectService = {
     await assertProject(id);
     if (typeof input.stage === 'string') assertIn(input.stage, STAGES, 'stage');
     if (typeof input.gpm_kind === 'string') assertIn(input.gpm_kind, GPM_KINDS, 'gpm_kind');
-    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
-    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #200 P2・create() と同じ理由）
-    if (typeof input.customer_id === 'string' && input.customer_id) {
-      await assertCustomerCompanyId(input.customer_id);
-    }
     // 段が動いたかを**書き換える前に**見る（履歴と発番の判断に要る）
     const before = await queryOne(
-      'SELECT stage, gls_number, gls_category FROM projects WHERE id = ?', [id],
-    ) as { stage: string | null; gls_number: string | null; gls_category: string | null };
+      'SELECT stage, gls_number, gls_category, customer_id FROM projects WHERE id = ?', [id],
+    ) as { stage: string | null; gls_number: string | null; gls_category: string | null; customer_id: string | null };
+    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #200 P2・create() と同じ理由）。
+    // **実際に変わったときだけ確かめる**（レビュー指摘・PR #201 P1）— 詳細画面の
+    // 段変更・直すダイアログはどちらも今の customer_id を送り直すので、変化の有無を
+    // 見ないと、あとから顧客ロールを外された会社のプロジェクトは無関係な直しまで
+    // 止まってしまう（段を進められない・他の項目も直せない）
+    if (typeof input.customer_id === 'string' && input.customer_id && input.customer_id !== before.customer_id) {
+      await assertCustomerCompanyId(input.customer_id);
+    }
     const nextStage = typeof input.stage === 'string' ? input.stage : null;
     const stageChanged = !!nextStage && nextStage !== before.stage;
     await execute(

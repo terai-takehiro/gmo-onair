@@ -298,10 +298,10 @@ export class ActivityLogService {
    */
   async update(id: string, data: Record<string, unknown>, userId?: string | null) {
     const existing = await queryOne(
-      `SELECT id, ai_output_id, ai_formatted, next_action, next_action_short
+      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_short
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
     ) as {
-      id: string; ai_output_id: string | null; ai_formatted: boolean;
+      id: string; customer_id: string | null; ai_output_id: string | null; ai_formatted: boolean;
       next_action: string | null; next_action_short: string | null;
     } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
@@ -312,9 +312,13 @@ export class ActivityLogService {
         `知らない活動種別です（${ACTIVITY_TYPES.join(' / ')} のどれか）`);
     }
     // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
-    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目・
-    // create() と同じ理由）。この UPDATE は毎回全置換なので渡された値を毎回確かめる
-    await assertCustomerCompanyId(customer_id);
+    // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）。
+    // **実際に変わったときだけ確かめる**（レビュー指摘・PR #201 P1）— この UPDATE は
+    // 毎回全置換で画面は今の customer_id を送り直すので、変化の有無を見ないと
+    // あとから顧客ロールを外された会社の記録は無関係な直しまで止まってしまう
+    if (customer_id !== existing.customer_id) {
+      await assertCustomerCompanyId(customer_id);
+    }
     // **本文と要点は渡されたときだけ触る。** 欄を持たない古い画面から保存されるだけで
     // AI が整えた本文が消えると、直した人にも気づけない（タグ・登録16項目と同じ壊れ方）
     const sets = [
