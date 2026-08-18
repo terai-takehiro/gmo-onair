@@ -216,15 +216,20 @@ const PURCHASES_CONFIG: ResourceConfig = {
       { col: '精算方法', desc: 'rakuraku / xpoint / other' },
     ],
   },
+  /*
+   * ⚠️ **仕入先名は `vendors` を正としつつ、消えたときは `companies` へ落とす**
+   * （レビュー指摘・PR #207 4巡目・`purchases.routes.ts` と同じ理由）。
+   */
   exportQuery: `
     SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
-           v.name as vendor_name, pu.amount, pu.tax_category, pu.description,
+           COALESCE(v.name, vco.name) as vendor_name, pu.amount, pu.tax_category, pu.description,
            pu.recognition_date, pu.inspection_date, pu.payment_due_date,
            pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
     FROM purchases pu
     LEFT JOIN projects p ON p.id = pu.project_id
     LEFT JOIN episodes e ON e.id = pu.episode_id
-    LEFT JOIN companies v ON v.id = pu.vendor_id
+    LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+    LEFT JOIN companies vco ON vco.id = pu.vendor_id
     LEFT JOIN users u ON u.id = pu.assigned_to
     WHERE pu.deleted_at IS NULL ORDER BY pu.recognition_date DESC`,
   buildExportQuery: (q) => {
@@ -233,13 +238,14 @@ const PURCHASES_CONFIG: ResourceConfig = {
     return {
       sql: `
         SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
-               v.name as vendor_name, pu.amount, pu.tax_category, pu.description,
+               COALESCE(v.name, vco.name) as vendor_name, pu.amount, pu.tax_category, pu.description,
                pu.recognition_date, pu.inspection_date, pu.payment_due_date,
                pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
         FROM purchases pu
         LEFT JOIN projects p ON p.id = pu.project_id
         LEFT JOIN episodes e ON e.id = pu.episode_id
-        LEFT JOIN companies v ON v.id = pu.vendor_id
+        LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+        LEFT JOIN companies vco ON vco.id = pu.vendor_id
         LEFT JOIN users u ON u.id = pu.assigned_to
         ${where} ORDER BY ${orderBy}`,
       params,
@@ -248,14 +254,19 @@ const PURCHASES_CONFIG: ResourceConfig = {
   preloadLookups: async (client) => {
     const projects = await client.query('SELECT id, code, gls_number FROM projects WHERE deleted_at IS NULL');
     const episodes = await client.query('SELECT id, episode_code FROM episodes WHERE deleted_at IS NULL');
-    // Phase 3-2b: purchases.vendor_id は companies.id を直接指すので companies から引く。
-    // **vendors 行が生きている会社に限る**（`revenues.routes.ts` の customers 同型の
-    // preloadLookups と同じ理由）— 消えていないと、削除済みの仕入先の名前で
-    // 取込んだ行が誤って紐づいてしまう。
+    /*
+     * ⚠️ **突き合わせは `vendors.name`（現在の書き込み先＝正）で行う**（レビュー指摘・
+     * PR #207 4巡目）。上のエクスポートは `vendors` の現在名を書き出すのに、ここを
+     * `companies.name`（`budget:editor` が `sales:owner` 無しで直すと古いまま残る）
+     * のままにすると、**書き出した仕入先名をそのまま取り込み直しても
+     * 「マスタに存在しません」で弾かれる**（社名を戻さないと再取込できない）。
+     * ロール・削除の生存確認は `companies`、名前の一致は `vendors` で行う
+     * （`ensureVendor`/`xpoint.routes.ts` の新規仕入先再利用ロジックと同じ形）。
+     */
     const vendors = await client.query(
-      `SELECT co.id, co.name FROM companies co
-       WHERE co.is_vendor = TRUE AND co.deleted_at IS NULL
-         AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`,
+      `SELECT co.id, v.name FROM companies co
+       JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
+       WHERE co.is_vendor = TRUE AND co.deleted_at IS NULL`,
     );
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     const projMap = new Map<string, string>();
