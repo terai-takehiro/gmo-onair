@@ -101,9 +101,31 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * `vendors.id`（移行前の主キー）を `companies.id` に解決する。旧URL・端末の
+ * 「最近見た」履歴・共有リンクに残っている ID を受けたときだけ呼ばれる
+ * （通常は `companies.id` がそのまま見つかるので、ここには来ない）。
+ *
+ * Phase 3-3 着手条件②の互換確認用: どれだけ使われているかを `console.warn` で
+ * 記録する（`docs/reviews/phase3-2-plan.md` 互換確認チェックリスト B 参照・
+ * `customers.routes.ts` の `resolveLegacyCustomerId` と同じ形）。legacy id を
+ * 受け付ける箇所は `findVendorRow`（GET）・`PUT /:id`・`DELETE /:id` の3つが
+ * あり、記録漏れが起きないよう全てここを通す。
+ */
+async function resolveLegacyVendorId(
+  rawId: string, source: 'get' | 'put' | 'delete',
+): Promise<{ id: string; company_id: string } | null> {
+  const legacy = await queryOne(
+    'SELECT id, company_id FROM vendors WHERE id = ? AND deleted_at IS NULL', [rawId],
+  ) as { id: string; company_id: string | null } | null;
+  if (!legacy?.company_id) return null;
+  console.warn(`[vendors] legacy id 経由のアクセス (source=${source}): vendors.id=${rawId} -> companies.id=${legacy.company_id}`);
+  return legacy as { id: string; company_id: string };
+}
+
+/**
  * `companies.id`（正）で引く。見つからなければ**移行前の `vendors.id`**
- * （旧URL・端末の「最近見た」履歴・共有リンクに残っている）として解釈し直し、
- * 見つかればその会社の正規の行を返す（`customers.routes.ts` の `findCustomerRow` と同じ形）。
+ * として解釈し直し（`resolveLegacyVendorId`）、見つかればその会社の
+ * 正規の行を返す（`customers.routes.ts` の `findCustomerRow` と同じ形）。
  */
 async function findVendorRow(rawId: string): Promise<Record<string, unknown> | null> {
   const byCompanyId = await queryOne(
@@ -114,10 +136,8 @@ async function findVendorRow(rawId: string): Promise<Record<string, unknown> | n
   ) as Record<string, unknown> | null;
   if (byCompanyId) return byCompanyId;
 
-  const legacy = await queryOne(
-    'SELECT company_id FROM vendors WHERE id = ? AND deleted_at IS NULL', [rawId],
-  ) as { company_id: string | null } | null;
-  if (!legacy?.company_id) return null;
+  const legacy = await resolveLegacyVendorId(rawId, 'get');
+  if (!legacy) return null;
   return await queryOne(
     `SELECT ${VENDOR_FIELDS}
      ${VENDOR_JOIN}
@@ -167,10 +187,8 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   ) as { id: string } | null;
   let companyId = req.params.id;
   if (!existing) {
-    const legacy = await queryOne(
-      'SELECT id, company_id FROM vendors WHERE id = ? AND deleted_at IS NULL', [req.params.id],
-    ) as { id: string; company_id: string | null } | null;
-    if (legacy?.company_id) {
+    const legacy = await resolveLegacyVendorId(String(req.params.id), 'put');
+    if (legacy) {
       existing = { id: legacy.id };
       companyId = legacy.company_id;
     }
@@ -213,6 +231,17 @@ router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) =
   // vendors 側だけを消していた（companies・顧客ロールは触らない）ので、company_id で
   // vendors 行だけを論理削除する。移行前の vendors.id（旧URL）も受け付ける
   // （PUT と同じ理由・`customers.routes.ts` の DELETE と同じ形）。
+  //
+  // ここは元々ログ用の解決を挟まず直接 UPDATE していた。実際の削除条件
+  // (company_id=? OR id=?) は変えず、legacy id 経由かどうかの記録だけを
+  // 追加する（互換確認チェックリスト B）。company_id で見つかる通常経路では
+  // 余計な問い合わせをしない。
+  const byCompanyId = await queryOne(
+    'SELECT id FROM vendors WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { id: string } | null;
+  if (!byCompanyId) {
+    await resolveLegacyVendorId(String(req.params.id), 'delete');
+  }
   await execute(
     `UPDATE vendors SET deleted_at=NOW(), updated_by=? WHERE deleted_at IS NULL AND (company_id=? OR id=?)`,
     [req.user!.id, req.params.id, req.params.id],
