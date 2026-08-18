@@ -22,11 +22,12 @@ CLAUDE.md 自身が「この節は毎ターン文脈に読み込まれるため�
   応急的に抑えているが、**リリースのたびに1件ずつアーカイブへ移す運用**なので
   `docs/version-history.md` 自体は増える一方で減らない
 - リリースノートの1文が非常に長い（1バージョンで数百〜千字規模、絵文字付き
-  箇条書きで「①②③…⑨」まで続く）ため、**バージョンを1つ上げるだけで
-  CLAUDE.md に数KB単位で文章が増える**
-- この履歴を読む・生成する作業（`node scripts/v4-progress.mjs`、
-  `release:notes` 等）に触れるたびに、1.3MB のファイルを Read/Grep する
-  コストが発生する
+  箇条書きで「①②③…⑨」まで続く）。`collect-changelog.mjs` は3件を超えると
+  4件目を同時にアーカイブへ退避するため CLAUDE.md 自体は累積肥大しないが、
+  **1件あたりの文量が既に大きい**ことがコスト
+- `v4-progress.mjs` は `docs/version-history.md` を読まないため通常実行では
+  影響しない。ただし `release:notes`（内部で `readFileSync`）や、エージェントが
+  調査目的で Read/Grep する場合に**返された本文がそのまま文脈に乗る**のがコスト
 
 ## 3. レビュー指摘の「棚卸し」ファイルも成長し続ける
 
@@ -41,13 +42,10 @@ CLAUDE.md 自身が「この節は毎ターン文脈に読み込まれるため�
 - npm workspaces が **9個**（client / client-daily / client-equipment /
   client-qsheet / client-techsheet / client-live / client-awards / server /
   shared）
-- `build:all` は9ワークスペースすべてを個別ビルド、`typecheck:all` も
-  7クライアント+server を毎回叩く。1タスクで済む変更でも
-  「関連ワークスペースの CLAUDE.md を読む→lint/build/typecheck の出力を
-  読む」を7〜9倍のスケールで踏むことになりやすい
-- `lint` は9個のチェックスクリプト（changelog / fonts / tokens /
-  shared-wiring / file-size / ui-tokens / mobile宣言 / env / links /
-  contrast-tokens）+ eslint の直列実行で、失敗時の出力もすべて文脈に乗る
+- `build:all` は9ワークスペースを個別ビルド、`typecheck:all` は7クライアント
+  +server（9倍ではない）。`lint` は9個のチェックスクリプト+`eslint .`を
+  直列実行するがコマンド自体は1回。実際に文脈コストが横に増えるのは
+  **失敗時の出力を読ませたとき**で、コマンド数の掛け算そのものではない
 
 ## 5. スキル・エージェント運用そのものがトークンを使う設計
 
@@ -70,8 +68,8 @@ CLAUDE.md 自身が「この節は毎ターン文脈に読み込まれるため�
 
 ## まとめ: 効いている順（推定）
 
-1. **`docs/version-history.md` の肥大化**（1.3MB・読む/生成するたびに直撃）
-2. **モノレポの9ワークスペース構成**（ビルド・lint・typecheckが横に9倍）
+1. **`docs/version-history.md` の肥大化**（1.3MB・エージェントが本文をRead/Grepした時に直撃。通常のビルド/リリース処理は内部読み込みのみで文脈に乗らない）
+2. **モノレポの9ワークスペース構成**（コマンド自体は1回だが、失敗時に出力を読ませると規模分のログが乗る）
 3. **CLAUDE.md 本体の34.5KB**（会話の土台として毎ターン乗る固定費）
 4. **pr-watch/ai-feedback-loop の「必ず使う」強制スキル運用**
 5. **codex-findings 棚卸しファイルの追記専用・非削除運用**（82KB）
