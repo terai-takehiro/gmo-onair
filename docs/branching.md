@@ -288,13 +288,21 @@ GITHUB_TOKEN=<token> npm run reviews:debt      # 直近 20 本のマージ済み
 - **`npm run lint` の門にはしていません。** 外の API に依存するものを門にすると、
   **GitHub が重い日にビルドが止まります**。これは**人がマージのあとに見る**ものです
 
-### 見張りの手順（PR を出したあと）
+### 見張りの手順（PR を出したあと）— 必須
 
-CI 失敗とレビュー指摘を**マージまで片づける**手順は
-**[.claude/skills/pr-watch](../.claude/skills/pr-watch/SKILL.md)** にまとめてあります
-（Claude Code では `/pr-watch`）。この棚卸しはその手順の最後の1歩です。
+⚠️ **PR を出したら、その場で見張りを付ける。あとで気が向いたらではない。**
+Claude が PR を作った直後は、必ず `subscribe_pr_activity`（Claude Code では
+`/pr-watch` でも同じ）を呼んでから手を止める。CI 失敗・レビュー指摘は
+**マージかクローズまで片づけ続ける**のが決めごとで、手順は
+**[.claude/skills/pr-watch](../.claude/skills/pr-watch/SKILL.md)** にまとめてあります。
+この棚卸しはその手順の最後の1歩です。
 落ち方ごとの読み方は同 `references/ci-jobs.md`、
 ⚠️ **CI が見ていない3つ**（凍結アプリの CSS・シード・実ブラウザ）もそこにあります。
+
+**見張りを外す（`unsubscribe_pr_activity`）のはマージかクローズのときだけ。**
+「指摘が付かなかったから終わり」ではない — #167 / #172 / #173 は Codex のレビューが
+1件も付かずにマージされ、あとから見返せる記録は
+[docs/reviews/codex-findings-v4.md](reviews/codex-findings-v4.md) にしか残っていません。
 
 ---
 

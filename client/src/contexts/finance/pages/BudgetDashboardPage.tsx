@@ -86,7 +86,26 @@ export default function BudgetDashboardPage() {
     queryFn: async () => (await api.get('/projects?limit=500')).data,
     staleTime: 120_000,
   });
-  const projects: ProjectOption[] = projectsData?.data ?? [];
+  /*
+   * **`/projects?limit=500` だけでは足りない**（ご指摘: 内訳には出るのに絞り込みの
+   * 選択肢に出てこない案件がある）。500件の上限と削除済み除外を持たない
+   * `/projects-with-activity` を合わせて出す — 内訳（`revenues`/`purchases` の
+   * LEFT JOIN）と同じ集合になる
+   */
+  const { data: activeProjectsData } = useQuery({
+    queryKey: ['projects-with-activity', period.from, period.to],
+    queryFn: async () => (await api.get('/projects-with-activity', {
+      params: { from: period.from, to: period.to },
+    })).data,
+    enabled: !!period.from,
+    staleTime: 60_000,
+  });
+  const projects: ProjectOption[] = useMemo(() => {
+    const base: ProjectOption[] = projectsData?.data ?? [];
+    const extra: ProjectOption[] = activeProjectsData?.data ?? [];
+    const seen = new Set(base.map((p) => p.id));
+    return [...base, ...extra.filter((p) => !seen.has(p.id))];
+  }, [projectsData, activeProjectsData]);
 
   // 期間が複数月にまたがると明細が増えるため上限を引き上げる（旧実装のまま）
   const limit = mode === 'month' ? '300' : '2000';
@@ -130,16 +149,13 @@ export default function BudgetDashboardPage() {
     enabled: !!period.from,
   });
 
+  // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない
   const fixed = useQuery({
-    queryKey: ['budget-breakdown-fixed', period.from, period.to, projectId],
-    queryFn: async () => {
-      const params: Record<string, string> = {
-        recognition_from: period.from, recognition_to: period.to, limit: '2000', fixed_cost: '1',
-      };
-      if (projectId) params.project_id = projectId;
-      return (await api.get('/purchases', { params })).data;
-    },
-    enabled: !!period.from,
+    queryKey: ['budget-breakdown-fixed', period.from, period.to],
+    queryFn: async () => (await api.get('/purchases', {
+      params: { recognition_from: period.from, recognition_to: period.to, limit: '2000', fixed_cost: '1' },
+    })).data,
+    enabled: !!period.from && !projectId,
   });
 
   // 販管費は案件に紐づかないので、案件で絞っているときは取りに行かない
@@ -153,20 +169,27 @@ export default function BudgetDashboardPage() {
 
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
-  const steps: FlowStep[] = [
-    { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenues.data?.data?.length ?? 0}件`, to: '/budget/revenues' },
-    { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchases.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
-    { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
-    { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixed.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
-    { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
-    {
-      label: '販管費',
-      value: s.sga_total,
-      sub: projectId ? '案件で絞り込み中は対象外' : `案件に紐づかない ${sga.data?.data?.length ?? 0}件`,
-      to: projectId ? undefined : '/budget/sga',
-    },
-    { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
-  ];
+  /*
+   * **案件で絞り込み中は3枚だけ。** 販管費は案件に紐づかない（＝どの案件で絞っても
+   * 同じ全社の販管費が出るだけで、その案件の損益とは無関係）ので、絞り込み中は
+   * 「売上 − 仕入（変動原価） = 限界利益」までしか出さない。固定原価・売上総利益・
+   * 営業利益も同じ理由でここでは意味を持たないため出さない（ご要望）。
+   */
+  const steps: FlowStep[] = projectId
+    ? [
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenues.data?.data?.length ?? 0}件`, to: '/budget/revenues' },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchases.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
+      ]
+    : [
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenues.data?.data?.length ?? 0}件`, to: '/budget/revenues' },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchases.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
+        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixed.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
+        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sga.data?.data?.length ?? 0}件`, to: '/budget/sga' },
+        { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
+      ];
 
   const revItems: BreakdownItem[] = (revenues.data?.data ?? []).map(
     (r: { id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }) => ({
@@ -228,7 +251,7 @@ export default function BudgetDashboardPage() {
         <>
           <ProfitFlow steps={steps} />
 
-          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
+          <div className={`grid grid-cols-1 gap-3.5 ${projectId ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
             <BreakdownColumn
               title="売上の内訳"
               total={s.revenue_total}
@@ -243,13 +266,16 @@ export default function BudgetDashboardPage() {
               to="/budget/purchases"
               empty="この期間の仕入はありません。"
             />
-            <BreakdownColumn
-              title="販管費の内訳"
-              total={s.sga_total}
-              items={sgaItems}
-              to="/budget/sga"
-              empty={projectId ? '案件で絞り込み中は集計から外れます（案件に紐づかないため）。' : 'この期間の販管費はありません。'}
-            />
+            {/* 販管費は案件に紐づかないので、案件で絞り込み中は内訳ごと出さない（ご要望） */}
+            {!projectId && (
+              <BreakdownColumn
+                title="販管費の内訳"
+                total={s.sga_total}
+                items={sgaItems}
+                to="/budget/sga"
+                empty="この期間の販管費はありません。"
+              />
+            )}
           </div>
 
           <p className="text-note text-muted-foreground">
