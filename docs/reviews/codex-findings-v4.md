@@ -353,6 +353,9 @@ grep -c '^| .* | ❌' docs/reviews/codex-findings-v4.md   # コードに残っ�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #194 | P2 | `token-consumption-analysis.md` | `docs/version-history.md` を「読む/生成するたびに直撃」と書いていたが、通常実行（`v4-progress.mjs`・`release:notes`）は内部読み込みのみで文脈に乗らず、実際に文脈へ乗るのはエージェントがRead/Grepで本文を返した時だけ | ⭕️ 同PR内（記述を修正） |
+| #194 | P2 | `token-consumption-analysis.md` | 「バージョンを1つ上げるだけでCLAUDE.mdに数KB単位で文章が増える」と書いていたが、`collect-changelog.mjs` は3件超で4件目を同時にアーカイブへ退避するため累積肥大しない | ⭕️ 同PR内（記述を修正） |
+| #194 | P2 | `token-consumption-analysis.md` | `build:all`/`typecheck:all`/`lint` を「9ワークスペース分9倍」と表現していたが、`typecheck:all`は7クライアント+server、`lint`はチェックスクリプト+eslint1回のコマンド実行であり実態と異なる | ⭕️ 同PR内（記述を修正） |
 | #192 | P2 | `198_payment_terms_compat_repair.sql` | 198は「旧列をcompaniesから埋め直す」→「companiesの範囲外月数を正規化」の順で、companiesに範囲外の値が残っていた環境ではその壊れた値が正規化前にcustomers/vendorsへコピーされ、旧列にだけ残り続けてロールバック後も壊れた期日を作り続ける | ⭕️ #192（migration 199 でcustomers/vendorsの旧列を直接正規化） |
 | #192 | P2 | `companies.routes.ts` | 支払条件の検証が `Number(false)===0` のような真偽値を数値として受理し、検査は通るが実際のINSERTでPostgresが型エラー（意図しない500）を返す | ⭕️ #192（`toValidInt()` が number/string 型以外を拒否。あわせて検査を通した正規化済みの値を書き込みに使うよう修正） |
 | #190 | **P1** | `196_company_payment_terms.sql` | `runMigrations()` は `_migrations` に記録済みのファイル名を二度と実行しない仕組みなので、PR #190 で196の内容を書き換えても**196を実行したことがある環境（`main`へのマージで自動デプロイされる検証環境を含む）には一切届かない**。旧列を消さない改修・月数の範囲チェックがそこだけ欠けたままになる | ⭕️ 同PR内（migration 198 を新設し、`IF NOT EXISTS`/条件つきUPDATEで両方の環境に安全に届く形にした） |
