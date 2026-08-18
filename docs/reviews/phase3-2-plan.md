@@ -237,19 +237,32 @@ migration を書かない**（実装は別セッション・別PRで、条件が
 **目的**: `customers`/`vendors` への legacy フォールバック経由でしかアクセスできない
 事故が無いか、本番の実データ・実利用で確かめる。
 
-⚠️ **今の穴**: legacy フォールバック（`customers.routes.ts` の `findCustomerRow`、
-`vendors.routes.ts` の `findVendorRow`）が実際に使われた回数を記録する仕組みが
-**まだ無い**（`console.warn` すら出ていない）。このままだと「事故が起きなかった」の
-根拠が「問い合わせが来なかった」だけになり、確かめたことにならない。下のB.が
-実質いちばん優先度が高い項目。
+⚠️ **今の穴**: legacy フォールバック（旧ID・旧URLの解決）が実際に使われた回数を
+記録する仕組みが**まだ無い**（`console.warn` すら出ていない）。このままだと
+「事故が起きなかった」の根拠が「問い合わせが来なかった」だけになり、確かめたことに
+ならない。下のB.が実質いちばん優先度が高い項目。
+
+⚠️ **legacy-ID の解決箇所は `findCustomerRow`/`findVendorRow` の2つだけではない**
+（PR #214 レビュー指摘）: `customers.routes.ts` の `PUT /:id`（219行目〜、独自に
+`legacy.company_id` を解決している）、`vendors.routes.ts` の `PUT /:id`（161行目〜、
+同様の独自解決）、両方の `DELETE /:id` も旧IDを直接受け付ける。**個別にログを
+足すと漏れるので、まず全ての legacy-ID 解決を1か所（共通ヘルパー関数）に
+まとめてから、そのヘルパーにログを1つ入れる**（下のB参照）。
 
 **A. デプロイ直後のスモークテスト（今すぐ・1回）**
 
-- [ ] `curl -sk https://gmo-onair.jp/health` が200
+- [ ] `curl -sk -o /dev/null -w '%{http_code}\n' https://gmo-onair.jp/health` が
+      `200`（`-s` だけだと HTTP エラーでも exit 0 になり見逃す。`/health` は
+      DB接続に失敗すると503を返すので、コード自体を確認すること）
 - [ ] 顧客一覧 `/sales/companies?role=customer` の表示・検索
 - [ ] 顧客360°ビュー `/sales/customers/:id` — 通常URL（`companies.id`）と、
       旧URL（移行前の `customers.id`。ブックマーク等が残っていれば）の両方で開く
-- [ ] 財務・仕入先タブの一覧・詳細・編集を `budget:editor`／`sales:owner` それぞれで
+- [ ] 財務・仕入先タブの一覧・詳細・編集を、次の**2パターン**で（`vendors.routes.ts`
+      は編集に `budget:editor` が必須で、`sales:owner` は「保存が `companies` へも
+      同期されるか」を分けるだけの追加条件——`sales:owner` 単独では編集できない。
+      レビュー指摘・分け方を訂正）:
+      ①`budget:editor`（`sales:owner` 無し）で編集 → `companies` は更新されない
+      ②`budget:editor`＋`sales:owner` で編集 → `companies` も更新される
 - [ ] 案件作成の「お客様」ドロップダウンから選択→保存
 - [ ] 見積作成・活動記録・GPMプロジェクト作成
 - [ ] MCP経由の `create_project`（本番のメール取込スキルが毎日叩いている）が
@@ -262,10 +275,14 @@ migration を書かない**（実装は別セッション・別PRで、条件が
 
 **B. legacy フォールバック使用状況の可視化（要対応・現状ロギングなし）**
 
-- [ ] `findCustomerRow`/`findVendorRow` の**旧ID解決分岐**にログ出力を追加する
+- [ ] `customers.routes.ts`/`vendors.routes.ts` に散らばっている legacy-ID 解決
+      （`findCustomerRow`/`findVendorRow`・`PUT /:id`・`DELETE /:id` それぞれの
+      独自解決）を、共通のヘルパー関数に**まとめてから**ログを1か所に入れる
       （小さい追加PR。`console.warn('[customers] legacy id resolved: ...')` 等、
-      既存の `[tag]` 付きログの慣習に合わせる。DB・migration 不要）
-- [ ] 追加後、VPSログを grep して旧URL・旧IDでのアクセス頻度を把握する
+      既存の `[tag]` 付きログの慣習に合わせる。DB・migration 不要）。**個別に
+      パッチを当てるだけだと漏れが残るので、まとめる方を優先する**
+- [ ] このPRが**本番に公開されてから**、VPSログを grep して旧URL・旧IDでの
+      アクセス頻度を把握する（マージ＝検証環境止まりでは本番の実利用は分からない）
 - [ ] 頻度が高ければ、Phase 3-3のlegacyフォールバック削除（下表#5の一部）の
       周知・移行期間を延ばす判断材料にする
 
@@ -273,17 +290,21 @@ migration を書かない**（実装は別セッション・別PRで、条件が
 
 - [ ] エラー率・5xx件数に通常時からの逸脱がないか
 - [ ] `mcp_audit_log` 経由のAI登録判定（`is_ai_created`）の表示が壊れていないか
-- [ ] 仕入先タブで `budget:editor` 単独編集時に `companies` 側が更新されない仕様
-      （権限の壁・PR #183 P2）が期待通り保たれているかのサンプルチェック
+- [ ] 仕入先タブで `budget:editor`（`sales:owner` 無し）の編集時に `companies` 側が
+      更新されない仕様（権限の壁・PR #183 P2）が期待通り保たれているかのサンプル
+      チェック
 - [ ] 利用者から「反映されない」「顧客・仕入先が消えた」等の問い合わせが無いか
 
 **D. 着手条件②を満たしたと判断する基準**
 
 - [ ] 上のA〜Cで見つかった不具合がすべて解消されている（P1相当が0件）
+- [ ] **Bのログが本番に公開され、そこから意味のある期間（実利用が一巡する程度）
+      が経過している**（レビュー指摘: Bのログを含む版そのものの公開をもって
+      条件②達成とすると、本番での観測が0件のまま次に進んでしまう）
 - [ ] 次の通常リリース（Phase 3-3を含まない版）の内容が固まり、そのリリースが
       GitHub Release として公開される
-- [ ] → 公開された時点で着手条件②を満たしたとみなし、この節（「着手できる条件」）
-      を更新してから Phase 3-3 に着手してよい
+- [ ] → 上の3つがすべて揃った時点で着手条件②を満たしたとみなし、この節
+      （「着手できる条件」）を更新してから Phase 3-3 に着手してよい
 
 #### Phase 3-3 でやること（詳細化）
 
