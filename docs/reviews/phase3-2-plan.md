@@ -490,10 +490,13 @@ gantt
     互換確認期間（最低1リリースサイクル・v4.1.7で満了）       :done, wait1, 4, 5
     Phase 3-3-3 mcp_audit_log旧ID移行(バックフィル+書込+読込を同時) :done, p33_2b, 5, 6
 
+    section 完了済み（続き・2026-08-18）
+    Phase 3-3-4 顧客側の全参照箇所の書き換え・旧列書き込み停止(companiesのみに・customers.routes.tsのCUSTOMER_JOIN除去含む) :done, p33_2c, 6, 7
+
     section 未着手
-    Phase 3-3-1 legacyフォールバック使用状況の確認           :p33_0, after p33_2b, 1
+    Phase 3-3-1 legacyフォールバック使用状況の確認           :p33_0, after p33_2c, 1
     Phase 3-3-2 vendor側最新値の分析(companiesへの書き込みなし) :p33_1, after p33_0, 1
-    Phase 3-3-4 全参照箇所の書き換え・旧列書き込み停止(companiesのみに・customers.routes.tsのCUSTOMER_JOIN除去含む・data-viewer.routes.tsのALLOWED_TABLES除去含む) :p33_2, after p33_1, 2
+    Phase 3-3-4b vendor側の全参照箇所の書き換え(vendors.routes.ts自身・仕入先Excel・シード・import-kessan-dev.mjs。data-viewer.routes.tsのALLOWED_TABLES除去含む・5と同一PR) :p33_2, after p33_1, 2
     Phase 3-3-5 直前バックアップ+検証(旧列削除PRのマージ前ゲート) :crit, p33_3g, after p33_2, 1
     Phase 3-3-6 旧支払条件列の削除 (migration)               :p33_4, after p33_3g, 1
     Phase 3-3-7 直前バックアップ(1回目・テーブル削除PR作成前)  :p33_5a, after p33_4, 1
@@ -509,7 +512,7 @@ gantt
 | 3 | 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション（アクセスログ等で確認してから4以降に進む） |
 | 4 | 3-3-2 vendor側最新値の分析（上表#1・**`companies` への書き込みは行わない**。差分の件数把握のみ） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション |
 | 5 | ✅ **完了（2026-08-18）**: 3-3-3 `mcp_audit_log` の旧ID移行（バックフィルmigration 202＋`customers.tools.ts`の書き込み切り替え＋`customers.routes.ts`の読み込み切り替えを**同一PR/デプロイ**で・上表#3） | 4と独立に着手可。**3つを分割しない**。**6より先に着手する**（5巡目レビュー指摘・下記参照）。verify Postgres 上で移行前後の値の変換・`GET /customers`（一覧・詳細）の `is_ai_created` 表示を確認済み。本番相当データでの再確認はデプロイ後に必要（下表7） | 着手セッション |
-| 6 | 3-3-4 `customers`/`vendors` を直接参照する全箇所の書き換え・旧支払条件列への書き込み停止（上表#2。`vendors.routes.ts` 自身の通常フロー・`xpoint.routes.ts` を含む。**着手前に対象一覧をコードで再確認**） | 4の反映内容を踏まえて設計。対象が多いため複数PRに分けてよいが、**`companies.routes.ts` の旧列書き込み停止は8より前に必ず完了させる**。✅ **2026-08-18 一部完了**: `companies.routes.ts` の POST/PUT（新規作成・更新・ロール追加時の子レコード生成、計4箇所）が `customers.closing_day`/`payment_months`/`payment_day`・`vendors.payment_months`/`payment_day` へ書き込むのを止め、`companies` 側だけに書くよう変更した（読む側は元々 `companies.*` のみで、これらの列を読むコードは無いことを再調査で確認済み。旧イメージへ戻すロールバックも migration 200/201 以降使えないため保険としての価値も無い）。`customers`/`vendors` の名前・連絡先等の基本情報同期はそのまま維持。verify Postgres の実DBでPOST/PUTを実行し、`companies` にのみ保存され `customers`/`vendors` 側はNULLのままであることを確認した。✅ **2026-08-18 追加対応**: `DELETE /customers/:id`・`DELETE /vendors/:id` が `companies.is_customer`/`is_vendor` も更新するよう変更した（詳細は上表#2の同日追記）。これで `CUSTOMER_JOIN`/`VENDOR_JOIN` 除去の前提条件が揃った。✅ **2026-08-18 `customers.routes.ts` の `CUSTOMER_JOIN` 除去 完了**（詳細は上表#2）。verify Postgres の実DBで一覧・詳細・360°ビュー・新規作成・更新・削除・legacy ID経由アクセスをすべて確認した。⚠️ **`vendors.routes.ts` 側は対称にできないことが分かった**（詳細は上表#2）— `VENDOR_FIELDS` が基本情報を `vendors`（`v.*`）から読んでいるのは `budget:editor` 単独編集を反映するためで、`companies` へ寄せると回帰になる。上表#1（vendor側の一次分析）・5（テーブル削除時の反映）まで着手しないこと。**残り**: `excel.routes.ts`（sales/finance）・`company-directory.service.ts`・`purchases.routes.ts`・`kessan-import.service.ts`/`xpoint-import.service.ts`/`xpoint.routes.ts`・`project-groups.routes.ts`・`search.routes.ts`・`backup.routes.ts`・`reports.routes.ts` の `GET /vendor-summary`・MCP `customers.tools.ts`・シード・`import-kessan-dev.mjs`、はまだ未着手 | 着手セッション |
+| 6 | 3-3-4 `customers`/`vendors` を直接参照する全箇所の書き換え・旧支払条件列への書き込み停止（上表#2。`vendors.routes.ts` 自身の通常フロー・`xpoint.routes.ts` を含む。**着手前に対象一覧をコードで再確認**） | 4の反映内容を踏まえて設計。対象が多いため複数PRに分けてよいが、**`companies.routes.ts` の旧列書き込み停止は8より前に必ず完了させる**。**✅ 2026-08-18 顧客側は完了**（PR #225〜#229・詳細は上表#2）: ①`companies.routes.ts` の旧支払条件列への二重書き込み停止 ②`DELETE /customers\|vendors/:id` が `companies.is_customer`/`is_vendor` も更新 ③`customers.routes.ts` の `CUSTOMER_JOIN` 除去 ④横断検索・バックアップ・決算取込・Excel入出力・MCP・`assertCustomerCompanyId` の顧客側 `EXISTS` チェック除去、をすべて実施し verify Postgres で確認済み。**⚠️ 仕入先側（`vendors.routes.ts` 自身・仕入先Excel・MCP該当なし）は対称にできないと判明**（詳細は上表#2）— `VENDOR_FIELDS`/`VENDORS_CONFIG` が基本情報を `vendors`（`v.*`）から読んでいるのは `budget:editor` 単独編集を反映するためで、`companies` へ寄せると回帰になる。上表#1（vendor側の一次分析・**本番相当データが要るため未実施**）・5（テーブル削除時の反映）まで着手しないこと。**残り**: `vendors.routes.ts` 自身・仕入先Excel・シード・`import-kessan-dev.mjs`（いずれも5のテーブル削除PRでまとめて書き換える対象）。`purchases.routes.ts`/`project-groups.routes.ts`/`xpoint-import.service.ts`/`xpoint.routes.ts`/`reports.routes.ts` の `GET /vendor-summary` は2026-08-18 再確認済み・**既に正しい設計のため変更不要**（削除済み仕入先の実績を守る `LEFT JOIN` + `companies` 名フォールバック） | 着手セッション |
 | 7 | 3-3-5 オンデマンドバックアップ＋検証一式（上表#7）を**旧支払条件列削除PRのマージ前ゲート**として実施 | 6がマージ済み | 着手セッション（6巡目レビュー指摘。**列削除もテーブル削除と同格の不可逆変更**として同じゲートを課す） |
 | 8 | 3-3-6 旧支払条件列の削除（migration・上表#4） | 7が完了していること | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
 | 9 | 3-3-7 オンデマンドバックアップ（1回目・テーブル削除PR作成前のリハーサル） | 4・5・6・8がすべてマージ | 着手セッション（テーブル削除PRを作る**前**に実施。**vendorの最終突き合わせはここでは行わない** — 11のmigration内でロックと同時に行う。4巡目レビュー指摘） |
