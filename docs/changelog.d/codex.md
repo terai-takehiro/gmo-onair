@@ -1,1 +1,0 @@
-**カレンダー購読から社内ネットワークへ接続できる穴を塞いだ** — 利用者が登録した ICS URL をサーバーが取得する際、HTTPS であることしか確かめておらず、loopback・private IP・リダイレクト・DNS rebinding を使って内部サービスへ到達できました。登録時の URL 検査に加え、実接続ごとの DNS 解決でも private/reserved address を拒否する HTTPS agent を共通化し、リダイレクト後にも同じ制限を適用しました。システム全体の残課題と優先順位もレビュー文書へ記録し、server typecheck・アドレス判定の実行時 assertion・ESLint で検証しました。
