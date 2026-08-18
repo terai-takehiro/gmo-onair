@@ -15,32 +15,30 @@ router.use(requireAuth, requirePermission('sales'));
  *
  * `projects.customer_id` / `revenues.customer_id` 等のFKが `companies.id` を直接指すよう
  * 張り替えたので、この画面（案件作成の「お客様」ドロップダウン兼顧客一覧）が返す `id` も
- * `companies.id` でなければ整合しない。`customers` テーブル自体はまだ削除していない
- * （名前・連絡先などの顧客固有の欄と、AI 登録判定の逆引きキーとして残る）ので、
- * 基本情報の読み書きは `customers`（`company_id` で1段引く）に残し、一覧・検索・
- * ドロップダウンの id 空間だけ `companies` に揃える。
+ * `companies.id` でなければ整合しない。基本情報（名前・連絡先等）は `companies` 側に
+ * 同期済みの値を読む（`co.*`）。`customers` テーブル自体はまだ削除していない
+ * （POST/PUT の書き込み先・支払条件の例外の識別子として残る）が、読み取りはこの
+ * ファイルではもう `customers` に依存しない。
  *
- * ⚠️ **`customers` 行への INNER JOIN が必須**（レビュー指摘・PR #199 P2）。
- * `DELETE /:id` は `customers` 側だけを論理削除し `companies.is_customer` は
- * 触らない（companies 側の削除・仕入先ロールへは影響させない、下記参照）。
- * ここを LEFT JOIN のままにすると、削除した顧客が `companies.is_customer = TRUE`
- * のままなので一覧・検索・ドロップダウンに残り続けてしまう。
+ * Phase 3-3-4（2026-08-18）: 以前は `customers` 行への INNER JOIN が必須だった
+ * （`DELETE /:id` が `customers` 側だけを論理削除し `companies.is_customer` を
+ * 更新していなかったため、LEFT JOIN にすると削除した顧客が一覧に残り続けた）。
+ * `DELETE /:id` が `companies.is_customer` も更新するようになった（PR #226）ので、
+ * `companies.is_customer = TRUE AND companies.deleted_at IS NULL` だけで
+ * `companies.routes.ts` の一覧（`GET /companies?role=customer`）と同じ判定になり、
+ * `customers` への JOIN は不要になった。
  */
-const CUSTOMER_JOIN = `
-     FROM companies co
-     INNER JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL`;
-
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   let where = 'WHERE co.deleted_at IS NULL AND co.is_customer = TRUE';
   const params: unknown[] = [];
   if (search) { where += ` AND (co.name ILIKE ? OR co.short_name ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-  const total = ((await queryOne(`SELECT COUNT(*) as c ${CUSTOMER_JOIN} ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
   // v2.9.198+: AI 登録判定 (MCP create_customer) を mcp_audit_log から逆引き (activity-log.service と同形)。
   // Phase 3-3-3 (migration 202) 以降、監査ログの created_id は companies.id なので co.id で突き合わせる
   const rows = await queryAll(
-    `SELECT co.*, cu.id as legacy_customer_id, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
-     ${CUSTOMER_JOIN}
+    `SELECT co.*, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
+     FROM companies co
      LEFT JOIN LATERAL (
        SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = co.id
@@ -77,11 +75,13 @@ async function resolveLegacyCustomerId(
  * `companies.id`（正）で引く。見つからなければ**移行前の `customers.id`**
  * として解釈し直し（`resolveLegacyCustomerId`）、見つかればその会社の
  * 正規の行を返す（レビュー指摘・PR #199 P2）。
+ *
+ * Phase 3-3-4: `customers` への JOIN は不要になった（一覧と同じ理由・上記コメント参照）。
+ * `companies.is_customer = TRUE AND companies.deleted_at IS NULL` だけで判定する。
  */
 async function findCustomerRow(rawId: string): Promise<Record<string, unknown> | null> {
   const byCompanyId = await queryOne(
-    `SELECT co.*, cu.id as legacy_customer_id
-     ${CUSTOMER_JOIN}
+    `SELECT co.* FROM companies co
      WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
     [rawId],
   ) as Record<string, unknown> | null;
@@ -90,8 +90,7 @@ async function findCustomerRow(rawId: string): Promise<Record<string, unknown> |
   const legacy = await resolveLegacyCustomerId(rawId, 'get');
   if (!legacy) return null;
   return await queryOne(
-    `SELECT co.*, cu.id as legacy_customer_id
-     ${CUSTOMER_JOIN}
+    `SELECT co.* FROM companies co
      WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
     [legacy.company_id],
   ) as Record<string, unknown> | null;
@@ -227,12 +226,9 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     req.user!.id,
   );
   const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
-  const row = await queryOne(
-    `SELECT co.*, cu.id as legacy_customer_id FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     WHERE co.id = ?`,
-    [linked.company_id],
-  );
+  // Phase 3-3-4: レスポンスは companies だけで足りる（legacy_customer_id はどこからも
+  // 参照されておらず削除済み。上の一覧・findCustomerRow と同じ理由）
+  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [linked.company_id]);
   res.status(201).json({ success: true, data: row });
 });
 
@@ -276,12 +272,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     { name, short_name, contact_name, email, phone, address, notes, is_gmo_group: groupFlag },
     req.user!.id,
   );
-  const row = await queryOne(
-    `SELECT co.*, cu.id as legacy_customer_id FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     WHERE co.id = ?`,
-    [companyId],
-  );
+  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [companyId]);
   res.json({ success: true, data: row });
 });
 
