@@ -4,13 +4,18 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
-import { createCustomerRecord } from '../../../shared/services/company-directory.service';
+import { createCustomerRecord, syncCompanyFromCustomer } from '../../../shared/services/company-directory.service';
 
 // 顧客 (customers) の MCP ツール。
 // ルート (customers.routes.ts) は inline SQL のため、同形のクエリをここに持つ。
 // create は重複ガード付き (同名/類似があれば作成せず候補を返す)。
-
-const CUSTOMER_COLS = 'id, name, short_name, contact_name, email, phone, address, notes, created_at';
+//
+// ⚠️ Phase 3-2a: `create_project` へ渡す `customer_id` は `projects.customer_id` FK が
+// 指す先（`companies.id`）でなければならない。ここが返す `id` はすべて `companies.id`
+// （`customers.routes.ts` と同じ設計）。基本情報（名前・連絡先）の読み書きは
+// `customers` テーブル（`company_id` で1段引く）に残す。
+const CUSTOMER_COLS = 'co.id, co.name, co.short_name, co.contact_name, co.email, co.phone, co.address, co.notes, co.created_at';
+const CUSTOMER_FROM = `FROM companies co WHERE co.is_customer = TRUE AND co.deleted_at IS NULL`;
 
 export function registerCustomerTools(server: McpServer): void {
   server.registerTool(
@@ -25,17 +30,17 @@ export function registerCustomerTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      let where = 'WHERE deleted_at IS NULL';
+      let where = CUSTOMER_FROM;
       const params: unknown[] = [];
       if (args.search) {
-        where += ' AND (name ILIKE ? OR short_name ILIKE ?)';
+        where += ' AND (co.name ILIKE ? OR co.short_name ILIKE ?)';
         params.push(`%${args.search}%`, `%${args.search}%`);
       }
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
-      const totalRow = await queryOne(`SELECT COUNT(*) as c FROM customers ${where}`, params) as any;
+      const totalRow = await queryOne(`SELECT COUNT(*) as c ${where}`, params) as any;
       const rows = await queryAll(
-        `SELECT ${CUSTOMER_COLS} FROM customers ${where} ORDER BY name LIMIT ? OFFSET ?`,
+        `SELECT ${CUSTOMER_COLS} ${where} ORDER BY co.name LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );
       return ok({ data: rows, pagination: pagination(page, limit, Number(totalRow?.c ?? 0)) });
@@ -54,7 +59,7 @@ export function registerCustomerTools(server: McpServer): void {
     },
     async (args) => runTool(async () => {
       const customer = await queryOne(
-        `SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ? AND deleted_at IS NULL`, [args.id],
+        `SELECT ${CUSTOMER_COLS} ${CUSTOMER_FROM} AND co.id = ?`, [args.id],
       ) as any;
       if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
       if (args.include_recent_projects !== false) {
@@ -90,9 +95,9 @@ export function registerCustomerTools(server: McpServer): void {
     },
     async (args) => runTool(async () => {
       const hits = await queryAll(
-        `SELECT id, name, short_name, contact_name, email FROM customers
-         WHERE deleted_at IS NULL AND (name = ? OR name ILIKE ? OR short_name ILIKE ?)
-         ORDER BY (name = ?) DESC, name LIMIT 10`,
+        `SELECT co.id, co.name, co.short_name, co.contact_name, co.email
+         ${CUSTOMER_FROM} AND (co.name = ? OR co.name ILIKE ? OR co.short_name ILIKE ?)
+         ORDER BY (co.name = ?) DESC, co.name LIMIT 10`,
         [args.name, `%${args.name}%`, `%${args.name}%`, args.name],
       );
       if (hits.length > 0 && args.allow_duplicate !== true) {
@@ -105,8 +110,12 @@ export function registerCustomerTools(server: McpServer): void {
 
       // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。AI は印を渡さないので、
-      // ここで入れないと AI が登録した会社だけグループ外のまま残る
-      const id = await createCustomerRecord(
+      // ここで入れないと AI が登録した会社だけグループ外のまま残る。
+      //
+      // `createCustomerRecord` は `customers.id` を返す。この MCP ツールが
+      // `create_project` へ渡すべき `id` は `companies.id`（Phase 3-2a）なので、
+      // 作った customers 行の company_id を引き直す
+      const cid = await createCustomerRecord(
         {
           name: args.name, short_name: args.short_name || null, contact_name: args.contact_name || null,
           email: args.email || null, phone: args.phone || null, address: args.address || null,
@@ -114,8 +123,11 @@ export function registerCustomerTools(server: McpServer): void {
         },
         currentActorId(),
       );
-      const row = await queryOne(`SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ?`, [id]);
-      audit('create_customer', args, { created_id: id, name: args.name }, args.requested_by);
+      const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
+      const row = await queryOne(`SELECT ${CUSTOMER_COLS} ${CUSTOMER_FROM} AND co.id = ?`, [linked.company_id]);
+      // audit の created_id は customers.id のまま（一覧・詳細画面の AI 登録判定が
+      // customers.id で逆引きするため・`customers.routes.ts` 参照）
+      audit('create_customer', args, { created_id: cid, name: args.name }, args.requested_by);
       return ok({ created: true, customer: row });
     }),
   );
@@ -138,10 +150,15 @@ export function registerCustomerTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
+      // args.id は companies.id（Phase 3-2a）。customers 行は company_id で引く
       const existing = await queryOne(
-        `SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ? AND deleted_at IS NULL`, [args.id],
+        `SELECT ${CUSTOMER_COLS}, cu.id as legacy_customer_id, cu.is_gmo_group
+         FROM companies co
+         LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+         WHERE co.is_customer = TRUE AND co.deleted_at IS NULL AND co.id = ?`,
+        [args.id],
       ) as any;
-      if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
+      if (!existing || !existing.legacy_customer_id) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
 
       // read-merge-write (PUT は全上書きのため、渡されたフィールドだけ差し替える)
       const fields = ['name', 'short_name', 'contact_name', 'email', 'phone', 'address', 'notes'] as const;
@@ -154,9 +171,18 @@ export function registerCustomerTools(server: McpServer): void {
         `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [merged.name, merged.short_name, merged.contact_name, merged.email, merged.phone,
-         merged.address, merged.notes, currentActorId(), args.id],
+         merged.address, merged.notes, currentActorId(), existing.legacy_customer_id],
       );
-      const row = await queryOne(`SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ?`, [args.id]);
+      // **取引先マスター（companies）側にも写す**（customers.routes.ts と同じ理由）
+      await syncCompanyFromCustomer(
+        existing.legacy_customer_id,
+        { name: merged.name as string, short_name: merged.short_name as string | null,
+          contact_name: merged.contact_name as string | null, email: merged.email as string | null,
+          phone: merged.phone as string | null, address: merged.address as string | null,
+          notes: merged.notes as string | null, is_gmo_group: existing.is_gmo_group === true },
+        currentActorId(),
+      );
+      const row = await queryOne(`SELECT ${CUSTOMER_COLS} ${CUSTOMER_FROM} AND co.id = ?`, [args.id]);
       const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
       audit('update_customer', args, { updated_id: args.id, changed_fields: changedFields }, args.requested_by);
       return ok({ updated: true, changed_fields: changedFields, customer: row });

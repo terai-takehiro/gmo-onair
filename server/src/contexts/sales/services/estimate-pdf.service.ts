@@ -98,7 +98,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
             c.contact_name AS customer_contact
        FROM estimates e
        JOIN projects p ON p.id = e.project_id
-       LEFT JOIN customers c ON c.id = COALESCE(e.customer_id, p.customer_id)
+       LEFT JOIN companies c ON c.id = COALESCE(e.customer_id, p.customer_id)
       WHERE e.id = ? AND e.deleted_at IS NULL AND p.deleted_at IS NULL`,
     [estimateId],
   ) as Record<string, unknown> | undefined;

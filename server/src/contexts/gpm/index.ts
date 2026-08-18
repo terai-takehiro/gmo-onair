@@ -126,10 +126,12 @@ export function createGpmRoutes(): Router {
    * ここで必要なのは選ぶことだけです（広げると見せなくてよいものまで出ます）。
    */
   router.get('/customers', ...canRead, async (_req, res) => {
+    // Phase 3-2a: gpm_projects.customer_id は companies.id を直接指すので、
+    // customers ではなく companies（is_customer=TRUE）から返す
     res.json({
       success: true,
       data: await queryAll(
-        `SELECT id, name, short_name FROM customers WHERE deleted_at IS NULL ORDER BY name LIMIT 500`,
+        `SELECT id, name, short_name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL ORDER BY name LIMIT 500`,
       ),
     });
   });

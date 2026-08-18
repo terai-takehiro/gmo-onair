@@ -67,7 +67,7 @@ async function overdueInvoices(today: string): Promise<NotifyInput[]> {
   const rows = await queryAll(
     `SELECT r.id, r.payment_due_date, r.amount, r.created_by, c.name AS customer_name, r.invoice_no
        FROM revenues r
-       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN companies c ON c.id = r.customer_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
         AND r.paid_date IS NULL
         AND r.payment_due_date IS NOT NULL
@@ -205,7 +205,7 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
   const rows = await queryAll(
     `SELECT r.id, r.amount, r.payment_due_date, c.name AS customer_name
        FROM revenues r
-       LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN companies c ON c.id = r.customer_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
         AND r.invoice_issued IS NOT TRUE
         AND r.billing_date IS NOT NULL

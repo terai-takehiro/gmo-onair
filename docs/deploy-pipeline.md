@@ -163,6 +163,14 @@ APP_IMAGE_DEV=ghcr.io/terai-takehiro/gmo-onair:sha-<旧コミットhash> \
 (こちらは**イメージだけ**が古い状態になり、VPS の checkout や git 履歴とは食い違う。
 恒久的に戻すなら上のタグ再実行を使うこと。)
 
+⚠️ **v4.1.5（Phase 3-2a・顧客系FKを companies へ張り替えた版）以降、「その場でイメージだけ
+差し替える」ロールバックは使えない。** DB マイグレーション（`200_customer_fk_to_companies.sql`）
+が `customer_id` の値そのものを書き換えており、`_migrations` テーブルに実行済みとして記録される
+（後述のとおり同じファイルは再実行されない）。イメージだけ古いコードに戻しても、DB は
+新しい値（`companies.id`）のままなので、古いコードが期待する `customers.id` とは食い違う
+（顧客名が消える・案件作成が壊れる）。**このリリース以降は「Releases のタグで Deploy
+ワークフローを再実行」（DB を含めて丸ごと戻す）だけを使うこと。**
+
 ### GHCR イメージの認証
 
 - push: build ジョブの `GITHUB_TOKEN` (`packages: write`)

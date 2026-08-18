@@ -14,7 +14,7 @@ router.get('/events', async (req, res) => {
   const params: unknown[] = [];
   if (from) { where += ` AND p.event_end >= ?`; params.push(from); }
   if (to) { where += ` AND p.event_start <= ?`; params.push(to); }
-  const projects = await queryAll(`SELECT p.id, p.gls_number, p.name, p.event_start, p.event_end, p.stage, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params);
+  const projects = await queryAll(`SELECT p.id, p.gls_number, p.name, p.event_start, p.event_end, p.stage, c.name as customer_name FROM projects p LEFT JOIN companies c ON c.id = p.customer_id ${where}`, params);
   const events: any[] = [];
   for (const p of projects) {
     if (p.event_start) {

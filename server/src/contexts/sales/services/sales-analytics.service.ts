@@ -148,7 +148,7 @@ export class SalesAnalyticsService {
       `SELECT p.id, p.name, p.gls_number, p.code, p.lost_reason, p.lessons_learned, p.expected_amount,
               p.lost_at, c.name as customer_name, c.short_name as customer_short_name
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' AND p.lessons_learned IS NOT NULL AND p.lessons_learned != '' ${dateFilter}
        ORDER BY p.lost_at DESC, p.updated_at DESC
        LIMIT 20`,

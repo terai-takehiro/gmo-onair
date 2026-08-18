@@ -254,7 +254,7 @@ export async function generateKptDraft(
 
   const project = await queryOne(
     `SELECT p.name, p.event_start, p.event_end, p.assigned_to, c.name AS customer_name
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ?`,
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id WHERE p.id = ?`,
     [projectId],
   ) as { name: string; event_start: string | null; event_end: string | null; assigned_to: string; customer_name: string | null };
 

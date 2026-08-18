@@ -73,7 +73,9 @@ export const STAGE_GROUPS: Record<string, readonly string[]> = {
 };
 
 /** 自社構築の「お客様」。相手がいないので migration 179 が入れた行に寄せる */
-export const SELF_CUSTOMER_ID = 'cust-self-gms';
+// Phase 3-2a: customer_id は companies.id を直接指すので、companies 側の固定ID を使う
+// (customers.id 'cust-self-gms' は company_id='comp-self-gms' に紐づけ済み・migration 200)
+export const SELF_CUSTOMER_ID = 'comp-self-gms';
 
 function assertIn<T extends string>(v: string, allowed: readonly T[], label: string): void {
   if (!(allowed as readonly string[]).includes(v)) {
@@ -283,7 +285,7 @@ export const projectService = {
               last_est.version AS estimate_version,
               last_est.status AS estimate_status
          FROM projects p
-         LEFT JOIN customers c ON c.id = p.customer_id
+         LEFT JOIN companies c ON c.id = p.customer_id
          LEFT JOIN users u ON u.id = p.assigned_to
          ${MEMO_LATERAL}
          ${ESTIMATE_AMOUNT_LATERAL}
@@ -311,7 +313,7 @@ export const projectService = {
               u.name AS assigned_to_name, c.name AS customer_name, t.name AS template_name
          FROM projects p
          LEFT JOIN users u ON u.id = p.assigned_to
-         LEFT JOIN customers c ON c.id = p.customer_id
+         LEFT JOIN companies c ON c.id = p.customer_id
          LEFT JOIN gpm_templates t ON t.id = p.gpm_template_id
          ${MEMO_LATERAL}
         WHERE p.id = ? AND ${IS_PROJECT}`, [id],
@@ -372,7 +374,7 @@ export const projectService = {
          VALUES (?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, customerId, stage,
          // グループ内 / グループ外は**お客様の印から決める**（migration 192）。
-         // 自社の行（`cust-self-gms` ＝「自社（GMOグローバルスタジオ）」）にも
+         // 自社の行（`comp-self-gms` ＝「自社（GMOグローバルスタジオ）」）にも
          // 印が付くので、自社構築はこれまでどおり internal になる
          await customerIsGroup(customerId) ? 'internal' : 'external',
          (input.assigned_to as string) || userId,

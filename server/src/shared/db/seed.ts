@@ -142,11 +142,15 @@ export async function seed() {
     ['GMOデジタルソリューションズ株式会社', 'GMO-DS', '青木 拓真', 'aoki@gmo-ds.example.com', '03-1357-2468', '東京都渋谷区桜丘町26-1'],
   ];
   for (const [name, short, contact, email, phone, address] of customerData) {
-    CUSTOMERS[short] = await createCustomerRecord(
+    // Phase 3-2a: projects/revenues/activity_logs.customer_id は companies.id を
+    // 直接指すので、createCustomerRecord が返す customers.id ではなく company_id を持つ
+    const cid = await createCustomerRecord(
       { name, short_name: short, contact_name: contact, email, phone, address,
         is_gmo_group: looksLikeGmoGroup(name) },
       null, ins,
     );
+    const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
+    CUSTOMERS[short] = linked.company_id;
   }
 
   // ============================================================

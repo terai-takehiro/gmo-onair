@@ -52,7 +52,7 @@ export function registerActivityTools(server: McpServer): void {
            FROM activity_logs a
            LEFT JOIN users u ON u.id = a.user_id
            LEFT JOIN projects p ON p.id = a.project_id
-           LEFT JOIN customers c ON c.id = a.customer_id
+           LEFT JOIN companies c ON c.id = a.customer_id
            ${where} ORDER BY a.next_action_date ASC LIMIT ?`,
           [...params, limit],
         );
@@ -103,7 +103,7 @@ export function registerActivityTools(server: McpServer): void {
          FROM activity_logs a
          JOIN projects p ON p.id = a.project_id
          LEFT JOIN users u ON u.id = a.user_id
-         LEFT JOIN customers c ON c.id = p.customer_id
+         LEFT JOIN companies c ON c.id = p.customer_id
          ${where}
          ORDER BY a.next_action_date ASC LIMIT ?`,
         [...params, clampLimit(args.limit, 100)],

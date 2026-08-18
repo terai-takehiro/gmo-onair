@@ -117,7 +117,7 @@ async function resolveCustomerType(
 ): Promise<CustomerType> {
   if (typeof customerId !== 'string' || !customerId) return normalizeCustomerType(fallback);
   const row = await queryOne(
-    'SELECT is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL',
+    'SELECT is_gmo_group FROM companies WHERE id = ? AND deleted_at IS NULL',
     [customerId],
   ) as { is_gmo_group?: boolean } | null;
   if (!row) return normalizeCustomerType(fallback);
@@ -545,7 +545,7 @@ export class ProjectService {
       orderBy = `${jaCol} ${sortDir}${nullsClause}`;
     }
 
-    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
+    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN companies c ON c.id = p.customer_id ${where}`, params)) as any).c;
     // is_ai_created は created_by=mcpActor (静的キー) OR 監査ログ照合 (OAuth 本人名義でも検出)。
     // SELECT 句の ? が最初のプレースホルダになるため params の先頭に mcpActorId を置く。
     const rows = await queryAll(
@@ -560,7 +560,7 @@ export class ProjectService {
        memo.description as memo_excerpt,
        GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
        LEFT JOIN LATERAL (
          SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
@@ -582,7 +582,7 @@ export class ProjectService {
      */
     const stageCountRows = await queryAll(
       `SELECT p.stage, COUNT(*)::int AS n
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        ${whereWithoutStage} GROUP BY p.stage`,
       paramsWithoutStage
     ) as { stage: string; n: number }[];
@@ -603,7 +603,7 @@ export class ProjectService {
        -- 一覧と**同じ計算**を使う（写すと、同じ案件が画面によって違う額になる）
        COALESCE(est.amount, 0) as estimate_amount
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
        ${MEMO_LATERAL}
        ${ESTIMATE_AMOUNT_LATERAL}
@@ -1780,7 +1780,7 @@ export class ProjectService {
   async getGlsProjects() {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
-       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
        ORDER BY p.gls_number DESC`
     );

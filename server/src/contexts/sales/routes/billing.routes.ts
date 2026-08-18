@@ -102,7 +102,7 @@ router.get('/estimates', async (req, res) => {
        -- (migration 173)。内部結合で自然に落ちるが、偶然そうなっている状態に
        -- 頼らず where で明示する (左結合に直した瞬間に GPM の見積が混ざる)
        JOIN projects p ON p.id = e.project_id
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = e.created_by
        ${where}
       ORDER BY
@@ -193,7 +193,7 @@ router.get('/invoices', async (req, res) => {
             u.name AS assigned_to_name
        FROM revenues r
        JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
        LEFT JOIN project_groups g ON g.id = r.group_id
        LEFT JOIN users u ON u.id = r.assigned_to
@@ -341,7 +341,7 @@ router.get('/closing', async (req, res) => {
             r.group_id, g.name AS group_name
        FROM revenues r
        JOIN projects p ON p.id = r.project_id
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
        LEFT JOIN project_groups g ON g.id = r.group_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'

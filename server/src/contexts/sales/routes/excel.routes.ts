@@ -305,7 +305,7 @@ const PROJECTS_CONFIG: ResourceConfig = {
            p.broadcast_type, p.media_platform, u.email as assigned_to_email, p.tags,
            memo.description AS notes
     FROM projects p
-    LEFT JOIN customers c ON c.id = p.customer_id
+    LEFT JOIN companies c ON c.id = p.customer_id
     LEFT JOIN users u ON u.id = p.assigned_to
     -- 備考 = いちばん新しいメモ。migration 184 で projects.notes を落とし、
     -- メモはやり取り (activity_logs の memo) に畳んだ。
@@ -318,7 +318,9 @@ const PROJECTS_CONFIG: ResourceConfig = {
     ) memo ON TRUE
     WHERE p.deleted_at IS NULL ORDER BY p.created_at DESC`,
   preloadLookups: async (client) => {
-    const cust = await client.query('SELECT id, name FROM customers WHERE deleted_at IS NULL');
+    // Phase 3-2a: projects.customer_id は companies.id を直接指すので、
+    // 名前解決も companies（is_customer=TRUE）から引く
+    const cust = await client.query("SELECT id, name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL");
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     return {
       customers: new Map(cust.rows.map((r) => [r.name as string, r.id as string])),

@@ -10,37 +10,55 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
 
+/**
+ * Phase 3-2a: 一覧・詳細・360°ビューは `companies`（`is_customer = TRUE`）を正として読む。
+ *
+ * `projects.customer_id` / `revenues.customer_id` 等のFKが `companies.id` を直接指すよう
+ * 張り替えたので、この画面（案件作成の「お客様」ドロップダウン兼顧客一覧）が返す `id` も
+ * `companies.id` でなければ整合しない。`customers` テーブル自体はまだ削除していない
+ * （名前・連絡先などの顧客固有の欄と、AI 登録判定の逆引きキーとして残る）ので、
+ * 基本情報の読み書きは `customers`（`company_id` で1段引く）に残し、一覧・検索・
+ * ドロップダウンの id 空間だけ `companies` に揃える。
+ */
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
-  let where = 'WHERE deleted_at IS NULL';
+  let where = 'WHERE co.deleted_at IS NULL AND co.is_customer = TRUE';
   const params: unknown[] = [];
-  if (search) { where += ` AND (name ILIKE ? OR short_name ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM customers ${where}`, params)) as any).c;
-  // v2.9.198+: AI 登録判定 (MCP create_customer) を mcp_audit_log から逆引き (activity-log.service と同形)
+  if (search) { where += ` AND (co.name ILIKE ? OR co.short_name ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
+  // v2.9.198+: AI 登録判定 (MCP create_customer) を mcp_audit_log から逆引き (activity-log.service と同形)。
+  // 監査ログの created_id はまだ customers.id なので、customers 側の id で突き合わせる
   const rows = await queryAll(
-    `SELECT customers.*, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
-     FROM customers
+    `SELECT co.*, cu.id as legacy_customer_id, (ai.audit_id IS NOT NULL) as is_ai_created, ai.requested_by as ai_requested_by
+     FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
      LEFT JOIN LATERAL (
        SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
-       WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = customers.id
+       WHERE m.tool_name = 'create_customer' AND m.result_summary->>'created_id' = cu.id
        ORDER BY m.created_at ASC LIMIT 1
      ) ai ON TRUE
-     ${where} ORDER BY name LIMIT ? OFFSET ?`,
+     ${where} ORDER BY co.name LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
 router.get('/:id', async (req, res) => {
-  const row = await queryOne('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as Record<string, unknown> | null;
+  const row = await queryOne(
+    `SELECT co.*, cu.id as legacy_customer_id
+     FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
+    [req.params.id],
+  ) as Record<string, unknown> | null;
   if (!row) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   // AI 登録判定 (projects.routes の単体 enrichment と同形)
-  const audit = await queryOne(
+  const audit = row.legacy_customer_id ? await queryOne(
     `SELECT requested_by FROM mcp_audit_log
      WHERE tool_name = 'create_customer' AND result_summary->>'created_id' = ?
      ORDER BY created_at ASC LIMIT 1`,
-    [row.id]
-  ) as Record<string, unknown> | null;
+    [row.legacy_customer_id]
+  ) as Record<string, unknown> | null : null;
   row.is_ai_created = !!audit;
   row.ai_requested_by = audit?.requested_by ?? null;
   res.json({ success: true, data: row });
@@ -52,17 +70,23 @@ router.get('/:id', async (req, res) => {
 // 既存テーブルのみで成立 (新規テーブル/migration 不要)。
 // ══════════════════════════════════════════════════════════
 router.get('/:id/overview', async (req, res) => {
-  const id = req.params.id;
-  const customer = await queryOne('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL', [id]) as Record<string, unknown> | null;
+  const id = req.params.id; // companies.id (Phase 3-2a)
+  const customer = await queryOne(
+    `SELECT co.*, cu.id as legacy_customer_id
+     FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
+    [id],
+  ) as Record<string, unknown> | null;
   if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
 
-  // AI 登録判定 (一覧・単体と同形)
-  const custAudit = await queryOne(
+  // AI 登録判定 (一覧・単体と同形。監査ログの created_id はまだ customers.id)
+  const custAudit = customer.legacy_customer_id ? await queryOne(
     `SELECT requested_by FROM mcp_audit_log
      WHERE tool_name = 'create_customer' AND result_summary->>'created_id' = ?
      ORDER BY created_at ASC LIMIT 1`,
-    [id]
-  ) as Record<string, unknown> | null;
+    [customer.legacy_customer_id]
+  ) as Record<string, unknown> | null : null;
   customer.is_ai_created = !!custAudit;
   customer.ai_requested_by = custAudit?.requested_by ?? null;
 
@@ -148,20 +172,31 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
    * 渡してこない道では社名から見立てる（migration 192・ご指示: GMO と
    * ついているものはすべてグループ）。渡してきたらそちらが正 — 画面の
    * チェックボックスで外せます。
+   *
+   * `createCustomerRecord` は `customers.id` を返す。この画面の `id`（Phase 3-2a
+   * 以降 `customer_id` FK が指す先）は `companies.id` なので、作った customers 行の
+   * `company_id` を引き直して返す。
    */
-  const id = await createCustomerRecord(
+  const cid = await createCustomerRecord(
     { name, short_name, contact_name, email, phone, address, notes,
       is_gmo_group: is_gmo_group === undefined ? undefined : is_gmo_group === true },
     req.user!.id,
   );
-  const row = await queryOne('SELECT * FROM customers WHERE id = ?', [id]);
+  const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
+  const row = await queryOne(
+    `SELECT co.*, cu.id as legacy_customer_id FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     WHERE co.id = ?`,
+    [linked.company_id],
+  );
   res.status(201).json({ success: true, data: row });
 });
 
 router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
+  // :id は companies.id（Phase 3-2a）。customers 行は company_id で引く
   const existing = await queryOne(
-    'SELECT id, is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id],
-  ) as { is_gmo_group?: boolean } | null;
+    'SELECT id, is_gmo_group FROM customers WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { id: string; is_gmo_group?: boolean } | null;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   /**
@@ -171,25 +206,37 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
    */
   const groupFlag = is_gmo_group === undefined ? (existing.is_gmo_group === true) : (is_gmo_group === true);
   await execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id, req.params.id]);
+    [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id, existing.id]);
   /**
    * **取引先マスター（`companies`）側にも写す。** 同じ相手が2つの画面に出るので、
    * 片方だけ直ると「取引先マスターでは古い社名なのに顧客一覧では新しい社名」という
    * 食い違いが起きる。以前は `is_gmo_group` だけ写していたが、基本情報も揃える
-   * （`company-directory.service.ts`）。
+   * （`company-directory.service.ts`）。`syncCompanyFromCustomer` は
+   * customers.id から company_id を引く形なので、`existing.id` を渡す
    * （紐付いていない顧客＝`company_id IS NULL` は何も起きません）
    */
   await syncCompanyFromCustomer(
-    req.params.id as string,
+    existing.id,
     { name, short_name, contact_name, email, phone, address, notes, is_gmo_group: groupFlag },
     req.user!.id,
   );
-  const row = await queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
+  const row = await queryOne(
+    `SELECT co.*, cu.id as legacy_customer_id FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     WHERE co.id = ?`,
+    [req.params.id],
+  );
   res.json({ success: true, data: row });
 });
 
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
-  await execute(`UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
+  // :id は companies.id（Phase 3-2a）。この画面（顧客一覧）の削除は今まで
+  // customers 側だけを消していた（companies・仕入先ロールは触らない）ので、
+  // company_id で customers 行だけを論理削除する
+  await execute(
+    `UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
+    [req.user!.id, req.params.id],
+  );
   res.json({ success: true, message: '削除しました' });
 });
 

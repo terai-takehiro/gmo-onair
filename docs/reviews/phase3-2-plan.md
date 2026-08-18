@@ -1,5 +1,12 @@
 # Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
 
+**✅ 実施済み**（Issue #193 の続き）。migration `200_customer_fk_to_companies.sql` を追加し、
+このメモの調査対象一覧＋実DBで見つかった追加分（`dashboard.routes.ts` 等・約30ファイル）を
+同じPRで追随させた。実DB（`npm run verify:fresh` → `npm run db:seed`）で案件作成・売上・
+顧客360°ビュー・`GET /customers` `/gpm/customers` の応答を確認済み。詳細は
+`docs/changelog.d/` のPR記載、または `git log` でこの migration を含む PR を参照。
+以下は着手時点の引き継ぎ資料（実装済みの記録として残す）。
+
 **別セッションで着手する前提の引き継ぎ資料。** 会社リスト一本化（`customers`/`vendors` →
 `companies`）の Phase 1/2/3-1 はマージ済み（PR #183, #184, #186, #188, #190, #192。
 #191 は重複のためクローズ）。ここからは Phase 3-2 の実装メモ。

@@ -308,17 +308,22 @@ export const inviewService = {
     let customerCreated = false;
     if (!customerId) {
       const key = company || personName;
+      // Phase 3-2a: projects.customer_id は companies.id を直接指すので、
+      // customers ではなく companies（is_customer=TRUE）から名前で引く
       if (company) {
         const found = await queryOne(
-          `SELECT id FROM customers WHERE deleted_at IS NULL AND (name = ? OR short_name = ?) ORDER BY (name = ?) DESC LIMIT 1`,
+          `SELECT id FROM companies WHERE deleted_at IS NULL AND is_customer = TRUE
+             AND (name = ? OR short_name = ?) ORDER BY (name = ?) DESC LIMIT 1`,
           [company, company, company],
         ) as any;
         if (found) customerId = String(found.id);
       }
       if (!customerId) {
         // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
-        // グループの印は社名から見立てる（migration 192）
-        customerId = await createCustomerRecord(
+        // グループの印は社名から見立てる（migration 192）。
+        // `createCustomerRecord` は `customers.id` を返すので、作った行の
+        // company_id を引き直して customer_id として使う
+        const cid = await createCustomerRecord(
           {
             name: key || '（内覧会来場者）', contact_name: personName || null,
             email: (reg.email as string) || null,
@@ -327,6 +332,8 @@ export const inviewService = {
           },
           actor.userId,
         );
+        const cr = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as any;
+        customerId = String(cr?.company_id ?? cid);
         customerCreated = true;
       }
     }

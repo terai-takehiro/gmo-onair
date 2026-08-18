@@ -71,7 +71,7 @@ export class ActivityLogService {
     const total = ((await queryOne(
       `SELECT COUNT(*) as c FROM activity_logs a
        LEFT JOIN projects p ON p.id = a.project_id
-       LEFT JOIN customers c ON c.id = a.customer_id
+       LEFT JOIN companies c ON c.id = a.customer_id
        ${where}`, params)) as any).c;
     // v2.9.178+: AI 起票 (MCP create_activity_log) を mcp_audit_log から逆引きして
     // is_ai_created / ai_requested_by (指示者) を付与 (migration 117 の expression index が効く)
@@ -84,7 +84,7 @@ export class ActivityLogService {
        FROM activity_logs a
        LEFT JOIN users u ON u.id = a.user_id
        LEFT JOIN projects p ON p.id = a.project_id
-       LEFT JOIN customers c ON c.id = a.customer_id
+       LEFT JOIN companies c ON c.id = a.customer_id
        LEFT JOIN LATERAL (
          SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
          WHERE m.tool_name = 'create_activity_log' AND m.result_summary->>'created_id' = a.id
@@ -107,7 +107,7 @@ export class ActivityLogService {
        FROM activity_logs a
        LEFT JOIN users u ON u.id = a.user_id
        LEFT JOIN projects p ON p.id = a.project_id
-       LEFT JOIN customers c ON c.id = a.customer_id
+       LEFT JOIN companies c ON c.id = a.customer_id
        WHERE a.id = ? AND a.deleted_at IS NULL`,
       [id]
     );
@@ -391,7 +391,7 @@ export class ActivityLogService {
       `SELECT a.*, p.code as project_code, p.name as project_name, c.name as customer_name
        FROM activity_logs a
        LEFT JOIN projects p ON p.id = a.project_id
-       LEFT JOIN customers c ON c.id = a.customer_id
+       LEFT JOIN companies c ON c.id = a.customer_id
        WHERE a.deleted_at IS NULL
          AND a.user_id = ?
          AND a.next_action IS NOT NULL

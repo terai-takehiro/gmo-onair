@@ -169,7 +169,7 @@ export async function getSalesOverview(now = new Date()) {
                 WHERE sc.project_id = p.id AND sc.to_stage = p.stage
                 ORDER BY sc.changed_at DESC LIMIT 1) AS stage_days
        FROM projects p
-       LEFT JOIN customers c ON c.id = p.customer_id
+       LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')
          AND ${LAST_MOVE} < NOW() - INTERVAL '${STUCK_DAYS} days'
        ORDER BY ${LAST_MOVE} ASC
