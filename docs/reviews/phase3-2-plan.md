@@ -235,33 +235,32 @@ migration を書かない**：
 
 #### Phase 3-3 でやること（詳細化）
 
-> ⚠️ **2026-08-18 PR #211 の Codex レビュー（P2 × 3件）を反映**。当初案は
-> 「3-2a/3-2bで書き込み経路は既に `companies` が正になっているので、テーブルを
-> 消しても新規の読み書きには影響しない」としていたが、誤りだった。
-> ①`vendors` は権限の壁（`budget:editor` かつ `sales:owner` 無しの保存は
-> `companies` を更新しない意図的な仕様）により **`vendors` 側にしかない最新値**
-> が残っている、②`customers`/`vendors` を直接参照しているコードは
-> 「legacyフォールバック2箇所」よりずっと多い、③`mcp_audit_log` の
-> `created_id` が `customers.id`/`vendors.id` のまま埋め込まれている、
-> の3点が抜けていた。下の表はこれを踏まえて描き直したもの。
+> ⚠️ **2026-08-18 PR #211 の Codex レビュー（1巡目 P2 × 3件・2巡目 P2 × 5件、
+> 計8件）を反映**。1巡目は「読み書き経路は既に `companies` が正」という前提の
+> 誤りを指摘するもの（vendor側だけの最新値・洗い出し漏れの参照箇所・
+> `mcp_audit_log` の旧ID）だった。2巡目は**1巡目を直した結果生まれた
+> 「別々のPR/デプロイに分けてよい」という順序の誤り**を指摘するもの
+> （中間状態でエンドポイントが壊れる・検証条件の書き方が誤り）だった。
+> 下の表・工程表は両方を反映して描き直したもの。**「同じPR/デプロイでまとめて
+> 出す」と書いてある箇所を分割しないこと** — 分けた瞬間に本番が壊れる。
 
 | # | 内容 | 対象 |
 | --- | --- | --- |
-| 1 | vendor 側だけにある最新値の突き合わせ | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。削除前に `vendors` と `companies` の該当列を突き合わせ、`vendors` が新しい行は `companies` へ反映するバックフィルを書く。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める |
-| 2 | `mcp_audit_log` の旧ID移行 | `customers.tools.ts`（MCP `create_customer`）が書き込む `result_summary.created_id` は今も `customers.id` のまま。`customers.routes.ts` の `is_ai_created`/`ai_requested_by` はこの値で `mcp_audit_log` を逆引きしている。`customers` を消す前に、該当 JSONB の `created_id` を対応する `companies.id` に書き換えるバックフィルを書く（`vendors` 側の `create_vendor`〔あれば〕も同様）。やらないと過去のAI登録判定が永久に読めなくなる |
-| 3 | `customers`/`vendors` を直接参照している全箇所の書き換え | legacyフォールバック（`findCustomerRow`/`findVendorRow`）以外にも本番コードが直接テーブルを触っている。**洗い出し済みの対象**（2026-08-18時点・要再確認）: `companies.routes.ts`（`/summary` 等）、`sales/routes/excel.routes.ts` / `finance/routes/excel.routes.ts`、`company-directory.service.ts`、`purchases.routes.ts` / `sga.routes.ts`、`kessan-import.service.ts` / `xpoint-import.service.ts`、`doc-handoff.service.ts`、`project-groups.routes.ts`、`search.routes.ts`、`backup.routes.ts`、MCPツール一式、シード。**特に注意**: いくつかの箇所は `customers`/`vendors` 行の `deleted_at` を「その会社が今その役割（顧客/仕入先）を持っているか」の判定に使っている（`is_customer`/`is_vendor` 相当）。テーブルを消すと同じ判定ができなくなるので、`companies` 側だけで同じ意味を表せる代替（既存の `is_customer`/`companies.company_role` 相当の列があるか、無ければ追加）を先に用意する |
-| 4 | 旧支払条件列の削除 | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列（3-1で `companies` に一本化済み・移行元として残していた列）。1・2・3より先に単独で消してよい（`companies` が既に正） |
-| 5 | `customers`/`vendors` テーブル自体の削除 | migration。**1・2・3がすべて完了し、実DBで動作確認できてから**。削除前に実DBで「`companies` に company_id が無い行が0件」「1のバックフィル後に `vendors`/`companies` の差分が0件」「2のバックフィル後に `mcp_audit_log.created_id` が全て `companies.id` として解決できる」を確認 |
-| 6 | legacy フォールバックの削除 | `customers.routes.ts` の `findCustomerRow`（旧URL＝移行前の `customers.id` 解決）、`vendors.routes.ts` の `findVendorRow`（同・`vendors.id`）。**5より前には消せない**（消すと旧URLでのアクセスがテーブルごと無くなり、切り分けが難しくなる）。逆に**5より後は消さないと動かない**（参照先テーブルが無い）。削除前に「旧URLはリリース後どれだけ使われ続けているか」をアクセスログ等で確認すること |
-| 7 | dev専用スクリプトの追随 | `server/scripts/import-kessan-dev.mjs` の `findCustomer`/`ensureCustomer`（3-2a時点で `companies` 紐づけ済みだが、生SQLで `customers`/`vendors` テーブル自体を触っている箇所がまだ残っていればここで消す） |
-| 8 | ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記。この `phase3-2-plan.md` を `docs/version-history.md` 側にアーカイブするか判断 |
-| 9 | 検証 | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` の応答・`GET /companies/:id/summary` の権限別（`budget:editor` のみ／`sales:owner` あり）の見え方・MCP `list_customers`/`list_purchases`・`is_ai_created` 表示・`GET /companies` の役割判定（旧 `deleted_at` 判定の代替）を確認 |
+| 1 | vendor 側だけにある最新値の突き合わせ | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。削除前に `vendors` と `companies` の該当列を突き合わせ、`vendors` が新しい行は `companies` へ反映するバックフィルを書く。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める。**単独で着手して問題ない**（読み込み側の挙動を変えない、純粋な追いつきのバックフィルのため） |
+| 2 | `customers`/`vendors` を直接参照している全箇所の書き換え（**旧支払条件列への書き込みを含む**） | legacyフォールバック（`findCustomerRow`/`findVendorRow`）以外にも本番コードが直接テーブルを触っている。**洗い出し済みの対象**（2026-08-18時点・要再確認）: `companies.routes.ts`（`/summary` 等。**POST/PUTで `customers.closing_day`/`payment_months`/`payment_day` と `vendors` の対応列へ今も書き込んでいる** — これを直さないまま4の列削除をすると通常の取引先登録・編集が `undefined_column` で落ちる）、`sales/routes/excel.routes.ts` / `finance/routes/excel.routes.ts`、`company-directory.service.ts`、`purchases.routes.ts` / `sga.routes.ts`、`kessan-import.service.ts` / `xpoint-import.service.ts`、`doc-handoff.service.ts`、`project-groups.routes.ts`、`search.routes.ts`、`backup.routes.ts`、MCPツール一式、シード。**特に注意**: いくつかの箇所は `customers`/`vendors` 行の `deleted_at` を「その会社が今その役割（顧客/仕入先）を持っているか」の判定に使っている（`is_customer`/`is_vendor` 相当）。テーブルを消すと同じ判定ができなくなるので、`companies` 側だけで同じ意味を表せる代替（既存の `is_customer`/`companies.company_role` 相当の列があるか、無ければ追加）を先に用意する |
+| 3 | `mcp_audit_log` の旧ID移行（バックフィル＋書き込み側＋読み込み側を**同じPR/デプロイで**切り替え） | `customers.tools.ts`（MCP `create_customer`）が書き込む `result_summary.created_id` は今も `customers.id` のまま。`customers.routes.ts` の `is_ai_created`/`ai_requested_by` はこの値で `mcp_audit_log` を逆引きしている。**バックフィルだけを先に出すと、書き込み側がまだ旧ID空間で書き続け・読み込み側もまだ旧ID比較のままなので、バックフィル後に作られた行が未移行のまま取りこぼれる**（2巡目レビュー指摘）。そのため①バックフィルmigration ②`customers.tools.ts` の書き込み先を `company_id` に変更 ③`customers.routes.ts` の読み込みを `company_id` 比較に変更、の3つを同じPR/デプロイで出す（`vendors` 側の `create_vendor`〔あれば〕も同様）。**検証は `tool_name = 'create_customer'`（仕入先版があれば同様のツール名）に絞って**行う — `create_project`/`create_task` など他ツールの `created_id` はそれぞれ別テーブルのIDを指しており、`companies.id` として解決できなくて当然のため対象外（2巡目レビュー指摘） |
+| 4 | 旧支払条件列の削除 | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列。**2で `companies.routes.ts` を含む全ての書き込み経路が `companies` の列だけに書くよう直っていることが前提**（直す前に消すと `undefined_column` で取引先登録・編集が落ちる。2巡目レビュー指摘） |
+| 5 | `customers`/`vendors` テーブル自体の削除 ＋ legacy フォールバックの削除（**同じPR/デプロイで実施**） | migration。**1・2・3がすべて完了し、実DBで動作確認できてから**。**テーブル削除（migration）と `findCustomerRow`/`findVendorRow`〔`customers.routes.ts`/`vendors.routes.ts` のlegacyフォールバック〕の削除は分けない** — 分けると、テーブルだけ消えた中間状態で旧URL・未一致IDへのアクセスが `relation does not exist` で落ちる（2巡目レビュー指摘）。削除前に実DBで「`customers.company_id`/`vendors.company_id` が NULL の行が0件」「その値が `companies.id` として実在すること」（`companies` 自体には `company_id` 列は無い。2巡目レビュー指摘で表現を訂正）「1のバックフィル後に `vendors`/`companies` の差分が0件」「`tool_name='create_customer'` の `mcp_audit_log.created_id` が全て `companies.id` として解決できる」を確認 |
+| 6 | dev専用スクリプトの追随 | `server/scripts/import-kessan-dev.mjs` の `findCustomer`/`ensureCustomer`（3-2a時点で `companies` 紐づけ済みだが、生SQLで `customers`/`vendors` テーブル自体を触っている箇所がまだ残っていればここで消す） |
+| 7 | ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記。この `phase3-2-plan.md` を `docs/version-history.md` 側にアーカイブするか判断 |
+| 8 | 検証 | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` の応答・`GET /companies/:id/summary` の権限別（`budget:editor` のみ／`sales:owner` あり）の見え方・MCP `list_customers`/`list_purchases`・`is_ai_created` 表示・`GET /companies` の役割判定（旧 `deleted_at` 判定の代替）を確認 |
 
-⚠️ **1・2・3は「テーブルは残ったまま」でも着手できる**（突き合わせ・バックフィル・
-参照コードの書き換えはテーブルを消さない限り後方互換）。**着手条件（次の節）を待つ
-必要があるのは 5（テーブル削除）とそれに連動する 4・6 のような不可逆側の作業だけ**
-だが、この計画では安全側に倒して 1〜3 も含め着手条件が揃うまでは着手しないこととする
-（1・2・3 は準備であってもリリース前に本番相当データで検証したいため）。
+⚠️ **1は「テーブルは残ったまま」でも単独で着手できる**（読み込み側の挙動を変えない
+純粋なバックフィルのため）。**2・3は互いに一部依存する**（2の `companies.routes.ts`
+修正＝旧列書き込み停止と、3の書き込み・読み込み切り替えは別々の変更だが、どちらも
+「途中状態を作らない」設計が要る）。**4・5は明確に不可逆**で、4は2の完了が、5は
+1・2・3すべての完了が前提。この計画では安全側に倒して 1〜3 も含め着手条件
+（次の節）が揃うまでは着手しないこととする（本番相当データで検証したいため）。
 
 #### 工程表
 
@@ -284,11 +283,11 @@ gantt
     互換確認期間（最低1リリースサイクル）                    :active, wait1, 4, 5
     Phase 3-3-1 legacyフォールバック使用状況の確認           :p33_0, after wait1, 1
     Phase 3-3-2 vendor側最新値の突き合わせ・バックフィル      :p33_1, after p33_0, 1
-    Phase 3-3-3 mcp_audit_logの旧ID移行                     :p33_2, after p33_1, 1
-    Phase 3-3-4 全参照箇所の書き換え(companiesのみ参照に)     :p33_3, after p33_2, 2
+    Phase 3-3-3 全参照箇所の書き換え・旧列書き込み停止(companiesのみに) :p33_2, after p33_1, 2
+    Phase 3-3-4 mcp_audit_log旧ID移行(バックフィル+書込+読込を同時)   :p33_3, after p33_2, 1
     Phase 3-3-5 旧支払条件列の削除 (migration)               :p33_4, after p33_3, 1
-    Phase 3-3-6 customers/vendorsテーブル削除 (migration)    :crit, p33_5, after p33_4, 1
-    Phase 3-3-7 legacyフォールバックコード削除               :p33_6, after p33_5, 1
+    Phase 3-3-6 customers/vendorsテーブル削除+legacyフォールバック削除(同一デプロイ) :crit, p33_5, after p33_4, 1
+    Phase 3-3-7 dev専用スクリプトの追随                      :p33_6, after p33_5, 1
     Phase 3-3-8 ドキュメント後始末・最終検証                 :p33_7, after p33_6, 1
 ```
 
@@ -297,15 +296,17 @@ gantt
 | 1 | 3-2まで含む版の本番リリース | ユーザーが「本番に入れて」と明示 | ユーザー |
 | 2 | 互換確認期間（最低1リリースサイクル） | 1が完了 | 次の通常リリースが出た時点で自動的に満了 |
 | 3 | 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション（アクセスログ等で確認してから4以降に進む） |
-| 4 | 3-3-2 vendor側最新値の突き合わせ・バックフィル（上表#1） | 3の後（テーブルは残したまま安全に実施可） | 着手セッション |
-| 5 | 3-3-3 `mcp_audit_log` の旧ID移行（上表#2） | 4と並行可 | 着手セッション |
-| 6 | 3-3-4 `customers`/`vendors` を直接参照する全箇所の書き換え（上表#3） | 4・5の反映内容を踏まえて設計 | 着手セッション。対象が多いため複数PRに分けてよい |
-| 7 | 3-3-5 旧支払条件列の削除（migration・上表#4） | 6と独立に着手可（`companies`が既に正のため） | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
-| 8 | 3-3-6 `customers`/`vendors` テーブル削除（migration・上表#5） | 4・5・6がすべてマージ・実DBで孤立0件と差分0件を確認 | 着手セッション |
-| 9 | 3-3-7 legacy フォールバックコード削除（上表#6） | 8がマージ | 着手セッション |
-| 10 | 3-3-8 ドキュメント後始末・最終検証（上表#8・#9） | 9が完了 | 着手セッション |
+| 4 | 3-3-2 vendor側最新値の突き合わせ・バックフィル（上表#1） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション |
+| 5 | 3-3-3 `customers`/`vendors` を直接参照する全箇所の書き換え・旧支払条件列への書き込み停止（上表#2） | 4の反映内容を踏まえて設計。対象が多いため複数PRに分けてよいが、**`companies.routes.ts` の旧列書き込み停止は7より前に必ず完了させる** | 着手セッション |
+| 6 | 3-3-4 `mcp_audit_log` の旧ID移行（バックフィル＋`customers.tools.ts`の書き込み切り替え＋`customers.routes.ts`の読み込み切り替えを**同一PR/デプロイ**で・上表#3） | 5と独立に着手可。**3つを分割しない** | 着手セッション |
+| 7 | 3-3-5 旧支払条件列の削除（migration・上表#4） | **5（`companies.routes.ts`の旧列書き込み停止）が先にマージ済みであること** | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
+| 8 | 3-3-6 `customers`/`vendors` テーブル削除 ＋ legacy フォールバックコード削除（**同一PR/デプロイ**・上表#5） | 4・5・6・7がすべてマージ・実DBで孤立0件と差分0件を確認。**テーブル削除とフォールバック削除を分割しない** | 着手セッション |
+| 9 | 3-3-7 dev専用スクリプトの追随（上表#6） | 8がマージ | 着手セッション |
+| 10 | 3-3-8 ドキュメント後始末・最終検証（上表#7・#8） | 9が完了 | 着手セッション |
 
-4〜10は1PRにまとめるか複数PRに分けるかは着手セッションの判断でよい
+4〜10のうち、**同一PR/デプロイで出すと明記した箇所（6の3点セット・8のテーブル削除と
+フォールバック削除）は分割しないこと** — 分けた瞬間に中間状態の本番が壊れる
+（2026-08-18 PR #211 2巡目レビューで指摘された誤り）。それ以外は複数PRに分けてよい
 （3-2a/3-2bの実績では「migration + 読み書き経路の追随」を1PRにまとめている）。
-ただし **7（列削除）と 8（テーブル削除）は不可逆**なので、着手前に必ず実DBで
+**7（列削除）と 8（テーブル削除）は不可逆**なので、着手前に必ず実DBで
 孤立行0件・差分0件・`droppedColumns.test.ts` 相当の確認を先に済ませること。
