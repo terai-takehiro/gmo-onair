@@ -22,6 +22,7 @@ import {
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
+import { createCustomerRecord } from '../../../shared/services/company-directory.service';
 import { normalizeDest, type IntakeDest } from './intake-parser.service';
 import { MINUTES_KIND } from '../../sales/services/minutes.service';
 
@@ -291,14 +292,10 @@ async function findCustomerId(tx: Tx, name: string): Promise<string | null> {
 async function findOrCreateCustomer(tx: Tx, name: string, userId: string): Promise<string> {
   const found = await findCustomerId(tx, name);
   if (found) return found;
-  const id = uuidv4();
+  // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
   // グループの印は社名から見立てる（migration 192）。投入口は印を持たないので、
   // ここで入れないと AI が起こしたネタ案件だけグループ外のまま残る
-  await tx.execute(
-    `INSERT INTO customers (id, name, is_gmo_group, created_by) VALUES (?, ?, ?, ?)`,
-    [id, name, looksLikeGmoGroup(name), userId]
-  );
-  return id;
+  return createCustomerRecord({ name, is_gmo_group: looksLikeGmoGroup(name) }, userId, tx.execute.bind(tx));
 }
 
 export const taskIntakeService = {

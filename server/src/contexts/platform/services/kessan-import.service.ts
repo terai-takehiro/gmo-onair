@@ -21,6 +21,7 @@ import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
+import { createCustomerRecord, createVendorRecord, execFromPgClient } from '../../../shared/services/company-directory.service';
 
 export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
@@ -644,16 +645,17 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       throw new Error('案件作成に必要な users が見つかりません。先に dev をシードしてください。');
     }
 
+    const exec = execFromPgClient(client);
     async function ensureCustomer(name: string): Promise<string | null> {
       const id = await findCustomer(name);
       if (id) return id;
       if (!createMasters) return null;
-      const nid = randomUUID();
+      // **`companies` にも紐づける**（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
       // ここで入れないとこの会社の案件だけグループ外のまま残る
-      await client.query(
-        'INSERT INTO customers (id, name, notes, is_gmo_group, created_by) VALUES ($1,$2,$3,$4,$5)',
-        [nid, name, MARKER, looksLikeGmoGroup(name), fallbackUser]);
+      const nid = await createCustomerRecord(
+        { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
+      );
       cache.customers.set(name, nid); report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
@@ -661,8 +663,8 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       const r = await client.query('SELECT id FROM vendors WHERE name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
       let id: string | null = r.rows[0]?.id || null;
       if (!id && createMasters) {
-        id = randomUUID();
-        await client.query('INSERT INTO vendors (id, name, notes, created_by) VALUES ($1,$2,$3,$4)', [id, name, MARKER, fallbackUser]);
+        // **`companies` にも紐づける**（company-directory.service.ts）
+        id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
         report.masters.created.vendors++;
       }
       cache.vendors.set(name, id); return id;

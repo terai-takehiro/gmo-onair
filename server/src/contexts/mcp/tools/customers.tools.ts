@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
+import { createCustomerRecord } from '../../../shared/services/company-directory.service';
 
 // 顧客 (customers) の MCP ツール。
 // ルート (customers.routes.ts) は inline SQL のため、同形のクエリをここに持つ。
@@ -103,16 +103,16 @@ export function registerCustomerTools(server: McpServer): void {
         });
       }
 
-      const id = uuidv4();
-      await execute(
-        // グループの印は社名から見立てる（migration 192）。AI は印を渡さないので、
-        // ここで入れないと AI が登録した会社だけグループ外のまま残る
-        `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-           is_gmo_group, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, args.name, args.short_name || null, args.contact_name || null, args.email || null,
-         args.phone || null, args.address || null, args.notes || null,
-         looksLikeGmoGroup(args.name), currentActorId()],
+      // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+      // グループの印は社名から見立てる（migration 192）。AI は印を渡さないので、
+      // ここで入れないと AI が登録した会社だけグループ外のまま残る
+      const id = await createCustomerRecord(
+        {
+          name: args.name, short_name: args.short_name || null, contact_name: args.contact_name || null,
+          email: args.email || null, phone: args.phone || null, address: args.address || null,
+          notes: args.notes || null, is_gmo_group: looksLikeGmoGroup(args.name),
+        },
+        currentActorId(),
       );
       const row = await queryOne(`SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ?`, [id]);
       audit('create_customer', args, { created_id: id, name: args.name }, args.requested_by);

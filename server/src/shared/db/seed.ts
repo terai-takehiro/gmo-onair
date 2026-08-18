@@ -3,6 +3,7 @@ import { initDb, saveDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 import { hashPassword } from '../auth/password';
 import { looksLikeGmoGroup } from '../services/gmo-group';
+import { createCustomerRecord, createVendorRecord } from '../services/company-directory.service';
 import { classificationOf } from '../../contexts/sales/services/project-classification';
 
 const USERS = {
@@ -124,7 +125,9 @@ export async function seed() {
   // **グループの印は社名から見立てる**（migration 192）。検証環境で
   // 「グループ内 / グループ外」の見え方を確かめられるように、
   // GMO とついたお客様（＝グループ会社）を1件入れてある
-  const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, is_gmo_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+  // シードが customers/vendors だけに直接 INSERT すると、検証環境の取引先マスターが
+  // 顧客一覧より少なく見え、「同じはずのデータが画面によって件数が違う」ことになる
   const customerData: [string, string, string, string, string, string][] = [
     ['株式会社グローバルホールディングス', 'GH', '中村 洋介', 'nakamura@global-hd.example.com', '03-1234-5678', '東京都渋谷区桜丘町26-1'],
     ['株式会社ペイメントワークス', 'PW', '小林 真理', 'kobayashi@paymentworks.example.com', '03-2345-6789', '東京都渋谷区道玄坂1-14-6'],
@@ -139,15 +142,16 @@ export async function seed() {
     ['GMOデジタルソリューションズ株式会社', 'GMO-DS', '青木 拓真', 'aoki@gmo-ds.example.com', '03-1357-2468', '東京都渋谷区桜丘町26-1'],
   ];
   for (const [name, short, contact, email, phone, address] of customerData) {
-    const id = uuidv4();
-    CUSTOMERS[short] = id;
-    await ins(custSql, [id, name, short, contact, email, phone, address, looksLikeGmoGroup(name)]);
+    CUSTOMERS[short] = await createCustomerRecord(
+      { name, short_name: short, contact_name: contact, email, phone, address,
+        is_gmo_group: looksLikeGmoGroup(name) },
+      null, ins,
+    );
   }
 
   // ============================================================
   // Vendors
   // ============================================================
-  const vendorSql = `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type, invoice_registration_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
   const vendorData: [string, string, string, string, string, string, string | null][] = [
     ['株式会社テクニカルプロ', '技術', '岡田 誠', 'okada@techpro.example.com', '03-1111-2222', '東京都品川区大崎1-6-4', 'T1234567890123'],
     ['ライティングサービス株式会社', '照明', '森 光太郎', 'mori@lighting-sv.example.com', '03-2222-3333', '東京都世田谷区三軒茶屋2-11-7', 'T2345678901234'],
@@ -159,9 +163,11 @@ export async function seed() {
     ['株式会社トランスポートサービス', '運送', '中島 剛', 'nakajima@transport-sv.example.com', '03-8888-9999', '東京都板橋区成増2-17-10', 'T8901234567890'],
   ];
   for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
-    const id = uuidv4();
-    VENDORS[vType] = id;
-    await ins(vendorSql, [id, name, contact, email, phone, address, vType, regNum]);
+    VENDORS[vType] = await createVendorRecord(
+      { name, contact_name: contact, email, phone, address, vendor_type: vType,
+        invoice_registration_number: regNum },
+      null, ins,
+    );
   }
 
   // ============================================================

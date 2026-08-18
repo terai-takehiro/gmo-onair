@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { createVendorRecord, syncCompanyFromVendor } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -66,9 +66,15 @@ router.get('/:id', async (req, res) => {
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '仕入先名は必須です');
-  const id = uuidv4();
-  await execute('INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, contact_name || null, email || null, phone || null, address || null, vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id]);
+  /**
+   * **`companies`（取引先マスター）にも同じ会社の行を作って紐づける**
+   * （`company-directory.service.ts`）。ここで `vendors` だけに INSERT すると、
+   * 取引先マスターに対応行の無い「孤立した仕入先」ができる。
+   */
+  const id = await createVendorRecord(
+    { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes },
+    req.user!.id,
+  );
   const row = await queryOne('SELECT * FROM vendors WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -79,6 +85,15 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes } = req.body;
   await execute(`UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?, invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, contact_name || null, email || null, phone || null, address || null, vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id, req.params.id]);
+  /**
+   * **取引先マスター（`companies`）側にも写す。** 顧客側 (`syncCompanyFromCustomer`)
+   * と同じ理由 — 片方だけ直ると社名・連絡先が画面によって食い違う。
+   */
+  await syncCompanyFromVendor(
+    req.params.id as string,
+    { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes },
+    req.user!.id,
+  );
   const row = await queryOne('SELECT * FROM vendors WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });

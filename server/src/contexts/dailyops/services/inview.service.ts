@@ -4,6 +4,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from '../../sales/services/project.service';
 import { activityLogService } from '../../sales/services/activity-log.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
+import { createCustomerRecord } from '../../../shared/services/company-directory.service';
 
 // 日常業務アプリ (dailyops) — 内覧会 来場予約の service 層。
 // API (inview.routes) と MCP (inview.tools) の両方から使う。
@@ -315,16 +316,17 @@ export const inviewService = {
         if (found) customerId = String(found.id);
       }
       if (!customerId) {
-        const cid = uuidv4();
-        await execute(
-          // グループの印は社名から見立てる（migration 192）
-          `INSERT INTO customers (id, name, contact_name, email, phone, address, is_gmo_group, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [cid, key || '（内覧会来場者）', personName || null,
-           (reg.email as string) || null, (reg.phone as string) || (reg.mobile as string) || null,
-           (reg.address as string) || null, looksLikeGmoGroup(key), actor.userId],
+        // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+        // グループの印は社名から見立てる（migration 192）
+        customerId = await createCustomerRecord(
+          {
+            name: key || '（内覧会来場者）', contact_name: personName || null,
+            email: (reg.email as string) || null,
+            phone: (reg.phone as string) || (reg.mobile as string) || null,
+            address: (reg.address as string) || null, is_gmo_group: looksLikeGmoGroup(key),
+          },
+          actor.userId,
         );
-        customerId = cid;
         customerCreated = true;
       }
     }
