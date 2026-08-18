@@ -298,13 +298,31 @@ router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) =>
   const byCompanyId = await queryOne(
     'SELECT id FROM customers WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
   ) as { id: string } | null;
+  let companyId: string | null = byCompanyId ? String(req.params.id) : null;
   if (!byCompanyId) {
-    await resolveLegacyCustomerId(String(req.params.id), 'delete');
+    const legacy = await resolveLegacyCustomerId(String(req.params.id), 'delete');
+    if (legacy) companyId = legacy.company_id;
   }
   await execute(
     `UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE deleted_at IS NULL AND (company_id=? OR id=?)`,
     [req.user!.id, req.params.id, req.params.id],
   );
+  /**
+   * Phase 3-3-4: **`companies.is_customer` もここで更新する**（2026-08-18 再調査で
+   * 発見した設計課題・`docs/reviews/phase3-2-plan.md` 表#2）。今までこの削除は
+   * `customers` 側だけを論理削除し、`companies.is_customer` はそのまま TRUE に
+   * 残っていた。そのため `GET /companies?role=customer`（`companies.is_customer`
+   * だけで絞り、`customers.deleted_at` を見ない）では削除済みの顧客が消えずに
+   * 残り続けていた。`customers` テーブルを削除した後は `companies.is_customer` が
+   * 唯一のロール判定になるので、削除操作自体がここを更新する必要がある。
+   * `company_id` が解決できなかった（対象行が無かった／既に削除済み）場合は何もしない。
+   */
+  if (companyId) {
+    await execute(
+      `UPDATE companies SET is_customer = FALSE, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+      [req.user!.id, companyId],
+    );
+  }
   res.json({ success: true, message: '削除しました' });
 });
 
