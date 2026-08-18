@@ -1,5 +1,10 @@
 # Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
 
+> **2026-08-18 追記**: Phase 3-2a・3-2b とも実施済み（下記）。続きの Phase 3-3
+> （`customers`/`vendors` テーブル自体の削除）は**本番リリースが3-2まで含む版を
+> 公開してから**でないと着手できないため、このタスクでは着手条件と工程表のみを
+> 文末の「Phase 3-3（3-2完了後）」節に整理した（コード変更なし）。
+
 **✅ 実施済み**（Issue #193 の続き）。migration `200_customer_fk_to_companies.sql` を追加し、
 このメモの調査対象一覧＋実DBで見つかった追加分（`dashboard.routes.ts` 等・約30ファイル）を
 同じPRで追随させた。実DB（`npm run verify:fresh` → `npm run db:seed`）で案件作成・売上・
@@ -206,3 +211,76 @@ FKの値が `customers.id` から `companies.id` に変わるので、`customer_
 
 `customers`/`vendors` テーブル自体を削除する。3-1で残した旧支払条件列も
 このタイミングで削除する（互換のためのリリースを1回挟んだあと）。
+
+#### 着手できる条件（2026-08-18 時点でまだ揃っていない）
+
+**Phase 3-2a/3-2b はまだ本番に出ていない。** `main` にはマージ済み（検証環境
+`dev.gmo-onair.jp` には自動デプロイ済み）だが、`package.json` の `"version"` は
+まだ `4.1.4` のまま、`docs/changelog.d/` にも3-1〜3-2bの下書きが残っている
+（`npm run release:notes` 未実行＝リリース未公開）。
+
+`docs/deploy-pipeline.md` の**ロールバック不可の注記**（migration `200`/`201` 以降、
+イメージだけ戻すロールバックが使えなくなる）もこの版を指してまだ有効になっていない。
+Phase 3-3（テーブル削除）はさらに後戻りしにくい変更なので、**次の2つが両方揃うまでは
+migration を書かない**：
+
+1. ユーザーが「本番に入れて」と明示し、3-2a/3-2b を含む版（`main` → タグ付け）が
+   `gmo-onair.jp` に公開される
+2. その版で**最低1回リリースサイクルを挟む**（`customers`/`vendors` の legacy
+   フォールバック経由でしかアクセスできない事故がないか、本番で実際に確かめる期間）。
+   次の通常リリース（3-3を含まない版）が出た時点で条件を満たす
+
+**この2条件が揃うまで、このタスクでの作業はここまでの計画立てに留める**
+（実装は別セッション・別PRで、条件が揃ってから着手）。
+
+#### Phase 3-3 でやること（詳細化）
+
+| # | 内容 | 対象 |
+| --- | --- | --- |
+| 1 | 旧支払条件列の削除 | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列（3-1で `companies` に一本化済み・移行元として残していた列） |
+| 2 | legacy フォールバックの削除 | `customers.routes.ts` の `findCustomerRow`（旧URL＝移行前の `customers.id` 解決）、`vendors.routes.ts` の `findVendorRow`（同・`vendors.id`）。**削除すると旧URLをブックマークしている利用者が404になる**ため、削除前に「旧URLはリリース後どれだけ使われ続けているか」をアクセスログ等で確認すること |
+| 3 | `customers`/`vendors` テーブル自体の削除 | migration。3-2a/3-2bで既に全ての書き込み経路が `companies` を正としているため、削除しても新規の読み書きには影響しないはず。削除前に実DBで「`companies` に company_id が無い `customers`/`vendors` 行が0件」を再確認（3-2a/3-2b時点の埋め戻しに漏れがないか） |
+| 4 | dev専用スクリプトの追随 | `server/scripts/import-kessan-dev.mjs` の `findCustomer`/`ensureCustomer`（3-2a時点で `companies` 紐づけ済みだが、生SQLで `customers`/`vendors` テーブル自体を触っている箇所がまだ残っていればここで消す） |
+| 5 | ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記。この `phase3-2-plan.md` を `docs/version-history.md` 側にアーカイブするか判断 |
+| 6 | 検証 | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` の応答・MCP `list_customers`/`list_purchases` を確認 |
+
+#### 工程表
+
+実カレンダー日程ではなく**依存順**（GMOのバージョニング方針上、リリース時期は
+ユーザーの「本番に入れて」の指示に依存し事前に日付を確定できないため）。
+
+```mermaid
+gantt
+    title Phase 3 継続工程表（3-2 完了 → 3-3）
+    dateFormat  X
+    axisFormat  %s
+
+    section 完了済み
+    Phase 3-1 支払条件のcompanies一本化 (PR #188/#190/#192) :done, p31, 0, 1
+    Phase 3-2a 顧客系FK張り替え (migration 200)            :done, p32a, 1, 2
+    Phase 3-2b 仕入先系FK張り替え (migration 201)           :done, p32b, 2, 3
+
+    section 未着手（このタスクは計画のみ）
+    本番リリース公開（3-2まで含む版・ユーザー指示待ち）      :crit, milestone1, 3, 4
+    互換確認期間（最低1リリースサイクル）                    :active, wait1, 4, 5
+    Phase 3-3-1 legacyフォールバック使用状況の確認           :p33_0, after wait1, 1
+    Phase 3-3-2 旧支払条件列の削除 (migration 202)          :p33_1, after p33_0, 1
+    Phase 3-3-3 customers/vendorsテーブル削除 (migration 203) :p33_2, after p33_1, 1
+    Phase 3-3-4 legacyフォールバックコード削除               :p33_3, after p33_2, 1
+    Phase 3-3-5 ドキュメント後始末・最終検証                 :p33_4, after p33_3, 1
+```
+
+| 順序 | 作業 | 前提 | 誰が着手を判断するか |
+| --- | --- | --- | --- |
+| 1 | 3-2まで含む版の本番リリース | ユーザーが「本番に入れて」と明示 | ユーザー |
+| 2 | 互換確認期間（最低1リリースサイクル） | 1が完了 | 次の通常リリースが出た時点で自動的に満了 |
+| 3 | 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション（アクセスログ等で確認してから4以降に進む） |
+| 4 | 3-3-2 旧支払条件列の削除（migration） | 3で「削除して問題なし」と判断 | 着手セッション（同一PR内で新規migrationファイルを追加。既存ファイルは編集しない） |
+| 5 | 3-3-3 `customers`/`vendors` テーブル削除（migration） | 4がマージ・実DBで孤立0件を確認 | 着手セッション |
+| 6 | 3-3-4 legacy フォールバックコード削除 | 5がマージ | 着手セッション |
+| 7 | 3-3-5 ドキュメント後始末・最終検証 | 6が完了 | 着手セッション |
+
+3〜7は1PRにまとめるか複数PRに分けるかは着手セッションの判断でよい
+（3-2a/3-2bの実績では「migration + 読み書き経路の追随」を1PRにまとめている）。
+ただし **4（列削除）と 5（テーブル削除）は不可逆**なので、着手前に必ず実DBで
+孤立行0件・`droppedColumns.test.ts` 相当の確認を先に済ませること。
