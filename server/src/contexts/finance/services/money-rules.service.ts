@@ -90,11 +90,20 @@ export async function primeMoneyRules(): Promise<void> {
 // 支払期日
 // ───────────────────────────────────────────────────────────
 
-/** 取引先ごとの例外。列が NULL = 決めていない（会社のルールに従う） */
+/**
+ * 取引先ごとの例外。列が NULL = 決めていない（会社のルールに従う）。
+ *
+ * **正は `companies`**（Phase 3-1・取引先マスター一本化）。`customerId` は
+ * まだ `customers.id`（Phase 3-2 で `companies.id` へ FK を張り替えるまでの
+ * 橋渡し）なので、`company_id` で1段引く。顧客としての例外は
+ * `customer_*` 列（仕入先を兼ねる会社の `vendor_*` 列とは別）
+ */
 async function customerException(customerId: string | null | undefined): Promise<Partial<DueDateRule> | null> {
   if (!customerId) return null;
   const row = await queryOne(
-    'SELECT closing_day, payment_months, payment_day FROM customers WHERE id = ?',
+    `SELECT customer_closing_day AS closing_day, customer_payment_months AS payment_months,
+            customer_payment_day AS payment_day
+       FROM companies WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL`,
     [customerId],
   ) as Record<string, unknown> | null;
   if (!row) return null;
@@ -176,7 +185,10 @@ export async function previewDueDate(
   return dueDateOf(recognitionDate, rule, { shift, isClosed: await closedDayChecker() });
 }
 
-/** 仕入・販管費の支払日（払う側）。取引先ごとの例外は仕入先の列を見る */
+/**
+ * 仕入・販管費の支払日（払う側）。取引先ごとの例外は `companies` の
+ * `vendor_*` 列を見る（正はもう `vendors` ではない。Phase 3-1）
+ */
 export async function computeVendorDueDate(
   recognitionDate: string | null | undefined,
   vendorId: string | null | undefined,
@@ -186,7 +198,9 @@ export async function computeVendorDueDate(
   let ex: Partial<DueDateRule> | null = null;
   if (vendorId) {
     const row = await queryOne(
-      'SELECT payment_months, payment_day FROM vendors WHERE id = ?', [vendorId],
+      `SELECT vendor_payment_months AS payment_months, vendor_payment_day AS payment_day
+         FROM companies WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL`,
+      [vendorId],
     ) as Record<string, unknown> | null;
     if (row) {
       ex = {
