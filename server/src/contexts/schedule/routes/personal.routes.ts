@@ -5,6 +5,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { encrypt, decrypt, mask } from '../../liveops/crypto';
 import { syncFeedById } from '../services/ics-sync.service';
+import { assertSafeHttpsUrl } from '../../../shared/security/safe-remote-url';
 import {
   getWritableGoogleAccount, pushEventToGoogle, updateGoogleEvent, deleteGoogleEvent,
   type ManualEventInput,
@@ -352,7 +353,11 @@ router.post('/feeds', ...canUse, async (req, res) => {
   if (!label || !url) throw new AppError(400, 'VALIDATION_ERROR', 'ラベルと ICS URL は必須です');
   // **保存する値は削らない** (資格情報つき URL や末尾スラッシュが意味を持つ提供元があるため)
   const normalized = storableFeedUrl(String(url));
-  if (!/^https:\/\//i.test(normalized)) throw new AppError(400, 'VALIDATION_ERROR', 'https:// (または webcal://) で始まる公開 ICS URL を入力してください');
+  try {
+    assertSafeHttpsUrl(normalized);
+  } catch (err) {
+    throw new AppError(400, 'VALIDATION_ERROR', err instanceof Error ? err.message : '安全な https URL を入力してください');
+  }
 
   // ONAiR 自身のカレンダーは購読させない (取り込むと予約が二重に見える)
   if (isOwnCalendarUrl(normalized)) {
