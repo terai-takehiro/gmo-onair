@@ -58,12 +58,17 @@ interface AuthContextType {
   /** モジュールへのアクセス権があるかチェック */
   hasPermission: (module: string, minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner") => boolean;
   /**
-   * 自分の権限をサーバーから読み直す。
+   * 自分の `role`（system_admin / staff）と権限をサーバーから読み直す。
    *
-   * `permissions` は react-query の外（このコンテキストの state）に持っているため、
-   * 権限・役割の保存で invalidateQueries しても更新されない。
-   * **自分自身の権限・役割を直した直後**に呼ぶと、リロードなしで
+   * `currentUser` / `permissions` は react-query の外（このコンテキストの state）に
+   * 持っているため、権限・役割・システム上の区別の保存で invalidateQueries しても
+   * 更新されない。**自分自身のこれらを直した直後**に呼ぶと、リロードなしで
    * メニュー・ボタンの出し分けに反映される。
+   *
+   * ⚠️ `role` も読み直す（`permissions` だけでは足りない）— `hasPermission` は
+   * まず `currentUser.role === 'system_admin'` を見るので、自分の `role` を
+   * system_admin から降格した／に上げた場合、`role` が古いままだと
+   * 権限の見え方が変わらない（実際にレビューで指摘された）
    */
   refreshPermissions: () => Promise<void>;
 }
@@ -108,6 +113,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!seed) setPermissions({});
     } finally {
       setPermissionsLoaded(true);
+    }
+  }, []);
+
+  /**
+   * 自分自身の `role` と `permissions` を `/auth/me` から読み直す。
+   *
+   * mock 認証も JWT 認証も `req.user` は毎リクエスト DB から作り直される
+   * （`mockAuth` / `jwtAuth` → `loadUserWithPermissions`）ため、この1本で
+   * どちらのモードでも最新の `role` と `permissions` が取れる。
+   * ログイン中の再取得なので、ログアウト処理のような localStorage の書き換えはしない
+   * （JWT トークン自体は変わらない）。
+   */
+  const refreshSelf = useCallback(async () => {
+    try {
+      const res = await api.get("/auth/me");
+      const user = res.data.data as User & { permissions?: Permissions };
+      setCurrentUser({ id: user.id, name: user.name, email: user.email, role: user.role });
+      setPermissions(user.permissions ?? {});
+      setPermissionsLoaded(true);
+      // mock mode は localStorage の `gmo_onair_user` を初期化に使うので、
+      // ここも更新しておかないと次のリロードで古い role に戻る
+      if (!localStorage.getItem("gmo_onair_token")) {
+        localStorage.setItem("gmo_onair_user", JSON.stringify({
+          id: user.id, name: user.name, email: user.email, role: user.role,
+        }));
+      }
+    } catch {
+      // 読み直しに失敗しても、いま持っている値をそのまま使う
+      // (ここで消すと保存はできたのに画面がエラー扱いになる)
     }
   }, []);
 
@@ -226,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissionsLoaded,
         permissions,
         hasPermission,
-        refreshPermissions: fetchPermissions,
+        refreshPermissions: refreshSelf,
       }}
     >
       {children}

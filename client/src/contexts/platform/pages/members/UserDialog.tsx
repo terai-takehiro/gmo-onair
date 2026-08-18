@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import type { Member, Role } from './types';
 
 interface Props {
@@ -33,6 +34,8 @@ interface Props {
 
 export function UserDialog({ user, roles, open, onOpenChange }: Props) {
   const qc = useQueryClient();
+  const { currentUser, refreshPermissions } = useAuth();
+  const isSelf = !!user && !!currentUser && user.id === currentUser.id;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [sysRole, setSysRole] = useState('staff');
@@ -63,6 +66,12 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
+      // 自分自身の「システム上の区別」(role) や役割を直したときは、
+      // ここが実際に自分の権限を変える唯一の到達可能な経路
+      // （権限の例外ダイアログは system_admin を選ぶと保存ボタンごと隠れるため通れない）。
+      // `AuthContext` は react-query の外にあるので、上の invalidate だけでは
+      // currentUser.role / permissions が古いまま残る
+      if (isSelf) void refreshPermissions();
       if (!user && data?.inviteUrl) { setInviteUrl(data.inviteUrl); return; }
       notifySuccess(user ? '保存しました' : '招待しました');
       onOpenChange(false);

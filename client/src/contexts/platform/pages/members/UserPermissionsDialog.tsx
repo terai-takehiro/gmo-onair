@@ -79,7 +79,12 @@ export function UserPermissionsDialog({ user, role, open, onOpenChange }: Props)
       qc.invalidateQueries({ queryKey: ['user-permissions', user?.id] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
       // 自分自身の権限を直したときは、その場でメニュー・ボタンに反映する
-      // （`AuthContext.permissions` は react-query の外にあるため、上の invalidate では届かない）
+      // （`AuthContext.permissions` は react-query の外にあるため、上の invalidate では届かない）。
+      // ⚠️ この画面は `isAdmin`（対象が system_admin）だと保存ボタンごと隠すので、
+      // このダイアログを開いたまま自分自身（system_admin）を直す経路は実は通れない
+      // （レビュー指摘）。**自分自身の`role`・役割を直す唯一の到達可能な経路は `UserDialog`**
+      // （そちらにも同じ `refreshPermissions()` を入れてある）。ここは将来 isAdmin の
+      // 判定が緩む・staff が自分の例外を直せるようになった場合の保険として残す
       if (isSelf) void refreshPermissions();
       notifySuccess('権限を保存しました', {
         description: isSelf ? undefined : '本人がログインし直すと効きます。',
