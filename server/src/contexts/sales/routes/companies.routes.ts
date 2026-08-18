@@ -158,6 +158,8 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
     is_gmo_group,
+    customer_closing_day, customer_payment_months, customer_payment_day,
+    vendor_payment_months, vendor_payment_day,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
@@ -176,13 +178,19 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   await execute(
     `INSERT INTO companies (id, name, short_name, contact_name, email, phone, address,
        is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
-       is_gmo_group, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       is_gmo_group, customer_closing_day, customer_payment_months, customer_payment_day,
+       vendor_payment_months, vendor_payment_day, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
-     groupFlag, req.user!.id]
+     groupFlag,
+     // **お金のルール ⑤ と同じ決めごと**（migration 175/196）: NULL = 会社のルールに従う。
+     // 0 を既定値として入れないこと（「決めていない」と「0か月後」を区別できなくなる）
+     customer_closing_day ?? null, customer_payment_months ?? null, customer_payment_day ?? null,
+     vendor_payment_months ?? null, vendor_payment_day ?? null,
+     req.user!.id]
   );
 
   // 顧客ロールあり → customers レコード自動生成
@@ -234,6 +242,8 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
     is_gmo_group,
+    customer_closing_day, customer_payment_months, customer_payment_day,
+    vendor_payment_months, vendor_payment_day,
   } = req.body;
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
   if (!canEditBudget && (existing.is_vendor || is_vendor || vendor_type !== undefined || invoice_registration_number !== undefined)) {
@@ -247,20 +257,29 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
    * 案件が次に保存されたときグループ外になり、見積に定価が並びます。
    * **社名から見立て直しません** — 一度外した印が保存のたびに戻ると、
    * 外した人には「直したのに直らない」としか見えません。
+   * 支払条件の例外5列も同じ守り方（欄を持たない呼び出しから黙って消えない）。
    */
   const groupFlag = is_gmo_group === undefined
     ? existing.is_gmo_group === true
     : is_gmo_group === true;
+  const keep = (v: unknown, existingVal: unknown) => (v === undefined ? existingVal : (v ?? null));
 
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
        is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
-       is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+       is_gmo_group=?, customer_closing_day=?, customer_payment_months=?, customer_payment_day=?,
+       vendor_payment_months=?, vendor_payment_day=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
-     groupFlag, req.user!.id, req.params.id]
+     groupFlag,
+     keep(customer_closing_day, existing.customer_closing_day),
+     keep(customer_payment_months, existing.customer_payment_months),
+     keep(customer_payment_day, existing.customer_payment_day),
+     keep(vendor_payment_months, existing.vendor_payment_months),
+     keep(vendor_payment_day, existing.vendor_payment_day),
+     req.user!.id, req.params.id]
   );
 
   // 紐付き customers / vendors の基本情報も同期
