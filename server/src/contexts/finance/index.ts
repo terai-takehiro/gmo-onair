@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { queryAll } from '../../shared/db/connection';
 import revenuesRoutes from './routes/revenues.routes';
 import purchasesRoutes from './routes/purchases.routes';
 import sgaRoutes from './routes/sga.routes';
@@ -23,6 +24,41 @@ export function createFinanceRoutes(): Router {
       projectId: req.query.project_id as string | undefined,
     });
     res.json({ success: true, data });
+  });
+
+  /**
+   * ダッシュボードの「案件で絞り込む」に出てこない案件があった問題への対応。
+   *
+   * `/projects?limit=500` は既定ソートの上位500件だけを返し、**ソフトデリート済みも
+   * 除外する**。一方、ダッシュボードの「内訳」は `revenues`/`purchases` から
+   * `LEFT JOIN projects` で読むだけなので、そちらの条件を一切持たない。
+   * → 500件の外にある案件・削除済みだが実績が残る案件は、**内訳には出るのに
+   * 絞り込みの選択肢には出ない**という食い違いが起きていた。
+   *
+   * ここは「実際にこの期間の売上・仕入を持っている案件」だけを、**件数の上限を
+   * 付けずに**返す。内訳と同じ集合になるので、この一覧を足すと食い違いが消える。
+   */
+  router.get('/projects-with-activity', requireAuth, requirePermission('budget'), async (req, res) => {
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const params: string[] = [];
+    let dateFilter = '';
+    if (from && to) {
+      dateFilter = 'AND recognition_date BETWEEN $1 AND $2';
+      params.push(from, to);
+    }
+    const rows = await queryAll(
+      `SELECT DISTINCT p.id, p.gls_number, p.name
+         FROM projects p
+        WHERE p.id IN (
+          SELECT project_id FROM revenues WHERE project_id IS NOT NULL AND deleted_at IS NULL ${dateFilter}
+          UNION
+          SELECT project_id FROM purchases WHERE project_id IS NOT NULL AND deleted_at IS NULL ${dateFilter}
+        )
+        ORDER BY p.gls_number DESC NULLS LAST, p.name`,
+      params,
+    );
+    res.json({ success: true, data: rows });
   });
 
   router.use('/revenues', revenuesRoutes);

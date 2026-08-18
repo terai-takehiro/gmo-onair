@@ -25,6 +25,8 @@ import api from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { Button } from '@/components/ui/button';
+import { Input as TextInput } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -41,6 +43,8 @@ type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
   subtotal: number; discount: number; sent_at: string | null;
+  /** 見積全体の備考。行の備考（`item_notes`）とは別（migration 138 の既存列） */
+  notes?: string | null;
   /** 値引きの承認。`pending` の間は送れない（お金のルール ⑤） */
   approval_state?: 'none' | 'pending' | 'approved' | null;
   /** いま見ている人が承認できるか。**サーバーが決める**（押して 403 にしない） */
@@ -62,6 +66,40 @@ const STATUS_TONE: Record<Status, string> = {
   rejected: 'border-transparent bg-destructive-surface text-destructive',
   superseded: 'border-transparent bg-muted text-muted-foreground',
 };
+
+/**
+ * タイトル・見積全体の備考。**下書きのときだけ直せる**（サーバーが強制。ここは出し分けだけ）。
+ * 明細と同じ画面に置くと保存のタイミングを迷うので、**別に保存できる**（`onBlur`）。
+ */
+function EstimateMetaCard({
+  estimate, onSave,
+}: { estimate: Estimate; onSave: (patch: Partial<Pick<Estimate, 'title' | 'notes'>>) => void }) {
+  const [title, setTitle] = useState(estimate.title ?? '');
+  const [notes, setNotes] = useState(estimate.notes ?? '');
+  const locked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
+
+  return (
+    <div className="rounded-card border border-border bg-card p-4">
+      <label className="text-sub mb-1 block text-muted-foreground">タイトル</label>
+      <TextInput
+        value={title}
+        disabled={locked}
+        placeholder="お客様に出す見積のタイトル"
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => { if (title !== (estimate.title ?? '')) onSave({ title }); }}
+      />
+      <label className="text-sub mb-1 mt-3 block text-muted-foreground">見積全体の備考</label>
+      <Textarea
+        value={notes}
+        disabled={locked}
+        rows={2}
+        placeholder="お客様への注記など（行ごとの備考は明細の各行に入れてください）"
+        onChange={(e) => setNotes(e.target.value)}
+        onBlur={() => { if (notes !== (estimate.notes ?? '')) onSave({ notes }); }}
+      />
+    </div>
+  );
+}
 
 export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
@@ -110,6 +148,14 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       notifySuccess('明細を保存しました');
     },
     onError: (e) => notifyApiError('明細を保存できませんでした', e),
+  });
+
+  /** タイトル・見積全体の備考。**明細と同じ「下書きだけ直せる」規則**（サーバー側で強制） */
+  const saveMeta = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Pick<Estimate, 'title' | 'notes'>> }) =>
+      api.put(`${base}/${id}`, patch),
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] }); },
+    onError: (e) => notifyApiError('保存できませんでした', e),
   });
 
   const remove = useMutation({
@@ -277,11 +323,18 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           </div>
 
           {openId && detail.data && (
-            <EstimateItems
-              estimate={detail.data}
-              onSave={(items) => saveItems.mutate({ id: openId, items })}
-              saving={saveItems.isPending}
-            />
+            <>
+              <EstimateMetaCard
+                key={detail.data.id}
+                estimate={detail.data}
+                onSave={(patch) => saveMeta.mutate({ id: openId, patch })}
+              />
+              <EstimateItems
+                estimate={{ ...detail.data, project_id: project.id, customer_type: project.customer_type }}
+                onSave={(items) => saveItems.mutate({ id: openId, items })}
+                saving={saveItems.isPending}
+              />
+            </>
           )}
         </>
       )}

@@ -29,6 +29,9 @@ export interface EstimateItem {
   cost: number;
   category: string | null;
   item_notes: string | null;
+  pricing_item_id: string | null;
+  /** この行の日付（スタジオ利用日・機材の使用日など）。任意（migration 194） */
+  item_date: string | null;
   sort_order: number;
 }
 
@@ -329,7 +332,7 @@ export const estimateService = {
       unknown as Estimate | undefined;
     if (!row) return undefined;
     row.items = (await queryAll(
-      `SELECT id, description, quantity, unit, unit_price, amount, cost, category, item_notes, sort_order
+      `SELECT id, description, quantity, unit, unit_price, amount, cost, category, item_notes, item_date, sort_order
        FROM estimate_items WHERE estimate_id = $1 ORDER BY sort_order, created_at`,
       [id]
     )) as unknown as EstimateItem[];
@@ -383,9 +386,9 @@ export const estimateService = {
     for (const it of from.items ?? []) {
       await execute(
         `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-           amount, cost, category, pricing_item_id, item_notes, sort_order)
+           amount, cost, category, pricing_item_id, item_notes, item_date, sort_order)
          SELECT $1, $2, description, quantity, unit, unit_price, amount, cost, category,
-                pricing_item_id, item_notes, sort_order
+                pricing_item_id, item_notes, item_date, sort_order
          FROM estimate_items WHERE id = $3`,
         [uuidv4(), id, it.id]
       );
@@ -567,11 +570,11 @@ export const estimateService = {
         const price = Math.round(Number(it.unit_price) || 0);
         await tx.execute(
           `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-             amount, cost, category, item_notes, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+             amount, cost, category, item_notes, item_date, pricing_item_id, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
            qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
-           it.item_notes ?? null, order++]
+           it.item_notes ?? null, it.item_date ?? null, it.pricing_item_id ?? null, order++]
         );
       }
     });
