@@ -132,12 +132,75 @@ v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・
 
 ## 次にやること（次のセッション・VPSアクセスがある場所で）
 
-1. **行数確認（dev・本番の両方）**: 23テーブル全部に対して
-   `SELECT 'テーブル名', count(*) FROM テーブル名` を dev (`onair_dev`)・本番
-   (`onair_prod`) の両方で実行し、実データの有無を確認する。0行なら削除の心理的抵抗は
-   下がるが、1行でもあれば「実際に使われていた業務記録」であり、**DROPする前に
-   エクスポート・保存を検討する**（`docs/ops/db-backup-restore.md` のバックアップ手順とは
-   別に、該当テーブルのみのダンプを取っておくのが安全）
+1. ⏳ **行数確認（dev・本番の両方・着手中）**: 23テーブル全部＋未追跡列2つに対して
+   行数を確認する。**このセッションはVPS・DBに到達できない**（前回までと同じ理由。
+   `docs/reviews/phase3-2-plan.md`「2026-08-19 引き継ぎメモ」参照）ため、VPSアクセスが
+   ある場所（ユーザー本人・実機セッション）で以下を実行して結果をこのファイルに
+   追記すること。0行なら削除の心理的抵抗は下がるが、1行でもあれば「実際に使われていた
+   業務記録」であり、**DROPする前にエクスポート・保存を検討する**
+   （`docs/ops/db-backup-restore.md` のバックアップ手順とは別に、該当テーブルのみの
+   ダンプを取っておくのが安全）
+
+   ```bash
+   # ⚠️ sh -c '...' で囲むこと（囲まないと $DATABASE_URL がVPSホスト側で展開されて空になる。
+   # docs/reviews/phase3-2-plan.md の 2026-08-19 引き継ぎメモ②で実際に踏んだ落とし穴）
+   cat > /tmp/row-counts.sql <<'EOSQL'
+   DO $$
+   DECLARE
+     t TEXT;
+     n BIGINT;
+     tables TEXT[] := ARRAY[
+       'ai_action_plans','call_sheet_blocks','call_sheet_lanes','call_sheets',
+       'external_tool_outputs','inquiry_replies','joint_event_companies','joint_events',
+       'keep_agenda_items','keep_meetings','keep_theme_notes','manual_issues',
+       'manual_layout_items','manual_layouts','manual_parts','manuals',
+       'project_changes','project_comment_mentions','project_comments',
+       'slack_digests','slack_dm_settings','user_notification_prefs','user_permission_changes'
+     ];
+   BEGIN
+     FOREACH t IN ARRAY tables LOOP
+       IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=t) THEN
+         EXECUTE format('SELECT count(*) FROM %I', t) INTO n;
+         RAISE NOTICE '% : % 行', t, n;
+       ELSE
+         RAISE NOTICE '% : テーブルが存在しない', t;
+       END IF;
+     END LOOP;
+   END $$;
+
+   -- 未追跡の列2つ（NULL以外の件数）
+   DO $$
+   DECLARE n BIGINT;
+   BEGIN
+     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='misc_inquiries' AND column_name='promoted_project_id') THEN
+       EXECUTE 'SELECT count(*) FROM misc_inquiries WHERE promoted_project_id IS NOT NULL' INTO n;
+       RAISE NOTICE 'misc_inquiries.promoted_project_id (NOT NULL) : % 行', n;
+     ELSE
+       RAISE NOTICE 'misc_inquiries.promoted_project_id : 列が存在しない';
+     END IF;
+     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='security_card_lendings' AND column_name='project_id') THEN
+       EXECUTE 'SELECT count(*) FROM security_card_lendings WHERE project_id IS NOT NULL' INTO n;
+       RAISE NOTICE 'security_card_lendings.project_id (NOT NULL) : % 行', n;
+     ELSE
+       RAISE NOTICE 'security_card_lendings.project_id : 列が存在しない';
+     END IF;
+   END $$;
+   EOSQL
+
+   # dev
+   docker cp /tmp/row-counts.sql gmo-onair-app_dev-1:/tmp/row-counts.sql
+   docker exec gmo-onair-app_dev-1 sh -c 'psql "$DATABASE_URL" -f /tmp/row-counts.sql' 2>&1 | grep NOTICE
+
+   # 本番（読み取り専用の SELECT のみ。書き込みは一切無い）
+   docker cp /tmp/row-counts.sql gmo-onair-app_prod-1:/tmp/row-counts.sql
+   docker exec gmo-onair-app_prod-1 sh -c 'psql "$DATABASE_URL" -f /tmp/row-counts.sql' 2>&1 | grep NOTICE
+   ```
+
+   `ai_action_plans` は行数に加えて最終更新日時も見る（3.と合わせて判断するため）:
+   ```sql
+   SELECT count(*), max(created_at), max(updated_at) FROM ai_action_plans;
+   -- カラム名が違う場合は \d ai_action_plans で実際の列名を先に確認すること
+   ```
 2. **`joint_events`/`joint_event_companies` の本番側の再確認**: 既存のDROP判断はdevの
    0行確認のみに基づく。本番でも0行であることを確認してから migration 205 を作り直すこと
    （`phase3-2-plan.md` の該当手順を更新すること）
