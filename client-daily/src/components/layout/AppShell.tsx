@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { DAILY_MOBILE_TABS, DAILY_NAV } from './nav';
 import { DAILY_MANUAL } from '@/manual/content';
+import DailySearchButton from './DailySearchButton';
 
 /**
  * 日常業務のシェル — **枠は共通** (`shared/src/client/shell/`)。
@@ -38,6 +39,7 @@ export default function AppShell() {
       mobileHiddenPaths={DAILY_MOBILE_HIDDEN}
       sections={DAILY_NAV}
       mobileTabs={DAILY_MOBILE_TABS}
+      searchSlot={<DailySearchButton />}
       notificationSlot={<NotificationBell api={api} />}
       manualContent={DAILY_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}

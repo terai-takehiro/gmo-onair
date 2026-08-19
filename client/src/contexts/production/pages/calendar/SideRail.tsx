@@ -92,7 +92,14 @@ export function SideRail({
         <Card>
           <div className="flex items-center gap-2 px-4 py-3">
             <ClockAlert className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-            <h2 className="text-cardtitle min-w-0 flex-1 truncate">期限が近い仮押さえ</h2>
+            {/*
+              ⚠️ **見出しを「期限が近い仮押さえ」から変えた**（UXレポート 2026-08-18 指摘）。
+              並びは残り日数順で、**本番日を過ぎた仮押さえ（超過）が先頭に来る**のが
+              意図した仕様（③ 仮押さえ一覧と同じ・`holdLogic.ts`）。「期限が近い」だけだと
+              数ヶ月前の超過案件が先頭にあるのが矛盾して見えるため、超過も含むことが
+              分かる見出しにする
+            */}
+            <h2 className="text-cardtitle min-w-0 flex-1 truncate">仮押さえ（超過・期限順）</h2>
             <Link to="/studio/holds" className="text-note shrink-0 font-bold text-primary">すべて</Link>
           </div>
           {soon.length === 0 ? (

@@ -180,7 +180,9 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
       )}
 
       <div className="min-h-0 flex-1">
-        {view === 'kanban' && <KanbanView projectId={project.id} episodeId={episodeId} />}
+        {view === 'kanban' && (
+          <KanbanView projectId={project.id} episodeId={episodeId} onSwitchToList={() => setView('list')} />
+        )}
         {view === 'list' && <TaskListView projectId={project.id} episodeId={episodeId} />}
         {view === 'gantt' && (
           <>

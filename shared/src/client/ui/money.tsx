@@ -59,8 +59,15 @@ export function Money({ value, currency = '¥', negativeIsDanger, inline, classN
       )}
       {...rest}
     >
-      <span className="opacity-65">{isNegative ? `-${currency}` : currency}</span>
-      <span>{d}</span>
+      {/*
+        ⚠️ **マイナスの書き方を「`-` を¥の前に置く」から「数字を括弧で包む」に変えた**
+        （UXレポート 2026-08-18 指摘）。以前は `-${currency}` で「マイナス記号→¥記号→
+        数字」の順（`-¥1,234`）になっており、`-` が¥記号の前に単独で置かれるため
+        パッと見て黒字・赤字を誤認しやすかった。会計表記の慣例（括弧＝マイナス）に
+        合わせ、`-` の文字そのものを使わずに済ませる。色（`negativeIsDanger`）は今までどおり
+      */}
+      <span className="opacity-65">{currency}</span>
+      <span>{isNegative ? `(${d})` : d}</span>
     </span>
   );
 }

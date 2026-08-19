@@ -33,7 +33,14 @@ import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/share
 interface Stats {
   /** 本日・明日の入出庫 (migration 168)。出庫は予定・入庫は返却予定日 */
   in_out: { out_today: number; out_tomorrow: number; in_today: number; in_tomorrow: number };
+  /**
+   * ⚠️ **機材台帳の既定表示（子機材を除いた親機材のみ）と揃えてある**
+   * （UXレポート 2026-08-18 指摘。以前は子機材込みの全件で、台帳一覧の
+   * 「機材 ◯点」と数字が食い違っていた）。子機材込みの総数は
+   * `total_items_with_children` を見る
+   */
   total_items: number;
+  total_items_with_children: number;
   active_items: number;
   in_repair: number;
   lent_out: number;
@@ -138,7 +145,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Tile
               label="機材" value={s.total_items} unit="点"
-              sub={`稼働中 ${s.active_items.toLocaleString('ja-JP')} 点`}
+              sub={`稼働中 ${s.active_items.toLocaleString('ja-JP')} 点（付属品含む全体 ${s.total_items_with_children.toLocaleString('ja-JP')} 点）`}
               tone="plain" icon={<Package className="h-4 w-4" aria-hidden="true" />}
               to="/equipment/items?view=items"
             />

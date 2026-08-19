@@ -8,6 +8,7 @@ import { EQUIPMENT_PC_ONLY, EQUIPMENT_MOBILE_HIDDEN } from "@/pcOnlyScreens";
 import { useAuth } from "@/hooks/useAuth";
 import { EQUIPMENT_MANUAL } from "@/manual/content";
 import { EQUIPMENT_MOBILE_TABS, EQUIPMENT_NAV } from "./nav";
+import EquipmentSearchButton from "./EquipmentSearchButton";
 
 /**
  * 機材管理のシェル — **枠は共通** (`shared/src/client/shell/`)。
@@ -29,6 +30,7 @@ export default function AppShell() {
       mobileHiddenPaths={EQUIPMENT_MOBILE_HIDDEN}
       sections={EQUIPMENT_NAV}
       mobileTabs={EQUIPMENT_MOBILE_TABS}
+      searchSlot={<EquipmentSearchButton />}
       notificationSlot={<NotificationBell api={api} />}
       manualContent={EQUIPMENT_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}

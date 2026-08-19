@@ -73,7 +73,11 @@ export const TERMINAL_STAGES: ProjectStage[] = ['s_completed', 'e_lost'];
  *    探しに行ったときだけ出す（「終了」チップ）
  */
 export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }[] = [
-  { key: 'all', label: 'すべて', stages: ['d_hold', 'c_proposal', 'b_verbal', 'a_won'] },
+  // ⚠️ **「すべて」に「（進行中）」を足した**（UXレポート 2026-08-18 指摘）。
+  // 上のコメントの通り「すべて」はネタ・終了を含まない4ステージだけを指すが、
+  // ラベルが「すべて」のままだと初見では全件を指すように読める。何が入るかを
+  // 一言で示す（詳しい内訳は `docs/reviews/2026-08-19-uiux-operation-report-response.md` 4-4）
+  { key: 'all', label: 'すべて（進行中）', stages: ['d_hold', 'c_proposal', 'b_verbal', 'a_won'] },
   { key: 'a_won', label: 'A 受注済', stages: ['a_won'] },
   { key: 'b_verbal', label: 'B 口頭決定', stages: ['b_verbal'] },
   { key: 'c_proposal', label: 'C 見積提案', stages: ['c_proposal'] },

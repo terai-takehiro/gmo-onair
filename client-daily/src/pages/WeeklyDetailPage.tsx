@@ -30,7 +30,9 @@ import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/noti
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
-import { usePublishReport, useReopenReport, useReport, useReports } from '@/lib/reportsApi';
+import {
+  usePublishReport, useReopenReport, useReport, useReports, useReviewReport,
+} from '@/lib/reportsApi';
 import { formatWeekJa } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
@@ -44,6 +46,7 @@ export default function WeeklyDetailPage() {
   const { canEdit } = usePermissions();
   const publish = usePublishReport();
   const reopen = useReopenReport();
+  const review = useReviewReport();
 
   const report = detail.data;
   const stats = (report?.payload as { stats?: StatsShape } | null)?.stats;
@@ -83,6 +86,23 @@ export default function WeeklyDetailPage() {
     });
   };
 
+  /**
+   * ⚠️ **確認済みにする**（UXレポート 2026-08-18 指摘で追加）。
+   * `POST /dailyops/reports/:id/review` はデイリーニュース報告
+   * （`DailyNewsPage.tsx`）からは前から呼ばれていたが、週報からは一度も
+   * 呼ばれておらず、**「確認済みにする」唯一の手段が「確定する」（公開）**
+   * になっていた。確定するまで恒久的に未確認のままになり、確認だけ先に
+   * 済ませて中身は後で直したい、ができなかった。
+   * サーバー側は状態を問わず打刻するだけなので、下書き・確定済みどちらでも呼べる
+   */
+  const onReview = () => {
+    if (!report) return;
+    review.mutate(report.id, {
+      onSuccess: () => notifySuccess('確認済みにしました'),
+      onError: (e) => notifyApiError('確認済みにできませんでした', e),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4 p-3 lg:flex-row lg:gap-5 lg:p-6">
       {/* 左: 週のリスト (スマホでは上に畳んで横スクロール) */}
@@ -117,8 +137,16 @@ export default function WeeklyDetailPage() {
                 {isPublished
                   ? <TableBadge label="確定済み" w={null} className="border-success-border bg-success-surface text-success" />
                   : <TableBadge label="下書き" w={null} className="border-warning-border bg-warning-surface text-warning" />}
+                {report.reviewed_at
+                  ? <TableBadge label="確認済み" w={null} className="border-success-border bg-success-surface text-success" />
+                  : <TableBadge label="未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
                 {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
                   <TableBadge label="AIが起票" w={null} className="border-ai-border bg-ai-surface text-ai" />
+                )}
+                {canEdit && !report.reviewed_at && (
+                  <Button variant="outline" size="sm" onClick={onReview} disabled={review.isPending}>
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 確認済みにする
+                  </Button>
                 )}
               </div>
             </PageHeader>

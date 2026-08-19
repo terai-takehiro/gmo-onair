@@ -88,7 +88,14 @@ export default function GpmDashboardPage() {
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="ダッシュボード"
-        sub="いま何が動いていて、どこで止まっているか。すべて発注が確定したものです"
+        // ⚠️ **先頭に「案件管理とは別の画面」を足した**（UXレポート 2026-08-18 指摘）。
+        // 案件管理（営業活動・GLS-A）とプロジェクト管理（自社構築・グループ受託の
+        // 工程管理・GLS-B）は見た目の構成が似ており初見では判別しづらいため、
+        // ここでだけ一言添える。案件管理側の見出しには説明を置かない方針
+        // （`platform/pages/DashboardPage.tsx` の「見出しの下に説明を置かない」）
+        // はそのまま変えない — GPM 側はもともと `sub` を使っていた画面なので、
+        // 先頭の一言を足すだけで新しい方針を持ち込まずに済む
+        sub="案件管理とは別の画面（自社構築・グループ受託の工程管理）。いま何が動いていて、どこで止まっているか"
         primaryAction={
           canEdit ? (
             <Button onClick={() => navigate('/gpm/projects/new')}>

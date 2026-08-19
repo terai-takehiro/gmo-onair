@@ -24,14 +24,27 @@ const toInt = (v: CountRow | null | undefined): number => {
 
 export const statsService = {
   async getDashboardStats() {
+    /*
+     * ⚠️ **「機材点数」の数え方を機材台帳（一覧）と揃えた**（UXレポート 2026-08-18 指摘）。
+     * 以前は子機材（付属品・`parent_id IS NOT NULL`）を含めた全件を数えており、
+     * 台帳一覧の既定表示（`item.service.ts` の `include_children !== '1'` のとき
+     * `parent_id IS NULL`）と母数が違って「常設 1,503点」対「機材 1,000点」のように
+     * 同じ「機材点数」が画面によって別の値になっていた。**親機材のみ**を数えるほうに
+     * 揃える（台帳側は「付属品も出す」トグルで子機材を含められるが、既定は親のみなので
+     * ダッシュボードの既定表示もそれに合わせる）。子機材込みの総数が要るときは
+     * `total_items_with_children` を使う
+     */
     const totalItems = (await queryOne(
+      'SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND parent_id IS NULL',
+    )) as CountRow | null;
+    const totalItemsWithChildren = (await queryOne(
       'SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL',
     )) as CountRow | null;
     const activeItems = (await queryOne(
-      `SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.ACTIVE}'`,
+      `SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND parent_id IS NULL AND status='${EQUIPMENT_STATUS.ACTIVE}'`,
     )) as CountRow | null;
     const inRepair = (await queryOne(
-      `SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`,
+      `SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND parent_id IS NULL AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`,
     )) as CountRow | null;
     const lentOut = (await queryOne(
       `SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}'`,
@@ -101,6 +114,7 @@ export const statsService = {
         in_tomorrow: Number(inOut?.in_tomorrow ?? 0),
       },
       total_items: toInt(totalItems),
+      total_items_with_children: toInt(totalItemsWithChildren),
       active_items: toInt(activeItems),
       in_repair: toInt(inRepair),
       lent_out: toInt(lentOut),
