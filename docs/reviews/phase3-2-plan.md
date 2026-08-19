@@ -555,10 +555,11 @@ legacy id 経由のアクセスは `console.warn` でコンテナのログに出
 `vendors.routes.ts`）。VPS で以下を実行して件数を数える:
 
 ```bash
-# 検証環境（dev.gmo-onair.jp・コンテナ app-dev）。本番を見るなら app-prod に読み替え
-docker logs app-dev --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
+# 検証環境（dev.gmo-onair.jp）。コンテナ名は docs/ops/db-backup-restore.md と同じ命名規則
+# （Docker Compose の自動命名: gmo-onair-app_{env}-1）。本番を見るなら app_prod に読み替え
+docker logs gmo-onair-app_dev-1 --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
 # 内訳が要れば
-docker logs app-dev --since 24h 2>&1 | grep "legacy id 経由のアクセス"
+docker logs gmo-onair-app_dev-1 --since 24h 2>&1 | grep "legacy id 経由のアクセス"
 ```
 
 `[customers] legacy id 経由のアクセス` と `[vendors] legacy id 経由のアクセス` の
@@ -567,7 +568,7 @@ docker logs app-dev --since 24h 2>&1 | grep "legacy id 経由のアクセス"
 ### 3-3-2: vendor側最新値の分析（次のセッションでやること）
 
 **`companies` への書き込みは行わない。差分の件数把握のみ**（上表#1）。VPS で
-`docker exec -it app-dev psql "$DATABASE_URL"`（`docs/ops/db-backup-restore.md` と同じ要領）
+`docker exec -it gmo-onair-app_dev-1 psql "$DATABASE_URL"`（`docs/ops/db-backup-restore.md` と同じ要領）
 に入り、以下を実行:
 
 ```sql
@@ -595,7 +596,7 @@ WHERE v.deleted_at IS NULL AND co.deleted_at IS NULL
 ### 結果が出たら
 
 1. 上の工程表「3」「4」の行を ✅ 完了に更新し、確認した日付・件数（0件ならその旨）・
-   ログ/SQLの実行環境（`app-dev`/`app-prod` のどちらで見たか）を書く
+   ログ/SQLの実行環境（`gmo-onair-app_dev-1`/`gmo-onair-app_prod-1` のどちらで見たか）を書く
 2. 上表#1（vendor側の一次分析）にも同じ件数を反映する
 3. 3-3-1 の観測期間が「意味のある」と言えるかは、CLAUDE.md の v4.1.7 のときと同様に
    ユーザーの判断を仰ぐ（実利用がほぼ0件なら短い観測期間でも可、という前例がある）

@@ -1,0 +1,1 @@
+**Phase 3-3-1・3-3-2の引き継ぎ手順（PR #233）に書いたコンテナ名の誤りを直した**（コード変更なし）。`docker logs app-dev`/`docker exec -it app-dev ...` と書いていたが、`docs/ops/db-backup-restore.md` の実際の命名規則（Docker Compose の自動命名 `gmo-onair-app_{env}-1`）と食い違っており、そのままではコンテナが見つからず実行できなかった。`gmo-onair-app_dev-1`/`gmo-onair-app_prod-1` に修正した。
