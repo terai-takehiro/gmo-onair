@@ -1,0 +1,1 @@
+**PR #234 のレビュー棚卸しを記録した**（コード変更なし）。#234 に Codex のレビューが1件も付かないままCI緑でマージされていたため確認したところ、`chatgpt-codex-connector` が「Codex usage limits に達した」とだけコメントしレビュー本体は投稿されていなかった（表に移す指摘は無し）。#231 と同じ形の2件目のため、docs/reviews/codex-findings-v4.md に記録した。
