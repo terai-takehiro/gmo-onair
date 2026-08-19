@@ -451,6 +451,33 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   prefix判定を再実行するだけの小さい移行を足して塞いだ
 - **検証**: `npm run typecheck` / `npm run lint` / `npm run test` OK
 
+**営業レビュー（`/sales/review`）を v4 に作り直した回** — `pages/salesReview/`
+- **PC専用のまま。** 3列を並べて打合せの場で映すための画面で、縦に畳むと比べられない
+  （`pcOnlyScreens.ts` は変更なし）。1ファイル929行を7ファイルへ分割した
+- **タブを `shadcn/Tabs` から案件台帳と同じセグメント切替に差し替えた。** KPI は
+  カードではなく v4 ダッシュボード（①）と同じ「帯」（`Strip`）、金額は
+  `Money`/`manYen`、棒グラフは状態の色トークン（`bg-primary`/`bg-success`/
+  `bg-destructive` 系）にして生のパレットをやめた。営業評価タブの表は
+  `Row`/`RowSlot`/`MoneyCell`（列幅7段）に載せ替えた
+- ⚠️ **目標設定ダイアログが保存できていなかったバグを直した。** サーバー
+  （`POST /sales-analytics/targets`）は本文から `target_year`/`target_month` を
+  読むが、旧画面は `fiscal_year`/`fiscal_month` を送っていた。`sales_targets` の
+  該当列は `NOT NULL`（既定値なし）なので**保存を押すたびに毎回 500 で落ちており**、
+  画面には理由が出ないので「押しても反映されない」としか見えなかった。あわせて、
+  サーバーに保存先の列が無い「目標件数」欄（黙って捨てられていた）を削除した
+- ⚠️ **営業評価タブ自体が、担当者に1件でも実績があると必ず 500 で落ちるバグも見つけて直した**
+  （`sales-analytics.service.ts`）。`u.name` を選びながら `GROUP BY p.assigned_to` /
+  `GROUP BY t.user_id` のように `u.name` を含めない SQL を書いており、これは
+  標準 SQL 違反で Postgres は通さない（"column must appear in the GROUP BY clause"）。
+  実データを繋いで検証するまで気づけなかった — ロジックは1行も変えていないつもりの
+  回だったが、集計式そのものが動いていなかった
+- **「目標設定」ボタンを `sales:editor` 権限で出し分けた。** サーバーは前から
+  `requirePermission('sales', 'editor')` を要求しており、それ以外の人には
+  **押せるのに 403** だった
+- **検証**: `npm run typecheck` / `npm run lint` / `npm run test` に加え、
+  実ブラウザ（Playwright）でファネル・失注分析・営業評価の3タブと、
+  目標設定ダイアログの保存（実際に反映されることまで）を確認済み
+
 **案件作成（②・受付を統合した回）で決めたこと**
 - **画面を1つ減らした。** 旧 `/sales/inbox`（受付）と `/sales/projects/new`（案件登録）は
   **同じ仕事**でした — 届いたものを読んで、足りないところを埋めて、案件にするかどうかを決める。
