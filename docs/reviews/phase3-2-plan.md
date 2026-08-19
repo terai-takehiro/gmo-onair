@@ -530,3 +530,74 @@ gantt
 再実行されないため、その時点では手遅れになる）。**5（`mcp_audit_log`旧ID移行）が
 6（`customers.routes.ts`の書き換え）より先という順序も入れ替えないこと**
 （5巡目レビュー指摘・入れ替えると `is_ai_created` の読み込み手段を失う窓が生まれる）。
+
+## 2026-08-19 引き継ぎメモ（PC 環境がある別セッションへ・3-3-1・3-3-2 が保留）
+
+**このセッション（サンドボックス実行環境）からは `dev.gmo-onair.jp`・`gmo-onair.jp` の
+どちらにも到達できない。** 上の工程表「3」（3-3-1 legacy URL の使用状況確認）・「4」
+（3-3-2 vendor側最新値の分析）は**どちらもVPS・DBへの実アクセスが前提**だが、
+以下の理由でこのセッションでは着手できず保留にした（コード変更なし）。
+
+- `curl https://dev.gmo-onair.jp/...` は agent proxy から **403（組織のエグレスポリシーによる
+  明示的な拒否）**。一時的な通信断ではなく、`dev.gmo-onair.jp`・`gmo-onair.jp` とも
+  アローリスト外（`/root/.ccr/README.md` の「403 / 407 from the proxy」の通り、
+  回避せず報告する運用）
+- 仮にホストが許可されても、**このプロキシは HTTPS(443) しか通さず生の TCP（PostgreSQL の
+  5432 番）は通さない**（同READMEの「Not supported through the proxy」）。VPSへの直接
+  SSH・`DATABASE_URL` 等の接続情報もこのセッションには設定されていない
+- ユーザーへ確認したところ、この時点ではPCを含む実機環境が無いためVPS操作ができず、
+  **一旦保留として別セッションで実施する**ことになった（2026-08-19）
+
+### 3-3-1: legacy URL 使用状況の確認（次のセッションでやること）
+
+legacy id 経由のアクセスは `console.warn` でコンテナのログに出るだけで、DBには残らない
+（`resolveLegacyCustomerId`/`resolveLegacyVendorId`・`customers.routes.ts`/
+`vendors.routes.ts`）。VPS で以下を実行して件数を数える:
+
+```bash
+# 検証環境（dev.gmo-onair.jp・コンテナ app-dev）。本番を見るなら app-prod に読み替え
+docker logs app-dev --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
+# 内訳が要れば
+docker logs app-dev --since 24h 2>&1 | grep "legacy id 経由のアクセス"
+```
+
+`[customers] legacy id 経由のアクセス` と `[vendors] legacy id 経由のアクセス` の
+2種類が出る。観測期間はログ保持期間の許す限り長く取ること（v4.1.6 デプロイ以降が理想）。
+
+### 3-3-2: vendor側最新値の分析（次のセッションでやること）
+
+**`companies` への書き込みは行わない。差分の件数把握のみ**（上表#1）。VPS で
+`docker exec -it app-dev psql "$DATABASE_URL"`（`docs/ops/db-backup-restore.md` と同じ要領）
+に入り、以下を実行:
+
+```sql
+SELECT count(*) AS diff_count
+FROM vendors v
+JOIN companies co ON co.id = v.company_id
+WHERE v.deleted_at IS NULL AND co.deleted_at IS NULL
+  AND (
+    v.name IS DISTINCT FROM co.name
+    OR v.contact_name IS DISTINCT FROM co.contact_name
+    OR v.email IS DISTINCT FROM co.email
+    OR v.phone IS DISTINCT FROM co.phone
+    OR v.address IS DISTINCT FROM co.address
+    OR v.vendor_type IS DISTINCT FROM co.vendor_type
+    OR v.invoice_registration_number IS DISTINCT FROM co.invoice_registration_number
+    OR v.notes IS DISTINCT FROM co.notes
+  );
+```
+
+⚠️ **`companies` への `UPDATE` はここでは書かない**（上表#1の設計どおり — 反映するのは
+5のテーブル削除時、`LOCK TABLE` の中でのみ）。`diff_count` が 0 件でも、それ自体が
+「反映は5のタイミングでよい」ことの追加の裏付けになる（0件でなくても、上表#1の設計は
+変わらない — 反映のタイミングを早めない）。
+
+### 結果が出たら
+
+1. 上の工程表「3」「4」の行を ✅ 完了に更新し、確認した日付・件数（0件ならその旨）・
+   ログ/SQLの実行環境（`app-dev`/`app-prod` のどちらで見たか）を書く
+2. 上表#1（vendor側の一次分析）にも同じ件数を反映する
+3. 3-3-1 の観測期間が「意味のある」と言えるかは、CLAUDE.md の v4.1.7 のときと同様に
+   ユーザーの判断を仰ぐ（実利用がほぼ0件なら短い観測期間でも可、という前例がある）
+4. 3-3-1・3-3-2 が終わり次第、次は工程表「7」（3-3-5 直前バックアップ+検証。
+   旧支払条件列削除PRのマージ前ゲート）に進める（3-3-4 の顧客側はPR #225〜#231で完了済み）
