@@ -317,21 +317,48 @@ v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・
 3. ✅ **`ai_action_plans` の切り分け（2026-08-19 完了）**: 上記1に統合。dev・本番とも
    0行＝書き込み側の実装が欠けている未完成機能と判明（v3.2.0ロールバックの巻き添えとは
    性質が違う）
-4. **中身を見る（次にやること・最優先）**: 0行ではなかった5テーブル
-   （`manual_layouts`/`manual_parts`/`manuals`/`project_changes`/`slack_dm_settings`）の
-   **実際の行の中身**を dev または本番で `SELECT * FROM <table> LIMIT 20;` して見る。
-   `manual_parts`（12件）はマスタ定義かどうかの確認、`project_changes`（16件）は
-   いつ・どの案件の・何の変更が記録されているか（実際の業務記録なら実施日を見て
-   「最近のものか、v3.2.0以前の古いものだけか」を確認）、`manuals`/`manual_layouts`
-   （各1件）はどの案件のものか、`slack_dm_settings`（1件）はどのユーザーの設定かを見る
-5. **機能ごとに「作り直す/しない」をユーザーに確認**: 4の中身確認を踏まえ、各機能について
-   (a) v4で作り直す予定がある→テーブルはそのまま残し、コード側の復活を別Issueにする、
-   (b) v4では作らない→**0行の18テーブルはそのままDROP対象、0行でない5テーブルは
-   該当行だけエクスポート・保存してからDROP migrationを書く**、を決める。
-   一括で「全部消す」「全部残す」と決め打ちしないこと。`ai_action_plans` は0行のため
-   データ損失の懸念なくどちらにも倒せる（設計を活かして書き込み側を実装するか、
-   使わないならDROPするか）
-6. **列単位の全数diff（未実施）**: `information_schema.columns` 約1650件の突き合わせが
-   まだ。FKを持たない未追跡列が他にもある可能性があるため、上記4・5が片付いたら着手する
-7. `docs/reviews/phase3-2-plan.md` の「未完了: DBの技術的負債の全体監査」節はこのファイルへの
+4. ✅ **中身の確認（2026-08-19 完了）**: 5テーブルすべての中身を確認。詳細は上記
+   「行数確認」の結果に統合済み（`manuals`は実在の案件「GMOパートナーズ・カンファレンス
+   2026_3Q」に紐づく実データ、`project_changes`は2026-07-28〜08-01の実在スタッフによる
+   実案件のステージ変更履歴）
+5. ✅ **ユーザー判断（2026-08-19 完了・重要）**: ユーザー（寺井氏）に「v4の現在ある
+   ページに関わるDBではない」ことを確認したうえで、**23テーブル全部＋未追跡列2つ
+   （`misc_inquiries.promoted_project_id`・`security_card_lendings.project_id`）の
+   削除を明示的に承認**（「こちらは抹殺して大丈夫です」2026-08-19）。実データが
+   入っていた5テーブル（`manuals`/`manual_layouts`/`manual_parts`/`project_changes`/
+   `slack_dm_settings`）についても、内容を提示したうえでの判断。v4でこれらの機能
+   （21・22章 香盤表・運営マニュアル等）を将来作り直す場合も、**このデータを
+   引き継ぐ前提には立たない**（作り直すときは新規に作る）ことになった。
+6. ✅ **migration 206 を作成・検証済み（2026-08-19 完了）**:
+   `server/src/shared/db/migrations/206_drop_untracked_drift_tables.sql`。
+   23テーブル（子→親の順・`CASCADE`は使わず想定外の依存があれば明示的にエラーに
+   なる形）＋未追跡列2つを削除する。**このセッションの検証用Postgres
+   （`npm run verify:fresh`。ローカルの PostgreSQL 16、VPS/本番とは無関係）で
+   2通り検証済み**:
+   - 今回のドリフト状態を手動で再現（23テーブル+2列を注入）したDBに対して実行 →
+     FK違反なく全23 DROP + 2 ALTER が成功、対象が0件になったことを確認
+   - 何も注入していない完全に新規のDB（`verify:fresh`）に対して実行 →
+     `IF EXISTS` によりエラーなくスキップされることを確認（CI・新規環境でも安全）
+   - あわせて `npm run typecheck`（9ワークスペース exit 0）・`npm run test`
+     （1135件 all pass）・`npm run lint`（0 errors）を実行し、削除対象を
+     参照しているコードが無いことを再確認
+
+   ⚠️ **本番・実際の検証環境（dev.gmo-onair.jp）に対する実行は未実施**
+   （このセッションはVPS/実DBに到達できない）。`main`にマージされ次第
+   検証環境（dev.gmo-onair.jp）に自動デプロイされる。本番へは
+   ユーザーが「本番に入れて」と明示するまで反映されない（`CLAUDE.md`の
+   環境分離ポリシーどおり）
+
+   **実行前の推奨（任意・ユーザー判断）**: 消える5テーブルの中身だけ軽くSQLダンプで
+   残しておく場合は以下（VPSで実行。読み取りのみ・安全）:
+   ```bash
+   docker exec gmo-onair-app_dev-1 sh -c \
+     'pg_dump "$DATABASE_URL" -t manuals -t manual_layouts -t manual_parts \
+       -t project_changes -t slack_dm_settings --data-only' \
+     > drift-tables-backup-$(date +%Y%m%d).sql
+   ```
+7. **列単位の全数diff（未実施）**: `information_schema.columns` 約1650件の突き合わせが
+   まだ。FKを持たない未追跡列が他にもある可能性があるため、上記6のPRがマージ・
+   デプロイされたあとで着手する
+8. `docs/reviews/phase3-2-plan.md` の「未完了: DBの技術的負債の全体監査」節はこのファイルへの
    リンクに置き換えること（重複管理を避けるため）
