@@ -1,1 +1,3 @@
 **Phase 3-3-1・3-3-2の引き継ぎ手順（PR #233）に書いたコンテナ名の誤りを直した**（コード変更なし）。`docker logs app-dev`/`docker exec -it app-dev ...` と書いていたが、`docs/ops/db-backup-restore.md` の実際の命名規則（Docker Compose の自動命名 `gmo-onair-app_{env}-1`）と食い違っており、そのままではコンテナが見つからず実行できなかった。`gmo-onair-app_dev-1`/`gmo-onair-app_prod-1` に修正した。
+
+**続けて、ユーザーが実機のVPSで実際にPhase 3-3-1・3-3-2を実施し、結果を記録した。** 検証環境（`onair_dev`）・本番環境（`onair_prod`）とも legacy id 経由アクセスのログが直近24時間で **0件**、vendor側最新値の差分件数（`companies` への書き込みなし・読み取り専用SQL）が **`diff_count = 0`**。`docs/reviews/phase3-2-plan.md` の工程表・上表#1に反映した。この実行中、`docker exec -it <container> psql "$DATABASE_URL"` が `$DATABASE_URL` をVPSホスト側シェルで（未設定のまま）展開してしまい接続に失敗する不具合が見つかったため、`docker exec -it <container> sh -c 'psql "$DATABASE_URL"'`（コンテナ内シェルで展開）に修正して記録した。
