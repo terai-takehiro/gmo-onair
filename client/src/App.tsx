@@ -29,7 +29,6 @@ import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
-import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 import ProjectGroupDetailPage from "@/contexts/sales/pages/ProjectGroupDetailPage";
 
@@ -250,11 +249,13 @@ function AppRoutes() {
         {/* v4: ヨミ・パイプラインは案件一覧の「ボード」表示に畳んだ (別画面だと絞り込みが引き継げず、
             一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
         <Route path="/sales/pipeline" element={<RedirectKeepQuery to="/sales/projects?view=board" />} />
+        {/* 営業活動記録・営業レビューを1画面に統合した（ご指示）。レビュー3タブは中にある */}
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         {/* 「AI活動履歴」は削除した（ご指示・mcp_audit_logは監査用に過ぎず、AIが触ったかは
             案件一覧のAI作成絞り込み・案件詳細のAiReviewBannerが記録単位で上位互換） */}
         {/* 「報告資料」は v4 の要件未定のため削除した（ご指示・API/MCPは他が使うので残置） */}
-        <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
+        {/* 旧「営業レビュー」単独画面は統合先のタブへ転送する（行き先のクエリが勝つ） */}
+        <Route path="/sales/review" element={<RedirectKeepQuery to="/sales/activity-logs?tab=funnel" />} />
         {/* 顧客の一覧は取引先マスターの「顧客」絞り込みへ一本化した（Phase 2）。360°ビューは残す */}
         <Route path="/sales/customers" element={<RedirectKeepQuery to="/sales/companies?role=customer" />} />
         <Route path="/sales/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />

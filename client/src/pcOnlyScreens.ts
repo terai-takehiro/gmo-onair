@@ -95,10 +95,23 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // **`/sales/gls-import`（旧GLS決算取込）は削除した**（決算取込自体は終わっており、
   // まとめて直す機能は案件台帳が上位互換なため）。`/sales/projects/ledger` への
   // 転送にしたので、実体の画面が無く、この表に載せる対象ではない
+  // **旧 `/sales/review`（営業レビュー）は `/sales/activity-logs` のタブへ統合した**
+  // （ご指示・2026-08）。ルート自体が `RedirectKeepQuery` になり実体の画面が無いので、
+  // この表に載せる対象ではない（他の転送と同じ扱い）
+  /*
+    ⚠️ **この段落は当時の記録。** 前は「営業活動記録は v4 で作り直したので
+    `CLIENT_MOBILE_OK` へ外した」だったが、統合先の分析3タブ（旧営業レビュー）が
+    「3列を並べて打合せの場で映す」前提の PC 専用画面だったため、**統合にあわせて
+    画面全体を PC 専用に戻した**（ご指示）。タブごとにスマホ対応が割れると
+    `useIsMobile()` の判定を画面の中に書くことになり、PC専用の判定を1か所
+    （この表）に集める方針が崩れる。`ActivityMobileFilters` 等のスマホ用部品は
+    「それでもこのまま開く」（`PcOnlyPanel` の `onOpenAnyway`）を選んだ人のために
+    残してある
+  */
   {
-    path: '/sales/review',
-    what: '営業レビュー',
-    why: '3列を並べて見る画面で、打合せの場で映すためのものです。',
+    path: '/sales/activity-logs',
+    what: '営業活動記録・営業レビュー',
+    why: '記録タブに加えて、3列を並べて打合せの場で映すための分析タブ（ファネル・失注分析・営業評価）を同じ画面に統合しています。',
     instead: PROJECTS,
   },
   // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
@@ -118,8 +131,8 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
-  // **営業活動記録は v4 で作り直したのでここから外した**（`CLIENT_MOBILE_OK` へ）。
-  // `Row stackOnMobile` ＋ `MobileFilterBar` で縦積みになり、375px で崩れないことを実測済み
+  // **営業活動記録**（`/sales/activity-logs`）は、この表の「案件管理」節にあります
+  // （営業レビュー統合で PC 専用に戻したため。⚠️ の記録を参照）
   // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
   // 案件一覧・案件詳細のほうが記録単位で上位互換なため）。実体の画面が無いので
   // この表に載せる対象ではない
@@ -191,7 +204,8 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
-  '/sales/activity-logs',               // 営業活動記録（Row stackOnMobile ＋ MobileFilterBar）
+  // **`/sales/activity-logs` はここから外した**（2026-08）。営業レビュー統合で
+  // 画面全体を PC 専用に戻したため（`CLIENT_PC_ONLY` の同パスを参照）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*
     ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──

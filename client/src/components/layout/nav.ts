@@ -14,7 +14,6 @@
  * どの入口にいるかは URL から `appOfPath()` で判定し、その入口の節だけを出します。
  */
 import {
-  Award,
   BarChart3,
   Building2,
   Calendar,
@@ -83,7 +82,10 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // **どちらを開けばよいか名前から分からなくなる**ため
         { label: "案件台帳", to: "/sales/projects/ledger", icon: Table2 },
         // **v4 で作り直したのでここへ移した**（「そのほか」から）。全案件を横断して
-        // 探す・直す画面なので、案件台帳と同じ塊に置く
+        // 探す・直す画面なので、案件台帳と同じ塊に置く。
+        // **「営業レビュー」はこの画面のタブに統合した**（ご指示・2026-08）。
+        // 旧 `/sales/review` は `?tab=funnel` 付きでここへ転送するので、
+        // メニュー項目はこの1つで足りる（統合前は別項目として2つ並べていた）
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
       ],
     },
@@ -115,8 +117,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // **「報告資料」も削除した**（v4 の要件未定・ご指示）
         // **「AI活動履歴」も削除した**（監査ログに過ぎず、AIが触ったかは案件一覧・
         // 案件詳細のほうが記録単位で上位互換なため・ご指示）
+        // **「営業レビュー」は v4 で作り直したうえ「営業活動記録」のタブへ統合した**
+        // （2026-08。単独のメニュー項目は無くなった）
         { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
-        { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "取引先マスター（顧客・仕入先・販管費支払先）", to: "/sales/companies", icon: Store },
       ],
     },
