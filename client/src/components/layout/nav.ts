@@ -23,9 +23,7 @@ import {
   Database,
   DollarSign,
   FileSearch,
-  Film,
   FolderKanban,
-  GanttChart,
   GitBranch,
   HardDrive,
   Inbox,
@@ -106,12 +104,12 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 別々に編集できる状態を残す理由が無いので、メニューの項目も1つに減らした。
         // 旧 URL は `App.tsx` が `/sales/companies?role=customer` へ転送する
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
-        // **ビジネス（GLS-B）はプロジェクト管理へ移した** (migration 179)。
-        // 旧 URL は `App.tsx` が `/gpm/projects` へ転送する
-        { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
+        // **「確定案件（スタジオ）」は削除した**（v4 の③案件一覧が上位互換のため）。
+        // **「ガントチャート」も削除した**（v4 の④タスク一覧と完全に同一コンポーネントで、
+        // メニューの重複リンクだった。URL `/sales/tasks/gantt` 自体はタスク一覧のガント表示
+        // として生きているので消していない — ブックマークもそのまま開ける）
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
-        { label: "ガントチャート", to: "/sales/tasks/gantt", icon: GanttChart },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
         { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },

@@ -33,7 +33,6 @@ import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
-import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Tasks (タスク管理)
@@ -208,8 +207,8 @@ function AppRoutes() {
             `/studio` より先に置くこと（React Router は静的な区切りを優先するが、
             同じ深さの動的区間より前に書いておくほうが読み違えない）
         */}
-        <Route path="/sales/projects/confirmed/business" element={<RedirectKeepQuery to="/gpm/projects" />} />
-        <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
+        {/* `ConfirmedProjectsPage` は削除（③案件一覧が上位互換）。旧 URL は転送する */}
+        <Route path="/sales/projects/confirmed/:category" element={<RedirectKeepQuery to="/sales/projects" />} />
         {/*
             ⚠️ **転送先は `task` です。** 2026-08 に「エピソード（回）」タブごと
             外し（正のモックのタブバーに無かった）、**回の表と「回を足す」は

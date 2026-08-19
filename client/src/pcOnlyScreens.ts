@@ -108,12 +108,8 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
   { path: '/sales/activity-logs', what: '営業活動記録', why: 'v4 でまだ作り直していない画面です。' },
   { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
-  {
-    path: '/sales/projects/confirmed/:category',
-    what: '確定案件の一覧',
-    why: '金額と日程が横に並ぶ表です。',
-    instead: PROJECTS,
-  },
+  // **`/sales/projects/confirmed/:category`（確定案件の一覧）は削除した**（`ConfirmedProjectsPage`
+  // ごと消して `/sales/projects` への転送にした）。実体の画面が無いので、この表に載せる対象ではない
 
   // ── 財務管理（モックの「お金は置かない」）─────────────────
   //   **`/budget/billing` は入れない** — ⑫ 入金の確認がスマホ用にある
