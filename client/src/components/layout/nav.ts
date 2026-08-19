@@ -87,6 +87,10 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 旧 `/sales/review` は `?tab=funnel` 付きでここへ転送するので、
         // メニュー項目はこの1つで足りる（統合前は別項目として2つ並べていた）
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+        // **v4 で作り直したのでここへ移した**（「そのほか」から）。複数案件を横断して
+        // 費用按分する画面なので、案件台帳・営業活動記録と同じ塊に置く。
+        // 画面自体は先に作り直し済みだったが、メニューの移動が漏れていた
+        { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
       ],
     },
     {
@@ -111,7 +115,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // **「ガントチャート」も削除した**（v4 の④タスク一覧と完全に同一コンポーネントで、
         // メニューの重複リンクだった。URL `/sales/tasks/gantt` 自体はタスク一覧のガント表示
         // として生きているので消していない — ブックマークもそのまま開ける）。
-        // **「営業活動記録」は v4 で作り直したので「全案件」へ移した**
+        // **「営業活動記録」「費用を分け合うグループ」は v4 で作り直したので「全案件」へ移した**
         // **「旧GLS（決算取込）」は削除した**（決算取込自体は終わっており、
         // まとめて直す機能は案件台帳（絞り込み「どちらも」＋検索）が上位互換のため）
         // **「報告資料」も削除した**（v4 の要件未定・ご指示）
@@ -119,7 +123,6 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 案件詳細のほうが記録単位で上位互換なため・ご指示）
         // **「営業レビュー」は v4 で作り直したうえ「営業活動記録」のタブへ統合した**
         // （2026-08。単独のメニュー項目は無くなった）
-        { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "取引先マスター（顧客・仕入先・販管費支払先）", to: "/sales/companies", icon: Store },
       ],
     },
