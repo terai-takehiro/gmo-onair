@@ -25,8 +25,21 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 
 - 旧 `opportunities` テーブルは廃止し、**単一 `projects` テーブル**に統合済み
 - `stage`: `neta` → `d_hold` → `c_proposal` → `b_verbal` → `a_won` → `s_completed` / `e_lost`
-- **`gls_number IS NULL` = ヨミ段階、`IS NOT NULL` = GLS発番済み**
-- GLS発番は別エンドポイント: `POST /projects/:id/issue-gls`
+- **GLS発番は `a_won`（受注済）に上げた瞬間に自動**（`changeStage`）。手動の
+  `POST /projects/:id/issue-gls` は「口頭決定（`b_verbal`）のうちに先に番号が要る」
+  ときのために残してあるだけで、**それより手前のステージからは呼べない**
+  （v4.1.8・サーバー側でガード。以前は無条件に呼べ、問合せ段階でも番号を焼けた）
+- **受注確定した案件の絞り込みは `stage`（`a_won`/`s_completed`）が正で、
+  `gls_number` の有無ではない。** 受注は原則 GLS 番号が自動で付くが、案件分類
+  （`gls_category`）が未設定の古いデータでは例外的に番号だけ付かないことがある
+  （そのときは受注そのものは通し `gls_error` を返す）。**この2つを混同しない**:
+  - 仕入・売上・精算PDF取込レビュー・予算詳細・書類引き渡しの案件プルダウンは
+    `GET /projects/won-projects`（`stage IN ('a_won','s_completed')`）を使う。
+    ここを `gls_number IS NOT NULL` で絞ると、受注済みなのに番号がまだ無いだけの
+    案件に実務を記録できない詰みが起きる（v4.1.8 で修正済み）
+  - 「GLS番号そのものへ紐づける」操作（回の追加・付け替え・費用を分け合う
+    グループ）は `GET /projects/gls-projects`（`gls_number IS NOT NULL`）のまま
+    でよい — 番号が無いと成立しない操作なので
 - 案件分類は `gls_category`（`A`=スタジオ / `B`=ビジネス）。発番後の A↔B 切替は
   `PATCH /projects/:id/gls-category`（採番し直し＋エピソードコード＋BOX フォルダを追随）
 - 費用按分は `project_groups` テーブル

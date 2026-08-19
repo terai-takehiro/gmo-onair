@@ -125,7 +125,8 @@ export interface XpointFileRow {
   registered_records: RegisteredRecord[] | null;
 }
 
-export interface ProjectOption { id: string; gls_number: string; name: string }
+/** 受注確定済みでも案件分類未設定の古いデータでは gls_number が空のことがある（v4.1.8） */
+export interface ProjectOption { id: string; gls_number: string | null; name: string }
 
 /**
  * 状態の色。**意味で決める**（画面ごとに変えない）。

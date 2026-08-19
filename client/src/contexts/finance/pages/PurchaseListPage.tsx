@@ -90,12 +90,16 @@ export default function PurchaseListPage() {
   const raw = crud.raw as { total_amount?: number; state_counts?: Record<string, number> } | undefined;
   const counts = raw?.state_counts ?? {};
 
-  const { data: glsProjectsData } = useQuery({
-    queryKey: ['gls-projects-for-purchase'],
-    queryFn: async () => (await api.get('/projects/gls-projects')).data,
+  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正）。
+  // 受注 (`a_won`) は原則 GLS 番号が自動で付くが、案件分類が未設定の
+  // 古いデータでは例外的に番号だけ付かないことがあり、GLS番号の有無を
+  // 基準にすると受注済みの案件に仕入を記録できない詰みが起きるため
+  const { data: wonProjectsData } = useQuery({
+    queryKey: ['won-projects-for-purchase'],
+    queryFn: async () => (await api.get('/projects/won-projects')).data,
     enabled: crud.dialogOpen,
   });
-  const glsProjects: PurchaseProjectOption[] = glsProjectsData?.data ?? [];
+  const glsProjects: PurchaseProjectOption[] = wonProjectsData?.data ?? [];
 
   const { data: vendorsData } = useQuery({
     queryKey: ['vendors-list'],

@@ -67,14 +67,15 @@ export function HandoffDialog({
   const [projectId, setProjectId] = useState('');
   const [vendorId, setVendorId] = useState('');
 
+  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正。理由は PurchaseListPage と同じ）
   const { data: projectsData } = useQuery({
-    queryKey: ['gls-projects-for-handoff'],
-    queryFn: async () => (await api.get('/projects/gls-projects')).data,
+    queryKey: ['won-projects-for-handoff'],
+    queryFn: async () => (await api.get('/projects/won-projects')).data,
     enabled: kind === 'purchase',
   });
   // **毎回新しい配列を作らない** — 下の `useMemo` の依存に入るので、
   // `?? []` を素で書くと毎描画で作り直されて `useMemo` が意味を失う
-  const projects = useMemo<{ id: string; gls_number: string; name: string }[]>(
+  const projects = useMemo<{ id: string; gls_number: string | null; name: string }[]>(
     () => projectsData?.data ?? [],
     [projectsData],
   );
@@ -133,7 +134,7 @@ export function HandoffDialog({
               <div>
                 <Label>案件 *</Label>
                 <SearchableSelect
-                  options={projects.map((p) => ({ value: p.id, label: `${p.gls_number} ${p.name}` }))}
+                  options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
                   value={effectiveProject}
                   onChange={setProjectId}
                   placeholder="GLS番号で検索..."

@@ -79,6 +79,11 @@ router.get('/gls-projects', async (_req, res) => {
   res.json({ success: true, data: await projectService.getGlsProjects() });
 });
 
+// 受注確定済み案件一覧（仕入・売上など実務入力の案件プルダウン用。v4.1.8）
+router.get('/won-projects', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getWonProjects() });
+});
+
 /**
  * 整合性チェックの件数（案件台帳の「確かめる」）。
  *

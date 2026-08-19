@@ -26,18 +26,25 @@ import { cn } from '@/lib/utils';
 import type { GlsDialogState, GlsProject } from '../types';
 
 export function GlsDialog({
-  state, setState, projectName, isCategoryA, glsProjects, busy, onConfirm,
+  state, setState, projectName, isCategoryA, canIssueNew, glsProjects, busy, onConfirm,
 }: {
   state: GlsDialogState;
   setState: React.Dispatch<React.SetStateAction<GlsDialogState>>;
   projectName: string;
   isCategoryA: boolean;
+  /**
+   * 新しい番組として番号を採れるか（口頭決定＝Bより手前は不可・v4.1.8）。
+   * false のときは「新しい番組」のカードを選べなくし、理由を添える。
+   * 「いまある案件に足す」（`mode==='link'`）はこの制限を受けない
+   */
+  canIssueNew: boolean;
   glsProjects: GlsProject[];
   busy: boolean;
   onConfirm: () => void;
 }) {
   const newMode = state.mode === 'new';
   const blocked = busy
+    || (newMode && !canIssueNew)
     || (state.mode === 'link' && !state.target_project_id)
     || (newMode && isCategoryA && (state.broadcast_types.length === 0 || state.media_platforms.length === 0));
 
@@ -57,22 +64,33 @@ export function GlsDialog({
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {([
-              { mode: 'new' as const, title: '新しい番組', sub: '新しい GLS 番号を採る' },
-              { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す' },
+              {
+                mode: 'new' as const,
+                title: '新しい番組',
+                sub: canIssueNew ? '新しい GLS 番号を採る' : '口頭決定（B）まで進めると採れます',
+                disabled: !canIssueNew,
+              },
+              { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す', disabled: false },
             ]).map((o) => (
               <button
                 key={o.mode}
                 type="button"
                 aria-pressed={state.mode === o.mode}
+                disabled={o.disabled}
                 className={cn(
                   'min-h-tap rounded-control-lg border-2 p-3 text-left lg:min-h-[44px]',
-                  state.mode === o.mode
-                    ? 'border-primary-border-strong bg-primary-surface'
-                    : 'border-border hover:border-primary-border',
+                  o.disabled
+                    ? 'cursor-not-allowed border-border opacity-50'
+                    : state.mode === o.mode
+                      ? 'border-primary-border-strong bg-primary-surface'
+                      : 'border-border hover:border-primary-border',
                 )}
-                onClick={() => setState((s) => ({
-                  ...s, mode: o.mode, target_project_id: o.mode === 'new' ? '' : s.target_project_id,
-                }))}
+                onClick={() => {
+                  if (o.disabled) return;
+                  setState((s) => ({
+                    ...s, mode: o.mode, target_project_id: o.mode === 'new' ? '' : s.target_project_id,
+                  }));
+                }}
               >
                 <div className="text-list">{o.title}</div>
                 <p className="text-note mt-1 text-muted-foreground">{o.sub}</p>

@@ -219,7 +219,13 @@ export default function ProjectFormPage() {
           {f.isYomi && (
             <Button
               size="sm"
-              onClick={() => actions.setGlsDialog((s) => ({ ...s, open: true }))}
+              onClick={() => actions.setGlsDialog((s) => ({
+                ...s, open: true,
+                // **口頭決定（B）より手前は「新しい番組」を選べない**ので、
+                // 押せる「いまある案件に足す」を既定にして開く（開いた瞬間
+                // 何も選べていないように見えるのを防ぐ）
+                mode: f.canIssueNewGls ? s.mode : 'link',
+              }))}
               disabled={actions.glsMutation.isPending}
             >
               <Trophy className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -364,6 +370,7 @@ export default function ProjectFormPage() {
         setState={actions.setGlsDialog}
         projectName={project?.name || ''}
         isCategoryA={f.isCategoryA}
+        canIssueNew={f.canIssueNewGls}
         glsProjects={actions.glsProjects}
         busy={actions.glsMutation.isPending || actions.linkGlsMutation.isPending}
         onConfirm={actions.handleGlsConfirm}

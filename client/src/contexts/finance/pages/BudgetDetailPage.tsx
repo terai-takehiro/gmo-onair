@@ -14,7 +14,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { TaxCategoryLabels } from "@/types";
 
-interface ProjectOption { id: string; gls_number: string; name: string; }
+/** 受注確定済みでも案件分類未設定の古いデータでは gls_number が空のことがある（v4.1.8） */
+interface ProjectOption { id: string; gls_number: string | null; name: string; }
 
 function useResizable() {
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
@@ -58,9 +59,10 @@ export default function BudgetDetailPage() {
   const purResize = useResizable();
   const sgaResize = useResizable();
 
+  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正。理由は PurchaseListPage と同じ）
   const { data: glsData } = useQuery({
-    queryKey: ["gls-projects-budget"],
-    queryFn: async () => (await api.get("/projects/gls-projects")).data,
+    queryKey: ["won-projects-budget"],
+    queryFn: async () => (await api.get("/projects/won-projects")).data,
   });
   const glsProjects: ProjectOption[] = glsData?.data ?? [];
 
@@ -135,7 +137,7 @@ export default function BudgetDetailPage() {
         <div className="w-full sm:w-72">
           <Label>案件</Label>
           <SearchableSelect
-            options={glsProjects.map((p) => ({ value: p.id, label: `${p.gls_number} ${p.name}` }))}
+            options={glsProjects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
             value={projectId}
             onChange={setProjectId}
             placeholder="GLS番号で検索..."
@@ -149,7 +151,7 @@ export default function BudgetDetailPage() {
 
       {selectedProject ? (
         <div className="text-sm text-muted-foreground">
-          {selectedProject.gls_number} — {selectedProject.name}
+          {selectedProject.gls_number || 'GLS未発番'} — {selectedProject.name}
           {month && <span className="ml-2 font-medium text-foreground">{formatMonth(month + "-01")}</span>}
         </div>
       ) : month ? (

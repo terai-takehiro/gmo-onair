@@ -89,9 +89,14 @@ export function RevenueDialog({
   }, [detailData]);
 
   // Search projects
+  // **受注確定済み（`a_won`/`s_completed`）だけを候補にする**（v4.1.8・矛盾修正）。
+  // 以前はステージを問わず全案件から検索できたので、仕入・精算PDF取込レビュー等
+  // 他の実務入力画面と違い、ヨミ段階の案件にも売上を記録できてしまっていた
   const { data: projectsData } = useQuery({
     queryKey: ['projects-search', projectSearch],
-    queryFn: async () => (await api.get('/projects', { params: { search: projectSearch, limit: 20 } })).data,
+    queryFn: async () => (await api.get('/projects', {
+      params: { search: projectSearch, stage: 'a_won,s_completed', limit: 20 },
+    })).data,
     enabled: projectSearch.length > 0,
   });
   const projects: ProjectOption[] = projectsData?.data ?? [];
