@@ -106,7 +106,8 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
-  { path: '/sales/activity-logs', what: '営業活動記録', why: 'v4 でまだ作り直していない画面です。' },
+  // **営業活動記録は v4 で作り直したのでここから外した**（`CLIENT_MOBILE_OK` へ）。
+  // `Row stackOnMobile` ＋ `MobileFilterBar` で縦積みになり、375px で崩れないことを実測済み
   { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
   // **`/sales/projects/confirmed/:category`（確定案件の一覧）は削除した**（`ConfirmedProjectsPage`
   // ごと消して `/sales/projects` への転送にした）。実体の画面が無いので、この表に載せる対象ではない
@@ -176,6 +177,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
+  '/sales/activity-logs',               // 営業活動記録（Row stackOnMobile ＋ MobileFilterBar）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*
     ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──

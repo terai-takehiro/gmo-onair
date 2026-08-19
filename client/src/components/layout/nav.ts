@@ -84,6 +84,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 名前を分けているのは、メニューに同じ名前が2つ並ぶと
         // **どちらを開けばよいか名前から分からなくなる**ため
         { label: "案件台帳", to: "/sales/projects/ledger", icon: Table2 },
+        // **v4 で作り直したのでここへ移した**（「そのほか」から）。全案件を横断して
+        // 探す・直す画面なので、案件台帳と同じ塊に置く
+        { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
       ],
     },
     {
@@ -103,11 +106,12 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 作り続けていた（company-directory.service.ts）。同じ会社を2つの一覧から
         // 別々に編集できる状態を残す理由が無いので、メニューの項目も1つに減らした。
         // 旧 URL は `App.tsx` が `/sales/companies?role=customer` へ転送する
-        { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+        //
         // **「確定案件（スタジオ）」は削除した**（v4 の③案件一覧が上位互換のため）。
         // **「ガントチャート」も削除した**（v4 の④タスク一覧と完全に同一コンポーネントで、
         // メニューの重複リンクだった。URL `/sales/tasks/gantt` 自体はタスク一覧のガント表示
-        // として生きているので消していない — ブックマークもそのまま開ける）
+        // として生きているので消していない — ブックマークもそのまま開ける）。
+        // **「営業活動記録」は v4 で作り直したので「全案件」へ移した**
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
