@@ -166,7 +166,7 @@ export default function CompanyListPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-2 flex-wrap">
-                    {c.customer_id && (
+                    {c.is_customer && (
                       <button
                         className="text-xs text-primary hover:underline flex items-center gap-0.5"
                         onClick={() => navigate(`/sales/customers/${c.id}`)}
@@ -174,7 +174,7 @@ export default function CompanyListPage() {
                         <ExternalLink className="h-3 w-3" />取引実績を見る
                       </button>
                     )}
-                    {c.vendor_id && (
+                    {c.is_vendor && (
                       <button
                         className="text-xs text-primary hover:underline flex items-center gap-0.5"
                         onClick={() => navigate("/budget/vendors")}
@@ -245,7 +245,7 @@ export default function CompanyListPage() {
                     sortable: false,
                     cell: (c) => (
                       <div className="flex gap-2">
-                        {c.customer_id && (
+                        {c.is_customer && (
                           <button
                             className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
                             onClick={(e) => { e.stopPropagation(); navigate(`/sales/customers/${c.id}`); }}
@@ -253,7 +253,7 @@ export default function CompanyListPage() {
                             <ExternalLink className="h-3 w-3" />取引実績
                           </button>
                         )}
-                        {c.vendor_id && (
+                        {c.is_vendor && (
                           <button
                             className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
                             onClick={(e) => { e.stopPropagation(); navigate("/budget/vendors"); }}
