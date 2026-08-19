@@ -450,7 +450,7 @@ Phase 3-3（テーブル削除・列削除）はさらに後戻りしにくい�
 
 | # | 内容 | 対象 |
 | --- | --- | --- |
-| 1 | vendor 側だけにある最新値の突き合わせ（**一次分析のみ。`companies` への書き込みは行わない。実際の反映は5で行う**） | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。⚠️ **この時点で `vendors` の値を `companies` へバックフィル（書き込み）してはいけない**（6巡目レビュー指摘）: `companies` は `GET /companies` 等の一覧・検索・サマリーで `sales:owner` を問わず参照されるため、`budget:editor` だけが編集した（＝`sales:owner` の承認前提で意図的に非公開のままにしてきた）値をここで書き込むと、その時点で権限の壁を飛び越えて公開してしまう。**この工程は SELECT による差分の把握・件数の見積もりだけに留める**（`UPDATE companies ...` は書かない）。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める。⚠️ **差分は把握しても消えない**（3巡目レビュー指摘）: `budget:editor` の `PUT /vendors/:id` は動き続けるため、把握した差分はすぐ古くなる。**実際に `companies` へ反映する（＝権限の壁を飛び越える）のは、`vendors` テーブル自体を消す5のタイミングだけ**にする（テーブルを消せば `vendors` 単独更新という編集経路自体が無くなるので、その時点で反映しても新しい非公開値を作り出さない。4巡目・6巡目レビュー指摘を踏まえた設計） |
+| 1 | vendor 側だけにある最新値の突き合わせ（**一次分析のみ。`companies` への書き込みは行わない。実際の反映は5で行う**） | `vendors.routes.ts` は `budget:editor` が `sales:owner` を持たない保存で、意図的に `companies` を更新せず `vendors` だけ更新する（権限の壁・PR #183 P2）。そのため名前・連絡先・`vendor_type`・請求書登録番号などは **`vendors` 側が最新の場合がある**。⚠️ **この時点で `vendors` の値を `companies` へバックフィル（書き込み）してはいけない**（6巡目レビュー指摘）: `companies` は `GET /companies` 等の一覧・検索・サマリーで `sales:owner` を問わず参照されるため、`budget:editor` だけが編集した（＝`sales:owner` の承認前提で意図的に非公開のままにしてきた）値をここで書き込むと、その時点で権限の壁を飛び越えて公開してしまう。**この工程は SELECT による差分の把握・件数の見積もりだけに留める**（`UPDATE companies ...` は書かない）。あわせて「テーブルが無くなった後、この権限の壁をどう守るか」（`companies` に直接同じ制約を持たせる等）を決める。⚠️ **差分は把握しても消えない**（3巡目レビュー指摘）: `budget:editor` の `PUT /vendors/:id` は動き続けるため、把握した差分はすぐ古くなる。**実際に `companies` へ反映する（＝権限の壁を飛び越える）のは、`vendors` テーブル自体を消す5のタイミングだけ**にする（テーブルを消せば `vendors` 単独更新という編集経路自体が無くなるので、その時点で反映しても新しい非公開値を作り出さない。4巡目・6巡目レビュー指摘を踏まえた設計）。✅ **2026-08-19 検証環境で一次分析実施**: ユーザーが `onair_dev` で SELECT による差分件数の集計SQL（下記「2026-08-19 引き継ぎメモ」参照）を実行し、**`diff_count = 0`**（`vendors`/`companies` の間で名前・連絡先・`vendor_type`・請求書登録番号・備考のいずれも食い違いなし）を確認した。⚠️ **これは検証環境の時点の値であり、0件だからといって5（テーブル削除）の反映を省略してよいわけではない**（`budget:editor` の編集は5の直前まで動き続けるため。上記の設計どおり、実際の反映は5の `LOCK TABLE` 内で改めて突き合わせて行う） |
 | 2 | `customers`/`vendors` を直接参照している全箇所の書き換え（**旧支払条件列への書き込みを含む。`customers.routes.ts` の `CUSTOMER_JOIN` 除去は3より後**） | legacyフォールバック（`findCustomerRow`/`findVendorRow`）以外にも本番コードが直接テーブルを触っている。**洗い出し済みの対象**（2026-08-18時点・**4巡のレビューを経てもなお漏れが見つかり続けているので、この一覧を最終と見なさず、着手前に repo 全体を再検索すること** — `grep -rn "FROM customers\|JOIN customers\|FROM vendors\|JOIN vendors\|INTO customers\|INTO vendors"` 等。特に `SELECT`/`UPDATE`/`INSERT` 文字列を組み立てている箇所は素朴な `grep` に引っかからないことがあるので、`customers`/`vendors` という識別子そのものでも検索する）: **`sales/routes/customers.routes.ts` 自身（✅ **2026-08-18 対応済み** — `CUSTOMER_JOIN` を使う一覧・詳細・360°ビュー・POST/PUTレスポンスの通常の読み書きフロー全体を `customers` への JOIN 無しに書き換えた。基本情報〔名前・連絡先等〕は元々 `companies`（`co.*`）を正として読んでいたため、`DELETE /:id` が `companies.is_customer` を更新するようになった〔上記の同日対応〕ことで `companies.is_customer = TRUE AND deleted_at IS NULL` だけで一覧・検索・詳細の判定が足りるようになった。どこからも参照されていなかった `legacy_customer_id` フィールドも応答から削除。legacyフォールバック関数〔`findCustomerRow`/`resolveLegacyCustomerId`〕自体は `customers` テーブルを直接引く実装のままで残る＝5のテーブル削除まで対象）**、**`finance/routes/vendors.routes.ts` 自身（⚠️ **未対応・`customers.routes.ts` と対称にできない**: `VENDOR_FIELDS` は名前・連絡先・`vendor_type` 等の基本情報を `companies` ではなく `vendors`（`v.*`）から読んでいる。理由は `budget:editor` が `sales:owner` を持たずに `PUT /vendors/:id` を保存すると `vendors` だけ更新され `companies` へは同期しない設計〔PR #183 P2 の権限の壁〕のため、`vendors` の値が `companies` より新しい場合があるから（上表#1「vendor側だけにある最新値」と同じ事情）。`VENDOR_JOIN` を消して `companies` から読むようにすると、`budget:editor` 単独編集の内容がこの画面に反映されなくなる回帰になる。**上表#1の一次分析・5のテーブル削除時の反映が終わるまで、この JOIN と読み取り元は変更しないこと**）**、`companies.routes.ts`（`/summary` 等。POST/PUTでの旧支払条件列書き込みは✅ **2026-08-18 対応済み**（下記）。ただし `customer_id`/`vendor_id` を得るための `LEFT JOIN customers`/`LEFT JOIN vendors` 自体は5のテーブル削除まで残る対象）、`sales/routes/excel.routes.ts` / `finance/routes/excel.routes.ts`（✅ **2026-08-18 顧客側のみ対応済み** — 顧客Excel出力（`exportQuery`）・案件Excel取込の顧客名解決（`preloadLookups`）を `companies` だけで判定するよう簡略化。取込・重複チェック自体は引き続き `customers` テーブルへ書き込む。**仕入先側は対象外**〔`vendors.routes.ts` と同じ理由〕）、`company-directory.service.ts`（✅ **2026-08-18 `assertCustomerCompanyId` のみ対応済み** — `customers` の `EXISTS` チェックを除去。**`assertVendorCompanyId`・`createCustomerRecord`/`createVendorRecord`・`syncCompanyFromCustomer`/`syncCompanyFromVendor` は対象外**〔前者はvendor非対称・後者は実際の書き込み経路そのもの〕）、`purchases.routes.ts`（2026-08-18 再確認: 削除済み仕入先の実績を守る意図的な `LEFT JOIN` + `companies` 名フォールバック設計で、既に正しい。変更不要）、`kessan-import.service.ts`（✅ **2026-08-18 顧客名解決のみ対応済み** — `findCustomer` の `EXISTS` チェックを除去。**`ensureCustomer`/`ensureVendor`〔実際の書き込み・vendor側の名前突合〕は対象外**）/ `xpoint-import.service.ts`（vendor専用のため対象外・変更不要）、**`finance/routes/xpoint.routes.ts`（`xpoint-import.service.ts` とは別に、このルート自体が独立して `vendors` を JOIN・参照している。4巡目レビューで発見）**、`project-groups.routes.ts`、`search.routes.ts`（✅ **2026-08-18 顧客側のみ対応済み** — 顧客検索の `EXISTS (SELECT 1 FROM customers ...)` を除去し `companies.is_customer` だけで判定。**仕入先検索は対象外**〔`vendors.routes.ts` と同じ理由・`v.name`/`vendor_type` を正として読む設計は正しく既に `companies.is_vendor` のJOIN条件で削除済みを除外できているので変更不要〕）、`backup.routes.ts`（✅ **2026-08-18 顧客シートのみ対応済み** — `FROM customers` を `FROM companies WHERE is_customer = TRUE` に変更。**仕入先シートは対象外**〔同じ理由〕）、`production/routes/reports.routes.ts` の `GET /vendor-summary`（`LEFT JOIN vendors`。3巡目レビューで発見。2026-08-18 再確認: 削除済み仕入先の実績を守るための意図的な設計〔`LEFT JOIN` + `companies` 名へのフォールバック〕で、既に正しい。変更不要）、MCPツール一式（`customers.tools.ts`。✅ **2026-08-18 対応済み** — `CUSTOMER_FROM`（`list_customers`/`get_customer`/`create_customer` の重複ガードが共通で使う）の `EXISTS` チェックを除去。`vendors` 側は `create_vendor` 相当のMCPツール自体が存在しないため対象外）、シード、`server/scripts/import-kessan-dev.mjs`（dev専用。`findCustomer`/`ensureCustomer` が直接 `customers`/`vendors` を select/insert している）。
 
 ⚠️ **2026-08-18 発見: `data-viewer.routes.ts`（system_admin 用の汎用テーブルビューア）経由で `customers`/`vendors` 行を直接論理削除すると、`companies.is_customer`/`is_vendor` は更新されない**（`DELETE /customers|vendors/:id` を経由しないため）。`customers.routes.ts`/`search.routes.ts`/`backup.routes.ts` の顧客側が `companies.is_customer` だけで判定するようになった今、この経路を使うと削除したはずの顧客が一覧・検索・バックアップに残り続ける可能性がある。**許容した理由**: ①`data-viewer` は `system_admin` 専用の緊急時ツールで通常の削除導線ではない ②同種の不整合は元々どのテーブルでも起こり得る（汎用SQLエディタ相当の性質上、アプリのビジネスロジックを迂回できることが前提の機能） ③Phase 3-3-5（テーブル削除）で `customers`/`vendors` が `ALLOWED_TABLES` から除かれれば、この経路自体が無くなり根本的に解消する。**運用上の注意**: `system_admin` が `data-viewer` から `customers`/`vendors` 行を削除する場合は、`companies.is_customer`/`is_vendor` も手動で更新するよう周知が必要（テーブル削除までの暫定運用）。**⚠️ 2026-08-18 再調査で訂正・追加発見（7巡目扱い）**: `sga.routes.ts`・`doc-handoff.service.ts` はこの一覧に誤って含まれていたが、実際は `vendor_id`/`vendor_name` を自テーブルの列として持つだけで `customers`/`vendors` への直接クエリは無い（`assertVendorCompanyId` 経由の間接検証のみ）ため対象外に訂正。一方 **`platform/routes/data-viewer.routes.ts`（system_admin 用の汎用テーブルビューア）が新たに見つかった** — `ALLOWED_TABLES` 配列に `'customers'`/`'vendors'` がテーブル名として直接ハードコードされており、`GET /tables/:name`・`GET /tables/:name/schema`・`GET /tables/:name/export`・`DELETE /tables/:name/rows/:id` がこの配列を経由して動的にテーブル名を組み立てて実行する。5でテーブルを削除する際はこの配列から `'customers'`/`'vendors'` を除去しないと、`system_admin` がこの管理画面から直接叩いたときに `relation does not exist` の生DBエラーになる（`GET /tables` 一覧自体は個別テーブルを try/catch で握りつぶすため落ちない）。**特に注意**: いくつかの箇所は `customers`/`vendors` 行の `deleted_at` を「その会社が今その役割（顧客/仕入先）を持っているか」の判定に使っている（`is_customer`/`is_vendor` 相当）。テーブルを消すと同じ判定ができなくなる。⚠️ **2026-08-18 再調査で確認**: `companies.is_customer`/`companies.is_vendor` 列は migration 061 の時点で**既に存在する**（`company_role` のような単一列ではなく bool 2列）。✅ **2026-08-18 対応済み**: `DELETE /customers/:id`・`DELETE /vendors/:id` が `customers`/`vendors` 側の論理削除に加えて `companies.is_customer`/`is_vendor` もそれぞれ `FALSE` に更新するよう変更した（新しい列は足さず、既存の2列の更新責務を削除操作に持たせた）。これにより `GET /companies?role=customer|vendor`（`companies.is_customer`/`is_vendor` だけで絞り、`customers`/`vendors` の `deleted_at` を見ない一覧）で、削除済みの顧客・仕入先が残り続けていた既存の不整合も同時に直った。権限は既存の作成経路と対称（`customers` 作成は `sales:owner`＝`DELETE /customers` の `sales:manager` と同レベル、`vendors` 作成は `budget:editor`＝`DELETE /vendors` の `budget:manager` はより厳しい）なので権限の壁は越えていない。verify Postgres の実DBで、顧客のみ削除→`is_customer=false`/`is_vendor`維持→仕入先も削除→両方`false`→両方の一覧から消えることを確認した |
@@ -509,8 +509,8 @@ gantt
 | --- | --- | --- | --- |
 | 1 | 3-2まで含む版の本番リリース | ユーザーが「本番に入れて」と明示 | ユーザー |
 | 2 | 互換確認期間（最低1リリースサイクル） | 1が完了 | **「次の通常リリースが出た時点」だけでは自動的に満了しない**（PR #214 2巡目レビュー指摘）。①legacyフォールバック使用状況の可視化（下表#3-3-1・B）が本番公開され②公開後に意味のある観測期間が経過し③次の通常リリースが出る、の3つが揃って満了（詳細は「互換確認チェックリスト」D） |
-| 3 | 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション（アクセスログ等で確認してから4以降に進む） |
-| 4 | 3-3-2 vendor側最新値の分析（上表#1・**`companies` への書き込みは行わない**。差分の件数把握のみ） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション |
+| 3 | ✅ **完了（2026-08-19）**: 3-3-1 legacy URL の使用状況確認 | 2が満了 | 着手セッション。ユーザーが VPS で `docker logs gmo-onair-app_{env}-1 \| grep -c "legacy id 経由のアクセス"` を実行し、**検証環境（`gmo-onair-app_dev-1`）・本番環境（`gmo-onair-app_prod-1`）とも直近24時間で0件**を確認（2026-08-19）。詳細は下記「2026-08-19 引き継ぎメモ」参照 |
+| 4 | ✅ **完了（2026-08-19）**: 3-3-2 vendor側最新値の分析（上表#1・**`companies` への書き込みは行わない**。差分の件数把握のみ） | 3の後（テーブルは残したまま安全に実施可・単独PRでよい） | 着手セッション。ユーザーが検証環境（`onair_dev`）で下記SQLを実行し、**`diff_count = 0`**（`vendors`/`companies` の間で名前・連絡先・区分・請求書登録番号・備考のいずれも食い違いなし）を確認（2026-08-19）。本番（`onair_prod`）での確認は5（テーブル削除時の`LOCK TABLE`内の最終突き合わせ）まで持ち越す（上表#1の設計どおり・`UPDATE` はまだ書かない） |
 | 5 | ✅ **完了（2026-08-18）**: 3-3-3 `mcp_audit_log` の旧ID移行（バックフィルmigration 202＋`customers.tools.ts`の書き込み切り替え＋`customers.routes.ts`の読み込み切り替えを**同一PR/デプロイ**で・上表#3） | 4と独立に着手可。**3つを分割しない**。**6より先に着手する**（5巡目レビュー指摘・下記参照）。verify Postgres 上で移行前後の値の変換・`GET /customers`（一覧・詳細）の `is_ai_created` 表示を確認済み。本番相当データでの再確認はデプロイ後に必要（下表7） | 着手セッション |
 | 6 | 3-3-4 `customers`/`vendors` を直接参照する全箇所の書き換え・旧支払条件列への書き込み停止（上表#2。`vendors.routes.ts` 自身の通常フロー・`xpoint.routes.ts` を含む。**着手前に対象一覧をコードで再確認**） | 4の反映内容を踏まえて設計。対象が多いため複数PRに分けてよいが、**`companies.routes.ts` の旧列書き込み停止は8より前に必ず完了させる**。**✅ 2026-08-18 顧客側は完了**（PR #225〜#229・詳細は上表#2）: ①`companies.routes.ts` の旧支払条件列への二重書き込み停止 ②`DELETE /customers\|vendors/:id` が `companies.is_customer`/`is_vendor` も更新 ③`customers.routes.ts` の `CUSTOMER_JOIN` 除去 ④横断検索・バックアップ・決算取込・Excel入出力・MCP・`assertCustomerCompanyId` の顧客側 `EXISTS` チェック除去、をすべて実施し verify Postgres で確認済み。✅ **2026-08-18 続きの着手セッションで新たに発見・対応済み**（4巡目以降のレビューで指摘されていた「新しい抜けが見つかり続ける」の通り。PR #231）: `task-intake.service.ts`（AI案件起票の顧客名突合）・`gpm/index.ts`（`GET /gpm/customers`）・`inview.service.ts`（内覧会予約からの起票の顧客名突合）の3箇所が、この一覧に載っていないまま `companies.is_customer = TRUE` の判定に加えて `customers` への `EXISTS` 追加確認を残していた。上記④と同じ理由（`DELETE /customers/:id` が `companies.is_customer` も更新するようになったため冗長）で除去し、verify Postgres で `is_customer=TRUE` かつ旧 `EXISTS` 不成立の行が0件であることを確認した。**⚠️ 仕入先側（`vendors.routes.ts` 自身・仕入先Excel・MCP該当なし）は対称にできないと判明**（詳細は上表#2）— `VENDOR_FIELDS`/`VENDORS_CONFIG` が基本情報を `vendors`（`v.*`）から読んでいるのは `budget:editor` 単独編集を反映するためで、`companies` へ寄せると回帰になる。上表#1（vendor側の一次分析・**本番相当データが要るため未実施**）・5（テーブル削除時の反映）まで着手しないこと。**残り**: `vendors.routes.ts` 自身・仕入先Excel・シード・`import-kessan-dev.mjs`（いずれも5のテーブル削除PRでまとめて書き換える対象）。`purchases.routes.ts`/`project-groups.routes.ts`/`xpoint-import.service.ts`/`xpoint.routes.ts`/`reports.routes.ts` の `GET /vendor-summary` は2026-08-18 再確認済み・**既に正しい設計のため変更不要**（削除済み仕入先の実績を守る `LEFT JOIN` + `companies` 名フォールバック） | 着手セッション |
 | 7 | 3-3-5 オンデマンドバックアップ＋検証一式（上表#7）を**旧支払条件列削除PRのマージ前ゲート**として実施 | 6がマージ済み | 着手セッション（6巡目レビュー指摘。**列削除もテーブル削除と同格の不可逆変更**として同じゲートを課す） |
@@ -548,27 +548,34 @@ gantt
 - ユーザーへ確認したところ、この時点ではPCを含む実機環境が無いためVPS操作ができず、
   **一旦保留として別セッションで実施する**ことになった（2026-08-19）
 
-### 3-3-1: legacy URL 使用状況の確認（次のセッションでやること）
+### 3-3-1: legacy URL 使用状況の確認（✅ 2026-08-19 実施済み）
 
 legacy id 経由のアクセスは `console.warn` でコンテナのログに出るだけで、DBには残らない
 （`resolveLegacyCustomerId`/`resolveLegacyVendorId`・`customers.routes.ts`/
 `vendors.routes.ts`）。VPS で以下を実行して件数を数える:
 
 ```bash
-# 検証環境（dev.gmo-onair.jp・コンテナ app-dev）。本番を見るなら app-prod に読み替え
-docker logs app-dev --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
-# 内訳が要れば
-docker logs app-dev --since 24h 2>&1 | grep "legacy id 経由のアクセス"
+# コンテナ名は docs/ops/db-backup-restore.md と同じ命名規則
+# （Docker Compose の自動命名: gmo-onair-app_{env}-1）。dev/prod どちらも同じ形
+docker logs gmo-onair-app_dev-1 --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
+docker logs gmo-onair-app_prod-1 --since 24h 2>&1 | grep -c "legacy id 経由のアクセス"
 ```
 
 `[customers] legacy id 経由のアクセス` と `[vendors] legacy id 経由のアクセス` の
 2種類が出る。観測期間はログ保持期間の許す限り長く取ること（v4.1.6 デプロイ以降が理想）。
 
-### 3-3-2: vendor側最新値の分析（次のセッションでやること）
+**結果（2026-08-19・ユーザーが実機のVPSで実行）**: 検証環境（`gmo-onair-app_dev-1`）・
+本番環境（`gmo-onair-app_prod-1`）とも、直近24時間で **0件**。
+
+### 3-3-2: vendor側最新値の分析（✅ 2026-08-19 実施済み）
 
 **`companies` への書き込みは行わない。差分の件数把握のみ**（上表#1）。VPS で
-`docker exec -it app-dev psql "$DATABASE_URL"`（`docs/ops/db-backup-restore.md` と同じ要領）
-に入り、以下を実行:
+`docker exec -it gmo-onair-app_dev-1 sh -c 'psql "$DATABASE_URL"'`
+（`docs/ops/db-backup-restore.md` と同じ要領。⚠️ **`sh -c '...'` で囲むこと** —
+囲まずに `docker exec -it ... psql "$DATABASE_URL"` と打つと `$DATABASE_URL` が
+**VPSホスト側のシェル**で展開されてしまい（そちらでは未設定のため空文字になる）、
+`psql` が接続文字列なしでローカルソケット接続を試みて失敗する。2026-08-19 に
+実機で再現・判明）に入り、以下を実行:
 
 ```sql
 SELECT count(*) AS diff_count
@@ -592,12 +599,17 @@ WHERE v.deleted_at IS NULL AND co.deleted_at IS NULL
 「反映は5のタイミングでよい」ことの追加の裏付けになる（0件でなくても、上表#1の設計は
 変わらない — 反映のタイミングを早めない）。
 
-### 結果が出たら
+**結果（2026-08-19・ユーザーが検証環境 `onair_dev` で実行）**: `diff_count = 0`。
 
-1. 上の工程表「3」「4」の行を ✅ 完了に更新し、確認した日付・件数（0件ならその旨）・
-   ログ/SQLの実行環境（`app-dev`/`app-prod` のどちらで見たか）を書く
-2. 上表#1（vendor側の一次分析）にも同じ件数を反映する
-3. 3-3-1 の観測期間が「意味のある」と言えるかは、CLAUDE.md の v4.1.7 のときと同様に
-   ユーザーの判断を仰ぐ（実利用がほぼ0件なら短い観測期間でも可、という前例がある）
-4. 3-3-1・3-3-2 が終わり次第、次は工程表「7」（3-3-5 直前バックアップ+検証。
-   旧支払条件列削除PRのマージ前ゲート）に進める（3-3-4 の顧客側はPR #225〜#231で完了済み）
+### 残作業（次にやること）
+
+1. ✅ 上の工程表「3」「4」・上表#1 は結果を反映済み（このメモの上）
+2. ✅ **2026-08-19 ユーザー判断: 3-3-1 の観測期間は今回の結果（直近24時間・dev/prod
+   とも0件）で十分とし、これで完了とする。** 根拠: legacy URL 使用0件・3-3-2の
+   vendor側突き合わせも0件という二重の裏付けがあり、v4.1.7 のとき（短い観測期間でも
+   可と明示的に判断した先例）より材料が強い
+3. **次は工程表「7」（3-3-5 直前バックアップ+検証。旧支払条件列削除PRのマージ前
+   ゲート）**（3-3-4 の顧客側はPR #225〜#231で完了済み、3-3-1・3-3-2 も上記で完了）。
+   ⚠️ ここから先（7〜11）は**不可逆な変更**（列削除・テーブル削除）に入るため、
+   着手前に必ずユーザーへ確認すること — 本番のオンデマンドバックアップも
+   実機（VPS）操作が必要で、このセッションでは代行できない
