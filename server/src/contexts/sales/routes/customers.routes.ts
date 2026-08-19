@@ -3,7 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { createCustomerRecord, syncCompanyFromCustomer } from '../../../shared/services/company-directory.service';
+import { createCustomerRecord } from '../../../shared/services/company-directory.service';
 
 const router = Router();
 
@@ -11,22 +11,12 @@ const router = Router();
 router.use(requireAuth, requirePermission('sales'));
 
 /**
- * Phase 3-2a: 一覧・詳細・360°ビューは `companies`（`is_customer = TRUE`）を正として読む。
+ * `companies`（`is_customer = TRUE`）を正として読み書きする。
  *
- * `projects.customer_id` / `revenues.customer_id` 等のFKが `companies.id` を直接指すよう
- * 張り替えたので、この画面（案件作成の「お客様」ドロップダウン兼顧客一覧）が返す `id` も
- * `companies.id` でなければ整合しない。基本情報（名前・連絡先等）は `companies` 側に
- * 同期済みの値を読む（`co.*`）。`customers` テーブル自体はまだ削除していない
- * （POST/PUT の書き込み先・支払条件の例外の識別子として残る）が、読み取りはこの
- * ファイルではもう `customers` に依存しない。
- *
- * Phase 3-3-4（2026-08-18）: 以前は `customers` 行への INNER JOIN が必須だった
- * （`DELETE /:id` が `customers` 側だけを論理削除し `companies.is_customer` を
- * 更新していなかったため、LEFT JOIN にすると削除した顧客が一覧に残り続けた）。
- * `DELETE /:id` が `companies.is_customer` も更新するようになった（PR #226）ので、
- * `companies.is_customer = TRUE AND companies.deleted_at IS NULL` だけで
- * `companies.routes.ts` の一覧（`GET /companies?role=customer`）と同じ判定になり、
- * `customers` への JOIN は不要になった。
+ * Phase 3-3-7〜9（migration 205）: `customers` テーブル自体を削除したため、
+ * 旧URL（移行前の `customers.id`）互換のフォールバックも削除した（Phase 3-3-1 で
+ * legacy URL の実利用が本番・検証とも0件だったことを確認済み・
+ * `docs/reviews/phase3-2-plan.md` 参照）。`:id` は `companies.id` のみを受け付ける。
  */
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -50,54 +40,11 @@ router.get('/', async (req, res) => {
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
-/**
- * `customers.id`（移行前の主キー）を `companies.id` に解決する。旧URL・端末の
- * 「最近見た」履歴・共有リンクに残っている ID を受けたときだけ呼ばれる
- * （通常は `companies.id` がそのまま見つかるので、ここには来ない）。
- *
- * Phase 3-3 着手条件②の互換確認用: どれだけ使われているかを `console.warn` で
- * 記録する（`docs/reviews/phase3-2-plan.md` 互換確認チェックリスト B 参照）。
- * legacy id を受け付ける箇所は `findCustomerRow`（GET）・`PUT /:id`・`DELETE /:id`
- * の3つがあり、記録漏れが起きないよう全てここを通す。
- */
-async function resolveLegacyCustomerId(
-  rawId: string, source: 'get' | 'put' | 'delete',
-): Promise<{ id: string; company_id: string; is_gmo_group?: boolean } | null> {
-  const legacy = await queryOne(
-    'SELECT id, company_id, is_gmo_group FROM customers WHERE id = ? AND deleted_at IS NULL', [rawId],
-  ) as { id: string; company_id: string | null; is_gmo_group?: boolean } | null;
-  if (!legacy?.company_id) return null;
-  console.warn(`[customers] legacy id 経由のアクセス (source=${source}): customers.id=${rawId} -> companies.id=${legacy.company_id}`);
-  return legacy as { id: string; company_id: string; is_gmo_group?: boolean };
-}
-
-/**
- * `companies.id`（正）で引く。見つからなければ**移行前の `customers.id`**
- * として解釈し直し（`resolveLegacyCustomerId`）、見つかればその会社の
- * 正規の行を返す（レビュー指摘・PR #199 P2）。
- *
- * Phase 3-3-4: `customers` への JOIN は不要になった（一覧と同じ理由・上記コメント参照）。
- * `companies.is_customer = TRUE AND companies.deleted_at IS NULL` だけで判定する。
- */
-async function findCustomerRow(rawId: string): Promise<Record<string, unknown> | null> {
-  const byCompanyId = await queryOne(
-    `SELECT co.* FROM companies co
-     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
-    [rawId],
-  ) as Record<string, unknown> | null;
-  if (byCompanyId) return byCompanyId;
-
-  const legacy = await resolveLegacyCustomerId(rawId, 'get');
-  if (!legacy) return null;
-  return await queryOne(
-    `SELECT co.* FROM companies co
-     WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
-    [legacy.company_id],
-  ) as Record<string, unknown> | null;
-}
-
 router.get('/:id', async (req, res) => {
-  const row = await findCustomerRow(req.params.id);
+  const row = await queryOne(
+    `SELECT co.* FROM companies co WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
+    [req.params.id],
+  ) as Record<string, unknown> | null;
   if (!row) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   // AI 登録判定 (projects.routes の単体 enrichment と同形)。
   // Phase 3-3-3 (migration 202) 以降、監査ログの created_id は companies.id (= row.id)
@@ -118,10 +65,12 @@ router.get('/:id', async (req, res) => {
 // 既存テーブルのみで成立 (新規テーブル/migration 不要)。
 // ══════════════════════════════════════════════════════════
 router.get('/:id/overview', async (req, res) => {
-  // companies.id（正）または移行前の customers.id（旧URL互換・下の findCustomerRow）
-  const customer = await findCustomerRow(req.params.id);
+  const customer = await queryOne(
+    `SELECT co.* FROM companies co WHERE co.id = ? AND co.deleted_at IS NULL AND co.is_customer = TRUE`,
+    [req.params.id],
+  ) as Record<string, unknown> | null;
   if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
-  const id = customer.id as string; // 以降は必ず companies.id（旧URLでも解決済みの正しい id）
+  const id = customer.id as string;
 
   // AI 登録判定 (一覧・単体と同形。Phase 3-3-3 以降、監査ログの created_id は companies.id = id)
   const custAudit = await queryOne(
@@ -209,46 +158,27 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   /**
-   * **`companies`（取引先マスター）にも同じ会社の行を作って紐づける**
-   * （`company-directory.service.ts`）。ここで `customers` だけに INSERT すると、
-   * 取引先マスターに対応行の無い「孤立した顧客」ができる。
-   * 渡してこない道では社名から見立てる（migration 192・ご指示: GMO と
-   * ついているものはすべてグループ）。渡してきたらそちらが正 — 画面の
-   * チェックボックスで外せます。
+   * **`companies`（取引先マスター）に `is_customer=TRUE` の行を作る**
+   * （`company-directory.service.ts`）。渡してこない道では社名から見立てる
+   * （migration 192・ご指示: GMO とついているものはすべてグループ）。
+   * 渡してきたらそちらが正 — 画面のチェックボックスで外せます。
    *
-   * `createCustomerRecord` は `customers.id` を返す。この画面の `id`（Phase 3-2a
-   * 以降 `customer_id` FK が指す先）は `companies.id` なので、作った customers 行の
-   * `company_id` を引き直して返す。
+   * Phase 3-3-7〜9: `createCustomerRecord` は `companies.id` を直接返す
+   * （以前は `customers.id` を返し、そこから `company_id` を引き直していた）。
    */
-  const cid = await createCustomerRecord(
+  const companyId = await createCustomerRecord(
     { name, short_name, contact_name, email, phone, address, notes,
       is_gmo_group: is_gmo_group === undefined ? undefined : is_gmo_group === true },
     req.user!.id,
   );
-  const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
-  // Phase 3-3-4: レスポンスは companies だけで足りる（legacy_customer_id はどこからも
-  // 参照されておらず削除済み。上の一覧・findCustomerRow と同じ理由）
-  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [linked.company_id]);
+  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [companyId]);
   res.status(201).json({ success: true, data: row });
 });
 
 router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
-  // :id は companies.id（Phase 3-2a）。customers 行は company_id で引く。
-  // **見つからなければ移行前の customers.id（旧URL）として解釈し直す**
-  // （レビュー指摘・PR #199 P2 の2巡目）— GET は `findCustomerRow` で旧URLを
-  // 解決するのに、保存はここが companies.id 専用のままだったので、詳細画面を
-  // 旧URLのまま開いて保存すると 404 になっていた。
-  let existing = await queryOne(
-    'SELECT id, is_gmo_group FROM customers WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
+  const existing = await queryOne(
+    'SELECT id, is_gmo_group FROM companies WHERE id = ? AND deleted_at IS NULL AND is_customer = TRUE', [req.params.id],
   ) as { id: string; is_gmo_group?: boolean } | null;
-  let companyId = req.params.id;
-  if (!existing) {
-    const legacy = await resolveLegacyCustomerId(String(req.params.id), 'put');
-    if (legacy) {
-      existing = { id: legacy.id, is_gmo_group: legacy.is_gmo_group };
-      companyId = legacy.company_id;
-    }
-  }
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes, is_gmo_group } = req.body;
   /**
@@ -257,63 +187,23 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
    * グループ会社の印が黙って外れます（リード経路が「グループ案件」に固定されなくなる）。
    */
   const groupFlag = is_gmo_group === undefined ? (existing.is_gmo_group === true) : (is_gmo_group === true);
-  await execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+  await execute(`UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, is_gmo_group=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, groupFlag, req.user!.id, existing.id]);
-  /**
-   * **取引先マスター（`companies`）側にも写す。** 同じ相手が2つの画面に出るので、
-   * 片方だけ直ると「取引先マスターでは古い社名なのに顧客一覧では新しい社名」という
-   * 食い違いが起きる。以前は `is_gmo_group` だけ写していたが、基本情報も揃える
-   * （`company-directory.service.ts`）。`syncCompanyFromCustomer` は
-   * customers.id から company_id を引く形なので、`existing.id` を渡す
-   * （紐付いていない顧客＝`company_id IS NULL` は何も起きません）
-   */
-  await syncCompanyFromCustomer(
-    existing.id,
-    { name, short_name, contact_name, email, phone, address, notes, is_gmo_group: groupFlag },
-    req.user!.id,
-  );
-  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [companyId]);
+  const row = await queryOne(`SELECT co.* FROM companies co WHERE co.id = ?`, [existing.id]);
   res.json({ success: true, data: row });
 });
 
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
-  // :id は companies.id（Phase 3-2a）。この画面（顧客一覧）の削除は今まで
-  // customers 側だけを消していた（companies・仕入先ロールは触らない）ので、
-  // company_id で customers 行だけを論理削除する。
-  // 移行前の customers.id（旧URL）も受け付ける（PUT と同じ理由・PR #199 P2 の2巡目）
-  //
-  // ここは元々ログ用の解決を挟まず直接 UPDATE していた。実際の削除条件
-  // (company_id=? OR id=?) は変えず、legacy id 経由かどうかの記録だけを
-  // 追加する（互換確認チェックリスト B）。company_id で見つかる通常経路では
-  // 余計な問い合わせをしない。
-  const byCompanyId = await queryOne(
-    'SELECT id FROM customers WHERE company_id = ? AND deleted_at IS NULL', [req.params.id],
+  const existing = await queryOne(
+    'SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL AND is_customer = TRUE', [req.params.id],
   ) as { id: string } | null;
-  let companyId: string | null = byCompanyId ? String(req.params.id) : null;
-  if (!byCompanyId) {
-    const legacy = await resolveLegacyCustomerId(String(req.params.id), 'delete');
-    if (legacy) companyId = legacy.company_id;
-  }
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
+  // 顧客ロールだけを外す（会社そのもの・仕入先ロールは触らない。1社が顧客と仕入先を
+  // 両方兼ねることがあるため。Phase 3-3-4 以降 `companies.is_customer` が唯一のロール判定）
   await execute(
-    `UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE deleted_at IS NULL AND (company_id=? OR id=?)`,
-    [req.user!.id, req.params.id, req.params.id],
+    `UPDATE companies SET is_customer = FALSE, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+    [req.user!.id, existing.id],
   );
-  /**
-   * Phase 3-3-4: **`companies.is_customer` もここで更新する**（2026-08-18 再調査で
-   * 発見した設計課題・`docs/reviews/phase3-2-plan.md` 表#2）。今までこの削除は
-   * `customers` 側だけを論理削除し、`companies.is_customer` はそのまま TRUE に
-   * 残っていた。そのため `GET /companies?role=customer`（`companies.is_customer`
-   * だけで絞り、`customers.deleted_at` を見ない）では削除済みの顧客が消えずに
-   * 残り続けていた。`customers` テーブルを削除した後は `companies.is_customer` が
-   * 唯一のロール判定になるので、削除操作自体がここを更新する必要がある。
-   * `company_id` が解決できなかった（対象行が無かった／既に削除済み）場合は何もしない。
-   */
-  if (companyId) {
-    await execute(
-      `UPDATE companies SET is_customer = FALSE, updated_at = NOW(), updated_by = ? WHERE id = ?`,
-      [req.user!.id, companyId],
-    );
-  }
   res.json({ success: true, message: '削除しました' });
 });
 

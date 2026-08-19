@@ -50,12 +50,9 @@ router.get('/:id', async (req, res) => {
      WHERE pgm.group_id = ?
      ORDER BY p.gls_number`, [req.params.id]);
 
-  // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
-  // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
   const purchases = await queryAll(
-    `SELECT pu.*, COALESCE(v.name, vco.name) as vendor_name
+    `SELECT pu.*, vco.name as vendor_name
      FROM purchases pu
-     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      WHERE pu.group_id = ? AND pu.deleted_at IS NULL
      ORDER BY pu.created_at DESC`, [req.params.id]);
@@ -179,8 +176,7 @@ router.post('/:id/purchases', requirePermission('sales', 'editor'), async (req, 
   }
 
   const row = await queryOne(
-    `SELECT pu.*, COALESCE(v.name, vco.name) as vendor_name FROM purchases pu
-     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+    `SELECT pu.*, vco.name as vendor_name FROM purchases pu
      LEFT JOIN companies vco ON vco.id = pu.vendor_id WHERE pu.id = ?`,
     [purchaseId]
   );
@@ -297,8 +293,7 @@ router.put('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), a
   }
 
   const row = await queryOne(
-    `SELECT pu.*, COALESCE(v.name, vco.name) as vendor_name FROM purchases pu
-     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
+    `SELECT pu.*, vco.name as vendor_name FROM purchases pu
      LEFT JOIN companies vco ON vco.id = pu.vendor_id WHERE pu.id = ?`,
     [req.params.purchaseId]
   );

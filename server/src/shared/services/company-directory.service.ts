@@ -4,23 +4,14 @@
  * ── なにを直しているか ──────────────────────────────────────
  *
  * `companies` は「顧客・仕入先・販管費支払先」を束ねる唯一の正のマスター
- * （migration 061）で、取引先マスター画面（`/sales/companies`）から作ると
- * `is_customer`/`is_vendor` に応じて `customers`/`vendors` へ自動でミラー行を
- * 作る作りになっている。
- *
- * ところが **`customers`・`vendors` に直接 INSERT する道が10か所近く残っていた**
- * （顧客一覧・財務の仕入先タブ・Excel取込・決算取込・内覧会予約・投入口・MCP・シード）。
- * これらは `companies` を経由しないので、**取引先マスターに対応行の無い
- * 「孤立した顧客／仕入先」を作り続けていた**（2026-08 調査）。
- *
- * ここに一本化し、全ての登録経路が `companies` にも同じ会社の行を作るようにする。
- * **`customers`/`vendors` の id はそのまま使い続けられる** — 既存の全FK
- * （`projects.customer_id` / `purchases.vendor_id` 等）は customers/vendors の id を
- * 指しているので、呼び出し側のコードは変えずに済む（Phase 3 で companies.id への
- * 直接参照に寄せるまでの橋渡し）。
+ * （migration 061）。以前は `customers`/`vendors` へも自動でミラー行を作る作りに
+ * なっていたが、Phase 3-3-7〜9（migration 205）で `customers`/`vendors`
+ * テーブル自体を削除したため、この service は `companies` 単独への書き込みだけを
+ * 行う。呼び出し側は今までどおりここを通す（案件・売上・仕入等のFKは
+ * migration 200/201 で `companies.id` を直接指すようになっている）。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { execute as poolExecute, queryOne, withTransaction, TxClient } from '../db/connection';
+import { queryOne, withTransaction, TxClient } from '../db/connection';
 import { looksLikeGmoGroup } from './gmo-group';
 import { AppError } from '../middleware/errorHandler';
 
@@ -55,13 +46,11 @@ export interface CompanyDirectoryFields {
 }
 
 /**
- * 顧客を1件作る。**`companies`（is_customer=TRUE）にも同じ会社の行を作って紐づける。**
- * 戻り値は `customers.id`（呼び出し側は今までどおりこの id を使う）。
+ * 顧客を1件作る（`companies` に `is_customer=TRUE` の行を作る）。
+ * 戻り値は `companies.id`。
  *
  * **`exec` を渡さない呼び出し（HTTP ルート・MCP・内覧会・xpoint 等）は
  * 内部で1つのトランザクションにまとめる**（レビュー指摘・PR #183 P2）。
- * 分けたままだと companies の INSERT が成功して customers の INSERT だけ失敗する
- * 余地があり、押し直すと孤立した companies 行が増える。
  * Excel取込・決算取込のように呼び出し元が**既に自分のトランザクションを持っている**
  * 場合は `exec` を渡す — ここでさらに `withTransaction` を挟むと入れ子 BEGIN になる。
  */
@@ -89,21 +78,12 @@ async function createCustomerRecordImpl(
     [companyId, fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
      fields.phone || null, fields.address || null, fields.notes || null, groupFlag, userId],
   );
-
-  const customerId = uuidv4();
-  await exec(
-    `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-       is_gmo_group, company_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [customerId, fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
-     fields.phone || null, fields.address || null, fields.notes || null, groupFlag, companyId, userId],
-  );
-  return customerId;
+  return companyId;
 }
 
 /**
- * 仕入先を1件作る。**`companies`（is_vendor=TRUE）にも同じ会社の行を作って紐づける。**
- * 戻り値は `vendors.id`。トランザクションの扱いは `createCustomerRecord` と同じ。
+ * 仕入先を1件作る（`companies` に `is_vendor=TRUE` の行を作る）。
+ * 戻り値は `companies.id`。トランザクションの扱いは `createCustomerRecord` と同じ。
  */
 export async function createVendorRecord(
   fields: CompanyDirectoryFields,
@@ -133,89 +113,12 @@ async function createVendorRecordImpl(
      fields.address || null, fields.notes || null, fields.vendor_type || null,
      fields.invoice_registration_number || null, groupFlag, userId],
   );
-
-  const vendorId = uuidv4();
-  await exec(
-    `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-       invoice_registration_number, notes, company_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [vendorId, fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.vendor_type || null, fields.invoice_registration_number || null,
-     fields.notes || null, companyId, userId],
-  );
-  return vendorId;
+  return companyId;
 }
 
 /** `TxClient`（`?` 形式・`Promise<void>`）を `Exec`（`Promise<unknown>`）にそのまま渡すための橋渡し */
 function execFromTx(tx: TxClient): Exec {
   return (sql, params) => tx.execute(sql, params);
-}
-
-/**
- * 顧客を直す画面（顧客一覧）から名前・連絡先を直したとき、紐づいた `companies` 行と
- * **その会社に紐づく仕入先（vendors）行**にも同じ値を写す。
- *
- * ⚠️ **仕入先側も更新する**（レビュー指摘・PR #183 P1）。1社が顧客と仕入先を
- * 両方兼ねているとき、片方の画面で直しても片方だけ最新になり、次にどちらかを
- * 保存したときに古い値で上書きしてしまう。`is_gmo_group` / `vendor_type` /
- * `invoice_registration_number` は顧客一覧が持たない値なので写さない
- * （customers/vendors 独自の値はそれぞれの画面の管轄のまま）。
- * `company_id` が無い顧客（companies を経由せず作られた古い行）は何もしない。
- */
-export async function syncCompanyFromCustomer(
-  customerId: string,
-  fields: Pick<CompanyDirectoryFields, 'name' | 'short_name' | 'contact_name' | 'email' | 'phone' | 'address' | 'notes'> & { is_gmo_group: boolean },
-  userId: string | null,
-  exec: Exec = (sql, params) => poolExecute(sql, params),
-): Promise<void> {
-  await exec(
-    `WITH updated_company AS (
-       UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-         is_gmo_group=?, updated_at=NOW(), updated_by=?
-       WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL
-       RETURNING id
-     )
-     UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-       updated_at=NOW(), updated_by=?
-     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
-    [fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
-     fields.phone || null, fields.address || null, fields.notes || null, fields.is_gmo_group,
-     userId, customerId,
-     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.notes || null, userId],
-  );
-}
-
-/**
- * 仕入先を直す画面（財務の取引先タブ）から名前・連絡先を直したとき、紐づいた
- * `companies` 行と**その会社に紐づく顧客（customers）行**にも同じ値を写す
- * （`syncCompanyFromCustomer` の仕入先版・同じ理由）。
- *
- * `vendor_type` / `invoice_registration_number` は仕入先固有の値なので
- * customers 側には写さない。
- */
-export async function syncCompanyFromVendor(
-  vendorId: string,
-  fields: Pick<CompanyDirectoryFields, 'name' | 'contact_name' | 'email' | 'phone' | 'address' | 'vendor_type' | 'invoice_registration_number' | 'notes'>,
-  userId: string | null,
-  exec: Exec = (sql, params) => poolExecute(sql, params),
-): Promise<void> {
-  await exec(
-    `WITH updated_company AS (
-       UPDATE companies SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-         invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
-       WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL
-       RETURNING id
-     )
-     UPDATE customers SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-       updated_at=NOW(), updated_by=?
-     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
-    [fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.vendor_type || null, fields.invoice_registration_number || null,
-     fields.notes || null, userId, vendorId,
-     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.notes || null, userId],
-  );
 }
 
 /**
@@ -259,6 +162,11 @@ export async function assertCustomerCompanyId(
  *
  * `vendorId` が `null`/`undefined`/空文字なら何もしない（sga_expenses.vendor_id は
  * nullable ＝ 仕入先を選ばない道があるため）。
+ *
+ * Phase 3-3-7〜9（migration 205）: `vendors` テーブル自体を削除したため、
+ * 以前あった `EXISTS (SELECT 1 FROM vendors ...)` チェックは外した
+ * （`assertCustomerCompanyId` が Phase 3-3-4 で辿ったのと同じ道 — `companies.is_vendor`
+ * だけで判定が足りる）。
  */
 export async function assertVendorCompanyId(
   vendorId: unknown,
@@ -267,8 +175,7 @@ export async function assertVendorCompanyId(
   if (typeof vendorId !== 'string' || !vendorId) return;
   const row = await exec(
     `SELECT co.id FROM companies co
-     WHERE co.id = ? AND co.is_vendor = TRUE AND co.deleted_at IS NULL
-       AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`,
+     WHERE co.id = ? AND co.is_vendor = TRUE AND co.deleted_at IS NULL`,
     [vendorId],
   ) as Record<string, unknown> | undefined;
   if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された仕入先が見つかりません（仕入先ロールが外れているか、削除済みの可能性があります）');
