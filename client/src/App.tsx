@@ -19,7 +19,6 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InquiryQuickPage from "@/contexts/sales/pages/InquiryQuickPage";
 import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
-import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
@@ -175,7 +174,10 @@ function AppRoutes() {
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
-        <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
+        {/* 旧「旧GLS（決算取込）」— 決算取込の取り込み自体は終わっており、
+            まとめて直す機能は案件台帳（絞り込み「どちらも」＋検索）が上位互換なので削除。
+            旧URLは案件台帳へ転送 */}
+        <Route path="/sales/gls-import" element={<RedirectKeepQuery to="/sales/projects/ledger" />} />
         {/* **つくると直すは同じ項目・同じ見た目。** 入力欄はどちらも
             `projectNew/RequiredFields` と `projectNew/MoreFields` を使う。
             直す画面（`/edit`）だけが持つのは、BOX の URL・申込書・番組情報・

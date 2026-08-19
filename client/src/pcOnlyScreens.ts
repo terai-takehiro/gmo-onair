@@ -92,7 +92,9 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'グループ一覧を開く', to: '/sales/project-groups' },
     hidden: true,
   },
-  { path: '/sales/gls-import', what: '旧GLS（決算取込）', why: '会計の取り込みは、確かめる行が多く途中で止められません。', hidden: true },
+  // **`/sales/gls-import`（旧GLS決算取込）は削除した**（決算取込自体は終わっており、
+  // まとめて直す機能は案件台帳が上位互換なため）。`/sales/projects/ledger` への
+  // 転送にしたので、実体の画面が無く、この表に載せる対象ではない
   {
     path: '/sales/review',
     what: '営業レビュー',

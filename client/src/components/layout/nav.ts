@@ -112,8 +112,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // メニューの重複リンクだった。URL `/sales/tasks/gantt` 自体はタスク一覧のガント表示
         // として生きているので消していない — ブックマークもそのまま開ける）。
         // **「営業活動記録」は v4 で作り直したので「全案件」へ移した**
+        // **「旧GLS（決算取込）」は削除した**（決算取込自体は終わっており、
+        // まとめて直す機能は案件台帳（絞り込み「どちらも」＋検索）が上位互換のため）
         { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
-        { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
         { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
