@@ -176,10 +176,8 @@ export function OverviewTab({
               既定は列で桁をそろえる形なので、枠いっぱいに ¥ と数字が引き離される
               — 縦に1つしか無いここでは円記号だけが遠くに見えていた（ご指摘）
 
-              ⚠️ **ラベルを値の出どころで出し分ける**（UXレポート 2026-08-18 指摘）。
-              以前は見積の有無にかかわらず常に「見積金額」と表示しており、
-              見積タブが「見積はまだありません」と出しているのに概要タブには
-              想定金額が「見積金額」として出る、という矛盾に見えていた
+              ⚠️ **ラベルも値の出どころで出し分ける**（UXレポート指摘）。以前は常に
+              「見積金額」と出ており、見積タブの「見積はまだありません」と矛盾して見えた
             */}
             <Money inline value={amount} className={cn('text-list', !isEstimate && 'text-muted-foreground')} />
           </Fact>
@@ -342,8 +340,10 @@ export function OverviewTab({
           事実の帯と**同じ組み立て**（`venue.ts`）を使う。ここも
           `b.room_name ?? b.location_name` で「部屋 未設定」だけが並び、
           しかも日付は**存在しない `booking_date`** を描いていたので**空行**でした
+          ⚠️ **見出しは「押さえている部屋」→「押さえている予定」**（UXレポート指摘）。
+          場所が空の行の「場所が未設定」と矛盾して読めていたため
         */}
-        <Section title="押さえている部屋">
+        <Section title="押さえている予定">
           {bookings.length === 0 ? (
             <p className="text-sub text-muted-foreground">押さえていません。</p>
           ) : (
@@ -353,7 +353,7 @@ export function OverviewTab({
                   <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="text-sub block truncate font-bold">
-                      {venueLine(b) ?? <span className="font-normal text-muted-foreground">場所が未設定</span>}
+                      {venueLine(b) ?? <span className="font-normal text-muted-foreground">場所は未入力（予約はあります）</span>}
                     </span>
                     {/* 日付は `start_time`（`YYYY-MM-DDTHH:mm`）から。終日の予約は時刻を出さない */}
                     <span className="text-sub-sm font-number block text-muted-foreground">

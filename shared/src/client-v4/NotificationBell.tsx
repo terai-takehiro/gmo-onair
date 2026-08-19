@@ -18,9 +18,9 @@
  * 1分ごとに数だけ問い合わせます。中身は**開いたときだけ**読みます。
  * 常に全文を取ると、開かない人のぶんまで毎分転送することになります。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import type { AxiosInstance } from 'axios';
 import { cn } from '../client/utils';
 
@@ -62,9 +62,34 @@ function whenText(iso: string): string {
   return `${Math.floor(m / 1440)}日前`;
 }
 
+/**
+ * ⚠️ **同じ種類（`template_id`）の通知をまとめる**（UXレポート 2026-08-18 指摘）。
+ *
+ * 「GMOインターネットグループ株式会社宛の請求書をまだ出していません」のような
+ * 同一文面が金額違いで何件も並ぶと、重要な通知が埋もれてアラート疲れを起こす。
+ * `template_id` が同じ通知を1つの帯に畳み、既定は折りたたんだ状態で
+ * 「タイトル＋N件」だけを出す。開くと元の1件ずつの行が並ぶ（挙動は変えない）。
+ *
+ * **`template_id` が無い通知は畳まない**（1件ずつのグループとして扱う）。
+ * 種類の判定を持たない古い通知や、そもそも束ねる意味の無い個別通知まで
+ * 無理に1つにまとめると、`title` が違う通知同士が同じ帯に入りかねない。
+ */
+function groupItems(items: NotificationItem[]): { key: string; items: NotificationItem[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, NotificationItem[]>();
+  items.forEach((n) => {
+    const key = n.template_id ?? `id:${n.id}`;
+    if (!map.has(key)) { map.set(key, []); order.push(key); }
+    map.get(key)!.push(n);
+  });
+  return order.map((key) => ({ key, items: map.get(key) ?? [] }));
+}
+
 export function NotificationBell({ api }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  // 展開中のグループ（`template_id` か `id:<id>`）。既定はすべて折りたたみ
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
 
   const q = useQuery<{ items: NotificationItem[]; unread: number }>({
@@ -95,7 +120,7 @@ export function NotificationBell({ api }: Props) {
   });
 
   const unread = q.data?.unread ?? 0;
-  const items = q.data?.items ?? [];
+  const groups = useMemo(() => groupItems(q.data?.items ?? []), [q.data?.items]);
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -144,44 +169,112 @@ export function NotificationBell({ api }: Props) {
             )}
           </div>
 
-          {items.length === 0 ? (
+          {groups.length === 0 ? (
             <p className="text-note px-3.5 py-6 text-center text-muted-foreground">
               お知らせはありません
             </p>
           ) : (
             <ul className="max-h-[380px] overflow-y-auto">
-              {items.map((n) => (
-                <li key={n.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!n.read_at) read.mutate([n.id]);
-                      setOpen(false);
-                      if (n.link) go(n.link);
-                    }}
-                    className={cn(
-                      'min-h-tap flex w-full items-start gap-2 border-b border-border-faint px-3.5 py-2.5 text-left last:border-b-0',
-                      n.read_at ? 'bg-card' : 'bg-primary-surface-weak',
-                    )}
-                  >
-                    <span
-                      className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-chip', n.read_at ? 'bg-transparent' : 'bg-primary')}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="text-sub block [overflow-wrap:anywhere]">{n.title}</span>
-                      {n.body && (
-                        <span className="text-note mt-0.5 block whitespace-pre-line text-muted-foreground">{n.body}</span>
+              {groups.map((g) => {
+                if (g.items.length === 1) {
+                  const n = g.items[0];
+                  return (
+                    <li key={g.key}>
+                      <NotificationRow n={n} onOpen={() => {
+                        if (!n.read_at) read.mutate([n.id]);
+                        setOpen(false);
+                        if (n.link) go(n.link);
+                      }}
+                      />
+                    </li>
+                  );
+                }
+                // **同じ種類が2件以上 → 畳んだ帯にする。** 最新の1件のタイトルを代表に出し、
+                // 未読が1件でもあれば帯全体を未読色にする（畳んだままでも見落とさないように）
+                const isOpen = expanded.has(g.key);
+                const anyUnread = g.items.some((n) => !n.read_at);
+                const latest = g.items[0];
+                return (
+                  <li key={g.key} className="border-b border-border-faint last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(g.key)) next.delete(g.key); else next.add(g.key);
+                        return next;
+                      })}
+                      aria-expanded={isOpen}
+                      className={cn(
+                        'min-h-tap flex w-full items-start gap-2 px-3.5 py-2.5 text-left',
+                        anyUnread ? 'bg-primary-surface-weak' : 'bg-card',
                       )}
-                      <span className="text-note mt-0.5 block text-muted-foreground">{whenText(n.created_at)}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
+                    >
+                      <span
+                        className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-chip', anyUnread ? 'bg-primary' : 'bg-transparent')}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="text-sub flex items-baseline gap-1.5 [overflow-wrap:anywhere]">
+                          <span className="min-w-0 flex-1 truncate">{latest.title}</span>
+                          <span className="text-note shrink-0 font-bold text-primary">{g.items.length}件</span>
+                        </span>
+                        <span className="text-note mt-0.5 block text-muted-foreground">{whenText(latest.created_at)}</span>
+                      </span>
+                      {isOpen
+                        ? <ChevronDown className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        : <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                    </button>
+                    {isOpen && (
+                      <ul className="border-t border-border-faint bg-surface-subtle">
+                        {g.items.map((n) => (
+                          <li key={n.id}>
+                            <NotificationRow
+                              n={n}
+                              indent
+                              onOpen={() => {
+                                if (!n.read_at) read.mutate([n.id]);
+                                setOpen(false);
+                                if (n.link) go(n.link);
+                              }}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** 通知1件の行。単独表示でも、畳んだ帯を開いた中でも同じ見た目にする（`indent` は開いた中だけ） */
+function NotificationRow({ n, onOpen, indent }: { n: NotificationItem; onOpen: () => void; indent?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        'min-h-tap flex w-full items-start gap-2 border-b border-border-faint px-3.5 py-2.5 text-left last:border-b-0',
+        n.read_at ? 'bg-card' : 'bg-primary-surface-weak',
+        indent && 'pl-7',
+      )}
+    >
+      <span
+        className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-chip', n.read_at ? 'bg-transparent' : 'bg-primary')}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="text-sub block [overflow-wrap:anywhere]">{n.title}</span>
+        {n.body && (
+          <span className="text-note mt-0.5 block whitespace-pre-line text-muted-foreground">{n.body}</span>
+        )}
+        <span className="text-note mt-0.5 block text-muted-foreground">{whenText(n.created_at)}</span>
+      </span>
+    </button>
   );
 }

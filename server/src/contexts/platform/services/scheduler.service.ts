@@ -234,6 +234,48 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
 }
 
 /**
+ * ⚠️ **週報が「未確認」のまま止まっているものを督促する**
+ * （UXレポート 2026-08-18 指摘・`docs/reviews/2026-08-19-uiux-operation-report-response.md` 5-2）。
+ *
+ * 週報 (`ops_reports.kind='weekly_activity'`) は「確定する（公開）」と同時にしか
+ * `reviewed_at` が打刻されない作りだった。v4.1.8 で週報にも「確認済みにする」
+ * ボタンを足したが（`WeeklyDetailPage.tsx`・既存の `POST /dailyops/reports/:id/review`
+ * を接続しただけ）、確認するかどうかは人任せのままで、放っておくと恒久的に
+ * 未確認のまま埋もれる。他の督促（未入金・機材返却・タスク期限）と同じ形で
+ * 定時実行に載せる。
+ */
+const WEEKLY_REVIEW_REMIND_DAYS = 14;
+
+/** 週報の未確認督促 → 日常業務を編集できる人（経理の督促と同じ「誰に送るか」の決め方） */
+async function weeklyReportsUnreviewed(today: string): Promise<NotifyInput[]> {
+  const threshold = shiftDate(today, -WEEKLY_REVIEW_REMIND_DAYS);
+  const rows = await queryAll(
+    `SELECT id, period_key
+       FROM ops_reports
+      WHERE kind = 'weekly_activity' AND deleted_at IS NULL
+        AND reviewed_at IS NULL
+        AND period_key <= ?`,
+    [threshold],
+  );
+  if (rows.length === 0) return [];
+  const reviewers = await usersWithPermission('dailyops', 'editor');
+  const out: NotifyInput[] = [];
+  for (const r of rows) {
+    const week = String(r.period_key ?? '').replace(/-/g, '/');
+    const vars = { '週': week };
+    for (const u of reviewers) {
+      out.push({
+        userId: u, templateId: 'weekly_unreviewed',
+        title: fill('［週報］{週} の週の報告がまだ確認されていません', vars),
+        body: `確定（公開）していなくても構いません。内容を見て「確認済みにする」を押してください（${WEEKLY_REVIEW_REMIND_DAYS}日以上未確認のままです）。`,
+        link: `/daily/weekly/${r.id}`, refType: 'ops_report', refId: String(r.id), refDate: today,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * ふりかえり（KPT）の下書き → 案件の担当に「できました」
  *
  * ── なぜ「実施日の翌日」なのか ──────────────────────────────
@@ -414,6 +456,8 @@ const JOBS: Job[] = [
   // 9:30 にするのは、9:00 の3本（期限・督促・返却）と重ねないため。
   // AI を呼ぶので他より時間がかかり、重ねると朝いちの通知が遅れる
   { key: 'kpt_draft', at: '09:30', templateId: 'kpt_draft', run: kptDraftYesterday },
+  // AI を呼ばない軽い問い合わせなので kpt_draft の直後でよい
+  { key: 'weekly_unreviewed', at: '09:45', templateId: 'weekly_unreviewed', run: weeklyReportsUnreviewed },
   // 通知を出さない裏方の仕事（ひな形なし）。深夜に置くのは AI を呼ぶ仕事を朝と重ねないため。
   // 止めたいときは `ACTIVITY_FORMAT_NIGHTLY=off`
   { key: 'activity_format', at: '03:00', templateId: null, run: formatPendingActivities },
