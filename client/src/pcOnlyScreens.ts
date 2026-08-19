@@ -83,14 +83,26 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
     hidden: true,
   },
-  { path: '/sales/gls-import', what: '旧GLS（決算取込）', why: '会計の取り込みは、確かめる行が多く途中で止められません。', hidden: true },
+  // v4で作り直したが、任意比率の按分（案件ごとの金額をその場で比べながら入力する）は
+  // 変わらずPC向きなので、詳細URLもここに残す
+  {
+    path: '/sales/project-groups/:id',
+    what: 'グループ詳細（費用の分け合い）',
+    why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
+    instead: { label: 'グループ一覧を開く', to: '/sales/project-groups' },
+    hidden: true,
+  },
+  // **`/sales/gls-import`（旧GLS決算取込）は削除した**（決算取込自体は終わっており、
+  // まとめて直す機能は案件台帳が上位互換なため）。`/sales/projects/ledger` への
+  // 転送にしたので、実体の画面が無く、この表に載せる対象ではない
   {
     path: '/sales/review',
     what: '営業レビュー',
     why: '3列を並べて見る画面で、打合せの場で映すためのものです。',
     instead: PROJECTS,
   },
-  { path: '/sales/keep-report', what: '報告資料', why: '印刷して配る形なので、紙と同じ横幅を前提にしています。', hidden: true },
+  // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
+  // ルート自体を消したので、実体の画面が無く、この表に載せる対象ではない
   /*
     ⚠️ **この3枚の理由は書き直しました**（M10）。
     元は「会社ごとに列が多く、この幅では1社ぶんも並びません」でしたが、
@@ -106,14 +118,13 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
-  { path: '/sales/activity-logs', what: '営業活動記録', why: 'v4 でまだ作り直していない画面です。' },
-  { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
-  {
-    path: '/sales/projects/confirmed/:category',
-    what: '確定案件の一覧',
-    why: '金額と日程が横に並ぶ表です。',
-    instead: PROJECTS,
-  },
+  // **営業活動記録は v4 で作り直したのでここから外した**（`CLIENT_MOBILE_OK` へ）。
+  // `Row stackOnMobile` ＋ `MobileFilterBar` で縦積みになり、375px で崩れないことを実測済み
+  // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
+  // 案件一覧・案件詳細のほうが記録単位で上位互換なため）。実体の画面が無いので
+  // この表に載せる対象ではない
+  // **`/sales/projects/confirmed/:category`（確定案件の一覧）は削除した**（`ConfirmedProjectsPage`
+  // ごと消して `/sales/projects` への転送にした）。実体の画面が無いので、この表に載せる対象ではない
 
   // ── 財務管理（モックの「お金は置かない」）─────────────────
   //   **`/budget/billing` は入れない** — ⑫ 入金の確認がスマホ用にある
@@ -180,6 +191,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
+  '/sales/activity-logs',               // 営業活動記録（Row stackOnMobile ＋ MobileFilterBar）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*
     ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──

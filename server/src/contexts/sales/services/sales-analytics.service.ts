@@ -204,7 +204,15 @@ export class SalesAnalyticsService {
     }
   }
 
-  /** 営業評価: 担当者別の目標 vs 実績 */
+  /**
+   * 営業評価: 担当者別の目標 vs 実績
+   *
+   * ⚠️ **この2本の `GROUP BY` は担当者が1人でもいると必ず 500 で落ちていた**
+   * （営業レビュー v4 作り直しで実データを繋いで発見）。`u.name` を選びながら
+   * `GROUP BY p.assigned_to` / `GROUP BY t.user_id` のように `u.name` を含めない
+   * のは標準 SQL 違反で、Postgres は MySQL と違って黙って通さない
+   * （"column must appear in the GROUP BY clause"）。`u.name` も `GROUP BY` に足した。
+   */
   async getPerformanceReview(year: number, month?: number) {
     let wonFilter = `AND TO_CHAR(p.updated_at, 'YYYY') = ?`;
     const wonParams: unknown[] = [String(year)];
@@ -220,7 +228,7 @@ export class SalesAnalyticsService {
        FROM projects p
        LEFT JOIN users u ON u.id = p.assigned_to
        WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 'b_verbal', 's_completed') ${wonFilter}
-       GROUP BY p.assigned_to`,
+       GROUP BY p.assigned_to, u.name`,
       wonParams
     );
 
@@ -255,7 +263,7 @@ export class SalesAnalyticsService {
        FROM sales_targets t
        LEFT JOIN users u ON u.id = t.user_id
        ${targetFilter}
-       GROUP BY t.user_id`,
+       GROUP BY t.user_id, u.name`,
       targetParams
     );
 

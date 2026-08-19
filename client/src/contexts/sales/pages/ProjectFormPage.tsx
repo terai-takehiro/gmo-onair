@@ -66,7 +66,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { relativeTime } from '@/lib/aiFeed';
+import { formatRelativeTime } from '@/lib/format';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import StudioBookingDialog from '@/contexts/production/components/studio/StudioBookingDialog';
 import { ProjectStageLabels } from '@/types';
@@ -163,7 +163,7 @@ export default function ProjectFormPage() {
               </p>
               {f.aiDraftCreatedAt && (
                 <p className="text-sub-sm mt-0.5 text-muted-foreground">
-                  {relativeTime(f.aiDraftCreatedAt)}に AI が作りました
+                  {formatRelativeTime(f.aiDraftCreatedAt)}に AI が作りました
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-2">

@@ -744,11 +744,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           onClick={() =>
             isEstimateMode
               ? navigate(`/sales/projects/${projectId}`)
-              : navigate(
-                  isCategoryA
-                    ? "/projects/confirmed/studio"
-                    : "/projects/confirmed/business"
-                )
+              : navigate(isCategoryA ? "/sales/projects" : "/gpm/projects")
           }
         >
           <ArrowLeft className="h-4 w-4" />

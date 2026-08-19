@@ -12,7 +12,8 @@
  *
  *   今月の主要指標   → 財務ダッシュボード `/budget/dashboard`
  *   営業ダッシュボード → 案件管理ダッシュボード `/sales/dashboard`
- *   AI 活動フィード   → `/sales/ai-activity`
+ *   AI 活動フィード   → `/sales/ai-activity`（**その後この画面ごと削除・ご指示**。
+ *                       監査ログに過ぎず、AIが触ったかは案件一覧・案件詳細が上位互換）
  *   直近の案件       → 案件一覧 `/sales/projects`
  *   クイックアクセス   → 各アプリの左メニュー
  *   システム管理     → 設定 `/settings`

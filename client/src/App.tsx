@@ -19,7 +19,6 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InquiryQuickPage from "@/contexts/sales/pages/InquiryQuickPage";
 import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
-import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
@@ -30,11 +29,9 @@ import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
-import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
-import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
-import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
+import ProjectGroupDetailPage from "@/contexts/sales/pages/ProjectGroupDetailPage";
 
 // Tasks (タスク管理)
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
@@ -175,7 +172,10 @@ function AppRoutes() {
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
-        <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
+        {/* 旧「旧GLS（決算取込）」— 決算取込の取り込み自体は終わっており、
+            まとめて直す機能は案件台帳（絞り込み「どちらも」＋検索）が上位互換なので削除。
+            旧URLは案件台帳へ転送 */}
+        <Route path="/sales/gls-import" element={<RedirectKeepQuery to="/sales/projects/ledger" />} />
         {/* **つくると直すは同じ項目・同じ見た目。** 入力欄はどちらも
             `projectNew/RequiredFields` と `projectNew/MoreFields` を使う。
             直す画面（`/edit`）だけが持つのは、BOX の URL・申込書・番組情報・
@@ -208,8 +208,8 @@ function AppRoutes() {
             `/studio` より先に置くこと（React Router は静的な区切りを優先するが、
             同じ深さの動的区間より前に書いておくほうが読み違えない）
         */}
-        <Route path="/sales/projects/confirmed/business" element={<RedirectKeepQuery to="/gpm/projects" />} />
-        <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
+        {/* `ConfirmedProjectsPage` は削除（③案件一覧が上位互換）。旧 URL は転送する */}
+        <Route path="/sales/projects/confirmed/:category" element={<RedirectKeepQuery to="/sales/projects" />} />
         {/*
             ⚠️ **転送先は `task` です。** 2026-08 に「エピソード（回）」タブごと
             外し（正のモックのタブバーに無かった）、**回の表と「回を足す」は
@@ -224,6 +224,8 @@ function AppRoutes() {
         <Route path="/sales/tasks" element={<RedirectKeepQuery to="/sales/tasks/kanban" />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
+        {/* v4: 詳細をURLで持てるようにした（旧実装は一覧と同じ画面内 useState の切り替えだった） */}
+        <Route path="/sales/project-groups/:id" element={<PermissionRoute module="sales"><ProjectGroupDetailPage /></PermissionRoute>} />
         {/*
             ② 受付は**案件作成に畳みました**（指示書 第1章）。届いたものを読んで、
             足りないところを埋めて、案件にするかどうかを決める仕事は案件作成と
@@ -249,8 +251,9 @@ function AppRoutes() {
             一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
         <Route path="/sales/pipeline" element={<RedirectKeepQuery to="/sales/projects?view=board" />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
-        <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
-        <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
+        {/* 「AI活動履歴」は削除した（ご指示・mcp_audit_logは監査用に過ぎず、AIが触ったかは
+            案件一覧のAI作成絞り込み・案件詳細のAiReviewBannerが記録単位で上位互換） */}
+        {/* 「報告資料」は v4 の要件未定のため削除した（ご指示・API/MCPは他が使うので残置） */}
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         {/* 顧客の一覧は取引先マスターの「顧客」絞り込みへ一本化した（Phase 2）。360°ビューは残す */}
         <Route path="/sales/customers" element={<RedirectKeepQuery to="/sales/companies?role=customer" />} />

@@ -79,13 +79,12 @@ describe('確定した記録を守る', () => {
     expect(KEEP.slice(one, one + 900)).not.toMatch(/confirmedOnly/);
   });
 
-  it('消えた列（旧 `highlights`）を画面が読んでいない', () => {
-    // 列は migration 185 で落ちているので、読むと**一覧ごと落ちる**（#83）。
-    // 入力欄も残っていて、打った文字は黙って捨てられていた
-    const page = read('client', 'src', 'contexts', 'sales', 'pages', 'KeepReportPage.tsx');
-    expect(page).not.toMatch(/r\.highlights/);
-    expect(page).not.toMatch(/highlightsText/);
-  });
+  /**
+   * ⚠️ **この直下にあった「消えた列（旧 `highlights`）を画面が読んでいない」試験は
+   * 削除した。** `KeepReportPage.tsx` 自体を v4 の要件未定によりご指示で削除した
+   * ため（`docs/changelog.d/` 参照）、対象のファイルが無くなった。列を読んでいた
+   * 画面が無くなったので、この試験が守っていた壊れ方はもう起こり得ない。
+   */
 
   /**
    * ⚠️ **見つけたのは、上の直しを実サーバーで測っていたとき**です。
