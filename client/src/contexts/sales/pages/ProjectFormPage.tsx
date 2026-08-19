@@ -70,6 +70,7 @@ import { formatRelativeTime } from '@/lib/format';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import StudioBookingDialog from '@/contexts/production/components/studio/StudioBookingDialog';
 import { ProjectStageLabels } from '@/types';
+import { glsGuideText } from './projectDetail/glsGuide';
 import SimulationDialog from '../components/SimulationDialog';
 import CustomerDialog from '../components/CustomerDialog';
 import { moreFieldCount } from './projectNew/fields';
@@ -219,6 +220,7 @@ export default function ProjectFormPage() {
           {f.isYomi && (
             <Button
               size="sm"
+              title={glsGuideText(f.currentStage)}
               onClick={() => actions.setGlsDialog((s) => ({
                 ...s, open: true,
                 // **口頭決定（B）より手前は「新しい番組」を選べない**ので、

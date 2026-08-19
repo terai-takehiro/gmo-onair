@@ -121,6 +121,7 @@ export function PurchaseDialog({
               placeholder="GLS番号・案件名で検索..."
             />
             <p className="text-note mt-1 text-muted-foreground">
+              受注（A 受注済）以降の案件だけが選べます。
               複数案件への按分は「按分グループ」から登録してください
             </p>
           </div>

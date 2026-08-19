@@ -19,6 +19,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { localDateStr, formatShortDate } from '@/lib/format';
+import { GlsNumberField } from './glsGuide';
 import { classificationText } from './classificationText';
 import { channelLabel } from '../projectList/intake';
 import { AiReviewBanner } from './AiReviewBanner';
@@ -264,7 +265,7 @@ export function OverviewTab({
           {project.wants && <Field label="求められているもの">{project.wants}</Field>}
           <Field label="リード経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
-            {project.gls_number ?? <span className="text-muted-foreground">まだ発番していません（ヨミ段階）</span>}
+            <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />
           </Field>
           <Field label="社内コード">{project.code}</Field>
           {/*

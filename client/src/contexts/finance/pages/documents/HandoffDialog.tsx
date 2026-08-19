@@ -144,6 +144,7 @@ export function HandoffDialog({
                     書類の GLS番号（{doc.gls_number}）から選びました。違うときは選び直してください
                   </p>
                 )}
+                <p className="text-note mt-1 text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>
               </div>
               <div>
                 <Label>仕入先 *</Label>

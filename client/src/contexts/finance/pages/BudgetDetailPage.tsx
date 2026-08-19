@@ -142,6 +142,7 @@ export default function BudgetDetailPage() {
             onChange={setProjectId}
             placeholder="GLS番号で検索..."
           />
+          <p className="text-note mt-1 text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>
         </div>
         <div>
           <Label>年月</Label>

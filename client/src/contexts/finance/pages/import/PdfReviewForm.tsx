@@ -99,6 +99,7 @@ export function PdfReviewForm({
                 onChange={(v) => set('projectId', v)}
                 placeholder="GLS番号・案件名で検索"
               />
+              <p className="text-note mt-1 text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>
               {!unit?.project && unit?.glsNumber && (
                 <p className="text-note mt-1 text-warning">
                   GLS 番号 {unit.glsNumber} に一致する案件が見つかりませんでした。手で選んでください。
