@@ -32,7 +32,6 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
-  Presentation,
   Receipt,
   Settings,
   ShoppingCart,
@@ -114,9 +113,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // **「営業活動記録」は v4 で作り直したので「全案件」へ移した**
         // **「旧GLS（決算取込）」は削除した**（決算取込自体は終わっており、
         // まとめて直す機能は案件台帳（絞り込み「どちらも」＋検索）が上位互換のため）
+        // **「報告資料」も削除した**（v4 の要件未定・ご指示）
         { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
-        { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
         { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
         { label: "取引先マスター（顧客・仕入先・販管費支払先）", to: "/sales/companies", icon: Store },
       ],

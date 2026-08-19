@@ -30,7 +30,6 @@ import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
-import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 import ProjectGroupDetailPage from "@/contexts/sales/pages/ProjectGroupDetailPage";
@@ -254,7 +253,7 @@ function AppRoutes() {
         <Route path="/sales/pipeline" element={<RedirectKeepQuery to="/sales/projects?view=board" />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
-        <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
+        {/* 「報告資料」は v4 の要件未定のため削除した（ご指示・API/MCPは他が使うので残置） */}
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         {/* 顧客の一覧は取引先マスターの「顧客」絞り込みへ一本化した（Phase 2）。360°ビューは残す */}
         <Route path="/sales/customers" element={<RedirectKeepQuery to="/sales/companies?role=customer" />} />
