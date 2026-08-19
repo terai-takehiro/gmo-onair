@@ -120,7 +120,9 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
   // **営業活動記録は v4 で作り直したのでここから外した**（`CLIENT_MOBILE_OK` へ）。
   // `Row stackOnMobile` ＋ `MobileFilterBar` で縦積みになり、375px で崩れないことを実測済み
-  { path: '/sales/ai-activity', what: 'AI活動履歴', why: 'AI が出したものと人が直したものを並べて見る画面です。', hidden: true },
+  // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
+  // 案件一覧・案件詳細のほうが記録単位で上位互換なため）。実体の画面が無いので
+  // この表に載せる対象ではない
   // **`/sales/projects/confirmed/:category`（確定案件の一覧）は削除した**（`ConfirmedProjectsPage`
   // ごと消して `/sales/projects` への転送にした）。実体の画面が無いので、この表に載せる対象ではない
 

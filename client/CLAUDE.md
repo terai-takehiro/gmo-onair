@@ -498,6 +498,35 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   1件（消えた列 `highlights` を読んでいないことの回帰試験）は、対象ファイルが
   無くなったので削除した
 
+**AI活動履歴（`/sales/ai-activity`）を削除した回**
+- **「そもそも要らないのでは」というご指摘を受けて調べ直し、削除した**（ご指示）。
+  この画面が読む `mcp_audit_log` は、5条件が求める記録用テーブル
+  （`ai_outputs`/`ai_corrections`/`ai_outcomes`・migration 134）とは別物で、
+  `.claude/skills/ai-feedback-loop/references/onair-current-state.md` に
+  「監査用と割り切る（`args` を1000文字で切るので教師データにならない）」と
+  明記されている、単なる操作ログだった
+- **5条件のどれも実際には満たしていなかった。** AI改善への還流（条件4）は
+  `get_ai_feedback_digest`（MCPツール）が担い、人間向けレビュー（条件5・月1回
+  営業マネージャー）も `ops_reports.kind='ai_review'` の別の仕組みで作る計画になって
+  いて、どちらもこのページとは無関係だった
+- **「AIが触ったか」を見る用途は記録単位の画面のほうが上位互換。** 案件一覧の
+  「AI作成のみ」絞り込みと案件詳細の `AiReviewBanner`（確認アクション付き）が
+  既に同じ情報をより実用的な形（そこで直せる）で出している
+- **v4のトップページは実はもう繋がっていなかった。** `HomePage.tsx` のコメントに
+  「AI活動フィード → `/sales/ai-activity`」とあったが、**実際には何も表示せずリンクも
+  張っていない**（旧トップの名残のコメントのみ）。現状は案件管理の「そのほか
+  （作り直し前）」に埋もれているだけだった
+- **バックエンドの `mcp_audit_log` 収集・MCPツール群は触っていない。** 削除したのは
+  画面と、その専用エンドポイント（`GET /dashboard/ai-activity-feed`）・共用ヘルパー
+  （`client/src/lib/aiFeed.ts`）・クエリキーだけ。監査ログとしては引き続き貯まる
+- **ついでに見つけた重複を1つ解消した。** `aiFeed.ts` の `relativeTime` は
+  `shared/src/client/format.ts` の `formatRelativeTime` とほぼ同じ実装で、
+  他に使っていたのは `ProjectFormPage.tsx` の1箇所だけだった。`aiFeed.ts` ごと
+  削除し、その1箇所を `formatRelativeTime` に差し替えた
+- 旧URL `/sales/ai-activity` は転送先が無いため削除し、`pcOnlyScreens.ts` からも外した
+- **検証**: `npm run typecheck` / `npm run lint` / `npm run test`（1135件）に加え、
+  実ブラウザで旧URLが素通りしないこと・ナビから消えたことを確認済み
+
 **案件作成（②・受付を統合した回）で決めたこと**
 - **画面を1つ減らした。** 旧 `/sales/inbox`（受付）と `/sales/projects/new`（案件登録）は
   **同じ仕事**でした — 届いたものを読んで、足りないところを埋めて、案件にするかどうかを決める。

@@ -29,7 +29,6 @@ import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import FlowTemplatePage from "@/contexts/sales/pages/flow/FlowTemplatePage";
 import BillingListPage from "@/contexts/sales/pages/BillingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
-import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 import ProjectGroupDetailPage from "@/contexts/sales/pages/ProjectGroupDetailPage";
@@ -252,7 +251,8 @@ function AppRoutes() {
             一覧と別のエンドポイントを叩いていたため件数と金額が食い違っていた) */}
         <Route path="/sales/pipeline" element={<RedirectKeepQuery to="/sales/projects?view=board" />} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
-        <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
+        {/* 「AI活動履歴」は削除した（ご指示・mcp_audit_logは監査用に過ぎず、AIが触ったかは
+            案件一覧のAI作成絞り込み・案件詳細のAiReviewBannerが記録単位で上位互換） */}
         {/* 「報告資料」は v4 の要件未定のため削除した（ご指示・API/MCPは他が使うので残置） */}
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         {/* 顧客の一覧は取引先マスターの「顧客」絞り込みへ一本化した（Phase 2）。360°ビューは残す */}
