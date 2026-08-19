@@ -610,8 +610,151 @@ WHERE v.deleted_at IS NULL AND co.deleted_at IS NULL
    可と明示的に判断した先例）より材料が強い
 3. ✅ **2026-08-19 完了: 工程表「7」（3-3-5 直前バックアップ+検証）・「8」
    （3-3-6 旧支払条件列の削除・migration 204）。** 詳細は下表「7」「8」参照
-4. **次は工程表「9」（3-3-7 オンデマンドバックアップ・1回目・テーブル削除PR作成前の
-   リハーサル）以降**。⚠️ ここから先（9〜11）も**不可逆な変更**（`customers`/
-   `vendors` テーブル自体の削除・legacyフォールバック削除）に入るため、
-   着手前に必ずユーザーへ確認すること。バックアップは実機（VPS）操作が必要で、
-   このセッションでは代行できない
+4. ✅ 2026-08-19 実施・**その後 revert**（詳細は下の「2026-08-19 引き継ぎメモ②」参照）。
+   工程表「9」以降は**まだ完了していない** — 次のセッションはここから
+
+## 2026-08-19 引き継ぎメモ②（PC 環境がある別セッションへ・migration 205 やり直し）
+
+### 何が起きたか（時系列）
+
+1. 上の①②の手順どおりバックアップ確認 → PR #243（migration 205・`customers`/
+   `vendors` テーブル本体の削除。仕入先編集の「壁」撤廃も同時実施）を作成・マージ
+2. マージ直後、**検証環境（dev.gmo-onair.jp）でサーバーが再起動ループに入り
+   502 が継続する障害が発生**。原因: `DROP TABLE customers` が
+   `cannot drop table customers because other objects depend on it` で失敗
+   （migration は失敗時にロールバックされるため、`customers`/`vendors` の
+   テーブル自体・データは無事だった）
+3. 復旧を最優先し、PR #243 を丸ごと **revert する PR #246 を作成・即マージ**。
+   dev は復旧（`/health` で `{"status":"ok"}` を確認済み）
+4. `pg_constraint`/`pg_depend` を実DBで直接調べ、**原因を特定**（次節）
+5. 調査中に、**このリポジトリのどの migration ファイルにも存在しない
+   DBオブジェクト**（後述）が見つかった。範囲がPhase 3-3を超えるため、
+   ユーザーから「DBについて技術的負債はないか、v4にあたって一掃したい」という
+   追加の依頼があり、**現在は原因究明とあわせてDB全体のドリフト監査に着手した
+   ところで、貼り付け作業を次セッションに引き継ぐ**ことになった
+
+**現在のリポジトリの状態**: `main`（= このブランチ `claude/phase-3-3-4-continuation-v09078`
+も同じコミット）は **PR #243 の内容を含まない**（revert 済み）。つまり
+`customers`/`vendors` テーブル本体はまだ削除されていない・migration 205 は
+リポジトリに存在しない・コード側も legacy 参照が残ったまま（Phase 3-3-7〜9 は
+未完了に巻き戻っている）。作業ツリーはクリーン（`git status` に何も出ない）。
+
+### 原因（実DBで判明・確定）
+
+`customers`/`vendors` に対して、migration 200/201 で張り替えた7つのFK
+（`projects`/`revenues`/`activity_logs`/`estimates`/`gpm_projects`.customer_id・
+`purchases`/`sga_expenses`.vendor_id）**以外に、以下 5 つのFKが残っていた**
+（実DBで `pg_constraint` を直接調べて確認済み・2026-08-19）:
+
+| 制約名 | テーブル.列 | 参照先 |
+|---|---|---|
+| `joint_event_companies_billing_customer_id_fkey` | `joint_event_companies.billing_customer_id` | `customers` |
+| `joint_event_companies_customer_id_fkey` | `joint_event_companies.customer_id` | `customers` |
+| `joint_events_organizer_customer_id_fkey` | `joint_events.organizer_customer_id` | `customers` |
+| `joint_events_remainder_customer_id_fkey` | `joint_events.remainder_customer_id` | `customers` |
+| `revenue_items_cost_vendor_id_fkey` | `revenue_items.cost_vendor_id` | `vendors` |
+
+⚠️ **重大な副次発見**: `joint_events`/`joint_event_companies` の2テーブル、および
+`revenue_items.cost_amount`/`cost_vendor_id`/`is_ai_suggested` の3列は、
+**このリポジトリのどの migration ファイルにも作成する記述が無い**
+（`git log -S "joint_events" --all` で全履歴を検索しても痕跡なし・
+`grep -rl "cost_vendor_id" server/src/shared/db/migrations/` も0件）。
+実際の dev DB にだけ存在する、**追跡されていないスキーマ変更**（過去に手動SQL等で
+足された可能性が高い）。`migrate.ts` は `server/src/shared/db/migrations/*.sql`
+以外を一切見ないため、`npm run verify:fresh` で作るDBにはこれらが存在しない。
+
+2026-08-19 時点の実データ確認（dev環境・ユーザー実行）:
+- `joint_events`: **0行**
+- `joint_event_companies`: **0行**
+- `revenue_items` で `cost_vendor_id IS NOT NULL`: **0行**
+
+コード参照の有無（grep で確認）:
+- `joint_events`/`joint_event_companies`: **現行コードのどこからも参照0件**
+  （orphan・使われていないテーブル）
+- `revenue_items.cost_vendor_id`/`cost_amount`/`is_ai_suggested`: **現行コードが
+  実際に読み書きしている**（`server/src/contexts/finance/services/revenue-item-carryover.service.ts`・
+  `server/src/contexts/finance/routes/revenues.routes.ts`・
+  `server/src/contexts/sales/routes/project-groups.routes.ts`）→ 生きている列
+
+**ユーザー判断（2026-08-19・`AskUserQuestion` で確認済み）**: `joint_events`/
+`joint_event_companies` は `customers`/`vendors` と一緒に **DROP する**（0行・
+コード参照0件のため）。
+
+### 次にやること（migration 205 を作り直す）
+
+1. 新しい `server/src/shared/db/migrations/205_drop_customers_vendors_tables.sql`
+   を書く。旧ドラフト（PR #243・#246 の diff で参照可能）に加えて、**マージ前に
+   必ず以下を追加する**:
+   - `revenue_items.cost_vendor_id` の FK を `vendors` → `companies` に張り替え
+     （migration 201 の `purchases.vendor_id`/`sga_expenses.vendor_id` と同じやり方。
+     値は全件 NULL なので変換UPDATEは実質不要だが、`DROP CONSTRAINT` /
+     `ADD CONSTRAINT ... REFERENCES companies(id)` は必要）
+   - `joint_event_companies`・`joint_events` を `DROP TABLE`（`customers`/`vendors`
+     を `DROP TABLE` する**前**に。`joint_event_companies` → `joint_events` の順
+     — FKの向きに注意）
+   - いずれも **`IF EXISTS` を使い、存在しない環境（フレッシュDB等）でも
+     壊れないようにする**
+2. **`revenue_items.cost_vendor_id`/`cost_amount`/`is_ai_suggested` を作る
+   migration が無い問題そのもの**（このセクション上の「重大な副次発見」）も、
+   同じPRで「後追いのCREATE/ALTER」を1本足して解消するのが望ましい
+   （`ALTER TABLE revenue_items ADD COLUMN IF NOT EXISTS ...` を新しい番号で追加し、
+   `npm run verify:fresh` で作るDBと実DBの形を一致させる）。**これをやらないと、
+   `verify:fresh` によるローカル検証がこの列の存在を前提にしたコードパスを
+   一度も通さないまま「検証OK」と判定してしまう**（今回の migration 205 一発目の
+   失敗と同じ構造の見落としが再発しうる）
+3. コード側（`company-directory.service.ts` の壁撤廃・legacy URL 削除等）は
+   PR #243 の diff がそのまま使える（`git show 6cd63f1` または PR #243 のページで
+   確認）。ただし今回の追加分（1・2）を migration 205 に含めること
+4. 実装後、**必ず `npm run verify:fresh` で「フレッシュDB」を作った状態と、
+   実際の dev DB の両方**で `DROP TABLE` が通ることを確認してから PR を出す
+   （フレッシュDBだけでの確認は今回それだけでは不十分だったことが分かっている）
+5. バックアップ2回（PR作成前のリハーサル・マージ直前）は今回のサイクルで
+   既に実施・確認済みのため、**やり直すなら改めてユーザーに依頼すること**
+   （前回の確認は revert 済みの変更に対するものであり、新しい migration 205 の
+   内容には対応していない）
+
+### 未完了: DBの技術的負債の全体監査（ユーザーからの新しい依頼）
+
+上記の副次発見を受けて、ユーザーから「DBについて技術的負債はないか、v4にあたって
+一掃したい」という依頼があった。**これは Phase 3-3-7〜9 の枠を超える、DB全体の
+ドリフト監査**（今回見つかった `joint_events` 系のような「migrationに無いのに
+実DBにあるもの」を他にも探す）。着手済みだが、貼り付け作業の途中でセッションを
+引き継ぐことになった。
+
+**再開の手順**（このセッションで作った一時ファイルは `/tmp` 配下でセッション終了と
+ともに消えるため、次のセッションで作り直すこと。数十秒で再生成できる）:
+
+```bash
+# 1. フレッシュな検証DBを作る（migrationファイルだけから作られる「あるべき姿」）
+npm run verify:fresh
+
+# 2. 「あるべき姿」のテーブル名・列名・FK制約を1行ずつのCSVで取り出す
+psql -h 127.0.0.1 -p 5433 -U postgres -d onair_verify -t -A -c "
+SELECT string_agg(table_name, ',' ORDER BY table_name)
+FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';
+" > /tmp/expected-tables.txt
+
+psql -h 127.0.0.1 -p 5433 -U postgres -d onair_verify -t -A -c "
+SELECT string_agg(table_name || '.' || column_name, ',' ORDER BY table_name, ordinal_position)
+FROM information_schema.columns WHERE table_schema='public';
+" > /tmp/expected-columns.txt
+
+psql -h 127.0.0.1 -p 5433 -U postgres -d onair_verify -t -A -c "
+SELECT string_agg(conname || '|' || conrelid::regclass::text || '|' || confrelid::regclass::text, ',' ORDER BY conname)
+FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace;
+" > /tmp/expected-fks.txt
+```
+
+3. 上記CSVを `VALUES (...)` のリストに変換し（カンマ区切り→`('...'),` の各行）、
+   `information_schema`/`pg_constraint` の実DB側と `NOT IN` で突き合わせる
+   `WITH expected(...) AS (VALUES ...), actual AS (SELECT ... FROM information_schema...)
+   SELECT 'only_in_dev' ... UNION ALL SELECT 'only_in_migrations' ...` という形の
+   SQLを組み立て、`docker cp` → `docker exec ... psql -f` で dev DB に対して実行する
+   （このメモの直前のやり取りで実際に組み立てた例が会話ログに残っている。
+   テーブル一覧・FK制約の分は組み立て済みで、ユーザーへの貼り付け依頼まで出したところ）
+4. 列単位の diff（`expected-columns.txt`。約1650件）はまだSQL化していない。
+   テーブル・FKの結果が出た後、必要なら同じやり方で追加する
+5. 結果が出たら、`only_in_dev`（migrationに無いのに実DBにあるもの）を1件ずつ
+   「コード参照あり→後追いmigrationで追認」「コード参照なし・0行→cleanup migrationで
+   DROP」に仕分ける。件数次第では専用のドキュメント
+   （例: `docs/reviews/db-drift-audit.md`）を新設して棚卸しすること
