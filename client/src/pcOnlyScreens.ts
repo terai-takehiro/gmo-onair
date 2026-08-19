@@ -83,6 +83,15 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
     hidden: true,
   },
+  // v4で作り直したが、任意比率の按分（案件ごとの金額をその場で比べながら入力する）は
+  // 変わらずPC向きなので、詳細URLもここに残す
+  {
+    path: '/sales/project-groups/:id',
+    what: 'グループ詳細（費用の分け合い）',
+    why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
+    instead: { label: 'グループ一覧を開く', to: '/sales/project-groups' },
+    hidden: true,
+  },
   { path: '/sales/gls-import', what: '旧GLS（決算取込）', why: '会計の取り込みは、確かめる行が多く途中で止められません。', hidden: true },
   {
     path: '/sales/review',

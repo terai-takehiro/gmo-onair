@@ -34,6 +34,7 @@ import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
+import ProjectGroupDetailPage from "@/contexts/sales/pages/ProjectGroupDetailPage";
 
 // Tasks (タスク管理)
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
@@ -223,6 +224,8 @@ function AppRoutes() {
         <Route path="/sales/tasks" element={<RedirectKeepQuery to="/sales/tasks/kanban" />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
+        {/* v4: 詳細をURLで持てるようにした（旧実装は一覧と同じ画面内 useState の切り替えだった） */}
+        <Route path="/sales/project-groups/:id" element={<PermissionRoute module="sales"><ProjectGroupDetailPage /></PermissionRoute>} />
         {/*
             ② 受付は**案件作成に畳みました**（指示書 第1章）。届いたものを読んで、
             足りないところを埋めて、案件にするかどうかを決める仕事は案件作成と
