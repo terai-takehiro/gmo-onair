@@ -662,28 +662,45 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       const id = await findCustomer(name);
       if (id) return id;
       if (!createMasters) return null;
-      // **`companies` に is_customer=TRUE の行を作る**（company-directory.service.ts）。
+      // **`companies` にも紐づける**（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
-      // ここで入れないとこの会社の案件だけグループ外のまま残る。
+      // ここで入れないとこの会社の案件だけグループ外のまま残る
       //
-      // Phase 3-3-7〜9: `createCustomerRecord` は `companies.id` を直接返す。
-      const nid = await createCustomerRecord(
+      // `createCustomerRecord` は `customers.id` を返すが、Phase 3-2a 以降
+      // customer_id は `companies.id` を指すので、作った customers 行の
+      // company_id を引き直して使う
+      const cid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
+      const cr = await client.query('SELECT company_id FROM customers WHERE id=$1', [cid]);
+      const nid = cr.rows[0]?.company_id as string;
       cache.customers.set(name, nid); report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
       if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
-      // Phase 3-3-7〜9: `vendors` テーブル削除に伴い「壁」を撤廃したため（`vendors.routes.ts`
-      // 参照）、`companies.name` が常に最新。`companies` 単独の突き合わせで足りる
+      // Phase 3-2b: purchases.vendor_id は companies.id を直接指すので、
+      // `createVendorRecord` が返す vendors.id ではなく company_id を持つ
+      // （`ensureCustomer` と同じ理由・上記参照）。
+      // ⚠️ 単に `vendors.name` で引くだけだと、仕入先ロールを外された・削除済みの
+      // 会社でも vendors 行が生きていれば company_id を返してしまい、
+      // `assertVendorCompanyId` が拒否する id を purchases.vendor_id に書こうとして
+      // 落ちる（レビュー指摘・PR #202 P1 の2巡目）。**ただし `co.name` で突き合わせては
+      // いけない**（レビュー指摘・PR #207 3巡目）— `budget:editor`（`sales:owner`無し）が
+      // 付けた新しい名前では見つからず重複作成してしまう。ロール・削除の生存確認は
+      // `companies`、名前の一致は実際の書き込み先である `vendors` で行う
       const r = await client.query(
-        `SELECT id FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL AND name=$1 LIMIT 1`,
+        `SELECT co.id FROM companies co
+         JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
+         WHERE co.is_vendor = TRUE AND co.deleted_at IS NULL AND v.name=$1
+         LIMIT 1`,
         [name],
       );
       let id: string | null = r.rows[0]?.id || null;
       if (!id && createMasters) {
-        // **`companies` に is_vendor=TRUE の行を作る**（company-directory.service.ts）
-        id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+        // **`companies` にも紐づける**（company-directory.service.ts）
+        const vid = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+        const vr = await client.query('SELECT company_id FROM vendors WHERE id=$1', [vid]);
+        id = vr.rows[0]?.company_id as string;
         report.masters.created.vendors++;
       }
       cache.vendors.set(name, id); return id;
@@ -965,9 +982,12 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       })), 'revenues');
     }
     if (scopes.includes('purchases')) {
+      // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+      // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
       const r = await client.query(
-        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, vco.name AS vname
+        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, COALESCE(v.name, vco.name) AS vname
          FROM purchases pu JOIN projects p ON p.id = pu.project_id
+         LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
          LEFT JOIN companies vco ON vco.id = pu.vendor_id
          WHERE pu.deleted_at IS NULL`
       );

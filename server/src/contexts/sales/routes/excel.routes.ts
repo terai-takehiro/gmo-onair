@@ -15,7 +15,7 @@ import {
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { resolveClassification } from '../services/project-classification';
 import {
-  createCustomerRecord, createVendorRecord, execFromPgClient,
+  createCustomerRecord, createVendorRecord, syncCompanyFromCustomer, syncCompanyFromVendor, execFromPgClient,
 } from '../../../shared/services/company-directory.service';
 
 // ============================================================
@@ -25,9 +25,7 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
   name: '顧客',
   filename: 'customers',
   permission: { module: 'sales', level: 'editor' },
-  // Phase 3-3-7〜9: `customers` テーブル削除に伴い、重複チェック・更新とも
-  // `companies`（`is_customer` ロール）を対象にする
-  duplicate: { table: 'companies', column: 'name' },
+  duplicate: { table: 'customers', column: 'name' },
   columns: [
     { key: 'name',         header: '会社名',     width: 28 },
     { key: 'short_name',   header: '略称',       width: 14 },
@@ -41,6 +39,9 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     { name: '株式会社サンプル', short_name: 'サンプル社', contact_name: '山田太郎',
       email: 'yamada@example.com', phone: '03-1234-5678', address: '東京都港区...', notes: '' },
   ],
+  // Phase 3-3-4（2026-08-18）: customers ではなく companies（is_customer = TRUE）
+  // から読む（backup.routes.ts の「顧客」シートと同じ理由。取込・重複チェックは
+  // 引き続き customers テーブルを対象にする＝書き込み先は変えていない）
   exportQuery: `
     SELECT name, short_name, contact_name, email, phone, address, notes
     FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL ORDER BY name`,
@@ -75,14 +76,20 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     );
   },
   update: async (client, id, d, userId) => {
-    // `id` は `companies.id`（重複チェックが `companies` を対象にしたため）。
-    // is_customer=TRUE で顧客ロールを付与（既に顧客の会社ならそのまま・
-    // 別ロールで既存だった会社ならここで顧客ロールが加わる）。is_gmo_group・
-    // 仕入先固有の列は触らない（この取込の管轄外）
     await client.query(
-      `UPDATE companies SET name=$1, short_name=$2, contact_name=$3, email=$4, phone=$5, address=$6, notes=$7,
-       is_customer=TRUE, updated_by=$8, updated_at=NOW() WHERE id=$9`,
+      `UPDATE customers SET name=$1, short_name=$2, contact_name=$3, email=$4, phone=$5, address=$6, notes=$7,
+       updated_by=$8, updated_at=NOW() WHERE id=$9`,
       [d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes, userId, id],
+    );
+    // 取引先マスター側にも写す（新規と同じ理由）
+    const existing = (await client.query('SELECT is_gmo_group FROM customers WHERE id=$1', [id]))
+      .rows[0] as { is_gmo_group?: boolean } | undefined;
+    await syncCompanyFromCustomer(
+      id as string,
+      { name: asString(d.name) || '', short_name: asString(d.short_name), contact_name: asString(d.contact_name),
+        email: asString(d.email), phone: asString(d.phone), address: asString(d.address),
+        notes: asString(d.notes), is_gmo_group: existing?.is_gmo_group === true },
+      userId, execFromPgClient(client),
     );
   },
 };
@@ -94,9 +101,7 @@ const VENDORS_CONFIG: ResourceConfig = {
   name: '仕入先',
   filename: 'vendors',
   permission: { module: 'budget', level: 'editor' },
-  // Phase 3-3-7〜9: `vendors` テーブル削除に伴い、重複チェック・更新とも
-  // `companies`（`is_vendor` ロール）を対象にする
-  duplicate: { table: 'companies', column: 'name' },
+  duplicate: { table: 'vendors', column: 'name' },
   columns: [
     { key: 'name',                        header: '会社名',           width: 28 },
     { key: 'contact_name',                header: '担当者',           width: 16 },
@@ -114,7 +119,7 @@ const VENDORS_CONFIG: ResourceConfig = {
   ],
   exportQuery: `
     SELECT name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes
-    FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL ORDER BY name`,
+    FROM vendors WHERE deleted_at IS NULL ORDER BY name`,
   validateRow: (raw) => {
     const errors: string[] = [];
     const name = asString(raw.name);
@@ -145,12 +150,18 @@ const VENDORS_CONFIG: ResourceConfig = {
     );
   },
   update: async (client, id, d, userId) => {
-    // `id` は `companies.id`（重複チェックが `companies` を対象にしたため）。
-    // is_vendor=TRUE で仕入先ロールを付与（顧客設定の `update` と同じ考え方）
     await client.query(
-      `UPDATE companies SET name=$1, contact_name=$2, email=$3, phone=$4, address=$5, vendor_type=$6,
-       invoice_registration_number=$7, notes=$8, is_vendor=TRUE, updated_by=$9, updated_at=NOW() WHERE id=$10`,
+      `UPDATE vendors SET name=$1, contact_name=$2, email=$3, phone=$4, address=$5, vendor_type=$6,
+       invoice_registration_number=$7, notes=$8, updated_by=$9, updated_at=NOW() WHERE id=$10`,
       [d.name, d.contact_name, d.email, d.phone, d.address, d.vendor_type, d.invoice_registration_number, d.notes, userId, id],
+    );
+    // 取引先マスター側にも写す（新規と同じ理由）
+    await syncCompanyFromVendor(
+      id as string,
+      { name: asString(d.name) || '', contact_name: asString(d.contact_name), email: asString(d.email),
+        phone: asString(d.phone), address: asString(d.address), vendor_type: asString(d.vendor_type),
+        invoice_registration_number: asString(d.invoice_registration_number), notes: asString(d.notes) },
+      userId, execFromPgClient(client),
     );
   },
 };

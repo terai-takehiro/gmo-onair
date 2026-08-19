@@ -143,13 +143,14 @@ export async function seed() {
   ];
   for (const [name, short, contact, email, phone, address] of customerData) {
     // Phase 3-2a: projects/revenues/activity_logs.customer_id は companies.id を
-    // 直接指すので、createCustomerRecord が返す companies.id をそのまま使う
-    // (Phase 3-3-7〜9 以降 createCustomerRecord は companies.id を直接返す)
-    CUSTOMERS[short] = await createCustomerRecord(
+    // 直接指すので、createCustomerRecord が返す customers.id ではなく company_id を持つ
+    const cid = await createCustomerRecord(
       { name, short_name: short, contact_name: contact, email, phone, address,
         is_gmo_group: looksLikeGmoGroup(name) },
       null, ins,
     );
+    const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
+    CUSTOMERS[short] = linked.company_id;
   }
 
   // ============================================================
@@ -167,13 +168,15 @@ export async function seed() {
   ];
   for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
     // Phase 3-2b: purchases/sga_expenses.vendor_id は companies.id を
-    // 直接指すので、createVendorRecord が返す companies.id をそのまま使う
+    // 直接指すので、createVendorRecord が返す vendors.id ではなく company_id を持つ
     // (customers と同じ理由・上記参照)
-    VENDORS[vType] = await createVendorRecord(
+    const vid = await createVendorRecord(
       { name, contact_name: contact, email, phone, address, vendor_type: vType,
         invoice_registration_number: regNum },
       null, ins,
     );
+    const linked = await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid]) as { company_id: string };
+    VENDORS[vType] = linked.company_id;
   }
 
   // ============================================================

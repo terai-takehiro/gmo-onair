@@ -25,6 +25,8 @@ export interface Company {
   vendor_type?: string;
   invoice_registration_number?: string;
   notes?: string;
+  customer_id?: string;
+  vendor_id?: string;
 }
 
 export interface CompanyForm {

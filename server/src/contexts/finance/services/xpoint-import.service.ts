@@ -198,12 +198,14 @@ export interface XpointParseResult {
  * Phase 3-2b: ここで返す `id` はレビュー UI を経て `purchases.vendor_id` /
  * `sga_expenses.vendor_id` にそのまま書き込まれる（`xpoint.routes.ts` の
  * `POST /files/:id/register`）。そのFKは companies.id を直接指すので、
- * `companies`（`is_vendor = TRUE`）から引く。
+ * `vendors` ではなく `companies`（`is_vendor = TRUE`）から引く。
+ * **`vendors` 行が生きている会社に限る**（`preloadLookups` 等と同じ理由）。
  */
 async function matchVendor(vendorName: string | null, invoiceNumber: string | null): Promise<{ vendor: VendorMatch | null; vendorCandidates: VendorMatch[] }> {
   let vendor: VendorMatch | null = null;
   const vendorCandidates: VendorMatch[] = [];
-  const LIVE_VENDOR = `co.is_vendor = TRUE AND co.deleted_at IS NULL`;
+  const LIVE_VENDOR = `co.is_vendor = TRUE AND co.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`;
 
   if (vendorName) {
     const exact = (await queryOne(
@@ -259,9 +261,12 @@ async function matchProjects(units: RegistrationUnit[]): Promise<UnitWithMatch[]
 /** 二重登録チェック: 同じ精算方法 + 精算番号の既存レコード */
 async function findDuplicates(method: string, settlementNumber: string | null): Promise<{ purchases: DuplicateRow[]; sga: DuplicateRow[] }> {
   if (!settlementNumber) return { purchases: [], sga: [] };
+  // ⚠️ 仕入先名は vendors を正としつつ、消えたら companies へ落とす
+  // （レビュー指摘・PR #207 4巡目・purchases.routes.ts と同じ理由）
   const purchases = (await queryAll(
-    `SELECT pu.id, pu.amount, pu.recognition_date, vco.name as vendor_name, pu.description
+    `SELECT pu.id, pu.amount, pu.recognition_date, COALESCE(v.name, vco.name) as vendor_name, pu.description
      FROM purchases pu
+     LEFT JOIN vendors v ON v.company_id = pu.vendor_id AND v.deleted_at IS NULL
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL AND pu.settlement_method = ? AND pu.settlement_number = ?`,
     [method, settlementNumber]
