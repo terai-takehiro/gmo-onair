@@ -120,13 +120,15 @@ router.get('/', requirePermission('sales'), async (req, res) => {
   else if (role === 'other') { where += ' AND co.is_customer = FALSE AND co.is_vendor = FALSE AND co.is_sga_payee = FALSE'; }
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
+  // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、`customer_id`/`vendor_id`
+  // は companies.id 自身（ロールを持つときだけ）。以前は customers/vendors への
+  // JOIN で別テーブルの id を引いていたが、companies.id に一本化されているので
+  // JOIN は不要（ロールが無ければ null を返す ─ 旧実装の LEFT JOIN 不一致と同じ形）。
   const rows = await queryAll(
     `SELECT co.*,
-       cu.id as customer_id,
-       v.id  as vendor_id
+       (CASE WHEN co.is_customer THEN co.id END) as customer_id,
+       (CASE WHEN co.is_vendor   THEN co.id END) as vendor_id
      FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
      ${where}
      ORDER BY co.name
      LIMIT ? OFFSET ?`,
@@ -144,11 +146,9 @@ router.get('/:id', requirePermission('sales'), async (req, res) => {
   const canReadBudget = await hasPermission(req, 'budget', 'reader');
   const row = await queryOne(
     `SELECT co.*,
-       cu.id as customer_id,
-       v.id  as vendor_id
+       (CASE WHEN co.is_customer THEN co.id END) as customer_id,
+       (CASE WHEN co.is_vendor   THEN co.id END) as vendor_id
      FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
      WHERE co.id = ? AND co.deleted_at IS NULL`,
     [req.params.id]
   ) as any;
@@ -251,47 +251,16 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
      req.user!.id]
   );
 
-  // 顧客ロールあり → customers レコード自動生成
-  // **印も一緒に渡す。** 案件のグループ区分は `customers` 側を見るので、
-  // ここで落とすと取引先マスターでチェックを付けても案件に効きません
-  if (is_customer) {
-    const cid = uuidv4();
-    await execute(
-      // Phase 3-3-4: 支払条件の例外は companies だけに書く（上の INSERT INTO companies）。
-      // 以前は customers 側にも写していた（旧イメージへ戻すロールバックの間、旧コードが
-      // customers.closing_day 等を直接読むための保険）が、migration 200/201 以降
-      // イメージだけを戻すロールバックは既に使えなくなっており（本番を戻す手段は
-      // DBバックアップからの復元のみ）、customers.closing_day/payment_months/payment_day を
-      // 読むコードも現存しない。customers テーブル削除（Phase 3-3-5）前にこの書き込みを
-      // 止めておかないと、列削除（Phase 3-3-6）で undefined_column になる
-      `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-         is_gmo_group, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-       address || null, notes || null, groupFlag,
-       id, req.user!.id]
-    );
-  }
-
-  // 仕入先ロールあり → vendors レコード自動生成
-  if (is_vendor) {
-    const vid = uuidv4();
-    await execute(
-      // Phase 3-3-4: 支払条件の例外は companies だけに書く（顧客側と同じ理由・上記コメント参照）
-      `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-         invoice_registration_number, notes, company_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [vid, name, contact_name || null, email || null, phone || null, address || null,
-       vendor_type || null, invoice_registration_number || null, notes || null,
-       id, req.user!.id]
-    );
-  }
+  // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、ロールは上の
+  // `INSERT INTO companies`（`is_customer`/`is_vendor`）だけで表現される。
+  // 以前はここで customers/vendors にも同じ内容の行を作っていたが、
+  // companies が唯一の正になったので不要になった。
 
   const row = await queryOne(
-    `SELECT co.*, cu.id as customer_id, v.id as vendor_id
+    `SELECT co.*,
+       (CASE WHEN co.is_customer THEN co.id END) as customer_id,
+       (CASE WHEN co.is_vendor   THEN co.id END) as vendor_id
      FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
      WHERE co.id = ?`,
     [id]
   );
@@ -360,73 +329,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
      req.user!.id, req.params.id]
   );
 
-  // 紐付き customers / vendors の基本情報も同期
-  // **印もここで写す**（正は `customers` 側。写さないと画面のチェックが案件に効かない）
-  // Phase 3-3-4: 支払条件の例外（closing_day/payment_months/payment_day）は
-  // companies だけに書く（上の UPDATE companies）。理由は POST 側と同じ
-  // （customers/vendors の同列を読むコードは無く、旧イメージへ戻すロールバックも
-  // migration 200/201 以降使えない）
-  await execute(
-    `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
-       notes=?, is_gmo_group=?,
-       updated_at=NOW(), updated_by=? WHERE company_id=? AND deleted_at IS NULL`,
-    [name, short_name || null, contact_name || null, email || null, phone || null,
-     address || null, notes || null, groupFlag,
-     req.user!.id, req.params.id]
-  );
-  if (canEditBudget) {
-    await execute(
-      `UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-         invoice_registration_number=?, notes=?,
-         updated_at=NOW(), updated_by=?
-         WHERE company_id=? AND deleted_at IS NULL`,
-      [name, contact_name || null, email || null, phone || null, address || null,
-       vendor_type || null, invoice_registration_number || null, notes || null,
-       req.user!.id, req.params.id]
-    );
-  }
-
-  // ロール追加時: 対応する子レコードがなければ生成
-  if (is_customer) {
-    const linked = await queryOne(
-      'SELECT id FROM customers WHERE company_id=? AND deleted_at IS NULL', [req.params.id]
-    );
-    if (!linked) {
-      const cid = uuidv4();
-      // Phase 3-3-4: 支払条件の例外は companies 側にのみ既に入っている（上の UPDATE companies）
-      await execute(
-        `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-           is_gmo_group, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [cid, name, short_name || null, contact_name || null, email || null, phone || null,
-         address || null, notes || null, groupFlag,
-         req.params.id, req.user!.id]
-      );
-    }
-  }
-  if (is_vendor && canEditBudget) {
-    const linked = await queryOne(
-      'SELECT id FROM vendors WHERE company_id=? AND deleted_at IS NULL', [req.params.id]
-    );
-    if (!linked) {
-      const vid = uuidv4();
-      // Phase 3-3-4: 支払条件の例外は companies 側にのみ既に入っている（上の UPDATE companies）
-      await execute(
-        `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-           invoice_registration_number, notes, company_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [vid, name, contact_name || null, email || null, phone || null, address || null,
-         vendor_type || null, invoice_registration_number || null, notes || null,
-         req.params.id, req.user!.id]
-      );
-    }
-  }
+  // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、ロール・基本情報とも
+  // 上の `UPDATE companies` だけで完結する。以前はここで customers/vendors 側にも
+  // 同じ内容を写し、ロールを新しく持たせたときは子レコードを作っていたが、
+  // companies が唯一の正になったので不要になった。
 
   const row = await queryOne(
-    `SELECT co.*, cu.id as customer_id, v.id as vendor_id
+    `SELECT co.*,
+       (CASE WHEN co.is_customer THEN co.id END) as customer_id,
+       (CASE WHEN co.is_vendor   THEN co.id END) as vendor_id
      FROM companies co
-     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
-     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
      WHERE co.id = ?`,
     [req.params.id]
   );

@@ -300,14 +300,11 @@ async function findCustomerId(tx: Tx, name: string): Promise<string | null> {
 async function findOrCreateCustomer(tx: Tx, name: string, userId: string): Promise<string> {
   const found = await findCustomerId(tx, name);
   if (found) return found;
-  // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+  // `companies`（取引先マスター）に行を作る（company-directory.service.ts）。
   // グループの印は社名から見立てる（migration 192）。投入口は印を持たないので、
   // ここで入れないと AI が起こしたネタ案件だけグループ外のまま残る。
-  // `createCustomerRecord` は `customers.id` を返すので、作った行の
-  // company_id を引き直して customer_id（Phase 3-2a 以降 companies.id）として使う
-  const cid = await createCustomerRecord({ name, is_gmo_group: looksLikeGmoGroup(name) }, userId, tx.execute.bind(tx));
-  const row = await tx.queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]);
-  return row ? String(row.company_id) : cid;
+  // `createCustomerRecord` は companies.id を返す。
+  return createCustomerRecord({ name, is_gmo_group: looksLikeGmoGroup(name) }, userId, tx.execute.bind(tx));
 }
 
 export const taskIntakeService = {

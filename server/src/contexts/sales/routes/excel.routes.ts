@@ -15,7 +15,7 @@ import {
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { resolveClassification } from '../services/project-classification';
 import {
-  createCustomerRecord, createVendorRecord, syncCompanyFromCustomer, syncCompanyFromVendor, execFromPgClient,
+  createCustomerRecord, createVendorRecord, updateCompanyDirectory, execFromPgClient,
 } from '../../../shared/services/company-directory.service';
 
 // ============================================================
@@ -25,7 +25,11 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
   name: '顧客',
   filename: 'customers',
   permission: { module: 'sales', level: 'editor' },
-  duplicate: { table: 'customers', column: 'name' },
+  // Phase 3-3-9（`customers` テーブル削除）以降、重複検出も companies を対象にする。
+  // 役割（is_customer）を問わず名前で突き合わせる — 同じ会社が既に仕入先だけの
+  // 行として companies にあれば、その行に顧客ロールを足す（新しい重複行を
+  // 作らない。会社リスト一本化の本来の狙いに合う）。役割を足すのは下の update()。
+  duplicate: { table: 'companies', column: 'name' },
   columns: [
     { key: 'name',         header: '会社名',     width: 28 },
     { key: 'short_name',   header: '略称',       width: 14 },
@@ -65,7 +69,7 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     };
   },
   insert: async (client, d, userId) => {
-    // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+    // `companies`（取引先マスター）に行を作る（company-directory.service.ts）。
     // グループの印は社名から見立てる（migration 192）。取込は印を持たないので、
     // ここで入れないとその会社の案件だけグループ外のまま残る
     await createCustomerRecord(
@@ -76,21 +80,18 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
     );
   },
   update: async (client, id, d, userId) => {
-    await client.query(
-      `UPDATE customers SET name=$1, short_name=$2, contact_name=$3, email=$4, phone=$5, address=$6, notes=$7,
-       updated_by=$8, updated_at=NOW() WHERE id=$9`,
-      [d.name, d.short_name, d.contact_name, d.email, d.phone, d.address, d.notes, userId, id],
-    );
-    // 取引先マスター側にも写す（新規と同じ理由）
-    const existing = (await client.query('SELECT is_gmo_group FROM customers WHERE id=$1', [id]))
-      .rows[0] as { is_gmo_group?: boolean } | undefined;
-    await syncCompanyFromCustomer(
+    // id は companies.id（重複検出が companies を対象にするようになったため）。
+    // is_gmo_group は Excel が持たない列なので渡さない（今の値を保つ・
+    // `updateCompanyDirectory` は渡された列だけ書き換える）。is_customer は
+    // 既に仕入先だけの行だった場合に備えて明示的に TRUE にする。
+    await updateCompanyDirectory(
       id as string,
       { name: asString(d.name) || '', short_name: asString(d.short_name), contact_name: asString(d.contact_name),
         email: asString(d.email), phone: asString(d.phone), address: asString(d.address),
-        notes: asString(d.notes), is_gmo_group: existing?.is_gmo_group === true },
+        notes: asString(d.notes) },
       userId, execFromPgClient(client),
     );
+    await client.query(`UPDATE companies SET is_customer = TRUE WHERE id = $1`, [id]);
   },
 };
 
@@ -101,7 +102,9 @@ const VENDORS_CONFIG: ResourceConfig = {
   name: '仕入先',
   filename: 'vendors',
   permission: { module: 'budget', level: 'editor' },
-  duplicate: { table: 'vendors', column: 'name' },
+  // Phase 3-3-9（`vendors` テーブル削除）以降、重複検出も companies を対象にする
+  // （CUSTOMERS_CONFIG と同じ理由）。
+  duplicate: { table: 'companies', column: 'name' },
   columns: [
     { key: 'name',                        header: '会社名',           width: 28 },
     { key: 'contact_name',                header: '担当者',           width: 16 },
@@ -117,9 +120,11 @@ const VENDORS_CONFIG: ResourceConfig = {
       phone: '03-9876-5432', address: '東京都新宿区...', vendor_type: '機材',
       invoice_registration_number: 'T1234567890123', notes: '' },
   ],
+  // Phase 3-3-9（`vendors` テーブル削除）以降、companies（is_vendor = TRUE）
+  // から読む（CUSTOMERS_CONFIG の exportQuery と同じ理由）
   exportQuery: `
     SELECT name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes
-    FROM vendors WHERE deleted_at IS NULL ORDER BY name`,
+    FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL ORDER BY name`,
   validateRow: (raw) => {
     const errors: string[] = [];
     const name = asString(raw.name);
@@ -141,7 +146,7 @@ const VENDORS_CONFIG: ResourceConfig = {
     };
   },
   insert: async (client, d, userId) => {
-    // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）
+    // `companies`（取引先マスター）に行を作る（company-directory.service.ts）
     await createVendorRecord(
       { name: asString(d.name) || '', contact_name: asString(d.contact_name), email: asString(d.email),
         phone: asString(d.phone), address: asString(d.address), vendor_type: asString(d.vendor_type),
@@ -150,19 +155,17 @@ const VENDORS_CONFIG: ResourceConfig = {
     );
   },
   update: async (client, id, d, userId) => {
-    await client.query(
-      `UPDATE vendors SET name=$1, contact_name=$2, email=$3, phone=$4, address=$5, vendor_type=$6,
-       invoice_registration_number=$7, notes=$8, updated_by=$9, updated_at=NOW() WHERE id=$10`,
-      [d.name, d.contact_name, d.email, d.phone, d.address, d.vendor_type, d.invoice_registration_number, d.notes, userId, id],
-    );
-    // 取引先マスター側にも写す（新規と同じ理由）
-    await syncCompanyFromVendor(
+    // id は companies.id（重複検出が companies を対象にするようになったため）。
+    // is_vendor は既に顧客だけの行だった場合に備えて明示的に TRUE にする
+    // （CUSTOMERS_CONFIG.update と対称）。
+    await updateCompanyDirectory(
       id as string,
       { name: asString(d.name) || '', contact_name: asString(d.contact_name), email: asString(d.email),
         phone: asString(d.phone), address: asString(d.address), vendor_type: asString(d.vendor_type),
         invoice_registration_number: asString(d.invoice_registration_number), notes: asString(d.notes) },
       userId, execFromPgClient(client),
     );
+    await client.query(`UPDATE companies SET is_vendor = TRUE WHERE id = $1`, [id]);
   },
 };
 

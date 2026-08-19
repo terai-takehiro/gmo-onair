@@ -166,7 +166,7 @@ export function registerProjectTools(server: McpServer): void {
             + '**audience と2つ揃って初めて標準工程が決まる**。分からなければ渡さない'),
         customer_type: z.enum(['internal', 'external']).optional()
           .describe('⚠️ **渡しても無視されます**（migration 192）。グループ内 / グループ外は '
-            + '取引先マスターの印（customers.is_gmo_group）から自動で決まります。'
+            + '取引先マスターの印（companies.is_gmo_group）から自動で決まります。'
             + 'グループ会社なのに external になるときは、案件ではなく取引先マスターを直してください'),
         event_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催開始日 (YYYY-MM-DD)'),
         event_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
