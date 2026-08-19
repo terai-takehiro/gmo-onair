@@ -53,12 +53,13 @@ export function PdfReviewForm({
   const p = result.parsed;
   const isRakuraku = result.format === 'rakuraku';
 
+  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正。理由は PurchaseListPage と同じ）
   const { data: projectsData } = useQuery({
-    queryKey: ['gls-projects-for-purchase'],
-    queryFn: async () => (await api.get('/projects/gls-projects')).data,
+    queryKey: ['won-projects-for-purchase'],
+    queryFn: async () => (await api.get('/projects/won-projects')).data,
   });
   const projectOptions = ((projectsData?.data ?? []) as ProjectOption[])
-    .map((pr) => ({ value: pr.id, label: `${pr.gls_number} ${pr.name}` }));
+    .map((pr) => ({ value: pr.id, label: `${pr.gls_number || 'GLS未発番'} ${pr.name}` }));
 
   const { data: vendorsData } = useQuery({
     queryKey: ['vendors-list'],
@@ -98,6 +99,7 @@ export function PdfReviewForm({
                 onChange={(v) => set('projectId', v)}
                 placeholder="GLS番号・案件名で検索"
               />
+              <p className="text-note mt-1 text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>
               {!unit?.project && unit?.glsNumber && (
                 <p className="text-note mt-1 text-warning">
                   GLS 番号 {unit.glsNumber} に一致する案件が見つかりませんでした。手で選んでください。

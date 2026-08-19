@@ -218,6 +218,13 @@ export function useProjectForm(id: string | undefined) {
   const hasGls = !!project?.gls_number;
   const isYomi = !hasGls;
   const currentStage = (project?.stage || 'neta') as ProjectStage;
+  /**
+   * **新しく番号を採れるのは口頭決定（B）以降だけ**（v4.1.8・矛盾修正）。
+   * サーバー（`issueGls`）も同じ条件で弾く — ここは「押せるのに 400 で
+   * 失敗する」を防ぐための画面側の出し分け。「いまある案件に足す」
+   * （既存 GLS の回として付ける）はこの制限を受けない
+   */
+  const canIssueNewGls = !['neta', 'd_hold', 'c_proposal'].includes(currentStage);
   // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
   const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
   const isCategoryARef = useRef(isCategoryA);
@@ -370,7 +377,7 @@ export function useProjectForm(id: string | undefined) {
     onSubmit, saveMutation,
     simOpen, setSimOpen, customerDialogOpen, setCustomerDialogOpen,
     hasDraftSimulation, draftSimulationTotal, aiDraftCreatedAt, finalizeSim,
-    hasGls, isYomi, isCategoryA, currentStage, projectType, glsCategory,
+    hasGls, isYomi, isCategoryA, currentStage, canIssueNewGls, projectType, glsCategory,
     buildPresetDate,
   };
 }

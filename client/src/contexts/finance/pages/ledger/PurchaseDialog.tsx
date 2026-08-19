@@ -32,7 +32,8 @@ import type { PurchaseRow } from './types';
 
 export interface PurchaseProjectOption {
   id: string;
-  gls_number: string;
+  /** 受注確定済みでも案件分類未設定の古いデータでは空のことがある（v4.1.8） */
+  gls_number: string | null;
   name: string;
 }
 
@@ -114,12 +115,13 @@ export function PurchaseDialog({
           <div>
             <Label>案件 *</Label>
             <SearchableSelect
-              options={projects.map((p) => ({ value: p.id, label: `${p.gls_number} ${p.name}` }))}
+              options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
               value={selectedProjectId}
               onChange={setSelectedProjectId}
-              placeholder="GLS番号で検索..."
+              placeholder="GLS番号・案件名で検索..."
             />
             <p className="text-note mt-1 text-muted-foreground">
+              受注（A 受注済）以降の案件だけが選べます。
               複数案件への按分は「按分グループ」から登録してください
             </p>
           </div>

@@ -1438,11 +1438,26 @@ export class ProjectService {
 
   /**
    * GLS発番（口頭決定以降で呼ぶ。案件に GLS番号を付与する）
+   *
+   * ⚠️ **ステージを実際にここで確かめる**（v4.1.8・矛盾修正）。
+   *
+   * このメソッドには2つの入口がある:
+   *   ・`changeStage` … 受注 (`a_won`) に上げた瞬間に**自動で**呼ぶ（このときは
+   *     もう `stage='a_won'` に更新済みなので、下のガードは必ず通る）
+   *   ・`POST /:id/issue-gls`（画面の「GLS 発番」ボタン）… 「口頭決定のうちに
+   *     先に番号が要る」ときのための**手動**の入口
+   *
+   * 以前は手動の入口にステージの縛りが無く、**問合せ（`neta`）の案件からでも
+   * 番号を焼けた**。v4 は「受注が固まるまで番号を焼かない」（欠番を増やさない）
+   * のが前提なので、口頭決定より手前からは弾く
    */
   async issueGls(id: string, data: Record<string, unknown>, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+    if (['neta', 'd_hold', 'c_proposal'].includes(project.stage as string)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '口頭決定（B）以降の案件だけ、先にGLS番号を発番できます。');
+    }
 
     // v2.8.113+: project.gls_category を見る (登録時に必須化済)
     const category = normalizeGlsCategory(project.gls_category);
@@ -1788,7 +1803,10 @@ export class ProjectService {
   }
 
   /**
-   * GLS番号付き案件一覧（リンク先選択用）
+   * GLS番号付き案件一覧（**GLS番号そのものへ紐づける**選択用 — 回の追加・付け替え・
+   * 費用を分け合うグループ）。ここは `gls_number` が無いと成立しない操作なので
+   * `gls_number IS NOT NULL` のままでよい。**仕入・売上など「受注確定した案件に
+   * 実務を記録したい」画面はこちらを使わないこと**（`getWonProjects` を使う）
    */
   async getGlsProjects() {
     return await queryAll(
@@ -1796,6 +1814,26 @@ export class ProjectService {
        FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
        ORDER BY p.gls_number DESC`
+    );
+  }
+
+  /**
+   * 受注確定済み案件一覧（仕入・売上・精算PDF取込レビュー・予算詳細・書類引き渡し
+   * の案件プルダウン用・v4.1.8 新設）。
+   *
+   * ⚠️ **`gls_number IS NOT NULL` ではなく `stage` で絞る。** 受注 (`a_won`) は
+   * 原則 GLS 番号が自動で付くが、案件分類が未設定の古いデータでは例外的に
+   * 番号だけ付かないことがある（`changeStage` の `gls_error`）。そこで前者を
+   * 基準にすると、**受注済みなのに番号が無いだけで仕入・売上が一切記録できない**
+   * という実務上の詰みが起きる。受注確度は `stage` が正で、`gls_number` の
+   * 有無は別軸の情報（採番の進み具合）として画面側で見せるだけにする
+   */
+  async getWonProjects() {
+    return await queryAll(
+      `SELECT p.id, p.gls_number, p.name, c.name as customer_name
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
+       WHERE p.stage IN ('a_won', 's_completed') AND p.deleted_at IS NULL
+       ORDER BY p.gls_number DESC NULLS LAST, p.created_at DESC`
     );
   }
 
