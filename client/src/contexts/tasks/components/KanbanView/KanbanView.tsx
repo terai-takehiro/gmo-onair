@@ -16,7 +16,7 @@ import {
   arrayMove,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
-import { LayoutTemplate } from "lucide-react";
+import { LayoutTemplate, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
@@ -33,9 +33,11 @@ import type { TaskColumn, ProjectTask } from "@/types";
 interface Props {
   projectId: string;
   episodeId?: string | null;
+  /** 「リストで見る」導線用（未割り当てタスクの案内から呼ぶ）。渡さなければボタンごと出さない */
+  onSwitchToList?: () => void;
 }
 
-export default function KanbanView({ projectId, episodeId }: Props) {
+export default function KanbanView({ projectId, episodeId, onSwitchToList }: Props) {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<ProjectTask | null>(null);
   const [activeColumn, setActiveColumn] = useState<TaskColumn | null>(null);
@@ -123,14 +125,39 @@ export default function KanbanView({ projectId, episodeId }: Props) {
   };
 
   const noColumns = columns.length === 0;
+  /*
+   * ⚠️ **カラムが0件でもタスクが有るとは限らない訳ではない**（UXレポート 2026-08-18 指摘）。
+   * 以前は `noColumns` のときタスクの有無を見ずに「まだカラムがありません」だけを
+   * 出しており、進捗帯（`HealthStrip`）は「0%（0/3）」のようにタスクの実数を出すのに
+   * カンバンだけ0件に見える、という食い違いが起きていた。ここでタスク件数を出し、
+   * リスト表示への導線を添える（実データが有ることを隠さない）
+   */
+  const unassignedTasks = tasks.filter((t) => !t.column_id);
 
   return (
     <>
       {noColumns ? (
         <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
-          <p className="text-muted-foreground text-sm mb-4">
+          <p className="text-muted-foreground text-sm mb-1">
             まだカラムがありません
           </p>
+          {tasks.length > 0 && (
+            <p className="text-muted-foreground text-xs mb-4">
+              未割り当てのタスクが <span className="font-medium text-foreground">{tasks.length}</span> 件あります。
+              {onSwitchToList && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={onSwitchToList}
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    リスト表示で見る
+                  </button>
+                </>
+              )}
+            </p>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -149,6 +176,32 @@ export default function KanbanView({ projectId, episodeId }: Props) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
+          {/*
+            未割り当てタスクの案内。**カラムには出さない** — `getTasksByColumn` は
+            `column_id` の完全一致でしか振り分けないため（下記）、`column_id === null`
+            のタスクはどのカラムにも表示されない。ドラッグ＆ドロップ対応の専用カラムに
+            するとカラムの削除・編集ダイアログまで持たせることになり手間が大きいので、
+            まずはリスト表示（`TaskListView` は「未割り当て」グループとして明示している）
+            への案内だけを出し、実データが隠れないようにする
+          */}
+          {unassignedTasks.length > 0 && (
+            <div className="rounded-note mb-3 flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2 text-note text-secondary-foreground">
+              <span>
+                カラム未割り当てのタスクが <span className="font-medium text-warning">{unassignedTasks.length}</span> 件あります（この板には出ません）。
+              </span>
+              {onSwitchToList && (
+                <button
+                  type="button"
+                  onClick={onSwitchToList}
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline"
+                >
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  リスト表示で見る
+                </button>
+              )}
+            </div>
+          )}
+
           {/* 横スクロールコンテナ */}
           <div className="flex gap-4 overflow-x-auto pb-4 h-full items-start">
             <SortableContext

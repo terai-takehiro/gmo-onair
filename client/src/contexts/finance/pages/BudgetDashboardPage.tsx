@@ -280,7 +280,7 @@ export default function BudgetDashboardPage() {
 
           <p className="text-note text-muted-foreground">
             内訳は<strong className="font-bold">金額の大きい順に上位だけ</strong>を出しています。
-            合計はサーバーが期間全体で数えたもので、内訳の足し算とは一致しません（全部を見るには台帳をひらいてください）。
+            合計と内訳の足し算がズレることがあります（全部を見るには台帳をひらいてください）。
           </p>
         </>
       )}

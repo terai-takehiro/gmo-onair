@@ -169,12 +169,17 @@ export function OverviewTab({
               </span>
             )}
           </Fact>
-          <Fact icon={Wallet} label="見積金額">
+          <Fact icon={Wallet} label={isEstimate ? '見積金額' : '想定金額（見積未確定）'}>
             {/*
               見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方）。
               **`inline`** は「¥ を数字のすぐ左に付ける」指定（モックの帯は `gap:4px`）。
               既定は列で桁をそろえる形なので、枠いっぱいに ¥ と数字が引き離される
               — 縦に1つしか無いここでは円記号だけが遠くに見えていた（ご指摘）
+
+              ⚠️ **ラベルを値の出どころで出し分ける**（UXレポート 2026-08-18 指摘）。
+              以前は見積の有無にかかわらず常に「見積金額」と表示しており、
+              見積タブが「見積はまだありません」と出しているのに概要タブには
+              想定金額が「見積金額」として出る、という矛盾に見えていた
             */}
             <Money inline value={amount} className={cn('text-list', !isEstimate && 'text-muted-foreground')} />
           </Fact>

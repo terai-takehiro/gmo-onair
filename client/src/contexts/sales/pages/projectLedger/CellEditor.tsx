@@ -32,10 +32,13 @@ export function CellEditor({
   useEffect(() => { ref.current?.focus(); }, []);
 
   const keys = (e: React.KeyboardEvent) => {
-    // **止めないと表のほうのキー操作にも流れる**（Escape で選択まで消える）
-    e.stopPropagation();
-    if (e.key === 'Enter') { e.preventDefault(); onCommit(v); }
-    if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+    // **Enter/Escape だけ止める**（Escape で選択まで消えるのを防ぐ）。
+    // ⚠️ 以前は全キーを無条件で stopPropagation しており、セル編集中は
+    // ヘッダーの Ctrl+K（`document` レベルのリスナー）が document まで届かず
+    // グローバル検索が開けなかった（UXレポート 2026-08-18 指摘）。
+    // Enter/Escape 以外は素通しして上位のショートカットに影響しないようにする
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onCommit(v); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); }
   };
 
   const cls = 'text-sub h-7 w-full rounded-control border border-primary bg-card px-1.5';
