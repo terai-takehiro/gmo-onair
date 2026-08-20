@@ -156,12 +156,11 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
   // ── カレンダー ────────────────────────────────────────────
-  {
-    path: '/studio/rooms',
-    what: '部屋の空き',
-    why: '部屋を縦・時間を横に並べて空いている幅を見る画面なので、畳むと目的そのものが消えます。',
-    instead: { label: '今日の予約を見る', to: '/studio/calendar' },
-  },
+  // **`/studio/rooms`（部屋の空き）はここから外し、`CLIENT_MOBILE_OK` へ移した**
+  // （2026-08・v4ネイティブUI化の一環）。「畳むと目的そのものが消える」という理由は
+  // PCの表をそのまま横スクロールさせていた頃のもの — ① 予定のスマホ実装と対になる
+  // 専用レイアウト（月表＋選んだ日の部屋カード。`rooms/MobileRoomAvailability.tsx` ＋
+  // `rooms/RoomAvailabilityCards.tsx`）を新設したので、畳んでも「空いている幅」は読める
   { path: '/studio/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
   { path: '/studio/studio-calendar', what: 'スタジオカレンダー', why: '月のマス目を横7列で見る画面です。' },
   // **`/studio/partners`（パートナースケジュール）は削除した**（v3時代の遺物の棚卸し・2026-08）。
@@ -228,6 +227,9 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
   '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
+  // ⚠️ この1枚だけ M10 の実測開放ではない（2026-08・v4ネイティブUI化）。専用レイアウトを
+  // 新設したうえで開放した（`MobileRoomAvailability.tsx` ＋ `RoomAvailabilityCards.tsx`）
+  '/studio/rooms',                      // ② 部屋の空き（月表 → 選んだ日の部屋カード）
   '/settings',                          // 案内板
   '/settings/system',                   // パスワード変更
 ];
