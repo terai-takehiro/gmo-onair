@@ -1,9 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,48 +46,50 @@ export default function CustomerDialog({ open, onOpenChange, onCreated }: Props)
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) form.reset(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>新規顧客登録</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-3">
+    <FormDialog
+      open={open}
+      onOpenChange={(v) => { if (!v) form.reset(); onOpenChange(v); }}
+      title="新規顧客登録"
+      onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
+      footer={
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            キャンセル
+          </Button>
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            登録
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <Label>顧客名 *</Label>
+          <Input {...form.register("name", { required: true })} placeholder="株式会社〇〇" />
+          {form.formState.errors.name && (
+            <p className="text-xs text-destructive mt-1">必須です</p>
+          )}
+        </div>
+        <div>
+          <Label>担当者名</Label>
+          <Input {...form.register("contact_name")} placeholder="山田 太郎" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <Label>顧客名 *</Label>
-            <Input {...form.register("name", { required: true })} placeholder="株式会社〇〇" />
-            {form.formState.errors.name && (
-              <p className="text-xs text-destructive mt-1">必須です</p>
-            )}
+            <Label>メール</Label>
+            <Input type="email" {...form.register("email")} />
           </div>
           <div>
-            <Label>担当者名</Label>
-            <Input {...form.register("contact_name")} placeholder="山田 太郎" />
+            <Label>電話</Label>
+            <Input {...form.register("phone")} />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label>メール</Label>
-              <Input type="email" {...form.register("email")} />
-            </div>
-            <div>
-              <Label>電話</Label>
-              <Input {...form.register("phone")} />
-            </div>
-          </div>
-          <div>
-            <Label>住所</Label>
-            <Input {...form.register("address")} />
-          </div>
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              キャンセル
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              登録
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </div>
+        <div>
+          <Label>住所</Label>
+          <Input {...form.register("address")} />
+        </div>
+      </div>
+    </FormDialog>
   );
 }
