@@ -14,7 +14,10 @@ router.use(requireAuth, requirePermission('admin'));
  */
 const ALLOWED_TABLES = [
   // 案件管理
-  'projects', 'customers', 'vendors', 'companies', 'partners',
+  // Phase 3-3-9: 'customers'/'vendors' は削除済み（companies に一本化）。
+  // 一覧から除いておかないと DROP TABLE 後に `relation does not exist` の
+  // 生DBエラーになる。
+  'projects', 'companies', 'partners',
   'revenues', 'revenue_items', 'revenue_allocations',
   'purchases', 'purchase_allocations',
   'project_groups', 'project_group_members',

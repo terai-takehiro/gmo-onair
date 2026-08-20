@@ -1,5 +1,22 @@
 # Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
 
+> **2026-08-19 追記（完了）**: Phase 3-3-9まで含め、会社リスト一本化
+> （Phase 1〜3-3）が**完了した**。migration 207（`revenue_items` の未追跡列
+> 追認＋`cost_vendor_id`のFK張り替え）・208（`customers`/`vendors`テーブル
+> 本体の削除・LOCK内でのvendor最終反映）を作成し、両テーブルを直接参照して
+> いた全箇所（`vendors.routes.ts`自身・仕入先Excel・決算取込・X-Point取込・
+> 横断検索・バックアップ出力・MCPツール・シード・dev専用スクリプト・
+> 取引先マスター自身の書き込み経路）を`companies`だけの読み書きに書き換えた。
+> ⚠️ **`budget:editor`（`sales:owner`なし）の権限の壁**（今まで`vendors`
+> だけに保存し`companies`へは非公開のまま反映しない設計）は、`vendors`が
+> 無くなり書き込む先が`companies`しか無くなったため、**ユーザー判断で
+> PUT編集に`sales:owner`を必須にする方針**に変更した（`budget:editor`単独は
+> 閲覧のみ）。検証はローカルの検証用Postgresで実施（VPS/本番への実行は
+> 未実施 — 本番反映はユーザーの「本番に入れて」の指示を待つ、通常のデプロイ
+> フローに従う）。詳細は下記「Phase 3-3 でやること」の各項目・
+> `docs/changelog.d/claude-phase3-2-plan-review-t4b7fo-2.md`。
+> **これ以降のPhase 3-3関連の節は実施済みの記録として残す。**
+
 > **2026-08-18 追記**: Phase 3-2a・3-2b とも実施済み（下記）。同日中に v4.1.5
 > として**本番公開済み**（着手条件1は満たされた）。続きの Phase 3-3
 > （`customers`/`vendors` テーブル自体の削除）は**さらに次の通常リリースを

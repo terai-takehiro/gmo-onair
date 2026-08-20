@@ -283,36 +283,22 @@ router.get('/vendor-summary', async (req, res) => {
   }
 
   /*
-   * Phase 3-2b: `p.vendor_id` は companies.id を直接指すので、集計キー（グループ化・
-   * 返す `vendor_id`）はそのまま使う。**名前・区分は `vendors` から読む**
-   * （レビュー指摘・PR #202 P1 の2巡目）— `budget:editor` は `sales:owner` を
-   * 持たなくても `vendors` の名前・区分を直せるので、`companies` から読むと
-   * 保存直後もこの集計だけ古い名前のまま残る。
-   *
-   * ⚠️ **`vendors` へは `LEFT JOIN`**（レビュー指摘・PR #207 3巡目）。財務の仕入先
-   * タブでの削除は `vendors` 側だけを論理削除し（`companies` も過去の仕入も残る）、
-   * `JOIN`（INNER）のままだと削除済み仕入先ぶんの実績が集計・合計・CSV から
-   * まるごと消え、原価を過小に見せてしまう。`vendors` が無い（削除済み）ときは
-   * `companies` の名前へ落とす（会社ごと消しても実績は残る、という他画面と同じ考え方）
-   *
-   * ⚠️ **区分は「`vendors` 行が無いときだけ」`companies` へ落とす**（レビュー指摘・
-   * PR #207 4巡目）。`vendor_type` は nullable なので、`budget:editor` が区分を
-   * 空にした（`vendors.vendor_type = NULL`）行を単純な `COALESCE(v.vendor_type,
-   * co.vendor_type)` にすると、生きている vendors 行があるのに古い companies の
-   * 区分へ戻ってしまう（「消したのに消えていない」）。`v.id IS NOT NULL` で
-   * 「vendors 行そのものが無い（削除済み）」ときだけ companies へ落とす
+   * Phase 3-3-9（`vendors` テーブル削除）以降、名前・区分も `companies` から
+   * 直接読む。以前は `vendors` を正としつつ削除済み仕入先は `companies` へ
+   * 落とす形だったが（`vendors.routes.ts` が `budget:editor` 単独編集を
+   * `vendors` だけに留めていたため）、`vendors.routes.ts` 自身も `companies` を
+   * 直接読み書きするようになったので、このフォールバックは不要になった。
+   * `p.vendor_id` は companies.id を直接指すので、集計キー・名前・区分とも
+   * `companies` 1つだけで揃う。
    */
   const rows = await queryAll(
-    `SELECT p.vendor_id AS vendor_id, COALESCE(v.name, co.name) as vendor_name,
-            CASE WHEN v.id IS NOT NULL THEN v.vendor_type ELSE co.vendor_type END as vendor_type,
+    `SELECT p.vendor_id AS vendor_id, co.name as vendor_name, co.vendor_type as vendor_type,
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount
      FROM purchases p
-     LEFT JOIN vendors v ON v.company_id = p.vendor_id AND v.deleted_at IS NULL
      LEFT JOIN companies co ON co.id = p.vendor_id
      WHERE ${whereClause}
-     GROUP BY p.vendor_id, COALESCE(v.name, co.name),
-              CASE WHEN v.id IS NOT NULL THEN v.vendor_type ELSE co.vendor_type END
+     GROUP BY p.vendor_id, co.name, co.vendor_type
      ORDER BY total_amount DESC`,
     params
   ) as Record<string, any>[];

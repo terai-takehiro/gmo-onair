@@ -325,11 +325,10 @@ export const inviewService = {
         if (found) customerId = String(found.id);
       }
       if (!customerId) {
-        // **`companies`（取引先マスター）にも紐づける**（company-directory.service.ts）。
+        // `companies`（取引先マスター）に行を作る（company-directory.service.ts）。
         // グループの印は社名から見立てる（migration 192）。
-        // `createCustomerRecord` は `customers.id` を返すので、作った行の
-        // company_id を引き直して customer_id として使う
-        const cid = await createCustomerRecord(
+        // `createCustomerRecord` は companies.id を返す。
+        customerId = await createCustomerRecord(
           {
             name: key || '（内覧会来場者）', contact_name: personName || null,
             email: (reg.email as string) || null,
@@ -338,8 +337,6 @@ export const inviewService = {
           },
           actor.userId,
         );
-        const cr = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as any;
-        customerId = String(cr?.company_id ?? cid);
         customerCreated = true;
       }
     }

@@ -4,20 +4,13 @@
  * ── なにを直しているか ──────────────────────────────────────
  *
  * `companies` は「顧客・仕入先・販管費支払先」を束ねる唯一の正のマスター
- * （migration 061）で、取引先マスター画面（`/sales/companies`）から作ると
- * `is_customer`/`is_vendor` に応じて `customers`/`vendors` へ自動でミラー行を
- * 作る作りになっている。
- *
- * ところが **`customers`・`vendors` に直接 INSERT する道が10か所近く残っていた**
- * （顧客一覧・財務の仕入先タブ・Excel取込・決算取込・内覧会予約・投入口・MCP・シード）。
- * これらは `companies` を経由しないので、**取引先マスターに対応行の無い
- * 「孤立した顧客／仕入先」を作り続けていた**（2026-08 調査）。
- *
- * ここに一本化し、全ての登録経路が `companies` にも同じ会社の行を作るようにする。
- * **`customers`/`vendors` の id はそのまま使い続けられる** — 既存の全FK
- * （`projects.customer_id` / `purchases.vendor_id` 等）は customers/vendors の id を
- * 指しているので、呼び出し側のコードは変えずに済む（Phase 3 で companies.id への
- * 直接参照に寄せるまでの橋渡し）。
+ * （migration 061）。Phase 3-3（migration 207）で `customers`/`vendors`
+ * テーブル自体を削除したため、**このファイルはもう `companies` 1つだけに
+ * 書き込む**。以前は `companies` に加えて `customers`/`vendors` へも
+ * ミラー行を作っていたが（旧FKが customers/vendors の id を指していた名残）、
+ * migration 200/201 で全FKが `companies.id` を直接指すようになったため、
+ * この二重書き込み自体が不要になっていた。テーブル削除にあわせてここも
+ * `companies` 単独書き込みに寄せる。
  */
 import { v4 as uuidv4 } from 'uuid';
 import { execute as poolExecute, queryOne, withTransaction, TxClient } from '../db/connection';
@@ -55,13 +48,13 @@ export interface CompanyDirectoryFields {
 }
 
 /**
- * 顧客を1件作る。**`companies`（is_customer=TRUE）にも同じ会社の行を作って紐づける。**
- * 戻り値は `customers.id`（呼び出し側は今までどおりこの id を使う）。
+ * 顧客を1件作る。`companies`（is_customer=TRUE）に行を作る。
+ * 戻り値は `companies.id`（Phase 3-3 より前は `customers.id` を返していたが、
+ * `customers` テーブル自体が無くなったため companies.id を直接返す。
+ * 呼び出し側は「companies.id が使える」前提に揃っているので変更なしで使える）。
  *
  * **`exec` を渡さない呼び出し（HTTP ルート・MCP・内覧会・xpoint 等）は
  * 内部で1つのトランザクションにまとめる**（レビュー指摘・PR #183 P2）。
- * 分けたままだと companies の INSERT が成功して customers の INSERT だけ失敗する
- * 余地があり、押し直すと孤立した companies 行が増える。
  * Excel取込・決算取込のように呼び出し元が**既に自分のトランザクションを持っている**
  * 場合は `exec` を渡す — ここでさらに `withTransaction` を挟むと入れ子 BEGIN になる。
  */
@@ -89,21 +82,12 @@ async function createCustomerRecordImpl(
     [companyId, fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
      fields.phone || null, fields.address || null, fields.notes || null, groupFlag, userId],
   );
-
-  const customerId = uuidv4();
-  await exec(
-    `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes,
-       is_gmo_group, company_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [customerId, fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
-     fields.phone || null, fields.address || null, fields.notes || null, groupFlag, companyId, userId],
-  );
-  return customerId;
+  return companyId;
 }
 
 /**
- * 仕入先を1件作る。**`companies`（is_vendor=TRUE）にも同じ会社の行を作って紐づける。**
- * 戻り値は `vendors.id`。トランザクションの扱いは `createCustomerRecord` と同じ。
+ * 仕入先を1件作る。`companies`（is_vendor=TRUE）に行を作る。
+ * 戻り値は `companies.id`（`createCustomerRecord` と同じ理由）。
  */
 export async function createVendorRecord(
   fields: CompanyDirectoryFields,
@@ -133,17 +117,7 @@ async function createVendorRecordImpl(
      fields.address || null, fields.notes || null, fields.vendor_type || null,
      fields.invoice_registration_number || null, groupFlag, userId],
   );
-
-  const vendorId = uuidv4();
-  await exec(
-    `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type,
-       invoice_registration_number, notes, company_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [vendorId, fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.vendor_type || null, fields.invoice_registration_number || null,
-     fields.notes || null, companyId, userId],
-  );
-  return vendorId;
+  return companyId;
 }
 
 /** `TxClient`（`?` 形式・`Promise<void>`）を `Exec`（`Promise<unknown>`）にそのまま渡すための橋渡し */
@@ -152,69 +126,42 @@ function execFromTx(tx: TxClient): Exec {
 }
 
 /**
- * 顧客を直す画面（顧客一覧）から名前・連絡先を直したとき、紐づいた `companies` 行と
- * **その会社に紐づく仕入先（vendors）行**にも同じ値を写す。
+ * 顧客・仕入先の情報を直す画面から名前・連絡先を直したとき、紐づいた
+ * `companies` 行に同じ値を書き込む。
  *
- * ⚠️ **仕入先側も更新する**（レビュー指摘・PR #183 P1）。1社が顧客と仕入先を
- * 両方兼ねているとき、片方の画面で直しても片方だけ最新になり、次にどちらかを
- * 保存したときに古い値で上書きしてしまう。`is_gmo_group` / `vendor_type` /
- * `invoice_registration_number` は顧客一覧が持たない値なので写さない
- * （customers/vendors 独自の値はそれぞれの画面の管轄のまま）。
- * `company_id` が無い顧客（companies を経由せず作られた古い行）は何もしない。
+ * Phase 3-3（`customers`/`vendors` テーブル削除）より前は、`customers`/`vendors`
+ * 側を直した後にここで `companies`（および1社が顧客・仕入先を両方兼ねる場合は
+ * もう片方のロールの表）へ値を写す `syncCompanyFromCustomer`/`syncCompanyFromVendor`
+ * という2関数だった。テーブル自体が無くなり「写す先」が `companies` 1つだけに
+ * なったため、単純な `UPDATE companies` に置き換えた。1社が顧客・仕入先を
+ * 両方兼ねる場合も `companies` は1行しか無いので、この1回のUPDATEで両方の
+ * 画面に反映される（以前のような「もう片方の表へ写す」処理は不要になった）。
+ *
+ * `vendor_type`/`invoice_registration_number` を渡すのは仕入先側の画面だけ
+ * （顧客側の画面はこれらの列を持たないので `undefined` のときは書き換えない）。
  */
-export async function syncCompanyFromCustomer(
-  customerId: string,
-  fields: Pick<CompanyDirectoryFields, 'name' | 'short_name' | 'contact_name' | 'email' | 'phone' | 'address' | 'notes'> & { is_gmo_group: boolean },
+export async function updateCompanyDirectory(
+  companyId: string,
+  fields: Pick<CompanyDirectoryFields, 'name' | 'contact_name' | 'email' | 'phone' | 'address' | 'notes'> &
+    Partial<Pick<CompanyDirectoryFields, 'short_name' | 'is_gmo_group' | 'vendor_type' | 'invoice_registration_number'>>,
   userId: string | null,
   exec: Exec = (sql, params) => poolExecute(sql, params),
 ): Promise<void> {
+  const sets: string[] = ['name=?', 'contact_name=?', 'email=?', 'phone=?', 'address=?', 'notes=?'];
+  const params: unknown[] = [fields.name, fields.contact_name || null, fields.email || null,
+    fields.phone || null, fields.address || null, fields.notes || null];
+  if (fields.short_name !== undefined) { sets.push('short_name=?'); params.push(fields.short_name || null); }
+  if (fields.is_gmo_group !== undefined) { sets.push('is_gmo_group=?'); params.push(fields.is_gmo_group); }
+  if (fields.vendor_type !== undefined) { sets.push('vendor_type=?'); params.push(fields.vendor_type || null); }
+  if (fields.invoice_registration_number !== undefined) {
+    sets.push('invoice_registration_number=?');
+    params.push(fields.invoice_registration_number || null);
+  }
+  params.push(userId, companyId);
   await exec(
-    `WITH updated_company AS (
-       UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-         is_gmo_group=?, updated_at=NOW(), updated_by=?
-       WHERE id = (SELECT company_id FROM customers WHERE id = ?) AND deleted_at IS NULL
-       RETURNING id
-     )
-     UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-       updated_at=NOW(), updated_by=?
-     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
-    [fields.name, fields.short_name || null, fields.contact_name || null, fields.email || null,
-     fields.phone || null, fields.address || null, fields.notes || null, fields.is_gmo_group,
-     userId, customerId,
-     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.notes || null, userId],
-  );
-}
-
-/**
- * 仕入先を直す画面（財務の取引先タブ）から名前・連絡先を直したとき、紐づいた
- * `companies` 行と**その会社に紐づく顧客（customers）行**にも同じ値を写す
- * （`syncCompanyFromCustomer` の仕入先版・同じ理由）。
- *
- * `vendor_type` / `invoice_registration_number` は仕入先固有の値なので
- * customers 側には写さない。
- */
-export async function syncCompanyFromVendor(
-  vendorId: string,
-  fields: Pick<CompanyDirectoryFields, 'name' | 'contact_name' | 'email' | 'phone' | 'address' | 'vendor_type' | 'invoice_registration_number' | 'notes'>,
-  userId: string | null,
-  exec: Exec = (sql, params) => poolExecute(sql, params),
-): Promise<void> {
-  await exec(
-    `WITH updated_company AS (
-       UPDATE companies SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-         invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
-       WHERE id = (SELECT company_id FROM vendors WHERE id = ?) AND deleted_at IS NULL
-       RETURNING id
-     )
-     UPDATE customers SET name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
-       updated_at=NOW(), updated_by=?
-     WHERE company_id IN (SELECT id FROM updated_company) AND deleted_at IS NULL`,
-    [fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.vendor_type || null, fields.invoice_registration_number || null,
-     fields.notes || null, userId, vendorId,
-     fields.name, fields.contact_name || null, fields.email || null, fields.phone || null,
-     fields.address || null, fields.notes || null, userId],
+    `UPDATE companies SET ${sets.join(', ')}, updated_at=NOW(), updated_by=?
+     WHERE id=? AND deleted_at IS NULL`,
+    params,
   );
 }
 
@@ -259,6 +206,12 @@ export async function assertCustomerCompanyId(
  *
  * `vendorId` が `null`/`undefined`/空文字なら何もしない（sga_expenses.vendor_id は
  * nullable ＝ 仕入先を選ばない道があるため）。
+ *
+ * Phase 3-3-4（顧客側と同時に対応）: 以前は `vendors` 行が生きているかの `EXISTS`
+ * チェックも必須だった。`DELETE /vendors/:id` が `companies.is_vendor` も更新する
+ * ようになった（PR #226）ので、`is_vendor = TRUE AND deleted_at IS NULL` だけで
+ * 足りる（`assertCustomerCompanyId` と同じ理由）。Phase 3-3-9（`vendors`
+ * テーブル削除）で `EXISTS` は書けなくなるため、あわせて除去した。
  */
 export async function assertVendorCompanyId(
   vendorId: unknown,
@@ -267,8 +220,7 @@ export async function assertVendorCompanyId(
   if (typeof vendorId !== 'string' || !vendorId) return;
   const row = await exec(
     `SELECT co.id FROM companies co
-     WHERE co.id = ? AND co.is_vendor = TRUE AND co.deleted_at IS NULL
-       AND EXISTS (SELECT 1 FROM vendors v WHERE v.company_id = co.id AND v.deleted_at IS NULL)`,
+     WHERE co.id = ? AND co.is_vendor = TRUE AND co.deleted_at IS NULL`,
     [vendorId],
   ) as Record<string, unknown> | undefined;
   if (!row) throw new AppError(400, 'VALIDATION_ERROR', '指定された仕入先が見つかりません（仕入先ロールが外れているか、削除済みの可能性があります）');

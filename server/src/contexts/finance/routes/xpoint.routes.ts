@@ -135,29 +135,24 @@ router.post('/files/:id/register', async (req, res) => {
   }
 
   // 未登録取引先の新規作成 (レビュー UI でユーザーが明示的に選んだ場合のみ)
-  // Phase 3-2b: purchases.vendor_id / sga_expenses.vendor_id は companies.id を
-  // 直接指すので、`createdVendorId` も vendors.id ではなく company_id を持つ
+  // purchases.vendor_id / sga_expenses.vendor_id は companies.id を直接指す
   // （`xpoint-import.service.ts` の `matchVendor` と揃える）
   let createdVendorId: string | null = null;
   if (new_vendor?.name) {
-    // ⚠️ **生きている仕入先ロールの会社だけを再利用し、`vendors.name`（実際の
-    // 書き込み先＝正）と突き合わせる**（レビュー指摘・PR #207 3巡目 / #202 P1）。
-    // `co.name` で突き合わせると、`budget:editor`（`sales:owner`無し）が付けた
-    // 新しい名前では見つからず重複作成してしまう（`companies` は古いまま）。
-    // ロール・削除の生存確認だけ `companies` を見て、名前の一致は `vendors` で行う
+    // Phase 3-3-9（`vendors` テーブル削除）以降、生存確認・名前の一致とも
+    // companies だけで行う（`vendors.routes.ts` 自身も companies を直接
+    // 読み書きするようになったので、companies の名前が古いまま残ることはない）
     const existing = (await queryOne(
-      `SELECT co.id AS company_id FROM companies co
-       JOIN vendors v ON v.company_id = co.id AND v.deleted_at IS NULL
-       WHERE co.is_vendor = TRUE AND co.deleted_at IS NULL AND v.name = ?
+      `SELECT id AS company_id FROM companies
+       WHERE is_vendor = TRUE AND deleted_at IS NULL AND name = ?
        LIMIT 1`,
       [new_vendor.name]
     )) as any;
     if (existing?.company_id) {
       createdVendorId = existing.company_id;
     } else {
-      // **`companies` にも紐づける**（company-directory.service.ts）。ここで
-      // vendors だけに INSERT すると取引先マスターに孤立した仕入先ができる
-      const vid = await createVendorRecord(
+      // `companies` に行を作る（company-directory.service.ts）
+      createdVendorId = await createVendorRecord(
         {
           name: new_vendor.name,
           invoice_registration_number: new_vendor.invoice_registration_number || null,
@@ -165,8 +160,6 @@ router.post('/files/:id/register', async (req, res) => {
         },
         req.user!.id,
       );
-      const linked = (await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid])) as { company_id: string };
-      createdVendorId = linked.company_id;
     }
   }
 

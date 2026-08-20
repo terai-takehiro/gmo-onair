@@ -142,15 +142,14 @@ export async function seed() {
     ['GMOデジタルソリューションズ株式会社', 'GMO-DS', '青木 拓真', 'aoki@gmo-ds.example.com', '03-1357-2468', '東京都渋谷区桜丘町26-1'],
   ];
   for (const [name, short, contact, email, phone, address] of customerData) {
-    // Phase 3-2a: projects/revenues/activity_logs.customer_id は companies.id を
-    // 直接指すので、createCustomerRecord が返す customers.id ではなく company_id を持つ
-    const cid = await createCustomerRecord(
+    // createCustomerRecord は companies.id を返す（Phase 3-3-9 より前は
+    // customers.id を返し、company_id を引き直していた）
+    const companyId = await createCustomerRecord(
       { name, short_name: short, contact_name: contact, email, phone, address,
         is_gmo_group: looksLikeGmoGroup(name) },
       null, ins,
     );
-    const linked = await queryOne('SELECT company_id FROM customers WHERE id = ?', [cid]) as { company_id: string };
-    CUSTOMERS[short] = linked.company_id;
+    CUSTOMERS[short] = companyId;
   }
 
   // ============================================================
@@ -167,16 +166,13 @@ export async function seed() {
     ['株式会社トランスポートサービス', '運送', '中島 剛', 'nakajima@transport-sv.example.com', '03-8888-9999', '東京都板橋区成増2-17-10', 'T8901234567890'],
   ];
   for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
-    // Phase 3-2b: purchases/sga_expenses.vendor_id は companies.id を
-    // 直接指すので、createVendorRecord が返す vendors.id ではなく company_id を持つ
-    // (customers と同じ理由・上記参照)
-    const vid = await createVendorRecord(
+    // createVendorRecord は companies.id を返す（customers と同じ理由・上記参照）
+    const companyId = await createVendorRecord(
       { name, contact_name: contact, email, phone, address, vendor_type: vType,
         invoice_registration_number: regNum },
       null, ins,
     );
-    const linked = await queryOne('SELECT company_id FROM vendors WHERE id = ?', [vid]) as { company_id: string };
-    VENDORS[vType] = linked.company_id;
+    VENDORS[vType] = companyId;
   }
 
   // ============================================================
