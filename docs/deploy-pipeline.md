@@ -173,6 +173,16 @@ DB マイグレーション（`200_customer_fk_to_companies.sql`）が `customer
 DB は新しい値（`companies.id`）のままで、古いコードが期待する `customers.id` とは
 食い違う（顧客名が消える・案件作成が壊れる）。
 
+⚠️ **Phase 3-3（migration 206〜208。会社リスト一本化の最終段階）以降はさらに厳しい**。
+`customers`/`vendors` の**テーブル自体が削除されている**ため、それ以前のタグへ
+コードだけ戻すと、古いコードが `SELECT ... FROM customers` のような SQL を投げた瞬間に
+`relation "customers" does not exist` の生 DB エラーで即落ちる（「値が食い違う」ではなく
+「クエリした瞬間に例外」なので、`customers.id` を経由するどの画面・API も動かない）。
+Phase 3-3 以降のタグへ戻すのは問題ないが、**それより前のタグへは、コードを戻すのと
+同時に DB も Phase 3-3 適用前の状態まで復元しないと動かせない**（下記の手順のとおり）。
+migration 206 で削除した23個の未追跡テーブル（`docs/reviews/db-drift-audit.md` 参照）も
+同様に戻せない。
+
 **このリリース以降、本番の DB に影響する変更を戻すには、コードを戻すことに加えて
 DB も同時点まで復元する必要がある。** 手順は
 [docs/ops/db-backup-restore.md](ops/db-backup-restore.md)（3時間ごとの自動バックアップ

@@ -28,7 +28,7 @@ import { useForm } from "react-hook-form";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { FilterChips, type FilterChipItem } from "@gmo-onair/shared/src/client/ui/filterChips";
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
-import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
+import { Row, RowHeader, RowMain, RowSub, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
 import { TableBadge } from "@gmo-onair/shared/src/client/ui/tableBadge";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
@@ -210,11 +210,24 @@ export default function CompanyListPage() {
         )
       ) : (
         <div className="overflow-x-auto">
-          {/* **`min-w` は `sm:` 以上だけに効かせる。** スマホは `Row stackOnMobile` で
-              1列に畳むので、ここで無条件に 720px 強制すると畳んだ行まで
-              横スクロールが必要になり、役割バッジや操作ボタンが画面の外に出てしまう
-              （実ブラウザで発見: 375px で操作列が完全に見えなくなっていた） */}
-          <div className="flex flex-col sm:min-w-[720px]">
+          {/*
+            **`min-w` は `sm:` 以上だけに効かせる。** スマホは `Row stackOnMobile` で
+            1列に畳むので、ここで無条件に強制すると畳んだ行まで横スクロールが必要になり、
+            役割バッジや操作ボタンが画面の外に出てしまう（実ブラウザで発見: 375px で
+            操作列が完全に見えなくなっていた）。
+
+            ⚠️ **1120px は当てずっぽうではなく、固定列の合計から逆算した値**
+            （実ブラウザで発見: 720px にしていたら 1024px 幅で「取引先名」の見出しが
+            1文字ずつ縦に折り返り、行の会社名が消えて見えなくなっていた）。
+            固定列は `shrink-0` で幅が変わらないため、コンテナが狭いとその分の
+            しわ寄せは**唯一縮められる `RowMain`（名前列）だけに集中し、0px まで
+            潰れる**（横スクロールには逃げない — `overflow-x-auto` は「コンテナより
+            中身が大きいとき」だけ働くので、コンテナ自体を狭いまま維持できてしまうと
+            素通りする）。固定列の合計 808px（役割200+連絡先160+インボイス160+
+            関連ページ160+操作128）＋ gap 5つ分 60px（`gap-3`=12px×5）＝ 868px に、
+            名前列が最低限読める幅として 250px 前後を足して切り上げた
+          */}
+          <div className="flex flex-col sm:min-w-[1120px]">
             <RowHeader className="hidden sm:flex">
               <RowMain>取引先名</RowMain>
               <RowSlot w={200}>役割</RowSlot>
@@ -240,12 +253,23 @@ export default function CompanyListPage() {
                   key={c.id}
                   divider
                   stackOnMobile
+                  // **名前を2行まで折り返すので `align="start"` にする**
+                  // （`row.tsx` の決めごと: 1行で省略する行と複数行になる行を
+                  // 中央寄せで混ぜるとバッジの高さがそろわない）
+                  align="start"
                   interactive={canEditThis}
                   onClick={canEditThis ? () => openEdit(c) : undefined}
                 >
                   <RowMain>
-                    <span className="flex items-center gap-1.5">
-                      <RowTitle className="truncate">{c.name}</RowTitle>
+                    <span className="flex items-start gap-1.5">
+                      {/* **省略記号で切らず、2行まで折り返す。** `RowTitle` の既定
+                          （1行で省略）は「取引先名」のような長い正式名称と相性が悪く、
+                          「GMOデジタルソリューションズ株式…」のように途中で切れた
+                          見た目が変な略称のように読めてしまう（ご指摘）。ここだけ
+                          `RowTitle` を使わず `line-clamp-2` を直接当てる —
+                          `truncate` と `line-clamp` は tailwind-merge で確実に
+                          打ち消し合えないため、混ぜずに書き分ける */}
+                      <div className="text-list min-w-0 flex-1 line-clamp-2 text-foreground">{c.name}</div>
                       {/* **グループは役割の列に混ぜない** — 顧客・仕入先とは別の軸なので、
                           混ぜると「グループという役割がある」と読まれる */}
                       {c.is_gmo_group && <TableBadge label="グループ" w={null} variant="info" />}

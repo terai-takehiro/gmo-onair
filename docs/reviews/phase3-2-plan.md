@@ -1,5 +1,21 @@
 # Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
 
+> **2026-08-20 追記（残作業の最終確認・完了）**: ユーザーから「会社DB統合で残っている
+> ことも取り組んで」の指示を受け、**最終の抜け漏れ確認**を実施した。
+> `grep -rn "FROM customers\|JOIN customers\|INTO customers\|UPDATE customers\|FROM vendors\|JOIN vendors\|INTO vendors\|UPDATE vendors\|DELETE FROM customers\|DELETE FROM vendors" server/src`
+> で `customers`/`vendors` テーブルへの生SQL参照が**0件**（`data-viewer.routes.ts`
+> の `ALLOWED_TABLES` からも除去済み・`import-kessan-dev.mjs` の `masterCache.customers`/
+> `.vendors` はテーブル名ではなくメモリ上の Map のキー名なので対象外）であることを
+> 再確認した。残っていた実務は下表#6（ドキュメントの後始末）のみだったため、
+> `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3（migration 206〜208）以降は
+> `customers`/`vendors` テーブル自体・migration 206 で消した23個の未追跡テーブルが
+> 存在しないため、それ以前のタグには戻せない（クエリした瞬間に `relation does not exist`
+> で落ちる）」を追記した。**これで会社リスト一本化（Phase 1〜3-3）はコード上の
+> 未了タスクが無い状態になった。** 残るのは本番反映（ユーザーの「本番に入れて」待ち）
+> と、この着手セッションでは実行できない列単位の全体diff（約1650列。上の
+> 「2026-08-19 引き継ぎメモ」節「次にやること」4項目め・本番/検証DBへの直接アクセスが
+> 前提のため）だけである。
+
 > **2026-08-19 追記（完了）**: Phase 3-3-9まで含め、会社リスト一本化
 > （Phase 1〜3-3）が**完了した**。migration 207（`revenue_items` の未追跡列
 > 追認＋`cost_vendor_id`のFK張り替え）・208（`customers`/`vendors`テーブル
@@ -480,7 +496,7 @@ Phase 3-3（テーブル削除・列削除）はさらに後戻りしにくい�
 | 3 | ✅ **完了（2026-08-18・migration 202）**: `mcp_audit_log` の旧ID移行（バックフィル＋書き込み側＋読み込み側を**同じPR/デプロイで**切り替え。**2の `customers.routes.ts` の `CUSTOMER_JOIN` 除去より先に、または同じPRで行う**） | `customers.tools.ts`（MCP `create_customer`）が書き込む `result_summary.created_id` は今も `customers.id` のまま。`customers.routes.ts` の `is_ai_created`/`ai_requested_by` はこの値（`cu.id as legacy_customer_id`。`CUSTOMER_JOIN` から取っている）で `mcp_audit_log` を逆引きしている。**バックフィルだけを先に出すと、書き込み側がまだ旧ID空間で書き続け・読み込み側もまだ旧ID比較のままなので、バックフィル後に作られた行が未移行のまま取りこぼれる**（2巡目レビュー指摘）。そのため①バックフィルmigration ②`customers.tools.ts` の書き込み先を `company_id` に変更 ③`customers.routes.ts` の読み込みを `company_id` 比較に変更、の3つを同じPR/デプロイで出す（`vendors` 側の `create_vendor`〔あれば〕も同様）。**検証は `tool_name = 'create_customer'`（仕入先版があれば同様のツール名）に絞って**行う — `create_project`/`create_task` など他ツールの `created_id` はそれぞれ別テーブルのIDを指しており、`companies.id` として解決できなくて当然のため対象外（2巡目レビュー指摘）。⚠️ **2で `customers.routes.ts` の `CUSTOMER_JOIN`（＝`legacy_customer_id` を得る手段）を先に消してしまうと、③の読み込み切り替えが `company_id` 比較へ移る前に旧IDを得る手段そのものを失う**ので、この3点セットは**2の `customers.routes.ts` 分より先に、または同じPRで**着手する（5巡目レビュー指摘） |
 | 4 | ✅ **完了（2026-08-19・migration 204）**: 旧支払条件列の削除（**これも不可逆。5と同じ扱いのゲートを課す**） | `customers.closing_day`/`payment_months`/`payment_day`、`vendors` の対応列。**2で `companies.routes.ts` を含む全ての書き込み経路が `companies` の列だけに書くよう直っていることが前提**（直す前に消すと `undefined_column` で取引先登録・編集が落ちる。2巡目レビュー指摘）。⚠️ **列削除も不可逆な変更であり、5（テーブル削除）専用だと思われていたゲートが実はここにも要る**（6巡目レビュー指摘）: このmigrationをマージする**前**に、①本番のオンデマンドバックアップを取りリストア可能なことを確認する（5と同じ手順）②下表7の検証一式（`test`/`typecheck`/`lint`/`verify:fresh`・実DBでの確認）を通す、の両方を済ませること。`main`マージ即検証環境へ自動デプロイされ、実行済みmigrationは再実行されないため、マージ後に見落としが見つかっても列は既に無く直しようがない。**✅ 両方済ませた**（詳細は下表「7」「8」） |
 | 5 | `customers`/`vendors` テーブル自体の削除 ＋ legacy フォールバック削除 ＋ dev専用スクリプトの書き換え ＋ `data-viewer.routes.ts` の `ALLOWED_TABLES` から除去（**すべて同じPR/デプロイで実施**） | migration。**1・2・3がすべて完了し、実DBで動作確認できてから**。**テーブル削除（migration）・`findCustomerRow`/`findVendorRow`〔legacyフォールバック〕の削除・`import-kessan-dev.mjs` の書き換え・`data-viewer.routes.ts` の `ALLOWED_TABLES` から `'customers'`/`'vendors'` を除く変更は4つとも分けない**（2026-08-18 再調査で発見・4つ目を追加） — 分けると、テーブルだけ消えた中間状態で旧URL・未一致IDへのアクセス、または dev の決算取込が `relation does not exist` で落ちる（2巡目・3巡目レビュー指摘）。⚠️ **vendorの最終突き合わせは、このmigrationファイルの中で`DROP TABLE`と同じトランザクションで実行する**（4巡目レビュー指摘・下記参照。事前に別途「もう一度手で確認する」だけでは、確認からデプロイまでの間の書き込みで再度差分が発生し得る）: migrationの先頭で `LOCK TABLE vendors IN ACCESS EXCLUSIVE MODE`（`customers` も同様）を取り、以降そのトランザクションが終わるまで `vendors`/`customers` への書き込みはブロックされる状態にした上で、①差分の突き合わせ・`companies` への反映 ②`DROP TABLE` を同じトランザクション内で連続して実行する。これにより「確認した時点と削除する時点の間に別の書き込みが割り込む」余地を無くす（ロック待ちの間 `PUT /vendors/:id` は待たされ、テーブルが消えた後は正常に404/500として扱われる — 静かにデータが失われることはない）。**着手直前に必ず**: ①本番の**オンデマンドバックアップを取り、リストア可能なことを確認する**（`docs/ops/db-backup-restore.md` の手順。定期バックアップは最大3時間遅れており、かつ `deploy.yml` はmigrationのロールバックを行わないため、この一回限りのバックアップが唯一の戻し道になる。3巡目レビュー指摘）。⚠️ **このバックアップは「PR作成前」の1回では不十分**（5巡目レビュー指摘）: 執筆・レビュー・マージ前検証（下表7）には数時間〜数日かかり得、その間も本番は書き込みを受け続ける。`deploy.yml` はコンテナを作り直すだけでバックアップは取らない（`.github/workflows/deploy.yml`）。そのため**このPRをマージし、このmigrationを実行するデプロイを開始する直前にもう一度オンデマンドバックアップを取り直す**（PR作成前の1回はリハーサル、デプロイ直前の1回が本番のゲート）②実DBで「`customers.company_id`/`vendors.company_id` が NULL の行が0件」「その値が `companies.id` として実在すること」（`companies` 自体には `company_id` 列は無い。2巡目レビュー指摘で表現を訂正）「`tool_name='create_customer'` の `mcp_audit_log.created_id` が全て `companies.id` として解決できる」を確認。**この2点＋下表7の全項目がこのPRのマージ前ゲート**（3巡目レビュー指摘・下の注記参照） |
-| 6 | ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記。この `phase3-2-plan.md` を `docs/version-history.md` 側にアーカイブするか判断 |
+| 6 | ✅ **完了（2026-08-20）**: ドキュメントの後始末 | `docs/deploy-pipeline.md` のロールバック注記に「Phase 3-3以降は `customers`/`vendors` テーブル自体が無いため、それ以前のタグには戻せない」を追記した（migration 206 で消した23個の未追跡テーブルも同様に戻せないことを明記）。`phase3-2-plan.md` の `docs/version-history.md` へのアーカイブは**見送り**と判断した — `version-history.md` はCLAUDE.mdの版履歴専用のアーカイブ先（画面の「バージョン履歴」を組み立てる生成元）で、この引き継ぎメモとは性質が違う。このファイル自体は毎ターンの文脈には載らない（`docs/reviews/` 配下・CLAUDE.mdから直接importされない）ため、置いたままでも作業コストへの影響は無い |
 | 7 | 検証（**4・5どちらのPRに対してもマージ前ゲート**） | `npm run test` / `typecheck` / `lint` / `verify:fresh`（実Postgres）。本番相当データで孤立行0件・`GET /customers` `GET /vendors` `GET /gpm/customers` `GET /search` `GET /vendor-summary`（`reports.routes.ts`）の応答・`GET /companies/:id/summary` の権限別（`budget:editor` のみ／`sales:owner` あり）の見え方・MCP `list_customers`/`list_purchases`・`is_ai_created` 表示・`GET /companies` の役割判定（旧 `deleted_at` 判定の代替）・`import-kessan-dev.mjs` の動作を確認。⚠️ **4・5はどちらもメイン=検証環境という運用**（`main` マージ即 `dev.gmo-onair.jp` へ自動デプロイ・migrationは再実行されない）の上に載る不可逆な変更なので、**このチェックはそれぞれのPRをマージした後ではなく、マージする前にすべて終えること**（3巡目・6巡目レビュー指摘。マージ後に不具合が見つかっても、その時点で列・テーブルは検証環境から既に消えており、migrationを直して直せる状態ではない）。4のマージ後・5のマージ後それぞれで同じチェックを本番相当データで**繰り返す**（1回で終わりにしない） |
 
 ⚠️ **1は「テーブルは残ったまま」でも単独で着手できる**（読み込み側の挙動を変えない
