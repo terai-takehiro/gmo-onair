@@ -15,4 +15,10 @@ GLS-A／GLS-B／旧GLS（決算取込）／どちらも の4択にした。決�
 （`manager`未満には出さない）。論理削除（`deleted_at`を立てるだけ）で、ひもづく見積・
 タスク・売上・仕入の記録そのものは消えず、財務の台帳などでは今までどおり参照できる
 ことを確認ダイアログに明記した。
+③②に続けて、案件台帳（`/sales/projects/ledger`）の行にも削除アイコンを足した
+（一覧の行ごと・鉛筆の隣・ゴミ箱アイコン）。1件ずつ「直す」画面まで移動しなくても
+台帳から直接消せる。絞り方・確認文言・論理削除であることは②と同じ
+（`sales`の`manager`のみ・押すたびに`confirmAction`で確認）。確認と送信は
+`useLedgerState`の`handleDeleteRow`/`deleteOne`に集め、`LedgerTable`はボタンの見た目と
+押している最中の1行を回すことだけを持つ。削除した行が選択中だった場合は選択からも外す。
 検証: `npm run typecheck` / `npm run lint` / `npm run test`（1139件）OK。

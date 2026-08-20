@@ -19,6 +19,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
 import { DEFAULT_SORT, nextSort, type SortState } from './display';
@@ -169,6 +170,46 @@ export function useLedgerState() {
     onError: (e) => notifyApiError('まとめて直せませんでした', e),
   });
 
+  /**
+   * 1件削除（`DELETE /projects/:id`。「直す」画面の削除ボタンと同じ口・
+   * 同じ `sales: manager` の絞り）。確認は `handleDeleteRow` が挟む —
+   * `LedgerTable` はボタンを描くだけで、確認と送信はここに集める
+   * （表の部品にダイアログを持たせると、ほかの一覧に使い回すときに
+   * 確認の文面までコピーすることになる）。
+   */
+  const deleteOne = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/projects/${id}`)).data,
+    onSuccess: (_res, id) => {
+      // **落とす鍵は `bulk` と同じ**（台帳・一覧・ダッシュボードが別の鍵で同じ案件を持つ）
+      qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      qc.invalidateQueries({ queryKey: ['project-integrity'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+      qc.invalidateQueries({ queryKey: ['project', id] });
+      // 選んでいた行を消したら、選択からも外す（居ない行が選ばれたままにしない）
+      setSelected((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      notifySuccess('案件を削除しました');
+    },
+    onError: (e) => notifyApiError('案件を削除できませんでした', e),
+  });
+
+  /** 「直す」画面の削除確認と同じ文面（`useProjectActions.ts` の `handleDeleteProject`） */
+  const handleDeleteRow = useCallback(async (row: { id: string; name: string }) => {
+    const ok = await confirmAction({
+      title: `「${row.name}」を削除しますか？`,
+      description: 'この操作は取り消せません。案件一覧・案件台帳・この案件の詳細URLから見えなくなります。'
+        + 'ひもづく見積・タスク・売上・仕入の記録そのものは消えず、財務の台帳などでは今までどおり参照できます。',
+      confirmLabel: '削除する',
+      tone: 'danger',
+    });
+    if (ok) deleteOne.mutate(row.id);
+  }, [deleteOne]);
+
   return {
     filters, setFilter, pickIssue, pickCategory,
     /**
@@ -183,7 +224,7 @@ export function useLedgerState() {
     integrityLoading: integrity.isLoading,
     isLoading: query.isLoading, isError: query.isError,
     selected, toggle, toggleAll, clearSelection,
-    bulk,
+    bulk, deleteOne, handleDeleteRow,
   };
 }
 

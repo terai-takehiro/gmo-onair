@@ -29,7 +29,7 @@
  * 見ていない行までまとめて書き換えると、何を変えたのか誰も確かめられません。
  */
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { colDef, type LedgerColKey, type LedgerRow } from './types';
 import { LedgerCell } from './LedgerCells';
 import { sortMark, type SortState } from './display';
@@ -40,11 +40,12 @@ import type { LedgerGrid } from './useLedgerGrid';
 
 /** チェックの列・操作の列。**`SLOT_WIDTHS` の段**（この画面だけの幅を作らない） */
 const PICK_W = 56;
-const ACT_W = 56;
+/** 鉛筆1つぶんの幅（56）＋ 削除アイコンぶん（32＋間4）。**両方出ても行ごとに幅が変わらない**ように、出ない人にも同じ枠を空けておく */
+const ACT_W = 92;
 
 export function LedgerTable({
-  rows, shown, selected, onToggle, onToggleAll, canEdit, canEditOne, sort, onSort,
-  grid, users, customers,
+  rows, shown, selected, onToggle, onToggleAll, canEdit, canEditOne, canDelete,
+  onDeleteRow, deletingId, sort, onSort, grid, users, customers,
 }: {
   rows: LedgerRow[];
   shown: LedgerColKey[];
@@ -59,6 +60,17 @@ export function LedgerTable({
    * 一緒にすると、編集モードに入っていない manager から鉛筆が消えます。
    */
   canEditOne: boolean;
+  /**
+   * **この行を削除できるか**（`sales: manager` 以上）。
+   * `canEdit`（編集モード）とは別 — 「直す」画面の削除ボタンと同じく、
+   * 押すたびに確認ダイアログを挟むので**升目の一括書き換えとは危うさの質が違う**。
+   * 編集モードに入っていない manager からも消せてよい。
+   */
+  canDelete: boolean;
+  /** 押されたときに呼ばれる。確認ダイアログと送信は呼ぶ側（`ProjectLedgerPage`）が持つ */
+  onDeleteRow: (row: { id: string; name: string }) => void;
+  /** いま削除中の行の id（その行のボタンだけ回す・二度押しを防ぐ） */
+  deletingId: string | null;
   sort: SortState;
   onSort: (key: string) => void;
   grid: LedgerGrid;
@@ -277,15 +289,36 @@ export function LedgerTable({
                 消すと列の幅が行ごとに変わります。
               */}
               <td className="px-3 py-2">
-                {canEditOne && (
-                  <Link
-                    to={`/sales/projects/${row.id}/edit`}
-                    aria-label={`${row.name} を直す`}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                )}
+                <div className="flex items-center gap-1">
+                  {canEditOne && (
+                    <Link
+                      to={`/sales/projects/${row.id}/edit`}
+                      aria-label={`${row.name} を直す`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  )}
+                  {/*
+                    **削除も直す画面と同じ絞り方**（`sales: manager`）。押すたびに
+                    呼ぶ側（`ProjectLedgerPage`）が確認ダイアログを挟む — ここでは
+                    見た目と、押している最中の1行だけを回すことだけを持つ。
+                  */}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      aria-label={`${row.name} を削除`}
+                      title="削除"
+                      disabled={deletingId === row.id}
+                      onClick={() => onDeleteRow({ id: row.id, name: row.name })}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-destructive-surface hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {deletingId === row.id
+                        ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        : <Trash2 className="h-4 w-4" aria-hidden="true" />}
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

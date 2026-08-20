@@ -14,6 +14,6 @@
     "client/src/contexts/sales/pages/ProjectFormPage.tsx": 454,
     "client-equipment/src/components/ExcelImportDialog.tsx": 415,
     "client/src/contexts/production/components/schedule/IcsFeedsDialog.tsx": 412,
-    "client/src/contexts/sales/pages/ProjectLedgerPage.tsx": 401
+    "client/src/contexts/sales/pages/ProjectLedgerPage.tsx": 404
   }
 }

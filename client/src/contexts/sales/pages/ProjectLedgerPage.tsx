@@ -349,6 +349,9 @@ export default function ProjectLedgerPage() {
           onToggleAll={s.toggleAll}
           canEdit={canEdit}
           canEditOne={canEditOne}
+          canDelete={canBulk}
+          onDeleteRow={s.handleDeleteRow}
+          deletingId={s.deleteOne.isPending ? (s.deleteOne.variables ?? null) : null}
           sort={s.sort}
           onSort={s.onSort}
           grid={grid}
