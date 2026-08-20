@@ -24,10 +24,13 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmEstimateSummary, useGpmOpenItems, useGpmProjects } from '../queries';
 import { TERMINAL_STAGES } from '@/contexts/sales/pages/projectList/stages';
 import { TO_KIND_LABEL, dueLabel, dueTone, progressPct, ymd, type GpmOpenItem } from '../types';
 import { KpiStrip, countKpis } from './dashboard/KpiStrip';
+import { MobileKpiRail } from './dashboard/MobileKpiRail';
+import { MobileActiveProjectCard, MobileStuckCard, MobileOpenAskCard } from './dashboard/MobileDashboardCards';
 import { Panel } from './dashboard/Panel';
 
 /** 何日前に訊いたか。**「3日前から待ち」は読み手が判断に使う数字** */
@@ -43,6 +46,9 @@ export default function GpmDashboardPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
+  // **薄い親で1回だけ**（`shared/CLAUDE.md`「`useIsMobile()` で早期 return しない」）。
+  // 下で「どちらを描くか」だけを決め、部品ごと入れ替える
+  const isMobile = useIsMobile();
 
   const { today, weekEnd } = useMemo(() => {
     const now = new Date();
@@ -109,7 +115,11 @@ export default function GpmDashboardPage() {
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : (
         <>
-          <KpiStrip kpis={kpis} est={estimates.data} />
+          {isMobile ? (
+            <MobileKpiRail kpis={kpis} est={estimates.data} />
+          ) : (
+            <KpiStrip kpis={kpis} est={estimates.data} />
+          )}
 
           <div className="grid gap-3.5 lg:grid-cols-3">
             <div className="space-y-3.5 lg:col-span-2">
@@ -125,6 +135,12 @@ export default function GpmDashboardPage() {
                   <p className="text-sub text-muted-foreground">
                     止まっているものはありません（「何が止まっているか」が書かれた未確認事項が無い状態です）。
                   </p>
+                ) : isMobile ? (
+                  <ul className="v4-card-in flex flex-col gap-2">
+                    {stuck.slice(0, 4).map((a) => (
+                      <MobileStuckCard key={a.id} a={a} days={daysSince(a.raised_at, today)} />
+                    ))}
+                  </ul>
                 ) : (
                   <ul className="divide-y divide-border-faint">
                     {stuck.slice(0, 4).map((a) => <StuckRow key={a.id} a={a} today={today} />)}
@@ -145,6 +161,10 @@ export default function GpmDashboardPage() {
                     description="発注が確定した構築案件を作ると、ここに工程の進み具合が出ます。"
                     action={canEdit ? <Button onClick={() => navigate('/gpm/projects/new')}>プロジェクトを作る</Button> : undefined}
                   />
+                ) : isMobile ? (
+                  <ul className="v4-card-in flex flex-col gap-2">
+                    {active.map((p) => <MobileActiveProjectCard key={p.id} p={p} today={today} />)}
+                  </ul>
                 ) : (
                   <ul className="divide-y divide-border-faint">
                     {active.map((p) => {
@@ -199,6 +219,14 @@ export default function GpmDashboardPage() {
             >
               {openAsks.length === 0 ? (
                 <p className="text-sub text-muted-foreground">返事待ちのものはありません。</p>
+              ) : isMobile ? (
+                <ul className="v4-card-in flex flex-col gap-2">
+                  {openAsks.slice(0, 6).map((a) => (
+                    <MobileOpenAskCard
+                      key={a.id} a={a} days={daysSince(a.raised_at, today)} toLabel={TO_KIND_LABEL[a.to_kind]}
+                    />
+                  ))}
+                </ul>
               ) : (
                 <ul className="divide-y divide-border-faint">
                   {openAsks.slice(0, 6).map((a) => (
