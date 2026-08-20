@@ -48,7 +48,6 @@ import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPa
 import HoldListPage from '@/contexts/production/pages/HoldListPage';
 import CalendarSettingsPage from '@/contexts/production/pages/CalendarSettingsPage';
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
-import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
 import UnifiedCalendarPage from "@/contexts/production/pages/UnifiedCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
@@ -319,7 +318,8 @@ function AppRoutes() {
         */}
         <Route path="/studio/settings" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><CalendarSettingsPage /></PermissionRoute>} />
         <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
+        {/* **`/studio/partners`は削除した**（v3の遺物・2026-08）。① 予定（統合カレンダー）が作成・編集・絞り込みとも既に代替済み */}
+        <Route path="/studio/partners" element={<RedirectKeepQuery to="/studio/calendar" />} />
         <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
         <Route path="/studio/all" element={<RedirectKeepQuery to="/studio/calendar" />} />
 

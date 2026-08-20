@@ -38,7 +38,6 @@ import {
   Table2,
   Truck,
   UserCog,
-  Users,
   Wallet,
 } from "lucide-react";
 import { Home, ListTodo as ListTodoTab, Search as SearchTab } from "lucide-react";
@@ -242,12 +241,19 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
     {
+      // **「パートナースケジュール」はここから削除した**（v3時代の遺物の棚卸し・2026-08）。
+      // ① 予定（統合カレンダー）が作成・編集・人での絞り込みとも既に代替済みだったため。
+      // ⚠️ この段の note は「予定を作る導線がここにしかない」だったが、実装を調べ直すと
+      // 統合カレンダーの `NewEventChooser` が同じダイアログを呼んでおり
+      // パートナー・自分の予定はどちらも既に作成・編集できていた（古い記録のまま
+      // 残っていた）。残る2画面が消せない理由は個別に異なる:
+      // スタジオカレンダー＝コマ表と既存予約の編集が統合カレンダーに無い、
+      // マイカレンダー＝サーバーのGoogle/Outlook連携OAuthコールバックがこのURLへ
+      // 直書きでリダイレクトしている（先に付け替えが必要）
       title: "そのほか（作り直し前）",
       collapsible: true,
-      note: "予定を作る導線がここにしかないので残しています",
       items: [
         { label: "スタジオカレンダー", to: "/studio/studio-calendar", icon: Calendar, module: "studio" },
-        { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
         { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
       ],
     },
