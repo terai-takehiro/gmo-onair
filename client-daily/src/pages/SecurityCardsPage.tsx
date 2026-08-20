@@ -20,17 +20,29 @@
  *   (全域 = master ／ 技術 = ROOM A/B/C ／ 共用 = 会議室・VIP)。
  *   3つに畳んで名前まで置き換えると、ROOM A と ROOM B のカードが同じに見えて
  *   **違う部屋のカードを渡す**ので、1枚に出す名前は6レベルのまま
+ *
+ * ── スマホは一覧＋ドリルダウン（2026-08 追記・スマホ最適化） ─────
+ *
+ * PC は左右2ペインの master-detail のまま。**スマホでは右ペインを持たない**
+ * （375px で縦積みにすると、選んだカードの中身に着く前に一覧を全部
+ * スクロールし尽くすことになる）。`CardTiles`（一覧をタイルで積む）＋
+ * `Sheet`（選んだ1枚を下から出す）に分け、決めごと「終わらせるのはシートで」
+ * に合わせた。絞り込みも `MobileFilterBar` で1行に畳む
  */
 import { useMemo, useState } from 'react';
 import { DoorOpen, Search, X } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { MobileFilterBar, MobileFilterField } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
+import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSecurityCards } from '@/lib/securityCardApi';
 import { CardDetailPanel } from './securityCards/CardDetailPanel';
 import { CardGrid } from './securityCards/CardGrid';
+import { CardTiles } from './securityCards/CardTiles';
 import { LendDialog, ReturnDialog } from './securityCards/LendDialog';
 import {
   FILTER_LABELS, GROUP_LABELS, GROUP_ORDER, groupOf, matchesFilter, matchesSearch,
@@ -41,6 +53,7 @@ const STUDIO_LABEL = 'GMOサムライスタジオ用賀';
 
 export default function SecurityCardsPage() {
   const { canEdit } = usePermissions();
+  const isMobile = useIsMobile();
   const cards = useSecurityCards();
   const [filter, setFilter] = useState<CardFilter>('all');
   /** モックの3分類での絞り込み。空 = すべて */
@@ -90,61 +103,103 @@ export default function SecurityCardsPage() {
         icon={<DoorOpen className="h-5 w-5 text-primary" aria-hidden="true" />}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterChips
-          label="カードの状態で絞り込む"
-          items={(Object.keys(FILTER_LABELS) as CardFilter[]).map((k) => ({
-            key: k, label: FILTER_LABELS[k], count: counts[k],
-          }))}
-          value={filter}
-          onChange={(k) => setFilter(k as CardFilter)}
-        />
-        {/* モックの3分類。**探すための入口**で、渡すときに確かめる名前は
-            一覧の小見出しと右のカードに6レベルで出る */}
-        <FilterChips
-          label="開けられる範囲で絞り込む"
-          items={[
-            { key: '', label: 'すべての範囲', count: groupCounts[''] },
-            ...GROUP_ORDER.map((g: LevelGroup) => ({
-              key: g as string, label: GROUP_LABELS[g], count: groupCounts[g] ?? 0,
-            })),
-          ]}
-          value={group}
-          onChange={setGroup}
-        />
-        <div className="relative min-w-0 flex-1 sm:max-w-[240px]">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="番号 / 会社 / 担当者で探す"
-            aria-label="カードを探す"
-            className="pl-9 pr-9"
-          />
-          {search && (
-            // **`data-ui="button"` を付ける。** 生の <button> のままだと `tokens-v4.css` の
-            // 44pxタップ規則（`:root [data-ui='button']`）の対象から漏れ、
-            // この画面はスマホでもPCと同じ検索欄を使うため28pxのまま押しにくくなる
-            // （スマホ最適化の洗い出し 2026-08-20・要対応5）
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              aria-label="検索を消す"
-              data-ui="button"
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
+      {/*
+        **スマホは1行に畳んでシートで開く**（`shared/src/client-v4/mobileFilterBar.tsx`）。
+        PC と同じ2つの `FilterChips` をシートの中身にそのまま使う — 写しを作ると
+        片方だけ絞り込みが増える。件数（`counts` / `groupCounts`）は PC と共通
+      */}
+      {isMobile ? (
+        <MobileFilterBar
+          search={{ value: search, onChange: setSearch, placeholder: '番号 / 会社 / 担当者で探す', label: 'カードを探す' }}
+          activeCount={(filter !== 'all' ? 1 : 0) + (group !== '' ? 1 : 0)}
+          onClearAll={() => { setFilter('all'); setGroup(''); }}
+          title="カードの絞り込み"
+          note={
+            <>「返却遅延」は<strong className="font-bold">「貸出中」の中の一部</strong>です（足しても「すべて」にはなりません）。</>
+          }
+        >
+          <MobileFilterField label="カードの状態">
+            <FilterChips
+              label="カードの状態で絞り込む"
+              items={(Object.keys(FILTER_LABELS) as CardFilter[]).map((k) => ({
+                key: k, label: FILTER_LABELS[k], count: counts[k],
+              }))}
+              value={filter}
+              onChange={(k) => setFilter(k as CardFilter)}
+            />
+          </MobileFilterField>
+          <MobileFilterField
+            label="開けられる範囲"
+            hint="探すための入口です。渡すときに確かめる名前は一覧の小見出しとシートに6レベルで出ます。"
+          >
+            <FilterChips
+              label="開けられる範囲で絞り込む"
+              items={[
+                { key: '', label: 'すべての範囲', count: groupCounts[''] },
+                ...GROUP_ORDER.map((g: LevelGroup) => ({
+                  key: g as string, label: GROUP_LABELS[g], count: groupCounts[g] ?? 0,
+                })),
+              ]}
+              value={group}
+              onChange={setGroup}
+            />
+          </MobileFilterField>
+        </MobileFilterBar>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <FilterChips
+              label="カードの状態で絞り込む"
+              items={(Object.keys(FILTER_LABELS) as CardFilter[]).map((k) => ({
+                key: k, label: FILTER_LABELS[k], count: counts[k],
+              }))}
+              value={filter}
+              onChange={(k) => setFilter(k as CardFilter)}
+            />
+            {/* モックの3分類。**探すための入口**で、渡すときに確かめる名前は
+                一覧の小見出しと右のカードに6レベルで出る */}
+            <FilterChips
+              label="開けられる範囲で絞り込む"
+              items={[
+                { key: '', label: 'すべての範囲', count: groupCounts[''] },
+                ...GROUP_ORDER.map((g: LevelGroup) => ({
+                  key: g as string, label: GROUP_LABELS[g], count: groupCounts[g] ?? 0,
+                })),
+              ]}
+              value={group}
+              onChange={setGroup}
+            />
+            <div className="relative min-w-0 flex-1 sm:max-w-[240px]">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="番号 / 会社 / 担当者で探す"
+                aria-label="カードを探す"
+                className="pl-9 pr-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="検索を消す"
+                  data-ui="button"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
 
-      <p className="text-note text-muted-foreground">
-        「返却遅延」は<strong className="font-bold">「貸出中」の中の一部</strong>です（足しても「すべて」にはなりません）。
-      </p>
+          <p className="text-note text-muted-foreground">
+            「返却遅延」は<strong className="font-bold">「貸出中」の中の一部</strong>です（足しても「すべて」にはなりません）。
+          </p>
+        </>
+      )}
 
       {cards.isError ? (
         <ErrorPanel title="カードを読み込めませんでした" error={cards.error} onRetry={() => cards.refetch()} />
@@ -155,6 +210,33 @@ export default function SecurityCardsPage() {
           title="カードが登録されていません"
           description="24 枚はデータベースの初期データとして入るものです。出てこないときは管理者に連絡してください。"
         />
+      ) : isMobile ? (
+        /*
+         * **カードを選ぶと専用のドリルダウン（下から出るシート）にする。**
+         * 以前は master-detail を縦積みにしていただけで、押した先が
+         * そのまま下に続くだけだった（何を選んだのか分かりづらく、
+         * 一覧を隠さないと詳しい中身が読めなかった）。
+         * ここでは一覧はタイルのままにして、選んだ1枚だけをシートで見せる。
+         */
+        <>
+          {visible.length === 0 ? (
+            <NoSearchResults
+              keyword={search || undefined}
+              activeFilters={[
+                filter === 'all' ? '' : `状態: ${FILTER_LABELS[filter]}`,
+                group ? `範囲: ${GROUP_LABELS[group as LevelGroup]}` : '',
+              ].filter(Boolean)}
+              onClearFilters={() => { setFilter('all'); setGroup(''); setSearch(''); }}
+            />
+          ) : (
+            <CardTiles
+              cards={visible}
+              onSelect={(id) => { setSelectedId(id); setDialog(null); }}
+            />
+          )}
+          {/* 何も選んでいないときは、右パネル（PC）と同じ「最近の貸し借り」を出す */}
+          {!selected && <CardDetailPanel card={null} canEdit={false} onLend={() => {}} onReturn={() => {}} />}
+        </>
       ) : (
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
           <div className="min-w-0 flex-1">
@@ -187,6 +269,29 @@ export default function SecurityCardsPage() {
             />
           </div>
         </div>
+      )}
+
+      {/*
+        **スマホの詳しい中身はシート。** `open` は「選んでいる ＋ 貸出/返却の
+        ダイアログを開いていない」時だけ真にする（`dialog` を切り替えるだけで、
+        別の state を持たずにシートの開閉と連動させる）。貸出/返却ダイアログは
+        `FormDialog`（同じ `Sheet` の土台）なので、開くとこちらが後ろへ引っ込み、
+        閉じると自動で戻る
+      */}
+      {isMobile && selected && (
+        <Sheet
+          open={dialog === null}
+          onOpenChange={(v) => { if (!v) setSelectedId(null); }}
+          title={`No.${selected.card_no}・${selected.level_label}`}
+          sub={STUDIO_LABEL}
+        >
+          <CardDetailPanel
+            card={selected}
+            canEdit={canEdit}
+            onLend={() => setDialog('lend')}
+            onReturn={() => setDialog('return')}
+          />
+        </Sheet>
       )}
 
       {selected && dialog === 'lend' && <LendDialog card={selected} onClose={() => setDialog(null)} />}
