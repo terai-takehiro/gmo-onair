@@ -134,6 +134,11 @@ export interface AppSideMenuProps extends ShellAccess {
    * **ルートは消しません。** 共有された URL を開けば今までどおり案内が出ます。
    */
   mobileHiddenPaths?: string[];
+  /**
+   * 左メニューの**上**の差し込み口の DOM をここへ渡す（`sideMenuSlot.ts`）。
+   * 省略すると差し込み口自体を作らない（この左メニューを使うだけの画面では要らない）。
+   */
+  topSlotRef?: (el: HTMLDivElement | null) => void;
 }
 
 /**
@@ -175,6 +180,7 @@ export function AppSideMenu({
   open,
   onClose,
   mobileHiddenPaths,
+  topSlotRef,
   role,
   permissions,
   can,
@@ -229,6 +235,9 @@ export function AppSideMenu({
         >
           <X className="mx-auto h-5 w-5" />
         </button>
+
+        {/* カレンダー等、画面固有の内容を差し込む口。空のときは何も描かない */}
+        {topSlotRef && <div ref={topSlotRef} className="empty:hidden" />}
 
         {visible.map((section, si) => (
           <Section key={section.title ?? si} section={section} activeTo={activeTo}>

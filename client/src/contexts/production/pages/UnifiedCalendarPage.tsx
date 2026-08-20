@@ -24,15 +24,28 @@
  *
  * 着手前は画面に **2025〜2027 が直書き**されていて、2028 年になると
  * 祝日が1つも出なくなる状態でした。
+ *
+ * ── PC を macOS のカレンダーアプリ風に作り直した（承認済みモック） ──
+ *
+ * **左メニューにミニカレンダー・「マイカレンダー」（出すもの）を常設した。**
+ * 別のサイドバーやツールバーのポップオーバーを試したが、
+ * 「共通の左メニューにマージできないか」というご指摘で今の形に落ち着いた
+ * （`calendar/CalSidebarExtras.tsx` を `shared/.../shell/sideMenuSlot.ts` の
+ * 差し込み口へ portal する）。**ツールバーは今日／前後／期間の見出し／
+ * 月・週・一覧の切替／予定を入れる だけ**の macOS 風の1段
+ * （`calendar/DesktopToolbar.tsx`）にした。
+ *
+ * **「日」表示は無くした。** モックの切替は 月・週・一覧 の3つだけで、
+ * マス目を押しても画面は切り替わらず「選んだ日」の印が付くだけ
+ * （＝新しい予定の既定日として使う）。週の1日だけを見たいときは週表を使う。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarSync, Plus } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import api from '@/lib/api';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
-import { Button } from '@/components/ui/button';
-import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
+import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
@@ -47,11 +60,12 @@ import {
 } from '../components/schedule/scheduleShared';
 import { MobileToday } from './rooms/MobileToday';
 import {
-  ymd, addDays, addMonths, startOfWeek, weekDays, eventsOn, type CalLayer,
+  ymd, addDays, addMonths, startOfWeek, weekDays, type CalLayer,
 } from './calendar/calendarLayout';
 import { loadLayers, saveLayers } from './calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from './calendar/useCalendarEvents';
-import { CalToolbar, type CalView, type LayerDef } from './calendar/CalToolbar';
+import { DesktopToolbar, type DesktopView } from './calendar/DesktopToolbar';
+import { CalSidebarExtras } from './calendar/CalSidebarExtras';
 import { MonthGrid } from './calendar/MonthGrid';
 import { TimeGrid } from './calendar/TimeGrid';
 import { EventTable } from './calendar/EventTable';
@@ -60,12 +74,10 @@ import { RoomFilterDialog, UserFilterDialog } from './calendar/FilterDialogs';
 import { NewEventChooser, type NewKind } from './calendar/NewEventChooser';
 
 const VIEW_KEY = 'unified-cal-view';
-
-const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const DESKTOP_VIEWS: DesktopView[] = ['month', 'week', 'list'];
 
 function DesktopCalendar() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
@@ -73,14 +85,21 @@ function DesktopCalendar() {
   const canDeleteBooking = isAdmin || hasPermission('studio', 'manager');
   const isPartnerManager = isAdmin || hasPermission('partner_schedule', 'manager');
   const canPartnerEdit = isAdmin || hasPermission('partner_schedule', 'editor');
+  const sideMenuTopSlot = useSideMenuTopSlot();
 
   const today = ymd(new Date());
   const now = useMemo(() => new Date(), []);
-  const [view, setView] = useState<CalView>(
-    () => (localStorage.getItem(VIEW_KEY) as CalView) || 'month',
-  );
-  /** 見ている位置。**月表・一覧はその月の1日、週は週の頭、日はその日** */
+  const [view, setView] = useState<DesktopView>(() => {
+    const stored = localStorage.getItem(VIEW_KEY);
+    // **旧「日」は 3 択に無い。** 前の版で保存された値が残っていても落ちないように倒す
+    return (DESKTOP_VIEWS as string[]).includes(stored ?? '') ? (stored as DesktopView) : 'month';
+  });
+  /** 見ている位置。**月表・一覧はその月の1日を含む日、週はその週に含まれる日** */
   const [anchor, setAnchor] = useState(today);
+  /** 選んでいる日。マス目の枠と「予定を入れる」の既定日に使う */
+  const [selected, setSelected] = useState(today);
+  /** ミニカレンダーが見ている月。本体とは緩くしか連動しない（`CalSidebarExtras` 参照） */
+  const [miniAnchor, setMiniAnchor] = useState(today.slice(0, 7));
   const [layers, setLayers] = useState<Record<CalLayer, boolean>>(loadLayers);
   const [roomIds, setRoomIds] = useState<string[]>([]);
   const [userIds, setUserIds] = useState<string[]>([]);
@@ -94,8 +113,10 @@ function DesktopCalendar() {
    * 案件の日にも部屋にも寄らない ＝ 押しても何も起きないように見えていました。
    * 旧 `StudioCalendarPage` は同じ state で**予約ダイアログを開いて**いましたが、
    * ボタンの名前は「**空きを見る**」なので、ここでは
-   * **その日・その部屋を見せる**（日表に切り替えて部屋で絞る）ところまでにします。
+   * **その日・その部屋を見せる**（週表に切り替えて部屋で絞る）ところまでにします。
    * 入れるのは見てからで、上の「予定を入れる」がその口です。
+   * **「日」表示を無くしたので、週表で受ける**（1日ぶんの帯より、当てにしていた
+   * 部屋の1週間の空き方まで見えるほうが「空きを見る」の目的に近い）。
    */
   useEffect(() => {
     const s = location.state as {
@@ -103,7 +124,12 @@ function DesktopCalendar() {
       presetDate?: { start: string; end: string; allDay: boolean } | null;
     } | null;
     if (!s) return;
-    if (s.presetDate?.start) { setAnchor(s.presetDate.start); setView('day'); }
+    if (s.presetDate?.start) {
+      setAnchor(s.presetDate.start);
+      setSelected(s.presetDate.start);
+      setMiniAnchor(s.presetDate.start.slice(0, 7));
+      setView('week');
+    }
     if (s.presetRoomIds?.length) setRoomIds(s.presetRoomIds);
     // **一度きり**。消さないと、戻る・再読み込みのたびに同じ日へ引き戻される
     if (s.presetDate?.start || s.presetRoomIds?.length) {
@@ -125,7 +151,6 @@ function DesktopCalendar() {
   // その月ちょうどで引くと端の列が空になる
   const { from, to } = useMemo(() => {
     if (view === 'week') { const w = weekDays(anchor); return { from: w[0], to: `${w[6]}T23:59` }; }
-    if (view === 'day') return { from: anchor, to: `${anchor}T23:59` };
     const first = `${anchor.slice(0, 7)}-01`;
     return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
   }, [view, anchor]);
@@ -139,21 +164,33 @@ function DesktopCalendar() {
       return next;
     });
   };
-  const pickView = (v: CalView) => {
+  const pickView = (v: DesktopView) => {
     setView(v);
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* 同上 */ }
   };
 
+  /** マス目・週の見出しを押したときは**選ぶだけ**（モックの `cell.pick`）。画面は動かさない */
+  const pickDay = (d: string) => setSelected(d);
+
+  /** ミニカレンダーの日を押したときは、本体の月・週・選択日をまとめて揃える */
+  const miniPick = (d: string) => {
+    setSelected(d);
+    setAnchor(d);
+    setMiniAnchor(d.slice(0, 7));
+  };
+
   const step = (dir: 1 | -1) => {
-    if (view === 'day') setAnchor(addDays(anchor, dir));
-    else if (view === 'week') setAnchor(addDays(anchor, dir * 7));
+    if (view === 'week') setAnchor(addDays(anchor, dir * 7));
     else setAnchor(addMonths(`${anchor.slice(0, 7)}-01`, dir));
   };
 
+  const goToday = () => {
+    setAnchor(today);
+    setSelected(today);
+    setMiniAnchor(today.slice(0, 7));
+  };
+
   const title = useMemo(() => {
-    if (view === 'day') {
-      return `${Number(anchor.slice(5, 7))}/${Number(anchor.slice(8))}（${DOW[new Date(`${anchor}T00:00:00`).getDay()]}）`;
-    }
     if (view === 'week') {
       const w = weekDays(anchor);
       return `${Number(w[0].slice(5, 7))}/${Number(w[0].slice(8))} – ${Number(w[6].slice(5, 7))}/${Number(w[6].slice(8))}`;
@@ -161,11 +198,10 @@ function DesktopCalendar() {
     return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
   }, [view, anchor]);
 
-  const layerDefs: LayerDef[] = [
-    { key: 'studio', label: 'スタジオ', dot: '#dc2626', show: cal.can.studio },
-    { key: 'partner', label: 'パートナー', dot: '#8b5cf6', show: cal.can.partner },
-    { key: 'my', label: '自分', dot: '#2563eb', show: cal.can.personal },
-  ];
+  /** レイヤーのチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
+  const layerVisible: Record<CalLayer, boolean> = {
+    studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal,
+  };
 
   const del = useMutation({
     mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
@@ -195,64 +231,62 @@ function DesktopCalendar() {
     if (kind === 'pe') { const e = cal.mine.find((x) => x.id === id); if (e) setEditEvent(e); }
   };
 
-  const lead = useMemo(() => {
-    const shown = view === 'day' ? eventsOn(cal.events, anchor) : cal.events;
-    const on = layerDefs.filter((l) => l.show && layers[l.key]).length;
-    const all = layerDefs.filter((l) => l.show).length;
-    return `${shown.length} 件 ・ 出しているもの ${on}／${all}`;
-  }, [cal.events, view, anchor, layers]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
-      <PageHeader
-        title="予定"
-        sub={`スタジオの予約・パートナーの予定・自分の予定を1枚で見ます。${lead}`}
-        primaryAction={(canStudioEdit || canPartnerEdit) ? (
-          <Button onClick={() => setChooserOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />予定を入れる
-          </Button>
-        ) : undefined}
-      >
-        {/* 2つ目以降は `children`。**`primaryAction` に2つ入れない** —
-            スマホでは下端の1枠に両方入って、どちらが主役か分からなくなる */}
-        <Button variant="outline" onClick={() => navigate('/studio/settings?tab=feed')}>
-          <CalendarSync className="mr-1.5 h-4 w-4" aria-hidden="true" />カレンダー連携
-        </Button>
-      </PageHeader>
+    <div className="flex flex-col">
+      {/*
+        左メニューの上への差し込み（`sideMenuTopSlot`）。差し込み口がまだ無い
+        （シェルの外・初回描画）ときは何も描かない — `usePrimaryActionSlot` と同じ約束
+      */}
+      {sideMenuTopSlot && createPortal(
+        <CalSidebarExtras
+          miniAnchor={miniAnchor} onMiniAnchor={setMiniAnchor}
+          today={today} selected={selected} onPick={miniPick}
+          layers={layers} onToggleLayer={toggleLayer} visible={layerVisible}
+        />,
+        sideMenuTopSlot,
+      )}
 
-      <CalToolbar
-        view={view} onView={pickView} title={title}
-        onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)}
-        layers={layers} onToggleLayer={toggleLayer} layerDefs={layerDefs}
-        roomCount={roomIds.length} userCount={userIds.length}
-        onPickRooms={() => setRoomFilterOpen(true)} onPickUsers={() => setUserFilterOpen(true)}
-        onClearFilters={() => { setRoomIds([]); setUserIds([]); }}
-      />
+      {/* **`<main>` 自体がスクロール領域**（共通シェル）。ここは `sticky` で上端に留める
+          だけにする — 固定の高さを自分で作ると、シェルの高さの持ち方（`h-full` の連鎖）
+          が変わった日に静かに崩れる（`NoticeBar` と同じやり方） */}
+      <div className="sticky top-0 z-10 bg-card">
+        <DesktopToolbar
+          view={view} onView={pickView} title={title}
+          onPrev={() => step(-1)} onNext={() => step(1)} onToday={goToday}
+          onAdd={() => setChooserOpen(true)} canAdd={canStudioEdit || canPartnerEdit}
+          roomCount={roomIds.length} userCount={userIds.length}
+          onPickRooms={() => setRoomFilterOpen(true)} onPickUsers={() => setUserFilterOpen(true)}
+          onClearFilters={() => { setRoomIds([]); setUserIds([]); }}
+        />
+      </div>
 
-      {cal.isError && <ErrorPanel title="予定を読み込めませんでした" error={cal.error} onRetry={cal.refetch} />}
+      <div className="flex flex-col gap-3.5 p-3 lg:p-6">
+        {cal.isError && <ErrorPanel title="予定を読み込めませんでした" error={cal.error} onRetry={cal.refetch} />}
 
-      <div className="flex flex-col items-start gap-3.5 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          {cal.isLoading && cal.events.length === 0 ? (
-            <Delayed><SkeletonRows rows={8} /></Delayed>
-          ) : view === 'month' ? (
-            <MonthGrid
-              anchor={`${anchor.slice(0, 7)}-01`} today={today} events={cal.events} holidays={cal.holidays}
-              onPickDay={(d) => { setAnchor(d); pickView('day'); }} onOpen={(e) => open(e.key)}
-            />
-          ) : view === 'list' ? (
-            <EventTable events={cal.events} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
-          ) : (
-            <TimeGrid
-              days={view === 'week' ? weekDays(anchor) : [anchor]}
-              today={today} now={now} events={cal.events} holidays={cal.holidays}
-              onOpen={(e) => open(e.key)}
-              onPickDay={(d) => { setAnchor(d); pickView('day'); }}
-            />
-          )}
+        <div className="flex flex-col items-start gap-3.5 lg:flex-row">
+          <div className="min-w-0 flex-1">
+            {cal.isLoading && cal.events.length === 0 ? (
+              <Delayed><SkeletonRows rows={8} /></Delayed>
+            ) : view === 'month' ? (
+              <MonthGrid
+                anchor={`${anchor.slice(0, 7)}-01`} today={today} selected={selected}
+                events={cal.events} holidays={cal.holidays}
+                onPickDay={pickDay} onOpen={(e) => open(e.key)}
+              />
+            ) : view === 'list' ? (
+              <EventTable events={cal.events} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
+            ) : (
+              <TimeGrid
+                days={weekDays(anchor)}
+                today={today} now={now} events={cal.events} holidays={cal.holidays}
+                onOpen={(e) => open(e.key)}
+                onPickDay={pickDay}
+              />
+            )}
+          </div>
+
+          <SideRail today={today} events={cal.events} canStudio={cal.can.studio} onOpen={(e) => open(e.key)} />
         </div>
-
-        <SideRail today={today} events={cal.events} canStudio={cal.can.studio} onOpen={(e) => open(e.key)} />
       </div>
 
       <RoomFilterDialog open={roomFilterOpen} onOpenChange={setRoomFilterOpen} value={roomIds} onChange={setRoomIds} />
@@ -270,14 +304,14 @@ function DesktopCalendar() {
         onOpenChange={(v) => !v && setNewKind(null)}
         locations={locations.data ?? []}
         editingBooking={null}
-        presetDate={{ start: anchor, end: anchor, allDay: false }}
+        presetDate={{ start: selected, end: selected, allDay: false }}
       />
 
       <PartnerScheduleDialog
         open={newKind === 'partner' || !!editSchedule}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); } }}
         editing={editSchedule}
-        presetRange={editSchedule ? null : { start: anchor, end: anchor }}
+        presetRange={editSchedule ? null : { start: selected, end: selected }}
         isManager={isPartnerManager}
       />
 
@@ -285,7 +319,7 @@ function DesktopCalendar() {
         open={newKind === 'mine' || !!editEvent}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); } }}
         editing={editEvent}
-        presetRange={editEvent ? null : { start: anchor, end: anchor, allDay: false }}
+        presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
       />
 
       {/* スタジオ予約は**読むだけ**。直すのはスタジオカレンダー（作る導線がそこにある） */}
