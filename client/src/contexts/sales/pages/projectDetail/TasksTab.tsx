@@ -15,11 +15,28 @@
  *
  * 旧実装は生の Tailwind パレット (`text-amber-600` など) で書かれていたので、
  * 状態の色トークンに寄せました。ここは数行なので混ぜても切り分けられます。
+ *
+ * ── スマホは「リストだけ」にした（v4ネイティブUI監査・この回） ────────
+ *
+ * かんばん（列を横に並べる）とガント（時間軸を横に伸ばす）は**どちらも
+ * 横スクロールが前提**で、375px向けの作り直しをしていません。一方
+ * `TaskListView` は元から**縦1列のグループ表**（カラムを横に並べない）で、
+ * ダイアログ経由の追加・編集もタップ操作だけで完結します。
+ *
+ * 選んだのは「スマホでは常にリスト・切り替えボタンごと出さない」です
+ * （③案件一覧が「ボードはスマホに出さない」とした前例と同じ考え方）。
+ * `ViewToggle` はこの結果 **PC 専用**になったので、旧トークン
+ * (`rounded-md` 等) はここでは載せ替えません — スマホで見えない部品の
+ * 見た目を直しても届く先が無いためです（載せ替えるのは、ここを再び
+ * スマホに出す判断をしたとき）。
+ *
+ * ガントの `sm:hidden` フォールバック（横に読めないので「PC で」と出す帯）は
+ * このスマホ判定の範囲では二度と表示されなくなるため削除しました
+ * — 表示できるのは 1024px 以上の PC だけなので、そちらでは素直に描けば足ります。
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Users, ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
-import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { ApplyFlowDialog } from '@/contexts/sales/pages/flow/ApplyFlowDialog';
@@ -135,11 +152,14 @@ function ApplyFlowBanner({ project }: { project: ProjectDetail }) {
   );
 }
 
-export function TasksTab({ project }: { project: ProjectDetail }) {
+export function TasksTab({ project, mobile }: { project: ProjectDetail; mobile?: boolean }) {
   // 連続もの (GLS-A) だけ回ごとの絞り込みを出す
   const isSeries = project.gls_category === 'A';
-  // ビジネス案件は既定でガント (工程を追うのが目的なので)
-  const [view, setView] = useState<TaskView>(project.gls_category === 'B' ? 'gantt' : 'kanban');
+  // ビジネス案件は既定でガント (工程を追うのが目的なので)。
+  // **スマホは常にリスト**（かんばん・ガントは横スクロール前提で375px向けではないため）
+  const [view, setView] = useState<TaskView>(
+    mobile ? 'list' : project.gls_category === 'B' ? 'gantt' : 'kanban',
+  );
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   // 回の一覧（回を足す・進み具合を見る）は既定で畳む。**タブの主役はタスクの一覧**
   // なので、常に開いていると案件を開くたびに縦に長い表を読むことになる
@@ -151,7 +171,8 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <HealthStrip projectId={project.id} episodeId={episodeId} />
-        <div className="ml-auto"><ViewToggle current={view} onChange={setView} /></div>
+        {/* **切り替えボタンごとPC専用**（上の docstring 参照）。スマホは常にリストなので選ばせない */}
+        {!mobile && <div className="ml-auto"><ViewToggle current={view} onChange={setView} /></div>}
       </div>
 
       {isSeries && (
@@ -180,29 +201,20 @@ export function TasksTab({ project }: { project: ProjectDetail }) {
       )}
 
       <div className="min-h-0 flex-1">
-        {view === 'kanban' && (
-          <KanbanView projectId={project.id} episodeId={episodeId} onSwitchToList={() => setView('list')} />
-        )}
-        {view === 'list' && <TaskListView projectId={project.id} episodeId={episodeId} />}
-        {view === 'gantt' && (
+        {/*
+          **スマホは常にリスト**（`view` に関わらず）。かんばん・ガントは
+          切り替えボタンごと出していないので `view` がそちらを指すことはないが、
+          万一（段階の切り替わり等で）値が残っても取り違えないよう明示で分岐する
+        */}
+        {mobile ? (
+          <TaskListView projectId={project.id} episodeId={episodeId} />
+        ) : (
           <>
-            <div className="hidden h-full flex-col sm:flex">
-              <GanttView projectId={project.id} episodeId={episodeId} />
-            </div>
-            {/* ガントはスマホでは読めない。**閉じずに逃げ道を出す**（帯は共通部品） */}
-            <div className="flex flex-col gap-3 py-6 sm:hidden">
-              <PcOnlyNote
-                what="工程表（ガント）"
-                why="横に長い時間軸なので、この幅では1週間ぶんも入りません。"
-              />
-              <button
-                type="button"
-                onClick={() => setView('list')}
-                className="min-h-tap text-sub text-primary underline underline-offset-2 lg:min-h-[36px]"
-              >
-                リストに切り替える
-              </button>
-            </div>
+            {view === 'kanban' && (
+              <KanbanView projectId={project.id} episodeId={episodeId} onSwitchToList={() => setView('list')} />
+            )}
+            {view === 'list' && <TaskListView projectId={project.id} episodeId={episodeId} />}
+            {view === 'gantt' && <GanttView projectId={project.id} episodeId={episodeId} />}
           </>
         )}
       </div>

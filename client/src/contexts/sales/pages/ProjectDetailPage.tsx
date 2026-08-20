@@ -245,10 +245,10 @@ export default function ProjectDetailPage() {
       )}
 
       {!offPhone && tab === 'overview' && (
-        <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} activityTotal={activityTotal} />
+        <OverviewTab project={p} bookings={bookings.data ?? []} activities={activities.data?.data ?? []} activityTotal={activityTotal} mobile={isMobile} />
       )}
       {!offPhone && tab === 'thread' && <ThreadTab projectId={id} />}
-      {!offPhone && tab === 'task' && <TasksTab project={p} />}
+      {!offPhone && tab === 'task' && <TasksTab project={p} mobile={isMobile} />}
       {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
       {!offPhone && tab === 'files' && <FilesTab project={p} />}
       {!offPhone && tab === 'day' && <DayTab projectId={id} />}
@@ -311,8 +311,13 @@ function OffPhoneTab({ tab, onBack, onOpenAnyway }: { tab: ProjectTabKey; onBack
   const def = PROJECT_TABS.find((t) => t.key === tab)!;
   // **見た目と言い回しは共通部品に寄せてある**（`client-v4/pcOnly`）。
   // 以前はこの画面だけ独自の枠で、ほかの9か所と文面も体裁も違っていた
+  //
+  // ⚠️ **`thread`（やり取り）は載せていない。** `tabs.ts` の `MOBILE_TABS_BY_PHASE` が
+  // 「ふだん」「終わった案件」の2段階でやり取りをモバイルタブに含めているため、
+  // `everMobile` が常に true になり、この画面（`offPhone`）には**そもそも来ない**
+  // （来るのは `wrongPhase` = 概要へ自動で送る側）。ここに文言を置くと「開けない」
+  // 案内が実際には出ないのに存在する死んだ分岐になるので、混乱を避けるため外した
   const why: Partial<Record<ProjectTabKey, string>> = {
-    thread: 'やり取りは長い文章と議事録が並ぶので、読むのは PC が向いています。',
     estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。この幅では桁が読めません。',
     files: '書類は BOX のフォルダを1階層ずつ開く画面です。',
     review: 'ふりかえりは金額の内訳を縦にそろえて読む画面です。',
