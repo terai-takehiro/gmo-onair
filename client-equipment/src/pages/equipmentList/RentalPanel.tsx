@@ -18,7 +18,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -207,54 +207,57 @@ export function RentalPanel() {
         </div>
       )}
 
-      <Dialog open={!!editGroup} onOpenChange={(o) => { if (!o) setEditGroup(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>貸出の出しかた</DialogTitle></DialogHeader>
-          {editGroup && (
-            <div className="space-y-4">
-              <div className="rounded-control bg-muted px-3 py-2">
-                <p className="truncate text-list">{editGroup.name}</p>
-                {editGroup.model_number && (
-                  <p className="font-number text-sub-sm text-muted-foreground">{editGroup.model_number}</p>
-                )}
-                <p className="mt-1 text-note text-muted-foreground">{editGroup.total_count} 台にまとめて当てます</p>
-              </div>
-              <div className="space-y-1">
-                <Label>貸出カテゴリ</Label>
-                <Select value={editCategoryId || '_none'} onValueChange={(v) => setEditCategoryId(v === '_none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">なし</SelectItem>
-                    {allCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>貸出のときの名前</Label>
-                <Input
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder={`${editGroup.name} (空なら商品名を使います)`}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button variant="outline" onClick={() => setEditGroup(null)}>やめる</Button>
-                <Button
-                  onClick={() => save.mutate({
-                    ids: editGroup.units.map((u) => u.id),
-                    rental_category_id: editCategoryId || null,
-                    rental_display_name: editDisplayName || null,
-                  })}
-                  disabled={save.isPending}
-                >
-                  {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                  直す
-                </Button>
-              </div>
+      <FormDialog
+        open={!!editGroup}
+        onOpenChange={(o) => { if (!o) setEditGroup(null); }}
+        title="貸出の出しかた"
+        footer={editGroup ? (
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => setEditGroup(null)}>やめる</Button>
+            <Button
+              onClick={() => save.mutate({
+                ids: editGroup.units.map((u) => u.id),
+                rental_category_id: editCategoryId || null,
+                rental_display_name: editDisplayName || null,
+              })}
+              disabled={save.isPending}
+            >
+              {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              直す
+            </Button>
+          </FormDialogFooter>
+        ) : undefined}
+      >
+        {editGroup && (
+          <div className="space-y-4">
+            <div className="rounded-control bg-muted px-3 py-2">
+              <p className="truncate text-list">{editGroup.name}</p>
+              {editGroup.model_number && (
+                <p className="font-number text-sub-sm text-muted-foreground">{editGroup.model_number}</p>
+              )}
+              <p className="mt-1 text-note text-muted-foreground">{editGroup.total_count} 台にまとめて当てます</p>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="space-y-1">
+              <Label>貸出カテゴリ</Label>
+              <Select value={editCategoryId || '_none'} onValueChange={(v) => setEditCategoryId(v === '_none' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">なし</SelectItem>
+                  {allCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>貸出のときの名前</Label>
+              <Input
+                value={editDisplayName}
+                onChange={(e) => setEditDisplayName(e.target.value)}
+                placeholder={`${editGroup.name} (空なら商品名を使います)`}
+              />
+            </div>
+          </div>
+        )}
+      </FormDialog>
     </div>
   );
 }

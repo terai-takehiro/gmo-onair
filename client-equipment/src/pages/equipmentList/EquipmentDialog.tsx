@@ -11,7 +11,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { LOC_CODES, SECTIONS, TYPE_CODES } from '@/lib/constants';
@@ -123,161 +123,165 @@ export function EquipmentDialog({
   const title = mode.kind === 'edit' ? '機材を直す' : mode.kind === 'copy' ? '機材を写して足す' : '機材を足す';
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            {title}
-            {mode.kind !== 'edit' && (
-              <span className="ml-auto flex items-center gap-2 pr-6 text-sub text-muted-foreground">
-                <Switch
-                  checked={continuous}
-                  onCheckedChange={(v) => { setContinuous(!!v); onContinuousChange(!!v); }}
-                  aria-label="続けて登録する"
-                />
-                <span>続けて登録</span>
-              </span>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* 結果は**スクロールの外**に置く。本文の末尾だと画面外で気づかれない */}
-        {error && (
-          <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
-            {error}
-          </p>
-        )}
-        {savedOnce && !error && (
-          <p className="rounded-control border border-success-border bg-success-surface px-3 py-2 text-sub text-success">
-            登録しました。続けて次の機材を入れてください。
-          </p>
-        )}
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label>拠点 *</Label>
-              <Select value={form.location_code} onValueChange={(v) => setForm({ ...form, location_code: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>種別 *</Label>
-              <Select value={form.equipment_type_code} onValueChange={(v) => setForm({ ...form, equipment_type_code: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>設備／貸出 *</Label>
-              <Select value={form.equipment_section} onValueChange={(v) => setForm({ ...form, equipment_section: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1 sm:col-span-2">
-              <Label>商品名 *</Label>
-              <div className="relative">
-                <Input
-                  value={form.name}
-                  onChange={(e) => onNameChange(e.target.value)}
-                  onBlur={() => setTimeout(() => setSuggest([]), 200)}
-                  placeholder="ユニバーサルフレーム"
-                  autoComplete="off"
-                />
-                {suggest.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-0.5 rounded-control border border-border bg-card shadow-lg">
-                    <p className="border-b border-border px-3 py-1.5 text-sub text-muted-foreground">
-                      同じ名前で型名が複数あります。選んでください
-                    </p>
-                    {Array.from(new Map(suggest.map((i) => [i.model_number ?? '', i])).values()).map((item) => {
-                      const maxUnit = Math.max(0, ...suggest
-                        .filter((i) => (i.model_number ?? '') === (item.model_number ?? ''))
-                        .map((i) => Number(i.unit_number) || 0));
-                      return (
-                        <button
-                          key={item.model_number ?? 'none'}
-                          type="button"
-                          className="min-h-tap flex w-full items-center gap-2 px-3 py-2 text-left text-sub hover:bg-muted lg:min-h-[36px]"
-                          onMouseDown={() => {
-                            setForm((f) => ({
-                              ...f,
-                              model_number: item.model_number || f.model_number,
-                              manufacturer_id: item.manufacturer_id || f.manufacturer_id,
-                              unit_number: String(maxUnit + 1),
-                            }));
-                            setSuggest([]);
-                          }}
-                        >
-                          <span className="text-list">{item.model_number || '(型名なし)'}</span>
-                          <span className="ml-auto text-sub-sm text-primary">→ No.{maxUnit + 1}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>メーカー</Label>
-              <Select
-                value={form.manufacturer_id || 'none'}
-                onValueChange={(v) => setForm({ ...form, manufacturer_id: v === 'none' ? '' : v })}
-              >
-                <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし</SelectItem>
-                  {manufacturers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>型名</Label>
-              <Input value={form.model_number} onChange={(e) => setForm({ ...form, model_number: e.target.value })} placeholder="Vbus-70V2" />
-            </div>
-            <div className="space-y-1">
-              <Label>No. (個体番号)</Label>
-              <Input type="number" min="1" value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>シリアル</Label>
-              <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} />
-            </div>
-          </div>
-
-          <EquipmentAssetFields
-            form={form}
-            setForm={setForm}
-            locations={locations}
-            colors={colors}
-            items={items}
-            editingId={editingId}
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={title}
+      // **もとの `sm:max-w-2xl`（672px）＋ `grid-cols-3` の複合フォームなので `wide` を渡す。**
+      // 既定の560pxのままだと、3列に並べていた拠点・種別・設備／貸出や、
+      // 商品名・メーカー・型名などの2列グリッドが窮屈に潰れる
+      wide
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={submit} disabled={saving || !form.name}>
+            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {mode.kind === 'edit' ? '直す' : '足す'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      {/* 続けて登録のスイッチ。旧実装は見出しの右端にあったが、`FormDialog` の
+          `title` は文字列だけを受け付けるため本文の先頭へ移した */}
+      {mode.kind !== 'edit' && (
+        <div className="mb-3 flex items-center justify-end gap-2 text-sub text-muted-foreground">
+          <Switch
+            checked={continuous}
+            onCheckedChange={(v) => { setContinuous(!!v); onContinuousChange(!!v); }}
+            aria-label="続けて登録する"
           />
+          <span>続けて登録</span>
+        </div>
+      )}
 
+      {/* 結果は**スクロールの外**に置く。本文の末尾だと画面外で気づかれない */}
+      {error && (
+        <p className="mb-3 rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
+          {error}
+        </p>
+      )}
+      {savedOnce && !error && (
+        <p className="mb-3 rounded-control border border-success-border bg-success-surface px-3 py-2 text-sub text-success">
+          登録しました。続けて次の機材を入れてください。
+        </p>
+      )}
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
-            <Label>備考</Label>
-            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <Label>拠点 *</Label>
+            <Select value={form.location_code} onValueChange={(v) => setForm({ ...form, location_code: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button onClick={submit} disabled={saving || !form.name}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {mode.kind === 'edit' ? '直す' : '足す'}
-            </Button>
+          <div className="space-y-1">
+            <Label>種別 *</Label>
+            <Select value={form.equipment_type_code} onValueChange={(v) => setForm({ ...form, equipment_type_code: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>設備／貸出 *</Label>
+            <Select value={form.equipment_section} onValueChange={(v) => setForm({ ...form, equipment_section: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1 sm:col-span-2">
+            <Label>商品名 *</Label>
+            <div className="relative">
+              <Input
+                value={form.name}
+                onChange={(e) => onNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setSuggest([]), 200)}
+                placeholder="ユニバーサルフレーム"
+                autoComplete="off"
+              />
+              {suggest.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-0.5 rounded-control border border-border bg-card shadow-lg">
+                  <p className="border-b border-border px-3 py-1.5 text-sub text-muted-foreground">
+                    同じ名前で型名が複数あります。選んでください
+                  </p>
+                  {Array.from(new Map(suggest.map((i) => [i.model_number ?? '', i])).values()).map((item) => {
+                    const maxUnit = Math.max(0, ...suggest
+                      .filter((i) => (i.model_number ?? '') === (item.model_number ?? ''))
+                      .map((i) => Number(i.unit_number) || 0));
+                    return (
+                      <button
+                        key={item.model_number ?? 'none'}
+                        type="button"
+                        className="min-h-tap flex w-full items-center gap-2 px-3 py-2 text-left text-sub hover:bg-muted lg:min-h-[36px]"
+                        onMouseDown={() => {
+                          setForm((f) => ({
+                            ...f,
+                            model_number: item.model_number || f.model_number,
+                            manufacturer_id: item.manufacturer_id || f.manufacturer_id,
+                            unit_number: String(maxUnit + 1),
+                          }));
+                          setSuggest([]);
+                        }}
+                      >
+                        <span className="text-list">{item.model_number || '(型名なし)'}</span>
+                        <span className="ml-auto text-sub-sm text-primary">→ No.{maxUnit + 1}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>メーカー</Label>
+            <Select
+              value={form.manufacturer_id || 'none'}
+              onValueChange={(v) => setForm({ ...form, manufacturer_id: v === 'none' ? '' : v })}
+            >
+              <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし</SelectItem>
+                {manufacturers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>型名</Label>
+            <Input value={form.model_number} onChange={(e) => setForm({ ...form, model_number: e.target.value })} placeholder="Vbus-70V2" />
+          </div>
+          <div className="space-y-1">
+            <Label>No. (個体番号)</Label>
+            <Input type="number" min="1" value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label>シリアル</Label>
+            <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} />
+          </div>
+        </div>
+
+        <EquipmentAssetFields
+          form={form}
+          setForm={setForm}
+          locations={locations}
+          colors={colors}
+          items={items}
+          editingId={editingId}
+        />
+
+        <div className="space-y-1">
+          <Label>備考</Label>
+          <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </div>
+      </div>
+    </FormDialog>
   );
 }
