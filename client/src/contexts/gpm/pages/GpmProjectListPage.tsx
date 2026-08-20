@@ -24,11 +24,26 @@
  * （`useGpmProjects` の説明と同じ理由）。
  *
  * **案件管理の台帳と違って持たせていないもの**: 実施期間の絞り込み・ページ送り・
- * Excel 入出力・スマホのシート化・並び替え時の FLIP アニメーション。
+ * Excel 入出力・並び替え時の FLIP アニメーション。
  * 構築プロジェクトは同時に数十件で、案件のように四半期単位で積み上がる数（数百件）
  * ではないため、まずは軽い形にしてある。件数が増えたら案件台帳から同じ部品を移す。
+ *
+ * ── ボードはスマホに出さない（2026-08 追記）─────────────────
+ *
+ * 案件一覧（`sales/pages/ProjectListPage.tsx`）は `useIsMobile()` で「ボード」の
+ * 切替ボタン自体を隠している（240px 固定カラムが5列並ぶので、375px では1列も入らない）。
+ * この画面には同じガードが無く、スマホでもボードを開けてしまっていた
+ * （スマホ最適化の洗い出し 2026-08-20・要対応1）。案件一覧と同じ考え方で塞ぐ。
+ *
+ * ── スマホの絞り込みをシートに畳んだ（2026-08 追記）───────────
+ *
+ * 状態チップ・検索・区分・並び順が375pxでも1行にそのまま並び、折り返して縦に
+ * 重なっていた（スマホ最適化の洗い出し 2026-08-20・要対応2）。案件一覧・機材台帳
+ * などと同じ共通部品（`shared/src/client-v4/mobileFilterBar.tsx`）に載せ替えた。
+ * **検索欄だけは畳まない**（探すのは絞り込みではなく目的そのもの、という決めごと）。
+ * PC 側は1文字も変えていない。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { List, LayoutGrid, Plus, Search } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
@@ -44,6 +59,8 @@ import {
   EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel,
 } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { MobileFilterBar, MobileFilterField, MobileFilterSegments } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
 import { useGpmProjects } from '../queries';
 import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
@@ -123,6 +140,7 @@ const KINDS: GpmKind[] = ['self_build', 'group_order'];
 
 export default function GpmProjectListPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
@@ -131,6 +149,12 @@ export default function GpmProjectListPage() {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'board'>('list');
   const [sort, setSort] = useState<SortKey>('recommended');
+
+  // **スマホでボードを選んだまま画面を回転・PCから引き継いだ場合に備える。**
+  // 240px 固定カラムが5列並ぶボードは375pxに1列も入らないので、スマホでは常にリストへ落とす
+  useEffect(() => {
+    if (isMobile && view === 'board') setView('list');
+  }, [isMobile, view]);
 
   const today = useMemo(() => localDateStr(new Date()), []);
   const { data, isLoading, isError, refetch } = useGpmProjects(search.trim());
@@ -179,67 +203,108 @@ export default function GpmProjectListPage() {
           ) : undefined
         }
       >
-        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
-          {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              aria-pressed={view === v}
-              className={cn(
-                'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
-                i > 0 && 'border-l border-border',
-                view === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />{label}
-            </button>
-          ))}
-        </div>
+        {/* **スマホでは出さない。** ボードは選べても開けない画面になるので、切替そのものを隠す */}
+        {!isMobile && (
+          <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+            {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={cn(
+                  'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
+                  i > 0 && 'border-l border-border',
+                  view === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              </button>
+            ))}
+          </div>
+        )}
       </PageHeader>
 
-      <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
+      {/* **スマホでは畳んでシートで開く。** 状態チップ・区分・並び順の3つが
+          375pxでは1行に収まらず折り返して縦に重なっていた */}
+      {isMobile ? (
+        <MobileFilterBar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: 'プロジェクト名・依頼元で探す',
+            label: 'プロジェクトを探す',
+          }}
+          activeCount={(stageKey !== 'open' ? 1 : 0) + (kind ? 1 : 0) + (sort !== 'recommended' ? 1 : 0)}
+          onClearAll={() => { setStageKey('open'); setKind(''); setSort('recommended'); }}
+          title="状態・区分・並び順"
+        >
+          <MobileFilterField label="状態">
+            <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
+          </MobileFilterField>
+          <MobileFilterField label="区分">
+            <MobileFilterSegments
+              label="区分で絞り込む"
+              items={[['', 'すべて'], ...KINDS.map((k) => [k, KIND_LABEL[k]] as const)] as [GpmKind | '', string][]}
+              value={kind}
+              onChange={setKind}
+            />
+          </MobileFilterField>
+          <MobileFilterField label="並び順">
+            <MobileFilterSegments
+              label="並び順"
+              items={SORT_OPTIONS.map((o) => [o.value, o.label] as [SortKey, string])}
+              value={sort}
+              onChange={setSort}
+            />
+          </MobileFilterField>
+        </MobileFilterBar>
+      ) : (
+        <>
+          <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-md">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="プロジェクト名・依頼元で探す"
-            className="pl-9"
-            aria-label="プロジェクトを探す"
-          />
-        </div>
-        <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="区分で絞り込む">
-          {([['', 'すべての区分'], ...KINDS.map((k) => [k, KIND_LABEL[k]] as const)] as const).map(([v, label], i) => (
-            <button
-              key={v || 'all'}
-              type="button"
-              aria-pressed={kind === v}
-              onClick={() => setKind(v as GpmKind | '')}
-              className={cn(
-                'min-h-tap text-sub inline-flex items-center px-3.5 lg:min-h-[40px]',
-                i > 0 && 'border-l border-border',
-                kind === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-          <SelectTrigger className="w-auto min-w-0 gap-1.5" aria-label="並び順">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="プロジェクト名・依頼元で探す"
+                className="pl-9"
+                aria-label="プロジェクトを探す"
+              />
+            </div>
+            <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="区分で絞り込む">
+              {([['', 'すべての区分'], ...KINDS.map((k) => [k, KIND_LABEL[k]] as const)] as const).map(([v, label], i) => (
+                <button
+                  key={v || 'all'}
+                  type="button"
+                  aria-pressed={kind === v}
+                  onClick={() => setKind(v as GpmKind | '')}
+                  className={cn(
+                    'min-h-tap text-sub inline-flex items-center px-3.5 lg:min-h-[40px]',
+                    i > 0 && 'border-l border-border',
+                    kind === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              <SelectTrigger className="w-auto min-w-0 gap-1.5" aria-label="並び順">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
 
       {isError ? (
         <ErrorPanel title="プロジェクトを読み込めませんでした" onRetry={() => refetch()} />

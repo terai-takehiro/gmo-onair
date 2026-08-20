@@ -198,12 +198,14 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       ],
     },
     {
-      // v4 で作り直していない3画面。**消さずに畳む** — 消すと動いている画面へ
-      // 辿り着けず、全部並べると v4 の並びが読めない（案件管理と同じやり方）
+      // v4 で作り直していない画面。**消さずに畳む** — 消すと動いている画面へ
+      // 辿り着けず、全部並べると v4 の並びが読めない（案件管理と同じやり方）。
+      // **「案件月別詳細」はここから削除した**（v3時代の遺物の棚卸し・2026-08）。
+      // 生きた導線が無く、独自機能も無かったため（詳細は
+      // docs/reviews/2026-08-20-mobile-optimization-audit.md）
       title: "そのほか（作り直し前）",
       collapsible: true,
       items: [
-        { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
         { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },
         // 請求先は案件管理の持ち物。**同じ相手を2か所から直せるようにしない**
         { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },

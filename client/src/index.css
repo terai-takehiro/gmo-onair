@@ -5,119 +5,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ==========================================================================
- * FullCalendar — stacking isolation + responsive overrides
- * ========================================================================== */
-.studio-calendar {
-  isolation: isolate;
-  position: relative;
-}
-
-.studio-calendar .fc .fc-toolbar {
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.studio-calendar .fc .fc-toolbar-title {
-  font-size: 1rem;
-}
-.studio-calendar .fc .fc-event {
-  border-radius: 4px;
-  cursor: pointer;
-}
-.studio-calendar .fc .fc-timegrid-event .fc-event-main {
-  padding: 2px 4px;
-}
-.studio-calendar .fc .fc-list-event-title a,
-.studio-calendar .fc .fc-list-event-time {
-  font-size: 0.8125rem;
-}
-
-@media (max-width: 640px) {
-  .studio-calendar .fc .fc-toolbar {
-    justify-content: space-between;
-    gap: 0.25rem;
-    padding: 0;
-  }
-  .studio-calendar .fc .fc-toolbar-title {
-    font-size: 0.9375rem;
-    font-weight: 700;
-    width: 100%;
-    text-align: center;
-    order: -1;
-    margin-bottom: 0.25rem;
-  }
-  .studio-calendar .fc .fc-toolbar-chunk {
-    display: flex;
-    align-items: center;
-  }
-  /*
-   * FullCalendar のツールバー（前/次/今日/月・週・一覧）。
-   * **v4 の決めごとは「タップ対象は最低 44px」** で、ここは 24px しか
-   * ありませんでした（実測 29×24）。前後の移動はカレンダーでいちばん押す
-   * ボタンなので、押し損ねると別の日が開きます。
-   */
-  .studio-calendar .fc .fc-button {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.8125rem;
-    line-height: 1;
-  }
-  .studio-calendar .fc .fc-button-group .fc-button {
-    padding: 0.3rem 0.45rem;
-  }
-  .studio-calendar .fc .fc-daygrid-event {
-    font-size: 0.625rem;
-    padding: 1px 3px;
-    line-height: 1.2;
-    border-radius: 3px;
-  }
-  .studio-calendar .fc .fc-daygrid-event .fc-event-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .studio-calendar .fc .fc-daygrid-more-link {
-    font-size: 0.625rem;
-  }
-  .studio-calendar .fc .fc-col-header-cell-cushion {
-    font-size: 0.75rem;
-    padding: 0.25rem;
-  }
-  .studio-calendar .fc .fc-daygrid-day-number {
-    font-size: 0.75rem;
-    padding: 2px 4px;
-  }
-  .studio-calendar .fc .fc-timegrid-slot {
-    height: 2.5rem;
-  }
-  .studio-calendar .fc .fc-timegrid-slot-label-cushion {
-    font-size: 0.6875rem;
-  }
-  .studio-calendar .fc .fc-timegrid-event {
-    font-size: 0.6875rem;
-    border-radius: 4px;
-  }
-  .studio-calendar .fc .fc-timegrid-event .fc-event-main {
-    padding: 2px 4px;
-    line-height: 1.3;
-  }
-  .studio-calendar .fc .fc-timegrid-event .fc-event-time {
-    font-size: 0.625rem;
-    opacity: 0.85;
-  }
-  .studio-calendar .fc .fc-list-event {
-    font-size: 0.8125rem;
-  }
-  .studio-calendar .fc .fc-list-event td {
-    padding: 0.5rem 0.5rem;
-  }
-  .studio-calendar .fc .fc-list-day-cushion {
-    font-size: 0.8125rem;
-    padding: 0.5rem;
-  }
-}
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -235,13 +122,6 @@
   letter-spacing: 0.3em;
   text-transform: uppercase;
   margin-top: 3vh;
-}
-
-/* Tentative (未確定) studio booking */
-.tentative-booking .fc-event-main,
-.tentative-booking {
-  font-style: italic;
-  opacity: 0.75;
 }
 
 /*

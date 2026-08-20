@@ -62,7 +62,6 @@ import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import ImportPage from "@/contexts/finance/pages/ImportPage";
 import CounterpartyPage from "@/contexts/finance/pages/CounterpartyPage";
-import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
@@ -297,7 +296,8 @@ function AppRoutes() {
         <Route path="/budget/vendors" element={<PermissionRoute module="sales"><CounterpartyPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<RedirectKeepQuery to="/budget/vendors?tab=partner" />} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="sales"><VendorReportPage /></PermissionRoute>} />
-        <Route path="/budget/detail" element={<PermissionRoute module="sales"><BudgetDetailPage /></PermissionRoute>} />
+        {/* **`/budget/detail`は削除した**（v3の遺物・2026-08）。v4の台帳/ダッシュボードが上位互換 */}
+        <Route path="/budget/detail" element={<RedirectKeepQuery to="/budget/dashboard" />} />
         <Route path="/budget/dashboard" element={<PermissionRoute module="sales"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
