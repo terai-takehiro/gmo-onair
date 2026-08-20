@@ -101,7 +101,7 @@ const CUSTOMERS_CONFIG: ResourceConfig = {
 const VENDORS_CONFIG: ResourceConfig = {
   name: '仕入先',
   filename: 'vendors',
-  permission: { module: 'budget', level: 'editor' },
+  permission: { module: 'sales', level: 'editor' },
   // Phase 3-3-9（`vendors` テーブル削除）以降、重複検出も companies を対象にする
   // （CUSTOMERS_CONFIG と同じ理由）。
   duplicate: { table: 'companies', column: 'name' },
@@ -175,7 +175,7 @@ const VENDORS_CONFIG: ResourceConfig = {
 const PARTNERS_CONFIG: ResourceConfig = {
   name: 'パートナー',
   filename: 'partners',
-  permission: { module: 'budget', level: 'editor' },
+  permission: { module: 'sales', level: 'editor' },
   duplicate: { table: 'partners', column: 'name' },
   columns: [
     { key: 'name',        header: '氏名',     width: 20 },

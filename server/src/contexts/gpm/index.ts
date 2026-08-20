@@ -67,8 +67,8 @@ async function assertGpmProject(projectId: string): Promise<void> {
 
 export function createGpmRoutes(): Router {
   const router = Router();
-  const canRead = [requireAuth, requirePermission('gpm', 'reader')] as const;
-  const canEdit = [requireAuth, requirePermission('gpm', 'editor')] as const;
+  const canRead = [requireAuth, requirePermission('sales', 'reader')] as const;
+  const canEdit = [requireAuth, requirePermission('sales', 'editor')] as const;
 
   /**
    * 承認の口（`POST /estimates/:id/approve`）が要求するもの。
@@ -78,7 +78,7 @@ export function createGpmRoutes(): Router {
   const canEditGpm = (req: Request) => meetsPermissionLevel(
     req.user?.role, req.user?.permissions?.gpm, 'editor',
   );
-  const canManage = [requireAuth, requirePermission('gpm', 'manager')] as const;
+  const canManage = [requireAuth, requirePermission('sales', 'manager')] as const;
 
   // ── 標準工程テンプレート ────────────────────────────────
   router.get('/templates', ...canRead, async (_req, res) => {

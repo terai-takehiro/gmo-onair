@@ -23,7 +23,7 @@ import { isCurrent, currentTo, visibleSections } from '../src/client/shell/AppSi
 const admin = { role: 'system_admin', permissions: {} };
 const nobody = { role: 'staff', permissions: {} };
 const equipmentOnly = { role: 'staff', permissions: { equipment: 'reader' } };
-const sales = { role: 'staff', permissions: { sales: 'editor', budget: 'reader' } };
+const sales = { role: 'staff', permissions: { sales: 'editor' } };
 
 describe('アプリ登録そのもの', () => {
   it('キーが重複していない', () => {
@@ -139,12 +139,16 @@ describe('visibleApps — メニューに出す一覧', () => {
     expect(visibleApps(equipmentOnly).map((a) => a.key)).toEqual(['equipment', 'interactive', 'translate']);
   });
 
-  it('営業の人には案件管理と財務管理が出る (カレンダー・設定は出ない)', () => {
+  it('`sales` 権限を持つ人には財務管理・カレンダー・設定・プロジェクト管理も出る (権限モデル単純化)', () => {
+    // `budget`/`gpm`/`studio`/`admin` の `permissionModule` はいずれも `sales` に
+    // 統合済み（`sales` の権限だけで開ける5入口: 案件管理・財務管理・カレンダー・
+    // プロジェクト管理・設定）。docs/reviews/permission-model-simplification-plan.md
     const keys = visibleApps(sales).map((a) => a.key);
     expect(keys).toContain('sales');
     expect(keys).toContain('budget');
-    expect(keys).not.toContain('studio');
-    expect(keys).not.toContain('admin');
+    expect(keys).toContain('gpm');
+    expect(keys).toContain('studio');
+    expect(keys).toContain('admin');
   });
 
   it('**並び順は登録の順** (画面ごとに並べ替えない)', () => {

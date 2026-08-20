@@ -25,7 +25,7 @@ function normTax(v: unknown): string {
 const REVENUES_CONFIG: ResourceConfig = {
   name: '売上',
   filename: 'revenues',
-  permission: { module: 'budget', level: 'editor' },
+  permission: { module: 'sales', level: 'editor' },
   // billing_keyは任意 — UNIQUE制約なし。重複検出は使わない (毎回INSERTでOK)
   columns: [
     { key: 'billing_key',      header: '請求キー',     width: 16 },
@@ -182,7 +182,7 @@ const REVENUES_CONFIG: ResourceConfig = {
 const PURCHASES_CONFIG: ResourceConfig = {
   name: '仕入',
   filename: 'purchases',
-  permission: { module: 'budget', level: 'editor' },
+  permission: { module: 'sales', level: 'editor' },
   columns: [
     { key: 'billing_key',      header: '請求キー',     width: 16 },
     { key: 'project_key',      header: '案件コード/GLS', width: 16 },
@@ -348,7 +348,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
 const SGA_CONFIG: ResourceConfig = {
   name: '販管費',
   filename: 'sga_expenses',
-  permission: { module: 'budget', level: 'editor' },
+  permission: { module: 'sales', level: 'editor' },
   columns: [
     { key: 'billing_key',       header: '請求キー',   width: 16 },
     { key: 'vendor_name',       header: 'ベンダー名', width: 24 },

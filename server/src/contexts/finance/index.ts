@@ -16,7 +16,7 @@ export function createFinanceRoutes(): Router {
 
   // 月次損益サマリー (optional project_id 指定で案件別集計)。
   // 集計ロジックは monthly-summary.service.ts に集約 (MCP サーバーと共用)。
-  router.get('/monthly-summary', requireAuth, requirePermission('budget'), async (req, res) => {
+  router.get('/monthly-summary', requireAuth, requirePermission('sales'), async (req, res) => {
     const data = await getMonthlySummary({
       month: req.query.month as string | undefined,
       from: req.query.from as string | undefined,
@@ -38,7 +38,7 @@ export function createFinanceRoutes(): Router {
    * ここは「実際にこの期間の売上・仕入を持っている案件」だけを、**件数の上限を
    * 付けずに**返す。内訳と同じ集合になるので、この一覧を足すと食い違いが消える。
    */
-  router.get('/projects-with-activity', requireAuth, requirePermission('budget'), async (req, res) => {
+  router.get('/projects-with-activity', requireAuth, requirePermission('sales'), async (req, res) => {
     const from = req.query.from as string | undefined;
     const to = req.query.to as string | undefined;
     const params: string[] = [];

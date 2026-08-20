@@ -27,13 +27,14 @@ import type { Project } from '@/types';
 export function BillingTab({ projectId }: { projectId: string }) {
   /*
    * ⚠️ **この画面は案件管理と財務管理の権限で動いています**（レビューでの指摘 #67）。
-   * 読むもの（案件の行・売上・仕入・仕入先・回）はどれも `sales` / `budget` の口で、
-   * `gpm` だけの人が開くと**開いた瞬間に 403** でした（真っ白＋理由なし）。
+   * 読むもの（案件の行・売上・仕入・仕入先・回）はどれも `sales` の口で
+   * （`budget` は権限モデル単純化で `sales` に統合済み）、`gpm` だけの人が
+   * 開くと**開いた瞬間に 403** でした（真っ白＋理由なし）。
    * **押せるのに 403 を作らない**という v4 の決めごとに合わせ、
    * **何の権限が要るかを名前で出して止めます**（白紙にしない）。
    */
   const { hasPermission } = useAuth();
-  const canRead = hasPermission('sales') && hasPermission('budget');
+  const canRead = hasPermission('sales');
 
   const { data, isLoading, isError, refetch } = useQuery<Project>({
     queryKey: ['gpm-project-full', projectId],
@@ -44,14 +45,8 @@ export function BillingTab({ projectId }: { projectId: string }) {
   if (!canRead) {
     return (
       <div className="p-4 lg:p-6">
-        {/*
-          * **`requireAll`** — この画面は案件の行（`sales`）と売上・仕入（`budget`）の
-          * **両方**を読みます。既定の「いずれか」のままだと、片方だけ足してもらって
-          * また同じ所で止まります。
-          */}
         <NoPermissionPanel
-          modules={['sales', 'budget']}
-          requireAll
+          modules={['sales']}
           target="このプロジェクトの請求（月次）"
         />
       </div>

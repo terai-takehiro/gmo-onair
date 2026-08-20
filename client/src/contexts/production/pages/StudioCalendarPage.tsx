@@ -121,8 +121,9 @@ export default function StudioCalendarPage() {
   const isMobile = useIsMobile();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
-  const canEdit = hasPermission("studio", "editor");
-  const canManage = hasPermission("studio", "manager");
+  // `studio` は権限モデル単純化で `sales` に統合済み
+  const canEdit = hasPermission("sales", "editor");
+  const canManage = hasPermission("sales", "manager");
 
   const today = ymd(new Date());
   const now = useMemo(() => new Date(), []);

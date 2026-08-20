@@ -8,7 +8,7 @@ import { createVendorRecord, updateCompanyDirectory } from '../../../shared/serv
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('budget'));
+router.use(requireAuth, requirePermission('sales'));
 
 /**
  * Phase 3-3-9（`vendors` テーブル削除）以降、この画面（財務の仕入先タブ）は
@@ -95,7 +95,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { name, contact_name, email, phone, address, vendor_type, invoice_registration_number, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '仕入先名は必須です');
   // `companies`（取引先マスター）に行を作る（`company-directory.service.ts`）。
@@ -109,7 +109,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requirePermission('budget', 'editor'), requirePermission('sales', 'owner'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), requirePermission('sales', 'owner'), async (req, res) => {
   // :id は companies.id。Phase 3-3-9（`vendors` テーブル削除）以降、
   // このテーブルへの読み書きは一切ない — companies を直接引いて直接更新する。
   const existing = await queryOne(
@@ -126,7 +126,7 @@ router.put('/:id', requirePermission('budget', 'editor'), requirePermission('sal
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   // :id は companies.id。`vendors` テーブルが無くなったので、この画面（財務の
   // 仕入先タブ）の削除は `companies.is_vendor` を FALSE にするだけでよい
   // （companies 行自体・顧客ロールは触らない）。旧実装と同じく、対象が既に無い/

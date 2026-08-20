@@ -5,16 +5,17 @@
  * **別のパスに分けています**。`users.routes.ts` は既に `/me/permissions` を
  * `/:id/permissions` より先に書く回避をしており、同じ罠を増やさないため。
  *
- * 直せるのは `system_admin` だけ。読むのは `admin` 権限があれば通します
- * （設定の画面を開いた人が、自分の役割の中身を確かめられるように）。
+ * 読み書きどちらも `system_admin` だけ（権限モデル単純化: 旧 `admin` 区画は
+ * 廃止し、権限とメンバーの管理は system_admin に一本化した。
+ * docs/reviews/permission-model-simplification-plan.md）。
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   listRoles, getRole, createRole, setRoleModules, applyRoleToUser,
-  membersOfRole, roleDrift, ROLE_MODULES, ROLE_UNTOUCHED_MODULES,
+  membersOfRole, roleDrift, ROLE_MODULES,
 } from '../services/permission-role.service';
 
 /** Express 5 の `params` は `string | string[]`。`:id` は必ず1つなので文字列に寄せる */
@@ -27,13 +28,12 @@ const router = Router();
 router.use(requireAuth);
 
 /** 型の一覧（中身と人数つき）。型が触る区画の一覧も返す — 画面が列を組み立てる */
-router.get('/', requirePermission('admin', 'reader'), wrap(async (_req, res) => {
+router.get('/', requireRole('system_admin'), wrap(async (_req, res) => {
   res.json({
     success: true,
     data: {
       roles: await listRoles(),
       modules: ROLE_MODULES,
-      untouched: ROLE_UNTOUCHED_MODULES,
     },
   });
 }));
@@ -96,7 +96,7 @@ router.delete('/:id', requireRole('system_admin'), wrap(async (req, res) => {
 }));
 
 /** その型を押してある人 */
-router.get('/:id/members', requirePermission('admin', 'reader'), wrap(async (req, res) => {
+router.get('/:id/members', requireRole('system_admin'), wrap(async (req, res) => {
   res.json({ success: true, data: await membersOfRole(p1(req.params.id)) });
 }));
 
@@ -122,7 +122,7 @@ router.put('/assign/:userId', requireRole('system_admin'), wrap(async (req, res)
 }));
 
 /** 押してある型と実際の権限のずれ（画面に「例外あり」を出すため） */
-router.get('/drift/:userId', requirePermission('admin', 'reader'), wrap(async (req, res) => {
+router.get('/drift/:userId', requireRole('system_admin'), wrap(async (req, res) => {
   const user = await queryOne(
     'SELECT permission_role_id FROM users WHERE id = ? AND deleted_at IS NULL',
     [req.params.userId],

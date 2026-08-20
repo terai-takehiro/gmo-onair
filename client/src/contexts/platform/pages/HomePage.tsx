@@ -122,7 +122,8 @@ export default function HomePage() {
     queryKey: queryKeys.dashboard.weeklySchedule(),
     queryFn: async () => (await api.get('/dashboard/weekly-schedule')).data.data,
     staleTime: 60_000,
-    enabled: hasPermission('studio'),
+    // `studio` は権限モデル単純化で `sales` に統合済み
+    enabled: canSeeSales,
   });
 
   const summary = useQuery<MyTaskSummary>({
@@ -156,8 +157,9 @@ export default function HomePage() {
   const openable: InboxOpenable = useMemo(() => ({
     intake: hasPermission('sales', 'editor'),
     inquiries: canSeeDailyops,
-    documents: hasPermission('budget') || canSeeDailyops,
-  }), [hasPermission, canSeeDailyops]);
+    // `budget` は権限モデル単純化で `sales` に統合済み
+    documents: canSeeSales || canSeeDailyops,
+  }), [hasPermission, canSeeSales, canSeeDailyops]);
   const waitingHref = inboxAllHrefOf(openable)?.href ?? null;
   // 「期限切れ」の行き先は日常業務の「タスク・依頼」（`/daily/tasks`）。
   // ⚠️ **以前は `/sales/tasks/list` に固定していたが、あれは GLS-A の案件タスクだけを
@@ -170,7 +172,8 @@ export default function HomePage() {
     if (isCrossApp(href)) window.location.href = href; else navigate(href);
   };
   // 「今日」の3枚が1枚も出ないなら、節ごと出さない（見出しだけ残ると壊れて見える）
-  const hasToday = canSeeDailyops || canSeeSales || hasPermission('studio');
+  // `studio` は権限モデル単純化で `sales` に統合済みなので canSeeSales と重複する
+  const hasToday = canSeeDailyops || canSeeSales;
 
   /**
    * **「最終更新 MM/DD HH:mm」**（モック）。
@@ -269,7 +272,7 @@ export default function HomePage() {
           /* **並びは 今日の予定 → タスク**（`わたしのタスク`／`お待たせ中` は
              `TaskHubCard` の中でタブとして並ぶ。中身は変えていない — まとめただけ */
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-            {hasPermission('studio') && <TodayCard days={schedule.data} />}
+            {canSeeSales && <TodayCard days={schedule.data} />}
             {(canSeeSales || canSeeDailyops) && (
               <TaskHubCard canSeeDailyops={canSeeDailyops} canSeeSales={canSeeSales} data={inbox.data} can={openable} />
             )}

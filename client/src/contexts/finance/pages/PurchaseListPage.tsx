@@ -63,7 +63,7 @@ export default function PurchaseListPage() {
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
 
   /** `var`=変動原価（案件に付いたもの） / `fix`=固定原価プロジェクト */
   const [tab, setTab] = useState<'var' | 'fix'>('var');

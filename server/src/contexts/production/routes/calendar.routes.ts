@@ -5,7 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('studio'));
+router.use(requireAuth, requirePermission('sales'));
 
 router.get('/events', async (req, res) => {
   const from = req.query.from as string;

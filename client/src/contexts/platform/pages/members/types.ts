@@ -27,8 +27,6 @@ export interface Member {
 
 export interface RolesResponse {
   roles: Role[];
-  /** 役割が面倒を見る区画（サーバーが正） */
+  /** 役割が面倒を見る区画（サーバーが正）。凍結4アプリも含む（権限モデル単純化） */
   modules: string[];
-  /** 役割が絶対に触らない区画（凍結4アプリ） */
-  untouched: string[];
 }

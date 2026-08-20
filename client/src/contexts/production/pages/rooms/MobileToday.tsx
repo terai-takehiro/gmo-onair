@@ -1,73 +1,59 @@
 /**
- * ⑬ 今日の予約（スマホ・モックの端末枠 13枚目）
+ * ① 予定（スマホ・iPhone のカレンダーに寄せたモック）
  *
- * ── カレンダーはスマホで読めない ────────────────────────────
+ * ── 月表に戻した ─────────────────────────────────────────────
  *
- * ① 予定は FullCalendar の月表示で、375px では1日ぶんの升が
- * 数ミリ角になります。現場で見たいのは「**今日、何がどこであるか**」だけです。
+ * 旧実装は「その日ぶんの縦並び」でした（FullCalendar の月表示が 375px では
+ * 数ミリ角になるため）。**v4 は自分で描くので、その制約が無くなりました**。
+ * モック（承認済み）は **数字＋点だけの月マス**（文字を入れない）で崩れず、
+ * PC の①予定と**同じ3層**（スタジオ・パートナー・自分）を重ねます。
+ * 置き方の計算・レイヤーの記憶（`layerPrefs.ts`）は PC と共有します
+ * （分けると「PCで外したはずのレイヤーがスマホでは出たまま」になる）。
  *
- * だから**その日ぶんの縦並び**にします。日付は前/次で動かせますが、
- * 起点は必ず今日です。
+ * ── 「予定を入れる」を足した ────────────────────────────────
  *
- * ── 「空きを押さえる」はここでは作らない ────────────────────
+ * 旧実装は「入力欄が十数個ある」ことを理由にスマホでは予約を作らせず、
+ * 「部屋の空き」へ送るだけでした。`StudioBookingDialog` を確かめ直すと
+ * `maxHeight: calc(92dvh - 56px)` でスマホでも中がスクロールする作りだった
+ * ため、PC の①予定と同じ `NewEventChooser` → 3つのダイアログをそのまま使います。
+ * **「部屋の空きを見る」だけは残す**（部屋 × 時間を並べて空きを探す画面は
+ * PC専用のままなので、ここから行き先を示す）。
  *
- * モックの下端は `空きを押さえる` です。予約を**作る**のは
- * 部屋・時間・案件・用途を決める作業で、スマホの1画面には収まりません
- * （PC の `StudioBookingDialog` は入力欄が十数個あります）。
- * **「部屋の空き」へ送ります** — 空いている幅を見てから PC で押さえる、が
- * いまできる形です。押しても何も起きないボタンは置きません。
+ * ── ⑩ 今日の現場 はこの1枚に畳んだまま ─────────────────────
  *
- * ── ⑩ 今日の現場 をこの1枚に畳んだ ────────────────────────
- *
- * モックは ⑩ 今日の現場（`今日 / 明日 / 今週` ／ 時刻・区分（**出庫**・リハ・本番）・
- * 場所・注記の縦並び）を別の端末枠として描いていますが、**⑬ と中身が9割同じ**です。
- * 違うのは「出庫」の行が混ざることだけで、リハ・本番はどちらもスタジオ予約です。
- *
- * 2枚に分けると、**同じ予約を2つの画面が別々に描く**ことになります。
- * 片方だけ直したときに時刻の丸め方や区分の色が食い違うので、
- * **1枚にして、機材の出庫を「層」として重ねました**。
- *
- * 出庫の層は **`equipment` の権限がある人にだけ出します**。無い人に空の枠を出すと
- * 「今日は出庫が無い」と読めてしまいますが、実際は見えていないだけです。
+ * 機材の出庫・返却は選んだ日に連動させ、以前と同じく `equipment` の権限が
+ * ある人にだけ出します（無い人に空の枠を出すと「今日は出庫が無い」と読める）。
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, CalendarDays, ArrowRight, PackageOpen, Undo2 } from 'lucide-react';
-import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, DoorOpen, Layers, PackageOpen, Undo2 } from 'lucide-react';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { localDateStr } from '@/lib/format';
-import { isAllDay, clipToDay, type AvailBooking } from './availability';
+import StudioBookingDetailDialog from '../../components/studio/StudioBookingDetailDialog';
+import StudioBookingDialog from '../../components/studio/StudioBookingDialog';
+import PartnerScheduleDialog from '../../components/schedule/PartnerScheduleDialog';
+import PersonalEventDialog from '../../components/schedule/PersonalEventDialog';
+import type { PartnerSchedule, PersonalEvent } from '../../components/schedule/scheduleShared';
+import {
+  ymd, addDays, addMonths, startOfWeek, eventsOn, sortForList, timeLabel, type CalLayer,
+} from '../calendar/calendarLayout';
+import { loadLayers, saveLayers } from '../calendar/layerPrefs';
+import { useCalendarEvents, type CalBooking } from '../calendar/useCalendarEvents';
+import { MobileMonthGrid } from '../calendar/MobileMonthGrid';
+import { LayerFilterDialog } from '../calendar/FilterDialogs';
+import { NewEventChooser, type NewKind } from '../calendar/NewEventChooser';
 
-interface Booking extends AvailBooking {
-  project_name?: string | null;
-  gls_number?: string | null;
-  location_note?: string | null;
-  booking_type?: string;
-  rooms?: { room_id: string; room_name?: string; room_abbreviation?: string | null; room_color?: string | null }[];
-}
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
-/** 区分の見え方。**本番だけ赤**（全部に色を付けると本番が埋もれる） */
-const KIND: Record<string, { label: string; cls: string }> = {
-  performance: { label: '本番', cls: 'bg-destructive-surface text-destructive border-destructive-border' },
-  rehearsal: { label: 'リハ', cls: 'bg-warning-surface text-warning border-warning-border' },
-  setup: { label: '仕込み', cls: 'bg-info-surface text-info border-info-border' },
-  hold: { label: '仮押さえ', cls: 'bg-surface-subtle text-muted-foreground border-border' },
-  tour: { label: '内覧', cls: 'bg-surface-subtle text-secondary-foreground border-border' },
-  maintenance: { label: '保守', cls: 'bg-surface-subtle text-secondary-foreground border-border' },
-  consultation: { label: '打合せ', cls: 'bg-surface-subtle text-secondary-foreground border-border' },
-  internal: { label: '社内', cls: 'bg-surface-subtle text-secondary-foreground border-border' },
-  other: { label: 'その他', cls: 'bg-surface-subtle text-secondary-foreground border-border' },
-};
-
-const hhmm = (iso: string) => iso.slice(11, 16);
-
-/** 機材の出庫・返却（⑩ の「出庫」の行） */
+/** 機材の出庫・返却 */
 interface Lending {
   id: string;
   equipment_name?: string | null;
@@ -82,141 +68,188 @@ interface Lending {
 
 export function MobileToday() {
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
-  const [day, setDay] = useState(() => localDateStr(new Date()));
-  const today = localDateStr(new Date());
+  const qc = useQueryClient();
+  const { currentUser, hasPermission } = useAuth();
+  const isAdmin = currentUser?.role === 'system_admin';
+  const canStudioEdit = isAdmin || hasPermission('sales', 'editor');
+  const canDeleteBooking = isAdmin || hasPermission('sales', 'manager');
+  const isPartnerManager = isAdmin || hasPermission('sales', 'manager');
+  const canPartnerEdit = isAdmin || hasPermission('sales', 'editor');
   const canEquipment = hasPermission('equipment');
 
-  const q = useQuery({
-    // **下限は日付だけ。** 終日の予約は日付だけで保存されるので、
-    // `T00:00` にするとその日の終日がまるごと落ちる（部屋の空きと同じ理由）
-    queryKey: ['studio-bookings', 'day', day],
-    queryFn: async () => (await api.get('/studios/bookings', {
-      params: { from: day, to: `${day}T23:59` },
-    })).data.data as Booking[],
+  const today = ymd(new Date());
+  const [anchor, setAnchor] = useState(today.slice(0, 7));
+  const [selected, setSelected] = useState(today);
+  const [layers, setLayers] = useState<Record<CalLayer, boolean>>(loadLayers);
+
+  const [layerFilterOpen, setLayerFilterOpen] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [newKind, setNewKind] = useState<NewKind | null>(null);
+  const [detail, setDetail] = useState<CalBooking | null>(null);
+  const [editSchedule, setEditSchedule] = useState<PartnerSchedule | null>(null);
+  const [editEvent, setEditEvent] = useState<PersonalEvent | null>(null);
+
+  // 月表は前後の月の日が並ぶので、その月ちょうどで引くと端の列が空になる（PC と同じ理由）
+  const { from, to } = useMemo(() => {
+    const first = `${anchor}-01`;
+    return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
+  }, [anchor]);
+
+  const cal = useCalendarEvents(from, to, { layers, roomIds: [], userIds: [] });
+
+  const toggleLayers = (next: Record<CalLayer, boolean>) => {
+    setLayers(next);
+    saveLayers(next);
+  };
+
+  const pickDay = (d: string) => { setSelected(d); setAnchor(d.slice(0, 7)); };
+  const stepMonth = (dir: 1 | -1) => setAnchor(addMonths(`${anchor}-01`, dir).slice(0, 7));
+
+  const monthTitle = `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
+  const prevLabel = `${Number(addMonths(`${anchor}-01`, -1).slice(5, 7))}月`;
+
+  const selLabel = useMemo(() => {
+    const dow = DOW[new Date(`${selected}T00:00:00`).getDay()];
+    return `${Number(selected.slice(5, 7))}月${Number(selected.slice(8))}日（${dow}）${selected === today ? '・今日' : ''}`;
+  }, [selected, today]);
+
+  const dayList = useMemo(() => sortForList(eventsOn(cal.events, selected)), [cal.events, selected]);
+
+  const lead = useMemo(() => {
+    const show = { studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal };
+    const keys: CalLayer[] = ['studio', 'partner', 'my'];
+    const on = keys.filter((k) => show[k] && layers[k]).length;
+    const all = keys.filter((k) => show[k]).length;
+    return `${cal.events.length} 件 ・ 出しているもの ${on}／${all}`;
+  }, [cal.events, cal.can, layers]);
+
+  /** 予約を作るダイアログが要る拠点と部屋の一覧（PC と同じ） */
+  const locations = useQuery({
+    queryKey: ['studio-locations'],
+    queryFn: async () => (await api.get('/studios/locations')).data.data,
+    staleTime: 5 * 60_000,
+    enabled: cal.can.studio,
   });
 
-  const rows = useMemo(() => {
-    const all = q.data ?? [];
-    return all.filter((b) => {
-      // **前の日から続いていて「今日の 0:00 ちょうど」に終わるものは出さない。**
-      // 日付の範囲で引くので返ってくるが、今日は1分も使っていない
-      // （出すと `〜00:00 / 0h` という読めない行になる）
-      if (isAllDay(b) || b.start_time.slice(0, 10) >= day) return true;
-      return clipToDay(b, day).to > 0;
-    }).sort((a, b) => {
-      // 終日を先頭に。時間の幅を持たないので「いつ」で並べられない
-      const aa = isAllDay(a) ? 1 : 0, bb = isAllDay(b) ? 1 : 0;
-      if (aa !== bb) return bb - aa;
-      return clipToDay(a, day).from - clipToDay(b, day).from;
-    });
-  }, [q.data, day]);
+  const open = (key: string) => {
+    const [kind, ...rest] = key.split('-');
+    const id = rest.join('-');
+    if (kind === 'bk') { const b = cal.bookings.find((x) => x.id === id); if (b) setDetail(b); }
+    if (kind === 'ps') { const s = cal.partners.find((x) => x.id === id); if (s) setEditSchedule(s); }
+    if (kind === 'pe') { const e = cal.mine.find((x) => x.id === id); if (e) setEditEvent(e); }
+  };
 
-  /**
-   * **その日に出す機材と、その日に返る機材。**
-   * `planned_out_date` / `due_date` はどちらも日付だけなので、時刻の列には混ぜられません
-   * （混ぜると「0:00 に出庫」と読める）。予約の並びとは別の塊にします。
-   */
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
+    onSuccess: () => {
+      invalidateBookingQueries(qc);
+      setDetail(null);
+      notifySuccess('予約を消しました');
+    },
+    onError: (e) => notifyApiError('消せませんでした', e),
+  });
+
+  /** その日に出す機材と、その日に返る機材。選んだ日に連動させる */
   const eq = useQuery({
-    queryKey: ['equipment-lendings', 'day', day],
+    queryKey: ['equipment-lendings', 'day', selected],
     enabled: canEquipment,
     queryFn: async () => {
       const [planned, lent] = await Promise.all([
         api.get('/equipment/lendings', { params: { status: 'planned' } }),
         api.get('/equipment/lendings', { params: { status: 'lent' } }),
       ]);
-      const out = (planned.data.data as Lending[]).filter((r) => (r.planned_out_date ?? '').slice(0, 10) === day);
-      const back = (lent.data.data as Lending[]).filter((r) => (r.due_date ?? '').slice(0, 10) === day);
+      const out = (planned.data.data as Lending[]).filter((r) => (r.planned_out_date ?? '').slice(0, 10) === selected);
+      const back = (lent.data.data as Lending[]).filter((r) => (r.due_date ?? '').slice(0, 10) === selected);
       return { out, back };
     },
   });
 
-  const shift = (n: number) => {
-    const d = new Date(`${day}T00:00:00`);
-    d.setDate(d.getDate() + n);
-    setDay(localDateStr(d));
-  };
-
   return (
-    <div className="flex flex-col gap-3.5 p-3">
+    <div className="flex flex-col gap-3 p-3">
       <PageHeader
-        title="今日の予約"
-        sub={`${day}${day === today ? '（今日）' : ''} ・ ${rows.length}件`}
-        primaryAction={
-          <Button className="w-full sm:w-auto" onClick={() => navigate('/studio/rooms')}>
-            部屋の空きを見る<ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
-          </Button>
-        }
+        title="予定"
+        sub={`スタジオの予約・パートナーの予定・自分の予定を1枚で見ます。${lead}`}
+        primaryAction={(canStudioEdit || canPartnerEdit) ? (
+          <Button onClick={() => setChooserOpen(true)}>予定を入れる</Button>
+        ) : undefined}
       />
 
-      <div className="flex items-center gap-1.5">
-        <Button variant="outline" size="icon" aria-label="前の日" onClick={() => shift(-1)}>
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        </Button>
-        <Button variant="outline" className="min-w-0 flex-1" onClick={() => setDay(today)}>今日</Button>
-        <Button variant="outline" size="icon" aria-label="次の日" onClick={() => shift(1)}>
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </Button>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => stepMonth(-1)}
+            className="min-h-tap text-note flex items-center gap-0.5 rounded-note px-1 font-bold text-primary"
+          >
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />{prevLabel}
+          </button>
+          <span className="flex-1" />
+          <Button variant="outline" size="sm" onClick={() => pickDay(today)}>今日</Button>
+          <Button variant="outline" size="icon" aria-label="次の月" onClick={() => stepMonth(1)}>
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <h2 className="text-h1 min-w-0 flex-1 [overflow-wrap:anywhere]">{monthTitle}</h2>
+          <Button
+            variant="outline" size="icon" aria-label="出すものを選ぶ"
+            onClick={() => setLayerFilterOpen(true)}
+          >
+            <Layers className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
 
-      {q.isError ? (
-        <ErrorPanel title="予約を読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />
-      ) : q.isLoading ? (
-        <Delayed><SkeletonRows rows={4} /></Delayed>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
-          title="この日の予約はありません"
-          description="「部屋の空きを見る」で空いている時間を確かめられます。"
-        />
+      {cal.isError ? (
+        <ErrorPanel title="予定を読み込めませんでした" error={cal.error} onRetry={cal.refetch} />
       ) : (
-        // 読み込みの枠から中身に入れ替わる瞬間が「パッ」と出ていた（モックの `cardIn`）
+        <MobileMonthGrid
+          anchor={`${anchor}-01`} today={today} selected={selected}
+          events={cal.events} holidays={cal.holidays} onPickDay={pickDay}
+        />
+      )}
+
+      <div className="h-px bg-border" />
+
+      <h2 className="text-cardtitle">{selLabel}</h2>
+
+      {cal.isLoading && cal.events.length === 0 ? (
+        <Delayed><SkeletonRows rows={3} /></Delayed>
+      ) : dayList.length === 0 ? (
+        <EmptyState title="この日の予定はありません" description="上の「今日」で今日に戻れます。レイヤーのアイコンで出すものを選べます。" />
+      ) : (
         <ul className="v4-card-in flex flex-col gap-2">
-          {rows.map((b) => {
-            const k = KIND[b.booking_type ?? 'other'] ?? KIND.other;
-            const allDay = isAllDay(b);
-            const { from, to } = clipToDay(b, day);
-            // **前の日から続いているものを「今日の時刻」で書かない**
-            const carried = !allDay && b.start_time.slice(0, 10) < day;
-            return (
-              <li key={b.id} className="rounded-card border border-border bg-card p-3.5">
-                <div className="flex items-start gap-3">
-                  <span className="w-[52px] shrink-0">
-                    <span className="font-number text-list block">
-                      {allDay ? '終日' : carried ? '〜' + hhmm(b.end_time) : hhmm(b.start_time)}
-                    </span>
-                    {!allDay && !carried && (
-                      <span className="font-number text-note block text-muted-foreground">
-                        {Math.round((to - from) / 6) / 10}h
-                      </span>
-                    )}
+          {dayList.map((e) => (
+            <li key={e.key}>
+              <button
+                type="button"
+                onClick={() => open(e.key)}
+                className={cn(
+                  'rounded-note flex w-full items-start gap-2.5 border bg-card p-3 text-left [overflow-wrap:anywhere]',
+                  e.tentative ? 'border-dashed' : 'border-border',
+                )}
+                style={{ borderColor: e.tentative ? e.color : undefined }}
+              >
+                <span className="w-[3px] shrink-0 self-stretch rounded-chip" style={{ backgroundColor: e.color }} />
+                <span className="text-note w-16 shrink-0 pt-px font-bold text-muted-foreground">
+                  {timeLabel(e)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="text-list block">{e.title}</span>
+                  {e.sub && <span className="text-note mt-0.5 block text-muted-foreground">{e.sub}</span>}
+                </span>
+                {e.typeLabel && (
+                  <span
+                    className="text-badge shrink-0 rounded-badge px-1.5 py-0.5 font-bold"
+                    style={{ backgroundColor: `${e.color}1a`, color: e.color }}
+                  >
+                    {e.typeLabel}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <span className={cn('rounded-badge border px-1.5 py-0.5 text-badge', k.cls)}>{k.label}</span>
-                      {b.status === 'tentative' && (
-                        <span className="rounded-badge border border-dashed border-border px-1.5 py-0.5 text-badge text-muted-foreground">
-                          まだ決まっていません
-                        </span>
-                      )}
-                      {carried && (
-                        <span className="text-badge text-muted-foreground">前の日から続いています</span>
-                      )}
-                    </span>
-                    <span className="text-list block [overflow-wrap:anywhere]">{b.title}</span>
-                    <span className="text-note mt-0.5 block text-muted-foreground">
-                      {[
-                        (b.rooms ?? []).map((r) => r.room_abbreviation || r.room_name).filter(Boolean).join('・'),
-                        b.location_note,
-                        b.gls_number,
-                        b.project_name,
-                      ].filter(Boolean).join(' ／ ') || '部屋の指定なし'}
-                    </span>
-                  </span>
-                </div>
-              </li>
-            );
-          })}
+                )}
+              </button>
+            </li>
+          ))}
         </ul>
       )}
 
@@ -236,10 +269,54 @@ export function MobileToday() {
         </section>
       ) : null}
 
-      {/* 帯は共通部品（`client-v4/pcOnly`）。文面と見た目を10か所に散らさない */}
-      <PcOnlyNote
-        what="予約を作るの"
-        why="部屋・時間・案件・用途を決める作業なので、この画面では見るだけにしています。空いている時間は「部屋の空き」で確かめられます。"
+      <Button variant="outline" onClick={() => navigate('/studio/rooms')}>
+        <DoorOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />部屋の空きを見る
+      </Button>
+
+      <LayerFilterDialog open={layerFilterOpen} onOpenChange={setLayerFilterOpen} value={layers} onChange={toggleLayers} />
+
+      <NewEventChooser
+        open={chooserOpen} onOpenChange={setChooserOpen}
+        allow={{ room: canStudioEdit, mine: canPartnerEdit, partner: canPartnerEdit }}
+        onPick={setNewKind}
+      />
+
+      <StudioBookingDialog
+        open={newKind === 'room'}
+        onOpenChange={(v) => !v && setNewKind(null)}
+        locations={locations.data ?? []}
+        editingBooking={null}
+        presetDate={{ start: selected, end: selected, allDay: false }}
+      />
+
+      <PartnerScheduleDialog
+        open={newKind === 'partner' || !!editSchedule}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); } }}
+        editing={editSchedule}
+        presetRange={editSchedule ? null : { start: selected, end: selected }}
+        isManager={isPartnerManager}
+      />
+
+      <PersonalEventDialog
+        open={newKind === 'mine' || !!editEvent}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); } }}
+        editing={editEvent}
+        presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
+      />
+
+      {/* スタジオ予約は**読むだけ**。直すのはスタジオカレンダー（作る導線がそこにある） */}
+      <StudioBookingDetailDialog
+        open={!!detail}
+        onOpenChange={(v) => !v && setDetail(null)}
+        booking={detail as never}
+        onEdit={() => { /* この画面では直さない */ }}
+        onDelete={(id) => confirmAction({
+          title: 'この予約を消しますか',
+          description: '押さえていた部屋が空きになります。取り消せません。',
+          confirmLabel: '消す', tone: 'danger',
+        }).then((ok) => ok && del.mutate(id))}
+        canEdit={false}
+        canDelete={canDeleteBooking}
       />
     </div>
   );

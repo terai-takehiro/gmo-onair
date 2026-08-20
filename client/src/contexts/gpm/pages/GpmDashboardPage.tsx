@@ -42,7 +42,7 @@ function daysSince(iso: string, today: string): number {
 export default function GpmDashboardPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('gpm', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
 
   const { today, weekEnd } = useMemo(() => {
     const now = new Date();

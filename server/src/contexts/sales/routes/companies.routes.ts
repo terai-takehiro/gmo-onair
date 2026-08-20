@@ -97,7 +97,7 @@ async function hasPermission(
 router.get('/', requirePermission('sales'), async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const role = req.query.role as string; // 'customer' | 'vendor' | 'both'
-  const canReadBudget = await hasPermission(req, 'budget', 'reader');
+  const canReadBudget = await hasPermission(req, 'sales', 'reader');
 
   let where = 'WHERE co.deleted_at IS NULL';
   const params: unknown[] = [];
@@ -174,7 +174,7 @@ router.get('/', requirePermission('sales'), async (req, res) => {
 
 // ─── 詳細 ────────────────────────────────────────────────────────────────────
 router.get('/:id', requirePermission('sales'), async (req, res) => {
-  const canReadBudget = await hasPermission(req, 'budget', 'reader');
+  const canReadBudget = await hasPermission(req, 'sales', 'reader');
   const row = await queryOne(
     `SELECT co.*,
        (CASE WHEN co.is_customer THEN co.id END) as customer_id,
@@ -251,7 +251,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     customer_closing_day, customer_payment_months, customer_payment_day,
     vendor_payment_months, vendor_payment_day,
   } = validatePaymentTerms(req.body ?? {});
-  const canEditBudget = await hasPermission(req, 'budget', 'editor');
+  const canEditBudget = await hasPermission(req, 'sales', 'editor');
   if (is_vendor && !canEditBudget) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
   }
@@ -316,7 +316,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
     is_gmo_group,
   } = req.body;
-  const canEditBudget = await hasPermission(req, 'budget', 'editor');
+  const canEditBudget = await hasPermission(req, 'sales', 'editor');
   /**
    * ⚠️ **`vendor_type !== undefined` / `invoice_registration_number !== undefined`
    * を条件から外した**（レビューで発見）。取引先マスターのフォーム

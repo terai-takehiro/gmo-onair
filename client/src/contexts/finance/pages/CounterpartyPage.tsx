@@ -101,7 +101,7 @@ export default function CounterpartyPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
   const isMobile = useIsMobile();
 
   const kind: Kind = params.get('tab') === 'partner' ? 'partner' : 'vendor';

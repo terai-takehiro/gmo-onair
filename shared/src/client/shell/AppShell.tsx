@@ -43,6 +43,7 @@ import { useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '../../client-v4/mobile';
 import { PrimaryActionSlotContext } from './primaryAction';
+import { SideMenuTopSlotContext } from './sideMenuSlot';
 import { NoticeBar } from '../ui/notice';
 import { ConfirmHost } from '../ui/confirm';
 import ManualModal from '../manual/ManualModal';
@@ -103,6 +104,8 @@ export function AppShell({
   // 差し込み口は「ref」ではなく state で受ける。ref のままだと最初の描画で
   // まだ DOM が無く、子 (PageHeader) が描き直されないので何も出ない
   const [actionSlot, setActionSlot] = useState<HTMLDivElement | null>(null);
+  // 左メニュー上の差し込み口も同じ理由で state（`sideMenuSlot.ts`）
+  const [sideMenuTopSlot, setSideMenuTopSlot] = useState<HTMLDivElement | null>(null);
 
   const label = appLabel ?? APP_BY_KEY[appKey]?.label ?? 'ONAiR';
   const hasMenu = sections.length > 0;
@@ -164,6 +167,7 @@ export function AppShell({
             sections={sections}
             note={note}
             mobileHiddenPaths={mobileHiddenPaths}
+            topSlotRef={setSideMenuTopSlot}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
             role={role}
@@ -176,11 +180,13 @@ export function AppShell({
               下にスクロールしているときに気づけない */}
           <NoticeBar />
           <PrimaryActionSlotContext.Provider value={actionSlot}>
-            {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
-                まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
-            <div key={pathname} className="v4-screen-in">
-              {children}
-            </div>
+            <SideMenuTopSlotContext.Provider value={sideMenuTopSlot}>
+              {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
+                  まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
+              <div key={pathname} className="v4-screen-in">
+                {children}
+              </div>
+            </SideMenuTopSlotContext.Provider>
           </PrimaryActionSlotContext.Provider>
         </main>
       </div>

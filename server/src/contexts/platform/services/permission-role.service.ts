@@ -5,38 +5,35 @@
  *
  * 役割そのものは**判定に一切使われません**。役割を人に押すと
  * `user_permissions` の行が書き換わり、判定はいままでどおり
- * `requirePermission` が `user_permissions` だけを見ます
- * （311 か所の判定を 1 か所も触らないための作り。migration 174 に理由）。
+ * `requirePermission` が `user_permissions` だけを見ます。
  *
- * ── 型が触ってよい区画を固定する ────────────────────────────
+ * ── 権限モデル単純化（この版）────────────────────────────────
  *
- * 「役割が持っていない区画は消す」を素直に書くと、**凍結4アプリの権限が
- * 役割を押した瞬間に消えます**（どの役割も凍結アプリを持たないため）。
- * Qシートや リアルタイムCG は放送で使うので、消えると本番が止まります。
+ * 以前は区画が12（`sales`/`budget`/`gpm`/`studio`/`partner_schedule`/
+ * `equipment`/`dailyops`/`admin`/`qsheet`/`techsheet`/`liveops`/`awards`）
+ * あり、型が触るのはそのうち凍結4アプリを除いた8つだけだった
+ * （足すと役割を押すだけで放送系の権限が消えるため、あえて対象外にしていた）。
  *
- * そこで型が触る区画を `ROLE_MODULES` に固定します。
- *   - `ROLE_MODULES` の中 … 役割が持つ = その段で上書き、持たない = 消す
- *   - `ROLE_MODULES` の外 … **一切触らない**（凍結4アプリはここ）
+ * ユーザーの指示（「アプリ単位で使える／使えないでいい」・「型だけにして
+ * 個別の例外は廃止していい」）を受け、
+ *   - `sales`/`budget`/`gpm`/`studio`/`partner_schedule` を `sales` へ統合
+ *   - `admin`（権限とメンバーの管理）は区画そのものを廃止し、
+ *     `system_admin` ロールだけに絞った（`requireRole('system_admin')`）
+ *   - 個人ごとの例外編集（`UserPermissionsDialog`）を廃止し、型だけにした
+ *   - 型が凍結4アプリも面倒を見るようにした（`ROLE_MODULES` に追加）。
+ *     「フルアクセス」型がすべての区画を manager で持つため、
+ *     型を押しても凍結アプリの権限が消える心配が無くなった
  *
- * 「役割が持っていないから消す」ではなく「型の担当範囲だから消す」に
- * することで、範囲外が巻き込まれません。
+ * 詳細は `docs/reviews/permission-model-simplification-plan.md`。
+ * 移行データの扱いは migration 210 を参照。
  */
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
-/**
- * 型が面倒を見る区画。**`UserListPage.tsx` の PERM_MODULES から
- * 凍結4アプリを除いたもの**。
- *
- * ここに凍結アプリ (`qsheet` / `techsheet` / `liveops` / `awards`) を
- * 足してはいけません。足すと役割を押すだけで放送系の権限が消えます。
- */
+/** 型が面倒を見る区画。ブロックアプリ単位の7つ（凍結4アプリを含む） */
 export const ROLE_MODULES = [
-  'sales', 'budget', 'gpm', 'studio', 'partner_schedule', 'equipment', 'dailyops', 'admin',
+  'sales', 'equipment', 'dailyops', 'qsheet', 'techsheet', 'liveops', 'awards',
 ] as const;
-
-/** 型が絶対に触らない区画（説明のために名前で持つ。判定には使わない） */
-export const ROLE_UNTOUCHED_MODULES = ['qsheet', 'techsheet', 'liveops', 'awards'] as const;
 
 export type RoleLevel = 'reader' | 'editor' | 'manager';
 
@@ -93,9 +90,8 @@ export async function getRole(id: string): Promise<PermissionRole | null> {
 }
 
 /**
- * 型の中身を保存する。**`ROLE_MODULES` の外は捨てます** —
- * 画面から凍結アプリを型に入れられると、押した人の放送系の権限が
- * 型の言うとおりに書き換わってしまうため。
+ * 型の中身を保存する。**`ROLE_MODULES` に無い区画は捨てます**
+ * （`admin` など、型では扱わなくなった区画が紛れ込むのを防ぐ）。
  */
 export async function setRoleModules(roleId: string, modules: Record<string, string>): Promise<void> {
   await execute('DELETE FROM permission_role_modules WHERE role_id = ?', [roleId]);
@@ -150,10 +146,10 @@ export async function applyRoleToUser(userId: string, roleId: string): Promise<s
 /**
  * その人の権限が、押してある型とずれているか。
  *
- * 型を押したあとに個別で直すのは**認めている**（「この人だけ例外」）ので、
- * ずれ自体は異常ではありません。ただし黙っていると
- * 「役割を見れば分かる」と思い込んだまま実際は違う、が起きるので画面に出します。
- * **凍結4アプリは型の範囲外なので、ずれの判定に入れません。**
+ * 個人ごとの例外編集は廃止したので、通常はずれません。それでもこの関数を
+ * 残してあるのは、①移行（migration 210）で自動生成された型がその人の
+ * 実際の権限と一致しているかの確認、②将来 DB を直接いじった場合の
+ * 診断用。凍結4アプリも `ROLE_MODULES` に含まれるので判定対象になる。
  */
 export async function roleDrift(userId: string, roleId: string): Promise<string[]> {
   const role = await getRole(roleId);

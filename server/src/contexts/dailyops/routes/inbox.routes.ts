@@ -18,20 +18,23 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
  * その結果、**請求書が届いているのに支払う側の経理が開けません**でした
  * (実測: budget editor の利用者が 403)。
  *
- * v4 で画面を財務へ移したので、`dailyops` か `budget` のどちらかで通します。
+ * v4 で画面を財務へ移したので、`dailyops` か `sales` のどちらかで通します
+ * （`budget` は権限モデル単純化で `sales` に統合された。
+ * docs/reviews/permission-model-simplification-plan.md）。
  * **いま見られる人は見られたまま**、経理が見られるようになります。
  */
-const docsRead = [requireAuth, requireAnyPermission(['dailyops', 'budget'], 'reader')] as const;
-const docsEdit = [requireAuth, requireAnyPermission(['dailyops', 'budget'], 'editor')] as const;
+const docsRead = [requireAuth, requireAnyPermission(['dailyops', 'sales'], 'reader')] as const;
+const docsEdit = [requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor')] as const;
 /**
  * **台帳（仕入・販管費）に行を作る操作。** 受け取った書類を見る・直すのは
- * `dailyops` でよいが、**お金の台帳に書くのは `budget` の編集権限**が要る
- * （`purchases.routes` / `sga.routes` の作成口はどちらも `budget:editor`）。
+ * `dailyops` でよいが、**お金の台帳に書くのは `sales`（旧 `budget`）の
+ * 編集権限**が要る（`purchases.routes` / `sga.routes` の作成口はどちらも
+ * `sales:editor`）。
  *
  * ⚠️ ここを `docsEdit` のままにすると、**`dailyops` だけの人が
  * 仕入・販管費に直接行を作れます**（台帳側の口は閉まっているのに、こちらから入れる）。
  */
-const ledgerWrite = [requireAuth, requirePermission('budget', 'editor')] as const;
+const ledgerWrite = [requireAuth, requirePermission('sales', 'editor')] as const;
 
 // ── アラート集計 (案件管理ホーム用: 未処理の見積/請求 + 未対応の問い合わせ 件数) ──
 router.get('/alerts', ...canRead, async (_req, res) => {

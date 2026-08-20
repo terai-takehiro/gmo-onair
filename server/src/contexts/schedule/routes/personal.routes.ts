@@ -18,10 +18,11 @@ import {
 // 個人予定 (source='manual') は本人のみが起点だが、personal_event_shares で共有された
 // メンバーにも表示され、共有メンバーは内容を編集できる (予定自体の削除は作成者のみ)。
 // ICS/Google/Outlook 同期分は本人のみ・読み取り専用 (外部側で編集)。
-// 権限: partner_schedule / editor (マイカレンダーの利用 = 記入を伴うため editor 基準)。
+// 権限: sales / editor (マイカレンダーの利用 = 記入を伴うため editor 基準。
+// 旧 partner_schedule は権限モデル単純化で sales に統合済み)。
 
 const router = Router();
-const canUse = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
+const canUse = [requireAuth, requirePermission('sales', 'editor')] as const;
 
 // ─── 外部カレンダーへの書き戻し (連携済みに自動・Google 優先。best-effort) ─────────
 

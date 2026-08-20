@@ -25,7 +25,7 @@ import {
 // google-oauth.routes と対称。callback は requireAuth のみ (cookie 認証、CSRF は state)。
 
 const router = Router();
-const canUse = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
+const canUse = [requireAuth, requirePermission('sales', 'editor')] as const;
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function signState(userId: string): string {

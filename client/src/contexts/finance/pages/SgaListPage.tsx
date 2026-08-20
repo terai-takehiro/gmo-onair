@@ -63,7 +63,7 @@ function sgaState(item: SgaExpense): LedgerRow['state'] {
 
 export default function SgaListPage() {
   const { currentUser, hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
   const [searchParams] = useSearchParams();
 
   const [chip, setChip] = useState('all');
