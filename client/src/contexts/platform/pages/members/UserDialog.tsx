@@ -16,9 +16,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -79,118 +77,107 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        {inviteUrl ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>招待のリンク</DialogTitle>
-              <DialogDescription>この URL を本人に渡してください（7日間だけ使えます）。</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3">
-              <p className="text-sub flex items-center gap-2 text-success">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーをつくりました
-              </p>
-              <p className="rounded-note text-note select-all break-all bg-muted px-3.5 py-3">{inviteUrl}</p>
-              <Button className="w-full" onClick={() => navigator.clipboard.writeText(inviteUrl)}>
-                <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />URL をコピーする
-              </Button>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={inviteUrl ? '招待のリンク' : (user ? 'メンバーを直す' : 'メンバーを招く')}
+      sub={inviteUrl
+        ? 'この URL を本人に渡してください（7日間だけ使えます）。'
+        : (user ? '名前・メール・役割を直します。' : '招待のリンクを出します。役割はここで決められます。')}
+      footer={inviteUrl ? (
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
+        </FormDialogFooter>
+      ) : (
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {user ? '保存する' : '招待する'}
+          </Button>
+        </FormDialogFooter>
+      )}
+    >
+      {inviteUrl ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sub flex items-center gap-2 text-success">
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーをつくりました
+          </p>
+          <p className="rounded-note text-note select-all break-all bg-muted px-3.5 py-3">{inviteUrl}</p>
+          <Button className="w-full" onClick={() => navigator.clipboard.writeText(inviteUrl)}>
+            <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />URL をコピーする
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label htmlFor="u-name">氏名</Label>
+            <Input id="u-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div>
+            <Label htmlFor="u-mail">メール</Label>
+            <Input id="u-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+
+          <div>
+            <Label>役割</Label>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {roles.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRoleId(r.id)}
+                  className={cn(
+                    'rounded-note min-h-tap flex items-center gap-2.5 border px-3 py-2 text-left',
+                    roleId === r.id ? 'border-primary bg-primary-surface' : 'border-border bg-card',
+                  )}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="text-list block">{r.name}</span>
+                    <span className="text-note block text-muted-foreground">{r.description}</span>
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setRoleId(null)}
+                className={cn(
+                  'rounded-note min-h-tap border px-3 py-2 text-left',
+                  roleId === null ? 'border-primary bg-primary-surface' : 'border-border bg-card',
+                )}
+              >
+                <span className="text-list block">役割を決めない</span>
+                <span className="text-note block text-muted-foreground">
+                  権限は 0 のままです。あとから役割を選び直してください
+                </span>
+              </button>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>{user ? 'メンバーを直す' : 'メンバーを招く'}</DialogTitle>
-              <DialogDescription>
-                {user ? '名前・メール・役割を直します。' : '招待のリンクを出します。役割はここで決められます。'}
-              </DialogDescription>
-            </DialogHeader>
+          </div>
 
-            <form
-              className="flex flex-col gap-4"
-              onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-            >
-              <div>
-                <Label htmlFor="u-name">氏名</Label>
-                <Input id="u-name" value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div>
-                <Label htmlFor="u-mail">メール</Label>
-                <Input id="u-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-
-              <div>
-                <Label>役割</Label>
-                <div className="mt-1.5 flex flex-col gap-1.5">
-                  {roles.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setRoleId(r.id)}
-                      className={cn(
-                        'rounded-note min-h-tap flex items-center gap-2.5 border px-3 py-2 text-left',
-                        roleId === r.id ? 'border-primary bg-primary-surface' : 'border-border bg-card',
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="text-list block">{r.name}</span>
-                        <span className="text-note block text-muted-foreground">{r.description}</span>
-                      </span>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setRoleId(null)}
-                    className={cn(
-                      'rounded-note min-h-tap border px-3 py-2 text-left',
-                      roleId === null ? 'border-primary bg-primary-surface' : 'border-border bg-card',
-                    )}
-                  >
-                    <span className="text-list block">役割を決めない</span>
-                    <span className="text-note block text-muted-foreground">
-                      権限は 0 のままです。あとから役割を選び直してください
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <Label>システム上の区別</Label>
-                <div className="mt-1.5 flex gap-1.5">
-                  {[
-                    { v: 'staff', l: 'スタッフ', d: '役割と例外のとおりに通ります' },
-                    { v: 'system_admin', l: 'システム管理者', d: 'すべての判定を素通りします' },
-                  ].map((o) => (
-                    <button
-                      key={o.v}
-                      type="button"
-                      onClick={() => setSysRole(o.v)}
-                      className={cn(
-                        'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
-                        sysRole === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
-                      )}
-                    >
-                      <span className="text-list block">{o.l}</span>
-                      <span className="text-note block text-muted-foreground">{o.d}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-                <Button type="submit" disabled={save.isPending}>
-                  {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-                  {user ? '保存する' : '招待する'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          <div>
+            <Label>システム上の区別</Label>
+            <div className="mt-1.5 flex gap-1.5">
+              {[
+                { v: 'staff', l: 'スタッフ', d: '役割と例外のとおりに通ります' },
+                { v: 'system_admin', l: 'システム管理者', d: 'すべての判定を素通りします' },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setSysRole(o.v)}
+                  className={cn(
+                    'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
+                    sysRole === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
+                  )}
+                >
+                  <span className="text-list block">{o.l}</span>
+                  <span className="text-note block text-muted-foreground">{o.d}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </FormDialog>
   );
 }

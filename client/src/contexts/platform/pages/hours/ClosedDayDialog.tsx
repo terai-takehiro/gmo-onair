@@ -17,9 +17,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { AVAILABILITY, type ClosedDay } from './hoursTypes';
@@ -89,16 +87,24 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
   const bad = !!from && !!to && from > to;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{day ? `${day.name} を直す` : '休業日を足す'}</DialogTitle>
-          <DialogDescription>
-            ここで閉じた日は、カレンダーで注意が出ます。<strong className="font-bold">予約は止まりません</strong>。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={day ? `${day.name} を直す` : '休業日を足す'}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button disabled={!from || !name.trim() || bad || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+            保存する
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="flex flex-col gap-4">
+          <p className="text-sub text-muted-foreground">
+            ここで閉じた日は、カレンダーで注意が出ます。<strong className="font-bold">予約は止まりません</strong>。
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="cd-from">はじまり</Label>
@@ -194,15 +200,6 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
             </div>
           )}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button disabled={!from || !name.trim() || bad || save.isPending} onClick={() => save.mutate()}>
-            {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-            保存する
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
