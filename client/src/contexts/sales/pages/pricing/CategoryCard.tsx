@@ -14,30 +14,70 @@
  * `unit_price` が NULL の品目は**その相手には出さない**という意味で、
  * 0円とはまったく別です。`<Money>` は null を「—」にするので、
  * その下に小さく「設定なし」と添えて取り違えを防ぎます。
+ *
+ * ── スマホでは定価・グループ内価格を縦に積む ──────────────────
+ *
+ * PC 専用にしていた理由は「相手ごとの単価が横に並ぶ表で、1桁違うと
+ * 見積の金額が変わります」でした。並びを変えずに幅だけ縮めると、
+ * 375px では2つの金額が隣り合ったまま小さくなるだけでこの心配は消えません。
+ * そこでスマホ幅 (640px 未満) だけ `MobilePriceLine` に切り替え、
+ * ラベル付きで**縦に**積みます（`定価`／`グループ内` を毎回明示）。
+ * PC 用の `Price`（横並びの列）はそのまま残し、`hideOnMobile` で出し分けます。
  */
 import { Pencil, Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
+import { Money, MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import { CalcTypeLabels, type PricingCategory, type PricingItem } from '@/types';
 
 /**
- * 値段の欄。**NULL は「—」ではなく「設定なし」**、0 は「¥0」。
+ * 値段の欄（PC の横並び列）。**NULL は「—」ではなく「設定なし」**、0 は「¥0」。
  *
  * `muted` はグループ内価格用。**2つの金額列が隣り合っている**ので、
  * どちらも同じ濃さだと 1 つの長い数字に見えます (実ブラウザで確認)。
  * 定価を主・グループ内を副にして、目が列を切り分けられるようにします。
+ *
+ * `hideOnMobile` はスマホでの二重表示を防ぐため。**値そのものはスマホでも
+ * `MobilePriceLine` に渡って出ています** — ここを消すとスマホから金額が消えます。
  */
-function Price({ value, width, muted }: { value: number | null | undefined; width: 128; muted?: boolean }) {
+function Price({
+  value, width, muted, hideOnMobile,
+}: { value: number | null | undefined; width: 128; muted?: boolean; hideOnMobile?: boolean }) {
   if (value === null || value === undefined) {
     return (
-      <RowSlot w={width} align="right">
+      <RowSlot w={width} align="right" hideOnMobile={hideOnMobile}>
         <span className="text-sub-sm text-muted-foreground">設定なし</span>
       </RowSlot>
     );
   }
-  return <MoneyCell value={value} width={width} className={muted ? 'text-secondary-foreground' : undefined} />;
+  return (
+    <MoneyCell
+      value={value}
+      width={width}
+      className={cn(hideOnMobile && 'hidden sm:flex', muted && 'text-secondary-foreground')}
+    />
+  );
+}
+
+/**
+ * 値段の欄（スマホの縦積み1行ぶん）。ラベルを添えて「定価」「グループ内」の
+ * 取り違えを防ぐ。NULL/0円の見分け方は `Price` と同じにする（書き写さない
+ * とロジックが2つになり、片方だけ直る不整合が起きるので、判定だけをここに
+ * 複製せず同じ条件式を使う）。
+ */
+function MobilePriceLine({ label, value, muted }: { label: string; value: number | null | undefined; muted?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-sub-sm text-muted-foreground">{label}</span>
+      {value === null || value === undefined ? (
+        <span className="text-sub-sm text-muted-foreground">設定なし</span>
+      ) : (
+        <Money value={value} inline className={muted ? 'text-secondary-foreground' : undefined} />
+      )}
+    </div>
+  );
 }
 
 export function CategoryCard({
@@ -114,12 +154,21 @@ export function CategoryCard({
               <RowMain>
                 <RowTitle>{item.name}</RowTitle>
                 {item.sub_label && <RowSub>{item.sub_label}</RowSub>}
+                {/* スマホでは数え方の列を畳むので、ここに足す (ledger/LedgerRows.tsx と同じ考え方) */}
+                <RowSub className="sm:hidden">{CalcTypeLabels[item.calc_type]}</RowSub>
+                {/* 定価・グループ内価格を縦に積む。**PC の2列(Price)とは別に出す**
+                    (横に縮めるだけでは「隣り合う数字を読み違える」という
+                    PC専用にしていた理由がそのまま残るため) */}
+                <div className="mt-1 flex flex-col gap-0.5 sm:hidden">
+                  <MobilePriceLine label="定価" value={item.unit_price} />
+                  <MobilePriceLine label="グループ内" value={item.group_price} muted />
+                </div>
               </RowMain>
-              <RowSlot w={96}>
+              <RowSlot w={96} hideOnMobile>
                 <span className="text-sub-sm text-muted-foreground">{CalcTypeLabels[item.calc_type]}</span>
               </RowSlot>
-              <Price value={item.unit_price} width={128} />
-              <Price value={item.group_price} width={128} muted />
+              <Price value={item.unit_price} width={128} hideOnMobile />
+              <Price value={item.group_price} width={128} muted hideOnMobile />
               <RowSlot w={128} align="right">
                 {canEditItem && (
                   <span className="flex items-center justify-end gap-1">

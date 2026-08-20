@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { localDateStr } from "@/lib/format";
 import type { DashboardProject, DashboardTask, TaskColumn } from "@/types";
 
 interface Props {
@@ -43,12 +44,11 @@ function barColor(col: TaskColumn | undefined): string {
   return col?.color ?? "#94a3b8";
 }
 
-// ---- urgency for mobile badge ----
-// 期限の近さで色を変える。`text-yellow-700` は白地で薄すぎた (実測 rgb(183,143,0)) ので状態の色トークンへ
-function urgencyClass(due: string | null): string {
+// ---- urgency for mobile badge ---- ⚠️ `today`は`localDateStr()`の日付文字列で渡すこと（時刻を挟んで比べるとJST夜間に誤判定する）
+function urgencyClass(due: string | null, today: string): string {
   if (!due) return "bg-muted text-muted-foreground";
-  const days = diffDays(new Date(), new Date(due));
-  if (days < 0) return "bg-destructive-surface text-destructive";
+  if (due < today) return "bg-destructive-surface text-destructive";
+  const days = diffDays(parseDate(today)!, parseDate(due)!);
   if (days <= 7) return "bg-warning-surface text-warning";
   return "bg-muted text-muted-foreground";
 }
@@ -150,7 +150,7 @@ function MobileGanttView({
               onClick={() => navigate(`/sales/projects/${project.id}/task`)}
               className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
             >
-              <span className="font-semibold text-sm truncate">
+              <span className="min-w-0 font-semibold text-sm truncate"> {/* min-w-0が無いと長い案件名で右の印が枠外に出る */}
                 {project.gls_number ? `${project.gls_number} ` : ""}
                 {project.name}
               </span>
@@ -210,7 +210,7 @@ function MobileGanttView({
                           </span>
                         )}
                         {task.due_date && (
-                          <span className={cn("rounded px-1.5 py-0.5", urgencyClass(task.due_date))}>
+                          <span className={cn("rounded px-1.5 py-0.5", urgencyClass(task.due_date, localDateStr(new Date())))}>
                             〆{fmtDate(new Date(task.due_date))}
                           </span>
                         )}
@@ -244,14 +244,14 @@ function MobileGanttView({
             {unscheduled.map((t) => {
               const col = columns.find((c) => c.id === t.column_id);
               return (
-                <div key={t.id} className="flex items-center gap-2 text-xs">
+                <div key={t.id} className="flex items-center gap-2 text-xs"> {/* 375pxで横はみ出ていたため案件名は上限を決めて縮めた */}
                   <span
                     className="w-1.5 h-1.5 rounded-full shrink-0"
                     style={{ background: barColor(col) }}
                   />
-                  <span className="text-muted-foreground truncate">{t.project_name}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="truncate">{t.title}</span>
+                  <span className="shrink-0 max-w-[40%] truncate text-muted-foreground">{t.project_name}</span>
+                  <span className="shrink-0 text-muted-foreground/40">·</span>
+                  <span className="min-w-0 flex-1 truncate">{t.title}</span>
                 </div>
               );
             })}

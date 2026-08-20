@@ -3,25 +3,22 @@
  *
  * ── 「案件一覧」とは役割が別 ────────────────────────────────
  *
- * `/sales/projects`（案件一覧）は**毎日開いて次の一手を決める画面**で、
- * 1行に4つしか置いていません。**そこに列を足すと毎日使う画面が読めなくなる**ので、
- * 網羅して見る・まとめて直すほうをこの画面に分けました（機材台帳と同じ役割）。
+ * `/sales/projects`（案件一覧）は**毎日開いて次の一手を決める画面**で、1行に4つしか
+ * 置いていません。**そこに列を足すと毎日使う画面が読めなくなる**ので、網羅して見る・
+ * まとめて直すほうをこの画面に分けました（機材台帳と同じ役割）。
  *
- * **同じ口（`GET /projects`）を読みます。** 別の口を作ると、一覧とこの画面で
- * 違う数が出て、どちらが正しいのか誰にも分かりません
- * （v4 でボードを別画面から「見え方」にしたのと同じ理由）。
+ * **同じ口（`GET /projects`）を読みます。** 別の口を作ると、一覧とこの画面で違う数が
+ * 出て、どちらが正しいのか誰にも分かりません（v4 でボードを別画面から「見え方」にしたのと同じ理由）。
  *
- * ── PC 専用 ─────────────────────────────────────────────────
+ * ── PC 専用は一括編集だけ ───────────────────────────────────
  *
- * 列が 20 あり、選んでまとめて書き換える画面です。375px では誤操作のほうが
- * 高く付くので `CLIENT_PC_ONLY` に入れてあります（`src/pcOnlyScreens.ts`）。
- * スマホでは案内と行き先（案件一覧）が出ます。
+ * 升目の選択・編集モード・`BulkEditDialog` は戻せない誤操作になるので PC 専用のまま
+ * （`isMobile` で出し分け）。**閲覧（既定表示9列）はスマホでもカード**（`MobileLedgerCards`）で開ける。
  *
  * ── 権限 ────────────────────────────────────────────────────
  *
  * 読むのは `sales` があれば誰でも。**まとめて直せるのは manager 以上**
- * （サーバーの `PATCH /projects/bulk` がそう止めています）。
- * **権限が無い人にはチェックボックスごと出しません** — 出しても押せば 403 です。
+ * （サーバーの `PATCH /projects/bulk` がそう止めています）。権限が無い人にはチェックボックスごと出しません。
  */
 import { useState } from 'react';
 import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
@@ -31,11 +28,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { ErrorPanel } from '@gmo-onair/shared/src/client/states/ErrorPanel';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { useLedgerState, PAGE_SIZE } from './projectLedger/useLedgerState';
 import { useColumnPrefs } from './projectLedger/useColumnPrefs';
 import { LedgerTable } from './projectLedger/LedgerTable';
+import { MobileLedgerCards } from './projectLedger/MobileLedgerCards';
 import { ColumnPicker } from './projectLedger/ColumnPicker';
 import { BulkEditDialog } from './projectLedger/BulkEditDialog';
 import { IntegrityPanel } from './projectLedger/IntegrityPanel';
@@ -53,6 +52,8 @@ const STAGE_OPTIONS: ProjectStage[] = [
 
 export default function ProjectLedgerPage() {
   const { hasPermission } = useAuth();
+  /** **一括編集は引き続き PC 専用**（ご指示）。閲覧（既定表示9列・`MobileLedgerCards`）だけ開放する */
+  const isMobile = useIsMobile();
   const canBulk = hasPermission('sales', 'manager');
   /**
    * **1件ずつ「直す」画面へ行けるか**（レビューでの指摘 #127）。
@@ -153,15 +154,14 @@ export default function ProjectLedgerPage() {
           </SelectContent>
         </Select>
         <span className="flex-1" />
-        <Button variant="outline" onClick={() => setColsOpen(true)}>
-          <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
-        </Button>
-        {/*
-          **書き出すのは絞り込み全体**（並んでいる行だけではありません）。
-          1ページ 100 件しか出せないので、画面の行を書き出すと
-          101 件目から黙って落ちます（`ledgerCsv.ts` の冒頭）。
-          3つ目に渡すのはファイル名に入れる絞り込みで、**日本語ではなく鍵**（`csv.ts`）
-        */}
+        {/* **スマホでは出さない。** カードは既定表示9列の決め打ちで `prefs.shown` を見ないので、開いても効かない */}
+        {!isMobile && (
+          <Button variant="outline" onClick={() => setColsOpen(true)}>
+            <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
+          </Button>
+        )}
+        {/* **書き出すのは絞り込み全体**（並んでいる行だけだと101件目から黙って落ちる・`ledgerCsv.ts`）。
+            3つ目に渡すのはファイル名に入れる絞り込みで、**日本語ではなく鍵**（`csv.ts`） */}
         <Button
           variant="outline"
           disabled={csv.busy || s.total === 0}
@@ -177,8 +177,7 @@ export default function ProjectLedgerPage() {
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sub text-muted-foreground">
-          {/* **絞り込み全体の件数**（サーバーが数えたもの）。並んだ行を数えると
-              100 件目までしか数えられず「これで全部だ」と読まれる */}
+          {/* **絞り込み全体の件数**（サーバーが数えたもの・並んだ行を数えると「これで全部」と読まれる） */}
           全 <strong className="font-number font-bold text-foreground">{s.total}</strong> 件
           {s.totalPages > 1 && <>（この画面は {s.rows.length} 件・{s.page} / {s.totalPages} ページ）</>}
         </p>
@@ -189,11 +188,11 @@ export default function ProjectLedgerPage() {
         <span className="flex-1" />
 
         {/*
-          ⚠️ **閲覧 / 編集の切り替え**（ご指示）。既定は閲覧です。
-          書き換えは取り消せないので、**読みに来ただけの人が指1本で
-          N 件を書き換えられる**状態にしません。
+          ⚠️ **閲覧 / 編集の切り替え**（ご指示）。既定は閲覧、書き換えは取り消せないので
+          読みに来ただけの人が指1本でN件を書き換えられる状態にしません。
+          **スマホではこの切り替えごと出さない**（`editMode`をtrueにする手段自体が無くなる）
         */}
-        {canBulk && (
+        {canBulk && !isMobile && (
           <div className="flex rounded-control border border-border p-0.5" role="group" aria-label="モード">
             {([
               ['閲覧', false, Eye],
@@ -228,18 +227,15 @@ export default function ProjectLedgerPage() {
             </Button>
           </>
         )}
-        {/* **権限が無い理由を書く。** 何も出ないと「壊れている」と読まれる */}
-        {!canBulk && (
+        {/* **権限が無い理由を書く。** スマホでは出さない — 切り替えボタン自体が無い */}
+        {!canBulk && !isMobile && (
           <span className="text-note text-muted-foreground">
             まとめて直すには案件管理の「管理者」の権限が要ります
           </span>
         )}
       </div>
 
-      {/*
-        **編集モードに入ったことを画面に出す。** 上の小さな切り替えだけだと、
-        いま自分がどちら側にいるか見落とします（取り消せない書き換えができる側です）
-      */}
+      {/* **編集モードに入ったことを画面に出す。** 見落とすと取り消せない書き換えができる側にいることに気づけない */}
       {canEdit && (
         <div className="rounded-note flex items-center gap-2 border border-warning-border bg-warning-surface px-3.5 py-2">
           <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
@@ -276,7 +272,8 @@ export default function ProjectLedgerPage() {
         高さを変えないため、**コピーのボタンは選んでいなくても置き**（押せなくする）、
         `<p>` とボタンの組み合わせを両方の状態で同じにしてあります。
       */}
-      {s.rows.length > 0 && (
+      {/* **升目の選択・コピーの帯はスマホでは出さない。** カードは升目を持たない */}
+      {!isMobile && s.rows.length > 0 && (
         <div
           className={`rounded-note flex flex-wrap items-center gap-2 border px-3.5 py-2 ${
             grid.rangeCount > 0
@@ -340,6 +337,8 @@ export default function ProjectLedgerPage() {
             ? 'このチェックに当たる案件はありません。上の「絞り込みを外す」で全部に戻せます。'
             : '絞り込みを外すか、探す言葉を変えてみてください。'}
         />
+      ) : isMobile ? (
+        <MobileLedgerCards rows={s.rows} /> // 既定表示9列のカード（詳細は同ファイル冒頭コメント）
       ) : (
         <LedgerTable
           rows={s.rows}

@@ -33,7 +33,8 @@ function Dash() {
   return <span className="text-muted-foreground">—</span>;
 }
 
-function num(v: number | string | null | undefined): number {
+/** 金額を数値に直す。**カードでも同じ判定**（0 円と未入力を同じ「—」にする）ので export する */
+export function num(v: number | string | null | undefined): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }

@@ -20,6 +20,15 @@
  * **列幅のドラッグ**を外しました。1画面だけの操作で、他の一覧には無く、
  * 保存もされないので次に開くと元に戻ります（3つの台帳に3つの実装がありました）。
  * 揃った幅を部品側で持つほうが、桁を読み違えずに済みます。
+ *
+ * ── スマホ（640px 未満）── `Row stackOnMobile`（パターンA） ─────
+ *
+ * **金額だけは畳まない。** この台帳の PC 専用の理由は「金額の桁を縦にそろえて
+ * 読む表」なので、`MoneyCell` は `RowMain` の外に残し、スマホでも常に
+ * 右側へ大きく出す（`billing/EstimateRows.tsx` と同じ考え方）。
+ * 相手先・税・計上月・状態の4列は `hideOnMobile` で列ごと消し、代わりに
+ * `RowMain` の2行目（相手先・税・計上月）・3行目（状態）へまとめて縦積みにする
+ * （PC の列と二重に出さない）。
  */
 import { useNavigate } from 'react-router-dom';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
@@ -64,59 +73,63 @@ export function LedgerRows({
         {stateLabel && <RowSlot w={96}>{stateLabel}</RowSlot>}
       </RowHeader>
 
-      {rows.map((r) => (
-        <Row key={r.id} onClick={() => onOpen(r)}>
-          <RowSlot w={96}>
-            <span className="font-number text-sub-sm text-primary">{r.code || '—'}</span>
-          </RowSlot>
+      {rows.map((r) => {
+        // 状態バッジ。PC は右端の列、スマホは RowMain の3行目にそのまま出す
+        // （**同じ挙動**: 押すと**その状態を変えられる画面**へ行く。ここでは変えられない
+        //  = 同じ数字を2か所から書き換えられると、どちらが正か分からなくなる）
+        const stateBadge = r.state ? (
+          r.state.to ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); navigate(r.state!.to!); }}
+              title={r.state.title}
+            >
+              <TableBadge label={r.state.label} w={null} className={STATE_TONE[r.state.tone]} />
+            </button>
+          ) : (
+            <TableBadge label={r.state.label} w={null} className={STATE_TONE[r.state.tone]} />
+          )
+        ) : null;
 
-          <RowMain>
-            <RowTitle>{r.title || '（名称なし）'}</RowTitle>
-            {r.sub && <RowSub>{r.sub}</RowSub>}
-            {/* スマホでは列が畳まれるので、相手先と金額をここに出す */}
-            <RowSub className="sm:hidden">
-              {[r.party, monthOf(r.recognition_date)].filter(Boolean).join(' ・ ')}
-            </RowSub>
-          </RowMain>
-
-          <RowSlot w={160} hideOnMobile>
-            <span className="truncate text-sub text-secondary-foreground">{r.party || '—'}</span>
-          </RowSlot>
-
-          <MoneyCell value={r.amount} width={128} />
-
-          <RowSlot w={56} hideOnMobile>
-            <span className="text-sub-sm text-muted-foreground">{taxShort(r.tax_category)}</span>
-          </RowSlot>
-
-          <RowSlot w={72} hideOnMobile>
-            <span className="font-number text-sub-sm text-muted-foreground">{monthOf(r.recognition_date)}</span>
-          </RowSlot>
-
-          {stateLabel && (
+        return (
+          <Row key={r.id} stackOnMobile onClick={() => onOpen(r)}>
             <RowSlot w={96}>
-              {r.state ? (
-                // 押すと**その状態を変えられる画面**へ行く。ここでは変えられない
-                // (同じ数字を2か所から書き換えられると、どちらが正か分からなくなる)
-                r.state.to ? (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); navigate(r.state!.to!); }}
-                    title={r.state.title}
-                    className="w-full"
-                  >
-                    <TableBadge label={r.state.label} w={null} className={`w-full ${STATE_TONE[r.state.tone]}`} />
-                  </button>
-                ) : (
-                  <TableBadge label={r.state.label} w={null} className={`w-full ${STATE_TONE[r.state.tone]}`} />
-                )
-              ) : (
-                <span className="text-sub-sm text-muted-foreground">—</span>
-              )}
+              <span className="font-number text-sub-sm text-primary">{r.code || '—'}</span>
             </RowSlot>
-          )}
-        </Row>
-      ))}
+
+            <RowMain>
+              <RowTitle>{r.title || '（名称なし）'}</RowTitle>
+              {r.sub && <RowSub>{r.sub}</RowSub>}
+              {/* スマホでは相手先・税・計上月の列が畳まれるので、2行目にまとめて出す */}
+              <RowSub className="sm:hidden">
+                {[r.party, taxShort(r.tax_category), monthOf(r.recognition_date)].filter(Boolean).join(' ・ ')}
+              </RowSub>
+              {/* 状態もスマホでは列が畳まれるので、3行目に出す（PCと同じ部品・同じ挙動） */}
+              {stateLabel && stateBadge && <div className="mt-1 sm:hidden">{stateBadge}</div>}
+            </RowMain>
+
+            <RowSlot w={160} hideOnMobile>
+              <span className="truncate text-sub text-secondary-foreground">{r.party || '—'}</span>
+            </RowSlot>
+
+            <MoneyCell value={r.amount} width={128} />
+
+            <RowSlot w={56} hideOnMobile>
+              <span className="text-sub-sm text-muted-foreground">{taxShort(r.tax_category)}</span>
+            </RowSlot>
+
+            <RowSlot w={72} hideOnMobile>
+              <span className="font-number text-sub-sm text-muted-foreground">{monthOf(r.recognition_date)}</span>
+            </RowSlot>
+
+            {stateLabel && (
+              <RowSlot w={96} hideOnMobile>
+                {stateBadge ?? <span className="text-sub-sm text-muted-foreground">—</span>}
+              </RowSlot>
+            )}
+          </Row>
+        );
+      })}
     </>
   );
 }
