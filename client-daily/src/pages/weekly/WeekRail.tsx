@@ -1,5 +1,5 @@
 /**
- * ウィークリー活動報告 — 左の「週のリスト」 (v4)
+ * ウィークリー活動報告 — 左の「週のリスト」(PC専用) (v4)
  *
  * ── なぜ1画面 (master-detail) にしたか ──────────────────────
  *
@@ -10,8 +10,13 @@
  * 週のリストは左に置いたまま中身だけ差し替える。**URL は `/weekly/:id` のまま**
  * なので、ブックマークもリンクもそのまま生きる。
  *
- * スマホでは横に並べられないので、リストを**上に畳んで横スクロール**にする
- * (縦に積むと、中身に着くまで週のリストを全部スクロールすることになる)。
+ * ── スマホは別部品 ──────────────────────────────────────────
+ *
+ * 以前はここを横スクロールにして流用していたが、それだけでは専用の週ピッカー
+ * になっていなかった（`docs/v4-native-ui-audit-2026-08-20.md` 指摘）。
+ * スマホは `./WeekPickerSheet.tsx`（ボタン + シート）に差し替え済み
+ * （出し分けは `WeeklyDetailPage.tsx` の `useIsMobile()`）。この部品は
+ * 1024px 以上でだけ描かれるので、横スクロールの畳みは不要。
  */
 import { NavLink } from 'react-router-dom';
 import { CheckCircle2, CircleDashed } from 'lucide-react';
@@ -21,7 +26,7 @@ export function WeekRail({ reports, activeId }: { reports: OpsReport[]; activeId
   return (
     <nav
       aria-label="週を選ぶ"
-      className="flex shrink-0 gap-2 overflow-x-auto rounded-card border border-border bg-card p-2 lg:w-[240px] lg:flex-col lg:overflow-x-visible"
+      className="flex w-[240px] shrink-0 flex-col gap-2 overflow-y-auto rounded-card border border-border bg-card p-2"
     >
       {reports.map((r) => {
         const published = r.status === 'published';
@@ -30,7 +35,7 @@ export function WeekRail({ reports, activeId }: { reports: OpsReport[]; activeId
           <NavLink
             key={r.id}
             to={`/weekly/${r.id}`}
-            className={`min-h-tap flex shrink-0 flex-col justify-center rounded-control px-3 py-2 lg:min-h-[46px] ${
+            className={`flex min-h-[46px] flex-col justify-center rounded-control px-3 py-2 ${
               active ? 'bg-primary-surface text-primary' : 'text-foreground hover:bg-muted'
             }`}
           >
