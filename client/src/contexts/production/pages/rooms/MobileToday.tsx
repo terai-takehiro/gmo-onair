@@ -71,10 +71,10 @@ export function MobileToday() {
   const qc = useQueryClient();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
-  const canStudioEdit = isAdmin || hasPermission('studio', 'editor');
-  const canDeleteBooking = isAdmin || hasPermission('studio', 'manager');
-  const isPartnerManager = isAdmin || hasPermission('partner_schedule', 'manager');
-  const canPartnerEdit = isAdmin || hasPermission('partner_schedule', 'editor');
+  const canStudioEdit = isAdmin || hasPermission('sales', 'editor');
+  const canDeleteBooking = isAdmin || hasPermission('sales', 'manager');
+  const isPartnerManager = isAdmin || hasPermission('sales', 'manager');
+  const canPartnerEdit = isAdmin || hasPermission('sales', 'editor');
   const canEquipment = hasPermission('equipment');
 
   const today = ymd(new Date());

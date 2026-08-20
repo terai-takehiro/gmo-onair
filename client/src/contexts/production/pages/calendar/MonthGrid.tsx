@@ -12,11 +12,17 @@ import type { Holiday } from './useCalendarEvents';
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
 export function MonthGrid({
-  anchor, today, events, holidays, onPickDay, onOpen,
+  anchor, today, selected, events, holidays, onPickDay, onOpen,
 }: {
   /** 見ている月の1日 */
   anchor: string;
   today: string;
+  /**
+   * 選んでいる日（PC①予定・macOS 風に作り直した回で追加）。
+   * 押しても画面は動かない — 「予定を入れる」の既定日として使う。
+   * 渡さなければ枠を出さない（旧スタジオ・パートナー・マイの3画面は選択の概念を持たない）
+   */
+  selected?: string;
   events: CalEvent[];
   holidays: Map<string, Holiday>;
   onPickDay: (day: string) => void;
@@ -49,6 +55,7 @@ export function MonthGrid({
             const dow = DOW[new Date(`${day}T00:00:00`).getDay()];
             const rows = sortForList(eventsOn(events, day));
             const isToday = day === today;
+            const isSelected = selected != null && day === selected;
             return (
               <button
                 key={day}
@@ -62,6 +69,8 @@ export function MonthGrid({
                   !inMonth && 'bg-surface-subtle',
                   inMonth && (hol || dow === '日') && 'bg-destructive-surface',
                   inMonth && dow === '土' && !hol && 'bg-info-surface',
+                  // 今日は塗りの丸で示すので、選択の枠は今日以外にだけ付ける（二重に強調しない）
+                  isSelected && !isToday && 'ring-2 ring-inset ring-primary',
                 )}
               >
                 <span className="flex shrink-0 items-center gap-1.5">
