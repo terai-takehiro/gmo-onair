@@ -93,12 +93,20 @@
 
 個別画面を1枚ずつ直すより、GMOの方針（「効くのは部品の側」）どおり共通部品を直すのが先。
 
-1. **`shared/src/client/ui/dialog.tsx` の中央固定モーダルを、スマホでは下シートに倒す。**
-   カレンダー①予定の「部屋を押さえる」だけが自前で下シートを実装しており（`StudioBookingDialog.tsx`
-   の `rounded-t-[20px]` 等の個別実装）、他の全ダイアログ（案件・財務・機材管理・日常業務の
-   登録/編集フォームのほぼ全て）は中央固定モーダルのまま。**この1箇所を直すと `responsive_only`
-   21画面の大半のダイアログが一度にiOSアプリらしくなる**（`client-v4/sheet.tsx` の既存Sheet部品を
-   共通ダイアログのモバイル既定にする方向で検討）
+1. ~~`shared/src/client/ui/dialog.tsx` の中央固定モーダルを、スマホでは下シートに倒す。~~
+   **✅ ほぼ完了（第1・3・4・5バッチ）**（2026-08-20・全体で計6バッチ・並列27エージェント）。
+   v4対象3アプリのCRUDフォームダイアログ（当初把握の76か所）のほぼ全てを
+   `shared/src/client-v4/formDialog.tsx` の `<FormDialog>` へ移行した。残るのは
+   意図して見送った6件のみ（`IntakeLogTab.tsx`・`EquipmentDetailPage.tsx`・
+   `RackLayoutPage.tsx`・`SearchPalette.tsx`・`finance/pages/ledger/RevenueDialog.tsx`・
+   `production/.../BusinessProjectView.tsx` — いずれも表示専用の確認ダイアログか、
+   1400px級の明細テーブルで`wide`の760px上限でも収まらない複合エディタ）。
+   移行過程で `Sheet`/`FormDialog` に `wide`（PC幅760px・opt-in）と `onSubmit`
+   （本文とフッターを1つの`<form>`で束ねてEnterキー送信を復元・opt-in）の
+   2つの土台機能を追加した（詳細は下の完了ログ・`shared/CLAUDE.md`）。
+   カレンダー①予定の「部屋を押さえる」は当初 `StudioBookingDialog.tsx` が
+   自前で下シートを実装していた（`rounded-t-[20px]` 等の個別実装）が、これも
+   第1バッチで `<FormDialog>` に集約済み（下記）。
    - ~~カレンダー①予定の残り6ダイアログをこの土台に統一~~ **✅ 完了（第1バッチ）**（2026-08-20）。
      `shared/src/client-v4/formDialog.tsx`（`<FormDialog>`／`<FormDialogFooter>`）を新設し、
      既存の `<Sheet>` をそのまま土台にした（合成可能な `Dialog`/`DialogContent`/`DialogHeader`
@@ -132,28 +140,20 @@
        propを追加した（本文とフッターを1つの`<form>`で束ねる・opt-in）。
        **以後のバッチは、旧実装が`<form onSubmit>`を使っていた画面ではこの
        `onSubmit`を使うこと**（`shared/CLAUDE.md`に記録済み）
-   - **残り53件**（`grep -rlE "components/ui/dialog['\"]" --include="*.tsx" client
-     client-daily client-equipment` で再洗い出し・引用符を問わない形。表示専用が
-     混じっているので実際に移行対象になるのはこれより少ない見込み）:
-     - **sales(20)**: `sales/components/{CustomerDialog,SimulationDialog}.tsx` /
-       `sales/pages/activityLog/ActivityLogDialog.tsx` /
-       `sales/pages/company/CompanySummaryDialog.tsx` /
-       `sales/pages/flow/ApplyFlowDialog.tsx` / `sales/pages/pricing/PricingDialogs.tsx` /
-       `sales/pages/projectDetail/LostDialog.tsx` /
-       `sales/pages/projectDetail/thread/RecordDialog.tsx` /
-       `sales/pages/projectForm/dialogs/{CategorySwitchDialog,GlsDialog,RelinkDialog}.tsx` /
-       `sales/pages/projectGroup/{GroupFormDialog,PurchaseDialog,RevenueDialog}.tsx` /
-       `sales/pages/projectLedger/{BulkEditDialog,ColumnPicker,PastePlanDialog}.tsx` /
-       `sales/pages/salesReview/TargetDialog.tsx`
-     - **tasks(9)**: `tasks/components/{ColumnDialog,EpisodesPanel,TaskDialog,
-       TemplatePickerDialog}.tsx` / `tasks/components/KanbanView/KanbanColumn.tsx` /
-       `tasks/components/TaskListView/TaskListGroup.tsx` /
-       `tasks/components/intake/IntakeReview.tsx` /
-       `tasks/pages/taskList/AddTaskDialog.tsx`
-     - ⚠️ **前回「54件」としていたのはシングルクォートimportのみを拾う数え方だった。**
-       ダブルクォート込みで数え直すと76件で、正しい残数は53件（sales 20・tasks 9・第4バッチ
-       時点までに片付いた分を除く）。**次に数え直すときも必ず引用符を問わない形**
-      （`grep -rlE "components/ui/dialog['\"]"`）を使うこと
+   - ~~sales(18)・tasks(8)の残り26ファイル~~ **✅ 完了（第5バッチ）**（2026-08-20・
+     並列8エージェント）。案件管理（取引先まわり・活動記録/工程/料金/レビュー・
+     案件詳細・GLS系3件・費用を分け合うグループ・案件台帳）とタスク（カラム/タスク/
+     エピソード/テンプレート・投入確認・タスク追加）を移行。`KanbanColumn.tsx`・
+     `TaskListView/TaskListGroup.tsx`は確認専用ダイアログのみで対象なしと確認して
+     見送り（判断は一貫していた）。`onSubmit`（新設）を`CustomerDialog.tsx`・
+     `PricingDialogs.tsx`の2件で使用し、Enterキー送信を復元。
+     `npx tsc -b client` / `npm run lint` / `npm run test`（1141件）OK。
+   - **A-1 完了。** 残る6件（`IntakeLogTab.tsx`・`EquipmentDetailPage.tsx`・
+     `RackLayoutPage.tsx`・`SearchPalette.tsx`・`finance/pages/ledger/RevenueDialog.tsx`・
+     `production/.../BusinessProjectView.tsx`）は表示専用または1400px級の明細
+     テーブルで、意図して`FormDialog`の対象外とした（次に手を入れるなら
+     `RevenueDialog`系は「wideの上限を超える専用の広いシート」を新設するか
+     どうかの設計判断が要る・急ぎではない）
 2. **`PcOnlyPanel`（PC専用画面をスマホで開いたときの案内）をiOSアプリ風に磨く。**
    `pc_only_justified` 23画面すべてがこの1部品を経由する。「使えません」ではなく「ここはPCで」を
    美しく伝える1箇所の改善で23画面に効く
