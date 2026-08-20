@@ -14,9 +14,7 @@
  * v4 は ① 予定が1本なので、ここから入れられないと**入れる場所が消えます**。
  */
 import { DoorOpen, User, Users } from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 
 export type NewKind = 'room' | 'mine' | 'partner';
 
@@ -37,15 +35,12 @@ export function NewEventChooser({
 }) {
   const items = KINDS.filter((x) => allow[x.k]);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>何の予定を入れますか</DialogTitle>
-          <DialogDescription>
-            部屋を押さえるものと、自分・パートナーの予定は入れ方が違います。ここで選んでから中身を書きます。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="何の予定を入れますか"
+      sub="部屋を押さえるものと、自分・パートナーの予定は入れ方が違います。ここで選んでから中身を書きます。"
+    >
         <div className="flex flex-col gap-2">
           {items.map((x) => (
             <button
@@ -67,7 +62,6 @@ export function NewEventChooser({
             </button>
           ))}
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
