@@ -25,7 +25,7 @@ import {
   outOfBoundsOf, parseCell, toIsoDate, type ParseCtx,
 } from '../../client/src/contexts/sales/pages/projectLedger/editable';
 import {
-  nextFiltersForIssue, type LedgerFilters,
+  nextFiltersForIssue, nextFiltersForCategorySelect, type LedgerFilters,
 } from '../../client/src/contexts/sales/pages/projectLedger/filters';
 
 const ROOT = join(__dirname, '../..');
@@ -72,7 +72,7 @@ describe('① 選んだ升目は、表の中身が入れ替わったら捨てる
 // ───────────────────────────────────────────────────────
 
 describe('② 整合性チェックを押したら GLS の絞り込みを外す', () => {
-  const BASE: LedgerFilters = { search: '', stage: '', glsCategory: 'A', issue: '' };
+  const BASE: LedgerFilters = { search: '', stage: '', glsCategory: 'A', source: '', issue: '' };
 
   it('GLS-B のチェックを押すと、既定の GLS-A が外れる（これが無いと必ず 0 行）', () => {
     const next = nextFiltersForIssue(BASE, 'gls_b_with_classification');
@@ -110,6 +110,42 @@ describe('② 整合性チェックを押したら GLS の絞り込みを外す'
     const page = readCode('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
     expect(page).toMatch(/onPick=\{s\.pickIssue\}/);
     expect(page).not.toMatch(/setFilter\('issue'/);
+  });
+});
+
+// ───────────────────────────────────────────────────────
+// ⑥ 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）
+// ───────────────────────────────────────────────────────
+
+describe('⑥ 分類プルダウンは glsCategory と source を1つの4択として書き換える', () => {
+  const BASE: LedgerFilters = { search: '', stage: '', glsCategory: 'A', source: '', issue: '' };
+
+  it('「旧GLS」を選ぶと source=kessan になり、glsCategory は外れる', () => {
+    const next = nextFiltersForCategorySelect(BASE, 'kessan');
+    expect(next.source).toBe('kessan');
+    expect(next.glsCategory).toBe('');
+  });
+
+  it('旧GLS を選んでいる状態から GLS-B を選ぶと、source が残らない', () => {
+    // 決算取込の行にも GLS-A / GLS-B は付く（migration 203）ので、
+    // source を残したままだと「GLS-B のはずが旧GLSだけ」になる
+    const kessan = nextFiltersForCategorySelect(BASE, 'kessan');
+    const next = nextFiltersForCategorySelect(kessan, 'B');
+    expect(next.glsCategory).toBe('B');
+    expect(next.source).toBe('');
+  });
+
+  it('「どちらも」を選ぶと両方外れる', () => {
+    const kessan = nextFiltersForCategorySelect(BASE, 'kessan');
+    const next = nextFiltersForCategorySelect(kessan, 'all');
+    expect(next.glsCategory).toBe('');
+    expect(next.source).toBe('');
+  });
+
+  it('画面は `pickCategory` を呼ぶ（`setFilter(\'glsCategory\'…)` を直接呼ばない）', () => {
+    const page = readCode('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
+    expect(page).toMatch(/onValueChange=\{\(v\) => s\.pickCategory/);
+    expect(page).not.toMatch(/setFilter\('glsCategory'/);
   });
 });
 

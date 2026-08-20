@@ -22,7 +22,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
 import { DEFAULT_SORT, nextSort, type SortState } from './display';
-import { EMPTY_FILTERS, nextFiltersForIssue, type LedgerFilters } from './filters';
+import { EMPTY_FILTERS, nextFiltersForIssue, nextFiltersForCategorySelect, type LedgerFilters } from './filters';
 
 interface IntegrityResponse { total: number; checks: IntegrityCheck[] }
 
@@ -55,6 +55,13 @@ export function useLedgerState() {
     setSelected(new Set());
   }, []);
 
+  /** 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）を選ぶ。決め方は `nextFiltersForCategorySelect` */
+  const pickCategory = useCallback((value: 'A' | 'B' | 'kessan' | 'all') => {
+    setFilters((f) => nextFiltersForCategorySelect(f, value));
+    setPage(1);
+    setSelected(new Set());
+  }, []);
+
   const goPage = useCallback((p: number) => {
     setPage(p);
     setSelected(new Set());
@@ -82,6 +89,7 @@ export function useLedgerState() {
     search: filters.search || undefined,
     stage: filters.stage || undefined,
     gls_category: filters.glsCategory || undefined,
+    source: filters.source || undefined,
     issue: filters.issue || undefined,
     sort_by: sort.by || undefined,
     sort_dir: sort.by ? sort.dir : undefined,
@@ -162,7 +170,7 @@ export function useLedgerState() {
   });
 
   return {
-    filters, setFilter, pickIssue,
+    filters, setFilter, pickIssue, pickCategory,
     /**
      * 引くときに渡しているもの。**書き出しが同じものを使う**ため外に出している —
      * 書き出し側で組み直すと、絞り込みを1つ足したときに

@@ -11,6 +11,20 @@ export interface LedgerFilters {
   stage: string;
   glsCategory: string;
   /**
+   * 旧GLS（決算取込）の行だけに絞る鍵。**サーバーは前から受けている**
+   * （`kessan_marker IS NOT NULL`・`source=kessan`）が、旧GLS決算取込画面を
+   * 案件台帳へ統合したときは「取込が終わった今は使う理由が無い」と判断して
+   * 画面には持ち込んでいなかった。取込済みの行を後から探したいという声を受けて
+   * 絞り込み欄に足す。値は `''`（絞らない）か `'kessan'`。
+   *
+   * **`glsCategory` とは別の軸。** 決算取込の行にも GLS-A / GLS-B は付く
+   * （migration 203 でバックフィル済）ので、2つを同時に AND で掛けると
+   * 「旧GLS かつ GLS-B」のような意図しない絞り込みになる。1つの見た目上の
+   * プルダウンで4択に見せているが、選ぶたびに `nextFiltersForCategorySelect`
+   * が両方をまとめて書き換え、片方だけ残らないようにしている。
+   */
+  source: string;
+  /**
    * 整合性チェックの鍵（`GET /projects/integrity` の `key`）。
    *
    * ⚠️ **サーバーで絞ります。** 以前この画面は「分類が入っていないものだけ」を
@@ -24,8 +38,25 @@ export interface LedgerFilters {
 
 /** ⚠️ **既定は GLS-A**。この既定が下の `nextFiltersForIssue` の理由そのものです */
 export const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', issue: '',
+  search: '', stage: '', glsCategory: 'A', source: '', issue: '',
 };
+
+/**
+ * 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）を選んだときの絞り込み。
+ *
+ * 見た目は1つのプルダウンだが、中身は `glsCategory` と `source` という
+ * 別々の2つの鍵。ここで両方をまとめて書き換えることで、
+ * 「旧GLS を選んだのに前の GLS-B が残っていて 0 件になる」ような
+ * 取り違えを防ぐ（`nextFiltersForIssue` が issue と glsCategory の
+ * 組み合わせでやっているのと同じ考え方）。
+ */
+export function nextFiltersForCategorySelect(
+  cur: LedgerFilters, value: 'A' | 'B' | 'kessan' | 'all',
+): LedgerFilters {
+  if (value === 'kessan') return { ...cur, glsCategory: '', source: 'kessan' };
+  if (value === 'all') return { ...cur, glsCategory: '', source: '' };
+  return { ...cur, glsCategory: value, source: '' };
+}
 
 /**
  * 整合性チェックを選んだあとの絞り込み。
