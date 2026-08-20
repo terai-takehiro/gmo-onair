@@ -46,7 +46,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { APPS } from '@gmo-onair/shared/src/client/apps';
@@ -60,9 +59,8 @@ import {
 } from '@/contexts/sales/pages/inbox/kinds';
 import { AppTiles, EventTiles, type TileApp } from './home/AppTiles';
 import { MobileAiBar } from './home/MobileAiBar';
-import { WaitingCard } from './home/WaitingCard';
 import { TodayCard } from './home/TodayCard';
-import { MyTasksCard } from './home/MyTasksCard';
+import { TaskHubCard } from './home/TaskHubCard';
 import { Greeting } from './home/Greeting';
 import { Reveal } from './home/Reveal';
 import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
@@ -161,8 +159,12 @@ export default function HomePage() {
     documents: hasPermission('budget') || canSeeDailyops,
   }), [hasPermission, canSeeDailyops]);
   const waitingHref = inboxAllHrefOf(openable)?.href ?? null;
-  // 「期限切れ」の行き先は全案件タスク一覧（`sales` が要る）
-  const overdueHref = canSeeSales ? '/sales/tasks/list' : null;
+  // 「期限切れ」の行き先は日常業務の「タスク・依頼」（`/daily/tasks`）。
+  // ⚠️ **以前は `/sales/tasks/list` に固定していたが、あれは GLS-A の案件タスクだけを
+  // 出す一覧で、`myOverdue`（`/dailyops/tasks/summary` の `overdue`）は個人タスクや
+  // プロジェクト管理のタスクも数えているので食い違っていた**（ユーザー指摘で発覚）。
+  // 求める権限も `sales` ではなく `dailyops`（数字を出している口と同じ）
+  const overdueHref = canSeeDailyops ? '/daily/tasks' : null;
   /** **別バンドルへは素の遷移**（`/daily/` は日常業務アプリ・ルーターでは動けない） */
   const go = (href: string) => {
     if (isCrossApp(href)) window.location.href = href; else navigate(href);
@@ -255,33 +257,22 @@ export default function HomePage() {
             **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない */}
         {!isMobile && canSeeDailyops && <TaskIntakeBox canOpenProject={canSeeSales} />}
 
-        {/* **「自分のタスクを全部ひらく」は残す**（モック）。見出しが無くなったので
-            右端ではなく右揃えの1行にする。スマホでは出さない —
-            `MyTasksCard` の「全部ひらく」と同じ行き先で二重になる。
-            ⚠️ **`sales` も要る。** 行き先の全案件タスク一覧は `sales` を要求するので、
-            `dailyops` だけの人は押すと「権限がありません」の画面に着いていた
-            （レビューでの指摘。`MyTasksCard` の同じリンクも一緒に直した） */}
-        {canSeeDailyops && canSeeSales && !isMobile && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => navigate('/sales/tasks/list')}
-              className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
-            >
-              自分のタスクを全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
-            </button>
-          </div>
-        )}
+        {/* ⚠️ **旧「自分のタスクを全部ひらく」（PC のみ）は削除した。**
+            `わたしのタスク`／`お待たせ中` を1枚の `TaskHubCard` に統合し、
+            カード自身が「全部ひらく」を持つようになったので、
+            外に置いていたこのボタンは常に二重になっていた（M7 のときはスマホだけの
+            二重に気づいて隠していたが、実は PC でも同じ理由で二重だった） */}
 
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>
         ) : (
-          /* **並びは 今日の予定 → わたしのタスク → お待たせ中**（モック `v4-live`）。
-             中身は変えていない — 並べ替えただけ */
-          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
+          /* **並びは 今日の予定 → タスク**（`わたしのタスク`／`お待たせ中` は
+             `TaskHubCard` の中でタブとして並ぶ。中身は変えていない — まとめただけ */
+          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
             {hasPermission('studio') && <TodayCard days={schedule.data} />}
-            {canSeeDailyops && <MyTasksCard />}
-            {(canSeeSales || canSeeDailyops) && <WaitingCard data={inbox.data} can={openable} />}
+            {(canSeeSales || canSeeDailyops) && (
+              <TaskHubCard canSeeDailyops={canSeeDailyops} canSeeSales={canSeeSales} data={inbox.data} can={openable} />
+            )}
           </div>
         )}
       </section>

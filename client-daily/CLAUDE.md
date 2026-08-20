@@ -13,9 +13,16 @@
 | 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,SidePanels,TicketDialog,InquiryDialog}.tsx` |
 | セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
 
-- `pages/TasksPage` は**案件管理へ寄せる**方針（v4 では `/daily/tasks` を案件管理のタスクへ転送）。
-  いまは**そのまま残している** — 案件管理の `contexts/tasks/components/MyTasksSummarySection.tsx`
-  からここへ来る導線があり、先に消すと切れる
+- `pages/TasksPage` は当初「案件管理へ寄せる」方針だったが、**この方針は撤回した**
+  （案件管理側のトップページ節を参照）。⚠️ **この段落は当時の記録。**
+  ここが根拠にしていた `MyTasksSummarySection.tsx` は「案件管理のリンクを全部当たり直し、
+  v3 の置き土産を落とした回」で**参照 0 件のまま既に削除済み**だった（旧トップページの
+  1,273 行を 177 行に作り直したときに呼び手が消えていた）。その後の回で、
+  トップページの「わたしのタスク」の「全部ひらく」が案件管理の GLS-A タスク一覧
+  （個人タスク・プロジェクト管理のタスクを含まない）に誤って固定リンクしている
+  バグが見つかり、**このアプリの `TasksPage`（`GET /dailyops/tasks/mine` を
+  そのまま出す唯一の画面）へ向け直した**。つまり `/daily/tasks` は転送先ではなく
+  **行き先そのもの**になっており、この画面を消してはいけない
 - 左メニューの中身は `src/components/layout/nav.ts`（枠は共通シェル）。
   **3つの塊**（定期報告 / 届いたもの / 現場の受付）＋ ホームとタスク
 
