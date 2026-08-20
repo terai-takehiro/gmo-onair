@@ -11,9 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { CalLayer } from './calendarLayout';
@@ -70,13 +68,18 @@ export function RoomFilterDialog({
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>部屋で絞る</DialogTitle>
-          <DialogDescription>選んだ部屋を押さえている予約だけを出します。</DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="部屋で絞る"
+      sub="選んだ部屋を押さえている予約だけを出します。"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>すべて出す</Button>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </FormDialogFooter>
+      }
+    >
         <Note>
           自分・パートナーの予定は<strong className="font-bold">部屋を持たない</strong>ので、
           絞ると出なくなります。部屋の埋まり方だけを見たいときにお使いください。
@@ -98,13 +101,7 @@ export function RoomFilterDialog({
             </div>
           </div>
         ))}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>すべて出す</Button>
-          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 
@@ -127,13 +124,18 @@ export function UserFilterDialog({
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>人で絞る</DialogTitle>
-          <DialogDescription>パートナーの予定を人で絞ります。アサインの空きを見るときに使います。</DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="人で絞る"
+      sub="パートナーの予定を人で絞ります。アサインの空きを見るときに使います。"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>全員出す</Button>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </FormDialogFooter>
+      }
+    >
         <Note>
           スタジオの予約は<strong className="font-bold">人を持たない</strong>ので、絞ると出なくなります。
           自分の予定も出しません（人ごとの空きが読めなくなるため）。
@@ -147,13 +149,7 @@ export function UserFilterDialog({
             <Chip key={u.id} on={value.includes(u.id)} label={u.name} onClick={() => toggle(u.id)} />
           ))}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>全員出す</Button>
-          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 
@@ -181,13 +177,17 @@ export function LayerFilterDialog({
   const toggle = (k: CalLayer) => onChange({ ...value, [k]: !value[k] });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>出すものを選ぶ</DialogTitle>
-          <DialogDescription>スタジオの予約・パートナーの予定・自分の予定を、出す/隠すで選びます。</DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="出すものを選ぶ"
+      sub="スタジオの予約・パートナーの予定・自分の予定を、出す/隠すで選びます。"
+      footer={
+        <FormDialogFooter>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="flex flex-col gap-1">
           {LAYER_ITEMS.map((it) => {
             const on = value[it.key];
@@ -213,11 +213,6 @@ export function LayerFilterDialog({
             );
           })}
         </div>
-
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

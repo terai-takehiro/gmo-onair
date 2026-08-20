@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,19 +138,45 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     setShareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editing ? (isExternalSynced ? "同期された予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
-          </DialogTitle>
-          <DialogDescription>
-            {isSharedIn
-              ? "共有された予定です。内容を編集できます（予定の削除は作成者のみ）。"
-              : "個人予定はあなたと共有先のメンバーにのみ表示されます。"}
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? (isExternalSynced ? "同期された予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
+      sub={
+        isSharedIn
+          ? "共有された予定です。内容を編集できます（予定の削除は作成者のみ）。"
+          : "個人予定はあなたと共有先のメンバーにのみ表示されます。"
+      }
+      footer={
+        <FormDialogFooter>
+          {editing && (
+            <Button
+              type="button"
+              variant="outline"
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
+              onClick={() => {
+                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
+                if (confirm(msg)) deleteMutation.mutate();
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" />
+                : isSharedIn ? <UserMinus className="mr-1 h-4 w-4" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              {isSharedIn ? "共有から外す" : "削除"}
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {isExternalSynced ? "閉じる" : "キャンセル"}
+          </Button>
+          {!isExternalSynced && (
+            <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || saveMutation.isPending}>
+              {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {editing ? "保存" : "登録"}
+            </Button>
+          )}
+        </FormDialogFooter>
+      }
+    >
         {isExternalSynced && (
           <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
             <CloudDownload className="h-4 w-4 shrink-0 mt-0.5" />
@@ -281,35 +307,6 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          {editing && (
-            <Button
-              type="button"
-              variant="outline"
-              className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={() => {
-                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
-                if (confirm(msg)) deleteMutation.mutate();
-              }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" />
-                : isSharedIn ? <UserMinus className="mr-1 h-4 w-4" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              {isSharedIn ? "共有から外す" : "削除"}
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {isExternalSynced ? "閉じる" : "キャンセル"}
-          </Button>
-          {!isExternalSynced && (
-            <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              {editing ? "保存" : "登録"}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

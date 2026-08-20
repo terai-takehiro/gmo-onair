@@ -99,6 +99,84 @@
    登録/編集フォームのほぼ全て）は中央固定モーダルのまま。**この1箇所を直すと `responsive_only`
    21画面の大半のダイアログが一度にiOSアプリらしくなる**（`client-v4/sheet.tsx` の既存Sheet部品を
    共通ダイアログのモバイル既定にする方向で検討）
+   - ~~カレンダー①予定の残り6ダイアログをこの土台に統一~~ **✅ 完了（第1バッチ）**（2026-08-20）。
+     `shared/src/client-v4/formDialog.tsx`（`<FormDialog>`／`<FormDialogFooter>`）を新設し、
+     既存の `<Sheet>` をそのまま土台にした（合成可能な `Dialog`/`DialogContent`/`DialogHeader`
+     風のAPIは検討したが、「骨格をpropsと子要素の2通りで表現できてしまう」ため見送り、
+     `<Sheet>` と同じフラットなpropsを踏襲。理由はコミットメッセージと `formDialog.tsx`
+     冒頭のコメント参照）。載せ替えたのは
+     `PersonalEventDialog.tsx` / `PartnerScheduleDialog.tsx` / `StudioBookingDetailDialog.tsx` /
+     `pages/calendar/FilterDialogs.tsx`（`RoomFilterDialog`/`UserFilterDialog`/`LayerFilterDialog`
+     の3つを含む）/ `StudioBookingDialog.tsx`（自前の下シート実装をやめて土台に集約。
+     iOSスタイルの「キャンセル/保存をヘッダーに置く」独自レイアウトは
+     `<Sheet>` の決めごと「主ボタンはシートの下端に固定」に合わせてフッターへ移した）。
+     `npx tsc -b client` / `npm run lint` / `npm run test`（1142件）OK。
+     - **次バッチの対象（残り54か所・`grep -rl "ui/dialog'" --include="*.tsx" client
+       client-daily client-equipment` で洗い出し）**:
+       - `client-daily/src/pages/TasksPage.tsx`
+       - `client-daily/src/pages/inquiries/InquiryDialog.tsx`
+       - `client-daily/src/pages/inquiries/TicketDialog.tsx`
+       - `client-daily/src/pages/inview/InviewDialog.tsx`
+       - `client-daily/src/pages/securityCards/LendDialog.tsx`
+       - `client-daily/src/pages/tasks/IntakeLogTab.tsx`
+       - `client-equipment/src/pages/InventoryPage.tsx`
+       - `client-equipment/src/pages/catalog/CatalogDialog.tsx`
+       - `client-equipment/src/pages/equipmentList/BulkEditDialog.tsx`
+       - `client-equipment/src/pages/equipmentList/EquipmentDialog.tsx`
+       - `client-equipment/src/pages/equipmentList/PrintDialog.tsx`
+       - `client-equipment/src/pages/equipmentList/RentalPanel.tsx`
+       - `client-equipment/src/pages/lending/LendingDialog.tsx`
+       - `client-equipment/src/pages/lending/ReturnDialog.tsx`
+       - `client-equipment/src/pages/maintenance/MaintenanceDialog.tsx`
+       - `client-equipment/src/pages/settings/ColorsCard.tsx`
+       - `client-equipment/src/pages/settings/LocationsTab.tsx`
+       - `client-equipment/src/pages/settings/ManufacturersTab.tsx`
+       - `client-equipment/src/pages/settings/MasterDialog.tsx`
+       - `client/src/components/layout/SearchPalette.tsx`
+       - `client/src/contexts/finance/pages/documents/HandoffDialog.tsx`
+       - `client/src/contexts/finance/pages/import/PdfReviewDialog.tsx`
+       - `client/src/contexts/finance/pages/ledger/PurchaseDialog.tsx`
+       - `client/src/contexts/finance/pages/ledger/RevenueDialog.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/EditProjectDialog.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/MemberDialog.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/OpenItemDialog.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/PhaseDialog.tsx`
+       - `client/src/contexts/gpm/pages/projectDetail/TaskDialog.tsx`
+       - `client/src/contexts/gpm/pages/templates/TemplateDialog.tsx`
+       - `client/src/contexts/platform/pages/hours/ClosedDayDialog.tsx`
+       - `client/src/contexts/platform/pages/members/RoleDialog.tsx`
+       - `client/src/contexts/platform/pages/members/UserDialog.tsx`
+       - `client/src/contexts/platform/pages/notify/TemplateDialog.tsx`
+       - `client/src/contexts/production/pages/calendar/NewEventChooser.tsx`
+       - `client/src/contexts/sales/pages/activityLog/ActivityLogDialog.tsx`
+       - `client/src/contexts/sales/pages/flow/ApplyFlowDialog.tsx`
+       - `client/src/contexts/sales/pages/pricing/PricingDialogs.tsx`
+       - `client/src/contexts/sales/pages/projectDetail/LostDialog.tsx`
+       - `client/src/contexts/sales/pages/projectDetail/thread/RecordDialog.tsx`
+       - `client/src/contexts/sales/pages/projectForm/dialogs/CategorySwitchDialog.tsx`
+       - `client/src/contexts/sales/pages/projectForm/dialogs/GlsDialog.tsx`
+       - `client/src/contexts/sales/pages/projectForm/dialogs/RelinkDialog.tsx`
+       - `client/src/contexts/sales/pages/projectGroup/GroupFormDialog.tsx`
+       - `client/src/contexts/sales/pages/projectGroup/PurchaseDialog.tsx`
+       - `client/src/contexts/sales/pages/projectGroup/RevenueDialog.tsx`
+       - `client/src/contexts/sales/pages/projectLedger/BulkEditDialog.tsx`
+       - `client/src/contexts/sales/pages/projectLedger/ColumnPicker.tsx`
+       - `client/src/contexts/sales/pages/projectLedger/PastePlanDialog.tsx`
+       - `client/src/contexts/sales/pages/salesReview/TargetDialog.tsx`
+       - `client/src/contexts/tasks/components/EpisodesPanel.tsx`
+       - `client/src/contexts/tasks/components/intake/IntakeReview.tsx`
+       - `client/src/contexts/tasks/pages/taskList/AddTaskDialog.tsx`
+       - ⚠️ **この54件は指定コマンド（シングルクォートの import のみ拾う）の実測値。**
+         同じコマンドをダブルクォートの import も拾う形（`grep -rlE "components/ui/dialog['\"]"`）
+         に広げると **76件**ヒットする — 今回移行した6画面のうち5つ
+         （`PersonalEventDialog.tsx`／`PartnerScheduleDialog.tsx`／`StudioBookingDetailDialog.tsx`／
+         `IcsFeedsDialog.tsx`／`StudioRoomsManagerDialog.tsx`）はダブルクォートで import して
+         いたため、指定コマンドのその場の一覧には元から入っていなかった（`StudioBookingDialog.tsx`
+         はそもそも `ui/dialog` を使わない自前実装だったので、どちらの数え方にも入らない）。
+         **次バッチに着手する前に、まず引用符の種類を問わない形で洗い出し直すこと**
+         （凍結4アプリを巻き込まないよう `client`/`client-daily`/`client-equipment` の
+         3ワークスペースに絞るのは今回と同じ）。
 2. **`PcOnlyPanel`（PC専用画面をスマホで開いたときの案内）をiOSアプリ風に磨く。**
    `pc_only_justified` 23画面すべてがこの1部品を経由する。「使えません」ではなく「ここはPCで」を
    美しく伝える1箇所の改善で23画面に効く

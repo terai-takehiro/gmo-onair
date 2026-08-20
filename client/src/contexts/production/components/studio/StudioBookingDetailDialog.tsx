@@ -1,11 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { formatDate } from "@/lib/format";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, ExternalLink, MapPin, Clock, Calendar } from "lucide-react";
@@ -104,16 +99,7 @@ export default function StudioBookingDetailDialog({
   if (!booking) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-2">
-            <DialogTitle className="text-lg leading-tight pr-8">
-              {booking.title}
-            </DialogTitle>
-          </div>
-        </DialogHeader>
-
+    <FormDialog open={open} onOpenChange={onOpenChange} title={booking.title}>
         <div className="space-y-4">
           {/* Type and status badges */}
           <div className="flex flex-wrap gap-1.5">
@@ -247,7 +233,6 @@ export default function StudioBookingDetailDialog({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
