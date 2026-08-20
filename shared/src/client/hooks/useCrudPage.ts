@@ -142,6 +142,16 @@ export function createUseCrudPage(api: AxiosInstance) {
       },
     });
 
+    // **`onError` はここで作るのではなく、渡されたときだけ付ける。**
+    // `useMutation({ onError: () => {...} })` を**キーごと**省略しないと、
+    // `queryClient.ts` の共通の受け皿（`MutationCache`）が
+    // `mutation.options.onError` の**有無だけ**を見て「画面が自分で
+    // 知らせている」と判断してしまう。呼び出し元が `options.onError` を
+    // 渡していなくても、このフックが常に転送用の関数を渡していたせいで
+    // **判定が常に「画面が知らせている」側になり、渡していないページでは
+    // 保存・削除の失敗が画面のどこにも出ていなかった**（実際に踏んだ・
+    // `CompanyListPage`/`PurchaseListPage`/`SgaListPage`/`CounterpartyPage`
+    // の4画面が該当。個別に `onError` を渡している画面は今までどおり）。
     const save = useMutation<T, unknown, unknown, unknown>({
       mutationFn: async (values) => {
         if (editingItem) {
@@ -156,7 +166,7 @@ export function createUseCrudPage(api: AxiosInstance) {
         options.onSaveSuccess?.(data);
         closeDialog();
       },
-      onError: (err) => options.onError?.('save', err),
+      ...(options.onError ? { onError: (err: unknown) => options.onError!('save', err) } : {}),
     });
 
     const remove = useMutation<string, unknown, string, unknown>({
@@ -168,7 +178,7 @@ export function createUseCrudPage(api: AxiosInstance) {
         qc.invalidateQueries({ queryKey: options.queryKey });
         options.onDeleteSuccess?.(id);
       },
-      onError: (err) => options.onError?.('delete', err),
+      ...(options.onError ? { onError: (err: unknown) => options.onError!('delete', err) } : {}),
     });
 
     const openAdd = () => {

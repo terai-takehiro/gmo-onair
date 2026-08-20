@@ -60,12 +60,20 @@ function useGmoGroupGuess(
   return touched;
 }
 
-export function CompanyFormFields({ form, editing, open }: {
+export function CompanyFormFields({ form, editing, open, canEditVendor }: {
   form: UseFormReturn<CompanyForm>;
   /** 編集で開いているか。新規登録のときだけ社名から印を見立てる */
   editing: boolean;
   /** 枠が開いているか。**開くたびに見立てを効かせ直す**（下の理由） */
   open: boolean;
+  /**
+   * `budget:editor` を持っているか。**サーバーは仕入先の情報
+   * （役割・種別・インボイス登録番号）の書き込みにこの権限を要求する**
+   * （`companies.routes.ts` の PUT/POST）。持たない人には
+   * 「仕入先」ロールのトグルと種別・インボイス欄を押せなくする —
+   * 出したまま保存だけ 403 にすると、何が起きたか画面から分からない
+   */
+  canEditVendor: boolean;
 }) {
   const touched = useGmoGroupGuess(form, editing, open);
   const isVendor = form.watch("is_vendor");
@@ -79,7 +87,13 @@ export function CompanyFormFields({ form, editing, open }: {
         <ToggleButtonGroup
           options={[
             { value: 'customer',  label: '顧客',         description: '売上管理で選択可能' },
-            { value: 'vendor',    label: '仕入先',       description: '仕入管理で選択可能' },
+            {
+              value: 'vendor', label: '仕入先', description: '仕入管理で選択可能',
+              // **`budget:editor` が無いと押せない。** サーバー（`companies.routes.ts`）が
+              // 仕入先の役割・種別・インボイス登録番号の書き込みにこの権限を要求するため、
+              // 出したまま押させると保存で 403 になり理由が画面から分からない
+              disabled: !canEditVendor,
+            },
             { value: 'sga_payee', label: '販管費支払先', description: '販管費管理で選択可能' },
           ]}
           value={[
@@ -154,16 +168,24 @@ export function CompanyFormFields({ form, editing, open }: {
       {isVendor && (
         <div className="space-y-3 rounded-md border p-3 bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">仕入先設定</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="vendor_type">種別</Label>
-              <Input id="vendor_type" {...form.register("vendor_type")} placeholder="制作会社・フリーランス等" />
+          {canEditVendor ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="vendor_type">種別</Label>
+                <Input id="vendor_type" {...form.register("vendor_type")} placeholder="制作会社・フリーランス等" />
+              </div>
+              <div>
+                <Label htmlFor="invoice_registration_number">インボイス登録番号</Label>
+                <Input id="invoice_registration_number" {...form.register("invoice_registration_number")} placeholder="T1234567890123" />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="invoice_registration_number">インボイス登録番号</Label>
-              <Input id="invoice_registration_number" {...form.register("invoice_registration_number")} placeholder="T1234567890123" />
-            </div>
-          </div>
+          ) : (
+            // **ここに来るのは基本的に無い**（一覧側が編集ボタンごと止める）が、
+            // 万一開けても直せないことを言い切る（押しても 403 になるだけ、を防ぐ）
+            <p className="text-note text-muted-foreground">
+              仕入先の項目を直すには財務管理の編集権限が必要です。この画面からは変更できません。
+            </p>
+          )}
         </div>
       )}
 

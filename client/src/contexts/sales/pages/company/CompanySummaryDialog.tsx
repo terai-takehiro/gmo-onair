@@ -1,15 +1,19 @@
 /**
  * 取引先ごとの収支サマリー（売上・仕入・販管費の累計）
  *
- * `CompanyListPage.tsx` から切り出しただけで、中身は1行も変えていません。
+ * v4 renewal: 金額は手書きの `¥` 文字列（`formatCurrency`）をやめ、
+ * `<Money inline />` に差し替えた（`shared/CLAUDE.md` の決めごと）。
+ * ローディングも `Loader2` のスピナーから `Delayed` + `SkeletonCard` に変えた
+ * （1秒未満は出さない・点滅させない）。
  */
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, BarChart3 } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { BarChart3 } from "lucide-react";
+import { Money } from "@gmo-onair/shared/src/client/ui/money";
+import { Delayed, SkeletonCard } from "@gmo-onair/shared/src/client/states";
 
 interface CompanySummary {
   company_id: string;
@@ -41,34 +45,34 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
           <DialogDescription>この取引先を相手方とする売上・仕入・販管費の累計</DialogDescription>
         </DialogHeader>
         {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          <Delayed><SkeletonCard lines={3} /></Delayed>
         ) : summary ? (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
                 <p className="text-xs text-blue-700 dark:text-blue-300">売上</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.revenue.total)}</p>
+                <Money value={summary.revenue.total} inline className="mt-1 justify-center text-sm font-bold" />
                 <p className="text-[10px] text-muted-foreground mt-0.5">{summary.revenue.count}件</p>
               </div>
               <div className="rounded-lg border bg-orange-50 dark:bg-orange-950/30 p-3 text-center">
                 <p className="text-xs text-orange-700 dark:text-orange-300">仕入</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.purchase.total)}</p>
+                <Money value={summary.purchase.total} inline className="mt-1 justify-center text-sm font-bold" />
                 <p className="text-[10px] text-muted-foreground mt-0.5">{summary.purchase.count}件</p>
               </div>
               <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-3 text-center">
                 <p className="text-xs text-amber-700 dark:text-amber-300">販管費</p>
-                <p className="text-sm font-bold font-number mt-1">{formatCurrency(summary.sga.total)}</p>
+                <Money value={summary.sga.total} inline className="mt-1 justify-center text-sm font-bold" />
                 <p className="text-[10px] text-muted-foreground mt-0.5">{summary.sga.count}件</p>
               </div>
             </div>
             <div className="rounded-lg border p-3 bg-muted/30">
               <p className="text-xs text-muted-foreground">収支バランス（売上 - 仕入 - 販管費）</p>
-              <p className={`text-lg font-bold font-number mt-1 ${
-                summary.revenue.total - summary.purchase.total - summary.sga.total >= 0
-                  ? "text-green-700" : "text-red-700"
-              }`}>
-                {formatCurrency(summary.revenue.total - summary.purchase.total - summary.sga.total)}
-              </p>
+              <Money
+                value={summary.revenue.total - summary.purchase.total - summary.sga.total}
+                inline
+                negativeIsDanger
+                className="mt-1 text-lg font-bold"
+              />
             </div>
           </div>
         ) : (
