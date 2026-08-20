@@ -113,23 +113,23 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
   // ルート自体を消したので、実体の画面が無く、この表に載せる対象ではない
   /*
-    ⚠️ **この2枚の理由は書き直しました**（M10）。
-    元は「会社ごとに列が多く、この幅では1社ぶんも並びません」でしたが、
-    **390px で開いて測ったら普通にカードで並びました**（表ですらなかった）。
-    嘘の理由を出したままにはできないので、本当の理由に差し替えています。
+    ⚠️ **この段落は当時の記録。** 元は「会社ごとに列が多く、この幅では1社ぶんも
+    並びません」でしたが、**390px で開いて測ったら普通にカードで並びました**
+    （表ですらなかった）。嘘の理由を出したままにはできないので M10 で
+    「お客様の詳細」「取引先マスター」とも「まだ v4 で作り直していない」に
+    差し替え、**「取引先マスター」は v4 renewal でここから外し `CLIENT_MOBILE_OK`
+    へ移した**（`Row stackOnMobile` ＋ `FilterChips` で縦積みになり 375px で
+    崩れないことを確認済み）。
 
-    「お客様の詳細」は「**v4 でまだ作り直していない**」— 取引の履歴と担当者を
-    並べて読む形のままです。作り直したらスマホに開放します
-    （ご判断「外で判断するものは開ける」）。
-
-    **「取引先マスター」は v4 renewal でここから外し、`CLIENT_MOBILE_OK` へ移した。**
-    `Row stackOnMobile` ＋ `FilterChips`（横スクロール対応済み）で縦積みになり、
-    375px で崩れないことを確認済み（下の `CLIENT_MOBILE_OK` を参照）。
+    **「お客様の詳細」も v4 で作り直し、`CLIENT_MOBILE_OK` へ移した**
+    （2026-08・v4ネイティブUI化。監査で「大規模な2枚（顧客360・GPMプロジェクト
+    詳細）を除く」と保留していた側の1枚）。理由は下の `CLIENT_MOBILE_OK` を参照。
   */
   // **`/sales/customers`（顧客の一覧）は Phase 2 で削除した** — `/sales/companies?role=customer`
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
-  { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
+  // **`/sales/customers/:id`（お客様の詳細）は v4 で作り直し、`CLIENT_MOBILE_OK` へ移した**
+  // （下記参照）。この表には載らない
   // **営業活動記録**（`/sales/activity-logs`）は、この表の「案件管理」節にあります
   // （営業レビュー統合で PC 専用に戻したため。⚠️ の記録を参照）
   // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
@@ -213,6 +213,18 @@ export const CLIENT_MOBILE_OK: string[] = [
   // v4 renewal で作り直した（`CompanyListPage.tsx`）。`Row stackOnMobile` ＋
   // `FilterChips`（横スクロール対応）で縦積みになり、375px で崩れないことを確認済み
   '/sales/companies',                   // 取引先マスター
+  /*
+    ── お客様の詳細（顧客360・この回・2026-08・v4ネイティブUI化）──
+    監査（`docs/v4-native-ui-audit-2026-08-20.md`）が「大規模な2枚（顧客360・
+    GPMプロジェクト詳細）を除く」と保留していた側。v4のトークン
+    （`PageHeader`・`Row`/`RowMain`/`RowSlot`・`TableBadge`・`Money`・`FormDialog`）
+    に作り直したうえで、**行を縮めるのではなく1件＝1枚のカードに組み直した**
+    （`customerDetail/TimelineCards.tsx` / `CustomerProjectCards.tsx`。
+    `company/CompanyCards.tsx` と同じ考え方）。375px で横はみ出し 0px・
+    JS エラー 0 件を実測済み（`やり取りを記録`ダイアログの送信・
+    次回アクションの完了/延期・案件行のタップ遷移まで確認）
+  */
+  '/sales/customers/:id',               // お客様の詳細（顧客360）
   // **`/sales/activity-logs` はここから外した**（2026-08）。営業レビュー統合で
   // 画面全体を PC 専用に戻したため（`CLIENT_PC_ONLY` の同パスを参照）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）

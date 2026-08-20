@@ -32,8 +32,21 @@ import type { useNextActionActions } from './useNextActionActions';
 
 type Actions = ReturnType<typeof useNextActionActions>;
 
-/** 次回アクション1行。**完了は即実行、延期は「明日／1週間」を選んでから実行**（顧客360°ビューと同じ形） */
-function NextActionInline({ row, actions }: { row: ActivityLogRow; actions: Actions }) {
+/**
+ * 次回アクション1行。**完了は即実行、延期は「明日／1週間」を選んでから実行**（顧客360°ビューと同じ形）
+ *
+ * **`export` して顧客360°ビュー（`customerDetail/`）からも呼ぶ。** 写すと、
+ * 完了・延期の片づけ方が画面によって変わる（先に `顧客360°ビュー` が使っていた形に
+ * この一覧側を合わせた経緯があるので、ここが更新の起点であるべき）。
+ * `row` は `Pick` にしてある — 顧客360°ビューが持つ行には
+ * `duration_minutes` 等の列が無いため、フル `ActivityLogRow` を要求すると渡せない。
+ */
+export function NextActionInline({
+  row, actions,
+}: {
+  row: Pick<ActivityLogRow, 'id' | 'next_action' | 'next_action_date' | 'next_action_done_at'>;
+  actions: Actions;
+}) {
   const [postponing, setPostponing] = useState(false);
   const done = !!row.next_action_done_at;
   const overdue = !done && !!row.next_action_date && isOverdue(row.next_action_date);
