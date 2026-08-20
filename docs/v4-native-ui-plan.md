@@ -117,26 +117,24 @@
      `IntakeLogTab.tsx`は表示専用のため見送り）を移行。`wide`判定基準（旧幅・複数列グリッドの
      有無で判断）は正しく踏襲されている（スポットチェック済み）。
      `npx tsc -b client-equipment client-daily` / `npm run lint` / `npm run test`（1141件）OK
+   - ~~財務・GPM・設定・カレンダー残り・共通部品の25件~~ **✅ 完了（第4バッチ）**（2026-08-20・
+     並列5エージェント）。finance 6件（`RevenueDialog.tsx`は明細が1400px級の表なので**見送り**）／
+     gpm 7件／platform 5件／production 4件（`BusinessProjectView.tsx`の明細ダイアログは
+     RevenueDialogと同じ理由で**見送り**）／`ExcelToolbar.tsx`。
+     `SearchPalette.tsx`・`IntakeLogTab.tsx`・`EquipmentDetailPage.tsx`・`RackLayoutPage.tsx`
+     の残りは表示・確認専用と確認して対象外。
+     `npx tsc -b client` / `npm run lint` / `npm run test`（1141件）OK。
+     - ⚠️ **このバッチで見つけた土台の欠け（直した）**: `UserDialog.tsx`の移行で、
+       旧`<form onSubmit>`の送信ボタン（フッター）が`<Sheet>`では本文と別divの
+       兄弟要素になり、**Enterキー送信・`<button type="submit">`が効かなくなる**
+       ことが判明した（ボタンを`onClick`にすり替えて回避）。同じ穴が以後の
+       全バッチで繰り返されるのを防ぐため、`Sheet`/`FormDialog`に`onSubmit`
+       propを追加した（本文とフッターを1つの`<form>`で束ねる・opt-in）。
+       **以後のバッチは、旧実装が`<form onSubmit>`を使っていた画面ではこの
+       `onSubmit`を使うこと**（`shared/CLAUDE.md`に記録済み）
    - **残り53件**（`grep -rlE "components/ui/dialog['\"]" --include="*.tsx" client
-     client-daily client-equipment` で再洗い出し・引用符を問わない形）:
-     - `client-daily/src/pages/tasks/IntakeLogTab.tsx`（表示専用の可能性が高いが要再確認）
-     - `client-equipment/src/pages/EquipmentDetailPage.tsx` / `RackLayoutPage.tsx`
-       （フォーム部分は第3バッチで移行済み。残っているのは表示専用・確認用ダイアログのみ
-       のはずだが未確認なら見送り理由を検証すること）
-     - `client/src/components/ExcelToolbar.tsx` / `components/layout/SearchPalette.tsx`
-     - **finance(7)**: `finance/components/{DiscountDialog,PricingItemPicker,SgaDialog}.tsx` /
-       `finance/pages/documents/HandoffDialog.tsx` / `finance/pages/import/PdfReviewDialog.tsx` /
-       `finance/pages/ledger/{PurchaseDialog,RevenueDialog}.tsx`
-     - **gpm(7)**: `gpm/pages/projectDetail/{EditProjectDialog,EstimatesTab,MemberDialog,
-       OpenItemDialog,PhaseDialog,TaskDialog}.tsx` / `gpm/pages/templates/TemplateDialog.tsx`
-     - **platform(5)**: `platform/pages/DataViewerPage.tsx` /
-       `platform/pages/hours/ClosedDayDialog.tsx` /
-       `platform/pages/members/{RoleDialog,UserDialog}.tsx` /
-       `platform/pages/notify/TemplateDialog.tsx`
-     - **production(4)**: `production/components/episodes/BusinessProjectView.tsx` /
-       `production/components/schedule/IcsFeedsDialog.tsx` /
-       `production/components/studio/StudioRoomsManagerDialog.tsx` /
-       `production/pages/calendar/NewEventChooser.tsx`
+     client-daily client-equipment` で再洗い出し・引用符を問わない形。表示専用が
+     混じっているので実際に移行対象になるのはこれより少ない見込み）:
      - **sales(20)**: `sales/components/{CustomerDialog,SimulationDialog}.tsx` /
        `sales/pages/activityLog/ActivityLogDialog.tsx` /
        `sales/pages/company/CompanySummaryDialog.tsx` /
@@ -153,13 +151,9 @@
        `tasks/components/intake/IntakeReview.tsx` /
        `tasks/pages/taskList/AddTaskDialog.tsx`
      - ⚠️ **前回「54件」としていたのはシングルクォートimportのみを拾う数え方だった。**
-       ダブルクォート込みで数え直すと76件（うち今回までに移行済みなのは第1・第3バッチの
-       23件＋`StudioBookingDialog.tsx`のような自前実装1件）で、正しい残数は53件。
-       次に数え直すときも必ず引用符を問わない形（上の`grepEレ`）を使うこと
-         はそもそも `ui/dialog` を使わない自前実装だったので、どちらの数え方にも入らない）。
-         **次バッチに着手する前に、まず引用符の種類を問わない形で洗い出し直すこと**
-         （凍結4アプリを巻き込まないよう `client`/`client-daily`/`client-equipment` の
-         3ワークスペースに絞るのは今回と同じ）。
+       ダブルクォート込みで数え直すと76件で、正しい残数は53件（sales 20・tasks 9・第4バッチ
+       時点までに片付いた分を除く）。**次に数え直すときも必ず引用符を問わない形**
+      （`grep -rlE "components/ui/dialog['\"]"`）を使うこと
 2. **`PcOnlyPanel`（PC専用画面をスマホで開いたときの案内）をiOSアプリ風に磨く。**
    `pc_only_justified` 23画面すべてがこの1部品を経由する。「使えません」ではなく「ここはPCで」を
    美しく伝える1箇所の改善で23画面に効く

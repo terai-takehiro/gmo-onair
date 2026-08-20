@@ -44,7 +44,7 @@
  * ここでは**並びの慣用クラス名**（旧 `DialogFooter` と同じ挙動）だけ export し、
  * 中身の並びは呼び出し側の JSX に任せている。
  */
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { Sheet } from './sheet';
 import { cn } from '../client/utils';
 
@@ -59,12 +59,19 @@ export interface FormDialogProps {
   footer?: ReactNode;
   /** PC 幅を 760px にする（`Sheet` の `wide` をそのまま渡す。2カラムの複合フォーム向け・opt-in） */
   wide?: boolean;
+  /**
+   * **本文とフッターを `<form>` で束ねる（`Sheet` の `onSubmit` をそのまま渡す・opt-in）。**
+   * 渡すと Enterキー送信・`<button type="submit">` が効くようになる。
+   * 送信ボタンを `type="submit"` にして、この prop に保存処理を渡すこと
+   * （`onClick` で送っている画面は渡さなくてよい — 両方指定すると二重送信になる）。
+   */
+  onSubmit?: (e: FormEvent<HTMLFormElement>) => void;
   children: ReactNode;
 }
 
-export function FormDialog({ open, onOpenChange, title, sub, footer, wide, children }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, sub, footer, wide, onSubmit, children }: FormDialogProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide} onSubmit={onSubmit}>
       {children}
     </Sheet>
   );
