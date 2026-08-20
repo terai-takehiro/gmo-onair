@@ -350,6 +350,11 @@ export default function StudioBookingDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={editingBooking ? "予約を編集" : "スタジオ予約"}
+      // **2カラムの複合フォームなので `wide` を渡す。** 既定の560pxのままだと、
+      // 元は lg:grid-cols-2 で2列に並べていた項目（タイトル・日時・部屋・控室…）が
+      // 1列に潰れて縦に長くなりすぎる（load-testing不要な単純な折返しではなく、
+      // 部屋の grid-cols-4 チップ等、横幅を前提にした部品が複数ある）
+      wide
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
@@ -375,7 +380,10 @@ export default function StudioBookingDialog({
             </div>
           )}
 
-            <div className="space-y-5">
+            {/* 760px の `wide` シート前提の2カラム。`lg:col-span-2` の項目
+                （タイトル・スタジオ/部屋・控室利用者・メモ等）はこの親が
+                なければ何もしない no-op になる（実際にそうなっていたのを復元した） */}
+            <div className="space-y-5 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5 lg:space-y-0">
 
               {/* ① タイトル */}
               <div className="rounded-xl border bg-muted/30">

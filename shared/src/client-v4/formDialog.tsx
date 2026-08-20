@@ -57,12 +57,14 @@ export interface FormDialogProps {
   sub?: string;
   /** 下端に固定するボタン列。**旧 `DialogFooter` の中身をそのまま渡す** */
   footer?: ReactNode;
+  /** PC 幅を 760px にする（`Sheet` の `wide` をそのまま渡す。2カラムの複合フォーム向け・opt-in） */
+  wide?: boolean;
   children: ReactNode;
 }
 
-export function FormDialog({ open, onOpenChange, title, sub, footer, children }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, sub, footer, wide, children }: FormDialogProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide}>
       {children}
     </Sheet>
   );

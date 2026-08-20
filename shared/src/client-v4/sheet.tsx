@@ -55,10 +55,20 @@ export interface SheetProps {
    * この回で変えないため**（`data-v4-sheet` を見て `tokens-v4.css` が当てる）。
    */
   rise?: boolean;
+  /**
+   * **PC の幅を 560px ではなく 760px にする**（2カラムの複合フォーム向け・opt-in）。
+   *
+   * 既定の 560px は1カラムのフォーム（v4対象3アプリの55か所を実測して決めた）には
+   * ちょうどよいが、部屋を複数選ぶ・控室の利用者を並べる等**元から2カラムだった
+   * フォーム**（`StudioBookingDialog` 等）を載せ替えると、560px に押し込められて
+   * 縦に長くなりすぎる。**既定は変えない**（560px のまま使っている画面の手触りを
+   * この prop で変えないため。広げたい呼び出し側だけ明示的に渡す）。
+   */
+  wide?: boolean;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, children }: SheetProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -77,7 +87,8 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }
             'rounded-t-app border-t border-border bg-card shadow-2xl shadow-black/20',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-            'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-[min(560px,calc(100vw-4rem))]',
+            'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2',
+            wide ? 'lg:w-[min(760px,calc(100vw-4rem))]' : 'lg:w-[min(560px,calc(100vw-4rem))]',
             'lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-card lg:border',
           )}
         >
