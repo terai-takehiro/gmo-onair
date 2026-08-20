@@ -11,7 +11,7 @@ import { useCrudPage } from '@/hooks/useCrudPage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
@@ -137,62 +137,63 @@ export function ManufacturersTab() {
         <ColorsCard />
       </div>
 
-      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{crud.isEditing ? 'メーカーを直す' : 'メーカーを足す'}</DialogTitle>
-          </DialogHeader>
-          {saveError && (
-            <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
-              {saveError}
-            </p>
-          )}
-          <div className="space-y-3">
+      <FormDialog
+        open={crud.dialogOpen}
+        onOpenChange={crud.setDialogOpen}
+        title={crud.isEditing ? 'メーカーを直す' : 'メーカーを足す'}
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button
+              onClick={() => crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 })}
+              disabled={crud.save.isPending || !form.name.trim()}
+            >
+              {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {crud.isEditing ? '直す' : '足す'}
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        {saveError && (
+          <p className="mb-3 rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
+            {saveError}
+          </p>
+        )}
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>メーカー名 *</Label>
+            <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="SONY" autoFocus />
+          </div>
+          <div className="space-y-1">
+            <Label>担当者</Label>
+            <Input value={form.contact_person} onChange={(e) => setForm((f) => ({ ...f, contact_person: e.target.value }))} placeholder="山田 太郎" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>メーカー名 *</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="SONY" autoFocus />
+              <Label>電話</Label>
+              <Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="03-0000-0000" />
             </div>
             <div className="space-y-1">
-              <Label>担当者</Label>
-              <Input value={form.contact_person} onChange={(e) => setForm((f) => ({ ...f, contact_person: e.target.value }))} placeholder="山田 太郎" />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label>電話</Label>
-                <Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="03-0000-0000" />
-              </div>
-              <div className="space-y-1">
-                <Label>メール</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="support@example.com" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>住所</Label>
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="東京都渋谷区…" />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label>表示順</Label>
-                <Input type="number" min="0" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
-              </div>
-              <div className="space-y-1">
-                <Label>備考</Label>
-                <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
-              <Button
-                onClick={() => crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 })}
-                disabled={crud.save.isPending || !form.name.trim()}
-              >
-                {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                {crud.isEditing ? '直す' : '足す'}
-              </Button>
+              <Label>メール</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="support@example.com" />
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>住所</Label>
+            <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="東京都渋谷区…" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>表示順</Label>
+              <Input type="number" min="0" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>備考</Label>
+              <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }

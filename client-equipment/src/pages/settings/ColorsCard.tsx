@@ -11,7 +11,7 @@ import { useCrudPage } from '@/hooks/useCrudPage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -101,58 +101,61 @@ export function ColorsCard() {
         </ul>
       )}
 
-      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>{crud.isEditing ? '色を直す' : '色を足す'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>色の名前 *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="本線系" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="color-hex">色 *</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="color-hex"
-                  type="color"
-                  value={form.color_hex}
-                  onChange={(e) => setForm({ ...form, color_hex: e.target.value })}
-                  className="h-10 w-16 cursor-pointer rounded-control border border-input"
-                />
-                <Input
-                  value={form.color_hex}
-                  onChange={(e) => setForm({ ...form, color_hex: e.target.value })}
-                  placeholder="#E6F2FF"
-                  aria-label="色の16進表記"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>説明 (凡例に出ます)</Label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="配信系の機材" />
-            </div>
-            <div className="space-y-1">
-              <Label>表示順</Label>
-              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
-              <Button
-                onClick={() => crud.save.mutate({
-                  name: form.name,
-                  color_hex: form.color_hex,
-                  description: form.description || null,
-                  sort_order: Number(form.sort_order) || 0,
-                })}
-                disabled={!form.name || !form.color_hex || crud.save.isPending}
-              >
-                {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                {crud.isEditing ? '直す' : '足す'}
-              </Button>
+      <FormDialog
+        open={crud.dialogOpen}
+        onOpenChange={crud.setDialogOpen}
+        title={crud.isEditing ? '色を直す' : '色を足す'}
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button
+              onClick={() => crud.save.mutate({
+                name: form.name,
+                color_hex: form.color_hex,
+                description: form.description || null,
+                sort_order: Number(form.sort_order) || 0,
+              })}
+              disabled={!form.name || !form.color_hex || crud.save.isPending}
+            >
+              {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {crud.isEditing ? '直す' : '足す'}
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>色の名前 *</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="本線系" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="color-hex">色 *</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="color-hex"
+                type="color"
+                value={form.color_hex}
+                onChange={(e) => setForm({ ...form, color_hex: e.target.value })}
+                className="h-10 w-16 cursor-pointer rounded-control border border-input"
+              />
+              <Input
+                value={form.color_hex}
+                onChange={(e) => setForm({ ...form, color_hex: e.target.value })}
+                placeholder="#E6F2FF"
+                aria-label="色の16進表記"
+              />
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>説明 (凡例に出ます)</Label>
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="配信系の機材" />
+          </div>
+          <div className="space-y-1">
+            <Label>表示順</Label>
+            <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }

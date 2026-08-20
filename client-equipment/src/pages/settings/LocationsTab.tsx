@@ -12,7 +12,7 @@ import { useCrudPage } from '@/hooks/useCrudPage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -200,91 +200,92 @@ export function LocationsTab() {
         棚卸しのチェックリストと機材台帳の設置場所は、この表示順のまま作られます。
       </p>
 
-      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{crud.isEditing ? '保管場所を直す' : '保管場所を足す'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>場所名 *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="カメラ庫" />
-            </div>
-            <div className="space-y-1">
-              <Label>拠点</Label>
-              <Select value={form.branch_id || 'none'} onValueChange={(v) => setForm({ ...form, branch_id: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし</SelectItem>
-                  {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {branches.length === 0 && (
-                <p className="text-note text-muted-foreground">「拠点・種別」から先に拠点を足してください</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label>種別</Label>
-              <Select value={form.rack_type_id || 'none'} onValueChange={(v) => setForm({ ...form, rack_type_id: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし (ふつうの保管場所)</SelectItem>
-                  {rackTypes.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {rackTypes.length === 0 && (
-                <p className="text-note text-muted-foreground">「拠点・種別」から先に種別を足してください</p>
-              )}
-            </div>
-            {isRackForm && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Uサイズ *</Label>
-                  <Input
-                    type="number" min={1} max={60}
-                    value={form.rack_units}
-                    onChange={(e) => setForm({ ...form, rack_units: e.target.value })}
-                    placeholder="45"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>ラック図の並び</Label>
-                  <Input type="number" value={form.rack_sort_order} onChange={(e) => setForm({ ...form, rack_sort_order: e.target.value })} />
-                </div>
-              </div>
+      <FormDialog
+        open={crud.dialogOpen}
+        onOpenChange={crud.setDialogOpen}
+        title={crud.isEditing ? '保管場所を直す' : '保管場所を足す'}
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button onClick={handleSave} disabled={!canSave || crud.save.isPending}>
+              {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {crud.isEditing ? '直す' : '足す'}
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>場所名 *</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="カメラ庫" />
+          </div>
+          <div className="space-y-1">
+            <Label>拠点</Label>
+            <Select value={form.branch_id || 'none'} onValueChange={(v) => setForm({ ...form, branch_id: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし</SelectItem>
+                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {branches.length === 0 && (
+              <p className="text-note text-muted-foreground">「拠点・種別」から先に拠点を足してください</p>
             )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          </div>
+          <div className="space-y-1">
+            <Label>種別</Label>
+            <Select value={form.rack_type_id || 'none'} onValueChange={(v) => setForm({ ...form, rack_type_id: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし (ふつうの保管場所)</SelectItem>
+                {rackTypes.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {rackTypes.length === 0 && (
+              <p className="text-note text-muted-foreground">「拠点・種別」から先に種別を足してください</p>
+            )}
+          </div>
+          {isRackForm && (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>建物</Label>
-                <Input value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} placeholder="A棟" />
+                <Label>Uサイズ *</Label>
+                <Input
+                  type="number" min={1} max={60}
+                  value={form.rack_units}
+                  onChange={(e) => setForm({ ...form, rack_units: e.target.value })}
+                  placeholder="45"
+                />
               </div>
               <div className="space-y-1">
-                <Label>フロア</Label>
-                <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="3F" />
+                <Label>ラック図の並び</Label>
+                <Input type="number" value={form.rack_sort_order} onChange={(e) => setForm({ ...form, rack_sort_order: e.target.value })} />
               </div>
-              <div className="space-y-1">
-                <Label>エリア</Label>
-                <Input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="機材エリア" />
-              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label>建物</Label>
+              <Input value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} placeholder="A棟" />
             </div>
             <div className="space-y-1">
-              <Label>説明</Label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="補足" />
+              <Label>フロア</Label>
+              <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="3F" />
             </div>
             <div className="space-y-1">
-              <Label>表示順</Label>
-              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
-              <Button onClick={handleSave} disabled={!canSave || crud.save.isPending}>
-                {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                {crud.isEditing ? '直す' : '足す'}
-              </Button>
+              <Label>エリア</Label>
+              <Input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="機材エリア" />
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>説明</Label>
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="補足" />
+          </div>
+          <div className="space-y-1">
+            <Label>表示順</Label>
+            <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+          </div>
+        </div>
+      </FormDialog>
 
       <MasterDialog open={masterOpen} onClose={() => setMasterOpen(false)} />
     </div>

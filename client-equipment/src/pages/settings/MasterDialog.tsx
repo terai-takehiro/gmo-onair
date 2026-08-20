@@ -11,35 +11,32 @@ import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 
 export function MasterDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader><DialogTitle>拠点・種別</DialogTitle></DialogHeader>
-        <p className="text-note text-muted-foreground">
-          拠点は機材IDの先頭 (Y／S) になります。種別に「ラック」を選んだ場所だけが
-          Uサイズを持ち、ラック図に1本として並びます。
-        </p>
-        <div className="space-y-6">
-          <MasterSection
-            title="拠点"
-            apiPath="/equipment/branches"
-            queryKey="equipment-branches"
-            placeholder="例: 用賀、渋谷、青山"
-          />
-          <MasterSection
-            title="種別"
-            apiPath="/equipment/rack-types"
-            queryKey="equipment-rack-types"
-            placeholder="例: ラック、オペ卓、AV盤"
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <FormDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="拠点・種別">
+      <p className="text-note text-muted-foreground">
+        拠点は機材IDの先頭 (Y／S) になります。種別に「ラック」を選んだ場所だけが
+        Uサイズを持ち、ラック図に1本として並びます。
+      </p>
+      <div className="space-y-6 pt-3">
+        <MasterSection
+          title="拠点"
+          apiPath="/equipment/branches"
+          queryKey="equipment-branches"
+          placeholder="例: 用賀、渋谷、青山"
+        />
+        <MasterSection
+          title="種別"
+          apiPath="/equipment/rack-types"
+          queryKey="equipment-rack-types"
+          placeholder="例: ラック、オペ卓、AV盤"
+        />
+      </div>
+    </FormDialog>
   );
 }
 
