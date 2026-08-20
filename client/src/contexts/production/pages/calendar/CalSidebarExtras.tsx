@@ -25,7 +25,7 @@ const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
 ];
 
 export function CalSidebarExtras({
-  miniAnchor, onMiniAnchor, today, selected, onPick, layers, onToggleLayer, visible,
+  miniAnchor, onMiniAnchor, today, selected, onPick, layers, onToggleLayer, visible, emptyNote,
 }: {
   /** ミニカレンダーが見ている月（`YYYY-MM`） */
   miniAnchor: string;
@@ -33,13 +33,19 @@ export function CalSidebarExtras({
   today: string;
   selected: string;
   onPick: (day: string) => void;
-  layers: Record<CalLayer, boolean>;
-  onToggleLayer: (k: CalLayer) => void;
+  /**
+   * 「マイカレンダー」の出す/隠す。**省略すると節ごと出さない**
+   * （② 部屋の空きのように、層という概念を持たない画面向け）
+   */
+  layers?: Record<CalLayer, boolean>;
+  onToggleLayer?: (k: CalLayer) => void;
   /** その層を読む権限がある人にだけチェックを出す（押しても効かない項目を並べない） */
-  visible: Record<CalLayer, boolean>;
+  visible?: Record<CalLayer, boolean>;
+  /** レイヤーの節が無いときに、代わりにミニカレンダーの下へ出す説明文 */
+  emptyNote?: string;
 }) {
   const weeks = monthWeeks(`${miniAnchor}-01`);
-  const items = LAYER_ITEMS.filter((it) => visible[it.key]);
+  const items = visible ? LAYER_ITEMS.filter((it) => visible[it.key]) : [];
 
   return (
     <div className="flex flex-col pb-3 pt-1">
@@ -105,19 +111,18 @@ export function CalSidebarExtras({
         })}
       </div>
 
-      {items.length > 0 && (
+      {items.length > 0 ? (
         <>
           <div className="mx-2 my-3.5 h-px bg-border" />
-
           <p className="text-th mb-1 px-2.5 text-muted-foreground">マイカレンダー</p>
           <div className="flex flex-col">
             {items.map((it) => {
-              const on = layers[it.key];
+              const on = layers?.[it.key];
               return (
                 <button
                   key={it.key}
                   type="button"
-                  onClick={() => onToggleLayer(it.key)}
+                  onClick={() => onToggleLayer?.(it.key)}
                   aria-pressed={on}
                   className="min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-left hover:bg-muted lg:min-h-[38px]"
                 >
@@ -136,7 +141,12 @@ export function CalSidebarExtras({
             チェックした層だけをカレンダーに出します。マス目の色は種別ごとです。
           </p>
         </>
+      ) : emptyNote && (
+        <p className="text-note mt-2 px-2.5 text-muted-foreground">{emptyNote}</p>
       )}
+
+      {/* 「見る」ナビの前で1本区切る（承認済みモックにある2本目の罫線） */}
+      <div className="mx-2 mb-1 mt-3.5 h-px bg-border" />
     </div>
   );
 }

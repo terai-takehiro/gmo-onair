@@ -14,13 +14,39 @@
  *   ② **日をまたぐ予約をその日で切っていなかった** — 8/1 20:00〜8/2 10:00 の予約は
  *      8/2 を開いても返ってきます（サーバーは重なりで拾う）。時刻だけを見ていたので
  *      **8/2 の 20:00〜22:00 に帯を描き、本当に埋まっている 8:00〜10:00 を空きにして**いました
+ *
+ * ── 帯の色は「部屋」ではなく「種別」（承認済みモックで変えた）────
+ *
+ * 旧実装は帯を部屋の色で塗っていた。① 予定・③ 仮押さえはどちらも**種別**
+ * （本番＝赤・リハーサル＝amber…）で塗っており、同じ予約がこの画面だけ
+ * 別の色で見える食い違いがあった。`BOOKING_TYPE_COLORS`（`scheduleShared.tsx`）
+ * を1本で読む。部屋名の横の小さな四角（`AvailRoom.color`）だけは今までどおり
+ * 部屋の色 — 「どの部屋の行か」を示す目印で、帯の色とは役割が違う
  */
+import { BOOKING_TYPE_COLORS } from '../../components/schedule/scheduleShared';
 
 /** 表示する時間帯。モックと同じ 8:00〜22:00 */
 export const DAY_START_H = 8;
 export const DAY_END_H = 22;
 
 const DAY_MIN = 24 * 60;
+
+/**
+ * 帯の中の文字色。**種別の色をそのまま文字に使うと、淡い帯地の上で読みにくい**
+ * （amber #f59e0b は白地で 2:1 前後）。帯の枠・部屋名の四角は `BOOKING_TYPE_COLORS`
+ * のまま、**帯の中の文字だけ**濃くする（承認済みモックの指定）。
+ */
+const KIND_TEXT_COLORS: Record<string, string> = {
+  performance: '#991b1b',
+  rehearsal: '#92400e',
+  hold: '#1e40af',
+  consultation: '#065f46',
+  maintenance: '#374151',
+  tour: '#5b21b6',
+  internal: '#155e75',
+  setup: '#78350f',
+  other: '#374151',
+};
 
 export interface AvailRoom {
   id: string;
@@ -33,6 +59,7 @@ export interface AvailRoom {
 export interface AvailBooking {
   id: string;
   title: string;
+  booking_type: string;
   all_day: number;
   start_time: string;
   end_time: string;
@@ -46,7 +73,10 @@ export interface AvailBlock {
   width: string;
   title: string;
   timeLabel: string;
-  color: string | null;
+  /** 帯の枠・帯地の元になる色。種別の色（`BOOKING_TYPE_COLORS`） */
+  color: string;
+  /** 帯の中の文字色。**`color` をそのまま使わない**（コントラスト対策） */
+  textColor: string;
   tentative: boolean;
   /** 終日。**帯は出すが見た目を分ける**（時間の幅を持たないものなので） */
   allDay: boolean;
@@ -117,6 +147,7 @@ export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string
     const a = Math.max(0, Math.min(span, from - winFrom));
     const z = Math.max(0, Math.min(span, to - winFrom));
     if (z <= 0 || a >= span) continue;   // まるごと表示の外
+    const color = BOOKING_TYPE_COLORS[b.booking_type] ?? BOOKING_TYPE_COLORS.other;
     out.push({
       id: b.id,
       left: `${((a / span) * 100).toFixed(3)}%`,
@@ -124,7 +155,8 @@ export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string
       width: `${Math.max(3, ((z - a) / span) * 100).toFixed(3)}%`,
       title: b.title,
       timeLabel: isAllDay(b) ? '終日' : `${hhmm(b.start_time)}–${hhmm(b.end_time)}`,
-      color: b.rooms.find((r) => r.room_id === roomId)?.room_color ?? null,
+      color,
+      textColor: KIND_TEXT_COLORS[b.booking_type] ?? KIND_TEXT_COLORS.other,
       tentative: b.status === 'tentative',
       allDay: isAllDay(b),
     });

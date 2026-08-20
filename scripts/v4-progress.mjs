@@ -115,7 +115,13 @@ const TREE = [
       'ツールバーは今日／前後／期間の見出し／月・週・一覧の切替／予定を入れる だけの1段にした。' +
       'スマホは承認済みモック（iPhone のカレンダーアプリ風）に合わせて作り直し済み — 数字＋点だけの月表＋当日アジェンダで、' +
       'ここからも「予定を入れる」ができる（`rooms/MobileToday.tsx`）'],
-    ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx'],
+    // ① 予定と同じ理由（PageHeader を使わない macOS 風の独自ツールバー）で目印を差し替える
+    ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx', './rooms/RoomAvailabilityToolbar',
+      'PC は承認済みモック（macOS のカレンダーアプリ風）に合わせて作り直し済み。① 予定と同じくミニカレンダーを' +
+      '共通の左メニューへ常設したが、**この画面はレイヤーという概念を持たない**ので「マイカレンダー」の' +
+      'チェックは出さず、代わりに絞り込みを持たないと説明する。部屋は拠点ごとに見出しでグループ化して表示する。' +
+      '**帯の色を「部屋の色」から「種別の色」に変えた**（① 予定・③ 仮押さえと同じ `BOOKING_TYPE_COLORS`） — ' +
+      '旧実装は部屋の色で塗っており、同じ予約がこの画面だけ違う色に見える食い違いがあった'],
     ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
     ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
     ['（旧）スタジオカレンダー', '/studio/studio-calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx', '@@意図して据え置き@@',
