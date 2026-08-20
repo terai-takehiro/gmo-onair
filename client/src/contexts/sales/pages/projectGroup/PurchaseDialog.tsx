@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { AllocationEditor } from './AllocationEditor';
 import { useAllocation } from './useAllocation';
 import type { GroupDetail, GroupPurchase } from './types';
@@ -67,67 +67,68 @@ export function PurchaseDialog({
   const invalidAlloc = alloc.mode === 'custom' && alloc.previewTotal !== amount;
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'グループ仕入編集' : 'グループ仕入登録'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>仕入先 *</Label>
-            <SearchableSelect
-              options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
-              value={vendorId} onChange={setVendorId} placeholder="仕入先を検索..."
-            />
-          </div>
-          <div>
-            <Label>金額 *</Label>
-            <CurrencyInput value={amount} onChange={setAmount} />
-          </div>
-          <div>
-            <Label>説明</Label>
-            <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="仕入の説明" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>税区分</Label>
-              <Select value={tax} onValueChange={setTax}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((k) => <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>精算方法</Label>
-              <Select value={settlement} onValueChange={setSettlement}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((k) => <SelectItem key={k} value={k}>{SettlementMethodLabels[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>精算番号</Label>
-              <Input value={settlementNo} onChange={(e) => setSettlementNo(e.target.value)} placeholder="任意" />
-            </div>
-            <div>
-              <Label>計上日</Label>
-              <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />
-            </div>
-          </div>
-          <AllocationEditor label="仕入金額" alloc={alloc} total={amount} />
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={editing ? 'グループ仕入編集' : 'グループ仕入登録'}
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => saveMutation.mutate()} disabled={!vendorId || !amount || saveMutation.isPending || invalidAlloc}>
             {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editing ? '更新' : '登録'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>仕入先 *</Label>
+          <SearchableSelect
+            options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
+            value={vendorId} onChange={setVendorId} placeholder="仕入先を検索..."
+          />
+        </div>
+        <div>
+          <Label>金額 *</Label>
+          <CurrencyInput value={amount} onChange={setAmount} />
+        </div>
+        <div>
+          <Label>説明</Label>
+          <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="仕入の説明" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>税区分</Label>
+            <Select value={tax} onValueChange={setTax}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((k) => <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>精算方法</Label>
+            <Select value={settlement} onValueChange={setSettlement}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((k) => <SelectItem key={k} value={k}>{SettlementMethodLabels[k]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label>精算番号</Label>
+            <Input value={settlementNo} onChange={(e) => setSettlementNo(e.target.value)} placeholder="任意" />
+          </div>
+          <div>
+            <Label>計上日</Label>
+            <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />
+          </div>
+        </div>
+        <AllocationEditor label="仕入金額" alloc={alloc} total={amount} />
+      </div>
+    </FormDialog>
   );
 }
