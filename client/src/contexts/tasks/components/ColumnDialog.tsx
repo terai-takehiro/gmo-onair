@@ -1,11 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,58 +54,57 @@ export default function ColumnDialog({ open, onClose, projectId, existing }: Pro
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{existing ? "カラムを編集" : "カラムを追加"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="col-name">カラム名</Label>
-            <Input
-              id="col-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder="例: 進行中"
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>カラーラベル</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`w-7 h-7 rounded-full border-2 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                    color === c ? "border-foreground scale-110" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c }}
-                  aria-label={`カラー ${c}`}
-                  aria-pressed={color === c}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {saveError && (
-          <p className="text-sm text-destructive text-right">{saveError}</p>
-        )}
-
-        <DialogFooter>
+    <FormDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={existing ? "カラムを編集" : "カラムを追加"}
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
             キャンセル
           </Button>
           <Button size="sm" onClick={handleSave} disabled={!name.trim() || isPending}>
             {existing ? "更新" : "追加"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <Label htmlFor="col-name">カラム名</Label>
+          <Input
+            id="col-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="例: 進行中"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>カラーラベル</Label>
+          <div className="flex flex-wrap gap-2">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`w-7 h-7 rounded-full border-2 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  color === c ? "border-foreground scale-110" : "border-transparent"
+                }`}
+                style={{ backgroundColor: c }}
+                aria-label={`カラー ${c}`}
+                aria-pressed={color === c}
+                onClick={() => setColor(c)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {saveError && (
+        <p className="text-sm text-destructive text-right">{saveError}</p>
+      )}
+    </FormDialog>
   );
 }

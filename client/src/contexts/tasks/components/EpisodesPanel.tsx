@@ -34,9 +34,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -84,29 +82,28 @@ function AddEpisodesDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-sm overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>回を足す</DialogTitle>
-          <DialogDescription>
-            次の話数から連番で作ります。あとから実施日・タスクを回ごとに入れられます。
-          </DialogDescription>
-        </DialogHeader>
-        <div>
-          <Label htmlFor="ep-count">追加する数</Label>
-          <Input
-            id="ep-count" type="number" min={1} max={100} className="mt-1"
-            value={count} onChange={(e) => setCount(e.target.value)}
-          />
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="回を足す"
+      sub="次の話数から連番で作ります。あとから実施日・タスクを回ごとに入れられます。"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
           <Button onClick={() => create.mutate()} disabled={create.isPending || Number(count) < 1}>
             足す
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div>
+        <Label htmlFor="ep-count">追加する数</Label>
+        <Input
+          id="ep-count" type="number" min={1} max={100} className="mt-1"
+          value={count} onChange={(e) => setCount(e.target.value)}
+        />
+      </div>
+    </FormDialog>
   );
 }
 

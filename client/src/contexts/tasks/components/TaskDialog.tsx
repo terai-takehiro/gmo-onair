@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,12 +141,21 @@ export default function TaskDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{existing ? "タスクを編集" : "タスクを追加"}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={existing ? "タスクを編集" : "タスクを追加"}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
+            キャンセル
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={!title.trim() || isPending}>
+            {existing ? "更新" : "追加"}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="space-y-4">
           {/* タイトル */}
           <div className="space-y-1">
@@ -357,16 +360,6 @@ export default function TaskDialog({
         {saveError && (
           <p className="text-sm text-destructive text-right">{saveError}</p>
         )}
-
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
-            キャンセル
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={!title.trim() || isPending}>
-            {existing ? "更新" : "追加"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
