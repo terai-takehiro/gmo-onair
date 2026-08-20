@@ -1,0 +1,106 @@
+# スマホ最適化 洗い出し（2026-08-20）
+
+## 位置づけ
+
+v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通ライブラリ `shared` を対象に、
+「まだスマホ最適化が済んでいない箇所」をコードから洗い出した記録。**コード変更はまだ行っていない**（調査のみ）。
+
+前提として、このプロジェクトは既に `shared/CLAUDE.md`「スマホの手触りは部品と型スケールで一度に効かせる
+（Phase 6）」や `docs/reviews/codex-findings-v4.md` に大量の対応済み記録があるほど、スマホ対応の蓄積が厚い。
+そのため今回は **①本当に未対応の実装漏れ** と **②意図してPC専用にした設計判断**（`pcOnlyScreens.ts`）を
+明確に分けて記録する。②を「未対応」として直しにいかないこと。
+
+各アプリの `pcOnlyScreens.ts` にある画面は「バグ」ではなく理由付きの設計判断。全一覧は各ファイルを参照
+（`client/src/pcOnlyScreens.ts` / `client-daily/src/pcOnlyScreens.ts` / `client-equipment/src/pcOnlyScreens.ts`）。
+
+## 要対応（実装漏れ・優先度が高い順の目安）
+
+### client
+
+1. **`/gpm/projects` のボード表示がスマホでも開ける**（`contexts/gpm/pages/GpmProjectListPage.tsx`）
+   姉妹画面の案件一覧（`contexts/sales/pages/ProjectListPage.tsx`）は `useIsMobile()` で「ボード」トグル自体を
+   隠し、`?view=board` 直リンクも一覧へ強制フォールバックしている（375px に1列も入らないため、という理由が
+   CLAUDE.md にも明記済み）。GPM 側の一覧には同じガードが無く、`useIsMobile` を一切使っていない。押すと
+   `w-60`（240px）固定カラムが5列並ぶカンバンが横スクロール前提で出る。**案件一覧のガードを移植し忘れたと
+   見られる。`/gpm/projects` は `CLIENT_MOBILE_OK` 指定の画面なので許容された仕様ではない。**
+
+2. **`/gpm/projects` の絞り込み帯がスマホでも畳まれない**（同ファイル 203〜242行目）
+   検索欄・区分ボタン・並び順が `MobileFilterBar`（シート化）を使わず1行にそのまま並び、375px では折り返して
+   縦に重なる。ファイル内コメントに「件数が増えたら移す」と意図的な簡略化である旨の記載があるため、優先度は
+   1番より低いが、他画面と手触りが揃っていない点は残る。
+
+### client-equipment
+
+3. **機材台帳「機材」タブのカスタム列・その場編集・親子の入れ子がスマホで使えない**
+   （`pages/equipmentList/EquipmentCards.tsx` / `EquipmentTable.tsx` / `ItemsPanel.tsx`）
+   PC版（`EquipmentTable`）だけが親子展開・カスタム列・その場編集を持ち、スマホ版（`EquipmentCards`）は
+   `parent_name` を文字列で添えるだけで展開操作自体が無い。`client-equipment/CLAUDE.md` に「枠はv4・行の
+   載せ替えは途中」と明記されている既知の未完了。
+
+4. **機材の新規登録・編集ダイアログが375pxでも常にフル項目・密グリッド**
+   （`EquipmentDialog.tsx` / `EquipmentAssetFields.tsx` / `EquipmentDetailPage.tsx` の編集フォーム）
+   台帳・詳細画面では「資産管理は日常では畳む」設計判断があるのに、登録・編集ダイアログには反映されていない。
+   ダイアログ実効幅 ≈311pxに対し `grid-cols-3`〜`grid-cols-4` を組んでおり、1セル65〜96px まで圧縮される。
+   `ItemsToolbar` の「機材を足す」はスマホでも残る唯一の追加導線（`isMobile` 分岐なし）なので実際に露出する。
+   **さらに同じ密グリッドパターンが `EquipmentDialog` と `EquipmentDetailPage.tsx` の2箇所に別実装で重複**
+   しており、直すときは両方直す必要がある。
+
+### client-daily / client-equipment（横断・優先度中）
+
+5. **「検索を消す（×）」ボタンが28px（`h-7 w-7`）で44pxタップ規則の対象外**
+   `InviewPage.tsx` / `InviewDayPage.tsx` / `SecurityCardsPage.tsx`（client-daily）、
+   `components/parts/SearchField.tsx`（client-equipment）の4箇所。共通の `Button`（`data-ui="button"`）を
+   経由せず素の `<button>` を書いているため、`tokens-v4.css` の44px強制ルールが効かない。**同じコードが4箇所に
+   複製されている**ため、1箇所直しても残りが直らない点も合わせて要対応。
+
+### shared（3アプリ共通に効く）
+
+6. **`Pagination`（`shared/src/client/ui/pagination.tsx`）の前へ/次へボタンが36px（`h-9`）**
+   `Button` 部品を経由しない生 `<button>` のため44px規則の対象外。`client` の `CompanyListPage.tsx`
+   （`/sales/companies`）・`CounterpartyPage.tsx`（`/budget/vendors`）は両方とも `MOBILE_OK` 画面なので、
+   実際にスマホで36pxのページ送りボタンが出る。
+
+7. **`CrudFormDialog`（`shared/src/client/ui/crud-form-dialog.tsx`）だけがSheet化されていない**
+   `shared/CLAUDE.md` は「一覧から1件ずつ片づける画面は下から出るシートを使う」をv4の決めごとにしているが、
+   この部品だけ中央固定Dialogのまま。`CompanyListPage.tsx` / `CounterpartyPage.tsx`（ともにMOBILE_OK）の
+   新規追加・編集がここを通る。壊れてはいないが、フッターの保存/キャンセルが画面下端に固定されない。
+
+8. **（軽微・要確認寄り）`DataTable` / 生 `Table`・`FilterBar` が無参照のままスマホ未対応で残置**
+   `shared/src/client/ui/data-table.tsx`・`table.tsx`・`filter-bar.tsx` はどのアプリからもimportされていない
+   （`FilterChips` 等の後継部品に役割が移った残骸と見られる）。実害は今は無いが、`ui/index.ts` の案内文が
+   これらを「使える部品」として紹介しており、次に誰かがテーブルを作る際にモバイル未対応のまま採用される
+   リスクがある。非推奨の注記を足すか削除するかの判断が要る。
+
+### 参考（低優先・一貫性のみ）
+
+- 機材詳細のQRコード表示ダイアログ（`EquipmentDetailPage.tsx:362-380`）だけ `max-h-[90vh] overflow-y-auto`
+  を明示していない（`DialogContent` の既定値でカバーされるため実害はほぼ無い）。
+
+## 意図的にPC専用（対応不要・設計判断）
+
+各アプリの `pcOnlyScreens.ts` に理由・代替導線つきで記録済み。件数のみ:
+
+- `client`: 案件管理・財務管理・カレンダー・設定・GPM 合わせて約25画面（例: 見積・請求／案件台帳／料金表／
+  部屋の空き／権限とメンバー／プロジェクト詳細 など）
+- `client-daily`: 1画面（入ってきた情報 `/inquiries`）
+- `client-equipment`: 2画面（ラック図 `/equipment/racks`／機材管理の設定 `/equipment/settings`）
+
+新しく「PC専用にすべきでは」と思った画面があれば、まずこの一覧と `why` を確認すること。
+
+## 凍結4アプリ（対象外）
+
+`client-qsheet` / `client-techsheet` / `client-live` / `client-awards` は v4.0.0 では作り直さない方針
+（CLAUDE.md「ブロックアプリ一覧」）。今回の洗い出しの対象外。
+
+## 要確認（優先度・スコープの判断が必要）
+
+- 機材台帳「機材」タブのスマホ対応をどこまで作り込むか（＝上記3の着地点）
+- 登録・編集ダイアログの資産・ラック項目をスマホでは折りたたむべきか（＝上記4の着地点）
+- `CompanyListPage.tsx` の役割バッジ列・操作ボタン列に `hideOnMobile` が付いていない点が意図的か書き漏れか
+- `KpiCard` の `onClick` 使用箇所で44px規則が実測で満たされているか（375px実機確認が必要）
+
+## 次のアクション案
+
+上記「要対応」1〜7は影響画面・原因ともに特定済みで、着手すればすぐ直せる規模。優先度は
+**1 (GPMボード) → 6 (Pagination) → 5 (検索×ボタン) → 7 (CrudFormDialog) → 4 (機材ダイアログ) → 3 (機材台帳)**
+の順を提案（影響の大きさ・直しやすさのバランス）。着手する範囲が決まり次第、実装に入る。
