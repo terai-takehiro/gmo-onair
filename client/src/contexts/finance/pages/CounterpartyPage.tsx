@@ -45,10 +45,11 @@ import { useCrudPage } from '@/hooks/useCrudPage';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import { LedgerTabs } from './ledger/LedgerTabs';
 import { LedgerSearch } from './ledger/LedgerParts';
+import { CounterpartyCards } from './counterparty/CounterpartyCards';
 
-type Kind = 'vendor' | 'partner';
+export type Kind = 'vendor' | 'partner';
 
-interface Party {
+export interface Party {
   id: string;
   name: string;
   contact_name?: string;
@@ -244,65 +245,77 @@ export default function CounterpartyPage() {
         )
       ) : (
         <>
-          <div className="flex flex-col">
-            <RowHeader className="hidden sm:flex">
-              <RowMain>{kind === 'vendor' ? '仕入先' : 'お名前'}</RowMain>
-              <RowSlot w={160}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
-              <RowSlot w={160}>電話</RowSlot>
-              <RowSlot w={200}>{def.extraLabel}</RowSlot>
-              {/* 取引額は仕入先だけ。**パートナーの列に 0 を並べない** */}
-              {kind === 'vendor' && <RowSlot w={128} align="right">今年度の取引</RowSlot>}
-              <RowSlot w={96}>{canEdit ? '操作' : ''}</RowSlot>
-            </RowHeader>
+          {isMobile ? (
+            <CounterpartyCards
+              items={items}
+              kind={kind}
+              extraLabel={def.extraLabel}
+              canEdit={canEdit}
+              onEdit={crud.openEdit}
+              onDelete={onDelete}
+              extraOf={extraOf}
+            />
+          ) : (
+            <div className="flex flex-col">
+              <RowHeader>
+                <RowMain>{kind === 'vendor' ? '仕入先' : 'お名前'}</RowMain>
+                <RowSlot w={160}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
+                <RowSlot w={160}>電話</RowSlot>
+                <RowSlot w={200}>{def.extraLabel}</RowSlot>
+                {/* 取引額は仕入先だけ。**パートナーの列に 0 を並べない** */}
+                {kind === 'vendor' && <RowSlot w={128} align="right">今年度の取引</RowSlot>}
+                <RowSlot w={96}>{canEdit ? '操作' : ''}</RowSlot>
+              </RowHeader>
 
-            {items.map((p) => (
-              <Row key={p.id} onClick={canEdit ? () => crud.openEdit(p) : undefined}>
-                <RowMain>
-                  <RowTitle>{p.name}</RowTitle>
-                  <RowSub>{p.email || 'メールなし'}</RowSub>
-                </RowMain>
-                <RowSlot w={160} hideOnMobile>
-                  <span className="truncate text-sub text-secondary-foreground">
-                    {p.contact_name || p.role_title || '—'}
-                  </span>
-                </RowSlot>
-                <RowSlot w={160} hideOnMobile>
-                  <span className="font-number truncate text-sub text-secondary-foreground">{p.phone || '—'}</span>
-                </RowSlot>
-                <RowSlot w={200} hideOnMobile>
-                  <span className="truncate text-sub text-muted-foreground">{extraOf(p, kind) || '—'}</span>
-                </RowSlot>
-                {kind === 'vendor' && (
-                  Number(p.ytd_amount ?? 0) > 0
-                    ? <MoneyCell width={128} value={Number(p.ytd_amount)} className="text-sub" />
-                    : (
-                      <RowSlot w={128} align="right" hideOnMobile>
-                        {/* **0 円と「今年は取引なし」は別物。** 0 と書くと 0 円の取引があるように読める */}
-                        <span className="text-sub-sm text-fg-disabled">今年はなし</span>
-                      </RowSlot>
-                    )
-                )}
-                <RowSlot w={96}>
-                  {canEdit && (
-                    <span className="flex gap-0.5">
-                      <Button
-                        variant="ghost" size="icon" aria-label="直す"
-                        onClick={(e) => { e.stopPropagation(); crud.openEdit(p); }}
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon" aria-label="消す" className="text-destructive"
-                        onClick={(e) => { e.stopPropagation(); onDelete(p); }}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </Button>
+              {items.map((p) => (
+                <Row key={p.id} onClick={canEdit ? () => crud.openEdit(p) : undefined}>
+                  <RowMain>
+                    <RowTitle>{p.name}</RowTitle>
+                    <RowSub>{p.email || 'メールなし'}</RowSub>
+                  </RowMain>
+                  <RowSlot w={160}>
+                    <span className="truncate text-sub text-secondary-foreground">
+                      {p.contact_name || p.role_title || '—'}
                     </span>
+                  </RowSlot>
+                  <RowSlot w={160}>
+                    <span className="font-number truncate text-sub text-secondary-foreground">{p.phone || '—'}</span>
+                  </RowSlot>
+                  <RowSlot w={200}>
+                    <span className="truncate text-sub text-muted-foreground">{extraOf(p, kind) || '—'}</span>
+                  </RowSlot>
+                  {kind === 'vendor' && (
+                    Number(p.ytd_amount ?? 0) > 0
+                      ? <MoneyCell width={128} value={Number(p.ytd_amount)} className="text-sub" />
+                      : (
+                        <RowSlot w={128} align="right">
+                          {/* **0 円と「今年は取引なし」は別物。** 0 と書くと 0 円の取引があるように読める */}
+                          <span className="text-sub-sm text-fg-disabled">今年はなし</span>
+                        </RowSlot>
+                      )
                   )}
-                </RowSlot>
-              </Row>
-            ))}
-          </div>
+                  <RowSlot w={96}>
+                    {canEdit && (
+                      <span className="flex gap-0.5">
+                        <Button
+                          variant="ghost" size="icon" aria-label="直す"
+                          onClick={(e) => { e.stopPropagation(); crud.openEdit(p); }}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" aria-label="消す" className="text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onDelete(p); }}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </span>
+                    )}
+                  </RowSlot>
+                </Row>
+              ))}
+            </div>
+          )}
 
           <Pagination
             page={crud.page}
