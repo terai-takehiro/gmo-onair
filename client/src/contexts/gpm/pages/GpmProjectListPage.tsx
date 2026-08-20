@@ -64,6 +64,7 @@ import { MobileFilterBar, MobileFilterField, MobileFilterSegments } from '@gmo-o
 import { useGpmProjects } from '../queries';
 import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
+import { GpmProjectCards } from './projectList/ProjectCards';
 import { GpmProjectBoard } from './projectList/ProjectBoard';
 /**
  * 「止まっている」の判定は案件一覧と同じ7日（`STALE_DAYS`）を使う。
@@ -328,6 +329,8 @@ export default function GpmProjectListPage() {
         )
       ) : view === 'board' ? (
         <GpmProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
+      ) : isMobile ? (
+        <GpmProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-card">
           <ProjectRowsHeader />
