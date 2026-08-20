@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import type { StaffUser } from './types';
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -50,49 +50,50 @@ export function TargetDialog({
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>営業目標の設定</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>担当者</Label>
-            <Select value={userId} onValueChange={setUserId}>
-              <SelectTrigger><SelectValue placeholder="選択…" /></SelectTrigger>
-              <SelectContent>
-                {staffUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>年度</Label>
-              <p className="font-number flex h-10 items-center rounded-control border border-border bg-muted px-3">{year}年</p>
-            </div>
-            <div>
-              <Label>月</Label>
-              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m) => <SelectItem key={m} value={String(m)}>{m}月</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label>目標金額</Label>
-            <CurrencyInput value={amount} onChange={setAmount} placeholder="10000000" />
-          </div>
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="営業目標の設定"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => mutation.mutate()} disabled={!userId || !amount || mutation.isPending}>
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             保存
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>担当者</Label>
+          <Select value={userId} onValueChange={setUserId}>
+            <SelectTrigger><SelectValue placeholder="選択…" /></SelectTrigger>
+            <SelectContent>
+              {staffUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>年度</Label>
+            <p className="font-number flex h-10 items-center rounded-control border border-border bg-muted px-3">{year}年</p>
+          </div>
+          <div>
+            <Label>月</Label>
+            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m) => <SelectItem key={m} value={String(m)}>{m}月</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label>目標金額</Label>
+          <CurrencyInput value={amount} onChange={setAmount} placeholder="10000000" />
+        </div>
+      </div>
+    </FormDialog>
   );
 }

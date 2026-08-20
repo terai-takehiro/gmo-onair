@@ -6,6 +6,7 @@
  * 見出しの型を v4 のトークンに ③削除できるのは `manager` だけに絞った
  * （旧実装は開ける人なら誰でも削除ボタンが出ていたが、サーバーは
  * `requirePermission('sales', 'manager')` なので、**押せるのに 403** だった）。
+ * ④ 入れ物を `Dialog` から `FormDialog` に載せ替えた（スマホは下シート）。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { ACTIVITY_TYPES } from './kinds';
 import { EMPTY_FORM, type ActivityLogRow, type FormData } from './types';
 
@@ -111,78 +112,12 @@ export function ActivityLogDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? '活動記録の編集' : '活動を記録'}</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label>活動種別</Label>
-              <Select value={form.activity_type} onValueChange={(v) => setForm((f) => ({ ...f, activity_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ACTIVITY_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>活動日</Label>
-              <Input type="date" value={form.activity_date} onChange={(e) => setForm((f) => ({ ...f, activity_date: e.target.value }))} />
-            </div>
-          </div>
-          <div>
-            <Label>件名 *</Label>
-            <Input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} placeholder="打合せ内容の概要" />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label>案件（任意）</Label>
-              <Select value={form.project_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, project_id: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし</SelectItem>
-                  {projectOptions.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>{o.gls_number || o.code} {o.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>顧客（任意）</Label>
-              <Select value={form.customer_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, customer_id: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし</SelectItem>
-                  {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label>所要時間（分）</Label>
-            <Input type="number" value={form.duration_minutes} onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))} placeholder="30" />
-          </div>
-          <div>
-            <Label>詳細</Label>
-            <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
-          </div>
-          <div className="border-t border-border pt-4">
-            <p className="mb-2 text-sub font-bold">次回アクション</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <div className="col-span-2">
-                <Label>内容</Label>
-                <Input value={form.next_action} onChange={(e) => setForm((f) => ({ ...f, next_action: e.target.value }))} placeholder="見積書を送付" />
-              </div>
-              <div>
-                <Label>期日</Label>
-                <Input type="date" value={form.next_action_date} onChange={(e) => setForm((f) => ({ ...f, next_action_date: e.target.value }))} />
-              </div>
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="gap-2 sm:justify-between">
+    <FormDialog
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
+      title={editing ? '活動記録の編集' : '活動を記録'}
+      footer={
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           {editing && canDelete ? (
             <Button
               variant="ghost"
@@ -202,8 +137,75 @@ export function ActivityLogDialog({
               {editing ? '更新' : '保存'}
             </Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>活動種別</Label>
+            <Select value={form.activity_type} onValueChange={(v) => setForm((f) => ({ ...f, activity_type: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ACTIVITY_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>活動日</Label>
+            <Input type="date" value={form.activity_date} onChange={(e) => setForm((f) => ({ ...f, activity_date: e.target.value }))} />
+          </div>
+        </div>
+        <div>
+          <Label>件名 *</Label>
+          <Input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} placeholder="打合せ内容の概要" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>案件（任意）</Label>
+            <Select value={form.project_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, project_id: v === 'none' ? '' : v }))}>
+              <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし</SelectItem>
+                {projectOptions.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.gls_number || o.code} {o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>顧客（任意）</Label>
+            <Select value={form.customer_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, customer_id: v === 'none' ? '' : v }))}>
+              <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし</SelectItem>
+                {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label>所要時間（分）</Label>
+          <Input type="number" value={form.duration_minutes} onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))} placeholder="30" />
+        </div>
+        <div>
+          <Label>詳細</Label>
+          <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
+        </div>
+        <div className="border-t border-border pt-4">
+          <p className="mb-2 text-sub font-bold">次回アクション</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="col-span-2">
+              <Label>内容</Label>
+              <Input value={form.next_action} onChange={(e) => setForm((f) => ({ ...f, next_action: e.target.value }))} placeholder="見積書を送付" />
+            </div>
+            <div>
+              <Label>期日</Label>
+              <Input type="date" value={form.next_action_date} onChange={(e) => setForm((f) => ({ ...f, next_action_date: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </FormDialog>
   );
 }
