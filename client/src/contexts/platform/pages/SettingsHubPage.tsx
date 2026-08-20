@@ -35,6 +35,7 @@ import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { CLIENT_MOBILE_HIDDEN } from '@/pcOnlyScreens';
 import { HUB_GROUPS, type HubCard } from './settings/hubCards';
+import { SettingsHubList } from './settings/SettingsHubList';
 
 function Card({ c }: { c: HubCard }) {
   const Icon = c.icon;
@@ -107,6 +108,10 @@ export default function SettingsHubPage() {
         <p className="rounded-card border border-border bg-surface-subtle p-4 text-sub text-secondary-foreground">
           あなたの権限で開ける設定はありません。必要なものがあれば管理者に依頼してください。
         </p>
+      ) : mobile ? (
+        // **iOS 設定アプリのようなセクション区切りリスト**（監査 2026-08-20 の指摘）。
+        // PC のカードグリッドを縮めたものではなく、行として組み直している
+        <SettingsHubList groups={groups} />
       ) : groups.map((g) => (
         <section key={g.label} className="flex flex-col gap-2.5">
           <h2 className="text-note font-bold tracking-wider text-muted-foreground">{g.label}</h2>
