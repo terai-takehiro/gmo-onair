@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { IntakeLogTab } from './tasks/IntakeLogTab';
@@ -741,59 +741,57 @@ function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () => void }
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>タスクを編集</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
-          <div>
-            <Label className="text-xs">やること</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-          </div>
-          <DueField value={due} onChange={setDue} required={isDelegation} />
-          {isDelegation && (
-            <p className="text-[11px] text-muted-foreground">
-              これは {task.requester_name ?? '誰か'} さんからの依頼です。期限は必須です。
-            </p>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LevelPicker label="重要度" value={imp} onChange={setImp} />
-            <LevelPicker label="緊急度" value={urg} onChange={setUrg} />
-          </div>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-            <span className={cn('rounded border px-1.5 py-0.5 font-number text-xs font-bold', scoreTone(score))}>{score}</span>
-            <span className="text-xs text-muted-foreground">
-              {CELL_ACTION[`${imp}x${due ? urg : 1}`]}
-              {!due && '（期限が無いので緊急度は低として扱います）'}
-            </span>
-          </div>
-          {!isDelegation && (
-            <div>
-              <Label className="text-xs">見せる範囲</Label>
-              <div className="mt-1 flex gap-1">
-                <button type="button" onClick={() => setVis('team')}
-                  className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
-                  チームに見せる
-                </button>
-                <button type="button" onClick={() => setVis('private')}
-                  className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'private' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
-                  自分だけ
-                </button>
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                「自分だけ」でもチームタブの件数には入ります（内容は出ません）。
-              </p>
-            </div>
-          )}
+    <FormDialog open onOpenChange={onClose} title="タスクを編集" footer={
+      <FormDialogFooter>
+        <Button variant="outline" onClick={onClose}>やめる</Button>
+        <Button onClick={save} disabled={update.isPending}>
+          {update.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}保存
+        </Button>
+      </FormDialogFooter>
+    }>
+      <div className="space-y-3">
+        {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
+        <div>
+          <Label className="text-xs">やること</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
         </div>
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={save} disabled={update.isPending}>
-            {update.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}保存
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <DueField value={due} onChange={setDue} required={isDelegation} />
+        {isDelegation && (
+          <p className="text-[11px] text-muted-foreground">
+            これは {task.requester_name ?? '誰か'} さんからの依頼です。期限は必須です。
+          </p>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <LevelPicker label="重要度" value={imp} onChange={setImp} />
+          <LevelPicker label="緊急度" value={urg} onChange={setUrg} />
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+          <span className={cn('rounded border px-1.5 py-0.5 font-number text-xs font-bold', scoreTone(score))}>{score}</span>
+          <span className="text-xs text-muted-foreground">
+            {CELL_ACTION[`${imp}x${due ? urg : 1}`]}
+            {!due && '（期限が無いので緊急度は低として扱います）'}
+          </span>
+        </div>
+        {!isDelegation && (
+          <div>
+            <Label className="text-xs">見せる範囲</Label>
+            <div className="mt-1 flex gap-1">
+              <button type="button" onClick={() => setVis('team')}
+                className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
+                チームに見せる
+              </button>
+              <button type="button" onClick={() => setVis('private')}
+                className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'private' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
+                自分だけ
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              「自分だけ」でもチームタブの件数には入ります（内容は出ません）。
+            </p>
+          </div>
+        )}
+      </div>
+    </FormDialog>
   );
 }
 
@@ -828,54 +826,52 @@ function TaskCreateDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>タスク・依頼を追加</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
-          <div>
-            <Label className="text-xs">やること</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" placeholder="例: 見積書の作成" />
-          </div>
-          <div>
-            <Label className="text-xs">担当者</Label>
-            <select
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            >
-              <option value="">選んでください</option>
-              {(users ?? []).map((u) => (
-                <option key={u.id} value={u.id}>{u.name}{u.id === currentUser?.id ? '（自分）' : ''}</option>
-              ))}
-            </select>
-            {isDelegation && (
-              <p className="mt-1 text-[11px] text-violet-700">
-                人に頼む依頼になります。期限は必須です。相手は受ける / 相談 / 辞退を選べます。
-              </p>
-            )}
-          </div>
-          <DueField value={due} onChange={setDue} required={isDelegation} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LevelPicker label="重要度" value={imp} onChange={setImp} />
-            <LevelPicker label="緊急度" value={urg} onChange={setUrg} />
-          </div>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-            <span className={cn('rounded border px-1.5 py-0.5 font-number text-xs font-bold', scoreTone(score))}>{score}</span>
-            <span className="text-xs text-muted-foreground">{CELL_ACTION[`${imp}x${due ? urg : 1}`]}</span>
-          </div>
-          <div>
-            <Label className="text-xs">補足（任意）</Label>
-            <Textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" />
-          </div>
+    <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" footer={
+      <FormDialogFooter>
+        <Button variant="outline" onClick={onClose}>やめる</Button>
+        <Button onClick={submit} disabled={create.isPending}>
+          {create.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}登録する
+        </Button>
+      </FormDialogFooter>
+    }>
+      <div className="space-y-3">
+        {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
+        <div>
+          <Label className="text-xs">やること</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" placeholder="例: 見積書の作成" />
         </div>
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={submit} disabled={create.isPending}>
-            {create.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}登録する
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div>
+          <Label className="text-xs">担当者</Label>
+          <select
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+            className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">選んでください</option>
+            {(users ?? []).map((u) => (
+              <option key={u.id} value={u.id}>{u.name}{u.id === currentUser?.id ? '（自分）' : ''}</option>
+            ))}
+          </select>
+          {isDelegation && (
+            <p className="mt-1 text-[11px] text-violet-700">
+              人に頼む依頼になります。期限は必須です。相手は受ける / 相談 / 辞退を選べます。
+            </p>
+          )}
+        </div>
+        <DueField value={due} onChange={setDue} required={isDelegation} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <LevelPicker label="重要度" value={imp} onChange={setImp} />
+          <LevelPicker label="緊急度" value={urg} onChange={setUrg} />
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+          <span className={cn('rounded border px-1.5 py-0.5 font-number text-xs font-bold', scoreTone(score))}>{score}</span>
+          <span className="text-xs text-muted-foreground">{CELL_ACTION[`${imp}x${due ? urg : 1}`]}</span>
+        </div>
+        <div>
+          <Label className="text-xs">補足（任意）</Label>
+          <Textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1" />
+        </div>
+      </div>
+    </FormDialog>
   );
 }

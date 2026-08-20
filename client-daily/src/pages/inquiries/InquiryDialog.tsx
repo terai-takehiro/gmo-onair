@@ -16,7 +16,7 @@
  */
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,91 +63,90 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{initial ? '問い合わせを直す' : '問い合わせを足す'}</DialogTitle>
-          {initial?.is_ai && (
-            <DialogDescription>
-              これは <strong className="font-bold">AI が取り込んだもの</strong>です。
-              直した内容は AI の改善に使われます（何を直したかを入力する必要はありません）。
-            </DialogDescription>
-          )}
-        </DialogHeader>
-
-        <div className="flex flex-col gap-3">
-          <div>
-            <Label>要約 *</Label>
-            <textarea
-              className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
-              rows={2}
-              value={f.summary ?? ''}
-              onChange={set('summary')}
-              placeholder="内容の1行要約"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div><Label>送信者</Label><Input value={f.sender ?? ''} onChange={set('sender')} /></div>
-            <div>
-              <Label>重要度</Label>
-              <Select
-                value={f.importance ?? 'medium'}
-                onValueChange={(v) => setF((p) => ({ ...p, importance: v as Importance }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(['high', 'medium', 'low'] as const).map((k) => (
-                    <SelectItem key={k} value={k}>{IMPORTANCE_LABELS[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div><Label>件名</Label><Input value={f.subject ?? ''} onChange={set('subject')} /></div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>出どころ</Label>
-              <Select value={f.source ?? 'phone'} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {INQUIRY_SOURCES.map((k) => (
-                    <SelectItem key={k} value={k}>{INQUIRY_SOURCE_LABELS[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label>受信日</Label><Input type="date" value={f.received_at ?? ''} onChange={set('received_at')} /></div>
-          </div>
-          <div>
-            <Label>タグ</Label>
-            <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
-            <p className="text-note mt-1 text-muted-foreground">
-              読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
-              <strong className="font-bold">ストックしたものを後から引く</strong>ための手がかりなので、
-              短い語にしてください。
-            </p>
-          </div>
-          <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
-          <div><Label>参考URL</Label><Input value={f.url ?? ''} onChange={set('url')} placeholder="https://..." /></div>
-          <div>
-            <Label>メモ</Label>
-            <textarea
-              className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
-              rows={2}
-              value={f.notes ?? ''}
-              onChange={set('notes')}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={initial ? '問い合わせを直す' : '問い合わせを足す'}
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>
           <Button onClick={submit} disabled={pending || !f.summary?.trim()}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initial ? '保存' : '足す'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {initial?.is_ai && (
+          <p className="text-sm text-muted-foreground">
+            これは <strong className="font-bold">AI が取り込んだもの</strong>です。
+            直した内容は AI の改善に使われます（何を直したかを入力する必要はありません）。
+          </p>
+        )}
+        <div>
+          <Label>要約 *</Label>
+          <textarea
+            className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
+            rows={2}
+            value={f.summary ?? ''}
+            onChange={set('summary')}
+            placeholder="内容の1行要約"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div><Label>送信者</Label><Input value={f.sender ?? ''} onChange={set('sender')} /></div>
+          <div>
+            <Label>重要度</Label>
+            <Select
+              value={f.importance ?? 'medium'}
+              onValueChange={(v) => setF((p) => ({ ...p, importance: v as Importance }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(['high', 'medium', 'low'] as const).map((k) => (
+                  <SelectItem key={k} value={k}>{IMPORTANCE_LABELS[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div><Label>件名</Label><Input value={f.subject ?? ''} onChange={set('subject')} /></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label>出どころ</Label>
+            <Select value={f.source ?? 'phone'} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {INQUIRY_SOURCES.map((k) => (
+                  <SelectItem key={k} value={k}>{INQUIRY_SOURCE_LABELS[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div><Label>受信日</Label><Input type="date" value={f.received_at ?? ''} onChange={set('received_at')} /></div>
+        </div>
+        <div>
+          <Label>タグ</Label>
+          <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
+          <p className="text-note mt-1 text-muted-foreground">
+            読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
+            <strong className="font-bold">ストックしたものを後から引く</strong>ための手がかりなので、
+            短い語にしてください。
+          </p>
+        </div>
+        <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
+        <div><Label>参考URL</Label><Input value={f.url ?? ''} onChange={set('url')} placeholder="https://..." /></div>
+        <div>
+          <Label>メモ</Label>
+          <textarea
+            className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
+            rows={2}
+            value={f.notes ?? ''}
+            onChange={set('notes')}
+          />
+        </div>
+      </div>
+    </FormDialog>
   );
 }

@@ -11,9 +11,7 @@
  */
 import { useState } from 'react';
 import { ArrowRightLeft, Loader2, Undo2 } from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,7 +61,21 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
   };
 
   return (
-    <Shell title={`No.${card.card_no}・${card.level_label} を貸す`} onClose={onClose}>
+    <Shell
+      title={`No.${card.card_no}・${card.level_label} を貸す`}
+      onClose={onClose}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
+          <Button className="min-h-tap gap-1.5" onClick={submit} disabled={lend.isPending}>
+            {lend.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              : <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
+            貸し出す
+          </Button>
+        </FormDialogFooter>
+      }
+    >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="貸出先の会社" value={company} onChange={setCompany} placeholder="例：株式会社〇〇" />
         <Field label="担当者" required value={person} onChange={setPerson} placeholder="例：山田 太郎" />
@@ -88,15 +100,6 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
           <textarea id="lend-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={TEXTAREA} placeholder="任意" />
         </div>
       </div>
-      <DialogFooter>
-        <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
-        <Button className="min-h-tap gap-1.5" onClick={submit} disabled={lend.isPending}>
-          {lend.isPending
-            ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            : <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
-          貸し出す
-        </Button>
-      </DialogFooter>
     </Shell>
   );
 }
@@ -114,7 +117,21 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
   };
 
   return (
-    <Shell title={`No.${card.card_no}・${card.level_label} を返してもらう`} onClose={onClose}>
+    <Shell
+      title={`No.${card.card_no}・${card.level_label} を返してもらう`}
+      onClose={onClose}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
+          <Button className="min-h-tap gap-1.5" onClick={submit} disabled={ret.isPending}>
+            {ret.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              : <Undo2 className="h-4 w-4" aria-hidden="true" />}
+            返却する
+          </Button>
+        </FormDialogFooter>
+      }
+    >
       <div className="rounded-card border border-warning-border bg-warning-surface p-3">
         <p className="text-sub">
           貸出先: {card.borrower_company || '（会社名なし）'} / {card.borrower_person}
@@ -131,27 +148,17 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
         <Label htmlFor="return-notes">返却のときのメモ</Label>
         <textarea id="return-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={TEXTAREA} placeholder="任意" />
       </div>
-      <DialogFooter>
-        <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
-        <Button className="min-h-tap gap-1.5" onClick={submit} disabled={ret.isPending}>
-          {ret.isPending
-            ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            : <Undo2 className="h-4 w-4" aria-hidden="true" />}
-          返却する
-        </Button>
-      </DialogFooter>
     </Shell>
   );
 }
 
-function Shell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Shell({ title, onClose, footer, children }: {
+  title: string; onClose: () => void; footer: React.ReactNode; children: React.ReactNode;
+}) {
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <div className="flex flex-col gap-3">{children}</div>
-      </DialogContent>
-    </Dialog>
+    <FormDialog open onOpenChange={(o) => { if (!o) onClose(); }} title={title} footer={footer}>
+      <div className="flex flex-col gap-3">{children}</div>
+    </FormDialog>
   );
 }
 
