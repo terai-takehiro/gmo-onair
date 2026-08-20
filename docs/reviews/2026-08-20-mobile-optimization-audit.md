@@ -8,7 +8,7 @@
 
 | 画面 | 判定 | 根拠 |
 | --- | --- | --- |
-| `/budget/detail`（案件月別詳細） | **① 削除候補** | 他画面からの生きた導線が無く、画面自身が既にv4の`RevenueListPage`/`PurchaseListPage`/`SgaListPage`（`project_id`/`recognition_month`で同じ絞り込みに対応済み）へ誘導している。独自機能は見当たらない |
+| `/budget/detail`（案件月別詳細） | **① 削除済み** ✅ | 他画面からの生きた導線が無く、画面自身が既にv4の`RevenueListPage`/`PurchaseListPage`/`SgaListPage`（`project_id`/`recognition_month`で同じ絞り込みに対応済み）へ誘導している。独自機能は見当たらない。旧URLは`/budget/dashboard`へ転送する |
 | `/budget/reports/vendors`（仕入先集計） | **③ 作り直しが必要** | v4の取引先マスター（`CounterpartyPage.tsx`）に「仕入先集計へ」ボタンが**現役である**。仕入先別ランキング＋CSV出力はv4のどこにも無い独自機能 |
 | `/studio/studio-calendar`（旧スタジオカレンダー） | **③ 作り直しが必要** | コマ表（`KoubanView`）と**既存予約の編集**（v4統合カレンダーは新規作成のみで編集不可）がv4に無い独自機能 |
 | `/studio/partners`（旧パートナー） | **② 削除候補（要確認）** | v4統合カレンダー（`/studio/calendar`）の`NewEventChooser`が同じ`PartnerScheduleDialog`を呼んでおり、**作成・編集とも既に代替済み**と実装確認できた |
@@ -149,8 +149,8 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 - [ ] `/budget/sga` 販管費の台帳 — 同上
 - [ ] `/budget/documents` 受け取った書類 — 取り消せない台帳登録操作
 - [ ] `/budget/import` 取り込み — 3段の取込作業。**左メニューからも非表示**
-- [ ] `/budget/detail` 案件月別詳細 — 月を横に並べる表。**左メニューからも非表示**。
-      **①削除候補**（上の「v3時代の遺物」節を参照。生きた導線無し・独自機能無し）
+- [x] ~~`/budget/detail` 案件月別詳細~~ — **削除済み**。旧URLは`/budget/dashboard`へ転送する
+      （上の「v3時代の遺物」節を参照。生きた導線無し・独自機能無し）
 - [ ] `/budget/reports/vendors` 仕入先集計 — 仕入先×月の表。**左メニューからも非表示**。
       **③作り直しが必要**（v4取引先マスターから現役導線あり・独自集計＋CSVがv4に無い）
 
@@ -185,7 +185,7 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 - [ ] `/equipment/racks` ラック図 — 1Uずつの升目に機材を並べる図。代替: 機材台帳を開く
 - [ ] `/equipment/settings` 機材管理の設定 — 保管場所・メーカー・色・貸出の決めごと。**左メニューからも非表示**
 
-**合計: client 32画面 + client-daily 1画面 + client-equipment 2画面 = 35画面**
+**合計: client 31画面（`/budget/detail` 削除済みにつき -1） + client-daily 1画面 + client-equipment 2画面 = 34画面**
 （`/sales/project-groups` と `/sales/project-groups/:id`、`/gpm/projects/:id` と `/:id/:tab` は
 それぞれ実質1画面として数えた）。
 
