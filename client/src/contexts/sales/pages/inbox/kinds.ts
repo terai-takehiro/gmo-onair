@@ -10,7 +10,7 @@
  * このファイルが残っているのは、**種類の見せ方を2か所が使う**ためです:
  *
  *   ・案件作成の「自動で届いたもの」レール（`projectNew/IntakeRail.tsx`）
- *   ・ホームの「お待たせ中」（`platform/pages/home/WaitingCard.tsx`）
+ *   ・ホームの「お待たせ中」タブ（`platform/pages/home/TaskHubCard.tsx`）
  *
  * 見出しの作り方を書き写すと、片方だけ直したときに**同じ引き合いが画面によって
  * 違う名前で出ます**。

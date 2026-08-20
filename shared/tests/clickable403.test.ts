@@ -41,7 +41,7 @@ describe('押せるのに 403 にしない', () => {
   it('わたしのタスクの四角は dailyops の editor にだけ出す', () => {
     // 一覧を読む口は reader で通るので、reader にもこのカードは出る。
     // 四角まで出すと `PATCH /dailyops/tasks/:id` が editor を要求して 403 になる
-    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'MyTasksCard.tsx');
+    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
     expect(card).toMatch(/canComplete = hasPermission\('dailyops', 'editor'\)/);
     expect(card).toMatch(/\{canComplete && \(/);
 
@@ -51,17 +51,26 @@ describe('押せるのに 403 にしない', () => {
     expect(routes).toMatch(/canEdit = \[requireAuth, requirePermission\('dailyops', 'editor'\)\]/);
   });
 
-  it('タスク一覧へのリンクは sales を持つ人にだけ出す', () => {
-    // 行き先（全案件タスク一覧）は `sales` を要求するので、`dailyops` だけの人は
-    // タスクを見ているのに押すと「権限がありません」の画面に着いていた
-    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'MyTasksCard.tsx');
-    expect(card).toMatch(/canOpenList = hasPermission\('sales'\)/);
-    expect(card).toMatch(/\{canOpenList && \(/);
+  it('「わたしのタスク」の全部ひらくは、カードと同じ集合（個人+案件+プロジェクト）を出す画面に送る', () => {
+    // ⚠️ 以前は `/sales/tasks/list`（GLS-A の案件タスクだけの一覧）に固定していたが、
+    // カード自身は個人タスク・GLS-A案件タスク・GLS-B（プロジェクト管理）のタスクを
+    // 混ぜて出しており、押した先にそのうち一部しか出てこなかった（ユーザー指摘）。
+    // `/daily/tasks` の「マイタスク」タブは `GET /dailyops/tasks/mine` を読むので、
+    // カードが数えているのと同じ集合になる
+    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
+    expect(card).toContain("href=\"/daily/tasks\"");
+    // ⚠️ コメントで旧い行き先に触れるのは可（経緯の記録）。**実際のリンク先**として
+    // 出していないことだけを見る（`href="…"` / `navigate('…')` の形）
+    expect(card).not.toMatch(/(href|navigate\()\s*=?\s*['"]\/sales\/tasks\/list['"]/);
 
-    // 同じ行き先がトップページにもある（**2か所とも直す** — 片方だけだと残る）
+    // 同じ理由で「期限切れ」（挨拶の数字）の行き先もトップページで直した
+    // （**2か所とも直す** — 片方だけだと残る）
     const home = read('client', 'src', 'contexts', 'platform', 'pages', 'HomePage.tsx');
-    expect(home).toMatch(/\{canSeeDailyops && canSeeSales && !isMobile && \(/);
+    expect(home).toMatch(/overdueHref = canSeeDailyops \? '\/daily\/tasks' : null/);
+    expect(home).not.toMatch(/(href|navigate\()\s*=?\s*['"]\/sales\/tasks\/list['"]/);
 
+    // `/sales/tasks/list` 自体（案件管理の GLS-A タスク一覧）は残っている——
+    // 削除したのではなく、トップからの誤ったリンク先をやめただけ
     const app = read('client', 'src', 'App.tsx');
     expect(app).toMatch(/path="\/sales\/tasks\/:view" element=\{<PermissionRoute module="sales">/);
   });
@@ -100,7 +109,7 @@ describe('押せるのに 403 にしない', () => {
     // **別バンドルへは素の遷移**（ルーターでは動けない）
     expect(kinds).toMatch(/export function isCrossApp/);
 
-    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'WaitingCard.tsx');
+    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
     // 行き先が無い行は押せなくする（押して権限エラーに送らない）
     expect(card).toMatch(/const href = inboxHrefOf\(it\.kind, can\)/);
     expect(card).toMatch(/return href \? \(/);
@@ -114,7 +123,7 @@ describe('押せるのに 403 にしない', () => {
 
     const home = read('client', 'src', 'contexts', 'platform', 'pages', 'HomePage.tsx');
     expect(home).toMatch(/onWaiting=\{waitingHref \? \(\) => go\(waitingHref\) : undefined\}/);
-    expect(home).toMatch(/overdueHref = canSeeSales \? '\/sales\/tasks\/list' : null/);
+    expect(home).toMatch(/overdueHref = canSeeDailyops \? '\/daily\/tasks' : null/);
   });
 
   it('仮押さえの「落とす」は manager にだけ出す（PC もスマホも）', () => {
