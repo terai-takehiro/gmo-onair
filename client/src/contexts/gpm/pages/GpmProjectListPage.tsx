@@ -27,8 +27,15 @@
  * Excel 入出力・スマホのシート化・並び替え時の FLIP アニメーション。
  * 構築プロジェクトは同時に数十件で、案件のように四半期単位で積み上がる数（数百件）
  * ではないため、まずは軽い形にしてある。件数が増えたら案件台帳から同じ部品を移す。
+ *
+ * ── ボードはスマホに出さない（2026-08 追記）─────────────────
+ *
+ * 案件一覧（`sales/pages/ProjectListPage.tsx`）は `useIsMobile()` で「ボード」の
+ * 切替ボタン自体を隠している（240px 固定カラムが5列並ぶので、375px では1列も入らない）。
+ * この画面には同じガードが無く、スマホでもボードを開けてしまっていた
+ * （スマホ最適化の洗い出し 2026-08-20・要対応1）。案件一覧と同じ考え方で塞ぐ。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { List, LayoutGrid, Plus, Search } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
@@ -44,6 +51,7 @@ import {
   EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel,
 } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmProjects } from '../queries';
 import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
@@ -123,6 +131,7 @@ const KINDS: GpmKind[] = ['self_build', 'group_order'];
 
 export default function GpmProjectListPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('gpm', 'editor');
@@ -131,6 +140,12 @@ export default function GpmProjectListPage() {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'board'>('list');
   const [sort, setSort] = useState<SortKey>('recommended');
+
+  // **スマホでボードを選んだまま画面を回転・PCから引き継いだ場合に備える。**
+  // 240px 固定カラムが5列並ぶボードは375pxに1列も入らないので、スマホでは常にリストへ落とす
+  useEffect(() => {
+    if (isMobile && view === 'board') setView('list');
+  }, [isMobile, view]);
 
   const today = useMemo(() => localDateStr(new Date()), []);
   const { data, isLoading, isError, refetch } = useGpmProjects(search.trim());
@@ -179,23 +194,26 @@ export default function GpmProjectListPage() {
           ) : undefined
         }
       >
-        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
-          {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              aria-pressed={view === v}
-              className={cn(
-                'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
-                i > 0 && 'border-l border-border',
-                view === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />{label}
-            </button>
-          ))}
-        </div>
+        {/* **スマホでは出さない。** ボードは選べても開けない画面になるので、切替そのものを隠す */}
+        {!isMobile && (
+          <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+            {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={cn(
+                  'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
+                  i > 0 && 'border-l border-border',
+                  view === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              </button>
+            ))}
+          </div>
+        )}
       </PageHeader>
 
       <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
