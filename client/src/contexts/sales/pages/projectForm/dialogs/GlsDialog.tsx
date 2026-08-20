@@ -12,13 +12,11 @@
  * 入力欄も A のときしか出しません。B で送ると、番組という考え方が無いのに
  * 「収録」が勝手に入ります（実際に起きていました。判断は `useProjectActions`）。
  */
-import { Loader2, Trophy, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ToggleButtonGroup } from '@gmo-onair/shared/src/client/ui/toggle-button-group';
 import { BroadcastTypeLabels, MediaPlatformLabels } from '@/types';
@@ -49,120 +47,114 @@ export function GlsDialog({
     || (newMode && isCategoryA && (state.broadcast_types.length === 0 || state.media_platforms.length === 0));
 
   return (
-    <Dialog open={state.open} onOpenChange={(open) => setState((s) => ({ ...s, open }))}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-success" aria-hidden="true" />
-            GLS 発番
-          </DialogTitle>
-          <DialogDescription>
-            新しい番組として番号を採るか、すでにある GLS 案件の回として足すかを選んでください。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {([
-              {
-                mode: 'new' as const,
-                title: '新しい番組',
-                sub: canIssueNew ? '新しい GLS 番号を採る' : '口頭決定（B）まで進めると採れます',
-                disabled: !canIssueNew,
-              },
-              { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す', disabled: false },
-            ]).map((o) => (
-              <button
-                key={o.mode}
-                type="button"
-                aria-pressed={state.mode === o.mode}
-                disabled={o.disabled}
-                className={cn(
-                  'min-h-tap rounded-control-lg border-2 p-3 text-left lg:min-h-[44px]',
-                  o.disabled
-                    ? 'cursor-not-allowed border-border opacity-50'
-                    : state.mode === o.mode
-                      ? 'border-primary-border-strong bg-primary-surface'
-                      : 'border-border hover:border-primary-border',
-                )}
-                onClick={() => {
-                  if (o.disabled) return;
-                  setState((s) => ({
-                    ...s, mode: o.mode, target_project_id: o.mode === 'new' ? '' : s.target_project_id,
-                  }));
-                }}
-              >
-                <div className="text-list">{o.title}</div>
-                <p className="text-note mt-1 text-muted-foreground">{o.sub}</p>
-              </button>
-            ))}
-          </div>
-
-          <div>
-            <Label htmlFor="gls-name">案件名</Label>
-            <Input id="gls-name" value={projectName} disabled className="bg-muted" />
-          </div>
-
-          {newMode && isCategoryA && (
-            <>
-              <div>
-                <Label>番組種別 *（いくつでも）</Label>
-                <div className="mt-2">
-                  <ToggleButtonGroup
-                    options={(Object.entries(BroadcastTypeLabels) as [string, string][])
-                      .map(([value, label]) => ({ value, label }))}
-                    value={state.broadcast_types}
-                    onChange={(next) => setState((s) => ({ ...s, broadcast_types: next }))}
-                    multi
-                    cols={{ base: 2 }}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>配信媒体 *（いくつでも）</Label>
-                <div className="mt-2">
-                  <ToggleButtonGroup
-                    options={(Object.entries(MediaPlatformLabels) as [string, string][])
-                      .map(([value, label]) => ({ value, label }))}
-                    value={state.media_platforms}
-                    onChange={(next) => setState((s) => ({ ...s, media_platforms: next }))}
-                    multi
-                    cols={{ base: 2, sm: 3 }}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {state.mode === 'link' && (
-            <div>
-              <Label>足す先の GLS 案件 *</Label>
-              <SearchableSelect
-                options={glsProjects.map((p) => ({
-                  value: p.id,
-                  label: `${p.gls_number} ${p.name}`,
-                  subLabel: p.customer_name,
-                }))}
-                value={state.target_project_id}
-                onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-                placeholder="GLS 番号で探す..."
-              />
-              <p className="text-note mt-1 text-muted-foreground">
-                選んだ案件の GLS 番号が付き、概算見積は確定した売上に変わります。
-              </p>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open={state.open}
+      onOpenChange={(open) => setState((s) => ({ ...s, open }))}
+      title="GLS 発番"
+      sub="新しい番組として番号を採るか、すでにある GLS 案件の回として足すかを選んでください。"
+      footer={(
+        <FormDialogFooter>
           <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>やめる</Button>
           <Button onClick={onConfirm} disabled={blocked}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {state.mode === 'link' ? 'GLS 番号を付ける' : 'GLS 番号を採る'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      )}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {([
+            {
+              mode: 'new' as const,
+              title: '新しい番組',
+              sub: canIssueNew ? '新しい GLS 番号を採る' : '口頭決定（B）まで進めると採れます',
+              disabled: !canIssueNew,
+            },
+            { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す', disabled: false },
+          ]).map((o) => (
+            <button
+              key={o.mode}
+              type="button"
+              aria-pressed={state.mode === o.mode}
+              disabled={o.disabled}
+              className={cn(
+                'min-h-tap rounded-control-lg border-2 p-3 text-left lg:min-h-[44px]',
+                o.disabled
+                  ? 'cursor-not-allowed border-border opacity-50'
+                  : state.mode === o.mode
+                    ? 'border-primary-border-strong bg-primary-surface'
+                    : 'border-border hover:border-primary-border',
+              )}
+              onClick={() => {
+                if (o.disabled) return;
+                setState((s) => ({
+                  ...s, mode: o.mode, target_project_id: o.mode === 'new' ? '' : s.target_project_id,
+                }));
+              }}
+            >
+              <div className="text-list">{o.title}</div>
+              <p className="text-note mt-1 text-muted-foreground">{o.sub}</p>
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <Label htmlFor="gls-name">案件名</Label>
+          <Input id="gls-name" value={projectName} disabled className="bg-muted" />
+        </div>
+
+        {newMode && isCategoryA && (
+          <>
+            <div>
+              <Label>番組種別 *（いくつでも）</Label>
+              <div className="mt-2">
+                <ToggleButtonGroup
+                  options={(Object.entries(BroadcastTypeLabels) as [string, string][])
+                    .map(([value, label]) => ({ value, label }))}
+                  value={state.broadcast_types}
+                  onChange={(next) => setState((s) => ({ ...s, broadcast_types: next }))}
+                  multi
+                  cols={{ base: 2 }}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>配信媒体 *（いくつでも）</Label>
+              <div className="mt-2">
+                <ToggleButtonGroup
+                  options={(Object.entries(MediaPlatformLabels) as [string, string][])
+                    .map(([value, label]) => ({ value, label }))}
+                  value={state.media_platforms}
+                  onChange={(next) => setState((s) => ({ ...s, media_platforms: next }))}
+                  multi
+                  cols={{ base: 2, sm: 3 }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {state.mode === 'link' && (
+          <div>
+            <Label>足す先の GLS 案件 *</Label>
+            <SearchableSelect
+              options={glsProjects.map((p) => ({
+                value: p.id,
+                label: `${p.gls_number} ${p.name}`,
+                subLabel: p.customer_name,
+              }))}
+              value={state.target_project_id}
+              onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
+              placeholder="GLS 番号で探す..."
+            />
+            <p className="text-note mt-1 text-muted-foreground">
+              選んだ案件の GLS 番号が付き、概算見積は確定した売上に変わります。
+            </p>
+          </div>
+        )}
+      </div>
+    </FormDialog>
   );
 }
 
@@ -176,34 +168,30 @@ export function GlsResultDialog({
   onOpenBilling: () => void;
 }) {
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-success">
-            <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
-            GLS 番号を採りました
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-4">
-          <div className="space-y-2 rounded-card border border-success-border bg-success-surface p-4">
-            <div className="flex justify-between gap-3">
-              <span className="text-sub text-muted-foreground">イベントコード</span>
-              <span className="text-h2 font-number">{glsNumber}</span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-sub text-muted-foreground">案件名</span>
-              <span className="text-sub min-w-0 truncate">{projectName}</span>
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex gap-2 sm:gap-2">
+    <FormDialog
+      open
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title="GLS 番号を採りました"
+      footer={(
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>閉じる</Button>
           <Button onClick={onOpenBilling}>
             <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
             見積・売上へ
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      )}
+    >
+      <div className="space-y-2 rounded-card border border-success-border bg-success-surface p-4">
+        <div className="flex justify-between gap-3">
+          <span className="text-sub text-muted-foreground">イベントコード</span>
+          <span className="text-h2 font-number">{glsNumber}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-sub text-muted-foreground">案件名</span>
+          <span className="text-sub min-w-0 truncate">{projectName}</span>
+        </div>
+      </div>
+    </FormDialog>
   );
 }

@@ -8,9 +8,7 @@
  */
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 
 // **呼び名は「案件」と「プロジェクト」** (migration 179・決め⑪)。
 // 「ビジネス案件」はもう使わない — プロジェクト管理へ移ったものを指す言葉が2つあると迷う
@@ -27,34 +25,13 @@ export function CategorySwitchDialog({
   onConfirm: (target: 'A' | 'B') => void;
 }) {
   return (
-    <Dialog open={state.open} onOpenChange={(open) => setState((s) => ({ ...s, open }))}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>案件分類を変えますか？</DialogTitle>
-          <DialogDescription>
-            {currentCategory === 'A' ? LABEL.A : LABEL.B} → {LABEL[state.target]} に切り替えます。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="py-3">
-          <div className="rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-              <div className="space-y-1.5">
-                <p className="text-list text-warning">この案件は GLS 発番済みです（{currentGls}）</p>
-                <p className="text-sub">切り替えると、次のものが自動で変わります:</p>
-                <ul className="text-note list-inside list-disc space-y-0.5">
-                  <li>GLS 番号を新しい分類で<strong>採り直します</strong></li>
-                  <li>回のコード（例: <code>{currentGls}-001</code>）も新しい番号に書き換わります</li>
-                  <li>BOX フォルダ名（社内限り / 社外共有可）も新しい番号になります</li>
-                  <li>すでに出した見積書・請求書の PDF は<strong>変わりません</strong></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open={state.open}
+      onOpenChange={(open) => setState((s) => ({ ...s, open }))}
+      title="案件分類を変えますか？"
+      sub={`${currentCategory === 'A' ? LABEL.A : LABEL.B} → ${LABEL[state.target]} に切り替えます。`}
+      footer={(
+        <FormDialogFooter>
           <Button variant="outline" onClick={() => setState({ open: false, target: 'A' })} disabled={busy}>
             やめる
           </Button>
@@ -62,8 +39,24 @@ export function CategorySwitchDialog({
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             採り直して変える
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      )}
+    >
+      <div className="rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          <div className="space-y-1.5">
+            <p className="text-list text-warning">この案件は GLS 発番済みです（{currentGls}）</p>
+            <p className="text-sub">切り替えると、次のものが自動で変わります:</p>
+            <ul className="text-note list-inside list-disc space-y-0.5">
+              <li>GLS 番号を新しい分類で<strong>採り直します</strong></li>
+              <li>回のコード（例: <code>{currentGls}-001</code>）も新しい番号に書き換わります</li>
+              <li>BOX フォルダ名（社内限り / 社外共有可）も新しい番号になります</li>
+              <li>すでに出した見積書・請求書の PDF は<strong>変わりません</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </FormDialog>
   );
 }
