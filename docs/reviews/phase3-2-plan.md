@@ -15,6 +15,21 @@
 > と、この着手セッションでは実行できない列単位の全体diff（約1650列。上の
 > 「2026-08-19 引き継ぎメモ」節「次にやること」4項目め・本番/検証DBへの直接アクセスが
 > 前提のため）だけである。
+>
+> **2026-08-20 追記（列単位diffの実行準備を完了）**: ユーザーから「完了してないこと
+> やりましょう」の指示を受けたが、上記の判断（列単位diff）だったことを
+> `AskUserQuestion` で確認した。このセッションからは引き続き VPS・dev/prod DB へ
+> 直接アクセスできないため**実行そのものは代行できない**が、
+> `scripts/gen-db-drift-sql.mjs`（新設）で**実行可能なSQLの生成を自動化**した。
+> 手作業でCSVを`VALUES(...)`に変換していた前回の手順を、`npm run db:drift-sql` の
+> 1コマンドに縮めている（テーブル・列・FKの3段をまとめて出す）。ローカルの検証用
+> Postgresに対する自己診断（0行）と、意図的な差分の検知テスト（テーブル1件・列2件を
+> 追加して`only_in_dev`として検出されることを確認）の両方で正しく動くことを確認済み。
+> **次にやること**: `npm run verify:up && npm run db:drift-sql > /tmp/db-drift-check.sql`
+> を実行し、生成された SQL を VPS（dev/prod いずれか、または両方）にコピーして
+> `psql -f` で実行する（手順は下の「再開の手順」の追記部分を参照）。結果が0行なら
+> 列単位でも差分なしと確定でき、差分が出た場合は既存の「only_in_devの仕分け方」
+> （下の項目5）に従う。
 
 > **2026-08-19 追記（完了）**: Phase 3-3-9まで含め、会社リスト一本化
 > （Phase 1〜3-3）が**完了した**。migration 207（`revenue_items` の未追跡列
@@ -771,6 +786,34 @@ WHERE v.deleted_at IS NULL AND co.deleted_at IS NULL
 
 以下は着手時点（貼り付け作業の途中でセッションを引き継いだ時点）の記録:
 
+> **2026-08-20 追記: 手順を1本のコマンドにした。** 当時は「1回きりの手作業」
+> （CSVを手で `VALUES (...)` に変換する）だったため、この節に書いたとおり
+> 列単位の分（約1650件）は結局SQL化されないまま止まっていた。
+> `scripts/gen-db-drift-sql.mjs` を作り、**テーブル・列・FKの3段を毎回
+> 生成し直せる**ようにした（`scripts/v4-progress.mjs` と同じ考え方 — 手で書くと
+> 実態とずれるので、`npm run verify:fresh` で作った「あるべき姿」から
+> 都度読み取る）。以下の「再開の手順」（手作業の記録）は**歴史的経緯として残す**が、
+> 実際にやるときは下のコマンド2つだけでよい:
+>
+> ```bash
+> npm run verify:up   # まだなら検証用 Postgres を立てる
+> npm run db:drift-sql > /tmp/db-drift-check.sql
+> ```
+>
+> 生成した `/tmp/db-drift-check.sql` を VPS（dev/prod、確かめたい方）にコピーして
+> `psql` で実行する（テーブル・列・FKの3段の結果がまとめて出る）:
+>
+> ```bash
+> docker cp /tmp/db-drift-check.sql gmo-onair-app_dev-1:/tmp/
+> docker exec -it gmo-onair-app_dev-1 sh -c 'psql "$DATABASE_URL" -f /tmp/db-drift-check.sql'
+> ```
+>
+> **本番アクセス不可のこのセッションでは実行そのものはできないため、生成まで
+> 済ませて次に引き継ぐ。** ローカルの検証用Postgres自身に対する自己診断
+> （生成したSQLを同じDBに対して実行→0行）と、意図的にテーブル・列を1つずつ
+> 追加した状態での検知テスト（実際に `only_in_dev` として検出されることを確認）
+> の両方を実施済み。
+
 **再開の手順**（このセッションで作った一時ファイルは `/tmp` 配下でセッション終了と
 ともに消えるため、次のセッションで作り直すこと。数十秒で再生成できる）:
 
@@ -802,8 +845,9 @@ FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace;
    SQLを組み立て、`docker cp` → `docker exec ... psql -f` で dev DB に対して実行する
    （このメモの直前のやり取りで実際に組み立てた例が会話ログに残っている。
    テーブル一覧・FK制約の分は組み立て済みで、ユーザーへの貼り付け依頼まで出したところ）
-4. 列単位の diff（`expected-columns.txt`。約1650件）はまだSQL化していない。
-   テーブル・FKの結果が出た後、必要なら同じやり方で追加する
+4. ~~列単位の diff（`expected-columns.txt`。約1650件）はまだSQL化していない。
+   テーブル・FKの結果が出た後、必要なら同じやり方で追加する~~
+   → **2026-08-20 に `scripts/gen-db-drift-sql.mjs` で解消**（上の追記を参照）
 5. 結果が出たら、`only_in_dev`（migrationに無いのに実DBにあるもの）を1件ずつ
    「コード参照あり→後追いmigrationで追認」「コード参照なし・0行→cleanup migrationで
    DROP」に仕分ける。件数次第では専用のドキュメント
