@@ -11,7 +11,7 @@
  * 画面を見ても分かりません — 前の人と同じ端末で、同じ見た目のまま出るからです。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { readRecent, pushRecent, clearRecent } from '../src/client-v4/recent';
+import { readRecent, pushRecent, clearRecent, removeRecent } from '../src/client-v4/recent';
 
 /** `localStorage` の代わり（Node には無い） */
 function fakeStorage() {
@@ -88,6 +88,29 @@ describe('最近見たもの', () => {
     pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
     clearRecent();
     expect(readRecent('u1')).toEqual([]);
+  });
+
+  it('1件だけ消せる（他は残る）', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    pushRecent(item('/sales/projects/2', 'PW 動画'), 'u1');
+    removeRecent('/sales/projects/1', 'u1');
+    expect(readRecent('u1').map((v) => v.label)).toEqual(['PW 動画']);
+  });
+
+  it('to / uid が空なら何もしない', () => {
+    pushRecent(item('/sales/projects/1', 'GH IR説明会'), 'u1');
+    removeRecent('', 'u1');
+    removeRecent('/sales/projects/1', '');
+    expect(readRecent('u1').map((v) => v.label)).toEqual(['GH IR説明会']);
+  });
+
+  it('消しても、書けないときは例外を出さない', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('SecurityError'); },
+      setItem: () => { throw new Error('QuotaExceededError'); },
+      removeItem: () => { throw new Error('SecurityError'); },
+    });
+    expect(() => removeRecent('/x', 'u1')).not.toThrow();
   });
 
   // `localStorage` が使えない端末（プライベートモード・容量切れ）でも画面を壊さない

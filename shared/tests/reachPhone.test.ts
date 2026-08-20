@@ -18,6 +18,12 @@
  * **横はみ出し 0px**。
  *
  * v4 の PR で指摘された形です（#73）。
+ *
+ * ⚠️ **PC / スマホで見た目のファイルが分かれた**（v4ネイティブUI監査
+ * 2026-08-20・search-sales）。番号のリンクは**両方に**要る —
+ * PC は `search/SearchPageDesktop.tsx`、スマホは `search/SearchCards.tsx`
+ * の `CustomerResultCards`（カード化した結果セクション）が持つ。
+ * 薄い親 `SearchPage.tsx` はどちらも呼ぶだけで、番号の描画そのものは持たない。
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -30,7 +36,11 @@ const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const SEARCH_API = code(read('server', 'src', 'contexts', 'platform', 'routes', 'search.routes.ts'));
-const SEARCH_PAGE = code(read('client', 'src', 'contexts', 'platform', 'pages', 'SearchPage.tsx'));
+// PC 版とスマホ版の両方を1本にして探す（どちらかにしか無いと、そのほうが壊れていても気づけない）
+const SEARCH_PAGE = code(
+  read('client', 'src', 'contexts', 'platform', 'pages', 'search', 'SearchPageDesktop.tsx')
+  + read('client', 'src', 'contexts', 'platform', 'pages', 'search', 'SearchCards.tsx'),
+);
 const PC_ONLY = read('client', 'src', 'pcOnlyScreens.ts');
 
 describe('お客様の電話番号に辿り着ける', () => {

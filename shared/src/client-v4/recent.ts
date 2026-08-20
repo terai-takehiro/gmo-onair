@@ -100,3 +100,22 @@ export function pushRecent(item: Omit<RecentItem, 'at'>, uid: string): void {
 export function clearRecent(): void {
   try { localStorage.removeItem(KEY); } catch { /* 同上 */ }
 }
+
+/**
+ * 1件だけ消す（⑪ 探す の「最近見たもの」に削除操作が無かった。読むだけで、
+ * 見られたくないものが残り続けていた）。**呼び出し側で先に `readRecent(uid)` した
+ * 一覧を state に持っておき、消えたあとの見た目はその state 側で更新すること**
+ * （この関数は保存するだけで、消えたあとの一覧を返さない）。
+ */
+export function removeRecent(to: string, uid: string): void {
+  if (!to || !uid) return;
+  try {
+    // **`readRecent` を経由する。** 持ち主が違う・形が壊れているものは
+    // ここで既に弾かれているので、そのまま書き戻しても他人の分を巻き込まない
+    const rest = readRecent(uid).filter((v) => v.to !== to);
+    const next: RecentStore = { uid, items: rest };
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    /* 容量切れ・プライベートモード。消せないだけで読み書きの他は困らない */
+  }
+}
