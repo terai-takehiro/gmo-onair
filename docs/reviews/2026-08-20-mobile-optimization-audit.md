@@ -95,16 +95,69 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 - 機材詳細のQRコード表示ダイアログ（`EquipmentDetailPage.tsx:362-380`）だけ `max-h-[90vh] overflow-y-auto`
   を明示していない（`DialogContent` の既定値でカバーされるため実害はほぼ無い）。
 
-## 意図的にPC専用（対応不要・設計判断）
+## 意図的にPC専用（見直しの対象・1件ずつ検討中）
 
-各アプリの `pcOnlyScreens.ts` に理由・代替導線つきで記録済み。件数のみ:
+これまでは「バグではなく設計判断」として対応対象から外していたが、**2026-08-20
+以降、この一覧も1件ずつ見直しの対象にする**（ユーザー方針）。チェックは
+「スマホに開放した／開放しないと決め直した」のどちらかが済んだ印で、
+「検討して現状維持と決めた」も済みに数える（何もしていない、と区別するため）。
 
-- `client`: 案件管理・財務管理・カレンダー・設定・GPM 合わせて約25画面（例: 見積・請求／案件台帳／料金表／
-  部屋の空き／権限とメンバー／プロジェクト詳細 など）
-- `client-daily`: 1画面（入ってきた情報 `/inquiries`）
-- `client-equipment`: 2画面（ラック図 `/equipment/racks`／機材管理の設定 `/equipment/settings`）
+出どころは各アプリの `pcOnlyScreens.ts`（`why`/`instead` の原文はそちらを参照）。
 
-新しく「PC専用にすべきでは」と思った画面があれば、まずこの一覧と `why` を確認すること。
+### client（`client/src/pcOnlyScreens.ts`）
+
+**案件管理**
+- [ ] `/sales/tasks/gantt` ガントチャート — 横に長い時間軸。代替: やることを開く
+- [ ] `/sales/billing` 見積・請求（全案件） — 金額・期日・状態が横に並ぶ表。代替: 案件一覧
+- [ ] `/sales/projects/ledger` 案件台帳 — 列20・取り消せない一括更新。代替: 案件一覧
+- [ ] `/sales/projects/:id/edit` 案件を直す — 入力欄40以上。代替: 案件一覧
+- [ ] `/sales/flow-templates` 標準工程テンプレート — 型を変えると全案件に効く
+- [ ] `/sales/pricing` 料金表 — 単価表、桁違いが見積金額に影響
+- [ ] `/sales/project-groups`（+`/:id`） グループ（費用の分け合い）— 全体を見ながら按分。**左メニューからも非表示**
+- [ ] `/sales/activity-logs` 営業活動記録・営業レビュー — 3列を並べて打合せの場で映す分析タブを含む。代替: 案件一覧
+- [ ] `/sales/customers/:id` お客様の詳細 — v4未リニューアル（作り直せば開放候補）
+
+**財務管理**
+- [ ] `/budget/dashboard` 財務ダッシュボード — 引き算の関係を1枚で見る
+- [ ] `/budget/revenues` 売上の台帳 — 金額の桁を縦にそろえて読む表
+- [ ] `/budget/purchases` 仕入の台帳 — 同上
+- [ ] `/budget/sga` 販管費の台帳 — 同上
+- [ ] `/budget/documents` 受け取った書類 — 取り消せない台帳登録操作
+- [ ] `/budget/import` 取り込み — 3段の取込作業。**左メニューからも非表示**
+- [ ] `/budget/detail` 案件月別詳細 — 月を横に並べる表。**左メニューからも非表示**
+- [ ] `/budget/reports/vendors` 仕入先集計 — 仕入先×月の表。**左メニューからも非表示**
+
+**カレンダー**
+- [ ] `/studio/rooms` 部屋の空き — 部屋×時間の表。代替: 今日の予約を見る
+- [ ] `/studio/settings` カレンダーの設定 — 部屋・外部カレンダー・サイネージ
+- [ ] `/studio/studio-calendar` （旧）スタジオカレンダー — 月マス目・横7列
+- [ ] `/studio/partners` （旧）パートナースケジュール — 人×日の表
+- [ ] `/studio/my-calendar` （旧）マイカレンダー — 月マス目・横7列
+
+**設定**
+- [ ] `/settings/sites` 拠点・部屋 — 拠点1つで予約可能部屋と見積金額の両方が変わる
+- [ ] `/settings/users` 権限とメンバー — 12区画×5段の表
+- [ ] `/settings/money` お金のルール — 以後の書類すべてに効く。**左メニューからも非表示**
+- [ ] `/settings/hours` 休日・営業時間 — 時刻選択欄が縦に並ぶ。**左メニューからも非表示**
+- [ ] `/settings/notify` 通知とテンプレート — 文面を貯める画面。**左メニューからも非表示**
+- [ ] `/settings/data-viewer` データビューア — DBの中身をそのまま出す道具。**左メニューからも非表示**
+- [ ] `/settings/db-backups` DBバックアップ — 復元は取り消せない操作。**左メニューからも非表示**
+
+**プロジェクト管理（GPM）**
+- [ ] `/gpm/projects/new` プロジェクトを作る — 5段フォームで体制・工程・金額をまとめて決める
+- [ ] `/gpm/projects/:id`（+`/:tab`） プロジェクトの詳細 — 工程表と体制図が横に伸びる
+- [ ] `/gpm/templates` プロジェクトの標準工程 — 型を変えると全プロジェクトに効く
+
+### client-daily（`client-daily/src/pcOnlyScreens.ts`）
+- [ ] `/inquiries` 入ってきた情報 — 差出人・要件・希望日・人数・予算が横に並ぶ一覧。代替: やることを開く
+
+### client-equipment（`client-equipment/src/pcOnlyScreens.ts`）
+- [ ] `/equipment/racks` ラック図 — 1Uずつの升目に機材を並べる図。代替: 機材台帳を開く
+- [ ] `/equipment/settings` 機材管理の設定 — 保管場所・メーカー・色・貸出の決めごと。**左メニューからも非表示**
+
+**合計: client 32画面 + client-daily 1画面 + client-equipment 2画面 = 35画面**
+（`/sales/project-groups` と `/sales/project-groups/:id`、`/gpm/projects/:id` と `/:id/:tab` は
+それぞれ実質1画面として数えた）。
 
 ## 凍結4アプリ（対象外）
 
