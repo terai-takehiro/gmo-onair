@@ -66,12 +66,18 @@ export interface FormDialogProps {
    * （`onClick` で送っている画面は渡さなくてよい — 両方指定すると二重送信になる）。
    */
   onSubmit?: (e: FormEvent<HTMLFormElement>) => void;
+  /**
+   * **下敷きクリックで閉じさせたくないときだけ渡す（opt-in・`Sheet` にそのまま渡す）。**
+   * 書きかけの下書きを黙って破棄させたくない画面（例: AI 投入の確認）で使う。
+   * 渡さなければ今までどおり外側クリックで閉じる。
+   */
+  onInteractOutside?: (e: Event) => void;
   children: ReactNode;
 }
 
-export function FormDialog({ open, onOpenChange, title, sub, footer, wide, onSubmit, children }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, sub, footer, wide, onSubmit, onInteractOutside, children }: FormDialogProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide} onSubmit={onSubmit}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide} onSubmit={onSubmit} onInteractOutside={onInteractOutside}>
       {children}
     </Sheet>
   );

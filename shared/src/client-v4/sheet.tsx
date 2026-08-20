@@ -76,10 +76,21 @@ export interface SheetProps {
    * これを渡すと本文とフッターの両方を1つの `<form>` の中に置く。
    */
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  /**
+   * **下敷き（オーバーレイ）クリックで閉じさせたくないときだけ渡す（opt-in）。**
+   *
+   * Radix の既定は外側クリックで `onOpenChange(false)` を呼ぶ。書きかけの下書きを
+   * 持つフォーム（例: AI 投入の確認シート）でこれが起きると、誤クリック1回で
+   * 確認もAPI呼び出しも無く中身が消える。`shared/src/client/ui/dialog.tsx` の
+   * `DialogContent` を直接使う画面はこれを `onInteractOutside={(e) => e.preventDefault()}`
+   * で個別に止めているが、`Sheet`/`FormDialog` はそれを渡す穴が無かった。
+   * **既定（渡さない）は今までどおり**閉じる — 使っている画面の手触りを変えない。
+   */
+  onInteractOutside?: (e: Event) => void;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSubmit, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, children }: SheetProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -92,6 +103,7 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSu
         />
         <DialogPrimitive.Content
           data-v4-sheet={rise ? 'rise' : undefined}
+          onInteractOutside={onInteractOutside}
           className={cn(
             // スマホ: 下からせり上がる。PC: 中央のダイアログに寄せる
             'fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col',
