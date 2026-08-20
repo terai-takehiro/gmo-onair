@@ -11,7 +11,7 @@
 | `/budget/detail`（案件月別詳細） | **① 削除済み** ✅ | 他画面からの生きた導線が無く、画面自身が既にv4の`RevenueListPage`/`PurchaseListPage`/`SgaListPage`（`project_id`/`recognition_month`で同じ絞り込みに対応済み）へ誘導している。独自機能は見当たらない。旧URLは`/budget/dashboard`へ転送する |
 | `/budget/reports/vendors`（仕入先集計） | **③ 作り直しが必要** | v4の取引先マスター（`CounterpartyPage.tsx`）に「仕入先集計へ」ボタンが**現役である**。仕入先別ランキング＋CSV出力はv4のどこにも無い独自機能 |
 | `/studio/studio-calendar`（旧スタジオカレンダー） | **③ 作り直しが必要** | コマ表（`KoubanView`）と**既存予約の編集**（v4統合カレンダーは新規作成のみで編集不可）がv4に無い独自機能 |
-| `/studio/partners`（旧パートナー） | **② 削除候補（要確認）** | v4統合カレンダー（`/studio/calendar`）の`NewEventChooser`が同じ`PartnerScheduleDialog`を呼んでおり、**作成・編集とも既に代替済み**と実装確認できた |
+| `/studio/partners`（旧パートナー） | **② 削除済み** ✅ | v4統合カレンダー（`/studio/calendar`）の`NewEventChooser`が同じ`PartnerScheduleDialog`を呼んでおり、**作成・編集とも既に代替済み**と実装確認できた。旧URLは`/studio/calendar`へ転送する。⚠️ この画面自身は既にFullCalendarを撤去済みだったが、CLAUDE.md・統合カレンダー側のコメントに古い記述が残っていた |
 | `/studio/my-calendar`（旧マイカレンダー） | **② 削除候補（要作業）** | 予定の作成・編集自体は統合カレンダーで代替済みだが、**サーバー側のGoogle/Outlook連携OAuthコールバックがこのURLへ直書きでリダイレクトしている**ため、削除前にリダイレクト先変更＋連携完了通知UIの移植（`CalendarSettingsPage`が自然な移設先）が要る |
 | `/sales/customers/:id`（お客様の詳細） | **③ 作り直しが必要** | 一覧(`/sales/customers`)は削除済みだが、詳細ページへは取引先マスター・全社検索・「最近見た」から**現役の導線が3系統ある**。活動記録をその場で追記する書き込み機能がv4のどこにも無い独自機能 |
 
@@ -159,8 +159,8 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 - [ ] `/studio/settings` カレンダーの設定 — 部屋・外部カレンダー・サイネージ
 - [ ] `/studio/studio-calendar` （旧）スタジオカレンダー — 月マス目・横7列。
       **③作り直しが必要**（コマ表・既存予約の編集がv4統合カレンダーに無い）
-- [ ] `/studio/partners` （旧）パートナースケジュール — 人×日の表。
-      **②削除候補**（v4統合カレンダーで作成・編集とも代替済みと実装確認済み）
+- [x] ~~`/studio/partners` （旧）パートナースケジュール~~ — **削除済み**。旧URLは`/studio/calendar`へ転送する
+      （v4統合カレンダーで作成・編集とも代替済みと実装確認済み）
 - [ ] `/studio/my-calendar` （旧）マイカレンダー — 月マス目・横7列。
       **②削除候補（要作業）**（サーバーのOAuthリダイレクト先変更＋通知UI移植が前提）
 
@@ -185,7 +185,7 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 - [ ] `/equipment/racks` ラック図 — 1Uずつの升目に機材を並べる図。代替: 機材台帳を開く
 - [ ] `/equipment/settings` 機材管理の設定 — 保管場所・メーカー・色・貸出の決めごと。**左メニューからも非表示**
 
-**合計: client 31画面（`/budget/detail` 削除済みにつき -1） + client-daily 1画面 + client-equipment 2画面 = 34画面**
+**合計: client 30画面（`/budget/detail`・`/studio/partners` 削除済みにつき -2） + client-daily 1画面 + client-equipment 2画面 = 33画面**
 （`/sales/project-groups` と `/sales/project-groups/:id`、`/gpm/projects/:id` と `/:id/:tab` は
 それぞれ実質1画面として数えた）。
 

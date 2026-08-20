@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode, type ElementType } from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Users, CalendarClock, Layers } from "lucide-react";
+import { CalendarDays, CalendarClock, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -176,12 +176,16 @@ export function toExclusiveEnd(endDate: string): string {
 }
 
 /**
- * 統合 / スタジオ / パートナー / マイ のカレンダー回遊ピル。
+ * 統合 / スタジオ / マイ のカレンダー回遊ピル。
  * モバイルで押し潰されて文字が縦折れしないよう、各ピルは whitespace-nowrap + shrink-0、
  * コンテナは横スクロール可 (overflow-x-auto) にしている。呼び出し側はヘッダーの
  * ボタン行に混ぜず、独立した行 (w-full) に置くこと。
+ *
+ * ⚠️ **「パートナー」のピルは削除した**（v3時代の遺物の棚卸し・2026-08）。
+ * `/studio/partners` を削除し、① 予定（統合カレンダー）へ一本化したため
+ * （作成・編集・人での絞り込みとも既に代替済みだった）。
  */
-export function CalendarNavPills({ current }: { current: "all" | "studio" | "partners" | "my" }) {
+export function CalendarNavPills({ current }: { current: "all" | "studio" | "my" }) {
   const { currentUser, hasPermission } = useAuth();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   const isAdmin = currentUser?.role === "system_admin";
@@ -201,7 +205,6 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
   const pills = [
     { key: "all", label: "予定（すべて）", to: "/studio/calendar", icon: Layers, show: canStudio || canPartner },
     { key: "studio", label: "スタジオ", to: "/studio/studio-calendar", icon: CalendarDays, show: canStudio },
-    { key: "partners", label: "パートナー", to: "/studio/partners", icon: Users, show: canPartner },
     { key: "my", label: "マイ", to: "/studio/my-calendar", icon: CalendarClock, show: canPartner },
   ].filter((p) => p.show);
   if (pills.length <= 1) return null;
@@ -229,7 +232,7 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
 }
 
 /**
- * 統合 / スタジオ / パートナー / マイ の 4 カレンダーで共通のページ枠 (ヘッダー)。
+ * 統合 / スタジオ / マイ の 3 カレンダーで共通のページ枠 (ヘッダー)。
  * 余白・タイトル位置・回遊ピルの配置を完全に統一することで、ページを切り替えても
  * 上部 (タイトル + ピル) がガタつかない (v2.9.188 の状態保持と合わせて滑らかに切替)。
  *   - 1 行目: アイコン + タイトル (flex-1) / アクション (sm:order-last)
@@ -240,7 +243,7 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
 export function CalendarShell({
   current, icon: Icon, title, description, actions, children,
 }: {
-  current: "all" | "studio" | "partners" | "my";
+  current: "all" | "studio" | "my";
   icon: ElementType;
   title: string;
   description?: ReactNode;

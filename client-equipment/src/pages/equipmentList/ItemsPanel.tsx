@@ -23,7 +23,7 @@
  * (`PrintArea`)。
  */
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Edit3, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { MD_UP, useMediaQuery } from '@/hooks/useMediaQuery';
-import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import ExcelImportDialog from '@/components/ExcelImportDialog';
 import CustomColumnDialog, { type CustomColumn } from '@/components/CustomColumnDialog';
@@ -46,12 +46,14 @@ import { EquipmentTable } from './EquipmentTable';
 import { ItemsToolbar } from './ItemsToolbar';
 import { MobileFilters } from './MobileFilters';
 import { PrintArea } from './PrintArea';
+import { useBulkEdit } from './useBulkEdit';
 import { useColumnPrefs } from './useColumnPrefs';
 import { useCustomValues } from './useCustomValues';
 import { useEquipmentListState } from './useEquipmentListState';
 import { downloadItemsExcel, useItemMutations } from './useItemMutations';
 import { useItemSelection } from './useItemSelection';
-import type { BulkField, ColorRecord, EquipmentRecord, LocationRecord, NamedRecord } from './types';
+import { useRentalToggle } from './useRentalToggle';
+import type { ColorRecord, EquipmentRecord, LocationRecord, NamedRecord } from './types';
 
 export function ItemsPanel() {
   const navigate = useNavigate();
@@ -70,13 +72,13 @@ export function ItemsPanel() {
   // 画面側は `manager` で判定する（`owner` で判定すると manager の人に
   // 押せない印が出るのに、押せば通ってしまい食い違う）
   const canSetRental = hasPermission('equipment', 'manager');
-  const qc = useQueryClient();
   const canBulkEdit = currentUser?.role === 'system_admin'
     || currentUser?.permissions?.equipment === 'manager'
     || currentUser?.permissions?.equipment === 'owner';
 
   const s = useEquipmentListState();
   const sel = useItemSelection(s.items);
+  const bulk = useBulkEdit(sel.clear);
 
   const [dialog, setDialog] = useState<EquipmentDialogMode | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -90,10 +92,6 @@ export function ItemsPanel() {
   const [editMode, setEditMode] = useState(false);
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
   const [editingCell, setEditingCell] = useState<{ equipmentId: string; columnId: string } | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkField, setBulkField] = useState<BulkField>('branch_code');
-  const [bulkValue, setBulkValue] = useState('');
-  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const { data: locationsData } = useQuery({
     queryKey: ['equipment-locations'],
@@ -138,36 +136,11 @@ export function ItemsPanel() {
       notifySuccess(wasEdit ? '機材を直しました' : '機材を足しました');
     },
     onSaveError: setSaveError,
-    onBulkError: setBulkError,
-    onBulkDone: (count) => {
-      setBulkOpen(false);
-      setBulkError(null);
-      sel.clear();
-      setBulkValue('');
-      notifySuccess(`${count} 件を直しました`);
-    },
+    onBulkError: bulk.setError,
+    onBulkDone: bulk.onDone,
   });
 
-  /**
-   * 「貸出可」の切り替え。**台帳の列から直接押せる**（モックどおり）。
-   *
-   * 貸出の一覧・設定タブ・ダッシュボードの数はどれも同じフラグを見ているので、
-   * まとめて読み直す（片方だけ古いままだと「押したのに増えない」になる）。
-   */
-  const [rentalBusyId, setRentalBusyId] = useState<string | null>(null);
-  const toggleRental = useMutation({
-    mutationFn: (item: EquipmentRecord) =>
-      api.put(`/equipment/rental-settings/${item.id}`, { is_rental_listed: !item.is_rental_listed }),
-    onMutate: (item) => { setRentalBusyId(item.id); },
-    onSettled: () => setRentalBusyId(null),
-    onSuccess: (_res, item) => {
-      qc.invalidateQueries({ queryKey: ['equipment-items'] });
-      qc.invalidateQueries({ queryKey: ['equipment-rental-settings'] });
-      qc.invalidateQueries({ queryKey: ['equipment-stats'] });
-      notifySuccess(`${item.name} を${item.is_rental_listed ? '常設に戻しました' : '貸出可にしました'}`);
-    },
-    onError: (e) => notifyApiError('貸出可を切り替えられませんでした', e),
-  });
+  const rental = useRentalToggle();
 
   const onDelete = async (item: EquipmentRecord, parentId?: string) => {
     const ok = await confirmAction({
@@ -187,14 +160,8 @@ export function ItemsPanel() {
   };
 
   const submitBulk = () => {
-    const ids = Array.from(sel.selectedIds);
-    if (ids.length === 0) return;
-    let v: unknown = bulkValue;
-    if (['warranty_years', 'depreciation_years', 'unit_number', 'rack_position', 'rack_height'].includes(bulkField)) {
-      v = bulkValue === '' ? null : Number(bulkValue);
-    }
-    if (['location_id', 'manufacturer_id', 'color_id'].includes(bulkField) && bulkValue === 'none') v = null;
-    m.bulkUpdate.mutate({ ids, fields: { [bulkField]: v } });
+    const payload = bulk.buildPayload(Array.from(sel.selectedIds));
+    if (payload) m.bulkUpdate.mutate(payload);
   };
 
   const openDetail = (id: string) => {
@@ -270,13 +237,20 @@ export function ItemsPanel() {
       )}
 
       {canBulkEdit && sel.selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 flex items-center justify-between rounded-card bg-primary px-4 py-2 text-primary-foreground">
-          <span className="text-sub font-bold">{sel.selectedIds.size} 件を選んでいます</span>
+        /*
+          このバー自体は前からあったが、スマホでは何も選べなかった（カードに
+          チェックボックスが無かった）ので**一度も375pxで描かれたことが無かった**。
+          カードから選べるようにした今回、初めて出したところボタン2つ＋件数が
+          横に収まらず、件数の `<span>` が1文字ずつ縦積みになる形で壊れた
+          （flex の既定の縮小がテキスト側だけを潰す）。**狭い画面では縦に積む**。
+        */
+        <div className="sticky top-0 z-20 flex flex-col gap-2 rounded-card bg-primary px-4 py-2 text-primary-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span className="shrink-0 whitespace-nowrap text-sub font-bold">{sel.selectedIds.size} 件を選んでいます</span>
           <span className="flex gap-2">
-            <Button variant="secondary" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+            <Button variant="secondary" className="flex-1 sm:flex-initial" onClick={bulk.openDialog}>
               <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />まとめて直す
             </Button>
-            <Button variant="ghost" className="text-primary-foreground hover:bg-primary-800" onClick={sel.clear}>
+            <Button variant="ghost" className="flex-1 text-primary-foreground hover:bg-primary-800 sm:flex-initial" onClick={sel.clear}>
               <X className="mr-1 h-4 w-4" aria-hidden="true" />選ぶのをやめる
             </Button>
           </span>
@@ -334,8 +308,8 @@ export function ItemsPanel() {
                 setEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
               },
               canSetRental,
-              rentalBusyId,
-              onToggleRental: (item) => toggleRental.mutate(item),
+              rentalBusyId: rental.busyId,
+              onToggleRental: rental.toggle,
             }}
             customCtx={{
               columns: orderedCustom,
@@ -351,7 +325,23 @@ export function ItemsPanel() {
             onDelete={onDelete}
           />
         ) : (
-          <EquipmentCards items={s.items} onOpen={openDetail} />
+          <EquipmentCards
+            items={s.items}
+            locations={locations}
+            onOpen={openDetail}
+            onDelete={onDelete}
+            expandedIds={sel.expandedIds}
+            childrenCache={sel.childrenCache}
+            loadingChildren={sel.loadingChildren}
+            onToggleExpand={sel.toggleExpand}
+            canBulkEdit={!!canBulkEdit}
+            canDelete={canDelete}
+            selectedIds={sel.selectedIds}
+            onSelectOne={(id) => sel.click(id, s.items.findIndex((it) => it.id === id), false)}
+            customColumns={orderedCustom}
+            visibleCustomCols={prefs.visibleCustomCols}
+            customValues={custom.values}
+          />
         )
       )}
 
@@ -373,18 +363,18 @@ export function ItemsPanel() {
       />
 
       <BulkEditDialog
-        open={bulkOpen}
+        open={bulk.open}
         count={sel.selectedIds.size}
-        field={bulkField}
-        value={bulkValue}
+        field={bulk.field}
+        value={bulk.value}
         saving={m.bulkUpdate.isPending}
-        error={bulkError}
+        error={bulk.error}
         manufacturers={manufacturers}
         locations={locations}
         colors={colors}
-        onFieldChange={setBulkField}
-        onValueChange={setBulkValue}
-        onClose={() => setBulkOpen(false)}
+        onFieldChange={bulk.setField}
+        onValueChange={bulk.setValue}
+        onClose={() => bulk.setOpen(false)}
         onSubmit={submitBulk}
       />
 

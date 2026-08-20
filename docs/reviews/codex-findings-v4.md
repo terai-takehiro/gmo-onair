@@ -441,6 +441,16 @@ CI（`checks`/`build`）は完了（13:23頃）から約47分後にマージさ�
 `npm run reviews:debt` は今回も 401 で使えなかったため GitHub MCP で直接確認した。
 表に移す指摘はない（レビュー自体が届いていないため）。
 
+⚠️ **#262（スマホ最適化の洗い出し対応PR）も0件マージだった**（作成 07:47:10 /
+マージ 08:28:50・2026-08-20）。**約41分開いており、#244（49分）と同様に待つ時間は
+十分あった**（#159・#239・#241 の「見る前に入った」形とは違う）。`get_comments` /
+`get_review_comments` / `get_reviews` とも0件で、`chatgpt-codex-connector` の
+usage limits コメントも付いていない。CI は一度 `checks` が `check-changelog.mjs`
+で失敗し（`docs/changelog.d/` への下書きを置き忘れていた）、直しを push して
+両方緑になってからマージされている。`npm run reviews:debt` は今回も 401 で
+使えなかったため GitHub MCP で直接確認した。表に移す指摘はない（レビュー自体が
+届いていないため）。
+
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
 | #209 | P2 | `CLAUDE.md` | v4.1.4のエントリを要約に置き換えたが、`docs/version-history.md`にv4.1.4の全文アーカイブが無かった。`scripts/generate-version-history.mjs` はCLAUDE.md＋アーカイブの両方から画面のバージョン履歴を組み立てるため、このまま要約だけ残すと除いた実装詳細・制限事項が生成物から完全に消える | ⭕️ 同PR内（`cfbd27d` で要約に置き換えた直後の指摘。後続の `527acc6` でv4.1.4の全文を`docs/version-history.md`へ追加して埋め合わせた） |
