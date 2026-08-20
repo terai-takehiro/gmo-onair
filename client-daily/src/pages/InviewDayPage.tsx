@@ -182,10 +182,15 @@ export default function InviewDayPage() {
                 className="pl-9 pr-9"
               />
               {query && (
+                // **`data-ui="button"` を付ける。** ここはPC専用の分岐（スマホは
+                // MobileFilterBar 側の検索欄を使う）だが、同じ検索欄の×ボタンが
+                // client-daily/client-equipment に計4か所複製されており、
+                // 1か所だけ直すと残りが取り残されるので揃えておく（要対応5）
                 <button
                   type="button"
                   onClick={() => setQuery('')}
                   aria-label="検索を消す"
+                  data-ui="button"
                   className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
