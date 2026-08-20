@@ -605,6 +605,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   レビュー0件のままマージされた。⚠️ **コンフリクト解消時に自分で見つけた実害バグ2件は
   そのpushのコミット・PR本文・コメントに記録済み**（PR #263 の権限モジュールremap漏れ —
   `rooms/MobileToday.tsx` と `components/layout/nav.ts` の3項目。詳細は下の一覧の #266 行）
+- **#267**（`feat(client): カレンダーのPC「部屋の空き」をmacOS風のツールバー＋種別色に作り直した`）—
+  作成から約4分でCI green・マージ。レビュー0件のままマージされた
 
 ---
 
