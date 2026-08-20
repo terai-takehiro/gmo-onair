@@ -143,11 +143,12 @@ export default function ProjectLedgerPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={s.filters.glsCategory || 'all'} onValueChange={(v) => s.setFilter('glsCategory', v === 'all' ? '' : v)}>
+        <Select value={s.filters.source === 'kessan' ? 'kessan' : (s.filters.glsCategory || 'all')} onValueChange={(v) => s.pickCategory(v as 'A' | 'B' | 'kessan' | 'all')}>
           <SelectTrigger className="h-10 w-[200px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="A">GLS-A（スタジオ）</SelectItem>
-            <SelectItem value="B">GLS-B（プロジェクト）</SelectItem>
+            <SelectItem value="A">GLS-A</SelectItem>
+            <SelectItem value="B">GLS-B</SelectItem>
+            <SelectItem value="kessan">旧GLS（決算取込）</SelectItem>
             <SelectItem value="all">どちらも</SelectItem>
           </SelectContent>
         </Select>
@@ -348,6 +349,9 @@ export default function ProjectLedgerPage() {
           onToggleAll={s.toggleAll}
           canEdit={canEdit}
           canEditOne={canEditOne}
+          canDelete={canBulk}
+          onDeleteRow={s.handleDeleteRow}
+          deletingId={s.deleteOne.isPending ? (s.deleteOne.variables ?? null) : null}
           sort={s.sort}
           onSort={s.onSort}
           grid={grid}

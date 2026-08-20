@@ -9,6 +9,7 @@
  * 分割前は `window.alert` 4件・`window.confirm` 3件がここにありました。
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
@@ -26,6 +27,7 @@ export function useProjectActions({
   onBoxFolderCreated: (urls: { internal?: string; external?: string }) => void;
 }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
     open: false, mode: 'new', broadcast_types: ['recording'], media_platforms: ['other'], target_project_id: '',
@@ -183,6 +185,40 @@ export function useProjectActions({
     }
   };
 
+  /**
+   * 案件の削除（`DELETE /projects/:id`）。サーバーは前からこの口を持っていたが、
+   * **押せる場所がどこにも無かった**。論理削除（`deleted_at` を立てるだけ）で、
+   * ひもづく見積・タスク・売上・仕入の行そのものは消えない — 財務の台帳は
+   * `projects` を LEFT JOIN しているだけなので、削除後も金額・案件名は
+   * 今までどおり出る。消えるのは「案件」として辿る経路だけ。
+   */
+  const deleteMutation = useMutation({
+    mutationFn: async () => (await api.delete(`/projects/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project', id] });
+      qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      qc.invalidateQueries({ queryKey: ['project-integrity'] });
+      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+      notifySuccess('案件を削除しました');
+      navigate('/sales/projects');
+    },
+    onError: (err) => notifyApiError('案件を削除できませんでした', err),
+  });
+
+  const handleDeleteProject = async () => {
+    // **記録は残ることを確認ダイアログに書く**（上の注記と同じ理由）。
+    // 書かないと「記録が全部消える」と誤解して押すのをためらわれる
+    const ok = await confirmAction({
+      title: 'この案件を削除しますか？',
+      description: 'この操作は取り消せません。案件一覧・案件台帳・この案件の詳細URLから見えなくなります。'
+        + 'ひもづく見積・タスク・売上・仕入の記録そのものは消えず、財務の台帳などでは今までどおり参照できます。',
+      confirmLabel: '削除する',
+      tone: 'danger',
+    });
+    if (ok) deleteMutation.mutate();
+  };
+
   return {
     glsDialog, setGlsDialog, glsResult, setGlsResult,
     relinkDialog, setRelinkDialog,
@@ -191,5 +227,6 @@ export function useProjectActions({
     glsMutation, linkGlsMutation, relinkMutation, categorySwitchMutation, createBoxFolderMutation,
     handleGlsConfirm, handleRelinkConfirm, handleCreateBoxFolder,
     bookings, deleteBooking,
+    deleteMutation, handleDeleteProject,
   };
 }

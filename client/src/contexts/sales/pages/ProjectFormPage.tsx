@@ -59,13 +59,14 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Calculator, Check, ChevronDown, ChevronRight, FolderKanban,
-  Link2, Loader2, Save, Sparkles, Trophy,
+  Link2, Loader2, Save, Sparkles, Trash2, Trophy,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { formatRelativeTime } from '@/lib/format';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import StudioBookingDialog from '@/contexts/production/components/studio/StudioBookingDialog';
@@ -94,6 +95,10 @@ export default function ProjectFormPage() {
   const navigate = useNavigate();
   const f = useProjectForm(id);
   const { form, isEdit, project, schedule, actions } = f;
+  const { hasPermission } = useAuth();
+  // 削除は `DELETE /projects/:id` と同じ縛り（サーバーが `requirePermission('sales','manager')`）。
+  // ここより緩くすると「押せるのに 403」になる（他の削除ボタンと同じ理由）
+  const canDelete = hasPermission('sales', 'manager');
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<ProjectBooking | null>(null);
@@ -265,6 +270,27 @@ export default function ProjectFormPage() {
               projectName={form.watch('name') || project?.name}
               currentPage="project"
             />
+          )}
+          {/*
+            **削除は前からサーバーにあったが、押せる場所がどこにも無かった**
+            （`DELETE /projects/:id` を呼ぶ画面が1つも無かった）。GLS の操作と
+            同じ並びに置く — 「この案件をどうするか」の操作が一箇所にまとまる。
+            `manager` 未満には出さない（他の削除ボタンと同じ絞り方）。
+            確認ダイアログと送信は `useProjectActions`（GLS 操作と同じ置き場所）
+          */}
+          {isEdit && canDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto text-destructive hover:text-destructive"
+              disabled={actions.deleteMutation.isPending}
+              onClick={actions.handleDeleteProject}
+            >
+              {actions.deleteMutation.isPending
+                ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+                : <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />}
+              削除
+            </Button>
           )}
         </div>
       </PageHeader>
