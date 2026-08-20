@@ -18,8 +18,10 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { INVENTORY_STATUS, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 import { CheckDetail } from './inventory/CheckDetail';
+import { InventoryCards } from './inventory/InventoryCards';
 
 interface InventoryCheck {
   id: string;
@@ -38,6 +40,7 @@ const today = () => new Date().toISOString().split('T')[0];
 
 export default function InventoryPage() {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [selected, setSelected] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', check_date: today(), notes: '' });
@@ -110,6 +113,17 @@ export default function InventoryPage() {
         <EmptyState
           title="棚卸しがまだ1件もありません"
           description="「棚卸しを作る」を押すと、いまの機材台帳からチェックリストが作られます。"
+        />
+      ) : isMobile ? (
+        /*
+          **スマホは縦積みのカード**（`inventory/InventoryCards.tsx`）。PC の行を
+          縮めたものではない — カード積みは `HoldCards` / `LendingCards` と同じ考え方
+        */
+        <InventoryCards
+          checks={checks}
+          onOpen={(id) => setSelected(id)}
+          onDelete={onDelete}
+          deletePending={remove.isPending}
         />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
