@@ -265,6 +265,14 @@ function DesktopTaskDashboard() {
         <p className="text-note text-secondary-foreground">
           案件の中のタスクを全案件ぶん集めた画面です。直すのは案件の中でもここでもできます。
           <strong className="font-bold">終わった案件（完了・失注）のタスクは出しません。</strong>
+          {/*
+           * ⚠️ task-dashboard.routes.ts が gls_category='A'（案件）だけを返す設計になっている
+           * （GLS-B が並ぶと案件のタスクが埋もれるため・意図的）。この画面が「タスク一覧」の
+           * 唯一の入口に見えるので、その断りをここにも出す（コードのコメントだけでは
+           * 画面を見る人には伝わらない）。
+           */}
+          <strong className="font-bold"> プロジェクト管理（GLS-B）のタスクも含みません</strong>
+          — そちらは<code className="rounded bg-muted px-1 py-0.5 text-xs">プロジェクト管理</code>の各プロジェクトでご確認ください。
         </p>
       </div>
 
