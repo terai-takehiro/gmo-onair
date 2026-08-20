@@ -125,14 +125,18 @@ const TREE = [
     ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
     ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
     ['（旧）スタジオカレンダー', '/studio/studio-calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx', '@@意図して据え置き@@',
-      '**予約を作る導線がここにしかない**ので残しています（消すと作れなくなる）。メニューでは「そのほか（作り直し前）」に畳んであります。' +
+      '**部屋を縦に並べた香盤ビュー ＋ スタジオ予約を「直す」導線がここにしかない**ので残しています' +
+      '（① 予定の「部屋を押さえる」は新規作成だけで、既存予約の詳細ダイアログは読むだけ）。' +
       '⚠️ **FullCalendar は撤去済み**（① 予定と同じ `calendar/` の描画部品に載せ替えた）。' +
-      '据え置いているのは情報設計（このIA上の位置づけ）だけで、見た目の技術的負債は残っていない'],
-    ['（旧）パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx', '@@意図して据え置き@@',
-      '⚠️ **FullCalendar は撤去済み**（① 予定と同じ描画部品に載せ替えた）。据え置いているのは情報設計だけ'],
+      '据え置いているのは①香盤ビュー②予約を直す導線の2つで、見た目の技術的負債は残っていない。' +
+      '**② を① 予定に吸収してから、この画面自体の要否を判断する**（次のフェーズ）'],
     ['（旧）自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx', '@@意図して据え置き@@',
-      '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで。' +
-      '⚠️ **FullCalendar は撤去済み**（① 予定と同じ描画部品に載せ替えた）。据え置いているのは情報設計だけ'],
+      '**取込元ごとの詳しい色分け（Google/Outlook/ICS/共有）と外部カレンダー連携の設定がここにしかありません**' +
+      '（① 予定の3層モデルは「自分の予定」を1層としてしか扱わず、取込元の区別を持たない）。' +
+      '⚠️ **予定の作成・編集そのものは① 予定に統合済み**（`PersonalEventDialog` を両方が共有）— ' +
+      '2026-08 の棚卸しで確認したところ、②「予定を作る唯一の導線」という理由はもう成り立たない。' +
+      '残っているのは①色分けの詳しさ②外部カレンダー連携設定の2つ。' +
+      '**FullCalendar は撤去済み**（① 予定と同じ描画部品に載せ替えた）'],
   ]],
   ['設定', [
     ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',
