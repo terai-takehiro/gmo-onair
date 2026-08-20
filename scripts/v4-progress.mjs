@@ -105,15 +105,20 @@ const TREE = [
       '置き方の計算は `calendar/calendarLayout.ts` に出して 26 項目のテストで固定してあります。' +
       '**「予定を入れる」を足しました**（着手前は新規作成が1つも無く「各カレンダーへ行ってください」と書いてあるだけでした）。' +
       '**祝日は設定 ⑥ の表から読みます**（着手前は画面に 2025〜2027 が直書きで、2028 年になると祝日が1つも出ませんでした）。' +
-      '**旧スタジオ・パートナー・マイの3画面は FullCalendar のまま**です（作り直し前の画面なので同じ回で触りません）'],
+      '**旧スタジオ・パートナー・マイの3画面も同じ描画部品に載せ替え済み**です（FullCalendar は3画面とも撤去した）。' +
+      'ただし情報設計（「そのほか（作り直し前）」に畳んだ位置づけ）は変えていません — 予約を作る唯一の導線がスタジオ画面にしかないため'],
     ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx'],
     ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
     ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
     ['（旧）スタジオカレンダー', '/studio/studio-calendar', 'client/src/contexts/production/pages/StudioCalendarPage.tsx', '@@意図して据え置き@@',
-      '**予約を作る導線がここにしかない**ので残しています（消すと作れなくなる）。メニューでは「そのほか（作り直し前）」に畳んであります'],
-    ['（旧）パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx', '@@意図して据え置き@@'],
+      '**予約を作る導線がここにしかない**ので残しています（消すと作れなくなる）。メニューでは「そのほか（作り直し前）」に畳んであります。' +
+      '⚠️ **FullCalendar は撤去済み**（① 予定と同じ `calendar/` の描画部品に載せ替えた）。' +
+      '据え置いているのは情報設計（このIA上の位置づけ）だけで、見た目の技術的負債は残っていない'],
+    ['（旧）パートナー', '/studio/partners', 'client/src/contexts/production/pages/PartnerSchedulePage.tsx', '@@意図して据え置き@@',
+      '⚠️ **FullCalendar は撤去済み**（① 予定と同じ描画部品に載せ替えた）。据え置いているのは情報設計だけ'],
     ['（旧）自分の予定', '/studio/my-calendar', 'client/src/contexts/production/pages/MyCalendarPage.tsx', '@@意図して据え置き@@',
-      '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで'],
+      '**パートナーと自分の予定を作れるのはこの2画面だけ**です。① 予定はレイヤーとして見せるところまで。' +
+      '⚠️ **FullCalendar は撤去済み**（① 予定と同じ描画部品に載せ替えた）。据え置いているのは情報設計だけ'],
   ]],
   ['設定', [
     ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',

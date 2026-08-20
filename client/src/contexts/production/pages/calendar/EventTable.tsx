@@ -27,11 +27,17 @@ const SOURCE_TONE: Record<string, string> = {
 };
 
 export function EventTable({
-  events, holidays, onOpen,
+  events, holidays, onOpen, emptyHint,
 }: {
   events: CalEvent[];
   holidays: Map<string, Holiday>;
   onOpen: (e: CalEvent) => void;
+  /**
+   * 空のときの補足文。**既定は① 予定（3層を重ねる画面）向け**。
+   * 1層しか持たない画面（旧スタジオ・パートナー・マイ）は「出すもの」の
+   * トグル自体が無いので、そこだけ違う文を渡す
+   */
+  emptyHint?: string;
 }) {
   const rows = sortForList(events);
 
@@ -40,7 +46,7 @@ export function EventTable({
       <div className="rounded-card border border-border bg-card p-6">
         <EmptyState
           title="この期間に予定はありません"
-          description="上の「出すもの」で外しているレイヤーがないか確かめてください。月を送ると別の期間を見られます。"
+          description={emptyHint ?? "上の「出すもの」で外しているレイヤーがないか確かめてください。月を送ると別の期間を見られます。"}
         />
       </div>
     );
