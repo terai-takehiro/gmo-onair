@@ -49,6 +49,7 @@ import { MobileToday } from './rooms/MobileToday';
 import {
   ymd, addDays, addMonths, startOfWeek, weekDays, eventsOn, type CalLayer,
 } from './calendar/calendarLayout';
+import { loadLayers, saveLayers } from './calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from './calendar/useCalendarEvents';
 import { CalToolbar, type CalView, type LayerDef } from './calendar/CalToolbar';
 import { MonthGrid } from './calendar/MonthGrid';
@@ -58,16 +59,7 @@ import { SideRail } from './calendar/SideRail';
 import { RoomFilterDialog, UserFilterDialog } from './calendar/FilterDialogs';
 import { NewEventChooser, type NewKind } from './calendar/NewEventChooser';
 
-const LAYER_KEY = 'unified-cal-layers';
 const VIEW_KEY = 'unified-cal-view';
-
-function loadLayers(): Record<CalLayer, boolean> {
-  try {
-    const raw = localStorage.getItem(LAYER_KEY);
-    if (raw) return { studio: true, partner: true, my: true, ...JSON.parse(raw) };
-  } catch { /* 壊れていたら既定に戻す */ }
-  return { studio: true, partner: true, my: true };
-}
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -143,7 +135,7 @@ function DesktopCalendar() {
   const toggleLayer = (k: CalLayer) => {
     setLayers((prev) => {
       const next = { ...prev, [k]: !prev[k] };
-      try { localStorage.setItem(LAYER_KEY, JSON.stringify(next)); } catch { /* 保存できなくても動く */ }
+      saveLayers(next);
       return next;
     });
   };

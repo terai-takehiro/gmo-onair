@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import type { CalLayer } from './calendarLayout';
 
 interface LocationRow {
   id: string;
@@ -149,6 +150,71 @@ export function UserFilterDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>全員出す</Button>
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
+  { key: 'studio', label: 'スタジオの予約', dot: '#dc2626' },
+  { key: 'partner', label: 'パートナーの予定', dot: '#8b5cf6' },
+  { key: 'my', label: '自分の予定', dot: '#2563eb' },
+];
+
+/**
+ * ① 予定・スマホ / 「出すもの」を選ぶ
+ *
+ * PC 版の `CalToolbar` は帯の中にチップを並べる余白があるが、スマホは
+ * 幅が無いのでダイアログに畳む（月表アイコン行の「レイヤー」ボタンから開く）。
+ * 出し分けの対象は `layerPrefs.ts` の3層のみで、部屋・人の絞り込みは持たない。
+ */
+export function LayerFilterDialog({
+  open, onOpenChange, value, onChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  value: Record<CalLayer, boolean>;
+  onChange: (v: Record<CalLayer, boolean>) => void;
+}) {
+  const toggle = (k: CalLayer) => onChange({ ...value, [k]: !value[k] });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>出すものを選ぶ</DialogTitle>
+          <DialogDescription>スタジオの予約・パートナーの予定・自分の予定を、出す/隠すで選びます。</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-1">
+          {LAYER_ITEMS.map((it) => {
+            const on = value[it.key];
+            return (
+              <button
+                key={it.key}
+                type="button"
+                onClick={() => toggle(it.key)}
+                aria-pressed={on}
+                className={cn(
+                  'min-h-tap text-list flex items-center gap-2.5 rounded-note border px-3 font-bold',
+                  on ? 'border-primary bg-primary-surface text-primary' : 'border-border bg-card text-secondary-foreground',
+                )}
+              >
+                <span
+                  className="h-3 w-3 shrink-0 rounded-chip"
+                  style={{ backgroundColor: on ? it.dot : 'rgb(var(--border-disabled))' }}
+                />
+                {it.label}
+                <span className="flex-1" />
+                <span className={cn('text-note', on ? 'text-primary' : 'text-muted-foreground')}>{on ? '出す' : '隠す'}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>閉じる</Button>
         </DialogFooter>
       </DialogContent>
