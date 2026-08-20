@@ -598,6 +598,13 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 - **#263**（`refactor(shared,client,server): 権限モデルを単純化した`）— 作成から
   約43分でCI green・マージ（途中で`main`とのコンフリクトを解消するpushを1回挟んだ）。
   レビュー0件のままマージされた
+- **#264**（`feat(client): カレンダーのモバイル「予定」をiPhone風の月表＋アジェンダに作り直した`）—
+  作成から約3分でCI green・マージ。レビュー0件のままマージされた
+- **#266**（`feat(client): カレンダーのPC「予定」をmacOS風のツールバー＋左メニュー常設に作り直した`）—
+  作成から約7分でCI green・マージ（途中で`main`とのコンフリクト解消のpushを1回挟んだ）。
+  レビュー0件のままマージされた。⚠️ **コンフリクト解消時に自分で見つけた実害バグ2件は
+  そのpushのコミット・PR本文・コメントに記録済み**（PR #263 の権限モジュールremap漏れ —
+  `rooms/MobileToday.tsx` と `components/layout/nav.ts` の3項目。詳細は下の一覧の #266 行）
 
 ---
 
