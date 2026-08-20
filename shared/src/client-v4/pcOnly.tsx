@@ -76,27 +76,37 @@ export interface PcOnlyPanelProps extends Omit<PcOnlyEntry, 'path'> {
  *
  * **順番に意味があります**: ①何の画面か ②なぜ PC なのか ③代わりにできること
  * ④それでも開く。④を上に置くと理由を読まずに押されるので必ず最後です。
+ *
+ * ── 見た目（磨き直し）─────────────────────────────────────────
+ *
+ * 「使えません」ではなく「ここは PC でどうぞ」に見せたいので、案内アイコンは
+ * 他の画面の空表示と同じ「色つきの丸いバッジ」に載せている。バッジは案内の色
+ * （実際に押せる主ボタンとは別の色）にして、**「読む場所」と「押す場所」を
+ * 色だけでも見分けられる**ようにした。
  */
 export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, inset }: PcOnlyPanelProps) {
   return (
     <div className={inset ? '' : 'p-3'}>
-      <div className="rounded-card border border-border bg-card p-4">
-        <p className="text-th flex items-center gap-1.5 text-muted-foreground">
-          <Monitor className="h-3.5 w-3.5" aria-hidden="true" />
-          PC で触る画面
-        </p>
-        <h2 className="text-cardtitle mt-1.5">{what}</h2>
-        <p className="text-sub mt-1.5 text-secondary-foreground">
-          {why}
-          {/* **「消えた」と読ませない。** これが無いと「機能が無くなった」と受け取られる */}
-          <strong className="font-bold">消したのではなく、PC にあります。</strong>
+      <div className="rounded-card border border-border bg-card px-5 py-7 text-center shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-chip bg-info-surface text-info">
+          <Monitor className="h-6 w-6" aria-hidden="true" />
+        </div>
+
+        <p className="text-th mt-3 text-muted-foreground">PC で触る画面</p>
+        <h2 className="text-cardtitle mt-1">{what}</h2>
+        <p className="text-sub mt-2 text-secondary-foreground">{why}</p>
+
+        {/* **「消えた」と読ませない。** これが無いと「機能が無くなった」と受け取られる。
+            理由文と分けて、丸い札で目立たせている */}
+        <p className="text-list mt-3 inline-block rounded-chip bg-muted px-3 py-1 text-muted-foreground">
+          消したのではなく、PC にあります。
         </p>
 
         {instead && onGoInstead && (
           <button
             type="button"
             onClick={() => onGoInstead(instead.to)}
-            className="rounded-control min-h-tap mt-3.5 flex w-full items-center justify-center gap-1.5 bg-primary px-4 text-list font-bold text-primary-foreground"
+            className="rounded-control-lg min-h-tap mt-5 flex w-full items-center justify-center gap-1.5 bg-primary px-4 text-list text-primary-foreground transition-colors hover:bg-primary-800"
           >
             {instead.label}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -107,7 +117,7 @@ export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, ins
           <button
             type="button"
             onClick={onOpenAnyway}
-            className="min-h-tap text-sub mt-1 flex w-full items-center justify-center gap-1.5 text-muted-foreground underline"
+            className="rounded-control-lg min-h-tap mt-2 flex w-full items-center justify-center gap-1.5 text-list text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             それでもこのまま開く
@@ -121,16 +131,20 @@ export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, ins
 /**
  * 画面の中に置く短い版（帯）。**画面ぜんぶを止めるほどではない**ときに使う。
  * 例: 案件一覧の `?view=board`（リストは出せるので、ボードだけ出せないと書く）
+ *
+ * 見た目は他の画面にある同種の帯（ファイル・やり取りタブの案内帯など）に揃えてある。
+ * 帯の中でさらにアイコンを丸バッジにすると狭い帯の中でかえって目立ちすぎるため、
+ * ここは磨かず既存の形（アイコン＋文）のままにしている。
  */
 export function PcOnlyNote({ what, why }: { what: string; why: string }) {
   return (
-    <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">
+    <div className="flex items-start gap-2.5 rounded-note border border-info-border bg-info-surface px-3.5 py-3">
       <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-      <span>
+      <p className="text-note text-secondary-foreground">
         <strong className="font-bold">{what}は PC で触る画面です。</strong>
         {why}
-      </span>
-    </p>
+      </p>
+    </div>
   );
 }
 
