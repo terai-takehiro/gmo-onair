@@ -91,7 +91,10 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
       ) : (
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={!name.trim() || !email.trim() || save.isPending}
+          >
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {user ? '保存する' : '招待する'}
           </Button>
