@@ -32,6 +32,7 @@ import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmOpenItems, useGpmTasks, useInvalidateGpm } from '../queries';
 import {
   PHASE_STATE_LABEL, PHASE_STATE_TONE, dueLabel, dueTone, ymd,
@@ -39,6 +40,9 @@ import {
 } from '../types';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
+import { MobileTaskTabs } from './taskList/MobileTaskTabs';
+import { TaskCards } from './taskList/TaskCards';
+import { OpenItemCards } from './taskList/OpenItemCards';
 
 const CHIPS: { key: string; label: string; statuses: OpenItemStatus[] }[] = [
   { key: 'open', label: '止まっているもの', statuses: ['waiting', 'checking'] },
@@ -50,6 +54,8 @@ const CHIPS: { key: string; label: string; statuses: OpenItemStatus[] }[] = [
 
 export default function GpmTaskListPage() {
   const navigate = useNavigate();
+  // **薄い親で1回だけ**（`shared/CLAUDE.md`「`useIsMobile()` で早期 return しない」）。
+  const isMobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const raw = params.get('tab');
   const tab: 'tasks' | 'asks' = raw === 'asks' ? 'asks' : 'tasks';
@@ -151,24 +157,39 @@ export default function GpmTaskListPage() {
           ? `未完了 ${taskCounts.open}件 ・ 止まっている未確認事項 ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
       >
-        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
-          {([['tasks', 'タスク', ListTodo], ['asks', '未確認事項', CircleHelp]] as const).map(([v, label, Icon], i) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={tab === v}
-              onClick={() => setTab(v)}
-              className={cn(
-                'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
-                i > 0 && 'border-l border-border',
-                tab === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />{label}
-            </button>
-          ))}
-        </div>
+        {/* **スマホでは出さない。** ここは見出しの下に折り返るだけで専用のナビゲーションに
+            ならない（監査 2026-08-20 ⑤ 指摘）。スマホは下の `MobileTaskTabs` に譲る */}
+        {!isMobile && (
+          <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
+            {([['tasks', 'タスク', ListTodo], ['asks', '未確認事項', CircleHelp]] as const).map(([v, label, Icon], i) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={tab === v}
+                onClick={() => setTab(v)}
+                className={cn(
+                  'min-h-tap text-sub inline-flex items-center gap-1.5 px-3.5 lg:min-h-[40px]',
+                  i > 0 && 'border-l border-border',
+                  tab === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              </button>
+            ))}
+          </div>
+        )}
       </PageHeader>
+
+      {/* **画面の主ナビゲーション**（タスク／未確認事項）を幅いっぱいに立てる。
+          件数は見出しの `sub` と同じ数え方（`taskCounts.open` / `openCount`） */}
+      {isMobile && (
+        <MobileTaskTabs
+          tab={tab}
+          onChange={setTab}
+          taskCount={tasks.data ? taskCounts.open : null}
+          askCount={asks.data ? openCount : null}
+        />
+      )}
 
       {tab === 'tasks' ? (
         <>
@@ -193,6 +214,14 @@ export default function GpmTaskListPage() {
               icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
               title={taskChip === 'open' ? '未完了のタスクはありません' : '当てはまるタスクはありません'}
               description="標準工程からプロジェクトを作ると、工程の下にタスクが日付付きで入ります。"
+            />
+          ) : isMobile ? (
+            <TaskCards
+              rows={taskRows}
+              today={today}
+              canEdit={canEdit}
+              onToggleDone={(t) => setDone.mutate(t)}
+              onOpenProject={(projectId) => navigate(`/gpm/projects/${projectId}`)}
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-border bg-card">
@@ -292,6 +321,16 @@ export default function GpmTaskListPage() {
               icon={<CircleHelp className="h-6 w-6" aria-hidden="true" />}
               title={chip === 'open' ? '止まっているものはありません' : '当てはまる未確認事項はありません'}
               description="先方や社内の判断待ちで工程が進められないものは、プロジェクト詳細の「未確認事項」から足します。"
+            />
+          ) : isMobile ? (
+            <OpenItemCards
+              rows={askRows}
+              today={today}
+              canEdit={canEdit}
+              onOpen={(item) => navigate(`/gpm/projects/${item.project_id}/asks`)}
+              onToggleResolved={(item) => toggle.mutate(item)}
+              onEdit={setEditing}
+              onDelete={onDelete}
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-border bg-card">
