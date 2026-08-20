@@ -1,25 +1,40 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+/**
+ * マイカレンダー（v4・FullCalendar を撤去した回）
+ *
+ * ① 予定（統合カレンダー）と同じ描画部品（`calendar/`）に載せ替えた。
+ * データの取り方（個人予定 + 自分のパートナー予定を重ねる）・ダイアログ・
+ * OAuth コールバックの受け口は1行も変えていない — 変えたのは
+ * **マス目の描き方**だけ（FullCalendar → 自前描画）。
+ *
+ * **色分けは① 予定より詳しいまま残した**（Google/Outlook/ICS/共有を別色に）。
+ * ① 予定の3層モデルは「自分の予定」を1層としてしか扱わず、取込元の区別は
+ * 「取込元」の札だけに畳んでいる。マイカレンダーは元々ここが本人にとって
+ * 一番大事な区別（自分で入れたか外部同期か）なので、ここだけは崩さない。
+ *
+ * **クリック&ドラッグでの新規作成は無くした**（① 予定と同じ判断）。
+ * 「予定を登録」ボタンから入れる形に統一している。
+ */
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
-import interactionPlugin from "@fullcalendar/interaction";
-import type { DatesSetArg, EventClickArg, DateSelectArg } from "@fullcalendar/core";
-import api from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Loader2, Plus, CalendarClock, CloudDownload } from "lucide-react";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import PersonalEventDialog from "../components/schedule/PersonalEventDialog";
 import IcsFeedsDialog from "../components/schedule/IcsFeedsDialog";
 import {
   SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS,
-  useIsMobile, paintHolidayCell, toExclusiveEnd,
-  loadCalState, saveCalState, clampView,
-  CalendarShell, type PersonalEvent, type PartnerSchedule,
+  useIsMobile, CalendarShell, type PersonalEvent, type PartnerSchedule,
 } from "../components/schedule/scheduleShared";
+import {
+  ymd, addDays, addMonths, startOfWeek, weekDays, type CalEvent,
+} from "./calendar/calendarLayout";
+import { CalToolbar, type CalView } from "./calendar/CalToolbar";
+import { MonthGrid } from "./calendar/MonthGrid";
+import { TimeGrid } from "./calendar/TimeGrid";
+import { EventTable } from "./calendar/EventTable";
+import type { Holiday } from "./calendar/useCalendarEvents";
 
 // マイカレンダー — 本人のみに表示される個人カレンダー。
 //   ・手入力の個人予定 (青)
@@ -31,9 +46,10 @@ const GOOGLE_COLOR = "#16a34a";
 const OUTLOOK_COLOR = "#0078d4";
 const SHARED_COLOR = "#9333ea"; // 共有予定 (自分が共有した/された) は紫で区別
 
+const DOW = ["日", "月", "火", "水", "木", "金", "土"];
+
 export default function MyCalendarPage() {
   const isMobile = useIsMobile();
-  const calendarRef = useRef<any>(null);
   const { currentUser } = useAuth();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,104 +76,112 @@ export default function MyCalendarPage() {
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams, qc]);
 
-  const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
-    to: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split("T")[0],
-  });
+  const today = ymd(new Date());
+  const now = useMemo(() => new Date(), []);
+  const [view, setView] = useState<CalView>(isMobile ? "list" : "month");
+  const [anchor, setAnchor] = useState(today);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [feedsDialogOpen, setFeedsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PersonalEvent | null>(null);
-  const [presetRange, setPresetRange] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
 
-  // カレンダー間で表示中の月・ビューを共有 (切り替え時にリセットしない)
-  const calState = useRef(loadCalState()).current;
-  const allowedViews = isMobile
-    ? ["listMonth", "timeGridDay"]
-    : ["dayGridMonth", "timeGridWeek", "timeGridDay", "listWeek"];
-  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+  // **月・週・日は 375px だとマスが数ミリ角になる**（① 予定と同じ理由）
+  const allowedViews: CalView[] = isMobile ? ["list"] : ["month", "week", "day", "list"];
+  const pickView = (v: CalView) => setView(allowedViews.includes(v) ? v : "list");
+
+  const { from, to } = useMemo(() => {
+    if (view === "week") { const w = weekDays(anchor); return { from: w[0], to: `${w[6]}T23:59` }; }
+    if (view === "day") return { from: anchor, to: `${anchor}T23:59` };
+    const first = `${anchor.slice(0, 7)}-01`;
+    return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
+  }, [view, anchor]);
 
   const { data: events = [], isLoading } = useQuery<PersonalEvent[]>({
-    queryKey: ["personal-events", dateRange.from, dateRange.to],
-    queryFn: async () =>
-      (await api.get(`/schedule/personal?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
+    queryKey: ["personal-events", from, to],
+    queryFn: async () => (await api.get(`/schedule/personal?from=${from}&to=${to}`)).data.data,
     placeholderData: (prev) => prev,
   });
 
   // 自分のパートナー予定 (代休/有給等) も参考表示
   const { data: mySchedules = [] } = useQuery<PartnerSchedule[]>({
-    queryKey: ["my-partner-schedules", dateRange.from, dateRange.to, currentUser?.id],
-    queryFn: async () =>
-      (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}&user_id=${currentUser!.id}`)).data.data,
+    queryKey: ["my-partner-schedules", from, to, currentUser?.id],
+    queryFn: async () => (await api.get(`/schedule/partner?from=${from}&to=${to}&user_id=${currentUser!.id}`)).data.data,
     enabled: !!currentUser?.id,
     placeholderData: (prev) => prev,
   });
 
-  const calendarEvents = useMemo(() => {
-    const list: any[] = events.map((e) => {
+  const holidays = useQuery<Holiday[]>({
+    queryKey: ["calendar-holidays", from, to],
+    queryFn: async () => (await api.get("/business-hours/holidays", { params: { from, to } })).data.data,
+    staleTime: 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+  const holidayMap = useMemo(() => new Map((holidays.data ?? []).map((h) => [h.date, h])), [holidays.data]);
+
+  const calEvents = useMemo<CalEvent[]>(() => {
+    const list: CalEvent[] = events.map((e) => {
       const isAllDay = !!e.all_day;
-      const isSharedIn = e.is_owner === false;    // 自分に共有された (別ユーザー作成)
-      const isShared = !!e.shared;                // 共有 (自分が共有した or された)
+      const isSharedIn = e.is_owner === false;
+      const isShared = !!e.shared;
       const color = isShared ? SHARED_COLOR
         : e.source === "google" ? GOOGLE_COLOR : e.source === "outlook" ? OUTLOOK_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
       const base = e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title;
       const title = isSharedIn ? `👥 ${base}（${e.owner_name || "共有"}）` : isShared ? `👥 ${base}` : base;
       return {
-        id: `pe-${e.id}`,
+        key: `pe-${e.id}`,
+        id: e.id,
+        layer: "my",
         title,
-        start: isAllDay ? e.start_time.split("T")[0] : e.start_time,
-        end: isAllDay ? toExclusiveEnd(e.end_time) : e.end_time,
+        color,
+        typeLabel: isShared ? "共有" : "自分",
+        sub: e.location || e.feed_label || (e.owner_name ?? ""),
+        source: e.source === "google" ? "Google" : e.source === "outlook" ? "Outlook" : e.source === "ics" ? "ICS" : "",
         allDay: isAllDay,
-        backgroundColor: color,
-        borderColor: color,
-        extendedProps: { kind: "personal", eventId: e.id },
+        start: e.start_time.slice(0, 16),
+        end: e.end_time.slice(0, 16),
+        tentative: false,
       };
     });
     for (const s of mySchedules) {
-      const color = SCHEDULE_TYPE_COLORS[s.schedule_type] || SCHEDULE_TYPE_COLORS.other;
       const isAllDay = !!s.all_day;
       list.push({
-        id: `ps-${s.id}`,
+        key: `ps-${s.id}`,
+        id: s.id,
+        layer: "partner",
         title: `【${SCHEDULE_TYPE_LABELS[s.schedule_type] || "予定"}】${s.title}`,
-        start: isAllDay ? s.start_time.split("T")[0] : s.start_time,
-        end: isAllDay ? toExclusiveEnd(s.end_time) : s.end_time,
+        color: SCHEDULE_TYPE_COLORS[s.schedule_type] || SCHEDULE_TYPE_COLORS.other,
+        typeLabel: SCHEDULE_TYPE_LABELS[s.schedule_type] ?? "その他",
+        sub: "",
+        source: "",
         allDay: isAllDay,
-        backgroundColor: color,
-        borderColor: color,
-        extendedProps: { kind: "partner" },
+        start: s.start_time.slice(0, 16),
+        end: s.end_time.slice(0, 16),
+        tentative: false,
       });
     }
     return list;
   }, [events, mySchedules]);
 
-  const handleDatesSet = useCallback((info: DatesSetArg) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    setDateRange({ from: fmt(info.start), to: fmt(info.end) });
-    saveCalState(info.view.type, info.view.currentStart);
-  }, []);
+  const step = (dir: 1 | -1) => {
+    if (view === "day") setAnchor(addDays(anchor, dir));
+    else if (view === "week") setAnchor(addDays(anchor, dir * 7));
+    else setAnchor(addMonths(`${anchor.slice(0, 7)}-01`, dir));
+  };
 
-  const handleEventClick = useCallback((info: EventClickArg) => {
-    const props = info.event.extendedProps as { kind: string; eventId?: string };
-    if (props.kind !== "personal") return; // パートナー予定はパートナースケジュール画面で編集
-    const e = events.find((x) => x.id === props.eventId);
-    if (e) { setEditing(e); setPresetRange(null); setEventDialogOpen(true); }
-  }, [events]);
-
-  const handleDateSelect = useCallback((info: DateSelectArg) => {
-    if (info.allDay) {
-      // FullCalendar の終日 select end は exclusive → inclusive に -1 日
-      const endD = new Date(info.end.getTime() - 24 * 3600_000);
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      const start = fmt(info.start);
-      const end = fmt(endD);
-      setPresetRange({ start, end: end < start ? start : end, allDay: true });
-    } else {
-      setPresetRange({ start: info.startStr.slice(0, 16), end: info.endStr.slice(0, 16), allDay: false });
+  const title = useMemo(() => {
+    if (view === "day") return `${Number(anchor.slice(5, 7))}/${Number(anchor.slice(8))}（${DOW[new Date(`${anchor}T00:00:00`).getDay()]}）`;
+    if (view === "week") {
+      const w = weekDays(anchor);
+      return `${Number(w[0].slice(5, 7))}/${Number(w[0].slice(8))} – ${Number(w[6].slice(5, 7))}/${Number(w[6].slice(8))}`;
     }
-    setEditing(null);
-    setEventDialogOpen(true);
-  }, []);
+    return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
+  }, [view, anchor]);
+
+  const open = (e: CalEvent) => {
+    // パートナー予定はここでは編集しない（パートナースケジュール画面で編集する）
+    if (e.layer !== "my") return;
+    const found = events.find((x) => x.id === e.id);
+    if (found) setEditing(found);
+  };
 
   return (
     <CalendarShell
@@ -172,7 +196,7 @@ export default function MyCalendarPage() {
             <span className="hidden sm:inline">外部カレンダー連携</span>
             <span className="sm:hidden">連携</span>
           </Button>
-          <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setEventDialogOpen(true); }}>
+          <Button size="sm" onClick={() => { setEditing(null); setEventDialogOpen(true); }}>
             <Plus className="mr-1 h-4 w-4" />
             <span className="hidden sm:inline">予定を登録</span>
             <span className="sm:hidden">登録</span>
@@ -180,106 +204,79 @@ export default function MyCalendarPage() {
         </>
       }
     >
-        {googleNotice && (
-          <div
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-              googleNotice.ok
-                ? "border-green-600/30 bg-green-50 text-green-800"
-                : "border-destructive/30 bg-destructive/10 text-destructive"
-            }`}
-          >
-            <span className="flex-1">{googleNotice.msg}</span>
-            <button type="button" className="text-xs underline" onClick={() => setGoogleNotice(null)}>閉じる</button>
-          </div>
-        )}
-
-        {/* 凡例 (モバイルは横スクロールで 1 行に収める) */}
-        <div className="flex items-center gap-3 overflow-x-auto text-[11px] text-muted-foreground">
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: MANUAL_COLOR }} />
-            個人予定
-          </span>
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: GOOGLE_COLOR }} />
-            Google カレンダー
-          </span>
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: OUTLOOK_COLOR }} />
-            Outlook カレンダー
-          </span>
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
-            ICS 購読
-          </span>
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHARED_COLOR }} />
-            共有予定
-          </span>
-          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />
-            パートナー予定（自分の分）
-          </span>
+      {googleNotice && (
+        <div
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+            googleNotice.ok
+              ? "border-green-600/30 bg-green-50 text-green-800"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          }`}
+        >
+          <span className="flex-1">{googleNotice.msg}</span>
+          <button type="button" className="text-xs underline" onClick={() => setGoogleNotice(null)}>閉じる</button>
         </div>
+      )}
 
-        {/* カレンダー */}
-        <Card>
-          <CardContent className="relative p-2 sm:p-4">
-            {isLoading && events.length === 0 && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            )}
-            <div className="studio-calendar">
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={initialView}
-                initialDate={calState.dateStr}
-                locale="ja"
-                headerToolbar={isMobile ? {
-                  left: "prev,next",
-                  center: "title",
-                  right: "listMonth,timeGridDay",
-                } : {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-                }}
-                buttonText={{ prev: "＜", next: "＞", today: "今日", month: "月", week: "週", day: "日", list: "一覧" }}
-                noEventsText="この期間に予定はありません"
-                buttonIcons={false}
-                events={calendarEvents}
-                datesSet={handleDatesSet}
-                eventClick={handleEventClick}
-                select={handleDateSelect}
-                selectable={true}
-                selectMirror={true}
-                height="auto"
-                eventDisplay="block"
-                dayMaxEvents={isMobile ? 3 : 5}
-                slotMinTime="06:00:00"
-                slotMaxTime="24:00:00"
-                slotDuration={isMobile ? "01:00:00" : "00:30:00"}
-                firstDay={0}
-                allDaySlot={true}
-                allDayText="終日"
-                nowIndicator={true}
-                stickyHeaderDates={true}
-                eventTimeFormat={{ hour: "2-digit", minute: "2-digit", meridiem: false, hour12: false }}
-                titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
-                dayCellDidMount={paintHolidayCell}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* 凡例 (モバイルは横スクロールで 1 行に収める) */}
+      <div className="flex items-center gap-3 overflow-x-auto text-[11px] text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: MANUAL_COLOR }} />
+          個人予定
+        </span>
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: GOOGLE_COLOR }} />
+          Google カレンダー
+        </span>
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: OUTLOOK_COLOR }} />
+          Outlook カレンダー
+        </span>
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
+          ICS 購読
+        </span>
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHARED_COLOR }} />
+          共有予定
+        </span>
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />
+          パートナー予定（自分の分）
+        </span>
+      </div>
 
-        <PersonalEventDialog
-          open={eventDialogOpen}
-          onOpenChange={(v) => { setEventDialogOpen(v); if (!v) setEditing(null); }}
-          editing={editing}
-          presetRange={presetRange}
+      <CalToolbar
+        view={view} onView={pickView} title={title} views={allowedViews}
+        onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)}
+      />
+
+      {isLoading && events.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : view === "month" ? (
+        <MonthGrid
+          anchor={`${anchor.slice(0, 7)}-01`} today={today} events={calEvents} holidays={holidayMap}
+          onPickDay={(d) => { setAnchor(d); pickView("day"); }} onOpen={open}
         />
-        <IcsFeedsDialog open={feedsDialogOpen} onOpenChange={setFeedsDialogOpen} />
+      ) : view === "list" ? (
+        <EventTable events={calEvents} holidays={holidayMap} onOpen={open} emptyHint="月を送ると別の期間を見られます。" />
+      ) : (
+        <TimeGrid
+          days={view === "week" ? weekDays(anchor) : [anchor]}
+          today={today} now={now} events={calEvents} holidays={holidayMap}
+          onOpen={open}
+          onPickDay={(d) => { setAnchor(d); pickView("day"); }}
+        />
+      )}
+
+      <PersonalEventDialog
+        open={eventDialogOpen || !!editing}
+        onOpenChange={(v) => { if (!v) { setEventDialogOpen(false); setEditing(null); } }}
+        editing={editing}
+        presetRange={editing ? null : { start: anchor, end: anchor, allDay: false }}
+      />
+      <IcsFeedsDialog open={feedsDialogOpen} onOpenChange={setFeedsDialogOpen} />
     </CalendarShell>
   );
 }
