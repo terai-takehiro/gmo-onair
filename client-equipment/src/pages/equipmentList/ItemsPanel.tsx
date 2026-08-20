@@ -237,13 +237,20 @@ export function ItemsPanel() {
       )}
 
       {canBulkEdit && sel.selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 flex items-center justify-between rounded-card bg-primary px-4 py-2 text-primary-foreground">
-          <span className="text-sub font-bold">{sel.selectedIds.size} 件を選んでいます</span>
+        /*
+          このバー自体は前からあったが、スマホでは何も選べなかった（カードに
+          チェックボックスが無かった）ので**一度も375pxで描かれたことが無かった**。
+          カードから選べるようにした今回、初めて出したところボタン2つ＋件数が
+          横に収まらず、件数の `<span>` が1文字ずつ縦積みになる形で壊れた
+          （flex の既定の縮小がテキスト側だけを潰す）。**狭い画面では縦に積む**。
+        */
+        <div className="sticky top-0 z-20 flex flex-col gap-2 rounded-card bg-primary px-4 py-2 text-primary-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span className="shrink-0 whitespace-nowrap text-sub font-bold">{sel.selectedIds.size} 件を選んでいます</span>
           <span className="flex gap-2">
-            <Button variant="secondary" onClick={bulk.openDialog}>
+            <Button variant="secondary" className="flex-1 sm:flex-initial" onClick={bulk.openDialog}>
               <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />まとめて直す
             </Button>
-            <Button variant="ghost" className="text-primary-foreground hover:bg-primary-800" onClick={sel.clear}>
+            <Button variant="ghost" className="flex-1 text-primary-foreground hover:bg-primary-800 sm:flex-initial" onClick={sel.clear}>
               <X className="mr-1 h-4 w-4" aria-hidden="true" />選ぶのをやめる
             </Button>
           </span>
