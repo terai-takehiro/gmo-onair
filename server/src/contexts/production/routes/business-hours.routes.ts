@@ -23,7 +23,7 @@ router.use(requireAuth);
 const adminOnly = requireRole('system_admin');
 
 /** 拠点の一覧（画面の左レール）。**部屋数も返す** — 空の拠点が分かる */
-router.get('/locations', requirePermission('studio', 'reader'), wrap(async (_req, res) => {
+router.get('/locations', requirePermission('sales', 'reader'), wrap(async (_req, res) => {
   const rows = await queryAll(
     `SELECT l.id, l.name,
             (SELECT COUNT(*)::int FROM studio_rooms r
@@ -60,7 +60,7 @@ router.get('/holidays', wrap(async (req, res) => {
   res.json({ success: true, data: await holidaysBetween(from, to) });
 }));
 
-router.get('/:locationId', requirePermission('studio', 'reader'), wrap(async (req, res) => {
+router.get('/:locationId', requirePermission('sales', 'reader'), wrap(async (req, res) => {
   res.json({ success: true, data: await listSettings(p1(req.params.locationId)) });
 }));
 
@@ -99,7 +99,7 @@ router.delete('/closed-days/:id', adminOnly, wrap(async (req, res) => {
 }));
 
 /** 休業日にする前に「重なる予約」を見る（保存しない） */
-router.get('/closed-days/affected', requirePermission('studio', 'reader'), wrap(async (req, res) => {
+router.get('/closed-days/affected', requirePermission('sales', 'reader'), wrap(async (req, res) => {
   const from = String(req.query.from ?? '');
   const to = String(req.query.to ?? from);
   if (!from) throw new AppError(400, 'VALIDATION_ERROR', '期間を入れてください');
@@ -111,14 +111,14 @@ router.get('/closed-days/affected', requirePermission('studio', 'reader'), wrap(
  * この日時は営業時間の外か。**予約を作る前に画面が訊く。**
  * 保存は止めないので、これは注意を出すためだけのもの。
  */
-router.post('/check', requirePermission('studio', 'reader'), wrap(async (req, res) => {
+router.post('/check', requirePermission('sales', 'reader'), wrap(async (req, res) => {
   const { location_id, start_time, end_time } = req.body ?? {};
   if (!start_time) throw new AppError(400, 'VALIDATION_ERROR', '開始日時を入れてください');
   res.json({ success: true, data: await checkBooking(location_id || null, start_time, end_time || null) });
 }));
 
 /** 時間外の印が付いた予約の一覧（あとから拾うため） */
-router.get('/out-of-hours/list', requirePermission('studio', 'reader'), wrap(async (req, res) => {
+router.get('/out-of-hours/list', requirePermission('sales', 'reader'), wrap(async (req, res) => {
   const from = String(req.query.from ?? '');
   const rows = await queryAll(
     `SELECT b.id, b.title, b.start_time, b.end_time, b.out_of_hours_reason, p.name AS project_name

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import {
-  requireAuth, requirePermission, requireAnyPermission, meetsPermissionLevel,
+  requireAuth, requirePermission, meetsPermissionLevel,
 } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
@@ -20,17 +20,14 @@ import { assertCustomerCompanyId } from '../../../shared/services/company-direct
 const router = Router();
 
 /**
- * ⚠️ **帳票 PDF だけは全体のゲートより前に置きます。**
+ * 帳票 PDF だけ全体のゲートより前に置いています。
  *
- * この router は下で `requirePermission('budget')` を全ルートに掛けますが、
- * **請求書・検収書を出すボタンは ⑤ 見積・請求（全案件）にもあります** —
- * あの画面は `sales` か `budget` のどちらかで開けるので、
- * **`sales` だけの人が押すと必ず 403** でした（レビューでの指摘 #102）。
- *
- * 押せるのに 403 は v4 の決めごとに反します。かといって台帳ぜんぶを
- * `sales` に開けるわけにはいかないので、**この1本だけ**を
- * `requireAnyPermission` にします（`billing.routes` と同じ考え方 —
- * 同じ請求を案件管理と財務の2つの入口から扱うため）。
+ * 以前は `sales` と `budget` が別区画で、この router 全体は `budget` しか
+ * 要求していなかったため、**請求書・検収書PDFを出すボタンが `sales` だけの
+ * 人には必ず403になる**事故があった（レビューでの指摘 #102）。権限モデル
+ * 単純化で `budget` は `sales` に統合されたため、下の全体ゲートも `sales` に
+ * なっており、この特別扱いはいまは重複（実質的には無害）。配置はそのまま
+ * 残す（docs/reviews/permission-model-simplification-plan.md）。
  *
  * **紙にするだけなら止めない。** 金額は ⑤ の一覧にすでに出ているので、
  * 見えているものを PDF にするだけの操作を権限で分ける理由がありません
@@ -38,7 +35,7 @@ const router = Router();
  * **BOX に置くのは editor 以上**で、こちらは下の `canStore` が見ます。
  */
 router.get('/:id/pdf',
-  requireAuth, requireAnyPermission(['sales', 'budget']),
+  requireAuth, requirePermission('sales'),
   async (req, res, next) => {
   try {
     const row = await queryOne(
@@ -128,14 +125,12 @@ router.get('/:id/pdf',
      * （レガシー画面・プロジェクト管理の見積タブも呼んでいる）ので、
      * 権限で分けずに置くと**読むだけの人が BOX に書けて**しまいます。
      *
-     * **`sales` か `budget` のどちらかの editor で通します** — 出す口を
-     * 両方に開けた以上、置くほうだけ `budget` に固定すると、
-     * ⑤ 見積・請求から出した ⼈だけ**毎回「保存されませんでした」**になります
-     * （`billing.routes` の請求書発行が同じ2つの区画で通るのと揃えた）。
+     * `sales` の editor で通します（`budget` は権限モデル単純化で `sales` に
+     * 統合済み。以前は `sales` か `budget` のどちらかの editor で通していたが、
+     * いまは1区画に一本化されている）。
      */
     const user = (req as { user?: { role?: string; permissions?: Record<string, string> } }).user;
-    const canStore = meetsPermissionLevel(user?.role, user?.permissions?.budget, 'editor')
-      || meetsPermissionLevel(user?.role, user?.permissions?.sales, 'editor');
+    const canStore = meetsPermissionLevel(user?.role, user?.permissions?.sales, 'editor');
     const boxKind = docStatus === 'estimate' ? 'estimate'
       : docStatus === 'inspection' ? 'inspection' : 'invoice';
     applyDocBoxHeaders(res, canStore
@@ -153,7 +148,7 @@ router.get('/:id/pdf',
 
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('budget'));
+router.use(requireAuth, requirePermission('sales'));
 
 // 売上一覧
 router.get('/', async (req, res) => {
@@ -252,7 +247,7 @@ router.get('/', async (req, res) => {
 });
 
 // CSV Export
-router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
   const rows = await queryAll(
     `SELECT p.name as project_name, r.subtitle, r.amount, r.tax_category, r.amount as total, r.status, r.recognition_date as date
      FROM revenues r
@@ -400,7 +395,7 @@ router.get('/:id/excel', async (req, res, next) => {
 });
 
 // 新規売上（明細行対応、episode_id任意）
-router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment, invoice_issued } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
   // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
@@ -499,7 +494,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 });
 
 // 売上更新（明細行対応）
-router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
@@ -586,7 +581,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
 });
 
 // 売上削除
-router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   await execute(`UPDATE revenues SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

@@ -46,7 +46,8 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   // **どちらか**で通すようにした (経理が 403 で開けなかった)。
   // **MCP 側も同じにする** — 片方だけ直すと、画面からは書けるのに
   // MCP からは書けない（またはその逆の）ねじれが残る
-  record_finance_doc: { module: ['dailyops', 'budget'], level: 'editor' },
+  // `budget` は権限モデル単純化で `sales` に統合済み
+  record_finance_doc: { module: ['dailyops', 'sales'], level: 'editor' },
   record_inquiry: { module: 'dailyops', level: 'editor' },
   register_inview_attendee: { module: 'dailyops', level: 'editor' },
   submit_ops_report: { module: 'dailyops', level: 'editor' },
@@ -66,8 +67,8 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   discard_task_intake: { module: 'dailyops', level: 'editor' },
   create_delegation: { module: 'dailyops', level: 'editor' },
   respond_to_delegation: { module: 'dailyops', level: 'editor' },
-  // studio (スタジオ予約カレンダー)
-  create_studio_booking: { module: 'studio', level: 'editor' },
+  // studio (スタジオ予約カレンダー)。`studio` は権限モデル単純化で `sales` に統合済み
+  create_studio_booking: { module: 'sales', level: 'editor' },
 };
 
 const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };

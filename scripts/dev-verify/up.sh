@@ -71,17 +71,20 @@ npm run db:migrate --silent -w server 2>&1 | tail -3
 echo "[verify] seeding verification users..."
 PGPASSWORD=postgres psql -h 127.0.0.1 -p $PGPORT -U postgres -d $PGDB -v ON_ERROR_STOP=1 -q <<'SQL'
 -- 検証で使う4人。権限の切り分け (見える/書ける/見えない) を毎回この4人で確かめる。
+-- 権限モデル単純化（migration 210）後は sales が案件管理・財務管理・カレンダー・
+-- 設定・プロジェクト管理をまとめて持つ区画。v-keiri は「一部だけ特定アプリに
+-- 絞った臨時アクセス」の例として equipment だけを持たせてある。
 INSERT INTO users (id, email, name, role) VALUES
-  ('v-admin', 'v-admin@example.com',  '検証 管理者',   'system_admin'),
-  ('v-sales', 'v-sales@example.com',  '検証 営業',     'staff'),
-  ('v-keiri', 'v-keiri@example.com',  '検証 経理',     'staff'),
-  ('v-none',  'v-none@example.com',   '検証 権限なし', 'staff')
+  ('v-admin', 'v-admin@example.com',  '検証 管理者',       'system_admin'),
+  ('v-sales', 'v-sales@example.com',  '検証 フルアクセス', 'staff'),
+  ('v-keiri', 'v-keiri@example.com',  '検証 限定アクセス', 'staff'),
+  ('v-none',  'v-none@example.com',   '検証 権限なし',     'staff')
 ON CONFLICT (id) DO NOTHING;
 
 -- 列名は access_level (`level` ではない)。id は TEXT の主キーで既定値が無いので明示する。
 INSERT INTO user_permissions (id, user_id, module, access_level) VALUES
-  ('vp-sales-sales',  'v-sales', 'sales',  'editor'),
-  ('vp-keiri-budget', 'v-keiri', 'budget', 'editor')
+  ('vp-sales-sales',      'v-sales', 'sales',     'editor'),
+  ('vp-keiri-equipment',  'v-keiri', 'equipment', 'editor')
 ON CONFLICT (user_id, module) DO UPDATE SET access_level = EXCLUDED.access_level;
 SQL
 
@@ -92,8 +95,8 @@ cat <<EOF
   接続: psql -h 127.0.0.1 -p $PGPORT -U postgres -d $PGDB
   検証用ユーザー (開発モードは x-user-id ヘッダーで認証):
     v-admin  system_admin
-    v-sales  sales editor
-    v-keiri  budget editor
+    v-sales  sales editor (フルアクセスの例)
+    v-keiri  equipment editor (限定アクセスの例)
     v-none   権限なし
   停止: bash scripts/dev-verify/down.sh
 EOF

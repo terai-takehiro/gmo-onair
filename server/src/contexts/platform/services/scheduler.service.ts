@@ -76,7 +76,10 @@ async function overdueInvoices(today: string): Promise<NotifyInput[]> {
   );
   if (rows.length === 0) return [];
 
-  const keiri = await usersWithPermission('budget', 'editor');
+  // `budget` は権限モデル単純化で `sales` に統合済み。以前は経理担当者だけに
+  // 絞れていたが、いまは `sales:editor` を持つ全員（フルアクセスの正規メンバー）
+  // が対象になる
+  const keiri = await usersWithPermission('sales', 'editor');
   const out: NotifyInput[] = [];
   for (const r of rows) {
     const due = String(r.payment_due_date).slice(0, 10);
@@ -213,7 +216,10 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
     [today],
   );
   if (rows.length === 0) return [];
-  const keiri = await usersWithPermission('budget', 'editor');
+  // `budget` は権限モデル単純化で `sales` に統合済み。以前は経理担当者だけに
+  // 絞れていたが、いまは `sales:editor` を持つ全員（フルアクセスの正規メンバー）
+  // が対象になる
+  const keiri = await usersWithPermission('sales', 'editor');
   const out: NotifyInput[] = [];
   for (const r of rows) {
     const vars = {

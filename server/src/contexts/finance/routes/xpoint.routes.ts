@@ -26,7 +26,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const router = Router();
 
 // 取込は財務データの作成を伴うため budget/editor 以上
-router.use(requireAuth, requirePermission('budget', 'editor'));
+router.use(requireAuth, requirePermission('sales', 'editor'));
 
 function requireBox(): void {
   if (!isBoxConfigured()) {

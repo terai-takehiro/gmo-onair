@@ -20,7 +20,7 @@
  */
 import { Router } from 'express';
 import { withCanApprove } from '../services/estimate.service';
-import { requireAuth, requireAnyPermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
@@ -29,16 +29,17 @@ import { BILLING_STATE_SQL, billingStateSql } from '../../../shared/services/bil
 const router = Router();
 
 /**
- * **`sales` か `budget` のどちらかがあれば通す。**
- *
  * 同じ請求を2つの入口から扱います:
- *   案件管理 ⑤ 見積・請求  … 案件をまたいで取りこぼさない (`sales`)
- *   財務   ② 請求・入金   … 月次の締めを一括でやる (`budget`)
+ *   案件管理 ⑤ 見積・請求  … 案件をまたいで取りこぼさない
+ *   財務   ② 請求・入金   … 月次の締めを一括でやる
  *
- * `sales` だけを要求していたので、**経理だけの人は月次の締めができません**でした。
+ * 以前は `sales` と `budget` が別区画で、`sales` だけを要求していたせいで
+ * **経理だけの人は月次の締めができない**事故があった。権限モデル単純化で
+ * `budget` は `sales` に統合されたため、いまはこの2入口とも同じ `sales` 区画
+ * を見ればよい（docs/reviews/permission-model-simplification-plan.md）。
  */
-router.use(requireAuth, requireAnyPermission(['sales', 'budget']));
-const canEdit = requireAnyPermission(['sales', 'budget'], 'editor');
+router.use(requireAuth, requirePermission('sales'));
+const canEdit = requirePermission('sales', 'editor');
 
 /** 日付の形。**画面から来た値をそのまま SQL に置かない** */
 const YMD = /^\d{4}-\d{2}-\d{2}$/;

@@ -6,7 +6,7 @@
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import {
-  requireAuth, requirePermission, requireAnyPermission, meetsPermissionLevel,
+  requireAuth, requirePermission, meetsPermissionLevel,
 } from '../../../shared/middleware/auth';
 import { estimateService, withCanApprove } from '../services/estimate.service';
 import { buildEstimatePdf } from '../services/estimate-pdf.service';
@@ -21,17 +21,15 @@ const router = Router({ mergeParams: true });
  * POST /projects/:projectId/estimates/:id/convert-to-revenue
  * — 受注が決まった見積を売上・請求 (`revenues`) に登録する。
  *
- * **`sales` か `budget` のどちらかの editor で通す**（`billing.routes.ts` と同じ考え方）。
- * 案件管理から確定させる担当者と、売上を扱う経理の両方が押せる必要がある。
- *
- * ⚠️ **全体のゲートより前に置く。** この router は下で `sales` を全ルートに
- * 要求するので、`requireAnyPermission` を書いていても**`budget` だけの人は
- * そこに到達できません**でした（レビューでの指摘 #87 — 書いてあるのに効かない、
- * いちばん気づけない形）。売上は経理の持ち物なので、経理が押せないと
- * 受注が売上に上がらないまま止まります。
+ * 以前は `sales` と `budget` を別区画にして `requireAnyPermission` で
+ * 両方を通していたが、全体ゲート（下の `sales` 要求）より前に置いていたため
+ * **`budget` だけの人はそこに到達できない**事故があった（レビューでの指摘 #87
+ * — 書いてあるのに効かない、いちばん気づけない形）。権限モデル単純化で
+ * `budget` は `sales` に統合されたため、この種のゲート順の事故自体が
+ * 起きなくなった（docs/reviews/permission-model-simplification-plan.md）。
  */
 router.post('/:id/convert-to-revenue',
-  requireAuth, requireAnyPermission(['sales', 'budget'], 'editor'),
+  requireAuth, requirePermission('sales', 'editor'),
   wrap(async (req, res) => {
     const { id } = req.params as Record<string, string>;
     res.status(201).json({ success: true, data: await estimateService.convertToRevenue(id, userOf(req)) });

@@ -46,10 +46,10 @@ const WINDOW_DAYS = 45;
 export default function HoldListPage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('studio', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
   // **落とすのは manager から。** `DELETE /studios/bookings/:id` が manager を要求するので、
   // editor に出すと押した先が必ず 403 になる（確定にするほうは editor で通る）
-  const canDrop = hasPermission('studio', 'manager');
+  const canDrop = hasPermission('sales', 'manager');
   const [chip, setChip] = useState<Chip>('all');
   const isMobile = useIsMobile();
 

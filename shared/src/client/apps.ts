@@ -39,6 +39,19 @@
  * アプリ切替と「他のアプリ」からだけ外します** (`visibleApps()`)。
  * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出します
  * (ここで消すと、まだ v4 になっていない画面から凍結アプリへ行けなくなる)。
+ *
+ * ── 権限モデル単純化（`permissionModule` を `sales` に統合した回）───────
+ *
+ * `gpm` / `budget` / `studio` / `admin`（=設定）の4アプリは、`key` / `path` /
+ * `label` は今までどおり別々の入口のまま、`permissionModule` だけ `sales` に
+ * 揃えた。理由は権限モデルの単純化（区画をブロックアプリ単位に統合し、
+ * 「型」だけで管理する方針に変更）。詳細は
+ * `docs/reviews/permission-model-simplification-plan.md`。
+ * **`admin`（設定）の入口だけは元々ここに権限を掛けない設計だった**
+ * （`App.tsx` の「v4 設定トップは案内板なので権限を掛けない」参照）ので、
+ * `permissionModule: 'sales'` にしたことで、いままで「管理者」型の人しか
+ * 見えていなかった設定タイルが、フルアクセスの全員に見えるようになる
+ * （実際に開けるサブページの権限は個別のルートが引き続き見る）。
  */
 import {
   Home,
@@ -60,7 +73,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-/** アプリのキー。**権限モジュールのキーと同じ**にしてある (別々にすると必ずずれる) */
+/**
+ * アプリのキー。多くは `permissionModule` と同じにしてあるが、
+ * `gpm` / `budget` / `studio` / `admin` は権限モデル単純化で
+ * `permissionModule: 'sales'` に統合済み（上のコメント参照）。
+ */
 export type AppKey =
   | 'home'
   | 'sales'
@@ -122,12 +139,12 @@ export const APPS: AppDef[] = [
    * ⚠️ **並び順はここが唯一の正** — トップのタイル・上辺バーのアプリ切替の
    * どちらも `APPS` の順で描くので、動かすときはここだけを動かす。
    */
-  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'gpm' },
-  { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'budget' },
-  { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'studio' },
+  { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'sales' },
+  { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
+  { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'sales' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
-  { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'admin' },
+  { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet',    frozen: true },
