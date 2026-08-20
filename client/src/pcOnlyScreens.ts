@@ -174,8 +174,15 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── プロジェクト管理（工事・構築）────────────────────────
   //   **`new` を `:id` より前に置くこと**（後ろだと「詳細」と案内される）
   { path: '/gpm/projects/new', what: 'プロジェクトを作る', why: '5段のフォームで、体制・工程・金額をまとめて決めます。' },
-  { path: '/gpm/projects/:id', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
-  { path: '/gpm/projects/:id/:tab', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
+  // **`/gpm/projects/:id`・`/gpm/projects/:id/:tab`（プロジェクトの詳細）は
+  // v4ネイティブUI化の監査で `CLIENT_MOBILE_OK` へ移した**（2026-08・下記を参照）。
+  // 理由だった「工程表と体制図が横に伸びる画面です」は実測に基づかない一文で、
+  // 実装を読むと工程（`PhaseRows.tsx`）は `Row`/`RowSlot`（`hideOnMobile`）で
+  // 他の一覧と同じく縮む作り、体制（`MembersTab.tsx`）はカードが `sm:grid-cols-2
+  // lg:grid-cols-3` で375px幅では単列に積まれる作りだった（顧客・取引先マスターが
+  // M10で「実測したら表ですらなくカードだった」と分かった前例と同じパターン）。
+  // 7タブのうち請求（`BillingTab.tsx`＝案件と共用の`BusinessProjectView`・2,042行の
+  // 未対応の月次表）だけは今回もスマホに出さない（下の `CLIENT_MOBILE_OK` を参照）。
   // **標準工程テンプレート（`/gpm/templates`）は M11 で `CLIENT_MOBILE_OK` へ移した。**
   // 理由は下の `CLIENT_MOBILE_OK` を参照
 ];
@@ -219,6 +226,22 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/gpm/dashboard',                     // プロジェクト管理ダッシュボード（読むだけ）
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
+  /*
+    ── ③ プロジェクト詳細（この回・2026-08・v4ネイティブUI化の監査の再検証）──
+    7タブのうち概要・未確認事項・体制・議事録・書類は実装済みの `Row stackOnMobile`
+    ／`hideOnMobile`／カードグリッドで375pxでも崩れないことを実測済み。見積は一覧の
+    `<Row>` に `stackOnMobile` が漏れていた（固定4列だけで408px＝375px幅を最初から
+    超える崩れ）ので足して解消した。**請求だけは今回も出さない**（案件と共用の
+    `BusinessProjectView`＝2,042行の月次表を1行も変えずに呼んでおり、この回では
+    モバイル版を作っていない）。スマホのタブは`/sales/projects/:id`（⑥案件詳細）の
+    `MOBILE_TABS_BY_PHASE`と同じ考え方で、プロジェクトの段階（準備中／進行中／完了・
+    見送り）ごとに3つへ絞る（詳細は`projectDetail/DetailHeader.tsx`の
+    `MOBILE_TABS_BY_PHASE`）。段階に無いタブのURLを直接開いたときは概要へ、
+    請求は「PCで見る画面です」の案内（「それでもこのまま開く」で解除可）に倒す —
+    ⑥と同じ「2種類の『開けない』を混ぜない」設計
+  */
+  '/gpm/projects/:id',                  // ③ プロジェクトの詳細（段階で3タブに絞る）
+  '/gpm/projects/:id/:tab',             // 同上（請求だけ画面の中で案内を出す）
   '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
   // ⚠️ この1枚だけ M10 の実測開放ではない（2026-08・v4ネイティブUI化）。専用レイアウトを
   // 新設したうえで開放した（`MobileRoomAvailability.tsx` ＋ `RoomAvailabilityCards.tsx`）

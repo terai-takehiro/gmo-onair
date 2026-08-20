@@ -22,6 +22,13 @@
  * 保存する口だけ GPM 側（`PUT /gpm/estimates/:id/items`）に向けていて、
  * サーバーは**プロジェクトの見積しか受け付けません** — 案件の見積を
  * `gpm` だけの人が書き換えられないようにするためです。
+ *
+ * ── スマホに開放した（2026-08・v4ネイティブUI化） ────────────
+ *
+ * 一覧の `<Row>` に `stackOnMobile` が付いていなかった。提出先(72)＋状態(72)＋
+ * 金額(128)＋PDFボタン(56) の固定4列だけで 328px＋隙間48px＋左右余白32px ＝ 408px と、
+ * 375px 幅を最初から超えていた（実測。名前列がゼロになる前に固定列だけで画面より広い）。
+ * 他のタブ（工程・未確認事項・書類）と同じ `stackOnMobile` を足して縦積みにした。
  */
 import { useState } from 'react';
 import { FileText, Plus, Loader2 } from 'lucide-react';
@@ -131,6 +138,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
               key={e.id}
               interactive
               divider
+              stackOnMobile
               onClick={() => setOpenId(openId === e.id ? null : e.id)}
               className={e.status === 'superseded' ? 'opacity-60' : undefined}
             >
