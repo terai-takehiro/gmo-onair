@@ -39,8 +39,10 @@ function can(access: Access, moduleName: string): boolean {
 }
 
 export async function getAppBadges(access: Access): Promise<AppBadges> {
-  const wantBudget = can(access, 'budget');
-  const wantStudio = can(access, 'studio');
+  // `budget` / `studio` は権限モデル単純化で `sales` に統合済み。
+  // レスポンスのキー名（`budget`/`studio`）はタイルの対応表として変えていない
+  const wantBudget = can(access, 'sales');
+  const wantStudio = can(access, 'sales');
   const wantEquipment = can(access, 'equipment');
 
   if (!wantBudget && !wantStudio && !wantEquipment) return {};

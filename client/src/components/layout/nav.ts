@@ -177,8 +177,8 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "売上", to: "/budget/revenues", icon: Receipt },
         { label: "仕入", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
-        // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は budget か dailyops
-        { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["budget", "dailyops"] },
+        // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は sales か dailyops
+        { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["sales", "dailyops"] },
       ],
     },
     {
@@ -227,18 +227,15 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "見る",
       items: [
-        { label: "予定", to: "/studio/calendar", icon: Calendar, modules: ["studio", "partner_schedule"] },
-        { label: "部屋の空き", to: "/studio/rooms", icon: Layers, module: "studio" },
-        { label: "仮押さえ", to: "/studio/holds", icon: CalendarClock, module: "studio" },
+        { label: "予定", to: "/studio/calendar", icon: Calendar, module: "sales" },
+        { label: "部屋の空き", to: "/studio/rooms", icon: Layers, module: "sales" },
+        { label: "仮押さえ", to: "/studio/holds", icon: CalendarClock, module: "sales" },
       ],
     },
     {
       title: "設定",
       items: [
-        // **`partner_schedule` だけの人にも出す。** 外部カレンダーの購読は
-        // その権限の持ち物で、ここにしか入口が無い（出さないと URL を
-        // 直打ちしないと辿り着けない）。開けるタブは画面の中で出し分ける
-        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, modules: ["studio", "partner_schedule"] },
+        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, module: "sales" },
       ],
     },
     {
@@ -246,9 +243,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       collapsible: true,
       note: "予定を作る導線がここにしかないので残しています",
       items: [
-        { label: "スタジオカレンダー", to: "/studio/studio-calendar", icon: Calendar, module: "studio" },
-        { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
-        { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
+        { label: "スタジオカレンダー", to: "/studio/studio-calendar", icon: Calendar, module: "sales" },
+        { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "sales" },
+        { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "sales" },
       ],
     },
   ],
@@ -273,7 +270,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 料金表 (sales) や取引先 (budget) だけを直す人も来る場所で、
         // パスワード変更は全員が使う
         { label: "設定", to: "/settings", icon: Settings, end: true },
-        { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "studio" },
+        { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "sales" },
         { label: "権限とメンバー", to: "/settings/users", icon: UserCog, module: "admin" },
       ],
     },

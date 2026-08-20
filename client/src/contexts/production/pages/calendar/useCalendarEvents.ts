@@ -49,9 +49,9 @@ const at = (s: string | null | undefined): string => (s ?? '').slice(0, 16);
 export function useCalendarEvents(from: string, to: string, f: CalFilters) {
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
-  const canStudio = isAdmin || hasPermission('studio');
-  const canPartner = isAdmin || hasPermission('partner_schedule');
-  const canPersonal = isAdmin || hasPermission('partner_schedule', 'editor');
+  const canStudio = isAdmin || hasPermission('sales');
+  const canPartner = isAdmin || hasPermission('sales');
+  const canPersonal = isAdmin || hasPermission('sales', 'editor');
 
   const bookings = useQuery<CalBooking[]>({
     queryKey: ['studio-bookings', from, to, ''],

@@ -42,9 +42,9 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'sites', title: '拠点・部屋', desc: '予約できる部屋と、料金表の分かれ目',
         icon: Building2, tone: 'bg-primary-surface text-primary',
-        // **`system_admin` を要求するのはサーバー側の実装** — `studio` の manager でも
-        // `POST /studios/locations` は 403 になる（`requireRole('system_admin')`）
-        to: '/settings/sites', module: 'studio', who: '管理者',
+        // **`system_admin` を要求するのはサーバー側の実装** — `sales`（旧 `studio`）の
+        // manager でも `POST /studios/locations` は 403 になる（`requireRole('system_admin')`）
+        to: '/settings/sites', module: 'sales', who: '管理者',
       },
       {
         key: 'pricing', title: '料金表', desc: '見積の積算に使う品目と金額',
@@ -63,12 +63,12 @@ export const HUB_GROUPS: HubGroup[] = [
         // 1つの表にまとめると、どちらの画面にも要らない工程が並びます
         key: 'gpm-flow', title: '標準工程テンプレート（プロジェクト）', desc: '工事・構築の段取りのひな形',
         icon: ListChecks, tone: 'bg-info-surface text-info',
-        to: '/gpm/templates', module: 'gpm', who: 'プロジェクト管理の編集者',
+        to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の編集者',
       },
       {
         key: 'partner', title: '取引先・仕入先', desc: '見積・請求・発注の宛先',
         icon: Contact, tone: 'bg-warning-surface text-warning',
-        to: '/budget/vendors', module: 'budget', who: '財務管理の編集者',
+        to: '/budget/vendors', module: 'sales', who: '財務管理の編集者',
       },
     ],
   },
@@ -78,12 +78,12 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'money', title: 'お金のルール', desc: '締め日・支払サイト・消費税の扱い',
         icon: Scale, tone: 'bg-success-surface text-success',
-        to: '/settings/money', module: 'budget', who: '経理',
+        to: '/settings/money', module: 'sales', who: '経理',
       },
       {
         key: 'cal', title: '休日・営業時間', desc: '予約できる時間帯と休業日',
         icon: CalendarClock, tone: 'bg-warning-surface text-warning',
-        to: '/settings/hours', module: 'studio', who: 'システム管理者',
+        to: '/settings/hours', module: 'sales', who: 'システム管理者',
       },
     ],
   },

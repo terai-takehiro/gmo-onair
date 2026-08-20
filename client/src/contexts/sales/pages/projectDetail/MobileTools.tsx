@@ -32,7 +32,7 @@ export function MobileTools({ project }: { project: ProjectDetail }) {
   const { hasPermission } = useAuth();
 
   const tools: { key: string; label: string; sub: string; icon: typeof CalendarDays; go: () => void; ext?: boolean }[] = [];
-  if (hasPermission('studio') || hasPermission('partner_schedule')) {
+  if (hasPermission('sales')) {
     tools.push({
       key: 'cal', label: '予定を見る', sub: '今日の予約とスタジオ', icon: CalendarDays,
       go: () => navigate('/studio/calendar'),

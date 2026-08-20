@@ -9,7 +9,7 @@
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { queryAll, execute } from '../../../shared/db/connection';
-import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { listFor, unreadCount, markRead } from '../services/notification.service';
 import { runDueJobs, SCHEDULER_JOBS } from '../services/scheduler.service';
@@ -43,8 +43,8 @@ router.post('/read', wrap(async (req, res) => {
 // ひな形（設定 ⑦）
 // ───────────────────────────────────────────────────────────
 
-/** 読むのは `admin` の reader。定時実行の直近の記録もいっしょに返す */
-router.get('/templates', requirePermission('admin', 'reader'), wrap(async (_req, res) => {
+/** 読むのは system_admin だけ（旧 `admin` 区画は廃止）。定時実行の直近の記録もいっしょに返す */
+router.get('/templates', requireRole('system_admin'), wrap(async (_req, res) => {
   const templates = await queryAll(
     `SELECT id, name, trigger, audience, channel, send_to, subject, body, vars, enabled, sort_order
        FROM notification_templates ORDER BY sort_order`,

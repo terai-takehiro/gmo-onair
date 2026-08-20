@@ -67,8 +67,7 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
       // 自分自身の「システム上の区別」(role) や役割を直したときは、
-      // ここが実際に自分の権限を変える唯一の到達可能な経路
-      // （権限の例外ダイアログは system_admin を選ぶと保存ボタンごと隠れるため通れない）。
+      // ここが自分の権限を変える唯一の経路（個人ごとの例外編集は廃止済み）。
       // `AuthContext` は react-query の外にあるので、上の invalidate だけでは
       // currentUser.role / permissions が古いまま残る
       if (isSelf) void refreshPermissions();
@@ -152,7 +151,7 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
                   >
                     <span className="text-list block">役割を決めない</span>
                     <span className="text-note block text-muted-foreground">
-                      権限は 0 のままです。あとから「権限の例外」で1つずつ付けます
+                      権限は 0 のままです。あとから役割を選び直してください
                     </span>
                   </button>
                 </div>

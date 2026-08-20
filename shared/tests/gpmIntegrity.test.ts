@@ -59,13 +59,11 @@ describe('プロジェクト管理が使える', () => {
     // **説明として名前が出るのは可**・**渡すのは不可**
     expect(BILLING).toMatch(/<BusinessProjectView project=\{data\} projectId=\{projectId\} \/>/);
     expect(BILLING).not.toMatch(/projectId=\{projectId\}\s+isEstimateMode/);
-    // 開いた瞬間 403 で真っ白にしない（何の権限が要るかを名前で出す）
-    expect(BILLING).toMatch(/const canRead = hasPermission\('sales'\) && hasPermission\('budget'\)/);
-    expect(BILLING).toMatch(/<NoPermissionPanel\s+modules=\{\['sales', 'budget'\]\}/);
-    // ⚠️ **両方要る**と書く（既定の「いずれか」だと片方だけ足されてまた止まる）
-    expect(BILLING).toMatch(/requireAll/);
-    expect(read('shared', 'src', 'client', 'states', 'NoPermissionPanel.tsx'))
-      .toMatch(/requireAll \? `\$\{names\.join\(' と '\)\} の両方`/);
+    // 開いた瞬間 403 で真っ白にしない（何の権限が要るかを名前で出す）。
+    // 以前は `sales` と `budget` の両方が要る画面だったが、権限モデル単純化で
+    // `budget` は `sales` に統合されたため、いまは `sales` 1つで足りる
+    expect(BILLING).toMatch(/const canRead = hasPermission\('sales'\)/);
+    expect(BILLING).toMatch(/<NoPermissionPanel\s+modules=\{\['sales'\]\}/);
     // 権限が無いときは**引きに行かない**（403 をログに積まない）
     expect(BILLING).toMatch(/enabled: !!projectId && canRead/);
   });

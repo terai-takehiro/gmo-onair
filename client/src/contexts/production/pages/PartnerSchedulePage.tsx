@@ -34,8 +34,8 @@ const DOW = ["日", "月", "火", "水", "木", "金", "土"];
 export default function PartnerSchedulePage() {
   const isMobile = useIsMobile();
   const { currentUser, hasPermission } = useAuth();
-  const isManager = currentUser?.role === "system_admin" || hasPermission("partner_schedule", "manager");
-  const canEdit = currentUser?.role === "system_admin" || hasPermission("partner_schedule", "editor");
+  const isManager = currentUser?.role === "system_admin" || hasPermission("sales", "manager");
+  const canEdit = currentUser?.role === "system_admin" || hasPermission("sales", "editor");
 
   const today = ymd(new Date());
   const now = useMemo(() => new Date(), []);

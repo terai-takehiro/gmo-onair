@@ -63,7 +63,7 @@ export default function GpmTaskListPage() {
   const [taskChip, setTaskChip] = useState('open');
 
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('gpm', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
   const invalidate = useInvalidateGpm();
   const today = useMemo(() => localDateStr(new Date()), []);
 

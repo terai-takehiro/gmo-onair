@@ -75,7 +75,7 @@ export default function RevenueListPage() {
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);

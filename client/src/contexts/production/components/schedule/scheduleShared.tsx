@@ -185,8 +185,8 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
   const { currentUser, hasPermission } = useAuth();
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   const isAdmin = currentUser?.role === "system_admin";
-  const canStudio = isAdmin || hasPermission("studio");
-  const canPartner = isAdmin || hasPermission("partner_schedule");
+  const canStudio = isAdmin || hasPermission("sales");
+  const canPartner = isAdmin || hasPermission("sales");
 
   // モバイルの横スクロール時、アクティブなピルが見切れないよう初期表示で寄せる
   useEffect(() => {

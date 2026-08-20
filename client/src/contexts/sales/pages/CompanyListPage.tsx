@@ -16,11 +16,11 @@
  * `sales:manager` を要求する。**出したまま押させて 403 で気づかせる形にしない**
  * （v4 の決めごと。料金表・営業活動記録など他の画面と同じ）。
  *
- * 仕入先の役割・種別・インボイス登録番号は `budget:editor` も要求する
- * （Phase 3-3 でのご判断: `budget:editor` 単独は閲覧のみ、編集は `sales:owner` 必須。
- * さらに `budget:editor` を持たない `sales:owner` は**仕入先を兼ねる会社を
- * 1件も編集できない** — サーバーが `existing.is_vendor` を見て全項目を止めるため）。
- * その組み合わせが起きる行だけ、編集ボタンを disabled にして理由を出す。
+ * 仕入先の役割・種別・インボイス登録番号は `sales:editor`（旧 `budget:editor`）も
+ * 要求する（Phase 3-3 でのご判断。権限モデル単純化で `budget` は `sales` に
+ * 統合済みのため、いまは `sales:owner` を持つ人は自動的にこの条件も満たす —
+ * 「仕入先を兼ねる会社を1件も編集できない」という旧来の組み合わせ事故は
+ * 構造的に起きなくなった）。
  */
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -92,10 +92,10 @@ export default function CompanyListPage() {
   const [role, setRole] = useState<RoleFilter>(isRoleFilter(roleParam) ? roleParam : "all");
   const [summaryTarget, setSummaryTarget] = useState<Company | null>(null);
 
-  const canReadBudget = hasPermission("budget");
+  const canReadBudget = hasPermission("sales");
   const canManage = hasPermission("sales", "owner");
   const canDelete = hasPermission("sales", "manager");
-  const canEditVendor = hasPermission("budget", "editor");
+  const canEditVendor = hasPermission("sales", "editor");
 
   const crud = useCrudPage<Company>({
     endpoint: "/companies",

@@ -25,7 +25,7 @@ import {
 // requirePermission (403 で block) は付けず requireAuth のみ (認証は cookie、CSRF は state)。
 
 const router = Router();
-const canUse = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
+const canUse = [requireAuth, requirePermission('sales', 'editor')] as const;
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 // calendar.events = イベントの読み取り + 書き込み (取込と ONAiR→Google の書き戻しの両方に必要)。

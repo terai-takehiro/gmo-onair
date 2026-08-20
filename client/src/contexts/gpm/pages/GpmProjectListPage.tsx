@@ -143,7 +143,7 @@ export default function GpmProjectListPage() {
   const isMobile = useIsMobile();
   // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('gpm', 'editor');
+  const canEdit = hasPermission('sales', 'editor');
   const [stageKey, setStageKey] = useState('open');
   const [kind, setKind] = useState<GpmKind | ''>('');
   const [search, setSearch] = useState('');

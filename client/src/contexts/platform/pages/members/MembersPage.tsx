@@ -1,29 +1,27 @@
 /**
  * ③ 権限とメンバー（v4 設定・モックの3枚目）
  *
- * ── モックの「人ではなく役割に付ける」を、判定を触らずに実現する ──
+ * ── 権限モデルを単純化した（この版） ────────────────────────
  *
- * モックは 役割5種 × 権限8項目 × 3段 で、権限は役割にだけ付きます。
- * いまの ONAiR は人ごとに 12 区画を持ち、その判定が **311 か所**あります。
- * 判定を役割ベースに置き換えると、1 か所の取りこぼしが
- * 「開けない（仕事が止まる）」か「見えてはいけないものが見える」になります。
+ * 以前は「役割（型）」と「人ごとの例外編集」の2階建てで、区画も実装の
+ * 12個のままだった。ユーザーの指示（「アプリ単位で使える／使えないでいい」・
+ * 「型だけにして個別の例外は廃止していい」）を受け、
+ * - 区画を7つ（ブロックアプリ単位）に統合した
+ * - 人ごとの例外編集（`UserPermissionsDialog`）を廃止し、**型だけ**にした
+ * - 凍結4アプリも型の対象に含めた（以前は個人の例外編集でしか付けられなかった）
  *
- * そこで**役割は `user_permissions` へ押す「型」**にしました。
- * 画面はモックのとおり役割が主役ですが、下では今までどおり人ごとの権限が
- * 動いています（migration 174 と `permission-role.service.ts` に理由）。
+ * 詳細は `docs/reviews/permission-model-simplification-plan.md`。
  *
- * ── 旧画面から変えたこと ────────────────────────────────────
+ * ── 旧画面から変えたこと（引き続き有効） ────────────────────
  *
- * - **「権限修復」ボタンを外した。** 全スタッフに 12 区画すべてを配る作りで、
+ * - **「権限修復」ボタンを外した。** 全スタッフに全区画を配る作りで、
  *   押すと**経理しか見てはいけない数字が全員に見えます**。役割ができた今は
  *   「役割を押し直す」が正しい直し方なので、そちらに置き換えました
  *   （API は残っているので、本当に要るときは system_admin から叩けます）。
- * - 行は 12 区画のまま（モックの 8 項目のうち 4 つは実装では同じ `sales`
- *   で、8 行に分けると押した覚えのないものが変わる。`moduleLabels.ts` に理由）。
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, KeyRound, Users, ShieldAlert, UserPlus } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, ShieldAlert, UserPlus } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { formatDate } from '@/lib/format';
@@ -38,10 +36,9 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { MODULE_LABELS } from '@/contexts/platform/AuthContext';
-import { ROLE_MODULE_ORDER, LEVEL_LABEL, LEVEL_TONE } from './moduleLabels';
+import { ROLE_MODULE_ORDER, MODULE_TITLE, LEVEL_LABEL, LEVEL_TONE } from './moduleLabels';
 import { RoleDialog } from './RoleDialog';
 import { UserDialog } from './UserDialog';
-import { UserPermissionsDialog } from './UserPermissionsDialog';
 import type { Member, Role, RolesResponse } from './types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -56,7 +53,6 @@ export default function MembersPage() {
   const [pickedRole, setPickedRole] = useState<string | null>(null);
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; role: Role | null }>({ open: false, role: null });
   const [userDialog, setUserDialog] = useState<{ open: boolean; user: Member | null }>({ open: false, user: null });
-  const [permUser, setPermUser] = useState<Member | null>(null);
 
   const rq = useQuery<RolesResponse>({
     queryKey: ['permission-roles'],
@@ -212,16 +208,12 @@ export default function MembersPage() {
                         key={m}
                         className={cn('rounded-note text-note inline-flex items-center gap-1.5 px-2.5 py-1', LEVEL_TONE[lv])}
                       >
-                        {MODULE_LABELS[m] ?? m}
+                        {MODULE_TITLE[m] ?? MODULE_LABELS[m] ?? m}
                         <strong className="font-bold">{LEVEL_LABEL[lv]}</strong>
                       </span>
                     );
                   })}
                 </div>
-                <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-3 text-muted-foreground">
-                  制作資料・技術資料・計時LIVE・リアルタイムCG は<strong className="font-bold">役割では変わりません</strong>。
-                  放送で使うため、役割の付け替えで消えないようにしてあります（付け外しは一人ずつの「権限の例外」から）。
-                </p>
               </div>
             )}
 
@@ -271,9 +263,6 @@ export default function MembersPage() {
                         </RowSlot>
                         <RowSlot w={128} align="right">
                           <div className="flex gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="権限の例外" onClick={() => setPermUser(u)}>
-                              <KeyRound className="h-4 w-4" aria-hidden="true" />
-                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="直す" onClick={() => setUserDialog({ open: true, user: u })}>
                               <Pencil className="h-4 w-4" aria-hidden="true" />
                             </Button>
@@ -321,12 +310,6 @@ export default function MembersPage() {
         roles={roles}
         open={userDialog.open}
         onOpenChange={(v) => setUserDialog((s) => ({ ...s, open: v }))}
-      />
-      <UserPermissionsDialog
-        user={permUser}
-        role={roles.find((r) => r.id === permUser?.permission_role_id) ?? null}
-        open={!!permUser}
-        onOpenChange={(v) => !v && setPermUser(null)}
       />
     </div>
   );

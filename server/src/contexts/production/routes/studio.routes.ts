@@ -260,7 +260,7 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
 // カレンダー連携情報 (認証必要 — 管理画面で表示用)
 // v2.9.133+: 部屋ごとに個別だったカレンダーフィードURLを全部屋共通の1本に統合。
 // サイネージURL (物理ディスプレイ設置用) は部屋固有のため従来どおり部屋ごとに一覧表示する。
-router.get('/rooms/feeds', requireAuth, requirePermission('studio'), async (_req, res) => {
+router.get('/rooms/feeds', requireAuth, requirePermission('sales'), async (_req, res) => {
   const token = await getOrCreateFeedToken();
   const baseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
 
@@ -307,7 +307,7 @@ router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_ad
 // ============================================================
 
 // Apply auth + permission middleware to all routes below
-router.use(requireAuth, requirePermission('studio'));
+router.use(requireAuth, requirePermission('sales'));
 
 // ============================================================
 // Studio Locations & Rooms
@@ -457,13 +457,13 @@ router.get('/bookings/:id', async (req, res) => {
 });
 
 // POST /studios/bookings — 予約作成
-router.post('/bookings', requirePermission('studio', 'editor'), async (req, res) => {
+router.post('/bookings', requirePermission('sales', 'editor'), async (req, res) => {
   const row = await studioBookingService.createBooking(req.body, req.user!.id);
   res.status(201).json({ success: true, data: row });
 });
 
 // PUT /studios/bookings/:id — 予約更新
-router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, res) => {
+router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, res) => {
   // **元の案件も控える。** 予約を別の案件に付け替えると、**元の案件と付け替え先の
   // 両方**の実施日が変わる（元の案件はその予約が無くなった期間で引き直す）
   const existing = await queryOne(
@@ -571,7 +571,7 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
 });
 
 // DELETE /studios/bookings/:id
-router.delete('/bookings/:id', requirePermission('studio', 'manager'), async (req, res) => {
+router.delete('/bookings/:id', requirePermission('sales', 'manager'), async (req, res) => {
   // 消す前に案件を控える（消したあとでは、どの案件を引き直すか分からない）
   const before = await queryOne(
     'SELECT project_id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],

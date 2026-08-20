@@ -35,8 +35,8 @@ import { TemplateDialog } from './templates/TemplateDialog';
 
 export default function GpmTemplateListPage() {
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('gpm', 'editor');
-  const canManage = hasPermission('gpm', 'manager');
+  const canEdit = hasPermission('sales', 'editor');
+  const canManage = hasPermission('sales', 'manager');
   const invalidate = useInvalidateGpm();
 
   const [open, setOpen] = useState<string | null>(null);

@@ -54,7 +54,8 @@ export default function DocumentsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor') || hasPermission('dailyops', 'editor');
+  // `budget` は権限モデル単純化で `sales` に統合済み
+  const canEdit = hasPermission('sales', 'editor') || hasPermission('dailyops', 'editor');
 
   const [chip, setChip] = useState('pending');
   const [handoff, setHandoff] = useState<FinanceDoc | null>(null);

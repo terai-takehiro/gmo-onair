@@ -8,10 +8,14 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | 入口（利用者から見た名前） | ルート | 権限モジュール | contexts |
 | --- | --- | --- | --- |
 | 案件管理 | `/sales/*` | `sales` | `contexts/sales`, `contexts/tasks` |
-| 財務管理 | `/budget/*` | `budget` | `contexts/finance` |
-| カレンダー | `/studio/*` | `studio` / `partner_schedule` | `contexts/production` |
-| 設定 | `/settings/*`（**v4 で `/admin/*` から改名**・旧 URL は転送） | `admin` | `contexts/platform` |
-| **プロジェクト管理（v4 で新規）** | `/gpm/*` | `gpm` | `contexts/gpm`（新設） |
+| 財務管理 | `/budget/*` | `sales`（旧 `budget`） | `contexts/finance` |
+| カレンダー | `/studio/*` | `sales`（旧 `studio` / `partner_schedule`） | `contexts/production` |
+| 設定 | `/settings/*`（**v4 で `/admin/*` から改名**・旧 URL は転送） | `sales`（権限とメンバーの管理は `system_admin` だけ。旧 `admin` 区画は廃止） | `contexts/platform` |
+| **プロジェクト管理（v4 で新規）** | `/gpm/*` | `sales`（旧 `gpm`） | `contexts/gpm`（新設） |
+
+> ⚠️ 「権限モジュール」列は権限モデル単純化（`docs/reviews/permission-model-simplification-plan.md`）
+> で `sales` に統合済み。5つの入口は URL・見た目としては今までどおり別々だが、
+> 開けるかどうかの判定は1つの `sales` 区画にまとまっている。
 
 - ルート定義は `src/App.tsx` の1ファイル。**旧URLからの転送表もここ**（`<Navigate>` 約12本）
 - **入口の URL（`/sales` など）はその入口のダッシュボードへ送る。** アプリ切替と
@@ -1560,6 +1564,13 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
   - **旧「権限修復」ボタンは外した。** 全スタッフに 12 区画すべてを配る作りで、
     押すと経理しか見てはいけない数字が全員に見える。役割ができた今は
     「役割を押し直す」が正しい直し方（API は残してある）
+  - ⚠️ **この項目（すぐ上の4つの箇条書き）は当時の記録。** 権限モデル単純化
+    （`docs/reviews/permission-model-simplification-plan.md`）で、区画は12→7
+    （ブロックアプリ単位。凍結4アプリを**含む**）に統合し、`ROLE_MODULES` にも
+    凍結4アプリを足した。「フルアクセス」型が全区画を manager で持つため、
+    型を押しても凍結アプリの権限が消える心配は無くなっている。個人ごとの例外編集
+    （`UserPermissionsDialog`）も廃止し、**型だけ**にした。`admin` 区画も廃止し、
+    権限とメンバーの管理は `system_admin` だけに絞った。
   - 型を直したとき、押してある人への反映は **既定で「しない」**。
     保存時に「この役割の N 名にも反映しますか」を出す
 

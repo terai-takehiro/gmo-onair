@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { MODULE_WHAT, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
+import { MODULE_WHAT, MODULE_TITLE, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
 import { MODULE_LABELS, useAuth } from '@/contexts/platform/AuthContext';
 import type { Role } from './types';
 
@@ -106,7 +106,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
               return (
                 <div key={m} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-faint px-3.5 py-2.5 last:border-b-0">
                   <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                    <span className="text-list block">{MODULE_LABELS[m] ?? m}</span>
+                    <span className="text-list block">{MODULE_TITLE[m] ?? MODULE_LABELS[m] ?? m}</span>
                     <span className="text-note block text-muted-foreground">{MODULE_WHAT[m]}</span>
                   </span>
                   <div className="flex shrink-0 gap-1">
@@ -135,16 +135,6 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
               );
             })}
           </div>
-
-          <p className="rounded-note text-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-secondary-foreground">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-            <span>
-              制作資料・技術資料・計時LIVE・リアルタイムCG は<strong className="font-bold">この表にありません</strong>。
-              役割を押しても<strong className="font-bold">その4つの権限は変わりません</strong>
-              （放送で使うため、役割の付け替えで消えないようにしてあります）。
-              付け外しは一人ずつの「権限の例外」から行います。
-            </span>
-          </p>
 
           {role && members > 0 && (
             <label className="rounded-note flex cursor-pointer items-start gap-2.5 border border-warning-border bg-warning-surface px-3.5 py-3">

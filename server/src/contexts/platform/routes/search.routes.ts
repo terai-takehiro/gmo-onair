@@ -21,7 +21,7 @@ const router = Router();
 const SEARCH_MODULES = {
   projects: 'sales',
   customers: 'sales',
-  vendors: 'budget',
+  vendors: 'sales', // `budget` は権限モデル単純化で `sales` に統合済み
   // **機材を足したのはモックの文言に合わせるため**（上辺バーは
   // 「案件・お客様・機材を探す」と書いてある）。書いてあるのに探せないと、
   // 押した人は「壊れている」と受け取り、以後この窓を使わなくなる

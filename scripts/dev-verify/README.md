@@ -20,11 +20,12 @@ npm run verify:fresh   # 作り直す
 | id | 役割 | 権限 |
 | --- | --- | --- |
 | `v-admin` | system_admin | 全部 |
-| `v-sales` | staff | `sales` editor |
-| `v-keiri` | staff | `budget` editor |
+| `v-sales` | staff | `sales` editor（フルアクセスの例。案件管理・財務管理・カレンダー・設定・プロジェクト管理をまとめて持つ） |
+| `v-keiri` | staff | `equipment` editor（限定アクセスの例。一部だけ特定アプリに絞った臨時アクセス） |
 | `v-none` | staff | なし |
 
 権限の切り分け（見える／書ける／見えない）は毎回この 4 人で確かめる。
+区画は権限モデル単純化（migration 210）でブロックアプリ単位の7つに統合済み。
 
 ## 毎回踏んでいた落とし穴
 
@@ -43,7 +44,7 @@ npm run verify:fresh   # 作り直す
 ```ts
 import request from 'supertest';           // なければ fetch + app.listen(0) でも可
 const res = await request(app).get('/api/v1/internal/billing?month=2026-07')
-  .set('x-user-id', 'v-keiri');
+  .set('x-user-id', 'v-sales');
 ```
 
 ## 画面の検証

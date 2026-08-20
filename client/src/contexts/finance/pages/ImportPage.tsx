@@ -64,7 +64,7 @@ const STEPS: Record<Src, ImportStep[]> = {
 export default function ImportPage() {
   const [params, setParams] = useSearchParams();
   const { hasPermission, currentUser } = useAuth();
-  const canBudget = hasPermission('budget', 'editor');
+  const canBudget = hasPermission('sales', 'editor');
   const isAdmin = currentUser?.role === 'system_admin';
 
   const tabs = useMemo(() => [
@@ -90,7 +90,7 @@ export default function ImportPage() {
   if (tabs.length === 0) {
     return (
       <div className="p-3 lg:p-6">
-        <NoPermissionPanel modules={["budget", "admin"]} />
+        <NoPermissionPanel modules={["sales", "admin"]} />
       </div>
     );
   }
