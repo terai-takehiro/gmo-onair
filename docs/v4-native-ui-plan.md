@@ -111,68 +111,51 @@
      iOSスタイルの「キャンセル/保存をヘッダーに置く」独自レイアウトは
      `<Sheet>` の決めごと「主ボタンはシートの下端に固定」に合わせてフッターへ移した）。
      `npx tsc -b client` / `npm run lint` / `npm run test`（1142件）OK。
-     - **次バッチの対象（残り54か所・`grep -rl "ui/dialog'" --include="*.tsx" client
-       client-daily client-equipment` で洗い出し）**:
-       - `client-daily/src/pages/TasksPage.tsx`
-       - `client-daily/src/pages/inquiries/InquiryDialog.tsx`
-       - `client-daily/src/pages/inquiries/TicketDialog.tsx`
-       - `client-daily/src/pages/inview/InviewDialog.tsx`
-       - `client-daily/src/pages/securityCards/LendDialog.tsx`
-       - `client-daily/src/pages/tasks/IntakeLogTab.tsx`
-       - `client-equipment/src/pages/InventoryPage.tsx`
-       - `client-equipment/src/pages/catalog/CatalogDialog.tsx`
-       - `client-equipment/src/pages/equipmentList/BulkEditDialog.tsx`
-       - `client-equipment/src/pages/equipmentList/EquipmentDialog.tsx`
-       - `client-equipment/src/pages/equipmentList/PrintDialog.tsx`
-       - `client-equipment/src/pages/equipmentList/RentalPanel.tsx`
-       - `client-equipment/src/pages/lending/LendingDialog.tsx`
-       - `client-equipment/src/pages/lending/ReturnDialog.tsx`
-       - `client-equipment/src/pages/maintenance/MaintenanceDialog.tsx`
-       - `client-equipment/src/pages/settings/ColorsCard.tsx`
-       - `client-equipment/src/pages/settings/LocationsTab.tsx`
-       - `client-equipment/src/pages/settings/ManufacturersTab.tsx`
-       - `client-equipment/src/pages/settings/MasterDialog.tsx`
-       - `client/src/components/layout/SearchPalette.tsx`
-       - `client/src/contexts/finance/pages/documents/HandoffDialog.tsx`
-       - `client/src/contexts/finance/pages/import/PdfReviewDialog.tsx`
-       - `client/src/contexts/finance/pages/ledger/PurchaseDialog.tsx`
-       - `client/src/contexts/finance/pages/ledger/RevenueDialog.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/EditProjectDialog.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/EstimatesTab.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/MemberDialog.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/OpenItemDialog.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/PhaseDialog.tsx`
-       - `client/src/contexts/gpm/pages/projectDetail/TaskDialog.tsx`
-       - `client/src/contexts/gpm/pages/templates/TemplateDialog.tsx`
-       - `client/src/contexts/platform/pages/hours/ClosedDayDialog.tsx`
-       - `client/src/contexts/platform/pages/members/RoleDialog.tsx`
-       - `client/src/contexts/platform/pages/members/UserDialog.tsx`
-       - `client/src/contexts/platform/pages/notify/TemplateDialog.tsx`
-       - `client/src/contexts/production/pages/calendar/NewEventChooser.tsx`
-       - `client/src/contexts/sales/pages/activityLog/ActivityLogDialog.tsx`
-       - `client/src/contexts/sales/pages/flow/ApplyFlowDialog.tsx`
-       - `client/src/contexts/sales/pages/pricing/PricingDialogs.tsx`
-       - `client/src/contexts/sales/pages/projectDetail/LostDialog.tsx`
-       - `client/src/contexts/sales/pages/projectDetail/thread/RecordDialog.tsx`
-       - `client/src/contexts/sales/pages/projectForm/dialogs/CategorySwitchDialog.tsx`
-       - `client/src/contexts/sales/pages/projectForm/dialogs/GlsDialog.tsx`
-       - `client/src/contexts/sales/pages/projectForm/dialogs/RelinkDialog.tsx`
-       - `client/src/contexts/sales/pages/projectGroup/GroupFormDialog.tsx`
-       - `client/src/contexts/sales/pages/projectGroup/PurchaseDialog.tsx`
-       - `client/src/contexts/sales/pages/projectGroup/RevenueDialog.tsx`
-       - `client/src/contexts/sales/pages/projectLedger/BulkEditDialog.tsx`
-       - `client/src/contexts/sales/pages/projectLedger/ColumnPicker.tsx`
-       - `client/src/contexts/sales/pages/projectLedger/PastePlanDialog.tsx`
-       - `client/src/contexts/sales/pages/salesReview/TargetDialog.tsx`
-       - `client/src/contexts/tasks/components/EpisodesPanel.tsx`
-       - `client/src/contexts/tasks/components/intake/IntakeReview.tsx`
-       - `client/src/contexts/tasks/pages/taskList/AddTaskDialog.tsx`
-       - ⚠️ **この54件は指定コマンド（シングルクォートの import のみ拾う）の実測値。**
-         同じコマンドをダブルクォートの import も拾う形（`grep -rlE "components/ui/dialog['\"]"`）
-         に広げると **76件**ヒットする — 今回移行した6画面のうち5つ
-         （`PersonalEventDialog.tsx`／`PartnerScheduleDialog.tsx`／`StudioBookingDetailDialog.tsx`／
-         `IcsFeedsDialog.tsx`／`StudioRoomsManagerDialog.tsx`）はダブルクォートで import して
-         いたため、指定コマンドのその場の一覧には元から入っていなかった（`StudioBookingDialog.tsx`
+   - ~~機材管理・日常業務の24ファイル~~ **✅ 完了（第3バッチ）**（2026-08-20・並列6エージェント）。
+     `client-equipment`（Excel取込2・カスタム列1・機材台帳/ラック図/棚卸し4・equipmentList4・
+     貸出/メンテナンス3・設定4）／`client-daily`（TasksPage・受付2種・内覧会・セキュリティカード。
+     `IntakeLogTab.tsx`は表示専用のため見送り）を移行。`wide`判定基準（旧幅・複数列グリッドの
+     有無で判断）は正しく踏襲されている（スポットチェック済み）。
+     `npx tsc -b client-equipment client-daily` / `npm run lint` / `npm run test`（1141件）OK
+   - **残り53件**（`grep -rlE "components/ui/dialog['\"]" --include="*.tsx" client
+     client-daily client-equipment` で再洗い出し・引用符を問わない形）:
+     - `client-daily/src/pages/tasks/IntakeLogTab.tsx`（表示専用の可能性が高いが要再確認）
+     - `client-equipment/src/pages/EquipmentDetailPage.tsx` / `RackLayoutPage.tsx`
+       （フォーム部分は第3バッチで移行済み。残っているのは表示専用・確認用ダイアログのみ
+       のはずだが未確認なら見送り理由を検証すること）
+     - `client/src/components/ExcelToolbar.tsx` / `components/layout/SearchPalette.tsx`
+     - **finance(7)**: `finance/components/{DiscountDialog,PricingItemPicker,SgaDialog}.tsx` /
+       `finance/pages/documents/HandoffDialog.tsx` / `finance/pages/import/PdfReviewDialog.tsx` /
+       `finance/pages/ledger/{PurchaseDialog,RevenueDialog}.tsx`
+     - **gpm(7)**: `gpm/pages/projectDetail/{EditProjectDialog,EstimatesTab,MemberDialog,
+       OpenItemDialog,PhaseDialog,TaskDialog}.tsx` / `gpm/pages/templates/TemplateDialog.tsx`
+     - **platform(5)**: `platform/pages/DataViewerPage.tsx` /
+       `platform/pages/hours/ClosedDayDialog.tsx` /
+       `platform/pages/members/{RoleDialog,UserDialog}.tsx` /
+       `platform/pages/notify/TemplateDialog.tsx`
+     - **production(4)**: `production/components/episodes/BusinessProjectView.tsx` /
+       `production/components/schedule/IcsFeedsDialog.tsx` /
+       `production/components/studio/StudioRoomsManagerDialog.tsx` /
+       `production/pages/calendar/NewEventChooser.tsx`
+     - **sales(20)**: `sales/components/{CustomerDialog,SimulationDialog}.tsx` /
+       `sales/pages/activityLog/ActivityLogDialog.tsx` /
+       `sales/pages/company/CompanySummaryDialog.tsx` /
+       `sales/pages/flow/ApplyFlowDialog.tsx` / `sales/pages/pricing/PricingDialogs.tsx` /
+       `sales/pages/projectDetail/LostDialog.tsx` /
+       `sales/pages/projectDetail/thread/RecordDialog.tsx` /
+       `sales/pages/projectForm/dialogs/{CategorySwitchDialog,GlsDialog,RelinkDialog}.tsx` /
+       `sales/pages/projectGroup/{GroupFormDialog,PurchaseDialog,RevenueDialog}.tsx` /
+       `sales/pages/projectLedger/{BulkEditDialog,ColumnPicker,PastePlanDialog}.tsx` /
+       `sales/pages/salesReview/TargetDialog.tsx`
+     - **tasks(9)**: `tasks/components/{ColumnDialog,EpisodesPanel,TaskDialog,
+       TemplatePickerDialog}.tsx` / `tasks/components/KanbanView/KanbanColumn.tsx` /
+       `tasks/components/TaskListView/TaskListGroup.tsx` /
+       `tasks/components/intake/IntakeReview.tsx` /
+       `tasks/pages/taskList/AddTaskDialog.tsx`
+     - ⚠️ **前回「54件」としていたのはシングルクォートimportのみを拾う数え方だった。**
+       ダブルクォート込みで数え直すと76件（うち今回までに移行済みなのは第1・第3バッチの
+       23件＋`StudioBookingDialog.tsx`のような自前実装1件）で、正しい残数は53件。
+       次に数え直すときも必ず引用符を問わない形（上の`grepEレ`）を使うこと
          はそもそも `ui/dialog` を使わない自前実装だったので、どちらの数え方にも入らない）。
          **次バッチに着手する前に、まず引用符の種類を問わない形で洗い出し直すこと**
          （凍結4アプリを巻き込まないよう `client`/`client-daily`/`client-equipment` の
