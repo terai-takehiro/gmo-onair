@@ -1,0 +1,765 @@
+{
+  "areas": [
+    {
+      "area": "案件管理・タスク（client/src/contexts/sales/, client/src/contexts/tasks/）",
+      "screens": [
+        {
+          "name": "① ダッシュボード",
+          "url": "/sales/dashboard",
+          "classification": "native",
+          "note": "MobileSalesDashboard.tsx（platform/pages/salesDashboard/）が専用コンポーネント。PCの7塊をやめ、案件受付3行＋数字3行＋一覧へのカードだけに絞った独自レイアウト。PCのステージ別・今週の現場はスマホに一切出さず「PCで見てください」と明言（PcOnlyの帯ではなく本文）。",
+          "gaps": [
+            "数字カードを押すとページ遷移のみで、詳細を見るための下シートやインライン展開は無い",
+            "pull-to-refreshやスケルトン以上のネイティブ的インタラクションは無い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "② 案件作成（受付を統合）",
+          "url": "/sales/projects/new",
+          "classification": "native",
+          "note": "MobileNewProject.tsx（projectNew/）が専用コンポーネント。3段ウィザード＋上部の進捗バー＋下端固定のCTA（次へ/つくる）というiOSフォーム的パターン。中身の項目定義（RequiredFields/MoreFields）はPCと共有だが、段の切り方・ナビゲーションはスマホ専用に設計されている。",
+          "gaps": [
+            "戻る操作が矢印ボタンのみで、スワイプバックのようなジェスチャーは無い",
+            "録音・添付はこの画面自体ではなくトップのAIバー経由（投入口）で、画面内には撮影/添付の導線が無い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "③ 案件一覧",
+          "url": "/sales/projects",
+          "classification": "native",
+          "note": "ProjectCards.tsx＋MobileFilterBar.tsx（projectList/）。PCの6列テーブルの縮小版ではなく、金額・次の一手を見せるカードに組み直し、絞り込みは横スクロールチップをやめて下から出るSheet（ステージ/期間/並び順）にしている。ボード表示・Excel書き出しはスマホでは出さない設計判断も明記されている。",
+          "gaps": [
+            "カードにスワイプアクション（アーカイブ等）は無く、タップして詳細へ遷移するのみ",
+            "ページ送りはボタン式（PageNav）で、無限スクロールではない"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "④ タスク一覧（やること）",
+          "url": "/sales/tasks/:view (list)",
+          "classification": "native",
+          "note": "MobileTaskList.tsx（tasks/pages/taskList/）。モックの但し書き「押して消し込むだけ」通り、並べ替え/割り当て変更を出さずカード一覧＋Sheetでの完了操作に絞っている。ガントはPCのみ（pcOnlyScreens.tsで案内）。",
+          "gaps": [
+            "タスクの新規追加ボタンがこの画面には無い（PCのAddTaskDialog相当が無い）",
+            "延期・担当変更はできず「PCで」の案内のみで、片づけられるのは完了操作だけ"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "⑥ 案件詳細",
+          "url": "/sales/projects/:id",
+          "classification": "responsive_only",
+          "note": "DetailHeaderとMobileTools.tsx（道具グリッド）はスマホ専用に作られており、タブ構成も段階（phase）で絞り込む配慮がある。しかしOverviewTab.tsxはPC/スマホ共通の同一コンポーネント（useIsMobile分岐なし）で、モックの2段組・区切り線付き事実帯をそのまま描画している。",
+          "gaps": [
+            "タスクタブ（TasksTab.tsx）はKanbanView/TaskListView/GanttViewという旧v3時代の未改修コンポーネントをそのまま呼んでおり、カンバン列・ガント時間軸が横スクロール前提で375pxに全く最適化されていない（ViewToggle.tsxも rounded-md 等の旧トークンで、v4のRow/Sheet系ではない）",
+            "OverviewTabはPC/スマホ共通コンポーネントで、専用のモバイルレイアウト（カード積み等）を持たない",
+            "見積・書類・やり取りタブはPcOnlyPanelで止めているが、「それでもこのまま開く」を選ぶとPC向けの中身がそのまま出る"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "⑤ 見積・請求（全案件）",
+          "url": "/sales/billing",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsで明示的にPC専用。EstimateRows.tsx/InvoiceRows.tsxを確認すると、版・金額・状態・担当・提出期限・帳票の7段固定幅列（RowSlot w=56〜128px）を横に並べる表で、金額の桁を読み違えると請求を間違える性質の画面。",
+          "gaps": [
+            "現状スマホからは代替導線が無く、外出先で入金確認したい場合は/budget/billing（⑫入金の確認）に頼るしかない（billingとは別の画面）"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑧ 料金表",
+          "url": "/sales/pricing",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsでPC専用。拠点タブ×分類×品目の2段の値付け表（PricingListPage.tsx/CategoryCard.tsx）で、相手ごとの単価が横に並び1桁違うと見積金額が変わる性質。並び替えも↑↓の操作を伴う。",
+          "gaps": [
+            "読むだけの用途（現場で単価を確認したい）でもPC専用に倒しており、閲覧専用モードのようなスマホ代替は無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑦ 標準工程テンプレート",
+          "url": "/sales/flow-templates",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsでPC専用（理由「型を変えると以後すべての案件に効くので、落ち着いて触る画面」）。FlowTaskRow.tsxはRow/RowMain/RowSlotという共通トークンで書かれており技術的には縦積みも可能な作りだが、モックが定義する『設定・権限＝落ち着いて触るもの』という運用上の理由での据え置き。",
+          "gaps": [
+            "技術的な列崩れではなく運用判断でのPC専用のため、将来モバイル対応する場合はRow系の`stackOnMobile`をそのまま使える見込みがある（作り込みの土台はある）"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "案件台帳",
+          "url": "/sales/projects/ledger",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsでPC専用。LedgerTable.tsxは20列の出し入れ可能な固定幅テーブル（table-layout: fixed）＋チェックボックスによる一括編集（取り消せない一括更新）で、モバイルで指で押させない設計判断が実装からも裏付けられる。",
+          "gaps": [],
+          "effort": "medium"
+        },
+        {
+          "name": "取引先マスター",
+          "url": "/sales/companies",
+          "classification": "responsive_only",
+          "note": "CompanyListPage.tsx。Row stackOnMobile＋FilterChipsで375pxでも崩れないことは確認済みだが、これは『PCの表を縦積みにした』レベルの対応で、カード積みや下シートのようなiOSアプリらしい専用パターンは無い。絞り込みもFilterChips（横並びチップ）のままでMobileFilterBarのような下シートは使っていない。",
+          "gaps": [
+            "役割絞り込み（顧客/仕入先/販管費支払先等）がFilterChipsの横並びのままで、案件一覧のような下シート化はされていない",
+            "編集はRowクリックで既存のCrudFormDialog（PCと共通のフォームダイアログ）を開くだけで、スマホ専用の入力導線は無い",
+            "行の縦積み後も連絡先・インボイス番号・関連ページ列はhideOnMobileで単純に非表示になるだけ（情報の再構成ではなく列を消しているだけ）"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "営業活動記録・営業レビュー",
+          "url": "/sales/activity-logs",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsでPC専用。ActivityLogPage.tsxのコメントで経緯が明記されている：記録タブは一度Row stackOnMobile＋MobileFilterBarでスマホ開放されたが、統合した分析3タブ（ファネル・失注分析・営業評価）が『3列を並べて打合せの場で映す』前提のPC専用画面だったため、タブ単位でスマホ対応が割れるのを避けて画面全体をPC専用に戻したという明確な設計判断がある。",
+          "gaps": [
+            "記録タブ単体は以前スマホ対応済みだった実装（ActivityMobileFilters等）が今も部品として残っており、『それでもこのまま開く』を選べば使える——つまり記録タブだけなら技術的にはモバイル対応済みだが、統合の都合で入口ごと閉じている"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "費用を分け合うグループ（一覧）",
+          "url": "/sales/project-groups",
+          "classification": "pc_only_questionable",
+          "note": "ProjectGroupListPage.tsxを実際に開くと、grid gap-3 sm:grid-cols-2 lg:grid-cols-3のカードグリッドで、375pxでは自然に1列になる作り（SkeletonCardもグリッド前提）。pcOnlyScreens.tsの理由『複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要がある』は実際には詳細画面（按分の入力）に当てはまる理由で、この一覧ページ自体は名前・案件数・売上/仕入の合計を表示するだけの読み物画面。",
+          "gaps": [
+            "一覧ページ自体はカードグリッドで既にモバイル向きの構造になっているのに、詳細画面と同じ理由で入口ごとPC専用に倒されている",
+            "『これから作ります』ではなく理由が詳細画面のものを流用しているだけに見える"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "費用を分け合うグループ（詳細）",
+          "url": "/sales/project-groups/:id",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsでPC専用。AllocationEditor.tsxで複数案件への金額の割り振りをその場で比べながら入力する編集画面のため、一覧とは異なり実際に横幅を要する編集作業（一覧側の判断とは切り分けて確認）。",
+          "gaps": [],
+          "effort": "medium"
+        },
+        {
+          "name": "お客様の詳細（顧客360）",
+          "url": "/sales/customers/:id",
+          "classification": "pc_only_questionable",
+          "note": "CustomerDetailPage.tsxの冒頭コメントは『顧客360 (v2.9.218+) — 営業ジャーニー刷新フェーズB』で、importも`@/components/ui/card`のCard/CardHeader・`PageTransition`・`@gmo-onair/shared/src/client/dashboard`のEmptyStateとv4以前（`client-v4`ではない）の部品のみで構成されている。pcOnlyScreens.ts自身も理由を『v4でまだ作り直していない画面です』と明記しており、幅の制約ではなく単に着手していないことが理由。",
+          "gaps": [
+            "v4のRow/Sheet/PageHeader等のトークンを一切使っておらず、案件一覧・料金表のような技術的な横幅理由とは異なり純粋に未着手",
+            "M10の棚卸しで『取引先マスター』は開放されたのに、この画面だけ据え置かれたまま残っている"
+          ],
+          "effort": "large"
+        }
+      ]
+    },
+    {
+      "area": "財務管理 (client/src/contexts/finance/)",
+      "screens": [
+        {
+          "name": "① ダッシュボード",
+          "url": "/budget/dashboard",
+          "classification": "pc_only_justified",
+          "note": "BudgetDashboardPage.tsx。useIsMobile等のモバイル分岐は一切無く(grep 0件)、pcOnlyScreens.ts の CLIENT_PC_ONLY に理由付きで登録済み(『売上から営業利益までの引き算を1枚で見る画面。畳むと引き算の関係が読めません』)。ProfitFlow(引き算の帯)は横幅前提のレイアウトで、モバイルで意味を保ったまま畳むのは難しく妥当な判断。",
+          "gaps": [
+            "スマホは PcOnlyGate の案内表示止まりで専用モバイル版が存在しない(意図的)",
+            "PC自体もカレンダー①②のようなmacOS風の常設サイドパネル等の演出は無く、通常のWebダッシュボードカード構成のまま",
+            "KPIの帯(Breakdown/ProfitFlow)は横並びの引き算表示のみで、iOSライクなカード/シート発想への転用検討は見当たらない"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "② 請求・入金",
+          "url": "/budget/billing",
+          "classification": "native",
+          "note": "ClosingPage.tsx。useIsMobile()で DesktopClosing と MobileCollect(closing/MobileCollect.tsx) を明示的に出し分けている財務では唯一の画面。MobileCollectはカード積み一覧＋下から出る Sheet(shared/src/client-v4/sheet)による確認＋『記録するだけ』に機能を絞った単一目的設計で、PCの月次一括処理テーブルの縮小版ではなく別物として作られている。pcOnlyScreens.ts のCLIENT_MOBILE_OKに『⑫ 入金の確認(MobileCollect)』として明記。",
+          "gaps": [
+            "PC側(DesktopClosing)はRow一覧+タブ+sticky footerの通常Web構成で、カレンダーPC版のようなmacOSアプリ風の演出(常設サイドパネル等)は持たない",
+            "MobileCollectは検索・絞り込みが一切無く、期日近い順の固定並びのみ(意図的簡略化だが探す手段はゼロ)",
+            "取り消しはPCへ誘導する設計のため、モバイル単独では『記録』の片道機能に留まる(意図通りではあるがネイティブアプリとしての完結度は低い)"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "③ 売上",
+          "url": "/budget/revenues",
+          "classification": "pc_only_justified",
+          "note": "RevenueListPage.tsx(1,435行・v4未分割の1ファイル400行上限超過画面としてclient/CLAUDE.mdにも記載あり)。useIsMobile参照0件。pcOnlyScreens.tsに『金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません』と明記。ledger/LedgerRows.tsx・RevenueDialog.tsx等、財務台帳3画面共通のPC向け表部品のみで構成。",
+          "gaps": [
+            "スマホでは開けない(PcOnlyGate案内のみ)。理由はpcOnlyScreens.tsの通り桁比較の表であることに起因し妥当",
+            "編集ダイアログ(RevenueDialog)は通常のモーダルで、下シート化の検討痕跡なし",
+            "1,435行の単一ファイルのまま(v4作り直し未着手扱い)で、モバイル化以前にPC側の分割自体も残課題"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "④ 仕入",
+          "url": "/budget/purchases",
+          "classification": "pc_only_justified",
+          "note": "PurchaseListPage.tsx。useIsMobile参照0件。pcOnlyScreens.tsに『金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません』と明記。売上・販管費と同じledger/共通部品構成。",
+          "gaps": [
+            "スマホでは開けない(PcOnlyGate案内のみ)。台帳の金額比較用途としては妥当な判断",
+            "変動原価/固定原価のタブ切替もPC表前提で、カード積み等のモバイル向け表現は未検討",
+            "PurchaseDialog(編集)は通常モーダルのまま"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "⑤ 販管費",
+          "url": "/budget/sga",
+          "classification": "pc_only_justified",
+          "note": "SgaListPage.tsx(355行)。useIsMobile参照0件。pcOnlyScreens.tsに同じ理由(『金額の桁を縦にそろえて読む表』)で登録。SgaDialog/SgaExpenseTypeFields/SgaSettlementFieldsもPC向けフォーム。",
+          "gaps": [
+            "スマホでは開けない(PcOnlyGate案内のみ)。妥当だが、勘定科目で絞れない等の機能的な穴もCLAUDE.mdに記載あり(モバイル化以前の課題)",
+            "SgaDialogは通常モーダルのまま、下シート化なし",
+            "他2台帳と同じ共通部品のみで、この画面固有のモバイル検討は行われていない"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "⑥ 取引先 (仕入先・パートナー)",
+          "url": "/budget/vendors",
+          "classification": "responsive_only",
+          "note": "CounterpartyPage.tsx。pcOnlyScreens.tsのCLIENT_MOBILE_OKに『取引先(電話の前に相手を調べる)』として明記され、M10で意図的にPC専用から開放された画面。ただし中身はRow/RowSlot hideOnMobileでPC表の列を間引くだけの構成で、カレンダーのような専用モバイルレイアウトではない。",
+          "gaps": [
+            "一覧はRow+RowSlot hideOnMobileでPC表の列を落とすだけの縮小表示で、カード積み等の専用モバイルパターンではない",
+            "追加・編集はCrudFormDialog(通常のセンターモーダル)のままで、下から出るシートになっていない",
+            "スマホでは道具(Excel取込出力・仕入先集計)を意図的に非表示にしているが、その代替導線(例:電話発信ボタン等)は無く『表を狭めて道具を隠しただけ』の域を出ない"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑦ 受け取った書類",
+          "url": "/budget/documents",
+          "classification": "pc_only_justified",
+          "note": "DocumentsPage.tsx。useIsMobile参照0件。pcOnlyScreens.tsに『金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません』と明記。台帳へのリンク(linked_kind/linked_id)を伴う取り消せない操作という性質上、妥当な判断。",
+          "gaps": [
+            "スマホでは開けない(PcOnlyGate案内のみ)。取り消せない一括処理という理由は妥当",
+            "HandoffDialog/DocDetailsはPC向けモーダル・詳細パネル構成で、モバイル向け検討の形跡なし",
+            "日常業務アプリ側(/daily/finance)からの転送元でもあるため、日常的に使う職種が実はスマホから触れない点は業務上の穴として残る(UI設計自体は理由通り妥当)"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "⑧ 取り込み (精算PDF・総勘定元帳・二重計上)",
+          "url": "/budget/import",
+          "classification": "pc_only_justified",
+          "note": "ImportPage.tsx(115行、実体はimport/配下のPdfTab・GlTab・DedupTab)。pcOnlyScreens.tsで hidden:true 指定(スマホの左メニューからも消える)。『外の数字を読んで確かめてから台帳に入れる3段の作業で、途中で止まると二重に入ります』と明記。データ入力・監査系ツールとして妥当。",
+          "gaps": [
+            "スマホでは左メニューからも消え、URL直打ちでもPcOnlyGate案内のみ(意図的)",
+            "3タブとも表+ダイアログ(PdfReviewDialog等)のPC向け構成で、モバイル対応の検討自体が行われていない",
+            "権限でタブ自体を出し分ける設計(system_admin限定タブあり)のため、そもそも日常的にモバイルで触る対象ではない"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "仕入先集計",
+          "url": "/budget/reports/vendors",
+          "classification": "pc_only_justified",
+          "note": "実体は contexts/production/pages/VendorReportPage.tsx(191行)。finance配下ではなくproduction配下に置かれているが /budget URL 配下で運用され、CounterpartyPage(⑥取引先)の『仕入先集計』ボタンの遷移先。pcOnlyScreens.tsに hidden:true で登録(『仕入先を縦・月を横に並べる表です』)。CounterpartyPage側もスマホではこのボタン自体を出さないよう明示的に分岐している。",
+          "gaps": [
+            "スマホでは左メニューからも消え、リンク元(取引先画面)もスマホ版ではボタンごと非表示にして行き止まりを回避している",
+            "縦(仕入先)×横(月)のクロス集計表で、モバイル向けの折りたたみ表現は未検討",
+            "ファイルの置き場所がfinance配下ではなくproduction配下にあり、機能上はfinanceの一部として使われているため設計上の把握漏れが起きやすい"
+          ],
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "area": "カレンダー（client/src/contexts/production/ 配下の6画面）— PC macOSアプリ風 / スマホ iOSアプリ風 の到達度監査",
+      "screens": [
+        {
+          "name": "① 予定（UnifiedCalendarPage.tsx）",
+          "url": "/studio/calendar",
+          "classification": "native",
+          "note": "唯一のiOSネイティブ級。MobileToday.tsx（当日アジェンダ）+ MobileMonthGrid.tsx（数字+点だけの月表）の専用モバイル実装を実際に確認した。早期returnせず親で分岐する作法も守られている。ただしダイアログ層の作り込みにムラがある。",
+          "gaps": [
+            "『予定を入れる』の3導線のうち部屋を押さえる（StudioBookingDialog.tsx）だけが自前実装の下シート（rounded-t-[20px]+slide-in-from-bottom、L355-357）。パートナー予定・自分の予定の入力（PartnerScheduleDialog/PersonalEventDialog）・予約詳細（StudioBookingDetailDialog）・絞り込み（RoomFilterDialog/UserFilterDialog/LayerFilterDialog）は全て shared/src/client/ui/dialog.tsx の中央ポップアップ（fixed top-50%/left-50%）のままで、6ダイアログ中1つしか下シートになっていない",
+            "その1つの下シートも共通部品 client-v4/sheet.tsx の <Sheet>（shared/CLAUDE.mdが定めるopt-inの共通シート実装）を使わず、StudioBookingDialog内に個別実装しており、他画面へ展開する土台になっていない",
+            "MobileToday内のレイヤー絞り込み（LayerFilterDialog）も同じ中央ポップアップで、iOSらしい下からの操作導線になっていない"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "② 部屋の空き（RoomAvailabilityPage.tsx）",
+          "url": "/studio/rooms",
+          "classification": "pc_only_justified",
+          "note": "タスク文の前提（①②が共にiOSネイティブ級の実例）はファイルの中身と食い違う。実際にはuseIsMobile等のモバイル分岐が1行も無く、375pxでもoverflow-x-auto+min-w-[820px]の部屋×時間の帯をそのまま出す構造で、モバイル版そのものが存在しない。作り込まれているのはPC側（macOSカレンダー風・承認済みモック準拠）だけ。pcOnlyScreens.tsのCLIENT_PC_ONLYに列挙済みで、理由（部屋×時間を畳むと目的が消える）も画面の中身と整合している。",
+          "gaps": [
+            "モバイルレイアウトが存在しない（useIsMobile分岐なし、MobileToday/MobileMonthGridに相当する専用UIが無い）",
+            "PCの表（部屋×時間の帯）をそのまま横スクロールさせる構造で、崩れてはいないが縮小するだけの形にすらなっていない",
+            "画面内に『今日の予約を見る』のような代替導線は無く、instead案内はpcOnlyScreens.ts側（PcOnlyPanel）任せ"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "③ 仮押さえ（HoldListPage.tsx + holds/HoldCards.tsx）",
+          "url": "/studio/holds",
+          "classification": "native",
+          "note": "PCの行(Row/RowSlot)を縮めず、モバイル専用のカード積みコンポーネント(HoldCards.tsx)を別途用意し、列の情報量まで作り直している（本番日をモバイルだけ追加表示、等）。isMobile分岐もUnifiedCalendarPageと同じ作法（親で条件分岐、早期returnなし）。",
+          "gaps": [
+            "『落とす』の確認は共通のconfirmAction（shared/src/client/ui/confirm.tsx）で、中央ポップアップのまま（下シートではない）",
+            "スワイプで確定/落とすといったジェスチャー操作は無く、フルwidthの2ボタン押下のみ",
+            "件数の絞り込み(FilterChips)はPC/モバイル共通の横スクロールチップのみで、専用の下シート絞り込みは持たない（件数が少ない画面なので実害は小さい）"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "④ 設定（部屋・外部カレンダー・サイネージ）（CalendarSettingsPage.tsx）",
+          "url": "/studio/settings",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsのCLIENT_PC_ONLYに列挙済み（理由：落ち着いて触る設定画面）。ファイル冒頭のコメントに『中身は作り替えていない（枠だけ差し替え、StudioRoomsManagerDialog/IcsFeedsDialogはそのまま）』と明記されており、実装もその通り。設定系画面としては妥当な判断。",
+          "gaps": [
+            "useIsMobile等のモバイル分岐が無く、タブ切替(FilterChips)を含め全てPC想定のレイアウトのみ",
+            "呼び出している StudioRoomsManagerDialog / IcsFeedsDialog は v4 で作り直しておらず、生の中央ポップアップDialogのまま（コメントで明言済み・意図的に据え置き）",
+            "hidden指定が無いため、スマホの左メニューにはこの設定項目が出続ける（開くとPC専用案内になるだけで導線自体は残る）"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⏸（旧）スタジオカレンダー（StudioCalendarPage.tsx）",
+          "url": "/studio/studio-calendar",
+          "classification": "pc_only_justified",
+          "note": "v4-progress.mdの通り①予定と同じ描画部品(calendar/)へ載せ替え済みで技術的負債（FullCalendar）は無い。pcOnlyScreens.tsに列挙済み。ただし『それでもこのまま開く』を選んだ人向けにuseIsMobile分岐が実際に残っており、その中身を確認した。",
+          "gaps": [
+            "useIsMobileはあるが、view を強制的に list（EventTable、Row stackOnMobileの表縮小）に固定するだけで、①予定のような専用モバイルUI（月表+当日アジェンダ）は無い＝responsive_only相当のフォールバック",
+            "この画面の主目的である香盤ビュー（KoubanView、部屋を縦に並べた表）はモバイルで完全に非表示になり、代替導線も画面内には無い",
+            "①予定への統合可否の判断待ちで塩漬け中のため、単独でのモバイル作り込みは方針上まだ着手されていない"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⏸（旧）自分の予定（MyCalendarPage.tsx）",
+          "url": "/studio/my-calendar",
+          "classification": "pc_only_justified",
+          "note": "StudioCalendarPageと同じ構造。pcOnlyScreens.tsに列挙済み、①予定と同じ描画部品へ載せ替え済みでFullCalendarは撤去済み。",
+          "gaps": [
+            "useIsMobileでviewをlistに強制するだけで、専用モバイルレイアウト（下タブ/下シート/カード積み）は無い",
+            "この画面の強み（取込元ごとの詳しい色分け：Google/Outlook/ICS/共有）はlist表示のバッジ色だけに畳まれ、モバイルでの一覧性を高める工夫は特に無い",
+            "OAuth連携（Google/Outlook）の設定操作自体もPC想定のまま、モバイル向けの導線は用意されていない"
+          ],
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "area": "設定・共通（client/src/contexts/platform/ 配下）",
+      "screens": [
+        {
+          "name": "トップページ",
+          "url": "/",
+          "classification": "native",
+          "note": "HomePage.tsx + home/ 配下。カード積みの2列タイルグリッド(PC=横長3列と形自体が別)、AI投入口はボトムシート(client-v4/Sheet: つまみ・safe-area-inset-bottom・中身のみスクロール・PC=中央ダイアログに切替)で構成され、カレンダー①②と同様に承認済みモックに基づく専用モバイルレイアウトを持つ。唯一の直系のnative実例と並ぶ完成度。",
+          "gaps": [
+            "AI入力シートはRadixのオーバーレイタップ/×ボタンでしか閉じられず、iOSのスワイプダウンでの閉じ操作は無い",
+            "アプリタイルは静置の2列グリッドで、iOSホーム画面のような長押し並べ替えは無い(モックにも無い機能だが)",
+            "ミニアプリ(日常業務6つ)はPCがhover/chevronで畳めるのに対し、モバイルには畳み導線自体が無くタイルを開いてから1手多い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "① 案件管理ダッシュボード(実体はplatform配下)",
+          "url": "/sales/dashboard",
+          "classification": "native",
+          "note": "厳密には案件管理エリアだが、DashboardPage.tsx+salesDashboard/(MobileSalesDashboard.tsx)がcontexts/platform/に実装されているため対象に含めた。PCの7塊をそのまま畳まず、モック指定の3枠(受付3行・数字3行・一覧へ)に組み直したカード積み構成で、PCテーブルの縮小版ではない。",
+          "gaps": [
+            "止まっている案件の中身・ステージ別金額・今週の現場はモバイルで完全非表示（『PCのダッシュボードに出ます』の1行案内のみ）で、簡易版やドリルダウン導線が無い",
+            "カードはボタン止まりで、pull-to-refreshやスワイプで直接タスクを開く等のiOSらしいジェスチャーは無い",
+            "受付3行(IntakeRow)と数字3行(CountRow)が同じ縦並びパターンで、iOSのセクション区切り(グループ化テーブルビュー)のような視覚的な塊分けが弱い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "探す(スマホ下タブ3つ目)",
+          "url": "/search",
+          "classification": "responsive_only",
+          "note": "SearchPage.tsx。共通のRow/RowMain/Groupで結果一覧を組んでおり、打つ前/検索中/0件/失敗の4状態を丁寧に分けるなど作り込みはあるが、PCとモバイルで同一レイアウト・同一部品(stackOnMobileのみ)で、iOS標準の検索UI(キャンセル付きサーチバー・セクションの折りたたみ・最近見たものの左スワイプ削除)に相当する専用モバイルパターンは持たない。",
+          "gaps": [
+            "PC/モバイル共通の1レイアウト(Row stackOnMobile)のみで、下タブ画面としての専用ナビゲーション演出(キャンセルボタン等)が無い",
+            "『最近見たもの』は読むだけで削除・スワイプ操作が無い",
+            "結果セクション(案件/お客様/仕入先)はカード化されておらず、PCと同じ罫線区切りリストのまま"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "① 設定トップ(案内板)",
+          "url": "/settings",
+          "classification": "responsive_only",
+          "note": "SettingsHubPage.tsx。PC非対応カードをCLIENT_MOBILE_HIDDENで機械的に間引く実装は丁寧だが、レイアウト自体はgrid-cols-1 sm:grid-cols-2の汎用カードグリッドで、iOS設定アプリのようなグループ化リスト(セクション+chevron行)パターンは採用していない。",
+          "gaps": [
+            "カードグリッドをsm:grid-cols-2に畳んでいるだけで、iOS設定アプリのようなセクション区切りリスト行(chevron付き)になっていない",
+            "権限が無いカードを丸ごと非表示にする配慮はあるが、モバイル専用のインタラクション(検索・折りたたみ)が無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "② 拠点・部屋",
+          "url": "/settings/sites",
+          "classification": "pc_only_questionable",
+          "note": "SitesPage.tsx。pcOnlyScreens.tsの理由(『拠点を1つ足すと部屋と見積の金額の両方が変わる』)は影響の大きさの説明であって、画面が読めない/操作できないという技術的根拠ではない。実装はRow/RowSlotベースだが、拠点表の行はstackOnMobileを付けておらず(w=96×2+160の固定スロットがRowMainと横並びのまま)、モバイルでの見え方を検証した形跡が無い。",
+          "gaps": [
+            "pcOnlyScreens.tsの理由文が『影響が大きい』であり、画面の狭さ・列数の多さを根拠にしていない(他のPC専用表と理由の質が違う)",
+            "拠点テーブルの各行はRow(stackOnMobile無し)のままで、375pxで略称/部屋数/料金表の3スロット(合計352px)がRowMainを圧迫する可能性が未検証",
+            "同じ画面が呼ぶRoomsTabは別画面(カレンダー設定)側の判断に委ねられており、この画面独自のモバイル対応方針が無い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "③ 権限とメンバー",
+          "url": "/settings/users",
+          "classification": "pc_only_questionable",
+          "note": "MembersPage.tsx。pcOnlyScreens.tsの理由文は『12 区画 × 5 段の表』だが、権限モデル単純化(migration 174〜)後の実装は7区画のflex-wrapバッジ表示に置き換わっており、理由が実装と食い違う(stale)。メンバー一覧はRowSlot hideOnMobile / Row stackOnMobileを既に使っており、同じ画面が営業活動記録(既にモバイル開放済み)と同型のパターンを備えている。",
+          "gaps": [
+            "PC専用の根拠(pcOnlyScreens.tsの『12区画×5段』)が権限モデル単純化前の古い実装を指しており、現行の7区画バッジ表示とは一致しない",
+            "メンバー一覧のRowは既にhideOnMobile/stackOnMobileを使用済みで、活動記録一覧のように開放できる可能性があるのに未検証のままPC専用",
+            "役割レール(240px固定)はlg:flex-rowで縦積みに落ちる作りだが、モバイルでの実機検証(Playwright等)の記録が無い"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "⑤ お金のルール",
+          "url": "/settings/money",
+          "classification": "pc_only_questionable",
+          "note": "MoneyRulesPage.tsx + DiscountLimits.tsx。理由文『支払期日・消費税の端数・値引きの上限が、以後つくる書類すべてに効く』も影響ベース。Line/Group/Pickの各部品は既にflex-wrap + `w-full sm:w-[160px]`など狭い画面向けの積み方を備えている。",
+          "gaps": [
+            "pcOnlyScreens.tsの理由が『効果が全社に及ぶ』という重要性の説明で、375pxで読めない/押せないという技術的根拠が書かれていない",
+            "Line/Groupコンポーネントは既にsm:ブレークポイントで縦積みに畳む作りが入っており、実質的にモバイル未検証のまま止めている状態に見える",
+            "右カラムの『この設定が効く場所』パネルはlg:w-[240px]固定で、モバイルでどう配置されるか(下に回り込むだけか)が画面内で作り込まれていない"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑥ 休日・営業時間",
+          "url": "/settings/hours",
+          "classification": "pc_only_questionable",
+          "note": "HoursPage.tsx。理由文『押し間違えると予約に注意が出続ける』も操作ミスの重大性の話で画面幅の話ではない。休業日/祝日一覧は既にRow density=\"table\" stackOnMobileを使っており、営業活動記録など開放済み画面と同型のパターンを備える。",
+          "gaps": [
+            "休業日・祝日テーブルは既にstackOnMobileを使用済みで、機構としては開放可能な形に見えるが実機検証の記録が無い",
+            "曜日ごとの営業時間行はselect(時刻)2つ+ボタン群が横一列のflex-wrapで、44px未満のタップ領域や折返し時の見え方が未測定",
+            "拠点レール(240px固定)+本文2カラムのlg:flex-row構成で、モバイルでの縦積み後の情報量(祝日89件の折りたたみ含む)が検証されていない"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑦ 通知とテンプレート",
+          "url": "/settings/notify",
+          "classification": "pc_only_questionable",
+          "note": "NotifyPage.tsx。理由文『文面を貯める画面で、落ち着いて読み直してから直すもの』は緊急性の低さの説明であり、画面が読めない根拠ではない。一覧のCardは既に`basis-full sm:basis-auto`で折返し対応済みで、操作も『押してダイアログでコピー』の1タップ系に近く、他の『読む/1タップで進める』開放済み画面と性質が近い。",
+          "gaps": [
+            "PC専用の根拠が『落ち着いて触るもの』という運用上の話で、画面の作り自体は既にsm:ブレークポイント対応済み",
+            "操作が『押す→ダイアログでコピー』の1タップ中心で、他の開放済み画面(取引先など)と比べてモバイル向きの性質を持つのに未検証のままPC専用にしている",
+            "定時実行ログ(直近6件)の表示がテーブルではなく素のflex-wrap行なので、モバイルへ出しても崩れにくい可能性が高いが確認されていない"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "システムの情報",
+          "url": "/settings/system",
+          "classification": "responsive_only",
+          "note": "SystemInfoPage.tsx。shadcn Cardの縦積みのみでモバイル特有の演出は無いが、CLIENT_MOBILE_OKに入っており全員が開ける。中身は旧画面の移設で作り替えていない旨がコメントに明記されている。",
+          "gaps": [
+            "ブロックアプリ一覧はshadcnの生Tableをoverflow-x-auto任せで出しており、PCの表をそのまま横スクロールさせている典型例",
+            "パスワード変更フォームはmax-w-smのPC都合の幅指定のみで、モバイル向けの1カラム最適化(ラベル位置・タップ領域)が個別に検討されていない",
+            "各Cardは縦積みの汎用カードで、iOSのグループ化リストのような一体感のある見せ方になっていない"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "データビューア",
+          "url": "/settings/data-viewer",
+          "classification": "pc_only_justified",
+          "note": "DataViewerPage.tsx。テーブル選択・検索・ソート・ページング・行編集ダイアログを備えた本格的なDB直接閲覧ツールで、生のshadcn Table/Select/Dialogを使用。pcOnlyScreens.tsの理由(『データベースの中身をそのまま出す道具』)は実装内容と一致しており、hidden指定も妥当。毎日の業務画面ではない管理者専用ツールという性質からPC専用は妥当。",
+          "gaps": [],
+          "effort": "small"
+        },
+        {
+          "name": "DBバックアップ",
+          "url": "/settings/db-backups",
+          "classification": "pc_only_justified",
+          "note": "DbBackupsPage.tsx。本番/検証環境ごとのバックアップファイル一覧と、復元用のdocker execコマンドをクリップボードにコピーする管理者/開発者向けツール。理由(『復元は取り消せない操作なので、手元が広い場所で行う』)は実装内容(コマンドのコピー→サーバー上で手動実行という運用)と整合しており、モバイルで行う性質の操作ではない。",
+          "gaps": [],
+          "effort": "small"
+        }
+      ]
+    },
+    {
+      "area": "プロジェクト管理（新規）— client/src/contexts/gpm/",
+      "screens": [
+        {
+          "name": "① ダッシュボード",
+          "url": "/gpm/dashboard",
+          "classification": "responsive_only",
+          "note": "docs/v4-progress.md ✅・pcOnlyScreens.ts の CLIENT_MOBILE_OK に登録済み。GpmDashboardPage.tsx を実際に読んだ。KpiStrip は grid-cols-1（sm未満）で縦積みになるだけ、Panel群も単純に1カラムへ落ちるだけで、モック合わせの専用モバイル表現は無い。",
+          "gaps": [
+            "KPI帯（KpiStrip.tsx）はモバイルで単純に5枚が縦積みになるだけで、案件管理トップが決めた「PCは文章・スマホはチップ」のような出し分けが無い",
+            "『動いているプロジェクト』の行は w-24/w-28 の固定幅spanを横並びさせるミニ表で、案件一覧が卒業した『PCの行をそのまま縮めない』方針（ProjectCards.tsx）とは逆の作り",
+            "下タブ切替・ボトムシート・スワイプなどiOSアプリらしい操作が一切無く、単純な縦スクロール1本"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "② プロジェクト一覧",
+          "url": "/gpm/projects",
+          "classification": "responsive_only",
+          "note": "CLIENT_MOBILE_OK 登録済み。GpmProjectListPage.tsx / projectList/ProjectRows.tsx を確認。絞り込みは shared/src/client-v4/mobileFilterBar.tsx（下から出るSheet）を使っており、この部分は他画面と共通の合格パターン。",
+          "gaps": [
+            "行の描画が Row/RowSlot（hideOnMobile）で『いまの工程・進み具合・見積・次にやること』の4列を丸ごと消すだけの縮小テーブルで、案件一覧が意図的にやった『縮めるのではなくカードとして組み直す』（sales/pages/projectList/ProjectCards.tsx のコメント参照）に相当する作業をしていない",
+            "モバイルではボードビュー自体を隠す判断は妥当だが、リストの代替として専用カードUIが用意されていない",
+            "並び替え時のFLIPアニメーション・ページ送りなど案件台帳が持つ仕上げが元々未実装（コメントに明記）で、モバイル固有の作り込みはさらに手薄"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑤ 全プロジェクトのタスク（やること／未確認事項）",
+          "url": "/gpm/tasks",
+          "classification": "responsive_only",
+          "note": "CLIENT_MOBILE_OK 登録済み。GpmTaskListPage.tsx を確認。タスク・未確認事項ともRow/RowSlotベース。",
+          "gaps": [
+            "タスク表は Row stackOnMobile ＋ hideOnMobile で『工程・担当』列を消すだけの縮小表（RowSlot w=128/96 を単純に隠す）",
+            "未確認事項（OpenItemRows.tsx）も同型の作り。案件一覧のような『金額・次の一手を前面に出すカード』への再構成はされていない",
+            "タブ切替（タスク／未確認事項）はPCと同じセグメントボタンのみで、専用のモバイルナビゲーションは無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "③ プロジェクト詳細（概要／未確認事項／体制／議事録／見積／請求／書類の7タブ）",
+          "url": "/gpm/projects/:id (/:tab)",
+          "classification": "pc_only_questionable",
+          "note": "pcOnlyScreens.ts の CLIENT_PC_ONLY。理由は『工程表と体制図が横に伸びる画面です』の一文のみで、実測に基づく記述ではない。GpmProjectDetailPage.tsx / OverviewTab.tsx / PhaseRows.tsx / MembersTab.tsx / DetailHeader.tsx を実際に確認した。",
+          "gaps": [
+            "工程表（PhaseRows.tsx）は既にRow/RowSlot（hideOnMobile）で列を間引く実装になっており、『横に伸びる』という理由と実装が一致していない（他の一覧同様375pxでも崩れずに縮む作り）",
+            "体制タブ（MembersTab.tsx）はコメントで明示的に『スマホでは1列に積まれ、段の見出しがそのまま順序になります』と書かれており、実装済みのレスポンシブ挙動があるのにPC専用扱いのまま",
+            "案件管理の『顧客』『取引先マスター』が同種の未実測理由をM10で書き直した前例（実測したら表ですらなくカードだった）と同じパターンに見え、GPM側はまだ実測されていない",
+            "7タブの切替がPCと同じ横スクロールタブのままで、案件詳細（⑥）が持つ段階別モバイルタブ絞り込み（MOBILE_TABS_BY_PHASE）に相当する仕組みが無い"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "④ プロジェクト新規作成",
+          "url": "/gpm/projects/new",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.ts の CLIENT_PC_ONLY。GpmProjectFormPage.tsx / projectForm/OrgStep.tsx を確認。5段ウィザード＋体制（組織図）のその場入力。",
+          "gaps": [
+            "案件を直す（/sales/projects/:id/edit）が『入力欄が40以上あり、電話が入ると書きかけが残る』としてPC専用にした理由と同種で、体制（人を1人ずつ追加し保存後にまとめて登録）を含む多段フォームなのでPC専用の判断自体は妥当",
+            "とはいえ実測（375pxでの崩れ・タップ領域）は行われておらず、他の理由文のような具体的な数字の裏付けが無い",
+            "段の切替（overflow-x-auto の横スクロールチップ）や体制入力の3段カードがモバイル幅でどう振る舞うかは未検証"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "⑦ 標準工程テンプレート",
+          "url": "/gpm/templates",
+          "classification": "pc_only_questionable",
+          "note": "pcOnlyScreens.ts の CLIENT_PC_ONLY。GpmTemplateListPage.tsx を確認。",
+          "gaps": [
+            "理由『型を変えると以後すべてのプロジェクトに効きます』は /sales/flow-templates の理由文をそのまま流用しており、この画面固有の実測（375pxで崩れるか）が書かれていない",
+            "実装（TemplateCard）はflex-wrapのアコーディオンカードで、コード中のコメントに『shrink-0を付けない。4つの数字と2つのボタンを縮まない塊にすると375pxで44pxはみ出す（実測）』とあり、むしろ狭い幅を意識して調整済み＝モバイルでも大崩れしない可能性が高い",
+            "『設定・落ち着いて触る画面はPCのまま』という会社方針自体は妥当だが、実装が既に崩れない形になっている点で『まだ判断を書き直していないだけ』の疑いがある（顧客・取引先マスターがM10で書き直された前例と同型）"
+          ],
+          "effort": "small"
+        }
+      ]
+    },
+    {
+      "area": "日常業務 (client-daily) — v4 UI ネイティブ化監査",
+      "screens": [
+        {
+          "name": "ウィークリー活動報告",
+          "url": "/daily/weekly",
+          "classification": "responsive_only",
+          "note": "WeeklyDetailPage(master-detail)＋WeekRail/StatsSection/TopicsSection。カレンダーのような専用モバイル部品(MobileToday相当)は無く、共通トークン(Row/RowSlot/stackOnMobile)止まり。",
+          "gaps": [
+            "週選択(WeekRail)はPCと同じ<nav>をlg:w-[240px]の縦メニューからoverflow-x-autoの横スクロールに変えているだけで、専用の週ピッカーUIになっていない",
+            "トピックスの追加・編集フォームはRowの位置にインライン展開されるだけ(TopicsSection.tsx)で、ボトムシートやモーダルになっていない",
+            "自動集計(StatsSection)の案件行・イベント行はRow+RowSlotで列を縦積みするだけの表縮小で、カード積み等のiOSらしいパターンは無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "デイリーニュース報告",
+          "url": "/daily/news",
+          "classification": "responsive_only",
+          "note": "NewsRows.tsxはRow+RowSlot(hideOnMobile)の1本化で表とカードの二重実装は解消済みだが、モバイル専用レイアウトではなくPC表の列を落として畳んだ形。",
+          "gaps": [
+            "一覧行(NewsRow)はhideOnMobileでメモ・記入者列を落としRowSubに詰め込むだけで、専用のカードレイアウトは無い",
+            "編集フォーム(NewsForm)はRowの位置にそのまま展開されるインラインフォームで、ボトムシート化されていない",
+            "日付ナビはPCと同じ<input type=\"date\">+前後矢印ボタンの組み合わせのままで、モバイル専用の日付選択は無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "内覧会 開催日の一覧",
+          "url": "/daily/inview",
+          "classification": "responsive_only",
+          "note": "検索・絞り込みはshared/client-v4/mobileFilterBar.tsx(下から出るシート)を採用しており、日常業務の中では最もモバイル投資が厚い部類。ただし一覧本体(DayRow)はRow+hideOnMobileの表縮小のまま。",
+          "gaps": [
+            "検索・絞り込みはMobileFilterBar(ボトムシート)を使っており、iOSアプリらしいパターンを一部実装済み(他画面より効果は小さい追加投資で足りる)",
+            "開催日の行(DayRow)自体はRow/RowSlot(hideOnMobile)で組数・来場予定・受付の列を落とすだけで、カード型の専用レイアウトにはなっていない",
+            "検索結果(SearchHits)はカード(AttendeeCard)で出るが、通常時の日一覧はテーブル行のまま"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "内覧会 その日の受付",
+          "url": "/daily/inview/:date",
+          "classification": "responsive_only",
+          "note": "M9で390px→319pxまで実測して畳んだ回。MobileFilterBar(ボトムシート)＋AttendeeCard(PC/モバイル共通の常時カード表示、テーブル縮小ではない)で、日常業務内では最もiOSアプリに近い作り。それでも『承認済みモックに基づく専用レイアウト』ではなく計測駆動の最適化なのでnativeの基準には届かない。",
+          "gaps": [
+            "回ごとの見出し行(SessionBlock内のRow)はhideOnMobileで対象・組数・来場予定列を落とすだけの表縮小",
+            "受付/取消はボタンタップのみで、スワイプ操作などのネイティブ的操作は無い",
+            "会社別まとめ(CompanySummary)の表示切替はシート内のトグルボタンで、専用の表示コンポーネントではない"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "入ってきた情報（その他問い合わせ）",
+          "url": "/daily/inquiries",
+          "classification": "pc_only_justified",
+          "note": "pcOnlyScreens.tsのDAILY_PC_ONLYに登録済み(理由: 差出人・要件・希望日・人数・予算が横に並ぶ一覧で、仕分けて案件にするまでを続けて行う画面)。実装(InquiriesPage.tsx)を確認すると、5タブ(未仕分け/ストック/チケット/案件にした/見送り)切替＋FilterChips(出どころ・タグ)＋多列のRow/RowHeaderで、実際に複数の判断材料(重要度・出どころ・タグ・行き先の4アクション)を同時に見ながら連続で仕分ける設計になっており、理由は妥当と判断。行き先は/tasksへの案内(instead)も設定済み。",
+          "gaps": [
+            "現状PC専用のため、モバイルで開くと案内画面(PcOnlyPanel)に差し替わり、緊急の問い合わせを外出先で仕分ける手段が無い(ただし本文どおり列数が多く仕分け作業自体が縮小に向かない)",
+            "仮にモバイル対応するなら、5タブ+多列表をカード積み+ボトムシート絞り込みへ作り直す必要があり、内覧会当日受付と同程度の投資が要る"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "セキュリティカード",
+          "url": "/daily/security-cards",
+          "classification": "responsive_only",
+          "note": "SecurityCardsPage(master-detail)＋CardGrid(左)/CardDetailPanel(右)。flex-col→lg:flex-rowでモバイルは縦積みになるだけで、選択時に別画面/シートへ遷移するドリルダウンは無い。",
+          "gaps": [
+            "master-detailがモバイルではflex-colで単純に縦積みになるだけで、カードを選ぶと詳細が同じページ内で下に続くだけ(専用のドリルダウン遷移やシートは無い)",
+            "貸出/返却(LendDialog/ReturnDialog)はshadcn Dialog(中央モーダル、max-h-[90vh] overflow-y-auto)で、他画面(内覧会)で使われているMobileFilterBarのようなボトムシートパターンは採用していない",
+            "検索・絞り込み(状態チップ・範囲チップ・検索欄)はPCと同じ形でヘッダーに並ぶだけで、モバイル専用の畳んだUIは無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "タスク・依頼（やること）",
+          "url": "/daily/tasks",
+          "classification": "responsive_only",
+          "note": "docs/v4-progress.mdの日常業務✅一覧には載っていない(公式のv4対象6画面には含まれない)が、client-daily/src/pages/TasksPage.tsxとしてclient-daily配下に実在し、DAILY_MOBILE_OKにも登録され、トップページ『わたしのタスク』の行き先として日常的にモバイルで使われるため参考として確認した。見出しがtext-xl font-bold等の生Tailwindで、他のv4画面が使うPageHeader/TableBadge/Row等のv4トークンを使っておらず、v4改修パスをまだ通っていない古い実装に見える。",
+          "gaps": [
+            "編集・依頼作成のダイアログはshadcn Dialog(中央モーダル)で、ボトムシート化されていない",
+            "『9マス』ボード表示はモバイルで固定220px×3列をoverflow-x-autoで横スクロールさせる実装(グリッドを崩さないための計測コメント有り)で、PCのグリッドをそのまま横スクロールさせているだけ",
+            "見出し・タブ・カードの文字サイズ/色が他のv4画面が使うtext-h1/text-h2等のトークンではなく生のTailwindクラス(text-xl, text-sm等)のままで、v4の型スケールに追随していない"
+          ],
+          "effort": "large"
+        }
+      ]
+    },
+    {
+      "area": "機材管理（client-equipment/src/）— PC macOS風・スマホ iOS風ネイティブUI方針への到達度",
+      "screens": [
+        {
+          "name": "① ダッシュボード",
+          "url": "/equipment/",
+          "classification": "responsive_only",
+          "note": "pages/DashboardPage.tsx。KPIタイルは grid-cols-2 lg:grid-cols-4 の単純な折り返し、下の「返してもらう」「稼働停止中」リストは Row/RowMain + stackOnMobile の共通シェルをそのまま使っている。案件管理カレンダーのような専用モバイルレイアウト（下シート・当日アジェンダ等）は無い。",
+          "gaps": [
+            "リストは Row の stackOnMobile 任せで、PCの行を縦積みにしただけ（専用のカードデザインではない）",
+            "KPIタイルはPC・スマホ同じ形の角丸カードで、macOS/iOSアプリらしい差別化されたウィジェット表現が無い",
+            "遷移はすべて通常のページ遷移（下シートで完結する操作が無い）"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "② 機材台帳（機材／貸出機材／ケーブル／コネクタ）",
+          "url": "/equipment/items",
+          "classification": "responsive_only",
+          "note": "pages/EquipmentLedgerPage.tsx + pages/equipmentList/*。スマホ用に EquipmentCards.tsx（設置場所グルーピング・子機材の開閉・複数選択）という専用カード実装は存在し、PC表の単純な横スクロールではない点は評価できる。ただし client-equipment/CLAUDE.md 自身が「枠はv4・行の載せ替えは途中」と明記しており、docs/reviews/2026-08-20-mobile-optimization-audit.md の項目3で『カスタム列・その場編集・親子の入れ子がスマホで使えない』（PC版 EquipmentTable だけが持つ）と未着手扱いで記録されている。EquipmentDialog（機材の登録・編集）は Sheet ではなく中央固定の Dialog のまま。",
+          "gaps": [
+            "その場編集（表で直す）がスマホに無い。押しても何も起きないボタン扱いで ItemsToolbar から落としている状態",
+            "カスタム列がスマホでは読み取り専用（監査doc item3で明記された既知の未完了）",
+            "登録・編集は EquipmentDialog（shared/dialog.tsx の中央固定モーダル）のままで下シート化されていない。EquipmentDetailPage.tsx にも同じ密グリッドの重複実装がある"
+          ],
+          "effort": "large"
+        },
+        {
+          "name": "③ ラック図",
+          "url": "/equipment/racks",
+          "classification": "pc_only_justified",
+          "note": "pages/RackLayoutPage.tsx（1,269行）。1Uごとの升目に機材を配置する図で、pcOnlyScreens.ts の理由（『この幅だと1本ぶんの高さも入らない』）は実装を見ても妥当。マウスホバーでのツールチップ（handleItemHover）や前面/背面切替・印刷レイアウトなど、明確にデスクトップの作業ツール。",
+          "gaps": [
+            "現状は機能寄りのツール画面で、macOSアプリ風の余白・ツールバー的な意匠にはまだ寄せていない（RackList・RackUnitTableとも素朴なテーブル/リスト）",
+            "ホバーツールチップに依存する情報提示があり、タッチのみの環境（PCでもタッチ操作の場合）には弱い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "④ メンテナンス",
+          "url": "/equipment/maintenance",
+          "classification": "responsive_only",
+          "note": "pages/MaintenancePage.tsx。EQUIPMENT_MOBILE_OK に『現場で「壊れている」を登録する』用途で明示的に残されているが、実装は RowHeader/Row/RowSlot + stackOnMobile の共通表シェルのみで、機材台帳のような専用カードは無い。登録ダイアログ（MaintenanceDialog）も中央固定の Dialog のまま。",
+          "gaps": [
+            "PC表の列を hideOnMobile で間引いただけ（業者名・報告日がスマホで非表示になる）で、専用のモバイルレイアウトではない",
+            "記録を足すダイアログが下シートになっておらず、現場での片手操作を想定した作りではない",
+            "状態変更は Select（プルダウン）のままで、iOSアプリ的なアクションシート/スワイプ操作が無い"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑤ 棚卸し",
+          "url": "/equipment/inventory",
+          "classification": "native",
+          "note": "pages/InventoryPage.tsx（一覧）は Row ベースの通常リストだが、1回ぶんのチェックリスト（CheckDetail.tsx）はスマホでは MobileScanSession.tsx に自動的に切り替わる（useIsMobile による薄い親分岐）。これは docs/design/v4/mobile.md の承認済み端末枠⑨に基づく専用実装で、カメラ読み取り最優先のレイアウト・確認できた/見つからない/のこりのチップ絞り込み・offlineQueue.ts によるオフライン溜め込み送信・送信中バナーなど、PC表の縮小ではない本物のiOSアプリ的な現場フローになっている。",
+          "gaps": [
+            "一覧画面（InventoryPage.tsx）自体は棚卸し「回」を選ぶだけの素の Row リストで、詳細に入って初めてネイティブ品質になる（一覧との差が大きい）",
+            "棚卸しを作るダイアログ（新規作成）は中央固定 Dialog のままで下シートではない",
+            "終了・再オープンなどの操作はPC専用のままで、スマホ側はその旨のテキスト案内のみ（設計判断として妥当だが機能的には非対称）"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "⑥ QRスキャン",
+          "url": "/equipment/scan",
+          "classification": "responsive_only",
+          "note": "pages/ScanPage.tsx。カメラ起動→QR読取→詳細へ遷移、という単一カラムのカメラ中心フローで、PC表の縮小ではなくもともとモバイル利用を前提にした作りだが、PC・スマホで同一レイアウト（max-w-2xl の中央寄せ）を出しているだけで、iOSアプリらしい専用チロム（下タブ内シート起動・スワイプでの読み取り履歴操作等）は無い。読み取り履歴は共通 Row リストの流用。",
+          "gaps": [
+            "読み取り履歴が汎用 Row リストの再利用で、カード積み等の専用表現になっていない",
+            "PC版とスマホ版で画面構成に差が無く、macOS/iOSそれぞれに最適化した分岐がされていない（同じ1カラムをそのまま両方に出している）"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "⑦ 貸出・返却",
+          "url": "/equipment/lendings",
+          "classification": "responsive_only",
+          "note": "pages/LendingListPage.tsx。EQUIPMENT_MOBILE_OK で『現場で使う』と明示されているが、実装は RowHeader/Row/RowSlot + stackOnMobile のみで、機材台帳のような専用カードは持たない。貸出登録（LendingDialog）・返却（ReturnDialog）も中央固定 Dialog のまま。",
+          "gaps": [
+            "PC表の列を hideOnMobile で間引いただけ（持出日がスマホで非表示）で専用モバイルレイアウトが無い",
+            "貸出・返却のダイアログがどちらも下シート化されておらず、現場での片手操作向けの導線になっていない",
+            "状態の絞り込みはチップ表示で対応済みだが、それ以外はPC同型のまま"
+          ],
+          "effort": "medium"
+        },
+        {
+          "name": "⑧ 設定（保管場所／メーカー・色／貸出カテゴリ／貸出の決めごと）",
+          "url": "/equipment/settings",
+          "classification": "pc_only_justified",
+          "note": "pages/SettingsPage.tsx（4タブ統合）。pcOnlyScreens.ts で PC専用・スマホの左メニューからも hidden。月1回程度しか触らないマスタ設定という性質（拠点・メーカー・貸出ルール）で、PC専用の判断は妥当。",
+          "gaps": [
+            "PC向けのタブ切替（SubTabs）は標準的なshadcn風で、macOSアプリ的な余白やサイドバー的意匠にはまだ寄せていない"
+          ],
+          "effort": "small"
+        },
+        {
+          "name": "探す（スマホ下タブ3つ目）",
+          "url": "/equipment/search",
+          "classification": "responsive_only",
+          "note": "pages/SearchPage.tsx。M9でスマホの下タブ3枚目として新規作成された画面で、QRボタンを最上部に置く・機材/ケーブル/コネクタを横断検索するなどモバイル利用を前提に設計されているが、実装は検索欄＋汎用Row一覧のみで、iOSの検索アプリのような専用チロム（最近の検索・セクション見出しの強い意匠等）は持たない。PCでもそのまま同一レイアウトで表示される。",
+          "gaps": [
+            "結果一覧が汎用 Row/RowMain の流用で、カード積み等の専用表現になっていない",
+            "PC・スマホで全く同じ1カラムレイアウトを出しており、PC側をmacOSアプリ風に振った作り込みがされていない"
+          ],
+          "effort": "small"
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "native": 10,
+    "responsive_only": 21,
+    "pc_only_justified": 23,
+    "pc_only_questionable": 9
+  }
+}
