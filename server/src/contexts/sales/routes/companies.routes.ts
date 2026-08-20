@@ -107,6 +107,11 @@ router.get('/', requirePermission('sales'), async (req, res) => {
     where += ` AND (co.name ILIKE ? ESCAPE '\\' OR co.short_name ILIKE ? ESCAPE '\\' OR co.contact_name ILIKE ? ESCAPE '\\')`;
     params.push(`%${s}%`, `%${s}%`, `%${s}%`);
   }
+  // **役割の条件を足す前の状態を控えておく**（role_counts 用）。
+  // チップの件数は「役割以外の絞り込みだけ」を掛けて数えるので、
+  // ここより後ろで足す役割の条件を含めない
+  const baseWhere = where;
+  const baseParams = [...params];
   if (role === 'customer') { where += ' AND co.is_customer = TRUE'; }
   else if (role === 'vendor') {
     if (!canReadBudget) throw new AppError(403, 'FORBIDDEN', '仕入先情報を表示する権限がありません');
@@ -138,7 +143,33 @@ router.get('/', requirePermission('sales'), async (req, res) => {
     ? rows
     : rows.map((row: any) => ({ ...row, vendor_id: null }));
 
-  res.json(paginatedResponse(responseRows, total, page, limit));
+  // role_counts は v4 の一覧のチップに出す件数（役割以外の絞り込みだけを掛けたもの・
+  // 案件一覧の stage_counts と同じ考え方）。`where` から役割の条件を足す前の
+  // ベース（削除済み除外 + 検索）だけで数える
+  const countsRow = (await queryOne(
+    `SELECT
+       COUNT(*) as all_count,
+       COUNT(*) FILTER (WHERE co.is_customer) as customer_count,
+       COUNT(*) FILTER (WHERE co.is_vendor) as vendor_count,
+       COUNT(*) FILTER (WHERE co.is_sga_payee) as sga_payee_count,
+       COUNT(*) FILTER (WHERE co.is_customer AND co.is_vendor) as both_count,
+       COUNT(*) FILTER (WHERE NOT co.is_customer AND NOT co.is_vendor AND NOT co.is_sga_payee) as other_count
+     FROM companies co
+     ${baseWhere}`,
+    baseParams
+  )) as any;
+  // 仕入先を含む数は budget を読める人だけに返す（role=vendor/both が canReadBudget を
+  // 要求するのと同じ理由 ─ 数だけでも「仕入先が何件」という budget の情報が漏れる）
+  const roleCounts = {
+    all: Number(countsRow.all_count),
+    customer: Number(countsRow.customer_count),
+    vendor: canReadBudget ? Number(countsRow.vendor_count) : null,
+    sga_payee: Number(countsRow.sga_payee_count),
+    both: canReadBudget ? Number(countsRow.both_count) : null,
+    other: Number(countsRow.other_count),
+  };
+
+  res.json({ ...paginatedResponse(responseRows, total, page, limit), role_counts: roleCounts });
 });
 
 // ─── 詳細 ────────────────────────────────────────────────────────────────────
@@ -286,7 +317,18 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     is_gmo_group,
   } = req.body;
   const canEditBudget = await hasPermission(req, 'budget', 'editor');
-  if (!canEditBudget && (existing.is_vendor || is_vendor || vendor_type !== undefined || invoice_registration_number !== undefined)) {
+  /**
+   * ⚠️ **`vendor_type !== undefined` / `invoice_registration_number !== undefined`
+   * を条件から外した**（レビューで発見）。取引先マスターのフォーム
+   * （`CompanyFormFields.tsx`）は常に全項目を送る PUT なので、この2つは
+   * **仕入先でも無い会社を直すときも常に「入っている」**。つまり元のままだと
+   * `budget:editor` を持たない `sales:owner` は**このフォームからは
+   * 1件も保存できない**（顧客の電話番号を直すだけでも 403 になる）。
+   * 守りたいのは「仕入先の情報」なので、`existing.is_vendor`（いま仕入先）
+   * と `is_vendor`（これから仕入先にする）の2つで十分 — この2つが false なら
+   * `vendor_type`/`invoice_registration_number` を書いても仕入先の情報にはならない。
+   */
+  if (!canEditBudget && (existing.is_vendor || is_vendor)) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を更新する権限がありません');
   }
 

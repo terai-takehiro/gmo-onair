@@ -117,16 +117,19 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
   // ルート自体を消したので、実体の画面が無く、この表に載せる対象ではない
   /*
-    ⚠️ **この3枚の理由は書き直しました**（M10）。
+    ⚠️ **この2枚の理由は書き直しました**（M10）。
     元は「会社ごとに列が多く、この幅では1社ぶんも並びません」でしたが、
     **390px で開いて測ったら普通にカードで並びました**（表ですらなかった）。
     嘘の理由を出したままにはできないので、本当の理由に差し替えています。
 
-    本当の理由は「**v4 でまだ作り直していない**」— 見出しの下に
-    Excel の取込・出力・新規追加が縦に積まれ、指で押しにくい形のままです。
-    作り直したらスマホに開放します（ご判断「外で判断するものは開ける」）。
+    「お客様の詳細」は「**v4 でまだ作り直していない**」— 取引の履歴と担当者を
+    並べて読む形のままです。作り直したらスマホに開放します
+    （ご判断「外で判断するものは開ける」）。
+
+    **「取引先マスター」は v4 renewal でここから外し、`CLIENT_MOBILE_OK` へ移した。**
+    `Row stackOnMobile` ＋ `FilterChips`（横スクロール対応済み）で縦積みになり、
+    375px で崩れないことを確認済み（下の `CLIENT_MOBILE_OK` を参照）。
   */
-  { path: '/sales/companies', what: '取引先マスター', why: 'v4 でまだ作り直していない画面で、道具のボタンが縦に積まれていて指で押しにくい形です。' },
   // **`/sales/customers`（顧客の一覧）は Phase 2 で削除した** — `/sales/companies?role=customer`
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
@@ -204,6 +207,9 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
+  // v4 renewal で作り直した（`CompanyListPage.tsx`）。`Row stackOnMobile` ＋
+  // `FilterChips`（横スクロール対応）で縦積みになり、375px で崩れないことを確認済み
+  '/sales/companies',                   // 取引先マスター
   // **`/sales/activity-logs` はここから外した**（2026-08）。営業レビュー統合で
   // 画面全体を PC 専用に戻したため（`CLIENT_PC_ONLY` の同パスを参照）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）

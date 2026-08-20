@@ -72,6 +72,17 @@ const TREE = [
       '**まとめて直せるのは8項目**で1回に1項目、押す前に件数と「元に戻せません」を出す。' +
       '⚠️ **ステージは入れていない** — 履歴・失注理由・GLS 発番の確認を飛ばしてしまうため。' +
       '**PC 専用**（取り消せない一括更新を指で押させない）'],
+    ['取引先マスター', '/sales/companies',
+      'client/src/contexts/sales/pages/CompanyListPage.tsx', undefined,
+      '**v3 の置き土産だった最後の1画面**（「そのほか（作り直し前）」の棚卸しで唯一残っていたもの）。' +
+      '機能は変えず `PageHeader` / `Row`・`TableBadge` / `FilterChips` に載せ替え、' +
+      '左メニューは「設定」（料金表の下）へ移した。' +
+      '⚠️ **ついでに見つけた権限のバグを2つ直した**: ① `useCrudPage` が常に `onError` を' +
+      '渡していたため、呼び出し側が `onError` を渡さない画面（この画面ほか3画面）では' +
+      '保存・削除が失敗しても**画面のどこにも出ていなかった**。② サーバー側の PUT が' +
+      '`vendor_type`/`invoice_registration_number` の**キーが入っているか**を見ていたが、' +
+      'この画面のフォームは常に全項目を送るため、`budget:editor` を持たない `sales:owner` は' +
+      '**顧客の電話番号を直すだけでも 403** になっていた'],
   ]],
   ['財務管理', [
     ['ダッシュボード', '/budget/dashboard', 'client/src/contexts/finance/pages/BudgetDashboardPage.tsx'],
