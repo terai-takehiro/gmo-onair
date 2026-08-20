@@ -32,7 +32,12 @@ router.use(requireAuth);
 /** 値引きの上限（役割ごと）。役割の名前もいっしょに返す — 画面が引き直さずに済む */
 async function discountLimits() {
   return queryAll(
-    `SELECT l.role_id, r.name AS role_name, l.max_rate, l.max_amount,
+    // **`role_id` は `r.id` から取る（`l.role_id` ではない）。** 上限を1件も決めていない
+    // 役割は `role_discount_limits` に行が無く LEFT JOIN で `l.*` がまるごと NULL になる —
+    // `l.role_id` のままだと画面の「決めていない役割」の行がすべて role_id=null で返り、
+    // 編集フォームの開閉判定（`editing === l.role_id` が `null === null` で常に真になる）が
+    // 壊れ、保存を押すと `/money-rules/limits/null` を叩いていた（実装で発見・修正）
+    `SELECT r.id AS role_id, r.name AS role_name, l.max_rate, l.max_amount,
             l.approver_role_id, a.name AS approver_name, l.can_estimate
        FROM permission_roles r
        LEFT JOIN role_discount_limits l ON l.role_id = r.id
