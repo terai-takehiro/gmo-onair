@@ -50,7 +50,8 @@
     "release:notes": "node scripts/collect-changelog.mjs",
     "design:extract": "node scripts/extract-v4-design.mjs",
     "check:frozen": "node scripts/check-frozen-css.mjs",
-    "reviews:debt": "node scripts/review-debt.mjs"
+    "reviews:debt": "node scripts/review-debt.mjs",
+    "db:drift-sql": "node scripts/gen-db-drift-sql.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
