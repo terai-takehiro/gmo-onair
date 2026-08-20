@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CATALOG_KINDS, CONFIG_BY_SOURCE, EMPTY_FORM,
@@ -77,18 +77,30 @@ export function CatalogDialog({
   const set = <K extends keyof CatalogForm>(k: K, v: CatalogForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={title}
+      // 用途/設置場所・メーカー/型名・長さ/色/所有数 の複数の2〜3列グリッドを持つ複合フォームなので wide にする
+      wide
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => onSubmit(form)} disabled={!form.name.trim() || saving}>
+            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {mode.kind === 'edit' ? '直す' : '足す'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      {/* 保存できなかった理由は**上辺に固定**する。本文の末尾に置くと画面外で気づかれない */}
+      {error && (
+        <p className="mb-3 rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
+          {error}
+        </p>
+      )}
 
-        {/* 保存できなかった理由は**上辺に固定**する。本文の末尾に置くと画面外で気づかれない */}
-        {error && (
-          <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
-            {error}
-          </p>
-        )}
-
-        <div className="space-y-3">
+      <div className="space-y-3">
           {mode.kind === 'new' && (
             <div className="space-y-1">
               <Label>種別 *</Label>
@@ -214,16 +226,7 @@ export function CatalogDialog({
             <Label>備考</Label>
             <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button onClick={() => onSubmit(form)} disabled={!form.name.trim() || saving}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {mode.kind === 'edit' ? '直す' : '足す'}
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

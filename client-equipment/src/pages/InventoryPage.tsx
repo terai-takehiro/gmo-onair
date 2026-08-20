@@ -11,7 +11,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -143,40 +143,43 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>棚卸しを作る</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>名前 *</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="2026年8月度 棚卸し（用賀）"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>実施日</Label>
-              <Input type="date" value={form.check_date} onChange={(e) => setForm({ ...form, check_date: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>メモ</Label>
-              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </div>
-            <p className="text-note text-muted-foreground">
-              作った時点の機材台帳からチェックリストを作ります。あとから登録された機材は、
-              チェックリストの画面から取り込めます。
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>やめる</Button>
-              <Button onClick={() => create.mutate(form)} disabled={!form.title || create.isPending}>
-                {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-                作る
-              </Button>
-            </div>
+      <FormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="棚卸しを作る"
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>やめる</Button>
+            <Button onClick={() => create.mutate(form)} disabled={!form.title || create.isPending}>
+              {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              作る
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>名前 *</Label>
+            <Input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="2026年8月度 棚卸し（用賀）"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>実施日</Label>
+            <Input type="date" value={form.check_date} onChange={(e) => setForm({ ...form, check_date: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label>メモ</Label>
+            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </div>
+          <p className="text-note text-muted-foreground">
+            作った時点の機材台帳からチェックリストを作ります。あとから登録された機材は、
+            チェックリストの画面から取り込めます。
+          </p>
+        </div>
+      </FormDialog>
     </div>
   );
 }
