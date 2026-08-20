@@ -6,4 +6,8 @@
 繰り返しクラッシュしたため、**「スマホ画面」と「PC専用画面」の2つのキャンバスに分離**
 した。⚠️ ユーザーから「PC専用画面もスマホ対応していく」という方針転換の意向が
 示された（実装ポリシー `pcOnlyScreens.ts` 自体はまだ変更していない・意向の記録のみ）。
-詳細は [`docs/design/v4/ios-native-mobile-mockups.md`](../docs/design/v4/ios-native-mobile-mockups.md)。
+続けて、方針転換を受けた初期案として「見積・請求」のスマホ版試作
+（BillingMobile・表をやめてカード化し、金額の桁の読み違えを防ぐ構成）も
+「スマホ画面」キャンバスに追加した（実画面の再現ではなく確認前の叩き台であることを
+明記済み）。詳細は
+[`docs/design/v4/ios-native-mobile-mockups.md`](../docs/design/v4/ios-native-mobile-mockups.md)。
