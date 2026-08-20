@@ -169,9 +169,9 @@ export default function CustomerDetailPage() {
         {/* ヘッダー: 顧客名 + 連絡先 + 取引実績サマリー */}
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="flex flex-wrap items-start gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Building2 className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
-              <h1 className="text-xl font-bold text-foreground">{String(c.name)}</h1>
+              <h1 className="break-words text-xl font-bold text-foreground">{String(c.name)}</h1>
             </div>
             {!!c.is_ai_created && (
               <span
@@ -190,15 +190,15 @@ export default function CustomerDetailPage() {
           </div>
 
           {/* 連絡先 */}
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {c.contact_name ? <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" />{String(c.contact_name)}</span> : null}
-            {c.email ? <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{String(c.email)}</span> : null}
-            {c.phone ? <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{String(c.phone)}</span> : null}
-            {c.address ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{String(c.address)}</span> : null}
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 break-words text-sm text-muted-foreground">
+            {c.contact_name ? <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5 shrink-0" />{String(c.contact_name)}</span> : null}
+            {c.email ? <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5 shrink-0" />{String(c.email)}</span> : null}
+            {c.phone ? <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5 shrink-0" />{String(c.phone)}</span> : null}
+            {c.address ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 shrink-0" />{String(c.address)}</span> : null}
           </div>
 
-          {/* 取引実績サマリー */}
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {/* 取引実績サマリー: 375px では1列、640px以上で2列、1024px以上(PC)で今までどおり4列 */}
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryTile label="累計売上 (確定)" value={formatCurrency(Number(s.confirmed_revenue))} icon={<TrendingUp className="h-4 w-4" />} />
             <SummaryTile label="案件数" value={`${s.project_active} / ${s.project_total}`} sub="進行中 / 全体" icon={<FolderKanban className="h-4 w-4" />} />
             <SummaryTile
@@ -220,7 +220,7 @@ export default function CustomerDetailPage() {
         {/* 統合タイムライン (インライン追記) */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base">
               <History className="h-4 w-4 text-primary" aria-hidden="true" />
               やり取りの履歴
               {data.timeline.length > 0 && (
@@ -228,7 +228,7 @@ export default function CustomerDetailPage() {
               )}
               <Button
                 size="sm"
-                className="ml-auto h-8 gap-1 text-xs"
+                className="ml-auto w-full gap-1 text-xs sm:w-auto"
                 onClick={() => setShowForm((v) => !v)}
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -360,20 +360,20 @@ export default function CustomerDetailPage() {
                             {a.next_action_date ? `（期限 ${String(a.next_action_date)}${naOverdue ? " · 超過" : ""}）` : ""}
                           </span>
                           {!a.next_action_done_at && (
-                            <div className="flex items-center gap-1">
-                              <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]"
+                            <div className="flex flex-wrap items-center gap-1">
+                              <Button size="sm" variant="outline" className="px-2 text-xs"
                                 disabled={actionMutation.isPending}
                                 onClick={() => actionMutation.mutate({ id: String(a.id), action: "complete" })}>
                                 <Check className="h-3 w-3" aria-hidden="true" />完了
                               </Button>
                               {postponeFor === String(a.id) ? (
                                 <>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setPostponeFor(null)}>×</Button>
+                                  <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
+                                  <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
+                                  <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => setPostponeFor(null)}>×</Button>
                                 </>
                               ) : (
-                                <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setPostponeFor(String(a.id))}>延期</Button>
+                                <Button size="sm" variant="outline" className="px-2 text-xs" onClick={() => setPostponeFor(String(a.id))}>延期</Button>
                               )}
                             </div>
                           )}

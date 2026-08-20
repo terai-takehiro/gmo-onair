@@ -15,7 +15,10 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { MembersCard } from './projectGroup/MembersCard';
@@ -37,6 +40,28 @@ export default function ProjectGroupDetailPage() {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [purchaseEditing, setPurchaseEditing] = useState<GroupPurchase | 'new' | null>(null);
   const [revenueEditing, setRevenueEditing] = useState<GroupRevenue | 'new' | null>(null);
+
+  /**
+   * 「分け方」編集（`AllocationEditor.tsx`）だけは PC のまま (a) を選んだ。
+   * 複数案件の金額をその場で比べながら入力する作業で、この画面のPC専用理由
+   * そのもの（全体を見ながら決める必要がある）がここにそのまま残るため。
+   * 所属案件・グループ売上・グループ仕入の**閲覧**（下の3つのセクション本体）と
+   * 削除（比較を伴わない単純な操作）はスマホでも開放する — 止めるのは
+   * 追加・編集ダイアログ（内側に `AllocationEditor` を持つ）を開く操作だけ。
+   * ボタン自体は隠さず、押すと PC 案内を出して「それでもこのまま開く」を選べるようにする
+   * （`docs/design/v4/mobile.md` の「先に理由を読ませてから本人に選ばせる」と同じ形）
+   */
+  const isMobile = useIsMobile();
+  const [purchasePcOnly, setPurchasePcOnly] = useState<GroupPurchase | 'new' | null>(null);
+  const [revenuePcOnly, setRevenuePcOnly] = useState<GroupRevenue | 'new' | null>(null);
+  const openPurchaseEditor = (target: GroupPurchase | 'new') => {
+    if (isMobile) { setPurchasePcOnly(target); return; }
+    setPurchaseEditing(target);
+  };
+  const openRevenueEditor = (target: GroupRevenue | 'new') => {
+    if (isMobile) { setRevenuePcOnly(target); return; }
+    setRevenueEditing(target);
+  };
 
   const query = useQuery<{ data: GroupDetail }>({
     queryKey: ['project-group-detail', id],
@@ -124,8 +149,8 @@ export default function ProjectGroupDetailPage() {
             revenues={detail.revenues}
             canEdit={canEdit && detail.members.length > 0}
             canDelete={canDelete}
-            onAdd={() => setRevenueEditing('new')}
-            onEdit={setRevenueEditing}
+            onAdd={() => openRevenueEditor('new')}
+            onEdit={openRevenueEditor}
             onDelete={(revId) => deleteRevenueMutation.mutate(revId)}
           />
 
@@ -133,8 +158,8 @@ export default function ProjectGroupDetailPage() {
             purchases={detail.purchases}
             canEdit={canEdit && detail.members.length > 0}
             canDelete={canDelete}
-            onAdd={() => setPurchaseEditing('new')}
-            onEdit={setPurchaseEditing}
+            onAdd={() => openPurchaseEditor('new')}
+            onEdit={openPurchaseEditor}
             onDelete={(puId) => deletePurchaseMutation.mutate(puId)}
           />
 
@@ -179,6 +204,30 @@ export default function ProjectGroupDetailPage() {
               editing={revenueEditing === 'new' ? null : revenueEditing}
               onClose={() => setRevenueEditing(null)}
             />
+          )}
+          {purchasePcOnly && (
+            <Dialog open onOpenChange={(o) => { if (!o) setPurchasePcOnly(null); }}>
+              <DialogContent className="max-w-md">
+                <PcOnlyPanel
+                  inset
+                  what="グループ仕入の登録・編集"
+                  why="複数の案件へ分ける金額を、案件ごとにその場で比べながら入力する画面です。"
+                  onOpenAnyway={() => { setPurchaseEditing(purchasePcOnly); setPurchasePcOnly(null); }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+          {revenuePcOnly && (
+            <Dialog open onOpenChange={(o) => { if (!o) setRevenuePcOnly(null); }}>
+              <DialogContent className="max-w-md">
+                <PcOnlyPanel
+                  inset
+                  what="グループ売上の登録・編集"
+                  why="複数の案件へ分ける金額を、案件ごとにその場で比べながら入力する画面です。"
+                  onOpenAnyway={() => { setRevenueEditing(revenuePcOnly); setRevenuePcOnly(null); }}
+                />
+              </DialogContent>
+            </Dialog>
           )}
         </>
       )}

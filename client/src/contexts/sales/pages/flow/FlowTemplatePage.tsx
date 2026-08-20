@@ -31,9 +31,12 @@ import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { CLASSIFICATION_COMBOS } from '@/contexts/sales/classification';
 import { FlowTaskRow } from './FlowTaskRow';
+import { MobileTemplateRail } from './MobileTemplateRail';
 import type { FlowTemplate } from './flowTypes';
 
 export default function FlowTemplatePage() {
@@ -41,6 +44,10 @@ export default function FlowTemplatePage() {
   const { currentUser, permissions } = useAuth();
   const canEdit = currentUser?.role === 'system_admin'
     || ['manager', 'owner'].includes(permissions?.sales ?? '');
+  const isMobile = useIsMobile();
+  // 型を変えると以後すべての案件に効くので、編集操作はPCだけに残す
+  // （閲覧はスマホでも開放する。`docs/v4-plan.md` のスマホ対応方針）
+  const canEditHere = canEdit && !isMobile;
 
   const [picked, setPicked] = useState<string | null>(null);
   const [dupName, setDupName] = useState('');
@@ -94,48 +101,57 @@ export default function FlowTemplatePage() {
       <PageHeader
         title="標準工程テンプレート"
         sub="案件詳細の工程を、自社の運用に合わせて決めます。案件をつくるときに一覧を見せて、要らないものを外してから入れます。"
-        primaryAction={canEdit && tpl ? (
+        primaryAction={canEditHere && tpl ? (
           <Button variant="outline" onClick={() => { setDupName(`${tpl.name}（複製）`); setDupOpen(true); }}>
             <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />複製する
           </Button>
         ) : undefined}
       />
 
-      {!canEdit && (
+      {!canEdit ? (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
           直せるのは<strong className="font-bold">案件管理の管理者</strong>だけです。
           型を変えると<strong className="font-bold">以後すべての案件に効く</strong>ので、1件を直すより強い権限にしてあります。
         </p>
+      ) : isMobile && (
+        <PcOnlyNote
+          what="工程の型の編集"
+          why="追加・削除・並べ替え・複製・分類チップの変更はここでは行えません。読むことはスマホでもできます。"
+        />
       )}
 
       <div className="flex flex-col gap-3.5 lg:flex-row lg:items-start">
-        {/* 型のレール */}
-        <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
-          <p className="text-th border-b border-border-faint px-3.5 py-2.5 text-muted-foreground">工程の型</p>
-          {q.data.map((t) => {
-            const n = t.phases.reduce((s, p) => s + p.tasks.length, 0);
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setPicked(t.id)}
-                className={cn(
-                  'min-h-tap flex w-full items-center gap-2.5 border-b border-border-faint px-3.5 py-2.5 text-left last:border-b-0',
-                  tpl?.id === t.id ? 'bg-primary-surface-weak' : 'bg-card',
-                )}
-              >
-                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', tpl?.id === t.id ? 'bg-primary' : 'bg-border')} />
-                <span className="min-w-0 flex-1">
-                  <span className={cn('text-list block truncate', tpl?.id === t.id && 'text-primary')}>{t.name}</span>
-                  <span className="text-note block text-muted-foreground">
-                    {n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}
+        {/* 型のレール。PC は縦の一覧、スマホは <select> に畳む（M8 と同じ考え方） */}
+        {isMobile ? (
+          <MobileTemplateRail templates={q.data} selectedId={tpl?.id ?? null} onSelect={setPicked} />
+        ) : (
+          <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
+            <p className="text-th border-b border-border-faint px-3.5 py-2.5 text-muted-foreground">工程の型</p>
+            {q.data.map((t) => {
+              const n = t.phases.reduce((s, p) => s + p.tasks.length, 0);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setPicked(t.id)}
+                  className={cn(
+                    'min-h-tap flex w-full items-center gap-2.5 border-b border-border-faint px-3.5 py-2.5 text-left last:border-b-0',
+                    tpl?.id === t.id ? 'bg-primary-surface-weak' : 'bg-card',
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', tpl?.id === t.id ? 'bg-primary' : 'bg-border')} />
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('text-list block truncate', tpl?.id === t.id && 'text-primary')}>{t.name}</span>
+                    <span className="text-note block text-muted-foreground">
+                      {n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}
+                    </span>
                   </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-3.5">
           {!tpl ? (
@@ -153,7 +169,7 @@ export default function FlowTemplatePage() {
                       {tpl.phases.length} 段 ・ {total} 工程（うち外せないもの {required}）
                     </span>
                   </span>
-                  {canEdit && !tpl.is_system && (
+                  {canEditHere && !tpl.is_system && (
                     <Button
                       variant="outline" size="sm" className="text-destructive"
                       onClick={() => confirmAction({
@@ -184,14 +200,14 @@ export default function FlowTemplatePage() {
                         <button
                           key={combo.key}
                           type="button"
-                          disabled={!canEdit}
+                          disabled={!canEditHere}
                           onClick={() => setTypes.mutate(
                             on ? tpl.project_types.filter((x) => x !== combo.key) : [...tpl.project_types, combo.key],
                           )}
                           className={cn(
                             'text-note min-h-tap rounded-note border px-2.5 font-bold lg:min-h-[32px]',
                             on ? 'border-transparent bg-primary-surface text-primary' : 'border-border bg-card text-muted-foreground',
-                            !canEdit && 'opacity-60',
+                            !canEditHere && 'opacity-60',
                           )}
                         >
                           {combo.label}
@@ -218,8 +234,8 @@ export default function FlowTemplatePage() {
                     <span className="text-cardtitle shrink-0">{ph.name}</span>
                     <span className="text-note min-w-0 flex-1 text-muted-foreground">{ph.tasks.length} 工程</span>
                   </div>
-                  {ph.tasks.map((k) => <FlowTaskRow key={k.id} task={k} canEdit={canEdit} />)}
-                  {canEdit && (
+                  {ph.tasks.map((k) => <FlowTaskRow key={k.id} task={k} canEdit={canEditHere} />)}
+                  {canEditHere && (
                     <form
                       className="flex items-center gap-2 bg-surface-subtle px-4 py-2.5"
                       onSubmit={(e) => {

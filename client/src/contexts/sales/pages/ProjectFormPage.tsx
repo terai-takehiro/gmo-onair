@@ -64,16 +64,14 @@ import {
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { formatRelativeTime } from '@/lib/format';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
-import StudioBookingDialog from '@/contexts/production/components/studio/StudioBookingDialog';
 import { ProjectStageLabels } from '@/types';
 import { glsGuideText } from './projectDetail/glsGuide';
-import SimulationDialog from '../components/SimulationDialog';
-import CustomerDialog from '../components/CustomerDialog';
 import { moreFieldCount } from './projectNew/fields';
 import { RequiredFields } from './projectNew/RequiredFields';
 import { MoreFields } from './projectNew/MoreFields';
@@ -85,9 +83,8 @@ import { hasEventBooking } from './projectForm/eventBookings';
 import { BroadcastSection } from './projectForm/BroadcastSection';
 import { BoxSection } from './projectForm/BoxSection';
 import { DocsSection } from './projectForm/DocsSection';
-import { GlsDialog, GlsResultDialog } from './projectForm/dialogs/GlsDialog';
-import { RelinkDialog } from './projectForm/dialogs/RelinkDialog';
-import { CategorySwitchDialog } from './projectForm/dialogs/CategorySwitchDialog';
+import { FormDialogs } from './projectForm/FormDialogs';
+import { MobileEditProject } from './projectForm/MobileEditProject';
 import type { ProjectBooking } from './projectForm/types';
 
 export default function ProjectFormPage() {
@@ -109,6 +106,11 @@ export default function ProjectFormPage() {
    * 畳んでおくと「入れたはずのものが無い」と読まれます。
    */
   const [more, setMore] = useState(true);
+  // **スマホは丸ごと入れ替える**（`MobileEditProject.tsx`）。判定は1回だけ呼び、
+  // 部品の中で早期 return しない — 幅が変わった瞬間にフック数が変わって React が落ちる
+  const isMobile = useIsMobile();
+  const handleAddBooking = () => { setEditingBooking(null); setBookingDialogOpen(true); };
+  const handleEditBooking = (b: ProjectBooking) => { setEditingBooking(b); setBookingDialogOpen(true); };
 
   if (f.isLoading) {
     return <div className="p-4 lg:p-6"><Delayed><SkeletonRows rows={6} /></Delayed></div>;
@@ -195,6 +197,34 @@ export default function ProjectFormPage() {
       )}
     </>
   );
+
+  // ダイアログ群は `FormDialogs.tsx` に切り出してあり、PC/スマホ両分岐から同じものを呼ぶ
+  const formDialogs = (
+    <FormDialogs
+      f={f} form={form} navigate={navigate} id={id} isEdit={isEdit} project={project} actions={actions}
+      bookingDialogOpen={bookingDialogOpen} setBookingDialogOpen={setBookingDialogOpen}
+      editingBooking={editingBooking} setEditingBooking={setEditingBooking}
+    />
+  );
+
+  // **スマホは部品ごと入れ替える**（`MobileEditProject.tsx`）
+  if (isMobile) {
+    return (
+      <>
+        <MobileEditProject
+          f={f}
+          id={id}
+          backTo={backTo}
+          canDelete={canDelete}
+          amountExtra={amountExtra}
+          openCalendar={isEdit && f.isCategoryA ? openCalendar : undefined}
+          onAddBooking={handleAddBooking}
+          onEditBooking={handleEditBooking}
+        />
+        {formDialogs}
+      </>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-3 lg:space-y-5 lg:p-6">
@@ -344,8 +374,8 @@ export default function ProjectFormPage() {
         {isEdit && (
           <BookingListSection
             bookings={actions.bookings}
-            onAdd={() => { setEditingBooking(null); setBookingDialogOpen(true); }}
-            onEdit={(b) => { setEditingBooking(b); setBookingDialogOpen(true); }}
+            onAdd={handleAddBooking}
+            onEdit={handleEditBooking}
             onDelete={actions.deleteBooking}
           />
         )}
@@ -380,74 +410,7 @@ export default function ProjectFormPage() {
         </div>
       </form>
 
-      <CustomerDialog
-        open={f.customerDialogOpen}
-        onOpenChange={f.setCustomerDialogOpen}
-        onCreated={(customer) => form.setValue('customer_id', customer.id)}
-      />
-
-      <SimulationDialog
-        open={f.simOpen}
-        onOpenChange={(o) => f.setSimOpen(o)}
-        projectId={isEdit ? id : undefined}
-        onApply={(total) => form.setValue('expected_amount', total, { shouldDirty: true })}
-      />
-
-      <GlsDialog
-        state={actions.glsDialog}
-        setState={actions.setGlsDialog}
-        projectName={project?.name || ''}
-        isCategoryA={f.isCategoryA}
-        canIssueNew={f.canIssueNewGls}
-        glsProjects={actions.glsProjects}
-        busy={actions.glsMutation.isPending || actions.linkGlsMutation.isPending}
-        onConfirm={actions.handleGlsConfirm}
-      />
-
-      {actions.glsResult?.open && (
-        <GlsResultDialog
-          glsNumber={actions.glsResult.glsNumber}
-          projectName={project?.name || ''}
-          onClose={() => actions.setGlsResult(null)}
-          onOpenBilling={() => {
-            actions.setGlsResult(null);
-            navigate(`/sales/projects/${id}/episodes`);
-          }}
-        />
-      )}
-
-      <RelinkDialog
-        state={actions.relinkDialog}
-        setState={actions.setRelinkDialog}
-        projectId={id}
-        currentGls={project?.gls_number}
-        glsProjects={actions.glsProjects}
-        busy={actions.relinkMutation.isPending}
-        onConfirm={actions.handleRelinkConfirm}
-      />
-
-      <CategorySwitchDialog
-        state={actions.categorySwitchDialog}
-        setState={actions.setCategorySwitchDialog}
-        currentCategory={f.glsCategory}
-        currentGls={project?.gls_number}
-        busy={actions.categorySwitchMutation.isPending}
-        onConfirm={(target) => actions.categorySwitchMutation.mutate(target)}
-      />
-
-      {isEdit && id && (
-        <StudioBookingDialog
-          open={bookingDialogOpen}
-          onOpenChange={(v) => {
-            setBookingDialogOpen(v);
-            if (!v) setEditingBooking(null);
-          }}
-          locations={f.studioLocations as never}
-          editingBooking={editingBooking}
-          presetDate={null}
-          presetProjectId={id}
-        />
-      )}
+      {formDialogs}
     </div>
   );
 }

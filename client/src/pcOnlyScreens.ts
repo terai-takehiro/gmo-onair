@@ -32,110 +32,29 @@
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
-const TASKS = { label: 'やることを開く', to: '/sales/tasks/list' };
-const PROJECTS = { label: '案件一覧を開く', to: '/sales/projects' };
-
 export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── 案件管理 ──────────────────────────────────────────────
-  {
-    path: '/sales/tasks/gantt',
-    what: 'ガントチャート',
-    why: '横に長い時間軸なので、この幅では1週間ぶんも入りません。',
-    instead: TASKS,
-  },
-  {
-    path: '/sales/billing',
-    what: '見積・請求（全案件）',
-    why: '金額・期日・状態が横に並ぶ表で、桁を読み違えると請求を間違えます。',
-    instead: PROJECTS,
-  },
-  /*
-    ⚠️ **`/sales/projects/:id` より前に置くこと**（この表は先に一致したものが勝つ）。
-    台帳は 20 列を出し入れして、選んだ行をまとめて書き換える画面です。
-    375px では列が読めないうえ、**取り消せない一括更新を指で押すことになります**。
-    行き先は案件一覧 — そちらはスマホ対応済みなので、外で見る道は残ります。
-  */
-  {
-    path: '/sales/projects/ledger',
-    what: '案件台帳',
-    why: '列が 20 あり、選んだ案件をまとめて書き換える画面です。この幅では列が読めず、戻せない操作を指で押すことになります。',
-    instead: PROJECTS,
-  },
-  {
-    path: '/sales/projects/:id/edit',
-    what: '案件を直す',
-    why: '入力欄が 40 以上あり、途中で電話が入ると書きかけが残ります。',
-    instead: PROJECTS,
-  },
-  {
-    path: '/sales/flow-templates',
-    what: '標準工程テンプレート',
-    why: '型を変えると以後すべての案件に効くので、落ち着いて触る画面です。',
-  },
-  {
-    path: '/sales/pricing',
-    what: '料金表',
-    why: '相手ごとの単価が横に並ぶ表で、1桁違うと見積の金額が変わります。',
-  },
-  {
-    path: '/sales/project-groups',
-    what: 'グループ（費用の分け合い）',
-    why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
-    hidden: true,
-  },
-  // v4で作り直したが、任意比率の按分（案件ごとの金額をその場で比べながら入力する）は
-  // 変わらずPC向きなので、詳細URLもここに残す
-  {
-    path: '/sales/project-groups/:id',
-    what: 'グループ詳細（費用の分け合い）',
-    why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
-    instead: { label: 'グループ一覧を開く', to: '/sales/project-groups' },
-    hidden: true,
-  },
+  //
+  // ⚠️ **2026-08、この節の13画面（下の財務3画面も含む）をまとめてスマホに開放した**
+  // （ユーザーの明示指示「一旦ここまでを実装しましょう」）。ガントチャート・見積・請求・
+  // 案件台帳・案件を直す・標準工程テンプレート・料金表・費用を分け合うグループ（一覧・
+  // 詳細）・営業活動記録・お客様の詳細・財務の売上/仕入/販管費台帳が対象。判定ロジック・
+  // 文言・並びは変えず、見た目とレイアウトだけ変えている。移した先は下の
+  // `CLIENT_MOBILE_OK`（対応内容のコメント付き）。「お客様」「お金」「ガント」「3列レビュー」
+  // という上のコメントの分類は**方針転換前の記録として**残しているが、実際の判定は
+  // この表と`CLIENT_MOBILE_OK`の現在の中身が正
+  //
   // **`/sales/gls-import`（旧GLS決算取込）は削除した**（決算取込自体は終わっており、
   // まとめて直す機能は案件台帳が上位互換なため）。`/sales/projects/ledger` への
   // 転送にしたので、実体の画面が無く、この表に載せる対象ではない
   // **旧 `/sales/review`（営業レビュー）は `/sales/activity-logs` のタブへ統合した**
   // （ご指示・2026-08）。ルート自体が `RedirectKeepQuery` になり実体の画面が無いので、
   // この表に載せる対象ではない（他の転送と同じ扱い）
-  /*
-    ⚠️ **この段落は当時の記録。** 前は「営業活動記録は v4 で作り直したので
-    `CLIENT_MOBILE_OK` へ外した」だったが、統合先の分析3タブ（旧営業レビュー）が
-    「3列を並べて打合せの場で映す」前提の PC 専用画面だったため、**統合にあわせて
-    画面全体を PC 専用に戻した**（ご指示）。タブごとにスマホ対応が割れると
-    `useIsMobile()` の判定を画面の中に書くことになり、PC専用の判定を1か所
-    （この表）に集める方針が崩れる。`ActivityMobileFilters` 等のスマホ用部品は
-    「それでもこのまま開く」（`PcOnlyPanel` の `onOpenAnyway`）を選んだ人のために
-    残してある
-  */
-  {
-    path: '/sales/activity-logs',
-    what: '営業活動記録・営業レビュー',
-    why: '記録タブに加えて、3列を並べて打合せの場で映すための分析タブ（ファネル・失注分析・営業評価）を同じ画面に統合しています。',
-    instead: PROJECTS,
-  },
   // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
   // ルート自体を消したので、実体の画面が無く、この表に載せる対象ではない
-  /*
-    ⚠️ **この2枚の理由は書き直しました**（M10）。
-    元は「会社ごとに列が多く、この幅では1社ぶんも並びません」でしたが、
-    **390px で開いて測ったら普通にカードで並びました**（表ですらなかった）。
-    嘘の理由を出したままにはできないので、本当の理由に差し替えています。
-
-    「お客様の詳細」は「**v4 でまだ作り直していない**」— 取引の履歴と担当者を
-    並べて読む形のままです。作り直したらスマホに開放します
-    （ご判断「外で判断するものは開ける」）。
-
-    **「取引先マスター」は v4 renewal でここから外し、`CLIENT_MOBILE_OK` へ移した。**
-    `Row stackOnMobile` ＋ `FilterChips`（横スクロール対応済み）で縦積みになり、
-    375px で崩れないことを確認済み（下の `CLIENT_MOBILE_OK` を参照）。
-  */
   // **`/sales/customers`（顧客の一覧）は Phase 2 で削除した** — `/sales/companies?role=customer`
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
-  { path: '/sales/customers/:id', what: 'お客様の詳細', why: 'v4 でまだ作り直していない画面です。取引の履歴と担当者を並べて読む形になっています。' },
-  // **営業活動記録**（`/sales/activity-logs`）は、この表の「案件管理」節にあります
-  // （営業レビュー統合で PC 専用に戻したため。⚠️ の記録を参照）
   // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
   // 案件一覧・案件詳細のほうが記録単位で上位互換なため）。実体の画面が無いので
   // この表に載せる対象ではない
@@ -145,9 +64,6 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── 財務管理（モックの「お金は置かない」）─────────────────
   //   **`/budget/billing` は入れない** — ⑫ 入金の確認がスマホ用にある
   { path: '/budget/dashboard', what: '財務ダッシュボード', why: '売上から営業利益までの引き算を1枚で見る画面です。畳むと引き算の関係が読めません。' },
-  { path: '/budget/revenues', what: '売上の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
-  { path: '/budget/purchases', what: '仕入の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
-  { path: '/budget/sga', what: '販管費の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
   // **`/budget/detail`（案件月別詳細）は削除した**（v3時代の遺物の棚卸し・2026-08）。
@@ -206,14 +122,11 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/projects/new',                // ④ MobileNewProject
   '/sales/projects/:id',                // ⑥ 概要・タスク・当日の3タブ
   '/sales/projects/:id/:tab',           // 同上（PC 向きのタブは画面の中で案内を出す）
-  '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
   // v4 renewal で作り直した（`CompanyListPage.tsx`）。`Row stackOnMobile` ＋
   // `FilterChips`（横スクロール対応）で縦積みになり、375px で崩れないことを確認済み
   '/sales/companies',                   // 取引先マスター
-  // **`/sales/activity-logs` はここから外した**（2026-08）。営業レビュー統合で
-  // 画面全体を PC 専用に戻したため（`CLIENT_PC_ONLY` の同パスを参照）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*
     ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──
@@ -228,4 +141,54 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
   '/settings',                          // 案内板
   '/settings/system',                   // パスワード変更
+
+  /*
+    ── ここから下は2026-08、「PC専用画面もスマホ対応していく」という方針転換を受けて
+    まとめて開放した13画面（ユーザーの明示指示「一旦ここまでを実装しましょう」）。
+    判定ロジック・文言・並びは変えていない。
+  */
+  // ④ タスク一覧の内蔵タブ。gantt を含む全ビューをスマホで開放した
+  // （`MobileTaskGantt.tsx` を新設。既存の `DashboardGanttView.tsx` 内の
+  // `MobileGanttView` を実際に到達させ、その過程で見つかった不具合〔案件行の
+  // はみ出し・期限の色分けの日付境界バグ〕も直した）
+  '/sales/tasks/:view',
+  // ⑤ 見積・請求（全案件）。`EstimateRows.tsx`/`InvoiceRows.tsx` はすでに
+  // `Row stackOnMobile` で組まれており、実ブラウザ確認で375/414pxとも崩れなし
+  '/sales/billing',
+  // 案件台帳。既定表示9列を読み取り専用カードで開放（`MobileLedgerCards.tsx`
+  // 新設）。列の出し入れ・チェックボックス選択・一括編集（戻せない操作）は
+  // 引き続きPCのみ（画面内の `useIsMobile()` 判定で編集モード自体に入れない）
+  '/sales/projects/ledger',
+  // 案件を直す。`MobileEditProject.tsx` 新設。案件作成と同じ
+  // `RequiredFields`/`MoreFields`（`mode="edit"`）をアコーディオンで開閉する形にした。
+  // GLS操作・削除はシートに畳んだ。送信ロジックはPCと完全共通
+  '/sales/projects/:id/edit',
+  // 標準工程テンプレート。閲覧（`MobileTemplateRail.tsx`のセレクトでテンプレ切替
+  // ＋各工程の閲覧）は開放。工程の追加・削除・並べ替え・複製は
+  // `PcOnlyNote`（画面の一部だけPC限定にする帯）でPCへ誘導
+  '/sales/flow-templates',
+  // 料金表。定価とグループ内価格を縦積みにして桁の読み違えを防いだ
+  // （`CategoryCard.tsx`）。編集操作は既存の権限判定のまま出す
+  '/sales/pricing',
+  // 費用を分け合うグループ 一覧・詳細。一覧・所属案件・売上仕入の閲覧は開放。
+  // 「分け方」（`AllocationEditor.tsx`・複数案件の金額をその場で比べながら
+  // 決める操作）だけは`PcOnlyPanel`でPCに誘導（`onOpenAnyway`で開ける）
+  '/sales/project-groups',
+  '/sales/project-groups/:id',
+  // 営業活動記録・営業レビュー。「記録」タブは開放（既存の`Row stackOnMobile`
+  // ＋`ActivityMobileFilters`がそのまま機能）。分析3タブ（ファネル・失注分析・
+  // 営業評価）は`ActivityLogPage.tsx`内の`useIsMobile()`判定で`PcOnlyPanel`に
+  // 差し替える（案件詳細の`MOBILE_TAB_KEYS`と同じ「タブだけ画面の中で判定する」型）
+  '/sales/activity-logs',
+  // お客様の詳細。**v4作り直しはまだ**（pre-v4のまま）。今回はレイアウトの
+  // Tailwindクラスだけ直し、375pxで崩れない・44px未満のタップ対象を減らす
+  // 最小対応にとどめた（本格的なv4化は別の機会に判断する）
+  '/sales/customers/:id',
+  // 財務の台帳3画面。共通の`ledger/LedgerRows.tsx`に`Row stackOnMobile`を正しく
+  // 適用し、金額だけは畳まず常に右側に大きく表示。状態バッジ列の`hideOnMobile`
+  // 抜けも直した（3画面とも同じ部品を直しただけで、それぞれの`ListPage.tsx`側は
+  // 元から`flex-wrap`等でモバイル対応済みだった）
+  '/budget/revenues',
+  '/budget/purchases',
+  '/budget/sga',
 ];
