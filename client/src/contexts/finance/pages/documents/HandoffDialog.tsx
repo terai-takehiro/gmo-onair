@@ -20,7 +20,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Info } from 'lucide-react';
 import api from '@/lib/api';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,16 +99,34 @@ export function HandoffDialog({
     : !!month && amount > 0 && !!effectiveProject && !!vendorId;
 
   return (
-    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>台帳に入れる</DialogTitle>
-          <DialogDescription>
-            {TYPE_LABEL[doc.doc_type]}「{doc.subject || '件名なし'}」（{doc.sender || '送付者なし'}）を
-            仕入か販管費として登録します。<strong className="font-bold">登録すると処理完了になります。</strong>
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
+      title="台帳に入れる"
+      sub={`${TYPE_LABEL[doc.doc_type]}「${doc.subject || '件名なし'}」（${doc.sender || '送付者なし'}）を仕入か販管費として登録します。登録すると処理完了になります。`}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button
+            disabled={!ready || saving}
+            onClick={() => onSubmit({
+              kind,
+              amount,
+              tax_category: tax,
+              recognition_date: `${month}-01`,
+              payment_due_date: due || null,
+              description: description || null,
+              project_id: kind === 'purchase' ? effectiveProject : null,
+              vendor_id: kind === 'purchase' ? vendorId : null,
+              vendor_name: kind === 'sga' ? doc.sender : null,
+            })}
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {kind === 'purchase' ? '仕入に入れる' : '販管費に入れる'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="flex flex-col gap-4">
           <div>
             <Label>どちらに入れますか</Label>
@@ -203,28 +221,6 @@ export function HandoffDialog({
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button
-            disabled={!ready || saving}
-            onClick={() => onSubmit({
-              kind,
-              amount,
-              tax_category: tax,
-              recognition_date: `${month}-01`,
-              payment_due_date: due || null,
-              description: description || null,
-              project_id: kind === 'purchase' ? effectiveProject : null,
-              vendor_id: kind === 'purchase' ? vendorId : null,
-              vendor_name: kind === 'sga' ? doc.sender : null,
-            })}
-          >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {kind === 'purchase' ? '仕入に入れる' : '販管費に入れる'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

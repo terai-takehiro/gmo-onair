@@ -3,14 +3,7 @@ import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 
 export interface DiscountResult {
   description: string;
@@ -93,19 +86,26 @@ export default function DiscountDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "item" ? "項目値引きを追加" : "全体値引きを追加"}
-          </DialogTitle>
-          <DialogDescription>
-            {mode === "item"
-              ? `対象: ${targetDescription || "(未指定)"}（¥${baseAmount.toLocaleString()}）`
-              : `現在の小計: ¥${baseAmount.toLocaleString()}（正の項目のみ）`}
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === "item" ? "項目値引きを追加" : "全体値引きを追加"}
+      sub={
+        mode === "item"
+          ? `対象: ${targetDescription || "(未指定)"}（¥${baseAmount.toLocaleString()}）`
+          : `現在の小計: ¥${baseAmount.toLocaleString()}（正の項目のみ）`
+      }
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            キャンセル
+          </Button>
+          <Button onClick={handleApply} disabled={discountAmount <= 0}>
+            値引きを追加
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="space-y-4 py-2">
           {/* 値引きタイプ */}
           <div className="flex gap-3">
@@ -187,16 +187,6 @@ export default function DiscountDialog({
             )}
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            キャンセル
-          </Button>
-          <Button onClick={handleApply} disabled={discountAmount <= 0}>
-            値引きを追加
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

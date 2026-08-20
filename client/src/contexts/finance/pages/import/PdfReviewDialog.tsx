@@ -12,9 +12,8 @@ import { useMutation } from '@tanstack/react-query';
 import { Loader2, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { TaxCategoryLabels } from '@/types';
 import { PdfExtracted } from './PdfExtracted';
@@ -165,18 +164,28 @@ export function PdfReviewDialog({
   }, [f, p?.vendorName, registeredUnits, unitIdx]);
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
-            {isRakuraku ? '楽楽精算の内容を確かめる' : 'X-Point 申請の内容を確かめる'}
-            {result.settlementNumber && (
-              <TableBadge label={`${prefix}-${result.settlementNumber}`} w={null} className="border-border" />
-            )}
-            <span className="text-note text-muted-foreground">{file.file_name}</span>
-          </DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={isRakuraku ? '楽楽精算の内容を確かめる' : 'X-Point 申請の内容を確かめる'}
+      // **2カラムの複合フォーム（PdfReviewForm）＋ 明細表（PdfExtracted）を持つので `wide` を渡す。**
+      // 旧幅は sm:max-w-3xl（768px）で既定の560pxを大きく超えていた
+      wide
+      sub={`${result.settlementNumber ? `${prefix}-${result.settlementNumber} ・ ` : ''}${file.file_name}`}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>閉じる</Button>
+          <Button onClick={() => register.mutate()} disabled={!canSubmit || register.isPending}>
+            {register.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {registeredUnits.has(unitIdx)
+              ? 'この単位は登録済み'
+              : units.length > 1
+                ? `この単位を${f.kind === 'purchase' ? '仕入' : '販管費'}に入れる（${registeredUnits.size + 1}/${units.length}）`
+                : f.kind === 'purchase' ? '仕入に入れる' : '販管費に入れる'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <PdfExtracted result={result} />
 
         {/* 登録単位のステップ（楽楽精算で複数単位のとき） */}
@@ -215,19 +224,6 @@ export function PdfReviewDialog({
         )}
 
         <PdfReviewForm f={f} set={set} result={result} unit={unit} />
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>閉じる</Button>
-          <Button onClick={() => register.mutate()} disabled={!canSubmit || register.isPending}>
-            {register.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {registeredUnits.has(unitIdx)
-              ? 'この単位は登録済み'
-              : units.length > 1
-                ? `この単位を${f.kind === 'purchase' ? '仕入' : '販管費'}に入れる（${registeredUnits.size + 1}/${units.length}）`
-                : f.kind === 'purchase' ? '仕入に入れる' : '販管費に入れる'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
