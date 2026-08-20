@@ -69,8 +69,8 @@ export default function CalendarSettingsPage() {
   const canEditRooms = currentUser?.role === 'system_admin';
 
   // タブごとに要る権限が違う。**開けないタブは出さない**（押せば 403 になるだけ）
-  const canStudio = hasPermission('studio');
-  const canFeeds = hasPermission('partner_schedule', 'editor');
+  const canStudio = hasPermission('sales');
+  const canFeeds = hasPermission('sales', 'editor');
   const shown = TABS.filter((t) => (t.key === 'feed' ? canFeeds : canStudio));
 
   const raw = sp.get('tab') ?? '';

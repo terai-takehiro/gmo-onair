@@ -52,14 +52,14 @@ export const DO_ITEMS: Shortcut[] = [
   { key: 'record', label: '打合せを録音する', sub: '録って AI に渡す（⑤）', to: '/sales/record', icon: Mic, module: 'sales', minLevel: 'editor' },
   { key: 'paste', label: '電話・その他を貼る', sub: '聞いた話を受付に送る（⑦）', to: '/sales/inbox/new', icon: ClipboardPaste, module: 'sales', minLevel: 'editor' },
   { key: 'scan', label: '機材の QR を読む', sub: '貸出・返却・棚卸し', to: '/equipment/scan', icon: QrCode, module: 'equipment', external: true },
-  { key: 'myevent', label: '自分の予定を入れる', sub: 'スタジオ予約を作るのは PC', to: '/studio/my-calendar', icon: CalendarPlus, module: 'partner_schedule', minLevel: 'editor' },
+  { key: 'myevent', label: '自分の予定を入れる', sub: 'スタジオ予約を作るのは PC', to: '/studio/my-calendar', icon: CalendarPlus, module: 'sales', minLevel: 'editor' },
   { key: 'newproj', label: '案件をつくる', sub: '名前とお客様だけで始められる', to: '/sales/projects/new', icon: FolderPlus, module: 'sales', minLevel: 'editor' },
 ];
 
 /** 場所 — モックの6つ */
 export const PLACES: Shortcut[] = [
   { key: 'customers', label: 'お客様', sub: '取引先と担当', to: '/sales/companies?role=customer', icon: Building2, module: 'sales' },
-  { key: 'money', label: 'お金', sub: '売上・仕入・損益', to: '/budget/dashboard', icon: Wallet, module: 'budget' },
+  { key: 'money', label: 'お金', sub: '売上・仕入・損益', to: '/budget/dashboard', icon: Wallet, module: 'sales' },
   { key: 'equipment', label: '機材', sub: '台帳・ラック図・貸出', to: '/equipment', icon: Package, module: 'equipment', external: true },
   { key: 'qsheet', label: '制作資料', sub: '台本づくりと本番進行', to: '/qsheet', icon: FileText, module: 'qsheet', external: true },
   { key: 'review', label: 'ふりかえり', sub: '営業活動のふりかえり', to: '/sales/review', icon: History, module: 'sales' },

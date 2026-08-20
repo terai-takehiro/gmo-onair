@@ -5,7 +5,8 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
 // パートナー (従業員) スケジュール — 代休/有給/出張/社外活動 等をパートナー間で共有する。
-// センシティブな情報のため、権限モジュール 'partner_schedule' の保持者のみアクセス可能:
+// 権限モジュール 'sales'（旧 'partner_schedule'。権限モデル単純化で統合済み）の
+// 保持者のみアクセス可能:
 //   reader  = 閲覧のみ
 //   editor  = 自分の予定を記入・編集・削除
 //   manager = 他人の予定も記入・編集・削除 (総務等の代理入力を想定)
@@ -14,13 +15,13 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 const SCHEDULE_TYPES = ['daikyu', 'paid_leave', 'business_trip', 'external', 'remote', 'other'];
 
 const router = Router();
-const canRead = [requireAuth, requirePermission('partner_schedule', 'reader')] as const;
-const canEdit = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
+const canRead = [requireAuth, requirePermission('sales', 'reader')] as const;
+const canEdit = [requireAuth, requirePermission('sales', 'editor')] as const;
 
 /** 他人の予定を操作できるか (manager 以上 or system_admin) */
 function isManager(req: Request): boolean {
   if (req.user?.role === 'system_admin') return true;
-  const level = req.user?.permissions?.['partner_schedule'];
+  const level = req.user?.permissions?.['sales'];
   return level === 'manager' || level === 'owner';
 }
 

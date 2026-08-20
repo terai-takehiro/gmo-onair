@@ -12,7 +12,7 @@ import { assertVendorCompanyId } from '../../../shared/services/company-director
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('budget'));
+router.use(requireAuth, requirePermission('sales'));
 
 /**
  * Phase 3-3-9（`vendors` テーブル削除）以降、仕入先名は `companies` から
@@ -81,7 +81,7 @@ router.get('/', async (req, res) => {
 });
 
 // CSV Export
-router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
   const rows = await queryAll(
     `SELECT vco.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
      FROM purchases pu
@@ -105,7 +105,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
@@ -136,7 +136,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
@@ -176,7 +176,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   await execute(`UPDATE purchases SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

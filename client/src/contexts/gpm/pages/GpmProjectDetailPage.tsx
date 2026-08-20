@@ -52,8 +52,8 @@ export default function GpmProjectDetailPage() {
   const navigate = useNavigate();
   const invalidate = useInvalidateGpm();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('gpm', 'editor');
-  const canManage = hasPermission('gpm', 'manager');
+  const canEdit = hasPermission('sales', 'editor');
+  const canManage = hasPermission('sales', 'manager');
   const tab: DetailTabKey = isDetailTab(rawTab) ? rawTab : 'overview';
 
   const today = useMemo(() => localDateStr(new Date()), []);

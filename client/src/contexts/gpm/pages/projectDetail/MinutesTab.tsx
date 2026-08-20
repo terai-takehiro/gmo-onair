@@ -46,7 +46,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
   const invalidateGpm = useInvalidateGpm();
   const { hasPermission } = useAuth();
   // 表示だけなら reader で足りる（押せるボタンは canEdit で出し分ける）
-  const canRead = hasPermission('gpm', 'reader');
+  const canRead = hasPermission('sales', 'reader');
   const [recOpen, setRecOpen] = useState(false);
 
   const key = ['gpm-minutes', projectId];

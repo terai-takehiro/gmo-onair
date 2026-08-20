@@ -270,35 +270,35 @@ function AppRoutes() {
             理由は `docs/design/gpm-model.md`。
             **見積・請求の画面はまだ作っていない** — `estimates` にモックが持つ
             「提出先」の列が無く、足すと案件管理の見積画面に影響するため */}
-        <Route path="/gpm/dashboard" element={<PermissionRoute module="gpm"><GpmDashboardPage /></PermissionRoute>} />
-        <Route path="/gpm/projects" element={<PermissionRoute module="gpm"><GpmProjectListPage /></PermissionRoute>} />
-        <Route path="/gpm/projects/new" element={<PermissionRoute module="gpm" minLevel="editor"><GpmProjectFormPage /></PermissionRoute>} />
-        <Route path="/gpm/projects/:id" element={<PermissionRoute module="gpm"><GpmProjectDetailPage /></PermissionRoute>} />
-        <Route path="/gpm/projects/:id/:tab" element={<PermissionRoute module="gpm"><GpmProjectDetailPage /></PermissionRoute>} />
-        <Route path="/gpm/tasks" element={<PermissionRoute module="gpm"><GpmTaskListPage /></PermissionRoute>} />
-        <Route path="/gpm/templates" element={<PermissionRoute module="gpm"><GpmTemplateListPage /></PermissionRoute>} />
+        <Route path="/gpm/dashboard" element={<PermissionRoute module="sales"><GpmDashboardPage /></PermissionRoute>} />
+        <Route path="/gpm/projects" element={<PermissionRoute module="sales"><GpmProjectListPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/new" element={<PermissionRoute module="sales" minLevel="editor"><GpmProjectFormPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/:id" element={<PermissionRoute module="sales"><GpmProjectDetailPage /></PermissionRoute>} />
+        <Route path="/gpm/projects/:id/:tab" element={<PermissionRoute module="sales"><GpmProjectDetailPage /></PermissionRoute>} />
+        <Route path="/gpm/tasks" element={<PermissionRoute module="sales"><GpmTaskListPage /></PermissionRoute>} />
+        <Route path="/gpm/templates" element={<PermissionRoute module="sales"><GpmTemplateListPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) ===== */}
         {/* v4 ⑥: 受け取った書類。日常業務から財務へ移した（経理が開けなかったため）。
-            **権限は budget か dailyops のどちらか** — いま見られる人は見られたまま */}
-        <Route path="/budget/documents" element={<PermissionRoute anyOf={["budget", "dailyops"]}><DocumentsPage /></PermissionRoute>} />
-        <Route path="/budget/billing" element={<PermissionRoute module="budget"><ClosingPage /></PermissionRoute>} />
-        <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
-        <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
-        <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
+            **権限は sales（旧 budget）か dailyops のどちらか** — いま見られる人は見られたまま */}
+        <Route path="/budget/documents" element={<PermissionRoute anyOf={["sales", "dailyops"]}><DocumentsPage /></PermissionRoute>} />
+        <Route path="/budget/billing" element={<PermissionRoute module="sales"><ClosingPage /></PermissionRoute>} />
+        <Route path="/budget/revenues" element={<PermissionRoute module="sales"><RevenueListPage /></PermissionRoute>} />
+        <Route path="/budget/purchases" element={<PermissionRoute module="sales"><PurchaseListPage /></PermissionRoute>} />
+        <Route path="/budget/sga" element={<PermissionRoute module="sales"><SgaListPage /></PermissionRoute>} />
         {/* v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブにまとめた。
             **旧 URL は毎月使う業務画面なので必ず生かす**（転送先はタブ）。
             権限は画面の中で出し分ける（総勘定元帳と二重計上は system_admin だけ） */}
-        <Route path="/budget/import" element={<PermissionRoute anyOf={["budget", "admin"]}><ImportPage /></PermissionRoute>} />
+        <Route path="/budget/import" element={<PermissionRoute anyOf={["sales", "admin"]}><ImportPage /></PermissionRoute>} />
         <Route path="/budget/xpoint-import" element={<RedirectKeepQuery to="/budget/import?src=pdf" />} />
         <Route path="/budget/kessan-import" element={<RedirectKeepQuery to="/budget/import?src=gl" />} />
         <Route path="/budget/dedup-screening" element={<RedirectKeepQuery to="/budget/import?src=dedup" />} />
         {/* v4 ⑧: 仕入先とパートナーを1画面のタブにまとめた。旧 URL は転送する */}
-        <Route path="/budget/vendors" element={<PermissionRoute module="budget"><CounterpartyPage /></PermissionRoute>} />
+        <Route path="/budget/vendors" element={<PermissionRoute module="sales"><CounterpartyPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<RedirectKeepQuery to="/budget/vendors?tab=partner" />} />
-        <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
-        <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
-        <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
+        <Route path="/budget/reports/vendors" element={<PermissionRoute module="sales"><VendorReportPage /></PermissionRoute>} />
+        <Route path="/budget/detail" element={<PermissionRoute module="sales"><BudgetDetailPage /></PermissionRoute>} />
+        <Route path="/budget/dashboard" element={<PermissionRoute module="sales"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
         {/*
@@ -306,31 +306,27 @@ function AppRoutes() {
           **① 予定は「1本のカレンダー＋レイヤー」** なので、いままで `/studio/all` に
           いた統合カレンダーをここへ持ってきた（`/studio/all` は転送）。
           スタジオだけのカレンダーは「そのほか（作り直し前）」に残す — 予約を作る導線が
-          あちらにしかないため、先に消すと作れなくなる
+          あちらにしかないため、先に消すと作れなくなる。
+          **`studio` と `partner_schedule` は権限モデル単純化で `sales` に統合済み**
+          （docs/reviews/permission-model-simplification-plan.md）
         */}
-        <Route path="/studio/calendar" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/rooms" element={<PermissionRoute module="studio"><RoomAvailabilityPage /></PermissionRoute>} />
-        <Route path="/studio/holds" element={<PermissionRoute module="studio"><HoldListPage /></PermissionRoute>} />
-        {/*
-            **`studio` か `partner_schedule` のどちらかで通す。** 3つのタブは
-            別々の口を叩き、外部カレンダーだけ `/schedule/*`（`partner_schedule` の
-            editor）を使う。`studio` だけで括ると **`partner_schedule` だけの人が
-            自分のフィード設定に来られない**（画面の中でタブを出し分ける）
-        */}
-        <Route path="/studio/settings" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><CalendarSettingsPage /></PermissionRoute>} />
-        <Route path="/studio/studio-calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
-        <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/calendar" element={<PermissionRoute module="sales"><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/rooms" element={<PermissionRoute module="sales"><RoomAvailabilityPage /></PermissionRoute>} />
+        <Route path="/studio/holds" element={<PermissionRoute module="sales"><HoldListPage /></PermissionRoute>} />
+        <Route path="/studio/settings" element={<PermissionRoute module="sales"><CalendarSettingsPage /></PermissionRoute>} />
+        <Route path="/studio/studio-calendar" element={<PermissionRoute module="sales"><StudioCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/partners" element={<PermissionRoute module="sales"><PartnerSchedulePage /></PermissionRoute>} />
+        <Route path="/studio/my-calendar" element={<PermissionRoute module="sales"><MyCalendarPage /></PermissionRoute>} />
         <Route path="/studio/all" element={<RedirectKeepQuery to="/studio/calendar" />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/settings/users" element={<PermissionRoute module="admin"><MembersPage /></PermissionRoute>} />
-        {/* ⑤ お金のルール。**読むのは budget の reader**（見積を作る人は税率と期日を知る必要がある）。直せるのは manager だけで、それは画面とサーバーの両方で見ている */}
-        <Route path="/settings/money" element={<PermissionRoute module="budget"><MoneyRulesPage /></PermissionRoute>} />
-        {/* ⑥ 休日・営業時間。読むのは `studio` の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
-        <Route path="/settings/hours" element={<PermissionRoute module="studio"><HoursPage /></PermissionRoute>} />
+        {/* ⑤ お金のルール。**読むのは sales（旧 budget）の reader**（見積を作る人は税率と期日を知る必要がある）。直せるのは manager だけで、それは画面とサーバーの両方で見ている */}
+        <Route path="/settings/money" element={<PermissionRoute module="sales"><MoneyRulesPage /></PermissionRoute>} />
+        {/* ⑥ 休日・営業時間。読むのは `sales`（旧 `studio`）の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
+        <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
         {/* ⑦ 通知とテンプレート。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
@@ -350,7 +346,7 @@ function AppRoutes() {
             その人が実際に開けるものだけ (`settings/hubCards.ts`)
         */}
         <Route path="/settings" element={<SettingsHubPage />} />
-        <Route path="/settings/sites" element={<PermissionRoute module="studio"><SitesPage /></PermissionRoute>} />
+        <Route path="/settings/sites" element={<PermissionRoute module="sales"><SitesPage /></PermissionRoute>} />
         {/*
             旧 `/settings` の中身 (版・バックアップ・パスワード変更・アプリ一覧)。
             **権限を掛けない** — 旧画面は `admin` 必須だったので

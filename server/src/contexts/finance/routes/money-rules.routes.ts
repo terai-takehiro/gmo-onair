@@ -42,7 +42,7 @@ async function discountLimits() {
   );
 }
 
-router.get('/', requirePermission('budget', 'reader'), wrap(async (_req, res) => {
+router.get('/', requirePermission('sales', 'reader'), wrap(async (_req, res) => {
   const rules = await getMoneyRules();
   const company: DueDateRule = {
     closingDay: rules.closing_day, paymentMonths: rules.payment_months, paymentDay: rules.payment_day,
@@ -63,7 +63,7 @@ router.get('/', requirePermission('budget', 'reader'), wrap(async (_req, res) =>
   });
 }));
 
-router.put('/', requirePermission('budget', 'manager'), wrap(async (req, res) => {
+router.put('/', requirePermission('sales', 'manager'), wrap(async (req, res) => {
   const saved = await saveMoneyRules(req.body ?? {}, req.user!.id);
   res.json({ success: true, data: saved });
 }));
@@ -72,7 +72,7 @@ router.put('/', requirePermission('budget', 'manager'), wrap(async (req, res) =>
  * 保存前の値で期日を試す。**保存しない。**
  * `rule` を渡さなければ、いま保存されているルール（＋取引先の例外）で出す。
  */
-router.post('/preview', requirePermission('budget', 'reader'), wrap(async (req, res) => {
+router.post('/preview', requirePermission('sales', 'reader'), wrap(async (req, res) => {
   const { recognition_date, customer_id, rule } = req.body ?? {};
   if (!recognition_date || typeof recognition_date !== 'string') {
     throw new AppError(400, 'VALIDATION_ERROR', '計上日を入れてください');
@@ -113,7 +113,7 @@ router.post('/preview', requirePermission('budget', 'reader'), wrap(async (req, 
  * **`max_rate` / `max_amount` の null は「上限なし」**で、0 とは別物。
  * 画面から空欄で送られたときに 0 として保存すると、**1 円も値引けなくなります**。
  */
-router.put('/limits/:roleId', requirePermission('budget', 'manager'), wrap(async (req, res) => {
+router.put('/limits/:roleId', requirePermission('sales', 'manager'), wrap(async (req, res) => {
   const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
   const { max_rate, max_amount, approver_role_id, can_estimate } = req.body ?? {};
   const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v));

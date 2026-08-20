@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { paginatedResponse } from '../../../shared/services/pagination';
 
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('admin'));
+// 権限とメンバーの管理と同じく、データビューアも system_admin だけに絞る
+// （旧 admin 区画は廃止。権限モデル単純化: docs/reviews/permission-model-simplification-plan.md）
+router.use(requireAuth, requireRole('system_admin'));
 
 /**
  * 編集・閲覧可能なテーブル一覧 (v2.8.0+ 全アプリのテーブルに拡張)

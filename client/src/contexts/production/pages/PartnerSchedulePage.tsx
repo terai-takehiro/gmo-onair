@@ -27,8 +27,8 @@ export default function PartnerSchedulePage() {
   const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
   const { currentUser, hasPermission } = useAuth();
-  const isManager = currentUser?.role === "system_admin" || hasPermission("partner_schedule", "manager");
-  const canEdit = currentUser?.role === "system_admin" || hasPermission("partner_schedule", "editor");
+  const isManager = currentUser?.role === "system_admin" || hasPermission("sales", "manager");
+  const canEdit = currentUser?.role === "system_admin" || hasPermission("sales", "editor");
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],

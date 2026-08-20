@@ -52,63 +52,49 @@ export async function seed() {
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
   // 3段階: reader(閲覧) / editor(編集) / manager(管理)
+  //
+  // 権限モデル単純化（migration 210）で、区画はブロックアプリ単位の7つに統合済み。
+  // `sales` が旧 `budget`/`gpm`/`studio`/`partner_schedule` をまとめて持つ
+  // （案件管理・財務管理・カレンダー・設定・プロジェクト管理）。
   const perms: [string, string, string][] = [
-    // staff1 — 佐藤（営業マネージャー寄り）
+    // staff1 — 佐藤（フルアクセス寄り）
     [USERS.staff1, 'sales',       'manager'],
-    [USERS.staff1, 'budget',      'manager'],
-    [USERS.staff1, 'studio',      'editor'],
-    [USERS.staff1, 'partner_schedule', 'editor'],
     [USERS.staff1, 'equipment',   'reader'],
     [USERS.staff1, 'qsheet',      'editor'],
     [USERS.staff1, 'techsheet',   'editor'],
     [USERS.staff1, 'liveops',     'editor'],
     [USERS.staff1, 'awards',      'editor'],
     [USERS.staff1, 'dailyops',    'editor'],
-    // プロジェクト管理。**ここに書かないと system_admin 以外は誰も開けません**
-    // （画面から付けることはできるが、検証環境が「権限なし」で始まる）
-    [USERS.staff1, 'gpm',         'manager'],
 
-    // staff2 — 鈴木（制作マネージャー寄り）
-    [USERS.staff2, 'sales',       'editor'],
-    [USERS.staff2, 'budget',      'reader'],
-    [USERS.staff2, 'studio',      'manager'],
-    [USERS.staff2, 'partner_schedule', 'manager'],
+    // staff2 — 鈴木（フルアクセス寄り・機材と凍結アプリは管理者）
+    [USERS.staff2, 'sales',       'manager'],
     [USERS.staff2, 'equipment',   'manager'],
     [USERS.staff2, 'qsheet',      'manager'],
     [USERS.staff2, 'techsheet',   'manager'],
     [USERS.staff2, 'liveops',     'manager'],
     [USERS.staff2, 'awards',      'manager'],
     [USERS.staff2, 'dailyops',    'manager'],
-    [USERS.staff2, 'gpm',         'editor'],
 
-    // staff3 — 高橋（制作スタッフ）
-    [USERS.staff3, 'sales',       'reader'],
-    [USERS.staff3, 'studio',      'editor'],
-    [USERS.staff3, 'partner_schedule', 'editor'],
+    // staff3 — 高橋（制作スタッフ・sales は見るだけ）
+    [USERS.staff3, 'sales',       'editor'],
     [USERS.staff3, 'equipment',   'editor'],
     [USERS.staff3, 'qsheet',      'editor'],
     [USERS.staff3, 'techsheet',   'editor'],
     [USERS.staff3, 'liveops',     'editor'],
     [USERS.staff3, 'awards',      'editor'],
     [USERS.staff3, 'dailyops',    'editor'],
-    [USERS.staff3, 'gpm',         'reader'],
 
     // staff4 — 田中（経営層・主に閲覧）
     [USERS.staff4, 'sales',       'reader'],
-    [USERS.staff4, 'budget',      'reader'],
-    [USERS.staff4, 'studio',      'reader'],
-    [USERS.staff4, 'partner_schedule', 'reader'],
     [USERS.staff4, 'equipment',   'reader'],
     [USERS.staff4, 'qsheet',      'reader'],
     [USERS.staff4, 'techsheet',   'reader'],
     [USERS.staff4, 'liveops',     'reader'],
     [USERS.staff4, 'awards',      'reader'],
     [USERS.staff4, 'dailyops',    'reader'],
-    [USERS.staff4, 'gpm',         'reader'],
 
-    // staff5 — 山田（限定アクセス）
-    [USERS.staff5, 'studio',      'reader'],
-    [USERS.staff5, 'partner_schedule', 'editor'],
+    // staff5 — 山田（限定アクセス。equipment/dailyops は持たない例）
+    [USERS.staff5, 'sales',       'editor'],
     [USERS.staff5, 'qsheet',      'reader'],
     [USERS.staff5, 'techsheet',   'reader'],
     [USERS.staff5, 'liveops',     'reader'],

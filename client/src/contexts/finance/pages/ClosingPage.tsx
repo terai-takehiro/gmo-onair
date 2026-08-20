@@ -54,7 +54,8 @@ const FOOT: Record<ClosingTab, string> = {
 function DesktopClosing() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
-  const canEdit = hasPermission('budget', 'editor') || hasPermission('sales', 'editor');
+  // `budget` は権限モデル単純化で `sales` に統合済み（両方とも同じ判定になる）
+  const canEdit = hasPermission('sales', 'editor');
 
   const today = localDateStr(new Date());
   const [month, setMonth] = useState(() => today.slice(0, 7));

@@ -187,8 +187,8 @@ export default function StudioCalendarPage() {
   const [feedsOpen, setFeedsOpen] = useState(false);
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
-  const canEdit = hasPermission("studio", "editor");
-  const canManage = hasPermission("studio", "manager");
+  const canEdit = hasPermission("sales", "editor");
+  const canManage = hasPermission("sales", "manager");
 
   // Fetch locations & rooms
   const { data: locationsData } = useQuery({

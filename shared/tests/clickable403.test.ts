@@ -23,19 +23,20 @@ const ROOT = join(__dirname, '..', '..');
 const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 
 describe('押せるのに 403 にしない', () => {
-  it('請求書・検収書 PDF は sales か budget のどちらかで出せる', () => {
-    // ⑤ 見積・請求（全案件）は `sales` でも開ける画面なのに、この口だけ
-    // `budget` を要求していたので、**`sales` だけの人は押すと必ず 403** だった
+  it('請求書・検収書 PDF は sales で出せる', () => {
+    // 以前は `sales` と `budget` が別区画で、⑤ 見積・請求（全案件）は `sales` でも
+    // 開ける画面なのに、この口だけ `budget` を要求していたので**`sales` だけの人は
+    // 押すと必ず 403** だった。権限モデル単純化で `budget` は `sales` に統合され、
+    // この種の事故自体が起きなくなった
     const src = read('server', 'src', 'contexts', 'finance', 'routes', 'revenues.routes.ts');
     const pdfAt = src.indexOf("router.get('/:id/pdf'");
-    const gateAt = src.indexOf("router.use(requireAuth, requirePermission('budget'))");
+    const gateAt = src.indexOf("router.use(requireAuth, requirePermission('sales'))");
     expect(pdfAt).toBeGreaterThan(-1);
     expect(gateAt).toBeGreaterThan(-1);
-    // ⚠️ 全体のゲートより**前**にあること（後ろに戻すと budget 必須に戻る）
     expect(pdfAt).toBeLessThan(gateAt);
-    expect(src.slice(pdfAt, pdfAt + 200)).toContain("requireAnyPermission(['sales', 'budget'])");
-    // BOX に置くほうも両方の editor で通す（出せるのに毎回「保存されませんでした」にしない）
-    expect(src).toMatch(/canStore = meetsPermissionLevel\([^)]*budget[^)]*\)\s*\n\s*\|\| meetsPermissionLevel\([^)]*sales/);
+    expect(src.slice(pdfAt, pdfAt + 200)).toContain("requirePermission('sales')");
+    // BOX に置くほうも sales の editor で通す（出せるのに毎回「保存されませんでした」にしない）
+    expect(src).toMatch(/canStore = meetsPermissionLevel\([^)]*sales[^)]*\)/);
   });
 
   it('わたしのタスクの四角は dailyops の editor にだけ出す', () => {
@@ -131,10 +132,11 @@ describe('押せるのに 403 にしない', () => {
     // なので、1つの `canEdit` でまとめると editor に「落とす」が出て 403 になる
     const page = read('client', 'src', 'contexts', 'production', 'pages', 'HoldListPage.tsx');
     const cards = read('client', 'src', 'contexts', 'production', 'pages', 'holds', 'HoldCards.tsx');
-    expect(page).toMatch(/canDrop = hasPermission\('studio', 'manager'\)/);
+    // `studio` は権限モデル単純化で `sales` に統合済み
+    expect(page).toMatch(/canDrop = hasPermission\('sales', 'manager'\)/);
     for (const src of [page, cards]) expect(src).toMatch(/\{canDrop && \(/);
 
     const routes = read('server', 'src', 'contexts', 'production', 'routes', 'studio.routes.ts');
-    expect(routes).toMatch(/router\.delete\('\/bookings\/:id', requirePermission\('studio', 'manager'\)/);
+    expect(routes).toMatch(/router\.delete\('\/bookings\/:id', requirePermission\('sales', 'manager'\)/);
   });
 });

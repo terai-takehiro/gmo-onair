@@ -119,15 +119,18 @@ describe('お金の二重計上・取りこぼし', () => {
     expect(INVOICE_NO).not.toMatch(/WHERE id = \? AND invoice_no IS NULL/);
   });
 
-  it('受注→売上の変換は budget だけの人にも届く（全体のゲートより前）', () => {
-    // `requireAnyPermission(['sales','budget'])` と書いてあっても、router 全体の
-    // `sales` ゲートより後ろに置くと**経理はそこに到達できない**（書いてあるのに効かない）
+  it('受注→売上の変換は sales editor に届く（全体のゲートより前）', () => {
+    // 以前は `sales`/`budget` が別区画で、`requireAnyPermission(['sales','budget'])`
+    // と書いてあっても router 全体の `sales` ゲートより後ろに置くと**経理はそこに
+    // 到達できない**事故があった（書いてあるのに効かない）。権限モデル単純化で
+    // `budget` は `sales` に統合されたため、この種の事故自体が起きなくなったが、
+    // ルートの並び自体（全体ゲートより前）は引き続き固定しておく
     const src = read('server', 'src', 'contexts', 'sales', 'routes', 'estimates.routes.ts');
     const convAt = src.indexOf("router.post('/:id/convert-to-revenue'");
     const gateAt = src.indexOf("router.use(requireAuth, requirePermission('sales'))");
     expect(convAt).toBeGreaterThan(-1);
     expect(gateAt).toBeGreaterThan(-1);
     expect(convAt).toBeLessThan(gateAt);
-    expect(src.slice(convAt, convAt + 200)).toContain("requireAnyPermission(['sales', 'budget'], 'editor')");
+    expect(src.slice(convAt, convAt + 200)).toContain("requirePermission('sales', 'editor')");
   });
 });
