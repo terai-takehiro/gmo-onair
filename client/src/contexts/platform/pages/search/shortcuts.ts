@@ -52,7 +52,9 @@ export const DO_ITEMS: Shortcut[] = [
   { key: 'record', label: '打合せを録音する', sub: '録って AI に渡す（⑤）', to: '/sales/record', icon: Mic, module: 'sales', minLevel: 'editor' },
   { key: 'paste', label: '電話・その他を貼る', sub: '聞いた話を受付に送る（⑦）', to: '/sales/inbox/new', icon: ClipboardPaste, module: 'sales', minLevel: 'editor' },
   { key: 'scan', label: '機材の QR を読む', sub: '貸出・返却・棚卸し', to: '/equipment/scan', icon: QrCode, module: 'equipment', external: true },
-  { key: 'myevent', label: '自分の予定を入れる', sub: 'スタジオ予約を作るのは PC', to: '/studio/my-calendar', icon: CalendarPlus, module: 'sales', minLevel: 'editor' },
+  // **`/studio/my-calendar`（旧マイカレンダー）は退役した**（2026-08・v4ネイティブUI化の
+  // バックログB）。① 予定はスマホでも「予定を入れる」→「自分の予定」で同じダイアログを開ける
+  { key: 'myevent', label: '自分の予定を入れる', sub: 'スタジオ予約を作るのは PC', to: '/studio/calendar', icon: CalendarPlus, module: 'sales', minLevel: 'editor' },
   { key: 'newproj', label: '案件をつくる', sub: '名前とお客様だけで始められる', to: '/sales/projects/new', icon: FolderPlus, module: 'sales', minLevel: 'editor' },
 ];
 

@@ -1,11 +1,10 @@
-import { useEffect, useRef, type ReactNode, type ElementType } from "react";
-import { NavLink } from "react-router-dom";
-import { CalendarDays, CalendarClock, Layers } from "lucide-react";
-import { useAuth } from "@/contexts/platform/AuthContext";
-import { cn } from "@/lib/utils";
-
 // パートナースケジュール / マイカレンダー 共通の型・定数・小物。
 // (StudioCalendarPage は既存 1000 行のため触らず、新ページ用にここへ集約)
+//
+// ⚠️ **`CalendarShell`／`CalendarNavPills`（統合・スタジオ・マイの回遊ピル）は
+// 2026-08・v4ネイティブUI化のバックログBでここから削除した。** 旧スタジオ
+// カレンダー・旧マイカレンダー（この2画面だけの部品だった）を退役させたため、
+// 呼び出し元が無くなった。復元するなら git 履歴からこのファイルの旧版を参照
 
 export interface PartnerSchedule {
   id: string;
@@ -175,104 +174,3 @@ export function toExclusiveEnd(endDate: string): string {
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
 }
 
-/**
- * 統合 / スタジオ / マイ のカレンダー回遊ピル。
- * モバイルで押し潰されて文字が縦折れしないよう、各ピルは whitespace-nowrap + shrink-0、
- * コンテナは横スクロール可 (overflow-x-auto) にしている。呼び出し側はヘッダーの
- * ボタン行に混ぜず、独立した行 (w-full) に置くこと。
- *
- * ⚠️ **「パートナー」のピルは削除した**（v3時代の遺物の棚卸し・2026-08）。
- * `/studio/partners` を削除し、① 予定（統合カレンダー）へ一本化したため
- * （作成・編集・人での絞り込みとも既に代替済みだった）。
- */
-export function CalendarNavPills({ current }: { current: "all" | "studio" | "my" }) {
-  const { currentUser, hasPermission } = useAuth();
-  const activeRef = useRef<HTMLAnchorElement | null>(null);
-  const isAdmin = currentUser?.role === "system_admin";
-  const canStudio = isAdmin || hasPermission("sales");
-  const canPartner = isAdmin || hasPermission("sales");
-
-  // モバイルの横スクロール時、アクティブなピルが見切れないよう初期表示で寄せる
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
-  }, [current]);
-
-  // **v4 でカレンダーの URL が入れ替わった。**
-  // `/studio/calendar` は v4 の ① 予定（統合＋レイヤー）になり、
-  // `/studio/all` はそこへの転送になった。スタジオだけのカレンダーは
-  // `/studio/studio-calendar` へ移った（予約を作る導線がそこにしかないので残してある）。
-  // **直さないと「統合」と「スタジオ」が同じ画面に着く**（実ブラウザで確認した）
-  const pills = [
-    { key: "all", label: "予定（すべて）", to: "/studio/calendar", icon: Layers, show: canStudio || canPartner },
-    { key: "studio", label: "スタジオ", to: "/studio/studio-calendar", icon: CalendarDays, show: canStudio },
-    { key: "my", label: "マイ", to: "/studio/my-calendar", icon: CalendarClock, show: canPartner },
-  ].filter((p) => p.show);
-  if (pills.length <= 1) return null;
-  return (
-    <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-muted/40 p-1">
-      {pills.map((p) => (
-        <NavLink
-          key={p.key}
-          to={p.to}
-          ref={current === p.key ? activeRef : undefined}
-          className={cn(
-            // スマホは 44px（v4 の決めごと）。PC は今までどおり
-            "min-h-tap flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors lg:min-h-0",
-            current === p.key
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-          )}
-        >
-          <p.icon className="h-3.5 w-3.5 shrink-0" />
-          {p.label}
-        </NavLink>
-      ))}
-    </div>
-  );
-}
-
-/**
- * 統合 / スタジオ / マイ の 3 カレンダーで共通のページ枠 (ヘッダー)。
- * 余白・タイトル位置・回遊ピルの配置を完全に統一することで、ページを切り替えても
- * 上部 (タイトル + ピル) がガタつかない (v2.9.188 の状態保持と合わせて滑らかに切替)。
- *   - 1 行目: アイコン + タイトル (flex-1) / アクション (sm:order-last)
- *   - 2 行目 (モバイル) or 右端 (sm+): 回遊ピル (w-full sm:w-auto)
- *   - 説明文は sm 以上のみ表示 (高さを一定に保つ)
- * ページ固有の 2 次コンテンツ (レイヤートグル / 部屋フィルタ / 凡例 / カレンダー本体) は children。
- */
-export function CalendarShell({
-  current, icon: Icon, title, description, actions, children,
-}: {
-  current: "all" | "studio" | "my";
-  icon: ElementType;
-  title: string;
-  description?: ReactNode;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="animate-in fade-in duration-200">
-      <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー: モバイルは「タイトル+アクション」「回遊ピル」の 2 行、sm 以上は 1 行 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Icon className="h-6 w-6 shrink-0 text-primary" />
-            <h1 className="truncate text-lg font-bold sm:text-xl">{title}</h1>
-          </div>
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:order-last sm:gap-2">
-              {actions}
-            </div>
-          )}
-          <div className="flex w-full sm:w-auto">
-            <CalendarNavPills current={current} />
-          </div>
-        </div>
-        {description && (
-          <p className="-mt-2 hidden text-sm text-muted-foreground sm:block">{description}</p>
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}

@@ -202,8 +202,33 @@
 
 ### B. 旧カレンダー2画面の機能吸収（このドキュメント上部で決定済み）
 
-- 香盤ビュー・予約を直す導線を ① 予定に吸収 → 旧スタジオカレンダーを退役
-- 取込元の詳しい色分け・外部連携設定を ① 予定／④ 設定に吸収 → 旧自分の予定を退役
+- ~~香盤ビュー・予約を直す導線を ① 予定に吸収 → 旧スタジオカレンダーを退役~~
+  **✅ 完了**（2026-08-20）。①香盤ビューは `DesktopToolbar.tsx` に月・週・一覧と並ぶ
+  4つ目の表示切替として追加した（`KoubanView.tsx` をそのまま再利用。マスを押すと
+  その部屋・時間で新規作成できる）。②「既存の部屋予約を直す唯一の導線」は
+  `StudioBookingDetailDialog` の「編集」を `StudioBookingDialog` の編集モードへ
+  つないで解消した（従来は読むだけ）。スマホ側（`rooms/MobileToday.tsx`）も同様に
+  編集をつないだ（香盤はPC専用のまま — 旧画面も日表はPCのみだった）。
+  `/studio/studio-calendar` は `/studio/calendar` へ `RedirectKeepQuery` で転送し、
+  `StudioCalendarPage.tsx`（1002行）は削除した。
+  ⚠️ **旧スタジオカレンダーが持っていた「カレンダー連携」ダイアログ（部屋の合算
+  フィード＋サイネージURL）は固有機能ではなかった** — ④ 設定の「サイネージ」タブ
+  （`SignageTab.tsx`）が実装を確認すると既に同じAPI・同じ機能を持っており、移設不要
+  だった
+- ~~取込元の詳しい色分け・外部連携設定を ① 予定／④ 設定に吸収 → 旧自分の予定を退役~~
+  **✅ 完了**（2026-08-20）。①取込元ごとの色分け（個人予定・Google・Outlook・ICS購読・
+  共有の5色）は `useCalendarEvents.ts` の「自分」レイヤー計算に統合し、① 予定の凡例
+  （PC: `CalSidebarExtras.tsx`／スマホ: `FilterDialogs.tsx` の `LayerFilterDialog`）に
+  「自分」を出しているときだけ表示するようにした。②外部カレンダー連携の設定は
+  **実装を確認すると `CalendarSettingsPage.tsx`（④ 設定）の「外部カレンダー」タブ
+  （`FeedsTab.tsx`）が既に同じ機能を持っていた**（この画面より先に作られていた）ため
+  移設は不要だった。ただし**サーバーの Google/Outlook OAuth コールバックが
+  `/studio/my-calendar` へ直書きでリダイレクトしていた**（`google-oauth.routes.ts` /
+  `ms-oauth.routes.ts`）ため、退役前にリダイレクト先を `/studio/settings?tab=feed` へ
+  張り替え、連携完了時の通知バナー（旧画面が出していたもの）を `CalendarSettingsPage.tsx`
+  へ移設した（張り替えを忘れると「連携したのに何も起きない」画面になっていた）。
+  `/studio/my-calendar` は `/studio/calendar` へ `RedirectKeepQuery` で転送し、
+  `MyCalendarPage.tsx` は削除した
 - ~~② 部屋の空きに専用モバイルレイアウトを追加~~ **✅ 完了**（2026-08-20）。
   `rooms/MobileRoomAvailability.tsx`（① 予定と同じ `MobileMonthGrid` で日付選択）＋
   `rooms/RoomAvailabilityCards.tsx`（選んだ日の部屋ごとの空き帯をカードで縦積み。

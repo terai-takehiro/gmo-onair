@@ -158,11 +158,10 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // 専用レイアウト（月表＋選んだ日の部屋カード。`rooms/MobileRoomAvailability.tsx` ＋
   // `rooms/RoomAvailabilityCards.tsx`）を新設したので、畳んでも「空いている幅」は読める
   { path: '/studio/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
-  { path: '/studio/studio-calendar', what: 'スタジオカレンダー', why: '月のマス目を横7列で見る画面です。' },
-  // **`/studio/partners`（パートナースケジュール）は削除した**（v3時代の遺物の棚卸し・2026-08）。
-  // `/studio/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
-  // この表に載せる対象ではない
-  { path: '/studio/my-calendar', what: 'マイカレンダー', why: '月のマス目を横7列で見る画面です。' },
+  // **`/studio/studio-calendar`（スタジオカレンダー）・`/studio/my-calendar`
+  // （マイカレンダー）は退役した**（2026-08・v4ネイティブUI化のバックログB）。
+  // どちらも `/studio/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
+  // この表に載せる対象ではない（① 予定は `CLIENT_MOBILE_OK` の対象）
 
   // ── 設定（モックの「設定・権限は落ち着いて触るもの」）──────
   //   **`/settings` と `/settings/system` は入れない** —

@@ -15,6 +15,7 @@
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { addMonths, monthWeeks, type CalLayer } from './calendarLayout';
+import { MY_SOURCE_LEGEND } from './useCalendarEvents';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -137,6 +138,23 @@ export function CalSidebarExtras({
               );
             })}
           </div>
+
+          {/*
+            **旧マイカレンダー（`/studio/my-calendar`・退役済み）の色分けをここへ吸収した。**
+            「自分」を出しているときだけ、取込元ごとの色を小さく添える
+            （消すと、① 予定だけでは自分の予定が青一色に見えて取込元が分からなくなる）
+          */}
+          {layers?.my && visible?.my && (
+            <div className="mt-2 flex flex-col gap-1 px-2.5">
+              {MY_SOURCE_LEGEND.map((s) => (
+                <span key={s.key} className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-chip" style={{ backgroundColor: s.dot }} />
+                  <span className="text-note text-muted-foreground">{s.label}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
           <p className="text-note mt-2 px-2.5 text-muted-foreground">
             チェックした層だけをカレンダーに出します。マス目の色は種別ごとです。
           </p>

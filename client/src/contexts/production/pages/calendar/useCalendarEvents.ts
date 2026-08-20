@@ -16,9 +16,28 @@ import {
 } from '../../components/schedule/scheduleShared';
 import type { CalEvent, CalLayer } from './calendarLayout';
 
-/** 自分の予定の色。種別を持たないので取込元で分ける */
-const MY_COLOR = '#2563eb';
+/**
+ * 自分の予定の色。種別を持たないので取込元で分ける。
+ *
+ * ⚠️ **旧マイカレンダー（`/studio/my-calendar`・退役済み）の色分けをここへ吸収した。**
+ * ① 予定の3層モデルは「自分」を1層としてしか扱わないが、本人にとっては
+ * 「自分で入れたか外部同期か・共有かどうか」がいちばん大事な区別だったため、
+ * ここだけは畳まずに5色のまま持ってくる（`MY_SOURCE_LEGEND` を凡例が読む）。
+ */
+const MANUAL_COLOR = '#2563eb';
+const GOOGLE_COLOR = '#16a34a';
+const OUTLOOK_COLOR = '#0078d4';
 const ICS_COLOR = '#64748b';
+const SHARED_COLOR = '#9333ea';
+
+/** `CalSidebarExtras`（PC）・`FilterDialogs`（スマホ）の「自分」凡例が読む。1か所で直す */
+export const MY_SOURCE_LEGEND: Array<{ key: string; label: string; dot: string }> = [
+  { key: 'manual', label: '個人予定', dot: MANUAL_COLOR },
+  { key: 'google', label: 'Google', dot: GOOGLE_COLOR },
+  { key: 'outlook', label: 'Outlook', dot: OUTLOOK_COLOR },
+  { key: 'ics', label: 'ICS 購読', dot: ICS_COLOR },
+  { key: 'shared', label: '共有', dot: SHARED_COLOR },
+];
 
 export interface CalBooking {
   id: string;
@@ -143,14 +162,23 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
         // **人で絞ったときも自分の予定は落とす。** 絞りは「パートナーの空きを見る」
         // ための道具なので、自分の予定が混ざると人ごとの空きが読めない
         if (f.userIds.length > 0) continue;
-        const ics = e.source !== 'manual';
+        // **旧マイカレンダーの色分け・題名の作り方をそのまま吸収した**
+        // （取込元ごとに色を分け、共有は紫・共有された側は相手の名前を添える）
+        const isSharedIn = e.is_owner === false;
+        const isShared = !!e.shared;
+        const color = isShared ? SHARED_COLOR
+          : e.source === 'google' ? GOOGLE_COLOR
+            : e.source === 'outlook' ? OUTLOOK_COLOR
+              : e.source === 'ics' ? ICS_COLOR : MANUAL_COLOR;
+        const base = e.source === 'ics' && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title;
+        const title = isSharedIn ? `👥 ${base}（${e.owner_name || '共有'}）` : isShared ? `👥 ${base}` : base;
         out.push({
           key: `pe-${e.id}`,
           id: e.id,
           layer: 'my',
-          title: e.title,
-          color: ics ? ICS_COLOR : MY_COLOR,
-          typeLabel: e.shared ? '共有' : '自分',
+          title,
+          color,
+          typeLabel: isShared ? '共有' : '自分',
           sub: e.location || e.feed_label || (e.owner_name ?? ''),
           source: SOURCE_LABEL[e.source] ?? '',
           allDay: !!e.all_day,

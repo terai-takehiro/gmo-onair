@@ -15,6 +15,7 @@ import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/fo
 import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { CalLayer } from './calendarLayout';
+import { MY_SOURCE_LEGEND } from './useCalendarEvents';
 
 interface LocationRow {
   id: string;
@@ -192,24 +193,36 @@ export function LayerFilterDialog({
           {LAYER_ITEMS.map((it) => {
             const on = value[it.key];
             return (
-              <button
-                key={it.key}
-                type="button"
-                onClick={() => toggle(it.key)}
-                aria-pressed={on}
-                className={cn(
-                  'min-h-tap text-list flex items-center gap-2.5 rounded-note border px-3 font-bold',
-                  on ? 'border-primary bg-primary-surface text-primary' : 'border-border bg-card text-secondary-foreground',
+              <div key={it.key} className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => toggle(it.key)}
+                  aria-pressed={on}
+                  className={cn(
+                    'min-h-tap text-list flex items-center gap-2.5 rounded-note border px-3 font-bold',
+                    on ? 'border-primary bg-primary-surface text-primary' : 'border-border bg-card text-secondary-foreground',
+                  )}
+                >
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-chip"
+                    style={{ backgroundColor: on ? it.dot : 'rgb(var(--border-disabled))' }}
+                  />
+                  {it.label}
+                  <span className="flex-1" />
+                  <span className={cn('text-note', on ? 'text-primary' : 'text-muted-foreground')}>{on ? '出す' : '隠す'}</span>
+                </button>
+                {/* **旧マイカレンダーの色分けをここへ吸収した。** 「自分の予定」を出しているときだけ添える */}
+                {it.key === 'my' && on && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 pb-1">
+                    {MY_SOURCE_LEGEND.map((s) => (
+                      <span key={s.key} className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 shrink-0 rounded-chip" style={{ backgroundColor: s.dot }} />
+                        <span className="text-note text-muted-foreground">{s.label}</span>
+                      </span>
+                    ))}
+                  </div>
                 )}
-              >
-                <span
-                  className="h-3 w-3 shrink-0 rounded-chip"
-                  style={{ backgroundColor: on ? it.dot : 'rgb(var(--border-disabled))' }}
-                />
-                {it.label}
-                <span className="flex-1" />
-                <span className={cn('text-note', on ? 'text-primary' : 'text-muted-foreground')}>{on ? '出す' : '隠す'}</span>
-              </button>
+              </div>
             );
           })}
         </div>
