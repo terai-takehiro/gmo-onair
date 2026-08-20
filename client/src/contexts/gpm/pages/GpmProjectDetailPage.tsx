@@ -39,7 +39,7 @@ import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { type GpmOpenItem } from '../types';
 import {
-  DetailHeader, isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, type DetailTabKey,
+  DetailHeader, isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
 } from './projectDetail/DetailHeader';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
@@ -133,7 +133,13 @@ export default function GpmProjectDetailPage() {
    * PC は7タブのまま段階で変えません（幅があるので絞る理由がない）。
    */
   const phase = gpmDetailPhase(p.stage);
-  const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
+  // **タブバー（`DetailHeader`）と同じ関数を通す。** 完了/失注（done）のまま
+  // 未解決の未確認事項が残っているプロジェクトは、段階が変わっても
+  // 「未確認事項」タブを外さない（`effectiveMobileTabs` のコメント参照）。
+  // ダッシュボード・⑤ 全プロジェクトの未確認事項一覧は段階を見ずに
+  // `/asks` へ直接リンクしてくるので、ここで外れたままだと概要へ
+  // 強制的に飛ばされ、その項目を見る・解決する手段がスマホに無くなる。
+  const mobileKeys = effectiveMobileTabs(phase, openAsks.length);
   /*
    * **2種類の「開けない」を混ぜません**（案件詳細⑥と同じ考え方）。
    *

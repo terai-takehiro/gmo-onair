@@ -80,6 +80,30 @@ export const MOBILE_TABS_BY_PHASE: Record<DetailPhase, DetailTabKey[]> = {
 };
 
 /**
+ * `MOBILE_TABS_BY_PHASE` に**未解決の未確認事項があるときだけ**「未確認事項」を足す。
+ *
+ * 完了・失注（done）はもともと「未確認事項」を持たない — 終わった案件は
+ * 議事録・書類を読み返すだけ、という想定。ところが未確認事項の解決を
+ * 段階変更が待ってくれるわけではない（サーバー側にそのガードが無い）ので、
+ * **未解決のまま完了・失注になったプロジェクトが実在しうる**。しかも
+ * ダッシュボードの「未確認事項」「止まっているプロジェクト」パネルと
+ * ⑤ 全プロジェクトの未確認事項一覧は**段階を見ずに** `/gpm/projects/:id/asks`
+ * へ直接リンクしてくる。done のタブバーに asks が無いと、その項目を
+ * 見る・解決する手段がスマホのどこにも無くなる（他の6タブは代わりにならない）。
+ *
+ * **残っている間だけ**足す — 0件になれば元の3つに戻り、完了段階の
+ * タブはまた締まる（「終わった案件は読み返すだけ」の前提を壊さない）。
+ * タブバー（`DetailHeader` 本体）と `GpmProjectDetailPage` の
+ * 段階違いリダイレクト判定が**同じ関数**を通るようにして、
+ * 「タブには出ているのに開くと弾かれる」／「タブに出ていないのに
+ * リンクを踏むと弾かれる」の食い違いを防ぐ。
+ */
+export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): DetailTabKey[] {
+  const base = MOBILE_TABS_BY_PHASE[phase];
+  return openAsksCount > 0 && !base.includes('asks') ? [...base, 'asks'] : base;
+}
+
+/**
  * **請求（月次・`BusinessProjectView` をそのまま呼ぶ）はどの段階でもスマホに出しません。**
  * 案件と共用の 2,000 行超の PC 向け表で、この回では作り直していないためです
  * （工程・体制・未確認事項・議事録・見積・書類の6タブとは違い、実測しても
@@ -109,7 +133,7 @@ export function DetailHeader({
   phase: DetailPhase;
 }) {
   const progress = phaseProgress(project.phases);
-  const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
+  const mobileKeys = effectiveMobileTabs(phase, counts.asks ?? 0);
   const tabs = DETAIL_TABS.filter((t) => !mobile || mobileKeys.includes(t.key));
   const sub = [
     project.customer_name,
