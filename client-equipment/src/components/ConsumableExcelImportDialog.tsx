@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -161,12 +161,7 @@ export default function ConsumableExcelImportDialog({
   const unmatchedCount = preview ? preview.expectedColumns.filter((c) => !mapping[c.key]).length : 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{resourceLabel} Excel インポート</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog open={open} onOpenChange={handleClose} title={`${resourceLabel} Excel インポート`} wide>
         <div className="space-y-4">
           <Card>
             <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -350,7 +345,6 @@ export default function ConsumableExcelImportDialog({
             </Card>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,12 +105,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
   const personalCols = columns.filter(c => c.scope === 'personal');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>カスタム列の管理</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog open={open} onOpenChange={onOpenChange} title="カスタム列の管理">
         <div className="space-y-4 mt-2">
           {/* Shared columns */}
           <div>
@@ -237,8 +230,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           <p className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-500" />共有列: 機材一覧と機材詳細ページに表示されます</p>
           <p className="flex items-center gap-1"><User className="h-3 w-3 text-slate-400" />個人列: 機材一覧のみ、自分だけに表示されます</p>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 
