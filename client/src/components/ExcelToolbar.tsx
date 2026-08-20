@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -127,12 +127,8 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
         Excel 入出力
       </Button>
 
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{name} Excelインポート</DialogTitle>
-          </DialogHeader>
-
+      {/* インポート結果の表を横に読ませるため wide（旧 max-w-3xl=768px 相当） */}
+      <FormDialog open={open} onOpenChange={handleClose} title={`${name} Excelインポート`} wide>
           <div className="space-y-4">
             <Card>
               <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -268,8 +264,7 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
               </Card>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
     </>
   );
 }
