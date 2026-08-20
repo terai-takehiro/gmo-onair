@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmUsers, useInvalidateGpm } from '../../queries';
@@ -78,84 +78,85 @@ export function EditProjectDialog({
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>プロジェクトを直す</DialogTitle></DialogHeader>
-
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="ep-name">プロジェクト名</Label>
-            <Input id="ep-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="ep-kind">区分</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as GpmKind)}>
-                <SelectTrigger id="ep-kind"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {KINDS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="ep-pm">自社担当（PM）</Label>
-              <Select value={pmUserId || '_none_'} onValueChange={(v) => setPmUserId(v === '_none_' ? '' : v)}>
-                <SelectTrigger id="ep-pm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">未定</SelectItem>
-                  {(users.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>依頼元</Label>
-              {/* **読むだけ。** お客様マスターへの参照なので、ここで打っても保存されない */}
-              <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">
-                {project.customer_name ?? '未設定'}
-              </p>
-              <p className="text-note text-muted-foreground">
-                付け替えは案件の「直す」画面から行います
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="ep-pmco">PM会社</Label>
-              <Input
-                id="ep-pmco"
-                value={pmCompany}
-                onChange={(e) => setPmCompany(e.target.value)}
-                placeholder="自社PM のときは空のまま"
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="ep-start">着手日</Label>
-              <Input id="ep-start" type="date" value={startedOn} onChange={(e) => setStartedOn(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="ep-end">完了予定日</Label>
-              <Input id="ep-end" type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
-            </div>
-          </div>
-          <p className="text-sub-sm text-muted-foreground">
-            着手日を直しても、すでに入っている工程の日付は動きません。工程の日付は工程ごとに直します。
-          </p>
-          <div>
-            <Label htmlFor="ep-notes">メモ</Label>
-            <Textarea id="ep-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="プロジェクトを直す"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>
           <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             直す
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+    <div className="space-y-3">
+      <div>
+        <Label htmlFor="ep-name">プロジェクト名</Label>
+        <Input id="ep-name" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="ep-kind">区分</Label>
+          <Select value={kind} onValueChange={(v) => setKind(v as GpmKind)}>
+            <SelectTrigger id="ep-kind"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {KINDS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="ep-pm">自社担当（PM）</Label>
+          <Select value={pmUserId || '_none_'} onValueChange={(v) => setPmUserId(v === '_none_' ? '' : v)}>
+            <SelectTrigger id="ep-pm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none_">未定</SelectItem>
+              {(users.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label>依頼元</Label>
+          {/* **読むだけ。** お客様マスターへの参照なので、ここで打っても保存されない */}
+          <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">
+            {project.customer_name ?? '未設定'}
+          </p>
+          <p className="text-note text-muted-foreground">
+            付け替えは案件の「直す」画面から行います
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="ep-pmco">PM会社</Label>
+          <Input
+            id="ep-pmco"
+            value={pmCompany}
+            onChange={(e) => setPmCompany(e.target.value)}
+            placeholder="自社PM のときは空のまま"
+          />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="ep-start">着手日</Label>
+          <Input id="ep-start" type="date" value={startedOn} onChange={(e) => setStartedOn(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="ep-end">完了予定日</Label>
+          <Input id="ep-end" type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
+        </div>
+      </div>
+      <p className="text-sub-sm text-muted-foreground">
+        着手日を直しても、すでに入っている工程の日付は動きません。工程の日付は工程ごとに直します。
+      </p>
+      <div>
+        <Label htmlFor="ep-notes">メモ</Label>
+        <Textarea id="ep-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      </div>
+    </FormDialog>
   );
 }

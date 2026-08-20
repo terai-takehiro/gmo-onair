@@ -31,9 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
@@ -216,17 +214,25 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>見積をつくる</DialogTitle>
-          <DialogDescription>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="見積をつくる"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending}>
+            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            つくる
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
             <strong className="font-bold">提出先ごとに1本</strong>です。同じ工事でも、
             自社への社内見積と PM 会社へ出す見積は中身も金額も別物になります。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-3">
+          </p>
           <div>
             <Label>提出先 *</Label>
             <Select value={submitTo} onValueChange={(v) => setSubmitTo(v as 'self' | 'client' | 'pm')}>
@@ -247,16 +253,7 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            つくる
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 

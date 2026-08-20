@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmUsers, useInvalidateGpm } from '../../queries';
@@ -78,12 +78,20 @@ export function TaskDialog({
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{task ? 'タスクを直す' : 'タスクを足す'}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={task ? 'タスクを直す' : 'タスクを足す'}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => save.mutate()} disabled={!title.trim() || save.isPending}>
+            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {task ? '直す' : '足す'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="space-y-3">
           <div>
             <Label htmlFor="tk-title">
@@ -147,15 +155,6 @@ export function TaskDialog({
             （ひな形から写したタスクと同じ形にするため）。担当を決めると、その人の「自分のタスク」に出ます。
           </p>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={() => save.mutate()} disabled={!title.trim() || save.isPending}>
-            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {task ? '直す' : '足す'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
