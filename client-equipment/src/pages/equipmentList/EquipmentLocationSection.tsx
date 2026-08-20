@@ -21,7 +21,7 @@ import { CARD_H, cardHeight, cardRowKey, type CardEntry, type LocationSection } 
 
 export function EquipmentLocationSection({
   section, showHeader, loadingChildren, onToggleExpand, onOpen, onDelete,
-  canBulkEdit, canDelete, selectedIds, onSelectOne,
+  canBulkEdit, canEdit, canDelete, selectedIds, onSelectOne, onEdit,
   customColumns, visibleCustomCols, customValues,
 }: {
   section: LocationSection;
@@ -32,9 +32,11 @@ export function EquipmentLocationSection({
   onOpen: (id: string) => void;
   onDelete: (entry: CardEntry) => void;
   canBulkEdit: boolean;
+  canEdit: boolean;
   canDelete: boolean;
   selectedIds: Set<string>;
   onSelectOne: (id: string) => void;
+  onEdit: (item: CardEntry['item']) => void;
   customColumns: CustomColumn[];
   visibleCustomCols: Set<string>;
   customValues: Record<string, Record<string, string>>;
@@ -85,9 +87,11 @@ export function EquipmentLocationSection({
             onOpen={onOpen}
             onDelete={() => onDelete(entry)}
             canBulkEdit={canBulkEdit}
+            canEdit={canEdit}
             canDelete={canDelete}
             selectedIds={selectedIds}
             onSelectOne={onSelectOne}
+            onEdit={() => onEdit(entry.item)}
             customColumns={customColumns}
             visibleCustomCols={visibleCustomCols}
             customValues={customValues}

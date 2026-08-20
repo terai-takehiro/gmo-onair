@@ -15,7 +15,9 @@ import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/fo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { LOC_CODES, SECTIONS, TYPE_CODES } from '@/lib/constants';
+import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { EquipmentAssetFields } from './EquipmentAssetFields';
+import { EquipmentCustomFields } from './EquipmentCustomFields';
 import {
   CARRY_OVER_KEYS, defaultForm, toEquipmentForm,
   type ColorRecord, type EquipmentForm, type EquipmentRecord, type LocationRecord, type NamedRecord,
@@ -29,6 +31,7 @@ export type EquipmentDialogMode =
 export function EquipmentDialog({
   mode, locations, manufacturers, colors, items,
   saving, error, savedOnce, onClose, onSubmit, onContinuousChange,
+  customColumns, customValues, onCustomChange,
 }: {
   mode: EquipmentDialogMode | null;
   locations: LocationRecord[];
@@ -42,6 +45,10 @@ export function EquipmentDialog({
   onClose: () => void;
   onSubmit: (payload: Record<string, unknown>) => void;
   onContinuousChange: (on: boolean) => void;
+  /** カスタム列 (自分で作る列)。編集のときだけ渡ってくる想定 (無ければ出さない) */
+  customColumns?: CustomColumn[];
+  customValues?: Record<string, Record<string, string>>;
+  onCustomChange?: (equipmentId: string, columnId: string, value: string) => void;
 }) {
   const [form, setForm] = useState<EquipmentForm>({ ...defaultForm });
   const [continuous, setContinuous] = useState(false);
@@ -281,6 +288,16 @@ export function EquipmentDialog({
           <Label>備考</Label>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
+
+        {/* 新規登録では出さない — カスタム値は既存の equipment_id に紐づく */}
+        {mode.kind === 'edit' && customColumns && customColumns.length > 0 && onCustomChange && (
+          <EquipmentCustomFields
+            itemId={mode.item.id}
+            columns={customColumns}
+            values={customValues?.[mode.item.id] ?? {}}
+            onChange={onCustomChange}
+          />
+        )}
       </div>
     </FormDialog>
   );

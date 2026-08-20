@@ -16,12 +16,18 @@
  * 解いているので、そのまま倣います（`EquipmentLocationSection.tsx`）。
  * 見出しを間引きの外に出すことで、拠点を挟んでも位置計算が壊れません。
  *
- * ── その場編集はここに入れていない ──────────────────────────────
+ * ── その場編集は「一覧全体を編集モードにする」形を持ち込まなかった ──
  *
  * PC の「表で直す」は**一覧全体を編集モードにして**入力欄に変えます。
- * カードは行の形が違うので同じ切り替えをそのまま使えず、タップの導線を
- * 別に作る必要があります。今回はカスタム列を読み取り専用で出すところまでで、
- * 押して直す導線は別の回に回しました。
+ * カードは行の形が違ってこの切り替えをそのまま使えない、というだけでなく、
+ * 狭い画面でセル単位に指を合わせて直すのは iOS アプリらしくありません。
+ * 代わりに**カードごとに鉛筆ボタンを置き、押すと編集シート（`FormDialog`）を
+ * 開いて直す**形にしました（「行を選んでから編集する」という一般的なモバイル
+ * パターン）。カードの本体タップは元から詳細画面（`EquipmentDetailPage`）への
+ * 入口として使っているため、その役目は変えず、「選ぶ」を鉛筆ボタンという
+ * 別の明示的な操作に分けています。カスタム列も同じ編集シートの中で直せます
+ * （`EquipmentCustomFields.tsx`）。カードの下に出す値は引き続き読み取り専用の
+ * プレビューです（直すのは鉛筆ボタンから）。
  */
 import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { buildCardEntries, groupByLocation, type CardEntry } from './cardRowTypes';
@@ -31,7 +37,7 @@ import type { EquipmentRecord, LocationRecord } from './types';
 export function EquipmentCards({
   items, locations, onOpen, onDelete,
   expandedIds, childrenCache, loadingChildren, onToggleExpand,
-  canBulkEdit, canDelete, selectedIds, onSelectOne,
+  canBulkEdit, canEdit, canDelete, selectedIds, onSelectOne, onEdit,
   customColumns, visibleCustomCols, customValues,
 }: {
   items: EquipmentRecord[];
@@ -43,9 +49,12 @@ export function EquipmentCards({
   loadingChildren: Set<string>;
   onToggleExpand: (item: EquipmentRecord) => void;
   canBulkEdit: boolean;
+  canEdit: boolean;
   canDelete: boolean;
   selectedIds: Set<string>;
   onSelectOne: (id: string) => void;
+  /** 鉛筆ボタン → 編集シート（`EquipmentDialog`）を開く */
+  onEdit: (item: EquipmentRecord) => void;
   customColumns: CustomColumn[];
   visibleCustomCols: Set<string>;
   customValues: Record<string, Record<string, string>>;
@@ -72,9 +81,11 @@ export function EquipmentCards({
           onOpen={onOpen}
           onDelete={handleDelete}
           canBulkEdit={canBulkEdit}
+          canEdit={canEdit}
           canDelete={canDelete}
           selectedIds={selectedIds}
           onSelectOne={onSelectOne}
+          onEdit={onEdit}
           customColumns={customColumns}
           visibleCustomCols={visibleCustomCols}
           customValues={customValues}

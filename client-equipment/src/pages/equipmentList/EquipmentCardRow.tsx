@@ -2,17 +2,21 @@
  * 機材台帳 ／ 機材 のカード1枚（スマホ）
  *
  * 中身は前の `EquipmentCards.tsx` のカードと同じです（種別バッジ・ID・商品名・
- * 型名／No・メーカー／設置場所・資産バッジ）。今回足したのは3つ:
+ * 型名／No・メーカー／設置場所・資産バッジ）。今回足したのは4つ:
  *
  *   ・**選ぶ四角**（`canBulkEdit` のときだけ、PC の表と同じ場所の役目）
  *   ・**開閉の矢印**（付属品があるときだけ。タップで `childrenCache` を取りに行く）
- *   ・**カスタム列の読み取り専用表示**（その場編集はしない — PC の「表で直す」に対応）
+ *   ・**カスタム列の表示**（読み取り専用のプレビュー。直すのは下の鉛筆ボタンから）
+ *   ・**鉛筆ボタン**（`canEdit` のときだけ）。PC の「操作」列の鉛筆と同じ役目で、
+ *     押すと編集シート（`EquipmentDialog` ＝ `FormDialog`）が開き、標準の項目も
+ *     カスタム列も直せる。カード本体のタップは元から詳細画面への入口なので、
+ *     その役目とは分けてある（`EquipmentCards.tsx` 冒頭のコメント）
  *
  * カード全体を1つの `<button>` にしていた前の形は、四角や矢印を**中に持てない**
  * ので、外枠を `<div>` にして中に複数のタップ領域を並べる形に変えました
  * （`RentalGroupRow.tsx` と同じやり方）。
  */
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
 import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { TYPE_BORDER_COLOR } from '@/lib/constants';
@@ -21,7 +25,7 @@ import { visibleCustomEntries, type CardEntry } from './cardRowTypes';
 
 export function EquipmentCardRow({
   entry, measureKey, loading, onToggleExpand, onOpen, onDelete,
-  canBulkEdit, canDelete, selectedIds, onSelectOne,
+  canBulkEdit, canEdit, canDelete, selectedIds, onSelectOne, onEdit,
   customColumns, visibleCustomCols, customValues,
 }: {
   entry: CardEntry;
@@ -31,9 +35,12 @@ export function EquipmentCardRow({
   onOpen: (id: string) => void;
   onDelete: () => void;
   canBulkEdit: boolean;
+  canEdit: boolean;
   canDelete: boolean;
   selectedIds: Set<string>;
   onSelectOne: (id: string) => void;
+  /** 鉛筆ボタン → 編集シートを開く */
+  onEdit: () => void;
   customColumns: CustomColumn[];
   visibleCustomCols: Set<string>;
   customValues: Record<string, Record<string, string>>;
@@ -110,6 +117,17 @@ export function EquipmentCardRow({
             {item.asset_class && <AssetBadge v={item.asset_class} />}
           </span>
         </button>
+
+        {canEdit && (
+          <button
+            type="button"
+            className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-primary"
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            aria-label={`${item.name} を直す`}
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
 
         {canDelete && (
           <button
