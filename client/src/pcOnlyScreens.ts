@@ -150,7 +150,9 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/sga', what: '販管費の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
-  { path: '/budget/detail', what: '案件月別詳細', why: '月を横に並べる表です。', hidden: true },
+  // **`/budget/detail`（案件月別詳細）は削除した**（v3時代の遺物の棚卸し・2026-08）。
+  // `/budget/dashboard` への `RedirectKeepQuery` になったので、実体の画面が無く、
+  // この表に載せる対象ではない
   { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
   // ── カレンダー ────────────────────────────────────────────

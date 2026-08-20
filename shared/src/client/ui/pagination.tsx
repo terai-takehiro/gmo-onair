@@ -36,10 +36,17 @@ export function Pagination({ page, totalPages, total, onChange, disabled, classN
         ページ <span className="font-number tabular-nums">{page}</span> / <span className="font-number tabular-nums">{totalPages}</span>
       </p>
       <div className="flex items-center gap-1">
+        {/*
+          **`data-ui="button"` を付ける。** `Button` 部品を経由しない生の <button> なので、
+          付けないと `tokens-v4.css` の44pxタップ規則（`:root [data-ui='button']`）の
+          対象から漏れ、スマホでも36px（h-9）のまま押しにくくなる（スマホ最適化の
+          洗い出し 2026-08-20・要対応6）
+        */}
         <button
           type="button"
           disabled={!canPrev}
           onClick={() => onChange(page - 1)}
+          data-ui="button"
           className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="前のページ"
         >
@@ -50,6 +57,7 @@ export function Pagination({ page, totalPages, total, onChange, disabled, classN
           type="button"
           disabled={!canNext}
           onClick={() => onChange(page + 1)}
+          data-ui="button"
           className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="次のページ"
         >

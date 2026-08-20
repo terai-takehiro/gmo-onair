@@ -29,10 +29,15 @@ export function SearchField({
         className="pl-9 pr-9"
       />
       {value && (
+        // **`data-ui="button"` を付ける。** 生の <button> のままだと `tokens-v4.css` の
+        // 44pxタップ規則（`:root [data-ui='button']`）の対象から漏れる。この部品は
+        // 貸出機材・ケーブル/コネクタタブ（CatalogPanel/RentalPanel）からスマホでも
+        // そのまま呼ばれるため28pxのまま押しにくくなる（スマホ最適化の洗い出し 2026-08-20・要対応5）
         <button
           type="button"
           onClick={() => onChange('')}
           aria-label="検索を消す"
+          data-ui="button"
           className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
         >
           <X className="h-4 w-4" aria-hidden="true" />
