@@ -1,5 +1,30 @@
 # Phase 3-2a 引き継ぎメモ — 顧客系FKを companies へ張り替える
 
+> **2026-08-20 追記（列単位diffを実行・22列の後始末が完了）**: ユーザーが実機の VPS
+> （`gmo-onair-app_dev-1`）で `npm run db:drift-sql` の生成物を実行し、テーブル・FK は
+> 差分0件、**列単位で22件の未追跡列**が見つかった。1列ずつ実データの有無を確認した結果:
+>
+> - **`revenues.is_estimate_origin` / `estimate_confirmed_at` / `estimate_pdf_box_file_id`**
+>   … 136件中7件に実データがあり（2026-04〜07月、直近まで）、`estimates` テーブルにも
+>   対応レコードが無い**唯一の記録**だった。migration 138（見積を `estimates`/`estimate_items`
+>   に分離する前）に使われていた旧方式の名残と見られる。**列もデータも消さず、
+>   migration 209 で「追認」だけした**（`ADD COLUMN IF NOT EXISTS`。データは1バイトも触らない）
+> - 残り19列（`revenues` の `discount_amount`/`estimate_version`/`estimate_sent_at`/
+>   `paid_amount`/`paid_at`/`inspection_issued_at`/`invoice_issued_at`・`finance_docs` の
+>   `box_file_id`/`original_kind`/`original_name`/`original_size`/`original_uploaded_at`/
+>   `original_uploaded_by`・`misc_inquiries.promoted_at`/`promoted_by`・
+>   `qsheet_documents.audio_share_revoked_at`/`audio_share_revoked_by`・
+>   `awards_events.template`）… 全行が列の既定値のまま、または一度も値が入っていない
+>   ことを実測で確認。**migration 209 で削除した**
+>
+> 検証は `db-drift-sql` の自己診断（フレッシュDBに対して0行）に加え、**実dev環境と
+> 同じ状態をローカルの検証用Postgresに再現してから migration 209 を適用**し、
+> ①想定どおり3列が残り19列が消えること ②migration 209 適用後に `db:drift-sql` を
+> 再実行して差分が完全に0になること、の両方を確認した。`npm run typecheck` /
+> `npm run lint` / `npm run test` もすべて green。**これで会社DB統合
+> （会社リスト一本化＋今回の列単位ドリフト監査）はコード上の未了タスクが無い状態になった。**
+> 残るのは本番反映（ユーザーの「本番に入れて」待ち）だけである。
+
 > **2026-08-20 追記（残作業の最終確認・完了）**: ユーザーから「会社DB統合で残っている
 > ことも取り組んで」の指示を受け、**最終の抜け漏れ確認**を実施した。
 > `grep -rn "FROM customers\|JOIN customers\|INTO customers\|UPDATE customers\|FROM vendors\|JOIN vendors\|INTO vendors\|UPDATE vendors\|DELETE FROM customers\|DELETE FROM vendors" server/src`
