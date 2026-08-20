@@ -26,12 +26,15 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAddItem, useEnsureReport, useReportByPeriod, useReviewReport } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { addDays, formatDateJa, toDateStr, weekStartOf, type OpsReportItem } from '@/lib/types';
 import { NewsForm, type NewsFields } from './news/NewsForm';
+import { NewsCards } from './news/NewsCards';
 import { NewsRow, NewsRowsHeader } from './news/NewsRows';
 
 type Chip = 'all' | 'picked' | 'ai' | 'human';
@@ -54,6 +57,7 @@ function matchesChip(item: OpsReportItem, chip: Chip): boolean {
 }
 
 export default function DailyNewsPage() {
+  const isMobile = useIsMobile();
   const [date, setDate] = useState(() => toDateStr(new Date()));
   const [chip, setChip] = useState<Chip>('all');
   const [adding, setAdding] = useState(false);
@@ -110,9 +114,15 @@ export default function DailyNewsPage() {
           </Button>
         ) : undefined}
       >
-        {/* 日付を選ぶ。**先の日付は選べない** (まだ起きていないニュースは無い) */}
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="icon" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
+        {/*
+          日付を選ぶ。**先の日付は選べない** (まだ起きていないニュースは無い)。
+          **端末のカレンダーに任せる**（自作の日付ホイールは作らない・
+          `client-v4/mobile.ts` の `duePresets()` と同じ決めごと）。
+          スマホは PC と同じ幅固定の小さな欄のままだった（v4ネイティブUI監査
+          2026-08-20 指摘）ので、**帯いっぱいに広げ、今日へ戻る近道を足した**。
+        */}
+        <div className={cn('flex items-center gap-1.5', isMobile && 'w-full')}>
+          <Button variant="outline" size="icon" className="shrink-0" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Input
@@ -121,17 +131,21 @@ export default function DailyNewsPage() {
             max={today}
             onChange={(e) => e.target.value && setDate(e.target.value)}
             aria-label="日付"
-            className="w-[9.5rem]"
+            className={isMobile ? 'min-w-0 flex-1' : 'w-[9.5rem]'}
           />
           <Button
             variant="outline"
             size="icon"
+            className="shrink-0"
             onClick={() => setDate(addDays(date, 1))}
             disabled={date >= today}
             aria-label="次の日"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
+          {isMobile && date !== today && (
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setDate(today)}>今日</Button>
+          )}
         </div>
       </PageHeader>
 
@@ -166,10 +180,10 @@ export default function DailyNewsPage() {
       ) : report.isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : (
-        <div className="rounded-card border border-border bg-card">
+        <div className={isMobile ? undefined : 'rounded-card border border-border bg-card'}>
           {items.length === 0 ? (
             <EmptyState
-              className="border-0 bg-transparent"
+              className={isMobile ? undefined : 'border-0 bg-transparent'}
               icon={<Sparkles />}
               title={`${formatDateJa(date)} のニュースはまだありません`}
               description={date === today
@@ -178,10 +192,12 @@ export default function DailyNewsPage() {
             />
           ) : visible.length === 0 ? (
             <NoSearchResults
-              className="border-0 bg-transparent"
+              className={isMobile ? undefined : 'border-0 bg-transparent'}
               activeFilters={[`絞り込み: ${CHIP_LABELS[chip]}`]}
               onClearFilters={() => setChip('all')}
             />
+          ) : isMobile ? (
+            <NewsCards items={visible} canEdit={canEdit} weeklyLocked={weeklyLocked} />
           ) : (
             <div className="flex flex-col">
               <NewsRowsHeader canEdit={canEdit} />
@@ -203,7 +219,7 @@ export default function DailyNewsPage() {
 
       <p className="text-note text-muted-foreground">
         「採用」の数字は、週報に書くときの目印です。
-        行の右の<strong className="font-bold">送るボタン</strong>を押すと、
+        各行の<strong className="font-bold">送るボタン</strong>を押すと、
         その日が入る週のウィークリー活動報告へ写せます（週報側に「ニュース由来」と出ます）。
         <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
         {weeklyLocked && (
