@@ -4,6 +4,8 @@ import stageTemplateRoutes from './routes/stage-templates.routes';
 import pdfRoutes from './routes/pdf.routes';
 import uploadRoutes from './routes/upload.routes';
 import publicAudioRoutes from './routes/public-audio.routes';
+import scopesRoutes from './routes/scopes.routes';
+import journeyMarksRoutes from './routes/journey-marks.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -15,6 +17,9 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet/stage-templates', stageTemplateRoutes);
   router.use('/qsheet', pdfRoutes);
   router.use('/qsheet', uploadRoutes);
+  // トップ（案件を選ぶ）・制作のジャーニー（段3・03-app-structure-impl.md §6）
+  router.use('/qsheet', scopesRoutes);
+  router.use('/qsheet', journeyMarksRoutes);
 
   return router;
 }

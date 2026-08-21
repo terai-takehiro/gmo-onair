@@ -9,6 +9,8 @@ import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
+import TopPage from "@/pages/TopPage";
+import { QSHEET_ROOT_PATH } from "@/routeSwitch";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -29,13 +31,21 @@ export default function App() {
     <Routes>
       <Route
         path="/qsheet/login"
-        element={isAuthenticated ? <RedirectOnce to="/qsheet" /> : <LoginPage />}
+        element={isAuthenticated ? <RedirectOnce to={QSHEET_ROOT_PATH} /> : <LoginPage />}
       />
 
       {/* Pages with AppShell (Header + Sidebar) */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-        <Route path="/qsheet" element={<DashboardPage />} />
-        <Route path="/qsheet/editor" element={<DashboardPage />} />
+        {/*
+          `/qsheet` は画面を持たず、`routeSwitch.ts` の1行だけを見て転送する
+          （03-app-structure-impl.md §3-3）。`/qsheet/home`（新トップ・案件を選ぶ）と
+          `/qsheet/sheets`（旧トップ・進行台本の一覧）は常に両方存在する。
+        */}
+        <Route path="/qsheet" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
+        <Route path="/qsheet/home" element={<TopPage />} />
+        <Route path="/qsheet/sheets" element={<DashboardPage />} />
+        {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
+        <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
       </Route>
 
@@ -47,7 +57,8 @@ export default function App() {
       {/* Public audio support dashboard — no auth required, docId-based */}
       <Route path="/qsheet/audio/:id" element={<AudioSupportPage />} />
 
-      <Route path="*" element={<RedirectOnce to="/qsheet" />} />
+      {/* 転送は1段。`/qsheet` を経由すると RedirectOnce の 200ms フォールバックに触れる */}
+      <Route path="*" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
     </Routes>
   );
 }
