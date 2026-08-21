@@ -40,8 +40,8 @@ v4 の3アプリは `dark` を一度も付けないため、今は露見して�
 | 3 | [`03-app-structure-impl.md`](03-app-structure-impl.md) | 01 | 作成中 |
 | 4 | [`04-schedule-impl.md`](04-schedule-impl.md) | 02 | 作成中 |
 | 5 | [`05-editor-impl.md`](05-editor-impl.md) | 06 | 作成中 |
-| — | [`08-recording-streaming-impl.md`](08-recording-streaming-impl.md) | 08 | 作成中 |
-| — | [`09-live-timer-impl.md`](09-live-timer-impl.md) | 09 | 作成中 |
+| — | [`08-recording-streaming-impl.md`](08-recording-streaming-impl.md) | 08 | ✅（並行・段依存なし） |
+| — | [`09-live-timer-impl.md`](09-live-timer-impl.md) | 09 | ✅（並行・段依存なし） |
 | 7 | [`07-ai-proposals-impl.md`](07-ai-proposals-impl.md) | 04（04-a のみ） | 作成中 |
 
 ---
@@ -73,6 +73,11 @@ v4 の3アプリは `dark` を一度も付けないため、今は露見して�
 | 217 | `217_qsheet_ai.sql` | AI 提案・壁打ち・索引・ナレッジ | 7 |
 | 218 | `218_qsheet_import_batches.sql` | Excel 取込の履歴とスナップショット | 6 |
 | 219 | `219_qsheet_mcp.sql` | MCP 3列 ＋ `idempotency_key` | 10 |
+| 220 | `220_qsheet_device_settings.sql` | 収録設定・配信設定（`meetings` 込み） | 08（並行） |
+| 221 | `221_liveops_server_measure.sql` | 組織共通の鍵・計測の状態・取得ログ | 09（並行） |
+
+⚠️ **08 と 09 はどの段にも依存しません**（08 は `projects`/`users`、09 は `liveops_*` にしか触らない）ので、
+**上の 212〜219 より先に入っても構いません。** その場合は先に空き番号を取り、段側が後ろにずれます。
 
 ⚠️ **`206` の重複は既に起きた事故です。** README §5-2 #31 は「起こりうる」と書いていますが、
 `migrate.ts` がファイル名を `.sort()` するだけなので**CI は落ちないまま既に2本入っています**

@@ -7,6 +7,12 @@
 >
 > ⚠️ 本文中の `ファイル:行` は **2026-08-21 時点の `claude/qsheet-v4-coding-guide-udbo1u`**
 > で実際に開いて確認した位置です。行がずれたら**その場で確認し直してから**直してください。
+>
+> ✅ **確認①は決まりました**（[`README.md`](README.md) §1 ①）:
+> **進行・ランダウン・プロンプターの3画面も v4 の見た目にする**（旧見た目のスコープ固定はしない）。
+> この文書はその判断を反映済みです。**旧見た目で固定する案（不採用）は §7-4 に併記**してあります
+> （判断が覆ったときにここから拾えるようにするため）。
+> **migration 番号も [`README.md`](README.md) §3 の予定表に合わせて 214 / 215 に直しました。**
 
 ---
 
@@ -192,13 +198,13 @@ $ ls server/src/shared/db/migrations | sort | tail -5
   `--primary` `--ring` `--sidebar-primary` / `--border` `--input` `--sidebar-border` /
   `--success` `--warning` `--destructive` `--info` / `--font-sans` `--font-mono-num` / `--radius`
 - ⚠️ **`tokens-v4.css` には `.dark` のブロックが1つもありません**（`grep dark` で0件）。
-  一方 `tokens.css:196` に `.dark { … }` があり、そこで `--background: 20 22 26` などを定義しています。
+  一方 `tokens.css:197` に `.dark { … }` があり、そこで `--background: 20 22 26` などを定義しています。
   `:root`（0,1,0）と `.dark`（0,1,0）は**特異度が同じ**で、`@import` は先頭にしか書けないため
   **`tokens.css` の `.dark` が先・`tokens-v4.css` の `:root` が後**になります。
   → **同じ特異度なら後勝ちなので、`tokens-v4.css` を読むと `.dark` の 27 個が効かなくなります。**
 - **これは今まで表に出ていません。** v4 の3アプリで `.dark` を付ける画面は**0件**（実測）。
   `.dark` を使っているのは **凍結中の qsheet の3画面だけ**:
-  `OnAirPage.tsx:312-315` / `PrompterPage.tsx:91-94` / `RundownPage.tsx:161-162,177-181`（既定 `dark`）。
+  `OnAirPage.tsx:312-315` / `PrompterPage.tsx:91-94` / `RundownPage.tsx:161-162,178-188`（既定 `dark`）。
   → §7-1 の最重要事項。
 
 ### 2-9. トースト13か所
@@ -468,21 +474,28 @@ shared/tests/miniapps.test.ts              ← 重複禁止の固定
 
 ## §5 DDL
 
-### 5-1. migration 番号の振り直し（**README §6 の表は 1 つずれています**）
+### 5-1. migration 番号の振り直し（**README §6 の表は全部ずれています**）
 
-実際の最大は **211**（`211_drop_techsheet_schema.sql`）。したがって:
+**実際の最大は `211_drop_techsheet_schema.sql`**（実測）。
+README §6 は「最大が 210」の前提で 211〜217 を割り当てているので、**全部 1 つずつずれています**。
 
-| README §6 の番号 | ファイル | **正しい番号** | 中身 | 依存 |
+さらに、段ごとの実装設計を並行して書いたため **段1 と段2 がどちらも「212」を主張していました**。
+取り合いを避けるため、[`README.md`](README.md) §3 が**実装順（README §7）に沿った予定番号**を
+決めています。**この文書はそれに従います。**
+
+| 予定番号 | ファイル | 中身 | 段 | 依存 |
 | --- | --- | --- | --- | --- |
-| 211 | `qsheet_doc_no` | **212** | `qsheet_documents.doc_no` ＋部分 UNIQUE | — |
-| 212 | `production_journey_marks` | **213** | ジャーニーの人のピン | — |
-| 213 | `qsheet_schedule` | **214** | スケジュール表5本＋共有1本（`doc_no` 込み） | — |
-| 214 | `qsheet_ai` | **215** | 提案・壁打ち・索引・ナレッジ・実尺 | **214 の後**（`qsheet_schedules` に FK） |
-| 215 | `qsheet_import_batches` | **216** | Excel 取込の履歴 | — |
-| 216 | `qsheet_mcp` | **217** | MCP 3列 ＋ `idempotency_key` | **215 の後** |
-| 217 | `qsheet_audio_share` | **218** | 公開音声のトークンと失効 | — |
+| 212 | `212_qsheet_cue_actuals.sql` | 実尺 | 1 | — |
+| 213 | `213_qsheet_audio_share.sql` | 公開音声のトークンと失効 | 2 | — |
+| **214** | **`214_qsheet_doc_no.sql`** | **`qsheet_documents.doc_no` ＋部分 UNIQUE** | **3（この段）** | — |
+| **215** | **`215_production_journey_marks.sql`** | **ジャーニーの人のピン** | **3（この段）** | — |
+| 216 | `216_qsheet_schedule.sql` | スケジュール表5本＋共有1本（`doc_no` 込み） | 4 | — |
+| 217 | `217_qsheet_ai.sql` | AI 提案・壁打ち・索引・ナレッジ | 7 | **216 の後**（`qsheet_schedules` に FK） |
+| 218 | `218_qsheet_import_batches.sql` | Excel 取込の履歴 | 6 | — |
+| 219 | `219_qsheet_mcp.sql` | MCP 3列 ＋ `idempotency_key` | 10 | **217 の後** |
 
-**この段（段3）が出すのは `212` と `213` の2本だけ**です。
+**この段（段3）が出すのは `214` と `215` の2本だけ**です。
+**214 と 215 のあいだに依存はありません**（別々の PR に分けてよい・§8 の C と D）。
 
 ⚠️ **番号を取り合わないための決めごと**（`migrate.ts:16` がファイル名順に流すだけなので、
 CI では絶対に気づけません）:
@@ -490,16 +503,19 @@ CI では絶対に気づけません）:
 1. **枝を切った時刻ではなく、マージされる直前に番号を確かめる。**
    PR を出す前に `ls server/src/shared/db/migrations | sort | tail -3` をもう一度見て、
    **他の PR が先に入っていたら自分の番号を上げてリネームする**。
+   上の表は**予定であって確定ではありません** — 段1・段2 が先に入るとは限りません。
 2. **一度 `main` に入った migration のファイル名は絶対に変えない。**
    `_migrations` テーブルは**ファイル名で**実行済みを持つ（`migrate.ts:20,33`）ので、
    リネームすると既存 DB で**もう一度流れます**。`ADD COLUMN IF NOT EXISTS` などで冪等にしてあっても、
    `_migrations` に2行入って履歴が読めなくなります。
-3. 番号が重複しても動きます（`206` が2本ある前例）が、**依存のある組（214→215→217）だけは絶対に順を守る**。
+3. 番号が重複しても動きます（**`206` は既に2本あります** —
+   `206_drop_untracked_drift_tables.sql` と `206_weekly_unreviewed_notification.sql`。
+   `197` と `205` は欠番）。ただし**依存のある組（216→217→219）だけは絶対に順を守る**。
 
-### 5-2. `212_qsheet_doc_no.sql`
+### 5-2. `214_qsheet_doc_no.sql`
 
 ```sql
--- 212_qsheet_doc_no.sql
+-- 214_qsheet_doc_no.sql
 -- 資料単体（案件に紐づかない資料）に配る番号。書式は SB-202608-0001。
 -- 既存行への一括後付けはしない（→ 本文 §5-4）。
 ALTER TABLE qsheet_documents
@@ -521,7 +537,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_qsheet_documents_doc_no
 部分 UNIQUE は `deleted_at` を見ないので、**削除した資料の番号は再利用できません**。
 これは**意図した挙動**です（配った番号を別の資料に付け直すと現場が混乱する）。
 
-### 5-3. `213_production_journey_marks.sql`
+### 5-3. `215_production_journey_marks.sql`
 
 01 §4-3 の DDL をそのまま採ります。**型の方針だけ明記**します。
 
@@ -758,8 +774,8 @@ CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
 
 | 事実 | 出どころ |
 | --- | --- |
-| `OnAirPage` `PrompterPage` `RundownPage` は `<html>` に **`.dark` クラスを付ける** | `OnAirPage.tsx:312-315` / `PrompterPage.tsx:91-94` / `RundownPage.tsx:161-162,177-181`（ランダウンは既定 `dark`） |
-| 暗い色は `tokens.css:196` の `.dark { --background: 20 22 26; … }` が持っている | `tokens.css` |
+| `OnAirPage` `PrompterPage` `RundownPage` は `<html>` に **`.dark` クラスを付ける** | `OnAirPage.tsx:312-315` / `PrompterPage.tsx:91-94` / `RundownPage.tsx:161-162,178-188`（ランダウンは既定 `dark`） |
+| 暗い色は `tokens.css:197` の `.dark { --background: 20 22 26; … }` が持っている | `tokens.css` |
 | `tokens-v4.css` に **`.dark` のブロックが無い**（`grep dark` で0件） | `tokens-v4.css` |
 | `tokens-v4.css:45-46` は `@import './tokens.css'` を**先頭**に置き、その後 `:48` から `:root { … }` を書く | 同 |
 | `:root` と `.dark` は**特異度が同じ**（どちらも 0,1,0）→ **後に書かれたほうが勝つ** | CSS の仕様 |
@@ -773,15 +789,27 @@ CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
 `.dark` を使っているのは凍結中の qsheet の3画面だけなので、
 **この不具合は「qsheet を v4 に載せた瞬間に初めて現れます」。**
 
-**対処（どちらの判断でも必要）**:
+**対処（確認①＝(a) を採ったので、こちらが確定）**:
 
-| 判断 | やること |
-| --- | --- |
-| (a) 本番画面も v4 の見た目にしてよい | **`tokens-v4.css` に `.dark` のブロックを足す**（27個のうち面・文字・罫の色を暗側の値で書く）。**`shared/` を触るので全アプリに効く**（ただし `.dark` を使うアプリが他に無いので実害は qsheet だけ） |
-| (b) 本番画面だけ旧トークンで固定（§0-1 の既定） | `.qs-legacy-shell` のスコープに **`.dark` 側の値も含める**（下の §7-4）。`tokens-v4.css` は触らない |
+**`shared/src/client/tokens-v4.css` に `.dark { … }` のブロックを足す。**
+`:root` で上書きしている **27 個のうち、`tokens.css:197-` の `.dark` が暗側の値を持っているもの**を
+同じ名前・暗側の値で書きます（`--font-sans` `--font-mono-num` `--radius` は明暗で変わらないので不要）。
 
-**どちらにしても、`verify:ui` の `dark: true` の2ページ（`verify-ui.mjs:108-109`）で
-地の色が `rgb(20, 22, 26)` のままであることを実測してから PR を出します。**
+- ⚠️ **`shared/` を触るので全アプリに効きます。** ただし **`.dark` を付ける画面は
+  v4 の3アプリに 0 件**（実測）なので、**実際に描画が変わるのは制作資料の3画面だけ**です。
+- ⚠️ **`npm run check:frozen` が `live` / `awards` で落ちる可能性があります。**
+  `tokens-v4.css` は `client-live` / `client-awards` の Tailwind の `content` に入っていないので
+  **クラス名は増えませんが**、`.dark` の追加は CSS 変数の宣言なので
+  `shared/src/client/**` を content に含む `client-live` のビルドには**入りません**
+  （`tokens-v4.css` を `@import` していないため）。→ **理屈の上では影響しないが、必ず実測する**。
+- **`.qs-legacy-shell` は作りません**（§7-4 は不採用案として残します）。
+
+**確定後も、`verify:ui` の `dark: true` の2ページ（`verify-ui.mjs:108-109`）と、
+PAGES に無いプロンプター（手で開く）で、地の色が `rgb(20, 22, 26)` のままであることを
+実測してから PR を出します。**
+
+⚠️ **これは「凍結解除と同じ PR で直さないと、放送中の画面が白くなる」たぐいの変更です。**
+`index.css` の import を替える PR と、`tokens-v4.css` に `.dark` を足す PR を**分けないでください**。
 
 ### 7-2. 凍結の印を外す作業（**CI を落とすのは `check:frozen` ではありません**）
 
@@ -807,17 +835,30 @@ CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
 - **1・2 は最後でよい**（CI に無いので他を止めません）。ただし**忘れると
   `npm run check:frozen` が永久に赤**になり、`live`/`awards` の検査ごと信用されなくなります。
 
-### 7-3. 本番4画面の見た目に波及する範囲（**具体的なセレクタ/変数名**）
+### 7-3. 本番画面の見た目に波及する範囲（**具体的なセレクタ/変数名**）
 
 `client-qsheet/src/index.css:2` を `tokens.css` → `base.css` に替えたときに、
-`/qsheet/onair/:id` `/qsheet/rundown/:id` `/qsheet/prompter/:id` `/qsheet/audio/:id` で
 **実際に描画が変わるもの**を全部並べます。
+
+**⚠️ 先に範囲を絞ります: 変わるのは 4画面ではなく 3画面です。**
+
+| 画面 | 影響 | 根拠（実測） |
+| --- | --- | --- |
+| `/qsheet/onair/:id` | **変わる** | 意味トークンのクラスを使用 |
+| `/qsheet/rundown/:id` | **変わる** | 同上 |
+| `/qsheet/prompter/:id` | **変わる** | 同上（※ `check-ui-tokens.mjs:143` で `NOT_A_SCREEN` 扱い＝色の決まりは当てない画面） |
+| `/qsheet/audio/:id` | **変わらない** | `AudioSupportPage.tsx` は **意味トークンのクラスが 0 件**・**`var(--` が 0 件**。色は素のパレット（`bg-zinc-950` `text-zinc-500` `text-sky-400` など）、角丸は `rounded-2xl` / `rounded-full`（`--radius` を読まない固定値）、**shadcn / shared の UI 部品を1つも import していない**（`import` 行は React / react-router / react-query / lucide / socket の5本だけ） |
+
+⚠️ 公開音声だけは `body { font-family: var(--font-sans) }`（`index.css:29,33`）経由で
+**書体は変わります**。「色と角丸は変わらない／書体は変わる」が正確な言い方です。
+
+以下は上の3画面（＋書体だけ公開音声）についての一覧です。
 
 #### (A) 色（`tokens-v4.css:48-113` の `:root` が上書きする 27 変数）
 
-| 変数 | いま（`tokens.css`） | v4 後 | 4画面で目に見える形 |
+| 変数 | いま（`tokens.css`） | v4 後 | 3画面で目に見える形 |
 | --- | --- | --- | --- |
-| `--background` | `250 250 250` `#fafafa` | `247 248 250` `#f7f8fa` | 公開音声の地の色。**`.dark` の3画面は §7-1 の事故** |
+| `--background` | `250 250 250` `#fafafa` | `247 248 250` `#f7f8fa` | ランダウンの明モード（`theme==='light'`）の地の色。**暗モードは §7-1 で `.dark` を足して守る** |
 | `--foreground` | `24 27 32` `#181b20` | `26 29 36` `#1a1d24` | 本文の黒 |
 | `--primary` | `0 90 173` `#005aad` | `0 91 172` `#005bac` | 進行の強調・ボタン・`--ring` |
 | `--destructive` | `#c81919`（純赤） | `199 36 58` `#c7243a`（赤紫寄り） | **ON AIR の赤・押し表示・警告バッジの色相が変わる** |
@@ -833,29 +874,29 @@ CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
 
 #### (B) 書体（**いちばん大きく見た目が変わるところ**）
 
-| 変数 / 仕組み | いま | v4 後 | 4画面で目に見える形 |
+| 変数 / 仕組み | いま | v4 後 | 3画面で目に見える形 |
 | --- | --- | --- | --- |
 | `--font-sans` | `'Noto Sans JP', …`（`tokens.css:255`） | `'LINE Seed JP', 'Noto Sans JP', …`（`tokens-v4.css:92`） | **全文字の字面が変わる** |
-| `--font-mono-num` | `'Roboto Condensed', …`（`tokens.css:258`） | `var(--font-sans)`（`tokens-v4.css:98`） | ⚠️ **`.font-oswald`（`index.css:52-54`）が `--font-mono-num` を読んでいます。** 進行のタイマー・残り時間の**数字が別書体に変わり、字幅も変わります**（桁が揃わなくなる可能性）。要実測 |
+| `--font-mono-num` | `'Roboto Condensed', …`（`tokens.css:258`） | `var(--font-sans)`（`tokens-v4.css:98`） | `.font-oswald`（`index.css:52-54`）が読んでいる。**使っているのは `CueTable.tsx` の6か所だけ**（実測）＝**編集画面。本番3画面では使っていません**。→ 影響は**段5**。進行のタイマーは `OnAirPage.tsx:127` の `tabular-nums` なので `--font-sans` の変更で字面は変わるが**桁幅は保たれる**（要実測） |
 | `@font-face`（LINE Seed JP） | 読まない | `tokens-v4.css:45` → `fonts/lineseedjp.css` | `client-qsheet/CLAUDE.md:18`「LINE Seed JP を追加しない」に正面からぶつかる |
 | ウェイト | `font-medium`(500) / `font-semibold`(600) がそのまま | LINE Seed JP は **400/700/800 しか無い**（`tokens-v4.css:88-91`）。`client/tailwind.config.ts` は `v4Preset` で 500→400 / 600→700 に潰しているが、**`client-qsheet/tailwind.config.ts:5` は `v4Preset` を継承していない** | **合成太字（偽ボールド）**になり、字面が濁る。→ `v4Preset` の継承も同時に要る |
-| 字詰め | 掛けていない | `base.css` が `palt`/`kern` を掛ける | ⚠️ `tokens-v4.css:119-127` の `.font-number` は打ち消しだが、**進行の数字が `.font-number` を使っていない**（`.font-oswald` を使っている）。要実測 |
+| 字詰め | 掛けていない | `base.css` が `palt`/`kern` を掛ける | ⚠️ 打ち消しは `tokens-v4.css:119-127` の **`.font-number`** だが、**本番3画面は `.font-number` を1つも使っていません**（`OnAirPage.tsx:127` は `tabular-nums`）。`tabular-nums` は `font-variant-numeric` で、`font-feature-settings: palt` に**打ち消されません**（別プロパティ）。→ 桁は保たれる見込みだが**要実測** |
 
 #### (C) 角丸
 
 | 変数 | いま | v4 後 | 目に見える形 |
 | --- | --- | --- | --- |
-| `--radius` | `0.5rem` = **8px**（`tokens.css:106`） | **12px**（`tokens-v4.css:112`） | shadcn の `rounded-md` = `calc(var(--radius) - 2px)` なので、**ボタン・入力欄・選択欄の角が 6px → 10px**。4画面の全ボタンに効く |
-| `:root .rounded-card` ほか | 定義なし | `tokens-v4.css:185-206` が `.rounded-card` `.rounded-note` `.rounded-badge` `.rounded-control` などを上書き | 4画面が**その名前のクラスを使っていれば**効く（要 grep） |
+| `--radius` | `0.5rem` = **8px**（`tokens.css:106`） | **12px**（`tokens-v4.css:112`） | shadcn の `rounded-md` = `calc(var(--radius) - 2px)` なので、**ボタン・入力欄・選択欄の角が 6px → 10px**。3画面の全ボタンに効く（公開音声は `rounded-2xl`/`rounded-full` の固定値のみなので効かない） |
+| `:root .rounded-card` ほか | 定義なし | `tokens-v4.css:185-206` が `.rounded-card` `.rounded-note` `.rounded-badge` `.rounded-control` などを上書き | 3画面が**その名前のクラスを使っていれば**効く（要 grep） |
 
 #### (D) `base.css` を読むと足で入るもの（色以外）
 
 | 仕組み | 影響 |
 | --- | --- |
-| `html, body, #root { height: 100% }` | ⚠️ **いま `client-qsheet/src/index.css:8-13` は `height` を1つも指定していません**（`overflow-x: hidden` と `max-width: 100vw` だけ）。`base.css` を読むと高さの持ち方が変わり、**全画面の4画面のレイアウトが動く可能性**がある。要実測 |
+| `html, body, #root { height: 100% }` | ⚠️ **いま `client-qsheet/src/index.css:8-13` は `height` を1つも指定していません**（`overflow-x: hidden` と `max-width: 100vw` だけ）。`base.css` を読むと高さの持ち方が変わり、**シェル無しの4画面（本番3画面＋公開音声）のレイアウトが動く可能性**がある。要実測 |
 | `@media print` の解除 | PDF/印刷の挙動が変わる可能性（Qシートはサーバー側 pdfkit なので影響は小さい見込み・**未確認**） |
 | `@layer base` の重複 | `client-qsheet/src/index.css:7-49` の `@layer base` と `base.css` の `@layer base` が両方効く。**同じプロパティを二重指定している箇所は後勝ち**になる |
-| `tokens-v4.css:232-` `@media (max-width: 1023px)` ほかの v4 専用規則 | 4画面のスマホ表示が動く可能性。要実測 |
+| `tokens-v4.css:232-` `@media (max-width: 1023px)` ほかの v4 専用規則 | 本番3画面のスマホ表示が動く可能性。要実測 |
 | `.v4-*` アニメーション（`tokens-v4.css:438-` 以下） | クラス名を使っていなければ**描画は変わらない**が、**CSS のバイト数は増える**（`check:frozen` を外していれば止まらない） |
 
 #### (E) 共通シェルに載せ替えたときだけ効くもの
@@ -866,10 +907,14 @@ CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
   → (D) の `height: 100%` が**前提条件**。**片方だけ入れると崩れます。**
 - **本番4画面には `AppShell` を被せません**（`App.tsx:42-48` のまま・07 §2）。
 
-### 7-4. 「本番画面だけ旧トークンでスコープ固定」案の実装形（§0-1 の既定）
+### 7-4. 【不採用】「本番画面だけ旧トークンでスコープ固定」案の実装形
+
+⚠️ **確認①で「3画面も v4 の見た目にする」と決まったので、この案は採りません。**
+01 §0-1 と 07 §2 が既定にしていた案なので、**判断が覆ったときにここから拾えるように**
+実装形と弱点を残します。**この節に沿って実装しないでください。**
 
 ```
-client-qsheet/src/styles/legacy-onair.css   ← 新規
+client-qsheet/src/styles/legacy-onair.css   ← 新規（**作らない**）
 ```
 
 **中身の形**:
@@ -881,7 +926,7 @@ client-qsheet/src/styles/legacy-onair.css   ← 新規
    **`--primary` だけ v4 の値・`--primary-border` だけ旧の値**という**組み合わせが崩れた状態**になります。
    面と枠と文字は組で設計されているので、**組ごと固定する**のが正です。
 2. **`.dark` 側も複製する**（§7-1）:
-   `.qs-legacy-shell.qs-dark { … }` に `tokens.css:196-` の `.dark` の値を写し、
+   `.qs-legacy-shell.qs-dark { … }` に `tokens.css:197-` の `.dark` の値を写し、
    `OnAirPage` / `PrompterPage` / `RundownPage` は `<html>` の `.dark` に加えて
    **自分のルート要素に `qs-dark` も付ける**。
    （`<html>` に付けたままだと `tokens-v4.css` の `:root` に負けるため、**スコープの中に持ち込む**）
@@ -942,12 +987,17 @@ client-qsheet/src/styles/legacy-onair.css   ← 新規
 | バッジの列がそろう / 金額の右端 ±0.5px | 見ない（`:484`） | **見る**（`:485-486`） |
 
 ⚠️ **`FROZEN_PREFIX` は正規表現1本で `/qsheet` `/live` `/awards` を同時に見ています。**
-`qsheet` だけ外すには正規表現を `/^\/(live|awards)\//` にします。
-**(b) 本番画面だけ旧トークン、を採る場合は、逆に「`/qsheet/onair` `/qsheet/rundown` `/qsheet/prompter`
-`/qsheet/audio` だけを旧の期待値で見る」形が要ります**（`FROZEN_PREFIX` を
-`/^\/(live|awards)\/|^\/qsheet\/(onair|rundown|prompter|audio)\//` にする）。
-また `PAGES`（`:106-109`）には**プロンプターと公開音声が入っていません**。
-凍結解除で見た目が動く4画面のうち2画面が測られていないので、**2本足します**。
+確認①＝(a) なので、`qsheet` を**丸ごと**外します: `/^\/(live|awards)\//`。
+
+⚠️ **`PAGES`（`:106-109`）にはプロンプターと公開音声が入っていません。**
+見た目が動く3画面のうちプロンプターが測られていないので、**`['Qシート プロンプター', '/qsheet/prompter/verify-onair', { dark: true }]` を足します**。
+公開音声（`/qsheet/audio/verify-onair`）は §7-3 のとおり色は変わりませんが、
+**書体は変わる**ので、書体の期待値を確かめるために足しておきます。
+
+⚠️ **公開音声だけは `LINE Seed JP` に変わっても「v4 の色の決まり」を満たしません**
+（素のパレット `bg-zinc-950` などを使っているため、`check-ui-tokens` の `raw-palette` に当たる）。
+`check-ui-tokens.mjs` の `V4_DIRS` に `client-qsheet/src` を足すときは、
+**公開音声を `NOT_A_SCREEN` に入れるか、記録（BASELINE）に載せるか**を先に決めてください（§10-4 の 5）。
 
 ---
 
@@ -960,8 +1010,8 @@ client-qsheet/src/styles/legacy-onair.css   ← 新規
 | --- | --- | --- | --- | --- |
 | A | `chore(qsheet): 制作資料の凍結を解いた` | `apps.ts` / `apps.test.ts` / `HomePage.tsx` / `AppTiles.tsx` / `check-shared-wiring.mjs` / `check-frozen-css.mjs` / `frozen-css-baseline.json` / `client-qsheet/CLAUDE.md` / ルート `CLAUDE.md` / `docs/v4-native-ui-plan.md` | — | `lint` / `test` / `check:frozen`（**`live`/`awards` だけになったことを確認**） |
 | B | `feat(qsheet): ミニアプリのレジストリを足した` | `shared/src/production/*` / `server/src/shared/production/*` / `client-qsheet/src/miniapps/ui.tsx` / `check-collab-parity.mjs` / `shared/tests/miniapps.test.ts` | A | `typecheck:all` / `test` / `node scripts/check-collab-parity.mjs` |
-| C | `feat(qsheet): 資料番号（doc_no）を採れるようにした` | migration `212` / `docNo.service.ts` / `documents.routes.ts`（POST に列1つ） | B | `verify:up` → `db:migrate` → 新規作成で `SB-YYYYMM-0001` が返ること |
-| D | `feat(qsheet): ジャーニーのピンを足した` | migration `213` / `journey-marks.routes.ts` | B | `verify:up` → `db:migrate` → POST/DELETE と `cleared_at` |
+| C | `feat(qsheet): 資料番号（doc_no）を採れるようにした` | migration `214`（予定・§5-1） / `docNo.service.ts` / `documents.routes.ts`（POST に列1つ） | B | `verify:up` → `db:migrate` → 新規作成で `SB-YYYYMM-0001` が返ること |
+| D | `feat(qsheet): ジャーニーのピンを足した` | migration `215`（予定・§5-1） / `journey-marks.routes.ts` | B | `verify:up` → `db:migrate` → POST/DELETE と `cleared_at` |
 | E | `feat(qsheet): トップ（案件を選ぶ）を作った` | `scopes.routes.ts` / `TopPage.tsx` / `routeSwitch.ts` / `App.tsx`（`/qsheet/home`・`/qsheet` の転送） | B,C | `verify:ui`（新画面）／375px |
 | F | `feat(qsheet): 制作のジャーニーを作った` | `journey.service.ts` / `scopes.routes.ts` / `JourneyPage.tsx` / `App.tsx`（`/qsheet/projects/:id`・`/qsheet/docs/:id`） | D,E | 同上 ＋ **壊れた `data.sections` を1件仕込んで一覧が 500 にならないこと** |
 | G | `refactor(qsheet): 進行台本の一覧を /qsheet/sheets に移した` | `SheetListPage.tsx`（`DashboardPage` 解体）／ `App.tsx`（`/qsheet/sheets`・`/qsheet/editor` 転送）／`documents.routes.ts`（`date` / `scope` / `section_count` / `canManage`） | E | `verify:ui` ／ **旧 `/qsheet/editor` から転送されること** |
@@ -1024,9 +1074,9 @@ npm run verify:ui qsheet             # qsheet のページだけ
 | `/qsheet/onair/<id>` の地の色 | **暗いまま**（`rgb(20,22,26)`） | §7-1 |
 | `/qsheet/rundown/<id>` の地の色 | 暗いまま | 同上 |
 | `/qsheet/prompter/<id>` の地の色 | 暗いまま | 同上（**`verify-ui.mjs` の PAGES に無い**。手で開く） |
-| `/qsheet/audio/<id>` | 明るいまま・書体が変わっていない | 同上（PAGES に無い） |
-| 進行のタイマーの数字 | 桁が揃っている（`--font-mono-num` を変えていない） | §7-3 (B) |
-| 切断トーストの色 | 変わっていない | §7-4 の弱いところ |
+| `/qsheet/audio/<id>` | **色は変わっていない**（素のパレットのみ）・**書体だけ LINE Seed JP に変わる** | §7-3 の絞り込み表（PAGES に無いので手で開く） |
+| 進行のタイマーの数字 | 桁が揃っている（`tabular-nums` が効いている） | §7-3 (B) |
+| 切断トーストの色 | v4 の色になっている（(a) を採ったので**変わってよい**） | 確認① |
 | 新画面 375px | 横スクロールが出ない・タップ 44px 以上 | ルート `CLAUDE.md` UI/UX ポリシー |
 
 ### 9-4. 壊れたデータでの確認（F・G）
@@ -1048,21 +1098,32 @@ npm run verify:ui qsheet             # qsheet のページだけ
 
 ## §10 未決・要確認
 
-### 10-1. 確認①（本番4画面の見た目）が決まるまで**着手できない**もの
+### 10-1. ✅ 確認①は決まりました（この段の着手条件は満たされています）
 
-**確認①**＝ README §4 の #1／01 §9-12:
-「本番4画面の見た目を v4 に変えてよいか。(a) 変えてよい ／ (b) 本番画面だけ旧トークンで固定（既定）」
+**確認①**＝ README §4 の #1／01 §9-12。
+[`README.md`](README.md) §1 ① で **(a) 進行・ランダウン・プロンプターの3画面も v4 の見た目にする**
+（旧見た目のスコープ固定はしない）と決まりました。
 
-| 止まるもの | なぜ |
+**これで動くようになったもの**:
+
+| もの | 決まった中身 |
 | --- | --- |
-| `client-qsheet/src/index.css:2` の import を替える | (a) か (b) かで**やることが根本的に違う**（§7-1・§7-4） |
-| `client-qsheet/src/styles/legacy-onair.css` の新設 | (b) のときだけ要る。88変数＋`.dark`＋角丸の複製 |
-| `client-qsheet/tailwind.config.ts` に `v4Preset` と `client-v4` の content を足す | 見た目を v4 にすると決めてから |
-| `verify-ui.mjs` の `FROZEN_PREFIX` の書き替え | (a) なら qsheet を丸ごと外す／(b) なら本番4画面だけ残す（§7-6） |
-| `check-frozen-css.mjs` から qsheet を外す | (b) でも CSS は変わるので外すが、**外す前に (b) の実装が入っている**必要がある |
-| **新画面を v4 の見た目にすること全部**（E・F・G の見た目） | tokens が決まらないと色も書体も角丸も決められない |
+| `client-qsheet/src/index.css:2` の import | `tokens.css` → `base.css` に替える（§7-3） |
+| `client-qsheet/src/styles/legacy-onair.css` | **作らない**（§7-4 は不採用案として残すだけ） |
+| `client-qsheet/tailwind.config.ts` | `v4Preset` を継承し、content に `../shared/src/client-v4/**` を足す（§7-3 B） |
+| `verify-ui.mjs` の `FROZEN_PREFIX` | `qsheet` を**丸ごと**外す。PAGES にプロンプターと公開音声を足す（§7-6） |
+| `check-frozen-css.mjs` | qsheet の行を外す（§7-2 の 1） |
+| 新画面（E・F・G）の見た目 | v4 のトークンで作る |
 
-### 10-2. 確認①が決まらなくても**先に進められる**もの
+⚠️ **①に伴って必ず同じ PR で直すもの（設計書に記述がありませんでした）**:
+**`shared/src/client/tokens-v4.css` に `.dark { … }` を足す**（§7-1）。
+これを分けると、**index.css の import を替えた時点で放送中の進行卓が白くなります。**
+
+**この段で残っている「決まっていないもの」は §10-3 だけ**です。
+そのうち**着手を止めるものは1つもありません**（すべて既定の挙動が決まっており、
+後から1か所を直せば切り替わる形にしてあります）。
+
+### 10-2. それでも PR の順で気をつけること
 
 | 進められるもの | なぜ |
 | --- | --- |
@@ -1072,10 +1133,11 @@ npm run verify:ui qsheet             # qsheet のページだけ
 | **サーバー側の `scopes` / `journey` API**（E・F の**サーバー部分だけ**） | 返す JSON は見た目と無関係。画面を後から被せられる |
 | **`documents.routes.ts` の `section_count` / `date` / `scope`**（G のサーバー部分） | 同上 |
 | **`shared/tests/miniapps.test.ts`** | 純関数のテスト |
-| **PR A の一部**（`apps.ts` の `frozen` を落とす・タイルの整理） | ⚠️ **見た目は変わらないが、アプリ切替に出るようになる**。凍結解除の意思表示なので、**確認①と同時に出すのが素直** |
+| **PR A の一部**（`apps.ts` の `frozen` を落とす・タイルの整理） | 見た目は変わらないが、アプリ切替に出るようになる |
 
-→ **決め: 確認①が取れるまで B → C → D →（E・F・G のサーバー部分）を進め、
-A と 画面の見た目は確認①の後**にします。
+→ **決め: A（凍結解除＋`tokens-v4.css` の `.dark`）を最初に出し、
+そのあと B → C → D → E → F → G**（§8）。
+A を後回しにすると、E 以降の新画面を**旧トークンで作ってから作り直す**ことになります。
 
 ### 10-3. その他の未決（利用者判断・README §4 と 01 §9 から、この段に関わるものだけ）
 
@@ -1113,7 +1175,7 @@ A と 画面の見た目は確認①の後**にします。
 | # | 重大度 | 設計書の記述 | 実装の事実 | この文書での扱い |
 | --- | --- | --- | --- | --- |
 | 1 | **重大** | 01 §0-1「tokens を `tokens-v4.css` に差し替えると、本番4画面の**見た目も同時に変わる**」（＝色が変わるだけの話として書かれている） | `tokens-v4.css` に **`.dark` のブロックが1つも無い**。`:root`（後）が `tokens.css` の `.dark`（先）を同特異度で上書きするため、**`.dark` を付ける本番3画面（OnAir / プロンプター / ランダウン）の地の色が暗色から白に変わる**。v4 の3アプリで `.dark` を使う画面は0件なので、**この不具合は qsheet を載せた瞬間に初めて現れる** | §7-1 に独立節。(a)(b) どちらの判断でも**追加作業が要る**ことを明記 |
-| 2 | **重大** | README §6「現在の最大は 210」／01 §7-1 も同じ | **実際の最大は 211**（`211_drop_techsheet_schema.sql`）。README の割り当ては 211 から始まっており、**1つずれている** | §5-1 で 212〜218 に振り直し |
+| 2 | **重大** | README §6「現在の最大は 210」／01 §7-1 も同じ | **実際の最大は 211**（`211_drop_techsheet_schema.sql`）。README の割り当ては 211 から始まっており、**全部 1 つずれている**。さらに段1 と段2 がどちらも 212 を主張していた | §5-1（[`README.md`](README.md) §3 の予定表に従う）。**段3 は 214 / 215** |
 | 3 | **重大** | 01 §0「凍結 CSS の検査を外し忘れると **CI が『CSS が変わった』で落ちる**」 | **`check:frozen` は CI に入っていません**（`ci.yml` は typecheck:all / lint / test / collab-parity / check:version / check:ui-tokens の6つだけ）。**外し忘れても CI は緑のまま** | §2-6・§7-2・§9-2。実際に CI を落とすのは `check-shared-wiring.mjs:236-238` と `apps.test.ts:39` |
 | 4 | **重大** | 01 §6-3「検査に足すもの」＝ `check-collab-parity` / `miniapps.test` / `apps.test` / `check-frozen-css` の**4つ** | 実際は最低 **7スクリプト**が `client-qsheet` を特別扱いしている。特に **`check-shared-wiring.mjs:236-238` は「凍結アプリを共通シェルに載せ替えないこと」で `npm run lint` を落とす** — 01 §1-4 が「共通シェルに載せ替える」と決めているので**必ず踏む** | §2-7 に全部の表。§7-2 に手順 |
 | 5 | 高 | 01 §0 / §5-2「DayTab は `GET /qsheet/documents` と **`/techsheet/documents`** の**2本**を叩く」「技術資料側の `DocList` は触らない・`client-techsheet` は凍結のまま」 | **技術資料アプリは削除済み**（`DayTab.tsx:14` に明記・`211_drop_techsheet_schema.sql` も存在）。DayTab の API 呼び出しは **1本だけ**（`:106-109`） | §2-11。**「触らないファイル」の表から技術資料の行を落とす** |
