@@ -10,6 +10,9 @@ import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
+import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
+import SchedulePage from "@/pages/schedule/SchedulePage";
+import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
 import { QSHEET_ROOT_PATH } from "@/routeSwitch";
 import { Loader2 } from "lucide-react";
 
@@ -47,6 +50,11 @@ export default function App() {
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
         <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
+
+        {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
+        <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
+        <Route path="/qsheet/schedules/:id" element={<SchedulePage />} />
+        <Route path="/qsheet/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}
