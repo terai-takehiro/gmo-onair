@@ -11,7 +11,7 @@
  *
  * 以前は区画が12（`sales`/`budget`/`gpm`/`studio`/`partner_schedule`/
  * `equipment`/`dailyops`/`admin`/`qsheet`/`techsheet`/`liveops`/`awards`）
- * あり、型が触るのはそのうち凍結4アプリを除いた8つだけだった
+ * あり、型が触るのはそのうち凍結4アプリ（当時4つ）を除いた8つだけだった
  * （足すと役割を押すだけで放送系の権限が消えるため、あえて対象外にしていた）。
  *
  * ユーザーの指示（「アプリ単位で使える／使えないでいい」・「型だけにして
@@ -30,9 +30,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
-/** 型が面倒を見る区画。ブロックアプリ単位の7つ（凍結4アプリを含む） */
+/**
+ * 型が面倒を見る区画。ブロックアプリ単位の6つ（凍結3アプリを含む）。
+ * 技術資料アプリの削除（migration 211）で `techsheet` を外した。
+ */
 export const ROLE_MODULES = [
-  'sales', 'equipment', 'dailyops', 'qsheet', 'techsheet', 'liveops', 'awards',
+  'sales', 'equipment', 'dailyops', 'qsheet', 'liveops', 'awards',
 ] as const;
 
 export type RoleLevel = 'reader' | 'editor' | 'manager';

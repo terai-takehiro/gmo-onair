@@ -26,7 +26,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = path.join(ROOT, 'scripts/file-size-baseline.json');
 const LIMIT = 400;
 
-// v4 で作り直す対象だけを見る。凍結アプリ (qsheet / techsheet / live / awards) は
+// v4 で作り直す対象だけを見る。凍結アプリ (qsheet / live / awards) は
 // 画面を触らないので、いま大きいままでも構わない。
 const SCAN = ['client/src', 'client-daily/src', 'client-equipment/src', 'shared/src'];
 

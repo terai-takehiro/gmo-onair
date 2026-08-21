@@ -406,9 +406,10 @@ router.get('/debug', requireAuth, async (req, res) => {
 // requirePermissionロジックを直接シミュレートして全モジュールの判定結果を返す
 router.get('/permission-test', requireAuth, wrap(async (req, res) => {
   const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4 };
-  // 権限モデル単純化（migration 210）で区画はブロックアプリ単位の7つに統合済み。
+  // 権限モデル単純化（migration 210）で区画はブロックアプリ単位に統合済み。
+  // 技術資料アプリの削除（migration 211）で `techsheet` を外し、いまは6つ。
   // `permission-role.service.ts` の `ROLE_MODULES` と同じ並びにすること
-  const MODULES = ['sales', 'equipment', 'dailyops', 'qsheet', 'techsheet', 'liveops', 'awards'];
+  const MODULES = ['sales', 'equipment', 'dailyops', 'qsheet', 'liveops', 'awards'];
 
   // DB から直接クエリして最新値を取得
   const dbRows = await queryAll(

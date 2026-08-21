@@ -35,7 +35,6 @@ npm run dev            # v4 対象3アプリ + server を同時起動
 | 日常業務 | http://localhost:5180/daily/ | **対象** |
 | 機材管理 | http://localhost:5175/equipment/ | **対象** |
 | 制作資料 (Qシート) | http://localhost:5174/qsheet/ | 凍結 |
-| 技術資料 | http://localhost:5177/techsheet/ | 凍結 |
 | 計時LIVE | http://localhost:5178/live/ | 凍結 |
 | リアルタイムCG | http://localhost:5179/awards/ | 凍結 |
 

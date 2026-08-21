@@ -1,15 +1,17 @@
 /**
  * 案件詳細 / 当日タブ (v4 ⑥)
  *
- * 本番当日に開くもの (制作資料・技術資料) への入口です。
+ * 本番当日に開くもの (制作資料) への入口です。
  *
  * ── 凍結アプリとの約束 ──────────────────────────────────────
  *
- * 制作資料 (Qシート) と技術資料は v4.0.0 では**凍結**で、
+ * 制作資料 (Qシート) は v4.0.0 では**凍結**で、
  * トップページのアプリ一覧からは外れます。ただし決めごとは
  * **「URL は生かす」**なので、**案件の中からは今日から開けます**。
  * この案件に紐づく資料をサーバーから引いて、あるものだけ並べます
- * (`GET /qsheet/documents?project_id=` / `GET /techsheet/documents?project_id=`)。
+ * (`GET /qsheet/documents?project_id=`)。
+ *
+ * ⚠️ 技術資料アプリは削除済み（制作資料へのマージに向けてアプリごと削除した）。
  *
  * ── まだ出せないもの ────────────────────────────────────────
  *
@@ -28,7 +30,7 @@
  * PC は従来の `Row` のままです（中身・API呼び出しは1つも変えていません）。
  */
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, ClipboardList, Cable, Info, ChevronRight } from 'lucide-react';
+import { ExternalLink, ClipboardList, Info, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -105,12 +107,8 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
     queryKey: ['project-qsheets', projectId],
     queryFn: async () => (await api.get('/qsheet/documents', { params: { project_id: projectId } })).data.data,
   });
-  const techsheets = useQuery<Doc[]>({
-    queryKey: ['project-techsheets', projectId],
-    queryFn: async () => (await api.get('/techsheet/documents', { params: { project_id: projectId } })).data.data,
-  });
 
-  if (qsheets.isLoading || techsheets.isLoading) {
+  if (qsheets.isLoading) {
     return <div className="p-4 lg:p-6"><Delayed><SkeletonRows rows={3} /></Delayed></div>;
   }
 
@@ -124,19 +122,11 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
         emptyHint="この案件の制作資料はまだありません。制作資料の画面から作れます。"
         mobile={!!mobile}
       />
-      <DocList
-        title="技術資料"
-        icon={Cable}
-        docs={techsheets.data ?? []}
-        hrefOf={(d) => `/techsheet/editor/${d.id}`}
-        emptyHint="この案件の技術資料はまだありません。技術資料の画面から作れます。"
-        mobile={!!mobile}
-      />
 
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
-          制作資料と技術資料は v4.0.0 では見た目を変えずに残しています（アプリの一覧からは外れますが、
+          制作資料は v4.0.0 では見た目を変えずに残しています（アプリの一覧からは外れますが、
           <strong className="font-bold">ここからは今までどおり開けます</strong>）。
           資料ごとの進み具合（準備稿・決定稿など）をここに出すのは、
           <strong className="font-bold">次のバージョンで対応予定</strong>です。

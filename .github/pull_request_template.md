@@ -82,7 +82,6 @@ Closes #
 **凍結** — 見た目は変えない
 
 - [ ] 制作資料 / Qシート (`client-qsheet/`)
-- [ ] 技術資料 (`client-techsheet/`)
 - [ ] 計時LIVE (`client-live/`)
 - [ ] リアルタイムCG (`client-awards/`)
 

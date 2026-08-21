@@ -7,7 +7,6 @@ import { createGpmRoutes } from '../contexts/gpm';
 import { createAssetRoutes } from '../contexts/asset';
 import { createEquipmentRoutes } from '../contexts/equipment';
 import { createQsheetRoutes } from '../contexts/qsheet';
-import { createTechsheetRoutes } from '../contexts/techsheet';
 import { createLiveopsRoutes } from '../contexts/liveops';
 import { createAwardsRoutes } from '../contexts/awards';
 import { createQuizRoutes } from '../contexts/quiz';
@@ -27,7 +26,6 @@ export function createRoutes(): Router {
   router.use(createAssetRoutes());
   router.use(createEquipmentRoutes());
   router.use(createQsheetRoutes());
-  router.use(createTechsheetRoutes());
   router.use(createLiveopsRoutes());
   router.use(createAwardsRoutes());
   router.use(createQuizRoutes());

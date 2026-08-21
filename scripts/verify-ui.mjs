@@ -107,7 +107,6 @@ const PAGES = [
   ['Qシート 編集', '/qsheet/editor/verify-onair'],
   ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
   ['Qシート ランダウン', '/qsheet/rundown/verify-onair', { dark: true }],
-  ['技術資料', '/techsheet/'],
   ['計時LIVE', '/live/'],
 
   // ── 機材管理 (v4 対象・全画面) ──────────────────────────
@@ -150,10 +149,10 @@ const PAGES = [
 ];
 
 /**
- * 凍結4アプリ (Qシート / 技術資料 / 計時LIVE / リアルタイムCG) の URL。
+ * 凍結3アプリ (Qシート / 計時LIVE / リアルタイムCG) の URL。
  * **見た目を今日のまま保つ**のが決定事項なので、v4 の基準を当てない。
  */
-const FROZEN_PREFIX = /^\/(qsheet|techsheet|live|awards)\//;
+const FROZEN_PREFIX = /^\/(qsheet|live|awards)\//;
 
 const filters = process.argv.slice(2);
 const targets = filters.length

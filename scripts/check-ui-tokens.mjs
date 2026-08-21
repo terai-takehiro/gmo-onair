@@ -105,7 +105,7 @@ function buildUnknownColorRe() {
 
 /** 見るディレクトリ (画面のコード) */
 const TARGET_DIRS = [
-  'client/src', 'client-qsheet/src', 'client-equipment/src', 'client-techsheet/src',
+  'client/src', 'client-qsheet/src', 'client-equipment/src',
   'client-live/src', 'client-awards/src', 'client-daily/src',
   // v3.1.0 で追加。**共通部品も画面に出る** —
   // ここを見ていなかったので、`shared/src/client/finance/FinanceDocOriginal.tsx` に
@@ -130,7 +130,7 @@ const SKIP = [
  * **放送に出る絵と、紙に出る絵**。画面設計の対象外なので色の決まりが違う。
  *  - 放送CG: 黒背景に金・白。UI のトークンを当てると絵が変わる
  *  - 全画面表示 (プロンプター・計時の表示機): 暗所で遠くから読む前提
- *  - 印刷 (技術資料・ラック図): 紙に出るので `--border` (#e6e9ed) では薄すぎる
+ *  - 印刷 (ラック図): 紙に出るので `--border` (#e6e9ed) では薄すぎる
  */
 const NOT_A_SCREEN = [
   'client-awards/src/oneshot/headline/',
@@ -142,7 +142,6 @@ const NOT_A_SCREEN = [
   'client-awards/src/oneshot/CountdownCG',
   'client-qsheet/src/pages/PrompterPage',
   'client-live/src/pages/TimerDisplayPage',
-  'client-techsheet/src/pages/PrintPage',
   'client-equipment/src/pages/rackLayout/RackDisplay',
 ];
 
@@ -639,8 +638,7 @@ const BASELINE = {
       "client-awards": 17,
       "client-daily": 1,
       "client-live": 4,
-      "client-qsheet": 17,
-      "client-techsheet": 2
+      "client-qsheet": 17
     },
     "col-width-by-hand": {
       "client": 29,

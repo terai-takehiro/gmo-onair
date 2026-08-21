@@ -256,7 +256,7 @@ Radix 9個が未申告**でした。`npm run lint` の `check-shared-wiring` が
 `dependencies` ではなく **peer** にすること — Radix も React も**実体が2つあると壊れます**
 （context が別インスタンスになりダイアログが開かない等）。一部のアプリしか使わないものは
 `peerDependenciesMeta` で `optional` にしてあります。
-- ストレージキー: `qs_user`(qsheet) / `ts_user`(techsheet) / `eq_user`(equipment) ほか
+- ストレージキー: `qs_user`(qsheet) / `eq_user`(equipment) ほか
 
 ## 共通の土台 `base.css`（重要）
 
@@ -277,7 +277,7 @@ Radix 9個が未申告**でした。`npm run lint` の `check-shared-wiring` が
 ## v4 のトークン方針（重要）
 
 v4.0.0 の対象は **`client` / `client-daily` / `client-equipment` の3アプリだけ**。
-残る4アプリ（`client-qsheet` / `client-techsheet` / `client-live` / `client-awards`）は**凍結**で、
+残る3アプリ（`client-qsheet` / `client-live` / `client-awards`）は**凍結**で、
 **今日と同じ見た目を保つ**。そのため:
 
 | ファイル | 誰が読むか | 触り方 |
@@ -606,12 +606,12 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 
   → **v4 でしか使わない共通部品は `shared/src/client-v4/` に置くこと。**
   v4 対象3アプリの `tailwind.config.ts` だけが `../shared/src/client-v4/**` を
-  content に持っているので、**凍結4アプリの CSS は1バイトも増えません**。
+  content に持っているので、**凍結アプリの CSS は1バイトも増えません**。
   `RichContent`（AI が取り込んだ内容を描く部品）を `src/client/ui/` に置いたとき、
   `gap-x-4` / `border-warning-border` / `pl-5` / `underline` の**4規則・231バイト**が
-  qsheet・techsheet・計時LIVE の CSS に入ったのを実測して切り分けました。
+  qsheet・techsheet（当時。いまは削除済み）・計時LIVE の CSS に入ったのを実測して切り分けました。
 
-  → `src/client/` を触ったときは**凍結4アプリの CSS のハッシュを必ず突き合わせる**。
+  → `src/client/` を触ったときは**凍結アプリの CSS のハッシュを必ず突き合わせる**。
   既にある値で足りるならそれを使う（上の例は `lg:min-h-[38px]` で解決した）
 - **アプリ一覧は `src/client/apps.ts` が唯一の正**（S1 で統合済み）。
   以前は `AppSwitcher` の `ONAIR_APPS`・`appNav` の `ALL_APPS`・`client` の `BLOCK_APPS`・

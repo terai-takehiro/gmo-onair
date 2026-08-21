@@ -46,13 +46,12 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY client-equipment/package.json client-equipment/
 COPY client-qsheet/package.json client-qsheet/
-COPY client-techsheet/package.json client-techsheet/
 COPY client-live/package.json client-live/
 COPY client-awards/package.json client-awards/
 COPY client-daily/package.json client-daily/
 COPY server/package.json server/
 COPY shared/package.json shared/
-RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-qsheet/package.json','client-techsheet/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
+RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-qsheet/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
 
 # ── Stage: deps (依存インストール) ─────────────
 # npm ci を使う (npm install ではなく):
@@ -110,12 +109,6 @@ FROM deps AS build-client-qsheet
 COPY shared/ shared/
 COPY client-qsheet/ client-qsheet/
 RUN npm run build --workspace=client-qsheet
-
-# ── Stage: build-client-techsheet (技術資料) ──
-FROM deps AS build-client-techsheet
-COPY shared/ shared/
-COPY client-techsheet/ client-techsheet/
-RUN npm run build --workspace=client-techsheet
 
 # ── Stage: build-client-live (計時LIVE) ───────
 FROM deps AS build-client-live
@@ -181,7 +174,6 @@ COPY server/fonts server/fonts
 COPY --from=build-client /app/client/dist client/dist
 COPY --from=build-client-equipment /app/client-equipment/dist client-equipment/dist
 COPY --from=build-client-qsheet /app/client-qsheet/dist client-qsheet/dist
-COPY --from=build-client-techsheet /app/client-techsheet/dist client-techsheet/dist
 COPY --from=build-client-live /app/client-live/dist client-live/dist
 COPY --from=build-client-awards /app/client-awards/dist client-awards/dist
 COPY --from=build-client-daily /app/client-daily/dist client-daily/dist

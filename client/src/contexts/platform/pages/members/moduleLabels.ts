@@ -4,7 +4,8 @@
  * ── ブロックアプリ単位に統合した（権限モデル単純化）─────────────
  *
  * 以前は実装の区画が12（`sales`/`budget`/`gpm`/`studio`/`partner_schedule`/
- * `equipment`/`dailyops`/`admin`/`qsheet`/`techsheet`/`liveops`/`awards`）あり、
+ * `equipment`/`dailyops`/`admin`/`qsheet`/`techsheet`/`liveops`/`awards`）あり
+ * （その後 `techsheet` は技術資料アプリの削除で無くなった）、
  * モックの「役割5種 × 権限8項目」ともズレていて分かりにくかった。
  * ユーザーの指示（「アプリ単位で使える／使えないでいい」）を受けて、
  * `sales`/`budget`/`gpm`/`studio`/`partner_schedule` の5区画を**すべて `sales`
@@ -23,16 +24,17 @@
  * **例外の運用のほうが実態**だったため、型は「フルアクセス」1つを基本にし、
  * 絞りたいときだけ個別の型を作る形にした。
  *
- * ── 凍結4アプリも型の対象にした ─────────────────────────────
+ * ── 凍結アプリも型の対象にした ───────────────────────────────
  *
  * 以前は `qsheet` / `techsheet` / `liveops` / `awards` は型の対象外で、
  * 個人ごとの例外設定でしか付けられなかった。個人ごとの例外編集そのものを
- * 廃止した（「型だけ」の方針）ため、凍結4アプリも型の対象に含めている。
+ * 廃止した（「型だけ」の方針）ため、凍結アプリも型の対象に含めている。
+ * `techsheet` は技術資料アプリの削除（migration 211）で外した。
  */
 
 /** 役割の表に出す区画。**サーバーの `ROLE_MODULES` と同じ並び** */
 export const ROLE_MODULE_ORDER = [
-  'sales', 'equipment', 'dailyops', 'qsheet', 'techsheet', 'liveops', 'awards',
+  'sales', 'equipment', 'dailyops', 'qsheet', 'liveops', 'awards',
 ] as const;
 
 /** 個人の例外編集は廃止したので、いまは役割の表と同じ */
@@ -54,7 +56,6 @@ export const MODULE_WHAT: Record<string, string> = {
   equipment: '機材の台帳と貸出',
   dailyops: '週報・ニュース・内覧会・受領書類',
   qsheet: '制作資料（Qシート）',
-  techsheet: '技術資料',
   liveops: '計時LIVE',
   awards: 'リアルタイムCG',
 };

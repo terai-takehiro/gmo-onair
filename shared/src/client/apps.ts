@@ -16,7 +16,6 @@
  *   | --- | --- | --- | --- |
  *   | `studio` | 「スタジオ予約」(appNav) / 「カレンダー」(他3つ) | **カレンダー** | 3対1。モックとルート CLAUDE.md も「カレンダー」 |
  *   | `sales` のアイコン | `Briefcase`(appNav) / `FolderKanban`(他) | **FolderKanban** | モックの案件管理が `folder-kanban` |
- *   | `techsheet` のアイコン | `Wrench`(appNav/Switcher) / `BookOpen`(BLOCK_APPS/Sidebar) | **Wrench** | モックでの出現数 `wrench` 6 対 `book-open` 1 |
  *   | `liveops` のアイコン | `Radio`(appNav) / `Timer`(他) | **Timer** | 「計時」なので |
  *   | `sales` の入口 | `/`(appNav) / `/sales`(他) | `/sales` | `/` はトップページ |
  *   | `budget` の入口 | `/budget/revenues`(appNav) / `/budget`(他) | `/budget` | `App.tsx` が `/budget` → ダッシュボードへ転送済み |
@@ -34,7 +33,7 @@
  *
  * ── 凍結の印 ────────────────────────────────────────────────
  *
- * `frozen: true` の4アプリ (Qシート / 技術資料 / 計時LIVE / リアルタイムCG) は
+ * `frozen: true` の3アプリ (Qシート / 計時LIVE / リアルタイムCG) は
  * **v4.0.0 では作り直しません**。URL は生かしたまま、**v4 の共通シェルの
  * アプリ切替と「他のアプリ」からだけ外します** (`visibleApps()`)。
  * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出します
@@ -61,7 +60,6 @@ import {
   FileText,
   Package,
   Sparkles,
-  Wrench,
   Users,
   Timer,
   Tv,
@@ -86,7 +84,6 @@ export type AppKey =
   | 'gpm'
   | 'qsheet'
   | 'equipment'
-  | 'techsheet'
   | 'liveops'
   | 'awards'
   | 'dailyops'
@@ -148,7 +145,6 @@ export const APPS: AppDef[] = [
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet',    frozen: true },
-  { key: 'techsheet',   label: '技術資料',           description: 'カメラ・映像・音声技術仕様書',          icon: Wrench,        color: '#0891b2', path: '/techsheet',  permissionModule: 'techsheet', frozen: true },
   { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops',   frozen: true },
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
 

@@ -35,9 +35,9 @@ describe('アプリ登録そのもの', () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
-  it('凍結は4アプリだけ (制作資料 / 技術資料 / 計時LIVE / リアルタイムCG)', () => {
+  it('凍結は3アプリだけ (制作資料 / 計時LIVE / リアルタイムCG)', () => {
     expect(APPS.filter((a) => a.frozen).map((a) => a.key).sort()).toEqual(
-      ['awards', 'liveops', 'qsheet', 'techsheet'],
+      ['awards', 'liveops', 'qsheet'],
     );
   });
 
@@ -98,14 +98,14 @@ describe('visibleApps — メニューに出す一覧', () => {
     expect(keys).not.toContain('equipment');
   });
 
-  it('**既定では凍結4アプリを出さない** (v4 のシェル用)', () => {
+  it('**既定では凍結3アプリを出さない** (v4 のシェル用)', () => {
     const keys = visibleApps(admin).map((a) => a.key);
-    for (const k of ['qsheet', 'techsheet', 'liveops', 'awards']) expect(keys).not.toContain(k);
+    for (const k of ['qsheet', 'liveops', 'awards']) expect(keys).not.toContain(k);
   });
 
   it('includeFrozen で凍結も出る (v4 に載せ替える前の画面用)', () => {
     const keys = visibleApps({ ...admin, includeFrozen: true }).map((a) => a.key);
-    for (const k of ['qsheet', 'techsheet', 'liveops', 'awards']) expect(keys).toContain(k);
+    for (const k of ['qsheet', 'liveops', 'awards']) expect(keys).toContain(k);
   });
 
   it('準備中は既定で出さない', () => {

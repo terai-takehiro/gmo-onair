@@ -16,7 +16,6 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
 | 制作資料 (中の Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作資料」**、Qシートはその中のミニアプリ |
-| 技術資料 | [`client-techsheet/`](client-techsheet/CLAUDE.md) | `/techsheet/` | 5177 | 凍結 | カメラ・映像・音声・通信の仕様書 |
 | 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards` のまま) |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
@@ -37,7 +36,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - `shared/src/client/queryClient.ts` — 共通QueryClient設定
 - `shared/src/client/uiStore.ts` — 共通UIストア (Zustand)
 - `shared/src/client/utils.ts` — cn()ユーティリティ
-- ストレージキー: `qs_user` (qsheet), `ts_user` (techsheet), `is_user` (interactive), `eq_user` (equipment)
+- ストレージキー: `qs_user` (qsheet), `is_user` (interactive), `eq_user` (equipment)
 
 ## Claude の応答言語ポリシー
 - **作業中（ツール呼び出しの説明・思考過程など）は英語で処理してよい。**
@@ -46,25 +45,25 @@ GLS番号を中核として全アプリのデータが紐づく。
 
 ## 技術構成
 - **フロントエンド**: React 18 + Vite 6 + TailwindCSS 3 + shadcn/ui
-- **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが7アプリの静的ファイルを配信する**単一イメージ構成**
-- **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-qsheet, client-techsheet, client-live, client-awards, server, shared)
+- **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが6アプリの静的ファイルを配信する**単一イメージ構成**
+- **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-qsheet, client-live, client-awards, server, shared)
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, awards/quiz/liveops 各ネームスペース)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ### よく使うコマンド
 ```bash
 npm run verify:up      # 検証用 Postgres を立てる (約4秒・ポート5433・本番とは完全分離)
-npm run dev            # v4 対象3アプリ + server  (全7アプリは dev:all / 凍結分は dev:frozen)
-npm run typecheck      # v4 対象3アプリ + server  (CI は全7アプリの typecheck:all を使う)
+npm run dev            # v4 対象3アプリ + server  (全6アプリは dev:all / 凍結分は dev:frozen)
+npm run typecheck      # v4 対象3アプリ + server  (CI は全6アプリの typecheck:all を使う)
 npm run build:changed  # 変更したワークスペースだけビルド (全部だと2分)
 npm run verify:ui      # 実ブラウザで書体・桁揃い・横はみ出しを実測
 npm run fonts          # LINE Seed JP を同梱し直す (v4の3アプリは Google Fonts を読まない)
 npm run lint           # eslint    /  npm run check:version  # バージョン表記の整合
-npm run check:frozen   # 凍結4アプリの CSS が変わっていないか (build:all のあとに回す)
+npm run check:frozen   # 凍結3アプリの CSS が変わっていないか (build:all のあとに回す)
 npm run test           # shared の Vitest (**CI が回す。手元の gate にも必ず入れる**)
 ```
 `build` / `typecheck` / `dev` の既定が3アプリなのは**手元の速さのため**。
-本番は Dockerfile が7アプリすべてを個別ステージでビルドするので、凍結アプリも必ず作られる。
+本番は Dockerfile が6アプリすべてを個別ステージでビルドするので、凍結アプリも必ず作られる。
 
 ### どこに何が書いてあるか
 | 知りたいこと | 読む場所 |

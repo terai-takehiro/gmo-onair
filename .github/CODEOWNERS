@@ -20,6 +20,5 @@
 # /client/                @案件管理の担当
 # /client-qsheet/         @Qシートの担当
 # /client-equipment/      @機材管理の担当
-# /client-techsheet/      @技術資料の担当
 # /client-live/           @ライブ運用の担当
 # /client-awards/         @リアルタイムCGの担当

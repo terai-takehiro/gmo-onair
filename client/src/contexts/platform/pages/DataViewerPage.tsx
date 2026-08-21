@@ -34,7 +34,6 @@ import {
   Briefcase,
   FileSpreadsheet,
   Wrench,
-  Camera,
   Radio,
   Tv,
   Users as UsersIcon,
@@ -109,9 +108,6 @@ const TABLE_LABELS: Record<string, string> = {
   inventory_check_items: '棚卸明細',
   maintenance_records: 'メンテナンス記録',
 
-  // 技術資料
-  techsheet_documents: '技術資料',
-
   // ライブ運用
   liveops_programs: 'ライブ番組',
   liveops_settings: 'ライブ設定',
@@ -184,12 +180,6 @@ const TABLE_GROUPS: TableGroup[] = [
       'inventory_checks', 'inventory_check_items',
       'maintenance_records',
     ],
-  },
-  {
-    id: 'techsheet',
-    label: '技術資料',
-    icon: Camera,
-    tables: ['techsheet_documents'],
   },
   {
     id: 'liveops',

@@ -48,17 +48,17 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { CountUp } from './Reveal';
 
 /** 別バンドル = フルリロードが要るアプリ */
-const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'techsheet', 'liveops', 'awards'];
+const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'liveops', 'awards'];
 
 /**
  * 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの**
  *
- * M3 で**制作資料 (`qsheet`) と技術資料 (`techsheet`) をここへ移しました**。
- * 4つとも凍結アプリで、案件の本番に合わせて開きます。
+ * M3 で**制作資料 (`qsheet`) をここへ移しました**。
+ * 3つとも凍結アプリで、案件の本番に合わせて開きます。
  * **`HomePage.tsx` の `DAILY_KEYS` と対になっている**ので、片方だけ直すと
  * タイルが二重に出るか、どこにも出なくなります。
  */
-const EVENT_KEYS = ['qsheet', 'techsheet', 'liveops', 'awards'];
+const EVENT_KEYS = ['qsheet', 'liveops', 'awards'];
 
 /**
  * タイルの中に畳んである「ミニアプリ」（モックの `MINI`）。
