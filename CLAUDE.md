@@ -17,11 +17,16 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
 | 制作資料 (中の Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作資料」**、Qシートはその中のミニアプリ |
 | 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
-| リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards` のまま) |
+| リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | ~~`/awards/`~~ | ~~5179~~ | **廃止** | 放送CG演出・送出 (内部識別子は `awards` のまま)。**コードは保存・配信は停止**（2026-08〜） |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
 
 **「凍結」の意味**: v4.0.0 では作り直さない。**URL は生かし、見た目は今のまま**にする
 (一覧・アプリ切替からは外す)。詳細は各アプリの `CLAUDE.md` と [docs/v4-plan.md](docs/v4-plan.md)。
+
+**「廃止」の意味**（凍結よりさらに一段先）: 機能そのものを止める。**コードは消さず
+リポジトリに残す**（今後の開発で参照する可能性があるため）が、**サーバーの配信・
+ビルド対象・画面上の入口をすべて外し、Web サイトのどこからも到達できなくする**。
+いまリアルタイムCGだけがこの状態。詳細は [client-awards/CLAUDE.md](client-awards/CLAUDE.md)。
 
 ### 外部リンク (別 VPS / 別タブで開く)
 | アプリ | URL | 概要 |
