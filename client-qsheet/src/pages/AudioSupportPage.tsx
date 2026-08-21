@@ -60,14 +60,8 @@ interface FlatCue {
 
 type DiffKind = "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change";
 
-/** ステータスコード付きの取得エラー。410 (失効) と 404 (存在しない) を画面側で分けるために使う。 */
-class PublicAudioFetchError extends Error {
-  status: number;
-  constructor(status: number) {
-    super(`HTTP ${status}`);
-    this.status = status;
-  }
-}
+// 410=失効, 404=存在しない を画面側で分けるためのエラー型
+class PublicAudioFetchError extends Error { constructor(public status: number) { super(`HTTP ${status}`); } }
 
 const STATE_BG: Record<MicState, string> = {
   on: "bg-red-600",
@@ -292,8 +286,7 @@ function CueColumn({
 export default function AudioSupportPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  // ?token= は「発行・失効の管理」のためだけの任意パラメータ。URL のパス (資料ID) は変えていない。
-  const shareToken = searchParams.get("token");
+  const shareToken = searchParams.get("token"); // 発行・失効の管理用の任意パラメータ。URLのパス(資料ID)は変えていない
   const [currentCue, setCurrentCue] = useState(0);
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
 
@@ -301,18 +294,11 @@ export default function AudioSupportPage() {
     queryKey: ["qsheet-public-audio", id, shareToken],
     queryFn: async () => {
       const qs = shareToken ? `?token=${encodeURIComponent(shareToken)}` : "";
-      const res = await fetch(`/api/v1/internal/qsheet/documents/${id}/public-audio${qs}`, {
-        credentials: "omit",
-      });
-      if (!res.ok) {
-        throw new PublicAudioFetchError(res.status);
-      }
-      const json = await res.json();
-      return json.data as PublicDoc;
+      const res = await fetch(`/api/v1/internal/qsheet/documents/${id}/public-audio${qs}`, { credentials: "omit" });
+      if (!res.ok) throw new PublicAudioFetchError(res.status);
+      return (await res.json()).data as PublicDoc;
     },
-    enabled: !!id,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
+    enabled: !!id, refetchInterval: 30_000, refetchOnWindowFocus: false,
   });
 
   // Socket.IO subscription — listen for cue:sync from OnAir
@@ -396,16 +382,12 @@ export default function AudioSupportPage() {
   }
 
   if (error || !data) {
-    const isRevoked = error instanceof PublicAudioFetchError && error.status === 410;
+    const isRevoked = error instanceof PublicAudioFetchError && error.status === 410; // 410=失効
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center gap-3 p-6">
         <AlertTriangle className="h-12 w-12 text-amber-500" aria-hidden />
         <h1 className="text-xl font-bold">{isRevoked ? "この URL は使えなくなりました" : "読み込めませんでした"}</h1>
-        <p className="text-sm text-zinc-400">
-          {isRevoked
-            ? "配布元に新しい QR コードをもらってください"
-            : "ドキュメントが見つかりません"}
-        </p>
+        <p className="text-sm text-zinc-400">{isRevoked ? "配布元に新しい QR コードをもらってください" : "ドキュメントが見つかりません"}</p>
       </div>
     );
   }

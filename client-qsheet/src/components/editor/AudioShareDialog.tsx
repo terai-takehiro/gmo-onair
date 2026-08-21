@@ -173,7 +173,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
               type="button"
               onClick={handleIssueAgain}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-11 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-tap text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
               {busy ? <Loader2 className="animate-spin" size={14} aria-hidden /> : null}
               URL を発行する
@@ -203,7 +203,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className={`flex-none inline-flex items-center gap-1 px-3 py-1.5 min-h-11 text-xs font-semibold rounded-r-md border border-l-0 border-border transition-colors ${
+                  className={`flex-none inline-flex items-center gap-1 px-3 py-1.5 min-h-tap text-xs font-semibold rounded-r-md border border-l-0 border-border transition-colors ${
                     copied ? "bg-success/10 text-success" : "bg-card hover:bg-accent text-foreground"
                   }`}
                   aria-label="URLをコピー"
@@ -234,7 +234,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
                 type="button"
                 onClick={handleReissue}
                 disabled={busy}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-11 text-xs font-semibold rounded-lg border border-border hover:bg-accent disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-tap text-xs font-semibold rounded-lg border border-border hover:bg-accent disabled:opacity-60"
               >
                 <RefreshCw size={13} aria-hidden />
                 新しい URL にする
@@ -243,7 +243,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
                 type="button"
                 onClick={handleRevoke}
                 disabled={busy}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-11 text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-tap text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-60"
               >
                 <Ban size={13} aria-hidden />
                 この URL を失効させる
