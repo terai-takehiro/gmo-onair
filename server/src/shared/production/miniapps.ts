@@ -131,14 +131,14 @@ function pathPrefix(path: string): string {
  * **長い path から先に見る**（短い prefix が先に一致して誤判定するのを防ぐ）。
  */
 export function miniAppOfPath(pathname: string): MiniAppDef | undefined {
-  const candidates = MINI_APPS.flatMap((app) =>
-    app.kind === 'document'
-      ? [
-          { app, prefix: app.listPath },
-          { app, prefix: pathPrefix(app.docPath) },
-        ]
-      : [{ app, prefix: pathPrefix(app.path) }],
-  );
+  const candidates: { app: MiniAppDef; prefix: string }[] = [];
+  for (const app of MINI_APPS) {
+    if (app.kind === 'document') {
+      candidates.push({ app, prefix: app.listPath }, { app, prefix: pathPrefix(app.docPath) });
+    } else {
+      candidates.push({ app, prefix: pathPrefix(app.path) });
+    }
+  }
   return candidates
     .sort((a, b) => b.prefix.length - a.prefix.length)
     .find(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(prefix))

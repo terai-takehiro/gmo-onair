@@ -6,9 +6,9 @@ import { videoFormatOptions, codecOptions, audioChannelOptions, slotOptions, isH
 import type { Deck } from '@/lib/deviceSettingsApi';
 
 const cellCls =
-  'h-8 w-full min-w-0 rounded-[9px] border border-input bg-background px-2 text-sm ' +
+  'h-8 w-full min-w-0 rounded-control-md border border-input bg-background px-2 text-sm ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-const emptyCls = 'bg-orange-50 border-orange-200'; // #fff7ed / #fed7aa 相当。未入力=橙（赤にしない）
+const emptyCls = 'bg-warning-surface border-warning-border'; // 未入力=橙（赤にしない）
 
 export default function DeckRow({
   deck,

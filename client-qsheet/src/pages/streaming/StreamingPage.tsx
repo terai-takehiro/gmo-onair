@@ -111,7 +111,7 @@ export default function StreamingPage() {
                   <div key={encoderId} className="rounded-lg border">
                     <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2">
                       <span className="text-sm font-semibold">{encoderId}</span>
-                      <button onClick={() => addDestination(encoderId)} className="flex min-h-[36px] items-center gap-1 text-xs text-primary">
+                      <button onClick={() => addDestination(encoderId)} className="flex min-h-tap items-center gap-1 text-xs text-primary">
                         <Plus className="h-3.5 w-3.5" /> 配信先を足す
                       </button>
                     </div>
@@ -165,7 +165,7 @@ export default function StreamingPage() {
               <Video className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold">WEB会議</h2>
             </div>
-            <p className="mb-3 text-xs font-medium text-orange-600">ここから下は Excel に出ません。共有は画面のコピーで行ってください。</p>
+            <p className="mb-3 text-xs font-medium text-warning">ここから下は Excel に出ません。共有は画面のコピーで行ってください。</p>
             <div className="space-y-3">
               {meetings.map((m, i) => (
                 <MeetingCard

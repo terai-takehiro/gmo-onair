@@ -104,11 +104,11 @@ export default function ExportDialog({
               <p className="text-xs text-muted-foreground">点検中…</p>
             ) : result ? (
               <div className="space-y-1 text-xs">
-                <p className="text-red-600">直したほうがよい: {result.red.length} 件</p>
-                <p className="text-orange-600">そのままでよい: {result.amber.length} 件</p>
+                <p className="text-destructive">直したほうがよい: {result.red.length} 件</p>
+                <p className="text-warning">そのままでよい: {result.amber.length} 件</p>
                 <p className="text-muted-foreground">出さない: {result.gray.length} 件</p>
                 {result.red.length > 0 && (
-                  <ul className="mt-1 max-h-24 list-disc space-y-0.5 overflow-y-auto pl-4 text-red-600">
+                  <ul className="mt-1 max-h-24 list-disc space-y-0.5 overflow-y-auto pl-4 text-destructive">
                     {result.red.slice(0, 10).map((r, i) => <li key={i}>{r.where}: {r.message}</li>)}
                   </ul>
                 )}

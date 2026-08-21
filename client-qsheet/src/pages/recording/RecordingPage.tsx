@@ -87,7 +87,7 @@ export default function RecordingPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
         <Radio className="h-4 w-4 text-primary" />
         <span>使用中 {usedCount}/12 台</span>
-        {unfilledCount > 0 && <span className="text-orange-600">未入力 {unfilledCount} 台</span>}
+        {unfilledCount > 0 && <span className="text-warning">未入力 {unfilledCount} 台</span>}
       </div>
 
       {loading ? (
