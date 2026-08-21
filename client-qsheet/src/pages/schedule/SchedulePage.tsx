@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles } from "lucide-react";
+import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import api from "@/lib/api";
@@ -29,6 +30,7 @@ export default function SchedulePage() {
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
   const [newDraft, setNewDraft] = useState<Partial<ItemDraft> | null>(null);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const queue = useItemCommitQueue();
 
@@ -166,6 +168,9 @@ export default function SchedulePage() {
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setApplyOpen(true)}>
             <LayoutTemplate className="mr-1 h-4 w-4" />ひな形を適用
           </Button>
+          <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setAiOpen(true)}>
+            <Sparkles className="mr-1 h-4 w-4" />AIで枠を作る
+          </Button>
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={handleExport}>
             <Download className="mr-1 h-4 w-4" />Excel
           </Button>
@@ -221,6 +226,16 @@ export default function SchedulePage() {
         onOpenChange={setApplyOpen}
         scheduleId={id}
         locationId={schedule.location_id}
+        onApplied={refetchDetail}
+      />
+
+      {/* AI 生成（段8・①イベント設計）。`qsheet_schedule_items` への REST 書き込みなので
+          取り込みは applyEventPlanOps を使う（②③の Yjs 経由とは別の入口） */}
+      <EventPlanDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        scheduleId={id!}
+        existingColumnIds={schedule.columns.map((c) => c.id)}
         onApplied={refetchDetail}
       />
     </div>

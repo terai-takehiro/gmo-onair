@@ -91,6 +91,42 @@ describe('modelFor — モデル名の決め方', () => {
   });
 });
 
+/**
+ * 制作資料 v4 の AI 生成（段8・04-ai.md §7）。
+ * ①②は常時 heavy（時刻・尺の誤りは目視で気づけない）、③は既定 light（読めば良し悪しが
+ * 分かる典型）、④も既定 light（次のターンで直せる）。
+ */
+describe('tierFor — 制作資料 v4 の AI 生成（段8）', () => {
+  it('①枠 ②骨格は入力が短くても常に heavy', () => {
+    expect(tierFor('event_plan', { chars: 10 })).toBe('heavy');
+    expect(tierFor('script_outline', { chars: 10 })).toBe('heavy');
+  });
+
+  it('③セリフは既定 light・4,000字超で heavy（`activity` と同じ閾値）', () => {
+    expect(tierFor('script_line', { chars: 100 })).toBe('light');
+    expect(tierFor('script_line', { chars: 4_000 })).toBe('light');
+    expect(tierFor('script_line', { chars: 4_001 })).toBe('heavy');
+  });
+
+  it('④壁打ちは既定 light。呼び出し側が force で heavy に上げられる', () => {
+    expect(tierFor('production_chat', { chars: 20 })).toBe('light');
+    expect(tierFor('production_chat', { chars: 20, force: 'heavy' })).toBe('heavy');
+  });
+
+  it('機能ごとの環境変数は新設していないが、モデル名は取れる（組み込みの既定に落ちる）', () => {
+    expect(modelFor('event_plan', 'heavy', 'openai')).toBe(BUILTIN_MODELS.heavy.openai);
+    expect(modelFor('script_outline', 'heavy', 'anthropic')).toBe(BUILTIN_MODELS.heavy.anthropic);
+    expect(modelFor('script_line', 'light', 'openai')).toBe(BUILTIN_MODELS.light.openai);
+    expect(modelFor('production_chat', 'light', 'openai')).toBe(BUILTIN_MODELS.light.openai);
+  });
+
+  it('段ごとの上書き（`AI_MODEL_HEAVY` 等）は制作資料の4機能にも効く', () => {
+    process.env.AI_MODEL_HEAVY = 'my-heavy';
+    expect(modelFor('event_plan', 'heavy', 'openai')).toBe('my-heavy');
+    expect(modelFor('script_outline', 'heavy', 'openai')).toBe('my-heavy');
+  });
+});
+
 describe('isLightDisabled — 軽いモデルを全部止める', () => {
   it('`off` のときだけ true', () => {
     expect(isLightDisabled()).toBe(false);
