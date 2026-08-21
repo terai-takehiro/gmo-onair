@@ -16,7 +16,7 @@ interface ValueCellProps {
 
 export default function ValueCell({ blk, cellKey, row, updateCell }: ValueCellProps) {
   return (
-    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-border-faint align-top">
       <BufferedTextarea
         value={(row.cells?.[blk.id] || {}).value || ""}
         onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}

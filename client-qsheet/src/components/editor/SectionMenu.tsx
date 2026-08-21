@@ -26,48 +26,48 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
     <div className="relative" ref={ref}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="p-1 rounded hover:bg-white/15 text-white/40 hover:text-white transition-colors"
+        className="p-1 rounded-control hover:bg-white/15 text-white/40 hover:text-white transition-colors"
       >
         <MoreHorizontal size={14} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-44 py-1 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-50 animate-scale-in">
+        <div className="absolute right-0 top-full mt-1 w-44 py-1 bg-card rounded-note shadow-xl border border-border z-50 animate-scale-in">
           <button
             onClick={() => { onAddBreakAfter(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left transition-colors"
           >
-            <Plus size={12} className="text-amber-500" />
+            <Plus size={12} className="text-warning" />
             <span>CM・休憩を追加</span>
           </button>
           <button
             onClick={() => { onAddPageBreakAfter(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left transition-colors"
           >
-            <Scissors size={12} className="text-zinc-400" />
+            <Scissors size={12} className="text-muted-foreground" />
             <span>改ページを追加</span>
           </button>
           {onAddVtrAfter && (
             <button
               onClick={() => { onAddVtrAfter(); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left transition-colors"
             >
-              <Film size={12} className="text-indigo-500" />
+              <Film size={12} className="text-info" />
               <span>VTR を追加</span>
             </button>
           )}
           {onSaveTemplate && (
             <button
               onClick={() => { onSaveTemplate(); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left transition-colors"
             >
-              <FileText size={12} className="text-blue-500" />
+              <FileText size={12} className="text-primary" />
               <span>テンプレとして保存</span>
             </button>
           )}
-          <div className="border-t border-zinc-100 dark:border-zinc-700 my-1" />
+          <div className="border-t border-border-subtle my-1" />
           <button
             onClick={() => { onDelete(); setOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 text-left transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-destructive-surface text-destructive text-left transition-colors"
           >
             <Trash2 size={12} />
             <span>このロールを削除</span>

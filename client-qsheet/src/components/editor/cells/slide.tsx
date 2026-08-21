@@ -13,9 +13,9 @@ import type { Block, CueRowData } from "./types";
 // そのまま使う。新しい API は無い (`POST /qsheet/upload-image` を呼ぶだけ)。
 // 削除は undefined を書く (ydocDiff.ts がそれをセル削除として扱うため。空文字にしない)。
 //
-// この新規に書くマークアップは意味トークン (border-border / text-muted-foreground /
-// text-destructive) を使う (CLAUDE.md の色トークン方針)。枠のプレースホルダ部分
-// (PR3 から移動しただけの border-zinc-*) はそのまま残している。
+// このマークアップは意味トークン (border-border / text-muted-foreground /
+// text-destructive) を使う (CLAUDE.md の色トークン方針)。段5 PR7 で枠の
+// プレースホルダ部分も生パレット (border-zinc-*) から border-border に揃えた。
 interface SlideCellProps {
   blk: Block;
   cellKey?: string;
@@ -32,13 +32,13 @@ export default function SlideCell({ blk, cellKey, row, updateCell }: SlideCellPr
   };
 
   return (
-    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-border-faint overflow-hidden align-top">
       {imageUrl ? (
         <div className="relative inline-block w-fit group/img">
           <img
             src={imageUrl}
             alt=""
-            className="max-h-32 max-w-full rounded border border-border object-contain"
+            className="max-h-32 max-w-full rounded-control border border-border object-contain"
           />
           <button
             onClick={() => setImage(null)}
@@ -49,7 +49,7 @@ export default function SlideCell({ blk, cellKey, row, updateCell }: SlideCellPr
           </button>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
+        <div className="flex items-center justify-center h-16 border border-dashed border-border rounded-control text-muted-foreground text-xs">
           <ImageIcon size={14} className="mr-1" />
           スライド
         </div>
