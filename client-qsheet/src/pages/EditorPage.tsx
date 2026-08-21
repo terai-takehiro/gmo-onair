@@ -15,6 +15,7 @@ import { normalizeQsheetData } from "@/lib/migrateEntries";
 import { ensureStableIds, genId } from "@/lib/stableIds";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { useAuth } from "@/hooks/useAuth";
+import { useCollabMetaSync } from "@/hooks/useCollabMetaSync";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
 import { useCollabDoc } from "@/lib/collab/useCollabDoc";
 import { applyDataUpdate } from "@/lib/collab/ydocDiff";
@@ -438,6 +439,23 @@ export default function EditorPage() {
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
   }, [dirty, doc, conflictMsg]);
+
+  // collab 有効時、title/status/broadcast_date/episode_* のメタ列だけを別経路で反映する
+  // (§3-3 ★追加(重大)の直し。`data` 列には触れない — フックの中身は useCollabMetaSync.ts)。
+  useCollabMetaSync({
+    collabEnabled,
+    docId: doc?.id,
+    meta: doc
+      ? {
+          title: doc.data.meta.title || doc.title || "",
+          status: doc.status,
+          broadcast_date: doc.broadcast_date,
+          episode_id: doc.episode_id,
+          episode_code: doc.episode_code,
+        }
+      : null,
+    onSynced: (updatedAt) => setDoc((prev) => (prev ? { ...prev, updated_at: updatedAt } : prev)),
+  });
 
   // 在席表示 (Phase 1): このシートを今開いている人を Socket.IO で同期する。
   // 内容同期はまだ載せず、presence のみ (誰かが同時に開いていると分かる → 競合の心当たりが付く)。

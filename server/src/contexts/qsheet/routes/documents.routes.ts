@@ -199,6 +199,88 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
 });
 
 // ============================================================
+// ドキュメントのメタ列だけを更新 (共同編集中の軽量な反映用)
+//   - 共同編集 (Yjs) 有効時は台本本体 (`data` 列) が PUT を経由しないため、
+//     タイトル・状態・放送日・エピソード紐付けだけが列に反映されなくなる
+//     (一覧の検索・絞り込みが編集後の値に当たらない・段5 PR11)。
+//   - このルートは `title` / `status` / `broadcast_date` / `episode_id` / `episode_code`
+//     の 5 列だけを部分更新する。**`data` 列には一切触れない**
+//     (`data` は Yjs の所有物。サーバーから丸ごと上書きするのは collab.ts の役目のみ)。
+//   - 送られてきたフィールドだけを更新する (undefined のキーは既存値を保つ)。
+// ============================================================
+router.patch('/documents/:id/meta', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
+  try {
+    const existing = await queryOne(
+      'SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
+      [req.params.id]
+    );
+    if (!existing) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    if (!(await canAccessDoc(req.user!, existing.id as string, (existing.created_by as string) ?? null))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+
+    const { title, status, broadcast_date, episode_id, episode_code } = req.body as {
+      title?: unknown;
+      status?: unknown;
+      broadcast_date?: unknown;
+      episode_id?: unknown;
+      episode_code?: unknown;
+    };
+
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      setClauses.push(`title = $${paramIndex++}`);
+      params.push(typeof title === 'string' ? title.slice(0, MAX_TITLE_LENGTH) : '');
+    }
+    if (status !== undefined) {
+      setClauses.push(`status = $${paramIndex++}`);
+      params.push((typeof status === 'string' && VALID_STATUSES.includes(status)) ? status : 'draft');
+    }
+    if (broadcast_date !== undefined) {
+      setClauses.push(`broadcast_date = $${paramIndex++}`);
+      params.push(typeof broadcast_date === 'string' && broadcast_date ? broadcast_date : null);
+    }
+    if (episode_id !== undefined) {
+      setClauses.push(`episode_id = $${paramIndex++}`);
+      params.push(typeof episode_id === 'string' && episode_id ? episode_id : null);
+    }
+    if (episode_code !== undefined) {
+      setClauses.push(`episode_code = $${paramIndex++}`);
+      params.push(typeof episode_code === 'string' && episode_code ? episode_code : null);
+    }
+
+    if (setClauses.length === 0) {
+      const row = await queryOne('SELECT updated_at FROM qsheet_documents WHERE id = $1', [req.params.id]);
+      res.json({ success: true, data: { updated_at: row?.updated_at } });
+      return;
+    }
+
+    setClauses.push(`updated_by = $${paramIndex++}`);
+    params.push(req.user!.id);
+    setClauses.push('updated_at = NOW()');
+    params.push(req.params.id);
+
+    await execute(
+      `UPDATE qsheet_documents SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`,
+      params
+    );
+
+    const row = await queryOne('SELECT updated_at FROM qsheet_documents WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: { updated_at: row?.updated_at } });
+  } catch (err: unknown) {
+    console.error('PATCH /documents/:id/meta error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
 // ドキュメント削除 (ソフトデリート)
 // ============================================================
 router.delete('/documents/:id', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
