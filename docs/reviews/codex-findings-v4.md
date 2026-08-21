@@ -683,6 +683,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `pull_request_read` の `get_reviews` で0件を確認して代替とした。**`docs/` 配下10ファイル
   （設計書8本の更新＋モック2本の新規）のみでコード変更は0行。** #280 と同じ「コードを
   含まない docs 専用 PR」の性質のため、レビューが対象外だった可能性がある
+- **#283**（`feat(awards): リアルタイムCGを廃止(配信停止・コードは保存)`）—
+  作成 16:48:13 / マージ 16:55:28（2026-08-21）。**terai-takehiro 本人が作成から約7分15秒で
+  手動マージ**。**レビュー・レビューコメント・通常コメントすべて0件**のままマージされた
+  （`get_reviews` / `get_review_comments` / `get_comments` の3通りで確認）。
+  ただし #281 と違い、**CI（`checks` / `build` とも）はマージ前に完了・成功済み**
+  （両ジョブとも 16:50 台に完了、マージは 16:55）。⚠️ **`npm run reviews:debt` は
+  この回も 401**（作業環境の `GITHUB_TOKEN` は REST 不可・GitHub アクセスは MCP 経由）。
+  `pull_request_read` で代替確認した。サーバーの配信停止・Dockerfile・npm scripts・
+  ドキュメント更新のみでコード側の業務ロジック変更は無い PR
 
 ---
 
