@@ -82,9 +82,8 @@ export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef;
 /**
  * 初期値。**増やすときは1件ずつ**。
  *
- * ⚠️ `schedule` は段3の時点では `false`。`qsheet_schedules` も `/qsheet/schedules` も
- * まだ存在しないため、`true` にすると左メニューと「＋新しく作る」に
- * 押すと 404 になる項目が出る。段4（`02-schedule.md` の実装）で `true` に変える。
+ * `schedule` は段4（`02-schedule.md` の実装）で `true` にした。`qsheet_schedules` と
+ * `/qsheet/schedules` が存在するようになったため、左メニュー・「＋新しく作る」に出してよい。
  */
 export const MINI_APPS: MiniAppDef[] = [
   {
@@ -109,7 +108,7 @@ export const MINI_APPS: MiniAppDef[] = [
     listPath: '/qsheet/schedules',
     docPath: '/qsheet/schedules/:id',
     stages: ['day'],
-    enabled: false,
+    enabled: true,
   },
   {
     kind: 'panel',

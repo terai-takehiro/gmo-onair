@@ -4,10 +4,11 @@
  * 割合・閾値・「進み具合の%」は一切計算しない（画一的な判定式を作らない）。
  * 「決まった」と言えるのは人が `production_journey_marks` にピンを押したときだけ。
  *
- * ⚠️ 段3の時点で存在しないものは、型は確定させつつ空のまま返す:
- *   - `frames[]`（`qsheet_schedule_items` が無い） → 常に `[]`
- *   - `durationGapMin`（`qsheet_doc_index` が無い） → 常に `null`
- *   - `duration_gap` / `mic_unassigned` の提案 → 出さない（索引が無い）
+ * ⚠️ `durationGapMin`（`qsheet_doc_index` が無い・段7で追加予定） → 常に `null`
+ *    `duration_gap` / `mic_unassigned` の提案 → 出さない（索引が無い）
+ *
+ * `frames[]` は段4で `qsheet_schedule_items` から埋まるようになった（§8）。
+ * `canAccessSchedule` を通した表のものだけを返す（N+1 を避けるため SQL の行条件に埋める）。
  *
  * ⚠️ `jsonb_array_length` は配列でない値に投げると例外になる。台本の
  * `data.sections` は Yjs が書くのでサーバーはスキーマを検証しておらず、
@@ -15,7 +16,7 @@
  * ガードしてから数える**（壊れた行は 0 件として扱う。他の人の一覧は生きたまま）。
  */
 import { queryAll, queryOne } from '../../../shared/db/connection';
-import { isQsheetAdmin, canAccessDoc } from '../access';
+import { isQsheetAdmin, canAccessDoc, type AccessUser } from '../access';
 import { docPathOf } from '../../../shared/production/miniapps';
 import type {
   JourneyDay,
@@ -25,13 +26,8 @@ import type {
   Suggestion,
   ScopeCard,
   ScopeGroup,
+  JourneyFrame,
 } from '../../../shared/production/journey';
-
-interface AccessUser {
-  id: string;
-  role: string;
-  permissions?: Record<string, string>;
-}
 
 /** `data.sections` の件数を安全に数える SQL 断片。壊れた行は 0 件として扱う（§6-3） */
 const SECTION_COUNT_SQL = `
@@ -134,14 +130,67 @@ async function fetchDocsForProject(projectId: string): Promise<DocRow[]> {
   return rows as unknown as DocRow[];
 }
 
-function buildDayFromDocs(date: string | null, label: string | null, docs: DocRow[]): JourneyDay {
+/**
+ * その案件のスケジュール表の項目を「枠→台本の橋」として引く（§8）。
+ * `canAccessSchedule` を通した表のものだけ（N+1 を避けるため SQL の行条件に埋める。§6-1 と同じ形）。
+ * `assignee` / `note` は持たない（社長・副社長の分単位の所在を漏らさない。§8 の⚠️）。
+ */
+async function fetchFramesForProject(projectId: string, user: AccessUser): Promise<Map<string, JourneyFrame[]>> {
+  let sql = `
+    SELECT s.id AS schedule_id, i.id AS item_id, to_char(s.service_date, 'YYYY-MM-DD') AS service_date,
+           c.label AS column_label, r.name AS room_name, i.title, i.kind, i.start_min, i.end_min,
+           i.qsheet_document_id, (i.qsheet_document_id IS NOT NULL AND d.id IS NULL) AS link_broken
+    FROM qsheet_schedule_items i
+    JOIN qsheet_schedules s ON s.id = i.schedule_id AND s.deleted_at IS NULL
+    JOIN qsheet_schedule_columns c ON c.id = i.column_id
+    LEFT JOIN studio_rooms r ON r.id = c.room_id
+    LEFT JOIN qsheet_documents d ON d.id = i.qsheet_document_id AND d.deleted_at IS NULL
+    WHERE s.project_id = $1 AND i.deleted_at IS NULL
+  `;
+  const params: unknown[] = [projectId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (s.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY s.service_date, i.start_min';
+
+  const rows = await queryAll(sql, params);
+  const byDate = new Map<string, JourneyFrame[]>();
+  for (const r of rows) {
+    const date = r.service_date as string;
+    const frame: JourneyFrame = {
+      scheduleId: r.schedule_id as string,
+      itemId: r.item_id as string,
+      columnLabel: (r.room_name as string) || (r.column_label as string),
+      title: r.title as string,
+      kind: r.kind as string,
+      startMin: r.start_min as number,
+      endMin: r.end_min as number,
+      documentId: (r.qsheet_document_id as string) ?? null,
+      linkBroken: !!r.link_broken,
+      // durationGapMin は qsheet_doc_index（段7）が無いので段4でも常に null（§8-4）
+      durationGapMin: null,
+    };
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(frame);
+  }
+  return byDate;
+}
+
+function buildDayFromDocs(date: string | null, label: string | null, docs: DocRow[], frames: JourneyFrame[]): JourneyDay {
   const hasAny = docs.length > 0;
   const latestUpdatedAt = docs.length > 0 ? (docs[0].updated_at as unknown as string) : null;
   const hasRows = docs.some((d) => d.section_count > 0);
+  const hasFrames = frames.length > 0;
 
   const stages: StageHint[] = [
-    // `day`（枠）: qsheet_schedule_items がまだ無いので常に blank（段4で埋める）
-    { stage: 'day', tone: 'blank', facts: [] },
+    // `day`（枠）: その日のスケジュール表の項目数だけを見る（判定式は作らない）
+    {
+      stage: 'day',
+      tone: toneOf(hasFrames, null),
+      facts: hasFrames ? [{ key: 'frame_count', label: '枠', count: frames.length }] : [],
+    },
     // `flow`（進行台本の有無）
     {
       stage: 'flow',
@@ -159,6 +208,9 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
   ];
 
   const suggestions: Suggestion[] = [];
+  if (!hasFrames) {
+    suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: '/qsheet/schedules' });
+  }
   if (!hasAny) {
     suggestions.push({ key: 'no_sheet', label: '進行台本がまだありません', to: '/qsheet/sheets' });
   } else {
@@ -167,7 +219,7 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
       suggestions.push({ key: 'sheet_no_rows', label: '進行台本の中身がまだ空です', to: docPathOf('sheet', emptyDoc.id) });
     }
   }
-  // duration_gap / mic_unassigned は qsheet_doc_index（段7）が無いので段3では出さない
+  // duration_gap / mic_unassigned は qsheet_doc_index（段7）が無いので段4でも出さない
 
   return {
     date,
@@ -180,17 +232,17 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
       docNo: d.doc_no,
       updatedAt: d.updated_at as unknown as string,
     })),
-    frames: [], // qsheet_schedule_items が無い段3では常に空（段4で埋める）
+    frames,
     suggestions,
   };
 }
 
 /** 案件単位のジャーニー。案件が無ければ null（呼び出し側が 404 を返す） */
-export async function getJourneyForProject(projectId: string): Promise<JourneyResponse | null> {
+export async function getJourneyForProject(projectId: string, user: AccessUser): Promise<JourneyResponse | null> {
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
   if (!project) return null;
 
-  const docs = await fetchDocsForProject(projectId);
+  const [docs, framesByDate] = await Promise.all([fetchDocsForProject(projectId), fetchFramesForProject(projectId, user)]);
 
   // days は「その案件の episodes の broadcast_date/recording_date」と
   // 「その案件の資料の broadcast_date」の和集合で作る（§6-7・N+1 を作らない: 資料は上で1回だけ引いた）
@@ -211,6 +263,10 @@ export async function getJourneyForProject(projectId: string): Promise<JourneyRe
   for (const d of docs) {
     if (d.broadcast_date && !dateLabels.has(d.broadcast_date)) dateLabels.set(d.broadcast_date, null);
   }
+  // スケジュール表がある日も和集合に加える（枠だけあって台本がまだ無い日を隠さないため）
+  for (const date of framesByDate.keys()) {
+    if (!dateLabels.has(date)) dateLabels.set(date, null);
+  }
 
   const docsByDate = new Map<string | null, DocRow[]>();
   for (const d of docs) {
@@ -220,11 +276,12 @@ export async function getJourneyForProject(projectId: string): Promise<JourneyRe
   }
 
   const dates = [...dateLabels.keys()].sort();
-  const days: JourneyDay[] = dates.map((date) => buildDayFromDocs(date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? []));
+  const days: JourneyDay[] = dates.map((date) =>
+    buildDayFromDocs(date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? []));
 
   // 日が決まっていない資料（broadcast_date が無い）は「日が決まっていない」束にまとめる
   const undated = docsByDate.get(null) ?? [];
-  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated));
+  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
 
   return { days };
 }
@@ -241,5 +298,7 @@ export async function getJourneyForDocument(docId: string, user: AccessUser): Pr
   if (!(await canAccessDoc(user, row.id as string, (row.created_by as string) ?? null))) return null;
 
   const doc = row as unknown as DocRow;
-  return { days: [buildDayFromDocs(doc.broadcast_date, null, [doc])] };
+  // ⚠️ 案件に紐づかない単体資料は、スケジュール表との対応付けの手がかり（project_id）を
+  // 持たないため frames は空のまま返す（案件単位のジャーニーとの違い）。
+  return { days: [buildDayFromDocs(doc.broadcast_date, null, [doc], [])] };
 }

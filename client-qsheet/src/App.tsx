@@ -10,6 +10,9 @@ import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
+import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
+import SchedulePage from "@/pages/schedule/SchedulePage";
+import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
 import { QSHEET_ROOT_PATH } from "@/routeSwitch";
 import DeviceSettingsHome from "@/pages/device-settings/DeviceSettingsHome";
 import RecordingPage from "@/pages/recording/RecordingPage";
@@ -54,6 +57,11 @@ export default function App() {
         <Route path="/qsheet/device-settings" element={<DeviceSettingsHome />} />
         <Route path="/qsheet/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/qsheet/streaming/:ownerKey" element={<StreamingPage />} />
+
+        {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
+        <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
+        <Route path="/qsheet/schedules/:id" element={<SchedulePage />} />
+        <Route path="/qsheet/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}

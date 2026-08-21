@@ -48,6 +48,12 @@ export const QSHEET_PC_ONLY: PcOnlyEntry[] = [
     why: '大きな画面に固定して読み上げる運用画面です。',
     instead: SHEETS,
   },
+  {
+    path: '/qsheet/settings/schedule-templates',
+    what: 'スケジュール表のひな形の編集',
+    why: '列・項目の組み合わせを一度に見ながら組む画面で、狭い幅では組めません。',
+    instead: { label: 'スケジュール表の一覧を開く', to: '/qsheet/schedules' },
+  },
 ];
 
 /**
@@ -58,4 +64,6 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/home',      // トップ（案件を選ぶ）
   '/qsheet/sheets',    // 進行台本の一覧
   '/qsheet/audio/:id', // 公開音声サポート — 現場のスマホで見る前提
+  '/qsheet/schedules',      // スケジュール表の一覧
+  '/qsheet/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
 ];

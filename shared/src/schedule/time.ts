@@ -99,3 +99,60 @@ export function docTotalSec(
   }
   return total;
 }
+
+// ============================================================
+// スケジュール表（枠）用 — 分オフセット（その日の 00:00 JST から）
+// ============================================================
+// ⚠️ fmtAbs（秒→HH:MM:SS）とは別の関数群。混同しないこと（04-schedule-impl.md §3-7・§12-4）。
+// 24時で折り返さない（日跨ぎは 25:30 のように出す）。
+
+/** 分オフセット → "9:30" / "25:30"（先頭ゼロなし・時刻の見出し用） */
+export function fmtHm(min: number): string {
+  const v = safe(min);
+  const h = Math.floor(v / 60);
+  const m = v % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+/** 分オフセット → "09:30" / "25:30"（先頭ゼロあり・Excel/印刷用） */
+export function fmtHmPad(min: number): string {
+  const v = safe(min);
+  const h = Math.floor(v / 60);
+  const m = v % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "9:30" / "25:30" / "0930" → 分。読めなければ null（0 に丸めない） */
+export function parseHm(v: string | undefined | null): number | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) return (+m[1]) * 60 + (+m[2]);
+  m = s.match(/^(\d{1,2})(\d{2})$/);
+  if (m) return (+m[1]) * 60 + (+m[2]);
+  return null;
+}
+
+/** 所要（分）→ "1時間30分" / "45分" */
+export function fmtSpan(min: number): string {
+  const v = Math.max(0, safe(min));
+  const h = Math.floor(v / 60);
+  const m = v % 60;
+  if (h === 0) return `${m}分`;
+  if (m === 0) return `${h}時間`;
+  return `${h}時間${m}分`;
+}
+
+/** 尺（秒）→ 分に切り上げ。枠（分）との突き合わせ用 */
+export function secToMinCeil(sec: number): number {
+  return Math.ceil(Math.max(0, safe(sec)) / 60);
+}
+
+/** 秒 → "1:30" */
+export function fmtDur(sec: number): string {
+  const v = safe(sec);
+  const m = Math.floor(v / 60);
+  const s = v % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
