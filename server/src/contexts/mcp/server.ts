@@ -18,6 +18,7 @@ import { registerMinutesTools } from './tools/minutes.tools';
 import { registerSecurityCardTools } from './tools/security-cards.tools';
 import { registerAiFeedbackTools } from './tools/aifeedback.tools';
 import { registerMyTaskTools } from './tools/mytasks.tools';
+import { registerProductionTools } from './tools/production.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -49,6 +50,7 @@ export function buildMcpServer(): McpServer {
   registerSecurityCardTools(server); // スタジオ セキュリティカード管理 (read + 貸出/返却)
   registerAiFeedbackTools(server); // AI出力の修正傾向ダイジェスト (フィードバックの還流・read)
   registerMyTaskTools(server);     // 個人タスク・依頼・投入 (口頭依頼を投入テキスト経由でストック化)
+  registerProductionTools(server); // 制作資料 (進行台本・スケジュール表。OAuth actor 専用・提案まで)
 
   return server;
 }

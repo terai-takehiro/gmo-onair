@@ -69,6 +69,13 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   respond_to_delegation: { module: 'dailyops', level: 'editor' },
   // studio (スタジオ予約カレンダー)。`studio` は権限モデル単純化で `sales` に統合済み
   create_studio_booking: { module: 'sales', level: 'editor' },
+  // 制作資料 (production)。⚠️ このゲートは静的キーには効かない（isOAuth===false は即 return）。
+  // 制作資料のツールは production.access.ts の requireProductionActor() が
+  // 静的キーそのものを 403 で止める（05-mcp.md §3-1）。ここは OAuth actor の
+  // qsheet 権限を見る二重の防御で、二重で正しい（gate.ts は OAuth のときだけ効く）。
+  create_qsheet: { module: 'qsheet', level: 'editor' },
+  propose_qsheet_draft: { module: 'qsheet', level: 'editor' },
+  discard_qsheet_proposal: { module: 'qsheet', level: 'editor' },
 };
 
 const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
