@@ -28,16 +28,20 @@
  * 4か所で一致していた名前はそのまま残しました。v4 の文書では別の呼び方を
  * しているものがあり、変えるかどうかは**利用者に確認してから**にします:
  *
- *   `qsheet` いまは「Qシート」/ v4 の文書は「制作資料」
+ *   `qsheet` は「制作資料」に改名済み (下の APPS。「Qシート」は中のミニアプリの名前として残す)
  *   `admin`  いまは「システム管理」/ v4 の文書は「設定」(URL も /settings へ改名予定)
  *
  * ── 凍結の印 ────────────────────────────────────────────────
  *
- * `frozen: true` の3アプリ (Qシート / 計時LIVE / リアルタイムCG) は
+ * `frozen: true` の2アプリ (計時LIVE / リアルタイムCG) は
  * **v4.0.0 では作り直しません**。URL は生かしたまま、**v4 の共通シェルの
  * アプリ切替と「他のアプリ」からだけ外します** (`visibleApps()`)。
  * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出します
  * (ここで消すと、まだ v4 になっていない画面から凍結アプリへ行けなくなる)。
+ *
+ * **制作資料 (Qシート) は v4.1 で凍結を解いた。** `frozen` は落としたが、
+ * まだ v4 の共通シェルには載せ替えていない (見た目の作り直しは別段)。
+ * `apps.ts` の一覧・アプリ切替には出るようになる。
  *
  * ── 権限モデル単純化（`permissionModule` を `sales` に統合した回）───────
  *
@@ -143,8 +147,10 @@ export const APPS: AppDef[] = [
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
+  /* 制作資料は v4.1 で凍結を解いた (URL・見た目はまだ今までどおり。frozen だけ落とした) */
+  { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
+
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
-  { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet',    frozen: true },
   { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops',   frozen: true },
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
 

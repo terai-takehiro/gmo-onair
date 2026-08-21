@@ -43,6 +43,15 @@ const APPS = [
     pcConst: 'EQUIPMENT_PC_ONLY',
     okConst: 'EQUIPMENT_MOBILE_OK',
   },
+  {
+    // 制作資料 v4 段3（凍結解除）で追加。03-app-structure-impl.md §7-2 の10番目の指摘
+    // （client-qsheet を見ていない検査が3本ある）に対応
+    app: '制作資料 (client-qsheet)',
+    routes: 'client-qsheet/src/App.tsx',
+    decl: 'client-qsheet/src/pcOnlyScreens.ts',
+    pcConst: 'QSHEET_PC_ONLY',
+    okConst: 'QSHEET_MOBILE_OK',
+  },
 ];
 
 /** 画面として数えないパス */
