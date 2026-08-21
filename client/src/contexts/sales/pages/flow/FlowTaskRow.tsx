@@ -183,8 +183,10 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
           {task.is_required ? '外せない' : '外せる'}
         </span>
       </RowSlot>
-      <RowSlot w={128} align="right">
-        {canEdit && (
+      {/* 編集ボタンはPCだけ（呼び出し側が canEdit をデバイスで倒す）。
+          スマホの読者には常に空になるので、枠ごと出さず幅を詰める */}
+      {canEdit && (
+        <RowSlot w={128} align="right">
           <span className="flex items-center justify-end gap-1">
             <Button variant="outline" size="sm" onClick={start}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
@@ -200,8 +202,8 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
               <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </Button>
           </span>
-        )}
-      </RowSlot>
+        </RowSlot>
+      )}
     </Row>
   );
 }

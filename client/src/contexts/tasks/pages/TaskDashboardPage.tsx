@@ -40,6 +40,7 @@ import { TaskRow, TaskRowsHeader } from './taskList/TaskRows';
 import { AddTaskDialog } from './taskList/AddTaskDialog';
 import { stateRank } from './taskList/state';
 import { MobileTaskList } from './taskList/MobileTaskList';
+import { MobileTaskGantt } from './taskList/MobileTaskGantt';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { DashboardTask } from '@/types';
 
@@ -303,19 +304,21 @@ function DesktopTaskDashboard() {
  * 幅が変わったときに**フックの数が変わって React が落ちます**。
  * だからここは「どちらを描くか決めるだけ」の薄い部品にしてあります。
  *
- * ── ガントはスマホに出さない ────────────────────────────────
+ * ── ガントはスマホでは別の見え方にする ────────────────────────
  *
  * モックの「スマホに置かないもの」に **ガント（PCで見る・リストへ誘導）** が
- * 挙がっています。横に長い時間軸は 375px では読めません。
- * **黙ってリストにすり替えず**、PC で触る旨を書いて「やること」へ送ります。
- * 案内そのものは `@/pcOnlyScreens`（`/sales/tasks/gantt`）が出します
- * — 文面と見た目を10か所に散らさないためです。
+ * 挙がっており、`@/pcOnlyScreens` の `/sales/tasks/gantt` が既定ではその案内を
+ * 出します（PC の横に長い時間軸をそのまま縮めない）。ただし PC専用の案内には
+ * 「それでもこのまま開く」があり、押すとこのページまで来ます。
+ * ⚠️ **以前はここで `view` を見ておらず、押しても常にリストが出ていました**
+ * （ガントを選んだのにリストが開く不整合）。カード＋ミニ帯の
+ * `MobileGanttView`（`DashboardGanttView` が内蔵）は実装済みだったので、
+ * `view === 'gantt'` のときだけそちらへ出し分けます。
  */
 export default function TaskDashboardPage() {
   const mobile = useIsMobile();
+  const { view } = useParams<{ view: string }>();
 
   if (!mobile) return <DesktopTaskDashboard />;
-  // **ガントの案内はここに書かない。** `@/pcOnlyScreens` の表が
-  // `/sales/tasks/gantt` を受け持つので、ここに来る時点でスマホ向きの見え方だけ
-  return <MobileTaskList />;
+  return view === 'gantt' ? <MobileTaskGantt /> : <MobileTaskList />;
 }

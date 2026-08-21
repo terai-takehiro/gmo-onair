@@ -13,13 +13,14 @@
  *
  * - **`/sales/activity-logs` を主URLにした。** 旧 `/sales/review` は
  *   `?tab=funnel` 付きで転送する（`App.tsx` の `RedirectKeepQuery`）
- * - **画面全体を PC 専用に戻した**（ご指示）。営業活動記録は前の回でスマホに
- *   開放していたが（`Row stackOnMobile` ＋ `MobileFilterBar`）、統合先の分析3タブは
- *   「3列を並べて打合せの場で映す」前提で最初から PC 専用だった。タブによって
- *   スマホ対応が割れると `useIsMobile()` の分岐を画面の中に書くことになり、
- *   PC専用の判定を1か所（`pcOnlyScreens.ts`）に集める方針が崩れる。
- *   `ActivityMobileFilters` 等のスマホ用部品は「それでもこのまま開く」
- *   （`PcOnlyPanel` の `onOpenAnyway`）を選んだ人のために残してある
+ * - **画面は route レベルでは PC 専用から外れる**（`pcOnlyScreens.ts` の更新は
+ *   親セッション側）。**タブだけを画面の中で判定する**（案件詳細の
+ *   `MOBILE_TAB_KEYS` と同じ考え方）。「記録」タブは前の回でスマホに開放した
+ *   ままの中身（`Row stackOnMobile` ＋ `ActivityMobileFilters`）を使い、
+ *   分析3タブ（ファネル・失注分析・営業評価）は「3列を並べて打合せの場で映す」
+ *   前提が変わっていないので `PcOnlyPanel` の案内に差し替える。
+ *   **「それでもこのまま開く」を選んだ人のためにスマホ用部品は残してある**
+ *   — `ActivityMobileFilters` は記録タブで実際に使われている
  * - **タブは `?tab=` の URL 引数**（`取引先（財務）` の `CounterpartyPage.tsx` と同じ形）。
  *   `記録`（既定・引数なし）／`funnel`／`lost`／`performance`。ローカル state にすると
  *   `/sales/review` からの転送先を「開いたらファネルタブ」にできない
@@ -58,6 +59,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus, ClipboardList, BarChart3, AlertTriangle, Award } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
@@ -92,10 +95,17 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
+/**
+ * 分析3タブ（「3列を並べて打合せの場で映す」前提が変わっていない分）。
+ * 記録タブはここに含めない — スマホでも今までどおり使える
+ */
+const ANALYSIS_TABS: TabKey[] = ['funnel', 'lost', 'performance'];
+
 export default function ActivityLogPage() {
   const { hasPermission } = useAuth();
   const canDelete = hasPermission('sales', 'manager');
   const canSetTarget = hasPermission('sales', 'editor');
+  const isMobile = useIsMobile();
 
   const [urlParams, setUrlParams] = useSearchParams();
   const tabParam = urlParams.get('tab');
@@ -105,6 +115,11 @@ export default function ActivityLogPage() {
     if (k === 'log') next.delete('tab'); else next.set('tab', k);
     setUrlParams(next, { replace: true });
   };
+  // **「それでもこのまま開く」で1タブだけ解除できる**（案件詳細の `forcedTab` と
+  // 同じ考え方）。タブそのものを覚えておくのが要点で、真偽値にすると
+  // 別のタブへ移ってからまた戻ったときに解除が残ってしまう
+  const [openedAnyway, setOpenedAnyway] = useState<TabKey | null>(null);
+  const analysisBlocked = isMobile && ANALYSIS_TABS.includes(tab) && openedAnyway !== tab;
 
   // ── 記録タブ ──────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -276,7 +291,18 @@ export default function ActivityLogPage() {
         </>
       )}
 
-      {tab === 'funnel' && (
+      {analysisBlocked && ANALYSIS_TABS.includes(tab) && (
+        <PcOnlyPanel
+          inset
+          what={TABS.find((t) => t.key === tab)!.label}
+          why="記録タブに加えて、3列を並べて打合せの場で映すための分析タブ（ファネル・失注分析・営業評価）を同じ画面に統合しています。"
+          instead={{ label: '記録タブを見る', to: 'log' }}
+          onGoInstead={() => setTab('log')}
+          onOpenAnyway={() => setOpenedAnyway(tab)}
+        />
+      )}
+
+      {!analysisBlocked && tab === 'funnel' && (
         funnelQuery.isError ? (
           <ErrorPanel title="ファネル分析を読み込めませんでした" error={funnelQuery.error} onRetry={() => funnelQuery.refetch()} />
         ) : !funnelQuery.data ? (
@@ -286,7 +312,7 @@ export default function ActivityLogPage() {
         )
       )}
 
-      {tab === 'lost' && (
+      {!analysisBlocked && tab === 'lost' && (
         lostQuery.isError ? (
           <ErrorPanel title="失注分析を読み込めませんでした" error={lostQuery.error} onRetry={() => lostQuery.refetch()} />
         ) : !lostQuery.data ? (
@@ -296,7 +322,7 @@ export default function ActivityLogPage() {
         )
       )}
 
-      {tab === 'performance' && (
+      {!analysisBlocked && tab === 'performance' && (
         perfQuery.isError ? (
           <ErrorPanel title="営業評価を読み込めませんでした" error={perfQuery.error} onRetry={() => perfQuery.refetch()} />
         ) : !perfQuery.data ? (
