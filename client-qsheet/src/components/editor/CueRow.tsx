@@ -1,72 +1,19 @@
-import { memo, useState, useRef, useId, useEffect } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Plus, Check } from "lucide-react";
-import api from "@/lib/api";
-import { useBufferedValue } from "@/lib/useBufferedValue";
-import BufferedInput from "./BufferedInput";
-import StageDiagramCell from "./StageDiagramCell";
-import { HighlightPicker } from "./HighlightPicker";
-import MicAssignmentCell from "./MicAssignmentCell";
+import { memo, useId } from "react";
+import { ChevronUp, ChevronDown, Copy, Trash2, Plus, Check } from "lucide-react";
+import ScenarioCell from "./cells/scenario";
+import MediaCell from "./cells/media";
+import AudioMicCell from "./cells/audioMic";
+import StageDiagramTd from "./cells/stageDiagram";
+import SlideCell from "./cells/slide";
+import LedXrCell from "./cells/ledXr";
+import ValueCell from "./cells/value";
+import type { Block, CueRowData, LedScene } from "./cells/types";
 
-// ─── Buffered text inputs ───────────────────────────────
-// 入力中はローカル state に保持し、blur / IME 確定 / 短いデバウンスでのみグローバル
-// state へ commit する。**これが無いと日本語の変換中の文字が消える** ほか、
-// 「1 打鍵ごとに巨大なドキュメント全体が再レンダーされて入力がもたつく」問題も起きる。
-// フック本体は他の画面 (サイドバーの LED/XR シーン等) からも使うので lib に置いてある。
-function BufferedTextarea({
-  value,
-  onCommit,
-  autosize,
-  ...rest
-}: {
-  value: string;
-  onCommit: (v: string) => void;
-  autosize?: boolean;
-} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange">) {
-  const buf = useBufferedValue(value, onCommit);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (autosize && ref.current) {
-      ref.current.style.height = "auto";
-      ref.current.style.height = ref.current.scrollHeight + "px";
-    }
-  }, [buf.val, autosize]);
-  return (
-    <textarea
-      {...rest}
-      ref={ref}
-      value={buf.val}
-      onChange={(e) => buf.onChange(e.target.value)}
-      onFocus={buf.onFocus}
-      onBlur={buf.onBlur}
-      onCompositionStart={buf.onCompositionStart}
-      onCompositionEnd={(e) => buf.onCompositionEnd((e.target as HTMLTextAreaElement).value)}
-    />
-  );
-}
+// 段5 PR3: 11 ブロック型ごとのセル描画は components/editor/cells/<type>.tsx に
+// 切り出した (純粋な移動・挙動は変えていない)。CueRow.tsx は行の状態操作
+// (updateCell / updateEntry / getEntry) と型ごとの振り分けだけを持つ。
 
-// ─── Types ──────────────────────────────────────────────
-interface Block {
-  id: string;
-  type: string;
-  label: string;
-  width: string | number;
-  widthPx?: number;
-}
-
-interface CueRowData {
-  duration: string;
-  cells: Record<string, any>;
-  [key: string]: any;
-}
-
-interface LedScene {
-  id: string;
-  name: string;
-  wall: string;
-  floor: string;
-}
-
-interface CueRowProps {
+export interface CueRowProps {
   row: CueRowData;
   blocks: Block[];
   masters: any;
@@ -97,227 +44,6 @@ interface CueRowProps {
   onRowDrop?: (e: React.DragEvent) => void;
   onRowDragEnd?: (e: React.DragEvent) => void;
 }
-
-// ─── LED/XR cue & transition options ────────────────────
-const LED_CUE_OPTIONS = ["V明け", "Qワード", "卓D"] as const;
-const LED_TRANSITION_OPTIONS = [
-  { value: "F.I.", label: "フェードイン (F.I.)" },
-  { value: "C.I.", label: "カットイン (C.I.)" },
-] as const;
-
-// ─── EntryImageButton ───────────────────────────────────
-// エントリごとの画像添付ボタン。
-// hideThumbnail=true のときは画像が設定されていてもサムネを出さず、
-// 「変更」ボタンとして機能する（実プレビューは親側で大きく表示する）。
-function EntryImageButton({
-  imageUrl,
-  onChange,
-  hideThumbnail = false,
-}: {
-  imageUrl?: string;
-  onChange: (url: string | null) => void;
-  hideThumbnail?: boolean;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const uploadFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが5MBを超えています");
-      return;
-    }
-    setUploading(true);
-    try {
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      const res = await api.post("/qsheet/upload-image", {
-        data: dataUrl,
-        filename: file.name,
-        mimeType: file.type,
-      });
-      onChange(res.data.data.url);
-    } catch {
-      alert("画像のアップロードに失敗しました");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  if (imageUrl && !hideThumbnail) {
-    return (
-      <div className="relative flex-shrink-0 group/img" title="画像">
-        <img
-          src={imageUrl}
-          alt=""
-          className="h-6 w-6 rounded object-cover border border-zinc-200 dark:border-zinc-700"
-        />
-        <button
-          onClick={() => onChange(null)}
-          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-          title="画像を削除"
-        >
-          ×
-        </button>
-      </div>
-    );
-  }
-
-  const hasImage = !!imageUrl;
-  return (
-    <>
-      <button
-        onClick={() => inputRef.current?.click()}
-        className={`flex-shrink-0 w-5 h-5 rounded transition-colors mt-[1px] flex items-center justify-center ${
-          hasImage
-            ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
-        }`}
-        title={hasImage ? "画像を変更" : "画像を添付"}
-        disabled={uploading}
-      >
-        {uploading ? (
-          <Loader2 size={12} className="animate-spin" />
-        ) : hasImage ? (
-          <ImageIcon size={12} />
-        ) : (
-          <ImagePlus size={12} />
-        )}
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) uploadFile(file);
-          e.target.value = ""; // 同ファイルの再選択を許可
-        }}
-      />
-    </>
-  );
-}
-
-// ─── EditablePill ───────────────────────────────────────
-// 固定幅w-14、フォントサイズ11px、3文字超はscaleXで圧縮
-function EditablePill({
-  value,
-  color,
-  placeholder,
-  datalistId,
-  datalistOptions,
-  onChange,
-}: {
-  value: string;
-  color: string;
-  placeholder: string;
-  datalistId: string;
-  datalistOptions?: string[];
-  onChange: (v: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
-  // IME composition 中かどうか追跡（日本語入力の最中に onChange が早まるのを防ぐ）
-  const composingRef = useRef(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const len = (value || "").length;
-  const scale = len <= 3 ? 1 : Math.max(0.5, 3 / len);
-
-  const startEditing = () => {
-    // 編集開始時、現在の値を editValue にコピー（空なら空文字）
-    // v1.2.8 までは setEditValue("") + 2 つの input 分岐で
-    // 初回 1 文字が欠損する既知バグがあったため、ここで統一。
-    setEditValue(value || "");
-    setEditing(true);
-    setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 0);
-  };
-
-  const commit = () => {
-    // IME composition 中の commit は禁止（Enter/blur で確定前の値が拾われるのを避ける）
-    if (composingRef.current) return;
-    if (editValue !== value) onChange(editValue);
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <>
-        <input
-          ref={inputRef}
-          list={datalistId}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onCompositionStart={() => { composingRef.current = true; }}
-          onCompositionEnd={(e) => {
-            composingRef.current = false;
-            // composition 確定時に値を取り込む
-            setEditValue((e.target as HTMLInputElement).value);
-          }}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              setEditing(false);
-            }
-          }}
-          autoFocus
-          className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-full outline-none bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 placeholder:text-zinc-400 transition-all"
-          placeholder={placeholder}
-        />
-        <datalist id={datalistId}>
-          {(datalistOptions || []).map((p, i) => (
-            <option key={i} value={p} />
-          ))}
-        </datalist>
-      </>
-    );
-  }
-
-  // 非編集時: 値の有無にかかわらず常にクリック可能な pill
-  if (!value) {
-    return (
-      <span
-        onClick={startEditing}
-        className="w-14 h-5 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 bg-transparent cursor-text hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-[10px] text-zinc-400 dark:text-zinc-500"
-        title="クリックで編集"
-      >
-        {placeholder}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      onClick={startEditing}
-      className={`w-14 h-5 rounded-full ${color} flex-none cursor-pointer hover:opacity-80 transition-opacity overflow-hidden`}
-      title="クリックで編集"
-    >
-      <span
-        className="flex items-center justify-center w-full h-full text-white text-[11px] font-bold whitespace-nowrap"
-        style={scale < 1 ? { transform: `scaleX(${scale})` } : undefined}
-      >
-        {value}
-      </span>
-    </span>
-  );
-}
-
-// ─── Speaker Colors ─────────────────────────────────────
-const SPEAKER_COLORS = [
-  "bg-slate-700", "bg-teal-700", "bg-purple-700", "bg-pink-700", "bg-amber-700",
-  "bg-green-700", "bg-blue-700", "bg-red-800", "bg-indigo-700", "bg-orange-700",
-];
-const PILL_COLORS: Record<string, string> = { video: "bg-blue-700", audio: "bg-rose-700", telop: "bg-purple-700" };
 
 // ─── CueRow ─────────────────────────────────────────────
 function CueRowImpl({
@@ -408,272 +134,94 @@ function CueRowImpl({
             }
             const en = getEntry(blk);
 
-            // ── Scenario cell ──
             if (blk.type === "scenario") {
-              const color = en?.name ? (speakerColorMap[en.name] || SPEAKER_COLORS[0]) : "bg-zinc-400";
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden break-words align-top">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <div className="flex items-start gap-1.5 min-w-0">
-                      <button
-                        onClick={() => updateEntry(blk, "isQWord", !en?.isQWord)}
-                        className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
-                          en?.isQWord
-                            ? "bg-red-500 text-white shadow-sm"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                        }`}
-                        title="Qワード切替"
-                      >
-                        Q
-                      </button>
-                      <EditablePill
-                        value={en?.name || ""}
-                        color={color}
-                        placeholder="名前"
-                        datalistId={`p-${rowUid}-${blk.id}`}
-                        datalistOptions={masters?.persons}
-                        onChange={(v) => updateEntry(blk, "name", v)}
-                      />
-                      {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
-                      <BufferedTextarea
-                        autosize
-                        value={en?.html?.replace(/<[^>]*>/g, "") || ""}
-                        onCommit={(v) => updateEntry(blk, "html", v)}
-                        rows={1}
-                        className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
-                        style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
-                        placeholder={en?.isQWord ? "Qワード..." : "テキスト..."}
-                      />
-                      <EntryImageButton
-                        imageUrl={en?.image}
-                        onChange={(url) => updateEntry(blk, "image", url || undefined)}
-                        hideThumbnail
-                      />
-                      <HighlightPicker
-                        value={en?.highlight}
-                        onChange={(c) => updateEntry(blk, "highlight", c || undefined)}
-                      />
-                    </div>
-                    {en?.image && (
-                      <div className="relative inline-block w-fit ml-7 group/img">
-                        <img
-                          src={en.image}
-                          alt=""
-                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
-                        />
-                        <button
-                          onClick={() => updateEntry(blk, "image", undefined)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
-                          title="画像を削除"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </td>
+                <ScenarioCell
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
+                  rowUid={rowUid}
+                  entry={en}
+                  masters={masters}
+                  speakerColorMap={speakerColorMap}
+                  updateEntry={updateEntry}
+                />
               );
             }
 
-            // ── Video / Audio / Telop cells (paired: pill + memo) ──
             if (["video", "audio", "telop"].includes(blk.type)) {
-              const pillColor = PILL_COLORS[blk.type] || "bg-zinc-600";
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <div className="flex items-start gap-1.5 min-w-0">
-                      <EditablePill
-                        value={en?.label || ""}
-                        color={en?.label ? pillColor : "bg-zinc-400"}
-                        placeholder="ID"
-                        datalistId={`${blk.type}-${rowUid}-${blk.id}`}
-                        datalistOptions={masters?.[blk.type]}
-                        onChange={(v) => updateEntry(blk, "label", v)}
-                      />
-                      <BufferedInput
-                        value={en?.memo || ""}
-                        onCommit={(v) => updateEntry(blk, "memo", v)}
-                        className="text-[12px] bg-transparent border-none outline-none min-w-0"
-                        style={{ flex: "1 1 0", lineHeight: "20px" }}
-                        placeholder="メモ..."
-                      />
-                      <EntryImageButton
-                        imageUrl={en?.image}
-                        onChange={(url) => updateEntry(blk, "image", url || undefined)}
-                        hideThumbnail
-                      />
-                    </div>
-                    {en?.image && (
-                      <div className="relative inline-block w-fit group/img">
-                        <img
-                          src={en.image}
-                          alt=""
-                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
-                        />
-                        <button
-                          onClick={() => updateEntry(blk, "image", undefined)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
-                          title="画像を削除"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </td>
+                <MediaCell
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
+                  rowUid={rowUid}
+                  entry={en}
+                  masters={masters}
+                  updateEntry={updateEntry}
+                />
               );
             }
 
-            // ── Audio mic (マイク香盤) cell ──
             if (blk.type === "audio_mic") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                  <MicAssignmentCell
-                    cell={row.cells?.[blk.id]}
-                    channels={masters?.micChannels || []}
-                    persons={masters?.persons || []}
-                    micTypes={masters?.micTypes || []}
-                    onChange={(val) => updateCell(blk.id, val)}
-                    onInheritFromPrev={
-                      findPrevAudioMicAssignments
-                        ? () => {
-                            const prev = findPrevAudioMicAssignments(blk.id);
-                            if (prev) {
-                              updateCell(blk.id, { assignments: prev.map((a: any) => ({ ...a })) });
-                            }
-                          }
-                        : undefined
-                    }
-                  />
-                </td>
+                <AudioMicCell
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
+                  row={row}
+                  masters={masters}
+                  updateCell={updateCell}
+                  findPrevAudioMicAssignments={findPrevAudioMicAssignments}
+                />
               );
             }
 
-            // ── Stage diagram cell ──
             if (blk.type === "stage_diagram") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                  <StageDiagramCell
-                    cell={row.cells?.[blk.id]}
-                    stageTemplates={stageTemplates}
-                    onChange={(val) => updateCell(blk.id, val)}
-                  />
-                </td>
+                <StageDiagramTd
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
+                  row={row}
+                  stageTemplates={stageTemplates}
+                  updateCell={updateCell}
+                />
               );
             }
 
-            // ── Slide cell (image drop zone) ──
             if (blk.type === "slide") {
               return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
-                  <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
-                    <ImageIcon size={14} className="mr-1" />
-                    スライド
-                  </div>
-                </td>
-              );
-            }
-
-            // ── LED/XR cell ──
-            if (blk.type === "led_xr") {
-              const cell = row.cells?.[blk.id] || {};
-              const ledEntry = (cell.entries || [])[0] || {};
-              const scene = ledScenes?.find((s) => s.id === ledEntry.sceneId);
-              const updateLed = (field: string, value: any) => {
-                const newCell = { ...cell };
-                const entries = Array.isArray(newCell.entries) ? [...newCell.entries] : [];
-                if (entries.length === 0) entries.push({});
-                entries[0] = { ...entries[0], [field]: value };
-                newCell.entries = entries;
-                updateCell(blk.id, newCell);
-              };
-              return (
-                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <select
-                      value={ledEntry.sceneId || ""}
-                      onChange={(e) => updateLed("sceneId", e.target.value || undefined)}
-                      className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-                    >
-                      <option value="">-- シーン選択 --</option>
-                      {(ledScenes || []).map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    {scene && (
-                      <div className="grid grid-cols-2 gap-1">
-                        <div className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
-                          <div className="text-[8px] font-bold uppercase tracking-wider text-primary/80">壁</div>
-                          <div className="text-[10px] font-medium text-foreground truncate">{scene.wall || "—"}</div>
-                        </div>
-                        <div className="rounded border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
-                          <div className="text-[8px] font-bold uppercase tracking-wider text-warning/90">床</div>
-                          <div className="text-[10px] font-medium text-foreground truncate">{scene.floor || "—"}</div>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={ledEntry.cueType || ""}
-                        onChange={(e) => updateLed("cueType", e.target.value || undefined)}
-                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-                        title="Cue"
-                      >
-                        <option value="">Cue</option>
-                        {LED_CUE_OPTIONS.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                        <option value="custom">任意入力…</option>
-                      </select>
-                      {ledEntry.cueType === "custom" && (
-                        <BufferedInput
-                          value={ledEntry.cueCustom || ""}
-                          onCommit={(v) => updateLed("cueCustom", v)}
-                          placeholder="Cue (任意)"
-                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={ledEntry.transition || ""}
-                        onChange={(e) => updateLed("transition", e.target.value || undefined)}
-                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-                        title="トランジション"
-                      >
-                        <option value="">効果</option>
-                        {LED_TRANSITION_OPTIONS.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                        <option value="custom">任意入力…</option>
-                      </select>
-                      {ledEntry.transition === "custom" && (
-                        <BufferedInput
-                          value={ledEntry.transitionCustom || ""}
-                          onCommit={(v) => updateLed("transitionCustom", v)}
-                          placeholder="効果 (任意)"
-                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </td>
-              );
-            }
-
-            // ── Remarks / other cells ──
-            return (
-              <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                <BufferedTextarea
-                  value={(row.cells?.[blk.id] || {}).value || ""}
-                  onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}
-                  className="w-full min-h-[20px] text-[12px] bg-transparent border-none outline-none resize-none"
-                  style={{ lineHeight: "20px" }}
-                  placeholder="メモ..."
+                <SlideCell
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
                 />
-              </td>
+              );
+            }
+
+            if (blk.type === "led_xr") {
+              return (
+                <LedXrCell
+                  key={blk.id}
+                  blk={blk}
+                  cellKey={cellKey(blk.id)}
+                  row={row}
+                  ledScenes={ledScenes}
+                  updateCell={updateCell}
+                />
+              );
+            }
+
+            // ── remarks / item / lighting ({value} 形の既定枝) ──
+            return (
+              <ValueCell
+                key={blk.id}
+                blk={blk}
+                cellKey={cellKey(blk.id)}
+                row={row}
+                updateCell={updateCell}
+              />
             );
           })}
 
