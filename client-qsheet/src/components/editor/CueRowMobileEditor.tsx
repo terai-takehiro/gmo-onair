@@ -1,8 +1,8 @@
-import { Input, Textarea } from "@gmo-onair/shared/src/client/ui";
 import { ImageIcon } from "lucide-react";
-import { HighlightPicker } from "./HighlightPicker";
+import EntryImageButton from "./cells/EntryImageButton";
 import StageDiagramCell from "./StageDiagramCell";
-import { MicAssignmentMobilePanel, LedXrEntry } from "./CueRowMobilePanels";
+import { MicAssignmentMobilePanel, ValueBlockPanel, BlockPanel } from "./CueRowMobilePanels";
+import BufferedInput from "./BufferedInput";
 
 interface Block {
   id: string;
@@ -60,6 +60,12 @@ function defaultEntryFor(type: string): Record<string, any> {
  * 常に { entries: [...] } でセルを丸ごと置き換えていたため、
  * stage_diagram の templateId/note や slide の image が、色を付けただけで
  * 消えていた (HighlightPicker も同じ経路を通っていたため)。
+ *
+ * ⚠️ 入力欄は必ず BufferedInput / BufferedTextarea を使う (素の
+ * <input value onChange> / <textarea value onChange> で日本語を編集しない)。
+ * collab では 1 打鍵ごとに applyDataUpdate → Y.Doc → snapshot → props と
+ * 1 レンダー遅れて戻ってくるため、PC と同じ壊れ方の条件が揃っている
+ * (client-qsheet/CLAUDE.md「入力欄は素の <input value onChange> で書かない」)。
  */
 export default function CueRowMobileEditor({
   row,
@@ -113,21 +119,21 @@ export default function CueRowMobileEditor({
       <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">行ラベル</span>
-          <Input
+          <BufferedInput
             value={row.label || ""}
-            onChange={(e) => patchRow({ label: e.target.value })}
+            onCommit={(v) => patchRow({ label: v })}
             placeholder="例: オープニング"
             className="mt-1"
           />
         </label>
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">尺 (秒・mm:ss など)</span>
-          <Input
+          <BufferedInput
             value={String(row.duration || "")}
-            onChange={(e) => patchRow({ duration: e.target.value })}
+            onCommit={(v) => patchRow({ duration: v })}
             placeholder="例: 30 / 1:30"
             inputMode="numeric"
-            className="mt-1 "
+            className="mt-1"
           />
         </label>
       </div>
@@ -164,16 +170,45 @@ export default function CueRowMobileEditor({
         }
 
         if (blk.type === "slide") {
-          // 編集 UI は 06 で追加予定 (このセルは image を持つが、書き込み経路がまだ無い)。
-          // ここでは何も書き込まない (=消しようがない) プレースホルダのみ表示する。
+          // セルの形は { image?: string } (トップレベル)。scenario 系の entries[0].image
+          // とは違う持ち方 (05-editor-impl.md §2-1・§5-1)。既存の読み手
+          // PreviewModal.tsx が cell.image をトップレベルで読むため、書き手も合わせる。
+          // アップロードは PC (cells/slide.tsx) と同じく EntryImageButton をそのまま使う。
+          // 削除は undefined を書く (空文字にしない。ydocDiff.ts がセル削除として扱う)。
+          const cell = row.cells?.[blk.id] || {};
+          const imageUrl: string | undefined = cell.image;
+          const setImage = (url: string | null) => patchCell(blk, { image: url || undefined });
           return (
             <section key={blk.id} className="rounded-lg border border-border bg-card overflow-hidden">
               <header className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
                 <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">{blk.label}</h3>
               </header>
-              <div className="flex items-center justify-center h-16 m-2 border border-dashed border-border rounded text-muted-foreground text-xs gap-1">
-                <ImageIcon size={14} />
-                スライド
+              <div className="p-2 space-y-2">
+                {imageUrl ? (
+                  <div className="relative inline-block w-fit">
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="max-h-32 max-w-full rounded border border-border object-contain"
+                    />
+                    <button
+                      onClick={() => setImage(null)}
+                      className="min-h-tap min-w-tap absolute -top-2 -right-2 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-destructive text-xs shadow-sm"
+                      title="画像を削除"
+                      aria-label="画像を削除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-16 border border-dashed border-border rounded text-muted-foreground text-xs gap-1">
+                    <ImageIcon size={14} />
+                    スライド
+                  </div>
+                )}
+                <div className="flex justify-center">
+                  <EntryImageButton imageUrl={imageUrl} onChange={setImage} hideThumbnail />
+                </div>
               </div>
             </section>
           );
@@ -205,159 +240,5 @@ export default function CueRowMobileEditor({
   );
 }
 
-// MicAssignmentMobilePanel は CueRowMobilePanels.tsx に移設 (audio_mic ブロック用)。
-
-// ─── ValueBlockPanel: remarks / item / lighting ({value} 形) ──
-function ValueBlockPanel({
-  blk,
-  cell,
-  onChangeCell,
-}: {
-  blk: Block;
-  cell: any;
-  onChangeCell: (patch: Record<string, any>) => void;
-}) {
-  const value = typeof cell === "string" ? cell : typeof cell?.value === "string" ? cell.value : "";
-  return (
-    <section className="rounded-lg border border-border bg-card overflow-hidden">
-      <header className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
-        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-          {blk.label}
-        </h3>
-        <HighlightPicker
-          value={cell?.highlight}
-          onChange={(c) => onChangeCell({ highlight: c || undefined })}
-        />
-      </header>
-      <div className="p-2">
-        <Textarea
-          value={value}
-          onChange={(e) => onChangeCell({ value: e.target.value })}
-          rows={3}
-          placeholder={blk.label}
-          aria-label={blk.label}
-        />
-      </div>
-    </section>
-  );
-}
-
-// ─── BlockPanel: 1 entry per block (v2.8.155 で「行 = エントリ」に統一) ──
-function BlockPanel({
-  blk,
-  entry,
-  masters,
-  ledScenes,
-  onChangeField,
-}: {
-  blk: Block;
-  entry: any | null;
-  masters: any;
-  ledScenes?: any[];
-  onChangeField: (key: string, value: any) => void;
-}) {
-  const en = entry || {};
-  return (
-    <section className="rounded-lg border border-border bg-card overflow-hidden">
-      <header className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
-        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-          {blk.label}
-        </h3>
-        <HighlightPicker
-          value={en.highlight}
-          onChange={(c) => onChangeField("highlight", c || undefined)}
-        />
-      </header>
-
-      <div className="p-2 space-y-2">
-        <EntryEditor
-          blk={blk}
-          entry={en}
-          masters={masters}
-          ledScenes={ledScenes}
-          onChangeField={onChangeField}
-        />
-      </div>
-    </section>
-  );
-}
-
-// ─── EntryEditor: 1 entry = 1 card ──────────────────────
-function EntryEditor({
-  blk,
-  entry,
-  masters,
-  ledScenes,
-  onChangeField,
-}: {
-  blk: Block;
-  entry: any;
-  masters: any;
-  ledScenes?: any[];
-  onChangeField: (key: string, value: any) => void;
-}) {
-  return (
-    <div className="rounded-md border border-border bg-background p-2 space-y-2">
-      {/* Body — branch by block type */}
-      {blk.type === "scenario" ? (
-        <>
-          <Input
-            value={entry.name || ""}
-            onChange={(e) => onChangeField("name", e.target.value)}
-            placeholder="話し手 (例: 山田)"
-            list="master-persons-mobile"
-            aria-label="話し手"
-          />
-          <Textarea
-            value={entry.html || ""}
-            onChange={(e) => onChangeField("html", e.target.value)}
-            rows={3}
-            placeholder="セリフ・進行内容..."
-            aria-label="セリフ・進行内容"
-          />
-          {(masters?.persons as string[] | undefined) && (
-            <datalist id="master-persons-mobile">
-              {(masters.persons as string[]).map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-          )}
-        </>
-      ) : blk.type === "led_xr" ? (
-        <LedXrEntry entry={entry} ledScenes={ledScenes} onChangeField={onChangeField} />
-      ) : (
-        <>
-          <Input
-            value={entry.label || ""}
-            onChange={(e) => onChangeField("label", e.target.value)}
-            placeholder={blk.label}
-            list={
-              ["video", "audio", "telop"].includes(blk.type)
-                ? `master-${blk.type}-mobile`
-                : undefined
-            }
-          />
-          {entry.memo !== undefined && (
-            <Textarea
-              value={entry.memo || ""}
-              onChange={(e) => onChangeField("memo", e.target.value)}
-              rows={2}
-              placeholder="メモ"
-            />
-          )}
-        </>
-      )}
-
-      {/* Master datalists for video/audio/telop */}
-      {["video", "audio", "telop"].includes(blk.type) && masters?.[blk.type] && (
-        <datalist id={`master-${blk.type}-mobile`}>
-          {(masters[blk.type] as string[]).map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
-      )}
-    </div>
-  );
-}
-
-// LedXrEntry は CueRowMobilePanels.tsx に移設 (LED/XR シーン選択・Cue・トランジション)。
+// MicAssignmentMobilePanel / ValueBlockPanel / BlockPanel / EntryEditor / LedXrEntry は
+// CueRowMobilePanels.tsx に移設 (400行ルール)。
