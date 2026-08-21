@@ -6,7 +6,7 @@
     "client-equipment/src/pages/RackLayoutPage.tsx": 1270,
     "client-equipment/src/pages/EquipmentDetailPage.tsx": 1086,
     "client-qsheet/src/components/editor/CueTable.tsx": 1055,
-    "client-qsheet/src/pages/EditorPage.tsx": 933,
+    "client-qsheet/src/pages/EditorPage.tsx": 938,
     "client/src/contexts/platform/pages/DataViewerPage.tsx": 879,
     "client-qsheet/src/pages/DashboardPage.tsx": 833,
     "client-qsheet/src/pages/RundownPage.tsx": 816,

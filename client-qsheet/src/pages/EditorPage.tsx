@@ -25,6 +25,10 @@ import CsvImportDialog from "@/components/editor/CsvImportDialog";
 import type { CsvImportResult } from "@/lib/csvImport";
 import ExcelImportDialog from "@/components/excel/ExcelImportDialog";
 import { useExcelIO } from "@/hooks/useExcelIO";
+// AI 生成4機能（段8。04-ai.md §8-2）— ボタン・状態・ダイアログをまとめて1部品に持たせてある
+// （EditorPage.tsx はもともと 400 行上限の超過ファイルなので、ここでは増やさない）。
+// 本番中（進行/ランダウン/プロンプター/公開音声）はこのアプリのどこからも呼ばれない。
+import AiEditorTools from "@/components/ai/AiEditorTools";
 import {
   Loader2,
   Save,
@@ -672,6 +676,7 @@ export default function EditorPage() {
               <Eye size={13} aria-hidden />
               <span className="hidden md:inline">印刷 / PDF</span>
             </button>
+            <AiEditorTools documentId={doc.id} projectId={(doc as any).project_id} updateData={updateData} />
             {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
             {doc.data.blocks.some((b) => b.type === "audio_mic") && (
               <Button
