@@ -23,6 +23,8 @@ import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
 import type { CsvImportResult } from "@/lib/csvImport";
+import ExcelImportDialog from "@/components/excel/ExcelImportDialog";
+import { useExcelIO } from "@/hooks/useExcelIO";
 import {
   Loader2,
   Save,
@@ -355,6 +357,9 @@ export default function EditorPage() {
       };
     });
   }, [updateData]);
+
+  // 台本 Excel 入出力（03-excel.md §8・§9）。状態・ハンドラは useExcelIO.ts に切り出し。
+  const excelIO = useExcelIO(doc, updateData, setDoc);
 
   // collab: Y.Doc スナップショットを doc.data に反映 (Y が真実源)。
   useEffect(() => {
@@ -797,6 +802,8 @@ export default function EditorPage() {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
               setDirty(true);
             }}
+            onExportExcel={excelIO.handleExcelExport}
+            onShowImport={() => excelIO.setShowExcelImport(true)}
           />
         )}
       </div>
@@ -827,6 +834,8 @@ export default function EditorPage() {
           setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
           setDirty(true);
         }}
+        onExportExcel={excelIO.handleExcelExport}
+        onShowImport={() => { setMobileSidebarOpen(false); excelIO.setShowExcelImport(true); }}
       />
 
       {/* FAB — モバイル/タブレットでサイドバーを開く */}
@@ -865,6 +874,10 @@ export default function EditorPage() {
           onImport={handleCsvImport}
           onClose={() => setShowCsvImport(false)}
         />
+      )}
+
+      {excelIO.showExcelImport && (
+        <ExcelImportDialog docId={doc.id} currentData={doc.data} onApply={excelIO.handleExcelApply} onApplyMeta={excelIO.handleExcelApplyMeta} onRestore={excelIO.handleExcelRestore} onClose={() => excelIO.setShowExcelImport(false)} />
       )}
 
       {/* ゴミ箱 Drawer */}
