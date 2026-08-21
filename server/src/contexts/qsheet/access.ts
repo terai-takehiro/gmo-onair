@@ -48,3 +48,33 @@ export async function canAccessSchedule(
   );
   return !!share;
 }
+
+/**
+ * AI 提案（`qsheet_ai_proposals`）に対して user がアクセス可能か。
+ * 提案そのものは共有先を持たないので、**対象の台本 / スケジュール表のアクセス権限**に委ねる
+ * （段7・07-ai-proposals-impl.md §1）。どちらも見つからない・アクセス不可なら false
+ * （存在を秘匿するため、ルート側は 404 を返すこと）。
+ */
+export async function canAccessProposal(
+  user: AccessUser,
+  proposal: { document_id: string | null; schedule_id: string | null }
+): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  if (proposal.document_id) {
+    const doc = await queryOne(
+      'SELECT created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
+      [proposal.document_id]
+    );
+    if (!doc) return false;
+    return canAccessDoc(user, proposal.document_id, (doc.created_by as string) ?? null);
+  }
+  if (proposal.schedule_id) {
+    const sch = await queryOne(
+      'SELECT created_by FROM qsheet_schedules WHERE id = $1 AND deleted_at IS NULL',
+      [proposal.schedule_id]
+    );
+    if (!sch) return false;
+    return canAccessSchedule(user, proposal.schedule_id, (sch.created_by as string) ?? null);
+  }
+  return false;
+}
