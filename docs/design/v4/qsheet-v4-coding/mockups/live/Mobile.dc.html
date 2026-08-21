@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; background:#f0f1f4; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; overflow:hidden; }
+  .num { font-variant-numeric:tabular-nums; }
+  [style*="cursor:pointer"] { transition: background-color .15s ease, transform .1s ease; }
+  [style*="cursor:pointer"]:active { transform: scale(.97); opacity:.92; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.2; } }
+  @keyframes sheetUp { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="width:390px; height:844px; margin:0 auto; background:#f0f1f4; position:relative; overflow:hidden; display:flex; flex-direction:column">
+
+  <div style="flex-shrink:0; background:rgba(240,241,244,.85); backdrop-filter:blur(20px) saturate(1.6); padding:8px 16px 10px; border-bottom:1px solid rgba(0,0,0,.05)">
+    <span onClick="{{ back }}" style="display:flex; align-items:center; gap:2px; color:#c2410e; font-size:14px; font-weight:600; cursor:pointer; width:fit-content; padding:4px 0">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>60周年 記念式典
+    </span>
+    <div style="display:flex; align-items:center; gap:9px; margin-top:2px">
+      <span style="font-size:22px; font-weight:800; letter-spacing:-.02em">計時・視聴者</span>
+      <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+        <span style="display:inline-flex; align-items:center; gap:5px; height:21px; padding:0 9px; border-radius:999px; background:#fef6f7; color:#c7243a; font-size:10px; font-weight:800">
+          <span style="width:6px; height:6px; border-radius:999px; background:#c7243a; animation:blink 1s ease-in-out infinite"></span>計時中
+        </span>
+      </sc-if>
+    </div>
+  </div>
+
+  <div style="flex:1; min-height:0; overflow-y:auto; padding:14px 16px 24px; display:flex; flex-direction:column; gap:12px">
+
+    <!-- timer card -->
+    <div style="background:{{ phaseBg }}; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+      <div style="padding:20px 16px 14px; text-align:center">
+        <div class="nb" style="font-size:11px; font-weight:800; color:#9aa1ab">{{ timerName }}</div>
+        <div class="num" style="font-size:62px; font-weight:800; line-height:1.05; letter-spacing:-.02em; color:{{ phaseFg }}; margin-top:4px">{{ display }}</div>
+        <sc-if value="{{ hasTotal }}" hint-placeholder-val="{{ true }}">
+          <div class="num" style="font-size:11.5px; color:#9aa1ab; margin-top:4px">設定 {{ totalLabel }}</div>
+        </sc-if>
+      </div>
+      <div style="height:5px; background:rgba(0,0,0,.06)">
+        <div style="height:100%; width:{{ progressPct }}%; background:{{ phaseFg }}; transition:width .35s linear"></div>
+      </div>
+    </div>
+
+    <!-- transport -->
+    <div style="display:flex; gap:9px">
+      <span onClick="{{ toggle }}" style="flex:2; height:56px; border-radius:15px; background:{{ mainBg }}; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; font-size:16px; font-weight:800; cursor:pointer">
+        <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>停止
+        </sc-if>
+        <sc-if value="{{ stopped }}" hint-placeholder-val="{{ false }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 5v14l12-7z"></path></svg>開始
+        </sc-if>
+      </span>
+      <span onClick="{{ reset }}" style="flex:1; height:56px; border-radius:15px; background:#fff; color:#c7243a; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 1px 2px rgba(16,24,40,.05)">リセット</span>
+    </div>
+
+    <!-- adjust -->
+    <div style="background:#fff; border-radius:15px; padding:12px 13px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+      <div style="font-size:10.5px; font-weight:800; color:#9aa1ab; margin-bottom:8px">時間調整（計時中も使えます）</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:7px">
+        <sc-for list="{{ adjusts }}" as="a" hint-placeholder-count="6">
+          <span onClick="{{ a.pick }}" style="height:46px; border-radius:12px; background:#f2f4f7; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:{{ a.fg }}; cursor:pointer">{{ a.label }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- presets -->
+    <div style="background:#fff; border-radius:15px; padding:12px 13px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+        <span style="font-size:10.5px; font-weight:800; color:#9aa1ab">プリセット</span>
+        <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+          <span class="nb" style="font-size:10px; color:#c2410e">計時中は変えられません</span>
+        </sc-if>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap">
+        <sc-for list="{{ presets }}" as="p" hint-placeholder-count="7">
+          <span onClick="{{ p.pick }}" style="min-width:56px; height:44px; padding:0 12px; border-radius:12px; background:#f2f4f7; display:flex; align-items:center; justify-content:center; font-size:13.5px; font-weight:700; cursor:{{ p.cursor }}; opacity:{{ p.opacity }}">{{ p.label }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- viewers compact -->
+    <div style="background:#fff; border-radius:15px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+      <div style="display:flex; align-items:center; gap:9px; padding:11px 13px; border-bottom:1px solid #f5f6f8">
+        <span style="font-size:12.5px; font-weight:800">視聴者数</span>
+        <span class="num nb" style="font-size:10.5px; color:#9aa1ab">{{ lastUpdated }}</span>
+        <div style="flex:1"></div>
+        <span class="num" style="font-size:20px; font-weight:800; color:#6d28d9">{{ totalCount }}</span>
+      </div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex; align-items:center; gap:10px; padding:9px 13px; border-bottom:1px solid #f8f9fa">
+          <span style="width:8px; height:8px; border-radius:999px; background:{{ r.color }}; flex-shrink:0"></span>
+          <span class="nb" style="flex:1; font-size:12.5px; color:#3c424c">{{ r.label }}</span>
+          <span class="num nb" style="font-size:14px; font-weight:800; color:{{ r.fg }}">{{ r.value }}</span>
+        </div>
+      </sc-for>
+      <div style="padding:10px 13px; display:flex; align-items:flex-start; gap:7px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <span style="font-size:10.5px; color:#9aa1ab; line-height:1.6">取得と設定の変更は PC で。ここでは見るだけです。</span>
+      </div>
+    </div>
+
+    <span onClick="{{ shareUrl }}" style="display:flex; align-items:center; justify-content:center; gap:8px; height:50px; border-radius:14px; background:#fff; color:#005bac; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+      表示画面のURLをコピー
+    </span>
+
+  </div>
+
+  <sc-if value="{{ isSheet }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute; inset:0; background:rgba(16,24,40,.35); z-index:100" onClick="{{ closeSheet }}">
+    <div onClick="{{ stop }}" style="position:absolute; left:0; right:0; bottom:0; background:#fff; border-radius:20px 20px 0 0; padding:10px 20px 26px; display:flex; flex-direction:column; gap:12px; animation:sheetUp .26s cubic-bezier(.22,.61,.36,1) both">
+      <div style="width:36px; height:4px; border-radius:999px; background:#dcdfe4; margin:0 auto"></div>
+      <h2 style="margin:0; font-size:17px; font-weight:800">タイマーをリセットしますか</h2>
+      <p style="margin:0; font-size:12.5px; color:#5d6470; line-height:1.7">計時中です。リセットすると<strong class="nb">設定した尺ごと 0 に戻ります</strong>（プリセットには戻りません）。表示画面も同時に 0 になります。</p>
+      <div style="display:flex; gap:9px; margin-top:2px">
+        <span onClick="{{ closeSheet }}" style="flex:1; height:50px; border-radius:14px; background:#f2f4f7; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#3c424c; cursor:pointer">やめる</span>
+        <span onClick="{{ doReset }}" style="flex:1; height:50px; border-radius:14px; background:#c7243a; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:#fff; cursor:pointer">リセット</span>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:200; padding:10px 16px; border-radius:999px; background:rgba(26,29,36,.94); color:#fff; font-size:12px; font-weight:700; white-space:nowrap; max-width:330px">{{ toast }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  state = { remainingMs: 47000, totalSeconds: 300, running: true, sheet: false, toast: '' };
+
+  COUNTS = [
+    { key: 'yt', label: 'YouTube', color: '#ef4444', value: 1284 },
+    { key: 'js', label: 'Jstream', color: '#06b6d4', value: 342 },
+    { key: 'zoom', label: 'Zoom', color: '#2D8CFF', value: 96 },
+  ];
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); }
+
+  fmt(ms) {
+    const over = ms < 0, abs = Math.abs(ms);
+    const m = Math.floor(abs / 60000), s = Math.floor((abs % 60000) / 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return (over ? '+' : '') + pad(m) + ':' + pad(s);
+  }
+
+  phaseOf() {
+    const s = this.state;
+    if (s.totalSeconds === 0) return 'idle';
+    if (s.remainingMs <= 0) return 'red';
+    if (s.remainingMs <= 60000) return 'yellow';
+    return 'countdown';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const phase = this.phaseOf();
+    const TONE = {
+      idle: { fg: '#9aa1ab', bg: '#fff' },
+      countdown: { fg: '#1a1d24', bg: '#fff' },
+      yellow: { fg: '#c2410e', bg: '#fffaf5' },
+      red: { fg: '#c7243a', bg: '#fef6f7' },
+    }[phase];
+    const pct = s.totalSeconds > 0 ? Math.max(0, Math.min(100, (s.remainingMs / (s.totalSeconds * 1000)) * 100)) : 0;
+    const total = this.COUNTS.reduce((a, c) => a + c.value, 0);
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: () => this.flash('案件のミニアプリ一覧に戻ります'),
+      timerName: '本番尺',
+      running: s.running, stopped: !s.running,
+      display: this.fmt(s.remainingMs),
+      hasTotal: s.totalSeconds > 0,
+      totalLabel: this.fmt(s.totalSeconds * 1000),
+      phaseFg: TONE.fg, phaseBg: TONE.bg,
+      progressPct: Math.round(pct),
+      mainBg: s.running ? '#1a1d24' : '#197a4b',
+      toggle: () => this.setState({ running: !s.running }),
+      reset: () => { if (s.running) { this.setState({ sheet: true }); } else { this.setState({ totalSeconds: 0, remainingMs: 0 }); this.flash('0 に戻しました'); } },
+      isSheet: s.sheet,
+      closeSheet: () => this.setState({ sheet: false }),
+      doReset: () => { this.setState({ sheet: false, running: false, totalSeconds: 0, remainingMs: 0 }); this.flash('リセットしました'); },
+      stop: (e) => e && e.stopPropagation && e.stopPropagation(),
+      adjusts: [
+        { label: '−1分', d: -60 }, { label: '−30秒', d: -30 }, { label: '−10秒', d: -10 },
+        { label: '＋10秒', d: 10 }, { label: '＋30秒', d: 30 }, { label: '＋1分', d: 60 },
+      ].map((a) => ({ label: a.label, fg: a.d < 0 ? '#c7243a' : '#197a4b', pick: () => this.setState({ remainingMs: s.remainingMs + a.d * 1000 }) })),
+      presets: [1, 3, 5, 10, 15, 20, 30].map((m) => ({
+        label: m + '分',
+        cursor: s.running ? 'default' : 'pointer',
+        opacity: s.running ? '.4' : '1',
+        pick: s.running ? () => {} : () => this.setState({ totalSeconds: m * 60, remainingMs: m * 60000 }),
+      })),
+      lastUpdated: '14:32:07',
+      totalCount: total.toLocaleString('ja-JP'),
+      rows: this.COUNTS.map((c) => ({ label: c.label, color: c.color, fg: c.color, value: c.value.toLocaleString('ja-JP') })),
+      shareUrl: () => this.flash('表示画面のURLをコピーしました（ログイン不要で開けます）'),
+    };
+  }
+}
+</script>
+</body>
+</html>

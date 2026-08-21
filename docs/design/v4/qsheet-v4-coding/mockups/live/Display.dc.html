@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; overflow:hidden; user-select:none; }
+  .num { font-variant-numeric:tabular-nums; }
+  [style*="cursor:pointer"] { transition: background-color .15s ease, opacity .15s ease; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.2; } }
+  @keyframes phasePulse { 0%,100% { opacity:.55; } 50% { opacity:.15; } }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="width:1280px; height:720px; position:relative; overflow:hidden; background:{{ pageBg }}; color:{{ pageFg }}; display:flex; flex-direction:column">
+
+  <!-- phase backdrop -->
+  <sc-if value="{{ hasBackdrop }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; background:radial-gradient(circle at 34% 50%, {{ backdropColor }} 0%, transparent 62%); animation:{{ backdropAnim }}; pointer-events:none"></div>
+  </sc-if>
+
+  <div style="flex:1; min-height:0; display:flex; position:relative; z-index:1">
+
+    <!-- timer side -->
+    <sc-if value="{{ showTimer }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:{{ timerFlex }}; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; border-right:{{ dividerBorder }}">
+      <div class="num" style="font-size:{{ timerSize }}px; font-weight:800; line-height:.92; letter-spacing:-.02em; color:{{ phaseFg }}; text-shadow:{{ phaseGlow }}; animation:{{ phaseAnim }}">{{ display }}</div>
+      <sc-if value="{{ hasTotal }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; gap:9px">
+          <sc-if value="{{ running }}" hint-placeholder-val="{{ true }}">
+            <span style="width:9px; height:9px; border-radius:999px; background:#ef4444; animation:blink 1s ease-in-out infinite"></span>
+          </sc-if>
+          <span class="num nb" style="font-size:20px; font-weight:700; color:{{ dimFg }}">設定 {{ totalLabel }}</span>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- viewers side -->
+    <sc-if value="{{ showViewers }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:{{ viewerFlex }}; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:{{ viewerGap }}px; padding:24px">
+      <div style="display:flex; align-items:center; gap:9px">
+        <span style="width:9px; height:9px; border-radius:999px; background:#ef4444; animation:blink 1.1s ease-in-out infinite"></span>
+        <span class="nb" style="font-size:17px; font-weight:800; color:{{ dimFg }}">視聴者数</span>
+      </div>
+
+      <sc-if value="{{ showTotal }}" hint-placeholder-val="{{ true }}">
+        <div style="text-align:center">
+          <div class="num" style="font-size:{{ totalSize }}px; font-weight:800; line-height:1; color:#a855f7">{{ totalCount }}</div>
+          <div class="nb" style="font-size:16px; font-weight:700; color:{{ dimFg }}; margin-top:6px">合計</div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex; flex-direction:column; gap:{{ rowGap }}px; align-items:{{ rowAlign }}">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+          <div style="display:flex; align-items:baseline; gap:14px">
+            <span class="nb" style="width:{{ r.labelW }}px; flex-shrink:0; text-align:right; font-size:{{ r.labelSize }}px; font-weight:800; color:{{ r.color }}">{{ r.label }}</span>
+            <span class="num nb" style="font-size:{{ r.valueSize }}px; font-weight:800; line-height:1; color:{{ r.color }}">{{ r.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+
+  <!-- bottom progress -->
+  <sc-if value="{{ showTimer }}" hint-placeholder-val="{{ true }}">
+    <div style="height:8px; background:{{ trackBg }}; position:relative; z-index:1">
+      <div style="height:100%; width:{{ progressPct }}%; background:{{ phaseFg }}; transition:width .35s linear"></div>
+    </div>
+  </sc-if>
+
+  <!-- gear -->
+  <span onClick="{{ togglePanel }}" style="position:absolute; right:16px; bottom:22px; z-index:20; width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:{{ gearFg }}" style-hover="background:rgba(127,127,127,.18)">
+    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+    </sc-if>
+    <sc-if value="{{ panelClosed }}" hint-placeholder-val="{{ true }}">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
+    </sc-if>
+  </span>
+
+  <!-- settings panel -->
+  <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; right:16px; bottom:70px; z-index:21; width:290px; background:rgba(22,24,29,.92); backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:14px; display:flex; flex-direction:column; gap:13px; color:#fff; box-shadow:0 20px 44px -18px rgba(0,0,0,.7)">
+      <div>
+        <div class="nb" style="font-size:10px; font-weight:800; color:rgba(255,255,255,.42); letter-spacing:.06em; margin-bottom:7px">表示</div>
+        <sc-for list="{{ viewToggles }}" as="t" hint-placeholder-count="2">
+          <div onClick="{{ t.toggle }}" style="display:flex; align-items:center; gap:10px; height:36px; padding:0 4px; cursor:pointer">
+            <span class="nb" style="flex:1; font-size:13px; font-weight:700">{{ t.label }}</span>
+            <span style="width:38px; height:22px; border-radius:999px; background:{{ t.bg }}; position:relative; flex-shrink:0">
+              <span style="position:absolute; top:2px; left:{{ t.left }}px; width:18px; height:18px; border-radius:999px; background:#fff"></span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.1); padding-top:11px">
+        <div class="nb" style="font-size:10px; font-weight:800; color:rgba(255,255,255,.42); letter-spacing:.06em; margin-bottom:7px">視聴者カウント</div>
+        <sc-for list="{{ countToggles }}" as="t" hint-placeholder-count="5">
+          <div onClick="{{ t.toggle }}" style="display:flex; align-items:center; gap:10px; height:34px; padding:0 4px; cursor:pointer">
+            <span style="width:8px; height:8px; border-radius:999px; background:{{ t.dot }}; flex-shrink:0"></span>
+            <span class="nb" style="flex:1; font-size:13px; font-weight:700">{{ t.label }}</span>
+            <span style="width:38px; height:22px; border-radius:999px; background:{{ t.bg }}; position:relative; flex-shrink:0">
+              <span style="position:absolute; top:2px; left:{{ t.left }}px; width:18px; height:18px; border-radius:999px; background:#fff"></span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.1); padding-top:10px">
+        <p style="margin:0; font-size:10px; color:rgba(255,255,255,.45); line-height:1.7">この設定は<strong class="nb">この端末にだけ</strong>覚えます。／ 数字は運用の画面が取得したものを読みます。</p>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
+class Component extends DCLogic {
+  state = {
+    remainingMs: -18000, totalSeconds: 300, running: true,
+    showTimer: true, lightBase: false, panel: false,
+    on: { yt: true, js: true, zoom: false, teams: false, total: true },
+  };
+
+  COUNTS = { yt: 1284, js: 342, zoom: 96, teams: 0 };
+  META = {
+    yt: { label: 'YouTube', color: '#ef4444' },
+    js: { label: 'Jstream', color: '#06b6d4' },
+    zoom: { label: 'Zoom', color: '#2D8CFF' },
+    teams: { label: 'Teams', color: '#6264A7' },
+  };
+
+  fmt(ms) {
+    const over = ms < 0, abs = Math.abs(ms);
+    const m = Math.floor(abs / 60000), s = Math.floor((abs % 60000) / 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return (over ? '+' : '') + pad(m) + ':' + pad(s);
+  }
+
+  phaseOf() {
+    const s = this.state;
+    if (s.totalSeconds === 0) return 'idle';
+    if (s.remainingMs <= 0) return 'red';
+    if (s.remainingMs <= 60000) return 'yellow';
+    return 'countdown';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const light = s.lightBase;
+    const phase = this.phaseOf();
+
+    const baseFg = light ? '#1a1d24' : '#ffffff';
+    const dimFg = light ? 'rgba(26,29,36,.5)' : 'rgba(255,255,255,.5)';
+    const phaseFg = phase === 'red' ? (light ? '#dc2626' : '#ef4444')
+      : phase === 'yellow' ? (light ? '#c2410e' : '#fbbf24')
+      : phase === 'idle' ? dimFg : baseFg;
+
+    const anyCount = ['yt', 'js', 'zoom', 'teams'].some((k) => s.on[k]) || s.on.total;
+    const showViewers = anyCount;
+    const showTimer = s.showTimer;
+    const split = showTimer && showViewers;
+    const viewersOnly = !showTimer && showViewers;
+
+    const activeKeys = ['yt', 'js', 'zoom', 'teams'].filter((k) => s.on[k]);
+    const total = activeKeys.reduce((a, k) => a + this.COUNTS[k], 0);
+
+    const rows = activeKeys.map((k) => {
+      const m = this.META[k];
+      return {
+        label: m.label, color: m.color,
+        value: this.COUNTS[k].toLocaleString('ja-JP'),
+        labelW: viewersOnly ? 130 : 96,
+        labelSize: viewersOnly ? 22 : 16,
+        valueSize: viewersOnly ? (s.on.total ? 46 : 92) : 40,
+      };
+    });
+
+    const pct = s.totalSeconds > 0 ? Math.max(0, Math.min(100, (s.remainingMs / (s.totalSeconds * 1000)) * 100)) : 0;
+
+    const mkToggle = (label, on, fn, dot) => ({
+      label, toggle: fn, bg: on ? '#c2410e' : 'rgba(255,255,255,.2)', left: on ? 18 : 2, dot: dot || 'transparent',
+    });
+
+    return {
+      pageBg: light ? '#fafafa' : '#000000',
+      pageFg: baseFg, dimFg,
+      trackBg: light ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.12)',
+      dividerBorder: split ? (light ? '1px solid rgba(0,0,0,.1)' : '1px solid rgba(255,255,255,.12)') : 'none',
+      gearFg: light ? 'rgba(26,29,36,.32)' : 'rgba(255,255,255,.3)',
+
+      hasBackdrop: phase === 'red' || phase === 'yellow',
+      backdropColor: phase === 'red' ? 'rgba(220,38,38,.34)' : 'rgba(251,191,36,.24)',
+      backdropAnim: phase === 'red' ? 'phasePulse 1.6s ease-in-out infinite' : 'none',
+
+      showTimer, showViewers,
+      timerFlex: split ? '6 1 0' : '1 1 0',
+      viewerFlex: split ? '4 1 0' : '1 1 0',
+      timerSize: split ? 196 : 268,
+      display: this.fmt(s.remainingMs),
+      hasTotal: s.totalSeconds > 0,
+      totalLabel: this.fmt(s.totalSeconds * 1000),
+      running: s.running,
+      phaseFg,
+      phaseGlow: phase === 'red' ? '0 0 46px rgba(239,68,68,.55)' : 'none',
+      phaseAnim: phase === 'red' ? 'blink 1.4s ease-in-out infinite' : 'none',
+      progressPct: Math.round(pct),
+
+      showTotal: s.on.total,
+      totalCount: total.toLocaleString('ja-JP'),
+      totalSize: viewersOnly ? 168 : 84,
+      viewerGap: viewersOnly ? 30 : 20,
+      rowGap: viewersOnly ? 16 : 10,
+      rowAlign: 'flex-start',
+      rows,
+
+      panelOpen: s.panel, panelClosed: !s.panel,
+      togglePanel: () => this.setState({ panel: !s.panel }),
+      viewToggles: [
+        mkToggle('タイマーを表示', s.showTimer, () => this.setState({ showTimer: !s.showTimer })),
+        mkToggle('白ベースで表示', s.lightBase, () => this.setState({ lightBase: !s.lightBase })),
+      ],
+      countToggles: ['yt', 'js', 'zoom', 'teams'].map((k) => {
+        const m = this.META[k];
+        return mkToggle(m.label, s.on[k], () => { const o = { ...s.on }; o[k] = !o[k]; this.setState({ on: o }); }, m.color);
+      }).concat([mkToggle('合計', s.on.total, () => { const o = { ...s.on }; o.total = !o.total; this.setState({ on: o }); }, '#a855f7')]),
+    };
+  }
+}
+</script>
+</body>
+</html>

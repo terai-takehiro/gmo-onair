@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef0f3; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#c2410e; text-decoration:none; } a:hover { color:#9a3412; }
+  .num { font-variant-numeric:tabular-nums; }
+  button, [style*="cursor:pointer"] { transition: background-color .15s ease, border-color .15s ease, transform .1s ease; }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.98); }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eef0f3; display:flex; flex-direction:column">
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:200; padding:11px 18px; border-radius:999px; background:rgba(26,29,36,.94); backdrop-filter:blur(12px); color:#fff; font-size:13px; font-weight:700; box-shadow:0 20px 40px -14px rgba(16,24,40,.5); white-space:nowrap">{{ toast }}</div>
+  </sc-if>
+
+  <!-- toolbar -->
+  <div style="position:sticky; top:0; z-index:40; background:rgba(238,240,243,.8); backdrop-filter:blur(20px) saturate(1.6); border-bottom:1px solid rgba(0,0,0,.06)">
+    <div style="max-width:1360px; margin:0 auto; padding:13px 24px; display:flex; align-items:center; gap:12px">
+      <span onClick="{{ back }}" style="display:flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:#5d6470; cursor:pointer; flex-shrink:0" style-hover="color:#c2410e">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>60周年 記念式典
+      </span>
+      <div style="width:1px; height:18px; background:#d7dbe1; flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div style="font-size:15.5px; font-weight:800; white-space:nowrap">収録設定</div>
+        <div style="font-size:11px; color:#9aa1ab; white-space:nowrap">ミナトデジタル ・ GLS-A012 ・ HyperDeck 12台</div>
+      </div>
+
+      <!-- mini-app switch: this is a sibling of Qシート / スケジュール表 -->
+      <div style="display:inline-flex; padding:3px; background:#e4e7eb; border-radius:10px; gap:1px; margin-left:8px; flex-shrink:0">
+        <sc-for list="{{ miniApps }}" as="ma" hint-placeholder-count="4">
+          <span onClick="{{ ma.go }}" style="display:inline-flex; align-items:center; height:28px; padding:0 12px; border-radius:8px; background:{{ ma.bg }}; box-shadow:{{ ma.shadow }}; color:{{ ma.fg }}; font-size:12px; font-weight:{{ ma.weight }}; cursor:pointer; white-space:nowrap">{{ ma.label }}</span>
+        </sc-for>
+      </div>
+
+      <div style="flex:1"></div>
+      <button onClick="{{ copyPrev }}" style="height:32px; padding:0 12px; border:1px solid rgba(0,0,0,.08); border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">前回の設定を写す</button>
+      <button onClick="{{ goExport }}" style="height:32px; padding:0 14px; border:none; border-radius:9px; background:#c2410e; color:#fff; font-size:12px; font-weight:800; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; flex-shrink:0" style-hover="background:#9a3412">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+        Excelを書き出す
+      </button>
+    </div>
+  </div>
+
+  <div style="flex:1; padding:18px 24px 60px">
+    <div style="max-width:1360px; margin:0 auto; display:flex; flex-direction:column; gap:14px">
+
+      <!-- status band -->
+      <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+        <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+          <span style="display:flex; align-items:center; gap:8px; padding-right:16px; border-right:1px solid #f1f2f5">
+            <span style="width:8px; height:8px; border-radius:999px; background:{{ st.dot }}; flex-shrink:0"></span>
+            <span class="nb" style="font-size:11.5px; color:#9aa1ab">{{ st.label }}</span>
+            <span class="num nb" style="font-size:15px; font-weight:800; color:{{ st.fg }}">{{ st.value }}</span>
+          </span>
+        </sc-for>
+        <div style="flex:1"></div>
+        <span class="nb" style="font-size:11px; color:#9aa1ab">最後に書き出したファイル</span>
+        <span class="num nb" style="font-size:11.5px; font-weight:700; color:#3c424c">{{ lastExport }}</span>
+      </div>
+
+      <!-- filter + bulk -->
+      <div style="display:flex; align-items:center; gap:12px">
+        <div style="display:inline-flex; padding:3px; background:#e4e7eb; border-radius:10px; gap:1px">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3">
+            <span onClick="{{ f.pick }}" style="display:inline-flex; align-items:center; height:30px; padding:0 14px; border-radius:8px; background:{{ f.bg }}; box-shadow:{{ f.shadow }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.weight }}; cursor:pointer; white-space:nowrap">{{ f.label }}</span>
+          </sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+          <span class="nb" style="font-size:12px; font-weight:700; color:#005bac">{{ selCount }} 台を選択中</span>
+          <span onClick="{{ bulkEdit }}" style="height:30px; padding:0 12px; border-radius:8px; background:#eaf4fb; color:#005bac; font-size:12px; font-weight:700; display:flex; align-items:center; cursor:pointer; white-space:nowrap" style-hover="background:#dcecf8">選んだ台にまとめて</span>
+          <span onClick="{{ clearSel }}" style="font-size:12px; font-weight:700; color:#9aa1ab; cursor:pointer" style-hover="color:#5d6470">解除</span>
+        </sc-if>
+      </div>
+
+      <!-- deck groups -->
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <sc-if value="{{ g.show }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #f1f2f5">
+          <span style="font-size:13.5px; font-weight:800">{{ g.label }}</span>
+          <span class="num nb" style="font-size:11px; color:#9aa1ab">{{ g.model }}</span>
+          <div style="flex:1"></div>
+          <sc-if value="{{ g.hasMirror }}" hint-placeholder-val="{{ false }}">
+            <span onClick="{{ g.mirror }}" style="height:28px; padding:0 11px; border-radius:8px; background:#f2f4f7; font-size:11.5px; font-weight:700; color:#3c424c; display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap" style-hover="background:#e8eaed">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3"></path></svg>
+              本線の設定を写す
+            </span>
+          </sc-if>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; padding:8px 16px; background:#fbfcfd; border-bottom:1px solid #f1f2f5; font-size:10.5px; font-weight:800; color:#9aa1ab">
+          <span style="width:18px; flex-shrink:0"></span>
+          <span style="width:132px; flex-shrink:0">デッキ ／ 呼び名</span>
+          <span style="width:158px; flex-shrink:0">解像度</span>
+          <span style="width:126px; flex-shrink:0">コーデック</span>
+          <span style="width:74px; flex-shrink:0; text-align:right">音声ch</span>
+          <span style="width:120px; flex-shrink:0">収録先</span>
+          <span style="flex:1; min-width:0">ファイル名</span>
+        </div>
+
+        <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="8">
+          <div style="display:flex; align-items:center; gap:10px; padding:7px 16px; border-bottom:1px solid #f5f6f8" style-hover="background:#fbfcfd">
+            <span onClick="{{ r.toggleSel }}" style="width:16px; height:16px; border-radius:5px; border:1.5px solid {{ r.chkBd }}; background:{{ r.chkBg }}; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center">
+              <sc-if value="{{ r.selected }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+            </span>
+            <span style="width:132px; flex-shrink:0; display:flex; flex-direction:column; gap:1px">
+              <span class="num nb" style="font-size:12.5px; font-weight:800">{{ r.deckId }}</span>
+              <span class="nb" style="font-size:10.5px; color:#9aa1ab; overflow:hidden; text-overflow:ellipsis">{{ r.label }}</span>
+            </span>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+              <span onClick="{{ c.edit }}" style="width:{{ c.w }}; flex:{{ c.flex }}; min-width:0; height:32px; padding:0 10px; border:1px solid {{ c.bd }}; border-radius:9px; background:{{ c.bg }}; display:flex; align-items:center; justify-content:{{ c.justify }}; cursor:pointer" style-hover="border-color:#a6ceeb">
+                <span class="num nb" style="min-width:0; font-size:12px; font-weight:{{ c.weight }}; color:{{ c.fg }}; overflow:hidden; text-overflow:ellipsis">{{ c.value }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      </sc-for>
+
+      <div style="display:flex; align-items:flex-start; gap:10px; padding:13px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:13px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75"><strong class="nb">橙のセルは「まだ決めていない」</strong>という意味で、間違いではありません。空欄のまま書き出すと<strong class="nb">現地の設定をそのまま残します</strong>。全部埋めると、現場が直した値を上書きします。／ ONAiR から機器には触りません。書き出した Excel を現場の Assistant が読み込みます。</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1000}}">
+class Component extends DCLogic {
+  state = { filter: 'all', sel: {}, toast: '' };
+
+  MAIN = [
+    { deckId: 'REC1', label: '本線 PGM', videoFormat: '1920x1080p59.94', codec: 'ProRes:HQ', audioChannels: '2', slot: 'ネットワーク', filePrefix: 'GLS-A012_PGM' },
+    { deckId: 'REC2', label: '本線 PGM 予備', videoFormat: '1920x1080p59.94', codec: 'ProRes:HQ', audioChannels: '2', slot: 'ネットワーク', filePrefix: 'GLS-A012_PGM_BK' },
+    { deckId: 'REC3', label: 'カメラ1 ISO', videoFormat: '1920x1080p59.94', codec: 'ProRes:422', audioChannels: '2', slot: 'SSD 1', filePrefix: 'GLS-A012_CAM1' },
+    { deckId: 'REC4', label: 'カメラ2 ISO', videoFormat: '1920x1080p59.94', codec: 'ProRes:422', audioChannels: '2', slot: 'SSD 1', filePrefix: 'GLS-A012_CAM2' },
+    { deckId: 'REC5', label: 'カメラ3 ISO', videoFormat: '', codec: '', audioChannels: '2', slot: 'SSD 2', filePrefix: '' },
+    { deckId: 'REC6', label: '客席 引き', videoFormat: '1920x1080i59.94', codec: 'H.264:High', audioChannels: '2', slot: 'SD 1', filePrefix: 'GLS-A012_WIDE' },
+    { deckId: 'REC7', label: '4K 記録用', videoFormat: '3840x2160p59.94', codec: 'H.265:High', audioChannels: '4', slot: 'ネットワーク', filePrefix: 'GLS-A012_4K' },
+    { deckId: 'REC8', label: '予備', videoFormat: '', codec: '', audioChannels: '', slot: '', filePrefix: '' },
+  ];
+
+  SUB = [
+    { deckId: 'REC1-P', label: '控え PGM', videoFormat: '1920x1080p59.94', codec: 'ProRes:422', audioChannels: '2', slot: 'ネットワーク', filePrefix: 'GLS-A012_PGM_P' },
+    { deckId: 'REC2-P', label: '控え カメラ1', videoFormat: '1920x1080p59.94', codec: 'ProRes:422', audioChannels: '2', slot: 'SD 1', filePrefix: 'GLS-A012_CAM1_P' },
+    { deckId: 'REC3-P', label: '控え カメラ2', videoFormat: '', codec: '', audioChannels: '', slot: '', filePrefix: '' },
+    { deckId: 'REC4-P', label: '控え 予備', videoFormat: '', codec: '', audioChannels: '', slot: '', filePrefix: '' },
+  ];
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+
+  cellsOf(d) {
+    const mk = (key, value, w, flex, justify) => {
+      const empty = !value;
+      return {
+        value: empty ? '未入力' : value, w, flex, justify,
+        bd: empty ? '#fed7aa' : '#e6e9ed',
+        bg: empty ? '#fff7ed' : '#fff',
+        fg: empty ? '#c2410e' : '#1a1d24',
+        weight: empty ? 700 : 400,
+        edit: () => this.flash(d.deckId + ' の「' + key + '」を選びます（機器が答えた候補から。自由入力も可）'),
+      };
+    };
+    return [
+      mk('解像度', d.videoFormat, '158px', '0 0 auto', 'flex-start'),
+      mk('コーデック', d.codec, '126px', '0 0 auto', 'flex-start'),
+      mk('音声ch', d.audioChannels, '74px', '0 0 auto', 'flex-end'),
+      mk('収録先', d.slot, '120px', '0 0 auto', 'flex-start'),
+      mk('ファイル名', d.filePrefix, 'auto', '1 1 0', 'flex-start'),
+    ];
+  }
+
+  rowsOf(list) {
+    const s = this.state;
+    return list.map((d) => {
+      const selected = !!s.sel[d.deckId];
+      return {
+        deckId: d.deckId, label: d.label,
+        selected, chkBd: selected ? '#005bac' : '#d7dbe1', chkBg: selected ? '#005bac' : '#fff',
+        toggleSel: () => { const sl = { ...s.sel }; if (sl[d.deckId]) delete sl[d.deckId]; else sl[d.deckId] = true; this.setState({ sel: sl }); },
+        cells: this.cellsOf(d),
+      };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg);
+    const all = this.MAIN.concat(this.SUB);
+    const filled = all.filter((d) => d.videoFormat && d.codec && d.audioChannels && d.slot);
+    const blank = all.filter((d) => !d.videoFormat && !d.codec && !d.audioChannels && !d.slot);
+    const partial = all.length - filled.length - blank.length;
+    const net = all.filter((d) => d.slot === 'ネットワーク');
+    const selKeys = Object.keys(s.sel);
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: soon('案件（60周年 記念式典）のミニアプリ一覧に戻ります'),
+      miniApps: [
+        { key: 'sched', label: 'スケジュール表' },
+        { key: 'qsheet', label: 'Qシート' },
+        { key: 'rec', label: '収録設定' },
+        { key: 'stream', label: '配信設定' },
+      ].map((m) => {
+        const on = m.key === 'rec';
+        return { label: m.label, bg: on ? '#fff' : 'transparent', fg: on ? '#c2410e' : '#5d6470', weight: on ? 800 : 700, shadow: on ? '0 1px 2px rgba(16,24,40,.15)' : 'none', go: on ? () => {} : soon('「' + m.label + '」に切り替えます') };
+      }),
+      copyPrev: soon('前回（7/22 GMO Yours 定例 #141）の収録設定を写します'),
+      goExport: soon('Excel を書き出す画面を開きます'),
+      stats: [
+        { label: '準備完了', value: filled.length + '台', dot: '#197a4b', fg: '#197a4b' },
+        { label: '一部だけ', value: partial + '台', dot: '#c2410e', fg: '#c2410e' },
+        { label: '未入力', value: blank.length + '台', dot: '#cbd2da', fg: '#9aa1ab' },
+        { label: 'ネットワーク収録', value: net.length + '台', dot: '#005bac', fg: '#005bac' },
+      ],
+      lastExport: '収録配信設定_GLS-A012_2026-07-30.xlsx',
+      filters: [
+        { key: 'all', label: 'すべて 12' }, { key: 'main', label: '本線 8' }, { key: 'sub', label: '控え 4' },
+      ].map((f) => { const on = f.key === s.filter; return { label: f.label, pick: () => this.setState({ filter: f.key }), bg: on ? '#fff' : 'transparent', fg: on ? '#1a1d24' : '#5d6470', weight: on ? 800 : 700, shadow: on ? '0 1px 2px rgba(16,24,40,.15)' : 'none' }; }),
+      hasSel: selKeys.length > 0, selCount: selKeys.length,
+      clearSel: () => this.setState({ sel: {} }),
+      bulkEdit: soon('選んだ ' + selKeys.length + ' 台をまとめて変えます（機種グループを越える指定はできません）'),
+      groups: [
+        { label: '本線', model: 'HyperDeck Studio 4K Pro ・ 8台', show: s.filter !== 'sub', rows: this.rowsOf(this.MAIN), hasMirror: false, mirror: () => {} },
+        { label: '控え', model: 'HyperDeck Studio HD Plus ・ 4台（4K・DNxHR は選べません）', show: s.filter !== 'main', rows: this.rowsOf(this.SUB), hasMirror: true, mirror: soon('REC1-P ← REC1 のように、本線の設定を控えに写します（機種が持たない値は落とします）') },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
