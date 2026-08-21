@@ -30,6 +30,7 @@ import { runFormatPass } from '../../sales/services/activity-format.service';
 import { runShortPass } from '../../sales/services/next-action-short.service';
 import { jstParts, shiftYmd } from '../../../shared/utils/jst';
 import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
+import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID } from '../../qsheet/ai/monthly-review.service';
 
 /**
  * いまの `YYYY-MM-DD` と `HH:MM`。**日本の壁時計**で返す。
@@ -486,6 +487,22 @@ async function settleQsheetAiProposals(): Promise<NotifyInput[]> {
   return [];
 }
 
+/**
+ * 制作資料 v4 段9（04-ai.md §5-5）— 月次 AI レビューの自動下書き。
+ * **毎月1日だけ動く**（`runMonthlyReviewIfDue` が日付を見て他の日は即 `[]` を返す）。
+ * 既存の 03:15/03:20（AI 提案の期限切れ・締め）の直後に置く。**AI を1回も呼ばない**
+ * （既存の集計を読むだけ・best-effort）。止めたいときは `QSHEET_AI_REVIEW_NIGHTLY=off`。
+ */
+async function qsheetAiReviewDraft(today: string): Promise<NotifyInput[]> {
+  if ((process.env.QSHEET_AI_REVIEW_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    return await runMonthlyReviewIfDue(today);
+  } catch (e) {
+    console.error('[scheduler] ai_review_production_draft failed:', (e as Error).message);
+    return [];
+  }
+}
+
 const JOBS: Job[] = [
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
@@ -506,6 +523,9 @@ const JOBS: Job[] = [
   // **どちらも AI を1回も呼ばない**（突合・期限切れの判定だけ）
   { key: 'qsheet_ai_expire', at: '03:15', templateId: null, run: expireQsheetAiProposals },
   { key: 'qsheet_ai_settle', at: '03:20', templateId: null, run: settleQsheetAiProposals },
+  // 段9（04-ai.md §5-5）。月次レビューの下書き＋通知。実際に動くのは毎月1日だけ
+  // （`qsheetAiReviewDraft` の中で日付を見る。仕組みは他の日次仕事と同じ15分ポーリングに乗せる）
+  { key: AI_REVIEW_JOB_KEY, at: '03:25', templateId: AI_REVIEW_NOTIFY_TEMPLATE_ID, run: qsheetAiReviewDraft },
 ];
 
 /**

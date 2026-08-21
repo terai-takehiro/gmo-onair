@@ -18,6 +18,11 @@ import { queryAll, queryOne } from '../db/connection';
  * 集計だけが黙って 0 件になる（画面には「まだレビュー済みの出力がない」と出るだけ）。
  */
 import { MINUTES_KIND } from '../../contexts/sales/services/minutes.service';
+// 制作資料 v4 段9（04-ai.md §6-1）。qsheet 系 kind だけの分岐に使う定数。
+import {
+  SCRIPT_OUTLINE_KIND, SCRIPT_LINE_KIND, PRODUCTION_CHAT_KIND, QSHEET_AI_KINDS, AI_REVIEW_PRODUCTION_KIND,
+} from '../../contexts/qsheet/ai/kinds';
+import { parseDur } from '../schedule/time';
 
 export interface FieldStat {
   field_path: string;
@@ -53,6 +58,61 @@ export interface IntakeStat {
   tasks_open: number;
   /** 期限内完了率 (0〜1)。完了したタスクのうち期限内だったもの */
   on_time_rate: number | null;
+}
+
+/**
+ * 段9（04-ai.md §6-1）。混ざった期間のデータは後から切り分けられないため、
+ * `segmentKey` / `source` は windowDays と同時に渡す第3引数として1本にまとめる
+ * （README §5「05の第3引数をオブジェクトにして同時に入れる」の決定）。
+ */
+export interface DigestOpts {
+  /** `type:<project_category>|loc:<location_id>` の形。qsheet 系 kind だけが持つ */
+  segmentKey?: string;
+  /** 'server' = 画面からの生成 / 'mcp' = 外部の Claude からの提案（`propose_qsheet_draft`） */
+  source?: 'server' | 'mcp';
+}
+
+/** 骨格の成績（kind=script_outline_draft のときのみ・§6-1） */
+export interface OutlineStat {
+  /** 締めた提案の数（1段目 early） */
+  settled: number;
+  /** 取り込まれた行の総数 */
+  rows_applied: number;
+  /** 確定時に残っていた行（fix/reject が付かなかった行） */
+  rows_survived: number;
+  survival_rate: number | null;
+  /** AI の初期値の精度（主指標）。qsheet_cue_actuals がある行だけ（無ければ null） */
+  ai_duration_mape: number | null;
+  /** 人の最終見積もりの精度（参考） */
+  human_duration_mape: number | null;
+  /** 人が AI の尺をどちらへ何秒動かしたか（正=延ばした） */
+  plan_drift_sec: number | null;
+  /** 実尺が取れた本番の数 */
+  runs_measured: number;
+  /** その期間に broadcast_date が過ぎた台本の数（分母。取得率の計算に使う） */
+  broadcasts_total: number;
+}
+
+/** セリフの成績（kind=script_line_draft のときのみ・§6-1） */
+export interface LineStat {
+  lines_applied: number;
+  lines_survived: number;
+  /** 言い回しだけ直された（正規化編集距離 >= しきい値） */
+  rephrased: number;
+  /** 中身を変えられた */
+  fixed: number;
+  rejected: number;
+}
+
+/** 壁打ちの成績（kind=production_chat のときのみ・§6-1） */
+export interface ChatStat {
+  assistant_messages: number;
+  /** 3値のどれかが付いた数（分母） */
+  rated: number;
+  good: number;
+  /** 提案を起こした発言（起票率の分子） */
+  spawned: number;
+  spawn_rate: number | null;
 }
 
 export interface FeedbackDigest {
@@ -105,6 +165,12 @@ export interface FeedbackDigest {
   };
   /** 投入の指標 (kind=task_intake のときのみ) */
   intake?: IntakeStat;
+  /** 骨格の成績（kind=script_outline_draft のときのみ・段9） */
+  outline?: OutlineStat;
+  /** セリフの成績（kind=script_line_draft のときのみ・段9） */
+  line?: LineStat;
+  /** 壁打ちの成績（kind=production_chat のときのみ・段9） */
+  chat?: ChatStat;
   /**
    * 議事録の持ち帰りのその後 (kind=minutes_draft のときのみ)。
    *
@@ -155,8 +221,32 @@ const toFieldStat = (f: Record<string, unknown>): FieldStat => ({
   reject: num(f.reject),
 });
 
-export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90): Promise<FeedbackDigest> {
+/**
+ * 段9（04-ai.md §6-1）。`segmentKey`/`source` の絞り込みを SQL の末尾に足す。
+ * **`o.` エイリアス（`ai_outputs`）を前提にする** — 5つの集計クエリは全部これで JOIN している。
+ * 混ざった期間のデータは後から切り分けられないため、既存の9呼び出し元（opts省略）は
+ * このまま何も変わらない（`opts` が無ければ条件を1本も足さない）。
+ */
+function extraFilter(opts: DigestOpts | undefined): { sql: string; params: unknown[] } {
+  const conds: string[] = [];
+  const params: unknown[] = [];
+  if (opts?.segmentKey) {
+    conds.push(`o.payload_snapshot->'context'->>'segment_key' = ?`);
+    params.push(opts.segmentKey);
+  }
+  // model には MCP 由来だけ `mcp:` が前置される（§6-5c）。これを唯一の手がかりにする —
+  // 新しい列は作らない（既存9か所の記録形を変えずに済む）
+  if (opts?.source === 'mcp') {
+    conds.push(`o.model LIKE 'mcp:%'`);
+  } else if (opts?.source === 'server') {
+    conds.push(`(o.model IS NULL OR o.model NOT LIKE 'mcp:%')`);
+  }
+  return { sql: conds.length ? ` AND ${conds.join(' AND ')}` : '', params };
+}
+
+export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90, opts?: DigestOpts): Promise<FeedbackDigest> {
   const w = String(windowDays);
+  const seg = extraFilter(opts);
 
   const totals = await queryOne(
     `SELECT
@@ -170,8 +260,9 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
      FROM ai_outputs o
      WHERE o.kind = ?
        AND o.created_at >= NOW() - (? || ' days')::interval
-       AND EXISTS (SELECT 1 FROM ai_corrections c WHERE c.output_id = o.id)`,
-    [kind, w],
+       AND EXISTS (SELECT 1 FROM ai_corrections c WHERE c.output_id = o.id)
+       ${seg.sql}`,
+    [kind, w, ...seg.params],
   ) as any;
 
   const reviewed = num(totals?.reviewed_outputs);
@@ -188,10 +279,11 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
        JOIN ai_outputs o ON o.id = c.output_id
       WHERE o.kind = ? AND c.correction_type <> 'none'
         AND c.corrected_at >= NOW() - (? || ' days')::interval
+        ${seg.sql}
       GROUP BY c.field_path
       ORDER BY COUNT(*) DESC
       LIMIT 15`,
-    [kind, w],
+    [kind, w, ...seg.params],
   ) as any[];
 
   // 鍵を潰した集計 (`tasks[d1].due_at` → `tasks[].due_at`)。
@@ -207,10 +299,11 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
        JOIN ai_outputs o ON o.id = c.output_id
       WHERE o.kind = ? AND c.correction_type <> 'none'
         AND c.corrected_at >= NOW() - (? || ' days')::interval
+        ${seg.sql}
       GROUP BY 1
       ORDER BY COUNT(*) DESC
       LIMIT 15`,
-    [kind, w],
+    [kind, w, ...seg.params],
   ) as any[];
 
   // モデル / プロンプト版ごとの成績。
@@ -229,9 +322,10 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
       WHERE o.kind = ?
         AND o.created_at >= NOW() - (? || ' days')::interval
         AND EXISTS (SELECT 1 FROM ai_corrections c WHERE c.output_id = o.id)
+        ${seg.sql}
       GROUP BY 1, 2
       ORDER BY COUNT(DISTINCT o.id) DESC`,
-    [kind, w],
+    [kind, w, ...seg.params],
   ) as any[];
 
   const examples = await queryAll(
@@ -240,9 +334,10 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
        JOIN ai_outputs o ON o.id = c.output_id
       WHERE o.kind = ? AND c.correction_type <> 'none'
         AND c.corrected_at >= NOW() - (? || ' days')::interval
+        ${seg.sql}
       ORDER BY c.corrected_at DESC
       LIMIT 10`,
-    [kind, w],
+    [kind, w, ...seg.params],
   ) as any[];
 
   const digest: FeedbackDigest = {
@@ -476,8 +571,248 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
     };
   }
 
+  // qsheet 系 kind の分岐（段9・04-ai.md §6-1）。他の9か所の kind は素通り
+  if (kind === SCRIPT_OUTLINE_KIND) digest.outline = await computeOutlineStat(windowDays, opts);
+  if (kind === SCRIPT_LINE_KIND) digest.line = await computeLineStat(windowDays, opts);
+  if (kind === PRODUCTION_CHAT_KIND) digest.chat = await computeChatStat(windowDays);
+
   digest.advice = buildAdvice(digest);
+  // 月次レビューが2回連続で未実施なら、AI 自身が読む場所に出す（§5-5 手順3。
+  // 「AI が読む場所に出すのがいちばん確実」）。qsheet 系 digest のときだけ
+  if (isQsheetDigestKind(kind)) digest.advice = [...(await qsheetReviewAdvice()), ...digest.advice];
   return digest;
+}
+
+const QSHEET_DIGEST_KINDS: readonly string[] = [...QSHEET_AI_KINDS, PRODUCTION_CHAT_KIND];
+function isQsheetDigestKind(kind: string): boolean {
+  return QSHEET_DIGEST_KINDS.includes(kind);
+}
+
+/**
+ * 行単位（`rows[<id>]...`）の修正を、reject > fix > rephrase の優先順位で1行1種別に畳む。
+ * `diffByKey` はフィールド単位で複数の差分を出す（同じ行に `.name` の fix と `.html` の
+ * rephrase が両方付くことがある）ので、単純に COUNT(DISTINCT field_path) すると
+ * 同じ行が2回数えられる。**行の生死（survived/not）は行単位でしか意味を持たない**ため、
+ * ここで1行に畳んでから数える。
+ */
+async function rowSeverityCounts(
+  kind: string, windowDays: number, opts: DigestOpts | undefined,
+): Promise<{ rejected: number; fixed: number; rephrased: number }> {
+  const w = String(windowDays);
+  const pf = proposalFilter(opts);
+  const row = await queryOne(
+    `WITH per_row AS (
+       SELECT regexp_replace(c.field_path, '^(rows\\[[^\\]]*\\]).*$', '\\1') AS row_key,
+              MAX(CASE WHEN c.correction_type = 'reject' THEN 3
+                       WHEN c.correction_type = 'fix' THEN 2
+                       WHEN c.correction_type = 'rephrase' THEN 1
+                       ELSE 0 END) AS severity
+         FROM ai_corrections c
+         JOIN ai_outputs o ON o.id = c.output_id
+         JOIN qsheet_ai_proposals p ON p.id = o.target_id AND o.target_table = 'qsheet_ai_proposals'
+        WHERE p.kind = ? AND p.settled_at IS NOT NULL
+          AND p.applied_at >= NOW() - (? || ' days')::interval
+          AND c.field_path LIKE 'rows[%' AND c.field_path NOT LIKE 'late.%'
+          AND c.correction_type IN ('fix', 'reject', 'rephrase')
+          ${pf.sql}
+        GROUP BY 1
+     )
+     SELECT COUNT(*) FILTER (WHERE severity = 3) AS rejected,
+            COUNT(*) FILTER (WHERE severity = 2) AS fixed,
+            COUNT(*) FILTER (WHERE severity = 1) AS rephrased
+       FROM per_row`,
+    [kind, w, ...pf.params],
+  ) as any;
+  return { rejected: num(row?.rejected), fixed: num(row?.fixed), rephrased: num(row?.rephrased) };
+}
+
+/** 中央値。空配列は null（「まだ何も無い」と「0」を区別する） */
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+/** `qsheet_ai_proposals` を直接見る集計向けの絞り込み（`extraFilter` の `p.` 版）。
+ * `source` は `ai_outputs.model` の `mcp:` 接頭辞ではなく、提案そのものが持つ
+ * `qsheet_ai_proposals.source` 列（'server'|'mcp'）をそのまま使う（より直接的で正確）。 */
+function proposalFilter(opts: DigestOpts | undefined): { sql: string; params: unknown[] } {
+  const conds: string[] = [];
+  const params: unknown[] = [];
+  if (opts?.segmentKey) { conds.push(`p.context->>'segment_key' = ?`); params.push(opts.segmentKey); }
+  if (opts?.source) { conds.push(`p.source = ?`); params.push(opts.source); }
+  return { sql: conds.length ? ` AND ${conds.join(' AND ')}` : '', params };
+}
+
+/**
+ * 骨格の成績（§5-3a・§6-1）。**尺の精度が主指標**。`ai_duration_mape` は
+ * 「AI の初期値」対「実尺」で、`human_duration_mape`（人の最終見積もり）とは別に出す
+ * （人が全部直すと後者だけ良く見える逆転を防ぐ。検査 AIループ#F3）。
+ */
+async function computeOutlineStat(windowDays: number, opts: DigestOpts | undefined): Promise<OutlineStat> {
+  const w = String(windowDays);
+  const pf = proposalFilter(opts);
+
+  const agg = await queryOne(
+    `SELECT COUNT(*) AS settled,
+            COALESCE(SUM(jsonb_array_length(COALESCE(p.applied_ids->'rows', '[]'::jsonb))), 0) AS rows_applied
+       FROM qsheet_ai_proposals p
+      WHERE p.kind = ? AND p.settled_at IS NOT NULL
+        AND p.applied_at >= NOW() - (? || ' days')::interval
+        ${pf.sql}`,
+    [SCRIPT_OUTLINE_KIND, w, ...pf.params],
+  ) as any;
+  const rowsApplied = num(agg?.rows_applied);
+  const sev = await rowSeverityCounts(SCRIPT_OUTLINE_KIND, windowDays, opts);
+  const rowsSurvived = Math.max(0, rowsApplied - sev.fixed - sev.rejected);
+
+  // 尺の精度: settled な提案の applied_payload（AI の初期値）と qsheet_cue_actuals（実尺）を
+  // Node 側で突合する（重み・判定を直すたびに migration が要らないよう、点数付けと同じ作法）
+  const proposals = await queryAll(
+    `SELECT p.document_id, p.applied_payload
+       FROM qsheet_ai_proposals p
+      WHERE p.kind = ? AND p.settled_at IS NOT NULL AND p.document_id IS NOT NULL
+        AND p.applied_at >= NOW() - (? || ' days')::interval
+        ${pf.sql}
+      ORDER BY p.applied_at DESC
+      LIMIT 300`,
+    [SCRIPT_OUTLINE_KIND, w, ...pf.params],
+  ) as any[];
+
+  const aiMape: number[] = [];
+  const humanMape: number[] = [];
+  const drift: number[] = [];
+  let runsMeasured = 0;
+
+  if (proposals.length > 0) {
+    // 文書ごとに最新1件だけ使う（作り直された場合、実尺と比べたいのは直近に取り込んだ版）
+    const latestByDoc = new Map<string, any>();
+    for (const p of proposals) {
+      const id = String(p.document_id);
+      if (!latestByDoc.has(id)) latestByDoc.set(id, p); // 上のクエリは applied_at DESC 済み
+    }
+    const docIds = [...latestByDoc.keys()];
+    const cues = await queryAll(
+      `SELECT document_id, run_id, row_id, section_id, planned_sec, actual_sec, pass_no
+         FROM qsheet_cue_actuals WHERE document_id = ANY(?::text[])`,
+      [docIds],
+    ) as any[];
+    // その run・その行の最終 pass だけ使う（撮り直しは最後の版で見る。§10 の pass_no の理由と同じ）
+    const latestPass = new Map<string, any>();
+    for (const c of cues) {
+      const key = `${c.document_id} ${c.run_id} ${c.row_id ?? ''} ${c.section_id}`;
+      const cur = latestPass.get(key);
+      if (!cur || num(c.pass_no) > num(cur.pass_no)) latestPass.set(key, c);
+    }
+    const runKeys = new Set<string>();
+    for (const c of latestPass.values()) {
+      runKeys.add(`${c.document_id} ${c.run_id}`);
+      const p = latestByDoc.get(String(c.document_id));
+      const payload = (p?.applied_payload ?? {}) as { rows?: Record<string, unknown>[]; sections?: Record<string, unknown>[] };
+      const rows = Array.isArray(payload.rows) ? payload.rows : [];
+      const sections = Array.isArray(payload.sections) ? payload.sections : [];
+      const el = c.row_id
+        ? rows.find((r) => String(r?.row_id ?? r?.id ?? '') === String(c.row_id))
+        : sections.find((s) => String(s?.row_id ?? s?.id ?? s?.key ?? '') === String(c.section_id));
+      if (!el) continue;
+      const aiDur = parseDur((el as any).duration);
+      const actual = num(c.actual_sec);
+      const planned = c.planned_sec == null ? null : num(c.planned_sec);
+      if (aiDur > 0) {
+        aiMape.push(Math.abs(actual - aiDur) / aiDur);
+        if (planned != null) drift.push(planned - aiDur);
+      }
+      if (planned != null && planned > 0) humanMape.push(Math.abs(actual - planned) / planned);
+    }
+    runsMeasured = runKeys.size;
+  }
+
+  // broadcast_date は TEXT（`YYYY-MM-DD...`）。ISO 形式は文字列比較で日付比較できる
+  // （substr せず先頭一致に頼らないよう左右とも同じ書式の文字列にして比べる）
+  const broadcastsRow = await queryOne(
+    `SELECT COUNT(*) AS n FROM qsheet_documents
+      WHERE deleted_at IS NULL AND broadcast_date IS NOT NULL
+        AND substr(broadcast_date, 1, 10) < to_char(CURRENT_DATE, 'YYYY-MM-DD')
+        AND substr(broadcast_date, 1, 10) >= to_char(CURRENT_DATE - (? || ' days')::interval, 'YYYY-MM-DD')`,
+    [w],
+  ) as any;
+
+  return {
+    settled: num(agg?.settled), rows_applied: rowsApplied, rows_survived: rowsSurvived,
+    survival_rate: rowsApplied > 0 ? Math.round((rowsSurvived / rowsApplied) * 100) / 100 : null,
+    ai_duration_mape: median(aiMape), human_duration_mape: median(humanMape), plan_drift_sec: median(drift),
+    runs_measured: runsMeasured, broadcasts_total: num(broadcastsRow?.n),
+  };
+}
+
+/** セリフの成績（§5-3c・§6-1）。生存＝「none」と「rephrase」（言い直させただけ）。`fix`/`reject` だけが「死」 */
+async function computeLineStat(windowDays: number, opts: DigestOpts | undefined): Promise<LineStat> {
+  const w = String(windowDays);
+  const pf = proposalFilter(opts);
+  const agg = await queryOne(
+    `SELECT COALESCE(SUM(jsonb_array_length(COALESCE(p.applied_ids->'rows', '[]'::jsonb))), 0) AS lines_applied
+       FROM qsheet_ai_proposals p
+      WHERE p.kind = ? AND p.settled_at IS NOT NULL
+        AND p.applied_at >= NOW() - (? || ' days')::interval
+        ${pf.sql}`,
+    [SCRIPT_LINE_KIND, w, ...pf.params],
+  ) as any;
+  const linesApplied = num(agg?.lines_applied);
+  const sev = await rowSeverityCounts(SCRIPT_LINE_KIND, windowDays, opts);
+  const linesSurvived = Math.max(0, linesApplied - sev.fixed - sev.rejected);
+  return {
+    lines_applied: linesApplied, lines_survived: linesSurvived,
+    rephrased: sev.rephrased, fixed: sev.fixed, rejected: sev.rejected,
+  };
+}
+
+/** 壁打ちの成績（§5-2b・§5-3d・§6-1）。`qsheet_ai_messages` を直接見る（ai_corrections 経由だと
+ * 起票率・rated の分母が正しく出ない — 押されなかった発言を「none」に数えてはいけないため） */
+async function computeChatStat(windowDays: number): Promise<ChatStat> {
+  const w = String(windowDays);
+  const row = await queryOne(
+    `SELECT
+       COUNT(*) FILTER (WHERE role = 'assistant')                                    AS assistant_messages,
+       COUNT(*) FILTER (WHERE role = 'assistant' AND feedback IS NOT NULL)           AS rated,
+       COUNT(*) FILTER (WHERE role = 'assistant' AND feedback = 'good')              AS good,
+       COUNT(*) FILTER (WHERE role = 'assistant' AND spawned_proposal_id IS NOT NULL) AS spawned
+       FROM qsheet_ai_messages
+      WHERE created_at >= NOW() - (? || ' days')::interval`,
+    [w],
+  ) as any;
+  const assistantMessages = num(row?.assistant_messages);
+  const spawned = num(row?.spawned);
+  return {
+    assistant_messages: assistantMessages, rated: num(row?.rated), good: num(row?.good), spawned,
+    spawn_rate: assistantMessages > 0 ? Math.round((spawned / assistantMessages) * 100) / 100 : null,
+  };
+}
+
+/**
+ * 月次レビューが2か月連続で未実施なら、AI 自身が読む digest.advice の先頭に出す
+ * （§5-5 手順3。「AI 自身が読む場所に出すのがいちばん確実」）。
+ * 器（`ops_reports`）が無い・0件のとき（未実施が2回に満たない）は何も言わない
+ * — 「始まったばかりで最初の1回がまだ」を「未実施が続いている」と誤読させない。
+ */
+async function qsheetReviewAdvice(): Promise<string[]> {
+  try {
+    const rows = await queryAll(
+      `SELECT reviewed_at FROM ops_reports
+        WHERE kind = ? AND deleted_at IS NULL
+        ORDER BY period_key DESC LIMIT 2`,
+      [AI_REVIEW_PRODUCTION_KIND],
+    ) as any[];
+    if (rows.length < 2) return [];
+    if (rows.every((r) => r.reviewed_at == null)) {
+      return ['⚠️ 先月・先々月の制作資料 AI 月次レビューが未実施です（ops_reports.kind=ai_review_production）。'
+        + '担当者に確認を依頼してください。'];
+    }
+    return [];
+  } catch (e) {
+    console.warn('[qsheet-ai] qsheetReviewAdvice に失敗しました（続行）:', (e as Error).message);
+    return [];
+  }
 }
 
 /**
@@ -485,6 +820,35 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
  * AI がツール応答としてこれを読むことで、**プロンプトを更新しなくても
  * 次の実行から傾向を踏まえられる**のが狙い (条件4の一番効く経路)。
  */
+/**
+ * 骨格の尺の精度（kind=script_outline_draft のときだけ中身が出る・§5-3a）。
+ * ⚠️ **実尺の取得率を必ず並べる。** ランダウンを使わない現場は `qsheet_cue_actuals` に
+ * 1行も入らないので、取得率が低いほど「几帳面なチームの本番」に自己選択バイアスが掛かる。
+ * 5割を切っている間は断定しない（既存の「10件未満は断定しない」作法と同じ）。
+ */
+function outlineAdvice(d: FeedbackDigest): string[] {
+  const o = d.outline;
+  if (!o) return [];
+  const out: string[] = [];
+  const rate = o.broadcasts_total > 0 ? o.runs_measured / o.broadcasts_total : null;
+  if (rate != null) {
+    const pct = Math.round(rate * 100);
+    out.push(`実尺の記録がある本番: ${o.runs_measured}/${o.broadcasts_total}件（${pct}%）。`);
+    if (rate < 0.5) {
+      out.push('実尺の記録がある本番が少ないため、尺の傾向（AIの精度・押し傾向）は断定できません。');
+    }
+  }
+  if (o.ai_duration_mape != null) {
+    out.push(`AI が置いた尺の精度（誤差率の中央値）: ${Math.round(o.ai_duration_mape * 100)}%`
+      + (o.human_duration_mape != null ? `（人の最終見積もり: ${Math.round(o.human_duration_mape * 100)}%）` : '') + '。');
+  }
+  if (o.plan_drift_sec != null && Math.abs(o.plan_drift_sec) >= 10) {
+    const dir = o.plan_drift_sec > 0 ? '延ばす' : '縮める';
+    out.push(`人は AI の尺を中央値で ${Math.abs(Math.round(o.plan_drift_sec))}秒${dir}方向に直している。`);
+  }
+  return out;
+}
+
 /** 取り込んだ情報の行き先（kind=inquiry_intake のときだけ中身が出る） */
 function inquiryAdvice(d: FeedbackDigest): string[] {
   const q = d.inquiry;
@@ -507,6 +871,9 @@ function buildAdvice(d: FeedbackDigest): string[] {
   // 誰も中身を直さずに全部見送っている、というのがまさに拾いすぎの形で、
   // 修正差分が無いことを理由に黙ると**その状態こそ気づけない**
   out.push(...inquiryAdvice(d));
+  // outline も「直されたか」とは別の信号（実尺の取得率）を含むので、reviewed_outputs=0 の
+  // 早期return より前に出す（inquiryAdvice と同じ理由）
+  out.push(...outlineAdvice(d));
   if (d.reviewed_outputs === 0) {
     out.push('まだレビュー済みの出力がないため、直され方の傾向は不明。通常どおり作成してよい。');
     return out;

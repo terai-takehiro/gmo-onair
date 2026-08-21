@@ -103,7 +103,11 @@ export function registerAiFeedbackTools(server: McpServer): void {
         '`inquiry` (kind=inquiry_intake のとき) は取り込んだ情報の行き先 ' +
         '(チケット / 案件 / ストック / 見送り) と見送り率。**見送り率が高いなら拾いすぎ。** ' +
         'qsheet 系 kind (event_plan_draft / script_outline_draft / script_line_draft) は ' +
-        '`recent_examples` の閲覧に qsheet の manager 以上を要求する (無ければ集計値のみ)。',
+        '`recent_examples` の閲覧に qsheet の manager 以上を要求する (無ければ集計値のみ)。' +
+        'segment_key (制作資料のみ) で案件種別×拠点を絞れる (例 type:ceremony|loc:yoga)。' +
+        '式典と配信では尺の傾向が逆になるため、絞れるときは絞ったほうがよい ' +
+        '(母数が10件未満なら自動で全社集計に落ちる)。source (制作資料のみ) は ' +
+        'server=画面からの生成 / mcp=このツール経由の提案 (propose_qsheet_draft) を分けて見る。',
       inputSchema: {
         kind: z
           .enum(KNOWN_KINDS)
@@ -115,7 +119,8 @@ export function registerAiFeedbackTools(server: McpServer): void {
             'inquiry_intake (record_inquiry で取り込んだ情報。仕分けの行き先と見送り率が入る) / ' +
             'finance_doc_intake (record_finance_doc で取り込んだ書類) / ' +
             'event_plan_draft・script_outline_draft・script_line_draft (制作資料の AI 提案。' +
-            '段7時点では生成が無いため記録はまだ無い)'
+            'script_outline_draft は outline、script_line_draft は line、production_chat は chat の' +
+            '追加項目が付く)'
           ),
         window_days: z
           .number()
@@ -124,12 +129,23 @@ export function registerAiFeedbackTools(server: McpServer): void {
           .max(365)
           .optional()
           .describe('集計期間 (日・既定 90)'),
+        segment_key: z
+          .string()
+          .max(100)
+          .optional()
+          .describe('制作資料のみ。type:<project_category>|loc:<location_id> の形'),
+        source: z
+          .enum(['server', 'mcp'])
+          .optional()
+          .describe('制作資料のみ。server=画面からの生成 / mcp=MCP経由の提案'),
       },
     },
     async (args) =>
       runTool(async () => {
         const kind = args.kind ?? 'estimate_draft';
-        const digest = await getFeedbackDigest(kind, args.window_days ?? 90);
+        const digest = await getFeedbackDigest(kind, args.window_days ?? 90, {
+          segmentKey: args.segment_key, source: args.source,
+        });
         return ok((await shouldDegradeQsheet(kind)) ? degrade(digest) : digest);
       }),
   );

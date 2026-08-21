@@ -48,6 +48,10 @@ function buildUserPrompt(materials: GenerationMaterials, instruction?: string): 
       lines.push(`- ${it.kind} ${it.startMin}〜${it.endMin}分: ${it.title}`);
     }
   }
+  if (materials.knowledge.length) {
+    lines.push('## 守るべきルール（人が承認済み）');
+    for (const k of materials.knowledge) lines.push(`- ${k.body}`);
+  }
   if (materials.advice.length) {
     lines.push('## 前回までの傾向（人があなたの提案をどう直したか）');
     for (const a of materials.advice) lines.push(`- ${a}`);
@@ -70,7 +74,7 @@ export async function generateEventPlan(
   );
   const existingColumnIds = new Set(existingColumns.map((c) => String(c.id)));
 
-  const promptVersion = promptVersionOf(EVENT_PLAN_PROMPT_VERSION, materials.advice.length);
+  const promptVersion = promptVersionOf(EVENT_PLAN_PROMPT_VERSION, materials.knowledgeRev, materials.advice.length);
   const { proposal } = await runGeneration<{ columns: unknown; items: unknown }, EventPlanProposal>({
     job: 'event_plan', usageKind: 'event_plan', kind: EVENT_PLAN_KIND,
     scheduleId, projectId: materials.project?.id ?? null, userId,
@@ -81,7 +85,7 @@ export async function generateEventPlan(
     isEmpty: (plan) => plan.columns.length === 0 && plan.items.length === 0,
     contextSummary: {
       segment_key: materials.segmentKey, advice_count: materials.advice.length,
-      knowledge_count: 0, references: [],
+      knowledge_count: materials.knowledge.length, references: [],
     },
     inputSnapshot: { materials, instruction: opts.instruction ?? null },
   });
