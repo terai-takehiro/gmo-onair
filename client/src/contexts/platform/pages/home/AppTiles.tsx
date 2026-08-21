@@ -48,17 +48,21 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { CountUp } from './Reveal';
 
 /** 別バンドル = フルリロードが要るアプリ */
-const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'liveops', 'awards'];
+const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'liveops'];
 
 /**
  * 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの**
  *
  * M3 で**制作資料 (`qsheet`) をここへ移しました**。
- * 3つとも凍結アプリで、案件の本番に合わせて開きます。
+ * 2つとも凍結アプリで、案件の本番に合わせて開きます。
  * **`HomePage.tsx` の `DAILY_KEYS` と対になっている**ので、片方だけ直すと
  * タイルが二重に出るか、どこにも出なくなります。
+ *
+ * ⚠️ **リアルタイムCG (`awards`) は廃止したのでここから外した。**
+ * コードは `client-awards/` に残すが、サーバーの配信・ルーティングを止めたので
+ * URL 直打ちでも開けない（`client-awards/CLAUDE.md` 参照）。
  */
-const EVENT_KEYS = ['qsheet', 'liveops', 'awards'];
+const EVENT_KEYS = ['qsheet', 'liveops'];
 
 /**
  * タイルの中に畳んである「ミニアプリ」（モックの `MINI`）。

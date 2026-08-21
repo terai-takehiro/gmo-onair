@@ -11,9 +11,8 @@ import { initSocketIO, shutdownSocketIO } from './shared/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
-import { initAwardsSocketIO } from './contexts/awards';
-import { initQuizSocketIO, initInteractivePoller } from './contexts/quiz';
 import { initIcsSyncPoller, shutdownIcsSyncPoller, initGoogleSyncPoller, shutdownGoogleSyncPoller, initMsSyncPoller, shutdownMsSyncPoller } from './contexts/schedule';
+// awards (リアルタイムCG) / quiz は廃止のため初期化しない。中身は contexts/awards, contexts/quiz に残す
 
 async function main() {
   await initDb();
@@ -68,14 +67,11 @@ async function main() {
     console.warn('[startup] initLiveopsServices failed:', (e as Error).message)
   );
 
-  // Socket.IO for qsheet sync + liveops timer + awards + quiz
+  // Socket.IO for qsheet sync + liveops timer
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
   initProjectCollabSocketIO(io);
   initLiveopsSocketIO(io);
-  initAwardsSocketIO(io);
-  initQuizSocketIO(io);
-  initInteractivePoller(io);  // v2.9.24: Interactive 投票数を CG にリアルタイム反映
   initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
   initGoogleSyncPoller();     // v2.9.190: マイカレンダーの Google OAuth 同期 (Google → ONAiR)
   initMsSyncPoller();         // v2.9.191: マイカレンダーの Outlook OAuth 同期 (Microsoft → ONAiR)
@@ -84,7 +80,7 @@ async function main() {
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
     console.log(`  Environment: ${config.nodeEnv}`);
-    console.log(`  Socket.IO: enabled (qsheet sync, project collab, liveops timer, awards, quiz)`);
+    console.log(`  Socket.IO: enabled (qsheet sync, project collab, liveops timer)`);
   });
 
   // Graceful shutdown
