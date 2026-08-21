@@ -216,8 +216,8 @@ export const QSHEET_MANUAL: ManualContent = {
       id: "editor-csv",
       group: "エディタ",
       icon: FileSpreadsheet,
-      title: "CSV・Excelの入出力",
-      keywords: ["csv", "excel", "エクスポート", "インポート", "取込"],
+      title: "CSVの入出力",
+      keywords: ["csv", "エクスポート", "インポート", "取込"],
       blocks: [
         {
           type: "steps",
@@ -227,7 +227,6 @@ export const QSHEET_MANUAL: ManualContent = {
               title: "CSVインポート",
               text: "「CSV取込」→「CSVファイルを選択...」で解析結果（Nロール/N行・出演者検出・列の対応）を確認し、「末尾に追加」（既定）か「すべて置き換え」を選んで「インポート実行」します。エクスポートと同じ形式なら往復できます。セクション名「CM」はCM行、「VTR: タイトル」はVTR行になります。",
             },
-            { title: "Excel入出力", text: "サイドバーの「メタ」タブに「現在の台本をExcel出力」「Excelから読み込み」があります。" },
           ],
         },
         { type: "callout", tone: "warning", text: "「すべて置き換え」は現在のロール・行を全て置き換えます。実行前の確認ダイアログをよく読んでください。" },

@@ -2,6 +2,8 @@ import { useState, useMemo, useRef } from "react";
 import { X, Download, Printer } from "lucide-react";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, fmtMinSec as fmtMinSecShared } from "@/lib/time";
 import { resolveStageTemplate } from "./StageDiagramCell";
+import lineSeedFontsCssUrl from "@gmo-onair/shared/src/client/fonts/lineseedjp.css?url"; // 同梱済みフォント。印刷は別ドキュメント(about:blank)なので絶対URLで書き込む
+const PRINT_FONTS_HREF = new URL(lineSeedFontsCssUrl, window.location.origin).toString(), PRINT_FONT_STACK = "'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif";
 
 // ─── Constants ──────────────────────────────────────────
 const SPEAKER_COLORS = ["#1e3a5f", "#0f766e", "#7e22ce", "#be185d", "#b45309", "#15803d", "#1d4ed8", "#9f1239", "#4338ca", "#a16207"];
@@ -353,12 +355,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
 
       printWindow.document.write(`<!DOCTYPE html><html><head>
         <meta charset="UTF-8"><title>${docTitle}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="${PRINT_FONTS_HREF}">
         <style>
           @page { size: ${pageW} ${pageH}; margin: 0; }
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { font-family: ${PRINT_FONT_STACK}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           /* 改ページはスタイルシート側で指定 (inline style だと last-child 上書きが効かないため) */
           .qs-print-page { page-break-after: always; break-after: page; }
           .qs-print-page:last-child { page-break-after: auto; break-after: auto; }
@@ -374,12 +375,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     // ── 「ロールごと」= 各 .preview-page をちょうど 1 物理ページにし、DOM フッターを下端固定 ──
     printWindow.document.write(`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>${docTitle}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="${PRINT_FONTS_HREF}">
       <style>
         @page { size: ${pageW} ${pageH}; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { font-family: ${PRINT_FONT_STACK}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         /* 1 ロール = 1 物理ページ。min-height をシート高に合わせ、flex 縦並びでフッターを下端へ */
         .preview-page {
           width: ${pageW} !important;
