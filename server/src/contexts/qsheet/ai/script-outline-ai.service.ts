@@ -45,6 +45,10 @@ function buildUserPrompt(materials: GenerationMaterials, budgetSec: number | nul
       for (const sec of s.sections) lines.push(`- ${sec.label} / ${sec.durationSec}秒 / ${sec.rowCount}行`);
     }
   }
+  if (materials.knowledge.length) {
+    lines.push('## 守るべきルール（人が承認済み）');
+    for (const k of materials.knowledge) lines.push(`- ${k.body}`);
+  }
   if (materials.advice.length) {
     lines.push('## 前回までの傾向（人があなたの提案をどう直したか）');
     for (const a of materials.advice) lines.push(`- ${a}`);
@@ -64,7 +68,7 @@ export async function generateScriptOutline(
   });
   const budgetSec = opts.budgetSec ?? null;
 
-  const promptVersion = promptVersionOf(SCRIPT_OUTLINE_PROMPT_VERSION, materials.advice.length);
+  const promptVersion = promptVersionOf(SCRIPT_OUTLINE_PROMPT_VERSION, materials.knowledgeRev, materials.advice.length);
   const { proposal } = await runGeneration<{ budget_sec: unknown; sections: unknown }, ScriptOutlineProposal>({
     job: 'script_outline', usageKind: 'script_outline', kind: SCRIPT_OUTLINE_KIND,
     documentId, projectId: materials.project?.id ?? null, userId,
@@ -75,7 +79,7 @@ export async function generateScriptOutline(
     isEmpty: (plan) => plan.sections.length === 0,
     contextSummary: {
       segment_key: materials.segmentKey, advice_count: materials.advice.length,
-      knowledge_count: 0,
+      knowledge_count: materials.knowledge.length,
       references: materials.similar.map((s) => ({ document_id: s.documentId, title: s.title, score: s.score })),
     },
     inputSnapshot: { materials, budgetSec, instruction: opts.instruction ?? null },

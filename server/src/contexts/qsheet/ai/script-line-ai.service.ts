@@ -46,6 +46,10 @@ function buildUserPrompt(
   for (const t of targets) {
     lines.push(`- row_id=${t.rowId} 【${t.sectionLabel}】${t.label}${t.existingText ? `（下書き: ${t.existingText.slice(0, 30)}…）` : ''}`);
   }
+  if (materials.knowledge.length) {
+    lines.push('## 守るべきルール（人が承認済み）');
+    for (const k of materials.knowledge) lines.push(`- ${k.body}`);
+  }
   if (materials.advice.length) {
     lines.push('## 前回までの傾向（人があなたの提案をどう直したか）');
     for (const a of materials.advice) lines.push(`- ${a}`);
@@ -111,7 +115,7 @@ export async function generateScriptLines(
   });
 
   const tier = targets.length * 40 > 4000 ? 'heavy' : 'light'; // ai-model.ts の閾値と揃える目安
-  const promptVersion = promptVersionOf(SCRIPT_LINE_PROMPT_VERSION, materials.advice.length);
+  const promptVersion = promptVersionOf(SCRIPT_LINE_PROMPT_VERSION, materials.knowledgeRev, materials.advice.length);
   const { proposal } = await runGeneration<{ lines: unknown; advice: unknown }, ScriptLinesProposal>({
     job: 'script_line', usageKind: 'script_line', kind: SCRIPT_LINE_KIND,
     documentId, projectId: materials.project?.id ?? null, userId,
@@ -122,7 +126,7 @@ export async function generateScriptLines(
     isEmpty: (plan) => plan.lines.length === 0,
     contextSummary: {
       segment_key: materials.segmentKey, advice_count: materials.advice.length,
-      knowledge_count: 0, target_row_count: targets.length,
+      knowledge_count: materials.knowledge.length, target_row_count: targets.length,
     },
     inputSnapshot: { materials, targetRowIds: [...allowedRowIds], instruction: opts.instruction ?? null },
   });

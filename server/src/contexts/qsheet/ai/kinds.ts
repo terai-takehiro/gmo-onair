@@ -29,6 +29,12 @@ export const SCRIPT_LINE_KIND = 'script_line_draft';
 /** ④壁打ち。`qsheet_ai_proposals.kind` には入らない（提案テーブルの対象外） */
 export const PRODUCTION_CHAT_KIND = 'production_chat';
 
+/**
+ * 月次 AI レビュー（`ops_reports.kind`）— 段9・04-ai.md §5-5。
+ * 営業の `ai_review`（既存）とは別の kind（担当が違うため。onair-current-state.md 参照）。
+ */
+export const AI_REVIEW_PRODUCTION_KIND = 'ai_review_production';
+
 export const EVENT_PLAN_PROMPT_VERSION = 'event-plan-v1';
 export const EVENT_PLAN_PROMPT_VERSION_FB = 'event-plan-v1+fb';
 export const SCRIPT_OUTLINE_PROMPT_VERSION = 'script-outline-v1';
@@ -39,16 +45,18 @@ export const PRODUCTION_CHAT_PROMPT_VERSION = 'prod-chat-v1';
 export const PRODUCTION_CHAT_PROMPT_VERSION_FB = 'prod-chat-v1+fb';
 
 /**
- * 助言（digest の advice）を載せたら `+fb` を付ける。**必ず別の文字列にする**
- * （既存5か所と同じ作法。混ぜると「載せた効果があったのか」を後から言えなくなる）。
+ * 助言（digest の advice）を載せたら `+fb`、ナレッジ（承認済みルール）を載せたら
+ * `+k<rev>` を付ける。**必ず別の文字列にする**（既存5か所と同じ作法。混ぜると
+ * 「直した効果があったのか」を後から言えなくなる）。
  *
- * ⚠️ 04-ai.md §6-5a の `promptVersionOf(base, knowledgeRev, adviceCount)` は
- * `qsheet_ai_knowledge`（ナレッジの承認リビジョン）を前提にしているが、そのテーブルは
- * **段9** で作る（07-ai-proposals-impl.md の段割り）。この段では `adviceCount` だけの
- * 簡略版を置き、ナレッジが入ったら段9 で `knowledgeRev` を足す。
+ * 段9（04-ai.md §6-5a）で `knowledgeRev` を足した。`knowledgeRev` は
+ * `qsheet_ai_knowledge` の**承認のたびに増える単調なリビジョン**（件数ではない）。
+ * 0（＝まだ1件も承認されていない）のときは `+k` を付けない — 版が増えない間は
+ * 比較の軸を汚さない。
  */
-export function promptVersionOf(base: string, adviceCount: number): string {
-  return adviceCount > 0 ? `${base}+fb` : base;
+export function promptVersionOf(base: string, knowledgeRev: number, adviceCount: number): string {
+  const withK = knowledgeRev > 0 ? `${base}+k${knowledgeRev}` : base;
+  return adviceCount > 0 ? `${withK}+fb` : withK;
 }
 
 /** 1文書 / 1スケジュール表あたり `state='open'` の提案の上限（04-ai.md §6-5e） */
