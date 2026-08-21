@@ -42,7 +42,7 @@ v4化に着手するにあたり、ユーザーから次の第1段階の依頼�
 | ⑥ | 編集画面の付属オーバーレイ | https://claude.ai/code/artifact/e3f87611-69e9-45d2-bbba-4c230cba0ffd | ゴミ箱・CSV取込・音声共有・PDF |
 | ⑦ | 本番・4役割 | https://claude.ai/code/artifact/6496550e-597e-49ce-958a-beb99a4ec0a4 | 進行・プロンプター・ランダウン・音声サポート |
 | ⑧ | **制作のジャーニー** | https://claude.ai/code/artifact/602a0c80-874e-4b43-b7a1-b84d5d7000f9 | 考え方の地図・PC段階ビュー・スマホ |
-| ⑨ | **収録設定・配信設定** | https://claude.ai/code/artifact/33ba14de-1fec-409f-967a-faf31962792d | 収録PC・配信PC・Excel書き出し・スマホ |
+| ⑨ | **収録設定・配信設定** | https://claude.ai/code/artifact/33ba14de-1fec-409f-967a-faf31962792d | 収録PC・配信PC・**WEB会議PC**・Excel書き出し・スマホ・**WEB会議スマホ** |
 | ⑩ | **計時・視聴者**（計時LIVE） | https://claude.ai/code/artifact/aa1b9c08-ffb4-4cb1-8ce9-c6aba576734a | 運用PC・表示画面・タイマー管理・スマホ |
 
 - プライベート公開です。閲覧には共有が必要な場合があります
