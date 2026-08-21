@@ -110,6 +110,58 @@
   --radius: 12px;
 }
 
+/* ==========================================================================
+ * `.dark` — 制作資料 v4 段3（凍結解除）で追加。
+ *
+ * ⚠️ **これが無いと本番の暗い画面が壊れる。** `tokens.css:197` の `.dark` が
+ * 暗色を持っているが、`tokens-v4.css` は `@import './tokens.css'` の**後**に
+ * 自分の `:root { … }` を書くため、`:root` と `.dark` は同じ特異度 (0,1,0) で
+ * **後に書かれたほうが勝つ**＝ここまでは `:root` が `.dark` を上書きしていた。
+ *
+ * v4 の3アプリで `.dark` を付ける画面は0件（実測）だったのでいままで表に
+ * 出なかったが、制作資料の本番3画面（進行・ランダウン・プロンプター）は
+ * `<html>` に `.dark` を付けて暗い配色で動いている
+ * （`OnAirPage.tsx` / `PrompterPage.tsx` / `RundownPage.tsx`）。凍結解除で
+ * `base.css` 経由の `tokens-v4.css` を読むアプリが増えたときにこれが無いと、
+ * **放送中の進行卓が突然ほぼ白 (#f7f8fa) になる**（実際の事故ではなく、
+ * 実装を読んで見つけた事故の芽 — 03-app-structure-impl.md §7-1）。
+ *
+ * 中身は `tokens.css` の `.dark` が持つ暗側の値をそのまま移植したもの
+ * （27個のうち `--font-sans` / `--font-mono-num` / `--radius` は明暗で
+ * 値を変えないのでここには無い）。ここに書いた `.dark` は `tokens.css` の
+ * `.dark` より**後**に出るので、同特異度でも確実に勝つ。
+ * ========================================================================== */
+.dark {
+  --background:          20 22 26;
+  --card:                27 29 35;
+  --muted:               40 44 51;
+  --secondary:           40 44 51;
+  --accent:              20 52 82;
+  --sidebar-accent:      20 52 82;
+
+  --foreground:            221 223 227;
+  --card-foreground:       221 223 227;
+  --popover-foreground:    221 223 227;
+  --secondary-foreground:  221 223 227;
+  --sidebar-foreground:    221 223 227;
+  --muted-foreground:      159 163 173;
+  --accent-foreground:     198 225 250;
+  --sidebar-accent-foreground: 198 225 250;
+
+  --primary:             26 144 255;
+  --ring:                26 144 255;
+  --sidebar-primary:     26 144 255;
+
+  --border:              50 54 62;
+  --input:               50 54 62;
+  --sidebar-border:      50 54 62;
+
+  --success:             64 191 132;
+  --warning:             238 160 43;
+  --destructive:         215 66 66;
+  --info:                43 170 238;
+}
+
 /*
  * 数字は**字詰めを掛けない**。
  *

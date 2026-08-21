@@ -548,7 +548,7 @@ export default function EditorPage() {
         <div className="flex items-center justify-between px-4 h-11">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
-              onClick={() => navigate("/qsheet")}
+              onClick={() => navigate("/qsheet/sheets")}
               className="p-1 rounded-lg hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="ダッシュボードに戻る"
             >

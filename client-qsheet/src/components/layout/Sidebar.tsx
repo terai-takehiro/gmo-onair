@@ -9,7 +9,9 @@ import {
 
 
 const navItems = [
-  { label: "ドキュメント一覧", path: "/qsheet", icon: LayoutDashboard },
+  // `/qsheet` はもう画面を持たない（`routeSwitch.ts` の転送だけ）。
+  // 実体である `/qsheet/sheets` に直接向ける（転送を1段挟まないため）
+  { label: "ドキュメント一覧", path: "/qsheet/sheets", icon: LayoutDashboard },
 ];
 
 export default function Sidebar() {
@@ -49,8 +51,8 @@ export default function Sidebar() {
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
           {navItems.map((item) => {
-            const isActive = item.path === "/qsheet"
-              ? location.pathname === "/qsheet" || location.pathname === "/qsheet/editor"
+            const isActive = item.path === "/qsheet/sheets"
+              ? ["/qsheet", "/qsheet/sheets", "/qsheet/editor"].includes(location.pathname)
               : location.pathname.startsWith(item.path);
             return (
               <button
@@ -69,7 +71,7 @@ export default function Sidebar() {
           })}
           <button
             onClick={() => {
-              navigate("/qsheet");
+              navigate("/qsheet/sheets");
               setSidebarOpen(false);
               setTimeout(() => {
                 const btn = document.querySelector('[data-create-btn]') as HTMLButtonElement;
