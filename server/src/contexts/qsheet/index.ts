@@ -4,6 +4,7 @@ import stageTemplateRoutes from './routes/stage-templates.routes';
 import pdfRoutes from './routes/pdf.routes';
 import uploadRoutes from './routes/upload.routes';
 import publicAudioRoutes from './routes/public-audio.routes';
+import deviceSettingsRoutes from './routes/device-settings.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -15,6 +16,8 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet/stage-templates', stageTemplateRoutes);
   router.use('/qsheet', pdfRoutes);
   router.use('/qsheet', uploadRoutes);
+  // 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で、文書 (documentRoutes) とは別の入れ物
+  router.use('/qsheet/production', deviceSettingsRoutes);
 
   return router;
 }
