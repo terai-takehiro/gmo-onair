@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef0f3; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  .num { font-variant-numeric:tabular-nums; }
+  button, [style*="cursor:pointer"] { transition: background-color .15s ease, border-color .15s ease, transform .1s ease; }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.98); }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eef0f3; display:flex; flex-direction:column">
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:200; padding:11px 18px; border-radius:999px; background:rgba(26,29,36,.94); backdrop-filter:blur(12px); color:#fff; font-size:13px; font-weight:700; box-shadow:0 20px 40px -14px rgba(16,24,40,.5); white-space:nowrap">{{ toast }}</div>
+  </sc-if>
+
+  <div style="position:sticky; top:0; z-index:40; background:rgba(238,240,243,.8); backdrop-filter:blur(20px) saturate(1.6); border-bottom:1px solid rgba(0,0,0,.06)">
+    <div style="max-width:1060px; margin:0 auto; padding:13px 24px; display:flex; align-items:center; gap:12px">
+      <span onClick="{{ back }}" style="display:flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:#5d6470; cursor:pointer; flex-shrink:0" style-hover="color:#c2410e">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>計時・視聴者
+      </span>
+      <div style="width:1px; height:18px; background:#d7dbe1; flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div style="font-size:15.5px; font-weight:800; white-space:nowrap">タイマー管理</div>
+        <div style="font-size:11px; color:#9aa1ab; white-space:nowrap">60周年 記念式典 ・ GLS-A012</div>
+      </div>
+      <div style="flex:1"></div>
+      <button onClick="{{ add }}" style="height:32px; padding:0 14px; border:none; border-radius:9px; background:#c2410e; color:#fff; font-size:12px; font-weight:800; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap" style-hover="background:#9a3412">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>タイマーを作る
+      </button>
+    </div>
+  </div>
+
+  <div style="flex:1; padding:18px 24px 60px">
+    <div style="max-width:1060px; margin:0 auto; display:flex; flex-direction:column; gap:12px">
+
+      <div style="display:flex; align-items:flex-start; gap:10px; padding:12px 15px; background:#eaf4fb; border:1px solid #cfe4f4; border-radius:13px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">1つの案件に<strong class="nb">タイマーを何本でも</strong>置けます（本番尺・休憩・リハなど）。<strong class="nb">表示画面はタイマーごとに別のURL</strong>なので、出したいものを選んで配ってください。</p>
+      </div>
+
+      <sc-for list="{{ timers }}" as="t" hint-placeholder-count="3">
+        <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05); border:1.5px solid {{ t.cardBd }}">
+          <div style="display:flex; align-items:center; gap:12px; padding:14px 16px">
+            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:3px">
+              <span style="display:flex; align-items:center; gap:8px">
+                <span class="nb" style="font-size:14.5px; font-weight:800; overflow:hidden; text-overflow:ellipsis">{{ t.name }}</span>
+                <sc-if value="{{ t.isMain }}" hint-placeholder-val="{{ false }}">
+                  <span class="nb" style="display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:10px; font-weight:800">運用画面に出す</span>
+                </sc-if>
+                <sc-if value="{{ t.running }}" hint-placeholder-val="{{ false }}">
+                  <span class="nb" style="display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:10px; font-weight:800">計時中</span>
+                </sc-if>
+              </span>
+              <span class="num nb" style="font-size:11px; color:#9aa1ab">{{ t.sub }}</span>
+            </span>
+            <span class="num nb" style="font-size:22px; font-weight:800; color:{{ t.fg }}; flex-shrink:0">{{ t.display }}</span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; padding:11px 16px; background:#fbfcfd; border-top:1px solid #f1f2f5">
+            <span class="nb" style="font-size:10.5px; font-weight:800; color:#9aa1ab; flex-shrink:0">表示画面</span>
+            <span class="num nb" style="flex:1; min-width:0; font-size:11px; color:#5d6470; overflow:hidden; text-overflow:ellipsis">{{ t.url }}</span>
+            <span onClick="{{ t.copy }}" style="height:28px; padding:0 11px; border-radius:8px; background:#eaf4fb; color:#005bac; font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#dcecf8">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>コピー
+            </span>
+            <span onClick="{{ t.open }}" style="height:28px; padding:0 11px; border-radius:8px; background:#f2f4f7; color:#3c424c; font-size:11.5px; font-weight:700; display:flex; align-items:center; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#e8eaed">開く</span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:14px; padding:12px 16px; border-top:1px solid #f1f2f5">
+            <span class="nb" style="font-size:11px; font-weight:700; color:#5d6470; flex-shrink:0">残りが</span>
+            <div style="display:flex; gap:5px">
+              <sc-for list="{{ t.thresholds }}" as="th" hint-placeholder-count="4">
+                <span onClick="{{ th.pick }}" style="min-width:52px; height:30px; padding:0 11px; border:1.5px solid {{ th.bd }}; border-radius:8px; background:{{ th.bg }}; color:{{ th.fg }}; font-size:11.5px; font-weight:{{ th.weight }}; display:flex; align-items:center; justify-content:center; cursor:pointer; white-space:nowrap">{{ th.label }}</span>
+              </sc-for>
+            </div>
+            <span class="nb" style="font-size:11px; color:#9aa1ab">を切ったら黄色にする</span>
+            <div style="flex:1"></div>
+            <sc-if value="{{ t.canMakeMain }}" hint-placeholder-val="{{ true }}">
+              <span onClick="{{ t.makeMain }}" style="height:30px; padding:0 12px; border-radius:8px; background:#f2f4f7; color:#3c424c; font-size:11.5px; font-weight:700; display:flex; align-items:center; cursor:pointer; white-space:nowrap" style-hover="background:#e8eaed">運用画面に出す</span>
+            </sc-if>
+            <span onClick="{{ t.del }}" style="width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#c1c7cf; flex-shrink:0" style-hover="background:#fef6f7; color:#c7243a">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg>
+            </span>
+          </div>
+        </div>
+      </sc-for>
+
+      <div style="display:flex; align-items:flex-start; gap:10px; padding:12px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:13px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">表示画面の<strong class="nb">URLはログイン不要</strong>です。会場のモニターや配信の合成に貼れますが、<strong class="nb">URLの作り直しはできません</strong>。渡した相手を外したいときはタイマーごと消してください。</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1120,&quot;height&quot;:820}}">
+class Component extends DCLogic {
+  state = { main: 't1', thresholds: { t1: 60, t2: 30, t3: 60 }, toast: '' };
+
+  TIMERS = [
+    { id: 't1', name: '本番尺', display: '00:47', totalLabel: '05:00', running: true, phase: 'yellow' },
+    { id: 't2', name: '休憩', display: '15:00', totalLabel: '15:00', running: false, phase: 'countdown' },
+    { id: 't3', name: 'リハーサル通し', display: '--:--', totalLabel: '未設定', running: false, phase: 'idle' },
+  ];
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+
+  renderVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg);
+    const TONE = { idle: '#c1c7cf', countdown: '#1a1d24', yellow: '#c2410e', red: '#c7243a' };
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: soon('計時・視聴者の画面に戻ります'),
+      add: soon('タイマーを作ります（名前だけ。例: 本番尺、休憩）'),
+      timers: this.TIMERS.map((t) => {
+        const isMain = t.id === s.main;
+        const cur = s.thresholds[t.id];
+        return {
+          name: t.name, display: t.display, running: t.running,
+          sub: '設定 ' + t.totalLabel,
+          fg: TONE[t.phase],
+          isMain, cardBd: isMain ? '#fed7aa' : 'transparent',
+          canMakeMain: !isMain,
+          makeMain: () => { this.setState({ main: t.id }); this.flash('「' + t.name + '」を運用画面に出します'); },
+          url: 'https://gmo-onair.jp/live/display/' + t.id + '-8f2e…',
+          copy: soon('「' + t.name + '」の表示画面URLをコピーしました'),
+          open: soon('「' + t.name + '」の表示画面を別タブで開きます'),
+          del: soon('「' + t.name + '」を消す前に確認します（表示画面のURLも使えなくなります）'),
+          thresholds: [30, 60, 120, 300].map((v) => {
+            const on = v === cur;
+            return {
+              label: v < 60 ? (v + '秒') : ((v / 60) + '分'),
+              bd: on ? '#c2410e' : '#e6e9ed', bg: on ? '#fff7ed' : '#fff',
+              fg: on ? '#c2410e' : '#5d6470', weight: on ? 800 : 700,
+              pick: () => { const th = { ...s.thresholds }; th[t.id] = v; this.setState({ thresholds: th }); },
+            };
+          }),
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

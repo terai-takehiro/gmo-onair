@@ -1,0 +1,371 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef0f3; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  .num { font-variant-numeric:tabular-nums; }
+  button, [style*="cursor:pointer"] { transition: background-color .15s ease, border-color .15s ease, transform .1s ease, opacity .15s ease; }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.98); }
+  .nb { white-space:nowrap; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eef0f3; display:flex; flex-direction:column">
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:200; padding:11px 18px; border-radius:999px; background:rgba(26,29,36,.94); backdrop-filter:blur(12px); color:#fff; font-size:13px; font-weight:700; box-shadow:0 20px 40px -14px rgba(16,24,40,.5); white-space:nowrap">{{ toast }}</div>
+  </sc-if>
+
+  <div style="position:sticky; top:0; z-index:40; background:rgba(238,240,243,.8); backdrop-filter:blur(20px) saturate(1.6); border-bottom:1px solid rgba(0,0,0,.06)">
+    <div style="max-width:1400px; margin:0 auto; padding:13px 24px; display:flex; align-items:center; gap:12px">
+      <span onClick="{{ back }}" style="display:flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:#5d6470; cursor:pointer; flex-shrink:0" style-hover="color:#c2410e">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>60周年 記念式典
+      </span>
+      <div style="width:1px; height:18px; background:#d7dbe1; flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div style="font-size:15.5px; font-weight:800; white-space:nowrap">計時・視聴者</div>
+        <div style="font-size:11px; color:#9aa1ab; white-space:nowrap">ミナトデジタル ・ GLS-A012</div>
+      </div>
+      <div style="display:inline-flex; padding:3px; background:#e4e7eb; border-radius:10px; gap:1px; margin-left:8px; flex-shrink:0">
+        <sc-for list="{{ miniApps }}" as="ma" hint-placeholder-count="5">
+          <span onClick="{{ ma.go }}" style="display:inline-flex; align-items:center; height:28px; padding:0 11px; border-radius:8px; background:{{ ma.bg }}; box-shadow:{{ ma.shadow }}; color:{{ ma.fg }}; font-size:11.5px; font-weight:{{ ma.weight }}; cursor:pointer; white-space:nowrap">{{ ma.label }}</span>
+        </sc-for>
+      </div>
+      <div style="flex:1"></div>
+      <button onClick="{{ manageTimers }}" style="height:32px; padding:0 12px; border:1px solid rgba(0,0,0,.08); border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">タイマー管理</button>
+      <button onClick="{{ openDisplay }}" style="height:32px; padding:0 14px; border:none; border-radius:9px; background:#1a1d24; color:#fff; font-size:12px; font-weight:800; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; flex-shrink:0" style-hover="background:#000">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><path d="M15 3h6v6M10 14 21 3"></path></svg>表示画面を開く
+      </button>
+    </div>
+  </div>
+
+  <div style="flex:1; padding:18px 24px 60px">
+    <div style="max-width:1400px; margin:0 auto; display:flex; gap:14px; align-items:flex-start">
+
+      <!-- timer column -->
+      <div style="width:520px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+        <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <div style="display:flex; align-items:center; gap:9px; padding:12px 16px; border-bottom:1px solid #f1f2f5">
+            <span style="font-size:13px; font-weight:800">タイマー</span>
+            <span class="nb" style="font-size:11.5px; color:#9aa1ab">— {{ timerName }}</span>
+            <div style="flex:1"></div>
+            <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ true }}">
+              <span style="display:inline-flex; align-items:center; gap:5px; height:21px; padding:0 9px; border-radius:999px; background:#fef6f7; color:#c7243a; font-size:10px; font-weight:800">
+                <span style="width:6px; height:6px; border-radius:999px; background:#c7243a; animation:blink 1s ease-in-out infinite"></span>計時中
+              </span>
+            </sc-if>
+          </div>
+
+          <!-- big readout -->
+          <div style="padding:22px 16px 16px; text-align:center; background:{{ phaseBg }}">
+            <div class="num" style="font-size:74px; font-weight:800; line-height:1; letter-spacing:-.02em; color:{{ phaseFg }}; text-shadow:{{ phaseGlow }}">{{ display }}</div>
+            <sc-if value="{{ hasTotal }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:8px; display:flex; align-items:center; justify-content:center; gap:6px">
+                <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ true }}">
+                  <span style="width:6px; height:6px; border-radius:999px; background:#c7243a; animation:blink 1s ease-in-out infinite"></span>
+                </sc-if>
+                <span class="num" style="font-size:12px; color:#9aa1ab">設定 {{ totalLabel }}</span>
+              </div>
+            </sc-if>
+          </div>
+          <div style="height:6px; background:#f1f2f5">
+            <div style="height:100%; width:{{ progressPct }}%; background:{{ phaseFg }}; transition:width .35s linear"></div>
+          </div>
+
+          <!-- controls -->
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+            <div>
+              <div style="font-size:10.5px; font-weight:800; color:#9aa1ab; margin-bottom:6px">プリセット</div>
+              <div style="display:flex; gap:5px; flex-wrap:wrap">
+                <sc-for list="{{ presets }}" as="p" hint-placeholder-count="7">
+                  <span onClick="{{ p.pick }}" style="min-width:46px; height:32px; padding:0 10px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; cursor:{{ p.cursor }}; opacity:{{ p.opacity }}; white-space:nowrap" style-hover="background:#f2f4f7">{{ p.label }}</span>
+                </sc-for>
+              </div>
+              <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:10px; color:#9aa1ab; margin-top:5px">計時中はプリセットとカスタムを変えられません（±ボタンは使えます）</div>
+              </sc-if>
+            </div>
+
+            <div style="display:flex; gap:8px">
+              <span onClick="{{ start }}" style="flex:1; height:44px; border-radius:11px; background:{{ startBg }}; color:{{ startFg }}; display:flex; align-items:center; justify-content:center; gap:6px; font-size:13.5px; font-weight:800; cursor:{{ startCursor }}; opacity:{{ startOpacity }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 5v14l12-7z"></path></svg>開始
+              </span>
+              <span onClick="{{ stop }}" style="flex:1; height:44px; border-radius:11px; background:{{ stopBg }}; color:{{ stopFg }}; display:flex; align-items:center; justify-content:center; gap:6px; font-size:13.5px; font-weight:800; cursor:{{ stopCursor }}; opacity:{{ stopOpacity }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>停止
+              </span>
+              <span onClick="{{ reset }}" style="width:96px; height:44px; border-radius:11px; background:#fef6f7; color:#c7243a; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; cursor:pointer" style-hover="background:#fbdde1">リセット</span>
+            </div>
+
+            <div>
+              <div style="font-size:10.5px; font-weight:800; color:#9aa1ab; margin-bottom:6px">時間調整（計時中も使えます）</div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:5px">
+                <sc-for list="{{ adjusts }}" as="a" hint-placeholder-count="6">
+                  <span onClick="{{ a.pick }}" style="height:36px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; color:{{ a.fg }}; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">{{ a.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:flex-start; gap:8px; padding:10px 12px; background:#f7f8fa; border-radius:11px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+              <span style="font-size:10.5px; color:#5d6470; line-height:1.65">リセットは<strong class="nb">設定した尺ごと 0 に戻します</strong>（プリセットには戻りません）。0 のままでは開始できません。／ 0 を過ぎると <span class="num nb">+MM:SS</span> で超過を出します。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- viewers column -->
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px">
+
+        <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #f1f2f5">
+            <span style="font-size:13px; font-weight:800">視聴者数</span>
+            <span class="num nb" style="font-size:11px; color:#9aa1ab">{{ lastUpdated }}</span>
+            <div style="flex:1"></div>
+            <span onClick="{{ togglePoll }}" style="height:30px; padding:0 14px; border-radius:9px; background:{{ pollBg }}; color:{{ pollFg }}; font-size:12px; font-weight:800; display:flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap">{{ pollLabel }}</span>
+          </div>
+
+          <div style="padding:12px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+              <span class="nb" style="font-size:10.5px; font-weight:800; color:#9aa1ab; margin-right:2px">取得対象</span>
+              <sc-for list="{{ platforms }}" as="p" hint-placeholder-count="4">
+                <span onClick="{{ p.toggle }}" style="display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px; border:1px solid {{ p.bd }}; border-radius:999px; background:{{ p.bg }}; color:{{ p.fg }}; font-size:11.5px; font-weight:700; cursor:{{ p.cursor }}; opacity:{{ p.opacity }}; text-decoration:{{ p.deco }}; white-space:nowrap" title="{{ p.title }}">
+                  <span style="width:7px; height:7px; border-radius:999px; background:{{ p.dot }}"></span>{{ p.label }}
+                </span>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <div style="padding:14px 16px; border:1px solid #f1f2f5; border-radius:13px">
+                <div style="display:flex; align-items:baseline; gap:9px">
+                  <span class="nb" style="font-size:11.5px; font-weight:800; color:#ef4444">YouTube</span>
+                  <span class="num" style="font-size:34px; font-weight:800; line-height:1; color:#ef4444">{{ yt.total }}</span>
+                </div>
+                <div class="nb" style="font-size:11px; color:#9aa1ab; margin-top:6px; overflow:hidden; text-overflow:ellipsis">{{ yt.breakdown }}</div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:9px">
+                <sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+                  <div style="padding:12px 14px; border:1px solid #f1f2f5; border-radius:13px; opacity:{{ c.opacity }}">
+                    <div class="nb" style="font-size:11px; font-weight:800; color:{{ c.fg }}">{{ c.label }}</div>
+                    <div class="num" style="font-size:28px; font-weight:800; line-height:1; margin-top:5px; color:{{ c.fg }}">{{ c.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <div style="display:flex; align-items:center; gap:9px; padding:12px 16px; border-bottom:1px solid #f1f2f5">
+            <span style="font-size:13px; font-weight:800">視聴者数の推移</span>
+            <div style="flex:1"></div>
+            <span class="nb" style="font-size:10.5px; color:#9aa1ab">15秒ごとに記録しています</span>
+          </div>
+          <div style="padding:14px 16px; height:184px; position:relative">
+            <svg viewBox="0 0 640 150" preserveAspectRatio="none" style="width:100%; height:100%">
+              <sc-for list="{{ gridLines }}" as="gl" hint-placeholder-count="4">
+                <line x1="0" y1="{{ gl }}" x2="640" y2="{{ gl }}" stroke="#f1f2f5" stroke-width="1"></line>
+              </sc-for>
+              <sc-for list="{{ series }}" as="s" hint-placeholder-count="3">
+                <polyline points="{{ s.points }}" fill="none" stroke="{{ s.color }}" stroke-width="2" stroke-dasharray="{{ s.dash }}" stroke-linecap="round" stroke-linejoin="round"></polyline>
+              </sc-for>
+            </svg>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:0 16px 13px; flex-wrap:wrap">
+            <sc-for list="{{ series }}" as="s" hint-placeholder-count="3">
+              <span style="display:inline-flex; align-items:center; gap:6px">
+                <span style="width:14px; height:2px; background:{{ s.color }}; border-radius:2px"></span>
+                <span class="nb" style="font-size:10.5px; color:#5d6470">{{ s.label }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <div style="display:flex; align-items:center; gap:9px; padding:11px 16px; border-bottom:1px solid #f1f2f5">
+            <span style="font-size:12.5px; font-weight:800">ログ</span>
+            <div style="flex:1"></div>
+            <span class="nb" style="font-size:10px; color:#9aa1ab">この画面を閉じると消えます</span>
+          </div>
+          <div style="max-height:112px; overflow-y:auto">
+            <sc-for list="{{ logs }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex; align-items:center; gap:10px; padding:6px 16px; border-bottom:1px solid #f8f9fa">
+                <span class="num nb" style="width:58px; flex-shrink:0; font-size:10.5px; color:#9aa1ab">{{ l.at }}</span>
+                <span class="nb" style="flex:1; min-width:0; font-size:11px; color:{{ l.fg }}; overflow:hidden; text-overflow:ellipsis">{{ l.msg }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:flex-start; gap:10px; padding:12px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+          <p style="margin:0; font-size:11.5px; color:#3c424c; line-height:1.75">視聴者数を取りに行くのは<strong class="nb">この画面を開いている間だけ</strong>です。閉じると表示画面の数字も止まります。／ 数字は取得のたびに記録し、<strong class="nb">表示画面はその記録を読みます</strong>。</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1080}}">
+class Component extends DCLogic {
+  state = { remainingMs: 47000, totalSeconds: 300, running: true, polling: true, off: {}, toast: '' };
+
+  PLATFORMS = [
+    { key: 'yt', label: 'YouTube', color: '#ef4444', configured: true },
+    { key: 'js', label: 'Jstream', color: '#06b6d4', configured: true },
+    { key: 'zoom', label: 'Zoom', color: '#2D8CFF', configured: true },
+    { key: 'teams', label: 'Teams', color: '#6264A7', configured: false },
+  ];
+
+  COUNTS = { yt: 1284, js: 342, zoom: 96, teams: 0 };
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+
+  fmt(ms) {
+    const over = ms < 0;
+    const abs = Math.abs(ms);
+    const m = Math.floor(abs / 60000);
+    const s = Math.floor((abs % 60000) / 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return (over ? '+' : '') + pad(m) + ':' + pad(s);
+  }
+
+  phaseOf() {
+    const s = this.state;
+    if (s.totalSeconds === 0) return 'idle';
+    if (s.remainingMs <= 0) return 'red';
+    if (s.remainingMs <= 60000) return 'yellow';
+    return 'countdown';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg);
+    const phase = this.phaseOf();
+    const TONE = {
+      idle: { fg: '#9aa1ab', bg: '#fbfcfd', glow: 'none' },
+      countdown: { fg: '#1a1d24', bg: '#fbfcfd', glow: 'none' },
+      yellow: { fg: '#c2410e', bg: '#fffaf5', glow: 'none' },
+      red: { fg: '#c7243a', bg: '#fef6f7', glow: '0 0 24px rgba(199,36,58,.35)' },
+    }[phase];
+
+    const pct = s.totalSeconds > 0 ? Math.max(0, Math.min(100, (s.remainingMs / (s.totalSeconds * 1000)) * 100)) : 0;
+    const canStart = !s.running && s.totalSeconds > 0 && s.remainingMs > 0;
+
+    const activeCounts = this.PLATFORMS.filter((p) => p.configured && !s.off[p.key]);
+    const total = activeCounts.reduce((a, p) => a + this.COUNTS[p.key], 0);
+
+    const mkSeries = (label, color, base, dash) => {
+      const pts = [];
+      for (let i = 0; i < 21; i++) {
+        const x = (i / 20) * 640;
+        const wave = Math.sin(i * 0.7) * (base * 0.08) + Math.sin(i * 0.23) * (base * 0.05);
+        const v = base * (0.55 + (i / 20) * 0.45) + wave;
+        const y = 150 - Math.max(4, Math.min(146, (v / 1800) * 150));
+        pts.push(Math.round(x) + ',' + Math.round(y));
+      }
+      return { label, color, dash, points: pts.join(' ') };
+    };
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: soon('案件（60周年 記念式典）のミニアプリ一覧に戻ります'),
+      miniApps: [
+        { key: 'sched', label: 'スケジュール表' }, { key: 'qsheet', label: 'Qシート' },
+        { key: 'rec', label: '収録' }, { key: 'stream', label: '配信' }, { key: 'live', label: '計時・視聴者' },
+      ].map((m) => { const on = m.key === 'live'; return { label: m.label, bg: on ? '#fff' : 'transparent', fg: on ? '#c2410e' : '#5d6470', weight: on ? 800 : 700, shadow: on ? '0 1px 2px rgba(16,24,40,.15)' : 'none', go: on ? () => {} : soon('「' + m.label + '」に切り替えます') }; }),
+      manageTimers: soon('タイマー管理を開きます（作る・消す・表示画面のURLをコピー）'),
+      openDisplay: soon('表示画面を別タブで開きます（ログイン不要の公開URL）'),
+
+      timerName: '本番尺',
+      isRunning: s.running,
+      display: this.fmt(s.remainingMs),
+      hasTotal: s.totalSeconds > 0,
+      totalLabel: this.fmt(s.totalSeconds * 1000),
+      phaseFg: TONE.fg, phaseBg: TONE.bg, phaseGlow: TONE.glow,
+      progressPct: Math.round(pct),
+
+      presets: [1, 3, 5, 10, 15, 20, 30].map((m) => ({
+        label: m + '分',
+        cursor: s.running ? 'default' : 'pointer',
+        opacity: s.running ? '.4' : '1',
+        pick: s.running ? () => {} : () => this.setState({ totalSeconds: m * 60, remainingMs: m * 60000, running: false }),
+      })),
+      start: canStart ? () => this.setState({ running: true }) : soon(s.running ? 'すでに計時中です' : '時間を設定してから開始できます'),
+      startBg: canStart ? '#197a4b' : '#f2f4f7', startFg: canStart ? '#fff' : '#c1c7cf',
+      startCursor: canStart ? 'pointer' : 'default', startOpacity: canStart ? '1' : '.7',
+      stop: s.running ? () => this.setState({ running: false }) : soon('計時していません'),
+      stopBg: s.running ? '#1a1d24' : '#f2f4f7', stopFg: s.running ? '#fff' : '#c1c7cf',
+      stopCursor: s.running ? 'pointer' : 'default', stopOpacity: s.running ? '1' : '.7',
+      reset: () => { this.flash(s.running ? '計時中です。リセットしてよいか確認します' : '0 に戻しました（設定した尺も消えます）'); if (!s.running) this.setState({ totalSeconds: 0, remainingMs: 0 }); },
+
+      adjusts: [
+        { label: '−1分', d: -60 }, { label: '−30秒', d: -30 }, { label: '−10秒', d: -10 },
+        { label: '＋10秒', d: 10 }, { label: '＋30秒', d: 30 }, { label: '＋1分', d: 60 },
+      ].map((a) => ({ label: a.label, fg: a.d < 0 ? '#c7243a' : '#197a4b', pick: () => this.setState({ remainingMs: s.remainingMs + a.d * 1000 }) })),
+
+      lastUpdated: s.polling ? '14:32:07 に更新' : '停止中',
+      togglePoll: () => this.setState({ polling: !s.polling }),
+      pollBg: s.polling ? '#fef6f7' : '#197a4b', pollFg: s.polling ? '#c7243a' : '#fff',
+      pollLabel: s.polling ? '停止' : '開始',
+
+      platforms: this.PLATFORMS.map((p) => {
+        const isOff = !!s.off[p.key];
+        if (!p.configured) {
+          return { label: p.label + ' 未設定', bd: '#e6e9ed', bg: '#fff', fg: '#c1c7cf', dot: '#dcdfe4', opacity: '.45', cursor: 'default', deco: 'none', title: p.label + ' は番組設定で未登録です', toggle: soon(p.label + ' は番組設定で登録してから使えます') };
+        }
+        return {
+          label: p.label,
+          bd: isOff ? '#e6e9ed' : p.color, bg: isOff ? '#fff' : p.color,
+          fg: isOff ? '#9aa1ab' : '#fff', dot: isOff ? '#dcdfe4' : '#fff',
+          opacity: '1', cursor: 'pointer', deco: isOff ? 'line-through' : 'none',
+          title: isOff ? (p.label + ' を取得対象にする') : (p.label + ' の取得を停止'),
+          toggle: () => { const o = { ...s.off }; if (isOff) delete o[p.key]; else o[p.key] = true; this.setState({ off: o }); },
+        };
+      }),
+
+      yt: {
+        total: s.off.yt ? '—' : this.COUNTS.yt.toLocaleString('ja-JP'),
+        breakdown: s.off.yt ? '取得を止めています' : '本線: 1,102 ／ 副音声: 148 ／ 手話: 34',
+      },
+      cards: [
+        { key: 'js', label: 'Jstream', fg: '#06b6d4' },
+        { key: 'zoom', label: 'Zoom', fg: '#2D8CFF' },
+        { key: 'teams', label: 'Teams', fg: '#6264A7' },
+      ].map((c) => {
+        const p = this.PLATFORMS.find((x) => x.key === c.key);
+        const usable = p.configured && !s.off[c.key];
+        return { label: c.label, fg: usable ? c.fg : '#c1c7cf', value: usable ? this.COUNTS[c.key].toLocaleString('ja-JP') : '—', opacity: usable ? '1' : '.5' };
+      }).concat([{ label: '合計', fg: '#6d28d9', value: total.toLocaleString('ja-JP'), opacity: '1' }]),
+
+      gridLines: [30, 60, 90, 120],
+      series: [
+        mkSeries('YouTube', '#ef4444', 1284, '0'),
+        mkSeries('Jstream', '#06b6d4', 342, '0'),
+        mkSeries('合計', '#a855f7', 1722, '5 4'),
+      ],
+
+      logs: [
+        { at: '14:32:07', msg: 'YouTube: 1,284 viewers', fg: '#197a4b' },
+        { at: '14:32:07', msg: 'Jstream: 342 connections', fg: '#197a4b' },
+        { at: '14:31:52', msg: 'Zoom: 96 participants', fg: '#197a4b' },
+        { at: '14:31:37', msg: 'Teams: 番組設定に会議URLがありません', fg: '#c7243a' },
+        { at: '14:28:10', msg: 'ポーリング開始', fg: '#5d6470' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

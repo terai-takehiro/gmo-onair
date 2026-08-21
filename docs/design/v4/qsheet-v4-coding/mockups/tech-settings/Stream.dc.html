@@ -1,0 +1,300 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef0f3; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#c2410e; text-decoration:none; }
+  .num { font-variant-numeric:tabular-nums; }
+  button, [style*="cursor:pointer"] { transition: background-color .15s ease, border-color .15s ease, transform .1s ease; }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.98); }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eef0f3; display:flex; flex-direction:column">
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:200; padding:11px 18px; border-radius:999px; background:rgba(26,29,36,.94); backdrop-filter:blur(12px); color:#fff; font-size:13px; font-weight:700; box-shadow:0 20px 40px -14px rgba(16,24,40,.5); white-space:nowrap">{{ toast }}</div>
+  </sc-if>
+
+  <div style="position:sticky; top:0; z-index:40; background:rgba(238,240,243,.8); backdrop-filter:blur(20px) saturate(1.6); border-bottom:1px solid rgba(0,0,0,.06)">
+    <div style="max-width:1360px; margin:0 auto; padding:13px 24px; display:flex; align-items:center; gap:12px">
+      <span onClick="{{ back }}" style="display:flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; color:#5d6470; cursor:pointer; flex-shrink:0" style-hover="color:#c2410e">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>60周年 記念式典
+      </span>
+      <div style="width:1px; height:18px; background:#d7dbe1; flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div style="font-size:15.5px; font-weight:800; white-space:nowrap">配信設定</div>
+        <div style="font-size:11px; color:#9aa1ab; white-space:nowrap">ミナトデジタル ・ GLS-A012 ・ Magewell 10台</div>
+      </div>
+      <div style="display:inline-flex; padding:3px; background:#e4e7eb; border-radius:10px; gap:1px; margin-left:8px; flex-shrink:0">
+        <sc-for list="{{ miniApps }}" as="ma" hint-placeholder-count="4">
+          <span onClick="{{ ma.go }}" style="display:inline-flex; align-items:center; height:28px; padding:0 12px; border-radius:8px; background:{{ ma.bg }}; box-shadow:{{ ma.shadow }}; color:{{ ma.fg }}; font-size:12px; font-weight:{{ ma.weight }}; cursor:pointer; white-space:nowrap">{{ ma.label }}</span>
+        </sc-for>
+      </div>
+      <div style="flex:1"></div>
+      <button onClick="{{ goExport }}" style="height:32px; padding:0 14px; border:none; border-radius:9px; background:#c2410e; color:#fff; font-size:12px; font-weight:800; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; flex-shrink:0" style-hover="background:#9a3412">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Excelを書き出す
+      </button>
+    </div>
+  </div>
+
+  <div style="flex:1; padding:18px 24px 60px">
+    <div style="max-width:1360px; margin:0 auto; display:flex; gap:14px; align-items:flex-start">
+
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px">
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <sc-for list="{{ stats }}" as="st" hint-placeholder-count="3">
+            <span style="display:flex; align-items:center; gap:8px; padding-right:16px; border-right:1px solid #f1f2f5">
+              <span style="width:8px; height:8px; border-radius:999px; background:{{ st.dot }}; flex-shrink:0"></span>
+              <span class="nb" style="font-size:11.5px; color:#9aa1ab">{{ st.label }}</span>
+              <span class="num nb" style="font-size:15px; font-weight:800; color:{{ st.fg }}">{{ st.value }}</span>
+            </span>
+          </sc-for>
+          <div style="flex:1"></div>
+          <span onClick="{{ addDest }}" style="height:30px; padding:0 12px; border-radius:8px; background:#fff7ed; color:#c2410e; font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap" style-hover="background:#fed7aa">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>配信先を足す
+          </span>
+        </div>
+
+        <sc-for list="{{ encoders }}" as="e" hint-placeholder-count="5">
+        <div style="background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:{{ e.hdrBorder }}">
+            <span class="num nb" style="font-size:13px; font-weight:800">{{ e.encoderId }}</span>
+            <span class="nb" style="font-size:11px; color:#9aa1ab">{{ e.sub }}</span>
+            <div style="flex:1"></div>
+            <span onClick="{{ e.add }}" style="height:26px; padding:0 10px; border-radius:7px; background:#f2f4f7; font-size:11px; font-weight:700; color:#3c424c; display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap" style-hover="background:#e8eaed">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>配信先
+            </span>
+          </div>
+
+          <sc-if value="{{ e.isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:9px; padding:12px 14px; background:#fbfcfd">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+              <span style="font-size:11.5px; color:#5d6470">配信先がまだありません。<strong class="nb">この台は Excel に出ません。</strong></span>
+            </div>
+          </sc-if>
+
+          <sc-for list="{{ e.dests }}" as="d" hint-placeholder-count="2">
+            <div onClick="{{ d.pick }}" style="display:flex; align-items:center; gap:11px; padding:9px 14px; border-top:1px solid #f5f6f8; cursor:pointer; background:{{ d.bg }}" style-hover="background:#fdf7f2">
+              <span style="width:96px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:22px; border-radius:6px; background:{{ d.pBg }}; color:{{ d.pFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ d.protocol }}</span>
+              <span class="nb" style="width:126px; flex-shrink:0; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis">{{ d.name }}</span>
+              <span class="num nb" style="flex:1; min-width:0; font-size:11.5px; color:#5d6470; overflow:hidden; text-overflow:ellipsis">{{ d.target }}</span>
+              <span style="width:82px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:21px; border-radius:6px; background:{{ d.kBg }}; color:{{ d.kFg }}; font-size:10.5px; font-weight:700; white-space:nowrap">{{ d.keyState }}</span>
+              <sc-if value="{{ d.hasWarn }}" hint-placeholder-val="{{ false }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        </sc-for>
+      </div>
+
+      <!-- inspector -->
+      <div style="width:372px; flex-shrink:0; background:#fff; border-radius:16px; overflow:hidden; position:sticky; top:84px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+        <div style="display:flex; align-items:center; gap:9px; padding:14px 16px; border-bottom:1px solid #f1f2f5">
+          <span class="num nb" style="font-size:12px; font-weight:800; color:#c2410e">{{ sel.encoderId }}</span>
+          <span class="nb" style="flex:1; min-width:0; font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis">{{ sel.name }}</span>
+        </div>
+
+        <div style="padding:13px 16px; display:flex; flex-direction:column; gap:11px">
+          <div style="display:flex; flex-direction:column; gap:5px">
+            <span style="font-size:10.5px; font-weight:800; color:#9aa1ab">セッション名</span>
+            <div style="height:34px; border:1px solid {{ sel.nameBd }}; border-radius:9px; display:flex; align-items:center; padding:0 11px; background:{{ sel.nameBg }}">
+              <span class="num nb" style="flex:1; min-width:0; font-size:12.5px; overflow:hidden; text-overflow:ellipsis">{{ sel.name }}</span>
+              <span class="num nb" style="font-size:10px; color:{{ sel.lenFg }}">{{ sel.nameLen }}/32</span>
+            </div>
+            <span style="font-size:10px; color:#9aa1ab; line-height:1.6">半角の英数と <span class="num nb">._-+'[]()</span> と空白のみ・32文字以内。この名前で現地の設定と突き合わせます</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:5px">
+            <span style="font-size:10.5px; font-weight:800; color:#9aa1ab">プロトコル</span>
+            <div style="display:flex; gap:5px">
+              <sc-for list="{{ sel.protocols }}" as="p" hint-placeholder-count="3">
+                <span onClick="{{ p.pick }}" style="flex:1; height:32px; border:1.5px solid {{ p.bd }}; border-radius:9px; background:{{ p.bg }}; color:{{ p.fg }}; font-size:11px; font-weight:{{ p.weight }}; display:flex; align-items:center; justify-content:center; cursor:pointer; white-space:nowrap">{{ p.label }}</span>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-for list="{{ sel.fields }}" as="f" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; gap:5px">
+              <span style="font-size:10.5px; font-weight:800; color:#9aa1ab">{{ f.label }}</span>
+              <div style="height:34px; border:1px solid {{ f.bd }}; border-radius:9px; display:flex; align-items:center; padding:0 11px; background:{{ f.bg }}">
+                <span class="num nb" style="flex:1; min-width:0; font-size:12.5px; color:{{ f.fg }}; overflow:hidden; text-overflow:ellipsis">{{ f.value }}</span>
+              </div>
+              <sc-if value="{{ f.note }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:10px; color:{{ f.noteFg }}; line-height:1.6">{{ f.note }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <sc-if value="{{ sel.hiddenNote }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; gap:8px; padding:10px 12px; background:#f7f8fa; border-radius:10px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+              <span style="font-size:10.5px; color:#5d6470; line-height:1.65">{{ sel.hiddenNote }}</span>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:940}}">
+class Component extends DCLogic {
+  state = { sel: 'ENC1:0', toast: '' };
+
+  ENC = [
+    { encoderId: 'ENC1', dests: [
+      { name: 'YouTube Pri', protocol: 'RTMP', url: 'rtmp://a.rtmp.youtube.com/live2', port: '', streamKey: 'xxxx-xxxx-xxxx-xxxx', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
+      { name: 'YouTube Bkup', protocol: 'RTMP', url: 'rtmp://b.rtmp.youtube.com/live2', port: '', streamKey: '', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
+    ]},
+    { encoderId: 'ENC2', dests: [
+      { name: 'Center SRT', protocol: 'SRT Caller', url: 'srt.example.invalid', port: '9000', streamKey: '', passphrase: 'pass-phrase', latencyMs: '120', bandwidthPct: '25', mtu: '1316', aes: 'AES-128' },
+    ]},
+    { encoderId: 'ENC3', dests: [
+      { name: '記念式典 本線 配信', protocol: 'RTMP', url: 'rtmp://live.example.invalid/app', port: '', streamKey: 'yyyy-yyyy', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
+    ]},
+    { encoderId: 'ENC5', dests: [
+      { name: 'Return Rcv', protocol: 'SRT Listener', url: '', port: '9001', streamKey: '', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
+    ]},
+    { encoderId: 'ENC7', dests: [] },
+  ];
+
+  PROTO_TONE = { 'RTMP': ['#eaf4fb', '#005bac'], 'SRT Caller': ['#eef2ff', '#4338ca'], 'SRT Listener': ['#f5f3ff', '#6d28d9'] };
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+
+  isHalfWidthOk(s) { return /^[\x20-\x7E]*$/.test(s) && s.length <= 32 && s.trim() === s && s.length > 0; }
+
+  keyStateOf(d) {
+    if (d.protocol !== 'RTMP') return { label: 'キー不要', bg: '#f2f4f7', fg: '#9aa1ab' };
+    if (d.streamKey) return { label: '設定済み', bg: '#e7f6ee', fg: '#197a4b' };
+    return { label: '未入力', bg: '#fef6f7', fg: '#c7243a' };
+  }
+
+  warnOf(d) {
+    if (d.protocol === 'RTMP' && !d.streamKey) return true;
+    if (!this.isHalfWidthOk(d.name)) return true;
+    if (d.protocol !== 'RTMP' && !d.port) return true;
+    if (d.aes !== 'なし' && !d.passphrase) return true;
+    return false;
+  }
+
+  selDest() {
+    const [encId, idxStr] = String(this.state.sel).split(':');
+    const enc = this.ENC.find((e) => e.encoderId === encId);
+    const d = enc && enc.dests[Number(idxStr)];
+    return { enc, d };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg);
+    let total = 0, warn = 0;
+    this.ENC.forEach((e) => e.dests.forEach((d) => { total += 1; if (this.warnOf(d)) warn += 1; }));
+    const emptyEnc = this.ENC.filter((e) => e.dests.length === 0).length;
+
+    const { enc: selEnc, d: selD } = this.selDest();
+    const sd = selD || { name: '', protocol: 'RTMP', url: '', port: '', streamKey: '', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' };
+    const nameOk = this.isHalfWidthOk(sd.name);
+
+    const fld = (label, value, ok, note, noteBad) => ({
+      label, value: value || '未入力',
+      bd: ok ? '#e6e9ed' : '#f6cdd2', bg: ok ? '#fff' : '#fef6f7',
+      fg: value ? '#1a1d24' : (ok ? '#9aa1ab' : '#c7243a'),
+      note: note || '', noteFg: noteBad ? '#c7243a' : '#9aa1ab',
+    });
+
+    let fields = [];
+    let hiddenNote = '';
+    if (sd.protocol === 'RTMP') {
+      fields = [
+        fld('宛先 URL', sd.url, !!sd.url, ''),
+        fld('ストリームキー', sd.streamKey, !!sd.streamKey, sd.streamKey ? 'Excel には平文で入ります' : '新規は必須。空欄だと現地で弾かれます', !sd.streamKey),
+      ];
+      hiddenNote = 'プロトコルを SRT に変えると、ポート・パスフレーズ・Latency・Bandwidth・MTU・暗号化が出てきます。';
+    } else if (sd.protocol === 'SRT Caller') {
+      fields = [
+        fld('宛先', sd.url, !!sd.url, ''),
+        fld('ポート', sd.port, !!sd.port, sd.port ? '' : 'SRT では必須です', !sd.port),
+        fld('暗号化', sd.aes, true, ''),
+        fld('パスフレーズ', sd.passphrase, !(sd.aes !== 'なし' && !sd.passphrase), sd.aes !== 'なし' ? '暗号化ありのときは必須' : '暗号化が「なし」なので不要'),
+        fld('Latency (ms)', sd.latencyMs, true, '範囲は機器が答えます。ONAiR 側では縛りません'),
+        fld('Bandwidth (%)', sd.bandwidthPct, true, ''),
+        fld('MTU', sd.mtu, true, ''),
+      ];
+    } else {
+      fields = [
+        fld('待受ポート', sd.port, !!sd.port, sd.port ? '' : 'SRT Listener では必須です', !sd.port),
+        fld('暗号化', sd.aes, true, ''),
+        fld('パスフレーズ', sd.passphrase, !(sd.aes !== 'なし' && !sd.passphrase), ''),
+      ];
+      hiddenNote = 'SRT Listener は待ち受け側なので、宛先 URL は要りません。';
+    }
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: soon('案件（60周年 記念式典）のミニアプリ一覧に戻ります'),
+      miniApps: [
+        { key: 'sched', label: 'スケジュール表' }, { key: 'qsheet', label: 'Qシート' },
+        { key: 'rec', label: '収録設定' }, { key: 'stream', label: '配信設定' },
+      ].map((m) => { const on = m.key === 'stream'; return { label: m.label, bg: on ? '#fff' : 'transparent', fg: on ? '#c2410e' : '#5d6470', weight: on ? 800 : 700, shadow: on ? '0 1px 2px rgba(16,24,40,.15)' : 'none', go: on ? () => {} : soon('「' + m.label + '」に切り替えます') }; }),
+      goExport: soon('Excel を書き出す画面を開きます'),
+      stats: [
+        { label: '配信先', value: total + '件', dot: '#005bac', fg: '#005bac' },
+        { label: '直したほうがよい', value: warn + '件', dot: '#c7243a', fg: '#c7243a' },
+        { label: '出ない台', value: emptyEnc + '台', dot: '#cbd2da', fg: '#9aa1ab' },
+      ],
+      addDest: soon('どの ENC に配信先を足すか選びます'),
+      encoders: this.ENC.map((e) => ({
+        encoderId: e.encoderId,
+        sub: e.dests.length > 0 ? e.dests.length + ' 件の配信先' : '配信先なし',
+        hdrBorder: e.dests.length > 0 ? '1px solid #f1f2f5' : 'none',
+        isEmpty: e.dests.length === 0,
+        add: soon(e.encoderId + ' に配信先を足します'),
+        dests: e.dests.map((d, i) => {
+          const key = e.encoderId + ':' + i;
+          const pt = this.PROTO_TONE[d.protocol] || this.PROTO_TONE['RTMP'];
+          const ks = this.keyStateOf(d);
+          return {
+            name: d.name, protocol: d.protocol,
+            target: d.protocol === 'SRT Listener' ? ('待受ポート ' + (d.port || '—')) : (d.url + (d.port ? (':' + d.port) : '')),
+            pBg: pt[0], pFg: pt[1],
+            keyState: ks.label, kBg: ks.bg, kFg: ks.fg,
+            hasWarn: this.warnOf(d),
+            bg: key === s.sel ? '#fff7ed' : '#fff',
+            pick: () => this.setState({ sel: key }),
+          };
+        }),
+      })),
+      sel: {
+        encoderId: selEnc ? selEnc.encoderId : '—',
+        name: sd.name || '（名前がありません）',
+        nameLen: String(sd.name.length),
+        nameBd: nameOk ? '#e6e9ed' : '#f6cdd2', nameBg: nameOk ? '#fff' : '#fef6f7',
+        lenFg: sd.name.length > 32 ? '#c7243a' : '#9aa1ab',
+        protocols: ['RTMP', 'SRT Caller', 'SRT Listener'].map((p) => {
+          const on = p === sd.protocol;
+          return { label: p, bd: on ? '#c2410e' : '#e6e9ed', bg: on ? '#fff7ed' : '#fff', fg: on ? '#c2410e' : '#5d6470', weight: on ? 800 : 700, pick: () => this.flash('プロトコルを ' + p + ' に変えます（出てくる欄が変わります）') };
+        }),
+        fields,
+        hiddenNote,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
