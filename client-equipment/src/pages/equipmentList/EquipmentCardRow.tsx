@@ -15,6 +15,16 @@
  * カード全体を1つの `<button>` にしていた前の形は、四角や矢印を**中に持てない**
  * ので、外枠を `<div>` にして中に複数のタップ領域を並べる形に変えました
  * （`RentalGroupRow.tsx` と同じやり方）。
+ *
+ * ── 開いた付属品（子機材）にも鉛筆ボタンを付けた ────────────────
+ *
+ * 前は開いた付属品の行がタップで詳細画面に飛ぶだけで、その場で直す口が
+ * 無かった（PC の表は子の行にも「操作」列があり、そちらは直せる）。
+ * `onEdit` を「押されたら常に親を直す」で固定していたのをやめ、**どの
+ * `EquipmentRecord` を渡されたかで対象が決まる**形にした。親の鉛筆は
+ * `entry.item`、付属品の鉛筆は `kid` を渡すだけで、渡した先
+ * （`EquipmentDialog`）は「渡された1件を直す」以上のことをしないので、
+ * 親を編集したら子までまとめて書き換わる、という事故は起きない。
  */
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
@@ -22,6 +32,7 @@ import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { TYPE_BORDER_COLOR } from '@/lib/constants';
 import { AssetBadge, SectionBadge } from './badges';
 import { visibleCustomEntries, type CardEntry } from './cardRowTypes';
+import type { EquipmentRecord } from './types';
 
 export function EquipmentCardRow({
   entry, measureKey, loading, onToggleExpand, onOpen, onDelete,
@@ -39,8 +50,9 @@ export function EquipmentCardRow({
   canDelete: boolean;
   selectedIds: Set<string>;
   onSelectOne: (id: string) => void;
-  /** 鉛筆ボタン → 編集シートを開く */
-  onEdit: () => void;
+  /** 鉛筆ボタン → 編集シートを開く。渡した `EquipmentRecord` だけを直す
+   *  （親カードの鉛筆は `entry.item`、開いた付属品の鉛筆は `kid` を渡す） */
+  onEdit: (item: EquipmentRecord) => void;
   customColumns: CustomColumn[];
   visibleCustomCols: Set<string>;
   customValues: Record<string, Record<string, string>>;
@@ -122,7 +134,7 @@ export function EquipmentCardRow({
           <button
             type="button"
             className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-primary"
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            onClick={(e) => { e.stopPropagation(); onEdit(item); }}
             aria-label={`${item.name} を直す`}
           >
             <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -150,18 +162,29 @@ export function EquipmentCardRow({
       {entry.expanded && (
         <div className="border-t border-border">
           {entry.kids.map((kid) => (
-            <button
-              key={kid.id}
-              type="button"
-              onClick={() => onOpen(kid.id)}
-              className="min-h-tap flex w-full items-center gap-2 border-b border-border-faint px-3 py-2 text-left last:border-b-0 hover:bg-background"
-            >
-              <span className="min-w-0 truncate text-sub">
-                {kid.name}
-                {kid.model_number ? ` (${kid.model_number})` : ''}
-                {kid.unit_number != null ? ` No.${kid.unit_number}` : ''}
-              </span>
-            </button>
+            <div key={kid.id} className="flex items-stretch border-b border-border-faint last:border-b-0">
+              <button
+                type="button"
+                onClick={() => onOpen(kid.id)}
+                className="min-h-tap flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left hover:bg-background"
+              >
+                <span className="min-w-0 truncate text-sub">
+                  {kid.name}
+                  {kid.model_number ? ` (${kid.model_number})` : ''}
+                  {kid.unit_number != null ? ` No.${kid.unit_number}` : ''}
+                </span>
+              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-primary"
+                  onClick={(e) => { e.stopPropagation(); onEdit(kid); }}
+                  aria-label={`${kid.name} を直す`}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           ))}
           {loading && <p className="px-3 py-2 text-sub-sm text-muted-foreground">読み込んでいます…</p>}
         </div>
