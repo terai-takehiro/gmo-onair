@@ -66,4 +66,7 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/audio/:id', // 公開音声サポート — 現場のスマホで見る前提
   '/qsheet/schedules',      // スケジュール表の一覧
   '/qsheet/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
+  '/qsheet/device-settings',   // 収録設定・配信設定の入口（案件を選ぶ）
+  '/qsheet/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）
+  '/qsheet/streaming/:ownerKey', // 配信設定（同上）
 ];
