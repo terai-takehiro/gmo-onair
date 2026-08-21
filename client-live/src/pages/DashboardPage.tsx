@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useTimer } from '@/hooks/useTimer';
-import { useViewer, type PlatformKey, type PlatformToggles, ALL_PLATFORMS_ON } from '@/hooks/useViewer';
+import { usePermissions } from '@/hooks/usePermissions';
 import TimerDisplay from '@/components/timer/TimerDisplay';
 import TimerControls from '@/components/timer/TimerControls';
 import ViewerCard from '@/components/viewer/ViewerCard';
@@ -21,6 +21,16 @@ interface Snapshot {
   teams_count: number;
   total_count: number;
 }
+type PlatformKey = 'youtube' | 'jstream' | 'zoom' | 'teams';
+interface MeasureState {
+  measuring: boolean;
+  measure_started_at: string | null;
+  measure_started_by: string | null;
+  measure_until: string | null;
+  measure_until_kind: 'default' | 'manual';
+  measure_platforms: PlatformKey[];
+  measure_fail_count: number;
+}
 
 const PLATFORM_META: { key: PlatformKey; label: string; color: string }[] = [
   { key: 'youtube', label: 'YouTube', color: '#ff0000' },
@@ -29,25 +39,28 @@ const PLATFORM_META: { key: PlatformKey; label: string; color: string }[] = [
   { key: 'teams',   label: 'Teams',   color: '#6264A7' },
 ];
 
-function loadToggles(programId: string | undefined): PlatformToggles {
+function loadToggles(programId: string | undefined): Record<PlatformKey, boolean> {
   try {
     const s = JSON.parse(localStorage.getItem(`lv_dash_platforms_${programId}`) ?? '{}');
-    return {
-      youtube: s.youtube ?? true,
-      jstream: s.jstream ?? true,
-      zoom:    s.zoom    ?? true,
-      teams:   s.teams   ?? true,
-    };
+    return { youtube: s.youtube ?? true, jstream: s.jstream ?? true, zoom: s.zoom ?? true, teams: s.teams ?? true };
   } catch {
-    return { ...ALL_PLATFORMS_ON };
+    return { youtube: true, jstream: true, zoom: true, teams: true };
   }
 }
 
+/**
+ * 視聴者数の取得はサーバー側の「計測」が行う（実装設計 09 §4）。
+ * このページは「計測」を開始・停止するだけで、数字そのものは
+ * `liveops_snapshots` の最新の記録を読んで表示する（表示画面と同じやり方）。
+ * ⚠️ ここでブラウザから直接 YouTube 等を取得しない
+ *   （サーバーと二重に取りに行くと割り当てを倍消費する）。
+ */
 export default function DashboardPage() {
   const { programId } = useParams<{ programId: string }>();
+  const qc = useQueryClient();
+  const { canManage } = usePermissions();
 
-  // 取得・表示するプラットフォームのトグル (番組ごとに localStorage 保存)
-  const [platformToggles, setPlatformToggles] = useState<PlatformToggles>(() => loadToggles(programId));
+  const [platformToggles, setPlatformToggles] = useState(() => loadToggles(programId));
   const setToggle = (key: PlatformKey, val: boolean) => {
     const next = { ...platformToggles, [key]: val };
     setPlatformToggles(next);
@@ -59,11 +72,6 @@ export default function DashboardPage() {
     queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data),
     enabled: !!programId,
     staleTime: 60_000,
-  });
-
-  const { data: settingsData } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/liveops/settings').then(r => r.data.data),
   });
 
   const { data: timers = [] } = useQuery({
@@ -79,23 +87,49 @@ export default function DashboardPage() {
     refetchInterval: 15_000,
   });
 
-  // Use first timer as the active timer for the dashboard
+  // 「計測中」は全員に同じものを見せる。表示画面と同じ15秒周期でサーバーへ読みに行く
+  const { data: measure } = useQuery({
+    queryKey: ['measure', programId],
+    queryFn: () => api.get(`/liveops/measure/${programId}`).then(r => r.data.data as MeasureState),
+    enabled: !!programId,
+    refetchInterval: 15_000,
+  });
+
+  const [startError, setStartError] = useState<string | null>(null);
+  const startMutation = useMutation({
+    mutationFn: () => api.post(`/liveops/measure/${programId}/start`, {
+      platforms: (Object.keys(platformToggles) as PlatformKey[]).filter(k => platformToggles[k]),
+    }),
+    onSuccess: () => { setStartError(null); qc.invalidateQueries({ queryKey: ['measure', programId] }); },
+    onError: (e: any) => setStartError(e?.response?.data?.message || '計測を開始できませんでした'),
+  });
+  const stopMutation = useMutation({
+    mutationFn: () => api.post(`/liveops/measure/${programId}/stop`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['measure', programId] }),
+  });
+
   const activeTimerId = timers[0]?.id ?? null;
   const timer = useTimer(activeTimerId);
-  const viewer = useViewer(programId ?? null, settingsData?.pollingIntervalSec ?? 10, platformToggles);
+  const running = measure?.measuring ?? false;
 
-  // どのプラットフォームが番組に設定済みか (未設定はトグル対象外)
-  const configured: PlatformToggles = {
+  const latest = snapshots[snapshots.length - 1];
+  const counts: Record<PlatformKey, number> = {
+    youtube: latest?.youtube_count ?? 0,
+    jstream: latest?.jstream_count ?? 0,
+    zoom: latest?.zoom_count ?? 0,
+    teams: latest?.teams_count ?? 0,
+  };
+
+  const configured: Record<PlatformKey, boolean> = {
     youtube: (program?.youtube_urls?.length ?? 0) > 0,
     jstream: !!program?.jstream_lpid,
     zoom:    !!(program?.zoom_meeting_id || program?.zoom_webinar_id),
     teams:   !!program?.teams_meeting_url,
   };
-  const isActive = (key: PlatformKey) => configured[key] && platformToggles[key];
-  // 合計はトグル ON のプラットフォームのみ合算 (OFF 直後も即時に反映)
-  const displayTotal = PLATFORM_META.reduce(
-    (sum, { key }) => sum + (isActive(key) ? viewer.counts[key] : 0), 0
-  );
+  // 計測中は「開始した時点の platforms」がサーバー側の正。未計測時のみ手元のトグルで見せる
+  const activePlatforms: PlatformKey[] = running ? (measure?.measure_platforms ?? []) : (Object.keys(platformToggles) as PlatformKey[]).filter(k => platformToggles[k]);
+  const isActive = (key: PlatformKey) => configured[key] && activePlatforms.includes(key);
+  const displayTotal = PLATFORM_META.reduce((sum, { key }) => sum + (isActive(key) ? counts[key] : 0), 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -163,49 +197,63 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Viewers</span>
-              {viewer.counts.lastUpdated && (
+              {latest && (
                 <span className="text-xs text-muted-foreground hidden sm:inline">
-                  {viewer.counts.lastUpdated.toLocaleTimeString('ja-JP')}
+                  {new Date(latest.captured_at).toLocaleTimeString('ja-JP')}
                 </span>
               )}
+              {running && (
+                <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">計測中（サーバー）</span>
+              )}
             </div>
-            <Button
-              variant={viewer.running ? 'destructive' : 'default'}
-              size="sm"
-              className="h-7 text-xs"
-              onClick={viewer.running ? viewer.stopPolling : viewer.startPolling}
-            >
-              {viewer.running
-                ? <><Square className="h-3 w-3 mr-1" />停止</>
-                : <><Play className="h-3 w-3 mr-1" />開始</>}
-            </Button>
+            {canManage && (
+              <Button
+                variant={running ? 'destructive' : 'default'}
+                size="sm"
+                className="h-7 text-xs"
+                disabled={startMutation.isPending || stopMutation.isPending}
+                onClick={() => (running ? stopMutation.mutate() : startMutation.mutate())}
+              >
+                {running
+                  ? <><Square className="h-3 w-3 mr-1" />停止</>
+                  : <><Play className="h-3 w-3 mr-1" />計測を開始</>}
+              </Button>
+            )}
           </div>
 
-          {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken &&
-           !settingsData?.hasZoomCredentials && !settingsData?.hasTeamsCredentials && (
-            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning" role="alert">
+          {startError && (
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-2.5 text-xs text-destructive" role="alert">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
+              {startError}
             </div>
           )}
 
-          {/* プラットフォーム別 取得/表示トグル */}
+          {(measure?.measure_fail_count ?? 0) >= 3 && running && (
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-2.5 text-xs text-destructive" role="alert">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              取得が続けて失敗しています（{measure?.measure_fail_count}回）。鍵の設定を確認してください
+            </div>
+          )}
+
+          {/* プラットフォーム別 表示トグル（計測開始前だけ、取得対象も変えられる） */}
           <div className="flex flex-wrap items-center gap-1.5 px-3 sm:px-4 pt-3">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">取得対象</span>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">
+              {running ? '取得中' : '取得対象'}
+            </span>
             {PLATFORM_META.map(({ key, label, color }) => {
               const conf = configured[key];
-              const on = platformToggles[key];
+              const on = activePlatforms.includes(key);
               return (
                 <button
                   key={key}
                   type="button"
-                  disabled={!conf}
-                  onClick={() => setToggle(key, !on)}
+                  disabled={!conf || running}
+                  onClick={() => setToggle(key, !platformToggles[key])}
                   aria-pressed={conf && on}
-                  title={!conf ? `${label} は番組設定で未登録です` : on ? `${label} の取得を停止` : `${label} を取得対象にする`}
+                  title={!conf ? `${label} は番組設定で未登録です` : running ? '計測中は変更できません' : on ? `${label} を取得対象から外す` : `${label} を取得対象にする`}
                   className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors min-h-[28px] ${
-                    !conf
-                      ? 'opacity-35 cursor-not-allowed border-border text-muted-foreground'
+                    !conf || running
+                      ? 'opacity-60 cursor-not-allowed border-border text-muted-foreground'
                       : on
                         ? 'border-transparent text-white shadow-sm'
                         : 'border-border text-muted-foreground hover:bg-accent line-through decoration-1'
@@ -224,29 +272,21 @@ export default function DashboardPage() {
           </div>
 
           <div className="p-3 sm:p-4 space-y-2">
-            {isActive('youtube') && (
-              <ViewerCard
-                label="YouTube"
-                count={viewer.counts.youtube}
-                color="#ff0000"
-                sublabel={viewer.counts.ytDetails.map((d: any) => `${d.label}: ${d.count ?? '-'}`).join(' / ')}
-              />
-            )}
             <div className="grid grid-cols-2 gap-2">
-              {isActive('jstream') && (
-                <ViewerCard label="Jstream" count={viewer.counts.jstream} color="#00b4d8" />
-              )}
-              {isActive('zoom') && (
-                <ViewerCard label="Zoom" count={viewer.counts.zoom} color="#2D8CFF" />
-              )}
-              {isActive('teams') && (
-                <ViewerCard label="Teams" count={viewer.counts.teams} color="#6264A7" />
-              )}
+              {isActive('youtube') && <ViewerCard label="YouTube" count={counts.youtube} color="#ff0000" />}
+              {isActive('jstream') && <ViewerCard label="Jstream" count={counts.jstream} color="#00b4d8" />}
+              {isActive('zoom') && <ViewerCard label="Zoom" count={counts.zoom} color="#2D8CFF" />}
+              {isActive('teams') && <ViewerCard label="Teams" count={counts.teams} color="#6264A7" />}
               <ViewerCard label="合計" count={displayTotal} color="#a855f7" />
             </div>
             {PLATFORM_META.every(({ key }) => !isActive(key)) && (
               <p className="text-xs text-muted-foreground">
                 取得対象のプラットフォームがありません。上のトグルを ON にするか、番組設定で URL / ID を登録してください。
+              </p>
+            )}
+            {!running && (
+              <p className="text-xs text-muted-foreground">
+                「計測を開始」を押すとサーバーが取得を続けます。運用画面を閉じても数字は止まりません。
               </p>
             )}
           </div>
@@ -259,21 +299,6 @@ export default function DashboardPage() {
             <ViewerChart snapshots={snapshots} visible={platformToggles} />
           </div>
         )}
-
-        {/* Log */}
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">ログ</h2>
-          <div className="h-28 overflow-y-auto space-y-0.5 text-xs">
-            {viewer.logs.length === 0 ? (
-              <p className="text-muted-foreground">ログなし</p>
-            ) : viewer.logs.map((log: any, i: number) => (
-              <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-success' : 'text-muted-foreground'}>
-                <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
-                {log.message}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
