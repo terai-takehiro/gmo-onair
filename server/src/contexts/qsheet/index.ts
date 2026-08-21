@@ -4,6 +4,7 @@ import stageTemplateRoutes from './routes/stage-templates.routes';
 import pdfRoutes from './routes/pdf.routes';
 import uploadRoutes from './routes/upload.routes';
 import publicAudioRoutes from './routes/public-audio.routes';
+import audioShareRoutes from './routes/audio-share.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -15,6 +16,8 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet/stage-templates', stageTemplateRoutes);
   router.use('/qsheet', pdfRoutes);
   router.use('/qsheet', uploadRoutes);
+  // 音声サポート共有URLの発行・再発行・失効 (認証必須)
+  router.use('/qsheet', audioShareRoutes);
 
   return router;
 }

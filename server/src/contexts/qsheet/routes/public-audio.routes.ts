@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { queryOne } from '../../../shared/db/connection';
+import { ACCEPT_LEGACY_AUDIO_ACCESS, resolvePublicToken } from '../services/audio-share.service';
 
 const router = Router();
 
@@ -39,16 +41,56 @@ interface DocData {
   };
 }
 
+// このルートは資料の data (JSONB 全体) を毎回読んで組み立てるので、URL が外に出た
+// ときに DB 負荷が本番中に上がるのを避ける (総当たり対策ではない。トークンは192bit)。
+const publicAudioLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'リクエスト回数が上限に達しました。しばらく待ってください。' } },
+});
+
 // ============================================================
 // 音声サポート画面用 公開エンドポイント
 // 認証なしで取得可能。マイク香盤 (audio_mic ブロック) と最低限のメタのみ返す。
 // シナリオ本文・broadcast_date・episode_code 等は意図的に含めない。
+//
+// URL は今までどおり /qsheet/audio/<資料ID> (パスは1文字も変えない)。
+// ?token= は「発行・失効の管理」のためだけに使う任意パラメータ:
+//   - 無し (旧URL)        → 段階① 受け入れつつ記録するだけ (ACCEPT_LEGACY_AUDIO_ACCESS)
+//   - あり・失効済み       → 410 Gone
+//   - あり・存在しない/別資料 → 404 (「失効した」と外から区別させない)
+//   - あり・有効           → 200、last_seen_at を更新
 // ============================================================
-router.get('/documents/:id/public-audio', async (req: Request, res: Response) => {
+router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Request, res: Response) => {
   try {
+    const docId = req.params.id as string;
+    const rawToken = req.query.token;
+    const token = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : undefined;
+
+    if (token) {
+      const resolution = await resolvePublicToken(docId, token);
+      if (resolution === 'not_found') {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+        return;
+      }
+      if (resolution === 'revoked') {
+        res.status(410).json({ success: false, error: { code: 'GONE', message: 'この URL は使えなくなりました' } });
+        return;
+      }
+      // 'valid' → 通常どおり続行
+    } else if (!ACCEPT_LEGACY_AUDIO_ACCESS) {
+      // 段階③ (この段では未実施・定数は常時 true): 旧URLを拒否する
+      res.status(410).json({ success: false, error: { code: 'GONE', message: 'この URL は使えなくなりました' } });
+      return;
+    } else {
+      // 段階① (この段): 旧URL (トークン無し) を受け入れつつ記録するだけ。
+      // IP・UA は残さない — document_id と時刻だけ。表は作らずログのみ (§9-3 の決め)。
+      console.log(`[qsheet] public-audio legacy access (no token) document_id=${docId} at=${new Date().toISOString()}`);
+    }
+
     const row = await queryOne(
       `SELECT id, title, data, deleted_at FROM qsheet_documents WHERE id = $1`,
-      [req.params.id],
+      [docId],
     ) as DocumentRow | undefined;
     if (!row || row.deleted_at) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
@@ -86,6 +128,22 @@ router.get('/documents/:id/public-audio', async (req: Request, res: Response) =>
       };
     });
 
+    // 個人情報の絞り込み (実装設計 02 §6-1): masters.persons / micTypes は
+    // 「その台本のマイク香盤に実際に出てくる名前だけ」に絞る。全社の人名簿ではなく
+    // 資料ごとの手入力リストだが、絞れるものは絞る。micChannels は画面が使うので絞らない。
+    const usedPersons = new Set<string>();
+    const usedMicTypes = new Set<string>();
+    for (const sec of sections) {
+      for (const r of sec.rows) {
+        for (const cell of Object.values(r.cells)) {
+          for (const a of cell.assignments) {
+            if (a.person) usedPersons.add(a.person);
+            if (a.micType) usedMicTypes.add(a.micType);
+          }
+        }
+      }
+    }
+
     const masters = data.masters || {};
     const payload = {
       id: row.id,
@@ -93,8 +151,8 @@ router.get('/documents/:id/public-audio', async (req: Request, res: Response) =>
       blocks: micBlocks.map((b) => ({ id: b.id, type: b.type, label: b.label })),
       sections,
       masters: {
-        persons: Array.isArray(masters.persons) ? masters.persons : [],
-        micTypes: Array.isArray(masters.micTypes) ? masters.micTypes : [],
+        persons: Array.isArray(masters.persons) ? masters.persons.filter((p) => usedPersons.has(p)) : [],
+        micTypes: Array.isArray(masters.micTypes) ? masters.micTypes.filter((t) => usedMicTypes.has(t)) : [],
         micChannels: Array.isArray(masters.micChannels) ? masters.micChannels : [],
       },
     };
