@@ -692,6 +692,14 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   この回も 401**（作業環境の `GITHUB_TOKEN` は REST 不可・GitHub アクセスは MCP 経由）。
   `pull_request_read` で代替確認した。サーバーの配信停止・Dockerfile・npm scripts・
   ドキュメント更新のみでコード側の業務ロジック変更は無い PR
+- **#284**（`docs(reviews): PR #283 のマージ後の棚卸しを記録した`）— #283の直後、この棚卸し
+  自体を記録するために出した PR。作成 16:58:17 / マージ 17:04:46（2026-08-21）。**これも
+  レビュー0件のまま terai-takehiro 本人が手動マージ**（`get_reviews` で確認）。CIは
+  途中で `checks` が `check-changelog.mjs`（このPRが `docs/changelog.d/` に下書きを
+  足していなかった）で一度落ち、下書きを追加して再度緑にしてからのマージ。
+  ⚠️ **これ以上の入れ子（#284自身の棚卸しを記録する新しいPR）は作らない** —
+  棚卸し用のドキュメントPRについてまで際限なく棚卸しPRを重ねると収束しないため、
+  この1行への追記で留めた
 
 ---
 
