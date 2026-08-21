@@ -30,9 +30,18 @@
  * モックの言葉:「社内と社外を混ぜない。見積・台本・納品物は社外。
  * 発注・請求・原価は社内。この画面でも**赤（社内）と緑（社外）で分けて出します**」。
  * 取り違えると原価が外に出るので、色と言葉の両方で分けます。
+ *
+ * ── スマホは iOS の一覧セル（v4ネイティブUI監査・この回） ──────
+ *
+ * 着手前は中身の一覧が PC もスマホも同じ `Row`（`stackOnMobile`）で、
+ * 「薄い区切り線 + 右端の小さい『開く』リンク」という**表を縮めただけ**の
+ * 見た目でした（`RowSlot w={72}` の右端だけがタップ対象）。
+ * **行全体を1つのタップ対象**にし、ファイル/フォルダのアイコンを丸背景の
+ * 中に置いて種類が一目で分かるようにしています。PC は従来の `Row` のまま
+ * です（中身・API呼び出しは1つも変えていません）。
  */
 import { useRef, useState } from 'react';
-import { FolderLock, FolderOpen, ExternalLink, Info, File, Folder, Upload, Loader2 } from 'lucide-react';
+import { FolderLock, FolderOpen, ExternalLink, Info, File, Folder, Upload, Loader2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -41,6 +50,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import type { ProjectDetail } from './types';
 
 interface BoxItem {
@@ -72,7 +82,7 @@ function size(n: number | null): string | null {
  * 写すと、どちらかだけ直した日に**片方が原価を外に出す**形が生まれます。
  */
 export function FolderCard({
-  projectId, tone, icon: Icon, title, what, url, canEdit, base = '/projects',
+  projectId, tone, icon: Icon, title, what, url, canEdit, base = '/projects', mobile,
 }: {
   projectId: string;
   tone: 'internal' | 'external';
@@ -83,6 +93,11 @@ export function FolderCard({
   canEdit: boolean;
   /** 口の前置き。案件は `/projects`、プロジェクトは `/gpm/projects` */
   base?: string;
+  /**
+   * スマホでは中身の一覧を iOS の一覧セル（行全体がタップ対象）に切り替える。
+   * 渡さなければ従来の `Row`（PC と同じ）のまま — GPM 側の呼び出しはまだ渡していない
+   */
+  mobile?: boolean;
 }) {
   const inside = tone === 'internal';
   const scope = inside ? 'internal' : 'external';
@@ -173,6 +188,34 @@ export function FolderCard({
         <p className="text-sub px-4 py-4 text-muted-foreground">{REASON[data.reason] ?? data.reason}</p>
       ) : items.length === 0 ? (
         <p className="text-sub px-4 py-4 text-muted-foreground">まだ何も入っていません。</p>
+      ) : mobile ? (
+        // **行全体が1つのタップ対象。** 従来は `Row` の右端 72px の
+        // 「開く」だけがリンクで、指の当たり判定として狭かった
+        <div className="flex flex-col">
+          {items.map((it) => (
+            <a
+              key={it.id}
+              href={it.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-tap items-center gap-3 border-b border-border-faint px-4 py-3 last:border-b-0 active:bg-muted"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md bg-surface-subtle">
+                {it.type === 'folder'
+                  ? <Folder className="h-4 w-4 text-primary" aria-hidden="true" />
+                  : <File className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-list block truncate font-bold">{it.name}</span>
+                <span className="text-sub-sm block truncate text-muted-foreground">
+                  {[size(it.size), it.modified_by, formatRelativeTime(it.modified_at)]
+                    .filter(Boolean).join(' ・ ')}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </a>
+          ))}
+        </div>
       ) : (
         items.map((it) => (
           <Row key={it.id} divider interactive stackOnMobile>
@@ -240,6 +283,7 @@ export function FolderCard({
 export function FilesTab({ project }: { project: ProjectDetail }) {
   const qc = useQueryClient();
   const { currentUser, permissions } = useAuth();
+  const isMobile = useIsMobile();
   const canEdit = currentUser?.role === 'system_admin'
     || ['editor', 'manager', 'owner'].includes(permissions?.sales ?? '');
   const hasFolders = !!(project.box_url_internal || project.box_url_external);
@@ -272,6 +316,7 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
           what="発注・請求・原価。お客様には見せません。"
           url={project.box_url_internal}
           canEdit={canEdit}
+          mobile={isMobile}
         />
         <FolderCard
           projectId={project.id}
@@ -281,6 +326,7 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
           what="見積・台本・納品物。お客様と共有します。"
           url={project.box_url_external}
           canEdit={canEdit}
+          mobile={isMobile}
         />
       </div>
 

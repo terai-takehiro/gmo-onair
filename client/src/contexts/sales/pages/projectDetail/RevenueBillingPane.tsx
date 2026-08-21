@@ -37,6 +37,13 @@
  * レガシー版も同じ口を呼んでいたので権限の要件は変えていない）。
  * 「請求」カードは `invoice_issued` が立っている行だけを見せる —
  * 売上に計上されただけの見込み行と、実際に請求書を出した行は別物のため。
+ *
+ * ── スマホはカード積み（v4ネイティブUI監査・この回） ───────────
+ *
+ * 3枚とも `Row`（`stackOnMobile`）の表縮小のままだったので、`mobile` を
+ * 受け取ってカード積みに切り替えた。呼び手（`EstimateTab.tsx`）は
+ * PC専用ゲートの内側にあるが、「それでもこのまま開く」を選んだ人のために
+ * 中身は作り込んである。
  */
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -45,6 +52,7 @@ import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/u
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { Revenue, Purchase } from '@gmo-onair/shared/src/types';
 
 /**
@@ -104,7 +112,7 @@ function MoreNote({ n }: { n: number }) {
   );
 }
 
-export function RevenueBillingPane({ projectId }: { projectId: string }) {
+export function RevenueBillingPane({ projectId, mobile }: { projectId: string; mobile?: boolean }) {
   const revenues = useQuery<ListResponse<Revenue>>({
     queryKey: ['revenues', 'project', projectId],
     queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data,
@@ -140,6 +148,30 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
         <p className="text-cardtitle border-b border-border px-4 py-3">売上</p>
         {revenueRows.length === 0 ? (
           <EmptyState title="売上はまだありません" description="財務管理の売上台帳から登録できます。" />
+        ) : mobile ? (
+          <>
+            <div className="flex flex-col">
+              {revenueRows.map((r) => (
+                <div key={r.id} className="flex flex-col gap-2 border-b border-border-faint p-3.5 last:border-b-0">
+                  <div className="flex items-start gap-2">
+                    <span className="min-w-0 flex-1">
+                      <span className="text-list block truncate font-bold">{r.subtitle || r.notes || '（内容未設定）'}</span>
+                      <span className="text-sub-sm font-number block text-muted-foreground">
+                        {r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}
+                      </span>
+                    </span>
+                    <TableBadge w={null} label={REV_STATUS_LABEL[r.status] ?? r.status}
+                      className={cn('shrink-0', REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate)} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Money value={r.amount} className="text-list font-bold" />
+                    <DocButtons revenueId={r.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {moreRevenue > 0 && <MoreNote n={moreRevenue} />}
+          </>
         ) : (
           <>
             <RowHeader className="hidden sm:flex">
@@ -168,6 +200,22 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
           <p className="text-cardtitle border-b border-border px-4 py-3">請求</p>
           {invoiceRows.length === 0 ? (
             <EmptyState title="請求はまだありません" description="売上・請求（全案件）から請求書を出せます。" />
+          ) : mobile ? (
+            <div className="flex flex-col">
+              {invoiceRows.map((r) => {
+                const st = invoiceState(r);
+                return (
+                  <div key={r.id} className="flex items-start gap-2 border-b border-border-faint p-3.5 last:border-b-0">
+                    <span className="min-w-0 flex-1">
+                      <span className="text-list block truncate font-bold">{r.invoice_no || r.billing_key || '（番号未採番）'}</span>
+                      <span className="text-sub-sm font-number block text-muted-foreground">{r.billing_date?.replace(/-/g, '/') ?? '—'}</span>
+                      <Money value={r.amount} className="text-list mt-1 font-bold" />
+                    </span>
+                    <TableBadge w={null} label={st.label} className={cn('shrink-0', st.tone)} />
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             invoiceRows.map((r) => {
               const st = invoiceState(r);
@@ -188,6 +236,18 @@ export function RevenueBillingPane({ projectId }: { projectId: string }) {
           <p className="text-cardtitle border-b border-border px-4 py-3">仕入（原価）</p>
           {purchaseRows.length === 0 ? (
             <EmptyState title="仕入はまだありません" description="財務管理の仕入台帳から登録できます。" />
+          ) : mobile ? (
+            <>
+              <div className="flex flex-col">
+                {purchaseRows.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 border-b border-border-faint p-3.5 last:border-b-0">
+                    <span className="text-list min-w-0 flex-1 truncate">{p.vendor_name || p.description || '（内容未設定）'}</span>
+                    <Money value={p.amount} className="text-list shrink-0 font-bold" />
+                  </div>
+                ))}
+              </div>
+              {morePurchase > 0 && <MoreNote n={morePurchase} />}
+            </>
           ) : (
             <>
               {purchaseRows.map((p) => (
