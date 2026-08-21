@@ -132,13 +132,24 @@ export function initQsheetSocketIO(io: Server): void {
     });
 
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
-    socket.on('cue:update', async (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
+    // runId / runStartedAt: 実尺 (qsheet_cue_actuals) の run_id を進行 (OnAir) から全端末へ
+    // 相乗りさせるためのフィールド。新しいイベントは増やさず、cue:update -> cue:sync に
+    // 素通しするだけ (docs/design/v4/qsheet-v4-coding/impl/01-cue-actuals-impl.md §4-1)。
+    socket.on('cue:update', async (data: {
+      currentCue: number;
+      elapsed: number;
+      isPlaying: boolean;
+      runId?: string | null;
+      runStartedAt?: string | null;
+    }) => {
       await ready;
       if (!socket.data.canAccess) return;
       socket.to(room).emit('cue:sync', {
         currentCue: data.currentCue,
         elapsed: data.elapsed,
         isPlaying: data.isPlaying,
+        runId: data.runId ?? null,
+        runStartedAt: data.runStartedAt ?? null,
         timestamp: Date.now(),
       });
     });
