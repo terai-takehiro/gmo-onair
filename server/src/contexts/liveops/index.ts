@@ -5,10 +5,13 @@ import proxyRoutes from './routes/proxy.routes';
 import snapshotsRoutes from './routes/snapshots.routes';
 import timersRoutes from './routes/timers.routes';
 import webhooksRoutes from './routes/webhooks.routes';
+import measureRoutes from './routes/measure.routes';
+import orgSettingsRoutes from './routes/org-settings.routes';
 import { restoreSubscriptions, startSubscriptionRenewal } from './teams-subscription';
 import { getTeamsToken } from './teams-token';
 import { queryOne } from '../../shared/db/connection';
 import { decrypt } from './crypto';
+import { restoreMeasurements } from './measure.service';
 
 export function createLiveopsRoutes(): Router {
   const router = Router();
@@ -17,10 +20,12 @@ export function createLiveopsRoutes(): Router {
   router.use('/liveops/webhooks', webhooksRoutes);
 
   router.use('/liveops/settings', settingsRoutes);
+  router.use('/liveops/org-settings', orgSettingsRoutes);
   router.use('/liveops/programs', programsRoutes);
   router.use('/liveops/proxy', proxyRoutes);
   router.use('/liveops/snapshots', snapshotsRoutes);
   router.use('/liveops/timers', timersRoutes);
+  router.use('/liveops/measure', measureRoutes);
 
   return router;
 }
@@ -49,6 +54,13 @@ export async function initLiveopsServices(): Promise<void> {
       return null;
     }
   });
+
+  // 視聴者計測の復元。⚠️ このメソッド自体は呼び出し側（server/src/index.ts）で
+  // catch されているため、ここで投げると「計測が復元されない」ことに誰も気づけない。
+  // 必ず自前で警告を出す。
+  await restoreMeasurements().catch((e) =>
+    console.warn('[liveops] restoreMeasurements failed:', (e as Error).message)
+  );
 }
 
 export { initLiveopsSocketIO } from './socket';

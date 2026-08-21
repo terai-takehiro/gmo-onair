@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, CheckCircle, Download, Upload, ShieldOff, PlugZap, Loader2, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import OrgKeysSection from './OrgKeysSection';
 
 type TestPlatform = 'youtube' | 'jstream' | 'zoom' | 'teams';
 interface TestResult { status: 'ok' | 'error' | 'unconfigured' | 'untested'; message: string; latencyMs: number; detail?: string }
@@ -190,10 +191,14 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-3xl space-y-6">
-          {/* API Keys */}
+          {/* 組織共通の鍵（サーバー側の計測が使う） */}
+          <OrgKeysSection />
+
+          {/* API Keys（接続テスト専用。計測はここではなく上の組織共通の鍵を使う） */}
           <section className="rounded-xl border bg-card p-4 space-y-4">
-            <h2 className="text-sm font-semibold">APIキー設定</h2>
+            <h2 className="text-sm font-semibold">接続テスト用の鍵（個人）</h2>
             <p className="text-xs text-muted-foreground">
+              ここに入れた鍵は<strong>接続テストにだけ</strong>使われます（サーバー側の計測には使われません）。
               APIキーはサーバーでAES-256-GCM暗号化して保存されます。入力した値は画面を離れると消去されます。
             </p>
 
@@ -215,7 +220,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-green-600">設定済み ({settings.youtubeApiKeyMasked})</p>
               )}
               {!settings?.hasOwnYoutubeKey && settings?.hasYoutubeKey && (
-                <p className="text-xs text-amber-600">他ユーザーのキーを共有利用中 (自分のキーを設定すると優先されます)</p>
+                <p className="text-xs text-amber-600">他ユーザーのキーで接続テストを共有利用中 (自分のキーを設定すると優先されます。計測には使われません)</p>
               )}
               <ApiGuide
                 title="YouTube APIキーの取得方法"
@@ -246,7 +251,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-green-600">設定済み ({settings.jstreamTokenMasked})</p>
               )}
               {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
-                <p className="text-xs text-amber-600">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
+                <p className="text-xs text-amber-600">他ユーザーのトークンで接続テストを共有利用中 (自分のトークンを設定すると優先されます。計測には使われません)</p>
               )}
               <ApiGuide
                 title="Jstream トークンの取得方法"
@@ -271,7 +276,7 @@ export default function SettingsPage() {
               <p className="text-xs text-green-600">設定済み</p>
             )}
             {!settings?.hasOwnZoomCredentials && settings?.hasZoomCredentials && (
-              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+              <p className="text-xs text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
             )}
             <div className="space-y-1.5">
               <Label>Account ID</Label>
@@ -329,7 +334,7 @@ export default function SettingsPage() {
               <p className="text-xs text-green-600">設定済み</p>
             )}
             {!settings?.hasOwnTeamsCredentials && settings?.hasTeamsCredentials && (
-              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+              <p className="text-xs text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
             )}
             <div className="space-y-1.5">
               <Label>Tenant ID</Label>
@@ -373,20 +378,6 @@ export default function SettingsPage() {
               ]}
             />
             <ApiTestRow platform="teams" note="Microsoft Graph の認証を実際に行い資格情報を検証します" />
-          </section>
-
-          {/* Polling */}
-          <section className="rounded-xl border bg-card p-4 space-y-3">
-            <h2 className="text-sm font-semibold">ポーリング設定</h2>
-            <div className="flex items-center gap-3">
-              <Label className="w-32 shrink-0">取得間隔 (秒)</Label>
-              <Input
-                type="number" min={5} max={300}
-                value={pollingInterval}
-                onChange={e => setPollingInterval(e.target.value)}
-                className="w-24"
-              />
-            </div>
           </section>
 
           <Button

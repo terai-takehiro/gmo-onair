@@ -7,6 +7,7 @@ import { resolveKey } from '../resolve-key';
 import { getZoomToken } from '../zoom-token';
 import { getTeamsToken } from '../teams-token';
 import { getCount } from '../teams-subscription';
+import { fetchYoutube, fetchJstream, fetchZoom, extractErrorMessage } from '../viewer-sources.service';
 
 const router = Router();
 const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
@@ -22,21 +23,11 @@ router.get('/youtube', ...canRead, async (req, res) => {
     const { videoIds } = req.query as { videoIds?: string };
     if (!videoIds) return res.status(400).json({ success: false, message: 'videoIds required' });
 
-    const ytRes = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-      params: { id: videoIds, part: 'liveStreamingDetails,statistics', key: apiKey },
-      timeout: 10000,
-    });
-
-    const items = ytRes.data.items || [];
-    const counts: Record<string, number | null> = {};
-    for (const item of items) {
-      const concurrent = item.liveStreamingDetails?.concurrentViewers;
-      counts[item.id] = concurrent != null ? parseInt(concurrent, 10) : null;
-    }
+    const counts = await fetchYoutube(apiKey, videoIds.split(','));
     res.json({ success: true, data: counts });
   } catch (err: any) {
     const status = err?.response?.status || 500;
-    res.status(status).json({ success: false, message: err?.response?.data?.error?.message || 'YouTube API error' });
+    res.status(status).json({ success: false, message: extractErrorMessage(err, 'YouTube API error') });
   }
 });
 
@@ -50,18 +41,8 @@ router.get('/jstream', ...canRead, async (req, res) => {
     const { lpid } = req.query as { lpid?: string };
     if (!lpid) return res.status(400).json({ success: false, message: 'lpid required' });
 
-    const jsRes = await axios.get(
-      'https://api01-platform.stream.co.jp/apiservice/getLiveConnection/',
-      { params: { token, lpid, type: 'text' }, timeout: 10000 }
-    );
-
-    // CSV format: last line, last comma-separated value is the concurrent count
-    const text: string = jsRes.data || '';
-    const lines = text.trim().split('\n').filter(Boolean);
-    const last = lines[lines.length - 1] || '';
-    const parts = last.split(',');
-    const count = parseInt(parts[parts.length - 1], 10);
-    res.json({ success: true, data: { count: isNaN(count) ? 0 : count } });
+    const count = await fetchJstream(token, lpid);
+    res.json({ success: true, data: { count } });
   } catch {
     res.status(500).json({ success: false, message: 'Jstream API error' });
   }
@@ -83,25 +64,18 @@ router.get('/zoom', ...canRead, async (req, res) => {
     const token = await getZoomToken(clientId, clientSecret, accountId);
     const { type, meetingId, webinarId } = req.query as { type?: string; meetingId?: string; webinarId?: string };
 
-    let endpoint: string;
+    let count: number;
     if (type === 'webinar') {
       if (!webinarId) return res.status(400).json({ success: false, message: 'webinarId required' });
-      endpoint = `https://api.zoom.us/v2/metrics/webinars/${encodeURIComponent(webinarId)}/participants?type=live`;
+      count = await fetchZoom(token, 'webinar', webinarId);
     } else {
       if (!meetingId) return res.status(400).json({ success: false, message: 'meetingId required' });
-      endpoint = `https://api.zoom.us/v2/metrics/meetings/${encodeURIComponent(meetingId)}/participants?type=live`;
+      count = await fetchZoom(token, 'meeting', meetingId);
     }
-
-    const zoomRes = await axios.get(endpoint, {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 10000,
-    });
-    const count: number = zoomRes.data?.total_count ?? 0;
     res.json({ success: true, data: { count } });
   } catch (err: any) {
     const status = err?.response?.status || 500;
-    const msg = err?.response?.data?.message || 'Zoom API error';
-    res.status(status).json({ success: false, message: msg });
+    res.status(status).json({ success: false, message: extractErrorMessage(err, 'Zoom API error') });
   }
 });
 
