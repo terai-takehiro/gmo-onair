@@ -37,12 +37,12 @@ v4 の3アプリは `dark` を一度も付けないため、今は露見して�
 | — | [`00-confirmations-evidence.md`](00-confirmations-evidence.md) | README §4 | ✅（上の①〜⑥の根拠） |
 | 1 | [`01-cue-actuals-impl.md`](01-cue-actuals-impl.md) | 07 §3・04 §5-3a | ✅ |
 | 2 | [`02-audio-share-token-impl.md`](02-audio-share-token-impl.md) | 07 §4 | ✅ |
-| 3 | [`03-app-structure-impl.md`](03-app-structure-impl.md) | 01 | 作成中 |
-| 4 | [`04-schedule-impl.md`](04-schedule-impl.md) | 02 | 作成中 |
-| 5 | [`05-editor-impl.md`](05-editor-impl.md) | 06 | 作成中 |
+| 3 | [`03-app-structure-impl.md`](03-app-structure-impl.md) | 01 | ✅ |
+| 4 | [`04-schedule-impl.md`](04-schedule-impl.md) | 02 | ✅ |
+| 5 | [`05-editor-impl.md`](05-editor-impl.md) | 06 | ✅ |
 | — | [`08-recording-streaming-impl.md`](08-recording-streaming-impl.md) | 08 | ✅（並行・段依存なし） |
 | — | [`09-live-timer-impl.md`](09-live-timer-impl.md) | 09 | ✅（並行・段依存なし） |
-| 7 | [`07-ai-proposals-impl.md`](07-ai-proposals-impl.md) | 04（04-a のみ） | 作成中 |
+| 7 | [`07-ai-proposals-impl.md`](07-ai-proposals-impl.md) | 04（04-a のみ） | ✅ |
 
 ---
 
@@ -107,6 +107,28 @@ v4 の3アプリは `dark` を一度も付けないため、今は露見して�
    定数を返すと、同時編集で入った行が黙って消えます。
 6. **モバイルのセル置換は破壊的。** 色を付けただけで `stage_diagram` の
    `templateIndex`/`note` や `slide` の `image` が**復元不可能に消えます**。
+   さらに**モバイルの削除はゴミ箱を通りません**（`CueCardList.tsx:110-119,153-159`）＝
+   スマホで消したものは戻せません。
+7. **編集画面は collab 有効時に `PUT` を一度も飛ばさない。** `title` / `status` /
+   `broadcast_date` / `episode_*` の**列が更新されません**。一覧の検索は `d.title` を見る一方
+   カード表示は `meta.title` を優先するため、**編集後のタイトルで検索に当たらないのに
+   画面上は正しく見えます**。
+8. **`templateIndex` → `templateId` の移行対象が設計書で2本漏れている**
+   （`PreviewModal.tsx:738` と `RundownPage.tsx:690`）。そのまま実装すると
+   **印刷とランダウン（本番画面）から立ち位置図が黙って消えます**。
+9. **凍結を守っている検査は設計書が言う4つではなく7スクリプト。**
+   しかも **`check:frozen` は CI に入っていません**（01 §0 の「外し忘れると CI が落ちる」は不成立）。
+   実際に `npm run lint` を落とすのは `check-shared-wiring.mjs:236-238` と `apps.test.ts:39` です。
+10. **`client-qsheet` を見ていない検査が3本ある**
+    （`check-mobile-declared.mjs` / `check-file-size.mjs` / `check-ui-tokens.mjs` の `V4_DIRS`）。
+    **凍結を解くと、新しく作る画面が全部無検査で入ります。** 登録を忘れないこと。
+11. **PR #279（収録設定・配信設定）はドキュメント 2,199 行だけで、コードもテーブルも1行も入っていない。**
+    08 は「合わせ直す」ではなく**初めて作る**段です。
+12. **案件単位のアクセス判定（`:ownerKey`）が存在しない。** 既存の `canAccessDoc` は**文書単位**
+    （`qsheet_document_shares`）です。08 が要る `resolveOwner` は新設で、
+    **「その案件が見えてよい人」の定義が未決**です。
+13. **`exceljs` はリポジトリに1件も入っていない**（既存は全部 SheetJS の `xlsx@0.18.5`）。
+    「ExcelJS に統一」は統一ではなく**新規依存の追加**で、依存追加 PR が先に要ります。
 
 ---
 

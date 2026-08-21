@@ -20,7 +20,7 @@
 
 | # | やること | 主な成果物 |
 | --- | --- | --- |
-| 1 | **凍結解除**（`client-qsheet` を v4 の検査体系に移す） | `apps.ts` / 検査スクリプト5本 / `client-qsheet/CLAUDE.md` |
+| 1 | **凍結解除**（`client-qsheet` を v4 の見た目と検査体系に移す） | `tokens-v4.css`（`.dark` 追加） / `index.css` / `tailwind.config.ts` / `apps.ts` / 検査スクリプト6本 / `client-qsheet/CLAUDE.md` |
 | 2 | **ルーティングの作り替え**（公開URL5本は1文字も変えない） | `client-qsheet/src/App.tsx` |
 | 3 | **ミニアプリのレジストリ**（`shared` ＋ `server` の意図的複製） | `shared/src/production/miniapps.ts` ほか |
 | 4 | **`doc_no`（資料番号）の DDL と採番** | migration 1本 ＋ `docNo.service.ts` |
@@ -1008,7 +1008,7 @@ client-qsheet/src/styles/legacy-onair.css   ← 新規（**作らない**）
 
 | # | 種類とタイトル | 触る場所 | 依存 | 検証 |
 | --- | --- | --- | --- | --- |
-| A | `chore(qsheet): 制作資料の凍結を解いた` | `apps.ts` / `apps.test.ts` / `HomePage.tsx` / `AppTiles.tsx` / `check-shared-wiring.mjs` / `check-frozen-css.mjs` / `frozen-css-baseline.json` / `client-qsheet/CLAUDE.md` / ルート `CLAUDE.md` / `docs/v4-native-ui-plan.md` | — | `lint` / `test` / `check:frozen`（**`live`/`awards` だけになったことを確認**） |
+| A | `chore(qsheet): 制作資料の凍結を解いて v4 の見た目にした` | **`tokens-v4.css`（`.dark` を足す・§7-1）** / `client-qsheet/src/index.css`（import を `base.css` に） / `client-qsheet/tailwind.config.ts`（`v4Preset` ＋ `client-v4` content） / `apps.ts` / `apps.test.ts` / `HomePage.tsx` / `AppTiles.tsx` / `check-shared-wiring.mjs` / `check-frozen-css.mjs` / `frozen-css-baseline.json` / `verify-ui.mjs` / `client-qsheet/CLAUDE.md` / ルート `CLAUDE.md` / `docs/v4-native-ui-plan.md` | — | `lint` / `test` / `build:all` → `check:frozen`（**`live`/`awards` だけになったことを確認**） / **`verify:ui qsheet`（暗い3画面が暗いまま）** |
 | B | `feat(qsheet): ミニアプリのレジストリを足した` | `shared/src/production/*` / `server/src/shared/production/*` / `client-qsheet/src/miniapps/ui.tsx` / `check-collab-parity.mjs` / `shared/tests/miniapps.test.ts` | A | `typecheck:all` / `test` / `node scripts/check-collab-parity.mjs` |
 | C | `feat(qsheet): 資料番号（doc_no）を採れるようにした` | migration `214`（予定・§5-1） / `docNo.service.ts` / `documents.routes.ts`（POST に列1つ） | B | `verify:up` → `db:migrate` → 新規作成で `SB-YYYYMM-0001` が返ること |
 | D | `feat(qsheet): ジャーニーのピンを足した` | migration `215`（予定・§5-1） / `journey-marks.routes.ts` | B | `verify:up` → `db:migrate` → POST/DELETE と `cleared_at` |
@@ -1021,7 +1021,7 @@ client-qsheet/src/styles/legacy-onair.css   ← 新規（**作らない**）
 
 | PR | 1文 |
 | --- | --- |
-| A | 制作資料（Qシート）の凍結を解いた。アプリ一覧とアプリ切替に出るようになり、v4 の検査（共通シェル・CSS の据え置き）の対象から外した。**本番4画面（進行・ランダウン・プロンプター・公開音声）の URL と見た目は変えていない。** |
+| A | 制作資料（Qシート）の凍結を解き、v4 の色・書体にした。**進行・ランダウン・プロンプターの URL は1文字も変えていない**（配布済みの QR・OBS の出力URL・役割別URLはそのまま動く）。暗い画面が暗いままであることを実ブラウザで確かめている。 |
 | B | 制作資料の中の道具（進行台本・スケジュール表）を1か所に登録する仕組みを足した。名前・資料番号の接頭辞・URL をここだけに書けば、一覧・件数・作成メニューの全部に出る。 |
 | C | 案件に紐づかない資料に、口頭で言える番号（`SB-202608-0001`）が付くようにした。既存の資料には後から付けない。 |
 | D | 制作のジャーニーで「ここは決まった」「ここは要注意」を人が押せるようにした。**押した記録も、外した記録も残る。** |
@@ -1174,7 +1174,7 @@ A を後回しにすると、E 以降の新画面を**旧トークンで作っ�
 
 | # | 重大度 | 設計書の記述 | 実装の事実 | この文書での扱い |
 | --- | --- | --- | --- | --- |
-| 1 | **重大** | 01 §0-1「tokens を `tokens-v4.css` に差し替えると、本番4画面の**見た目も同時に変わる**」（＝色が変わるだけの話として書かれている） | `tokens-v4.css` に **`.dark` のブロックが1つも無い**。`:root`（後）が `tokens.css` の `.dark`（先）を同特異度で上書きするため、**`.dark` を付ける本番3画面（OnAir / プロンプター / ランダウン）の地の色が暗色から白に変わる**。v4 の3アプリで `.dark` を使う画面は0件なので、**この不具合は qsheet を載せた瞬間に初めて現れる** | §7-1 に独立節。(a)(b) どちらの判断でも**追加作業が要る**ことを明記 |
+| 1 | **重大** | 01 §0-1「tokens を `tokens-v4.css` に差し替えると、本番4画面の**見た目も同時に変わる**」（＝色が変わるだけの話として書かれている） | `tokens-v4.css` に **`.dark` のブロックが1つも無い**（`tokens.css:197` にはある）。`:root`（後）が `.dark`（先）を同特異度で上書きするため、**`.dark` を付ける本番3画面（OnAir / プロンプター / ランダウン）の地の色が暗色から白に変わる**。v4 の3アプリで `.dark` を使う画面は0件なので、**この不具合は qsheet を載せた瞬間に初めて現れる** | §7-1。確認①＝(a) を採ったので、**`tokens-v4.css` に `.dark` を足すことが必須**。**index.css の import を替える PR と分けない** |
 | 2 | **重大** | README §6「現在の最大は 210」／01 §7-1 も同じ | **実際の最大は 211**（`211_drop_techsheet_schema.sql`）。README の割り当ては 211 から始まっており、**全部 1 つずれている**。さらに段1 と段2 がどちらも 212 を主張していた | §5-1（[`README.md`](README.md) §3 の予定表に従う）。**段3 は 214 / 215** |
 | 3 | **重大** | 01 §0「凍結 CSS の検査を外し忘れると **CI が『CSS が変わった』で落ちる**」 | **`check:frozen` は CI に入っていません**（`ci.yml` は typecheck:all / lint / test / collab-parity / check:version / check:ui-tokens の6つだけ）。**外し忘れても CI は緑のまま** | §2-6・§7-2・§9-2。実際に CI を落とすのは `check-shared-wiring.mjs:236-238` と `apps.test.ts:39` |
 | 4 | **重大** | 01 §6-3「検査に足すもの」＝ `check-collab-parity` / `miniapps.test` / `apps.test` / `check-frozen-css` の**4つ** | 実際は最低 **7スクリプト**が `client-qsheet` を特別扱いしている。特に **`check-shared-wiring.mjs:236-238` は「凍結アプリを共通シェルに載せ替えないこと」で `npm run lint` を落とす** — 01 §1-4 が「共通シェルに載せ替える」と決めているので**必ず踏む** | §2-7 に全部の表。§7-2 に手順 |
@@ -1194,4 +1194,7 @@ A を後回しにすると、E 以降の新画面を**旧トークンで作っ�
 | 18 | 低 | 01 §4-5 が `frames[]` を `JourneyDay` の必須フィールドにする | `qsheet_schedule_items` は **02（段4）が作る表**で、段3 では存在しない | §6-2。**型は必須のまま・段3 は常に空配列**（`frames?:` にしない） |
 | 19 | 低 | 01 §4-5 が `docTotalSec()` を `shared/src/schedule/time.ts` から使う | **`shared/src/schedule/` は存在しない**（00 と 02 が作る） | §6-2。段3 では `durationGapMin` は常に `null` |
 | 20 | 低 | 01 §2-2 の DDL コメント「番号は着手時の最大＋1に振り直す。**現在の最大は 210**」 | #2 と同じ | §5-1 |
+| 21 | 中 | 01 §0-1・§9-12・07 §1「見た目が変わるのは**本番4画面**（進行・ランダウン・プロンプター・**公開音声**）」 | **公開音声は影響を受けません。** `AudioSupportPage.tsx` は意味トークンのクラス **0 件**・`var(--` **0 件**・shadcn/shared の UI 部品を **1つも import していない**（色は `bg-zinc-950` などの素のパレット、角丸は `rounded-2xl`/`rounded-full` の固定値）。**変わるのは書体だけ**（`body { font-family: var(--font-sans) }` 経由） | §7-3 の冒頭に絞り込み表。**「4画面」ではなく「3画面＋書体だけ公開音声」** |
+| 22 | 低 | 01 §0-1「`.font-oswald` 系の数字書体が本番画面で変わる」（`--font-mono-num` の変更の影響として想定されている） | **`.font-oswald` を使っているのは `CueTable.tsx` の6か所だけ**＝**編集画面**（段5）。本番3画面では0件。進行のタイマーは `OnAirPage.tsx:127` の `tabular-nums` | §7-3 (B)。影響は**段5** |
+| 23 | 低 | 01 §0-1 が既定に置いた「本番画面だけ旧トークンでスコープ固定」 | ポータル（`Dialog`/`Toast`）は `<body>` 直下に描かれるため**スコープの外に出る**。`OnAirPage.tsx:333` の切断トーストが `<Toaster />` 経由で `<body>` 直下 | 確認①＝(a) により**不採用**。実装形と弱点は §7-4 に残した |
 
