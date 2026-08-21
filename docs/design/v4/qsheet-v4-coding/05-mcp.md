@@ -513,8 +513,15 @@ interface ProposeDraftResult {
 ```
 
 **このとき起きること**（04 の経路にそのまま乗る）:
-1. `recordAiOutput({ kind, targetTable:'qsheet_documents', targetId: document_id, payload, toolName:'propose_qsheet_draft', model, promptVersion, actorId: currentActorId(), requestedBy, sourceChannel:'mcp' })`
-2. `qsheet_ai_proposals` に `state='open'` / `source='mcp'` / `ai_output_id` で1行
+1. **先に `qsheet_ai_proposals` を1行作り**（`state='open'` / `source='mcp'`）、
+   `recordAiOutput({ kind, targetTable:'qsheet_ai_proposals', targetId: proposal.id, payload,
+   toolName:'propose_qsheet_draft', model: 'mcp:' + model, promptVersion,
+   actorId: currentActorId(), requestedBy, sourceChannel:'mcp' })` で紐づける。
+   ⚠️ **`targetTable:'qsheet_documents'` は誤り**でした（検査 AIループ#F7）。
+   `document_id` を target にすると、同じ台本に対する複数の提案が同じ target になり、
+   差分の突合の起点が壊れます。04 §3-3 で `qsheet_ai_proposals` に統一しました。
+   ⚠️ **`model` に `mcp:` を前置する**（自己申告値をサーバー実測値と `by_model` の同じ列に混ぜない。04 §6-5c）。
+2. `ai_output_id` を提案に書き戻す
 3. `audit('propose_qsheet_draft', args, { created_id: proposal.id, document_id, kind, rows: n }, requested_by)`
 
 ⚠️ **`payload` は `mcp_audit_log` では 1000 文字で切られます**（文字列だけ・再帰的に）。
@@ -570,8 +577,10 @@ read/write を判定します。** §4-6・§4-7 は audit を明記している
 
 **検証（`validate.ts` がやること）**
 
-1. **型の対応**: `cells` のキーは `BlockType`。上の表で ✕ の型は落として `dropped[].reason='unsupported_type'`。
-2. **列の存在**: その台本の `blocks` に同じ `type` の列が無ければ落として `no_block`（**列を勝手に足さない**）。
+1. **型の対応**: `cells` のキーは **`blockRef`**（`blk.<type>#<n>`。★検査 整合#7 で `BlockType` から変更）。
+   `resolveBlockRef(blocks, ref)` で解決できない、または上の表で ✕ の型は落として
+   `dropped[].reason='unsupported_type'`。
+2. **列の存在**: その台本の `blocks` に対応する列が無ければ落として `no_block`（**列を勝手に足さない**）。
 3. **参照**: `sceneId` / `templateIndex` が実在しなければ落として `bad_reference`。
 4. **HTML 禁止**: `text` に `<` を含んだら落として `html`（04 決めたこと7。表示時に消えるうえ XSS の口）。
 5. **1行1エントリ**: `entries` は必ず要素1個（v2.8.155 で統一済み）。複数入れると
@@ -826,7 +835,7 @@ note:'未使用のまま期限切れ' }])` を積むこと（04 §3-3。積ま�
 | --- | --- |
 | **台本への取り込み（apply）** | §6。04 が「書き込みはクライアント」と決めており、取捨選択の記録（条件2の濃い部分）も画面にある |
 | **本番の操作**（`cue:update` / `cue:next` / タイマー / ランダウンの進行） | 本番中に AI が1拍遅れて進行を送ると事故が事故のまま残る。しかも Socket.IO の中継はサーバーに何も保存されず、**監査ログでは何が起きたか再現できない** |
-| **公開URL（音声サポート）の発行・失効** | 権限の外にデータを出す操作。失効カラムは migration 209 で DROP 済みで**失効させられない**（配ったら取り消せない）。まず画面と DB を直すのが先 |
+| **公開URL（音声サポート）の発行・失効** | 権限の外にデータを出す操作。失効カラムは migration 209 で DROP 済みで**失効させられない**（配ったら取り消せない）。まず画面と DB を直すのが先 → ⚠️ **その「先に直す」を誰もやらない設計になっていたので、[`07-onair-roles.md`](07-onair-roles.md) §4 が引き取りました**（検査 機能#M5。QR を配る `AudioShareDialog` は現役です） |
 | **共有設定（`qsheet_document_shares`）の変更** | 「見える範囲を AI が広げられる」のが最悪の失敗の形。台本の秘匿は 404 で存在ごと隠す設計で、その根っこを AI に渡さない |
 | **削除**（文書のソフトデリート・行やロールの削除・`trash` の操作） | 消す判断は人。誤って消えたときに「AI がやった」を切り分けられる状態を保つ |
 | **並べ替え** | Yjs に atomic move が無く clone(delete+insert) で identity を失う（`ydocOps.ts:221`）。並行編集を静かに取りこぼす操作を AI に持たせない |
@@ -949,8 +958,11 @@ docs/mcp-server.md                                       表と件数を手で�
 
 **着手時のチェックリスト**（既存の作法。`docs/mcp-server.md` 準拠）
 
-1. write ツールは成功時に必ず `audit(...)`。`result_summary` に `created_id` を入れる
-   （入れないと画面の AI バッジ・AI 活動フィードに出ない）
+1. **write ツール3本とも**成功時に必ず `audit(...)`（`create_qsheet` / `propose_qsheet_draft` /
+   **`discard_qsheet_proposal`**）。`result_summary` に `created_id` を入れる
+   （入れないと画面の AI バッジ・AI 活動フィードに出ない）。
+   ⚠️ `generate-mcp-tools.mjs:73` は**本文中の `audit(` の有無だけで read/write を判定**するので、
+   1本でも呼ばないと `mcp-tools.json` の分類がずれます（検査 地雷#18）
 2. `gate.ts` に `module: 'qsheet'` / `level: 'editor'` を登録（漏れると `generate-mcp-tools.mjs` が `exit 1`）
 3. ハンドラの先頭で `requireProductionActor()`（**read も write も**。read にはゲートが無いため）
 4. ロジックは 04 の service を再利用する（画面と同じ結果・同じ副作用）

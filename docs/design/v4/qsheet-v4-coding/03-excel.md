@@ -939,7 +939,7 @@ CREATE INDEX IF NOT EXISTS idx_qsheet_import_batches_applied
 | 1 | **`node:20-alpine` に full-ICU が入っているか**（CP932 の CSV を読むのに要る） | §8-4 の `docker run` 一行。入っていなければ CP932 の変換表を同梱するか、CSV 取込を UTF-8 のみに割り切る |
 | 2 | **`exceljs` を足してよいか**（サーバーに Excel ライブラリが 2 つになる） | `npm audit` の結果と、既存 `xlsx` 経路の移行コストを見て判断。全面移行なら別 PR |
 | 3 | **`before_data` の実サイズ** | 本番の `SELECT pg_column_size(data) FROM qsheet_documents ORDER BY 1 DESC LIMIT 10`。数 MB を超えるなら上限と圧縮を決める |
-| 4 | **`stageTemplates` の index → id 移行**（§4-4） | `02-datamodel` 側と揃える。**これが済むまで `stage_diagram` は書き出しのみ** |
+| 4 | **`stageTemplates` の index → id 移行**（§4-4） | → [`00-datamodel-fixes.md`](00-datamodel-fixes.md) §1 が引き取りました。**これが済むまで `stage_diagram` は書き出しのみ** |
 | 5 | **`slide` に編集 UI が無い**（今は幽霊型） | → [`06-editor.md`](06-editor.md) §3 が引き取りました。**既存の `/qsheet/upload-image` 経路をそのまま流用して `slide` セルを作る**のが既定です（作らないと「11型を1つも減らさない」が実質破れます） |
 | 6 | **モバイル／PC のセル形ドリフト**（§4-4-3） | → [`00-datamodel-fixes.md`](00-datamodel-fixes.md) §2。**PC の形を正**とし、Excel の往復より先に潰す |
 | 11 | **印刷／PDF の出力が2本あるまま** | → [`06-editor.md`](06-editor.md) §6。この文書は書き出しを xlsx/csv に一本化したのに**印刷に一言も触れておらず**、`PreviewModal`（ブラウザ印刷・791行）と `pdf.routes.ts`（誰も呼んでいない）が残っています。放置すると「出力が2本」問題が印刷で再発します（検査 機能#M4） |

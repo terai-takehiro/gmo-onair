@@ -17,7 +17,7 @@
 
 1. **バンドルもベースパスも `/qsheet/` のまま**。`client-production` のような新バンドルは作らない。既存 URL（`/qsheet/editor/:id` `/qsheet/onair/:id` `/qsheet/rundown/:id` `/qsheet/prompter/:id` `/qsheet/audio/:id`）は**1つも変えない**。
 2. **資料は必ず「資料ID 1本の URL」で開く。案件配下にネストしない**（`/qsheet/projects/:pid/editor/:id` を作らない）。案件の URL は**入口（ジャーニー）専用**にする。
-3. `/qsheet` の中身を **一覧 → 案件選択（トップ）** に入れ替える。旧トップの一覧は `/qsheet/sheets` に移し、`/qsheet/editor`（一覧）は `<Navigate replace>` で送る。**ここだけは意味が変わる**ので要確認（→ 最終節）。
+3. **トップ（案件選択）は `/qsheet/home` に作り、`/qsheet` の向き先は1行で切り替えられる形にする。** 旧トップの一覧は `/qsheet/sheets` に移し、`/qsheet/editor`（一覧）は `<Navigate replace>` で送る。**`/qsheet` の意味が変わるかどうかだけは利用者の確認待ち**（→ §8-1・§9-1。実装コストが同じなので、後戻りできるほうを既定に置いた）。
 4. トップの3つ（GLS発番前の案件／ネタ／案件に紐づかない資料単体）は、**前2つとも `projects` の行**（`gls_number IS NULL` と `stage='neta'`）で表す。**新しい案件テーブルは作らない**。
 5. **資料単体には資料番号を採る**: 既存の `generateSequenceNumber()` をそのまま使い `SB-202608-0001` 形式（モックの `SB-2608-003` は仮の書式だったので、OPP コードと同じ桁に揃えた）。`qsheet_documents.doc_no TEXT`（部分 UNIQUE）を足す。**採るのは `project_id IS NULL` の新規のみ**、既存への一括後付けはしない。
 6. **ミニアプリのレジストリは `shared/src/production/miniapps.ts` が唯一の正**（アイコンなど React 依存は client 側の `Record<MiniAppKey, …>` に分けて、追加忘れを型で落とす）。サーバーは `server/src/shared/production/miniapps.ts` に**意図的な複製**を置き、`scripts/check-collab-parity.mjs` の対に足して食い違いを検査する（サーバーは `server/src/` の外を import できないため）。
@@ -80,7 +80,8 @@
 
 ```
 /qsheet/login                    ログイン                       ★既存のまま
-/qsheet                          トップ（案件を選ぶ）            ← 中身が変わる（旧＝一覧）
+/qsheet/home                     トップ（案件を選ぶ）            ← 新規。**画面はここに作る**
+/qsheet                          → /qsheet/home か 旧一覧か      ← ⚠️ 向き先は1行で切り替える（§8-1・§9-1）
 /qsheet/sheets                   進行台本の一覧（全案件横断）      ← 旧 /qsheet ・/qsheet/editor の一覧
 /qsheet/schedules                スケジュール表の一覧（全案件横断） ← 新規ミニアプリ
 /qsheet/projects/:projectId      案件の入口＝制作のジャーニー      ← 新規
@@ -452,7 +453,7 @@ CREATE INDEX IF NOT EXISTS idx_journey_marks_scope
 
 ```ts
 export interface Suggestion {
-  key: string;        // 'no_dayplan' / 'sheet_no_rows' / …（dismissed の鍵になるので不変）
+  key: string;        // SUGGESTION_KEYS のどれか（dismissed の鍵になるので不変）
   stage: JourneyStage;
   /** 事実の文。命令形にしない（「〜がありません」で止める） */
   text: string;
@@ -776,7 +777,7 @@ client-qsheet/src/lib/input/                 IME 安全な入力部品（今の 
    「案件を作らずに資料だけ先に作る」を主にするなら、トップの既定の並びを④優先に変えます。
 6. **進み具合の見せ方**。3値（資料なし／触ってある／最近動いた）＋人が押す「決まった」ピン、
    という形でよいか。**％や「第3稿」を自動で判定して出すことはしません**という点の確認。
-7. **「次に決めること」の初期5件**（`no_dayplan` / `no_sheet` / `sheet_no_rows` /
+7. **「次に決めること」の初期5件**（`no_schedule` / `no_sheet` / `sheet_no_rows` /
    `duration_gap` / `mic_unassigned`）で過不足がないか。文言は事実だけ（命令形にしない）にします。
 8. **ジャーニーのピンを押せる人の範囲**。`qsheet` の編集権限がある人全員でよいか、
    案件の担当者だけに絞るか。
