@@ -31,11 +31,27 @@
  *   中身が長いときは中身だけがスクロールする
  * - **PC でも同じ部品を使う**。画面幅で出し分けると、同じ操作の見た目が
  *   2つになる（PC では中央のダイアログに寄せる）
+ *
+ * ── スワイプで閉じる（M11「純粋な操作感の演出」） ────────────────
+ *
+ * **左端から右へなぞると閉じる**（iOS のモーダル／画面のスワイプバックと同じ手触り）。
+ * **どこからでも**ではなく**左端 24px から始まったときだけ**にしてある —
+ * シートの中には横スクロールする表（財務台帳の明細ダイアログ等）を持つものがあり、
+ * 本文の途中から右へなぞる操作は「表を右へスクロールする」と衝突する。
+ * 左端は本文のスクロール開始位置と重ならないので、安全に間借りできる。
+ * **PC では効かない**（マウスは `touchstart` を発火しないので実質何もしない。
+ * `lg:` のセンタリングは中央固定の `transform` クラスに任せたままにする —
+ * ドラッグ中だけ inline の `transform` を足すので、離せば元のクラスに戻る）。
  */
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '../client/utils';
+
+/** 左端からこの幅の中で触れ始めたときだけスワイプバックとして扱う（px） */
+const EDGE_ZONE = 24;
+/** これ以上右へ動かして離すと閉じる（px） */
+const CLOSE_THRESHOLD = 96;
 
 export interface SheetProps {
   open: boolean;
@@ -91,6 +107,48 @@ export interface SheetProps {
 }
 
 export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, children }: SheetProps) {
+  // スワイプバック（左端 → 右へ）。ドラッグ中だけ inline transform を足し、
+  // 離したら 0 に戻す（開いたままなら 0、閉じるときは `onOpenChange` に任せて
+  // Radix の exit アニメーションへ引き継ぐ）
+  const [dragX, setDragX] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+  const startX = React.useRef(0);
+  const startY = React.useRef(0);
+  const tracking = React.useRef(false);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    // **左端 24px から始まったときだけ**（本文の横スクロールと衝突させない）
+    if (t.clientX - rect.left > EDGE_ZONE) { tracking.current = false; return; }
+    startX.current = t.clientX;
+    startY.current = t.clientY;
+    tracking.current = true;
+    setDragging(true);
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!tracking.current) return;
+    const t = e.touches[0];
+    const dx = t.clientX - startX.current;
+    const dy = t.clientY - startY.current;
+    if (dx < 0 || Math.abs(dy) > Math.abs(dx)) {
+      // 左へ戻した、または縦の動きのほうが大きい → 追わない
+      tracking.current = false;
+      setDragging(false);
+      setDragX(0);
+      return;
+    }
+    e.preventDefault();
+    setDragX(dx);
+  };
+  const onTouchEnd = () => {
+    if (!tracking.current) { setDragging(false); return; }
+    tracking.current = false;
+    setDragging(false);
+    if (dragX >= CLOSE_THRESHOLD) onOpenChange(false);
+    setDragX(0);
+  };
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -104,12 +162,18 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSu
         <DialogPrimitive.Content
           data-v4-sheet={rise ? 'rise' : undefined}
           onInteractOutside={onInteractOutside}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
+          style={dragX ? { transform: `translateX(${dragX}px)`, transition: 'none' } : undefined}
           className={cn(
             // スマホ: 下からせり上がる。PC: 中央のダイアログに寄せる
             'fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col',
             'rounded-t-app border-t border-border bg-card shadow-2xl shadow-black/20',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+            !dragging && 'transition-transform duration-150 motion-reduce:transition-none',
             'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2',
             wide ? 'lg:w-[min(760px,calc(100vw-4rem))]' : 'lg:w-[min(560px,calc(100vw-4rem))]',
             'lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-card lg:border',

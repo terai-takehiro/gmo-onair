@@ -19,6 +19,7 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { INVENTORY_STATUS, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 import { CheckDetail } from './inventory/CheckDetail';
 import { InventoryCards } from './inventory/InventoryCards';
@@ -119,12 +120,14 @@ export default function InventoryPage() {
           **スマホは縦積みのカード**（`inventory/InventoryCards.tsx`）。PC の行を
           縮めたものではない — カード積みは `HoldCards` / `LendingCards` と同じ考え方
         */
-        <InventoryCards
-          checks={checks}
-          onOpen={(id) => setSelected(id)}
-          onDelete={onDelete}
-          deletePending={remove.isPending}
-        />
+        <PullToRefresh onRefresh={list.refetch}>
+          <InventoryCards
+            checks={checks}
+            onOpen={(id) => setSelected(id)}
+            onDelete={onDelete}
+            deletePending={remove.isPending}
+          />
+        </PullToRefresh>
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           {checks.map((c) => (

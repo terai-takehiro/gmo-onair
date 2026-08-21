@@ -34,6 +34,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { HOLD_KEY, daysLeft, leftTone, leftLabel, type HoldRow } from './holds/holdLogic';
 import { HoldCards } from './holds/HoldCards';
@@ -153,14 +154,16 @@ export default function HoldListPage() {
           名前が 150px しか残らず、`検証E 仮…` としか読めませんでした
           （＝何の予約か分からないまま「確定にする」を押させる形）。
         */
-        <HoldCards
-          rows={rows}
-          canEdit={canEdit}
-          canDrop={canDrop}
-          busy={fix.isPending || drop.isPending}
-          onFix={(id) => fix.mutate(id)}
-          onDrop={askDrop}
-        />
+        <PullToRefresh onRefresh={query.refetch}>
+          <HoldCards
+            rows={rows}
+            canEdit={canEdit}
+            canDrop={canDrop}
+            busy={fix.isPending || drop.isPending}
+            onFix={(id) => fix.mutate(id)}
+            onDrop={askDrop}
+          />
+        </PullToRefresh>
       ) : (
         <div className="flex flex-col">
           <RowHeader className="hidden sm:flex">

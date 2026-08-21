@@ -18,9 +18,15 @@
  * 採用・週報へ送る・削除・編集の保存という業務ロジックは
  * `./NewsRows.tsx` の `useNewsRowActions` を共有する。**写すと PC と
  * スマホで挙動がずれる**（この画面のコメント冒頭に書いてある実際の前科）。
+ *
+ * ── 左スワイプでも削除できる（M11） ─────────────────────────
+ *
+ * 下端の削除ボタンはそのまま残し、`SwipeAction` でもう1つの入り口を足した。
+ * 呼ぶのは同じ `remove`（`useNewsRowActions` 由来）— 新しい業務ロジックは無い
  */
 import { Bot, CheckCheck, ExternalLink, Pencil, Send, Trash2 } from 'lucide-react';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { SwipeAction } from '@gmo-onair/shared/src/client-v4/swipeAction';
 import { Button } from '@/components/ui/button';
 import type { OpsReportItem } from '@/lib/types';
 import { useNewsRowActions } from './NewsRows';
@@ -54,79 +60,83 @@ function NewsCard({ item, canEdit, weeklyLocked }: {
 
   return (
     <>
-      <div className="rounded-card flex flex-col gap-2 border border-border bg-card p-3.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {canEdit ? (
-            <select
-              className="text-sub-sm min-h-tap rounded-badge border border-border bg-background px-2 text-center"
-              value={item.pick ?? ''}
-              onChange={(e) => setPick(e.target.value ? Number(e.target.value) : null)}
-              aria-label="採用（1〜5）"
-            >
-              <option value="">採用 —</option>
-              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>採用 {n}</option>)}
-            </select>
-          ) : item.pick != null ? (
-            <TableBadge label={`採用 ${item.pick}`} w={null} className="bg-primary-surface text-primary" />
-          ) : null}
-          {item.ai_related && (
-            <TableBadge label="AI活用" w={null} className="border-ai-border bg-ai-surface text-ai" />
+      <SwipeAction actions={canEdit ? [
+        { label: '削除', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger', onAction: remove },
+      ] : []}>
+        <div className="rounded-card flex flex-col gap-2 border border-border bg-card p-3.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {canEdit ? (
+              <select
+                className="text-sub-sm min-h-tap rounded-badge border border-border bg-background px-2 text-center"
+                value={item.pick ?? ''}
+                onChange={(e) => setPick(e.target.value ? Number(e.target.value) : null)}
+                aria-label="採用（1〜5）"
+              >
+                <option value="">採用 —</option>
+                {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>採用 {n}</option>)}
+              </select>
+            ) : item.pick != null ? (
+              <TableBadge label={`採用 ${item.pick}`} w={null} className="bg-primary-surface text-primary" />
+            ) : null}
+            {item.ai_related && (
+              <TableBadge label="AI活用" w={null} className="border-ai-border bg-ai-surface text-ai" />
+            )}
+            {item.category && (
+              <TableBadge label={item.category} w={null} className="bg-muted text-muted-foreground" />
+            )}
+          </div>
+
+          <p className="text-list whitespace-pre-wrap">
+            {item.content}
+            {item.url && (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 inline-flex align-middle text-primary"
+                title={item.url}
+                aria-label="元の記事を開く"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            )}
+          </p>
+
+          {(item.note || item.recorded_by) && (
+            <p className="text-sub inline-flex flex-wrap items-center gap-1 text-muted-foreground">
+              {[item.note, item.recorded_by].filter(Boolean).join(' ・ ')}
+              {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI が入れました" />}
+            </p>
           )}
-          {item.category && (
-            <TableBadge label={item.category} w={null} className="bg-muted text-muted-foreground" />
+
+          {canEdit && (
+            <div className="mt-1 flex gap-2 border-t border-border-faint pt-2.5">
+              <Button
+                variant="outline" size="sm"
+                className={`min-h-tap flex-1 ${item.sent_to_weekly ? 'text-success' : ''}`}
+                disabled={item.sent_to_weekly || weeklyLocked || sendPending}
+                onClick={toWeekly}
+                title={item.sent_to_weekly
+                  ? 'この行は週報へ送り済みです'
+                  : weeklyLocked
+                    ? 'この週の週報は確定済みです。週報の画面で「確定を解く」を押すと送れます'
+                    : 'この日が入る週の週報へ写します'}
+              >
+                {item.sent_to_weekly
+                  ? <CheckCheck className="mr-1 h-4 w-4" aria-hidden="true" />
+                  : <Send className="mr-1 h-4 w-4" aria-hidden="true" />}
+                {item.sent_to_weekly ? '送り済み' : '週報へ送る'}
+              </Button>
+              <Button variant="outline" size="icon" className="min-h-tap" onClick={() => setEditing(true)} aria-label="編集">
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <Button variant="outline" size="icon" className="min-h-tap text-destructive" onClick={remove} aria-label="削除">
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
           )}
         </div>
-
-        <p className="text-list whitespace-pre-wrap">
-          {item.content}
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-1 inline-flex align-middle text-primary"
-              title={item.url}
-              aria-label="元の記事を開く"
-            >
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
-          )}
-        </p>
-
-        {(item.note || item.recorded_by) && (
-          <p className="text-sub inline-flex flex-wrap items-center gap-1 text-muted-foreground">
-            {[item.note, item.recorded_by].filter(Boolean).join(' ・ ')}
-            {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI が入れました" />}
-          </p>
-        )}
-
-        {canEdit && (
-          <div className="mt-1 flex gap-2 border-t border-border-faint pt-2.5">
-            <Button
-              variant="outline" size="sm"
-              className={`min-h-tap flex-1 ${item.sent_to_weekly ? 'text-success' : ''}`}
-              disabled={item.sent_to_weekly || weeklyLocked || sendPending}
-              onClick={toWeekly}
-              title={item.sent_to_weekly
-                ? 'この行は週報へ送り済みです'
-                : weeklyLocked
-                  ? 'この週の週報は確定済みです。週報の画面で「確定を解く」を押すと送れます'
-                  : 'この日が入る週の週報へ写します'}
-            >
-              {item.sent_to_weekly
-                ? <CheckCheck className="mr-1 h-4 w-4" aria-hidden="true" />
-                : <Send className="mr-1 h-4 w-4" aria-hidden="true" />}
-              {item.sent_to_weekly ? '送り済み' : '週報へ送る'}
-            </Button>
-            <Button variant="outline" size="icon" className="min-h-tap" onClick={() => setEditing(true)} aria-label="編集">
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button variant="outline" size="icon" className="min-h-tap text-destructive" onClick={remove} aria-label="削除">
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        )}
-      </div>
+      </SwipeAction>
 
       {editing && (
         <NewsForm

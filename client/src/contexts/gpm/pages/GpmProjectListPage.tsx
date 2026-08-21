@@ -60,6 +60,7 @@ import {
 } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { MobileFilterBar, MobileFilterField, MobileFilterSegments } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
 import { useGpmProjects } from '../queries';
 import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
@@ -330,7 +331,9 @@ export default function GpmProjectListPage() {
       ) : view === 'board' ? (
         <GpmProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
       ) : isMobile ? (
-        <GpmProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
+        <PullToRefresh onRefresh={refetch}>
+          <GpmProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
+        </PullToRefresh>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-card">
           <ProjectRowsHeader />

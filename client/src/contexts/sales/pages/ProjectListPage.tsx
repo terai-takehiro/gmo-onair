@@ -67,6 +67,7 @@ import { PageNav } from './projectList/PageNav';
 import { ProjectCards } from './projectList/ProjectCards';
 import { defaultPeriod, range as periodRange, label as periodLabel, type PeriodValue } from './projectList/period';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { useFlip } from '@gmo-onair/shared/src/client-v4/flip';
 import { PcOnlyNote } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import type { ProjectListResponse } from './projectList/types';
@@ -130,7 +131,7 @@ export default function ProjectListPage() {
   const [sortKey, sortDir] = sort.split(':');
   const limit = view === 'board' ? BOARD_SIZE : PAGE_SIZE;
 
-  const { data, isLoading } = useQuery<ProjectListResponse>({
+  const { data, isLoading, refetch } = useQuery<ProjectListResponse>({
     queryKey: ['projects', view, page, limit, search, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly],
     queryFn: async () => {
       // **GLS-A（案件）だけ** (migration 179)。GLS-B はプロジェクト管理の一覧に出る。
@@ -282,7 +283,9 @@ export default function ProjectListPage() {
            * 出ていないので、続きがあること自体が画面から読み取れません。
            */
           <div className="space-y-3.5">
-            <ProjectCards rows={rows} today={today} isNew={flip.isNew} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+            <PullToRefresh onRefresh={refetch} disabled={!isMobile}>
+              <ProjectCards rows={rows} today={today} isNew={flip.isNew} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+            </PullToRefresh>
             <PageNav
               pagination={pagination}
               page={page}
