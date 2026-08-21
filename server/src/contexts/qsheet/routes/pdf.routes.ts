@@ -4,6 +4,7 @@ import { requireAuth } from '../../../shared/middleware/auth';
 import { canAccessDoc } from '../access';
 import PDFDocument from 'pdfkit';
 import { registerNotoFonts } from '../../../shared/utils/pdf-fonts';
+import { docTotalSec } from '../../../shared/schedule/time';
 
 const router = Router();
 
@@ -162,7 +163,11 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
       .text(meta.title || 'キューシート', 30, 20, { width: 500 });
     pdf.font(fontRegular).fontSize(8).fillColor('#64748b')
       .text(`${meta.draftType || ''} | ${meta.broadcastDate || ''} | ${meta.location || ''}`, 30, 38);
-    pdf.fontSize(8).text(`総尺: ${fmtTime(sections.reduce((s: number, sec: any) => s + parseDuration(sec.duration || '0'), 0))}`, 700, 25, { align: 'right', width: 100 });
+    // ⚠️ 以前はロール尺 (sec.duration) だけを見ており、ロール尺が未入力の台本は
+    // 総尺が黙って 0 分になっていた。行の合計へのフォールバックを追加する (前進的な修正)。
+    // 行の合計優先・0 のときだけロール尺、という進行/ランダウンと同じ規則にする
+    // (このファイル自身の cum 積み上げ (下記) も「行があれば行の合計」なので揃う)。
+    pdf.fontSize(8).text(`総尺: ${fmtTime(docTotalSec(sections, { preferRoleDuration: false }))}`, 700, 25, { align: 'right', width: 100 });
 
     // ── Column layout ──
     const visibleBlocks = blocks.filter((b: any) => b.type !== 'stage_diagram' && b.type !== 'slide');

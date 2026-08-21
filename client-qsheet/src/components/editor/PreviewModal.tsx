@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { X, Download, Printer } from "lucide-react";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, fmtMinSec as fmtMinSecShared } from "@/lib/time";
+import { resolveStageTemplate } from "./StageDiagramCell";
 
 // ─── Constants ──────────────────────────────────────────
 const SPEAKER_COLORS = ["#1e3a5f", "#0f766e", "#7e22ce", "#be185d", "#b45309", "#15803d", "#1d4ed8", "#9f1239", "#4338ca", "#a16207"];
@@ -735,8 +736,8 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                         </td>
                                       );
                                     } else if (blk.type === "stage_diagram") {
-                                      const tmplIdx = cell.templateIndex ?? -1;
-                                      const tmplElements = tmplIdx >= 0 && state.stageTemplates?.[tmplIdx] ? state.stageTemplates[tmplIdx].elements : null;
+                                      const tmpl = resolveStageTemplate(cell, state.stageTemplates);
+                                      const tmplElements = tmpl?.elements || null;
                                       return (
                                         <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {ei === 0 && tmplElements && (

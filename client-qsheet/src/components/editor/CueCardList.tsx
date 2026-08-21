@@ -2,6 +2,7 @@ import { useState, Fragment } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Button } from "@gmo-onair/shared/src/client/ui";
 import CueRowSheet from "./CueRowSheet";
+import { genId } from "@/lib/stableIds";
 
 interface Block {
   id: string;
@@ -32,6 +33,7 @@ interface Props {
   blocks: Block[];
   sections: Section[];
   masters: any;
+  stageTemplates?: any[];
   ledScenes?: any[];
   updateState: (updater: (s: any) => any) => void;
 }
@@ -70,6 +72,7 @@ export default function CueCardList({
   blocks,
   sections,
   masters,
+  stageTemplates,
   ledScenes,
   updateState,
 }: Props) {
@@ -86,7 +89,7 @@ export default function CueCardList({
               ...sec,
               rows: [
                 ...sec.rows,
-                { id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, label: "", duration: "", cells: {} },
+                { id: genId("row"), label: "", duration: "", cells: {} },
               ],
             }
       );
@@ -100,7 +103,7 @@ export default function CueCardList({
       next.sections = next.sections.map((sec: any, i: number) => {
         if (i !== si) return sec;
         const rows = [...sec.rows];
-        rows.splice(ri + 1, 0, { id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, label: "", duration: "", cells: {} });
+        rows.splice(ri + 1, 0, { id: genId("row"), label: "", duration: "", cells: {} });
         return { ...sec, rows };
       });
       return next;
@@ -425,6 +428,7 @@ export default function CueCardList({
         sectionLabel={editingLabel}
         blocks={blocks}
         masters={masters}
+        stageTemplates={stageTemplates}
         ledScenes={ledScenes}
         updateState={updateState}
       />

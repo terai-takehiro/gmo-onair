@@ -5,8 +5,8 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { parseDur, fmtAbs } from "@/lib/time";
-import { StageDiagramPreview } from "@/components/editor/StageDiagramCell";
+import { parseDur, fmtAbs, docTotalSec } from "@/lib/time";
+import { StageDiagramPreview, resolveStageTemplate } from "@/components/editor/StageDiagramCell";
 import {
   Loader2,
   ArrowLeft,
@@ -61,7 +61,7 @@ interface DocumentData {
     micTypes?: string[];
     micChannels?: { ch: number; label?: string }[];
   };
-  stageTemplates?: { name: string; elements: any[] }[];
+  stageTemplates?: { id?: string; name: string; elements: any[] }[];
   ledScenes?: { id: string; name: string; wall: string; floor: string }[];
 }
 
@@ -249,9 +249,11 @@ export default function RundownPage() {
     return cues;
   }, [doc]);
 
+  // ランダウンの合計尺: 行の合計を優先し、0 のときだけロール尺にフォールバック
+  // (編集画面とは向きが逆。両画面の表示結果を変えないため docTotalSec に優先順位を渡す)
   const totalDuration = useMemo(
-    () => flatCues.reduce((acc, c) => acc + parseDur(c.row.duration), 0),
-    [flatCues]
+    () => docTotalSec(doc?.data?.sections, { preferRoleDuration: false }),
+    [doc]
   );
 
   const blocks = doc?.data?.blocks || [];
@@ -687,8 +689,7 @@ export default function RundownPage() {
                           }
                           // 立ち位置図: テンプレを SVG レンダリング
                           if (block.type === "stage_diagram") {
-                            const tmplIdx = cell?.templateIndex ?? -1;
-                            const tmpl = tmplIdx >= 0 ? doc?.data?.stageTemplates?.[tmplIdx] : null;
+                            const tmpl = resolveStageTemplate(cell, doc?.data?.stageTemplates);
                             return (
                               <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1">
                                 {tmpl?.elements ? (

@@ -33,6 +33,7 @@ interface Props {
   sectionLabel?: string;
   blocks: Block[];
   masters: any;
+  stageTemplates?: any[];
   ledScenes?: any[];
   updateState: (updater: (s: any) => any) => void;
 }
@@ -50,6 +51,7 @@ export default function CueRowSheet({
   sectionLabel,
   blocks,
   masters,
+  stageTemplates,
   ledScenes,
   updateState,
 }: Props) {
@@ -70,6 +72,7 @@ export default function CueRowSheet({
               row={row}
               blocks={blocks}
               masters={masters}
+              stageTemplates={stageTemplates}
               ledScenes={ledScenes}
               updateState={updateState}
               si={si}

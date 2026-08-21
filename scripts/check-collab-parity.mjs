@@ -20,6 +20,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const PAIRS = [
   ['server/src/shared/collab/yjsDoc.ts', 'shared/src/collab/yjsDoc.ts'],
   ['server/src/shared/collab/projectCollabDoc.ts', 'shared/src/collab/projectCollabDoc.ts'],
+  ['server/src/shared/schedule/time.ts', 'shared/src/schedule/time.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */
