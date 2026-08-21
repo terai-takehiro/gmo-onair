@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { notifyError } from "@/lib/notify";
-import { parseDur as parseDurShared } from "@/lib/time";
+import { docTotalSec } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import EditorSidebarSheet from "@/components/editor/EditorSidebarSheet";
@@ -11,8 +11,8 @@ import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
-import { splitMultiEntryRows } from "@/lib/migrateEntries";
-import { ensureStableIds } from "@/lib/stableIds";
+import { normalizeQsheetData } from "@/lib/migrateEntries";
+import { ensureStableIds, genId } from "@/lib/stableIds";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { useAuth } from "@/hooks/useAuth";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
@@ -225,7 +225,8 @@ export default function EditorPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [showAudioShare, setShowAudioShare] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
-  const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
+  // 立ち位置図エディタの開閉状態。null=閉じている、{id:null}=新規追加、{id}=既存テンプレの編集
+  const [stageEditorTarget, setStageEditorTarget] = useState<{ id: string | null } | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const toggleBlockCollapse = useCallback((id: string) => {
@@ -267,7 +268,8 @@ export default function EditorPage() {
       if (!d.data.meta) d.data.meta = { title: d.title, draft: "準備稿" };
       if (!d.data.masters) d.data.masters = { persons: [], video: [], audio: [], telop: [] };
       // v2.8.155: 旧モデルの複数エントリ行を 1 行 = 1 エントリに分割
-      const migrated = splitMultiEntryRows(d.data as any);
+      // + stage_diagram の templateIndex→templateId 移行 + モバイル形セルの正規化 (段0)
+      const migrated = normalizeQsheetData(d.data as any);
       // Phase 0 (同時編集の地固め): 全 section/row に安定 id を後付け
       const withIds = ensureStableIds(migrated.data as any);
       const anyChanged = migrated.changed || withIds.changed;
@@ -512,10 +514,9 @@ export default function EditorPage() {
     return `第${meta.draftNumber || 1}稿`;
   };
 
-  const parseDur = parseDurShared;
-  const totalDuration = doc?.data.sections.reduce(
-    (acc, section) => acc + (parseDur(section.duration) || section.rows.reduce((a, r) => a + parseDur(r.duration), 0)), 0
-  ) || 0;
+  // 編集画面の合計尺: ロール尺 (section.duration) を優先し、無ければ行の合計へ
+  // (進行/ランダウンとは向きが逆。両画面の表示結果を変えないため docTotalSec に優先順位を渡す)
+  const totalDuration = docTotalSec(doc?.data.sections, { preferRoleDuration: true });
 
   if (isLoading || !doc) {
     return (
@@ -527,17 +528,18 @@ export default function EditorPage() {
 
   // 立ち位置図テンプレートを複製して、その複製を編集モードで開く
   // (元データはそのまま残り、「1人追加」などの転用が時短になる)
-  const duplicateStageTemplate = (idx: number) => {
-    const templates = (((doc.data as any).stageTemplates) || []) as Array<{ name: string; elements: unknown[] }>;
-    const src = templates[idx];
+  const duplicateStageTemplate = (id: string) => {
+    const templates = (((doc.data as any).stageTemplates) || []) as Array<{ id?: string; name: string; elements: unknown[] }>;
+    const src = templates.find((t) => t.id === id);
     if (!src) return;
+    const newId = genId("stg");
     const copy = {
+      id: newId,
       name: `${src.name || "立ち位置図"} (コピー)`,
       elements: JSON.parse(JSON.stringify(src.elements || [])),
     };
-    const newIdx = templates.length;
     updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), copy] } as any));
-    setEditingStageIdx(newIdx);
+    setStageEditorTarget({ id: newId });
   };
 
   return (
@@ -771,8 +773,8 @@ export default function EditorPage() {
             onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
             onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
             onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
-            onEditStageTemplate={(idx) => setEditingStageIdx(idx)}
-            onDuplicateStageTemplate={(idx) => duplicateStageTemplate(idx)}
+            onEditStageTemplate={(id) => setStageEditorTarget({ id })}
+            onDuplicateStageTemplate={(id) => duplicateStageTemplate(id)}
             onEpisodeChange={(episodeId, episodeCode) => {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
               setDirty(true);
@@ -795,12 +797,12 @@ export default function EditorPage() {
         onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
         onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
         onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
-        onEditStageTemplate={(idx) => {
-          setEditingStageIdx(idx);
+        onEditStageTemplate={(id) => {
+          setStageEditorTarget({ id });
           setMobileSidebarOpen(false);
         }}
-        onDuplicateStageTemplate={(idx) => {
-          duplicateStageTemplate(idx);
+        onDuplicateStageTemplate={(id) => {
+          duplicateStageTemplate(id);
           setMobileSidebarOpen(false);
         }}
         onEpisodeChange={(episodeId, episodeCode) => {
@@ -864,28 +866,34 @@ export default function EditorPage() {
       />
 
       {/* Stage Editor Modal */}
-      {editingStageIdx !== null && (
+      {stageEditorTarget && (
         <StageEditor
-          template={editingStageIdx >= 0 ? ((doc.data as any).stageTemplates || [])[editingStageIdx] : null}
+          template={
+            stageEditorTarget.id
+              ? (((doc.data as any).stageTemplates || []) as Array<{ id?: string }>).find(
+                  (t) => t.id === stageEditorTarget.id,
+                ) as any || null
+              : null
+          }
           onSave={(data) => {
             updateData((d) => {
               const templates = [...((d as any).stageTemplates || [])];
-              if (editingStageIdx >= 0 && editingStageIdx < templates.length) {
-                templates[editingStageIdx] = data;
+              const idx = templates.findIndex((t: any) => t?.id === data.id);
+              if (idx >= 0) {
+                templates[idx] = data;
               } else {
                 templates.push(data);
               }
               return { ...d, stageTemplates: templates } as any;
             });
-            setEditingStageIdx(null);
+            setStageEditorTarget(null);
           }}
           onSaveCopy={(data) => {
             // 現在の内容を新しいテンプレートとして追加し、その複製を続けて編集 (元データは変更しない)
-            const newIdx = (((doc.data as any).stageTemplates) || []).length;
             updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), data] } as any));
-            setEditingStageIdx(newIdx);
+            setStageEditorTarget({ id: data.id });
           }}
-          onClose={() => setEditingStageIdx(null)}
+          onClose={() => setStageEditorTarget(null)}
         />
       )}
     </div>

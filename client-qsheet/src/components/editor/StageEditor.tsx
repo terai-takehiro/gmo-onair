@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { UserPlus, Square, Trash2, Save, Copy } from "lucide-react";
 import { Dialog, DialogContent } from "@gmo-onair/shared/src/client/ui";
+import { genId } from "@/lib/stableIds";
 
 const STAGE_W = 800;
 const STAGE_H = 600;
@@ -56,10 +57,16 @@ function getHandles(el: StageElement): ResizeHandle[] {
   return [];
 }
 
+interface StageTemplateData {
+  id: string;
+  name: string;
+  elements: StageElement[];
+}
+
 interface StageEditorProps {
-  template?: { name: string; elements: StageElement[] } | null;
-  onSave: (data: { name: string; elements: StageElement[] }) => void;
-  onSaveCopy?: (data: { name: string; elements: StageElement[] }) => void;
+  template?: StageTemplateData | null;
+  onSave: (data: StageTemplateData) => void;
+  onSaveCopy?: (data: StageTemplateData) => void;
   onClose: () => void;
 }
 
@@ -68,6 +75,9 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
   const [elements, setElements] = useState<StageElement[]>(() =>
     JSON.parse(JSON.stringify(template?.elements || []))
   );
+  // 既存テンプレを編集中はその id を保つ。新規作成時はここで一度だけ採番する
+  // (複製保存は onSaveCopy 側で改めて採り直す)。
+  const idRef = useRef(template?.id || genId("stg"));
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [dragging, setDragging] = useState<{ idx: number; startX: number; startY: number; origX: number; origY: number } | null>(null);
   const [resizing, setResizing] = useState<{ idx: number; handle: string; startX: number; startY: number; orig: any } | null>(null);
@@ -193,7 +203,8 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
             <button
               onClick={() => {
                 const copyName = template && name === template.name ? `${name} (コピー)` : name;
-                onSaveCopy({ name: copyName, elements });
+                // 複製保存は元テンプレとは別物になるため、id を必ず採り直す。
+                onSaveCopy({ id: genId("stg"), name: copyName, elements });
               }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-muted text-foreground rounded-lg hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="複製として保存"
@@ -203,7 +214,7 @@ export default function StageEditor({ template, onSave, onSaveCopy, onClose }: S
             </button>
           )}
           <button
-            onClick={() => onSave({ name, elements })}
+            onClick={() => onSave({ id: idRef.current, name, elements })}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="保存"
           >

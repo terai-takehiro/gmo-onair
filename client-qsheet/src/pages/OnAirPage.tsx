@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
-import { fmtAbs } from "@/lib/time";
+import { fmtAbs, docTotalSec } from "@/lib/time";
 import { notifySuccess, notifyError } from "@/lib/notify";
 import { useCueActualsRecorder } from "@/hooks/useCueActualsRecorder";
 import { buildCues } from "@/lib/buildCues";
@@ -105,7 +105,9 @@ export default function OnAirPage() {
   });
 
   const cues = doc?.data ? buildCues(doc.data) : [];
-  const total = cues.reduce((s, c) => s + c.duration, 0);
+  // 進行の合計尺: 行の合計を優先し、0 のときだけロール尺にフォールバック
+  // (編集画面とは向きが逆。両画面の表示結果を変えないため docTotalSec に優先順位を渡す)
+  const total = docTotalSec(doc?.data?.sections, { preferRoleDuration: false });
 
   // 実尺 (qsheet_cue_actuals) の記録。既存の計時ロジックには一切触らない。
   // 本番中は best-effort の fire-and-forget。画面の見た目・操作性は変えない。

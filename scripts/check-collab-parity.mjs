@@ -25,6 +25,7 @@ const PAIRS = [
   // サーバーは server/src/ の外を import できないための複製（miniapps.ts §4-1）
   ['server/src/shared/production/miniapps.ts', 'shared/src/production/miniapps.ts'],
   ['server/src/shared/production/journey.ts', 'shared/src/production/journey.ts'],
+  ['server/src/shared/schedule/time.ts', 'shared/src/schedule/time.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */

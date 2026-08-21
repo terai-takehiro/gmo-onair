@@ -27,6 +27,7 @@ import {
   TabsContent,
 } from "@gmo-onair/shared/src/client/ui";
 import BufferedInput from "./BufferedInput";
+import { genId } from "@/lib/stableIds";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -79,8 +80,9 @@ interface Props {
   onEpisodeChange: (episodeId: string | null, episodeCode: string | null) => void;
   onShowImport?: () => void;
   onExportExcel?: () => void;
-  onEditStageTemplate?: (idx: number) => void;
-  onDuplicateStageTemplate?: (idx: number) => void;
+  /** id=null は「新規追加」、id 指定は既存テンプレの編集 */
+  onEditStageTemplate?: (id: string | null) => void;
+  onDuplicateStageTemplate?: (id: string) => void;
 }
 
 // ─── Block type config ──────────────────────────────────
@@ -256,7 +258,7 @@ function LedSceneSection({
     const next = scenes.length + 1;
     onChange([
       ...scenes,
-      { id: `led_${Date.now()}`, name: `S${next}`, wall: "", floor: "" },
+      { id: genId("led"), name: `S${next}`, wall: "", floor: "" },
     ]);
   };
   const updateScene = (idx: number, patch: Partial<LedScene>) => {
@@ -390,7 +392,7 @@ export function EditorSidebarBody({
     const info = BLOCK_TYPES.find((b) => b.type === type);
     onBlocksChange([
       ...blocks,
-      { id: `blk_${Date.now()}`, type, label: info?.label || type, width: type === "scenario" ? "L" : "M" },
+      { id: genId("blk"), type, label: info?.label || type, width: type === "scenario" ? "L" : "M" },
     ]);
     setShowBlockPicker(false);
   };
@@ -633,7 +635,7 @@ export function EditorSidebarBody({
             accent="amber"
             action={
               <button
-                onClick={() => onEditStageTemplate?.(-1)}
+                onClick={() => onEditStageTemplate?.(null)}
                 className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="立ち位置図を追加"
               >
@@ -647,14 +649,14 @@ export function EditorSidebarBody({
               <div className="space-y-1">
                 {(stageTemplates || []).map((t: any, i: number) => (
                   <div
-                    key={i}
+                    key={t.id ?? i}
                     className="group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-accent/60 transition-colors cursor-pointer"
-                    onClick={() => onEditStageTemplate?.(i)}
+                    onClick={() => onEditStageTemplate?.(t.id)}
                   >
                     <span className="text-sm flex-none" aria-hidden>🎭</span>
                     <span className="flex-1 truncate font-medium">{t.name}</span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onDuplicateStageTemplate?.(i); }}
+                      onClick={(e) => { e.stopPropagation(); onDuplicateStageTemplate?.(t.id); }}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-warning transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       aria-label="複製"
                       title="複製して編集 (元データを転用)"
@@ -662,7 +664,7 @@ export function EditorSidebarBody({
                       <Copy size={12} aria-hidden />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onEditStageTemplate?.(i); }}
+                      onClick={(e) => { e.stopPropagation(); onEditStageTemplate?.(t.id); }}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       aria-label="編集"
                     >

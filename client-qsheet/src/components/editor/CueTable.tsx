@@ -106,6 +106,7 @@ export default function CueTable(props: Props) {
         blocks={props.blocks}
         sections={props.sections}
         masters={props.masters}
+        stageTemplates={props.stageTemplates}
         ledScenes={props.ledScenes}
         updateState={props.updateState}
       />
