@@ -4,6 +4,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { QSHEET_STATUS } from '../../../shared/constants/statuses';
 import { isQsheetAdmin, canAccessDoc } from '../access';
+import { issueDocNo } from '../services/docNo.service';
 
 const router = Router();
 
@@ -121,10 +122,14 @@ router.post('/documents', requirePermission('qsheet', 'editor'), async (req: Req
     // Validate data is an object
     const safeData = (data && typeof data === 'object') ? data : {};
 
+    // 案件に紐づかない資料（project_id が無い）だけ、口頭で言える番号 (SB-202608-0001) を採る。
+    // 案件に紐づく資料は GLS 番号が主なので doc_no は不要（表示は「GLS を主・資料番号を副」）。
+    const docNo = project_id ? null : await issueDocNo('sheet');
+
     await execute(
-      `INSERT INTO qsheet_documents (id, title, data, episode_id, project_id, broadcast_date, episode_code, status, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', $8, $8)`,
-      [id, safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, req.user!.id]
+      `INSERT INTO qsheet_documents (id, title, data, episode_id, project_id, broadcast_date, episode_code, status, created_by, updated_by, doc_no)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', $8, $8, $9)`,
+      [id, safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, req.user!.id, docNo]
     );
 
     const row = await queryOne('SELECT * FROM qsheet_documents WHERE id = $1', [id]);

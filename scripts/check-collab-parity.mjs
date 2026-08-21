@@ -20,6 +20,10 @@ const root = path.resolve(import.meta.dirname, '..');
 const PAIRS = [
   ['server/src/shared/collab/yjsDoc.ts', 'shared/src/collab/yjsDoc.ts'],
   ['server/src/shared/collab/projectCollabDoc.ts', 'shared/src/collab/projectCollabDoc.ts'],
+  // 制作資料 v4 段3: ミニアプリのレジストリとジャーニーの型。
+  // サーバーは server/src/ の外を import できないための複製（miniapps.ts §4-1）
+  ['server/src/shared/production/miniapps.ts', 'shared/src/production/miniapps.ts'],
+  ['server/src/shared/production/journey.ts', 'shared/src/production/journey.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */
