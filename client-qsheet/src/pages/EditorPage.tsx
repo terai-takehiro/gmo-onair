@@ -551,7 +551,7 @@ export default function EditorPage() {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               onClick={() => navigate("/qsheet/sheets")}
-              className="p-1 rounded-lg hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1 rounded-control-md hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="ダッシュボードに戻る"
             >
               <ChevronLeft size={18} aria-hidden />
@@ -600,7 +600,7 @@ export default function EditorPage() {
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-control-md transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
               aria-label="手動保存"
@@ -616,7 +616,7 @@ export default function EditorPage() {
               return (
                 <button
                   onClick={() => setShowTrash(true)}
-                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   title="ゴミ箱（削除したロール/行を復元）"
                   aria-label={`ゴミ箱 ${trashCount}件`}
                 >
@@ -643,7 +643,7 @@ export default function EditorPage() {
             {/* PDF export */}
             <button
               onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="印刷 / PDF プレビュー"
             >
               <Eye size={13} aria-hidden />
@@ -677,7 +677,7 @@ export default function EditorPage() {
               <span className="hidden sm:inline text-xs">ON AIR</span>
             </Button>
             <button
-              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 rounded-control-md hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label={sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}
             >
@@ -690,13 +690,13 @@ export default function EditorPage() {
         <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-muted-foreground flex-wrap">
           {/* Draft selector */}
           <div className="flex items-center gap-1">
-            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>
+            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded-badge font-number">
               {getDraftLabel(doc.data.meta)}
             </span>
             <select
               value={doc.data.meta.draftType || "numbered"}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, draftType: e.target.value } }))}
-              className="bg-transparent border border-border rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="bg-transparent border border-border rounded-control px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="稿の種類"
             >
               <option value="numbered">稿番号を自動設定</option>
@@ -707,15 +707,15 @@ export default function EditorPage() {
           <span className="text-border" aria-hidden>|</span>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">放送日</span>
-            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="放送日" />
+            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" aria-label="放送日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">収録日</span>
-            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="収録日" />
+            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" aria-label="収録日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">開始</span>
-            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} step="1" aria-label="放送開始時刻" />
+            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" step="1" aria-label="放送開始時刻" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">場所</span>
@@ -723,7 +723,7 @@ export default function EditorPage() {
           </label>
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <Clock size={11} aria-hidden />
-            <span style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
+            <span className="font-number tabular-nums" aria-label="総尺">{formatTime(totalDuration)}</span>
           </div>
         </div>
       </header>
@@ -735,7 +735,7 @@ export default function EditorPage() {
           <span className="flex-1 min-w-[200px]">{conflictMsg} 自動保存は停止中です。必要なら現在の内容を CSV エクスポート等で退避してから、最新を読み込んでください。</span>
           <button
             onClick={() => window.location.reload()}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-destructive-foreground/15 hover:bg-destructive-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive-foreground/50"
+            className="px-3 py-1.5 text-xs font-bold rounded-control-md bg-destructive-foreground/15 hover:bg-destructive-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive-foreground/50"
           >
             最新を読み込む (自分の未保存分は破棄)
           </button>
