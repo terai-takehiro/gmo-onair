@@ -124,7 +124,9 @@ export function ClosingRows({
               <RowSlot w={128} hideOnMobile>
                 {r.invoice_no
                   ? <span className="font-number truncate text-sub-sm text-secondary-foreground">{r.invoice_no}</span>
-                  : <span className="text-sub-sm text-fg-disabled" title="この画面より前に出した請求書には番号がありません">（番号なし）</span>}
+                  // ⚠️ `text-fg-disabled` は白地で 2.61:1 しか無く読ませる文字には使わない決めごと
+                  // （`shared/CLAUDE.md`）。番号が無いことを伝える実データなので `text-muted-foreground` に直した
+                  : <span className="text-sub-sm text-muted-foreground" title="この画面より前に出した請求書には番号がありません">（番号なし）</span>}
               </RowSlot>
             )}
 

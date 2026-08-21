@@ -42,12 +42,17 @@ export interface FlowStep {
   to?: string;
 }
 
-/** カードのあいだに出す記号。`−` か `=` */
+/**
+ * カードのあいだに出す記号。`−` か `=`。
+ *
+ * スマホでは結果カードを縦に積む（下記）ので、記号も**横幅いっぱいの薄い帯**に
+ * なる（`sm:` から元の縦の細い列に戻る）。
+ */
 function Op({ sign }: { sign: string }) {
   return (
     <span
       aria-hidden="true"
-      className="font-number flex w-6 shrink-0 items-center justify-center text-h2 text-muted-foreground"
+      className="font-number flex h-6 w-full shrink-0 items-center justify-center text-h2 text-muted-foreground sm:h-auto sm:w-6"
     >
       {sign}
     </span>
@@ -124,12 +129,22 @@ function InputRow({ step }: { step: FlowStep }) {
 /**
  * `steps` が3件（案件で絞り込み中）なら 売上−仕入=限界利益 の1段だけ。
  * 7件（全案件）なら、結果3枚を見出しにして材料4つを下の小さい行に並べる。
+ *
+ * ── 結果カードの横並びが、スマホで金額を隣のカードの下に隠していた ──────
+ *
+ * ⚠️ `flex items-stretch` で常に横一列に並べていたため、375px 幅では
+ * カード1枚が 120px 程度しか無く、`¥11,680,000` のような金額（text-h2・太字）が
+ * カードの右端からあふれていた。あふれた分は次のカードの背景に隠れて見えなくなり、
+ * 「¥11,680,00」のように末尾の桁が消えて見えた（`overflow-x` は 0px のまま — 隣の
+ * 要素の**下**に回り込むだけで、ページの横スクロールとしては現れないので、
+ * 横はみ出しの自動検査にも引っかからなかった）。
+ * **`sm:`（640px）未満は縦積みにし**、金額に必要な横幅を確保した。
  */
 export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
   if (steps.length === 3) {
     const [rev, varc, marg] = steps;
     return (
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
         <ResultCard step={rev} />
         <Op sign="−" />
         <ResultCard step={varc} />
@@ -145,7 +160,7 @@ export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
         {results.map((r, i) => (
           <ResultCard key={i} step={r} />
         ))}

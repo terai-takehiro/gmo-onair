@@ -114,7 +114,9 @@ export function CounterpartyCards({
                     <Money value={ytd} className="text-list" />
                   ) : (
                     // **0円と「今年は取引なし」は別物。** 0と書くと0円の取引があるように読める
-                    <span className="text-sub-sm text-fg-disabled">今年はなし</span>
+                    // ⚠️ `text-fg-disabled` は白地で 2.61:1 しか無く読ませる文字には使わない
+                    // 決めごと（`shared/CLAUDE.md`）。実際の値を伝える文字なので `text-muted-foreground` に直した
+                    <span className="text-sub-sm text-muted-foreground">今年はなし</span>
                   )}
                 </p>
               )}
