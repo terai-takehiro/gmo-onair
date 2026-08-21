@@ -5,6 +5,8 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { parseDur, fmtAbs } from "@/lib/time";
 import { notifySuccess, notifyError } from "@/lib/notify";
+import { genId } from "@/lib/stableIds";
+import { postCueActual } from "@/lib/cueActualsApi";
 import {
   ChevronLeft,
   Play,
@@ -48,6 +50,10 @@ interface FlatCue {
   start: number;
   oa: number;
   row?: CueRow;
+  // 実尺 (qsheet_cue_actuals) の記録用。画面には出さない。section.id をそのまま運ぶ
+  // (合成しない — 1行挿すと全部ずれる cm-<index> のような id は作らない)。
+  sectionId?: string;
+  rowId?: string;
 }
 
 // ============================================================
@@ -81,24 +87,24 @@ function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: s
     if ((s as Section & { _pageBreak?: boolean })._pageBreak) continue;
     if ((s as Section)._break) {
       const d = parseDur((s as Section).duration);
-      cues.push({ type: "cm", label: s.label || "CM", duration: d, start: acc, oa: base + acc });
+      cues.push({ type: "cm", label: s.label || "CM", duration: d, start: acc, oa: base + acc, sectionId: s.id });
       acc += d;
     } else if ((s as Section)._vtr) {
       const d = parseDur((s as Section).duration);
-      cues.push({ type: "vtr", label: s.label || "VTR", duration: d, start: acc, oa: base + acc });
+      cues.push({ type: "vtr", label: s.label || "VTR", duration: d, start: acc, oa: base + acc, sectionId: s.id });
       acc += d;
     } else {
       // ロール全体の尺設定がありつつ行の尺合計が 0 なら、ロール自体を 1 キューとして扱う
       const rowSum = s.rows.reduce((a, r) => a + parseDur(r.duration), 0);
       const secDur = parseDur((s as Section & { duration?: string }).duration);
       if (rowSum === 0 && secDur > 0) {
-        cues.push({ type: "cue", label: s.label || "", duration: secDur, start: acc, oa: base + acc });
+        cues.push({ type: "cue", label: s.label || "", duration: secDur, start: acc, oa: base + acc, sectionId: s.id });
         acc += secDur;
         continue;
       }
       for (const row of s.rows) {
         const d = parseDur(row.duration);
-        cues.push({ type: "cue", label: s.label || row.label || "", duration: d, start: acc, oa: base + acc, row });
+        cues.push({ type: "cue", label: s.label || row.label || "", duration: d, start: acc, oa: base + acc, row, sectionId: s.id, rowId: row.id });
         acc += d;
       }
     }
@@ -160,6 +166,16 @@ export default function OnAirPage() {
   const pauseAt = useRef<number | null>(null);
   const activeRef = useRef<HTMLDivElement | null>(null);
 
+  // ── 実尺 (qsheet_cue_actuals) の記録用 (追加。画面には出さない) ──
+  const runIdRef = useRef<string | null>(null);
+  const runStartedAtRef = useRef<string | null>(null);
+  const cueEnterAtRef = useRef<number | null>(null);   // 現在キューに入った時刻 (ms)
+  const pausedMsRef = useRef(0);                       // 現在キュー内で止まっていた合計 (ms)
+  const pauseBeganRef = useRef<number | null>(null);
+  const prevCurRef = useRef(-1);
+  const passCountRef = useRef<Map<string, number>>(new Map());
+  const wasRunningRef = useRef(false);
+
   const { data: doc, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
@@ -174,6 +190,96 @@ export default function OnAirPage() {
 
   const cues = doc?.data ? buildCues(doc.data) : [];
   const total = cues.reduce((s, c) => s + c.duration, 0);
+
+  // ============================================================
+  // 実尺 (qsheet_cue_actuals) の記録 — 追加。既存の計時ロジックには一切触らない。
+  // 本番中は best-effort の fire-and-forget。画面の見た目・操作性は変えない。
+  // 設計: docs/design/v4/qsheet-v4-coding/impl/01-cue-actuals-impl.md §6-3
+  // ============================================================
+
+  // 出て行くキューを1件記録する。section.id を持たないキューは黙って飛ばす (§2-3)。
+  const flushCueActual = (cueIdx: number) => {
+    const runId = runIdRef.current;
+    const enterAt = cueEnterAtRef.current;
+    if (!id || !runId || enterAt == null || cueIdx < 0 || cueIdx >= cues.length) return;
+    const c = cues[cueIdx];
+    if (!c.sectionId) return;
+    const pausedNow =
+      pausedMsRef.current + (pauseBeganRef.current != null ? Date.now() - pauseBeganRef.current : 0);
+    const actual = Math.max(0, Math.round((Date.now() - enterAt - pausedNow) / 1000));
+    const key = `${c.sectionId}|${c.rowId ?? ""}`;
+    postCueActual(id, {
+      run_id: runId,
+      run_started_at: runStartedAtRef.current!,
+      section_id: c.sectionId,
+      row_id: c.rowId ?? null,
+      pass_no: passCountRef.current.get(key) ?? 1,
+      cue_index: cueIdx,
+      planned_sec: c.duration ?? null,
+      actual_sec: actual,
+    });
+  };
+
+  // ① 一時停止の計上 (tog() は触らない)。cueEl は running && !paused でしか進まないため、
+  //    実尺には壁時計 (Date.now()) から止まっていた分を引く方式を使う。
+  useEffect(() => {
+    if (paused) {
+      pauseBeganRef.current = Date.now();
+    } else if (pauseBeganRef.current != null) {
+      pausedMsRef.current += Date.now() - pauseBeganRef.current;
+      pauseBeganRef.current = null;
+    }
+  }, [paused]);
+
+  // ② run の開始・終了。
+  //    - running: false -> true で run を立てる (go() でも cue:play 経由でも通る)。
+  //    - running: true -> false は「最終キューで next() が running を false にしたが
+  //      cur は動かさない」場合の救済 (③ の cur effect だけでは最後の1キューが記録されない)。
+  //      ESC (stop()) で cur が -1 になったときは ③ 側でも同じキューが流れうるが、
+  //      ON CONFLICT DO NOTHING が無害化する (二重に流れても構造的に安全)。
+  useEffect(() => {
+    if (running && !wasRunningRef.current) {
+      runIdRef.current = genId("run");
+      runStartedAtRef.current = new Date().toISOString();
+      passCountRef.current.clear();
+      pausedMsRef.current = 0;
+      pauseBeganRef.current = null;
+      cueEnterAtRef.current = Date.now();
+    } else if (!running && wasRunningRef.current) {
+      flushCueActual(cur);
+    }
+    wasRunningRef.current = running;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  // ③ キューの切り替わり (本体)。ランダウンが既にやっている形 (RundownPage.tsx) と同じ。
+  //    ⚠️ cues は毎レンダー作り直される配列 (useMemo 無し) なので依存配列には入れない
+  //    (入れると effect が毎レンダー走る)。操作の出どころ (キーボード / CM 自動送り /
+  //    ランダウンからの cue:*) に関係なく、cur の変化だけを見れば全部拾える。
+  useEffect(() => {
+    const prev = prevCurRef.current;
+    prevCurRef.current = cur;
+    if (prev === cur) return;
+
+    if (prev >= 0) flushCueActual(prev);   // 出て行ったキューを記録する
+
+    if (cur >= 0 && cur < cues.length) {
+      const c = cues[cur];
+      if (c.sectionId) {
+        const key = `${c.sectionId}|${c.rowId ?? ""}`;
+        passCountRef.current.set(key, (passCountRef.current.get(key) ?? 0) + 1);
+      }
+    }
+
+    cueEnterAtRef.current = cur >= 0 ? Date.now() : null;
+    pausedMsRef.current = 0;
+    pauseBeganRef.current = null;
+    if (cur < 0) {
+      runIdRef.current = null;
+      runStartedAtRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur]);
 
   // 100ms timer for smooth updates
   useEffect(() => {
@@ -355,7 +461,15 @@ export default function OnAirPage() {
 
   useEffect(() => {
     if (!socketRef.current) return;
-    socketRef.current.emit("cue:update", { currentCue: cur, elapsed: showEl, isPlaying: running && !paused });
+    // runId / runStartedAt: 新しいイベントを増やさず cue:update に相乗りさせて配る
+    // (実尺 run_id の二重起動吸収。段1では未使用 — 落としても実尺の記録自体は成立する)
+    socketRef.current.emit("cue:update", {
+      currentCue: cur,
+      elapsed: showEl,
+      isPlaying: running && !paused,
+      runId: runIdRef.current,
+      runStartedAt: runStartedAtRef.current,
+    });
   }, [cur, showEl, running, paused]);
 
   // Derived values
