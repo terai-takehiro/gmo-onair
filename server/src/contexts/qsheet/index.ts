@@ -17,6 +17,7 @@ import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleAppl
 import scheduleExportRoutes from './routes/schedule-export.routes';
 import scheduleReverseRoutes from './routes/schedule-reverse.routes';
 import aiProposalsRoutes from './routes/ai-proposals.routes';
+import excelRoutes from './routes/excel.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -49,6 +50,9 @@ export function createQsheetRoutes(): Router {
 
   // AI 提案の受け止め（段7・07-ai-proposals-impl.md）。**生成は無い** — 器だけ
   router.use('/qsheet', aiProposalsRoutes);
+
+  // 台本 Excel 入出力（段6・03-excel.md）。08（機器設定の Excel）とは別物・互いを import しない
+  router.use('/qsheet', excelRoutes);
 
   return router;
 }
