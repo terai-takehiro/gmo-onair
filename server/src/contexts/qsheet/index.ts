@@ -5,6 +5,7 @@ import pdfRoutes from './routes/pdf.routes';
 import uploadRoutes from './routes/upload.routes';
 import publicAudioRoutes from './routes/public-audio.routes';
 import runsRoutes from './routes/runs.routes';
+import audioShareRoutes from './routes/audio-share.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -17,6 +18,8 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet', pdfRoutes);
   router.use('/qsheet', uploadRoutes);
   router.use('/qsheet', runsRoutes);   // 本番の実尺 (qsheet_cue_actuals)
+  // 音声サポート共有URLの発行・再発行・失効 (認証必須)
+  router.use('/qsheet', audioShareRoutes);
 
   return router;
 }
