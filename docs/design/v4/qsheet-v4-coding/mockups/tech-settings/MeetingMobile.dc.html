@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; background:#f0f1f4; font-family:'LINE Seed JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; overflow:hidden; }
+  .num { font-variant-numeric:tabular-nums; }
+  [style*="cursor:pointer"] { transition: background-color .15s ease, transform .1s ease; }
+  [style*="cursor:pointer"]:active { transform: scale(.98); opacity:.92; }
+  @keyframes sheetUp { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
+  .nb { white-space:nowrap; }
+</style>
+</helmet>
+
+<div style="width:390px; height:844px; margin:0 auto; background:#f0f1f4; position:relative; overflow:hidden; display:flex; flex-direction:column">
+
+  <div style="flex-shrink:0; background:rgba(240,241,244,.85); backdrop-filter:blur(20px) saturate(1.6); padding:8px 16px 10px; border-bottom:1px solid rgba(0,0,0,.05)">
+    <span onClick="{{ back }}" style="display:flex; align-items:center; gap:2px; color:#c2410e; font-size:14px; font-weight:600; cursor:pointer; width:fit-content; padding:4px 0">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>配信設定
+    </span>
+    <div style="margin-top:2px; font-size:22px; font-weight:800; letter-spacing:-.02em">WEB会議</div>
+    <div style="margin-top:3px; font-size:11.5px; color:#9aa1ab">GLS-A012 ・ 2026-09-12 ・ <span class="num nb">{{ count }}</span></div>
+  </div>
+
+  <div style="flex:1; min-height:0; overflow-y:auto; padding:12px 16px 96px; display:flex; flex-direction:column; gap:9px">
+
+    <div style="display:flex; align-items:flex-start; gap:9px; padding:11px 13px; background:#eef2fb; border:1px solid #d4defa; border-radius:13px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3557b7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+      <span style="font-size:11.5px; color:#3a4256; line-height:1.65"><strong>Excel には出ません。</strong>現場で受け取った会議URLは、ここに貼ってそのまま共有できます</span>
+    </div>
+
+    <sc-for list="{{ meetings }}" as="m" hint-placeholder-count="3">
+      <div style="background:#fff; border-radius:13px; padding:12px 13px; display:flex; flex-direction:column; gap:9px; box-shadow:0 1px 2px rgba(16,24,40,.05)">
+        <div onClick="{{ m.open }}" style="display:flex; align-items:center; gap:8px; cursor:pointer">
+          <span style="display:inline-flex; align-items:center; justify-content:center; height:21px; padding:0 8px; border-radius:6px; background:{{ m.tBg }}; color:{{ m.tFg }}; font-size:10px; font-weight:800; white-space:nowrap; flex-shrink:0">{{ m.tool }}</span>
+          <span class="nb" style="flex:1; min-width:0; font-size:13.5px; font-weight:800; overflow:hidden; text-overflow:ellipsis">{{ m.label }}</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c1c7cf" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m9 18 6-6-6-6"></path></svg>
+        </div>
+        <div class="num" style="font-size:11.5px; color:{{ m.urlFg }}; line-height:1.5; word-break:break-all">{{ m.url }}</div>
+        <sc-for list="{{ m.rows }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex; align-items:center; gap:9px; min-height:26px">
+            <span class="nb" style="width:74px; flex-shrink:0; font-size:10.5px; font-weight:800; color:#9aa1ab">{{ r.k }}</span>
+            <span class="num" style="flex:1; min-width:0; font-size:12.5px; font-weight:700; color:{{ r.fg }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.v }}</span>
+            <sc-if value="{{ r.hasEye }}" hint-placeholder-val="{{ false }}">
+              <span onClick="{{ r.toggle }}" style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; margin:-9px -12px -9px 0; cursor:pointer; color:#9aa1ab">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </span>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="display:flex; gap:7px; margin-top:2px">
+          <span onClick="{{ m.copyPlain }}" style="flex:1; height:44px; border-radius:11px; background:#f2f4f7; color:#3c424c; font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; white-space:nowrap">URLだけ</span>
+          <span onClick="{{ m.copyAll }}" style="flex:1.4; height:44px; border-radius:11px; background:#c2410e; color:#fff; font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; white-space:nowrap">パスコードも含めてコピー</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="position:absolute; left:0; right:0; bottom:0; padding:10px 16px 26px; background:rgba(240,241,244,.9); backdrop-filter:blur(20px) saturate(1.6); border-top:1px solid rgba(0,0,0,.05)">
+    <span onClick="{{ addMeeting }}" style="height:48px; border-radius:13px; background:#fff; color:#c2410e; font-size:14px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:7px; cursor:pointer; box-shadow:0 1px 2px rgba(16,24,40,.08)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>会議を追加
+    </span>
+  </div>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; left:16px; right:16px; bottom:88px; padding:12px 16px; border-radius:14px; background:rgba(26,29,36,.94); backdrop-filter:blur(12px); color:#fff; font-size:12.5px; font-weight:700; line-height:1.5; animation:sheetUp .22s ease">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  state = { shown: {}, toast: '' };
+
+  MEETINGS = [
+    { tool: 'Zoom', label: '本番用', url: 'https://zoom.us/j/00000000000', joinId: '000 0000 0000', passcode: 'ev2026', videoInput: 'OA1', videoInputOther: '', audioInput: 'UltraStudio' },
+    { tool: 'Teams', label: 'リハ用（登壇者）', url: 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_...', joinId: '', passcode: '', videoInput: 'other', videoInputOther: 'サブ回線 OA2', audioInput: 'Rubix42' },
+    { tool: 'Zoom', label: '関係者ビュー', url: '', joinId: '', passcode: '', videoInput: 'OA1', videoInputOther: '', audioInput: 'UltraStudio' },
+  ];
+
+  TOOL_TONE = {
+    'Zoom': ['#e8f1fd', '#1c5fbe'],
+    'Teams': ['#eeeafb', '#5b47b5'],
+    'Google Meet': ['#e7f6ee', '#197a4b'],
+    'Webex': ['#e9f5f4', '#12736b'],
+    'その他': ['#f2f4f7', '#5d6470'],
+  };
+
+  showsId(tool) { return tool === 'Zoom' || tool === 'Webex' || tool === 'その他'; }
+
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+
+  renderVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg);
+
+    return {
+      hasToast: !!s.toast, toast: s.toast,
+      back: soon('配信先（ENC）の一覧に戻ります'),
+      count: this.MEETINGS.length + '本',
+      addMeeting: soon('会議を1本足します'),
+      meetings: this.MEETINGS.map((x, i) => {
+        const tn = this.TOOL_TONE[x.tool] || this.TOOL_TONE['その他'];
+        const open = !!s.shown[i];
+        const rows = [];
+        if (this.showsId(x.tool)) {
+          rows.push({ k: '会議ID', v: x.joinId || '未入力', fg: x.joinId ? '#1a1d24' : '#c2410e' });
+          rows.push({
+            k: 'パスコード',
+            v: x.passcode ? (open ? x.passcode : '••••••') : '未入力',
+            fg: x.passcode ? '#1a1d24' : '#c2410e',
+            hasEye: !!x.passcode,
+            toggle: () => this.setState({ shown: Object.assign({}, s.shown, { [i]: !open }) }),
+          });
+        }
+        rows.push({ k: '入力映像', v: x.videoInput === 'OA1' ? 'OA1' : (x.videoInputOther || 'その他（未入力）'), fg: (x.videoInput === 'OA1' || x.videoInputOther) ? '#1a1d24' : '#c2410e' });
+        rows.push({ k: '入力音声', v: x.audioInput, fg: '#1a1d24' });
+        return {
+          tool: x.tool, tBg: tn[0], tFg: tn[1],
+          label: x.label || '（呼び名なし）',
+          url: x.url || 'URL がまだ入っていません。ここに貼ってください',
+          urlFg: x.url ? '#5d6470' : '#c2410e',
+          rows,
+          open: () => this.flash('「' + (x.label || x.tool) + '」を直します'),
+          copyPlain: () => this.flash('URL だけをコピーしました（パスコードは含めていません）'),
+          copyAll: () => this.flash('URL・会議ID・パスコード・入力設定をまとめてコピーしました'),
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>
