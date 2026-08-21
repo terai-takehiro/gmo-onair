@@ -30,8 +30,8 @@ describe('MINI_APPS — 登録そのもの', () => {
     for (const a of MINI_APPS) expect(a.docPath).toContain(':id');
   });
 
-  it('**段3の時点では schedule は無効**（qsheet_schedules がまだ無いため）', () => {
-    expect(MINI_APP_BY_KEY.schedule.enabled).toBe(false);
+  it('**段4以降は schedule も有効**（qsheet_schedules ができたため）', () => {
+    expect(MINI_APP_BY_KEY.schedule.enabled).toBe(true);
     expect(MINI_APP_BY_KEY.sheet.enabled).toBe(true);
   });
 
@@ -51,10 +51,10 @@ describe('docPathOf', () => {
 });
 
 describe('enabledMiniApps — 導線に出してよいものだけ', () => {
-  it('`enabled:false` は出てこない', () => {
+  it('段4以降は sheet / schedule の両方が出る', () => {
     const keys = enabledMiniApps().map((a) => a.key);
     expect(keys).toContain('sheet');
-    expect(keys).not.toContain('schedule');
+    expect(keys).toContain('schedule');
   });
 });
 

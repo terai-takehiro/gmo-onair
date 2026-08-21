@@ -31,7 +31,7 @@ router.get('/scopes', async (req: Request, res: Response) => {
 // ============================================================
 router.get('/scopes/project/:projectId/journey', async (req: Request, res: Response) => {
   try {
-    const result = await getJourneyForProject(String(req.params.projectId));
+    const result = await getJourneyForProject(String(req.params.projectId), req.user!);
     if (!result) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '案件が見つかりません' } });
       return;

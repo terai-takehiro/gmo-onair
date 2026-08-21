@@ -12,7 +12,7 @@
 // (`section.rows.reduce(...)`) はここで例外を投げる形だった (D7) ため、
 // 落ちないことも合わせて固定する。
 import { describe, it, expect } from 'vitest';
-import { parseDur, docTotalSec } from '../src/schedule/time';
+import { parseDur, docTotalSec, fmtHm, fmtHmPad, parseHm, fmtSpan, secToMinCeil, fmtDur } from '../src/schedule/time';
 
 describe('parseDur', () => {
   it('mm:ss を秒に変換する', () => {
@@ -73,5 +73,54 @@ describe('docTotalSec — 入力の防御', () => {
   it('sections が配列でなければ 0', () => {
     expect(docTotalSec(undefined, { preferRoleDuration: true })).toBe(0);
     expect(docTotalSec(null, { preferRoleDuration: false })).toBe(0);
+  });
+});
+
+// ── スケジュール表（枠）用の分オフセット関数 ────────────────────
+// 24時で折り返さない（日跨ぎは 25:30 のように出す）ことを固定する。
+describe('fmtHm / fmtHmPad — 分オフセットの表示', () => {
+  it('24時を超えても折り返さない', () => {
+    expect(fmtHm(1530)).toBe('25:30');
+    expect(fmtHmPad(1530)).toBe('25:30');
+  });
+  it('先頭ゼロの有無が違う', () => {
+    expect(fmtHm(570)).toBe('9:30');
+    expect(fmtHmPad(570)).toBe('09:30');
+  });
+});
+
+describe('parseHm — 読めなければ null（0 に丸めない）', () => {
+  it('"9:30" / "25:30" / "0930" を分に変換する', () => {
+    expect(parseHm('9:30')).toBe(570);
+    expect(parseHm('25:30')).toBe(1530);
+    expect(parseHm('0930')).toBe(570);
+  });
+  it('読めない値は null', () => {
+    expect(parseHm('')).toBeNull();
+    expect(parseHm(undefined)).toBeNull();
+    expect(parseHm('abc')).toBeNull();
+  });
+});
+
+describe('fmtSpan — 所要の読める文', () => {
+  it('時間と分を両方出す', () => {
+    expect(fmtSpan(90)).toBe('1時間30分');
+  });
+  it('分だけ・時間だけのときは片方を省く', () => {
+    expect(fmtSpan(45)).toBe('45分');
+    expect(fmtSpan(120)).toBe('2時間');
+  });
+});
+
+describe('secToMinCeil — 秒を分に切り上げ', () => {
+  it('端数があれば切り上げる', () => {
+    expect(secToMinCeil(61)).toBe(2);
+    expect(secToMinCeil(120)).toBe(2);
+  });
+});
+
+describe('fmtDur — 秒を "分:秒" にする', () => {
+  it('90秒を "1:30" にする', () => {
+    expect(fmtDur(90)).toBe('1:30');
   });
 });

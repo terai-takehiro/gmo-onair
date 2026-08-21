@@ -26,6 +26,8 @@ const PAIRS = [
   ['server/src/shared/production/miniapps.ts', 'shared/src/production/miniapps.ts'],
   ['server/src/shared/production/journey.ts', 'shared/src/production/journey.ts'],
   ['server/src/shared/schedule/time.ts', 'shared/src/schedule/time.ts'],
+  // 制作資料 v4 段4: スケジュール表の区分（色・日本語名）。画面と Excel の凡例が同じ物を読む
+  ['server/src/shared/schedule/kinds.ts', 'shared/src/schedule/kinds.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */

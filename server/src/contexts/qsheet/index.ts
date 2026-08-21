@@ -8,6 +8,13 @@ import runsRoutes from './routes/runs.routes';
 import audioShareRoutes from './routes/audio-share.routes';
 import scopesRoutes from './routes/scopes.routes';
 import journeyMarksRoutes from './routes/journey-marks.routes';
+import schedulesRoutes from './routes/schedules.routes';
+import scheduleColumnsRoutes from './routes/schedule-columns.routes';
+import scheduleItemsRoutes from './routes/schedule-items.routes';
+import scheduleBreakdownRoutes from './routes/schedule-breakdown.routes';
+import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleApplyRouter } from './routes/schedule-templates.routes';
+import scheduleExportRoutes from './routes/schedule-export.routes';
+import scheduleReverseRoutes from './routes/schedule-reverse.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -25,6 +32,16 @@ export function createQsheetRoutes(): Router {
   // トップ（案件を選ぶ）・制作のジャーニー（段3・03-app-structure-impl.md §6）
   router.use('/qsheet', scopesRoutes);
   router.use('/qsheet', journeyMarksRoutes);
+
+  // スケジュール表（段4・04-schedule-impl.md §4）
+  router.use('/qsheet', schedulesRoutes);
+  router.use('/qsheet', scheduleColumnsRoutes);
+  router.use('/qsheet', scheduleItemsRoutes);
+  router.use('/qsheet', scheduleBreakdownRoutes);
+  router.use('/qsheet', scheduleTemplatesRouter);
+  router.use('/qsheet', scheduleApplyRouter);
+  router.use('/qsheet', scheduleExportRoutes);
+  router.use('/qsheet', scheduleReverseRoutes);
 
   return router;
 }
