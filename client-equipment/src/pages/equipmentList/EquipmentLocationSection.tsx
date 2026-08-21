@@ -91,7 +91,7 @@ export function EquipmentLocationSection({
             canDelete={canDelete}
             selectedIds={selectedIds}
             onSelectOne={onSelectOne}
-            onEdit={() => onEdit(entry.item)}
+            onEdit={onEdit}
             customColumns={customColumns}
             visibleCustomCols={visibleCustomCols}
             customValues={customValues}

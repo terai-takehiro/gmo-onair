@@ -15,10 +15,16 @@
  *
  * PC では `hideOnMobile` で畳んでいた列ですが、**外で見る人にいちばん要る数字**は
  * 「いつの予約か」です。「あと2日」だけだと、その2日後が何日なのか分かりません。
+ *
+ * ── 左スワイプでも「落とす」を出す（M11） ─────────────────────
+ *
+ * 下端のボタンはそのまま残し、`SwipeAction` でもう1つの入り口を足した。
+ * 呼ぶのは同じ `onDrop`（確認ダイアログを挟む `askDrop` をそのまま渡している）
  */
 import { Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { SwipeAction } from '@gmo-onair/shared/src/client-v4/swipeAction';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { leftTone, leftLabel, type HoldRow } from './holdLogic';
 
@@ -35,45 +41,51 @@ export function HoldCards({
   return (
     <div className="flex flex-col gap-2">
       {rows.map((b) => (
-        <div
+        <SwipeAction
           key={b.id}
-          className={cn(
-            'rounded-card flex flex-col gap-2 border border-border p-3',
-            b.left <= 7 ? 'bg-destructive-surface/40' : 'bg-card',
-          )}
+          actions={canDrop && !busy ? [
+            { label: '落とす', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger', onAction: () => onDrop(b) },
+          ] : []}
         >
-          <div className="flex items-start gap-2.5">
-            <TableBadge label={leftLabel(b.left)} w={null} className={cn('shrink-0', leftTone(b.left))} />
-            <span className="min-w-0 flex-1">
-              <span className="text-list block truncate font-bold">{b.title}</span>
-              <span className="text-sub block text-muted-foreground">
-                {[
-                  /* **本番日をスマホでは出す。**「あと2日」だけだと何日か分からない */
-                  `${b.start_time.slice(5, 10).replace('-', '/')}`,
-                  b.rooms?.map((r) => r.room_abbreviation || r.room_name).join(' ・ ') || '部屋なし',
-                ].join(' ・ ')}
-              </span>
-              {(b.gls_number || b.project_name) && (
-                <span className="text-sub block truncate text-muted-foreground">
-                  {[b.gls_number, b.project_name].filter(Boolean).join(' ／ ')}
+          <div
+            className={cn(
+              'rounded-card flex flex-col gap-2 border border-border p-3',
+              b.left <= 7 ? 'bg-destructive-surface/40' : 'bg-card',
+            )}
+          >
+            <div className="flex items-start gap-2.5">
+              <TableBadge label={leftLabel(b.left)} w={null} className={cn('shrink-0', leftTone(b.left))} />
+              <span className="min-w-0 flex-1">
+                <span className="text-list block truncate font-bold">{b.title}</span>
+                <span className="text-sub block text-muted-foreground">
+                  {[
+                    /* **本番日をスマホでは出す。**「あと2日」だけだと何日か分からない */
+                    `${b.start_time.slice(5, 10).replace('-', '/')}`,
+                    b.rooms?.map((r) => r.room_abbreviation || r.room_name).join(' ・ ') || '部屋なし',
+                  ].join(' ・ ')}
                 </span>
-              )}
-            </span>
-          </div>
-
-          {canEdit && (
-            <div className="flex gap-2">
-              <Button className="flex-1" disabled={busy} onClick={() => onFix(b.id)}>
-                <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />確定にする
-              </Button>
-              {canDrop && (
-                <Button variant="outline" className="flex-1" disabled={busy} onClick={() => onDrop(b)}>
-                  <Trash2 className="mr-1.5 h-4 w-4 text-destructive" aria-hidden="true" />落とす
-                </Button>
-              )}
+                {(b.gls_number || b.project_name) && (
+                  <span className="text-sub block truncate text-muted-foreground">
+                    {[b.gls_number, b.project_name].filter(Boolean).join(' ／ ')}
+                  </span>
+                )}
+              </span>
             </div>
-          )}
-        </div>
+
+            {canEdit && (
+              <div className="flex gap-2">
+                <Button className="flex-1" disabled={busy} onClick={() => onFix(b.id)}>
+                  <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />確定にする
+                </Button>
+                {canDrop && (
+                  <Button variant="outline" className="flex-1" disabled={busy} onClick={() => onDrop(b)}>
+                    <Trash2 className="mr-1.5 h-4 w-4 text-destructive" aria-hidden="true" />落とす
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </SwipeAction>
       ))}
     </div>
   );

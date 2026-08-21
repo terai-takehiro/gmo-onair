@@ -27,6 +27,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { LendingDialog, type LendingPayload } from './lending/LendingDialog';
 import { ReturnDialog } from './lending/ReturnDialog';
 import { LendingCards } from './lending/LendingCards';
@@ -152,13 +153,15 @@ export default function LendingListPage() {
         />
       ) : isMobile ? (
         // **PC の行を縮めたものではない。** 持出日を畳まず常に出す（`LendingCards.tsx`）
-        <LendingCards
-          rows={rows}
-          isLate={isLate}
-          checkoutPending={checkout.isPending}
-          onCheckout={(id) => checkout.mutate(id)}
-          onReturn={(l) => { setReturnError(null); setReturnTarget(l); }}
-        />
+        <PullToRefresh onRefresh={list.refetch}>
+          <LendingCards
+            rows={rows}
+            isLate={isLate}
+            checkoutPending={checkout.isPending}
+            onCheckout={(id) => checkout.mutate(id)}
+            onReturn={(l) => { setReturnError(null); setReturnTarget(l); }}
+          />
+        </PullToRefresh>
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           <RowHeader className="hidden sm:flex">

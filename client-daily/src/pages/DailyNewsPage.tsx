@@ -27,6 +27,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -197,7 +198,9 @@ export default function DailyNewsPage() {
               onClearFilters={() => setChip('all')}
             />
           ) : isMobile ? (
-            <NewsCards items={visible} canEdit={canEdit} weeklyLocked={weeklyLocked} />
+            <PullToRefresh onRefresh={report.refetch}>
+              <NewsCards items={visible} canEdit={canEdit} weeklyLocked={weeklyLocked} />
+            </PullToRefresh>
           ) : (
             <div className="flex flex-col">
               <NewsRowsHeader canEdit={canEdit} />
