@@ -307,6 +307,35 @@ A〜Dのバックログ完了後、今回のセッション全体の変更（`58
 - 検証: `npx tsc -b client` / `npm run lint` / `npm run test`（1144件）/ `client`ビルド、
   すべてOK
 
+## mainとの重複作業をマージした（2026-08-21・第12バッチ）
+
+バックログ完了後、`main`に並行してPR#272（`claude/ios-native-mobile-mockups-55iuj1`）が
+マージされており、同種の「PC専用画面のスマホ対応」を独立に進めていたことが判明した
+（詳細は [docs/handoff-2026-08-20-v4-native-ui.md](handoff-2026-08-20-v4-native-ui.md)）。
+ユーザーに報告し、**「こっちのブランチを採用してください」**という判断をもらったため、
+`git merge origin/main`で取り込み、競合した3ファイルはこのブランチの版を採用した:
+
+- `CustomerDetailPage.tsx`: このブランチのv4全面刷新を採用（mainの最小Tailwind調整は破棄）
+- `pcOnlyScreens.ts`: このブランチの監査済み判断（ガント・見積請求・案件台帳・案件を直す・
+  標準工程・料金表・費用を分け合うグループ詳細・営業活動記録・財務台帳3画面はPC専用のまま）
+  を採用。mainが一括開放していた判断は破棄
+- `shared/tests/reachPhone.test.ts`: コメント文言差のみ、このブランチの版を採用
+
+⚠️ **上記の判断でPC専用のまま残った画面について、mainが追加した対応スマホ実装
+（`MobileTaskGantt.tsx`・`MobileLedgerCards.tsx`・`MobileEditProject.tsx`・
+`FormDialogs.tsx`・`MobileTemplateRail.tsx`・各ページの`isMobile`分岐）は
+非競合としてそのままマージされている。** `PcOnlyGate`がルート単位でモバイル表示前に
+画面を差し替えるため、このコードは**現状到達不能**（壊れてはいないが使われない）。
+将来これらの画面をスマホ開放する判断をするなら再利用できる。今回は削除せず残した
+（該当ファイル: `client/src/contexts/sales/pages/flow/MobileTemplateRail.tsx`・
+`projectForm/{FormDialogs,MobileEditProject}.tsx`・
+`projectLedger/MobileLedgerCards.tsx`・
+`client/src/contexts/tasks/pages/taskList/MobileTaskGantt.tsx`）。
+
+検証: `npx tsc -b client client-daily client-equipment server` / `npm run lint` /
+`npm run test`（1144件）/ `check-mobile-declared`（マージ前と同じ件数）/
+`check-links` すべてOK。`npm run build:all`（7アプリ＋server）も実行中。
+
 ## 気になったが今回は直していないこと
 
 - **`npm run check:frozen` が凍結3アプリ（Qシート・技術資料・計時LIVE）で
