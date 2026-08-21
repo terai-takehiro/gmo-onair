@@ -46,9 +46,11 @@ describe('見積とお金の記録を守る', () => {
     const at = ESTIMATE.indexOf('async remove(');
     const body = ESTIMATE.slice(at, at + 900);
     expect(body).toMatch(/est\.status !== 'draft'/);
-    // 画面も同じ条件（サーバーだけだと、押してからエラーになる）
-    const tab = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateTab.tsx');
-    expect(tab).toMatch(/\{!e\.revenue_id && e\.status === 'draft' && \(/);
+    // 画面も同じ条件（サーバーだけだと、押してからエラーになる）。
+    // **PC の `Row` とスマホのカードで共有する `EstimateActions.tsx` に切り出してある**
+    // （v4ネイティブUI監査・この回。写しを作らず1か所にした）
+    const actions = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateActions.tsx');
+    expect(actions).toMatch(/\{!e\.revenue_id && e\.status === 'draft' && \(/);
   });
 
   it('承認待ちの見積書は社外フォルダに置かない', () => {

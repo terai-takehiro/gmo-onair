@@ -17,13 +17,22 @@
  * 右の切り替えで開くのは `RevenueBillingPane`（売上／請求／仕入（原価）の
  * 3枚のカード）。旧 `BusinessProjectView`（フル機能コンソール）からの
  * 置き換えの理由は `RevenueBillingPane.tsx` の頭のコメントを参照。
+ *
+ * ── 版の一覧はスマホでカードにした（v4ネイティブUI監査・この回） ─────
+ *
+ * この見積タブ自体は明細（`EstimateItems`）が数量・単価・仕入・日付・金額の
+ * 6列を持つ入力欄の並びなので、CLAUDE.md の方針どおり**タブ全体は今までどおり
+ * PC専用**（`ProjectDetailPage.tsx` の `OffPhoneTab`）のままにしています。
+ * ただし「それでもこのまま開く」を選んだ人・将来この判断を見直す人のために、
+ * **版の一覧（版・タイトル・金額・状態・操作）だけ**は `Row`（PC表を縮めた
+ * だけ）からカード積みに作り直しました。明細の入力欄（`EstimateItems`）は
+ * 手を入れていません — そこは6列の数値入力欄の並びで、375pxに収める作り直し
+ * よりPCで入力するほうが理にかなっています。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Copy, Send, Trash2, Receipt, Wallet, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { Plus, Receipt, Wallet } from 'lucide-react';
 import api from '@/lib/api';
-import { formatCurrency } from '@/lib/format';
-import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { Button } from '@/components/ui/button';
 import { Input as TextInput } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,14 +40,14 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { RevenueBillingPane } from './RevenueBillingPane';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
+import { EstimateActions, type EstimateStatus as Status } from './EstimateActions';
 import type { ProjectDetail } from './types';
 import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
-
-type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
 interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
@@ -107,6 +116,7 @@ function EstimateMetaCard({
 export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
   const [openId, setOpenId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   const qc = useQueryClient();
   const base = `/projects/${project.id}/estimates`;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['estimates', project.id] });
@@ -201,7 +211,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       </div>
 
       {pane === 'revenue' ? (
-        <RevenueBillingPane projectId={project.id} />
+        <RevenueBillingPane projectId={project.id} mobile={isMobile} />
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (list.data ?? []).length === 0 ? (
@@ -212,8 +222,14 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         />
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => create.mutate()}>
+          {/*
+            ⚠️ **375pxで見つけた表示崩れを直した**（v4ネイティブUI監査・この回）。
+            `flex items-center gap-2` は既定で子を横並びに縮めるので、375pxでは
+            長い説明文に押されてボタンの幅が中身より狭くなり「見積をつく」で
+            切れていた（実ブラウザで実測）。ボタンは縮めない・説明文は下に回す
+          */}
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+            <Button className="shrink-0" onClick={() => create.mutate()}>
               <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
             </Button>
             <p className="text-sub text-muted-foreground">
@@ -228,102 +244,84 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
               onDone={() => list.refetch()} />
           ))}
 
-          <div className="overflow-hidden rounded-card border border-border bg-card">
-            <RowHeader className="hidden sm:flex">
-              <RowSlot w={56}>版</RowSlot>
-              <RowMain>見積</RowMain>
-              <RowSlot w={128} align="right">金額（税抜）</RowSlot>
-              <RowSlot w={96}>状態</RowSlot>
-              <RowSlot w={240} align="right">操作</RowSlot>
-            </RowHeader>
-            {(list.data ?? []).map((e) => (
-              <Row key={e.id} divider interactive stackOnMobile align="center">
-                <RowSlot w={56}>
-                  <span className="text-list font-number">v{e.version}</span>
-                </RowSlot>
-                <RowMain>
-                  {/* 高さは決めた段に乗せる (中身任せだと 39px になり、指でも押しにくい) */}
-                  <button type="button" onClick={() => setOpenId(openId === e.id ? null : e.id)} className="min-h-tap w-full text-left">
-                    <span className="text-list block truncate">{e.title || '名前のない見積'}</span>
-                    {e.sent_at && (
-                      <span className="text-sub-sm block text-muted-foreground">
-                        出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
-                      </span>
-                    )}
+          {isMobile ? (
+            // **版1件＝カード1枚。** PC の `Row` は「版」「操作」を含む5列の表を
+            // 375px でも横に並べたまま `stackOnMobile` で潰していたため、右端
+            // 240px の操作ボタン群が折り返して行の高さが版ごとにばらついていた
+            <div className="flex flex-col gap-2">
+              {(list.data ?? []).map((e) => (
+                <div key={e.id} className="rounded-card flex flex-col gap-2.5 border border-border bg-card p-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(openId === e.id ? null : e.id)}
+                    className="flex min-h-tap items-start gap-2.5 text-left"
+                  >
+                    <span className="text-list rounded-control-sm shrink-0 bg-surface-subtle px-1.5 py-0.5 font-number text-muted-foreground">
+                      v{e.version}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="text-list block truncate font-bold">{e.title || '名前のない見積'}</span>
+                      {e.sent_at && (
+                        <span className="text-sub-sm block text-muted-foreground">
+                          出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
+                        </span>
+                      )}
+                    </span>
+                    <TableBadge w={null} label={STATUS_LABEL[e.status]} className={cn('shrink-0', STATUS_TONE[e.status])} />
                   </button>
-                </RowMain>
-                <Money value={e.subtotal - e.discount} className="text-sub w-32 shrink-0" />
-                <TableBadge w={96} label={STATUS_LABEL[e.status]} className={STATUS_TONE[e.status]} />
-                <RowSlot w={240} align="right" className="flex-wrap gap-1">
-                  {/* **見積書 PDF はどの版からも出せる。** 出したあと（`sent`）や
-                      旧版（`superseded`）こそ「何を出したか」を紙で確かめたい場面が多く、
-                      ここで状態を見て隠すと、いちばん要るときに押せなくなる。
-                      押すと BOX の社外と共有するフォルダにも入る（`docPdf.ts`）*/}
-                  <DocPdfButton path={`${base}/${e.id}/pdf`} kind="estimate" />
-                  {e.status === 'draft' && (
-                    <Button variant="outline" size="sm" title="お客様に出したことにする"
-                      onClick={() => setStatus.mutate({ id: e.id, status: 'sent' })}>
-                      <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  )}
-                  {e.status === 'sent' && (
-                    <>
-                      <Button variant="outline" size="sm" title="受注にする"
-                        onClick={() => setStatus.mutate({ id: e.id, status: 'accepted' })}>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden="true" />
-                      </Button>
-                      <Button variant="outline" size="sm" title="失注にする" onClick={async () => {
-                        const ok = await confirmAction({
-                          title: '失注にしますか？',
-                          description: 'この見積は失注として残ります。取り消したいときは次の版をつくってください。',
-                          confirmLabel: '失注にする', tone: 'danger',
-                        });
-                        if (ok) setStatus.mutate({ id: e.id, status: 'rejected' });
-                      }}>
-                        <XCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                      </Button>
-                    </>
-                  )}
-                  {e.status === 'accepted' && (
-                    e.revenue_id ? (
-                      <span className="text-sub-sm whitespace-nowrap text-success">登録済み</span>
-                    ) : (
-                      <Button size="sm" title="この見積の金額で売上・請求に登録する" onClick={async () => {
-                        const ok = await confirmAction({
-                          title: '売上・請求に登録しますか？',
-                          description: `見積の金額（税抜 ${formatCurrency(e.subtotal - e.discount)}）で「売上・請求」に1件登録します。あとから金額だけをここで直しても登録済みの売上には反映されません。`,
-                          confirmLabel: '登録する',
-                        });
-                        if (ok) convertToRevenue.mutate(e.id);
-                      }}>
-                        <ArrowRight className="mr-1 h-3.5 w-3.5" aria-hidden="true" />売上・請求へ
-                      </Button>
-                    )
-                  )}
-                  <Button variant="outline" size="sm" title="この版を写して次の版をつくる"
-                    onClick={() => nextVersion.mutate(e.id)}>
-                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                  </Button>
-                  {/* ⚠️ **消せるのは下書きだけ**（レビューでの指摘 #50）。
-                      `revenue_id` が無いことだけを見ていたので、**出した版・受注した版・
-                      差し替え済みの版まで消せました** — 送った見積はお客様に渡した記録で、
-                      消えると「何を出したか」を追えません。サーバーも同じ条件で断ります */}
-                  {!e.revenue_id && e.status === 'draft' && (
-                    <Button variant="outline" size="sm" title="消す" onClick={async () => {
-                      const ok = await confirmAction({
-                        title: `v${e.version} を消しますか？`,
-                        description: '明細もいっしょに消えます。ほかの版は残ります。元に戻せません。',
-                        confirmLabel: '消す', tone: 'danger',
-                      });
-                      if (ok) remove.mutate(e.id);
-                    }}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                    </Button>
-                  )}
-                </RowSlot>
-              </Row>
-            ))}
-          </div>
+                  <Money value={e.subtotal - e.discount} className="text-list font-bold" />
+                  <EstimateActions
+                    e={e}
+                    base={base}
+                    onSetStatus={(status) => setStatus.mutate({ id: e.id, status })}
+                    onConvert={() => convertToRevenue.mutate(e.id)}
+                    onNextVersion={() => nextVersion.mutate(e.id)}
+                    onRemove={() => remove.mutate(e.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-card border border-border bg-card">
+              <RowHeader className="hidden sm:flex">
+                <RowSlot w={56}>版</RowSlot>
+                <RowMain>見積</RowMain>
+                <RowSlot w={128} align="right">金額（税抜）</RowSlot>
+                <RowSlot w={96}>状態</RowSlot>
+                <RowSlot w={240} align="right">操作</RowSlot>
+              </RowHeader>
+              {(list.data ?? []).map((e) => (
+                <Row key={e.id} divider interactive stackOnMobile align="center">
+                  <RowSlot w={56}>
+                    <span className="text-list font-number">v{e.version}</span>
+                  </RowSlot>
+                  <RowMain>
+                    {/* 高さは決めた段に乗せる (中身任せだと 39px になり、指でも押しにくい) */}
+                    <button type="button" onClick={() => setOpenId(openId === e.id ? null : e.id)} className="min-h-tap w-full text-left">
+                      <span className="text-list block truncate">{e.title || '名前のない見積'}</span>
+                      {e.sent_at && (
+                        <span className="text-sub-sm block text-muted-foreground">
+                          出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
+                        </span>
+                      )}
+                    </button>
+                  </RowMain>
+                  <Money value={e.subtotal - e.discount} className="text-sub w-32 shrink-0" />
+                  <TableBadge w={96} label={STATUS_LABEL[e.status]} className={STATUS_TONE[e.status]} />
+                  <RowSlot w={240} align="right" className="flex-wrap gap-1">
+                    <EstimateActions
+                      e={e}
+                      base={base}
+                      onSetStatus={(status) => setStatus.mutate({ id: e.id, status })}
+                      onConvert={() => convertToRevenue.mutate(e.id)}
+                      onNextVersion={() => nextVersion.mutate(e.id)}
+                      onRemove={() => remove.mutate(e.id)}
+                    />
+                  </RowSlot>
+                </Row>
+              ))}
+            </div>
+          )}
 
           {openId && detail.data && (
             <>

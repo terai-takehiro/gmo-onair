@@ -251,7 +251,7 @@ export default function ProjectDetailPage() {
       {!offPhone && tab === 'task' && <TasksTab project={p} mobile={isMobile} />}
       {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
       {!offPhone && tab === 'files' && <FilesTab project={p} />}
-      {!offPhone && tab === 'day' && <DayTab projectId={id} />}
+      {!offPhone && tab === 'day' && <DayTab projectId={id} mobile={isMobile} />}
       {!offPhone && tab === 'review' && <ReviewTab project={p} />}
       {!offPhone && tab === 'overview' && isMobile && <MobileTools project={p} />}
 

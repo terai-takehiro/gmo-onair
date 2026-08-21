@@ -17,9 +17,18 @@
  * その状態は凍結アプリ側の作りに依存するので、**いまは出しません**。
  * 出せないことを黙っていると「状態が無い資料」に見えるので、
  * 画面に「バージョンアップで対応予定」と書きます。
+ *
+ * ── スマホは iOS の一覧セル（v4ネイティブUI監査・この回） ──────
+ *
+ * 着手前は PC も スマホも同じ `Row`（`stackOnMobile`）で、375px でも
+ * 「薄い区切り線 + 小さい『開く』リンク」という**表を縮めただけ**の見た目でした。
+ * **本番当日はいちばん急いでいるとき**に押すタブなので、行全体を1つの
+ * タップ対象にし（`Row` の「開く」だけでは当たり判定が右端 96px に閉じていた）、
+ * アイコンを丸背景の中に置いて資料の種類が一目で分かるようにしています。
+ * PC は従来の `Row` のままです（中身・API呼び出しは1つも変えていません）。
  */
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, ClipboardList, Cable, Info } from 'lucide-react';
+import { ExternalLink, ClipboardList, Cable, Info, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -28,13 +37,14 @@ interface Doc { id: string; title: string; status?: string | null; updated_at: s
 
 /** 凍結アプリは**別のベースパス**なので、React Router ではなく素の遷移で開く */
 function DocList({
-  title, icon: Icon, docs, hrefOf, emptyHint,
+  title, icon: Icon, docs, hrefOf, emptyHint, mobile,
 }: {
   title: string;
   icon: typeof ClipboardList;
   docs: Doc[];
   hrefOf: (d: Doc) => string;
   emptyHint: string;
+  mobile: boolean;
 }) {
   return (
     <section className="rounded-card border border-border bg-card">
@@ -45,6 +55,29 @@ function DocList({
       </h2>
       {docs.length === 0 ? (
         <p className="text-sub px-4 py-4 text-muted-foreground">{emptyHint}</p>
+      ) : mobile ? (
+        // **行全体が1つのタップ対象。** 現場で急いでいるときに右端の
+        // 小さいリンクを狙わせない（`Row` の「開く」は96px幅しかない）
+        <div className="flex flex-col">
+          {docs.map((d) => (
+            <a
+              key={d.id}
+              href={hrefOf(d)}
+              className="flex min-h-tap items-center gap-3 border-b border-border-faint px-4 py-3 last:border-b-0 active:bg-muted"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md bg-primary-surface-weak">
+                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-list block truncate font-bold">{d.title || '名前のない資料'}</span>
+                <span className="text-sub-sm block text-muted-foreground">
+                  最後の更新 {d.updated_at.slice(0, 10).replace(/-/g, '/')}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </a>
+          ))}
+        </div>
       ) : (
         docs.map((d) => (
           <Row key={d.id} divider interactive stackOnMobile>
@@ -67,7 +100,7 @@ function DocList({
   );
 }
 
-export function DayTab({ projectId }: { projectId: string }) {
+export function DayTab({ projectId, mobile }: { projectId: string; mobile?: boolean }) {
   const qsheets = useQuery<Doc[]>({
     queryKey: ['project-qsheets', projectId],
     queryFn: async () => (await api.get('/qsheet/documents', { params: { project_id: projectId } })).data.data,
@@ -89,6 +122,7 @@ export function DayTab({ projectId }: { projectId: string }) {
         docs={qsheets.data ?? []}
         hrefOf={(d) => `/qsheet/editor/${d.id}`}
         emptyHint="この案件の制作資料はまだありません。制作資料の画面から作れます。"
+        mobile={!!mobile}
       />
       <DocList
         title="技術資料"
@@ -96,6 +130,7 @@ export function DayTab({ projectId }: { projectId: string }) {
         docs={techsheets.data ?? []}
         hrefOf={(d) => `/techsheet/editor/${d.id}`}
         emptyHint="この案件の技術資料はまだありません。技術資料の画面から作れます。"
+        mobile={!!mobile}
       />
 
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
