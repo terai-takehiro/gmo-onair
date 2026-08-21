@@ -78,3 +78,12 @@ export async function canAccessProposal(
   }
   return false;
 }
+
+/**
+ * 壁打ちスレッド（`qsheet_ai_threads`）に対して user がアクセス可能か。
+ * **本人のみ**（04-ai.md §14-8 の決定・段8）。チーム共有は第1版で作らない。
+ * `system_admin` だけは既存の作法（`isQsheetAdmin`）に合わせて例外的に見える。
+ */
+export function canAccessThread(user: AccessUser, thread: { created_by: string }): boolean {
+  return isQsheetAdmin(user) || thread.created_by === user.id;
+}

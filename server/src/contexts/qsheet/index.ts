@@ -17,6 +17,8 @@ import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleAppl
 import scheduleExportRoutes from './routes/schedule-export.routes';
 import scheduleReverseRoutes from './routes/schedule-reverse.routes';
 import aiProposalsRoutes from './routes/ai-proposals.routes';
+import aiGenerateRoutes from './routes/ai-generate.routes';
+import aiChatRoutes from './routes/ai-chat.routes';
 import excelRoutes from './routes/excel.routes';
 
 export function createQsheetRoutes(): Router {
@@ -48,8 +50,10 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet', scheduleExportRoutes);
   router.use('/qsheet', scheduleReverseRoutes);
 
-  // AI 提案の受け止め（段7・07-ai-proposals-impl.md）。**生成は無い** — 器だけ
+  // AI 提案の受け止め（段7・07-ai-proposals-impl.md）＋ 生成4機能（段8・04-ai.md）
   router.use('/qsheet', aiProposalsRoutes);
+  router.use('/qsheet', aiGenerateRoutes);   // ①②③（生成→提案として保存）
+  router.use('/qsheet', aiChatRoutes);       // ④壁打ち（本人のみ）
 
   // 台本 Excel 入出力（段6・03-excel.md）。08（機器設定の Excel）とは別物・互いを import しない
   router.use('/qsheet', excelRoutes);

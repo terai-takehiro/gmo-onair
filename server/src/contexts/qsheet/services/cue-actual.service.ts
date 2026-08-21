@@ -8,7 +8,7 @@
 //
 // 設計: docs/design/v4/qsheet-v4-coding/impl/01-cue-actuals-impl.md §5-3
 import { v4 as uuid } from 'uuid';
-import { execute, queryAll } from '../../../shared/db/connection';
+import { execute, queryAll, queryOne } from '../../../shared/db/connection';
 import type { CueActualInput, CueActualRow, RunSummary } from '../types/cueActuals';
 
 const MAX_ID_LENGTH = 200;
@@ -114,6 +114,30 @@ export async function listRuns(documentId: string): Promise<RunSummary[]> {
     total_actual_sec: r.total_actual_sec as number,
     total_planned_sec: (r.total_planned_sec as number | null) ?? null,
   }));
+}
+
+/**
+ * 本番が「進行中らしい」か（段8・04-ai.md §8-2 の補強）。
+ *
+ * §8-2 は「AI 生成ボタンは run が立っている間、**画面から消す**」と書いており、これは
+ * 本来クライアント側の責務（実際に UI から消してあるので、通常の操作ではここに来ない）。
+ * ここでは**それを信用しない直接呼び出し**（API を直接叩く・別タブが残っている等）への
+ * 保険として、サーバー側にも同じ判定を1つ持つ。「run がある」ことそのものより
+ * 「**最近まで動いていたか**」で見る — `qsheet_cue_actuals` には run の終了を示す列が無いため。
+ */
+export async function isProductionLikelyActive(documentId: string, withinMinutes = 180): Promise<boolean> {
+  try {
+    const row = await queryOne(
+      'SELECT MAX(recorded_at) AS last FROM qsheet_cue_actuals WHERE document_id = ?', [documentId],
+    );
+    const last = row?.last as Date | undefined;
+    if (!last) return false;
+    const diffMin = (Date.now() - new Date(last).getTime()) / 60000;
+    return diffMin >= 0 && diffMin < withinMinutes;
+  } catch (e) {
+    console.warn('[qsheet-ai] isProductionLikelyActive の判定に失敗しました（続行）:', (e as Error).message);
+    return false; // 分からないときは止めない側に倒す（AI 生成を誤って塞がない）
+  }
 }
 
 /** ある run (省略時は台本全体) の実尺行を古い順に返す (本番中には呼ばれない。落ちてよい)。 */
