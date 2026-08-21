@@ -29,6 +29,7 @@ import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 import { runFormatPass } from '../../sales/services/activity-format.service';
 import { runShortPass } from '../../sales/services/next-action-short.service';
 import { jstParts, shiftYmd } from '../../../shared/utils/jst';
+import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
 
 /**
  * いまの `YYYY-MM-DD` と `HH:MM`。**日本の壁時計**で返す。
@@ -453,6 +454,38 @@ async function shortenPendingNextActions(): Promise<NotifyInput[]> {
   return [];
 }
 
+/**
+ * 制作資料 v4 段7（AI 提案）— 放置提案の期限切れ。**AI を呼ばない。**
+ * 止めたいときは `QSHEET_AI_EXPIRE_NIGHTLY=off`（整形・短縮と同じ形）。
+ */
+async function expireQsheetAiProposals(): Promise<NotifyInput[]> {
+  if ((process.env.QSHEET_AI_EXPIRE_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    const n = await expireOpenProposals();
+    if (n) console.log('[scheduler] qsheet_ai_expire:', JSON.stringify({ expired: n }));
+  } catch (e) {
+    console.error('[scheduler] qsheet_ai_expire failed:', (e as Error).message);
+  }
+  return [];
+}
+
+/**
+ * 制作資料 v4 段7（AI 提案）— 締めの2段（early/final）。**AI を呼ばない。**
+ * `qsheet_ai_expire`（03:15）の直後に置くのは、期限切れにした提案を締め対象から
+ * 先に外しておくため（順序が逆でも壊れはしないが、拾う母数が無駄に増える）。
+ * 止めたいときは `QSHEET_AI_SETTLE_NIGHTLY=off`。
+ */
+async function settleQsheetAiProposals(): Promise<NotifyInput[]> {
+  if ((process.env.QSHEET_AI_SETTLE_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    const r = await settleDueProposals();
+    if (r.early || r.final || r.failed) console.log('[scheduler] qsheet_ai_settle:', JSON.stringify(r));
+  } catch (e) {
+    console.error('[scheduler] qsheet_ai_settle failed:', (e as Error).message);
+  }
+  return [];
+}
+
 const JOBS: Job[] = [
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
@@ -469,6 +502,10 @@ const JOBS: Job[] = [
   { key: 'activity_format', at: '03:00', templateId: null, run: formatPendingActivities },
   // 整形のあとに置く（整形が `next_action` を埋めた行を同じ晩に短くする）
   { key: 'next_action_short', at: '03:10', templateId: null, run: shortenPendingNextActions },
+  // 制作資料 v4 段7（AI 提案）。既存の 03:00/03:10（AI を呼ぶ仕事）と重ねないための 03:15/03:20。
+  // **どちらも AI を1回も呼ばない**（突合・期限切れの判定だけ）
+  { key: 'qsheet_ai_expire', at: '03:15', templateId: null, run: expireQsheetAiProposals },
+  { key: 'qsheet_ai_settle', at: '03:20', templateId: null, run: settleQsheetAiProposals },
 ];
 
 /**

@@ -16,6 +16,7 @@ import scheduleBreakdownRoutes from './routes/schedule-breakdown.routes';
 import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleApplyRouter } from './routes/schedule-templates.routes';
 import scheduleExportRoutes from './routes/schedule-export.routes';
 import scheduleReverseRoutes from './routes/schedule-reverse.routes';
+import aiProposalsRoutes from './routes/ai-proposals.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -45,6 +46,9 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet', scheduleApplyRouter);
   router.use('/qsheet', scheduleExportRoutes);
   router.use('/qsheet', scheduleReverseRoutes);
+
+  // AI 提案の受け止め（段7・07-ai-proposals-impl.md）。**生成は無い** — 器だけ
+  router.use('/qsheet', aiProposalsRoutes);
 
   return router;
 }
