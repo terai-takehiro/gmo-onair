@@ -16,7 +16,6 @@
  *   MAINTENANCE_STATUS       → migrations/007_equipment.sql:103
  *   EQUIPMENT_LENDING_STATUS → migrations/007_equipment.sql:122
  *   QSHEET_STATUS            → migrations/012_qsheet_schema.sql:19
- *   TECHSHEET_STATUS         → migrations/014_techsheet_schema.sql:12
  *   PROJECT_STAGE            → projects テーブル (CHECK 無し、コード側で enforce)
  *
  * ここの const と migration の値が乖離した場合: 必ず両方を同時に更新する。
@@ -70,16 +69,6 @@ export const QSHEET_STATUS = {
   ARCHIVED: 'archived',
 } as const;
 export type QsheetStatus = (typeof QSHEET_STATUS)[keyof typeof QSHEET_STATUS];
-
-// ══════════════════════════════════════════════════════════════════
-// 技術資料 (TechSheet)
-// ══════════════════════════════════════════════════════════════════
-export const TECHSHEET_STATUS = {
-  DRAFT: 'draft',
-  CONFIRMED: 'confirmed',
-  ARCHIVED: 'archived',
-} as const;
-export type TechsheetStatus = (typeof TECHSHEET_STATUS)[keyof typeof TECHSHEET_STATUS];
 
 // ══════════════════════════════════════════════════════════════════
 // 案件ライフサイクル (Phase A 統合)

@@ -172,7 +172,7 @@ router.post('/admin/repair-permissions', requireRole('system_admin'), wrap(async
   // 4. 全 staff ユーザーに欠けている権限を付与
   const defaultPerms: Record<string, string> = {
     sales: 'reader', budget: 'reader', studio: 'editor',
-    equipment: 'reader', qsheet: 'editor', techsheet: 'editor',
+    equipment: 'reader', qsheet: 'editor',
     liveops: 'reader', awards: 'reader',
   };
   const staffUsers = await queryAll(

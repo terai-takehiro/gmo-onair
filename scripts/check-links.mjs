@@ -36,7 +36,7 @@ const APP = path.join(ROOT, 'client/src/App.tsx');
 const SRC = path.join(ROOT, 'client/src');
 
 /** 別バンドル・API・外部。ここは案件管理アプリのルート表が持たない */
-const OTHER_BUNDLE = /^\/(qsheet|techsheet|live|awards|equipment|daily|signage|api)(\/|$)/;
+const OTHER_BUNDLE = /^\/(qsheet|live|awards|equipment|daily|signage|api)(\/|$)/;
 
 /** 行き先がまだ無いと**分かったうえで**置いてあるもの（理由を必ず書く） */
 const ALLOW = new Map([

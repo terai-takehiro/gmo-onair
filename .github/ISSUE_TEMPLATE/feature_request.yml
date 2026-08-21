@@ -36,7 +36,6 @@ body:
         - 案件管理 (/)
         - Qシート (/qsheet/)
         - 機材管理 (/equipment/)
-        - 技術資料 (/techsheet/)
         - ライブ運用 (/live/)
         - リアルタイムCG (/awards/)
         - デイリー (/daily/)

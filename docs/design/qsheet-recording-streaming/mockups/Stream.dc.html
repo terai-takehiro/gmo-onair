@@ -1,0 +1,396 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
+  <style>
+    html, body { height: 100%; }
+    /* 描画側の受け皿（#dc-root など）に高さが無いと height:100% が解決できない */
+    body > div { height: 100%; }
+    body { margin: 0; background: #f7f8fa;
+      font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', Meiryo, sans-serif;
+      font-feature-settings: 'palt' 1, 'kern' 1; color: #1a1d24; -webkit-font-smoothing: antialiased; }
+    a { color: #c2410e; text-decoration: none; } a:hover { color: #9a3412; }
+    .num { font-variant-numeric: tabular-nums; }
+    .fld { transition: border-color .16s, background-color .16s; }
+    .fld:hover { border-color: #a6ceeb; }
+    .rw { transition: background-color .16s; }
+    .rw:hover { background: #fbfcfd; }
+    .btn { transition: background-color .16s, border-color .16s, filter .16s; }
+    .btn-ghost:hover { background: #f2f4f7; border-color: #cbd2da; }
+    .btn-solid:hover { filter: brightness(1.08); }
+    /* 長体。**枠を 1/縮小率 だけ広げてから縮める** — こうしないと ellipsis が
+       変形前の幅で決まるので、字が細くなるだけで文字数は増えない。
+       JS で測って書き戻す「長体フィット」は入れない（DESIGN_POLICY.md）*/
+    .condw { flex: 1 1 0; min-width: 0; overflow: hidden; }   /* 横並びの中で使う受け皿 */
+    .condb { display: block; min-width: 0; overflow: hidden; } /* 縦積みの中で使う受け皿 */
+    .cond { display: block; width: 106.4%; transform: scaleX(.94); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-s { display: block; width: 111.2%; transform: scaleX(.90); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-r { display: block; width: 106.4%; margin-left: -6.4%; transform: scaleX(.94);
+      transform-origin: right center; text-align: right;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nb { white-space: nowrap; }
+    .ico { display: block; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; height: 100vh; background: #fff; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; height: 64px; flex-shrink: 0; padding: 0 24px; background: #fff; border-bottom: 1px solid #e6e9ed">
+    <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em; flex-shrink: 0">GMO ONAiR</span>
+    <span style="width: 1px; height: 22px; background: #e6e9ed; flex-shrink: 0"></span>
+    <span style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; font-size: 13.5px; font-weight: 700; color: #c2410e; white-space: nowrap; flex-shrink: 0">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #ffedd5; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+        <svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      </span>
+      制作資料
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
+    <span style="font-size: 12.5px; color: #5d6470; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0">／ GLS002-003　60周年 記念式典 ／ 配信設定</span>
+    <span style="flex: 1; min-width: 0"></span>
+    <span style="width: 32px; height: 32px; border-radius: 999px; background: #fff7ed; color: #c2410e; display: inline-flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 700; flex-shrink: 0">寺</span>
+  </div>
+
+  <div style="display: flex; align-items: stretch; flex: 1; min-height: 0">
+
+    <div style="width: 248px; box-sizing: border-box; flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #e6e9ed; padding: 14px 12px 20px; overflow: hidden">
+      <sc-for list="{{ menu }}" as="s" hint-placeholder-count="2">
+        <div>
+          <p style="margin: 14px 0 4px; padding: 0 10px; font-size: 11.5px; font-weight: 800; color: #5d6470">{{ s.title }}</p>
+          <sc-for list="{{ s.items }}" as="i" hint-placeholder-count="3">
+            <span onClick="{{ i.go }}" style="display: flex; align-items: center; gap: 10px; min-height: 38px; box-sizing: border-box; padding: 6px 10px; border-radius: 10px; font-size: 13.5px; font-weight: {{ i.weight }}; color: {{ i.fg }}; background: {{ i.bg }}; cursor: pointer">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: {{ i.dot }}; flex-shrink: 0"></span>
+              <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ i.label }}</span>
+              <sc-if value="{{ i.tag }}" hint-placeholder-val="{{ false }}">
+                <span class="num" style="height: 19px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 6px; border-radius: 6px; background: {{ i.tagBg }}; color: {{ i.tagFg }}; font-size: 11.5px; font-weight: 700; flex-shrink: 0">{{ i.tag }}</span>
+              </sc-if>
+            </span>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; min-width: 0; background: #f7f8fa; padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 13px; overflow: hidden">
+
+      <div style="display: flex; align-items: flex-end; gap: 12px">
+        <div style="min-width: 0">
+          <h1 style="margin: 0; font-size: 23px; font-weight: 800; letter-spacing: .01em">配信設定</h1>
+          <p style="margin: 3px 0 0; font-size: 13px; color: #5d6470">Magewell UltraEncode 10 台ぶんの配信先を打ち込み、Excel で現場へ渡します。</p>
+        </div>
+        <div style="flex: 1"></div>
+        <button onClick="{{ noop }}" class="btn btn-ghost" style="height: 38px; padding: 0 13px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff; font-size: 12.5px; font-weight: 700; color: #3c424c; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap">
+          <svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          点検する
+        </button>
+        <button onClick="{{ noop }}" class="btn btn-solid" style="height: 38px; padding: 0 15px; border: none; border-radius: 10px; background: {{ accent }}; color: #fff; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap">
+          <svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Excel を書き出す
+        </button>
+      </div>
+
+      <div style="display: flex; align-items: stretch; gap: 13px; flex: 1; min-height: 0">
+
+        <!-- 左: ENC ごとの配信先 -->
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 13px; overflow: hidden">
+
+          <div style="background: #fff; border: 1px solid #e6e9ed; border-radius: 16px; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid #eef0f3">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800">配信先</h2>
+              <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap">1 台に複数の配信先を置けます（機器がそうなっています）</span>
+              <div style="flex: 1"></div>
+              <span class="num" style="font-size: 11.5px; font-weight: 800; color: #5d6470; white-space: nowrap">{{ setCount }}</span>
+            </div>
+
+            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 9px 18px; background: #fbfcfd; border-bottom: 1px solid #eef0f3">
+                  <span class="num" style="font-size: 12px; font-weight: 800; letter-spacing: .03em; color: #1a1d24; width: 58px; flex-shrink: 0">{{ g.id }}</span>
+                  <span style="font-size: 12px; color: #5d6470; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ g.label }}</span>
+                  <span onClick="{{ g.add }}" style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #005bac; cursor: pointer; white-space: nowrap; flex-shrink: 0">
+                    <svg class="ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    配信先を足す
+                  </span>
+                </div>
+
+                <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 13px 18px 13px 34px; border-bottom: 1px solid #f2f4f7">
+                    <span style="width: 6px; height: 6px; border-radius: 999px; background: #cbd2da; flex-shrink: 0"></span>
+                    <span style="font-size: 12.5px; color: #9aa1ab">配信先がまだありません。この台は Excel に出ません。</span>
+                  </div>
+                </sc-if>
+
+                <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                  <div onClick="{{ r.pick }}" class="rw" style="display: flex; align-items: center; gap: 11px; padding: 9px 18px 9px 34px; border-bottom: 1px solid #f2f4f7; background: {{ r.bg }}; cursor: pointer; border-left: 3px solid {{ r.mark }}">
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
+                      <span class="num cond" style="font-size: 13px; font-weight: {{ r.weight }}">{{ r.name }}</span>
+                      <span class="num cond" style="font-size: 11px; color: #9aa1ab">{{ r.url }}</span>
+                    </span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 92px; height: 22px; border-radius: 7px; background: {{ r.pBg }}; color: {{ r.pFg }}; font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0">{{ r.protocol }}</span>
+                    <span style="width: 96px; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px">
+                      <svg class="ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ r.keyFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                      <span style="font-size: 11.5px; font-weight: 700; color: {{ r.keyFg }}; white-space: nowrap">{{ r.keyLabel }}</span>
+                    </span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 72px; height: 22px; border-radius: 7px; background: {{ r.stBg }}; color: {{ r.stFg }}; font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0">{{ r.state }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+
+            <div style="display: flex; align-items: center; gap: 8px; padding: 11px 18px; background: #fbfcfd">
+              <span style="font-size: 12px; color: #9aa1ab">ENC7 ・ ENC8 ・ ENC9 ・ ENC10 はこの番組では使いません</span>
+              <div style="flex: 1"></div>
+              <span onClick="{{ noop }}" style="font-size: 12px; font-weight: 700; color: #005bac; cursor: pointer">使う台を選ぶ</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; padding: 12px 16px; background: #fef6f7; border: 1px solid #f6cdd2; border-radius: 14px">
+            <span style="flex-shrink: 0; padding-top: 2px">
+              <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>
+            </span>
+            <p style="margin: 0; font-size: 12px; line-height: 1.75; color: #3c424c">
+              <strong style="font-weight: 800; color: #c7243a">書き出す Excel にはストリームキーが平文で入ります。</strong>
+              共有フォルダに置いたままにせず、番組が終わったら消してください。画面上は伏せたままでも書き出せます。
+            </p>
+          </div>
+        </div>
+
+        <!-- 右: インスペクタ -->
+        <div style="width: 372px; flex-shrink: 0; background: #fff; border: 1px solid #e6e9ed; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-bottom: 1px solid #eef0f3">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 800">配信先を打ち込む</h2>
+            <div style="flex: 1"></div>
+            <span class="num" style="font-size: 11.5px; font-weight: 800; color: #c2410e; background: #fff7ed; border-radius: 7px; padding: 3px 8px">{{ sel.enc }}</span>
+          </div>
+
+          <div style="padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+
+            <div style="display: flex; flex-direction: column; gap: 7px; overflow: hidden">
+              <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">セッション名</span>
+              <span class="fld" style="display: flex; align-items: center; box-sizing: border-box; height: 40px; padding: 0 11px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff">
+                <span class="condw"><span class="num cond" style="font-size: 13.5px; font-weight: 700">{{ sel.name }}</span></span>
+                <span class="num" style="font-size: 11px; color: #9aa1ab; flex-shrink: 0; white-space: nowrap">{{ sel.count }}</span>
+              </span>
+              <span style="display: flex; align-items: flex-start; gap: 6px">
+                <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px; flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+                <span style="font-size: 11.5px; line-height: 1.6; color: #5d6470">半角の英数字・空白・<span class="num">._-+'[]()</span> だけ。<strong class="nb" style="font-weight:800">日本語は機器が受け付けません</strong>。この名前で現地の設定と突き合わせます。</span>
+              </span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 7px; overflow: hidden">
+              <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">プロトコル</span>
+              <span style="display: flex; background: #f2f4f7; border-radius: 10px; padding: 3px; gap: 3px">
+                <sc-for list="{{ protocols }}" as="p" hint-placeholder-count="3">
+                  <span onClick="{{ p.pick }}" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; height: 32px; border-radius: 7px; background: {{ p.bg }}; color: {{ p.fg }}; font-size: 12px; font-weight: {{ p.weight }}; box-shadow: {{ p.shadow }}; cursor: pointer; white-space: nowrap">{{ p.label }}</span>
+                </sc-for>
+              </span>
+            </div>
+
+            <div style="height: 1px; background: #f2f4f7"></div>
+
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 7px; overflow: hidden">
+                <span style="display: flex; align-items: baseline; gap: 6px">
+                  <span style="font-size: 11.5px; font-weight: 800; color: {{ f.labelFg }}">{{ f.label }}</span>
+                  <sc-if value="{{ f.req }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-size: 10.5px; font-weight: 800; color: #c7243a">必須</span>
+                  </sc-if>
+                  <div style="flex: 1"></div>
+                  <sc-if value="{{ f.action }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ noop }}" style="font-size: 11px; font-weight: 700; color: #005bac; cursor: pointer">{{ f.action }}</span>
+                  </sc-if>
+                </span>
+                <span class="fld" style="display: flex; align-items: center; gap: 8px; box-sizing: border-box; height: 40px; padding: 0 11px; border: 1px solid {{ f.bd }}; border-radius: 10px; background: {{ f.bg }}">
+                  <span class="condw"><span class="num cond" style="font-size: 13px; font-weight: {{ f.weight }}; color: {{ f.fg }}">{{ f.value }}</span></span>
+                  <sc-if value="{{ f.suffix }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size: 11.5px; color: #9aa1ab; flex-shrink: 0">{{ f.suffix }}</span>
+                  </sc-if>
+                </span>
+                <sc-if value="{{ f.note }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 11.5px; line-height: 1.6; color: {{ f.noteFg }}">{{ f.note }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <div style="padding: 11px 13px; background: #f7f8fa; border-radius: 12px">
+              <p style="margin: 0; font-size: 11.5px; line-height: 1.7; color: #5d6470">
+                <strong style="font-weight: 800; color: #3c424c">{{ srtNote }}</strong>取りうる値は機器が答えるものなので、ここでは範囲を強制せず<strong class="nb" style="font-weight: 800; color: #3c424c">空欄のまま出せます</strong>。
+              </p>
+            </div>
+          </div>
+
+          <div style="flex: 1"></div>
+          <div style="display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-top: 1px solid #eef0f3; background: #fbfcfd">
+            <span onClick="{{ noop }}" style="font-size: 12px; font-weight: 700; color: #c7243a; cursor: pointer; white-space: nowrap">この配信先を消す</span>
+            <div style="flex: 1"></div>
+            <button onClick="{{ noop }}" class="btn btn-ghost" style="height: 36px; padding: 0 13px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff; font-size: 12.5px; font-weight: 700; color: #3c424c; font-family: inherit; cursor: pointer; white-space: nowrap">やめる</button>
+            <button onClick="{{ noop }}" class="btn btn-solid" style="height: 36px; padding: 0 15px; border: none; border-radius: 10px; background: {{ accent }}; color: #fff; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap">保存する</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900},"accent":{"editor":"color","default":"#c2410e","options":["#c2410e","#005bac","#197a4b","#4338ca"],"section":"見た目"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'ENC1/YouTube Pri', proto: 'RTMP' };
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#c2410e';
+    const picked = this.state.picked;
+    const proto = this.state.proto;
+
+    const P = {
+      RTMP: { pBg: '#eef2ff', pFg: '#4338ca' },
+      'SRT Caller': { pBg: '#e7f6ee', pFg: '#197a4b' },
+      'SRT Listener': { pBg: '#fff7ed', pFg: '#c2410e' },
+    };
+    const S = {
+      '準備完了': { stBg: '#e7f6ee', stFg: '#197a4b' },
+      '未入力': { stBg: '#f2f4f7', stFg: '#5d6470' },
+      '要確認': { stBg: '#fff7ed', stFg: '#c2410e' },
+    };
+
+    const GROUPS = [
+      {
+        id: 'ENC1', label: '本線 PGM（式典・懇親）', rows: [
+          { name: 'YouTube Pri', url: 'rtmp://a.rtmp.youtube.com/live2', protocol: 'RTMP', key: true, state: '準備完了' },
+          { name: 'YouTube Bkup', url: 'rtmp://b.rtmp.youtube.com/live2?backup=1', protocol: 'RTMP', key: true, state: '準備完了' },
+        ],
+      },
+      {
+        id: 'ENC2', label: 'サブ（引き）', rows: [
+          { name: 'Center SRT', url: 'srt.example.invalid : 9000', protocol: 'SRT Caller', key: false, state: '準備完了' },
+        ],
+      },
+      {
+        id: 'ENC3', label: '社内配信', rows: [
+          { name: 'Intranet', url: 'rtmp://media.example.invalid/live', protocol: 'RTMP', key: false, state: '要確認' },
+        ],
+      },
+      {
+        id: 'ENC4', label: '（配信先なし）', rows: [], empty: true,
+      },
+      {
+        id: 'ENC5', label: '受け（中継の戻し）', rows: [
+          { name: 'Return Rcv', url: '待受ポート 9001', protocol: 'SRT Listener', key: false, state: '準備完了' },
+        ],
+      },
+      {
+        id: 'ENC6', label: 'サイネージ送出', rows: [
+          { name: 'Signage', url: 'rtmp://sign.example.invalid/live', protocol: 'RTMP', key: true, state: '準備完了' },
+        ],
+      },
+    ];
+
+    const groups = GROUPS.map((g) => ({
+      id: g.id,
+      label: g.label,
+      empty: !!g.empty,
+      add: () => {},
+      rows: g.rows.map((r) => {
+        const key = g.id + '/' + r.name;
+        const on = key === picked;
+        return Object.assign({}, r, P[r.protocol], S[r.state], {
+          pick: () => this.setState({ picked: key, proto: r.protocol }),
+          bg: on ? '#fff7ed' : '#fff',
+          mark: on ? accent : 'transparent',
+          weight: on ? '800' : '700',
+          keyLabel: r.key ? 'キー設定済み' : (r.protocol === 'RTMP' ? 'キー未入力' : 'キー不要'),
+          keyFg: r.key ? '#197a4b' : (r.protocol === 'RTMP' ? '#c7243a' : '#9aa1ab'),
+        });
+      }),
+    }));
+
+    const protocols = ['RTMP', 'SRT Caller', 'SRT Listener'].map((label) => ({
+      label,
+      pick: () => this.setState({ proto: label }),
+      bg: proto === label ? '#fff' : 'transparent',
+      fg: proto === label ? '#1a1d24' : '#5d6470',
+      weight: proto === label ? '800' : '700',
+      shadow: proto === label ? '0 1px 2px rgba(16,24,40,.10)' : 'none',
+    }));
+
+    // インスペクタは「選んでいる行」から作る（行を押すと中身が入れ替わる）
+    const flat = [];
+    GROUPS.forEach((g) => g.rows.forEach((r) => flat.push(Object.assign({ enc: g.id }, r))));
+    const cur = flat.find((r) => (r.enc + '/' + r.name) === picked) || flat[0];
+
+    const rtmpFields = [
+      { label: '宛先 URL', req: true, action: '', value: cur.url,
+        fg: '#1a1d24', weight: '700', bd: '#e6e9ed', bg: '#fff', suffix: '',
+        note: '', noteFg: '#5d6470', labelFg: '#9aa1ab' },
+      { label: 'ストリームキー', req: true, action: '表示する',
+        value: cur.key ? '••••-••••-••••-••••' : '未入力',
+        fg: cur.key ? '#1a1d24' : '#c7243a', weight: '700',
+        bd: cur.key ? '#e6e9ed' : '#f6cdd2', bg: cur.key ? '#fff' : '#fef6f7', suffix: '',
+        note: '空欄のままにすると、現地にすでに入っているキーを残します（消えません）。',
+        noteFg: '#5d6470', labelFg: '#9aa1ab' },
+    ];
+    const srtFields = [
+      { label: '宛先', req: proto === 'SRT Caller', action: '',
+        value: proto === 'SRT Listener' ? '受信待ちなので要りません' : 'srt.example.invalid',
+        fg: proto === 'SRT Listener' ? '#9aa1ab' : '#1a1d24',
+        weight: proto === 'SRT Listener' ? '400' : '700',
+        bd: proto === 'SRT Listener' ? '#eef0f3' : '#e6e9ed',
+        bg: proto === 'SRT Listener' ? '#fbfcfd' : '#fff', suffix: '',
+        note: '', noteFg: '#5d6470', labelFg: '#9aa1ab' },
+      { label: proto === 'SRT Listener' ? '待受ポート' : 'ポート', req: true, action: '',
+        value: '9000', fg: '#1a1d24', weight: '700', bd: '#e6e9ed', bg: '#fff', suffix: '',
+        note: '', noteFg: '#5d6470', labelFg: '#9aa1ab' },
+      { label: '暗号化', req: false, action: '', value: 'なし',
+        fg: '#3c424c', weight: '700', bd: '#e6e9ed', bg: '#fff', suffix: '',
+        note: '', noteFg: '#5d6470', labelFg: '#9aa1ab' },
+      { label: 'Latency', req: false, action: '', value: '空欄（機器の値を使う）',
+        fg: '#9aa1ab', weight: '400', bd: '#e6e9ed', bg: '#fff', suffix: 'ms',
+        note: '', noteFg: '#5d6470', labelFg: '#9aa1ab' },
+    ];
+    const fields = proto === 'RTMP' ? rtmpFields : srtFields;
+
+    return {
+      accent,
+      noop: () => {},
+      menu: [
+        {
+          title: '制作',
+          items: [
+            { label: '香盤表一覧', go: () => {}, weight: '400', fg: '#3c424c', bg: 'transparent', dot: '#cbd2da', tag: '' },
+            { label: '進行台本', go: () => {}, weight: '400', fg: '#3c424c', bg: 'transparent', dot: '#cbd2da', tag: '' },
+            { label: '本番', go: () => {}, weight: '400', fg: '#3c424c', bg: 'transparent', dot: '#cbd2da', tag: '' },
+          ],
+        },
+        {
+          title: '設備',
+          items: [
+            { label: '収録設定', go: () => {}, weight: '400', fg: '#3c424c', bg: 'transparent', dot: '#cbd2da', tag: '12', tagBg: '#f2f4f7', tagFg: '#5d6470' },
+            { label: '配信設定', go: () => {}, weight: '800', fg: '#c2410e', bg: '#fff7ed', dot: accent, tag: '10', tagBg: '#ffedd5', tagFg: '#c2410e' },
+            { label: '書き出しの履歴', go: () => {}, weight: '400', fg: '#3c424c', bg: 'transparent', dot: '#cbd2da', tag: '' },
+          ],
+        },
+      ],
+      groups,
+      protocols,
+      fields,
+      sel: { enc: cur.enc, name: cur.name, count: cur.name.length + ' / 32' },
+      setCount: GROUPS.filter((g) => g.rows.length > 0).length + ' / 10 台',
+      srtNote: proto === 'RTMP'
+        ? 'SRT の詳細（Latency・Bandwidth・MTU・暗号化）は、プロトコルを SRT に変えると出てきます。'
+        : '取りうる値は機器が答えるものなので、ここでは範囲を強制しません。空欄のまま出せます。',
+    };
+  }
+}
+</script>
+</body>
+</html>
