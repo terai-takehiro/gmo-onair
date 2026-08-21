@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as DP from "@radix-ui/react-dialog";
 import api from "@/lib/api";
 import { invalidateBookingQueries } from "@/lib/bookingQueries";
 import { cn } from "@/lib/utils";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -345,67 +346,44 @@ export default function StudioBookingDialog({
   const inputCls = "text-[15px] text-primary bg-transparent border-none outline-none cursor-pointer";
 
   return (
-    <DP.Root open={open} onOpenChange={onOpenChange}>
-      <DP.Portal>
-        <DP.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
-        <DP.Content
-          className={cn(
-            // Mobile: bottom sheet
-            "fixed inset-x-0 bottom-0 z-50 bg-background outline-none",
-            "rounded-t-[20px] border-t border-x",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
-            "duration-300 ease-out",
-            // Desktop (sm): centered dialog
-            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-            "sm:w-[min(calc(100vw-2rem),32rem)]",
-            "sm:rounded-xl sm:border sm:shadow-xl",
-            "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
-            "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
-            // Large desktop (lg): 2-column wider dialog
-            "lg:w-[min(calc(100vw-4rem),56rem)]",
-            "xl:w-[min(calc(100vw-8rem),64rem)]",
-          )}
-        >
-          <DP.Description className="sr-only">スタジオ予約フォーム</DP.Description>
-
-          {/* Drag handle — mobile only */}
-          <div className="sm:hidden flex justify-center pt-2.5 pb-1">
-            <div className="h-1 w-10 rounded-full bg-foreground/20" />
-          </div>
-
-          {/* iOS-style header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <DP.Close asChild>
-              <button className="min-w-[72px] text-[15px] text-primary">キャンセル</button>
-            </DP.Close>
-            <DP.Title className="text-[15px] font-semibold">
-              {editingBooking ? "予約を編集" : "スタジオ予約"}
-            </DP.Title>
-            <button
-              onClick={handleSubmit}
-              disabled={!title || !startDate || createMutation.isPending}
-              className="min-w-[72px] text-right text-[15px] font-semibold text-primary disabled:opacity-40 flex items-center justify-end gap-1"
-            >
-              {createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {editingBooking ? "更新" : "予約する"}
-            </button>
-          </div>
-
-          {/* 保存できなかった理由 — 実行ボタンが上辺にあるので、**スクロール領域の外**
-              ヘッダー直下に固定する。本文末尾に置くと画面外で気づかれず押し直される */}
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editingBooking ? "予約を編集" : "スタジオ予約"}
+      // **2カラムの複合フォームなので `wide` を渡す。** 既定の560pxのままだと、
+      // 元は lg:grid-cols-2 で2列に並べていた項目（タイトル・日時・部屋・控室…）が
+      // 1列に潰れて縦に長くなりすぎる（load-testing不要な単純な折返しではなく、
+      // 部屋の grid-cols-4 チップ等、横幅を前提にした部品が複数ある）
+      wide
+      footer={
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!title || !startDate || createMutation.isPending}
+          >
+            {createMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            {editingBooking ? "更新" : "予約する"}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+          {/* 保存できなかった理由 — 何も出ないと「押せていない」と思われ、同じ予定が
+              二重に入る。フォームの先頭（フッターの目の前）に置く */}
           {saveError && (
             <div
               role="alert"
-              className="border-b border-destructive/30 bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive"
+              className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive"
             >
               {saveError}
             </div>
           )}
 
-          {/* Scrollable body */}
-          <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(92dvh - 56px)" }}>
-            <div className="px-4 py-4 space-y-5 lg:px-6 lg:py-5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+            {/* 760px の `wide` シート前提の2カラム。`lg:col-span-2` の項目
+                （タイトル・スタジオ/部屋・控室利用者・メモ等）はこの親が
+                なければ何もしない no-op になる（実際にそうなっていたのを復元した） */}
+            <div className="space-y-5 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5 lg:space-y-0">
 
               {/* ① タイトル */}
               <div className="rounded-xl border bg-muted/30">
@@ -763,9 +741,6 @@ export default function StudioBookingDialog({
               </div>
 
             </div>
-          </div>
-        </DP.Content>
-      </DP.Portal>
-    </DP.Root>
+    </FormDialog>
   );
 }

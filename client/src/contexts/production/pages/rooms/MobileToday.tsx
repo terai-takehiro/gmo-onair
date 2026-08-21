@@ -88,6 +88,9 @@ export function MobileToday() {
   const [detail, setDetail] = useState<CalBooking | null>(null);
   const [editSchedule, setEditSchedule] = useState<PartnerSchedule | null>(null);
   const [editEvent, setEditEvent] = useState<PersonalEvent | null>(null);
+  // **旧スタジオカレンダー（退役済み）が持っていた「既存の部屋予約を直す唯一の導線」を
+  // スマホ側にも吸収した**（PC の `UnifiedCalendarPage.tsx` と同じ形）
+  const [editBooking, setEditBooking] = useState<CalBooking | null>(null);
 
   // 月表は前後の月の日が並ぶので、その月ちょうどで引くと端の列が空になる（PC と同じ理由）
   const { from, to } = useMemo(() => {
@@ -282,10 +285,10 @@ export function MobileToday() {
       />
 
       <StudioBookingDialog
-        open={newKind === 'room'}
-        onOpenChange={(v) => !v && setNewKind(null)}
+        open={newKind === 'room' || !!editBooking}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditBooking(null); } }}
         locations={locations.data ?? []}
-        editingBooking={null}
+        editingBooking={editBooking as never}
         presetDate={{ start: selected, end: selected, allDay: false }}
       />
 
@@ -304,18 +307,18 @@ export function MobileToday() {
         presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
       />
 
-      {/* スタジオ予約は**読むだけ**。直すのはスタジオカレンダー（作る導線がそこにある） */}
+      {/* **旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を直す唯一の導線」になった** */}
       <StudioBookingDetailDialog
         open={!!detail}
         onOpenChange={(v) => !v && setDetail(null)}
         booking={detail as never}
-        onEdit={() => { /* この画面では直さない */ }}
+        onEdit={(b) => { setDetail(null); setEditBooking(b as never); }}
         onDelete={(id) => confirmAction({
           title: 'この予約を消しますか',
           description: '押さえていた部屋が空きになります。取り消せません。',
           confirmLabel: '消す', tone: 'danger',
         }).then((ok) => ok && del.mutate(id))}
-        canEdit={false}
+        canEdit={canStudioEdit}
         canDelete={canDeleteBooking}
       />
     </div>

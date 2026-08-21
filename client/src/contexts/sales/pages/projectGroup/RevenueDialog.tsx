@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { AllocationEditor } from './AllocationEditor';
 import { RevenueItemsEditor } from './RevenueItemsEditor';
 import { useAllocation } from './useAllocation';
@@ -73,70 +73,71 @@ export function RevenueDialog({
   const invalidAlloc = alloc.mode === 'custom' && alloc.previewTotal !== total;
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'グループ売上編集' : 'グループ売上登録'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>顧客 *</Label>
-            <SearchableSelect
-              options={customers.map((c) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
-              value={customerId} onChange={setCustomerId} placeholder="顧客を検索..."
-            />
-          </div>
-          <div>
-            <Label>件名</Label>
-            <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="見積件名" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>ステータス</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as 'estimate' | 'confirmed')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="estimate">見積</SelectItem>
-                  <SelectItem value="confirmed">確定</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>税区分</Label>
-              <Select value={tax} onValueChange={setTax}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((k) => <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>計上日</Label>
-              <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>請求日</Label>
-              <Input type="date" value={billingDate} onChange={(e) => setBillingDate(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <Label>備考</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="備考" />
-          </div>
-
-          <RevenueItemsEditor items={items} setItems={setItems} total={total} />
-          <AllocationEditor label="売上金額" alloc={alloc} total={total} />
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={editing ? 'グループ売上編集' : 'グループ売上登録'}
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => saveMutation.mutate()} disabled={!customerId || total <= 0 || saveMutation.isPending || invalidAlloc}>
             {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editing ? '更新' : '登録'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>顧客 *</Label>
+          <SearchableSelect
+            options={customers.map((c) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
+            value={customerId} onChange={setCustomerId} placeholder="顧客を検索..."
+          />
+        </div>
+        <div>
+          <Label>件名</Label>
+          <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="見積件名" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>ステータス</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as 'estimate' | 'confirmed')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="estimate">見積</SelectItem>
+                <SelectItem value="confirmed">確定</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>税区分</Label>
+            <Select value={tax} onValueChange={setTax}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((k) => <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label>計上日</Label>
+            <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>請求日</Label>
+            <Input type="date" value={billingDate} onChange={(e) => setBillingDate(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <Label>備考</Label>
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="備考" />
+        </div>
+
+        <RevenueItemsEditor items={items} setItems={setItems} total={total} />
+        <AllocationEditor label="売上金額" alloc={alloc} total={total} />
+      </div>
+    </FormDialog>
   );
 }

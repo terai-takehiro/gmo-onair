@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@gmo-onair/shared/src/client/ui/searchable-select';
 import { MAINTENANCE_TYPE } from '@gmo-onair/shared/src/constants/statuses';
@@ -41,76 +41,78 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
   useEffect(() => { if (open) setForm(EMPTY); }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader><DialogTitle>メンテナンスの記録</DialogTitle></DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="メンテナンスの記録"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => onSubmit(form)} disabled={!form.equipment_id || !form.title || saving}>
+            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            足す
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      {error && (
+        <p className="mb-3 rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
+          {error}
+        </p>
+      )}
 
-        {error && (
-          <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
-            {error}
-          </p>
-        )}
-
-        <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label>機材 *</Label>
+          <SearchableSelect
+            value={form.equipment_id}
+            onChange={(v) => setForm((f) => ({ ...f, equipment_id: v }))}
+            options={items.map((i) => ({ value: i.id, label: i.name, subLabel: i.eq_code }))}
+            placeholder="ID・名前で探す"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>種類</Label>
+          <Select value={form.record_type} onValueChange={(v) => setForm((f) => ({ ...f, record_type: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(MAINTENANCE_TYPE).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>内容 *</Label>
+          <Input
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            placeholder="レンズのAF不良（修理見積待ち）"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>詳しい状況</Label>
+          <Input
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="中望遠でAFが迷う。作例あり"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label>機材 *</Label>
-            <SearchableSelect
-              value={form.equipment_id}
-              onChange={(v) => setForm((f) => ({ ...f, equipment_id: v }))}
-              options={items.map((i) => ({ value: i.id, label: i.name, subLabel: i.eq_code }))}
-              placeholder="ID・名前で探す"
-            />
+            <Label>修理業者</Label>
+            <Input value={form.vendor_name} onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))} />
           </div>
           <div className="space-y-1">
-            <Label>種類</Label>
-            <Select value={form.record_type} onValueChange={(v) => setForm((f) => ({ ...f, record_type: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(MAINTENANCE_TYPE).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>内容 *</Label>
+            <Label>修理費用 (円)</Label>
             <Input
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="レンズのAF不良（修理見積待ち）"
+              type="number" min="0"
+              value={form.repair_cost}
+              onChange={(e) => setForm((f) => ({ ...f, repair_cost: e.target.value }))}
             />
-          </div>
-          <div className="space-y-1">
-            <Label>詳しい状況</Label>
-            <Input
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="中望遠でAFが迷う。作例あり"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>修理業者</Label>
-              <Input value={form.vendor_name} onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>修理費用 (円)</Label>
-              <Input
-                type="number" min="0"
-                value={form.repair_cost}
-                onChange={(e) => setForm((f) => ({ ...f, repair_cost: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button onClick={() => onSubmit(form)} disabled={!form.equipment_id || !form.title || saving}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              足す
-            </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

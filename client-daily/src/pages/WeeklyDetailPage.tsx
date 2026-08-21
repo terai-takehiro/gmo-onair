@@ -27,6 +27,7 @@ import {
 } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -36,11 +37,13 @@ import {
 import { formatWeekJa } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
+import { WeekPickerSheet } from './weekly/WeekPickerSheet';
 import { WeekRail } from './weekly/WeekRail';
 
 export default function WeeklyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const list = useReports('weekly_activity', 50);
   const detail = useReport(id);
   const { canEdit } = usePermissions();
@@ -105,8 +108,12 @@ export default function WeeklyDetailPage() {
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:flex-row lg:gap-5 lg:p-6">
-      {/* 左: 週のリスト (スマホでは上に畳んで横スクロール) */}
-      {list.data && list.data.length > 0 && <WeekRail reports={list.data} activeId={id} />}
+      {/* 週のリスト。PC は左のレール、スマホは上端のボタン + シート（専用の週ピッカー） */}
+      {list.data && list.data.length > 0 && (
+        isMobile
+          ? <WeekPickerSheet reports={list.data} activeId={id} />
+          : <WeekRail reports={list.data} activeId={id} />
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-5">
         {detail.isError ? (
@@ -160,7 +167,7 @@ export default function WeeklyDetailPage() {
             )}
 
             <Section icon={BarChart3} title="自動集計" sub="投稿した時点の ONAiR のデータの写しです（ここでは直せません）" />
-            {stats ? <StatsSection stats={stats} /> : (
+            {stats ? <StatsSection stats={stats} isMobile={isMobile} /> : (
               <EmptyState
                 title="集計はまだありません"
                 description="AI が週報を投稿すると、その時点の案件・活動・売上がここに出ます。"

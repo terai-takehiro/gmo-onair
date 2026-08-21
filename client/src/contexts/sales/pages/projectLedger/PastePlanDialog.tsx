@@ -17,7 +17,7 @@
  */
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { colDef, type LedgerColKey } from './types';
 import { PASTE_MAX_CELLS } from './editable';
 import type { PastePlan } from './useLedgerGrid';
@@ -36,10 +36,22 @@ export function PastePlanDialog({
   const rows = new Set(plan.changes.map((c) => c.id)).size;
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
-        <DialogHeader><DialogTitle>貼り付ける前に確かめてください</DialogTitle></DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="貼り付ける前に確かめてください"
+      wide
+      footer={
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          {plan.tooMany === null && plan.changes.length > 0 && (
+            <Button disabled={saving} onClick={onApply}>
+              {saving ? '書き換えています…' : `${plan.changes.length} か所を書き換える`}
+            </Button>
+          )}
+        </div>
+      }
+    >
         {plan.tooMany !== null ? (
           /* **多すぎる貼り付けは通さない。** たいてい貼る場所を間違えている */
           <p className="text-sub">
@@ -146,16 +158,6 @@ export function PastePlanDialog({
             )}
           </>
         )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          {plan.tooMany === null && plan.changes.length > 0 && (
-            <Button disabled={saving} onClick={onApply}>
-              {saving ? '書き換えています…' : `${plan.changes.length} か所を書き換える`}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

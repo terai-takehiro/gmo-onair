@@ -15,7 +15,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -70,61 +70,64 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
   const canSubmit = projectId !== '' && title.trim() !== '' && !create.isPending;
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>タスクを足す</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>案件</Label>
-            <SearchableSelect
-              value={projectId}
-              onChange={setProjectId}
-              options={projects.map((p) => ({
-                value: p.id,
-                label: p.name,
-                subLabel: p.gls_number || p.code || undefined,
-              }))}
-              placeholder="案件を探す"
-            />
-          </div>
-          <div>
-            <Label>やること</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="見積を送る" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <Label>担当</Label>
-              <Select value={assignedTo || '_none_'} onValueChange={(v) => setAssignedTo(v === '_none_' ? '' : v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">未定</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>期限</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>状態</Label>
-              <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {WORK_STATE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="タスクを足す"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>
           <Button onClick={() => create.mutate()} disabled={!canSubmit}>
             {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             足す
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <Label>案件</Label>
+          <SearchableSelect
+            value={projectId}
+            onChange={setProjectId}
+            options={projects.map((p) => ({
+              value: p.id,
+              label: p.name,
+              subLabel: p.gls_number || p.code || undefined,
+            }))}
+            placeholder="案件を探す"
+          />
+        </div>
+        <div>
+          <Label>やること</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="見積を送る" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <Label>担当</Label>
+            <Select value={assignedTo || '_none_'} onValueChange={(v) => setAssignedTo(v === '_none_' ? '' : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">未定</SelectItem>
+                {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>期限</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>状態</Label>
+            <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {WORK_STATE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </FormDialog>
   );
 }

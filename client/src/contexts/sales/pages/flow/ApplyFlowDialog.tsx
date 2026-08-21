@@ -24,9 +24,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, CalendarOff, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -113,16 +111,34 @@ export function ApplyFlowDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[720px]">
-        <DialogHeader>
-          <DialogTitle>標準の工程を入れる</DialogTitle>
-          <DialogDescription>
-            入る工程を確かめて、要らないもののチェックを外してください。
-            <strong className="font-bold">担当は入りません</strong> — 型が持っているのは職種で、
-            誰がやるかは案件ごとに決まります。
-          </DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="標準の工程を入れる"
+      // **旧幅は sm:max-w-[720px] で既定の560pxを大きく超えていた。**
+      // 工程一覧の表・役割バッジが横に並ぶ複合ダイアログなので `wide` を渡す
+      wide
+      footer={
+        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <p className="text-note flex-1 text-muted-foreground">
+            <span className="font-number">{chosen.length}</span> 件を入れます
+            {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限なし）</>}。
+            <strong className="font-bold">入れられるのは一度だけ</strong>です。
+          </p>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button disabled={!picked || chosen.length === 0 || apply.isPending} onClick={() => apply.mutate()}>
+            {apply.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+            入れる
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-sub text-muted-foreground">
+          入る工程を確かめて、要らないもののチェックを外してください。
+          <strong className="font-bold">担当は入りません</strong> — 型が持っているのは職種で、
+          誰がやるかは案件ごとに決まります。
+        </p>
 
         {tpls.isError && <ErrorPanel title="工程の型を読み込めませんでした" error={tpls.error} onRetry={() => tpls.refetch()} />}
         {tpls.isLoading && <Delayed><SkeletonRows rows={5} /></Delayed>}
@@ -155,7 +171,7 @@ export function ApplyFlowDialog({
         )}
 
         {picked && (
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border">
+          <div className="rounded-card border border-border">
             {rows.isError && <ErrorPanel title="工程を読み込めませんでした" error={rows.error} onRetry={() => rows.refetch()} />}
             {rows.isLoading && <div className="p-3"><Delayed><SkeletonRows rows={8} /></Delayed></div>}
             {rows.data?.map((r) => {
@@ -217,20 +233,7 @@ export function ApplyFlowDialog({
             （推測の日付は作りません）。
           </p>
         )}
-
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-          <p className="text-note flex-1 text-muted-foreground">
-            <span className="font-number">{chosen.length}</span> 件を入れます
-            {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限なし）</>}。
-            <strong className="font-bold">入れられるのは一度だけ</strong>です。
-          </p>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button disabled={!picked || chosen.length === 0 || apply.isPending} onClick={() => apply.mutate()}>
-            {apply.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-            入れる
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

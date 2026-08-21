@@ -11,9 +11,7 @@
  */
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,84 +70,15 @@ export function InviewDialog({
     setF((p) => ({ ...p, [k]: e.target.value }));
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{initial ? '来場予約を直す' : '来場予約を足す'}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <div>
-            <Label>参加希望の回 <span className="text-destructive">*</span></Label>
-            <Input
-              value={f.session_label ?? ''}
-              onChange={upd('session_label')}
-              placeholder="例: 2026/7/29(水)14:00-17:00｜イベント主催者向け"
-            />
-            <p className="text-note mt-1 text-muted-foreground">
-              日付・時間帯・対象は自動で読み取ります（日付を変えると別の日のページに移ります）
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="名前" required value={f.name ?? ''} onChange={upd('name')} placeholder="生城山 博敏" />
-            <Field label="ふりがな" value={f.furigana ?? ''} onChange={upd('furigana')} />
-            <Field label="会社情報" value={f.company ?? ''} onChange={upd('company')} placeholder="株式会社◯◯ ◯◯部" />
-            <Field label="役職" value={f.role ?? ''} onChange={upd('role')} />
-            <Field label="メールアドレス" value={f.email ?? ''} onChange={upd('email')} />
-            <Field label="電話番号" value={f.phone ?? ''} onChange={upd('phone')} />
-            <Field label="携帯番号" value={f.mobile ?? ''} onChange={upd('mobile')} />
-            <Field label="FAX番号" value={f.fax ?? ''} onChange={upd('fax')} />
-            <Field label="郵便番号" value={f.postal_code ?? ''} onChange={upd('postal_code')} placeholder="1020083" />
-            <div>
-              <Label>ご参加人数</Label>
-              <Input
-                type="number"
-                min={1}
-                value={f.party_size ?? 1}
-                onChange={(e) => setF((p) => ({ ...p, party_size: Number(e.target.value) || 1 }))}
-              />
-            </div>
-          </div>
-
-          <Field label="住所" value={f.address ?? ''} onChange={upd('address')} />
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="ご来場予定時間" value={f.visit_time ?? ''} onChange={upd('visit_time')} />
-            <div>
-              <Label>同行者 (1行に1名)</Label>
-              <textarea
-                className={TEXTAREA}
-                rows={2}
-                value={companionsText}
-                onChange={(e) => setCompanionsText(e.target.value)}
-                placeholder="同行者がいれば1行ずつ"
-              />
-              <p className="text-note mt-1 text-muted-foreground">
-                氏名を入れると1人の参加者として並び、当日は1人ずつ受付できます
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <Label>ご興味・ご相談事項</Label>
-            <textarea
-              className={TEXTAREA}
-              rows={2}
-              value={f.interests ?? ''}
-              onChange={(e) => setF((p) => ({ ...p, interests: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label>運営メモ</Label>
-            <textarea
-              className={TEXTAREA}
-              rows={2}
-              value={f.notes ?? ''}
-              onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
-            />
-          </div>
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={initial ? '来場予約を直す' : '来場予約を足す'}
+      // 旧幅 sm:max-w-2xl（672px）。名前〜郵便番号まで9項目を2列グリッドで並べる
+      // 複合フォームなので既定の560pxには押し込めず wide を渡す
+      wide
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
           <Button
             className="min-h-tap"
@@ -159,9 +88,82 @@ export function InviewDialog({
             {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {initial ? '保存' : '追加'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div>
+          <Label>参加希望の回 <span className="text-destructive">*</span></Label>
+          <Input
+            value={f.session_label ?? ''}
+            onChange={upd('session_label')}
+            placeholder="例: 2026/7/29(水)14:00-17:00｜イベント主催者向け"
+          />
+          <p className="text-note mt-1 text-muted-foreground">
+            日付・時間帯・対象は自動で読み取ります（日付を変えると別の日のページに移ります）
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="名前" required value={f.name ?? ''} onChange={upd('name')} placeholder="生城山 博敏" />
+          <Field label="ふりがな" value={f.furigana ?? ''} onChange={upd('furigana')} />
+          <Field label="会社情報" value={f.company ?? ''} onChange={upd('company')} placeholder="株式会社◯◯ ◯◯部" />
+          <Field label="役職" value={f.role ?? ''} onChange={upd('role')} />
+          <Field label="メールアドレス" value={f.email ?? ''} onChange={upd('email')} />
+          <Field label="電話番号" value={f.phone ?? ''} onChange={upd('phone')} />
+          <Field label="携帯番号" value={f.mobile ?? ''} onChange={upd('mobile')} />
+          <Field label="FAX番号" value={f.fax ?? ''} onChange={upd('fax')} />
+          <Field label="郵便番号" value={f.postal_code ?? ''} onChange={upd('postal_code')} placeholder="1020083" />
+          <div>
+            <Label>ご参加人数</Label>
+            <Input
+              type="number"
+              min={1}
+              value={f.party_size ?? 1}
+              onChange={(e) => setF((p) => ({ ...p, party_size: Number(e.target.value) || 1 }))}
+            />
+          </div>
+        </div>
+
+        <Field label="住所" value={f.address ?? ''} onChange={upd('address')} />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="ご来場予定時間" value={f.visit_time ?? ''} onChange={upd('visit_time')} />
+          <div>
+            <Label>同行者 (1行に1名)</Label>
+            <textarea
+              className={TEXTAREA}
+              rows={2}
+              value={companionsText}
+              onChange={(e) => setCompanionsText(e.target.value)}
+              placeholder="同行者がいれば1行ずつ"
+            />
+            <p className="text-note mt-1 text-muted-foreground">
+              氏名を入れると1人の参加者として並び、当日は1人ずつ受付できます
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <Label>ご興味・ご相談事項</Label>
+          <textarea
+            className={TEXTAREA}
+            rows={2}
+            value={f.interests ?? ''}
+            onChange={(e) => setF((p) => ({ ...p, interests: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label>運営メモ</Label>
+          <textarea
+            className={TEXTAREA}
+            rows={2}
+            value={f.notes ?? ''}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+          />
+        </div>
+      </div>
+    </FormDialog>
   );
 }
 

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
@@ -24,12 +24,18 @@ export default function TemplatePickerDialog({ open, onClose, projectId }: Props
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>テンプレートからカラムを追加</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="テンプレートからカラムを追加"
+      footer={
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            キャンセル
+          </Button>
+        </div>
+      }
+    >
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -68,13 +74,6 @@ export default function TemplatePickerDialog({ open, onClose, projectId }: Props
             ))}
           </div>
         )}
-
-        <div className="flex justify-end pt-2">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            キャンセル
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

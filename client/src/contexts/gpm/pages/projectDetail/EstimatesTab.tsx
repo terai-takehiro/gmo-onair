@@ -22,6 +22,13 @@
  * 保存する口だけ GPM 側（`PUT /gpm/estimates/:id/items`）に向けていて、
  * サーバーは**プロジェクトの見積しか受け付けません** — 案件の見積を
  * `gpm` だけの人が書き換えられないようにするためです。
+ *
+ * ── スマホに開放した（2026-08・v4ネイティブUI化） ────────────
+ *
+ * 一覧の `<Row>` に `stackOnMobile` が付いていなかった。提出先(72)＋状態(72)＋
+ * 金額(128)＋PDFボタン(56) の固定4列だけで 328px＋隙間48px＋左右余白32px ＝ 408px と、
+ * 375px 幅を最初から超えていた（実測。名前列がゼロになる前に固定列だけで画面より広い）。
+ * 他のタブ（工程・未確認事項・書類）と同じ `stackOnMobile` を足して縦積みにした。
  */
 import { useState } from 'react';
 import { FileText, Plus, Loader2 } from 'lucide-react';
@@ -31,9 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
@@ -133,6 +138,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
               key={e.id}
               interactive
               divider
+              stackOnMobile
               onClick={() => setOpenId(openId === e.id ? null : e.id)}
               className={e.status === 'superseded' ? 'opacity-60' : undefined}
             >
@@ -216,17 +222,25 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>見積をつくる</DialogTitle>
-          <DialogDescription>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="見積をつくる"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending}>
+            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            つくる
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
             <strong className="font-bold">提出先ごとに1本</strong>です。同じ工事でも、
             自社への社内見積と PM 会社へ出す見積は中身も金額も別物になります。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-3">
+          </p>
           <div>
             <Label>提出先 *</Label>
             <Select value={submitTo} onValueChange={(v) => setSubmitTo(v as 'self' | 'client' | 'pm')}>
@@ -247,16 +261,7 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            つくる
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 

@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { ToggleCard } from '@gmo-onair/shared/src/client/ui/toggle-button-group';
 import type { GlsProject, GroupDetail } from './types';
 
@@ -56,62 +56,63 @@ export function GroupFormDialog({
   });
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'グループ編集' : '新規グループ（費用を分け合う）'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>グループ名 *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: GH 2026年度 IR関連" />
-          </div>
-          <div>
-            <Label>説明</Label>
-            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="グループの目的・対象案件の説明" rows={2} />
-          </div>
-          <div>
-            <Label>所属案件 *（2案件以上）</Label>
-            <div className="mt-1 max-h-72 space-y-1.5 overflow-y-auto rounded-note border border-border p-2">
-              {glsProjects.length === 0 ? (
-                <p className="text-sub text-muted-foreground">GLS発番済み案件がありません</p>
-              ) : (
-                glsProjects.map((p) => (
-                  <ToggleCard
-                    key={p.id}
-                    selected={selectedIds.includes(p.id)}
-                    onToggle={() => toggleMember(p.id)}
-                    label={
-                      <span>
-                        <span className={selectedIds.includes(p.id) ? 'mr-1' : 'mr-1 text-primary'}>{p.gls_number}</span>
-                        {p.name}
-                      </span>
-                    }
-                    rightSlot={
-                      // **`ToggleCard` は選択中の背景を inline style で当てる**（`bg-primary` クラスではない）。
-                      // トークン（`text-primary-foreground`）だと検査が地の色を見つけられず
-                      // 「塗りの無いところに塗りの上の文字色」と誤検知する。`description` と同じ
-                      // `text-white` に揃える（部品側の既定と同じ書き方）
-                      <span className={selectedIds.includes(p.id) ? 'text-[11px] text-white/80' : 'text-[11px] text-muted-foreground'}>
-                        {p.customer_name}
-                      </span>
-                    }
-                    size="sm"
-                  />
-                ))
-              )}
-            </div>
-            {selectedIds.length > 0 && <p className="text-note mt-1 text-muted-foreground">{selectedIds.length}案件選択中</p>}
-          </div>
-        </div>
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={editing ? 'グループ編集' : '新規グループ（費用を分け合う）'}
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => saveMutation.mutate()} disabled={!name || selectedIds.length < 2 || saveMutation.isPending}>
             {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editing ? '更新' : '作成'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>グループ名 *</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: GH 2026年度 IR関連" />
+        </div>
+        <div>
+          <Label>説明</Label>
+          <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="グループの目的・対象案件の説明" rows={2} />
+        </div>
+        <div>
+          <Label>所属案件 *（2案件以上）</Label>
+          <div className="mt-1 max-h-72 space-y-1.5 overflow-y-auto rounded-note border border-border p-2">
+            {glsProjects.length === 0 ? (
+              <p className="text-sub text-muted-foreground">GLS発番済み案件がありません</p>
+            ) : (
+              glsProjects.map((p) => (
+                <ToggleCard
+                  key={p.id}
+                  selected={selectedIds.includes(p.id)}
+                  onToggle={() => toggleMember(p.id)}
+                  label={
+                    <span>
+                      <span className={selectedIds.includes(p.id) ? 'mr-1' : 'mr-1 text-primary'}>{p.gls_number}</span>
+                      {p.name}
+                    </span>
+                  }
+                  rightSlot={
+                    // **`ToggleCard` は選択中の背景を inline style で当てる**（`bg-primary` クラスではない）。
+                    // トークン（`text-primary-foreground`）だと検査が地の色を見つけられず
+                    // 「塗りの無いところに塗りの上の文字色」と誤検知する。`description` と同じ
+                    // `text-white` に揃える（部品側の既定と同じ書き方）
+                    <span className={selectedIds.includes(p.id) ? 'text-[11px] text-white/80' : 'text-[11px] text-muted-foreground'}>
+                      {p.customer_name}
+                    </span>
+                  }
+                  size="sm"
+                />
+              ))
+            )}
+          </div>
+          {selectedIds.length > 0 && <p className="text-note mt-1 text-muted-foreground">{selectedIds.length}案件選択中</p>}
+        </div>
+      </div>
+    </FormDialog>
   );
 }

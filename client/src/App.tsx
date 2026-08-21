@@ -47,8 +47,6 @@ import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
 import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
 import HoldListPage from '@/contexts/production/pages/HoldListPage';
 import CalendarSettingsPage from '@/contexts/production/pages/CalendarSettingsPage';
-import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
-import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
 import UnifiedCalendarPage from "@/contexts/production/pages/UnifiedCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
@@ -304,8 +302,6 @@ function AppRoutes() {
           v4 カレンダー: モックの4画面（① 予定 / ② 部屋の空き / ③ 仮押さえ / ④ 設定）。
           **① 予定は「1本のカレンダー＋レイヤー」** なので、いままで `/studio/all` に
           いた統合カレンダーをここへ持ってきた（`/studio/all` は転送）。
-          スタジオだけのカレンダーは「そのほか（作り直し前）」に残す — 予約を作る導線が
-          あちらにしかないため、先に消すと作れなくなる。
           **`studio` と `partner_schedule` は権限モデル単純化で `sales` に統合済み**
           （docs/reviews/permission-model-simplification-plan.md）
         */}
@@ -313,10 +309,12 @@ function AppRoutes() {
         <Route path="/studio/rooms" element={<PermissionRoute module="sales"><RoomAvailabilityPage /></PermissionRoute>} />
         <Route path="/studio/holds" element={<PermissionRoute module="sales"><HoldListPage /></PermissionRoute>} />
         <Route path="/studio/settings" element={<PermissionRoute module="sales"><CalendarSettingsPage /></PermissionRoute>} />
-        <Route path="/studio/studio-calendar" element={<PermissionRoute module="sales"><StudioCalendarPage /></PermissionRoute>} />
+        {/* **`/studio/studio-calendar`は退役した**（v4ネイティブUI化バックログB・2026-08）。香盤ビューと部屋予約を直す導線は① 予定へ吸収済み（連携ダイアログは④設定のサイネージタブが既に同機能を持ち移設不要だった） */}
+        <Route path="/studio/studio-calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
         {/* **`/studio/partners`は削除した**（v3の遺物・2026-08）。① 予定（統合カレンダー）が作成・編集・絞り込みとも既に代替済み */}
         <Route path="/studio/partners" element={<RedirectKeepQuery to="/studio/calendar" />} />
-        <Route path="/studio/my-calendar" element={<PermissionRoute module="sales"><MyCalendarPage /></PermissionRoute>} />
+        {/* **`/studio/my-calendar`は退役した**（v4ネイティブUI化バックログB・2026-08）。取込元の色分けは① 予定の凡例へ統合済み、外部カレンダー連携は④設定（`FeedsTab.tsx`）へ既に移設済みだった */}
+        <Route path="/studio/my-calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
         <Route path="/studio/all" element={<RedirectKeepQuery to="/studio/calendar" />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}

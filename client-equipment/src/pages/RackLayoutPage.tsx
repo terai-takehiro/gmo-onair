@@ -19,6 +19,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
@@ -635,92 +636,90 @@ export default function RackLayoutPage() {
       )}
 
       {/* ブランクパネル追加ダイアログ */}
-      <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
-        <DialogContent className="sm:max-w-xs max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>パネルを追加</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-1">
-            <div className="space-y-1">
-              <Label>種別</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: "blank",  label: "ブランクパネル" },
-                  { value: "cable",  label: "通線口" },
-                  { value: "drawer", label: "引き出し" },
-                  { value: "custom", label: "自由記述" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={`py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
-                    onClick={() => setBlankForm(f => ({ ...f, panel_type: opt.value }))}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {blankForm.panel_type === "custom" && (
-              <div className="space-y-1">
-                <Label>表示テキスト</Label>
-                <Input
-                  placeholder="例: スイッチングハブ"
-                  value={blankForm.label}
-                  onChange={(e) => setBlankForm(f => ({ ...f, label: e.target.value }))}
-                />
-              </div>
-            )}
-            <div className="space-y-1">
-              <Label>U位置 (下端)</Label>
-              <Input
-                type="number" min="1"
-                value={blankDialog?.uPos ?? ""}
-                onChange={(e) => setBlankDialog(d => d ? { ...d, uPos: Number(e.target.value) } : d)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>高さ (U)</Label>
-              <Input
-                type="number" min="1"
-                value={blankForm.rack_height}
-                onChange={(e) => setBlankForm(f => ({ ...f, rack_height: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>横位置</Label>
-              <Select value={blankForm.rack_slot} onValueChange={(v) => setBlankForm(f => ({ ...f, rack_slot: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={() => setBlankDialog(null)}>キャンセル</Button>
-              <Button
-                size="sm"
-                disabled={addBlankMutation.isPending || !blankDialog?.uPos || (blankForm.panel_type === "custom" && !blankForm.label.trim())}
-                onClick={() => {
-                  if (!blankDialog) return;
-                  addBlankMutation.mutate({
-                    locationId: blankDialog.locationId,
-                    rack_position: blankDialog.uPos,
-                    rack_height: Number(blankForm.rack_height) || 1,
-                    rack_slot: blankForm.rack_slot,
-                    rack_side: side,
-                    panel_type: blankForm.panel_type,
-                    label: blankForm.panel_type === "custom" ? blankForm.label : null,
-                  });
-                }}
-              >
-                {addBlankMutation.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-                追加
-              </Button>
+      <FormDialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }} title="パネルを追加"
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setBlankDialog(null)}>キャンセル</Button>
+            <Button
+              size="sm"
+              disabled={addBlankMutation.isPending || !blankDialog?.uPos || (blankForm.panel_type === "custom" && !blankForm.label.trim())}
+              onClick={() => {
+                if (!blankDialog) return;
+                addBlankMutation.mutate({
+                  locationId: blankDialog.locationId,
+                  rack_position: blankDialog.uPos,
+                  rack_height: Number(blankForm.rack_height) || 1,
+                  rack_slot: blankForm.rack_slot,
+                  rack_side: side,
+                  panel_type: blankForm.panel_type,
+                  label: blankForm.panel_type === "custom" ? blankForm.label : null,
+                });
+              }}
+            >
+              {addBlankMutation.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              追加
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>種別</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "blank",  label: "ブランクパネル" },
+                { value: "cable",  label: "通線口" },
+                { value: "drawer", label: "引き出し" },
+                { value: "custom", label: "自由記述" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
+                  onClick={() => setBlankForm(f => ({ ...f, panel_type: opt.value }))}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+          {blankForm.panel_type === "custom" && (
+            <div className="space-y-1">
+              <Label>表示テキスト</Label>
+              <Input
+                placeholder="例: スイッチングハブ"
+                value={blankForm.label}
+                onChange={(e) => setBlankForm(f => ({ ...f, label: e.target.value }))}
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label>U位置 (下端)</Label>
+            <Input
+              type="number" min="1"
+              value={blankDialog?.uPos ?? ""}
+              onChange={(e) => setBlankDialog(d => d ? { ...d, uPos: Number(e.target.value) } : d)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>高さ (U)</Label>
+            <Input
+              type="number" min="1"
+              value={blankForm.rack_height}
+              onChange={(e) => setBlankForm(f => ({ ...f, rack_height: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>横位置</Label>
+            <Select value={blankForm.rack_slot} onValueChange={(v) => setBlankForm(f => ({ ...f, rack_slot: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </FormDialog>
 
       {/* 重複機材ダイアログ */}
       <Dialog open={!!overlapDialog} onOpenChange={(o) => { if (!o) setOverlapDialog(null); }}>
@@ -820,41 +819,42 @@ function RackSubtitleDialog({ config, onSave, onClose }: {
 }) {
   const [form, setForm] = useState<RackConfig>(config);
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-xs">
-        <DialogHeader>
-          <DialogTitle>ラック名下テキスト設定</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 pt-1">
-          {[
-            { value: "auto",   label: "自動（拠点・種別・建物情報）" },
-            { value: "hidden", label: "非表示" },
-            { value: "custom", label: "カスタム文字列" },
-          ].map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
-              <input
-                type="radio" name="subtitleMode" value={opt.value}
-                checked={form.subtitleMode === opt.value}
-                onChange={() => setForm(f => ({ ...f, subtitleMode: opt.value as RackConfig["subtitleMode"] }))}
-                className="h-3.5 w-3.5 accent-primary"
-              />
-              {opt.label}
-            </label>
-          ))}
-          {form.subtitleMode === "custom" && (
-            <Input
-              placeholder="表示するテキスト"
-              value={form.subtitleText}
-              onChange={(e) => setForm(f => ({ ...f, subtitleText: e.target.value }))}
-            />
-          )}
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="ラック名下テキスト設定"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
           <Button size="sm" onClick={() => onSave(form)}>保存</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="space-y-3">
+        {[
+          { value: "auto",   label: "自動（拠点・種別・建物情報）" },
+          { value: "hidden", label: "非表示" },
+          { value: "custom", label: "カスタム文字列" },
+        ].map((opt) => (
+          <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="radio" name="subtitleMode" value={opt.value}
+              checked={form.subtitleMode === opt.value}
+              onChange={() => setForm(f => ({ ...f, subtitleMode: opt.value as RackConfig["subtitleMode"] }))}
+              className="h-3.5 w-3.5 accent-primary"
+            />
+            {opt.label}
+          </label>
+        ))}
+        {form.subtitleMode === "custom" && (
+          <Input
+            placeholder="表示するテキスト"
+            value={form.subtitleText}
+            onChange={(e) => setForm(f => ({ ...f, subtitleText: e.target.value }))}
+          />
+        )}
+      </div>
+    </FormDialog>
   );
 }
 
@@ -941,78 +941,12 @@ function CellConfigDialog({
   const [form, setForm] = useState<CellConfig>(config ?? defaultCfg);
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>表示設定 — {item.name}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-1">
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">優先表示</Label>
-            <div className="flex flex-col gap-1.5">
-              {[
-                { value: "model", label: "型名を優先" },
-                { value: "name",  label: "機材名を優先" },
-                { value: "custom", label: "任意文字列" },
-              ].map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="radio"
-                    name="primary"
-                    value={opt.value}
-                    checked={form.primary === opt.value}
-                    onChange={() => setForm(f => ({ ...f, primary: opt.value as CellConfig["primary"] }))}
-                    className="h-3.5 w-3.5 accent-primary"
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-            {form.primary === "custom" && (
-              <Input
-                placeholder="表示するテキスト"
-                value={form.customText}
-                onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
-                className="mt-1"
-              />
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
-            <div>
-              <ToggleButtonGroup
-                options={[
-                  { value: 'showName',   label: '機材名' },
-                  { value: 'showModel',  label: '型名' },
-                  { value: 'showNo',     label: 'No.' },
-                  { value: 'showCustom', label: '任意文字列' },
-                ]}
-                value={(['showName','showModel','showNo','showCustom'] as const).filter(k => form[k as keyof CellConfig])}
-                onChange={(next) => setForm(f => ({
-                  ...f,
-                  showName:   next.includes('showName'),
-                  showModel:  next.includes('showModel'),
-                  showNo:     next.includes('showNo'),
-                  showCustom: next.includes('showCustom'),
-                }))}
-                multi
-                cols={{ base: 2 }}
-                size="sm"
-              />
-            </div>
-            {form.showCustom && form.primary !== "custom" && (
-              <Input
-                placeholder="追加表示するテキスト"
-                value={form.customText}
-                onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
-                className="mt-1"
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-between gap-2 pt-2">
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={`表示設定 — ${item.name}`}
+      footer={
+        <div className="flex w-full justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground text-xs">
             デフォルトに戻す
           </Button>
@@ -1021,8 +955,74 @@ function CellConfigDialog({
             <Button size="sm" onClick={() => onSave(form)}>保存</Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase text-muted-foreground">優先表示</Label>
+          <div className="flex flex-col gap-1.5">
+            {[
+              { value: "model", label: "型名を優先" },
+              { value: "name",  label: "機材名を優先" },
+              { value: "custom", label: "任意文字列" },
+            ].map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                <input
+                  type="radio"
+                  name="primary"
+                  value={opt.value}
+                  checked={form.primary === opt.value}
+                  onChange={() => setForm(f => ({ ...f, primary: opt.value as CellConfig["primary"] }))}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          {form.primary === "custom" && (
+            <Input
+              placeholder="表示するテキスト"
+              value={form.customText}
+              onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
+              className="mt-1"
+            />
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
+          <div>
+            <ToggleButtonGroup
+              options={[
+                { value: 'showName',   label: '機材名' },
+                { value: 'showModel',  label: '型名' },
+                { value: 'showNo',     label: 'No.' },
+                { value: 'showCustom', label: '任意文字列' },
+              ]}
+              value={(['showName','showModel','showNo','showCustom'] as const).filter(k => form[k as keyof CellConfig])}
+              onChange={(next) => setForm(f => ({
+                ...f,
+                showName:   next.includes('showName'),
+                showModel:  next.includes('showModel'),
+                showNo:     next.includes('showNo'),
+                showCustom: next.includes('showCustom'),
+              }))}
+              multi
+              cols={{ base: 2 }}
+              size="sm"
+            />
+          </div>
+          {form.showCustom && form.primary !== "custom" && (
+            <Input
+              placeholder="追加表示するテキスト"
+              value={form.customText}
+              onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
+              className="mt-1"
+            />
+          )}
+        </div>
+      </div>
+    </FormDialog>
   );
 }
 

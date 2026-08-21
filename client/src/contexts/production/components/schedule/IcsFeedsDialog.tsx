@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, RefreshCw, Plus, CloudDownload, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
+import { Loader2, Trash2, RefreshCw, Plus, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
 
 interface OAuthStatus {
@@ -120,19 +120,12 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CloudDownload className="h-5 w-5 text-primary" />
-            外部カレンダー連携（Outlook / Google）
-          </DialogTitle>
-          <DialogDescription>
-            Google / Outlook と OAuth 連携すると、双方向で同期します（外部→取込 + マイカレンダーで作った予定を外部へ書き戻し）。
-            公開 ICS URL での連携は取込のみの一方向です。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="外部カレンダー連携（Outlook / Google）"
+      sub="Google / Outlook と OAuth 連携すると、双方向で同期します（外部→取込 + マイカレンダーで作った予定を外部へ書き戻し）。公開 ICS URL での連携は取込のみの一方向です。"
+    >
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
           <div className="flex items-center gap-2">
@@ -405,7 +398,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             ))
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

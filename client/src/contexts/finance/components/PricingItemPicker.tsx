@@ -4,10 +4,8 @@ import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
-import { Search, Link2, Check } from "lucide-react";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
+import { Search, Check } from "lucide-react";
 import { LocationPicker } from "@/contexts/sales/pages/pricing/LocationPicker";
 
 export interface PickedPricingItem {
@@ -112,48 +110,60 @@ export default function PricingItemPicker({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-primary" />
-            料金表から明細を追加
-          </DialogTitle>
-          <DialogDescription>
-            項目をクリックすると明細行として追加されます。続けて複数選択できます
-            {customerType === "internal" ? "（グループ内価格）" : "（定価）"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="shrink-0 border-b border-border pb-3">
-          <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="料金表から明細を追加"
+      // **旧幅は max-w-3xl（768px）で既定の560pxを大きく超えていた。**
+      // カテゴリ一覧・料金の桁が横に並ぶ表なので `wide` を渡す
+      wide
+      sub={`項目をクリックすると明細行として追加されます。続けて複数選択できます${customerType === "internal" ? "（グループ内価格）" : "（定価）"}`}
+      footer={
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {addedNames.length > 0 ? `${addedNames.length} 件の項目を追加済み` : "項目をクリックして追加"}
+          </span>
+          <Button type="button" variant={addedNames.length > 0 ? "default" : "outline"} onClick={() => onOpenChange(false)}>
+            閉じる
+          </Button>
         </div>
-
-        <div className="relative shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="項目名・カテゴリ名で検索..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {addedNames.length > 0 && (
-          <div className="shrink-0 rounded-lg border bg-primary/5 px-3 py-2 text-xs space-y-1">
-            <div className="flex items-center gap-1.5 font-medium text-primary">
-              <Check className="h-3.5 w-3.5" />
-              追加済み: {addedNames.length} 件
-            </div>
-            <div className="text-muted-foreground max-h-16 overflow-y-auto">
-              {addedNames.map((n, i) => (
-                <span key={i} className="inline-block mr-2">・{n}</span>
-              ))}
-            </div>
+      }
+    >
+        {/* **場所の選択・検索・追加済みバナーは children のスクロール領域内で
+            `sticky top-0` にする。** FormDialog の children は1つの overflow-y-auto
+            領域しか持たないため、旧実装の shrink-0（常時表示のヘッダー）と同じ見た目に
+            するには、ここだけ sticky で追随させる */}
+        <div className="sticky top-0 z-10 -mx-4 bg-card px-4 pb-3 lg:-mx-6 lg:px-6">
+          <div className="border-b border-border pb-3">
+            <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
           </div>
-        )}
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="項目名・カテゴリ名で検索..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {addedNames.length > 0 && (
+            <div className="mt-3 rounded-lg border bg-primary/5 px-3 py-2 text-xs space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-primary">
+                <Check className="h-3.5 w-3.5" />
+                追加済み: {addedNames.length} 件
+              </div>
+              <div className="text-muted-foreground max-h-16 overflow-y-auto">
+                {addedNames.map((n, i) => (
+                  <span key={i} className="inline-block mr-2">・{n}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-3">
           {isLoading ? (
             <p className="text-center text-muted-foreground py-8 text-sm">読み込み中...</p>
           ) : filtered.length === 0 ? (
@@ -164,7 +174,11 @@ export default function PricingItemPicker({
             <div className="space-y-4 pb-2">
               {filtered.map((cat) => (
                 <div key={cat.id} className="rounded-lg border overflow-hidden">
-                  <div className="bg-muted/50 px-3 py-1.5 text-sm font-semibold sticky top-0 z-10">
+                  {/* **旧実装はここも `sticky top-0` だったが、上の絞り込みバー自体を
+                      sticky にしたのでこの内側の sticky は外している** —
+                      同じスクロール領域で top-0 が重なると絞り込みバーの上に
+                      カテゴリ名が浮いて見える */}
+                  <div className="bg-muted/50 px-3 py-1.5 text-sm font-semibold">
                     {cat.name}
                   </div>
                   <div className="divide-y">
@@ -207,16 +221,6 @@ export default function PricingItemPicker({
             </div>
           )}
         </div>
-
-        <div className="shrink-0 flex items-center justify-between pt-2 border-t">
-          <span className="text-xs text-muted-foreground">
-            {addedNames.length > 0 ? `${addedNames.length} 件の項目を追加済み` : "項目をクリックして追加"}
-          </span>
-          <Button type="button" variant={addedNames.length > 0 ? "default" : "outline"} onClick={() => onOpenChange(false)}>
-            閉じる
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

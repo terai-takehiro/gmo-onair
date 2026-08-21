@@ -20,14 +20,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowDownUp, CalendarDays, CheckCircle2, Download, PieChart, Search, UserPlus, X,
+  ArrowLeft, ArrowDownUp, Download, PieChart, Search, UserPlus, X,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import {
   MobileFilterBar, MobileFilterField,
 } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
-import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
   Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows,
@@ -37,12 +36,11 @@ import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
-import { AttendeeCard } from './inview/AttendeeCard';
-import { CompanySummary } from './inview/CompanySummary';
 import { InviewDialog } from './inview/InviewDialog';
+import { SessionBlock } from './inview/SessionBlock';
 import {
   SORT_LABELS, UNDATED, checkedInHeadOf, dayKey, downloadCsv, formatDayTitle, headOf,
-  matchedFields, matchesTerms, searchTerms, sortRegs, todayKey, type SortKey,
+  matchesTerms, searchTerms, sortRegs, todayKey, type SortKey,
 } from './inview/logic';
 
 export default function InviewDayPage() {
@@ -273,6 +271,7 @@ export default function InviewDayPage() {
                 canEdit={canEdit}
                 terms={searching ? terms : null}
                 onEdit={setEditing}
+                isMobile={isMobile}
               />
             );
           })}
@@ -286,73 +285,6 @@ export default function InviewDayPage() {
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}
-    </div>
-  );
-}
-
-/** 回1つぶん (見出し + 名簿)。同じ日に複数の回が立つ */
-function SessionBlock({
-  label, time, audience, items, visible, showSummary, canEdit, terms, onEdit,
-}: {
-  label: string;
-  time: string | null;
-  audience: string | null;
-  items: InviewRegistration[];
-  visible: InviewRegistration[];
-  showSummary: boolean;
-  canEdit: boolean;
-  /** 検索中なら検索語。検索していないときは null */
-  terms: string[] | null;
-  onEdit: (r: InviewRegistration) => void;
-}) {
-  const sHead = items.reduce((a, r) => a + headOf(r), 0);
-  const sChecked = items.reduce((a, r) => a + checkedInHeadOf(r), 0);
-  return (
-    <div className="flex flex-col gap-2">
-      <Row density="table" className="border-b border-border px-0" stackOnMobile>
-        <RowMain>
-          <RowTitle>{time ? <span className="font-number">{time}</span> : '時間未定'}</RowTitle>
-          {/* 回のフル文字列 (読み取り前の生ラベル)。時間だけの回では出さない */}
-          {label && label !== time && (
-            <RowSub className="flex items-center gap-1">
-              <CalendarDays className="h-3 w-3 shrink-0" aria-hidden="true" />{label}
-            </RowSub>
-          )}
-        </RowMain>
-        {/*
-          対象は「イベント主催者向け」のように長いので**バッジにしない**。
-          `TableBadge` は折り返さないので、列の幅 (96px) をはみ出して隣に重なる。
-        */}
-        <RowSlot w={160} hideOnMobile>
-          <span className="text-sub-sm truncate text-muted-foreground">{audience || '—'}</span>
-        </RowSlot>
-        <RowSlot w={72} align="right" hideOnMobile>
-          <span className="font-number text-sub">{items.length}組</span>
-        </RowSlot>
-        <RowSlot w={72} align="right" hideOnMobile>
-          <span className="font-number text-sub">{sHead}名</span>
-        </RowSlot>
-        <RowSlot w={96} align="right">
-          <span className={`font-number text-sub ${sChecked > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-            {sChecked} / {sHead}名
-          </span>
-        </RowSlot>
-      </Row>
-
-      {showSummary && <CompanySummary items={items} />}
-
-      <div className="flex flex-col gap-2">
-        {visible.map((r) => (
-          <AttendeeCard
-            key={r.id}
-            r={r}
-            canEdit={canEdit}
-            onEdit={() => onEdit(r)}
-            matchedIn={terms ? matchedFields(r, terms) : undefined}
-          />
-        ))}
-      </div>
     </div>
   );
 }

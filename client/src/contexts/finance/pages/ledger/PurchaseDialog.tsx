@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   TaxCategoryLabels, SettlementMethodLabels,
@@ -105,12 +105,30 @@ export function PurchaseDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{editing ? '仕入を直す' : '仕入を登録'}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
+      title={editing ? '仕入を直す' : '仕入を登録'}
+      footer={
+        <div className="flex gap-2 sm:justify-between">
+          <div>
+            {editing && (
+              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+                消す
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>やめる</Button>
+            <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
+              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {editing ? '更新' : '登録'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
         <div className="space-y-4">
           <div>
             <Label>案件 *</Label>
@@ -249,25 +267,6 @@ export function PurchaseDialog({
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="任意" rows={2} />
           </div>
         </div>
-
-        <DialogFooter className="flex gap-2 sm:justify-between">
-          <div>
-            {editing && (
-              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                消す
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              {editing ? '更新' : '登録'}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

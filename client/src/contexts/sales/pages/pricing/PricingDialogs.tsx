@@ -23,9 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
@@ -64,30 +62,32 @@ export function CategoryDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{editing ? '分類の名前を変える' : '分類を足す'}</DialogTitle>
-          <DialogDescription>
-            見積の明細をまとめる単位です（スタジオ／技術・人員／制作 など）。
-            {!editing && <> <strong className="font-bold">{locationName}</strong> の料金表に足します。</>}
-            {editing && <> 分類を別の場所へ移すことはできません（過去の見積の根拠が変わってしまうため）。</>}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
-          <div>
-            <Label>分類名 <span className="text-destructive">必須</span></Label>
-            <Input {...form.register('name', { required: true })} placeholder="例）スタジオ利用料" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? '分類の名前を変える' : '分類を足す'}
+      onSubmit={form.handleSubmit((v) => save.mutate(v))}
+      footer={
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-sub text-muted-foreground">
+          見積の明細をまとめる単位です（スタジオ／技術・人員／制作 など）。
+          {!editing && <> <strong className="font-bold">{locationName}</strong> の料金表に足します。</>}
+          {editing && <> 分類を別の場所へ移すことはできません（過去の見積の根拠が変わってしまうため）。</>}
+        </p>
+        <div>
+          <Label>分類名 <span className="text-destructive">必須</span></Label>
+          <Input {...form.register('name', { required: true })} placeholder="例）スタジオ利用料" />
+        </div>
+      </div>
+    </FormDialog>
   );
 }
 
@@ -156,69 +156,68 @@ export function ItemDialog({
   const bothUnset = unitUnset && groupUnset;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? '品目を直す' : '品目を足す'}</DialogTitle>
-          <DialogDescription>
-            ここを直しても<strong className="font-bold">すでに作った見積の金額は変わりません</strong>。
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
-          <div>
-            <Label>品目名 <span className="text-destructive">必須</span></Label>
-            <Input {...form.register('name', { required: true })} placeholder="例）【平日】9〜20時 11時間基本パッケージ" />
-          </div>
-          <div>
-            <Label>補足（部屋の組合せ・条件）</Label>
-            <Input {...form.register('sub_label')} placeholder="例）WORLD + SKY + LOUNGE" />
-          </div>
-          <div>
-            <Label>数え方 <span className="text-destructive">必須</span></Label>
-            <Select value={form.watch('calc_type')} onValueChange={(v) => form.setValue('calc_type', v as CalcType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.entries(CalcTypeLabels) as [CalcType, string][]).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            {([
-              ['unit_price', 'unit_price_unset', '定価（グループ外）', unitUnset, 'グループ外には出しません'],
-              ['group_price', 'group_price_unset', 'グループ内価格', groupUnset, 'グループ内には出しません'],
-            ] as const).map(([priceKey, unsetKey, label, unset, offText]) => (
-              <div key={priceKey}>
-                <Label>{label}</Label>
-                <CurrencyInput
-                  value={form.watch(priceKey)}
-                  onChange={(v) => form.setValue(priceKey, v, { shouldValidate: true })}
-                  disabled={unset}
-                />
-                <div className="mt-1.5 flex items-center justify-between gap-2">
-                  <span className="text-note text-muted-foreground">{unset ? offText : '設定なしにする'}</span>
-                  <Switch checked={unset} onCheckedChange={(v) => form.setValue(unsetKey, !!v)} />
-                </div>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? '品目を直す' : '品目を足す'}
+      sub="ここを直してもすでに作った見積の金額は変わりません。"
+      onSubmit={form.handleSubmit((v) => save.mutate(v))}
+      footer={
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <Label>品目名 <span className="text-destructive">必須</span></Label>
+          <Input {...form.register('name', { required: true })} placeholder="例）【平日】9〜20時 11時間基本パッケージ" />
+        </div>
+        <div>
+          <Label>補足（部屋の組合せ・条件）</Label>
+          <Input {...form.register('sub_label')} placeholder="例）WORLD + SKY + LOUNGE" />
+        </div>
+        <div>
+          <Label>数え方 <span className="text-destructive">必須</span></Label>
+          <Select value={form.watch('calc_type')} onValueChange={(v) => form.setValue('calc_type', v as CalcType)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.entries(CalcTypeLabels) as [CalcType, string][]).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {([
+            ['unit_price', 'unit_price_unset', '定価（グループ外）', unitUnset, 'グループ外には出しません'],
+            ['group_price', 'group_price_unset', 'グループ内価格', groupUnset, 'グループ内には出しません'],
+          ] as const).map(([priceKey, unsetKey, label, unset, offText]) => (
+            <div key={priceKey}>
+              <Label>{label}</Label>
+              <CurrencyInput
+                value={form.watch(priceKey)}
+                onChange={(v) => form.setValue(priceKey, v, { shouldValidate: true })}
+                disabled={unset}
+              />
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <span className="text-note text-muted-foreground">{unset ? offText : '設定なしにする'}</span>
+                <Switch checked={unset} onCheckedChange={(v) => form.setValue(unsetKey, !!v)} />
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          {/* **両方「設定なし」は誰も選べない品目**になる。保存は止めないが必ず言う */}
-          {bothUnset && (
-            <p className="rounded-note text-sub bg-warning-surface px-3 py-2 text-warning">
-              どちらも「設定なし」だと、この品目は<strong className="font-bold">見積のどこにも出てきません</strong>。
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {/* **両方「設定なし」は誰も選べない品目**になる。保存は止めないが必ず言う */}
+        {bothUnset && (
+          <p className="rounded-note text-sub bg-warning-surface px-3 py-2 text-warning">
+            どちらも「設定なし」だと、この品目は<strong className="font-bold">見積のどこにも出てきません</strong>。
+          </p>
+        )}
+      </div>
+    </FormDialog>
   );
 }

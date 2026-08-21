@@ -67,13 +67,20 @@ v4 対象3アプリ（`client` / `client-daily` / `client-equipment`）と共通
 
 ### client-equipment
 
-3. ⬜ **機材台帳「機材」タブのカスタム列・その場編集・親子の入れ子がスマホで使えない**
+3. ✅（部分対応） **機材台帳「機材」タブのカスタム列・その場編集・親子の入れ子がスマホで使えない**
    （`pages/equipmentList/EquipmentCards.tsx` / `EquipmentTable.tsx` / `ItemsPanel.tsx`）
    PC版（`EquipmentTable`）だけが親子展開・カスタム列・その場編集を持ち、スマホ版（`EquipmentCards`）は
    `parent_name` を文字列で添えるだけで展開操作自体が無い。`client-equipment/CLAUDE.md` に「枠はv4・行の
    載せ替えは途中」と明記されている既知の未完了。
-   → **未着手（意図的に見送り）**。CSS/ブレークポイントの修正では済まず設計から必要になる大きい機能追加
-   のため、ユーザー判断でこの回のスコープから外した。着手するときは別途設計を相談してから。
+   → **その場編集とカスタム列は対応済み**。PC の「表のセルを直接クリックして直す」をそのままスマホへ
+   持ち込む（狭い画面でのセル単位のタップは精度の問題が起きる）のではなく、カード（`EquipmentCardRow.tsx`）
+   に鉛筆ボタンを1つ足し、押すと編集シート（`EquipmentDialog.tsx` ＝ `FormDialog`）が開いて、標準の項目に
+   加えカスタム列（`EquipmentCustomFields.tsx`・新規）も直せるようにした。カード本体のタップは元から
+   詳細画面（`EquipmentDetailPage`）への入口のため役目を変えず、「選ぶ」は鉛筆ボタンという別の明示的な
+   操作に分けた。カスタム列の書き込みは PC の表と同じ経路（`PUT /equipment/custom-values/:columnId/:equipmentId`）
+   で、ダイアログの「直す」を待たずに1つずつすぐ保存される。**親子の入れ子（展開した付属品を直す）は
+   引き続き未着手** — カードの開閉自体は既にあるが、開いた付属品1件ごとの編集導線までは今回のスコープに
+   入れていない。
 
 4. ✅（部分対応） **機材の新規登録・編集ダイアログが375pxでも常にフル項目・密グリッド**
    （`EquipmentDialog.tsx` / `EquipmentAssetFields.tsx` / `EquipmentDetailPage.tsx` の編集フォーム）

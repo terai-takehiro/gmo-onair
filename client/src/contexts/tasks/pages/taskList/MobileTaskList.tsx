@@ -3,12 +3,23 @@
  *
  * ── PC の一覧を縮めたものではありません ────────────────────
  *
- * モックの但し書きがこの画面の全部です:
+ * モックの但し書きは元々こうでした:
  *
  *   > **押して消し込むだけ。並べ替えや割り当ての変更はPCで行います。**
  *
  * だから並べ替え（期限／案件／状態）も「全体／自分」も出しません。
  * 出すのは **今日 / 期限切れ / 依頼** の3つと、押して消せる行だけです。
+ *
+ * ⚠️ **v4ネイティブUI監査 2026-08-20 の指摘で、以下の2点だけモックから広げました**
+ * （`docs/v4-native-ui-audit-2026-08-20.md`「④ タスク一覧」）:
+ * - **新規追加**（`AddTaskDialog` を `PageHeader.primaryAction` 経由で流用。
+ *   スマホでは共通シェルの下端固定スロットに出る）
+ * - **延期**（明日 / 3日後 / 日時を選ぶ。`client-v4/mobile.ts` の `duePresets()` を
+ *   流用。自作の日付ホイールは作らない決めごとどおり、3つ目は端末の日付ピッカーに任せる）
+ *
+ * **担当変更は見送った**（引き続き「PC で」の案内）。担当は `users-by-module-sales` の
+ * 一覧から選ぶ必要があり、この画面のシート（期限・状態を見せるだけの小さい枠）に
+ * 検索付きの担当選択まで詰めると、消し込み画面の軽さが失われるため。
  *
  * ── 行を押しても画面を移らない ──────────────────────────────
  *
@@ -25,7 +36,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -33,12 +44,13 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState, ErrorPanel, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
-import { dueLabel } from '@gmo-onair/shared/src/client-v4/mobile';
+import { dueLabel, duePresets } from '@gmo-onair/shared/src/client-v4/mobile';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
 import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
 import { taskState, TASK_STATE_LABEL } from './state';
+import { AddTaskDialog } from './AddTaskDialog';
 import type { DashboardTask } from '@/types';
 
 type Chip = 'today' | 'over' | 'all';
@@ -60,6 +72,7 @@ export function MobileTaskList() {
   const [mineOnly, setMineOnly] = useState(true);
   const [open, setOpen] = useState<DashboardTask | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const today = localDateStr(new Date());
 
@@ -100,10 +113,39 @@ export function MobileTaskList() {
     }
   };
 
+  /**
+   * 延期。**PUT の汎用更新に `due_date` だけ渡す**（専用の postpone エンドポイントは
+   * タスクには無い — `project_tasks.service.ts#update` が `'due_date' in data` で
+   * 部分更新を受けるので、それで足りる）。`dateStr` は `YYYY-MM-DD`（`due_date` は
+   * DATE 列で `::date` にキャストされるだけなので、時刻は持たせない）。
+   */
+  const postpone = async (t: DashboardTask, dateStr: string) => {
+    setBusy(true);
+    try {
+      await api.put(`/projects/${t.project_id}/tasks/${t.id}`, { due_date: dateStr });
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['project-tasks', t.project_id] });
+      setOpen(null);
+      notifySuccess('期限を延ばしました');
+    } catch (e) {
+      notifyApiError('延期できませんでした', e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3.5 p-3">
       {/* **説明はここ1か所だけ。** 以前は同じ文が画面末尾にもう一度出ていた（M7） */}
-      <PageHeader title="やること" sub="押して消し込むだけ。並べ替え・担当の変更・追加は PC で" />
+      <PageHeader
+        title="やること"
+        sub="押して消し込むだけ。並べ替え・担当の変更は PC で"
+        primaryAction={
+          <Button onClick={() => setAdding(true)}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを足す
+          </Button>
+        }
+      />
 
       <FilterChips
         label="絞り込む"
@@ -142,7 +184,7 @@ export function MobileTaskList() {
       ) : rows.length === 0 ? (
         <EmptyState
           title={chip === 'today' ? '今日が期限のものはありません' : chip === 'over' ? '期限を過ぎたものはありません' : 'やることはありません'}
-          description={mineOnly ? '「全体」に切り替えると、ほかの人のぶんも見られます。' : '新しく足すのは PC か案件の中からです。'}
+          description={mineOnly ? '「全体」に切り替えると、ほかの人のぶんも見られます。' : '新しく足すのは上の「タスクを足す」か、案件の中からです。'}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -191,11 +233,54 @@ export function MobileTaskList() {
             <Fact label="状態" value={TASK_STATE_LABEL[taskState(open)]} />
             {open.description && <Fact label="内容" value={open.description} />}
           </dl>
+
+          {/*
+            延期。**自作の日付ホイールを作らない**（決めごと「入力は端末に任せる」）。
+            `duePresets()` の3つ目（`value === null`）は端末の日付ピッカーに任せる —
+            見た目はほかの2つと同じチップだが、中に `<input type="date">` を
+            透明に重ねて押した瞬間にネイティブのピッカーが開く形にしてある。
+          */}
+          <div className="mt-3.5 flex flex-col gap-1.5">
+            <span className="text-sub text-muted-foreground">延期する</span>
+            <div className="flex flex-wrap gap-2">
+              {duePresets(new Date()).map((p) => (
+                p.value ? (
+                  <button
+                    key={p.key}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => postpone(open, p.value!.slice(0, 10))}
+                    className="min-h-tap text-sub rounded-control border border-border px-3.5 text-muted-foreground disabled:opacity-50"
+                  >
+                    {p.label}
+                  </button>
+                ) : (
+                  <label
+                    key={p.key}
+                    className="min-h-tap text-sub relative inline-flex cursor-pointer items-center rounded-control border border-border px-3.5 text-muted-foreground"
+                  >
+                    {p.label}
+                    {/* 透明な入力を重ねるだけ。見た目はチップ側が持つ */}
+                    <input
+                      type="date"
+                      disabled={busy}
+                      onChange={(e) => e.target.value && postpone(open, e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      aria-label="延期する日付を選ぶ"
+                    />
+                  </label>
+                )
+              ))}
+            </div>
+          </div>
+
           <p className="text-note mt-3.5 text-muted-foreground">
-            期限や担当を変えるのは PC の一覧からです（この画面は消し込み専用）。
+            担当を変えるのは PC の一覧からです（この画面は消し込みと延期専用）。
           </p>
         </Sheet>
       )}
+
+      {adding && <AddTaskDialog onClose={() => setAdding(false)} />}
     </div>
   );
 }

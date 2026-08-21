@@ -15,7 +15,7 @@
  */
 import { AlertTriangle, Check, Info, Loader2, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { DraftRow } from './DraftRow';
 import { rowBlockers, type IntakeResponse, type Row } from './types';
 
@@ -35,25 +35,38 @@ export interface IntakeReviewProps {
 
 export function IntakeReview(props: IntakeReviewProps) {
   if (props.embedded) return <ReviewBody {...props} />;
+
+  // **フッターは FormDialog の下端固定スロットへ渡す**（`Sheet` と同じく本文だけが
+  // スクロールする形にするため）。判定は ReviewBody の中身と同じ式（rowBlockers）
+  const checked = props.rows.filter((r) => r.checked);
+  const blockers = checked.flatMap(rowBlockers);
+
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) props.onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 sm:max-w-[min(96vw,1100px)] max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle className="text-cardtitle flex flex-wrap items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
-            AI が読み取りました
-            <span className="rounded-badge border border-warning-border bg-warning-surface px-2 py-0.5 text-badge text-warning">
-              下書き
-            </span>
-            <span className="text-note text-muted-foreground">押すまで登録しません</span>
-          </DialogTitle>
-        </DialogHeader>
-        <ReviewBody {...props} />
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) props.onClose(); }}
+      // **背景の誤クリックで下書きを消さない**（`BusinessProjectView.tsx:1405` と同じ理由）。
+      // 押すまで登録しない下書き（原文・AI抽出行・編集内容）を、確認も破棄APIの呼び出しも
+      // 無いまま失うのを防ぐ。閉じるには右上の × か「全部いらない」を使う
+      onInteractOutside={(e) => e.preventDefault()}
+      title="AI が読み取りました"
+      sub="下書き・押すまで登録しません"
+      wide
+      footer={
+        <FormDialogFooter className="sm:justify-between">
+          <ReviewButtons
+            count={checked.length}
+            disabled={checked.length === 0 || blockers.length > 0 || props.committing}
+            committing={props.committing}
+            discarding={props.discarding}
+            onCommit={props.onCommit}
+            onDiscard={props.onDiscard}
+          />
+        </FormDialogFooter>
+      }
+    >
+      <ReviewBody {...props} />
+    </FormDialog>
   );
 }
 
@@ -160,26 +173,34 @@ function ReviewBody({
 
       {error && <p className="text-sub text-destructive">{error}</p>}
 
-      <Footer
-        embedded={embedded}
-        count={checked.length}
-        disabled={checked.length === 0 || blockers.length > 0 || committing}
-        committing={committing}
-        discarding={discarding}
-        onCommit={onCommit}
-        onDiscard={onDiscard}
-      />
+      {/*
+        **埋め込み（スマホのシートの中）だけここで描く。** デスクトップは
+        `IntakeReview` が `FormDialog` の下端固定フッタースロットへ同じ
+        `ReviewButtons` を渡す（本文と一緒にスクロールさせないため）。
+      */}
+      {embedded && (
+        <div className="flex items-center justify-between gap-2">
+          <ReviewButtons
+            count={checked.length}
+            disabled={checked.length === 0 || blockers.length > 0 || committing}
+            committing={committing}
+            discarding={discarding}
+            onCommit={onCommit}
+            onDiscard={onDiscard}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function Footer({
-  embedded, count, disabled, committing, discarding, onCommit, onDiscard,
+function ReviewButtons({
+  count, disabled, committing, discarding, onCommit, onDiscard,
 }: {
-  embedded?: boolean; count: number; disabled: boolean;
+  count: number; disabled: boolean;
   committing: boolean; discarding: boolean; onCommit: () => void; onDiscard: () => void;
 }) {
-  const buttons = (
+  return (
     <>
       <Button type="button" variant="outline" size="sm" className="h-9 gap-1 text-note"
         disabled={discarding} onClick={onDiscard}>
@@ -193,6 +214,4 @@ function Footer({
       </Button>
     </>
   );
-  if (embedded) return <div className="flex items-center justify-between gap-2">{buttons}</div>;
-  return <DialogFooter className="gap-2 sm:justify-between">{buttons}</DialogFooter>;
 }

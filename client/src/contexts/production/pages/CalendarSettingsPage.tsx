@@ -30,9 +30,18 @@
  * （`StudioRoomsManagerDialog` / `IcsFeedsDialog`）。
  * 枠の入れ替えと中身の作り直しを同じ回でやると、
  * どちらが原因で壊れたか切り分けられません。
+ *
+ * ── Google/Outlook の OAuth コールバックを受ける（旧「自分の予定」の吸収） ──
+ *
+ * 旧「自分の予定」(`/studio/my-calendar`) は v4 ネイティブUI化（バックログB）で
+ * 退役したが、**サーバーの OAuth コールバック（`google-oauth.routes.ts` /
+ * `ms-oauth.routes.ts`）は連携の完了後にブラウザをここへ返す** （`?tab=feed&google=…`
+ * / `?tab=feed&outlook=…`）。旧画面が出していた「連携しました」の通知と、
+ * 連携直後にキャッシュを読み直す処理をここへそのまま持ってきた
+ * （消すと「押しても何も起きたか分からない」に戻る）。
  */
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { DoorOpen, CalendarSync, Monitor } from 'lucide-react';
 import api from '@/lib/api';
@@ -63,6 +72,7 @@ const LEAD: Record<TabKey, string> = {
 
 export default function CalendarSettingsPage() {
   const [sp, setSp] = useSearchParams();
+  const qc = useQueryClient();
   const { currentUser, hasPermission } = useAuth();
   // **サーバーは `requireRole('system_admin')` を掛けている**（`studio.routes.ts` の
   // `adminOnly`）。`studio` の manager に管理ボタンを出すと、押した先が 403 になる
@@ -80,6 +90,32 @@ export default function CalendarSettingsPage() {
 
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);
+  const [linkNotice, setLinkNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Google/Outlook OAuth コールバックからの戻り (`?google=linked|error` / `?outlook=linked|error`)。
+  // **旧「自分の予定」(`MyCalendarPage.tsx`) が持っていた処理をそのまま移設した**
+  // （サーバー側のリダイレクト先も合わせて張り替え済み）
+  useEffect(() => {
+    const g = sp.get('google');
+    const o = sp.get('outlook');
+    if (!g && !o) return;
+    const provider = g ? 'Google' : 'Outlook';
+    const status = g || o;
+    if (status === 'linked') {
+      setLinkNotice({ ok: true, msg: `${provider} カレンダーと連携しました。予定を取り込みました。` });
+      qc.invalidateQueries({ queryKey: ['personal-events'] });
+      qc.invalidateQueries({ queryKey: ['google-cal-status'] });
+      qc.invalidateQueries({ queryKey: ['ms-cal-status'] });
+    } else if (status === 'error') {
+      setLinkNotice({ ok: false, msg: `${provider} 連携に失敗しました。もう一度お試しください。` });
+    }
+    // URL からパラメータを除去（`tab` は残す）
+    sp.delete('google');
+    sp.delete('outlook');
+    setSp(sp, { replace: true });
+    // 戻ってきたときの1回だけ見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const locations = useQuery({
     queryKey: ['studio-locations'],
@@ -100,6 +136,19 @@ export default function CalendarSettingsPage() {
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader title="カレンダーの設定" sub={LEAD[tab].replace(/\*\*/g, '')} />
+
+      {linkNotice && (
+        <div
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+            linkNotice.ok
+              ? 'border-green-600/30 bg-green-50 text-green-800'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span className="flex-1">{linkNotice.msg}</span>
+          <button type="button" className="text-xs underline" onClick={() => setLinkNotice(null)}>閉じる</button>
+        </div>
+      )}
 
       {/* **タブが1つしか無い人には並びを出さない**（選べないものを選ばせない） */}
       {shown.length > 1 && (

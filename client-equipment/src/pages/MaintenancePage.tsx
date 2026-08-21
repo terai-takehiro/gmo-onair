@@ -20,31 +20,10 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { MaintenanceDialog, type MaintenanceForm } from './maintenance/MaintenanceDialog';
-
-interface MaintenanceRecord {
-  id: string;
-  eq_code: string;
-  equipment_name: string;
-  record_type: string;
-  title: string;
-  description: string | null;
-  vendor_name: string | null;
-  repair_cost: number | null;
-  status: string;
-  reported_at: string | null;
-  result: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  assigned_to: string | null;
-}
-
-const STATUS_TONE: Record<string, string> = {
-  reported: 'bg-warning-surface text-warning border-transparent',
-  in_progress: 'bg-info-surface text-info border-transparent',
-  completed: 'bg-success-surface text-success border-transparent',
-  cancelled: 'bg-muted text-muted-foreground border-transparent',
-};
+import { MaintenanceCards, STATUS_TONE } from './maintenance/MaintenanceCards';
+import type { MaintenanceRecord } from './maintenance/types';
 
 const CHIPS = [
   { key: '', label: 'すべて' },
@@ -55,6 +34,7 @@ const CHIPS = [
 
 export default function MaintenancePage() {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [status, setStatus] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -105,6 +85,9 @@ export default function MaintenancePage() {
     onSuccess: () => { invalidate(); notifySuccess('状態を変えました'); },
     onError: (e) => notifyApiError('状態を変えられませんでした', e),
   });
+  // **押した札だけ回す。** `update.isPending` は1つしか持てないので、
+  // どの記録に対する更新かは送った値（`variables`）から拾う
+  const savingId = update.isPending ? (update.variables?.id ?? null) : null;
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
@@ -137,6 +120,14 @@ export default function MaintenancePage() {
         <EmptyState
           title={status ? 'この状態の記録はありません' : 'メンテナンスの記録がまだ1件もありません'}
           description="故障・点検・修理が出たら「記録を足す」から入れます。稼働停止中の台数はダッシュボードに出ます。"
+        />
+      ) : isMobile ? (
+        // **PC の行を縮めたものではない。** 業者名・報告日を畳まず出し、
+        // 状態変更は Select ではなく下から出るシート（`MaintenanceCards.tsx`）
+        <MaintenanceCards
+          records={records}
+          savingId={savingId}
+          onChangeStatus={(r, v) => update.mutate({ ...r, status: v })}
         />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">

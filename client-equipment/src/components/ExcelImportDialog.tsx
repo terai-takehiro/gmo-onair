@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -179,12 +179,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
     : 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>機材リスト Excelインポート</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog open={open} onOpenChange={handleClose} title="機材リスト Excelインポート" wide>
         <div className="space-y-4">
           {/* テンプレートDL */}
           <Card>
@@ -408,7 +403,6 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
             </Card>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,15 +105,15 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>ロケーション・部屋管理 <span className="text-xs font-normal text-muted-foreground">（管理者のみ）</span></DialogTitle>
-          <DialogDescription className="sr-only">
-            ロケーション (拠点) とその配下の部屋・空間を追加 / 編集 / 削除します。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="ロケーション・部屋管理（管理者のみ）"
+      // 元の max-w-3xl (768px) は既定の560pxよりかなり広い。各ロケーションの
+      // 行（拠点名+略称+ボタン、部屋の一覧行）が横に長く、560pxに絞ると
+      // 折り返しが増えて縦に間延びするため wide (760px) を渡す。
+      wide
+    >
         {/* ガイド */}
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs space-y-1.5">
           <div className="flex items-start gap-2">
@@ -285,7 +285,6 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

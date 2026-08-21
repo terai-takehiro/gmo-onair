@@ -2,12 +2,7 @@ import { useMemo } from "react";
 import {
   Vendor,
 } from "@/types";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -153,14 +148,39 @@ export default function SgaDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingId ? "販管費編集" : "販管費 新規登録"}
-          </DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editingId ? "販管費編集" : "販管費 新規登録"}
+      footer={
+        <div className="flex flex-wrap gap-2 sm:justify-between">
+          <div>
+            {/* **消すのはここだけ。** 一覧の行にゴミ箱を並べると、
+                隣の行を押して消す事故が起きる（金額の記録なので戻せない） */}
+            {editingId && onDelete && (
+              <Button variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
+                {isDeleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                消す
+              </Button>
+            )}
+          </div>
+          <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button
+            disabled={!form.vendor_name || isSaving}
+            onClick={onSubmit}
+          >
+            {isSaving && (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            )}
+            {editingId ? "更新" : "登録"}
+          </Button>
+          </div>
+        </div>
+      }
+    >
         <div className="space-y-4">
           {/* Row 1: vendor + tax */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -361,36 +381,7 @@ export default function SgaDialog({
               />
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-2 sm:justify-between">
-            <div>
-              {/* **消すのはここだけ。** 一覧の行にゴミ箱を並べると、
-                  隣の行を押して消す事故が起きる（金額の記録なので戻せない） */}
-              {editingId && onDelete && (
-                <Button variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
-                  {isDeleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  消す
-                </Button>
-              )}
-            </div>
-            <div className="ml-auto flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button
-              disabled={!form.vendor_name || isSaving}
-              onClick={onSubmit}
-            >
-              {isSaving && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              {editingId ? "更新" : "登録"}
-            </Button>
-            </div>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

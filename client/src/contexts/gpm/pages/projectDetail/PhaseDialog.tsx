@@ -19,7 +19,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
@@ -95,10 +95,28 @@ export function PhaseDialog({
   const busy = save.isPending || remove.isPending;
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader><DialogTitle>{phase ? '工程を直す' : '工程を足す'}</DialogTitle></DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={phase ? '工程を直す' : '工程を足す'}
+      footer={
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          {phase ? (
+            <Button variant="outline" onClick={onDelete} disabled={busy}>
+              <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
+              この工程を消す
+            </Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={busy}>やめる</Button>
+            <Button onClick={() => save.mutate()} disabled={!label.trim() || badRange || busy}>
+              {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {phase ? '直す' : '足す'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
         <div className="space-y-3">
           <div>
             <Label htmlFor="ph-label">
@@ -145,23 +163,6 @@ export function PhaseDialog({
               : '足した工程はいちばん後ろに付きます。順番は一覧の ∧ ∨ で動かします。'}
           </p>
         </div>
-
-        <DialogFooter className="sm:justify-between">
-          {phase ? (
-            <Button variant="outline" onClick={onDelete} disabled={busy}>
-              <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
-              この工程を消す
-            </Button>
-          ) : <span />}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={busy}>やめる</Button>
-            <Button onClick={() => save.mutate()} disabled={!label.trim() || badRange || busy}>
-              {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {phase ? '直す' : '足す'}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -96,7 +96,10 @@ router.get('/ms/start', ...canUse, (req, res) => {
 
 // コールバック (requireAuth のみ)
 router.get('/ms/callback', requireAuth, async (req, res) => {
-  const back = (status: 'linked' | 'error') => res.redirect(`${config.clientUrl}/studio/my-calendar?outlook=${status}`);
+  // **戻り先は ④ 設定／外部カレンダー。** 旧「自分の予定」(`/studio/my-calendar`) は
+  // v4 ネイティブUI化（バックログB）で退役した。連携の状態を出す画面はここへ移設済み
+  // （`CalendarSettingsPage.tsx` の `feed` タブ・`FeedsTab.tsx`）
+  const back = (status: 'linked' | 'error') => res.redirect(`${config.clientUrl}/studio/settings?tab=feed&outlook=${status}`);
   try {
     const code = typeof req.query.code === 'string' ? req.query.code : '';
     const state = typeof req.query.state === 'string' ? req.query.state : '';

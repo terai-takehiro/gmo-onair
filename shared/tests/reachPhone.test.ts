@@ -3,12 +3,10 @@
  *
  * ── なぜ試験にするのか ──────────────────────────────────────
  *
- * ⚠️ **この段落は当時の記録。** 着手時点はお客様の詳細（`/sales/customers/:id`）が
- * スマホでは PC 専用の案内に差し替わっていた（`pcOnlyScreens.ts`・まだ作り直して
- * いない画面だったため）。**その後 2026-08、「PC専用画面もスマホ対応していく」という
- * 方針転換を受けて `CLIENT_MOBILE_OK` へ移した**（v4作り直しは別途・今回はレイアウトの
- * 最小対応のみ）。探すの行に番号を出す仕組み自体は、開けるようになった今も
- * 「画面を開かずに答えになる」という価値をそのまま持つので、そのぶんの試験は残す。
+ * お客様の詳細（`/sales/customers/:id`）は当初**スマホでは PC 専用の案内に
+ * 差し替わっていた**（まだ作り直していない画面だったため）。ところが
+ * **仕入先は `/budget/vendors` を開けた**（「電話の前に相手を調べる」と
+ * 書いて M10 で開放した5枚の1つ）。つまり**お客様だけ道が無かった**。
  *
  * 現場から「いまからかけたい」ときに要るのは**番号のひとつ**で、
  * 画面を開くことではありません。**探すの行に番号を出せば、
@@ -20,6 +18,18 @@
  * **横はみ出し 0px**。
  *
  * v4 の PR で指摘された形です（#73）。
+ *
+ * ⚠️ **お客様の詳細を v4 で作り直し、スマホにも開放した**（2026-08・
+ * v4ネイティブUI化）。それでも探すの行の番号タップは**残す** — 電話は
+ * 「詳細を読みに行く」操作ではなく「いますぐかける」操作なので、開いてから
+ * もう一段タップするより、行から直接 `tel:` に飛べるほうが速い。番号を押しても
+ * 行の遷移を起こさない、という決めごとは開放後も変わらない。
+ *
+ * ⚠️ **PC / スマホで見た目のファイルが分かれた**（v4ネイティブUI監査
+ * 2026-08-20・search-sales）。番号のリンクは**両方に**要る —
+ * PC は `search/SearchPageDesktop.tsx`、スマホは `search/SearchCards.tsx`
+ * の `CustomerResultCards`（カード化した結果セクション）が持つ。
+ * 薄い親 `SearchPage.tsx` はどちらも呼ぶだけで、番号の描画そのものは持たない。
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -32,7 +42,11 @@ const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const SEARCH_API = code(read('server', 'src', 'contexts', 'platform', 'routes', 'search.routes.ts'));
-const SEARCH_PAGE = code(read('client', 'src', 'contexts', 'platform', 'pages', 'SearchPage.tsx'));
+// PC 版とスマホ版の両方を1本にして探す（どちらかにしか無いと、そのほうが壊れていても気づけない）
+const SEARCH_PAGE = code(
+  read('client', 'src', 'contexts', 'platform', 'pages', 'search', 'SearchPageDesktop.tsx')
+  + read('client', 'src', 'contexts', 'platform', 'pages', 'search', 'SearchCards.tsx'),
+);
 const PC_ONLY = read('client', 'src', 'pcOnlyScreens.ts');
 
 describe('お客様の電話番号に辿り着ける', () => {
@@ -53,10 +67,10 @@ describe('お客様の電話番号に辿り着ける', () => {
     expect(SEARCH_PAGE).toMatch(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/);
   });
 
-  it('⚠️ お客様の画面は2026-08にスマホへ開放した（当時の記録の更新）', () => {
-    // 方針転換（PC専用画面もスマホ対応していく）を受けて CLIENT_PC_ONLY から外し、
-    // CLIENT_MOBILE_OK へ移した。番号を探すの行に出す仕組み自体は
-    // （開けるようになった今も）「画面を開かずに答えになる」ままなので、そのまま残す
+  it('お客様の画面は v4 で作り直され、スマホにも開放されている', () => {
+    // 2026-08・v4ネイティブUI化で `CLIENT_PC_ONLY` から外れ `CLIENT_MOBILE_OK` へ
+    // 移った。それでも探すの行の番号タップ（上のテスト群）は削らない —
+    // 「詳細を開いてから電話をかける」より「行から直接かける」ほうが速い
     expect(PC_ONLY).not.toMatch(/path: '\/sales\/customers\/:id'/);
     expect(PC_ONLY).toMatch(/'\/sales\/customers\/:id',/);
   });

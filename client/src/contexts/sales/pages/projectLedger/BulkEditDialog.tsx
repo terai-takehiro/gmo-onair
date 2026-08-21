@@ -30,7 +30,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
@@ -82,12 +82,20 @@ export function BulkEditDialog({
   const reset = () => { setAudience(''); setCategory(''); setText(''); setFlag(''); };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>選んだ {count} 件をまとめて直す</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`選んだ ${count} 件をまとめて直す`}
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button disabled={!set || saving || count === 0} onClick={() => set && onSubmit(set)}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {count} 件を直す
+          </Button>
+        </div>
+      }
+    >
         <div className="space-y-4">
           <div>
             <Label htmlFor="bulk-field">直す項目</Label>
@@ -232,15 +240,6 @@ export function BulkEditDialog({
             </p>
           </div>
         </div>
-
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button disabled={!set || saving || count === 0} onClick={() => set && onSubmit(set)}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {count} 件を直す
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

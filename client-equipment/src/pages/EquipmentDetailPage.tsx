@@ -23,6 +23,7 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { type CustomColumn } from "@/components/CustomColumnDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, STATUS_OPTIONS, CONDITION_OPTIONS, TYPE_LABELS, SECTION_LABELS,
@@ -380,10 +381,15 @@ export default function EquipmentDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 編集ダイアログ */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>機材編集</DialogTitle></DialogHeader>
+      {/* 編集ダイアログ。複数の2〜4列グリッドを持つ複合フォームなので wide にする */}
+      <FormDialog open={editOpen} onOpenChange={setEditOpen} title="機材編集" wide
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => { setEditOpen(false); setSaveError(null); }}>キャンセル</Button>
+            <Button onClick={handleEditSubmit} disabled={saveMutation.isPending || !editForm.name}>{saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}更新</Button>
+          </FormDialogFooter>
+        }
+      >
           <div className="space-y-4">
             {isAdmin && (
               <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -640,21 +646,18 @@ export default function EquipmentDetailPage() {
             {saveError && (
               <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
             )}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setEditOpen(false); setSaveError(null); }}>キャンセル</Button>
-              <Button onClick={handleEditSubmit} disabled={saveMutation.isPending || !editForm.name}>
-                {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                更新
-              </Button>
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
 
-      {/* 新規子機材登録ダイアログ */}
-      <Dialog open={newChildOpen} onOpenChange={setNewChildOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>子機材を新規登録</DialogTitle></DialogHeader>
+      {/* 新規子機材登録ダイアログ。複数の2〜3列グリッドを持つ複合フォームなので wide にする */}
+      <FormDialog open={newChildOpen} onOpenChange={setNewChildOpen} title="子機材を新規登録" wide
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => { setNewChildOpen(false); setCreateChildError(null); }}>キャンセル</Button>
+            <Button onClick={handleCreateChild} disabled={createChildMutation.isPending || !newChildForm.name}>{createChildMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}登録</Button>
+          </FormDialogFooter>
+        }
+      >
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -731,16 +734,8 @@ export default function EquipmentDetailPage() {
             {createChildError && (
               <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{createChildError}</p>
             )}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setNewChildOpen(false); setCreateChildError(null); }}>キャンセル</Button>
-              <Button onClick={handleCreateChild} disabled={createChildMutation.isPending || !newChildForm.name}>
-                {createChildMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                登録
-              </Button>
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 基本情報 */}

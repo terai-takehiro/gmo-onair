@@ -14,9 +14,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { MODULE_WHAT, MODULE_TITLE, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
@@ -79,15 +77,21 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
   const members = role?.member_count ?? 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{role ? `${role.name} を直す` : '役割をつくる'}</DialogTitle>
-          <DialogDescription>
-            ここで決めた中身が、この役割を押した人の権限になります。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={role ? `${role.name} を直す` : '役割をつくる'}
+      sub="ここで決めた中身が、この役割を押した人の権限になります。"
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {role ? '保存する' : 'つくる'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -154,15 +158,6 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
             </label>
           )}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
-            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {role ? '保存する' : 'つくる'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

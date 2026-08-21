@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2, Calculator, Save, ArrowRight } from "lucide-react";
+import { Loader2, Save, ArrowRight } from "lucide-react";
 import { LocationPicker } from "../pages/pricing/LocationPicker";
 import { calcSubtotal, calcTypeUnit, type ItemState } from "./simulation/calc";
 
@@ -153,31 +151,55 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
   const isLoading = loadingCategories || (!!projectId && loadingSimulation);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            料金シミュレーション
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="料金シミュレーション"
+      sub={`項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は${customerType === "internal" ? "「グループ内価格」" : "「定価」"}を初期値として反映しますが、明細ごとに上書き可能です。`}
+      wide
+      footer={
+        <div className="w-full">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm text-muted-foreground">
+              {Object.values(itemStates).filter(s => s.checked).length}項目選択中
+            </span>
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">見積合計</div>
+              <div className="text-2xl font-bold font-number text-primary">
+                {formatCurrency(total)}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
             {projectId && (
-              <Badge variant={customerType === "internal" ? "default" : "secondary"} className="ml-2">
-                {customerType === "internal" ? "グループ内案件" : "グループ外案件"}
-              </Badge>
+              <Button variant="outline" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                保存
+              </Button>
             )}
-          </DialogTitle>
-          <DialogDescription>
-            項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は
-            {customerType === "internal" ? "「グループ内価格」" : "「定価」"}
-            を初期値として反映しますが、明細ごとに上書き可能です。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="shrink-0 border-b border-border pb-3">
-          <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
+            <Button onClick={handleApply}>
+              <ArrowRight className="mr-2 h-4 w-4" />
+              想定金額に反映
+            </Button>
+          </div>
         </div>
+      }
+    >
+      {projectId && (
+        <div className="mb-3">
+          <Badge variant={customerType === "internal" ? "default" : "secondary"}>
+            {customerType === "internal" ? "グループ内案件" : "グループ外案件"}
+          </Badge>
+        </div>
+      )}
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
-          {isLoading ? (
+      <div className="sticky top-0 z-10 -mx-4 border-b border-border bg-card px-4 pb-3 lg:-mx-6 lg:px-6">
+        <LocationPicker projectId={projectId} value={locationId} onChange={setLocationId} enabled={open} />
+      </div>
+
+      <div className="pt-4">
+        {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -346,35 +368,6 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
             </div>
           )}
         </div>
-
-        {/* 合計バー */}
-        <div className="border-t pt-4 -mx-6 px-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm text-muted-foreground">
-              {Object.values(itemStates).filter(s => s.checked).length}項目選択中
-            </span>
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">見積合計</div>
-              <div className="text-2xl font-bold font-number text-primary">
-                {formatCurrency(total)}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
-            {projectId && (
-              <Button variant="outline" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                保存
-              </Button>
-            )}
-            <Button onClick={handleApply}>
-              <ArrowRight className="mr-2 h-4 w-4" />
-              想定金額に反映
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

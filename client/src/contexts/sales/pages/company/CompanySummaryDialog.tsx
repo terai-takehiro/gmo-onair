@@ -8,10 +8,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
-import { BarChart3 } from "lucide-react";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { Delayed, SkeletonCard } from "@gmo-onair/shared/src/client/states";
 
@@ -35,15 +32,13 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
   const summary: CompanySummary | null = data?.data ?? null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            {company?.name} の収支サマリー
-          </DialogTitle>
-          <DialogDescription>この取引先を相手方とする売上・仕入・販管費の累計</DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`${company?.name ?? ""} の収支サマリー`}
+      sub="この取引先を相手方とする売上・仕入・販管費の累計"
+    >
+      <div>
         {isLoading ? (
           <Delayed><SkeletonCard lines={3} /></Delayed>
         ) : summary ? (
@@ -78,7 +73,7 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
         ) : (
           <p className="text-sm text-muted-foreground py-4 text-center">データがありません</p>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

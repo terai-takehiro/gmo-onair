@@ -32,29 +32,106 @@
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
+const TASKS = { label: 'やることを開く', to: '/sales/tasks/list' };
+const PROJECTS = { label: '案件一覧を開く', to: '/sales/projects' };
+
 export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── 案件管理 ──────────────────────────────────────────────
-  //
-  // ⚠️ **2026-08、この節の13画面（下の財務3画面も含む）をまとめてスマホに開放した**
-  // （ユーザーの明示指示「一旦ここまでを実装しましょう」）。ガントチャート・見積・請求・
-  // 案件台帳・案件を直す・標準工程テンプレート・料金表・費用を分け合うグループ（一覧・
-  // 詳細）・営業活動記録・お客様の詳細・財務の売上/仕入/販管費台帳が対象。判定ロジック・
-  // 文言・並びは変えず、見た目とレイアウトだけ変えている。移した先は下の
-  // `CLIENT_MOBILE_OK`（対応内容のコメント付き）。「お客様」「お金」「ガント」「3列レビュー」
-  // という上のコメントの分類は**方針転換前の記録として**残しているが、実際の判定は
-  // この表と`CLIENT_MOBILE_OK`の現在の中身が正
-  //
+  {
+    path: '/sales/tasks/gantt',
+    what: 'ガントチャート',
+    why: '横に長い時間軸なので、この幅では1週間ぶんも入りません。',
+    instead: TASKS,
+  },
+  {
+    path: '/sales/billing',
+    what: '見積・請求（全案件）',
+    why: '金額・期日・状態が横に並ぶ表で、桁を読み違えると請求を間違えます。',
+    instead: PROJECTS,
+  },
+  /*
+    ⚠️ **`/sales/projects/:id` より前に置くこと**（この表は先に一致したものが勝つ）。
+    台帳は 20 列を出し入れして、選んだ行をまとめて書き換える画面です。
+    375px では列が読めないうえ、**取り消せない一括更新を指で押すことになります**。
+    行き先は案件一覧 — そちらはスマホ対応済みなので、外で見る道は残ります。
+  */
+  {
+    path: '/sales/projects/ledger',
+    what: '案件台帳',
+    why: '列が 20 あり、選んだ案件をまとめて書き換える画面です。この幅では列が読めず、戻せない操作を指で押すことになります。',
+    instead: PROJECTS,
+  },
+  {
+    path: '/sales/projects/:id/edit',
+    what: '案件を直す',
+    why: '入力欄が 40 以上あり、途中で電話が入ると書きかけが残ります。',
+    instead: PROJECTS,
+  },
+  {
+    path: '/sales/flow-templates',
+    what: '標準工程テンプレート',
+    why: '型を変えると以後すべての案件に効くので、落ち着いて触る画面です。',
+  },
+  {
+    path: '/sales/pricing',
+    what: '料金表',
+    why: '相手ごとの単価が横に並ぶ表で、1桁違うと見積の金額が変わります。',
+  },
+  // **一覧（`/sales/project-groups`）は M11 で `CLIENT_MOBILE_OK` へ移した。**
+  // 詳細URL（次のエントリ）だけがPC専用として残る。理由は下の `CLIENT_MOBILE_OK` を参照
+  // v4で作り直したが、任意比率の按分（案件ごとの金額をその場で比べながら入力する）は
+  // 変わらずPC向きなので、詳細URLもここに残す
+  {
+    path: '/sales/project-groups/:id',
+    what: 'グループ詳細（費用の分け合い）',
+    why: '複数の案件にまたがる金額の割り当てなので、全体を見ながら決める必要があります。',
+    instead: { label: 'グループ一覧を開く', to: '/sales/project-groups' },
+    hidden: true,
+  },
   // **`/sales/gls-import`（旧GLS決算取込）は削除した**（決算取込自体は終わっており、
   // まとめて直す機能は案件台帳が上位互換なため）。`/sales/projects/ledger` への
   // 転送にしたので、実体の画面が無く、この表に載せる対象ではない
   // **旧 `/sales/review`（営業レビュー）は `/sales/activity-logs` のタブへ統合した**
   // （ご指示・2026-08）。ルート自体が `RedirectKeepQuery` になり実体の画面が無いので、
   // この表に載せる対象ではない（他の転送と同じ扱い）
+  /*
+    ⚠️ **この段落は当時の記録。** 前は「営業活動記録は v4 で作り直したので
+    `CLIENT_MOBILE_OK` へ外した」だったが、統合先の分析3タブ（旧営業レビュー）が
+    「3列を並べて打合せの場で映す」前提の PC 専用画面だったため、**統合にあわせて
+    画面全体を PC 専用に戻した**（ご指示）。タブごとにスマホ対応が割れると
+    `useIsMobile()` の判定を画面の中に書くことになり、PC専用の判定を1か所
+    （この表）に集める方針が崩れる。`ActivityMobileFilters` 等のスマホ用部品は
+    「それでもこのまま開く」（`PcOnlyPanel` の `onOpenAnyway`）を選んだ人のために
+    残してある
+  */
+  {
+    path: '/sales/activity-logs',
+    what: '営業活動記録・営業レビュー',
+    why: '記録タブに加えて、3列を並べて打合せの場で映すための分析タブ（ファネル・失注分析・営業評価）を同じ画面に統合しています。',
+    instead: PROJECTS,
+  },
   // **`/sales/keep-report`（報告資料）は削除した**（v4 の要件未定・ご指示）。
   // ルート自体を消したので、実体の画面が無く、この表に載せる対象ではない
+  /*
+    ⚠️ **この段落は当時の記録。** 元は「会社ごとに列が多く、この幅では1社ぶんも
+    並びません」でしたが、**390px で開いて測ったら普通にカードで並びました**
+    （表ですらなかった）。嘘の理由を出したままにはできないので M10 で
+    「お客様の詳細」「取引先マスター」とも「まだ v4 で作り直していない」に
+    差し替え、**「取引先マスター」は v4 renewal でここから外し `CLIENT_MOBILE_OK`
+    へ移した**（`Row stackOnMobile` ＋ `FilterChips` で縦積みになり 375px で
+    崩れないことを確認済み）。
+
+    **「お客様の詳細」も v4 で作り直し、`CLIENT_MOBILE_OK` へ移した**
+    （2026-08・v4ネイティブUI化。監査で「大規模な2枚（顧客360・GPMプロジェクト
+    詳細）を除く」と保留していた側の1枚）。理由は下の `CLIENT_MOBILE_OK` を参照。
+  */
   // **`/sales/customers`（顧客の一覧）は Phase 2 で削除した** — `/sales/companies?role=customer`
   // への `RedirectKeepQuery` になったので、実体の画面が無く、この表に載せる対象ではない
   // （他の `RedirectKeepQuery` の転送先と同じ扱い。`/sales/pipeline` 等も載せていない）
+  // **`/sales/customers/:id`（お客様の詳細）は v4 で作り直し、`CLIENT_MOBILE_OK` へ移した**
+  // （下記参照）。この表には載らない
+  // **営業活動記録**（`/sales/activity-logs`）は、この表の「案件管理」節にあります
+  // （営業レビュー統合で PC 専用に戻したため。⚠️ の記録を参照）
   // **`/sales/ai-activity`（AI活動履歴）は削除した**（監査ログに過ぎず、AIが触ったかは
   // 案件一覧・案件詳細のほうが記録単位で上位互換なため）。実体の画面が無いので
   // この表に載せる対象ではない
@@ -64,6 +141,9 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // ── 財務管理（モックの「お金は置かない」）─────────────────
   //   **`/budget/billing` は入れない** — ⑫ 入金の確認がスマホ用にある
   { path: '/budget/dashboard', what: '財務ダッシュボード', why: '売上から営業利益までの引き算を1枚で見る画面です。畳むと引き算の関係が読めません。' },
+  { path: '/budget/revenues', what: '売上の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
+  { path: '/budget/purchases', what: '仕入の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
+  { path: '/budget/sga', what: '販管費の台帳', why: '金額の桁を縦にそろえて読む表なので、畳むと桁が比べられません。' },
   { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
   // **`/budget/detail`（案件月別詳細）は削除した**（v3時代の遺物の棚卸し・2026-08）。
@@ -72,36 +152,39 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
   // ── カレンダー ────────────────────────────────────────────
-  {
-    path: '/studio/rooms',
-    what: '部屋の空き',
-    why: '部屋を縦・時間を横に並べて空いている幅を見る画面なので、畳むと目的そのものが消えます。',
-    instead: { label: '今日の予約を見る', to: '/studio/calendar' },
-  },
+  // **`/studio/rooms`（部屋の空き）はここから外し、`CLIENT_MOBILE_OK` へ移した**
+  // （2026-08・v4ネイティブUI化の一環）。「畳むと目的そのものが消える」という理由は
+  // PCの表をそのまま横スクロールさせていた頃のもの — ① 予定のスマホ実装と対になる
+  // 専用レイアウト（月表＋選んだ日の部屋カード。`rooms/MobileRoomAvailability.tsx` ＋
+  // `rooms/RoomAvailabilityCards.tsx`）を新設したので、畳んでも「空いている幅」は読める
   { path: '/studio/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
-  { path: '/studio/studio-calendar', what: 'スタジオカレンダー', why: '月のマス目を横7列で見る画面です。' },
-  // **`/studio/partners`（パートナースケジュール）は削除した**（v3時代の遺物の棚卸し・2026-08）。
-  // `/studio/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
-  // この表に載せる対象ではない
-  { path: '/studio/my-calendar', what: 'マイカレンダー', why: '月のマス目を横7列で見る画面です。' },
+  // **`/studio/studio-calendar`（スタジオカレンダー）・`/studio/my-calendar`
+  // （マイカレンダー）は退役した**（2026-08・v4ネイティブUI化のバックログB）。
+  // どちらも `/studio/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
+  // この表に載せる対象ではない（① 予定は `CLIENT_MOBILE_OK` の対象）
 
   // ── 設定（モックの「設定・権限は落ち着いて触るもの」）──────
   //   **`/settings` と `/settings/system` は入れない** —
   //   案内板とパスワード変更は全員が使い、畳んでも読める
-  { path: '/settings/sites', what: '拠点・部屋', why: '拠点を1つ足すと予約できる部屋と見積の金額の両方が変わります。' },
-  { path: '/settings/users', what: '権限とメンバー', why: '12 区画 × 5 段の表で、押し間違えると人の仕事が止まります。' },
-  { path: '/settings/money', what: 'お金のルール', why: '支払期日・消費税の端数・値引きの上限が、以後つくる書類すべてに効きます。', hidden: true },
-  { path: '/settings/hours', what: '休日・営業時間', why: '時刻を選ぶ欄が縦に並ぶ画面で、押し間違えると予約に注意が出続けます。', hidden: true },
-  { path: '/settings/notify', what: '通知とテンプレート', why: '文面を貯める画面で、落ち着いて読み直してから直すものです。', hidden: true },
+  //   **拠点・部屋 / 権限とメンバー / お金のルール / 休日・営業時間 / 通知とテンプレートは
+  //   M11 で `CLIENT_MOBILE_OK` へ移した。** 理由は下の `CLIENT_MOBILE_OK` を参照
   { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま出す道具です。', hidden: true },
   { path: '/settings/db-backups', what: 'DBバックアップ', why: '復元は取り消せない操作なので、手元が広い場所で行います。', hidden: true },
 
   // ── プロジェクト管理（工事・構築）────────────────────────
   //   **`new` を `:id` より前に置くこと**（後ろだと「詳細」と案内される）
   { path: '/gpm/projects/new', what: 'プロジェクトを作る', why: '5段のフォームで、体制・工程・金額をまとめて決めます。' },
-  { path: '/gpm/projects/:id', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
-  { path: '/gpm/projects/:id/:tab', what: 'プロジェクトの詳細', why: '工程表と体制図が横に伸びる画面です。' },
-  { path: '/gpm/templates', what: 'プロジェクトの標準工程', why: '型を変えると以後すべてのプロジェクトに効きます。' },
+  // **`/gpm/projects/:id`・`/gpm/projects/:id/:tab`（プロジェクトの詳細）は
+  // v4ネイティブUI化の監査で `CLIENT_MOBILE_OK` へ移した**（2026-08・下記を参照）。
+  // 理由だった「工程表と体制図が横に伸びる画面です」は実測に基づかない一文で、
+  // 実装を読むと工程（`PhaseRows.tsx`）は `Row`/`RowSlot`（`hideOnMobile`）で
+  // 他の一覧と同じく縮む作り、体制（`MembersTab.tsx`）はカードが `sm:grid-cols-2
+  // lg:grid-cols-3` で375px幅では単列に積まれる作りだった（顧客・取引先マスターが
+  // M10で「実測したら表ですらなくカードだった」と分かった前例と同じパターン）。
+  // 7タブのうち請求（`BillingTab.tsx`＝案件と共用の`BusinessProjectView`・2,042行の
+  // 未対応の月次表）だけは今回もスマホに出さない（下の `CLIENT_MOBILE_OK` を参照）。
+  // **標準工程テンプレート（`/gpm/templates`）は M11 で `CLIENT_MOBILE_OK` へ移した。**
+  // 理由は下の `CLIENT_MOBILE_OK` を参照
 ];
 
 /**
@@ -124,11 +207,26 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/sales/projects/new',                // ④ MobileNewProject
   '/sales/projects/:id',                // ⑥ 概要・タスク・当日の3タブ
   '/sales/projects/:id/:tab',           // 同上（PC 向きのタブは画面の中で案内を出す）
+  '/sales/tasks/:view',                 // ④ MobileTaskList（gantt だけ上で止める）
   '/sales/inbox/new',                   // 貼って送る（受付は廃止したが、この口は残す）
   '/sales/record',                      // 打合せを録音
   // v4 renewal で作り直した（`CompanyListPage.tsx`）。`Row stackOnMobile` ＋
   // `FilterChips`（横スクロール対応）で縦積みになり、375px で崩れないことを確認済み
   '/sales/companies',                   // 取引先マスター
+  /*
+    ── お客様の詳細（顧客360・この回・2026-08・v4ネイティブUI化）──
+    監査（`docs/v4-native-ui-audit-2026-08-20.md`）が「大規模な2枚（顧客360・
+    GPMプロジェクト詳細）を除く」と保留していた側。v4のトークン
+    （`PageHeader`・`Row`/`RowMain`/`RowSlot`・`TableBadge`・`Money`・`FormDialog`）
+    に作り直したうえで、**行を縮めるのではなく1件＝1枚のカードに組み直した**
+    （`customerDetail/TimelineCards.tsx` / `CustomerProjectCards.tsx`。
+    `company/CompanyCards.tsx` と同じ考え方）。375px で横はみ出し 0px・
+    JS エラー 0 件を実測済み（`やり取りを記録`ダイアログの送信・
+    次回アクションの完了/延期・案件行のタップ遷移まで確認）
+  */
+  '/sales/customers/:id',               // お客様の詳細（顧客360）
+  // **`/sales/activity-logs` はここから外した**（2026-08）。営業レビュー統合で
+  // 画面全体を PC 専用に戻したため（`CLIENT_PC_ONLY` の同パスを参照）
   '/budget/billing',                    // ⑫ 入金の確認（MobileCollect）
   /*
     ── ここから下は M10 で開放した5枚（ご判断「外で判断するものは開ける」）──
@@ -140,57 +238,76 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/gpm/dashboard',                     // プロジェクト管理ダッシュボード（読むだけ）
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
+  /*
+    ── ③ プロジェクト詳細（この回・2026-08・v4ネイティブUI化の監査の再検証）──
+    7タブのうち概要・未確認事項・体制・議事録・書類は実装済みの `Row stackOnMobile`
+    ／`hideOnMobile`／カードグリッドで375pxでも崩れないことを実測済み。見積は一覧の
+    `<Row>` に `stackOnMobile` が漏れていた（固定4列だけで408px＝375px幅を最初から
+    超える崩れ）ので足して解消した。**請求だけは今回も出さない**（案件と共用の
+    `BusinessProjectView`＝2,042行の月次表を1行も変えずに呼んでおり、この回では
+    モバイル版を作っていない）。スマホのタブは`/sales/projects/:id`（⑥案件詳細）の
+    `MOBILE_TABS_BY_PHASE`と同じ考え方で、プロジェクトの段階（準備中／進行中／完了・
+    見送り）ごとに3つへ絞る（詳細は`projectDetail/DetailHeader.tsx`の
+    `MOBILE_TABS_BY_PHASE`）。段階に無いタブのURLを直接開いたときは概要へ、
+    請求は「PCで見る画面です」の案内（「それでもこのまま開く」で解除可）に倒す —
+    ⑥と同じ「2種類の『開けない』を混ぜない」設計
+  */
+  '/gpm/projects/:id',                  // ③ プロジェクトの詳細（段階で3タブに絞る）
+  '/gpm/projects/:id/:tab',             // 同上（請求だけ画面の中で案内を出す）
   '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
+  // ⚠️ この1枚だけ M10 の実測開放ではない（2026-08・v4ネイティブUI化）。専用レイアウトを
+  // 新設したうえで開放した（`MobileRoomAvailability.tsx` ＋ `RoomAvailabilityCards.tsx`）
+  '/studio/rooms',                      // ② 部屋の空き（月表 → 選んだ日の部屋カード）
   '/settings',                          // 案内板
   '/settings/system',                   // パスワード変更
-
   /*
-    ── ここから下は2026-08、「PC専用画面もスマホ対応していく」という方針転換を受けて
-    まとめて開放した13画面（ユーザーの明示指示「一旦ここまでを実装しましょう」）。
-    判定ロジック・文言・並びは変えていない。
+    ── ここから下は M11 で開放した7枚（2026-08・v4ネイティブUI化の監査の再検証）──
+    監査（`docs/v4-native-ui-audit-2026-08-20.md`）で「理由が『影響が大きい』等の
+    重要性の話に留まり、幅・列数の技術的根拠を欠く」と指摘された9枚のうち、
+    大規模な2枚（顧客360・GPMプロジェクト詳細）を除く7枚を実ブラウザ375pxで
+    1つずつ確かめ、崩れは軽微な直しで解消できたのですべて開放した。
+    顧客・取引先マスターが M10 で「理由文が実測に基づいていなかった」と分かった
+    のと同じ構図で、ここも実測が先だった。
   */
-  // ④ タスク一覧の内蔵タブ。gantt を含む全ビューをスマホで開放した
-  // （`MobileTaskGantt.tsx` を新設。既存の `DashboardGanttView.tsx` 内の
-  // `MobileGanttView` を実際に到達させ、その過程で見つかった不具合〔案件行の
-  // はみ出し・期限の色分けの日付境界バグ〕も直した）
-  '/sales/tasks/:view',
-  // ⑤ 見積・請求（全案件）。`EstimateRows.tsx`/`InvoiceRows.tsx` はすでに
-  // `Row stackOnMobile` で組まれており、実ブラウザ確認で375/414pxとも崩れなし
-  '/sales/billing',
-  // 案件台帳。既定表示9列を読み取り専用カードで開放（`MobileLedgerCards.tsx`
-  // 新設）。列の出し入れ・チェックボックス選択・一括編集（戻せない操作）は
-  // 引き続きPCのみ（画面内の `useIsMobile()` 判定で編集モード自体に入れない）
-  '/sales/projects/ledger',
-  // 案件を直す。`MobileEditProject.tsx` 新設。案件作成と同じ
-  // `RequiredFields`/`MoreFields`（`mode="edit"`）をアコーディオンで開閉する形にした。
-  // GLS操作・削除はシートに畳んだ。送信ロジックはPCと完全共通
-  '/sales/projects/:id/edit',
-  // 標準工程テンプレート。閲覧（`MobileTemplateRail.tsx`のセレクトでテンプレ切替
-  // ＋各工程の閲覧）は開放。工程の追加・削除・並べ替え・複製は
-  // `PcOnlyNote`（画面の一部だけPC限定にする帯）でPCへ誘導
-  '/sales/flow-templates',
-  // 料金表。定価とグループ内価格を縦積みにして桁の読み違えを防いだ
-  // （`CategoryCard.tsx`）。編集操作は既存の権限判定のまま出す
-  '/sales/pricing',
-  // 費用を分け合うグループ 一覧・詳細。一覧・所属案件・売上仕入の閲覧は開放。
-  // 「分け方」（`AllocationEditor.tsx`・複数案件の金額をその場で比べながら
-  // 決める操作）だけは`PcOnlyPanel`でPCに誘導（`onOpenAnyway`で開ける）
-  '/sales/project-groups',
-  '/sales/project-groups/:id',
-  // 営業活動記録・営業レビュー。「記録」タブは開放（既存の`Row stackOnMobile`
-  // ＋`ActivityMobileFilters`がそのまま機能）。分析3タブ（ファネル・失注分析・
-  // 営業評価）は`ActivityLogPage.tsx`内の`useIsMobile()`判定で`PcOnlyPanel`に
-  // 差し替える（案件詳細の`MOBILE_TAB_KEYS`と同じ「タブだけ画面の中で判定する」型）
-  '/sales/activity-logs',
-  // お客様の詳細。**v4作り直しはまだ**（pre-v4のまま）。今回はレイアウトの
-  // Tailwindクラスだけ直し、375pxで崩れない・44px未満のタップ対象を減らす
-  // 最小対応にとどめた（本格的なv4化は別の機会に判断する）
-  '/sales/customers/:id',
-  // 財務の台帳3画面。共通の`ledger/LedgerRows.tsx`に`Row stackOnMobile`を正しく
-  // 適用し、金額だけは畳まず常に右側に大きく表示。状態バッジ列の`hideOnMobile`
-  // 抜けも直した（3画面とも同じ部品を直しただけで、それぞれの`ListPage.tsx`側は
-  // 元から`flex-wrap`等でモバイル対応済みだった）
-  '/budget/revenues',
-  '/budget/purchases',
-  '/budget/sga',
+  // 一覧はカードグリッド（`ProjectGroupListPage.tsx`）で元から縦積みだったが、
+  // グリッドに列数指定が無い375px幅では**グリッドの列がカード内の金額の
+  // max-content幅まで広がり、カード自体が画面より広くなって右端の金額が
+  // 画面外に切れていた**（`document.scrollWidth`には出ない — `#root`の
+  // `overflow:hidden`で隠れるだけなので横スクロールバーも出ず、実機で
+  // スクリーンショットを見て初めて気づいた）。`grid-cols-1`で列幅を固定し
+  // `min-w-0`を足して解消。詳細（`/sales/project-groups/:id`）は比率入力が
+  // 引き続きPC向きなので`CLIENT_PC_ONLY`に残す
+  '/sales/project-groups',              // 費用を分け合うグループ一覧
+  // `Row`に`stackOnMobile`が無く、略称(96)+部屋(96)+料金表(160)の3スロットが
+  // カードの実効幅を超えて画面外へ計算上はみ出していた（文字が短いデータでは
+  // 見た目には気づけなかった）。`stackOnMobile`を足して解消
+  '/settings/sites',                    // ② 拠点・部屋
+  // メンバー一覧は既に`Row stackOnMobile`＋`hideOnMobile`で縦積み済みで、
+  // 375pxで崩れないことを実測（役割編集・メンバー招待の各ダイアログも含む）。
+  // pcOnlyScreens.ts旧理由の「12区画×5段」は権限モデル単純化前の話で、
+  // いまの実装（7区画バッジ表示）とは既に一致していなかった
+  '/settings/users',                    // ③ 権限とメンバー
+  // カード一覧はflex-wrapで元から縮まない塊を作っておらず、375pxで崩れない。
+  // ひな形の作成・編集ダイアログ（`TemplateDialog`→`PhaseEditor`）で
+  // 「工程の名前」欄が`min-w-0 flex-1`のまま日数・担当ロール・3つの操作ボタンと
+  // 同じ行に詰め込まれ、和文は1文字ごとに改行できるためこの欄だけが数pxに
+  // 潰れて見出しも入力欄も読めなくなっていた。スマホでは常にこの欄を単独の行に
+  // する直しを工程・タスクの両方の名前欄に入れて解消
+  '/gpm/templates',                     // ⑦ 標準工程テンプレート（GPM）
+  // 選択肢は`flex-wrap`のチップ（`Pick`）で元から縮まない塊を作っていなかったが、
+  // 選択肢が3つ以上ある行（例:「支払日が休業日のとき」）では`Pick`のチップ群だけで
+  // 行の大半を使い切り、隣の説明文（`hint`）に残る幅が数pxしかなくなって、
+  // 和文が1文字ごとに縦へ折り返される崩れが起きていた（値引き上限の表もmin-w-0で
+  // 同じ理由の崩れ方をしたが元から折り返し前提の1行だったため見た目は保たれていた）。
+  // `hint`をスマホでは常に単独の行にする直しで解消
+  '/settings/money',                    // ⑤ お金のルール
+  // 休業日の表の見出し行（`RowHeader`）だけ`stackOnMobile`が無く、期間・名前・
+  // 種類・受付の4列を横一列に並べようとして見出し文字が重なって表示されていた
+  // （本文の行はすでに`stackOnMobile`で縦積みになり崩れていなかった）。
+  // 見出し行を`拠点・部屋`と同じくスマホでは隠して解消（祝日の表はもともと
+  // 見出しを持たず本文だけで足りている）
+  '/settings/hours',                    // ⑥ 休日・営業時間
+  // sm:ブレークポイント対応済みで、社外/社内の文面カード・定時実行ログとも
+  // 375pxで崩れなかった。ひな形コピーのダイアログも確認済み
+  '/settings/notify',                   // ⑦ 通知とテンプレート
 ];

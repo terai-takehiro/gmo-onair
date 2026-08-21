@@ -11,6 +11,9 @@
  *    **選ぶと全件が出ていました** — 遅延は返却予定日から画面で導きます。
  *  ・保存できなかった理由をダイアログの上辺に出すようにした
  *    (旧実装は貸出だけ本文の末尾、返却は何も出ませんでした)。
+ *  ・スマホは PC 表を `hideOnMobile` で間引くだけだった（持出日が消えていた）のを、
+ *    専用のカード積みに差し替えた（`lending/LendingCards.tsx`）。ダイアログは既に
+ *    `FormDialog` へ移行済みなので、この回では一覧の描き方だけを変えている。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,24 +26,11 @@ import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/s
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { LendingDialog, type LendingPayload } from './lending/LendingDialog';
 import { ReturnDialog } from './lending/ReturnDialog';
-
-interface Lending {
-  id: string;
-  equipment_name: string;
-  unit_number: number | null;
-  borrower_name: string;
-  purpose: string | null;
-  status: string;
-  /** 出庫予定日 (migration 168)。`status='planned'` のときだけ意味を持つ */
-  planned_out_date?: string | null;
-  lent_at: string | null;
-  due_date: string | null;
-  returned_at: string | null;
-  project_name: string | null;
-  gls_number: string | null;
-}
+import { LendingCards } from './lending/LendingCards';
+import type { Lending } from './lending/types';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -51,6 +41,7 @@ const md = (d: string | null) => (d && d.length >= 10 ? `${d.slice(5, 7)}/${d.sl
 
 export default function LendingListPage() {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [chip, setChip] = useState('lent');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lendError, setLendError] = useState<string | null>(null);
@@ -158,6 +149,15 @@ export default function LendingListPage() {
                   : 'いま出ている機材はありません'
           }
           description="「貸出を記録」から持ち出しを登録します。貸出可にした機材だけが選べます。"
+        />
+      ) : isMobile ? (
+        // **PC の行を縮めたものではない。** 持出日を畳まず常に出す（`LendingCards.tsx`）
+        <LendingCards
+          rows={rows}
+          isLate={isLate}
+          checkoutPending={checkout.isPending}
+          onCheckout={(id) => checkout.mutate(id)}
+          onReturn={(l) => { setReturnError(null); setReturnTarget(l); }}
         />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">

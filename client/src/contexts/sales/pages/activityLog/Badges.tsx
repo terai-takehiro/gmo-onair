@@ -18,8 +18,18 @@ export function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null })
   );
 }
 
-/** 由来チップ — 流入チャネル + メール取込 + AI 指示者。「どこから来た情報か」を一目で分かるようにする */
-export function ProvenanceChips({ log }: { log: ActivityLogRow }) {
+/**
+ * 由来チップ — 流入チャネル + メール取込 + AI 指示者。「どこから来た情報か」を一目で分かるようにする
+ *
+ * **`Pick` で3項目だけを要求する**（`顧客360°ビュー` からも呼ぶための一般化）。
+ * `ActivityLogRow` を丸ごと要求すると、サーバーの別の SELECT（`/customers/:id/overview`
+ * の統合タイムライン）が返す行に `duration_minutes` 等の列が無いだけで型が合わなくなる。
+ */
+export function ProvenanceChips({
+  log,
+}: {
+  log: Pick<ActivityLogRow, 'source_channel' | 'message_id' | 'ai_requested_by'>;
+}) {
   const { source_channel: channel, message_id: hasMail, ai_requested_by: requestedBy } = log;
   if (!channel && !hasMail && !requestedBy) return null;
   return (

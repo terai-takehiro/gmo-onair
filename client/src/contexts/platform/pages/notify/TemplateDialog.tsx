@@ -20,9 +20,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { Template } from './notifyTypes';
 
@@ -82,15 +80,24 @@ export function TemplateDialog({ template, canEdit, open, onOpenChange }: Props)
   const dirty = subject !== template.subject || body !== template.body || enabled !== template.enabled;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{template.name}</DialogTitle>
-          <DialogDescription>
-            {template.trigger} ／ 宛先：{template.send_to}
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={template.name}
+      sub={`${template.trigger} ／ 宛先：${template.send_to}`}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
+          {canEdit && (
+            <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+              {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+              保存する
+            </Button>
+          )}
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-4">
         {external && (
           <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-3 text-secondary-foreground">
             <strong className="font-bold">この文面は ONAiR からは送りません。</strong>
@@ -159,17 +166,7 @@ export function TemplateDialog({ template, canEdit, open, onOpenChange }: Props)
             </label>
           )}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
-          {canEdit && (
-            <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
-              {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-              保存する
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

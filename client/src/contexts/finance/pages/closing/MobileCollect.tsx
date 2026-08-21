@@ -21,6 +21,15 @@
  *
  * 押し間違いを戻すのは経理の訂正で、記録が残る場所（PC の見積・請求）で
  * やるべきです。**スマホで戻せると、誰がいつ戻したのか分からなくなります。**
+ *
+ * ── 探す手段だけは足す（監査 `docs/v4-native-ui-audit-2026-08-20.md` ②） ──
+ *
+ * 「記録するだけ」という設計自体は変えません。ただしサーバーは最大 300 件まで
+ * 返す作り（`LIST_LIMIT`・`billing.routes.ts`）で、件数が増えると期日順の
+ * 固定並びだけでは目的の相手まで延々スクロールすることになります。
+ * そこで**取引先名で絞るだけ**の軽い検索欄を1つ足しました。並び順・合計・
+ * 件数（サーバーの絞り込み全体の値）は今までどおりで、**絞るのは画面に出す
+ * 行だけ**です（財務の台帳3画面と同じ `LedgerSearch` を再利用）。
  */
 import { useMemo, useState } from 'react';
 import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
@@ -29,13 +38,14 @@ import { Wallet, Info, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
-import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { dueLabel } from '@gmo-onair/shared/src/client-v4/mobile';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { localDateStr } from '@/lib/format';
+import { LedgerSearch } from '../ledger/LedgerParts';
 import type { BillingInvoice } from '@/contexts/sales/pages/billing/types';
 
 /**
@@ -57,6 +67,7 @@ export function MobileCollect() {
   const qc = useQueryClient();
   const today = localDateStr(new Date());
   const [open, setOpen] = useState<Row | null>(null);
+  const [search, setSearch] = useState('');
 
   /*
    * ⚠️ **月で切らない**（レビューでの指摘 #61）。
@@ -89,6 +100,21 @@ export function MobileCollect() {
 
   // サーバーが期日の近い順に返す（並べ直さない — 2か所で並びを決めると食い違う）
   const rows = useMemo(() => (q.data?.data ?? []) as Row[], [q.data]);
+
+  /*
+   * **絞るのは取引先名（＝この行の見出し）だけ**（軽量な検索欄・上のコメント参照）。
+   * 行の見出しが `customer_name || project_name || gls_number` にフォールバックする
+   * のと同じ並びで拾う — 見えている文字で引っかからない検索は「壊れている」と
+   * 受け取られる。並び順はいじらず、`rows` の並びのまま間引くだけ
+   */
+  const keyword = search.trim().toLowerCase();
+  const filteredRows = useMemo(() => {
+    if (!keyword) return rows;
+    return rows.filter((r) => {
+      const label = r.customer_name || r.project_name || r.gls_number || '';
+      return label.toLowerCase().includes(keyword);
+    });
+  }, [rows, keyword]);
 
   // **合計はサーバーが絞り込み全体で数えたもの**（並んだ行を足さない）
   const total = q.data?.total_amount ?? rows.reduce((n, r) => n + (Number(r.amount) || 0), 0);
@@ -131,6 +157,12 @@ export function MobileCollect() {
         </div>
       )}
 
+      {/* 探す（軽量な検索欄）。件数が少ない画面でも邪魔にならないよう、
+          データが1件も無いとき（EmptyState を出すとき）は出さない */}
+      {rows.length > 0 && (
+        <LedgerSearch value={search} onChange={setSearch} placeholder="取引先名で絞る" />
+      )}
+
       {q.isError ? (
         <ErrorPanel title="入金待ちを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
@@ -141,10 +173,12 @@ export function MobileCollect() {
           title="入金待ちはありません"
           description="確定した売上のうち、入金がまだのものが月をまたいで出ます。"
         />
+      ) : filteredRows.length === 0 ? (
+        <NoSearchResults keyword={search} onClearFilters={() => setSearch('')} />
       ) : (
         // 読み込みの枠から中身に入れ替わる瞬間（モックの `cardIn`）
         <ul className="v4-card-in flex flex-col gap-2">
-          {rows.map((r) => {
+          {filteredRows.map((r) => {
             const d = dueLabel(r.payment_due_date, today);
             return (
               <li key={r.id}>

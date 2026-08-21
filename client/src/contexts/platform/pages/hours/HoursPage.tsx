@@ -261,7 +261,13 @@ export default function HoursPage() {
                 <EmptyState title="休業日はありません" description="年末年始や設備点検を入れておくと、その期間の予約に注意が出ます。" />
               ) : (
                 <>
-                  <RowHeader>
+                  {/*
+                    375pxで実測して見つけた崩れ（このタスクで修正）: 本文行は
+                    `stackOnMobile` で縦積みだが表頭だけ無く、4列が横一列に
+                    はみ出して見出し文字が重なっていた（`拠点・部屋`と同じ理由）。
+                    祝日の表は元々表頭が無く本文だけで読めているので、ここも隠す
+                  */}
+                  <RowHeader className="hidden sm:flex">
                     <RowMain>期間</RowMain>
                     <RowSlot w={200}>名前</RowSlot>
                     <RowSlot w={72}>種類</RowSlot>

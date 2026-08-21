@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useInvalidateGpm } from '../../queries';
 import type { GpmTemplate } from '../../types';
@@ -55,12 +55,21 @@ export function TemplateDialog({
   const days = draftDays(draft);
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{template ? 'ひな形を直す' : 'ひな形を作る'}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={template ? 'ひな形を直す' : 'ひな形を作る'}
+      wide
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={() => save.mutate()} disabled={!draft.name.trim() || save.isPending}>
+            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {template ? '直す' : '作る'}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="space-y-3">
           <div>
             <Label htmlFor="tpl-name">
@@ -104,15 +113,6 @@ export function TemplateDialog({
 
           <PhaseEditor phases={draft.phases} onChange={(next) => setDraft({ ...draft, phases: next })} />
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
-          <Button onClick={() => save.mutate()} disabled={!draft.name.trim() || save.isPending}>
-            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {template ? '直す' : '作る'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

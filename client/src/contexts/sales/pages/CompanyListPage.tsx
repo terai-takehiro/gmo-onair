@@ -10,6 +10,14 @@
  * `company/CompanySummaryDialog` に切り出してある（この画面は一覧と
  * 削除確認だけを持つ）。値の形は `company/types.ts` が1つだけ持つ。
  *
+ * ── スマホはカードとして組み直した（監査 2026-08-20・要対応）───
+ *
+ * PC の行（`company/CompanyRows.tsx`）は `hideOnMobile` で連絡先・
+ * インボイス番号・関連ページを消していただけで、役割の絞り込みも
+ * `FilterChips` の横並びのままだった。スマホ版は列を縮めるのではなく
+ * `company/CompanyCards.tsx` としてカードに組み直し、役割の絞り込みは
+ * `MobileFilterBar`（下シート）に畳んだ。**機能・API はここでも変えていない**
+ *
  * ── 権限が無い操作ボタンは出さない ──────────────────────────
  *
  * サーバー（`companies.routes.ts`）は 新規/編集 に `sales:owner`・削除に
@@ -28,19 +36,22 @@ import { useForm } from "react-hook-form";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { FilterChips, type FilterChipItem } from "@gmo-onair/shared/src/client/ui/filterChips";
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
-import { Row, RowHeader, RowMain, RowSub, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
-import { TableBadge } from "@gmo-onair/shared/src/client/ui/tableBadge";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import { notifyApiError } from "@gmo-onair/shared/src/client/notify";
+import { useIsMobile } from "@gmo-onair/shared/src/client-v4/mobile";
+import { MobileFilterBar, MobileFilterField } from "@gmo-onair/shared/src/client-v4/mobileFilterBar";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { Plus, Pencil, Trash2, ExternalLink, BarChart3, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { CompanyFormFields } from "./company/CompanyFormFields";
 import { CompanySummaryDialog } from "./company/CompanySummaryDialog";
+import { CompanyCards } from "./company/CompanyCards";
+import { CompanyRowsHeader, CompanyRow } from "./company/CompanyRows";
 import { EMPTY_COMPANY_FORM, type Company, type CompanyForm } from "./company/types";
 
 type RoleFilter = "all" | "customer" | "vendor" | "sga_payee" | "both" | "other";
@@ -68,23 +79,11 @@ function isRoleFilter(v: string | null): v is RoleFilter {
   return !!v && ROLE_LABELS.some((t) => t.value === v);
 }
 
-/** この会社が持つ役割のバッジ（グループの印は別枠なのでここには含めない） */
-function RoleBadges({ c }: { c: Company }) {
-  if (!c.is_customer && !c.is_vendor && !c.is_sga_payee) {
-    return <TableBadge label="その他" w={null} variant="outline" />;
-  }
-  return (
-    <span className="flex flex-wrap gap-1">
-      {c.is_customer && <TableBadge label="顧客" w={null} variant="secondary" />}
-      {c.is_vendor && <TableBadge label={c.vendor_type || "仕入先"} w={null} variant="info" />}
-      {c.is_sga_payee && <TableBadge label="販管費支払先" w={null} variant="warning" />}
-    </span>
-  );
-}
-
 export default function CompanyListPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  // **薄い親で1回だけ呼ぶ**（`shared/CLAUDE.md` の決めごと）。早期 return はしない
+  const isMobile = useIsMobile();
   // **絞り込みを URL に持たせる**（Phase 2）。`/sales/customers` → ここへの転送が
   // `?role=customer` を付けて来るので、開いた瞬間から「顧客」が選ばれている必要がある
   const [params, setParams] = useSearchParams();
@@ -181,19 +180,46 @@ export default function CompanyListPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterChips items={chipItems} value={role} onChange={changeRole} label="役割で絞り込む" />
-        <div className="relative min-w-[220px] max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            placeholder="取引先名・担当者名で検索"
-            className="h-9 pl-9"
-            value={crud.search}
-            onChange={(e) => crud.setSearch(e.target.value)}
-            aria-label="取引先を探す"
-          />
+      {isMobile ? (
+        // **役割絞り込みを下シートに畳む**（監査 2026-08-20・要対応）。
+        // FilterChips の横並びは 6 個中いくつかが画面外に出て、残りがあることに
+        // 気づけない・払うつもりで押してしまう、の両方が起きる（案件一覧と同じ理由）
+        <MobileFilterBar
+          search={{ value: crud.search, onChange: crud.setSearch, placeholder: "取引先名・担当者名で検索" }}
+          // **既定（すべて）と同じものは数えない**
+          activeCount={role === "all" ? 0 : 1}
+          onClearAll={() => changeRole("all")}
+          title="取引先の絞り込み"
+        >
+          <MobileFilterField label="役割">
+            <Select value={role} onValueChange={(v) => changeRole(v as RoleFilter)}>
+              <SelectTrigger aria-label="役割で絞り込む"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {chipItems.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label}
+                    {t.count != null ? `（${t.count}）` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </MobileFilterField>
+        </MobileFilterBar>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterChips items={chipItems} value={role} onChange={changeRole} label="役割で絞り込む" />
+          <div className="relative min-w-[220px] max-w-sm flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="取引先名・担当者名で検索"
+              className="h-9 pl-9"
+              value={crud.search}
+              onChange={(e) => crud.setSearch(e.target.value)}
+              aria-label="取引先を探す"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {crud.isError ? (
         <ErrorPanel title="取引先マスターを読み込めませんでした" error={crud.error} onRetry={() => crud.refetch()} />
@@ -208,14 +234,26 @@ export default function CompanyListPage() {
             description="「新規取引先」から登録すると、案件・見積・仕入・販管費の登録で選べるようになります。"
           />
         )
+      ) : isMobile ? (
+        // **行を縮めるのではなく、カードとして組み直す**（v4 の決めごと）。
+        // 連絡先・インボイス番号・関連ページは PC の列を `hideOnMobile` で消して
+        // いただけだった（監査 2026-08-20・要対応）ので、`CompanyCards` に情報を
+        // 再構成した。詳しい理由は `company/CompanyCards.tsx` 冒頭のコメント
+        <CompanyCards
+          items={items}
+          canReadBudget={canReadBudget}
+          canManage={canManage}
+          canDelete={canDelete}
+          canEditVendor={canEditVendor}
+          onEdit={openEdit}
+          onDelete={onDelete}
+          onSummary={setSummaryTarget}
+          onOpenCustomer={(c) => navigate(`/sales/customers/${c.id}`)}
+          onOpenVendor={() => navigate("/budget/vendors")}
+        />
       ) : (
         <div className="overflow-x-auto">
           {/*
-            **`min-w` は `sm:` 以上だけに効かせる。** スマホは `Row stackOnMobile` で
-            1列に畳むので、ここで無条件に強制すると畳んだ行まで横スクロールが必要になり、
-            役割バッジや操作ボタンが画面の外に出てしまう（実ブラウザで発見: 375px で
-            操作列が完全に見えなくなっていた）。
-
             ⚠️ **1120px は当てずっぽうではなく、固定列の合計から逆算した値**
             （実ブラウザで発見: 720px にしていたら 1024px 幅で「取引先名」の見出しが
             1文字ずつ縦に折り返り、行の会社名が消えて見えなくなっていた）。
@@ -226,121 +264,28 @@ export default function CompanyListPage() {
             素通りする）。固定列の合計 808px（役割200+連絡先160+インボイス160+
             関連ページ160+操作128）＋ gap 5つ分 60px（`gap-3`=12px×5）＝ 868px に、
             名前列が最低限読める幅として 250px 前後を足して切り上げた
-          */}
-          <div className="flex flex-col sm:min-w-[1120px]">
-            <RowHeader className="hidden sm:flex">
-              <RowMain>取引先名</RowMain>
-              <RowSlot w={200}>役割</RowSlot>
-              <RowSlot w={160} hideOnMobile>連絡先</RowSlot>
-              {/* **表頭は空でも `placeholder` の「—」を出さない。**
-                  `RowSlot` の既定は「値が無い」を「—」で示す仕組みで、見出しの列名にも
-                  同じ判定が働くと、権限が無くて列を隠しているだけなのに
-                  「データが無い」と見えてしまう（実ブラウザで確認して直した）。 */}
-              <RowSlot w={160} hideOnMobile placeholder="">{canReadBudget ? "インボイス番号" : ""}</RowSlot>
-              <RowSlot w={160} hideOnMobile>関連ページ</RowSlot>
-              <RowSlot w={128} placeholder="">{canManage ? "操作" : ""}</RowSlot>
-            </RowHeader>
 
-            {items.map((c) => {
-              // **編集そのものを止める。** サーバーは `budget:editor` を持たない
-              // `sales:owner` に、仕入先を兼ねる会社の**どの項目の保存も** 403 で
-              // 拒む（名前・電話番号だけの修正も）。出したまま押させて 403 に
-              // 気づかせるより、押せない理由をここで先に言う
-              const editBlockedByVendor = c.is_vendor && !canEditVendor;
-              const canEditThis = canManage && !editBlockedByVendor;
-              return (
-                <Row
-                  key={c.id}
-                  divider
-                  stackOnMobile
-                  // **名前を2行まで折り返すので `align="start"` にする**
-                  // （`row.tsx` の決めごと: 1行で省略する行と複数行になる行を
-                  // 中央寄せで混ぜるとバッジの高さがそろわない）
-                  align="start"
-                  interactive={canEditThis}
-                  onClick={canEditThis ? () => openEdit(c) : undefined}
-                >
-                  <RowMain>
-                    <span className="flex items-start gap-1.5">
-                      {/* **省略記号で切らず、2行まで折り返す。** `RowTitle` の既定
-                          （1行で省略）は「取引先名」のような長い正式名称と相性が悪く、
-                          「GMOデジタルソリューションズ株式…」のように途中で切れた
-                          見た目が変な略称のように読めてしまう（ご指摘）。ここだけ
-                          `RowTitle` を使わず `line-clamp-2` を直接当てる —
-                          `truncate` と `line-clamp` は tailwind-merge で確実に
-                          打ち消し合えないため、混ぜずに書き分ける */}
-                      <div className="text-list min-w-0 flex-1 line-clamp-2 text-foreground">{c.name}</div>
-                      {/* **グループは役割の列に混ぜない** — 顧客・仕入先とは別の軸なので、
-                          混ぜると「グループという役割がある」と読まれる */}
-                      {c.is_gmo_group && <TableBadge label="グループ" w={null} variant="info" />}
-                    </span>
-                    <RowSub>{c.short_name || c.contact_name || c.email || "—"}</RowSub>
-                  </RowMain>
-                  <RowSlot w={200}><RoleBadges c={c} /></RowSlot>
-                  <RowSlot w={160} hideOnMobile className="flex-col items-start">
-                    <span className="truncate text-sub text-secondary-foreground">{c.contact_name || "—"}</span>
-                    <span className="truncate text-sub-sm text-muted-foreground">{c.email || c.phone || ""}</span>
-                  </RowSlot>
-                  {/* `!canReadBudget` のときは値が無いのではなく列が見えないだけ。
-                      `placeholder=""` にして既定の「—」を出さない（表頭と同じ理由） */}
-                  <RowSlot w={160} hideOnMobile placeholder={canReadBudget ? undefined : ""}>
-                    {canReadBudget ? (
-                      <span className="truncate text-sub text-muted-foreground">{c.invoice_registration_number || "—"}</span>
-                    ) : ""}
-                  </RowSlot>
-                  <RowSlot w={160} hideOnMobile>
-                    <span className="flex flex-col gap-0.5">
-                      {c.customer_id && (
-                        <button
-                          type="button"
-                          className="flex items-center gap-0.5 text-sub-sm text-primary hover:underline"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/sales/customers/${c.id}`); }}
-                        >
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />取引実績
-                        </button>
-                      )}
-                      {c.vendor_id && canReadBudget && (
-                        <button
-                          type="button"
-                          className="flex items-center gap-0.5 text-sub-sm text-primary hover:underline"
-                          onClick={(e) => { e.stopPropagation(); navigate("/budget/vendors"); }}
-                        >
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />仕入先ページ
-                        </button>
-                      )}
-                    </span>
-                  </RowSlot>
-                  <RowSlot w={128}>
-                    {canManage && (
-                      <span className="flex gap-0.5">
-                        <Button
-                          variant="ghost" size="icon" title="収支サマリー"
-                          onClick={(e) => { e.stopPropagation(); setSummaryTarget(c); }}
-                        >
-                          <BarChart3 className="h-4 w-4 text-primary" aria-hidden="true" />
-                        </Button>
-                        <Button
-                          variant="ghost" size="icon" aria-label="編集"
-                          disabled={editBlockedByVendor}
-                          title={editBlockedByVendor ? "仕入先を兼ねているため、財務管理の編集権限が無いと直せません" : "編集"}
-                          onClick={(e) => { e.stopPropagation(); if (canEditThis) openEdit(c); }}
-                        >
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                        {canDelete && (
-                          <Button
-                            variant="ghost" size="icon" aria-label="削除" className="text-destructive"
-                            onClick={(e) => { e.stopPropagation(); onDelete(c); }}
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        )}
-                      </span>
-                    )}
-                  </RowSlot>
-                </Row>
-              );
-            })}
+            **PC 専用の分岐（`isMobile` が false）に入ったので `hideOnMobile`／
+            `stackOnMobile` はもう要らない**（`company/CompanyRows.tsx` に切り出し
+            済み）— スマホは上の `CompanyCards` が描く。
+          */}
+          <div className="flex min-w-[1120px] flex-col">
+            <CompanyRowsHeader canReadBudget={canReadBudget} canManage={canManage} />
+            {items.map((c) => (
+              <CompanyRow
+                key={c.id}
+                c={c}
+                canReadBudget={canReadBudget}
+                canManage={canManage}
+                canDelete={canDelete}
+                canEditVendor={canEditVendor}
+                onEdit={openEdit}
+                onDelete={onDelete}
+                onSummary={setSummaryTarget}
+                onOpenCustomer={(company) => navigate(`/sales/customers/${company.id}`)}
+                onOpenVendor={() => navigate("/budget/vendors")}
+              />
+            ))}
           </div>
         </div>
       )}

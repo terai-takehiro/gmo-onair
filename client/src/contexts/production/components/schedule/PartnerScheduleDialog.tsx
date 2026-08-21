@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,15 +110,33 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const canModify = ownRow || isManager;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? "パートナー予定を編集" : "パートナー予定を登録"}</DialogTitle>
-          <DialogDescription>
-            ここに登録した予定はパートナースケジュール権限を持つメンバー全員に共有されます。
-          </DialogDescription>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? "パートナー予定を編集" : "パートナー予定を登録"}
+      sub="ここに登録した予定はパートナースケジュール権限を持つメンバー全員に共有されます。"
+      footer={
+        <FormDialogFooter>
+          {editing && canModify && (
+            <Button
+              type="button"
+              variant="outline"
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
+              onClick={() => { if (confirm("この予定を削除しますか？")) deleteMutation.mutate(); }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              削除
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || !canModify || saveMutation.isPending}>
+            {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            {editing ? "保存" : "登録"}
+          </Button>
+        </FormDialogFooter>
+      }
+    >
         <div className="space-y-4">
           {/* 対象者 (manager のみ他人を選択可) */}
           {isManager ? (
@@ -209,27 +227,6 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          {editing && canModify && (
-            <Button
-              type="button"
-              variant="outline"
-              className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={() => { if (confirm("この予定を削除しますか？")) deleteMutation.mutate(); }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              削除
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || !canModify || saveMutation.isPending}>
-            {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {editing ? "保存" : "登録"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

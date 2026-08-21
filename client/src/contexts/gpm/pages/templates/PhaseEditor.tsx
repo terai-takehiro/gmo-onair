@@ -35,7 +35,16 @@ export function PhaseEditor({
       {phases.map((p, i) => (
         <div key={i} className="rounded-control-lg border border-border p-3">
           <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-0 flex-1">
+            {/*
+              **375pxで実測して見つけた崩れ（このタスクで修正）**: 日数(80)＋担当ロール(112)＋
+              上下/削除ボタン3つ(44×3=132)＋隙間(40) だけで364pxあり、ダイアログの実効幅
+              (約320px)を超える。`min-w-0 flex-1` のままだと、和文は1文字ごとに改行できる
+              ため（欧文と違い「最小幅＝1文字ぶん」になる）このブロックだけが数pxまで
+              潰れ、見出し「工程の名前」も入力欄も縦に潰れて読めなくなっていた。
+              スマホでは常にこの列を単独の行にする（`money/MoneyRulesPage.tsx` の
+              `Line` と同じ直し方）
+            */}
+            <div className="w-full sm:min-w-0 sm:flex-1">
               <label className="text-th block text-muted-foreground" htmlFor={`tp-${i}`}>工程の名前</label>
               <Input
                 id={`tp-${i}`}
@@ -72,9 +81,10 @@ export function PhaseEditor({
           <div className="mt-2.5 space-y-1.5 border-l-2 border-border-faint pl-3">
             {p.tasks.map((t, j) => (
               <div key={j} className="flex flex-wrap items-center gap-2">
+                {/* 工程の名前と同じ崩れ・同じ直し方（このタスクで修正） */}
                 <Input
                   aria-label={`${p.label || '工程'} のタスク ${j + 1}`}
-                  className="h-9 min-w-0 flex-1"
+                  className="h-9 w-full sm:min-w-0 sm:flex-1"
                   value={t.label}
                   onChange={(e) => patchTask(i, j, { label: e.target.value })}
                   placeholder="既存設備の棚卸し"

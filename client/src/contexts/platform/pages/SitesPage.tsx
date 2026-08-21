@@ -122,7 +122,13 @@ export default function SitesPage() {
             {rows.map((loc) => {
               const p = priceOf(loc.id);
               return (
-                <Row key={loc.id}>
+                // **375pxで実測して見つけた崩れ（このタスクで修正）**: 略称(96)+部屋(96)+
+                // 料金表(160)の3スロットだけで336px あり、隙間・パディングを足すと
+                // カード内の実効幅(319px)を超える。`stackOnMobile` が無いと拠点名の列が
+                // 0幅まで押し潰され、右側のスロットがカードの外（画面外）へ計算上はみ出す
+                // （文字が短いため画面には見えていなかったが、`#root` の overflow:hidden で
+                // 隠れているだけで、拠点名や品目数が伸びると実際に切れる）。
+                <Row key={loc.id} stackOnMobile>
                   <RowMain>
                     <RowTitle>{loc.name}</RowTitle>
                     <RowSub>

@@ -335,9 +335,11 @@ export function ItemsPanel() {
             loadingChildren={sel.loadingChildren}
             onToggleExpand={sel.toggleExpand}
             canBulkEdit={!!canBulkEdit}
+            canEdit={canEdit}
             canDelete={canDelete}
             selectedIds={sel.selectedIds}
             onSelectOne={(id) => sel.click(id, s.items.findIndex((it) => it.id === id), false)}
+            onEdit={(item) => { setSaveError(null); setSavedOnce(false); setDialog({ kind: 'edit', item }); }}
             customColumns={orderedCustom}
             visibleCustomCols={prefs.visibleCustomCols}
             customValues={custom.values}
@@ -360,6 +362,9 @@ export function ItemsPanel() {
         onClose={() => setDialog(null)}
         onSubmit={(payload) => m.save.mutate(payload)}
         onContinuousChange={setContinuous}
+        customColumns={orderedCustom}
+        customValues={custom.values}
+        onCustomChange={custom.write}
       />
 
       <BulkEditDialog

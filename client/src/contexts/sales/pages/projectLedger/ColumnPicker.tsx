@@ -8,9 +8,9 @@
  * **端末に残ることを画面に書きます。** 書かないと、別の端末で開いた人が
  * 「設定が消えた」と受け取ります（`client-v4/recent.ts` と同じ理由）。
  */
-import { ChevronDown, ChevronUp, Columns3, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { colDef, type LedgerColKey } from './types';
 import type { ColumnPrefs } from './useColumnPrefs';
 
@@ -24,14 +24,23 @@ export function ColumnPicker({
   const { order, visible, toggle, move, reset, changed } = prefs;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Columns3 className="h-4 w-4" aria-hidden="true" />出す列を選ぶ
-          </DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="出す列を選ぶ"
+      footer={
+        <div className="flex items-center justify-between gap-3">
+          {/* **変えているときだけ出す。** 既定のまま「元に戻す」があると、
+              何かを戻せる状態に見えて押されます */}
+          {changed ? (
+            <Button variant="outline" onClick={reset}>
+              <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />既定に戻す
+            </Button>
+          ) : <span />}
+          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
+        </div>
+      }
+    >
         <p className="text-note text-muted-foreground">
           チェックを外した列は表から消えます。↑↓ で並びを変えられます。
           <strong className="font-bold">この設定はこの端末にだけ残ります</strong>
@@ -72,18 +81,6 @@ export function ColumnPicker({
             );
           })}
         </div>
-
-        <div className="flex items-center justify-between gap-3">
-          {/* **変えているときだけ出す。** 既定のまま「元に戻す」があると、
-              何かを戻せる状態に見えて押されます */}
-          {changed ? (
-            <Button variant="outline" onClick={reset}>
-              <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />既定に戻す
-            </Button>
-          ) : <span />}
-          <Button onClick={() => onOpenChange(false)}>閉じる</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -19,12 +19,19 @@ function dateAfter(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function useNextActionActions() {
+/**
+ * @param extraInvalidateKeys 呼び出し元だけが持つ追加の鍵（既定は空）。
+ *   例: `顧客360°ビュー` は `['customer-overview', id]` も一緒に落とさないと、
+ *   完了・延期を押しても上のサマリー（未完了アクション件数）が古いままになる。
+ *   ここに足しても既存の呼び出し（`ActivityLogPage.tsx`）は影響を受けない。
+ */
+export function useNextActionActions(extraInvalidateKeys: unknown[][] = []) {
   const qc = useQueryClient();
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['activity-logs'] });
     qc.invalidateQueries({ queryKey: ['activity-upcoming'] });
+    extraInvalidateKeys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
   };
 
   const mutation = useMutation({

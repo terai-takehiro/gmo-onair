@@ -17,7 +17,7 @@
  */
 import { useState } from 'react';
 import { Loader2, ListChecks } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,55 +59,12 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>チケットにする</DialogTitle>
-          <DialogDescription>
-            <strong className="font-bold">案件管理のタスクが1本できます。</strong>
-            案件には紐づきません（この用件は案件の外の仕事なのでここに来ています）。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-3">
-          <div>
-            <Label>やること *</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="UPSの更新見積を取る"
-            />
-            <p className="text-note mt-1 text-muted-foreground">
-              要約のままではなく<strong className="font-bold">やることの形</strong>に直してください。
-              タスク一覧にはこの文字だけが並びます。
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>担当</Label>
-              <Select value={assignee || 'me'} onValueChange={(v) => setAssignee(v === 'me' ? '' : v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="me">自分</SelectItem>
-                  {(users.data ?? []).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>期限</Label>
-              <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="rounded-control-lg border border-border bg-surface-subtle p-3">
-            <p className="text-note text-muted-foreground">元の情報</p>
-            <p className="text-sub mt-0.5">{inquiry.summary}</p>
-          </div>
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="チケットにする"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>
           <Button onClick={submit} disabled={make.isPending || !title.trim()}>
             {make.isPending
@@ -115,8 +72,50 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
               : <ListChecks className="mr-2 h-4 w-4" aria-hidden="true" />}
             チケットにする
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          <strong className="font-bold">案件管理のタスクが1本できます。</strong>
+          案件には紐づきません（この用件は案件の外の仕事なのでここに来ています）。
+        </p>
+        <div>
+          <Label>やること *</Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="UPSの更新見積を取る"
+          />
+          <p className="text-note mt-1 text-muted-foreground">
+            要約のままではなく<strong className="font-bold">やることの形</strong>に直してください。
+            タスク一覧にはこの文字だけが並びます。
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label>担当</Label>
+            <Select value={assignee || 'me'} onValueChange={(v) => setAssignee(v === 'me' ? '' : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="me">自分</SelectItem>
+                {(users.data ?? []).map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>期限</Label>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="rounded-control-lg border border-border bg-surface-subtle p-3">
+          <p className="text-note text-muted-foreground">元の情報</p>
+          <p className="text-sub mt-0.5">{inquiry.summary}</p>
+        </div>
+      </div>
+    </FormDialog>
   );
 }

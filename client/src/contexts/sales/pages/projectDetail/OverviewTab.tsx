@@ -11,6 +11,19 @@
  * (`/sales/projects/:id/edit`)。1つの画面で読むと直すを兼ねると、
  * 入力欄が並ぶだけになって「いまどうなっているか」が読み取れなくなります
  * (いまの 2,178 行の画面がまさにそれでした)。
+ *
+ * ── 事実の帯はスマホ専用のカード積みにした（v4ネイティブUI監査・この回） ──
+ *
+ * 監査時点では PC/スマホ共通の1つの実装で、モックの「2段組・区切り線つきの帯」
+ * を375pxでもそのまま描いていました。**2列グリッドに `border-l`（列の区切り線）
+ * を付ける実装は、3列目以降の行の先頭（2枚目の行の左端）にも区切り線が出て
+ * しまいます**（`first:border-l-0` はDOM上の最初の1枚にしか効かないため）。
+ * 行の境目のはずが列の境目に見える、というPC専用の想定を持ち込んだ結果の
+ * 見た目の崩れでした。
+ *
+ * スマホでは**縦積みのカード**（区切り線ではなく1枚ずつ枠で囲む）に描き直し、
+ * PC は従来の2段組・区切り線のままにしています。**中身（何を出すか）は
+ * 1つも変えていません** — `Fact` の呼び出し順・渡す値は共通です。
  */
 import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, Tag, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -26,49 +39,11 @@ import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
 import { nextActionLine, parseNextAction } from './thread/nextAction';
 import { venueSummary, venuesOf, venueLine } from './venue';
+import { Fact, Section, Field } from './overviewParts';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
 
-/**
- * 事実の帯の1枠。
- *
- * `className` は**枠の取り方を変えるためだけ**に渡す（「次にやること」は
- * 1行ぶんまるごと使う。下記「なぜ4列にしないか」）。中身の書き方は渡す側が決めない
- */
-function Fact({
-  icon: Icon, label, children, className,
-}: { icon: typeof CalendarDays; label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn('min-w-0 border-l border-border-subtle px-4 first:border-l-0', className)}>
-      <div className="mb-1 flex items-center gap-1.5">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-        <span className="text-sub-sm text-muted-foreground">{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="rounded-card border border-border bg-card">
-      <h2 className="text-cardtitle border-b border-border-subtle px-4 py-3">{title}</h2>
-      <div className="px-4 py-3">{children}</div>
-    </section>
-  );
-}
-
-/** 名前と値が縦に並ぶ表。**値が無い行も残す** (無いことが分かるように) */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-3 border-b border-border-faint py-2 last:border-b-0">
-      <span className="text-sub w-24 shrink-0 text-muted-foreground">{label}</span>
-      <span className="text-sub min-w-0 flex-1 text-foreground">{children || <span className="text-muted-foreground">—</span>}</span>
-    </div>
-  );
-}
-
 export function OverviewTab({
-  project, bookings, activities, activityTotal,
+  project, bookings, activities, activityTotal, mobile,
 }: {
   project: ProjectDetail;
   bookings: StudioBooking[];
@@ -81,6 +56,11 @@ export function OverviewTab({
    * ここが頭打ちだと「全部見た」と思って開かなくなります。
    */
   activityTotal?: number;
+  /**
+   * スマホ。**薄い親（`ProjectDetailPage`）が1回だけ呼んだ `useIsMobile()` を渡す**
+   * （このタブでは呼び直さない）。事実の帯だけカード積みに切り替える
+   */
+  mobile?: boolean;
 }) {
   /*
    * 事実の帯の3つ目は**見積金額**（モックの指定）。
@@ -136,8 +116,12 @@ export function OverviewTab({
           半分以上が読めない**（利用者からのご指摘。実測で確認）。
           幅をやるほうが、文を縮めたり隠したりするより素直
         */}
-        <div className="grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-3">
-          <Fact icon={CalendarDays} label="実施日">
+        <div
+          className={mobile
+            ? 'flex flex-col gap-2'
+            : 'grid grid-cols-2 gap-y-4 rounded-card border border-border bg-card px-1 py-4 lg:grid-cols-3'}
+        >
+          <Fact icon={CalendarDays} label="実施日" mobile={mobile}>
             {/* **`flex-wrap` が要る。** 期間(201px)は枠に入らず**隣の会場に重なって終了日が
                 読めない**（実測: 1024px で枠 127px に 90px・375px で 51px はみ出す。ページは
                 横スクロールしないので気づけない）。日付は `whitespace-nowrap` のまま割れない */}
@@ -151,7 +135,7 @@ export function OverviewTab({
             札を4つ並べると1枠 250px では2行目以降が読めず、しかも会場の1つ目が
             どれなのか分からなくなるため
           */}
-          <Fact icon={MapPin} label="会場・スタジオ">
+          <Fact icon={MapPin} label="会場・スタジオ" mobile={mobile}>
             {venue ? (
               <>
                 <p className="text-list truncate" title={venueTitle}>{venue.first}</p>
@@ -169,7 +153,7 @@ export function OverviewTab({
               </span>
             )}
           </Fact>
-          <Fact icon={Wallet} label={isEstimate ? '見積金額' : '想定金額（見積未確定）'}>
+          <Fact icon={Wallet} label={isEstimate ? '見積金額' : '想定金額（見積未確定）'} mobile={mobile}>
             {/*
               見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方）。
               **`inline`** は「¥ を数字のすぐ左に付ける」指定（モックの帯は `gap:4px`）。
@@ -182,13 +166,15 @@ export function OverviewTab({
             <Money inline value={amount} className={cn('text-list', !isEstimate && 'text-muted-foreground')} />
           </Fact>
           {/*
-            **1行ぶんまるごと使う**（上記）。行の頭に来るので左の罫線は消し、
-            上に細い罫線を引いて「別の段」だと分かるようにする
+            **1行ぶんまるごと使う**（上記）。PC は行の頭に来るので左の罫線を消し、
+            上に細い罫線を引いて「別の段」だと分かるようにする。**スマホは他のカードと
+            同じ縦積みの1枚**なので、その位置合わせの `className` は渡さない
           */}
           <Fact
             icon={CalendarClock}
             label="次にやること"
-            className="col-span-2 border-l-0 border-t border-border-faint pt-3 lg:col-span-3"
+            mobile={mobile}
+            className={mobile ? undefined : 'col-span-2 border-l-0 border-t border-border-faint pt-3 lg:col-span-3'}
           >
             {nextAction ? (
               <>

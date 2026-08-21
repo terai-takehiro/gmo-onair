@@ -65,7 +65,7 @@ export function countKpis(
   };
 }
 
-interface Cell {
+export interface Cell {
   key: string;
   label: string;
   icon: typeof FolderOpen;
@@ -76,8 +76,13 @@ interface Cell {
   to?: string;
 }
 
-export function KpiStrip({ kpis, est }: { kpis: GpmKpis; est?: GpmEstimateSummary }) {
-  const cells: Cell[] = [
+/**
+ * 5枚の中身を組み立てる。**PC の帯（`KpiStrip`）とスマホのレール
+ * （`MobileKpiRail.tsx`）が両方これを読みます** — 書き写すと、
+ * 片方だけ直したときに同じ画面で数字の意味が食い違います。
+ */
+export function kpiCells(kpis: GpmKpis, est?: GpmEstimateSummary): Cell[] {
+  return [
     {
       key: 'active', label: '進行中プロジェクト', icon: FolderOpen,
       value: kpis.active, unit: '件',
@@ -118,26 +123,34 @@ export function KpiStrip({ kpis, est }: { kpis: GpmKpis; est?: GpmEstimateSummar
       to: '/gpm/projects',
     },
   ];
+}
 
+/** 1枚ぶんの中身。**PC のセル・スマホのウィジェットカードが両方これを読みます** */
+export function KpiCellBody({ c }: { c: Cell }) {
+  const Icon = c.icon;
+  return (
+    <>
+      <p className="text-note flex items-center gap-1.5 truncate text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {c.label}
+      </p>
+      <p className="mt-0.5 flex items-baseline gap-1">
+        <StatValue size="sm" className={cn(c.danger && 'text-destructive')}>{c.value}</StatValue>
+        <span className="text-note text-muted-foreground">{c.unit}</span>
+      </p>
+      {/* **カードの但し書きは読ませる文**なので `text-note`（スマホで 13px に上がる）。
+          `text-sub-sm` は件数の数字や札のための段で、上がらない */}
+      <p className="text-note truncate text-muted-foreground">{c.sub}</p>
+    </>
+  );
+}
+
+export function KpiStrip({ kpis, est }: { kpis: GpmKpis; est?: GpmEstimateSummary }) {
+  const cells = kpiCells(kpis, est);
   return (
     <div className="rounded-card grid grid-cols-1 gap-y-3 border border-border bg-card px-1 py-3 sm:grid-cols-3 sm:gap-y-0 xl:grid-cols-5">
       {cells.map((c, i) => {
-        const Icon = c.icon;
-        const body = (
-          <>
-            <p className="text-note flex items-center gap-1.5 truncate text-muted-foreground">
-              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {c.label}
-            </p>
-            <p className="mt-0.5 flex items-baseline gap-1">
-              <StatValue size="sm" className={cn(c.danger && 'text-destructive')}>{c.value}</StatValue>
-              <span className="text-note text-muted-foreground">{c.unit}</span>
-            </p>
-            {/* **カードの但し書きは読ませる文**なので `text-note`（スマホで 13px に上がる）。
-                `text-sub-sm` は件数の数字や札のための段で、上がらない */}
-            <p className="text-note truncate text-muted-foreground">{c.sub}</p>
-          </>
-        );
+        const body = <KpiCellBody c={c} />;
         return (
           <div
             key={c.key}

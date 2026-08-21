@@ -39,13 +39,14 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
 import { AttendeeCard } from './inview/AttendeeCard';
+import { DayCards } from './inview/DayCards';
 import { InviewDialog } from './inview/InviewDialog';
 import {
   UNDATED, checkedInHeadOf, dayKey, downloadCsv, formatDayTitle, headOf,
   matchedFields, matchesTerms, searchTerms, todayKey,
 } from './inview/logic';
 
-interface DayGroup {
+export interface DayGroup {
   key: string;                 // YYYY-MM-DD または 'undated'
   date: string | null;
   /** その日にある回 (同じ日に複数の回が立つことがある) */
@@ -271,9 +272,11 @@ export default function InviewPage() {
                 <Button variant="outline" onClick={() => setScope('all')}>すべての回を見る</Button>
               ) : undefined}
             />
+          ) : isMobile ? (
+            <DayCards days={days} today={today} />
           ) : (
             <div className="flex flex-col">
-              <RowHeader className="hidden sm:flex">
+              <RowHeader>
                 <RowMain>開催日 ／ その日にある回</RowMain>
                 <RowSlot w={72}>状態</RowSlot>
                 <RowSlot w={72} align="right">組数</RowSlot>
@@ -300,19 +303,21 @@ export default function InviewPage() {
   );
 }
 
-/** 開催日1行。**押すとその日の受付ページ**へ行く (この行では受付できない) */
+/**
+ * 開催日1行 (PC専用)。**押すとその日の受付ページ**へ行く (この行では受付できない)
+ *
+ * スマホは `./inview/DayCards.tsx` の `DayCards`（カード型）に差し替え済み
+ * (v4 ネイティブUI監査 2026-08-20)。この行は 1024px 以上でだけ描かれるので、
+ * `hideOnMobile` / `RowSub` の畳みは不要 (画面の出し分けは `InviewPage` の `isMobile` 分岐)。
+ */
 function DayRow({ g, today }: { g: DayGroup; today: string }) {
   const isToday = g.key === today;
   const isPast = !!g.date && g.date < today;
-  // 行ぜんぶを1つのリンクにする (押せる面を広くする)。
-  // `stackOnMobile` は使わない — あれは `Row` の**直接の子**の `RowMain` を狙うので、
-  // 間にリンクが挟まると効かない。スマホで畳む列は `hideOnMobile` で落として、
-  // 落とした数字は名前列の下 (`RowSub`) に出す。
   return (
     <Row divider interactive align="start" className="p-0">
       <Link
         to={`/inview/${g.key}`}
-        className="min-h-tap flex w-full items-start gap-3 px-4 py-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-[46px]"
+        className="flex min-h-[46px] w-full items-start gap-3 px-4 py-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <RowMain>
           <RowTitle>{g.key === UNDATED ? '日付未定の回' : formatDayTitle(g.key)}</RowTitle>
@@ -320,10 +325,6 @@ function DayRow({ g, today }: { g: DayGroup; today: string }) {
             {g.sessions
               .map((s) => [s.time, s.audience, `${s.head}名`].filter(Boolean).join(' '))
               .join(' ／ ')}
-          </RowSub>
-          {/* スマホでは右の列が畳まれるので、数字をここに出す */}
-          <RowSub className="font-number sm:hidden">
-            {g.regs}組 ・ {g.head}名 ・ 受付 {g.checkedIn}/{g.head}名
           </RowSub>
         </RowMain>
 
@@ -333,15 +334,15 @@ function DayRow({ g, today }: { g: DayGroup; today: string }) {
               : null}
         </RowSlot>
 
-        <RowSlot w={72} align="right" hideOnMobile>
+        <RowSlot w={72} align="right">
           <span className="font-number text-sub">{g.regs}組</span>
         </RowSlot>
 
-        <RowSlot w={72} align="right" hideOnMobile>
+        <RowSlot w={72} align="right">
           <span className="font-number text-sub">{g.head}名</span>
         </RowSlot>
 
-        <RowSlot w={96} align="right" hideOnMobile>
+        <RowSlot w={96} align="right">
           <span className={`font-number text-sub ${g.checkedIn > 0 ? 'text-success' : 'text-muted-foreground'}`}>
             {g.checkedIn} / {g.head}名
           </span>

@@ -33,9 +33,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 
 export interface LostPayload {
   lost_reason: string;
@@ -67,54 +65,13 @@ export function LostDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-            失注にする
-          </DialogTitle>
-          <DialogDescription>
-            なぜ決まらなかったかを残してください。営業レビューの失注分析で使います。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div>
-            <Label>失注理由 *</Label>
-            <div className="mt-2 space-y-2">
-              {categories.length === 0 ? (
-                <p className="text-sub text-muted-foreground">
-                  理由の一覧を読み込んでいます。出てこないときは設定で失注理由を登録してください。
-                </p>
-              ) : categories.map((cat) => (
-                <label key={cat.id} className="flex min-h-tap cursor-pointer items-center gap-2 lg:min-h-[36px]">
-                  <input
-                    type="radio"
-                    name="lost_reason"
-                    value={cat.name}
-                    checked={reason === cat.name}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="accent-destructive"
-                  />
-                  <span className="text-sub">{cat.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label>補足メモ</Label>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="失注に至った経緯など"
-              rows={2}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+    <FormDialog
+      open={open}
+      onOpenChange={close}
+      title="失注にする"
+      sub="なぜ決まらなかったかを残してください。営業レビューの失注分析で使います。"
+      footer={
+        <FormDialogFooter>
           <Button variant="outline" onClick={() => close(false)} disabled={busy}>やめる</Button>
           <Button
             variant="destructive"
@@ -124,8 +81,48 @@ export function LostDialog({
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             失注にする
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="flex items-center gap-1.5 text-sub font-bold text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          失注は理由を残さないと次の案件に活かせません
+        </p>
+
+        <div>
+          <Label>失注理由 *</Label>
+          <div className="mt-2 space-y-2">
+            {categories.length === 0 ? (
+              <p className="text-sub text-muted-foreground">
+                理由の一覧を読み込んでいます。出てこないときは設定で失注理由を登録してください。
+              </p>
+            ) : categories.map((cat) => (
+              <label key={cat.id} className="flex min-h-tap cursor-pointer items-center gap-2 lg:min-h-[36px]">
+                <input
+                  type="radio"
+                  name="lost_reason"
+                  value={cat.name}
+                  checked={reason === cat.name}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="accent-destructive"
+                />
+                <span className="text-sub">{cat.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label>補足メモ</Label>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="失注に至った経緯など"
+            rows={2}
+          />
+        </div>
+      </div>
+    </FormDialog>
   );
 }

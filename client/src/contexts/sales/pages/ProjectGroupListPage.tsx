@@ -52,7 +52,7 @@ export default function ProjectGroupListPage() {
         <ErrorPanel title="費用を分け合うグループを読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
       ) : query.isLoading ? (
         <Delayed>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         </Delayed>
@@ -62,19 +62,28 @@ export default function ProjectGroupListPage() {
           description="複数案件で費用や売上を共有するとき、グループを作成すると案件ごとに自動で金額を分けて記録します。"
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => (
             <button
               key={g.id}
               type="button"
               onClick={() => navigate(`/sales/project-groups/${g.id}`)}
-              className="rounded-card border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-background"
+              className="rounded-card min-w-0 border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-background"
             >
               <div className="truncate font-bold">{g.name}</div>
               {g.description && <p className="text-note mt-1 truncate text-muted-foreground">{g.description}</p>}
-              <div className="mt-3 flex items-center justify-between">
+              {/*
+                **375pxで実測して見つけた崩れ（このタスクで修正）**: `grid` に列数の
+                指定が無いモバイル幅では、グリッドの列がこのカードの中身（金額）の
+                max-content 幅まで広がってしまい、カード自体が画面より広くなって
+                右端の金額が画面外に切れていた（`document.scrollWidth` には出ない
+                — `#root` の `overflow:hidden` で見えなくなるだけなので、
+                横スクロールバーも出ず気づけない）。`grid-cols-1` で列幅を
+                コンテナ幅に固定し、`min-w-0` でカード自身の縮みも許可した。
+              */}
+              <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 <TableBadge label={`${g.member_count}案件`} w={null} />
-                <div className="text-right text-note">
+                <div className="min-w-0 text-right text-note">
                   {g.total_revenue > 0 && <div>売上 <Money value={g.total_revenue} className="inline-flex font-bold" /></div>}
                   {g.total_purchase > 0 && <div>仕入 <Money value={g.total_purchase} className="inline-flex font-bold" /></div>}
                   {g.total_revenue === 0 && g.total_purchase === 0 && <span className="text-muted-foreground">—</span>}

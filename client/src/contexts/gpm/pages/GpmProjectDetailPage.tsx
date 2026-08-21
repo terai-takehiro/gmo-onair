@@ -23,7 +23,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
@@ -32,11 +32,15 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
 import { useGpmProject, useInvalidateGpm } from '../queries';
 import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { type GpmOpenItem } from '../types';
-import { DetailHeader, isDetailTab, type DetailTabKey } from './projectDetail/DetailHeader';
+import {
+  DetailHeader, isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
+} from './projectDetail/DetailHeader';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
 import { OverviewTab } from './projectDetail/OverviewTab';
@@ -55,6 +59,12 @@ export default function GpmProjectDetailPage() {
   const canEdit = hasPermission('sales', 'editor');
   const canManage = hasPermission('sales', 'manager');
   const tab: DetailTabKey = isDetailTab(rawTab) ? rawTab : 'overview';
+  const isMobile = useIsMobile();
+  // **スマホで開けないタブを黙って概要にすり替えない。** URL を共有された人が
+  // 「請求を見せたのに概要が出た」ことになる。**PC で見る画面だと書いて止める**
+  // （案件詳細⑥と同じ考え方）。**「それでもこのまま開く」で1タブだけ解除できる。**
+  // タブを覚えておくのが要点で、真偽値にすると別のタブへ移っても解除が残る
+  const [forcedTab, setForcedTab] = useState<DetailTabKey | null>(null);
 
   const today = useMemo(() => localDateStr(new Date()), []);
   const [editing, setEditing] = useState(false);
@@ -112,6 +122,39 @@ export default function GpmProjectDetailPage() {
   const p = query.data!;
   const openAsks = p.open_items.filter((a) => a.status !== 'resolved');
 
+  /*
+   * スマホのタブは**段階で入れ替わります**（`projectDetail/DetailHeader.tsx` の
+   * `MOBILE_TABS_BY_PHASE`）。
+   *
+   * ⚠️ **段階が変わってタブが消えたときに、URL がその値のままだと中身が空になります。**
+   * ステージを変えたまま以前のタブを指すURLをブックマークしている、共有されたURLを
+   * あとで開く、のどちらでも起きます。**組に無いタブを指していたら概要に落とします。**
+   *
+   * PC は7タブのまま段階で変えません（幅があるので絞る理由がない）。
+   */
+  const phase = gpmDetailPhase(p.stage);
+  // **タブバー（`DetailHeader`）と同じ関数を通す。** 完了/失注（done）のまま
+  // 未解決の未確認事項が残っているプロジェクトは、段階が変わっても
+  // 「未確認事項」タブを外さない（`effectiveMobileTabs` のコメント参照）。
+  // ダッシュボード・⑤ 全プロジェクトの未確認事項一覧は段階を見ずに
+  // `/asks` へ直接リンクしてくるので、ここで外れたままだと概要へ
+  // 強制的に飛ばされ、その項目を見る・解決する手段がスマホに無くなる。
+  const mobileKeys = effectiveMobileTabs(phase, openAsks.length);
+  /*
+   * **2種類の「開けない」を混ぜません**（案件詳細⑥と同じ考え方）。
+   *
+   *   ① どの段階でもスマホに出さないタブ（請求）
+   *      → 今までどおり**すり替えず**「PC で見る画面です」と出す
+   *   ② 別の段階なら出るタブ（未確認事項・体制・議事録・見積・書類）
+   *      → **概要に落とす**（幅の問題ではなく「今日は使わない」だけなので、
+   *        「PC で見てください」は嘘になる）
+   */
+  const everMobile = Object.values(MOBILE_TABS_BY_PHASE).some((keys) => keys.includes(tab));
+  const wrongPhase = isMobile && !mobileKeys.includes(tab) && everMobile;
+  const offPhone = isMobile && !mobileKeys.includes(tab) && !everMobile && forcedTab !== tab;
+
+  if (wrongPhase) return <Navigate to={`/gpm/projects/${id}`} replace />;
+
   const onChangeStage = async (next: ProjectStage) => {
     const ok = await confirmAction({
       title: `ステージを「${STAGE_BADGE_LABEL[next]}」にしますか？`,
@@ -155,10 +198,23 @@ export default function GpmProjectDetailPage() {
         canEdit={canEdit}
         onChangeStage={onChangeStage}
         onEdit={() => setEditing(true)}
+        mobile={isMobile}
+        phase={phase}
       />
 
-      {/* 月次請求（月締め）。**案件詳細から移したもの** (migration 179) */}
-      {tab === 'billing' && <BillingTab projectId={p.id} />}
+      {/* 月次請求（月締め）。**案件詳細から移したもの** (migration 179)。
+          **どの段階でもスマホには出さない**（`BillingTab` 冒頭のコメント参照） */}
+      {tab === 'billing' && (
+        offPhone ? (
+          <PcOnlyPanel
+            what="請求（月次）"
+            why="案件と同じ月締めの表（BusinessProjectView）を1行も変えずに呼んでいます。金額・入金月・請求済かどうかを横に並べて突き合わせる作りで、この幅ではまだ読み違えを防げません。"
+            instead={{ label: '概要にもどる', to: 'back' }}
+            onGoInstead={() => navigate(`/gpm/projects/${id}`)}
+            onOpenAnyway={() => setForcedTab('billing')}
+          />
+        ) : <BillingTab projectId={p.id} />
+      )}
 
       {tab === 'overview' && (
         <OverviewTab

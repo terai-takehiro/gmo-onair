@@ -19,14 +19,21 @@
  * 部屋の埋まり方だけを見たい・パートナーの人ごとの空きを見たいという
  * 既存の使い方（旧 `CalToolbar` にあった機能）を静かに削らないよう、
  * 2段目の細い帯として残す（絞っていないときは段ごと出ない）。
+ *
+ * ── 「香盤」を4つ目の切替として足した（旧スタジオカレンダーの吸収） ──────
+ *
+ * 旧スタジオカレンダー（`/studio/studio-calendar`・退役済み）の「日」表示は
+ * 部屋を縦に並べた香盤（`KoubanView`）で、① 予定の TimeGrid（重なりを横に割る・
+ * 「誰が何時にいるか」を見る形）とは別物 ―「その部屋がいつ空くか」を見る形。
+ * 目的が違うので TimeGrid に寄せず、選べる表示のひとつとして残した。
  */
 import { ChevronLeft, ChevronRight, DoorOpen, Plus, UserSearch, X } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 
-export type DesktopView = 'month' | 'week' | 'list';
+export type DesktopView = 'month' | 'week' | 'list' | 'kouban';
 
-const VIEW_LABEL: Record<DesktopView, string> = { month: '月', week: '週', list: '一覧' };
-const VIEWS: DesktopView[] = ['month', 'week', 'list'];
+const VIEW_LABEL: Record<DesktopView, string> = { month: '月', week: '週', list: '一覧', kouban: '香盤' };
+const VIEWS: DesktopView[] = ['month', 'week', 'list', 'kouban'];
 
 /** 「部屋で絞る」などの細い帯のボタン */
 const ctl = 'min-h-tap lg:min-h-[28px] inline-flex items-center gap-1.5 rounded-note border px-2.5 text-note font-bold whitespace-nowrap';

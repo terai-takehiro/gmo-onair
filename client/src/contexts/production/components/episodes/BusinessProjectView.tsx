@@ -41,6 +41,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import {
   Table,
   TableBody,
@@ -1799,12 +1800,41 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       </Dialog>
 
       {/* 仕入追加/編集ダイアログ */}
-      <Dialog open={purDialogOpen} onOpenChange={(open) => { if (!open) closePurDialog(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingPurId ? "仕入の編集" : "仕入の追加"}</DialogTitle>
-          </DialogHeader>
-
+      <FormDialog
+        open={purDialogOpen}
+        onOpenChange={(open) => { if (!open) closePurDialog(); }}
+        title={editingPurId ? "仕入の編集" : "仕入の追加"}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              {editingPurId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
+                    deletePurMutation.mutate(editingPurId, { onSuccess: () => closePurDialog() });
+                  }}
+                  disabled={deletePurMutation.isPending}
+                >
+                  {deletePurMutation.isPending ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1 h-4 w-4" />
+                  )}
+                  削除
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
+              <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
+                {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingPurId ? "更新" : "追加"}
+              </Button>
+            </div>
+          </div>
+        }
+      >
           <div className="space-y-4">
             {purEpisodeId && (
               <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-xs">
@@ -1965,37 +1995,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               />
             </div>
           </div>
-
-          <DialogFooter className="flex sm:justify-between gap-2">
-            <div>
-              {editingPurId && (
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
-                    deletePurMutation.mutate(editingPurId, { onSuccess: () => closePurDialog() });
-                  }}
-                  disabled={deletePurMutation.isPending}
-                >
-                  {deletePurMutation.isPending ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="mr-1 h-4 w-4" />
-                  )}
-                  削除
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
-              <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
-                {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingPurId ? "更新" : "追加"}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
 
       {/* 値引きダイアログ */}
       <DiscountDialog

@@ -55,10 +55,42 @@ export interface SheetProps {
    * この回で変えないため**（`data-v4-sheet` を見て `tokens-v4.css` が当てる）。
    */
   rise?: boolean;
+  /**
+   * **PC の幅を 560px ではなく 760px にする**（2カラムの複合フォーム向け・opt-in）。
+   *
+   * 既定の 560px は1カラムのフォーム（v4対象3アプリの55か所を実測して決めた）には
+   * ちょうどよいが、部屋を複数選ぶ・控室の利用者を並べる等**元から2カラムだった
+   * フォーム**（`StudioBookingDialog` 等）を載せ替えると、560px に押し込められて
+   * 縦に長くなりすぎる。**既定は変えない**（560px のまま使っている画面の手触りを
+   * この prop で変えないため。広げたい呼び出し側だけ明示的に渡す）。
+   */
+  wide?: boolean;
+  /**
+   * **本文とフッターを `<form>` で束ねる（opt-in）。**
+   *
+   * 渡さないと本文（`children`）とフッター（`footer`）は別々の `<div>`（Sheet の
+   * DOM 上は兄弟要素）になる。呼び出し側が `children` の中だけを `<form>` で
+   * 囲んでも、フッターの送信ボタンはその外に出るため **Enterキー送信も
+   * `<button type="submit">` も効かない**（ダイアログ移行で実際に発生し、
+   * ボタンを `onClick` で送るやり方に倒された画面が複数ある）。
+   * これを渡すと本文とフッターの両方を1つの `<form>` の中に置く。
+   */
+  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  /**
+   * **下敷き（オーバーレイ）クリックで閉じさせたくないときだけ渡す（opt-in）。**
+   *
+   * Radix の既定は外側クリックで `onOpenChange(false)` を呼ぶ。書きかけの下書きを
+   * 持つフォーム（例: AI 投入の確認シート）でこれが起きると、誤クリック1回で
+   * 確認もAPI呼び出しも無く中身が消える。`shared/src/client/ui/dialog.tsx` の
+   * `DialogContent` を直接使う画面はこれを `onInteractOutside={(e) => e.preventDefault()}`
+   * で個別に止めているが、`Sheet`/`FormDialog` はそれを渡す穴が無かった。
+   * **既定（渡さない）は今までどおり**閉じる — 使っている画面の手触りを変えない。
+   */
+  onInteractOutside?: (e: Event) => void;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, children }: SheetProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -71,13 +103,15 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }
         />
         <DialogPrimitive.Content
           data-v4-sheet={rise ? 'rise' : undefined}
+          onInteractOutside={onInteractOutside}
           className={cn(
             // スマホ: 下からせり上がる。PC: 中央のダイアログに寄せる
             'fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col',
             'rounded-t-app border-t border-border bg-card shadow-2xl shadow-black/20',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-            'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-[min(560px,calc(100vw-4rem))]',
+            'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2',
+            wide ? 'lg:w-[min(760px,calc(100vw-4rem))]' : 'lg:w-[min(560px,calc(100vw-4rem))]',
             'lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-card lg:border',
           )}
         >
@@ -98,16 +132,35 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, children }
           </div>
 
           {/* **中身だけがスクロールする。** 下のボタンは常に見えている */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 lg:px-6">{children}</div>
-
-          {footer && (
-            <div
-              className="shrink-0 border-t border-border bg-card px-4 py-3 lg:px-6"
-              // ホームバーに重ねない（決めごと「セーフエリアを空ける」）
-              style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
-            >
-              {footer}
-            </div>
+          {onSubmit ? (
+            // **本文とフッターを同じ `<form>` の中に入れる。** これが無いと
+            // フッターの送信ボタンが本文と兄弟の別 div になり、Enterキー送信も
+            // `<button type="submit">` も効かなくなる（実際にダイアログ移行で
+            // 発生した — フッターの中身は変えず、外側だけ `<form>` にする）
+            <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 lg:px-6">{children}</div>
+              {footer && (
+                <div
+                  className="shrink-0 border-t border-border bg-card px-4 py-3 lg:px-6"
+                  style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+                >
+                  {footer}
+                </div>
+              )}
+            </form>
+          ) : (
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 lg:px-6">{children}</div>
+              {footer && (
+                <div
+                  className="shrink-0 border-t border-border bg-card px-4 py-3 lg:px-6"
+                  // ホームバーに重ねない（決めごと「セーフエリアを空ける」）
+                  style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+                >
+                  {footer}
+                </div>
+              )}
+            </>
           )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

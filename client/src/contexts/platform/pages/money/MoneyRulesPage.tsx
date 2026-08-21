@@ -69,7 +69,15 @@ function Line({ label, hint, children }: { label: string; hint: string; children
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border-faint px-4 py-2.5 last:border-b-0">
       <span className="text-sub w-full shrink-0 sm:w-[160px]">{label}</span>
       <span className="shrink-0">{children}</span>
-      <span className="text-note min-w-0 flex-1 text-muted-foreground">{hint}</span>
+      {/*
+        **375pxで実測して見つけた崩れ（このタスクで修正）**: 選択肢が3つ以上ある行
+        （例:「支払日が休業日のとき」）では `children`（選べる値のボタン群）だけで
+        1行の大半を使い切り、`hint` に残る幅が数px しかなくなる。`min-w-0 flex-1`
+        のままだと、そのわずかな幅に和文を1文字ずつ縦に折り返して描いてしまい
+        （「見出し」と同じ現象）、説明文が読めない縦長の帯になっていた。
+        `label` と同じく**スマホでは常に単独の行**にして、この崩れ方を避ける
+      */}
+      <span className="text-note w-full text-muted-foreground sm:min-w-0 sm:w-auto sm:flex-1">{hint}</span>
     </div>
   );
 }

@@ -10,8 +10,9 @@
  * 置き方の計算は `calendar/calendarLayout.ts` に出して、素で試せるように
  * してあります（`shared/tests/calendarLayout.test.ts` で 26 項目）。
  *
- * **旧スタジオ・パートナー・マイの3画面は FullCalendar のままです**
- * （作り直し前の画面なので、同じ回で触らない）。
+ * **旧スタジオ・マイの2画面は退役した**（`docs/v4-native-ui-plan.md` の
+ * バックログB）。固有機能（香盤ビュー・部屋予約を直す導線・取込元の色分け・
+ * 外部カレンダー連携）はすべてここか ④ 設定へ吸収済み。旧URLは転送する。
  *
  * ── 「予定を入れる」を足した ────────────────────────────────
  *
@@ -38,6 +39,12 @@
  * **「日」表示は無くした。** モックの切替は 月・週・一覧 の3つだけで、
  * マス目を押しても画面は切り替わらず「選んだ日」の印が付くだけ
  * （＝新しい予定の既定日として使う）。週の1日だけを見たいときは週表を使う。
+ *
+ * 「香盤」は旧スタジオカレンダーの吸収で足した4つ目の切替（詳細は
+ * `calendar/DesktopToolbar.tsx`）。TimeGrid（誰が何時にいるか）とは別物で、
+ * 部屋を縦に並べて「その部屋がいつ空くか」を見る。読むだけだった
+ * `StudioBookingDetailDialog` の「編集」も `StudioBookingDialog` の編集
+ * モードへつないだ（`editBooking` state）— ここが唯一の導線になったため。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,6 +60,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
 import StudioBookingDialog from '../components/studio/StudioBookingDialog';
+import KoubanView from '../components/studio/KoubanView';
 import PartnerScheduleDialog from '../components/schedule/PartnerScheduleDialog';
 import PersonalEventDialog from '../components/schedule/PersonalEventDialog';
 import {
@@ -74,7 +82,7 @@ import { RoomFilterDialog, UserFilterDialog } from './calendar/FilterDialogs';
 import { NewEventChooser, type NewKind } from './calendar/NewEventChooser';
 
 const VIEW_KEY = 'unified-cal-view';
-const DESKTOP_VIEWS: DesktopView[] = ['month', 'week', 'list'];
+const DESKTOP_VIEWS: DesktopView[] = ['month', 'week', 'list', 'kouban'];
 
 function DesktopCalendar() {
   const qc = useQueryClient();
@@ -146,14 +154,25 @@ function DesktopCalendar() {
   const [detail, setDetail] = useState<CalBooking | null>(null);
   const [editSchedule, setEditSchedule] = useState<PartnerSchedule | null>(null);
   const [editEvent, setEditEvent] = useState<PersonalEvent | null>(null);
+  // 既存予約の編集（旧スタジオカレンダーの吸収）。`cal.bookings` は一覧クエリの行
+  // そのもので、案件・外現場・メモまで実際には全項目返っている（`CalBooking` は絞って
+  // 宣言してあるだけ）ので、そのまま `StudioBookingDialog` の編集モードへ渡してよい
+  const [editBooking, setEditBooking] = useState<CalBooking | null>(null);
+  // 香盤のマスを押して新規作成するときの日時・部屋の下書き
+  const [koubanPreset, setKoubanPreset] = useState<{
+    roomIds: string[];
+    date: { start: string; end: string; allDay: boolean };
+  } | null>(null);
 
   // 引く期間。**見えている分より広く取る** — 月表は前後の月の日が並ぶので、
-  // その月ちょうどで引くと端の列が空になる
+  // その月ちょうどで引くと端の列が空になる。
+  // **香盤は「選んだ1日」ぶんだけ**（旧スタジオカレンダーの日表と同じ絞り方）
   const { from, to } = useMemo(() => {
     if (view === 'week') { const w = weekDays(anchor); return { from: w[0], to: `${w[6]}T23:59` }; }
+    if (view === 'kouban') return { from: selected, to: `${selected}T23:59` };
     const first = `${anchor.slice(0, 7)}-01`;
     return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
-  }, [view, anchor]);
+  }, [view, anchor, selected]);
 
   const cal = useCalendarEvents(from, to, { layers, roomIds, userIds });
 
@@ -180,7 +199,11 @@ function DesktopCalendar() {
   };
 
   const step = (dir: 1 | -1) => {
-    if (view === 'week') setAnchor(addDays(anchor, dir * 7));
+    if (view === 'kouban') {
+      // 香盤は「選んだ1日」を送る（旧スタジオカレンダーの日表と同じ）
+      const d = addDays(selected, dir);
+      setSelected(d); setAnchor(d); setMiniAnchor(d.slice(0, 7));
+    } else if (view === 'week') setAnchor(addDays(anchor, dir * 7));
     else setAnchor(addMonths(`${anchor.slice(0, 7)}-01`, dir));
   };
 
@@ -191,12 +214,17 @@ function DesktopCalendar() {
   };
 
   const title = useMemo(() => {
+    if (view === 'kouban') {
+      const d = new Date(`${selected}T00:00:00`);
+      const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+      return `${Number(selected.slice(5, 7))}/${Number(selected.slice(8))}（${dow}）`;
+    }
     if (view === 'week') {
       const w = weekDays(anchor);
       return `${Number(w[0].slice(5, 7))}/${Number(w[0].slice(8))} – ${Number(w[6].slice(5, 7))}/${Number(w[6].slice(8))}`;
     }
     return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
-  }, [view, anchor]);
+  }, [view, anchor, selected]);
 
   /** レイヤーのチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
   const layerVisible: Record<CalLayer, boolean> = {
@@ -265,7 +293,20 @@ function DesktopCalendar() {
 
         <div className="flex flex-col items-start gap-3.5 lg:flex-row">
           <div className="min-w-0 flex-1">
-            {cal.isLoading && cal.events.length === 0 ? (
+            {view === 'kouban' ? (
+              cal.isLoading && cal.bookings.length === 0 ? (
+                <Delayed><SkeletonRows rows={8} /></Delayed>
+              ) : (
+                <KoubanView
+                  date={new Date(`${selected}T00:00:00`)}
+                  locations={locations.data ?? []}
+                  bookings={cal.bookings as never}
+                  onDateChange={(d) => { const ds = ymd(d); setSelected(ds); setAnchor(ds); setMiniAnchor(ds.slice(0, 7)); }}
+                  onBookingClick={(b) => setDetail(b as never)}
+                  onSlotClick={(roomId, start, end) => setKoubanPreset({ roomIds: [roomId], date: { start, end, allDay: false } })}
+                />
+              )
+            ) : cal.isLoading && cal.events.length === 0 ? (
               <Delayed><SkeletonRows rows={8} /></Delayed>
             ) : view === 'month' ? (
               <MonthGrid
@@ -285,7 +326,9 @@ function DesktopCalendar() {
             )}
           </div>
 
-          <SideRail today={today} events={cal.events} canStudio={cal.can.studio} onOpen={(e) => open(e.key)} />
+          {view !== 'kouban' && (
+            <SideRail today={today} events={cal.events} canStudio={cal.can.studio} onOpen={(e) => open(e.key)} />
+          )}
         </div>
       </div>
 
@@ -298,13 +341,14 @@ function DesktopCalendar() {
         onPick={setNewKind}
       />
 
-      {/* 部屋を押さえる。**既存のダイアログをそのまま呼ぶ**（入れ方の作り直しは別の回） */}
+      {/* 部屋を押さえる。**既存のダイアログをそのまま呼ぶ**。新規（チューザー）／香盤のマス押下／編集の3つの入り口をここに集約した */}
       <StudioBookingDialog
-        open={newKind === 'room'}
-        onOpenChange={(v) => !v && setNewKind(null)}
+        open={newKind === 'room' || !!koubanPreset || !!editBooking}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setKoubanPreset(null); setEditBooking(null); } }}
         locations={locations.data ?? []}
-        editingBooking={null}
-        presetDate={{ start: selected, end: selected, allDay: false }}
+        editingBooking={editBooking as never}
+        presetDate={koubanPreset ? koubanPreset.date : { start: selected, end: selected, allDay: false }}
+        presetRoomIds={koubanPreset?.roomIds}
       />
 
       <PartnerScheduleDialog
@@ -322,18 +366,18 @@ function DesktopCalendar() {
         presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
       />
 
-      {/* スタジオ予約は**読むだけ**。直すのはスタジオカレンダー（作る導線がそこにある） */}
+      {/* 旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を直す唯一の導線」になった（以前は読むだけ） */}
       <StudioBookingDetailDialog
         open={!!detail}
         onOpenChange={(v) => !v && setDetail(null)}
         booking={detail as never}
-        onEdit={() => { /* この画面では直さない */ }}
+        onEdit={(b) => { setDetail(null); setEditBooking(b as never); }}
         onDelete={(id) => confirmAction({
           title: 'この予約を消しますか',
           description: '押さえていた部屋が空きになります。取り消せません。',
           confirmLabel: '消す', tone: 'danger',
         }).then((ok) => ok && del.mutate(id))}
-        canEdit={false}
+        canEdit={canStudioEdit}
         canDelete={canDeleteBooking}
       />
     </div>

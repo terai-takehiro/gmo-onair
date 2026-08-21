@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ASSET_CLASS_OPTIONS, CONDITION_LABELS, CONDITION_OPTIONS, RACK_SLOT_OPTIONS,
@@ -81,59 +81,60 @@ export function BulkEditDialog({
   const canApply = count > 0 && (value !== '' || CLEARABLE.includes(field));
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>まとめて直す ({count} 件)</DialogTitle></DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={`まとめて直す (${count} 件)`}
+      footer={
+        <FormDialogFooter>
+          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button onClick={onSubmit} disabled={saving || !canApply}>
+            {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            {count} 件に当てる
+          </Button>
+        </FormDialogFooter>
+      }
+    >
+      {error && (
+        <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
+          {error}
+        </p>
+      )}
 
-        {error && (
-          <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">
-            {error}
-          </p>
-        )}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <Label>直す項目</Label>
+          <Select value={field} onValueChange={(v) => { onFieldChange(v as BulkField); onValueChange(''); }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FIELDS.map((f) => <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label>直す項目</Label>
-            <Select value={field} onValueChange={(v) => { onFieldChange(v as BulkField); onValueChange(''); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+        <div className="space-y-1">
+          <Label>新しい値</Label>
+          {options ? (
+            <Select value={value} onValueChange={onValueChange}>
+              <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
               <SelectContent>
-                {FIELDS.map((f) => <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>)}
+                {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label>新しい値</Label>
-            {options ? (
-              <Select value={value} onValueChange={onValueChange}>
-                <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                type={def.input}
-                min={def.input === 'number' ? (field === 'rack_height' ? 1 : 0) : undefined}
-                value={value}
-                onChange={(e) => onValueChange(e.target.value)}
-                placeholder={def.placeholder}
-              />
-            )}
-            {CLEARABLE.includes(field) && (
-              <p className="text-note text-muted-foreground">空のまま押すと、選んだ機材のこの項目を消します。</p>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button onClick={onSubmit} disabled={saving || !canApply}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {count} 件に当てる
-            </Button>
-          </div>
+          ) : (
+            <Input
+              type={def.input}
+              min={def.input === 'number' ? (field === 'rack_height' ? 1 : 0) : undefined}
+              value={value}
+              onChange={(e) => onValueChange(e.target.value)}
+              placeholder={def.placeholder}
+            />
+          )}
+          {CLEARABLE.includes(field) && (
+            <p className="text-note text-muted-foreground">空のまま押すと、選んだ機材のこの項目を消します。</p>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

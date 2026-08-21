@@ -24,6 +24,7 @@
  * 部屋の色 — 「どの部屋の行か」を示す目印で、帯の色とは役割が違う
  */
 import { BOOKING_TYPE_COLORS } from '../../components/schedule/scheduleShared';
+import type { CalEvent } from '../calendar/calendarLayout';
 
 /** 表示する時間帯。モックと同じ 8:00〜22:00 */
 export const DAY_START_H = 8;
@@ -162,4 +163,45 @@ export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string
     });
   }
   return out.sort((x, y) => parseFloat(x.left) - parseFloat(y.left));
+}
+
+/**
+ * ② 部屋の空き（スマホ）— 月表の点用に、予約を `CalEvent` の形へ畳んだもの。
+ *
+ * **月表の部品（`MobileMonthGrid`）は ① 予定と共用する**（作り直さない）。
+ * その部品が読める形に合わせているだけで、この画面の帯とは別の計算。
+ *
+ * ── 色は種別。部屋ではない ─────────────────────────────────────
+ *
+ * 帯・部屋名の四角と同じ決めごと（`laneBlocks` の説明を参照）。ここだけ部屋の色にすると、
+ * 月表の点と選んだ日の帯で同じ予約が違う色に見える。
+ *
+ * ── 絞り込みに連動させる ───────────────────────────────────────
+ *
+ * `roomIds` に1つも部屋が入っていない予約（拠点の絞り込みで外れている）は点にしない。
+ * 入れてしまうと、拠点を選んでいるのに他拠点の忙しさが点として出て、
+ * 「この日は埋まっている」と読み違える
+ *
+ * ── 複数の部屋にまたがる予約は点を1つだけ ─────────────────────
+ *
+ * 部屋ごとに点を足すと、2部屋を押さえた予約が同じ日に2つの点として出て、
+ * 実際より忙しい日に見える
+ */
+export function monthDotEvents(bookings: AvailBooking[], roomIds: Set<string>): CalEvent[] {
+  return bookings
+    .filter((b) => b.rooms?.some((r) => roomIds.has(r.room_id)))
+    .map((b) => ({
+      key: `bk-${b.id}`,
+      id: b.id,
+      layer: 'studio',
+      title: b.title,
+      color: BOOKING_TYPE_COLORS[b.booking_type] ?? BOOKING_TYPE_COLORS.other,
+      typeLabel: '',
+      sub: '',
+      source: '',
+      allDay: isAllDay(b),
+      start: b.start_time,
+      end: b.end_time,
+      tentative: b.status === 'tentative',
+    }));
 }

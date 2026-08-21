@@ -22,9 +22,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import {
   Database,
   Search,
@@ -796,18 +794,27 @@ export default function DataViewerPage() {
       </div>
 
       {/* v2.8.0+: 編集ダイアログ */}
-      <Dialog open={!!editingRow} onOpenChange={(open) => { if (!open) { setEditingRow(null); setEditFormValues({}); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {TABLE_LABELS[selectedTable] || selectedTable} の行を編集
-            </DialogTitle>
-            <DialogDescription>
-              <span className=" text-xs">id: {editingRow?.id as string}</span>
-              <br />
-              編集できないシステム列 (id / created_at / updated_at / deleted_at / 認証情報など) は無効化されています。
-            </DialogDescription>
-          </DialogHeader>
+      <FormDialog
+        open={!!editingRow}
+        onOpenChange={(open) => { if (!open) { setEditingRow(null); setEditFormValues({}); } }}
+        title={`${TABLE_LABELS[selectedTable] || selectedTable} の行を編集`}
+        footer={
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => { setEditingRow(null); setEditFormValues({}); }}>
+              キャンセル
+            </Button>
+            <Button onClick={submitEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              保存
+            </Button>
+          </FormDialogFooter>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sub text-muted-foreground">
+            <span className="text-xs">id: {editingRow?.id as string}</span><br />
+            編集できないシステム列 (id / created_at / updated_at / deleted_at / 認証情報など) は無効化されています。
+          </p>
           {schema && editingRow && (
             <div className="space-y-3">
               {schema.map((col) => {
@@ -841,38 +848,16 @@ export default function DataViewerPage() {
               })}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditingRow(null); setEditFormValues({}); }}>
-              キャンセル
-            </Button>
-            <Button onClick={submitEdit} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </FormDialog>
 
       {/* v2.8.0+: 削除確認ダイアログ */}
-      <Dialog open={!!deletingRow} onOpenChange={(open) => { if (!open) setDeletingRow(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <Trash2 className="h-5 w-5" />
-              論理削除の確認
-            </DialogTitle>
-            <DialogDescription>
-              この行を <strong>論理削除</strong> します。<code>deleted_at</code> に現在時刻がセットされ、画面上から見えなくなります (DB からは削除されません)。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
-            <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className=" text-[10px]">({selectedTable})</span></div>
-            <div><span className="text-muted-foreground">id:</span> <span className="">{deletingRow?.id as string}</span></div>
-            {!!(deletingRow?.name || deletingRow?.title) && (
-              <div><span className="text-muted-foreground">name:</span> {String(deletingRow?.name || deletingRow?.title)}</div>
-            )}
-          </div>
-          <DialogFooter>
+      <FormDialog
+        open={!!deletingRow}
+        onOpenChange={(open) => { if (!open) setDeletingRow(null); }}
+        title="論理削除の確認"
+        footer={
+          <FormDialogFooter>
             <Button variant="outline" onClick={() => setDeletingRow(null)}>
               キャンセル
             </Button>
@@ -880,9 +865,23 @@ export default function DataViewerPage() {
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
               論理削除する
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </FormDialogFooter>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sub flex items-start gap-2 text-destructive">
+            <Trash2 className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <span>この行を <strong className="font-bold">論理削除</strong> します。<code>deleted_at</code> に現在時刻がセットされ、画面上から見えなくなります (DB からは削除されません)。</span>
+          </p>
+          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+            <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className=" text-[10px]">({selectedTable})</span></div>
+            <div><span className="text-muted-foreground">id:</span> <span className="">{deletingRow?.id as string}</span></div>
+            {!!(deletingRow?.name || deletingRow?.title) && (
+              <div><span className="text-muted-foreground">name:</span> {String(deletingRow?.name || deletingRow?.title)}</div>
+            )}
+          </div>
+        </div>
+      </FormDialog>
     </div>
     </PageTransition>
   );

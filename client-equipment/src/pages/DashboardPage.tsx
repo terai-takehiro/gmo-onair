@@ -16,11 +16,24 @@
  *
  * 予定を1件も入れていないうちは 0 が並びます。**それは正しい 0** です
  * (「予定を入れていない」ことが見える)。下の「返してもらう」が実物の一覧です。
+ *
+ * ── スマホは PC の縮小ではない (v4ネイティブUI化) ──────────────
+ *
+ * `docs/v4-native-ui-audit-2026-08-20.md` equipment-dashboard の指摘を受けて、
+ * **KPI 4枚は PC のグリッドとは別にスマホだけ横に払うウィジェット
+ * （`dashboard/KpiRail.tsx`）**、**「返してもらう」「稼働停止中の機材」の
+ * 一覧は PC の `Row` とは別にスマホだけ専用カード
+ * （`dashboard/LendingCards.tsx` / `MaintenanceCards.tsx`）**にした。
+ * 中身（値・並び・行き先）は `dashboard/kpiCells.ts` の `buildKpiCells()` と
+ * `dashboard/dueIn.ts` を PC・スマホ両方で共有する — 書き写すと、
+ * 片方だけ直したときに同じ画面で数字の意味が食い違う。
+ * `useIsMobile()` はこの薄い親で1回だけ呼び、部品ごと入れ替える
+ * （`shared/CLAUDE.md`「useIsMobile() で早期 return しない」）。
  */
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowRightLeft, ClipboardCheck, Package, Plus, QrCode, Wrench,
+  AlertTriangle, ArrowRightLeft, Plus, QrCode, Wrench,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -29,35 +42,13 @@ import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/c
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonKpi, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
-
-interface Stats {
-  /** 本日・明日の入出庫 (migration 168)。出庫は予定・入庫は返却予定日 */
-  in_out: { out_today: number; out_tomorrow: number; in_today: number; in_tomorrow: number };
-  /**
-   * ⚠️ **機材台帳の既定表示（子機材を除いた親機材のみ）と揃えてある**
-   * （UXレポート 2026-08-18 指摘。以前は子機材込みの全件で、台帳一覧の
-   * 「機材 ◯点」と数字が食い違っていた）。子機材込みの総数は
-   * `total_items_with_children` を見る
-   */
-  total_items: number;
-  total_items_with_children: number;
-  active_items: number;
-  in_repair: number;
-  lent_out: number;
-  overdue: number;
-  open_maintenance: number;
-  pending_inventory: number;
-  recent_lendings: {
-    id: string; borrower_name: string; due_date: string | null; lent_at: string;
-    equipment_name: string; unit_number: number | null;
-    project_name: string | null; gls_number: string | null;
-  }[];
-  recent_maintenance: {
-    id: string; title: string; record_type: string; status: string; equipment_name: string;
-  }[];
-}
-
-const md = (d: string | null) => (d && d.length >= 10 ? `${d.slice(5, 7)}/${d.slice(8, 10)}` : '—');
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { buildKpiCells, type KpiCell } from './dashboard/kpiCells';
+import { KpiRail } from './dashboard/KpiRail';
+import { LendingCards } from './dashboard/LendingCards';
+import { MaintenanceCards } from './dashboard/MaintenanceCards';
+import { dueIn, md } from './dashboard/dueIn';
+import type { Stats } from './dashboard/types';
 
 /** 入出庫の1つ。**0 も出す** — 隠すと「読み込み中」に見える */
 function InOut({ label, n }: { label: string; n: number }) {
@@ -72,38 +63,30 @@ function InOut({ label, n }: { label: string; n: number }) {
   );
 }
 
-/** 返却予定日から「あと何日 / 何日超過」を出す。日付が無ければ null */
-function dueIn(due: string | null): number | null {
-  if (!due || due.length < 10) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(`${due.slice(0, 10)}T00:00:00`);
-  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
-}
-
-function Tile({ label, value, unit, sub, tone, icon, to }: {
-  label: string; value: number; unit: string; sub: string;
-  tone: 'plain' | 'warning' | 'danger'; icon: React.ReactNode; to: string;
-}) {
-  const toneClass = tone === 'danger' ? 'text-destructive' : tone === 'warning' ? 'text-warning' : 'text-foreground';
+/** KPI 1枚（PC のグリッド）。中身は `KpiRail`（スマホ）と共有の `KpiCell` */
+function Tile({ cell }: { cell: KpiCell }) {
+  const Icon = cell.icon;
+  const toneClass = cell.tone === 'danger' ? 'text-destructive' : cell.tone === 'warning' ? 'text-warning' : 'text-foreground';
   return (
     <Link
-      to={to}
+      to={cell.to}
       className="min-h-tap flex flex-col gap-2 rounded-card border border-border bg-card p-4 hover:border-primary-border"
     >
       <span className="flex items-center gap-2 text-sub text-muted-foreground">
-        {icon}{label}
+        <Icon className="h-4 w-4" aria-hidden="true" />{cell.label}
       </span>
       <span className="flex items-baseline gap-1.5">
-        <span className={`font-number text-h1 ${toneClass}`}>{value.toLocaleString('ja-JP')}</span>
-        <span className="text-sub text-muted-foreground">{unit}</span>
+        <span className={`font-number text-h1 ${toneClass}`}>{cell.value.toLocaleString('ja-JP')}</span>
+        <span className="text-sub text-muted-foreground">{cell.unit}</span>
       </span>
-      <span className="text-note text-muted-foreground">{sub}</span>
+      <span className="text-note text-muted-foreground">{cell.sub}</span>
     </Link>
   );
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const query = useQuery<Stats>({
     queryKey: ['equipment-stats'],
     queryFn: async () => (await api.get('/equipment/stats')).data.data,
@@ -142,34 +125,13 @@ export default function DashboardPage() {
         <Delayed><SkeletonKpi /></Delayed>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Tile
-              label="機材" value={s.total_items} unit="点"
-              sub={`稼働中 ${s.active_items.toLocaleString('ja-JP')} 点（付属品含む全体 ${s.total_items_with_children.toLocaleString('ja-JP')} 点）`}
-              tone="plain" icon={<Package className="h-4 w-4" aria-hidden="true" />}
-              to="/equipment/items?view=items"
-            />
-            <Tile
-              label="貸出中" value={s.lent_out} unit="点"
-              sub={s.overdue > 0 ? `返却遅延 ${s.overdue} 点` : '返却遅延はありません'}
-              tone={s.overdue > 0 ? 'danger' : 'plain'}
-              icon={<ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
-              to="/equipment/lendings"
-            />
-            <Tile
-              label="稼働停止中" value={s.in_repair} unit="点"
-              sub={`未対応の記録 ${s.open_maintenance} 件`}
-              tone={s.open_maintenance > 0 ? 'warning' : 'plain'}
-              icon={<Wrench className="h-4 w-4" aria-hidden="true" />}
-              to="/equipment/maintenance"
-            />
-            <Tile
-              label="棚卸し" value={s.pending_inventory} unit="件"
-              sub="下書き・実施中のもの"
-              tone="plain" icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
-              to="/equipment/inventory"
-            />
-          </div>
+          {isMobile ? (
+            <KpiRail cells={buildKpiCells(s)} />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {buildKpiCells(s).map((c) => <Tile key={c.key} cell={c} />)}
+            </div>
+          )}
 
           {/* 本日・明日の入出庫。**4つの数字を1枚に**（モックの並び）。
               押すと貸出・返却の画面へ行く */}
@@ -207,6 +169,8 @@ export default function DashboardPage() {
                 title="返してもらうものはありません"
                 description="貸出中の機材はすべて期限内です。"
               />
+            ) : isMobile ? (
+              <LendingCards rows={[...overdueLendings, ...soonLendings]} />
             ) : (
               <div className="flex flex-col rounded-card border border-border bg-card">
                 {[...overdueLendings, ...soonLendings].map((l) => {
@@ -263,6 +227,8 @@ export default function DashboardPage() {
                 title="未対応のメンテナンスはありません"
                 description="故障や点検が出たらメンテナンスから記録します。"
               />
+            ) : isMobile ? (
+              <MaintenanceCards rows={s.recent_maintenance} />
             ) : (
               <div className="flex flex-col rounded-card border border-border bg-card">
                 {s.recent_maintenance.map((m) => (
