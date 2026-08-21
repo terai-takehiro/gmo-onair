@@ -13,7 +13,6 @@
     "client-qsheet/src/components/editor/PreviewModal.tsx": 793,
     "client-qsheet/src/components/editor/EditorSidebar.tsx": 749,
     "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 747,
-    "client-qsheet/src/components/editor/CueRow.tsx": 725,
     "client-qsheet/src/pages/OnAirPage.tsx": 634,
     "client/src/contexts/tasks/components/DashboardGantt/DashboardGanttView.tsx": 523,
     "client-qsheet/src/pages/AudioSupportPage.tsx": 453,
