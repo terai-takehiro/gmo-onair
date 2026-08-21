@@ -115,7 +115,6 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 - **案件管理（client）**: 売上・仕入・損益・ヨミ〜完了までの統合プロジェクト管理
 - **Qシート（client-qsheet）**: 進行台本作成・ランダウン・OnAir 同期
 - **機材管理（client-equipment）**: 機材台帳・貸出管理
-- **技術資料（client-techsheet）**: カメラ・映像・音声技術仕様書
 - **ライブ運用（client-live）**: 本番オペ・進行管理
 - **リアルタイムCG（client-awards）**: リアルタイム放送CG演出・送出管理
 
@@ -133,7 +132,6 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
 | 制作資料 (Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
-| 技術資料 | [`client-techsheet/`](client-techsheet/CLAUDE.md) | `/techsheet/` | 5177 | 凍結 | カメラ/映像/音声 技術仕様書 |
 | 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards`) |
 
@@ -189,7 +187,6 @@ gmo-onair/
 ├── client/                  # 案件管理アプリ (React)
 ├── client-qsheet/           # Qシートアプリ
 ├── client-equipment/        # 機材管理アプリ
-├── client-techsheet/        # 技術資料アプリ
 ├── client-live/             # ライブ運用アプリ
 ├── client-awards/           # リアルタイムCG アプリ (内部識別子は `awards`)
 ├── shared/                  # 全アプリ共通のファクトリ関数・ユーティリティ
@@ -208,7 +205,6 @@ gmo-onair/
 │       │   ├── production/        # 制作進行
 │       │   ├── equipment/         # 機材管理
 │       │   ├── qsheet/            # Qシート
-│       │   ├── techsheet/         # 技術資料
 │       │   ├── interactive/       # インタラクティブ演出
 │       │   ├── liveops/           # ライブ運用
 │       │   ├── asset/             # 資産マスター
@@ -240,7 +236,6 @@ gmo-onair/
 │     ├─ / ─────────────► app_prod (3000) ──┐                │
 │     │    /qsheet/                          │                │
 │     │    /equipment/                       │                │
-│     │    /techsheet/                       │                │
 │     │    /live/                            │                │
 │     │    /awards/                          │                │
 │     │    /api/v1/internal/*                │                │
@@ -273,7 +268,7 @@ JWT は HTTP-only Cookie + Authorization Bearer の二重送信方式。
 ### サブアプリ間の状態共有
 
 各アプリはそれぞれ独自の `storageKey` で JWT を管理：
-`qs_user`（qsheet）, `ts_user`（techsheet）, `is_user`（interactive）, `eq_user`（equipment）。
+`qs_user`（qsheet）, `is_user`（interactive）, `eq_user`（equipment）。
 共通ファクトリ (`shared/src/client/`) を各アプリのラッパーファイルで包んでインスタンス化します。
 
 ---
@@ -309,11 +304,10 @@ GLS発番は `POST /projects/:id/issue-gls` エンドポイントで別途トリ
 - **`project_groups`**: 費用按分グループ（売上・仕入の按分配分に使用）
 - **タグベースの分類**: プロジェクトには自由なタグを付与可能
 
-### Qシート / インタラクティブ / 技術資料
+### Qシート / インタラクティブ
 
 - **`qsheet_documents`**: JSONB で進行台本全体を保存（sections / rows / blocks 構造）
 - **`interactive_*`**: スタンプ定義・チャンネル・統計
-- **`techsheet_documents`**: カメラ/映像/音声/通信のタブ式技術仕様
 
 詳細は `server/src/shared/db/migrations/` の 60+ のマイグレーションを参照。
 

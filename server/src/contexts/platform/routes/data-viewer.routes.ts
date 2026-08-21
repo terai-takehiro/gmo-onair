@@ -44,8 +44,8 @@ const ALLOWED_TABLES = [
   'equipment_lendings', 'equipment_rental_categories',
   'inventory_checks', 'inventory_check_items',
   'maintenance_records',
-  // 技術資料
-  'techsheet_documents',
+  // 技術資料アプリは削除済み（migration 211）。'techsheet_documents' は
+  // DROP TABLE 後なので一覧から外しておく（残すと `relation does not exist` になる）。
   // ライブ運用
   'liveops_programs', 'liveops_settings', 'liveops_snapshots', 'liveops_timers',
   // リアルタイムCG

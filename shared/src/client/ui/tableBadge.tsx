@@ -88,8 +88,8 @@ export function TableBadge({ label, w = 96, className, style, ...rest }: TableBa
       //
       // **属性だけを足し、上書きは `tokens-v4.css` に置く**（`button.tsx` の
       // `data-ui="button"` と同じやり方）。ここは全アプリの Tailwind が走査する
-      // 場所なので、角丸の役割名クラスを直に書くと**凍結4アプリの CSS にも
-      // その分の規則が増える**（実測: qsheet/techsheet/live で +33 バイト。
+      // 場所なので、角丸の役割名クラスを直に書くと**凍結アプリの CSS にも
+      // その分の規則が増える**（実測: qsheet/techsheet（当時。いまは削除済み）/live で +33 バイト。
       // `shared/CLAUDE.md` が繰り返し警告している「クラス漏れ」を実際に踏んだ）
       data-ui="table-badge"
       className={cn(

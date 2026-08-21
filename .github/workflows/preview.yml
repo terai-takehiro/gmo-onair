@@ -154,7 +154,6 @@ jobs:
             echo "- 案件管理: https://dev.gmo-onair.jp/"
             echo "- Qシート: https://dev.gmo-onair.jp/qsheet/"
             echo "- 機材管理: https://dev.gmo-onair.jp/equipment/"
-            echo "- 技術資料: https://dev.gmo-onair.jp/techsheet/"
             echo "- ライブ運用: https://dev.gmo-onair.jp/live/"
             echo "- リアルタイムCG: https://dev.gmo-onair.jp/awards/"
             echo

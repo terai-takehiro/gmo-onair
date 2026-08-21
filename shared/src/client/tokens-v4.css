@@ -198,9 +198,9 @@
  *
  * `Badge` の既定はカプセル形 (丸角) だが、モックのバッジは小さい四角い角丸。
  * 上の `.rounded-badge` 上書きと同じ値だが、**`ui/tableBadge.tsx` 側には
- * その役割名クラスを直書きしない** — `shared/src/client/` は凍結4アプリの
+ * その役割名クラスを直書きしない** — `shared/src/client/` は凍結アプリの
  * Tailwind も走査するので、書いた瞬間そちらのビルドにも規則が増える
- * (実測: qsheet/techsheet/live で +33 バイト)。`data-ui='button'` と同じやり方で
+ * (実測: qsheet/techsheet（当時。いまは削除済み）/live で +33 バイト)。`data-ui='button'` と同じやり方で
  * **属性だけ** `tableBadge.tsx` に足し、上書きはここに置く。
  */
 :root [data-ui='table-badge'] { border-radius: 6px; }

@@ -4,8 +4,9 @@
  *
  * ── なぜ要るのか ────────────────────────────────────────────
  *
- * v4.0.0 の決めごとは「**制作資料・技術資料・計時LIVE・リアルタイムCG は
- * 見た目を今日のまま**」です。ところが各アプリの Tailwind は
+ * v4.0.0 の決めごとは「**制作資料・計時LIVE・リアルタイムCG は
+ * 見た目を今日のまま**」です（技術資料は v4.1.8 でアプリごと削除）。
+ * ところが各アプリの Tailwind は
  * `shared/src/client/**` を走査するので、**あちらが描かない部品のクラス名を
  * 1つ書き足すだけで、凍結アプリの CSS に規則が増えます**
  * （`shared/CLAUDE.md`。コメントの中に書いただけで増えた例が3回あります）。
@@ -41,10 +42,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'frozen-css-baseline.json');
 
-/** 凍結4アプリ。`awards` は共通 preset を継承していないので本来 shared の影響を受けない */
+/** 凍結3アプリ。`awards` は共通 preset を継承していないので本来 shared の影響を受けない */
 const APPS = [
   { key: 'qsheet', label: '制作資料 (Qシート)', dir: 'client-qsheet' },
-  { key: 'techsheet', label: '技術資料', dir: 'client-techsheet' },
   { key: 'live', label: '計時LIVE', dir: 'client-live' },
   { key: 'awards', label: 'リアルタイムCG', dir: 'client-awards' },
 ];

@@ -62,13 +62,6 @@ export const queryKeys = {
     document:  (id: string) => ['qsheet', 'document', id] as const,
   },
 
-  // ── 技術資料 (TechSheet) ─────────────────────────────────
-  techsheet: {
-    documents: (params?: { projectId?: string; search?: string }) =>
-                 ['techsheet', 'documents', params ?? {}] as const,
-    document:  (id: string) => ['techsheet', 'document', id] as const,
-  },
-
   // ── 計時LIVE ─────────────────────────────────────────────
   liveops: {
     programs:  () => ['liveops', 'programs'] as const,

@@ -117,15 +117,6 @@ export const INTERACTIVE_EVENT_STATUS = {
 } as const satisfies StatusDomain;
 
 // ══════════════════════════════════════════════════════════════════
-// 技術資料 (TechSheet)
-// ══════════════════════════════════════════════════════════════════
-export const TECHSHEET_STATUS = {
-  draft:     { label: '下書き',     variant: 'secondary' },
-  confirmed: { label: '確定',       variant: 'success' },
-  archived:  { label: 'アーカイブ', variant: 'outline' },
-} as const satisfies StatusDomain;
-
-// ══════════════════════════════════════════════════════════════════
 // ダッシュボードアラート種別
 // ══════════════════════════════════════════════════════════════════
 export const ALERT_TYPE = {

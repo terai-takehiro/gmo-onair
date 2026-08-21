@@ -53,7 +53,8 @@ export async function seed() {
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
   // 3段階: reader(閲覧) / editor(編集) / manager(管理)
   //
-  // 権限モデル単純化（migration 210）で、区画はブロックアプリ単位の7つに統合済み。
+  // 権限モデル単純化（migration 210）で、区画はブロックアプリ単位に統合済み
+  // （その後の技術資料アプリ削除・migration 211 でいまは6つ）。
   // `sales` が旧 `budget`/`gpm`/`studio`/`partner_schedule` をまとめて持つ
   // （案件管理・財務管理・カレンダー・設定・プロジェクト管理）。
   const perms: [string, string, string][] = [
@@ -61,7 +62,6 @@ export async function seed() {
     [USERS.staff1, 'sales',       'manager'],
     [USERS.staff1, 'equipment',   'reader'],
     [USERS.staff1, 'qsheet',      'editor'],
-    [USERS.staff1, 'techsheet',   'editor'],
     [USERS.staff1, 'liveops',     'editor'],
     [USERS.staff1, 'awards',      'editor'],
     [USERS.staff1, 'dailyops',    'editor'],
@@ -70,7 +70,6 @@ export async function seed() {
     [USERS.staff2, 'sales',       'manager'],
     [USERS.staff2, 'equipment',   'manager'],
     [USERS.staff2, 'qsheet',      'manager'],
-    [USERS.staff2, 'techsheet',   'manager'],
     [USERS.staff2, 'liveops',     'manager'],
     [USERS.staff2, 'awards',      'manager'],
     [USERS.staff2, 'dailyops',    'manager'],
@@ -79,7 +78,6 @@ export async function seed() {
     [USERS.staff3, 'sales',       'editor'],
     [USERS.staff3, 'equipment',   'editor'],
     [USERS.staff3, 'qsheet',      'editor'],
-    [USERS.staff3, 'techsheet',   'editor'],
     [USERS.staff3, 'liveops',     'editor'],
     [USERS.staff3, 'awards',      'editor'],
     [USERS.staff3, 'dailyops',    'editor'],
@@ -88,7 +86,6 @@ export async function seed() {
     [USERS.staff4, 'sales',       'reader'],
     [USERS.staff4, 'equipment',   'reader'],
     [USERS.staff4, 'qsheet',      'reader'],
-    [USERS.staff4, 'techsheet',   'reader'],
     [USERS.staff4, 'liveops',     'reader'],
     [USERS.staff4, 'awards',      'reader'],
     [USERS.staff4, 'dailyops',    'reader'],
@@ -96,7 +93,6 @@ export async function seed() {
     // staff5 — 山田（限定アクセス。equipment/dailyops は持たない例）
     [USERS.staff5, 'sales',       'editor'],
     [USERS.staff5, 'qsheet',      'reader'],
-    [USERS.staff5, 'techsheet',   'reader'],
     [USERS.staff5, 'liveops',     'reader'],
     [USERS.staff5, 'awards',      'reader'],
   ];

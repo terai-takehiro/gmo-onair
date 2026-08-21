@@ -1,7 +1,7 @@
 /**
  * shared/src/client/SubAppLoginRedirect.tsx
  *
- * サブアプリ (qsheet/equipment/techsheet/liveops/awards) の /<app>/login で表示する
+ * サブアプリ (qsheet/equipment/liveops/awards) の /<app>/login で表示する
  * "redirect-only" ページ。
  *
  * v2.5.2: dev でも本番でも email/password 認証 (メインアプリ) に統一されたため、
