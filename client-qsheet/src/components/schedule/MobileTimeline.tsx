@@ -4,6 +4,7 @@ import { fmtHmPad, fmtSpan } from "@gmo-onair/shared/src/schedule/time";
 import { itemKindLabel, itemKindColor } from "@gmo-onair/shared/src/schedule/kinds";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 
 interface Props {
   columns: ScheduleColumn[];
@@ -53,7 +54,12 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
       </div>
 
       {visible.length === 0 && (
-        <p className="mt-6 text-center text-sm text-muted-foreground">この列にはまだ項目がありません。</p>
+        <div className="mt-6">
+          <EmptyState
+            title={filterColumnId ? "この列にはまだ項目がありません" : "まだ項目がありません"}
+            description={filterColumnId ? "「すべて」に戻すか、下のボタンから項目を足してください。" : "グリッド／下のボタンから項目を足せます。"}
+          />
+        </div>
       )}
 
       <ul className="mt-3 space-y-2">

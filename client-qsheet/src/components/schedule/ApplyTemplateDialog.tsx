@@ -92,7 +92,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
                 id="onair-start"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}
                 onCommit={(v) => setOnairStartMin(parseHm(v))}
-                className="mt-1 flex h-10 w-full max-w-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1 flex h-10 w-full max-w-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                 placeholder="19:00"
               />
             </div>
@@ -117,8 +117,9 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
                   <label key={item.id} className="flex min-h-[44px] items-center gap-2 text-sm">
                     <input type="checkbox" className="h-5 w-5" checked={checkedItems.has(item.id)}
                       onChange={() => toggle(checkedItems, item.id, setCheckedItems)} />
+                    {/* 日付の期間ではなく時刻の範囲なので <DateRange> の対象外 */}
                     <span className={start_min == null ? "text-destructive" : ""}>
-                      {start_min != null ? `${fmtHmPad(start_min)}〜${fmtHmPad(end_min!)}` : "時刻が決まりません"} ・ {item.title}
+                      {start_min != null ? `${fmtHmPad(start_min)}〜${fmtHmPad(end_min!)}` : "時刻が決まりません"} ・ {item.title} {/* ui-tokens-ok */}
                     </span>
                     {already_applied && <span className="text-xs text-muted-foreground">（すでに入っています）</span>}
                   </label>

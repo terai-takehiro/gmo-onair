@@ -101,7 +101,8 @@ export default function SchedulePage() {
 
   const handleDelete = async () => {
     if (!selectedItem) return;
-    if (!window.confirm("この項目を削除しますか？")) return;
+    // client-qsheet は凍結アプリ（ConfirmHost 未設置）。confirmAction は器が無いと黙って false を返す
+    if (!window.confirm("この項目を削除しますか？")) return; // ui-tokens-ok
     try {
       await scheduleApi.deleteItem(id, selectedItem.id);
       notifySuccess("削除しました");
