@@ -20,6 +20,43 @@ export function isQsheetAiKind(v: unknown): v is QsheetAiKind {
 }
 
 /**
+ * 段8（04-ai.md §1-3）— 生成4機能の kind と prompt_version の唯一の正。
+ * 文字列を書き写さない（写すと kind を変えた日に集計だけ黙って 0 件になる）。
+ */
+export const EVENT_PLAN_KIND = 'event_plan_draft';
+export const SCRIPT_OUTLINE_KIND = 'script_outline_draft';
+export const SCRIPT_LINE_KIND = 'script_line_draft';
+/** ④壁打ち。`qsheet_ai_proposals.kind` には入らない（提案テーブルの対象外） */
+export const PRODUCTION_CHAT_KIND = 'production_chat';
+
+export const EVENT_PLAN_PROMPT_VERSION = 'event-plan-v1';
+export const EVENT_PLAN_PROMPT_VERSION_FB = 'event-plan-v1+fb';
+export const SCRIPT_OUTLINE_PROMPT_VERSION = 'script-outline-v1';
+export const SCRIPT_OUTLINE_PROMPT_VERSION_FB = 'script-outline-v1+fb';
+export const SCRIPT_LINE_PROMPT_VERSION = 'script-line-v1';
+export const SCRIPT_LINE_PROMPT_VERSION_FB = 'script-line-v1+fb';
+export const PRODUCTION_CHAT_PROMPT_VERSION = 'prod-chat-v1';
+export const PRODUCTION_CHAT_PROMPT_VERSION_FB = 'prod-chat-v1+fb';
+
+/**
+ * 助言（digest の advice）を載せたら `+fb` を付ける。**必ず別の文字列にする**
+ * （既存5か所と同じ作法。混ぜると「載せた効果があったのか」を後から言えなくなる）。
+ *
+ * ⚠️ 04-ai.md §6-5a の `promptVersionOf(base, knowledgeRev, adviceCount)` は
+ * `qsheet_ai_knowledge`（ナレッジの承認リビジョン）を前提にしているが、そのテーブルは
+ * **段9** で作る（07-ai-proposals-impl.md の段割り）。この段では `adviceCount` だけの
+ * 簡略版を置き、ナレッジが入ったら段9 で `knowledgeRev` を足す。
+ */
+export function promptVersionOf(base: string, adviceCount: number): string {
+  return adviceCount > 0 ? `${base}+fb` : base;
+}
+
+/** 1文書 / 1スケジュール表あたり `state='open'` の提案の上限（04-ai.md §6-5e） */
+export const AI_MAX_OPEN_PROPOSALS = 5;
+/** 直近1時間の生成回数の上限（同上。乱打による費用と分母汚染を防ぐ） */
+export const AI_MAX_GENERATIONS_PER_HOUR = 20;
+
+/**
  * 取り込み（`applied_at`）から何日で 1 段目（`early`）を締めるか。
  *
  * `ai-output.service.ts` の `CORRECTION_WINDOW_DAYS` と**たまたま同じ値（7日）**だが、

@@ -46,6 +46,33 @@ export class ConflictError extends HttpError {
 }
 
 /**
+ * AI 生成（段8）が投げる例外。**`500` にしない** — 画面が
+ * 「AI が失敗しました。手で作れます」と出し分けられるようにするため（04-ai.md §10-1）。
+ */
+export class AiNotConfiguredError extends HttpError {
+  constructor(message = 'この環境は AI につないでいません') {
+    super(503, 'AI_NOT_CONFIGURED', message);
+  }
+}
+export class AiFailedError extends HttpError {
+  constructor(message = 'AI の呼び出しに失敗しました') {
+    super(502, 'AI_FAILED', message);
+  }
+}
+export class AiEmptyError extends HttpError {
+  constructor(message = 'AI の出力から有効な提案を作れませんでした') {
+    super(422, 'AI_EMPTY', message);
+  }
+}
+/** 本番中は AI を呼ばない（04-ai.md §8-2）。クライアントはボタンを消すのが主だが、
+ *  直接 API を叩かれたときの保険としてサーバー側にも同じ拒否を1つ持つ。 */
+export class ProductionActiveError extends HttpError {
+  constructor(message = '本番進行中のため AI 生成は使えません') {
+    super(409, 'PRODUCTION_ACTIVE', message);
+  }
+}
+
+/**
  * 楽観ロックの判定。`expected_updated_at` は「画面が最後にサーバーから受け取った値」。
  * 未送信（`undefined`）は素通しする（旧クライアント互換）。
  */

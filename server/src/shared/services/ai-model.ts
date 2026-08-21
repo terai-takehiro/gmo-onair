@@ -53,8 +53,14 @@ export type AiProvider = 'openai' | 'anthropic';
 /** 段。**3つ以上に増やさないこと** — 増やすと「どれを選ぶか」を毎回考えることになる */
 export type AiTier = 'light' | 'heavy';
 
-/** AI を使う仕事。`ai_usage.kind` とは別（あちらは呼び出しの記録） */
-export type AiJob = 'intake' | 'activity' | 'minutes' | 'kpt';
+/**
+ * AI を使う仕事。`ai_usage.kind` とは別（あちらは呼び出しの記録）。
+ *
+ * 段8（制作資料 v4 の AI 生成。04-ai.md §7）で4つ追加。
+ */
+export type AiJob =
+  | 'intake' | 'activity' | 'minutes' | 'kpt'
+  | 'event_plan' | 'script_outline' | 'script_line' | 'production_chat';
 
 /**
  * 段ごとの既定のモデル。**ここだけが「いま何を使っているか」の正**。
@@ -128,6 +134,12 @@ const JOB_ENV: Record<AiJob, EnvName[]> = {
   activity: ['ACTIVITY_AI_MODEL'],
   minutes: ['MINUTES_AI_MODEL'],
   kpt: ['KPT_AI_MODEL'],
+  // 制作資料 v4 の AI 生成（段8）。機能ごとの環境変数は新設しない
+  // （04-ai.md §7）— 空配列でも `AiJob` を足すとここに1行要る（型を通すため）。
+  event_plan: [],
+  script_outline: [],
+  script_line: [],
+  production_chat: [],
 };
 
 /**
@@ -197,6 +209,19 @@ export interface TierInput {
  * `reject` で残り、精度が落ちていれば数字に出ます。
  * **落ちてきたら `ACTIVITY_AI_MODEL` で上位モデルに戻せます**（環境変数1つ）。
  */
+/**
+ * ── 制作資料 v4 の AI 生成（段8）の段の理由 ─────────────────────
+ *
+ * ① `event_plan`（枠の叩き台）: **常時 heavy**。時刻の計算違いは当日を壊す。
+ *    枠の重なりは画面で気づけるが、移動時間や転換の抜けは「無いこと」なので目視で気づけない。
+ * ② `script_outline`（骨格）: **常時 heavy**。尺の配分は足し算が合っていても
+ *    現実と合わないことがあり、本番まで分からない。押し引きは最も気づきにくい誤り。
+ * ③ `script_line`（セリフ）: **light（既定）／4,000字超で heavy**。セリフは
+ *    読めば良し悪しが分かる＝間違いに気づける典型。長文は文脈保持が要るので heavy。
+ *    `activity` の閾値（4,000）に揃える。
+ * ④ `production_chat`（壁打ち）: **light（既定）**。次のターンで直せるのが対話。
+ *    `suggestion` を伴う（＝生成に踏み込む）ターンは呼び出し側が `force:'heavy'` を渡す。
+ */
 const POLICY: Record<AiJob, { base: AiTier; lightMaxChars?: number }> = {
   // 添付・行数は呼ぶ側（`canUseLightModel`）が既に見ているので、ここでは文字数だけ
   intake: { base: 'light', lightMaxChars: 400 },
@@ -204,6 +229,10 @@ const POLICY: Record<AiJob, { base: AiTier; lightMaxChars?: number }> = {
   activity: { base: 'light', lightMaxChars: 4_000 },
   minutes: { base: 'heavy' },
   kpt: { base: 'heavy' },
+  event_plan: { base: 'heavy' },
+  script_outline: { base: 'heavy' },
+  script_line: { base: 'light', lightMaxChars: 4_000 },
+  production_chat: { base: 'light' },
 };
 
 /**

@@ -59,6 +59,11 @@ const KIND_LABEL: Record<string, string> = {
   kpt: 'ふりかえりの下書き',
   stt: '文字起こし（本番）',
   stt_preview: '下読み（録音中）',
+  // 制作資料 v4 の AI 生成（段8。04-ai.md §7）
+  event_plan: '枠の叩き台（制作資料）',
+  script_outline: '台本の骨格（制作資料）',
+  script_line: 'セリフ（制作資料）',
+  production_chat: '壁打ち（制作資料）',
 };
 
 const PERIODS = [7, 30, 90];
