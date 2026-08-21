@@ -44,6 +44,7 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState, ErrorPanel, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { dueLabel, duePresets } from '@gmo-onair/shared/src/client-v4/mobile';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -187,33 +188,35 @@ export function MobileTaskList() {
           description={mineOnly ? '「全体」に切り替えると、ほかの人のぶんも見られます。' : '新しく足すのは上の「タスクを足す」か、案件の中からです。'}
         />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {rows.map((t) => {
-            const d = dueLabel(t.due_date, today);
-            return (
-              <li key={t.id}>
-                {/*
-                  **カード1枚 = タスク1件。** 表にしない（決めごと「表・多列は使わない」）。
-                  押すとシートが開く — 画面は移らない
-                */}
-                <button
-                  type="button"
-                  onClick={() => setOpen(t)}
-                  className="rounded-card flex w-full items-start gap-3 border border-border bg-card p-3.5 text-left"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="text-list block [overflow-wrap:anywhere]">{t.title}</span>
-                    <span className="text-note mt-1 block truncate text-muted-foreground">
-                      {[t.project_gls_number, t.project_name].filter(Boolean).join(' ・ ')}
+        <PullToRefresh onRefresh={refetch}>
+          <ul className="flex flex-col gap-2">
+            {rows.map((t) => {
+              const d = dueLabel(t.due_date, today);
+              return (
+                <li key={t.id}>
+                  {/*
+                    **カード1枚 = タスク1件。** 表にしない（決めごと「表・多列は使わない」）。
+                    押すとシートが開く — 画面は移らない
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => setOpen(t)}
+                    className="rounded-card flex w-full items-start gap-3 border border-border bg-card p-3.5 text-left"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="text-list block [overflow-wrap:anywhere]">{t.title}</span>
+                      <span className="text-note mt-1 block truncate text-muted-foreground">
+                        {[t.project_gls_number, t.project_name].filter(Boolean).join(' ・ ')}
+                      </span>
+                      <span className={cn('text-note mt-1 block font-bold', TONE[d.tone])}>{d.text}</span>
                     </span>
-                    <span className={cn('text-note mt-1 block font-bold', TONE[d.tone])}>{d.text}</span>
-                  </span>
-                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </PullToRefresh>
       )}
 
       {open && (

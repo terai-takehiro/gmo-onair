@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import {
   MobileFilterBar, MobileFilterField,
 } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
@@ -255,27 +256,29 @@ export default function InviewDayPage() {
           onClearFilters={() => setQuery('')}
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          {sessions.map((s) => {
-            // 検索中は当たりが無い回を出さない (受付の画面を空の見出しで埋めない)
-            if (searching && s.visible.length === 0) return null;
-            return (
-              <SessionBlock
-                key={s.label}
-                label={s.label}
-                time={s.time}
-                audience={s.audience}
-                items={s.items}
-                visible={s.visible}
-                showSummary={showSummary}
-                canEdit={canEdit}
-                terms={searching ? terms : null}
-                onEdit={setEditing}
-                isMobile={isMobile}
-              />
-            );
-          })}
-        </div>
+        <PullToRefresh onRefresh={list.refetch} disabled={!isMobile}>
+          <div className="flex flex-col gap-6">
+            {sessions.map((s) => {
+              // 検索中は当たりが無い回を出さない (受付の画面を空の見出しで埋めない)
+              if (searching && s.visible.length === 0) return null;
+              return (
+                <SessionBlock
+                  key={s.label}
+                  label={s.label}
+                  time={s.time}
+                  audience={s.audience}
+                  items={s.items}
+                  visible={s.visible}
+                  showSummary={showSummary}
+                  canEdit={canEdit}
+                  terms={searching ? terms : null}
+                  onEdit={setEditing}
+                  isMobile={isMobile}
+                />
+              );
+            })}
+          </div>
+        </PullToRefresh>
       )}
 
       {(adding || editing) && (
