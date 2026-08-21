@@ -196,6 +196,8 @@ function CueRowImpl({
                   key={blk.id}
                   blk={blk}
                   cellKey={cellKey(blk.id)}
+                  row={row}
+                  updateCell={updateCell}
                 />
               );
             }
