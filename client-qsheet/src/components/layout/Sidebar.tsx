@@ -48,7 +48,7 @@ export default function Sidebar() {
             </div>
             <span className="truncate text-sm font-bold">Qシート</span>
           </div>
-          <button className="ml-auto p-1 rounded hover:bg-muted" onClick={() => setSidebarOpen(false)}>
+          <button className="ml-auto p-1 rounded-control-md hover:bg-muted" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
         </div>

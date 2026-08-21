@@ -9,6 +9,14 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+    <!-- LINE Seed JP は **リポジトリに同梱**しています (shared/src/client/fonts/)。
+         `tokens-v4.css` が `@import` するので、ここに <link> は要りません
+         (`src/index.css` が `base.css` 経由でそれを読むようになった段5 PR8 から有効)。
+         入れ直しは `node scripts/vendor-fonts.mjs`。
+         下の Google Fonts (Noto Sans JP / Roboto Condensed) はまだ外していません —
+         CueTable・EditorSidebar・OnAir/Rundown/Prompter/AudioSupport など、
+         まだ生の `style={{ fontFamily: … }}` で 'Roboto Condensed' 等を名指ししている
+         箇所が残っているため（段5 PR8 の対象外。外すのはそれらを直す別 PR で）。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Roboto+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
