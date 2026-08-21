@@ -109,10 +109,10 @@
   判断されているが調査はされていない）
 
 ✅ `main` を取り込んだ後（コミット`fa19eb9`）も typecheck/lint/test/
-check-mobile-declared/check-links を再実行しすべてOKを確認済み（`npm run
-build:all` は実行中）。`check:frozen` は`main`取り込み後まだ再確認していない
-— 次に着手する人は念のため回すこと（今回の一連の変更はいずれも凍結4アプリの
-CSSに触れない領域のはずだが、`main`側のPR#272の変更内容までは未確認）。
+check-mobile-declared/check-links/`build:all`（7アプリ＋server）/`check:frozen`
+をすべて再実行し、問題なしを確認済み。`check:frozen`のズレはこのセッション開始前
+から存在するものとバイト数まで完全一致しており、PR#272を含め今回の一連の変更が
+原因でないことを再確認した。
 
 ## 残っている作業（急ぎではないもの）
 
