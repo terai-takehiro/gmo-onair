@@ -72,7 +72,7 @@ export default function EditablePill({
             }
           }}
           autoFocus
-          className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-full outline-none bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 placeholder:text-zinc-400 transition-all"
+          className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-chip outline-none bg-muted text-muted-foreground placeholder:text-muted-foreground transition-all"
           placeholder={placeholder}
         />
         <datalist id={datalistId}>
@@ -89,7 +89,7 @@ export default function EditablePill({
     return (
       <span
         onClick={startEditing}
-        className="w-14 h-5 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 bg-transparent cursor-text hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-[10px] text-zinc-400 dark:text-zinc-500"
+        className="w-14 h-5 flex-none rounded-chip border border-dashed border-border bg-transparent cursor-text hover:bg-accent transition-colors flex items-center justify-center text-[10px] text-muted-foreground"
         title="クリックで編集"
       >
         {placeholder}
@@ -100,7 +100,7 @@ export default function EditablePill({
   return (
     <span
       onClick={startEditing}
-      className={`w-14 h-5 rounded-full ${color} flex-none cursor-pointer hover:opacity-80 transition-opacity overflow-hidden`}
+      className={`w-14 h-5 rounded-chip ${color} flex-none cursor-pointer hover:opacity-80 transition-opacity overflow-hidden`}
       title="クリックで編集"
     >
       <span

@@ -5,7 +5,7 @@
     "client/src/contexts/production/components/episodes/BusinessProjectView.tsx": 2031,
     "client-equipment/src/pages/RackLayoutPage.tsx": 1270,
     "client-equipment/src/pages/EquipmentDetailPage.tsx": 1086,
-    "client-qsheet/src/components/editor/CueTable.tsx": 1075,
+    "client-qsheet/src/components/editor/CueTable.tsx": 1055,
     "client-qsheet/src/pages/EditorPage.tsx": 902,
     "client/src/contexts/platform/pages/DataViewerPage.tsx": 879,
     "client-qsheet/src/pages/DashboardPage.tsx": 833,

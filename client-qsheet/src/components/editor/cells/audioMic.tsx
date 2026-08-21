@@ -21,7 +21,7 @@ export default function AudioMicCell({
   findPrevAudioMicAssignments,
 }: AudioMicCellProps) {
   return (
-    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-border-faint align-top">
       <MicAssignmentCell
         cell={row.cells?.[blk.id]}
         channels={masters?.micChannels || []}

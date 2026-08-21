@@ -55,11 +55,11 @@ export default function EntryImageButton({
         <img
           src={imageUrl}
           alt=""
-          className="h-6 w-6 rounded object-cover border border-zinc-200 dark:border-zinc-700"
+          className="h-6 w-6 rounded-control object-cover border border-border"
         />
         <button
           onClick={() => onChange(null)}
-          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-card border border-border text-muted-foreground hover:text-destructive text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
           title="画像を削除"
         >
           ×
@@ -73,10 +73,10 @@ export default function EntryImageButton({
     <>
       <button
         onClick={() => inputRef.current?.click()}
-        className={`flex-shrink-0 w-5 h-5 rounded transition-colors mt-[1px] flex items-center justify-center ${
+        className={`flex-shrink-0 w-5 h-5 rounded-control transition-colors mt-[1px] flex items-center justify-center ${
           hasImage
-            ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
+            ? "text-primary hover:bg-primary-surface"
+            : "text-muted-foreground hover:text-primary hover:bg-primary-surface opacity-0 group-hover:opacity-100"
         }`}
         title={hasImage ? "画像を変更" : "画像を添付"}
         disabled={uploading}

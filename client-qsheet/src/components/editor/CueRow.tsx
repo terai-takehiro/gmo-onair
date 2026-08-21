@@ -125,12 +125,12 @@ function CueRowImpl({
   return (
     <tr
       {...dragHandlers}
-      className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 border-b border-zinc-100/80 dark:border-zinc-800/60 ${isSelected ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""} ${dragClass}`}
+      className={`group transition-colors duration-150 hover:bg-primary-surface-weak border-b border-border-subtle ${isSelected ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""} ${dragClass}`}
       style={rowHighlight ? { backgroundColor: rowHighlight } : undefined}
     >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
-              return <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="border-r border-zinc-100/60 dark:border-zinc-800/40" />;
+              return <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="border-r border-border-faint" />;
             }
             const en = getEntry(blk);
 
@@ -228,15 +228,15 @@ function CueRowImpl({
           })}
 
           {/* 操作ボタン (モバイル常時表示) */}
-          <td className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
+          <td className="px-0.5 align-top w-9 border-b border-border-subtle">
             <div className="flex flex-col items-center gap-0.5 pt-1">
               {onToggleSelect && (
                 <button
                   onClick={onToggleSelect}
-                  className={`size-5 rounded border flex items-center justify-center transition-all ${
+                  className={`size-5 rounded-control border flex items-center justify-center transition-all ${
                     isSelected
                       ? "bg-primary border-primary text-primary-foreground opacity-100"
-                      : "border-zinc-300 dark:border-zinc-600 text-transparent opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                      : "border-border text-transparent opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
                   }`}
                   title="行を選択 (まとめて移動 / Shift+クリックで範囲選択)"
                   aria-pressed={isSelected}
@@ -247,19 +247,19 @@ function CueRowImpl({
               )}
             </div>
             <div className="flex flex-col items-center gap-0.5 pt-0.5 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
-              <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+              <button onClick={onMoveUp} className="p-1.5 text-muted-foreground hover:text-foreground active:text-foreground transition-colors">
                 <ChevronUp size={14} />
               </button>
-              <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+              <button onClick={onMoveDown} className="p-1.5 text-muted-foreground hover:text-foreground active:text-foreground transition-colors">
                 <ChevronDown size={14} />
               </button>
-              <button onClick={onInsertBelow} className="p-1.5 text-zinc-400 hover:text-primary active:text-primary transition-colors" title="この行の下に空行を挿入">
+              <button onClick={onInsertBelow} className="p-1.5 text-muted-foreground hover:text-primary active:text-primary transition-colors" title="この行の下に空行を挿入">
                 <Plus size={13} />
               </button>
-              <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors" title="この行を複製">
+              <button onClick={onDuplicate} className="p-1.5 text-muted-foreground hover:text-foreground active:text-foreground transition-colors" title="この行を複製">
                 <Copy size={12} />
               </button>
-              <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors" title="この行を削除">
+              <button onClick={onDelete} className="p-1.5 text-muted-foreground hover:text-destructive active:text-destructive transition-colors" title="この行を削除">
                 <Trash2 size={12} />
               </button>
             </div>

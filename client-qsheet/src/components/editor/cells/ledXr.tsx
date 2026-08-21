@@ -29,12 +29,12 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
     updateCell(blk.id, newCell);
   };
   return (
-    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+    <td data-collab-cell={cellKey} className="px-1.5 py-0.5 border-r border-border-faint overflow-hidden align-top">
       <div className="flex flex-col gap-1 min-w-0">
         <select
           value={ledEntry.sceneId || ""}
           onChange={(e) => updateLed("sceneId", e.target.value || undefined)}
-          className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+          className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-border rounded-control outline-none focus:border-primary"
         >
           <option value="">-- シーン選択 --</option>
           {(ledScenes || []).map((s) => (
@@ -45,12 +45,12 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
         </select>
         {scene && (
           <div className="grid grid-cols-2 gap-1">
-            <div className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
-              <div className="text-[8px] font-bold uppercase tracking-wider text-primary/80">壁</div>
+            <div className="rounded-control border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
+              <div className="text-[8px] font-bold uppercase tracking-wider text-primary">壁</div>
               <div className="text-[10px] font-medium text-foreground truncate">{scene.wall || "—"}</div>
             </div>
-            <div className="rounded border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
-              <div className="text-[8px] font-bold uppercase tracking-wider text-warning/90">床</div>
+            <div className="rounded-control border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
+              <div className="text-[8px] font-bold uppercase tracking-wider text-warning">床</div>
               <div className="text-[10px] font-medium text-foreground truncate">{scene.floor || "—"}</div>
             </div>
           </div>
@@ -59,7 +59,7 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
           <select
             value={ledEntry.cueType || ""}
             onChange={(e) => updateLed("cueType", e.target.value || undefined)}
-            className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+            className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border rounded-control outline-none focus:border-primary"
             title="Cue"
           >
             <option value="">Cue</option>
@@ -73,7 +73,7 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
               value={ledEntry.cueCustom || ""}
               onCommit={(v) => updateLed("cueCustom", v)}
               placeholder="Cue (任意)"
-              className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+              className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border rounded-control outline-none focus:border-primary"
             />
           )}
         </div>
@@ -81,7 +81,7 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
           <select
             value={ledEntry.transition || ""}
             onChange={(e) => updateLed("transition", e.target.value || undefined)}
-            className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+            className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border rounded-control outline-none focus:border-primary"
             title="トランジション"
           >
             <option value="">効果</option>
@@ -95,7 +95,7 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
               value={ledEntry.transitionCustom || ""}
               onCommit={(v) => updateLed("transitionCustom", v)}
               placeholder="効果 (任意)"
-              className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+              className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-border rounded-control outline-none focus:border-primary"
             />
           )}
         </div>
