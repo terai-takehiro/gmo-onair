@@ -594,9 +594,9 @@ export function EditorSidebarBody({
                       style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
                       aria-label={`Ch番号 ${i + 1}`}
                     />
-                    <input
+                    <BufferedInput
                       value={c.label || ""}
-                      onChange={(e) => updateMicChannel(i, { label: e.target.value })}
+                      onCommit={(v) => updateMicChannel(i, { label: v })}
                       placeholder="ラベル (例: MC席1)"
                       className="flex-1 h-7 px-1.5 text-[12px] bg-muted/40 border border-border rounded outline-none focus:border-primary"
                       aria-label={`Ch ${c.ch} ラベル`}
@@ -692,19 +692,19 @@ export function EditorSidebarBody({
           </label>
           <label className="block">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">撮影場所</span>
-            <input
+            <BufferedInput
               type="text"
               value={meta?.location || ""}
-              onChange={(e) => onMetaChange({ ...meta, location: e.target.value })}
+              onCommit={(v) => onMetaChange({ ...meta, location: v })}
               className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
             />
           </label>
           <label className="block">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">作成者</span>
-            <input
+            <BufferedInput
               type="text"
               value={meta?.author || ""}
-              onChange={(e) => onMetaChange({ ...meta, author: e.target.value })}
+              onCommit={(v) => onMetaChange({ ...meta, author: v })}
               className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
             />
           </label>
