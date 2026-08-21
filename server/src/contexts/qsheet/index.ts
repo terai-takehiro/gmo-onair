@@ -8,6 +8,7 @@ import runsRoutes from './routes/runs.routes';
 import audioShareRoutes from './routes/audio-share.routes';
 import scopesRoutes from './routes/scopes.routes';
 import journeyMarksRoutes from './routes/journey-marks.routes';
+import deviceSettingsRoutes from './routes/device-settings.routes';
 
 export function createQsheetRoutes(): Router {
   const router = Router();
@@ -25,6 +26,8 @@ export function createQsheetRoutes(): Router {
   // トップ（案件を選ぶ）・制作のジャーニー（段3・03-app-structure-impl.md §6）
   router.use('/qsheet', scopesRoutes);
   router.use('/qsheet', journeyMarksRoutes);
+  // 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で、文書 (documentRoutes) とは別の入れ物
+  router.use('/qsheet/production', deviceSettingsRoutes);
 
   return router;
 }

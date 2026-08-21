@@ -11,6 +11,9 @@ import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
 import { QSHEET_ROOT_PATH } from "@/routeSwitch";
+import DeviceSettingsHome from "@/pages/device-settings/DeviceSettingsHome";
+import RecordingPage from "@/pages/recording/RecordingPage";
+import StreamingPage from "@/pages/streaming/StreamingPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -47,6 +50,10 @@ export default function App() {
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
         <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
+        {/* 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で文書とは別の入れ物 */}
+        <Route path="/qsheet/device-settings" element={<DeviceSettingsHome />} />
+        <Route path="/qsheet/recording/:ownerKey" element={<RecordingPage />} />
+        <Route path="/qsheet/streaming/:ownerKey" element={<StreamingPage />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}

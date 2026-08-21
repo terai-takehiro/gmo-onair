@@ -13,5 +13,8 @@ import { MINI_APP_BY_KEY, type MiniAppKey } from '../../../shared/production/min
 
 export async function issueDocNo(app: MiniAppKey): Promise<string> {
   const def = MINI_APP_BY_KEY[app];
+  if (def.kind !== 'document') {
+    throw new Error(`issueDocNo: '${app}' は document ではありません（kind=${def.kind}）`);
+  }
   return generateSequenceNumber(def.docNoSeq, def.docPrefix);
 }

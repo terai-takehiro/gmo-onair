@@ -1,38 +1,60 @@
 /**
  * ミニアプリのレジストリ（`shared/src/production/miniapps.ts`）の固定テスト。
  *
- * 重複や `:id` の付け忘れは型でも lint でも見つからず、実行時に
+ * 重複や `:id`/`:ownerKey` の付け忘れは型でも lint でも見つからず、実行時に
  * 「一覧に2件出る」「作成メニューを押しても何も起きない」という
  * 気づきにくい壊れ方をする。ここで機械的に止める。
  */
 import { describe, it, expect } from 'vitest';
-import { MINI_APPS, MINI_APP_BY_KEY, docPathOf, miniAppOfPath, enabledMiniApps } from '../src/production/miniapps';
+import {
+  MINI_APPS,
+  MINI_APP_BY_KEY,
+  docPathOf,
+  panelPathOf,
+  miniAppOfPath,
+  enabledMiniApps,
+  type MiniAppDocumentDef,
+  type MiniAppPanelDef,
+} from '../src/production/miniapps';
+
+const documents = MINI_APPS.filter((a): a is MiniAppDocumentDef => a.kind === 'document');
+const panels = MINI_APPS.filter((a): a is MiniAppPanelDef => a.kind === 'panel');
 
 describe('MINI_APPS — 登録そのもの', () => {
   it('key が重複していない', () => {
     expect(new Set(MINI_APPS.map((a) => a.key)).size).toBe(MINI_APPS.length);
   });
 
-  it('docPrefix が重複していない（配った番号の接頭辞が被らない）', () => {
-    expect(new Set(MINI_APPS.map((a) => a.docPrefix)).size).toBe(MINI_APPS.length);
+  it('document: docPrefix が重複していない（配った番号の接頭辞が被らない）', () => {
+    expect(new Set(documents.map((a) => a.docPrefix)).size).toBe(documents.length);
   });
 
-  it('docNoSeq が重複していない（連番が飛ばない）', () => {
-    expect(new Set(MINI_APPS.map((a) => a.docNoSeq)).size).toBe(MINI_APPS.length);
+  it('document: docNoSeq が重複していない（連番が飛ばない）', () => {
+    expect(new Set(documents.map((a) => a.docNoSeq)).size).toBe(documents.length);
   });
 
-  it('listPath が重複していない', () => {
-    expect(new Set(MINI_APPS.map((a) => a.listPath)).size).toBe(MINI_APPS.length);
+  it('document: listPath が重複していない', () => {
+    expect(new Set(documents.map((a) => a.listPath)).size).toBe(documents.length);
   });
 
-  it('docPath が重複していない、かつ必ず `:id` を含む', () => {
-    expect(new Set(MINI_APPS.map((a) => a.docPath)).size).toBe(MINI_APPS.length);
-    for (const a of MINI_APPS) expect(a.docPath).toContain(':id');
+  it('document: docPath が重複していない、かつ必ず `:id` を含む', () => {
+    expect(new Set(documents.map((a) => a.docPath)).size).toBe(documents.length);
+    for (const a of documents) expect(a.docPath).toContain(':id');
+  });
+
+  it('panel: path が重複していない、かつ必ず `:ownerKey` を含む', () => {
+    expect(new Set(panels.map((a) => a.path)).size).toBe(panels.length);
+    for (const a of panels) expect(a.path).toContain(':ownerKey');
   });
 
   it('**段3の時点では schedule は無効**（qsheet_schedules がまだ無いため）', () => {
     expect(MINI_APP_BY_KEY.schedule.enabled).toBe(false);
     expect(MINI_APP_BY_KEY.sheet.enabled).toBe(true);
+  });
+
+  it('recording / streaming（panel）は有効', () => {
+    expect(MINI_APP_BY_KEY.recording.enabled).toBe(true);
+    expect(MINI_APP_BY_KEY.streaming.enabled).toBe(true);
   });
 
   it('label は画面に出す名前だけを持つ（内部識別子 qsheet を含まない）', () => {
@@ -41,12 +63,33 @@ describe('MINI_APPS — 登録そのもの', () => {
       expect(a.label).not.toBe('Qシート');
     }
   });
+
+  it('MINI_APP_BY_KEY が MINI_APPS と一致する', () => {
+    for (const app of MINI_APPS) {
+      expect(MINI_APP_BY_KEY[app.key]).toBe(app);
+    }
+  });
 });
 
-describe('docPathOf', () => {
+describe('docPathOf — document 専用', () => {
   it('`:id` を実際の id に置換する', () => {
     expect(docPathOf('sheet', 'abc123')).toBe('/qsheet/editor/abc123');
     expect(docPathOf('schedule', 'xyz')).toBe('/qsheet/schedules/xyz');
+  });
+
+  it('panel の key を渡すと例外', () => {
+    expect(() => docPathOf('recording', 'x')).toThrow();
+  });
+});
+
+describe('panelPathOf — panel 専用', () => {
+  it('`:ownerKey` を実値に置き換える', () => {
+    expect(panelPathOf('recording', 'GLS-A012')).toBe('/qsheet/recording/GLS-A012');
+    expect(panelPathOf('streaming', 'GLS-A012')).toBe('/qsheet/streaming/GLS-A012');
+  });
+
+  it('document の key を渡すと例外', () => {
+    expect(() => panelPathOf('sheet', 'x')).toThrow();
   });
 });
 
@@ -54,6 +97,8 @@ describe('enabledMiniApps — 導線に出してよいものだけ', () => {
   it('`enabled:false` は出てこない', () => {
     const keys = enabledMiniApps().map((a) => a.key);
     expect(keys).toContain('sheet');
+    expect(keys).toContain('recording');
+    expect(keys).toContain('streaming');
     expect(keys).not.toContain('schedule');
   });
 });
@@ -69,10 +114,17 @@ describe('miniAppOfPath — URL から判定', () => {
     expect(miniAppOfPath('/qsheet/schedules/xyz')?.key).toBe('schedule');
   });
 
+  it('panel の URL（`:ownerKey` を含む形）を判定する', () => {
+    expect(miniAppOfPath('/qsheet/recording/GLS-A012')?.key).toBe('recording');
+    expect(miniAppOfPath('/qsheet/streaming/GLS-A012')?.key).toBe('streaming');
+  });
+
   it('**長い path から先に見る**（短い listPath が誤って先に一致しない）', () => {
     // schedules の一覧 (/qsheet/schedules) と資料1件 (/qsheet/schedules/:id) が
     // 前方一致で衝突しないことを確認
-    expect(miniAppOfPath('/qsheet/schedules/xyz')?.docPath).toBe('/qsheet/schedules/:id');
+    const found = miniAppOfPath('/qsheet/schedules/xyz');
+    expect(found?.kind).toBe('document');
+    expect((found as MiniAppDocumentDef).docPath).toBe('/qsheet/schedules/:id');
   });
 
   it('知らない URL は undefined', () => {
