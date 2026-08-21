@@ -9,6 +9,9 @@
 <helmet>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
   <style>
+    html, body { height: 100%; }
+    /* 描画側の受け皿（#dc-root など）に高さが無いと height:100% が解決できない */
+    body > div { height: 100%; }
     body { margin: 0; background: #f7f8fa;
       font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', Meiryo, sans-serif;
       font-feature-settings: 'palt' 1, 'kern' 1; color: #1a1d24; -webkit-font-smoothing: antialiased; }
@@ -22,11 +25,24 @@
     .btn-ghost:hover { background: #f2f4f7; border-color: #cbd2da; }
     .btn-solid:hover { filter: brightness(1.08); }
     .seg:hover { color: #1a1d24; }
+    /* 長体。**枠を 1/縮小率 だけ広げてから縮める** — こうしないと ellipsis が
+       変形前の幅で決まるので、字が細くなるだけで文字数は増えない。
+       JS で測って書き戻す「長体フィット」は入れない（DESIGN_POLICY.md）*/
+    .condw { flex: 1 1 0; min-width: 0; overflow: hidden; }   /* 横並びの中で使う受け皿 */
+    .condb { display: block; min-width: 0; overflow: hidden; } /* 縦積みの中で使う受け皿 */
+    .cond { display: block; width: 106.4%; transform: scaleX(.94); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-s { display: block; width: 111.2%; transform: scaleX(.90); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-r { display: block; width: 106.4%; margin-left: -6.4%; transform: scaleX(.94);
+      transform-origin: right center; text-align: right;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nb { white-space: nowrap; }
     .ico { display: block; }
   </style>
 </helmet>
 
-<div style="display: flex; flex-direction: column; height: 100%; background: #fff; overflow: hidden">
+<div style="display: flex; flex-direction: column; height: 100vh; background: #fff; overflow: hidden">
 
   <!-- 上辺バー 64px -->
   <div style="display: flex; align-items: center; gap: 14px; height: 64px; flex-shrink: 0; padding: 0 24px; background: #fff; border-bottom: 1px solid #e6e9ed">
@@ -64,7 +80,7 @@
   <div style="display: flex; align-items: stretch; flex: 1; min-height: 0">
 
     <!-- 左メニュー 248px -->
-    <div style="width: 248px; box-sizing: border-box; flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #e6e9ed; padding: 14px 12px 20px">
+    <div style="width: 248px; box-sizing: border-box; flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #e6e9ed; padding: 14px 12px 20px; overflow: hidden">
       <sc-for list="{{ menu }}" as="s" hint-placeholder-count="2">
         <div>
           <p style="margin: 14px 0 4px; padding: 0 10px; font-size: 11.5px; font-weight: 800; color: #5d6470">{{ s.title }}</p>
@@ -85,7 +101,7 @@
     </div>
 
     <!-- 本文 -->
-    <div style="flex: 1; min-width: 0; background: #f7f8fa; padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 13px">
+    <div style="flex: 1; min-width: 0; background: #f7f8fa; padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 13px; overflow: hidden">
 
       <div style="display: flex; align-items: flex-end; gap: 12px">
         <div style="min-width: 0">
@@ -110,7 +126,7 @@
       <!-- 状態の帯 -->
       <div style="display: flex; align-items: center; gap: 0; background: #fff; border: 1px solid #e6e9ed; border-radius: 14px; padding: 12px 4px">
         <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
-          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 0 16px; border-left: {{ st.rule }}">
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 0 16px; border-left: {{ st.rule }}; overflow: hidden">
             <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; white-space: nowrap">{{ st.label }}</span>
             <span style="display: flex; align-items: baseline; gap: 5px">
               <span class="num" style="font-size: 19px; font-weight: 800; color: {{ st.fg }}; line-height: 1.2">{{ st.value }}</span>
@@ -118,9 +134,9 @@
             </span>
           </span>
         </sc-for>
-        <span style="flex: 1.6; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 0 16px; border-left: 1px solid #f2f4f7">
+        <span style="flex: 1.6; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 0 16px; border-left: 1px solid #f2f4f7; overflow: hidden">
           <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; white-space: nowrap">最後に書き出したもの</span>
-          <span style="font-size: 12.5px; color: #3c424c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">収録設定_GLS002-003_2026-08-21.xlsx</span>
+          <span class="num cond" style="font-size: 12.5px; color: #3c424c">収録配信設定_GLS002-003_2026-08-21.xlsx</span>
         </span>
       </div>
 
@@ -137,7 +153,7 @@
         <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
           <span style="display: flex; align-items: center; gap: 8px">
             <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; white-space: nowrap">選んだ台にまとめて</span>
-            <sc-for list="{{ bulk }}" as="b" hint-placeholder-count="3">
+            <sc-for list="{{ bulk }}" as="b" hint-placeholder-count="4">
               <span class="fld" style="display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px; border: 1px solid #e6e9ed; border-radius: 9px; background: #fff; font-size: 12px; color: #5d6470; cursor: pointer; white-space: nowrap">
                 {{ b.label }}
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -161,11 +177,11 @@
             <span style="width: 22px; flex-shrink: 0"></span>
             <span style="width: 72px; flex-shrink: 0">デッキ</span>
             <span style="flex: 1; min-width: 0">表示名</span>
-            <span style="width: 164px; flex-shrink: 0">解像度／FPS</span>
+            <span style="width: 164px; flex-shrink: 0; white-space: nowrap">解像度／FPS</span>
             <span style="width: 148px; flex-shrink: 0">コーデック</span>
             <span style="width: 64px; flex-shrink: 0">音声</span>
-            <span style="width: 136px; flex-shrink: 0">収録先</span>
-            <span style="width: 140px; flex-shrink: 0">ファイル名</span>
+            <span style="width: 154px; flex-shrink: 0">収録先</span>
+            <span style="width: 168px; flex-shrink: 0">ファイル名</span>
             <span style="width: 76px; flex-shrink: 0; text-align: center">状態</span>
           </div>
           <sc-for list="{{ mainRows }}" as="r" hint-placeholder-count="8">
@@ -184,24 +200,24 @@
                 <span style="display: block; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.label }}</span>
               </span>
               <span class="fld" style="width: 164px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.fmtBd }}; border-radius: 9px; background: {{ r.fmtBg }}; cursor: pointer">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.fmtWeight }}; color: {{ r.fmtFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.fmt }}</span>
+                <span class="condw"><span class="num cond" style="font-size: 12px; font-weight: {{ r.fmtWeight }}; color: {{ r.fmtFg }}">{{ r.fmt }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
               <span class="fld" style="width: 148px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.codBd }}; border-radius: 9px; background: {{ r.codBg }}; cursor: pointer">
-                <span style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.codWeight }}; color: {{ r.codFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.codec }}</span>
+                <span class="condw"><span class="cond" style="font-size: 12px; font-weight: {{ r.codWeight }}; color: {{ r.codFg }}">{{ r.codec }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
               <span class="fld" style="width: 64px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 9px; border: 1px solid #e6e9ed; border-radius: 9px; background: #fff; cursor: pointer">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: #1a1d24">{{ r.audio }}</span>
+                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: #1a1d24; white-space: nowrap">{{ r.audio }}</span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
-              <span class="fld" style="width: 136px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.slotBd }}; border-radius: 9px; background: {{ r.slotBg }}; cursor: pointer">
+              <span class="fld" style="width: 154px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.slotBd }}; border-radius: 9px; background: {{ r.slotBg }}; cursor: pointer">
                 <span style="width: 6px; height: 6px; border-radius: 999px; background: {{ r.slotDot }}; flex-shrink: 0"></span>
-                <span style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: {{ r.slotFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.slot }}</span>
+                <span class="condw"><span class="cond" style="font-size: 12px; font-weight: 700; color: {{ r.slotFg }}">{{ r.slot }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
-              <span class="fld" style="width: 140px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; height: 32px; padding: 0 9px; border: 1px solid {{ r.nameBd }}; border-radius: 9px; background: {{ r.nameBg }}; cursor: text">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.nameWeight }}; color: {{ r.nameFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.name }}</span>
+              <span class="fld" style="width: 168px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; height: 32px; padding: 0 9px; border: 1px solid {{ r.nameBd }}; border-radius: 9px; background: {{ r.nameBg }}; cursor: text">
+                <span class="condw"><span class="num cond" style="font-size: 12px; font-weight: {{ r.nameWeight }}; color: {{ r.nameFg }}">{{ r.name }}</span></span>
               </span>
               <span style="width: 76px; flex-shrink: 0; display: flex; justify-content: center">
                 <span style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 72px; height: 22px; border-radius: 7px; background: {{ r.stBg }}; color: {{ r.stFg }}; font-size: 11px; font-weight: 800; white-space: nowrap">{{ r.state }}</span>
@@ -227,11 +243,11 @@
             <span style="width: 22px; flex-shrink: 0"></span>
             <span style="width: 72px; flex-shrink: 0">デッキ</span>
             <span style="flex: 1; min-width: 0">表示名</span>
-            <span style="width: 164px; flex-shrink: 0">解像度／FPS</span>
+            <span style="width: 164px; flex-shrink: 0; white-space: nowrap">解像度／FPS</span>
             <span style="width: 148px; flex-shrink: 0">コーデック</span>
             <span style="width: 64px; flex-shrink: 0">音声</span>
-            <span style="width: 136px; flex-shrink: 0">収録先</span>
-            <span style="width: 140px; flex-shrink: 0">ファイル名</span>
+            <span style="width: 154px; flex-shrink: 0">収録先</span>
+            <span style="width: 168px; flex-shrink: 0">ファイル名</span>
             <span style="width: 76px; flex-shrink: 0; text-align: center">状態</span>
           </div>
           <sc-for list="{{ backupRows }}" as="r" hint-placeholder-count="4">
@@ -243,7 +259,7 @@
                   </sc-if>
                 </span>
               </span>
-              <span style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1px">
+              <span style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; overflow: hidden">
                 <span class="num" style="font-size: 12.5px; font-weight: 800; letter-spacing: .03em; color: #1a1d24">{{ r.id }}</span>
                 <span class="num" style="font-size: 10.5px; color: #9aa1ab; white-space: nowrap">← {{ r.mirrors }}</span>
               </span>
@@ -251,24 +267,24 @@
                 <span style="display: block; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.label }}</span>
               </span>
               <span class="fld" style="width: 164px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.fmtBd }}; border-radius: 9px; background: {{ r.fmtBg }}; cursor: pointer">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.fmtWeight }}; color: {{ r.fmtFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.fmt }}</span>
+                <span class="condw"><span class="num cond" style="font-size: 12px; font-weight: {{ r.fmtWeight }}; color: {{ r.fmtFg }}">{{ r.fmt }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
               <span class="fld" style="width: 148px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.codBd }}; border-radius: 9px; background: {{ r.codBg }}; cursor: pointer">
-                <span style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.codWeight }}; color: {{ r.codFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.codec }}</span>
+                <span class="condw"><span class="cond" style="font-size: 12px; font-weight: {{ r.codWeight }}; color: {{ r.codFg }}">{{ r.codec }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
               <span class="fld" style="width: 64px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 9px; border: 1px solid #e6e9ed; border-radius: 9px; background: #fff; cursor: pointer">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: #1a1d24">{{ r.audio }}</span>
+                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: #1a1d24; white-space: nowrap">{{ r.audio }}</span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
-              <span class="fld" style="width: 136px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.slotBd }}; border-radius: 9px; background: {{ r.slotBg }}; cursor: pointer">
+              <span class="fld" style="width: 154px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 9px; border: 1px solid {{ r.slotBd }}; border-radius: 9px; background: {{ r.slotBg }}; cursor: pointer">
                 <span style="width: 6px; height: 6px; border-radius: 999px; background: {{ r.slotDot }}; flex-shrink: 0"></span>
-                <span style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: {{ r.slotFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.slot }}</span>
+                <span class="condw"><span class="cond" style="font-size: 12px; font-weight: 700; color: {{ r.slotFg }}">{{ r.slot }}</span></span>
                 <svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </span>
-              <span class="fld" style="width: 140px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; height: 32px; padding: 0 9px; border: 1px solid {{ r.nameBd }}; border-radius: 9px; background: {{ r.nameBg }}; cursor: text">
-                <span class="num" style="flex: 1; min-width: 0; font-size: 12px; font-weight: {{ r.nameWeight }}; color: {{ r.nameFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.name }}</span>
+              <span class="fld" style="width: 168px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; height: 32px; padding: 0 9px; border: 1px solid {{ r.nameBd }}; border-radius: 9px; background: {{ r.nameBg }}; cursor: text">
+                <span class="condw"><span class="num cond" style="font-size: 12px; font-weight: {{ r.nameWeight }}; color: {{ r.nameFg }}">{{ r.name }}</span></span>
               </span>
               <span style="width: 76px; flex-shrink: 0; display: flex; justify-content: center">
                 <span style="display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 72px; height: 22px; border-radius: 7px; background: {{ r.stBg }}; color: {{ r.stFg }}; font-size: 11px; font-weight: 800; white-space: nowrap">{{ r.state }}</span>
@@ -309,7 +325,7 @@ class Component extends DCLogic {
     const MAIN = [
       { id: 'REC1', label: '本線 PGM', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', name: 'GLS002-003_PGM', state: '準備完了' },
       { id: 'REC2', label: 'サブ 1（引き）', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', name: 'GLS002-003_SUB1', state: '準備完了' },
-      { id: 'REC3', label: 'サブ 2（寄り）', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', name: 'GLS002-003_SUB2', state: '注意' },
+      { id: 'REC3', label: 'サブ 2（寄り）', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'NAS 未マウント', name: 'GLS002-003_SUB2', state: '注意' },
       { id: 'REC4', label: '客席', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', name: 'GLS002-003_HALL', state: '準備完了' },
       { id: 'REC5', label: 'ステージ 上手', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SSD 1', name: 'GLS002-003_STG_L', state: '準備完了' },
       { id: 'REC6', label: 'ステージ 下手', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SSD 1', name: 'GLS002-003_STG_R', state: '準備完了' },
@@ -375,12 +391,15 @@ class Component extends DCLogic {
       shadow: scope === s.key ? '0 1px 2px rgba(16,24,40,.10)' : 'none',
     }));
 
+    // 帯の数字は、いま見えている台から数える（絞り込みとずれない）
     const rule = (i) => (i === 0 ? 'none' : '1px solid #f2f4f7');
+    const shown = (scope === 'main' ? MAIN : (scope === 'backup' ? BACKUP : MAIN.concat(BACKUP)));
+    const count = (fn) => String(shown.filter(fn).length);
     const stats = [
-      { label: '準備完了', value: '9', unit: '台', fg: '#197a4b', rule: rule(0) },
-      { label: '未入力', value: '2', unit: '台', fg: '#5d6470', rule: rule(1) },
-      { label: '注意', value: '1', unit: '台', fg: '#c2410e', rule: rule(2) },
-      { label: 'ネットワーク収録', value: '5', unit: '台', fg: '#005bac', rule: rule(3) },
+      { label: '準備完了', value: count((d) => d.state === '準備完了'), unit: '台', fg: '#197a4b', rule: rule(0) },
+      { label: '未入力', value: count((d) => d.state === '未入力'), unit: '台', fg: '#5d6470', rule: rule(1) },
+      { label: '注意', value: count((d) => d.state === '注意'), unit: '台', fg: '#c2410e', rule: rule(2) },
+      { label: 'ネットワーク収録', value: count((d) => d.slot === 'ネットワーク'), unit: '台', fg: '#005bac', rule: rule(3) },
     ];
 
     return {

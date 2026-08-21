@@ -1,10 +1,45 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "title": "収録設定（PC）", "x": 0, "y": 0, "w": 1440, "h": 1180 },
-    { "file": "Stream.dc.html", "title": "配信設定（PC）", "x": 1580, "y": 0, "w": 1440, "h": 1000 },
-    { "file": "Export.dc.html", "title": "Excel を書き出す", "x": 3160, "y": 0, "w": 1440, "h": 1000 },
-    { "file": "RecordMobile.dc.html", "title": "収録設定（スマホ）", "x": 0, "y": 1360, "w": 390, "h": 844 },
-    { "file": "StreamMobile.dc.html", "title": "配信設定（スマホ・編集）", "x": 550, "y": 1360, "w": 390, "h": 844 }
+    {
+      "file": "Main.dc.html",
+      "title": "収録設定（PC）",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1180
+    },
+    {
+      "file": "Stream.dc.html",
+      "title": "配信設定（PC）",
+      "x": 1580,
+      "y": 0,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Export.dc.html",
+      "title": "Excel を書き出す",
+      "x": 3160,
+      "y": 0,
+      "w": 1440,
+      "h": 1080
+    },
+    {
+      "file": "RecordMobile.dc.html",
+      "title": "収録設定（スマホ）",
+      "x": 0,
+      "y": 1360,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "StreamMobile.dc.html",
+      "title": "配信設定（スマホ・編集）",
+      "x": 550,
+      "y": 1360,
+      "w": 390,
+      "h": 844
+    }
   ],
   "annotations": [
     {
@@ -29,5 +64,7 @@
       "text": "スマホは「1台ずつ直す」に絞り、まとめて変えるのは PC。\nOSの時計・電池は描いていません（実機では上に重なるため）。\nタップ対象は 44px 以上、主アクションは下端に 52px で固定。"
     }
   ],
-  "launch": { "view": "canvas" }
+  "launch": {
+    "view": "canvas"
+  }
 }

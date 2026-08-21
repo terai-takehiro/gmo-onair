@@ -9,6 +9,9 @@
 <helmet>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
   <style>
+    html, body { height: 100%; }
+    /* 描画側の受け皿（#dc-root など）に高さが無いと height:100% が解決できない */
+    body > div { height: 100%; }
     body { margin: 0; background: #f7f8fa;
       font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', Meiryo, sans-serif;
       font-feature-settings: 'palt' 1, 'kern' 1; color: #1a1d24; -webkit-font-smoothing: antialiased; }
@@ -18,18 +21,31 @@
     .btn-ghost:hover { background: #f2f4f7; border-color: #cbd2da; }
     .btn-solid:hover { filter: brightness(1.08); }
     .rw:hover { background: #fbfcfd; }
+    /* 長体。**枠を 1/縮小率 だけ広げてから縮める** — こうしないと ellipsis が
+       変形前の幅で決まるので、字が細くなるだけで文字数は増えない。
+       JS で測って書き戻す「長体フィット」は入れない（DESIGN_POLICY.md）*/
+    .condw { flex: 1 1 0; min-width: 0; overflow: hidden; }   /* 横並びの中で使う受け皿 */
+    .condb { display: block; min-width: 0; overflow: hidden; } /* 縦積みの中で使う受け皿 */
+    .cond { display: block; width: 106.4%; transform: scaleX(.94); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-s { display: block; width: 111.2%; transform: scaleX(.90); transform-origin: left center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cond-r { display: block; width: 106.4%; margin-left: -6.4%; transform: scaleX(.94);
+      transform-origin: right center; text-align: right;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nb { white-space: nowrap; }
     .ico { display: block; }
   </style>
 </helmet>
 
-<div style="position: relative; height: 100%; overflow: hidden; background: #f7f8fa">
+<div style="position: relative; height: 100vh; overflow: hidden; background: #f7f8fa">
 
   <!-- 背後の画面（ぼかさず、暗幕だけ） -->
-  <div style="position: absolute; inset: 0; display: flex; flex-direction: column">
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden">
     <div style="height: 64px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e6e9ed"></div>
     <div style="flex: 1; display: flex">
       <div style="width: 248px; background: #fff; border-right: 1px solid #e6e9ed; flex-shrink: 0"></div>
-      <div style="flex: 1; padding: 22px 26px; display: flex; flex-direction: column; gap: 13px">
+      <div style="flex: 1; padding: 22px 26px; display: flex; flex-direction: column; gap: 13px; overflow: hidden">
         <div style="height: 52px; background: #eceef1; border-radius: 12px; width: 46%"></div>
         <div style="height: 64px; background: #fff; border: 1px solid #e6e9ed; border-radius: 14px"></div>
         <div style="flex: 1; background: #fff; border: 1px solid #e6e9ed; border-radius: 16px"></div>
@@ -46,7 +62,7 @@
         <span style="width: 38px; height: 38px; border-radius: 11px; background: #fff7ed; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
           <svg class="ico" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         </span>
-        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
           <span style="font-size: 19px; font-weight: 800; letter-spacing: .01em">Excel を書き出す</span>
           <span style="font-size: 12.5px; color: #5d6470">現場の GMO ONAiR Assistant が、この形のまま読み込めます。</span>
         </span>
@@ -54,10 +70,10 @@
 
       <div style="height: 1px; background: #eef0f3"></div>
 
-      <div style="padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 16px">
+      <div style="padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
 
         <!-- 何を出すか -->
-        <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 8px; overflow: hidden">
           <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">シートに出すもの</span>
           <div style="border: 1px solid #e6e9ed; border-radius: 12px; overflow: hidden">
             <sc-for list="{{ sheets }}" as="s" hint-placeholder-count="3">
@@ -68,7 +84,7 @@
                   </sc-if>
                 </span>
                 <span class="num" style="width: 22px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab">{{ s.no }}</span>
-                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
                   <span style="font-size: 13.5px; font-weight: 700">{{ s.name }}</span>
                   <span style="font-size: 11.5px; color: #5d6470">{{ s.desc }}</span>
                 </span>
@@ -79,7 +95,7 @@
         </div>
 
         <!-- 列見出しの見本 -->
-        <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 8px; overflow: hidden">
           <span style="display: flex; align-items: baseline; gap: 8px">
             <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">1 枚目「収録設定」の見出し行</span>
             <span style="font-size: 11px; color: #9aa1ab">この文字列のまま出します（現地が読み取る鍵）</span>
@@ -99,27 +115,28 @@
             </sc-for>
           </div>
           <span style="font-size: 11.5px; line-height: 1.7; color: #5d6470">
-            シートは <strong style="font-weight:800; color:#3c424c">1 枚目だけが読まれます</strong>。見出しは 1 行目・途中に空行は入れません。<strong style="font-weight:800; color:#3c424c">TCソースの列は出しません</strong>（現地で必ず弾かれる列だからです）。
+            シートは <strong class="nb" style="font-weight:800; color:#3c424c">1 枚目だけが読まれます</strong>。見出しは 1 行目・途中に空行は入れません。<strong class="nb" style="font-weight:800; color:#3c424c">TCソースの列は出しません</strong>（現地で必ず弾かれる列だからです）。<strong class="nb" style="font-weight:800; color:#3c424c">表示名も出しません</strong>（ONAiR の中だけの呼び名で、現地は読みません）。
           </span>
         </div>
 
         <!-- 書き出す前の点検 -->
-        <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; flex-direction: column; gap: 8px; overflow: hidden">
           <span style="display: flex; align-items: baseline; gap: 8px">
             <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">書き出す前の点検</span>
             <div style="flex: 1"></div>
-            <span style="font-size: 11.5px; font-weight: 800; color: #c7243a">直したほうがよい 1 件</span>
-            <span style="font-size: 11.5px; color: #5d6470">・そのままでよい 3 件</span>
+            <span style="font-size: 11.5px; font-weight: 800; color: #c7243a; white-space: nowrap">直したほうがよい 1 件</span>
+            <span style="font-size: 11.5px; font-weight: 800; color: #c2410e; white-space: nowrap">・確かめたい 2 件</span>
+            <span style="font-size: 11.5px; color: #5d6470; white-space: nowrap">・そのままでよい 2 件</span>
           </span>
           <div style="border: 1px solid #e6e9ed; border-radius: 12px; overflow: hidden">
-            <sc-for list="{{ checks }}" as="c" hint-placeholder-count="4">
+            <sc-for list="{{ checks }}" as="c" hint-placeholder-count="5">
               <div class="rw" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f2f4f7; background: {{ c.bg }}">
                 <span style="flex-shrink: 0; padding-top: 1px">
                   <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ c.iconFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="{{ c.iconPath }}"/></svg>
                 </span>
-                <span class="num" style="width: 62px; flex-shrink: 0; font-size: 12px; font-weight: 800; color: #1a1d24">{{ c.who }}</span>
-                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
-                  <span style="font-size: 12.5px; font-weight: 700; color: {{ c.fg }}">{{ c.title }}</span>
+                <span class="num" style="width: 112px; flex-shrink: 0; font-size: 12px; font-weight: 800; color: #1a1d24; white-space: nowrap">{{ c.who }}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
+                  <span class="cond" style="font-size: 12.5px; font-weight: 700; color: {{ c.fg }}">{{ c.title }}</span>
                   <span style="font-size: 11.5px; line-height: 1.6; color: #5d6470">{{ c.desc }}</span>
                 </span>
                 <sc-if value="{{ c.fix }}" hint-placeholder-val="{{ true }}">
@@ -135,7 +152,7 @@
           <span style="flex-shrink: 0">
             <svg class="ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ keyIconFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
           </span>
-          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
             <span style="font-size: 13px; font-weight: 800; color: {{ keyFg }}">ストリームキーとパスフレーズを入れる</span>
             <span style="font-size: 11.5px; line-height: 1.6; color: #5d6470">{{ keyNote }}</span>
           </span>
@@ -148,7 +165,7 @@
         <div style="display: flex; align-items: center; gap: 11px">
           <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; flex-shrink: 0">ファイル名</span>
           <span style="flex: 1; min-width: 0; display: flex; align-items: center; box-sizing: border-box; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff">
-            <span class="num" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">収録配信設定_GLS002-003_2026-08-21.xlsx</span>
+            <span class="condw"><span class="num cond" style="font-size: 13px; font-weight: 700">収録配信設定_GLS002-003_2026-08-21.xlsx</span></span>
           </span>
         </div>
       </div>
@@ -167,7 +184,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"accent":{"editor":"color","default":"#c2410e","options":["#c2410e","#005bac","#197a4b","#4338ca"],"section":"見た目"}}'>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1080},"accent":{"editor":"color","default":"#c2410e","options":["#c2410e","#005bac","#197a4b","#4338ca"],"section":"見た目"}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -181,14 +198,14 @@ class Component extends DCLogic {
 
     const SHEETS = [
       { key: 'rec', no: '1', name: '収録設定', desc: 'REC1–REC8 ・ REC1-P–REC4-P（12 行）', count: '12 行' },
-      { key: 'str', no: '2', name: '配信設定', desc: 'ENC ごとの配信先。1 行 = 1 つの配信先', count: '7 行' },
+      { key: 'str', no: '2', name: '配信設定', desc: 'ENC ごとの配信先。1 行 = 1 つの配信先', count: '6 行' },
       { key: 'guide', no: '3', name: '入力ガイド', desc: '列の意味と、書ける値。現地では読まれません', count: '19 行' },
     ];
 
-    const W = ['74px', '150px', '118px', '64px', '112px', '156px'];
+    const W = ['74px', '150px', '118px', '64px', '112px', '196px'];
     const HEAD = ['デッキ', '解像度', 'コーデック', '音声ch', '収録先', 'ファイル名'];
     const ROWS = [
-      ['REC1', '1920x1080p59.94', 'ProRes:HQ', '2', '1', 'GLS002-003_PGM'],
+      ['REC1', '1920x1080p59.94', 'ProRes:HQ', '2', 'ネットワーク', 'GLS002-003_PGM'],
       ['REC8', '', '', '2', 'ネットワーク', ''],
     ];
 
@@ -199,8 +216,13 @@ class Component extends DCLogic {
         fg: '#c7243a', bg: '#fef6f7', iconFg: '#c7243a', iconPath: 'M12 8v5M12 16h.01', fix: '直しに行く',
       },
       {
-        who: 'REC8', title: '解像度とコーデックが空欄です',
+        who: 'REC8 ・ REC3-P', title: '解像度・コーデック・ファイル名が空欄です',
         desc: '空欄のまま出します。現地に入っている設定は変わりません。',
+        fg: '#c2410e', bg: '#fff', iconFg: '#c2410e', iconPath: 'M12 8v5M12 16h.01', fix: '直しに行く',
+      },
+      {
+        who: 'REC3', title: '収録先が「NAS 未マウント」のままです',
+        desc: '現地でネットワーク収録に切り替わらないと、この台だけ本体メディアに録れます。',
         fg: '#c2410e', bg: '#fff', iconFg: '#c2410e', iconPath: 'M12 8v5M12 16h.01', fix: '直しに行く',
       },
       {
