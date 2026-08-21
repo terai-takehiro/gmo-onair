@@ -82,24 +82,38 @@ function ResultCard({ step }: { step: FlowStep }) {
   );
 }
 
-/** 材料（売上・仕入・固定原価・販管費）は1行ずつの小さい表示にする */
+/**
+ * 材料（売上・仕入・固定原価・販管費）は1行ずつの小さい表示にする。
+ *
+ * ── ラベル・金額・件数を1行に詰め込んで、ラベルが切れていた ────────
+ *
+ * 旧実装はラベル（`flex-1 truncate`）・金額・件数（`w-32` 固定）を横1列に並べていて、
+ * `lg:grid-cols-4` では1列 282px 程度しか無く、金額と件数（合わせて 220px 超）に
+ * 押し出されて**ラベルがほぼ0幅まで潰れていた**（「売上」が「売」に、「仕入（変動原価）」が
+ * 「仕‥」に見える。DOM上の文字列は全部残っているので既存の検査には引っかからなかった）。
+ * **ラベル＋金額を1行目、件数（sub）を2行目**に分け、件数のために横幅を横取りしない形にした。
+ */
 function InputRow({ step }: { step: FlowStep }) {
   const navigate = useNavigate();
   const inner = (
     <>
-      <span className="text-sub min-w-0 flex-1 truncate text-muted-foreground">{step.label}</span>
-      <Money value={step.value} className="text-list shrink-0 font-bold" />
-      <span className="text-note w-32 shrink-0 truncate text-right text-muted-foreground">{step.sub ?? ''}</span>
+      <div className="flex items-baseline gap-2">
+        <span className="text-sub min-w-0 flex-1 truncate text-muted-foreground">{step.label}</span>
+        <Money value={step.value} className="text-list shrink-0 font-bold" />
+      </div>
+      {step.sub && (
+        <span className="text-note mt-0.5 block truncate text-right text-muted-foreground">{step.sub}</span>
+      )}
     </>
   );
   if (!step.to) {
-    return <div className="flex items-center gap-2 rounded-control border border-border-faint px-3 py-2">{inner}</div>;
+    return <div className="flex flex-col rounded-control border border-border-faint px-3 py-2">{inner}</div>;
   }
   return (
     <button
       type="button"
       onClick={() => navigate(step.to!)}
-      className="flex items-center gap-2 rounded-control border border-border-faint px-3 py-2 text-left hover:border-border-strong hover:bg-muted"
+      className="flex flex-col rounded-control border border-border-faint px-3 py-2 text-left hover:border-border-strong hover:bg-muted"
       title={`${step.label}の明細をひらく`}
     >
       {inner}
