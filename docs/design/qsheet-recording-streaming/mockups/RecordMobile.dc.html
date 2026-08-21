@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
+  <style>
+    body { margin: 0; background: #f2f4f7;
+      font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', Meiryo, sans-serif;
+      font-feature-settings: 'palt' 1, 'kern' 1; color: #1a1d24; -webkit-font-smoothing: antialiased; }
+    a { color: #c2410e; text-decoration: none; } a:hover { color: #9a3412; }
+    .num { font-variant-numeric: tabular-nums; }
+    .tap { transition: background-color .16s, transform .14s; }
+    .tap:active { transform: scale(.985); }
+    .tap:hover { background: #fbfcfd; }
+    .ico { display: block; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; height: 100%; background: #f2f4f7; overflow: hidden">
+
+  <!-- ナビゲーションバー（OS の時計・電池は描かない） -->
+  <div style="flex-shrink: 0; background: rgba(255,255,255,.92); border-bottom: 1px solid #e6e9ed; backdrop-filter: saturate(180%) blur(16px)">
+    <div style="display: flex; align-items: center; gap: 6px; height: 48px; padding: 0 8px">
+      <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg class="ico" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="{{ accent }}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+      </span>
+      <span style="flex: 1; min-width: 0; text-align: center; font-size: 16px; font-weight: 800; letter-spacing: .01em">収録設定</span>
+      <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ accent }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      </span>
+    </div>
+    <div style="padding: 0 16px 10px; display: flex; align-items: center; gap: 8px">
+      <span class="num" style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800; flex-shrink: 0">GLS002-003</span>
+      <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #5d6470; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">60周年 記念式典 ／ 8/24（日）用賀</span>
+    </div>
+  </div>
+
+  <!-- 本文 -->
+  <div style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 16px 0; display: flex; flex-direction: column; gap: 14px">
+
+    <!-- 状態の要約 -->
+    <div style="display: flex; gap: 8px">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #fff; border-radius: 14px">
+          <span style="font-size: 11px; font-weight: 800; color: #9aa1ab; white-space: nowrap">{{ s.label }}</span>
+          <span style="display: flex; align-items: baseline; gap: 3px">
+            <span class="num" style="font-size: 19px; font-weight: 800; color: {{ s.fg }}; line-height: 1.15">{{ s.value }}</span>
+            <span style="font-size: 11px; color: #9aa1ab">台</span>
+          </span>
+        </span>
+      </sc-for>
+    </div>
+
+    <!-- 切替 -->
+    <span style="display: flex; background: #e2e5ea; border-radius: 11px; padding: 3px; gap: 3px">
+      <sc-for list="{{ scopes }}" as="sc" hint-placeholder-count="2">
+        <span onClick="{{ sc.pick }}" class="tap" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; height: 36px; border-radius: 8px; background: {{ sc.bg }}; color: {{ sc.fg }}; font-size: 13px; font-weight: {{ sc.weight }}; box-shadow: {{ sc.shadow }}; cursor: pointer; white-space: nowrap">{{ sc.label }}</span>
+      </sc-for>
+    </span>
+
+    <!-- 一覧 -->
+    <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 7px">
+      <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; padding: 0 4px">{{ listTitle }}</span>
+      <div style="background: #fff; border-radius: 14px; overflow: hidden">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+          <div onClick="{{ r.open }}" class="tap" style="display: flex; align-items: center; gap: 11px; min-height: 62px; padding: 10px 12px 10px 14px; cursor: pointer; border-top: {{ r.rule }}">
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: {{ r.dot }}; flex-shrink: 0"></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="display: flex; align-items: baseline; gap: 7px">
+                <span class="num" style="font-size: 13.5px; font-weight: 800; letter-spacing: .03em; flex-shrink: 0">{{ r.id }}</span>
+                <span style="font-size: 13px; font-weight: 700; color: #3c424c; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.label }}</span>
+              </span>
+              <span class="num" style="font-size: 11.5px; color: {{ r.metaFg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ r.meta }}</span>
+            </span>
+            <span style="flex-shrink: 0">
+              <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 6 6 6-6 6"/></svg>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin: 6px 4px 0; font-size: 11.5px; line-height: 1.7; color: #5d6470">1 台ずつ開いて直します。まとめて変えるときは PC で開いてください。</p>
+    </div>
+  </div>
+
+  <!-- 下端の主アクション -->
+  <div style="flex-shrink: 0; padding: 10px 16px 22px; background: linear-gradient(to top, #f2f4f7 62%, rgba(242,244,247,0))">
+    <button onClick="{{ noop }}" class="tap" style="width: 100%; height: 52px; border: none; border-radius: 14px; background: {{ accent }}; color: #fff; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px">
+      <svg class="ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M4 19h16"/></svg>
+      Excel を書き出す
+    </button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844},"accent":{"editor":"color","default":"#c2410e","options":["#c2410e","#005bac","#197a4b","#4338ca"],"section":"見た目"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { scope: 'main' };
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#c2410e';
+    const scope = this.state.scope;
+
+    const MAIN = [
+      { id: 'REC1', label: '本線 PGM', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', ok: true },
+      { id: 'REC2', label: 'サブ 1（引き）', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', ok: true },
+      { id: 'REC3', label: 'サブ 2（寄り）', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', warn: true },
+      { id: 'REC4', label: '客席', fmt: '1920x1080p59.94', codec: 'ProRes:HQ', audio: '2 ch', slot: 'ネットワーク', ok: true },
+      { id: 'REC5', label: 'ステージ 上手', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SSD 1', ok: true },
+      { id: 'REC6', label: 'ステージ 下手', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SSD 1', ok: true },
+      { id: 'REC7', label: '記録（4K 引き）', fmt: '3840x2160p59.94', codec: 'H.265:High', audio: '4 ch', slot: 'SSD 2', ok: true },
+      { id: 'REC8', label: '予備 ISO', fmt: '', codec: '', audio: '2 ch', slot: 'ネットワーク', ok: false },
+    ];
+    const BACKUP = [
+      { id: 'REC1-P', label: '本線 PGM の控え', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SD 1', ok: true },
+      { id: 'REC2-P', label: 'サブ 1 の控え', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SD 1', ok: true },
+      { id: 'REC3-P', label: 'サブ 2 の控え', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SD 2', ok: false },
+      { id: 'REC4-P', label: '客席の控え', fmt: '1920x1080p59.94', codec: 'ProRes:422', audio: '2 ch', slot: 'SD 2', ok: true },
+    ];
+
+    const src = scope === 'main' ? MAIN : BACKUP;
+
+    const rows = src.map((d, i) => {
+      const blank = !d.fmt || !d.codec;
+      return {
+        id: d.id,
+        label: d.label,
+        open: () => {},
+        rule: i === 0 ? 'none' : '1px solid #f2f4f7',
+        dot: blank ? '#cbd2da' : (d.warn ? '#c2410e' : '#197a4b'),
+        meta: blank
+          ? 'まだ入力していません'
+          : d.fmt + ' ・ ' + d.codec + ' ・ ' + d.audio + ' ・ ' + d.slot,
+        metaFg: blank ? '#9aa1ab' : '#5d6470',
+      };
+    });
+
+    const scopes = [
+      { key: 'main', label: '本線 8 台' },
+      { key: 'backup', label: '控え 4 台' },
+    ].map((s) => ({
+      label: s.label,
+      pick: () => this.setState({ scope: s.key }),
+      bg: scope === s.key ? '#fff' : 'transparent',
+      fg: scope === s.key ? '#1a1d24' : '#5d6470',
+      weight: scope === s.key ? '800' : '700',
+      shadow: scope === s.key ? '0 1px 3px rgba(16,24,40,.14)' : 'none',
+    }));
+
+    return {
+      accent,
+      noop: () => {},
+      stats: [
+        { label: '準備完了', value: '9', fg: '#197a4b' },
+        { label: '未入力', value: '2', fg: '#5d6470' },
+        { label: '注意', value: '1', fg: '#c2410e' },
+      ],
+      scopes,
+      listTitle: scope === 'main' ? 'HyperDeck Studio 4K Pro' : 'HyperDeck HD Plus（本線と同じ入力）',
+      rows,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
+  <style>
+    body { margin: 0; background: #f7f8fa;
+      font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', Meiryo, sans-serif;
+      font-feature-settings: 'palt' 1, 'kern' 1; color: #1a1d24; -webkit-font-smoothing: antialiased; }
+    a { color: #c2410e; text-decoration: none; } a:hover { color: #9a3412; }
+    .num { font-variant-numeric: tabular-nums; }
+    .btn { transition: background-color .16s, border-color .16s, filter .16s; }
+    .btn-ghost:hover { background: #f2f4f7; border-color: #cbd2da; }
+    .btn-solid:hover { filter: brightness(1.08); }
+    .rw:hover { background: #fbfcfd; }
+    .ico { display: block; }
+  </style>
+</helmet>
+
+<div style="position: relative; height: 100%; overflow: hidden; background: #f7f8fa">
+
+  <!-- 背後の画面（ぼかさず、暗幕だけ） -->
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column">
+    <div style="height: 64px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e6e9ed"></div>
+    <div style="flex: 1; display: flex">
+      <div style="width: 248px; background: #fff; border-right: 1px solid #e6e9ed; flex-shrink: 0"></div>
+      <div style="flex: 1; padding: 22px 26px; display: flex; flex-direction: column; gap: 13px">
+        <div style="height: 52px; background: #eceef1; border-radius: 12px; width: 46%"></div>
+        <div style="height: 64px; background: #fff; border: 1px solid #e6e9ed; border-radius: 14px"></div>
+        <div style="flex: 1; background: #fff; border: 1px solid #e6e9ed; border-radius: 16px"></div>
+      </div>
+    </div>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(26,29,36,.34)"></div>
+
+  <!-- シート -->
+  <div style="position: absolute; left: 0; right: 0; top: 44px; display: flex; justify-content: center">
+    <div style="width: 760px; box-sizing: border-box; background: #fff; border-radius: 12px; box-shadow: 0 40px 90px -30px rgba(16,24,40,.45); overflow: hidden; display: flex; flex-direction: column">
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 18px 22px 15px">
+        <span style="width: 38px; height: 38px; border-radius: 11px; background: #fff7ed; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg class="ico" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 19px; font-weight: 800; letter-spacing: .01em">Excel を書き出す</span>
+          <span style="font-size: 12.5px; color: #5d6470">現場の GMO ONAiR Assistant が、この形のまま読み込めます。</span>
+        </span>
+      </div>
+
+      <div style="height: 1px; background: #eef0f3"></div>
+
+      <div style="padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 16px">
+
+        <!-- 何を出すか -->
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">シートに出すもの</span>
+          <div style="border: 1px solid #e6e9ed; border-radius: 12px; overflow: hidden">
+            <sc-for list="{{ sheets }}" as="s" hint-placeholder-count="3">
+              <div onClick="{{ s.toggle }}" class="rw" style="display: flex; align-items: center; gap: 11px; padding: 11px 14px; border-bottom: 1px solid #f2f4f7; cursor: pointer; background: {{ s.bg }}">
+                <span style="width: 18px; height: 18px; box-sizing: border-box; border: 1.5px solid {{ s.boxBd }}; border-radius: 5px; background: {{ s.boxBg }}; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+                  <sc-if value="{{ s.on }}" hint-placeholder-val="{{ true }}">
+                    <svg class="ico" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </sc-if>
+                </span>
+                <span class="num" style="width: 22px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab">{{ s.no }}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 13.5px; font-weight: 700">{{ s.name }}</span>
+                  <span style="font-size: 11.5px; color: #5d6470">{{ s.desc }}</span>
+                </span>
+                <span class="num" style="font-size: 12px; font-weight: 800; color: {{ s.countFg }}; flex-shrink: 0">{{ s.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- 列見出しの見本 -->
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="display: flex; align-items: baseline; gap: 8px">
+            <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">1 枚目「収録設定」の見出し行</span>
+            <span style="font-size: 11px; color: #9aa1ab">この文字列のまま出します（現地が読み取る鍵）</span>
+          </span>
+          <div style="border: 1px solid #e6e9ed; border-radius: 12px; overflow: hidden">
+            <div style="display: flex; background: #fbfcfd; border-bottom: 1px solid #eef0f3">
+              <sc-for list="{{ head }}" as="h" hint-placeholder-count="6">
+                <span class="num" style="width: {{ h.w }}; flex-shrink: 0; box-sizing: border-box; padding: 8px 10px; font-size: 11px; font-weight: 800; color: #5d6470; border-right: 1px solid #eef0f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ h.label }}</span>
+              </sc-for>
+            </div>
+            <sc-for list="{{ sample }}" as="row" hint-placeholder-count="2">
+              <div style="display: flex; border-bottom: 1px solid #f2f4f7">
+                <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="6">
+                  <span class="num" style="width: {{ c.w }}; flex-shrink: 0; box-sizing: border-box; padding: 8px 10px; font-size: 11.5px; color: {{ c.fg }}; border-right: 1px solid #f2f4f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ c.v }}</span>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <span style="font-size: 11.5px; line-height: 1.7; color: #5d6470">
+            シートは <strong style="font-weight:800; color:#3c424c">1 枚目だけが読まれます</strong>。見出しは 1 行目・途中に空行は入れません。<strong style="font-weight:800; color:#3c424c">TCソースの列は出しません</strong>（現地で必ず弾かれる列だからです）。
+          </span>
+        </div>
+
+        <!-- 書き出す前の点検 -->
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="display: flex; align-items: baseline; gap: 8px">
+            <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab">書き出す前の点検</span>
+            <div style="flex: 1"></div>
+            <span style="font-size: 11.5px; font-weight: 800; color: #c7243a">直したほうがよい 1 件</span>
+            <span style="font-size: 11.5px; color: #5d6470">・そのままでよい 3 件</span>
+          </span>
+          <div style="border: 1px solid #e6e9ed; border-radius: 12px; overflow: hidden">
+            <sc-for list="{{ checks }}" as="c" hint-placeholder-count="4">
+              <div class="rw" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f2f4f7; background: {{ c.bg }}">
+                <span style="flex-shrink: 0; padding-top: 1px">
+                  <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ c.iconFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="{{ c.iconPath }}"/></svg>
+                </span>
+                <span class="num" style="width: 62px; flex-shrink: 0; font-size: 12px; font-weight: 800; color: #1a1d24">{{ c.who }}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 12.5px; font-weight: 700; color: {{ c.fg }}">{{ c.title }}</span>
+                  <span style="font-size: 11.5px; line-height: 1.6; color: #5d6470">{{ c.desc }}</span>
+                </span>
+                <sc-if value="{{ c.fix }}" hint-placeholder-val="{{ true }}">
+                  <span onClick="{{ noop }}" style="font-size: 11.5px; font-weight: 700; color: #005bac; cursor: pointer; white-space: nowrap; flex-shrink: 0">{{ c.fix }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- 鍵の扱い -->
+        <div onClick="{{ toggleKeys }}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid {{ keyBd }}; border-radius: 12px; background: {{ keyBg }}; cursor: pointer">
+          <span style="flex-shrink: 0">
+            <svg class="ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ keyIconFg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          </span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 13px; font-weight: 800; color: {{ keyFg }}">ストリームキーとパスフレーズを入れる</span>
+            <span style="font-size: 11.5px; line-height: 1.6; color: #5d6470">{{ keyNote }}</span>
+          </span>
+          <span style="width: 44px; height: 26px; border-radius: 999px; background: {{ swBg }}; flex-shrink: 0; display: flex; align-items: center; padding: 3px; box-sizing: border-box; justify-content: {{ swPos }}">
+            <span style="width: 20px; height: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(16,24,40,.28)"></span>
+          </span>
+        </div>
+
+        <!-- ファイル名 -->
+        <div style="display: flex; align-items: center; gap: 11px">
+          <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; flex-shrink: 0">ファイル名</span>
+          <span style="flex: 1; min-width: 0; display: flex; align-items: center; box-sizing: border-box; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff">
+            <span class="num" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">収録配信設定_GLS002-003_2026-08-21.xlsx</span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 13px 22px; border-top: 1px solid #eef0f3; background: #fbfcfd">
+        <span style="font-size: 11.5px; color: #5d6470">書き出したものは「書き出しの履歴」に残ります。</span>
+        <div style="flex: 1"></div>
+        <button onClick="{{ noop }}" class="btn btn-ghost" style="height: 38px; padding: 0 15px; border: 1px solid #e6e9ed; border-radius: 10px; background: #fff; font-size: 12.5px; font-weight: 700; color: #3c424c; font-family: inherit; cursor: pointer; white-space: nowrap">やめる</button>
+        <button onClick="{{ noop }}" class="btn btn-solid" style="height: 38px; padding: 0 17px; border: none; border-radius: 10px; background: {{ accent }}; color: #fff; font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap">
+          <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M4 19h16"/></svg>
+          書き出す
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1000},"accent":{"editor":"color","default":"#c2410e","options":["#c2410e","#005bac","#197a4b","#4338ca"],"section":"見た目"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: ['rec', 'str', 'guide'], keys: true };
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#c2410e';
+    const on = this.state.on;
+    const keys = this.state.keys;
+
+    const SHEETS = [
+      { key: 'rec', no: '1', name: '収録設定', desc: 'REC1–REC8 ・ REC1-P–REC4-P（12 行）', count: '12 行' },
+      { key: 'str', no: '2', name: '配信設定', desc: 'ENC ごとの配信先。1 行 = 1 つの配信先', count: '7 行' },
+      { key: 'guide', no: '3', name: '入力ガイド', desc: '列の意味と、書ける値。現地では読まれません', count: '19 行' },
+    ];
+
+    const W = ['74px', '150px', '118px', '64px', '112px', '156px'];
+    const HEAD = ['デッキ', '解像度', 'コーデック', '音声ch', '収録先', 'ファイル名'];
+    const ROWS = [
+      ['REC1', '1920x1080p59.94', 'ProRes:HQ', '2', '1', 'GLS002-003_PGM'],
+      ['REC8', '', '', '2', 'ネットワーク', ''],
+    ];
+
+    const checks = [
+      {
+        who: 'ENC3', title: 'RTMP なのに、ストリームキーが入っていません',
+        desc: '現地でこの行は取り込めません（機器が必ず断ります）。',
+        fg: '#c7243a', bg: '#fef6f7', iconFg: '#c7243a', iconPath: 'M12 8v5M12 16h.01', fix: '直しに行く',
+      },
+      {
+        who: 'REC8', title: '解像度とコーデックが空欄です',
+        desc: '空欄のまま出します。現地に入っている設定は変わりません。',
+        fg: '#c2410e', bg: '#fff', iconFg: '#c2410e', iconPath: 'M12 8v5M12 16h.01', fix: '直しに行く',
+      },
+      {
+        who: 'ENC4', title: '配信先が登録されていないので、この台は出しません',
+        desc: '出さなくても現地の設定は変わりません。',
+        fg: '#3c424c', bg: '#fff', iconFg: '#5d6470', iconPath: 'M12 11v5M12 8h.01', fix: '',
+      },
+      {
+        who: '全体', title: '名前の決まりは全部そろっています',
+        desc: 'セッション名は半角・32 文字以内・台ごとに重複なし。',
+        fg: '#197a4b', bg: '#fff', iconFg: '#197a4b', iconPath: 'm8.5 12 2.5 2.5 4.5-5', fix: '',
+      },
+    ];
+
+    return {
+      accent,
+      noop: () => {},
+      sheets: SHEETS.map((s) => {
+        const isOn = on.indexOf(s.key) >= 0;
+        return Object.assign({}, s, {
+          on: isOn,
+          toggle: () => this.setState({ on: isOn ? on.filter((x) => x !== s.key) : on.concat([s.key]) }),
+          bg: isOn ? '#fff' : '#fbfcfd',
+          boxBd: isOn ? accent : '#cbd2da',
+          boxBg: isOn ? accent : '#fff',
+          countFg: isOn ? '#3c424c' : '#9aa1ab',
+        });
+      }),
+      head: HEAD.map((label, i) => ({ label, w: W[i] })),
+      sample: ROWS.map((cells) => ({
+        cells: cells.map((v, i) => ({
+          v: v === '' ? '（空欄）' : v,
+          w: W[i],
+          fg: v === '' ? '#9aa1ab' : '#1a1d24',
+        })),
+      })),
+      checks,
+      toggleKeys: () => this.setState({ keys: !keys }),
+      keyBd: keys ? '#f6cdd2' : '#e6e9ed',
+      keyBg: keys ? '#fef6f7' : '#fff',
+      keyFg: keys ? '#c7243a' : '#3c424c',
+      keyIconFg: keys ? '#c7243a' : '#5d6470',
+      keyNote: keys
+        ? '入れないと、現地でキーを打ち直すことになります。書き出したファイルは番組が終わったら消してください。'
+        : 'キーの列は空欄で出します。現地にすでに入っているキーは残ります。',
+      swBg: keys ? '#c7243a' : '#cbd2da',
+      swPos: keys ? 'flex-end' : 'flex-start',
+    };
+  }
+}
+</script>
+</body>
+</html>
