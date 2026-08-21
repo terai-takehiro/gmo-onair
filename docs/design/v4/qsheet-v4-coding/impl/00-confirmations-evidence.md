@@ -62,7 +62,7 @@
 | 押している間 `transform: scale(0.97)` | `shared/src/client/tokens-v4.css:472-474` | 同上。**本番卓のボタンの手応えが変わる** |
 | `:focus-visible` に `outline: 2px solid` | `shared/src/client/tokens-v4.css:539-542` | 全画面に当たる |
 | `@media (max-width:1023px)` で `[data-ui='button']` を `min-height/width:44px` | `shared/src/client/tokens-v4.css:232-241` | Rundown 4 個・Prompter 1 個の `<Button>`（`client-qsheet/src/components/ui/button.tsx:1` が shared を再輸出、`shared/src/client/ui/button.tsx:55` が `data-ui="button"` を付ける） |
-| `prefers-reduced-motion` の `*` 一括停止 | `shared/src/client/tokens-v4.css:501-508` | 全画面 |
+| `prefers-reduced-motion` の `*` 一括停止 | `shared/src/client/tokens-v4.css:501-510` | 全画面 |
 | LINE Seed JP の同梱（`--font-sans` ごと） | `shared/src/client/tokens-v4.css:45` | `index.css:29,33` が `var(--font-sans)` を使っているので**書体が全画面で変わる** |
 
 なお `rounded-card` / `text-cardtitle` などの役割名クラスの上書き（`tokens-v4.css:185-206`）は、
@@ -194,7 +194,7 @@
 **(b) 「ボタンが押しても何も起きない」は本当。ただし別の場所に動く導線があります。**
 
 - サイドバーの「Excel入出力」の2つのボタンは `onExportExcel` / `onShowImport` を呼びますが
-  （`EditorSidebar.tsx:716`, `:722`）、**この2つは省略可能な prop で
+  （`EditorSidebar.tsx:716`, `:723`）、**この2つは省略可能な prop で
   （`EditorSidebar.tsx:80-81`）、`EditorPage` から渡されていません**
   （`EditorPage.tsx:763-780` の `<EditorSidebar …>` に該当 prop 無し／`EditorSidebarSheet` も同様）。
   → **`undefined` なので押しても本当に何も起きません。設計書の指摘は正しい。**
