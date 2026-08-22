@@ -239,8 +239,12 @@ const TREE = [
     ['ダッシュボード', '/equipment/', 'client-equipment/src/pages/DashboardPage.tsx'],
     // v4: 機材・貸出機材・ケーブル・コネクタを1画面4タブに畳んだ（旧 URL は転送）
     ['機材台帳 (機材・貸出機材・ケーブル・コネクタ)', '/equipment/items', 'client-equipment/src/pages/EquipmentLedgerPage.tsx', undefined,
-      '**枠は v4・行の載せ替えは途中**。この一覧だけがカスタム列・その場編集・親子の入れ子を' +
-      '同時に持っており、`<Row>` に載せ替えるとその3つを作り直すことになるので分けています'],
+      '**行も `<Row>` に載せ替え済み**（機材タブは `equipmentList/EquipmentTable.tsx` ＋ ' +
+      '`EquipmentCells.tsx`、貸出機材タブは `equipmentList/RentalGroupRow.tsx`、' +
+      'ケーブル・コネクタタブは `catalog/CatalogRows.tsx`）。**カスタム列・その場編集・' +
+      '親子の入れ子**（機材タブは3つとも、貸出機材タブは親子の入れ子）は`<Row>`/`<RowSlot>`の' +
+      '上でそのまま残している。ケーブル・コネクタタブは v4 でカスタム列・その場編集を' +
+      '外した（Excel 取込に寄せた・設計判断）ので親子の入れ子もそもそも無い'],
     // v4 大④: 12本の横並び → 左に一覧・右に1本＋実装一覧の表。
     // このページは `PageHeader` を使わない（独自の見出し）ので、v4 で足した部品で判定する
     ['ラック図', '/equipment/racks', 'client-equipment/src/pages/RackLayoutPage.tsx', 'rack/RackUnitTable',
