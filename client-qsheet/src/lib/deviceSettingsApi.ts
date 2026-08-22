@@ -13,12 +13,27 @@ export interface Deck {
 }
 
 export interface Destination {
+  /**
+   * 行の安定した id。**鍵の引き継ぎはこれで突き合わせる**。
+   * ⚠️ 以前はサーバーが (encoderId, name) で前の鍵を探していたため、
+   * 配信先の名前を直して保存すると**保存済みのストリームキーが黙って消えた**。
+   */
+  destId: string;
   encoderId: string;
   name: string;
   protocol?: 'RTMP' | 'SRT Caller' | 'SRT Listener';
   url?: string;
   port?: number;
-  streamKey?: string; // PUT 送信専用。GET 応答には streamKeyMasked / hasStreamKey で来る
+  /**
+   * **新しく入れる鍵だけ**を持つ。画面の入力欄は常に空で描く（伏せ字を入れない）。
+   *   未設定 … いまの鍵をそのまま残す
+   *   `''`   … 鍵を消す（「キーを消す」を押したとき）
+   */
+  streamKey?: string;
+  /** サーバーに鍵が入っているか（表示用。PUT では送らない） */
+  hasStreamKey?: boolean;
+  /** 伏せ字（表示用。PUT では送らない） */
+  streamKeyMasked?: string;
   passphrase?: string;
   latencyMs?: number;
   bandwidthPct?: number;
@@ -26,7 +41,8 @@ export interface Destination {
   aes?: 'なし' | 'AES-128' | 'AES-192' | 'AES-256';
 }
 
-export interface DestinationOut extends Omit<Destination, 'streamKey'> {
+export interface DestinationOut extends Omit<Destination, 'streamKey' | 'destId'> {
+  destId?: string;
   streamKeyMasked: string;
   hasStreamKey: boolean;
 }
@@ -92,6 +108,18 @@ export async function getOwnerContext(ownerKey: string): Promise<OwnerContext | 
   }
 }
 
+export interface ServiceDateOption { date: string; hasRecording: boolean; hasStreaming: boolean }
+
+/** 実施日の候補（すでに設定がある日＋スケジュール表の日） */
+export async function getServiceDates(ownerKey: string): Promise<ServiceDateOption[]> {
+  try {
+    const { data } = await api.get(`${base(ownerKey)}/dates`);
+    return data.data?.dates ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getRecording(ownerKey: string, date?: string): Promise<RecordingSettings | null> {
   const { data } = await api.get(`${base(ownerKey)}/recording${dateQuery(date)}`);
   return data.data;
@@ -106,13 +134,27 @@ export async function getStreaming(ownerKey: string, date?: string): Promise<Str
   return data.data;
 }
 
+/**
+ * 送る形に整える。
+ * ⚠️ `hasStreamKey` / `streamKeyMasked` は**表示専用なので送らない**。
+ * `streamKey` は **利用者が触ったときだけ**送る（未設定なら鍵はそのまま残る）。
+ */
+function toWire(d: Destination) {
+  const { hasStreamKey: _h, streamKeyMasked: _m, streamKey, ...rest } = d;
+  return streamKey === undefined ? rest : { ...rest, streamKey };
+}
+
 export async function putStreaming(
   ownerKey: string,
   serviceDate: string,
   destinations: Destination[],
   meetings: Meeting[]
 ): Promise<void> {
-  await api.put(`${base(ownerKey)}/streaming`, { serviceDate, destinations, meetings });
+  await api.put(`${base(ownerKey)}/streaming`, {
+    serviceDate,
+    destinations: destinations.map(toWire),
+    meetings,
+  });
 }
 
 export async function preflight(ownerKey: string, date?: string): Promise<PreflightResult> {

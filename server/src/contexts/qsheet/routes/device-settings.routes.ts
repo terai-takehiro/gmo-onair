@@ -6,7 +6,7 @@
 // `:ownerKey` の解決は `../device-settings-owner.ts` に分けてある（このファイル自体を
 // 400行に収めるため）。
 import { Router, Request, Response } from 'express';
-import { queryOne } from '../../../shared/db/connection';
+import { queryOne, queryAll } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { jstDate } from '../../../shared/utils/jst';
 import { resolveOwner } from '../device-settings-owner';
@@ -24,6 +24,27 @@ router.use(requireAuth, requirePermission('qsheet'));
 
 const notFound = (res: Response) =>
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '見つかりません' } });
+
+/**
+ * zod の指摘を「どの行の何が悪いか」が分かる1文にする。
+ *
+ * ⚠️ 以前は `issues[0].message` をそのまま返し、画面はそれすら捨てて
+ * 「保存に失敗しました」とだけ出していた。配信先が10件あるとき、
+ * **どの行が悪いのか利用者には一生分からなかった**（実機で確認）。
+ */
+function validationMessage(
+  issues: { path: (string | number)[]; message: string }[],
+  rows: unknown[],
+  labelOf: (row: any, i: number) => string
+): string {
+  const first = issues[0];
+  if (!first) return '入力を確認してください';
+  const idx = typeof first.path[0] === 'number' ? (first.path[0] as number) : null;
+  const where = idx !== null ? labelOf(rows[idx], idx) : null;
+  const head = where ? `${where}: ` : '';
+  const more = issues.length > 1 ? `（ほか ${issues.length - 1} 件）` : '';
+  return `${head}${first.message}${more}`;
+}
 
 /** 案件名 / GLS 番号 / 番組名（Excel ファイル名用） */
 async function ownerLabelOf(owner: Awaited<ReturnType<typeof resolveOwner>>): Promise<string> {
@@ -69,6 +90,50 @@ router.get('/:ownerKey/context', async (req: Request, res: Response) => {
 });
 
 // ============================================================
+// 実施日の候補
+//
+// ⚠️ これが無かったため、画面には実施日を選ぶ手段が1つも無かった。
+// URL の `?date=` でしか変えられず、入口（ミニアプリのタイル）は date を付けないので、
+// サーバーは常に「最新の service_date」を返す。つまり **案件につき事実上1日ぶんしか
+// 持てず、過去日の設定は二度と開けない**状態だった（設計 08 §1-2 は
+// 「案件＋実施日で1セット」と決めている）。
+//
+// 候補は3つを混ぜて返す:
+//   ① すでに収録設定がある日   ② すでに配信設定がある日   ③ その案件のスケジュール表の日
+// ============================================================
+router.get('/:ownerKey/dates', async (req: Request, res: Response) => {
+  const owner = await resolveOwner(req.user!, String(req.params.ownerKey));
+  if (!owner) return notFound(res);
+
+  const col = owner.kind === 'project' ? 'project_id' : owner.kind === 'program' ? 'program_id' : 'doc_no';
+  const value = owner.kind === 'project' ? owner.projectId : owner.kind === 'program' ? owner.programId : owner.docNo;
+
+  const [rec, str, sch] = await Promise.all([
+    queryAll(`SELECT to_char(service_date,'YYYY-MM-DD') AS d FROM qsheet_recording_settings
+              WHERE ${col} = $1 AND deleted_at IS NULL`, [value]),
+    queryAll(`SELECT to_char(service_date,'YYYY-MM-DD') AS d FROM qsheet_streaming_settings
+              WHERE ${col} = $1 AND deleted_at IS NULL`, [value]),
+    // スケジュール表は案件・番組のどちらにも紐づきうる
+    owner.kind === 'doc'
+      ? Promise.resolve([])
+      : queryAll(`SELECT DISTINCT to_char(service_date,'YYYY-MM-DD') AS d FROM qsheet_schedules
+                  WHERE ${owner.kind === 'project' ? 'project_id' : 'program_id'} = $1
+                    AND deleted_at IS NULL AND service_date IS NOT NULL`, [value]),
+  ]);
+
+  const recSet = new Set(rec.map((r) => r.d as string));
+  const strSet = new Set(str.map((r) => r.d as string));
+  const all = new Set<string>([...recSet, ...strSet, ...sch.map((r) => r.d as string)]);
+
+  const dates = [...all].sort().map((date) => ({
+    date,
+    hasRecording: recSet.has(date),
+    hasStreaming: strSet.has(date),
+  }));
+  res.json({ success: true, data: { dates } });
+});
+
+// ============================================================
 // 収録設定
 // ============================================================
 router.get('/:ownerKey/recording', async (req: Request, res: Response) => {
@@ -88,7 +153,9 @@ router.put('/:ownerKey/recording', requirePermission('qsheet', 'editor'), async 
   }
   const parsed = DecksSchema.safeParse(req.body?.decks ?? []);
   if (!parsed.success) {
-    res.status(400).json({ success: false, error: { code: 'VALIDATION', message: parsed.error.issues[0]?.message ?? '入力を確認してください' } });
+    const rows = Array.isArray(req.body?.decks) ? req.body.decks : [];
+    const message = validationMessage(parsed.error.issues, rows, (r, i) => String(r?.deckId ?? `${i + 1}行目`));
+    res.status(400).json({ success: false, error: { code: 'VALIDATION', message } });
     return;
   }
   await svc.putRecording(owner, serviceDate, parsed.data, req.user!.id);
@@ -115,12 +182,18 @@ router.put('/:ownerKey/streaming', requirePermission('qsheet', 'editor'), async 
   }
   const destParsed = DestinationsSchema.safeParse(req.body?.destinations ?? []);
   if (!destParsed.success) {
-    res.status(400).json({ success: false, error: { code: 'VALIDATION', message: destParsed.error.issues[0]?.message ?? '入力を確認してください' } });
+    const rows = Array.isArray(req.body?.destinations) ? req.body.destinations : [];
+    const message = validationMessage(destParsed.error.issues, rows, (r, i) =>
+      `${r?.encoderId ?? `${i + 1}行目`}${r?.name ? ` / ${r.name}` : ' の新しい配信先'}`);
+    res.status(400).json({ success: false, error: { code: 'VALIDATION', message } });
     return;
   }
   const meetingsParsed = MeetingsSchema.safeParse(req.body?.meetings ?? []);
   if (!meetingsParsed.success) {
-    res.status(400).json({ success: false, error: { code: 'VALIDATION', message: meetingsParsed.error.issues[0]?.message ?? '入力を確認してください' } });
+    const rows = Array.isArray(req.body?.meetings) ? req.body.meetings : [];
+    const message = validationMessage(meetingsParsed.error.issues, rows, (r, i) =>
+      `WEB会議 ${r?.label || r?.tool || `${i + 1}本目`}`);
+    res.status(400).json({ success: false, error: { code: 'VALIDATION', message } });
     return;
   }
   await svc.putStreaming(owner, serviceDate, destParsed.data, meetingsParsed.data, req.user!.id);
