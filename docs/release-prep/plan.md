@@ -8,9 +8,9 @@
 
 ## この計画を3分で（だれでも読める版）
 
-**いまの状態**: v4 の部品は全部そろった。ただし本番のサイトは 8月18日の版（v4.1.7）のままで、
-その後にできた **240 個以上の変更がまだ本番に出ていない**。この中には
-「元に戻せない種類のデータベース変更」が約 30 個含まれている。
+**いまの状態**: v4（今回の全面リニューアルの呼び名）の部品は全部そろった。ただし本番のサイトは 8月18日の版（v4.1.7）のままで、
+その後にできた **240 個以上の変更がまだ本番に出ていない**。この中には、データの保管庫（データベース）の
+作り替えが約 27 個含まれ、**一部は一度実行すると元に戻せない**。
 
 **いちばん大事な結論**: **大掃除より先に、たまった変更を本番に出す。**
 掃除を続けるほど「一度に出す量」が増えて、何かあったときに原因を探せなくなる。
@@ -19,8 +19,8 @@
 **そのあとの掃除は6つ**（順番に意味がある）:
 
 1. **検査の道具を先に足す** — 文書のリンク切れ検査・画面崩れ検査の穴埋め。掃除で壊したらすぐ分かるようにする
-2. **ルールの見直し** — 古くなったルール・矛盾したルールを消す（例: もう存在しない「凍結アプリ」を守るルールが 20 か所以上残っている）
-3. **文書の大整理** — 役目を終えた文書を書庫（archive）へ。README は今 393KB あって普通に読めないので 20KB 以下に
+2. **ルールの見直し** — 古くなったルール・矛盾したルールを消す（例: 「凍結アプリ」＝見た目を変えない約束をしたアプリはもう1つも無いのに、それを守るルールが 20 か所以上残っている）
+3. **文書の大整理** — 役目を終えた文書を書庫（archive）へ。README（このプロジェクトの玄関にあたる説明ファイル）は本文の8割が過去の更新履歴で埋まって長すぎるので、20分の1に減らす
 4. **だれでも読める説明書づくり** — 「ONAiR とは何か」「直しはどうやって本番に届くか」など6本を新しく書く
 5. **画面の総点検** — 機械検査 → 全画面のスクリーンショット → 実機（iPhone/iPad）の3段階で崩れを拾って潰す
 6. **技術的な借金の返済** — 既知のセキュリティ更新・使っていないコードの削除など
@@ -42,7 +42,7 @@
 | 4 | 「古いデータ削除」の意図に**本番DBの業務データ・VPSのuploads/・BOXバックアップの保持期限**を含むか | 含まない（今回はリポジトリ内のみ。含むなら別途監査する） |
 | 5 | 重いルールの継続: 全PRの棚卸し（reviews:debt）・ai-feedback-loop 必須・pr-watch マスト | 3つとも**継続**（実測で効果が出ている）。ただし棚卸しは「表の再構成禁止・行追加のみ」を明文化 |
 | 6 | npm audit fix（依存の一括セキュリティ更新）を**リリース前に載せるか直後の小リリースか** | **直後の小リリース**（lockfile は並行PRの衝突源。ビッグバンに混ぜると切り分け不能） |
-| 7 | リモートに残る**残骸ブランチ6本の削除承認**（R6で棚卸し表を出す） | 表を見て承認（`fix/release-tooling-titles` の未マージ2コミットだけ取り込むか判断） |
+| 7 | リモートに残る**残骸ブランチ7本の削除承認**（R6で棚卸し表を出す。活動中の枝は含めない） | 表を見て承認（`fix/release-tooling-titles` の未マージ2コミットだけ取り込むか判断） |
 
 ---
 
@@ -65,15 +65,17 @@ R0 たまった変更を本番に出す（最優先・単独で完結）
 **内容**: v4.1.7 以降の main（240コミット超・changelog 下書き160件・migration 204〜233）を1回のリリースで本番へ出す。
 元に戻せない migration（customers/vendors 削除・23テーブル削除・列削除ほか）を含むため、ゲートを揃えてから出す。
 
-**リリース断面**: 制作技術支援の techops 改名 **Phase 1 完了後・Phase 2（URL/Socket.IO切替）着手前**で切る。
-liveops 表示レイアウトは PR1（スキーマ+API のみ・画面なし）まで入っており、画面が無ければ実害はないが、断面確定時に PR2 が open していないか確認する。
+**リリース断面**: 原則は「**進行中フェーズの途中でタグを打たない**」。現時点の断面は techops 改名 **Phase 1 完了後・Phase 2（URL/Socket.IO切替）マージ前**。
+ただし Phase 2 のブランチ（`claude/qsheet-techops-phase2-rename`）が既にリモートに存在するため、断面確定時に
+① Phase 2 の PR、② liveops 表示レイアウトの PR2（PR1 はスキーマ+API のみ・画面が無ければ実害なし）の両方の状態を確認し、
+マージ済みならフェーズ境界を取り直す。
 断面を切ってからマージまでの間、**他セッションのマージ一時停止をユーザーに依頼**する（開けたまま放置すると下書きが増えて必ず競合する）。
 
 **ゲート（全部そろってから公開）**:
 
 | ゲート | やる人 | 中身 |
 |---|---|---|
-| ① `docs/changelog.d/_summary.md` を書く | Claude | この版の要約1段落（制作技術支援の作り直し・計時統合・アプリ2つの終了・会社リスト一本化完了）。12KB超の自動分割で使われる。棚卸しだけの下書き約40件は1文に圧縮 |
+| ① `docs/changelog.d/_summary.md` を書く | Claude | この版の要約1段落（制作技術支援の作り直し・計時統合・アプリ2つの終了・会社リスト一本化完了）。12KB超の自動分割で使われる。棚卸しだけの下書き約35件（ファイル名が reviewdebt / review-debt / 棚卸し記録系のもの）は1文に圧縮 |
 | ② `npm run release:notes -- X.Y.Z --dry` | Claude | 160件の消化・README マーカー・version-history 追記が通ることを事前確認 |
 | ③ 本番DBのバックアップ＋復元確認 | **ユーザー**（VPS） | `backup-db-to-box.mjs` を公開直前に実行し、復元できるところまで確認 |
 | ④ drift SQL を本番で実行 | **ユーザー**（VPS） | `npm run db:drift-sql` の生成SQL（SELECTのみ）で、migration 209 が消す列が本番でも全行既定値なことを確認 → phase3-2-plan.md に記録 |
@@ -94,7 +96,7 @@ liveops 表示レイアウトは PR1（スキーマ+API のみ・画面なし）
 |---|---|---|
 | R1-a | **Markdown リンクチェッカー新設**（md 内の相対リンク実在確認・10行程度）を `npm run lint` に組み込む。文書移動より**必ず先** | 低（新規ファイル） |
 | R1-b | **verify:ui のページ穴埋め**: カレンダー4画面・/sales/companies・顧客360・/search・設定小画面群・機材検索など約12画面を PAGES に追加 | 低（単独先行マージ。以後の各PRは自分の行だけ触る） |
-| R1-c | **verify:ui の検査強化**: 768px（iPad縦）を3検査だけで追加＋「数pxに潰れる崩れ」検知（clientWidth 閾値）＋ `--shots` モード（375/768/1280 のスクショ一式） | 低 |
+| R1-c | **verify:ui の検査強化**: 768px（iPad縦）を3検査だけで追加＋「数pxに潰れる崩れ」検知（clientWidth 閾値）＋ `--shots` モード（375/768/1280 のスクショ一式）。**/live/display/（見た目不変の約束画面）もスクショ基準の照合対象に含める** — 現状 verify:ui はこの画面を検査から除外しており（PAGES に無い・FROZEN_PREFIX は除外用）、check:frozen も APPS 空で no-op のため、機械の見張りがゼロになっている | 低 |
 | R1-d | **migration 番号の重複禁止チェック**（既存の重複3組は許容リストに載せる） | 低 |
 
 **PR数の目安**: 4。すべて R0 と並行可（リリースに含めなくてよい）。
@@ -111,12 +113,13 @@ liveops 表示レイアウトは PR1（スキーマ+API のみ・画面なし）
 | R2-b CONTRIBUTING.md | アプリ表を CLAUDE.md への参照に置換・「check:ui-tokens は人が気をつけて」等の実装済み記述を修正・PRタイトルのアプリ名リストを「ディレクトリ名から選ぶ」に |
 | R2-c shared/CLAUDE.md 全面棚卸し | 「凍結4アプリ」前提の記述 20か所以上を削除し、全アプリ v4 系の現状で書き直す |
 | R2-d client/CLAUDE.md 減量 | 1,872行 → 300行目安。完了フェーズの経緯ログは docs/ へ。存在しない構成を守る「消してはいけない」警告を現状に合わせる |
-| R2-e 死んだ仕組みの削除 | `check:frozen`（スクリプト・npm script・baseline。/live/display/ は verify:ui の FROZEN_PREFIX が既に見ているので転用不要と結論）・`dev:frozen`・`build:render`/`start:render`・ci.yml の `release/**` トリガー・branching.md の release/v3 手順（「畳んだ」1行に）・check-links.mjs の OTHER_BUNDLE から awards/signage を外す |
+| R2-e 死んだ仕組みの削除 | `dev:frozen`・`build:render`/`start:render`・ci.yml の `release/**` トリガー・branching.md の release/v3 手順（「畳んだ」1行に）・check-links.mjs の OTHER_BUNDLE から awards/signage を外す。**`check:frozen`（APPS 空の no-op）は R1-c のスクショ基準が /live/display/ を守り始めてから削除**（先に消すと見た目不変を守る機械検査がゼロになる） |
+| R2-f 棚卸し台帳の運用ルール明文化（判断#5） | codex-findings-v4.md 冒頭と branching.md に「並行開発中は行追加のみ・表の再構成は他セッション停止の静穏時のみ」を1行ずつ追記（行追加のみの変更） |
 
 **注意**: R2-a と R3 の README 減量は `collect-changelog.mjs` / `generate-version-history.mjs` が
 CLAUDE.md・README の**書式に依存している**ため、必ず `npm run release:notes -- X.Y.Z --dry` を gate に入れる。
 
-**PR数の目安**: 5。
+**PR数の目安**: 6。
 
 ---
 
@@ -128,7 +131,7 @@ CLAUDE.md・README の**書式に依存している**ため、必ず `npm run re
 | PR | 中身 |
 |---|---|
 | R3-a **docs/README.md 新設**（目次） | ①だれでも読める説明書（guide/・R4で作る）②現役の技術文書一覧 ③生成物一覧（生成コマンドと入力。**手で直すな**。version-history.md は「生成物ではなく生成の入力」と明記）④archive/ の4区分を1ページで |
-| R3-b archive 第1弾（現役参照なしの低リスク分。git mv のみ・内容変更なし・対象が直近2週間変更ゼロなことを確認して切る） | roadmap.md（末尾のカレンダー重複解消の生きている段取りだけ先に現役計画へ移す）・roadmap-legacy.md・investigations/・design-requests/・requirements/・collab-editing-design.md・architecture/ の v1.0 期6本（box-folder-structure.md のみ残す）・reviews/ の終了6本・release-notes.md（512KB・どこからも参照されない死蔵）・旧世代モック3点（v4-mockup-main.dc.html 等 → mockups/README.md の対応表を更新）。security-review-2026-08-18.md は archive でなく docs/reviews/ へ移動（残課題が現役） |
+| R3-b archive 第1弾（現役参照なしの低リスク分。git mv のみ・内容変更なし・対象が直近2週間変更ゼロなことを確認して切る） | roadmap.md（末尾のカレンダー重複解消の生きている段取りだけ先に現役計画へ移す）・roadmap-legacy.md・investigations/・design-requests/・requirements/・collab-editing-design.md・architecture/ の v1.0 期6本（box-folder-structure.md のみ残す）・reviews/ の終了6本・release-notes.md（512KB。追記が v2.9.276 で止まり参照もゼロのため「追記型の台帳」ではなく死蔵と判断）・旧世代モック3点（v4-mockup-main.dc.html 等 → mockups/README.md の対応表を更新）。security-review-2026-08-18.md は archive でなく docs/reviews/ へ移動（残課題が現役） |
 | R3-c **README.md 減量** | 393KB → 20KB以下。旧版履歴（8割を占める）は version-history.md に既にあるので削除。「主要なドキュメント」「コード健全性」の 2026-04-28 時点の節も削除して docs/README.md への参照に。`collect-changelog.mjs` のマーカー行は維持（--dry を gate） |
 | R3-d ia.md 分割 | 現行ルール（入口は1つの判定基準）だけ 5KB に書き直し、v2.9 期の経緯は archive へ |
 | R3-e 小物 | mcp-server.md の「制作資料」5か所を「制作技術支援」に・DEPLOY_CONOHA.md → docs/ops/vps-setup.md・version-history.md の裸エントリ1件（v2.9.43）を規約に揃える |
@@ -171,6 +174,8 @@ codex-findings-v4.md（最大の衝突源。**表の再構成は他セッショ�
 | 層2 スクショ | `--shots` で3幅一式を取得して目視総点検。**画像はリポジトリに入れず BOX へ**（リポジトリの「ゴミ無し」状態を守る） | Claude 取得 → ユーザーと目視 |
 | 層3 実機 | dev.gmo-onair.jp を iPhone/iPad の実機で1巡（WebKit・safe-area・タッチ・**ダークモード**・操作フロー・文言・空状態・エラー時挙動 — 機械では見えないUX側をここで） | **ユーザー**（Claude がチェックリスト用意） |
 
+**スコープ**: この点検は「崩れの一掃」に絞る。作り込みの残件（案件詳細5タブのモバイル化・機材台帳の親子入れ子）は判断#3 に従う（推奨: 次期送り）。
+
 **燃やし方**: shared 部品の修正（PcOnlyPanel の磨き＝バックログ最後の土台残件・潰れ検知が見つける共通部品起因）を**先に小PR**で。
 画面個別はエリア単位（sales/finance/calendar/daily/equipment）でブランチを分けて並列化。
 未実測と分かっている3点（部屋の空きモバイル・通知グルーピング・金額表記 ¥(1,234)）は層3で必ず見る。
@@ -190,7 +195,7 @@ PR#272 由来の到達不能モバイル実装4ファイルには「現状到達
 | R6-a npm audit fix | 本番依存の既知脆弱性32件中、fix ありの分を lockfile 更新で解消 → typecheck/test/verify:ui を通す | **単独短命PR**。判断#6（推奨: リリース直後の小リリース） |
 | R6-b xlsx → exceljs 置換 | 修正版が出ない High 2件。実利用は excel.ts と kessan-import.service.ts の2ファイルのみ | リリース後の独立PR |
 | R6-c 未レビューPRの掃き出しレビュー | レビュー0件マージ約10本の差分をまとめて1回レビューし、結果を codex-findings-v4.md に**行追加のみ**で記録（#336 マージ後に着手） | R0 前が理想・後でも可 |
-| R6-d 残骸ブランチ棚卸し | リモート6本の表を作りユーザーに提示（判断#7）。承認後に削除 | いつでも |
+| R6-d 残骸ブランチ棚卸し | リモート7本（活動中の枝を除く実測値・2026-08-23）の表を作りユーザーに提示（判断#7）。承認後に削除 | いつでも |
 | R6-e 未使用 export 整理 | knip / ts-prune を入れて shared/ の約30件を機械確定 → 削除 or @deprecated | リリース後 |
 | R6-f 音声サポート旧URL停止 | 段階③の実施判断 → LegacyUrlBanner とトークン無し経路の削除 | ユーザー判断後 |
 | R6-g CI に npm audit 定期チェック | `--omit=dev --audit-level=high` | R6-a と同時 |
