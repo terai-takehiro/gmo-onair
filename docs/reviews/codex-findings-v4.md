@@ -1188,6 +1188,54 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   確認済み・ユーザーから「v4.2.1をリリースしましょう」の明示指示を受けての実行
   だったため、レビュー到着を待たずマージした。マージ後のCI（push to main・
   run 32588489962）の完了は別途確認する。
+- **#349〜#360（リリース準備 R1〜R3・12本・2026-08-22〜23）** — いずれも
+  `get_reviews` 0件のまま、PRごとのCI（build/checks）green を確認してマージした
+  （レビュー到着を待たなかった）。表に移す指摘はない（レビュー自体が届いていないため）。
+  **この11本は R6-c（未レビューPRの掃き出しレビュー）の対象リスト** — 事後レビューの
+  結果はこの表へ行追加する。個別の補足:
+  - **#349**（`chore(lint): 文書のリンク切れと migration 番号の重複を検査するようにした`）—
+    新規検査2本（`check-md-links.mjs` / `check-migration-numbers.mjs`）を `npm run lint` に
+    追加。既存文書の実リンクを全数走査して検証した
+  - **#350**（`chore(docs): CLAUDE.md の古い記述・矛盾を一掃した`・R2-a）— ルート
+    `CLAUDE.md` だけの原子的PR。認証の節は `server/src/config.ts` の実装
+    （`AUTH_MODE` の決まり方）と突き合わせて書き直した
+  - **#351**（`docs(release-prep): リモートの残骸ブランチの棚卸し表を作った`）— 新規文書のみ。
+    「未マージ2件」に見えた `fix/release-tooling-titles` は shallow clone の錯覚で、
+    `git fetch --unshallow` 後の `merge-base --is-ancestor` でマージ済みと確認した
+  - **#352**（`chore(docs): CONTRIBUTING.md の古い記述を実態に合わせた`・R2-b）— 文書のみ
+  - **#353**（`chore(verify): verify:ui にカレンダー等の画面・768px・潰れ検知・
+    スクショ証跡を足した`）— マージ前に実行し 15画面×3幅・461チェックが走ることを確認。
+    既存のカレンダー系の崩れ6件を発見した（R5 の直し待ち。直したら行追加する）
+  - **#354**（`chore(ci): 役目を終えた仕組みを片づけた`・R2-e）— `dev:frozen` /
+    `build:render` / `start:render` の削除・`ci.yml` の `release/**` トリガー削除・
+    `check-links.mjs` の対象整理（apps.ts の廃止登録行1件は理由コメント付きで ALLOW）
+  - **#355**（`chore(deps): 本番依存の既知脆弱性を npm audit fix で一掃した`・R6-a）—
+    本番依存の脆弱性 32→10。axios 1.18 の型変更で `OpenItemDialog.tsx` の `mutationFn` を
+    async/await 形に直した（レスポンス不使用のため挙動不変）。typecheck:all / lint /
+    test（1452件）green。残る High 2件（xlsx → R6-b・nodemailer → 要判断）は別途
+  - **#356**（`docs(reviews): 置き去りの棚卸し記録2件を回収し、棚卸しの運用ルールを
+    明文化した`・R2-f）— この文書のみ
+  - **#357**（`chore(docs): client/CLAUDE.md を現役ルールに絞り、経緯ログを docs/reviews へ
+    移した`・R2-d）— エージェント実装。マージ前に新しい `client/CLAUDE.md` 全308行を
+    通読し、パス・実測の主張を確認した（経緯ログは `docs/reviews/client-v4-build-log.md`
+    へ全文保存）
+  - **#358**（`docs: ia.md をロールバック済みの歴史から切り離し v4 の入口の決めごとに
+    書き直した`・R3-d+e）— 文書のみ。`check-md-links`（92文書/277リンク）・
+    `generate-version-history`（464件・変化なし）で検証
+  - **#359**（`chore(docs): shared/CLAUDE.md の凍結前提の記述を現状に合わせた`・R2-c）—
+    エージェント実装。マージ前に主要な事実主張（凍結0個＝`check-frozen-css.mjs` の
+    `APPS` 空・共通シェルと `base.css` は配信中5アプリ・ストレージキー統一・旧ヘッダーの
+    利用者は `client-awards` のみ・`check-ui-tokens` の app-foundation が3アプリのまま等）を
+    リポジトリと突き合わせて確認した
+  - **#360**（`docs: docs/README.md の目次を新設し、役目を終えた文書を archive/ へ移した`・
+    R3-a+b）— エージェント実装。#358 と同じ `docs/reviews/db-drift-audit.md` の行を
+    触っていたため衝突し、私が main をマージして両取り（roadmap.md と ia.md の
+    張り替えを両方生かす形）で解消した。あわせて並行PRの取り残し1件
+    （#357 の経緯ログが、#360 が archive へ移した監査ファイルへ旧パスでリンク）も
+    同じマージで直した。マージ前にスコープ（docs/ のみ・禁止ファイル無変更・
+    移動は R95〜R100 のリネーム）と新設の `docs/README.md` / `docs/archive/README.md` /
+    スタブ7件 / `docs/ops/calendar-dedup-plan.md` の中身を確認した。
+    `check-md-links`（103文書/323リンク）・`check-changelog` OK
 
 ---
 
