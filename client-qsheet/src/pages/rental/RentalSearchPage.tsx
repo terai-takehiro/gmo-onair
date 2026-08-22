@@ -10,12 +10,12 @@ import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { cn } from '@/lib/utils';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import * as rentalApi from '@/lib/rentalApi';
 import type { RentalCompany, RentalItemSummary } from '@/lib/rentalApi';
 import { companyBadgeClass, formatSyncTimestamp, formatYen, isSyncStale, todayStr } from './rentalFormat';
 import RentalItemDetailDialog from './RentalItemDetailDialog';
+import { WrappingChips } from './WrappingChips';
 
 const PAGE_SIZE = 60;
 
@@ -275,55 +275,6 @@ export default function RentalSearchPage() {
       </div>
 
       <RentalItemDetailDialog ownerKey={ownerKey} target={detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)} />
-    </div>
-  );
-}
-
-/** カテゴリ絞り込み専用の折り返しチップ行。
- * 共通の `FilterChips`（`shared/src/client/ui/filterChips.tsx`）は
- * 「折り返すと一覧の開始位置が行ごとに動く」ため意図して横スクロールにしているが、
- * この画面のカテゴリは数が多く、横スクロールだと後ろの選択肢が見えなくなる
- * （検索欄・件数はこのチップより上に置いてあるので、ここが折り返して行数が
- * 変わっても一覧の開始位置は動かない）。この画面専用に個別チップ＋折り返しにする。 */
-function WrappingChips<K extends string>({
-  items,
-  value,
-  onChange,
-  label,
-  className,
-}: {
-  items: FilterChipItem<K>[];
-  value: K;
-  onChange: (key: K) => void;
-  label: string;
-  className?: string;
-}) {
-  return (
-    <div role="group" aria-label={label} className={cn('flex flex-wrap gap-1.5', className)}>
-      {items.map((item) => {
-        const active = item.key === value;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(item.key)}
-            className={cn(
-              'min-h-tap inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-control border px-3 py-1.5 text-sub lg:min-h-[36px]',
-              active
-                ? 'border-primary bg-primary-surface font-bold text-primary'
-                : 'border-border bg-card text-muted-foreground hover:bg-muted',
-            )}
-          >
-            {item.label}
-            {item.count !== null && (
-              <span className={cn('font-number text-sub-sm', !active && 'text-muted-foreground')}>
-                {item.count}
-              </span>
-            )}
-          </button>
-        );
-      })}
     </div>
   );
 }
