@@ -74,7 +74,7 @@ export function createExcelResourceRouter(config: ResourceConfig): Router {
       { name: config.name.slice(0, 31), columns: config.columns, rows: config.templateRows },
     ];
     if (config.guideSheet) sheets.push(config.guideSheet);
-    const buf = buildExcelWorkbook(sheets);
+    const buf = await buildExcelWorkbook(sheets);
     excelResponse(res, `${config.name}_テンプレート.xlsx`, buf);
   }));
 
@@ -83,7 +83,7 @@ export function createExcelResourceRouter(config: ResourceConfig): Router {
     const rows = (config.buildExportQuery
       ? await (async () => { const { sql, params } = config.buildExportQuery!(req.query); return queryAll(sql, params); })()
       : await queryAll(config.exportQuery)) as Record<string, unknown>[];
-    const buf = buildExcelWorkbook([
+    const buf = await buildExcelWorkbook([
       { name: config.name.slice(0, 31), columns: config.columns, rows },
     ]);
     const today = new Date().toISOString().slice(0, 10);
@@ -97,7 +97,7 @@ export function createExcelResourceRouter(config: ResourceConfig): Router {
       const mode = (req.query.mode as string) || 'dry_run';
       const duplicateMode = (req.query.duplicate as string) || 'skip';
 
-      const { rows, warnings } = parseExcelBuffer(req.file.buffer, config.columns);
+      const { rows, warnings } = await parseExcelBuffer(req.file.buffer, config.columns);
 
       const pool = getDb();
       const client = await pool.connect();

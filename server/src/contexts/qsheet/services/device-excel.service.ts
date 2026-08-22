@@ -107,8 +107,8 @@ export function deviceSettingsFilename(ownerLabel: string, serviceDate: string):
   return `収録配信設定_${ownerLabel}_${serviceDate}.xlsx`;
 }
 
-export function buildDeviceSettingsWorkbook(input: BuildDeviceWorkbookInput): BuildDeviceWorkbookResult {
-  const buffer = buildExcelWorkbook(buildSheetSpecs(input));
+export async function buildDeviceSettingsWorkbook(input: BuildDeviceWorkbookInput): Promise<BuildDeviceWorkbookResult> {
+  const buffer = await buildExcelWorkbook(buildSheetSpecs(input));
   return { buffer, filename: deviceSettingsFilename(input.ownerLabel, input.serviceDate) };
 }
 

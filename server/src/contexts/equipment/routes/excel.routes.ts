@@ -103,7 +103,7 @@ function extractTypeCodeFromEqCode(eqCode: string): string | null {
 // テンプレートDL
 // ============================================================
 router.get('/items/template', requirePermission('equipment', 'reader'), wrap(async (_req, res) => {
-  const buf = buildExcelWorkbook([
+  const buf = await buildExcelWorkbook([
     {
       name: '機材リスト',
       columns: ITEM_COLUMNS,
@@ -182,7 +182,7 @@ router.get('/items/export-xlsx', requirePermission('equipment', 'exporter'), wra
     };
   });
 
-  const buf = buildExcelWorkbook([{ name: '機材リスト', columns: ITEM_COLUMNS, rows }]);
+  const buf = await buildExcelWorkbook([{ name: '機材リスト', columns: ITEM_COLUMNS, rows }]);
   const today = new Date().toISOString().slice(0, 10);
   excelResponse(res, `機材リスト_${today}.xlsx`, buf);
 }));
@@ -194,7 +194,7 @@ router.post('/items/import-preview', requirePermission('equipment', 'editor'), u
   if (!req.file) throw new AppError(400, 'NO_FILE', 'Excelファイルが必要です');
   let detectedHeaders: string[];
   try {
-    detectedHeaders = parseExcelHeaders(req.file.buffer);
+    detectedHeaders = await parseExcelHeaders(req.file.buffer);
   } catch (e: any) {
     throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`);
   }
@@ -243,7 +243,7 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
   let rows: Record<string, unknown>[];
   let warnings: string[];
   try {
-    ({ rows, warnings } = parseExcelBuffer(req.file.buffer, ITEM_COLUMNS, mapping));
+    ({ rows, warnings } = await parseExcelBuffer(req.file.buffer, ITEM_COLUMNS, mapping));
   } catch (e: any) {
     throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`);
   }
