@@ -1148,7 +1148,18 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   トップページのタイルからのみ制作技術支援が消え、アプリ切替・左メニューは
   `visibleApps()`経由のため無事だった）。マージ前にローカルで
   typecheck/lint/test（1452件）すべてgreenを確認済み。マージ後のCI
-  （push to main・run 32588171778）は本記録時点でまだ実行中で、完了は別途確認する。
+  （push to main・run 32588171778）は直後の PR #346 マージで cancelled
+  （同一 `main` への連続 push による GitHub Actions の仕様。#346 の Deploy
+  run 32588298575 が success で完了しており、#345 の内容もそこに含まれて
+  検証済み）。
+- **#347**（`release: v4.2.1`）— 作成から約24秒でユーザー自身がマージ（マージ時点で
+  CIは`in_progress`）。`get_reviews`いずれも0件。表に移す指摘はない（レビュー自体が
+  届いていないため）。⚠️ **コード変更を伴わないパッチリリースPR**（PR #345のバグ修正1件
+  のみを含む・DBマイグレーションなし）で、マージ前にローカルで
+  typecheck:all（6アプリ+server）/lint/test（1452件）/check:versionすべてgreenを
+  確認済み・ユーザーから「v4.2.1をリリースしましょう」の明示指示を受けての実行
+  だったため、レビュー到着を待たずマージした。マージ後のCI（push to main・
+  run 32588489962）の完了は別途確認する。
 
 ---
 
