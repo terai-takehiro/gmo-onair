@@ -54,15 +54,16 @@ export async function seed() {
   // 3段階: reader(閲覧) / editor(編集) / manager(管理)
   //
   // 権限モデル単純化（migration 210）で、区画はブロックアプリ単位に統合済み
-  // （その後の技術資料アプリ削除・migration 211 でいまは6つ）。
+  // （その後の技術資料アプリ削除・migration 211、計時・視聴者の権限区画統合・
+  // migration 232 でいまは5つ）。
   // `sales` が旧 `budget`/`gpm`/`studio`/`partner_schedule` をまとめて持つ
   // （案件管理・財務管理・カレンダー・設定・プロジェクト管理）。
+  // `qsheet` が計時・視聴者（旧 `liveops`）の権限も面倒を見る（migration 232）。
   const perms: [string, string, string][] = [
     // staff1 — 佐藤（フルアクセス寄り）
     [USERS.staff1, 'sales',       'manager'],
     [USERS.staff1, 'equipment',   'reader'],
     [USERS.staff1, 'qsheet',      'editor'],
-    [USERS.staff1, 'liveops',     'editor'],
     [USERS.staff1, 'awards',      'editor'],
     [USERS.staff1, 'dailyops',    'editor'],
 
@@ -70,7 +71,6 @@ export async function seed() {
     [USERS.staff2, 'sales',       'manager'],
     [USERS.staff2, 'equipment',   'manager'],
     [USERS.staff2, 'qsheet',      'manager'],
-    [USERS.staff2, 'liveops',     'manager'],
     [USERS.staff2, 'awards',      'manager'],
     [USERS.staff2, 'dailyops',    'manager'],
 
@@ -78,7 +78,6 @@ export async function seed() {
     [USERS.staff3, 'sales',       'editor'],
     [USERS.staff3, 'equipment',   'editor'],
     [USERS.staff3, 'qsheet',      'editor'],
-    [USERS.staff3, 'liveops',     'editor'],
     [USERS.staff3, 'awards',      'editor'],
     [USERS.staff3, 'dailyops',    'editor'],
 
@@ -86,14 +85,12 @@ export async function seed() {
     [USERS.staff4, 'sales',       'reader'],
     [USERS.staff4, 'equipment',   'reader'],
     [USERS.staff4, 'qsheet',      'reader'],
-    [USERS.staff4, 'liveops',     'reader'],
     [USERS.staff4, 'awards',      'reader'],
     [USERS.staff4, 'dailyops',    'reader'],
 
     // staff5 — 山田（限定アクセス。equipment/dailyops は持たない例）
     [USERS.staff5, 'sales',       'editor'],
     [USERS.staff5, 'qsheet',      'reader'],
-    [USERS.staff5, 'liveops',     'reader'],
     [USERS.staff5, 'awards',      'reader'],
   ];
 

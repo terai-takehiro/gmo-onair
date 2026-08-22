@@ -93,6 +93,83 @@
   GLS番号・案件ID・番組IDを**手で入力**して開く旧来の入口。ハブ画面からは
   `panelPathOf` で直接飛ぶので通常は経由しない
 
+## 計時・視聴者（liveops）の運用画面（v4.1 段2・ミニアプリ化フェーズ2で移植）
+
+`client-live`（別バンドル）の運用画面を、このアプリへバンドル統合する作業。
+**ダッシュボード・タイマー管理に続き、番組設定・組織の鍵設定も移植した。**
+詳細は [`12-live-timer-decision.md`](../docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md) §4。
+
+- **画面**: `pages/live/{LiveDashboardPage,LiveTimerAdminPage,LiveProgramSettingsPage,LiveOrgSettingsPage,LiveLegacyProgramsPage}.tsx`。
+  ルートは `/qsheet/live/:ownerKey`（ダッシュボード）・`/qsheet/live/:ownerKey/timers`
+  （タイマー管理）・`/qsheet/live/:ownerKey/settings`（番組設定）・
+  `/qsheet/live-org-settings`（組織の鍵設定。`:ownerKey` を取らない）・
+  `/qsheet/live-legacy`（案件に紐づかない既存セッション。同じく `:ownerKey` を取らない）。
+  `:ownerKey` は `device-settings-owner.ts` と同様 GLS番号・案件IDどちらでも通る
+  （`getOwnerContext` で解決）
+- **組織の鍵設定（`LiveOrgSettingsPage.tsx`）は案件に紐づかない。** system_admin/qsheet
+  manager 向けの組織全体の設定（YouTube/Jstream/Zoom/Teams の API キー・資格情報）で、
+  ダッシュボードのヘッダー（歯車アイコン「組織の鍵設定」・canManage のときだけ表示）から
+  リンクする。**PC専用画面**として `src/pcOnlyScreens.ts` の `QSHEET_PC_ONLY` に登録した
+  （旧 `client-live` の `LIVE_PC_ONLY`「設定」と同じ理由 — 外部サービスの管理画面と
+  往復しながら入力するため）。400行基準（`npm run lint`）に収めるため、節ごとに
+  `PersonalTestKeysSection`/`ZoomSettingsSection`/`TeamsSettingsSection`/
+  `ExportImportSection`/`ApiKeyTestControls`（接続テストボタン・取得方法ガイド）へ
+  分割した（元は1ファイル。ロジック・見た目・保存の単位は変えていない）
+- **番組設定（`LiveProgramSettingsPage.tsx`）は案件単位。** 旧 `ProgramsPage.tsx` の
+  移植で、ダッシュボードと同じ `useLiveProgram` で owner 解決する。スマホでも開く
+  （旧 `client-live` 版と同じ判断）
+- **`scope === 'project'` のときだけ開ける。** `scope === 'program'`（qsheet 独自の
+  「番組（マニュアル）」）には対応しない — `liveops_programs.project_id` が
+  `projects` テーブルだけを指すため（09完全統合案にも解決策が無い既知の空白。
+  §3-5）。`useLiveProgram`（`pages/live/useLiveProgram.ts`）がこの判定と
+  「取得または作成」（`POST /liveops/programs/resolve-by-project/:projectId`）を
+  1か所にまとめている（旧 `client-live` の `OpenByProjectPage.tsx` の役割をこの
+  画面自身に統合したもの）。⚠️ **このルートのゲートは `qsheet` の `reader`**（既存
+  program の取得までは reader/editor でも通る）。**「まだ program が無い」ときの
+  新規作成（INSERT）だけ**、ハンドラ内で手動に `qsheet` の `manager` を要求する
+  2段構え（v4.1 段2 レビュー対応。着手時は `canWrite`＝manager 固定で、reader/editor は
+  既存セッションの閲覧すら常に 403 だった）
+- **部品は `components/live/` に複製した。** `TimerDisplay` / `TimerControls` /
+  `TimerSettingsPanel` / `ViewerCard` / `ViewerChart` / `chartUtils` / `format`
+  （`formatTimer`/`formatCount`）— `client-live` 側の同名部品の移植（ロジック・
+  見た目は変えていない）。`chart.js` / `react-chartjs-2` を依存に追加した
+  （「視聴者数推移」グラフを含め機能を1つも落とさないため）
+- **Socket.IO / タイマー操作は `shared/src/client/live/{socket,useTimer}.ts`
+  （新設）を使う。** `client-live/src/lib/socket.ts` / `hooks/useTimer.ts`
+  （`TimerDisplayPage.tsx` 専用として凍結）とは**別の複製**であり、
+  表示画面側には一切触れていない
+- **セッション一覧（旧 `client-live` の `/`・案件に紐づかない「スタンドアロン」作成）は
+  廃止した**（12-live-timer-decision.md §3-5「抜け道として残す」の撤回。ユーザーの
+  明示的な上書き決定）。`client-live` 側の `SessionHomePage.tsx` を削除し、`/live/` は
+  案内画面（「制作技術支援の案件から開けます」＋ `/qsheet/top` へのリンク）に差し替えた
+  （このバンドル側にセッション一覧・**新規**スタンドアロン作成の相当画面は移植していない）
+  - ⚠️ **「新規作成の廃止」と「既存データへの UI 到達を失わせること」は別**
+    （現場運用レビューでの指摘・GROUND_RULES §致命的2）。セッション一覧の廃止で、
+    案件に紐づかない**既存**の `liveops_programs`（`project_id IS NULL`）へ到達する
+    画面がどこにも無くなっていた——旧URLの案内文「案件から開き直してください」も
+    実行不可能だった（案件から開くと別の新しい program が作られるだけ）。
+    `pages/live/LiveLegacyProgramsPage.tsx`（`/qsheet/live-legacy`。qsheet manager
+    限定・`QSHEET_PC_ONLY`）でこの一覧だけを復活させた。**新規作成ボタンは無い** —
+    一覧・視聴者ソースの読み取り専用表示・既存タイマーの操作（`TimerDisplay`/
+    `TimerControls`/`ViewerPanel` をそのまま再利用）だけ。`client-live` 側の
+    `useLegacyProgramRedirect.ts` は、`project_id` の無い旧URLを開いたとき
+    `?program=<id>` 付きでここへ `redirect` する（以前は `blocked` で
+    案内文だけを出していた）
+- **旧URL（`/live/program/:id` 等・`/live/settings`）は、`client-live` 側で新URLへの
+  リダイレクト専用画面に差し替えた**（v4.1 段2・URL再設計ステージ。詳細は
+  `client-live/CLAUDE.md`「ミニアプリ化フェーズ2」の対応表）。旧ダッシュボード等の実体
+  （`DashboardPage.tsx` 等）はまだ削除していない（本番リリースの観測期間を挟んでから
+  別PRで削除する設計・§4-3・2-X/2-Y分割）が、旧URLを開くと以後は必ず新URLへ跳ぶ
+- **ミニアプリのタイル・スイッチャー（`MINI_APPS` レジストリ）はこのステージでは
+  変更していない。** 引き続き `/live/open?project=:id`（`client-live` 側の
+  `RedirectFromOpen.tsx`）を経由するが、その画面自体が新URLへ即リダイレクトするため、
+  実質的にはこのバンドルの `LiveDashboardPage.tsx` へ届く。レジストリの `path` を
+  `/qsheet/live/:ownerId` に直接向ける形への切り替え自体は後続の
+  RegistryPermissions ステージが行う
+- **権限区画は `qsheet` に統合済み**（migration 232）。`liveops` という権限区画は
+  もう存在しない — `server/src/contexts/liveops/routes/*.ts` の
+  `requirePermission()` はすべて `'qsheet'` を見る
+
 ## このアプリの中身
 
 - **データ**: `qsheet_documents` テーブルに JSONB で台本全体を保存。同時編集は Yjs（`qsheet_doc_yjs`）

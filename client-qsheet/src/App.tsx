@@ -22,6 +22,13 @@ import StreamingPage from "@/pages/streaming/StreamingPage";
 import RentalSearchPage from "@/pages/rental/RentalSearchPage";
 import RentalReservationsPage from "@/pages/rental/RentalReservationsPage";
 import RentalMailPage from "@/pages/rental/RentalMailPage";
+// 計時・視聴者（liveops）の運用画面。案件単位（:ownerKey）で文書とは別の入れ物
+// （v4.1 段2・ミニアプリ化フェーズ2・12-live-timer-decision.md §4）
+import LiveDashboardPage from "@/pages/live/LiveDashboardPage";
+import LiveTimerAdminPage from "@/pages/live/LiveTimerAdminPage";
+import LiveProgramSettingsPage from "@/pages/live/LiveProgramSettingsPage";
+import LiveOrgSettingsPage from "@/pages/live/LiveOrgSettingsPage";
+import LiveLegacyProgramsPage from "@/pages/live/LiveLegacyProgramsPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +75,16 @@ export default function App() {
         <Route path="/qsheet/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/qsheet/rental/:ownerKey/list" element={<RentalReservationsPage />} />
         <Route path="/qsheet/rental/:ownerKey/mail/:company" element={<RentalMailPage />} />
+        {/* 計時・視聴者（liveops）。案件単位（:ownerKey）。
+            組織の鍵設定（live-org-settings）だけ ownerKey を取らない（system_admin/qsheet
+            manager 向け・案件に紐づかない設定のため） */}
+        <Route path="/qsheet/live/:ownerKey" element={<LiveDashboardPage />} />
+        <Route path="/qsheet/live/:ownerKey/timers" element={<LiveTimerAdminPage />} />
+        <Route path="/qsheet/live/:ownerKey/settings" element={<LiveProgramSettingsPage />} />
+        <Route path="/qsheet/live-org-settings" element={<LiveOrgSettingsPage />} />
+        {/* 案件に紐づかない既存セッション（旧スタンドアロン作成）の一覧。新規作成ボタンは無い
+            — セッション一覧の廃止に伴う UI 到達性の回復のみが目的（レビュー対応・§致命的2） */}
+        <Route path="/qsheet/live-legacy" element={<LiveLegacyProgramsPage />} />
 
         {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
         <Route path="/qsheet/schedules" element={<ScheduleListPage />} />

@@ -11,7 +11,7 @@ import { loadOrgKeys, loadOrgSettingsForDisplay, saveOrgSettings } from '../org-
 import { getZoomToken } from '../zoom-token';
 
 const router = Router();
-const canManage = [requireAuth, requirePermission('liveops', 'manager')] as const;
+const canManage = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
 router.get('/', ...canManage, async (_req, res) => {
   try {

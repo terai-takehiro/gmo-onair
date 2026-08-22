@@ -4,7 +4,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
-const canRead = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canRead = [requireAuth, requirePermission('qsheet', 'reader')] as const;
 
 // 公開: 表示画面用（認証不要・ブラウザソース用）
 router.get('/:programId/display', async (req, res) => {

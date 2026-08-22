@@ -127,6 +127,35 @@ describe('押せるのに 403 にしない', () => {
     expect(home).toMatch(/overdueHref = canSeeDailyops \? '\/daily\/tasks' : null/);
   });
 
+  it('計時・視聴者のタイルは reader でも既存セッションを開ける（resolve-by-project は新規作成だけ manager）', () => {
+    // v4.1 段2 ミニアプリ化フェーズ2の回帰: `resolve-by-project` が常に
+    // `requirePermission('qsheet', 'manager')` を要求していたため、タイルは誰にでも
+    // 見えるのに reader/editor は「既存セッションを開くだけ」でも常に 403 だった
+    // （旧 `ExternalMiniAppLink` が担っていた「タイルを隠す」二重防御がレジストリ統合で
+    // 失われ、代わりに入る側のゲートも無かった）。ルートを reader まで下げ、
+    // 「新規作成（INSERT）のときだけ」手動で manager を要求する2段構えに直した。
+    const routes = read('server', 'src', 'contexts', 'liveops', 'routes', 'programs.routes.ts');
+    const at = routes.indexOf("router.post('/resolve-by-project/:projectId'");
+    expect(at).toBeGreaterThan(-1);
+    // ゲート自体は reader（= canRead）— canWrite（manager 固定）に戻すと reader は
+    // 既存セッションの取得段階で 403 になる
+    expect(routes.slice(at, at + 120)).toContain('...canRead');
+    expect(routes.slice(at, at + 120)).not.toContain('...canWrite');
+    // 「既存が無いとき」だけ manager を手動チェックしてから INSERT する
+    const afterGate = routes.slice(at);
+    const existingCheckAt = afterGate.indexOf('SELECT id FROM liveops_programs WHERE project_id');
+    const managerCheckAt = afterGate.indexOf("meetsPermissionLevel(authUser?.role, authUser?.permissions?.['qsheet'], 'manager')");
+    const insertAt = afterGate.indexOf('INSERT INTO liveops_programs');
+    expect(existingCheckAt).toBeGreaterThan(-1);
+    expect(managerCheckAt).toBeGreaterThan(existingCheckAt);
+    expect(insertAt).toBeGreaterThan(managerCheckAt);
+
+    // クライアント側のタイル・スイッチャーは元々どのミニアプリも権限で隠していない
+    // （ハブ自体の qsheet 権限ゲートに委ねる方針）。計時・視聴者だけ特別扱いしていないことを見る
+    const tiles = read('client-qsheet', 'src', 'components', 'journey', 'MiniAppTiles.tsx');
+    expect(tiles).not.toMatch(/hasPermission\(['"]qsheet['"],\s*['"]manager['"]\)/);
+  });
+
   it('仮押さえの「落とす」は manager にだけ出す（PC もスマホも）', () => {
     // `DELETE /studios/bookings/:id` は manager を要求する。**確定にするほうは editor**
     // なので、1つの `canEdit` でまとめると editor に「落とす」が出て 403 になる

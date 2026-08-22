@@ -11,16 +11,85 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
 | --- | --- |
 | ディレクトリ名 | `client-live/` |
 | ベースパス | `/live/` |
-| `permissionModule` / 権限区画 | `'liveops'` |
 | DBのテーブル名 | `liveops_programs` 等 |
 | Socket.IO 名前空間 | `/liveops` |
 | `localStorage` キー | `lv_display_{timerId}` 等 |
 | `MiniAppKey` / `AppKey` の値 | `'liveops'` |
 
+⚠️ **`permissionModule` / 権限区画だけは例外。** 計時・視聴者のミニアプリ化フェーズ2の
+着手にあたり、`'liveops'` 区画を `'qsheet'` へ統合した（migration 232・
+[`12-live-timer-decision.md`](../docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md) §9
+の未決事項に対する決定）。`requirePermission('liveops', ...)` はサーバー側から全て消え、
+`usePermissions.ts` / `AppShell.tsx` の判定も `'qsheet'` を見るようになった。
+
+## ミニアプリ化フェーズ2（バンドル統合）進行中
+
+**運用画面（ダッシュボード・タイマー管理・番組設定・組織の鍵設定）は `client-qsheet`
+バンドルへ移植した。** 新URL `/qsheet/live/:ownerKey`（ダッシュボード）・
+`/qsheet/live/:ownerKey/timers`（タイマー管理）・`/qsheet/live/:ownerKey/settings`
+（番組設定）・`/qsheet/live-org-settings`（組織の鍵設定。案件に紐づかないため
+`:ownerKey` を取らない・system_admin/qsheet manager向け）。表示画面用の
+`shared/src/client/live/{socket,useTimer}.ts` を新設し、このアプリの
+`src/lib/socket.ts` / `hooks/useTimer.ts`（**`TimerDisplayPage.tsx` 専用として
+凍結**）とは別に複製した（12-live-timer-decision.md §4-2 の決定どおり、表示画面が使う
+実装には1文字も触れていない）。
+
+- **旧URLは削除せず、すべて `/qsheet/...` へのリダイレクト専用画面に差し替えた**
+  （v4.1 段2・URL再設計ステージ・`src/pages/redirects/`）。並行稼働（旧URLで運用画面が
+  そのまま動く）はここで終わり、以後は旧URLを開くと必ず新URLへ跳ぶ:
+
+  | 旧URL | 解決方法 | 部品 |
+  | --- | --- | --- |
+  | `/live/program/:id` | `GET /liveops/programs/:id` で `project_id` を引く | `RedirectFromProgram.tsx` |
+  | `/live/program/:id/timers` | 同上 | `RedirectFromProgramTimers.tsx` |
+  | `/live/program/:id/settings` | 同上 | `RedirectFromProgramSettings.tsx` |
+  | `/live/settings` | API 不要（`/qsheet/live-org-settings` へ即遷移） | `RedirectFromSettings.tsx` |
+  | `/live/open?project=` | クエリの `project` をそのまま渡す | `RedirectFromOpen.tsx` |
+
+  ⚠️ **`project_id` が無い（案件に紐づかない旧スタンドアロン program）場合の案内文は
+  現場運用レビューで一度事故った。** 当初は「制作技術支援の案件から開き直してください」
+  という `blocked` 表示を出していたが、これは**実行不可能な指示**だった —
+  案件から開くと `resolve-by-project` が**別の新しい** program を作るだけで、
+  この旧スタンドアロン program（そこに設定済みのタイマー・YouTube/Zoom/Teams紐づけ）
+  には二度と辿り着けなくなる。いまは `client-qsheet` 側に復活させた管理者向け一覧
+  （`/qsheet/live-legacy`・下記「セッション一覧」参照）へ、この program を
+  あらかじめ選択した状態（`?program=<id>`）で `redirect` する（`blocked` ではなく
+  実際に辿り着ける行き先を返す）。`RedirectOnce` は同一バンドル内専用（react-router の
+  `navigate()`）なので使えず、すべて `window.location.replace()` によるハード遷移
+  （`pages/redirects/RedirectStatus.tsx`）
+- **`DashboardPage.tsx`/`TimerAdminPage.tsx`/`ProgramsPage.tsx`/`SettingsPage.tsx`+
+  `OrgKeysSection.tsx`/`OpenByProjectPage.tsx` の実体はまだ削除していない**
+  （どこからも import されなくなっただけ）。設計（§4-3・2-X/2-Y 分割）どおり、
+  本番リリースの観測期間を挟んでから別PRで削除する予定
+- **セッション一覧（旧 `client-live` の `/`・案件に紐づかない「スタンドアロン」作成）は
+  廃止した。** `SessionHomePage.tsx` は削除し、`/` は案内画面（`LiveHomeNoticePage.tsx`。
+  「制作技術支援の案件から開けます」＋ `/qsheet/top` へのリンク）に差し替えた
+  （12-live-timer-decision.md §3-5「抜け道として残す」の撤回・ユーザーの明示的な
+  上書き決定）。新ダッシュボード（`/qsheet/live/:ownerKey`）も `scope === 'project'` の
+  みに対応し、案件に紐づかないスタンドアロン作成の導線は新バンドル側に持たせていない
+  - ⚠️ **「新規のスタンドアロン作成を廃止すること」と「既存のスタンドアロンデータへの
+    UI到達を失わせること」は別**（現場運用レビューでの指摘）。案件に紐づかない**既存**の
+    `liveops_programs`（`project_id IS NULL`）は消していない以上、それを見て開く手段は
+    要る。`client-qsheet` 側に `LiveLegacyProgramsPage.tsx`（`/qsheet/live-legacy`。
+    qsheet manager 限定・PC専用）を新設し、一覧・視聴者ソースの読み取り専用表示・
+    既存タイマーの操作（`TimerDisplay`/`TimerControls`/`ViewerPanel` を直接再利用）
+    だけを持たせた。**新規作成ボタンは無い** — `SessionHomePage.tsx` の「＋新規作成」を
+    復活させたのではなく、あくまで残った実データへの到達性だけを回復させたもの。
+    `LiveHomeNoticePage.tsx` にも qsheet manager 向けの控えめなリンクを1本足した
+- ミニアプリのタイル・ヘッダーのスイッチャー（`client-qsheet` 側の `MiniAppSwitcher` /
+  `MINI_APPS` レジストリ）は**このステージでも変更していない** — 引き続き
+  `path: '/live/open?project=:ownerId'`（`shared/src/production/miniapps.ts` 等）
+  経由でこのアプリの `/live/open`（＝上表の `RedirectFromOpen.tsx`）を踏んでから
+  新URLへ跳ぶ。新URLへの導線切り替え自体（レジストリの `path` を直接
+  `/qsheet/live/:ownerId` にする等）は後続の RegistryPermissions ステージが行う
+
 ## いまの状態
 
-**運用画面（セッション一覧・ダッシュボード・タイマー管理・番組設定・設定）は共通シェル
-（`shared/src/client/shell/`）・v4トークンに載せ替えた。** `client-daily` と同じ形で、
+**旧運用画面（セッション一覧・ダッシュボード・タイマー管理・番組設定・設定）は共通シェル
+（`shared/src/client/shell/`）・v4トークンに載せ替えた（この記述は当時のまま残す）。**
+その後 v4.1 段2 で、これらの URL 自体はリダイレクト専用画面に差し替わったが、
+シェル（`AppShell.tsx`/`nav.ts`）自体は上記「ミニアプリ化フェーズ2」の案内画面・
+リダイレクト画面もそのまま包んでいる。`client-daily` と同じ形で、
 `src/components/layout/AppShell.tsx`（設定を渡すだけ）＋ `src/components/layout/nav.ts`
 （メニューの中身）に整理した。旧 `Header.tsx` / `Sidebar.tsx` は削除済み。
 
@@ -60,10 +129,15 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
   （メニューの中身。番組を選んでいるかどうかで `buildLiveNav(programId)` が組み立てる）
 - **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
   `LIVE_PC_ONLY` か `LIVE_MOBILE_OK` のどちらにも入っていないと `npm run lint` が止まる。
-  いまは「設定」（YouTube/Jstream/Zoom/Teams の API キー・クライアントシークレット）
-  だけ PC 専用で、セッション一覧・ダッシュボード・タイマー管理・番組設定はスマホでも開く
-  （本番中に会場やロビーからタイマー・視聴者数だけ確認したい場面があるため）
-- **画面**: `pages/{SessionHomePage,DashboardPage,TimerAdminPage,ProgramsPage,SettingsPage,TimerDisplayPage}`
+  **`LIVE_PC_ONLY` はいま空。** 旧「組織の設定」の PC専用判断は移植先
+  （`client-qsheet/src/pcOnlyScreens.ts` の `QSHEET_PC_ONLY`）に引き継いだ。
+  `check-mobile-declared.mjs` は `<Redirect...>` という名前の部品を使うルートを
+  転送とみなして対象から外すので、`pages/redirects/` 配下の5画面はどちらの表にも
+  入れない（入れると「宣言だけ残っていてルートが無い」で lint が止まる）
+- **画面**: `pages/{LiveHomeNoticePage,TimerDisplayPage}` ＋ `pages/redirects/`
+  （旧URLのリダイレクト専用5画面）。旧運用5画面（`DashboardPage.tsx` 等）は
+  `client-qsheet` 側に移植済みでもう import されていないが、ファイルはまだ残っている
+  （上記「ミニアプリ化フェーズ2」参照）
 - **`/live/display/:timerId` は認証を通さない**（表示機・OBS から開く）。`DisplayRouter` が分岐している
 - 視聴者カウンターは YouTube / Jstream / Zoom / Teams の合算。認証情報は暗号化して保存
 - **Socket.IO** で タイマー・視聴者数を配信（`server/src/contexts/liveops/socket.ts`）

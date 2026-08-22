@@ -695,7 +695,7 @@ const BASELINE = {
       "client": 94,
       "client-daily": 33,
       "client-equipment": 65,
-      "client-qsheet": 130,
+      "client-qsheet": 149,
       "shared": 6
     },
     "raw-xlsx-read": {
@@ -708,7 +708,7 @@ const BASELINE = {
       "client": 13,
       "client-daily": 2,
       "client-equipment": 5,
-      "client-qsheet": 21,
+      "client-qsheet": 20,
       "shared": 5
     }
   };

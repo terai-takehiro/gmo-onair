@@ -11,17 +11,14 @@ import {
   MINI_APP_BY_KEY,
   docPathOf,
   panelPathOf,
-  externalPathOf,
   miniAppOfPath,
   enabledMiniApps,
   type MiniAppDocumentDef,
   type MiniAppPanelDef,
-  type MiniAppExternalDef,
 } from '../src/production/miniapps';
 
 const documents = MINI_APPS.filter((a): a is MiniAppDocumentDef => a.kind === 'document');
 const panels = MINI_APPS.filter((a): a is MiniAppPanelDef => a.kind === 'panel');
-const externals = MINI_APPS.filter((a): a is MiniAppExternalDef => a.kind === 'external');
 
 describe('MINI_APPS — 登録そのもの', () => {
   it('key が重複していない', () => {
@@ -50,19 +47,16 @@ describe('MINI_APPS — 登録そのもの', () => {
     for (const a of panels) expect(a.path).toContain(':ownerKey');
   });
 
-  it('external: path が重複していない、かつ必ず `:ownerId` を含む', () => {
-    expect(new Set(externals.map((a) => a.path)).size).toBe(externals.length);
-    for (const a of externals) expect(a.path).toContain(':ownerId');
-  });
-
-  it('external: crossBundle が true 固定', () => {
-    for (const a of externals) expect(a.crossBundle).toBe(true);
-  });
-
-  it('external: liveops（計時・視聴者）は PR-B で有効化されている', () => {
-    expect(MINI_APP_BY_KEY.liveops.kind).toBe('external');
+  it('panel: liveops（計時・視聴者）は有効。計時・視聴者のミニアプリ化フェーズ2で '
+    + 'kind: \'external\' から \'panel\' へ統合した（運用画面が client-qsheet バンドル内へ移植されたため）', () => {
+    expect(MINI_APP_BY_KEY.liveops.kind).toBe('panel');
     expect(MINI_APP_BY_KEY.liveops.enabled).toBe(true);
-    expect(MINI_APP_BY_KEY.liveops.permissionModule).toBe('liveops');
+    expect(MINI_APP_BY_KEY.liveops.path).toBe('/qsheet/live/:ownerKey');
+    // 権限区画の統合（migration 232・計時・視聴者のミニアプリ化フェーズ2）で
+    // 'liveops' → 'qsheet' になり、他の panel 系ミニアプリと区画が揃った。
+    // `permissionModule`（ハブと別区画のときだけ明示するフィールド）はどこからも
+    // 読まれていなかったため、フィールドごと削除した（v4.1 段2 レビュー対応）。
+    expect(MINI_APP_BY_KEY.liveops).not.toHaveProperty('permissionModule');
   });
 
   it('**段4以降は schedule も有効**（qsheet_schedules ができたため）', () => {
@@ -104,27 +98,12 @@ describe('panelPathOf — panel 専用', () => {
   it('`:ownerKey` を実値に置き換える', () => {
     expect(panelPathOf('recording', 'GLS-A012')).toBe('/qsheet/recording/GLS-A012');
     expect(panelPathOf('streaming', 'GLS-A012')).toBe('/qsheet/streaming/GLS-A012');
+    // liveops（計時・視聴者）も panel 統合後は他の panel と同じ書き方で通る
+    expect(panelPathOf('liveops', 'proj-123')).toBe('/qsheet/live/proj-123');
   });
 
   it('document の key を渡すと例外', () => {
     expect(() => panelPathOf('sheet', 'x')).toThrow();
-  });
-});
-
-describe('panelPathOf — panel 専用（続き）', () => {
-  it('external の key を渡すと例外', () => {
-    expect(() => panelPathOf('liveops', 'x')).toThrow();
-  });
-});
-
-describe('externalPathOf — external 専用', () => {
-  it('`:ownerId` を実値に置き換える', () => {
-    expect(externalPathOf('liveops', 'proj-123')).toBe('/live/open?project=proj-123');
-  });
-
-  it('document/panel の key を渡すと例外', () => {
-    expect(() => externalPathOf('sheet', 'x')).toThrow();
-    expect(() => externalPathOf('recording', 'x')).toThrow();
   });
 });
 
@@ -137,11 +116,11 @@ describe('enabledMiniApps — 導線に出してよいものだけ', () => {
     expect(keys).toContain('streaming');
   });
 
-  it('liveops（external）は enabled:true なので含まれる。「＋新規作成」等の呼び出し側は panel と同じ書き方で kind === "external" も除外すること（新規作成の概念が無いため）', () => {
+  it('liveops（panel）は enabled:true なので含まれる。「＋新規作成」等の呼び出し側は他の panel と同じく除外すること（新規作成の概念が無いため）', () => {
     const keys = enabledMiniApps().map((a) => a.key);
     expect(keys).toContain('liveops');
 
-    const creatable = enabledMiniApps().filter((a) => a.kind !== 'panel' && a.kind !== 'external');
+    const creatable = enabledMiniApps().filter((a) => a.kind !== 'panel');
     expect(creatable.map((a) => a.key)).not.toContain('liveops');
   });
 });
@@ -174,7 +153,11 @@ describe('miniAppOfPath — URL から判定', () => {
     expect(miniAppOfPath('/qsheet/nope')).toBeUndefined();
   });
 
-  it('external（別バンドルの URL）は候補から除外され、誤って一致しない', () => {
+  it('panel の URL（計時・視聴者）を判定する', () => {
+    expect(miniAppOfPath('/qsheet/live/GLS-A012')?.key).toBe('liveops');
+  });
+
+  it('別バンドルの旧URL（/live/*）は候補にないので誤って一致しない', () => {
     expect(miniAppOfPath('/live/open')).toBeUndefined();
     expect(miniAppOfPath('/live/open?project=abc')).toBeUndefined();
   });

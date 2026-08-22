@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
 import type { JourneyDay } from "@gmo-onair/shared/src/production/journey";
 import { getRentalReservations } from "@/lib/rentalApi";
-import ExternalMiniAppLink from "./ExternalMiniAppLink";
 
 interface MiniAppTilesProps {
   scope: "project" | "program";
@@ -37,7 +36,7 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-/** タイル共通の見た目。`<Link>` の5タイルと `ExternalMiniAppLink` の計時・視聴者タイルで揃える */
+/** タイル共通の見た目 */
 const TILE_CLASS =
   "min-h-tap group flex flex-col items-start gap-1.5 rounded-card border border-border bg-card p-3 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -102,6 +101,23 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       to: panelPathOf("rental", id),
       count: rentalCount,
     },
+    // 計時・視聴者（liveops）は scope === "project" のときだけ出す（12-live-timer-decision.md
+    // §3-1）。liveops_programs.project_id は projects テーブルのみを指し、qsheet 独自の
+    // 「番組（マニュアル）」（scope === "program"）には対応しないため。運用画面が
+    // client-qsheet バンドル内（kind: 'panel'）へ移植されたため、他のミニアプリと同じ
+    // <Link> + panelPathOf で出す（ミニアプリ化フェーズ2・ExternalMiniAppLink は廃止した）。
+    ...(scope === "project"
+      ? [
+          {
+            key: "liveops",
+            label: MINI_APP_BY_KEY.liveops.label,
+            description: "タイマー・視聴者数",
+            icon: Timer,
+            to: panelPathOf("liveops", id),
+            count: null,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -125,24 +141,6 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
           <span className="text-sub-sm text-muted-foreground">{t.description}</span>
         </Link>
       ))}
-      {/* 計時・視聴者（liveops）は scope === "project" のときだけ出す（12-live-timer-decision.md §3-1）。
-          liveops_programs.project_id は projects テーブルのみを指し、qsheet 独自の「番組（マニュアル）」
-          （scope === "program"）には対応しないため。<Link> ではなく ExternalMiniAppLink（<a> 限定・
-          権限チェック込み）を使う — 別バンドル（client-live）への遷移のため */}
-      {scope === "project" && (
-        <ExternalMiniAppLink def={MINI_APP_BY_KEY.liveops} ownerId={id} className={TILE_CLASS}>
-          <span className="flex w-full items-center justify-between">
-            <span className="flex h-8 w-8 items-center justify-center rounded-control bg-primary-surface-weak text-primary">
-              <Timer className="h-4 w-4" aria-hidden="true" />
-            </span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="text-sub font-bold">{MINI_APP_BY_KEY.liveops.label}</span>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          </span>
-          <span className="text-sub-sm text-muted-foreground">タイマー・視聴者数</span>
-        </ExternalMiniAppLink>
-      )}
     </div>
   );
 }
