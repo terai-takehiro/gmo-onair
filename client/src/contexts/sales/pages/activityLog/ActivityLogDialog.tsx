@@ -116,6 +116,7 @@ export function ActivityLogDialog({
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? '活動記録の編集' : '活動を記録'}
+      size="lg"
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           {editing && canDelete ? (
@@ -194,8 +195,8 @@ export function ActivityLogDialog({
         </div>
         <div className="border-t border-border pt-4">
           <p className="mb-2 text-sub font-bold">次回アクション</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="sm:col-span-2">
               <Label>内容</Label>
               <Input value={form.next_action} onChange={(e) => setForm((f) => ({ ...f, next_action: e.target.value }))} placeholder="見積書を送付" />
             </div>

@@ -16,7 +16,6 @@ import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
 import { QSHEET_ROOT_PATH } from "@/routeSwitch";
-import DeviceSettingsHome from "@/pages/device-settings/DeviceSettingsHome";
 import RecordingPage from "@/pages/recording/RecordingPage";
 import StreamingPage from "@/pages/streaming/StreamingPage";
 import RentalSearchPage from "@/pages/rental/RentalSearchPage";
@@ -67,8 +66,11 @@ export default function App() {
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
         <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
-        {/* 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で文書とは別の入れ物 */}
-        <Route path="/qsheet/device-settings" element={<DeviceSettingsHome />} />
+        {/* 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で文書とは別の入れ物。
+            簡易入口（旧 `/qsheet/device-settings`・`DeviceSettingsHome.tsx`）は
+            2026-08-22 に廃止した（サイドバー・スマホタブが案件/番組の文脈から
+            直接この2画面へリンクするようになったため。CLAUDE.md の「廃止」の定義通り、
+            ファイルは残しコードからの導線だけ外した） */}
         <Route path="/qsheet/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/qsheet/streaming/:ownerKey" element={<StreamingPage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}

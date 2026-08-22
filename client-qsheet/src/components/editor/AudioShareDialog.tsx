@@ -152,7 +152,16 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        // **QR コードと URL を1本ずつ見せるだけなので `md`（640px）。**
+        // 中身は中央寄せの QR（224px）・URL の入力欄・ボタン2つで、
+        // 横に並べる表も2列の入力も無い。`lg`（840px）にすると QR の左右に
+        // 何も無い余白が 300px ずつ増えるだけになる。
+        // ⚠️ 旧実装が指していた Tailwind の最大幅の `md` 段は **448px** で、
+        // この段の `md`（640px）とは別物（448px では URL が窮屈だったので、
+        // 戻さずこの段の `md` に上げてある）。
+        size="md"
+      >
         <DialogHeader>
           <DialogTitle>音声サポート画面 共有 URL</DialogTitle>
           <DialogDescription>

@@ -641,8 +641,8 @@ const BASELINE = {
       "client": 25,
       "client-awards": 17,
       "client-daily": 1,
-      "client-live": 4,
-      "client-qsheet": 17
+      "client-live": 3,
+      "client-qsheet": 18
     },
     "col-width-by-hand": {
       "client": 17,

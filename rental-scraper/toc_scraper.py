@@ -18,6 +18,7 @@ company='TOC' として保存する（バッジ・チップ等の固定幅UIで�
   タグ/class名までは確認できていません。初回実行時にログ(パース失敗等)を
   必ず確認してください。
 """
+import os
 import re
 import time
 import logging
@@ -32,9 +33,14 @@ from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
 COMPANY = "TOC"
 BASE = "https://ec.toc-net.jp"
 CATEGORY_IDS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17]
-DB_PATH = "rental_items.db"
+# ⚠️ sync_to_postgres.py と同じ既定・同じ環境変数を見ること。
+# ここだけ固定文字列にしていると、コンテナ側で RENTAL_SQLITE_PATH を
+# 別の場所（永続ボリューム）に向けた瞬間に「書き込む先」と「同期が読む先」が
+# 食い違い、クロールは成功しているのに1件も反映されない状態になる。
+DB_PATH = os.environ.get("RENTAL_SQLITE_PATH", "rental_items.db")
 SLEEP_SEC = 1.5
 MAX_PAGES_PER_CATEGORY = 50
+PROGRESS_SYNC_EVERY = 100     # 何件取れるごとに on_progress を呼ぶか（run_all が Postgres へ流す）
 TIMEOUT = 15
 USER_AGENT = "Rental-Inventory-Bot/1.0 (internal use; contact: your-email@example.com)"
 
@@ -49,6 +55,18 @@ PRICE_RE = re.compile(r"([\d,]+)\s*円")
 
 
 def fetch(url: str, retries: int = 3):
+    """成功時は**バイト列**（`resp.content`）を返す。文字コードは
+    `BeautifulSoup(html, "html.parser")` 側の自動検出（UnicodeDammit。HTML の
+    `<meta charset>` 宣言等を見る）に任せる。
+
+    ⚠️ 以前は `resp.encoding = resp.apparent_encoding`（`chardet`/`charset_normalizer`
+    によるバイト列からの推定）で文字コードを決めてから `resp.text`（デコード済み文字列）
+    を返していたが、実クロールで日本語部分だけが文字化けする不具合が起きた
+    （`Lightning－Digital AV変換アダプタ` のような ASCII混じりの商品名で、
+    日本語部分だけ欧文コードページに誤爆したような文字化けになる —
+    `apparent_encoding` の推定精度は日本語ページで必ずしも高くない）。
+    HTML の `<meta charset>` 宣言を見る BeautifulSoup 側の検出のほうが確実なため、
+    デコードを BeautifulSoup に委ねる形に変えた。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
@@ -56,8 +74,7 @@ def fetch(url: str, retries: int = 3):
                 log.warning("404 Not Found: %s", url)
                 return None
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
-            return resp.text
+            return resp.content
         except requests.RequestException as e:
             log.warning("取得失敗(%d/%d) %s : %s", attempt, retries, url, e)
             time.sleep(2 * attempt)
@@ -93,14 +110,39 @@ def collect_item_ids_for_category(category_id: int) -> set:
 
 
 def _extract_price_near_label(soup: BeautifulSoup, label: str):
+    """label（「電話受付」「ネット受付」）の直後に出てくる最初の価格らしきテキストを拾う。
+
+    ⚠️ 以前は「label の祖父要素（parent.find_parent()）全体のテキストから最初の価格」
+    という実装だったが、これは label が段落 (`<p>`) 直下などフラットな構造の実ページでは
+    祖父要素が広すぎ（`<body>` そのものになる等）、**「電話受付」で検索しても
+    後ろにある「ネット受付」の価格を拾ってしまう**（両方が同じ値になる）バグがあった
+    （test_toc_scraper.py で再現・修正）。`find_next` で「label より後で最初に価格
+    パターンに一致するテキスト」だけを見るようにし、label ごとに正しい価格を拾う。
+    """
     node = soup.find(string=re.compile(re.escape(label)))
     if not node:
         return None
-    parent = node.parent
-    search_scope = parent.find_parent() or parent
-    text = search_scope.get_text(" ", strip=True)
-    m = PRICE_RE.search(text)
+    price_node = node.find_next(string=PRICE_RE)
+    if not price_node:
+        return None
+    m = PRICE_RE.search(str(price_node))
     return int(m.group(1).replace(",", "")) if m else None
+
+
+def _extract_price_from_specs(specs: dict):
+    """「電話受付」/「ネット受付」ラベルでの取得に失敗したときのフォールバック。
+    _extract_tables_as_dict が既に拾えているテーブル行（specs）の中から、
+    「料金」「価格」を含む key の値に価格らしきパターンがあれば使う。
+
+    ⚠️ 実サイトの HTML 構造が未検証（README「未検証であることについて」参照）なため
+    追加した保険。ラベル方式・こちらのどちらでも取れなかった場合は
+    parse_item_detail 側でログに残し、後で実際の構造を見て直せるようにする。"""
+    for key, val in specs.items():
+        if ("料金" in key or "価格" in key) and isinstance(val, str):
+            m = PRICE_RE.search(val)
+            if m:
+                return int(m.group(1).replace(",", ""))
+    return None
 
 
 def _extract_tables_as_dict(soup: BeautifulSoup) -> dict:
@@ -152,7 +194,7 @@ def _extract_images(soup: BeautifulSoup, item_id: str) -> list:
     return images
 
 
-def parse_item_detail(item_id: str, html: str) -> ItemDetail:
+def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
     soup = BeautifulSoup(html, "html.parser")
     detail = ItemDetail(item_id=item_id, url=f"{BASE}/rental/item/{item_id}")
 
@@ -160,9 +202,19 @@ def parse_item_detail(item_id: str, html: str) -> ItemDetail:
     detail.name = h1.get_text(strip=True) if h1 else ""
 
     detail.category, detail.subcategory = _extract_breadcrumb(soup)
+    detail.specs = _extract_tables_as_dict(soup)
     detail.price_tel = _extract_price_near_label(soup, "電話受付")
     detail.price_net = _extract_price_near_label(soup, "ネット受付")
-    detail.specs = _extract_tables_as_dict(soup)
+    if detail.price_tel is None and detail.price_net is None:
+        # 「電話受付」「ネット受付」ラベルが実ページに無いパターンのフォールバック。
+        # 見つかればネット受付価格として扱う（単一価格のみのケースを想定）
+        fallback = _extract_price_from_specs(detail.specs)
+        if fallback is not None:
+            detail.price_net = fallback
+        else:
+            log.warning(
+                "価格取得不可: %s（spec keys=%s）", detail.url, list(detail.specs.keys())[:10]
+            )
     detail.images = _extract_images(soup, item_id)
 
     related = set()
@@ -175,7 +227,11 @@ def parse_item_detail(item_id: str, html: str) -> ItemDetail:
     return detail
 
 
-def run():
+def run(on_progress=None):
+    """`on_progress(取得済み件数)` を渡すと PROGRESS_SYNC_EVERY 件ごとに呼ぶ。
+    run_all.py がここに「Postgres へ途中経過を流す」処理を差し込む
+    （1回のクロールは数十分〜1時間超かかるため。完走まで何も出ないと、
+    デプロイでコンテナが作り直されるたびに成果が0のままになる）。"""
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
 
@@ -194,6 +250,7 @@ def run():
 
     log.info("[%s] 収集した商品ID数: %d", COMPANY, len(all_item_ids))
 
+    saved = 0
     for item_id in sorted(all_item_ids, key=lambda x: int(x)):
         url = f"{BASE}/rental/item/{item_id}"
         html = fetch(url)
@@ -202,10 +259,15 @@ def run():
         detail = parse_item_detail(item_id, html)
         if detail.name:
             upsert_item(conn, COMPANY, detail, now=run_started_at)
+            saved += 1
+            if on_progress and saved % PROGRESS_SYNC_EVERY == 0:
+                on_progress(saved)
         else:
             log.warning("パース失敗(name取得不可): %s", url)
         time.sleep(SLEEP_SEC)
 
+    # ⚠️ ここまで来た＝全ID分を見に行けた回だけ missing を立てる。
+    # 途中で止まった回で呼ぶと未訪問の商品まで「掲載終了」になる
     mark_missing_items(conn, COMPANY, all_item_ids, now=run_started_at)
     conn.close()
     log.info("[%s] 完了。DB: %s", COMPANY, DB_PATH)

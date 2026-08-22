@@ -97,7 +97,7 @@ function buildFeatures(): Feature[] {
       icon: a.icon,
       module: a.external ? undefined : a.permissionModule,
       // 別バンドル・外部サイトはルーターで飛べない
-      external: !!a.external || !['sales', 'budget', 'studio', 'admin', 'gpm'].includes(a.key),
+      external: !!a.external || !['sales', 'budget', 'calendar', 'admin', 'gpm'].includes(a.key),
     });
   }
   return out;

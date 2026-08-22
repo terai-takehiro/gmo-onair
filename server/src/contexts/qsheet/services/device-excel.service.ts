@@ -47,7 +47,13 @@ export interface BuildDeviceWorkbookResult {
   filename: string;
 }
 
-export function buildDeviceSettingsWorkbook(input: BuildDeviceWorkbookInput): BuildDeviceWorkbookResult {
+/**
+ * 出すシートの中身を組み立てる。
+ * ⚠️ **書き出しと「見出しの見本」は必ずこの関数を通すこと。**
+ * 別々に組むと、見本と実物が違うという**いちばん気づけない壊れ方**をする
+ * （impl doc §10-7 も同じことを言っている）。
+ */
+function buildSheetSpecs(input: BuildDeviceWorkbookInput) {
   const sheetSpecs = [];
 
   if (input.sheets.includes('recording')) {
@@ -93,9 +99,55 @@ export function buildDeviceSettingsWorkbook(input: BuildDeviceWorkbookInput): Bu
     rows: GUIDE_ROWS,
   });
 
-  const buffer = buildExcelWorkbook(sheetSpecs);
-  const filename = `収録配信設定_${input.ownerLabel}_${input.serviceDate}.xlsx`;
-  return { buffer, filename };
+  return sheetSpecs;
+}
+
+/** 書き出すファイルの名前。**画面の見本もここを呼ぶ**（別々に組むと食い違う） */
+export function deviceSettingsFilename(ownerLabel: string, serviceDate: string): string {
+  return `収録配信設定_${ownerLabel}_${serviceDate}.xlsx`;
+}
+
+export function buildDeviceSettingsWorkbook(input: BuildDeviceWorkbookInput): BuildDeviceWorkbookResult {
+  const buffer = buildExcelWorkbook(buildSheetSpecs(input));
+  return { buffer, filename: deviceSettingsFilename(input.ownerLabel, input.serviceDate) };
+}
+
+export interface PreviewSheet {
+  name: string;
+  headers: string[];
+  /** 先頭数行。空欄は空文字のまま返す（画面が橙で「（空欄）」と描く） */
+  rows: string[][];
+  /** 実際に出る行数（rows は先頭だけなので、残りが何行あるかを画面に出す） */
+  totalRows: number;
+}
+
+/**
+ * 「見出しの見本」に出す先頭数行。**実物と同じ `buildSheetSpecs` を通す**。
+ *
+ * ⚠️ ストリームキーは `keyMode` に関わらず**平文で返さない**。
+ * 画面には伏せ字でしか出さない決めごと（08 §2）があるため、
+ * 値があるときだけ `****`、無ければ空欄にする。
+ */
+export function buildDeviceSettingsPreview(
+  input: BuildDeviceWorkbookInput,
+  limit = 5
+): PreviewSheet[] {
+  return buildSheetSpecs(input).map((spec) => {
+    const cols = spec.columns as { key: string; header: string }[];
+    const rows = (spec.rows as Record<string, unknown>[]).slice(0, limit).map((r) =>
+      cols.map((c) => {
+        const v = r[c.key];
+        if (c.key === 'streamKey') return v ? '****' : '';
+        return v === undefined || v === null ? '' : String(v);
+      })
+    );
+    return {
+      name: spec.name,
+      headers: cols.map((c) => c.header),
+      rows,
+      totalRows: (spec.rows as unknown[]).length,
+    };
+  });
 }
 
 export { excelResponse };

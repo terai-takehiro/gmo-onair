@@ -103,6 +103,7 @@ export function HandoffDialog({
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
       title="台帳に入れる"
+      size="lg"
       sub={`${TYPE_LABEL[doc.doc_type]}「${doc.subject || '件名なし'}」（${doc.sender || '送付者なし'}）を仕入か販管費として登録します。登録すると処理完了になります。`}
       footer={
         <FormDialogFooter>

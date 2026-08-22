@@ -145,6 +145,7 @@ export default function TaskDialog({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title={existing ? "タスクを編集" : "タスクを追加"}
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>

@@ -10,7 +10,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY common_db.py toc_scraper.py restar_scraper.py sync_to_postgres.py run_all.py scheduler.py ./
+# ⚠️ **ファイル名を1つずつ並べないこと。** 以前ここは
+#   `COPY common_db.py toc_scraper.py ... scheduler.py ./`
+# と個別列挙していたため、新しく足した sync_requests.py（手動「今すぐ取得」の
+# キュー処理）を書き忘れ、検証環境のコンテナが
+#   ModuleNotFoundError: No module named 'sync_requests'
+# で約4時間クラッシュし続けた（その間クロールは1件も走っていない）。
+# ディレクトリ内の .py を丸ごと入れておけば、モジュールを増やしてもここは直さなくてよい。
+COPY *.py ./
 
 # scheduler.py がコンテナのメインプロセス。ログはそのまま stdout に出るので
 # `docker logs` で読める（system cron のように別ファイルへ吐かせて回収する手間がない）。

@@ -47,6 +47,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import { Sheet } from './sheet';
 import { cn } from '../client/utils';
+import type { DialogSize } from '../client/ui/dialogSize';
 
 export interface FormDialogProps {
   open: boolean;
@@ -57,7 +58,17 @@ export interface FormDialogProps {
   sub?: string;
   /** 下端に固定するボタン列。**旧 `DialogFooter` の中身をそのまま渡す** */
   footer?: ReactNode;
-  /** PC 幅を 760px にする（`Sheet` の `wide` をそのまま渡す。2カラムの複合フォーム向け・opt-in） */
+  /**
+   * **PC での幅の段**（既定 `md` = 640px。`Sheet` にそのまま渡す）。
+   * 段の定義は `shared/src/client/ui/dialogSize.ts`
+   * （`sm` 420 / `md` 640 / `lg` 840 / `xl` 1080 / `full` min(1400px,96vw)）。
+   * 2カラムの複合フォームは `lg`、表・明細を含むものは `xl` を使う。
+   */
+  size?: DialogSize;
+  /**
+   * @deprecated `size="lg"` を使うこと（互換のため残してある）。
+   * `wide` は `size="lg"`（840px）の別名。**両方渡したときは `size` が勝つ。**
+   */
   wide?: boolean;
   /**
    * **本文とフッターを `<form>` で束ねる（`Sheet` の `onSubmit` をそのまま渡す・opt-in）。**
@@ -75,9 +86,9 @@ export interface FormDialogProps {
   children: ReactNode;
 }
 
-export function FormDialog({ open, onOpenChange, title, sub, footer, wide, onSubmit, onInteractOutside, children }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, sub, footer, size, wide, onSubmit, onInteractOutside, children }: FormDialogProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} wide={wide} onSubmit={onSubmit} onInteractOutside={onInteractOutside}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} sub={sub} footer={footer} size={size} wide={wide} onSubmit={onSubmit} onInteractOutside={onInteractOutside}>
       {children}
     </Sheet>
   );
@@ -97,3 +108,16 @@ export const formDialogFooterClass = 'flex flex-col gap-2 sm:flex-row sm:justify
 export function FormDialogFooter({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn(formDialogFooterClass, className)}>{children}</div>;
 }
+
+/**
+ * **フォームの中で2つの欄を横に並べるときの慣用クラス。**
+ *
+ * 日付＋時刻・開始＋終了・数量＋単価のように「対」で読む欄は横に並べたいが、
+ * 画面ごとに素の2列を直書きすると**スマホでも2列のまま**になり、
+ * 375px では入力欄が 150px ほどに潰れて日付も金額も読めなくなる
+ * （実際にそうなっている画面がある）。
+ *
+ * **スマホは1列・`sm`(640px) 以上で2列**にそろえる。3列以上が要るときは
+ * この定数を使わず、その画面で意図を書くこと（対で読むものではないため）。
+ */
+export const formGrid2 = 'grid grid-cols-1 gap-3 sm:grid-cols-2';

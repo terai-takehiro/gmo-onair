@@ -116,13 +116,22 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     ),
     getLatestSyncRequest(),
   ]);
+  const byCompany = new Map(rows.map((r) => [r.company as string, r]));
   return {
-    companies: rows.map((r) => ({
-      company: r.company as string,
-      lastSeenAt: toIso(r.last_seen_at),
-      listedCount: r.listed_count as number,
-      missingCount: r.missing_count as number,
-    })),
+    // ⚠️ **DB に行がある会社だけを返さないこと。** クロールが1件も取れていないと
+    // その会社の行が0件になり、取得状況の欄から会社ごと消えて画面が沈黙する。
+    // 実際、スクレイパーのコンテナが4時間クラッシュし続けたとき、画面には
+    // 「取れていない」ではなく「何も書かれていない」状態で出ていた。
+    // COMPANIES を軸にして、0件でも「未取得」として必ず1行出す。
+    companies: COMPANIES.map((company) => {
+      const r = byCompany.get(company);
+      return {
+        company,
+        lastSeenAt: r ? toIso(r.last_seen_at) : null,
+        listedCount: r ? (r.listed_count as number) : 0,
+        missingCount: r ? (r.missing_count as number) : 0,
+      };
+    }),
     latestRequest,
   };
 }

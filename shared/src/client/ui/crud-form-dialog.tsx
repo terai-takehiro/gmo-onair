@@ -52,14 +52,18 @@
  *   （ネイティブ HTML の仕組みで、同じ文書内なら要素が離れていても送信できる）
  * - **`title`/`description` は文字列に絞った。** `Sheet` の見出しは読み上げの
  *   ためにプレーンな文字列を要求する（実際の呼び出し2か所とも文字列だった）
- * - **`size` は受け取るが使わない**（互換のため残す）。`Sheet` の幅は
- *   PC でも 560px 固定 — 内容ごとに幅を変える発想自体が Dialog 版のものだった
+ * - **`size` は `Sheet` にそのまま渡す**（幅の段の定義は `./dialogSize.ts`）。
+ *   Sheet 化した回はここを「受け取るだけで効かない」互換 prop にしていたが、
+ *   その結果 **PC でも 560px から動かす口が無くなり**、2カラムのフォーム
+ *   （取引先マスターの登録は `size="lg"` を渡していた）まで1カラム幅に
+ *   押し込められていた。段は旧 `Dialog` と同じ名前・同じ px を使う
  */
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '../utils';
 import { Sheet } from '../../client-v4/sheet';
 import { Button } from './button';
+import type { DialogSize } from './dialogSize';
 
 /**
  * useCrudPage が返すオブジェクトのうち、CrudFormDialog が必要とする部分。
@@ -97,10 +101,12 @@ export interface CrudFormDialogProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 
   /**
-   * @deprecated Sheet 化にともない幅は固定（PC 560px）になったため、
-   * このプロパティは受け取るだけで見た目に効かない。互換のため残してある
+   * **PC での幅の段**（既定 `md` = 640px。`Sheet` にそのまま渡す）。
+   * 段の定義は `./dialogSize.ts`
+   * （`sm` 420 / `md` 640 / `lg` 840 / `xl` 1080 / `full` min(1400px,96vw)）。
+   * 2カラムの複合フォームは `lg`、表・明細を含むものは `xl`。
    */
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: DialogSize;
 
   /** 保存ボタンのラベル (default: { create: '追加', edit: '更新' }) */
   submitLabel?: React.ReactNode | LabelByMode;
@@ -139,6 +145,7 @@ export function CrudFormDialog({
   title,
   description,
   onSubmit,
+  size,
   submitLabel,
   cancelLabel = 'キャンセル',
   submitDisabled = false,
@@ -158,6 +165,7 @@ export function CrudFormDialog({
       onOpenChange={crud.setDialogOpen}
       title={titleText}
       sub={descriptionText}
+      size={size}
       footer={footer ?? (
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={crud.closeDialog}>

@@ -82,6 +82,7 @@ export function EditProjectDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="プロジェクトを直す"
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>

@@ -128,7 +128,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
       title={step === 'select' ? '持ち出す機材を選ぶ' : '借りる人と日付'}
       // 旧実装は `sm:max-w-2xl`（672px）で PC 幅を広く取っていた複合画面
       // （選択ステップの機材カードが `grid-cols-3`・入力ステップの日付欄が
-      // `sm:grid-cols-2`）なので、既定の560pxに押し込めず `wide` を渡す
+      // `sm:grid-cols-2`）なので、既定の640pxに押し込めず `wide` を渡す
       wide
       footer={
         step === 'select' ? (

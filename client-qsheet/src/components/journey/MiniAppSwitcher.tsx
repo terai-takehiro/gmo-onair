@@ -9,7 +9,10 @@
  * ラベルは `MINI_APP_BY_KEY` から読む（このファイルに文字列を書き写さない）。
  * レジストリの `label` が変われば自動で追随する。
  *
- * ⚠️ スマホでは出さない（画面が狭いため。スマホの切替は別途検討）。
+ * ⚠️ **スマホでも出す**（2026-08-22 修正）。当初は `hidden sm:inline-flex` で PC だけに
+ * していたが、監査で「スマホから配信設定へ直接切り替えられない」（ハブまで戻る必要がある）
+ * と指摘された。モックはスマホにもセグメントを置いている（Mobile.dc.html）。
+ * 狭い画面では**横スクロールできる帯**にして、全項目とも押せるようにする。
  * ⚠️ この画面（RecordingPage/StreamingPage）以外への拡張はしない（進行台本・スケジュール表
  * の画面にはこのスイッチャー自体が無い。今回のスコープ外・12-live-timer-decision.md §8-5）。
  */
@@ -34,7 +37,8 @@ function pathOf(key: SwitchKey, owner: OwnerContext): string {
 
 function itemClass(active: boolean) {
   return cn(
-    "whitespace-nowrap rounded-control-md px-3 py-1 text-sub",
+    // スマホでは指で押すので 44px を確保する（PC は従来どおり詰める）
+    "min-h-tap flex items-center whitespace-nowrap rounded-control-md px-3 py-1 text-sub sm:min-h-0",
     active ? "bg-card font-bold text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
   );
 }
@@ -47,7 +51,7 @@ export default function MiniAppSwitcher({
   current: SwitchKey;
 }) {
   return (
-    <div className="hidden shrink-0 items-center gap-px rounded-control-lg bg-muted p-[3px] sm:inline-flex">
+    <div className="-mx-1 flex shrink-0 items-center gap-px overflow-x-auto rounded-control-lg bg-muted p-[3px] sm:mx-0">
       {ORDER.map((key) => {
         const def = MINI_APP_BY_KEY[key];
 

@@ -15,6 +15,7 @@ import * as rentalApi from '@/lib/rentalApi';
 import type { RentalCompany, RentalItemSummary } from '@/lib/rentalApi';
 import { companyBadgeClass, formatSyncTimestamp, formatYen, isSyncStale, todayStr } from './rentalFormat';
 import RentalItemDetailDialog from './RentalItemDetailDialog';
+import { WrappingChips } from './WrappingChips';
 
 const PAGE_SIZE = 60;
 
@@ -191,12 +192,21 @@ export default function RentalSearchPage() {
           />
         </div>
         <FilterChips items={companyItems} value={company} onChange={setCompany} label="会社で絞り込む" />
-        <span className="hidden h-5 w-px bg-border-faint sm:block" />
-        <FilterChips items={categoryChips} value={category ?? ''} onChange={(k) => setCategory(k || null)} label="カテゴリで絞り込む" />
         <div className="flex-1" />
         <span className="font-number shrink-0 whitespace-nowrap text-sub text-muted-foreground">
           <strong className="text-foreground">{total}件</strong>
         </span>
+        {/* カテゴリはこの画面だけ横スクロールせず折り返す（機材のカテゴリ数が多く、
+            横スクロールだと後ろの選択肢が見えないため）。共通の FilterChips は
+            意図して折り返さない設計（一覧の開始位置が行ごとに動く問題を避けるため）
+            なので、ここだけ専用の WrappingChips を使う — 他画面には影響しない */}
+        <WrappingChips
+          items={categoryChips}
+          value={category ?? ''}
+          onChange={(k) => setCategory(k || null)}
+          label="カテゴリで絞り込む"
+          className="w-full"
+        />
       </div>
 
       {itemsQuery.isLoading && page === 1 ? (

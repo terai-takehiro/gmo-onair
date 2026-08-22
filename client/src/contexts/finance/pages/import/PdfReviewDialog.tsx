@@ -169,7 +169,7 @@ export function PdfReviewDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={isRakuraku ? '楽楽精算の内容を確かめる' : 'X-Point 申請の内容を確かめる'}
       // **2カラムの複合フォーム（PdfReviewForm）＋ 明細表（PdfExtracted）を持つので `wide` を渡す。**
-      // 旧幅は sm:max-w-3xl（768px）で既定の560pxを大きく超えていた
+      // 旧幅は sm:max-w-3xl（768px）で既定の640pxを超えていた
       wide
       sub={`${result.settlementNumber ? `${prefix}-${result.settlementNumber} ・ ` : ''}${file.file_name}`}
       footer={

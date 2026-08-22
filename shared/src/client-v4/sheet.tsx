@@ -57,11 +57,35 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '../client/utils';
+import { resolveDialogSize, type DialogSize } from '../client/ui/dialogSize';
 import { useEdgeSwipeBack } from './edgeSwipeBack';
 
 /** つまみ・見出しを下へなぞって閉じるときの境目（px）。ヘッダーの高さが短いぶん、
  *  横のスワイプバック（96px）より短くしてある */
 const HANDLE_CLOSE_THRESHOLD = 64;
+
+/**
+ * 段 → PC でのシートの幅。**完全なクラス文字列の静的な表**にしてある
+ * （`lg:w-[${n}px]` のように組み立てると Tailwind の走査に載らず、
+ *  ビルドしたときだけ幅が効かなくなる）。
+ *
+ * 数字の出どころは `shared/src/client/ui/dialogSize.ts` の `DIALOG_SIZE_WIDTH`
+ * （旧 `Dialog` と**同じ名前・同じ px**）。ここは表を**書き写している**ので、
+ * ずれていないことを `shared/tests/dialogSize.test.ts` が突き合わせる。
+ *
+ * ⚠️ **`lg:`（1024px）は今回は変えない。** ここを `md:` に下げると
+ * 768〜1023px のタブレットが「下から出るシート」から「中央のダイアログ」に
+ * 変わり、見た目が大きく動く。**別PRで `md:` への引き下げを検討する**
+ * （`useIsMobile()` の閾値も同時に動かす必要がある — CSS と JS がずれると
+ *  片方だけ切り替わる）。
+ */
+export const SHEET_WIDTH_CLASS: Record<DialogSize, string> = {
+  sm: 'lg:w-[min(420px,calc(100vw-4rem))]',
+  md: 'lg:w-[min(640px,calc(100vw-4rem))]',
+  lg: 'lg:w-[min(840px,calc(100vw-4rem))]',
+  xl: 'lg:w-[min(1080px,calc(100vw-4rem))]',
+  full: 'lg:w-[min(1400px,96vw)]',
+};
 
 export interface SheetProps {
   open: boolean;
@@ -82,13 +106,27 @@ export interface SheetProps {
    */
   rise?: boolean;
   /**
-   * **PC の幅を 560px ではなく 760px にする**（2カラムの複合フォーム向け・opt-in）。
+   * **PC での幅の段**（既定 `md` = 640px）。段の定義は
+   * `shared/src/client/ui/dialogSize.ts`（旧 `Dialog` と**同じ名前・同じ px**）。
    *
-   * 既定の 560px は1カラムのフォーム（v4対象3アプリの55か所を実測して決めた）には
-   * ちょうどよいが、部屋を複数選ぶ・控室の利用者を並べる等**元から2カラムだった
-   * フォーム**（`StudioBookingDialog` 等）を載せ替えると、560px に押し込められて
-   * 縦に長くなりすぎる。**既定は変えない**（560px のまま使っている画面の手触りを
-   * この prop で変えないため。広げたい呼び出し側だけ明示的に渡す）。
+   * | 段 | 幅 | 使いどころ |
+   * | --- | --- | --- |
+   * | `sm` | 420px | 確認だけ |
+   * | `md` | 640px | **既定**。1カラムのフォーム |
+   * | `lg` | 840px | 2カラムの複合フォーム（旧 `wide`） |
+   * | `xl` | 1080px | 表・明細を含むもの |
+   * | `full` | min(1400px,96vw) | 画面いっぱい |
+   *
+   * **スマホ（`lg:` 未満）の全幅ボトムシートは段に関係なく今までどおり。**
+   * 既定は 560px から 640px に広げてある（狭すぎたため・意図した変更）。
+   */
+  size?: DialogSize;
+  /**
+   * @deprecated `size="lg"` を使うこと。**互換のため残してある**
+   * （`wide` を渡している呼び出しはそのまま動く）。
+   *
+   * `wide` は `size="lg"`（840px）の別名。**`size` と両方渡したときは `size` が勝つ。**
+   * もともとは 760px の2段目だったが、段を5つに整理したので `lg` に寄せた。
    */
   wide?: boolean;
   /**
@@ -122,8 +160,10 @@ export interface SheetProps {
 }
 
 export function Sheet({
-  open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, swipeDownHandle, children,
+  open, onOpenChange, title, sub, footer, rise, size, wide, onSubmit, onInteractOutside, swipeDownHandle, children,
 }: SheetProps) {
+  // `size` が優先・`wide` は `lg` の別名・どちらも無ければ `md`(640px)
+  const widthClass = SHEET_WIDTH_CLASS[resolveDialogSize(size, wide)];
   // スワイプバック（左端 → 右へ）。ドラッグ中だけ inline transform を足し、
   // 離したら 0 に戻す（開いたままなら 0、閉じるときは `onOpenChange` に任せて
   // Radix の exit アニメーションへ引き継ぐ）
@@ -197,8 +237,10 @@ export function Sheet({
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
             !dragging && 'transition-transform duration-150 motion-reduce:transition-none',
+            // ⚠️ **PC への切り替えは `lg:`(1024px) のまま。** 別PRで `md:`(768px) への
+            // 引き下げを検討する（タブレットの見た目が大きく変わるので今回は含めない）
             'lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2',
-            wide ? 'lg:w-[min(760px,calc(100vw-4rem))]' : 'lg:w-[min(560px,calc(100vw-4rem))]',
+            widthClass,
             'lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-card lg:border',
           )}
         >

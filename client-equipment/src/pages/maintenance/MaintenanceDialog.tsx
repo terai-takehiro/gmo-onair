@@ -45,6 +45,8 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="メンテナンスの記録"
+      // 入力6個・修理業者/修理費用の2列グリッドを持つので `lg`(840px)
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>

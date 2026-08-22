@@ -1,0 +1,1 @@
+**PR #318（制作技術支援のサイドバーの案件/番組文脈連動化・収録配信設定の簡易入口廃止）のマージ後の棚卸しを記録した**（コード変更なし）。`get_reviews`・`get_comments`・`get_review_comments` いずれも0件を確認し、レビュー0件のままマージされたことを [docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md) に記録した。表に移す指摘はない。

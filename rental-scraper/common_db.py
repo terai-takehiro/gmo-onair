@@ -55,6 +55,7 @@ def init_db(conn: sqlite3.Connection):
         first_seen TEXT,
         last_seen TEXT,
         last_updated TEXT,
+        status TEXT NOT NULL DEFAULT 'listed',  -- 'listed'(掲載中) | 'missing'(今回のクロールで見つからなかった)
         PRIMARY KEY (company, item_id)
     );
 
@@ -68,10 +69,14 @@ def init_db(conn: sqlite3.Connection):
         changed_at TEXT
     );
     """)
-    # 既存DBをimages_json追加前のバージョンから引き継ぐ場合のマイグレーション
+    # 既存DBを古いバージョンから引き継ぐ場合のマイグレーション
     cols = [r[1] for r in conn.execute("PRAGMA table_info(items)").fetchall()]
     if "images_json" not in cols:
         conn.execute("ALTER TABLE items ADD COLUMN images_json TEXT")
+    if "status" not in cols:
+        # 既存行は「今まで通り掲載中」から始める。次のクロール完走時に
+        # mark_missing_items が実態に合わせて missing へ倒す
+        conn.execute("ALTER TABLE items ADD COLUMN status TEXT NOT NULL DEFAULT 'listed'")
     conn.commit()
 
 
@@ -83,15 +88,18 @@ def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail, now: Opti
 
     ここで省略時に `datetime.now()` を毎回計算する実装だと、数百〜数千件を
     SLEEP_SEC=1.5 秒間隔で取得する実際のクロール（数十分かかる）では商品ごとに
-    last_seen がバラける。sync_to_postgres.py の compute_statuses() は
-    「company ごとの最新 last_seen と一致する行だけを listed とする」判定なので、
-    バラけると**最後に処理した1件だけが listed、それ以外全部が missing**と
-    誤判定される（実際に検証環境でこの形の全件 missing 化を踏んで発覚した）。
+    last_seen がバラける。画面の「最終取得日時」は company ごとの
+    MAX(last_seen) を「その会社を最後にクロールした時刻」として出しているので、
+    バラけると表示が「最後の1件を取った時刻」にずれる。
+
+    （かつては status の判定自体がこの last_seen の一致で行われていて、
+    バラけると**最後の1件以外が全部 missing** に誤判定されていた。いまは
+    status を items 列として明示的に持つのでその形では壊れない。）
     """
     now = now or datetime.now().isoformat(timespec="seconds")
     cur = conn.cursor()
     cur.execute("""
-        SELECT name, price_tel, price_net, specs_json, images_json
+        SELECT name, price_tel, price_net, specs_json, images_json, status
         FROM items WHERE company=? AND item_id=?
     """, (company, d.item_id))
     row = cur.fetchone()
@@ -104,14 +112,15 @@ def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail, now: Opti
         cur.execute("""
             INSERT INTO items (company, item_id, name, category, subcategory,
                                 price_tel, price_net, specs_json, related_json,
-                                images_json, url, first_seen, last_seen, last_updated)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                images_json, url, first_seen, last_seen, last_updated,
+                                status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'listed')
         """, (company, d.item_id, d.name, d.category, d.subcategory,
               d.price_tel, d.price_net, specs_json, related_json, images_json,
               d.url, now, now, now))
         print(f"[NEW][{company}] {d.name} (id={d.item_id}) 画像{len(d.images)}枚")
     else:
-        old_name, old_price_tel, old_price_net, old_specs_json, old_images_json = row
+        old_name, old_price_tel, old_price_net, old_specs_json, old_images_json, old_status = row
         changed = False
 
         def log_change(field_name, old_v, new_v):
@@ -130,12 +139,19 @@ def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail, now: Opti
             log_change("specs", old_specs_json, specs_json); changed = True
         if old_images_json != images_json:
             log_change("images", old_images_json, images_json); changed = True
+        # 一度 missing にした商品が再び見つかったら listed に戻す（掲載再開）。
+        # change_log は片方向（listed→missing）しか残していなかったため、
+        # 復活を記録できるようにここで両方向を残す
+        if old_status != "listed":
+            log_change("status", old_status, "listed")
+            print(f"[RELISTED][{company}] {d.name} (id={d.item_id}) が再び掲載されています")
 
         cur.execute("""
             UPDATE items
             SET name=?, category=?, subcategory=?, price_tel=?, price_net=?,
                 specs_json=?, related_json=?, images_json=?, url=?, last_seen=?,
-                last_updated=CASE WHEN ? THEN ? ELSE last_updated END
+                last_updated=CASE WHEN ? THEN ? ELSE last_updated END,
+                status='listed'
             WHERE company=? AND item_id=?
         """, (d.name, d.category, d.subcategory, d.price_tel, d.price_net,
               specs_json, related_json, images_json, d.url, now, changed, now,
@@ -148,24 +164,26 @@ def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail, now: Opti
 
 
 def mark_missing_items(conn: sqlite3.Connection, company: str, seen_ids: set, now: Optional[str] = None):
-    """今回のクロールで見つからなかった商品(廃番/レンタル終了の可能性)を記録。
-    `now` の意味は upsert_item と同じ — 呼び出し側でクロール開始時に1回だけ
-    計算したものを渡すこと。"""
+    """今回のクロールで見つからなかった商品(廃番/レンタル終了の可能性)に
+    status='missing' を立てる。`now` の意味は upsert_item と同じ — 呼び出し側で
+    クロール開始時に1回だけ計算したものを渡すこと。
+
+    ⚠️ **クロールを完走したときだけ呼ぶこと。** 途中で止まった回で呼ぶと、
+    まだ見に行っていない商品まで「掲載終了」にしてしまう。
+    """
     cur = conn.cursor()
-    cur.execute("SELECT item_id, name FROM items WHERE company=?", (company,))
+    cur.execute("SELECT item_id, name, status FROM items WHERE company=?", (company,))
     all_rows = cur.fetchall()
     now = now or datetime.now().isoformat(timespec="seconds")
-    for item_id, name in all_rows:
-        if item_id not in seen_ids:
+    for item_id, name, status in all_rows:
+        if item_id not in seen_ids and status != "missing":
             cur.execute("""
-                SELECT 1 FROM change_log
-                WHERE company=? AND item_id=? AND field='status' AND new_value='missing'
-                ORDER BY id DESC LIMIT 1
-            """, (company, item_id))
-            if not cur.fetchone():
-                cur.execute("""
-                    INSERT INTO change_log (company, item_id, field, old_value, new_value, changed_at)
-                    VALUES (?,?,?,?,?,?)
-                """, (company, item_id, "status", "listed", "missing", now))
-                print(f"[MISSING?][{company}] {name} (id={item_id}) が一覧から見つかりませんでした")
+                INSERT INTO change_log (company, item_id, field, old_value, new_value, changed_at)
+                VALUES (?,?,?,?,?,?)
+            """, (company, item_id, "status", status, "missing", now))
+            cur.execute(
+                "UPDATE items SET status='missing' WHERE company=? AND item_id=?",
+                (company, item_id),
+            )
+            print(f"[MISSING?][{company}] {name} (id={item_id}) が一覧から見つかりませんでした")
     conn.commit()

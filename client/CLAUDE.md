@@ -9,7 +9,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに4つ（v4 で�
 | --- | --- | --- | --- |
 | 案件管理 | `/sales/*` | `sales` | `contexts/sales`, `contexts/tasks` |
 | 財務管理 | `/budget/*` | `sales`（旧 `budget`） | `contexts/finance` |
-| カレンダー | `/studio/*` | `sales`（旧 `studio` / `partner_schedule`） | `contexts/production` |
+| カレンダー | `/calendar/*`（**2026-08-22 に `/studio/*` から改名**・旧 URL は転送） | `sales`（旧 `studio` / `partner_schedule`） | `contexts/production` |
 | 設定 | `/settings/*`（**v4 で `/admin/*` から改名**・旧 URL は転送） | `sales`（権限とメンバーの管理は `system_admin` だけ。旧 `admin` 区画は廃止） | `contexts/platform` |
 | **プロジェクト管理（v4 で新規）** | `/gpm/*` | `sales`（旧 `gpm`） | `contexts/gpm`（新設） |
 

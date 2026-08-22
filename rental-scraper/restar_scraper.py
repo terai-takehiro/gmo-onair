@@ -23,6 +23,7 @@ https://www.restargp.com/service/solutions/rental/ 配下の商品詳細ペー�
       検索結果ページ表示時のネットワーク通信(XHR/Fetch)を確認し、
       APIエンドポイントが分かれば教えてください。そちらに切り替えます。
 """
+import os
 import re
 import time
 import logging
@@ -37,11 +38,16 @@ from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
 COMPANY = "レスター"
 BASE = "https://www.restargp.com"
 ITEM_URL_TMPL = BASE + "/service/solutions/rental/item{id}/"
-DB_PATH = "rental_items.db"
+# ⚠️ sync_to_postgres.py と同じ既定・同じ環境変数を見ること。
+# ここだけ固定文字列にしていると、コンテナ側で RENTAL_SQLITE_PATH を
+# 別の場所（永続ボリューム）に向けた瞬間に「書き込む先」と「同期が読む先」が
+# 食い違い、クロールは成功しているのに1件も反映されない状態になる。
+DB_PATH = os.environ.get("RENTAL_SQLITE_PATH", "rental_items.db")
 
 START_ID = 1
 END_ID = 800                 # 実際の最大IDが分かり次第調整してください
 MAX_CONSECUTIVE_MISS = 40    # これだけ連続で404が続いたら打ち切り
+PROGRESS_SYNC_EVERY = 100    # 何件取れるごとに on_progress を呼ぶか（run_all が Postgres へ流す）
 
 SLEEP_SEC = 1.5
 TIMEOUT = 15
@@ -58,14 +64,16 @@ END_MARKER = "レンタルに関するお問い合わせ"
 
 
 def fetch(url: str, retries: int = 3):
+    """成功時は**バイト列**（`resp.content`）を返す。toc_scraper.py の fetch() と
+    同じ理由（`apparent_encoding` の推定に頼らず BeautifulSoup 側の自動検出に
+    デコードを任せる。日本語部分だけ文字化けする不具合の対処）。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
-            return resp.text
+            return resp.content
         except requests.RequestException as e:
             log.warning("取得失敗(%d/%d) %s: %s", attempt, retries, url, e)
             time.sleep(2 * attempt)
@@ -92,7 +100,7 @@ def _extract_images(soup: BeautifulSoup) -> list:
     return images
 
 
-def parse_item_detail(item_id: str, html: str) -> ItemDetail:
+def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
     soup = BeautifulSoup(html, "html.parser")
     detail = ItemDetail(item_id=item_id, url=ITEM_URL_TMPL.format(id=item_id))
 
@@ -124,7 +132,11 @@ def parse_item_detail(item_id: str, html: str) -> ItemDetail:
     return detail
 
 
-def run():
+def run(on_progress=None):
+    """`on_progress(取得済み件数)` を渡すと PROGRESS_SYNC_EVERY 件ごとに呼ぶ。
+    run_all.py がここに「Postgres へ途中経過を流す」処理を差し込む
+    （1回のクロールは数十分〜1時間超かかるため。完走まで何も出ないと、
+    デプロイでコンテナが作り直されるたびに成果が0のままになる）。"""
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
 
@@ -152,6 +164,8 @@ def run():
         if detail.name:
             seen_ids.add(str(item_id))
             upsert_item(conn, COMPANY, detail, now=run_started_at)
+            if on_progress and len(seen_ids) % PROGRESS_SYNC_EVERY == 0:
+                on_progress(len(seen_ids))
         else:
             log.warning("パース失敗(name取得不可): %s", url)
 
