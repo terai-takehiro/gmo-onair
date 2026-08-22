@@ -1,0 +1,1 @@
+**PR #290（段2・段3・段9の未実装分を埋め、計時LIVEの凍結を解いた）がレビュー0件のままマージされたことを棚卸しに記録した。** 作成から約3分、CI（`checks`/`build`）が緑になった直後に terai-takehiro 本人が手動マージし、レビューは1件も届かなかった（`get_review_comments` で `totalCount: 0`）。表に移す指摘はない。`npm run reviews:debt` は今回も403で失敗（#288と同じ理由）のため、GitHub MCP の `pull_request_read` で代替確認した。コード変更なし。
