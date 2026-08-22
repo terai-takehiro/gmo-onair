@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from "@gmo-onair/shared/src/client-v4/NotificationBell";
 import { PcOnlyGate } from "@gmo-onair/shared/src/client-v4/pcOnly";
@@ -6,7 +6,8 @@ import api from "@/lib/api";
 import { QSHEET_PC_ONLY, QSHEET_MOBILE_HIDDEN } from "@/pcOnlyScreens";
 import { useAuth } from "@/hooks/useAuth";
 import { QSHEET_MANUAL } from "@/manual/content";
-import { QSHEET_MOBILE_TABS, QSHEET_NAV } from "./nav";
+import { useProductionNavContext } from "@/lib/productionNavContext";
+import { buildQsheetNav } from "./nav";
 
 /**
  * 制作資料のシェル — **枠は共通** (`shared/src/client/shell/`)。
@@ -14,7 +15,8 @@ import { QSHEET_MOBILE_TABS, QSHEET_NAV } from "./nav";
  * これまでの独自実装 `Header.tsx`（`AppHeader` のラッパー）・`Sidebar.tsx` は
  * このファイルが共通シェルを呼ぶ薄いラッパーに置き換わったので削除した。
  * 高さ・スクロール・お知らせ帯・確認ダイアログ・アプリ切替・スマホの引き出しは
- * すべて共通シェルが持つ。**メニューの項目は `nav.ts` で、中身は今までと同じ**。
+ * すべて共通シェルが持つ。**メニューの項目は `nav.ts` の `buildQsheetNav`**（2026-08-22〜。
+ * いまの URL と `lib/productionNavContext.ts` のストアから動的に組み立てる。詳細は `nav.ts` 冒頭）。
  *
  * ⚠️ **本番3画面（`/qsheet/onair` / `rundown` / `prompter`）と公開音声サポート
  * （`/qsheet/audio`）はこのシェルの対象外**（`App.tsx` で「Full-screen pages
@@ -37,13 +39,17 @@ import { QSHEET_MOBILE_TABS, QSHEET_NAV } from "./nav";
 export default function AppShell() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const productionNavContext = useProductionNavContext();
+  const { sections, mobileTabs } = buildQsheetNav(location.pathname, searchParams, productionNavContext);
 
   return (
     <SharedAppShell
       appKey="qsheet"
       mobileHiddenPaths={QSHEET_MOBILE_HIDDEN}
-      sections={QSHEET_NAV}
-      mobileTabs={QSHEET_MOBILE_TABS}
+      sections={sections}
+      mobileTabs={mobileTabs}
       notificationSlot={<NotificationBell api={api} />}
       manualContent={QSHEET_MANUAL}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}

@@ -14,6 +14,7 @@ import { getTrash } from "@/lib/trash";
 import { normalizeQsheetData } from "@/lib/migrateEntries";
 import { ensureStableIds, genId } from "@/lib/stableIds";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import { useSyncDocProductionNavContext } from "@/hooks/useSyncDocProductionNavContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useCollabMetaSync } from "@/hooks/useCollabMetaSync";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
@@ -290,6 +291,8 @@ export default function EditorPage() {
       }
     }
   }, [queryData, doc]);
+
+  useSyncDocProductionNavContext((doc as any)?.project_id, (doc as any)?.program_id);
 
   const saveMutation = useMutation({
     mutationFn: async (document: QsheetDocument) => {

@@ -24,7 +24,7 @@
 | `src/index.css` が `base.css` 経由（→ `tokens-v4.css` → `tokens.css`）を読むようになった（段5 PR8） | 印刷ウィンドウ（`PreviewModal.tsx`）が外部 Google Fonts を読む点の同梱フォント化 |
 | LINE Seed JP が有効になった（`tokens-v4.css` の `@import` 経由。上記の直書き箇所は対象外） | 表本体・`EditorSidebar` に残る `rounded-lg` 等の未整理箇所 |
 | 外枠の角丸を v4 の役割名（`rounded-control-md` 等）・`--radius` に寄せた（`AppShell`/`Sidebar`/`EditorPage` のヘッダー・情報バー） | |
-| **共通シェル（`shared/src/client/shell/`）への載せ替え。** 独自実装だった `Header.tsx`/`Sidebar.tsx` を削除し、`AppShell.tsx` を `SharedAppShell`（`appKey="qsheet"`）を呼ぶ薄いラッパーに置き換えた。メニュー項目は新設の `nav.ts`（4項目・「トップ」を先頭に追加。2026-08-22）。`PcOnlyGate`／通知ベル／マニュアル・バージョン履歴・MCPモーダルが使えるようになった | |
+| **共通シェル（`shared/src/client/shell/`）への載せ替え。** 独自実装だった `Header.tsx`/`Sidebar.tsx` を削除し、`AppShell.tsx` を `SharedAppShell`（`appKey="qsheet"`）を呼ぶ薄いラッパーに置き換えた。メニュー項目は `nav.ts` の `buildQsheetNav`（**2026-08-22 に固定4項目から動的に作り直した**。いまの案件/番組の文脈があればその子アプリへのリンクを、無ければ「トップ」だけを出す。詳細は下記「番組・案件の選び方とミニアプリのハブ」と `nav.ts` 冒頭）。`PcOnlyGate`／通知ベル／マニュアル・バージョン履歴・MCPモーダルが使えるようになった | |
 
 - **URL は生かしたまま。** ルーティングの公開URL5本（editor/onair/rundown/prompter/audio）は変更していない。
   ブックマーク・配布済みQR・OBS の出力URL・役割別URL はすべてそのまま動く
@@ -89,9 +89,12 @@
 - **`TopPage.tsx`（`/qsheet/home`・ステージ別の件数つき案件選択）は主導線から外れた。**
   段3当時はここが「トップ」を名乗っていたが、いまは「①の別の入口候補」でしかない
   （`nav.ts` にリンクしていない・URL は生かしたまま）
-- **`DeviceSettingsHome.tsx`（`/qsheet/device-settings`）は「簡易入口」として残した。**
-  GLS番号・案件ID・番組IDを**手で入力**して開く旧来の入口。ハブ画面からは
-  `panelPathOf` で直接飛ぶので通常は経由しない
+- **`DeviceSettingsHome.tsx`（旧 `/qsheet/device-settings`）は2026-08-22 に廃止した。**
+  GLS番号・案件ID・番組IDを**手で入力**して開く旧来の簡易入口だったが、サイドバー・
+  スマホタブが `buildQsheetNav`（`nav.ts`）でいまの案件/番組の文脈から収録設定・
+  配信設定へ直接リンクするようになったため、手入力で遠回りする入口が不要になった。
+  `App.tsx` にルートが無く、CLAUDE.md 冒頭の「廃止」の定義通りファイルだけ残っている。
+  ハブ画面からは今までどおり `panelPathOf` で直接飛ぶ
 
 ## このアプリの中身
 
