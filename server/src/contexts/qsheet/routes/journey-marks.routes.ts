@@ -12,7 +12,7 @@ import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 
-const SCOPE_TYPES = ['project', 'document'] as const;
+const SCOPE_TYPES = ['project', 'document', 'program'] as const;
 const STAGES = ['day', 'flow', 'script'] as const;
 const KINDS = ['settled', 'watch', 'dismissed'] as const;
 

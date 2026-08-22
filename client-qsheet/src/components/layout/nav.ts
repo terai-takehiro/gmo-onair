@@ -16,23 +16,25 @@
  *
  * ── 引き継いでいないもの（判断） ────────────────────────────────
  *
- * - **トップ（`/qsheet/home`・案件を選ぶ画面）はまだメニューに出さない。**
- *   `routeSwitch.ts` の `QSHEET_ROOT` はまだ `'list'` のまま（利用者の確認が
- *   取れたら `'home'` に切り替える設計）で、旧 `Sidebar.tsx` も一度もここへ
- *   リンクしていなかった。今回はシェルの載せ替えだけが目的なので、
- *   まだ表に出ていない画面を新たに導線へ加えない
  * - **「新規作成」ボタンはメニューから外した。** 旧 `Sidebar.tsx` のそれは
  *   一覧へ飛んで `[data-create-btn]` を `querySelector` で探して自動クリックする
  *   ショートカットで、`ShellNavItem` はリンク（`to`）しか持てず同じ挙動を
  *   再現できない。`SheetListPage.tsx` 自身に同じ「新規作成」ボタンが既にあるので
  *   （`data-create-btn`）、機能そのものは失われない（一覧を開いてから押す1手間が増えるだけ）
+ *
+ * ⚠️ **2026-08-22（ご指摘）: 「トップ」を先頭に足した。** アプリ全体のトップ
+ * （`/qsheet/top`・`ProductionTopPage.tsx`）を新設し、`routeSwitch.ts` の
+ * `QSHEET_ROOT` も `'top'` に切り替えたため、この画面へ戻る導線が要る。
+ * スマホ下タブには足していない（3本の枠は変えない・上辺バーのロゴから
+ * `/qsheet` = `/qsheet/top` へ戻れる）。
  */
-import { LayoutDashboard, CalendarDays, Settings2 } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2 } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 
 export const QSHEET_NAV: ShellNavSection[] = [
   {
     items: [
+      { label: 'トップ', to: '/qsheet/top', icon: LayoutGrid },
       { label: 'ドキュメント一覧', to: '/qsheet/sheets', icon: LayoutDashboard },
       { label: 'スケジュール表', to: '/qsheet/schedules', icon: CalendarDays },
       { label: '収録・配信設定', to: '/qsheet/device-settings', icon: Settings2 },

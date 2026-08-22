@@ -10,6 +10,7 @@ import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
+import ProductionTopPage from "@/pages/ProductionTopPage";
 import JourneyPage from "@/pages/JourneyPage";
 import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
@@ -45,10 +46,12 @@ export default function App() {
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         {/*
           `/qsheet` は画面を持たず、`routeSwitch.ts` の1行だけを見て転送する
-          （03-app-structure-impl.md §3-3）。`/qsheet/home`（新トップ・案件を選ぶ）と
-          `/qsheet/sheets`（旧トップ・進行台本の一覧）は常に両方存在する。
+          （03-app-structure-impl.md §3-3）。`/qsheet/top`（アプリ全体のトップ・
+          ミニアプリのタイル）・`/qsheet/home`（進行台本の案件選択）・
+          `/qsheet/sheets`（進行台本の一覧）は常に3つとも存在する。
         */}
         <Route path="/qsheet" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
+        <Route path="/qsheet/top" element={<ProductionTopPage />} />
         <Route path="/qsheet/home" element={<TopPage />} />
         <Route path="/qsheet/sheets" element={<SheetListPage />} />
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
@@ -67,6 +70,8 @@ export default function App() {
         {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
         <Route path="/qsheet/projects/:id" element={<JourneyPage scope="project" />} />
         <Route path="/qsheet/docs/:id" element={<JourneyPage scope="document" />} />
+        {/* 番組（マニュアル・案件管理外）の入口。2026-08-22 追加 */}
+        <Route path="/qsheet/programs/:id" element={<JourneyPage scope="program" />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}

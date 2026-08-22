@@ -20,11 +20,11 @@
 | `shared/src/client/apps.ts` の `frozen: true` を落とした → 一覧・アプリ切替に出る（段3） | v4 の共通部品（`Row` / `Money` / `DateRange` など）への置き換え |
 | `scripts/check-frozen-css.mjs` の対象から外した（段3。このアプリの CSS 差分はもう機械で見張っていない） | トーストを帯（`NoticeBar`）に置き換えること（決めて残す。下記「トーストは残す」参照） |
 | `check-mobile-declared` / `check-file-size` / `check-ui-tokens` の対象に登録した（段3） | **表本体**（`CueTable`/`CueRow`/`cells/*`）・`EditorSidebar` の詳細・モバイル編集の見た目作り直し |
-| `/qsheet/home`（新トップ・案件を選ぶ）を追加。`/qsheet` の行き先は `routeSwitch.ts` の1行で切り替え（段3） | `EditorSidebar.tsx` / `MicAssignmentCell.tsx` / `CueTable.tsx` / `PreviewModal.tsx`（印刷）/ `OnAirPage.tsx` / `AudioSupportPage.tsx` に残る生の `style={{ fontFamily: "'Roboto Condensed',sans-serif" }}`（`index.html` の Google Fonts はこれらのため外していない） |
+`/qsheet/home`（進行台本の案件選択）を追加。`/qsheet/top`（**アプリ全体のトップ・番組/案件を選ぶ**）を新設し、`/qsheet` の既定の行き先にした（`routeSwitch.ts` の1行で切り替え・2026-08-22。詳細は下記「番組・案件の選び方とミニアプリのハブ」） | `EditorSidebar.tsx` / `MicAssignmentCell.tsx` / `CueTable.tsx` / `PreviewModal.tsx`（印刷）/ `OnAirPage.tsx` / `AudioSupportPage.tsx` に残る生の `style={{ fontFamily: "'Roboto Condensed',sans-serif" }}`（`index.html` の Google Fonts はこれらのため外していない） |
 | `src/index.css` が `base.css` 経由（→ `tokens-v4.css` → `tokens.css`）を読むようになった（段5 PR8） | 印刷ウィンドウ（`PreviewModal.tsx`）が外部 Google Fonts を読む点の同梱フォント化 |
 | LINE Seed JP が有効になった（`tokens-v4.css` の `@import` 経由。上記の直書き箇所は対象外） | 表本体・`EditorSidebar` に残る `rounded-lg` 等の未整理箇所 |
 | 外枠の角丸を v4 の役割名（`rounded-control-md` 等）・`--radius` に寄せた（`AppShell`/`Sidebar`/`EditorPage` のヘッダー・情報バー） | |
-| **共通シェル（`shared/src/client/shell/`）への載せ替え。** 独自実装だった `Header.tsx`/`Sidebar.tsx` を削除し、`AppShell.tsx` を `SharedAppShell`（`appKey="qsheet"`）を呼ぶ薄いラッパーに置き換えた。メニュー項目は新設の `nav.ts`（3項目・中身は今までと同じ）。`PcOnlyGate`／通知ベル／マニュアル・バージョン履歴・MCPモーダルが使えるようになった | |
+| **共通シェル（`shared/src/client/shell/`）への載せ替え。** 独自実装だった `Header.tsx`/`Sidebar.tsx` を削除し、`AppShell.tsx` を `SharedAppShell`（`appKey="qsheet"`）を呼ぶ薄いラッパーに置き換えた。メニュー項目は新設の `nav.ts`（4項目・「トップ」を先頭に追加。2026-08-22）。`PcOnlyGate`／通知ベル／マニュアル・バージョン履歴・MCPモーダルが使えるようになった | |
 
 - **URL は生かしたまま。** ルーティングの公開URL5本（editor/onair/rundown/prompter/audio）は変更していない。
   ブックマーク・配布済みQR・OBS の出力URL・役割別URL はすべてそのまま動く
@@ -55,6 +55,43 @@
   （`shared/src/client/shell/` を載せても影響しない・影響してはいけない）
 
 不具合の修正は通常どおり行ってよい。見た目の刷新は表本体（編集画面）以降で順に進める。
+
+## 番組・案件の選び方とミニアプリのハブ（2026-08-22・ご指示で構成を訂正）
+
+**「まず番組・イベントを選び、そこからミニアプリへ分岐する」**のが正しい順番。
+最初の実装（ミニアプリのタイルをいきなりトップに並べる案）は「押しても
+どの番組の？が定まらない」ため訂正した。
+
+```
+/qsheet/top（ProductionTopPage.tsx・アプリのトップ）
+  ① 案件管理の番組・イベント（GLS案件・/lookup/gls-options から検索）
+  ② ここだけの番組（マニュアル・qsheet_programs・案件管理に登録しない番組）
+       ↓ どちらを選んでも
+/qsheet/projects/:id または /qsheet/programs/:id（JourneyPage.tsx・ハブ画面）
+  ミニアプリのタイル（MiniAppTiles）:
+    進行台本（Qシート）→ /qsheet/sheets?project=/program=<id>（絞り込み一覧）
+    スケジュール表     → /qsheet/schedules?project=/program=<id>
+    収録設定・配信設定 → panelPathOf('recording'|'streaming', <id>) で直接
+```
+
+- **`qsheet_programs`（migration 227）が「番組（マニュアル）」の実体。** 案件（`projects`）とは
+  別の軽い入れ物（id・name・event_date・notes だけ）。進行台本・スケジュール表・収録設定・
+  配信設定はすべて `project_id` と対称の `program_id` を持てる（同時には持たない —
+  収録設定・配信設定は `num_nonnulls(project_id, doc_no, program_id) = 1` の CHECK で強制）
+- **owner の解決は `device-settings-owner.ts` の `Owner` 型が唯一の正。**
+  `kind: 'project' | 'program' | 'doc'` の3択。収録設定・配信設定はここを経由するので、
+  ミニアプリを増やすときもこの型に分岐を足すだけで済む
+- **`JourneyResponse.project` は番組でも同じ形で返す**（`glsNumber` は常に `null`）。
+  型を2つに割ると呼ぶ側の分岐が増えるため、あえて共有した
+  （`shared/src/production/journey.ts` のコメント参照）
+- **`production_journey_marks.scope_type` にも `'program'` を足した**（migration 227）。
+  番組のハブでもピン留め（「決まった」「要注意」）が押せる
+- **`TopPage.tsx`（`/qsheet/home`・ステージ別の件数つき案件選択）は主導線から外れた。**
+  段3当時はここが「トップ」を名乗っていたが、いまは「①の別の入口候補」でしかない
+  （`nav.ts` にリンクしていない・URL は生かしたまま）
+- **`DeviceSettingsHome.tsx`（`/qsheet/device-settings`）は「簡易入口」として残した。**
+  GLS番号・案件ID・番組IDを**手で入力**して開く旧来の入口。ハブ画面からは
+  `panelPathOf` で直接飛ぶので通常は経由しない
 
 ## このアプリの中身
 

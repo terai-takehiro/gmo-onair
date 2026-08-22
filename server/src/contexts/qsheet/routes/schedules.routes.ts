@@ -25,7 +25,7 @@ async function requireAccessible(req: Request) {
 router.get('/schedules', wrap(async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
   const rows = await listSchedules(req.user!, {
-    date_from: q.date_from, date_to: q.date_to, project_id: q.project_id,
+    date_from: q.date_from, date_to: q.date_to, project_id: q.project_id, program_id: q.program_id,
     location_id: q.location_id, status: q.status, search: q.search,
   });
   res.json({ success: true, data: rows });
@@ -38,6 +38,7 @@ router.post('/schedules', requirePermission('qsheet', 'editor'), wrap(async (req
     serviceDate: String(b.service_date ?? ''),
     locationId: typeof b.location_id === 'string' ? b.location_id : null,
     projectId: typeof b.project_id === 'string' ? b.project_id : null,
+    programId: typeof b.program_id === 'string' ? b.program_id : null,
     episodeId: typeof b.episode_id === 'string' ? b.episode_id : null,
     templateId: typeof b.template_id === 'string' ? b.template_id : null,
     onairStartMin: typeof b.onair_start_min === 'number' ? b.onair_start_min : null,
@@ -62,6 +63,7 @@ router.put('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(async (
     serviceDate: typeof b.service_date === 'string' ? b.service_date : undefined,
     locationId: 'location_id' in b ? (b.location_id as string | null) : undefined,
     projectId: 'project_id' in b ? (b.project_id as string | null) : undefined,
+    programId: 'program_id' in b ? (b.program_id as string | null) : undefined,
     episodeId: 'episode_id' in b ? (b.episode_id as string | null) : undefined,
     viewStartMin: typeof b.view_start_min === 'number' ? b.view_start_min : undefined,
     viewEndMin: typeof b.view_end_min === 'number' ? b.view_end_min : undefined,

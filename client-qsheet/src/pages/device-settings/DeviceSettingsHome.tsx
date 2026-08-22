@@ -1,10 +1,10 @@
 // 収録設定・配信設定への入口。
 //
-// ⚠️ 本来の入口は「案件のミニアプリ一覧」（01-app-structure.md のジャーニー画面）だが、
-// 01 段（案件詳細のミニアプリ一覧タイル）はこのリポジトリにまだ無い。
-// 01 が着手されたら、案件詳細から `panelPathOf('recording'|'streaming', ownerKey)`
-// （`@gmo-onair/shared/src/production/miniapps`）で直接遷移させ、この画面は
-// 「GLS番号や案件IDが分かっているときの簡易入口」として残すか、削るかを判断すること。
+// ⚠️ 2026-08-22 追記: 本来の入口（`JourneyPage.tsx` のミニアプリタイル。案件・番組
+// どちらのハブからも `panelPathOf('recording'|'streaming', ownerKey)` で直接遷移する）
+// を実装した。ここは**その入口を通らない・GLS番号や案件IDだけ分かっているときの
+// 簡易入口**として残す判断にした（コメントが挙げていた2択のうち「残す」を採用）。
+// 収録設定・配信設定の URL を直接ブックマークしている人・口頭で番号だけ聞いた人向け。
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Radio, Cast } from 'lucide-react';

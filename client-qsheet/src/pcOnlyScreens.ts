@@ -16,7 +16,9 @@
  *   持ち替えて使う想定ではないため
  * - **公開音声サポート（`/qsheet/audio/:id`）はスマホで開く**（現場のスタッフや
  *   出演者が手元のスマホで見る前提の画面）
- * - **トップ（`/qsheet/home`）・一覧（`/qsheet/sheets`）はスマホで開く**
+ * - **アプリのトップ（`/qsheet/top`）・進行台本の案件選択（`/qsheet/home`）・
+ *   一覧（`/qsheet/sheets`）・番組（マニュアル）のハブ（`/qsheet/programs/:id`）は
+ *   スマホで開く**（2026-08-22 追加分）
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
@@ -67,7 +69,8 @@ export const QSHEET_MOBILE_HIDDEN = QSHEET_PC_ONLY.filter((e) => e.hidden).map((
  * ルートがあると `npm run lint` が止まります。
  */
 export const QSHEET_MOBILE_OK: string[] = [
-  '/qsheet/home',      // トップ（案件を選ぶ）
+  '/qsheet/top',       // アプリのトップ（番組・イベントを選ぶ。2026-08-22 追加）
+  '/qsheet/home',      // 進行台本の案件選択
   '/qsheet/sheets',    // 進行台本の一覧
   '/qsheet/audio/:id', // 公開音声サポート — 現場のスマホで見る前提
   '/qsheet/schedules',      // スケジュール表の一覧
@@ -77,4 +80,5 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/streaming/:ownerKey', // 配信設定（同上）
   '/qsheet/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
   '/qsheet/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
+  '/qsheet/programs/:id', // 制作のジャーニー（番組＝マニュアルの入口）。2026-08-22 追加・同上
 ];

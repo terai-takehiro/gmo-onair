@@ -17,10 +17,10 @@ import {
 
 const MASK_PREFIX = '****';
 
-function ownerCols(owner: Owner): { col: 'project_id' | 'doc_no'; value: string } {
-  return owner.kind === 'project'
-    ? { col: 'project_id', value: owner.projectId }
-    : { col: 'doc_no', value: owner.docNo };
+function ownerCols(owner: Owner): { col: 'project_id' | 'program_id' | 'doc_no'; value: string } {
+  if (owner.kind === 'project') return { col: 'project_id', value: owner.projectId };
+  if (owner.kind === 'program') return { col: 'program_id', value: owner.programId };
+  return { col: 'doc_no', value: owner.docNo };
 }
 
 /** `?date=` が無いとき、その owner で最も新しい service_date を引く */

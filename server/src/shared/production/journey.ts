@@ -77,7 +77,11 @@ export interface JourneyDay {
 }
 
 export interface JourneyResponse {
-  /** 案件単位のジャーニーだけ持つ。資料単体のジャーニーは常に null（画面は days[].docs から資料名を取る） */
+  /**
+   * 案件単位・番組（マニュアル）単位のジャーニーで持つ。資料単体のジャーニーは常に null
+   * （画面は days[].docs から資料名を取る）。**番組（マニュアル）のときも同じ形で返す**
+   * （`glsNumber` は常に null）— 型を2つに割ると呼ぶ側の分岐が増える
+   */
   project: { id: string; name: string; glsNumber: string | null } | null;
   days: JourneyDay[];
 }
@@ -91,7 +95,8 @@ export interface ScopeCard {
 }
 
 export type MarkKind = 'settled' | 'watch' | 'dismissed';
-export type MarkScopeType = 'project' | 'document';
+/** 'program' は番組（マニュアル・案件管理外）。migration 227 で CHECK に足した */
+export type MarkScopeType = 'project' | 'document' | 'program';
 
 export interface JourneyMark {
   id: string;

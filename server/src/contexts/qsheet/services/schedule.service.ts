@@ -16,24 +16,27 @@ interface AccessUser { id: string; role: string; permissions?: Record<string, st
 // 必ず SQL 側で to_char() して文字列にする（04-schedule-impl.md §3-1）。
 const SELECT_BASE = `
   SELECT s.id, s.title, s.doc_no, to_char(s.service_date, 'YYYY-MM-DD') AS service_date,
-         s.location_id, s.project_id, s.episode_id,
+         s.location_id, s.project_id, s.program_id, s.episode_id,
          s.view_start_min, s.view_end_min, s.slot_min, s.status, s.notes,
          s.created_by, s.updated_by, s.created_at, s.updated_at,
          u.name AS creator_name,
          l.name AS location_name,
          p.name AS project_name, p.gls_number,
+         pr.name AS program_name,
          (SELECT COUNT(*)::int FROM qsheet_schedule_items i WHERE i.schedule_id = s.id AND i.deleted_at IS NULL) AS item_count,
          (SELECT COUNT(*)::int FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id) AS share_count
   FROM qsheet_schedules s
   LEFT JOIN users u ON s.created_by = u.id
   LEFT JOIN studio_locations l ON s.location_id = l.id
   LEFT JOIN projects p ON s.project_id = p.id
+  LEFT JOIN qsheet_programs pr ON s.program_id = pr.id
 `;
 
 export interface ListFilter {
   date_from?: string;
   date_to?: string;
   project_id?: string;
+  program_id?: string;
   location_id?: string;
   status?: string;
   search?: string;
@@ -55,6 +58,7 @@ export async function listSchedules(user: AccessUser, filter: ListFilter): Promi
   if (filter.date_from) { sql += ` AND s.service_date >= $${i++}`; params.push(filter.date_from); }
   if (filter.date_to) { sql += ` AND s.service_date <= $${i++}`; params.push(filter.date_to); }
   if (filter.project_id) { sql += ` AND s.project_id = $${i++}`; params.push(filter.project_id); }
+  if (filter.program_id) { sql += ` AND s.program_id = $${i++}`; params.push(filter.program_id); }
   if (filter.location_id) { sql += ` AND s.location_id = $${i++}`; params.push(filter.location_id); }
   if (filter.status && VALID_STATUSES.includes(filter.status)) { sql += ` AND s.status = $${i++}`; params.push(filter.status); }
   if (filter.search) {
@@ -102,6 +106,8 @@ export interface CreateScheduleInput {
   serviceDate: string;
   locationId?: string | null;
   projectId?: string | null;
+  /** 番組（マニュアル・案件管理外）。`projectId` と同時には立てない（migration 227） */
+  programId?: string | null;
   episodeId?: string | null;
   templateId?: string | null;
   onairStartMin?: number | null;
@@ -120,9 +126,9 @@ export async function createSchedule(input: CreateScheduleInput): Promise<Row> {
 
   await withTransaction(async (tx) => {
     await tx.execute(
-      `INSERT INTO qsheet_schedules (id, title, doc_no, service_date, location_id, project_id, episode_id, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, title, docNo, input.serviceDate, input.locationId || null, input.projectId || null, input.episodeId || null, input.createdBy, input.createdBy],
+      `INSERT INTO qsheet_schedules (id, title, doc_no, service_date, location_id, project_id, program_id, episode_id, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, title, docNo, input.serviceDate, input.locationId || null, input.projectId || null, input.programId || null, input.episodeId || null, input.createdBy, input.createdBy],
     );
     if (input.templateId) {
       // 新規作成時は「表も文書もまだ無い」ので、onair_start_min の既定が出せない（§4-4）。
@@ -141,6 +147,7 @@ export interface UpdateScheduleInput {
   serviceDate?: string;
   locationId?: string | null;
   projectId?: string | null;
+  programId?: string | null;
   episodeId?: string | null;
   viewStartMin?: number;
   viewEndMin?: number;
@@ -171,6 +178,7 @@ export async function updateSchedule(id: string, userId: string, input: UpdateSc
   if (typeof input.serviceDate === 'string') { sets.push('service_date = ?'); params.push(input.serviceDate); }
   if ('locationId' in input) { sets.push('location_id = ?'); params.push(input.locationId || null); }
   if ('projectId' in input) { sets.push('project_id = ?'); params.push(input.projectId || null); }
+  if ('programId' in input) { sets.push('program_id = ?'); params.push(input.programId || null); }
   if ('episodeId' in input) { sets.push('episode_id = ?'); params.push(input.episodeId || null); }
   if (typeof input.viewStartMin === 'number') { sets.push('view_start_min = ?'); params.push(Math.round(input.viewStartMin)); }
   if (typeof input.viewEndMin === 'number') { sets.push('view_end_min = ?'); params.push(Math.round(input.viewEndMin)); }
