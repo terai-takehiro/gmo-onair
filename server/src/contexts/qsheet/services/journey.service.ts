@@ -239,7 +239,10 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
 
 /** 案件単位のジャーニー。案件が無ければ null（呼び出し側が 404 を返す） */
 export async function getJourneyForProject(projectId: string, user: AccessUser): Promise<JourneyResponse | null> {
-  const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
+  const project = await queryOne(
+    'SELECT id, name, gls_number FROM projects WHERE id = ? AND deleted_at IS NULL',
+    [projectId],
+  );
   if (!project) return null;
 
   const [docs, framesByDate] = await Promise.all([fetchDocsForProject(projectId), fetchFramesForProject(projectId, user)]);
@@ -283,7 +286,14 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
   const undated = docsByDate.get(null) ?? [];
   if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
 
-  return { days };
+  return {
+    project: {
+      id: project.id as string,
+      name: project.name as string,
+      glsNumber: (project.gls_number as string) ?? null,
+    },
+    days,
+  };
 }
 
 /** 資料単体のジャーニー（案件に紐づかない資料）。アクセス権が無ければ null */
@@ -300,5 +310,5 @@ export async function getJourneyForDocument(docId: string, user: AccessUser): Pr
   const doc = row as unknown as DocRow;
   // ⚠️ 案件に紐づかない単体資料は、スケジュール表との対応付けの手がかり（project_id）を
   // 持たないため frames は空のまま返す（案件単位のジャーニーとの違い）。
-  return { days: [buildDayFromDocs(doc.broadcast_date, null, [doc], [])] };
+  return { project: null, days: [buildDayFromDocs(doc.broadcast_date, null, [doc], [])] };
 }

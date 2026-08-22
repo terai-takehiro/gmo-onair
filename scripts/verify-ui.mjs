@@ -36,7 +36,8 @@ const USER = process.env.VERIFY_USER || 'v-admin';
  * **v4 の対象3アプリは全画面を並べる。** 共通の下地 (`shared/src/client/base.css`) や
  * 共通シェルを入れ替えると**全画面に一度に効く**ので、代表2〜3画面では足りない
  * (実際 F2 の前は日常業務2画面・機材2画面しか見ていなかった)。
- * 凍結4アプリは見た目を変えないので代表画面のままにしてある。
+ * 凍結1アプリ (計時LIVE) は見た目を変えないので代表画面のままにしてある。
+ * (制作資料 (Qシート) は v4.1 で凍結を解いたので、本番3画面＋公開音声を含め主要画面を並べる)
  */
 const PAGES = [
   // ── 案件管理・財務管理・設定 (v4 対象) ──────────────────────
@@ -107,6 +108,8 @@ const PAGES = [
   ['Qシート 編集', '/qsheet/editor/verify-onair'],
   ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
   ['Qシート ランダウン', '/qsheet/rundown/verify-onair', { dark: true }],
+  ['Qシート プロンプター', '/qsheet/prompter/verify-onair', { dark: true }],
+  ['Qシート 公開音声', '/qsheet/audio/verify-onair'],
   ['計時LIVE', '/live/'],
 
   // ── 機材管理 (v4 対象・全画面) ──────────────────────────
@@ -143,10 +146,13 @@ const PAGES = [
 ];
 
 /**
- * 凍結2アプリ (Qシート / 計時LIVE) の URL。
+ * 凍結1アプリ (計時LIVE) の URL。
  * **見た目を今日のまま保つ**のが決定事項なので、v4 の基準を当てない。
+ *
+ * Qシート (制作資料) は凍結を解いたので、ここには含めない
+ * (`docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md` §10-1)。
  */
-const FROZEN_PREFIX = /^\/(qsheet|live)\//;
+const FROZEN_PREFIX = /^\/(live)\//;
 
 const filters = process.argv.slice(2);
 const targets = filters.length
@@ -425,9 +431,9 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     ok(`${label} JSエラー 0件`, errs.length === 0, errs.slice(0, 1).join(''));
     /*
      * 地の色は **アプリによって期待値が違う** (T2 から)。
-     *   v4 対象3アプリ … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
-     *   凍結2アプリ     … #fafafa  ← 今日と同じ色を保つのが決定事項
-     *   放送中の画面     … #14161a  ← DADS の `.dark` を**意図して**使っている
+     *   v4 対象3アプリ・制作資料(Qシート) … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
+     *   凍結1アプリ (計時LIVE)             … #fafafa  ← 今日と同じ色を保つのが決定事項
+     *   放送中の画面                        … #14161a  ← DADS の `.dark` を**意図して**使っている
      * 1つの期待値にまとめると、凍結アプリを「直す」方向に引っぱってしまう。
      */
     const wantBg = opt.dark
@@ -438,8 +444,8 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
     /*
      * 書体と字詰めも **アプリによって期待値が違う** (T3 から)。
-     *   v4 対象3アプリ … LINE Seed JP ＋ palt/kern
-     *   凍結2アプリ     … Noto Sans JP・字詰めなし (今日のまま)
+     *   v4 対象3アプリ・制作資料(Qシート) … LINE Seed JP ＋ palt/kern
+     *   凍結1アプリ (計時LIVE)             … Noto Sans JP・字詰めなし (今日のまま)
      * 凍結アプリに LINE Seed JP を要求すると「直せ」と言い続ける検査になる。
      */
     if (FROZEN_PREFIX.test(url)) {
@@ -466,7 +472,7 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     ok(`${label} ボタンの高さが段のみ`, m.badBtnN === 0, JSON.stringify(m.badBtn));
     ok(`${label} 金額は¥と数字が別要素`, m.badMoney.length === 0, JSON.stringify(m.badMoney));
     /*
-     * v4 の縦の整列 (G4)。**凍結4アプリには当てない** — 見た目を今日のまま
+     * v4 の縦の整列 (G4)。**凍結アプリには当てない** — 見た目を今日のまま
      * 保つのが決定事項なので、そこで揃っていなくても直せない。
      */
     if (!FROZEN_PREFIX.test(url)) {

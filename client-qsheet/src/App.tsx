@@ -3,13 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
+import SheetListPage from "@/pages/SheetListPage";
 import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
+import JourneyPage from "@/pages/JourneyPage";
 import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
@@ -49,7 +50,7 @@ export default function App() {
         */}
         <Route path="/qsheet" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
         <Route path="/qsheet/home" element={<TopPage />} />
-        <Route path="/qsheet/sheets" element={<DashboardPage />} />
+        <Route path="/qsheet/sheets" element={<SheetListPage />} />
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
         <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
@@ -62,6 +63,10 @@ export default function App() {
         <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
         <Route path="/qsheet/schedules/:id" element={<SchedulePage />} />
         <Route path="/qsheet/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
+
+        {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
+        <Route path="/qsheet/projects/:id" element={<JourneyPage scope="project" />} />
+        <Route path="/qsheet/docs/:id" element={<JourneyPage scope="document" />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}

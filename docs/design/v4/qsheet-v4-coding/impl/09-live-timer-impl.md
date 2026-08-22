@@ -1010,3 +1010,36 @@ B は `client-live` を「表示画面だけの殻」にする大工事になる
 | 「暗号化は既存と同じ AES-256-GCM（`liveops/crypto.ts`）」 | ✅ `crypto.ts:17-41` |
 | 「migration 210 で7区画に統合済みなので区画を増やさない」 | ✅ `210_simplify_permission_modules.sql:1-30` |
 | 「`videos.list` は 1 回 1 ユニット」「取得間隔 10 秒で 1日 約 8,640」 | ✅ 実装は videoIds を**1回で束ねて**投げている（`proxy.routes.ts:25-28`）ので、この数え方で正しい |
+
+### 12-11. PR5〜7 着手時の追記（2026-08-22・利用者から「凍結解除が進んでいると思っていた」の指摘を受けて着手）
+
+PR1〜4（視聴者取得のサーバー移行本体）はマージ済みだったが、**PR5〜7（しきい値UI・
+表示画面のv4化・凍結解除本体）が未着手のまま長期間放置されていた**ことが発覧した。
+以下の順で着手し、§12-7〜12-9 の指摘を踏まえてスコープを絞った。
+
+- **PR5**（main_timer_id/しきい値UI）・**PR6**（表示画面のv4化）: §10 の記述どおり実装。
+  検証で `programs.routes.ts` の既存バグ（`projectId` 省略時に `project_id` がNULL上書きされる）
+  も見つかり合わせて修正した。
+- **PR7（この節が対象）**: §12-7 が指摘する「凍結を解く作業」は、実際には
+  **v4 共通シェルへの載せ替え一式**（`check-shared-wiring.mjs` の `V4_APPS` 登録・
+  `NoticeBar`/`ConfirmHost` 個数期待値の変更・`check-mobile-declared.mjs` 対応・
+  `check-frozen-css.mjs` からの除外）を指しており、これは**制作資料（Qシート）自身も
+  まだ終えていない作業**（CLAUDE.md「まだ v4 の共通シェルには載せ替えていない」）。
+  そのため PR7 では**制作資料の段3が最初に踏んだのと同じ最小の一歩**——
+  `apps.ts` の `frozen: true` を落とすことだけ——を実装し、`check-frozen-css.mjs` /
+  `verify-ui.mjs` の `FROZEN_PREFIX` / `check-shared-wiring.mjs` の `V4_APPS` /
+  `MINI_APPS` レジストリへの登録は**あえて触っていない**。理由:
+  - 表示画面（`/live/display`）以外の運用画面（ダッシュボード・設定等）はまだ旧shellのまま
+    見た目を変えていないので、`check-frozen-css.mjs` から外すと「見た目を変えていない」
+    という保証を機械が見なくなる（qsheetが段3→段5 PR8の間そうだったのと同じ中間状態）
+  - §12-9 が指摘したとおり `MiniAppDef`（`kind: 'document' | 'panel'`）は
+    「同一バンドル内のURL」を前提にしており、`client-live` は独立バンドル
+    （§12-8「案A」= `/live/*` のまま・切替でページが読み直される、を維持）なので
+    無理に型へ押し込めると `panelPathOf`/`miniAppOfPath` の前提が崩れる
+  - **改名（「計時LIVE」→「計時・視聴者」・§11-1 #7 の既定）も見送った** — 40本超の
+    ファイルにまたがる名称変更で、この段の範囲を大きく超えるため
+  - `shared/tests/apps.test.ts` を `frozen` が `['awards']` だけになるよう更新し、
+    `visibleApps()` の既定で `qsheet` と並んで `liveops` も出ることを固定した
+
+  **残作業**（v4共通シェルへの載せ替え・ミニアプリのレジストリ登録・改名）は、
+  制作資料自身の共通シェル載せ替えと合わせて別段で行うことを推奨する。

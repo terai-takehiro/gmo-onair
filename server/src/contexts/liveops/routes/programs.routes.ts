@@ -129,13 +129,31 @@ router.put('/:id', ...canWrite, async (req, res) => {
   try {
     const {
       name, projectId, youtubeUrls, jstreamLpid, singularAppToken, singularMappings,
-      zoomMeetingId, zoomWebinarId, teamsMeetingUrl,
+      zoomMeetingId, zoomWebinarId, teamsMeetingUrl, mainTimerId,
     } = req.body;
     const existing = await queryOne(
-      'SELECT id, singular_app_token_enc, teams_meeting_url FROM liveops_programs WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT id, project_id, singular_app_token_enc, teams_meeting_url FROM liveops_programs WHERE id = $1 AND deleted_at IS NULL',
       [req.params.id]
     );
     if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // 主タイマー（main_timer_id）は同じ案件のタイマーだけを紐付けられる。
+    // 他案件のタイマーIDを渡されても紐付けない（実装設計 09-live-timer-impl.md §3-2 ②）。
+    if (mainTimerId !== undefined && mainTimerId !== null && mainTimerId !== '') {
+      const timerRow = await queryOne(
+        'SELECT id, program_id, project_id FROM liveops_timers WHERE id = $1 AND deleted_at IS NULL',
+        [mainTimerId]
+      );
+      if (!timerRow) {
+        return res.status(400).json({ success: false, message: '指定されたタイマーが見つかりません' });
+      }
+      const programProjectId = (existing as any).project_id;
+      const belongsToProgram = (timerRow as any).program_id === req.params.id;
+      const belongsToProject = programProjectId != null && (timerRow as any).project_id === programProjectId;
+      if (!belongsToProgram && !belongsToProject) {
+        return res.status(400).json({ success: false, message: '他の案件のタイマーは主タイマーに設定できません' });
+      }
+    }
 
     const newToken = singularAppToken !== undefined
       ? (singularAppToken === '' ? null : encrypt(singularAppToken))
@@ -143,21 +161,27 @@ router.put('/:id', ...canWrite, async (req, res) => {
 
     const sets: string[] = [
       'name = COALESCE($2, name)',
-      'project_id = $3',
-      'youtube_urls = COALESCE($4, youtube_urls)',
-      'jstream_lpid = $5',
-      'singular_app_token_enc = $6',
-      'singular_mappings = COALESCE($7, singular_mappings)',
+      'youtube_urls = COALESCE($3, youtube_urls)',
+      'jstream_lpid = $4',
+      'singular_app_token_enc = $5',
+      'singular_mappings = COALESCE($6, singular_mappings)',
       'updated_at = NOW()',
     ];
     const params: unknown[] = [
       req.params.id,
-      name ?? null, projectId ?? null,
+      name ?? null,
       youtubeUrls ? JSON.stringify(youtubeUrls) : null,
       jstreamLpid ?? null,
       newToken,
       singularMappings ? JSON.stringify(singularMappings) : null,
     ];
+    // ⚠️ project_id は COALESCE ではなく「渡されたときだけ」更新する。
+    //   常に上書きすると（旧実装のように）「projectId を送らない PUT」で
+    //   案件との紐付けが黙って外れてしまう（ProgramsPage.tsx の保存も projectId を送っていない）。
+    if (projectId !== undefined) {
+      sets.splice(-1, 0, `project_id = $${params.length + 1}`);
+      params.push(projectId || null);
+    }
     if (zoomMeetingId !== undefined) {
       sets.splice(-1, 0, `zoom_meeting_id = $${params.length + 1}`);
       params.push(zoomMeetingId || null);
@@ -169,6 +193,10 @@ router.put('/:id', ...canWrite, async (req, res) => {
     if (teamsMeetingUrl !== undefined) {
       sets.splice(-1, 0, `teams_meeting_url = $${params.length + 1}`);
       params.push(teamsMeetingUrl || null);
+    }
+    if (mainTimerId !== undefined) {
+      sets.splice(-1, 0, `main_timer_id = $${params.length + 1}`);
+      params.push(mainTimerId || null);
     }
     await execute(
       `UPDATE liveops_programs SET ${sets.join(', ')} WHERE id = $1`,
