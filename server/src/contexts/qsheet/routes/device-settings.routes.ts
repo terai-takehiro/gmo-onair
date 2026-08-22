@@ -40,6 +40,35 @@ async function ownerLabelOf(owner: Awaited<ReturnType<typeof resolveOwner>>): Pr
 }
 
 // ============================================================
+// owner の文脈（画面のヘッダー・ミニアプリ切替・簡易入口からのハブ遷移が使う）
+//
+// ⚠️ 収録設定・配信設定の GET/PUT は :ownerKey が案件か番組かを画面側に返さない
+// （RecordingSettings/StreamingSettings は明細だけ）。ヘッダーに案件名・GLS番号を出し、
+// Qシート/スケジュール表への切替リンク（?project=/?program=）や、簡易入口
+// （DeviceSettingsHome）から正規のハブ（/qsheet/projects/:id・/qsheet/programs/:id）へ
+// 飛ぶために、resolveOwner の結果を画面へ渡す小さな窓をここに1つ足す。
+// ============================================================
+router.get('/:ownerKey/context', async (req: Request, res: Response) => {
+  const owner = await resolveOwner(req.user!, String(req.params.ownerKey), req.query.date as string | undefined);
+  if (!owner) return notFound(res);
+
+  if (owner.kind === 'project') {
+    const row = await queryOne('SELECT id, name, gls_number FROM projects WHERE id = $1', [owner.projectId]);
+    if (!row) return notFound(res);
+    res.json({ success: true, data: { kind: 'project', id: row.id, name: row.name, glsNumber: row.gls_number ?? null } });
+    return;
+  }
+  if (owner.kind === 'program') {
+    const row = await queryOne('SELECT id, name FROM qsheet_programs WHERE id = $1', [owner.programId]);
+    if (!row) return notFound(res);
+    res.json({ success: true, data: { kind: 'program', id: row.id, name: row.name, glsNumber: null } });
+    return;
+  }
+  // kind: 'doc' はまだ resolveOwner が返さない（doc_no 未着手・device-settings-owner.ts 参照）
+  return notFound(res);
+});
+
+// ============================================================
 // 収録設定
 // ============================================================
 router.get('/:ownerKey/recording', async (req: Request, res: Response) => {

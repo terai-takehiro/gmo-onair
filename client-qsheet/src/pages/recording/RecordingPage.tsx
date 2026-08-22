@@ -1,15 +1,26 @@
 // 収録設定の画面の骨（帯・絞り込み・本線8/控え4の表・スマホの下シート）。
 // ⚠️ この画面は useState のローカル状態。素の <input>/<select> で構わない（impl doc §5-2）。
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, FileDown, Radio } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, Save, FileDown, Radio, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
-import { getRecording, putRecording, type Deck } from '@/lib/deviceSettingsApi';
+import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
+import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { getOwnerContext, getRecording, putRecording, type Deck, type OwnerContext } from '@/lib/deviceSettingsApi';
 import { DECK_IDS_MAIN, DECK_IDS_BACKUP, defaultDecks } from './deckOptions';
 import DeckRow from './DeckRow';
 import DeckSheet from './DeckSheet';
 import ExportDialog from '../settings-export/ExportDialog';
+import CopyFromDialog from '../settings-export/CopyFromDialog';
+import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
+
+type DeckFilter = 'all' | 'main' | 'sub';
+const DECK_FILTER_ITEMS: FilterChipItem<DeckFilter>[] = [
+  { key: 'all', label: 'すべて', count: 12 },
+  { key: 'main', label: '本線', count: 8 },
+  { key: 'sub', label: '控え', count: 4 },
+];
 
 function fillMissing(decks: Deck[]): Deck[] {
   const byId = new Map(decks.map((d) => [d.deckId, d]));
@@ -28,8 +39,13 @@ export default function RecordingPage() {
   const [saving, setSaving] = useState(false);
   const [mobileDeck, setMobileDeck] = useState<Deck | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [copyFromOpen, setCopyFromOpen] = useState(false);
+  const [owner, setOwner] = useState<OwnerContext | null>(null);
+  const [filter, setFilter] = useState<DeckFilter>('all');
+  const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
+  const [lastExportName, setLastExportName] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadRecording = useCallback(() => {
     let alive = true;
     setLoading(true);
     getRecording(ownerKey, date)
@@ -38,12 +54,22 @@ export default function RecordingPage() {
         if (data) {
           setDecks(fillMissing(data.decks));
           setServiceDate(data.serviceDate);
+          setLastExportedAt(data.lastExportedAt);
+          setLastExportName(data.lastExportName);
         }
       })
       .catch(() => notifyError('収録設定の取得に失敗しました'))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [ownerKey, date]);
+
+  useEffect(() => loadRecording(), [loadRecording]);
+
+  useEffect(() => {
+    let alive = true;
+    getOwnerContext(ownerKey).then((data) => { if (alive) setOwner(data); });
+    return () => { alive = false; };
+  }, [ownerKey]);
 
   const updateDeck = (next: Deck) => setDecks((prev) => prev.map((d) => (d.deckId === next.deckId ? next : d)));
 
@@ -74,13 +100,26 @@ export default function RecordingPage() {
   return (
     <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="mb-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="min-w-0">
+        {owner ? (
+          <Link
+            to={owner.kind === 'project' ? `/qsheet/projects/${owner.id}` : `/qsheet/programs/${owner.id}`}
+            className="flex h-11 min-w-0 shrink items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:bg-muted"
+          >
+            <ChevronLeft className="h-5 w-5 shrink-0" />
+            <span className="truncate">{owner.name}</span>
+          </Link>
+        ) : (
+          <button onClick={() => navigate(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">収録設定</h1>
-          <p className="truncate text-xs text-muted-foreground">{ownerKey} ・ {serviceDate}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ {serviceDate}
+          </p>
         </div>
+        {owner && <MiniAppSwitcher owner={owner} current="recording" />}
       </div>
 
       {/* 状態の帯 */}
@@ -88,6 +127,14 @@ export default function RecordingPage() {
         <Radio className="h-4 w-4 text-primary" />
         <span>使用中 {usedCount}/12 台</span>
         {unfilledCount > 0 && <span className="text-warning">未入力 {unfilledCount} 台</span>}
+        <span className="text-muted-foreground">
+          {lastExportName ? `${lastExportName}（${formatRelativeTime(lastExportedAt)}）` : 'まだ書き出していません'}
+        </span>
+      </div>
+
+      {/* 絞り込みは PC の表にだけ効く（スマホの縦積みは対象外） */}
+      <div className="mb-4 hidden sm:block">
+        <FilterChips items={DECK_FILTER_ITEMS} value={filter} onChange={setFilter} label="デッキで絞り込む" />
       </div>
 
       {loading ? (
@@ -96,13 +143,17 @@ export default function RecordingPage() {
         <>
           {/* PC: 表。sm 未満は横スクロールで守る */}
           <div className="hidden sm:block">
-            <RecordingSection title="本線（Studio 4K Pro）" decks={mainDecks} onChange={updateDeck} />
-            <RecordingSection
-              title="控え（HD Plus）"
-              decks={backupDecks}
-              onChange={updateDeck}
-              onCopyFromMain={(backupId, i) => copyFromMain(backupId, DECK_IDS_MAIN[i])}
-            />
+            {filter !== 'sub' && (
+              <RecordingSection title="本線（Studio 4K Pro）" decks={mainDecks} onChange={updateDeck} />
+            )}
+            {filter !== 'main' && (
+              <RecordingSection
+                title="控え（HD Plus）"
+                decks={backupDecks}
+                onChange={updateDeck}
+                onCopyFromMain={(backupId, i) => copyFromMain(backupId, DECK_IDS_MAIN[i])}
+              />
+            )}
           </div>
 
           {/* スマホ: 縦積みの行 → タップで下シート */}
@@ -129,6 +180,9 @@ export default function RecordingPage() {
 
       {/* 下端の主アクション（スマホ幅いっぱい／PC は右寄せ） */}
       <div className="sticky bottom-0 mt-6 flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:py-0">
+        <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setCopyFromOpen(true)}>
+          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+        </Button>
         <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setExportOpen(true)}>
           <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
         </Button>
@@ -139,6 +193,14 @@ export default function RecordingPage() {
 
       <DeckSheet deck={mobileDeck} onChange={(next) => { updateDeck(next); setMobileDeck(next); }} onClose={() => setMobileDeck(null)} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} ownerKey={ownerKey} date={serviceDate} />
+      <CopyFromDialog
+        open={copyFromOpen}
+        onOpenChange={setCopyFromOpen}
+        ownerKey={ownerKey}
+        date={serviceDate}
+        what={['recording']}
+        onCopied={loadRecording}
+      />
     </div>
   );
 }

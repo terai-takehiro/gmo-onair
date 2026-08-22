@@ -24,15 +24,21 @@ function ownerCols(owner: Owner): { col: 'project_id' | 'program_id' | 'doc_no';
 }
 
 /** `?date=` が無いとき、その owner で最も新しい service_date を引く */
+// ⚠️ service_date は DATE。pg は JS の Date で返すので、`String(row.service_date)` だと
+// "Sat Aug 22 2026 00:00:00 GMT+0000 (...)" のような toString() 表記になり、
+// この文字列をそのまま次の SQL の service_date = $N に渡すと
+// invalid input syntax for type date で 500 になる（実際に踏んだ・schedule.service.ts と
+// 同じ罠。04-schedule-impl.md §3-1）。必ず SQL 側で to_char() して YYYY-MM-DD 文字列にする。
 async function resolveDate(table: string, owner: Owner): Promise<string | null> {
   if (owner.date) return owner.date;
   const { clause, params } = ownerWhere(owner, 1);
   const row = await queryOne(
-    `SELECT service_date FROM ${table} WHERE ${clause} AND deleted_at IS NULL
+    `SELECT to_char(service_date, 'YYYY-MM-DD') AS service_date FROM ${table}
+     WHERE ${clause} AND deleted_at IS NULL
      ORDER BY service_date DESC LIMIT 1`,
     params
   );
-  return row ? String(row.service_date) : null;
+  return row ? (row.service_date as string) : null;
 }
 
 // ============================================================
