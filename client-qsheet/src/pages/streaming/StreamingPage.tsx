@@ -17,6 +17,29 @@ import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 
 const ENCODER_IDS = Array.from({ length: 10 }, (_, i) => `ENC${i + 1}`);
 
+// 下シート（スマホ用インスペクタ）を出すかどうか。
+// ⚠️ 実際に踏んだ不具合: 下の <Dialog> は DialogContent に sm:hidden を付けて
+// 「PC では中身を出さない」つもりだったが、shared/src/client/ui/dialog.tsx の
+// DialogOverlay（画面全体を覆う半透明の板）は DialogContent とは別要素で、
+// sm:hidden の対象外だったため PC 幅でも描かれ続けていた。中身が sm:hidden で
+// 見えないだけで、Dialog 自体は「開いている」ため、画面全体が暗く覆われたまま
+// 右のインラインインスペクタも含めて一切操作できなくなっていた
+// （配信先を1つでも選ぶ/足すたびに再現）。CSS で隠すのではなく、
+// open 自体を「640px 未満のときだけ」にする
+function useIsNarrow() {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener('change', onChange);
+    onChange();
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
 function newMeeting(): Meeting {
   return { meetingId_: genId('mtg'), tool: 'Zoom', url: '', videoInput: 'OA1', audioInput: 'UltraStudio' };
 }
@@ -36,6 +59,7 @@ export default function StreamingPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [copyFromOpen, setCopyFromOpen] = useState(false);
   const [owner, setOwner] = useState<OwnerContext | null>(null);
+  const isNarrow = useIsNarrow();
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
 
@@ -188,9 +212,11 @@ export default function StreamingPage() {
             )}
           </div>
 
-          {/* スマホ: 下シートでインスペクタを出す */}
-          <Dialog open={!!selectedDest} onOpenChange={(open) => !open && setSelected(null)}>
-            <DialogContent className="dialog-bottom-sheet max-h-[90vh] overflow-y-auto p-4 sm:hidden" aria-describedby={undefined}>
+          {/* スマホ: 下シートでインスペクタを出す。
+              ⚠️ sm:hidden は DialogContent の中身にしか効かず、DialogOverlay は隠せない
+              （useIsNarrow のコメント参照）。open 自体を isNarrow で絞る */}
+          <Dialog open={isNarrow && !!selectedDest} onOpenChange={(open) => !open && setSelected(null)}>
+            <DialogContent className="dialog-bottom-sheet max-h-[90vh] overflow-y-auto p-4" aria-describedby={undefined}>
               <DialogHeader><DialogTitle>配信先の設定</DialogTitle></DialogHeader>
               {selectedDest && (
                 <DestinationInspector dest={selectedDest} onChange={(next) => updateDestination(selected!, next)} onDelete={() => deleteDestination(selected!)} />
