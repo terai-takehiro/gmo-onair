@@ -53,6 +53,44 @@ function notThisOwnerClause(owner: Owner, paramIndex: number): { clause: string;
 }
 
 // ============================================================
+// 0. 取得状況（クロールの最終取得状況）
+// ============================================================
+export interface SyncStatusCompany {
+  company: string;
+  /** その会社の最新クロール実行時刻（qsheet_rental_items.last_seen の会社内最大値）。
+   * rental-scraper が1回のクロラン内の全商品に同じ時刻を書き込む前提
+   * （検証環境で踏んだ全件 missing 化の修正・rental-scraper/README.md 参照）なので、
+   * これが「その会社を最後にクロールした時刻」とみなせる。1件も無ければ null。 */
+  lastSeenAt: string | null;
+  listedCount: number;
+  missingCount: number;
+}
+
+export interface SyncStatus {
+  companies: SyncStatusCompany[];
+}
+
+export async function getSyncStatus(): Promise<SyncStatus> {
+  const rows = await queryAll(
+    `SELECT company,
+            MAX(last_seen) AS last_seen_at,
+            COUNT(*) FILTER (WHERE status = 'listed')::int AS listed_count,
+            COUNT(*) FILTER (WHERE status = 'missing')::int AS missing_count
+     FROM qsheet_rental_items
+     GROUP BY company
+     ORDER BY company`
+  );
+  return {
+    companies: rows.map((r) => ({
+      company: r.company as string,
+      lastSeenAt: toIso(r.last_seen_at),
+      listedCount: r.listed_count as number,
+      missingCount: r.missing_count as number,
+    })),
+  };
+}
+
+// ============================================================
 // 1. カタログ検索
 // ============================================================
 export interface ItemSearchQuery {

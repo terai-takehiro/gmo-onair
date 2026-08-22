@@ -27,6 +27,7 @@ import re
 import time
 import logging
 import sqlite3
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -127,6 +128,10 @@ def run():
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
 
+    # ⚠️ toc_scraper.py と同じ理由でこの1回だけ計算する。詳細は common_db.py の
+    # upsert_item 冒頭コメント参照（検証環境で全件 missing 化を実際に踏んだ）。
+    run_started_at = datetime.now().isoformat(timespec="seconds")
+
     seen_ids = set()
     consecutive_miss = 0
 
@@ -146,13 +151,13 @@ def run():
         detail = parse_item_detail(str(item_id), html)
         if detail.name:
             seen_ids.add(str(item_id))
-            upsert_item(conn, COMPANY, detail)
+            upsert_item(conn, COMPANY, detail, now=run_started_at)
         else:
             log.warning("パース失敗(name取得不可): %s", url)
 
         time.sleep(SLEEP_SEC)
 
-    mark_missing_items(conn, COMPANY, seen_ids)
+    mark_missing_items(conn, COMPANY, seen_ids, now=run_started_at)
     conn.close()
     log.info("[%s] 完了。DB: %s", COMPANY, DB_PATH)
 

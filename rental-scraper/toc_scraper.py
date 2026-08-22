@@ -21,6 +21,7 @@ import re
 import time
 import logging
 import sqlite3
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -177,6 +178,14 @@ def run():
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
 
+    # ⚠️ この1回だけ計算し、この関数内の upsert_item / mark_missing_items 全部に
+    # 同じ値を渡す。「呼ぶたびに datetime.now()」にすると、数百〜数千件を
+    # SLEEP_SEC=1.5秒間隔で取得する実際のクロール（数十分かかる）では商品ごとに
+    # last_seen がバラけ、sync_to_postgres.py の compute_statuses()（company ごとの
+    # 最新 last_seen とだけ一致させて listed 判定）で最後の1件以外が全部 missing に
+    # 誤判定される（common_db.py の upsert_item 冒頭コメント参照。検証環境で実際に踏んだ）。
+    run_started_at = datetime.now().isoformat(timespec="seconds")
+
     all_item_ids = set()
     for cid in CATEGORY_IDS:
         log.info("=== [%s] カテゴリ %s のクロール開始 ===", COMPANY, cid)
@@ -191,12 +200,12 @@ def run():
             continue
         detail = parse_item_detail(item_id, html)
         if detail.name:
-            upsert_item(conn, COMPANY, detail)
+            upsert_item(conn, COMPANY, detail, now=run_started_at)
         else:
             log.warning("パース失敗(name取得不可): %s", url)
         time.sleep(SLEEP_SEC)
 
-    mark_missing_items(conn, COMPANY, all_item_ids)
+    mark_missing_items(conn, COMPANY, all_item_ids, now=run_started_at)
     conn.close()
     log.info("[%s] 完了。DB: %s", COMPANY, DB_PATH)
 

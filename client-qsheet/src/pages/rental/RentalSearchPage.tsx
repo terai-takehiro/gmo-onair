@@ -13,7 +13,7 @@ import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import * as rentalApi from '@/lib/rentalApi';
 import type { RentalCompany, RentalItemSummary } from '@/lib/rentalApi';
-import { companyBadgeClass, formatYen, todayStr } from './rentalFormat';
+import { companyBadgeClass, formatSyncTimestamp, formatYen, isSyncStale, todayStr } from './rentalFormat';
 import RentalItemDetailDialog from './RentalItemDetailDialog';
 
 const PAGE_SIZE = 60;
@@ -62,6 +62,12 @@ export default function RentalSearchPage() {
     queryKey: ['rental-reservations', ownerKey],
     queryFn: () => rentalApi.getRentalReservations(ownerKey),
     enabled: !!ownerKey,
+  });
+
+  const syncStatusQuery = useQuery({
+    queryKey: ['rental-sync-status'],
+    queryFn: () => rentalApi.getRentalSyncStatus(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const reservedKeys = useMemo(() => {
@@ -204,9 +210,22 @@ export default function RentalSearchPage() {
         </>
       )}
 
-      <p className="flex items-center gap-1.5 text-sub-sm text-muted-foreground">
-        2社のサイトから毎朝5時に自動取得 ・ 価格・掲載は各社サイトが正
-      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sub-sm text-muted-foreground">
+        <span className="shrink-0">2社のサイトから毎朝5時に自動取得 ・ 価格・掲載は各社サイトが正</span>
+        {syncStatusQuery.data?.companies.map((c) => {
+          const stale = c.lastSeenAt != null && isSyncStale(c.lastSeenAt);
+          return (
+            <span
+              key={c.company}
+              className={`shrink-0 ${stale ? 'font-bold text-warning-border-strong' : ''}`}
+            >
+              {c.company} 最終取得 {formatSyncTimestamp(c.lastSeenAt)}
+              {c.lastSeenAt && `（${c.listedCount}件）`}
+              {stale && '（更新が止まっている可能性）'}
+            </span>
+          );
+        })}
+      </div>
 
       <RentalItemDetailDialog ownerKey={ownerKey} target={detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)} />
     </div>

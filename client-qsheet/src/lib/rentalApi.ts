@@ -101,6 +101,17 @@ export interface RentalMailDraft {
   subtotal: number;
 }
 
+export interface RentalSyncStatusCompany {
+  company: string;
+  lastSeenAt: string | null;
+  listedCount: number;
+  missingCount: number;
+}
+
+export interface RentalSyncStatus {
+  companies: RentalSyncStatusCompany[];
+}
+
 interface Envelope<T> {
   success: boolean;
   data: T;
@@ -108,6 +119,11 @@ interface Envelope<T> {
 
 const base = '/qsheet/rental';
 const reservationsBase = (ownerKey: string) => `${base}/${encodeURIComponent(ownerKey)}/reservations`;
+
+export async function getRentalSyncStatus(): Promise<RentalSyncStatus> {
+  const { data } = await api.get<Envelope<RentalSyncStatus>>(`${base}/sync-status`);
+  return data.data;
+}
 
 export interface SearchRentalItemsParams {
   q?: string;
