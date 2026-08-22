@@ -10,7 +10,7 @@
  *
  * ── 速さのために決めたこと ──────────────────────────────────
  *
- *  - PC とスマホを**同時に**走らせる (直列だと単純に2倍かかる)
+ *  - PC・スマホ・タブレットを**同時に**走らせる (直列だと単純に3倍かかる)
  *  - `networkidle` を待たない。**Socket.IO をつないでいる画面は永久に idle にならず**、
  *    1ページごとに 30 秒のタイムアウトを丸ごと待っていた
  *  - 1ページの待ちは 1.2 秒。取得が遅い画面だけ `slow` に列挙する
@@ -18,8 +18,13 @@
  * 使い方:
  *   node scripts/verify-ui.mjs                 # 全ページ
  *   node scripts/verify-ui.mjs techops live    # 名前に含むページだけ
+ *   node scripts/verify-ui.mjs --shots         # 検査の代わりに全ページを 375/768/1280 で撮る
+ *   node scripts/verify-ui.mjs --shots --shots-dir=/tmp/shots 設定   # 出力先と絞り込み
  *   BASE=http://localhost:3001 node scripts/verify-ui.mjs
  */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { ensureFontCache, installFontCache } from './lib/google-fonts-cache.mjs';
 
 // playwright-core はリポジトリの依存に入れない (CI では動かさないので重いだけ)。
@@ -75,6 +80,16 @@ const PAGES = [
   ['案件管理 案件グループ', '/sales/project-groups'],
   ['案件管理 活動履歴', '/sales/activity-logs'],
   ['案件管理 GLS取込', '/sales/gls-import'],
+  // 取引先マスターの顧客絞り込み (旧 /sales/customers はここへ転送される)。
+  // 絞り込みは `?role=customer` のクエリで持つので、そのまま付けて測る
+  ['案件管理 顧客一覧', '/sales/companies?role=customer'],
+  /*
+    顧客360 (`/sales/customers/:id`) は**測りたいが並べられない**。
+    シード (`server/src/shared/db/seed.ts`) の顧客 id は `createCustomerRecord` が
+    uuid で発番するので、`gpm-1` のような**固定 id が無い** — URL をここに書けない。
+    顧客にも固定 id をシードで入れたら足すこと。
+  */
+  ['探す', '/search'],
   ['財務 ダッシュボード', '/budget/dashboard', { slow: true }],
   ['財務 請求・入金', '/budget/billing'],
   ['財務 仕入', '/budget/purchases', { slow: true }],
@@ -84,6 +99,14 @@ const PAGES = [
   ['財務 取り込み', '/budget/import'],
   ['財務 受け取った書類', '/budget/documents'],
   ['財務 取引先レポート', '/budget/reports/vendors'],
+  // カレンダー (①〜④・v4 で作り直し済みなのに1画面も並んでいなかった)。
+  // 予定・部屋の空きは自前描画 (FullCalendar をやめた) なので、座標の崩れは
+  // ここで測るしかない。設定は PC 専用だがスマホでは案内 (PcOnlyGate) が出る
+  // だけなので、他の PC 専用画面 (案件台帳・ガント等) と同じく普通に並べる
+  ['カレンダー 予定', '/calendar'],
+  ['カレンダー 部屋の空き', '/calendar/rooms'],
+  ['カレンダー 仮押さえ', '/calendar/holds'],
+  ['カレンダー 設定', '/calendar/settings'],
   // v4 で新しく作ったアプリ (migration 161/162)
   ['プロジェクト管理 ダッシュボード', '/gpm/dashboard'],
   ['プロジェクト管理 一覧', '/gpm/projects'],
@@ -106,6 +129,13 @@ const PAGES = [
   ['設定 データ', '/settings/data-viewer'],
   ['設定 DBバックアップ', '/settings/db-backups'],
   ['設定 全体', '/settings'],
+  // 設定の各画面 (①⑤⑥⑦＋システムの情報)。案内板 (/settings) だけ見ても
+  // 中の画面の崩れは分からないので1枚ずつ並べる
+  ['設定 拠点・部屋', '/settings/sites'],
+  ['設定 お金のルール', '/settings/money'],
+  ['設定 休日・営業時間', '/settings/hours'],
+  ['設定 通知とテンプレート', '/settings/notify'],
+  ['設定 システムの情報', '/settings/system'],
   ['Qシート 一覧', '/techops/'],
   ['Qシート 編集', '/techops/editor/verify-onair'],
   ['Qシート OnAir', '/techops/onair/verify-onair', { dark: true }],
@@ -132,6 +162,7 @@ const PAGES = [
   ['機材 棚卸し', '/equipment/inventory'],
   ['機材 貸出', '/equipment/lendings'],
   ['機材 スキャン', '/equipment/scan'],
+  ['機材 検索', '/equipment/search'],
   ['機材 拠点', '/equipment/locations'],
   ['機材 メーカー', '/equipment/manufacturers'],
   ['機材 型番グループ', '/equipment/model-groups'],
@@ -144,6 +175,12 @@ const PAGES = [
   ['日常業務 週報', '/daily/weekly'],
   ['日常業務 ニュース', '/daily/news'],
   ['日常業務 内覧会', '/daily/inview'],
+  /*
+    内覧会の日別画面 (`/daily/inview/:date`) は**測りたいが並べられない**。
+    シード (`seed.ts`) は内覧会の予約 (`inview_registrations`) を1件も入れて
+    いないので、**どの日付を開いても空**になり、行・カードの崩れを測れない
+    (空表示だけ測っても検査にならない)。固定日付の予約をシードに入れたら足すこと。
+  */
   // `/daily/finance` は**画面ではなく転送**になった (v4 ⑥ で財務へ移した)。
   // 中身は上の「財務 受け取った書類」で見る。ここに残すと、転送の一瞬を測って
   // 「シェルが画面いっぱいでない」と必ず落ちる
@@ -173,7 +210,26 @@ const PAGES = [
  */
 const FROZEN_PREFIX = /^\/live\/display\//;
 
-const filters = process.argv.slice(2);
+/*
+ * ── 引数の読み方 ──────────────────────────────────────────
+ * `--shots`     … 検査の代わりに、全ページの fullPage スクリーンショットを撮る。
+ *                 出力先は**リポジトリの外** (既定 ~/verify-ui-shots/<日付>/)。
+ *                 中に置くと lint・ビルドの走査対象が数百MB増えるうえ、
+ *                 誤ってコミットする事故が起きる。
+ * `--shots-dir` … 出力先を変える (`--shots-dir=/tmp/x` / `--shots-dir /tmp/x`)。
+ * それ以外      … 今までどおりページ名・URL の絞り込み。
+ */
+const argv = process.argv.slice(2);
+const SHOTS = argv.includes('--shots');
+let shotsDirArg = null;
+const filters = [];
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === '--shots') continue;
+  if (a === '--shots-dir') { shotsDirArg = argv[++i] ?? null; continue; }
+  if (a.startsWith('--shots-dir=')) { shotsDirArg = a.slice('--shots-dir='.length); continue; }
+  filters.push(a);
+}
 const targets = filters.length
   ? PAGES.filter(([label, url]) => filters.some((f) => label.includes(f) || url.includes(f)))
   : PAGES;
@@ -199,7 +255,8 @@ function measure() {
 
   const faint = [];
   const badMoney = [];
-  // **1周で両方見る。** `getComputedStyle` は毎回スタイル解決が走るので、
+  const crushed = [];
+  // **1周で全部見る。** `getComputedStyle` は毎回スタイル解決が走るので、
   // 2周すると大きい画面で数秒違う (検証の待ち時間がそのまま増える)
   document.querySelectorAll('body *').forEach((el) => {
     if (!el.textContent?.trim() || el.children.length) return;
@@ -209,6 +266,20 @@ function measure() {
     const s = cs(el);
     if (s.visibility === 'hidden' || s.display === 'none') return;
     if (el.closest('[aria-hidden="true"]')) return;      // 装飾は対象外
+    /*
+     * ── 潰れ検知 (いまは**報告のみ**・落とさない) ──────────────
+     * 文字の入った要素が数px幅に潰れ、和文が1文字ずつ縦に折り返される崩れは
+     * `document.scrollWidth` (横はみ出しの検査) には**現れない** — 画面の外へ
+     * はみ出すのではなく、その要素の中だけで折り返されるため。実例:
+     * /gpm/templates の工程名欄・/settings/money の hint (M11 の実測で発覚)。
+     * clientWidth < 24px なのに scrollWidth が超えている＝中身が幅に入って
+     * いない要素を数える。**積み残しを潰し終えたら他の検査と同じ
+     * 「0件で通過」に格上げする** (今すぐ落とすと既存の崩れで検査全体が
+     * 赤くなり、新しい崩れが埋もれる)。
+     */
+    if (el.clientWidth < 24 && el.scrollWidth > el.clientWidth) {
+      crushed.push(`${el.clientWidth}px "${txt.slice(0, 12)}"`);
+    }
     let node = el; let bg = s.backgroundColor; let measurable = true;
     while (node) {
       const ns = cs(node);
@@ -390,6 +461,7 @@ function measure() {
     vh: window.innerHeight,
     h1: [...document.querySelectorAll('h1')].filter(visible).map((e) => cs(e).fontSize),
     faint: faint.length, faintList: faint.slice(0, 4),
+    crushed: crushed.length, crushedList: [...new Set(crushed)].slice(0, 3),
     badBtn: [...new Set(badBtn)].slice(0, 5), badBtnN: badBtn.length,
     badMoney: badMoney.slice(0, 3),
     badgeCols: badgeCols.slice(0, 3),
@@ -397,8 +469,9 @@ function measure() {
   };
 }
 
-async function runViewport(browser, { width, height, tag }, fonts) {
+async function runViewport(browser, { width, height, tag, layoutOnly }, fonts) {
   const results = [];
+  const reports = [];   // 潰れ検知 (報告のみ)。落とさないので results と分けて持つ
   const ok = (n, c, d = '') => results.push({ n: `${tag} ${n}`, c, d });
   const ctx = await browser.newContext({
     viewport: { width, height },
@@ -445,8 +518,21 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     }).catch(() => {});
     const m = await pg.evaluate(measure);
 
+    // 潰れ検知は**報告のみ** (measure 内のコメント参照)。落とさず数だけ集める
+    if (m.crushed) reports.push({ n: `${tag} ${label}`, crushed: m.crushed, list: m.crushedList });
+
     ok(`${label} 横はみ出し 0px`, m.overflowX === 0, `${m.overflowX}px`);
     ok(`${label} 中身が隠れていない`, m.clipped === 0, `${m.clipped}件 ${JSON.stringify(m.clippedList)}`);
+    ok(`${label} シェルが画面いっぱい`, m.shellH >= m.vh - 2, `${m.shellH}/${m.vh}`);
+    /*
+     * ── 768px (タブレット) は**レイアウトの検査だけ**当てる ─────────
+     * 横はみ出し・到達不能な隠れ・シェルの高さの3つ。整列の検査 (バッジ・
+     * 金額の桁・ボタンの段・書体・地の色…) は 1440/375 の2幅が既に見ており、
+     * 768px 特有の結果を一度レビューしてから段階的に有効にする — いきなり
+     * 全検査を3幅めに当てると、既存の積み残しで検査全体が赤くなり、
+     * 新しい崩れが埋もれる (潰れ検知を報告のみで始めるのと同じ理由)。
+     */
+    if (layoutOnly) continue;
     ok(`${label} JSエラー 0件`, errs.length === 0, errs.slice(0, 1).join(''));
     /*
      * 地の色は **画面によって期待値が違う** (T2 から)。
@@ -486,7 +572,6 @@ async function runViewport(browser, { width, height, tag }, fonts) {
         m.fontLoaded ? '' : '代替書体で描かれています (取り置きに当たっていない)');
       ok(`${label} 字詰め (palt)`, /palt/.test(m.feat || ''), m.feat);
     }
-    ok(`${label} シェルが画面いっぱい`, m.shellH >= m.vh - 2, `${m.shellH}/${m.vh}`);
     ok(`${label} 薄すぎる文字 0件`, m.faint === 0, `${m.faint}件 ${JSON.stringify(m.faintList)}`);
     ok(`${label} ボタンの高さが段のみ`, m.badBtnN === 0, JSON.stringify(m.badBtn));
     ok(`${label} 金額は¥と数字が別要素`, m.badMoney.length === 0, JSON.stringify(m.badMoney));
@@ -522,7 +607,57 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     }
   }
   await ctx.close();
-  return results;
+  return { results, reports };
+}
+
+/**
+ * `--shots`: 検査の代わりに fullPage スクリーンショットを撮る。
+ * 375 / 768 / 1280 の3幅 × 全ページ。ファイル名は「ページ名-幅w.png」。
+ * 検査は数値しか残らないので、「どう崩れているか」を人が見て判断する材料
+ * (バックログのレビュー・768px の整列検査を有効にする判断) はここで作る。
+ */
+async function shootViewport(browser, width, height, outDir, fonts) {
+  const ctx = await browser.newContext({
+    viewport: { width, height },
+    extraHTTPHeaders: { 'x-user-id': USER },
+  });
+  await installFontCache(ctx, fonts);
+  await ctx.addInitScript((id) => {
+    localStorage.setItem('gmo_onair_user', JSON.stringify({
+      id, name: '検証 管理者', email: 'v-admin@example.com', role: 'system_admin',
+    }));
+  }, USER);
+  const pg = await ctx.newPage();
+  let count = 0;
+  for (const [label, url, opt = {}] of targets) {
+    try {
+      await pg.goto(BASE + url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    } catch (e) {
+      console.log(`SHOT SKIP ${label} ${width}w — ${e.message.slice(0, 60)}`);
+      continue;
+    }
+    await pg.waitForTimeout(opt.slow ? 2500 : 900);
+    // 書体が描き終わる前に撮ると代替書体の絵が残る (検査と同じ待ち方)
+    await pg.evaluate(() => {
+      const fam = getComputedStyle(document.body).fontFamily.split(',')[0].trim();
+      return document.fonts.load(`40px ${fam}`, 'Handgloves 12345')
+        .then(() => document.fonts.ready).then(() => true);
+    }).catch(() => {});
+    // ファイル名 = ページ名 + 幅。空白と `/` だけ `_` に変える (それ以外は残す)
+    await pg.screenshot({
+      path: path.join(outDir, `${label.replace(/[\s/]+/g, '_')}-${width}w.png`),
+      fullPage: true,
+    });
+    count++;
+  }
+  /*
+   * 計時LIVE の表示画面 (`/live/display/:timerId`・レイアウト未設定の既定表示) も
+   * 撮りたいが、固定シード (`seed.ts`) にタイマーが1件も無いので URL を組み立て
+   * られない。固定 id のタイマーをシードに入れたら、ここで1枚だけ追加で撮ること
+   * (FROZEN_PREFIX の対象なので検査には載せない・撮るだけ)。
+   */
+  await ctx.close();
+  return count;
 }
 
 const started = Date.now();
@@ -535,15 +670,43 @@ const fonts = await ensureFontCache({ log: (m) => console.log(m) });
 if (!fonts.ready) console.log(`※ 書体の取り置きに失敗 (${fonts.note}) — 代替書体で測ります`);
 
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
-// PC とスマホを同時に走らせる (直列だと単純に2倍かかる)
-const all = (await Promise.all([
+
+if (SHOTS) {
+  // 出力先は**リポジトリの外** (引数の読み方のコメント参照)
+  const outDir = shotsDirArg
+    || path.join(os.homedir(), 'verify-ui-shots', new Date().toISOString().slice(0, 10));
+  fs.mkdirSync(outDir, { recursive: true });
+  const counts = await Promise.all([
+    shootViewport(browser, 375, 812, outDir, fonts),
+    shootViewport(browser, 768, 1024, outDir, fonts),
+    shootViewport(browser, 1280, 900, outDir, fonts),
+  ]);
+  await browser.close();
+  const secs = ((Date.now() - started) / 1000).toFixed(0);
+  const total = counts.reduce((a, b) => a + b, 0);
+  console.log(`\n${total} 枚を ${outDir} に保存（${targets.length}ページ × 375/768/1280 / ${secs}秒）`);
+  process.exit(0);
+}
+
+// PC とスマホとタブレットを同時に走らせる (直列だと単純に3倍かかる)
+const out = await Promise.all([
   runViewport(browser, { width: 1440, height: 900, tag: 'PC' }, fonts),
   runViewport(browser, { width: 375, height: 812, tag: 'スマホ' }, fonts),
-])).flat();
+  // 768px はレイアウトの検査だけ (runViewport 内のコメント参照)
+  runViewport(browser, { width: 768, height: 1024, tag: 'タブレット', layoutOnly: true }, fonts),
+]);
 await browser.close();
+const all = out.flatMap((o) => o.results);
+
+// 潰れ検知の報告 (落とさない)。0件のページは出さず、ある分だけ数と現物を並べる
+const crushReports = out.flatMap((o) => o.reports);
+if (crushReports.length) {
+  console.log('※ 潰れ検知（報告のみ・積み残しを潰し終えたら 0件必須に格上げする）:');
+  for (const r of crushReports) console.log(`  ${r.n} — ${r.crushed}件 ${JSON.stringify(r.list)}`);
+}
 
 const fail = all.filter((r) => !r.c);
 for (const r of fail) console.log('FAIL', r.n, '—', r.d);
 const secs = ((Date.now() - started) / 1000).toFixed(0);
-console.log(`\n${all.length - fail.length}/${all.length} 通過（${targets.length}ページ × 2画面幅 / ${secs}秒）`);
+console.log(`\n${all.length - fail.length}/${all.length} 通過（${targets.length}ページ × 3画面幅・768px はレイアウトのみ / ${secs}秒）`);
 process.exit(fail.length ? 1 : 0);
