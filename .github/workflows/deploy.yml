@@ -212,8 +212,9 @@ jobs:
             #    ここで pipefail に巻き込んでジョブ全体を失敗させない。
             echo "→ レンタル機材スクレイパーをビルド・起動"
             if $COMPOSE_DEV build rental_scraper_dev && $COMPOSE_DEV up -d --no-deps rental_scraper_dev; then
-              echo "✓ rental_scraper_dev 起動"
+              echo "→ rental_scraper_dev のコンテナを起動した（生きているかは下で確認する）"
             else
+              echo "::warning title=rental_scraper_dev::ビルドまたは起動に失敗しました（本体アプリのデプロイ自体は成功）"
               echo "⚠ rental_scraper_dev の起動に失敗しました（本体アプリのデプロイ自体は成功しています。下のログを確認してください）"
             fi
 
@@ -244,6 +245,24 @@ jobs:
               docker logs --tail=40 "$RENTAL_CID" 2>&1 || true
             else
               echo "⚠ rental_scraper_dev container not found（起動に失敗した可能性。上の手順4.5のログを確認）"
+            fi
+
+            # 6.5) スクレイパーが「起動したあと生きているか」を必ず確かめる。
+            #
+            # ⚠️ `docker compose up -d` はプロセスが直後に落ちても成功を返す。
+            # そのため CMD が即クラッシュしても「✓ 起動」とだけ出ており、
+            # ModuleNotFoundError で再起動を繰り返すコンテナに約4時間気づけなかった
+            # （その間クロールは1件も走らず、画面のレンタル機材は0件のまま）。
+            # 本体アプリのデプロイは成功しているのでジョブは落とさないが、
+            # Actions の注釈（::warning::）に必ず出す。
+            RENTAL_STATE=$(docker inspect -f '{{.State.Status}}' "$RENTAL_CID" 2>/dev/null || echo "not-found")
+            RENTAL_RESTARTS=$(docker inspect -f '{{.RestartCount}}' "$RENTAL_CID" 2>/dev/null || echo "0")
+            if [ "$RENTAL_STATE" = "running" ] && [ "$RENTAL_RESTARTS" -eq 0 ]; then
+              echo "✓ rental_scraper_dev 稼働中（クロールはコンテナ内で継続します）"
+            else
+              echo "::warning title=rental_scraper_dev::state=$RENTAL_STATE restarts=$RENTAL_RESTARTS — クロールが動いていません。上のコンテナログを確認してください"
+              echo "✗ rental_scraper_dev が正常に動いていません (state=$RENTAL_STATE / 再起動回数=$RENTAL_RESTARTS)"
+              echo "  → 上の 'rental_scraper_dev container logs' を見ること。レンタル機材検索は0件のままになります"
             fi
 
             echo "=== nginx container logs (last 40 lines) ==="

@@ -18,6 +18,7 @@ company='TOC' として保存する（バッジ・チップ等の固定幅UIで�
   タグ/class名までは確認できていません。初回実行時にログ(パース失敗等)を
   必ず確認してください。
 """
+import os
 import re
 import time
 import logging
@@ -32,9 +33,14 @@ from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
 COMPANY = "TOC"
 BASE = "https://ec.toc-net.jp"
 CATEGORY_IDS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17]
-DB_PATH = "rental_items.db"
+# ⚠️ sync_to_postgres.py と同じ既定・同じ環境変数を見ること。
+# ここだけ固定文字列にしていると、コンテナ側で RENTAL_SQLITE_PATH を
+# 別の場所（永続ボリューム）に向けた瞬間に「書き込む先」と「同期が読む先」が
+# 食い違い、クロールは成功しているのに1件も反映されない状態になる。
+DB_PATH = os.environ.get("RENTAL_SQLITE_PATH", "rental_items.db")
 SLEEP_SEC = 1.5
 MAX_PAGES_PER_CATEGORY = 50
+PROGRESS_SYNC_EVERY = 100     # 何件取れるごとに on_progress を呼ぶか（run_all が Postgres へ流す）
 TIMEOUT = 15
 USER_AGENT = "Rental-Inventory-Bot/1.0 (internal use; contact: your-email@example.com)"
 
@@ -175,7 +181,11 @@ def parse_item_detail(item_id: str, html: str) -> ItemDetail:
     return detail
 
 
-def run():
+def run(on_progress=None):
+    """`on_progress(取得済み件数)` を渡すと PROGRESS_SYNC_EVERY 件ごとに呼ぶ。
+    run_all.py がここに「Postgres へ途中経過を流す」処理を差し込む
+    （1回のクロールは数十分〜1時間超かかるため。完走まで何も出ないと、
+    デプロイでコンテナが作り直されるたびに成果が0のままになる）。"""
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
 
@@ -194,6 +204,7 @@ def run():
 
     log.info("[%s] 収集した商品ID数: %d", COMPANY, len(all_item_ids))
 
+    saved = 0
     for item_id in sorted(all_item_ids, key=lambda x: int(x)):
         url = f"{BASE}/rental/item/{item_id}"
         html = fetch(url)
@@ -202,10 +213,15 @@ def run():
         detail = parse_item_detail(item_id, html)
         if detail.name:
             upsert_item(conn, COMPANY, detail, now=run_started_at)
+            saved += 1
+            if on_progress and saved % PROGRESS_SYNC_EVERY == 0:
+                on_progress(saved)
         else:
             log.warning("パース失敗(name取得不可): %s", url)
         time.sleep(SLEEP_SEC)
 
+    # ⚠️ ここまで来た＝全ID分を見に行けた回だけ missing を立てる。
+    # 途中で止まった回で呼ぶと未訪問の商品まで「掲載終了」になる
     mark_missing_items(conn, COMPANY, all_item_ids, now=run_started_at)
     conn.close()
     log.info("[%s] 完了。DB: %s", COMPANY, DB_PATH)

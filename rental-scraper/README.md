@@ -91,9 +91,18 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
 `name` が書き変わっていれば一致せず残る（誤って実データを消さない）。次にこのアプリのある
 環境へデプロイした時点で1回だけ実行され、以降は何もしない。
 
-判断は次の3段で行う:
+判断は次の**4段**で行う。**最初に見るのはコンテナが生きているかどうか**:
 
 ```bash
+# 0. ⚠️ まずここ。コンテナが「起動した」ことと「動き続けている」ことは別。
+#    docker compose up -d はプロセスが直後に落ちても成功を返すので、
+#    デプロイのログが「起動」と出ていても当てにならない
+#    （実際、Dockerfile の COPY 漏れによる ModuleNotFoundError で
+#     約4時間クラッシュし続けたことがある。下の「既知の不具合」参照）。
+docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml ps rental_scraper_dev
+#   STATUS が "Up ..." なら生きている。"Restarting (1) ..." ならクロールは1件も走っていない
+#   → その場合は下の 2 のログに Traceback が出ているはず
+
 # 1. 件数だけでなく、既知のダミーIDが混ざっていないか確認する。
 #    ダミーの (company, item_id) は次の8件で固定（seed-rental.ts参照）:
 #      TOC（東京オフラインセンター）: 5043, 4102, 5121, 4988, 5044, 5045
@@ -107,6 +116,7 @@ docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml logs --tai
 #     [NEW][TOC] ... / [UPDATED][...] ...                       ← 実際に取得できている
 #     パース失敗(name取得不可): https://...                    ← セレクタが実HTMLと合っていない
 #     取得断念: https://...                                     ← ネットワーク到達不可・ブロック
+#     ### 途中経過 100件 → PostgreSQL へ同期 ###              ← 完走を待たず100件ごとに反映している
 #     [sync-to-postgres] N件を upsert しました（うち missing 判定: M件）
 #                                                                ← Postgresへの反映件数（これが実件数の裏付け）
 
@@ -128,6 +138,53 @@ psql "$DATABASE_URL_DEV" -c "
 見える場合は、マイグレーションがまだ流れていない（デプロイがまだこのバージョンに
 達していない）か、上の判断3段の1でまだ実クロールが完了していないだけの可能性が高い。
 
+### 既知の不具合: コンテナが ModuleNotFoundError で起動できず、4時間1件も取れていなかった（v4.1.9で修正済み）
+
+⚠️ **「数時間経っても1件も捕捉できていない」ときは、まずこの形を疑うこと。**
+
+原因: `Dockerfile` の `COPY` がファイル名の個別列挙だったため、あとから足した
+`sync_requests.py`（手動「今すぐ取得」のキュー処理）が**イメージに入っていなかった**。
+`scheduler.py` は冒頭でそれを import するので、コンテナは起動のたびに
+`ModuleNotFoundError: No module named 'sync_requests'` で即死し、
+`restart: unless-stopped` で再起動を繰り返していた（クロールは1回も走らない）。
+
+**なぜ気づけなかったか**: `docker compose up -d` は**プロセスが直後に落ちても成功を返す**ため、
+デプロイのログは「✓ rental_scraper_dev 起動」と出ていた。画面側も、行が0件の会社は
+取得状況の欄から消える作りだったので「取れていない」とすら表示されなかった。
+
+修正:
+- `Dockerfile` は `COPY *.py ./`（個別列挙をやめた）。取りこぼしは
+  `test_dockerfile.py` が検査する
+- CI（`.github/workflows/ci.yml` の checks）で `rental-scraper` の単体テストと
+  `python3 -c "import scheduler"` を回す。**それまで CI は Python を1行も見ていなかった**
+- `deploy.yml` はコンテナを起動したあと `docker inspect` で
+  **生きているか（state=running / 再起動回数0）**を確かめ、駄目なら Actions の注釈を出す
+- 本体アプリの取得状況は、行が0件の会社も「未取得」として必ず表示する
+  （`rental.service.ts` の `getSyncStatus`）
+
+### 完走しないクロールでも成果を捨てない仕組み（v4.1.9）
+
+1回のクロールは `SLEEP_SEC=1.5秒` × 数百〜数千件で**数十分〜1時間超**かかる。一方、
+`rental_scraper_dev` は **main へのマージのたびに作り直される**（マージが立て込む日は
+10〜30分おき）。以前は
+
+- ステージング SQLite がコンテナの中（＝作り直しで消える）
+- Postgres への同期は2社ぶんを全部終えたあとに1回だけ
+
+だったため、**完走できない日は永久に1件も画面に出ない**。次の3つで直した:
+
+- `docker-compose.yml` に名前付きボリューム `rental_scraper_data:/data` を足し、
+  `RENTAL_SQLITE_PATH=/data/rental_items.db` を指す（コンテナ作り直しをまたいで残る）
+- `toc_scraper.py` / `restar_scraper.py` も `RENTAL_SQLITE_PATH` を見る。
+  **以前はスクレイパー側だけ `rental_items.db` 固定**で、同期側と食い違う地雷だった
+- `run_all.py` が **1社終わるごと・さらにクロール中も100件ごと**に同期する
+  （`on_progress`。途中経過の同期は失敗してもクロールを止めない）
+
+これを安全にするため、`status`（掲載中/掲載終了）は**時刻の推定をやめて
+SQLite の `items.status` 列で明示的に持つ**ようにした。`upsert_item` が `listed` を、
+**クロールを完走したときだけ呼ぶ** `mark_missing_items` が `missing` を立てる。
+途中で止まった回を同期しても、まだ見に行っていない商品は `listed` のまま残る。
+
 ### 既知の不具合: 実クロール後もほぼ全件が missing 判定になっていた（v4.1.8で修正済み）
 
 ⚠️ **上の3段診断でダミー8件以外の実データが見えているのに、画面（レンタル機材検索）に
@@ -144,6 +201,9 @@ psql "$DATABASE_URL_DEV" -c "
 `run_started_at` を計算し、そのクロール内の `upsert_item`/`mark_missing_items`
 すべてに `now=run_started_at` として渡すよう変更（`common_db.py` の関数シグネチャに
 `now` 引数を追加）。単体テストは `test_common_db.py` を参照。
+
+**この判定方式自体は v4.1.9 でやめた**（status を SQLite の列で明示的に持つ形にした。
+上の「完走しないクロールでも成果を捨てない仕組み」参照）。以下は当時の見分け方の記録。
 
 **再発時の見分け方**: `qsheet_rental_items` を company ごとに `status` で
 `GROUP BY` し、`listed` が1件しかない／極端に少ない場合はこの症状。
@@ -173,7 +233,7 @@ python3 run_all.py
 | 変数 | 必須 | 説明 |
 |---|---|---|
 | `DATABASE_URL` | 任意 | GMO ONAiR 本体アプリと同じ形式の Postgres 接続文字列。**未設定でもスクレイパー自体は正常に動く** — その場合は SQLite（`rental_items.db`）への保存だけを行い、Postgres への同期だけがスキップされてログに記録される。クロール自体を失敗させない設計であることに注意。同期の失敗（接続エラー等）はクロールの失敗と分けてログ・扱いをすること。 |
-| `RENTAL_SQLITE_PATH` | 任意 | `rental_items.db` の保存先パスを変えたいときに指定。省略時はカレントディレクトリの `rental_items.db`。 |
+| `RENTAL_SQLITE_PATH` | 任意 | `rental_items.db` の保存先パスを変えたいときに指定。省略時はカレントディレクトリの `rental_items.db`。**クロール側（`toc_scraper.py`/`restar_scraper.py`）と同期側（`sync_to_postgres.py`）が同じ値を見る** — 検証環境では永続ボリュームの `/data/rental_items.db` を指している（コンテナ作り直しで途中経過を失わないため）。 |
 | `RENTAL_CRON_HOUR` | 任意 | `scheduler.py` が毎日実行する時刻（0-23）。既定 5。 |
 | `RENTAL_RUN_ON_STARTUP` | 任意 | `"true"` なら `scheduler.py` 起動直後にも1回実行する。既定 false（`docker-compose.yml` の `rental_scraper_dev` では true にしてある）。 |
 
