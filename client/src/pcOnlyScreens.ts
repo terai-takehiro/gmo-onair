@@ -158,15 +158,15 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   { path: '/budget/reports/vendors', what: '仕入先集計', why: '仕入先を縦・月を横に並べる表です。', hidden: true },
 
   // ── カレンダー ────────────────────────────────────────────
-  // **`/studio/rooms`（部屋の空き）はここから外し、`CLIENT_MOBILE_OK` へ移した**
+  // **`/calendar/rooms`（部屋の空き）はここから外し、`CLIENT_MOBILE_OK` へ移した**
   // （2026-08・v4ネイティブUI化の一環）。「畳むと目的そのものが消える」という理由は
   // PCの表をそのまま横スクロールさせていた頃のもの — ① 予定のスマホ実装と対になる
   // 専用レイアウト（月表＋選んだ日の部屋カード。`rooms/MobileRoomAvailability.tsx` ＋
   // `rooms/RoomAvailabilityCards.tsx`）を新設したので、畳んでも「空いている幅」は読める
-  { path: '/studio/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
+  { path: '/calendar/settings', what: 'カレンダーの設定', why: '部屋・外部カレンダー・サイネージの設定で、落ち着いて触る画面です。' },
   // **`/studio/studio-calendar`（スタジオカレンダー）・`/studio/my-calendar`
   // （マイカレンダー）は退役した**（2026-08・v4ネイティブUI化のバックログB）。
-  // どちらも `/studio/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
+  // どちらも `/calendar` への `RedirectKeepQuery` になったので、実体の画面が無く、
   // この表に載せる対象ではない（① 予定は `CLIENT_MOBILE_OK` の対象）
 
   // ── 設定（モックの「設定・権限は落ち着いて触るもの」）──────
@@ -251,7 +251,7 @@ export const CLIENT_MOBILE_OK: string[] = [
     「入力欄が並ぶもの・設定・データを入れる道具」は PC のままにしてある。
   */
   '/budget/vendors',                    // 取引先（電話の前に相手を調べる）
-  '/studio/holds',                      // 仮押さえ（外で「確定にする」を押す・HoldCards）
+  '/calendar/holds',                    // 仮押さえ（外で「確定にする」を押す・HoldCards）
   '/gpm/dashboard',                     // プロジェクト管理ダッシュボード（読むだけ）
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
@@ -271,10 +271,10 @@ export const CLIENT_MOBILE_OK: string[] = [
   */
   '/gpm/projects/:id',                  // ③ プロジェクトの詳細（段階で3タブに絞る）
   '/gpm/projects/:id/:tab',             // 同上（請求だけ画面の中で案内を出す）
-  '/studio/calendar',                   // ⑬ 今日の予約（MobileToday）
+  '/calendar',                           // ⑬ 今日の予約（MobileToday）
   // ⚠️ この1枚だけ M10 の実測開放ではない（2026-08・v4ネイティブUI化）。専用レイアウトを
   // 新設したうえで開放した（`MobileRoomAvailability.tsx` ＋ `RoomAvailabilityCards.tsx`）
-  '/studio/rooms',                      // ② 部屋の空き（月表 → 選んだ日の部屋カード）
+  '/calendar/rooms',                    // ② 部屋の空き（月表 → 選んだ日の部屋カード）
   '/settings',                          // 案内板
   '/settings/system',                   // パスワード変更
   /*

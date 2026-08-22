@@ -42,7 +42,7 @@ describe('アプリ登録そのもの', () => {
   });
 
   it('**名前は決めたとおり** (4か所で食い違っていた分)', () => {
-    expect(APP_LABELS.studio).toBe('カレンダー');   // 「スタジオ予約」ではない
+    expect(APP_LABELS.calendar).toBe('カレンダー');   // 「スタジオ予約」ではない
     expect(APP_LABELS.sales).toBe('案件管理');
     // v4 で改名した2つ (利用者に確認済み)。
     // 「Qシート」は**制作技術支援の中のミニアプリの名前**として残っており、
@@ -142,14 +142,14 @@ describe('visibleApps — メニューに出す一覧', () => {
   });
 
   it('`sales` 権限を持つ人には財務管理・カレンダー・設定・プロジェクト管理も出る (権限モデル単純化)', () => {
-    // `budget`/`gpm`/`studio`/`admin` の `permissionModule` はいずれも `sales` に
+    // `budget`/`gpm`/`calendar`/`admin` の `permissionModule` はいずれも `sales` に
     // 統合済み（`sales` の権限だけで開ける5入口: 案件管理・財務管理・カレンダー・
     // プロジェクト管理・設定）。docs/reviews/permission-model-simplification-plan.md
     const keys = visibleApps(sales).map((a) => a.key);
     expect(keys).toContain('sales');
     expect(keys).toContain('budget');
     expect(keys).toContain('gpm');
-    expect(keys).toContain('studio');
+    expect(keys).toContain('calendar');
     expect(keys).toContain('admin');
   });
 

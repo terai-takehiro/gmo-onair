@@ -14,12 +14,12 @@
  *
  *   | キー | 食い違い | ここで決めた正 | 根拠 |
  *   | --- | --- | --- | --- |
- *   | `studio` | 「スタジオ予約」(appNav) / 「カレンダー」(他3つ) | **カレンダー** | 3対1。モックとルート CLAUDE.md も「カレンダー」 |
+ *   | `calendar` | 「スタジオ予約」(appNav) / 「カレンダー」(他3つ) | **カレンダー** | 3対1。モックとルート CLAUDE.md も「カレンダー」 |
  *   | `sales` のアイコン | `Briefcase`(appNav) / `FolderKanban`(他) | **FolderKanban** | モックの案件管理が `folder-kanban` |
  *   | `liveops` のアイコン | `Radio`(appNav) / `Timer`(他) | **Timer** | 「計時」なので |
  *   | `sales` の入口 | `/`(appNav) / `/sales`(他) | `/sales` | `/` はトップページ |
  *   | `budget` の入口 | `/budget/revenues`(appNav) / `/budget`(他) | `/budget` | `App.tsx` が `/budget` → ダッシュボードへ転送済み |
- *   | `studio` の入口 | `/studio/calendar`(appNav) / `/studio`(他) | `/studio` | 同上 |
+ *   | `calendar` の入口 | `/studio/calendar`(appNav) / `/studio`(他) | `/studio` | 同上 |
  *   | 色 | Tailwind クラス(`bg-blue-500`) と hex(`#2563eb`) の2系統 | **hex 1本** | 2つ持つと必ず片方だけ変わる |
  *
  * ── **呼び名は勝手に変えていない** ──────────────────────────
@@ -57,9 +57,21 @@
  * その後さらに一段先の「廃止」（配信停止・コードのみ保存）になっているので、
  * この一覧に出続けていても実際には開けない（`client-awards/CLAUDE.md` 参照）。
  *
+ * **カレンダーの `AppKey`/URL は 2026-08-22 に `studio` → `calendar` へ改名した。**
+ * 表示名「カレンダー」は S1 の統合時点（上の比較表）から変わっていない —
+ * アプリ名を「カレンダー」に決めたあとも内部識別子だけ `studio` のまま放置されていた
+ * 食い違いを直した回で、`key: 'studio'` → `'calendar'`、`path: '/studio'` → `'/calendar'`
+ * にしただけ。**スタジオ「ブッキング」というドメイン概念には一切触れていない** —
+ * DB の `studio_bookings`/`studio_locations` テーブル、サーバーの `studio.routes.ts`・
+ * `studio-booking.service.ts`、カレンダー自身のレイヤー機能が持つ `CalLayer` の
+ * `'studio'` という絞り込み値、そして実在するスタジオ（部屋）という物理的な概念は、
+ * 引き続き「studio」を名乗ってよい（このアプリ識別子の修正とは無関係）。
+ * 旧 `/studio/*` の URL は `client/src/App.tsx` に後方互換のリダイレクトを置いてあるので、
+ * 既存のブックマーク・共有リンクは壊れない。
+ *
  * ── 権限モデル単純化（`permissionModule` を `sales` に統合した回）───────
  *
- * `gpm` / `budget` / `studio` / `admin`（=設定）の4アプリは、`key` / `path` /
+ * `gpm` / `budget` / `calendar` / `admin`（=設定）の4アプリは、`key` / `path` /
  * `label` は今までどおり別々の入口のまま、`permissionModule` だけ `sales` に
  * 揃えた。理由は権限モデルの単純化（区画をブロックアプリ単位に統合し、
  * 「型」だけで管理する方針に変更）。詳細は
@@ -91,14 +103,14 @@ import {
 
 /**
  * アプリのキー。多くは `permissionModule` と同じにしてあるが、
- * `gpm` / `budget` / `studio` / `admin` は権限モデル単純化で
+ * `gpm` / `budget` / `calendar` / `admin` は権限モデル単純化で
  * `permissionModule: 'sales'` に統合済み（上のコメント参照）。
  */
 export type AppKey =
   | 'home'
   | 'sales'
   | 'budget'
-  | 'studio'
+  | 'calendar'
   | 'gpm'
   | 'qsheet'
   | 'equipment'
@@ -141,7 +153,7 @@ export interface AppDef {
 /**
  * 全アプリ。**並び順がそのまま画面の並び順**。
  *
- * v4 で作り直す3アプリ (案件管理 = `sales`/`budget`/`studio`/`admin` /
+ * v4 で作り直す3アプリ (案件管理 = `sales`/`budget`/`calendar`/`admin` /
  * 日常業務 / 機材管理) を先に、凍結を後ろに、外部リンクを最後に置いてある。
  */
 export const APPS: AppDef[] = [
@@ -159,7 +171,7 @@ export const APPS: AppDef[] = [
      プロジェクト管理と財務管理の間に格上げ（ご指示・2026-08-22） */
   { key: 'qsheet',      label: '制作技術支援',       description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
-  { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'sales' },
+  { key: 'calendar',    label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/calendar',   permissionModule: 'sales' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },

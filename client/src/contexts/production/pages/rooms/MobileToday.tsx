@@ -272,7 +272,7 @@ export function MobileToday() {
         </section>
       ) : null}
 
-      <Button variant="outline" onClick={() => navigate('/studio/rooms')}>
+      <Button variant="outline" onClick={() => navigate('/calendar/rooms')}>
         <DoorOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />部屋の空きを見る
       </Button>
 
