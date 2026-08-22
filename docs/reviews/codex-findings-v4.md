@@ -985,6 +985,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | 5 | `deckOptions.ts` / `destinationHelpers.ts` | **台数が直書き**（HyperDeck 12台・ENC 10台）。機材が増減しても画面が追従しない | 機材台帳（`client-equipment`）から台数を引ける形が決まったとき。**業務側の判断が要る**ので着手していない |
 | 6 | `scripts/check-ui-tokens.mjs` | `raw-palette` と `translucent-text` の記録を **client-qsheet で1件ずつ下げた**（旧 `MeetingCard` のインライン `transform` を消したぶん）。数が下がったので検査の指示どおり `--update` した | — （記録のためだけの行。次に増やそうとすると検査が止まる） |
 
+- **#322**（`docs(qsheet): 制作技術支援(qsheet)のディレクトリ/内部識別子リネーム移行計画を起票`）—
+  作成 2026-08-22 13:17:16 / CI green 13:19:04（`checks`/`build`とも成功）/
+  マージ 13:19:23頃（**CI green から約19秒後**、#251・#272・#305・#312・#314・#317・#320 と同じ
+  「見る前に入った」形）。`get_review_comments` 0件。表に移す指摘はない（レビュー自体が
+  届いていないため）。コード変更なし・ドキュメントのみ（`docs/reviews/qsheet-techops-migration-plan.md`
+  新規作成＋`client-qsheet/CLAUDE.md`の既存メモにリンク追加）。マルチエージェント監査
+  （7観点・8エージェント並行）に基づく移行計画で、実施はまだ決定していない
+  （同ドキュメント§6参照）。
+
 ---
 
 ## 一覧（PR の新しい順）
