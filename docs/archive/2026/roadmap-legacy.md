@@ -2,8 +2,8 @@
 
 > CLAUDE.md から切り出した**歴史的な記録**です。v0.5〜v2.1 期の計画と、
 > 別 VPS へ切り出した EventStamp (インタラクティブ演出) の当時の情報を含みます。
-> **現行の計画は [v4-plan.md](v4-plan.md)、直近の刷新計画は [roadmap.md](roadmap.md)**、
-> 版ごとの変更は [version-history.md](version-history.md) にあります。
+> **現行の計画は [v4-plan.md](../../v4-plan.md)、直近の刷新計画は [roadmap.md](roadmap.md)**（同じくアーカイブ済み）、
+> 版ごとの変更は [version-history.md](../../version-history.md) にあります。
 >
 > CLAUDE.md は毎ターン文脈に読み込まれるため、参照頻度の低い記録はここに置きます。
 

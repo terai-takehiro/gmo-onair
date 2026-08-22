@@ -345,7 +345,7 @@ git switch -c feature/accounting-import \
 | --- | --- | --- |
 | `accounting-import-phase1` | 経理データ取込 Phase 0/1（旧 PR #28） | **入っていない**。migration 087 が現在の `main` と番号衝突するので付け替えが必要 |
 | `presentation-deck` | 社長プレゼン資料（pptx 25枚 + 画面画像） | **入っていない** |
-| `vps-bootstrap-scripts` | VPS 構築スクリプト3本 + DEPLOY_CONOHA.md 全面版 | **入っていない** |
+| `vps-bootstrap-scripts` | VPS 構築スクリプト3本 + DEPLOY_CONOHA.md 全面版（現 [docs/ops/vps-setup.md](ops/vps-setup.md)） | **入っていない** |
 | `interactive-awards-link` | インタラクティブ ↔ 表彰CG 連携 API | 別 VPS に切り出したため当時のコードは無い |
 | `interactive-split-out` | 切り出し当時の `client-interactive` | 切り出し自体は反映済み |
 | `qsheet-csv-import-v2.9.166` | Qシート CSV インポート | `main` がより新しい形で含む |
