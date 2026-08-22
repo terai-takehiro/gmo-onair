@@ -1,6 +1,15 @@
 # shared — 全アプリの共通コード
 
-**ここを触ると7アプリ全部に効く。** PR の影響範囲に必ず「共通ライブラリ」を入れること。
+**ここを触ると配信中の5アプリ全部に効く**（`client` / `client-daily` / `client-equipment` /
+`client-techops` / `client-live`）。PR の影響範囲に必ず「共通ライブラリ」を入れること。
+`client-awards`（リアルタイムCG）は**廃止・コード保存のみ**で、ビルド対象外・shared の
+CSS / preset も読まない（`client-awards/CLAUDE.md`）。
+
+**凍結アプリは 0 個になった**（v4.2.0 時点。`scripts/check-frozen-css.mjs` の `APPS` は空）。
+この文書の決めごとの多くは「凍結アプリの見た目を変えない」ために生まれたが、
+その縛り自体は消えた。ただし**仕組み（`client-v4/` の分離・`tokens-v4.css` の層・
+`check:frozen` など）は配線されたまま残っている**ので、黙って壊さず、
+各節の「現状」の説明に従うこと。
 
 ビルド工程を持たない（`main`/`types` が `src/index.ts` を直接指す）。各アプリは
 `@gmo-onair/shared/src/client/...` の深いパスで **TypeScript のまま** import する。
@@ -9,14 +18,14 @@
 
 | 経路 | 何で解決するか | 書き方 |
 | --- | --- | --- |
-| `import` 文（238か所） | 各アプリの `vite.config.ts` の `resolve.alias` | `@gmo-onair/shared/src/...` |
+| `import` 文（アプリ側だけで約1,000か所） | 各アプリの `vite.config.ts` の `resolve.alias` | `@gmo-onair/shared/src/...` |
 | 型チェック（同じ import 文） | 各アプリの `tsconfig.json` の `paths` | 同上 |
-| CSS の `@import`（6アプリ） | Vite の `resolve.alias` | `@gmo-onair/shared/src/client/tokens.css` |
-| Tailwind の preset（6アプリ） | Node の解決（`node_modules` の symlink） | `@gmo-onair/shared/tailwind.preset` |
+| CSS の `@import`（配信中5アプリ） | Vite の `resolve.alias` | `@gmo-onair/shared/src/client/base.css` |
+| Tailwind の preset（配信中5アプリ） | Node の解決（`node_modules` の symlink） | `@gmo-onair/shared/tailwind.preset`（**パッケージ名で**。相対パスは検査が止める） |
 
 **4つが同じ実体を指していないと、zustand のストアや React の context が2つできる**
 （「片方で更新したのに反映されない」という再現条件の読めない不具合になる）。
-`npm run lint` の `check-shared-wiring.mjs` が7アプリ分を機械的に照合する。
+`npm run lint` の `check-shared-wiring.mjs` が `client-*` 全ディレクトリを機械的に照合する。
 
 - **`package.json` の依存は必ず `"@gmo-onair/shared": "*"`。** 範囲（`^2.9.237` 等）を書くと
   **本番のビルドが落ちる** — Dockerfile の manifests ステージが全ワークスペースの `version` を
@@ -25,49 +34,41 @@
   （実測: 存在しないディレクトリに向けても `tsc -b` は exit 0）。**型チェックでは気づけない**ので、
   ずれを見つけられるのは上記の検査だけ
 - **`shared` に `tsconfig.json` は無い。** そのため shared は各アプリの `tsc -b` に取り込まれる形で
-  **7回・7通りの `compilerOptions` で型チェックされる**（`client-daily` / `client-live` だけ
-  `noUnusedLocals: false`、`client-awards` は `forceConsistentCasingInFileNames` が無い）。
-  正しく直すには shared を composite プロジェクトにして `references` で参照する必要があるが、
-  それは `main`/`types` を `dist` に向ける変更＝238か所の import と CSS の `@import` に影響するため、
-  v4.0.0 では手を付けない
+  **CI では5回・5通りの `compilerOptions` で型チェックされる**（`client-daily` / `client-live` だけ
+  `noUnusedLocals: false`）。正しく直すには shared を composite プロジェクトにして
+  `references` で参照する必要があるが、それは `main`/`types` を `dist` に向ける変更＝
+  約1,000か所の import と CSS の `@import` に影響するため、手を付けていない
 
 ## 中身
 
 | 場所 | 何が入っているか |
 | --- | --- |
-| `src/client/apps.ts` | **アプリ登録（唯一の正）**。名前・アイコン・色・URL・権限モジュール・凍結の印 |
-| `src/client/shell/` | **共通シェル**（上辺バー・左メニュー・スマホ下タブ）。v4 対象3アプリだけが使う |
-| **`src/client-v4/`** | **v4 対象3アプリだけが Tailwind で走査する場所**（下記）。凍結アプリの CSS を増やさずに新しいクラス名を書ける |
-| `src/client/tokens.css` | 設計トークン（色・書体・角丸）。DADS のプリミティブを import した上に GMO ブルーと意味づけを載せる |
-| `src/client/base.css` | **共通の土台**（`html`/`body`/`#root` の高さ・書体・タップ領域・印刷）。`tokens.css` を import した上に敷く。**v4 対象3アプリだけ**が読む |
-| `tailwind.preset.ts` | 全7アプリの `tailwind.config.ts` が `presets` で継承（**相対パス** `../shared/tailwind.preset` で参照） |
+| `src/client/apps.ts` | **アプリ登録（唯一の正）**。名前・アイコン・色・URL・権限モジュール。`frozen: true` が残るのは廃止済みの `awards` だけ（`visibleApps()` の既定が外す） |
+| `src/client/shell/` | **共通シェル**（上辺バー・左メニュー・スマホ下タブ）。配信中5アプリ全部が使う |
+| **`src/client-v4/`** | v4 で足した部品の置き場所。**もとは「凍結アプリの Tailwind に走査させない」ための分離**だったが、いまは配信中5アプリ全部が `client/**` と `client-v4/**` の両方を走査する。分離の実益は「また凍結する段が出たときの受け皿」のみ — 統合するかは別途判断（フォローアップ） |
+| `src/client/tokens.css` | 設計トークンの基層（色・書体・角丸）。**直読みするアプリは0** — 全アプリ `base.css` 経由 |
+| `src/client/base.css` | **共通の土台**（`html`/`body`/`#root` の高さ・書体・タップ領域・印刷）。`tokens-v4.css` → `tokens.css` を import した上に敷く。配信中5アプリ全部が読む |
+| `tailwind.preset.ts` | 配信中5アプリの `tailwind.config.ts` が `presets` で継承（`client-awards` は自前の設定で完結） |
 | `src/client/ui/` | shadcn/Radix のプリミティブ22本 |
 | `src/client/dashboard/` | `DashboardHeader` / `KpiCard` / `SectionCard` / `EmptyState` / `chart-colors` |
-| `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | **旧ヘッダー。凍結4アプリだけが使う**（v4 対象3アプリは `src/client/shell/` に移行済み） |
-| `src/client/{createApi,createAuthHook,queryClient,uiStore}.ts` | axios・認証フック・react-query・UIストアのファクトリ |
-| `src/client/live/{socket,useTimer}.ts` | 計時・視聴者（liveops）の `/liveops` Socket.IO 名前空間ラッパー・タイマー操作フック。**`client-live/src/lib/socket.ts` / `hooks/useTimer.ts`（表示画面 `TimerDisplayPage.tsx` 専用として凍結）の複製**（v4.1 段2・ミニアプリ化フェーズ2）。運用画面（`client-qsheet` に移植したダッシュボード・タイマー管理）だけが使う。JSX・Tailwind クラス名を持たない純粋な socket.io-client ラッパー・React フック |
+| `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | **旧ヘッダー。配信中のアプリに利用者はもう居ない**（import しているのは保存のみの `client-awards` だけ）。削除はフォローアップ |
+| `src/client/{createApi,createAuthHook,queryClient,uiStore}.ts` | axios・認証フック・react-query・UIストアのファクトリ。ストレージキーは**全アプリ `gmo_onair_user` に統一済み** |
+| `src/client/live/` | 計時・視聴者ミニアプリの共通部品（`socket` / `useTimer` / `DisplayCanvas` / `displayLayout`）。**使うのは `client-techops`**（運用画面）。`client-live` 側の `lib/socket.ts` / `hooks/useTimer.ts` は**表示画面 `/live/display/` 専用の意図的な複製**（見た目を変えない決まり） |
+| `src/client/{manual,mcpInfo,versionHistory}/` | ヘッダーから開くモーダル3種 |
+| `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
+| `src/constants/statuses.ts`, `src/utils/businessDays.ts`, `src/enums.ts`, `src/types.ts` | 業務の共通定義 |
 
 > ⚠️ **ファイルを送るときは Content-Type を書かないこと**（`createApi.ts`・実際に踏んだ）。
 > この instance は `headers: { 'Content-Type': 'application/json' }` を**全リクエストに固定**
 > しており、**axios 1.x は中身が FormData でも Content-Type が JSON なら
 > `formDataToJSON()` で素の JSON に変換して送ります**。`File` は列挙できる
-> プロパティを持たないので、**`{"audio":{}}` になってファイルが丸ごと消えます**。
->
-> **実際に壊れていたもの**（どれも「押しても何も起きない / 400 が返る」形で、
-> しかも**理由が画面に出ませんでした**）:
-> ・打合せを録音（`/projects/:id/minutes`）… **録音が投げられていなかった**
-> ・BOX にファイルを置く（`/projects/:id/box-files`）
-> ・トップの投入口の添付・録音
-> 動いていたのは、呼び出し側が `multipart/form-data` を**手で書いていた** 3 か所だけ
-> （Excel 取込・精算PDF・表彰の写真）。
+> プロパティを持たないので、**`{"audio":{}}` になってファイルが丸ごと消えます**
+> （実害: 打合せの録音・BOX へのファイル配置・トップの添付が「押しても何も起きない」）。
 >
 > **いまは request interceptor が入口で 1 回外します。** 呼び出し側で直して回らないこと —
-> 書き込みは 296 か所あり、どれがファイルを送るかは増えていきます。
-> 外したあとは **axios の XHR アダプタが境界文字列つきの `multipart/form-data` を
-> ブラウザに任せて付けます**（手で書いている 3 か所も同じ道を通るので壊れません）。
-| `src/client/{manual,mcpInfo,versionHistory}/` | ヘッダーから開くモーダル3種 |
-| `src/collab/` | Yjs の同時編集（`server/src/shared/collab/` と**意図的に複製**。`scripts/check-collab-parity.mjs` が一致を検査し、違えばビルドを止める） |
-| `src/constants/statuses.ts`, `src/utils/businessDays.ts`, `src/enums.ts`, `src/types.ts` | 業務の共通定義 |
+> 書き込みは数百か所あり、どれがファイルを送るかは増えていきます。
+> 外したあとは axios の XHR アダプタが境界文字列つきの `multipart/form-data` を
+> ブラウザに任せて付けます（`multipart/form-data` を手で書いている箇所も同じ道を通る）。
 
 ### v4 の共通部品（P1 で入った）
 
@@ -78,36 +79,29 @@
 | `<Num value unit>` | 金額でない数字。等幅で桁をそろえる |
 | `<DateRange start end />` | 期間の**開始／`〜`／終了を別要素**にする |
 | `manYen(n)` / `compactYen(n)` / `toMan(n)` | 万円の丸めを**1か所**にする |
-| `<PageTitle>` | ページ見出しの大きさをそろえる（**v4 より前の段**。下記参照） |
+| `<PageTitle>` | v4 より前の段の見出し部品。**使う画面は 0 になった**（全画面が `PageHeader` へ移行済み）。部品はまだ `ui/numbers.tsx` に残っている — 削除はフォローアップ |
 
 ### v4 の共通部品（Phase 2 で足した分）
 
 | 部品 | 何を強制するか |
 | --- | --- |
-| `<PageHeader title sub primaryAction>` | 画面の見出しと**主アクションの置き場所**。PC は右上・スマホは**下端固定**。73画面が個別に `fixed bottom-0` を書かない（`_rules.md`「3. スマホ」） |
+| `<PageHeader title sub primaryAction>` | 画面の見出しと**主アクションの置き場所**。PC は右上・スマホは**下端固定**。各画面が個別に `fixed bottom-0` を書かない |
 | `<FilterChips items value onChange>` | 件数つきの絞り込みチップ。`count` は**必須** — 押す前に 0 件だと分かる |
 | `formatRelativeTime(t)` | 「最後の動き」の相対表示。1分/1時間/24時間/7日の段と、**未来は「たった今」に丸める**（時計のずれで「-1分前」が出る） |
 
-- **`<PageHeader>` と `<PageTitle>` は別物。** `PageTitle` は v4 より前の段
-  （`text-xl lg:text-2xl` = 20/24px）で、まだ作り直していない 38 画面が使っています。
-  ここを一度に変えると作り直していない画面の見出しだけが動くので分けてあります。
-  **v4 で作り直した画面は `PageHeader`**（`text-h1` = 23px/800）。
-  全画面が移り終わったら `PageTitle` を消します（Phase 7）
 - **スマホの主アクションはシェルが置きます**（`src/client/shell/primaryAction.ts`）。
   シェルが下タブの上に空の差し込み口を1つ持ち、`PageHeader` が `createPortal` で描きます。
   **`fixed` にしていない**のが要点で、普通の流れに置けば本文のスクロール領域が
   その分縮むため、画面ごとに下余白を足して回らずに済みます（足し忘れると最後の行が押せない）
-
-- **万円の丸めは `manYen` 1本。** 着手時点で**4通りに割れていて、同じ画面の中で
-  食い違っていた**（KPI カード `¥1,234.568万` / 同じ画面のグラフ `¥1235万`）。
-  負の数で結果が違う実装もあった（-15,000 円 → `¥-1万` と `¥-2万`）
+- **万円の丸めは `manYen` 1本。** 着手時点で4通りに割れ、同じ画面の中で食い違っていた
+  （KPI カード `¥1,234.568万` / 同じ画面のグラフ `¥1235万`。負の数で結果が違う実装もあった）
 - **1万円未満をそのままの円で出したいときは `compactYen`。** 5,000 円を「¥1万」と
   出すと倍に見えるので、この振る舞いは残してある（日常業務の週報がこの形）
 - **テストがある** — `npm test`（`shared/tests/`）。
   画面を見ても間違いに気づけない計算なので、ここだけは書く。
   **`src/` の外に置くこと** — 各アプリの Tailwind の `content` が `../shared/src/client/**` を
-  含むので、`src/` に置くと**テストの中のクラス名まで CSS になる**（実際に凍結4アプリの
-  CSS に `rounded-card` / `text-h1` が増えた）。理由は `shared/tests/README.md`
+  含むので、`src/` に置くと**テストの中のクラス名まで全アプリの CSS になる**。
+  理由の詳細は `shared/tests/README.md`
 
 ### v4 の共通部品（P2 で入った）
 
@@ -122,19 +116,16 @@
 
 - **列幅の7段（`SlotWidth`）は `ui/row.tsx` が正。** `MoneyCell` の `width` も
   `TableBadge` の `w` もここを読む。**別々に持つとずれる**（「金額列は96px・
-  バッジ列は100px」になる）。着手時点で手書きの列幅が97か所あり、
-  **7段に乗っていたのは32か所（33%）だけ**だった
+  バッジ列は100px」になる）。着手時点で手書きの列幅97か所のうち7段に乗っていたのは33%だけだった
 - **`<Row stackOnMobile>` が `<RowMain>` を `data-row-main` 経由で狙っている。**
   この属性を消すとスマホの縦積みが黙って効かなくなる
 - ⚠️ **バッジの文字を均等割り付けにしないこと**（一度やって戻した）。
   モックの指定には `text-align-last:justify` が書いてあるが、**同じ要素が
   `display:inline-flex` なので効いておらず、モックは中央寄せで描かれている**
   （`text-align` 系は flex の中身の配置に効かない）。これを「割り付けたいのだ」と
-  読んで表示を block 系に変え padding を 0 にしたため、**「口頭決定」が
-  「口 頭 決 定」に見えていた**（利用者から2度指摘された）。
-  **`Badge` の既定の表示（flex）を変えないこと。**
-  縦の整列は**幅の固定だけで足りている** — 色の塊(62px)も枠(列幅)も固定なので、
-  文字をどう寄せても `verify-ui` が見る左端・右端は動かない
+  読んで表示を block 系に変えたため、**「口頭決定」が「口 頭 決 定」に見えていた**
+  （利用者から2度指摘された）。**`Badge` の既定の表示（flex）を変えないこと。**
+  縦の整列は**幅の固定だけで足りている**
 - **`text-badge` を効かせるには `cn()` の設定が必要**（下記）
 
 ### v4 の共通部品（P3 で入った）— 中身が無いとき・知らせる・訊く
@@ -144,94 +135,81 @@
 | `EmptyState` / `NoSearchResults` | `src/client/states/` | 「該当なし」で終わらせない。**0件の理由**（1件も無い／絞り込みが効いている）を分ける |
 | `Delayed` + `SkeletonRows` / `SkeletonCard` / `SkeletonKpi` | 同上 | **1秒未満はスピナーを出さない**（点滅させない）。全画面ローディングを作らない |
 | `ErrorPanel` + `humanizeError` | 同上 | 原因1文＋次の一手1文。**HTTP コード・スタックを画面に出さない** |
-| `NotFoundPanel` | 同上 | 知らない URL で**真っ白にしない**（計時LIVE・CG・日常業務は `path="*"` が無い） |
+| `NotFoundPanel` | 同上 | 知らない URL で**真っ白にしない** |
 | `NoPermissionPanel` | 同上 | 白紙にせず、**何の権限が要るか**を名前で出す |
-| `notifySuccess` / `notifyApiError` ほか | `src/client/notify.ts` | 結果を**流れて消えない帯**で伝える（`alert()` 25 か所の置き換え先） |
+| `notifySuccess` / `notifyApiError` ほか | `src/client/notify.ts` | 結果を**流れて消えない帯**で伝える（`alert()` の置き換え先） |
 | `<NoticeBar />` | `src/client/ui/notice.tsx` | 帯の出る場所。**アプリのシェルに1つだけ** |
 | `confirmAction()` / `<ConfirmHost />` | `src/client/ui/confirm.tsx` | 「〜しますか？」を画面の中で訊く。**一緒に何が消えるかを書ける** |
 
-- **`EmptyState` の実装は1つだけ。** `src/client/dashboard/EmptyState.tsx` が既に 29 ファイルで
-  使われている（うち4つは凍結アプリ）ので、`states/` からは**再エクスポート**している。
-  v4 の画面は `states` だけを見ればよい。ただし既定の `title`（「データがありません」）は
-  v4 の決めごとに反するので、**必ず `title` と `description` を渡すこと**
-- **`<NoticeBar />` と `<ConfirmHost />` は v4 対象3アプリのシェルに1つずつ。**
+- **`EmptyState` の実装は1つだけ**（`src/client/dashboard/EmptyState.tsx`）。既存の利用が
+  多かったので `states/` からは**再エクスポート**している。v4 の画面は `states` だけを
+  見ればよい。ただし既定の `title`（「データがありません」）は v4 の決めごとに反するので、
+  **必ず `title` と `description` を渡すこと**
+- **`<NoticeBar />` と `<ConfirmHost />` は配信中5アプリのシェルに1つずつ。**
   `confirmAction` は器が無いと **`false` を返して実行しません**（黙って実行するより安全側）。
   つまり置き忘れると「削除ボタンを押しても何も起きない」になるので、
-  `npm run lint` の `check-shared-wiring` が**数を数えて**止める（凍結アプリは 0 個が正）
+  `npm run lint` の `check-shared-wiring` が**数を数えて**止める
 - **`states` / `notice` / `confirm` は `ui/index.ts` のバレルに載せない。**
-  載せると凍結4アプリのバンドルにも入る（描かないので純粋に無駄）。深いパスで名指しする
+  載せると使わないアプリのバンドルにも入る（描かないので純粋に無駄）。深いパスで名指しする
 
 ### 保存が黙って失敗しない仕組み（P3・重要）
 
 `src/client/queryClient.ts` の MutationCache に**最後の受け皿**を置いてある。
-書き込みは7アプリで **296 か所**あるのに `onError` の記述は **54 か所**しかなく、
-残りは 400 / 403 / 500 が返っても**画面に何も出ない**（押した人には「押しても変わらない」
-としか見えない）状態だった。
+着手時点で書き込みは約300か所あるのに `onError` は54か所しかなく、残りは
+400 / 403 / 500 が返っても**画面に何も出ない**状態だった。
 
 - 画面が自分で `onError` を持っているときは**黙る**（同じ失敗を2回出さない）
 - `useMutation({ meta: { action: '案件の保存' } })` を渡すと「案件の保存に失敗しました」になる。
   `meta: { silent: true }` で受け皿を止められる
-- **凍結アプリは `<NoticeBar />` を置いていないので今日と同じ挙動**（描く相手がいない）
 - `onError` の**引数の並びを取り違えると常に黙る**。並びは `(error, variables, context, mutation)` で
   **4番目が mutation**。`shared/tests/queryClient.test.ts` が実際に失敗させて固定している
 
-### トーストは残っているが、v4 では使わない
+### トーストは残っているが、新しい画面では使わない
 
-`ui/{toast,use-toast,toaster}.tsx` は**消していない** — 凍結アプリの Qシートが 13 か所で
-使っており、**放送中の「放送同期が切断されました」も含まれる**。消すと凍結アプリの挙動が変わる。
+`ui/{toast,use-toast,toaster}.tsx` は**まだ生きている** — `client-techops` が
+`src/lib/notify.ts` のラッパー経由で使い、`main.tsx` に `<Toaster />` を置いている
+（`check-shared-wiring` は `client-techops` だけ `<Toaster />` 1個を要求し、他は 0 を要求する）。
 
-**ただしバレルからは外した。** 深いパスでしか import できない:
+**バレルからは外してある。** 深いパスでしか import できない:
 `import { toast } from '@gmo-onair/shared/src/client/ui/use-toast';`
-v4 の3アプリは帯（`notify.ts`）を使うこと。Qシートを v4 に載せ替えるとき（v4.1 以降）に消す。
+新しい画面は帯（`notify.ts`）を使うこと。`client-techops` を帯へ寄せてトーストを
+消すのは残作業（フォローアップ）。
 
 ### 共通シェル（S2 / S3 で入った）
 
 `src/client/shell/` が **上辺バー 64px ＋ 左メニュー 248px ＋ スマホ下タブ**を持ち、
-**v4 対象3アプリすべてが載っています**。凍結4アプリは旧シェル（各アプリの
-`src/components/layout/`）のままです。
+**配信中5アプリすべてが載っている**。
 
 | ファイル | 役割 |
 | --- | --- |
 | `shell/AppShell.tsx` | 骨格。高さ・`<NoticeBar />`・`<ConfirmHost />`・3つのモーダル |
 | `shell/AppTopbar.tsx` | 上辺バー。**アプリ名そのものが切替ボタン**／検索スロット／本人メニュー |
-| `shell/AppSideMenu.tsx` | 左メニュー。権限フィルタ・現在地・「他のアプリ」 |
+| `shell/AppSideMenu.tsx` | 左メニュー。権限フィルタ・現在地・折りたたみ |
 | `shell/MobileTabs.tsx` | スマホ下端のタブ（高さ 56px ＋ `safe-area-inset-bottom`） |
 | `shell/types.ts` | `ShellNavSection` / `ShellNavItem` / `ShellMobileTab` |
 
-- **メニューの中身はシェルが決めない。** 各アプリの `src/components/layout/nav.ts` が渡す。
-  **案件管理だけ v4 の情報設計に差し替え済み**（3つの塊 + 折りたたみの「そのほか」）。
-  ほかのアプリは今までのままで、その入口の画面を作り終えたときに差し替える
+- **メニューの中身はシェルが決めない。** 各アプリの `src/components/layout/nav.ts` が渡す
 - **上辺バーはトップページだけ形が違う**（モックの main 側）。`appKey === 'home'` のとき
   **アプリ切替ボタンとパンくずを出さず、検索を左に置く**。トップは**アプリの一覧そのもの**
   なので、切替ボタンは同じ物への2つ目の入口になる
-- **補助3つ（マニュアル・版の履歴・MCP）は本人メニューの中**。モックの上辺バーに
-  アイコンは1つも無い（検索・通知・本人だけ）。**機能は消さず、置き場所を1つにした** —
-  もともとスマホでは本人メニューに出しており、幅で置き場所が変わると
-  「さっきあった所に無い」が起きる
+- **補助3つ（マニュアル・版の履歴・MCP）は本人メニューの中**。上辺バーに
+  アイコンは検索・通知・本人だけ。幅で置き場所が変わると「さっきあった所に無い」が起きる
 - **通知は PC だけ枠つきの「通知」ボタン**（`client-v4/NotificationBell.tsx`）。
   スマホはベルだけ。件数は**同じ1つの要素**で、PC は文字の右に並び（`lg:static`）、
   スマホはベルの右上に重なる（2つ描くと片方だけ直る）
-- **光らせるのは1つだけ**（`currentTo()`）。`isCurrent` は入れ子の項目
-  （`/sales/projects` と `/sales/projects/confirmed/studio`）で**両方 true になる**ため、
+- **光らせるのは1つだけ**（`currentTo()`）。`isCurrent` は入れ子の項目で**両方 true になる**ため、
   一致した中でいちばん深いものだけを現在地にする。`shared/tests/apps.test.ts` で固定
-- **`ShellNavSection.collapsible`** で塊を折りたためる。**v4 で作り直す前の画面を畳む**ため。
-  メニューから消すと動いている画面に辿り着けず、全部並べると v4 の並びが読めない。
+- **`ShellNavSection.collapsible`** で塊を折りたためる。
   **いまいる画面がその中にあるときは自動で開く**（閉じたままだとどこも光らず迷子になる）
-- **`<NoticeBar />` と `<ConfirmHost />` はシェルが持つ。** アプリ側に置かないこと
-  （`check-shared-wiring.mjs` が数を数える。シェル自身が描いているかも見る）
 - **現在地の判定は `isCurrent()`。** `NavLink` の既定に任せない —
   機材管理は Vite の base が `/equipment/` なので URL に末尾のスラッシュが付き、
   `NavLink ... end` が一致せず**入口を開いても光らなかった**（実ブラウザで発見）
 - **左メニューの項目は PC 38px / スマホ 44px。** モックは 38px だが、
   スマホでは指で押すので v4 の「最低 44px」が優先する
 - **左メニュー下の「他のアプリ」は外した**（M4）。上辺バーのアプリ切替と
-  **完全に重複**していた（どちらも `visibleApps()` の同じ一覧）。案件管理では
-  v4 の 6 項目に対して**作り直し前 11 ＋ 他のアプリ 6 = 23 行**あり、
-  整理した部分より整理していない部分のほうが多かった。
-  ⚠️ **凍結4アプリはもともとここに出ていない**（`visibleApps()` の既定が外す）ので、
-  **押して開ける場所はトップページのタイルだけ**。そちらは消さないこと
-- 旧ヘッダー（`SharedHeader` / `AppHeader` / `AppSwitcher` / `appNav`）は
-  **凍結4アプリが使うので残してある**
+  **完全に重複**していた（どちらも `visibleApps()` の同じ一覧）
+- **廃止した `awards` はどこにも出ない**（`frozen: true` を `visibleApps()` が外し、
+  トップページのタイルからも除外済み。サーバーも配信しない）
 
 ### UI 部品の置き場所と参照のしかた
 
@@ -243,115 +221,105 @@ v4 の3アプリは帯（`notify.ts`）を使うこと。Qシートを v4 に載
 - **`motion` / `animated-number` は `client/src/components/ui/` に残してある。**
   `framer-motion` が案件管理にしか無いうえ、v4 は hover を色・罫線だけに絞り
   画面遷移も CSS の `animation` で行う（`docs/design/v4/_tokens.md`）。
-  **v4 が離れていく方向の部品**なので他アプリに背負わせない（Phase 2 で整理）
+  **v4 が離れていく方向の部品**なので他アプリに背負わせない
 - **`client-equipment/src/pages/EquipmentDetailPage.tsx` に独自の `SearchableSelect`** があり、
-  prop の形も見た目も shared 版と違う。差し替えると画面が変わるので **Phase 4 でまとめる**
+  prop の形も見た目も shared 版と違う。差し替えると画面が変わるので放置中（フォローアップ）
 
 ### npm パッケージは `peerDependencies` に申告する
 
 `shared` はビルドせず TypeScript のまま配るので、**shared が import したパッケージは
 それを使うアプリ側で解決されます**。申告が無くても npm workspaces のホイスティングで
-たまたま解決できてしまうため、**F3 の着手時点で `lucide-react` / `class-variance-authority` /
-Radix 9個が未申告**でした。`npm run lint` の `check-shared-wiring` が申告漏れを止めます。
+たまたま解決できてしまう（実際に `lucide-react` / Radix 9個などが未申告だった）。
+`npm run lint` の `check-shared-wiring` が申告漏れを止めます。
 
 `dependencies` ではなく **peer** にすること — Radix も React も**実体が2つあると壊れます**
 （context が別インスタンスになりダイアログが開かない等）。一部のアプリしか使わないものは
 `peerDependenciesMeta` で `optional` にしてあります。
-- ストレージキー: `qs_user`(qsheet) / `eq_user`(equipment) ほか
 
 ## 共通の土台 `base.css`（重要）
 
-**v4 対象3アプリの `index.css` は `@import '@gmo-onair/shared/src/client/base.css';` から始め、
-アプリ固有の CSS だけを書く。** `html`/`body`/`#root` をアプリ側で上書きしないこと
-（`scripts/check-ui-tokens.mjs` の `app-foundation` が import の有無を見ている）。
+**配信中5アプリの `index.css` は `@import '@gmo-onair/shared/src/client/base.css';` から始め、
+アプリ固有の CSS だけを書く。** `html`/`body`/`#root` をアプリ側で上書きしないこと。
+`scripts/check-ui-tokens.mjs` の `app-foundation` が import の有無を見ている
+（⚠️ 検査対象は当初の3アプリのままで、`client-techops` / `client-live` は未追加 — フォローアップ）。
 
-- **凍結4アプリは読まない。** `tokens.css` を直読みするままが正しい（見た目を変えないため）
+- **`client-awards` は読まない**（自前トークンで完結・ビルド対象外）
 - **シェルの根は `h-screen`(=100vh) ではなく `h-full`。** iOS の `100vh` は URL バーを含むので
   実際の表示領域より高くなり、`#root` の `overflow: hidden` で下端が切れる
 - **`@media print` は `@layer base` の中に置く。** 外に出すと効かない — Tailwind は
   `@layer base` の中身を `@tailwind base` の位置へ移すが素の CSS は書いた場所に残り、
   `base.css` は `index.css` の先頭で import されるので `overflow: hidden` より前に出て負ける
-  （実ブラウザで `overflow-y: hidden` を実測して見つけた。**印刷が1ページ目で切れる**）
-- **`font-feature-settings: 'palt'` はまだ入れていない。** 数字に掛かると桁がずれるので、
-  打ち消す `.font-number` と書体（LINE Seed JP）が揃う **T3 で入れる**
+  （実ブラウザで実測して見つけた。**印刷が1ページ目で切れる**）
 
-## v4 のトークン方針（重要）
+## トークンの2層構造（歴史的経緯と現状）
 
-v4.0.0 の対象は **`client` / `client-daily` / `client-equipment` の3アプリだけ**。
-残る3アプリ（`client-qsheet` / `client-live` / `client-awards`）は**凍結**で、
-**今日と同じ見た目を保つ**。そのため:
-
-| ファイル | 誰が読むか | 触り方 |
-| --- | --- | --- |
-| `src/client/tokens.css` | **凍結4アプリ**（＋v4対象も import 元として経由） | **値を変えない。** 名前の追加だけ可 |
-| `src/client/tokens-v4.css` | **v4 対象3アプリだけ**（`base.css` 経由） | v4 で変わる値を上書き。**名前は足さない**（足すなら `tokens.css` へ） |
-| `tailwind.preset.ts` | 全7アプリ | **追加だけ。** 既存キーの値を変えない（追加なら凍結アプリを壊さない） |
+もとは「v4 対象3アプリだけ v4 の色にし、凍結アプリは今日のまま」を実現するための構造。
+**凍結アプリが 0 になったいまも、層はそのまま生きている**:
 
 ```
-base.css  →  tokens-v4.css  →  tokens.css     ← v4 対象3アプリ
-             tokens.css                        ← 凍結4アプリ
+base.css  →  tokens-v4.css  →  tokens.css     ← 配信中5アプリ全部
 ```
 
-**`base.css` の import 1行が「v4 の色にするかどうか」の切り替え。** 戻したいときは
-`./tokens.css` に戻せばよい。`check-tokens.mjs` が、上書きの名前が `tokens.css` に
-実在すること（打ち間違えると**上書きにならず新しい変数を作るだけ**）と、
-`base.css` が `tokens-v4.css` を読んでいることを検査する。
+| ファイル | 現状 |
+| --- | --- |
+| `src/client/tokens.css` | 基層。**直読みするアプリは 0**（`base.css` 経由でのみ届く）。DADS のプリミティブ＋GMO ブルーと意味づけ |
+| `src/client/tokens-v4.css` | 上書き層＋v4 で足した名前・規則（`.dark` の暗側・スマホの当たり判定・動きの `.v4-*` など）。実質**ここが現役のトークン置き場** |
+| `tailwind.preset.ts` | 配信中5アプリが継承。キーの値を変えると5アプリ一斉に効く |
+
+- 「`tokens.css` の値を変えない」という旧ルールの理由（凍結の見た目を守る）は消えたが、
+  **`check-tokens.mjs` の検査は生きている**: `tokens-v4.css` の上書き名が `tokens.css` に
+  実在すること（打ち間違えると**上書きにならず新しい変数を作るだけ**）を見る。
+  2層を1つに畳むかは別途判断（フォローアップ）。それまでは
+  **値の上書きは `tokens-v4.css`・新しい名前は `tokens.css`** の分担を守る
+- 色は **RGB の3つ組 ＋ `<alpha-value>`** で持つ（`rgb(var(--primary) / <alpha-value>)`）。
+  `bg-primary/10` のような半透明指定が多数あるので、色コードの直書きにはできない。
+  **`hsl(var(--…))` と書かないこと** — 3つ組を HSL として読むと全く違う色になる。
+  `check-tokens.mjs` が止める（`client-awards` だけは自前の HSL トークンで完結しているので対象外）
 
 ### 書体（T3 で入った）
 
-| | v4 対象3アプリ | 凍結4アプリ |
-| --- | --- | --- |
-| 書体 | **LINE Seed JP** | Noto Sans JP（今日のまま） |
-| 字詰め | `palt` 1 / `kern` 1 | なし |
-| 数字 | **本文と同じ書体** ＋ `palt` 0 / `tnum` 1（⚠️ **等幅にはならない**・下記） | Roboto Condensed |
+配信中5アプリの書体は **LINE Seed JP**（`palt` 1 / `kern` 1。数字は本文と同じ書体 ＋
+`palt` 0 / `tnum` 1）。例外は2つ:
+**計時LIVE の表示画面 `/live/display/`** は見た目を変えない決まりなので
+`client-live/src/index.css` が Noto Sans JP を絶縁して当てている。
+**`client-awards`** は自前（Google Fonts）。なお `client-techops` / `client-live` の
+`index.html` には旧画面向けの Google Fonts 読み込みも残っている。
 
 - **LINE Seed JP は 400 / 700 / 800 しか配信されていない**（500/600 を要求しても返らないことを実測）。
-  `font-medium`(451) / `font-semibold`(214) は**黙って 400 / 700 に落ちる**。
+  `font-medium` / `font-semibold` は**黙って 400 / 700 に落ちる**。
   → **v4 の画面では `font-medium` / `font-semibold` を書かない。**
   型スケール（`text-h1` 等）がウェイトを内包しているのでその必要が無い
-- ⚠️ **数字は等幅になっていません（実測・2026-08）。** ここには長く
-  「`palt` を打ち消して `tnum` を当てるので、金額を縦に並べたとき**桁が一直線**になる」と
-  書いてありましたが、**そうなっていません**。数字の subset を読み込ませてから
-  16px で測ると、**4通りとも同じ幅**でした:
-
-  | 指定 | `1111111111` | `8888888888` |
-  | --- | --- | --- |
-  | 何も指定しない | 77.56px | 114.20px |
-  | 本文と同じ `palt 1` | 77.56px | 114.20px |
-  | `tabular-nums` だけ | 77.56px | 114.20px |
-  | `font-number` と同じ `palt 0` + `tnum 1` | 77.56px | 114.20px |
-
-  比較用の `monospace` は 99.33px / 99.33px なので**測り方は等幅を検出できます**。
-  つまり **LINE Seed JP の数字はプロポーショナル**で、`tnum` も `palt` も効いていません。
-
-  **揃うのは「金額の列の右端」です。** `MoneyCell` が幅を固定し、`Money` の
-  `justify-between` が数字を**右端に寄せる**ので、縦に読むときに効く右端は揃います。
-  **揃わないのは桁ごとの位置だけ**です。
-- **`palt` の打ち消し（`.font-number` の `palt 0`）は残してあります。** いまの書体では
-  数字の幅を変えませんが、**書体を替えた日に効きます**（外すと、替えた瞬間に
-  何が起きるか分からなくなる）。`base.css` の body ＋ `tokens-v4.css` の `.font-number` が対
+- ⚠️ **数字は等幅になっていません（実測・2026-08）。** かつてここには「`tnum` で
+  桁が一直線になる」と書いてあったが、数字の subset を読み込ませて 16px で測ると、
+  無指定・`palt 1`・`tabular-nums`・`palt 0 + tnum 1` の**4通りとも同じ幅**だった
+  （`1111111111` = 77.56px / `8888888888` = 114.20px。比較用 monospace は 99.33px/99.33px
+  なので測り方は等幅を検出できる）。つまり **LINE Seed JP の数字はプロポーショナル**。
+  **揃うのは「金額の列の右端」** — `MoneyCell` が幅を固定し `Money` の `justify-between` が
+  右端に寄せるので、縦に読むときに効く右端は揃う。揃わないのは桁ごとの位置だけ
+- **`palt` の打ち消し（`.font-number` の `palt 0`）は残してある。** いまの書体では
+  数字の幅を変えないが、**書体を替えた日に効く**（外すと、替えた瞬間に
+  何が起きるか分からなくなる）
 - **数字に別の書体を当てない。** 別書体だと**その書体が届く前の一瞬だけ数字の幅が変わり、
   列の幅がずれる**（v4 前は Roboto Condensed が当たっていた）
 - `tailwind.preset.ts` の `fontFamily` は**トークン参照**（`var(--font-sans)` 等）。
-  書体名をベタ書きすると v4 の書体に変えたとき**凍結アプリまで変わる**
+  書体名をベタ書きすると、書体を替えるとき1か所で済まなくなる
 
 ### 角丸は数字の段を入れ替えていない（決定）
 
 v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl` / `rounded-2xl` /
 `rounded-3xl`）と**そのままぶつかり、まだ作り直していない画面の角まで変わる**
-（`rounded` は 1,455 か所）。**v4 の画面は T1b で足した役割名**
+（実際に入れて `rounded` 4px→7px が1,455か所動き、戻した）。**v4 の画面は役割名**
 （`rounded-card` / `rounded-control` / `rounded-note` など）**を使うこと。**
-数字の段を入れ替えるかどうかは、画面を作り終えてから判断する。
 
 **ただし `--radius` は `tokens-v4.css` で 12px にしてある。** shadcn の部品
 （ボタン・入力欄・選択欄）は `rounded-md` = `calc(var(--radius) - 2px)` を使うので、
 これだけで**ボタンと入力欄が 10px** になる（モックの実測: ボタン 119 個中 10px が最多）。
-`rounded` などの数字の段は動かないので、**まだ作り直していない画面の角は今までのまま**。
 
 ### v4 だけの Tailwind 設定は `tailwind.v4.preset.ts`（別ファイル）
 
-`tailwind.preset.ts` は**凍結4アプリも継承している**ので、そこに書くと4アプリの見た目が動く。
-v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` の順で継承する。
+もとは凍結アプリに効かせないための分離。いまは**配信中5アプリ全部が
+`presets: [preset, v4Preset]` の順で継承している**（`check-shared-wiring` が照合する）ので、
+`tailwind.preset.ts` との実質的な効き先は同じ。統合はフォローアップ。
 
 いま入っているのは**存在しない太さを潰す1件**だけ:
 
@@ -360,35 +328,23 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | `fontWeight.medium` | `400` | LINE Seed JP に 500 が無い。**すでに 400 で描かれている**ので見た目は変わらず、開発ツールに出る値が実描画と一致するようになる |
 | `fontWeight.semibold` | `700` | 同上（600 が無い） |
 
-（実測: 400 と 500 の描画は 1 ピクセルも違わない。600 と 700 も同じ。
-`check-ui-tokens` の `missing-font-weight` が 610 か所を数えており、減らす作業自体は続ける）
+（`check-ui-tokens` の `missing-font-weight` が `font-medium`/`font-semibold` の
+残数を数えており、減らす作業自体は続ける）
 
-### ボタンの文字は太字（v4 だけ）
+### ボタンの文字は太字
 
-モックの `<button>` 119 個のうち **94 個が 700 / 11 個が 800**。一方 shadcn の `Button` は
-`font-medium` を持つので v4 では 400 に落ち、**押せるものが本文と同じ太さ**になる。
+モックの `<button>` 119 個のうち 94 個が 700 / 11 個が 800。一方 shadcn の `Button` は
+`font-medium` を持つので 400 に落ち、**押せるものが本文と同じ太さ**になる。
 
-`button.tsx` の `font-medium` を直接書き換えると**凍結4アプリのボタンまで太くなる**ので、
-`Button` には `data-ui="button"` という**属性だけ**を足し、`tokens-v4.css`（v4 対象3アプリしか
-読まない）で `:root [data-ui='button'] { font-weight: 700 }` と上書きしている。
+`button.tsx` の `font-medium` は書き換えず、`Button` に `data-ui="button"` という
+**属性だけ**を足し、`tokens-v4.css` で `:root [data-ui='button'] { font-weight: 700 }` と
+上書きしている（凍結アプリに効かせないための方式だったが、仕組みはそのまま生きている）。
 
 - **`:root` は飾りではない。** `.font-medium` はクラス1つ = 詳細度 (0,1,0)、属性1つも (0,1,0) で
   同点になり、同点なら**後ろに書かれた Tailwind のユーティリティが勝つ**。`:root` を足して
   (0,2,0) にして初めて効く
-- 凍結アプリは `tokens-v4.css` を読まないので、**DOM に属性が1つ増えるだけ**
-  （4アプリのビルド CSS が変更前と**1バイトも違わない**ことを確認済み）
 
-- 色は **RGB の3つ組 ＋ `<alpha-value>`** で持つ（`rgb(var(--primary) / <alpha-value>)`）。
-  **T1 で HSL から変換済み。** HSL の3つ組は元の色に戻せず、**7トークンでコメントの hex と
-  描画色が食い違っていた**（ブランド色 `--primary` が `#005bac` ではなく `#005aad`、
-  `--destructive` は色相までずれて `#c7243a` ではなく `#c81919` だった）。
-  変換は**いま描かれている色**から行ったので描画は不変。**本来の値に揃えるのは T2**
-- `bg-primary/10` のような**半透明指定が765か所**あるので、色コードの直書きにはできない
-- **`hsl(var(--…))` と書かないこと。** 3つ組を HSL として読むと全く違う色になる。
-  `npm run lint` の `check-tokens.mjs` が止める（リアルタイムCG だけは自前の HSL
-  トークンと自前の tailwind 設定で完結しているので対象外）
-
-### v4 で足した名前（T1b・まだ画面では使っていない）
+### v4 で足した名前（T1b）
 
 | 種類 | 名前 |
 | --- | --- |
@@ -401,55 +357,50 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 | 角丸の役割名 | `rounded-{badge-xs,badge,control,control-md,control-lg,note,card,app,chip}` |
 | 型スケール | `text-{h1,h2,cardtitle,list,sub,sub-sm,th,badge,note}` — **サイズ・行間・ウェイトを束ねる** |
 
-- **v4 の一群は明るい配色のみ。** モックに暗い配色が無く、使う予定の無い色を先に決めると
-  誰も見ていない値を保守することになる。`check-tokens.mjs` はこの一群を例外として扱う
-  （暗い配色を使うのは凍結アプリの放送画面だけで、そこは v4 のトークンを参照しない）
-- **角丸の数字の段（`rounded` / `rounded-xl` / `rounded-2xl` / `rounded-3xl`）は T2 で入れ替える。**
-  T1b で入れたら Tailwind の組み込みとぶつかり、**書き換えていない画面の角まで変わった**
-  （`rounded` 4px→7px が1,455か所、`rounded-2xl` 16px→14px が7か所。ビルド出力を比べて発見）
+- **v4 の一群は明るい配色が基本。** 暗側は `tokens-v4.css` の `.dark` が持つ
+  （制作技術支援の本番系画面が `<html>` に `.dark` を付けて使う。`tokens.css` の
+  `.dark` は `:root` と同じ詳細度で**書かれた順に負ける**ため、`tokens-v4.css` 側に
+  暗側の値を移植してある — 消すと本番の暗い画面が壊れる）
 - **型スケールがウェイトを内包している**ので、v4 の画面で `font-medium` / `font-semibold` を
-  書く理由は無い（LINE Seed JP は 400/700/800 しか無く 500/600 は黙って落ちる）
-- **`client-awards` は `tokens.css` を読んでいない**（自前の変数を持ち、共通 preset も継承していない）。
-  凍結なのでこれは**直さない**
+  書く理由は無い
 
 ### スマホの手触りは部品と型スケールで一度に効かせる（Phase 6）
 
-375px の 29 画面を実ブラウザで測ったところ、**44px 未満のタップ対象が 263 件・
-13px 未満の文字が 728 種**ありました（横はみ出しと JS エラーは 0 でした）。
-**画面ごとに直すと必ず取り残しが出る**ので、`tokens-v4.css` の
-`@media (max-width: 1023px)` に置いてあります:
+375px の29画面を実ブラウザで測ったところ、44px 未満のタップ対象が263件・
+13px 未満の文字が728種あった。**画面ごとに直すと必ず取り残しが出る**ので、
+`tokens-v4.css` の `@media (max-width: 1023px)` に置いてある:
 
 | 規則 | 効く先 |
 | --- | --- |
 | `:root [data-ui='button'] { min-height/min-width: 44px }` | `Button` 全部（アイコンだけのボタンを含む） |
-| `:root .text-note { font-size: 13px }` | 画面の説明文・注記帯 |
-| `:root .text-sub { font-size: 13px }` | 行の2行目・絞り込みチップ |
+| `:root .text-note` / `:root .text-sub` `{ font-size: 13px }` | 説明文・注記帯／行の2行目・絞り込みチップ |
 | `:root [data-ui='empty-desc'] { font-size: 13px }` | `EmptyState` の説明文 |
 | `:root [data-drawer='closed'] { visibility: hidden }` | 閉じた左メニュー（タブ順・読み上げから外す） |
-| **`:root input:not(...)`, `:root select { min-height: 44px }`** | 素の入力欄・選択欄（M5）。`Button` には効いていたが**`<input>` / `<select>` は誰も上げていなかった**（時刻の欄だけで 8 個が 36px） |
-| **`:root .min-h-tap { min-width: 44px }`** | 段の切り替え（A/B/C/D・月/年）。**高さは 44px なのに幅が 34〜38px** だった。`min-width` は狭いものを広げるだけなので広いボタンは動かない |
-| **`--line-height-jp: 1.6` ／ `.text-h1` 20px ／ `.text-h2` 17px**（M6） | 型スケールが **PC の文書向け**（本文 15px・行間 1.75・見出し 23px）だった。行間だけ詰める — **文字は小さくしない**（決めごとの「本文 13px 以上」を割る）。**効果は 2% ほど**で、スマホが長い主因は型ではなく**構造**（絞り込みの常時展開・カードの入れ子）だと実測で分かった |
-| **`[data-ui='switch']::after` / `.v4-tap::after`** | **見た目を変えずに当たり判定だけ 44px**。トグルの帯(24px)や ○ の印(20px) は大きくすると別の部品に見えるので、透明な擬似要素をかぶせる。**`overflow: hidden` の中では効かない**（はみ出しが切られる） |
-| ~~`[data-badge-slot]` の均等割り付けを外す（M8）~~ **もう要りません** | M8 はスマホだけ `!important` で割り付けを打ち消していました。**この規則は `0ed18d34`（スマホ上辺バーをモックに戻した回）で巻き添えに削除され**、以後スマホでも割り付いたままでした。いまは**割り付け自体をやめて PC もスマホも中央寄せ**（`TableBadge`）にしたので、打ち消す規則は不要です |
+| `:root input:not(...)`, `:root select { min-height: 44px }` | 素の入力欄・選択欄（M5）。`Button` には効いていたが `<input>` / `<select>` は誰も上げていなかった |
+| `:root .min-h-tap { min-width: 44px }` | 段の切り替え（A/B/C/D・月/年）。高さは 44px なのに幅が 34〜38px だった。`min-width` は狭いものを広げるだけ |
+| `--line-height-jp: 1.6` ／ `.text-h1` 20px ／ `.text-h2` 17px（M6） | 型スケールが PC の文書向け（本文 15px・行間 1.75）だった。行間だけ詰める — **文字は小さくしない**（「本文 13px 以上」を割る） |
+| `[data-ui='switch']::after` / `.v4-tap::after` | **見た目を変えずに当たり判定だけ 44px**。トグルの帯(24px)や ○ の印(20px) は大きくすると別の部品に見えるので、透明な擬似要素をかぶせる。**`overflow: hidden` の中では効かない**（はみ出しが切られる） |
 
 **上げていないもの（意図的）**: `.text-sub-sm`(11.5px) / `.text-th`(11.5px) /
 `.text-badge`(11px)。件数の数字・列見出し・バッジの札で、決めごとが言う「本文」ではなく、
-**上げると `TableBadge` の固定幅（56/72/96…）に収まらず札の文字が切れます**。
+**上げると `TableBadge` の固定幅に収まらず札の文字が切れる**。
 
-- **`button.tsx` と Tailwind の型スケールを直接書き換えないこと。** どちらも凍結4アプリが
-  使っており、共通側を変えると4アプリのスマホの見た目が動きます
-- `Row interactive` と `searchable-select` は**凍結アプリが使っていない**ので、
-  部品の側に直接 `min-h-tap ... lg:min-h-0` を書いてあります
+- `Row interactive` と `searchable-select` は shared の部品側に直接
+  `min-h-tap ... lg:min-h-0` を書いてある
 
-> ⚠️ **コメントに書いたクラス名も Tailwind に拾われます。**
-> `AppSideMenu.tsx` のコメントに `in​visible` と書いただけで、
-> **凍結3アプリの CSS に2規則・61 バイト**入りました（実測して気づいた）。
-> `shared/src/client/` では、コメントの中でも Tailwind のクラス名を書かないこと。
->
-> **2度目をやりました**（手触りの回）。`searchable-select.tsx` に
-> 面の色のクラスを1つ書いて **92 バイト**増やし、属性に直したあと
-> **「そのクラスは書けません」という説明文の中に実物を書いていて**、
-> 直っていませんでした。**説明でも実物を書かないこと。**
+> ⚠️ **`shared/src/client/**` に書いたクラス名は、コメント・説明文の中でも
+> Tailwind に拾われ、全アプリの CSS に規則が入ります。**
+> 凍結アプリがあった時代に**4回**これを踏みました — コメントに `in​visible` と
+> 書いただけで凍結3アプリの CSS が61バイト増え、しかも3回は
+> **「そのクラスは書けません」という説明文の中に実物を書いて**いて直っていませんでした。
+> 教訓は3つ:
+> 1. **見た目の切り替えはクラス名でなく属性 ＋ `tokens-v4.css`** に寄せる
+> 2. **説明・コメントの中でも実物のクラス名を書かない**
+> 3. **「変えていない」はビルド出力を突き合わせてから言う** — その機械化が
+>    `npm run check:frozen`（`scripts/frozen-css-baseline.json` と md5 を照合。
+>    `npm run build:all` のあとに回す）。**いまは凍結アプリが 0 個なので `APPS` は
+>    空＝実質何も照合しない**が、また「見た目を止める」段が出たときの受け皿として
+>    仕組みは残してある
 
 ### 動きの決めごと（手触りの回）
 
@@ -463,10 +414,9 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
   `animation-duration: 0.01ms`。**0 にすると `both` の最終状態が当たらず、
   要素が消えたままになる**
 - **キーボードの現在地は `tokens-v4.css` の既定に任せる。** 実測で
-  **219 個中 179 個（82%）に何も出ていなかった**ので、部品ごとに
-  `focus-visible:ring-2` を足して回るのをやめ、`:where(...):focus-visible` の
-  既定を1つ置いた（詳細度 0 なので、既に持っている部品はそのまま勝つ）。
-  **`:focus` にしないこと** — マウスで押しただけで枠が残る
+  82% に何も出ていなかったので、部品ごとに `focus-visible:ring-2` を足して回るのをやめ、
+  `:where(...):focus-visible` の既定を1つ置いた（詳細度 0 なので、既に持っている部品は
+  そのまま勝つ）。**`:focus` にしないこと** — マウスで押しただけで枠が残る
 - **押している間の 0.97 倍は消さないこと。** `base.css` が
   `-webkit-tap-highlight-color: transparent` を当てているので、
   これが無いとスマホで**押しても画面が1ドットも変わりません**
@@ -474,12 +424,9 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 
 ### 「PC で触る画面」は宣言する（M1 / M2）
 
-**スマホで縮めない。** 375px の 63 画面を実測したところ、モックの
-「スマホに置かないもの」（`docs/design/v4/mobile.md` の `spNotOnPhone` =
-お客様・お金・設定と権限・ガント・3列レビュー・Qシートの編集）に対して、
-**「PC で」と書いて止めていたのは 6 枚だけ**でした。残りは判断せずに縦に
-畳んだだけで、しかも案内の文面と見た目が **10 か所でバラバラ**（うち
-**行き先を書いていたのは 3 か所だけ**＝残りは行き止まり）。
+**スマホで縮めない。** モックの「スマホに置かないもの」（`docs/design/v4/mobile.md` の
+`spNotOnPhone`）に対して、実装は判断せずに縦に畳んだだけの画面が大半で、
+案内の文面と見た目もバラバラだった。
 
 | 置き場所 | 何を強制するか |
 | --- | --- |
@@ -493,92 +440,66 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
   「出ないだけ」なので誰も報告せず、作った側は PC で見ているので気づきません。
   **数えられる形にするのが目的**です（検査はこの表を読む）
 - **「それでもこのまま開く」を置く**（ご判断）。出張先で見積の金額だけ
-  確かめたい、は実際に起きます。目的は「壊れていると思わせないこと」なので、
-  **先に理由を読ませてから本人に選ばせる**形にしてあります
-- **`src/client/` ではなく `src/client-v4/` に置くこと**（凍結4アプリの CSS を増やさない）
+  確かめたい、は実際に起きます。**先に理由を読ませてから本人に選ばせる**形にしてあります
+- **`src/client/` ではなく `src/client-v4/` に置くこと**（部品の置き場所の決まり）
 - 転送（`<Navigate>` と `Redirect…` という名前の部品）は画面として数えません
 - **`hidden: true` を付けると、スマホの左メニューからも消えます**（M6・ご判断）。
   シェルに `mobileHiddenPaths` で渡すと `AppSideMenu` が落とします。
   **前方一致ではなく `matchPath` で照合する** — `/settings` を前方一致にすると
   `/settings/sites` まで巻き込みます。**ルートは消しません**（共有 URL は案内が出る）
+- ⚠️ **PC専用は原則廃止していく方針が別途動いている**（`docs/v4-native-ui-plan.md`・2026-08〜）。
+  この仕組み自体は生きているが、`…_PC_ONLY` の表は縮んでいく方向
 
-### スマホの上辺バーは「ロゴだけ」（モック `v4-live`・この版で確定）
+### スマホの上辺バーは「ロゴだけ」（モック `v4-live`）
 
 | どこ | 中身 |
 | --- | --- |
 | **スマホ（全画面共通）** | `☰` ／ **ロゴ 18px** ／ 余白 ／ ベル ／ 本人 |
 | PC（≧1024px） | ロゴ 20px ／ 区切り ／ アプリ切替 ／ パンくず … 検索 ／ ベル ／ 本人 |
 
-**上辺バーは「どのサービスか」だけを答えます。** どのアプリ・どの画面にいるかは
-**パンくずと左メニュー**、そして本文の見出しが答えます。
+**上辺バーは「どのサービスか」だけを答える。** どのアプリ・どの画面にいるかは
+パンくずと左メニュー、そして本文の見出しが答える。
 
-- ここは 3 回変わっています: M7 でページ名 → M10 でアプリ名のチップ（モックに戻す）→
-  **この版でロゴだけ**（モック `v4-live` の指定）。
+- 3 回変えた末の確定: ページ名（M7）→ アプリ名のチップ（M10）→ **ロゴだけ**。
   375px では `☰` ＋ チップ ＋ ベル ＋ 本人 で横がいっぱいになり、
-  **上辺バーが「いまどこか」を言うためだけに 1 行**使っていました
-- **アプリ切替とパンくずは `v4-wide-only`**（≧1024px）で出し分けます。
-  **トップページでは PC でも出しません**（トップはアプリの一覧そのもの）
+  上辺バーが「いまどこか」を言うためだけに 1 行使っていた
+- **アプリ切替とパンくずは `v4-wide-only`**（≧1024px）で出し分ける。
+  **トップページでは PC でも出さない**（トップはアプリの一覧そのもの）
 - **ロゴの高さは属性 ＋ `tokens-v4.css`**（`[data-shell-logo]`）。
-  幅つきのクラスをここに書くと**凍結4アプリの CSS が増えます**
-- **ベルと本人はスマホでも残します**（**本人メニューがログアウトとマニュアルの
-  唯一の入口**なので消せません）
-- ⚠️ **この回でも「説明の中に実物のクラス名を書く」を踏みました**（4 度目）。
-  `check:frozen` が拾い、凍結3アプリの CSS に 1 規則入っていました。
-  **説明でも実物を書かないこと。**
-
-> ⚠️ **`shared/src/client/` に3度目のクラス漏れをやりました。**
-> 上辺バーに型スケールを1つ書いて**凍結アプリの CSS に1規則**、
-> 幅の切り替えを1つ書いて**もう1規則**増やしました。しかも
-> **「書いてはいけない」と説明するコメントの中に実物を書いて**いて、
-> 消したつもりが残っていました（`shared/CLAUDE.md` に2度踏んだと書いてあるのに）。
-> **見た目の切り替えは属性 ＋ `tokens-v4.css`** に寄せること。
-> **ビルドして md5 を突き合わせるまで「変えていない」と言わないこと。**
->
-> → **突き合わせは `npm run check:frozen` が機械でやります**（M10 で作った）。
-> 基準は `scripts/frozen-css-baseline.json`。`npm run build:all` のあとに回してください
-> （`dist` の CSS を見るので、`npm run lint` には入れていません）。
-> **基準はそれまでどこにも書かれておらず、人の記憶の中にありました** — その結果、
-> `pt-1` が shared から消えて技術資料の CSS が 25 バイト縮んだとき、
-> 「自分が漏らしたのか」を切り分けるところから始めることになりました。
->
-> - **増えたときは原則ダメ。** 属性 ＋ `tokens-v4.css` に逃がす
-> - **減ったときは、そのアプリがその規則を使っていないことを確かめてから**
->   `npm run check:frozen -- --update "理由"`。理由は基準ファイルの `history` に残ります
+  シェルに幅つきのクラス名を書かない（上の警告ブロック参照）
+- **ベルと本人はスマホでも残す**（**本人メニューがログアウトとマニュアルの
+  唯一の入口**なので消せない）
+- **字間 .1em の小見出しと「広い画面でだけ出す」は素の CSS クラス**
+  （`tokens-v4.css` の `.v4-eyebrow` / `.v4-wide-only`）。`tracking-[.1em]` / `lg:block` と
+  書かないための置き換え先
 
 ### スマホ専用の部品は `client-v4/` に置く（M0）
 
 | 部品 | 何を強制するか |
 | --- | --- |
-| `client-v4/sheet.tsx` の `<Sheet>` | **下から出るシート**。一覧から1件ずつ片づける画面で**画面遷移させない**（決めごと「終わらせるのはシートで」）。主ボタンは下端に固定・中身だけスクロール・`safe-area-inset-bottom` を足す。**`rise` を渡すと 24px だけせり上がる**（トップの AI シート）— 書きかけを持ったまま開け閉めするシートでは、毎回いちばん下から上がってくると**開くたびに待たされて見える**。**opt-in** にしてあるのは既にあるシートの手触りを変えないため（`data-v4-sheet` を見て `tokens-v4.css` が当てる） |
-| **`client-v4/formDialog.tsx` の `<FormDialog>` / `<FormDialogFooter>`** | **CRUD の登録・編集フォーム用の入れ物**（`<Sheet>` の薄いラッパー）。`@/components/ui/dialog`（`Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogFooter`）で書かれたフォームをこちらへ載せ替えると、スマホで自動的に下シートになる。合成可能な API ではなく `<Sheet>` と同じ**フラットな props**（title/sub/footer/children）にしてある（理由は `formDialog.tsx` 冒頭のコメント）。**PC でも `<Sheet>` の中央ダイアログ幅（560px）が既定**になるので、旧実装が独自に幅を広げていた画面（複数列フォーム等）は載せ替えると PC の見た目も変わる（`wide` で 760px に広げられる・opt-in）。**旧 `<form onSubmit>` を使っていた画面は `onSubmit` を渡すこと** — 渡さないと本文とフッターが別 div になり、Enterキー送信・`<button type="submit">` が効かなくなる（ダイアログ移行の初期バッチで発見。以後のバッチは `onSubmit` を使う） |
-| **`client-v4/mobileFilterBar.tsx` の `<MobileFilterBar>`** | **一覧の絞り込みを1行に畳んでシートで開く**（M8）。検索だけ外に出す／効いている数をボタンに出す（0 なら出さない）／下端に「ぜんぶ外す」と「結果を見る」。**数え方は呼ぶ側が渡す** — 何が既定かは画面ごとに違う（案件一覧は「半年・既定の並び」、機材台帳は「絞り込みなし」）ので、共通側に持たせると必ずどちらかが嘘になる。中身は `<MobileFilterField>`（見出し＋操作）と `<MobileFilterSegments>`（段の切り替え。`min-h-tap` と均等割りを固定） |
+| `client-v4/sheet.tsx` の `<Sheet>` | **下から出るシート**。一覧から1件ずつ片づける画面で**画面遷移させない**（決めごと「終わらせるのはシートで」）。主ボタンは下端に固定・中身だけスクロール・`safe-area-inset-bottom` を足す。**`rise` を渡すと 24px だけせり上がる**（書きかけを持ったまま開け閉めするシート向け・opt-in） |
+| `client-v4/formDialog.tsx` の `<FormDialog>` / `<FormDialogFooter>` | **CRUD の登録・編集フォーム用の入れ物**（`<Sheet>` の薄いラッパー）。旧 `Dialog` 系のフォームをこちらへ載せ替えると、スマホで自動的に下シートになる。PC の既定幅は 560px（`wide` で 760px）。**旧 `<form onSubmit>` を使っていた画面は `onSubmit` を渡すこと** — 渡さないと Enter 送信・`<button type="submit">` が効かなくなる（初期バッチで発見） |
+| `client-v4/mobileFilterBar.tsx` の `<MobileFilterBar>` | **一覧の絞り込みを1行に畳んでシートで開く**（M8）。検索だけ外に出す／効いている数をボタンに出す／下端に「ぜんぶ外す」と「結果を見る」。**数え方は呼ぶ側が渡す** — 何が既定かは画面ごとに違うので、共通側に持たせると必ずどちらかが嘘になる |
 | `client-v4/mobile.ts` の `useIsMobile()` | スマホか PC かの判定。**`lg`(1023px) と同じ値**を使う（CSS と JS がずれると片方だけ切り替わる） |
-| `client-v4/mobile.ts` の `duePresets()` | 期限は **明日18:00 / 3日後18:00 / 日時を選ぶ**（決めごと「入力は端末に任せる」。自作の日付ホイールを作らない） |
-| `client-v4/mobile.ts` の `dueLabel()` | **過ぎたものを「あと -2日」と出さない** |
-| `client-v4/recent.ts` | **最近見たもの**（⑪ 探す）。**端末の中だけ・8件**。サーバーに表を作ると案件を開くたびに1行 INSERT することになり、しかも「見た」は業務の記録ではない。**別の端末では出ないことを画面に書くこと** |
-| **`tokens-v4.css` の末尾（動き）** | **画面遷移 `screenIn`・カード `cardIn`・お知らせ帯 `toastIn`・帯 `barGrow`・押せるもの共通の `transition`・押した瞬間の 0.97 倍・大きいタイルの持ち上がり**。出どころはモックの CSS（`_tokens.md`「動き」に表がある）。**Tailwind の `animation` キーに足さない** — 凍結4アプリの CSS が増える。素の CSS クラス（`.v4-*`）なら Tailwind は何も生成しない |
-| **`tokens-v4.css` の末尾（トップページの動き）** | **スクロールで下から14px（`[data-reveal]`）・骨組み（`.v4-skeleton`）・タイルの光沢（`.v4-gloss`）・シートのせり上がり（`[data-v4-sheet="rise"]`）・録音中の点と波形（`.v4-rec-dot` / `.v4-wave`）**。⚠️ **既定は「見える」**。隠すのは **JS が `data-reveal="hidden"` を付けたときだけ** — CSS で先に隠して JS で見せる形にすると、**JS が落ちた日にトップページが白紙**になる（誰も気づけない壊れ方）。**繰り返す動き（骨組み・録音）は `prefers-reduced-motion` で名指しで止める** — `*` の一括（`animation-duration: 0.01ms`）だと 1 コマだけ流れて**半端な明るさで固まる** |
-| **`tokens-v4.css` の一覧の動き** | **並び替えの滑り（`[data-flip='run']`）・新しい行の立ち上がり（`[data-row-in]`・1行 18ms ずらし）・レール（`.v4-rail`）・押した手応え（`.v4-press`）**。⚠️ **滑りの `transition` は付けっぱなしにしない** — 常時付けると、ページをめくったときや検索の1文字ごとに**関係ない行まで滑り**、見ている行がどれか分からなくなる。動かす回だけ `data-flip="run"` を付けて 1 コマ後に外す（`client-v4/flip.ts`）。ずらす上限を 12 行にしているのは、20 行目が 360ms 待つと「読み込みが遅い」と受け取られるため |
-| **`tokens-v4.css` の `.v4-eyebrow` / `.v4-wide-only`** | **字間 .1em の小見出し**（12px/800。上辺バーの「アプリを切り替え」、スマホのトップの節見出し）と、**広い画面でだけ出す**（≧1024px。上辺バーの本人の氏名）。どちらも `shared/src/client/` から使うので**素の CSS クラス**にしてある — `tracking-[.1em]` / `lg:block` と書くと**凍結4アプリの CSS が増える**。色はモックの `#9aa1ab` ではなく `--muted-foreground`（節見出しは読ませる文字なので `_tokens.md` の「#5d6470 に上げる」に従う） |
-| **`client-v4/flip.ts` の `useFlip()`** | **並び替え・絞り込みで行を滑らせる**（FLIP）。同じ見た目の行が 20 個あるので、差し替えでパッと入れ替えると「いま見ていた案件がどこへ行ったか」が読み取れない。**変える直前に位置を覚えて、更新後に1回だけ戻す**。①**再測定をループさせない**（滑っている途中の位置を「元の位置」として覚えると永久に追いかけっこになる）②**行の鍵は `data-flip-key`** — `data-row`（`ui/row.tsx` が付ける検査の印・`verify-ui.mjs` が読む）と兼ねさせない ③**新しく現れた行は滑らせずフェードイン**（`isNew` / `data-row-in`）— 元から居た行も一緒にフェードさせると絞り込むたびに一覧全体が明滅する ④**シートを閉じるのと同じコマで測らない**（`closeAfterFrame`） |
-| **`client-v4/rail.ts` の `useRail()`** | **横スクロールのレール**（掴んで滑らせる帯）。素の `overflow-x:auto` は PC でマウスで掴めず、スクロールバーを探すことになる。①**離すと慣性で滑って止まる**（減衰 0.94）— 止め方を作らないと指を離した位置で急に固まって「引っかかった」と感じる ②**8px 動くまではクリック扱い、10px を超えたら直後のクリックを1回だけ捨てる**（掴んだだけで開く誤爆の防止。`preventDefault` で殺さないのは、掴まずに押したときは今までどおり開けるため）③**縦ホイールを横送りに変換**（端に着いているときは変換しない — ページが動かなくなる）④**続きがある側だけ `mask-image` で溶かす**（両端固定だと端まで来てもまだ続きがあるように見える）⑤**動きを減らす設定では慣性を付けない**。見た目（スクロールバーを隠す・掴む形のカーソル）は `tokens-v4.css` の `.v4-rail` |
-| `client-v4/NotificationBell.tsx` | **上辺バーのベル**（社内通知）。**`src/client/` に置かないこと** — 凍結4アプリの CSS が増える。シェル側（`shell/AppTopbar`）は `notificationSlot` の受け口だけで、新しいクラス名を持たない。押したときの移動は**素の遷移**（行き先がアプリをまたぐのでルーターでは動けない） |
-| `client-v4/downscaleImage.ts` | **送る前に写真を縮める**（AI の費用を下げる・長辺 1600px / JPEG 0.8）。画像の費用は**画素数で決まる**ので、スマホの 4000×3000 の写真1枚が長い文章より高くつく（名刺・ホワイトボードは 1600px で読める）。⚠️ **読めなくしない** — **拡大しない**／**元より重くなったら元を使う**（PNG のスクリーンショットで起こる）／**縮められなかったら元を送る**。ここで失敗して添付が消えるほうが、費用より高くつく。判定だけ `shared/tests/downscaleImage.test.ts` で固定 |
-| `client-v4/offlineQueue.ts` | **端末に溜めて後で送る列**（⑨ 現場）。**鍵で上書き**なので同じ操作は列に1つしか載らない。**載せてよいのは何回やっても結果が同じ操作だけ**（棚卸しの印・返却）。**貸出のような「行を作る操作」を載せてはいけない** — 載せるとこの仕組みが二重登録の原因になる。1件失敗しても止めず、送れたものだけ消す |
+| `client-v4/mobile.ts` の `duePresets()` / `dueLabel()` | 期限は**明日18:00 / 3日後18:00 / 日時を選ぶ**（入力は端末に任せる・自作の日付ホイールを作らない）。**過ぎたものを「あと -2日」と出さない** |
+| `client-v4/recent.ts` | **最近見たもの**（端末の中だけ・8件）。サーバーに表を作らない —「見た」は業務の記録ではない。**別の端末では出ないことを画面に書くこと** |
+| `tokens-v4.css` の末尾（動き） | 画面遷移 `screenIn`・カード `cardIn`・帯 `toastIn`/`barGrow`・押した瞬間の 0.97 倍・`[data-reveal]`・`.v4-skeleton`・`.v4-rail` ほか。**Tailwind の `animation` キーに足さず、素の CSS クラス（`.v4-*`）にする**。⚠️ 隠して見せる系の既定は「見える」— JS が落ちた日に白紙にしない。**繰り返す動きは `prefers-reduced-motion` で名指しで止める**（`*` の一括だと 1 コマだけ流れて半端な明るさで固まる） |
+| `client-v4/flip.ts` の `useFlip()` | **並び替え・絞り込みで行を滑らせる**（FLIP）。①再測定をループさせない ②行の鍵は `data-flip-key`（検査用の `data-row` と兼ねない）③新しく現れた行は滑らせずフェードイン ④シートを閉じるのと同じコマで測らない。滑りの `transition` は動かす回だけ付ける |
+| `client-v4/rail.ts` の `useRail()` | **横スクロールのレール**。①離すと慣性で減衰 ②8px までクリック扱い・10px 超で直後のクリックを1回捨てる ③縦ホイールを横送りに変換（端では変換しない）④続きがある側だけ `mask-image` ⑤動きを減らす設定では慣性を付けない |
+| `client-v4/NotificationBell.tsx` | 上辺バーのベル（社内通知）。シェル側は `notificationSlot` の受け口だけ。押したときの移動は素の遷移（行き先がアプリをまたぐ） |
+| `client-v4/downscaleImage.ts` | **送る前に写真を縮める**（AI の費用を下げる・長辺 1600px / JPEG 0.8）。⚠️ 読めなくしない — 拡大しない／元より重くなったら元を使う／縮められなかったら元を送る。判定は `shared/tests/downscaleImage.test.ts` で固定 |
+| `client-v4/offlineQueue.ts` | **端末に溜めて後で送る列**。鍵で上書きなので同じ操作は列に1つ。**載せてよいのは何回やっても結果が同じ操作だけ**（棚卸しの印・返却）。「行を作る操作」を載せると二重登録の原因になる |
 
-- ⚠️ **「スクロールで上辺バーを畳む」（M9）は消しました。** 判定のフック
-  （`client-v4/collapseOnScroll.ts`）と `AppShell` が付けていた印だけが残り、
-  **見た目を決める規則は `0ed18d34`（スマホ上辺バーをモックに戻した回）で
-  巻き添えに削除されていました** — つまり印を書くだけで何も起きない状態が続いていました。
-  スクロールのたびに判定が走り、`AppShell` が描き直され、`<main>` の ref も
-  握っていたので、**動かない機能のために毎回の再描画だけを払っていた**ことになります。
-  戻すなら CSS（`[data-shell-collapsed]`）とフックを**同じ回で**入れること。
-  片方だけ入れると、また同じ「誰も気づかない死んだ機能」になります
+このほか `swipeAction` / `pullToRefresh` / `edgeSwipeBack` / `recording` / `richContent` /
+`noteText` も同じ場所にある（一覧はディレクトリを直接見る）。
+
 - **`useIsMobile()` で早期 return しない。** 同じ部品の中で `if (mobile) return …` と
-  書くと、幅が変わったときに**フックの数が変わって React が落ちます**。
+  書くと、幅が変わったときに**フックの数が変わって React が落ちる**。
   「どちらを描くか決めるだけ」の薄い親を作り、**部品ごと入れ替える**こと
-- 計算だけの2つ（`duePresets` / `dueLabel`）は `shared/tests/mobile.test.ts` で固定してある
-  （日付の足し算は画面を見ても間違いに気づけない）
+- 計算だけのもの（`duePresets` / `dueLabel` 等）は `shared/tests/` で固定してある
+- ⚠️ **「片方だけ入れた機能は死ぬ」の実例**: スクロールで上辺バーを畳む機能（M9）は、
+  CSS 規則だけが別の回で消え、**印を付ける JS だけが残って何も起きない状態**が続いていた
+  （動かない機能のために毎回の再描画だけを払っていた）。フックと CSS は**同じ回で**出し入れする
 
 ### 段を足したら `cn()` にも教える（P2 で判明・最重要）
 
@@ -599,45 +520,30 @@ v4 対象3アプリの `tailwind.config.ts` が `presets: [preset, v4Preset]` �
 
 - **`shared/` を触る PR は全アプリの再ビルドを起こす。** 「共通部分を触る PR」と
   「1アプリだけの PR」を意識して分けること（分ければ後者はビルドがスキップされる）
-- **`shared/src/client/` に新しいクラス名を書くと、凍結4アプリの CSS にも入る。**
-  各アプリの Tailwind の `content` が `../shared/src/client/**` を含むため、
-  **そのアプリが描かない部品のクラスまで CSS になる**。実際に左メニューへ
-  `lg:min-h-[32px]` を1つ足しただけで凍結3アプリの CSS が 28 バイト増えた
-  （`tests/` を `src/` の外に置いてあるのと同じ理由）。
-
-  → **v4 でしか使わない共通部品は `shared/src/client-v4/` に置くこと。**
-  v4 対象3アプリの `tailwind.config.ts` だけが `../shared/src/client-v4/**` を
-  content に持っているので、**凍結アプリの CSS は1バイトも増えません**。
-  `RichContent`（AI が取り込んだ内容を描く部品）を `src/client/ui/` に置いたとき、
-  `gap-x-4` / `border-warning-border` / `pl-5` / `underline` の**4規則・231バイト**が
-  qsheet・techsheet（当時。いまは削除済み）・計時LIVE の CSS に入ったのを実測して切り分けました。
-
-  → `src/client/` を触ったときは**凍結アプリの CSS のハッシュを必ず突き合わせる**。
-  既にある値で足りるならそれを使う（上の例は `lg:min-h-[38px]` で解決した）
+- **`shared/src/client/` に新しいクラス名を書くと、そこを走査する全アプリの CSS に入る**
+  （コメント・説明文の中でも。上の警告ブロック参照）。使う実体の無い規則で CSS を
+  太らせないため、**既にある値で足りるならそれを使い、新しい見た目の切り替えは
+  属性 ＋ `tokens-v4.css` に寄せる**。v4 で足す部品は `shared/src/client-v4/` へ
 - **アプリ一覧は `src/client/apps.ts` が唯一の正**（S1 で統合済み）。
-  以前は `AppSwitcher` の `ONAIR_APPS`・`appNav` の `ALL_APPS`・`client` の `BLOCK_APPS`・
-  各 `Sidebar`・`NoPermissionPanel` の5か所にあり、**すでに食い違っていた**
-  （`studio` が「カレンダー」と「スタジオ予約」、技術資料のアイコンが2種類、
-  計時LIVE のアイコンがどの対応表にも無く既定の箱に落ちていた）。
-  **アイコンは部品そのもの**を持つので、名前→部品の対応表（7個あった）はもう要らない
+  以前は5か所にあり、**すでに食い違っていた**。**アイコンは部品そのもの**を持つので、
+  名前→部品の対応表はもう要らない
 - `src/collab/` を変えたら `server/src/shared/collab/` も同じに直す（検査で止まる）
 
-## 書体は同梱している（v4 の3アプリだけ）
+## 書体は同梱している
 
-`src/client/fonts/lineseedjp/` に **LINE Seed JP の woff2 372 個（6.07MB）**が入っています
+`src/client/fonts/lineseedjp/` に **LINE Seed JP の woff2 一式（約6MB）**が入っている
 （`scripts/vendor-fonts.mjs` の生成物 / **SIL Open Font License 1.1** © LY Corporation）。
-`fonts/lineseedjp.css` を `tokens-v4.css` から読むので、**v4 の3アプリだけ**に効きます。
+`fonts/lineseedjp.css` を `tokens-v4.css` から読むので、**`base.css` を読む配信中5アプリ**に効く。
 
 - **なぜ外から読むのをやめたか**: 開発コンテナのブラウザは `fonts.googleapis.com` に
-  出られないので、`npm run dev` は**ずっと代替書体**でした（本物になるのは
-  `verify:ui` が取り置きを差し込んだときだけ）。字幅はラテンで最大 13% 違い、
-  **一覧の GLS番号・日付・金額の桁揃えを本番と違う幅で見ていた**ことになります。
-  本番も Google Fonts が届く前提で、社内ネットで塞がれた日に全画面が崩れました
+  出られないので、`npm run dev` は**ずっと代替書体**だった。字幅はラテンで最大 13% 違い、
+  **一覧の GLS番号・日付・金額の桁揃えを本番と違う幅で見ていた**ことになる。
+  本番も Google Fonts が届く前提で、社内ネットで塞がれた日に全画面が崩れた
 - **6MB を配るわけではない**: Google の `unicode-range` の刻み方をそのまま持ってきたので、
-  ブラウザは**使う範囲だけ**落とします。利用者が最初に受け取る量は今までと同じ
-- **凍結4アプリは触っていない**: Noto Sans JP は **79.7MB** あり、
-  そもそも見た目を変えない側です。今までどおり Google Fonts を読みます
-- **`OFL.txt` を消さないこと**。OFL は license を書体と一緒に配ることを求めます
-- 入れ直しは `npm run fonts`。**欠けたら `npm run lint` が止まります**
+  ブラウザは**使う範囲だけ**落とす。利用者が最初に受け取る量は今までと同じ
+- **Google Fonts の読み込みが残っている場所**: `client-live`（表示画面の Noto Sans JP）と
+  `client-techops`（旧画面向け）の `index.html`、および保存のみの `client-awards`
+- **`OFL.txt` を消さないこと**。OFL は license を書体と一緒に配ることを求める
+- 入れ直しは `npm run fonts`。**欠けたら `npm run lint` が止まる**
   （`check-fonts-vendored.mjs`）— 欠けても画面は出てしまうので、
-  「なんとなく字が違う」以外に気づく手がかりがありません
+  「なんとなく字が違う」以外に気づく手がかりが無い
