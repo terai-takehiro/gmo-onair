@@ -9,6 +9,10 @@ PostgreSQL（qsheet_rental_items）へ同期する。cronにはこのファイ�
 流れ: 東京オフラインセンター → レスター → SQLite(rental_items.db) → Postgres 同期
 （sync_to_postgres.py 参照。DATABASE_URL が無ければ同期はスキップしてログに残す
  — スクレイパー自体は失敗させない）。
+
+`main()` を公開している。scheduler.py（コンテナの常駐プロセス）から
+`import run_all; run_all.main()` として呼ばれる想定。CLI から直接
+`python3 run_all.py` で叩く使い方（cron 登録）とどちらでも同じ経路を通る。
 """
 import logging
 import toc_scraper
@@ -18,7 +22,8 @@ import sync_to_postgres
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-if __name__ == "__main__":
+
+def main():
     log.info("### 東京オフラインセンター 開始 ###")
     toc_scraper.run()
 
@@ -29,3 +34,7 @@ if __name__ == "__main__":
     sync_to_postgres.run()
 
     log.info("### 全件完了 ###")
+
+
+if __name__ == "__main__":
+    main()

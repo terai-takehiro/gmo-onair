@@ -44,7 +44,9 @@ v4 のトークンどおり（LINE Seed JP・#005bac・カード角丸14px・ボ
   `client-qsheet/src/pages/rental/`（`RentalSearchPage.tsx` / `RentalItemDetailDialog.tsx` /
   `RentalReservationsPage.tsx` / `RentalMailPage.tsx`）が①検索〜④依頼メールの4画面。
 - **DB取り込みも実装済み。** `rental-scraper/`（2社サイトのクロール → `rental_items.db` →
-  本体 Postgres の `qsheet_rental_items` への同期）。詳細・cron運用は
+  本体 Postgres の `qsheet_rental_items` への同期）。**検証環境では main へのマージのたびに
+  自動実行される**（`rental_scraper_dev` コンテナ・`docker-compose.yml` / `deploy.yml`）。
+  本番はまだ自動化していない。詳細は
   [rental-scraper/README.md](../../../../rental-scraper/README.md) を参照。
 - **開発・検証環境では rental-scraper を動かさなくても画面確認できる。**
   `server/src/shared/db/seed-rental.ts`（`qsheet_rental_items` にサンプル機材8件を投入。

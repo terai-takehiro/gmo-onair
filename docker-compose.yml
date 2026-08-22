@@ -212,6 +212,32 @@ services:
     restart: unless-stopped
 
   # ──────────────────────────────────────
+  # レンタル機材スクレイパー（検証環境のみ・v4.1.8）
+  # ──────────────────────────────────────
+  # 東京オフラインセンター・レスターの機材ページを毎日クロールし、
+  # 検証の Postgres (onair_dev / qsheet_rental_items) へ同期する常駐コンテナ。
+  # GHCR には積まない（rental-scraper/ を VPS 上でその場ビルドする軽量イメージ）。
+  # 中身・運用手順は rental-scraper/README.md。デプロイの結線は
+  # .github/workflows/deploy.yml の staging ジョブ（rental_scraper_dev）参照。
+  #
+  # ⚠️ **検証環境専用。本番 (app_prod) 向けの同種サービスはまだ無い。**
+  # 本番で実際にスクレイピングを始めるかどうかは、ユーザーが明示的に指示するまで
+  # 判断しない（CLAUDE.md「環境分離ポリシー」「本番デプロイの絶対原則」と同じ精神）。
+  rental_scraper_dev:
+    build:
+      context: ./rental-scraper
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_dev
+      # デプロイ直後に1回実行する（「実際にスクレイピングできているか」を
+      # 翌日5時を待たずに確認できるようにするため）。以降は RENTAL_CRON_HOUR に1日1回
+      RENTAL_RUN_ON_STARTUP: "true"
+      RENTAL_CRON_HOUR: ${RENTAL_CRON_HOUR:-5}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────
   # Nginx (SSL + リバースプロキシ)
   # ──────────────────────────────────────
   nginx:
