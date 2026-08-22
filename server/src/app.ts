@@ -54,7 +54,17 @@ export function createApp(): express.Express {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https://*.ytimg.com"],
+        // レンタル機材検索 (rental-scraper) が取得する製品写真の配信元。
+        // ここに無いと画像はブラウザに一切読み込まれない（CSP違反はネットワーク要求自体を
+        // 出さずに止めるため、URL自体が正しくても「表示されない」形の不具合になる。
+        // 実際に検証環境でこれを踏んだ）。
+        //   TOC:     ec.toc-net.jp/img/device_img/...
+        //   レスター: www.restargp.com（og:image）/ kuroco-img.app（CMSのCDN）
+        imgSrc: [
+          "'self'", "data:", "blob:", "https://*.ytimg.com",
+          "https://ec.toc-net.jp", "https://www.restargp.com",
+          "https://kuroco-img.app", "https://*.kuroco-img.app",
+        ],
         connectSrc: ["'self'", "ws:", "wss:"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],

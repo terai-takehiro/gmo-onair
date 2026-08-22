@@ -64,14 +64,16 @@ END_MARKER = "レンタルに関するお問い合わせ"
 
 
 def fetch(url: str, retries: int = 3):
+    """成功時は**バイト列**（`resp.content`）を返す。toc_scraper.py の fetch() と
+    同じ理由（`apparent_encoding` の推定に頼らず BeautifulSoup 側の自動検出に
+    デコードを任せる。日本語部分だけ文字化けする不具合の対処）。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
-            return resp.text
+            return resp.content
         except requests.RequestException as e:
             log.warning("取得失敗(%d/%d) %s: %s", attempt, retries, url, e)
             time.sleep(2 * attempt)
@@ -98,7 +100,7 @@ def _extract_images(soup: BeautifulSoup) -> list:
     return images
 
 
-def parse_item_detail(item_id: str, html: str) -> ItemDetail:
+def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
     soup = BeautifulSoup(html, "html.parser")
     detail = ItemDetail(item_id=item_id, url=ITEM_URL_TMPL.format(id=item_id))
 
