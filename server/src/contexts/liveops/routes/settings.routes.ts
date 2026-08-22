@@ -6,8 +6,8 @@ import { encrypt, decrypt, mask } from '../crypto';
 import { resolveKey } from '../resolve-key';
 
 const router = Router();
-const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
-const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
+const canRead  = [requireAuth, requirePermission('qsheet', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
 router.get('/', ...canRead, async (req, res) => {
   try {

@@ -55,6 +55,24 @@ export const QSHEET_PC_ONLY: PcOnlyEntry[] = [
     why: '列・項目の組み合わせを一度に見ながら組む画面で、狭い幅では組めません。',
     instead: { label: 'スケジュール表の一覧を開く', to: '/qsheet/schedules' },
   },
+  {
+    // 計時・視聴者（liveops）の組織の鍵設定。旧 client-live 側の `LIVE_PC_ONLY`
+    // （`/settings`）と同じ理由。番組設定（`/qsheet/live/:ownerKey/settings`）は
+    // 対象外 — 元実装（`LIVE_MOBILE_OK`）どおりスマホでも開ける
+    path: '/qsheet/live-org-settings',
+    what: '計時・視聴者の組織の鍵設定',
+    why: 'YouTube・Jstream・Zoom・TeamsのAPIキーや資格情報を登録する画面です。外部サービスの管理画面と往復しながら入力するため、PCでの操作を前提にしています。',
+    instead: { label: 'アプリのトップを開く', to: '/qsheet/top' },
+  },
+  {
+    // 計時・視聴者の「案件に紐づかない既存セッション」一覧（レビュー対応・§致命的2）。
+    // 一覧＋タイマー操作＋視聴者計測パネルを1画面に収めた管理者向けの診断画面で、
+    // 組織の鍵設定と同じ理由（狭い幅で運用する想定ではない）でPC専用にした。
+    path: '/qsheet/live-legacy',
+    what: '計時・視聴者の案件に紐づかないセッション一覧',
+    why: '旧スタンドアロン作成で残ったセッションを探して開き直すための管理者向け画面で、日常的にスマホから開く運用ではありません。',
+    instead: { label: 'アプリのトップを開く', to: '/qsheet/top' },
+  },
 ];
 
 /**
@@ -81,6 +99,9 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/rental/:ownerKey', // レンタル機材検索（カード一覧。スマホは1列）（2026-08-22 追加）
   '/qsheet/rental/:ownerKey/list', // レンタル機材検索・予約リスト（同上）
   '/qsheet/rental/:ownerKey/mail/:company', // レンタル機材検索・依頼メール作成（同上）
+  '/qsheet/live/:ownerKey', // 計時・視聴者・ダッシュボード（本番中に会場・ロビーから確認する場面がある。移植元の client-live 版もスマホで開いていた）
+  '/qsheet/live/:ownerKey/timers', // 計時・視聴者・タイマー管理（同上）
+  '/qsheet/live/:ownerKey/settings', // 計時・視聴者・番組設定（移植元の client-live 版もスマホで開いていた。縦一列のフォーム）
   '/qsheet/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
   '/qsheet/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
   '/qsheet/programs/:id', // 制作のジャーニー（番組＝マニュアルの入口）。2026-08-22 追加・同上
