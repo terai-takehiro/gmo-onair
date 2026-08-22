@@ -17,7 +17,7 @@
  *
  * 使い方:
  *   node scripts/verify-ui.mjs                 # 全ページ
- *   node scripts/verify-ui.mjs qsheet live     # 名前に含むページだけ
+ *   node scripts/verify-ui.mjs techops live    # 名前に含むページだけ
  *   BASE=http://localhost:3001 node scripts/verify-ui.mjs
  */
 import { ensureFontCache, installFontCache } from './lib/google-fonts-cache.mjs';
@@ -106,12 +106,12 @@ const PAGES = [
   ['設定 データ', '/settings/data-viewer'],
   ['設定 DBバックアップ', '/settings/db-backups'],
   ['設定 全体', '/settings'],
-  ['Qシート 一覧', '/qsheet/'],
-  ['Qシート 編集', '/qsheet/editor/verify-onair'],
-  ['Qシート OnAir', '/qsheet/onair/verify-onair', { dark: true }],
-  ['Qシート ランダウン', '/qsheet/rundown/verify-onair', { dark: true }],
-  ['Qシート プロンプター', '/qsheet/prompter/verify-onair', { dark: true }],
-  ['Qシート 公開音声', '/qsheet/audio/verify-onair'],
+  ['Qシート 一覧', '/techops/'],
+  ['Qシート 編集', '/techops/editor/verify-onair'],
+  ['Qシート OnAir', '/techops/onair/verify-onair', { dark: true }],
+  ['Qシート ランダウン', '/techops/rundown/verify-onair', { dark: true }],
+  ['Qシート プロンプター', '/techops/prompter/verify-onair', { dark: true }],
+  ['Qシート 公開音声', '/techops/audio/verify-onair'],
 
   // ── 計時LIVE (v4 対象・共通シェルへ載せ替え済み) ──────────────
   // 番組配下の画面 (ダッシュボード・タイマー管理・番組設定) は種のデータが要る

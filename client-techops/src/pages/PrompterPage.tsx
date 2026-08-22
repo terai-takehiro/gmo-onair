@@ -65,7 +65,7 @@ export default function PrompterPage() {
   const { data: doc, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
-      const res = await api.get(`/qsheet/documents/${id}`);
+      const res = await api.get(`/techops/documents/${id}`);
       const d = res.data.data;
       if (typeof d.data === "string") d.data = JSON.parse(d.data);
       return d;
@@ -174,7 +174,7 @@ export default function PrompterPage() {
       if (e.key === 'ArrowDown') { e.preventDefault(); setFontSize(p => Math.max(p - 4, 16)); }
       if (e.key === 'ArrowRight') { e.preventDefault(); setScrollSpeed(p => Math.min(p + 10, 200)); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); setScrollSpeed(p => Math.max(p - 10, 10)); }
-      if (e.key === 'Escape') navigate(`/qsheet/editor/${id}`);
+      if (e.key === 'Escape') navigate(`/techops/editor/${id}`);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -211,7 +211,7 @@ export default function PrompterPage() {
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8"
-            onClick={() => navigate(`/qsheet/editor/${id}`)}
+            onClick={() => navigate(`/techops/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

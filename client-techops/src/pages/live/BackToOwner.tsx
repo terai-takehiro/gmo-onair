@@ -12,7 +12,7 @@ export interface BackToOwnerTarget {
 export default function BackToOwner({ owner }: { owner: BackToOwnerTarget }) {
   return (
     <a
-      href={owner.kind === 'project' ? `/qsheet/projects/${owner.id}` : `/qsheet/programs/${owner.id}`}
+      href={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
       className="mb-3 flex h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:bg-muted"
     >
       <ChevronLeft className="h-5 w-5" />

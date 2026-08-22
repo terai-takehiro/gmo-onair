@@ -256,7 +256,7 @@ export default function EditorPage() {
   const { data: queryData, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
-      const res = await api.get(`/qsheet/documents/${id}`);
+      const res = await api.get(`/techops/documents/${id}`);
       return res.data.data as QsheetDocument;
     },
     enabled: !!id,
@@ -297,7 +297,7 @@ export default function EditorPage() {
   const saveMutation = useMutation({
     mutationFn: async (document: QsheetDocument) => {
       setSaveStatus("saving");
-      const res = await api.put(`/qsheet/documents/${document.id}`, {
+      const res = await api.put(`/techops/documents/${document.id}`, {
         title: document.data.meta.title || document.title,
         data: document.data,
         status: document.status,
@@ -580,7 +580,7 @@ export default function EditorPage() {
         <div className="flex items-center justify-between px-4 h-11">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
-              onClick={() => navigate("/qsheet/sheets")}
+              onClick={() => navigate("/techops/sheets")}
               className="p-1 rounded-control-md hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="ダッシュボードに戻る"
             >
@@ -695,15 +695,15 @@ export default function EditorPage() {
             )}
 
             {/* Navigation buttons — tablet+ */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
+            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/techops/rundown/${doc.id}`)}>
               <List className="h-4 w-4" />
               <span className="hidden lg:inline text-xs">ランダウン</span>
             </Button>
-            <Button variant="ghost" size="sm" className="hidden lg:flex h-8 gap-1" onClick={() => navigate(`/qsheet/prompter/${doc.id}`)}>
+            <Button variant="ghost" size="sm" className="hidden lg:flex h-8 gap-1" onClick={() => navigate(`/techops/prompter/${doc.id}`)}>
               <MonitorPlay className="h-4 w-4" />
               <span className="hidden xl:inline text-xs">プロンプター</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/onair/${doc.id}`)}>
+            <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/techops/onair/${doc.id}`)}>
               <Radio className="h-4 w-4" />
               <span className="hidden sm:inline text-xs">ON AIR</span>
             </Button>

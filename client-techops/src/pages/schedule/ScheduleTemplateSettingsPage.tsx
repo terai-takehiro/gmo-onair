@@ -34,11 +34,11 @@ export default function ScheduleTemplateSettingsPage() {
 
   const templatesQuery = useQuery({
     queryKey: ["schedule-templates", null],
-    queryFn: async () => (await api.get<{ success: boolean; data: ScheduleTemplate[] }>("/qsheet/schedule-templates")).data.data,
+    queryFn: async () => (await api.get<{ success: boolean; data: ScheduleTemplate[] }>("/techops/schedule-templates")).data.data,
   });
 
   const createMutation = useMutation({
-    mutationFn: async () => (await api.post<{ success: boolean; data: { id: string } }>("/qsheet/schedule-templates", { name: newName })).data.data,
+    mutationFn: async () => (await api.post<{ success: boolean; data: { id: string } }>("/techops/schedule-templates", { name: newName })).data.data,
     onSuccess: (row) => {
       queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] });
       setNewName("");
@@ -48,7 +48,7 @@ export default function ScheduleTemplateSettingsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/qsheet/schedule-templates/${id}`),
+    mutationFn: (id: string) => api.delete(`/techops/schedule-templates/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] }); setSelectedId(null); notifySuccess("削除しました"); },
     onError: () => notifyError("削除に失敗しました"),
   });
@@ -108,21 +108,21 @@ function TemplateDetail({ template, onDelete }: { template: ScheduleTemplate; on
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] });
 
   const addColumn = useMutation({
-    mutationFn: () => api.post(`/qsheet/schedule-templates/${template.id}/columns`, { col_group: colGroup, label: colLabel }),
+    mutationFn: () => api.post(`/techops/schedule-templates/${template.id}/columns`, { col_group: colGroup, label: colLabel }),
     onSuccess: () => { setColLabel(""); invalidate(); },
     onError: () => notifyError("列を追加できませんでした"),
   });
   const removeColumn = useMutation({
-    mutationFn: (columnId: string) => api.delete(`/qsheet/schedule-templates/columns/${columnId}`),
+    mutationFn: (columnId: string) => api.delete(`/techops/schedule-templates/columns/${columnId}`),
     onSuccess: invalidate,
   });
   const addItem = useMutation({
-    mutationFn: () => api.post(`/qsheet/schedule-templates/${template.id}/items`, { column_id: itemColumnId, title: itemTitle }),
+    mutationFn: () => api.post(`/techops/schedule-templates/${template.id}/items`, { column_id: itemColumnId, title: itemTitle }),
     onSuccess: () => { setItemTitle(""); invalidate(); },
     onError: () => notifyError("項目を追加できませんでした"),
   });
   const removeItem = useMutation({
-    mutationFn: (itemId: string) => api.delete(`/qsheet/schedule-templates/items/${itemId}`),
+    mutationFn: (itemId: string) => api.delete(`/techops/schedule-templates/items/${itemId}`),
     onSuccess: invalidate,
   });
 

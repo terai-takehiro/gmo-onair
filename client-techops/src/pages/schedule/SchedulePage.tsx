@@ -135,7 +135,7 @@ export default function SchedulePage() {
       notifySuccess("進行台本を作りました");
       closeDialog();
       refetchDetail();
-      navigate(`/qsheet/editor/${document.id}`);
+      navigate(`/techops/editor/${document.id}`);
     } catch (err) {
       if (isConflict(err)) notifyError("すでに台本が結ばれています");
       else notifyError("台本を作れませんでした");
@@ -143,12 +143,12 @@ export default function SchedulePage() {
   };
 
   const handleOpenScript = () => {
-    if (selectedItem?.qsheet_document_id) navigate(`/qsheet/editor/${selectedItem.qsheet_document_id}`);
+    if (selectedItem?.qsheet_document_id) navigate(`/techops/editor/${selectedItem.qsheet_document_id}`);
   };
 
   const handleExport = async () => {
     try {
-      const res = await api.get(`/qsheet/schedules/${id}/export-xlsx`, { responseType: "blob" });
+      const res = await api.get(`/techops/schedules/${id}/export-xlsx`, { responseType: "blob" });
       const disposition = res.headers["content-disposition"] as string | undefined;
       const match = disposition?.match(/filename\*=UTF-8''([^;]+)/);
       const filename = match ? decodeURIComponent(match[1]) : "schedule.xlsx";
@@ -172,7 +172,7 @@ export default function SchedulePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={() => navigate("/qsheet/schedules")}>
+        <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={() => navigate("/techops/schedules")}>
           <ArrowLeft className="mr-1 h-4 w-4" />一覧へ
         </Button>
         <h1 className="text-lg font-semibold text-foreground">{schedule.service_date} {schedule.title}</h1>

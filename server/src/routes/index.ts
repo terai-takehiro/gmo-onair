@@ -23,7 +23,11 @@ export function createRoutes(): Router {
   router.use('/gpm', createGpmRoutes());   // プロジェクト管理 (migration 161)
   router.use(createAssetRoutes());
   router.use(createEquipmentRoutes());
-  router.use(createQsheetRoutes());
+  // Phase 2 (qsheet→techops 移行): 二重マウント。旧 /qsheet/* を叩く既存クライアント/外部連携との
+  // 後方互換のため残しつつ、新しい client-techops バンドルが呼ぶ /techops/* も同じルーターで追加提供する。
+  // /qsheet/* は撤去しない（両方を維持する）。
+  router.use(createQsheetRoutes('/qsheet'));
+  router.use(createQsheetRoutes('/techops'));
   router.use(createLiveopsRoutes());
   // awards (リアルタイムCG) / quiz は廃止のため登録しない。中身は contexts/awards, contexts/quiz に残す
   router.use(createTasksRoutes());

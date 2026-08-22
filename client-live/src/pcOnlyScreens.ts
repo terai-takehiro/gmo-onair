@@ -7,7 +7,7 @@
  *
  * ⚠️ v4.1 段2（ミニアプリ化フェーズ2・URL再設計）で、運用画面
  * （ダッシュボード・タイマー管理・番組設定・組織の鍵設定）はすべて
- * `client-techops` バンドル側（`/qsheet/live/...`）へ移った。ここに残る
+ * `client-techops` バンドル側（`/techops/live/...`）へ移った。ここに残る
  * `/open` `/settings` `/program/:programId` 配下3つは**旧URLのリダイレクト専用画面**
  * （`pages/redirects/`）になったため、`<Redirect...>` という名前の部品を使う
  * ルートとして `check-mobile-declared.mjs` の対象から自動的に外れる
@@ -17,7 +17,7 @@
  *
  * - **PC専用の画面はもう無い。** 旧「組織の設定（`/settings`）」の PC専用判断は
  *   移植先の `client-techops/src/pcOnlyScreens.ts`（`TECHOPS_PC_ONLY` の
- *   `/qsheet/live-org-settings`）に引き継いだ
+ *   `/techops/live-org-settings`）に引き継いだ
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 

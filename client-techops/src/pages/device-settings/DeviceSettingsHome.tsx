@@ -3,7 +3,7 @@
 // ⚠️ 2026-08-22 廃止: サーバー配信・ルート・サイドバーの入口をすべて外した。コードだけ残す。
 // CLAUDE.md の「廃止」の定義（コードは消さずリポジトリに残すが、配信・ビルド対象・
 // 画面上の入口をすべて外し、Webサイトのどこからも到達できなくする）と同じ扱い。
-// `App.tsx` から `<Route path="/qsheet/device-settings">` を削除し、`nav.ts`
+// `App.tsx` から `<Route path="/techops/device-settings">` を削除し、`nav.ts`
 // （サイドバー・スマホタブ）もこの画面へのリンクを持たない。理由: サイドバーが
 // いまの案件/番組の文脈から収録設定・配信設定へ直接リンクするようになった
 // （`nav.ts` の `buildQsheetNav`）ため、GLS番号・案件IDを手入力して遠回りする
@@ -13,7 +13,7 @@
 // 以下は廃止前（簡易入口として使われていた当時）の実装コメント:
 //
 // ⚠️ 2026-08-22 作り直し: これまでは GLS番号/案件IDと実施日を手入力させ、
-// 「収録設定を開く」「配信設定を開く」の2ボタンで `/qsheet/recording|streaming/:ownerKey?date=...`
+// 「収録設定を開く」「配信設定を開く」の2ボタンで `/techops/recording|streaming/:ownerKey?date=...`
 // へ直接飛ばしていた。これはこのアプリの正規のジャーニー（番組・案件を選ぶ → ハブ画面
 // [JourneyPage.tsx] → ミニアプリタイルで収録設定/配信設定を開く）を経由しない抜け道になっており、
 // 「サイドバーの導線がジャーニーUXと矛盾している」という指摘の直接の原因だった。加えて
@@ -21,7 +21,7 @@
 // （最新の service_date を自動解決する）挙動と食い違い、余計な入力を強いていた。
 //
 // 直した方針: 入力を「案件（GLS番号 または 案件ID）」の1つだけにし、送信したら
-// `getOwnerContext` で解決してハブ画面（/qsheet/projects/:id または /qsheet/programs/:id）へ
+// `getOwnerContext` で解決してハブ画面（/techops/projects/:id または /techops/programs/:id）へ
 // 遷移するだけにした。収録/配信のどちらを開くか・どの日を開くかは、遷移した先のハブの
 // ミニアプリタイルで選ぶ（収録設定・配信設定のタイルは日付を問わず「最新の実施日」を
 // 自動で開く挙動に統一されているため、ここで日付を訊く必要が無い）。
@@ -51,7 +51,7 @@ export default function DeviceSettingsHome() {
         notifyError('見つかりませんでした。GLS番号または案件IDを確認してください');
         return;
       }
-      navigate(ctx.kind === 'project' ? `/qsheet/projects/${ctx.id}` : `/qsheet/programs/${ctx.id}`);
+      navigate(ctx.kind === 'project' ? `/techops/projects/${ctx.id}` : `/techops/programs/${ctx.id}`);
     } finally {
       setIsLoading(false);
     }

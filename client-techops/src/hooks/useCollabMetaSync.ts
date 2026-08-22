@@ -22,7 +22,7 @@ interface UseCollabMetaSyncArgs {
 }
 
 /**
- * collab (Yjs) 有効時は `PUT /qsheet/documents/:id` が一度も飛ばないため、
+ * collab (Yjs) 有効時は `PUT /techops/documents/:id` が一度も飛ばないため、
  * `qsheet_documents` の `title` / `status` / `broadcast_date` / `episode_id` / `episode_code`
  * という**メタ列だけ**が更新されなくなる不具合の直し
  * (段5 PR11・docs/design/v4/qsheet-v4-coding/impl/05-editor-impl.md §3-3 ★追加(重大))。
@@ -41,7 +41,7 @@ export function useCollabMetaSync({ collabEnabled, docId, meta, onSynced }: UseC
 
   const mutation = useMutation({
     mutationFn: async (payload: { id: string; meta: DocMetaColumns }) => {
-      const res = await api.patch(`/qsheet/documents/${payload.id}/meta`, payload.meta);
+      const res = await api.patch(`/techops/documents/${payload.id}/meta`, payload.meta);
       return res.data.data as { updated_at: string };
     },
     onSuccess: (saved) => {

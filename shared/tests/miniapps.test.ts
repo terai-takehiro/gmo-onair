@@ -51,7 +51,7 @@ describe('MINI_APPS — 登録そのもの', () => {
     + 'kind: \'external\' から \'panel\' へ統合した（運用画面が client-techops バンドル内へ移植されたため）', () => {
     expect(MINI_APP_BY_KEY.liveops.kind).toBe('panel');
     expect(MINI_APP_BY_KEY.liveops.enabled).toBe(true);
-    expect(MINI_APP_BY_KEY.liveops.path).toBe('/qsheet/live/:ownerKey');
+    expect(MINI_APP_BY_KEY.liveops.path).toBe('/techops/live/:ownerKey');
     // 権限区画の統合（migration 232・計時・視聴者のミニアプリ化フェーズ2）で
     // 'liveops' → 'qsheet' になり、他の panel 系ミニアプリと区画が揃った。
     // `permissionModule`（ハブと別区画のときだけ明示するフィールド）はどこからも
@@ -71,7 +71,7 @@ describe('MINI_APPS — 登録そのもの', () => {
 
   it('label は画面に出す名前だけを持つ（内部識別子 qsheet を含まない）', () => {
     for (const a of MINI_APPS) {
-      expect(a.label).not.toMatch(/qsheet/i);
+      expect(a.label).not.toMatch(/techops/i);
       expect(a.label).not.toBe('Qシート');
     }
   });
@@ -85,8 +85,8 @@ describe('MINI_APPS — 登録そのもの', () => {
 
 describe('docPathOf — document 専用', () => {
   it('`:id` を実際の id に置換する', () => {
-    expect(docPathOf('sheet', 'abc123')).toBe('/qsheet/editor/abc123');
-    expect(docPathOf('schedule', 'xyz')).toBe('/qsheet/schedules/xyz');
+    expect(docPathOf('sheet', 'abc123')).toBe('/techops/editor/abc123');
+    expect(docPathOf('schedule', 'xyz')).toBe('/techops/schedules/xyz');
   });
 
   it('panel の key を渡すと例外', () => {
@@ -96,10 +96,10 @@ describe('docPathOf — document 専用', () => {
 
 describe('panelPathOf — panel 専用', () => {
   it('`:ownerKey` を実値に置き換える', () => {
-    expect(panelPathOf('recording', 'GLS-A012')).toBe('/qsheet/recording/GLS-A012');
-    expect(panelPathOf('streaming', 'GLS-A012')).toBe('/qsheet/streaming/GLS-A012');
+    expect(panelPathOf('recording', 'GLS-A012')).toBe('/techops/recording/GLS-A012');
+    expect(panelPathOf('streaming', 'GLS-A012')).toBe('/techops/streaming/GLS-A012');
     // liveops（計時・視聴者）も panel 統合後は他の panel と同じ書き方で通る
-    expect(panelPathOf('liveops', 'proj-123')).toBe('/qsheet/live/proj-123');
+    expect(panelPathOf('liveops', 'proj-123')).toBe('/techops/live/proj-123');
   });
 
   it('document の key を渡すと例外', () => {
@@ -127,34 +127,34 @@ describe('enabledMiniApps — 導線に出してよいものだけ', () => {
 
 describe('miniAppOfPath — URL から判定', () => {
   it('一覧の URL を判定する', () => {
-    expect(miniAppOfPath('/qsheet/sheets')?.key).toBe('sheet');
-    expect(miniAppOfPath('/qsheet/schedules')?.key).toBe('schedule');
+    expect(miniAppOfPath('/techops/sheets')?.key).toBe('sheet');
+    expect(miniAppOfPath('/techops/schedules')?.key).toBe('schedule');
   });
 
   it('資料1件の URL（`:id` を含む形）を判定する', () => {
-    expect(miniAppOfPath('/qsheet/editor/abc123')?.key).toBe('sheet');
-    expect(miniAppOfPath('/qsheet/schedules/xyz')?.key).toBe('schedule');
+    expect(miniAppOfPath('/techops/editor/abc123')?.key).toBe('sheet');
+    expect(miniAppOfPath('/techops/schedules/xyz')?.key).toBe('schedule');
   });
 
   it('panel の URL（`:ownerKey` を含む形）を判定する', () => {
-    expect(miniAppOfPath('/qsheet/recording/GLS-A012')?.key).toBe('recording');
-    expect(miniAppOfPath('/qsheet/streaming/GLS-A012')?.key).toBe('streaming');
+    expect(miniAppOfPath('/techops/recording/GLS-A012')?.key).toBe('recording');
+    expect(miniAppOfPath('/techops/streaming/GLS-A012')?.key).toBe('streaming');
   });
 
   it('**長い path から先に見る**（短い listPath が誤って先に一致しない）', () => {
-    // schedules の一覧 (/qsheet/schedules) と資料1件 (/qsheet/schedules/:id) が
+    // schedules の一覧 (/techops/schedules) と資料1件 (/techops/schedules/:id) が
     // 前方一致で衝突しないことを確認
-    const found = miniAppOfPath('/qsheet/schedules/xyz');
+    const found = miniAppOfPath('/techops/schedules/xyz');
     expect(found?.kind).toBe('document');
-    expect((found as MiniAppDocumentDef).docPath).toBe('/qsheet/schedules/:id');
+    expect((found as MiniAppDocumentDef).docPath).toBe('/techops/schedules/:id');
   });
 
   it('知らない URL は undefined', () => {
-    expect(miniAppOfPath('/qsheet/nope')).toBeUndefined();
+    expect(miniAppOfPath('/techops/nope')).toBeUndefined();
   });
 
   it('panel の URL（計時・視聴者）を判定する', () => {
-    expect(miniAppOfPath('/qsheet/live/GLS-A012')?.key).toBe('liveops');
+    expect(miniAppOfPath('/techops/live/GLS-A012')?.key).toBe('liveops');
   });
 
   it('別バンドルの旧URL（/live/*）は候補にないので誤って一致しない', () => {

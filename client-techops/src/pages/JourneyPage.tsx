@@ -1,6 +1,6 @@
 /**
- * 制作のジャーニー — 案件（`/qsheet/projects/:id`）・番組（マニュアル・
- * `/qsheet/programs/:id`）・資料単体（`/qsheet/docs/:id`）ごとに
+ * 制作のジャーニー — 案件（`/techops/projects/:id`）・番組（マニュアル・
+ * `/techops/programs/:id`）・資料単体（`/techops/docs/:id`）ごとに
  * 「当日の枠 → 番組の流れ → 台本の中身」の3段でいまの状態を見る画面。
  * 実装設計: docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md §6・§8（PR D・PR F）。
  *
@@ -9,7 +9,7 @@
  * 人が `production_journey_marks` にピンを押したときだけ（PR D）。
  *
  * ⚠️ **`scope: "project" | "program"` はミニアプリのタイル（`MiniAppTiles`）へのハブでもある**
- * （2026-08-22 追加）。`/qsheet/top`（`ProductionTopPage.tsx`）で番組・イベントを選んだ先が
+ * （2026-08-22 追加）。`/techops/top`（`ProductionTopPage.tsx`）で番組・イベントを選んだ先が
  * ここで、ここから進行台本・スケジュール表・収録配信の設定へ分岐する
  * （`docs/design/v4/qsheet-v4-coding/impl/08-recording-streaming-impl.md` が
  * 「01段（案件詳細のミニアプリ一覧タイル）」と呼んでいたものの実装）。
@@ -143,7 +143,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
   }
 
   const { project, days } = journeyQuery.data;
-  const backTo = scope === "project" ? "/qsheet/home" : scope === "program" ? "/qsheet/top" : "/qsheet/sheets";
+  const backTo = scope === "project" ? "/techops/home" : scope === "program" ? "/techops/top" : "/techops/sheets";
   const backLabel = scope === "project" ? "案件を選ぶ画面に戻る" : scope === "program" ? "トップに戻る" : "進行台本の一覧に戻る";
   const title = scope === "document" ? days[0]?.docs[0]?.title || "資料" : project?.name ?? (scope === "program" ? "番組" : "案件");
 

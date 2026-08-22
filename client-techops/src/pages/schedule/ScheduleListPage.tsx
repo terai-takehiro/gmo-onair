@@ -47,7 +47,7 @@ export default function ScheduleListPage() {
     onSuccess: (row) => {
       queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
       setCreateOpen(false);
-      navigate(`/qsheet/schedules/${row.id}`);
+      navigate(`/techops/schedules/${row.id}`);
     },
     onError: () => notifyError("作成に失敗しました"),
   });
@@ -102,7 +102,7 @@ export default function ScheduleListPage() {
           <button
             key={s.id}
             type="button"
-            onClick={() => navigate(`/qsheet/schedules/${s.id}`)}
+            onClick={() => navigate(`/techops/schedules/${s.id}`)}
             className="flex w-full min-h-[44px] flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left hover:bg-accent"
           >
             <div className="flex w-full items-center gap-2">

@@ -52,7 +52,7 @@ export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef;
  * 初期値。**増やすときは1件ずつ**。
  *
  * `schedule` は段4（`02-schedule.md` の実装）で `true` にした。`qsheet_schedules` と
- * `/qsheet/schedules` が存在するようになったため、左メニュー・「＋新しく作る」に出してよい。
+ * `/techops/schedules` が存在するようになったため、左メニュー・「＋新しく作る」に出してよい。
  */
 export const MINI_APPS: MiniAppDef[] = [
   {
@@ -62,8 +62,8 @@ export const MINI_APPS: MiniAppDef[] = [
     docPrefix: 'SB',
     docNoSeq: 'prod_doc_sb',
     table: 'qsheet_documents',
-    listPath: '/qsheet/sheets',
-    docPath: '/qsheet/editor/:id',
+    listPath: '/techops/sheets',
+    docPath: '/techops/editor/:id',
     stages: ['flow', 'script'],
     enabled: true,
   },
@@ -74,8 +74,8 @@ export const MINI_APPS: MiniAppDef[] = [
     docPrefix: 'SD',
     docNoSeq: 'prod_doc_sd',
     table: 'qsheet_schedules',
-    listPath: '/qsheet/schedules',
-    docPath: '/qsheet/schedules/:id',
+    listPath: '/techops/schedules',
+    docPath: '/techops/schedules/:id',
     stages: ['day'],
     enabled: true,
   },
@@ -83,28 +83,28 @@ export const MINI_APPS: MiniAppDef[] = [
     kind: 'panel',
     key: 'recording',
     label: '収録設定',
-    path: '/qsheet/recording/:ownerKey',
+    path: '/techops/recording/:ownerKey',
     enabled: true,
   },
   {
     kind: 'panel',
     key: 'streaming',
     label: '配信設定',
-    path: '/qsheet/streaming/:ownerKey',
+    path: '/techops/streaming/:ownerKey',
     enabled: true,
   },
   {
     kind: 'panel',
     key: 'rental',
     label: 'レンタル機材検索',
-    path: '/qsheet/rental/:ownerKey',
+    path: '/techops/rental/:ownerKey',
     enabled: true,
   },
   {
     kind: 'panel',
     key: 'liveops',
     label: '計時・視聴者',
-    path: '/qsheet/live/:ownerKey',
+    path: '/techops/live/:ownerKey',
     // 権限区画の統合（migration 232）で 'liveops' → 'qsheet' に変更した。
     // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-techops バンドルへ移植し
     // kind: 'panel' に統合した。`permissionModule` フィールドはどこからも読まれて
