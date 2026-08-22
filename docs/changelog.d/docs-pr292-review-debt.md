@@ -1,0 +1,1 @@
+**PR #292（設計書10本の実装完了追記＋CSV削除条件の具体化）がレビュー0件のままマージされたことを棚卸しに記録した。** 作成から約1分でterai-takehiro本人が手動マージし、レビューは1件も届かなかった（`get_review_comments` で `totalCount: 0`）。表に移す指摘はない。`npm run reviews:debt` は今回も403で失敗（#288/#290と同じ理由）のため、GitHub MCP の `pull_request_read` で代替確認した。コード変更なし。
