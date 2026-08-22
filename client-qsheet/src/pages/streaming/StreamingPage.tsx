@@ -94,9 +94,11 @@ export default function StreamingPage() {
   const [copyFromOpen, setCopyFromOpen] = useState(false);
   const [owner, setOwner] = useState<OwnerContext | null>(null);
   const isNarrow = useIsNarrow();
-  // ⚠️ WEB会議の欄だけに効かせる（配信先側は別途）。閲覧しかできない人が打ち込んでから
+  // ⚠️ **画面全体に効かせる**（当初は WEB会議だけに入れたが、実機で確かめたら
+  //    配信先側は素通りで、閲覧のみの人でも「保存する」が押せたままだった）。
+  //    閲覧しかできない人が打ち込んでから
   // 「保存に失敗しました」と言われて全部捨てられていた（useCanEditDeviceSettings のコメント）
-  const canEditMeetings = useCanEditDeviceSettings();
+  const canEdit = useCanEditDeviceSettings();
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
 
@@ -244,17 +246,30 @@ export default function StreamingPage() {
 
       {/* ⚠️ 下の固定バーは「保存する」1つだけにし、他はここへ出す（スマホで指が届く高さを保存に使う） */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
-          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
-        </Button>
+        {canEdit && (
+          <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
+            <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+          </Button>
+        )}
         <Button variant="outline" className="h-11" onClick={() => setExportOpen(true)}>
           <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
         </Button>
         <span className="flex-1" />
-        <Button className="hidden h-11 sm:inline-flex" onClick={save} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
-        </Button>
+        {canEdit && (
+          <Button className="hidden h-11 sm:inline-flex" onClick={save} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
+          </Button>
+        )}
       </div>
+
+      {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
+      {!canEdit && (
+        <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存も Excel の書き出しも
+          できません（サーバーがどちらも編集できる人に限っています）。
+          直すには制作技術支援の編集権限が要ります。
+        </p>
+      )}
 
       <ServiceDateBar
         ownerKey={ownerKey}
@@ -288,7 +303,7 @@ export default function StreamingPage() {
                 warnIds={warnIds}
                 blockedIds={blockedIds}
                 onSelect={setSelectedId}
-                onAdd={addDestination}
+                onAdd={canEdit ? addDestination : undefined}
               />
             </div>
 
@@ -296,14 +311,14 @@ export default function StreamingPage() {
                 ⚠️ 以前は sticky でなかったため、下の台を選ぶと編集欄が画面外に消えていた */}
             {selectedDest && (
               <div className="hidden w-[372px] shrink-0 sm:block">
-                <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-card border bg-card p-4">
+                <fieldset disabled={!canEdit} className="sticky top-4 block max-h-[calc(100vh-2rem)] overflow-y-auto rounded-card border bg-card p-4">
                   <DestinationInspector
                     dest={selectedDest}
                     issues={issuesByDest.get(selectedDest.destId) ?? []}
                     onChange={updateDestination}
                     onDelete={() => deleteDestination(selectedDest.destId)}
                   />
-                </div>
+                </fieldset>
               </div>
             )}
           </div>
@@ -315,12 +330,15 @@ export default function StreamingPage() {
             <DialogContent className="dialog-bottom-sheet max-h-[90vh] overflow-y-auto p-4" aria-describedby={undefined}>
               <DialogHeader><DialogTitle>配信先の設定</DialogTitle></DialogHeader>
               {selectedDest && (
-                <DestinationInspector
-                  dest={selectedDest}
-                  issues={issuesByDest.get(selectedDest.destId) ?? []}
-                  onChange={updateDestination}
-                  onDelete={() => deleteDestination(selectedDest.destId)}
-                />
+                /* ⚠️ シートは portal で本文の外に出るので、上の <fieldset> は届かない */
+                <fieldset disabled={!canEdit} className="contents">
+                  <DestinationInspector
+                    dest={selectedDest}
+                    issues={issuesByDest.get(selectedDest.destId) ?? []}
+                    onChange={updateDestination}
+                    onDelete={() => deleteDestination(selectedDest.destId)}
+                  />
+                </fieldset>
               )}
             </DialogContent>
           </Dialog>
@@ -338,7 +356,7 @@ export default function StreamingPage() {
             <MeetingList
               meetings={meetings}
               selectedId={selectedMeetingId}
-              canEdit={canEditMeetings}
+              canEdit={canEdit}
               onSelect={setSelectedMeetingId}
               onChange={setMeetings}
             />
@@ -346,11 +364,13 @@ export default function StreamingPage() {
         </>
       )}
 
-      <div className="sticky bottom-0 mt-6 border-t bg-background/95 py-3 backdrop-blur sm:hidden">
-        <Button className="h-[52px] w-full" onClick={save} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="sticky bottom-0 mt-6 border-t bg-background/95 py-3 backdrop-blur sm:hidden">
+          <Button className="h-[52px] w-full" onClick={save} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
+          </Button>
+        </div>
+      )}
 
       <ExportDialog
         open={exportOpen}
@@ -358,7 +378,7 @@ export default function StreamingPage() {
         ownerKey={ownerKey}
         date={serviceDate}
         dirty={dirty}
-        onSave={save}
+        onSave={canEdit ? save : undefined}
       />
       <CopyFromDialog
         open={copyFromOpen}
