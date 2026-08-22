@@ -2,6 +2,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "../utils";
+import { DEFAULT_DIALOG_SIZE, DIALOG_MAX_WIDTH_CLASS, type DialogSize } from "./dialogSize";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -23,16 +24,36 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+export interface DialogContentProps
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  /**
+   * **PC での幅の段**（既定 `md` = 640px。`shared/src/client/ui/dialogSize.ts` が正）。
+   *
+   * 以前は 512px 固定で、広げたい画面は各自 `className` に
+   * 最大幅のクラスを書き足していた。**既定を 640px に上げてある**ので、
+   * 何も指定していないダイアログは今までより少し広くなる（意図した変更）。
+   *
+   * **スマホの幅は変わらない** — 土台が持つ画面幅ぶんの `width` が先に効く。
+   * `className` に最大幅を渡している呼び出しは**今までどおりそちらが勝つ**
+   * （`cn(土台, 段, className)` の順に並べてある）。
+   */
+  size?: DialogSize;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(({ className, children, size, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid grid-cols-1 w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-4 sm:p-6 shadow-lg duration-200 overflow-x-hidden overscroll-none rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid grid-cols-1 w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-4 sm:p-6 shadow-lg duration-200 overflow-x-hidden overscroll-none rounded-lg",
+        // 段（既定 md=640px）。**呼び出し側の `className` より前**に置くこと —
+        // tailwind-merge は「あとに書いたほうが勝つ」ので、順番を入れ替えると
+        // 呼び出し側が付けている最大幅の指定を土台が打ち消してしまう
+        DIALOG_MAX_WIDTH_CLASS[size ?? DEFAULT_DIALOG_SIZE],
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className
@@ -82,3 +103,5 @@ export {
   Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent,
   DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 };
+export { DEFAULT_DIALOG_SIZE, DIALOG_SIZE_WIDTH, DIALOG_MAX_WIDTH_CLASS, resolveDialogSize } from "./dialogSize";
+export type { DialogSize } from "./dialogSize";
