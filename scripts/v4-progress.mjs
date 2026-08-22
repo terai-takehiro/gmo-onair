@@ -101,7 +101,7 @@ const TREE = [
     // この画面は `PageHeader` を使わない（PC は macOS のカレンダーアプリ風の独自ツールバー、
     // スマホは iPhone のカレンダーアプリ風の独自ヘッダーで、どちらも `PageHeader` の
     // 「見出し＋主アクション」の枠に収まらない）ので、**この画面にしかない部品**で判定する
-    ['① 予定', '/studio/calendar', 'client/src/contexts/production/pages/UnifiedCalendarPage.tsx', './calendar/DesktopToolbar',
+    ['① 予定', '/calendar', 'client/src/contexts/production/pages/UnifiedCalendarPage.tsx', './calendar/DesktopToolbar',
       '**カレンダーを1本にしました**（旧メニューは「統合／スタジオ／パートナー／マイ」の4本が並んでいて、どれを開けばよいか分かりませんでした — 中身はほぼ同じで見えるレイヤーが違うだけ）。' +
       '**FullCalendar をやめて自分で描いています** — モックの月マスは 17px の帯、週・日は重なりを横に割った札で、あちらの DOM とは組み立てが違い、' +
       'CSS で寄せると `.fc-*` に依存した規則が積み上がって版が上がるたびに崩れるためです。' +
@@ -119,19 +119,22 @@ const TREE = [
       'スマホは承認済みモック（iPhone のカレンダーアプリ風）に合わせて作り直し済み — 数字＋点だけの月表＋当日アジェンダで、' +
       'ここからも「予定を入れる」ができる（`rooms/MobileToday.tsx`）'],
     // ① 予定と同じ理由（PageHeader を使わない macOS 風の独自ツールバー）で目印を差し替える
-    ['② 部屋の空き', '/studio/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx', './rooms/RoomAvailabilityToolbar',
+    ['② 部屋の空き', '/calendar/rooms', 'client/src/contexts/production/pages/RoomAvailabilityPage.tsx', './rooms/RoomAvailabilityToolbar',
       'PC は承認済みモック（macOS のカレンダーアプリ風）に合わせて作り直し済み。① 予定と同じくミニカレンダーを' +
       '共通の左メニューへ常設したが、**この画面はレイヤーという概念を持たない**ので「マイカレンダー」の' +
       'チェックは出さず、代わりに絞り込みを持たないと説明する。部屋は拠点ごとに見出しでグループ化して表示する。' +
       '**帯の色を「部屋の色」から「種別の色」に変えた**（① 予定・③ 仮押さえと同じ `BOOKING_TYPE_COLORS`） — ' +
       '旧実装は部屋の色で塗っており、同じ予約がこの画面だけ違う色に見える食い違いがあった'],
-    ['③ 仮押さえ', '/studio/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
-    ['④ 設定（部屋・外部カレンダー・サイネージ）', '/studio/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
+    ['③ 仮押さえ', '/calendar/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
+    ['④ 設定（部屋・外部カレンダー・サイネージ）', '/calendar/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
     // **（旧）スタジオカレンダー・（旧）自分の予定は退役した**（v4ネイティブUI化バックログB・
     // 2026-08）。固有機能（香盤ビュー・部屋予約を直す導線・取込元の色分け・外部カレンダー
     // 連携）はすべて① 予定／④ 設定へ吸収済み。ページ自体を削除し、旧URLは
-    // `/studio/calendar` への `RedirectKeepQuery` にした（この表からも行ごと消す —
+    // `/calendar` への `RedirectKeepQuery` にした（この表からも行ごと消す —
     // 実体が無いものを「意図して据え置き」と書き続けると嘘になる）
+    // ⚠️ 2026-08-22: このアプリの AppKey/パスを `studio` → `calendar` に改名した
+    // （表示名「カレンダー」と内部識別子の食い違いを解消。shared/src/client/apps.ts 参照）。
+    // 旧 `/studio/*` は後方互換の転送のみ残っている（client/src/App.tsx）
   ]],
   ['設定', [
     ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',

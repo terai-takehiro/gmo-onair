@@ -90,7 +90,7 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * 載せ替えが済んだため、「本番の日にだけ開くもの」から「日々の業務」へ移した。
  * 並び順は `apps.ts` の `APPS` 側でプロジェクト管理と財務管理の間に置いてある。
  */
-const DAILY_KEYS = ['sales', 'gpm', 'qsheet', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
+const DAILY_KEYS = ['sales', 'gpm', 'qsheet', 'budget', 'calendar', 'dailyops', 'equipment', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -127,7 +127,7 @@ export default function HomePage() {
     queryKey: queryKeys.dashboard.weeklySchedule(),
     queryFn: async () => (await api.get('/dashboard/weekly-schedule')).data.data,
     staleTime: 60_000,
-    // `studio` は権限モデル単純化で `sales` に統合済み
+    // `calendar` は権限モデル単純化で `sales` に統合済み
     enabled: canSeeSales,
   });
 
@@ -177,7 +177,7 @@ export default function HomePage() {
     if (isCrossApp(href)) window.location.href = href; else navigate(href);
   };
   // 「今日」の3枚が1枚も出ないなら、節ごと出さない（見出しだけ残ると壊れて見える）
-  // `studio` は権限モデル単純化で `sales` に統合済みなので canSeeSales と重複する
+  // `calendar` は権限モデル単純化で `sales` に統合済みなので canSeeSales と重複する
   const hasToday = canSeeDailyops || canSeeSales;
 
   /**
@@ -203,7 +203,7 @@ export default function HomePage() {
       sales: inbox.data?.sales?.visible ? { n: salesWaiting, urgent: true } : undefined,
       dailyops: inbox.data?.dailyops?.visible ? { n: dailyWaiting, urgent: true } : undefined,
       budget: badges.data?.budget !== undefined ? { n: badges.data.budget } : undefined,
-      studio: badges.data?.studio !== undefined ? { n: badges.data.studio } : undefined,
+      calendar: badges.data?.calendar !== undefined ? { n: badges.data.calendar } : undefined,
       equipment: badges.data?.equipment !== undefined ? { n: badges.data.equipment, urgent: true } : undefined,
     };
     return APPS

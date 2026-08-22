@@ -1,6 +1,6 @@
 // スケジュール表の詳細。PC はグリッド・スマホは縦積みカード。
 // 実装設計: 04-schedule-impl.md §5-3・§5-4・§4-2（項目単位の楽観ロック）
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles } from "lucide-react";
@@ -11,6 +11,7 @@ import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
 import { isConflict } from "@/lib/scheduleApi";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { setProductionNavContext } from "@/lib/productionNavContext";
 import type { ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import MobileTimeline from "@/components/schedule/MobileTimeline";
@@ -49,6 +50,17 @@ export default function SchedulePage() {
     enabled: !!id,
     refetchInterval: POLL_MS,
   });
+
+  // いまの案件/番組をサイドバー・スマホ下タブに教える（buildQsheetNav が参照）
+  useEffect(() => {
+    const data = detailQuery.data;
+    if (!data) return;
+    if (data.project_id) {
+      setProductionNavContext({ scope: "project", id: data.project_id, label: null });
+    } else if (data.program_id) {
+      setProductionNavContext({ scope: "program", id: data.program_id, label: null });
+    }
+  }, [detailQuery.data]);
 
   if (!id) return null;
 

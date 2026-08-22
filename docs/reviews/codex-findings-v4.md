@@ -945,6 +945,16 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   一覧＋インスペクタ化、「まとめてコピー」のパスコード有無をボタンの文言で分ける
   （08 §5-5 の明示の決めごとに今も違反）、Excel ダイアログの見出し見本に実データ行を出す。
   **③機器の台数のハードコード**（収録12台・配信10台）— 会場によって台数が違う場合は未決のまま。
+- **#316**（`refactor(client): カレンダーの内部識別子を studio から calendar に改名`）—
+  作成 2026-08-22 12:46:38 / CI green 12:48:45（`checks`/`build`とも成功）/
+  マージ 12:49:06 頃（**CI green から約20秒後**、#251・#272・#305・#312・#314 と同じ
+  「見る前に入った」形）。`get_review_comments` 0件。表に移す指摘はない（レビュー自体が
+  届いていないため）。2コミット・14ファイル・+110/-62行。AppKey/パス `studio`→`calendar`
+  改名（旧 `/studio/*` は全て `RedirectKeepQuery` で後方互換）。マルチエージェント
+  （9ファイル並行編集）＋手動レビューで1ファイル漏れ（`home/types.ts` の `AppBadges` 型）
+  を検出・修正済み。`npx tsc -b client` / `npx tsc -b server` / `npm run lint`
+  （warning 58件・着手前と同数）/ `npm run test`（1329件）/ `npm run build --workspace=client`
+  は実施済み。⚠️ 実ブラウザでのPC/スマホ確認・実DB確認・権限403確認は未実施（環境制約）
 
 ---
 

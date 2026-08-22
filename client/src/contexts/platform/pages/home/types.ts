@@ -27,7 +27,7 @@ export interface ScheduleEvent {
 /** `GET /dashboard/app-badges`。**権限のあるアプリのキーだけ**が入る */
 export interface AppBadges {
   budget?: number;
-  studio?: number;
+  calendar?: number;
   equipment?: number;
 }
 

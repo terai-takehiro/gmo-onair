@@ -24,6 +24,7 @@ import {
   type Destination, type Meeting, type OwnerContext, type StreamingSettings,
 } from '@/lib/deviceSettingsApi';
 import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
+import { setProductionNavContext } from '@/lib/productionNavContext';
 import DestinationInspector from './DestinationInspector';
 import EncoderList from './EncoderList';
 import { ENCODER_IDS, blockingError, fromWire, newDestination } from './destinationHelpers';
@@ -138,6 +139,11 @@ export default function StreamingPage() {
     getOwnerContext(ownerKey).then((data) => { if (alive) setOwner(data); });
     return () => { alive = false; };
   }, [ownerKey]);
+
+  useEffect(() => {
+    if (!owner) return;
+    setProductionNavContext({ scope: owner.kind, id: ownerKey, label: owner.name ?? owner.glsNumber ?? null });
+  }, [owner, ownerKey]);
 
   // その場の点検（打ち込んだばかりの値を見る）。Excel の書き出しは保存済みしか見ない
   const issuesByDest = new Map<string, DestIssue[]>();

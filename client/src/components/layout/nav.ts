@@ -10,7 +10,7 @@
  * ── 1つのアプリに「入口が4つ」ある ──────────────────────────
  *
  * このアプリは1つの Vite バンドルに案件管理 (`/sales`)・財務管理 (`/budget`)・
- * カレンダー (`/studio`)・設定 (`/settings`) の4つの入口が入っています。
+ * カレンダー (`/calendar`)・設定 (`/settings`) の4つの入口が入っています。
  * どの入口にいるかは URL から `appOfPath()` で判定し、その入口の節だけを出します。
  */
 import {
@@ -222,21 +222,21 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
    * ⚠️ **「そのほか（作り直し前）」は無くなった**（2026-08・
    * `docs/v4-native-ui-plan.md` バックログB）。残っていたスタジオ・マイの2画面は
    * 固有機能（香盤・既存予約の編集導線／取込元の色分け・外部カレンダー連携）を
-   * すべて① 予定・④ 設定へ吸収したうえで退役した。旧URLは `/studio/calendar` へ転送する
+   * すべて① 予定・④ 設定へ吸収したうえで退役した。旧URLは `/calendar` へ転送する
    */
-  studio: [
+  calendar: [
     {
       title: "見る",
       items: [
-        { label: "予定", to: "/studio/calendar", icon: Calendar, module: "sales" },
-        { label: "部屋の空き", to: "/studio/rooms", icon: Layers, module: "sales" },
-        { label: "仮押さえ", to: "/studio/holds", icon: CalendarClock, module: "sales" },
+        { label: "予定", to: "/calendar", icon: Calendar, module: "sales" },
+        { label: "部屋の空き", to: "/calendar/rooms", icon: Layers, module: "sales" },
+        { label: "仮押さえ", to: "/calendar/holds", icon: CalendarClock, module: "sales" },
       ],
     },
     {
       title: "設定",
       items: [
-        { label: "カレンダーの設定", to: "/studio/settings", icon: Settings, module: "sales" },
+        { label: "カレンダーの設定", to: "/calendar/settings", icon: Settings, module: "sales" },
       ],
     },
   ],
