@@ -68,7 +68,13 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
         </span>
       </div>
 
-      <RowHeader>
+      {/*
+        表頭はスマホでは出さない。本文の行は `stackOnMobile` で縦積みになるのに
+        表頭だけ横一列のままで、固定列 (96+160+72px) に押されて「役割」が
+        幅 0px に潰れていた (verify-ui.mjs の潰れ検知で実測。休日・営業時間の
+        休業日の表と同じ直し方)
+      */}
+      <RowHeader className="hidden sm:flex">
         <RowMain>役割</RowMain>
         <RowSlot w={96} align="right">値引き上限</RowSlot>
         <RowSlot w={160} align="right" hideOnMobile>承認なしで出せる額</RowSlot>

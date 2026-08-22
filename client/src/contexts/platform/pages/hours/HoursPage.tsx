@@ -236,7 +236,8 @@ export default function HoursPage() {
                       ))}
                     </span>
 
-                    <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">{h.note ?? ''}</span>
+                    {/* 注記はスマホでは1行を独占させる (同じ折り返し行だと残り幅 20px に潰れて読めない — verify:ui の潰れ検知で実測)。空のときは行ごと出さない */}
+                    {h.note && <span className="text-note w-full truncate text-muted-foreground sm:w-auto sm:min-w-0 sm:flex-1">{h.note}</span>}
                   </div>
                 );
               })}

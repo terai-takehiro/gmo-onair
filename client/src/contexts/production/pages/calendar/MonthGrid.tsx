@@ -78,7 +78,11 @@ export function MonthGrid({
                     className={cn(
                       'font-number text-note inline-flex h-5 min-w-[20px] items-center justify-center rounded-chip px-1 font-bold',
                       isToday && 'bg-primary text-primary-foreground',
-                      !isToday && !inMonth && 'text-fg-disabled',
+                      // 月の外の日付は薄くするが、`fg-disabled` (#9aa1ab) は
+                      // 「読ませる文字に使わない」決めごと (docs/v4-plan.md) なので
+                      // 一段濃い `muted-foreground` に。地の色 (surface-subtle) との
+                      // 組み合わせで月の中との見分けは保たれる
+                      !isToday && !inMonth && 'text-muted-foreground',
                       !isToday && inMonth && (hol || dow === '日') && 'text-destructive',
                       !isToday && inMonth && dow === '土' && !hol && 'text-info',
                     )}
