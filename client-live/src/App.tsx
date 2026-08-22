@@ -40,11 +40,9 @@ function AuthenticatedApp() {
           <Route element={<AppShell />}>
             <Route index element={<SessionHomePage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/program/:programId">
-              <Route index element={<DashboardPage />} />
-              <Route path="timers" element={<TimerAdminPage />} />
-              <Route path="settings" element={<ProgramsPage />} />
-            </Route>
+            <Route path="/program/:programId" element={<DashboardPage />} />
+            <Route path="/program/:programId/timers" element={<TimerAdminPage />} />
+            <Route path="/program/:programId/settings" element={<ProgramsPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />

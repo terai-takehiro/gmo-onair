@@ -52,6 +52,18 @@ const APPS = [
     pcConst: 'QSHEET_PC_ONLY',
     okConst: 'QSHEET_MOBILE_OK',
   },
+  {
+    // 計時LIVE を共通シェルに載せ替えた回で追加。
+    // ⚠️ routesOf() はファイル全体を素朴に `<Route path="…">` で拾うので、
+    // `DisplayRouter`（`AuthenticatedApp` の外・`AppShell` を経由しない別ルーター）が
+    // 持つ `/display/:timerId` もここに出てくる。`LIVE_MOBILE_OK` 側にその旨のコメント
+    // 付きで宣言してある（`TimerDisplayPage.tsx` 自体には触れていない）。
+    app: '計時LIVE (client-live)',
+    routes: 'client-live/src/App.tsx',
+    decl: 'client-live/src/pcOnlyScreens.ts',
+    pcConst: 'LIVE_PC_ONLY',
+    okConst: 'LIVE_MOBILE_OK',
+  },
 ];
 
 /** 画面として数えないパス */

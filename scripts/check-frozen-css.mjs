@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 凍結1アプリ（計時LIVE）の CSS が変わっていないかを突き合わせる。
+ * 凍結アプリの CSS が変わっていないかを突き合わせる。
  *
  * ── なぜ要るのか ────────────────────────────────────────────
  *
@@ -8,6 +8,10 @@
  * 見た目を今日のまま**」でした（技術資料は v4.1.8 でアプリごと削除）。
  * **制作資料は v4.1 で凍結を解いた**（下記 APPS 参照）。
  * **リアルタイムCG はその後廃止・配信停止した**のでこの検査の対象からも外れている。
+ * **計時LIVE も共通シェル・v4トークンに載せ替えて凍結を解いた**（下記 APPS 参照）。
+ * **これで凍結アプリは0になった** — `APPS` は空配列のまま残してある
+ * （今後また「見た目を今日のまま」で止める段が出た場合の受け皿。仕組み自体を
+ * 消すかどうかは別途判断すること）。
  * ところが各アプリの Tailwind は
  * `shared/src/client/**` を走査するので、**あちらが描かない部品のクラス名を
  * 1つ書き足すだけで、凍結アプリの CSS に規則が増えます**
@@ -45,17 +49,19 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'frozen-css-baseline.json');
 
 /**
- * 凍結1アプリ。
+ * 凍結アプリ。**いまは0個。**
  *
  * ⚠️ 制作資料 (Qシート) は v4.1 で凍結を解いたのでここから外した。
  * 見た目を「今日のまま」に保つ対象ではなくなったため、この検査は追わない
  * (03-app-structure-impl.md §7-2)。
  * `client-awards`（リアルタイムCG）は廃止済み・build:all の対象外になったので
  * こちらもここから外した（`client-awards/CLAUDE.md` 参照）。
+ * `client-live`（計時LIVE）は共通シェル・v4トークンへ載せ替えたのでここから外した
+ * （`client-live/CLAUDE.md` 参照。**表示画面 `/live/display/:timerId` だけは
+ * 元から見た目を変えない決まりだったので、この検査とは別に `index.css` 側で
+ * 書体を絶縁してある**。凍結の印としてこの検査で追う対象ではない）。
  */
-const APPS = [
-  { key: 'live', label: '計時LIVE', dir: 'client-live' },
-];
+const APPS = [];
 
 function cssOf(dir) {
   const assets = join(ROOT, dir, 'dist', 'assets');
