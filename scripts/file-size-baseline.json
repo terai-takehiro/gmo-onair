@@ -8,7 +8,6 @@
     "client-qsheet/src/components/editor/CueTable.tsx": 1055,
     "client-qsheet/src/pages/EditorPage.tsx": 938,
     "client/src/contexts/platform/pages/DataViewerPage.tsx": 879,
-    "client-qsheet/src/pages/DashboardPage.tsx": 833,
     "client-qsheet/src/pages/RundownPage.tsx": 816,
     "client-qsheet/src/components/editor/PreviewModal.tsx": 793,
     "client-qsheet/src/components/editor/EditorSidebar.tsx": 749,

@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
+import SheetListPage from "@/pages/SheetListPage";
 import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
@@ -49,7 +49,7 @@ export default function App() {
         */}
         <Route path="/qsheet" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
         <Route path="/qsheet/home" element={<TopPage />} />
-        <Route path="/qsheet/sheets" element={<DashboardPage />} />
+        <Route path="/qsheet/sheets" element={<SheetListPage />} />
         {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
         <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
