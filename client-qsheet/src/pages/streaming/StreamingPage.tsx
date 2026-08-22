@@ -1,16 +1,19 @@
 // 配信設定の画面の骨（左: ENC ごとの配信先一覧 / 右: 372px インスペクタ / 下段: WEB会議）。
 // ⚠️ この画面は useState のローカル状態。素の <input> で構わない（impl doc §5-2）。
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, FileDown, Plus, Video } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, Save, FileDown, Plus, Video, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
-import { getStreaming, putStreaming, type Destination, type Meeting } from '@/lib/deviceSettingsApi';
+import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
+import { getOwnerContext, getStreaming, putStreaming, type Destination, type Meeting, type OwnerContext } from '@/lib/deviceSettingsApi';
 import { genId } from '@/lib/stableIds';
 import DestinationInspector from './DestinationInspector';
 import MeetingCard from './MeetingCard';
 import ExportDialog from '../settings-export/ExportDialog';
+import CopyFromDialog from '../settings-export/CopyFromDialog';
+import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 
 const ENCODER_IDS = Array.from({ length: 10 }, (_, i) => `ENC${i + 1}`);
 
@@ -31,8 +34,12 @@ export default function StreamingPage() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [copyFromOpen, setCopyFromOpen] = useState(false);
+  const [owner, setOwner] = useState<OwnerContext | null>(null);
+  const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
+  const [lastExportName, setLastExportName] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadStreaming = useCallback(() => {
     let alive = true;
     setLoading(true);
     getStreaming(ownerKey, date)
@@ -45,12 +52,22 @@ export default function StreamingPage() {
           })));
           setMeetings(data.meetings);
           setServiceDate(data.serviceDate);
+          setLastExportedAt(data.lastExportedAt);
+          setLastExportName(data.lastExportName);
         }
       })
       .catch(() => notifyError('配信設定の取得に失敗しました'))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [ownerKey, date]);
+
+  useEffect(() => loadStreaming(), [loadStreaming]);
+
+  useEffect(() => {
+    let alive = true;
+    getOwnerContext(ownerKey).then((data) => { if (alive) setOwner(data); });
+    return () => { alive = false; };
+  }, [ownerKey]);
 
   const byEncoder = new Map<string, { dest: Destination; index: number }[]>();
   destinations.forEach((dest, index) => {
@@ -90,13 +107,35 @@ export default function StreamingPage() {
   return (
     <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="mb-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="min-w-0">
+        {owner ? (
+          <Link
+            to={owner.kind === 'project' ? `/qsheet/projects/${owner.id}` : `/qsheet/programs/${owner.id}`}
+            className="flex h-11 min-w-0 shrink items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:bg-muted"
+          >
+            <ChevronLeft className="h-5 w-5 shrink-0" />
+            <span className="truncate">{owner.name}</span>
+          </Link>
+        ) : (
+          <button onClick={() => navigate(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">配信設定</h1>
-          <p className="truncate text-xs text-muted-foreground">{ownerKey} ・ {serviceDate}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ {serviceDate}
+          </p>
         </div>
+        {owner && <MiniAppSwitcher owner={owner} current="streaming" />}
+      </div>
+
+      {/* 状態の帯 */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+        <Video className="h-4 w-4 text-primary" />
+        <span>配信先 {destinations.length}件</span>
+        <span className="text-muted-foreground">
+          {lastExportName ? `${lastExportName}（${formatRelativeTime(lastExportedAt)}）` : 'まだ書き出していません'}
+        </span>
       </div>
 
       {loading ? (
@@ -184,6 +223,9 @@ export default function StreamingPage() {
       )}
 
       <div className="sticky bottom-0 mt-6 flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:py-0">
+        <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setCopyFromOpen(true)}>
+          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+        </Button>
         <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setExportOpen(true)}>
           <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
         </Button>
@@ -193,6 +235,14 @@ export default function StreamingPage() {
       </div>
 
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} ownerKey={ownerKey} date={serviceDate} />
+      <CopyFromDialog
+        open={copyFromOpen}
+        onOpenChange={setCopyFromOpen}
+        ownerKey={ownerKey}
+        date={serviceDate}
+        what={['streaming']}
+        onCopied={loadStreaming}
+      />
     </div>
   );
 }

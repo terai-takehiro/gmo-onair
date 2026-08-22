@@ -1,51 +1,77 @@
-// 収録設定・配信設定への入口。
+// 収録設定・配信設定への「簡易入口」。
 //
-// ⚠️ 2026-08-22 追記: 本来の入口（`JourneyPage.tsx` のミニアプリタイル。案件・番組
-// どちらのハブからも `panelPathOf('recording'|'streaming', ownerKey)` で直接遷移する）
-// を実装した。ここは**その入口を通らない・GLS番号や案件IDだけ分かっているときの
-// 簡易入口**として残す判断にした（コメントが挙げていた2択のうち「残す」を採用）。
-// 収録設定・配信設定の URL を直接ブックマークしている人・口頭で番号だけ聞いた人向け。
+// ⚠️ 2026-08-22 作り直し: これまでは GLS番号/案件IDと実施日を手入力させ、
+// 「収録設定を開く」「配信設定を開く」の2ボタンで `/qsheet/recording|streaming/:ownerKey?date=...`
+// へ直接飛ばしていた。これはこのアプリの正規のジャーニー（番組・案件を選ぶ → ハブ画面
+// [JourneyPage.tsx] → ミニアプリタイルで収録設定/配信設定を開く）を経由しない抜け道になっており、
+// 「サイドバーの導線がジャーニーUXと矛盾している」という指摘の直接の原因だった。加えて
+// 「実施日」を利用者に手入力させる設計も、ハブのミニアプリタイルが日付なしで直接開く
+// （最新の service_date を自動解決する）挙動と食い違い、余計な入力を強いていた。
+//
+// 直した方針: 入力を「案件（GLS番号 または 案件ID）」の1つだけにし、送信したら
+// `getOwnerContext` で解決してハブ画面（/qsheet/projects/:id または /qsheet/programs/:id）へ
+// 遷移するだけにした。収録/配信のどちらを開くか・どの日を開くかは、遷移した先のハブの
+// ミニアプリタイルで選ぶ（収録設定・配信設定のタイルは日付を問わず「最新の実施日」を
+// 自動で開く挙動に統一されているため、ここで日付を訊く必要が無い）。
+// GLS番号・案件ID・番組IDを口頭で聞いた人向けの入口、という位置づけ自体は変えていない
+// （通常はハブ画面から `panelPathOf` で直接飛ぶので、この画面は経由しない）。
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Radio, Cast } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getOwnerContext } from '@/lib/deviceSettingsApi';
+import { notifyError } from '@/lib/notify';
 
 export default function DeviceSettingsHome() {
   const navigate = useNavigate();
   const [ownerKey, setOwnerKey] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isLoading, setIsLoading] = useState(false);
 
-  const go = (kind: 'recording' | 'streaming') => {
-    if (!ownerKey.trim()) return;
-    navigate(`/qsheet/${kind}/${encodeURIComponent(ownerKey.trim())}?date=${encodeURIComponent(date)}`);
+  const openHub = async () => {
+    const key = ownerKey.trim();
+    if (!key) return;
+    setIsLoading(true);
+    try {
+      const ctx = await getOwnerContext(key);
+      if (!ctx) {
+        notifyError('見つかりませんでした。GLS番号または案件IDを確認してください');
+        return;
+      }
+      navigate(ctx.kind === 'project' ? `/qsheet/projects/${ctx.id}` : `/qsheet/programs/${ctx.id}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
-      <h1 className="mb-1 text-lg font-bold">収録設定・配信設定</h1>
+      <h1 className="mb-1 text-lg font-bold">収録・配信設定</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        案件（GLS番号 または 案件ID）と実施日を入れて開きます。
+        案件（GLS番号 または 案件ID）を入れると、ミニアプリのタイルから収録設定・配信設定を選べる
+        ハブ画面を開きます。
       </p>
 
       <div className="space-y-4">
         <div>
           <Label htmlFor="owner-key">案件（GLS番号 または 案件ID）</Label>
-          <Input id="owner-key" className="h-11" value={ownerKey} onChange={(e) => setOwnerKey(e.target.value)} placeholder="GLS-A012" />
-        </div>
-        <div>
-          <Label htmlFor="service-date">実施日</Label>
-          <Input id="service-date" type="date" className="h-11" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            id="owner-key"
+            className="h-11"
+            value={ownerKey}
+            onChange={(e) => setOwnerKey(e.target.value)}
+            placeholder="GLS-A012"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void openHub();
+            }}
+          />
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button className="h-[52px]" onClick={() => go('recording')} disabled={!ownerKey.trim()}>
-          <Radio className="mr-2 h-4 w-4" /> 収録設定を開く
-        </Button>
-        <Button className="h-[52px]" variant="outline" onClick={() => go('streaming')} disabled={!ownerKey.trim()}>
-          <Cast className="mr-2 h-4 w-4" /> 配信設定を開く
+      <div className="mt-6">
+        <Button className="h-[52px] w-full" onClick={() => void openHub()} disabled={!ownerKey.trim() || isLoading}>
+          <Search className="mr-2 h-4 w-4" /> ハブを開く
         </Button>
       </div>
     </div>
