@@ -13,7 +13,7 @@
    （`onair_dev`）の同じ情報と `NOT IN` で突き合わせる SQL を組み立て、ユーザーが VPS で実行
 3. 差分に出たテーブル・列について、(a) 全 migration ファイル・全ブランチの git 履歴、
    (b) アプリコード（`server/src` 全体・全クライアントアプリ）、(c) `docs/archive/2026/roadmap.md` /
-   `docs/ia.md` / `docs/version-history.md` などの計画・設計ドキュメント、の3方向で
+   `docs/archive/2026/ia-v2.9-rail-era.md` / `docs/version-history.md` などの計画・設計ドキュメント、の3方向で
    参照の有無を確認
 
 ## 結果: テーブル差分 23件・FK差分 35件（2026-08-19 実行）
@@ -102,18 +102,18 @@ migration は前方向にしか進まないため、**その機能群のテー�
 `call_sheet_blocks`（migration 149）の8件は、実装内容・実データの両方が実在の商用機能
 （v2.9.283/284・本番公開済み）だったことが実装コミットで確定した。** 推測ではない。
 
-### テーブルごとの対応関係（`docs/archive/2026/roadmap.md` / `docs/ia.md` との突き合わせ）
+### テーブルごとの対応関係（`docs/archive/2026/roadmap.md` / `docs/archive/2026/ia-v2.9-rail-era.md` との突き合わせ）
 
 | テーブル/列 | 対応する旧機能（ドキュメント上の根拠） | 判定 |
 | --- | --- | --- |
-| `user_notification_prefs` | 通知設定画面 (`docs/ia.md:83-84,471,693`「済 (migration 137)」) | A |
-| `external_tool_outputs` | 外部ツール(翻訳/インタラクティブ/CG等)の出力ログ (`docs/ia.md:550,692`。migration番号138で対応) | A |
-| `slack_digests` | Slackへの朝夕ダイジェスト送信 (v2.9.268・`docs/ia.md:81-89`) | A |
+| `user_notification_prefs` | 通知設定画面 (`docs/archive/2026/ia-v2.9-rail-era.md:83-84,471,693`「済 (migration 137)」) | A |
+| `external_tool_outputs` | 外部ツール(翻訳/インタラクティブ/CG等)の出力ログ (`docs/archive/2026/ia-v2.9-rail-era.md:550,692`。migration番号138で対応) | A |
+| `slack_digests` | Slackへの朝夕ダイジェスト送信 (v2.9.268・`docs/archive/2026/ia-v2.9-rail-era.md:81-89`) | A |
 | `slack_dm_settings` | 個人DM向けのSlack通知設定（`slack_digests`と対の機能。テーブル名そのものの明記は無し） | B |
-| `user_permission_changes` | 権限変更履歴 (v2.9.270・`docs/ia.md:116-145,207`。migration番号142で対応) | A |
+| `user_permission_changes` | 権限変更履歴 (v2.9.270・`docs/archive/2026/ia-v2.9-rail-era.md:116-145,207`。migration番号142で対応) | A |
 | `misc_inquiries.promoted_project_id` | 問い合わせの「案件化」フラグ（旧migration名 `139 promote_inquiry_and_audio_revoke` から）。`inview_registrations` 側の同名列（migration 127・現行）とは別物 | A |
 | `security_card_lendings.project_id` | セキュリティカード貸出の案件紐づけ（任意列・`docs/archive/2026/roadmap.md:485`「列を1つ足す（migration 152・任意）」） | A |
-| `project_comments` | 案件のコメント (v2.9.274・`docs/ia.md:186-207`。1件=1行・本人のみ削除可・soft-delete) | A |
+| `project_comments` | 案件のコメント (v2.9.274・`docs/archive/2026/ia-v2.9-rail-era.md:186-207`。1件=1行・本人のみ削除可・soft-delete) | A |
 | `project_comment_mentions` | 案件コメントのメンション/通知先 (同上セクション) | A |
 | `project_changes` | 案件の項目変更履歴 (同上・B4節) | A |
 | `keep_meetings` | 隔週キープ会議記録 (v2.9.281・`docs/archive/2026/roadmap.md:254-289`「29章」)。⚠️ **v4現行の `event_report_kpt`（migration 185）とは別物**（名前は同じ「Keep」だが別系統） | A |
@@ -132,7 +132,7 @@ migration は前方向にしか進まないため、**その機能群のテー�
   現行ドキュメントに残っている） | A・**他と性質が違う** |
 | `joint_events` / `joint_event_companies` | 合同案件 (v2.9.279・`docs/archive/2026/roadmap.md:160-205`「32章」)。**✅ 前回セッションで
   ユーザー確認済み・DROP方針**（0行・コード参照0件、dev環境のみ確認） | A（対応方針決定済み） |
-| `inquiry_replies` | 問い合わせ返信の下書き保存 (v2.9.272・`docs/ia.md:135-150`)。テーブル名そのものの明記は無し | B |
+| `inquiry_replies` | 問い合わせ返信の下書き保存 (v2.9.272・`docs/archive/2026/ia-v2.9-rail-era.md:135-150`)。テーブル名そのものの明記は無し | B |
 
 **A・Bとも「未着手の構想」ではなく「実装され一度は本番公開されていた機能」の一次証拠あり。**
 `ai_action_plans` だけは事情が違う可能性がある — `docs/archive/2026/roadmap.md:1103` は2026-07-29の
