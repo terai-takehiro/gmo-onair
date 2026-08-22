@@ -33,15 +33,29 @@
  *
  * ── 凍結の印 ────────────────────────────────────────────────
  *
- * `frozen: true` の2アプリ (計時LIVE / リアルタイムCG) は
- * **v4.0.0 では作り直しません**。URL は生かしたまま、**v4 の共通シェルの
- * アプリ切替と「他のアプリ」からだけ外します** (`visibleApps()`)。
- * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出します
+ * `frozen: true` は **v4.0.0 では作り直さない**アプリの印。URL は生かしたまま、
+ * **v4 の共通シェルのアプリ切替と「他のアプリ」からだけ外す** (`visibleApps()`)。
+ * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出す
  * (ここで消すと、まだ v4 になっていない画面から凍結アプリへ行けなくなる)。
  *
  * **制作資料 (Qシート) は v4.1 で凍結を解いた。** `frozen` は落としたが、
  * まだ v4 の共通シェルには載せ替えていない (見た目の作り直しは別段)。
  * `apps.ts` の一覧・アプリ切替には出るようになる。
+ *
+ * **計時LIVE も段9（`docs/design/v4/qsheet-v4-coding/impl/09-live-timer-impl.md`）
+ * で凍結を解いた。** `frozen` は落としたが、v4 の共通シェルにはまだ載せ替えておらず、
+ * 見た目が動いたのは本番の出力画面（`/live/display/:timerId`）だけ（PR6）。
+ * 運用画面（ダッシュボード・設定等）は今までどおりの見た目のまま。
+ * ⚠️ **改名（「計時LIVE」→「計時・視聴者」）は見送った** — 09 §11-1 の既定は
+ * 改名だが、`docs/wording.md`・全7アプリの `CLAUDE.md`・`client-live` 自身の
+ * 画面文言（ヘッダー・ログイン画面・マニュアル等）を含む**40本超のファイル**に
+ * またがる名称変更で、この段（レジストリ・導線）の範囲を大きく超える。
+ * 改名するなら別PRで一度にやること（中途半端に一部だけ変えると「あの画面は
+ * まだ古い名前」が増える）。
+ *
+ * **残る `frozen: true` はリアルタイムCG（`awards`）だけ。** ただし `awards` は
+ * その後さらに一段先の「廃止」（配信停止・コードのみ保存）になっているので、
+ * この一覧に出続けていても実際には開けない（`client-awards/CLAUDE.md` 参照）。
  *
  * ── 権限モデル単純化（`permissionModule` を `sales` に統合した回）───────
  *
@@ -149,9 +163,10 @@ export const APPS: AppDef[] = [
 
   /* 制作資料は v4.1 で凍結を解いた (URL・見た目はまだ今までどおり。frozen だけ落とした) */
   { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
+  /* 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり) */
+  { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops' },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
-  { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops',   frozen: true },
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
 
   /* ── 外部リンク (別 VPS・別タブ。権限は見ない) ─────────────────── */
