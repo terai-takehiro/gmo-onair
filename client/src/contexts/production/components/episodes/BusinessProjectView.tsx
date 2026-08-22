@@ -1401,8 +1401,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       {/* 明細追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
         <DialogContent
-          size="full"
-          className="max-h-[90vh] overflow-y-auto"
+          size="full" className="max-h-[90vh] overflow-y-auto"
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
@@ -1804,8 +1803,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       <FormDialog
         open={purDialogOpen}
         onOpenChange={(open) => { if (!open) closePurDialog(); }}
-        title={editingPurId ? "仕入の編集" : "仕入の追加"}
-        size="lg"
+        title={editingPurId ? "仕入の編集" : "仕入の追加"} size="lg"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

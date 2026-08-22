@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
+import { FormDialog, FormDialogFooter, formGrid2 } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { AllocationEditor } from './AllocationEditor';
 import { useAllocation } from './useAllocation';
 import type { GroupDetail, GroupPurchase } from './types';
@@ -98,7 +98,7 @@ export function PurchaseDialog({
           <Label>説明</Label>
           <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="仕入の説明" />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className={formGrid2}>
           <div>
             <Label>税区分</Label>
             <Select value={tax} onValueChange={setTax}>
@@ -118,7 +118,7 @@ export function PurchaseDialog({
             </Select>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className={formGrid2}>
           <div>
             <Label>精算番号</Label>
             <Input value={settlementNo} onChange={(e) => setSettlementNo(e.target.value)} placeholder="任意" />

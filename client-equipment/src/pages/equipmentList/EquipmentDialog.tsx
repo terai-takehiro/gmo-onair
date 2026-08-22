@@ -135,7 +135,7 @@ export function EquipmentDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={title}
       // **もとの `sm:max-w-2xl`（672px）＋ `grid-cols-3` の複合フォームなので `wide` を渡す。**
-      // 既定の560pxのままだと、3列に並べていた拠点・種別・設備／貸出や、
+      // 既定の640pxのままだと、3列に並べていた拠点・種別・設備／貸出や、
       // 商品名・メーカー・型名などの2列グリッドが窮屈に潰れる
       wide
       footer={

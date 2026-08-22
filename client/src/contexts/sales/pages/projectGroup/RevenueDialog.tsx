@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
+import { FormDialog, FormDialogFooter, formGrid2 } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { AllocationEditor } from './AllocationEditor';
 import { RevenueItemsEditor } from './RevenueItemsEditor';
 import { useAllocation } from './useAllocation';
@@ -100,7 +100,7 @@ export function RevenueDialog({
           <Label>件名</Label>
           <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="見積件名" />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className={formGrid2}>
           <div>
             <Label>ステータス</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as 'estimate' | 'confirmed')}>
@@ -121,7 +121,7 @@ export function RevenueDialog({
             </Select>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className={formGrid2}>
           <div>
             <Label>計上日</Label>
             <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />

@@ -75,7 +75,7 @@ export function InviewDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={initial ? '来場予約を直す' : '来場予約を足す'}
       // 旧幅 sm:max-w-2xl（672px）。名前〜郵便番号まで9項目を2列グリッドで並べる
-      // 複合フォームなので既定の560pxには押し込めず wide を渡す
+      // 複合フォームなので既定の640pxには押し込めず wide を渡す
       wide
       footer={
         <FormDialogFooter>

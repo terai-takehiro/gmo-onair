@@ -649,8 +649,7 @@ export default function EquipmentDetailPage() {
           </div>
       </FormDialog>
 
-      {/* 新規子機材登録ダイアログ。入力12個・複数の2〜3列グリッドを持つ複合フォームなので `lg`(840px)
-          （旧 `wide` と同じ幅。編集ダイアログのほうは入力25個なので `xl` に上げてある） */}
+      {/* 新規子機材登録ダイアログ。入力12個・2〜3列グリッド複数の複合フォームなので `lg`(840px・旧 `wide` と同じ幅。編集は入力25個なので `xl`) */}
       <FormDialog open={newChildOpen} onOpenChange={setNewChildOpen} title="子機材を新規登録" size="lg"
         footer={
           <FormDialogFooter>

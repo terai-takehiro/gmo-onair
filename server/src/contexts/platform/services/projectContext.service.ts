@@ -26,6 +26,16 @@
  *   引くと、セレクターを開くだけで重くなる。**選んだあとの単発**にする
  * - **クエリは2本だけ**（案件の見出し ＋ 日程と予約の UNION）。予約ごとに
  *   部屋を引き直す作り（N+1）にしない
+ * - **日付は1通りの濾し方で通す**（`YMD`）。`performanceDates` だけ濾して
+ *   `eventStart` を素通しにすると、同じ応答の中で扱いが2通りになる
+ *
+ * ── 純関数を export しているのは検査のため ──────────────
+ *
+ * `expandRange` 以下の関数はこの経路の外からは呼ばれないが、
+ * `shared/tests/projectContext.test.ts` が読めるように export してある。
+ * サーバーは `shared/` を import できない構成（`server/tsconfig.json` の
+ * `rootDir`）なので、**突き合わせはテスト側から行う**
+ * （`shared/tests/projectEventDates.test.ts` と同じやり方）。
  */
 import { queryAll, queryOne } from '../../../shared/db/connection';
 
@@ -55,10 +65,10 @@ export interface ProjectContext {
  * ⚠️ **前方一致（`LIKE '本番%'`）で拾わない。** 「追加の日程」はラベルを
  * 自由に打てるので、「本番前日搬入」まで本番日に混ざる。
  */
-const PERFORMANCE_LABEL = '本番';
-const PERFORMANCE_LAST_LABEL = '本番（最終日）';
-const REHEARSAL_LABEL = 'リハ';
-const REHEARSAL_LAST_LABEL = 'リハ（最終日）';
+export const PERFORMANCE_LABEL = '本番';
+export const PERFORMANCE_LAST_LABEL = '本番（最終日）';
+export const REHEARSAL_LABEL = 'リハ';
+export const REHEARSAL_LAST_LABEL = 'リハ（最終日）';
 
 /** 期間を日で埋めるときの上限。壊れた日付・打ち間違いで無限に伸びるのを止める */
 const MAX_SPAN_DAYS = 62;
@@ -68,10 +78,29 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const clean = (s: unknown): string => (typeof s === 'string' ? s.trim() : '');
 
 /**
+ * `YYYY-MM-DD` の形だけ通す（違えば `null`）。
+ *
+ * **濾し方を他の日付と揃えるため**にここに置く。`performanceDates` /
+ * `rehearsalDates` は `expandRange()` / `datesFromLabels()` が `YMD` で濾して
+ * いるのに、`event_start` / `event_end`（`projects` の TEXT 列）だけ素通しで、
+ * **同じ応答の中で日付の扱いが2通り**になっていた。
+ *
+ * 受け取る側（`client-qsheet` の新規台本作成）は `performanceDates[0] ?? eventStart`
+ * を `<input type="date">` の値に入れるので、`YYYY-MM-DD` でない値が来ると
+ * **入力欄は空に見えるのに値は非空**になり、必須チェックが通って
+ * ボタンが押せてしまう（空文字は falsy なので今のデータでは踏まないが、
+ * 片方だけ検査していること自体が食い違いのもと）。
+ */
+export const ymdOrNull = (v: unknown): string | null => {
+  const s = clean(v);
+  return YMD.test(s) ? s : null;
+};
+
+/**
  * `from`〜`to` を1日刻みで埋める（両端を含む）。
  * 形が `YYYY-MM-DD` でないものは捨て、`to` が `from` より前なら `from` だけ返す。
  */
-function expandRange(from: string, to: string): string[] {
+export function expandRange(from: string, to: string): string[] {
   if (!YMD.test(from)) return [];
   if (!YMD.test(to) || to < from) return [from];
 
@@ -98,14 +127,14 @@ function expandRange(from: string, to: string): string[] {
  *   長すぎて枠が壊れる。略称は設定 → 拠点・部屋で人が決めるもの）
  * - 略称が部屋名にすでに入っているときは重ねない（「用賀 用賀スタジオ」を作らない）
  */
-function roomLabel(roomName: string, locationAbbreviation: string): string {
+export function roomLabel(roomName: string, locationAbbreviation: string): string {
   if (!roomName) return '';
   if (!locationAbbreviation || roomName.includes(locationAbbreviation)) return roomName;
   return `${locationAbbreviation} ${roomName}`;
 }
 
 /** UNION で引いてきた1行（日程 or 予約×部屋） */
-interface ContextRow {
+export interface ContextRow {
   source: 'date' | 'booking';
   /** 日程なら `project_dates.label`、予約なら `studio_bookings.booking_type` */
   kind: string | null;
@@ -130,7 +159,7 @@ interface ContextRow {
  * ここが返す文字は**入力欄の初期値**として使われるので、`+2` が入ると
  * 利用者が消して打ち直すことになる（帯の1行に収める都合はここには無い）。
  */
-function formatVenue(rows: ContextRow[]): string | null {
+export function formatVenue(rows: ContextRow[]): string | null {
   const seen = new Set<string>();
   const names: string[] = [];
 
@@ -161,7 +190,7 @@ function formatVenue(rows: ContextRow[]): string | null {
  * **中日が丸ごと落ちます**。逆に「（最終日）」が無いときは飛び日の並びなので、
  * 埋めると**やっていない日が本番日になります**。
  */
-function datesFromLabels(rows: ContextRow[], label: string, lastLabel: string): string[] {
+export function datesFromLabels(rows: ContextRow[], label: string, lastLabel: string): string[] {
   const pick = (l: string) =>
     rows.filter((r) => r.source === 'date' && r.kind === l)
       .map((r) => clean(r.start_date))
@@ -176,7 +205,7 @@ function datesFromLabels(rows: ContextRow[], label: string, lastLabel: string): 
 }
 
 /** スタジオ予約から日付を拾う。予約は日をまたげるので開始〜終了を埋める */
-function datesFromBookings(rows: ContextRow[], bookingType: string): string[] {
+export function datesFromBookings(rows: ContextRow[], bookingType: string): string[] {
   const out: string[] = [];
   for (const r of rows) {
     if (r.source !== 'booking' || r.kind !== bookingType) continue;
@@ -187,7 +216,7 @@ function datesFromBookings(rows: ContextRow[], bookingType: string): string[] {
 }
 
 /** 重複を除いて昇順に */
-const uniqSorted = (dates: string[]): string[] => [...new Set(dates)].sort();
+export const uniqSorted = (dates: string[]): string[] => [...new Set(dates)].sort();
 
 /**
  * 案件が見つからなければ `null`（呼ぶ側が 404 にする）。
@@ -257,8 +286,8 @@ export async function getProjectContext(projectId: string): Promise<ProjectConte
     name: String(head.name ?? ''),
     glsNumber: (head.gls_number as string | null) ?? null,
     customerName: (head.customer_name as string | null) ?? null,
-    eventStart: (head.event_start as string | null) ?? null,
-    eventEnd: (head.event_end as string | null) ?? null,
+    eventStart: ymdOrNull(head.event_start),
+    eventEnd: ymdOrNull(head.event_end),
     venue: formatVenue(rows),
     performanceDates: uniqSorted([
       ...datesFromLabels(rows, PERFORMANCE_LABEL, PERFORMANCE_LAST_LABEL),

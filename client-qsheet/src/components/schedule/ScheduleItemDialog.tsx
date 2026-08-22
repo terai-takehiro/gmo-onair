@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BufferedInput from "@/components/editor/BufferedInput";
 import BufferedTextarea from "./BufferedTextarea";
+// 2つの欄を横に並べる慣用クラス（スマホ1列・sm 以上で2列）。同じクラス列を各画面で
+// 直書きすると片方だけスマホで2列のまま潰れるので、共通の定数を使う
+import { formGrid2 } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { ITEM_KIND_DEFS } from "@gmo-onair/shared/src/schedule/kinds";
 import { fmtHmPad, parseHm } from "@gmo-onair/shared/src/schedule/time";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
@@ -96,7 +99,7 @@ export default function ScheduleItemDialog({
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className={formGrid2}>
               <div>
                 <Label>区分</Label>
                 <Select value={draft.kind} onValueChange={(v) => set("kind", v)}>
@@ -117,7 +120,7 @@ export default function ScheduleItemDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className={formGrid2}>
               <div>
                 <Label htmlFor="item-start">開始（25:30 のように日跨ぎも可）</Label>
                 <BufferedInput

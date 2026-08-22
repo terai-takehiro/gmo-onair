@@ -65,7 +65,16 @@ export default function AiChatSheet({ open, onOpenChange, projectId, scheduleId,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg" className="flex flex-col">
+      <DialogContent
+        // **会話ログなので `md`（640px）。** 中身は吹き出しが縦に積まれるだけの1カラムで、
+        // 2列に並べる入力も横に広げる表も無い。`lg`（840px）にすると 1 行が 700px 超に
+        // なり、読むのに目を左右へ振ることになる（長文の可読性は 1 行 40〜50 字が上限）。
+        // ⚠️ 旧実装が指していた Tailwind の最大幅の `lg` 段は **512px** で、この段の
+        // `lg`（840px）とは別物。名前が同じなだけなので取り違えないこと
+        // （512px は狭すぎたので戻さず、1段だけ広い `md`=640px にした）。
+        size="md"
+        className="flex flex-col"
+      >
         <DialogHeader>
           <DialogTitle>壁打ち（あなただけに見えます）</DialogTitle>
         </DialogHeader>
