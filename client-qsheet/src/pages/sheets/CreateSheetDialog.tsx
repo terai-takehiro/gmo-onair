@@ -29,6 +29,11 @@ import {
 } from "@/components/ui/select";
 import { type GlsProject, type EpisodeOption } from "./types";
 
+/** 案件・エピソードから自動で入れた欄。**入れたことを画面に出すため**に持つ
+ * （黙って入ると誤りに気づけない。`client/src/contexts/finance/.../HandoffDialog.tsx` に倣う）。
+ * ユーザーが手で直したらその欄の印を落とす＝注記も消える。 */
+type PrefilledField = "title" | "broadcastDate" | "recordingDate";
+
 export function CreateSheetDialog({
   open,
   onOpenChange,
@@ -57,6 +62,14 @@ export function CreateSheetDialog({
   const [linkToProject, setLinkToProject] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
+  const [prefilled, setPrefilled] = useState<Record<PrefilledField, boolean>>({
+    title: false,
+    broadcastDate: false,
+    recordingDate: false,
+  });
+
+  const markPrefilled = (field: PrefilledField, value: boolean) =>
+    setPrefilled((prev) => (prev[field] === value ? prev : { ...prev, [field]: value }));
 
   useEffect(() => {
     if (defaultProjectId) {
@@ -97,6 +110,7 @@ export function CreateSheetDialog({
       setSelectedProjectId("");
     }
     setSelectedEpisodeId("");
+    setPrefilled({ title: false, broadcastDate: false, recordingDate: false });
   };
 
   const createMutation = useMutation({
@@ -143,22 +157,51 @@ export function CreateSheetDialog({
     },
   });
 
+  // **自動入力の作法**（`client/src/contexts/finance/pages/ledger/revenuePrefill.ts` に倣う）:
+  // 空欄のときだけ入れる＝ユーザーが打った値は絶対に上書きしない。
+  // ただし「前に自動で入れた値」は選び直しに追随してよい（自分で入れたものなので）。
+  const canAutofill = (current: string, field: PrefilledField) => !current || prefilled[field];
+
   const handleProjectChange = (value: string) => {
     setSelectedProjectId(value);
     setSelectedEpisodeId("");
+    // 番組名を案件名で埋める（`/lookup/gls-options` が `name` を返している）
+    const project = glsProjects?.find((p) => p.id === value);
+    if (project?.name && canAutofill(newTitle, "title")) {
+      setNewTitle(project.name);
+      markPrefilled("title", true);
+    }
   };
 
   const handleEpisodeChange = (value: string) => {
     setSelectedEpisodeId(value);
-    if (!newBroadcastDate && value) {
-      const ep = episodes?.find((e) => e.id === value);
-      if (ep?.broadcast_date) setNewBroadcastDate(ep.broadcast_date);
+    if (!value) return;
+    const ep = episodes?.find((e) => e.id === value);
+    if (!ep) return;
+    if (ep.broadcast_date && canAutofill(newBroadcastDate, "broadcastDate")) {
+      setNewBroadcastDate(ep.broadcast_date);
+      markPrefilled("broadcastDate", true);
+    }
+    // `/lookup/:projectId/episodes-options` は `recording_date` も返している
+    // （server/src/contexts/platform/routes/lookup.routes.ts・`episodes.recording_date` は TEXT の 'YYYY-MM-DD'）
+    if (ep.recording_date && canAutofill(newRecordingDate, "recordingDate")) {
+      setNewRecordingDate(ep.recording_date);
+      markPrefilled("recordingDate", true);
+      setHasRecording(true);
     }
   };
 
+  // 収録日は任意（サーバーの document-create.service.ts も必須にしていない）。
+  // 押せない理由が見えるよう、足りない必須項目だけを名前で出す。
+  const missingRequired = [
+    !newTitle.trim() && "番組名",
+    !newLocation.trim() && "撮影場所",
+    !newBroadcastDate && "放送日",
+  ].filter(Boolean) as string[];
+
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>新規台本作成</DialogTitle>
           <DialogDescription>
@@ -175,9 +218,12 @@ export function CreateSheetDialog({
               className="mt-1"
               placeholder="例：サンプル情報バラエティ"
               value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(e) => { setNewTitle(e.target.value); markPrefilled("title", false); }}
               autoFocus
             />
+            {prefilled.title && (
+              <p className="mt-1 text-xs text-info">GLS案件の名前から入れました。違うときは直してください</p>
+            )}
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
@@ -188,10 +234,18 @@ export function CreateSheetDialog({
               onChange={(e) => setNewLocation(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">放送日 <span className="text-destructive">*</span></Label>
-              <Input className="mt-1" type="date" value={newBroadcastDate} onChange={(e) => setNewBroadcastDate(e.target.value)} />
+              <Input
+                className="mt-1"
+                type="date"
+                value={newBroadcastDate}
+                onChange={(e) => { setNewBroadcastDate(e.target.value); markPrefilled("broadcastDate", false); }}
+              />
+              {prefilled.broadcastDate && (
+                <p className="mt-1 text-xs text-info">エピソードから入れました</p>
+              )}
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">放送開始時刻</Label>
@@ -204,7 +258,18 @@ export function CreateSheetDialog({
               <Switch checked={hasRecording} onCheckedChange={(v) => setHasRecording(!!v)} />
             </div>
             {hasRecording && (
-              <Input type="date" value={newRecordingDate} onChange={(e) => setNewRecordingDate(e.target.value)} required />
+              <>
+                <Label className="text-xs text-muted-foreground">収録日</Label>
+                <Input
+                  className="mt-1"
+                  type="date"
+                  value={newRecordingDate}
+                  onChange={(e) => { setNewRecordingDate(e.target.value); markPrefilled("recordingDate", false); }}
+                />
+                {prefilled.recordingDate && (
+                  <p className="mt-1 text-xs text-info">エピソードから入れました</p>
+                )}
+              </>
             )}
           </div>
           <div>
@@ -213,7 +278,10 @@ export function CreateSheetDialog({
               <Switch checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
             </div>
             {hasRehearsal && (
-              <Input type="date" value={newRehearsalDate} onChange={(e) => setNewRehearsalDate(e.target.value)} />
+              <>
+                <Label className="text-xs text-muted-foreground">リハーサル日</Label>
+                <Input className="mt-1" type="date" value={newRehearsalDate} onChange={(e) => setNewRehearsalDate(e.target.value)} />
+              </>
             )}
           </div>
 
@@ -276,9 +344,15 @@ export function CreateSheetDialog({
             )}
           </div>
 
+          {missingRequired.length > 0 && (
+            <p className="text-xs text-destructive" role="alert">
+              未入力：{missingRequired.join("・")}
+            </p>
+          )}
+
           <Button
             type="submit"
-            disabled={!newTitle.trim() || !newLocation.trim() || !newBroadcastDate || (hasRecording && !newRecordingDate) || createMutation.isPending}
+            disabled={missingRequired.length > 0 || createMutation.isPending}
             className="w-full py-2.5 text-sm font-semibold min-h-[44px]"
           >
             {createMutation.isPending ? "作成中..." : "台本を作成"}
