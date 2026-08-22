@@ -1,0 +1,1 @@
+**PR #308（収録設定・配信設定の500エラー修正＋モック・ジャーニーUX対応）のマージ後の棚卸しを記録した**（コード変更なし）。PR #308 は `get_reviews`/`get_comments`/`get_review_comments` いずれも0件のままマージされたため、[docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md) に「レビュー0件のままマージ」として何を変えたか（`resolveDate()` の日付バグ・ヘッダーのミニアプリ切替・簡易入口のジャーニー化）を記録した。
