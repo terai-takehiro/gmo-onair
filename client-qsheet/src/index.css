@@ -136,3 +136,46 @@
   from { transform: translateY(0); }
   to   { transform: translateY(100%); }
 }
+
+/* ── 計時・視聴者（liveops）の運用画面が使うタイマー表示のクラス ──
+   `client-live/src/index.css` の該当規則の移植（v4.1 段2）。表示画面
+   （`client-live/src/pages/TimerDisplayPage.tsx` ・ `.timer-display-font` /
+   `.split-timer-font` 等）はこれらとは別のクラス名を使っており、触っていない。 */
+.phase-idle      { color: rgb(var(--foreground)); }
+.phase-countdown { color: rgb(var(--foreground)); }
+.phase-yellow    { color: #d97706; }
+.phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
+
+@keyframes pulse-text {
+  0%, 100% { color: #dc2626; }
+  50%       { color: #f87171; }
+}
+
+.timer-panel-font {
+  font-size: clamp(3.25rem, 12vw, 6.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+
+.timer-progress-fill {
+  transition: width 0.35s linear, background-color 0.5s ease;
+}
+
+.timer-glow-red {
+  text-shadow: 0 0 24px rgba(220, 38, 38, 0.55), 0 0 72px rgba(220, 38, 38, 0.25);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}

@@ -36,19 +36,22 @@
  * そこで `kind: 'document' | 'panel'` を足し、`MiniAppDef` を判別可能な union にした。
  * `kind: 'panel'` のときは `docPrefix` 以下を**持たせない**（型で強制する）。
  *
- * ── `kind: 'external'`（12-live-timer-decision.md §2 で追加） ─────
- * 計時・視聴者（`liveops`）は**別の Vite バンドル**（`client-live`・`base: '/live/'`）への
- * 遷移で、`document`/`panel` が前提とする「同一バンドル内の URL」を満たさない。
- * `<Link to>` で飛んでも qsheet 側のルーターには一致する route が無く何も起きないため、
- * `crossBundle: true` を型に持たせて `<a href>` を強制する（`ExternalMiniAppLink`。PR-B で追加）。
- * `kind: 'panel'` と同じく資料番号・一覧を持たない。
+ * ── `kind: 'external'` は廃止した（計時・視聴者のミニアプリ化フェーズ2） ─────
+ * 12-live-timer-decision.md §2 で、計時・視聴者（`liveops`）が**別の Vite バンドル**
+ * （`client-live`・`base: '/live/'`）への遷移だったため一時的に `kind: 'external'`
+ * （`crossBundle: true` を型に持たせ `<a href>` を強制する `ExternalMiniAppLink`）を
+ * 追加していたが、計時・視聴者の運用画面を `client-qsheet` バンドル内
+ * （`/qsheet/live/:ownerKey`）へ移植したことで「別バンドルへの本物の遷移」という前提
+ * 自体が無くなった。収録設定・配信設定と同じ `kind: 'panel'` へ統合し、
+ * `MiniAppExternalDef`・`externalPathOf`・`MiniAppKind` の `'external'` はすべて削除した
+ * （他に使うミニアプリが無いことを確認済み）。
  */
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
 export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental' | 'liveops';
 
-export type MiniAppKind = 'document' | 'panel' | 'external';
+export type MiniAppKind = 'document' | 'panel';
 
 interface MiniAppBase {
   key: MiniAppKey;
@@ -58,11 +61,6 @@ interface MiniAppBase {
   listLabel?: string;
   /** `false` の間はレジストリ由来の導線に出さない（押すと 404 になる項目を作らない） */
   enabled: boolean;
-  /**
-   * 権限区画。省略時はハブ自身の区画（'qsheet'）と同じとみなす。
-   * qsheetとは別区画のミニアプリ（計時・視聴者）だけ明示する。
-   */
-  permissionModule?: string;
 }
 
 /** 資料が複数ある道具（進行台本・スケジュール表）。案件配下に1件でも0件でも複数件でも持てる */
@@ -89,18 +87,7 @@ export interface MiniAppPanelDef extends MiniAppBase {
   path: string;
 }
 
-/** 別バンドルへの本物の遷移を伴う道具（計時・視聴者）。資料番号も一覧も個別URLも持たない */
-export interface MiniAppExternalDef extends MiniAppBase {
-  kind: 'external';
-  /** true 固定。「同一バンドル内の遷移ではない」ことを型で保証し、`<Link>` の誤用を防ぐ */
-  crossBundle: true;
-  /** 遷移先 URL のひな形。`:ownerId` を置換する。別バンドルの絶対パスであること */
-  path: string;
-  /** このミニアプリが受け付けられる owner の種類。今回は 'project' のみ */
-  supportedOwnerKinds: readonly ('project')[];
-}
-
-export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef | MiniAppExternalDef;
+export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef;
 
 /**
  * 初期値。**増やすときは1件ずつ**。
@@ -155,14 +142,33 @@ export const MINI_APPS: MiniAppDef[] = [
     enabled: true,
   },
   {
-    kind: 'external',
+    kind: 'panel',
     key: 'liveops',
     label: '計時・視聴者',
-    crossBundle: true,
-    path: '/live/open?project=:ownerId',
-    supportedOwnerKinds: ['project'],
-    permissionModule: 'liveops',
-    enabled: true, // PR-A では false のまま登録。PR-B（導線・改称）で true に反転した（12-live-timer-decision.md §5）
+    path: '/qsheet/live/:ownerKey',
+    // 権限区画の統合（migration 232）で 'liveops' → 'qsheet' に変更した。
+    // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-qsheet バンドルへ移植し
+    // kind: 'panel' に統合した。
+    //
+    // ⚠️ `MiniAppBase.permissionModule`（ハブの区画と別区画のミニアプリだけ明示する
+    // フィールド）は、権限区画の統合で liveops も 'qsheet' になり、他の panel 系
+    // ミニアプリ（収録設定・配信設定など）と区画が揃ったことで**フィールドごと不要に
+    // なった**ため削除した（v4.1 段2 レビュー対応 — フィールドが定義されているだけで
+    // どこからも読まれていないことを確認済み。フェーズ1で追加した二重防御
+    // 〔`ExternalMiniAppLink` の `hasPermission` チェック〕はミニアプリ化フェーズ2で
+    // 既に削除済み）。
+    //
+    // ⚠️ レビュー対応（v4.1 段2）: 当初は resolve-by-project 自体が常に
+    // 'qsheet'/'manager' を要求しており、reader/editor は既存セッションの閲覧すら
+    // 常に 403 になっていた（上記の二重防御を外した直後に踏んだ回帰）。
+    // resolve-by-project 側を「既存があれば reader で返す・無いときだけ manager で
+    // 作成」の2段構えに直したことで、他の panel 系ミニアプリ（GET は reader で通る）
+    // と同じ基準になった。ハブ自体の qsheet 権限ゲート（reader 以上）が唯一の防御でも
+    // 安全 — タイル自体を隠す二重防御はもう要らない。残るのは「その案件で初めて開く
+    // （program がまだ無い）ときは manager が要る」という他アプリにも共通の
+    // 「作成には上の権限が要る」形の差だけ（気になる別の不具合ではあるが直すのは
+    // このステージのスコープ外 — GROUND_RULES §6）。
+    enabled: true,
   },
 ];
 
@@ -190,15 +196,6 @@ export function panelPathOf(key: MiniAppKey, ownerKey: string): string {
   return app.path.replace(':ownerKey', encodeURIComponent(ownerKey));
 }
 
-/** `path` のひな形に owner id を埋める（`kind: 'external'` 専用）。純関数・I/O は持たない */
-export function externalPathOf(key: MiniAppKey, ownerId: string): string {
-  const app = MINI_APP_BY_KEY[key];
-  if (app.kind !== 'external') {
-    throw new Error(`externalPathOf: '${key}' は external ではありません（kind=${app.kind}）`);
-  }
-  return app.path.replace(':ownerId', encodeURIComponent(ownerId));
-}
-
 /** URL のひな形から、パラメータより前の固定部分だけを取り出す（前方一致に使う） */
 function pathPrefix(path: string): string {
   const idx = path.search(/:[A-Za-z]+/);
@@ -208,13 +205,10 @@ function pathPrefix(path: string): string {
 /**
  * URL からミニアプリを判定する。`apps.ts` の `appOfPath` と同じ作法で
  * **長い path から先に見る**（短い prefix が先に一致して誤判定するのを防ぐ）。
- * `kind: 'external'` は別バンドルの URL なので候補から除外する
- * （`/live/*` という pathname が qsheet 側ルーターに渡ってくることは構造上ない）。
  */
 export function miniAppOfPath(pathname: string): MiniAppDef | undefined {
   const candidates: { app: MiniAppDef; prefix: string }[] = [];
   for (const app of MINI_APPS) {
-    if (app.kind === 'external') continue;
     if (app.kind === 'document') {
       candidates.push({ app, prefix: app.listPath }, { app, prefix: pathPrefix(app.docPath) });
     } else {

@@ -407,9 +407,10 @@ router.get('/debug', requireAuth, async (req, res) => {
 router.get('/permission-test', requireAuth, wrap(async (req, res) => {
   const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4 };
   // 権限モデル単純化（migration 210）で区画はブロックアプリ単位に統合済み。
-  // 技術資料アプリの削除（migration 211）で `techsheet` を外し、いまは6つ。
+  // 技術資料アプリの削除（migration 211）で `techsheet` を外し、計時・視聴者の
+  // ミニアプリ化フェーズ2（migration 232）で `liveops` を `qsheet` へ統合し、いまは5つ。
   // `permission-role.service.ts` の `ROLE_MODULES` と同じ並びにすること
-  const MODULES = ['sales', 'equipment', 'dailyops', 'qsheet', 'liveops', 'awards'];
+  const MODULES = ['sales', 'equipment', 'dailyops', 'qsheet', 'awards'];
 
   // DB から直接クエリして最新値を取得
   const dbRows = await queryAll(

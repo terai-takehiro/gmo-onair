@@ -31,11 +31,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
 /**
- * 型が面倒を見る区画。ブロックアプリ単位の6つ（凍結3アプリを含む）。
+ * 型が面倒を見る区画。ブロックアプリ単位の5つ（凍結2アプリを含む）。
  * 技術資料アプリの削除（migration 211）で `techsheet` を外した。
+ * 計時・視聴者のミニアプリ化フェーズ2（migration 232）で `liveops` を `qsheet` へ
+ * 統合したので外した — 計時・視聴者の権限は `qsheet` 区画が面倒を見る。
  */
 export const ROLE_MODULES = [
-  'sales', 'equipment', 'dailyops', 'qsheet', 'liveops', 'awards',
+  'sales', 'equipment', 'dailyops', 'qsheet', 'awards',
 ] as const;
 
 export type RoleLevel = 'reader' | 'editor' | 'manager';

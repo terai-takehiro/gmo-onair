@@ -45,6 +45,7 @@
 | `src/client/dashboard/` | `DashboardHeader` / `KpiCard` / `SectionCard` / `EmptyState` / `chart-colors` |
 | `src/client/{AppHeader,SharedHeader,AppSwitcher}.tsx`, `appNav.ts` | **旧ヘッダー。凍結4アプリだけが使う**（v4 対象3アプリは `src/client/shell/` に移行済み） |
 | `src/client/{createApi,createAuthHook,queryClient,uiStore}.ts` | axios・認証フック・react-query・UIストアのファクトリ |
+| `src/client/live/{socket,useTimer}.ts` | 計時・視聴者（liveops）の `/liveops` Socket.IO 名前空間ラッパー・タイマー操作フック。**`client-live/src/lib/socket.ts` / `hooks/useTimer.ts`（表示画面 `TimerDisplayPage.tsx` 専用として凍結）の複製**（v4.1 段2・ミニアプリ化フェーズ2）。運用画面（`client-qsheet` に移植したダッシュボード・タイマー管理）だけが使う。JSX・Tailwind クラス名を持たない純粋な socket.io-client ラッパー・React フック |
 
 > ⚠️ **ファイルを送るときは Content-Type を書かないこと**（`createApi.ts`・実際に踏んだ）。
 > この instance は `headers: { 'Content-Type': 'application/json' }` を**全リクエストに固定**

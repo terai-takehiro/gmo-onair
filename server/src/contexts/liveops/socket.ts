@@ -118,11 +118,15 @@ export function initLiveopsSocketIO(io: IOServer) {
         if (!user) return next(new Error('Unauthorized'));
 
         if ((user as any).role !== 'system_admin') {
+          // 権限区画統合（migration 232・計時・視聴者のミニアプリ化フェーズ2）で
+          // 'liveops' は 'qsheet' に統合済み。ここも追随させないと、password認証モードで
+          // system_admin以外の全ユーザーがこのnamespaceに接続できなくなる
+          // （'liveops'の行はもう存在しないため）。
           const perm = await queryOne(
             'SELECT access_level FROM user_permissions WHERE user_id = $1 AND module = $2',
-            [(user as any).id, 'liveops']
+            [(user as any).id, 'qsheet']
           );
-          if (!perm) return next(new Error('Forbidden: liveops permission required'));
+          if (!perm) return next(new Error('Forbidden: qsheet permission required'));
         }
 
         (socket as any).userId = (user as any).id;

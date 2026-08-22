@@ -5,26 +5,23 @@
  *
  * ── どう分けたか（実際に画面を確認して判断） ──────────────────
  *
- * - **セッション一覧・ダッシュボード・タイマー管理・番組設定**は、
- *   もともと `sm:` で縦積みに畳む作りになっていた（一覧はカード、
- *   タイマー管理は `sm:flex-row` の一覧＋詳細、番組設定は縦一列のフォーム）。
- *   本番中に会場やロビーからタイマー・視聴者数だけ確認したい場面も
- *   実際にあるため、スマホでも開けるようにする
- * - **組織の設定（`/settings`）だけ PC 専用**にした。YouTube / Jstream / Zoom /
- *   Teams の API キー・クライアントシークレットを外部サービスの管理画面と
- *   往復しながら貼り付ける画面で、`docs/design/v4/mobile.md` の
- *   `spNotOnPhone`（「設定と権限」）に当たる
+ * ⚠️ v4.1 段2（ミニアプリ化フェーズ2・URL再設計）で、運用画面
+ * （ダッシュボード・タイマー管理・番組設定・組織の鍵設定）はすべて
+ * `client-qsheet` バンドル側（`/qsheet/live/...`）へ移った。ここに残る
+ * `/open` `/settings` `/program/:programId` 配下3つは**旧URLのリダイレクト専用画面**
+ * （`pages/redirects/`）になったため、`<Redirect...>` という名前の部品を使う
+ * ルートとして `check-mobile-declared.mjs` の対象から自動的に外れる
+ * （転送は画面として数えない・同スクリプトの `routesOf()` 参照）。
+ * このアプリで「スマホ／PC」を宣言する画面は、以後 `/`（案内画面）と
+ * 表示画面（`/display/:timerId`）の2つだけになった
+ *
+ * - **PC専用の画面はもう無い。** 旧「組織の設定（`/settings`）」の PC専用判断は
+ *   移植先の `client-qsheet/src/pcOnlyScreens.ts`（`QSHEET_PC_ONLY` の
+ *   `/qsheet/live-org-settings`）に引き継いだ
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
-export const LIVE_PC_ONLY: PcOnlyEntry[] = [
-  {
-    path: '/settings',
-    what: '計時・視聴者の設定',
-    why: 'YouTube・Jstream・Zoom・TeamsのAPIキーや資格情報を登録する画面です。外部サービスの管理画面と往復しながら入力するため、PCでの操作を前提にしています。',
-    instead: { label: 'セッション一覧を開く', to: '/' },
-  },
-];
+export const LIVE_PC_ONLY: PcOnlyEntry[] = [];
 
 /**
  * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
@@ -37,13 +34,7 @@ export const LIVE_MOBILE_HIDDEN = LIVE_PC_ONLY.filter((e) => e.hidden).map((e) =
  * ルートがあると `npm run lint` が止まります（決めないまま出さないため）。
  */
 export const LIVE_MOBILE_OK: string[] = [
-  '/',                             // セッション一覧
-  '/open',                         // 案件からの橋渡し（OpenByProjectPage・v4.1段1 PR-A）。
-                                    // 取得または作成のあとすぐ /program/:id へリダイレクトするだけの
-                                    // 画面で、他の運用画面と同じくスマホからも開ける
-  '/program/:programId',           // ダッシュボード（タイマー・視聴者数の確認）
-  '/program/:programId/timers',    // タイマー管理
-  '/program/:programId/settings',  // 番組設定（配信URL・ID）
+  '/', // 計時・視聴者の案内（旧セッション一覧は廃止。制作技術支援の案件から開く案内を表示するだけ・v4.1段2）
   /*
    * 表示画面 (`/live/display/:timerId`)。`App.tsx` の `DisplayRouter`（`AppShell` を
    * 経由しない別ルーター・認証なし）が持つルートで、`check-mobile-declared.mjs` は

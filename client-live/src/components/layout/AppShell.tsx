@@ -44,10 +44,12 @@ export default function AppShell() {
   });
 
   // 権限が無い人に白紙を出さない。何の権限が要るかを名前で出す (P3 の共通部品)
+  // ⚠️ 権限区画の統合（'liveops' → 'qsheet'・migration 232）で表示する区画名を変えた
+  // （usePermissions.ts と同じ理由）。
   if (!permissionsLoading && !canView) {
     return (
       <div className="flex h-full items-center justify-center overflow-y-auto bg-background p-4">
-        <NoPermissionPanel modules={['liveops']} target="計時・視聴者" />
+        <NoPermissionPanel modules={['qsheet']} target="計時・視聴者" />
       </div>
     );
   }

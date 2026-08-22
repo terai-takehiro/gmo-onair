@@ -8,9 +8,9 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { startMeasurement, stopMeasurement, defaultMeasureUntil, getTodayYoutubeUnits } from '../measure.service';
 
 const router = Router();
-const canRead = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canRead = [requireAuth, requirePermission('qsheet', 'reader')] as const;
 // ⚠️ 開始・停止は manager だけ（reader にすると誰でも1日の割り当てを使い切れる）
-const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
+const canWrite = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
 const YOUTUBE_DAILY_QUOTA = 10000;
 

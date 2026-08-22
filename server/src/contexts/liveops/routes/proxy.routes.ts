@@ -10,8 +10,8 @@ import { getCount } from '../teams-subscription';
 import { fetchYoutube, fetchJstream, fetchZoom, extractErrorMessage } from '../viewer-sources.service';
 
 const router = Router();
-const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
-const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
+const canRead  = [requireAuth, requirePermission('qsheet', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
 /** YouTube Data API v3 proxy */
 router.get('/youtube', ...canRead, async (req, res) => {

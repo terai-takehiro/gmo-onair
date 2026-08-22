@@ -32,6 +32,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
+    "socket.io-client": "^4.8.0",
     "tailwind-merge": "^2.0.0",
     "zustand": "^4.0.0"
   },
@@ -49,6 +50,9 @@
       "optional": true
     },
     "@radix-ui/react-toast": {
+      "optional": true
+    },
+    "socket.io-client": {
       "optional": true
     }
   },

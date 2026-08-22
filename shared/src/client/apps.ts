@@ -49,9 +49,15 @@
  * **改名（「計時LIVE」→「計時・視聴者」）は 2026-08-22、
  * `docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` のフェーズ1・PR-B
  * （ミニアプリとしての導線追加と同じPR）で実施済み。** 表示名だけを変え、
- * ディレクトリ名 `client-live/`・ベースパス `/live/`・`permissionModule: 'liveops'`・
- * DBのテーブル名・Socket.IO 名前空間・`localStorage` キー・`MiniAppKey`/`AppKey` の値
- * `'liveops'` 等の内部識別子は一切変えていない（対応表は `client-live/CLAUDE.md` に残す）。
+ * ディレクトリ名 `client-live/`・ベースパス `/live/`・DBのテーブル名・
+ * Socket.IO 名前空間・`localStorage` キー・`MiniAppKey`/`AppKey` の値 `'liveops'` 等の
+ * 内部識別子は一切変えていない（対応表は `client-live/CLAUDE.md` に残す）。
+ * ⚠️ **`permissionModule` だけは例外。** 計時・視聴者のミニアプリ化フェーズ2の着手に
+ * あたり、権限区画 `liveops` を `qsheet` へ統合した（migration 232・
+ * 12-live-timer-decision.md §9 の未決事項に対する決定）。`permissionModule` は
+ * 権限モジュール文字列であって上記の「変えない」識別子ではないため、
+ * `'liveops'` → `'qsheet'` に変更している（`key: 'liveops'` 自体はアプリ識別子
+ * なので変えていない）。
  *
  * **残る `frozen: true` はリアルタイムCG（`awards`）だけ。** ただし `awards` は
  * その後さらに一段先の「廃止」（配信停止・コードのみ保存）になっているので、
@@ -177,7 +183,7 @@ export const APPS: AppDef[] = [
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
   /* 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり) */
-  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops' },
+  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet' },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

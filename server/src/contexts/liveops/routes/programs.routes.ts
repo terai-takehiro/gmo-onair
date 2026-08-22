@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { queryAll as query, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { encrypt, decrypt, mask } from '../crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTeamsToken } from '../teams-token';
 import { subscribeToMeeting } from '../teams-subscription';
 
 const router = Router();
-const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
-const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
+const canRead  = [requireAuth, requirePermission('qsheet', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
 async function trySubscribeTeams(programId: string, meetingUrl: string, req: any): Promise<void> {
   try {
@@ -128,8 +128,16 @@ router.post('/', ...canWrite, async (req, res) => {
 // 制作技術支援 v4.1 段1（12-live-timer-decision.md §3-4）: 案件 → liveops_programs の
 // 「取得または作成」をアトミックに行う。DBスキーマは1バイトも変えない — 既存の一意インデックス
 // （migration 221 `liveops_programs_project_key`）に `ON CONFLICT DO NOTHING` を乗せるだけ。
-// 呼び出し元は client-live 側の橋渡し画面（/live/open?project=:id・OpenByProjectPage.tsx）。
-router.post('/resolve-by-project/:projectId', ...canWrite, async (req, res) => {
+// 呼び出し元は client-qsheet 側のダッシュボード（`LiveDashboardPage.tsx` の `useLiveProgram`）。
+// フェーズ1では client-live 側の橋渡し画面（/live/open?project=:id・旧 OpenByProjectPage.tsx）が
+// 呼んでいたが、フェーズ2（ミニアプリ化フェーズ2）でダッシュボード自身が呼ぶ形に統合した。
+//
+// ⚠️ v4.1 段2 レビュー対応: ゲートは `canRead`（qsheet reader）まで下げ、**新規作成のときだけ**
+// 手動で manager を要求する2段構えにした（フェーズ2着手時は `canWrite` 固定で、既存の
+// program を取得するだけの reader/editor まで常に 403 になっていた）。
+// `GET /liveops/programs?project_id=...` と同じ「既存があれば reader で読める」という
+// 基準にそろえる — 案件にまだ program が無いときだけ、作成（INSERT）に manager を要求する。
+router.post('/resolve-by-project/:projectId', ...canRead, async (req, res) => {
   try {
     const { projectId } = req.params;
 
@@ -139,6 +147,25 @@ router.post('/resolve-by-project/:projectId', ...canWrite, async (req, res) => {
     );
     if (existing) {
       return res.json({ success: true, data: { id: (existing as any).id } });
+    }
+
+    // ここから先は新規作成（INSERT）。reader/editor には作らせない — manager 以上が必要。
+    const authUser = (req as any).user;
+    if (!meetsPermissionLevel(authUser?.role, authUser?.permissions?.['qsheet'], 'manager')) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      const error = isProduction
+        ? { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' }
+        : {
+            code: 'FORBIDDEN',
+            message: 'このモジュールへのアクセス権限がありません',
+            debug: {
+              requiredModule: 'qsheet',
+              requiredMinLevel: 'manager',
+              userRole: authUser?.role,
+              userLevel: authUser?.permissions?.['qsheet'] ?? null,
+            },
+          };
+      return res.status(403).json({ success: false, error });
     }
 
     const project = await queryOne('SELECT name FROM projects WHERE id = $1', [projectId]);
