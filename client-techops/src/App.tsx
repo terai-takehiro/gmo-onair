@@ -28,6 +28,10 @@ import LiveTimerAdminPage from "@/pages/live/LiveTimerAdminPage";
 import LiveProgramSettingsPage from "@/pages/live/LiveProgramSettingsPage";
 import LiveOrgSettingsPage from "@/pages/live/LiveOrgSettingsPage";
 import LiveLegacyProgramsPage from "@/pages/live/LiveLegacyProgramsPage";
+// 表示レイアウト編集・テンプレートライブラリ（v4.1・PR3・
+// docs/design/v4/qsheet-v4-coding/13-live-display-layout-editor.md §6）
+import LiveDisplayLayoutEditorPage from "@/pages/live/LiveDisplayLayoutEditorPage";
+import LiveDisplayTemplateLibraryPage from "@/pages/live/LiveDisplayTemplateLibraryPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -99,8 +103,11 @@ export default function App() {
             manager 向け・案件に紐づかない設定のため） */}
         <Route path="/techops/live/:ownerKey" element={<LiveDashboardPage />} />
         <Route path="/techops/live/:ownerKey/timers" element={<LiveTimerAdminPage />} />
+        <Route path="/techops/live/:ownerKey/timers/:timerId/layout" element={<LiveDisplayLayoutEditorPage />} />
         <Route path="/techops/live/:ownerKey/settings" element={<LiveProgramSettingsPage />} />
         <Route path="/techops/live-org-settings" element={<LiveOrgSettingsPage />} />
+        {/* 表示レイアウトのテンプレートライブラリ。全案件横断（:ownerKey を取らない） */}
+        <Route path="/techops/live-display-templates" element={<LiveDisplayTemplateLibraryPage />} />
         {/* 案件に紐づかない既存セッション（旧スタンドアロン作成）の一覧。新規作成ボタンは無い
             — セッション一覧の廃止に伴う UI 到達性の回復のみが目的（レビュー対応・§致命的2） */}
         <Route path="/techops/live-legacy" element={<LiveLegacyProgramsPage />} />
@@ -138,8 +145,9 @@ export default function App() {
         旧→新は下記のとおり全て接頭辞の入れ替えだけ（`RedirectQsheetToTechops` が
         機械的に処理）: login / (top) / top / home / sheets / editor(/:id) /
         recording/:ownerKey / streaming/:ownerKey / rental/:ownerKey(/list)
-        (/mail/:company) / live/:ownerKey(/timers)(/settings) / live-org-settings /
-        live-legacy / schedules(/:id) / settings/schedule-templates / projects/:id /
+        (/mail/:company) / live/:ownerKey(/timers)(/timers/:timerId/layout)(/settings) /
+        live-org-settings / live-display-templates / live-legacy / schedules(/:id) /
+        settings/schedule-templates / projects/:id /
         docs/:id / programs/:id / onair/:id / rundown/:id / prompter/:id / audio/:id。
         `/qsheet/editor`（id無し）だけは `/techops/editor` 経由で
         `/techops/sheets` へさらに1段転送される（既存の同名ルートと同じ挙動）。
