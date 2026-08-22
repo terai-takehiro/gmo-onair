@@ -47,7 +47,7 @@ export default function AppShell() {
   if (!permissionsLoading && !canView) {
     return (
       <div className="flex h-full items-center justify-center overflow-y-auto bg-background p-4">
-        <NoPermissionPanel modules={['liveops']} target="計時LIVE" />
+        <NoPermissionPanel modules={['liveops']} target="計時・視聴者" />
       </div>
     );
   }

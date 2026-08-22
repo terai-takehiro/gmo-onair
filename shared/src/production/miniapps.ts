@@ -35,13 +35,20 @@
  * 個別 URL も持たない（`impl/08-recording-streaming-impl.md` §10-2）。
  * そこで `kind: 'document' | 'panel'` を足し、`MiniAppDef` を判別可能な union にした。
  * `kind: 'panel'` のときは `docPrefix` 以下を**持たせない**（型で強制する）。
+ *
+ * ── `kind: 'external'`（12-live-timer-decision.md §2 で追加） ─────
+ * 計時・視聴者（`liveops`）は**別の Vite バンドル**（`client-live`・`base: '/live/'`）への
+ * 遷移で、`document`/`panel` が前提とする「同一バンドル内の URL」を満たさない。
+ * `<Link to>` で飛んでも qsheet 側のルーターには一致する route が無く何も起きないため、
+ * `crossBundle: true` を型に持たせて `<a href>` を強制する（`ExternalMiniAppLink`。PR-B で追加）。
+ * `kind: 'panel'` と同じく資料番号・一覧を持たない。
  */
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental';
+export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental' | 'liveops';
 
-export type MiniAppKind = 'document' | 'panel';
+export type MiniAppKind = 'document' | 'panel' | 'external';
 
 interface MiniAppBase {
   key: MiniAppKey;
@@ -51,6 +58,11 @@ interface MiniAppBase {
   listLabel?: string;
   /** `false` の間はレジストリ由来の導線に出さない（押すと 404 になる項目を作らない） */
   enabled: boolean;
+  /**
+   * 権限区画。省略時はハブ自身の区画（'qsheet'）と同じとみなす。
+   * qsheetとは別区画のミニアプリ（計時・視聴者）だけ明示する。
+   */
+  permissionModule?: string;
 }
 
 /** 資料が複数ある道具（進行台本・スケジュール表）。案件配下に1件でも0件でも複数件でも持てる */
@@ -77,7 +89,18 @@ export interface MiniAppPanelDef extends MiniAppBase {
   path: string;
 }
 
-export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef;
+/** 別バンドルへの本物の遷移を伴う道具（計時・視聴者）。資料番号も一覧も個別URLも持たない */
+export interface MiniAppExternalDef extends MiniAppBase {
+  kind: 'external';
+  /** true 固定。「同一バンドル内の遷移ではない」ことを型で保証し、`<Link>` の誤用を防ぐ */
+  crossBundle: true;
+  /** 遷移先 URL のひな形。`:ownerId` を置換する。別バンドルの絶対パスであること */
+  path: string;
+  /** このミニアプリが受け付けられる owner の種類。今回は 'project' のみ */
+  supportedOwnerKinds: readonly ('project')[];
+}
+
+export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef | MiniAppExternalDef;
 
 /**
  * 初期値。**増やすときは1件ずつ**。
@@ -131,6 +154,16 @@ export const MINI_APPS: MiniAppDef[] = [
     path: '/qsheet/rental/:ownerKey',
     enabled: true,
   },
+  {
+    kind: 'external',
+    key: 'liveops',
+    label: '計時・視聴者',
+    crossBundle: true,
+    path: '/live/open?project=:ownerId',
+    supportedOwnerKinds: ['project'],
+    permissionModule: 'liveops',
+    enabled: true, // PR-A では false のまま登録。PR-B（導線・改称）で true に反転した（12-live-timer-decision.md §5）
+  },
 ];
 
 /** キーで引く */
@@ -157,6 +190,15 @@ export function panelPathOf(key: MiniAppKey, ownerKey: string): string {
   return app.path.replace(':ownerKey', encodeURIComponent(ownerKey));
 }
 
+/** `path` のひな形に owner id を埋める（`kind: 'external'` 専用）。純関数・I/O は持たない */
+export function externalPathOf(key: MiniAppKey, ownerId: string): string {
+  const app = MINI_APP_BY_KEY[key];
+  if (app.kind !== 'external') {
+    throw new Error(`externalPathOf: '${key}' は external ではありません（kind=${app.kind}）`);
+  }
+  return app.path.replace(':ownerId', encodeURIComponent(ownerId));
+}
+
 /** URL のひな形から、パラメータより前の固定部分だけを取り出す（前方一致に使う） */
 function pathPrefix(path: string): string {
   const idx = path.search(/:[A-Za-z]+/);
@@ -166,10 +208,13 @@ function pathPrefix(path: string): string {
 /**
  * URL からミニアプリを判定する。`apps.ts` の `appOfPath` と同じ作法で
  * **長い path から先に見る**（短い prefix が先に一致して誤判定するのを防ぐ）。
+ * `kind: 'external'` は別バンドルの URL なので候補から除外する
+ * （`/live/*` という pathname が qsheet 側ルーターに渡ってくることは構造上ない）。
  */
 export function miniAppOfPath(pathname: string): MiniAppDef | undefined {
   const candidates: { app: MiniAppDef; prefix: string }[] = [];
   for (const app of MINI_APPS) {
+    if (app.kind === 'external') continue;
     if (app.kind === 'document') {
       candidates.push({ app, prefix: app.listPath }, { app, prefix: pathPrefix(app.docPath) });
     } else {

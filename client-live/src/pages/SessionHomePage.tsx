@@ -112,7 +112,7 @@ export default function SessionHomePage() {
               <Timer className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-base font-bold">計時LIVE</h1>
+              <h1 className="text-base font-bold">計時・視聴者</h1>
               <p className="text-xs text-muted-foreground">配信セッションを選択または作成</p>
             </div>
           </div>
