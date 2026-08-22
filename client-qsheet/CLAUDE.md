@@ -16,7 +16,11 @@
 > 「制作管理」で多義）・`studio`（既存のスタジオ予約機能と衝突）は避けた。
 > 着手する場合は本番URL5本（editor/onair/rundown/prompter/audio）の後方互換、DBマイグレーション、
 > rental-scraper（別デプロイのPythonコンテナ）との整合、MCP外部ツール名の破壊的変更を要する
-> 大掛かりな作業になる見込み（詳細は当時のセッションの調査結果を参照）。
+> 大掛かりな作業になる見込み。**具体的な7観点の監査結果・フェーズ分けした移行手順案は
+> [docs/reviews/qsheet-techops-migration-plan.md](../docs/reviews/qsheet-techops-migration-plan.md)
+> にまとめた（2026-08-22・計画のみ・コード変更なし）。** DBテーブル・`permissionModule`・
+> Socket.IOネームスペース・rental-scraperの4つは明示的にスコープ外（`client-live` の前例
+> どおり据え置き）。着手判断はまだ下していない — 同ドキュメント §6 の要判断事項を参照。
 
 ## いまの状態（v4.1・共通シェル載せ替え後）
 
