@@ -20,29 +20,23 @@ npm ci --workspaces --include-workspace-root
 ```
 
 `.env` は**絶対にコミットしない**（`.gitignore` 済み）。
-`GOOGLE_CLIENT_ID` が未設定だと mockAuth（ユーザーカード選択式）で入れます。
+認証は `AUTH_MODE` で切り替わります（未指定の開発環境は `mock` ＝ユーザーカード選択式で入れます）。
 
 ### 動かす
 
 ```bash
 npm run verify:up      # 検証用 Postgres を立てる (冷えた状態から約4秒・ポート5433)
-npm run dev            # v4 対象3アプリ + server を同時起動
+npm run dev            # 既定3アプリ + server を同時起動（全部立てるときは dev:all）
 ```
 
-| アプリ | URL | v4.0.0 |
-| --- | --- | --- |
-| 案件管理・財務管理・カレンダー・設定 | http://localhost:5173/ | **対象** |
-| 日常業務 | http://localhost:5180/daily/ | **対象** |
-| 機材管理 | http://localhost:5175/equipment/ | **対象** |
-| 制作資料 (Qシート) | http://localhost:5174/qsheet/ | 凍結 |
-| 計時LIVE | http://localhost:5178/live/ | 凍結 |
-| リアルタイムCG | http://localhost:5179/awards/ | 凍結 |
+開く URL は `http://localhost:<ポート><ベースパス>`。**アプリごとのポート・ベースパス・
+状態の対応表はルート [CLAUDE.md](CLAUDE.md) の「ブロックアプリ一覧」が正**です
+（一覧を2か所で持つと必ず片方が古くなるので、ここには写しを置きません）。
 
-`npm run dev` の既定が3アプリなのは**手元の速さのため**です。凍結アプリを触るときは
-`npm run dev:frozen`、全部立てたいときは `npm run dev:all` を使ってください。
+`npm run dev` の既定が3アプリなのは**手元の速さのため**です。
 
-**凍結アプリの見た目は変えないこと。** 詳しくは各ディレクトリの `CLAUDE.md` と
-[docs/v4-plan.md](docs/v4-plan.md) にあります。
+⚠️ **計時・視聴者の表示画面（`/live/display/`）だけは「レイアウト未設定時の見た目を
+変えない」例外**です（詳細はルート CLAUDE.md と `client-live/CLAUDE.md`）。
 
 ---
 
@@ -58,8 +52,9 @@ git switch -c feature/<Issue番号>-<短い名前>
 ### 手元で必ず通すもの
 
 ```bash
-npm run typecheck        # v4 対象3アプリ + server (CI は typecheck:all で全7アプリを見る)
-npm run lint             # eslint
+npm run typecheck        # 既定3アプリ + server (CI は typecheck:all = 廃止アプリを除く全ワークスペース)
+npm run lint             # eslint ＋ 各種検査 (changelog / トークン / リンク / migration番号 ほか)
+npm run test             # shared の Vitest (計算の回帰。CI も回す — 手元の gate に必ず入れる)
 npm run check:version    # バージョン表記の整合 (3か所)
 npm run build:changed    # 変更したワークスペースだけビルド (全部だと約2分)
 npm run build            # 本番と同じビルド経路 (tsc が通っても Vite で落ちることがある)
@@ -99,10 +94,8 @@ npm run verify:ui        # 書体・地の色・桁揃い・横はみ出し・�
 
 `alert()` / `confirm()` / `¥{n.toLocaleString()}` / Tailwind の生パレット（`slate-800` 等）は**使いません**。
 
-> **いまの状態**: 金額・数値・期間（`<Money>` `<StatValue>` `<Num>` `<DateRange>` `manYen()`）は
-> **P1 で入りました**。行・バッジ（`<Row>` `<TableBadge>`）と通知（`notify` / `confirmAction`）は
-> P2 / P3 で入ります。それらが揃うまで `npm run check:ui-tokens` は**まだ `lint` に
-> 組み込んでいません**（無い部品を「使え」と言う検査になるため）。それまでは人が気をつけてください。
+> 上の表の部品はすべて実装済みで、**`npm run check:ui-tokens` は `lint` に組み込み済み**です
+> （CI でも回ります。既存の違反は基準ファイルで凍結し、増えたら止まります）。
 
 ### 土台の計算にはテストがあります
 
@@ -164,7 +157,8 @@ npm run check:shared-wiring    # 7アプリ分を照合 (lint から自動で呼
 @tailwind utilities;
 ```
 
-- **v4 対象3アプリだけ**が読みます。凍結4アプリは `tokens.css` を直読みするまま（見た目を変えないため）
+- どのアプリが `base.css` を読むかの現状は各アプリの `CLAUDE.md` を参照
+  （廃止済みのリアルタイムCGは自前の変数のままで対象外）
 - 画面のスクロールは**シェルの中**（`<main class="overflow-y-auto">`）が持ちます。
   `html`/`body` は動きません。シェルの根は `h-screen`(=100vh) ではなく **`h-full`**
   （iOS の `100vh` は URL バーを含むので、下端が切れます）
@@ -202,8 +196,8 @@ PR に出してください。AI が関与しない UI 修正・CRUD・デプロ
 ### DB マイグレーション
 
 `server/src/shared/db/migrations/` に連番で足します。
-**番号がぶつかっていないか必ず確認**してください（同じ番号のファイルが複数あると
-どちらが当たるか読めません。過去に 087 が2つできています）。
+**番号の重複は `npm run lint`（`check-migration-numbers.mjs`）が機械で止めます**
+（過去に入ってしまった歴史的な3組だけ許容リストで通しています）。
 マイグレーションの失敗はサーバーの起動シーケンスを止めます。
 
 ---
@@ -236,8 +230,10 @@ docs:            ブランチ運用の説明を実際の運用に合わせた
 | `docs` | ドキュメントだけ |
 | `refactor` | 作り替えた（動きは同じ） |
 
-アプリは `projects` / `finance` / `schedule` / `settings` / `gpm` / `equipment` / `daily` /
-`shell` / `shared`。全体にかかるものは括弧を省いてよいです。
+括弧の中は**アプリのディレクトリ名か領域名**から選びます
+（例: `sales` / `finance` / `calendar` / `settings` / `gpm` / `equipment` / `daily` /
+`techops` / `live` / `shell` / `shared`）。閉じたリストではありません —
+`git log --oneline --grep "(名前)"` で絞り込めることが目的です。全体にかかるものは括弧を省いてよいです。
 
 あとで追えるようになること:
 
@@ -327,7 +323,7 @@ GitHub の **Releases → Draft a new release**
 - 本番 DB と検証 DB の相互参照・相互コピー（`onair_prod` / `onair_dev` は**完全分離**）
 - 本番の秘密情報を検証環境で使うこと
 - **利用者の明示的な指示なしに本番リリースを公開すること**
-- `main` / `release/v3` への直接 push・force push、`v*` タグの打ち直し
+- `main` への直接 push・force push、`v*` タグの打ち直し
 
 ---
 
