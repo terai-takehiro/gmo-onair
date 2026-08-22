@@ -136,4 +136,4 @@ if (bad > 0) {
   console.error(`\n凍結アプリの決めごとは「見た目を今日のまま」です（${bad} 本ずれています）。`);
   process.exit(1);
 }
-console.log(`[frozen-css] OK (凍結2アプリの CSS は基準どおり)`);
+console.log(`[frozen-css] OK (凍結${APPS.length}アプリの CSS は基準どおり)`);
