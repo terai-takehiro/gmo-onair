@@ -125,7 +125,10 @@ export function CalSidebarExtras({
                   type="button"
                   onClick={() => onToggleLayer?.(it.key)}
                   aria-pressed={on}
-                  className="min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-left hover:bg-muted lg:min-h-[38px]"
+                  // PC は 36px — 左メニューの項目 (38px) は <a>/<Link> だが、これは
+                  // <button> なので v4 のボタンの段 (32/36/40/44/48) に乗せる
+                  // (verify-ui.mjs「ボタンの高さが段のみ」。38px は段に無い)
+                  className="min-h-tap flex items-center gap-2.5 rounded-control-lg px-2.5 py-1.5 text-left hover:bg-muted lg:min-h-[36px]"
                 >
                   <span
                     className="rounded-badge-xs flex h-[15px] w-[15px] shrink-0 items-center justify-center border-[1.5px]"

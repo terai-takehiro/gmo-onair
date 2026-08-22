@@ -29,7 +29,7 @@ export function RoomAvailabilityToolbar({
       <button
         type="button"
         onClick={onToday}
-        className="h-[30px] rounded-control-md border border-border px-3.5 text-note font-bold text-secondary-foreground"
+        className="h-8 rounded-control-md border border-border px-3.5 text-note font-bold text-secondary-foreground"
       >
         今日
       </button>
@@ -39,7 +39,7 @@ export function RoomAvailabilityToolbar({
           type="button"
           onClick={onPrev}
           aria-label="前の日"
-          className="flex h-[30px] w-[30px] items-center justify-center border-r border-border text-secondary-foreground"
+          className="flex h-8 w-8 items-center justify-center border-r border-border text-secondary-foreground"
         >
           <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -47,7 +47,7 @@ export function RoomAvailabilityToolbar({
           type="button"
           onClick={onNext}
           aria-label="次の日"
-          className="flex h-[30px] w-[30px] items-center justify-center text-secondary-foreground"
+          className="flex h-8 w-8 items-center justify-center text-secondary-foreground"
         >
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

@@ -32,7 +32,6 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
-import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -175,9 +174,14 @@ export default function HoldListPage() {
 
           {rows.map((b) => (
             <Row key={b.id} align="start" className={b.left <= 7 ? 'bg-destructive-surface/40' : undefined}>
-              <RowSlot w={72}>
-                <TableBadge label={leftLabel(b.left)} w={null} className={cn('w-full', leftTone(b.left))} />
-              </RowSlot>
+              {/*
+                幅は `TableBadge` の枠 (7段の 72px) に持たせる。以前は
+                `RowSlot` の中に `w={null}` で置き、バッジ側に幅いっぱいの指定を
+                していたが、枠 (data-badge-slot) が中身の自然幅のままになり、
+                「あと12日」のような5字超の行だけ右端がずれていた
+                (verify-ui.mjs「バッジの列がそろう」で実測)
+              */}
+              <TableBadge label={leftLabel(b.left)} w={72} className={leftTone(b.left)} />
 
               <RowMain>
                 <RowTitle>{b.title}</RowTitle>

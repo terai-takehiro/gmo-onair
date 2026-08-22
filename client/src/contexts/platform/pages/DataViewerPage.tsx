@@ -23,6 +23,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
+import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import {
   Database,
   Search,
@@ -314,12 +315,7 @@ function formatCell(col: string, value: unknown): string {
     return str.length > 8 ? str.substring(0, 8) : str;
   }
 
-  if (isMoneyColumn(col)) {
-    const num = Number(value);
-    if (!isNaN(num)) {
-      return `\u00a5${num.toLocaleString()}`;
-    }
-  }
+  // 金額列はここで文字列にせず、描画側が shared の <Money> で描く (¥と数字を別要素にする)
 
   return str;
 }
@@ -695,10 +691,11 @@ export default function DataViewerPage() {
                           {isSystemAdmin && (
                             <TableCell className="sticky left-0 bg-card z-10 whitespace-nowrap">
                               <div className="flex items-center gap-1">
+                                {/* 28px はボタンの高さの段 (32/36/40/44/48) に無いので 32px にする (verify-ui.mjs) */}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 w-7 p-0"
+                                  className="h-8 w-8 p-0"
                                   title="\u7de8\u96c6"
                                   onClick={() => openEdit(row)}
                                 >
@@ -708,7 +705,7 @@ export default function DataViewerPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                     title="\u8ad6\u7406\u524a\u9664"
                                     onClick={() => setDeletingRow(row)}
                                   >
@@ -723,13 +720,15 @@ export default function DataViewerPage() {
                             const display = formatCell(col, raw);
                             const fullText = raw !== null && raw !== undefined ? String(raw) : "";
                             const truncated = display.length > 30;
+                            // 金額は shared の <Money> で描く (v4 の決めごと「¥と数字は別要素」— verify-ui.mjs が実測する)
+                            const money = isMoneyColumn(col) && raw !== null && raw !== undefined && raw !== "" && Number.isFinite(Number(raw));
                             return (
                               <TableCell
                                 key={col}
                                 className={`whitespace-nowrap ${isIdColumn(col) ? " text-xs" : ""}`}
                                 title={truncated ? fullText : undefined}
                               >
-                                {truncated ? display.substring(0, 30) + "..." : display}
+                                {money ? <Money inline value={Number(raw)} /> : truncated ? display.substring(0, 30) + "..." : display}
                               </TableCell>
                             );
                           })}
