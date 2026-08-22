@@ -134,12 +134,11 @@
   font-feature-settings: "tnum";
 }
 
-/* 視聴者数のみモード: 合計非表示時の大型カウンター */
+/* 視聴者数のみモード: 合計非表示時の大型カウンター (見出し+数字を横並びで1行) */
 .viewer-hero-label {
   font-size: clamp(1.25rem, 3vw, 3.5rem);
   font-weight: 700;
   letter-spacing: 0.15em;
-  margin-bottom: 0.35em;
 }
 .viewer-hero-count {
   font-size: clamp(4rem, 14vw, 20rem);

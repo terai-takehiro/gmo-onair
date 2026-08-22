@@ -1,8 +1,8 @@
 {
   "apps": {
     "live": {
-      "md5": "dc1fe2a4a4e9fc08832b20167110a34a",
-      "bytes": 66835
+      "md5": "d463a160ba1ca5feb91f6080a2803134",
+      "bytes": 67043
     }
   },
   "history": [
@@ -75,6 +75,13 @@
       "to": "dc1fe2a4a4e9fc08832b20167110a34a",
       "bytes": -42,
       "reason": "段9: 視聴者取得をサーバー側へ移したため、ブラウザ側ポーリングのログパネル・手動開始停止ボタン・APIキー警告帯がDashboardPage.tsxから削除された(表示するデータ自体が無くなったため)。色・角丸・書体は一切変えていない"
+    },
+    {
+      "app": "live",
+      "from": "dc1fe2a4a4e9fc08832b20167110a34a",
+      "to": "d463a160ba1ca5feb91f6080a2803134",
+      "bytes": 208,
+      "reason": "計時LIVE の表示画面 (/live/display/:timerId) を v4 の見た目に作り直した (impl/09-live-timer-impl.md §10 PR6)。TimerDisplayPage.tsx のTailwindクラスのみ変更 (+208バイト)。運用画面・ダッシュボード等の他画面や shared/ は変えていない"
     }
   ]
 }
