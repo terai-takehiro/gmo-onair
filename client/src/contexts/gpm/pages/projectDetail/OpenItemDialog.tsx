@@ -53,7 +53,10 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
   const [status, setStatus] = useState<OpenItemStatus>(item?.status ?? 'waiting');
 
   const save = useMutation({
-    mutationFn: () => {
+    // 直す(PUT)と足す(POST)で本文の形が違う（status の有無）。axios 1.18 から
+    // レスポンス型が本文の型を持つため、2つを1つの return で返すと union が
+    // 合わずに型エラーになる。レスポンスはどちらも使わないので await して捨てる
+    mutationFn: async () => {
       const body = {
         question: question.trim(),
         to_kind: toKind,
@@ -62,9 +65,8 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
         due_date: dueDate || null,
         phase_id: phaseId || null,
       };
-      return item
-        ? api.put(`/gpm/open-items/${item.id}`, { ...body, status })
-        : api.post(`/gpm/projects/${projectId}/open-items`, body);
+      if (item) await api.put(`/gpm/open-items/${item.id}`, { ...body, status });
+      else await api.post(`/gpm/projects/${projectId}/open-items`, body);
     },
     onSuccess: () => {
       invalidate(projectId);
