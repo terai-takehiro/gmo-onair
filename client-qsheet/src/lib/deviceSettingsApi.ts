@@ -71,8 +71,26 @@ export interface PreflightResult {
   headerPreview: { sheets: { name: string; headers: string[] }[] };
 }
 
+/** 案件・番組の文脈（ヘッダーのミニアプリ切替・簡易入口からのハブ遷移が使う） */
+export interface OwnerContext {
+  kind: 'project' | 'program';
+  id: string;
+  name: string;
+  glsNumber: string | null;
+}
+
 const base = (ownerKey: string) => `/qsheet/production/${encodeURIComponent(ownerKey)}`;
 const dateQuery = (date?: string) => (date ? `?date=${encodeURIComponent(date)}` : '');
+
+/** 見つからない・権限が無いときは null（呼び出し側で「見つかりません」を出す） */
+export async function getOwnerContext(ownerKey: string): Promise<OwnerContext | null> {
+  try {
+    const { data } = await api.get(`${base(ownerKey)}/context`);
+    return data.data;
+  } catch {
+    return null;
+  }
+}
 
 export async function getRecording(ownerKey: string, date?: string): Promise<RecordingSettings | null> {
   const { data } = await api.get(`${base(ownerKey)}/recording${dateQuery(date)}`);
