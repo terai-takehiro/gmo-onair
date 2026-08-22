@@ -66,6 +66,9 @@ router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Reques
     const docId = req.params.id as string;
     const rawToken = req.query.token;
     const token = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : undefined;
+    // 段階②(予告): トークン無し(旧URL)でアクセスされたときだけ true。
+    // クライアントはこれを見て「近く使えなくなる」旨の帯を出す(AudioSupportPage.tsx)。
+    let isLegacyAccess = false;
 
     if (token) {
       const resolution = await resolvePublicToken(docId, token);
@@ -86,6 +89,7 @@ router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Reques
       // 段階① (この段): 旧URL (トークン無し) を受け入れつつ記録するだけ。
       // IP・UA は残さない — document_id と時刻だけ。表は作らずログのみ (§9-3 の決め)。
       console.log(`[qsheet] public-audio legacy access (no token) document_id=${docId} at=${new Date().toISOString()}`);
+      isLegacyAccess = true;
     }
 
     const row = await queryOne(
@@ -155,6 +159,9 @@ router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Reques
         micTypes: Array.isArray(masters.micTypes) ? masters.micTypes.filter((t) => usedMicTypes.has(t)) : [],
         micChannels: Array.isArray(masters.micChannels) ? masters.micChannels : [],
       },
+      // 段階②(予告): 旧URL(トークン無し)で開かれたときだけ true。
+      // トークンありの通常アクセスではフィールド自体を省略する(既存の応答構成を壊さない)。
+      ...(isLegacyAccess ? { legacy: true as const } : {}),
     };
 
     res.set('X-Robots-Tag', 'noindex, nofollow');

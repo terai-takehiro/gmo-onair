@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Mic, AlertTriangle, Radio, ArrowRight } from "lucide-react";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import { LegacyUrlBanner } from "@/components/LegacyUrlBanner";
 
 type MicState = "on" | "off" | "standby";
 
@@ -50,6 +51,7 @@ interface PublicDoc {
   blocks: PublicMicBlock[];
   sections: PublicSection[];
   masters: PublicMasters;
+  legacy?: boolean; // 旧URL(トークン無し)で開かれたときだけ true (段階②予告)
 }
 
 interface FlatCue {
@@ -404,6 +406,7 @@ export default function AudioSupportPage() {
 
   return (
     <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
+      {data.legacy && <LegacyUrlBanner />}
       {/* Header */}
       <header className="flex-none px-6 py-3 border-b border-zinc-800 bg-zinc-900/60 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
