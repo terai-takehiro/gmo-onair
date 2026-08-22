@@ -43,7 +43,7 @@ qsheetと言う」という不一致は、`client-qsheet/CLAUDE.md` に明示メ
 | # | 観点 | 変更対象の実体 | 規模 | リスク評価 |
 |---|---|---|---|---|
 | 1 | ディレクトリ/ワークスペース | `client-qsheet/` → `client-techops/`。root `package.json`（8箇所）、`Dockerfile`（ステージ名2箇所+COPY4箇所+アップロード先注意）、`client-qsheet/package.json`名、`package-lock.json`（要`npm install`再生成）、`scripts/*.mjs`（10ファイル、うち`check-ui-tokens.mjs`9箇所・`check-contrast-tokens.mjs`8箇所の**行番号付きexact-pathキー**） | 中規模・機械的だが漏れやすい | **中**（機械的だが`server/src/app.ts:143`を見逃すと本番404） |
-| 2 | フロントエンドルーティング（base path・`AppKey`）＋**5本の本番URL** | `client-qsheet/vite.config.ts:7`の`base`、`server/src/app.ts:143`の静的マウント、`shared/src/client/apps.ts`の`AppKey`/`path`、`client-qsheet/src/App.tsx`のルート定義、cross-app links（`DayTab.tsx`/`BusinessProjectView.tsx`/`shortcuts.ts`） | 中規模だが**QRコード・OBSブラウザソースという「コード外の実在物」**への影響 | **最高**（editor/onair/rundown/prompter/audioの5URL。特にprompter=OBS、audio=印刷済みQR） |
+| 2 | フロントエンドルーティング（base path・`AppKey`）＋**5本の本番URL** | `client-qsheet/vite.config.ts:7`の`base`、`server/src/app.ts:143`の静的マウント、`shared/src/client/apps.ts`の`AppKey`/`path`、`client-qsheet/src/App.tsx`のルート定義、cross-app links（`DayTab.tsx`/`BusinessProjectView.tsx`/`shortcuts.ts`）。**2026-08-22追記**: 計時・視聴者のミニアプリ化フェーズ2で`/qsheet/live/*`系5ルートが追加され対象が増えた（§3-2・§7参照） | 中規模だが**QRコード・OBSブラウザソースという「コード外の実在物」**への影響 | **最高**（editor/onair/rundown/prompter/audioの5URL。特にprompter=OBS、audio=印刷済みQR） |
 | 3 | サーバールート（API prefix `/qsheet`） | `server/src/contexts/qsheet/index.ts`の**26個の`router.use('/qsheet', ...)`**、フロント側の呼び出し約80ファイル（`api.get('/qsheet/...')`） | 大規模・機械的 | **高**（サーバー・フロント同時書換 or 二重マウント必須） |
 | 4 | Socket.IOネームスペース | `server/src/contexts/qsheet/socket.ts:45`の`io.of('/qsheet')`、`client-qsheet/src/lib/socket.ts:27`の`io('/qsheet', ...)` | 小規模（2箇所）だが**同時切替必須** | **高**（ライブ配信中の即時切替＝計画停止枠が必要、旧タブは無警告で同期停止） |
 | 5 | DBオブジェクト（`qsheet_*`） | テーブル25・インデックス64・制約7＝**96個**の`qsheet_`を含むオブジェクト、`user_permissions.module`等に埋め込まれた値`'qsheet'` | 巨大（1新規migrationで対応可能だが影響先は無数） | **極高**（ただし§4の通り**方針としてスコープ外**） |
@@ -123,6 +123,14 @@ qsheetと言う」という不一致は、`client-qsheet/CLAUDE.md` に明示メ
   （`<a href={`/qsheet?project=${projectId}`}>`）、
   `client/src/contexts/platform/pages/search/shortcuts.ts`
   （`{ key: 'qsheet', to: '/qsheet', module: 'qsheet', external: true }`）
+- ⚠️ **2026-08-22（PR #327）でスコープが増えた**: `client-live`（計時・視聴者）の運用画面
+  （ダッシュボード・タイマー管理・番組設定・組織の鍵設定・旧セッション一覧）が
+  「ミニアプリ化フェーズ2」で`client-qsheet`へバンドル統合され、`/qsheet/live/:ownerKey`・
+  `/qsheet/live/:ownerKey/timers`・`/qsheet/live/:ownerKey/settings`・
+  `/qsheet/live-org-settings`・`/qsheet/live-legacy`の5ルートが増えた（詳細は§7の
+  「liveopsのqsheetへの統合」）。これらは収録設定・配信設定・レンタル検索と同じ
+  「管理系ミニアプリ」の扱いで、5本の本番URL（下表）ほどの最高リスクではないが、
+  Phase 2（§4）の対象に含める。
 
 **5本の本番URL（`client-qsheet/CLAUDE.md`が「やってはいけないこと」として明示ロックしている
 4画面が全て該当）:**
@@ -380,6 +388,14 @@ MCPプロトコルにエイリアス機構が無いため、**二重登録によ
 7. **`QSHEET_PC_ONLY`/`QSHEET_MOBILE_OK`等、TypeScript識別子自体をリネームするか。**
    ディレクトリ名だけ変えて識別子は`QSHEET_*`のまま残す（実害なし・低コスト）か、
    一貫性のため識別子ごと変える（`AppShell.tsx`等の連動修正が必要）か（3-1参照）。
+8. **`client-live`の空洞化・削除とのタイミング調整。**（2026-08-22 追記）
+   「計時・視聴者のミニアプリ化フェーズ2」により`client-live`の実体画面は
+   `client-qsheet`側の`/qsheet/live/*`へ移植済みで、旧`client-live`側は
+   リダイレクト専用画面に置き換わりつつある（§7参照）。実体（`DashboardPage.tsx`等）は
+   観測期間を挟んで別PRで削除予定。**techopsリネームを`client-live`削除の前にやるか
+   後にやるかで、Phase 2〜3の対象範囲が変わる**（`client-live`側の後方互換リダイレクト先
+   URLも`/qsheet/*`から`/techops/*`への追随が必要になるため）。`client-live`側の
+   空洞化が完了してから着手する方が、二重に面倒を見る対象が減って安全という見方もある。
 
 ---
 
@@ -410,8 +426,8 @@ MCPプロトコルにエイリアス機構が無いため、**二重登録によ
 
 - 変える: `shared/src/client/apps.ts`の`label`、root`CLAUDE.md`のアプリ表、当該アプリの
   `CLAUDE.md`、`docs/wording.md`（旧→新の対応と理由を1行追記）
-- 変えない: ディレクトリ名、base path、`permissionModule`、DBテーブル名、Socket.IO
-  ネームスペース、`localStorage`キー接頭辞、`AppKey`/`MiniAppKey`の値
+- 変えない（**表示名変更PR単体では**）: ディレクトリ名、base path、`permissionModule`、
+  DBテーブル名、Socket.IOネームスペース、`localStorage`キー接頭辞、`AppKey`/`MiniAppKey`の値
    （それぞれ個別に理由付け: CI/Docker参照・公開URL・migration定義の権限境界・
      契約テストが文字列をpinしている・「一度決めたキーは変えない」原則）
 - セキュリティ/契約境界（`permissionModule`等）に触れる場合は、二層防御の説明を明記し
@@ -419,10 +435,40 @@ MCPプロトコルにエイリアス機構が無いため、**二重登録によ
 - 本格的な識別子リネームは**別の・より大掛かりな取り組み**として切り離し、
   表示名変更のPRには絶対に混ぜない
 
-**本計画への示唆:** 本計画自体がこの「本格的な識別子リネーム」に相当する取り組みであり、
-`liveops`側でもまだ着手されていない。したがって**`qsheet`も`liveops`も両方とも
-このタイミングでは据え置く**というのが両アプリの`CLAUDE.md`の一致した現状認識であり、
-本計画は「着手する場合に備えた設計図」であって「今すぐ着手すべき」という結論ではない。
+⚠️ **2026-08-22（PR #327・migration 232）でこの「変えない」の一部が更新された。**
+計時・視聴者（`liveops`）の運用画面を`client-qsheet`へバンドル統合する「ミニアプリ化
+フェーズ2」の一環として、**`permissionModule: 'liveops'`をユーザーが明示的に
+`'qsheet'`へ統合すると決定した**（`12-live-timer-decision.md` §9 の未決事項の決着）。
+`user_permissions`/`permission_role_modules`の`module`列は既存データも含めて
+MAX集約で書き換えられ（migration 210の権限モデル単純化と同じ手口）、
+`requirePermission('liveops', ...)`はコードから消えた。これは**「表示名変更に
+識別子リネームを混ぜない」という原則への違反ではない** — 動機が表示名の一致ではなく
+「2つのアプリが実質1つのミニアプリ構成になった」という構造変化そのものだったため、
+「本格的な識別子リネーム」を**別の取り組みとして切り離した**という原則には合致している。
+つまり正しくは: **`permissionModule`等の識別子は「表示名を揃えるためだけ」には
+変えないが、アプリ同士が実際に統合される（バンドルが1つになる）ときは変える**、
+という一段階詳しい基準だったと分かる。
+
+**本計画への示唆:**
+1. §4「明示的スコープ外」に書いた`permissionModule`不変の理由（`calendar`が
+   `permissionModule: 'sales'`を据え置いた前例）は、**「表示名を揃えるだけの動機では
+   変えない」という条件付きでは依然として正しい**。本計画（qsheet→techops）も
+   表示名の一致が動機であり、バンドル統合を伴わないため、`permissionModule`を
+   スコープ外とする結論そのものは変わらない。
+2. ただし将来、`client-qsheet`（techops）と**他のアプリが実際にバンドル統合される**
+   ような展開になった場合は、liveops同様に`permissionModule`の統合が
+   「表示名リネームとは別の、しかし正当な」判断としてありうる — その場合はこの
+   移行計画とは別に決定docを起こすこと。
+3. **`client-live`は既に空洞化が進んでいる。** 旧URL（`/live/program/:id`等）は
+   すべて新URL（`/qsheet/live/*`）へのリダイレクト専用画面に置き換わっており、
+   実体（`DashboardPage.tsx`等）は本番リリースの観測期間を挟んで別PRで削除される
+   設計（`12-live-timer-decision.md`§4-3）。**`client-live`ワークスペース自体が
+   将来的に廃止される可能性がある**ため、techopsリネームの実施タイミングを
+   `client-live`の完全空洞化・削除より前にするか後にするかは§6の新規要判断事項とする。
+4. `qsheet`も表示名と内部識別子の分離を続けているという結論自体は変わらないが、
+   「絶対に変えない」ではなく「**表示名だけが動機のときは変えない**」という
+   条件が明確になった点は、本計画のPhase 4（MCPツール名）の判断にも参考になる —
+   外部契約を伴う識別子であっても、構造変化が伴えばリネームの選択肢は開かれている。
 
 ### `customers`/`vendors`→`companies`統合のPhase 3-3（`phase3-2-plan.md`）
 
@@ -455,3 +501,18 @@ DBオブジェクトそのものではなく「旧IDでの互換アクセス」�
   無いことを確認済み（差分は`client-qsheet/`内の機能実装・`server/.../qsheet/routes|services`の
   既存ファイル変更のみで、新規マウント・新規テーブルは無し）。**§2〜§3の数値・§4の
   フェーズ計画に修正は不要。**
+- **2026-08-22（PR #325/#326/#327/#329 反映）** — 複数のqsheet関連PRがマージされたことを検知し、
+  実際に内容を確認・計画へ反映した。
+  - #325（案件詳細ポップアップの入力幅）・#326/#329（rental-scraperの文字化け修正）は
+    §2〜§3の前提事実に影響なし（`server/src/app.ts`の変更は静的配信の設定調整で
+    ルートマウント自体は無改変。DB新規テーブルなし）
+  - **#327「計時・視聴者のミニアプリ化フェーズ2（バンドル統合）」は前提事実に実質的な
+    影響があったため§2・§3-2・§7・§6を修正した。** 要点: ①`client-live`の運用画面が
+    `/qsheet/live/*`系5ルートとして`client-qsheet`へ移植された（§3-2に追記）
+    ②`permissionModule: 'liveops'`がユーザーの明示的決定で`'qsheet'`へ統合された
+    （migration 232）— これは§7で引用していた「識別子は変えない」前例の**部分的な
+    修正**にあたるため、§7を「表示名変更が動機のときは変えない」という条件付きの
+    基準へ書き改めた ③`client-live`が空洞化・将来削除に向かっていることを新規要判断
+    事項として§6item8に追加した。DBオブジェクト数（`qsheet_`系96個）に変化はない
+    （migration 232は既存テーブルの行を移すだけで新規テーブルは作成していない、
+    `server/src/contexts/qsheet/index.ts`のrouter.use数も26個のまま）
