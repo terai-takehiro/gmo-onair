@@ -1101,6 +1101,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   codex-findings-v4.md`の同時追記による1件）を解消し、`typecheck:all`/`lint`/`test`
   （1452件）を再確認してから再pushした。表示画面契約（`liveDisplayContract.test.ts`
   5項目）はこのPRを通じて無変更のまま。
+- **#339**（`refactor(qsheet): Phase 3・4 — Socket.IOブリッジとMCPツール名の二重登録`）—
+  作成 2026-08-22 16:20頃 / CI green 16:22:16頃 / マージ 16:24:27頃
+  （**CI green から約2分後**）。`get_review_comments` 0件。表に移す指摘はない
+  （レビュー自体が届いていないため）。18ファイル変更（うち2ファイルは新規:
+  `scripts/dev-verify/socket-bridge-check.mjs`）。qsheet→techops移行計画のPhase 3・4を
+  実施 — Phase 3は当初計画（Socket.IOの計画停止枠での一斉切替）を、本番アクセスができない
+  この環境からは実施・検証できないため、ユーザーへの`AskUserQuestion`確認を経て
+  「ブリッジ」方式（`/qsheet`・`/techops`両ネームスペースの同名ルームを常に相互中継し、
+  新旧混在でも同期を止めない設計）に変更して実装した。実Postgres＋実socket.io-client
+  2本で6項目を実地検証し、検証中に見つけた既存バグ（不正なyjs:updateバイナリで
+  サーバープロセスが丸ごと落ちる。案件の共同編集とも共有する`roomManager.ts`が対象）も
+  ついでに直した。Phase 4はMCPツール5本（`get_qsheet`等）を`get_sheet`等へ改名し、
+  旧名も`gate.ts`の`WRITE_TOOL_PERMISSIONS`込みで二重登録した（片方だけ登録すると
+  旧名が権限ゲート無しで通ってしまう設計上の落とし穴に気づいて対応）。
+  `permissionModule`・DBは無変更。`npx tsc -b`（全ワークスペース）0エラー・`npm run test`
+  （1452件）全通過・`npm run lint`0エラー・warning 59件（従前と同数）・
+  `node scripts/generate-mcp-tools.mjs`（権限ゲート検証OK）・`npm run build`
+  （server/client-techops）成功を確認済み。
 - **#340**（`feat(techops): 表示レイアウト機能のエディタUI・テンプレートライブラリを
   追加した`・表示画面レイアウトエディタ機能の3分割PRの3本目・最終）— 作成
   2026-08-22 16:25:13 / CI green 16:27:31頃 / マージ 16:27:44（**CI green から
@@ -1112,6 +1130,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `client-qsheet`（`/qsheet/`）時代に書かれていたため、実装時に`client-techops`
   （`/techops/`。並行してマージされたPhase 1〜4改名・#334/#337/#339）へ読み替えた。
   これで計時・視聴者 表示レイアウト機能（PR1〜3の3分割）はすべて完了。
+- **#343**（`release: v4.2.0`）— 作成からCI green確認後すぐにマージ（レビュー到着を
+  待たずに自分でマージした・詳細下記）。`get_reviews`・`get_review_comments`いずれも0件。
+  表に移す指摘はない（レビュー自体が届いていないため）。⚠️ **コード変更を伴わない
+  リリース版上げPR**（`docs/changelog.d/` 下書き167件を`release:notes`で集約・
+  `CLAUDE.md`/`README.md`/`package.json`の3か所と`docs/version-history.md`を更新。
+  `docs/v4-plan.md`・`scripts/check-frozen-css.mjs`の「v4.1.8」先取り表記2箇所も
+  v4.2.0へ修正）で、typecheck/lint/test（1452件）/check:versionすべてgreenを確認済み・
+  ユーザーから「R0行きましょう v4.2.0で」の明示指示を受けての実行だったため、
+  レビュー到着を待たずマージした。
 
 ---
 
