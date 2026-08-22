@@ -73,6 +73,16 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     why: '旧スタンドアロン作成で残ったセッションを探して開き直すための管理者向け画面で、日常的にスマホから開く運用ではありません。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
+  {
+    // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
+    // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
+    // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
+    // — `TECHOPS_MOBILE_OK` 側を参照
+    path: '/techops/live/:ownerKey/timers/:timerId/layout',
+    what: '計時・視聴者の表示レイアウト編集',
+    why: '要素カードをドラッグ・リサイズして配置する画面で、指での細かい操作が難しいため。',
+    instead: { label: 'タイマー管理を開く', to: '/techops/top' },
+  },
 ];
 
 /**
@@ -102,6 +112,7 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/live/:ownerKey', // 計時・視聴者・ダッシュボード（本番中に会場・ロビーから確認する場面がある。移植元の client-live 版もスマホで開いていた）
   '/techops/live/:ownerKey/timers', // 計時・視聴者・タイマー管理（同上）
   '/techops/live/:ownerKey/settings', // 計時・視聴者・番組設定（移植元の client-live 版もスマホで開いていた。縦一列のフォーム）
+  '/techops/live-display-templates', // 表示レイアウト テンプレートライブラリ（一覧・検索・適用のみ。ドラッグ操作は無いのでスマホ対応の対象。13-live-display-layout-editor.md §6-3・§9-3）
   '/techops/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
   '/techops/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
   '/techops/programs/:id', // 制作のジャーニー（番組＝マニュアルの入口）。2026-08-22 追加・同上

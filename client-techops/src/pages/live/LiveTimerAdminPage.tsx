@@ -10,9 +10,9 @@
 // マウント時の owner 解決・「取得または作成」は `useLiveProgram` が行う
 // （ダッシュボードと共通）。
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, QrCode, ExternalLink, Trash2, ChevronRight, AlertCircle, Timer, Loader2 } from 'lucide-react';
+import { Plus, QrCode, ExternalLink, Trash2, ChevronRight, AlertCircle, Timer, Loader2, LayoutTemplate } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -199,6 +199,11 @@ function TimerAdminContent({ owner, programId }: {
                     <ExternalLink className="h-4 w-4 mr-1.5" />表示
                   </Button>
                 </a>
+                <Link to={`/techops/live/${owner.id}/timers/${selectedId}/layout`}>
+                  <Button variant="outline" size="sm">
+                    <LayoutTemplate className="h-4 w-4 mr-1.5" />レイアウト編集
+                  </Button>
+                </Link>
                 {canManage && (
                   <Button
                     variant="ghost" size="sm"
