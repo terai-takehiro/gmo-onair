@@ -28,10 +28,22 @@
  * `shared/src/client/**` を走査するので、あちらに新しいクラス名を書くと
  * **凍結4アプリの CSS が増えます**（`RichContent` で実測 4規則・231バイト）。
  */
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, matchPath } from 'react-router-dom';
 import { Monitor, ArrowRight, Eye } from 'lucide-react';
 import { useIsMobile } from './mobile';
+
+/**
+ * 案内の中身を上から順に立ち上げる（アイコン → 見出し → 札 → ボタン）。
+ *
+ * 仕組みは一覧の行と同じもの（`tokens-v4.css` の行の立ち上がり・データ属性方式）を
+ * そのまま使う。ここに新しい動きを作らないのが要点で、
+ * **動きを減らす設定（OS の「視差効果を減らす」）ではあちら側で止まる**。
+ */
+const rise = (order: number) => ({
+  'data-row-in': '',
+  style: { '--v4-row': order } as CSSProperties,
+});
 
 /** 1画面ぶんの宣言 */
 export interface PcOnlyEntry {
@@ -79,49 +91,66 @@ export interface PcOnlyPanelProps extends Omit<PcOnlyEntry, 'path'> {
  *
  * ── 見た目（磨き直し）─────────────────────────────────────────
  *
- * 「使えません」ではなく「ここは PC でどうぞ」に見せたいので、案内アイコンは
- * 他の画面の空表示と同じ「色つきの丸いバッジ」に載せている。バッジは案内の色
- * （実際に押せる主ボタンとは別の色）にして、**「読む場所」と「押す場所」を
- * 色だけでも見分けられる**ようにした。
+ * 「使えません」ではなく「ここは PC でどうぞ」に見せる:
+ *
+ *   ・案内アイコンは他の画面の空表示と同じ「色つきの丸いバッジ」に載せ、
+ *     さらに淡い輪を1枚敷いて**エラーではなく案内**の顔にする。バッジは案内の色
+ *     （実際に押せる主ボタンとは別の色）にして、**「読む場所」と「押す場所」を
+ *     色だけでも見分けられる**ようにした
+ *   ・小見出しはトップページの節と同じ字間の広い小さな見出し（`tokens-v4.css`）
+ *   ・幅を止めて左右の中央に置く。この案内は 1023px 幅まで出るので、
+ *     止めないとタブレットで横に間延びした「壊れた画面」に見える
+ *   ・中身は上から順に立ち上がる（一覧の行と同じ動き・上の `rise`）
  */
 export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, inset }: PcOnlyPanelProps) {
   return (
-    <div className={inset ? '' : 'p-3'}>
-      <div className="rounded-card border border-border bg-card px-5 py-7 text-center shadow-sm">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-chip bg-info-surface text-info">
-          <Monitor className="h-6 w-6" aria-hidden="true" />
+    <div className={inset ? '' : 'px-4 py-6'}>
+      <div className="mx-auto w-full max-w-md rounded-card border border-border bg-card px-5 py-8 text-center shadow-sm">
+        <div {...rise(0)} className="mx-auto flex h-20 w-20 items-center justify-center rounded-chip bg-info-surface/50">
+          <div className="flex h-14 w-14 items-center justify-center rounded-chip bg-info-surface text-info">
+            <Monitor className="h-6 w-6" aria-hidden="true" />
+          </div>
         </div>
 
-        <p className="text-th mt-3 text-muted-foreground">PC で触る画面</p>
-        <h2 className="text-cardtitle mt-1">{what}</h2>
-        <p className="text-sub mt-2 text-secondary-foreground">{why}</p>
+        <div {...rise(1)}>
+          <p className="v4-eyebrow mt-5">PC で触る画面</p>
+          <h2 className="text-cardtitle mt-1.5">{what}</h2>
+          <p className="text-sub mt-2 text-secondary-foreground">{why}</p>
+        </div>
 
         {/* **「消えた」と読ませない。** これが無いと「機能が無くなった」と受け取られる。
             理由文と分けて、丸い札で目立たせている */}
-        <p className="text-list mt-3 inline-block rounded-chip bg-muted px-3 py-1 text-muted-foreground">
+        <p {...rise(2)} className="text-list mt-4 inline-block rounded-chip bg-muted px-3 py-1 text-muted-foreground">
           消したのではなく、PC にあります。
         </p>
 
-        {instead && onGoInstead && (
-          <button
-            type="button"
-            onClick={() => onGoInstead(instead.to)}
-            className="rounded-control-lg min-h-tap mt-5 flex w-full items-center justify-center gap-1.5 bg-primary px-4 text-list text-primary-foreground transition-colors hover:bg-primary-800"
-          >
-            {instead.label}
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        )}
+        {/* 立ち上がりはボタンではなく**この入れ物**に掛ける。ボタン自身に掛けると、
+            終わったあとも最終コマが効き続けて（fill が normal 宣言に勝つ）
+            押した瞬間の 0.97 倍の手応えが消える */}
+        {((instead && onGoInstead) || onOpenAnyway) && (
+          <div {...rise(3)} className="mt-6 space-y-2">
+            {instead && onGoInstead && (
+              <button
+                type="button"
+                onClick={() => onGoInstead(instead.to)}
+                className="rounded-control-lg min-h-tap flex w-full items-center justify-center gap-1.5 bg-primary px-4 text-list text-primary-foreground transition-colors hover:bg-primary-800"
+              >
+                {instead.label}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
 
-        {onOpenAnyway && (
-          <button
-            type="button"
-            onClick={onOpenAnyway}
-            className="rounded-control-lg min-h-tap mt-2 flex w-full items-center justify-center gap-1.5 text-list text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-            それでもこのまま開く
-          </button>
+            {onOpenAnyway && (
+              <button
+                type="button"
+                onClick={onOpenAnyway}
+                className="rounded-control-lg min-h-tap flex w-full items-center justify-center gap-1.5 text-list text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                それでもこのまま開く
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
