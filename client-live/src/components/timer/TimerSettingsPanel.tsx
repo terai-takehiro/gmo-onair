@@ -117,7 +117,7 @@ export default function TimerSettingsPanel({ programId, timers, mainTimerId }: T
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>タイマー設定</DialogTitle>
           </DialogHeader>

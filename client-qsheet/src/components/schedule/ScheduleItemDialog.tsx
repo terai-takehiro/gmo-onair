@@ -69,6 +69,8 @@ export default function ScheduleItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* PC の幅は段で持つ（入力7個・区分/列・開始/終了の2列組を含むので `lg`=840px）。
+          SHEET_CLASS は `max-sm:` だけなので、375px のボトムシートは今までどおり */}
       <DialogContent size="lg" className={SHEET_CLASS}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "項目を編集" : "項目を追加"}</DialogTitle>

@@ -361,7 +361,7 @@ export default function EquipmentDetailPage() {
 
       {/* QRコード表示・印刷ダイアログ */}
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>QRコード — {item.name}</DialogTitle>
           </DialogHeader>
@@ -381,8 +381,8 @@ export default function EquipmentDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 編集ダイアログ。複数の2〜4列グリッドを持つ複合フォームなので wide にする */}
-      <FormDialog open={editOpen} onOpenChange={setEditOpen} title="機材編集" wide
+      {/* 編集ダイアログ。入力が25個・複数の2〜4列グリッドを持つ明細級のフォームなので `xl`(1080px) にする */}
+      <FormDialog open={editOpen} onOpenChange={setEditOpen} title="機材編集" size="xl"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={() => { setEditOpen(false); setSaveError(null); }}>キャンセル</Button>
@@ -402,7 +402,7 @@ export default function EquipmentDetailPage() {
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>拠点 *</Label>
                 <Select value={editForm.location_code} onValueChange={(v) => setEditForm({ ...editForm, location_code: v })}>
@@ -486,7 +486,7 @@ export default function EquipmentDetailPage() {
             </div>
             <div className="border-t pt-4">
               <p className="text-sm font-semibold mb-3">資産・保証</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label>所管</Label>
                   <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
@@ -566,7 +566,7 @@ export default function EquipmentDetailPage() {
               return (
                 <div className="border-t pt-4">
                   <p className="text-sm font-semibold mb-3">ラック実装</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div className="space-y-1">
                       <Label>U位置 (下端)</Label>
                       <Input
@@ -649,8 +649,9 @@ export default function EquipmentDetailPage() {
           </div>
       </FormDialog>
 
-      {/* 新規子機材登録ダイアログ。複数の2〜3列グリッドを持つ複合フォームなので wide にする */}
-      <FormDialog open={newChildOpen} onOpenChange={setNewChildOpen} title="子機材を新規登録" wide
+      {/* 新規子機材登録ダイアログ。入力12個・複数の2〜3列グリッドを持つ複合フォームなので `lg`(840px)
+          （旧 `wide` と同じ幅。編集ダイアログのほうは入力25個なので `xl` に上げてある） */}
+      <FormDialog open={newChildOpen} onOpenChange={setNewChildOpen} title="子機材を新規登録" size="lg"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={() => { setNewChildOpen(false); setCreateChildError(null); }}>キャンセル</Button>
@@ -659,7 +660,7 @@ export default function EquipmentDetailPage() {
         }
       >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>拠点 *</Label>
                 <Select value={newChildForm.location_code} onValueChange={(v) => setNewChildForm({ ...newChildForm, location_code: v })}>
@@ -710,7 +711,7 @@ export default function EquipmentDetailPage() {
                 <Input value={newChildForm.serial_number} onChange={(e) => setNewChildForm({ ...newChildForm, serial_number: e.target.value })} />
               </div>
             </div>
-            <div className="border-t pt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="border-t pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>所管</Label>
                 <BranchCodeInput value={newChildForm.branch_code} onChange={(v) => setNewChildForm({ ...newChildForm, branch_code: v })} />

@@ -150,7 +150,7 @@ export default function TimerAdminPage() {
       </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>タイマー作成</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -174,7 +174,8 @@ export default function TimerAdminPage() {
       </Dialog>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-xs">
+        {/* 長い表示画面 URL を折り返して読ませるので、確認用でも `md`(640px) を使う */}
+        <DialogContent size="md">
           <DialogHeader><DialogTitle>表示画面URL</DialogTitle></DialogHeader>
           <div className="space-y-3 text-center">
             <p className="text-xs text-muted-foreground break-all">{qrUrl}</p>

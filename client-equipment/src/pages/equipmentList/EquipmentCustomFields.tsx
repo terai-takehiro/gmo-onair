@@ -70,7 +70,7 @@ export function EquipmentCustomFields({ itemId, columns, values, onChange }: {
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <p className="text-cardtitle">カスタム項目</p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {columns.map((col) => (
           <CustomField
             key={col.id}

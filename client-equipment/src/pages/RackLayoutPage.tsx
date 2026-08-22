@@ -723,7 +723,7 @@ export default function RackLayoutPage() {
 
       {/* 重複機材ダイアログ */}
       <Dialog open={!!overlapDialog} onOpenChange={(o) => { if (!o) setOverlapDialog(null); }}>
-        <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
@@ -756,7 +756,7 @@ export default function RackLayoutPage() {
 
       {/* ブランクパネル削除確認 */}
       <Dialog open={!!confirmDeleteBlankId} onOpenChange={(o) => { if (!o) setConfirmDeleteBlankId(null); }}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>ブランクパネルを削除</DialogTitle>
           </DialogHeader>

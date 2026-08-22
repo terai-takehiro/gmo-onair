@@ -204,6 +204,8 @@ export function LocationsTab() {
         open={crud.dialogOpen}
         onOpenChange={crud.setDialogOpen}
         title={crud.isEditing ? '保管場所を直す' : '保管場所を足す'}
+        // 入力10個・建物/フロア/エリアの3列グリッドを持つ複合フォームなので `lg`(840px)
+        size="lg"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
