@@ -13,14 +13,18 @@
  * 入口をタイルで見せる。**ミニアプリの一覧を直接ここに並べない** — 押しても
  * 「どの番組の？」が定まらないため（旧実装の誤り。当時の記録は git 履歴参照）。
  *
- * ミニアプリの名前・並び順は `shared/src/production/miniapps.ts` の
- * `MINI_APPS`（唯一の正）から読む。
+ * データは `listTopItems()`（`/qsheet/top-items`）が GLS案件＋ここだけの番組を
+ * 1本で返す。**「最後の回の翌日」を過ぎた項目はアーカイブ扱い**にし、既定では
+ * 隠す（`view: 'archive'` で切り替えて見る）。`last_date` が無い項目（GLS-B系・
+ * 実施日未定の番組）は終了しない扱い。
+ *
+ * 一覧の組み立て（絞り込み・並び替え・アーカイブ判定）は `pages/top/topHelpers.ts`
+ * に切り出した純粋関数を使う。
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Loader2, Building2, Sparkles, ChevronRight } from 'lucide-react';
-import api from '@/lib/api';
+import { Plus, Loader2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,119 +36,178 @@ import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyError } from '@/lib/notify';
 import * as programsApi from '@/lib/programsApi';
-import type { GlsProject } from './sheets/types';
+import { listTopItems } from '@/lib/topApi';
+import { listRecentTop } from '@/lib/recentTop';
+import { SegmentControl } from './top/SegmentControl';
+import { UpNextSection } from './top/UpNextRow';
+import { RecentSection } from './top/RecentRow';
+import { TopItemRow, ArchiveFooterRow, ArchiveSearchHintRow } from './top/TopListSection';
+import {
+  type Segment, type TopView,
+  isArchived, matchesSegment, matchesSearch, sortMainList, upcomingItems, sortArchive,
+} from './top/topHelpers';
 
 export default function ProductionTopPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [segment, setSegment] = useState<Segment>('all');
+  const [view, setView] = useState<TopView>('active');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const projectsQuery = useQuery({
-    queryKey: ['gls-options'],
-    queryFn: async () => (await api.get<{ success: boolean; data: GlsProject[] }>('/lookup/gls-options')).data.data,
-  });
-  const programsQuery = useQuery({
-    queryKey: ['qsheet-programs'],
-    queryFn: () => programsApi.listPrograms(),
-  });
+  const itemsQuery = useQuery({ queryKey: ['qsheet-top-items'], queryFn: listTopItems });
+  const items = itemsQuery.data ?? [];
+  const loading = itemsQuery.isLoading;
 
-  const q = search.trim();
-  const projects = (projectsQuery.data ?? []).filter((p) =>
-    !q || p.gls_number.includes(q) || p.name.includes(q) || (p.customer_name ?? '').includes(q));
-  const programs = (programsQuery.data ?? []).filter((p) => !q || p.name.includes(q));
+  const bySegment = useMemo(() => items.filter((it) => matchesSegment(it, segment)), [items, segment]);
+  const active = useMemo(() => bySegment.filter((it) => !isArchived(it)), [bySegment]);
+  const archived = useMemo(() => bySegment.filter((it) => isArchived(it)), [bySegment]);
 
-  const loading = projectsQuery.isLoading || programsQuery.isLoading;
+  const upNext = useMemo(() => upcomingItems(active), [active]);
+  const recentEntries = useMemo(() => listRecentTop().slice(0, 4), []);
+
+  const mainList = useMemo(() => {
+    const sorted = sortMainList(active);
+    return search.trim() ? sorted.filter((it) => matchesSearch(it, search)) : sorted;
+  }, [active, search]);
+
+  const archiveList = useMemo(
+    () => sortArchive(archived.filter((it) => matchesSearch(it, search))),
+    [archived, search],
+  );
+
+  const archiveSearchHits = useMemo(
+    () => (search.trim() ? archived.filter((it) => matchesSearch(it, search)).length : 0),
+    [archived, search],
+  );
+
+  const goTo = (href: string) => navigate(href);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <PageHeader title="制作技術支援" sub="番組・イベントを選ぶと、台本づくり・スケジュール表・収録配信の設定が開けます" />
+      <PageHeader
+        title="制作技術支援"
+        sub="番組・イベントを選ぶと、台本づくり・スケジュール表・収録配信の設定が開けます"
+        primaryAction={(
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />番組を作る
+          </Button>
+        )}
+      />
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
-          className="min-h-[44px]"
+          className="min-h-[44px] sm:max-w-sm"
           placeholder="案件名・GLS番号・番組名でさがす"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <SegmentControl value={segment} onChange={setSegment} />
       </div>
 
       {loading && (
         <div className="mt-6"><Delayed><SkeletonRows rows={4} /></Delayed></div>
       )}
 
-      {!loading && (
-        <div className="mt-6 flex flex-col gap-6">
-          <section className="flex flex-col gap-2">
-            <div className="flex items-baseline gap-1.5">
-              <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-h2">案件管理の番組・イベント</h2>
-            </div>
-            {projects.length === 0 ? (
-              <EmptyState
-                title={q ? '該当する案件がありません' : 'GLS番号の付いた案件がまだありません'}
-                description={q ? '別の言葉でさがすか、下の「ここだけの番組」を使ってください。' : '受注が確定するとここに出るようになります。'}
-              />
-            ) : (
-              <div className="flex flex-col overflow-hidden rounded-card border border-border">
-                {projects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => navigate(`/qsheet/projects/${p.id}`)}
-                    className="flex min-h-[52px] items-center gap-3 border-b border-border-faint px-4 py-2.5 text-left last:border-b-0 hover:bg-muted/50 active:bg-muted"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-list block truncate font-bold">{p.name}</span>
-                      <span className="text-sub-sm block text-muted-foreground">
-                        {p.gls_number}{p.customer_name ? ` ・ ${p.customer_name}` : ''}
-                      </span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
+      {!loading && view === 'archive' && (
+        <ArchiveView
+          items={archiveList}
+          onNavigate={goTo}
+          onBack={() => setView('active')}
+        />
+      )}
 
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-baseline gap-1.5">
-                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <h2 className="text-h2">ここだけの番組（マニュアル）</h2>
-              </div>
-              <Button size="sm" className="min-h-[44px]" onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" />番組を作る
-              </Button>
-            </div>
-            <p className="text-sub text-muted-foreground">案件管理に登録していない番組・イベント用です。案件が決まったら案件管理側で改めて登録してください。</p>
-            {programs.length === 0 ? (
-              <EmptyState
-                title={q ? '該当する番組がありません' : 'ここだけの番組はまだありません'}
-                description="「番組を作る」から作れます。"
-              />
-            ) : (
-              <div className="flex flex-col overflow-hidden rounded-card border border-border">
-                {programs.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => navigate(`/qsheet/programs/${p.id}`)}
-                    className="flex min-h-[52px] items-center gap-3 border-b border-border-faint px-4 py-2.5 text-left last:border-b-0 hover:bg-muted/50 active:bg-muted"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-list block truncate font-bold">{p.name}</span>
-                      {p.event_date && <span className="text-sub-sm block text-muted-foreground">{p.event_date}</span>}
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+      {!loading && view === 'active' && (
+        <ActiveView
+          upNext={upNext}
+          recentEntries={recentEntries}
+          mainList={mainList}
+          archivedCount={archived.length}
+          archiveSearchHits={archiveSearchHits}
+          searching={!!search.trim()}
+          onNavigate={goTo}
+          onOpenArchive={() => setView('archive')}
+        />
       )}
 
       <CreateProgramDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(p) => navigate(`/qsheet/programs/${p.id}`)} />
+    </div>
+  );
+}
+
+function ActiveView({
+  upNext, recentEntries, mainList, archivedCount, archiveSearchHits, searching, onNavigate, onOpenArchive,
+}: {
+  upNext: ReturnType<typeof upcomingItems>;
+  recentEntries: ReturnType<typeof listRecentTop>;
+  mainList: ReturnType<typeof sortMainList>;
+  archivedCount: number;
+  archiveSearchHits: number;
+  searching: boolean;
+  onNavigate: (href: string) => void;
+  onOpenArchive: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-6">
+      <UpNextSection items={upNext} onNavigate={onNavigate} />
+      <RecentSection entries={recentEntries} onNavigate={onNavigate} />
+
+      <section className="flex flex-col gap-2">
+        {mainList.length > 0 ? (
+          <div className="flex flex-col overflow-hidden rounded-card border border-border">
+            {mainList.map((it) => (
+              <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} />
+            ))}
+            {archivedCount > 0 && (
+              <ArchiveFooterRow count={archivedCount} onOpenArchive={onOpenArchive} />
+            )}
+          </div>
+        ) : searching && archiveSearchHits > 0 ? (
+          <ArchiveSearchHintRow count={archiveSearchHits} onOpenArchive={onOpenArchive} />
+        ) : (
+          <EmptyState
+            title={searching ? '該当する番組・イベントがありません' : '番組・イベントがまだありません'}
+            description={searching ? '別の言葉でさがすか、「番組を作る」から新しく作れます。' : '受注が確定するか、「番組を作る」から作るとここに出ます。'}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ArchiveView({
+  items, onNavigate, onBack,
+}: {
+  items: ReturnType<typeof sortArchive>;
+  onNavigate: (href: string) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-3">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="min-h-tap inline-flex items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />戻る
+        </button>
+      </div>
+      <h2 className="text-h2">アーカイブ（終了した番組・イベント）</h2>
+
+      {items.length === 0 ? (
+        <EmptyState
+          title="該当する番組・イベントがありません"
+          description="別の言葉でさがすか、絞り込みを変えてみてください。"
+        />
+      ) : (
+        <div className="flex flex-col overflow-hidden rounded-card border border-border">
+          {items.map((it) => (
+            <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} showLastDate />
+          ))}
+        </div>
+      )}
+
+      <p className="text-note text-muted-foreground">本番日（実施日）の翌日から、自動でここに入ります。</p>
     </div>
   );
 }
@@ -164,6 +227,7 @@ function CreateProgramDialog({
     mutationFn: () => programsApi.createProgram({ name: name.trim(), event_date: eventDate || null }),
     onSuccess: (program) => {
       queryClient.invalidateQueries({ queryKey: ['qsheet-programs'] });
+      queryClient.invalidateQueries({ queryKey: ['qsheet-top-items'] });
       onOpenChange(false);
       setName('');
       setEventDate('');

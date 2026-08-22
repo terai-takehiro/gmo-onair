@@ -158,7 +158,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
         period={project?.glsNumber ? `GLS: ${project.glsNumber}` : undefined}
       />
 
-      {(scope === "project" || scope === "program") && id && <MiniAppTiles scope={scope} id={id} />}
+      {(scope === "project" || scope === "program") && id && <MiniAppTiles scope={scope} id={id} days={days} />}
 
       {days.length === 0 && (
         <div className="mt-8">
