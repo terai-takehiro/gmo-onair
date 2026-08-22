@@ -5,7 +5,7 @@ import { qsheetRooms } from './collab';
 import { resolveSocketUser, type SocketUser } from '../../shared/collab/socketAuth';
 
 /**
- * Qsheet Socket.IO namespace.
+ * Qsheet Socket.IO namespace。
  *   - OnAir ↔ Rundown の cue 同期 (従来どおり)
  *   - 在席表示 (presence): このシートを今開いている人の一覧
  *
@@ -24,6 +24,24 @@ import { resolveSocketUser, type SocketUser } from '../../shared/collab/socketAu
  *   公開音声サポート URL (資料IDが分かれば誰でも開ける) は `doc:<docId>` にしか
  *   join しないので、台本本文の差分や在席者の氏名が公開URLの持ち主に届かなくなる。
  *   cue:* の5本は分割前と1文字も変えていない (07 §1-1「そのまま」)。
+ *
+ * ⚠️ **qsheet→techops移行 Phase 3（2026-08-22）: `/qsheet`・`/techops` の2ネームスペースを
+ * 同じハンドラで二重待受し、ルームをまたいでイベントを中継する「ブリッジ」を追加した。**
+ * HTTPルートと違い Socket.IO のネームスペースは単純な二重マウントができない
+ * （ネームスペースが違うと `doc:<id>:members` のようなルーム名が同じでも別の集合になり、
+ * 片方のネームスペースへブロードキャストしても他方には届かない）。旧`/qsheet`に繋いだままの
+ * 古いタブと、リロードして新`/techops`に繋いだタブが**同じ台本を同時に開いている瞬間**が
+ * 移行期間中は必ず起きるため、`broadcastToRoom()` が両ネームスペースの同名ルームへ
+ * 常に転送する（送信元のネームスペースには `socket.to()` で・もう一方には
+ * `otherNs.to()` で届ける。送信元ソケット自身には送らない）。
+ * これにより新旧混在でも yjs:update / awareness:update / presence:sync / cue:* が
+ * どちらの窓を開いていても届く。`qsheetRooms`（Yjsのドキュメント状態・migration元は
+ * docId だけをキーにした単一プロセスのシングルトン）・`presenceByDoc`
+ * （socket.id は Socket.IO がネームスペースをまたいで一意に払い出すため衝突しない）は
+ * 元からネームスペースに依存していないので変更していない。
+ * Phase 4 以降で `/qsheet` 側の利用が観測上ゼロになったら、`NAMESPACES` から
+ * `/qsheet` を外すだけで撤去できる設計にしてある（詳細は
+ * docs/reviews/qsheet-techops-migration-plan.md §3-4・§4 Phase 3）。
  */
 
 // 認証解決とユーザー型は shared/collab/socketAuth.ts に移設した (案件の共同編集と共有)。
@@ -41,9 +59,29 @@ function presenceList(docId: string): { userId: string; name: string }[] {
   return Array.from(seen, ([userId, name]) => ({ userId, name }));
 }
 
-export function initQsheetSocketIO(io: Server): void {
-  const qsheetNs = io.of('/qsheet');
+/** Phase 3 のブリッジ対象。撤去するときはここから `/qsheet` を外すだけでよい。 */
+const NAMESPACES = ['/qsheet', '/techops'] as const;
 
+export function initQsheetSocketIO(io: Server): void {
+  const namespaces = NAMESPACES.map((name) => io.of(name));
+
+  /**
+   * 指定ルームへ両ネームスペースへ配信する（ブリッジ）。
+   * `fromSocket` を渡すと、そのソケットが属するネームスペースだけ `socket.to()`
+   * （送信元自身を除外）で送り、もう一方は `ns.to()`（そのネームスペース全体）で送る。
+   * 送信元を渡さない場合（サーバー起点のイベント）は両方とも `ns.to()`。
+   */
+  function broadcastToRoom(room: string, event: string, payload?: unknown, fromSocket?: Socket): void {
+    for (const ns of namespaces) {
+      if (fromSocket && fromSocket.nsp === ns) {
+        fromSocket.to(room).emit(event, payload);
+      } else {
+        ns.to(room).emit(event, payload);
+      }
+    }
+  }
+
+  for (const qsheetNs of namespaces) {
   // connection ハンドラは **同期関数** にしてある。
   //
   // async にして先に await すると、認証解決の間はまだ socket.on(...) が登録されておらず、
@@ -91,8 +129,9 @@ export function initQsheetSocketIO(io: Server): void {
           presenceByDoc.set(docId, m);
         }
         m.set(socket.id, user);
-        // 在席者の氏名は members だけに流す (匿名の公開音声サポート URL には出さない)
-        qsheetNs.to(memberRoom).emit('presence:sync', { users: presenceList(docId) });
+        // 在席者の氏名は members だけに流す (匿名の公開音声サポート URL には出さない)。
+        // 新旧ネームスペース混在期間も届くよう両方へブリッジする (Phase 3)。
+        broadcastToRoom(memberRoom, 'presence:sync', { users: presenceList(docId) });
       } else {
         // リッスン専用 (匿名/未認可) には在席情報を渡さない — 空配列を返す
         socket.emit('presence:sync', { users: [] });
@@ -131,7 +170,8 @@ export function initQsheetSocketIO(io: Server): void {
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
       qsheetRooms.applyUpdate(docId, u);
       // 他の参加者 (members のみ) へ増分を中継。台本の編集差分なので room 全体には出さない。
-      socket.to(memberRoom).emit('yjs:update', Buffer.from(u));
+      // 新旧ネームスペース混在期間も届くよう両方へブリッジする (Phase 3)。
+      broadcastToRoom(memberRoom, 'yjs:update', Buffer.from(u), socket);
     });
 
     // awareness (ライブカーソル/選択) — ephemeral、永続化せず members へ中継のみ
@@ -139,7 +179,7 @@ export function initQsheetSocketIO(io: Server): void {
       await ready;
       if (!socket.data.canAccess) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
-      socket.to(memberRoom).emit('awareness:update', Buffer.from(u));
+      broadcastToRoom(memberRoom, 'awareness:update', Buffer.from(u), socket);
     });
 
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
@@ -155,38 +195,40 @@ export function initQsheetSocketIO(io: Server): void {
     }) => {
       await ready;
       if (!socket.data.canAccess) return;
-      socket.to(room).emit('cue:sync', {
+      // cue:* は room 全体（匿名を含む）に流す。新旧ネームスペース混在期間も
+      // 届くよう両方へブリッジする (Phase 3)。
+      broadcastToRoom(room, 'cue:sync', {
         currentCue: data.currentCue,
         elapsed: data.elapsed,
         isPlaying: data.isPlaying,
         runId: data.runId ?? null,
         runStartedAt: data.runStartedAt ?? null,
         timestamp: Date.now(),
-      });
+      }, socket);
     });
     socket.on('cue:next', async () => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:next');
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:next', undefined, socket);
     });
     socket.on('cue:prev', async () => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:prev');
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:prev', undefined, socket);
     });
     socket.on('cue:jump', async (data: { cueIndex: number }) => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:jump', { cueIndex: data.cueIndex });
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:jump', { cueIndex: data.cueIndex }, socket);
     });
     socket.on('cue:play', async () => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:play');
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:play', undefined, socket);
     });
     socket.on('cue:pause', async () => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:pause');
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:pause', undefined, socket);
     });
     socket.on('cue:reset', async () => {
       await ready;
-      if (socket.data.canAccess) socket.to(room).emit('cue:reset');
+      if (socket.data.canAccess) broadcastToRoom(room, 'cue:reset', undefined, socket);
     });
 
     socket.on('disconnect', () => {
@@ -197,10 +239,11 @@ export function initQsheetSocketIO(io: Server): void {
       const m = presenceByDoc.get(docId);
       if (m && m.delete(socket.id)) {
         if (m.size === 0) presenceByDoc.delete(docId);
-        qsheetNs.to(memberRoom).emit('presence:sync', { users: presenceList(docId) });
+        broadcastToRoom(memberRoom, 'presence:sync', { users: presenceList(docId) });
       }
     });
   });
+  }
 
-  console.log('Socket.IO initialized for qsheet sync (auth + presence)');
+  console.log('Socket.IO initialized for qsheet sync (auth + presence, namespaces: ' + NAMESPACES.join(', ') + ')');
 }

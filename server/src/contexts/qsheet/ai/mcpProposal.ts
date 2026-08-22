@@ -1,5 +1,5 @@
 /**
- * MCP `propose_qsheet_draft` の payload 検証（段10 / 05-mcp.md §5 相当）。
+ * MCP `propose_sheet_draft`（旧 `propose_qsheet_draft`）の payload 検証（段10 / 05-mcp.md §5 相当）。
  *
  * ⚠️ **設計書 05-mcp.md §5 との食い違い（README に倣い、ここに明記する）**:
  * §5 は「11ブロック型ぶんの `cells: Record<blockRef, string>`」という汎用形を前提にしていたが、

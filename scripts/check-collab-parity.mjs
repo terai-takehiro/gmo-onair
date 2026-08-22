@@ -28,7 +28,7 @@ const PAIRS = [
   ['server/src/shared/schedule/time.ts', 'shared/src/schedule/time.ts'],
   // 制作資料 v4 段4: スケジュール表の区分（色・日本語名）。画面と Excel の凡例が同じ物を読む
   ['server/src/shared/schedule/kinds.ts', 'shared/src/schedule/kinds.ts'],
-  // 制作資料 v4 段10 (MCP): セルの参照方式 blk.<type>#<n>。get_qsheet がこれで
+  // 制作資料 v4 段10 (MCP): セルの参照方式 blk.<type>#<n>。get_sheet（旧 get_qsheet）がこれで
   // cells のキーを人間可読な形にする（05-mcp.md §4-3）
   ['server/src/shared/qsheet/blockTypes.ts', 'shared/src/qsheet/blockTypes.ts'],
   ['server/src/shared/qsheet/blockRef.ts', 'shared/src/qsheet/blockRef.ts'],

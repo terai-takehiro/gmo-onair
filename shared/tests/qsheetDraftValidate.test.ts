@@ -1,5 +1,5 @@
 /**
- * 段10 (MCP) — `propose_qsheet_draft` の payload 検証（05-mcp.md §5・13-6）。
+ * 段10 (MCP) — `propose_sheet_draft`（旧 `propose_qsheet_draft`）の payload 検証（05-mcp.md §5・13-6）。
  *
  * ⚠️ **検証だけでなく、段7で既に実装済みの取り込み側
  * (`client-techops/src/lib/applyProposal.ts`) にそのまま通ることも確かめる。**

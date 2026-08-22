@@ -107,7 +107,7 @@ export function registerAiFeedbackTools(server: McpServer): void {
         'segment_key (制作資料のみ) で案件種別×拠点を絞れる (例 type:ceremony|loc:yoga)。' +
         '式典と配信では尺の傾向が逆になるため、絞れるときは絞ったほうがよい ' +
         '(母数が10件未満なら自動で全社集計に落ちる)。source (制作資料のみ) は ' +
-        'server=画面からの生成 / mcp=このツール経由の提案 (propose_qsheet_draft) を分けて見る。',
+        'server=画面からの生成 / mcp=このツール経由の提案 (propose_sheet_draft。旧 propose_qsheet_draft) を分けて見る。',
       inputSchema: {
         kind: z
           .enum(KNOWN_KINDS)

@@ -6,28 +6,34 @@
 参照。このファイル中の「制作資料」表記は旧名として残っている箇所がある。
 
 ベースパス `/techops/`（旧 `/qsheet/`。後方互換で生かしたまま二重運用中）・ポート 5174。
-**ディレクトリ名は `client-techops/` に改名済み**（2026-08-22・Phase 1）。
-**ベースパス・`AppKey`・API prefixも `/techops` へ改名済み**（2026-08-22・Phase 2）。
-`permissionModule`・Socket.IO ネームスペース・DBテーブル・MCPツール名は今も `qsheet` のまま
-変えていない（下記メモ参照）。
+**ディレクトリ名・ベースパス・`AppKey`・API prefix・Socket.IOは `techops` 対応済み**
+（2026-08-22・Phase 1〜3）。`permissionModule`・DBテーブルは今も `qsheet` のまま
+変えていない（MCPツール名は Phase 4 で新名に改名し、旧名も二重登録して残してある。
+下記メモ参照）。
 
-> 📝 **ディレクトリ/内部識別子リネーム進捗メモ（2026-08-22・Phase 2完了）**
+> 📝 **ディレクトリ/内部識別子リネーム進捗メモ（2026-08-22・Phase 4完了）**
 > 表示名を「制作技術支援」に改名した際、ディレクトリ名 `client-qsheet/`・ベースパス `/qsheet/`・
 > 内部識別子 `qsheet`（DB テーブル約90個・`permissionModule`・Socket.IO ネームスペース・MCP
 > ツール名等）は `client-live` と同じ方針で意図的に据え置いていたが、
 > [docs/reviews/qsheet-techops-migration-plan.md](../docs/reviews/qsheet-techops-migration-plan.md)
-> の7観点監査・フェーズ計画に基づき段階的な改名に着手した。
-> **Phase 1（ディレクトリ名 `client-qsheet/`→`client-techops/`・ビルド設定・
-> `QSHEET_PC_ONLY`等のTS識別子）・Phase 2（ベースパス `/qsheet/`→`/techops/`・`AppKey`・
-> APIプレフィックスの二重マウント）はともに完了した。** 旧 `/qsheet/*` の全ルート・全APIは
-> 後方互換で無期限に生かしたまま（`App.tsx` の `RedirectQsheetToTechops` がクライアント側を、
-> サーバー側の二重マウントがAPI・静的アセットを担う）。`permissionModule`・
-> Socket.IOネームスペース・DBテーブル・MCPツール名（`get_qsheet`等）は
-> **まだ `qsheet` のまま変えていない**（本番URL5本 editor/onair/rundown/prompter/audio の
-> Socket.IO切替は「計画停止枠」が要るPhase 3で、この環境からは本番アクセスができず
-> 検証しきれないため見送っている）。DBテーブル・`permissionModule`・Socket.IOネームスペース・
-> rental-scraperの4つは明示的にスコープ外（`client-live` の前例どおり据え置き）。
-> Phase 3（Socket.IOカットオーバー）・Phase 4（MCPツール名）の着手判断はまだ下していない
+> の7観点監査・フェーズ計画に基づき段階的な改名に着手し、Phase 1〜4を完了した。
+> - **Phase 1**: ディレクトリ名 `client-qsheet/`→`client-techops/`・ビルド設定・
+>   `QSHEET_PC_ONLY`等のTS識別子
+> - **Phase 2**: ベースパス `/qsheet/`→`/techops/`・`AppKey`・APIプレフィックスの二重マウント
+> - **Phase 3**: Socket.IOを `/qsheet`・`/techops` 両ネームスペース対応にした。
+>   **当初計画の「計画停止枠での一斉切替」ではなく「ブリッジ」方式**（両ネームスペースの
+>   同名ルームへ常に相互転送する）を採った — 本番への直接アクセスができないこの環境からは
+>   計画停止枠を伴う切替を実施・確認できないため、新旧混在を安全に許容する設計に変更した
+>   （ユーザー確認済み）。クライアントの新規ビルドは `/techops` へ接続し、旧 `/qsheet` に
+>   繋いだままの古いタブとも同期し続ける。実 Postgres・実 socket.io-client でのブリッジ
+>   動作確認は `scripts/dev-verify/socket-bridge-check.mjs`（新設）で行った
+> - **Phase 4**: MCPツール5本（`get_qsheet`等）を `get_sheet`等 へ改名し、旧名も二重登録した
+>
+> 旧 `/qsheet/*` の全ルート・全APIは後方互換で無期限に生かしたまま（`App.tsx` の
+> `RedirectQsheetToTechops` がクライアント側を、サーバー側の二重マウント・Socket.IOブリッジが
+> API・静的アセット・リアルタイム同期を担う）。**`permissionModule`・DBテーブルはまだ
+> `qsheet` のまま変えていない**（明示的にスコープ外・`client-live` の前例どおり据え置き）。
+> Socket.IOの `/qsheet` ネームスペース自体の撤去・MCPツール旧名の撤去の判断はまだ下していない
 > — 同ドキュメント §6 の要判断事項を参照。
 
 ## いまの状態（v4.1・共通シェル載せ替え後）
@@ -213,7 +219,10 @@
 - **本番は1つのURL＋役割**（進行／ランダウン／プロンプター／音声サポート）。
   **音声サポートだけログイン不要の公開URL**（`/techops/audio/:id`。旧 `/qsheet/audio/:id` も
   後方互換で生きている）— 認証を付けないこと
-- **Socket.IO** `/qsheet` ネームスペース（Phase 2 では変えていない。Phase 3 で扱う予定）:
+- **Socket.IO** `/techops` ネームスペース（クライアントの接続先。Phase 3 で `/qsheet` から
+  改名した）。旧 `/qsheet` ネームスペースも同じサーバーが待ち受けており、両者は
+  `broadcastToRoom()`（`server/src/contexts/qsheet/socket.ts`）で常に相互中継される
+  ブリッジ構成——新旧ビルドが同じ台本を同時に開いていても同期が止まらない:
   OnAir↔ランダウンの同期（`cue:update/sync/next/prev/jump/play/pause/reset`）
 - サーバー側は `server/src/contexts/qsheet`（`collab.ts` が Yjs の部屋を持つ）
 
