@@ -21,8 +21,8 @@
  *   ・docs/version-history.md と docs/changelog.d/**（追記専用の過去ログ。
  *     当時のまま残す決めごとなので、リンクの手入れはしない）
  *
- * TODO: ルートの README.md / CLAUDE.md は別の PR で作り直し中なので、
- *       落ち着いたら SOURCES に足す（今入れると作業中の枝と必ずぶつかる）。
+ * ルートの README.md / CLAUDE.md / CONTRIBUTING.md も対象（R3-c で README を
+ * 減量したときに足した。ここに入っていないと入口のリンク切れに誰も気づけない）。
  *
  * 使い方: node scripts/check-md-links.mjs   （`npm run lint` から呼ばれる）
  */
@@ -49,6 +49,11 @@ const files = [];
     else if (e.name.endsWith('.md')) files.push(f);
   }
 })(path.join(ROOT, 'docs'));
+// ルートの入口3枚も見る（README は R3-c で減量済み・リンクはここが守る）
+for (const name of ['README.md', 'CLAUDE.md', 'CONTRIBUTING.md']) {
+  const f = path.join(ROOT, name);
+  if (fs.existsSync(f)) files.push(f);
+}
 
 /* ── リンクを拾って解決する ──────────────────────────────── */
 const bad = [];
