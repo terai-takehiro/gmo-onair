@@ -10,7 +10,7 @@
 //   ⑪ 選択中の行を配列 index で持っていたため、読み直し・コピーの後にずれた → destId で持つ
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, FileDown, Plus, Video, Copy } from 'lucide-react';
+import { ChevronLeft, Save, FileDown, Video, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
@@ -23,11 +23,12 @@ import {
   getOwnerContext, getStreaming, putStreaming,
   type Destination, type Meeting, type OwnerContext, type StreamingSettings,
 } from '@/lib/deviceSettingsApi';
-import { genId } from '@/lib/stableIds';
+import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
 import DestinationInspector from './DestinationInspector';
 import EncoderList from './EncoderList';
 import { ENCODER_IDS, blockingError, fromWire, newDestination } from './destinationHelpers';
-import MeetingCard from './MeetingCard';
+import MeetingList from './MeetingList';
+import { meetingBlockingError, toolLabel } from './meetingFields';
 import ExportDialog from '../settings-export/ExportDialog';
 import CopyFromDialog from '../settings-export/CopyFromDialog';
 import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
@@ -53,10 +54,6 @@ function useIsNarrow() {
     return () => mq.removeEventListener('change', onChange);
   }, []);
   return narrow;
-}
-
-function newMeeting(): Meeting {
-  return { meetingId_: genId('mtg'), tool: 'Zoom', url: '', videoInput: 'OA1', audioInput: 'UltraStudio' };
 }
 
 /** 「いま画面にある内容」を1本の文字列にする。保存済みと比べて未保存かどうかを見る */
@@ -90,10 +87,16 @@ export default function StreamingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // WEB会議の「一覧＋詳細」で選んでいる1件。⚠️ 配列 index ではなく meetingId_ で持つ
+  // （読み直し・並べ替えの後に別の会議を直してしまうため・配信先の destId と同じ理由）
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [copyFromOpen, setCopyFromOpen] = useState(false);
   const [owner, setOwner] = useState<OwnerContext | null>(null);
   const isNarrow = useIsNarrow();
+  // ⚠️ WEB会議の欄だけに効かせる（配信先側は別途）。閲覧しかできない人が打ち込んでから
+  // 「保存に失敗しました」と言われて全部捨てられていた（useCanEditDeviceSettings のコメント）
+  const canEditMeetings = useCanEditDeviceSettings();
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
 
@@ -181,6 +184,18 @@ export default function StreamingPage() {
       setSelectedId(bad.destId);
       notifyError(`${bad.encoderId} / ${bad.name || '（名前がありません）'}: ${blockingError(bad)}`, {
         description: '1行でも規則に反すると、配信先も WEB会議もまとめて保存されません。',
+      });
+      return false;
+    }
+    // ⚠️ WEB会議も同じ。会議URLが1件でも空だと zod が payload 全体を落とすので、
+    // **配信先まで巻き添えで保存されない**。投げる前にその会議を選んで止める
+    const badMeeting = meetings
+      .map((m) => ({ m, err: meetingBlockingError(m) }))
+      .find((x) => x.err);
+    if (badMeeting) {
+      setSelectedMeetingId(badMeeting.m.meetingId_);
+      notifyError(`WEB会議「${badMeeting.m.label || toolLabel(badMeeting.m)}」: ${badMeeting.err}`, {
+        description: '1件でも規則に反すると、配信先も WEB会議もまとめて保存されません。',
       });
       return false;
     }
@@ -317,19 +332,16 @@ export default function StreamingPage() {
               <h2 className="text-sm font-semibold">WEB会議</h2>
             </div>
             <p className="mb-3 text-xs font-medium text-warning">ここから下は Excel に出ません。共有は画面のコピーで行ってください。</p>
-            <div className="space-y-3">
-              {meetings.map((m, i) => (
-                <MeetingCard
-                  key={m.meetingId_}
-                  meeting={m}
-                  onChange={(next) => setMeetings((prev) => prev.map((mm, idx) => (idx === i ? next : mm)))}
-                  onDelete={() => setMeetings((prev) => prev.filter((_, idx) => idx !== i))}
-                />
-              ))}
-            </div>
-            <Button variant="outline" className="mt-3 h-11" onClick={() => setMeetings((prev) => [...prev, newMeeting()])}>
-              <Plus className="mr-2 h-4 w-4" /> 会議を追加
-            </Button>
+            {/* ⚠️ 一覧＋詳細（配信先と同じ作り）。会議は本番用・リハ用…と3〜4本になるので
+                カードの縦積みでは目的の1件に辿り着けなかった。スマホは 1画面ずつ（MeetingList 参照）。
+                ⚠️ ここで <Dialog> は使わない（PC 幅で画面全体が暗転した実害・useIsNarrow のコメント） */}
+            <MeetingList
+              meetings={meetings}
+              selectedId={selectedMeetingId}
+              canEdit={canEditMeetings}
+              onSelect={setSelectedMeetingId}
+              onChange={setMeetings}
+            />
           </div>
         </>
       )}
