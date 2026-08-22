@@ -11,6 +11,9 @@ export interface QsheetDocument {
   project_id: string | null;
   project_name: string | null;
   gls_number: string | null;
+  /** 番組（マニュアル・案件管理外）。migration 227 で追加 */
+  program_id: string | null;
+  program_name: string | null;
   creator_name: string | null;
   created_by: string | null;
   share_count?: number;

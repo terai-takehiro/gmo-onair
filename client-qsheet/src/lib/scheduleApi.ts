@@ -33,6 +33,8 @@ export interface CreateSchedulePayload {
   service_date: string;
   location_id?: string | null;
   project_id?: string | null;
+  /** 番組（マニュアル・案件管理外）。migration 227 で追加 */
+  program_id?: string | null;
   episode_id?: string | null;
   template_id?: string | null;
   onair_start_min?: number | null;

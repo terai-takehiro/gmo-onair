@@ -14,6 +14,12 @@ export async function getDocumentJourney(docId: string): Promise<JourneyResponse
   return res.data.data;
 }
 
+/** 番組（マニュアル・案件管理外）単位のジャーニー。2026-08-22 追加 */
+export async function getProgramJourney(programId: string): Promise<JourneyResponse> {
+  const res = await api.get<Envelope<JourneyResponse>>(`/qsheet/scopes/program/${programId}/journey`);
+  return res.data.data;
+}
+
 // `production_journey_marks` の生の行（サーバーは snake_case のまま返す）
 export interface JourneyMarkRow {
   id: string;

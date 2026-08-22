@@ -1,11 +1,24 @@
 /**
- * 制作技術支援（旧「制作資料」）のトップ（案件を選ぶ）。
+ * 「進行台本」の案件選択（ステージ別の件数つき・`/qsheet/home`）。
  *
  * サーバーは**数えた事実だけ**返す（`GET /qsheet/scopes`）。割合・進み具合は
  * ここでは計算しない。表示語（`SCOPE_GROUP_LABEL`）はサーバーに置かず、ここ1か所に置く
  * （`shared/src/client/apps.ts` の教訓＝名前を2か所に書かない）。
  *
- * ⚠️ 段3の時点では、この画面から先（案件ごとのジャーニー・資料単体のジャーニー）は
+ * ⚠️ **アプリ全体（制作技術支援）のトップではない。** 見出しが「制作技術支援」
+ * だった（段3当時の実装）が、2026-08-22（ご指摘）に構成そのものを訂正した:
+ *
+ *   ① `/qsheet/top`（`ProductionTopPage.tsx`）= アプリのトップ。**まず番組・
+ *      イベントを選ぶ**（GLS案件 or ここだけの番組）
+ *   ② 選んだ先のハブ画面（`JourneyPage.tsx`・`/qsheet/projects/:id` /
+ *      `/qsheet/programs/:id`）= そこで初めてミニアプリ（進行台本・スケジュール表・
+ *      収録設定・配信設定）のタイルが並ぶ
+ *
+ * つまり **①→②→ミニアプリ** の順で、この画面（ステージ別の件数つき案件選択）は
+ * ①のもう1つの入口候補として残しているだけで、主導線からは外れている
+ * （`nav.ts` にもリンクしていない・URL は生かしたまま）。
+ *
+ * 段3の時点では、この画面から先（案件ごとのジャーニー・資料単体のジャーニー）は
  * まだ作っていない。件数の表示までがこの段の範囲（03-app-structure-impl.md §8 の PR E）。
  */
 import { useQuery } from "@tanstack/react-query";
@@ -48,7 +61,7 @@ export default function TopPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <h1 className="text-xl font-semibold text-foreground sm:text-2xl">制作技術支援</h1>
+      <h1 className="text-xl font-semibold text-foreground sm:text-2xl">進行台本</h1>
       <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本づくりの状態がわかります。</p>
 
       {isLoading && (

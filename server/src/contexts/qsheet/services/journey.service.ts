@@ -237,6 +237,113 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
   };
 }
 
+// ============================================================
+// ジャーニー（番組＝マニュアル単位。2026-08-22 追加）
+// ============================================================
+
+async function fetchDocsForProgram(programId: string): Promise<DocRow[]> {
+  const rows = await queryAll(
+    `SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
+            ${SECTION_COUNT_SQL} AS section_count
+     FROM qsheet_documents d
+     WHERE d.program_id = ? AND d.deleted_at IS NULL
+     ORDER BY d.updated_at DESC`,
+    [programId],
+  );
+  return rows as unknown as DocRow[];
+}
+
+/** 番組（マニュアル）版の `fetchFramesForProject`。持ち物は `program_id` に変わるだけで作りは同じ */
+async function fetchFramesForProgram(programId: string, user: AccessUser): Promise<Map<string, JourneyFrame[]>> {
+  let sql = `
+    SELECT s.id AS schedule_id, i.id AS item_id, to_char(s.service_date, 'YYYY-MM-DD') AS service_date,
+           c.label AS column_label, r.name AS room_name, i.title, i.kind, i.start_min, i.end_min,
+           i.qsheet_document_id, (i.qsheet_document_id IS NOT NULL AND d.id IS NULL) AS link_broken
+    FROM qsheet_schedule_items i
+    JOIN qsheet_schedules s ON s.id = i.schedule_id AND s.deleted_at IS NULL
+    JOIN qsheet_schedule_columns c ON c.id = i.column_id
+    LEFT JOIN studio_rooms r ON r.id = c.room_id
+    LEFT JOIN qsheet_documents d ON d.id = i.qsheet_document_id AND d.deleted_at IS NULL
+    WHERE s.program_id = $1 AND i.deleted_at IS NULL
+  `;
+  const params: unknown[] = [programId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (s.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY s.service_date, i.start_min';
+
+  const rows = await queryAll(sql, params);
+  const byDate = new Map<string, JourneyFrame[]>();
+  for (const r of rows) {
+    const date = r.service_date as string;
+    const frame: JourneyFrame = {
+      scheduleId: r.schedule_id as string,
+      itemId: r.item_id as string,
+      columnLabel: (r.room_name as string) || (r.column_label as string),
+      title: r.title as string,
+      kind: r.kind as string,
+      startMin: r.start_min as number,
+      endMin: r.end_min as number,
+      documentId: (r.qsheet_document_id as string) ?? null,
+      linkBroken: !!r.link_broken,
+      durationGapMin: null,
+    };
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(frame);
+  }
+  return byDate;
+}
+
+/**
+ * 番組（マニュアル）単位のジャーニー。番組が無ければ null（呼び出し側が 404 を返す）。
+ *
+ * ⚠️ 案件単位（`getJourneyForProject`）との違いは1つだけ — **`episodes` を持たない**。
+ * 番組は案件管理外の軽い入れ物（migration 227）で、回（エピソード）という概念が無いため、
+ * 日の一覧は「資料の broadcast_date」「スケジュール表がある日」「`event_date`」の
+ * 和集合で作る（`episodes` からの日は最初から無い）。
+ */
+export async function getJourneyForProgram(programId: string, user: AccessUser): Promise<JourneyResponse | null> {
+  const program = await queryOne(
+    `SELECT id, name, to_char(event_date, 'YYYY-MM-DD') AS event_date
+     FROM qsheet_programs WHERE id = ? AND deleted_at IS NULL`,
+    [programId],
+  );
+  if (!program) return null;
+
+  const [docs, framesByDate] = await Promise.all([fetchDocsForProgram(programId), fetchFramesForProgram(programId, user)]);
+
+  const dateLabels = new Map<string, string | null>();
+  if (program.event_date) dateLabels.set(program.event_date as string, null);
+  for (const d of docs) {
+    if (d.broadcast_date && !dateLabels.has(d.broadcast_date)) dateLabels.set(d.broadcast_date, null);
+  }
+  for (const date of framesByDate.keys()) {
+    if (!dateLabels.has(date)) dateLabels.set(date, null);
+  }
+
+  const docsByDate = new Map<string | null, DocRow[]>();
+  for (const d of docs) {
+    const key = d.broadcast_date ?? null;
+    if (!docsByDate.has(key)) docsByDate.set(key, []);
+    docsByDate.get(key)!.push(d);
+  }
+
+  const dates = [...dateLabels.keys()].sort();
+  const days: JourneyDay[] = dates.map((date) =>
+    buildDayFromDocs(date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? []));
+
+  const undated = docsByDate.get(null) ?? [];
+  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
+
+  return {
+    // `glsNumber` は番組には無いので常に null（JourneyResponse.project の型を割らない・§JourneyResponse のコメント参照）
+    project: { id: program.id as string, name: program.name as string, glsNumber: null },
+    days,
+  };
+}
+
 /** 案件単位のジャーニー。案件が無ければ null（呼び出し側が 404 を返す） */
 export async function getJourneyForProject(projectId: string, user: AccessUser): Promise<JourneyResponse | null> {
   const project = await queryOne(

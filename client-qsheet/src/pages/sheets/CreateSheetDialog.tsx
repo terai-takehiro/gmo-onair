@@ -33,12 +33,16 @@ export function CreateSheetDialog({
   open,
   onOpenChange,
   defaultProjectId,
+  defaultProgramId,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** URL の `?project=` フィルタ。渡されていれば「GLS案件に紐付ける」の初期値として使う */
   defaultProjectId?: string | null;
+  /** URL の `?program=` フィルタ（番組＝マニュアル・案件管理外）。渡されていれば作成時にそのまま紐付ける。
+   * `defaultProjectId` と同時には渡らない（一覧の絞り込みはどちらか一方）ので、UI での選び直しは設けていない */
+  defaultProgramId?: string | null;
   onCreated: (doc: { id: string }) => void;
 }) {
   const queryClient = useQueryClient();
@@ -102,6 +106,7 @@ export function CreateSheetDialog({
         title: newTitle || "無題のQシート",
         broadcast_date: newBroadcastDate || selectedEpisode?.broadcast_date || null,
         project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
+        program_id: !linkToProject && defaultProgramId ? defaultProgramId : null,
         episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
         episode_code: linkToProject && selectedEpisode ? selectedEpisode.episode_code : null,
         data: {

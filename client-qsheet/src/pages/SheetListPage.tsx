@@ -52,6 +52,7 @@ export default function SheetListPage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const projectFilter = searchParams.get("project");
+  const programFilter = searchParams.get("program");
   const dateFilter = searchParams.get("date") || "";
   const scopeFilter = (searchParams.get("scope") as SheetScope | null) || "all";
 
@@ -63,11 +64,12 @@ export default function SheetListPage() {
   };
 
   const { data: documents, isLoading, isError } = useQuery({
-    queryKey: ["qsheet-documents", search, projectFilter, dateFilter, scopeFilter],
+    queryKey: ["qsheet-documents", search, projectFilter, programFilter, dateFilter, scopeFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (projectFilter) params.set("project_id", projectFilter);
+      if (programFilter) params.set("program_id", programFilter);
       if (dateFilter) params.set("date", dateFilter);
       if (scopeFilter !== "all") params.set("scope", scopeFilter);
       const res = await api.get(`/qsheet/documents?${params}`);
@@ -103,6 +105,12 @@ export default function SheetListPage() {
     setSearchParams(next);
   };
 
+  const clearProgramFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("program");
+    setSearchParams(next);
+  };
+
   return (
     <div className="min-h-full bg-background text-foreground">
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
@@ -133,6 +141,26 @@ export default function SheetListPage() {
               className="ml-auto shrink-0"
               onClick={clearProjectFilter}
               aria-label="案件フィルタ解除"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </div>
+        )}
+
+        {/* Program (manual) filter banner */}
+        {programFilter && documents && documents.length > 0 && documents[0].program_name && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
+            <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="text-sm">
+              <span className="font-medium">{documents[0].program_name}</span>
+              のQシート
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto shrink-0"
+              onClick={clearProgramFilter}
+              aria-label="番組フィルタ解除"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
@@ -225,6 +253,7 @@ export default function SheetListPage() {
         open={showCreate}
         onOpenChange={setShowCreate}
         defaultProjectId={projectFilter}
+        defaultProgramId={programFilter}
         onCreated={(doc) => navigate(`/qsheet/editor/${doc.id}`)}
       />
 

@@ -16,6 +16,9 @@ export interface Schedule {
   project_id: string | null;
   project_name?: string | null;
   gls_number?: string | null;
+  /** 番組（マニュアル・案件管理外）。migration 227 で追加 */
+  program_id?: string | null;
+  program_name?: string | null;
   episode_id: string | null;
   view_start_min: number;
   view_end_min: number;

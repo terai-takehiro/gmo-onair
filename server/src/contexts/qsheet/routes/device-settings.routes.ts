@@ -25,12 +25,16 @@ router.use(requireAuth, requirePermission('qsheet'));
 const notFound = (res: Response) =>
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '見つかりません' } });
 
-/** 案件名 / GLS 番号（Excel ファイル名用） */
+/** 案件名 / GLS 番号 / 番組名（Excel ファイル名用） */
 async function ownerLabelOf(owner: Awaited<ReturnType<typeof resolveOwner>>): Promise<string> {
   if (!owner) return 'unknown';
   if (owner.kind === 'project') {
     const row = await queryOne('SELECT gls_number, name FROM projects WHERE id = $1', [owner.projectId]);
     return (row?.gls_number as string) || (row?.name as string) || owner.projectId;
+  }
+  if (owner.kind === 'program') {
+    const row = await queryOne('SELECT name FROM qsheet_programs WHERE id = $1', [owner.programId]);
+    return (row?.name as string) || owner.programId;
   }
   return owner.docNo;
 }
@@ -134,11 +138,11 @@ router.get('/:ownerKey/settings/export-xlsx', requirePermission('qsheet', 'edito
 
   // Excel に出す配信先の姿には streamKeyEnc が要る（マスク済みの GET 応答には無い）。
   // ここだけ生の保存行を引き直す（平文は decrypt 時にだけメモリ上に載り、レスポンスには出ない）。
+  const ownerCol = owner.kind === 'project' ? 'project_id' : owner.kind === 'program' ? 'program_id' : 'doc_no';
+  const ownerValue = owner.kind === 'project' ? owner.projectId : owner.kind === 'program' ? owner.programId : owner.docNo;
   const rawStreamRow = await queryOne(
-    owner.kind === 'project'
-      ? `SELECT destinations FROM qsheet_streaming_settings WHERE project_id = $1 AND service_date = $2 AND deleted_at IS NULL`
-      : `SELECT destinations FROM qsheet_streaming_settings WHERE doc_no = $1 AND service_date = $2 AND deleted_at IS NULL`,
-    [owner.kind === 'project' ? owner.projectId : owner.docNo, serviceDate]
+    `SELECT destinations FROM qsheet_streaming_settings WHERE ${ownerCol} = $1 AND service_date = $2 AND deleted_at IS NULL`,
+    [ownerValue, serviceDate]
   );
 
   const { buffer, filename } = buildDeviceSettingsWorkbook({

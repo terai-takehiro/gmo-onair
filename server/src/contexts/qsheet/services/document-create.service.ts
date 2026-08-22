@@ -34,6 +34,8 @@ const EMPTY_MASTERS = { persons: [], video: [], audio: [], telop: [] };
 export interface CreateDocumentInput {
   title: string;
   projectId?: string | null;
+  /** 番組（マニュアル・案件管理外）。`projectId` と同時には立てない（migration 227） */
+  programId?: string | null;
   episodeId?: string | null;
   episodeCode?: string | null;
   broadcastDate?: string | null;
@@ -81,21 +83,22 @@ export async function createDocument(input: CreateDocumentInput, db: DocumentDbC
   const rawData = input.data && typeof input.data === 'object' ? (input.data as Record<string, unknown>) : null;
   const safeData = rawData ? ensureMasters(rawData) : buildDefaultData({ ...input, title: safeTitle });
 
-  // 案件に紐づかない資料だけ、口頭で言える番号 (SB-202608-0001) を採る。
-  // 案件に紐づく資料は GLS 番号が主なので doc_no は不要。
+  // 案件にも番組にも紐づかない資料だけ、口頭で言える番号 (SB-202608-0001) を採る。
+  // 案件に紐づく資料は GLS 番号が、番組に紐づく資料は番組名が主なので doc_no は不要。
   // ⚠️ 採番自体はこの関数の外側（tx の外）でアトミックに完結する。tx の ROLLBACK と
   //   採番の巻き戻しは連動しない（欠番が出ることはあるが、既存の全採番と同じ性質）。
-  const docNo = input.projectId ? null : await issueDocNo('sheet');
+  const docNo = (input.projectId || input.programId) ? null : await issueDocNo('sheet');
 
   await db.execute(
-    `INSERT INTO qsheet_documents (id, title, data, episode_id, project_id, broadcast_date, episode_code, status, created_by, updated_by, doc_no)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
+    `INSERT INTO qsheet_documents (id, title, data, episode_id, project_id, program_id, broadcast_date, episode_code, status, created_by, updated_by, doc_no)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
     [
       id,
       safeTitle,
       JSON.stringify(safeData),
       input.episodeId || null,
       input.projectId || null,
+      input.programId || null,
       input.broadcastDate || null,
       input.episodeCode || null,
       input.createdBy,

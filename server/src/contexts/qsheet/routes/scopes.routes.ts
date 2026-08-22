@@ -7,7 +7,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
-import { getScopeCards, getJourneyForProject, getJourneyForDocument } from '../services/journey.service';
+import { getScopeCards, getJourneyForProject, getJourneyForProgram, getJourneyForDocument } from '../services/journey.service';
 
 const router = Router();
 
@@ -39,6 +39,23 @@ router.get('/scopes/project/:projectId/journey', async (req: Request, res: Respo
     res.json({ success: true, data: result });
   } catch (err: unknown) {
     console.error('GET /scopes/project/:projectId/journey error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
+// 番組（マニュアル）単位のジャーニー（2026-08-22 追加）
+// ============================================================
+router.get('/scopes/program/:programId/journey', async (req: Request, res: Response) => {
+  try {
+    const result = await getJourneyForProgram(String(req.params.programId), req.user!);
+    if (!result) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '番組が見つかりません' } });
+      return;
+    }
+    res.json({ success: true, data: result });
+  } catch (err: unknown) {
+    console.error('GET /scopes/program/:programId/journey error:', err);
     res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });

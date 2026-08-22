@@ -40,10 +40,11 @@ function sanitizeDate(input: unknown): string | null {
 // ============================================================
 router.get('/documents', async (req: Request, res: Response) => {
   try {
-    const { status, episode_id, project_id, search, date, scope } = req.query;
+    const { status, episode_id, project_id, program_id, search, date, scope } = req.query;
     let sql = `
       SELECT d.*, u.name as creator_name,
              p.name as project_name, p.gls_number,
+             pr.name as program_name,
              (SELECT COUNT(*) FROM qsheet_document_shares s WHERE s.document_id = d.id)::int as share_count,
              CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
                   THEN jsonb_array_length(d.data->'sections')
@@ -51,6 +52,7 @@ router.get('/documents', async (req: Request, res: Response) => {
       FROM qsheet_documents d
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN projects p ON d.project_id = p.id
+      LEFT JOIN qsheet_programs pr ON d.program_id = pr.id
       WHERE d.deleted_at IS NULL
     `;
     const params: unknown[] = [];
@@ -93,6 +95,10 @@ router.get('/documents', async (req: Request, res: Response) => {
     if (project_id && typeof project_id === 'string') {
       sql += ` AND d.project_id = $${paramIndex++}`;
       params.push(project_id);
+    }
+    if (program_id && typeof program_id === 'string') {
+      sql += ` AND d.program_id = $${paramIndex++}`;
+      params.push(program_id);
     }
     if (search) {
       const safe = sanitizeSearch(search);
@@ -152,13 +158,14 @@ router.get('/documents/:id', async (req: Request, res: Response) => {
 // ============================================================
 router.post('/documents', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
   try {
-    const { title, data, episode_id, project_id, broadcast_date, episode_code } = req.body;
+    const { title, data, episode_id, project_id, program_id, broadcast_date, episode_code } = req.body;
 
     const row = await createDocument({
       title: typeof title === 'string' ? title : '',
       data,
       episodeId: episode_id,
       projectId: project_id,
+      programId: program_id,
       broadcastDate: broadcast_date,
       episodeCode: episode_code,
       createdBy: req.user!.id,
@@ -215,7 +222,7 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
       }
     }
 
-    const { title, data, episode_id, project_id, broadcast_date, episode_code, status } = req.body;
+    const { title, data, episode_id, project_id, program_id, broadcast_date, episode_code, status } = req.body;
 
     const safeTitle = typeof title === 'string' ? title.slice(0, MAX_TITLE_LENGTH) : '';
     const safeStatus = (typeof status === 'string' && VALID_STATUSES.includes(status)) ? status : 'draft';
@@ -225,9 +232,9 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
       `UPDATE qsheet_documents
        SET title = $1, data = $2, episode_id = $3, project_id = $4,
            broadcast_date = $5, episode_code = $6, status = $7,
-           updated_by = $8, updated_at = NOW()
-       WHERE id = $9`,
-      [safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, safeStatus, req.user!.id, req.params.id]
+           updated_by = $8, updated_at = NOW(), program_id = $9
+       WHERE id = $10`,
+      [safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, safeStatus, req.user!.id, program_id || null, req.params.id]
     );
 
     const row = await queryOne('SELECT * FROM qsheet_documents WHERE id = $1', [req.params.id]);
