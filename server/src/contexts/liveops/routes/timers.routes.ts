@@ -21,6 +21,24 @@ router.get('/:id/display', async (req, res) => {
   }
 });
 
+// 公開: 表示画面用（認証不要・読み取り専用）。自由配置レイアウトの配信。
+// 行が無いタイマーは data: null → TimerDisplayPage.tsx 側で固定3パターンにフォールバック。
+//
+// ⚠️ ルート名は '/:id/display' という契約テスト監視対象の文字列から意図的に離す
+// （'/:id/display-layout' のような近接命名は避ける。将来ルートをグルーピングする
+// リファクタが入った際に保護対象行を巻き込みにくくするため）。
+router.get('/:id/layout', async (req, res) => {
+  try {
+    const row = await queryOne(
+      `SELECT layout FROM liveops_timer_display_layouts WHERE timer_id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: row ? (row as any).layout : null });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 router.get('/', ...canRead, async (req, res) => {
   try {
     const { project_id, program_id } = req.query;
@@ -107,6 +125,41 @@ router.delete('/:id', ...canWrite, async (req, res) => {
       'UPDATE liveops_timers SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',
       [req.params.id]
     );
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// エディタでの直接編集の保存（認証あり・canWrite）。テンプレート適用
+// （display-templates.routes.ts の /apply）とは別経路。
+router.put('/:id/layout', ...canWrite, async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { layout } = req.body;
+    if (!layout || !Array.isArray(layout.elements)) {
+      return res.status(400).json({ success: false, message: 'layout.elements required' });
+    }
+    await execute(
+      `INSERT INTO liveops_timer_display_layouts (timer_id, layout, source_template_id, updated_by, updated_at)
+       VALUES ($1, $2, NULL, $3, NOW())
+       ON CONFLICT (timer_id) DO UPDATE SET
+         layout = EXCLUDED.layout,
+         source_template_id = NULL,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = NOW()`,
+      [req.params.id, JSON.stringify(layout), userId]
+    );
+    res.json({ success: true, data: layout });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// 「未設定に戻す」＝ 固定3パターン描画へ戻す（認証あり・canWrite）。
+router.delete('/:id/layout', ...canWrite, async (req, res) => {
+  try {
+    await execute('DELETE FROM liveops_timer_display_layouts WHERE timer_id = $1', [req.params.id]);
     res.json({ success: true });
   } catch {
     res.status(500).json({ success: false, message: 'Internal server error' });

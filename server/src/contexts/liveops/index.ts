@@ -4,6 +4,7 @@ import programsRoutes from './routes/programs.routes';
 import proxyRoutes from './routes/proxy.routes';
 import snapshotsRoutes from './routes/snapshots.routes';
 import timersRoutes from './routes/timers.routes';
+import displayTemplatesRoutes from './routes/display-templates.routes';
 import webhooksRoutes from './routes/webhooks.routes';
 import measureRoutes from './routes/measure.routes';
 import orgSettingsRoutes from './routes/org-settings.routes';
@@ -25,6 +26,7 @@ export function createLiveopsRoutes(): Router {
   router.use('/liveops/proxy', proxyRoutes);
   router.use('/liveops/snapshots', snapshotsRoutes);
   router.use('/liveops/timers', timersRoutes);
+  router.use('/liveops/display-templates', displayTemplatesRoutes);
   router.use('/liveops/measure', measureRoutes);
 
   return router;
