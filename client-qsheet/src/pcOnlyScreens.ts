@@ -78,6 +78,9 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/device-settings',   // 収録設定・配信設定の入口（案件を選ぶ）
   '/qsheet/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）
   '/qsheet/streaming/:ownerKey', // 配信設定（同上）
+  '/qsheet/rental/:ownerKey', // レンタル機材検索（カード一覧。スマホは1列）（2026-08-22 追加）
+  '/qsheet/rental/:ownerKey/list', // レンタル機材検索・予約リスト（同上）
+  '/qsheet/rental/:ownerKey/mail/:company', // レンタル機材検索・依頼メール作成（同上）
   '/qsheet/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
   '/qsheet/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
   '/qsheet/programs/:id', // 制作のジャーニー（番組＝マニュアルの入口）。2026-08-22 追加・同上

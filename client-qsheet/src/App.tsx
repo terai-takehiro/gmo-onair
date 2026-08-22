@@ -19,6 +19,9 @@ import { QSHEET_ROOT_PATH } from "@/routeSwitch";
 import DeviceSettingsHome from "@/pages/device-settings/DeviceSettingsHome";
 import RecordingPage from "@/pages/recording/RecordingPage";
 import StreamingPage from "@/pages/streaming/StreamingPage";
+import RentalSearchPage from "@/pages/rental/RentalSearchPage";
+import RentalReservationsPage from "@/pages/rental/RentalReservationsPage";
+import RentalMailPage from "@/pages/rental/RentalMailPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -61,6 +64,10 @@ export default function App() {
         <Route path="/qsheet/device-settings" element={<DeviceSettingsHome />} />
         <Route path="/qsheet/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/qsheet/streaming/:ownerKey" element={<StreamingPage />} />
+        {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
+        <Route path="/qsheet/rental/:ownerKey" element={<RentalSearchPage />} />
+        <Route path="/qsheet/rental/:ownerKey/list" element={<RentalReservationsPage />} />
+        <Route path="/qsheet/rental/:ownerKey/mail/:company" element={<RentalMailPage />} />
 
         {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
         <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
