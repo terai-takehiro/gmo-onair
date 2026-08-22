@@ -1,6 +1,6 @@
 # レンタル機材DB化プロジェクト（スクレイパー）
 
-映像機材レンタル会社2社（東京オフラインセンター／レスター）の機材ページを毎日クロールし、
+映像機材レンタル会社2社（東京オフラインセンター＝`company`列は'TOC'／レスター）の機材ページを毎日クロールし、
 SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本体アプリの PostgreSQL
 （`qsheet_rental_items`）へ同期する。GMO ONAiR「制作技術支援」の中のミニアプリ
 **「レンタル機材検索」**（`client-qsheet/src/pages/rental/`）が検索対象にするデータの
@@ -13,9 +13,9 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
 ## 何をするものか
 
 ```
-東京オフラインセンター (toc_scraper.py) ─┐
-                                          ├→ rental_items.db (SQLite・ステージング)
-レスター (restar_scraper.py)      ───────┘        │
+東京オフラインセンター＝TOC (toc_scraper.py) ─┐
+                                               ├→ rental_items.db (SQLite・ステージング)
+レスター (restar_scraper.py)           ───────┘        │
                                                     ▼
                                     sync_to_postgres.py
                                                     │
@@ -27,7 +27,7 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
   2社は別会社として必ず `company` 列で区別する（同じ数値IDが両社に存在しても別商品）。
   値が変わったら `change_log` に差分を記録し、今回のクロールで見つからなかった商品は
   `status=missing`（掲載終了の可能性）として記録する。
-- **`toc_scraper.py`** — 東京オフラインセンター (`ec.toc-net.jp`) のカテゴリ一覧から商品IDを収集し、
+- **`toc_scraper.py`** — 東京オフラインセンター（`company`列は'TOC'。`ec.toc-net.jp`）のカテゴリ一覧から商品IDを収集し、
   商品詳細ページを1件ずつ取得してパースする。
 - **`restar_scraper.py`** — レスター (`restargp.com`) の商品詳細ページを ID 連番スキャン
   （`START_ID`〜`END_ID`、404が `MAX_CONSECUTIVE_MISS` 件連続したら打ち切り）して取得する。
@@ -36,8 +36,33 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
   （`main()` を公開。CLI からも `scheduler.py` からも同じ経路を通る）。
 - **`scheduler.py`** — コンテナの常駐プロセス。`run_all.main()` を1日1回（既定 5時）実行し続ける。
   システムの cron は使わない（コンテナでは timezone・ログの扱いが面倒になるため、単純なループで足りる）。
+  **加えて、本体アプリからの手動「今すぐ取得」トリガーも同じループでポーリングする**
+  （`sync_requests.py` 参照。20秒ごとに `qsheet_rental_sync_requests` を見に行く）。
+- **`sync_requests.py`** — 手動トリガーのキュー処理（`qsheet_rental_sync_requests` の
+  claim/done/error 更新）。scraper 側に HTTP サーバーは持たせない設計にしたため、
+  本体アプリ→scraper の一方向の指示は Postgres の1テーブル越しに行う。
 - **`Dockerfile`** — `scheduler.py` を CMD にした軽量な Python イメージ。GHCR には積まず、
   VPS 上でその場ビルドする（`docker-compose.yml` の `rental_scraper_dev` サービス参照）。
+
+## 手動での「今すぐ取得」
+
+レンタル機材検索の画面に「今すぐ取得」ボタンがある（`RentalSearchPage.tsx`）。仕組み:
+
+```
+[画面のボタン] → POST /qsheet/rental/sync-trigger（server/.../rental.routes.ts）
+             → qsheet_rental_sync_requests に 'pending' 行を1件 INSERT
+             → scheduler.py が最大20秒以内にポーリングで見つけて claim（'running'）
+             → run_all.main() を実行 → 'done'/'error' で締める
+             → 画面は GET /qsheet/rental/sync-status をポーリングして進行状況を表示
+```
+
+- **同時に複数リクエストは受け付けない。** 既に `pending`/`running` の行があれば
+  サーバー側で 409 を返す（`rental.service.ts` の `triggerSync`）。
+- **クールダウンあり（既定30分）。** 対象2社サイトへの連打を防ぐため、直近のリクエストから
+  一定時間経っていないと 429 を返す（利用規約の範囲内で行う原則・下の「サイト利用規約・
+  アクセス方法について」参照）。
+- **`DATABASE_URL` が未設定の環境（scheduler.py 単体をローカルで動かす場合等）では
+  手動トリガーの監視自体を行わない。** 定期実行（毎日 `RENTAL_CRON_HOUR`）はそれでも動く。
 
 ## 検証環境での自動実行（rental_scraper_dev）
 
@@ -58,16 +83,20 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
 ⚠️ **「件数が入っている」だけでは判断材料にならない。** `qsheet_rental_items` には
 `app_dev`（本体アプリ）が起動時に投入するダミーサンプル（`seed-rental.ts`・8件固定）が
 **別に**存在しうる。v4.1.8 で `SKIP_RENTAL_SEED=true` を `app_dev` に設定し、検証環境では
-このダミー投入を止めた（本物のクロール結果と混ざって見分けがつかなくなるため）が、
-**この対処より前にデプロイされた検証環境には、この8件がまだ残っている可能性がある**
-（一度入ると `seed-rental.ts` は「既にデータがあるならスキップ」なので消えない）。
+このダミー投入を止めた（本物のクロール結果と混ざって見分けがつかなくなるため）。
+
+**この対処より前にデプロイされた検証環境に残っていた8件は、マイグレーション
+`229_qsheet_rental_cleanup_seed.sql` で自動的に片付く。** `company + item_id + name`
+の3列がダミー値と完全一致する行だけを消す設計なので、実クロールが同じIDを先に取り込んで
+`name` が書き変わっていれば一致せず残る（誤って実データを消さない）。次にこのアプリのある
+環境へデプロイした時点で1回だけ実行され、以降は何もしない。
 
 判断は次の3段で行う:
 
 ```bash
 # 1. 件数だけでなく、既知のダミーIDが混ざっていないか確認する。
 #    ダミーの (company, item_id) は次の8件で固定（seed-rental.ts参照）:
-#      東京オフラインセンター: 5043, 4102, 5121, 4988, 5044, 5045
+#      TOC（東京オフラインセンター）: 5043, 4102, 5121, 4988, 5044, 5045
 #      レスター: 277, 312
 #    これ「だけ」しか無ければ、まだ実際のクロールは成功していない（ダミーのまま）。
 psql "$DATABASE_URL_DEV" -c "SELECT company, item_id, name, first_seen, last_seen FROM qsheet_rental_items ORDER BY company, item_id;"
@@ -75,7 +104,7 @@ psql "$DATABASE_URL_DEV" -c "SELECT company, item_id, name, first_seen, last_see
 # 2. コンテナのログで実際にクロールが完了しているか（新規/更新の実績、パース失敗の有無）を見る
 docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml logs --tail=200 rental_scraper_dev
 #   見るべき行:
-#     [NEW][東京オフラインセンター] ... / [UPDATED][...] ...   ← 実際に取得できている
+#     [NEW][TOC] ... / [UPDATED][...] ...                       ← 実際に取得できている
 #     パース失敗(name取得不可): https://...                    ← セレクタが実HTMLと合っていない
 #     取得断念: https://...                                     ← ネットワーク到達不可・ブロック
 #     [sync-to-postgres] N件を upsert しました（うち missing 判定: M件）
@@ -86,26 +115,18 @@ docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml logs --tai
 psql "$DATABASE_URL_DEV" -c "
   SELECT company, item_id, name, last_seen FROM qsheet_rental_items
   WHERE (company, item_id) NOT IN (
-    ('東京オフラインセンター','5043'),('東京オフラインセンター','4102'),
-    ('東京オフラインセンター','5121'),('東京オフラインセンター','4988'),
-    ('東京オフラインセンター','5044'),('東京オフラインセンター','5045'),
+    ('TOC','5043'),('TOC','4102'),
+    ('TOC','5121'),('TOC','4988'),
+    ('TOC','5044'),('TOC','5045'),
     ('レスター','277'),('レスター','312')
   )
   ORDER BY last_seen DESC LIMIT 20;
 "
 ```
 
-**この対処より前に投入されたダミー8件を消したい場合**（実クロールが成功していて、
-もう不要と判断できるときだけ実行すること — 消すと画面上その8件が消える）:
-
-```sql
-DELETE FROM qsheet_rental_items WHERE (company, item_id) IN (
-  ('東京オフラインセンター','5043'),('東京オフラインセンター','4102'),
-  ('東京オフラインセンター','5121'),('東京オフラインセンター','4988'),
-  ('東京オフラインセンター','5044'),('東京オフラインセンター','5045'),
-  ('レスター','277'),('レスター','312')
-);
-```
+**手動での後片付けは不要になった**（上記マイグレーションが自動でやる）。まだ8件が残って
+見える場合は、マイグレーションがまだ流れていない（デプロイがまだこのバージョンに
+達していない）か、上の判断3段の1でまだ実クロールが完了していないだけの可能性が高い。
 
 ### 既知の不具合: 実クロール後もほぼ全件が missing 判定になっていた（v4.1.8で修正済み）
 

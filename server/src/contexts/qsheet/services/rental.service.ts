@@ -1,7 +1,9 @@
 // レンタル機材検索 — DBアクセスとビジネスロジック（グループ化・重なり判定・小計・メール本文）。
 // ルーター（`routes/rental.routes.ts`）はここを呼ぶだけの薄い層にする。
 //
-// company の値は常に '東京オフラインセンター' か 'レスター' の完全一致文字列（DB実データもこの2値）。
+// company の値は常に 'TOC' か 'レスター' の完全一致文字列（DB実データもこの2値。
+// 'TOC' はもともと「東京オフラインセンター」だったが、バッジ・チップ等の固定幅UIで
+// 文字数が長すぎたため短縮した — ご指示。既存データは migration 230 でリネーム済み）。
 // カタログ（qsheet_rental_items）は company + item_id が自然主キー。予約行
 // （qsheet_rental_reservations）は project_id/program_id のどちらか1つを owner として持つ
 // （device-settings と同じ作法 — `../device-settings-owner.ts` の `Owner`/`ownerWhere`）。
@@ -9,7 +11,7 @@ import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, Row } from '../../../shared/db/connection';
 import { Owner, ownerWhere } from '../device-settings-owner';
 
-const COMPANIES = ['東京オフラインセンター', 'レスター'] as const;
+const COMPANIES = ['TOC', 'レスター'] as const;
 type Company = (typeof COMPANIES)[number];
 
 function isCompany(v: unknown): v is Company {
@@ -66,20 +68,54 @@ export interface SyncStatusCompany {
   missingCount: number;
 }
 
+/** 手動「今すぐ取得」トリガー（qsheet_rental_sync_requests）1行の状態。
+ * rental_scraper_dev（scheduler.py）が同じテーブルをポーリングして拾う
+ * キューなので、本体アプリ側は INSERT と参照だけ行う（scraper 側に
+ * HTTPサーバーは持たせない設計・rental-scraper/README.md 参照）。 */
+export interface SyncRequestStatus {
+  status: 'pending' | 'running' | 'done' | 'error';
+  requestedAt: string;
+  requestedBy: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorMessage: string | null;
+}
+
 export interface SyncStatus {
   companies: SyncStatusCompany[];
+  /** 直近の手動トリガー1件の状態（1度もトリガーされていなければ null） */
+  latestRequest: SyncRequestStatus | null;
+}
+
+function toSyncRequestStatus(row: Row): SyncRequestStatus {
+  return {
+    status: row.status as SyncRequestStatus['status'],
+    requestedAt: toIso(row.requested_at) as string,
+    requestedBy: (row.requested_by as string) ?? null,
+    startedAt: toIso(row.started_at),
+    finishedAt: toIso(row.finished_at),
+    errorMessage: (row.error_message as string) ?? null,
+  };
+}
+
+async function getLatestSyncRequest(): Promise<SyncRequestStatus | null> {
+  const row = await queryOne(`SELECT * FROM qsheet_rental_sync_requests ORDER BY requested_at DESC LIMIT 1`);
+  return row ? toSyncRequestStatus(row) : null;
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
-  const rows = await queryAll(
-    `SELECT company,
-            MAX(last_seen) AS last_seen_at,
-            COUNT(*) FILTER (WHERE status = 'listed')::int AS listed_count,
-            COUNT(*) FILTER (WHERE status = 'missing')::int AS missing_count
-     FROM qsheet_rental_items
-     GROUP BY company
-     ORDER BY company`
-  );
+  const [rows, latestRequest] = await Promise.all([
+    queryAll(
+      `SELECT company,
+              MAX(last_seen) AS last_seen_at,
+              COUNT(*) FILTER (WHERE status = 'listed')::int AS listed_count,
+              COUNT(*) FILTER (WHERE status = 'missing')::int AS missing_count
+       FROM qsheet_rental_items
+       GROUP BY company
+       ORDER BY company`
+    ),
+    getLatestSyncRequest(),
+  ]);
   return {
     companies: rows.map((r) => ({
       company: r.company as string,
@@ -87,7 +123,42 @@ export async function getSyncStatus(): Promise<SyncStatus> {
       listedCount: r.listed_count as number,
       missingCount: r.missing_count as number,
     })),
+    latestRequest,
   };
+}
+
+// ============================================================
+// 0b. 手動での取得トリガー
+// ============================================================
+/** 直近のトリガーから、これより短い間隔での再トリガーを断る（対象2社サイトへの
+ * 連打を防ぐ・利用規約の範囲内で行う原則 — rental-scraper/README.md 参照）。 */
+const SYNC_TRIGGER_COOLDOWN_MINUTES = 30;
+
+export type TriggerSyncResult =
+  | { ok: true }
+  | { ok: false; reason: 'already-running' }
+  | { ok: false; reason: 'cooldown'; retryAfterMinutes: number };
+
+export async function triggerSync(userId: string, userName: string | undefined): Promise<TriggerSyncResult> {
+  const active = await queryOne(
+    `SELECT 1 FROM qsheet_rental_sync_requests WHERE status IN ('pending', 'running') LIMIT 1`
+  );
+  if (active) return { ok: false, reason: 'already-running' };
+
+  const latest = await queryOne(`SELECT requested_at FROM qsheet_rental_sync_requests ORDER BY requested_at DESC LIMIT 1`);
+  if (latest) {
+    const requestedAtMs = new Date(toIso(latest.requested_at) as string).getTime();
+    const elapsedMinutes = (Date.now() - requestedAtMs) / 60000;
+    if (elapsedMinutes < SYNC_TRIGGER_COOLDOWN_MINUTES) {
+      return { ok: false, reason: 'cooldown', retryAfterMinutes: Math.ceil(SYNC_TRIGGER_COOLDOWN_MINUTES - elapsedMinutes) };
+    }
+  }
+
+  await execute(`INSERT INTO qsheet_rental_sync_requests (id, requested_by) VALUES ($1, $2)`, [
+    uuid(),
+    userName && userName.trim() ? userName : userId,
+  ]);
+  return { ok: true };
 }
 
 // ============================================================

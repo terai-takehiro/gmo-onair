@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-東京オフラインセンター レンタル機材 クロールスクリプト
+東京オフラインセンター(TOC) レンタル機材 クロールスクリプト
 =========================================================
 https://ec.toc-net.jp/rental/item 配下を巡回し、共通DB(rental_items.db)に
-company='東京オフラインセンター' として保存する。製品写真URLも取得する。
+company='TOC' として保存する（バッジ・チップ等の固定幅UIで文字数が長すぎたため
+「東京オフラインセンター」から短縮 — ご指示）。製品写真URLも取得する。
 
 前提:
 - レンタル機材ページ自体はログイン不要
@@ -28,7 +29,7 @@ from bs4 import BeautifulSoup
 
 from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
 
-COMPANY = "東京オフラインセンター"
+COMPANY = "TOC"
 BASE = "https://ec.toc-net.jp"
 CATEGORY_IDS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17]
 DB_PATH = "rental_items.db"

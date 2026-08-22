@@ -3,7 +3,7 @@
 import api from '@/lib/api';
 
 /** DB上の会社名は必ずこの2値の完全一致文字列（qsheet_rental_items.company） */
-export type RentalCompany = '東京オフラインセンター' | 'レスター';
+export type RentalCompany = 'TOC' | 'レスター';
 
 export type RentalItemStatus = 'listed' | 'missing';
 export type RentalReservationStatus = 'draft' | 'requested';
@@ -108,8 +108,20 @@ export interface RentalSyncStatusCompany {
   missingCount: number;
 }
 
+export type RentalSyncRequestStatus = 'pending' | 'running' | 'done' | 'error';
+
+export interface RentalSyncRequest {
+  status: RentalSyncRequestStatus;
+  requestedAt: string;
+  requestedBy: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorMessage: string | null;
+}
+
 export interface RentalSyncStatus {
   companies: RentalSyncStatusCompany[];
+  latestRequest: RentalSyncRequest | null;
 }
 
 interface Envelope<T> {
@@ -123,6 +135,22 @@ const reservationsBase = (ownerKey: string) => `${base}/${encodeURIComponent(own
 export async function getRentalSyncStatus(): Promise<RentalSyncStatus> {
   const { data } = await api.get<Envelope<RentalSyncStatus>>(`${base}/sync-status`);
   return data.data;
+}
+
+export interface TriggerRentalSyncResult {
+  ok: boolean;
+  message?: string;
+}
+
+/** 手動「今すぐ取得」。既に進行中・クールダウン中なら ok:false + message で理由を返す
+ * （例外を投げない — 呼び出し側は結果をそのまま notify に出せる）。 */
+export async function triggerRentalSync(): Promise<TriggerRentalSyncResult> {
+  try {
+    await api.post(`${base}/sync-trigger`);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, message: e?.response?.data?.error?.message || '取得の開始に失敗しました' };
+  }
 }
 
 export interface SearchRentalItemsParams {

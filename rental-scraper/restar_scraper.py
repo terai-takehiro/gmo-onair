@@ -5,7 +5,7 @@
 =============================================================
 https://www.restargp.com/service/solutions/rental/ 配下の商品詳細ページを
 巡回し、共通DB(rental_items.db)に company='レスター' として保存する。
-東京オフラインセンター(toc_scraper.py)とは別会社としてcompany列で区別される。
+東京オフラインセンター(TOC・toc_scraper.py)とは別会社としてcompany列で区別される。
 製品写真URLも取得する(og:image + 本文中のkuroco-img.appドメイン画像)。
 
 商品詳細ページ例:
