@@ -20,7 +20,7 @@ import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 
 // 日常業務アプリ (dailyops) — 「タスク・依頼」メニューの API。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D0 / D4 / D7)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D0 / D4 / D7)
 //
 // 権限の設計 (要件 D0 の要点):
 //   自分に割り当てられた案件タスクは sales 権限が無い人にも見せる必要があるため、

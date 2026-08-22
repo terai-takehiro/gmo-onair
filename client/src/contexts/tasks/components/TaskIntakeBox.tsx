@@ -1,6 +1,6 @@
 // 投入口 — **すべての依頼はここから入る**（v4 で 1 本化した）。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
 //       ＋ v4 のトップページ（モック `v4-live`）「投入口を1本化する」
 //
 // GMO イズムに従う点:

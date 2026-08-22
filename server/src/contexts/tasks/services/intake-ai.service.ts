@@ -1,6 +1,6 @@
 // 投入テキストの解析 (LLM) — 「誰に / 何を / いつまでに」を読み取る。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
 //
 // **対応プロバイダは OpenAI と Anthropic の 2 つ。**
 //   スキーマ・プロンプト・出力の後段検証はプロバイダ共通にしてある。

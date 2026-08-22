@@ -201,7 +201,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       // 辿り着けず、全部並べると v4 の並びが読めない（案件管理と同じやり方）。
       // **「案件月別詳細」はここから削除した**（v3時代の遺物の棚卸し・2026-08）。
       // 生きた導線が無く、独自機能も無かったため（詳細は
-      // docs/reviews/2026-08-20-mobile-optimization-audit.md）
+      // docs/archive/2026/2026-08-20-mobile-optimization-audit.md）
       title: "そのほか（作り直し前）",
       collapsible: true,
       items: [

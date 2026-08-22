@@ -15,7 +15,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5174,
+    // 5175 が正 (ルート CLAUDE.md のブロックアプリ一覧)。長く 5174 のままで
+    // client-techops と同番だった — dev:all では起動順の競争で片方が別ポートへ
+    // 逃げ、どちらがどこに立つか非決定になっていた (R6-c 事後レビューで発見)
+    port: 5175,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

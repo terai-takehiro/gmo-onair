@@ -1,6 +1,6 @@
 // 投入テキストの受け皿 — 「投げたものを一次資料として残す」ための service。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D4 / D5 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D4 / D5 / D9)
 //
 // 流れ:
 //   1. createIntake  … 投げた生テキスト + AI が解析したタスク案 (下書き) を保存。

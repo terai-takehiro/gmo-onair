@@ -10,6 +10,7 @@ name: CI
 # 呼ばれ方は3通り:
 #   1. pull_request        — マージ前のゲート (イメージは push しない)
 #   2. workflow_call       — deploy.yml から。ここだけ GHCR にイメージを push する
+#   3. workflow_dispatch   — 手動実行 (単発で検査だけ回したいとき)
 #
 # 分岐保護 (ruleset) の「必須チェック」に指定するのは下のジョブ名そのまま:
 #   checks / build   ← 日本語にすると ruleset 側で打ち間違えるので ASCII 固定

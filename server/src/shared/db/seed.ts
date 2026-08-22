@@ -235,7 +235,12 @@ export async function seed() {
   ];
   for (let i = 0; i < glsData.length; i++) {
     const [gls, name, custKey, projType, stage, amt, es, ee, bType, mPlatform, tags] = glsData[i];
-    const id = uuidv4();
+    // **GLS-A002 だけ id を固定**（`pj-1`）。案件詳細を検査スクリプト
+    // (`scripts/verify-ui.mjs` の `/sales/projects/pj-1` 7ページ) から開くのに、
+    // 毎回変わる uuid では狙えない（プロジェクト管理の `gpm-1` と同じ理由）。
+    // R6-c 事後レビューで、pj-1 が存在せず7ページが「案件が見つからない」の
+    // エラーパネルを測っていたことが分かった。子データは PROJECTS[gls] 経由で付く
+    const id = gls === 'GLS-A002' ? 'pj-1' : uuidv4();
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;

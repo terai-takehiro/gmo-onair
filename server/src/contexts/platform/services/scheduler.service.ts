@@ -243,7 +243,7 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
 
 /**
  * ⚠️ **週報が「未確認」のまま止まっているものを督促する**
- * （UXレポート 2026-08-18 指摘・`docs/reviews/2026-08-19-uiux-operation-report-response.md` 5-2）。
+ * （UXレポート 2026-08-18 指摘・`docs/archive/2026/2026-08-19-uiux-operation-report-response.md` 5-2）。
  *
  * 週報 (`ops_reports.kind='weekly_activity'`) は「確定する（公開）」と同時にしか
  * `reviewed_at` が打刻されない作りだった。v4.1.8 で週報にも「確認済みにする」

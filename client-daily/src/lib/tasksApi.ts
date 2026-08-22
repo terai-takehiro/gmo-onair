@@ -1,6 +1,6 @@
 // タスク・依頼 API の react-query フック集。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
 //
 // サーバー側は /dailyops/tasks/* (server/src/contexts/dailyops/routes/tasks.routes.ts)。
 // 投入口 (案件管理アプリのトップ) と同じ service を通るので、

@@ -4,7 +4,7 @@
    よってこのファイルでは全角スペースを意図してリテラルに書いている。 */
 // 投入テキストの一次解析 — 「誰に / 何を / いつまでに」を規則で拾う。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
 //
 // なぜ規則ベースなのか:
 //   サーバーに LLM は無い (追加すると API キー・コスト・レイテンシが増える)。

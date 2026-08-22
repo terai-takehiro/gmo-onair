@@ -6,7 +6,7 @@ import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 個人タスク・依頼・投入 (task_intake) の MCP ツール。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D3 / D4 / D5 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D3 / D4 / D5 / D9)
 //
 // 設計の芯:
 //   朝会・ミーティング・隣の席で発生した口頭の依頼を、**投入テキスト経由**で
