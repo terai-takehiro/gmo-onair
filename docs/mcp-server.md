@@ -258,21 +258,28 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 「作成者本人／共有先／`system_admin`」の文書単位の秘匿で、共有 actor (`mcp-claude`) には
 見てよい範囲を定義できないため。静的キーで呼ぶと全ツール（read も含む）が 403 になります。
 
-**書き込みは「提案まで」。** `propose_qsheet_draft` は `qsheet_ai_proposals` に1行置くだけで、
+**書き込みは「提案まで」。** `propose_sheet_draft` は `qsheet_ai_proposals` に1行置くだけで、
 台本そのもの（Yjs の `data`）はサーバーから一切書き換えません。取り込み（台本へ反映）は
 編集画面の「AIの提案」トレイから人が行います — 取り込みツールは意図的に出していません
 （設計: [`docs/design/v4/qsheet-v4-coding/05-mcp.md`](design/v4/qsheet-v4-coding/05-mcp.md)）。
+
+⚠️ **qsheet→techops移行 Phase 4（2026-08-22）: ツール名を techops 系の新名へ改名した。**
+`get_qsheet`/`find_similar_qsheets`/`create_qsheet`/`propose_qsheet_draft`/
+`discard_qsheet_proposal` の5本は、それぞれ `get_sheet`/`find_similar_sheets`/`create_sheet`/
+`propose_sheet_draft`/`discard_sheet_proposal` に改名した。**旧名も同じ実装のまま当面は
+呼べる**（`[非推奨/deprecated]` の注記付きで登録済み）。新しく連携するときは新名を使うこと。
+旧名の撤去時期は未定（`docs/reviews/qsheet-techops-migration-plan.md` §6）。
 
 | ツール | 種別 | 概要 |
 |---|---|---|
 | `list_production_docs` | read | 進行台本・スケジュール表の横断一覧。project_id/gls_number/date/app/q で絞り込み。見えるもの（作成者本人／共有先／管理者）だけ |
 | `get_production_journey` | read | 案件・資料単体の「今どこまで出来ているか」。`tone` は完成度ではなく「触られたか」 |
-| `get_qsheet` | read | 台本の中身。既定 outline（ロールと尺だけ）。台詞などの本文は `include_text=true` のときだけ。列（セル）は `blk.<type>#<n>` の参照キーで返る |
+| `get_sheet`（旧 `get_qsheet`） | read | 台本の中身。既定 outline（ロールと尺だけ）。台詞などの本文は `include_text=true` のときだけ。列（セル）は `blk.<type>#<n>` の参照キーで返る |
 | `get_day_schedule` | read | 当日の枠（スケジュール表）。schedule_id か project_id+date |
-| `find_similar_qsheets` | read | 似た過去回の骨格（本文は返さない）。共有されている台本だけが対象 |
-| `create_qsheet` | write | 空の台本を作る（中身は空）。idempotency_key で二重作成を防止 |
-| `propose_qsheet_draft` | write | `qsheet_ai_proposals` に提案を1件作る。台本は変わらない。kind は script_outline_draft（骨格）/ script_line_draft（既存行の台詞埋め）の2つ |
-| `discard_qsheet_proposal` | write | 提案を見送ったことを記録する |
+| `find_similar_sheets`（旧 `find_similar_qsheets`） | read | 似た過去回の骨格（本文は返さない）。共有されている台本だけが対象 |
+| `create_sheet`（旧 `create_qsheet`） | write | 空の台本を作る（中身は空）。idempotency_key で二重作成を防止 |
+| `propose_sheet_draft`（旧 `propose_qsheet_draft`） | write | `qsheet_ai_proposals` に提案を1件作る。台本は変わらない。kind は script_outline_draft（骨格）/ script_line_draft（既存行の台詞埋め）の2つ |
+| `discard_sheet_proposal`（旧 `discard_qsheet_proposal`） | write | 提案を見送ったことを記録する |
 
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
 

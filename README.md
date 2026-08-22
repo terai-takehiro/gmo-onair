@@ -162,7 +162,7 @@ v4.1 以降で順に刷新します → [docs/v4-plan.md](docs/v4-plan.md)
 ### バックエンド
 - **Node.js** + **Express** + **TypeScript**
 - **PostgreSQL 16** (`pg` ドライバ)
-- **Socket.IO** — `/qsheet` / `/awards` ほか各アプリ名前空間
+- **Socket.IO** — `/techops`（旧`/qsheet`もブリッジで併存）/ `/awards` ほか各アプリ名前空間
 - **Passport.js** / **JWT** — 認証
 - **pdfkit** — Qシート PDF 生成
 
@@ -251,7 +251,7 @@ gmo-onair/
 
 ### リアルタイム通信
 
-- **`/qsheet` ネームスペース**: OnAir ↔ ランダウン画面の同期（cue:update, sync, next, prev, jump, play, pause, reset）
+- **`/techops` ネームスペース**（旧 `/qsheet`。両方を常に相互中継するブリッジ構成）: OnAir ↔ ランダウン画面の同期（cue:update, sync, next, prev, jump, play, pause, reset）
 - **`/awards` ネームスペース**: リアルタイムCG の cue:set / cue:sync ブロードキャスト
 - **計時LIVE / Quiz** ネームスペース: タイマー同期・クイズ進行
 - (旧 `/interactive` ネームスペース は v2.9.17 で別 VPS に切り出し)

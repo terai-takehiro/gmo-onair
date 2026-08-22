@@ -73,8 +73,18 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   // 制作資料のツールは production.access.ts の requireProductionActor() が
   // 静的キーそのものを 403 で止める（05-mcp.md §3-1）。ここは OAuth actor の
   // qsheet 権限を見る二重の防御で、二重で正しい（gate.ts は OAuth のときだけ効く）。
+  // `module: 'qsheet'` は permissionModule（既存ユーザーの権限JSONのキー）で、
+  // qsheet→techops移行では意図的に不変（他の Phase と同じ方針）。
+  // ⚠️ qsheet→techops移行 Phase 4（2026-08-22）: ツール名を techops 系の新名へ改名し、
+  // 旧名（`*_qsheet` 系）も同じ権限で二重登録した（MCP プロトコルにエイリアス機構が無いため）。
+  // 新名だけ足して旧名を消すと、旧名を呼ぶ既存の外部エージェント連携が権限ゲート無しで
+  // 通ってしまう（`enforceToolPermissions` は `WRITE_TOOL_PERMISSIONS[name]` に無いツールを
+  // 無条件でゲート無しとして扱うため）。撤去する場合は両方を同時に外すこと。
+  create_sheet: { module: 'qsheet', level: 'editor' },
   create_qsheet: { module: 'qsheet', level: 'editor' },
+  propose_sheet_draft: { module: 'qsheet', level: 'editor' },
   propose_qsheet_draft: { module: 'qsheet', level: 'editor' },
+  discard_sheet_proposal: { module: 'qsheet', level: 'editor' },
   discard_qsheet_proposal: { module: 'qsheet', level: 'editor' },
 };
 

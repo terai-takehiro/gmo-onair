@@ -182,7 +182,7 @@ async function fetchScheduleItems(scheduleId: string | null): Promise<ScheduleIt
 
 /**
  * digest を読む（1段目・§6-1）。`source: 'server'` を明示する — 生成4機能はサーバー内の
- * 呼び出しなので、MCP 経由（`propose_qsheet_draft`）の傾向と混ぜない。
+ * 呼び出しなので、MCP 経由（`propose_sheet_draft`。旧 `propose_qsheet_draft`）の傾向と混ぜない。
  * `segmentKey` は §6-1 の「式典と配信で尺の傾向が逆」を踏まえた絞り込み
  * （母数が10未満なら `getFeedbackDigest` 側が全社の digest に自動で落とす）。
  */

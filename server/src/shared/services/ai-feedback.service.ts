@@ -68,7 +68,7 @@ export interface IntakeStat {
 export interface DigestOpts {
   /** `type:<project_category>|loc:<location_id>` の形。qsheet 系 kind だけが持つ */
   segmentKey?: string;
-  /** 'server' = 画面からの生成 / 'mcp' = 外部の Claude からの提案（`propose_qsheet_draft`） */
+  /** 'server' = 画面からの生成 / 'mcp' = 外部の Claude からの提案（`propose_sheet_draft`。旧 `propose_qsheet_draft`） */
   source?: 'server' | 'mcp';
 }
 
