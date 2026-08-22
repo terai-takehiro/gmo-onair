@@ -55,7 +55,7 @@ const ALLOW = new Map([
     'KPT の記号の丸。塗りは PANES の `badge`（bg-success / bg-destructive / bg-primary）から来るので字面に出ない'],
   ['client-equipment/src/pages/equipmentList/ItemsPanel.tsx:272',
     '選択中の帯（親のタグが bg-primary）の中の ghost ボタン。hover の bg-primary-800 は #004d91（濃い）'],
-  ['client/src/contexts/platform/pages/home/MobileAiBar.tsx:81',
+  ['client/src/contexts/platform/pages/home/MobileAiBar.tsx:87',
     'スマホの青いバーの右端。塗りは linear-gradient(var(--primary) → var(--info)) で、11 行上のボタンにある'],
   // 段5 PR7 (進行台本の表を v4 の見た目にする)。VTR ロールヘッダーの塗りは
   // 同じ <div> の `bg-gradient-to-r from-info to-info/80`（from-info は不透明の

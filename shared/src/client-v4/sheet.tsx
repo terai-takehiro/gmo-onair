@@ -42,16 +42,26 @@
  * **PC では効かない**（マウスは `touchstart` を発火しないので実質何もしない。
  * `lg:` のセンタリングは中央固定の `transform` クラスに任せたままにする —
  * ドラッグ中だけ inline の `transform` を足すので、離せば元のクラスに戻る）。
+ * ロジックは `client-v4/edgeSwipeBack.ts` に切り出してあり、シートではない画面
+ * （案件作成の3段ウィザード等）からも同じ手触りで使える。
+ *
+ * ── つまみ・見出しを下へなぞって閉じる（`swipeDownHandle`・opt-in） ──────
+ *
+ * 「AIに任せる」シートのように**本文が長く縦スクロールする**シートでは、
+ * 本文のどこからでも下へなぞると本文のスクロールと衝突する。
+ * **つまみ＋見出しの帯（押せる本文を持たない場所）に絞って**下へなぞると
+ * 閉じるようにする。既定は off — 短い内容しか持たないシートまで巻き込むと、
+ * 見出しの上で指を滑らせただけで閉じてしまい、かえって邪魔になる。
  */
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '../client/utils';
+import { useEdgeSwipeBack } from './edgeSwipeBack';
 
-/** 左端からこの幅の中で触れ始めたときだけスワイプバックとして扱う（px） */
-const EDGE_ZONE = 24;
-/** これ以上右へ動かして離すと閉じる（px） */
-const CLOSE_THRESHOLD = 96;
+/** つまみ・見出しを下へなぞって閉じるときの境目（px）。ヘッダーの高さが短いぶん、
+ *  横のスワイプバック（96px）より短くしてある */
+const HANDLE_CLOSE_THRESHOLD = 64;
 
 export interface SheetProps {
   open: boolean;
@@ -103,51 +113,65 @@ export interface SheetProps {
    * **既定（渡さない）は今までどおり**閉じる — 使っている画面の手触りを変えない。
    */
   onInteractOutside?: (e: Event) => void;
+  /**
+   * **つまみ・見出しの帯を下へなぞると閉じる**（opt-in）。本文が長く縦スクロール
+   * するシートで使う（本文全体に付けると、いつものスクロールと衝突する）。
+   */
+  swipeDownHandle?: boolean;
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, children }: SheetProps) {
+export function Sheet({
+  open, onOpenChange, title, sub, footer, rise, wide, onSubmit, onInteractOutside, swipeDownHandle, children,
+}: SheetProps) {
   // スワイプバック（左端 → 右へ）。ドラッグ中だけ inline transform を足し、
   // 離したら 0 に戻す（開いたままなら 0、閉じるときは `onOpenChange` に任せて
   // Radix の exit アニメーションへ引き継ぐ）
-  const [dragX, setDragX] = React.useState(0);
-  const [dragging, setDragging] = React.useState(false);
-  const startX = React.useRef(0);
-  const startY = React.useRef(0);
-  const tracking = React.useRef(false);
+  const back = useEdgeSwipeBack({ onBack: () => onOpenChange(false) });
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    const rect = e.currentTarget.getBoundingClientRect();
-    // **左端 24px から始まったときだけ**（本文の横スクロールと衝突させない）
-    if (t.clientX - rect.left > EDGE_ZONE) { tracking.current = false; return; }
-    startX.current = t.clientX;
-    startY.current = t.clientY;
-    tracking.current = true;
-    setDragging(true);
+  // つまみ・見出しを下へなぞって閉じる（opt-in）。横のスワイプバックとは別の
+  // 状態で持つ — 縦横どちらのジェスチャーで動いたかを見た目にそのまま出すため
+  const [dragY, setDragY] = React.useState(0);
+  const [handleDragging, setHandleDragging] = React.useState(false);
+  const startXH = React.useRef(0);
+  const startYH = React.useRef(0);
+  const trackingH = React.useRef(false);
+
+  const onHandleTouchStart = (e: React.TouchEvent) => {
+    if (!swipeDownHandle) return;
+    // 横のスワイプバックが同じ帯で同時に動き出さないよう、ここで止める
+    e.stopPropagation();
+    startXH.current = e.touches[0].clientX;
+    startYH.current = e.touches[0].clientY;
+    trackingH.current = true;
+    setHandleDragging(true);
   };
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!tracking.current) return;
+  const onHandleTouchMove = (e: React.TouchEvent) => {
+    if (!trackingH.current) return;
+    e.stopPropagation();
     const t = e.touches[0];
-    const dx = t.clientX - startX.current;
-    const dy = t.clientY - startY.current;
-    if (dx < 0 || Math.abs(dy) > Math.abs(dx)) {
-      // 左へ戻した、または縦の動きのほうが大きい → 追わない
-      tracking.current = false;
-      setDragging(false);
-      setDragX(0);
+    const dx = t.clientX - startXH.current;
+    const dy = t.clientY - startYH.current;
+    if (dy < 0 || Math.abs(dx) > Math.abs(dy)) {
+      // 上へ戻した、または横の動きのほうが大きい → 追わない
+      trackingH.current = false;
+      setHandleDragging(false);
+      setDragY(0);
       return;
     }
     e.preventDefault();
-    setDragX(dx);
+    setDragY(dy);
   };
-  const onTouchEnd = () => {
-    if (!tracking.current) { setDragging(false); return; }
-    tracking.current = false;
-    setDragging(false);
-    if (dragX >= CLOSE_THRESHOLD) onOpenChange(false);
-    setDragX(0);
+  const onHandleTouchEnd = (e: React.TouchEvent) => {
+    if (!trackingH.current) { setHandleDragging(false); return; }
+    e.stopPropagation();
+    trackingH.current = false;
+    setHandleDragging(false);
+    if (dragY >= HANDLE_CLOSE_THRESHOLD) onOpenChange(false);
+    setDragY(0);
   };
+
+  const dragging = back.dragging || handleDragging;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -162,11 +186,10 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSu
         <DialogPrimitive.Content
           data-v4-sheet={rise ? 'rise' : undefined}
           onInteractOutside={onInteractOutside}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchEnd}
-          style={dragX ? { transform: `translateX(${dragX}px)`, transition: 'none' } : undefined}
+          {...back.handlers}
+          style={(back.dragX || dragY)
+            ? { transform: `translate(${back.dragX}px, ${dragY}px)`, transition: 'none' }
+            : undefined}
           className={cn(
             // スマホ: 下からせり上がる。PC: 中央のダイアログに寄せる
             'fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col',
@@ -179,20 +202,29 @@ export function Sheet({ open, onOpenChange, title, sub, footer, rise, wide, onSu
             'lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-card lg:border',
           )}
         >
-          {/* つまみ。**押せるものではない**ので読み上げから外す */}
-          <span className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" aria-hidden="true" />
+          {/* つまみ＋見出し。`swipeDownHandle` のときはこの帯だけ下へなぞって閉じられる */}
+          <div
+            onTouchStart={onHandleTouchStart}
+            onTouchMove={onHandleTouchMove}
+            onTouchEnd={onHandleTouchEnd}
+            onTouchCancel={onHandleTouchEnd}
+            className="shrink-0"
+          >
+            {/* つまみ。**押せるものではない**ので読み上げから外す */}
+            <span className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" aria-hidden="true" />
 
-          <div className="flex shrink-0 items-start gap-3 px-4 pb-3 pt-3.5 lg:px-6">
-            <div className="min-w-0 flex-1">
-              <DialogPrimitive.Title className="text-cardtitle">{title}</DialogPrimitive.Title>
-              {sub && <DialogPrimitive.Description className="text-note mt-0.5 text-muted-foreground">{sub}</DialogPrimitive.Description>}
+            <div className="flex items-start gap-3 px-4 pb-3 pt-3.5 lg:px-6">
+              <div className="min-w-0 flex-1">
+                <DialogPrimitive.Title className="text-cardtitle">{title}</DialogPrimitive.Title>
+                {sub && <DialogPrimitive.Description className="text-note mt-0.5 text-muted-foreground">{sub}</DialogPrimitive.Description>}
+              </div>
+              <DialogPrimitive.Close
+                aria-label="閉じる"
+                className="min-h-tap min-w-tap -mr-2 -mt-1 flex shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </DialogPrimitive.Close>
             </div>
-            <DialogPrimitive.Close
-              aria-label="閉じる"
-              className="min-h-tap min-w-tap -mr-2 -mt-1 flex shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted"
-            >
-              <X className="h-5 w-5" aria-hidden="true" />
-            </DialogPrimitive.Close>
           </div>
 
           {/* **中身だけがスクロールする。** 下のボタンは常に見えている */}
