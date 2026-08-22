@@ -205,9 +205,9 @@ function walk(dir, out = []) {
 //
 // 数え方: **共通シェル (`shared/src/client/shell`) を使っていれば、シェルが持っている**。
 // 使っていないアプリは自分で1つずつ置く。合わせて 1 になっていればよい。
-// 凍結4アプリは 0 (帯が出ると見た目が変わる)。
+// 凍結2アプリ (client-live / client-awards) は 0 (帯が出ると見た目が変わる)。
 {
-  const V4_APPS = ['client', 'client-daily', 'client-equipment'];
+  const V4_APPS = ['client', 'client-daily', 'client-equipment', 'client-qsheet'];
   const SHELL = `${PKG}/src/client/shell`;
 
   // 共通シェル自身が本当に置いているか。ここが抜けると

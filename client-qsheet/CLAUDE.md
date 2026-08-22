@@ -2,22 +2,24 @@
 
 ベースパス `/qsheet/`・ポート 5174。
 
-## いまの状態（v4.1・段5 PR8〜）
+## いまの状態（v4.1・共通シェル載せ替え後）
 
-⚠️ **「凍結解除」は2段階に分けて進めている。段3で解いたのは「アプリ一覧・検査体系上の凍結」だけ**だった。
+⚠️ **「凍結解除」は段階的に進めている。段3で解いたのは「アプリ一覧・検査体系上の凍結」だけ**だった。
 **段5 PR8 で外枠（ヘッダー・サイドバー・エディタ画面の外枠・共有ダイアログ）の見た目を v4 トークンに
-寄せた**が、**表本体（`CueTable`/`CueRow`/`cells/*`）・`EditorSidebar` の詳細・本番3画面固有の実装・
-共通シェルへの載せ替えはまだ**。混同しないこと。
+寄せ、続く PR で `shared/src/client/shell/` への載せ替え自体を済ませた**。まだなのは
+**表本体（`CueTable`/`CueRow`/`cells/*`）・`EditorSidebar` の詳細・本番3画面固有の実装**。
+混同しないこと。
 
 | 解けたもの | まだのもの |
 | --- | --- |
-| `shared/src/client/apps.ts` の `frozen: true` を落とした → 一覧・アプリ切替に出る（段3） | 共通シェル（`shared/src/client/shell/`）への載せ替え |
-| `scripts/check-frozen-css.mjs` の対象から外した（段3。このアプリの CSS 差分はもう機械で見張っていない） | v4 の共通部品（`Row` / `Money` / `DateRange` など）への置き換え |
-| `check-mobile-declared` / `check-file-size` / `check-ui-tokens` の対象に登録した（段3） | トーストを帯（`NoticeBar`）に置き換えること |
-| `/qsheet/home`（新トップ・案件を選ぶ）を追加。`/qsheet` の行き先は `routeSwitch.ts` の1行で切り替え（段3） | **表本体**（`CueTable`/`CueRow`/`cells/*`）・`EditorSidebar` の詳細・モバイル編集の見た目作り直し |
-| `src/index.css` が `base.css` 経由（→ `tokens-v4.css` → `tokens.css`）を読むようになった（段5 PR8） | `EditorSidebar.tsx` / `MicAssignmentCell.tsx` / `CueTable.tsx` / `PreviewModal.tsx`（印刷）/ `OnAirPage.tsx` / `AudioSupportPage.tsx` に残る生の `style={{ fontFamily: "'Roboto Condensed',sans-serif" }}`（`index.html` の Google Fonts はこれらのため外していない） |
-| LINE Seed JP が有効になった（`tokens-v4.css` の `@import` 経由。上記の直書き箇所は対象外） | 印刷ウィンドウ（`PreviewModal.tsx`）が外部 Google Fonts を読む点の同梱フォント化 |
-| 外枠の角丸を v4 の役割名（`rounded-control-md` 等）・`--radius` に寄せた（`AppShell`/`Sidebar`/`EditorPage` のヘッダー・情報バー） | 表本体・`EditorSidebar` に残る `rounded-lg` 等の未整理箇所 |
+| `shared/src/client/apps.ts` の `frozen: true` を落とした → 一覧・アプリ切替に出る（段3） | v4 の共通部品（`Row` / `Money` / `DateRange` など）への置き換え |
+| `scripts/check-frozen-css.mjs` の対象から外した（段3。このアプリの CSS 差分はもう機械で見張っていない） | トーストを帯（`NoticeBar`）に置き換えること（決めて残す。下記「トーストは残す」参照） |
+| `check-mobile-declared` / `check-file-size` / `check-ui-tokens` の対象に登録した（段3） | **表本体**（`CueTable`/`CueRow`/`cells/*`）・`EditorSidebar` の詳細・モバイル編集の見た目作り直し |
+| `/qsheet/home`（新トップ・案件を選ぶ）を追加。`/qsheet` の行き先は `routeSwitch.ts` の1行で切り替え（段3） | `EditorSidebar.tsx` / `MicAssignmentCell.tsx` / `CueTable.tsx` / `PreviewModal.tsx`（印刷）/ `OnAirPage.tsx` / `AudioSupportPage.tsx` に残る生の `style={{ fontFamily: "'Roboto Condensed',sans-serif" }}`（`index.html` の Google Fonts はこれらのため外していない） |
+| `src/index.css` が `base.css` 経由（→ `tokens-v4.css` → `tokens.css`）を読むようになった（段5 PR8） | 印刷ウィンドウ（`PreviewModal.tsx`）が外部 Google Fonts を読む点の同梱フォント化 |
+| LINE Seed JP が有効になった（`tokens-v4.css` の `@import` 経由。上記の直書き箇所は対象外） | 表本体・`EditorSidebar` に残る `rounded-lg` 等の未整理箇所 |
+| 外枠の角丸を v4 の役割名（`rounded-control-md` 等）・`--radius` に寄せた（`AppShell`/`Sidebar`/`EditorPage` のヘッダー・情報バー） | |
+| **共通シェル（`shared/src/client/shell/`）への載せ替え。** 独自実装だった `Header.tsx`/`Sidebar.tsx` を削除し、`AppShell.tsx` を `SharedAppShell`（`appKey="qsheet"`）を呼ぶ薄いラッパーに置き換えた。メニュー項目は新設の `nav.ts`（3項目・中身は今までと同じ）。`PcOnlyGate`／通知ベル／マニュアル・バージョン履歴・MCPモーダルが使えるようになった | |
 
 - **URL は生かしたまま。** ルーティングの公開URL5本（editor/onair/rundown/prompter/audio）は変更していない。
   ブックマーク・配布済みQR・OBS の出力URL・役割別URL はすべてそのまま動く
@@ -28,22 +30,26 @@
 
 ## やってはいけないこと（見た目の作り直しが終わるまで）
 
-- 共通シェル（`shared/src/client/shell/`）に**まだ載せ替えない**。
-  `src/components/layout/{AppShell,Header,Sidebar}.tsx` は残す
 - v4 の共通部品（`Row` / `Money` / `DateRange` など）で**既存画面を書き換えない**
 - **トーストを帯（`NoticeBar`）に置き換えない。** このアプリは `src/lib/notify.ts` 経由で
   13 か所トーストを使っており、**放送中の「放送同期が切断されました」も含まれる**。
   v4 の3アプリは帯に移ったが、ここは今日のまま。見た目の作り直しのときに寄せる
   （P3 でバレルから外したので、import は深いパス
-  `@gmo-onair/shared/src/client/ui/{use-toast,toaster}` を名指しする形になっている）
+  `@gmo-onair/shared/src/client/ui/{use-toast,toaster}` を名指しする形になっている。
+  `main.tsx` のトースト表示部品は共通シェルとは別に置いたまま — シェルの
+  `<NoticeBar />` に統合しないこと）
 - 表本体（`CueTable.tsx`・`CueRow.tsx`・`components/editor/cells/*.tsx`）とモバイル専用ファイルは
-  **段5 PR8 の対象外**（並行 PR が触るため）。触るのは別 PR で
+  **共通シェル載せ替えの対象外**（並行 PR が触るため）。触るのは別 PR で
 - `index.html` の Google Fonts（Noto Sans JP / Roboto Condensed）は**まだ外さない**。
   `EditorSidebar.tsx` / `MicAssignmentCell.tsx` / `CueTable.tsx` / `PreviewModal.tsx` /
   `OnAirPage.tsx` / `AudioSupportPage.tsx` が今も `'Roboto Condensed'` を生の `fontFamily` で
   名指ししており、外すとそれらの数字表示が無指定フォントに落ちる
+- ⚠️ **本番中に使う4画面（`OnAirPage.tsx`・`RundownPage.tsx`・`PrompterPage.tsx`・
+  `AudioSupportPage.tsx`）とそこから呼ばれるコンポーネントには触らない。** `App.tsx` で
+  「Full-screen pages without AppShell」と明記された、共通シェルの対象外の別ルート
+  （`shared/src/client/shell/` を載せても影響しない・影響してはいけない）
 
-不具合の修正は通常どおり行ってよい。見た目の刷新は段5（編集画面）以降で順に進める。
+不具合の修正は通常どおり行ってよい。見た目の刷新は表本体（編集画面）以降で順に進める。
 
 ## このアプリの中身
 
@@ -51,6 +57,8 @@
 - **連携キー**: GLS番号 ＋ エピソードコード（例 `GLS002-003`）
 - **PDF出力**: サーバー側 pdfkit（A4/A3・Noto Sans JP）
 - **画面**: `pages/{DashboardPage,EditorPage,OnAirPage,RundownPage,PrompterPage,AudioSupportPage}`
+- **シェル**: `components/layout/AppShell.tsx`（`shared/src/client/shell/` を呼ぶ薄いラッパー）＋
+  `components/layout/nav.ts`（左メニュー・スマホ下タブの中身）。`Header.tsx`/`Sidebar.tsx` の独自実装は削除済み
 - **本番は1つのURL＋役割**（進行／ランダウン／プロンプター／音声サポート）。
   **音声サポートだけログイン不要の公開URL**（`/qsheet/audio/:id`）— 認証を付けないこと
 - **Socket.IO** `/qsheet` ネームスペース: OnAir↔ランダウンの同期（`cue:update/sync/next/prev/jump/play/pause/reset`）

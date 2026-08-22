@@ -24,7 +24,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 (一覧・アプリ切替からは外す)。詳細は各アプリの `CLAUDE.md` と [docs/v4-plan.md](docs/v4-plan.md)。
 
 **「凍結解除中」の意味**（制作資料のみ・v4.1 段3〜）: `frozen` の印を落とし、一覧・アプリ切替には
-出るようになった。**v4.1 段5 で見た目（トークン・共通シェル）もv4化した**（凍結解除の本体）。詳細は
+出るようになった。**v4.1 段5 でトークン（色・書体・角丸）を v4 化し、続く PR で共通シェル
+（`shared/src/client/shell/`）への載せ替えも済ませた**。まだなのは表本体（`CueTable`/`CueRow`/
+`cells/*`）・`EditorSidebar` の詳細・本番3画面固有の実装の作り直し。詳細は
 [`client-qsheet/CLAUDE.md`](client-qsheet/CLAUDE.md) と
 [docs/design/v4/qsheet-v4-coding/](docs/design/v4/qsheet-v4-coding/)。
 
