@@ -1039,6 +1039,22 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`docs/reviews/qsheet-techops-migration-plan.md`を、並行マージされたPR #325/#326/#327/#329の
   内容確認に基づき更新。#327のliveops→qsheet権限統合（migration 232）を検知し、計画書§7の
   「識別子は表示名変更では変えない」前例を条件付きの基準へ修正した）。
+- **#333**（`feat(server): 計時・視聴者 表示レイアウト機能のスキーマ＋APIを追加した`・
+  表示画面レイアウトエディタ機能の3分割PRの1本目）— 作成 2026-08-22 15:06:59 /
+  マージ 15:08:04（terai-takehiro 本人が手動マージ。**作成から約1分5秒後、CI
+  〈`checks`/`build`〉はまだ`in_progress`のうちにマージされた** — CI green を待たずに
+  マージされた点は #244・#262・#329 の「CI greenから短時間で0件のままマージ」とも
+  異なる新しいパターン）。`get_reviews`・`get_review_comments`いずれも0件。表に移す指摘は
+  ない（レビュー自体が届いていないため）。実装内容自体は、実装エージェント・独立レビュー
+  エージェント（`npm run typecheck`/`lint`/`test`〈`liveDisplayContract.test.ts`5件含む〉・
+  `npm run verify:up`の実Postgres・実サーバーへのHTTPリクエストで権限境界を実測）の
+  ワークフロー内検証、および私自身によるファイル内容の目視確認（migration DDL・
+  ルート実装・既存`GET /:id/display`への無変更）を経てからpushしたため、CI完走前の
+  マージであっても実装の妥当性そのものは別経路で確認済み。ただし**CI自体の結果
+  （このセッションのローカル実行と、実際のCI環境の差異）は未確認のまま検証環境ブランチに
+  入った**ことは記録しておく。⚠️ このPRのマージ直後に別セッションの `client-qsheet` →
+  `client-techops` ディレクトリ改名（#334）がmainへ入っており、以後の
+  PR2・PR3（表示画面対応・エディタUI）はこの改名後のパスを前提に実装する必要がある。
 - **#334**（`refactor(qsheet): Phase 1 — client-qsheet ディレクトリを client-techops に改名`）—
   作成 2026-08-22 15:08:54 / CI green 15:11:01（`checks`/`build`とも成功）/
   マージ 15:12:41頃（**CI green から約1分40秒後**）。`get_review_comments` 0件。
