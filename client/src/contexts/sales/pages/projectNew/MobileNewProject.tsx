@@ -21,6 +21,14 @@
  * 送るのは `useProjectDecisions`。**このファイルが持つのは段の切り方だけ**です。
  * 写すと、列が増えたとき片方だけ送らなくなり、引き合いへの書き戻しも片方だけ忘れます
  * （忘れると未仕分けに残り、**同じ引き合いから案件が2件**できる）。
+ *
+ * ── 左端から右へなぞると戻る（M11「純粋な操作感の演出」） ─────────
+ *
+ * 「前へ」ボタンと同じ行き先（1段目なら前の画面・2段目以降は前の段）に、
+ * **iOS の画面スワイプバックと同じ手触り**を足す。ロジックは `Sheet` の
+ * スワイプバックと同じ `client-v4/edgeSwipeBack.ts`（左端 24px から右へ・
+ * 96px 以上引いて離すと実行）を再利用する — この画面はシートではなく
+ * 画面そのものなので `<Sheet>` 自体は使えないが、手触りは揃える。
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useEdgeSwipeBack } from '@gmo-onair/shared/src/client-v4/edgeSwipeBack';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useNewProjectForm } from './useNewProjectForm';
 import { RequiredFields } from './RequiredFields';
@@ -49,8 +58,19 @@ export function MobileNewProject() {
   const stepMissing = step === 0 ? missing : [];
   const last = step === STEPS.length - 1;
 
+  /** 「前へ」ボタンとスワイプバックの両方が呼ぶ、同じ「戻る」 */
+  const goBack = () => (step === 0 ? navigate(-1) : setStep((s) => s - 1));
+  const swipeBack = useEdgeSwipeBack({ onBack: goBack });
+
   return (
-    <div className="flex min-h-full flex-col">
+    <div
+      className={cn(
+        'flex min-h-full flex-col',
+        !swipeBack.dragging && 'transition-transform duration-150 motion-reduce:transition-none',
+      )}
+      style={swipeBack.dragX ? { transform: `translateX(${swipeBack.dragX}px)`, transition: 'none' } : undefined}
+      {...swipeBack.handlers}
+    >
       <div className="sticky top-0 z-10 border-b border-border bg-card px-4 py-3">
         <div className="flex items-center gap-2">
           <h1 className="text-h1 min-w-0 flex-1">案件作成</h1>
@@ -144,7 +164,7 @@ export function MobileNewProject() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => (step === 0 ? navigate(-1) : setStep((s) => s - 1))}
+            onClick={goBack}
             aria-label={step === 0 ? 'やめる' : '前へ'}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
