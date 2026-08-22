@@ -43,7 +43,7 @@ const CATEGORY_LABELS = {
   inbox: "受け取った書類・入ってきた情報",
   "security-cards": "セキュリティカード",
   aifeedback: "AI の改善（修正差分の還流）",
-  production: "制作資料（進行台本・スケジュール表）",
+  production: "制作技術支援（進行台本・スケジュール表）",
 };
 // カテゴリ表示順 (未知は末尾)
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);

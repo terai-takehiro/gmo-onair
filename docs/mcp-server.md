@@ -252,7 +252,7 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
 | `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
 
-### 制作資料 (production — 進行台本・スケジュール表)
+### 制作技術支援 (production — 進行台本・スケジュール表)
 
 ⚠️ **このカテゴリだけ静的 API キーを拒否し、OAuth（ONAiR ログイン連携）専用です。** 台本は
 「作成者本人／共有先／`system_admin`」の文書単位の秘匿で、共有 actor (`mcp-claude`) には
@@ -362,10 +362,10 @@ server/src/contexts/mcp/
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
-    ├── production.tools.ts  制作資料 8 種 (read 5 / write 3)。`production.access.ts` の
+    ├── production.tools.ts  制作技術支援 8 種 (read 5 / write 3)。`production.access.ts` の
     │                        `requireProductionActor()` を全ツールの先頭で呼び、
     │                        静的キーを拒否 + OAuth actor を実ユーザーへ解決する
-    ├── production.access.ts 制作資料ツール専用のゲート (段10・05-mcp.md §3-1)
+    ├── production.access.ts 制作技術支援ツール専用のゲート (段10・05-mcp.md §3-1)
     └── … (customers / activities / tasks / members / minutes / analytics / users /
            mytasks / pricing / budget / opsreports / eventreports / inview / inbox /
            security-cards / aifeedback)
@@ -377,12 +377,12 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（44 種＋制作資料の read 5種）はここにはゲートがありません。** OAuth で自分の
+- ⚠️ **読み取りツール（44 種＋制作技術支援の read 5種）はここにはゲートがありません。** OAuth で自分の
   ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
   `list_inquiries` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が
   MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
   44 種あるので**別の作業**にしてあります。
-  **制作資料の read 5種だけは例外**— `gate.ts` は経由しませんが、
+  **制作技術支援の read 5種だけは例外**— `gate.ts` は経由しませんが、
   `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
   静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています
 
