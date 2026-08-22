@@ -3,7 +3,7 @@ import { AppShell as SharedAppShell } from "@gmo-onair/shared/src/client/shell";
 import { NotificationBell } from "@gmo-onair/shared/src/client-v4/NotificationBell";
 import { PcOnlyGate } from "@gmo-onair/shared/src/client-v4/pcOnly";
 import api from "@/lib/api";
-import { QSHEET_PC_ONLY, QSHEET_MOBILE_HIDDEN } from "@/pcOnlyScreens";
+import { TECHOPS_PC_ONLY, TECHOPS_MOBILE_HIDDEN } from "@/pcOnlyScreens";
 import { useAuth } from "@/hooks/useAuth";
 import { QSHEET_MANUAL } from "@/manual/content";
 import { useProductionNavContext } from "@/lib/productionNavContext";
@@ -47,7 +47,7 @@ export default function AppShell() {
   return (
     <SharedAppShell
       appKey="qsheet"
-      mobileHiddenPaths={QSHEET_MOBILE_HIDDEN}
+      mobileHiddenPaths={TECHOPS_MOBILE_HIDDEN}
       sections={sections}
       mobileTabs={mobileTabs}
       notificationSlot={<NotificationBell api={api} />}
@@ -59,7 +59,7 @@ export default function AppShell() {
       permissions={currentUser?.permissions as Record<string, string> | undefined}
     >
       {/* **PC で触る画面はスマホで縮めない**（M2）。宣言は `@/pcOnlyScreens` の1つの表 */}
-      <PcOnlyGate table={QSHEET_PC_ONLY} onGoInstead={(to) => navigate(to)}>
+      <PcOnlyGate table={TECHOPS_PC_ONLY} onGoInstead={(to) => navigate(to)}>
         <Outlet />
       </PcOnlyGate>
     </SharedAppShell>

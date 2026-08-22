@@ -128,7 +128,7 @@ router.post('/', ...canWrite, async (req, res) => {
 // 制作技術支援 v4.1 段1（12-live-timer-decision.md §3-4）: 案件 → liveops_programs の
 // 「取得または作成」をアトミックに行う。DBスキーマは1バイトも変えない — 既存の一意インデックス
 // （migration 221 `liveops_programs_project_key`）に `ON CONFLICT DO NOTHING` を乗せるだけ。
-// 呼び出し元は client-qsheet 側のダッシュボード（`LiveDashboardPage.tsx` の `useLiveProgram`）。
+// 呼び出し元は client-techops 側のダッシュボード（`LiveDashboardPage.tsx` の `useLiveProgram`）。
 // フェーズ1では client-live 側の橋渡し画面（/live/open?project=:id・旧 OpenByProjectPage.tsx）が
 // 呼んでいたが、フェーズ2（ミニアプリ化フェーズ2）でダッシュボード自身が呼ぶ形に統合した。
 //

@@ -1,4 +1,4 @@
-// client-qsheet/src/manual/content.tsx — Qシートアプリの利用マニュアル コンテンツ
+// client-techops/src/manual/content.tsx — Qシートアプリの利用マニュアル コンテンツ
 // shared/src/client/manual/ManualModal に渡す ManualContent データ。
 // 画面が変わったらここを更新すればマニュアルにも反映される。
 import {

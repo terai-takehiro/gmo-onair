@@ -14,8 +14,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   showsJoinFields, meetingIssues, meetingBlockingError, buildCopyText, toolLabel,
-} from '../../client-qsheet/src/pages/streaming/meetingFields';
-import type { Meeting } from '../../client-qsheet/src/lib/deviceSettingsApi';
+} from '../../client-techops/src/pages/streaming/meetingFields';
+import type { Meeting } from '../../client-techops/src/lib/deviceSettingsApi';
 
 const mtg = (p: Partial<Meeting> = {}): Meeting => ({
   meetingId_: 'mtg_1',

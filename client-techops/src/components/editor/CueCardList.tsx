@@ -168,7 +168,7 @@ export default function CueCardList({
   const insertAt = (idx: number, type: "role" | "cm" | "vtr") => {
     updateState((s: any) => {
       const secs = [...s.sections];
-      // 不変条件: 全ての section は id を持つ (client-qsheet/CLAUDE.md)。
+      // 不変条件: 全ての section は id を持つ (client-techops/CLAUDE.md)。
       // id 無しのまま collab に入ると差分器が毎回「新規」と判定し倍々に増える。
       if (type === "role") {
         secs.splice(idx, 0, { id: genId("sec"), label: "【新しいロール】", rows: [] });

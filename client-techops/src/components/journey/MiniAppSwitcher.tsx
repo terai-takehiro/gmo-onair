@@ -57,7 +57,7 @@ export default function MiniAppSwitcher({
 
         // 計時・視聴者は scope === 'project'（owner.kind === 'project'）のときだけ出す
         // （liveops_programs.project_id は projects テーブルのみを指すため。
-        // 12-live-timer-decision.md §3-5）。運用画面が client-qsheet バンドル内
+        // 12-live-timer-decision.md §3-5）。運用画面が client-techops バンドル内
         // （kind: 'panel'）へ移植されたため、他のミニアプリと同じ <Link> で出す
         // （ミニアプリ化フェーズ2・ExternalMiniAppLink は廃止した）。
         if (key === "liveops" && owner.kind !== "project") return null;

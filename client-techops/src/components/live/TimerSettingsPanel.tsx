@@ -1,5 +1,5 @@
 // `client-live/src/components/timer/TimerSettingsPanel.tsx` の移植（v4.1 段2・計時・視聴者の
-// ミニアプリ化フェーズ2）。API パス・ロジックは変えていない（`@/lib/api` は client-qsheet
+// ミニアプリ化フェーズ2）。API パス・ロジックは変えていない（`@/lib/api` は client-techops
 // 自身の axios インスタンスだが、baseURL が `/api/v1/internal` で共通なので
 // `/liveops/...` 宛のリクエストは今までどおり届く）。
 import { useEffect, useState } from 'react';

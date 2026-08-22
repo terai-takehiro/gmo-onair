@@ -5,7 +5,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
  * 計時・視聴者 v4.1 段2 — 旧URLのリダイレクト専用の薄い画面が共通で使う見た目。
  *
  * `RedirectOnce`（`shared/src/client/RedirectOnce.tsx`）は同一バンドル内の
- * react-router `navigate()` を使うため、別バンドル（`client-qsheet`・`/qsheet/...`）
+ * react-router `navigate()` を使うため、別バンドル（`client-techops`・`/qsheet/...`）
  * へは飛ばせない。ここでは `window.location.replace()` によるハード遷移を行う
  * （12-live-timer-decision.md・GROUND_RULES §2）。
  */

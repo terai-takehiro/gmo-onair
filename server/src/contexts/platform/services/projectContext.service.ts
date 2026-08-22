@@ -85,7 +85,7 @@ const clean = (s: unknown): string => (typeof s === 'string' ? s.trim() : '');
  * いるのに、`event_start` / `event_end`（`projects` の TEXT 列）だけ素通しで、
  * **同じ応答の中で日付の扱いが2通り**になっていた。
  *
- * 受け取る側（`client-qsheet` の新規台本作成）は `performanceDates[0] ?? eventStart`
+ * 受け取る側（`client-techops` の新規台本作成）は `performanceDates[0] ?? eventStart`
  * を `<input type="date">` の値に入れるので、`YYYY-MM-DD` でない値が来ると
  * **入力欄は空に見えるのに値は非空**になり、必須チェックが通って
  * ボタンが押せてしまう（空文字は falsy なので今のデータでは踏まないが、

@@ -1,5 +1,5 @@
 // `client-live/src/components/viewer/ViewerChart.tsx` の移植（v4.1 段2）。ロジックは
-// 変えていない。`chart.js` / `react-chartjs-2` を client-qsheet の依存に追加した
+// 変えていない。`chart.js` / `react-chartjs-2` を client-techops の依存に追加した
 // （package.json。ダッシュボードの「視聴者数推移」を1つも機能を落とさず移植するため）。
 // ⚠️ 「データがありません」だけは v4 の言葉づかいの決めごと（`npm run lint` の
 // `check-ui-tokens.mjs` forbidden-wording）に合わせて書き直した — 唯一の見た目の変更点。

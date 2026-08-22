@@ -152,7 +152,7 @@ describe('押せるのに 403 にしない', () => {
 
     // クライアント側のタイル・スイッチャーは元々どのミニアプリも権限で隠していない
     // （ハブ自体の qsheet 権限ゲートに委ねる方針）。計時・視聴者だけ特別扱いしていないことを見る
-    const tiles = read('client-qsheet', 'src', 'components', 'journey', 'MiniAppTiles.tsx');
+    const tiles = read('client-techops', 'src', 'components', 'journey', 'MiniAppTiles.tsx');
     expect(tiles).not.toMatch(/hasPermission\(['"]qsheet['"],\s*['"]manager['"]\)/);
   });
 

@@ -3,7 +3,7 @@
  *
  * 決め方と書き方は `client/src/pcOnlyScreens.ts` の冒頭を参照。
  *
- * `AppShell.tsx` が `<PcOnlyGate table={QSHEET_PC_ONLY}>` として実際に使っている。
+ * `AppShell.tsx` が `<PcOnlyGate table={TECHOPS_PC_ONLY}>` として実際に使っている。
  * ただし **`<PcOnlyGate>` は共通シェル配下（`AppShell` の `<Outlet />`）でしか
  * 効かない** — 本番3画面（`/qsheet/onair/:id` 等）はシェル無しの独立ルート
  * なので、この表に載っていても実際にゲートを通ることは無い（それでも
@@ -24,7 +24,7 @@ import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
 const SHEETS = { label: '進行台本の一覧を開く', to: '/qsheet/sheets' };
 
-export const QSHEET_PC_ONLY: PcOnlyEntry[] = [
+export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
   {
     path: '/qsheet/editor/:id',
     what: '進行台本の編集',
@@ -80,13 +80,13 @@ export const QSHEET_PC_ONLY: PcOnlyEntry[] = [
  * シェルに渡すと、スマホのときだけ項目が消える（他の v4 対象2アプリと同じ形。
  * いまは `hidden: true` を付けた項目が無いので空配列）。
  */
-export const QSHEET_MOBILE_HIDDEN = QSHEET_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
+export const TECHOPS_MOBILE_HIDDEN = TECHOPS_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
 
 /**
- * **スマホで触る／読む画面。** ここと `QSHEET_PC_ONLY` のどちらにも入っていない
+ * **スマホで触る／読む画面。** ここと `TECHOPS_PC_ONLY` のどちらにも入っていない
  * ルートがあると `npm run lint` が止まります。
  */
-export const QSHEET_MOBILE_OK: string[] = [
+export const TECHOPS_MOBILE_OK: string[] = [
   '/qsheet/top',       // アプリのトップ（番組・イベントを選ぶ。2026-08-22 追加）
   '/qsheet/home',      // 進行台本の案件選択
   '/qsheet/sheets',    // 進行台本の一覧

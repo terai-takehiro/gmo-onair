@@ -10,7 +10,7 @@ import MicAssignmentCell from "./MicAssignmentCell";
 //
 // ⚠️ 入力欄は必ず BufferedInput / BufferedTextarea を使う (素の
 // <input value onChange> / <textarea value onChange> で日本語を編集しない。
-// 理由は CueRowMobileEditor.tsx のコメントと client-qsheet/CLAUDE.md を参照)。
+// 理由は CueRowMobileEditor.tsx のコメントと client-techops/CLAUDE.md を参照)。
 
 interface Block {
   id: string;

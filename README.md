@@ -113,7 +113,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロックアプリ**を並走させ、制作業務の全ライフサイクル（提案 → 受注 → 制作 → 本番運用 → 請求）を1つの業務OSとして提供します。
 
 - **案件管理（client）**: 売上・仕入・損益・ヨミ〜完了までの統合プロジェクト管理
-- **Qシート（client-qsheet）**: 進行台本作成・ランダウン・OnAir 同期
+- **Qシート（client-techops）**: 進行台本作成・ランダウン・OnAir 同期
 - **機材管理（client-equipment）**: 機材台帳・貸出管理
 - **ライブ運用（client-live）**: 本番オペ・進行管理
 - **リアルタイムCG（client-awards）**: リアルタイム放送CG演出・送出管理
@@ -131,7 +131,7 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 | 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
-| 制作資料 (Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
+| 制作資料 (Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
 | 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards`) |
 
@@ -185,7 +185,7 @@ v4.1 以降で順に刷新します → [docs/v4-plan.md](docs/v4-plan.md)
 ```
 gmo-onair/
 ├── client/                  # 案件管理アプリ (React)
-├── client-qsheet/           # Qシートアプリ
+├── client-techops/          # Qシートアプリ
 ├── client-equipment/        # 機材管理アプリ
 ├── client-live/             # ライブ運用アプリ
 ├── client-awards/           # リアルタイムCG アプリ (内部識別子は `awards`)

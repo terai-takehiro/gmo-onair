@@ -150,7 +150,7 @@ export function createApp(): express.Express {
       };
 
       serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
-      serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
+      serveApp('/qsheet', path.join(__dirname, '../../client-techops/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
       // '/awards' (リアルタイムCG) は廃止。配信を止めただけでコードは client-awards/ に残す
       // (client-awards/CLAUDE.md 参照)。復活させるならこの行を戻すだけでよい。

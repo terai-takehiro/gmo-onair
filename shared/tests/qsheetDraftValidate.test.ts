@@ -2,7 +2,7 @@
  * 段10 (MCP) — `propose_qsheet_draft` の payload 検証（05-mcp.md §5・13-6）。
  *
  * ⚠️ **検証だけでなく、段7で既に実装済みの取り込み側
- * (`client-qsheet/src/lib/applyProposal.ts`) にそのまま通ることも確かめる。**
+ * (`client-techops/src/lib/applyProposal.ts`) にそのまま通ることも確かめる。**
  * MCP が作る payload は、それを読む相手（`applyProposalOps`）が既に固定されているので、
  * 検証を通った後の形が本当に取り込めるかまで見ないと「検証は通ったが取り込めない」が起こる。
  */
@@ -11,7 +11,7 @@ import {
   validateOutlineProposal,
   validateLineProposal,
 } from '../../server/src/contexts/qsheet/ai/mcpProposal';
-import { applyProposalOps } from '../../client-qsheet/src/lib/applyProposal';
+import { applyProposalOps } from '../../client-techops/src/lib/applyProposal';
 
 describe('validateOutlineProposal', () => {
   it('素直な提案はそのまま通る', () => {

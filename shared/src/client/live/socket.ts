@@ -4,7 +4,7 @@
  * ⚠️ **`client-live/src/lib/socket.ts`（表示画面 `TimerDisplayPage.tsx` 専用）の複製です。**
  * `docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` §4-2 の決定どおり、
  * 表示画面が使う実装には一切触れず（1文字も変えない・GROUND_RULES）、運用画面
- * （`client-qsheet` に移植したダッシュボード・タイマー管理）だけがこちらを使います。
+ * （`client-techops` に移植したダッシュボード・タイマー管理）だけがこちらを使います。
  *
  * ロジックは複製元と同一（namespace `/liveops`・`path: '/socket.io/'`・
  * JWT の渡し方）。**変えているのはこの説明コメントだけ**です。

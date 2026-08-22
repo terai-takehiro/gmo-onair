@@ -3,7 +3,7 @@
  *
  *   上辺バー 64px ＋ 左メニュー 248px ＋ スマホ下タブ
  *
- * **凍結3アプリは載せ替えません** (`client-qsheet` / `client-live` /
+ * **凍結3アプリは載せ替えません** (`client-techops` / `client-live` /
  * `client-awards` は `src/components/layout/` の旧シェルのまま)。
  *
  * 使い方:

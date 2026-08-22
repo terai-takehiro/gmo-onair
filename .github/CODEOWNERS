@@ -18,7 +18,7 @@
 
 # ─── 人が増えたらここを分ける ───
 # /client/                @案件管理の担当
-# /client-qsheet/         @Qシートの担当
+# /client-techops/        @Qシートの担当
 # /client-equipment/      @機材管理の担当
 # /client-live/           @ライブ運用の担当
 # /client-awards/         @リアルタイムCGの担当

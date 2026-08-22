@@ -15,7 +15,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
-| 制作技術支援 (中の Qシート) | [`client-qsheet/`](client-qsheet/CLAUDE.md) | `/qsheet/` | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作技術支援」**（旧「制作資料」・2026-08-22 に再改名し大アプリへ格上げ）、Qシートはその中のミニアプリ |
+| 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/qsheet/` | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作技術支援」**（旧「制作資料」・2026-08-22 に再改名し大アプリへ格上げ）、Qシートはその中のミニアプリ。**ディレクトリ名だけ `client-techops/` に改名済み**（2026-08-22・Phase 1。ベースパス`/qsheet/`・内部識別子`qsheet`は未改名、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | **対象** | タイマー・視聴者カウンター。運用画面は共通シェル・v4トークン化済み。**表示画面 (`/live/display/`) だけ例外**（見た目を変えない） |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | ~~`/awards/`~~ | ~~5179~~ | **廃止** | 放送CG演出・送出 (内部識別子は `awards` のまま)。**コードは保存・配信は停止**（2026-08〜） |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
@@ -27,7 +27,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 出るようになった。**v4.1 段5 でトークン（色・書体・角丸）を v4 化し、続く PR で共通シェル
 （`shared/src/client/shell/`）への載せ替えも済ませた**。まだなのは表本体（`CueTable`/`CueRow`/
 `cells/*`）・`EditorSidebar` の詳細・本番3画面固有の実装の作り直し。詳細は
-[`client-qsheet/CLAUDE.md`](client-qsheet/CLAUDE.md) と
+[`client-techops/CLAUDE.md`](client-techops/CLAUDE.md) と
 [docs/design/v4/qsheet-v4-coding/](docs/design/v4/qsheet-v4-coding/)。
 
 **2026-08-22 にアプリ名を「制作資料」→「制作技術支援」へ再改名し、大アプリ（`shared/src/client/apps.ts`
@@ -62,7 +62,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 ## 技術構成
 - **フロントエンド**: React 18 + Vite 6 + TailwindCSS 3 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが6アプリの静的ファイルを配信する**単一イメージ構成**
-- **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-qsheet, client-live, client-awards, server, shared)
+- **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-techops, client-live, client-awards, server, shared)
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, awards/quiz/liveops 各ネームスペース)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 

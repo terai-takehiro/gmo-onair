@@ -15,9 +15,9 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
 import { applyDataToYDoc, yDocToData } from '../src/collab/yjsDoc';
-import { parseCsv, mapCsvColumns, buildSectionsFromCsv } from '../../client-qsheet/src/lib/csvImport';
-import { applyDataUpdate } from '../../client-qsheet/src/lib/collab/ydocDiff';
-import * as ops from '../../client-qsheet/src/lib/collab/ydocOps';
+import { parseCsv, mapCsvColumns, buildSectionsFromCsv } from '../../client-techops/src/lib/csvImport';
+import { applyDataUpdate } from '../../client-techops/src/lib/collab/ydocDiff';
+import * as ops from '../../client-techops/src/lib/collab/ydocOps';
 
 const BLOCKS = [
   { id: 'scenario', type: 'scenario', label: '台本' },

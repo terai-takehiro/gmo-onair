@@ -48,7 +48,7 @@ describe('MINI_APPS — 登録そのもの', () => {
   });
 
   it('panel: liveops（計時・視聴者）は有効。計時・視聴者のミニアプリ化フェーズ2で '
-    + 'kind: \'external\' から \'panel\' へ統合した（運用画面が client-qsheet バンドル内へ移植されたため）', () => {
+    + 'kind: \'external\' から \'panel\' へ統合した（運用画面が client-techops バンドル内へ移植されたため）', () => {
     expect(MINI_APP_BY_KEY.liveops.kind).toBe('panel');
     expect(MINI_APP_BY_KEY.liveops.enabled).toBe(true);
     expect(MINI_APP_BY_KEY.liveops.path).toBe('/qsheet/live/:ownerKey');

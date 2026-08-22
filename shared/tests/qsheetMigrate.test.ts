@@ -15,7 +15,7 @@ import {
   migrateStageTemplateRefs,
   migrateMobileCellShapes,
   normalizeQsheetData,
-} from '../../client-qsheet/src/lib/migrateEntries';
+} from '../../client-techops/src/lib/migrateEntries';
 
 const STAGE_BLOCK = { id: 'stg', type: 'stage_diagram', label: '立ち位置図' };
 

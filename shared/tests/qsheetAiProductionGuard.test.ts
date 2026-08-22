@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
-const CLIENT_QSHEET = join(__dirname, '..', '..', 'client-qsheet', 'src');
+const CLIENT_QSHEET = join(__dirname, '..', '..', 'client-techops', 'src');
 
 const PRODUCTION_PAGES = [
   'pages/OnAirPage.tsx',

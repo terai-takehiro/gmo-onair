@@ -1,5 +1,5 @@
 /**
- * 新規台本作成の自動入力（`client-qsheet/src/pages/sheets/useCreateSheetPrefill.tsx`）
+ * 新規台本作成の自動入力（`client-techops/src/pages/sheets/useCreateSheetPrefill.tsx`）
  *
  * ── なぜここを試すのか ──────────────────────────────────────
  *
@@ -27,8 +27,8 @@ import {
   type PrefillPlan,
   type PrefillValues,
   type PrefilledField,
-} from '../../client-qsheet/src/pages/sheets/useCreateSheetPrefill';
-import type { EpisodeOption, ProjectContext } from '../../client-qsheet/src/pages/sheets/types';
+} from '../../client-techops/src/pages/sheets/useCreateSheetPrefill';
+import type { EpisodeOption, ProjectContext } from '../../client-techops/src/pages/sheets/types';
 
 const ctx = (over: Partial<ProjectContext> & { id: string; name: string }): ProjectContext => ({
   glsNumber: null,

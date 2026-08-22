@@ -3,7 +3,7 @@
  *
  * ⚠️ サーバーは `qsheet_documents.data` を直接書かない（collab の persist に上書きされる・
  * id の安全網がクライアントにしかない）。ここが返すのは**完全な `data`ではなく操作リスト**。
- * 適用は client-qsheet 側の `applyOps(prev, ops)` が担う（§8-1 の P0 地雷対策）。
+ * 適用は client-techops 側の `applyOps(prev, ops)` が担う（§8-1 の P0 地雷対策）。
  */
 export type PlanOp =
   | { op: 'update_section'; sectionId: string; set: Record<string, unknown> }
