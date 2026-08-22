@@ -1,6 +1,6 @@
-// レンタル機材検索（制作技術支援のミニアプリ）の8エンドポイント。
+// レンタル機材検索（制作技術支援のミニアプリ）の9エンドポイント。
 //
-// カタログ（1・2）は company/item_id を自然主キーに持つ全案件共通のマスタなので
+// 取得状況（0）・カタログ（1・2）は company/item_id を自然主キーに持つ全案件共通のマスタなので
 // `:ownerKey` は不要。予約リスト（3〜8）は案件/番組単位（`:ownerKey`。device-settings と
 // 同じ `resolveOwner`/`ownerWhere` を使う）。DBアクセス・集計ロジックは
 // `../services/rental.service.ts` に分離し、このファイルは薄く保つ。
@@ -19,6 +19,14 @@ const badRequest = (res: Response, message: string) =>
   res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message } });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// ============================================================
+// 0. 取得状況（クロールの最終取得状況）
+// ============================================================
+router.get('/sync-status', async (req: Request, res: Response) => {
+  const data = await svc.getSyncStatus();
+  res.json({ success: true, data });
+});
 
 // ============================================================
 // 1. カタログ検索
