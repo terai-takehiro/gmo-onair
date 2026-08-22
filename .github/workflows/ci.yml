@@ -9,8 +9,7 @@ name: CI
 #
 # 呼ばれ方は3通り:
 #   1. pull_request        — マージ前のゲート (イメージは push しない)
-#   2. push (release/**)   — 旧バージョンの保守ブランチ
-#   3. workflow_call       — deploy.yml から。ここだけ GHCR にイメージを push する
+#   2. workflow_call       — deploy.yml から。ここだけ GHCR にイメージを push する
 #
 # 分岐保護 (ruleset) の「必須チェック」に指定するのは下のジョブ名そのまま:
 #   checks / build   ← 日本語にすると ruleset 側で打ち間違えるので ASCII 固定
@@ -18,8 +17,6 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [release/**]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -67,9 +64,9 @@ jobs:
       - run: npm ci --workspaces --include-workspace-root
 
       # ローカルの `npm run typecheck` は v4 対象の3アプリだけに絞ってある (速さのため)。
-      # CI では凍結3アプリ (qsheet / live / awards) も必ず見る。
-      # shared/ を触ると凍結アプリの型も壊れ得るので、ここを絞ると気づけなくなる。
-      - name: 型チェック (7クライアント + server)
+      # CI では手元の既定より広く、廃止アプリを除く全ワークスペースを見る。
+      # shared/ を触ると全アプリの型が壊れ得るので、ここを絞ると気づけなくなる。
+      - name: 型チェック (全ワークスペース)
         run: npm run typecheck:all
 
       - name: Lint (eslint)
