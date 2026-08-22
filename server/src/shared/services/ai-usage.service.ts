@@ -37,7 +37,10 @@ import { execute, queryAll } from '../db/connection';
  * （整形は本文まるごと・短縮は1文だけで、桁が違う）。
  */
 export type AiUsageKind =
-  | 'intake' | 'minutes' | 'activity' | 'activity_short' | 'kpt' | 'stt' | 'stt_preview';
+  | 'intake' | 'minutes' | 'activity' | 'activity_short' | 'kpt' | 'stt' | 'stt_preview'
+  // 制作資料 v4 の AI 生成（段8。04-ai.md §7）。`ai_outputs.kind` とは別体系
+  // （あちらは `event_plan_draft` 等の `_draft` 付き。これは呼び出しの記録用）
+  | 'event_plan' | 'script_outline' | 'script_line' | 'production_chat';
 
 export interface AiUsageInput {
   kind: AiUsageKind;

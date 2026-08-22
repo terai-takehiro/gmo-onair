@@ -57,6 +57,27 @@ const ALLOW = new Map([
     '選択中の帯（親のタグが bg-primary）の中の ghost ボタン。hover の bg-primary-800 は #004d91（濃い）'],
   ['client/src/contexts/platform/pages/home/MobileAiBar.tsx:81',
     'スマホの青いバーの右端。塗りは linear-gradient(var(--primary) → var(--info)) で、11 行上のボタンにある'],
+  // 段5 PR7 (進行台本の表を v4 の見た目にする)。VTR ロールヘッダーの塗りは
+  // 同じ <div> の `bg-gradient-to-r from-info to-info/80`（from-info は不透明の
+  // 開始点）から来るが、この検査の FILL 正規表現は `bg-<s>` しか見ておらず
+  // `from-<s>` / `to-<s>` のグラデーション記法を塗りと認識しない。
+  ['client-qsheet/src/components/editor/CueTable.tsx:673',
+    'VTR ロールヘッダー (bg-gradient-to-r from-info to-info/80) 内の GripVertical'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:674',
+    '同上。VTR バッジ'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:675',
+    '同上。VTR の絶対時刻表示'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:681',
+    '同上。VTR タイトル入力欄の placeholder'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:694',
+    '同上。VTR 尺入力欄 (未入力時は bg-warning へ切り替わる。入力済み時の placeholder 色)'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:697',
+    '同上。VTR 尺入力欄 (入力済み時の背景 bg-info-foreground/15 の上の文字)'],
+  ['client-qsheet/src/components/editor/CueTable.tsx:702',
+    '同上。ロール削除ボタンの既定色 (hover 時は hover:bg-destructive で不透明に塗られる)'],
+  // 通常ロールヘッダーも同じ理由 (bg-gradient-to-r from-primary to-primary/80)。
+  ['client-qsheet/src/components/editor/CueTable.tsx:769',
+    '通常ロールヘッダー (bg-gradient-to-r from-primary to-primary/80) 内のロール名入力欄 placeholder'],
 ]);
 
 /* ── どの `-foreground` が「塗りの上でしか読めない」か ───────────────

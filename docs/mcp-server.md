@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (82 種 / 19 カテゴリ / v4)
+## ツール一覧 (90 種 / 20 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -91,7 +91,8 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 >
 > 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
-> opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1
+> opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1 /
+> production 8（読み取り5・書き込み3。**このカテゴリだけ OAuth actor 専用**。下記参照）
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -251,6 +252,28 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
 | `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
 
+### 制作資料 (production — 進行台本・スケジュール表)
+
+⚠️ **このカテゴリだけ静的 API キーを拒否し、OAuth（ONAiR ログイン連携）専用です。** 台本は
+「作成者本人／共有先／`system_admin`」の文書単位の秘匿で、共有 actor (`mcp-claude`) には
+見てよい範囲を定義できないため。静的キーで呼ぶと全ツール（read も含む）が 403 になります。
+
+**書き込みは「提案まで」。** `propose_qsheet_draft` は `qsheet_ai_proposals` に1行置くだけで、
+台本そのもの（Yjs の `data`）はサーバーから一切書き換えません。取り込み（台本へ反映）は
+編集画面の「AIの提案」トレイから人が行います — 取り込みツールは意図的に出していません
+（設計: [`docs/design/v4/qsheet-v4-coding/05-mcp.md`](design/v4/qsheet-v4-coding/05-mcp.md)）。
+
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_production_docs` | read | 進行台本・スケジュール表の横断一覧。project_id/gls_number/date/app/q で絞り込み。見えるもの（作成者本人／共有先／管理者）だけ |
+| `get_production_journey` | read | 案件・資料単体の「今どこまで出来ているか」。`tone` は完成度ではなく「触られたか」 |
+| `get_qsheet` | read | 台本の中身。既定 outline（ロールと尺だけ）。台詞などの本文は `include_text=true` のときだけ。列（セル）は `blk.<type>#<n>` の参照キーで返る |
+| `get_day_schedule` | read | 当日の枠（スケジュール表）。schedule_id か project_id+date |
+| `find_similar_qsheets` | read | 似た過去回の骨格（本文は返さない）。共有されている台本だけが対象 |
+| `create_qsheet` | write | 空の台本を作る（中身は空）。idempotency_key で二重作成を防止 |
+| `propose_qsheet_draft` | write | `qsheet_ai_proposals` に提案を1件作る。台本は変わらない。kind は script_outline_draft（骨格）/ script_line_draft（既存行の台詞埋め）の2つ |
+| `discard_qsheet_proposal` | write | 提案を見送ったことを記録する |
+
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
 
 ## confirm 2段階フロー (重要操作)
@@ -332,6 +355,10 @@ server/src/contexts/mcp/
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
+    ├── production.tools.ts  制作資料 8 種 (read 5 / write 3)。`production.access.ts` の
+    │                        `requireProductionActor()` を全ツールの先頭で呼び、
+    │                        静的キーを拒否 + OAuth actor を実ユーザーへ解決する
+    ├── production.access.ts 制作資料ツール専用のゲート (段10・05-mcp.md §3-1)
     └── … (customers / activities / tasks / members / minutes / analytics / users /
            mytasks / pricing / budget / opsreports / eventreports / inview / inbox /
            security-cards / aifeedback)
@@ -343,11 +370,14 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（44 種）はゲートがありません。** OAuth で自分の ONAiR
-  アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
+- ⚠️ **読み取りツール（44 種＋制作資料の read 5種）はここにはゲートがありません。** OAuth で自分の
+  ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
   `list_inquiries` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が
   MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
-  44 種あるので**別の作業**にしてあります
+  44 種あるので**別の作業**にしてあります。
+  **制作資料の read 5種だけは例外**— `gate.ts` は経由しませんが、
+  `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
+  静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています
 
 - スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み — UI と MCP が同一コードパスを通る。
 - 書き込みツールの actor は `currentActorId()` で解決: OAuth 経由なら実 ONAiR ユーザー id、静的キー経由なら共用 `mcp-claude`。

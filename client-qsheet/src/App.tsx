@@ -9,6 +9,14 @@ import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
+import TopPage from "@/pages/TopPage";
+import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
+import SchedulePage from "@/pages/schedule/SchedulePage";
+import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
+import { QSHEET_ROOT_PATH } from "@/routeSwitch";
+import DeviceSettingsHome from "@/pages/device-settings/DeviceSettingsHome";
+import RecordingPage from "@/pages/recording/RecordingPage";
+import StreamingPage from "@/pages/streaming/StreamingPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -29,14 +37,31 @@ export default function App() {
     <Routes>
       <Route
         path="/qsheet/login"
-        element={isAuthenticated ? <RedirectOnce to="/qsheet" /> : <LoginPage />}
+        element={isAuthenticated ? <RedirectOnce to={QSHEET_ROOT_PATH} /> : <LoginPage />}
       />
 
       {/* Pages with AppShell (Header + Sidebar) */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-        <Route path="/qsheet" element={<DashboardPage />} />
-        <Route path="/qsheet/editor" element={<DashboardPage />} />
+        {/*
+          `/qsheet` は画面を持たず、`routeSwitch.ts` の1行だけを見て転送する
+          （03-app-structure-impl.md §3-3）。`/qsheet/home`（新トップ・案件を選ぶ）と
+          `/qsheet/sheets`（旧トップ・進行台本の一覧）は常に両方存在する。
+        */}
+        <Route path="/qsheet" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
+        <Route path="/qsheet/home" element={<TopPage />} />
+        <Route path="/qsheet/sheets" element={<DashboardPage />} />
+        {/* 旧 URL。転送は1段（`/qsheet` を経由しない） */}
+        <Route path="/qsheet/editor" element={<RedirectOnce to="/qsheet/sheets" />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
+        {/* 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で文書とは別の入れ物 */}
+        <Route path="/qsheet/device-settings" element={<DeviceSettingsHome />} />
+        <Route path="/qsheet/recording/:ownerKey" element={<RecordingPage />} />
+        <Route path="/qsheet/streaming/:ownerKey" element={<StreamingPage />} />
+
+        {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
+        <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
+        <Route path="/qsheet/schedules/:id" element={<SchedulePage />} />
+        <Route path="/qsheet/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}
@@ -47,7 +72,8 @@ export default function App() {
       {/* Public audio support dashboard — no auth required, docId-based */}
       <Route path="/qsheet/audio/:id" element={<AudioSupportPage />} />
 
-      <Route path="*" element={<RedirectOnce to="/qsheet" />} />
+      {/* 転送は1段。`/qsheet` を経由すると RedirectOnce の 200ms フォールバックに触れる */}
+      <Route path="*" element={<RedirectOnce to={QSHEET_ROOT_PATH} />} />
     </Routes>
   );
 }

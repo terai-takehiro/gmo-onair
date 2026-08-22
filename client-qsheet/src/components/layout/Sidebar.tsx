@@ -4,12 +4,18 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
-  LayoutDashboard, FilePlus, FileText, X, ChevronLeft,
+  LayoutDashboard, FilePlus, FileText, X, ChevronLeft, Settings2, CalendarDays,
 } from 'lucide-react';
 
 
 const navItems = [
-  { label: "ドキュメント一覧", path: "/qsheet", icon: LayoutDashboard },
+  // `/qsheet` はもう画面を持たない（`routeSwitch.ts` の転送だけ）。
+  // 実体である `/qsheet/sheets` に直接向ける（転送を1段挟まないため）
+  { label: "ドキュメント一覧", path: "/qsheet/sheets", icon: LayoutDashboard },
+  // スケジュール表（段4・04-schedule-impl.md §5-1）
+  { label: "スケジュール表", path: "/qsheet/schedules", icon: CalendarDays },
+  // 収録設定・配信設定（機器設定）。08（PR #279 の後継）で追加。
+  { label: "収録・配信設定", path: "/qsheet/device-settings", icon: Settings2 },
 ];
 
 export default function Sidebar() {
@@ -42,15 +48,15 @@ export default function Sidebar() {
             </div>
             <span className="truncate text-sm font-bold">Qシート</span>
           </div>
-          <button className="ml-auto p-1 rounded hover:bg-muted" onClick={() => setSidebarOpen(false)}>
+          <button className="ml-auto p-1 rounded-control-md hover:bg-muted" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
           {navItems.map((item) => {
-            const isActive = item.path === "/qsheet"
-              ? location.pathname === "/qsheet" || location.pathname === "/qsheet/editor"
+            const isActive = item.path === "/qsheet/sheets"
+              ? ["/qsheet", "/qsheet/sheets", "/qsheet/editor"].includes(location.pathname)
               : location.pathname.startsWith(item.path);
             return (
               <button
@@ -69,7 +75,7 @@ export default function Sidebar() {
           })}
           <button
             onClick={() => {
-              navigate("/qsheet");
+              navigate("/qsheet/sheets");
               setSidebarOpen(false);
               setTimeout(() => {
                 const btn = document.querySelector('[data-create-btn]') as HTMLButtonElement;

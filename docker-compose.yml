@@ -98,6 +98,13 @@ services:
       # 毎晩 3:00 のやり取り整形 (v4.0.1+)。off と書くと止まる
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY:-}
       NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY:-}
+      # 制作資料 v4 段7: AI 提案の期限切れ(3:15)・締め(3:20)。AI は呼ばない。off で止まる
+      QSHEET_AI_EXPIRE_NIGHTLY: ${QSHEET_AI_EXPIRE_NIGHTLY:-}
+      QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY:-}
+      # 制作資料 v4 段9: 月次 AI レビューの下書き(毎月1日 3:25)。AI は呼ばない。off で止まる
+      QSHEET_AI_REVIEW_NIGHTLY: ${QSHEET_AI_REVIEW_NIGHTLY:-}
+      # 月次レビューの担当者(1人)。未設定なら「未設定」として動く(通知は qsheet manager 全員へ届く)
+      QSHEET_AI_REVIEW_OWNER_USER_ID: ${QSHEET_AI_REVIEW_OWNER_USER_ID:-}
       # AI の使用量を金額で出すための単価。**未設定ならトークン数と分数だけ出る**
       AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — 未設定ならマイカレンダーの Google 連携は無効。
@@ -175,6 +182,14 @@ services:
       # 両方が毎晩走ると同じ請求書に2つぶん載る
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY_DEV:-${ACTIVITY_FORMAT_NIGHTLY:-}}
       NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY_DEV:-${NEXT_ACTION_SHORT_NIGHTLY:-}}
+      # 制作資料 v4 段7。AI は呼ばないので費用の理由で分ける必要は無いが、他の nightly と同じ形に揃える
+      QSHEET_AI_EXPIRE_NIGHTLY: ${QSHEET_AI_EXPIRE_NIGHTLY_DEV:-${QSHEET_AI_EXPIRE_NIGHTLY:-}}
+      QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY_DEV:-${QSHEET_AI_SETTLE_NIGHTLY:-}}
+      # 制作資料 v4 段9。同上（AI を呼ばない）
+      QSHEET_AI_REVIEW_NIGHTLY: ${QSHEET_AI_REVIEW_NIGHTLY_DEV:-${QSHEET_AI_REVIEW_NIGHTLY:-}}
+      # ⚠️ prod にフォールバックしない。検証は mockAuth の別ユーザー群なので、
+      # 本番の利用者 id をそのまま渡しても存在しない id として無視されるだけで意味が無い
+      QSHEET_AI_REVIEW_OWNER_USER_ID: ${QSHEET_AI_REVIEW_OWNER_USER_ID_DEV:-}
       # 単価は prod と共有する（値段は環境で変わらない。分けると必ず片方が古くなる）
       AI_PRICING_JSON: ${AI_PRICING_JSON:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — prod と同じ OAuth クライアントを共有 (redirect は CLIENT_URL から自動生成)

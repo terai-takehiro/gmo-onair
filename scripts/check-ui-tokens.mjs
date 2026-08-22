@@ -45,7 +45,11 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
  * 一方、**見た目に関係ないもの**（Excel の読み取り・AI が人名を出す・言葉づかい・
  * ブラウザ標準のダイアログ）は凍結アプリにも効かせます。
  */
-const V4_DIRS = ['client/src', 'client-daily/src', 'client-equipment/src', 'shared/src'];
+// ⚠️ 制作資料 (client-qsheet/src) は v4.1 で凍結を解いたのでここに足した
+// (03-app-structure-impl.md §7-2 の10番目の指摘)。まだ見た目は作り直していないので
+// 実測値が大きく増える見込み。既存分は BASELINE にそのまま記録し、直す作業は
+// 見た目を作り直す段で行う（raw-palette 等の v4Only 規則が新規に適用されるため）。
+const V4_DIRS = ['client/src', 'client-daily/src', 'client-equipment/src', 'client-qsheet/src', 'shared/src'];
 const v4Only = (rel) => V4_DIRS.some((d) => rel.startsWith(d));
 
 /** 記録をアプリ別に持つための、パス → アプリ名 */
@@ -631,73 +635,80 @@ for (const file of serverFiles) {
  */
 const BASELINE = {
     "ai-person-name": {
-      "client": 13
+      "client": 8
     },
     "browser-dialog": {
-      "client": 35,
+      "client": 25,
       "client-awards": 17,
       "client-daily": 1,
       "client-live": 4,
       "client-qsheet": 17
     },
     "col-width-by-hand": {
-      "client": 29,
-      "client-equipment": 6
+      "client": 17,
+      "client-equipment": 6,
+      "client-qsheet": 9
     },
     "control-height": {
-      "client": 21,
-      "client-equipment": 2
+      "client": 7,
+      "client-equipment": 2,
+      "client-qsheet": 2
     },
     "date-range-by-hand": {
-      "client": 8,
+      "client": 7,
       "client-daily": 1
     },
     "empty-by-hand": {
-      "client": 8,
+      "client": 4,
       "client-equipment": 1,
+      "client-qsheet": 1,
       "shared": 2
     },
     "forbidden-wording": {
-      "client": 58,
+      "client": 40,
       "client-live": 1,
       "client-qsheet": 3,
       "shared": 1
     },
     "grow-column-min-w0": {
-      "client": 4,
+      "client": 1,
       "client-equipment": 2,
+      "client-qsheet": 5,
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 250,
-      "client-daily": 34,
+      "client": 124,
+      "client-daily": 6,
       "client-equipment": 46
     },
     "money-by-hand": {
-      "client": 4,
+      "client": 3,
       "client-equipment": 1
     },
     "page-title-by-hand": {
-      "client": 13,
+      "client": 4,
       "client-equipment": 1,
+      "client-qsheet": 1,
       "shared": 1
     },
     "raw-palette": {
-      "client": 178,
+      "client": 94,
       "client-daily": 33,
       "client-equipment": 65,
+      "client-qsheet": 130,
       "shared": 6
     },
     "raw-xlsx-read": {
       "server": 4
     },
     "stat-size-by-hand": {
-      "client": 2
+      "client": 1
     },
     "translucent-text": {
       "client": 13,
       "client-daily": 2,
       "client-equipment": 5,
+      "client-qsheet": 21,
       "shared": 5
     }
   };

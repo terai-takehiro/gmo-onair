@@ -16,6 +16,14 @@ import { resolveSocketUser, type SocketUser } from '../../shared/collab/socketAu
  *     (音声サポート公開URL / 単なる閲覧は cue:sync を受けるだけ)。
  *   - transport (cue:*) を **発火** できるのはアクセス権のあるユーザーのみ
  *     → docId さえ知れば誰でも進行を注入できた従来の穴を塞ぐ。
+ *
+ * room の分割 (実装設計 02-audio-share-token-impl.md §6-3):
+ *   - `doc:<docId>`         … 匿名を含む全員が join。**cue:* だけ**を流す
+ *   - `doc:<docId>:members` … canAccess なユーザーだけが join。
+ *     yjs:update (台本の編集差分) / awareness:update / presence:sync はこちらへ。
+ *   公開音声サポート URL (資料IDが分かれば誰でも開ける) は `doc:<docId>` にしか
+ *   join しないので、台本本文の差分や在席者の氏名が公開URLの持ち主に届かなくなる。
+ *   cue:* の5本は分割前と1文字も変えていない (07 §1-1「そのまま」)。
  */
 
 // 認証解決とユーザー型は shared/collab/socketAuth.ts に移設した (案件の共同編集と共有)。
@@ -53,6 +61,7 @@ export function initQsheetSocketIO(io: Server): void {
     }
 
     const room = `doc:${docId}`;
+    const memberRoom = `doc:${docId}:members`;
     socket.join(room);
 
     // 認証 + アクセス判定 (匿名も join してリッスンは可能)
@@ -75,23 +84,25 @@ export function initQsheetSocketIO(io: Server): void {
 
       // 在席登録: 認証済み & アクセス権のあるユーザーのみ
       if (user && canAccess) {
+        socket.join(memberRoom);
         let m = presenceByDoc.get(docId);
         if (!m) {
           m = new Map();
           presenceByDoc.set(docId, m);
         }
         m.set(socket.id, user);
-        qsheetNs.to(room).emit('presence:sync', { users: presenceList(docId) });
+        // 在席者の氏名は members だけに流す (匿名の公開音声サポート URL には出さない)
+        qsheetNs.to(memberRoom).emit('presence:sync', { users: presenceList(docId) });
       } else {
-        // リッスン専用でも現在の在席一覧は渡す
-        socket.emit('presence:sync', { users: presenceList(docId) });
+        // リッスン専用 (匿名/未認可) には在席情報を渡さない — 空配列を返す
+        socket.emit('presence:sync', { users: [] });
       }
     })();
     void ready.catch((e) => console.error('[qsheet] socket 初期化に失敗', e));
 
     socket.on('presence:query', async () => {
       await ready;
-      socket.emit('presence:sync', { users: presenceList(docId) });
+      socket.emit('presence:sync', { users: socket.data.canAccess ? presenceList(docId) : [] });
     });
 
     // ── 同時共同編集 (Phase 2.2): Yjs 更新の同期・中継 ──
@@ -119,26 +130,37 @@ export function initQsheetSocketIO(io: Server): void {
       if (!socket.data.canAccess || !collabAcquired) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
       qsheetRooms.applyUpdate(docId, u);
-      // 他の参加者へ増分を中継
-      socket.to(room).emit('yjs:update', Buffer.from(u));
+      // 他の参加者 (members のみ) へ増分を中継。台本の編集差分なので room 全体には出さない。
+      socket.to(memberRoom).emit('yjs:update', Buffer.from(u));
     });
 
-    // awareness (ライブカーソル/選択) — ephemeral、永続化せず room へ中継のみ
+    // awareness (ライブカーソル/選択) — ephemeral、永続化せず members へ中継のみ
     socket.on('awareness:update', async (update: ArrayBuffer | Buffer | Uint8Array) => {
       await ready;
       if (!socket.data.canAccess) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
-      socket.to(room).emit('awareness:update', Buffer.from(u));
+      socket.to(memberRoom).emit('awareness:update', Buffer.from(u));
     });
 
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
-    socket.on('cue:update', async (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
+    // runId / runStartedAt: 実尺 (qsheet_cue_actuals) の run_id を進行 (OnAir) から全端末へ
+    // 相乗りさせるためのフィールド。新しいイベントは増やさず、cue:update -> cue:sync に
+    // 素通しするだけ (docs/design/v4/qsheet-v4-coding/impl/01-cue-actuals-impl.md §4-1)。
+    socket.on('cue:update', async (data: {
+      currentCue: number;
+      elapsed: number;
+      isPlaying: boolean;
+      runId?: string | null;
+      runStartedAt?: string | null;
+    }) => {
       await ready;
       if (!socket.data.canAccess) return;
       socket.to(room).emit('cue:sync', {
         currentCue: data.currentCue,
         elapsed: data.elapsed,
         isPlaying: data.isPlaying,
+        runId: data.runId ?? null,
+        runStartedAt: data.runStartedAt ?? null,
         timestamp: Date.now(),
       });
     });
@@ -175,7 +197,7 @@ export function initQsheetSocketIO(io: Server): void {
       const m = presenceByDoc.get(docId);
       if (m && m.delete(socket.id)) {
         if (m.size === 0) presenceByDoc.delete(docId);
-        qsheetNs.to(room).emit('presence:sync', { users: presenceList(docId) });
+        qsheetNs.to(memberRoom).emit('presence:sync', { users: presenceList(docId) });
       }
     });
   });

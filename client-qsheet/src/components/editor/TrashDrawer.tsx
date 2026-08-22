@@ -9,6 +9,7 @@ import {
   formatDeletedAt,
   describeTrashItem,
 } from "@/lib/trash";
+import { genId } from "@/lib/stableIds";
 
 interface TrashDrawerProps {
   data: any; // doc.data
@@ -48,7 +49,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         }
         // 元セクションが見つからない場合は末尾のセクションに追加（それも無ければ新セクション）
         alert("元のロールが見つからないため、末尾に新しいロールを作って復元します。");
-        sections.push({ id: `restored-${Date.now()}`, label: "復元された行", rows: [item.payload] });
+        sections.push({ id: genId("sec"), label: "復元された行", rows: [item.payload] });
         return { ...next, sections };
       }
 

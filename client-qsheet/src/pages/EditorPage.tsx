@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { notifyError } from "@/lib/notify";
-import { parseDur as parseDurShared } from "@/lib/time";
+import { docTotalSec } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import EditorSidebarSheet from "@/components/editor/EditorSidebarSheet";
@@ -11,10 +11,11 @@ import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
-import { splitMultiEntryRows } from "@/lib/migrateEntries";
-import { ensureStableIds } from "@/lib/stableIds";
+import { normalizeQsheetData } from "@/lib/migrateEntries";
+import { ensureStableIds, genId } from "@/lib/stableIds";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { useAuth } from "@/hooks/useAuth";
+import { useCollabMetaSync } from "@/hooks/useCollabMetaSync";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
 import { useCollabDoc } from "@/lib/collab/useCollabDoc";
 import { applyDataUpdate } from "@/lib/collab/ydocDiff";
@@ -22,6 +23,12 @@ import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
 import type { CsvImportResult } from "@/lib/csvImport";
+import ExcelImportDialog from "@/components/excel/ExcelImportDialog";
+import { useExcelIO } from "@/hooks/useExcelIO";
+// AI 生成4機能（段8。04-ai.md §8-2）— ボタン・状態・ダイアログをまとめて1部品に持たせてある
+// （EditorPage.tsx はもともと 400 行上限の超過ファイルなので、ここでは増やさない）。
+// 本番中（進行/ランダウン/プロンプター/公開音声）はこのアプリのどこからも呼ばれない。
+import AiEditorTools from "@/components/ai/AiEditorTools";
 import {
   Loader2,
   Save,
@@ -225,7 +232,8 @@ export default function EditorPage() {
   const [showTrash, setShowTrash] = useState(false);
   const [showAudioShare, setShowAudioShare] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
-  const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
+  // 立ち位置図エディタの開閉状態。null=閉じている、{id:null}=新規追加、{id}=既存テンプレの編集
+  const [stageEditorTarget, setStageEditorTarget] = useState<{ id: string | null } | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const toggleBlockCollapse = useCallback((id: string) => {
@@ -267,7 +275,8 @@ export default function EditorPage() {
       if (!d.data.meta) d.data.meta = { title: d.title, draft: "準備稿" };
       if (!d.data.masters) d.data.masters = { persons: [], video: [], audio: [], telop: [] };
       // v2.8.155: 旧モデルの複数エントリ行を 1 行 = 1 エントリに分割
-      const migrated = splitMultiEntryRows(d.data as any);
+      // + stage_diagram の templateIndex→templateId 移行 + モバイル形セルの正規化 (段0)
+      const migrated = normalizeQsheetData(d.data as any);
       // Phase 0 (同時編集の地固め): 全 section/row に安定 id を後付け
       const withIds = ensureStableIds(migrated.data as any);
       const anyChanged = migrated.changed || withIds.changed;
@@ -353,6 +362,9 @@ export default function EditorPage() {
     });
   }, [updateData]);
 
+  // 台本 Excel 入出力（03-excel.md §8・§9）。状態・ハンドラは useExcelIO.ts に切り出し。
+  const excelIO = useExcelIO(doc, updateData, setDoc);
+
   // collab: Y.Doc スナップショットを doc.data に反映 (Y が真実源)。
   useEffect(() => {
     if (!collabEnabled || !collabData) return;
@@ -437,6 +449,23 @@ export default function EditorPage() {
     return () => clearTimeout(autoSaveTimer.current);
   }, [dirty, doc, conflictMsg]);
 
+  // collab 有効時、title/status/broadcast_date/episode_* のメタ列だけを別経路で反映する
+  // (§3-3 ★追加(重大)の直し。`data` 列には触れない — フックの中身は useCollabMetaSync.ts)。
+  useCollabMetaSync({
+    collabEnabled,
+    docId: doc?.id,
+    meta: doc
+      ? {
+          title: doc.data.meta.title || doc.title || "",
+          status: doc.status,
+          broadcast_date: doc.broadcast_date,
+          episode_id: doc.episode_id,
+          episode_code: doc.episode_code,
+        }
+      : null,
+    onSynced: (updatedAt) => setDoc((prev) => (prev ? { ...prev, updated_at: updatedAt } : prev)),
+  });
+
   // 在席表示 (Phase 1): このシートを今開いている人を Socket.IO で同期する。
   // 内容同期はまだ載せず、presence のみ (誰かが同時に開いていると分かる → 競合の心当たりが付く)。
   useEffect(() => {
@@ -512,10 +541,9 @@ export default function EditorPage() {
     return `第${meta.draftNumber || 1}稿`;
   };
 
-  const parseDur = parseDurShared;
-  const totalDuration = doc?.data.sections.reduce(
-    (acc, section) => acc + (parseDur(section.duration) || section.rows.reduce((a, r) => a + parseDur(r.duration), 0)), 0
-  ) || 0;
+  // 編集画面の合計尺: ロール尺 (section.duration) を優先し、無ければ行の合計へ
+  // (進行/ランダウンとは向きが逆。両画面の表示結果を変えないため docTotalSec に優先順位を渡す)
+  const totalDuration = docTotalSec(doc?.data.sections, { preferRoleDuration: true });
 
   if (isLoading || !doc) {
     return (
@@ -527,17 +555,18 @@ export default function EditorPage() {
 
   // 立ち位置図テンプレートを複製して、その複製を編集モードで開く
   // (元データはそのまま残り、「1人追加」などの転用が時短になる)
-  const duplicateStageTemplate = (idx: number) => {
-    const templates = (((doc.data as any).stageTemplates) || []) as Array<{ name: string; elements: unknown[] }>;
-    const src = templates[idx];
+  const duplicateStageTemplate = (id: string) => {
+    const templates = (((doc.data as any).stageTemplates) || []) as Array<{ id?: string; name: string; elements: unknown[] }>;
+    const src = templates.find((t) => t.id === id);
     if (!src) return;
+    const newId = genId("stg");
     const copy = {
+      id: newId,
       name: `${src.name || "立ち位置図"} (コピー)`,
       elements: JSON.parse(JSON.stringify(src.elements || [])),
     };
-    const newIdx = templates.length;
     updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), copy] } as any));
-    setEditingStageIdx(newIdx);
+    setStageEditorTarget({ id: newId });
   };
 
   return (
@@ -548,8 +577,8 @@ export default function EditorPage() {
         <div className="flex items-center justify-between px-4 h-11">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
-              onClick={() => navigate("/qsheet")}
-              className="p-1 rounded-lg hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              onClick={() => navigate("/qsheet/sheets")}
+              className="p-1 rounded-control-md hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="ダッシュボードに戻る"
             >
               <ChevronLeft size={18} aria-hidden />
@@ -598,7 +627,7 @@ export default function EditorPage() {
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-control-md transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
               aria-label="手動保存"
@@ -614,7 +643,7 @@ export default function EditorPage() {
               return (
                 <button
                   onClick={() => setShowTrash(true)}
-                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   title="ゴミ箱（削除したロール/行を復元）"
                   aria-label={`ゴミ箱 ${trashCount}件`}
                 >
@@ -641,12 +670,13 @@ export default function EditorPage() {
             {/* PDF export */}
             <button
               onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="印刷 / PDF プレビュー"
             >
               <Eye size={13} aria-hidden />
               <span className="hidden md:inline">印刷 / PDF</span>
             </button>
+            <AiEditorTools documentId={doc.id} projectId={(doc as any).project_id} updateData={updateData} />
             {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
             {doc.data.blocks.some((b) => b.type === "audio_mic") && (
               <Button
@@ -675,7 +705,7 @@ export default function EditorPage() {
               <span className="hidden sm:inline text-xs">ON AIR</span>
             </Button>
             <button
-              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 rounded-control-md hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label={sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}
             >
@@ -688,13 +718,13 @@ export default function EditorPage() {
         <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-muted-foreground flex-wrap">
           {/* Draft selector */}
           <div className="flex items-center gap-1">
-            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>
+            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded-badge font-number">
               {getDraftLabel(doc.data.meta)}
             </span>
             <select
               value={doc.data.meta.draftType || "numbered"}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, draftType: e.target.value } }))}
-              className="bg-transparent border border-border rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="bg-transparent border border-border rounded-control px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="稿の種類"
             >
               <option value="numbered">稿番号を自動設定</option>
@@ -705,15 +735,15 @@ export default function EditorPage() {
           <span className="text-border" aria-hidden>|</span>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">放送日</span>
-            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="放送日" />
+            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" aria-label="放送日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">収録日</span>
-            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="収録日" />
+            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" aria-label="収録日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">開始</span>
-            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} step="1" aria-label="放送開始時刻" />
+            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground font-number" step="1" aria-label="放送開始時刻" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">場所</span>
@@ -721,7 +751,7 @@ export default function EditorPage() {
           </label>
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <Clock size={11} aria-hidden />
-            <span style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
+            <span className="font-number tabular-nums" aria-label="総尺">{formatTime(totalDuration)}</span>
           </div>
         </div>
       </header>
@@ -733,7 +763,7 @@ export default function EditorPage() {
           <span className="flex-1 min-w-[200px]">{conflictMsg} 自動保存は停止中です。必要なら現在の内容を CSV エクスポート等で退避してから、最新を読み込んでください。</span>
           <button
             onClick={() => window.location.reload()}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-destructive-foreground/15 hover:bg-destructive-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive-foreground/50"
+            className="px-3 py-1.5 text-xs font-bold rounded-control-md bg-destructive-foreground/15 hover:bg-destructive-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive-foreground/50"
           >
             最新を読み込む (自分の未保存分は破棄)
           </button>
@@ -771,12 +801,14 @@ export default function EditorPage() {
             onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
             onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
             onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
-            onEditStageTemplate={(idx) => setEditingStageIdx(idx)}
-            onDuplicateStageTemplate={(idx) => duplicateStageTemplate(idx)}
+            onEditStageTemplate={(id) => setStageEditorTarget({ id })}
+            onDuplicateStageTemplate={(id) => duplicateStageTemplate(id)}
             onEpisodeChange={(episodeId, episodeCode) => {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
               setDirty(true);
             }}
+            onExportExcel={excelIO.handleExcelExport}
+            onShowImport={() => excelIO.setShowExcelImport(true)}
           />
         )}
       </div>
@@ -795,18 +827,20 @@ export default function EditorPage() {
         onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
         onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
         onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
-        onEditStageTemplate={(idx) => {
-          setEditingStageIdx(idx);
+        onEditStageTemplate={(id) => {
+          setStageEditorTarget({ id });
           setMobileSidebarOpen(false);
         }}
-        onDuplicateStageTemplate={(idx) => {
-          duplicateStageTemplate(idx);
+        onDuplicateStageTemplate={(id) => {
+          duplicateStageTemplate(id);
           setMobileSidebarOpen(false);
         }}
         onEpisodeChange={(episodeId, episodeCode) => {
           setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
           setDirty(true);
         }}
+        onExportExcel={excelIO.handleExcelExport}
+        onShowImport={() => { setMobileSidebarOpen(false); excelIO.setShowExcelImport(true); }}
       />
 
       {/* FAB — モバイル/タブレットでサイドバーを開く */}
@@ -847,6 +881,10 @@ export default function EditorPage() {
         />
       )}
 
+      {excelIO.showExcelImport && (
+        <ExcelImportDialog docId={doc.id} currentData={doc.data} onApply={excelIO.handleExcelApply} onApplyMeta={excelIO.handleExcelApplyMeta} onRestore={excelIO.handleExcelRestore} onClose={() => excelIO.setShowExcelImport(false)} />
+      )}
+
       {/* ゴミ箱 Drawer */}
       {showTrash && (
         <TrashDrawer
@@ -864,28 +902,34 @@ export default function EditorPage() {
       />
 
       {/* Stage Editor Modal */}
-      {editingStageIdx !== null && (
+      {stageEditorTarget && (
         <StageEditor
-          template={editingStageIdx >= 0 ? ((doc.data as any).stageTemplates || [])[editingStageIdx] : null}
+          template={
+            stageEditorTarget.id
+              ? (((doc.data as any).stageTemplates || []) as Array<{ id?: string }>).find(
+                  (t) => t.id === stageEditorTarget.id,
+                ) as any || null
+              : null
+          }
           onSave={(data) => {
             updateData((d) => {
               const templates = [...((d as any).stageTemplates || [])];
-              if (editingStageIdx >= 0 && editingStageIdx < templates.length) {
-                templates[editingStageIdx] = data;
+              const idx = templates.findIndex((t: any) => t?.id === data.id);
+              if (idx >= 0) {
+                templates[idx] = data;
               } else {
                 templates.push(data);
               }
               return { ...d, stageTemplates: templates } as any;
             });
-            setEditingStageIdx(null);
+            setStageEditorTarget(null);
           }}
           onSaveCopy={(data) => {
             // 現在の内容を新しいテンプレートとして追加し、その複製を続けて編集 (元データは変更しない)
-            const newIdx = (((doc.data as any).stageTemplates) || []).length;
             updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), data] } as any));
-            setEditingStageIdx(newIdx);
+            setStageEditorTarget({ id: data.id });
           }}
-          onClose={() => setEditingStageIdx(null)}
+          onClose={() => setStageEditorTarget(null)}
         />
       )}
     </div>

@@ -1,5 +1,8 @@
-/* GMO ONAiR Qシート v2.0 — DADS-based tokens from shared */
-@import '@gmo-onair/shared/src/client/tokens.css';
+/* GMO ONAiR Qシート v2.0 — DADS-based tokens from shared
+ * 段5 PR8 で `tokens.css` 直読みから `base.css` 経由 (→ tokens-v4.css → tokens.css) に切り替えた。
+ * v4 の色・LINE Seed JP・`.dark`（本番3画面の暗い配色）はここから効く。
+ * 元に戻したいときは `./tokens.css` に戻せばよい (shared/CLAUDE.md「v4 のトークン方針」)。 */
+@import '@gmo-onair/shared/src/client/base.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

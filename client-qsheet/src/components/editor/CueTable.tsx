@@ -8,12 +8,17 @@ import {
   Video,
   Type,
   Mic,
+  Mic2,
+  MonitorPlay,
   Layout,
   Image,
+  Lightbulb,
   FileText,
-  Plus,
+  type LucideIcon,
 } from "lucide-react";
 import SectionMenu from "./SectionMenu";
+import ColumnHeaderCell from "./cells/ColumnHeaderCell";
+import InsertGap from "./cells/InsertGap";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
 import { makeTrashItem, pushToTrash } from "@/lib/trash";
 import { genId } from "@/lib/stableIds";
@@ -64,13 +69,32 @@ interface Props {
 }
 
 // ─── Constants ──────────────────────────────────────────
-const BLOCK_ICONS: Record<string, any> = {
+// 11 ブロック型の全リスト (EditorSidebar.tsx BLOCK_TYPES と同じ型名)。
+// Record<KnownBlockType, …> にすることで、型が増えたときアイコンの割り当て漏れを
+// コンパイルエラーで検知する (05-editor-impl.md §2-2「アイコン表がある型は8種だけ」の是正)。
+type KnownBlockType =
+  | "scenario"
+  | "video"
+  | "audio"
+  | "telop"
+  | "audio_mic"
+  | "led_xr"
+  | "stage_diagram"
+  | "slide"
+  | "lighting"
+  | "remarks"
+  | "item";
+
+const BLOCK_ICONS: Record<KnownBlockType, LucideIcon> = {
   scenario: User,
   video: Video,
   telop: Type,
   audio: Mic,
+  audio_mic: Mic2,
+  led_xr: MonitorPlay,
   stage_diagram: Layout,
   slide: Image,
+  lighting: Lightbulb,
   remarks: FileText,
   item: FileText,
 };
@@ -106,6 +130,7 @@ export default function CueTable(props: Props) {
         blocks={props.blocks}
         sections={props.sections}
         masters={props.masters}
+        stageTemplates={props.stageTemplates}
         ledScenes={props.ledScenes}
         updateState={props.updateState}
       />
@@ -171,7 +196,51 @@ function CueTableLg({
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
+  // 列 (ブロック) の並べ替え用ドラッグハンドラ。ColumnHeaderCell (段5 PR7 で
+  // CueTable.tsx から切り出した表頭セル) へ渡す。挙動は旧 <th> インラインの
+  // ものと同じ (純粋な移動)。
+  const onBlockDragStart = useCallback((e: React.DragEvent, blk: Block) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("text/x-block-id", blk.id);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedBlockId(blk.id);
+  }, []);
+  const onBlockDragOver = useCallback((e: React.DragEvent, bi: number) => {
+    if (!e.dataTransfer.types.includes("text/x-block-id")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetIdx(bi);
+  }, []);
+  const onBlockDragLeave = useCallback(() => setDropTargetIdx(null), []);
+  const onBlockDrop = useCallback((e: React.DragEvent, bi: number) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const fromId = e.dataTransfer.getData("text/x-block-id");
+    if (!fromId) return;
+    updateState((s: any) => {
+      const blks = [...s.blocks];
+      const fromIdx = blks.findIndex((b: Block) => b.id === fromId);
+      if (fromIdx < 0 || fromIdx === bi) return s;
+      const [moved] = blks.splice(fromIdx, 1);
+      blks.splice(bi, 0, moved);
+      return { ...s, blocks: blks };
+    });
+    setDraggedBlockId(null);
+    setDropTargetIdx(null);
+  }, [updateState]);
+  const onBlockDragEnd = useCallback(() => { setDraggedBlockId(null); setDropTargetIdx(null); }, []);
+
   const getBlockWidth = (blk: Block) => blk.widthPx || defaultBlockWidth(blk);
+
+  // 列 (ブロック) のラベル変更。05-editor-impl.md §2-2 / §10-C:
+  // これまで表示のみで編集 UI が無かった (EditorSidebar.tsx:532 / このファイルの
+  // 旧 :836 相当も同様)。ここで新規に追加する — 既存の行・ロール操作には触れない。
+  const updateBlockLabel = useCallback((blockId: string, label: string) => {
+    updateState((s: any) => ({
+      ...s,
+      blocks: s.blocks.map((b: Block) => (b.id === blockId ? { ...b, label } : b)),
+    }));
+  }, [updateState]);
 
   const blockTableWidth = blocks.reduce((s, b) => s + (collapsedBlocks?.has(b.id) ? 36 : getBlockWidth(b)), 0) + FIXED_COLS.ops;
 
@@ -484,49 +553,6 @@ function CueTableLg({
 
   let rowNum = 0;
 
-  // セクション間に挿入する UI (固定高 + opacity 切替で layout shift なし)
-  // - 通常: 細い破線 + 中央に小さな "+" のみ表示
-  // - hover/focus 時: 3 種ボタン (ロール / CM / VTR) がフェードイン
-  const InsertGap = ({ idx }: { idx: number }) => (
-    <div className="group relative h-7 flex items-center justify-center">
-      <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 group-hover:border-primary/40 transition-colors pointer-events-none" />
-      {/* デフォルト表示: 小さな + アイコンのみ */}
-      <span
-        className="relative inline-flex items-center justify-center size-5 rounded-full bg-background text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
-        aria-hidden
-      >
-        <Plus size={12} />
-      </span>
-      {/* hover/focus 時: 3 種挿入ボタン */}
-      <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => insertSectionAt(idx)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`位置 ${idx} にロールを挿入`}
-        >
-          ＋ ロール
-        </button>
-        <button
-          type="button"
-          onClick={() => addBreak(idx - 1)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`位置 ${idx} に CM を挿入`}
-        >
-          ＋ CM
-        </button>
-        <button
-          type="button"
-          onClick={() => addVtr(idx - 1)}
-          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`位置 ${idx} に VTR を挿入`}
-        >
-          ＋ VTR
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <main
       ref={scrollRef}
@@ -549,7 +575,7 @@ function CueTableLg({
         </div>
       )}
       <div className="p-4 space-y-4">
-        <InsertGap idx={0} />
+        <InsertGap idx={0} insertSectionAt={insertSectionAt} addBreak={addBreak} addVtr={addVtr} />
         {sections.map((section, si) => {
           const isSectionDragTarget = dropTargetSectionIdx === si && draggedSectionIdx !== null && draggedSectionIdx !== si;
           const isSectionDragged = draggedSectionIdx === si;
@@ -559,15 +585,15 @@ function CueTableLg({
             return (
               <Fragment key={section.id ?? si}>
                 <div className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
-                  <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
+                  <GripVertical size={12} className="text-muted-foreground flex-none" />
                   <div className="flex-1 border-t-2 border-dashed border-border" />
                   <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">改ページ</span>
                   <div className="flex-1 border-t-2 border-dashed border-border" />
-                  <button onClick={() => deleteSection(si)} className="text-muted-foreground/60 hover:text-destructive transition-colors p-0.5">
+                  <button onClick={() => deleteSection(si)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <InsertGap idx={si + 1} />
+                <InsertGap idx={si + 1} insertSectionAt={insertSectionAt} addBreak={addBreak} addVtr={addVtr} />
               </Fragment>
             );
           }
@@ -586,9 +612,9 @@ function CueTableLg({
                   onDragLeave={() => setDropTargetSectionIdx(null)}
                   onDrop={(e) => { e.preventDefault(); const from = +e.dataTransfer.getData("text/x-section-idx"); moveSection(from, si); setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
                   onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
-                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-lg" : ""}`}
+                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-note" : ""}`}
                 >
-                  <div className="flex items-center gap-3 px-4 py-1.5 bg-foreground/90 dark:bg-foreground/90 rounded-lg cursor-grab select-none">
+                  <div className="flex items-center gap-3 px-4 py-1.5 bg-foreground/90 dark:bg-foreground/90 rounded-note cursor-grab select-none">
                     <GripVertical size={13} className="text-background/50 flex-none" aria-hidden />
                     <span className="text-[13px] text-background/70 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
                       {fmtAbs(breakAbsSec)}
@@ -609,9 +635,9 @@ function CueTableLg({
                         const n = normalizeDur(e.target.value);
                         if (n !== e.target.value) updateSection(si, "duration", n);
                       }}
-                      className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
+                      className={`w-12 text-center text-[11px] border-none outline-none rounded-control py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
                         parseDur(section.duration || "") === 0
-                          ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
+                          ? "bg-warning text-warning-foreground ring-1 ring-warning-border-strong"
                           : "bg-foreground/30 text-background/70"
                       }`}
                       placeholder="0:00"
@@ -622,7 +648,7 @@ function CueTableLg({
                     </button>
                   </div>
                 </div>
-                <InsertGap idx={si + 1} />
+                <InsertGap idx={si + 1} insertSectionAt={insertSectionAt} addBreak={addBreak} addVtr={addVtr} />
               </Fragment>
             );
           }
@@ -641,18 +667,18 @@ function CueTableLg({
                   onDragLeave={() => setDropTargetSectionIdx(null)}
                   onDrop={(e) => { e.preventDefault(); const from = +e.dataTransfer.getData("text/x-section-idx"); moveSection(from, si); setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
                   onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
-                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-lg" : ""}`}
+                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-note" : ""}`}
                 >
-                <div className="flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-indigo-800 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 rounded-lg cursor-grab select-none">
-                  <GripVertical size={13} className="text-indigo-300 flex-none" aria-hidden />
-                  <span className="text-[11px] font-bold text-indigo-200 bg-indigo-950/50 rounded px-1.5 py-0.5 tracking-wider">VTR</span>
-                  <span className="text-[13px] text-indigo-200 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-info to-info/80 dark:from-info/90 dark:to-info/70 rounded-note cursor-grab select-none">
+                  <GripVertical size={13} className="text-info-foreground/70 flex-none" aria-hidden />
+                  <span className="text-[11px] font-bold text-info-foreground bg-info-foreground/15 rounded-control px-1.5 py-0.5 tracking-wider">VTR</span>
+                  <span className="text-[13px] text-info-foreground/85 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
                     {fmtAbs(vtrAbsSec)}
                   </span>
                   <input
                     value={section.label || ""}
                     onChange={(e) => updateSection(si, "label", e.target.value)}
-                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-indigo-300 tracking-wide flex-1"
+                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-info-foreground/50 tracking-wide flex-1"
                     placeholder="VTR タイトル"
                   />
                   <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
@@ -665,20 +691,20 @@ function CueTableLg({
                       const n = normalizeDur(e.target.value);
                       if (n !== e.target.value) updateSection(si, "duration", n);
                     }}
-                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-indigo-300 focus:text-white transition-colors ${
+                    className={`w-12 text-center text-[11px] border-none outline-none rounded-control py-0.5 tabular-nums placeholder:text-info-foreground/50 focus:text-white transition-colors ${
                       vtrDur === 0
-                        ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
-                        : "bg-indigo-950/50 text-indigo-100"
+                        ? "bg-warning text-warning-foreground ring-1 ring-warning-border-strong"
+                        : "bg-info-foreground/15 text-info-foreground/90"
                     }`}
                     placeholder="0:00"
                     title={vtrDur === 0 ? "尺が未入力です" : undefined}
                   />
-                  <button onClick={() => deleteSection(si)} className="text-info/80 hover:text-destructive/80 transition-colors p-1">
+                  <button onClick={() => deleteSection(si)} className="text-info-foreground/80 hover:text-destructive-foreground hover:bg-destructive rounded transition-colors p-1">
                     <Trash2 size={13} />
                   </button>
                 </div>
                 </div>
-                <InsertGap idx={si + 1} />
+                <InsertGap idx={si + 1} insertSectionAt={insertSectionAt} addBreak={addBreak} addVtr={addVtr} />
               </Fragment>
             );
           }
@@ -693,7 +719,7 @@ function CueTableLg({
           return (
             <Fragment key={section.id ?? si}>
             <div
-              className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in transition-opacity ${
+              className={`bg-card rounded-card border border-border overflow-hidden shadow-sm animate-in transition-opacity ${
                 isSectionDragged ? "opacity-40" : ""
               } ${isSectionDragTarget ? "ring-2 ring-primary ring-offset-2" : ""}`}
             >
@@ -728,9 +754,9 @@ function CueTableLg({
                     const n = normalizeDur(e.target.value);
                     if (n !== e.target.value) updateSection(si, "duration", n);
                   }}
-                  className={`w-14 text-center text-[13px] font-medium border-none outline-none rounded-md py-1 tabular-nums focus:bg-white/25 transition-colors font-oswald ${
+                  className={`w-14 text-center text-[13px] font-medium border-none outline-none rounded-control py-1 tabular-nums focus:bg-white/25 transition-colors font-oswald ${
                     parseDur(section.duration || "") === 0
-                      ? "bg-amber-400/30 text-amber-50 ring-1 ring-amber-300/80 placeholder:text-amber-100/70"
+                      ? "bg-warning text-warning-foreground ring-1 ring-warning-border-strong placeholder:text-warning-foreground/70"
                       : "bg-white/15 text-white placeholder:text-white/30"
                   }`}
                   placeholder="0:00"
@@ -740,7 +766,7 @@ function CueTableLg({
                 <input
                   value={section.label || ""}
                   onChange={(e) => updateSection(si, "label", e.target.value)}
-                  className="flex-1 bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-blue-200/50 tracking-wide"
+                  className="flex-1 bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-primary-foreground/50 tracking-wide"
                   placeholder="ロール名"
                 />
                 <button
@@ -777,74 +803,29 @@ function CueTableLg({
                         <col style={{ width: FIXED_COLS.ops + "px" }} />
                       </colgroup>
                       <thead>
-                        <tr className="text-[11px] text-muted-foreground uppercase tracking-wider">
+                        <tr className="text-th text-muted-foreground uppercase tracking-wider">
                           {blocks.map((blk, bi) => {
-                            const Icon = BLOCK_ICONS[blk.type];
+                            const Icon = BLOCK_ICONS[blk.type as KnownBlockType];
                             const isCollapsed = collapsedBlocks?.has(blk.id);
-                            const isDragTarget = dropTargetIdx === bi && draggedBlockId && draggedBlockId !== blk.id;
+                            const isDragTarget = dropTargetIdx === bi && draggedBlockId !== null && draggedBlockId !== blk.id;
                             return (
-                              <th
+                              <ColumnHeaderCell
                                 key={blk.id}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation();
-                                  e.dataTransfer.setData("text/x-block-id", blk.id);
-                                  e.dataTransfer.effectAllowed = "move";
-                                  setDraggedBlockId(blk.id);
-                                }}
-                                onDragOver={(e) => {
-                                  if (!e.dataTransfer.types.includes("text/x-block-id")) return;
-                                  e.preventDefault();
-                                  e.dataTransfer.dropEffect = "move";
-                                  setDropTargetIdx(bi);
-                                }}
-                                onDragLeave={() => setDropTargetIdx(null)}
-                                onDrop={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  const fromId = e.dataTransfer.getData("text/x-block-id");
-                                  if (!fromId) return;
-                                  updateState((s: any) => {
-                                    const blks = [...s.blocks];
-                                    const fromIdx = blks.findIndex((b: Block) => b.id === fromId);
-                                    if (fromIdx < 0 || fromIdx === bi) return s;
-                                    const [moved] = blks.splice(fromIdx, 1);
-                                    blks.splice(bi, 0, moved);
-                                    return { ...s, blocks: blks };
-                                  });
-                                  setDraggedBlockId(null);
-                                  setDropTargetIdx(null);
-                                }}
-                                onDragEnd={() => { setDraggedBlockId(null); setDropTargetIdx(null); }}
-                                className={`px-2 py-2 text-left font-medium border-b border-border/60 relative group/th cursor-grab select-none transition-all ${
-                                  draggedBlockId === blk.id ? "opacity-40" : ""
-                                } ${isDragTarget ? "border-l-2 border-l-blue-500" : ""}`}
-                              >
-                                {isCollapsed ? (
-                                  <div className="flex items-center justify-center h-full">
-                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-accent rounded transition-colors">
-                                      <ChevronRight size={10} />
-                                    </button>
-                                    <span className="text-xs whitespace-nowrap" style={{ writingMode: "vertical-rl" }}>{blk.label}</span>
-                                  </div>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-accent rounded transition-colors opacity-0 group-hover/th:opacity-100">
-                                      <ChevronDown size={10} />
-                                    </button>
-                                    {Icon && <Icon size={12} className="opacity-50" />}
-                                    {blk.label}
-                                  </span>
-                                )}
-                                {/* Resize handle */}
-                                {!isCollapsed && (
-                                  <div
-                                    draggable={false}
-                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-primary transition-opacity"
-                                    onMouseDown={(e) => startResize(e, blk)}
-                                  />
-                                )}
-                              </th>
+                                blk={blk}
+                                bi={bi}
+                                Icon={Icon}
+                                isCollapsed={isCollapsed}
+                                isDragged={draggedBlockId === blk.id}
+                                isDragTarget={isDragTarget}
+                                onToggleCollapse={onToggleCollapse}
+                                updateBlockLabel={updateBlockLabel}
+                                startResize={startResize}
+                                onDragStartBlock={onBlockDragStart}
+                                onDragOverBlock={onBlockDragOver}
+                                onDragLeaveBlock={onBlockDragLeave}
+                                onDropBlock={onBlockDrop}
+                                onDragEndBlock={onBlockDragEnd}
+                              />
                             );
                           })}
                           <th className="border-b border-border/60" />
@@ -917,7 +898,7 @@ function CueTableLg({
                 </>
               )}
             </div>
-            <InsertGap idx={si + 1} />
+            <InsertGap idx={si + 1} insertSectionAt={insertSectionAt} addBreak={addBreak} addVtr={addVtr} />
             </Fragment>
           );
         })}
@@ -926,19 +907,19 @@ function CueTableLg({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={addSection}
-            className="flex-1 min-w-[160px] py-3 text-sm text-muted-foreground hover:text-primary border-2 border-dashed border-border hover:border-primary rounded-xl transition-all"
+            className="flex-1 min-w-[160px] py-3 text-sm text-muted-foreground hover:text-primary border-2 border-dashed border-border hover:border-primary rounded-control-lg transition-all"
           >
             ＋ ロールを追加
           </button>
           <button
             onClick={() => addBreak()}
-            className="py-3 px-5 text-sm text-muted-foreground hover:text-warning border-2 border-dashed border-border hover:border-warning rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-muted-foreground hover:text-warning border-2 border-dashed border-border hover:border-warning rounded-control-lg transition-all"
           >
             ＋ CMなど
           </button>
           <button
             onClick={() => addVtr()}
-            className="py-3 px-5 text-sm text-muted-foreground hover:text-info border-2 border-dashed border-border hover:border-info rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-muted-foreground hover:text-info border-2 border-dashed border-border hover:border-info rounded-control-lg transition-all"
           >
             ＋ VTR
           </button>

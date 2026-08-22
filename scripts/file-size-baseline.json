@@ -4,16 +4,21 @@
   "files": {
     "client/src/contexts/production/components/episodes/BusinessProjectView.tsx": 2031,
     "client-equipment/src/pages/RackLayoutPage.tsx": 1270,
-    "client-equipment/src/pages/EquipmentDetailPage.tsx": 1091,
-    "client/src/contexts/production/pages/StudioCalendarPage.tsx": 1002,
-    "client/src/contexts/platform/pages/DataViewerPage.tsx": 890,
-    "client-daily/src/pages/TasksPage.tsx": 882,
-    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 772,
+    "client-equipment/src/pages/EquipmentDetailPage.tsx": 1086,
+    "client-qsheet/src/components/editor/CueTable.tsx": 1055,
+    "client-qsheet/src/pages/EditorPage.tsx": 938,
+    "client/src/contexts/platform/pages/DataViewerPage.tsx": 879,
+    "client-qsheet/src/pages/DashboardPage.tsx": 833,
+    "client-qsheet/src/pages/RundownPage.tsx": 816,
+    "client-qsheet/src/components/editor/PreviewModal.tsx": 793,
+    "client-qsheet/src/components/editor/EditorSidebar.tsx": 749,
+    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 747,
+    "client-qsheet/src/pages/OnAirPage.tsx": 634,
     "client/src/contexts/tasks/components/DashboardGantt/DashboardGanttView.tsx": 523,
-    "client/src/contexts/sales/pages/CustomerDetailPage.tsx": 492,
-    "client/src/contexts/sales/pages/ProjectFormPage.tsx": 454,
-    "client-equipment/src/components/ExcelImportDialog.tsx": 415,
-    "client/src/contexts/production/components/schedule/IcsFeedsDialog.tsx": 412,
-    "client/src/contexts/sales/pages/ProjectLedgerPage.tsx": 404
+    "client-qsheet/src/pages/AudioSupportPage.tsx": 453,
+    "client/src/contexts/sales/pages/ProjectFormPage.tsx": 417,
+    "client-equipment/src/components/ExcelImportDialog.tsx": 409,
+    "client/src/contexts/production/components/schedule/IcsFeedsDialog.tsx": 404,
+    "client/src/contexts/sales/pages/ProjectLedgerPage.tsx": 403
   }
 }

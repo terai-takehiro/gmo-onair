@@ -17,8 +17,31 @@ interface StageElement {
 }
 
 interface StageTemplate {
+  id?: string;
   name: string;
   elements: StageElement[];
+}
+
+/**
+ * セルからひな形を解決する共通の読み取り規則。
+ * `templateId` (id 参照・新形) を優先し、無ければ `templateIndex` (配列 index・旧形、
+ * `0` 以上かつ範囲内のときだけ) を見る。stage_diagram を読むすべての画面
+ * (このセル自身・RundownPage・PreviewModal) がこの関数を通ること。
+ */
+export function resolveStageTemplate(
+  cell: any,
+  templates: StageTemplate[] | null | undefined,
+): StageTemplate | null {
+  const list = templates || [];
+  if (!cell) return null;
+  if (cell.templateId) {
+    return list.find((t) => t?.id === cell.templateId) || null;
+  }
+  const idx = cell.templateIndex;
+  if (typeof idx === "number" && idx >= 0 && idx < list.length) {
+    return list[idx] || null;
+  }
+  return null;
 }
 
 function StageDiagramPreview({
@@ -78,22 +101,22 @@ interface StageDiagramCellProps {
 
 export default function StageDiagramCell({ cell, stageTemplates, onChange }: StageDiagramCellProps) {
   const templates = stageTemplates || [];
-  const selectedIdx = cell?.templateIndex ?? -1;
-  const elements = selectedIdx >= 0 && templates[selectedIdx] ? templates[selectedIdx].elements : null;
+  const selected = resolveStageTemplate(cell, templates);
+  const selectedId = cell?.templateId ?? "";
 
   return (
     <div className="py-1 px-1 space-y-1">
       <select
-        value={selectedIdx}
-        onChange={(e) => onChange({ ...cell, templateIndex: parseInt(e.target.value) })}
+        value={selectedId}
+        onChange={(e) => onChange({ ...cell, templateId: e.target.value || null })}
         className="w-full text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded px-1 py-0.5 outline-none focus:border-blue-400 transition-colors"
       >
-        <option value={-1}>-- 選択 --</option>
+        <option value="">-- 選択 --</option>
         {templates.map((t, i) => (
-          <option key={i} value={i}>{t.name}</option>
+          <option key={t.id ?? i} value={t.id ?? ""}>{t.name}</option>
         ))}
       </select>
-      {elements && <StageDiagramPreview elements={elements} />}
+      {selected?.elements && <StageDiagramPreview elements={selected.elements} />}
       <textarea
         value={cell?.note || ""}
         onChange={(e) => onChange({ ...cell, note: e.target.value })}
@@ -106,3 +129,4 @@ export default function StageDiagramCell({ cell, stageTemplates, onChange }: Sta
 }
 
 export { StageDiagramPreview };
+export type { StageTemplate };
