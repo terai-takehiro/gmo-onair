@@ -1,6 +1,6 @@
 // 計時・視聴者（liveops）の運用画面が使う整形ヘルパー。
 // `client-live/src/lib/utils.ts` の `formatTimer` / `formatCount` の複製
-// （client-qsheet 側の `src/lib/utils.ts` は `cn()` の再エクスポートしか持たないため）。
+// （client-techops 側の `src/lib/utils.ts` は `cn()` の再エクスポートしか持たないため）。
 // ロジックは1文字も変えていない。
 
 export function formatTimer(remainingMs: number): string {

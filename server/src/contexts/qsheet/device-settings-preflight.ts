@@ -4,7 +4,7 @@
 // （画面側に判定式を書かない）」だったが、この API は **保存済みの内容しか見ない**ため、
 // 打ち込んだばかりの値は点検に映らず、**間違いに気づけるのは書き出しダイアログを
 // 開いたときだけ**だった。いまは画面も同じ判定をその場で行う
-// （`client-qsheet/src/lib/deviceSettingsShared.ts` の `destIssues` / `deckState`）。
+// （`client-techops/src/lib/deviceSettingsShared.ts` の `destIssues` / `deckState`）。
 // **両者は同じ判定にすること。** 食い違うと「画面は赤いのに書き出しは通る」が起きる。
 //
 // ⚠️ `meetings` は一度も見ない（08 §5-4-2 / impl doc §4-4）。未入力でも赤も橙も出さない。

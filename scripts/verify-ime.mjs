@@ -18,7 +18,7 @@
  *
  * ── 何を見ているか ──────────────────────────────────
  *
- *  - `#buffered`: `client-qsheet/src/lib/useBufferedValue.ts` を通した入力欄。
+ *  - `#buffered`: `client-techops/src/lib/useBufferedValue.ts` を通した入力欄。
  *    ここが「さくら」にならなければ **exit 1** (これが本番の入力欄と同じ形)
  *  - `#raw`: 生の controlled input。壊れることの確認用 (参考表示のみで、
  *    ここでは落とさない — ブラウザ側の実装が変われば壊れ方は変わり得る)
@@ -55,7 +55,7 @@ const nm = (p) => ${JSON.stringify(path.join(ROOT, 'node_modules'))} + '/' + p;
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: [
-    { find: '@qsheet/lib', replacement: ${JSON.stringify(path.join(ROOT, 'client-qsheet/src/lib'))} },
+    { find: '@techops/lib', replacement: ${JSON.stringify(path.join(ROOT, 'client-techops/src/lib'))} },
     { find: 'react-dom/client', replacement: nm('react-dom/client.js') },
     { find: /^react-dom$/, replacement: nm('react-dom/index.js') },
     { find: /^react\\/jsx-runtime$/, replacement: nm('react/jsx-runtime.js') },

@@ -10,8 +10,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   groupGray, visiblePreviewSheets, sheetPosition, SHEET_DEFS, GUIDE_SHEET_NAME,
-} from '../../client-qsheet/src/pages/settings-export/exportPlan';
-import type { PreflightIssue, PreviewSheet } from '../../client-qsheet/src/lib/deviceSettingsApi';
+} from '../../client-techops/src/pages/settings-export/exportPlan';
+import type { PreflightIssue, PreviewSheet } from '../../client-techops/src/lib/deviceSettingsApi';
 
 const gray = (where: string, code: string, message = ''): PreflightIssue => ({ where, code, message });
 

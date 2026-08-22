@@ -12,9 +12,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   deckState, countDecks, sessionNameError, destIssues, keyStatus, destTarget, jstToday,
-} from '../../client-qsheet/src/lib/deviceSettingsShared';
-import { coerceDeck, commonOptions } from '../../client-qsheet/src/pages/recording/deckOptions';
-import type { Deck, Destination } from '../../client-qsheet/src/lib/deviceSettingsApi';
+} from '../../client-techops/src/lib/deviceSettingsShared';
+import { coerceDeck, commonOptions } from '../../client-techops/src/pages/recording/deckOptions';
+import type { Deck, Destination } from '../../client-techops/src/lib/deviceSettingsApi';
 
 const deck = (p: Partial<Deck>): Deck => ({ deckId: 'REC1', ...p });
 const dest = (p: Partial<Destination>): Destination =>

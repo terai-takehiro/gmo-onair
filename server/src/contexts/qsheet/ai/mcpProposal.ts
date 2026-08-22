@@ -3,7 +3,7 @@
  *
  * ⚠️ **設計書 05-mcp.md §5 との食い違い（README に倣い、ここに明記する）**:
  * §5 は「11ブロック型ぶんの `cells: Record<blockRef, string>`」という汎用形を前提にしていたが、
- * 段7で実際に実装された取り込み側（`client-qsheet/src/lib/applyProposal.ts` の
+ * 段7で実際に実装された取り込み側（`client-techops/src/lib/applyProposal.ts` の
  * `ScriptOutlineProposal` / `ScriptLinesProposal`、それを受ける `apply.core.ts` の
  * `proposalKeys`/`proposalElementsByKey`）は、決めたこと9（AI が書く型は `scenario` のみ）を
  * 見込んで**もっと単純な専用の形**（`sections[].rows[].speaker/hint` と `lines[].name/text`）で
@@ -23,7 +23,7 @@
  * 対象文書の行 id 一覧を渡す。
  */
 
-// client-qsheet/src/lib/applyProposal.ts の型と意図的に同じ形（server は client-qsheet を
+// client-techops/src/lib/applyProposal.ts の型と意図的に同じ形（server は client-techops を
 // import できないための複製。生成側の唯一の消費者は取り込み側なので、そちらの形に従う）。
 export interface McpScriptOutlineRow {
   key: string;

@@ -45,11 +45,11 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
  * 一方、**見た目に関係ないもの**（Excel の読み取り・AI が人名を出す・言葉づかい・
  * ブラウザ標準のダイアログ）は凍結アプリにも効かせます。
  */
-// ⚠️ 制作資料 (client-qsheet/src) は v4.1 で凍結を解いたのでここに足した
+// ⚠️ 制作資料 (client-techops/src) は v4.1 で凍結を解いたのでここに足した
 // (03-app-structure-impl.md §7-2 の10番目の指摘)。まだ見た目は作り直していないので
 // 実測値が大きく増える見込み。既存分は BASELINE にそのまま記録し、直す作業は
 // 見た目を作り直す段で行う（raw-palette 等の v4Only 規則が新規に適用されるため）。
-const V4_DIRS = ['client/src', 'client-daily/src', 'client-equipment/src', 'client-qsheet/src', 'shared/src'];
+const V4_DIRS = ['client/src', 'client-daily/src', 'client-equipment/src', 'client-techops/src', 'shared/src'];
 const v4Only = (rel) => V4_DIRS.some((d) => rel.startsWith(d));
 
 /** 記録をアプリ別に持つための、パス → アプリ名 */
@@ -109,7 +109,7 @@ function buildUnknownColorRe() {
 
 /** 見るディレクトリ (画面のコード) */
 const TARGET_DIRS = [
-  'client/src', 'client-qsheet/src', 'client-equipment/src',
+  'client/src', 'client-techops/src', 'client-equipment/src',
   'client-live/src', 'client-awards/src', 'client-daily/src',
   // v3.1.0 で追加。**共通部品も画面に出る** —
   // ここを見ていなかったので、`shared/src/client/finance/FinanceDocOriginal.tsx` に
@@ -144,7 +144,7 @@ const NOT_A_SCREEN = [
   'client-awards/src/oneshot/Ticker',
   'client-awards/src/oneshot/LowerThirdCG',
   'client-awards/src/oneshot/CountdownCG',
-  'client-qsheet/src/pages/PrompterPage',
+  'client-techops/src/pages/PrompterPage',
   'client-live/src/pages/TimerDisplayPage',
   'client-equipment/src/pages/rackLayout/RackDisplay',
 ];
@@ -642,17 +642,17 @@ const BASELINE = {
       "client-awards": 17,
       "client-daily": 1,
       "client-live": 3,
-      "client-qsheet": 18
+      "client-techops": 18
     },
     "col-width-by-hand": {
       "client": 17,
       "client-equipment": 6,
-      "client-qsheet": 9
+      "client-techops": 9
     },
     "control-height": {
       "client": 7,
       "client-equipment": 2,
-      "client-qsheet": 2
+      "client-techops": 2
     },
     "date-range-by-hand": {
       "client": 7,
@@ -661,19 +661,19 @@ const BASELINE = {
     "empty-by-hand": {
       "client": 4,
       "client-equipment": 1,
-      "client-qsheet": 1,
+      "client-techops": 1,
       "shared": 2
     },
     "forbidden-wording": {
       "client": 40,
       "client-live": 1,
-      "client-qsheet": 3,
+      "client-techops": 3,
       "shared": 1
     },
     "grow-column-min-w0": {
       "client": 1,
       "client-equipment": 2,
-      "client-qsheet": 5,
+      "client-techops": 5,
       "shared": 1
     },
     "missing-font-weight": {
@@ -688,14 +688,14 @@ const BASELINE = {
     "page-title-by-hand": {
       "client": 4,
       "client-equipment": 1,
-      "client-qsheet": 1,
+      "client-techops": 1,
       "shared": 1
     },
     "raw-palette": {
       "client": 94,
       "client-daily": 33,
       "client-equipment": 65,
-      "client-qsheet": 149,
+      "client-techops": 149,
       "shared": 6
     },
     "raw-xlsx-read": {
@@ -708,7 +708,7 @@ const BASELINE = {
       "client": 13,
       "client-daily": 2,
       "client-equipment": 5,
-      "client-qsheet": 20,
+      "client-techops": 20,
       "shared": 5
     }
   };

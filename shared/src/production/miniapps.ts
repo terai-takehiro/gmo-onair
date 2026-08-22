@@ -11,7 +11,7 @@
  * つまりクラス名を1つも書かない純データ・純関数である限り、
  * ここに置いても凍結アプリの CSS には1バイトも影響しない。
  *
- * ── なぜ `client-qsheet/` に置かないか ──────────────────────────
+ * ── なぜ `client-techops/` に置かないか ──────────────────────────
  * `docPrefix` / `docNoSeq` は**サーバーが採番に使う**（`docNo.service.ts`）。
  * client にしか無いと、サーバーが同じ文字列を書き写すことになり、
  * 必ず片方だけ変わる。MCP（サーバー側）からも参照するため。
@@ -40,7 +40,7 @@
  * 12-live-timer-decision.md §2 で、計時・視聴者（`liveops`）が**別の Vite バンドル**
  * （`client-live`・`base: '/live/'`）への遷移だったため一時的に `kind: 'external'`
  * （`crossBundle: true` を型に持たせ `<a href>` を強制する `ExternalMiniAppLink`）を
- * 追加していたが、計時・視聴者の運用画面を `client-qsheet` バンドル内
+ * 追加していたが、計時・視聴者の運用画面を `client-techops` バンドル内
  * （`/qsheet/live/:ownerKey`）へ移植したことで「別バンドルへの本物の遷移」という前提
  * 自体が無くなった。収録設定・配信設定と同じ `kind: 'panel'` へ統合し、
  * `MiniAppExternalDef`・`externalPathOf`・`MiniAppKind` の `'external'` はすべて削除した
@@ -147,7 +147,7 @@ export const MINI_APPS: MiniAppDef[] = [
     label: '計時・視聴者',
     path: '/qsheet/live/:ownerKey',
     // 権限区画の統合（migration 232）で 'liveops' → 'qsheet' に変更した。
-    // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-qsheet バンドルへ移植し
+    // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-techops バンドルへ移植し
     // kind: 'panel' に統合した。
     //
     // ⚠️ `MiniAppBase.permissionModule`（ハブの区画と別区画のミニアプリだけ明示する

@@ -61,22 +61,22 @@ const ALLOW = new Map([
   // 同じ <div> の `bg-gradient-to-r from-info to-info/80`（from-info は不透明の
   // 開始点）から来るが、この検査の FILL 正規表現は `bg-<s>` しか見ておらず
   // `from-<s>` / `to-<s>` のグラデーション記法を塗りと認識しない。
-  ['client-qsheet/src/components/editor/CueTable.tsx:673',
+  ['client-techops/src/components/editor/CueTable.tsx:673',
     'VTR ロールヘッダー (bg-gradient-to-r from-info to-info/80) 内の GripVertical'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:674',
+  ['client-techops/src/components/editor/CueTable.tsx:674',
     '同上。VTR バッジ'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:675',
+  ['client-techops/src/components/editor/CueTable.tsx:675',
     '同上。VTR の絶対時刻表示'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:681',
+  ['client-techops/src/components/editor/CueTable.tsx:681',
     '同上。VTR タイトル入力欄の placeholder'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:694',
+  ['client-techops/src/components/editor/CueTable.tsx:694',
     '同上。VTR 尺入力欄 (未入力時は bg-warning へ切り替わる。入力済み時の placeholder 色)'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:697',
+  ['client-techops/src/components/editor/CueTable.tsx:697',
     '同上。VTR 尺入力欄 (入力済み時の背景 bg-info-foreground/15 の上の文字)'],
-  ['client-qsheet/src/components/editor/CueTable.tsx:702',
+  ['client-techops/src/components/editor/CueTable.tsx:702',
     '同上。ロール削除ボタンの既定色 (hover 時は hover:bg-destructive で不透明に塗られる)'],
   // 通常ロールヘッダーも同じ理由 (bg-gradient-to-r from-primary to-primary/80)。
-  ['client-qsheet/src/components/editor/CueTable.tsx:769',
+  ['client-techops/src/components/editor/CueTable.tsx:769',
     '通常ロールヘッダー (bg-gradient-to-r from-primary to-primary/80) 内のロール名入力欄 placeholder'],
 ]);
 
@@ -102,7 +102,7 @@ if (WHITE_FG.length < 4) {
 }
 
 /* ── 走査するファイル ────────────────────────────────────── */
-const APPS = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-live'];
+const APPS = ['client', 'client-daily', 'client-equipment', 'client-techops', 'client-live'];
 
 /**
  * 引数でディレクトリを渡すと**そこだけ**を見る（既定は下の APPS ＋ shared）。

@@ -7,10 +7,10 @@
 //
 // 2つ並べて比べる:
 //   #raw      … 生の controlled input (LED/XR シーンが v3.2.3 まで使っていた形)
-//   #buffered … client-qsheet/src/lib/useBufferedValue.ts を通した形 (修正後)
+//   #buffered … client-techops/src/lib/useBufferedValue.ts を通した形 (修正後)
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useBufferedValue } from '@qsheet/lib/useBufferedValue';
+import { useBufferedValue } from '@techops/lib/useBufferedValue';
 
 function BufferedInput({ value, onCommit, ...rest }: {
   value: string;

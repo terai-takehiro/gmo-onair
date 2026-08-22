@@ -268,7 +268,7 @@ MCPツール名（3-6）は「リネームしない」という選択肢と「�
 選択肢の両方が現実的だが、外部契約という性質上、**どちらを選ぶにせよ会社の判断が必要**
 （§6）。以下ではPhase 4として「実施する場合の手順」を示す。
 
-### Phase 1 — 内部限定・外部露出ゼロの識別子のみ
+### Phase 1 — 内部限定・外部露出ゼロの識別子のみ ✅ **完了（2026-08-22）**
 
 **対象:** ディレクトリ名（`client-qsheet/`→`client-techops/`）、root `package.json`／
 `client-qsheet/package.json`のワークスペース参照、`Dockerfile`のビルドステージ名・COPYパス
@@ -516,3 +516,40 @@ DBオブジェクトそのものではなく「旧IDでの互換アクセス」�
     事項として§6item8に追加した。DBオブジェクト数（`qsheet_`系96個）に変化はない
     （migration 232は既存テーブルの行を移すだけで新規テーブルは作成していない、
     `server/src/contexts/qsheet/index.ts`のrouter.use数も26個のまま）
+- **2026-08-22（Phase 1 実施・完了）** — ユーザーの明示的な指示で§4 Phase 1に着手し、
+  マルチエージェント（8タスク並行）＋手動での漏れ補完で完了させた。
+  - `git mv client-qsheet client-techops` でディレクトリ本体をリネーム。root
+    `package.json`（workspaces・dev:all/dev:frozen/dev:qsheet→dev:techops/typecheck:all/
+    build:all/build:render）・`client-techops/package.json`の`name`・`Dockerfile`
+    （ステージ名`build-client-qsheet`→`build-client-techops`とその`--from=`参照・COPY
+    パス4箇所。**アップロードディレクトリ`/app/uploads/qsheet`は意図通り不変**）・
+    `server/src/app.ts:143`の静的マウントの**ディレクトリパスのみ**変更（**URL prefix
+    `/qsheet`は不変**）・`scripts/{check-file-size,build-changed,check-shared-wiring,
+    check-ui-tokens,check-contrast-tokens,check-mobile-declared,verify-ime}.mjs`と
+    `scripts/fixtures/ime-harness/`・`.github/{CODEOWNERS,pull_request_template.md}`
+    を更新
+  - `QSHEET_PC_ONLY`/`QSHEET_MOBILE_OK`/`QSHEET_MOBILE_HIDDEN`のTS識別子も
+    `TECHOPS_PC_ONLY`等へ統一（§6 item7の判断: 一貫性のため識別子ごと変える方を選択）
+  - ⚠️ **マルチエージェントの初回スコープ漏れを手動監査で発見・修正した**:
+    `shared/tests/*.test.ts`（14ファイル）が`'../../client-qsheet/src/...'`という
+    ワークスペース境界をまたぐ相対import/joinパスを直書きしており、Phase 1の対象
+    タスクに含めていなかったため放置すれば`npm run test`が即壊れる状態だった。
+    加えて`scripts/check-ui-tokens.mjs`の`TARGET_DIRS`/`NOT_A_SCREEN`配列（当初
+    「対象外」と判断されていたが実際は機能に影響する配列だった）・
+    `scripts/file-size-baseline.json`（7キー）にも同種の見落としがあった。
+    最終的に**47ファイル**の残存参照を`sed`で一括修正し、`package-lock.json`に
+    残った`"client-qsheet": {"extraneous": true}`の孤児エントリも手動で除去した
+  - **検証**: `npx tsc -b`（client-techops/server/client/client-live/client-daily/
+    client-equipment/client-awards、全ワークスペース）0エラー、`npm run test`
+    1452件全通過（qsheet系14ファイル含む）、`npm run lint`0エラー・warning 59件
+    （着手前と同数）、`npm run build --workspace=client-techops`・
+    `--workspace=server`成功。⚠️ **Dockerの実ビルド検証は本セッションの環境に
+    dockerデーモンが無く未実施**（`docker build --target build-client-techops`は
+    `dial unix /var/run/docker.sock`で失敗。Dockerfileの変更内容は目視レビューと
+    `npm run build`の成功で代替確認）
+  - `client-techops/CLAUDE.md`・root`CLAUDE.md`・`README.md`のディレクトリパス
+    表記も現状に合わせて更新（README.mdの他の凍結状態表記等、本リネームと無関係な
+    既存の記述ずれは対象外のまま残した）
+  - **Phase 2以降（ベースパス・`AppKey`・Socket.IO切替・本番URL）は未着手のまま。**
+    本番URL・Socket.IOの後方互換確認・切替はこの環境から本番へアクセスできず
+    検証しきれないため、着手にはユーザーの追加判断を要する（§6参照）

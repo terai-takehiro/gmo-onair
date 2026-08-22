@@ -113,13 +113,13 @@ for (const app of APPS) {
     // **画面を見ても分からない差**ができる (ブラウザが近い太さで代用するため)。
     // 逆に凍結アプリが継承すると、あちらの見た目が動く。
     // ⚠️ 制作資料は v4.1 で凍結を解いたので v4Preset を継承する
-    // (`client-qsheet/CLAUDE.md`・`docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md` §10-1)。
+    // (`client-techops/CLAUDE.md`・`docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md` §10-1)。
     // 共通シェルへの載せ替え (下の V4_APPS) とは別の話 — こちらは Tailwind の preset だけ
     // **`presets:` の中身を見る。** ファイル全体を検索すると import 文だけで
     // 通ってしまい、配列から外しても気づけない (実際に反証して踏んだ)
     const presetsArr = tw.match(/presets:\s*\[([^\]]*)\]/)?.[1] ?? '';
     const hasV4Preset = /v4Preset/.test(presetsArr);
-    const wantV4Preset = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-live'].includes(app);
+    const wantV4Preset = ['client', 'client-daily', 'client-equipment', 'client-techops', 'client-live'].includes(app);
     if (hasV4Preset !== wantV4Preset) {
       bad(app, 'tailwind.config.ts', wantV4Preset
         ? `v4 の preset を継承していない → presets: [preset, v4Preset] にすること`
@@ -205,10 +205,10 @@ function walk(dir, out = []) {
 //
 // 数え方: **共通シェル (`shared/src/client/shell`) を使っていれば、シェルが持っている**。
 // 使っていないアプリは自分で1つずつ置く。合わせて 1 になっていればよい。
-// 凍結アプリ (client-awards) は 0 (帯が出ると見た目が変わる)。client-qsheet/client-live は
+// 凍結アプリ (client-awards) は 0 (帯が出ると見た目が変わる)。client-techops/client-live は
 // 凍結を解いて共通シェルに載せ替え済みなので V4_APPS に入っている。
 {
-  const V4_APPS = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-live'];
+  const V4_APPS = ['client', 'client-daily', 'client-equipment', 'client-techops', 'client-live'];
   const SHELL = `${PKG}/src/client/shell`;
 
   // 共通シェル自身が本当に置いているか。ここが抜けると
@@ -255,7 +255,7 @@ function walk(dir, out = []) {
           : '凍結アプリには置かないこと (帯が出ると見た目が変わります)';
       bad(app, 'シェル', `<${name} /> が実質 ${total} 個 (期待 ${want} 個 / 共通シェル ${owned} + 直置き ${counts[name]}) — ${why}`);
     }
-    const wantToaster = app === 'client-qsheet' ? 1 : 0;
+    const wantToaster = app === 'client-techops' ? 1 : 0;
     if (counts.Toaster !== wantToaster) {
       bad(app, 'シェル', `<Toaster /> が ${counts.Toaster} 個 (期待 ${wantToaster} 個) — ` +
         (wantToaster ? 'Qシートは 13 か所でトーストを使っています (放送中の切断通知を含む)'

@@ -104,7 +104,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
     // 計時・視聴者（liveops）は scope === "project" のときだけ出す（12-live-timer-decision.md
     // §3-1）。liveops_programs.project_id は projects テーブルのみを指し、qsheet 独自の
     // 「番組（マニュアル）」（scope === "program"）には対応しないため。運用画面が
-    // client-qsheet バンドル内（kind: 'panel'）へ移植されたため、他のミニアプリと同じ
+    // client-techops バンドル内（kind: 'panel'）へ移植されたため、他のミニアプリと同じ
     // <Link> + panelPathOf で出す（ミニアプリ化フェーズ2・ExternalMiniAppLink は廃止した）。
     ...(scope === "project"
       ? [

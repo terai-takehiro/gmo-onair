@@ -65,7 +65,7 @@ function defaultEntryFor(type: string): Record<string, any> {
  * <input value onChange> / <textarea value onChange> で日本語を編集しない)。
  * collab では 1 打鍵ごとに applyDataUpdate → Y.Doc → snapshot → props と
  * 1 レンダー遅れて戻ってくるため、PC と同じ壊れ方の条件が揃っている
- * (client-qsheet/CLAUDE.md「入力欄は素の <input value onChange> で書かない」)。
+ * (client-techops/CLAUDE.md「入力欄は素の <input value onChange> で書かない」)。
  */
 export default function CueRowMobileEditor({
   row,

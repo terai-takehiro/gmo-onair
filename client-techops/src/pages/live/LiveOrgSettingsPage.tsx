@@ -15,7 +15,7 @@
 // リンクする。**PC専用画面として扱う**（旧 `client-live` の `pcOnlyScreens.ts`
 // `LIVE_PC_ONLY` の理由をそのまま引き継ぐ — YouTube/Jstream/Zoom/Teams の
 // API キー・クライアントシークレットを外部サービスの管理画面と往復しながら
-// 貼り付ける画面のため）。`src/pcOnlyScreens.ts` の `QSHEET_PC_ONLY` に登録済み。
+// 貼り付ける画面のため）。`src/pcOnlyScreens.ts` の `TECHOPS_PC_ONLY` に登録済み。
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';

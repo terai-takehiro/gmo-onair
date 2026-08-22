@@ -106,7 +106,7 @@ export const MINI_APPS: MiniAppDef[] = [
     label: '計時・視聴者',
     path: '/qsheet/live/:ownerKey',
     // 権限区画の統合（migration 232）で 'liveops' → 'qsheet' に変更した。
-    // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-qsheet バンドルへ移植し
+    // 計時・視聴者のミニアプリ化フェーズ2で運用画面を client-techops バンドルへ移植し
     // kind: 'panel' に統合した。`permissionModule` フィールドはどこからも読まれて
     // いなかったため削除した（v4.1 段2 レビュー対応）。resolve-by-project は
     // 「既存があれば reader で返す・無いときだけ manager で作成」の2段構えに直した

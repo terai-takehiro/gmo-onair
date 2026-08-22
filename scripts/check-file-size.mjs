@@ -29,11 +29,11 @@ const LIMIT = 400;
 // v4 で作り直す対象だけを見る。凍結アプリ (live / awards) は
 // 画面を触らないので、いま大きいままでも構わない。
 //
-// ⚠️ 制作資料 (client-qsheet) は v4.1 で凍結を解いたのでここに足した
+// ⚠️ 制作資料 (client-techops) は v4.1 で凍結を解いたのでここに足した
 // (03-app-structure-impl.md §7-2 の10番目の指摘)。段3では画面の作り直しを
 // していないので、いま超過しているファイルはラチェットの基準にそのまま
 // 記録している（減らす作業は段5・編集画面の解体で行う）。
-const SCAN = ['client/src', 'client-daily/src', 'client-equipment/src', 'client-qsheet/src', 'shared/src'];
+const SCAN = ['client/src', 'client-daily/src', 'client-equipment/src', 'client-techops/src', 'shared/src'];
 
 // 生成物・巨大な定数表・マニュアル本文は対象外。
 // (分割しても読む量が減らない or 人が読む文書のため)

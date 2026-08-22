@@ -5,22 +5,24 @@
 `APPS` 順とホームタイルの `DAILY_KEYS`（`client/src/contexts/platform/pages/HomePage.tsx`）を
 参照。このファイル中の「制作資料」表記は旧名として残っている箇所がある。
 
-ベースパス `/qsheet/`・ポート 5174。
+ベースパス `/qsheet/`・ポート 5174。**ディレクトリ名だけ `client-techops/` に改名済み**
+（2026-08-22・Phase 1）。ベースパス・URL・内部識別子 `qsheet` は今も変わっていない
+（下記メモ参照）。
 
-> 📝 **将来のディレクトリ/内部識別子リネーム候補メモ（2026-08-22・未着手）**
+> 📝 **ディレクトリ/内部識別子リネーム進捗メモ（2026-08-22・Phase 1完了）**
 > 表示名を「制作技術支援」に改名した際、ディレクトリ名 `client-qsheet/`・ベースパス `/qsheet/`・
 > 内部識別子 `qsheet`（DB テーブル約90個・`permissionModule`・Socket.IO ネームスペース・MCP
-> ツール名等）は `client-live` と同じ方針で意図的に据え置いた（表示名と内部識別子を分離）。
-> 実際にリネームする場合の候補名は **`techops`**（`client-techops/`・`/techops/`）。
-> `support`（既存の `AudioSupportPage.tsx` と紛らわしい）・`production`（プラットフォーム全体が
-> 「制作管理」で多義）・`studio`（既存のスタジオ予約機能と衝突）は避けた。
-> 着手する場合は本番URL5本（editor/onair/rundown/prompter/audio）の後方互換、DBマイグレーション、
-> rental-scraper（別デプロイのPythonコンテナ）との整合、MCP外部ツール名の破壊的変更を要する
-> 大掛かりな作業になる見込み。**具体的な7観点の監査結果・フェーズ分けした移行手順案は
+> ツール名等）は `client-live` と同じ方針で意図的に据え置いていたが、
 > [docs/reviews/qsheet-techops-migration-plan.md](../docs/reviews/qsheet-techops-migration-plan.md)
-> にまとめた（2026-08-22・計画のみ・コード変更なし）。** DBテーブル・`permissionModule`・
-> Socket.IOネームスペース・rental-scraperの4つは明示的にスコープ外（`client-live` の前例
-> どおり据え置き）。着手判断はまだ下していない — 同ドキュメント §6 の要判断事項を参照。
+> の7観点監査・フェーズ計画に基づき段階的な改名に着手した。
+> **Phase 1（このディレクトリ名 `client-qsheet/`→`client-techops/`・ビルド設定・
+> `QSHEET_PC_ONLY`等のTS識別子）は完了した。** ベースパス `/qsheet/`・`AppKey`・
+> `permissionModule`・Socket.IOネームスペース・DBテーブル・MCPツール名（`get_qsheet`等）は
+> **まだ `qsheet` のまま変えていない**（本番URL5本 editor/onair/rundown/prompter/audio・
+> Socket.IOの切替は「計画停止枠」が要るPhase 2/3で、この環境からは本番アクセスができず
+> 検証しきれないため見送っている）。DBテーブル・`permissionModule`・Socket.IOネームスペース・
+> rental-scraperの4つは明示的にスコープ外（`client-live` の前例どおり据え置き）。
+> Phase 2以降の着手判断はまだ下していない — 同ドキュメント §6 の要判断事項を参照。
 
 ## いまの状態（v4.1・共通シェル載せ替え後）
 

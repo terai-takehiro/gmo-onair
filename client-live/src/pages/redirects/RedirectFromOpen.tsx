@@ -7,7 +7,7 @@ import { RedirectView } from './RedirectStatus';
  * → 新URL `/qsheet/live/:project`。
  *
  * フェーズ1では「取得または作成」（`resolve-by-project`）をこの画面自身が呼んでいたが、
- * 新ダッシュボード（`client-qsheet` 側 `LiveDashboardPage.tsx`）がマウント時に同じ役割を
+ * 新ダッシュボード（`client-techops` 側 `LiveDashboardPage.tsx`）がマウント時に同じ役割を
  * 行うようになった（`useLiveProgram.ts`）ので、ここではクエリの `project` をそのまま
  * 新URLへ渡すだけでよい（GROUND_RULES §2 の表）。
  */

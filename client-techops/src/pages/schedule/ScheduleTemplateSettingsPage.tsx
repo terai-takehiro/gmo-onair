@@ -1,7 +1,7 @@
 // ひな形の編集（設定）。PC 専用。実装設計: 04-schedule-impl.md §5-1・§11-1
 //
 // ⚠️ このアプリはまだ shared/src/client-v4/pcOnly.tsx の実際のゲートに載せ替えていない
-// （client-qsheet/CLAUDE.md）。ここでは自前の簡易な PC 専用案内を出す。
+// （client-techops/CLAUDE.md）。ここでは自前の簡易な PC 専用案内を出す。
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";

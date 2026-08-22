@@ -105,7 +105,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
   };
 
   const handleReissue = async () => {
-    // client-qsheet は凍結アプリ (ConfirmHost 未設置)。confirmAction() は器が無いと何も表示せず
+    // client-techops は凍結アプリ (ConfirmHost 未設置)。confirmAction() は器が無いと何も表示せず
     // false を返すだけなので、同ファイル内の他の確認と同じく素の confirm() を使う
     if (!confirm("新しい URL を発行します。今の URL（QR）はその場で使えなくなります。よろしいですか？")) return; // ui-tokens-ok
     setBusy(true);

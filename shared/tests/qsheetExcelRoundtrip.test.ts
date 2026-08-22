@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildQsheetWorkbook, type QsheetDocForExport } from '../../server/src/contexts/qsheet/excel/workbook';
 import { buildImportPlan } from '../../server/src/contexts/qsheet/excel/plan';
-import { applyOps } from '../../client-qsheet/src/lib/excel/applyPlan';
+import { applyOps } from '../../client-techops/src/lib/excel/applyPlan';
 
 const BLOCKS = [
   { id: 'scenario', type: 'scenario', label: '台本' },

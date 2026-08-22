@@ -12,8 +12,8 @@ import { sanitizeApplied } from '../../server/src/contexts/qsheet/ai/apply.core'
 import { computeSettleCorrections, computeEarlyDueAt, computeFinalDueInfo } from '../../server/src/contexts/qsheet/ai/settle.core';
 import { toComparableRow } from '../../server/src/contexts/qsheet/ai/comparable';
 import { parseDur as parseDurServer } from '../../server/src/shared/schedule/time';
-import { parseDur as parseDurClient } from '../../client-qsheet/src/lib/time';
-import { applyProposalOps } from '../../client-qsheet/src/lib/applyProposal';
+import { parseDur as parseDurClient } from '../../client-techops/src/lib/time';
+import { applyProposalOps } from '../../client-techops/src/lib/applyProposal';
 import type { AppliedIds, AppliedPayload } from '../../server/src/contexts/qsheet/ai/types';
 
 const SCENARIO_BLOCK_ID = 'scenario';
@@ -310,7 +310,7 @@ const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 
 describe('⑮ソースの見張り', () => {
   it('applyProposal.ts は prev の関数（定数スナップショットで呼んでいない）', () => {
-    const src = read('client-qsheet', 'src', 'lib', 'applyProposal.ts');
+    const src = read('client-techops', 'src', 'lib', 'applyProposal.ts');
     expect(src).not.toMatch(/applyDataUpdate\(\s*ydoc\s*,\s*\(\)\s*=>/);
   });
 

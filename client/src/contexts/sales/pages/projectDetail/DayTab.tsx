@@ -7,7 +7,7 @@
  *
  * 制作技術支援に「番組・案件を選ぶとミニアプリ（進行台本・スケジュール表・
  * 収録設定・配信設定）がタイルで並ぶハブ画面」ができた
- * （`client-qsheet/src/pages/JourneyPage.tsx` の `scope="project"`・
+ * （`client-techops/src/pages/JourneyPage.tsx` の `scope="project"`・
  * `/qsheet/projects/:id`）。ハブ画面は**この案件の `id` をそのまま owner キーに使う**
  * （`device-settings-owner.ts` の `resolveOwner` が `projects.id` を直接引く）ので、
  * 案件詳細からはこの案件の `projectId` を渡すだけでよい — 新しい API は要らない。

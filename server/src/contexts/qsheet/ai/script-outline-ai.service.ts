@@ -3,7 +3,7 @@
  *
  * 出力先は `qsheet_ai_proposals` だけ。**`qsheet_documents.data` には一切書かない**
  * — 人が編集画面でプレビューし、取り込んだときにクライアントが
- * `applyProposalOps`（`client-qsheet/src/lib/applyProposal.ts`。段7で実装済み）で
+ * `applyProposalOps`（`client-techops/src/lib/applyProposal.ts`。段7で実装済み）で
  * `applyDataUpdate` を通して初めて `data` に入る。
  */
 import { queryOne } from '../../../shared/db/connection';

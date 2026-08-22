@@ -1,7 +1,7 @@
 /**
  * ブロック型ごとのセル ↔ Excel フィールド変換（読み・書き 両方向）。実装設計: 03-excel.md §4-3。
  *
- * 実装が持つセルの実際の形（`client-qsheet/src/components/editor/cells/*.tsx` を実測）:
+ * 実装が持つセルの実際の形（`client-techops/src/components/editor/cells/*.tsx` を実測）:
  *   scenario            cell.entries[0] = { name, html, isQWord, image? }
  *   video/audio/telop    cell.entries[0] = { label, memo, image? }
  *   slide                cell = { image? }                       （書き出しのみ）

@@ -30,12 +30,12 @@ const SERVER_SOURCE = readFileSync(
 );
 
 const HOOK_SOURCE = readFileSync(
-  join(ROOT, 'client-qsheet', 'src', 'hooks', 'useCollabMetaSync.ts'),
+  join(ROOT, 'client-techops', 'src', 'hooks', 'useCollabMetaSync.ts'),
   'utf8',
 );
 
 const EDITOR_SOURCE = readFileSync(
-  join(ROOT, 'client-qsheet', 'src', 'pages', 'EditorPage.tsx'),
+  join(ROOT, 'client-techops', 'src', 'pages', 'EditorPage.tsx'),
   'utf8',
 );
 
