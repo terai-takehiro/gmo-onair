@@ -19,14 +19,14 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, FileText, CalendarDays, Settings2, ChevronRight } from "lucide-react";
+import { Loader2, ArrowLeft, FileText, CalendarDays, Settings2, Package, ChevronRight } from "lucide-react";
 import type { ElementType } from "react";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { notifyError } from "@/lib/notify";
 import * as journeyApi from "@/lib/journeyApi";
 import type { JourneyMarkRow } from "@/lib/journeyApi";
 import type { JourneyStage, Suggestion } from "@gmo-onair/shared/src/production/journey";
-import { MINI_APP_BY_KEY } from "@gmo-onair/shared/src/production/miniapps";
+import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
 import JourneyDayCard from "@/components/journey/JourneyDayCard";
 
 export type JourneyScope = "project" | "document" | "program";
@@ -212,6 +212,13 @@ function MiniAppTiles({ scope, id }: { scope: "project" | "program"; id: string 
       description: "配信先・WEB会議",
       icon: Settings2,
       to: `/qsheet/streaming/${encodeURIComponent(id)}`,
+    },
+    {
+      key: "rental",
+      label: MINI_APP_BY_KEY.rental.label,
+      description: "機材の横断検索と予約リスト",
+      icon: Package,
+      to: panelPathOf("rental", id),
     },
   ];
 

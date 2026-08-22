@@ -10,6 +10,7 @@ import scopesRoutes from './routes/scopes.routes';
 import programsRoutes from './routes/programs.routes';
 import journeyMarksRoutes from './routes/journey-marks.routes';
 import deviceSettingsRoutes from './routes/device-settings.routes';
+import rentalRoutes from './routes/rental.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import scheduleColumnsRoutes from './routes/schedule-columns.routes';
 import scheduleItemsRoutes from './routes/schedule-items.routes';
@@ -43,6 +44,8 @@ export function createQsheetRoutes(): Router {
   router.use('/qsheet', programsRoutes);
   // 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で、文書 (documentRoutes) とは別の入れ物
   router.use('/qsheet/production', deviceSettingsRoutes);
+  // レンタル機材検索。カタログはowner不要の共通マスタ、予約リストは案件/番組単位（:ownerKey）
+  router.use('/qsheet/rental', rentalRoutes);
 
   // スケジュール表（段4・04-schedule-impl.md §4）
   router.use('/qsheet', schedulesRoutes);
