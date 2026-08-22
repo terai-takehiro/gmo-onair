@@ -69,4 +69,6 @@ export const QSHEET_MOBILE_OK: string[] = [
   '/qsheet/device-settings',   // 収録設定・配信設定の入口（案件を選ぶ）
   '/qsheet/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）
   '/qsheet/streaming/:ownerKey', // 配信設定（同上）
+  '/qsheet/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
+  '/qsheet/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
 ];
