@@ -1,1 +1,0 @@
-**PR #343（release: v4.2.0）のマージ後の棚卸しを記録した**（コード変更なし）。`docs/branching.md`「マージしたら、その PR のレビューを棚卸しに移す」の決めごとどおり、CI green確認後すぐにマージし（コード変更なしのリリース版上げPR・typecheck/lint/test/check:versionすべて確認済み・ユーザーの明示指示を受けての実行）、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した。
