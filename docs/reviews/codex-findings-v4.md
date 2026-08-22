@@ -1112,6 +1112,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `client-qsheet`（`/qsheet/`）時代に書かれていたため、実装時に`client-techops`
   （`/techops/`。並行してマージされたPhase 1〜4改名・#334/#337/#339）へ読み替えた。
   これで計時・視聴者 表示レイアウト機能（PR1〜3の3分割）はすべて完了。
+- **#343**（`release: v4.2.0`）— 作成からCI green確認後すぐにマージ（レビュー到着を
+  待たずに自分でマージした・詳細下記）。`get_reviews`・`get_review_comments`いずれも0件。
+  表に移す指摘はない（レビュー自体が届いていないため）。⚠️ **コード変更を伴わない
+  リリース版上げPR**（`docs/changelog.d/` 下書き167件を`release:notes`で集約・
+  `CLAUDE.md`/`README.md`/`package.json`の3か所と`docs/version-history.md`を更新。
+  `docs/v4-plan.md`・`scripts/check-frozen-css.mjs`の「v4.1.8」先取り表記2箇所も
+  v4.2.0へ修正）で、typecheck/lint/test（1452件）/check:versionすべてgreenを確認済み・
+  ユーザーから「R0行きましょう v4.2.0で」の明示指示を受けての実行だったため、
+  レビュー到着を待たずマージした。
 
 ---
 
