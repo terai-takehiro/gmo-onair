@@ -2,8 +2,8 @@
 // 検索バー・会社切替・カテゴリ絞り込みチップ・カード一覧・詳細ダイアログ・予約リストへの導線。
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { ChevronLeft, ListChecks, Search as SearchIcon, Video } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { ChevronLeft, ListChecks, RefreshCw, Search as SearchIcon, Video } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -21,6 +21,7 @@ const PAGE_SIZE = 60;
 export default function RentalSearchPage() {
   const { ownerKey = '' } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -68,7 +69,28 @@ export default function RentalSearchPage() {
     queryKey: ['rental-sync-status'],
     queryFn: () => rentalApi.getRentalSyncStatus(),
     staleTime: 5 * 60 * 1000,
+    // 取得が進行中の間だけ短い間隔で状態を追いかけ、終わったら自動で通常表示に戻す
+    refetchInterval: (query) => {
+      const status = query.state.data?.latestRequest?.status;
+      return status === 'pending' || status === 'running' ? 5000 : false;
+    },
   });
+
+  const syncTriggerMutation = useMutation({
+    mutationFn: () => rentalApi.triggerRentalSync(),
+    onSuccess: (result) => {
+      if (result.ok) {
+        notifySuccess('取得を開始しました（完了まで数十分〜1時間ほどかかります）');
+      } else {
+        notifyError(result.message ?? '取得の開始に失敗しました');
+      }
+      queryClient.invalidateQueries({ queryKey: ['rental-sync-status'] });
+    },
+    onError: () => notifyError('取得の開始に失敗しました'),
+  });
+
+  const latestRequest = syncStatusQuery.data?.latestRequest ?? null;
+  const syncInProgress = latestRequest?.status === 'pending' || latestRequest?.status === 'running';
 
   const reservedKeys = useMemo(() => {
     const set = new Set<string>();
@@ -89,7 +111,7 @@ export default function RentalSearchPage() {
     const find = (name: string) => rows.find((r) => r.company === name)?.count ?? 0;
     return [
       { key: 'all', label: '2社すべて', count: itemsQuery.data ? total : null },
-      { key: '東京オフラインセンター', label: '東京オフラインセンター', count: itemsQuery.data ? find('東京オフラインセンター') : null },
+      { key: 'TOC', label: 'TOC', count: itemsQuery.data ? find('TOC') : null },
       { key: 'レスター', label: 'レスター', count: itemsQuery.data ? find('レスター') : null },
     ];
   }, [itemsQuery.data]);
@@ -140,7 +162,7 @@ export default function RentalSearchPage() {
 
       <PageHeader
         title="レンタル機材検索"
-        sub="東京オフラインセンター・レスターの機材を横断検索して、この番組の予約リストに入れられます"
+        sub="TOC・レスターの機材を横断検索して、この番組の予約リストに入れられます"
         primaryAction={
           <Button
             variant="outline"
@@ -225,6 +247,21 @@ export default function RentalSearchPage() {
             </span>
           );
         })}
+        <span className="flex-1" />
+        <Button
+          variant="outline"
+          className="h-8 shrink-0 gap-1.5 px-2.5 text-sub-sm"
+          onClick={() => syncTriggerMutation.mutate()}
+          disabled={syncInProgress || syncTriggerMutation.isPending}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${syncInProgress ? 'animate-spin' : ''}`} aria-hidden="true" />
+          {syncInProgress ? '取得中…' : '今すぐ取得'}
+        </Button>
+        {latestRequest?.status === 'error' && !syncInProgress && (
+          <span className="shrink-0 text-warning-border-strong" title={latestRequest.errorMessage ?? undefined}>
+            前回の手動取得は失敗しました
+          </span>
+        )}
       </div>
 
       <RentalItemDetailDialog ownerKey={ownerKey} target={detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)} />

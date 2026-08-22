@@ -3,7 +3,7 @@
 """
 共通DBモジュール（SQLite・ステージング用）
 ================
-複数のレンタル会社(東京オフラインセンター、レスター等)の機材情報を
+複数のレンタル会社(TOC＝東京オフラインセンター、レスター等)の機材情報を
 1つのSQLiteに集約する。company列で必ず会社を区別するため、
 自社管理アプリ側では company + item_id で一意に商品を特定できる。
 
@@ -41,7 +41,7 @@ class ItemDetail:
 def init_db(conn: sqlite3.Connection):
     conn.executescript("""
     CREATE TABLE IF NOT EXISTS items (
-        company TEXT NOT NULL,       -- 例: '東京オフラインセンター' / 'レスター'
+        company TEXT NOT NULL,       -- 例: 'TOC' / 'レスター'
         item_id TEXT NOT NULL,       -- 各社サイト内での商品ID(会社が違えば同じ番号でも別商品)
         name TEXT,
         category TEXT,

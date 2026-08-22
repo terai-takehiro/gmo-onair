@@ -5,7 +5,7 @@
  * 開発・検証用のダミーデータを入れる。開発・検証環境で自動実行される（本番は
  * SKIP_SEED=true のため実行されない）。
  *
- * ⚠️ **これは本物のクロール結果ではない。** 2社サイト（東京オフラインセンター・
+ * ⚠️ **これは本物のクロール結果ではない。** 2社サイト（TOC＝東京オフラインセンター・
  * レスター）を実際に取得するスクレイパーは別途 VPS 側の cron で運用する想定
  * （docs/design/v4/rental-search/README.md 参照）。ここは画面の見た目・検索・
  * 絞り込みを手元で確認するための最小限のサンプル行。
@@ -17,7 +17,7 @@ import { initDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 
 interface SeedItem {
-  company: '東京オフラインセンター' | 'レスター';
+  company: 'TOC' | 'レスター';
   itemId: string;
   name: string;
   category: string;
@@ -30,7 +30,7 @@ interface SeedItem {
   status?: 'listed' | 'missing';
 }
 
-const TOC = '東京オフラインセンター' as const;
+const TOC = 'TOC' as const;
 const RESTAR = 'レスター' as const;
 
 const ITEMS: SeedItem[] = [

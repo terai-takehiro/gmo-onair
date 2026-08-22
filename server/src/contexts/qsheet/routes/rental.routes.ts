@@ -1,6 +1,6 @@
-// レンタル機材検索（制作技術支援のミニアプリ）の9エンドポイント。
+// レンタル機材検索（制作技術支援のミニアプリ）の10エンドポイント。
 //
-// 取得状況（0）・カタログ（1・2）は company/item_id を自然主キーに持つ全案件共通のマスタなので
+// 取得状況（0・0b）・カタログ（1・2）は company/item_id を自然主キーに持つ全案件共通のマスタなので
 // `:ownerKey` は不要。予約リスト（3〜8）は案件/番組単位（`:ownerKey`。device-settings と
 // 同じ `resolveOwner`/`ownerWhere` を使う）。DBアクセス・集計ロジックは
 // `../services/rental.service.ts` に分離し、このファイルは薄く保つ。
@@ -26,6 +26,28 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 router.get('/sync-status', async (req: Request, res: Response) => {
   const data = await svc.getSyncStatus();
   res.json({ success: true, data });
+});
+
+// ============================================================
+// 0b. 手動での取得トリガー（rental_scraper_dev に「今すぐ取得」を伝える）
+// ============================================================
+router.post('/sync-trigger', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
+  const result = await svc.triggerSync(req.user!.id, req.user!.name);
+  if (!result.ok) {
+    if (result.reason === 'already-running') {
+      return res
+        .status(409)
+        .json({ success: false, error: { code: 'ALREADY_RUNNING', message: '既に取得が進行中です' } });
+    }
+    return res.status(429).json({
+      success: false,
+      error: {
+        code: 'COOLDOWN',
+        message: `直近の取得からまだ間もないため、あと約${result.retryAfterMinutes}分待ってからお試しください`,
+      },
+    });
+  }
+  res.status(201).json({ success: true });
 });
 
 // ============================================================
