@@ -1,0 +1,1 @@
+**PR #312（計時LIVEを制作技術支援のミニアプリにするフェーズ1）のマージ後の棚卸しを記録した**（コード変更なし）。`get_reviews`／`get_comments`／`get_review_comments` がいずれも0件を確認し、レビュー0件のまま（CI green から約1分20秒後に）マージされたことと、実装内容・自己検証（実DB E2Eでの権限・並行性確認、セッション内レビューで権限レベル不一致を検出・修正した経緯）を [docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md) に記録した。

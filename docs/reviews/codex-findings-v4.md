@@ -889,6 +889,22 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   クリックしか通しておらず、「配信先を実際に足す」という核となる操作を確認しないまま
   マージしていた。**モックアップ・ジャーニーUXの作り直しに気を取られ、既存の基本操作の
   実クリック確認が抜けていた**という教訓として残す。
+- **#312**（`feat(qsheet,liveops): 計時LIVEを制作技術支援のミニアプリにするフェーズ1`）—
+  作成 2026-08-22 11:28:20 / CI green 11:30:30（`checks`/`build`とも成功）/
+  マージ 11:31:49（terai-takehiro 本人が手動マージ。**CI green から約1分20秒後**、
+  #251・#272・#305 と同じ「見る前に入った」形）。`get_reviews` 0件・`get_comments` 0件・
+  `get_review_comments` 0件。表に移す指摘はない（レビュー自体が届いていないため）。
+  2コミット・26ファイル・+1,597/-40行。設計は
+  [`docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md`](../design/v4/qsheet-v4-coding/12-live-timer-decision.md)
+  （マルチエージェントで作成）。実装もマルチエージェント（実装→実装→レビュー→修正）で行い、
+  **セッション内の自己レビューで権限レベル不一致（クライアント側チェックがreader、サーバー側
+  がmanager要求で「タイルは見えるが押すと403」になる欠陥）を検出・修正済み**（PR本文に記録）。
+  `npm run typecheck:all` / `lint`（warning 58件・着手前と同数）/ `test`（1329件）/
+  `check-collab-parity` / `check-links` / `build:changed --base origin/main` は実施済み。
+  ⚠️ **実ブラウザでのクリック確認はしていない**（環境制約）。代わりに実Postgres +
+  実サーバーへの直接HTTPリクエストで、新設APIの権限403・冪等な取得または作成・404・
+  20並列リクエストでも行が1件しかできないことを実測した（PR本文に詳細）。
+  実ブラウザでのPC/スマホ確認は今後の課題として残る
 
 ---
 
