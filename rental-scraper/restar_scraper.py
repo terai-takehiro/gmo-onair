@@ -33,7 +33,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
-from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
+from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail
 
 COMPANY = "レスター"
 BASE = "https://www.restargp.com"
@@ -65,8 +65,9 @@ END_MARKER = "レンタルに関するお問い合わせ"
 
 def fetch(url: str, retries: int = 3):
     """成功時は**バイト列**（`resp.content`）を返す。toc_scraper.py の fetch() と
-    同じ理由（`apparent_encoding` の推定に頼らず BeautifulSoup 側の自動検出に
-    デコードを任せる。日本語部分だけ文字化けする不具合の対処）。"""
+    同じ理由（`apparent_encoding` の統計的推定に頼らず、`common_db.decode_html()`
+    にデコードを任せる。日本語部分だけ文字化けする不具合の対処。UTF-8 の厳密
+    デコードを最優先にする経緯は decode_html() のdocstring参照）。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
@@ -101,7 +102,7 @@ def _extract_images(soup: BeautifulSoup) -> list:
 
 
 def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(decode_html(html), "html.parser")
     detail = ItemDetail(item_id=item_id, url=ITEM_URL_TMPL.format(id=item_id))
 
     h1 = soup.find("h1")

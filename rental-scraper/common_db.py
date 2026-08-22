@@ -24,6 +24,43 @@ from datetime import datetime
 from typing import Optional
 
 
+def decode_html(content: bytes) -> str:
+    """クロールで取得した HTML のバイト列を文字列にデコードする。
+
+    優先順位:
+    1. UTF-8 として**厳密**デコード（`errors="strict"`）を試す。実在の日本語混じり
+       テキストが、たまたま別のエンコーディングとしても妥当な UTF-8 に見える
+       ことはまず無いため、ここで成功すれば「正しい UTF-8 だった」とほぼ確定できる
+    2. 失敗すれば CP932（Shift_JIS の Windows 拡張。日本語ECサイトで非UTF-8といえば
+       まずこれ）を厳密デコードで試す
+    3. それも失敗すれば EUC-JP を試す
+    4. すべて失敗した場合のみ `BeautifulSoup` の `UnicodeDammit`
+       （`<meta charset>` 宣言・BOM・それも無ければ chardet 系の統計的推定）に委ねる
+
+    ⚠️ 経緯: 最初は `requests` の `resp.apparent_encoding`（chardet/charset_normalizer
+    による統計的推定）でデコードしており、日本語ページで誤判定して文字化けした。
+    次の修正で「`fetch()` はバイト列を返し、`BeautifulSoup(html, "html.parser")` の
+    自動検出に委ねる」形にしたが、**実ページに `<meta charset>` 宣言が無い場合、
+    UnicodeDammit も内部的には同じ chardet 系の統計的推定にフォールバックする**ため、
+    根本原因（統計的推定に日本語混じりの短いテキストで頼っている点）は変わっていなかった
+    （実際に文字化けが直っていないと報告された）。ここでは統計的推定に頼る前に、
+    「厳密デコードが成功するか」という**確定的な**判定を優先することで、
+    統計的推定に頼る場面自体を減らす。
+
+    既にデコード済みの `str` を渡された場合はそのまま返す（テストのフィクスチャ等、
+    呼び出し側次第でどちらも来うるため）。
+    """
+    if isinstance(content, str):
+        return content
+    for enc in ("utf-8", "cp932", "euc-jp"):
+        try:
+            return content.decode(enc, errors="strict")
+        except UnicodeDecodeError:
+            continue
+    from bs4 import UnicodeDammit
+    return UnicodeDammit(content).unicode_markup or content.decode("utf-8", errors="replace")
+
+
 @dataclass
 class ItemDetail:
     item_id: str
