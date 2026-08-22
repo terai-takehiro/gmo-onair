@@ -955,6 +955,13 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   を検出・修正済み。`npx tsc -b client` / `npx tsc -b server` / `npm run lint`
   （warning 58件・着手前と同数）/ `npm run test`（1329件）/ `npm run build --workspace=client`
   は実施済み。⚠️ 実ブラウザでのPC/スマホ確認・実DB確認・権限403確認は未実施（環境制約）
+- **#318**（`feat(qsheet): サイドバーを案件/番組の文脈連動にし、収録配信設定の簡易入口を廃止`）—
+  作成 2026-08-22 12:58:34 / CI green 13:00:33頃（`checks`/`build`とも成功）/
+  マージ 13:01頃（terai-takehiro 本人が手動マージ。作成から約3分）。
+  `get_reviews`・`get_comments`・`get_review_comments` いずれも0件（`GITHUB_TOKEN` 経由の
+  `npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
+  表に移す指摘はない（レビュー自体が届いていないため）。マージ後の実ブラウザ確認は未実施
+  （PR本文に明記済み。検証環境での目視確認を推奨として残した）。
 
 ---
 
