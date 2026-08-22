@@ -21,6 +21,17 @@
  * クラス名も拾う**ので、ここに実物を書くこともできません
  * （それで1度やり直しました）。`data-cursor` という属性だけ付けて、
  * 色は `tokens-v4.css` が当てます。
+ *
+ * ── 選んだ項目の名前が長いと、下の要素と重なっていた ──────────────
+ *
+ * 選択欄のボタンは `h-11`（PC は `h-10`）の**固定高さ**なのに、選んだ項目の
+ * ラベルに `truncate` が無かったため、長い案件名（「【問い合わせ】株式会社〜
+ * イベント(11月土日・空き確認)」のような数十文字）が折り返して4行分に伸び、
+ * ボタンの高さからあふれた分がすぐ下の要素（案件で絞り込み中の注記など）と
+ * 重なって読めなくなっていた。ラベルに `min-w-0 flex-1 truncate` を足し、
+ * 右側のアイコンに `shrink-0` を足して、**1行で省略する**形にした
+ * （`truncate` 等は既存の一般的な Tailwind クラスなので、凍結4アプリの
+ * CSS を増やさない）。
  */
 import { useState, useRef, useEffect } from "react";
 import { Input } from "./input";
@@ -144,10 +155,10 @@ export function SearchableSelect({
         onClick={() => { setOpen(!open); setSearch(""); }}
         className="min-h-tap flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm lg:h-10 lg:min-h-0 ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
+        <span className={`min-w-0 flex-1 truncate text-left ${selected ? "text-foreground" : "text-muted-foreground"}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {value && (
             <X
               className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"

@@ -290,7 +290,10 @@ export default function CounterpartyPage() {
                       : (
                         <RowSlot w={128} align="right">
                           {/* **0 円と「今年は取引なし」は別物。** 0 と書くと 0 円の取引があるように読める */}
-                          <span className="text-sub-sm text-fg-disabled">今年はなし</span>
+                          {/* ⚠️ `text-fg-disabled` は白地で 2.61:1 しか無く、読ませる文字には使わない
+                              決めごと（`shared/CLAUDE.md`）。ここは実際の値を伝える文字なので
+                              `text-muted-foreground` に直した（`verify:ui` の「薄すぎる文字」で検出）。 */}
+                          <span className="text-sub-sm text-muted-foreground">今年はなし</span>
                         </RowSlot>
                       )
                   )}

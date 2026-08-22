@@ -42,12 +42,17 @@ export interface FlowStep {
   to?: string;
 }
 
-/** カードのあいだに出す記号。`−` か `=` */
+/**
+ * カードのあいだに出す記号。`−` か `=`。
+ *
+ * スマホでは結果カードを縦に積む（下記）ので、記号も**横幅いっぱいの薄い帯**に
+ * なる（`sm:` から元の縦の細い列に戻る）。
+ */
 function Op({ sign }: { sign: string }) {
   return (
     <span
       aria-hidden="true"
-      className="font-number flex w-6 shrink-0 items-center justify-center text-h2 text-muted-foreground"
+      className="font-number flex h-6 w-full shrink-0 items-center justify-center text-h2 text-muted-foreground sm:h-auto sm:w-6"
     >
       {sign}
     </span>
@@ -82,24 +87,38 @@ function ResultCard({ step }: { step: FlowStep }) {
   );
 }
 
-/** 材料（売上・仕入・固定原価・販管費）は1行ずつの小さい表示にする */
+/**
+ * 材料（売上・仕入・固定原価・販管費）は1行ずつの小さい表示にする。
+ *
+ * ── ラベル・金額・件数を1行に詰め込んで、ラベルが切れていた ────────
+ *
+ * 旧実装はラベル（`flex-1 truncate`）・金額・件数（`w-32` 固定）を横1列に並べていて、
+ * `lg:grid-cols-4` では1列 282px 程度しか無く、金額と件数（合わせて 220px 超）に
+ * 押し出されて**ラベルがほぼ0幅まで潰れていた**（「売上」が「売」に、「仕入（変動原価）」が
+ * 「仕‥」に見える。DOM上の文字列は全部残っているので既存の検査には引っかからなかった）。
+ * **ラベル＋金額を1行目、件数（sub）を2行目**に分け、件数のために横幅を横取りしない形にした。
+ */
 function InputRow({ step }: { step: FlowStep }) {
   const navigate = useNavigate();
   const inner = (
     <>
-      <span className="text-sub min-w-0 flex-1 truncate text-muted-foreground">{step.label}</span>
-      <Money value={step.value} className="text-list shrink-0 font-bold" />
-      <span className="text-note w-32 shrink-0 truncate text-right text-muted-foreground">{step.sub ?? ''}</span>
+      <div className="flex items-baseline gap-2">
+        <span className="text-sub min-w-0 flex-1 truncate text-muted-foreground">{step.label}</span>
+        <Money value={step.value} className="text-list shrink-0 font-bold" />
+      </div>
+      {step.sub && (
+        <span className="text-note mt-0.5 block truncate text-right text-muted-foreground">{step.sub}</span>
+      )}
     </>
   );
   if (!step.to) {
-    return <div className="flex items-center gap-2 rounded-control border border-border-faint px-3 py-2">{inner}</div>;
+    return <div className="flex flex-col rounded-control border border-border-faint px-3 py-2">{inner}</div>;
   }
   return (
     <button
       type="button"
       onClick={() => navigate(step.to!)}
-      className="flex items-center gap-2 rounded-control border border-border-faint px-3 py-2 text-left hover:border-border-strong hover:bg-muted"
+      className="flex flex-col rounded-control border border-border-faint px-3 py-2 text-left hover:border-border-strong hover:bg-muted"
       title={`${step.label}の明細をひらく`}
     >
       {inner}
@@ -110,12 +129,22 @@ function InputRow({ step }: { step: FlowStep }) {
 /**
  * `steps` が3件（案件で絞り込み中）なら 売上−仕入=限界利益 の1段だけ。
  * 7件（全案件）なら、結果3枚を見出しにして材料4つを下の小さい行に並べる。
+ *
+ * ── 結果カードの横並びが、スマホで金額を隣のカードの下に隠していた ──────
+ *
+ * ⚠️ `flex items-stretch` で常に横一列に並べていたため、375px 幅では
+ * カード1枚が 120px 程度しか無く、`¥11,680,000` のような金額（text-h2・太字）が
+ * カードの右端からあふれていた。あふれた分は次のカードの背景に隠れて見えなくなり、
+ * 「¥11,680,00」のように末尾の桁が消えて見えた（`overflow-x` は 0px のまま — 隣の
+ * 要素の**下**に回り込むだけで、ページの横スクロールとしては現れないので、
+ * 横はみ出しの自動検査にも引っかからなかった）。
+ * **`sm:`（640px）未満は縦積みにし**、金額に必要な横幅を確保した。
  */
 export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
   if (steps.length === 3) {
     const [rev, varc, marg] = steps;
     return (
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
         <ResultCard step={rev} />
         <Op sign="−" />
         <ResultCard step={varc} />
@@ -131,7 +160,7 @@ export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
         {results.map((r, i) => (
           <ResultCard key={i} step={r} />
         ))}
