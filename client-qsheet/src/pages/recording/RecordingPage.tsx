@@ -8,6 +8,7 @@ import { notifySuccess, notifyError } from '@/lib/notify';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { apiErrorMessage, jstToday } from '@/lib/deviceSettingsShared';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
+import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
 import ServiceDateBar from '@/components/device-settings/ServiceDateBar';
 import { getOwnerContext, getRecording, putRecording, type Deck, type OwnerContext } from '@/lib/deviceSettingsApi';
 import {
@@ -62,6 +63,14 @@ export default function RecordingPage() {
   const [filter, setFilter] = useState<DeckFilter>('all');
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
+
+  /**
+   * ⚠️ **以前ここに権限の分岐が1つも無かった**（監査 2026-08-22）。
+   * 閲覧しかできない人でも12台ぶん全部打ち込めてしまい、最後に「保存に失敗しました」
+   * とだけ出て打った内容は捨てられていた。サーバーは `requirePermission('qsheet','editor')`
+   * で守っているので、画面も同じ線を引く（見せはするが直せない）。
+   */
+  const canEdit = useCanEditDeviceSettings();
 
   const dirty = serialize(decks) !== baseline;
   useUnsavedGuard(dirty);
@@ -171,16 +180,19 @@ export default function RecordingPage() {
     notifySuccess(`${selected.size} 台にまとめて反映しました`);
   };
 
-  const save = async () => {
+  /** 成否を返す。⚠️ 書き出しダイアログの「保存して続ける」がこの戻り値で判断する */
+  const save = async (): Promise<boolean> => {
     setSaving(true);
     try {
       await putRecording(ownerKey, serviceDate, decks);
       setBaseline(serialize(decks));
       setSavedAt(new Date());
       notifySuccess('収録設定を保存しました');
+      return true;
     } catch (e) {
       // ⚠️ 以前は理由を捨てていたので「どの台の何が悪いのか」が誰にも分からなかった
       notifyError(apiErrorMessage(e, '保存に失敗しました'));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -234,9 +246,11 @@ export default function RecordingPage() {
 
       {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする） */}
       <div className="mb-3 flex flex-wrap gap-2">
-        <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
-          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
-        </Button>
+        {canEdit && (
+          <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
+            <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+          </Button>
+        )}
         <Button variant="outline" className="h-11" onClick={() => setExportOpen(true)}>
           <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
         </Button>
@@ -244,11 +258,19 @@ export default function RecordingPage() {
 
       <DeckStatusBand decks={decks} lastExportName={lastExportName} lastExportedAt={lastExportedAt} />
 
+      {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
+      {!canEdit && (
+        <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存はできません。
+          直すには制作技術支援の編集権限が要ります（Excel の書き出しはできます）。
+        </p>
+      )}
+
       {/* 絞り込みと一括変更は PC の表にだけ効く（スマホは1台ずつ・モックどおり） */}
       <div className="mb-3 hidden flex-wrap items-center gap-3 sm:flex">
         <FilterChips items={filterItems} value={filter} onChange={setFilter} label="デッキで絞り込む" />
         <span className="flex-1" />
-        {selected.size > 0 && (
+        {canEdit && selected.size > 0 && (
           <>
             <span className="text-sub font-bold text-primary">{selected.size} 台を選択中</span>
             <Button className="h-11" onClick={() => setBulkOpen(true)}>
@@ -263,7 +285,8 @@ export default function RecordingPage() {
         <p className="py-10 text-center text-sm text-muted-foreground">読み込み中…</p>
       ) : (
         <>
-          <div className="hidden sm:block">
+          {/* 閲覧のみの人は中の入力欄がまとめて disabled になる（`contents` なので見た目は同じ） */}
+          <fieldset disabled={!canEdit} className="hidden sm:block">
             {filter !== 'sub' && (
               <DeckGrid
                 title="本線" model={MODEL_LABEL_MAIN} decks={mainDecks} onChange={updateDeck}
@@ -277,7 +300,7 @@ export default function RecordingPage() {
                 mainIdOf={(i) => DECK_IDS_MAIN[i]} onCopyFromMain={copyFromMain} onMirrorAll={mirrorAll}
               />
             )}
-          </div>
+          </fieldset>
 
           <DeckMobileList decks={decks} onPick={setMobileDeck} />
         </>
@@ -290,15 +313,27 @@ export default function RecordingPage() {
       </p>
 
       {/* 下端は主アクション1つだけ（以前は3段積みで、スマホの表示領域を大きく食っていた） */}
-      <div className="sticky bottom-0 mt-4 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex sm:justify-end sm:border-0 sm:bg-transparent">
-        <Button className="h-[52px] w-full sm:h-11 sm:w-auto" onClick={save} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="sticky bottom-0 mt-4 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex sm:justify-end sm:border-0 sm:bg-transparent">
+          <Button className="h-[52px] w-full sm:h-11 sm:w-auto" onClick={save} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
+          </Button>
+        </div>
+      )}
 
-      <DeckSheet deck={mobileDeck} onChange={(next) => { updateDeck(next); setMobileDeck(next); }} onClose={() => setMobileDeck(null)} />
+      <DeckSheet deck={mobileDeck} onChange={(next) => { updateDeck(next); setMobileDeck(next); }} onClose={() => setMobileDeck(null)} readOnly={!canEdit} />
       <BulkEditDialog open={bulkOpen} onOpenChange={setBulkOpen} deckIds={[...selected]} onApply={applyBulk} />
-      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} ownerKey={ownerKey} date={serviceDate} />
+      {/* ⚠️ `dirty`/`onSave` を渡していなかったため、**未保存を止める仕組みが
+          この画面では一度も働いていなかった**（12台打ち込んで見出しだけの Excel が
+          落ちてくる事故の直接の原因）。渡して初めて効く */}
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        ownerKey={ownerKey}
+        date={serviceDate}
+        dirty={dirty}
+        onSave={canEdit ? save : undefined}
+      />
       <CopyFromDialog
         open={copyFromOpen}
         onOpenChange={setCopyFromOpen}
