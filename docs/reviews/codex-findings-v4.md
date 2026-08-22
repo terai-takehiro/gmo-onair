@@ -1089,6 +1089,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   0エラー・warning 59件（Phase 1と同数）・`npm run build`（client-techops/server）成功を
   確認済み。Phase 3（Socket.IOカットオーバー）・Phase 4（MCPツール名）は未着手のまま
   ユーザーの追加判断待ち。
+- **#339**（`refactor(qsheet): Phase 3・4 — Socket.IOブリッジとMCPツール名の二重登録`）—
+  作成 2026-08-22 16:20頃 / CI green 16:22:16頃 / マージ 16:24:27頃
+  （**CI green から約2分後**）。`get_review_comments` 0件。表に移す指摘はない
+  （レビュー自体が届いていないため）。18ファイル変更（うち2ファイルは新規:
+  `scripts/dev-verify/socket-bridge-check.mjs`）。qsheet→techops移行計画のPhase 3・4を
+  実施 — Phase 3は当初計画（Socket.IOの計画停止枠での一斉切替）を、本番アクセスができない
+  この環境からは実施・検証できないため、ユーザーへの`AskUserQuestion`確認を経て
+  「ブリッジ」方式（`/qsheet`・`/techops`両ネームスペースの同名ルームを常に相互中継し、
+  新旧混在でも同期を止めない設計）に変更して実装した。実Postgres＋実socket.io-client
+  2本で6項目を実地検証し、検証中に見つけた既存バグ（不正なyjs:updateバイナリで
+  サーバープロセスが丸ごと落ちる。案件の共同編集とも共有する`roomManager.ts`が対象）も
+  ついでに直した。Phase 4はMCPツール5本（`get_qsheet`等）を`get_sheet`等へ改名し、
+  旧名も`gate.ts`の`WRITE_TOOL_PERMISSIONS`込みで二重登録した（片方だけ登録すると
+  旧名が権限ゲート無しで通ってしまう設計上の落とし穴に気づいて対応）。
+  `permissionModule`・DBは無変更。`npx tsc -b`（全ワークスペース）0エラー・`npm run test`
+  （1452件）全通過・`npm run lint`0エラー・warning 59件（従前と同数）・
+  `node scripts/generate-mcp-tools.mjs`（権限ゲート検証OK）・`npm run build`
+  （server/client-techops）成功を確認済み。
 
 ---
 
