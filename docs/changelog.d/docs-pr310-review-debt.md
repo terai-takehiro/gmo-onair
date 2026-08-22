@@ -1,1 +1,0 @@
-**PR #310（配信設定「配信先を足す」の画面全体が暗く覆われる不具合の修正）のマージ後の棚卸しを記録した**（コード変更なし）。`get_review_comments` の `totalCount: 0` を確認し、レビュー0件のままマージされたことと、原因（PR #279以来のDialogOverlayの`sm:hidden`漏れ）・教訓（前回PRの実ブラウザ確認で「配信先を足す」という核となる操作を通していなかった）を [docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md) に記録した。

@@ -1,1 +1,0 @@
-**PR #262（スマホ最適化の洗い出し対応）がCodexのレビュー0件のままマージされたことを記録した**（コード変更なし）。`pr-watch`スキルの決めごと「レビューが0件のときは『指摘なし』と読まない」に従い、`docs/reviews/codex-findings-v4.md`に記録した。作成07:47:10・マージ08:28:50（約41分開いており、待つ時間は十分あった）。`get_comments`/`get_review_comments`/`get_reviews`いずれも0件で、usage limitsのコメントも付いていない。`npm run reviews:debt`はこの環境からは401で使えないため、GitHub MCPで直接確認した。表に移す指摘はない（レビュー自体が届いていないため）。

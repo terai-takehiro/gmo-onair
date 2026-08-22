@@ -1,5 +1,0 @@
-検証環境でレンタル機材検索の実クロールが「うまくいっていない」（数件しか出ない）と報告があり調査した結果、`rental-scraper` の重大な不具合を見つけて直した。`sync_to_postgres.py` は「company ごとの最新 last_seen と一致する行だけを listed 扱いにする」判定だが、`common_db.py` の `upsert_item`/`mark_missing_items` が商品ごとに独立して `datetime.now()` を計算していたため、実際のクロール（数百〜数千件を `SLEEP_SEC=1.5秒` 間隔で処理・数十分〜1時間超かかる）では商品ごとに `last_seen` がバラけ、**最後に処理した1件以外ほぼ全部が missing に誤判定**されていた。`toc_scraper.py`/`restar_scraper.py` それぞれの `run()` 冒頭で1回だけ計算した時刻(`run_started_at`)を、そのクロール内の `upsert_item`/`mark_missing_items` すべてに渡すよう修正。検証: 実 Postgres（`verify:up`）に対して「29件が今回のクロールで見つかり・1件は見つからなかった」を模した同期を実行し、29件が listed・1件が missing になることを確認。単体テストも追加（`test_common_db.py`）。
-
-なお、GitHub Actions のデプロイログを直接確認したところ、TOC サイトへの実クロール自体（カテゴリ一覧の取得・商品ID収集）は正しく動作していた（複数カテゴリで100〜260件規模の商品を検出）ことも合わせて確認した。今回の不具合は「クロールできていない」のではなく「クロールした結果の DB 反映が正しくなかった」ことが原因。
-
-あわせて、レンタル機材検索の検索画面に2社それぞれの「最終取得日時」「掲載中件数」を小さく表示するようにした。これまではクロールの取得状況が本体アプリの画面からは分からず、`docker compose logs` や `psql` を直接叩かないと確認できなかった。新しい `GET /qsheet/rental/sync-status` エンドポイント（`qsheet_rental_items` の `company` ごとの `MAX(last_seen)`／`status` 件数を集計するだけで、新しいテーブルは追加していない）を検索画面から呼び、最終取得から30時間以上経っている会社があれば「更新が止まっている可能性」として目立たせる。実 Postgres（`verify:up`）に対して動作確認済み。
