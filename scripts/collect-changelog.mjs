@@ -251,6 +251,20 @@ if (ri < 0) throw new Error('README.md に「**現在のバージョン**:」が
 const prev = readme[ri].replace('**現在のバージョン**: v', '旧 v');
 readme[ri] = `**現在のバージョン**: ${line}`;
 readme.splice(ri + 2, 0, prev, '');
+// 「旧 vX.Y.Z — …」は直近3件だけ残す。全件は docs/version-history.md にあり
+// （README は入口の文書なので履歴を貯めない。実測: 42件で 55KB になっていた）。
+// 旧行は「1行＋空行」の対で並ぶので、4件目以降はその2行を落とす。
+let oldSeen = 0;
+for (let i = ri + 2; i < readme.length; i++) {
+  if (readme[i] === '') continue; // 旧の行の間の空行
+  if (!readme[i].startsWith('旧 v')) break; // 旧の並びが終わった
+  oldSeen += 1;
+  if (oldSeen > 3) {
+    const gap = readme[i + 1] === '' ? 2 : 1;
+    readme.splice(i, gap);
+    i -= 1;
+  }
+}
 if (!dry) writeFileSync(rp, readme.join('\n'));
 
 // ── package.json ─────────────────────────────────────────────
