@@ -79,7 +79,11 @@ for (const f of files) {
       if (!noFrag) continue;
       seen += 1;
       if (ALLOW.has(`${rel}:${t}`)) continue;
-      const abs = path.resolve(path.dirname(f), decodeURIComponent(noFrag));
+      // 生の % を含むリンク先 (例: 50%off.md) で decodeURIComponent が
+      // URIError を投げ、検査ごと落ちる — そのまま (エンコードなし) で解決する
+      let decoded = noFrag;
+      try { decoded = decodeURIComponent(noFrag); } catch { /* 生のまま使う */ }
+      const abs = path.resolve(path.dirname(f), decoded);
       if (!fs.existsSync(abs)) bad.push(`${rel}:${i + 1}  →  ${t}`);
     }
   });

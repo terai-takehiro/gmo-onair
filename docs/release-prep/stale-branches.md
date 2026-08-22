@@ -6,7 +6,8 @@
 関連PRは GitHub API で head ブランチから引いた）
 
 対象外: `main` / `claude/v4-release-prep-bh93vf`（リリース準備の作業元）/
-`chore/md-links-and-migration-lint`（PR #349 が open）。
+`chore/md-links-and-migration-lint`（PR #349。表の作成時は open・**その後マージ済み**なので、
+GitHub がブランチを自動削除していなければこれも削除可）。
 リモートに残るブランチはこの3本＋下表の7本で**全部**。
 release/4.2.x などマージ済みの作業ブランチは既にリモートから消えていた。
 
@@ -16,8 +17,8 @@ release/4.2.x などマージ済みの作業ブランチは既にリモートか
 | `fix/release-tooling-titles` | 2026-08-16 | ⭕ | 0件（下の判断メモ参照） | #156 マージ済み | **削除可** |
 | `fix/version-history-crlf` | 2026-08-16 | ❌ | 1件: `9039bbd`「chore(docs): 下書きを枝の名前に合わせた」— 対象の `changelog.d` 下書きは v4.1.1 リリースで消費済みで main に存在しない | #157 マージ済み | **削除可**（未マージ分は無価値） |
 | `codex/fix-codex-review-issues-for-pr-#190` | 2026-08-18 | ❌ | 1件: `c0e5591`「fix(db): add follow-up payment terms migration」（migration 197） | #191 **未マージclose** | **削除可**（main の migration 198 が同目的で置き換え済み。さらに 207/208 で customers/vendors 自体を削除済みのため完全に陳腐化） |
-| `claude/unified-task-management-refd5o` | 2026-08-20 | ❌ | 1件: `fbc8305`「docs(reviews): PR #258 のレビュー0件マージを棚卸しに記録する」— main の `codex-findings-v4.md` に #258 の記録が**無い** | #258 マージ済み | **記録を取り込んでから削除**（cherry-pick か再記録の小PR） |
-| `claude/script-popup-width-input-j6v6y5` | 2026-08-22 | ❌ | 1件: `f4ff81e`「docs(reviews): PR #325 のマージ後の棚卸しを記録した」— main に #325 の棚卸し記録が**無い**（直さず残した指摘3件を含む） | #325 マージ済み | **記録を取り込んでから削除**（cherry-pick か再記録の小PR） |
+| `claude/unified-task-management-refd5o` | 2026-08-20 | ❌ | 1件: `fbc8305`「docs(reviews): PR #258 のレビュー0件マージを棚卸しに記録する」— main の `codex-findings-v4.md` に #258 の記録が**無い** | #258 マージ済み | ~~記録を取り込んでから削除~~ → **削除可**（記録は PR #356 で `codex-findings-v4.md` へ回収済み・2026-08-23） |
+| `claude/script-popup-width-input-j6v6y5` | 2026-08-22 | ❌ | 1件: `f4ff81e`「docs(reviews): PR #325 のマージ後の棚卸しを記録した」— main に #325 の棚卸し記録が**無い**（直さず残した指摘3件を含む） | #325 マージ済み | ~~記録を取り込んでから削除~~ → **削除可**（記録と残した指摘3件は PR #356 で回収済み・2026-08-23） |
 | `claude/outlook-calendar-sync-approval-hab129` | 2026-08-16 | ❌ | 1件: `5e6f916`「docs(ops): Outlook カレンダー連携の Entra ID アプリ登録依頼書を追加」（`docs/ops/outlook-calendar-entra-app-request.md`・191行・main に存在しない） | PRなし | **要判断** — Outlook 連携を進めるなら取り込み、やめたなら削除 |
 
 ## `fix/release-tooling-titles` の判断メモ

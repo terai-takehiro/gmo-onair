@@ -1,6 +1,6 @@
 // タスク・依頼 — 1 ページ 4 タブ (要件 D8)。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
 //
 // 投入口は案件管理アプリのトップ (投げるのは 1 秒で終わる行為なので入口に置く)。
 // こちらは**格納先と棚卸し**。腰を据えて優先順位を見直す場所。

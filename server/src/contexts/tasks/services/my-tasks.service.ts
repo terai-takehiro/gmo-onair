@@ -1,6 +1,6 @@
 // 個人軸のタスクと依頼 — 「自分のタスク」「受けた/出した依頼」を扱う。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D1 / D2 / D3 / D9)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D1 / D2 / D3 / D9)
 //
 // project-tasks.service.ts は「案件のタスク」を案件軸で扱う。
 // こちらは **人軸** で、案件タスクと個人タスク (project_id IS NULL) を混ぜて返す。

@@ -3,7 +3,7 @@
 // サーバーは server/src/ 外を import できないため意図的に複製している。
 // 本文の一致は scripts/check-collab-parity.mjs がビルド時に検証する。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (B1 / B2)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (B1 / B2)
 //
 // ⚠️ server/src/shared/collab/projectCollabDoc.ts と**構造を必ず一致させること**
 //    (更新バイナリの互換性のため)。サーバーは server/src/ の外を import できないので

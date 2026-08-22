@@ -1,6 +1,6 @@
 // 案件 (GLS-B) 共同編集 — ProjectCollabDoc ⇄ Y.Doc 変換層
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (B1 / B2)
+// 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (B1 / B2)
 //
 // ⚠️ server/src/shared/collab/projectCollabDoc.ts と**構造を必ず一致させること**
 //    (更新バイナリの互換性のため)。サーバーは server/src/ の外を import できないので
