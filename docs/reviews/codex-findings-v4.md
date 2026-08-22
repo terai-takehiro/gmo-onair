@@ -1059,6 +1059,20 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   router.use数）に影響が無いことを確認した（migration 233は`liveops_display_layout`
   というliveops固有のテーブルで`qsheet_`プレフィックスではない。新規ルートも
   `server/src/contexts/liveops/`配下でqsheetのマウントには触れていない）。
+- **#337**（`refactor(qsheet): Phase 2 — ベースパス・AppKey・APIプレフィックスを techops へ
+  二重マウント`）— 作成 2026-08-22 15:41:55 / CI green 15:44:02頃 / マージ 15:44:49頃
+  （**CI green から約1分後**）。`get_review_comments` 0件。表に移す指摘はない
+  （レビュー自体が届いていないため）。83ファイル変更。qsheet→techops移行計画のPhase 2を
+  実施 — ベースパス`/qsheet/`→`/techops/`・`AppKey`・APIプレフィックスを二重マウントで
+  改名（旧URLは全て後方互換で維持）。`permissionModule`・Socket.IO・DB・MCPツール名は
+  無変更（Phase 1と同じ方針）。マルチエージェント実装（9タスク並行）後、
+  `shared/tests/{miniapps,qsheetCollabMetaSync}.test.ts`のソース文字列アサーション9件・
+  `client-live/src`の別バンドルからのoutboundリンク10ファイルなど、当初のタスク分割から
+  漏れていた参照を手動監査で追加修正した（Phase 1と同型の見落とし）。
+  `npx tsc -b`（全ワークスペース）0エラー・`npm run test`（1452件）全通過・`npm run lint`
+  0エラー・warning 59件（Phase 1と同数）・`npm run build`（client-techops/server）成功を
+  確認済み。Phase 3（Socket.IOカットオーバー）・Phase 4（MCPツール名）は未着手のまま
+  ユーザーの追加判断待ち。
 
 ---
 
