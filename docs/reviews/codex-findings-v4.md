@@ -993,6 +993,37 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   新規作成＋`client-qsheet/CLAUDE.md`の既存メモにリンク追加）。マルチエージェント監査
   （7観点・8エージェント並行）に基づく移行計画で、実施はまだ決定していない
   （同ドキュメント§6参照）。
+- **#327**（`feat(qsheet,liveops): 計時LIVEのミニアプリ化フェーズ2（バンドル統合）`）—
+  作成 2026-08-22 14:08:12 / CI green 14:20:23（`checks`/`build`とも成功）/
+  マージ 14:20:48頃（**CI green から約25秒後**、#251等と同じ「見る前に入った」形）。
+  `get_reviews` 0件・`get_comments` 0件。表に移す指摘はない（レビュー自体が届いていない
+  ため）。3コミット・72ファイル・+3,553/-720行。設計は
+  [`docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md`](../design/v4/qsheet-v4-coding/12-live-timer-decision.md)
+  §4（フェーズ2）。マルチエージェント（調査→画面移植→画面移植→URL再設計→
+  レジストリ/権限統合→レビュー→修正→再確認）で実装し、**セッション内のワークフロー
+  判定バグ**（「指摘なし」の文字列が別小見出しに含まれていたため、レビューが実際に
+  致命的指摘2件を出していたのに誤って「指摘なし」と判定され、修正フェーズがスキップ
+  されていた）を人間の確認で発見・修正。致命的2件（①qsheetのreader/editor権限では
+  運用画面が一切開けない ②旧スタンドアロンセッションが永久に迷子になる案内文）を
+  修正した後、**その再確認過程でさらに1件**（`server/src/contexts/liveops/socket.ts`の
+  Socket.IO認証が権限区画統合＝migration 232 に追随しておらず、本番相当の
+  `AUTH_MODE=password`ではsystem_admin以外の全ユーザーがタイマーのリアルタイム
+  同期に接続できなくなる欠陥）を発見し、このセッションで直接修正・実機確認した。
+  ⚠️ **push後にmainとのマージコンフリクトが発生**（並行してマージされた#320系の
+  サイドバー文脈連動化・#326のレンタル機材スクレイパー修正等）。`client-live/src/pages/
+  SessionHomePage.tsx`（modify/delete。削除を維持）・`scripts/check-ui-tokens.mjs`
+  （生成物のカウント値。`--update`で実測値を再生成）の2件を解消。**さらにマージ後、
+  テキスト上は衝突しなかったが意味的な抜けを発見**: main側で並行して書き直された
+  `client-qsheet/src/components/layout/nav.ts`（サイドバーの文脈連動化）が、このPRの
+  ミニアプリレジストリ更新（liveopsを`kind:'panel'`に統合）より前に書かれていたため、
+  収録設定・配信設定と並ぶはずの「計時・視聴者」が左メニューから漏れていた。追加コミット
+  （`24ac647`）で修正し、`client-qsheet/CLAUDE.md`の古い記述（「レジストリは後続の
+  ステージがやる」＝実際には完了済みの段階を指す）も実態に合わせ更新した。マージ・
+  コンフリクト解消・追加のバグ修正のたびに`npm run typecheck:all`/`lint`/`test`/
+  `check-collab-parity`/`check-links`/`build:changed`を独立に再実行し、すべてOKを
+  確認してからpushした。表示画面契約（`TimerDisplayPage.tsx`等）は全工程で無変更。
+  ⚠️ **実ブラウザでのPC/スマホ確認は未実施**（環境制約。PR本文に明記。代わりに実DB＋
+  実サーバーへの直接リクエスト・実Socket.IO接続で権限・移行安全性を確認した）。
 
 ---
 
