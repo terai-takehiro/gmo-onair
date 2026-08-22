@@ -69,7 +69,7 @@ export default function ScheduleItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={SHEET_CLASS}>
+      <DialogContent size="lg" className={SHEET_CLASS}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "項目を編集" : "項目を追加"}</DialogTitle>
           {conflicted && (
@@ -94,7 +94,7 @@ export default function ScheduleItemDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>区分</Label>
                 <Select value={draft.kind} onValueChange={(v) => set("kind", v)}>
@@ -115,7 +115,7 @@ export default function ScheduleItemDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="item-start">開始（25:30 のように日跨ぎも可）</Label>
                 <BufferedInput

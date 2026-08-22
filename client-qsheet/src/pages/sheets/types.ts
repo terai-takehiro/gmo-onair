@@ -50,6 +50,34 @@ export interface EpisodeOption {
   recording_date: string | null;
 }
 
+/**
+ * `GET /lookup/:projectId/context` が返す「台本を作るのに要る事実」だけの案件情報。
+ *
+ * ⚠️ **サーバー側の `ProjectContext` の写し**
+ * （`server/src/contexts/platform/services/projectContext.service.ts`）。
+ * client と server は別ワークスペースで型を共有していないので、
+ * **あちらを直したらここも直すこと**。
+ *
+ * 金額・ステージ・BOX の URL といった営業情報は**返ってこない**
+ * （この経路は `sales` 権限を要求しないため、あちらで意図的に絞っている）。
+ */
+export interface ProjectContext {
+  id: string;
+  /** 案件名。qsheet では番組名の候補として使う */
+  name: string;
+  glsNumber: string | null;
+  customerName: string | null;
+  /** `YYYY-MM-DD` */
+  eventStart: string | null;
+  eventEnd: string | null;
+  /** 整形済みの会場（部屋 ＋ 外現場）。押さえていなければ `null` */
+  venue: string | null;
+  /** 本番日（昇順・重複なし・`YYYY-MM-DD`） */
+  performanceDates: string[];
+  /** リハーサル日（同上） */
+  rehearsalDates: string[];
+}
+
 /** `/qsheet/sheets` の絞り込み。サーバーの `scope` クエリと同じ値（documents.routes.ts） */
 export type SheetScope = "all" | "mine" | "shared";
 

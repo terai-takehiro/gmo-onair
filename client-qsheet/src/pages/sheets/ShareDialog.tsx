@@ -88,7 +88,7 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>共有設定</DialogTitle>
           <DialogDescription>

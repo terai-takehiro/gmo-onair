@@ -4,7 +4,7 @@
 // `server/src/contexts/qsheet/services/document-create.service.ts` に置く1本だけを使う
 // （01-app-structure.md §7-4「2か所に持たない」）。このコンポーネントはタイトル等の
 // メタしか組み立てず、`data` そのものはサーバー任せにする。
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link2 } from "lucide-react";
 import api from "@/lib/api";
@@ -27,12 +27,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type GlsProject, type EpisodeOption } from "./types";
+import { type GlsProject, type EpisodeOption, type ProjectContext } from "./types";
 
 /** 案件・エピソードから自動で入れた欄。**入れたことを画面に出すため**に持つ
  * （黙って入ると誤りに気づけない。`client/src/contexts/finance/.../HandoffDialog.tsx` に倣う）。
  * ユーザーが手で直したらその欄の印を落とす＝注記も消える。 */
-type PrefilledField = "title" | "broadcastDate" | "recordingDate";
+type PrefilledField = "title" | "location" | "broadcastDate" | "recordingDate" | "rehearsalDate";
+
+/** どこから入れたか。**放送日・収録日は案件からもエピソードからも入る**ので、
+ * 真偽値ではなく出どころを持つ（注記に「どこから来た値か」を出すため）。 */
+type PrefillSource = "project" | "episode";
+
+/** 自動入力の注記。エピソードのほうが回ごとに正確なので、そう分かる文言にする。 */
+function prefillNote(field: PrefilledField, source: PrefillSource | undefined): string | null {
+  if (!source) return null;
+  if (source === "episode") return "エピソードから入れました";
+  switch (field) {
+    case "title": return "GLS案件の名前から入れました。違うときは直してください";
+    case "location": return "GLS案件の会場から入れました。違うときは直してください";
+    case "broadcastDate": return "GLS案件の日程から入れました";
+    case "recordingDate": return "GLS案件の本番日から入れました";
+    case "rehearsalDate": return "GLS案件のリハーサル日から入れました";
+  }
+}
+
+function PrefillNote({ field, source }: { field: PrefilledField; source: PrefillSource | undefined }) {
+  const text = prefillNote(field, source);
+  return text ? <p className="mt-1 text-xs text-info">{text}</p> : null;
+}
 
 export function CreateSheetDialog({
   open,
@@ -62,14 +84,18 @@ export function CreateSheetDialog({
   const [linkToProject, setLinkToProject] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
-  const [prefilled, setPrefilled] = useState<Record<PrefilledField, boolean>>({
-    title: false,
-    broadcastDate: false,
-    recordingDate: false,
-  });
+  const [prefilled, setPrefilled] = useState<Partial<Record<PrefilledField, PrefillSource>>>({});
 
-  const markPrefilled = (field: PrefilledField, value: boolean) =>
-    setPrefilled((prev) => (prev[field] === value ? prev : { ...prev, [field]: value }));
+  /** `source` に `null` を渡すと印を落とす（＝注記が消える）。 */
+  const markPrefilled = useCallback((field: PrefilledField, source: PrefillSource | null) => {
+    setPrefilled((prev) => {
+      if ((prev[field] ?? null) === source) return prev;
+      const next = { ...prev };
+      if (source) next[field] = source;
+      else delete next[field];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (defaultProjectId) {
@@ -96,6 +122,25 @@ export function CreateSheetDialog({
     enabled: !!selectedProjectId,
   });
 
+  /**
+   * 案件1件の「台本に要る事実」（会場・本番日・リハ日）。
+   * **案件を選んだときに1回だけ**（`enabled` と queryKey で1案件につき1本）。
+   * 取れなくても画面は普通に使える — 失敗しても何も出さず、手入力に落ちるだけ
+   * （帯を出すのは書き込みの失敗だけ。`shared/src/client/queryClient.ts`）。
+   */
+  const { data: projectContext } = useQuery({
+    queryKey: ["project-context", selectedProjectId],
+    queryFn: async () => {
+      const res = await api.get(`/lookup/${selectedProjectId}/context`);
+      return res.data.data as ProjectContext;
+    },
+    enabled: !!selectedProjectId,
+  });
+
+  /** どの案件の context を反映済みか。**1案件につき1回だけ入れる**ための印
+   * （入れたあとユーザーが消した欄を、再描画のたびに書き戻さない）。 */
+  const appliedContextRef = useRef<string | null>(null);
+
   const resetForm = () => {
     setNewTitle("");
     setNewLocation("");
@@ -110,7 +155,8 @@ export function CreateSheetDialog({
       setSelectedProjectId("");
     }
     setSelectedEpisodeId("");
-    setPrefilled({ title: false, broadcastDate: false, recordingDate: false });
+    setPrefilled({});
+    appliedContextRef.current = null;
   };
 
   const createMutation = useMutation({
@@ -160,16 +206,92 @@ export function CreateSheetDialog({
   // **自動入力の作法**（`client/src/contexts/finance/pages/ledger/revenuePrefill.ts` に倣う）:
   // 空欄のときだけ入れる＝ユーザーが打った値は絶対に上書きしない。
   // ただし「前に自動で入れた値」は選び直しに追随してよい（自分で入れたものなので）。
-  const canAutofill = (current: string, field: PrefilledField) => !current || prefilled[field];
+  const canAutofill = useCallback(
+    (current: string, field: PrefilledField) => !current || !!prefilled[field],
+    [prefilled],
+  );
+
+  /**
+   * 案件の context が届いたら、空いている欄に入れる。
+   *
+   * ── 競合をどう防ぐか ──────────────────────────────────
+   *
+   * ① **世代ガード**: 案件を選び直したあとに前の案件の応答が届いても捨てる
+   *    （`ctx.id !== selectedProjectId` なら何もしない）。queryKey も案件ごとに
+   *    分かれているが、**入れる直前にもう一度見る**ほうが読んで分かる
+   * ② **エピソードが優先**: エピソードは回ごとの日付なので案件の日付より正確。
+   *    先にエピソードを選んでいたら（応答が遅れて届いた場合を含む）
+   *    放送日・収録日には**触らない**。逆順（案件 → エピソード）は
+   *    `canAutofill` が「自分が入れた欄」を許すのでエピソードの値で上書きされる
+   * ③ **手で打った値は絶対に上書きしない**: すべて `canAutofill` を通す
+   */
+  useEffect(() => {
+    const ctx = projectContext;
+    if (!ctx) return;
+    if (ctx.id !== selectedProjectId) return;            // ①
+    if (appliedContextRef.current === ctx.id) return;
+    appliedContextRef.current = ctx.id;
+
+    if (ctx.venue && canAutofill(newLocation, "location")) {
+      setNewLocation(ctx.venue);
+      markPrefilled("location", "project");
+    }
+
+    // `?.` は保険。壊れた応答（配列でない）でもダイアログを落とさない
+    const performanceDate = ctx.performanceDates?.[0] ?? null;
+    const episodeOwnsDates = !!selectedEpisodeId;        // ②
+
+    // 放送日は本番日の初日。日程を入れていない案件のために `eventStart` に落とす
+    const broadcastDate = performanceDate ?? ctx.eventStart;
+    let broadcastAfter = newBroadcastDate;
+    if (!episodeOwnsDates && broadcastDate && canAutofill(newBroadcastDate, "broadcastDate")) {
+      setNewBroadcastDate(broadcastDate);
+      markPrefilled("broadcastDate", "project");
+      broadcastAfter = broadcastDate;
+    }
+
+    /*
+     * 収録日（＝本番日）は**放送日と同じ日になるなら入れない**。
+     * 案件からは「本番日」しか分からないので、放送日にも収録日にも同じ日が入る。
+     * それは何も教えていないうえに、生放送の案件では
+     * 「収録日を設定（生放送の場合はOFF）」を利用者が消して回ることになる。
+     * 放送日が本番日と違うとき（後日放送・エピソードで別途決まっているとき）だけ
+     * 入れれば、入った値が必ず意味を持つ。
+     */
+    if (
+      !episodeOwnsDates &&
+      performanceDate &&
+      performanceDate !== broadcastAfter &&
+      canAutofill(newRecordingDate, "recordingDate")
+    ) {
+      setNewRecordingDate(performanceDate);
+      markPrefilled("recordingDate", "project");
+      setHasRecording(true);
+    }
+
+    // リハ日はエピソードが持っていないので、エピソードを選んでいても入れてよい
+    const rehearsalDate = ctx.rehearsalDates?.[0];
+    if (rehearsalDate && canAutofill(newRehearsalDate, "rehearsalDate")) {
+      setNewRehearsalDate(rehearsalDate);
+      markPrefilled("rehearsalDate", "project");
+      setHasRehearsal(true);
+    }
+  }, [
+    projectContext, selectedProjectId, selectedEpisodeId,
+    newLocation, newBroadcastDate, newRecordingDate, newRehearsalDate,
+    canAutofill, markPrefilled,
+  ]);
 
   const handleProjectChange = (value: string) => {
     setSelectedProjectId(value);
     setSelectedEpisodeId("");
+    // 選び直したら context をもう一度反映する（上の useEffect が入れる）
+    appliedContextRef.current = null;
     // 番組名を案件名で埋める（`/lookup/gls-options` が `name` を返している）
     const project = glsProjects?.find((p) => p.id === value);
     if (project?.name && canAutofill(newTitle, "title")) {
       setNewTitle(project.name);
-      markPrefilled("title", true);
+      markPrefilled("title", "project");
     }
   };
 
@@ -180,13 +302,13 @@ export function CreateSheetDialog({
     if (!ep) return;
     if (ep.broadcast_date && canAutofill(newBroadcastDate, "broadcastDate")) {
       setNewBroadcastDate(ep.broadcast_date);
-      markPrefilled("broadcastDate", true);
+      markPrefilled("broadcastDate", "episode");
     }
     // `/lookup/:projectId/episodes-options` は `recording_date` も返している
     // （server/src/contexts/platform/routes/lookup.routes.ts・`episodes.recording_date` は TEXT の 'YYYY-MM-DD'）
     if (ep.recording_date && canAutofill(newRecordingDate, "recordingDate")) {
       setNewRecordingDate(ep.recording_date);
-      markPrefilled("recordingDate", true);
+      markPrefilled("recordingDate", "episode");
       setHasRecording(true);
     }
   };
@@ -218,12 +340,10 @@ export function CreateSheetDialog({
               className="mt-1"
               placeholder="例：サンプル情報バラエティ"
               value={newTitle}
-              onChange={(e) => { setNewTitle(e.target.value); markPrefilled("title", false); }}
+              onChange={(e) => { setNewTitle(e.target.value); markPrefilled("title", null); }}
               autoFocus
             />
-            {prefilled.title && (
-              <p className="mt-1 text-xs text-info">GLS案件の名前から入れました。違うときは直してください</p>
-            )}
+            <PrefillNote field="title" source={prefilled.title} />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
@@ -231,8 +351,9 @@ export function CreateSheetDialog({
               className="mt-1"
               placeholder="例：GMOサムライスタジオ用賀"
               value={newLocation}
-              onChange={(e) => setNewLocation(e.target.value)}
+              onChange={(e) => { setNewLocation(e.target.value); markPrefilled("location", null); }}
             />
+            <PrefillNote field="location" source={prefilled.location} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -241,11 +362,9 @@ export function CreateSheetDialog({
                 className="mt-1"
                 type="date"
                 value={newBroadcastDate}
-                onChange={(e) => { setNewBroadcastDate(e.target.value); markPrefilled("broadcastDate", false); }}
+                onChange={(e) => { setNewBroadcastDate(e.target.value); markPrefilled("broadcastDate", null); }}
               />
-              {prefilled.broadcastDate && (
-                <p className="mt-1 text-xs text-info">エピソードから入れました</p>
-              )}
+              <PrefillNote field="broadcastDate" source={prefilled.broadcastDate} />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">放送開始時刻</Label>
@@ -264,11 +383,9 @@ export function CreateSheetDialog({
                   className="mt-1"
                   type="date"
                   value={newRecordingDate}
-                  onChange={(e) => { setNewRecordingDate(e.target.value); markPrefilled("recordingDate", false); }}
+                  onChange={(e) => { setNewRecordingDate(e.target.value); markPrefilled("recordingDate", null); }}
                 />
-                {prefilled.recordingDate && (
-                  <p className="mt-1 text-xs text-info">エピソードから入れました</p>
-                )}
+                <PrefillNote field="recordingDate" source={prefilled.recordingDate} />
               </>
             )}
           </div>
@@ -280,7 +397,13 @@ export function CreateSheetDialog({
             {hasRehearsal && (
               <>
                 <Label className="text-xs text-muted-foreground">リハーサル日</Label>
-                <Input className="mt-1" type="date" value={newRehearsalDate} onChange={(e) => setNewRehearsalDate(e.target.value)} />
+                <Input
+                  className="mt-1"
+                  type="date"
+                  value={newRehearsalDate}
+                  onChange={(e) => { setNewRehearsalDate(e.target.value); markPrefilled("rehearsalDate", null); }}
+                />
+                <PrefillNote field="rehearsalDate" source={prefilled.rehearsalDate} />
               </>
             )}
           </div>

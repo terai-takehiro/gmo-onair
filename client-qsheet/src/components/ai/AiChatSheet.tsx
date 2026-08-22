@@ -65,7 +65,7 @@ export default function AiChatSheet({ open, onOpenChange, projectId, scheduleId,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg flex flex-col">
+      <DialogContent size="lg" className="flex flex-col">
         <DialogHeader>
           <DialogTitle>壁打ち（あなただけに見えます）</DialogTitle>
         </DialogHeader>

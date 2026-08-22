@@ -269,7 +269,7 @@ export default function SheetListPage() {
 
       {/* 削除確認ダイアログ */}
       <Dialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>このドキュメントを削除しますか？</DialogTitle>
             <DialogDescription>

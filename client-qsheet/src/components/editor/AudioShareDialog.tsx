@@ -152,7 +152,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>音声サポート画面 共有 URL</DialogTitle>
           <DialogDescription>
