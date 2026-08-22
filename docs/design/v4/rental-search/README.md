@@ -37,3 +37,15 @@ v4 のトークンどおり（LINE Seed JP・#005bac・カード角丸14px・ボ
 
 各 `.dc.html` が1アートボード。`canvas.json` が配置。ブラウザで直接開いても見られる
 （`support.js` 同梱）。デザインキャンバス（Artifact）として公開済みのものが正。
+
+## 実装状況
+
+- **API・4画面は実装済み。** `server/src/contexts/qsheet/routes/rental.routes.ts` が API、
+  `client-qsheet/src/pages/rental/`（`RentalSearchPage.tsx` / `RentalItemDetailDialog.tsx` /
+  `RentalReservationsPage.tsx` / `RentalMailPage.tsx`）が①検索〜④依頼メールの4画面。
+- **DB取り込みも実装済み。** `rental-scraper/`（2社サイトのクロール → `rental_items.db` →
+  本体 Postgres の `qsheet_rental_items` への同期）。詳細・cron運用は
+  [rental-scraper/README.md](../../../../rental-scraper/README.md) を参照。
+- **開発・検証環境では rental-scraper を動かさなくても画面確認できる。**
+  `server/src/shared/db/seed-rental.ts`（`qsheet_rental_items` にサンプル機材8件を投入。
+  本番は `SKIP_SEED=true` のため実行されない）がクロール結果の代わりになる。
