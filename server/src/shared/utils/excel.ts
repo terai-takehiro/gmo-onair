@@ -1,6 +1,10 @@
 // shared/utils/excel.ts — Excel共通ユーティリティ
-// xlsx (SheetJS) ベース。日本語ヘッダー対応・複数シート対応。
-import * as XLSX from 'xlsx';
+// exceljs ベース。日本語ヘッダー対応・複数シート対応。
+//
+// もとは xlsx (SheetJS) だったが、既知の脆弱性 (High) に修正版が出ないため
+// 既に qsheet の Excel 機能で使っていた exceljs へ寄せた (R6-b・2026-08)。
+// exceljs の書き込み/読み込みは非同期なので、この層の API も async になっている。
+import ExcelJS from 'exceljs';
 import { Response } from 'express';
 
 export interface SheetSpec {
@@ -15,28 +19,25 @@ export interface SheetSpec {
 /**
  * 複数シートのワークブックを生成してBufferで返す
  */
-export function buildExcelWorkbook(sheets: SheetSpec[]): Buffer {
-  const wb = XLSX.utils.book_new();
+export async function buildExcelWorkbook(sheets: SheetSpec[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
   for (const sheet of sheets) {
-    const headers = sheet.columns.map((c) => c.header);
-    const data: unknown[][] = [headers];
+    const ws = wb.addWorksheet(sheet.name.slice(0, 31));
+    ws.columns = sheet.columns.map((c) => ({ width: c.width ?? Math.max(8, c.header.length * 2) }));
+    ws.addRow(sheet.columns.map((c) => c.header));
     for (const row of sheet.rows) {
-      data.push(sheet.columns.map((c) => formatCell(row[c.key])));
+      ws.addRow(sheet.columns.map((c) => formatCell(row[c.key])));
     }
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    // 列幅設定
-    ws['!cols'] = sheet.columns.map((c) => ({ wch: c.width ?? Math.max(8, c.header.length * 2) }));
-    XLSX.utils.book_append_sheet(wb, ws, sheet.name.slice(0, 31));
   }
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
-function formatCell(v: unknown): unknown {
+function formatCell(v: unknown): string | number | boolean {
   if (v == null) return '';
   if (v instanceof Date) return v.toISOString().slice(0, 19).replace('T', ' ');
   if (typeof v === 'object') return JSON.stringify(v);
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-  return v;
+  return v as string | number;
 }
 
 /**
@@ -52,35 +53,86 @@ export function excelResponse(res: Response, filename: string, buffer: Buffer): 
 export const normalizeHeader = (v: unknown): string =>
   String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
 
-function readWorkbookFirstSheet(buffer: Buffer): { data: unknown[][]; warnings: string[] } {
-  const wb = XLSX.read(buffer, {
-    type: 'buffer',
-    cellFormula: false,
-    cellStyles: false,
-    cellHTML: false,
-    cellNF: false,
-    sheetStubs: false,
-  });
-  const wsName = wb.SheetNames[0];
-  if (!wsName) return { data: [], warnings: ['シートが見つかりません'] };
-  const ws = wb.Sheets[wsName];
-  const rawRef = ws['!ref'];
-  let limitedRange: XLSX.Range | undefined;
-  if (rawRef) {
-    const r = XLSX.utils.decode_range(rawRef);
-    r.e.r = Math.min(r.e.r, 9999);
-    r.e.c = Math.min(r.e.c, 49);
-    limitedRange = r;
+/** Buffer から Workbook を読む (読み手はこの1か所に集約) */
+export async function loadExcelWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+  return wb;
+}
+
+/**
+ * セル値 → 素の値。旧 SheetJS の `sheet_to_json({ raw: true })` に相当する層:
+ *   文字列/数値/真偽値はそのまま・空は ''・リッチテキストは連結・
+ *   数式は計算結果・ハイパーリンクは表示文字列。
+ * 日付だけは意図的に旧挙動 (シリアル値) と違えて **ISO 文字列** にする —
+ * 取込側の日付パーサ (`asDate` / `parseFlexDate` 等) は ISO を受けるので、
+ * シリアル値のまま流すより安全に読める。
+ */
+export function excelCellRaw(v: ExcelJS.CellValue): unknown {
+  if (v == null) return '';
+  if (v instanceof Date) return isoDate(v);
+  if (typeof v === 'object') {
+    const o = v as unknown as Record<string, unknown>;
+    if (Array.isArray(o.richText)) return (o.richText as { text?: unknown }[]).map((t) => String(t.text ?? '')).join('');
+    if ('hyperlink' in o) return String(o.text ?? o.hyperlink ?? '');
+    if ('error' in o) return '';
+    if ('result' in o) return excelCellRaw(o.result as ExcelJS.CellValue); // 数式は結果を使う
+    if ('text' in o) return String(o.text ?? '');
+    return '';
   }
-  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: limitedRange }) as unknown[][];
+  return v;
+}
+
+/** セル値 → 表示文字列 (旧 SheetJS の `{ raw: false }` 相当。数値も文字列にする) */
+export function excelCellText(v: ExcelJS.CellValue): string {
+  const raw = excelCellRaw(v);
+  if (raw === '' || raw == null) return '';
+  if (typeof raw === 'boolean') return raw ? 'TRUE' : 'FALSE';
+  return String(raw);
+}
+
+function isoDate(d: Date): string {
+  const iso = d.toISOString();
+  // 時刻が 00:00:00 (日付だけのセル) なら日付部分のみ
+  return iso.slice(11, 19) === '00:00:00' ? iso.slice(0, 10) : `${iso.slice(0, 10)} ${iso.slice(11, 19)}`;
+}
+
+/**
+ * 1シートを AoA (行の配列) にする。空セルは ''。
+ * 旧 sheet_to_json({ header: 1, defval: '' }) の置き換え。
+ */
+export function sheetToAoa(
+  ws: ExcelJS.Worksheet,
+  opts: { maxRows?: number; maxCols?: number; text?: boolean } = {},
+): unknown[][] {
+  const rowCount = Math.min(ws.rowCount, opts.maxRows ?? ws.rowCount);
+  const colCount = Math.min(ws.columnCount, opts.maxCols ?? ws.columnCount);
+  const out: unknown[][] = [];
+  for (let r = 1; r <= rowCount; r++) {
+    const row = ws.getRow(r);
+    const arr: unknown[] = [];
+    for (let c = 1; c <= colCount; c++) {
+      const v = row.getCell(c).value;
+      arr.push(opts.text ? excelCellText(v) : excelCellRaw(v));
+    }
+    out.push(arr);
+  }
+  return out;
+}
+
+function readWorkbookFirstSheet(wb: ExcelJS.Workbook): { data: unknown[][]; warnings: string[] } {
+  const ws = wb.worksheets[0];
+  if (!ws) return { data: [], warnings: ['シートが見つかりません'] };
+  // 旧実装と同じ読み取り上限 (10,000 行 × 50 列)
+  const data = sheetToAoa(ws, { maxRows: 10000, maxCols: 50 });
   return { data, warnings: [] };
 }
 
 /**
  * Excelの1行目(ヘッダー行)だけを取得する (マッピングUI用)
  */
-export function parseExcelHeaders(buffer: Buffer): string[] {
-  const { data } = readWorkbookFirstSheet(buffer);
+export async function parseExcelHeaders(buffer: Buffer): Promise<string[]> {
+  const { data } = readWorkbookFirstSheet(await loadExcelWorkbook(buffer));
   if (!data[0]) return [];
   return (data[0] as unknown[]).map((h) => String(h ?? '').trim()).filter((h) => h !== '');
 }
@@ -93,12 +145,12 @@ export function parseExcelHeaders(buffer: Buffer): string[] {
  *   { [columnKey]: excelHeaderName | null }
  *   null を指定すると明示的にスキップ
  */
-export function parseExcelBuffer(
+export async function parseExcelBuffer(
   buffer: Buffer,
   columns: { key: string; header: string }[],
   mapping?: Record<string, string | null>,
-): { rows: Record<string, unknown>[]; warnings: string[] } {
-  const { data, warnings: readWarnings } = readWorkbookFirstSheet(buffer);
+): Promise<{ rows: Record<string, unknown>[]; warnings: string[] }> {
+  const { data, warnings: readWarnings } = readWorkbookFirstSheet(await loadExcelWorkbook(buffer));
   if (readWarnings.length) return { rows: [], warnings: readWarnings };
   if (data.length < 2) return { rows: [], warnings: ['データ行がありません'] };
 

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { loadExcelWorkbook, sheetToAoa } from '../../../shared/utils/excel';
 import { getDb } from '../../../shared/db/connection';
 
 export interface EntryChange {
@@ -322,12 +322,11 @@ export interface PreviewResult {
   suggestedMapping: ImportMapping;
 }
 
-export function previewAwardsExcel(buffer: Buffer): PreviewResult {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) throw new Error('Excel にシートが見つかりません');
-  const sheet = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' }) as unknown[][];
+export async function previewAwardsExcel(buffer: Buffer): Promise<PreviewResult> {
+  const wb = await loadExcelWorkbook(buffer);
+  const sheet = wb.worksheets[0];
+  if (!sheet) throw new Error('Excel にシートが見つかりません');
+  const rows = sheetToAoa(sheet);
   if (rows.length < 2) throw new Error('データ行が存在しません');
 
   const headerRow = rows[0].some((h) => String(h).trim()) ? 0 : 1;
@@ -406,12 +405,11 @@ export async function importAwardsExcel(
 ): Promise<ImportResult> {
   const warnings: string[] = [];
 
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) throw new Error('Excel にシートが見つかりません');
+  const wb = await loadExcelWorkbook(buffer);
+  const sheet = wb.worksheets[0];
+  if (!sheet) throw new Error('Excel にシートが見つかりません');
 
-  const sheet = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' }) as unknown[][];
+  const rows = sheetToAoa(sheet);
 
   if (rows.length < 2) throw new Error('データ行が存在しません');
 

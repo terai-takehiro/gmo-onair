@@ -356,7 +356,7 @@ router.get('/:id/excel', async (req, res, next) => {
       };
     });
 
-    const buffer = buildExcelWorkbook([
+    const buffer = await buildExcelWorkbook([
       {
         name: '請求データ',
         columns: [

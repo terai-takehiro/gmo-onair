@@ -278,7 +278,7 @@ router.get('/:ownerKey/settings/export-xlsx', requirePermission('qsheet', 'edito
     [ownerValue, serviceDate]
   );
 
-  const { buffer, filename } = buildDeviceSettingsWorkbook({
+  const { buffer, filename } = await buildDeviceSettingsWorkbook({
     ownerLabel,
     serviceDate,
     sheets,

@@ -175,7 +175,7 @@ router.delete('/:id', requirePermission('equipment', 'manager'), wrap(async (req
 // Excel テンプレート
 // ============================================================
 router.get('/template', requirePermission('equipment', 'reader'), wrap(async (_req, res) => {
-  const buf = buildExcelWorkbook([
+  const buf = await buildExcelWorkbook([
     {
       name: 'コネクタ',
       columns: EXCEL_COLUMNS,
@@ -211,7 +211,7 @@ router.get('/export-xlsx', requirePermission('equipment', 'exporter'), wrap(asyn
     ...r,
     kind_label: KIND_LABELS[r.kind as string] || r.kind,
   }));
-  const buf = buildExcelWorkbook([{ name: 'コネクタ', columns: EXCEL_COLUMNS, rows }]);
+  const buf = await buildExcelWorkbook([{ name: 'コネクタ', columns: EXCEL_COLUMNS, rows }]);
   const today = new Date().toISOString().slice(0, 10);
   excelResponse(res, `コネクタ_${today}.xlsx`, buf);
 }));
@@ -222,7 +222,7 @@ router.get('/export-xlsx', requirePermission('equipment', 'exporter'), wrap(asyn
 router.post('/import-preview', requirePermission('equipment', 'editor'), upload.single('file'), wrap(async (req, res) => {
   if (!req.file) throw new AppError(400, 'NO_FILE', 'Excelファイルが必要です');
   let detectedHeaders: string[];
-  try { detectedHeaders = parseExcelHeaders(req.file.buffer); }
+  try { detectedHeaders = await parseExcelHeaders(req.file.buffer); }
   catch (e: any) { throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`); }
   const normDetected = detectedHeaders.map(normalizeHeader);
   const autoMapping: Record<string, string | null> = {};
@@ -260,7 +260,7 @@ router.post('/import', requirePermission('equipment', 'editor'), upload.single('
 
   let rows: Record<string, unknown>[];
   let warnings: string[];
-  try { ({ rows, warnings } = parseExcelBuffer(req.file.buffer, EXCEL_COLUMNS, mapping)); }
+  try { ({ rows, warnings } = await parseExcelBuffer(req.file.buffer, EXCEL_COLUMNS, mapping)); }
   catch (e: any) { throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`); }
 
   const [manufacturers, locations] = await Promise.all([

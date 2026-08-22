@@ -294,7 +294,7 @@ router.get('/admin/backup.xlsx', requireAuth, requireRole('system_admin'), wrap(
     }
   }
 
-  const buf = buildExcelWorkbook(sheets);
+  const buf = await buildExcelWorkbook(sheets);
   const today = new Date().toISOString().slice(0, 10);
   excelResponse(res, `gmo-onair_backup_${today}.xlsx`, buf);
 }));

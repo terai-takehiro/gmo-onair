@@ -100,11 +100,10 @@ jobs:
       # devDependencies の脆弱性では落とさない (本番イメージに入るものだけを見る)。
       #
       # ⚠️ いまは continue-on-error: true = **赤くしない** (結果はログで見るだけ)。
-      # 2026-08-22 の実測で本番依存に High が2件残っており、いきなりブロッキングに
-      # すると置換が終わるまで全 PR が赤くなるため:
-      #   - xlsx: 修正版が存在しない (R6-b で exceljs へ置換予定)
+      # いきなりブロッキングにすると解消まで全 PR が赤くなるため。残りは:
       #   - nodemailer: 修正が v9 へのメジャー更新 (更新の判断待ち)
-      # この2件が解消したら continue-on-error を外してブロッキング化すること。
+      #   (xlsx は R6-b で exceljs へ置換して解消済み・2026-08-22)
+      # これが解消したら continue-on-error を外してブロッキング化すること。
       - name: 本番依存の npm audit (High 以上・今は警告のみ)
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=high

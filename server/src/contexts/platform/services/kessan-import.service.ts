@@ -16,7 +16,7 @@
 import type { PoolClient } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
-import * as XLSX from 'xlsx';
+import { loadExcelWorkbook, sheetToAoa } from '../../../shared/utils/excel';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
@@ -399,14 +399,14 @@ function extractFreeeJournalRows(rows: string[][], glFileName: string): Extracte
  * - 案件 GLS は「文字摘要1」から抽出。税区分列が無いため一律 tax10 + 適格扱い。
  * - G社名='GLS' 以外 (AM/GLOVIA 等の他社レガシー) は除外。
  */
-function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Extracted {
-  const wb = XLSX.read(buf, { type: 'buffer' });
+async function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Promise<Extracted> {
+  const wb = await loadExcelWorkbook(buf);
   let H: Record<string, number> | null = null;
   let body: string[][] = [];
-  for (const sheetName of wb.SheetNames) {
-    const ws = wb.Sheets[sheetName];
-    if (!ws) continue;
-    const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: false, defval: '' });
+  for (const ws of wb.worksheets) {
+    // text: true = 旧 sheet_to_json({ raw: false }) 相当 (全セルを表示文字列で受ける。
+    // 日付セルは ISO になり、下の parseFlexDate がそのまま読める)
+    const aoa = sheetToAoa(ws, { text: true });
     for (let i = 0; i < aoa.length; i++) {
       const row = ((aoa[i] as unknown[]) || []).map((c) => String(c ?? '').trim());
       const at = (n: string) => row.indexOf(n);
@@ -478,7 +478,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const isXlsx = buf.length > 3 && buf[0] === 0x50 && buf[1] === 0x4b; // 'PK' (zip) = xlsx
   const sourceFmt = isXlsx ? 'MoneyForward (xlsx)' : 'freee (CSV)';
   const { sga, rev, pur, fixed } = isXlsx
-    ? extractMoneyForwardXlsx(buf, warnings)
+    ? await extractMoneyForwardXlsx(buf, warnings)
     : extractFreeeCsv(decodeCsv(buf), glFile.name, warnings);
 
   // period 判定 + 対象期間 (抽出行の日付の最小〜最大 + 含まれる年月)

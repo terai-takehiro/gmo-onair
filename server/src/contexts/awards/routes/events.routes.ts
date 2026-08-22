@@ -284,7 +284,7 @@ router.post('/events/:id/import-preview', upload.single('file'), wrap(async (req
   if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
 
-  const result = previewAwardsExcel(req.file.buffer);
+  const result = await previewAwardsExcel(req.file.buffer);
   res.json({ success: true, data: result });
 }));
 
