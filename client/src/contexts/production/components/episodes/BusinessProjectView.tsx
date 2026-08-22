@@ -859,7 +859,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               </div>
             </div>
             <Button size="sm" variant="outline" className="gap-1" asChild>
-              <a href={`/qsheet?project=${projectId}`}>
+              <a href={`/techops?project=${projectId}`}>
                 <FileText className="h-3.5 w-3.5" />
                 Qシート管理
               </a>

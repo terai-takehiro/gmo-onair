@@ -1,5 +1,5 @@
 /**
- * 制作技術支援のトップ（`/qsheet/top`）。
+ * 制作技術支援のトップ（`/techops/top`）。
  *
  * 「制作技術支援」の入口は**まず番組・イベントを選ぶこと**（2026-08-22・ご指摘で
  * 構成を訂正）。選び方は2つ:
@@ -8,12 +8,12 @@
  *   ② 案件管理に無い、ここだけの番組を作る／選ぶ（マニュアル・`qsheet_programs`）
  *
  * どちらを選んでも、その先は**同じハブ画面**（`JourneyPage.tsx`・
- * `/qsheet/projects/:id` または `/qsheet/programs/:id`）に着地する。ハブ画面が
+ * `/techops/projects/:id` または `/techops/programs/:id`）に着地する。ハブ画面が
  * ミニアプリ（進行台本＝Qシート・スケジュール表・収録設定・配信設定…）への
  * 入口をタイルで見せる。**ミニアプリの一覧を直接ここに並べない** — 押しても
  * 「どの番組の？」が定まらないため（旧実装の誤り。当時の記録は git 履歴参照）。
  *
- * データは `listTopItems()`（`/qsheet/top-items`）が GLS案件＋ここだけの番組を
+ * データは `listTopItems()`（`/techops/top-items`）が GLS案件＋ここだけの番組を
  * 1本で返す。**「最後の回の翌日」を過ぎた項目はアーカイブ扱い**にし、既定では
  * 隠す（`view: 'archive'` で切り替えて見る）。`last_date` が無い項目（GLS-B系・
  * 実施日未定の番組）は終了しない扱い。
@@ -129,7 +129,7 @@ export default function ProductionTopPage() {
         />
       )}
 
-      <CreateProgramDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(p) => navigate(`/qsheet/programs/${p.id}`)} />
+      <CreateProgramDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(p) => navigate(`/techops/programs/${p.id}`)} />
     </div>
   );
 }

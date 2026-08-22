@@ -151,6 +151,11 @@ export function createApp(): express.Express {
 
       serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
       serveApp('/qsheet', path.join(__dirname, '../../client-techops/dist'));
+      // Phase 2 (qsheet→techops移行): 同じビルド (client-techops/dist、vite base: '/techops/') を
+      // '/techops' でも配信する後方互換措置。旧URL '/qsheet/*' のブックマーク・埋め込みも
+      // 読み込め、初期HTML取得後はアプリ自身のクライアントサイドルーティング (App.tsx) が
+      // '/techops/*' へリダイレクトする。
+      serveApp('/techops', path.join(__dirname, '../../client-techops/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
       // '/awards' (リアルタイムCG) は廃止。配信を止めただけでコードは client-awards/ に残す
       // (client-awards/CLAUDE.md 参照)。復活させるならこの行を戻すだけでよい。

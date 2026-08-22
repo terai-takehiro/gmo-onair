@@ -36,7 +36,7 @@ export default function EntryImageButton({
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
-      const res = await api.post("/qsheet/upload-image", {
+      const res = await api.post("/techops/upload-image", {
         data: dataUrl,
         filename: file.name,
         mimeType: file.type,

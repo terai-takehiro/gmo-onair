@@ -1039,6 +1039,22 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`docs/reviews/qsheet-techops-migration-plan.md`を、並行マージされたPR #325/#326/#327/#329の
   内容確認に基づき更新。#327のliveops→qsheet権限統合（migration 232）を検知し、計画書§7の
   「識別子は表示名変更では変えない」前例を条件付きの基準へ修正した）。
+- **#333**（`feat(server): 計時・視聴者 表示レイアウト機能のスキーマ＋APIを追加した`・
+  表示画面レイアウトエディタ機能の3分割PRの1本目）— 作成 2026-08-22 15:06:59 /
+  マージ 15:08:04（terai-takehiro 本人が手動マージ。**作成から約1分5秒後、CI
+  〈`checks`/`build`〉はまだ`in_progress`のうちにマージされた** — CI green を待たずに
+  マージされた点は #244・#262・#329 の「CI greenから短時間で0件のままマージ」とも
+  異なる新しいパターン）。`get_reviews`・`get_review_comments`いずれも0件。表に移す指摘は
+  ない（レビュー自体が届いていないため）。実装内容自体は、実装エージェント・独立レビュー
+  エージェント（`npm run typecheck`/`lint`/`test`〈`liveDisplayContract.test.ts`5件含む〉・
+  `npm run verify:up`の実Postgres・実サーバーへのHTTPリクエストで権限境界を実測）の
+  ワークフロー内検証、および私自身によるファイル内容の目視確認（migration DDL・
+  ルート実装・既存`GET /:id/display`への無変更）を経てからpushしたため、CI完走前の
+  マージであっても実装の妥当性そのものは別経路で確認済み。ただし**CI自体の結果
+  （このセッションのローカル実行と、実際のCI環境の差異）は未確認のまま検証環境ブランチに
+  入った**ことは記録しておく。⚠️ このPRのマージ直後に別セッションの `client-qsheet` →
+  `client-techops` ディレクトリ改名（#334）がmainへ入っており、以後の
+  PR2・PR3（表示画面対応・エディタUI）はこの改名後のパスを前提に実装する必要がある。
 - **#334**（`refactor(qsheet): Phase 1 — client-qsheet ディレクトリを client-techops に改名`）—
   作成 2026-08-22 15:08:54 / CI green 15:11:01（`checks`/`build`とも成功）/
   マージ 15:12:41頃（**CI green から約1分40秒後**）。`get_review_comments` 0件。
@@ -1059,6 +1075,32 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   router.use数）に影響が無いことを確認した（migration 233は`liveops_display_layout`
   というliveops固有のテーブルで`qsheet_`プレフィックスではない。新規ルートも
   `server/src/contexts/liveops/`配下でqsheetのマウントには触れていない）。
+- **#337**（`refactor(qsheet): Phase 2 — ベースパス・AppKey・APIプレフィックスを techops へ
+  二重マウント`）— 作成 2026-08-22 15:41:55 / CI green 15:44:02頃 / マージ 15:44:49頃
+  （**CI green から約1分後**）。`get_review_comments` 0件。表に移す指摘はない
+  （レビュー自体が届いていないため）。83ファイル変更。qsheet→techops移行計画のPhase 2を
+  実施 — ベースパス`/qsheet/`→`/techops/`・`AppKey`・APIプレフィックスを二重マウントで
+  改名（旧URLは全て後方互換で維持）。`permissionModule`・Socket.IO・DB・MCPツール名は
+  無変更（Phase 1と同じ方針）。マルチエージェント実装（9タスク並行）後、
+  `shared/tests/{miniapps,qsheetCollabMetaSync}.test.ts`のソース文字列アサーション9件・
+  `client-live/src`の別バンドルからのoutboundリンク10ファイルなど、当初のタスク分割から
+  漏れていた参照を手動監査で追加修正した（Phase 1と同型の見落とし）。
+  `npx tsc -b`（全ワークスペース）0エラー・`npm run test`（1452件）全通過・`npm run lint`
+  0エラー・warning 59件（Phase 1と同数）・`npm run build`（client-techops/server）成功を
+  確認済み。Phase 3（Socket.IOカットオーバー）・Phase 4（MCPツール名）は未着手のまま
+  ユーザーの追加判断待ち。
+- **#336**（`docs+feat(liveops): PR #333棚卸し ＋ 表示レイアウトPR2（表示画面対応）`）—
+  作成 2026-08-22 15:15:23 / マージ 15:51:44。`get_reviews`・`get_review_comments`
+  いずれも0件。表に移す指摘はない（レビュー自体が届いていないため）。⚠️ **当初は
+  「PR #333の棚卸し記録のみ」の予定だったが、PR2（表示レイアウト機能の表示画面
+  `TimerDisplayPage.tsx`対応）の実装がマージ前の同じブランチに積み重なり、2つの
+  独立した変更が1本のPRに混在した**（force-pushでの巻き戻しはしない方針のため）。
+  PR本文を「棚卸し＋PR2実装が混在している」旨と、リスクの高いPR2部分への注意喚起を
+  明記する形に更新して対応した。マージ後、並行してマージされた `client-qsheet`→
+  `client-techops` Phase 2改名（#337）とのマージコンフリクト（`docs/reviews/
+  codex-findings-v4.md`の同時追記による1件）を解消し、`typecheck:all`/`lint`/`test`
+  （1452件）を再確認してから再pushした。表示画面契約（`liveDisplayContract.test.ts`
+  5項目）はこのPRを通じて無変更のまま。
 
 ---
 

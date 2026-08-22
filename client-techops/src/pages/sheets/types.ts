@@ -1,4 +1,4 @@
-// 進行台本の一覧（/qsheet/sheets）— 型と表示ヘルパー
+// 進行台本の一覧（/techops/sheets）— 型と表示ヘルパー
 // 実装設計: docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md §8 PR G
 // 旧 DashboardPage.tsx から分割（1ファイルが大きくなりすぎるのを防ぐ・check-file-size）
 
@@ -78,7 +78,7 @@ export interface ProjectContext {
   rehearsalDates: string[];
 }
 
-/** `/qsheet/sheets` の絞り込み。サーバーの `scope` クエリと同じ値（documents.routes.ts） */
+/** `/techops/sheets` の絞り込み。サーバーの `scope` クエリと同じ値（documents.routes.ts） */
 export type SheetScope = "all" | "mine" | "shared";
 
 export const SHEET_SCOPE_LABEL: Record<SheetScope, string> = {

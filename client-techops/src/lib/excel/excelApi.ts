@@ -36,13 +36,13 @@ export async function exportQsheet(
   docId: string,
   opts: { format: "xlsx" | "csv"; content?: "full" | "empty"; current?: unknown },
 ): Promise<{ blob: Blob; filename: string }> {
-  const res = await api.post(`/qsheet/documents/${docId}/export`, opts, { responseType: "blob" });
+  const res = await api.post(`/techops/documents/${docId}/export`, opts, { responseType: "blob" });
   const filename = filenameFromDisposition(res.headers["content-disposition"], `cuesheet.${opts.format}`);
   return { blob: res.data as Blob, filename };
 }
 
 export async function downloadTemplate(docId: string): Promise<{ blob: Blob; filename: string }> {
-  const res = await api.get(`/qsheet/documents/${docId}/excel/template`, { responseType: "blob" });
+  const res = await api.get(`/techops/documents/${docId}/excel/template`, { responseType: "blob" });
   const filename = filenameFromDisposition(res.headers["content-disposition"], "template.xlsx");
   return { blob: res.data as Blob, filename };
 }
@@ -52,18 +52,18 @@ export async function importPlan(docId: string, file: File, mode: "merge" | "app
   form.append("file", file);
   form.append("mode", mode);
   form.append("current", JSON.stringify(current));
-  const { data } = await api.post(`/qsheet/documents/${docId}/excel/import-plan`, form, {
+  const { data } = await api.post(`/techops/documents/${docId}/excel/import-plan`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data.data as ImportPlanResult;
 }
 
 export async function markBatchApplied(docId: string, batchId: string, after: unknown): Promise<void> {
-  await api.post(`/qsheet/documents/${docId}/excel/batches/${batchId}/applied`, { after });
+  await api.post(`/techops/documents/${docId}/excel/batches/${batchId}/applied`, { after });
 }
 
 export async function undoBatch(docId: string, batchId: string): Promise<unknown> {
-  const { data } = await api.post(`/qsheet/documents/${docId}/excel/batches/${batchId}/undo`);
+  const { data } = await api.post(`/techops/documents/${docId}/excel/batches/${batchId}/undo`);
   return data.data.data;
 }
 

@@ -10,13 +10,13 @@
  * 1. 「ドキュメント一覧」「スケジュール表」（絞り込み無しの全案件横断一覧）への導線は、
  *    このアプリの正規のジャーニー（番組・案件を選ぶ → ハブ画面 [`JourneyPage.tsx`] →
  *    ミニアプリタイル）と役割が重複しており、ユーザー判断で撤去した
- * 2. 「収録・配信設定」（`/qsheet/device-settings`・`DeviceSettingsHome.tsx`）は
+ * 2. 「収録・配信設定」（`/techops/device-settings`・`DeviceSettingsHome.tsx`）は
  *    簡易入口ごと廃止した（`App.tsx` にルートが無い。CLAUDE.md の「廃止」の定義通り、
  *    ファイルは残すがコードからの導線はすべて外した）
  * 3. 代わりに、いま案件（project）または番組（program・`qsheet_programs` のマニュアル）を
  *    **開いている**ときは、その案件/番組の子アプリ（進行台本／スケジュール表／収録設定／
  *    配信設定／レンタル機材検索）へのリンクを動的に出す。文脈が分からないとき
- *    （`/qsheet/top`・`/qsheet/home`・ログイン画面など）は「トップ」だけを出す
+ *    （`/techops/top`・`/techops/home`・ログイン画面など）は「トップ」だけを出す
  *
  * ── 判定は pathname 優先・`useParams()` は使わない ───────────────────
  *
@@ -27,15 +27,15 @@
  *
  * ── 「いま見ている案件/番組」が URL だけで分からないページ ─────────────
  *
- * `/qsheet/recording/:ownerKey` 等は owner キー（案件idまたは番組idそのもの）は URL に
- * 出るが、project か program かは URL だけでは分からない。`/qsheet/editor/:id` 等は
+ * `/techops/recording/:ownerKey` 等は owner キー（案件idまたは番組idそのもの）は URL に
+ * 出るが、project か program かは URL だけでは分からない。`/techops/editor/:id` 等は
  * URL に出るのが doc id であって project/program の id ではない。これらのページでは
  * `lib/productionNavContext.ts` のストア（`useProductionNavContext`）を補助的に見る
  * （`buildQsheetNav` の判定ロジック本体のコメント参照）。
  *
- * ── `to` が `/qsheet/...` で始まる理由 ──────────────────────────────
+ * ── `to` が `/techops/...` で始まる理由 ──────────────────────────────
  *
- * このアプリはルーターの `basename` を持たず、Vite の `base: '/qsheet/'` だけで
+ * このアプリはルーターの `basename` を持たず、Vite の `base: '/techops/'` だけで
  * 動いている（`client-equipment/src/components/layout/nav.ts` と同じ事情）。
  * 共通シェルは接頭辞を知らないので、ここに閉じ込める。
  *
@@ -48,7 +48,7 @@
  * ── スマホ下タブは3本ルールのまま（文脈なしのときだけ1本） ──────────────
  *
  * `docs/design/v4/_rules.md`「3. スマホ」の3本ルールに対し、文脈が無い状態
- * （`/qsheet/top` 等）は「トップ」1本にした（ご判断）。`shell/MobileTabs.tsx` は
+ * （`/techops/top` 等）は「トップ」1本にした（ご判断）。`shell/MobileTabs.tsx` は
  * `tabs.length === 0` のときだけ `null` を返し、各タブは `flex-1` で幅を分け合う
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
@@ -58,14 +58,14 @@ import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/clie
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
 
-const PROJECT_HUB_RE = /^\/qsheet\/projects\/([^/?#]+)\/?$/;
-const PROGRAM_HUB_RE = /^\/qsheet\/programs\/([^/?#]+)\/?$/;
-const RECORDING_RE = /^\/qsheet\/recording\/([^/?#]+)\/?$/;
-const STREAMING_RE = /^\/qsheet\/streaming\/([^/?#]+)\/?$/;
-const RENTAL_RE = /^\/qsheet\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?$/;
-const EDITOR_RE = /^\/qsheet\/editor\/[^/?#]+\/?$/;
-const SCHEDULE_DETAIL_RE = /^\/qsheet\/schedules\/[^/?#]+\/?$/;
-const DOCS_RE = /^\/qsheet\/docs\/[^/?#]+\/?$/;
+const PROJECT_HUB_RE = /^\/techops\/projects\/([^/?#]+)\/?$/;
+const PROGRAM_HUB_RE = /^\/techops\/programs\/([^/?#]+)\/?$/;
+const RECORDING_RE = /^\/techops\/recording\/([^/?#]+)\/?$/;
+const STREAMING_RE = /^\/techops\/streaming\/([^/?#]+)\/?$/;
+const RENTAL_RE = /^\/techops\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?$/;
+const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
+const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
+const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
 
 function safeDecode(v: string): string {
   try {
@@ -85,13 +85,13 @@ function matchOwnerKeyPanel(pathname: string): string | null {
  * pathname と searchParams（必要ならストアの値）から「いま見ている案件/番組」を判定する。
  * 判定ロジック本体（優先順位はコード上の順序どおり）:
  *
- * 1. `/qsheet/projects/<id>` → `{scope:'project', id}`
- * 2. `/qsheet/programs/<id>` → `{scope:'program', id}`
- * 3. `/qsheet/sheets` または `/qsheet/schedules`（絞り込み一覧）で `?project=`/`?program=`
+ * 1. `/techops/projects/<id>` → `{scope:'project', id}`
+ * 2. `/techops/programs/<id>` → `{scope:'program', id}`
+ * 3. `/techops/sheets` または `/techops/schedules`（絞り込み一覧）で `?project=`/`?program=`
  *    があれば、その scope/id
- * 4. `/qsheet/recording|streaming|rental/<ownerKey>`（配下の `/list`・`/mail/:company` 含む）:
+ * 4. `/techops/recording|streaming|rental/<ownerKey>`（配下の `/list`・`/mail/:company` 含む）:
  *    ストアの値があり、かつ `id` が一致すればそれを使う。一致しなければ「未解決」
- * 5. `/qsheet/editor/<id>`・`/qsheet/schedules/<id>`（個別）・`/qsheet/docs/<id>`:
+ * 5. `/techops/editor/<id>`・`/techops/schedules/<id>`（個別）・`/techops/docs/<id>`:
  *    ストアの値があればそのまま使う（doc id は project/program の id では**ない**ため、
  *    id の突き合わせはしない）
  * 6. それ以外 → 文脈なし（`null`）
@@ -113,7 +113,7 @@ function resolveContext(
     return { scope: 'program', id, label: storeCtx?.id === id ? storeCtx.label : null };
   }
 
-  if (pathname === '/qsheet/sheets' || pathname === '/qsheet/schedules') {
+  if (pathname === '/techops/sheets' || pathname === '/techops/schedules') {
     const projectId = searchParams.get('project');
     if (projectId) return { scope: 'project', id: projectId, label: storeCtx?.id === projectId ? storeCtx.label : null };
     const programId = searchParams.get('program');
@@ -135,11 +135,11 @@ function resolveContext(
 
 function hubPathOf(ctx: ProductionNavContext): string {
   const id = encodeURIComponent(ctx.id);
-  return ctx.scope === 'project' ? `/qsheet/projects/${id}` : `/qsheet/programs/${id}`;
+  return ctx.scope === 'project' ? `/techops/projects/${id}` : `/techops/programs/${id}`;
 }
 
 function listPathOf(app: 'sheet' | 'schedule', ctx: ProductionNavContext): string {
-  const listPath = app === 'sheet' ? '/qsheet/sheets' : '/qsheet/schedules';
+  const listPath = app === 'sheet' ? '/techops/sheets' : '/techops/schedules';
   return `${listPath}?${ctx.scope}=${encodeURIComponent(ctx.id)}`;
 }
 
@@ -150,7 +150,7 @@ function hubLabelOf(ctx: ProductionNavContext): string {
 function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
   const items = [
-    { label: 'トップ', to: '/qsheet/top', icon: LayoutGrid },
+    { label: 'トップ', to: '/techops/top', icon: LayoutGrid },
     { label: hubLabel, to: hubPathOf(ctx), icon: LayoutDashboard, end: true },
     { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
     { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
@@ -167,7 +167,7 @@ function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
 }
 
 function buildDefaultSections(): ShellNavSection[] {
-  return [{ items: [{ label: 'トップ', to: '/qsheet/top', icon: LayoutGrid }] }];
+  return [{ items: [{ label: 'トップ', to: '/techops/top', icon: LayoutGrid }] }];
 }
 
 function buildResolvedMobileTabs(ctx: ProductionNavContext): ShellMobileTab[] {
@@ -179,7 +179,7 @@ function buildResolvedMobileTabs(ctx: ProductionNavContext): ShellMobileTab[] {
 }
 
 function buildDefaultMobileTabs(): ShellMobileTab[] {
-  return [{ label: 'トップ', to: '/qsheet/top', icon: LayoutGrid }];
+  return [{ label: 'トップ', to: '/techops/top', icon: LayoutGrid }];
 }
 
 /**

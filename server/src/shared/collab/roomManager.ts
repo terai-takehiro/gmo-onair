@@ -105,7 +105,17 @@ export class YjsRoomManager {
   applyUpdate(docId: string, update: Uint8Array): void {
     const room = this.rooms.get(docId);
     if (!room) return;
-    Y.applyUpdate(room.ydoc, update, 'remote');
+    // 壊れた/不正な形式のバイナリ（クライアントのバグ・悪意ある入力どちらもあり得る）を
+    // 渡すと Y.applyUpdate が例外を投げる。呼び出し元（Socket.IO の 'yjs:update' ハンドラ）
+    // は try/catch を持たないため、ここで潰さないと**1件の壊れた更新でプロセスごと落ちる**
+    // （qsheet だけでなく案件の共同編集も同じルームマネージャを使うため影響範囲が広い。
+    // 実際に qsheet→techops移行 Phase 3 のブリッジ検証中、ダミーのバイナリを送って再現した）。
+    try {
+      Y.applyUpdate(room.ydoc, update, 'remote');
+    } catch (e) {
+      console.error(`[${this.label}] applyUpdate 失敗 (docId=${docId}) — 不正な update を無視`, e);
+      return;
+    }
     room.dirty = true;
     this.scheduleSave(docId);
   }

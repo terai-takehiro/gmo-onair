@@ -5,9 +5,45 @@ import { formatTimer, formatCount } from '@/lib/utils';
 import { type TimerPhase } from '@/hooks/useTimer';
 import { Settings, X } from 'lucide-react';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
+import { DisplayCanvas, DisplayCanvasBoundary } from '@gmo-onair/shared/src/client/live/DisplayCanvas';
+import { DISPLAY_ELEMENT_KEYS, type DisplayElementLayout, type DisplayLayout } from '@gmo-onair/shared/src/client/live/displayLayout';
 
 // ⚠️ この画面は本番中に会場モニター・OBS が読む公開URL (/live/display/:timerId)。
 // 見た目だけを v4 に作り直す — URL・API・Socket 契約は1文字も変えない。
+//
+// 自由配置レイアウト（GET /:id/layout。マウント時に一度だけ取得・ポーリングしない）は
+// docs/design/v4/qsheet-v4-coding/13-live-display-layout-editor.md の設計。
+// data が null、または不正な形（elements が配列でない等）のときは、下の既存コード
+// （固定3パターン＋端末ローカルのトグル設定パネル）を一切変更せずそのまま使う
+// （このフォールバックパスは触っていない）。
+
+const DISPLAY_ELEMENT_KEY_SET = new Set<string>(DISPLAY_ELEMENT_KEYS);
+
+/**
+ * 要素1件ぶんのvalidate。DisplayCanvas.tsx の描画（`layout.elements.filter(el => el.visible)`
+ * → `el.key === 'timer'` でなければ `VIEWER_ITEMS[el.key]` を引いて `.label`/`.color` を読む）が
+ * 例外を投げないために、実際に読む形（key が6種のいずれか・visible が boolean・
+ * x/y/w/h が有限数）まで見る。トップレベル（background/elements配列か否か）だけでは
+ * 不正な要素1件でも「有効」と誤判定してしまう。
+ */
+function isValidDisplayElement(el: unknown): el is DisplayElementLayout {
+  if (!el || typeof el !== 'object') return false;
+  const e = el as Record<string, unknown>;
+  if (typeof e.key !== 'string' || !DISPLAY_ELEMENT_KEY_SET.has(e.key)) return false;
+  if (typeof e.visible !== 'boolean') return false;
+  return (['x', 'y', 'w', 'h'] as const).every(
+    (k) => typeof e[k] === 'number' && Number.isFinite(e[k]),
+  );
+}
+
+/** レイアウトJSONの軽いvalidate。中身が不正なら未設定（フォールバック）扱いにする。 */
+function isValidDisplayLayout(data: unknown): data is DisplayLayout {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as Record<string, unknown>;
+  if (d.background !== 'dark' && d.background !== 'light') return false;
+  if (!Array.isArray(d.elements)) return false;
+  return d.elements.every(isValidDisplayElement);
+}
 
 const phaseBarColors: Record<TimerPhase, string> = {
   idle: 'rgba(128,128,128,0.35)',
@@ -97,6 +133,7 @@ export default function TimerDisplayPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [programId, setProgramId] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>({ youtube: 0, jstream: 0, zoom: 0, teams: 0, total: 0 });
+  const [layout, setLayout] = useState<DisplayLayout | null>(null);
 
   const { state } = useTimer(timerId ?? null);
   const phase = state?.phase ?? 'idle';
@@ -143,11 +180,43 @@ export default function TimerDisplayPage() {
     return () => clearInterval(id);
   }, [programId]);
 
+  useEffect(() => {
+    if (!timerId) return;
+    fetch(`/api/v1/internal/liveops/timers/${timerId}/layout`)
+      .then(r => r.json())
+      .then(json => {
+        if (isValidDisplayLayout(json.data)) setLayout(json.data);
+      })
+      .catch(() => {});
+  }, [timerId]);
+
   const setToggle = (key: keyof Toggles, val: boolean) => {
     const next = { ...toggles, [key]: val };
     setToggles(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
   };
+
+  // サーバー側のレイアウト（layout）が有効なときだけ自由配置描画に切り替える。
+  // このときは端末ローカルのトグル設定パネル（歯車ボタン）を出さない — 表示ON/OFF・
+  // 背景の情報源をレイアウトJSONひとつに絞るため（§4-1）。以降の固定3パターン描画
+  // （既存コード）には一切手を入れていない。
+  if (layout) {
+    // isValidDisplayLayout() が要素単位まで validate しているので通常はここで例外は起きない
+    // はずだが、未知の壊れ方に備えた二次防御として ErrorBoundary で包む。万一 DisplayCanvas が
+    // 例外を投げても、白紙のまま止まらず layout を null に落として下の固定3パターン描画へ戻す
+    // （「不正なら未設定扱いにする」という design doc §8 リスク1の対処をここでも徹底する）。
+    return (
+      <DisplayCanvasBoundary onError={() => setLayout(null)}>
+        <DisplayCanvas
+          layout={layout}
+          timerDisplay={display}
+          timerPhase={phase}
+          progress={progress}
+          counts={counts}
+        />
+      </DisplayCanvasBoundary>
+    );
+  }
 
   const light = toggles.lightBase;
   const platformItems = PLATFORM_ITEMS.filter(item => toggles[item.key]);

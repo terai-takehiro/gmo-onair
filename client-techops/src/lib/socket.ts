@@ -19,12 +19,16 @@ function readSocketAuth(): { token?: string; userId?: string } {
   }
 }
 
+// qsheet→techops移行 Phase 3（2026-08-22）: 新規ビルドは `/techops` ネームスペースに繋ぐ。
+// サーバー側（server/src/contexts/qsheet/socket.ts）が `/qsheet`・`/techops` の両方を
+// 同じルームへブリッジしているため、旧ビルドをまだ開いているタブ（`/qsheet` に接続したまま）
+// とも yjs:update / awareness:update / presence:sync / cue:* が引き続き同期する。
 export function getQsheetSocket(docId: string): Socket {
   if (socket?.connected) {
     return socket;
   }
 
-  socket = io('/qsheet', {
+  socket = io('/techops', {
     path: '/socket.io/',
     query: { docId },
     auth: readSocketAuth(),

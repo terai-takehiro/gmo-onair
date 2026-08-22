@@ -25,49 +25,49 @@ import aiChatRoutes from './routes/ai-chat.routes';
 import aiKnowledgeRoutes from './routes/ai-knowledge.routes';
 import excelRoutes from './routes/excel.routes';
 
-export function createQsheetRoutes(): Router {
+export function createQsheetRoutes(prefix: string): Router {
   const router = Router();
 
   // 認証なしの公開ルート (音声サポート画面用) は documentRoutes より前に登録
-  router.use('/qsheet', publicAudioRoutes);
+  router.use(prefix, publicAudioRoutes);
 
-  router.use('/qsheet', documentRoutes);
-  router.use('/qsheet/stage-templates', stageTemplateRoutes);
-  router.use('/qsheet', pdfRoutes);
-  router.use('/qsheet', uploadRoutes);
-  router.use('/qsheet', runsRoutes);   // 本番の実尺 (qsheet_cue_actuals)
+  router.use(prefix, documentRoutes);
+  router.use(`${prefix}/stage-templates`, stageTemplateRoutes);
+  router.use(prefix, pdfRoutes);
+  router.use(prefix, uploadRoutes);
+  router.use(prefix, runsRoutes);   // 本番の実尺 (qsheet_cue_actuals)
   // 音声サポート共有URLの発行・再発行・失効 (認証必須)
-  router.use('/qsheet', audioShareRoutes);
+  router.use(prefix, audioShareRoutes);
   // トップ（案件を選ぶ）・制作のジャーニー（段3・03-app-structure-impl.md §6）
-  router.use('/qsheet', scopesRoutes);
-  router.use('/qsheet', journeyMarksRoutes);
+  router.use(prefix, scopesRoutes);
+  router.use(prefix, journeyMarksRoutes);
   // 制作技術支援トップ（/qsheet/top）の番組・イベント一覧（GLS案件＋ここだけの番組を1本化。2026-08-22）
-  router.use('/qsheet', topRoutes);
+  router.use(prefix, topRoutes);
   // 番組（マニュアル・案件管理外）。制作技術支援トップの2つ目の選び方（2026-08-22）
-  router.use('/qsheet', programsRoutes);
+  router.use(prefix, programsRoutes);
   // 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で、文書 (documentRoutes) とは別の入れ物
-  router.use('/qsheet/production', deviceSettingsRoutes);
+  router.use(`${prefix}/production`, deviceSettingsRoutes);
   // レンタル機材検索。カタログはowner不要の共通マスタ、予約リストは案件/番組単位（:ownerKey）
-  router.use('/qsheet/rental', rentalRoutes);
+  router.use(`${prefix}/rental`, rentalRoutes);
 
   // スケジュール表（段4・04-schedule-impl.md §4）
-  router.use('/qsheet', schedulesRoutes);
-  router.use('/qsheet', scheduleColumnsRoutes);
-  router.use('/qsheet', scheduleItemsRoutes);
-  router.use('/qsheet', scheduleBreakdownRoutes);
-  router.use('/qsheet', scheduleTemplatesRouter);
-  router.use('/qsheet', scheduleApplyRouter);
-  router.use('/qsheet', scheduleExportRoutes);
-  router.use('/qsheet', scheduleReverseRoutes);
+  router.use(prefix, schedulesRoutes);
+  router.use(prefix, scheduleColumnsRoutes);
+  router.use(prefix, scheduleItemsRoutes);
+  router.use(prefix, scheduleBreakdownRoutes);
+  router.use(prefix, scheduleTemplatesRouter);
+  router.use(prefix, scheduleApplyRouter);
+  router.use(prefix, scheduleExportRoutes);
+  router.use(prefix, scheduleReverseRoutes);
 
   // AI 提案の受け止め（段7・07-ai-proposals-impl.md）＋ 生成4機能（段8・04-ai.md）
-  router.use('/qsheet', aiProposalsRoutes);
-  router.use('/qsheet', aiGenerateRoutes);   // ①②③（生成→提案として保存）
-  router.use('/qsheet', aiChatRoutes);       // ④壁打ち（本人のみ）
-  router.use('/qsheet', aiKnowledgeRoutes);  // ナレッジ（段9・04-ai.md §6-3）
+  router.use(prefix, aiProposalsRoutes);
+  router.use(prefix, aiGenerateRoutes);   // ①②③（生成→提案として保存）
+  router.use(prefix, aiChatRoutes);       // ④壁打ち（本人のみ）
+  router.use(prefix, aiKnowledgeRoutes);  // ナレッジ（段9・04-ai.md §6-3）
 
   // 台本 Excel 入出力（段6・03-excel.md）。08（機器設定の Excel）とは別物・互いを import しない
-  router.use('/qsheet', excelRoutes);
+  router.use(prefix, excelRoutes);
 
   return router;
 }

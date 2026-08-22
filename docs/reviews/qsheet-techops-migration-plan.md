@@ -289,7 +289,7 @@ Socket.IOネームスペース、DB、MCPツール名 — 全て`qsheet`のま�
 `server/src/app.ts:143`からのみ参照されるため、この1行だけは**Phase 1のPRに含めて**
 同時に変更する）。
 
-### Phase 2 — base path・`AppKey`・API prefix の二重マウント導入
+### Phase 2 — base path・`AppKey`・API prefix の二重マウント導入 ✅ **完了（2026-08-22）**
 
 **対象:** `vite.config.ts`の`base`を`/techops/`に、`shared/src/client/apps.ts`の
 `AppKey`/`path`を`techops`に、`server/src/app.ts:143`の静的マウントを`/techops`に。
@@ -302,38 +302,92 @@ Socket.IOネームスペース、DB、MCPツール名 — 全て`qsheet`のま�
 **明示的に変更しないもの:** `permissionModule: 'qsheet'`（`calendar`の`permissionModule: 'sales'`
 据え置きと同じ理由）。
 
-**旧URLへの誘導:** `LegacyUrlBanner.tsx`と同じパターンで「新しいURLに移動しました」の
-案内を旧パスアクセス時に表示。
+**旧URLへの誘導:** `LegacyUrlBanner.tsx`と同じパターンではなく、`client-techops/src/App.tsx`に
+汎用の`RedirectQsheetToTechops`（`useLocation().pathname`の接頭辞を機械的に入れ替える。
+クエリ文字列も維持）を実装し、旧`/qsheet/*`全ルートを1つの`<Route path="/qsheet/*">`で
+後方互換にした（実施内容の詳細は§8参照）。
 
-### Phase 3 — 5本の本番URLの移行とSocket.IOカットオーバー
+### Phase 3 — 5本の本番URLの移行とSocket.IOブリッジ ✅ **完了（2026-08-22。当初計画の「計画停止枠でのカットオーバー」ではなく「ブリッジ」方式へ変更）**
 
 **HTTP系（editor/onair/rundown/prompter/audio）:** Phase 2の二重マウントを**当面
 無期限で維持**（QRコード・OBS設定は事後訂正できないため、他の会社事例のような
 「次の通常リリースを1回挟んで撤去」という短期の互換窓では不十分。§6で撤去可否・
-時期を要判断とする）。
+時期を要判断とする）。追加の実施は無し（Phase 2の時点で完了済み）。
 
-**Socket.IO（`/qsheet`→`/techops`ネームスペース）:** 二重運用不可（3-4参照）。
-`phase3-2-plan.md`の互換確認チェックリスト（A: デプロイ直後のスモークテスト、
-B: 使用状況の可視化、C: 継続監視、D: 判定基準）と同じ厳密さで、**放送予定のない
-計画停止枠**を設定し、クライアント・サーバーを同一デプロイで切り替える。切替直後は
-「放送中にタブが開きっぱなしのオペレーターがいないか」を運用側で事前告知・確認する
-運用手順を別途整備する。
+**Socket.IO（`/qsheet`・`/techops`ネームスペース）:** ⚠️ **当初案（計画停止枠での
+一斉切替）をユーザーとの相談の上で「ブリッジ」方式に変更した。** 理由: 計画停止枠での
+一斉切替は「新旧混在の瞬間を作らない」設計だが、本番への直接アクセスができないこの
+セッションからは切替作業そのものを実施・確認できず、着手できない状態が続く懸念があった。
+ユーザーからも「なるべく古い負債は排除したい」という意向がありつつ「(ブリッジが)できるか
+確認したい」という条件付きの承認を得たため、**二重運用不可という制約自体を設計で回避する
+方式**を採った。
 
-### Phase 4 — MCPツール名の移行（実施する場合）
+具体的には、`server/src/contexts/qsheet/socket.ts`の`initQsheetSocketIO()`が
+`/qsheet`・`/techops`の両ネームスペースを同じ接続ハンドラで待受し、`broadcastToRoom()`が
+**両ネームスペースの同名ルームへ常に転送する**（送信元自身には送らない・もう一方の
+ネームスペース全体には送る）。これにより、旧ビルドに繋いだままの古いタブと、リロードして
+新ビルドに繋いだ新しいタブが同じ台本を同時に開いていても、`yjs:update` /
+`awareness:update` / `presence:sync` / `cue:*` のいずれも両方に届く（3-4で懸念していた
+「新旧混在の瞬間にエラーは出ないが放送同期だけ止まる」事故を、切替タイミングの調整ではなく
+**恒常的な相互配信**で解消する設計）。`qsheetRooms`（Yjsのドキュメント状態）・
+`presenceByDoc`は元からdocId単位のシングルトンでネームスペースに依存しないため無改修。
+クライアント（`client-techops/src/lib/socket.ts`）は新ビルドから`/techops`へ接続する。
 
-MCPプロトコルにエイリアス機構が無いため、**二重登録による非推奨期間**を挟む
+**この環境から実地検証した内容**（本番アクセス不要で検証可能だった範囲）:
+`scripts/dev-verify/socket-bridge-check.mjs`（新設・再利用可能な手動検証ツール）で、
+実Postgres（`scripts/dev-verify/up.sh`）+ 実httpサーバー + 実`socket.io-client`2本
+（旧`/qsheet`に繋いだクライアントA・新`/techops`に繋いだクライアントB、同一ユーザーの
+2タブを模擬）を同時に立て、①在席表示のブリッジ ②`cue:update`→`cue:sync`のブリッジ
+③`cue:next`のブリッジ ④両ネームスペースでの`yjs:sync`/state取得 ⑤`yjs:update`の
+クロスネームスペース中継 ⑥不正なバイナリを送ってもプロセスが落ちないこと、の6項目を
+実際に確認した（すべて✅）。
+
+⚠️ **検証中に既存の穴を1つ発見し、ついでに直した。** 不正な`yjs:update`バイナリを
+送ると`Y.applyUpdate`が例外を投げ、`server/src/shared/collab/roomManager.ts`の
+`applyUpdate()`にtry/catchが無かったため**サーバープロセスごと落ちていた**
+（`qsheet`だけでなく案件の共同編集ロジックとも共有するファイルのため影響範囲が広い）。
+try/catchで包み、不正な更新はログを残して無視するようにした（qsheet→techops改名そのもの
+とは独立したバグ修正）。
+
+**この環境から検証できなかったこと:** 実ブラウザ・実本番トラフィックでの動作（放送中の
+OnAir↔ランダウン同期・OBSブラウザソースからの接続）は、本番アクセスができないため未確認。
+本番公開後の運用観測期間を置くことを推奨する（§6参照）。
+
+### Phase 4 — MCPツール名の移行 ✅ **完了（2026-08-22）**
+
+MCPプロトコルにエイリアス機構が無いため、**二重登録による非推奨期間**を挟んだ
 （3-6参照、`phase3-2-plan.md`のlegacy-ID互換パターンと同型）:
 
-1. 各ハンドラ本体を関数として切り出し、新名（例: `get_techops_doc`）を主として登録
-2. 旧名（`get_qsheet`等）も同じハンドラで再登録し、`description`に
-   `[非推奨/deprecated — 次リリースで撤去予定]`を明記
-3. `gate.ts`の`WRITE_TOOL_PERMISSIONS`に旧名・新名の両方を登録（撤去まで両方必要）
-4. `docs/mcp-server.md`を新名を主に、旧名を「非推奨（引き続き動作）」として更新
-5. `mcp_audit_log.tool_name`で旧名呼び出し頻度を観測し、`phase3-2-plan.md`の
-   legacy-ID観測（実利用が実質0件であることを確認してから撤去）と同じ基準で
-   撤去タイミングを判断
+1. `server/src/contexts/mcp/tools/production.tools.ts`で5本を改名した:
+   `get_qsheet`→`get_sheet`／`find_similar_qsheets`→`find_similar_sheets`／
+   `create_qsheet`→`create_sheet`／`propose_qsheet_draft`→`propose_sheet_draft`／
+   `discard_qsheet_proposal`→`discard_sheet_proposal`。命名は`MiniAppKey`の
+   既存識別子`'sheet'`（進行台本の意）に揃えた。各ツールはコアロジックを共有関数に
+   切り出しつつ、`server.registerTool(...)`呼び出し自体・`audit()`呼び出しは
+   **新旧それぞれの登録に個別にインラインで書いた**（`scripts/generate-mcp-tools.mjs`の
+   `extractTools()`が「`registerTool(...)`のソーステキスト中に`audit(`という文字列が
+   あるか」で read/write を静的判定しているため、共有関数の中に`audit()`を隠すと
+   新旧どちらも read と誤判定され、`mcp-tools.json`の表示が実態と食い違うため）
+2. 旧名も同じ実装のまま登録し、`description`の先頭に
+   `[非推奨/deprecated — 新名 '<新名>' を使ってください。旧名は当面動き続けますが撤去予定です]`
+   を明記した
+3. `gate.ts`の`WRITE_TOOL_PERMISSIONS`に旧名・新名の両方を登録した
+   （`create_sheet`/`create_qsheet`・`propose_sheet_draft`/`propose_qsheet_draft`・
+   `discard_sheet_proposal`/`discard_qsheet_proposal`の3ペア。片方だけ登録すると、
+   `enforceToolPermissions`が未登録ツールを無条件でゲート無し扱いするため**旧名が
+   権限チェック無しで通ってしまう**——実際に確認して気づいた設計上の落とし穴）
+4. `docs/mcp-server.md`を新名を主に、旧名を「（旧 `xxx`）」の注記付きで更新した
+5. **観測の限界を明記した:** 書き込み3本（`create_sheet`等）は`audit()`が
+   `mcp_audit_log.tool_name`に実際に呼ばれた名前をそのまま記録するため、
+   `SELECT tool_name, count(*) FROM mcp_audit_log WHERE tool_name IN (...) GROUP BY
+   tool_name`で旧名呼び出し頻度を観測できる。**読み取り2本（`get_sheet`/
+   `find_similar_sheets`）はこのコードベースの規約上そもそも`audit()`を呼ばない
+   （読み取りツールは元から監査ログの対象外）ため、この経路では観測できない。**
+   撤去判断は書き込み3本の観測結果と、既知の外部連携先への確認を組み合わせて行うこと
 6. `qsheet_ai_proposals.kind`の値（`script_outline_draft`等）はツール名と独立した
-   別の互換面のため、このフェーズでは**変更しない**
+   別の互換面のため、このフェーズでは**変更していない**
+7. 検証: `node scripts/generate-mcp-tools.mjs`で権限ゲート検証OK・新旧10登録すべてが
+   意図通りread/write判定されることを`client/public/mcp-tools.json`の内容で確認済み
 
 ### 明示的スコープ外（この計画では実施しない）
 
@@ -363,31 +417,35 @@ MCPプロトコルにエイリアス機構が無いため、**二重登録によ
 
 ## 6. まだ決まっていないこと・要判断
 
-1. **候補名`techops`の最終確定。** `client-qsheet/CLAUDE.md`のメモは「候補」の域を出ておらず、
-   正式な決定文書（`client-live`の`12-live-timer-decision.md`に相当するもの）はまだ存在しない。
-   着手前にユーザーの明示的な承認が必要。
-2. **そもそも実施するかどうかのコスト対効果判断。** 監査結果が繰り返し指摘する通り、
-   現状の不一致による実害は報告されていない。表示名と内部識別子の分離は会社の標準
-   パターンとして許容されている以上、「やらない」という選択肢も引き続き有効。
+1. ~~**候補名`techops`の最終確定。**~~ ✅ **解決済み。** ユーザーの明示的な指示で
+   `techops`に確定し、Phase 1〜4を実施した。
+2. ~~**そもそも実施するかどうかのコスト対効果判断。**~~ ✅ **解決済み。** ユーザーが
+   「なるべく古い負債は排除したい」という意向を明示し、Phase 1〜4の実施を指示した。
 3. **実施タイミング。** `client-qsheet/CLAUDE.md`によれば、表本体（`CueTable`/`CueRow`/
    `cells/*`）・`EditorSidebar`の詳細・本番3画面固有の実装の作り直しがまだ進行中
    （v4凍結解除の続き）。この開発と本リネームを並行させると、リネーム中のPRと
    機能PRが同じファイル（`OnAirPage.tsx`等）を触り合ってコンフリクトする可能性が高い。
-   **表本体作り直しの完了後に着手する方が安全**という判断もあり得る。
+   **表本体作り直しの完了後に着手する方が安全**という判断もあり得たが、実際には
+   並行して進めた（Phase 1〜4のPRはいずれもコンフリクトなくマージできた。§8参照）。
 4. **Phase 2の二重マウント撤去時期。** editor/onair/rundownの3URLは通常のブックマーク
    相当（`phase3-2-plan.md`の互換確認パターンで撤去可能）だが、**prompter（OBS）と
    audio（QR）は無期限維持が必要かもしれない**。撤去する場合の基準（利用ログが
-   実質0件になったら等）を決める必要がある。
-5. **MCPツール名を実際にリネームするか。** Phase 4は「実施する場合の手順」であって
-   実施の可否自体は未決定。外部にどれだけ実利用があるか（`mcp_audit_log`で事前調査
-   すべき）が判断材料になる。
-6. **`permissionModule`／DB／Socket.IOネームスペース／rental-scraperまで踏み込むか。**
-   本計画は明示的にURL/`AppKey`/ディレクトリ層に限定しているが、将来的にこれらの層まで
-   統一したいという要望が出た場合は、**別の・さらに大掛かりな決定**として扱う
-   （§4の「明示的スコープ外」を参照。覆す場合は理由をこの文書に追記すること）。
-7. **`QSHEET_PC_ONLY`/`QSHEET_MOBILE_OK`等、TypeScript識別子自体をリネームするか。**
-   ディレクトリ名だけ変えて識別子は`QSHEET_*`のまま残す（実害なし・低コスト）か、
-   一貫性のため識別子ごと変える（`AppShell.tsx`等の連動修正が必要）か（3-1参照）。
+   実質0件になったら等）を決める必要がある。**まだ未決定。** Phase 3で`/qsheet`
+   ネームスペースをブリッジ方式にしたことで、HTTPもSocket.IOも撤去時期を切り離して
+   個別に判断できる状態になった（Socket.IOブリッジの撤去は`NAMESPACES`配列から
+   `/qsheet`を外すだけで済む設計・§4 Phase 3参照）。
+5. ~~**MCPツール名を実際にリネームするか。**~~ ✅ **解決済み（Phase 4で実施）。**
+   旧名は二重登録で当面動き続ける。撤去時期は書き込み3本の`mcp_audit_log`観測結果
+   （読み取り2本は観測不可・§4 Phase 4 手順5参照）と外部連携先への確認をもとに
+   別途判断する。
+6. **`permissionModule`／DB／Socket.IOネームスペース**本体（`/qsheet`ネームスペース
+   自体の撤去）**／rental-scraperまで踏み込むか。** 本計画は明示的にURL/`AppKey`/
+   ディレクトリ層に限定しており、Socket.IOも「ブリッジで両方生かす」に留めた
+   （ネームスペース自体の統一＝`/qsheet`撤去はまだ実施していない）。将来的に
+   これらの層まで統一したいという要望が出た場合は、**別の・さらに大掛かりな決定**
+   として扱う（§4の「明示的スコープ外」を参照。覆す場合は理由をこの文書に追記すること）。
+7. ~~**`QSHEET_PC_ONLY`/`QSHEET_MOBILE_OK`等、TypeScript識別子自体をリネームするか。**~~
+   ✅ **解決済み（Phase 1で`TECHOPS_PC_ONLY`等へ統一）。**
 8. **`client-live`の空洞化・削除とのタイミング調整。**（2026-08-22 追記）
    「計時・視聴者のミニアプリ化フェーズ2」により`client-live`の実体画面は
    `client-qsheet`側の`/qsheet/live/*`へ移植済みで、旧`client-live`側は
@@ -558,3 +616,96 @@ DBオブジェクトそのものではなく「旧IDでの互換アクセス」�
   新規migrationは`liveops_display_layout`というliveops固有テーブルで`qsheet_`プレフィックス
   ではなく、新規ルートも`server/src/contexts/liveops/`配下でqsheetのマウント・DBオブジェクト
   数（96個）に影響なし。**§2〜§3の数値・§4のフェーズ計画に修正は不要。**
+- **2026-08-22（PR #335 反映確認）** — Phase 1の0件レビュー棚卸し記録PR（コード変更なし）。
+  §2〜§3の前提事実に影響なし。
+- **2026-08-22（Phase 2 実施・完了）** — ユーザーの明示的な指示（「Phase2へ　マルチエージェントで」）
+  で§4 Phase 2に着手し、マルチエージェント（9タスク並行）＋手動での漏れ補完で完了させた。
+  - `client-techops/vite.config.ts`の`base`を`/qsheet/`→`/techops/`に変更。
+    `shared/src/client/apps.ts`の`AppKey`/`path`を`qsheet`→`techops`に改名
+    （**`permissionModule: 'qsheet'`は計画どおり不変**）
+  - `client-techops/src/App.tsx`を手動で書き直し、旧`/qsheet/*`全ルートを1本の
+    汎用リダイレクト`RedirectQsheetToTechops`（`useLocation().pathname`の接頭辞
+    `/qsheet`→`/techops`を機械的に置換、クエリ文字列も維持）で後方互換にした。
+    当初`:id`等のパラメータを持つ24ルートを個別に`<Navigate to="/techops/editor/:id">`
+    のように書いたが、**React Routerの`<Navigate>`は`to`をリテラル文字列としてしか
+    見ずパラメータを置換しないバグに自分で気づき**、実装前に汎用コンポーネントへ
+    設計し直した
+  - `client-techops/src/routeSwitch.ts`（`QsheetRoot`→`TechopsRoot`等）、
+    `client-techops/src/**`の52ファイル219箇所の`/qsheet`パス文字列
+    （`pcOnlyScreens.ts`・API呼び出し・リンク等）をマルチエージェントで一括置換。
+    Socket.IO名前空間（`lib/socket.ts`の`io('/qsheet', ...)`）は計画どおり対象外のまま
+  - サーバー側: `createQsheetRoutes()`を`createQsheetRoutes(prefix)`化し
+    `routes/index.ts`で`/qsheet`・`/techops`の両方を登録（router.use×26を二重化）。
+    `server/src/app.ts`に`serveApp('/techops', ...)`を追加（同じ`client-techops/dist`を
+    二重マウント。Viteの`base`がビルド時に絶対パスとして焼き込まれるため、同一distを
+    複数prefixで配信してもアセット解決が壊れないことを確認）
+  - `shared/src/production/miniapps.ts`とサーバー側複製（`check-collab-parity.mjs`が
+    整合検査）を同時変更。`client/`側cross-app links 3ファイル
+    （`DayTab.tsx`／`BusinessProjectView.tsx`／`shortcuts.ts`。`shortcuts.ts`は
+    `key`/`module`の`'qsheet'`は`permissionModule`のため据え置き、`to`のURLだけ変更）
+  - ⚠️ **マルチエージェントのタスク一覧には無かった手動監査での発見・修正**
+    （Phase 1と同型の見落とし）:
+    1. `shared/tests/miniapps.test.ts`・`shared/tests/qsheetCollabMetaSync.test.ts`が
+       ソースを直接読んで`/qsheet`パスをアサートしており、bulk-replaceでソース側が
+       変わったことで9件のテストが落ちる状態だった（Phase 1の
+       `shared/tests/*.test.ts`見落としと同型・タスク一覧が最初からclient-techops配下
+       とserver配下だけを対象にしており、shared/tests配下の「ソース文字列を読んで
+       アサートする」形式のテストが盲点だった）
+    2. `client-live/src`（別バンドル）に旧`client-live`のリダイレクトページ10ファイルが
+       `/qsheet/live/*`等へのリンクをハードコードしており、`cross-app-links`タスクが
+       `client/`配下の3ファイルしかスコープに入れていなかったため見落とされていた
+       （`hasPermission('qsheet', 'manager')`の`permissionModule`は区別して不変のまま
+       保持）
+    3. `server/src/contexts/qsheet/services/journey.service.ts`のジャーニー提案先
+       （`to: '/qsheet/schedules'`等2箇所）も同種の見落としで、`server-qsheet-dual-mount`
+       タスクのスコープ（router.use文字列）に含まれていなかった
+    4. `client/src`内の説明用コメント2箇所（`MobileTools.tsx`・`shortcuts.ts`）も
+       整合のため合わせて更新
+  - **検証**: `npx tsc -b`（client/client-daily/client-equipment/client-techops/
+    client-live/server、全ワークスペース）0エラー、`npm run test`1452件全通過
+    （手動修正後）、`npm run lint`0エラー・warning 59件（Phase 1と同数、新規warningなし）、
+    `node scripts/check-mobile-declared.mjs`・`check-collab-parity.mjs`・
+    `check-links.mjs`いずれもOK、`npm run build --workspace=client-techops`・
+    `--workspace=server`成功（ビルド後の`index.html`が`/techops/assets/...`を
+    参照することを実際に確認）
+  - **Phase 3（Socket.IOカットオーバー・本番URL最終移行）・Phase 4（MCPツール名）は
+    未着手のまま。** 計画停止枠の設定・本番アクセスが要るため、この環境からは
+    引き続き着手できない（§6参照）
+- **2026-08-22（Phase 3・Phase 4 実施・完了）** — ユーザーの指示（「Phase4までマルチエージェントで
+  実装してください」）を受け、まずPhase 3のSocket.IOカットオーバーが持つリスク
+  （新旧混在の瞬間に「エラーは出ないが放送同期だけ止まる」事故が起こり得る・この環境から
+  実地検証ができない）を`AskUserQuestion`で確認した。ユーザーの回答（「なるべく古い負債は
+  排除したい」「(ブリッジが)できるか確認したい」）を踏まえ、**当初計画の「計画停止枠での
+  一斉切替」を「ブリッジ方式」に変更する判断をこちらで行い**、Phase 3・Phase 4を実施した。
+  - **Phase 3**: `server/src/contexts/qsheet/socket.ts`を`/qsheet`・`/techops`
+    両ネームスペース対応に書き直し、`broadcastToRoom()`が両ネームスペースの同名ルームへ
+    常に転送する設計にした（詳細は§4 Phase 3参照）。クライアント
+    （`client-techops/src/lib/socket.ts`）は`/techops`へ接続するよう変更
+  - **実地検証**: `scripts/dev-verify/socket-bridge-check.mjs`を新設し、実Postgres＋実
+    httpサーバー＋実`socket.io-client`2本（新旧ネームスペース混在を模擬）でブリッジの
+    6項目（在席表示・cue同期2方向・yjs:sync両ネームスペース・yjs:updateのクロス中継・
+    不正バイナリでの無停止）をすべて確認した
+  - ⚠️ **検証中に見つけた既存バグを1件ついでに直した**: 不正な`yjs:update`バイナリで
+    `server/src/shared/collab/roomManager.ts`の`applyUpdate()`がサーバープロセスごと
+    落ちる状態だった（try/catchが無かった。qsheetだけでなく案件の共同編集とも共有する
+    ファイルのため影響範囲が広い）。try/catchで包んで直した
+  - **Phase 4**: `server/src/contexts/mcp/tools/production.tools.ts`のMCPツール5本
+    （`get_qsheet`等）を`get_sheet`等へ改名し、旧名も二重登録した。`gate.ts`の
+    `WRITE_TOOL_PERMISSIONS`に新旧両方を登録（片方だけだと旧名が権限ゲート無しで
+    通ってしまうことに気づき対応）。`docs/mcp-server.md`を更新
+  - マルチエージェントのタスク一覧には無かった手動監査での発見・修正（Phase 1〜2と同型の
+    見落とし）: `production.tools.ts`の実装services（`qsheet-read.service.ts`等）・
+    `shared/tests/qsheetDraftValidate.test.ts`・`server/src/contexts/qsheet/ai/
+    mcpProposal.ts`・`materials.ts`・`aifeedback.tools.ts`・`ai-feedback.service.ts`・
+    `scripts/check-collab-parity.mjs`のコメントに残っていた旧ツール名の言及を、
+    現行の主要ツール名に更新した（歴史記録として残すdocs/changelog.dの下書きは対象外）
+  - **検証**: `npx tsc -b`（全ワークスペース）0エラー、`npm run test`1452件全通過、
+    `npm run lint`0エラー・warning 59件（従前と同数）、
+    `node scripts/generate-mcp-tools.mjs`で権限ゲート検証OK・新旧10登録すべてが
+    意図通りread/write判定されることを確認、`npm run build --workspace=server,
+    client-techops`成功
+  - **この環境から検証できなかったこと**: 実ブラウザ・実本番トラフィックでのSocket.IO
+    ブリッジ動作（放送中のOnAir↔ランダウン同期・OBSブラウザソースからの接続）。
+    本番公開後の運用観測期間を推奨する
+  - **残る要判断**: Socket.IOの`/qsheet`ネームスペース自体の撤去タイミング・MCPツール
+    旧5本の撤去タイミング（§6参照）。どちらも計画済みだが実施はまだ先

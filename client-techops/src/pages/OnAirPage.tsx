@@ -95,7 +95,7 @@ export default function OnAirPage() {
   const { data: doc, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
-      const res = await api.get(`/qsheet/documents/${id}`);
+      const res = await api.get(`/techops/documents/${id}`);
       const d = res.data.data;
       if (typeof d.data === "string") d.data = JSON.parse(d.data);
       return d;
@@ -229,7 +229,7 @@ export default function OnAirPage() {
           break;
         case "Escape":
           e.preventDefault();
-          if (confirmStop() && id) navigate(`/qsheet/editor/${id}`);
+          if (confirmStop() && id) navigate(`/techops/editor/${id}`);
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -332,7 +332,7 @@ export default function OnAirPage() {
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
         <p className="text-muted-foreground">キューデータがありません</p>
         <button
-          onClick={() => navigate(`/qsheet/editor/${id}`)}
+          onClick={() => navigate(`/techops/editor/${id}`)}
           className="px-4 py-2 border border-border rounded text-sm hover:bg-accent"
         >
           エディターに戻る
@@ -346,7 +346,7 @@ export default function OnAirPage() {
       {/* ===== HEADER ===== */}
       <header className="flex-none h-10 flex items-center justify-between px-5 bg-card border-b border-border">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/qsheet/editor/${id}`)} className="text-muted-foreground hover:text-foreground">
+          <button onClick={() => navigate(`/techops/editor/${id}`)} className="text-muted-foreground hover:text-foreground">
             <ChevronLeft size={18} />
           </button>
           <span className="text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>

@@ -8,6 +8,6 @@ import type { CueActualInput } from '@gmo-onair/shared/src/qsheet/cueActuals';
 /** 実尺を1件送る。fire-and-forget — 呼び出し側は結果を待たない。 */
 export function postCueActual(documentId: string, input: CueActualInput): void {
   void api
-    .post(`/qsheet/runs/${documentId}/cues`, input, { timeout: 5000 })
+    .post(`/techops/runs/${documentId}/cues`, input, { timeout: 5000 })
     .catch(() => { /* 本番中。何も出さない (best-effort) */ });
 }

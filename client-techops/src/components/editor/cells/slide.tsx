@@ -10,7 +10,7 @@ import type { Block, CueRowData } from "./types";
 // `cell.image` をトップレベルで読むため、書き手もそれに合わせている。
 //
 // アップロードは既存の EntryImageButton (段5 PR3 で共有部品として抽出済み) を
-// そのまま使う。新しい API は無い (`POST /qsheet/upload-image` を呼ぶだけ)。
+// そのまま使う。新しい API は無い (`POST /techops/upload-image` を呼ぶだけ)。
 // 削除は undefined を書く (ydocDiff.ts がそれをセル削除として扱うため。空文字にしない)。
 //
 // このマークアップは意味トークン (border-border / text-muted-foreground /

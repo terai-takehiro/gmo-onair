@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <SubAppLoginRedirect
       storageKey="gmo_onair_user"
-      appBasePath="/qsheet/"
+      appBasePath="/techops/"
       appLabel="Qシート"
     />
   );

@@ -15,7 +15,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
-| 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/qsheet/` | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作技術支援」**（旧「制作資料」・2026-08-22 に再改名し大アプリへ格上げ）、Qシートはその中のミニアプリ。**ディレクトリ名だけ `client-techops/` に改名済み**（2026-08-22・Phase 1。ベースパス`/qsheet/`・内部識別子`qsheet`は未改名、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
+| 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧`/qsheet/`も後方互換で生存） | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作技術支援」**（旧「制作資料」・2026-08-22 に再改名し大アプリへ格上げ）、Qシートはその中のミニアプリ。**ディレクトリ名（Phase 1）・ベースパス/`AppKey`（Phase 2）・Socket.IO（Phase 3・ブリッジ方式）・MCPツール名（Phase 4）を `techops` 系へ改名済み**（2026-08-22。内部識別子`permissionModule`・DBは未改名、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | **対象** | タイマー・視聴者カウンター。運用画面は共通シェル・v4トークン化済み。**表示画面 (`/live/display/`) だけ例外**（見た目を変えない） |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | ~~`/awards/`~~ | ~~5179~~ | **廃止** | 放送CG演出・送出 (内部識別子は `awards` のまま)。**コードは保存・配信は停止**（2026-08〜） |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
@@ -63,7 +63,8 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **フロントエンド**: React 18 + Vite 6 + TailwindCSS 3 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが6アプリの静的ファイルを配信する**単一イメージ構成**
 - **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-techops, client-live, client-awards, server, shared)
-- **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, awards/quiz/liveops 各ネームスペース)
+- **リアルタイム**: Socket.IO (`/techops` ネームスペース: OnAir↔ランダウン同期。旧 `/qsheet` も
+  ブリッジで生存中・詳細は[client-techops/CLAUDE.md](client-techops/CLAUDE.md), awards/quiz/liveops 各ネームスペース)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ### よく使うコマンド

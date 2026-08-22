@@ -46,7 +46,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
     // ⚠️ パスは資料IDのまま (1文字も変えない)。トークンは ?token= に付けるだけ
     // — Socket.IO の room キーが資料IDのままなので、パスをトークンに差し替えると
     // 誰もいない room に join して cue 同期が黙って止まる (実装設計 02 §10-1)。
-    return `${base}/qsheet/audio/${docId}?token=${encodeURIComponent(token)}`;
+    return `${base}/techops/audio/${docId}?token=${encodeURIComponent(token)}`;
   };
 
   const url = share ? buildUrl(share.token) : "";
@@ -57,7 +57,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
     let cancelled = false;
     setLoading(true);
     setRevoked(false);
-    api.get(`/qsheet/documents/${docId}/audio-share`)
+    api.get(`/techops/documents/${docId}/audio-share`)
       .then((res) => {
         if (cancelled) return;
         setShare(res.data.data as ShareInfo);
@@ -110,7 +110,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
     if (!confirm("新しい URL を発行します。今の URL（QR）はその場で使えなくなります。よろしいですか？")) return; // ui-tokens-ok
     setBusy(true);
     try {
-      const res = await api.post(`/qsheet/documents/${docId}/audio-share/reissue`);
+      const res = await api.post(`/techops/documents/${docId}/audio-share/reissue`);
       setShare(res.data.data as ShareInfo);
       setRevoked(false);
       notifySuccess("新しい URL を発行しました");
@@ -126,7 +126,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
     if (!confirm("この URL を失効させます。配布済みの QR はすべて使えなくなり、元に戻せません。よろしいですか？")) return; // ui-tokens-ok
     setBusy(true);
     try {
-      await api.post(`/qsheet/documents/${docId}/audio-share/revoke`);
+      await api.post(`/techops/documents/${docId}/audio-share/revoke`);
       setShare(null);
       setRevoked(true);
       notifySuccess("URL を失効させました");
@@ -140,7 +140,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
   const handleIssueAgain = async () => {
     setBusy(true);
     try {
-      const res = await api.get(`/qsheet/documents/${docId}/audio-share`);
+      const res = await api.get(`/techops/documents/${docId}/audio-share`);
       setShare(res.data.data as ShareInfo);
       setRevoked(false);
     } catch {

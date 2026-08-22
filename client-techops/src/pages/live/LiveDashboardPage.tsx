@@ -4,9 +4,9 @@
 //   ・メインタイマー表示（TimerDisplay・主タイマー = liveops_programs.main_timer_id）
 //   ・視聴者数取得の開始/停止・カード・推移グラフ（`components/live/ViewerPanel.tsx` に切り出し）
 //   ・タイマー選択・設定（TimerSettingsPanel。管理者のみ）
-//   ・タイマー管理へのリンク（新URL `/qsheet/live/:ownerKey/timers`）
-//   ・番組設定へのリンク（新URL `/qsheet/live/:ownerKey/settings`）
-//   ・組織の鍵設定へのリンク（歯車アイコン・新URL `/qsheet/live-org-settings`。
+//   ・タイマー管理へのリンク（新URL `/techops/live/:ownerKey/timers`）
+//   ・番組設定へのリンク（新URL `/techops/live/:ownerKey/settings`）
+//   ・組織の鍵設定へのリンク（歯車アイコン・新URL `/techops/live-org-settings`。
 //     ownerKey を取らない画面なので、ここではリンクを出すだけ）
 //   ・表示画面（`/live/display/:timerId`）を別タブで開くリンク
 //
@@ -135,14 +135,14 @@ function DashboardContent({ ownerKey, owner, programId }: {
 
       <div className="mb-3 flex flex-wrap items-center justify-end gap-1.5">
         <a
-          href={`/qsheet/live/${ownerKey}/settings`}
+          href={`/techops/live/${ownerKey}/settings`}
           className="flex min-h-tap items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
           <Settings2 className="h-3.5 w-3.5" />番組設定
         </a>
         {canManage && (
           <a
-            href="/qsheet/live-org-settings"
+            href="/techops/live-org-settings"
             className="flex min-h-tap items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             title="計時・視聴者の組織の鍵設定"
           >
@@ -170,7 +170,7 @@ function DashboardContent({ ownerKey, owner, programId }: {
             title="タイマーがありません"
             description="本番進行用のタイマーを登録しましょう。"
             action={
-              <a href={`/qsheet/live/${ownerKey}/timers`}>
+              <a href={`/techops/live/${ownerKey}/timers`}>
                 <Button size="sm" variant="outline">
                   <Timer className="h-4 w-4 mr-1.5" aria-hidden="true" />タイマーを追加
                 </Button>
@@ -192,7 +192,7 @@ function DashboardContent({ ownerKey, owner, programId }: {
                 {canManage && (
                   <TimerSettingsPanel programId={programId} timers={timers} mainTimerId={mainTimerId} />
                 )}
-                <a href={`/qsheet/live/${ownerKey}/timers`}>
+                <a href={`/techops/live/${ownerKey}/timers`}>
                   <Button
                     variant="ghost"
                     size="sm"

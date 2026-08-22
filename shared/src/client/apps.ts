@@ -28,9 +28,10 @@
  * 4か所で一致していた名前はそのまま残しました。v4 の文書では別の呼び方を
  * しているものがあり、変えるかどうかは**利用者に確認してから**にします:
  *
- *   `qsheet` は「制作資料」→「制作技術支援」に改名済み (下の APPS。「Qシート」は
- *   中のミニアプリの名前として残す。2026-08-22 にご指示で再改名・プロジェクト管理と
- *   財務管理の間へ格上げ)
+ *   `techops`（旧 `qsheet`。AppKey/URL は Phase 2・2026-08-22 に改名。下の
+ *   「制作技術支援の `AppKey`/URL は…」参照）は表示名も「制作資料」→「制作技術支援」に
+ *   改名済み (下の APPS。「Qシート」は中のミニアプリの名前として残す。2026-08-22 に
+ *   ご指示で再改名・プロジェクト管理と財務管理の間へ格上げ)
  *   `admin`  いまは「システム管理」/ v4 の文書は「設定」(URL も /settings へ改名予定)
  *
  * ── 凍結の印 ────────────────────────────────────────────────
@@ -73,6 +74,23 @@
  * `'studio'` という絞り込み値、そして実在するスタジオ（部屋）という物理的な概念は、
  * 引き続き「studio」を名乗ってよい（このアプリ識別子の修正とは無関係）。
  * 旧 `/studio/*` の URL は `client/src/App.tsx` に後方互換のリダイレクトを置いてあるので、
+ * 既存のブックマーク・共有リンクは壊れない。
+ *
+ * **制作技術支援の `AppKey`/URL は qsheet→techops 移行の Phase 2（2026-08-22）で
+ * `qsheet` → `techops` へ改名した。** 表示名「制作技術支援」は前段
+ * （2026-08-22 の再改名・プロジェクト管理と財務管理の間への格上げ）から変わっていない —
+ * アプリ名を決めたあとも内部識別子だけ `qsheet` のまま残っていた食い違いを直した回で、
+ * `key: 'qsheet'` → `'techops'`、`path: '/qsheet'` → `'/techops'` にしただけ。
+ * **`permissionModule` はここでは変えていない（意図的に `'qsheet'` のまま）** —
+ * 上のカレンダー（`studio`→`calendar`）の回と同じ「アプリ識別子と権限モジュール文字列は
+ * 別物」という判断軸だが、こちらは`permissionModule` 自体は動かしていない。理由は
+ * 既存利用者の権限 JSON が `permissionModule` の文字列（`'qsheet'`）をキーとして
+ * 保存済みだから — ここを一緒に変えると、移行の migration を用意しない限り
+ * 全利用者の権限が消えたように見える。計時・視聴者の `permissionModule: 'liveops'` →
+ * `'qsheet'` 統合（上のコメント）とは逆に、今回は `key` だけ動かして
+ * `permissionModule` は据え置く判断をしている。
+ * 旧 `/qsheet/*` の URL は `client-techops/src/App.tsx` の `RedirectQsheetToTechops`
+ * コンポーネントが後方互換のリダイレクトを行う（クエリ文字列を保ったまま転送）ので、
  * 既存のブックマーク・共有リンクは壊れない。
  *
  * ── 権限モデル単純化（`permissionModule` を `sales` に統合した回）───────
@@ -118,7 +136,7 @@ export type AppKey =
   | 'budget'
   | 'calendar'
   | 'gpm'
-  | 'qsheet'
+  | 'techops'
   | 'equipment'
   | 'liveops'
   | 'awards'
@@ -175,7 +193,7 @@ export const APPS: AppDef[] = [
   { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'sales' },
   /* 制作技術支援は v4.1 で凍結を解き、v4 共通シェルにも載せ替え済み。
      プロジェクト管理と財務管理の間に格上げ（ご指示・2026-08-22） */
-  { key: 'qsheet',      label: '制作技術支援',       description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
+  { key: 'techops',     label: '制作技術支援',       description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/techops',    permissionModule: 'qsheet' },
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
   { key: 'calendar',    label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/calendar',   permissionModule: 'sales' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
