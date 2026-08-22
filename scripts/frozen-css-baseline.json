@@ -1,11 +1,13 @@
 {
-  "apps": {
-    "live": {
-      "md5": "d463a160ba1ca5feb91f6080a2803134",
-      "bytes": 67043
-    }
-  },
+  "apps": {},
   "history": [
+    {
+      "app": "live",
+      "from": "d463a160ba1ca5feb91f6080a2803134",
+      "to": null,
+      "bytes": null,
+      "reason": "計時LIVE (client-live) を共通シェル・v4トークンに載せ替えて凍結を解いたので check:frozen の対象から外した。運用画面（ダッシュボード・設定等）は見た目を変える対象そのものになった。表示画面 (/live/display/:timerId) だけは今までどおり見た目を変えない決まりだが、TimerDisplayPage.tsx 自体は色を Tailwind の生の値で持っており tokens.css を参照していないため、この検査（凍結アプリの CSS 突き合わせ）の対象からは元々ずれていた。書体だけ index.css 側の :has() で絶縁してある（client-live/src/index.css 参照）"
+    },
     {
       "app": "awards",
       "from": "387a209af341598ce915a1dade2b0ed2",
