@@ -1,4 +1,15 @@
-@import '@gmo-onair/shared/src/client/tokens.css';
+/* v4 シェル統合で `tokens.css` 直読みから `base.css` 経由 (→ tokens-v4.css → tokens.css) に
+ * 切り替えた（qsheet の段5 PR8 と同じ切替）。運用画面（ダッシュボード・設定等）は
+ * これで v4 の色・LINE Seed JP になる。元に戻したいときは `./tokens.css` に戻せばよい
+ * (shared/CLAUDE.md「v4 のトークン方針」)。
+ *
+ * ⚠️ **表示画面 (`/live/display/:timerId`) だけは対象外のまま。** あの画面は
+ * `TimerDisplayPage.tsx` を一切触らない前提（本番の出力そのもの）なので、地の色・数字の色は
+ * 元から Tailwind の生の値 (`bg-black` 等) で書かれていて token を参照しない。ただし
+ * 書体・行間・字送りは body から**継承**しているため、この import 切替だけだと
+ * LINE Seed JP に化けてしまう。下の `:has()` ブロックで、表示画面の目印クラス
+ * (`.timer-display-font` 等・このページしか使わない) がある間だけ書体を元に戻す。 */
+@import '@gmo-onair/shared/src/client/base.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,6 +36,31 @@
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
   }
+}
+
+/*
+ * 表示画面 (`/live/display/:timerId`) だけの書体の絶縁。
+ *
+ * `TimerDisplayPage.tsx` はこの PR で触っていない（本番の出力そのものなので触らない
+ * 決まり）。地の色・文字色は素の Tailwind 値で書かれているので上の import 切替の
+ * 影響を受けないが、**書体・行間・字送りだけは `body` から継承**している。
+ * base.css → tokens-v4.css の `--font-sans` は `'LINE Seed JP', 'Noto Sans JP', …` なので、
+ * このまま何もしないと表示画面の数字が LINE Seed JP に化ける（TimerDisplayPage.tsx を
+ * 触っていなくても、見た目は変わってしまう）。
+ *
+ * `TimerDisplayPage.tsx` にも `App.tsx` の `DisplayRouter` にも触らずに絶縁するため、
+ * このページだけが使うクラス名 (`.timer-display-font` / `.split-timer-font` /
+ * `.viewer-header-ja` — いずれか1つは必ず描かれる) を目印に `:has()` で判定する。
+ * `.timer-panel-font` はダッシュボードの埋め込みタイマーが使う**別のクラス**なので、
+ * ここには入れない（入れると運用画面まで書体が戻ってしまう）。
+ */
+#root:has(.timer-display-font),
+#root:has(.split-timer-font),
+#root:has(.viewer-header-ja) {
+  font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+  line-height: normal;
+  letter-spacing: normal;
+  font-feature-settings: normal;
 }
 
 /* ── Timer Phase Colors ── */

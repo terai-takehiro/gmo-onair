@@ -33,11 +33,13 @@ const USER = process.env.VERIFY_USER || 'v-admin';
 /**
  * 見るページ。`slow` は取得に時間がかかるので長めに待つ。
  *
- * **v4 の対象3アプリは全画面を並べる。** 共通の下地 (`shared/src/client/base.css`) や
+ * **v4 の対象アプリは全画面を並べる。** 共通の下地 (`shared/src/client/base.css`) や
  * 共通シェルを入れ替えると**全画面に一度に効く**ので、代表2〜3画面では足りない
  * (実際 F2 の前は日常業務2画面・機材2画面しか見ていなかった)。
- * 凍結1アプリ (計時LIVE) は見た目を変えないので代表画面のままにしてある。
  * (制作資料 (Qシート) は v4.1 で凍結を解いたので、本番3画面＋公開音声を含め主要画面を並べる)
+ * 計時LIVE も共通シェル・v4トークンに載せ替えたので、運用画面はここに含める。
+ * **表示画面 (`/live/display/:timerId`) だけは対象外**（下の `FROZEN_PREFIX` 参照。
+ * 見た目を変えない決まりのままの1画面で、そもそもここには並べていない）。
  */
 const PAGES = [
   // ── 案件管理・財務管理・設定 (v4 対象) ──────────────────────
@@ -110,7 +112,14 @@ const PAGES = [
   ['Qシート ランダウン', '/qsheet/rundown/verify-onair', { dark: true }],
   ['Qシート プロンプター', '/qsheet/prompter/verify-onair', { dark: true }],
   ['Qシート 公開音声', '/qsheet/audio/verify-onair'],
-  ['計時LIVE', '/live/'],
+
+  // ── 計時LIVE (v4 対象・共通シェルへ載せ替え済み) ──────────────
+  // 番組配下の画面 (ダッシュボード・タイマー管理・番組設定) は種のデータが要る
+  // 動的な programId を前提にしており、verify:up の固定シードに無いので並べていない。
+  // `/live/display/:timerId` (表示画面) はここに含めない — 見た目を変えない決まりの
+  // 1画面で、FROZEN_PREFIX がこの画面だけを検査から外している。
+  ['計時LIVE セッション一覧', '/live/'],
+  ['計時LIVE 設定', '/live/settings'],
 
   // ── 機材管理 (v4 対象・全画面) ──────────────────────────
   ['機材 日々', '/equipment/'],
@@ -146,13 +155,23 @@ const PAGES = [
 ];
 
 /**
- * 凍結1アプリ (計時LIVE) の URL。
- * **見た目を今日のまま保つ**のが決定事項なので、v4 の基準を当てない。
+ * 見た目を今日のまま保つ URL。**もう「アプリ単位」ではない。**
+ *
+ * 計時LIVE を共通シェル・v4トークンに載せ替えたので、`/live/` 配下の運用画面
+ * (ダッシュボード・設定等) はここから外した — v4 の基準 (地の色・LINE Seed JP・
+ * バッジ/金額の整列) を他の v4 対象アプリと同じように当てる。
+ *
+ * **`/live/display/:timerId`（表示画面）だけは今までどおり対象。** この画面は
+ * `TimerDisplayPage.tsx` を一切変えない決まりで、地の色・数字の色は
+ * 元から Tailwind の生の値 (`bg-black` 等) で書かれ v4 の基準（灰の地・LINE Seed JP）
+ * に合わせる対象にもなっていない（`client-live/src/index.css` の `:has()` が
+ * 書体も絶縁している）。PAGES にはまだ並べていないが、将来ここへ足すことがあれば
+ * この判定に乗る。
  *
  * Qシート (制作資料) は凍結を解いたので、ここには含めない
  * (`docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md` §10-1)。
  */
-const FROZEN_PREFIX = /^\/(live)\//;
+const FROZEN_PREFIX = /^\/live\/display\//;
 
 const filters = process.argv.slice(2);
 const targets = filters.length
@@ -430,11 +449,11 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     ok(`${label} 中身が隠れていない`, m.clipped === 0, `${m.clipped}件 ${JSON.stringify(m.clippedList)}`);
     ok(`${label} JSエラー 0件`, errs.length === 0, errs.slice(0, 1).join(''));
     /*
-     * 地の色は **アプリによって期待値が違う** (T2 から)。
-     *   v4 対象3アプリ・制作資料(Qシート) … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
-     *   凍結1アプリ (計時LIVE)             … #fafafa  ← 今日と同じ色を保つのが決定事項
-     *   放送中の画面                        … #14161a  ← DADS の `.dark` を**意図して**使っている
-     * 1つの期待値にまとめると、凍結アプリを「直す」方向に引っぱってしまう。
+     * 地の色は **画面によって期待値が違う** (T2 から)。
+     *   v4 対象アプリ (計時LIVEの運用画面を含む)  … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
+     *   計時LIVE の表示画面 (`/live/display/`)    … #fafafa  ← 今日と同じ色を保つのが決定事項
+     *   放送中の画面                              … #14161a  ← DADS の `.dark` を**意図して**使っている
+     * 1つの期待値にまとめると、見た目を変えない画面を「直す」方向に引っぱってしまう。
      */
     const wantBg = opt.dark
       ? 'rgb(20, 22, 26)'
@@ -443,10 +462,10 @@ async function runViewport(browser, { width, height, tag }, fonts) {
         : 'rgb(247, 248, 250)';
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
     /*
-     * 書体と字詰めも **アプリによって期待値が違う** (T3 から)。
-     *   v4 対象3アプリ・制作資料(Qシート) … LINE Seed JP ＋ palt/kern
-     *   凍結1アプリ (計時LIVE)             … Noto Sans JP・字詰めなし (今日のまま)
-     * 凍結アプリに LINE Seed JP を要求すると「直せ」と言い続ける検査になる。
+     * 書体と字詰めも **画面によって期待値が違う** (T3 から)。
+     *   v4 対象アプリ (計時LIVEの運用画面を含む) … LINE Seed JP ＋ palt/kern
+     *   計時LIVE の表示画面 (`/live/display/`)   … Noto Sans JP・字詰めなし (今日のまま)
+     * 見た目を変えない画面に LINE Seed JP を要求すると「直せ」と言い続ける検査になる。
      */
     if (FROZEN_PREFIX.test(url)) {
       ok(`${label} 書体が今日のまま`, m.font.includes('Noto Sans JP'), m.font.slice(0, 30));

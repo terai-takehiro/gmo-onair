@@ -16,10 +16,12 @@
  * PC では `hideOnMobile` で畳んでいた列ですが、**外で見る人にいちばん要る数字**は
  * 「いつの予約か」です。「あと2日」だけだと、その2日後が何日なのか分かりません。
  *
- * ── 左スワイプでも「落とす」を出す（M11） ─────────────────────
+ * ── 左スワイプで「確定にする」「落とす」の両方を出す（M11） ─────────
  *
  * 下端のボタンはそのまま残し、`SwipeAction` でもう1つの入り口を足した。
- * 呼ぶのは同じ `onDrop`（確認ダイアログを挟む `askDrop` をそのまま渡している）
+ * 呼ぶのは同じ `onFix` / `onDrop`（`onDrop` は確認ダイアログを挟む `askDrop` を
+ * そのまま渡している）。**新しい業務ロジックは足していない** — 既にある2つの
+ * ボタンに、もう1つの入り口（左スワイプ）を足すだけ。
  */
 import { Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,9 +45,14 @@ export function HoldCards({
       {rows.map((b) => (
         <SwipeAction
           key={b.id}
-          actions={canDrop && !busy ? [
-            { label: '落とす', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger', onAction: () => onDrop(b) },
-          ] : []}
+          actions={busy ? [] : [
+            ...(canEdit ? [{
+              label: '確定', icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: 'default' as const, onAction: () => onFix(b.id),
+            }] : []),
+            ...(canDrop ? [{
+              label: '落とす', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger' as const, onAction: () => onDrop(b),
+            }] : []),
+          ]}
         >
           <div
             className={cn(

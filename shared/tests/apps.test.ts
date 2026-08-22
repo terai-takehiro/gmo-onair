@@ -45,9 +45,10 @@ describe('アプリ登録そのもの', () => {
     expect(APP_LABELS.studio).toBe('カレンダー');   // 「スタジオ予約」ではない
     expect(APP_LABELS.sales).toBe('案件管理');
     // v4 で改名した2つ (利用者に確認済み)。
-    // 「Qシート」は**制作資料の中のミニアプリの名前**として残っており、
-    // アプリの名前は「制作資料」。設定は `/admin` → `/settings` の改名と対
-    expect(APP_LABELS.qsheet).toBe('制作資料');
+    // 「Qシート」は**制作技術支援の中のミニアプリの名前**として残っており、
+    // アプリの名前は「制作技術支援」（旧「制作資料」・2026-08-22 に再改名）。
+    // 設定は `/admin` → `/settings` の改名と対
+    expect(APP_LABELS.qsheet).toBe('制作技術支援');
     expect(APP_LABELS.admin).toBe('設定');
   });
 

@@ -1,5 +1,5 @@
 /**
- * 制作資料のトップ（案件を選ぶ）。
+ * 制作技術支援（旧「制作資料」）のトップ（案件を選ぶ）。
  *
  * サーバーは**数えた事実だけ**返す（`GET /qsheet/scopes`）。割合・進み具合は
  * ここでは計算しない。表示語（`SCOPE_GROUP_LABEL`）はサーバーに置かず、ここ1か所に置く
@@ -48,7 +48,7 @@ export default function TopPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <h1 className="text-xl font-semibold text-foreground sm:text-2xl">制作資料</h1>
+      <h1 className="text-xl font-semibold text-foreground sm:text-2xl">制作技術支援</h1>
       <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本づくりの状態がわかります。</p>
 
       {isLoading && (

@@ -28,7 +28,9 @@
  * 4か所で一致していた名前はそのまま残しました。v4 の文書では別の呼び方を
  * しているものがあり、変えるかどうかは**利用者に確認してから**にします:
  *
- *   `qsheet` は「制作資料」に改名済み (下の APPS。「Qシート」は中のミニアプリの名前として残す)
+ *   `qsheet` は「制作資料」→「制作技術支援」に改名済み (下の APPS。「Qシート」は
+ *   中のミニアプリの名前として残す。2026-08-22 にご指示で再改名・プロジェクト管理と
+ *   財務管理の間へ格上げ)
  *   `admin`  いまは「システム管理」/ v4 の文書は「設定」(URL も /settings へ改名予定)
  *
  * ── 凍結の印 ────────────────────────────────────────────────
@@ -38,14 +40,12 @@
  * 旧トップページ・旧シェルは Phase 2 以降で作り直すまで今までどおり全部出す
  * (ここで消すと、まだ v4 になっていない画面から凍結アプリへ行けなくなる)。
  *
- * **制作資料 (Qシート) は v4.1 で凍結を解いた。** `frozen` は落としたが、
- * まだ v4 の共通シェルには載せ替えていない (見た目の作り直しは別段)。
- * `apps.ts` の一覧・アプリ切替には出るようになる。
+ * **制作技術支援 (Qシート・旧「制作資料」) は v4.1 で凍結を解いた。** `frozen` は落とし、
+ * v4 共通シェルにも載せ替え済み。`apps.ts` の一覧・アプリ切替には出るようになる。
  *
  * **計時LIVE も段9（`docs/design/v4/qsheet-v4-coding/impl/09-live-timer-impl.md`）
- * で凍結を解いた。** `frozen` は落としたが、v4 の共通シェルにはまだ載せ替えておらず、
- * 見た目が動いたのは本番の出力画面（`/live/display/:timerId`）だけ（PR6）。
- * 運用画面（ダッシュボード・設定等）は今までどおりの見た目のまま。
+ * で凍結を解いた。** `frozen` は落とし、v4 共通シェル・v4トークンにも載せ替え済み
+ * （本番の出力画面 `/live/display/:timerId` は無傷のまま）。
  * ⚠️ **改名（「計時LIVE」→「計時・視聴者」）は見送った** — 09 §11-1 の既定は
  * 改名だが、`docs/wording.md`・全7アプリの `CLAUDE.md`・`client-live` 自身の
  * 画面文言（ヘッダー・ログイン画面・マニュアル等）を含む**40本超のファイル**に
@@ -155,14 +155,15 @@ export const APPS: AppDef[] = [
    * どちらも `APPS` の順で描くので、動かすときはここだけを動かす。
    */
   { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'sales' },
+  /* 制作技術支援は v4.1 で凍結を解き、v4 共通シェルにも載せ替え済み。
+     プロジェクト管理と財務管理の間に格上げ（ご指示・2026-08-22） */
+  { key: 'qsheet',      label: '制作技術支援',       description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
   { key: 'studio',      label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/studio',     permissionModule: 'sales' },
   { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
-  /* 制作資料は v4.1 で凍結を解いた (URL・見た目はまだ今までどおり。frozen だけ落とした) */
-  { key: 'qsheet',      label: '制作資料',           description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/qsheet',     permissionModule: 'qsheet' },
   /* 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり) */
   { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops' },
 

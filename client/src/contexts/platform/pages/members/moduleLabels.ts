@@ -55,7 +55,7 @@ export const MODULE_WHAT: Record<string, string> = {
   sales: '案件・見積・工程とタスク・料金表・請求・入金・売上・仕入・販管費・スタジオの予約・カレンダー・プロジェクト管理',
   equipment: '機材の台帳と貸出',
   dailyops: '週報・ニュース・内覧会・受領書類',
-  qsheet: '制作資料（Qシート）',
+  qsheet: '制作技術支援（Qシート）',
   liveops: '計時LIVE',
   awards: 'リアルタイムCG',
 };

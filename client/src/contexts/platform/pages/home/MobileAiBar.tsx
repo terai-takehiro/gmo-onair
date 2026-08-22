@@ -17,6 +17,12 @@
  * 状態（`useIntake`）は**この部品が持ちます** — シートの中で持つと、
  * 閉じた瞬間に部品ごと消えて**書きかけが消えます**（実際に起きる事故）。
  *
+ * ── つまみ・見出しを下へなぞって閉じる（M11「純粋な操作感の演出」） ─────
+ *
+ * `swipeDownHandle` を渡している。本文（`IntakeComposer`/`IntakeReview`）は
+ * 長く縦スクロールするので本文全体には付けず、**つまみ＋見出しの帯だけ**が
+ * 下へなぞって閉じる対象（`Sheet` 側の決めごと）。
+ *
  * ── 「受付に貼る」のボタンは置かない（ご判断）────────────────
  *
  * いちど、`sales` の人の入口として `/sales/inbox/new` へのボタンを置いていました。
@@ -85,6 +91,7 @@ export function MobileAiBar({
         open={open}
         onOpenChange={setOpen}
         rise
+        swipeDownHandle
         title="AIに任せる"
         sub="書いても貼っても録っても大丈夫です。行き先は AI が決めます"
       >

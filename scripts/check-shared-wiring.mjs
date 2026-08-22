@@ -119,7 +119,7 @@ for (const app of APPS) {
     // 通ってしまい、配列から外しても気づけない (実際に反証して踏んだ)
     const presetsArr = tw.match(/presets:\s*\[([^\]]*)\]/)?.[1] ?? '';
     const hasV4Preset = /v4Preset/.test(presetsArr);
-    const wantV4Preset = ['client', 'client-daily', 'client-equipment', 'client-qsheet'].includes(app);
+    const wantV4Preset = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-live'].includes(app);
     if (hasV4Preset !== wantV4Preset) {
       bad(app, 'tailwind.config.ts', wantV4Preset
         ? `v4 の preset を継承していない → presets: [preset, v4Preset] にすること`
@@ -205,9 +205,10 @@ function walk(dir, out = []) {
 //
 // 数え方: **共通シェル (`shared/src/client/shell`) を使っていれば、シェルが持っている**。
 // 使っていないアプリは自分で1つずつ置く。合わせて 1 になっていればよい。
-// 凍結4アプリは 0 (帯が出ると見た目が変わる)。
+// 凍結アプリ (client-awards) は 0 (帯が出ると見た目が変わる)。client-qsheet/client-live は
+// 凍結を解いて共通シェルに載せ替え済みなので V4_APPS に入っている。
 {
-  const V4_APPS = ['client', 'client-daily', 'client-equipment'];
+  const V4_APPS = ['client', 'client-daily', 'client-equipment', 'client-qsheet', 'client-live'];
   const SHELL = `${PKG}/src/client/shell`;
 
   // 共通シェル自身が本当に置いているか。ここが抜けると

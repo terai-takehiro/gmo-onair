@@ -53,16 +53,18 @@ const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'qsheet', 'liveops'];
 /**
  * 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの**
  *
- * M3 で**制作資料 (`qsheet`) をここへ移しました**。
- * 2つとも凍結アプリで、案件の本番に合わせて開きます。
  * **`HomePage.tsx` の `DAILY_KEYS` と対になっている**ので、片方だけ直すと
  * タイルが二重に出るか、どこにも出なくなります。
  *
  * ⚠️ **リアルタイムCG (`awards`) は廃止したのでここから外した。**
  * コードは `client-awards/` に残すが、サーバーの配信・ルーティングを止めたので
  * URL 直打ちでも開けない（`client-awards/CLAUDE.md` 参照）。
+ *
+ * ⚠️ **制作技術支援 (`qsheet`・旧「制作資料」) は 2026-08-22 のご指示で
+ * ここから `DAILY_KEYS`（日々の業務）へ格上げした。** 凍結も解け v4 共通シェルにも
+ * 載せ替え済みのため、もう「本番の日にだけ開くもの」ではない。
  */
-const EVENT_KEYS = ['qsheet', 'liveops'];
+const EVENT_KEYS = ['liveops'];
 
 /**
  * タイルの中に畳んである「ミニアプリ」（モックの `MINI`）。
