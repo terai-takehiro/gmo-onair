@@ -43,15 +43,15 @@
  * **制作技術支援 (Qシート・旧「制作資料」) は v4.1 で凍結を解いた。** `frozen` は落とし、
  * v4 共通シェルにも載せ替え済み。`apps.ts` の一覧・アプリ切替には出るようになる。
  *
- * **計時LIVE も段9（`docs/design/v4/qsheet-v4-coding/impl/09-live-timer-impl.md`）
+ * **計時LIVE（現・計時・視聴者）も段9（`docs/design/v4/qsheet-v4-coding/impl/09-live-timer-impl.md`）
  * で凍結を解いた。** `frozen` は落とし、v4 共通シェル・v4トークンにも載せ替え済み
  * （本番の出力画面 `/live/display/:timerId` は無傷のまま）。
- * ⚠️ **改名（「計時LIVE」→「計時・視聴者」）は見送った** — 09 §11-1 の既定は
- * 改名だが、`docs/wording.md`・全7アプリの `CLAUDE.md`・`client-live` 自身の
- * 画面文言（ヘッダー・ログイン画面・マニュアル等）を含む**40本超のファイル**に
- * またがる名称変更で、この段（レジストリ・導線）の範囲を大きく超える。
- * 改名するなら別PRで一度にやること（中途半端に一部だけ変えると「あの画面は
- * まだ古い名前」が増える）。
+ * **改名（「計時LIVE」→「計時・視聴者」）は 2026-08-22、
+ * `docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` のフェーズ1・PR-B
+ * （ミニアプリとしての導線追加と同じPR）で実施済み。** 表示名だけを変え、
+ * ディレクトリ名 `client-live/`・ベースパス `/live/`・`permissionModule: 'liveops'`・
+ * DBのテーブル名・Socket.IO 名前空間・`localStorage` キー・`MiniAppKey`/`AppKey` の値
+ * `'liveops'` 等の内部識別子は一切変えていない（対応表は `client-live/CLAUDE.md` に残す）。
  *
  * **残る `frozen: true` はリアルタイムCG（`awards`）だけ。** ただし `awards` は
  * その後さらに一段先の「廃止」（配信停止・コードのみ保存）になっているので、
@@ -165,7 +165,7 @@ export const APPS: AppDef[] = [
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
   /* 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり) */
-  { key: 'liveops',     label: '計時LIVE',           description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops' },
+  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'liveops' },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

@@ -1,6 +1,21 @@
-# 計時LIVE（タイマー） — **v4 対象（凍結を解いた）**
+# 計時・視聴者（タイマー） — **v4 対象（凍結を解いた）**
 
 ベースパス `/live/`・ポート 5178。
+
+⚠️ **2026-08-22、`docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` のフェーズ1・
+PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」→「計時・視聴者」に改称した。**
+**変えたのは画面表示名だけ。** コード上の識別子はどこも変えていない — 知らずに触ると
+混乱するので対応表を残す:
+
+| 識別子 | 値（そのまま） |
+| --- | --- |
+| ディレクトリ名 | `client-live/` |
+| ベースパス | `/live/` |
+| `permissionModule` / 権限区画 | `'liveops'` |
+| DBのテーブル名 | `liveops_programs` 等 |
+| Socket.IO 名前空間 | `/liveops` |
+| `localStorage` キー | `lv_display_{timerId}` 等 |
+| `MiniAppKey` / `AppKey` の値 | `'liveops'` |
 
 ## いまの状態
 

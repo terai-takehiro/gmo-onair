@@ -20,7 +20,7 @@ import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 export const LIVE_PC_ONLY: PcOnlyEntry[] = [
   {
     path: '/settings',
-    what: '計時LIVEの設定',
+    what: '計時・視聴者の設定',
     why: 'YouTube・Jstream・Zoom・TeamsのAPIキーや資格情報を登録する画面です。外部サービスの管理画面と往復しながら入力するため、PCでの操作を前提にしています。',
     instead: { label: 'セッション一覧を開く', to: '/' },
   },
@@ -38,6 +38,9 @@ export const LIVE_MOBILE_HIDDEN = LIVE_PC_ONLY.filter((e) => e.hidden).map((e) =
  */
 export const LIVE_MOBILE_OK: string[] = [
   '/',                             // セッション一覧
+  '/open',                         // 案件からの橋渡し（OpenByProjectPage・v4.1段1 PR-A）。
+                                    // 取得または作成のあとすぐ /program/:id へリダイレクトするだけの
+                                    // 画面で、他の運用画面と同じくスマホからも開ける
   '/program/:programId',           // ダッシュボード（タイマー・視聴者数の確認）
   '/program/:programId/timers',    // タイマー管理
   '/program/:programId/settings',  // 番組設定（配信URL・ID）

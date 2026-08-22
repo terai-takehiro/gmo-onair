@@ -9,7 +9,7 @@ export default function LoginPage() {
     <SubAppLoginRedirect
       storageKey="gmo_onair_user"
       appBasePath="/live/"
-      appLabel="計時LIVE"
+      appLabel="計時・視聴者"
     />
   );
 }

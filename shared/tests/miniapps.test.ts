@@ -11,14 +11,17 @@ import {
   MINI_APP_BY_KEY,
   docPathOf,
   panelPathOf,
+  externalPathOf,
   miniAppOfPath,
   enabledMiniApps,
   type MiniAppDocumentDef,
   type MiniAppPanelDef,
+  type MiniAppExternalDef,
 } from '../src/production/miniapps';
 
 const documents = MINI_APPS.filter((a): a is MiniAppDocumentDef => a.kind === 'document');
 const panels = MINI_APPS.filter((a): a is MiniAppPanelDef => a.kind === 'panel');
+const externals = MINI_APPS.filter((a): a is MiniAppExternalDef => a.kind === 'external');
 
 describe('MINI_APPS — 登録そのもの', () => {
   it('key が重複していない', () => {
@@ -45,6 +48,21 @@ describe('MINI_APPS — 登録そのもの', () => {
   it('panel: path が重複していない、かつ必ず `:ownerKey` を含む', () => {
     expect(new Set(panels.map((a) => a.path)).size).toBe(panels.length);
     for (const a of panels) expect(a.path).toContain(':ownerKey');
+  });
+
+  it('external: path が重複していない、かつ必ず `:ownerId` を含む', () => {
+    expect(new Set(externals.map((a) => a.path)).size).toBe(externals.length);
+    for (const a of externals) expect(a.path).toContain(':ownerId');
+  });
+
+  it('external: crossBundle が true 固定', () => {
+    for (const a of externals) expect(a.crossBundle).toBe(true);
+  });
+
+  it('external: liveops（計時・視聴者）は PR-B で有効化されている', () => {
+    expect(MINI_APP_BY_KEY.liveops.kind).toBe('external');
+    expect(MINI_APP_BY_KEY.liveops.enabled).toBe(true);
+    expect(MINI_APP_BY_KEY.liveops.permissionModule).toBe('liveops');
   });
 
   it('**段4以降は schedule も有効**（qsheet_schedules ができたため）', () => {
@@ -93,6 +111,23 @@ describe('panelPathOf — panel 専用', () => {
   });
 });
 
+describe('panelPathOf — panel 専用（続き）', () => {
+  it('external の key を渡すと例外', () => {
+    expect(() => panelPathOf('liveops', 'x')).toThrow();
+  });
+});
+
+describe('externalPathOf — external 専用', () => {
+  it('`:ownerId` を実値に置き換える', () => {
+    expect(externalPathOf('liveops', 'proj-123')).toBe('/live/open?project=proj-123');
+  });
+
+  it('document/panel の key を渡すと例外', () => {
+    expect(() => externalPathOf('sheet', 'x')).toThrow();
+    expect(() => externalPathOf('recording', 'x')).toThrow();
+  });
+});
+
 describe('enabledMiniApps — 導線に出してよいものだけ', () => {
   it('段4以降は sheet / schedule の両方が出る', () => {
     const keys = enabledMiniApps().map((a) => a.key);
@@ -100,6 +135,14 @@ describe('enabledMiniApps — 導線に出してよいものだけ', () => {
     expect(keys).toContain('schedule');
     expect(keys).toContain('recording');
     expect(keys).toContain('streaming');
+  });
+
+  it('liveops（external）は enabled:true なので含まれる。「＋新規作成」等の呼び出し側は panel と同じ書き方で kind === "external" も除外すること（新規作成の概念が無いため）', () => {
+    const keys = enabledMiniApps().map((a) => a.key);
+    expect(keys).toContain('liveops');
+
+    const creatable = enabledMiniApps().filter((a) => a.kind !== 'panel' && a.kind !== 'external');
+    expect(creatable.map((a) => a.key)).not.toContain('liveops');
   });
 });
 
@@ -129,5 +172,10 @@ describe('miniAppOfPath — URL から判定', () => {
 
   it('知らない URL は undefined', () => {
     expect(miniAppOfPath('/qsheet/nope')).toBeUndefined();
+  });
+
+  it('external（別バンドルの URL）は候補から除外され、誤って一致しない', () => {
+    expect(miniAppOfPath('/live/open')).toBeUndefined();
+    expect(miniAppOfPath('/live/open?project=abc')).toBeUndefined();
   });
 });

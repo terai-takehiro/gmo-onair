@@ -9,6 +9,7 @@ import TimerAdminPage from './pages/TimerAdminPage';
 import TimerDisplayPage from './pages/TimerDisplayPage';
 import ProgramsPage from './pages/ProgramsPage';
 import SettingsPage from './pages/SettingsPage';
+import OpenByProjectPage from './pages/OpenByProjectPage';
 
 // タイマー表示ページ (/live/display/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -39,6 +40,7 @@ function AuthenticatedApp() {
         ) : user ? (
           <Route element={<AppShell />}>
             <Route index element={<SessionHomePage />} />
+            <Route path="/open" element={<OpenByProjectPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/program/:programId" element={<DashboardPage />} />
             <Route path="/program/:programId/timers" element={<TimerAdminPage />} />

@@ -17,7 +17,7 @@ import {
 import type { ManualContent } from "@gmo-onair/shared/src/client/manual/types";
 
 export const LIVE_MANUAL: ManualContent = {
-  appLabel: "計時LIVE",
+  appLabel: "計時・視聴者",
   appIcon: Timer,
   intro:
     "本番進行用のタイマーと、YouTube・Jstream・Zoom・Teams の視聴者数カウンターをまとめて運用するアプリです。配信セッションを作成し、タイマー表示画面を副調整室のモニターや配信画面に映して使います。",
@@ -27,12 +27,12 @@ export const LIVE_MANUAL: ManualContent = {
       id: "intro-overview",
       group: "はじめに",
       icon: LayoutGrid,
-      title: "計時LIVEとは",
+      title: "計時・視聴者とは",
       keywords: ["概要", "全体像", "タイマー", "視聴者数"],
       blocks: [
         {
           type: "p",
-          text: "計時LIVEは、番組・イベントの本番進行を支えるブロックアプリです。1つの「セッション」の中でタイマーの操作と視聴者数の取得を行い、専用の表示画面（認証不要URL）を別モニターに映せます。",
+          text: "計時・視聴者は、番組・イベントの本番進行を支えるブロックアプリです。1つの「セッション」の中でタイマーの操作と視聴者数の取得を行い、専用の表示画面（認証不要URL）を別モニターに映せます。",
         },
         {
           type: "flow",

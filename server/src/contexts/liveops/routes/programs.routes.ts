@@ -125,6 +125,55 @@ router.post('/', ...canWrite, async (req, res) => {
   }
 });
 
+// 制作技術支援 v4.1 段1（12-live-timer-decision.md §3-4）: 案件 → liveops_programs の
+// 「取得または作成」をアトミックに行う。DBスキーマは1バイトも変えない — 既存の一意インデックス
+// （migration 221 `liveops_programs_project_key`）に `ON CONFLICT DO NOTHING` を乗せるだけ。
+// 呼び出し元は client-live 側の橋渡し画面（/live/open?project=:id・OpenByProjectPage.tsx）。
+router.post('/resolve-by-project/:projectId', ...canWrite, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const existing = await queryOne(
+      'SELECT id FROM liveops_programs WHERE project_id = $1 AND deleted_at IS NULL',
+      [projectId]
+    );
+    if (existing) {
+      return res.json({ success: true, data: { id: (existing as any).id } });
+    }
+
+    const project = await queryOne('SELECT name FROM projects WHERE id = $1', [projectId]);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    const id = uuidv4();
+    const userId = (req as any).user?.id;
+    const inserted = await queryOne(
+      `INSERT INTO liveops_programs (id, name, project_id, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (project_id) WHERE project_id IS NOT NULL AND deleted_at IS NULL DO NOTHING
+       RETURNING id`,
+      [id, (project as any).name, projectId, userId]
+    );
+    if (inserted) {
+      return res.status(201).json({ success: true, data: { id: (inserted as any).id } });
+    }
+
+    // 同時実行で他のリクエストが先に作った（一意インデックスに ON CONFLICT が乗ったため
+    // DO NOTHING で行が返らなかった）。もう一度 SELECT すれば必ず1件だけ見つかる。
+    const row = await queryOne(
+      'SELECT id FROM liveops_programs WHERE project_id = $1 AND deleted_at IS NULL',
+      [projectId]
+    );
+    if (!row) {
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+    res.json({ success: true, data: { id: (row as any).id } });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 router.put('/:id', ...canWrite, async (req, res) => {
   try {
     const {
