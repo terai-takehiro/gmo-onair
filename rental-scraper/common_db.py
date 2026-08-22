@@ -75,8 +75,20 @@ def init_db(conn: sqlite3.Connection):
     conn.commit()
 
 
-def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail):
-    now = datetime.now().isoformat(timespec="seconds")
+def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail, now: Optional[str] = None):
+    """
+    `now` は「今回のクロール実行の基準時刻」。**呼び出し側（toc_scraper.run() /
+    restar_scraper.run()）が実行開始時に1回だけ計算し、そのクロール中に呼ぶ
+    upsert_item / mark_missing_items 全部に同じ値を渡すこと。**
+
+    ここで省略時に `datetime.now()` を毎回計算する実装だと、数百〜数千件を
+    SLEEP_SEC=1.5 秒間隔で取得する実際のクロール（数十分かかる）では商品ごとに
+    last_seen がバラける。sync_to_postgres.py の compute_statuses() は
+    「company ごとの最新 last_seen と一致する行だけを listed とする」判定なので、
+    バラけると**最後に処理した1件だけが listed、それ以外全部が missing**と
+    誤判定される（実際に検証環境でこの形の全件 missing 化を踏んで発覚した）。
+    """
+    now = now or datetime.now().isoformat(timespec="seconds")
     cur = conn.cursor()
     cur.execute("""
         SELECT name, price_tel, price_net, specs_json, images_json
@@ -135,12 +147,14 @@ def upsert_item(conn: sqlite3.Connection, company: str, d: ItemDetail):
     conn.commit()
 
 
-def mark_missing_items(conn: sqlite3.Connection, company: str, seen_ids: set):
-    """今回のクロールで見つからなかった商品(廃番/レンタル終了の可能性)を記録。"""
+def mark_missing_items(conn: sqlite3.Connection, company: str, seen_ids: set, now: Optional[str] = None):
+    """今回のクロールで見つからなかった商品(廃番/レンタル終了の可能性)を記録。
+    `now` の意味は upsert_item と同じ — 呼び出し側でクロール開始時に1回だけ
+    計算したものを渡すこと。"""
     cur = conn.cursor()
     cur.execute("SELECT item_id, name FROM items WHERE company=?", (company,))
     all_rows = cur.fetchall()
-    now = datetime.now().isoformat(timespec="seconds")
+    now = now or datetime.now().isoformat(timespec="seconds")
     for item_id, name in all_rows:
         if item_id not in seen_ids:
             cur.execute("""

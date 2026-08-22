@@ -107,6 +107,30 @@ DELETE FROM qsheet_rental_items WHERE (company, item_id) IN (
 );
 ```
 
+### 既知の不具合: 実クロール後もほぼ全件が missing 判定になっていた（v4.1.8で修正済み）
+
+⚠️ **上の3段診断でダミー8件以外の実データが見えているのに、画面（レンタル機材検索）に
+「数件しか出ない」場合、これが原因だった可能性が高い。**
+
+原因: `sync_to_postgres.py` の `compute_statuses()` は「company ごとの最新 `last_seen`
+と一致する行だけを `listed` とする」判定だが、`common_db.py` の `upsert_item`/
+`mark_missing_items` が**商品ごとに独立して** `datetime.now()` を計算していたため、
+実際のクロール（数百〜数千件を `SLEEP_SEC=1.5秒` 間隔で処理・**数十分〜1時間超**かかる）
+では商品ごとに `last_seen` がバラけ、**最後に処理した1件を除いてほぼ全部が `missing`
+に誤判定**されていた（画面側は `listed` のみ検索対象にするため、「数件しか出ない」ように見える）。
+
+修正: `toc_scraper.py`/`restar_scraper.py` それぞれの `run()` 冒頭で1回だけ
+`run_started_at` を計算し、そのクロール内の `upsert_item`/`mark_missing_items`
+すべてに `now=run_started_at` として渡すよう変更（`common_db.py` の関数シグネチャに
+`now` 引数を追加）。単体テストは `test_common_db.py` を参照。
+
+**再発時の見分け方**: `qsheet_rental_items` を company ごとに `status` で
+`GROUP BY` し、`listed` が1件しかない／極端に少ない場合はこの症状。
+
+```sql
+SELECT company, status, count(*) FROM qsheet_rental_items GROUP BY company, status ORDER BY company, status;
+```
+
 ⚠️ **本番 (`app_prod`) 向けの同種サービスはまだ無い。** 本番で実際にスクレイピングを
 始めるかどうかは、CLAUDE.md の本番デプロイ原則（「ユーザーが明示的に指示するまで本番へは
 変更を加えない」）と同じ精神で、ユーザーが明示的に指示するまで着手しない。本番に出す
