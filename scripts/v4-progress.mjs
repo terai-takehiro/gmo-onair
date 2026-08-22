@@ -209,11 +209,15 @@ const TREE = [
       'v4 は**上＝アプリの入口 ／ 下＝自分の今日**に絞りました。旧トップにあった KPI・営業ダッシュボード・' +
       'AI活動フィード・直近の案件は、**各アプリのダッシュボードと同じ中身を二重に見ていた**ので外し、' +
       'それぞれの画面へ送っています（理由と行き先は `HomePage.tsx` の冒頭）'],
-    ['探す（スマホの下タブ 3つ目）', '/search', 'client/src/contexts/platform/pages/SearchPage.tsx',
+    // 2026-08-20 の監査でPageHeader/構成そのものを `search/SearchPageDesktop.tsx` へ移した
+    // （薄い親 `SearchPage.tsx` は isMobile分岐のみでPageHeaderを持たない）。旧entryは
+    // 親ファイルを見ていたため、実装済みなのに⬜と誤判定していた（2026-08-22 修正）
+    ['探す（スマホの下タブ 3つ目）', '/search', 'client/src/contexts/platform/pages/search/SearchPageDesktop.tsx',
       undefined,
       'v4 の決めごとは下タブ **ホーム / やること / 検索** だが、**スマホには検索が1つも無かった**' +
       '（上辺バーの検索は `hidden sm:block`）ので3つ目は「メニュー」で代用していた。' +
-      'メニューは上辺バーの ☰ からも開けるので、1枠が二重の入口になっていた'],
+      'メニューは上辺バーの ☰ からも開けるので、1枠が二重の入口になっていた。' +
+      '2026-08-20のv4ネイティブUI監査で薄い親＋Desktop/Mobile分割に作り直し済み'],
     // シェルは画面ではないので `<PageHeader>` を持たない。**3アプリが共通シェルを
     // 読んでいるか**で判定する (S2 / S3 で載せ替え済み)
     ['共通シェル (上辺バー64px・左メニュー248px・スマホ下タブ)', '—',
@@ -250,7 +254,10 @@ const TREE = [
       '白紙が1枚増えていたのもここで見つけて直しました）'],
     ['メンテナンス', '/equipment/maintenance', 'client-equipment/src/pages/MaintenancePage.tsx'],
     ['棚卸し', '/equipment/inventory', 'client-equipment/src/pages/InventoryPage.tsx'],
-    ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/ScanPage.tsx'],
+    // 2026-08-20 の監査でPageHeader/構成そのものを `scan/ScanPageDesktop.tsx` へ移した
+    // （薄い親 `ScanPage.tsx` は isMobile分岐のみでPageHeaderを持たない）。旧entryは
+    // 親ファイルを見ていたため、実装済みなのに⬜と誤判定していた（2026-08-22 修正）
+    ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/scan/ScanPageDesktop.tsx'],
     ['貸出・返却', '/equipment/lendings', 'client-equipment/src/pages/LendingListPage.tsx'],
     // v4: 拠点・メーカー・色・貸出カテゴリ・貸出の決めごとを1画面4タブに畳んだ
     ['設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
