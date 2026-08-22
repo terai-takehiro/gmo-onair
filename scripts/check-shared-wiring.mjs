@@ -108,15 +108,18 @@ for (const app of APPS) {
     if (/from\s+'(\.\.\/)+shared\/tailwind\.preset'/.test(tw)) {
       bad(app, 'tailwind.config.ts', `preset を相対パスで読んでいる → '${PKG}/tailwind.preset' にすること`);
     }
-    // v4 だけの上乗せ preset は **v4 対象3アプリ全部**が継承していること。
+    // v4 だけの上乗せ preset は **v4 対象3アプリ ＋ 制作資料 (Qシート)** が継承していること。
     // 抜けたアプリだけ `font-medium` が 500 (存在しない太さ) のままになり、
     // **画面を見ても分からない差**ができる (ブラウザが近い太さで代用するため)。
     // 逆に凍結アプリが継承すると、あちらの見た目が動く。
+    // ⚠️ 制作資料は v4.1 で凍結を解いたので v4Preset を継承する
+    // (`client-qsheet/CLAUDE.md`・`docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md` §10-1)。
+    // 共通シェルへの載せ替え (下の V4_APPS) とは別の話 — こちらは Tailwind の preset だけ
     // **`presets:` の中身を見る。** ファイル全体を検索すると import 文だけで
     // 通ってしまい、配列から外しても気づけない (実際に反証して踏んだ)
     const presetsArr = tw.match(/presets:\s*\[([^\]]*)\]/)?.[1] ?? '';
     const hasV4Preset = /v4Preset/.test(presetsArr);
-    const wantV4Preset = ['client', 'client-daily', 'client-equipment'].includes(app);
+    const wantV4Preset = ['client', 'client-daily', 'client-equipment', 'client-qsheet'].includes(app);
     if (hasV4Preset !== wantV4Preset) {
       bad(app, 'tailwind.config.ts', wantV4Preset
         ? `v4 の preset を継承していない → presets: [preset, v4Preset] にすること`
