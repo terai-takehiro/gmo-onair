@@ -1,4 +1,6 @@
-// Excel を書き出す（4段: シートを選ぶ → 見出しの見本 → 点検 → キーの扱い）。impl doc §5-1 / §6-2。
+// Excel を書き出す（4段: シートを選ぶ → 中身の見本 → 点検 → キーの扱い）。impl doc §5-1 / §6-2。
+// モックは `docs/design/v4/qsheet-v4-coding/mockups/tech-settings/Export.dc.html`。
+//
 // ⚠️ この Excel は台本の Excel（03-excel.md）とは完全に別物。ここでは meetings を一切扱わない
 // （preflight も export-xlsx も meetings を見ない — 08 §5-4）。
 //
@@ -6,33 +8,36 @@
 // 画面に打ち込んだだけの値は渡らない。以前はそれを断りもせず走らせていたため、
 // **12台ぶん打ち込んでそのまま書き出すと、点検は「0件」と出て、見出しだけの Excel が
 // 「書き出しました」と一緒に落ちてきた**（監査 2026-08-22・実機で確認）。
-// いまは未保存のときは先に保存させる。
-import { useCallback, useEffect, useState } from 'react';
+// いまは未保存のときは先に保存させ、さらに**中身の見本**を出して
+// 「1行も入っていない」を目で分かるようにした（②の段）。
+//
+// ⚠️ **作り直しの経緯**（監査 2026-08-22）: 前の実装はモックの上半分（HTML）だけを写し、
+// 下半分（`<script type="text/x-dc">` の `class Component`）に書かれた**操作と判定**を
+// 落としていた。そのため「見出しだけの見本」「灰色が台数ぶん並ぶ」「入力ガイドの説明が無い」
+// 「ファイル名が出ない」「シートを外しても点検が変わらない」が同時に起きていた。
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { apiErrorMessage } from '@/lib/deviceSettingsShared';
-import { preflight, exportXlsx, type PreflightResult, type PreflightIssue } from '@/lib/deviceSettingsApi';
+import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
+import { preflight, exportXlsx, type PreflightResult } from '@/lib/deviceSettingsApi';
+import PreviewTable from './PreviewTable';
+import PreflightSummary from './PreflightSummary';
+import {
+  SHEET_DEFS, GUIDE_SHEET_NAME, GUIDE_SHEET_DESC, visiblePreviewSheets, sheetPosition, type Sheet,
+} from './exportPlan';
 
-type Sheet = 'recording' | 'streaming';
-
-/** 点検の3段。「赤」「橙」という内部の呼び名は画面に出さない */
-function IssueBlock({
-  title, tone, issues, note,
-}: { title: string; tone: 'bad' | 'warn' | 'mute'; issues: PreflightIssue[]; note: string }) {
-  const cls =
-    tone === 'bad' ? 'text-destructive' : tone === 'warn' ? 'text-warning' : 'text-muted-foreground';
-  if (issues.length === 0) {
-    return <p className={`text-xs ${cls}`}>{title}: 0 件</p>;
-  }
+/** 段の見出し（モックの丸数字）。番号を画面に出すのは「あと何段あるか」が分かるため */
+function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string }) {
   return (
-    <details className="text-xs">
-      <summary className={`cursor-pointer ${cls}`}>{title}: {issues.length} 件</summary>
-      <p className="mt-1 text-muted-foreground">{note}</p>
-      <ul className={`mt-1 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4 ${cls}`}>
-        {issues.map((r, i) => <li key={i}>{r.where}: {r.message}</li>)}
-      </ul>
-    </details>
+    <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-chip bg-foreground tabular-nums text-badge text-background">
+        {n}
+      </span>
+      <span className="text-list">{title}</span>
+      {hint && <span className="text-sub-sm text-muted-foreground">{hint}</span>}
+    </div>
   );
 }
 
@@ -48,6 +53,21 @@ export default function ExportDialog({
   /** 「保存して続ける」で呼ぶ。成功したら true */
   onSave?: () => Promise<boolean>;
 }) {
+  /**
+   * ⚠️ **権限で止めるのは「キーを入れて出す」だけ**（監査 2026-08-22 の宿題への答え）。
+   *
+   * 書き出しそのものは止めない — 現地に渡す紙を作るのは閲覧しかできない人の仕事のことがあり、
+   * Excel に出る内容は**その人が画面で見られるものと同じ**だから、ここで止めても守るものが無い。
+   * 一方 `keyMode: 'plain'` はストリームキーの**平文**をファイルに落とす操作で、画面ですら
+   * 伏せ字でしか出さない決めごと（08 §2）を破る。**破ってよいのは編集できる人だけ**にする。
+   *
+   * ⚠️ ただし**サーバーの `export-xlsx` は今のところ `requirePermission('qsheet','editor')`**
+   * で守られている（`device-settings.routes.ts`）。つまり閲覧のみの人が押すと 403 が返る。
+   * 画面だけ先に開けても嘘になるので、下に「いまは編集できる人だけ」と断りを出しておく
+   * （サーバー側を緩めるかは別の判断・別の PR）。
+   */
+  const canEdit = useCanEditDeviceSettings();
+
   const [sheets, setSheets] = useState<Sheet[]>(['recording', 'streaming']);
   const [result, setResult] = useState<PreflightResult | null>(null);
   const [checking, setChecking] = useState(false);
@@ -56,15 +76,31 @@ export default function ExportDialog({
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * ⚠️ 引き直しの**追い越し**を止める番号。シートのチェックを続けて2回押すと
+   * 2本目のほうが先に返ることがあり、そのまま入れると**選択と食い違う見本**が残る。
+   */
+  const reqRef = useRef(0);
+
   const runPreflight = useCallback(() => {
+    const seq = ++reqRef.current;
+    // ⚠️ 1枚も選んでいないときは**引かない**。サーバーは `sheets` が空だと
+    // 「指定なし = 両方」と読むので、そのまま投げると**外したシートの赤が全部出る**
+    // （この画面がいちばん誤解を招く状態）。ここは点検そのものを止めて、
+    // 「1つ以上選んでください」だけを出す。
+    if (sheets.length === 0) { setResult(null); setChecking(false); setCheckFailed(false); return; }
     setChecking(true);
     setCheckFailed(false);
-    preflight(ownerKey, date)
-      .then(setResult)
-      .catch(() => setCheckFailed(true))
-      .finally(() => setChecking(false));
-  }, [ownerKey, date]);
+    // ⚠️ `sheets` を渡す。渡さないとサーバーは両方を点検し、
+    // **外したはずのシートの赤**が出続ける（監査 2026-08-22）
+    preflight(ownerKey, { date, sheets })
+      .then((r) => { if (seq === reqRef.current) setResult(r); })
+      .catch(() => { if (seq === reqRef.current) setCheckFailed(true); })
+      .finally(() => { if (seq === reqRef.current) setChecking(false); });
+  }, [ownerKey, date, sheets]);
 
+  // ⚠️ `sheets` は `runPreflight` の依存に入っているので、**選択が確定した時点で1回だけ**引き直る
+  // （打鍵ごとに叩かない）。開いていないときは引かない。
   useEffect(() => {
     if (!open) { setResult(null); setCheckFailed(false); return; }
     runPreflight();
@@ -87,7 +123,10 @@ export default function ExportDialog({
     if (sheets.length === 0) { notifyError('出すシートを1つ以上選んでください'); return; }
     setExporting(true);
     try {
-      const { blob, filename } = await exportXlsx(ownerKey, { date, sheets, keyMode });
+      // 権限が落ちた状態で `plain` が残っていても平文を要求しない（画面の分岐だけに頼らない）
+      const { blob, filename } = await exportXlsx(ownerKey, {
+        date, sheets, keyMode: canEdit ? keyMode : 'blank',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -96,7 +135,7 @@ export default function ExportDialog({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      notifySuccess('Excel を書き出しました');
+      notifySuccess('書き出しました。現場では Assistant で読み込んでください');
       onOpenChange(false);
     } catch (e) {
       notifyError(apiErrorMessage(e, '書き出しに失敗しました'));
@@ -105,22 +144,20 @@ export default function ExportDialog({
     }
   };
 
-  const previewSheets = result?.headerPreview.sheets.filter((s) =>
-    (s.name === '収録設定' && sheets.includes('recording')) || (s.name === '配信設定' && sheets.includes('streaming'))
-  ) ?? [];
-
+  const preview = result?.preview ?? [];
+  const shown = visiblePreviewSheets(preview, sheets);
   const blocked = dirty && !!onSave;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>Excel を書き出す</DialogTitle></DialogHeader>
 
-        {/* 未保存の断り。ここを素通しすると空の Excel が出る */}
+        {/* 未保存の断り。ここを素通しすると中身の無い Excel が出る */}
         {blocked && (
-          <div className="rounded-lg border border-warning-border bg-warning-surface p-3 text-sm">
-            <p className="font-semibold text-warning">保存していない変更があります</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+          <div className="rounded-card border border-warning-border bg-warning-surface p-3">
+            <p className="text-list text-warning">保存していない変更があります</p>
+            <p className="mt-1 text-sub-sm text-muted-foreground">
               点検も書き出しも<strong>保存済みの内容</strong>を見ます。このまま出すと、
               いま画面に打ち込んだ内容は Excel に入りません。
             </p>
@@ -133,37 +170,81 @@ export default function ExportDialog({
         <div className="space-y-5">
           {/* ① シートを選ぶ */}
           <section>
-            <h3 className="mb-1 text-sm font-semibold">① シートに出すもの</h3>
-            <p className="mb-2 text-xs text-muted-foreground">現地の Assistant は<strong>1枚目しか読みません</strong>。</p>
-            <div className="flex flex-wrap gap-2">
-              {(['recording', 'streaming'] as Sheet[]).map((s) => (
-                <label key={s} className="flex min-h-[44px] items-center gap-2 rounded-lg border px-3 text-sm">
-                  <input type="checkbox" checked={sheets.includes(s)} onChange={() => toggleSheet(s)} />
-                  {s === 'recording' ? '収録設定' : '配信設定'}
-                  {sheets[0] === s && <span className="rounded bg-primary/10 px-1 text-xs font-semibold text-primary">1枚目</span>}
-                </label>
-              ))}
+            <StepTitle n={1} title="出すシートを選ぶ" hint="Assistant は 1 枚目しか読みません" />
+            <div className="flex flex-col gap-2">
+              {SHEET_DEFS.map((def) => {
+                const on = sheets.includes(def.key);
+                const pos = on ? sheetPosition(preview, def.sheetName) : null;
+                return (
+                  <label
+                    key={def.key}
+                    className={`flex min-h-tap cursor-pointer items-center gap-3 rounded-control-lg border px-3 py-2 ${
+                      on ? 'border-warning-border bg-warning-surface' : ''
+                    }`}
+                  >
+                    <input type="checkbox" checked={on} onChange={() => toggleSheet(def.key)} />
+                    {/*
+                      何枚目になるかを常に出す（モック下半分の `pos`）。外しているときは「—」。
+                      ⚠️ 番号は**サーバーが並べる順**で決まる。押した順ではない
+                      （`buildSheetSpecs` は収録 → 配信 → 入力ガイドの順に積む）。
+                    */}
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-control tabular-nums text-badge ${
+                      on ? 'bg-warning-surface text-warning' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {pos ?? '—'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-list">
+                        {def.label}
+                        {pos === 1 && (
+                          <span className="ml-2 rounded-badge bg-primary-surface px-1.5 text-badge text-primary">1枚目</span>
+                        )}
+                      </span>
+                      <span className="block text-sub-sm text-muted-foreground">{def.desc}</span>
+                    </span>
+                  </label>
+                );
+              })}
+              {/*
+                ⚠️ 入力ガイドは**外せない**（サーバーが必ず付ける・#279 §4-4）。
+                モックではトグルだったが、外せるように見せると「外したのに入っている」になる。
+              */}
+              <div className="flex min-h-tap items-center gap-3 rounded-control-lg border px-3 py-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control bg-muted tabular-nums text-badge text-muted-foreground">
+                  {sheetPosition(preview, GUIDE_SHEET_NAME) ?? '—'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-list">
+                    {GUIDE_SHEET_NAME}
+                    <span className="ml-2 rounded-badge bg-muted px-1.5 text-badge text-muted-foreground">必ず付きます</span>
+                  </span>
+                  <span className="block text-sub-sm text-muted-foreground">{GUIDE_SHEET_DESC}</span>
+                </span>
+              </div>
             </div>
           </section>
 
-          {/* ② 見出しの見本 */}
+          {/* ② 中身の見本（見出しだけでは「空の Excel」に気づけない） */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">② 1枚目の見出し行の見本</h3>
-            {previewSheets.length === 0 ? (
-              <p className="text-xs text-muted-foreground">シートを選ぶと見出しが出ます</p>
+            <StepTitle n={2} title="出るものを確かめる" hint="先頭の数行だけ・実物と同じ整形です" />
+            {shown.length === 0 ? (
+              <p className="text-sub-sm text-muted-foreground">
+                {checking ? '見本を作っています…' : 'シートを1つ以上選ぶと、出る中身が見えます'}
+              </p>
             ) : (
               <div className="space-y-2">
-                {previewSheets.map((s) => (
-                  <div key={s.name} className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>{s.headers.map((h) => <th key={h} className="whitespace-nowrap px-2 py-1 text-left font-semibold">{h}</th>)}</tr>
-                      </thead>
-                    </table>
-                  </div>
+                {shown.map((s) => (
+                  <PreviewTable
+                    key={s.name}
+                    sheet={s}
+                    position={sheetPosition(preview, s.name)}
+                    note={s.name === GUIDE_SHEET_NAME ? GUIDE_SHEET_DESC : undefined}
+                  />
                 ))}
-                <p className="text-xs text-muted-foreground">
-                  空欄で出したセルは<strong>現地の設定を変えません</strong>。TCソースの列は出しません（現地で必ず弾かれるため）。
+                <p className="text-sub-sm text-muted-foreground">
+                  薄い橙のセルは<strong>空欄で出ます</strong>＝現地の設定を変えません。
+                  <strong>TCソースの列は出しません</strong>（現地で必ず弾かれるため）。
+                  ストリームキーは見本では伏せ字（<code>****</code>）にしています。
                 </p>
               </div>
             )}
@@ -171,56 +252,100 @@ export default function ExportDialog({
 
           {/* ③ 点検 */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">③ 点検</h3>
-            {checking ? (
-              <p className="text-xs text-muted-foreground">点検中…</p>
+            <StepTitle n={3} title="書き出す前の点検" />
+            {sheets.length === 0 ? (
+              // 選んでいないものを点検しても意味が無いので、前の結果も残さない
+              <p className="text-sub-sm text-muted-foreground">シートを1つ以上選ぶと点検します</p>
+            ) : checking && !result ? (
+              <p className="text-sub-sm text-muted-foreground">点検中…</p>
             ) : checkFailed ? (
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-destructive">点検できませんでした。</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sub-sm text-destructive">点検できませんでした。</p>
                 <Button size="sm" variant="outline" className="h-9" onClick={runPreflight}>もう一度</Button>
               </div>
             ) : result ? (
-              <div className="space-y-1">
-                <IssueBlock title="直したほうがよい" tone="bad" issues={result.red}
-                  note="このまま出すと現地で弾かれます。" />
-                <IssueBlock title="そのままでよい" tone="warn" issues={result.amber}
-                  note="空欄のまま出ます＝現地の設定を変えません。" />
-                <IssueBlock title="Excel に出さない" tone="mute" issues={result.gray}
-                  note="配信先が無い台・使わないと決めた台です。" />
-              </div>
+              <PreflightSummary red={result.red} amber={result.amber} gray={result.gray} />
             ) : null}
           </section>
 
           {/* ④ 鍵の扱い */}
           {sheets.includes('streaming') && (
             <section>
-              <h3 className="mb-2 text-sm font-semibold">④ ストリームキーの扱い</h3>
-              <div className="flex flex-col gap-2">
-                <label className="flex min-h-[44px] items-center gap-2 rounded-lg border px-3 text-sm">
+              <StepTitle n={4} title="ストリームキーの扱い" />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className={`flex min-h-tap flex-1 cursor-pointer items-center gap-3 rounded-control-lg border px-3 py-2 ${
+                  keyMode === 'blank' ? 'border-warning-border bg-warning-surface' : ''
+                }`}>
                   <input type="radio" name="keyMode" checked={keyMode === 'blank'} onChange={() => setKeyMode('blank')} />
-                  空欄で出す（現地のキーを変えない）
+                  <span className="min-w-0">
+                    <span className="block text-list">空欄で出す（推奨）</span>
+                    <span className="block text-sub-sm text-muted-foreground">現地に入っているキーをそのまま残します</span>
+                  </span>
                 </label>
-                <label className="flex min-h-[44px] items-center gap-2 rounded-lg border border-destructive/40 px-3 text-sm">
-                  <input type="radio" name="keyMode" checked={keyMode === 'plain'} onChange={() => setKeyMode('plain')} />
-                  <span>キーを入れる<span className="ml-1 text-destructive">（Excel に平文で入ります。取り扱いに注意）</span></span>
+                <label className={`flex min-h-tap flex-1 items-center gap-3 rounded-control-lg border px-3 py-2 ${
+                  !canEdit ? 'opacity-60' : 'cursor-pointer'
+                } ${keyMode === 'plain' ? 'border-destructive-border bg-destructive-surface' : ''}`}>
+                  <input
+                    type="radio"
+                    name="keyMode"
+                    checked={keyMode === 'plain'}
+                    disabled={!canEdit}
+                    onChange={() => setKeyMode('plain')}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-list">キーを入れて出す</span>
+                    <span className="block text-sub-sm text-muted-foreground">
+                      {canEdit
+                        ? '新しく設定するときはこちら'
+                        : '平文のキーを出せるのは編集できる人だけです'}
+                    </span>
+                  </span>
                 </label>
               </div>
+              {keyMode === 'plain' && (
+                <div className="mt-2 rounded-card border border-destructive-border bg-destructive-surface p-3">
+                  <p className="text-sub text-destructive">
+                    <strong>キーが平文で Excel に入ります。</strong>
+                    このファイルはメールや共有フォルダに置かないでください。誰がいつ出したかは履歴に残します。
+                  </p>
+                </div>
+              )}
             </section>
+          )}
+
+          {/* ⚠️ サーバーの `export-xlsx` は `requirePermission('qsheet','editor')` なので、
+              閲覧のみの人が押すと必ず 403 になる。**押せてから断られるのがいちばん悪い**ので、
+              ここで止めて理由を出す（サーバー側を緩めるかは別の判断・棚卸しに残す） */}
+          {!canEdit && (
+            <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+              <strong>いまの権限では書き出せません。</strong>
+              Excel を渡したいときは、制作技術支援を編集できる人に出してもらってください。
+            </p>
           )}
         </div>
 
-        {result && result.red.length > 0 && (
-          <p className="mt-4 text-sm font-semibold text-destructive">
-            直したほうがよい {result.red.length} 件のまま書き出します
-          </p>
-        )}
-        <Button
-          className="mt-2 h-[52px] w-full text-base"
-          onClick={doExport}
-          disabled={exporting || sheets.length === 0 || blocked}
-        >
-          {exporting ? '書き出し中…' : blocked ? '先に保存してください' : '書き出す'}
-        </Button>
+        {/* 下端: ファイル名 → 赤の件数 → 書き出す（モック下半分の footer と同じ並び） */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sub font-bold" title={result?.filename}>
+              {result?.filename ?? '（点検すると出ます）'}
+            </p>
+            <p className="text-sub-sm text-muted-foreground">この名前で保存されます</p>
+          </div>
+          {result && result.red.length > 0 && (
+            // ⚠️ 赤があっても書き出しは止めない（08 §6）。**件数は必ずボタンの手前に出す**
+            <p className="tabular-nums text-sub font-bold text-destructive">
+              直したほうがよい {result.red.length} 件のまま書き出します
+            </p>
+          )}
+          <Button
+            className="h-11 w-full sm:w-auto"
+            onClick={doExport}
+            disabled={!canEdit || exporting || sheets.length === 0 || blocked}
+          >
+            {exporting ? '書き出し中…' : blocked ? '先に保存してください' : '書き出す'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

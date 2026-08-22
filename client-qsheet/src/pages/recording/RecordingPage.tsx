@@ -261,8 +261,9 @@ export default function RecordingPage() {
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
         <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存はできません。
-          直すには制作技術支援の編集権限が要ります（Excel の書き出しはできます）。
+          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存も Excel の書き出しも
+          できません（サーバーがどちらも編集できる人に限っています）。
+          直すには制作技術支援の編集権限が要ります。
         </p>
       )}
 
