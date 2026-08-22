@@ -804,6 +804,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   3-way CHECK・広げた一意キー（重複拒否）の両方を実際に違反させて検証した
   （棚卸しに残す理由: migration・API・画面をまたぐ大きな変更のため、レビュー0件を
   特に明示しておく）。
+- **#300**（`docs(qsheet): 制作技術支援のトップとハブを iOS/macOS の作法で作り直したモックを追加`）—
+  作成 2026-08-22 07:39:58 / CI green 07:41:51（`checks`。`build` は 07:40:32）/
+  マージ 07:43:15（terai-takehiro 本人が手動マージ。作成から約3分17秒後・**CI green から
+  約1分24秒後**）。`npm run reviews:debt` は今回も 401 で使えなかったため GitHub MCP で
+  直接確認した（`get_reviews` 0件・`get_comments` 0件・`get_review_comments`
+  `totalCount: 0`）。表に移す指摘はない（レビュー自体が届いていないため）。
+  **CI green から1分半でのマージ**なので、#251・#256・#272 と同じ「見る前に入った」形。
+  3コミット・7ファイル・+1,882行、**`docs/` のみでコード変更なし**（デザインキャンバスの
+  作業ファイル `docs/design/v4/mockups/native/qsheet-top/*.dc.html` が行数の大半）。
+  ⚠️ **このPRは `npm run typecheck` / `lint` / `build` / `verify:ui` を1つも回していません**
+  （作業したサンドボックスに `node_modules` が無く実行できなかった。PR本文の「検証したこと」に
+  明記済み）。`docs/` しか触っていないため実害は無いはずだが、**「CIが緑」と「検査を回した」が
+  一致しない例**として残す。⚠️ **モックの中身（アーカイブの判定をどこで切るか・
+  「直近の本番・収録」に要るサーバー側の追加・「続きから」の閲覧履歴・スマホ下タブに
+  「トップ」が無いこと）は PR 本文に「決めていただきたいこと」として4点挙げたまま、
+  レビューが付かずにマージされている。実装に進むときは PR #300 の本文か
+  [production-v4-native-mockups.md](../design/v4/production-v4-native-mockups.md) の
+  「①′」節を読み直すこと**
 
 ---
 
