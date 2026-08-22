@@ -35,13 +35,20 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const APP = path.join(ROOT, 'client/src/App.tsx');
 const SRC = path.join(ROOT, 'client/src');
 
-/** 別バンドル・API・外部。ここは案件管理アプリのルート表が持たない */
-const OTHER_BUNDLE = /^\/(qsheet|techops|live|awards|equipment|daily|signage|api)(\/|$)/;
+/**
+ * 別バンドル・API・外部。ここは案件管理アプリのルート表が持たない。
+ * ⚠️ awards は廃止（配信停止・404）なので外した — /awards へのリンクは
+ * 「黙ってホームに戻る壊れリンク」であり、この検査が見つけるべきもの。
+ * signage は別バンドルではなく client 自身のルート (/signage/:roomId) なので
+ * 素通しせずルート表と突き合わせる。
+ */
+const OTHER_BUNDLE = /^\/(qsheet|techops|live|equipment|daily|api)(\/|$)/;
 
 /** 行き先がまだ無いと**分かったうえで**置いてあるもの（理由を必ず書く） */
 const ALLOW = new Map([
   ['/prodsheet', 'アプリ一覧の「制作支援」。comingSoon: true で押せない札として出している'],
   ['/delivery', 'アプリ一覧の「素材納品」。comingSoon: true で押せない札として出している'],
+  ['/awards', '廃止済みリアルタイムCGの登録行（apps.ts・frozen: true で一覧に出ず押せる場所は無い）。コード保存ポリシーのため登録だけ残っている — ここ以外に /awards へのリンクを書くと検出される'],
 ]);
 
 /* ── ルート表 ────────────────────────────────────────────── */

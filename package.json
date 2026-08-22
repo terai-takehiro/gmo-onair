@@ -16,7 +16,6 @@
   "scripts": {
     "dev": "concurrently -n client,daily,equipment,server -c blue,yellow,cyan,green \"npm run dev -w client\" \"npm run dev -w client-daily\" \"npm run dev -w client-equipment\" \"npm run dev -w server\"",
     "dev:all": "concurrently -n client,equipment,techops,live,daily,server -c blue,cyan,magenta,red,yellow,green \"npm run dev -w client\" \"npm run dev -w client-equipment\" \"npm run dev -w client-techops\" \"npm run dev -w client-live\" \"npm run dev -w client-daily\" \"npm run dev -w server\"",
-    "dev:frozen": "concurrently -n techops,live,server -c magenta,red,green \"npm run dev -w client-techops\" \"npm run dev -w client-live\" \"npm run dev -w server\"",
     "dev:client": "npm run dev -w client",
     "dev:techops": "npm run dev -w client-techops",
     "dev:server": "npm run dev -w server",
@@ -26,8 +25,6 @@
     "build:all": "npm run build -w shared && npm run build -w client && npm run build -w client-equipment && npm run build -w client-techops && npm run build -w client-live && npm run build -w client-daily && npm run build -w server",
     "build:changed": "node scripts/build-changed.mjs",
     "test": "npm run test -w shared",
-    "build:render": "cd client && npx vite build && cd ../client-equipment && npx vite build && cd ../client-techops && npx vite build && cd ../client-live && npx vite build && cd ../client-daily && npx vite build && cd ../server && npx tsc && mkdir -p dist/shared/db && cp -r src/shared/db/migrations dist/shared/db/",
-    "start:render": "node server/dist/index.js",
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",
     "db:reset": "npm run db:reset -w server",
