@@ -182,68 +182,70 @@ export default function RentalItemDetailDialog({ ownerKey, target, onOpenChange 
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-border-faint bg-surface-subtle px-6 py-3.5 sm:flex-row sm:items-center">
-              <label className="flex h-11 items-center gap-2 rounded-control border border-border bg-card px-3 text-sub font-bold">
-                期間
-                <input
-                  type="date"
-                  value={startDate}
-                  max={endDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="min-w-0 border-0 bg-transparent text-sub focus:outline-none"
-                />
-                〜
-                <input
-                  type="date"
-                  value={endDate}
-                  min={startDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="min-w-0 border-0 bg-transparent text-sub focus:outline-none"
-                />
-                <span className="text-sub-sm text-muted-foreground">・{days}日間</span>
-              </label>
+            <div className="flex flex-col gap-2.5 border-t border-border-faint bg-surface-subtle px-6 py-3.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex h-11 shrink-0 items-center gap-2 rounded-control border border-border bg-card px-3 text-sub font-bold">
+                  期間
+                  <input
+                    type="date"
+                    value={startDate}
+                    max={endDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="min-w-0 border-0 bg-transparent text-sub focus:outline-none"
+                  />
+                  〜
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="min-w-0 border-0 bg-transparent text-sub focus:outline-none"
+                  />
+                  <span className="whitespace-nowrap text-sub-sm text-muted-foreground">・{days}日間</span>
+                </label>
 
-              <span className="inline-flex h-11 items-center overflow-hidden rounded-control border border-border bg-card">
-                <button
-                  type="button"
-                  aria-label="数量を減らす"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-11 w-9 items-center justify-center text-muted-foreground hover:bg-muted"
-                >
-                  <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-                <span className="font-number flex h-11 w-10 items-center justify-center border-x border-border-faint text-sub font-extrabold">
-                  {quantity}
+                <span className="inline-flex h-11 shrink-0 items-center overflow-hidden rounded-control border border-border bg-card">
+                  <button
+                    type="button"
+                    aria-label="数量を減らす"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="flex h-11 w-9 items-center justify-center text-muted-foreground hover:bg-muted"
+                  >
+                    <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                  <span className="font-number flex h-11 w-10 items-center justify-center border-x border-border-faint text-sub font-extrabold">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="数量を増やす"
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="flex h-11 w-9 items-center justify-center text-muted-foreground hover:bg-muted"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
                 </span>
-                <button
-                  type="button"
-                  aria-label="数量を増やす"
-                  onClick={() => setQuantity((q) => q + 1)}
-                  className="flex h-11 w-9 items-center justify-center text-muted-foreground hover:bg-muted"
+
+                <div className="flex-1" />
+
+                {referenceTotal != null && (
+                  <span className="font-number shrink-0 whitespace-nowrap text-sub text-muted-foreground">
+                    参考 <strong className="text-sub font-extrabold text-foreground">{formatYen(referenceTotal)}</strong>
+                    （{item.priceTel != null ? 'ネット受付' : '税込'} × {quantity}台 × {days}日）
+                  </span>
+                )}
+
+                <Button
+                  className="min-h-[44px] shrink-0"
+                  onClick={() => addMutation.mutate()}
+                  disabled={addMutation.isPending}
                 >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </span>
+                  <ListPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  予約リストに追加
+                </Button>
+              </div>
 
               <span className="text-sub-sm text-muted-foreground">追加は社内の予約メモです。各社の在庫は押さえません</span>
-
-              <div className="flex-1" />
-
-              {referenceTotal != null && (
-                <span className="font-number whitespace-nowrap text-sub text-muted-foreground">
-                  参考 <strong className="text-sub font-extrabold text-foreground">{formatYen(referenceTotal)}</strong>
-                  （{item.priceTel != null ? 'ネット受付' : '税込'} × {quantity}台 × {days}日）
-                </span>
-              )}
-
-              <Button
-                className="min-h-[44px]"
-                onClick={() => addMutation.mutate()}
-                disabled={addMutation.isPending}
-              >
-                <ListPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                予約リストに追加
-              </Button>
             </div>
           </>
         )}

@@ -41,9 +41,20 @@ async function main() {
     await seedTasks().catch((err) => {
       console.warn('[seed-tasks] warn:', err?.message ?? err);
     });
-    await seedRental().catch((err) => {
-      console.warn('[seed-rental] warn:', err?.message ?? err);
-    });
+    // ⚠️ SKIP_RENTAL_SEED=true の環境（検証VPSの app_dev）では飛ばす。
+    // rental_scraper_dev コンテナが実際のクロール結果を qsheet_rental_items へ
+    // 同期するようになったため、ここでダミーの8件を先に入れてしまうと
+    // 「見えている件数が実データかサンプルか」を画面から区別できなくなる
+    // （実際に検証環境で「数件しか無い」という報告を受け、原因がこのサンプル
+    // データだったと判明したため2026-08-22に追加）。ローカル開発（npm run dev /
+    // npm run verify:up）ではこのフラグを立てていないので今までどおりサンプルが入る。
+    if (process.env.SKIP_RENTAL_SEED === 'true') {
+      console.log('[seed-rental] SKIP_RENTAL_SEED=true のためスキップ（rental_scraper_dev がクロール結果を同期する）');
+    } else {
+      await seedRental().catch((err) => {
+        console.warn('[seed-rental] warn:', err?.message ?? err);
+      });
+    }
   } else {
     // seed を行わない場合でも、マスター管理者だけは必ず作成
     const { ensureAdminUser } = await import('./shared/db/seed-admin');

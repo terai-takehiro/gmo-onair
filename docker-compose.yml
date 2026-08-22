@@ -143,6 +143,10 @@ services:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_dev
       NODE_ENV: development
       PORT: 3000
+      # v4.1.8: rental_scraper_dev（下記サービス）が実クロール結果を qsheet_rental_items へ
+      # 同期するようになったため、app_dev 自身のダミーサンプル投入（seed-rental.ts・8件）は
+      # 止める。両方走らせると「見えている件数が実データかサンプルか」を画面から区別できなくなる
+      SKIP_RENTAL_SEED: "true"
       # JWT_SECRET_DEV must be set in .env (no insecure fallback). Generate with: openssl rand -hex 32
       JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV is required (openssl rand -hex 32)}
       CLIENT_URL: https://dev.gmo-onair.jp
