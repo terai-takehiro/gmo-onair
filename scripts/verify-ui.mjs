@@ -17,7 +17,7 @@
  *
  * 使い方:
  *   node scripts/verify-ui.mjs                 # 全ページ
- *   node scripts/verify-ui.mjs qsheet awards   # 名前に含むページだけ
+ *   node scripts/verify-ui.mjs qsheet live     # 名前に含むページだけ
  *   BASE=http://localhost:3001 node scripts/verify-ui.mjs
  */
 import { ensureFontCache, installFontCache } from './lib/google-fonts-cache.mjs';
@@ -138,21 +138,15 @@ const PAGES = [
   ['日常業務 問い合わせ', '/daily/inquiries'],
   ['日常業務 やること', '/daily/tasks'],
   ['日常業務 カード', '/daily/security-cards'],
-
-  ['リアルタイムCG 一覧', '/awards/'],
-  ['リアルタイムCG 準備', '/awards/event/1'],
-  ['リアルタイムCG 送出', '/awards/event/1/onair'],
-  ['リアルタイムCG 卓', '/awards/event/1/control'],
-  ['リアルタイムCG 字幕', '/awards/event/1/oneshot/control'],
-  ['リアルタイムCG クイズ', '/awards/event/1/quiz-stack/control'],
-  ['リアルタイムCG 投入', '/awards/event/1/intake'],
+  // リアルタイムCG (`/awards/*`) は廃止済み。サーバーが配信しないので検査対象からも外した
+  // (`client-awards/CLAUDE.md` 参照)。
 ];
 
 /**
- * 凍結3アプリ (Qシート / 計時LIVE / リアルタイムCG) の URL。
+ * 凍結2アプリ (Qシート / 計時LIVE) の URL。
  * **見た目を今日のまま保つ**のが決定事項なので、v4 の基準を当てない。
  */
-const FROZEN_PREFIX = /^\/(qsheet|live|awards)\//;
+const FROZEN_PREFIX = /^\/(qsheet|live)\//;
 
 const filters = process.argv.slice(2);
 const targets = filters.length
@@ -432,30 +426,24 @@ async function runViewport(browser, { width, height, tag }, fonts) {
     /*
      * 地の色は **アプリによって期待値が違う** (T2 から)。
      *   v4 対象3アプリ … #f7f8fa  ← v4 の確定値 (`docs/design/v4/_tokens.md`)
-     *   凍結3アプリ     … #fafafa  ← 今日と同じ色を保つのが決定事項
-     *   リアルタイムCG  … #faf8f5  ← `tokens.css` を読まず自前の値を持っている
+     *   凍結2アプリ     … #fafafa  ← 今日と同じ色を保つのが決定事項
      *   放送中の画面     … #14161a  ← DADS の `.dark` を**意図して**使っている
      * 1つの期待値にまとめると、凍結アプリを「直す」方向に引っぱってしまう。
      */
     const wantBg = opt.dark
       ? 'rgb(20, 22, 26)'
-      : /^\/awards\//.test(url)
-        ? 'rgb(250, 248, 245)'   // リアルタイムCG は自前のトークン (温かい生成り)
-        : FROZEN_PREFIX.test(url)
-          ? 'rgb(250, 250, 250)'
-          : 'rgb(247, 248, 250)';
+      : FROZEN_PREFIX.test(url)
+        ? 'rgb(250, 250, 250)'
+        : 'rgb(247, 248, 250)';
     ok(`${label} 地の色が共通`, m.bodyBg === wantBg, m.bodyBg);
     /*
      * 書体と字詰めも **アプリによって期待値が違う** (T3 から)。
      *   v4 対象3アプリ … LINE Seed JP ＋ palt/kern
-     *   凍結4アプリ     … Noto Sans JP・字詰めなし (今日のまま)
+     *   凍結2アプリ     … Noto Sans JP・字詰めなし (今日のまま)
      * 凍結アプリに LINE Seed JP を要求すると「直せ」と言い続ける検査になる。
      */
     if (FROZEN_PREFIX.test(url)) {
-      // リアルタイムCG は shared のトークンを読まないので書体の指定が無い (自前の指定)
-      if (!/^\/awards\//.test(url)) {
-        ok(`${label} 書体が今日のまま`, m.font.includes('Noto Sans JP'), m.font.slice(0, 30));
-      }
+      ok(`${label} 書体が今日のまま`, m.font.includes('Noto Sans JP'), m.font.slice(0, 30));
     } else {
       ok(`${label} 書体が共通`, m.font.includes('LINE Seed JP'), m.font.slice(0, 30));
       /*

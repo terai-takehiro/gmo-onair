@@ -8,8 +8,6 @@ import { createAssetRoutes } from '../contexts/asset';
 import { createEquipmentRoutes } from '../contexts/equipment';
 import { createQsheetRoutes } from '../contexts/qsheet';
 import { createLiveopsRoutes } from '../contexts/liveops';
-import { createAwardsRoutes } from '../contexts/awards';
-import { createQuizRoutes } from '../contexts/quiz';
 import { createTasksRoutes } from '../contexts/tasks';
 import { createDailyopsRoutes } from '../contexts/dailyops';
 import { createScheduleRoutes } from '../contexts/schedule';
@@ -27,8 +25,7 @@ export function createRoutes(): Router {
   router.use(createEquipmentRoutes());
   router.use(createQsheetRoutes());
   router.use(createLiveopsRoutes());
-  router.use(createAwardsRoutes());
-  router.use(createQuizRoutes());
+  // awards (リアルタイムCG) / quiz は廃止のため登録しない。中身は contexts/awards, contexts/quiz に残す
   router.use(createTasksRoutes());
   router.use(createDailyopsRoutes());
   router.use(createScheduleRoutes());

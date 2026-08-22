@@ -3,13 +3,16 @@
     "live": {
       "md5": "dc1fe2a4a4e9fc08832b20167110a34a",
       "bytes": 66835
-    },
-    "awards": {
-      "md5": "387a209af341598ce915a1dade2b0ed2",
-      "bytes": 71318
     }
   },
   "history": [
+    {
+      "app": "awards",
+      "from": "387a209af341598ce915a1dade2b0ed2",
+      "to": null,
+      "bytes": null,
+      "reason": "リアルタイムCG (client-awards) を廃止・配信停止したので check:frozen の対象から外した。CSS 自体は変えていない（コードは client-awards/ にそのまま残る）。build:all がこのアプリをもうビルドしないため、dist を突き合わせる意味が無くなったことによる削除"
+    },
     {
       "app": "techsheet",
       "from": "b1dea1cece46b6d467fef7298ac5d052",

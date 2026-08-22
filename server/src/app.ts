@@ -142,7 +142,8 @@ export function createApp(): express.Express {
       serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
       serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
-      serveApp('/awards', path.join(__dirname, '../../client-awards/dist'));
+      // '/awards' (リアルタイムCG) は廃止。配信を止めただけでコードは client-awards/ に残す
+      // (client-awards/CLAUDE.md 参照)。復活させるならこの行を戻すだけでよい。
       serveApp('/daily', path.join(__dirname, '../../client-daily/dist'));
 
       app.use(express.static(clientDistPath, staticOptions));

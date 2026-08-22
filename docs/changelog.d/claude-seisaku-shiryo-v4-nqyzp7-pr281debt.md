@@ -1,0 +1,1 @@
+**PR #281 のマージ後の棚卸しを記録した**（コード変更なし）。#281 は作成から約2分24秒で、レビューが1件も付く前にマージされた（`get_reviews` 0件・CI `checks` も完了前）。`npm run reviews:debt` はこのサンドボックスでは401で使えないため、`pull_request_read` で確認した内容を [docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md) に記録した。

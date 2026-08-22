@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * 凍結2アプリの CSS が変わっていないかを突き合わせる。
+ * 凍結1アプリ（計時LIVE）の CSS が変わっていないかを突き合わせる。
  *
  * ── なぜ要るのか ────────────────────────────────────────────
  *
  * v4.0.0 の決めごとは「**制作資料・計時LIVE・リアルタイムCG は
  * 見た目を今日のまま**」でした（技術資料は v4.1.8 でアプリごと削除）。
- * **制作資料は v4.1 で凍結を解いたのでこの検査からは外れた**（下記 APPS 参照）。
+ * **制作資料は v4.1 で凍結を解いた**（下記 APPS 参照）。
+ * **リアルタイムCG はその後廃止・配信停止した**のでこの検査の対象からも外れている。
  * ところが各アプリの Tailwind は
  * `shared/src/client/**` を走査するので、**あちらが描かない部品のクラス名を
  * 1つ書き足すだけで、凍結アプリの CSS に規則が増えます**
@@ -44,15 +45,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'scripts', 'frozen-css-baseline.json');
 
 /**
- * 凍結2アプリ。`awards` は共通 preset を継承していないので本来 shared の影響を受けない。
+ * 凍結1アプリ。
  *
  * ⚠️ 制作資料 (Qシート) は v4.1 で凍結を解いたのでここから外した。
  * 見た目を「今日のまま」に保つ対象ではなくなったため、この検査は追わない
  * (03-app-structure-impl.md §7-2)。
+ * `client-awards`（リアルタイムCG）は廃止済み・build:all の対象外になったので
+ * こちらもここから外した（`client-awards/CLAUDE.md` 参照）。
  */
 const APPS = [
   { key: 'live', label: '計時LIVE', dir: 'client-live' },
-  { key: 'awards', label: 'リアルタイムCG', dir: 'client-awards' },
 ];
 
 function cssOf(dir) {
