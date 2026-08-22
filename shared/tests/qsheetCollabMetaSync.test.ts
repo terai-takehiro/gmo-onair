@@ -4,7 +4,7 @@
  *
  * ── なぜこれが要るか ────────────────────────────────────────
  *
- * collab 有効時は `PUT /qsheet/documents/:id` が一度も飛ばない
+ * collab 有効時は `PUT /techops/documents/:id` が一度も飛ばない
  * (`EditorPage.tsx` の自動保存・手動保存が collab のとき early return するため)。
  * 台本の内容 (`data` 列) は Yjs 経由で保存されるが、`qsheet_documents` の
  * `title` / `status` / `broadcast_date` / `episode_id` / `episode_code` という
@@ -81,7 +81,7 @@ describe('サーバー: PATCH /documents/:id/meta はメタ列だけを更新し
 
 describe('クライアント: useCollabMetaSync が collab 有効時にメタ列だけを軽量 PATCH で反映する', () => {
   it('メタ専用の PATCH エンドポイントを呼ぶ mutation がある', () => {
-    expect(HOOK_SOURCE).toMatch(/api\.patch\(`\/qsheet\/documents\/\$\{payload\.id\}\/meta`/);
+    expect(HOOK_SOURCE).toMatch(/api\.patch\(`\/techops\/documents\/\$\{payload\.id\}\/meta`/);
   });
 
   it('PATCH の payload は data を含まない5フィールドだけ (DocMetaColumns)', () => {

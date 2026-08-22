@@ -8,7 +8,7 @@
  * 制作技術支援に「番組・案件を選ぶとミニアプリ（進行台本・スケジュール表・
  * 収録設定・配信設定）がタイルで並ぶハブ画面」ができた
  * （`client-techops/src/pages/JourneyPage.tsx` の `scope="project"`・
- * `/qsheet/projects/:id`）。ハブ画面は**この案件の `id` をそのまま owner キーに使う**
+ * `/techops/projects/:id`）。ハブ画面は**この案件の `id` をそのまま owner キーに使う**
  * （`device-settings-owner.ts` の `resolveOwner` が `projects.id` を直接引く）ので、
  * 案件詳細からはこの案件の `projectId` を渡すだけでよい — 新しい API は要らない。
  * `HubCard`（このファイル冒頭）がその入口。**進行台本の一覧（`DocList`）とは別物**で、
@@ -23,7 +23,7 @@
  * **「URL は生かす」**だったので、**案件の中からは当時から開けた**。
  * v4.1 で凍結は解け、いまはアプリ一覧・アプリ切替にも出る（`shared/src/client/apps.ts`）。
  * この案件に紐づく資料をサーバーから引いて、あるものだけ並べます
- * (`GET /qsheet/documents?project_id=`)。
+ * (`GET /techops/documents?project_id=`)。
  *
  * ⚠️ 技術資料アプリは削除済み（制作技術支援へのマージに向けてアプリごと削除した）。
  *
@@ -50,14 +50,14 @@ import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/c
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 
 /**
- * 制作技術支援のハブ（`/qsheet/projects/:id`）を開くカード。**別バンドルなので
+ * 制作技術支援のハブ（`/techops/projects/:id`）を開くカード。**別バンドルなので
  * 素の `<a>`**（`DocList` と同じ理由）。当日の枠・進行台本・スケジュール表・
  * 収録設定・配信設定がまとめて並ぶ画面へ、この案件の id だけで直接着地する。
  */
 function HubCard({ projectId }: { projectId: string }) {
   return (
     <a
-      href={`/qsheet/projects/${projectId}`}
+      href={`/techops/projects/${projectId}`}
       className="min-h-tap flex items-center gap-3 rounded-card border border-primary-border bg-primary-surface-weak px-4 py-3.5 hover:bg-primary-surface"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control-md bg-card text-primary">
@@ -144,7 +144,7 @@ function DocList({
 export function DayTab({ projectId, mobile }: { projectId: string; mobile?: boolean }) {
   const qsheets = useQuery<Doc[]>({
     queryKey: ['project-qsheets', projectId],
-    queryFn: async () => (await api.get('/qsheet/documents', { params: { project_id: projectId } })).data.data,
+    queryFn: async () => (await api.get('/techops/documents', { params: { project_id: projectId } })).data.data,
   });
 
   if (qsheets.isLoading) {
@@ -159,7 +159,7 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
         title="進行台本（Qシート）"
         icon={ClipboardList}
         docs={qsheets.data ?? []}
-        hrefOf={(d) => `/qsheet/editor/${d.id}`}
+        hrefOf={(d) => `/techops/editor/${d.id}`}
         emptyHint="この案件の資料はまだありません。上の「制作技術支援を開く」から作れます。"
         mobile={!!mobile}
       />

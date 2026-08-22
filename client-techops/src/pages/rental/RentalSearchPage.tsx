@@ -168,7 +168,7 @@ export default function RentalSearchPage() {
           <Button
             variant="outline"
             className="min-h-[44px] border-primary-border-strong bg-primary-surface text-primary hover:bg-primary-surface"
-            onClick={() => navigate(`/qsheet/rental/${encodeURIComponent(ownerKey)}/list`)}
+            onClick={() => navigate(`/techops/rental/${encodeURIComponent(ownerKey)}/list`)}
           >
             <ListChecks className="mr-1.5 h-4 w-4" aria-hidden="true" />
             予約リスト

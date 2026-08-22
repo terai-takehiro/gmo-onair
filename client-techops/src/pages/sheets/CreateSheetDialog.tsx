@@ -128,7 +128,7 @@ export function CreateSheetDialog({
   const createMutation = useMutation({
     mutationFn: async () => {
       const selectedEpisode = episodes?.find((e) => e.id === selectedEpisodeId);
-      const res = await api.post("/qsheet/documents", {
+      const res = await api.post("/techops/documents", {
         title: newTitle || "無題のQシート",
         broadcast_date: newBroadcastDate || selectedEpisode?.broadcast_date || null,
         project_id: linkToProject && selectedProjectId ? selectedProjectId : null,

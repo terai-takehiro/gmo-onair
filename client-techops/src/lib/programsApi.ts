@@ -15,16 +15,16 @@ export interface ProgramRow {
 }
 
 export async function listPrograms(search?: string): Promise<ProgramRow[]> {
-  const res = await api.get<Envelope<ProgramRow[]>>("/qsheet/programs", { params: search ? { search } : undefined });
+  const res = await api.get<Envelope<ProgramRow[]>>("/techops/programs", { params: search ? { search } : undefined });
   return res.data.data;
 }
 
 export async function getProgram(id: string): Promise<ProgramRow> {
-  const res = await api.get<Envelope<ProgramRow>>(`/qsheet/programs/${id}`);
+  const res = await api.get<Envelope<ProgramRow>>(`/techops/programs/${id}`);
   return res.data.data;
 }
 
 export async function createProgram(input: { name: string; event_date?: string | null; notes?: string | null }): Promise<ProgramRow> {
-  const res = await api.post<Envelope<ProgramRow>>("/qsheet/programs", input);
+  const res = await api.post<Envelope<ProgramRow>>("/techops/programs", input);
   return res.data.data;
 }

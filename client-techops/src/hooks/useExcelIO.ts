@@ -42,7 +42,7 @@ export function useExcelIO(
   const handleExcelApplyMeta = useCallback(async (metaPatch: Record<string, string>) => {
     if (!doc) return;
     try {
-      await api.patch(`/qsheet/documents/${doc.id}/meta`, metaPatch);
+      await api.patch(`/techops/documents/${doc.id}/meta`, metaPatch);
       setDoc((prev: any) => (prev ? {
         ...prev,
         title: metaPatch.title ?? prev.title,

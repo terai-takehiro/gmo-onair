@@ -1,4 +1,4 @@
-// 制作技術支援トップ（/qsheet/top）の日付まわりの小さな共通処理。
+// 制作技術支援トップ（/techops/top）の日付まわりの小さな共通処理。
 // `pages/rental/rentalFormat.ts` と役割が近いが、レンタル機材検索専用ファイルへ
 // 無関係な機能を足したくないためこちらに分ける（`todayStr`/`formatDateJp` の実装は同じ）。
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];

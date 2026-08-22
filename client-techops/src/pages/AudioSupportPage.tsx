@@ -296,7 +296,7 @@ export default function AudioSupportPage() {
     queryKey: ["qsheet-public-audio", id, shareToken],
     queryFn: async () => {
       const qs = shareToken ? `?token=${encodeURIComponent(shareToken)}` : "";
-      const res = await fetch(`/api/v1/internal/qsheet/documents/${id}/public-audio${qs}`, { credentials: "omit" });
+      const res = await fetch(`/api/v1/internal/techops/documents/${id}/public-audio${qs}`, { credentials: "omit" });
       if (!res.ok) throw new PublicAudioFetchError(res.status);
       return (await res.json()).data as PublicDoc;
     },

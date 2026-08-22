@@ -1,4 +1,4 @@
-// 制作技術支援トップ（/qsheet/top）— 一覧の組み立てに使う純粋関数。
+// 制作技術支援トップ（/techops/top）— 一覧の組み立てに使う純粋関数。
 // ProductionTopPage.tsx から分離（1ファイルが大きくなりすぎるのを防ぐ・check-file-size）。
 import { todayStr, nextDayStr } from '@/lib/dateFmt';
 import type { TopItem } from '@/lib/topApi';
@@ -36,11 +36,11 @@ export function topItemMeta(item: TopItem): string {
 }
 
 export function topItemHref(item: TopItem): string {
-  return item.kind === 'gls' ? `/qsheet/projects/${item.id}` : `/qsheet/programs/${item.id}`;
+  return item.kind === 'gls' ? `/techops/projects/${item.id}` : `/techops/programs/${item.id}`;
 }
 
 export function recentEntryHref(entry: RecentTopEntry): string {
-  return entry.kind === 'project' ? `/qsheet/projects/${entry.id}` : `/qsheet/programs/${entry.id}`;
+  return entry.kind === 'project' ? `/techops/projects/${entry.id}` : `/techops/programs/${entry.id}`;
 }
 
 /** 本体の一覧: `next_date` がある項目を昇順で先に、残りは元の並びのまま後ろに */

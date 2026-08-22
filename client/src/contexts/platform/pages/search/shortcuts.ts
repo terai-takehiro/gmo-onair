@@ -21,7 +21,7 @@
  *
  * ── 別のバンドルへ行くもの ──────────────────────────────────
  *
- * 機材（`/equipment`）と制作技術支援（`/qsheet`）は**別の Vite バンドル**です。
+ * 機材（`/equipment`）と制作技術支援（`/techops`）は**別の Vite バンドル**です。
  * `navigate()` では飛べません（React Router は同じアプリの中しか知らない）。
  * `external: true` を立てて `window.location.href` で行きます。
  */
@@ -63,7 +63,7 @@ export const PLACES: Shortcut[] = [
   { key: 'customers', label: 'お客様', sub: '取引先と担当', to: '/sales/companies?role=customer', icon: Building2, module: 'sales' },
   { key: 'money', label: 'お金', sub: '売上・仕入・損益', to: '/budget/dashboard', icon: Wallet, module: 'sales' },
   { key: 'equipment', label: '機材', sub: '台帳・ラック図・貸出', to: '/equipment', icon: Package, module: 'equipment', external: true },
-  { key: 'qsheet', label: '制作技術支援', sub: '台本づくりと本番進行', to: '/qsheet', icon: FileText, module: 'qsheet', external: true },
+  { key: 'qsheet', label: '制作技術支援', sub: '台本づくりと本番進行', to: '/techops', icon: FileText, module: 'qsheet', external: true },
   { key: 'review', label: 'ふりかえり', sub: '営業活動のふりかえり', to: '/sales/review', icon: History, module: 'sales' },
   { key: 'settings', label: '設定', sub: '拠点・料金表・権限', to: '/settings', icon: Settings },
 ];

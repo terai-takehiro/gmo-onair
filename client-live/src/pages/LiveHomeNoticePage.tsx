@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
  * 計時・視聴者 v4.1 段2 — 旧セッション一覧（`SessionHomePage.tsx`）の廃止に伴う
  * 案内画面。`/live/`（このバンドルの index ルート）に置く。
  *
- * `docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` §3-5 は「抜け道として
+ * `docs/design/v4/techops-v4-coding/12-live-timer-decision.md` §3-5 は「抜け道として
  * 残す」としていたが、このステージでユーザーが明示的に上書き決定した
  * （セッション一覧・案件に紐づかないスタンドアロン作成は廃止）。
  *
@@ -30,7 +30,7 @@ export default function LiveHomeNoticePage() {
         </p>
       </div>
       <a
-        href="/qsheet/top"
+        href="/techops/top"
         className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         制作技術支援のトップを開く
@@ -41,7 +41,7 @@ export default function LiveHomeNoticePage() {
           目立たせすぎない — 主導線（上の「トップを開く」）の下に小さく置く */}
       {canManage && (
         <a
-          href="/qsheet/live-legacy"
+          href="/techops/live-legacy"
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
           案件に紐づかない旧セッションを探す

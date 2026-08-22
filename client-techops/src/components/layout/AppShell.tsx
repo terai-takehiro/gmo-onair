@@ -18,8 +18,8 @@ import { buildQsheetNav } from "./nav";
  * すべて共通シェルが持つ。**メニューの項目は `nav.ts` の `buildQsheetNav`**（2026-08-22〜。
  * いまの URL と `lib/productionNavContext.ts` のストアから動的に組み立てる。詳細は `nav.ts` 冒頭）。
  *
- * ⚠️ **本番3画面（`/qsheet/onair` / `rundown` / `prompter`）と公開音声サポート
- * （`/qsheet/audio`）はこのシェルの対象外**（`App.tsx` で「Full-screen pages
+ * ⚠️ **本番3画面（`/techops/onair` / `rundown` / `prompter`）と公開音声サポート
+ * （`/techops/audio`）はこのシェルの対象外**（`App.tsx` で「Full-screen pages
  * without AppShell」と明記された別ルート）。ここを触ってもそれらの見た目・
  * 挙動は変わらない。
  *

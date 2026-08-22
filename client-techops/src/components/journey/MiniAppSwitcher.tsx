@@ -27,10 +27,10 @@ const ORDER: SwitchKey[] = ["schedule", "sheet", "recording", "streaming", "live
 
 function pathOf(key: SwitchKey, owner: OwnerContext): string {
   if (key === "sheet") {
-    return `/qsheet/sheets?${owner.kind}=${encodeURIComponent(owner.id)}`;
+    return `/techops/sheets?${owner.kind}=${encodeURIComponent(owner.id)}`;
   }
   if (key === "schedule") {
-    return `/qsheet/schedules?${owner.kind}=${encodeURIComponent(owner.id)}`;
+    return `/techops/schedules?${owner.kind}=${encodeURIComponent(owner.id)}`;
   }
   return panelPathOf(key, owner.id);
 }

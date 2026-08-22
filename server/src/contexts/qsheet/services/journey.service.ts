@@ -209,10 +209,10 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
 
   const suggestions: Suggestion[] = [];
   if (!hasFrames) {
-    suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: '/qsheet/schedules' });
+    suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: '/techops/schedules' });
   }
   if (!hasAny) {
-    suggestions.push({ key: 'no_sheet', label: '進行台本がまだありません', to: '/qsheet/sheets' });
+    suggestions.push({ key: 'no_sheet', label: '進行台本がまだありません', to: '/techops/sheets' });
   } else {
     const emptyDoc = docs.find((d) => d.section_count === 0);
     if (emptyDoc) {

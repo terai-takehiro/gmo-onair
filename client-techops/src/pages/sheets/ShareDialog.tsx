@@ -42,13 +42,13 @@ export function ShareDialog({
 
   const { data: users } = useQuery({
     queryKey: ["qsheet-share-users"],
-    queryFn: async () => (await api.get("/qsheet/share-users")).data.data as ShareUser[],
+    queryFn: async () => (await api.get("/techops/share-users")).data.data as ShareUser[],
     enabled: open,
   });
 
   const { data: currentShares } = useQuery({
     queryKey: ["qsheet-shares", doc?.id],
-    queryFn: async () => (await api.get(`/qsheet/documents/${doc!.id}/shares`)).data.data as ShareEntry[],
+    queryFn: async () => (await api.get(`/techops/documents/${doc!.id}/shares`)).data.data as ShareEntry[],
     enabled: open,
   });
 
@@ -62,7 +62,7 @@ export function ShareDialog({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await api.put(`/qsheet/documents/${doc!.id}/shares`, { user_ids: Array.from(selected) });
+      await api.put(`/techops/documents/${doc!.id}/shares`, { user_ids: Array.from(selected) });
     },
     onSuccess: () => {
       notifySuccess("共有設定を保存しました");
