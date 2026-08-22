@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&amp;family=Noto+Sans+JP:wght@400;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #f7f8fa; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'Meiryo', sans-serif; color: #1a1d24; -webkit-font-smoothing: antialiased; font-feature-settings: 'palt' 1, 'kern' 1; }
+    a { color: #005bac; text-decoration: none; }
+    a:hover { color: #0068b8; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: 'palt' 0, 'tnum' 1; }
+    .ph { color: #c2410e; background: #fdf0e7; border-radius: 4px; padding: 0 3px; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; background: #f7f8fa; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box">
+
+  <div style="height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e9ecf0; flex-shrink: 0">
+    <span style="font-size: 16px; font-weight: 800; letter-spacing: .02em; white-space: nowrap"><span style="color: #005bac">GMO</span> ONAiR</span>
+    <span style="width: 1px; height: 22px; background: #e9ecf0"></span>
+    <span style="display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; font-size: 14px; font-weight: 700; color: #1a1d24; white-space: nowrap; cursor: pointer">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v5h5"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+      </span>
+      制作技術支援
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </span>
+    <span style="font-size: 13px; color: #5d6470; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">サンプル情報バラエティ #24 ／ レンタル機材検索 ／ 予約リスト ／ <span style="color: #1a1d24; font-weight: 700">依頼メールの作成</span></span>
+    <div style="flex: 1"></div>
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+    </span>
+    <span style="width: 34px; height: 34px; border-radius: 999px; background: #005bac; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">寺</span>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+
+    <div style="width: 248px; box-sizing: border-box; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e9ecf0; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px">
+      <span style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border-radius: 10px; color: #3c424c; font-size: 13px; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+        トップ
+      </span>
+      <span style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border-radius: 10px; color: #3c424c; font-size: 13px; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+        ドキュメント一覧
+      </span>
+      <span style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border-radius: 10px; color: #3c424c; font-size: 13px; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+        スケジュール表
+      </span>
+      <span style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border-radius: 10px; color: #3c424c; font-size: 13px; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 12h4"></path><path d="M18 16h4"></path></svg>
+        収録・配信設定
+      </span>
+      <div style="margin-top: 18px; padding: 11px 12px; border: 1px dashed #e0e4e9; border-radius: 11px">
+        <p style="margin: 0; font-size: 12px; color: #5d6470; line-height: 1.65">本文はひな形から自動で組み立てます。送信は普段のメールアプリから行います。</p>
+      </div>
+    </div>
+
+    <main style="flex: 1; min-width: 0; padding: 20px 26px 24px; display: flex; flex-direction: column; gap: 13px; overflow: hidden; box-sizing: border-box">
+
+      <a href="#" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5d6470; width: fit-content">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+        予約リストに戻る
+      </a>
+
+      <div style="display: flex; align-items: flex-end; gap: 14px">
+        <div style="min-width: 0">
+          <h1 style="margin: 0; font-size: 23px; font-weight: 800; line-height: 1.3">依頼メールの作成</h1>
+          <p style="margin: 4px 0 0; font-size: 13px; color: #5d6470">東京オフラインセンター宛 ・ 3品目 ・ 5点 ・ <span class="ph">オレンジの部分</span>は送る前に埋めてください</p>
+        </div>
+        <div style="flex: 1"></div>
+        <span style="display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 15px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; color: #3c424c; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+          本文をコピー
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 18px; border: none; border-radius: 10px; background: #005bac; color: #ffffff; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+          メールアプリで開く
+        </span>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; gap: 14px">
+
+        <div style="width: 350px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px">
+          <div style="background: #ffffff; border: 1px solid #e6e9ed; border-radius: 14px; padding: 15px 17px; display: flex; flex-direction: column; gap: 11px">
+            <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; letter-spacing: .1em">依頼の内容</span>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800">東京オフラインセンター</span>
+              <span class="num" style="font-size: 12px; color: #5d6470">3品目 ・ 5点</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.6">
+              <span style="display: flex; gap: 8px"><span style="color: #9aa1ab; width: 56px; flex-shrink: 0">期間</span><span class="num" style="font-weight: 700">9/11（金）〜 9/13（日）・3日間</span></span>
+              <span style="display: flex; gap: 8px"><span style="color: #9aa1ab; width: 56px; flex-shrink: 0">機材</span><span>PXW-FX9 ×2 ／ ATEM Mini Extreme ISO ×1 ／ EW 512P G4 ×2</span></span>
+              <span style="display: flex; gap: 8px"><span style="color: #9aa1ab; width: 56px; flex-shrink: 0">参考</span><span class="num" style="font-weight: 700">¥226,800（ネット受付 × 3日）</span></span>
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e6e9ed; border-radius: 14px; padding: 15px 17px; display: flex; flex-direction: column; gap: 10px">
+            <span style="font-size: 11.5px; font-weight: 800; color: #9aa1ab; letter-spacing: .1em">宛先と差し込み</span>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 11.5px; font-weight: 700; color: #5d6470">宛先（To）</span>
+              <span style="display: flex; align-items: center; height: 38px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; font-size: 12.5px; color: #9aa1ab; box-sizing: border-box">ご担当者のメールアドレス</span>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 11.5px; font-weight: 700; color: #5d6470">ご担当者名（差し込み）</span>
+              <span style="display: flex; align-items: center; height: 38px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; font-size: 12.5px; color: #9aa1ab; box-sizing: border-box">例：山田様（空欄なら「ご担当者様」）</span>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 11.5px; font-weight: 700; color: #5d6470">受け渡し方法</span>
+              <span style="display: flex; align-items: center; justify-content: space-between; height: 38px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; font-size: 12.5px; color: #1a1d24; box-sizing: border-box">配送（前日着希望）
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 9px; margin-top: 2px; cursor: pointer">
+              <span style="width: 17px; height: 17px; border-radius: 5px; background: #005bac; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+              </span>
+              <span style="font-size: 12.5px; color: #3c424c">送信したら予約リストを「依頼済み」にする（開いたあとに確認します）</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-width: 0; background: #ffffff; border: 1px solid #e6e9ed; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 11px 18px; border-bottom: 1px solid #eef0f3">
+            <span style="font-size: 11.5px; font-weight: 700; color: #9aa1ab; flex-shrink: 0">件名</span>
+            <span style="flex: 1; font-size: 13px; font-weight: 700">機材レンタルのお見積・ご手配のお願い（9/11〜9/13・GMOグローバルスタジオ）</span>
+            <span style="font-size: 11.5px; color: #005bac; cursor: pointer; flex-shrink: 0">編集</span>
+          </div>
+          <div style="flex: 1; min-height: 0; padding: 16px 20px; overflow: hidden">
+            <p style="margin: 0; font-size: 12.5px; line-height: 1.75; white-space: pre-line">株式会社東京オフラインセンター
+<span class="ph">ご担当者様</span>
+
+いつもお世話になっております。
+GMOグローバルスタジオの<span class="ph">氏名</span>です。
+
+下記のとおり機材のレンタルをお願いしたく、お見積の送付とご手配をお願いいたします。
+
+■ 利用期間
+2026年9月11日（金）〜 9月13日（日）（3日間）
+※ 前日 9月10日（木）着での配送を希望します
+
+■ 機材
+・SONY PXW-FX9 XDCAMメモリーカムコーダー（貴社ID: 5043）× 2
+・Blackmagic ATEM Mini Extreme ISO（貴社ID: 5121）× 1
+・SENNHEISER EW 512P G4 ワイヤレスマイクセット（貴社ID: 4988）× 2
+
+■ 受け渡し
+配送（納品先: <span class="ph">住所を入力</span>）／ 返却は 9月14日（月）発送予定
+
+ご不明点がありましたら本メールへご返信ください。よろしくお願いいたします。
+
+──
+GMOグローバルスタジオ株式会社
+<span class="ph">氏名</span> ／ <span class="ph">部署名</span>
+<span class="ph">電話番号</span> ・ <span class="ph">メールアドレス</span></p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 7px; padding: 10px 18px; border-top: 1px solid #eef0f3; background: #fbfcfd">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+            <span style="font-size: 12px; color: #9aa1ab">本文は自由に書き換えられます。送信は行いません — 「メールアプリで開く」で普段のメールから送ってください</span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

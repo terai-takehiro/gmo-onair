@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&amp;family=Noto+Sans+JP:wght@400;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #f7f8fa; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'Meiryo', sans-serif; color: #1a1d24; -webkit-font-smoothing: antialiased; font-feature-settings: 'palt' 1, 'kern' 1; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: 'palt' 0, 'tnum' 1; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #f7f8fa; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box">
+
+  <div style="height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 14px; background: #ffffff; border-bottom: 1px solid #e9ecf0; flex-shrink: 0">
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; color: #3c424c">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
+    </span>
+    <span style="font-size: 14px; font-weight: 800; letter-spacing: .02em"><span style="color: #005bac">GMO</span> ONAiR</span>
+    <div style="flex: 1"></div>
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: #3c424c">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+    </span>
+    <span style="width: 32px; height: 32px; border-radius: 999px; background: #005bac; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800">寺</span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 14px 0; display: flex; flex-direction: column; gap: 11px; box-sizing: border-box">
+
+    <div>
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; line-height: 1.3">レンタル機材検索</h1>
+      <p style="margin: 3px 0 0; font-size: 13px; color: #5d6470; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">サンプル情報バラエティ #24 ・ 2社を横断検索</p>
+    </div>
+
+    <span style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 13px; box-sizing: border-box; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; color: #9aa1ab; font-size: 13px; flex-shrink: 0">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      品名・型番でさがす
+    </span>
+
+    <div style="display: flex; gap: 7px; overflow: hidden; flex-shrink: 0">
+      <span style="display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 12px; border: 1px solid #9cc3e8; border-radius: 9px; background: #eaf4fb; color: #005bac; font-size: 12.5px; font-weight: 700; white-space: nowrap">2社すべて</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 9px; background: #ffffff; color: #5d6470; font-size: 12.5px; white-space: nowrap">TOC</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 9px; background: #ffffff; color: #5d6470; font-size: 12.5px; white-space: nowrap">レスター</span>
+      <span style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 9px; background: #ffffff; color: #5d6470; font-size: 12.5px; white-space: nowrap">絞り込み
+        <span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; border-radius: 999px; background: #005bac; color: #ffffff; font-size: 10px; font-weight: 800">1</span>
+      </span>
+    </div>
+
+    <div style="flex: 1; min-height: 0; background: #ffffff; border: 1px solid #e6e9ed; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid #f2f4f7">
+        <span style="width: 56px; height: 56px; border-radius: 9px; background: #f2f4f7; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c6ccd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13px; font-weight: 700; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">SONY PXW-FX9 XDCAMメモリーカムコーダー</span>
+          <span style="display: flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: #eaf4fb; color: #005bac; font-size: 10px; font-weight: 800; white-space: nowrap">TOC</span>
+            <span class="num" style="font-size: 12.5px; font-weight: 800">¥25,200<span style="font-size: 10px; font-weight: 400; color: #9aa1ab">/日</span></span>
+          </span>
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #e6e9ed; border-radius: 10px; background: #f2f4f7; color: #197a4b; flex-shrink: 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid #f2f4f7">
+        <span style="width: 56px; height: 56px; border-radius: 9px; background: #f2f4f7; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c6ccd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13px; font-weight: 700; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">Panasonic AW-UE150 4Kインテグレーテッドカメラ</span>
+          <span style="display: flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: #f0effb; color: #4338ca; font-size: 10px; font-weight: 800; white-space: nowrap">レスター</span>
+            <span class="num" style="font-size: 12.5px; font-weight: 800">¥33,000<span style="font-size: 10px; font-weight: 400; color: #9aa1ab">/日 税込</span></span>
+          </span>
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #e6e9ed; border-radius: 10px; background: #f2f4f7; color: #197a4b; flex-shrink: 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid #f2f4f7">
+        <span style="width: 56px; height: 56px; border-radius: 9px; background: #f2f4f7; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c6ccd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13px; font-weight: 700; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">Blackmagic ATEM Mini Extreme ISO</span>
+          <span style="display: flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: #eaf4fb; color: #005bac; font-size: 10px; font-weight: 800; white-space: nowrap">TOC</span>
+            <span class="num" style="font-size: 12.5px; font-weight: 800">¥10,800<span style="font-size: 10px; font-weight: 400; color: #9aa1ab">/日</span></span>
+          </span>
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #e6e9ed; border-radius: 10px; background: #f2f4f7; color: #197a4b; flex-shrink: 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-bottom: 1px solid #f2f4f7">
+        <span style="width: 56px; height: 56px; border-radius: 9px; background: #f2f4f7; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c6ccd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13px; font-weight: 700; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">SENNHEISER EW 512P G4 ワイヤレスマイクセット</span>
+          <span style="display: flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: #eaf4fb; color: #005bac; font-size: 10px; font-weight: 800; white-space: nowrap">TOC</span>
+            <span class="num" style="font-size: 12.5px; font-weight: 800">¥7,200<span style="font-size: 10px; font-weight: 400; color: #9aa1ab">/日</span></span>
+          </span>
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #e6e9ed; border-radius: 10px; background: #f2f4f7; color: #197a4b; flex-shrink: 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 11px 13px">
+        <span style="width: 56px; height: 56px; border-radius: 9px; background: #f2f4f7; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c6ccd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg>
+        </span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13px; font-weight: 700; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">Roland V-160HD ストリーミングビデオスイッチャー</span>
+          <span style="display: flex; align-items: center; gap: 6px">
+            <span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: #f0effb; color: #4338ca; font-size: 10px; font-weight: 800; white-space: nowrap">レスター</span>
+            <span class="num" style="font-size: 12.5px; font-weight: 800">¥26,400<span style="font-size: 10px; font-weight: 400; color: #9aa1ab">/日 税込</span></span>
+          </span>
+        </span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: none; border-radius: 10px; background: #005bac; color: #ffffff; flex-shrink: 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+        </span>
+      </div>
+
+    </div>
+
+    <div style="padding: 10px 0 12px; flex-shrink: 0">
+      <span style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border: none; border-radius: 12px; background: #005bac; color: #ffffff; font-size: 14px; font-weight: 700">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M12 11h4"></path><path d="M12 16h4"></path><path d="M8 11h.01"></path><path d="M8 16h.01"></path></svg>
+        予約リストを見る
+        <span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #ffffff; color: #005bac; font-size: 11px; font-weight: 800">7</span>
+      </span>
+    </div>
+  </div>
+
+  <div style="height: 60px; box-sizing: border-box; background: #ffffff; border-top: 1px solid #e9ecf0; display: flex; flex-shrink: 0">
+    <span style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #9aa1ab">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+      <span style="font-size: 10px; font-weight: 700">ドキュメント</span>
+    </span>
+    <span style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #9aa1ab">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+      <span style="font-size: 10px; font-weight: 700">スケジュール</span>
+    </span>
+    <span style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #9aa1ab">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"></path><path d="M4 10V3"></path><path d="M12 21v-9"></path><path d="M12 8V3"></path><path d="M20 21v-5"></path><path d="M20 12V3"></path><path d="M2 14h4"></path><path d="M10 12h4"></path><path d="M18 16h4"></path></svg>
+      <span style="font-size: 10px; font-weight: 700">設定</span>
+    </span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

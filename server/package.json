@@ -13,6 +13,7 @@
     "db:reset": "tsx src/shared/db/reset.ts",
     "db:seed:subapps": "tsx src/shared/db/seed-subapps.ts",
     "db:seed:tasks": "tsx src/shared/db/seed-tasks.ts",
+    "db:seed:rental": "tsx src/shared/db/seed-rental.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

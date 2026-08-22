@@ -8,7 +8,7 @@
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming';
+export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental';
 
 export type MiniAppKind = 'document' | 'panel';
 
@@ -91,6 +91,13 @@ export const MINI_APPS: MiniAppDef[] = [
     key: 'streaming',
     label: '配信設定',
     path: '/qsheet/streaming/:ownerKey',
+    enabled: true,
+  },
+  {
+    kind: 'panel',
+    key: 'rental',
+    label: 'レンタル機材検索',
+    path: '/qsheet/rental/:ownerKey',
     enabled: true,
   },
 ];

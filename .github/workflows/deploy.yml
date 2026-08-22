@@ -205,6 +205,18 @@ jobs:
               echo "→ nginx の設定は変わっていないので触らない"
             fi
 
+            # 4.5) レンタル機材スクレイパー（検証環境のみ・v4.1.8）。
+            #    GHCR には積んでいない小さな Python サービスなので、ここだけ VPS 上でビルドする
+            #    (rental-scraper/ の内容が変わらなければ pip install 済みレイヤーのキャッシュが効く)。
+            #    失敗させても本体アプリのデプロイ成否とは分けて扱う — app_dev は既に up 済みのため、
+            #    ここで pipefail に巻き込んでジョブ全体を失敗させない。
+            echo "→ レンタル機材スクレイパーをビルド・起動"
+            if $COMPOSE_DEV build rental_scraper_dev && $COMPOSE_DEV up -d --no-deps rental_scraper_dev; then
+              echo "✓ rental_scraper_dev 起動"
+            else
+              echo "⚠ rental_scraper_dev の起動に失敗しました（本体アプリのデプロイ自体は成功しています。下のログを確認してください）"
+            fi
+
             # 5) 後片付け: 認証情報を残さない + タグ付け替えで dangling になった旧イメージを削除
             docker logout ghcr.io || true
             docker image prune -f || true
@@ -216,7 +228,7 @@ jobs:
             # heredoc が変数展開を抑止しているので素直に $(...) と書く。
             sleep 15
             echo "=== docker compose ps ==="
-            $COMPOSE_DEV ps app_dev nginx db || true
+            $COMPOSE_DEV ps app_dev nginx db rental_scraper_dev || true
 
             echo "=== app_dev container logs (last 80 lines) ==="
             APP_DEV_CID=$(docker ps -aq -f name=gmo-onair-app_dev | head -1)
@@ -224,6 +236,14 @@ jobs:
               docker logs --tail=80 "$APP_DEV_CID" 2>&1 || true
             else
               echo "⚠ app_dev container not found"
+            fi
+
+            echo "=== rental_scraper_dev container logs (last 40 lines) ==="
+            RENTAL_CID=$(docker ps -aq -f name=gmo-onair-rental_scraper_dev | head -1)
+            if [ -n "$RENTAL_CID" ]; then
+              docker logs --tail=40 "$RENTAL_CID" 2>&1 || true
+            else
+              echo "⚠ rental_scraper_dev container not found（起動に失敗した可能性。上の手順4.5のログを確認）"
             fi
 
             echo "=== nginx container logs (last 40 lines) ==="

@@ -44,3 +44,8 @@ client/public/mcp-tools.json
 # 検証用ブラウザに渡す書体の取り置き (scripts/lib/google-fonts-cache.mjs)
 # Google Fonts から落とした CSS と woff2 (約20MB)。手元で作り直せるのでコミットしない。
 .cache/
+
+# rental-scraper (Python) の実行時生成物。クロール結果のSQLiteとキャッシュはコミットしない
+rental-scraper/__pycache__/
+rental-scraper/rental_items.db
+rental-scraper/crawl.log
