@@ -962,6 +962,28 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
   表に移す指摘はない（レビュー自体が届いていないため）。マージ後の実ブラウザ確認は未実施
   （PR本文に明記済み。検証環境での目視確認を推奨として残した）。
+- **#320**（`fix(qsheet): 収録設定・配信設定の WEB会議と Excel 書き出しを作り直した（段3）`）—
+  作成 2026-08-22 13:05:40 / `main` とのコンフリクト解消 push 13:10:21 /
+  CI green 13:12:29（`checks`/`build` とも成功）/ マージ 13:12:38頃（**CI green から約9秒後**、
+  #251・#272・#305・#312・#314・#317 と同じ「見る前に入った」形）。
+  `get_reviews`・`get_comments`・`get_review_comments` いずれも0件
+  （`npm run reviews:debt` は今回も 401 で使えず、GitHub MCP で直接確認した）。
+  表に移す指摘はないが、**この PR で意図して残した判断が6件ある**ので下記に書き出す
+  （レビューが付いていれば指摘されうる箇所であり、書かなければ存在ごと消えるため）。
+
+### #320 で意図して残した判断（レビュー0件のため自分で書き出したもの）
+
+⚠️ **どれも「気づかなかった」ではなく「今回は直さないと決めた」もの**です。
+何が変われば直すかを添えます。
+
+| # | どこ | 何が残っているか | 何が変われば直すか |
+| --- | --- | --- | --- |
+| 1 | `device-settings.routes.ts` の `export-xlsx` | **書き出しに編集権限が要る**まま。閲覧のみの人は Excel を受け取れない（画面側は押せないようにして理由を出した） | 「閲覧の人にも現地用 Excel を渡したい」が業務上必要と決まったら。⚠️ ただし `keyMode:'plain'`（ストリームキー平文）だけは編集権限に残すこと |
+| 2 | `journey-marks.routes.ts` | `GET /journey/marks` も **editor** のまま。今回はパスの範囲だけ直し、**権限の高さは1段も動かしていない**（動かすと今回の PR の検証範囲を超えるため） | ピン留めを閲覧の人にも見せると決めたとき。GET だけ `reader` に下げる |
+| 3 | `device-excel.service.ts` | **「入力ガイド」シートを外せない**（サーバーが常に付ける。`?sheets=` も recording/streaming しか受けない）。ダイアログは「必ず付きます」と断って見本だけ出している | 現地から「不要」と言われたとき。`?sheets=` に `guide` を足す |
+| 4 | `deviceSettingsApi.ts` | `PreflightResult.headerPreview` が**もう使われていないのに型に残っている**（`preview` に置き換わった）。消すとサーバー側の返り値も直す必要があり、今回の PR を広げないために据え置いた | 次に同じファイルを触るとき。サーバーと同時に落とす |
+| 5 | `deckOptions.ts` / `destinationHelpers.ts` | **台数が直書き**（HyperDeck 12台・ENC 10台）。機材が増減しても画面が追従しない | 機材台帳（`client-equipment`）から台数を引ける形が決まったとき。**業務側の判断が要る**ので着手していない |
+| 6 | `scripts/check-ui-tokens.mjs` | `raw-palette` と `translucent-text` の記録を **client-qsheet で1件ずつ下げた**（旧 `MeetingCard` のインライン `transform` を消したぶん）。数が下がったので検査の指示どおり `--update` した | — （記録のためだけの行。次に増やそうとすると検査が止まる） |
 
 ---
 
