@@ -55,12 +55,56 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
 
 **マージ後に実際にスクレイピングできているか確認する方法**:
 
-```bash
-# 検証 VPS 上（デプロイの diagnostics ログでも同じ内容が見える）
-docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml logs --tail=100 rental_scraper_dev
+⚠️ **「件数が入っている」だけでは判断材料にならない。** `qsheet_rental_items` には
+`app_dev`（本体アプリ）が起動時に投入するダミーサンプル（`seed-rental.ts`・8件固定）が
+**別に**存在しうる。v4.1.8 で `SKIP_RENTAL_SEED=true` を `app_dev` に設定し、検証環境では
+このダミー投入を止めた（本物のクロール結果と混ざって見分けがつかなくなるため）が、
+**この対処より前にデプロイされた検証環境には、この8件がまだ残っている可能性がある**
+（一度入ると `seed-rental.ts` は「既にデータがあるならスキップ」なので消えない）。
 
-# 実際にデータが入ったか
-psql "$DATABASE_URL_DEV" -c "SELECT company, count(*) FROM qsheet_rental_items GROUP BY company;"
+判断は次の3段で行う:
+
+```bash
+# 1. 件数だけでなく、既知のダミーIDが混ざっていないか確認する。
+#    ダミーの (company, item_id) は次の8件で固定（seed-rental.ts参照）:
+#      東京オフラインセンター: 5043, 4102, 5121, 4988, 5044, 5045
+#      レスター: 277, 312
+#    これ「だけ」しか無ければ、まだ実際のクロールは成功していない（ダミーのまま）。
+psql "$DATABASE_URL_DEV" -c "SELECT company, item_id, name, first_seen, last_seen FROM qsheet_rental_items ORDER BY company, item_id;"
+
+# 2. コンテナのログで実際にクロールが完了しているか（新規/更新の実績、パース失敗の有無）を見る
+docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml logs --tail=200 rental_scraper_dev
+#   見るべき行:
+#     [NEW][東京オフラインセンター] ... / [UPDATED][...] ...   ← 実際に取得できている
+#     パース失敗(name取得不可): https://...                    ← セレクタが実HTMLと合っていない
+#     取得断念: https://...                                     ← ネットワーク到達不可・ブロック
+#     [sync-to-postgres] N件を upsert しました（うち missing 判定: M件）
+#                                                                ← Postgresへの反映件数（これが実件数の裏付け）
+
+# 3. 上記のダミー8件以外の (company, item_id) が実在し、last_seen が最近のクロール時刻に
+#    更新され続けていれば、実際に動いている
+psql "$DATABASE_URL_DEV" -c "
+  SELECT company, item_id, name, last_seen FROM qsheet_rental_items
+  WHERE (company, item_id) NOT IN (
+    ('東京オフラインセンター','5043'),('東京オフラインセンター','4102'),
+    ('東京オフラインセンター','5121'),('東京オフラインセンター','4988'),
+    ('東京オフラインセンター','5044'),('東京オフラインセンター','5045'),
+    ('レスター','277'),('レスター','312')
+  )
+  ORDER BY last_seen DESC LIMIT 20;
+"
+```
+
+**この対処より前に投入されたダミー8件を消したい場合**（実クロールが成功していて、
+もう不要と判断できるときだけ実行すること — 消すと画面上その8件が消える）:
+
+```sql
+DELETE FROM qsheet_rental_items WHERE (company, item_id) IN (
+  ('東京オフラインセンター','5043'),('東京オフラインセンター','4102'),
+  ('東京オフラインセンター','5121'),('東京オフラインセンター','4988'),
+  ('東京オフラインセンター','5044'),('東京オフラインセンター','5045'),
+  ('レスター','277'),('レスター','312')
+);
 ```
 
 ⚠️ **本番 (`app_prod`) 向けの同種サービスはまだ無い。** 本番で実際にスクレイピングを

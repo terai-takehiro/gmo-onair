@@ -40,6 +40,10 @@ const INTENTIONAL = {
   DB_NAME: '接続は DATABASE_URL 1本。決算取込が「いまどちらの DB か」を見るための保険で、'
     + '未設定なら DATABASE_URL から判定する（渡すと2つの正が生まれる）',
   RUN_SEED_ON_STARTUP: '本番は SKIP_SEED=true で止めている。渡すと本番にシードを入れる道ができる',
+  SKIP_RENTAL_SEED: 'docker-compose.yml の app_dev だけに直書きした固定値（"true"）。'
+    + 'rental_scraper_dev が実クロール結果を同期する検証環境専用の判断で、.env 経由で'
+    + '利用者が変えられるべき値ではない（本番は rental_scraper_prod が無くそもそも'
+    + '実データが無いので、SKIP_SEED=true 側で既にダミー投入ごと止まっている）',
   HTTPS_ENABLED: '本番判定（NODE_ENV=production）で自動的に有効。手で上書きさせない',
   MCP_ACTOR_ID: '既定 `mcp-claude` のまま運用している。変えると監査ログの主体が過去と食い違う',
 };

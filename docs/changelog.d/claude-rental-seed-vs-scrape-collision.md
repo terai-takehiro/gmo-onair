@@ -1,0 +1,1 @@
+検証環境で「レンタル機材検索に数件しか出ていない」という報告をきっかけに、本体アプリ（app_dev）の起動時ダミーサンプル投入（`seed-rental.ts`・8件固定）と `rental_scraper_dev` の実クロール結果が同じテーブル（`qsheet_rental_items`）に混ざり、画面から実データかダミーか区別できなくなっていた問題を直した。`SKIP_RENTAL_SEED=true` を `app_dev` にだけ設定し、検証環境ではダミー投入を止めた（ローカル開発・verify:upは今までどおりサンプルが入る）。既にデプロイ済みの検証環境に残っているダミー8件の見分け方・後片付けのSQLを`rental-scraper/README.md`に追記した。
