@@ -10,6 +10,7 @@ import { apiErrorMessage, jstToday } from '@/lib/deviceSettingsShared';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import ServiceDateBar from '@/components/device-settings/ServiceDateBar';
 import { getOwnerContext, getRecording, putRecording, type Deck, type OwnerContext } from '@/lib/deviceSettingsApi';
+import { setProductionNavContext } from '@/lib/productionNavContext';
 import {
   DECK_IDS_MAIN, DECK_IDS_BACKUP, MODEL_LABEL_MAIN, MODEL_LABEL_BACKUP, coerceDeck, defaultDecks,
 } from './deckOptions';
@@ -92,6 +93,11 @@ export default function RecordingPage() {
     getOwnerContext(ownerKey).then((data) => { if (alive) setOwner(data); });
     return () => { alive = false; };
   }, [ownerKey]);
+
+  useEffect(() => {
+    if (!owner) return;
+    setProductionNavContext({ scope: owner.kind, id: ownerKey, label: owner.name ?? owner.glsNumber ?? null });
+  }, [owner, ownerKey]);
 
   const updateDeck = (next: Deck) => setDecks((prev) => prev.map((d) => (d.deckId === next.deckId ? next : d)));
 

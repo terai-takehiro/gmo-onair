@@ -26,6 +26,7 @@ import * as journeyApi from "@/lib/journeyApi";
 import type { JourneyMarkRow } from "@/lib/journeyApi";
 import type { JourneyStage, Suggestion } from "@gmo-onair/shared/src/production/journey";
 import { recordRecentTop } from "@/lib/recentTop";
+import { setProductionNavContext } from "@/lib/productionNavContext";
 import MiniAppTiles from "@/components/journey/MiniAppTiles";
 import JourneyDayCard from "@/components/journey/JourneyDayCard";
 
@@ -90,6 +91,14 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
     if (!id || !journeyQuery.data) return;
     const name = journeyQuery.data.project?.name;
     if (name) recordRecentTop(scope, id, name);
+  }, [scope, id, journeyQuery.data]);
+
+  // サイドバー・スマホ下タブ（buildQsheetNav）へ「いまの案件/番組」を伝える。
+  // 資料単体（scope: "document"）は案件/番組の文脈ではないため対象外。
+  useEffect(() => {
+    if (scope !== "project" && scope !== "program") return;
+    if (!id) return;
+    setProductionNavContext({ scope, id, label: journeyQuery.data?.project?.name ?? null });
   }, [scope, id, journeyQuery.data]);
 
   const handleTogglePin = (targetDate: string | null, stage: JourneyStage, kind: "settled" | "watch") => {
