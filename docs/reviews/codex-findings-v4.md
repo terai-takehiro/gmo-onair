@@ -700,6 +700,19 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   ⚠️ **これ以上の入れ子（#284自身の棚卸しを記録する新しいPR）は作らない** —
   棚卸し用のドキュメントPRについてまで際限なく棚卸しPRを重ねると収束しないため、
   この1行への追記で留めた
+- **#286**（`fix(client): 財務管理のカード重なり・スマホ非対応・薄い文字を直した`）—
+  作成 2026-08-21 18:19:28 / マージ 2026-08-22 01:43:09（**terai-takehiro 本人が手動マージ、
+  約7時間24分後**）。CIは作成から約2分で `checks` / `build` とも緑（`mergeable_state: clean`）
+  になっていたが、**レビューが1件も付かないまま長時間open**していた — #159・#239・#241
+  （見る前に入った）とは逆に、**待っても届かなかった**ケース。`pr-watch` の決めごとに従い
+  1時間おきに `get_review_comments` で計7回チェックインしたが、マージまで一貫して0件
+  （最終確認: `get_reviews` 0件・`get_review_comments` 0件）。`npm run reviews:debt` は
+  この回も 401（作業環境の `GITHUB_TOKEN` は REST 不可・GitHub アクセスは MCP 経由）のため
+  `pull_request_read` で代替確認した。表に移す指摘はない（レビュー自体が届いていないため）。
+  財務管理（`client/`）と共通部品（`shared/src/client/ui/searchable-select.tsx`）の
+  UI崩れ修正PR。typecheck:all/lint/test(1144件)/build:all/check:frozenは確認済み、
+  実ブラウザ（Playwright・実データ投入）でPC(375〜1440px複数幅)・スマホも確認済み
+  （PR本文に詳細）
 
 ---
 
