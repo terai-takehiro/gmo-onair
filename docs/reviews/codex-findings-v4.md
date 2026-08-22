@@ -713,6 +713,25 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   UI崩れ修正PR。typecheck:all/lint/test(1144件)/build:all/check:frozenは確認済み、
   実ブラウザ（Playwright・実データ投入）でPC(375〜1440px複数幅)・スマホも確認済み
   （PR本文に詳細）
+- **#288**（`feat(qsheet): 制作資料 v4 を作り直した（段0〜10・凍結解除）`）— 作成
+  2026-08-22 01:52:13 / マージ 02:01:22（terai-takehiro 本人が手動マージ、約9分9秒後）。
+  CI（`checks` / `build` とも）はマージ前に完了・成功済み（両ジョブとも02:00台に完了、
+  マージはその約31秒後）。`get_review_comments` で `totalCount: 0`（未解決スレッド0件）
+  を確認。表に移す指摘はない（レビュー自体が届いていないため）。⚠️ **`npm run reviews:debt`
+  は今回、401ではなく403で失敗した** — `NODE_USE_ENV_PROXY=1`を付けてプロキシ経由で
+  `api.github.com/graphql`に直接届いたところ、GitHub側から
+  `"This GraphQL query is not enabled for this session — only the pinned set of
+  PR-review operations is served"`という応答が返った。つまりこの作業環境は
+  GraphQLを丸ごと禁止しているのではなく、**MCP経由の定型クエリだけを許可し、
+  スクリプトの自由な GraphQL クエリは組織ポリシーで拒否している**（プロキシ越しの認証自体は
+  通っていた）。これまでの回の「401」は未検証だが同根の可能性がある。`pull_request_read`
+  （MCP・許可された定型クエリの一部）で代替確認した。⚠️ **段0〜10・67コミット・280ファイル・
+  +33,424/-1,869行の非常に大きいPR**（複数段にまたがる作業を1本のブランチに積んだ実装で、
+  PR本文に理由を明記）。typecheck/lint/test(1321件)/build:all/check:frozenは各段の
+  マージ・main統合のたびに再検証済みだが、**実ブラウザでのPC(1440px)/スマホ(375px)確認・
+  `verify:ui`・403（権限）確認はいずれも未実施**（このセッションが実ブラウザ確認まで
+  行えないため。PR本文の「検証したこと」チェックリストに明記済み）。**レビューが付く前に
+  マージされたため、実ブラウザ未確認の3項目は今後のセッションで別途行うことを推奨**
 
 ---
 
