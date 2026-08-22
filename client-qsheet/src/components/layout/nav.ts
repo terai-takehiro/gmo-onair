@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -149,19 +149,21 @@ function hubLabelOf(ctx: ProductionNavContext): string {
 
 function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
-  return [
-    {
-      items: [
-        { label: 'トップ', to: '/qsheet/top', icon: LayoutGrid },
-        { label: hubLabel, to: hubPathOf(ctx), icon: LayoutDashboard, end: true },
-        { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
-        { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
-        { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
-        { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
-        { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },
-      ],
-    },
+  const items = [
+    { label: 'トップ', to: '/qsheet/top', icon: LayoutGrid },
+    { label: hubLabel, to: hubPathOf(ctx), icon: LayoutDashboard, end: true },
+    { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
+    { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
+    { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
+    { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
+    { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },
   ];
+  // 計時・視聴者（liveops）は scope === 'project' のときだけ（liveops_programs.project_id
+  // は projects テーブルのみを指すため。MiniAppTiles.tsx/MiniAppSwitcher.tsx と同じ制約）
+  if (ctx.scope === 'project') {
+    items.push({ label: MINI_APP_BY_KEY.liveops.label, to: panelPathOf('liveops', ctx.id), icon: Timer });
+  }
+  return [{ items }];
 }
 
 function buildDefaultSections(): ShellNavSection[] {

@@ -178,12 +178,15 @@
   `client-live/CLAUDE.md`「ミニアプリ化フェーズ2」の対応表）。旧ダッシュボード等の実体
   （`DashboardPage.tsx` 等）はまだ削除していない（本番リリースの観測期間を挟んでから
   別PRで削除する設計・§4-3・2-X/2-Y分割）が、旧URLを開くと以後は必ず新URLへ跳ぶ
-- **ミニアプリのタイル・スイッチャー（`MINI_APPS` レジストリ）はこのステージでは
-  変更していない。** 引き続き `/live/open?project=:id`（`client-live` 側の
-  `RedirectFromOpen.tsx`）を経由するが、その画面自体が新URLへ即リダイレクトするため、
-  実質的にはこのバンドルの `LiveDashboardPage.tsx` へ届く。レジストリの `path` を
-  `/qsheet/live/:ownerId` に直接向ける形への切り替え自体は後続の
-  RegistryPermissions ステージが行う
+- **ミニアプリのタイル・スイッチャー（`MINI_APPS` レジストリ）も更新済み。**
+  `liveops` エントリは `kind: 'external'`（別バンドルへの遷移）から、収録設定・
+  配信設定と同じ `kind: 'panel'` に統合し、`path` を `/qsheet/live/:ownerKey`
+  に変更した（`MiniAppTiles.tsx`/`MiniAppSwitcher.tsx` は他の panel 系ミニアプリと
+  同じ `panelPathOf('liveops', id)` ＋ `<Link>` で直接このバンドル内へ遷移する。
+  `ExternalMiniAppLink.tsx`・`externalPathOf`・`MiniAppKind` の `'external'` は
+  他に使うミニアプリが無くなったため削除済み）。`/live/open?project=:id` は
+  旧URLとして `client-live` 側にリダイレクト専用画面（`RedirectFromOpen.tsx`）の
+  ままだが、ハブ画面・ヘッダー切替からはもうそこを経由しない
 - **権限区画は `qsheet` に統合済み**（migration 232）。`liveops` という権限区画は
   もう存在しない — `server/src/contexts/liveops/routes/*.ts` の
   `requirePermission()` はすべて `'qsheet'` を見る
