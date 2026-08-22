@@ -104,6 +104,37 @@ class ParseItemDetailPriceFallbackTest(unittest.TestCase):
         self.assertTrue(any("価格取得不可" in msg for msg in cm.output))
 
 
+class FetchEncodingTest(unittest.TestCase):
+    """⚠️ 実際に踏んだ回帰テスト。以前は `fetch()` が `resp.encoding =
+    resp.apparent_encoding`（chardet/charset_normalizer によるバイト列からの推定）で
+    デコードしてから文字列を返していたが、実クロールで日本語部分だけ文字化けする
+    不具合が起きた（`apparent_encoding` の推定精度は日本語ページで必ずしも高くない）。
+    いまは `fetch()` がバイト列を返し、BeautifulSoup 側の自動検出（HTML の
+    `<meta charset>` 宣言を見る）に文字コード判定を任せている。ここではその
+    「バイト列を BeautifulSoup にそのまま渡せば文字化けしない」という契約を、
+    Shift_JIS で実際にエンコードしたページで検証する。"""
+
+    def test_shift_jis_page_with_meta_charset_decodes_correctly(self):
+        html_str = (
+            '<html><head><meta charset="Shift_JIS"></head><body>'
+            "<h1>SONY HVL-LEIR1(ミニLED赤外線ライト)</h1>"
+            "</body></html>"
+        )
+        html_bytes = html_str.encode("shift_jis")  # fetch() が返す形を模す
+        detail = toc.parse_item_detail("5061", html_bytes)
+        self.assertEqual(detail.name, "SONY HVL-LEIR1(ミニLED赤外線ライト)")
+
+    def test_utf8_page_still_decodes_correctly(self):
+        html_str = (
+            '<html><head><meta charset="UTF-8"></head><body>'
+            "<h1>SONY HXR-NX5R</h1>"
+            "</body></html>"
+        )
+        html_bytes = html_str.encode("utf-8")
+        detail = toc.parse_item_detail("5043", html_bytes)
+        self.assertEqual(detail.name, "SONY HXR-NX5R")
+
+
 class ExtractImagesTest(unittest.TestCase):
     def test_collects_device_img_urls_from_img_and_a_tags(self):
         html = """

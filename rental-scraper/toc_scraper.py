@@ -55,6 +55,18 @@ PRICE_RE = re.compile(r"([\d,]+)\s*円")
 
 
 def fetch(url: str, retries: int = 3):
+    """成功時は**バイト列**（`resp.content`）を返す。文字コードは
+    `BeautifulSoup(html, "html.parser")` 側の自動検出（UnicodeDammit。HTML の
+    `<meta charset>` 宣言等を見る）に任せる。
+
+    ⚠️ 以前は `resp.encoding = resp.apparent_encoding`（`chardet`/`charset_normalizer`
+    によるバイト列からの推定）で文字コードを決めてから `resp.text`（デコード済み文字列）
+    を返していたが、実クロールで日本語部分だけが文字化けする不具合が起きた
+    （`Lightning－Digital AV変換アダプタ` のような ASCII混じりの商品名で、
+    日本語部分だけ欧文コードページに誤爆したような文字化けになる —
+    `apparent_encoding` の推定精度は日本語ページで必ずしも高くない）。
+    HTML の `<meta charset>` 宣言を見る BeautifulSoup 側の検出のほうが確実なため、
+    デコードを BeautifulSoup に委ねる形に変えた。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
@@ -62,8 +74,7 @@ def fetch(url: str, retries: int = 3):
                 log.warning("404 Not Found: %s", url)
                 return None
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
-            return resp.text
+            return resp.content
         except requests.RequestException as e:
             log.warning("取得失敗(%d/%d) %s : %s", attempt, retries, url, e)
             time.sleep(2 * attempt)
@@ -183,7 +194,7 @@ def _extract_images(soup: BeautifulSoup, item_id: str) -> list:
     return images
 
 
-def parse_item_detail(item_id: str, html: str) -> ItemDetail:
+def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
     soup = BeautifulSoup(html, "html.parser")
     detail = ItemDetail(item_id=item_id, url=f"{BASE}/rental/item/{item_id}")
 
