@@ -98,6 +98,22 @@ jobs:
       - name: UI トークン検査 (増えたら止める)
         run: npm run check:ui-tokens
 
+      # レンタル機材スクレイパー (Python・rental-scraper/)。
+      #
+      # ⚠️ **import スモークを外さないこと。** ここまで CI は Python を1行も
+      # 見ていなかったため、scheduler.py が新しいモジュール (sync_requests) を
+      # import するようになったのに Dockerfile の COPY へ足し忘れた変更が
+      # そのままマージされ、検証環境のコンテナが ModuleNotFoundError で
+      # 約4時間クラッシュし続けた (その間クロールは1件も走らず、画面は0件のまま)。
+      # 単体テストのほうは Dockerfile の COPY 漏れ自体も検査する
+      # (rental-scraper/test_dockerfile.py)。
+      - name: レンタル機材スクレイパーの検査 (Python)
+        working-directory: rental-scraper
+        run: |
+          python3 -m pip install --quiet -r requirements.txt
+          python3 -m unittest discover -p 'test_*.py'
+          python3 -c "import scheduler"  # コンテナの CMD が起動できるか
+
   # ============================================
   # Docker イメージのビルド
   # ============================================

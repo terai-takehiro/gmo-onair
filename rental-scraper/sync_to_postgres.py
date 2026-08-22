@@ -5,22 +5,23 @@ rental_items.db (SQLite・ステージング) → GMO ONAiR 本体 PostgreSQL
 (qsheet_rental_items) への同期
 ================================================================
 common_db.py が書き出す SQLite の items テーブルを読み、company + item_id を
-主キーに PostgreSQL の qsheet_rental_items へ upsert する。run_all.py の末尾
-（toc_scraper → restar_scraper のあと）から呼ばれる想定。
+主キーに PostgreSQL の qsheet_rental_items へ upsert する。run_all.py から
+**1社のクロールが終わるたび・さらにクロール中も一定件数ごとに**呼ばれる
+（1回のクロールは数十分〜1時間超かかるので、全部終わってからしか同期しないと
+その間ずっと画面が古いまま／空のままになる）。何度呼んでも upsert なので安全。
 
 ⚠️ status（'listed' | 'missing'）の決め方について
 --------------------------------------------------
-SQLite 側の change_log は使わない。change_log は「missing になった」片方向の
-遷移しか記録しない（common_db.py の mark_missing_items 参照）ため、一度
-missing になった商品がクロールで再出現しても change_log ベースの判定では
-永久に missing のままになってしまう。
+SQLite の items.status をそのまま持ってくる（common_db.py の upsert_item が
+'listed'、クロール完走時の mark_missing_items が 'missing' を立てる）。
 
-代わりに、company ごとに「直近のクロール実行の基準時刻」を
-    SELECT MAX(last_seen) FROM items WHERE company = ?
-で求め、各商品の last_seen がその基準時刻と一致すれば 'listed'
-（＝直近のクロールで実際に見つかった）、それより古ければ 'missing'
-（＝今回は見つからなかった）とする。ISO8601 文字列は辞書順=時系列順なので
-文字列比較で足りる。
+以前はここで「company ごとの MAX(last_seen) と一致する行だけ listed」と
+時刻で推定していたが、2つの理由でやめた:
+  1. クロールが途中で止まった回（デプロイでコンテナが作り直された等）に
+     同期すると、まだ見に行っていない商品が全部 missing に倒れ、画面から
+     機材が消える。**途中経過を随時 Postgres へ流せない**作りだった。
+  2. 商品ごとに last_seen がわずかにズレただけで全件 missing になる
+     （検証環境で実際に踏んだ。common_db.py の upsert_item の注記参照）。
 """
 import json
 import logging
@@ -36,40 +37,21 @@ PREFIX = "[sync-to-postgres]"
 DEFAULT_SQLITE_PATH = "rental_items.db"
 
 
-def compute_statuses(rows: list[dict]) -> dict[tuple[str, str], str]:
-    """items テーブルの全行 (dict のリスト。company/item_id/last_seen を含む) から
-    (company, item_id) -> 'listed'|'missing' の対応表を作る純粋関数。
-
-    company ごとの最新 last_seen（＝直近のクロール実行の基準時刻）と一致する
-    行を 'listed'、それより古い行を 'missing' とする。company に商品が
-    1件も無ければ何も出さない（呼び出し側で自然にスキップされる）。
-    """
-    latest_by_company: dict[str, str] = {}
-    for row in rows:
-        company = row["company"]
-        last_seen = row["last_seen"] or ""
-        if company not in latest_by_company or last_seen > latest_by_company[company]:
-            latest_by_company[company] = last_seen
-
-    statuses: dict[tuple[str, str], str] = {}
-    for row in rows:
-        company = row["company"]
-        item_id = row["item_id"]
-        last_seen = row["last_seen"] or ""
-        baseline = latest_by_company.get(company, "")
-        statuses[(company, item_id)] = "listed" if last_seen == baseline else "missing"
-    return statuses
-
-
 def read_items(sqlite_path: str) -> list[dict]:
-    """SQLite の items テーブルを dict のリストとして読む。"""
+    """SQLite の items テーブルを dict のリストとして読む。
+
+    status 列が無い古い rental_items.db（common_db.init_db を通していない
+    手持ちのファイル）も読めるように、無ければ 'listed' で補う。
+    """
     conn = sqlite3.connect(sqlite_path)
     conn.row_factory = sqlite3.Row
     try:
-        cur = conn.execute("""
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(items)").fetchall()]
+        status_col = "status" if "status" in cols else "'listed' AS status"
+        cur = conn.execute(f"""
             SELECT company, item_id, name, category, subcategory, price_tel,
                    price_net, specs_json, related_json, images_json, url,
-                   first_seen, last_seen, last_updated
+                   first_seen, last_seen, last_updated, {status_col}
             FROM items
         """)
         return [dict(r) for r in cur.fetchall()]
@@ -87,7 +69,7 @@ def _json_or_default(text: Optional[str], default):
         return default
 
 
-def upsert_rows(dsn: str, rows: list[dict], statuses: dict[tuple[str, str], str]) -> tuple[int, int]:
+def upsert_rows(dsn: str, rows: list[dict]) -> tuple[int, int]:
     """rows を PostgreSQL の qsheet_rental_items へ upsert する。
     (upsert件数, missing件数) を返す。psycopg2 接続はここでだけ import する
     （DATABASE_URL 未設定パスではこのモジュールが無くても動くように）。
@@ -103,8 +85,7 @@ def upsert_rows(dsn: str, rows: list[dict], statuses: dict[tuple[str, str], str]
         with conn:
             with conn.cursor() as cur:
                 for row in rows:
-                    key = (row["company"], row["item_id"])
-                    status = statuses.get(key, "missing")
+                    status = row.get("status") or "listed"
                     if status == "missing":
                         missing_count += 1
 
@@ -170,10 +151,8 @@ def run() -> None:
         log.info("%s items テーブルが空のため、同期対象はありません", PREFIX)
         return
 
-    statuses = compute_statuses(rows)
-
     try:
-        upserted, missing_count = upsert_rows(dsn, rows, statuses)
+        upserted, missing_count = upsert_rows(dsn, rows)
     except Exception:
         log.exception("%s PostgreSQL への同期中にエラーが発生しました", PREFIX)
         raise

@@ -236,6 +236,15 @@ services:
       # 翌日5時を待たずに確認できるようにするため）。以降は RENTAL_CRON_HOUR に1日1回
       RENTAL_RUN_ON_STARTUP: "true"
       RENTAL_CRON_HOUR: ${RENTAL_CRON_HOUR:-5}
+      # ステージング用 SQLite の置き場所。**必ず下の volume の中を指すこと。**
+      # 既定値（カレントディレクトリ = /app）だとコンテナのファイルシステムに
+      # 置かれるため、main へマージするたびの再作成で毎回まっさらに戻る。
+      # 1回のクロールは数十分〜1時間超かかるので、マージが立て込む日は
+      # 「途中まで取れた分」が毎回消えて永久に完走しない。
+      RENTAL_SQLITE_PATH: /data/rental_items.db
+    volumes:
+      # クロール結果（ステージング）をコンテナ再作成をまたいで残す
+      - rental_scraper_data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -263,3 +272,7 @@ volumes:
   pgdata:
   uploads_prod:
   uploads_dev:
+  # レンタル機材スクレイパーのステージング SQLite (rental_items.db)。
+  # コンテナはデプロイのたびに作り直されるので、ここに逃がさないと
+  # 未完のクロール結果が毎回消える (rental_scraper_dev の RENTAL_SQLITE_PATH)
+  rental_scraper_data:
