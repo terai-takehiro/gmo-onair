@@ -114,7 +114,7 @@
         </div>
 
         <!-- ミニアプリ -->
-        <div style="margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+        <div style="margin-top: 18px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
           <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
             <button class="tap card-tap" onClick="{{t.open}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 9px; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 15px; box-shadow: 0 1px 2px rgba(26,29,36,.04);">
               <span style="display: flex; width: 100%; align-items: center; justify-content: space-between;">
@@ -131,13 +131,16 @@
                   <sc-if value="{{t.isStr}}" hint-placeholder-val="{{false}}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg>
                   </sc-if>
+                  <sc-if value="{{t.isRen}}" hint-placeholder-val="{{false}}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.2l9-4.2 9 4.2v7.6l-9 4.2-9-4.2z"></path><path d="M3 8.2l9 4.2 9-4.2"></path><path d="M12 12.4V20"></path><path d="M7.5 6.1l9 4.2"></path></svg>
+                  </sc-if>
                 </span>
                 <sc-if value="{{t.hasState}}" hint-placeholder-val="{{true}}">
                   <span style="display: inline-flex; align-items: center; height: 19px; border-radius: 7px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px; font-variant-numeric: tabular-nums;">{{t.state}}</span>
                 </sc-if>
               </span>
               <span style="display: flex; align-items: center; gap: 3px;">
-                <span style="font-size: 15px; line-height: 1.4; font-weight: 800;">{{t.label}}</span>
+                <span style="font-size: 14px; line-height: 1.4; font-weight: 800;">{{t.label}}</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
               </span>
               <span style="font-size: 11.5px; line-height: 1.5; color: #5d6470;">{{t.desc}}</span>
@@ -423,7 +426,8 @@ class Component extends DCLogic {
       { label: '進行台本', desc: '台本づくりと本番進行', state: '1件', kind: 'doc' },
       { label: 'スケジュール表', desc: '香盤表', state: '1件', kind: 'cal' },
       { label: '収録設定', desc: '収録の機材構成', state: '', kind: 'rec' },
-      { label: '配信設定', desc: '配信先・WEB会議', state: '', kind: 'str' }
+      { label: '配信設定', desc: '配信先・WEB会議', state: '', kind: 'str' },
+      { label: 'レンタル機材検索', desc: '機材の横断検索と予約リスト', state: '5件', kind: 'ren' }
     ].map((t) => ({
       label: t.label,
       desc: t.desc,
@@ -433,6 +437,8 @@ class Component extends DCLogic {
       isCal: t.kind === 'cal',
       isRec: t.kind === 'rec',
       isStr: t.kind === 'str',
+      isRen: t.kind === 'ren',
+      span: t.kind === 'ren' ? 'span 2' : 'auto',
       open: () => this.say(t.label + ' を開きます')
     }));
 
