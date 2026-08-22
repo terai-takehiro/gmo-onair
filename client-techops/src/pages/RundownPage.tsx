@@ -193,7 +193,7 @@ export default function RundownPage() {
   const { data: doc, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
-      const res = await api.get(`/qsheet/documents/${id}`);
+      const res = await api.get(`/techops/documents/${id}`);
       const d = res.data.data;
       if (typeof d.data === "string") d.data = JSON.parse(d.data);
       return d as { id: string; title: string; data: DocumentData };
@@ -425,7 +425,7 @@ export default function RundownPage() {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>
         <p className={mutedText}>キューデータがありません</p>
-        <Button variant="outline" onClick={() => navigate(`/qsheet/editor/${id}`)}>
+        <Button variant="outline" onClick={() => navigate(`/techops/editor/${id}`)}>
           エディターに戻る
         </Button>
       </div>
@@ -464,7 +464,7 @@ export default function RundownPage() {
             variant="ghost"
             size="icon"
             className={cn("shrink-0", isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
-            onClick={() => navigate(`/qsheet/editor/${id}`)}
+            onClick={() => navigate(`/techops/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

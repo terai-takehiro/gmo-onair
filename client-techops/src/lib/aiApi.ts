@@ -31,7 +31,7 @@ export interface EventPlanProposal {
 
 // ── 生成 ────────────────────────────────────────────────────
 export async function generateEventPlan(scheduleId: string, instruction?: string): Promise<AiProposal<EventPlanProposal>> {
-  const res = await api.post<Envelope<AiProposal<EventPlanProposal>>>("/qsheet/ai/event-plan", {
+  const res = await api.post<Envelope<AiProposal<EventPlanProposal>>>("/techops/ai/event-plan", {
     schedule_id: scheduleId, instruction,
   });
   return res.data.data;
@@ -40,7 +40,7 @@ export async function generateEventPlan(scheduleId: string, instruction?: string
 export async function generateScriptOutline(
   documentId: string, opts: { scheduleItemId?: string; instruction?: string; fromMessageId?: string } = {},
 ): Promise<AiProposal<ScriptOutlineProposal>> {
-  const res = await api.post<Envelope<AiProposal<ScriptOutlineProposal>>>("/qsheet/ai/script-outline", {
+  const res = await api.post<Envelope<AiProposal<ScriptOutlineProposal>>>("/techops/ai/script-outline", {
     document_id: documentId, schedule_item_id: opts.scheduleItemId,
     instruction: opts.instruction, from_message_id: opts.fromMessageId,
   });
@@ -50,7 +50,7 @@ export async function generateScriptOutline(
 export async function generateScriptLines(
   documentId: string, opts: { rowIds?: string[]; sectionIds?: string[]; instruction?: string } = {},
 ): Promise<AiProposal<ScriptLinesProposal>> {
-  const res = await api.post<Envelope<AiProposal<ScriptLinesProposal>>>("/qsheet/ai/script-lines", {
+  const res = await api.post<Envelope<AiProposal<ScriptLinesProposal>>>("/techops/ai/script-lines", {
     document_id: documentId, row_ids: opts.rowIds, section_ids: opts.sectionIds, instruction: opts.instruction,
   });
   return res.data.data;
@@ -59,14 +59,14 @@ export async function generateScriptLines(
 // ── 提案の取り込み・捨てる（段7の器） ───────────────────────────
 export interface ApplyBody { applied_payload: unknown; applied_ids: AppliedIds; rejected_keys?: string[] }
 export async function applyProposalRemote(id: string, body: ApplyBody): Promise<{ dropped_count: number }> {
-  const res = await api.post<Envelope<{ dropped_count: number }>>(`/qsheet/ai/proposals/${id}/apply`, body);
+  const res = await api.post<Envelope<{ dropped_count: number }>>(`/techops/ai/proposals/${id}/apply`, body);
   return res.data.data;
 }
 export async function discardProposal(id: string, reason?: string): Promise<void> {
-  await api.post(`/qsheet/ai/proposals/${id}/discard`, { reason });
+  await api.post(`/techops/ai/proposals/${id}/discard`, { reason });
 }
 export async function listProposals(params: { document_id?: string; schedule_id?: string; state?: string }): Promise<AiProposal[]> {
-  const res = await api.get<Envelope<{ proposals: AiProposal[] }>>("/qsheet/ai/proposals", { params });
+  const res = await api.get<Envelope<{ proposals: AiProposal[] }>>("/techops/ai/proposals", { params });
   return res.data.data.proposals;
 }
 
@@ -83,13 +83,13 @@ export interface AiMessage {
 }
 
 export async function createThread(body: { title?: string; projectId?: string; scheduleId?: string; documentId?: string }): Promise<AiThread> {
-  const res = await api.post<Envelope<AiThread>>("/qsheet/ai/threads", {
+  const res = await api.post<Envelope<AiThread>>("/techops/ai/threads", {
     title: body.title, project_id: body.projectId, schedule_id: body.scheduleId, document_id: body.documentId,
   });
   return res.data.data;
 }
 export async function getThread(id: string): Promise<AiThread & { messages: AiMessage[] }> {
-  const res = await api.get<Envelope<AiThread & { messages: AiMessage[] }>>(`/qsheet/ai/threads/${id}`);
+  const res = await api.get<Envelope<AiThread & { messages: AiMessage[] }>>(`/techops/ai/threads/${id}`);
   return res.data.data;
 }
 export interface PostMessageResult {
@@ -98,9 +98,9 @@ export interface PostMessageResult {
   history_truncated: boolean;
 }
 export async function postThreadMessage(threadId: string, content: string): Promise<PostMessageResult> {
-  const res = await api.post<Envelope<PostMessageResult>>(`/qsheet/ai/threads/${threadId}/messages`, { content });
+  const res = await api.post<Envelope<PostMessageResult>>(`/techops/ai/threads/${threadId}/messages`, { content });
   return res.data.data;
 }
 export async function setMessageFeedback(messageId: string, feedback: "good" | "rephrase" | "reject", note?: string): Promise<void> {
-  await api.put(`/qsheet/ai/messages/${messageId}/feedback`, { feedback, note });
+  await api.put(`/techops/ai/messages/${messageId}/feedback`, { feedback, note });
 }

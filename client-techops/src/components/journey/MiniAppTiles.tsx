@@ -66,7 +66,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       label: MINI_APP_BY_KEY.sheet.label,
       description: "台本づくりと本番進行",
       icon: FileText,
-      to: `/qsheet/sheets?${filterKey}=${encodeURIComponent(id)}`,
+      to: `/techops/sheets?${filterKey}=${encodeURIComponent(id)}`,
       count: sheetCount,
     },
     {
@@ -74,7 +74,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       label: MINI_APP_BY_KEY.schedule.label,
       description: "香盤表",
       icon: CalendarDays,
-      to: `/qsheet/schedules?${filterKey}=${encodeURIComponent(id)}`,
+      to: `/techops/schedules?${filterKey}=${encodeURIComponent(id)}`,
       count: scheduleCount,
     },
     {
@@ -82,7 +82,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       label: MINI_APP_BY_KEY.recording.label,
       description: "収録の機材構成",
       icon: Settings2,
-      to: `/qsheet/recording/${encodeURIComponent(id)}`,
+      to: `/techops/recording/${encodeURIComponent(id)}`,
       count: null,
     },
     {
@@ -90,7 +90,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       label: MINI_APP_BY_KEY.streaming.label,
       description: "配信先・WEB会議",
       icon: Settings2,
-      to: `/qsheet/streaming/${encodeURIComponent(id)}`,
+      to: `/techops/streaming/${encodeURIComponent(id)}`,
       count: null,
     },
     {

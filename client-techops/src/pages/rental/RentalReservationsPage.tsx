@@ -55,7 +55,7 @@ export default function RentalReservationsPage() {
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6">
       <button
         type="button"
-        onClick={() => navigate(`/qsheet/rental/${encodeURIComponent(ownerKey)}`)}
+        onClick={() => navigate(`/techops/rental/${encodeURIComponent(ownerKey)}`)}
         className="inline-flex min-h-[44px] w-fit items-center gap-1.5 text-sub text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -88,7 +88,7 @@ export default function RentalReservationsPage() {
             ownerKey={ownerKey}
             onQuantityChange={(id, quantity) => updateMutation.mutate({ id, quantity })}
             onDelete={(id) => deleteMutation.mutate(id)}
-            onOpenMail={() => navigate(`/qsheet/rental/${encodeURIComponent(ownerKey)}/mail/${encodeURIComponent(group.company)}`)}
+            onOpenMail={() => navigate(`/techops/rental/${encodeURIComponent(ownerKey)}/mail/${encodeURIComponent(group.company)}`)}
           />
         ))
       )}

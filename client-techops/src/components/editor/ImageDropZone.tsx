@@ -27,7 +27,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
         reader.readAsDataURL(file);
       });
 
-      const res = await api.post("/qsheet/upload-image", {
+      const res = await api.post("/techops/upload-image", {
         data: dataUrl,
         filename: file.name,
         mimeType: file.type,

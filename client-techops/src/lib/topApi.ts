@@ -1,4 +1,4 @@
-// 制作技術支援トップ（/qsheet/top）— API 呼び出しの薄いラッパー。
+// 制作技術支援トップ（/techops/top）— API 呼び出しの薄いラッパー。
 // サーバー: server/src/contexts/qsheet/routes/top.routes.ts
 import api from "@/lib/api";
 
@@ -19,6 +19,6 @@ export interface TopItem {
 }
 
 export async function listTopItems(): Promise<TopItem[]> {
-  const res = await api.get<Envelope<TopItem[]>>("/qsheet/top-items");
+  const res = await api.get<Envelope<TopItem[]>>("/techops/top-items");
   return res.data.data;
 }

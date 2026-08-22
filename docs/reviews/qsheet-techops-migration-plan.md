@@ -289,7 +289,7 @@ Socket.IOネームスペース、DB、MCPツール名 — 全て`qsheet`のま�
 `server/src/app.ts:143`からのみ参照されるため、この1行だけは**Phase 1のPRに含めて**
 同時に変更する）。
 
-### Phase 2 — base path・`AppKey`・API prefix の二重マウント導入
+### Phase 2 — base path・`AppKey`・API prefix の二重マウント導入 ✅ **完了（2026-08-22）**
 
 **対象:** `vite.config.ts`の`base`を`/techops/`に、`shared/src/client/apps.ts`の
 `AppKey`/`path`を`techops`に、`server/src/app.ts:143`の静的マウントを`/techops`に。
@@ -302,8 +302,10 @@ Socket.IOネームスペース、DB、MCPツール名 — 全て`qsheet`のま�
 **明示的に変更しないもの:** `permissionModule: 'qsheet'`（`calendar`の`permissionModule: 'sales'`
 据え置きと同じ理由）。
 
-**旧URLへの誘導:** `LegacyUrlBanner.tsx`と同じパターンで「新しいURLに移動しました」の
-案内を旧パスアクセス時に表示。
+**旧URLへの誘導:** `LegacyUrlBanner.tsx`と同じパターンではなく、`client-techops/src/App.tsx`に
+汎用の`RedirectQsheetToTechops`（`useLocation().pathname`の接頭辞を機械的に入れ替える。
+クエリ文字列も維持）を実装し、旧`/qsheet/*`全ルートを1つの`<Route path="/qsheet/*">`で
+後方互換にした（実施内容の詳細は§8参照）。
 
 ### Phase 3 — 5本の本番URLの移行とSocket.IOカットオーバー
 
@@ -553,3 +555,63 @@ DBオブジェクトそのものではなく「旧IDでの互換アクセス」�
   - **Phase 2以降（ベースパス・`AppKey`・Socket.IO切替・本番URL）は未着手のまま。**
     本番URL・Socket.IOの後方互換確認・切替はこの環境から本番へアクセスできず
     検証しきれないため、着手にはユーザーの追加判断を要する（§6参照）
+- **2026-08-22（PR #333 反映確認）** — `docs(design): 計時LIVEディスプレイレイアウト
+  エディタの設計を追加`（liveopsコンテキスト内の新規機能設計＋migration 233）を検知。
+  新規migrationは`liveops_display_layout`というliveops固有テーブルで`qsheet_`プレフィックス
+  ではなく、新規ルートも`server/src/contexts/liveops/`配下でqsheetのマウント・DBオブジェクト
+  数（96個）に影響なし。**§2〜§3の数値・§4のフェーズ計画に修正は不要。**
+- **2026-08-22（PR #335 反映確認）** — Phase 1の0件レビュー棚卸し記録PR（コード変更なし）。
+  §2〜§3の前提事実に影響なし。
+- **2026-08-22（Phase 2 実施・完了）** — ユーザーの明示的な指示（「Phase2へ　マルチエージェントで」）
+  で§4 Phase 2に着手し、マルチエージェント（9タスク並行）＋手動での漏れ補完で完了させた。
+  - `client-techops/vite.config.ts`の`base`を`/qsheet/`→`/techops/`に変更。
+    `shared/src/client/apps.ts`の`AppKey`/`path`を`qsheet`→`techops`に改名
+    （**`permissionModule: 'qsheet'`は計画どおり不変**）
+  - `client-techops/src/App.tsx`を手動で書き直し、旧`/qsheet/*`全ルートを1本の
+    汎用リダイレクト`RedirectQsheetToTechops`（`useLocation().pathname`の接頭辞
+    `/qsheet`→`/techops`を機械的に置換、クエリ文字列も維持）で後方互換にした。
+    当初`:id`等のパラメータを持つ24ルートを個別に`<Navigate to="/techops/editor/:id">`
+    のように書いたが、**React Routerの`<Navigate>`は`to`をリテラル文字列としてしか
+    見ずパラメータを置換しないバグに自分で気づき**、実装前に汎用コンポーネントへ
+    設計し直した
+  - `client-techops/src/routeSwitch.ts`（`QsheetRoot`→`TechopsRoot`等）、
+    `client-techops/src/**`の52ファイル219箇所の`/qsheet`パス文字列
+    （`pcOnlyScreens.ts`・API呼び出し・リンク等）をマルチエージェントで一括置換。
+    Socket.IO名前空間（`lib/socket.ts`の`io('/qsheet', ...)`）は計画どおり対象外のまま
+  - サーバー側: `createQsheetRoutes()`を`createQsheetRoutes(prefix)`化し
+    `routes/index.ts`で`/qsheet`・`/techops`の両方を登録（router.use×26を二重化）。
+    `server/src/app.ts`に`serveApp('/techops', ...)`を追加（同じ`client-techops/dist`を
+    二重マウント。Viteの`base`がビルド時に絶対パスとして焼き込まれるため、同一distを
+    複数prefixで配信してもアセット解決が壊れないことを確認）
+  - `shared/src/production/miniapps.ts`とサーバー側複製（`check-collab-parity.mjs`が
+    整合検査）を同時変更。`client/`側cross-app links 3ファイル
+    （`DayTab.tsx`／`BusinessProjectView.tsx`／`shortcuts.ts`。`shortcuts.ts`は
+    `key`/`module`の`'qsheet'`は`permissionModule`のため据え置き、`to`のURLだけ変更）
+  - ⚠️ **マルチエージェントのタスク一覧には無かった手動監査での発見・修正**
+    （Phase 1と同型の見落とし）:
+    1. `shared/tests/miniapps.test.ts`・`shared/tests/qsheetCollabMetaSync.test.ts`が
+       ソースを直接読んで`/qsheet`パスをアサートしており、bulk-replaceでソース側が
+       変わったことで9件のテストが落ちる状態だった（Phase 1の
+       `shared/tests/*.test.ts`見落としと同型・タスク一覧が最初からclient-techops配下
+       とserver配下だけを対象にしており、shared/tests配下の「ソース文字列を読んで
+       アサートする」形式のテストが盲点だった）
+    2. `client-live/src`（別バンドル）に旧`client-live`のリダイレクトページ10ファイルが
+       `/qsheet/live/*`等へのリンクをハードコードしており、`cross-app-links`タスクが
+       `client/`配下の3ファイルしかスコープに入れていなかったため見落とされていた
+       （`hasPermission('qsheet', 'manager')`の`permissionModule`は区別して不変のまま
+       保持）
+    3. `server/src/contexts/qsheet/services/journey.service.ts`のジャーニー提案先
+       （`to: '/qsheet/schedules'`等2箇所）も同種の見落としで、`server-qsheet-dual-mount`
+       タスクのスコープ（router.use文字列）に含まれていなかった
+    4. `client/src`内の説明用コメント2箇所（`MobileTools.tsx`・`shortcuts.ts`）も
+       整合のため合わせて更新
+  - **検証**: `npx tsc -b`（client/client-daily/client-equipment/client-techops/
+    client-live/server、全ワークスペース）0エラー、`npm run test`1452件全通過
+    （手動修正後）、`npm run lint`0エラー・warning 59件（Phase 1と同数、新規warningなし）、
+    `node scripts/check-mobile-declared.mjs`・`check-collab-parity.mjs`・
+    `check-links.mjs`いずれもOK、`npm run build --workspace=client-techops`・
+    `--workspace=server`成功（ビルド後の`index.html`が`/techops/assets/...`を
+    参照することを実際に確認）
+  - **Phase 3（Socket.IOカットオーバー・本番URL最終移行）・Phase 4（MCPツール名）は
+    未着手のまま。** 計画停止枠の設定・本番アクセスが要るため、この環境からは
+    引き続き着手できない（§6参照）

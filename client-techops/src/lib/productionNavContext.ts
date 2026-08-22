@@ -2,8 +2,8 @@
  * 「いまどの案件/番組を見ているか」を教える小さなストア（2026-08-22・ご指示で新設）。
  *
  * サイドバー・スマホ下タブ（`components/layout/nav.ts` の `buildQsheetNav`）が、
- * URL だけでは owner（案件id/番組id）が分からない画面（`/qsheet/editor/:id` のような
- * **doc id** が URL に出る画面、`/qsheet/recording/:ownerKey` のように owner キーは
+ * URL だけでは owner（案件id/番組id）が分からない画面（`/techops/editor/:id` のような
+ * **doc id** が URL に出る画面、`/techops/recording/:ownerKey` のように owner キーは
  * 出るが project か program かが URL だけでは分からない画面）で参照する。
  *
  * ── URL 優先・このストアは「補助」でしかない ──────────────────────
@@ -12,7 +12,7 @@
  * それで足りないときだけこのストアの値を見る。したがって:
  *
  * - `clear()` に相当する関数は無い。判定に使わないページでは参照されないので、
- *   古い値が残っていても実害が無い（例: `/qsheet/top` にいるとき、このストアに
+ *   古い値が残っていても実害が無い（例: `/techops/top` にいるとき、このストアに
  *   前に見ていた案件の値が残っていても `buildQsheetNav` は見ない）
  * - 各ページ（`EditorPage`/`SchedulePage`/`JourneyPage`/`RecordingPage`/`StreamingPage`/
  *   `RentalSearchPage` 等）から `setProductionNavContext` を呼ぶ配線は**このファイルの

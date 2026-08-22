@@ -131,7 +131,7 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 | 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
-| 制作資料 (Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/qsheet/` | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
+| 制作資料 (Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧`/qsheet/`も後方互換） | 5174 | 凍結 | 進行台本・ランダウン・OnAir |
 | 計時LIVE | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | 凍結 | タイマー・視聴者カウンター |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards`) |
 
@@ -337,7 +337,7 @@ npm run dev    # 全アプリ並列起動（concurrently）
 
 ```bash
 npm run dev:client       # 案件管理
-npm run dev:qsheet       # Qシート
+npm run dev:techops      # 制作技術支援（Qシート）
 npm run dev:interactive  # インタラクティブ
 npm run dev:server       # Express API
 ```

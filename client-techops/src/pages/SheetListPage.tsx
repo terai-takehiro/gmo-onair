@@ -1,5 +1,5 @@
 /**
- * 進行台本の一覧（`/qsheet/sheets`）。
+ * 進行台本の一覧（`/techops/sheets`）。
  *
  * 実装設計: docs/design/v4/qsheet-v4-coding/impl/03-app-structure-impl.md §8 PR G。
  * 旧 `DashboardPage.tsx`（832行）を分割したもの — カード（`sheets/DocCard.tsx`）・
@@ -72,7 +72,7 @@ export default function SheetListPage() {
       if (programFilter) params.set("program_id", programFilter);
       if (dateFilter) params.set("date", dateFilter);
       if (scopeFilter !== "all") params.set("scope", scopeFilter);
-      const res = await api.get(`/qsheet/documents?${params}`);
+      const res = await api.get(`/techops/documents?${params}`);
       return res.data.data as QsheetDocument[];
     },
     retry: false,
@@ -80,7 +80,7 @@ export default function SheetListPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/qsheet/documents/${id}`);
+      await api.delete(`/techops/documents/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
@@ -227,8 +227,8 @@ export default function SheetListPage() {
                 key={doc.id}
                 doc={doc}
                 canManage={isAdmin || (!!currentUser && doc.created_by === currentUser.id)}
-                onNavigate={(id) => navigate(`/qsheet/editor/${id}`)}
-                onOnAir={(id) => navigate(`/qsheet/onair/${id}`)}
+                onNavigate={(id) => navigate(`/techops/editor/${id}`)}
+                onOnAir={(id) => navigate(`/techops/onair/${id}`)}
                 onDelete={handleDelete}
                 onShare={setShareDoc}
               />
@@ -254,7 +254,7 @@ export default function SheetListPage() {
         onOpenChange={setShowCreate}
         defaultProjectId={projectFilter}
         defaultProgramId={programFilter}
-        onCreated={(doc) => navigate(`/qsheet/editor/${doc.id}`)}
+        onCreated={(doc) => navigate(`/techops/editor/${doc.id}`)}
       />
 
       {/* 共有設定ダイアログ */}

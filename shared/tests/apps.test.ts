@@ -48,7 +48,7 @@ describe('アプリ登録そのもの', () => {
     // 「Qシート」は**制作技術支援の中のミニアプリの名前**として残っており、
     // アプリの名前は「制作技術支援」（旧「制作資料」・2026-08-22 に再改名）。
     // 設定は `/admin` → `/settings` の改名と対
-    expect(APP_LABELS.qsheet).toBe('制作技術支援');
+    expect(APP_LABELS.techops).toBe('制作技術支援');
     expect(APP_LABELS.admin).toBe('設定');
   });
 
@@ -102,7 +102,7 @@ describe('visibleApps — メニューに出す一覧', () => {
   it('**既定では凍結1アプリ (awards) を出さない** (v4 のシェル用)。制作資料・計時LIVE は既定でも出る', () => {
     const keys = visibleApps(admin).map((a) => a.key);
     expect(keys).not.toContain('awards');
-    for (const k of ['qsheet', 'liveops']) expect(keys).toContain(k);
+    for (const k of ['techops', 'liveops']) expect(keys).toContain(k);
   });
 
   it('includeFrozen で凍結アプリ (awards) も出る (v4 に載せ替える前の画面用)', () => {

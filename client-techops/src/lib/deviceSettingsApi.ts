@@ -120,7 +120,7 @@ export interface OwnerContext {
   glsNumber: string | null;
 }
 
-const base = (ownerKey: string) => `/qsheet/production/${encodeURIComponent(ownerKey)}`;
+const base = (ownerKey: string) => `/techops/production/${encodeURIComponent(ownerKey)}`;
 const dateQuery = (date?: string) => (date ? `?date=${encodeURIComponent(date)}` : '');
 
 /** 見つからない・権限が無いときは null（呼び出し側で「見つかりません」を出す） */

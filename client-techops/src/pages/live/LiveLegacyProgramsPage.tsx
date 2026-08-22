@@ -49,7 +49,7 @@ export default function LiveLegacyProgramsPage() {
     <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
       <button
         type="button"
-        onClick={() => navigate('/qsheet/top')}
+        onClick={() => navigate('/techops/top')}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
         aria-label="戻る"
       >
@@ -66,7 +66,7 @@ export default function LiveLegacyProgramsPage() {
           この管理者向け画面からも開けるようにする（新規作成ではなく既存導線の追加なので
           §致命的2のスコープの範囲内） */}
       <a
-        href="/qsheet/live-org-settings"
+        href="/techops/live-org-settings"
         className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         組織の鍵設定

@@ -5,18 +5,18 @@ import type { JourneyResponse, MarkKind, MarkScopeType, JourneyStage } from "@gm
 interface Envelope<T> { success: boolean; data: T }
 
 export async function getProjectJourney(projectId: string): Promise<JourneyResponse> {
-  const res = await api.get<Envelope<JourneyResponse>>(`/qsheet/scopes/project/${projectId}/journey`);
+  const res = await api.get<Envelope<JourneyResponse>>(`/techops/scopes/project/${projectId}/journey`);
   return res.data.data;
 }
 
 export async function getDocumentJourney(docId: string): Promise<JourneyResponse> {
-  const res = await api.get<Envelope<JourneyResponse>>(`/qsheet/scopes/document/${docId}/journey`);
+  const res = await api.get<Envelope<JourneyResponse>>(`/techops/scopes/document/${docId}/journey`);
   return res.data.data;
 }
 
 /** 番組（マニュアル・案件管理外）単位のジャーニー。2026-08-22 追加 */
 export async function getProgramJourney(programId: string): Promise<JourneyResponse> {
-  const res = await api.get<Envelope<JourneyResponse>>(`/qsheet/scopes/program/${programId}/journey`);
+  const res = await api.get<Envelope<JourneyResponse>>(`/techops/scopes/program/${programId}/journey`);
   return res.data.data;
 }
 
@@ -37,7 +37,7 @@ export interface JourneyMarkRow {
 }
 
 export async function listJourneyMarks(scopeType: MarkScopeType, scopeId: string): Promise<JourneyMarkRow[]> {
-  const res = await api.get<Envelope<JourneyMarkRow[]>>("/qsheet/journey/marks", {
+  const res = await api.get<Envelope<JourneyMarkRow[]>>("/techops/journey/marks", {
     params: { scope_type: scopeType, scope_id: scopeId },
   });
   return res.data.data;
@@ -54,10 +54,10 @@ export interface CreateMarkPayload {
 }
 
 export async function createJourneyMark(payload: CreateMarkPayload): Promise<JourneyMarkRow | null> {
-  const res = await api.post<Envelope<JourneyMarkRow | null>>("/qsheet/journey/marks", payload);
+  const res = await api.post<Envelope<JourneyMarkRow | null>>("/techops/journey/marks", payload);
   return res.data.data;
 }
 
 export async function clearJourneyMark(id: string): Promise<void> {
-  await api.delete(`/qsheet/journey/marks/${id}`);
+  await api.delete(`/techops/journey/marks/${id}`);
 }

@@ -129,7 +129,7 @@ interface Envelope<T> {
   data: T;
 }
 
-const base = '/qsheet/rental';
+const base = '/techops/rental';
 const reservationsBase = (ownerKey: string) => `${base}/${encodeURIComponent(ownerKey)}/reservations`;
 
 export async function getRentalSyncStatus(): Promise<RentalSyncStatus> {

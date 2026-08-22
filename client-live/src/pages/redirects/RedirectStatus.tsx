@@ -5,7 +5,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
  * 計時・視聴者 v4.1 段2 — 旧URLのリダイレクト専用の薄い画面が共通で使う見た目。
  *
  * `RedirectOnce`（`shared/src/client/RedirectOnce.tsx`）は同一バンドル内の
- * react-router `navigate()` を使うため、別バンドル（`client-techops`・`/qsheet/...`）
+ * react-router `navigate()` を使うため、別バンドル（`client-techops`・`/techops/...`）
  * へは飛ばせない。ここでは `window.location.replace()` によるハード遷移を行う
  * （12-live-timer-decision.md・GROUND_RULES §2）。
  */
@@ -32,7 +32,7 @@ export function RedirectView({ target }: { target: RedirectTarget }) {
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center">
         <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
         <p className="max-w-sm text-sm text-muted-foreground">{target.message}</p>
-        <a href="/qsheet/top" className="text-xs text-primary underline underline-offset-2">
+        <a href="/techops/top" className="text-xs text-primary underline underline-offset-2">
           制作技術支援のトップを開く
         </a>
       </div>
