@@ -80,7 +80,7 @@ export default function CopyFromDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>前回の設定を写す</DialogTitle></DialogHeader>
 
         <p className="text-sm text-muted-foreground">

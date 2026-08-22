@@ -114,6 +114,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? "パートナー予定を編集" : "パートナー予定を登録"}
+      size="lg"
       sub="ここに登録した予定はパートナースケジュール権限を持つメンバー全員に共有されます。"
       footer={
         <FormDialogFooter>

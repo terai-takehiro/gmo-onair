@@ -142,6 +142,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? (isExternalSynced ? "同期された予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
+      size="lg"
       sub={
         isSharedIn
           ? "共有された予定です。内容を編集できます（予定の削除は作成者のみ）。"

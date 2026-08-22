@@ -57,7 +57,7 @@ export function EquipmentAssetFields({
 
       {expanded && (
         <div className="space-y-4 pt-1">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label>所管</Label>
               <BranchCodeInput value={form.branch_code} onChange={(v) => setForm({ ...form, branch_code: v })} />
@@ -145,7 +145,7 @@ export function EquipmentAssetFields({
           {selLoc?.is_rack && (
             <div className="border-t border-border pt-4">
               <p className="mb-3 text-cardtitle">ラック実装</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div className="space-y-1">
                   <Label>U位置 (下端)</Label>
                   <Input

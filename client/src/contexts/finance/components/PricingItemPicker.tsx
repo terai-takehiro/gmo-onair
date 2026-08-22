@@ -114,7 +114,7 @@ export default function PricingItemPicker({
       open={open}
       onOpenChange={onOpenChange}
       title="料金表から明細を追加"
-      // **旧幅は max-w-3xl（768px）で既定の560pxを大きく超えていた。**
+      // **旧幅は max-w-3xl（768px）で既定の640pxを超えていた。**
       // カテゴリ一覧・料金の桁が横に並ぶ表なので `wide` を渡す
       wide
       sub={`項目をクリックすると明細行として追加されます。続けて複数選択できます${customerType === "internal" ? "（グループ内価格）" : "（定価）"}`}

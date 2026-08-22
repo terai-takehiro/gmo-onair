@@ -115,7 +115,7 @@ export function ApplyFlowDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="標準の工程を入れる"
-      // **旧幅は sm:max-w-[720px] で既定の560pxを大きく超えていた。**
+      // **旧幅は sm:max-w-[720px] で既定の640pxを超えていた。**
       // 工程一覧の表・役割バッジが横に並ぶ複合ダイアログなので `wide` を渡す
       wide
       footer={

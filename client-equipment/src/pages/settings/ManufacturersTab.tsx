@@ -141,6 +141,8 @@ export function ManufacturersTab() {
         open={crud.dialogOpen}
         onOpenChange={crud.setDialogOpen}
         title={crud.isEditing ? 'メーカーを直す' : 'メーカーを足す'}
+        // 入力7個・電話/メール・表示順/備考の2列グリッドを2つ持つので `lg`(840px)
+        size="lg"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>

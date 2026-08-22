@@ -172,7 +172,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                     autoFocus
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">タイプ</Label>
                     <Select value={form.col_type} onValueChange={v => setForm(f => ({ ...f, col_type: v }))}>

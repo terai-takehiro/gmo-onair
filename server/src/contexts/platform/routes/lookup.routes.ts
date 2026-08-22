@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { getProjectContext } from '../services/projectContext.service';
 
 const router = Router();
 
@@ -39,6 +40,32 @@ router.get('/:projectId/episodes-options', async (req, res) => {
     [projectId]
   );
   res.json({ success: true, data: rows });
+});
+
+/**
+ * 案件1件の「台本を作るのに要る事実」（案件名・顧客名・会場・本番日・リハ日）。
+ *
+ * **案件を1つ選んだ瞬間に1回だけ叩く想定。** 一覧（`/gls-options`）には
+ * 絶対に足さない — 全案件ぶん `project_dates` と `studio_bookings` の JOIN を
+ * 引くことになり、**セレクターを開くだけで重くなる**。
+ *
+ * ── 権限の判断 ──────────────────────────────────────────
+ *
+ * この経路は上の `router.use(requireAuth)` のとおり**認証だけ**で、
+ * `sales` 権限を要求しない。制作技術支援（qsheet）の利用者は
+ * `GET /projects`（`projects.routes.ts` の `requirePermission('sales')`）も
+ * `GET /studios/bookings`（`studio.routes.ts` の同）も叩けないので、
+ * **越境用のこの経路でしか案件の事実を読めない**ため。
+ *
+ * そのかわり**返す中身を必要最小限に絞る**（実装は
+ * `../services/projectContext.service.ts`）。金額・見込額・ステージ・
+ * 失注理由・BOX の URL といった営業情報は**1つも返さない** —
+ * 権限を要求しない以上、返した時点で全社員に見えるのと同じ意味になる。
+ */
+router.get('/:projectId/context', async (req, res) => {
+  const context = await getProjectContext(req.params.projectId);
+  if (!context) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+  res.json({ success: true, data: context });
 });
 
 export default router;

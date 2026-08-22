@@ -109,9 +109,9 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
       open={open}
       onOpenChange={onOpenChange}
       title="ロケーション・部屋管理（管理者のみ）"
-      // 元の max-w-3xl (768px) は既定の560pxよりかなり広い。各ロケーションの
-      // 行（拠点名+略称+ボタン、部屋の一覧行）が横に長く、560pxに絞ると
-      // 折り返しが増えて縦に間延びするため wide (760px) を渡す。
+      // 元の max-w-3xl (768px) は既定の640pxより広い。各ロケーションの
+      // 行（拠点名+略称+ボタン、部屋の一覧行）が横に長く、640pxに絞ると
+      // 折り返しが増えて縦に間延びするため wide (=lg・840px) を渡す。
       wide
     >
         {/* ガイド */}

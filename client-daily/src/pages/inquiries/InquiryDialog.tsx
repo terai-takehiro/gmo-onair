@@ -67,6 +67,8 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={initial ? '問い合わせを直す' : '問い合わせを足す'}
+      // 入力10個・送信者/重要度・出どころ/受信日の2列グリッドを持つので `lg`(840px)
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>

@@ -218,7 +218,7 @@ export default function SessionHomePage() {
 
       {/* Creation dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>新規セッション作成</DialogTitle>
           </DialogHeader>

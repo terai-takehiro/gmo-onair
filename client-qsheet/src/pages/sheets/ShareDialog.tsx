@@ -88,7 +88,16 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        // **1カラムの選択リストなので `md`（640px）。** 中身は検索欄と、
+        // 「チェック＋名前＋メール」を縦に積むだけの一覧で、横に並べる列も
+        // 2列の入力も無い。`lg`（840px）にすると名前の右にメールまでの
+        // 空白が広がるだけで、1画面に入る人数は1人も増えない。
+        // ⚠️ 旧実装が指していた Tailwind の最大幅の `md` 段は **448px** で、
+        // この段の `md`（640px）とは別物（448px では名前とメールが折り返して
+        // 狭すぎたので、戻さずこの段の `md` に上げてある）。
+        size="md"
+      >
         <DialogHeader>
           <DialogTitle>共有設定</DialogTitle>
           <DialogDescription>
