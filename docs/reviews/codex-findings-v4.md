@@ -1089,6 +1089,18 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   0エラー・warning 59件（Phase 1と同数）・`npm run build`（client-techops/server）成功を
   確認済み。Phase 3（Socket.IOカットオーバー）・Phase 4（MCPツール名）は未着手のまま
   ユーザーの追加判断待ち。
+- **#336**（`docs+feat(liveops): PR #333棚卸し ＋ 表示レイアウトPR2（表示画面対応）`）—
+  作成 2026-08-22 15:15:23 / マージ 15:51:44。`get_reviews`・`get_review_comments`
+  いずれも0件。表に移す指摘はない（レビュー自体が届いていないため）。⚠️ **当初は
+  「PR #333の棚卸し記録のみ」の予定だったが、PR2（表示レイアウト機能の表示画面
+  `TimerDisplayPage.tsx`対応）の実装がマージ前の同じブランチに積み重なり、2つの
+  独立した変更が1本のPRに混在した**（force-pushでの巻き戻しはしない方針のため）。
+  PR本文を「棚卸し＋PR2実装が混在している」旨と、リスクの高いPR2部分への注意喚起を
+  明記する形に更新して対応した。マージ後、並行してマージされた `client-qsheet`→
+  `client-techops` Phase 2改名（#337）とのマージコンフリクト（`docs/reviews/
+  codex-findings-v4.md`の同時追記による1件）を解消し、`typecheck:all`/`lint`/`test`
+  （1452件）を再確認してから再pushした。表示画面契約（`liveDisplayContract.test.ts`
+  5項目）はこのPRを通じて無変更のまま。
 - **#339**（`refactor(qsheet): Phase 3・4 — Socket.IOブリッジとMCPツール名の二重登録`）—
   作成 2026-08-22 16:20頃 / CI green 16:22:16頃 / マージ 16:24:27頃
   （**CI green から約2分後**）。`get_review_comments` 0件。表に移す指摘はない
@@ -1107,6 +1119,17 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （1452件）全通過・`npm run lint`0エラー・warning 59件（従前と同数）・
   `node scripts/generate-mcp-tools.mjs`（権限ゲート検証OK）・`npm run build`
   （server/client-techops）成功を確認済み。
+- **#340**（`feat(techops): 表示レイアウト機能のエディタUI・テンプレートライブラリを
+  追加した`・表示画面レイアウトエディタ機能の3分割PRの3本目・最終）— 作成
+  2026-08-22 16:25:13 / CI green 16:27:31頃 / マージ 16:27:44（**CI green から
+  約13秒後**）。`get_reviews`・`get_review_comments`いずれも0件。表に移す指摘はない
+  （レビュー自体が届いていないため）。実装内容自体は、実装エージェント・独立レビュー
+  エージェント・独立検証エージェント（3段階のワークフロー内検証）に加え、私自身による
+  `npm run typecheck:all`/`lint`/`test`（1452件green）の再実行、`git diff --stat`での
+  表示画面ファイル・server配下の無変更確認を経てからpushした。設計書は
+  `client-qsheet`（`/qsheet/`）時代に書かれていたため、実装時に`client-techops`
+  （`/techops/`。並行してマージされたPhase 1〜4改名・#334/#337/#339）へ読み替えた。
+  これで計時・視聴者 表示レイアウト機能（PR1〜3の3分割）はすべて完了。
 
 ---
 
