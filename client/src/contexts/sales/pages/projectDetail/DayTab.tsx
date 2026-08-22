@@ -3,6 +3,19 @@
  *
  * 本番当日に開くもの (制作技術支援) への入口です。
  *
+ * ── 制作技術支援のハブへ連携（2026-08-22 追加） ──────────────────
+ *
+ * 制作技術支援に「番組・案件を選ぶとミニアプリ（進行台本・スケジュール表・
+ * 収録設定・配信設定）がタイルで並ぶハブ画面」ができた
+ * （`client-qsheet/src/pages/JourneyPage.tsx` の `scope="project"`・
+ * `/qsheet/projects/:id`）。ハブ画面は**この案件の `id` をそのまま owner キーに使う**
+ * （`device-settings-owner.ts` の `resolveOwner` が `projects.id` を直接引く）ので、
+ * 案件詳細からはこの案件の `projectId` を渡すだけでよい — 新しい API は要らない。
+ * `HubCard`（このファイル冒頭）がその入口。**進行台本の一覧（`DocList`）とは別物**で、
+ * ハブは「当日の枠 → 番組の流れ → 台本の中身」の日別ジャーニーと、
+ * スケジュール表・収録設定・配信設定への入口までまとめて出す（`DocList` は
+ * 進行台本だけの一覧で、いままでどおりここからも直接開ける）。
+ *
  * ── 凍結アプリとの約束（当時の記録） ──────────────────────────
  *
  * 制作技術支援 (Qシート・旧「制作資料」) は v4.0.0 では**凍結**で、
@@ -31,10 +44,35 @@
  * PC は従来の `Row` のままです（中身・API呼び出しは1つも変えていません）。
  */
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, ClipboardList, Info, ChevronRight } from 'lucide-react';
+import { ExternalLink, ClipboardList, Info, ChevronRight, Compass } from 'lucide-react';
 import api from '@/lib/api';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+
+/**
+ * 制作技術支援のハブ（`/qsheet/projects/:id`）を開くカード。**別バンドルなので
+ * 素の `<a>`**（`DocList` と同じ理由）。当日の枠・進行台本・スケジュール表・
+ * 収録設定・配信設定がまとめて並ぶ画面へ、この案件の id だけで直接着地する。
+ */
+function HubCard({ projectId }: { projectId: string }) {
+  return (
+    <a
+      href={`/qsheet/projects/${projectId}`}
+      className="min-h-tap flex items-center gap-3 rounded-card border border-primary-border bg-primary-surface-weak px-4 py-3.5 hover:bg-primary-surface"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control-md bg-card text-primary">
+        <Compass className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-list block font-bold">制作技術支援を開く</span>
+        <span className="text-sub-sm block text-muted-foreground">
+          当日の枠・進行台本・スケジュール表・収録設定・配信設定をまとめて見られます
+        </span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </a>
+  );
+}
 
 interface Doc { id: string; title: string; status?: string | null; updated_at: string }
 
@@ -115,19 +153,20 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
 
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
+      <HubCard projectId={projectId} />
+
       <DocList
-        title="制作技術支援（Qシート）"
+        title="進行台本（Qシート）"
         icon={ClipboardList}
         docs={qsheets.data ?? []}
         hrefOf={(d) => `/qsheet/editor/${d.id}`}
-        emptyHint="この案件の資料はまだありません。制作技術支援の画面から作れます。"
+        emptyHint="この案件の資料はまだありません。上の「制作技術支援を開く」から作れます。"
         mobile={!!mobile}
       />
 
-      <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <div className="flex items-start gap-2.5 rounded-note border border-border-subtle bg-muted px-3.5 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
-          制作技術支援は<strong className="font-bold">ここからも開けます</strong>。
           資料ごとの進み具合（準備稿・決定稿など）をここに出すのは、
           <strong className="font-bold">次のバージョンで対応予定</strong>です。
         </p>
