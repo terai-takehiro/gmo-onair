@@ -109,6 +109,7 @@ export function PurchaseDialog({
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? '仕入を直す' : '仕入を登録'}
+      size="lg"
       footer={
         <div className="flex gap-2 sm:justify-between">
           <div>

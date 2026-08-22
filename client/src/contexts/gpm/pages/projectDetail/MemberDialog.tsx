@@ -97,6 +97,7 @@ export function MemberDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={member ? '体制の人を直す' : '体制に人を足す'}
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>

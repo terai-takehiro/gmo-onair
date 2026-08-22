@@ -71,6 +71,7 @@ export function PurchaseDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={editing ? 'グループ仕入編集' : 'グループ仕入登録'}
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
@@ -97,7 +98,7 @@ export function PurchaseDialog({
           <Label>説明</Label>
           <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="仕入の説明" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>税区分</Label>
             <Select value={tax} onValueChange={setTax}>

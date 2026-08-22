@@ -152,6 +152,7 @@ export default function SgaDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={editingId ? "販管費編集" : "販管費 新規登録"}
+      size="lg"
       footer={
         <div className="flex flex-wrap gap-2 sm:justify-between">
           <div>

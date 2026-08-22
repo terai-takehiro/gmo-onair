@@ -673,7 +673,7 @@ export default function StudioBookingDialog({
                               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: room.color }} />
                               <span className="text-[14px] font-medium">{room.name}</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                               <input
                                 type="text"
                                 value={detail.occupant}

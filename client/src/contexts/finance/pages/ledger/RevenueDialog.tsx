@@ -236,7 +236,7 @@ export function RevenueDialog({
   return (
     <>
       <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-        <DialogContent className="sm:max-w-[min(96vw,1400px)] max-h-[90vh] overflow-y-auto">
+        <DialogContent size="full" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{existingRevenueId ? '売上を更新' : '新規売上登録'}</DialogTitle>
           </DialogHeader>

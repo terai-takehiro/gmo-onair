@@ -82,6 +82,7 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={item ? '未確認事項を直す' : '未確認事項を足す'}
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>やめる</Button>

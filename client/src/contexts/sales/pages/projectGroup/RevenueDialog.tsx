@@ -77,6 +77,7 @@ export function RevenueDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={editing ? 'グループ売上編集' : 'グループ売上登録'}
+      size="lg"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
@@ -99,7 +100,7 @@ export function RevenueDialog({
           <Label>件名</Label>
           <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="見積件名" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>ステータス</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as 'estimate' | 'confirmed')}>
