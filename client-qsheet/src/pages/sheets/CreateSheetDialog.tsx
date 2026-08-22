@@ -169,10 +169,14 @@ export function CreateSheetDialog({
     },
   });
 
+  // 案件を選び直したとき。**番組名も含めて自動入力は effect 側（案件の context）が入れる** —
+  // ここで案件一覧（`glsProjects`）から番組名を入れていたころは、`?project=` 付きで開いた
+  // 経路（`setSelectedProjectId` を直に呼ぶ）だけ番組名が入らず、必須なのに空＝
+  // 作成ボタンが押せない状態になっていた。ここは「選び直した」ことを伝えるだけにする。
   const handleProjectChange = (value: string) => {
     setSelectedProjectId(value);
     setSelectedEpisodeId("");
-    onProjectSelected(glsProjects?.find((p) => p.id === value));
+    onProjectSelected();
   };
 
   const handleEpisodeChange = (value: string) => {
