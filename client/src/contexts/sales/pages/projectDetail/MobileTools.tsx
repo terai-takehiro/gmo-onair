@@ -23,8 +23,8 @@
  *
  *   予定を見る  `/studio/calendar`（スマホでは ⑬ 今日の予約が出る）
  *   機材        `/equipment`（別バンドル）
- *   制作資料    当日タブへ送る。**この案件の資料だけ**が並ぶので、
- *               `/qsheet` を直接開くより近い（v4 の呼び名は「制作資料」）
+ *   制作技術支援 当日タブへ送る。**この案件の資料だけ**が並ぶので、
+ *               `/qsheet` を直接開くより近い（v4 の呼び名は「制作技術支援」・旧「制作資料」）
  *   BOX         `box_url_internal` が入っているときだけ。
  *               **無い案件では出しません** — 押しても開かないボタンを置かない
  */
@@ -52,7 +52,7 @@ export function MobileTools({ project }: { project: ProjectDetail }) {
     });
   }
   tools.push({
-    key: 'qs', label: '制作資料', sub: 'この案件の台本・進行', icon: FileText,
+    key: 'qs', label: '制作技術支援', sub: 'この案件の台本・進行', icon: FileText,
     go: () => navigate(`/sales/projects/${project.id}/day`),
   });
   if (project.box_url_internal) {

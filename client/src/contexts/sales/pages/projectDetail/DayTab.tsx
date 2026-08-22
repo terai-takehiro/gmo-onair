@@ -1,17 +1,18 @@
 /**
  * 案件詳細 / 当日タブ (v4 ⑥)
  *
- * 本番当日に開くもの (制作資料) への入口です。
+ * 本番当日に開くもの (制作技術支援) への入口です。
  *
- * ── 凍結アプリとの約束 ──────────────────────────────────────
+ * ── 凍結アプリとの約束（当時の記録） ──────────────────────────
  *
- * 制作資料 (Qシート) は v4.0.0 では**凍結**で、
- * トップページのアプリ一覧からは外れます。ただし決めごとは
- * **「URL は生かす」**なので、**案件の中からは今日から開けます**。
+ * 制作技術支援 (Qシート・旧「制作資料」) は v4.0.0 では**凍結**で、
+ * トップページのアプリ一覧からは外れていた。ただし決めごとは
+ * **「URL は生かす」**だったので、**案件の中からは当時から開けた**。
+ * v4.1 で凍結は解け、いまはアプリ一覧・アプリ切替にも出る（`shared/src/client/apps.ts`）。
  * この案件に紐づく資料をサーバーから引いて、あるものだけ並べます
  * (`GET /qsheet/documents?project_id=`)。
  *
- * ⚠️ 技術資料アプリは削除済み（制作資料へのマージに向けてアプリごと削除した）。
+ * ⚠️ 技術資料アプリは削除済み（制作技術支援へのマージに向けてアプリごと削除した）。
  *
  * ── まだ出せないもの ────────────────────────────────────────
  *
@@ -115,19 +116,18 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
       <DocList
-        title="制作資料（Qシート）"
+        title="制作技術支援（Qシート）"
         icon={ClipboardList}
         docs={qsheets.data ?? []}
         hrefOf={(d) => `/qsheet/editor/${d.id}`}
-        emptyHint="この案件の制作資料はまだありません。制作資料の画面から作れます。"
+        emptyHint="この案件の資料はまだありません。制作技術支援の画面から作れます。"
         mobile={!!mobile}
       />
 
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
-          制作資料は v4.0.0 では見た目を変えずに残しています（アプリの一覧からは外れますが、
-          <strong className="font-bold">ここからは今までどおり開けます</strong>）。
+          制作技術支援は<strong className="font-bold">ここからも開けます</strong>。
           資料ごとの進み具合（準備稿・決定稿など）をここに出すのは、
           <strong className="font-bold">次のバージョンで対応予定</strong>です。
         </p>

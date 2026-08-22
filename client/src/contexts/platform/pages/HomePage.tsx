@@ -84,8 +84,13 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * 下の `tiles` は `APPS.filter(...)` なので、**描かれる順は `apps.ts` の
  * `APPS` の順**です。ここを並べ替えてもタイルは動きません
  * （プロジェクト管理を `apps.ts` で案件管理の隣へ移したのはそのため）。
+ *
+ * ⚠️ **制作技術支援 (`qsheet`) は 2026-08-22 のご指示で `EVENT_KEYS`
+ * （`home/AppTiles.tsx`）からここへ格上げした。** 凍結解除・v4 共通シェルへの
+ * 載せ替えが済んだため、「本番の日にだけ開くもの」から「日々の業務」へ移した。
+ * 並び順は `apps.ts` の `APPS` 側でプロジェクト管理と財務管理の間に置いてある。
  */
-const DAILY_KEYS = ['sales', 'gpm', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
+const DAILY_KEYS = ['sales', 'gpm', 'qsheet', 'budget', 'studio', 'dailyops', 'equipment', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();
