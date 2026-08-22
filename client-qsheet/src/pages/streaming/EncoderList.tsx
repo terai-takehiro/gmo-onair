@@ -83,7 +83,8 @@ function EncoderCard({
   warnIds: Set<string>;
   blockedIds: Set<string>;
   onSelect: (destId: string) => void;
-  onAdd: (encoderId: string) => void;
+  /** 編集できない人には渡さない（渡らないときは「＋配信先」を出さない） */
+  onAdd?: (encoderId: string) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-card border bg-card">
@@ -93,13 +94,16 @@ function EncoderCard({
           {dests.length > 0 ? `${dests.length} 件の配信先` : '配信先なし'}
         </span>
         <span className="flex-1" />
-        <button
-          type="button"
-          onClick={() => onAdd(encoderId)}
-          className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-xs font-bold text-primary hover:bg-primary-surface"
-        >
-          <Plus className="h-3.5 w-3.5" /> 配信先
-        </button>
+        {/* ⚠️ 足せない人には出さない（押せてから断られるのがいちばん悪い） */}
+        {onAdd && (
+          <button
+            type="button"
+            onClick={() => onAdd(encoderId)}
+            className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-xs font-bold text-primary hover:bg-primary-surface"
+          >
+            <Plus className="h-3.5 w-3.5" /> 配信先
+          </button>
+        )}
       </div>
 
       {dests.length === 0 ? (
@@ -135,7 +139,8 @@ export default function EncoderList({
   warnIds: Set<string>;
   blockedIds: Set<string>;
   onSelect: (destId: string) => void;
-  onAdd: (encoderId: string) => void;
+  /** 編集できない人には渡さない（渡らないときは「＋配信先」を出さない） */
+  onAdd?: (encoderId: string) => void;
 }) {
   const [showUnused, setShowUnused] = useState(false);
 

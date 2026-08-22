@@ -18,7 +18,10 @@ const KINDS = ['settled', 'watch', 'dismissed'] as const;
 
 const router = Router();
 
-router.use(requireAuth, requirePermission('qsheet', 'editor'));
+// ⚠️ **パスを付けずに `router.use(...)` を書かないこと**（理由は audio-share.routes.ts の
+// 同じ注記）。`/qsheet` に丸ごと載せているので、パスなしだと `editor` 要求が
+// あとから載せた router 全部に効いてしまう。
+router.use('/journey/marks', requireAuth, requirePermission('qsheet', 'editor'));
 
 router.post('/journey/marks', async (req: Request, res: Response) => {
   try {

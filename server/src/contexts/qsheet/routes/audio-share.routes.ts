@@ -10,7 +10,13 @@ const router = Router();
 // PUT /documents/:id/shares (:287-296) と同じ判定 (作成者本人 or 管理者のみ。
 // canAccessDoc の「共有された閲覧者」はここには含めない — 公開URLを誰でも
 // 発行・失効できてしまうと、共有された側が誤って番組を止められる)。
-router.use(requireAuth, requirePermission('qsheet', 'editor'));
+// ⚠️ **パスを付けずに `router.use(...)` を書かないこと**（2026-08-22 に実際に踏んだ）。
+// この router は `server/src/contexts/qsheet/index.ts` で **`/qsheet` に丸ごと**載せている。
+// パスなしの `router.use` は `/qsheet/**` のすべてに当たるため、ここの `editor` 要求が
+// **あとから載せた別の router 全部に効いてしまう**（収録設定・配信設定・スケジュール表・
+// トップ…）。実測では `qsheet: reader` の人が制作技術支援の API を1本も叩けず、
+// 画面は空のまま「このモジュールへのアクセス権限がありません」だけが出ていた。
+router.use('/documents/:id/audio-share', requireAuth, requirePermission('qsheet', 'editor'));
 
 async function loadOwnedDoc(req: Request, res: Response): Promise<{ id: string; created_by: string | null } | null> {
   const doc = (await queryOne(

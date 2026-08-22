@@ -18,10 +18,13 @@ export default function DeckSheet({
   deck,
   onChange,
   onClose,
+  readOnly = false,
 }: {
   deck: Deck | null;
   onChange: (next: Deck) => void;
   onClose: () => void;
+  /** 閲覧だけの人。中身は見せるが直せない（RecordingPage.tsx の理由を参照） */
+  readOnly?: boolean;
 }) {
   return (
     <Dialog open={!!deck} onOpenChange={(open) => !open && onClose()}>
@@ -34,7 +37,16 @@ export default function DeckSheet({
                 {deck.label && <span className="ml-2 text-sub font-normal text-muted-foreground">{deck.label}</span>}
               </DialogTitle>
             </DialogHeader>
-            <DeckSheetBody deck={deck} onChange={onChange} />
+            {/* ⚠️ シートは portal で本文の外に出るので、呼び出し側の <fieldset disabled> が
+                届かない。ここで自前に包む（`contents` なので見た目は変わらない） */}
+            <fieldset disabled={readOnly} className="contents">
+              <DeckSheetBody deck={deck} onChange={onChange} />
+            </fieldset>
+            {readOnly && (
+              <p className="mt-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+                閲覧のみの権限です。直すには編集権限が要ります。
+              </p>
+            )}
             <Button className="mt-6 h-[52px] w-full text-base" onClick={onClose}>
               閉じる
             </Button>
