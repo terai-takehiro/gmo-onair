@@ -3,12 +3,11 @@
  *
  * 決め方と書き方は `client/src/pcOnlyScreens.ts` の冒頭を参照。
  *
- * ⚠️ **このアプリは v4 の共通シェル・`client-v4/pcOnly.tsx` の実際のゲート
- * （`<PcOnlyGate>`）にはまだ載せ替えていない**（凍結解除はこの段では
- * `apps.ts` の `frozen` と検査体系の移行だけ。見た目の作り直しは別段）。
- * ここでは `scripts/check-mobile-declared.mjs` が読む**宣言だけ**を置く
- * （新しく作った画面 `/qsheet/home` が「決めずに縦へ畳んだだけ」で
- * 取り残されるのを防ぐのが目的）。
+ * `AppShell.tsx` が `<PcOnlyGate table={QSHEET_PC_ONLY}>` として実際に使っている。
+ * ただし **`<PcOnlyGate>` は共通シェル配下（`AppShell` の `<Outlet />`）でしか
+ * 効かない** — 本番3画面（`/qsheet/onair/:id` 等）はシェル無しの独立ルート
+ * なので、この表に載っていても実際にゲートを通ることは無い（それでも
+ * `scripts/check-mobile-declared.mjs` の宣言としては必要）。
  *
  * - **編集（`/qsheet/editor/:id`）は PC 専用**（`docs/design/v4/mobile.md` の
  *   `spNotOnPhone` に「Qシートの編集」と明記されている）
@@ -55,6 +54,13 @@ export const QSHEET_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'スケジュール表の一覧を開く', to: '/qsheet/schedules' },
   },
 ];
+
+/**
+ * **スマホの左メニューからも落とすルート**（`hidden: true` の分）。
+ * シェルに渡すと、スマホのときだけ項目が消える（他の v4 対象2アプリと同じ形。
+ * いまは `hidden: true` を付けた項目が無いので空配列）。
+ */
+export const QSHEET_MOBILE_HIDDEN = QSHEET_PC_ONLY.filter((e) => e.hidden).map((e) => e.path);
 
 /**
  * **スマホで触る／読む画面。** ここと `QSHEET_PC_ONLY` のどちらにも入っていない
