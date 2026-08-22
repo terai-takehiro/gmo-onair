@@ -7,6 +7,24 @@ const router = Router();
 const canRead  = [requireAuth, requirePermission('qsheet', 'reader')] as const;
 const canWrite = [requireAuth, requirePermission('qsheet', 'manager')] as const;
 
+// `shared/src/client/live/displayLayout.ts` の DISPLAY_ELEMENT_KEYS と同じ6キー。
+// server はビルドを持たず shared/src/client を import しない構成のためここで複製する
+// （`shared/CLAUDE.md` の `src/collab/` と同じ「意図的な複製」パターン）。
+// PUT /:id/layout がここを緩く見ていると、表示画面（client-live/TimerDisplayPage.tsx の
+// isValidDisplayLayout）側だけを固くしても、qsheet manager 権限で直接 API を叩けば
+// 不正な要素（未知の key・null要素等）を保存できてしまう。
+const VALID_DISPLAY_ELEMENT_KEYS = new Set(['timer', 'youtube', 'jstream', 'zoom', 'teams', 'total']);
+
+function isValidDisplayLayoutElement(el: unknown): boolean {
+  if (!el || typeof el !== 'object') return false;
+  const e = el as Record<string, unknown>;
+  if (typeof e.key !== 'string' || !VALID_DISPLAY_ELEMENT_KEYS.has(e.key)) return false;
+  if (typeof e.visible !== 'boolean') return false;
+  return (['x', 'y', 'w', 'h'] as const).every(
+    (k) => typeof e[k] === 'number' && Number.isFinite(e[k] as number),
+  );
+}
+
 // 公開: 表示画面用（認証不要・ブラウザソース用）
 router.get('/:id/display', async (req, res) => {
   try {
@@ -137,7 +155,12 @@ router.put('/:id/layout', ...canWrite, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const { layout } = req.body;
-    if (!layout || !Array.isArray(layout.elements)) {
+    if (
+      !layout ||
+      (layout.background !== 'dark' && layout.background !== 'light') ||
+      !Array.isArray(layout.elements) ||
+      !layout.elements.every(isValidDisplayLayoutElement)
+    ) {
       return res.status(400).json({ success: false, message: 'layout.elements required' });
     }
     await execute(
