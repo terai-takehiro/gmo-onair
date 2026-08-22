@@ -6,6 +6,7 @@ import { useTimer } from '@/hooks/useTimer';
 import { usePermissions } from '@/hooks/usePermissions';
 import TimerDisplay from '@/components/timer/TimerDisplay';
 import TimerControls from '@/components/timer/TimerControls';
+import TimerSettingsPanel from '@/components/timer/TimerSettingsPanel';
 import ViewerCard from '@/components/viewer/ViewerCard';
 import ViewerChart from '@/components/viewer/ViewerChart';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { Play, Square, ExternalLink, AlertCircle, Timer } from 'lucide-react';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface TimerData { id: string; name: string; phase: string }
+interface ProgramData { main_timer_id: string | null; youtube_urls?: { label: string; url: string }[]; jstream_lpid?: string | null; zoom_meeting_id?: string | null; zoom_webinar_id?: string | null; teams_meeting_url?: string | null }
 interface Snapshot {
   captured_at: string;
   youtube_count: number;
@@ -69,7 +71,7 @@ export default function DashboardPage() {
 
   const { data: program } = useQuery({
     queryKey: ['program', programId],
-    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data),
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data as ProgramData),
     enabled: !!programId,
     staleTime: 60_000,
   });
@@ -108,7 +110,12 @@ export default function DashboardPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['measure', programId] }),
   });
 
-  const activeTimerId = timers[0]?.id ?? null;
+  // 運用画面が出すタイマーは liveops_programs.main_timer_id（実装設計 09 §1-6 #2）。
+  // 未設定・選ばれたタイマーが消えている場合は先頭のタイマーにフォールバックする。
+  const mainTimerId = program?.main_timer_id ?? null;
+  const activeTimerId = (mainTimerId && timers.some(t => t.id === mainTimerId))
+    ? mainTimerId
+    : (timers[0]?.id ?? null);
   const timer = useTimer(activeTimerId);
   const running = measure?.measuring ?? false;
 
@@ -169,12 +176,19 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timer</span>
                 {timers.length > 1 && (
-                  <span className="text-xs text-muted-foreground">— {timers[0].name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    — {timers.find(t => t.id === activeTimerId)?.name ?? timers[0].name}
+                  </span>
                 )}
               </div>
-              <Link to={`/program/${programId}/timers`}>
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground">管理</Button>
-              </Link>
+              <div className="flex items-center">
+                {canManage && programId && (
+                  <TimerSettingsPanel programId={programId} timers={timers} mainTimerId={mainTimerId} />
+                )}
+                <Link to={`/program/${programId}/timers`}>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground">管理</Button>
+                </Link>
+              </div>
             </div>
             <div className="h-44 sm:h-52">
               <TimerDisplay state={timer.state} compact={false} />
