@@ -90,7 +90,7 @@ import type { AppBadges, MyTaskSummary, ScheduleDay } from './home/types';
  * 載せ替えが済んだため、「本番の日にだけ開くもの」から「日々の業務」へ移した。
  * 並び順は `apps.ts` の `APPS` 側でプロジェクト管理と財務管理の間に置いてある。
  */
-const DAILY_KEYS = ['sales', 'gpm', 'qsheet', 'budget', 'calendar', 'dailyops', 'equipment', 'admin'];
+const DAILY_KEYS = ['sales', 'gpm', 'techops', 'budget', 'calendar', 'dailyops', 'equipment', 'admin'];
 
 export default function HomePage() {
   const navigate = useNavigate();
