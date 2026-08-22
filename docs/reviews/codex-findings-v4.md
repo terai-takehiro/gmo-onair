@@ -1039,6 +1039,26 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`docs/reviews/qsheet-techops-migration-plan.md`を、並行マージされたPR #325/#326/#327/#329の
   内容確認に基づき更新。#327のliveops→qsheet権限統合（migration 232）を検知し、計画書§7の
   「識別子は表示名変更では変えない」前例を条件付きの基準へ修正した）。
+- **#334**（`refactor(qsheet): Phase 1 — client-qsheet ディレクトリを client-techops に改名`）—
+  作成 2026-08-22 15:08:54 / CI green 15:11:01（`checks`/`build`とも成功）/
+  マージ 15:12:41頃（**CI green から約1分40秒後**）。`get_review_comments` 0件。
+  表に移す指摘はない（レビュー自体が届いていないため）。245ファイル変更（うち219ファイルは
+  `git mv` によるディレクトリ移動）。qsheet→techops移行計画のPhase 1を実施 —
+  ディレクトリ名・ビルド設定・検査スクリプト・TS識別子（`QSHEET_PC_ONLY`等）の改名のみで、
+  ベースパス`/qsheet/`・`AppKey`・`permissionModule`・Socket.IO・DB・MCPツール名は無変更。
+  マルチエージェント実装（8タスク並行）後、`shared/tests/*.test.ts`14ファイルの
+  ワークスペース境界をまたぐimportパスなど当初のタスク分割から漏れていた参照47ファイルを
+  手動監査で追加修正し、`package-lock.json`の孤児エントリも除去した。
+  `npx tsc -b`（全ワークスペース）0エラー・`npm run test`（1452件）全通過・`npm run lint`
+  0エラー・`npm run build`成功を確認済み。⚠️ **Dockerの実ビルド検証はdockerデーモンが
+  この環境に無く未実施**（PR本文に明記済み。`npm run build`成功で代替確認）。
+  Phase 2以降（本番URL・Socket.IO切替）は未着手のままユーザーの追加判断待ち。
+  併せて `#333`（`docs(design): 計時LIVEディスプレイレイアウトエディタの設計を追加`・
+  liveopsコンテキスト内の新規機能設計＋migration 233）を確認し、qsheet移行計画の
+  前提事実（`qsheet_`系DBオブジェクト数・`server/src/contexts/qsheet/index.ts`の
+  router.use数）に影響が無いことを確認した（migration 233は`liveops_display_layout`
+  というliveops固有のテーブルで`qsheet_`プレフィックスではない。新規ルートも
+  `server/src/contexts/liveops/`配下でqsheetのマウントには触れていない）。
 
 ---
 

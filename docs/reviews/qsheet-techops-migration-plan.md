@@ -553,3 +553,8 @@ DBオブジェクトそのものではなく「旧IDでの互換アクセス」�
   - **Phase 2以降（ベースパス・`AppKey`・Socket.IO切替・本番URL）は未着手のまま。**
     本番URL・Socket.IOの後方互換確認・切替はこの環境から本番へアクセスできず
     検証しきれないため、着手にはユーザーの追加判断を要する（§6参照）
+- **2026-08-22（PR #333 反映確認）** — `docs(design): 計時LIVEディスプレイレイアウト
+  エディタの設計を追加`（liveopsコンテキスト内の新規機能設計＋migration 233）を検知。
+  新規migrationは`liveops_display_layout`というliveops固有テーブルで`qsheet_`プレフィックス
+  ではなく、新規ルートも`server/src/contexts/liveops/`配下でqsheetのマウント・DBオブジェクト
+  数（96個）に影響なし。**§2〜§3の数値・§4のフェーズ計画に修正は不要。**
