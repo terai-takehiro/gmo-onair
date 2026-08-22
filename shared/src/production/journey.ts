@@ -82,6 +82,8 @@ export interface JourneyDay {
 }
 
 export interface JourneyResponse {
+  /** 案件単位のジャーニーだけ持つ。資料単体のジャーニーは常に null（画面は days[].docs から資料名を取る） */
+  project: { id: string; name: string; glsNumber: string | null } | null;
   days: JourneyDay[];
 }
 

@@ -10,6 +10,7 @@ import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
 import TopPage from "@/pages/TopPage";
+import JourneyPage from "@/pages/JourneyPage";
 import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
@@ -62,6 +63,10 @@ export default function App() {
         <Route path="/qsheet/schedules" element={<ScheduleListPage />} />
         <Route path="/qsheet/schedules/:id" element={<SchedulePage />} />
         <Route path="/qsheet/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
+
+        {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
+        <Route path="/qsheet/projects/:id" element={<JourneyPage scope="project" />} />
+        <Route path="/qsheet/docs/:id" element={<JourneyPage scope="document" />} />
       </Route>
 
       {/* Full-screen pages without AppShell */}
