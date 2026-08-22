@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 // ── 収録: decks[] ──────────────────────────────────────────
 export const DeckSchema = z.object({
-  deckId: z.string().min(1).max(16),
+  deckId: z.string().min(1, 'デッキが指定されていません').max(16),
   label: z.string().max(64).optional(),
   videoFormat: z.string().max(32).optional(),
   codec: z.string().max(32).optional(),
@@ -25,11 +25,17 @@ export const DecksSchema = z.array(DeckSchema).max(64);
 const SESSION_NAME_RE = /^[A-Za-z0-9 ._\-+'[\]()]{1,32}$/;
 
 export const DestinationSchema = z.object({
-  encoderId: z.string().min(1).max(16),
+  // 行の安定した id。**鍵の引き継ぎはこれで突き合わせる**（名前ではない）。
+  // ⚠️ 以前は (encoderId, name) で前の暗号文を探していたため、
+  //    利用者が配信先の名前を直した瞬間に保存済みのストリームキーが黙って消えていた。
+  //    名前は自由に変わる値なので、突き合わせの鍵にしてはいけない。
+  //    既存の行には destId が無いので optional。無いときだけ (encoderId, name) に落とす。
+  destId: z.string().min(1).max(64).optional(),
+  encoderId: z.string().min(1, 'ENC が指定されていません').max(16),
   name: z
     .string()
-    .min(1)
-    .max(32)
+    .min(1, 'セッション名を入れてください')
+    .max(32, 'セッション名は32文字以内です')
     .refine((v) => v === v.trim(), 'セッション名の前後に空白は使えません')
     .refine((v) => SESSION_NAME_RE.test(v), 'セッション名は半角英数と ._-+\'[]() のみ使えます'),
   protocol: z.enum(['RTMP', 'SRT Caller', 'SRT Listener']).optional(),
@@ -53,7 +59,7 @@ export const MeetingSchema = z.object({
   tool: z.enum(['Zoom', 'Teams', 'Google Meet', 'Webex', 'その他']),
   toolOther: z.string().max(64).optional(),
   label: z.string().max(64).optional(),
-  url: z.string().min(1).max(512),
+  url: z.string().min(1, '会議URLを入れてください').max(512),
   joinId: z.string().max(64).optional(),
   passcode: z.string().max(64).optional(),
   videoInput: z.enum(['OA1', 'other']),
@@ -77,6 +83,15 @@ export interface DestinationOut extends Omit<Destination, 'streamKey'> {
   streamKeyMasked: string;
   hasStreamKey: boolean;
 }
+
+/**
+ * PUT で送られてくる `streamKey` の意味（3値）。
+ * ⚠️ 以前は「未指定 = 鍵を消す」だったため、画面が伏せ字を送り返さないと鍵が消えた。
+ *   - `undefined`（キーそのものが無い） … **いまの鍵をそのまま残す**
+ *   - `''`（空文字）                     … **鍵を消す**（利用者が明示的に消したとき）
+ *   - それ以外の文字列                   … その値を新しい鍵にする
+ */
+export type StreamKeyIntent = 'keep' | 'clear' | 'set';
 
 export interface StreamingSettings {
   serviceDate: string;

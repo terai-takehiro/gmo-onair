@@ -1,5 +1,11 @@
-// 書き出す前の点検（#279 §4-5 の3段）。画面と Excel で判定がずれないよう、
-// **画面はこの API の結果だけを表示する**（画面側に判定式を書かない — impl doc §4-4）。
+// 書き出す前の点検（#279 §4-5 の3段）。
+//
+// ⚠️ **方針を変えた**（監査 2026-08-22）。もとは「画面はこの API の結果だけを表示する
+// （画面側に判定式を書かない）」だったが、この API は **保存済みの内容しか見ない**ため、
+// 打ち込んだばかりの値は点検に映らず、**間違いに気づけるのは書き出しダイアログを
+// 開いたときだけ**だった。いまは画面も同じ判定をその場で行う
+// （`client-qsheet/src/lib/deviceSettingsShared.ts` の `destIssues` / `deckState`）。
+// **両者は同じ判定にすること。** 食い違うと「画面は赤いのに書き出しは通る」が起きる。
 //
 // ⚠️ `meetings` は一度も見ない（08 §5-4-2 / impl doc §4-4）。未入力でも赤も橙も出さない。
 import { Deck, Destination, PreflightIssue, PreflightResult } from './device-settings-types';
@@ -35,6 +41,14 @@ export function buildPreflight(decks: Deck[], destinations: Destination[]): Pref
     if (isHdPlus && d.codec === 'DNxHR:HQ') {
       amber.push({ where: d.deckId, code: 'HDPLUS_DNXHR', message: 'HD Plus に DNxHR のコーデックが指定されています' });
     }
+    // ⚠️ 以前は解像度とコーデックしか見ていなかったため、**収録先 SSD・8/16ch は
+    // 警告すら出ずに Excel へ出ていた**（HD Plus は SSD を持たず 2/4ch まで）。
+    if (isHdPlus && d.slot && d.slot.startsWith('SSD')) {
+      amber.push({ where: d.deckId, code: 'HDPLUS_SSD', message: 'HD Plus に SSD の収録先が指定されています' });
+    }
+    if (isHdPlus && d.audioChannels && d.audioChannels > 4) {
+      amber.push({ where: d.deckId, code: 'HDPLUS_CH', message: `HD Plus に ${d.audioChannels}ch が指定されています（2/4ch まで）` });
+    }
   }
   for (const [deckId, count] of seenDeckIds) {
     if (count > 1) amber.push({ where: deckId, code: 'DECK_DUPLICATE', message: `${deckId} の行が${count}件あります` });
@@ -58,20 +72,34 @@ export function buildPreflight(decks: Deck[], destinations: Destination[]): Pref
       gray.push({ where: encoderId, code: 'UNKNOWN_ENCODER', message: '想定外の ENC 番号です' });
     }
 
+    const seenNames = new Set<string>();
     for (const dest of dests) {
       const where = `${encoderId} / ${dest.name || '(名称未設定)'}`;
-      if (dest.protocol === 'RTMP' && !dest.streamKey) {
-        red.push({ where, code: 'RTMP_KEY_EMPTY', message: 'RTMP なのにストリームキーが空です' });
-      }
-      if ((dest.protocol === 'SRT Caller' || dest.protocol === 'SRT Listener') && !dest.port) {
-        red.push({ where, code: 'SRT_PORT_EMPTY', message: 'SRT なのにポートが空です' });
+      // ⚠️ プロトコル未選択は RTMP として扱う（画面の説明「未選択（新規は RTMP 扱い）」と揃える）。
+      // 以前は `=== 'RTMP'` だけを見ていたため、**未選択の配信先は鍵が空でも点検を素通り**した。
+      const proto = dest.protocol ?? 'RTMP';
+
+      if (proto === 'RTMP') {
+        if (!dest.url) red.push({ where, code: 'RTMP_URL_EMPTY', message: 'RTMP なのに宛先 URL が空です' });
+        if (!dest.streamKey) red.push({ where, code: 'RTMP_KEY_EMPTY', message: 'RTMP なのにストリームキーが空です' });
+      } else {
+        if (!dest.port) red.push({ where, code: 'SRT_PORT_EMPTY', message: 'SRT なのにポートが空です' });
+        if (proto === 'SRT Caller' && !dest.url) {
+          red.push({ where, code: 'SRT_HOST_EMPTY', message: 'SRT Caller なのに宛先ホストが空です' });
+        }
       }
       if (dest.aes && dest.aes !== 'なし' && !dest.passphrase) {
         red.push({ where, code: 'PASSPHRASE_EMPTY', message: '暗号化ありなのにパスフレーズが空です' });
       }
-      if (dest.name && !SESSION_NAME_RE.test(dest.name)) {
+      if (!dest.name) {
+        red.push({ where, code: 'NAME_EMPTY', message: 'セッション名が空です' });
+      } else if (!SESSION_NAME_RE.test(dest.name) || dest.name !== dest.name.trim()) {
         red.push({ where, code: 'NAME_INVALID', message: 'セッション名は半角32文字以内・前後空白なしにしてください' });
+      } else if (seenNames.has(dest.name)) {
+        // ⚠️ 「ENC 内で一意」は #279 §2-2 の決めごとだが、誰も検査していなかった。
+        red.push({ where, code: 'NAME_DUPLICATE', message: '同じ ENC の中で名前が重なっています' });
       }
+      if (dest.name) seenNames.add(dest.name);
     }
 
     // 同じ台に「同じ宛先＋キー」の RTMP が2件（#279 §2-2 の重複の鍵）

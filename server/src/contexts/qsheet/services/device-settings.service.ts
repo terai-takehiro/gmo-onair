@@ -123,24 +123,46 @@ export async function getStreaming(owner: Owner): Promise<StreamingSettings | nu
 
 /**
  * 入力の `destinations[].streamKey` を保存用の姿（`streamKeyEnc`。平文は持たない）に直す。
- * `****` で始まる値は「変更なし」— 同じ `encoderId` + `name` の既存行から暗号文を温存する。
- * 一致する既存行が無ければ（名前を変えた／新規で伏せ字だけ送られてきた等）鍵は捨てる
- * （温存できないものを温存したふりをしないほうが安全なため）。
+ *
+ * ── 3値の意味（device-settings-types.ts の `StreamKeyIntent`） ──────────
+ *   `undefined` … **いまの鍵をそのまま残す**（画面は鍵の欄を常に空で描くので、これが既定）
+ *   `''`        … **鍵を消す**（利用者が「キーを消す」を押したときだけ）
+ *   それ以外    … その値を新しい鍵にする
+ *
+ * ⚠️ **以前の実装は事故を起こしていた。** 画面に伏せ字（`****abcd`）を出し、
+ *    それをそのまま送り返させ、サーバーは `(encoderId, name)` で前の暗号文を探していた。
+ *    名前は利用者が自由に変える値なので、**配信先の名前を直して保存した瞬間に鍵が消えた**
+ *    （画面は「保存しました」と出る）。実機で再現済み。
+ *    いまは **行の安定した id（`destId`）** で突き合わせ、伏せ字は送り返させない。
  */
 function toStoredDestinations(
   incoming: Destination[],
   previous: (Destination & { streamKeyEnc?: string | null })[]
 ): (Destination & { streamKeyEnc?: string | null })[] {
+  const byId = new Map(previous.filter((p) => p.destId).map((p) => [p.destId as string, p]));
+
   return incoming.map((d) => {
     const { streamKey, ...rest } = d;
-    let streamKeyEnc: string | null = null;
-    if (streamKey && streamKey.startsWith(MASK_PREFIX)) {
-      const prior = previous.find((p) => p.encoderId === d.encoderId && p.name === d.name);
+
+    // 前の行を探す。destId が正。無い行（この変更より前に保存されたもの）だけ
+    // 旧来の (encoderId, name) に落とす — 移行のあいだだけの保険。
+    const prior =
+      (d.destId ? byId.get(d.destId) : undefined) ??
+      previous.find((p) => !p.destId && p.encoderId === d.encoderId && p.name === d.name);
+
+    let streamKeyEnc: string | null;
+    if (streamKey === undefined) {
+      streamKeyEnc = prior?.streamKeyEnc ?? null;      // keep
+    } else if (streamKey === '') {
+      streamKeyEnc = null;                              // clear
+    } else if (streamKey.startsWith(MASK_PREFIX)) {
+      // 伏せ字が送られてきたら「変更なし」として扱う（古い画面との互換）。
       streamKeyEnc = prior?.streamKeyEnc ?? null;
-    } else if (streamKey) {
-      streamKeyEnc = encrypt(streamKey);
+    } else {
+      streamKeyEnc = encrypt(streamKey);                // set
     }
-    return { ...rest, streamKeyEnc };
+    // destId が無い行（この変更より前に保存されたもの）はここで採番して安定させる。
+    return { ...rest, destId: rest.destId ?? prior?.destId ?? `dst_${uuidv4()}`, streamKeyEnc };
   });
 }
 
@@ -225,9 +247,12 @@ export async function copyFrom(
     if (src) {
       // hasStreamKey な情報は落とし、鍵無しの入力の形に戻してから putStreaming に渡す
       // （putStreaming は「****」を「変更なし」と解釈するため、素の undefined で渡す）
+      // ⚠️ 鍵は写さない。`streamKey: ''`（消す）を明示し、行の id も新しく振る。
+      // 省略（undefined）にすると「いまの鍵を残す」の意味になり、
+      // 写した先に同じ destId の行があると鍵まで引き継いでしまう。
       const destinations: Destination[] = src.destinations.map((d) => {
-        const { streamKeyMasked: _m, hasStreamKey: _h, ...rest } = d;
-        return { ...rest };
+        const { streamKeyMasked: _m, hasStreamKey: _h, destId: _old, ...rest } = d;
+        return { ...rest, destId: `dst_${uuidv4()}`, streamKey: '' };
       });
       await putStreaming(owner, serviceDate, destinations, [], userId);
       result.streaming = true;

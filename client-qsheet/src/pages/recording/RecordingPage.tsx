@@ -1,67 +1,89 @@
-// 収録設定の画面の骨（帯・絞り込み・本線8/控え4の表・スマホの下シート）。
+// 収録設定の画面の骨（実施日・状態の帯・絞り込み・一括変更・本線8/控え4の表・スマホの一覧）。
 // ⚠️ この画面は useState のローカル状態。素の <input>/<select> で構わない（impl doc §5-2）。
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Save, FileDown, Radio, Copy } from 'lucide-react';
+import { ChevronLeft, Save, FileDown, Copy, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
-import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { apiErrorMessage, jstToday } from '@/lib/deviceSettingsShared';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
+import ServiceDateBar from '@/components/device-settings/ServiceDateBar';
 import { getOwnerContext, getRecording, putRecording, type Deck, type OwnerContext } from '@/lib/deviceSettingsApi';
-import { DECK_IDS_MAIN, DECK_IDS_BACKUP, defaultDecks } from './deckOptions';
-import DeckRow from './DeckRow';
+import {
+  DECK_IDS_MAIN, DECK_IDS_BACKUP, MODEL_LABEL_MAIN, MODEL_LABEL_BACKUP, coerceDeck, defaultDecks,
+} from './deckOptions';
+import DeckGrid from './DeckGrid';
 import DeckSheet from './DeckSheet';
+import DeckDatalists from './DeckDatalists';
+import DeckStatusBand from './DeckStatusBand';
+import DeckMobileList from './DeckMobileList';
+import BulkEditDialog, { type BulkPatch } from './BulkEditDialog';
 import ExportDialog from '../settings-export/ExportDialog';
 import CopyFromDialog from '../settings-export/CopyFromDialog';
 import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 
 type DeckFilter = 'all' | 'main' | 'sub';
-const DECK_FILTER_ITEMS: FilterChipItem<DeckFilter>[] = [
-  { key: 'all', label: 'すべて', count: 12 },
-  { key: 'main', label: '本線', count: 8 },
-  { key: 'sub', label: '控え', count: 4 },
-];
 
 function fillMissing(decks: Deck[]): Deck[] {
   const byId = new Map(decks.map((d) => [d.deckId, d]));
   return [...DECK_IDS_MAIN, ...DECK_IDS_BACKUP].map((deckId) => byId.get(deckId) ?? { deckId });
 }
 
+/** 「読み込んだ内容と今の内容が違うか」を比べるための文字列（欄の並びを固定する） */
+function serialize(decks: Deck[]): string {
+  return JSON.stringify(decks.map((d) => [
+    d.deckId, d.label ?? '', d.videoFormat ?? '', d.codec ?? '',
+    d.audioChannels ?? '', d.slot ?? '', d.filePrefix ?? '', d.skip ? 1 : 0,
+  ]));
+}
+
 export default function RecordingPage() {
   const { ownerKey = '' } = useParams();
-  const [params] = useSearchParams();
-  const date = params.get('date') ?? undefined;
+  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [decks, setDecks] = useState<Deck[]>(defaultDecks());
-  const [serviceDate, setServiceDate] = useState(date ?? new Date().toISOString().slice(0, 10));
+  const [baseline, setBaseline] = useState(() => serialize(defaultDecks()));
+  // ⚠️ 既定は **日本時間**の今日。`toISOString().slice(0,10)` は UTC なので、
+  //    JST 0〜9時（本番前の仕込みでいちばん触る時間帯）に開くと前日になっていた。
+  const [serviceDate, setServiceDate] = useState(params.get('date') ?? jstToday());
+  /** サーバーに投げる日。未指定のときはサーバーが「最新の実施日」を返す */
+  const [requestedDate, setRequestedDate] = useState<string | undefined>(params.get('date') ?? undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [mobileDeck, setMobileDeck] = useState<Deck | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [copyFromOpen, setCopyFromOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [owner, setOwner] = useState<OwnerContext | null>(null);
   const [filter, setFilter] = useState<DeckFilter>('all');
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
 
+  const dirty = serialize(decks) !== baseline;
+  useUnsavedGuard(dirty);
+
   const loadRecording = useCallback(() => {
     let alive = true;
     setLoading(true);
-    getRecording(ownerKey, date)
+    getRecording(ownerKey, requestedDate)
       .then((data) => {
         if (!alive) return;
-        if (data) {
-          setDecks(fillMissing(data.decks));
-          setServiceDate(data.serviceDate);
-          setLastExportedAt(data.lastExportedAt);
-          setLastExportName(data.lastExportName);
-        }
+        const next = fillMissing(data?.decks ?? []);
+        setDecks(next);
+        setBaseline(serialize(next));
+        setSavedAt(null);
+        setServiceDate(data?.serviceDate ?? requestedDate ?? jstToday());
+        setLastExportedAt(data?.lastExportedAt ?? null);
+        setLastExportName(data?.lastExportName ?? null);
       })
-      .catch(() => notifyError('収録設定の取得に失敗しました'))
+      .catch((e) => notifyError(apiErrorMessage(e, '収録設定の取得に失敗しました')))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [ownerKey, date]);
+  }, [ownerKey, requestedDate]);
 
   useEffect(() => loadRecording(), [loadRecording]);
 
@@ -73,33 +95,110 @@ export default function RecordingPage() {
 
   const updateDeck = (next: Deck) => setDecks((prev) => prev.map((d) => (d.deckId === next.deckId ? next : d)));
 
-  const copyFromMain = (backupId: string, mainId: string) => {
-    const main = decks.find((d) => d.deckId === mainId);
-    if (!main) return;
-    updateDeck({ ...main, deckId: backupId, label: undefined, skip: undefined });
+  /** 実施日を変える ＝ その日の設定を読み直す（URL にも残して再読み込み・共有に耐えるようにする） */
+  const pickDate = (date: string) => {
+    if (date === serviceDate) return;
+    // 実施日を変えると打ち込み中の12台が消えるので、帯ではなく「止まる」確認を出す
+    if (dirty && !window.confirm('保存していない変更があります。実施日を変えると失われます。よろしいですか？')) return; // ui-tokens-ok
+    const next = new URLSearchParams(params);
+    next.set('date', date);
+    setParams(next, { replace: true });
+    setSelected(new Set());
+    setServiceDate(date);
+    setRequestedDate(date);
+  };
+
+  // ── 本線 → 控え ────────────────────────────────────────
+  /**
+   * ⚠️ **以前ここが壊れていた**（監査 2026-08-22）
+   * `{ ...main, deckId: backupId, label: undefined }` をそのまま入れていたため、
+   * ① 控え（HD Plus）が持てない 4K・DNxHR・SSD・8ch がそのまま入り、
+   *    画面は空欄に見えるのに保存値と Excel には残った（現地で弾かれる）
+   * ② `label: undefined` が **label に触る唯一のコード＝消す処理**で、
+   *    せっかく付けた呼び名が写すたびに消えた
+   * いまは `coerceDeck()` で機種が持てる値だけに落とし、呼び名と「使わない」は
+   * その台のものを残す（どちらも台ごとの決めごとで、本線から写す性質のものではない）。
+   */
+  const copyOne = (from: Deck[], backupId: string, index: number) => {
+    const main = from.find((d) => d.deckId === DECK_IDS_MAIN[index]);
+    const cur = from.find((d) => d.deckId === backupId);
+    if (!main || !cur) return { deck: null as Deck | null, dropped: [] as string[] };
+    const { deck, dropped } = coerceDeck(backupId, main);
+    return { deck: { ...deck, label: cur.label, skip: cur.skip }, dropped };
+  };
+
+  const droppedNote = (dropped: string[]) =>
+    dropped.length ? { description: `機種が持たない値 ${dropped.length} 件（${[...new Set(dropped)].join('・')}）は落としました` } : undefined;
+
+  const copyFromMain = (backupId: string, index: number) => {
+    const r = copyOne(decks, backupId, index);
+    if (!r.deck) return;
+    updateDeck(r.deck);
+    notifySuccess(`${DECK_IDS_MAIN[index]} の設定を ${backupId} に写しました`, droppedNote(r.dropped));
+  };
+
+  const mirrorAll = () => {
+    const results = DECK_IDS_BACKUP.map((id, i) => copyOne(decks, id, i));
+    const byId = new Map(results.filter((r) => r.deck).map((r) => [r.deck!.deckId, r.deck!]));
+    setDecks((prev) => prev.map((d) => byId.get(d.deckId) ?? d));
+    notifySuccess('本線の設定を控えに写しました', droppedNote(results.flatMap((r) => r.dropped)));
+  };
+
+  // ── まとめて変える ─────────────────────────────────────
+  const toggleSelect = (deckId: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(deckId)) next.delete(deckId); else next.add(deckId);
+    return next;
+  });
+  const toggleGroup = (ids: string[], on: boolean) => setSelected((prev) => {
+    const next = new Set(prev);
+    for (const id of ids) { if (on) next.add(id); else next.delete(id); }
+    return next;
+  });
+
+  const applyBulk = (patch: BulkPatch) => {
+    setDecks((prev) => prev.map((d) => {
+      if (!selected.has(d.deckId)) return d;
+      const next: Deck = { ...d };
+      if (patch.videoFormat !== undefined) next.videoFormat = patch.videoFormat;
+      if (patch.codec !== undefined) next.codec = patch.codec;
+      if (patch.audioChannels !== undefined) next.audioChannels = patch.audioChannels;
+      if (patch.slot !== undefined) next.slot = patch.slot;
+      // 接頭辞は台ごとに `<接頭辞>_<デッキ>` にする（12台に同じ名前を付けると上書きし合う）
+      if (patch.filePrefix !== undefined) next.filePrefix = `${patch.filePrefix}_${d.deckId}`;
+      return next;
+    }));
+    notifySuccess(`${selected.size} 台にまとめて反映しました`);
   };
 
   const save = async () => {
     setSaving(true);
     try {
       await putRecording(ownerKey, serviceDate, decks);
+      setBaseline(serialize(decks));
+      setSavedAt(new Date());
       notifySuccess('収録設定を保存しました');
-    } catch {
-      notifyError('保存に失敗しました');
+    } catch (e) {
+      // ⚠️ 以前は理由を捨てていたので「どの台の何が悪いのか」が誰にも分からなかった
+      notifyError(apiErrorMessage(e, '保存に失敗しました'));
     } finally {
       setSaving(false);
     }
   };
 
-  const unfilledCount = decks.filter((d) => !d.skip && !d.videoFormat && !d.codec && !d.slot).length;
-  const usedCount = decks.filter((d) => !d.skip).length;
-
-  const mainDecks = decks.filter((d) => DECK_IDS_MAIN.includes(d.deckId as any));
-  const backupDecks = decks.filter((d) => DECK_IDS_BACKUP.includes(d.deckId as any));
+  const mainDecks = useMemo(() => decks.filter((d) => (DECK_IDS_MAIN as readonly string[]).includes(d.deckId)), [decks]);
+  const backupDecks = useMemo(() => decks.filter((d) => (DECK_IDS_BACKUP as readonly string[]).includes(d.deckId)), [decks]);
+  const filterItems: FilterChipItem<DeckFilter>[] = [
+    { key: 'all', label: 'すべて', count: decks.length },
+    { key: 'main', label: '本線', count: mainDecks.length },
+    { key: 'sub', label: '控え', count: backupDecks.length },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-4 flex items-center gap-3">
+      <DeckDatalists />
+
+      <div className="mb-3 flex items-center gap-3">
         {owner ? (
           <Link
             to={owner.kind === 'project' ? `/qsheet/projects/${owner.id}` : `/qsheet/programs/${owner.id}`}
@@ -116,82 +215,89 @@ export default function RecordingPage() {
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">収録設定</h1>
           <p className="truncate text-xs text-muted-foreground">
-            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ {serviceDate}
+            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台
           </p>
         </div>
         {owner && <MiniAppSwitcher owner={owner} current="recording" />}
       </div>
 
-      {/* 状態の帯 */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-        <Radio className="h-4 w-4 text-primary" />
-        <span>使用中 {usedCount}/12 台</span>
-        {unfilledCount > 0 && <span className="text-warning">未入力 {unfilledCount} 台</span>}
-        <span className="text-muted-foreground">
-          {lastExportName ? `${lastExportName}（${formatRelativeTime(lastExportedAt)}）` : 'まだ書き出していません'}
-        </span>
+      {/* 実施日 ＋ 保存の状態。⚠️ 以前は画面から実施日を選ぶ手段が無く、
+          入口が date を付けないので「案件につき事実上1日ぶん」しか持てなかった */}
+      <ServiceDateBar
+        ownerKey={ownerKey}
+        serviceDate={serviceDate}
+        onChange={pickDate}
+        dirty={dirty}
+        savedAt={savedAt}
+        kind="recording"
+      />
+
+      {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする） */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
+          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+        </Button>
+        <Button variant="outline" className="h-11" onClick={() => setExportOpen(true)}>
+          <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
+        </Button>
       </div>
 
-      {/* 絞り込みは PC の表にだけ効く（スマホの縦積みは対象外） */}
-      <div className="mb-4 hidden sm:block">
-        <FilterChips items={DECK_FILTER_ITEMS} value={filter} onChange={setFilter} label="デッキで絞り込む" />
+      <DeckStatusBand decks={decks} lastExportName={lastExportName} lastExportedAt={lastExportedAt} />
+
+      {/* 絞り込みと一括変更は PC の表にだけ効く（スマホは1台ずつ・モックどおり） */}
+      <div className="mb-3 hidden flex-wrap items-center gap-3 sm:flex">
+        <FilterChips items={filterItems} value={filter} onChange={setFilter} label="デッキで絞り込む" />
+        <span className="flex-1" />
+        {selected.size > 0 && (
+          <>
+            <span className="text-sub font-bold text-primary">{selected.size} 台を選択中</span>
+            <Button className="h-11" onClick={() => setBulkOpen(true)}>
+              <Wand2 className="mr-2 h-4 w-4" /> 選んだ台にまとめて変える
+            </Button>
+            <Button variant="ghost" className="h-11" onClick={() => setSelected(new Set())}>解除</Button>
+          </>
+        )}
       </div>
 
       {loading ? (
         <p className="py-10 text-center text-sm text-muted-foreground">読み込み中…</p>
       ) : (
         <>
-          {/* PC: 表。sm 未満は横スクロールで守る */}
           <div className="hidden sm:block">
             {filter !== 'sub' && (
-              <RecordingSection title="本線（Studio 4K Pro）" decks={mainDecks} onChange={updateDeck} />
+              <DeckGrid
+                title="本線" model={MODEL_LABEL_MAIN} decks={mainDecks} onChange={updateDeck}
+                selectedIds={selected} onToggleSelect={toggleSelect} onToggleGroup={toggleGroup}
+              />
             )}
             {filter !== 'main' && (
-              <RecordingSection
-                title="控え（HD Plus）"
-                decks={backupDecks}
-                onChange={updateDeck}
-                onCopyFromMain={(backupId, i) => copyFromMain(backupId, DECK_IDS_MAIN[i])}
+              <DeckGrid
+                title="控え" model={MODEL_LABEL_BACKUP} decks={backupDecks} onChange={updateDeck}
+                selectedIds={selected} onToggleSelect={toggleSelect} onToggleGroup={toggleGroup}
+                mainIdOf={(i) => DECK_IDS_MAIN[i]} onCopyFromMain={copyFromMain} onMirrorAll={mirrorAll}
               />
             )}
           </div>
 
-          {/* スマホ: 縦積みの行 → タップで下シート */}
-          <div className="space-y-2 sm:hidden">
-            {decks.map((d) => (
-              <button
-                key={d.deckId}
-                onClick={() => setMobileDeck(d)}
-                className={`flex min-h-[44px] w-full flex-col items-start rounded-lg border px-3 py-2 text-left ${d.skip ? 'opacity-50' : ''}`}
-              >
-                <span className="text-sm font-semibold">{d.deckId}</span>
-                <span className="cond truncate text-xs text-muted-foreground" style={{ transform: 'scaleX(0.94)', transformOrigin: 'left' }}>
-                  {[d.videoFormat, d.codec, d.audioChannels && `${d.audioChannels}ch`, d.slot].filter(Boolean).join('・') || '未設定'}
-                </span>
-              </button>
-            ))}
-          </div>
+          <DeckMobileList decks={decks} onPick={setMobileDeck} />
         </>
       )}
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        空欄は「現地の設定を変えない」という意味です。TCソース・IP・機種などの設置情報はここでは扱いません。
+      <p className="mt-4 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+        <strong>橙のセルは「まだ決めていない」</strong>という意味で、間違いではありません。
+        空欄のまま書き出すと<strong>現地の設定をそのまま残します</strong>。
+        TCソース・IP・機種などの設置情報はここでは扱いません。
       </p>
 
-      {/* 下端の主アクション（スマホ幅いっぱい／PC は右寄せ） */}
-      <div className="sticky bottom-0 mt-6 flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:py-0">
-        <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setCopyFromOpen(true)}>
-          <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
-        </Button>
-        <Button variant="outline" className="h-[52px] sm:h-10" onClick={() => setExportOpen(true)}>
-          <FileDown className="mr-2 h-4 w-4" /> Excel を書き出す
-        </Button>
-        <Button className="h-[52px] sm:h-10" onClick={save} disabled={saving}>
+      {/* 下端は主アクション1つだけ（以前は3段積みで、スマホの表示領域を大きく食っていた） */}
+      <div className="sticky bottom-0 mt-4 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex sm:justify-end sm:border-0 sm:bg-transparent">
+        <Button className="h-[52px] w-full sm:h-11 sm:w-auto" onClick={save} disabled={saving}>
           <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
         </Button>
       </div>
 
       <DeckSheet deck={mobileDeck} onChange={(next) => { updateDeck(next); setMobileDeck(next); }} onClose={() => setMobileDeck(null)} />
+      <BulkEditDialog open={bulkOpen} onOpenChange={setBulkOpen} deckIds={[...selected]} onApply={applyBulk} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} ownerKey={ownerKey} date={serviceDate} />
       <CopyFromDialog
         open={copyFromOpen}
@@ -201,49 +307,6 @@ export default function RecordingPage() {
         what={['recording']}
         onCopied={loadRecording}
       />
-    </div>
-  );
-}
-
-function RecordingSection({
-  title,
-  decks,
-  onChange,
-  onCopyFromMain,
-}: {
-  title: string;
-  decks: Deck[];
-  onChange: (d: Deck) => void;
-  onCopyFromMain?: (backupId: string, index: number) => void;
-}) {
-  return (
-    <div className="mb-6">
-      <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{title}</h2>
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs text-muted-foreground">
-            <tr>
-              <th className="whitespace-nowrap px-2 py-2 text-left">デッキ</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left">解像度</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left">コーデック</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left">音声ch</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left">収録先</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left">ファイル名</th>
-              <th className="whitespace-nowrap px-2 py-2 text-center">使わない</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {decks.map((d, i) => (
-              <DeckRow
-                key={d.deckId}
-                deck={d}
-                onChange={onChange}
-                onCopyFromMain={onCopyFromMain ? () => onCopyFromMain(d.deckId, i) : undefined}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
