@@ -27,17 +27,33 @@
  * **⑧ やること と同じ問い合わせ**（`useTaskDashboard`）から数えます。
  * 自分が担当で未完了のタスクを持つ**案件の数**（タスクの数ではない）。
  * 新しい口を作ると、⑧ と数が食い違ったときにどちらが正か決められません。
+ *
+ * ── pull-to-refresh・「止まっている」のドリルダウン（M11） ─────────
+ *
+ * **上に引っ張ると再取得する**（`client-v4/pullToRefresh.tsx`）。3本の問い合わせ
+ * （案件の数字・受信箱・自分のタスク）をまとめて引き直す。
+ *
+ * **「止まっている」だけは押すとシートで中身を見せる。** 他の2つ（進行中の案件・
+ * 自分のタスクがある案件）は一覧へ絞り込んで送るだけで十分だが、「止まっている」
+ * は PC 版（`StuckPanel`）が**理由付きの一覧**（何日止まっているか・なぜ止まって
+ * いると見なすか）を持っており、それをスマホでは1件も見せずに一覧へ飛ばしていた —
+ * 押した先で同じ絞り込み一覧を自分でもう一度探すことになる。`overview` クエリが
+ * 既に持っている `stuck` 配列（PC 版と同じ）をそのままシートに出す（新しい問い合わせは
+ * 増やさない）。シートの下端に「一覧で見る」を残し、1件ずつ開く以外の道も塞がない。
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Inbox, ClipboardPaste, Mic, ChevronRight, ArrowRight, Plus } from 'lucide-react';
+import { AlertTriangle, Inbox, ClipboardPaste, Mic, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
-import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
+import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
 import { intakeCountOf, type InboxData } from '@/contexts/sales/pages/inbox/kinds';
@@ -47,6 +63,7 @@ export function MobileSalesDashboard() {
   const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
+  const [stuckOpen, setStuckOpen] = useState(false);
 
   const overview = useQuery<SalesOverview>({
     // **PC と同じ鍵。** 別にすると、幅を変えただけで数字が入れ替わる
@@ -75,6 +92,8 @@ export function MobileSalesDashboard() {
   const waiting = intakeCountOf(inbox.data);
   const kpi = overview.data?.kpi;
 
+  const refresh = () => Promise.all([overview.refetch(), inbox.refetch(), tasks.refetch()]);
+
   return (
     <div className="flex flex-col gap-3.5 p-3">
       <PageHeader
@@ -89,6 +108,8 @@ export function MobileSalesDashboard() {
         }
       />
 
+      <PullToRefresh onRefresh={refresh}>
+      <div className="flex flex-col gap-3.5">
       {/* ── ① 案件受付 ─────────────────────────────────────── */}
       <section className="rounded-card border border-primary-border bg-card p-3.5">
         <h2 className="text-cardtitle mb-2.5 flex items-center gap-2">
@@ -142,7 +163,7 @@ export function MobileSalesDashboard() {
             sub={`${overview.data?.stuck_days ?? 7}日以上 動きがありません`}
             n={kpi.stuck_projects}
             urgent={kpi.stuck_projects > 0}
-            onOpen={() => navigate('/sales/projects?sort=last_move')}
+            onOpen={() => setStuckOpen(true)}
           />
           {/* **タスクが読めないときは出さない。** 0 と「読めなかった」は別のこと */}
           {tasks.isError ? (
@@ -171,10 +192,55 @@ export function MobileSalesDashboard() {
       </button>
 
       <p className="text-note text-muted-foreground">
-        止まっている案件の中身・ステージ別の金額・今週の現場は
-        <strong className="font-bold">PC のダッシュボード</strong>に出ます
-        （横に並べて比べる画面なので、375px には載せていません）。
+        ステージ別の金額・今週の現場は<strong className="font-bold">PC のダッシュボード</strong>に
+        出ます（横に並べて比べる画面なので、375px には載せていません）。
       </p>
+      </div>
+      </PullToRefresh>
+
+      {/*
+        ── 「止まっている」のドリルダウン（M11） ──────────────────
+        `overview` が既に持っている `stuck`（PC 版 `StuckPanel` と同じ配列）を
+        そのままシートに出す。新しい問い合わせは増やさない。
+      */}
+      <Sheet
+        open={stuckOpen}
+        onOpenChange={setStuckOpen}
+        title="止まっている案件"
+        sub={`${overview.data?.stuck_days ?? 7}日以上 動きがないもの`}
+        footer={
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { setStuckOpen(false); navigate('/sales/projects?sort=last_move'); }}
+          >
+            一覧で見る
+          </Button>
+        }
+      >
+        {(overview.data?.stuck.length ?? 0) === 0 ? (
+          <EmptyState
+            icon={<AlertTriangle className="h-6 w-6" aria-hidden="true" />}
+            title="止まっている案件はありません"
+            description={`進行中の案件はすべて ${overview.data?.stuck_days ?? 7}日以内に動いています。`}
+          />
+        ) : (
+          overview.data?.stuck.map((p) => (
+            <Row key={p.id} divider interactive onClick={() => { setStuckOpen(false); navigate(`/sales/projects/${p.id}`); }}>
+              <RowSlot w={56} align="center">
+                <span className="flex flex-col items-center leading-none">
+                  <span className="font-number text-lg font-bold text-destructive">{p.days}</span>
+                  <span className="text-sub-sm text-muted-foreground">日</span>
+                </span>
+              </RowSlot>
+              <RowMain>
+                <RowTitle>{p.name}</RowTitle>
+                <RowSub>{[p.customer_name, p.why].filter(Boolean).join(' ・ ')}</RowSub>
+              </RowMain>
+            </Row>
+          ))
+        )}
+      </Sheet>
     </div>
   );
 }
