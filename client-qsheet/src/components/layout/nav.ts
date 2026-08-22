@@ -45,13 +45,19 @@ export const QSHEET_NAV: ShellNavSection[] = [
 /**
  * スマホ下端のタブ。**3本**（`docs/design/v4/_rules.md`「3. スマホ」）。
  *
- * 他の2アプリは3つ目を専用の検索画面（`/search`）に向けているが、
- * 制作技術支援には現状そのような画面が無い（`SheetListPage.tsx` の中の絞り込みのみ）。
- * 新しく検索画面を作るのは今回のシェル載せ替えの範囲を超えるため、
- * ここでは左メニューと同じ3項目をそのままタブにする（判断）。
+ * ⚠️ **2026-08-22（ご指摘・ご指示で差し替え）: 「トップ」が無かった。**
+ * 段3当時は「他の2アプリは3つ目を専用の検索画面（`/search`）に向けているが、
+ * 制作技術支援にはそのような画面が無いので左メニューと同じ3項目をそのまま
+ * タブにする」という判断でこの3本にしていた。だが `/qsheet/top` を新設して以来、
+ * **この画面へ戻る導線が上辺バーのロゴだけになっており**、スマホでは戻りにくい。
+ *
+ * ここで「設定」（収録・配信設定の簡易入口 `/qsheet/device-settings`）を落として
+ * 「トップ」に差し替えた。収録設定・配信設定はハブ画面（`JourneyPage.tsx`）の
+ * ミニアプリタイルから `panelPathOf` で直接開けるため、簡易入口を経由しなくても
+ * 迷わない（`client-qsheet/CLAUDE.md`「番組・案件の選び方とミニアプリのハブ」参照）。
  */
 export const QSHEET_MOBILE_TABS: ShellMobileTab[] = [
+  { label: 'トップ', to: '/qsheet/top', icon: LayoutGrid },
   { label: 'ドキュメント', to: '/qsheet/sheets', icon: LayoutDashboard },
   { label: 'スケジュール', to: '/qsheet/schedules', icon: CalendarDays },
-  { label: '設定', to: '/qsheet/device-settings', icon: Settings2 },
 ];

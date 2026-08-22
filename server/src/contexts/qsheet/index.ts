@@ -7,6 +7,7 @@ import publicAudioRoutes from './routes/public-audio.routes';
 import runsRoutes from './routes/runs.routes';
 import audioShareRoutes from './routes/audio-share.routes';
 import scopesRoutes from './routes/scopes.routes';
+import topRoutes from './routes/top.routes';
 import programsRoutes from './routes/programs.routes';
 import journeyMarksRoutes from './routes/journey-marks.routes';
 import deviceSettingsRoutes from './routes/device-settings.routes';
@@ -40,6 +41,8 @@ export function createQsheetRoutes(): Router {
   // トップ（案件を選ぶ）・制作のジャーニー（段3・03-app-structure-impl.md §6）
   router.use('/qsheet', scopesRoutes);
   router.use('/qsheet', journeyMarksRoutes);
+  // 制作技術支援トップ（/qsheet/top）の番組・イベント一覧（GLS案件＋ここだけの番組を1本化。2026-08-22）
+  router.use('/qsheet', topRoutes);
   // 番組（マニュアル・案件管理外）。制作技術支援トップの2つ目の選び方（2026-08-22）
   router.use('/qsheet', programsRoutes);
   // 収録設定・配信設定（機器設定）。案件単位（:ownerKey）で、文書 (documentRoutes) とは別の入れ物
