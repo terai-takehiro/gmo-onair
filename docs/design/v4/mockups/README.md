@@ -15,6 +15,11 @@
 > `v4-mockup-main.dc.html` は受付を案件作成と**別画面**として描いており（33か所）、
 > これは PR #80 で1画面に統合する前の姿です。
 >
+> ※ 旧世代3ファイル（`v4-mockup-main.dc.html` / `AppTopbar.dc.html` / `AppSideMenu.dc.html`）は
+> `docs/archive/` への移動を検討したが、**現行モックが実行時に参照している**
+> （`AppTopbar` / `AppSideMenu` は全 `v4-mockup-*.dc.html` が `dc-import` で読み込み、
+> `v4-mockup-main.dc.html` は各モックのホーム・アプリ切替の遷移先）ため**据え置き**（2026-08-22）。
+>
 > ## ⚠️ **モックが正です**（利用者からの指示・2026-08）
 >
 > 「**過去のものも含めモックと原則完全に一致させてください。言葉遣いもモックを

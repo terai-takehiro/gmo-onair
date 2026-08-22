@@ -12,7 +12,7 @@
 2. `information_schema.tables` / `pg_constraint` を「あるべき姿」から取り出し、実DB
    （`onair_dev`）の同じ情報と `NOT IN` で突き合わせる SQL を組み立て、ユーザーが VPS で実行
 3. 差分に出たテーブル・列について、(a) 全 migration ファイル・全ブランチの git 履歴、
-   (b) アプリコード（`server/src` 全体・全クライアントアプリ）、(c) `docs/roadmap.md` /
+   (b) アプリコード（`server/src` 全体・全クライアントアプリ）、(c) `docs/archive/2026/roadmap.md` /
    `docs/ia.md` / `docs/version-history.md` などの計画・設計ドキュメント、の3方向で
    参照の有無を確認
 
@@ -102,7 +102,7 @@ migration は前方向にしか進まないため、**その機能群のテー�
 `call_sheet_blocks`（migration 149）の8件は、実装内容・実データの両方が実在の商用機能
 （v2.9.283/284・本番公開済み）だったことが実装コミットで確定した。** 推測ではない。
 
-### テーブルごとの対応関係（`docs/roadmap.md` / `docs/ia.md` との突き合わせ）
+### テーブルごとの対応関係（`docs/archive/2026/roadmap.md` / `docs/ia.md` との突き合わせ）
 
 | テーブル/列 | 対応する旧機能（ドキュメント上の根拠） | 判定 |
 | --- | --- | --- |
@@ -112,30 +112,30 @@ migration は前方向にしか進まないため、**その機能群のテー�
 | `slack_dm_settings` | 個人DM向けのSlack通知設定（`slack_digests`と対の機能。テーブル名そのものの明記は無し） | B |
 | `user_permission_changes` | 権限変更履歴 (v2.9.270・`docs/ia.md:116-145,207`。migration番号142で対応) | A |
 | `misc_inquiries.promoted_project_id` | 問い合わせの「案件化」フラグ（旧migration名 `139 promote_inquiry_and_audio_revoke` から）。`inview_registrations` 側の同名列（migration 127・現行）とは別物 | A |
-| `security_card_lendings.project_id` | セキュリティカード貸出の案件紐づけ（任意列・`docs/roadmap.md:485`「列を1つ足す（migration 152・任意）」） | A |
+| `security_card_lendings.project_id` | セキュリティカード貸出の案件紐づけ（任意列・`docs/archive/2026/roadmap.md:485`「列を1つ足す（migration 152・任意）」） | A |
 | `project_comments` | 案件のコメント (v2.9.274・`docs/ia.md:186-207`。1件=1行・本人のみ削除可・soft-delete) | A |
 | `project_comment_mentions` | 案件コメントのメンション/通知先 (同上セクション) | A |
 | `project_changes` | 案件の項目変更履歴 (同上・B4節) | A |
-| `keep_meetings` | 隔週キープ会議記録 (v2.9.281・`docs/roadmap.md:254-289`「29章」)。⚠️ **v4現行の `event_report_kpt`（migration 185）とは別物**（名前は同じ「Keep」だが別系統） | A |
+| `keep_meetings` | 隔週キープ会議記録 (v2.9.281・`docs/archive/2026/roadmap.md:254-289`「29章」)。⚠️ **v4現行の `event_report_kpt`（migration 185）とは別物**（名前は同じ「Keep」だが別系統） | A |
 | `keep_agenda_items` | キープ会議のその回だけの議題 (同上) | A |
 | `keep_theme_notes` | キープの固定6テーマへの一言メモ (同上) | A |
-| `call_sheets` | 香盤表 (v2.9.283・`docs/roadmap.md:330-376`「21章」) | A |
+| `call_sheets` | 香盤表 (v2.9.283・`docs/archive/2026/roadmap.md:330-376`「21章」) | A |
 | `call_sheet_blocks` | 香盤表の時間枠（分単位・計時LIVE連携） (同上) | A |
 | `call_sheet_lanes` | 香盤表の人ごとのレーン (同上) | A |
-| `manuals` | 運営マニュアル本体 (v2.9.284・`docs/roadmap.md:377-418`「22章」)。⚠️ ヘッダーメニューの
+| `manuals` | 運営マニュアル本体 (v2.9.284・`docs/archive/2026/roadmap.md:377-418`「22章」)。⚠️ ヘッダーメニューの
   ヘルプ「マニュアル」（`shared/CLAUDE.md`）とは無関係の別概念 | A |
 | `manual_parts` | マニュアルを構成する部品12種 (同上) | A |
-| `manual_layouts` | AI提案の会場レイアウト図 (`docs/roadmap.md:399` target=`manual_layouts`) | A |
+| `manual_layouts` | AI提案の会場レイアウト図 (`docs/archive/2026/roadmap.md:399` target=`manual_layouts`) | A |
 | `manual_layout_items` | レイアウト図上の配置記号 (同上) | A |
 | `manual_issues` | マニュアルの部品不足フラグ (同上) | A |
-| `ai_action_plans` | タスク投入のAI行き先記録。`docs/roadmap.md:1103`（2026-07-29時点でまだ未解決の指摘として
+| `ai_action_plans` | タスク投入のAI行き先記録。`docs/archive/2026/roadmap.md:1103`（2026-07-29時点でまだ未解決の指摘として
   現行ドキュメントに残っている） | A・**他と性質が違う** |
-| `joint_events` / `joint_event_companies` | 合同案件 (v2.9.279・`docs/roadmap.md:160-205`「32章」)。**✅ 前回セッションで
+| `joint_events` / `joint_event_companies` | 合同案件 (v2.9.279・`docs/archive/2026/roadmap.md:160-205`「32章」)。**✅ 前回セッションで
   ユーザー確認済み・DROP方針**（0行・コード参照0件、dev環境のみ確認） | A（対応方針決定済み） |
 | `inquiry_replies` | 問い合わせ返信の下書き保存 (v2.9.272・`docs/ia.md:135-150`)。テーブル名そのものの明記は無し | B |
 
 **A・Bとも「未着手の構想」ではなく「実装され一度は本番公開されていた機能」の一次証拠あり。**
-`ai_action_plans` だけは事情が違う可能性がある — `docs/roadmap.md:1103` は2026-07-29の
+`ai_action_plans` だけは事情が違う可能性がある — `docs/archive/2026/roadmap.md:1103` は2026-07-29の
 現行の指摘（「投げたものの行き先」に AI 提案が出ない不具合）として書かれており、
 v3.2.0ロールバックの巻き添えではなく**現在進行形で未完成の機能**の可能性がある。
 着手前に `ai_action_plans` の行数・最終更新日時を確認し、他の22件と分けて扱うこと。
@@ -161,8 +161,8 @@ v3.2.0ロールバックの巻き添えではなく**現在進行形で未完成
 
 v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・香盤表・運営マニュアル・
 案件コメント・通知設定・権限変更履歴等）を**作り直す計画があるかどうか**は
-`docs/roadmap.md`/`docs/v4-plan.md` を見る限りこの監査だけでは判断できない
-（`docs/roadmap.md` 自体が2026-07-29時点の指摘一覧であり、各章が「v4で復活させる」
+`docs/archive/2026/roadmap.md`/`docs/v4-plan.md` を見る限りこの監査だけでは判断できない
+（`docs/archive/2026/roadmap.md` 自体が2026-07-29時点の指摘一覧であり、各章が「v4で復活させる」
 「もう作らない」のどちらかを明記していない章もある）。
 
 ## 次にやること（次のセッション・VPSアクセスがある場所で）
@@ -230,7 +230,7 @@ v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・
    実在する案件に紐づく実データである。**この5テーブルを機械的にDROPすると、
    実際にあった業務記録が失われる。** 単なる「v3.2.0ロールバックの巻き添えで
    忘れられた空のテーブル」ではなく、**短期間ではあるが実際に運用されていた
-   機能の記録**として扱うべき。`docs/design-requests/2026-07-26-design-change-request.md`
+   機能の記録**として扱うべき。`docs/archive/2026/2026-07-26-design-change-request.md`
    の実装順番表（4番目「21・22 香盤表・運営マニュアル」）にはまだ状態欄が
    空のままで、**v4でこれらの機能を作り直すこと自体は既に合意済みの計画**でもある
    ——つまりテーブルを消すかどうかだけでなく、「いずれこの機能をv4で復活させる
@@ -243,7 +243,7 @@ v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・
    タイムスタンプ、+ 専用インデックス2本・CHECK制約2本）。**設計がかなり作り込まれている
    にもかかわらず dev・本番とも0行＝一度も書き込まれたことがない**。これは他の22件
    （v3.2.0ロールバックの巻き添え＝一度は使われて後に見捨てられた）とは性質が違い、
-   **`docs/roadmap.md:1103` の指摘（「投げたものの行き先」にAI提案が出ない）どおり、
+   **`docs/archive/2026/roadmap.md:1103` の指摘（「投げたものの行き先」にAI提案が出ない）どおり、
    書き込み側の実装が最初から欠けている未完成機能**だと分かる。0行なのでDROPしても
    データ損失は無いが、**設計はそのまま活かせる状態**でもある（下記4で機能ごとの
    判断に含める）。
