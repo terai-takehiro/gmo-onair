@@ -22,16 +22,32 @@ function sanitizeSearch(input: unknown): string | null {
   return input.slice(0, MAX_SEARCH_LENGTH).replace(/[%_\\]/g, '\\$&');
 }
 
+// `scope` クエリの許容値。`mine`/`shared` は役割に関わらず絞り込む。
+// `all` および未指定は既定の挙動（管理者は無条件・それ以外は自分が作成/共有された分のみ）を保つ
+// （03-app-structure-impl.md §7-2「既定の挙動は今のまま」）。
+const VALID_SCOPES = ['mine', 'shared', 'all'] as const;
+type DocScope = (typeof VALID_SCOPES)[number];
+
+function sanitizeDate(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  // broadcast_date は DATE 列。書式が違うと Postgres がエラーを返す (500) ので、
+  // 形が合わないものはサイレントに無視する (sanitizeSearch と同じ作法)
+  return /^\d{4}-\d{2}-\d{2}$/.test(input) ? input : null;
+}
+
 // ============================================================
 // ドキュメント一覧
 // ============================================================
 router.get('/documents', async (req: Request, res: Response) => {
   try {
-    const { status, episode_id, project_id, search } = req.query;
+    const { status, episode_id, project_id, search, date, scope } = req.query;
     let sql = `
       SELECT d.*, u.name as creator_name,
              p.name as project_name, p.gls_number,
-             (SELECT COUNT(*) FROM qsheet_document_shares s WHERE s.document_id = d.id)::int as share_count
+             (SELECT COUNT(*) FROM qsheet_document_shares s WHERE s.document_id = d.id)::int as share_count,
+             CASE WHEN jsonb_typeof(d.data->'sections') = 'array'
+                  THEN jsonb_array_length(d.data->'sections')
+                  ELSE 0 END AS section_count
       FROM qsheet_documents d
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN projects p ON d.project_id = p.id
@@ -40,14 +56,31 @@ router.get('/documents', async (req: Request, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    // 管理者以外は「自分が作成」または「自分に共有された」ドキュメントのみ
-    if (!isQsheetAdmin(req.user!)) {
+    const safeScope: DocScope | null =
+      typeof scope === 'string' && (VALID_SCOPES as readonly string[]).includes(scope) ? (scope as DocScope) : null;
+
+    if (safeScope === 'mine') {
+      // 自分が作った分だけ（役割に関わらず。管理者でもここは絞り込む）
+      sql += ` AND d.created_by = $${paramIndex}`;
+      params.push(req.user!.id);
+      paramIndex++;
+    } else if (safeScope === 'shared') {
+      // 自分に共有された分だけ（自分が作ったものは含まない）
+      sql += ` AND d.created_by <> $${paramIndex} AND EXISTS (
+                 SELECT 1 FROM qsheet_document_shares s
+                 WHERE s.document_id = d.id AND s.user_id = $${paramIndex})`;
+      params.push(req.user!.id);
+      paramIndex++;
+    } else if (!isQsheetAdmin(req.user!)) {
+      // `scope=all` または未指定。管理者以外は「自分が作成」または「自分に共有された」ドキュメントのみ
+      // (既定の挙動。scope の有無に関わらず変えない)
       sql += ` AND (d.created_by = $${paramIndex} OR EXISTS (
                  SELECT 1 FROM qsheet_document_shares s
                  WHERE s.document_id = d.id AND s.user_id = $${paramIndex}))`;
       params.push(req.user!.id);
       paramIndex++;
     }
+    // 管理者 + scope=all（または未指定）は無条件（既定の挙動のまま）
 
     if (status && typeof status === 'string' && VALID_STATUSES.includes(status)) {
       sql += ` AND d.status = $${paramIndex++}`;
@@ -66,6 +99,13 @@ router.get('/documents', async (req: Request, res: Response) => {
       if (safe) {
         sql += ` AND d.title ILIKE $${paramIndex++} ESCAPE '\\'`;
         params.push(`%${safe}%`);
+      }
+    }
+    if (date) {
+      const safeDate = sanitizeDate(date);
+      if (safeDate) {
+        sql += ` AND d.broadcast_date = $${paramIndex++}`;
+        params.push(safeDate);
       }
     }
 
