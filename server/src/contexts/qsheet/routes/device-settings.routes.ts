@@ -17,7 +17,12 @@ import {
 } from '../device-settings-types';
 import { buildPreflight } from '../device-settings-preflight';
 import * as svc from '../services/device-settings.service';
-import { buildDeviceSettingsWorkbook, excelResponse } from '../services/device-excel.service';
+import {
+  buildDeviceSettingsWorkbook,
+  buildDeviceSettingsPreview,
+  deviceSettingsFilename,
+  excelResponse,
+} from '../services/device-excel.service';
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, requirePermission('qsheet'));
@@ -213,7 +218,33 @@ router.post('/:ownerKey/settings/preflight', async (req: Request, res: Response)
     streamKey: hasStreamKey ? '****' : undefined,
   }));
   const result = buildPreflight(recording?.decks ?? [], destinations);
-  res.json({ success: true, data: result });
+
+  // 「見出しの見本」に出す先頭数行と、保存されるファイル名。
+  // ⚠️ **実物と同じ整形（buildSheetSpecs）を通す。** 別々に組むと
+  // 「見本と実物が違う」といういちばん気づけない壊れ方をする。
+  const serviceDate = recording?.serviceDate ?? streaming?.serviceDate ?? owner.date ?? jstDate();
+  const sheetsParam = String(req.query.sheets ?? 'recording,streaming');
+  const sheets = sheetsParam
+    .split(',')
+    .filter((x): x is 'recording' | 'streaming' => x === 'recording' || x === 'streaming');
+  const ownerLabel = await ownerLabelOf(owner);
+  const preview = buildDeviceSettingsPreview({
+    ownerLabel,
+    serviceDate,
+    sheets: sheets.length ? sheets : ['recording', 'streaming'],
+    decks: recording?.decks ?? [],
+    destinations: destinations as never,
+    keyMode: 'blank',
+  });
+
+  res.json({
+    success: true,
+    data: {
+      ...result,
+      preview,
+      filename: deviceSettingsFilename(ownerLabel, serviceDate),
+    },
+  });
 });
 
 // ============================================================

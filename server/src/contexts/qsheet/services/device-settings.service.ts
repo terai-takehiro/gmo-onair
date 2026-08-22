@@ -254,7 +254,13 @@ export async function copyFrom(
         const { streamKeyMasked: _m, hasStreamKey: _h, destId: _old, ...rest } = d;
         return { ...rest, destId: `dst_${uuidv4()}`, streamKey: '' };
       });
-      await putStreaming(owner, serviceDate, destinations, [], userId);
+      // ⚠️ **写し先の WEB会議を消さないこと。**
+      // 以前はここで `[]` を渡していたため、会議URL・会議ID・パスコードを入れて保存したあとに
+      // 「前回の設定を写す」を押すと、**その日の会議が全件消えた**（ダイアログには
+      // 「WEB会議は写しません」と書いてあるので、利用者は消えるとは思わない）。
+      // 「写さない」は「写し元の会議を持ってこない」であって「写し先の会議を消す」ではない。
+      const keep = await getStreaming({ ...owner, date: serviceDate });
+      await putStreaming(owner, serviceDate, destinations, keep?.meetings ?? [], userId);
       result.streaming = true;
     }
   }
