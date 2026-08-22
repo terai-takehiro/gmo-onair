@@ -822,6 +822,16 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   レビューが付かずにマージされている。実装に進むときは PR #300 の本文か
   [production-v4-native-mockups.md](../design/v4/production-v4-native-mockups.md) の
   「①′」節を読み直すこと**
+- **#302**（`docs(reviews): PR #300 のマージ後の棚卸しを記録した`）— #300 の直後、この棚卸し
+  そのものの PR。作成 2026-08-22 07:54:09 / CI green 07:56:08（`checks`。`build` は 07:55:21）/
+  マージ 07:56:16（terai-takehiro 本人が手動マージ。**CI green から約8秒後**）。
+  `get_reviews` 0件・`get_comments` 0件・`get_review_comments` `totalCount: 0`。
+  表に移す指摘はない。2コミット・3ファイル・+55行、`docs/` と `.claude/skills/` のみ。
+  ⚠️ **この行で連鎖を止めます。** 棚卸しの PR にもレビューは付かないので、
+  「#302 の棚卸し」「その棚卸しの棚卸し」…と PR が無限に増えます
+  （#283→#284・#294→#295 も同じ形でした）。**docs だけの棚卸し PR は、この行のように
+  直前の PR の記録に相乗りさせて、そこで終わりにしてください** — 単独の PR を
+  もう1本立てても、新しく分かることは何もありません
 
 ---
 
