@@ -1,0 +1,1 @@
+**PR #294（v4-progress.mjsの誤判定修正）がレビュー0件のままマージされたことを棚卸しに記録した。** 作成から約5分でCIが緑になった後、terai-takehiro本人が手動マージし、レビューは1件も届かなかった（`get_review_comments` で `totalCount: 0`）。表に移す指摘はない。`npm run reviews:debt` は今回も403で失敗のため、GitHub MCP の `pull_request_read` で代替確認した。コード変更なし。
