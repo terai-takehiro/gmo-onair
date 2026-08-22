@@ -21,7 +21,47 @@ import tempfile
 import unittest
 import os
 
-from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
+from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail
+
+
+class DecodeHtmlTest(unittest.TestCase):
+    """decode_html() の文字コード判定。
+
+    ⚠️ 実際に踏んだ回帰: 以前は BeautifulSoup の UnicodeDammit（<meta charset> 宣言・
+    それも無ければ chardet 系の統計的推定）に文字コード判定を委ねていたが、
+    実ページに <meta charset> 宣言が無いケースでは同じ統計的推定に頼ることになり、
+    日本語部分だけ文字化けする不具合が再発した。ここでは「<meta charset> 宣言が
+    無くても、厳密デコードの成否で正しく判定できる」契約を直接検証する
+    （UnicodeDammit 頼みだと、宣言が無ければここが弱いままになる）。"""
+
+    def test_utf8_bytes_without_meta_charset_decode_correctly(self):
+        html_str = "<html><body><h1>Lightning－Digital AV変換アダプタ</h1></body></html>"
+        html_bytes = html_str.encode("utf-8")
+        self.assertEqual(decode_html(html_bytes), html_str)
+
+    def test_cp932_bytes_without_meta_charset_decode_correctly(self):
+        """<meta charset> 宣言が無い Shift_JIS(CP932) ページ。以前の
+        UnicodeDammit任せの実装では、宣言が無いためチャーデット系の統計的推定に
+        フォールバックし、誤判定しうる状況。"""
+        html_str = "<html><body><h1>Lightning－Digital AV変換アダプタ</h1></body></html>"
+        html_bytes = html_str.encode("cp932")
+        self.assertEqual(decode_html(html_bytes), html_str)
+
+    def test_shift_jis_bytes_with_meta_charset_decode_correctly(self):
+        html_str = (
+            '<html><head><meta charset="Shift_JIS"></head><body>'
+            "<h1>SONY HVL-LEIR1(ミニLED赤外線ライト)</h1></body></html>"
+        )
+        html_bytes = html_str.encode("shift_jis")
+        self.assertEqual(decode_html(html_bytes), html_str)
+
+    def test_utf8_bytes_with_meta_charset_decode_correctly(self):
+        html_str = (
+            '<html><head><meta charset="UTF-8"></head><body>'
+            "<h1>SONY HXR-NX5R</h1></body></html>"
+        )
+        html_bytes = html_str.encode("utf-8")
+        self.assertEqual(decode_html(html_bytes), html_str)
 
 
 class UpsertItemSharedNowTest(unittest.TestCase):

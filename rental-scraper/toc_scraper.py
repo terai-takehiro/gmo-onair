@@ -28,7 +28,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
-from common_db import init_db, upsert_item, mark_missing_items, ItemDetail
+from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail
 
 COMPANY = "TOC"
 BASE = "https://ec.toc-net.jp"
@@ -55,9 +55,9 @@ PRICE_RE = re.compile(r"([\d,]+)\s*円")
 
 
 def fetch(url: str, retries: int = 3):
-    """成功時は**バイト列**（`resp.content`）を返す。文字コードは
-    `BeautifulSoup(html, "html.parser")` 側の自動検出（UnicodeDammit。HTML の
-    `<meta charset>` 宣言等を見る）に任せる。
+    """成功時は**バイト列**（`resp.content`）を返す。文字コードの判定は呼び出し側で
+    `common_db.decode_html()` に委ねる（UTF-8 の厳密デコードを最優先に試し、
+    ダメなら CP932→EUC-JP→最後の保険として BeautifulSoup の UnicodeDammit、の順）。
 
     ⚠️ 以前は `resp.encoding = resp.apparent_encoding`（`chardet`/`charset_normalizer`
     によるバイト列からの推定）で文字コードを決めてから `resp.text`（デコード済み文字列）
@@ -65,8 +65,11 @@ def fetch(url: str, retries: int = 3):
     （`Lightning－Digital AV変換アダプタ` のような ASCII混じりの商品名で、
     日本語部分だけ欧文コードページに誤爆したような文字化けになる —
     `apparent_encoding` の推定精度は日本語ページで必ずしも高くない）。
-    HTML の `<meta charset>` 宣言を見る BeautifulSoup 側の検出のほうが確実なため、
-    デコードを BeautifulSoup に委ねる形に変えた。"""
+    その後 `BeautifulSoup` の自動検出（UnicodeDammit）に委ねる形に変えたが、
+    実ページに `<meta charset>` 宣言が無いと UnicodeDammit も同じ統計的推定に
+    フォールバックし、根本原因が変わっていなかった（実際に再発報告あり）。
+    いまは `decode_html()` が UTF-8 の厳密デコード成否という確定的な判定を
+    先に行うため、統計的推定に頼る場面自体が減る（`common_db.py` 参照）。"""
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=TIMEOUT)
@@ -90,7 +93,7 @@ def collect_item_ids_for_category(category_id: int) -> set:
         if not html:
             break
 
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(decode_html(html), "html.parser")
         found_this_page = set()
         for a in soup.find_all("a", href=True):
             m = ITEM_LINK_RE.search(a["href"])
@@ -195,7 +198,7 @@ def _extract_images(soup: BeautifulSoup, item_id: str) -> list:
 
 
 def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(decode_html(html), "html.parser")
     detail = ItemDetail(item_id=item_id, url=f"{BASE}/rental/item/{item_id}")
 
     h1 = soup.find("h1")
@@ -212,8 +215,15 @@ def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
         if fallback is not None:
             detail.price_net = fallback
         else:
+            # ⚠️ 「料金」「価格」キー・ラベル方式のどちらでも取れなかったケース。
+            # ページ内に「円」を含む価格らしきテキストが実際にあるかどうかを
+            # ここで診断ログに残す（実サイトの HTML 構造がサンドボックスから
+            # 検証できないため、この後は必ずデプロイ後のログを見て次を判断すること —
+            # README「未検証であることについて」参照）。抽出には使わない、参考情報。
+            price_like = PRICE_RE.findall(soup.get_text(" ", strip=True))
             log.warning(
-                "価格取得不可: %s（spec keys=%s）", detail.url, list(detail.specs.keys())[:10]
+                "価格取得不可: %s（spec keys=%s, ページ内の価格らしき数値=%s）",
+                detail.url, list(detail.specs.keys())[:10], price_like[:10],
             )
     detail.images = _extract_images(soup, item_id)
 
