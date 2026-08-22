@@ -15,44 +15,20 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 案件管理・財務管理・カレンダー・設定 | [`client/`](client/CLAUDE.md) | `/` | 5173 | **対象** | 案件・見積・売上・仕入・損益・予定・権限。v4 でプロジェクト管理を追加 |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | **対象** | 週報・ニュース・内覧会・受領書類・セキュリティカード |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
-| 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧`/qsheet/`も後方互換で生存） | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)。**v4 のアプリ名は「制作技術支援」**（旧「制作資料」・2026-08-22 に再改名し大アプリへ格上げ）、Qシートはその中のミニアプリ。**ディレクトリ名（Phase 1）・ベースパス/`AppKey`（Phase 2）・Socket.IO（Phase 3・ブリッジ方式）・MCPツール名（Phase 4）を `techops` 系へ改名済み**（2026-08-22。内部識別子`permissionModule`・DBは未改名、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
+| 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧`/qsheet/`も後方互換で生存） | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)＋計時・視聴者のミニアプリ。旧「制作資料」を 2026-08-22 に改名・大アプリへ格上げ。qsheet→techops 改名は Phase 1〜4 済み（旧URL・旧MCPツール名はブリッジ/二重登録で互換維持。`permissionModule`・DBは `qsheet` のまま、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | **対象** | タイマー・視聴者カウンター。運用画面は共通シェル・v4トークン化済み。**表示画面 (`/live/display/`) だけ例外**（見た目を変えない） |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | ~~`/awards/`~~ | ~~5179~~ | **廃止** | 放送CG演出・送出 (内部識別子は `awards` のまま)。**コードは保存・配信は停止**（2026-08〜） |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
 
-**「凍結」の意味**: v4.0.0 では作り直さない。**URL は生かし、見た目は今のまま**にする
-(一覧・アプリ切替からは外す)。詳細は各アプリの `CLAUDE.md` と [docs/v4-plan.md](docs/v4-plan.md)。
-
-**「凍結解除中」の意味**（制作技術支援のみ・v4.1 段3〜）: `frozen` の印を落とし、一覧・アプリ切替には
-出るようになった。**v4.1 段5 でトークン（色・書体・角丸）を v4 化し、続く PR で共通シェル
-（`shared/src/client/shell/`）への載せ替えも済ませた**。まだなのは表本体（`CueTable`/`CueRow`/
-`cells/*`）・`EditorSidebar` の詳細・本番3画面固有の実装の作り直し。詳細は
-[`client-techops/CLAUDE.md`](client-techops/CLAUDE.md) と
-[docs/design/v4/qsheet-v4-coding/](docs/design/v4/qsheet-v4-coding/)。
-
-**2026-08-22 にアプリ名を「制作資料」→「制作技術支援」へ再改名し、大アプリ（`shared/src/client/apps.ts`
-の `APPS` 順・ホームタイルの `DAILY_KEYS` でプロジェクト管理と財務管理の間）に格上げした**（ご指示）。
-凍結解除・v4 共通シェルへの載せ替えが済んだことに伴う判断。
-
-**「廃止」の意味**（凍結よりさらに一段先）: 機能そのものを止める。**コードは消さず
-リポジトリに残す**（今後の開発で参照する可能性があるため）が、**サーバーの配信・
-ビルド対象・画面上の入口をすべて外し、Web サイトのどこからも到達できなくする**。
-いまリアルタイムCGだけがこの状態。詳細は [client-awards/CLAUDE.md](client-awards/CLAUDE.md)。
+**「凍結」「凍結解除中」「廃止」の定義と経緯は [docs/v4-plan.md](docs/v4-plan.md) の「用語」の節。**
+制作技術支援の残作業（表本体・`EditorSidebar`・本番系画面の作り直し）は
+[`client-techops/CLAUDE.md`](client-techops/CLAUDE.md)。
 
 ### 外部リンク (別 VPS / 別タブで開く)
 | アプリ | URL | 概要 |
 |---|---|---|
 | インタラクティブ | https://interactive.gmo-onair.jp/ | EventStamp・リアルタイム演出 (別 VPS) |
 | 翻訳 | https://gmo-translate.jp/ | GMO 翻訳ツール |
-
-### 共有ライブラリ (`shared/`)
-全ブロックアプリの共通コードを集約。各アプリは設定値のみ渡すラッパーファイルで利用。
-- `shared/src/client/createApi.ts` — axiosインスタンスのファクトリ (storageKey, loginPath)
-- `shared/src/client/createAuthHook.ts` — useAuthフックのファクトリ (storageKey, api)
-- `shared/src/client/queryClient.ts` — 共通QueryClient設定
-- `shared/src/client/uiStore.ts` — 共通UIストア (Zustand)
-- `shared/src/client/utils.ts` — cn()ユーティリティ
-- ストレージキー: `qs_user` (qsheet), `is_user` (interactive), `eq_user` (equipment)
 
 ## Claude の応答言語ポリシー
 - **作業中（ツール呼び出しの説明・思考過程など）は英語で処理してよい。**
@@ -70,17 +46,16 @@ GLS番号を中核として全アプリのデータが紐づく。
 ### よく使うコマンド
 ```bash
 npm run verify:up      # 検証用 Postgres を立てる (約4秒・ポート5433・本番とは完全分離)
-npm run dev            # v4 対象3アプリ + server  (全6アプリは dev:all / 凍結分は dev:frozen)
-npm run typecheck      # v4 対象3アプリ + server  (CI は全6アプリの typecheck:all を使う)
+npm run dev            # 既定3アプリ + server  (全アプリは dev:all)
+npm run typecheck      # 既定3アプリ + server  (CI は typecheck:all = 廃止アプリを除く全ワークスペース)
 npm run build:changed  # 変更したワークスペースだけビルド (全部だと2分)
 npm run verify:ui      # 実ブラウザで書体・桁揃い・横はみ出しを実測
-npm run fonts          # LINE Seed JP を同梱し直す (v4の3アプリは Google Fonts を読まない)
-npm run lint           # eslint    /  npm run check:version  # バージョン表記の整合
-npm run check:frozen   # 凍結3アプリの CSS が変わっていないか (build:all のあとに回す)
+npm run fonts          # LINE Seed JP を同梱し直す (v4 対象アプリは Google Fonts を読まない)
+npm run lint           # eslint ほか各種検査  /  npm run check:version  # バージョン表記の整合
 npm run test           # shared の Vitest (**CI が回す。手元の gate にも必ず入れる**)
 ```
 `build` / `typecheck` / `dev` の既定が3アプリなのは**手元の速さのため**。
-本番は Dockerfile が6アプリすべてを個別ステージでビルドするので、凍結アプリも必ず作られる。
+本番は Dockerfile が**廃止アプリを除く全アプリ**をビルドする。
 
 ### どこに何が書いてあるか
 | 知りたいこと | 読む場所 |
@@ -91,18 +66,18 @@ npm run test           # shared の Vitest (**CI が回す。手元の gate に�
 | ブランチ・PR・リリース手順 | [docs/branching.md](docs/branching.md) |
 | 環境構築から PR まで | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | デプロイの仕組み (GHCR・キャッシュ・戻し方) | [docs/deploy-pipeline.md](docs/deploy-pipeline.md) |
-| 版ごとの変更 (全430件) | [docs/version-history.md](docs/version-history.md) |
+| 版ごとの変更 (過去全件のアーカイブ) | [docs/version-history.md](docs/version-history.md) |
 | v4 の画面ごとの仕様 (モックから切り出したもの) | `docs/design/v4/` |
 | 用語の決めごと | [docs/wording.md](docs/wording.md) |
 | **どの仕事にどのモデルを使うか** | [docs/ai-models.md](docs/ai-models.md) — 段は light / heavy の2つだけ。**基準は「間違いに気づけるか」で費用ではない** |
 | MCP のツール一覧 | [docs/mcp-server.md](docs/mcp-server.md) |
 
 ## 現在のバージョン
-v4.2.1 — **PR #339（qsheet Phase 3・4）のマージ後の棚卸しを記録した**（コード変更なし）。`get_review_comments`をGitHub MCPで直接確認し、レビュー0件（CI greenから約2分後にマージ）だったことを[docs/reviews/codex-findings-v4.md](../reviews/codex-findings-v4.md)の「レビューが0件のままマージされた PR」一覧に記録した。 **PR #343（release: v4.2.0）のマージ後の棚卸しを記録した**（コード変更なし）。`docs/branching.md`「マージしたら、その PR のレビューを棚卸しに移す」の決めごとどおり、CI green確認後すぐにマージし（コード変更なしのリリース版上げPR・typecheck/lint/test/check:versionすべて確認済み・ユーザーの明示指示を受けての実行）、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した。 **トップページのタイルから制作技術支援が消えていたのを直した**（v4.2.0 で発生）。qsheet→techops 移行 Phase 2（PR #337・2026-08-22）で `shared/src/client/apps.ts` の `AppKey` を `qsheet` から `techops` へ改名したが、`client/src/contexts/platform/pages/HomePage.tsx` の `DAILY_KEYS` 配列（トップのアプリタイルに出すキーの一覧）が旧キー `qsheet` のままだったため、`DAILY_KEYS.includes(a.key)` が一致せず**トップページから制作技術支援のタイルが1枚も出なくなっていた**（アプリ切替・左メニューは `visibleApps()` を通すので無事だった）。あわせて `home/AppTiles.tsx` の `SEPARATE_BUNDLE`（別バンドルへのフルリロード判定）も同じ理由で取り残されていたため直した（タイルが出ても押すと SPA 内 `navigate()` で壊れるところだった）。検証: `npx tsc -b client` / `npm run test`（shared 1452件）OK。 **PR #345（fix(client): トップページのタイルから制作技術支援が消えていたのを直した）のマージ後の棚卸しを記録した**（コード変更なし）。`docs/branching.md`「マージしたら、その PR のレビューを棚卸しに移す」の決めごとどおり、作成から28秒でユーザー自身がマージし（CIはまだ実行中の時点）、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した。
+v4.2.1 — **トップページのタイルから制作技術支援が消えていたのを直した**（v4.2.0 直後の不具合修正パッチ）。qsheet→techops 改名（Phase 2）にトップのタイル一覧（`HomePage.tsx` の `DAILY_KEYS`）が追随しておらず、トップページからだけ制作技術支援が消えていた（アプリ切替・左メニューは無事）。`SEPARATE_BUNDLE` の取り残しも同時に修正。ほか PR #339/#343/#345 のマージ後棚卸しを記録した。全文はアーカイブ側にある。
 
 v4.2.0 — **v4 の主要スコープが完成し、本番へ出す準備が整った。** 制作技術支援（旧Qシート）を表本体を除き v4 の見た目・共通シェルへ全面刷新した（台本・進行・プロンプター・音声サポートの本番画面／AI提案・生成／収録配信設定／レンタル機材検索を含む10段階の作り直し）。あわせてディレクトリ・URL・Socket.IO・MCPツール名を `techops` へ移行した（旧 `qsheet` 系は無期限のブリッジ・二重登録で互換維持）。計時・視聴者は制作技術支援のミニアプリへ統合し、表示画面のレイアウトを自由に組めるエディタを追加した。技術資料アプリは削除、リアルタイムCGは配信のみ停止（コードは保存）。会社リスト一本化（Phase 3-3）が完了し、顧客・仕入先の旧ID解決コードも役目を終えて削除した。ほかカレンダー・案件管理・機材台帳・現場サポート導線のUIUX刷新とモバイル対応、多数のレビュー指摘の棚卸しを行った。詳細は `docs/v4-plan.md`・`docs/reviews/phase3-2-plan.md`・`docs/reviews/qsheet-techops-migration-plan.md` を参照。
 
-v4.1.7 — **Phase 3-3 着手条件②・チェックリストBの①（本番公開）が満たされたことを記録した**（コード変更なし）。ユーザーが GitHub Release で `v4.1.6`（legacy-ID解決の記録の仕組み・PR #215を含む版）を公開し、本番デプロイが成功したことを `docs/reviews/phase3-2-plan.md` に反映した。②の観測期間はここから起算する。⚠️ このセッションからは本番への直接アクセスができない（サンドボックスのネットワークポリシー）ため、互換確認チェックリストAのスモークテストは未実施であることも明記した。 **Phase 3-3 着手条件②の①②が満たされたことを記録した**（コード変更なし）。①「Bのログが本番公開」はv4.1.6のデプロイ成功で満たし、②「意味のある観測期間の経過」はユーザーが legacy-ID の実利用が観測期間中実質0件だったことを踏まえて基準を見直し、短い観測期間（v4.1.6デプロイから約21分）でも可と明示的に判断したことを `docs/reviews/phase3-2-plan.md` に記録した。⚠️ 当初の基準（実利用が一巡する程度）とは異なる短い観測期間での判断であることを明記し、後で読む人が混乱しないようにした。残るは③次の通常リリースの公開のみ。互換確認チェックリストA・Cは着手セッションが本番へ直接アクセスできず未実施のまま。
+v4.1.7 — **Phase 3-3 着手条件②③がすべて満たされたことを記録した**（コード変更なし）。v4.1.6 の本番公開で legacy-ID 使用の観測が始まり、実利用が実質0件だったことを踏まえてユーザーが短い観測期間でも可と明示的に判断した。経緯と残る注意（互換確認チェックリストA・Cは本番アクセス不可のセッションでは未実施のまま）は `docs/reviews/phase3-2-plan.md` を参照。全文はアーカイブ側にある。
 
 
 > **これより前の版は [docs/version-history.md](docs/version-history.md) にあります**（v4.0.2 以下・427件）。
@@ -146,39 +121,23 @@ AI が関与しない UI 修正・CRUD・デプロイ作業には適用しない
   （うち1件は**リリースが出せなくなる P1**）。**直さないと決めたものも表から消さない。**
   手順は [docs/branching.md](docs/branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)
 
-### バージョンを上げるとき
+### バージョンと履歴
 
-⚠️ **作業 PR では版を上げない。** 番号は「枝を切った時刻」ではなく**マージされた順**で
-決まるので、着手時に取ると**先に入った PR と必ず取り合い**になります。実測: 直近2週間で
-`CLAUDE.md` 55 コミット・`README.md` 42・`package.json` 45 — **ぶつかったのは毎回この3か所だけで、
-コードは1度も競合していません**。
+**手順の正は [docs/branching.md](docs/branching.md)。** ここは要点のみ:
 
-- **作業 PR**: `docs/changelog.d/<枝の名前>.md` に**載せたい文を1つ置くだけ**
-  （新しいファイルなので衝突しません）。**版の3か所は触らない** —
-  触ると `npm run lint`（`check-changelog.mjs`）が止めます
-- **リリース**: `npm run release:notes -- X.Y.Z` が下書きを**マージされた順**に集めて
-  下の3か所を全部やります（4件目のアーカイブ移動まで）。通すのは `RELEASE=1` か `release/` の枝
-
-**リリース時だけ**上げる (以前の「毎 push でパッチを上げる」は廃止)。更新するのは**3か所だけ**:
-1. ルート `package.json` の `"version"` ← **唯一の情報源**
-2. `CLAUDE.md`「## 現在のバージョン」の先頭に1行追記
-3. `README.md` の「現在のバージョン」
-
-**各ワークスペースの `package.json` は更新しない。** どこからも読まれておらず (画面表示はルート
-`package.json` → `vite.config.ts` の `__APP_VERSION__`)、更新すると Docker の全ビルドステージが
-無効化されて「変更のないアプリはビルドをスキップ」が効かなくなる (詳細: `docs/deploy-pipeline.md`)。
-整合は `npm run check:version` が検査する。
-
-### バージョン履歴 (ヘッダーの時計アイコン)
-`scripts/generate-version-history.mjs` が **`CLAUDE.md`「## 現在のバージョン」(最新3件) ＋
-`docs/version-history.md`「## 過去のバージョン」(それ以前の全件)** を連結して
-`client/public/version-history.json` を生成する (`client` の `predev`/`prebuild` で自動実行)。
-
-- **`CLAUDE.md` に履歴を貯めないこと。** この節は毎ターン文脈に載るため、
-  貯めると全作業のコストが上がる (v3.2.2 時点で 680KB＝この文書の96%が履歴だった)。
-  リリースのたびに4件目をアーカイブへ移す。目安を超えると生成時に警告が出る
-- **書式を崩すとパースに失敗する**: `vX.Y.Z — **タイトル**。本文` /
-  アーカイブ側は全体を `(...)` で包み1エントリ1行
+- **作業 PR では版を触らない。** 代わりに `docs/changelog.d/<枝の名前>.md` に載せたい文を
+  1つ置く（`npm run lint` の `check-changelog.mjs` が**両方**を強制する）
+- **リリース時**に `npm run release:notes -- X.Y.Z` が3か所（ルート `package.json` /
+  この文書の「現在のバージョン」/ `README.md`）とアーカイブ移動を全部やる。
+  整合は `npm run check:version`。各ワークスペースの `package.json` は触らない
+  （Docker のビルドスキップが無効化される）
+- 画面の「バージョン履歴」は `scripts/generate-version-history.mjs` が
+  **この文書（最新3件）＋ [docs/version-history.md](docs/version-history.md)（それ以前の全件）**
+  から生成する。**書式を崩すとパースに失敗する**（この文書は `vX.Y.Z — **タイトル**。本文` の
+  1行・アーカイブ側は全体を `(...)` で包んだ1行）
+- **「現在のバージョン」は最新3件だけ・1エントリ＝タイトル＋2〜3文まで。** 長い経緯は
+  該当のレビュー文書に書いてリンクする。詳細を残したい版は**全文をアーカイブ側に置けば
+  画面は長いほうを表示する**（この節は毎ターン文脈に載るため、貯めると全作業のコストが上がる）
 
 ## 環境分離ポリシー (最重要)
 
@@ -201,15 +160,12 @@ AI が関与しない UI 修正・CRUD・デプロイ作業には適用しない
 - 本番DBに対する直接SQL操作は**最小限**（管理者パスワードリセット等の緊急時のみ）
 - 検証環境のデータが本番に流れ込まないこと
 - 本番環境の秘密情報（JWT_SECRET等）を検証環境で使わないこと
-- **Claudeは必ず `dev` に先行プッシュし、ユーザーが「本番に入れて」と明示するまで `main` には絶対にプッシュしない**
+- **本番へ出す（GitHub Release の公開）は、ユーザーの明示的な指示があるときだけ。**
+  いかなる理由があっても Claude が自分の判断で公開しない。`main` への直接 push も禁止（PR のみ）
 
-### デプロイワークフロー
-1. **開発 → 検証**: `dev` ブランチへpush → GitHub Actions が検証環境 (`dev.gmo-onair.jp`) に自動デプロイ
-2. **検証で動作確認**: 検証環境で全機能テスト → OKならユーザーに通知して承認を待つ
-3. **本番リリース**: ユーザーがチャットで「本番に入れて」と明示的に指示してから、`dev` を `main` にマージ＆push
-4. **緊急ロールバック**: 以前のコミットに戻してpush → 本番が旧バージョンに戻る
-
-> ⚠️ Claudeへの注意: ユーザーの明示的な本番指示なしに `main` へpushすることは**いかなる理由があっても禁止**。
+デプロイの流れ: PR を `main` にマージ → 検証環境に自動デプロイ。本番はユーザーが
+Release（タグ `vX.Y.Z`）を公開したときだけ。手順・戻し方は
+[docs/branching.md](docs/branching.md) と [docs/deploy-pipeline.md](docs/deploy-pipeline.md)。
 
 ### バージョン確認コマンド (VPS)
 ```bash
@@ -261,10 +217,10 @@ curl -sk https://gmo-onair.jp/health                            # 本番稼働�
 - `JWT_SECRET` にデフォルト値(`dev-jwt-secret-do-not-use-in-production`)を本番で使わない
 
 ### 認証
-- **開発**: `GOOGLE_CLIENT_ID` 未設定 → mockAuth自動有効（ユーザーカード選択式）
-- **本番**: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` 設定 → Google OAuth自動有効
+- **切替は `AUTH_MODE` 環境変数**（`server/src/config.ts`）: `password` = Email/Password + SMS 2FA ／
+  `mock` = ユーザーカード選択式。未指定なら本番（`NODE_ENV=production`）は `password`・開発は `mock`
 - JWT: HTTP-only cookie + Authorization Bearerヘッダーの二重送信
-- 招待制: Googleログインは `users` テーブルに登録済みのメールアドレスのみ許可
+- Google の資格情報（`GOOGLE_CLIENT_ID` 等）は**カレンダー連携専用**。ログインには使わない
 
 ### 環境変数の管理
 - `.env.example` をテンプレートとして使用（`cp .env.example .env`）
