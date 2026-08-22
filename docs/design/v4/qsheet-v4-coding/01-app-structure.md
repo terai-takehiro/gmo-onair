@@ -8,7 +8,7 @@
 > PR #288（A/B/C/E）と PR #290（A残・D・F・G）で全PR実装・マージ済み）。
 > 第1段階のモック: [`../production-v4-native-mockups.md`](../production-v4-native-mockups.md)
 > （① トップページ／②③ スケジュール表／④〜⑦ Qシート／⑧ 制作のジャーニー）
-> 対象バンドル: [`client-qsheet/`](../../../../client-qsheet/CLAUDE.md)（ベースパス `/qsheet/`・ポート 5174）
+> 対象バンドル: [`client-qsheet/`](../../../../client-techops/CLAUDE.md)（ベースパス `/qsheet/`・ポート 5174）
 >
 > ⚠️ **この文書は「新しく足すもの」の設計です。**「今あるものを維持する」側
 > （編集画面・本番4役割・公開音声）は [`06-editor.md`](06-editor.md) /

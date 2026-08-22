@@ -9,7 +9,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 > `projects.md` を作る `extract-v4-design.mjs` は古い `v4-mockup-main.dc.html` しか
 > 読んでいません（この4画面は JS の書き方が違うため機械抽出が効きません）。
 > この4画面を触るときは `projects.md` だけで判断せず、
-> [`../v4-mock-deviations.md`](../v4-mock-deviations.md) の
+> [`../../v4-mock-deviations.md`](../../v4-mock-deviations.md) の
 > 「`v4-live-sales.dc.html` との突き合わせ」節と、モック本体を必ず確認してください。
 > `projects.md` は料金表・標準工程テンプレートなど、他の画面のぶんはそのまま使えます。
 
@@ -27,7 +27,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | **画面が扱うデータの項目名**（＝列定義） | 下のアプリ別ファイル | 2〜8KB |
 | **レイアウト・見た目** | [`mockups/`](mockups/) を**ブラウザで開く** | 2.3MB |
 | どの値が実際に何回使われているか | [`_tokens-observed.md`](_tokens-observed.md)（生成物） | 5KB |
-| 開発の段取り | [`../../v4-plan.md`](../v4-plan.md) | — |
+| 開発の段取り | [`../../v4-plan.md`](../../v4-plan.md) | — |
 
 > **なぜ分けてあるか**
 > モックアップは1ファイル 122KB〜675KB（合計 2.3MB）あります。画面を実装するたびに

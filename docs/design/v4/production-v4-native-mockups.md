@@ -7,7 +7,7 @@
 
 ## 経緯
 
-「制作資料」アプリ（[`client-qsheet/`](../../../client-qsheet/CLAUDE.md)、v4.0.0では凍結）の
+「制作資料」アプリ（[`client-qsheet/`](../../../client-techops/CLAUDE.md)、v4.0.0では凍結）の
 v4化に着手するにあたり、ユーザーから次の第1段階の依頼を受けました。
 
 > 第１段階: `/design` モックアップ作成（PC/スマホ）
@@ -98,7 +98,7 @@ v4化に着手するにあたり、ユーザーから次の第1段階の依頼�
 **ご指摘**「制作技術支援のトップページがあまりにもだめ。iOS、MacOS の美しさ、機能性を
 UIUX に落とし込んで」を受けた作り直しです。**①を置き換えるもの**で、①は経緯として残します。
 
-対象は実装済みの `/qsheet/top`（[`ProductionTopPage.tsx`](../../../client-qsheet/src/pages/ProductionTopPage.tsx)）。
+対象は実装済みの `/qsheet/top`（[`ProductionTopPage.tsx`](../../../client-techops/src/pages/ProductionTopPage.tsx)）。
 ①の当時とは構成が変わっており（案件のライフサイクル別の4グループ → 「まず番組・イベントを
 選ぶ」1画面）、いまの画面は**「案件管理の番組・イベント」と「ここだけの番組」の2つの一覧を
 素の枠線で縦に並べているだけ**で、開いた瞬間に目が止まる場所がありません。
