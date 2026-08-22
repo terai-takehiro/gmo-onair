@@ -200,7 +200,7 @@ function AppRoutes() {
         {/*
             **ビジネス（GLS-B）はプロジェクト管理へ移した** (migration 179)。
             旧 URL はブックマークされているので転送する。
-            `/studio` より先に置くこと（React Router は静的な区切りを優先するが、
+            `/calendar` より先に置くこと（React Router は静的な区切りを優先するが、
             同じ深さの動的区間より前に書いておくほうが読み違えない）
         */}
         {/* `ConfirmedProjectsPage` は削除（③案件一覧が上位互換）。旧 URL は転送する */}
@@ -297,25 +297,32 @@ function AppRoutes() {
         <Route path="/budget/detail" element={<RedirectKeepQuery to="/budget/dashboard" />} />
         <Route path="/budget/dashboard" element={<PermissionRoute module="sales"><BudgetDashboardPage /></PermissionRoute>} />
 
-        {/* ===== スタジオ予約 (studio) ===== */}
+        {/* ===== カレンダー (calendar) ===== */}
         {/*
           v4 カレンダー: モックの4画面（① 予定 / ② 部屋の空き / ③ 仮押さえ / ④ 設定）。
           **① 予定は「1本のカレンダー＋レイヤー」** なので、いままで `/studio/all` に
           いた統合カレンダーをここへ持ってきた（`/studio/all` は転送）。
-          **`studio` と `partner_schedule` は権限モデル単純化で `sales` に統合済み**
+          **`studio`（＝カレンダー）と `partner_schedule` は権限モデル単純化で `sales` に統合済み**
           （docs/reviews/permission-model-simplification-plan.md）
         */}
-        <Route path="/studio/calendar" element={<PermissionRoute module="sales"><UnifiedCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/rooms" element={<PermissionRoute module="sales"><RoomAvailabilityPage /></PermissionRoute>} />
-        <Route path="/studio/holds" element={<PermissionRoute module="sales"><HoldListPage /></PermissionRoute>} />
-        <Route path="/studio/settings" element={<PermissionRoute module="sales"><CalendarSettingsPage /></PermissionRoute>} />
+        <Route path="/calendar" element={<PermissionRoute module="sales"><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/calendar/rooms" element={<PermissionRoute module="sales"><RoomAvailabilityPage /></PermissionRoute>} />
+        <Route path="/calendar/holds" element={<PermissionRoute module="sales"><HoldListPage /></PermissionRoute>} />
+        <Route path="/calendar/settings" element={<PermissionRoute module="sales"><CalendarSettingsPage /></PermissionRoute>} />
+        {/* ここから旧 `/studio/*` の互換転送。AppKey/パスを `studio`→`calendar` に改名した
+            （2026-08・`shared/src/client/apps.ts`）ための後方互換（`RedirectKeepQuery` でクエリを引き継ぐ） */}
+        <Route path="/studio" element={<RedirectKeepQuery to="/calendar" />} />
+        <Route path="/studio/calendar" element={<RedirectKeepQuery to="/calendar" />} />
+        <Route path="/studio/rooms" element={<RedirectKeepQuery to="/calendar/rooms" />} />
+        <Route path="/studio/holds" element={<RedirectKeepQuery to="/calendar/holds" />} />
+        <Route path="/studio/settings" element={<RedirectKeepQuery to="/calendar/settings" />} />
         {/* **`/studio/studio-calendar`は退役した**（v4ネイティブUI化バックログB・2026-08）。香盤ビューと部屋予約を直す導線は① 予定へ吸収済み（連携ダイアログは④設定のサイネージタブが既に同機能を持ち移設不要だった） */}
-        <Route path="/studio/studio-calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
+        <Route path="/studio/studio-calendar" element={<RedirectKeepQuery to="/calendar" />} />
         {/* **`/studio/partners`は削除した**（v3の遺物・2026-08）。① 予定（統合カレンダー）が作成・編集・絞り込みとも既に代替済み */}
-        <Route path="/studio/partners" element={<RedirectKeepQuery to="/studio/calendar" />} />
+        <Route path="/studio/partners" element={<RedirectKeepQuery to="/calendar" />} />
         {/* **`/studio/my-calendar`は退役した**（v4ネイティブUI化バックログB・2026-08）。取込元の色分けは① 予定の凡例へ統合済み、外部カレンダー連携は④設定（`FeedsTab.tsx`）へ既に移設済みだった */}
-        <Route path="/studio/my-calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
-        <Route path="/studio/all" element={<RedirectKeepQuery to="/studio/calendar" />} />
+        <Route path="/studio/my-calendar" element={<RedirectKeepQuery to="/calendar" />} />
+        <Route path="/studio/all" element={<RedirectKeepQuery to="/calendar" />} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
@@ -323,7 +330,7 @@ function AppRoutes() {
         <Route path="/settings/users" element={<PermissionRoute module="admin"><MembersPage /></PermissionRoute>} />
         {/* ⑤ お金のルール。**読むのは sales（旧 budget）の reader**（見積を作る人は税率と期日を知る必要がある）。直せるのは manager だけで、それは画面とサーバーの両方で見ている */}
         <Route path="/settings/money" element={<PermissionRoute module="sales"><MoneyRulesPage /></PermissionRoute>} />
-        {/* ⑥ 休日・営業時間。読むのは `sales`（旧 `studio`）の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
+        {/* ⑥ 休日・営業時間。読むのは `sales`（旧 `studio`＝カレンダー）の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
         <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
         {/* ⑦ 通知とテンプレート。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
@@ -363,7 +370,6 @@ function AppRoutes() {
         <Route path="/sales" element={<Navigate to="/sales/dashboard" replace />} />
         <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
         <Route path="/gpm" element={<Navigate to="/gpm/dashboard" replace />} />
-        <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 旧URLリダイレクト */}
         <Route path="/projects" element={<RedirectKeepQuery to="/sales/projects" />} />
@@ -371,7 +377,6 @@ function AppRoutes() {
         <Route path="/revenues" element={<RedirectKeepQuery to="/budget/revenues" />} />
         <Route path="/purchases" element={<RedirectKeepQuery to="/budget/purchases" />} />
         <Route path="/sga" element={<RedirectKeepQuery to="/budget/sga" />} />
-        <Route path="/calendar" element={<RedirectKeepQuery to="/studio/calendar" />} />
         <Route path="/masters/customers" element={<RedirectKeepQuery to="/sales/customers" />} />
         <Route path="/masters/pricing" element={<RedirectKeepQuery to="/sales/pricing" />} />
         <Route path="/masters/vendors" element={<RedirectKeepQuery to="/budget/vendors" />} />
