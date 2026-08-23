@@ -216,7 +216,7 @@ services:
     restart: unless-stopped
 
   # ──────────────────────────────────────
-  # レンタル機材スクレイパー（検証環境のみ・v4.1.8）
+  # レンタル機材スクレイパー（検証環境・v4.1.8）
   # ──────────────────────────────────────
   # 東京オフラインセンター(TOC)・レスターの機材ページを毎日クロールし、
   # 検証の Postgres (onair_dev / qsheet_rental_items) へ同期する常駐コンテナ。
@@ -224,9 +224,10 @@ services:
   # 中身・運用手順は rental-scraper/README.md。デプロイの結線は
   # .github/workflows/deploy.yml の staging ジョブ（rental_scraper_dev）参照。
   #
-  # ⚠️ **検証環境専用。本番 (app_prod) 向けの同種サービスはまだ無い。**
-  # 本番で実際にスクレイピングを始めるかどうかは、ユーザーが明示的に指示するまで
-  # 判断しない（CLAUDE.md「環境分離ポリシー」「本番デプロイの絶対原則」と同じ精神）。
+  # 本番向けの同種サービスは下の rental_scraper_prod（v4.3.1〜。ユーザー指示により着手）。
+  # 2つは対象サイトが同一（実サイトは検証・本番の区別をしない）なので、
+  # 同時刻に走らせて2重にクロールしないよう時刻をずらしてある
+  # （RENTAL_CRON_HOUR 既定5時 / rental_scraper_prod は RENTAL_CRON_HOUR_PROD 既定4時）。
   rental_scraper_dev:
     build:
       context: ./rental-scraper
@@ -245,6 +246,37 @@ services:
     volumes:
       # クロール結果（ステージング）をコンテナ再作成をまたいで残す
       - rental_scraper_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────
+  # レンタル機材スクレイパー（本番環境・v4.3.1）
+  # ──────────────────────────────────────
+  # 中身は rental_scraper_dev と同一イメージ（rental-scraper/）。同期先の
+  # Postgres だけ本番 (onair_prod) に向けてある。GHCR には積まず VPS 上でその場ビルド。
+  # デプロイの結線は .github/workflows/deploy.yml の production ジョブ参照。
+  #
+  # ⚠️ 本番デプロイは Release 公開時のみ（main マージのたびに動く検証と違い頻度が低い）
+  # ため、デプロイのたびに再実行される検証と同じ「毎回起動時に1回クロール」でも
+  # 対象サイトへの負荷が跳ね上がる心配はない。
+  rental_scraper_prod:
+    build:
+      context: ./rental-scraper
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_prod
+      # デプロイ直後に1回実行する（本番へ出した直後に「実際にスクレイピングできているか」を
+      # 翌日の実行時刻を待たずに確認できるようにするため。rental_scraper_dev と同じ理由）
+      RENTAL_RUN_ON_STARTUP: "true"
+      # 検証 (rental_scraper_dev の既定5時) とわざとずらす。対象サイトは検証・本番で
+      # 同一の実サイトなので、同時刻に両方から叩くと実質クロール頻度が2倍になる
+      RENTAL_CRON_HOUR: ${RENTAL_CRON_HOUR_PROD:-4}
+      # ステージング用 SQLite の置き場所。rental_scraper_dev と同じ理由で
+      # 必ず下の volume の中（コンテナ再作成をまたいで途中経過を残す）
+      RENTAL_SQLITE_PATH: /data/rental_items.db
+    volumes:
+      - rental_scraper_prod_data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -276,3 +308,6 @@ volumes:
   # コンテナはデプロイのたびに作り直されるので、ここに逃がさないと
   # 未完のクロール結果が毎回消える (rental_scraper_dev の RENTAL_SQLITE_PATH)
   rental_scraper_data:
+  # 同上（本番用・rental_scraper_prod の RENTAL_SQLITE_PATH）。dev とボリュームを
+  # 共有すると本番・検証のステージングデータが混ざるので必ず別にする
+  rental_scraper_prod_data:

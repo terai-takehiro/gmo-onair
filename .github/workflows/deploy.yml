@@ -356,6 +356,19 @@ jobs:
             fi
             $COMPOSE_PROD up -d --no-deps --force-recreate app_prod
 
+            # 3.5) レンタル機材スクレイパー（本番環境・v4.3.1）。
+            #    GHCR には積んでいない小さな Python サービスなので、ここだけ VPS 上でビルドする
+            #    (rental-scraper/ の内容が変わらなければ pip install 済みレイヤーのキャッシュが効く)。
+            #    失敗させても本体アプリのデプロイ成否とは分けて扱う — app_prod は既に up 済みのため、
+            #    ここで pipefail に巻き込んでジョブ全体を失敗させない（rental_scraper_dev と同じ作法）。
+            echo "→ レンタル機材スクレイパー（本番）をビルド・起動"
+            if $COMPOSE_PROD build rental_scraper_prod && $COMPOSE_PROD up -d --no-deps rental_scraper_prod; then
+              echo "→ rental_scraper_prod のコンテナを起動した（生きているかは下で確認する）"
+            else
+              echo "::warning title=rental_scraper_prod::ビルドまたは起動に失敗しました（本体アプリのデプロイ自体は成功）"
+              echo "⚠ rental_scraper_prod の起動に失敗しました（本体アプリのデプロイ自体は成功しています。下のログを確認してください）"
+            fi
+
             # 後片付け
             docker logout ghcr.io || true
             docker image prune -f || true
@@ -375,6 +388,30 @@ jobs:
             curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed"
 
             echo "=== Container status ==="
-            $COMPOSE_PROD ps app_prod
+            $COMPOSE_PROD ps app_prod rental_scraper_prod
+
+            # 4.5) スクレイパーが「起動したあと生きているか」を必ず確かめる。
+            #    `docker compose up -d` はプロセスが直後に落ちても成功を返すため、
+            #    ModuleNotFoundError 等での即死は起動ログだけでは気づけない
+            #    （rental_scraper_dev で実際に約4時間気づけなかった事故と同じ形。
+            #    rental-scraper/README.md の「既知の不具合」参照）。
+            echo "=== rental_scraper_prod container logs (last 40 lines) ==="
+            RENTAL_PROD_CID=$(docker ps -aq -f name=gmo-onair-rental_scraper_prod | head -1)
+            if [ -n "$RENTAL_PROD_CID" ]; then
+              docker logs --tail=40 "$RENTAL_PROD_CID" 2>&1 || true
+            else
+              echo "⚠ rental_scraper_prod container not found（起動に失敗した可能性。上の手順3.5のログを確認）"
+            fi
+
+            RENTAL_PROD_STATE=$(docker inspect -f '{{.State.Status}}' "$RENTAL_PROD_CID" 2>/dev/null || echo "not-found")
+            RENTAL_PROD_RESTARTS=$(docker inspect -f '{{.RestartCount}}' "$RENTAL_PROD_CID" 2>/dev/null || echo "0")
+            if [ "$RENTAL_PROD_STATE" = "running" ] && [ "$RENTAL_PROD_RESTARTS" -eq 0 ]; then
+              echo "✓ rental_scraper_prod 稼働中（クロールはコンテナ内で継続します）"
+            else
+              echo "::warning title=rental_scraper_prod::state=$RENTAL_PROD_STATE restarts=$RENTAL_PROD_RESTARTS — クロールが動いていません。上のコンテナログを確認してください"
+              echo "✗ rental_scraper_prod が正常に動いていません (state=$RENTAL_PROD_STATE / 再起動回数=$RENTAL_PROD_RESTARTS)"
+              echo "  → 上の 'rental_scraper_prod container logs' を見ること。レンタル機材検索は0件のままになります"
+            fi
+
             echo "✓ Production deploy complete"
           ENDSSH
