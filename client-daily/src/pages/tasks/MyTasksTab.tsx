@@ -57,7 +57,7 @@ export function MyTasksTab() {
       {top3.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-3 sm:p-4">
-            <p className="text-th text-primary">まずこの 3 件</p>
+            <p className="text-th text-primary">まずこの {top3.length} 件</p>
             <div className="mt-2 space-y-1.5">
               {top3.map((t, i) => (
                 <div key={t.id} className="flex items-start gap-2">

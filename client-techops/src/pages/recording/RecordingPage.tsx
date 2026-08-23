@@ -12,6 +12,7 @@ import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
 import ServiceDateBar from '@/components/device-settings/ServiceDateBar';
 import { getOwnerContext, getRecording, putRecording, type Deck, type OwnerContext } from '@/lib/deviceSettingsApi';
 import { setProductionNavContext } from '@/lib/productionNavContext';
+import { useDeviceSettingsEventDateDefault } from '@/lib/useDeviceSettingsEventDateDefault';
 import {
   DECK_IDS_MAIN, DECK_IDS_BACKUP, MODEL_LABEL_MAIN, MODEL_LABEL_BACKUP, coerceDeck, defaultDecks,
 } from './deckOptions';
@@ -64,6 +65,7 @@ export default function RecordingPage() {
   const [filter, setFilter] = useState<DeckFilter>('all');
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
+  const [hasSettings, setHasSettings] = useState<boolean | null>(null);
 
   /**
    * ⚠️ **以前ここに権限の分岐が1つも無かった**（監査 2026-08-22）。
@@ -89,6 +91,7 @@ export default function RecordingPage() {
         setServiceDate(data?.serviceDate ?? requestedDate ?? jstToday());
         setLastExportedAt(data?.lastExportedAt ?? null);
         setLastExportName(data?.lastExportName ?? null);
+        setHasSettings(data != null);
       })
       .catch((e) => notifyError(apiErrorMessage(e, '収録設定の取得に失敗しました')))
       .finally(() => alive && setLoading(false));
@@ -107,6 +110,8 @@ export default function RecordingPage() {
     if (!owner) return;
     setProductionNavContext({ scope: owner.kind, id: ownerKey, label: owner.name ?? owner.glsNumber ?? null });
   }, [owner, ownerKey]);
+
+  useDeviceSettingsEventDateDefault(owner, hasSettings, params.get('date'), setRequestedDate);
 
   const updateDeck = (next: Deck) => setDecks((prev) => prev.map((d) => (d.deckId === next.deckId ? next : d)));
 

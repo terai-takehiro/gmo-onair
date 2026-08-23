@@ -117,7 +117,12 @@ export default function SheetListPage() {
         <DashboardHeader
           title="進行台本"
           description={`${documents?.length || 0} 件のドキュメント。日付・自分が作った／共有された、で絞り込めます。`}
-          lastUpdated={`最終更新 ${new Date().toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+          lastUpdated={
+            documents && documents.length > 0
+              ? `最終更新 ${new Date(Math.max(...documents.map((d) => new Date(d.updated_at).getTime())))
+                  .toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+              : undefined
+          }
           controls={
             <Button className="min-h-[44px]" onClick={() => setShowCreate(true)} data-create-btn>
               <Plus className="h-4 w-4 mr-1" aria-hidden="true" />

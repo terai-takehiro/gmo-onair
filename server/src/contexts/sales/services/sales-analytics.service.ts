@@ -108,10 +108,16 @@ export class SalesAnalyticsService {
 
   /** 失注理由の集計 */
   async getLostReasonAnalysis(year?: number) {
+    // **月・年は `p.lost_at`（失注確定日）で見る。`p.updated_at` では代われない**
+    // （migration 164 の教訓と同じ話）— 失注確定後に理由メモ・教訓を書き足す、
+    // 台帳の一括編集で他項目を直す等の「ただの編集」でも `updated_at` は動くため、
+    // それで集計すると金額が実際の失注月ではなく直近に編集された月へ丸ごと寄る。
+    // `lost_at` が無い古い行（migration 002 以前）だけ `updated_at` にフォールバックする
+    const dateExpr = `COALESCE(p.lost_at::timestamp, p.updated_at)`;
     let dateFilter = '';
     const params: unknown[] = [];
     if (year) {
-      dateFilter = `AND TO_CHAR(p.updated_at, 'YYYY') = ?`;
+      dateFilter = `AND TO_CHAR(${dateExpr}, 'YYYY') = ?`;
       params.push(String(year));
     }
 
@@ -133,12 +139,12 @@ export class SalesAnalyticsService {
 
     // 月別失注推移
     const monthlyTrend = await queryAll(
-      `SELECT TO_CHAR(p.updated_at::timestamp, 'MM') as month,
+      `SELECT TO_CHAR(${dateExpr}, 'MM') as month,
               COUNT(*) as count,
               COALESCE(SUM(p.expected_amount), 0) as total_amount
        FROM projects p
        WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}
-       GROUP BY TO_CHAR(p.updated_at::timestamp, 'MM')
+       GROUP BY TO_CHAR(${dateExpr}, 'MM')
        ORDER BY month`,
       params
     );

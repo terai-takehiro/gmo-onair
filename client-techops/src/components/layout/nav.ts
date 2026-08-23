@@ -63,6 +63,8 @@ const PROGRAM_HUB_RE = /^\/techops\/programs\/([^/?#]+)\/?$/;
 const RECORDING_RE = /^\/techops\/recording\/([^/?#]+)\/?$/;
 const STREAMING_RE = /^\/techops\/streaming\/([^/?#]+)\/?$/;
 const RENTAL_RE = /^\/techops\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?$/;
+// 計時・視聴者（liveops）。`/timers`・`/timers/:timerId/layout`・`/settings` の配下も含む
+const LIVE_RE = /^\/techops\/live\/([^/?#]+)(?:\/(?:timers(?:\/[^/?#]+\/layout)?|settings))?\/?$/;
 const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
@@ -77,7 +79,8 @@ function safeDecode(v: string): string {
 
 /** owner キーが URL に出る3つのパネル画面（収録設定・配信設定・レンタル機材検索）から ownerKey を取り出す */
 function matchOwnerKeyPanel(pathname: string): string | null {
-  const m = pathname.match(RECORDING_RE) ?? pathname.match(STREAMING_RE) ?? pathname.match(RENTAL_RE);
+  const m = pathname.match(RECORDING_RE) ?? pathname.match(STREAMING_RE) ?? pathname.match(RENTAL_RE)
+    ?? pathname.match(LIVE_RE);
   return m ? safeDecode(m[1]) : null;
 }
 
@@ -89,7 +92,8 @@ function matchOwnerKeyPanel(pathname: string): string | null {
  * 2. `/techops/programs/<id>` → `{scope:'program', id}`
  * 3. `/techops/sheets` または `/techops/schedules`（絞り込み一覧）で `?project=`/`?program=`
  *    があれば、その scope/id
- * 4. `/techops/recording|streaming|rental/<ownerKey>`（配下の `/list`・`/mail/:company` 含む）:
+ * 4. `/techops/recording|streaming|rental|live/<ownerKey>`（配下の `/list`・`/mail/:company`・
+ *    `/timers`・`/settings` 含む）:
  *    ストアの値があり、かつ `id` が一致すればそれを使う。一致しなければ「未解決」
  * 5. `/techops/editor/<id>`・`/techops/schedules/<id>`（個別）・`/techops/docs/<id>`:
  *    ストアの値があればそのまま使う（doc id は project/program の id では**ない**ため、

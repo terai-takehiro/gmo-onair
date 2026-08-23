@@ -25,6 +25,7 @@ import {
 } from '@/lib/deviceSettingsApi';
 import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
 import { setProductionNavContext } from '@/lib/productionNavContext';
+import { useDeviceSettingsEventDateDefault } from '@/lib/useDeviceSettingsEventDateDefault';
 import DestinationInspector from './DestinationInspector';
 import EncoderList from './EncoderList';
 import { ENCODER_IDS, blockingError, fromWire, newDestination } from './destinationHelpers';
@@ -102,6 +103,7 @@ export default function StreamingPage() {
   const canEdit = useCanEditDeviceSettings();
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
   const [lastExportName, setLastExportName] = useState<string | null>(null);
+  const [hasSettings, setHasSettings] = useState<boolean | null>(null);
 
   const dirty = snapshotOf(destinations, meetings) !== saved;
   useUnsavedGuard(dirty);
@@ -125,6 +127,7 @@ export default function StreamingPage() {
       const data = await getStreaming(ownerKey, date);
       if (seq !== reqRef.current) return;
       if (data) applyData(data);
+      setHasSettings(data != null);
     } catch (e) {
       if (seq === reqRef.current) notifyError(apiErrorMessage(e, '配信設定の取得に失敗しました'));
     } finally {
@@ -144,6 +147,8 @@ export default function StreamingPage() {
     if (!owner) return;
     setProductionNavContext({ scope: owner.kind, id: ownerKey, label: owner.name ?? owner.glsNumber ?? null });
   }, [owner, ownerKey]);
+
+  useDeviceSettingsEventDateDefault(owner, hasSettings, date ?? null, (d) => { void changeDate(d); });
 
   // その場の点検（打ち込んだばかりの値を見る）。Excel の書き出しは保存済みしか見ない
   const issuesByDest = new Map<string, DestIssue[]>();

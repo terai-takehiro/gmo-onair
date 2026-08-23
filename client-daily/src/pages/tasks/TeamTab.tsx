@@ -38,7 +38,7 @@ export function TeamTab() {
                 <th className="py-2 pr-2">メンバー</th>
                 <th className="px-2 py-2 text-right">未完了</th>
                 <th className="px-2 py-2 text-right">期限超過</th>
-                <th className="px-2 py-2 text-right">スコア 9</th>
+                <th className="px-2 py-2 text-right" title="優先度スコア9(最優先)の未完了タスク数">スコア</th>
                 <th className="px-2 py-2 text-right">未返答の依頼</th>
                 <th className="px-2 py-2 text-right">期限なし</th>
                 <th className="px-2 py-2 text-right">自分だけ</th>

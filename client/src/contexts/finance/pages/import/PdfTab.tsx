@@ -235,6 +235,16 @@ export function PdfTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
                           ))}
                         </p>
                       )}
+                      {/* **登録が途中で止まっているのを見えるようにする。** 楽楽精算は
+                          1伝票が複数「登録単位」に分かれ、1件ずつ登録する形になっている
+                          （`PdfReviewDialog`）。途中で閉じると、この帯の「金額（税込）」＝
+                          PDFヘッダーの合計だけが残り、実際に台帳へ入った額との差が
+                          分かりにくかった（実機の指摘） */}
+                      {pd && pd.units.length > 1 && regRecords.length > 0 && regRecords.length < pd.units.length && (
+                        <p className="text-note mt-1 text-warning">
+                          ⚠ {pd.units.length} 単位中 {regRecords.length} 単位だけ登録済み（残り {pd.units.length - regRecords.length} 件は未登録）
+                        </p>
+                      )}
                     </RowMain>
 
                     <MoneyCell value={totalInclusive ?? 0} width={128} />

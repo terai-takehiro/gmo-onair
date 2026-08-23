@@ -315,7 +315,7 @@ function DesktopCalendar() {
                 onPickDay={pickDay} onOpen={(e) => open(e.key)}
               />
             ) : view === 'list' ? (
-              <EventTable events={cal.events} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
+              <EventTable events={cal.events.filter((e) => e.start.slice(0, 7) === anchor.slice(0, 7))} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
             ) : (
               <TimeGrid
                 days={weekDays(anchor)}

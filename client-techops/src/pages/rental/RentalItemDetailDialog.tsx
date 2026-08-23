@@ -14,26 +14,32 @@ interface RentalItemDetailDialogProps {
   /** null = 閉じる。開くたびにここへ company/itemId を渡す */
   target: { company: string; itemId: string } | null;
   onOpenChange: (open: boolean) => void;
+  /**
+   * 利用期間の既定値。**案件の本番実施日**を渡す（無ければ今日 = 従来どおり）。
+   * 実施日が数日先の案件でも、開いた瞬間は今日の日付が選ばれていた不具合の対策
+   */
+  defaultDate?: string;
 }
 
-export default function RentalItemDetailDialog({ ownerKey, target, onOpenChange }: RentalItemDetailDialogProps) {
+export default function RentalItemDetailDialog({ ownerKey, target, onOpenChange, defaultDate }: RentalItemDetailDialogProps) {
   const queryClient = useQueryClient();
+  const initialDate = defaultDate || todayStr();
   // ダイアログを開いたまま「おすすめオプション」を辿れるよう、内部で現在見ている機材を持つ
   const [current, setCurrent] = useState(target);
   const [imageIndex, setImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [startDate, setStartDate] = useState(todayStr());
-  const [endDate, setEndDate] = useState(todayStr());
+  const [startDate, setStartDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState(initialDate);
 
   useEffect(() => {
     if (target) {
       setCurrent(target);
       setImageIndex(0);
       setQuantity(1);
-      setStartDate(todayStr());
-      setEndDate(todayStr());
+      setStartDate(initialDate);
+      setEndDate(initialDate);
     }
-  }, [target]);
+  }, [target, initialDate]);
 
   const detailQuery = useQuery({
     queryKey: ['rental-item-detail', current?.company, current?.itemId],
