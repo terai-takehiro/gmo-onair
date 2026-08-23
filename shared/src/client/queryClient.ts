@@ -32,7 +32,7 @@ import { notifyApiError } from './notify';
  * react-query の `Register` 拡張はしない — `meta` を厳格に型付けすると
  * 別の用途で `meta` を使いたくなったときにこちらの型を直す必要が出る。
  */
-export interface MutationActionMeta {
+interface MutationActionMeta {
   action?: string;
   silent?: boolean;
 }

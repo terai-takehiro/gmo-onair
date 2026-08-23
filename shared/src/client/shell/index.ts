@@ -16,10 +16,10 @@
  *
  * **`<NoticeBar />` と `<ConfirmHost />` はシェルが持ちます。** アプリ側に置かないこと。
  */
-export { AppShell, type AppShellProps } from './AppShell';
-export { AppTopbar, type AppTopbarProps } from './AppTopbar';
-export { AppSideMenu, type AppSideMenuProps } from './AppSideMenu';
-export { MobileTabs, type MobileTabsProps } from './MobileTabs';
+export { AppShell } from './AppShell';
+export { AppTopbar } from './AppTopbar';
+export { AppSideMenu } from './AppSideMenu';
+export { MobileTabs } from './MobileTabs';
 export type {
   ShellNavItem,
   ShellNavSection,

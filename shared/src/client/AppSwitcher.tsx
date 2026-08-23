@@ -13,8 +13,9 @@ import { APPS, type AppDef } from "./apps";
 /**
  * 後方互換の名前。**新しいコードは `APPS` を使うこと。**
  * `basePath` / `id` / `status` は旧 `ONAIR_APPS` の呼び名。
+ * 呼び出し側は現存しないため export はしていない（このファイル内の render のみが使う）。
  */
-export const ONAIR_APPS: Array<AppDef & { id: string; basePath: string; status: 'active' | 'coming_soon'; externalUrl?: string }> =
+const ONAIR_APPS: Array<AppDef & { id: string; basePath: string; status: 'active' | 'coming_soon'; externalUrl?: string }> =
   APPS.map((a) => ({ ...a, id: a.key, basePath: a.path, status: a.comingSoon ? 'coming_soon' : 'active', externalUrl: a.external }));
 
 interface AppSwitcherProps {

@@ -87,10 +87,3 @@ export function formatRelativeTime(
   const d = String(t.getDate()).padStart(2, '0');
   return `${y}/${mo}/${d}`;
 }
-
-export function formatPercent(value: number | string | null | undefined): string {
-  if (value == null) return "0.0%";
-  const num = typeof value === "string" ? Number(value) : value;
-  if (isNaN(num)) return "0.0%";
-  return `${num.toFixed(1)}%`;
-}

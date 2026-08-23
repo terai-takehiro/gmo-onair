@@ -22,7 +22,7 @@ function matches(entry: VersionHistoryEntry, q: string) {
   );
 }
 
-export interface VersionHistoryModalProps {
+interface VersionHistoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** バージョン履歴 JSON の URL（既定: サイトルート直下の /version-history.json） */

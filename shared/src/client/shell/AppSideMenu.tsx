@@ -118,7 +118,7 @@ export function currentTo(
   return best;
 }
 
-export interface AppSideMenuProps extends ShellAccess {
+interface AppSideMenuProps extends ShellAccess {
   sections: ShellNavSection[];
   note?: ReactNode;
   /** スマホで開いているか。PC では常に出る */

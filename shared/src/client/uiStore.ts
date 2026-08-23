@@ -1,7 +1,7 @@
 // shared/src/client/uiStore.ts — Common UI state store
 import { create } from 'zustand';
 
-export interface UiState {
+interface UiState {
   sidebarOpen: boolean;
   currentUserId: string | null;
   setSidebarOpen: (open: boolean) => void;

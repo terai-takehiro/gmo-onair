@@ -23,7 +23,7 @@ const EDGE_ZONE = 24;
 /** これ以上右へ動かして離すと「戻る」を実行する（px） */
 const CLOSE_THRESHOLD = 96;
 
-export interface EdgeSwipeBackHandlers {
+interface EdgeSwipeBackHandlers {
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchMove: (e: React.TouchEvent) => void;
   onTouchEnd: () => void;

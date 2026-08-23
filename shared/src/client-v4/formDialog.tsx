@@ -49,7 +49,7 @@ import { Sheet } from './sheet';
 import { cn } from '../client/utils';
 import type { DialogSize } from '../client/ui/dialogSize';
 
-export interface FormDialogProps {
+interface FormDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   /** ダイアログの見出し。**必ず付ける**（読み上げが「ダイアログ」としか言わなくなる） */

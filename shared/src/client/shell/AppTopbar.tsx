@@ -43,7 +43,7 @@ const ROLE_LABEL: Record<string, string> = {
   staff: 'スタッフ',
 };
 
-export interface AppTopbarProps extends ShellAccess {
+interface AppTopbarProps extends ShellAccess {
   appKey: string;
   appLabel: string;
   crumb?: ReactNode;

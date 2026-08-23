@@ -15,7 +15,7 @@ import { cn } from '../utils';
 import { isCurrent } from './AppSideMenu';
 import type { ShellMobileTab } from './types';
 
-export interface MobileTabsProps {
+interface MobileTabsProps {
   tabs: ShellMobileTab[];
   /** `action: 'menu'` のタブを押したとき */
   onOpenMenu: () => void;

@@ -20,9 +20,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { X, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '../utils';
 
-export type NoticeTone = 'success' | 'error' | 'info' | 'warning';
+type NoticeTone = 'success' | 'error' | 'info' | 'warning';
 
-export interface Notice {
+interface Notice {
   tone: NoticeTone;
   title: string;
   description?: string;
@@ -44,7 +44,7 @@ export function setNotice(n: Notice | null) {
   listeners.forEach((l) => l(current));
 }
 
-export function clearNotice() {
+function clearNotice() {
   setNotice(null);
 }
 

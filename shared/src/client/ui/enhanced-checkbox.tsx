@@ -15,7 +15,7 @@ import { cn } from "../utils";
  * - データテーブルの全選択ヘッダ + 行選択 (shift+クリックの並列対応)
  * - シミュレーションダイアログの費用項目テーブル版
  */
-export interface EnhancedCheckboxProps
+interface EnhancedCheckboxProps
   extends Omit<React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>, 'checked'> {
   checked?: boolean | 'indeterminate';
 }

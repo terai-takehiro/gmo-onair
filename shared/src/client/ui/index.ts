@@ -32,7 +32,6 @@ export * from "./enhanced-checkbox";
 export * from "./switch";
 export * from "./tabs";
 export * from "./textarea";
-export * from "./separator";
 export * from "./crud-form-dialog";
 export * from "./toggle-button-group";
 export * from "./tax-aware-amount-input";

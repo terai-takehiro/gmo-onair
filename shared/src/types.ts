@@ -1,4 +1,4 @@
-import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, CalcType } from './enums';
+import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, CalcType } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
@@ -76,24 +76,6 @@ export interface SimulationItem {
   calc_type?: CalcType;
 }
 
-// 案件グループ（費用按分用）
-export interface ProjectGroup extends BaseEntity {
-  name: string;
-  description: string | null;
-  member_count?: number;
-  total_purchase?: number;
-}
-
-// 仕入按分
-export interface PurchaseAllocation {
-  id: string;
-  purchase_id: string;
-  project_id: string;
-  allocated_amount: number;
-  project_name?: string;
-  gls_number?: string;
-}
-
 // 案件
 export interface Project extends BaseEntity {
   gls_number: string;
@@ -136,28 +118,6 @@ export interface Episode extends BaseEntity {
   /** この回に紐づく最上位タスクの件数・完了件数（v4 タスクタブの簡易一覧が使う） */
   task_count?: number;
   task_done_count?: number;
-}
-
-// 発注バッチ
-export interface EpisodeOrder extends BaseEntity {
-  project_id: string;
-  order_date: string;
-  episode_count: number;
-  start_episode: number;
-  end_episode: number;
-  notes: string | null;
-}
-
-// 請求グループ
-export interface InvoiceGroup extends BaseEntity {
-  project_id: string;
-  title: string;
-  invoice_date: string | null;
-  status: InvoiceGroupStatus;
-  notes: string | null;
-  episodes?: Episode[];
-  total_amount?: number;
-  episode_count?: number;
 }
 
 // 売上
@@ -204,15 +164,6 @@ export interface SgaExpense extends BaseEntity {
   amortize_start: string | null;
   amortize_end: string | null;
   source: 'staff' | 'accounting';
-}
-
-// 仕入の話数按分
-export interface PurchaseEpisodeAllocation {
-  id: string;
-  purchase_id: string;
-  episode_id: string;
-  allocated_amount: number;
-  episode_code?: string;
 }
 
 // 仕入

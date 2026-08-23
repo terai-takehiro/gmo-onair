@@ -25,7 +25,7 @@ interface McpToolsData {
   categories: McpCategory[];
 }
 
-export interface McpInfoModalProps {
+interface McpInfoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** MCP ツールカタログ JSON の URL（既定: サイトルート直下の /mcp-tools.json） */

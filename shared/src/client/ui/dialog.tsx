@@ -5,9 +5,7 @@ import { cn } from "../utils";
 import { DEFAULT_DIALOG_SIZE, DIALOG_MAX_WIDTH_CLASS, type DialogSize } from "./dialogSize";
 
 const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -100,7 +98,7 @@ const DialogDescription = React.forwardRef<
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
-  Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent,
+  Dialog, DialogPortal, DialogOverlay, DialogContent,
   DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 };
 export { DEFAULT_DIALOG_SIZE, DIALOG_SIZE_WIDTH, DIALOG_MAX_WIDTH_CLASS, resolveDialogSize } from "./dialogSize";

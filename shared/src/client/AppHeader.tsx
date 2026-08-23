@@ -9,7 +9,7 @@ import VersionHistoryModal from "./versionHistory/VersionHistoryModal";
 import McpInfoModal from "./mcpInfo/McpInfoModal";
 import type { ManualContent } from "./manual/types";
 
-export interface AppHeaderProps {
+interface AppHeaderProps {
   currentApp: string;
   appLabel: string;
   subLabel?: string;
