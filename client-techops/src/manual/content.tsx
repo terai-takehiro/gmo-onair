@@ -23,7 +23,7 @@ import {
 import type { ManualContent } from "@gmo-onair/shared/src/client/manual/types";
 
 export const QSHEET_MANUAL: ManualContent = {
-  appLabel: "Qシート",
+  appLabel: "制作技術支援",
   appIcon: FileText,
   intro:
     "番組・イベントの進行台本（Qシート）を作成し、本番ではOnAir・ランダウン・プロンプター・音声サポートの各画面がリアルタイムに同期して進行を支えるアプリです。",
@@ -33,7 +33,7 @@ export const QSHEET_MANUAL: ManualContent = {
       id: "intro-overview",
       group: "はじめに",
       icon: LayoutGrid,
-      title: "Qシートアプリとは",
+      title: "制作技術支援アプリとは",
       keywords: ["概要", "全体像", "同期"],
       blocks: [
         {
