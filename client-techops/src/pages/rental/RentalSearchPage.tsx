@@ -13,6 +13,7 @@ import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import * as rentalApi from '@/lib/rentalApi';
 import type { RentalCompany, RentalItemSummary } from '@/lib/rentalApi';
+import { getOwnerContext } from '@/lib/deviceSettingsApi';
 import { companyBadgeClass, formatSyncTimestamp, formatYen, isSyncStale, todayStr } from './rentalFormat';
 import RentalItemDetailDialog from './RentalItemDetailDialog';
 import { WrappingChips } from './WrappingChips';
@@ -65,6 +66,15 @@ export default function RentalSearchPage() {
     queryFn: () => rentalApi.getRentalReservations(ownerKey),
     enabled: !!ownerKey,
   });
+
+  // **利用期間の既定値に使う。** 案件の本番実施日（無ければ `todayStr()` へ従来どおり倒す）
+  const ownerQuery = useQuery({
+    queryKey: ['device-settings-owner-context', ownerKey],
+    queryFn: () => getOwnerContext(ownerKey),
+    enabled: !!ownerKey,
+    staleTime: 60_000,
+  });
+  const defaultDate = ownerQuery.data?.eventDate || undefined;
 
   const syncStatusQuery = useQuery({
     queryKey: ['rental-sync-status'],
@@ -133,13 +143,14 @@ export default function RentalSearchPage() {
     const key = `${item.company} ${item.itemId}`;
     setAddingKey(key);
     try {
-      const today = todayStr();
+      // **今日ではなく案件の本番実施日を既定にする**（無ければ今日のまま）
+      const date = defaultDate || todayStr();
       await rentalApi.addRentalReservation(ownerKey, {
         company: item.company,
         itemId: item.itemId,
         quantity: 1,
-        startDate: today,
-        endDate: today,
+        startDate: date,
+        endDate: date,
       });
       await reservationsQuery.refetch();
       notifySuccess('予約リストに追加しました');
@@ -274,7 +285,10 @@ export default function RentalSearchPage() {
         )}
       </div>
 
-      <RentalItemDetailDialog ownerKey={ownerKey} target={detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)} />
+      <RentalItemDetailDialog
+        ownerKey={ownerKey} target={detailTarget} defaultDate={defaultDate}
+        onOpenChange={(open) => !open && setDetailTarget(null)}
+      />
     </div>
   );
 }

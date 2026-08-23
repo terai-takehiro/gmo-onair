@@ -79,15 +79,34 @@ router.get('/:ownerKey/context', async (req: Request, res: Response) => {
   if (!owner) return notFound(res);
 
   if (owner.kind === 'project') {
-    const row = await queryOne('SELECT id, name, gls_number FROM projects WHERE id = $1', [owner.projectId]);
+    // ⚠️ `projects.event_start` は DATE ではなく TEXT (YYYY-MM-DD)。to_char() に通すと
+    // 型エラーになる（`project.service.ts` のコメントと同じ注意）
+    const row = await queryOne(
+      'SELECT id, name, gls_number, event_start AS event_date FROM projects WHERE id = $1',
+      [owner.projectId]
+    );
     if (!row) return notFound(res);
-    res.json({ success: true, data: { kind: 'project', id: row.id, name: row.name, glsNumber: row.gls_number ?? null } });
+    res.json({
+      success: true,
+      data: {
+        kind: 'project', id: row.id, name: row.name, glsNumber: row.gls_number ?? null,
+        // **その案件の本番実施日。** 収録設定・配信設定・レンタル機材検索の「実施日」の
+        // 初期値に使う（設定がまだ1件も無い新規案件で、今日ではなく実施日を既定にするため）
+        eventDate: row.event_date ?? null,
+      },
+    });
     return;
   }
   if (owner.kind === 'program') {
-    const row = await queryOne('SELECT id, name FROM qsheet_programs WHERE id = $1', [owner.programId]);
+    const row = await queryOne(
+      "SELECT id, name, to_char(event_date, 'YYYY-MM-DD') AS event_date FROM qsheet_programs WHERE id = $1",
+      [owner.programId]
+    );
     if (!row) return notFound(res);
-    res.json({ success: true, data: { kind: 'program', id: row.id, name: row.name, glsNumber: null } });
+    res.json({
+      success: true,
+      data: { kind: 'program', id: row.id, name: row.name, glsNumber: null, eventDate: row.event_date ?? null },
+    });
     return;
   }
   // kind: 'doc' はまだ resolveOwner が返さない（doc_no 未着手・device-settings-owner.ts 参照）

@@ -118,6 +118,8 @@ export interface OwnerContext {
   id: string;
   name: string;
   glsNumber: string | null;
+  /** その案件/番組の本番実施日（無ければ null）。収録設定等の実施日の既定値に使う */
+  eventDate?: string | null;
 }
 
 const base = (ownerKey: string) => `/techops/production/${encodeURIComponent(ownerKey)}`;
