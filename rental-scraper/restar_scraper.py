@@ -46,7 +46,12 @@ DB_PATH = os.environ.get("RENTAL_SQLITE_PATH", "rental_items.db")
 
 START_ID = 1
 END_ID = 800                 # 実際の最大IDが分かり次第調整してください
-MAX_CONSECUTIVE_MISS = 40    # これだけ連続で404が続いたら打ち切り
+# これだけ連続で404が続いたら打ち切り。⚠️ **1件も見つかっていない間は適用しない**
+# （run() 参照）。商品詳細ページ例として案内されている item277 のとおり、実際の
+# 商品IDは START_ID=1 よりだいぶ手前が欠番だらけの可能性がある。見つかる前から
+# この閾値で打ち切ると、欠番地帯の途中（40件連続404）で走査自体が止まり、
+# レスターだけ0件のまま「取得できていない」状態になる（実際に踏んだ不具合）。
+MAX_CONSECUTIVE_MISS = 40
 PROGRESS_SYNC_EVERY = 100    # 何件取れるごとに on_progress を呼ぶか（run_all が Postgres へ流す）
 
 SLEEP_SEC = 1.5
@@ -147,9 +152,17 @@ def run(on_progress=None):
 
     seen_ids = set()
     consecutive_miss = 0
+    found_any = False
 
     for item_id in range(START_ID, END_ID + 1):
-        if consecutive_miss >= MAX_CONSECUTIVE_MISS:
+        # ⚠️ 1件も見つかっていないうちは打ち切らない。商品IDの若い番号帯が
+        # まるごと欠番（START_ID〜実際のカタログ開始IDの間が全部404）だと、
+        # MAX_CONSECUTIVE_MISS を最初から効かせると本物のカタログへ辿り着く前に
+        # 走査が止まり、レスターだけ0件になる（実際に踏んだ不具合。TOCはカテゴリ
+        # 一覧からIDを収集する方式のためこの問題が起きない）。最初の1件を
+        # 見つけたあとは、カタログ末尾を過ぎた後の欠番地帯を早めに切り上げる
+        # ための本来の目的どおりに使う。
+        if found_any and consecutive_miss >= MAX_CONSECUTIVE_MISS:
             log.info("連続%d件404のため打ち切ります(最終試行ID=%d)", MAX_CONSECUTIVE_MISS, item_id)
             break
 
@@ -164,6 +177,7 @@ def run(on_progress=None):
         detail = parse_item_detail(str(item_id), html)
         if detail.name:
             seen_ids.add(str(item_id))
+            found_any = True
             upsert_item(conn, COMPANY, detail, now=run_started_at)
             if on_progress and len(seen_ids) % PROGRESS_SYNC_EVERY == 0:
                 on_progress(len(seen_ids))
