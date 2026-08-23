@@ -104,8 +104,13 @@ export function AppTopbar({
   const [userOpen, setUserOpen] = useState(false);
   const swRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
+  // 本人メニューは createPortal で document.body 直下に描くため、
+  // ボタン側の userRef だけでは「メニューの中」を判定できない。
+  // menuRef が無いと mousedown の時点で「外側」と誤判定され、続く click が
+  // 発火する前にメニューが消えて項目が押せなくなる（実際に踏んだ不具合）。
+  const menuRef = useRef<HTMLDivElement>(null);
   useDismiss(swOpen, () => setSwOpen(false), swRef);
-  useDismiss(userOpen, () => setUserOpen(false), userRef);
+  useDismiss(userOpen, () => setUserOpen(false), userRef, menuRef);
 
   const app = APP_BY_KEY[appKey];
   const AppIcon = app?.icon;
@@ -261,6 +266,7 @@ export function AppTopbar({
           {userOpen &&
             createPortal(
               <div
+                ref={menuRef}
                 role="menu"
                 className="fixed right-4 top-14 z-[9999] w-60 rounded-card border border-border bg-card p-1.5 shadow-2xl shadow-black/10"
               >
