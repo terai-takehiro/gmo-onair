@@ -63,8 +63,11 @@ export default function HoldListPage() {
   const query = useQuery({
     queryKey: HOLD_KEY,
     // **サーバーで仮押さえだけに絞る。** 画面で絞ると、確定ぶんまで運んでから捨てることになる
+    // `from` を渡さないと下限が付かず、本番が何ヶ月も前に終わった仮押さえまで
+    // 無期限に出続ける（`end_time` が過去のものだけ落とす。本番日を過ぎたのに
+    // まだ未確定なもの＝先頭に出したいものは `end_time` が今日以降なので残る）
     queryFn: async () => (await api.get('/studios/bookings', {
-      params: { status: 'tentative', to: until },
+      params: { status: 'tentative', from: today, to: until },
     })).data.data as HoldRow[],
   });
 

@@ -144,15 +144,17 @@ export default function WeeklyDetailPage() {
                 {isPublished
                   ? <TableBadge label="確定済み" w={null} className="border-success-border bg-success-surface text-success" />
                   : <TableBadge label="下書き" w={null} className="border-warning-border bg-warning-surface text-warning" />}
+                {/* 「確定/下書き」とは別軸（内容の既読）。同じ語感の「確認済み」だと
+                    「下書き」と並んだときに相反して見えるため、この画面だけ「内容確認」と明示する */}
                 {report.reviewed_at
-                  ? <TableBadge label="確認済み" w={null} className="border-success-border bg-success-surface text-success" />
-                  : <TableBadge label="未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
+                  ? <TableBadge label="内容確認ずみ" w={null} className="border-success-border bg-success-surface text-success" />
+                  : <TableBadge label="内容未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
                 {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
                   <TableBadge label="AIが起票" w={null} className="border-ai-border bg-ai-surface text-ai" />
                 )}
                 {canEdit && !report.reviewed_at && (
                   <Button variant="outline" size="sm" onClick={onReview} disabled={review.isPending}>
-                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 確認済みにする
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 内容を確認ずみにする
                   </Button>
                 )}
               </div>
