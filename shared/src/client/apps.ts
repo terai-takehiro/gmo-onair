@@ -221,7 +221,7 @@ export const APP_BY_KEY: Record<string, AppDef> = Object.fromEntries(APPS.map((a
 /** 画面に出す名前だけの対応表 (権限の画面などラベルしか要らない場所で使う) */
 export const APP_LABELS: Record<string, string> = Object.fromEntries(APPS.map((a) => [a.key, a.label]));
 
-export interface AppAccess {
+interface AppAccess {
   role?: string;
   /** モジュール → アクセスレベル。無い = 権限なし */
   permissions?: Record<string, string> | null;
@@ -235,7 +235,7 @@ export function canOpenApp(app: AppDef, { role, permissions }: AppAccess): boole
   return !!permissions?.[app.permissionModule];
 }
 
-export interface VisibleAppsOptions extends AppAccess {
+interface VisibleAppsOptions extends AppAccess {
   /** いま開いているアプリ (一覧から外す) */
   current?: string;
   /** 凍結アプリも出す。**v4 のシェルでは false のまま**にすること */

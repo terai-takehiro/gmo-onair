@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { useUiStore } from './uiStore';
 
-export interface ApiConfig {
+interface ApiConfig {
   /** localStorage key for user data, e.g. 'qs_user', 'ts_user' */
   storageKey: string;
   /** Login redirect path, e.g. '/qsheet/login' */

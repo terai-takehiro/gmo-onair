@@ -19,7 +19,6 @@
     "@radix-ui/react-label": "^2.0.0",
     "@radix-ui/react-scroll-area": "^1.0.0",
     "@radix-ui/react-select": "^2.0.0",
-    "@radix-ui/react-separator": "^1.0.0",
     "@radix-ui/react-slot": "^1.0.0",
     "@radix-ui/react-switch": "^1.0.0",
     "@radix-ui/react-toast": "^1.0.0",
@@ -41,9 +40,6 @@
       "optional": true
     },
     "@radix-ui/react-scroll-area": {
-      "optional": true
-    },
-    "@radix-ui/react-separator": {
       "optional": true
     },
     "@radix-ui/react-switch": {

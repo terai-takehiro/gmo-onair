@@ -33,7 +33,7 @@ export interface SharedHeaderUser {
   email?: string;
 }
 
-export interface SharedHeaderProps {
+interface SharedHeaderProps {
   /** ONAIR_APPS.id (AppSwitcher のハイライトに使用) */
   currentApp: string;
   /** ヘッダーに表示するアプリ名 */

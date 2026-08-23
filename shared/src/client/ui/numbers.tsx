@@ -37,7 +37,7 @@ import { cn } from '../utils';
 export type StatSize = 'lg' | 'md' | 'sm' | 'inline';
 
 /** サイズの段。**KpiCard と同じ値**にしてある */
-export const STAT_SIZE: Record<StatSize, string> = {
+const STAT_SIZE: Record<StatSize, string> = {
   lg: 'text-3xl sm:text-4xl',
   md: 'text-2xl sm:text-3xl',
   sm: 'text-xl sm:text-2xl',

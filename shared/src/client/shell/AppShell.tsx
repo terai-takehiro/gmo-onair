@@ -56,7 +56,7 @@ import { AppSideMenu, currentTo, visibleSections } from './AppSideMenu';
 import { MobileTabs } from './MobileTabs';
 import type { ShellAccess, ShellChrome, ShellMobileTab, ShellNavSection, ShellUser } from './types';
 
-export interface AppShellProps extends ShellChrome, ShellAccess {
+interface AppShellProps extends ShellChrome, ShellAccess {
   /** 左メニューの中身。**空を渡すと左メニューを出さない** (トップページなど) */
   sections?: ShellNavSection[];
   /**

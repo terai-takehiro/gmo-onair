@@ -12,7 +12,7 @@ import { cn } from "../utils";
  *   - controls    : 右端に配置するアクション (refresh, period toggle 等)
  *   - lastUpdated : データ鮮度表示 ("最終更新: YYYY/MM/DD HH:mm")
  */
-export interface DashboardHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+interface DashboardHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   title: React.ReactNode;
   description?: React.ReactNode;
   period?: React.ReactNode;

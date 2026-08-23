@@ -7,7 +7,7 @@ const isWeekend = (d: Date): boolean => {
   return day === 0 || day === 6;
 };
 
-export function isBusinessDay(d: Date): boolean {
+function isBusinessDay(d: Date): boolean {
   if (isWeekend(d)) return false;
   if (holiday_jp.isHoliday(d)) return false;
   return true;
@@ -23,29 +23,10 @@ export function previousBusinessDay(d: Date): Date {
   return out;
 }
 
-/** 指定日が非営業日なら、**次**の営業日まで進める。 */
-export function nextBusinessDay(d: Date): Date {
-  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  while (!isBusinessDay(out)) {
-    out.setDate(out.getDate() + 1);
-  }
-  return out;
-}
-
 /** YYYY-MM-DD 形式 (ローカルタイム) で文字列化。 */
 export function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-/** 翌月末日を返す (日付で渡された日付の翌月の最終日)。 */
-export function endOfNextMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth() + 2, 0);
-}
-
-/** 翌月末日 (営業日調整後) を YYYY-MM-DD で返す。土日祝なら前営業日へ。 */
-export function endOfNextMonthBusinessDay(d: Date): string {
-  return toLocalDateStr(previousBusinessDay(endOfNextMonth(d)));
 }

@@ -37,7 +37,7 @@ export interface FilterChipItem<K extends string = string> {
   count: number | null;
 }
 
-export interface FilterChipsProps<K extends string = string> {
+interface FilterChipsProps<K extends string = string> {
   items: FilterChipItem<K>[];
   value: K;
   onChange: (key: K) => void;

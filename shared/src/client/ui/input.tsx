@@ -8,7 +8,7 @@ import { cn } from "../utils";
  * - border-input + focus-visible ring
  * - aria-invalid の場合は destructive border
  */
-export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {

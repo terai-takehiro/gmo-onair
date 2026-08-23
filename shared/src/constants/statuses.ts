@@ -55,8 +55,6 @@ export const PROJECT_STAGE = {
   e_lost:       { label: 'E 失注',     variant: 'destructive', description: '失注' },
 } as const satisfies StatusDomain;
 
-export type ProjectStageKey = keyof typeof PROJECT_STAGE;
-
 // ══════════════════════════════════════════════════════════════════
 // 機材メンテナンス
 // ══════════════════════════════════════════════════════════════════
@@ -105,33 +103,3 @@ export const INVENTORY_STATUS = {
   completed:   { label: '完了',   variant: 'success' },
 } as const satisfies StatusDomain;
 
-// ══════════════════════════════════════════════════════════════════
-// インタラクティブイベント
-// ══════════════════════════════════════════════════════════════════
-export const INTERACTIVE_EVENT_STATUS = {
-  draft:     { label: '下書き',     variant: 'secondary' },
-  rehearsal: { label: 'リハーサル', variant: 'warning' },
-  live:      { label: 'LIVE',       variant: 'default' },
-  ended:     { label: '終了',       variant: 'secondary' },
-  archived:  { label: 'アーカイブ', variant: 'outline' },
-} as const satisfies StatusDomain;
-
-// ══════════════════════════════════════════════════════════════════
-// ダッシュボードアラート種別
-// ══════════════════════════════════════════════════════════════════
-export const ALERT_TYPE = {
-  application_form: { label: '申込書未提出',         variant: 'destructive' },
-  upcoming_event:   { label: 'イベント直前',         variant: 'warning' },
-  warning:          { label: '警告',                 variant: 'warning' },
-  danger:           { label: '緊急',                 variant: 'destructive' },
-  info:             { label: '情報',                 variant: 'info' },
-} as const satisfies StatusDomain;
-
-/** アラート優先度 (小さいほど緊急) — ソート用 */
-export const ALERT_PRIORITY: Record<keyof typeof ALERT_TYPE, number> = {
-  danger: 0,
-  application_form: 1,
-  upcoming_event: 2,
-  warning: 3,
-  info: 4,
-};

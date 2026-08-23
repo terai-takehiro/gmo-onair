@@ -26,7 +26,7 @@ const LEVEL_ORDER: Record<string, number> = {
   reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3, full: 4,
 };
 
-export interface AuthHookConfig {
+interface AuthHookConfig {
   /** localStorage key for user data, e.g. 'gmo_onair_user' */
   storageKey: string;
   /** Axios instance created by createApi */

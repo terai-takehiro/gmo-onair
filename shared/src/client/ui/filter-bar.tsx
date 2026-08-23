@@ -25,7 +25,7 @@ import * as React from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '../utils';
 
-export interface FilterTab {
+interface FilterTab {
   value: string;
   label: React.ReactNode;
   /** 件数バッジ等の補助表示 */

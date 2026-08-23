@@ -15,7 +15,7 @@
 import { useEffect, useRef } from 'react';
 import { useUiStore } from './uiStore';
 
-export interface SubAppLoginRedirectProps {
+interface SubAppLoginRedirectProps {
   /** localStorage キー (gmo_onair_user) */
   storageKey: string;
   /** ログイン後の戻り先 + 既ログイン時のホーム遷移先 (例: '/live/', '/awards/') */

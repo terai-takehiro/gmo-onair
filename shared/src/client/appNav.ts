@@ -8,9 +8,6 @@
 // (「カレンダー」が「スタジオ予約」になっている、技術資料のアイコンが2種類、など)。
 import { visibleApps, type AppDef } from './apps';
 
-/** 後方互換の名前。中身は `AppDef` そのもの */
-export type AppNavItem = AppDef;
-
 /**
  * ユーザーの権限に基づいてアクセス可能なアプリ一覧を返す。
  *
@@ -22,6 +19,6 @@ export function getAccessibleApps(
   currentAppKey: string,
   role?: string,
   permissions?: Record<string, string> | null,
-): AppNavItem[] {
+): AppDef[] {
   return visibleApps({ current: currentAppKey, role, permissions, includeFrozen: true, includeHome: true });
 }

@@ -37,7 +37,7 @@ import { Input } from '../client/ui/input';
 import { cn } from '../client/utils';
 import { Sheet } from './sheet';
 
-export interface MobileFilterSearch {
+interface MobileFilterSearch {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;

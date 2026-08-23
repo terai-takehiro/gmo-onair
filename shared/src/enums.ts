@@ -66,20 +66,6 @@ export const ProjectStatus = {
 } as const;
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 
-export const ProjectStatusLabels: Record<ProjectStatus, string> = {
-  tentative: '仮',
-  confirmed: '確定',
-  completed: '完了',
-  cancelled: '中止',
-};
-
-export const ProjectStatusColors: Record<ProjectStatus, string> = {
-  tentative: '#f59e0b',
-  confirmed: '#005bac',
-  completed: '#22c55e',
-  cancelled: '#ef4444',
-};
-
 // 税区分
 export const TaxCategory = {
   TAX10: 'tax10',
@@ -147,15 +133,3 @@ export const InvoiceGroupStatus = {
   PAID: 'paid',
 } as const;
 export type InvoiceGroupStatus = (typeof InvoiceGroupStatus)[keyof typeof InvoiceGroupStatus];
-
-export const InvoiceGroupStatusLabels: Record<InvoiceGroupStatus, string> = {
-  draft: '下書き',
-  sent: '送付済',
-  paid: '入金済',
-};
-
-export const InvoiceGroupStatusColors: Record<InvoiceGroupStatus, string> = {
-  draft: '#94a3b8',
-  sent: '#f59e0b',
-  paid: '#22c55e',
-};

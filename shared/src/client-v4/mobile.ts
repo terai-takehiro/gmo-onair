@@ -34,7 +34,7 @@ export function useIsMobile(): boolean {
   return is;
 }
 
-export interface DuePreset {
+interface DuePreset {
   key: string;
   label: string;
   /** `YYYY-MM-DDTHH:mm`。`null` は「日時を選ぶ」（端末のピッカーを開く） */

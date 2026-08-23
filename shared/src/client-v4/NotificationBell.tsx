@@ -24,7 +24,7 @@ import { Bell, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import type { AxiosInstance } from 'axios';
 import { cn } from '../client/utils';
 
-export interface NotificationItem {
+interface NotificationItem {
   id: string;
   template_id: string | null;
   title: string;

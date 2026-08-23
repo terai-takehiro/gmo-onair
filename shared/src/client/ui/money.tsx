@@ -12,7 +12,7 @@ import * as React from 'react';
 import { cn } from '../utils';
 import { type SlotWidth } from './row';
 
-export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   value: number | string | null | undefined;
   /** 通貨記号。円以外を出す予定は無いが、%や無記号の行と揃えるために差し替えられる */
   currency?: string;

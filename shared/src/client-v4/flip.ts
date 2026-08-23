@@ -40,7 +40,7 @@ function reduced(): boolean {
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export interface Flip {
+interface Flip {
   /** 並びが変わる**直前**に呼ぶ。いまの位置を覚える */
   capture: () => void;
   /**
