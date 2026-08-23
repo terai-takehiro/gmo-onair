@@ -69,7 +69,9 @@ export function TaskHubCard({
 }) {
   const showMine = canSeeDailyops;
   const showWaiting = canSeeSales || canSeeDailyops;
-  const waitingCount = data?.items.length ?? 0;
+  // **`items.length` ではなく `counts.total`。** `items` は種類ごとに上限を掛けて
+  // 返す一覧用データなので、溜まっている環境では実数より小さく出る
+  const waitingCount = data?.counts.total ?? 0;
 
   const [tabState, setTab] = useState<TabKey>('mine');
   // **タブが1つしか出せない人には切替を出さない。** 選べないものを選ばせない

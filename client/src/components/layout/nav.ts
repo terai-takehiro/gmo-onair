@@ -202,7 +202,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       // **「案件月別詳細」はここから削除した**（v3時代の遺物の棚卸し・2026-08）。
       // 生きた導線が無く、独自機能も無かったため（詳細は
       // docs/archive/2026/2026-08-20-mobile-optimization-audit.md）
-      title: "そのほか（作り直し前）",
+      title: "その他",
       collapsible: true,
       items: [
         { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },

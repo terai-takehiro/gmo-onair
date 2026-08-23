@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { normalizeJaText } from '../../../shared/utils/text';
 import {
   createProjectFolderTree,
   renameProjectFolderPair,
@@ -780,7 +781,7 @@ export class ProjectService {
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
   async create(data: Record<string, unknown>, userId: string) {
-    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
+    const { name: rawName, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
             event_start, event_end, dates, gls_category,
             intake_channel, intake_confidence,
@@ -788,7 +789,10 @@ export class ProjectService {
             contact_name, recurrence, attendee_count, goal, reply_due, wants,
             audience, project_category,
             stage, first_task } = data;
-    if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
+    if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
+    // **半角カナ等の表記ゆれを保存時に正規化。** Box の OCR / AI起票など外部由来の
+    // テキストがそのまま案件名になり、請求一覧等で化けて見える不具合の対策（NFKC）
+    const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
     const glsCategory = normalizeGlsCategory(gls_category);
     if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
     // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
@@ -988,10 +992,12 @@ export class ProjectService {
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const { name, customer_id, expected_amount, project_type, project_type_other,
+    const { name: rawName, customer_id, expected_amount, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
+    // **半角カナ等の表記ゆれを保存時に正規化。** `create` と同じ理由（NFKC）
+    const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
     // ⚠️ `customer_type` は**受け取っても使いません**（migration 192）。
     // グループ内 / グループ外はお客様から導くので、渡された値は無視されます
     // （MCP の `update_project` の説明にもそう書いてあります）

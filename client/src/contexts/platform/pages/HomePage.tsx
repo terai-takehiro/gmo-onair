@@ -143,7 +143,10 @@ export default function HomePage() {
   // **どちらのアプリで片づけるか**で振り分ける（同じ件を2つのタイルに数えない）
   const salesWaiting = (counts?.overdue_action ?? 0) + (counts?.ai_project ?? 0);
   const dailyWaiting = (counts?.inquiry ?? 0) + (counts?.finance_doc ?? 0);
-  const waitingTotal = inbox.data?.items.length ?? 0;
+  // **`items.length` ではなく `counts.total`。** `items` は種類ごとに上限を掛けて
+  // 返す一覧用データなので、溜まっている環境では実数より小さく出る
+  // （例: 本来11件のところ上限に当たって3件しか入っていない）
+  const waitingTotal = inbox.data?.counts.total ?? 0;
   const myOverdue = summary.data?.overdue ?? 0;
   // **数えられていないときは書かない。** 受信箱は `sales`、タスクは `dailyops` が要る。
   // どちらも無い人に「0件です」と書くと、**見えていないだけなのに「無い」と言い切る**ことになる

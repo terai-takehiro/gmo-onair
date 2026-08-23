@@ -27,6 +27,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { getOwnerContext, type OwnerContext } from '@/lib/deviceSettingsApi';
+import { setProductionNavContext } from '@/lib/productionNavContext';
 
 export type LiveProgramState =
   | { status: 'loading' }
@@ -55,6 +56,10 @@ export function useLiveProgram(ownerKey: string | undefined): LiveProgramState {
         setState({ status: 'not-found' });
         return;
       }
+      // **サイドバーのサブメニューに文脈を渡す。** ここを呼ばないと `nav.ts` の
+      // `resolveContext` が「未解決」のままになり、計時・視聴者タブだけ
+      // サブメニューが「トップ」のみに落ちる（他のパネル画面＝収録設定等と同じ配線）
+      setProductionNavContext({ scope: owner.kind, id: key, label: owner.name ?? owner.glsNumber ?? null });
       if (owner.kind !== 'project') {
         setState({ status: 'unsupported-scope', owner });
         return;

@@ -37,6 +37,7 @@ import { zodTextFormat } from 'openai/helpers/zod';
 import * as z from 'zod/v4';
 import { modelFor, isLightDisabled } from '../../../shared/services/ai-model';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
+import { normalizeJaText } from '../../../shared/utils/text';
 import {
   normalizeDest, suggestUrgency,
   type ParsedDraft, type ParseResult, type ParserUser,
@@ -447,8 +448,11 @@ export interface RawAiResult {
   skipped?: { line?: unknown; reason?: unknown }[];
 }
 
+// **NFKC で正規化してから trim。** LLM の抽出結果は入力（議事録・メールの引用等）の
+// 表記ゆれをそのまま持ち込むことがあり、半角カナ（例:「渋谷ｽﾀｼﾞｵ」）がタスク名・
+// 案件名に化けて残る不具合の対策（`shared/utils/text.ts` の `normalizeJaText` と同じ理由）
 function str(v: unknown): string {
-  return typeof v === 'string' ? v.trim() : '';
+  return typeof v === 'string' ? normalizeJaText(v) : '';
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

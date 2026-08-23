@@ -315,14 +315,7 @@ function DesktopCalendar() {
                 onPickDay={pickDay} onOpen={(e) => open(e.key)}
               />
             ) : view === 'list' ? (
-              // **一覧はヘッダーの年月と揃える。** `cal.events` は月表のマス目埋め用に
-              // 前後月ぶんも含めて取得しているため、絞らずに渡すと前月のデータが
-              // ヘッダー「◯年◯月」と食い違ったまま先頭行に混ざって見える
-              <EventTable
-                events={cal.events.filter((e) => e.start.slice(0, 7) === anchor.slice(0, 7))}
-                holidays={cal.holidays}
-                onOpen={(e) => open(e.key)}
-              />
+              <EventTable events={cal.events.filter((e) => e.start.slice(0, 7) === anchor.slice(0, 7))} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
             ) : (
               <TimeGrid
                 days={weekDays(anchor)}

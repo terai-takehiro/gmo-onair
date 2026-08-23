@@ -25,6 +25,18 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
 import { BILLING_STATE_SQL, billingStateSql } from '../../../shared/services/billing-state';
+import { normalizeJaText } from '../../../shared/utils/text';
+
+/**
+ * **案件名の半角カナ化けを表示側で直す。** 発生源は Box の OCR/AI起票等の外部由来
+ * テキスト（`ｷﾞﾌﾞﾃｯﾄﾞ紅白歌合戦`のような半角カナがそのまま保存される）で、
+ * 保存済みデータのバックフィルはしていないため、一覧表示の都度 NFKC 正規化を掛ける
+ */
+function normalizeProjectNames(rows: { project_name?: unknown }[]): void {
+  for (const r of rows) {
+    if (typeof r.project_name === 'string') r.project_name = normalizeJaText(r.project_name);
+  }
+}
 
 const router = Router();
 
@@ -114,6 +126,7 @@ router.get('/estimates', async (req, res) => {
       LIMIT ${LIST_LIMIT}`,
     params,
   );
+  normalizeProjectNames(rows);
   /*
    * ⚠️ **件数と合計はサーバーが数える**（レビューでの指摘 #53）。
    *
@@ -207,6 +220,7 @@ router.get('/invoices', async (req, res) => {
       LIMIT ${LIST_LIMIT}`,
     params,
   );
+  normalizeProjectNames(rows);
   // **件数と合計はサーバーが数える**（上の見積と同じ理由・レビューでの指摘 #53）。
   // 請求は1行 = 1請求なので、`amount` をそのまま足す（分け合う請求の
   // `amount` はグループ全体の額で、それがこの一覧に出す金額そのもの）
@@ -351,6 +365,7 @@ router.get('/closing', async (req, res) => {
       ORDER BY p.gls_number ASC NULLS LAST, r.amount DESC`,
     [`${month}-%`],
   );
+  normalizeProjectNames(rows);
 
   type Row = Record<string, unknown> & {
     invoice_issued: boolean; paid_date: string | null; inspection_date: string | null;
