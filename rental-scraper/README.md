@@ -8,7 +8,9 @@ SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本�
 [docs/design/v4/rental-search/README.md](../docs/design/v4/rental-search/README.md) を参照。
 
 **検証環境（dev.gmo-onair.jp）では、main へのマージのたびに自動で実行される。** 詳細は
-下の「検証環境での自動実行」を参照。本番はまだ自動化していない。
+下の「検証環境での自動実行」を参照。**本番環境（gmo-onair.jp）も v4.3.1 から自動実行に対応した**
+（`rental_scraper_prod`）。Release を公開したときだけ動く（本番の一般的なデプロイ経路と同じ）。
+詳細は下の「本番環境での自動実行」を参照。
 
 ## 何をするものか
 
@@ -138,6 +140,39 @@ psql "$DATABASE_URL_DEV" -c "
 見える場合は、マイグレーションがまだ流れていない（デプロイがまだこのバージョンに
 達していない）か、上の判断3段の1でまだ実クロールが完了していないだけの可能性が高い。
 
+## 本番環境での自動実行（rental_scraper_prod・v4.3.1〜）
+
+**Release を公開する（`vX.Y.Z` タグ）たびに、`rental_scraper_prod` コンテナがビルド・起動される。**
+`rental_scraper_dev` と同じ仕組みだが、同期先が本番の Postgres (`onair_prod`) になっている点だけが違う。
+
+- `docker-compose.yml` の `rental_scraper_prod` サービス（`build: ./rental-scraper` は
+  `rental_scraper_dev` と共通、`DATABASE_URL` は本番の Postgres を指す）
+- `.github/workflows/deploy.yml` の production ジョブが、`app_prod` のデプロイに続けて
+  `docker compose build rental_scraper_prod && docker compose up -d --no-deps rental_scraper_prod`
+  を実行する（失敗しても本体アプリのデプロイ成否とは分けて扱われる）
+- コンテナは起動直後に1回クロールを実行し（`RENTAL_RUN_ON_STARTUP=true`）、以降は毎日
+  `RENTAL_CRON_HOUR_PROD`（既定4時、VPSのローカル時刻）に1回実行し続ける
+
+⚠️ **`RENTAL_CRON_HOUR`（検証・既定5時）と `RENTAL_CRON_HOUR_PROD`（本番・既定4時）はわざと
+別の環境変数・別の既定値にしてある。** 対象2社サイトは検証・本番の区別をしない同一の実サイトなので、
+両方が同じ時刻に走ると実質的にクロール頻度が2倍になり、「サイト利用規約・アクセス方法について」の
+節で決めているアクセス方法（間隔を空ける・連打しない）の趣旨に反する。`.env` で調整する場合も
+2つの時刻が重ならないようにすること。
+
+**本番デプロイは Release 公開のときだけ**なので、検証（main マージのたびに再作成される）ほど
+頻繁にコンテナが作り直されるわけではない。そのぶん「1回のクロールが完走する前に次のデプロイで
+コンテナが作り直されて途中経過が消える」事故は起きにくいが、ステージング SQLite は
+`rental_scraper_dev` と同じ理由（`RENTAL_SQLITE_PATH=/data/rental_items.db`）で
+専用の永続ボリューム（`rental_scraper_prod_data`）に置いてある。**`rental_scraper_data`
+（検証用）とは別のボリューム** — 共有すると検証のステージングデータが本番の同期対象に混ざる。
+
+**実際にスクレイピングできているかの確認方法**は「検証環境での自動実行」の4段診断と同じ
+（本番 VPS のリポジトリ・`docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml`・
+コンテナ名は `rental_scraper_prod`・`DATABASE_URL` は本番用に読み替えること）。**ダミーデータの
+混入は本番では起きない**（`server/src/index.ts` の起動時シードは本番 (`NODE_ENV=production`) では
+`RUN_SEED_ON_STARTUP=true` を明示しない限りそもそも一切走らない設計のため、レンタルのダミー8件も
+含めて最初から入らない）。
+
 ### 既知の不具合: コンテナが ModuleNotFoundError で起動できず、4時間1件も取れていなかった（v4.1.9で修正済み）
 
 ⚠️ **「数時間経っても1件も捕捉できていない」ときは、まずこの形を疑うこと。**
@@ -212,11 +247,8 @@ SQLite の `items.status` 列で明示的に持つ**ようにした。`upsert_it
 SELECT company, status, count(*) FROM qsheet_rental_items GROUP BY company, status ORDER BY company, status;
 ```
 
-⚠️ **本番 (`app_prod`) 向けの同種サービスはまだ無い。** 本番で実際にスクレイピングを
-始めるかどうかは、CLAUDE.md の本番デプロイ原則（「ユーザーが明示的に指示するまで本番へは
-変更を加えない」）と同じ精神で、ユーザーが明示的に指示するまで着手しない。本番に出す
-ときは `docker-compose.yml` に `rental_scraper_prod`（`DATABASE_URL` は `onair_prod`）を
-追加し、`deploy.yml` の production ジョブにも同様の結線を足す形になる想定。
+本番 (`app_prod`) 向けの同種サービス `rental_scraper_prod` は v4.3.1 でユーザーの明示的な
+指示のもと着手した（詳細は上の「本番環境での自動実行」）。
 
 ## セットアップ（Docker を使わない場合）
 
@@ -234,8 +266,8 @@ python3 run_all.py
 |---|---|---|
 | `DATABASE_URL` | 任意 | GMO ONAiR 本体アプリと同じ形式の Postgres 接続文字列。**未設定でもスクレイパー自体は正常に動く** — その場合は SQLite（`rental_items.db`）への保存だけを行い、Postgres への同期だけがスキップされてログに記録される。クロール自体を失敗させない設計であることに注意。同期の失敗（接続エラー等）はクロールの失敗と分けてログ・扱いをすること。 |
 | `RENTAL_SQLITE_PATH` | 任意 | `rental_items.db` の保存先パスを変えたいときに指定。省略時はカレントディレクトリの `rental_items.db`。**クロール側（`toc_scraper.py`/`restar_scraper.py`）と同期側（`sync_to_postgres.py`）が同じ値を見る** — 検証環境では永続ボリュームの `/data/rental_items.db` を指している（コンテナ作り直しで途中経過を失わないため）。 |
-| `RENTAL_CRON_HOUR` | 任意 | `scheduler.py` が毎日実行する時刻（0-23）。既定 5。 |
-| `RENTAL_RUN_ON_STARTUP` | 任意 | `"true"` なら `scheduler.py` 起動直後にも1回実行する。既定 false（`docker-compose.yml` の `rental_scraper_dev` では true にしてある）。 |
+| `RENTAL_CRON_HOUR` | 任意 | `scheduler.py` が毎日実行する時刻（0-23）。コンテナ内での変数名は常にこれ1つ。既定 5。`docker-compose.yml` は検証 (`rental_scraper_dev`) には `.env` の `RENTAL_CRON_HOUR`（既定5時）を、本番 (`rental_scraper_prod`) には `.env` の `RENTAL_CRON_HOUR_PROD`（既定4時）をそれぞれ渡す — 同時刻にすると対象サイトへのクロール頻度が実質2倍になるためわざとずらしてある。 |
+| `RENTAL_RUN_ON_STARTUP` | 任意 | `"true"` なら `scheduler.py` 起動直後にも1回実行する。既定 false（`docker-compose.yml` の `rental_scraper_dev`/`rental_scraper_prod` はどちらも true にしてある）。 |
 
 ⚠️ **`DATABASE_URL` は本番用と検証用を絶対に混同しないこと。** 手動で cron やスクリプトを
 組む場合（下の「systemd/cron で直接動かす場合」）は特に注意すること。
