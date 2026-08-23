@@ -200,8 +200,17 @@ export const APPS: AppDef[] = [
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
-  /* 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり) */
-  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet' },
+  /**
+   * 計時LIVE も段9で凍結を解いた (見た目が動いたのは表示画面だけ。運用画面は今までどおり)。
+   * ⚠️ **2026-08 のリリース準備で `hidden: true` にした。** 運用画面（ダッシュボード・
+   * タイマー管理・番組設定）は制作技術支援のミニアプリ（`/techops/live/:ownerKey` 等）へ
+   * 移植済みで、単独の入口として出す旧UIはもう無い（`client-live/CLAUDE.md`
+   * 「ミニアプリ化フェーズ2」参照）。トップのタイル・アプリ切替・左メニュー・⌘K からは
+   * 消えるが、**エントリ自体は消さない** — `/live/display/:timerId`（放送出力・認証無し）と
+   * `/live/open?project=` を経由するミニアプリ導線・旧URLの転送はそのまま生きているため、
+   * `appOfPath()` がこの定義を引けなくなると壊れる。
+   */
+  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

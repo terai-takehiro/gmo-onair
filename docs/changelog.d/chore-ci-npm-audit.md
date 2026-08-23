@@ -1,1 +1,0 @@
-**本番依存の npm audit を CI で毎回チェックするようにした**（R6-g）。これまで依存の脆弱性は棚卸しのときに手で見るだけで、High が出ても次の棚卸しまで誰も気づけなかった。CI の checks ジョブに `npm audit --omit=dev --audit-level=high` を追加した（`--omit=dev` なので devDependencies の脆弱性では落とさない）。ただし実測で本番依存に High が2件残っているため（xlsx＝修正版なし・R6-b で exceljs へ置換予定／nodemailer＝修正が v9 へのメジャー更新で判断待ち）、当面は `continue-on-error: true` の警告のみとし、この2件が解消したらブロッキング化する（ci.yml のコメントに明記）。

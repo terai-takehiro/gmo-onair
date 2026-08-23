@@ -63,8 +63,13 @@ const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'techops', 'liveops'];
  * ⚠️ **制作技術支援 (`qsheet`・旧「制作資料」) は 2026-08-22 のご指示で
  * ここから `DAILY_KEYS`（日々の業務）へ格上げした。** 凍結も解け v4 共通シェルにも
  * 載せ替え済みのため、もう「本番の日にだけ開くもの」ではない。
+ *
+ * ⚠️ **計時・視聴者 (`liveops`) は 2026-08 のリリース準備でここから外した。**
+ * `apps.ts` 側で `hidden: true` にしたので `APPS.filter((a) => EVENT_KEYS.includes(a.key))`
+ * に残しても二重には出ないが、意図を合わせておく。運用画面は制作技術支援のミニアプリへ
+ * 移植済みで、トップページの単独タイルとしては開かない（`client-live/CLAUDE.md` 参照）。
  */
-const EVENT_KEYS = ['liveops'];
+const EVENT_KEYS: string[] = [];
 
 /**
  * タイルの中に畳んである「ミニアプリ」（モックの `MINI`）。

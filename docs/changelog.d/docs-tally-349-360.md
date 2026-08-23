@@ -1,1 +1,0 @@
-**リリース準備 R1〜R3 でマージした PR #349〜#360（12本）のレビュー棚卸しを記録した**（コード変更なし）。いずれもレビュー0件のまま CI green でマージしたため、`docs/reviews/codex-findings-v4.md` の「レビューが0件のままマージされた PR」へ12本分の記録を行追加した。この12本は R6-c（未レビューPRの掃き出しレビュー）の対象リストになる。検証: `npm run lint`（check-changelog / check-md-links 含む）OK。
