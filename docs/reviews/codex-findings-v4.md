@@ -1299,6 +1299,18 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   ことに注意** — デプロイ後、検証環境の `rental_scraper_dev` ログで実際に件数が取れて
   いるかの確認が必須（README に手順を追記済み）。まだ0件が続く場合は `END_ID` を広げるか
   サイトAPIへの切り替えが必要になる可能性がある
+- **#384（shared/ の未使用 export を整理・R6-e・2026-08-23）** — `get_reviews` 0件のまま
+  terai-takehiro 本人がマージ（通常のマージコミット。CI の `build` ジョブは Docker Buildx の
+  ブートストラップが `moby/buildkit` イメージの pull で 502 Bad Gateway になり失敗していたが、
+  diff とは無関係な純粋インフラ障害で、`checks`（型チェック・lint・test 等）は green だった。
+  マージが CI 完了を待たずに行われたため、`build` ジョブの再実行は不要になった —
+  マージ後に main の CI が再度緑になることを別途確認すること）。マルチエージェントで
+  shared/src 全489 export・候補187件を検出→反証検証し、外部参照0の31件を削除、
+  同一ファイル内でしか使わない36件を export だけ外した（シンボル自体は残す）。適用前に
+  検証結果を実ファイルと突き合わせて矛盾を1件発見・修正した: `ScrollBar` は当初「削除」
+  判定だったが、同ファイルの `ScrollArea`（keep 判定）が内部で使うため export だけ外す
+  扱いに訂正した。`chartDefaults`/`chartColors` の組は検証バッチの判定が割れて未確定
+  だったため見送った（別途判断・下の一覧に行なし＝実害のある指摘ではなく単なる保留）
 
 ---
 
