@@ -86,7 +86,9 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-3">
         <div>
-          <Label>案件</Label>
+          <Label>
+            案件 <span className="text-destructive">必須</span>
+          </Label>
           <SearchableSelect
             value={projectId}
             onChange={setProjectId}
@@ -99,7 +101,9 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div>
-          <Label>やること</Label>
+          <Label>
+            やること <span className="text-destructive">必須</span>
+          </Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="見積を送る" />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
