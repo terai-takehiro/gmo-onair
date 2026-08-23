@@ -19,7 +19,16 @@
 | レビューの現役台帳・計画 | [reviews/](reviews/) — [codex-findings-v4.md](reviews/codex-findings-v4.md)（指摘の棚卸し・追記型）・[db-drift-audit.md](reviews/db-drift-audit.md)・[permission-model-simplification-plan.md](reviews/permission-model-simplification-plan.md)・[phase3-2-plan.md](reviews/phase3-2-plan.md)・[qsheet-techops-migration-plan.md](reviews/qsheet-techops-migration-plan.md)・[security-review-2026-08-18.md](reviews/security-review-2026-08-18.md) |
 | リリース前の整理の作業場 | [release-prep/](release-prep/) |
 
-だれでも読める説明書 `guide/` は準備中（R4）。
+## だれでも読める説明書（guide/ — エンジニアでない人はここから）
+
+| 知りたいこと | 読む場所 |
+| --- | --- |
+| ONAiR とは・アプリ一覧・誰が何に使うか | [guide/what-is-onair.md](guide/what-is-onair.md) |
+| 直しが本番に届くまでの流れ | [guide/how-changes-ship.md](guide/how-changes-ship.md) |
+| 本番と検証・壊していい場所 | [guide/environments.md](guide/environments.md) |
+| 用語集（GLS番号・凍結/廃止・PR/マージ…） | [guide/words.md](guide/words.md) |
+| v4 で何をしていて今どこか | [guide/v4-now.md](guide/v4-now.md) |
+| 直してほしいときの頼み方 | [guide/asking.md](guide/asking.md) |
 
 ## ② 生成物（手で直すな）
 
