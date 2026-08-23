@@ -108,6 +108,7 @@ export default function AppShell() {
       searchSlot={<GlobalSearch />}
       notificationSlot={<NotificationBell api={api} />}
       manualContent={SALES_MANUAL}
+      manualHref="/manual"
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
       onLogout={logout}
       onSwitchUser={logout}

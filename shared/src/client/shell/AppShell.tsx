@@ -40,7 +40,7 @@
  * 動きを減らす設定の人には `tokens-v4.css` の側で止めてあります。
  */
 import { useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '../../client-v4/mobile';
 import { PrimaryActionSlotContext } from './primaryAction';
 import { SideMenuTopSlotContext } from './sideMenuSlot';
@@ -71,6 +71,8 @@ interface AppShellProps extends ShellChrome, ShellAccess {
   onSwitchUser?: () => void;
   /** 渡すと上辺バーに利用マニュアルのボタンが出る */
   manualContent?: ManualContent;
+  /** 渡すと「利用マニュアル」がモーダルではなくこの URL への遷移になる（ページ化の入口） */
+  manualHref?: string;
   /** スマホ下端のタブ。省略すると出さない */
   mobileTabs?: ShellMobileTab[];
   children: ReactNode;
@@ -89,12 +91,14 @@ export function AppShell({
   onLogout,
   onSwitchUser,
   manualContent,
+  manualHref,
   mobileTabs = [],
   role,
   permissions,
   can,
   children,
 }: AppShellProps) {
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname, search } = useLocation();
   const isMobile = useIsMobile();
@@ -154,7 +158,13 @@ export function AppShell({
         onLogout={onLogout}
         onSwitchUser={onSwitchUser}
         onToggleMenu={hasMenu ? () => setMenuOpen(true) : undefined}
-        onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
+        onOpenManual={
+          manualHref
+            ? () => navigate(manualHref)
+            : manualContent
+              ? () => setManualOpen(true)
+              : undefined
+        }
         onOpenVersionHistory={() => setVersionOpen(true)}
         onOpenMcpInfo={() => setMcpOpen(true)}
         role={role}

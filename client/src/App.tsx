@@ -10,6 +10,7 @@ import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
+import ManualTopPage from "@/contexts/platform/pages/manual/ManualTopPage";
 import MembersPage from "@/contexts/platform/pages/members/MembersPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
@@ -157,6 +158,8 @@ function AppRoutes() {
       >
         {/* ホーム（アプリランチャー） */}
         <Route path="/" element={<HomePage />} />
+        {/* 利用マニュアル（トップページ編・ポップアップから独立ページへ） */}
+        <Route path="/manual" element={<ManualTopPage />} />
         {/*
             探す（スマホの下タブ 3つ目）。**権限を掛けない** —
             `GET /search` が種類ごとに権限を見て、権限が無い種類は空で返す

@@ -207,6 +207,7 @@ export const CLIENT_MOBILE_HIDDEN = CLIENT_PC_ONLY.filter((e) => e.hidden).map((
  */
 export const CLIENT_MOBILE_OK: string[] = [
   '/',                                  // トップ（スマホ用に並べ替え済み）
+  '/manual',                            // 利用マニュアル（読むだけ・スマホ対応）
   '/search',                            // ⑪ 探す
   '/sales/dashboard',                   // 読むだけ
   '/sales/projects',                    // ③ カード（ProjectCards）
