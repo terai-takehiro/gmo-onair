@@ -46,7 +46,7 @@ export default function AppShell() {
 
   return (
     <SharedAppShell
-      appKey="qsheet"
+      appKey="techops"
       mobileHiddenPaths={TECHOPS_MOBILE_HIDDEN}
       sections={sections}
       mobileTabs={mobileTabs}

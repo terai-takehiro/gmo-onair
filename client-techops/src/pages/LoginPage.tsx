@@ -9,7 +9,7 @@ export default function LoginPage() {
     <SubAppLoginRedirect
       storageKey="gmo_onair_user"
       appBasePath="/techops/"
-      appLabel="Qシート"
+      appLabel="制作技術支援"
     />
   );
 }
