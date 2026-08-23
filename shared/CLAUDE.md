@@ -541,6 +541,11 @@ v4 の角丸9段は Tailwind の組み込みの名前（`rounded` / `rounded-xl`
   本番も Google Fonts が届く前提で、社内ネットで塞がれた日に全画面が崩れた
 - **6MB を配るわけではない**: Google の `unicode-range` の刻み方をそのまま持ってきたので、
   ブラウザは**使う範囲だけ**落とす。利用者が最初に受け取る量は今までと同じ
+- **`document.fonts` で見ると `@font-face` が372個（124 unicode-range × 3ウェイト）並び、
+  大半が `unloaded` になる。** これは不具合ではない — ページで実際に使われていない範囲は
+  宣言されたまま読み込まれないのが、この分割方式の正しい挙動（層3実機点検で確認・
+  2026-08-23）。`status` が `"error"`（読み込み**失敗**）のものが実在するときだけ調べる
+  （`node scripts/vendor-fonts.mjs --check` でファイル欠落・破損を確認できる）
 - **Google Fonts の読み込みが残っている場所**: `client-live`（表示画面の Noto Sans JP）と
   `client-techops`（旧画面向け）の `index.html`、および保存のみの `client-awards`
 - **`OFL.txt` を消さないこと**。OFL は license を書体と一緒に配ることを求める
