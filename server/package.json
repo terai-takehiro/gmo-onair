@@ -34,7 +34,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "node-ical": "^0.26.1",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.5",
     "openai": "^6.49.0",
     "pdfkit": "^0.18.0",
     "pg": "^8.13.0",

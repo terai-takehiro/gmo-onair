@@ -99,13 +99,10 @@ jobs:
       # 本番依存の脆弱性検査 (npm audit・High 以上)。--omit=dev なので
       # devDependencies の脆弱性では落とさない (本番イメージに入るものだけを見る)。
       #
-      # ⚠️ いまは continue-on-error: true = **赤くしない** (結果はログで見るだけ)。
-      # いきなりブロッキングにすると解消まで全 PR が赤くなるため。残りは:
-      #   - nodemailer: 修正が v9 へのメジャー更新 (更新の判断待ち)
-      #   (xlsx は R6-b で exceljs へ置換して解消済み・2026-08-22)
-      # これが解消したら continue-on-error を外してブロッキング化すること。
-      - name: 本番依存の npm audit (High 以上・今は警告のみ)
-        continue-on-error: true
+      # xlsx (R6-b・exceljs へ置換) と nodemailer (v9 へ更新) の解消をもって
+      # 本番依存の High は 0 件になったのでブロッキング化した (2026-08-23)。
+      # 新しい High が出たときは、このステップが赤くなって知らせる。
+      - name: 本番依存の npm audit (High 以上)
         run: npm audit --omit=dev --audit-level=high
 
       # レンタル機材スクレイパー (Python・rental-scraper/)。
