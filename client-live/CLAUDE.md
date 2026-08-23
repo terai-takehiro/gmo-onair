@@ -57,10 +57,11 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
   実際に辿り着ける行き先を返す）。`RedirectOnce` は同一バンドル内専用（react-router の
   `navigate()`）なので使えず、すべて `window.location.replace()` によるハード遷移
   （`pages/redirects/RedirectStatus.tsx`）
-- **`DashboardPage.tsx`/`TimerAdminPage.tsx`/`ProgramsPage.tsx`/`SettingsPage.tsx`+
-  `OrgKeysSection.tsx`/`OpenByProjectPage.tsx` の実体はまだ削除していない**
-  （どこからも import されなくなっただけ）。設計（§4-3・2-X/2-Y 分割）どおり、
-  本番リリースの観測期間を挟んでから別PRで削除する予定
+- **`DashboardPage.tsx`/`TimerAdminPage.tsx`/`ProgramsPage.tsx`/`SettingsPage.tsx`/
+  `OrgKeysSection.tsx` は削除済み**（2026-08 のリリース準備・ユーザーの明示的な指示）。
+  設計（§4-3・2-X/2-Y 分割）は当初、本番リリースの観測期間を挟んでから別PRで削除する
+  予定だったが、この判断を前倒しした。`OpenByProjectPage.tsx` は `RedirectFromOpen.tsx`
+  への置き換え時（v4.1 段2）に既に削除済み
 - **セッション一覧（旧 `client-live` の `/`・案件に紐づかない「スタンドアロン」作成）は
   廃止した。** `SessionHomePage.tsx` は削除し、`/` は案内画面（`LiveHomeNoticePage.tsx`。
   「制作技術支援の案件から開けます」＋ `/qsheet/top` へのリンク）に差し替えた
@@ -99,6 +100,12 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
   LINE Seed JP）で見る。表示画面だけ今までどおり別基準（下記）
 - `shared/src/client/apps.ts` の `frozen` は元々このアプリには付いていなかった
   （09-live-timer-impl.md の段階で先に落ちていた）。一覧・アプリ切替には既に出ている
+- ⚠️ **2026-08 のリリース準備で `apps.ts` の `liveops` エントリに `hidden: true` を
+  付けた**（ユーザーの明示的な指示）。運用画面が制作技術支援のミニアプリへ移植済みで、
+  単独のトップページタイル・アプリ切替・左メニュー・⌘K に出す入口としてはもう不要な
+  ため。**エントリ自体・`/live/` の URL・`/live/display/:timerId` は消していない** —
+  ミニアプリ導線（`/live/open?project=`）と旧URLの転送はこのアプリの実体を経由するので、
+  `apps.ts` からエントリごと消すと `appOfPath()` がこの URL 群を解決できなくなる
 
 ## ⚠️ 表示画面（`/live/display/:timerId`）だけは今までどおり例外
 
@@ -136,8 +143,7 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
   入れない（入れると「宣言だけ残っていてルートが無い」で lint が止まる）
 - **画面**: `pages/{LiveHomeNoticePage,TimerDisplayPage}` ＋ `pages/redirects/`
   （旧URLのリダイレクト専用5画面）。旧運用5画面（`DashboardPage.tsx` 等）は
-  `client-qsheet` 側に移植済みでもう import されていないが、ファイルはまだ残っている
-  （上記「ミニアプリ化フェーズ2」参照）
+  `client-qsheet` 側に移植済みで、ファイル自体も削除済み（上記「ミニアプリ化フェーズ2」参照）
 - **`/live/display/:timerId` は認証を通さない**（表示機・OBS から開く）。`DisplayRouter` が分岐している
 - 視聴者カウンターは YouTube / Jstream / Zoom / Teams の合算。認証情報は暗号化して保存
 - **Socket.IO** で タイマー・視聴者数を配信（`server/src/contexts/liveops/socket.ts`）

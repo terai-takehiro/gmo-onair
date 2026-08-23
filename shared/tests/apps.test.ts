@@ -99,10 +99,17 @@ describe('visibleApps — メニューに出す一覧', () => {
     expect(keys).not.toContain('equipment');
   });
 
-  it('**既定では凍結1アプリ (awards) を出さない** (v4 のシェル用)。制作資料・計時LIVE は既定でも出る', () => {
+  it('**既定では凍結1アプリ (awards) を出さない** (v4 のシェル用)。制作技術支援は既定でも出る', () => {
     const keys = visibleApps(admin).map((a) => a.key);
     expect(keys).not.toContain('awards');
-    for (const k of ['techops', 'liveops']) expect(keys).toContain(k);
+    expect(keys).toContain('techops');
+  });
+
+  it('**hidden: true のアプリは出さない**（計時・視聴者はミニアプリ経由でのみ開く・2026-08 リリース準備）', () => {
+    const keys = visibleApps(admin).map((a) => a.key);
+    expect(keys).not.toContain('liveops');
+    // hidden でも appOfPath は引ける — /live/display/ 等の直URLアクセスまで壊さないため
+    expect(appOfPath('/live/open')?.key).toBe('liveops');
   });
 
   it('includeFrozen で凍結アプリ (awards) も出る (v4 に載せ替える前の画面用)', () => {

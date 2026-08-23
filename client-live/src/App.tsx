@@ -7,9 +7,9 @@ import LiveHomeNoticePage from './pages/LiveHomeNoticePage';
 import TimerDisplayPage from './pages/TimerDisplayPage';
 // 旧URLのリダイレクト専用の薄い画面（v4.1 段2・ミニアプリ化フェーズ2）。
 // 運用画面（ダッシュボード・タイマー管理・番組設定・組織の鍵設定）は
-// `client-techops` バンドルへ移植済み — ここに残る `DashboardPage.tsx` 等の実体は
-// 参照が無くなっただけで、消してはいない（本番リリースの観測期間を挟んでから
-// 別PRで削除する設計・client-live/CLAUDE.md「ミニアプリ化フェーズ2」参照）。
+// `client-techops` バンドルへ移植済み。旧 `DashboardPage.tsx` 等の実体は
+// 2026-08 のリリース準備でユーザーの明示的な指示により（観測期間を待たず）削除済み
+// （client-live/CLAUDE.md「ミニアプリ化フェーズ2」参照）。
 import RedirectFromProgram from './pages/redirects/RedirectFromProgram';
 import RedirectFromProgramTimers from './pages/redirects/RedirectFromProgramTimers';
 import RedirectFromProgramSettings from './pages/redirects/RedirectFromProgramSettings';
