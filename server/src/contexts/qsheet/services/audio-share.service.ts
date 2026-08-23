@@ -14,10 +14,11 @@
 // 検証と失効判定だけに使う。Socket.IO の room キーは今までどおり資料ID
 // (`getQsheetSocket(docId)` 側は無改造)。
 //
-// この設計変更の代償: トークン無しで資料IDだけを知っていれば依然として開ける
-// (段階①「旧URLを受け入れる」がここでは常時 true と同義になる)。将来、
-// 資料IDだけでの閲覧を止めたくなったら、ACCEPT_LEGACY_AUDIO_ACCESS を false にする
-// だけでは閉じない — その時は改めてパス側の設計を見直す必要がある。詳細は
+// この設計変更の代償: ACCEPT_LEGACY_AUDIO_ACCESS を false にしても、
+// Socket.IO の room キーは資料IDのまま（変えていない）なので、**資料IDだけ知っている
+// 第三者が独自の Socket.IO クライアントを書けば cue の切り替わりタイミングだけは
+// いまも拾える**（本文・マイク割当は HTTP 側の 410 で拾えない）。完全に閉じるには
+// 改めてパス側の設計を見直す必要がある。詳細は
 // docs/design/v4/qsheet-v4-coding/impl/02-audio-share-token-impl.md §10-1 を参照。
 
 import crypto from 'crypto';
@@ -37,11 +38,21 @@ export interface AudioShareRow {
 /**
  * 旧URL（`?token=` 無しで資料IDだけを叩くリクエスト）を受け入れるか。
  *
- * 段階①（この段で実装）: true 固定。受け入れつつ、呼び出し元でログに記録するだけ。
- * 段階③（次段以降・利用者判断待ち）: false に切り替えると 410 を返すようになる。
+ * 段階③（2026-08-23・ユーザー判断により実施）: false。トークン無しのリクエストは
+ * `public-audio.routes.ts` が 410 を返すようになった。
+ *
+ * ⚠️ **これで閉じるのは HTTP 経路（マイク香盤・資料メタの取得）だけ。**
+ * `AudioSupportPage.tsx` は `?token=` と無関係に Socket.IO の `doc:<資料ID>` room へ
+ * join して `cue:sync` を受ける（ファイル冒頭のコメント参照・トークンを room キーに
+ * 使うとカットオーバーの瞬間に同期が黙って止まる事故になるため、意図して資料IDのまま
+ * にしてある）。つまり**資料IDだけ知っている第三者が独自の Socket.IO クライアントを
+ * 書けば、いまも cue の切り替わりタイミングだけは拾える**（本文・マイク割当は拾えない）。
+ * 実害は小さいと判断してこの段では見送ったが、完全に閉じるには room キーの設計変更が
+ * 要る（詳細はファイル冒頭のコメントと
+ * docs/design/v4/qsheet-v4-coding/impl/02-audio-share-token-impl.md §10-1）。
  * 環境変数にしない理由は CLAUDE.md「本番と検証で値が食い違うと事故る」と同じ。
  */
-export const ACCEPT_LEGACY_AUDIO_ACCESS = true;
+export const ACCEPT_LEGACY_AUDIO_ACCESS = false;
 
 /** base64url 32文字 (192bit)。既存の資料ID (uuid v4, 122bit) より弱くしない。 */
 function newToken(): string {

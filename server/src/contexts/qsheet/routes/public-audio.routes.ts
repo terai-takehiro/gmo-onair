@@ -66,8 +66,10 @@ router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Reques
     const docId = req.params.id as string;
     const rawToken = req.query.token;
     const token = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : undefined;
-    // 段階②(予告): トークン無し(旧URL)でアクセスされたときだけ true。
-    // クライアントはこれを見て「近く使えなくなる」旨の帯を出す(AudioSupportPage.tsx)。
+    // 段階②(予告帯・実施済み): トークン無し(旧URL)でアクセスされたときだけ true。
+    // ACCEPT_LEGACY_AUDIO_ACCESS が false になった段階③以降は、旧URLは下の
+    // 410 分岐で弾かれるためこの帯まで到達しない(呼び出し元は死んだコードではなく
+    // 「段階③を戻したときの受け皿」として残してある)。
     let isLegacyAccess = false;
 
     if (token) {
@@ -82,7 +84,7 @@ router.get('/documents/:id/public-audio', publicAudioLimiter, async (req: Reques
       }
       // 'valid' → 通常どおり続行
     } else if (!ACCEPT_LEGACY_AUDIO_ACCESS) {
-      // 段階③ (この段では未実施・定数は常時 true): 旧URLを拒否する
+      // 段階③（2026-08-23・ユーザー判断により実施）: 旧URL(トークン無し)を拒否する
       res.status(410).json({ success: false, error: { code: 'GONE', message: 'この URL は使えなくなりました' } });
       return;
     } else {
