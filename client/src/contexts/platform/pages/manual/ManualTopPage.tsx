@@ -10,6 +10,7 @@
  * 描くので、ここではパンくずの下＝ページ本体だけを組み立てる。
  */
 import { useMemo, useState, type ComponentType } from 'react';
+import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -20,8 +21,12 @@ import {
   TodayFigure, TaskHubFigure, UserMenuFigure, EventTilesFigure,
 } from './figures';
 
-/** タブ状の chip 列。「トップページ」だけが実在し、他は行き先が無い（`近日公開`） */
-const OTHER_GUIDES = ['案件管理', '財務管理', 'カレンダー', '日常業務', '機材管理', '制作技術支援', '計時・視聴者', '設定'];
+/** タブ状の chip 列。「トップページ」に加え、行き先のあるガイドはリンクにする */
+const LIVE_GUIDES: Array<{ label: string; to: string }> = [
+  { label: '案件管理', to: '/manual/sales' },
+  { label: 'プロジェクト管理', to: '/manual/gpm' },
+];
+const SOON_GUIDES = ['制作技術支援', '財務管理', 'カレンダー', '日常業務', '機材管理', '設定'];
 
 interface CardContent {
   id: string;
@@ -164,7 +169,18 @@ export default function ManualTopPage() {
           >
             トップページ
           </span>
-          {OTHER_GUIDES.map((label) => (
+          {LIVE_GUIDES.map((g) => (
+            <Link
+              key={g.to}
+              to={g.to}
+              role="tab"
+              aria-selected="false"
+              className="rounded-chip shrink-0 whitespace-nowrap border border-border bg-card px-3.5 py-1.5 text-sub text-secondary-foreground hover:bg-accent"
+            >
+              {g.label}
+            </Link>
+          ))}
+          {SOON_GUIDES.map((label) => (
             <button
               key={label}
               type="button"
