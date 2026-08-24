@@ -29,6 +29,8 @@
  * ソースを読んで固定します。
  */
 
+import { HOLD_KEY } from '../contexts/production/pages/holds/holdLogic';
+
 /** `queryClient` のうち、ここで使う分だけ。react-query を持ち込まずに試せるようにする */
 export interface Invalidator {
   invalidateQueries(filters: { queryKey: readonly unknown[] }): unknown;
@@ -51,6 +53,8 @@ export const BOOKING_AFFECTED_KEYS = [
   ['project'],
   /** 案件一覧・案件台帳の実施日と並び順 */
   ['projects'],
+  /** ③ 仮押さえ一覧・①予定サイドレールの「仮押さえ」ウィジェット (`holdLogic.ts` の HOLD_KEY と同一) */
+  HOLD_KEY,
 ] as const;
 
 /**

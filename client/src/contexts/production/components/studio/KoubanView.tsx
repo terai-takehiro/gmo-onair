@@ -267,27 +267,25 @@ export default function KoubanView({
       {/* Timetable grid */}
       {filteredRooms.length === 0 && activeTab !== "other" ? (
         <p className="text-center text-muted-foreground py-8">このロケーションにはスタジオがありません</p>
-      ) : activeTab === "other" && filteredRooms.length === 0 ? (
-        /* "Other" tab: show external bookings as list */
-        <div className="space-y-2">
-          {otherBookings.length === 0 ? (
+      ) : (
+        <div className="space-y-3">
+          {/* その他タブは実部屋があっても外現場予約を必ず出す（以前は実部屋があると
+              下の部屋グリッドに押し出されて外現場予約がどこにも出なくなっていた） */}
+          {activeTab === "other" && (otherBookings.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">外現場の予約はありません</p>
           ) : (
-            otherBookings.map((b) => (
-              <div
-                key={b.id}
-                className="rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => onBookingClick(b)}
-              >
-                <div className="font-medium">{b.title}</div>
-                <div className="text-sm text-muted-foreground">
-                  {b.location_note || "場所未定"} / {b.start_time.split("T")[1]?.slice(0, 5) || "終日"} - {b.end_time.split("T")[1]?.slice(0, 5) || ""}
+            <div className="space-y-2">
+              {otherBookings.map((b) => (
+                <div key={b.id} className="rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => onBookingClick(b)}>
+                  <div className="font-medium">{b.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {b.location_note || "場所未定"} / {b.start_time.split("T")[1]?.slice(0, 5) || "終日"} - {b.end_time.split("T")[1]?.slice(0, 5) || ""}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      ) : (
+              ))}
+            </div>
+          ))}
+          {filteredRooms.length > 0 && (
         <div className="overflow-x-auto border rounded-lg">
           <div className="min-w-[600px]">
             {/* Room headers */}
@@ -392,6 +390,8 @@ export default function KoubanView({
               })}
             </div>
           </div>
+        </div>
+          )}
         </div>
       )}
     </div>

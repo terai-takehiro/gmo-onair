@@ -69,6 +69,10 @@ describe('BOOKING_AFFECTED_KEYS — 予約を触ると古くなるもの', () =>
     expect(keys).toContain('projects');
   });
 
+  it('**③仮押さえ一覧・①予定サイドレール**が入っている（`holdLogic.ts` の HOLD_KEY）', () => {
+    expect(keys).toContain('studio-holds');
+  });
+
   it('鍵は重複しない（同じものを2回落とさない）', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
