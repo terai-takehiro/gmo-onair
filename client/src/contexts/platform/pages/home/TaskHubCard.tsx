@@ -40,7 +40,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import {
-  KINDS, titleOf, subtitleOf, inboxHrefOf, inboxAllHrefOf, isCrossApp,
+  KINDS, titleOf, subtitleOf, inboxHrefOf, inboxAllHrefOf, inboxRestLinksOf, isCrossApp,
   type InboxData, type InboxOpenable,
 } from '@/contexts/sales/pages/inbox/kinds';
 import type { MyTaskRow, MyTaskSummary } from './types';
@@ -256,7 +256,15 @@ function WaitingTab({ data, can }: { data: InboxData | undefined; can: InboxOpen
   const go = (href: string) => {
     if (isCrossApp(href)) window.location.href = href; else navigate(href);
   };
-  const all = inboxAllHrefOf(can);
+  const hidden = items.slice(SHOWN);
+  // **「残り◯件を見る」は、押した先で実際に並ぶ件数だけを言う。** 以前は権限の
+  // 優先順位だけで1つの行き先（案件作成など）を選び、隠れている総数をそのまま
+  // 「◯件」と出していたため、期限超過・見積請求まで案件作成の件数として
+  // 数えていた（ユーザー指摘。押した先には並ばない）
+  const restLinks = inboxRestLinksOf(hidden, can);
+  // 隠れているものが無いとき（今の並びで全部見えている）だけ、件数を言わない
+  // 汎用の入口を出す
+  const all = hidden.length === 0 ? inboxAllHrefOf(can) : null;
 
   return (
     <>
@@ -301,15 +309,28 @@ function WaitingTab({ data, can }: { data: InboxData | undefined; can: InboxOpen
               <div key={it.key} className={cls}>{body}</div>
             );
           })}
+          {restLinks.length > 0 && (
+            <div className="mt-auto flex flex-col">
+              {restLinks.map((link) => (
+                <button
+                  key={link.href}
+                  type="button"
+                  onClick={() => go(link.href)}
+                  className="text-sub min-h-tap flex items-center justify-center gap-1 border-t border-border-subtle pt-2.5 font-bold text-primary hover:bg-surface-subtle"
+                >
+                  {`${link.label}で残り ${link.count} 件を見る`}
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
           {all && (
             <button
               type="button"
               onClick={() => go(all.href)}
               className="text-sub min-h-tap mt-auto flex items-center justify-center gap-1 border-t border-border-subtle pt-2.5 font-bold text-primary hover:bg-surface-subtle"
             >
-              {items.length > SHOWN
-                ? `${all.label}で残り ${items.length - SHOWN} 件を見る`
-                : `${all.label}をひらく`}
+              {`${all.label}をひらく`}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}

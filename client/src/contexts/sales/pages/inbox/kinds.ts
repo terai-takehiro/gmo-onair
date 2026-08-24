@@ -125,12 +125,58 @@ export function inboxHrefOf(item: Pick<InboxItem, 'kind' | 'meta'>, can: InboxOp
   }
 }
 
-/** 「残りを見る」の行き先と札。開ける場所が1つも無ければ `null`（出さない） */
+/**
+ * 「残りを見る」の行き先と札（**件数を言わない**版）。開ける場所が1つも無ければ
+ * `null`。ホームのトップから受信箱をとりあえず開かせる汎用の入口用
+ * （`HomePage.tsx` の `waitingHref`）——「◯件見られる」とは約束しない。
+ *
+ * ⚠️ **件数つきで「残り◯件を見る」と言うときはこれを使わないこと。**
+ * 権限の優先順位だけで1つの行き先を選ぶため、実際に隠れている種類とずれる
+ * （下の `inboxRestLinksOf` を使う）。
+ */
 export function inboxAllHrefOf(can: InboxOpenable): { href: string; label: string } | null {
   if (can.intake) return { href: '/sales/projects/new', label: '案件作成' };
   if (can.inquiries) return { href: '/daily/inquiries', label: '入ってきた情報' };
   if (can.documents) return { href: '/budget/documents', label: '受け取った書類' };
   return null;
+}
+
+/**
+ * 「残り◯件を見る」の行き先と**その行き先で実際に並ぶ件数**。種類ごとに行き先が
+ * 違うため、複数出ることがある（0〜2件）。
+ *
+ * ⚠️ **以前は `can.intake` があるというだけで「案件作成で残り◯件」と出していたが、
+ * ◯件には期限超過・見積請求も混ざっており、押した先の案件作成にはネタ案件・
+ * 問い合わせしか並ばない**（`INTAKE_KINDS`）**ため、実際に出てくる件数と
+ * 常にずれていた**（ユーザー指摘）。`intakeCountOf`（レールの数字）で直した不具合と
+ * 同じ形 — 「押した先に並ぶものだけを数える」。
+ *
+ * 期限超過はここに出さない。`inboxHrefOf` が個別の案件のやり取りにしか送れず、
+ * 束ねて見る画面が無いため「◯件を見る」を約束できない
+ * （行き先の無い一覧は出さない — 単発の行と同じ判断）。
+ */
+export function inboxRestLinksOf(
+  hidden: Pick<InboxItem, 'kind'>[],
+  can: InboxOpenable,
+): { href: string; label: string; count: number }[] {
+  const count = (kinds: InboxKind[]) => hidden.filter((it) => kinds.includes(it.kind)).length;
+  const links: { href: string; label: string; count: number }[] = [];
+
+  // 問い合わせは `inboxHrefOf` と同じ優先順位（案件作成 → 入ってきた情報）
+  if (can.intake) {
+    const n = count(['ai_project', 'inquiry']);
+    if (n > 0) links.push({ href: '/sales/projects/new', label: '案件作成', count: n });
+  } else if (can.inquiries) {
+    const n = count(['inquiry']);
+    if (n > 0) links.push({ href: '/daily/inquiries', label: '入ってきた情報', count: n });
+  }
+
+  if (can.documents) {
+    const n = count(['finance_doc']);
+    if (n > 0) links.push({ href: '/budget/documents', label: '受け取った書類', count: n });
+  }
+
+  return links;
 }
 
 /**
