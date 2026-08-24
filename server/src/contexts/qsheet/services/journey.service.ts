@@ -118,6 +118,15 @@ interface DocRow {
   section_count: number;
 }
 
+/** スケジュール表そのもの（`qsheet_schedules`）を「資料」として数えるための行。台本の `DocRow` と対称 */
+interface ScheduleDocRow {
+  id: string;
+  title: string;
+  doc_no: string | null;
+  service_date: string;
+  updated_at: string;
+}
+
 async function fetchDocsForProject(projectId: string): Promise<DocRow[]> {
   const rows = await queryAll(
     `SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
@@ -128,6 +137,32 @@ async function fetchDocsForProject(projectId: string): Promise<DocRow[]> {
     [projectId],
   );
   return rows as unknown as DocRow[];
+}
+
+/**
+ * その案件のスケジュール表そのもの（枠の中身が0件でも1本と数える。§MiniAppTiles と対称）。
+ * `docs`（台本）は `MiniAppTiles.tsx` の `sheetCount` の元になっており、スケジュール表も
+ * 同じ形で返さないと `scheduleCount` が「枠が無い＝0件」に落ちてしまう
+ * （枠＝`frames[]` は `qsheet_schedule_items` からしか埋まらないため、作った直後の
+ * 空のスケジュール表を永遠に0件のまま数え損ねる）。アクセス範囲は `fetchFramesForProject`
+ * と同じ（作成者本人／共有先／system_admin）。
+ */
+async function fetchSchedulesForProject(projectId: string, user: AccessUser): Promise<ScheduleDocRow[]> {
+  let sql = `
+    SELECT s.id, s.title, s.doc_no, to_char(s.service_date, 'YYYY-MM-DD') AS service_date, s.updated_at
+    FROM qsheet_schedules s
+    WHERE s.project_id = $1 AND s.deleted_at IS NULL
+  `;
+  const params: unknown[] = [projectId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (s.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY s.updated_at DESC';
+
+  const rows = await queryAll(sql, params);
+  return rows as unknown as ScheduleDocRow[];
 }
 
 /**
@@ -178,7 +213,13 @@ async function fetchFramesForProject(projectId: string, user: AccessUser): Promi
   return byDate;
 }
 
-function buildDayFromDocs(date: string | null, label: string | null, docs: DocRow[], frames: JourneyFrame[]): JourneyDay {
+function buildDayFromDocs(
+  date: string | null,
+  label: string | null,
+  docs: DocRow[],
+  frames: JourneyFrame[],
+  scheduleDocs: ScheduleDocRow[] = [],
+): JourneyDay {
   const hasAny = docs.length > 0;
   const latestUpdatedAt = docs.length > 0 ? (docs[0].updated_at as unknown as string) : null;
   const hasRows = docs.some((d) => d.section_count > 0);
@@ -225,13 +266,22 @@ function buildDayFromDocs(date: string | null, label: string | null, docs: DocRo
     date,
     label,
     stages,
-    docs: docs.map((d) => ({
-      app: 'sheet',
-      id: d.id,
-      title: d.title,
-      docNo: d.doc_no,
-      updatedAt: d.updated_at as unknown as string,
-    })),
+    docs: [
+      ...docs.map((d) => ({
+        app: 'sheet' as const,
+        id: d.id,
+        title: d.title,
+        docNo: d.doc_no,
+        updatedAt: d.updated_at as unknown as string,
+      })),
+      ...scheduleDocs.map((s) => ({
+        app: 'schedule' as const,
+        id: s.id,
+        title: s.title,
+        docNo: s.doc_no,
+        updatedAt: s.updated_at,
+      })),
+    ],
     frames,
     suggestions,
   };
@@ -296,6 +346,25 @@ async function fetchFramesForProgram(programId: string, user: AccessUser): Promi
   return byDate;
 }
 
+/** `fetchSchedulesForProject` の番組（マニュアル）版。持ち物は `program_id` に変わるだけ */
+async function fetchSchedulesForProgram(programId: string, user: AccessUser): Promise<ScheduleDocRow[]> {
+  let sql = `
+    SELECT s.id, s.title, s.doc_no, to_char(s.service_date, 'YYYY-MM-DD') AS service_date, s.updated_at
+    FROM qsheet_schedules s
+    WHERE s.program_id = $1 AND s.deleted_at IS NULL
+  `;
+  const params: unknown[] = [programId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (s.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY s.updated_at DESC';
+
+  const rows = await queryAll(sql, params);
+  return rows as unknown as ScheduleDocRow[];
+}
+
 /**
  * 番組（マニュアル）単位のジャーニー。番組が無ければ null（呼び出し側が 404 を返す）。
  *
@@ -312,7 +381,11 @@ export async function getJourneyForProgram(programId: string, user: AccessUser):
   );
   if (!program) return null;
 
-  const [docs, framesByDate] = await Promise.all([fetchDocsForProgram(programId), fetchFramesForProgram(programId, user)]);
+  const [docs, framesByDate, scheduleDocs] = await Promise.all([
+    fetchDocsForProgram(programId),
+    fetchFramesForProgram(programId, user),
+    fetchSchedulesForProgram(programId, user),
+  ]);
 
   const dateLabels = new Map<string, string | null>();
   if (program.event_date) dateLabels.set(program.event_date as string, null);
@@ -322,6 +395,9 @@ export async function getJourneyForProgram(programId: string, user: AccessUser):
   for (const date of framesByDate.keys()) {
     if (!dateLabels.has(date)) dateLabels.set(date, null);
   }
+  for (const s of scheduleDocs) {
+    if (!dateLabels.has(s.service_date)) dateLabels.set(s.service_date, null);
+  }
 
   const docsByDate = new Map<string | null, DocRow[]>();
   for (const d of docs) {
@@ -329,10 +405,16 @@ export async function getJourneyForProgram(programId: string, user: AccessUser):
     if (!docsByDate.has(key)) docsByDate.set(key, []);
     docsByDate.get(key)!.push(d);
   }
+  const scheduleDocsByDate = new Map<string, ScheduleDocRow[]>();
+  for (const s of scheduleDocs) {
+    if (!scheduleDocsByDate.has(s.service_date)) scheduleDocsByDate.set(s.service_date, []);
+    scheduleDocsByDate.get(s.service_date)!.push(s);
+  }
 
   const dates = [...dateLabels.keys()].sort();
-  const days: JourneyDay[] = dates.map((date) =>
-    buildDayFromDocs(date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? []));
+  const days: JourneyDay[] = dates.map((date) => buildDayFromDocs(
+    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [],
+  ));
 
   const undated = docsByDate.get(null) ?? [];
   if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
@@ -352,7 +434,11 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
   );
   if (!project) return null;
 
-  const [docs, framesByDate] = await Promise.all([fetchDocsForProject(projectId), fetchFramesForProject(projectId, user)]);
+  const [docs, framesByDate, scheduleDocs] = await Promise.all([
+    fetchDocsForProject(projectId),
+    fetchFramesForProject(projectId, user),
+    fetchSchedulesForProject(projectId, user),
+  ]);
 
   // days は「その案件の episodes の broadcast_date/recording_date」と
   // 「その案件の資料の broadcast_date」の和集合で作る（§6-7・N+1 を作らない: 資料は上で1回だけ引いた）
@@ -377,6 +463,10 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
   for (const date of framesByDate.keys()) {
     if (!dateLabels.has(date)) dateLabels.set(date, null);
   }
+  // 枠がまだ0件の（作ったばかりの）スケジュール表も同じ和集合に加える（§scheduleDocs のコメント参照）
+  for (const s of scheduleDocs) {
+    if (!dateLabels.has(s.service_date)) dateLabels.set(s.service_date, null);
+  }
 
   const docsByDate = new Map<string | null, DocRow[]>();
   for (const d of docs) {
@@ -384,10 +474,16 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
     if (!docsByDate.has(key)) docsByDate.set(key, []);
     docsByDate.get(key)!.push(d);
   }
+  const scheduleDocsByDate = new Map<string, ScheduleDocRow[]>();
+  for (const s of scheduleDocs) {
+    if (!scheduleDocsByDate.has(s.service_date)) scheduleDocsByDate.set(s.service_date, []);
+    scheduleDocsByDate.get(s.service_date)!.push(s);
+  }
 
   const dates = [...dateLabels.keys()].sort();
-  const days: JourneyDay[] = dates.map((date) =>
-    buildDayFromDocs(date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? []));
+  const days: JourneyDay[] = dates.map((date) => buildDayFromDocs(
+    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [],
+  ));
 
   // 日が決まっていない資料（broadcast_date が無い）は「日が決まっていない」束にまとめる
   const undated = docsByDate.get(null) ?? [];
