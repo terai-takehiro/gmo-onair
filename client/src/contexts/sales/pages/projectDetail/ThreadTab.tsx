@@ -27,11 +27,13 @@ import { Info } from 'lucide-react';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { RecordDialog } from './thread/RecordDialog';
 import { MinutesCard } from './thread/MinutesCard';
 import { ComposeBox, type ComposeKind } from './thread/ComposeBox';
 import { ThreadCard } from './thread/ThreadCard';
+import { useNextActionActions } from '../activityLog/useNextActionActions';
 import type { MinutesResponse, MinutesPatch } from './thread/types';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { localDateStr } from '@/lib/format';
@@ -45,6 +47,25 @@ export function ThreadTab({ projectId }: { projectId: string }) {
   // editor に出すと押して 403 を受け取るだけになる（Codex の指摘・PR #103）
   const canDeleteMinutes = hasPermission('sales', 'manager');
   const [recOpen, setRecOpen] = useState(false);
+
+  /**
+   * 次回アクションの完了・延期。**このタブ自身にはこれまで無かった**
+   * （ユーザー指摘）。「お待たせ中」の期限超過はここ（`/sales/projects/:id/thread`）
+   * に送っているのに、片づける手段が営業活動記録・お客様詳細にしか無く、
+   * 新しいやり取りを書いても古い次回アクションは自動では閉じないため、
+   * 実際には対応していても「期限超過」がお待たせ中に残り続けていた。
+   * `useNextActionActions` は既存の口（`顧客360°ビュー`・営業活動記録と共通）を
+   * そのまま使う——片づけ方を画面ごとに変えない。
+   * このタブ自身の一覧（`project-activities`）・概要タブの帯（`project`）・
+   * ホームの「お待たせ中」とダッシュボードの「期限が過ぎたやること」も
+   * 一緒に落とす（落とし忘れると「直したのに古いまま」になる）
+   */
+  const nextActionActions = useNextActionActions([
+    ['project-activities', projectId],
+    ['project', projectId],
+    [...queryKeys.dashboard.inbox()],
+    [...queryKeys.dashboard.overdueActions()],
+  ]);
 
   const minutes = useQuery<MinutesResponse>({
     queryKey: ['project-minutes', projectId],
@@ -204,6 +225,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               canEdit={canEdit}
               onRedo={onRedo}
               redoing={redo.isPending}
+              nextActionActions={nextActionActions}
             />
           ))}
         </div>
