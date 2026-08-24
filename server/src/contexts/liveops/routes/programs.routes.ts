@@ -5,6 +5,7 @@ import { encrypt, decrypt, mask } from '../crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getTeamsToken } from '../teams-token';
 import { subscribeToMeeting } from '../teams-subscription';
+import { stopMeasurement } from '../measure.service';
 
 const router = Router();
 const canRead  = [requireAuth, requirePermission('qsheet', 'reader')] as const;
@@ -295,6 +296,11 @@ router.put('/:id', ...canWrite, async (req, res) => {
 
 router.delete('/:id', ...canWrite, async (req, res) => {
   try {
+    // ⚠️ 計測中（measuring=TRUE）のまま削除すると、組織全体で1件だけの計測ロック
+    // （NOT EXISTS 判定・部分ユニーク索引、どちらも deleted_at を見ない）が
+    // 永久に解放されなくなる。deleted_at を立てる前に必ず止める（measuring=FALSE
+    // なら stopMeasurement 内の `AND measuring = TRUE` で何もせず戻るだけなので無条件で呼べる）。
+    await stopMeasurement(String(req.params.id), 'system', '案件の削除に伴い計測を停止しました。');
     await execute(
       'UPDATE liveops_programs SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',
       [req.params.id]
