@@ -76,6 +76,14 @@ export interface InboxOpenable {
   inquiries: boolean;
   /** 受け取った書類（`/budget/documents`）— `budget` か `dailyops` */
   documents: boolean;
+  /**
+   * 既存案件を1件開ける（`/sales/projects/:id/*`）— `sales` の**閲覧権限だけで足りる**
+   * （`editor` 未満でも可）。⚠️ **`intake` を使い回さないこと**（前回の不具合）。
+   * `intake` は「新しい案件を作れるか」で `editor` を要求するため、
+   * それを流用すると **`editor` を持たない sales 利用者には期限超過の行が
+   * 一律クリックできなくなる**（画面には並ぶのに押しても何も起きない）
+   */
+  viewProjects: boolean;
 }
 
 /**
@@ -86,15 +94,35 @@ export interface InboxOpenable {
  * 案件作成が開けません。固定すると、**API の 403 を画面の「権限がありません」に
  * 移し替えただけ**になります（レビューでの指摘）。
  *
- * `sales` の人は今までどおり全部**案件作成**へ送ります — 引き合いはそこで
- * 案件にするのが仕事の流れで、レールに問い合わせも並んでいます（`INTAKE_KINDS`）。
+ * ⚠️ **期限超過・受け取った書類は「案件作成」に行き先が無い。**（ご指摘で発覚）
+ * 以前はここも `can.intake` が真なら無条件に `/sales/projects/new` へ送っていたが、
+ * その画面は**ネタ案件・問い合わせしか並べない**（`INTAKE_KINDS`）ので、
+ * 期限超過の次回アクションや受け取った書類を押しても該当の行はどこにも出てこず
+ * （＝押しても意味が無い＝「機能していない」に見えた）、しかも `editor` 未満の
+ * `sales` 利用者にはその画面自体が開けず**完全に無反応**だった。
+ * **種類ごとに本来の行き先へ振り分ける。**
  */
-export function inboxHrefOf(kind: InboxKind, can: InboxOpenable): string | null {
-  if (can.intake) return '/sales/projects/new';
-  if (kind === 'inquiry') return can.inquiries ? '/daily/inquiries' : null;
-  if (kind === 'finance_doc') return can.documents ? '/budget/documents' : null;
-  // ネタ案件・期限超過は案件の画面しか行き先が無い
-  return null;
+export function inboxHrefOf(item: Pick<InboxItem, 'kind' | 'meta'>, can: InboxOpenable): string | null {
+  switch (item.kind) {
+    case 'overdue_action': {
+      // 期限超過の次回アクションは、それを記録した案件のやり取りへ
+      // （`salesDashboard/OverduePanel.tsx` の行クリックと同じ行き先）
+      const projectId = item.meta.project_id;
+      return can.viewProjects && typeof projectId === 'string'
+        ? `/sales/projects/${projectId}/thread` : null;
+    }
+    case 'finance_doc':
+      // 受け取った書類。案件作成ではなく財務の「受け取った書類」へ
+      return can.documents ? '/budget/documents' : null;
+    case 'inquiry':
+      // sales の人は引き合いとして案件作成へ（レールに問い合わせも並ぶ）、
+      // `dailyops` だけの人は「入ってきた情報」へ
+      if (can.intake) return '/sales/projects/new';
+      return can.inquiries ? '/daily/inquiries' : null;
+    case 'ai_project':
+      // ネタ案件はまだ案件になっていないので、案件作成の画面しか行き先が無い
+      return can.intake ? '/sales/projects/new' : null;
+  }
 }
 
 /** 「残りを見る」の行き先と札。開ける場所が1つも無ければ `null`（出さない） */
