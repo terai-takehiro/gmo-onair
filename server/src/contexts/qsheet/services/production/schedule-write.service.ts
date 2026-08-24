@@ -11,7 +11,13 @@
  */
 import { AppError } from '../../../../shared/middleware/errorHandler';
 import { canAccessSchedule, type AccessUser } from '../../access';
-import { getScheduleRaw } from '../../services/schedule.service';
+import {
+  getScheduleRaw,
+  createSchedule,
+  updateSchedule,
+  type CreateScheduleInput,
+  type UpdateScheduleInput,
+} from '../../services/schedule.service';
 import {
   createItem,
   updateItem,
@@ -19,6 +25,14 @@ import {
   type CreateItemInput,
   type UpdateItemInput,
 } from '../../services/schedule-item.service';
+import {
+  createColumn,
+  updateColumn,
+  deleteColumn,
+  reorderColumns,
+  type CreateColumnInput,
+  type UpdateColumnInput,
+} from '../../services/schedule-column.service';
 import { HttpError } from '../../services/httpErrors';
 
 /**
@@ -68,6 +82,73 @@ export async function deleteScheduleItem(actor: AccessUser, scheduleId: string, 
   await requireAccessibleSchedule(actor, scheduleId);
   try {
     await deleteItem(scheduleId, itemId);
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+// ── スケジュール表そのもの（`qsheet_schedules`） ──────────────
+// 既存の枠 (items) と違い「新規に作る」操作なのでアクセス確認は不要
+// (HTTP 側 `schedules.routes.ts` の POST /schedules も同様に無条件で作成する)。
+
+export async function createScheduleTable(actor: AccessUser, input: Omit<CreateScheduleInput, 'createdBy'>) {
+  try {
+    return await createSchedule({ ...input, createdBy: actor.id });
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+export async function updateScheduleTable(actor: AccessUser, scheduleId: string, input: UpdateScheduleInput) {
+  await requireAccessibleSchedule(actor, scheduleId);
+  try {
+    return await updateSchedule(scheduleId, actor.id, input);
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+// ── スケジュール表の列（`qsheet_schedule_columns`） ───────────
+// HTTP 側 (`schedule-columns.routes.ts`) と同じくスケジュール表単位のアクセス確認 → 書き込みの順。
+
+export async function createScheduleColumn(actor: AccessUser, scheduleId: string, input: CreateColumnInput) {
+  await requireAccessibleSchedule(actor, scheduleId);
+  try {
+    return await createColumn(scheduleId, input);
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+export async function updateScheduleColumn(
+  actor: AccessUser,
+  scheduleId: string,
+  columnId: string,
+  input: UpdateColumnInput,
+) {
+  await requireAccessibleSchedule(actor, scheduleId);
+  try {
+    return await updateColumn(scheduleId, columnId, actor.id, input);
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+export async function deleteScheduleColumn(actor: AccessUser, scheduleId: string, columnId: string): Promise<number> {
+  await requireAccessibleSchedule(actor, scheduleId);
+  try {
+    return await deleteColumn(scheduleId, columnId);
+  } catch (err) {
+    toAppError(err);
+  }
+}
+
+interface ReorderColumnEntry { id: string; col_group: string; sort_order: number }
+
+export async function reorderScheduleColumns(actor: AccessUser, scheduleId: string, order: ReorderColumnEntry[]) {
+  await requireAccessibleSchedule(actor, scheduleId);
+  try {
+    return await reorderColumns(scheduleId, order);
   } catch (err) {
     toAppError(err);
   }

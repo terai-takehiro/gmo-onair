@@ -91,6 +91,16 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   propose_qsheet_draft: { module: 'qsheet', level: 'editor' },
   discard_sheet_proposal: { module: 'qsheet', level: 'editor' },
   discard_qsheet_proposal: { module: 'qsheet', level: 'editor' },
+  // スケジュール表そのもの CRUD。HTTP 側 (`schedules.routes.ts`) の
+  // requirePermission('qsheet', 'editor') と揃えてある。
+  create_schedule: { module: 'qsheet', level: 'editor' },
+  update_schedule: { module: 'qsheet', level: 'editor' },
+  // スケジュール表の列 CRUD ＋ 並べ替え。HTTP 側 (`schedule-columns.routes.ts`) の
+  // requirePermission('qsheet', 'editor') と揃えてある。
+  create_schedule_column: { module: 'qsheet', level: 'editor' },
+  update_schedule_column: { module: 'qsheet', level: 'editor' },
+  delete_schedule_column: { module: 'qsheet', level: 'editor' },
+  reorder_schedule_columns: { module: 'qsheet', level: 'editor' },
   // スケジュール表の枠 CRUD。HTTP 側 (`schedule-items.routes.ts`) の
   // requirePermission('qsheet', 'editor') と揃えてある。
   create_schedule_item: { module: 'qsheet', level: 'editor' },

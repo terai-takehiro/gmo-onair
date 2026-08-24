@@ -40,8 +40,9 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryOne } from '../../../shared/db/connection';
 import { MINI_APPS, type MiniAppKey } from '../../../shared/production/miniapps';
 import { QSHEET_BLOCK_TYPES } from '../../../shared/qsheet/blockTypes';
-import { ITEM_KINDS } from '../../../shared/schedule/kinds';
+import { ITEM_KINDS, COL_GROUPS } from '../../../shared/schedule/kinds';
 import { getJourneyForProject, getJourneyForDocument } from '../../qsheet/services/journey.service';
+import { SCHEDULE_STATUSES } from '../../qsheet/services/schedule.service';
 import { canAccessDoc, canAccessProposal } from '../../qsheet/access';
 import { listProductionDocs } from '../../qsheet/services/production/doc-list.service';
 import { fetchDocForRead, getQsheetOutline, getQsheetRows } from '../../qsheet/services/production/qsheet-read.service';
@@ -52,6 +53,12 @@ import {
   createScheduleItem,
   updateScheduleItem,
   deleteScheduleItem,
+  createScheduleTable,
+  updateScheduleTable,
+  createScheduleColumn,
+  updateScheduleColumn,
+  deleteScheduleColumn,
+  reorderScheduleColumns,
 } from '../../qsheet/services/production/schedule-write.service';
 import { discardProposal } from '../../qsheet/ai/apply.service';
 
@@ -243,6 +250,219 @@ export function registerProductionTools(server: McpServer): void {
   );
 
   // ── write ───────────────────────────────────────────────
+
+  // create_schedule / update_schedule
+  // スケジュール表そのもの (qsheet_schedules) の作成・更新。台本と違い「提案まで」ではなく
+  // 直接書き込む — 既存の HTTP ルート (schedules.routes.ts) と同じ粒度の単純な CRUD のため。
+  // 作成直後は列 (column) が0本なので、続けて create_schedule_column で列を用意するか
+  // template_id でテンプレートを適用する。削除 (delete_schedule) は意図的に出していない
+  // (共有先がいる資料の削除は影響が大きく、まずは画面から行う運用にする)。
+  server.registerTool(
+    'create_schedule',
+    {
+      title: 'スケジュール表を新規に作る',
+      description:
+        'スケジュール表 (qsheet_schedules) を1本新規に作る。作成直後は列・枠が0本 ' +
+        '（テンプレートを使わない場合）。project_id / program_id はどちらか一方だけを指定する ' +
+        '（両方は非推奨）。template_id を渡すとテンプレートの列・枠を初期投入する ' +
+        '（テンプレートによっては onair_start_min が必須で、無いと 400 になる）。' +
+        '制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        title: z.string().max(500).optional(),
+        service_date: z.string().regex(DATE_RE),
+        location_id: z.string().optional(),
+        project_id: z.string().optional(),
+        program_id: z.string().optional().describe('番組（マニュアル・案件管理外）。project_id とは同時に立てない'),
+        episode_id: z.string().optional(),
+        template_id: z.string().optional(),
+        onair_start_min: z.number().int().min(0).max(2880).optional().describe('template_id 使用時に必要になることがある'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await createScheduleTable(actor, {
+        title: args.title ?? '',
+        serviceDate: args.service_date,
+        locationId: args.location_id ?? null,
+        projectId: args.project_id ?? null,
+        programId: args.program_id ?? null,
+        episodeId: args.episode_id ?? null,
+        templateId: args.template_id ?? null,
+        onairStartMin: args.onair_start_min ?? null,
+      });
+      audit('create_schedule', args, { created_id: row?.id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'update_schedule',
+    {
+      title: 'スケジュール表を更新',
+      description:
+        '既存のスケジュール表 (schedule_id) を部分更新する。渡したフィールドだけ変わる。' +
+        '他の人の編集と競合したときはエラー (CONFLICT) になるので、直前に get_day_schedule で ' +
+        '読み直してから呼ぶこと。制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        title: z.string().max(500).optional(),
+        service_date: z.string().regex(DATE_RE).optional(),
+        location_id: z.string().optional().describe('空文字で消せる'),
+        project_id: z.string().optional().describe('空文字で消せる'),
+        program_id: z.string().optional().describe('空文字で消せる'),
+        episode_id: z.string().optional().describe('空文字で消せる'),
+        view_start_min: z.number().int().min(0).max(2880).optional(),
+        view_end_min: z.number().int().min(0).max(2880).optional(),
+        slot_min: z.number().int().min(1).optional(),
+        status: z.enum(SCHEDULE_STATUSES).optional(),
+        notes: z.string().optional().describe('空文字で消せる'),
+        expected_updated_at: z.string().optional(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await updateScheduleTable(actor, args.schedule_id, {
+        title: args.title,
+        serviceDate: args.service_date,
+        locationId: 'location_id' in args ? (args.location_id || null) : undefined,
+        projectId: 'project_id' in args ? (args.project_id || null) : undefined,
+        programId: 'program_id' in args ? (args.program_id || null) : undefined,
+        episodeId: 'episode_id' in args ? (args.episode_id || null) : undefined,
+        viewStartMin: args.view_start_min,
+        viewEndMin: args.view_end_min,
+        slotMin: args.slot_min,
+        status: args.status,
+        notes: 'notes' in args ? (args.notes || null) : undefined,
+        expectedUpdatedAt: args.expected_updated_at,
+      });
+      audit('update_schedule', args, { schedule_id: args.schedule_id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  // create_schedule_column / update_schedule_column / delete_schedule_column / reorder_schedule_columns
+  // スケジュール表の列 (qsheet_schedule_columns) の CRUD ＋ 並べ替え。列は枠 (item) の入れ物
+  // (会場/支度/運営の3グループ)。既存の HTTP ルート (schedule-columns.routes.ts) と同じ粒度。
+  server.registerTool(
+    'create_schedule_column',
+    {
+      title: 'スケジュール表に列を1つ追加',
+      description:
+        `スケジュール表 (schedule_id) に列を1つ追加する。col_group は ${COL_GROUPS.join('/')} の` +
+        'いずれか（会場/支度/運営）。room_id は col_group=venue のときだけ指定できる。' +
+        '制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        col_group: z.enum(COL_GROUPS),
+        label: z.string().max(200),
+        room_id: z.string().optional().describe('col_group=venue のときだけ'),
+        color: z.string().optional(),
+        sort_order: z.number().int().optional().describe('省略時は同じ col_group の末尾に追加'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await createScheduleColumn(actor, args.schedule_id, {
+        colGroup: args.col_group,
+        label: args.label,
+        roomId: args.room_id ?? null,
+        color: args.color ?? null,
+        sortOrder: args.sort_order,
+      });
+      audit('create_schedule_column', args, { created_id: row?.id, schedule_id: args.schedule_id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'update_schedule_column',
+    {
+      title: 'スケジュール表の列を更新',
+      description:
+        '既存の列 (column_id) を部分更新する。渡したフィールドだけ変わる（col_group は変えられない ' +
+        '— グループをまたぐ移動は reorder_schedule_columns で行う）。他の人の編集と競合したときは ' +
+        'エラー (CONFLICT) になる。制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        column_id: z.string(),
+        label: z.string().max(200).optional(),
+        room_id: z.string().optional().describe('col_group=venue の列だけ。空文字で消せる'),
+        color: z.string().optional().describe('空文字で消せる'),
+        width_px: z.number().int().min(80).max(640).optional(),
+        expected_updated_at: z.string().optional(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await updateScheduleColumn(actor, args.schedule_id, args.column_id, {
+        label: args.label,
+        roomId: 'room_id' in args ? (args.room_id || null) : undefined,
+        color: 'color' in args ? (args.color || null) : undefined,
+        widthPx: args.width_px,
+        expectedUpdatedAt: args.expected_updated_at,
+      });
+      audit('update_schedule_column', args, { column_id: args.column_id, schedule_id: args.schedule_id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'delete_schedule_column',
+    {
+      title: 'スケジュール表の列を削除',
+      description:
+        '既存の列 (column_id) を削除する（取消不可）。列の中にある枠 (item) も同時に削除される。' +
+        '制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        column_id: z.string(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const deletedItems = await deleteScheduleColumn(actor, args.schedule_id, args.column_id);
+      audit(
+        'delete_schedule_column',
+        args,
+        { column_id: args.column_id, schedule_id: args.schedule_id, deleted_items: deletedItems },
+        args.requested_by,
+      );
+      return ok({ deleted: true, column_id: args.column_id, deleted_items: deletedItems });
+    }),
+  );
+
+  server.registerTool(
+    'reorder_schedule_columns',
+    {
+      title: 'スケジュール表の列を並べ替え',
+      description:
+        '列の並び順・所属グループをまとめて変える。order には対象列すべてを ' +
+        '{ id, col_group, sort_order } の形で渡す（get_day_schedule では列の並び順までは分からないため、' +
+        '事前に schedule_id で HTTP 画面か GET /schedules/:id で現在の列一覧を確認してから呼ぶこと）。' +
+        '他の人が消した列は静かに無視される。expected_updated_at は取らない（レスポンスの全列で ' +
+        '画面を丸ごと差し替える設計）。制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        order: z.array(z.object({
+          id: z.string(),
+          col_group: z.enum(COL_GROUPS),
+          sort_order: z.number().int(),
+        })).min(1),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const rows = await reorderScheduleColumns(actor, args.schedule_id, args.order);
+      audit('reorder_schedule_columns', args, { schedule_id: args.schedule_id, count: rows?.length }, args.requested_by);
+      return ok(rows);
+    }),
+  );
 
   // create_schedule_item / update_schedule_item / delete_schedule_item
   // スケジュール表の枠 (qsheet_schedule_items) の CRUD。get_day_schedule (read) と対になる書き込み。
