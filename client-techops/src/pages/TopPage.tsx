@@ -60,7 +60,7 @@ export default function TopPage() {
   const countOf = (group: ScopeGroup): number => data?.find((c) => c.group === group)?.count ?? 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
       <h1 className="text-xl font-semibold text-foreground sm:text-2xl">進行台本</h1>
       <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本づくりの状態がわかります。</p>
 

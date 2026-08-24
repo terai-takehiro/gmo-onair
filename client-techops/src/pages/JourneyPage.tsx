@@ -127,7 +127,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
 
   if (journeyQuery.isLoading) {
     return (
-      <div className="mx-auto flex max-w-4xl items-center justify-center gap-2 px-4 py-16 text-muted-foreground">
+      <div className="flex items-center justify-center gap-2 px-4 py-16 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-sm">読み込み中…</span>
       </div>
@@ -136,7 +136,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
 
   if (journeyQuery.isError || !journeyQuery.data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="px-4 py-6 sm:px-6 sm:py-8">
         <EmptyState title="読み込めませんでした" description="時間を置いてもう一度お試しください。" />
       </div>
     );
@@ -148,7 +148,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
   const title = scope === "document" ? days[0]?.docs[0]?.title || "資料" : project?.name ?? (scope === "program" ? "番組" : "案件");
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
       <Link
         to={backTo}
         className="mb-3 inline-flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
