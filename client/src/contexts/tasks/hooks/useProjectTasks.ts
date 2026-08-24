@@ -125,10 +125,16 @@ export function useProjectTasks(
  * タスク一覧 (v4 ④) は**同じタスクを別の鍵で持っています**。案件側だけを
  * 落としていたので、一覧から直しても一覧が古いままでした
  * (画面上は「押しても変わらない」= 保存できなかったように見える)。
+ *
+ * **`episodes` も落とすこと。** `EpisodesPanel.tsx` は `GET /projects/:id/episodes` が
+ * 返す `task_count`/`task_done_count` から回ごとの進捗バーを出しており、タスクタブの
+ * 同じ画面に常駐している。ここを落とさないと、タスクを足す/終える/消しても
+ * 「回」一覧の進捗バッジだけ古いままになる。
  */
 const invalidateTasks = (qc: ReturnType<typeof useQueryClient>, projectId: string) => {
   qc.invalidateQueries({ queryKey: ["project-tasks", projectId] });
   qc.invalidateQueries({ queryKey: ["task-dashboard"] });
+  qc.invalidateQueries({ queryKey: ["episodes", projectId] });
 };
 
 export function useCreateTask(projectId: string) {

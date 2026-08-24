@@ -300,6 +300,7 @@ function ItemsPanel({ estimateId, canEdit }: { estimateId: string; canEdit: bool
       estimate={detail.data}
       onSave={(items) => canEdit && save.mutate(items)}
       saving={save.isPending}
+      canEdit={canEdit}
     />
   );
 }

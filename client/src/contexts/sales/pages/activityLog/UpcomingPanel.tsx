@@ -15,20 +15,39 @@ import { relatedName, shortDate, isOverdue, type ActivityLogRow } from './types'
 import type { useNextActionActions } from './useNextActionActions';
 
 export function UpcomingPanel({
-  items, actions,
+  items, actions, onSeeAll,
 }: {
   items: ActivityLogRow[];
   actions: ReturnType<typeof useNextActionActions>;
+  /**
+   * 5件を超える分の行き先。**渡すと「すべて見る」を出す**（`OverviewTab.tsx`
+   * の「すべて見る（N件）」と同じ考え方 — 見出しの件数と描画件数を必ず一致させる）。
+   * 未指定なら見出しは描画した件数（最大5）を出す。
+   */
+  onSeeAll?: () => void;
 }) {
   if (items.length === 0) return null;
+  const shown = items.slice(0, 5);
+  const hasMore = items.length > shown.length;
   return (
     <div className="rounded-card border border-warning-border bg-warning-surface p-3.5">
-      <p className="flex items-center gap-1.5 text-sub font-bold text-warning">
-        <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        次回アクション予定（{items.length}件）
+      <p className="flex flex-wrap items-center justify-between gap-1.5 text-sub font-bold text-warning">
+        <span className="flex items-center gap-1.5">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          次回アクション予定（{shown.length}件）
+        </span>
+        {hasMore && onSeeAll && (
+          <button
+            type="button"
+            onClick={onSeeAll}
+            className="text-note min-h-tap font-normal text-primary hover:underline lg:min-h-0"
+          >
+            すべて見る（{items.length}件）
+          </button>
+        )}
       </p>
       <ul className="mt-2 space-y-1.5">
-        {items.slice(0, 5).map((a) => {
+        {shown.map((a) => {
           const overdue = a.next_action_date ? isOverdue(a.next_action_date) : false;
           return (
             <li key={a.id} className="flex flex-wrap items-center gap-2 text-sub">

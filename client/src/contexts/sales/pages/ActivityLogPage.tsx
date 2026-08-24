@@ -105,6 +105,10 @@ export default function ActivityLogPage() {
   const { hasPermission } = useAuth();
   const canDelete = hasPermission('sales', 'manager');
   const canSetTarget = hasPermission('sales', 'editor');
+  // サーバー（`activity-logs.routes.ts`）は POST '/'・PUT '/:id' に editor を要求する。
+  // 削除だけ `manager` に絞って直した穴と同じで、記録・編集も見ていないと
+  // reader に「押せるのに403」のボタン・編集導線が出る
+  const canEdit = hasPermission('sales', 'editor');
   const isMobile = useIsMobile();
 
   const [urlParams, setUrlParams] = useSearchParams();
@@ -209,9 +213,11 @@ export default function ActivityLogPage() {
         }
         primaryAction={
           tab === 'log' ? (
-            <Button onClick={() => setEditing('new')}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />活動を記録
-            </Button>
+            canEdit ? (
+              <Button onClick={() => setEditing('new')}>
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />活動を記録
+              </Button>
+            ) : null
           ) : (
             <div className="flex items-center gap-2">
               <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -253,7 +259,11 @@ export default function ActivityLogPage() {
 
       {tab === 'log' && (
         <>
-          <UpcomingPanel items={upcoming} actions={actions} />
+          <UpcomingPanel
+            items={upcoming}
+            actions={actions}
+            onSeeAll={() => { setSort('next_action'); reset(); }}
+          />
 
           <DesktopFilterBar {...filterProps} />
           <ActivityMobileFilters {...filterProps} />
@@ -281,7 +291,7 @@ export default function ActivityLogPage() {
           ) : (
             <>
               <div className="flex flex-col">
-                <ActivityRows rows={rows} actions={actions} onOpen={setEditing} />
+                <ActivityRows rows={rows} actions={actions} onOpen={canEdit ? setEditing : undefined} />
               </div>
               <Pagination
                 page={page}

@@ -63,12 +63,21 @@ function margin(items: EstimateItemRow[], discount: number): { profit: number; r
  * 出さざるを得ない案件のときに保存できなくなるためです。
  */
 export function EstimateItems({
-  estimate, onSave, saving,
-}: { estimate: EstimateForItems; onSave: (items: EstimateItemRow[]) => void; saving: boolean }) {
+  estimate, onSave, saving, canEdit,
+}: {
+  estimate: EstimateForItems; onSave: (items: EstimateItemRow[]) => void; saving: boolean;
+  /**
+   * `sales` の editor 権限（サーバー PUT '/:id/items' の必須条件と揃える）。
+   * `false` のときは状態（`locked`）に関わらず直せない — reader に「押せるのに403」の
+   * ボタンを出さないため（EstimateTab.tsx から渡す）
+   */
+  canEdit: boolean;
+}) {
   const [items, setItems] = useState<EstimateItemRow[]>(estimate.items ?? []);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const m = margin(items, estimate.discount);
-  const locked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
+  const statusLocked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
+  const locked = statusLocked || !canEdit;
   const customerType = estimate.customer_type === 'internal' ? 'internal' : 'external';
 
   const upd = (i: number, patch: Partial<EstimateItemRow>) =>
@@ -92,9 +101,14 @@ export function EstimateItems({
     <div className="rounded-card border border-border bg-card">
       <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-3">
         <h2 className="text-cardtitle">v{estimate.version} の明細</h2>
-        {locked && (
+        {statusLocked && (
           <span className="text-sub text-warning">
             出したあと（または旧版）なので直せません。直すなら次の版をつくってください。
+          </span>
+        )}
+        {!statusLocked && !canEdit && (
+          <span className="text-sub text-warning">
+            閲覧のみの権限です。明細の保存には案件管理の編集権限が必要です。
           </span>
         )}
         <div className="ml-auto flex items-center gap-4">
