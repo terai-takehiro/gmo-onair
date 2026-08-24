@@ -1,1 +1,0 @@
-**PR #412（レスターの価格・ジャンル取得を修正し、機材管理にレンタル機材検索を新設）のマージ後の棚卸しを記録した**（コード変更なし）。作成から約5分13秒（CI green から約2分56秒）で terai-takehiro 本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
