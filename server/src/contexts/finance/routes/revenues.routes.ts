@@ -7,6 +7,7 @@ import {
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { categoryLabel } from '../../sales/services/estimate-pdf.service';
 import { computeDueDate } from '../services/money-rules.service';
 import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../../shared/services/doc-box.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
@@ -91,7 +92,10 @@ router.get('/:id/pdf',
         period_start: it.period_start || null,
         period_end: it.period_end || null,
         item_notes: it.item_notes || null,
-        category: it.category || null,
+        // 見積から変換した売上は明細の分類が画面の鍵（`studio`/`tech`/`other`）の
+        // ままのことがある（`estimate.service.ts` の `convertToRevenue`）。
+        // 見積書 PDF と同じ表で日本語に直す（知らない値＝自由入力はそのまま通す）
+        category: categoryLabel(it.category || null),
       })),
     });
 

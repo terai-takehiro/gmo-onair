@@ -10,6 +10,16 @@
  * 置き方の計算・レイヤーの記憶（`layerPrefs.ts`）は PC と共有します
  * （分けると「PCで外したはずのレイヤーがスマホでは出たまま」になる）。
  *
+ * ── 月/週の切替を足した ──────────────────────────────────────
+ *
+ * ここまでは月表しか無く、「幅が狭くなると日しか見えない」というご指摘が
+ * あった。実際には月表＋その日のアジェンダは出ていたが、**週だけを見たい
+ * ときの手段がどこにも無かった**（PCの週表に相当するものが無い）。
+ * `MobileCalHeader.tsx` に切替を足し、選んだときだけ `MobileWeekStrip.tsx`
+ * （月表と同じ「数字＋点」だが7日ぶんを横1列）に差し替える。アジェンダ側
+ * （選んだ日の中身）は月表のときと完全に同じもの — 表示形式が変わるのは
+ * 上の帯だけ。
+ *
  * ── 「予定を入れる」を足した ────────────────────────────────
  *
  * 旧実装は「入力欄が十数個ある」ことを理由にスマホでは予約を作らせず、
@@ -27,7 +37,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, DoorOpen, Layers, PackageOpen, Undo2 } from 'lucide-react';
+import { DoorOpen, PackageOpen, Undo2 } from 'lucide-react';
 import api from '@/lib/api';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { Button } from '@/components/ui/button';
@@ -43,15 +53,19 @@ import PartnerScheduleDialog from '../../components/schedule/PartnerScheduleDial
 import PersonalEventDialog from '../../components/schedule/PersonalEventDialog';
 import type { PartnerSchedule, PersonalEvent } from '../../components/schedule/scheduleShared';
 import {
-  ymd, addDays, addMonths, startOfWeek, eventsOn, sortForList, timeLabel, type CalLayer,
+  ymd, addDays, addMonths, startOfWeek, weekDays, eventsOn, sortForList, timeLabel, type CalLayer,
 } from '../calendar/calendarLayout';
 import { loadLayers, saveLayers } from '../calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from '../calendar/useCalendarEvents';
 import { MobileMonthGrid } from '../calendar/MobileMonthGrid';
+import { MobileWeekStrip } from '../calendar/MobileWeekStrip';
+import { MobileCalHeader, type MobileCalView } from '../calendar/MobileCalHeader';
 import { LayerFilterDialog } from '../calendar/FilterDialogs';
 import { NewEventChooser, type NewKind } from '../calendar/NewEventChooser';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+/** 月/週の選び方を覚える鍵。PC の `unified-cal-view` とは別（画面が別なので値も別） */
+const MOBILE_VIEW_KEY = 'unified-cal-view-mobile';
 
 /** 機材の出庫・返却 */
 interface Lending {
@@ -81,6 +95,9 @@ export function MobileToday() {
   const [anchor, setAnchor] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState(today);
   const [layers, setLayers] = useState<Record<CalLayer, boolean>>(loadLayers);
+  const [view, setView] = useState<MobileCalView>(() => (
+    localStorage.getItem(MOBILE_VIEW_KEY) === 'week' ? 'week' : 'month'
+  ));
 
   const [layerFilterOpen, setLayerFilterOpen] = useState(false);
   const [chooserOpen, setChooserOpen] = useState(false);
@@ -92,11 +109,16 @@ export function MobileToday() {
   // スマホ側にも吸収した**（PC の `UnifiedCalendarPage.tsx` と同じ形）
   const [editBooking, setEditBooking] = useState<CalBooking | null>(null);
 
-  // 月表は前後の月の日が並ぶので、その月ちょうどで引くと端の列が空になる（PC と同じ理由）
+  // 月表は前後の月の日が並ぶので、その月ちょうどで引くと端の列が空になる（PC と同じ理由）。
+  // 週表は選んだ週の7日だけでよい（PC の週表と同じ絞り方・`UnifiedCalendarPage.tsx`）
   const { from, to } = useMemo(() => {
+    if (view === 'week') {
+      const w = weekDays(selected);
+      return { from: w[0], to: `${w[6]}T23:59` };
+    }
     const first = `${anchor}-01`;
     return { from: addDays(startOfWeek(first), -1), to: `${addDays(addMonths(first, 1), 7)}T23:59` };
-  }, [anchor]);
+  }, [view, anchor, selected]);
 
   const cal = useCalendarEvents(from, to, { layers, roomIds: [], userIds: [] });
 
@@ -105,11 +127,26 @@ export function MobileToday() {
     saveLayers(next);
   };
 
+  const pickView = (v: MobileCalView) => {
+    setView(v);
+    try { localStorage.setItem(MOBILE_VIEW_KEY, v); } catch { /* 保存できなくても切替は効かせる */ }
+  };
+
   const pickDay = (d: string) => { setSelected(d); setAnchor(d.slice(0, 7)); };
   const stepMonth = (dir: 1 | -1) => setAnchor(addMonths(`${anchor}-01`, dir).slice(0, 7));
+  /** 週送り。**`anchor`（月）も追随させる** — 週をまたいで月が変わったのに
+   *  月表へ戻したときだけ前の月が出る、という食い違いを防ぐ */
+  const stepWeek = (dir: 1 | -1) => {
+    const d = addDays(selected, dir * 7);
+    setSelected(d);
+    setAnchor(d.slice(0, 7));
+  };
 
   const monthTitle = `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
-  const prevLabel = `${Number(addMonths(`${anchor}-01`, -1).slice(5, 7))}月`;
+  const weekTitle = useMemo(() => {
+    const w = weekDays(selected);
+    return `${Number(w[0].slice(5, 7))}/${Number(w[0].slice(8))} – ${Number(w[6].slice(5, 7))}/${Number(w[6].slice(8))}`;
+  }, [selected]);
 
   const selLabel = useMemo(() => {
     const dow = DOW[new Date(`${selected}T00:00:00`).getDay()];
@@ -177,35 +214,22 @@ export function MobileToday() {
         ) : undefined}
       />
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => stepMonth(-1)}
-            className="min-h-tap text-note flex items-center gap-0.5 rounded-note px-1 font-bold text-primary"
-          >
-            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />{prevLabel}
-          </button>
-          <span className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => pickDay(today)}>今日</Button>
-          <Button variant="outline" size="icon" aria-label="次の月" onClick={() => stepMonth(1)}>
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <h2 className="text-h1 min-w-0 flex-1 [overflow-wrap:anywhere]">{monthTitle}</h2>
-          <Button
-            variant="outline" size="icon" aria-label="出すものを選ぶ"
-            onClick={() => setLayerFilterOpen(true)}
-          >
-            <Layers className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
+      <MobileCalHeader
+        view={view} onView={pickView}
+        title={view === 'week' ? weekTitle : monthTitle}
+        onPrev={() => (view === 'week' ? stepWeek(-1) : stepMonth(-1))}
+        onNext={() => (view === 'week' ? stepWeek(1) : stepMonth(1))}
+        onToday={() => pickDay(today)}
+        onLayers={() => setLayerFilterOpen(true)}
+      />
 
       {cal.isError ? (
         <ErrorPanel title="予定を読み込めませんでした" error={cal.error} onRetry={cal.refetch} />
+      ) : view === 'week' ? (
+        <MobileWeekStrip
+          days={weekDays(selected)} today={today} selected={selected}
+          events={cal.events} holidays={cal.holidays} onPickDay={pickDay}
+        />
       ) : (
         <MobileMonthGrid
           anchor={`${anchor}-01`} today={today} selected={selected}
