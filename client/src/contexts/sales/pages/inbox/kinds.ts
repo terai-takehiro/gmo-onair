@@ -151,6 +151,15 @@ export function inboxAllHrefOf(can: InboxOpenable): { href: string; label: strin
  * 常にずれていた**（ユーザー指摘）。`intakeCountOf`（レールの数字）で直した不具合と
  * 同じ形 — 「押した先に並ぶものだけを数える」。
  *
+ * ⚠️ **札も「案件作成」のままにしないこと**（ユーザー指摘）。`ai_project`/`inquiry` は
+ * 案件作成の画面まるごとではなく、その上に載る「自動で届いたもの」レール
+ * （`IntakeRail.tsx`）にしか並ばない。画面は同じでも、実際に開いて目に入るのは
+ * レールの見出しの側なので、そちらの文言に合わせる。
+ *
+ * ⚠️ **行き先も「案件作成」固定ではない**（同じくユーザー指摘）。`intake`
+ * （`sales` の editor）を持たない `dailyops` だけの人には、問い合わせの行き先は
+ * 「入ってきた情報」になる（`inboxHrefOf` と同じ優先順位）。
+ *
  * 期限超過はここに出さない。`inboxHrefOf` が個別の案件のやり取りにしか送れず、
  * 束ねて見る画面が無いため「◯件を見る」を約束できない
  * （行き先の無い一覧は出さない — 単発の行と同じ判断）。
@@ -162,10 +171,10 @@ export function inboxRestLinksOf(
   const count = (kinds: InboxKind[]) => hidden.filter((it) => kinds.includes(it.kind)).length;
   const links: { href: string; label: string; count: number }[] = [];
 
-  // 問い合わせは `inboxHrefOf` と同じ優先順位（案件作成 → 入ってきた情報）
   if (can.intake) {
+    // 「自動で届いたもの」= `IntakeRail.tsx` の見出しと同じ文言（`INTAKE_KINDS` の2種類）
     const n = count(['ai_project', 'inquiry']);
-    if (n > 0) links.push({ href: '/sales/projects/new', label: '案件作成', count: n });
+    if (n > 0) links.push({ href: '/sales/projects/new', label: '自動で届いたもの', count: n });
   } else if (can.inquiries) {
     const n = count(['inquiry']);
     if (n > 0) links.push({ href: '/daily/inquiries', label: '入ってきた情報', count: n });
