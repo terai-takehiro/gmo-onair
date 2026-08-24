@@ -18,7 +18,7 @@
  * `gpm_open_items` を作った理由そのものなので（`docs/design/gpm-model.md` 決め④）、
  * こちらは全部の操作ができます。
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, CircleHelp, ListTodo } from 'lucide-react';
@@ -65,13 +65,27 @@ export default function GpmTaskListPage() {
     setParams(next, { replace: true });
   };
 
-  /** タスクの絞り込み。**知らない値はサーバーが空で返す** */
-  const [taskChip, setTaskChip] = useState('open');
+  /**
+   * タスクの絞り込み。**知らない値はサーバーが空で返す**
+   *
+   * ダッシュボード KPI「今週が期限の作業」（`dashboard/KpiStrip.tsx`）が
+   * `?tab=next` で送ってくるので、来たときだけ初期チップを `week` にする
+   * （初回マウント時の判定だけ。以降のチップ操作は他のチップと同じく
+   * URL に書き戻さない）。
+   */
+  const [taskChip, setTaskChip] = useState(() => (raw === 'next' ? 'week' : 'open'));
 
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
   const invalidate = useInvalidateGpm();
   const today = useMemo(() => localDateStr(new Date()), []);
+  // KPI と**同じ「今週」の定義**（`GpmDashboardPage.tsx` の `weekEnd`）。
+  // ローリング7日（今日を含め6日後まで）で、暦週（月〜日）ではない
+  const weekEnd = useMemo(() => {
+    const end = new Date();
+    end.setDate(end.getDate() + 6);
+    return localDateStr(end);
+  }, []);
 
   const [chip, setChip] = useState('open');
   const [editing, setEditing] = useState<GpmOpenItem | null>(null);
@@ -90,20 +104,29 @@ export default function GpmTaskListPage() {
   }, [allAsks, chip]);
 
   const allTasks = useMemo(() => tasks.data ?? [], [tasks.data]);
+  // **「今週」判定は1つの関数に集約。** チップの絞り込みと件数バッジで
+  // 別々に書くと片方だけ直したときに件数と一覧が食い違う
+  const isWeekDue = useCallback((t: GpmTask) => {
+    if (t.is_completed || !t.due_at) return false;
+    const d = ymd(t.due_at);
+    return d !== null && d >= today && d <= weekEnd;
+  }, [today, weekEnd]);
   const taskCounts = useMemo(() => ({
     open: allTasks.filter((t) => !t.is_completed).length,
+    week: allTasks.filter(isWeekDue).length,
     overdue: allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today).length,
     done: allTasks.filter((t) => t.is_completed).length,
     all: allTasks.length,
-  }), [allTasks, today]);
+  }), [allTasks, today, isWeekDue]);
   const taskRows = useMemo(() => {
     if (taskChip === 'all') return allTasks;
     if (taskChip === 'done') return allTasks.filter((t) => t.is_completed);
+    if (taskChip === 'week') return allTasks.filter(isWeekDue);
     if (taskChip === 'overdue') {
       return allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today);
     }
     return allTasks.filter((t) => !t.is_completed);
-  }, [allTasks, taskChip, today]);
+  }, [allTasks, taskChip, today, isWeekDue]);
 
   const setDone = useMutation({
     mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
@@ -197,6 +220,7 @@ export default function GpmTaskListPage() {
             label="タスクの状態で絞り込む"
             items={[
               { key: 'open', label: '未完了', count: tasks.data ? taskCounts.open : null },
+              { key: 'week', label: '今週期限', count: tasks.data ? taskCounts.week : null },
               { key: 'overdue', label: '期限超過', count: tasks.data ? taskCounts.overdue : null },
               { key: 'done', label: '完了', count: tasks.data ? taskCounts.done : null },
               { key: 'all', label: 'すべて', count: tasks.data ? taskCounts.all : null },
