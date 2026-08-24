@@ -81,18 +81,25 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (90 種 / 20 カテゴリ / v4)
+## ツール一覧 (105 種 / 21 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
 > 数え直して `client/public/mcp-tools.json` を作ります（画面の「MCP コネクタ」はそれを読む）。
 > **ツールを足したら生成スクリプトを流し、この文書も直してください** —
 > v4 の時点で本文は「71 種」のままで、`mytasks` 10 種と `aifeedback` 1 種が丸ごと抜けていました。
+> 2026-08 には「90 種」のまま取り残されたこともありました（qsheet→techops Phase 4 の改名で
+> production に旧名 `*_qsheet` 系 5 種が二重登録された分が未反映だった）。
 >
 > 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
 > opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1 /
-> production 8（読み取り5・書き込み3。**このカテゴリだけ OAuth actor 専用**。下記参照）
+> production 16（読み取り7・書き込み9。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
+> スケジュール表の枠 CRUD 3種（2026-08 新設）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
+> equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）
+>
+> **live（計時・視聴者）向けの MCP ツールはまだ無い。** 廃止決定ではなく、着手対象になった
+> ことがない（未検討）。equipment は 2026-08 に新設した。
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -258,10 +265,16 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 「作成者本人／共有先／`system_admin`」の文書単位の秘匿で、共有 actor (`mcp-claude`) には
 見てよい範囲を定義できないため。静的キーで呼ぶと全ツール（read も含む）が 403 になります。
 
-**書き込みは「提案まで」。** `propose_sheet_draft` は `qsheet_ai_proposals` に1行置くだけで、
-台本そのもの（Yjs の `data`）はサーバーから一切書き換えません。取り込み（台本へ反映）は
+**台本（Yjs の `data`）への書き込みは「提案まで」。** `propose_sheet_draft` は `qsheet_ai_proposals`
+に1行置くだけで、台本そのものはサーバーから一切書き換えません。取り込み（台本へ反映）は
 編集画面の「AIの提案」トレイから人が行います — 取り込みツールは意図的に出していません
 （設計: [`docs/design/v4/qsheet-v4-coding/05-mcp.md`](design/v4/qsheet-v4-coding/05-mcp.md)）。
+
+**スケジュール表の枠（`qsheet_schedule_items`）は直接書き込みます**（2026-08 新設）。
+`create_schedule_item`/`update_schedule_item`/`delete_schedule_item` は台本と違い提案止まりでは
+なく、HTTP 側の `schedule-items.routes.ts` と同じ粒度でその場で作成・更新・削除する — 枠の追加や
+時刻調整は台本の内容を作り替えるものではなく、単純な CRUD だと判断したため。他の人の編集と
+競合したときは `CONFLICT` エラーになる。
 
 ⚠️ **qsheet→techops移行 Phase 4（2026-08-22）: ツール名を techops 系の新名へ改名した。**
 `get_qsheet`/`find_similar_qsheets`/`create_qsheet`/`propose_qsheet_draft`/
@@ -280,8 +293,32 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `create_sheet`（旧 `create_qsheet`） | write | 空の台本を作る（中身は空）。idempotency_key で二重作成を防止 |
 | `propose_sheet_draft`（旧 `propose_qsheet_draft`） | write | `qsheet_ai_proposals` に提案を1件作る。台本は変わらない。kind は script_outline_draft（骨格）/ script_line_draft（既存行の台詞埋め）の2つ |
 | `discard_sheet_proposal`（旧 `discard_qsheet_proposal`） | write | 提案を見送ったことを記録する |
+| `create_schedule_item` | write | スケジュール表に枠を1つ追加。column_id は get_day_schedule の columns[].id から選ぶ |
+| `update_schedule_item` | write | 既存の枠を部分更新。他の人の編集と競合すると CONFLICT |
+| `delete_schedule_item` | write | 既存の枠を削除（取消不可） |
 
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
+
+### 機材管理 (equipment — 2026-08 新設)
+
+台帳検索・詳細・貸出履歴・棚卸し状況の read に加え、貸出・返却の write。台帳そのもの
+（機材の新規登録・編集・削除）は対象外 — EQ コード発番・親子設置場所継承など台帳側の作り込みが
+深く、まず現場で頻度の高い「この機材どこ？」「貸し出して」「返ってきた」を通す MVP スコープ。
+台帳の登録・編集は引き続き画面から行う。
+
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_equipment` | read | 機材台帳を検索する。search は機材ID (eq_code)・型名・製造番号・機材名の部分一致 |
+| `get_equipment` | read | 機材1点の詳細（設置場所・保証期限・貸出履歴・メンテナンス履歴・付属品・親機材） |
+| `list_equipment_lendings` | read | 貸出記録を一覧（新しい貸出順）。status=lent/planned/returned 等で絞り込み |
+| `list_inventory_checks` | read | 棚卸し（実施回）の一覧 |
+| `get_inventory_check` | read | 棚卸し1回分の状況（対象機材ごとの found/実際の設置場所/状態） |
+| `lend_equipment` | write | 機材を貸し出す。既に貸出中の機材はエラー。planned_out_date を渡すと出庫予定の行になる |
+| `return_equipment` | write | 貸出中の機材を返却する（eq_code/equipment_id で指定。貸出記録 id ではない） |
+
+⚠️ 貸出/返却の権限は HTTP 側 (`equipment.routes.ts`) が `/lendings` 系ルートに個別の
+`requirePermission` を持たず router 既定の reader のまま書き込めるが、MCP 側は他カテゴリの
+書き込みツールと揃えて意図的に `equipment` の editor 以上を要求する（`gate.ts` 参照）。
 
 ## confirm 2段階フロー (重要操作)
 
@@ -362,10 +399,13 @@ server/src/contexts/mcp/
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
-    ├── production.tools.ts  制作技術支援 8 種 (read 5 / write 3)。`production.access.ts` の
-    │                        `requireProductionActor()` を全ツールの先頭で呼び、
-    │                        静的キーを拒否 + OAuth actor を実ユーザーへ解決する
+    ├── production.tools.ts  制作技術支援 16 種 (read 7 / write 9・旧名 `*_qsheet` 5種の
+    │                        二重登録 + スケジュール表の枠 CRUD 3種 [2026-08 新設] 込み)。
+    │                        `production.access.ts` の `requireProductionActor()` を
+    │                        全ツールの先頭で呼び、静的キーを拒否 + OAuth actor を実ユーザーへ解決する
     ├── production.access.ts 制作技術支援ツール専用のゲート (段10・05-mcp.md §3-1)
+    ├── equipment.tools.ts   機材管理 7 種 (read 5 / write 2。2026-08 新設)。
+    │                        itemService/lendingService/inventoryService を再利用
     └── … (customers / activities / tasks / members / minutes / analytics / users /
            mytasks / pricing / budget / opsreports / eventreports / inview / inbox /
            security-cards / aifeedback)
@@ -377,12 +417,13 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（44 種＋制作技術支援の read 5種）はここにはゲートがありません。** OAuth で自分の
+- ⚠️ **読み取りツール（49 種＋制作技術支援の read 7種）はここにはゲートがありません。** OAuth で自分の
   ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
-  `list_inquiries` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が
-  MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
-  44 種あるので**別の作業**にしてあります。
-  **制作技術支援の read 5種だけは例外**— `gate.ts` は経由しませんが、
+  `list_inquiries` / `list_equipment` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと
+  同じ形の穴が MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
+  49 種あるので**別の作業**にしてあります（機材管理の read 5種もこの 49 種に含む — production の
+  ような専用ゲートは持たない）。
+  **制作技術支援の read 7種だけは例外**— `gate.ts` は経由しませんが、
   `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
   静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています
 
