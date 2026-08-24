@@ -22,6 +22,10 @@ interface AppHeaderProps {
   manualContent?: ManualContent;
   /** バージョン履歴モーダルの製品ラベル (既定 "GMO ONAiR") */
   productLabel?: string;
+  /** AppSwitcher の権限フィルタへそのまま渡す */
+  role?: string;
+  /** AppSwitcher の権限フィルタへそのまま渡す */
+  permissions?: Record<string, string> | null;
 }
 
 export default function AppHeader({
@@ -35,6 +39,8 @@ export default function AppHeader({
   centerContent,
   manualContent,
   productLabel = "GMO ONAiR",
+  role,
+  permissions,
 }: AppHeaderProps) {
   const [manualOpen, setManualOpen] = useState(false);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
@@ -53,6 +59,8 @@ export default function AppHeader({
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
         onOpenVersionHistory={() => setVersionHistoryOpen(true)}
         onOpenMcpInfo={() => setMcpInfoOpen(true)}
+        role={role}
+        permissions={permissions}
       />
       {manualContent && (
         <ManualModal open={manualOpen} onOpenChange={setManualOpen} content={manualContent} />

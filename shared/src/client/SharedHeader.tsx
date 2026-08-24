@@ -34,7 +34,7 @@ export interface SharedHeaderUser {
 }
 
 interface SharedHeaderProps {
-  /** ONAIR_APPS.id (AppSwitcher のハイライトに使用) */
+  /** apps.ts の AppDef.key (AppSwitcher のハイライトに使用) */
   currentApp: string;
   /** ヘッダーに表示するアプリ名 */
   appLabel: string;
@@ -54,6 +54,10 @@ interface SharedHeaderProps {
   onOpenVersionHistory?: () => void;
   /** 渡すと「MCP コネクタ」ボタン（プラグアイコン）をユーザーメニューの左に表示 */
   onOpenMcpInfo?: () => void;
+  /** AppSwitcher の権限フィルタへそのまま渡す */
+  role?: string;
+  /** AppSwitcher の権限フィルタへそのまま渡す */
+  permissions?: Record<string, string> | null;
 }
 
 // ─── ロールラベル ─────────────────────────────────────────────────────────────
@@ -79,6 +83,8 @@ export default function SharedHeader({
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
+  role,
+  permissions,
 }: SharedHeaderProps) {
   useEffect(() => injectSharedHeaderStyles(), []);
 
@@ -199,7 +205,7 @@ export default function SharedHeader({
     <div className="flex h-14 items-center gap-1 sm:gap-1.5 px-2 sm:px-4">
 
       {/* AppSwitcher */}
-      <AppSwitcher currentApp={currentApp} />
+      <AppSwitcher currentApp={currentApp} role={role} permissions={permissions} />
 
       {/* ハンバーガー（モバイル・サイドバーあり時のみ） */}
       {onToggleSidebar && (

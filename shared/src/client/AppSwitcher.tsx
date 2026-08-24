@@ -5,28 +5,33 @@
  *
  * **アプリの一覧はここに持たない。** `apps.ts` が唯一の正 (S1)。
  * 以前はここに `ONAIR_APPS` という独自の一覧があり、他の3か所と食い違っていた。
+ *
+ * **一覧の絞り込みも `apps.ts` の `visibleApps()` に委ねる**（権限 (`permissionModule`)・
+ * `hidden`・`frozen` の判定を二重実装しない — `AppTopbar.tsx` と同じ判断軸）。
+ * `role`/`permissions` を渡さないと権限付きアプリは（権限なし扱いで）出ない — 見せすぎより
+ * 見えない方に倒す。**現在地 (`currentApp`) はハイライトして見せる設計**なので、
+ * `visibleApps()` の `current` オプション（一覧から除外する方）は渡さない。
+ * `comingSoon`（準備中）のアプリは従来どおり出す（無効タイルとして）。
  */
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { APPS, type AppDef } from "./apps";
-
-/**
- * 後方互換の名前。**新しいコードは `APPS` を使うこと。**
- * `basePath` / `id` / `status` は旧 `ONAIR_APPS` の呼び名。
- * 呼び出し側は現存しないため export はしていない（このファイル内の render のみが使う）。
- */
-const ONAIR_APPS: Array<AppDef & { id: string; basePath: string; status: 'active' | 'coming_soon'; externalUrl?: string }> =
-  APPS.map((a) => ({ ...a, id: a.key, basePath: a.path, status: a.comingSoon ? 'coming_soon' : 'active', externalUrl: a.external }));
+import { visibleApps } from "./apps";
 
 interface AppSwitcherProps {
   currentApp?: string;
+  /** ログイン中ユーザーのロール。`visibleApps()` の権限判定にそのまま渡す */
+  role?: string;
+  /** モジュール → アクセスレベル。`visibleApps()` の権限判定にそのまま渡す */
+  permissions?: Record<string, string> | null;
 }
 
-export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
+export default function AppSwitcher({ currentApp, role, permissions }: AppSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const apps = visibleApps({ role, permissions, includeComingSoon: true, includeHome: true });
 
   const handleToggle = () => {
     if (!open && buttonRef.current) {
@@ -69,16 +74,16 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-1 px-3 pb-3">
-        {ONAIR_APPS.map((app) => {
-          const isCurrent = app.id === currentApp;
-          const isDisabled = app.status === "coming_soon";
-          const isExternal = !!app.externalUrl;
+        {apps.map((app) => {
+          const isCurrent = app.key === currentApp;
+          const isDisabled = !!app.comingSoon;
+          const isExternal = !!app.external;
           const Icon = app.icon;
 
           return (
             <a
-              key={app.id}
-              href={isDisabled ? undefined : app.basePath}
+              key={app.key}
+              href={isDisabled ? undefined : app.path}
               {...(isExternal && !isDisabled ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               onClick={(e) => {
                 if (isDisabled) { e.preventDefault(); return; }
