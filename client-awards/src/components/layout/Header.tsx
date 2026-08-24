@@ -4,7 +4,7 @@ import AppHeader from '@gmo-onair/shared/src/client/AppHeader';
 import { AWARDS_MANUAL } from '@/manual/content';
 
 export default function Header() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, permissions } = useAuth();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   return (
     <AppHeader
@@ -14,6 +14,8 @@ export default function Header() {
       onLogout={logout}
       onToggleSidebar={toggleSidebar}
       manualContent={AWARDS_MANUAL}
+      role={currentUser?.role}
+      permissions={permissions}
     />
   );
 }
