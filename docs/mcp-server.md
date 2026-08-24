@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (105 種 / 21 カテゴリ / v4)
+## ツール一覧 (111 種 / 21 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -94,8 +94,10 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 > 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
 > opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1 /
-> production 16（読み取り7・書き込み9。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
-> スケジュール表の枠 CRUD 3種（2026-08 新設）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
+> production 22（読み取り7・書き込み15。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
+> スケジュール表の枠 CRUD 3種（2026-08 新設）＋スケジュール表そのもの・列の CRUD 6種
+> （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
+> 追加/更新/削除/並べ替え）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
 > equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）
 >
 > **live（計時・視聴者）向けの MCP ツールはまだ無い。** 廃止決定ではなく、着手対象になった
@@ -276,6 +278,17 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 時刻調整は台本の内容を作り替えるものではなく、単純な CRUD だと判断したため。他の人の編集と
 競合したときは `CONFLICT` エラーになる。
 
+**スケジュール表そのもの（`qsheet_schedules`）と列（`qsheet_schedule_columns`）も同じ理由で
+直接書き込みます**（2026-08 追加新設）。それまでは枠（項目）しか MCP から作れず、表と列は
+先に画面で作っておく必要があった。`create_schedule`/`update_schedule` は HTTP 側の
+`schedules.routes.ts` と、`create_schedule_column`/`update_schedule_column`/
+`delete_schedule_column`/`reorder_schedule_columns` は `schedule-columns.routes.ts` と、
+それぞれ同じ粒度の CRUD。**表・列・枠の3段が揃ったので、AI が「新しい日のスケジュール表を
+1本まるごと（列も含めて）作る」ところまで MCP だけで完結できる。** 削除
+（`delete_schedule`）は意図的に出していない — 共有先がいる資料の削除は影響が大きいため、
+表そのものの削除は引き続き画面から行う（列の削除 `delete_schedule_column` は中の枠を巻き込む
+軽い操作のため対象に含めている）。
+
 ⚠️ **qsheet→techops移行 Phase 4（2026-08-22）: ツール名を techops 系の新名へ改名した。**
 `get_qsheet`/`find_similar_qsheets`/`create_qsheet`/`propose_qsheet_draft`/
 `discard_qsheet_proposal` の5本は、それぞれ `get_sheet`/`find_similar_sheets`/`create_sheet`/
@@ -293,6 +306,12 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `create_sheet`（旧 `create_qsheet`） | write | 空の台本を作る（中身は空）。idempotency_key で二重作成を防止 |
 | `propose_sheet_draft`（旧 `propose_qsheet_draft`） | write | `qsheet_ai_proposals` に提案を1件作る。台本は変わらない。kind は script_outline_draft（骨格）/ script_line_draft（既存行の台詞埋め）の2つ |
 | `discard_sheet_proposal`（旧 `discard_qsheet_proposal`） | write | 提案を見送ったことを記録する |
+| `create_schedule` | write | スケジュール表そのものを新規に作る。作成直後は列・枠が0本（template_id 未指定時） |
+| `update_schedule` | write | 既存のスケジュール表を部分更新。他の人の編集と競合すると CONFLICT |
+| `create_schedule_column` | write | スケジュール表に列を1つ追加。col_group は venue/prep/ops のいずれか |
+| `update_schedule_column` | write | 既存の列を部分更新（col_group 自体は変えられない） |
+| `delete_schedule_column` | write | 既存の列を削除（取消不可）。列の中の枠も同時に削除される |
+| `reorder_schedule_columns` | write | 列の並び順・所属グループをまとめて変える |
 | `create_schedule_item` | write | スケジュール表に枠を1つ追加。column_id は get_day_schedule の columns[].id から選ぶ |
 | `update_schedule_item` | write | 既存の枠を部分更新。他の人の編集と競合すると CONFLICT |
 | `delete_schedule_item` | write | 既存の枠を削除（取消不可） |
@@ -399,8 +418,9 @@ server/src/contexts/mcp/
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
-    ├── production.tools.ts  制作技術支援 16 種 (read 7 / write 9・旧名 `*_qsheet` 5種の
-    │                        二重登録 + スケジュール表の枠 CRUD 3種 [2026-08 新設] 込み)。
+    ├── production.tools.ts  制作技術支援 22 種 (read 7 / write 15・旧名 `*_qsheet` 5種の
+    │                        二重登録 + スケジュール表の枠 CRUD 3種 [2026-08 新設] +
+    │                        表そのもの・列の CRUD 6種 [2026-08 追加新設] 込み)。
     │                        `production.access.ts` の `requireProductionActor()` を
     │                        全ツールの先頭で呼び、静的キーを拒否 + OAuth actor を実ユーザーへ解決する
     ├── production.access.ts 制作技術支援ツール専用のゲート (段10・05-mcp.md §3-1)

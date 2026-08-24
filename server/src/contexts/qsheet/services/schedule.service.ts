@@ -42,7 +42,9 @@ export interface ListFilter {
   search?: string;
 }
 
-const VALID_STATUSES = ['draft', 'fixed', 'archived'];
+// MCP の update_schedule ツール (production.tools.ts) も同じ表を使う（唯一の正）。
+export const SCHEDULE_STATUSES = ['draft', 'fixed', 'archived'] as const;
+const VALID_STATUSES: readonly string[] = SCHEDULE_STATUSES;
 
 export async function listSchedules(user: AccessUser, filter: ListFilter): Promise<Row[]> {
   let sql = `${SELECT_BASE} WHERE s.deleted_at IS NULL`;
