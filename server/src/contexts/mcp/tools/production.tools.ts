@@ -40,6 +40,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryOne } from '../../../shared/db/connection';
 import { MINI_APPS, type MiniAppKey } from '../../../shared/production/miniapps';
 import { QSHEET_BLOCK_TYPES } from '../../../shared/qsheet/blockTypes';
+import { ITEM_KINDS } from '../../../shared/schedule/kinds';
 import { getJourneyForProject, getJourneyForDocument } from '../../qsheet/services/journey.service';
 import { canAccessDoc, canAccessProposal } from '../../qsheet/access';
 import { listProductionDocs } from '../../qsheet/services/production/doc-list.service';
@@ -47,6 +48,11 @@ import { fetchDocForRead, getQsheetOutline, getQsheetRows } from '../../qsheet/s
 import { getDaySchedule } from '../../qsheet/services/production/schedule-read.service';
 import { findSimilarQsheets } from '../../qsheet/services/production/similar.service';
 import { createQsheetIdempotent, createOutlineOrLineProposal } from '../../qsheet/services/production/mcp-write.service';
+import {
+  createScheduleItem,
+  updateScheduleItem,
+  deleteScheduleItem,
+} from '../../qsheet/services/production/schedule-write.service';
 import { discardProposal } from '../../qsheet/ai/apply.service';
 
 const DOC_APP_KEYS = MINI_APPS.filter((a) => a.kind === 'document').map((a) => a.key) as [MiniAppKey, ...MiniAppKey[]];
@@ -237,6 +243,103 @@ export function registerProductionTools(server: McpServer): void {
   );
 
   // ── write ───────────────────────────────────────────────
+
+  // create_schedule_item / update_schedule_item / delete_schedule_item
+  // スケジュール表の枠 (qsheet_schedule_items) の CRUD。get_day_schedule (read) と対になる書き込み。
+  // 台本 (get_sheet 系) と違い「提案まで」ではなく直接書き込む — 枠の追加・時刻調整は
+  // 台本の内容を作り替えるものではなく、既存の HTTP ルート (schedule-items.routes.ts) と
+  // 同じ粒度の単純な CRUD のため。
+  server.registerTool(
+    'create_schedule_item',
+    {
+      title: 'スケジュール表に枠を1つ追加',
+      description:
+        'スケジュール表 (schedule_id) に枠を1つ追加する。column_id は get_day_schedule の ' +
+        'columns[].id から選ぶ。start_min/end_min は0時からの分 (例 9:30 = 570)。' +
+        `kind は ${ITEM_KINDS.join('/')} のいずれか (既定 other)。制作資料 (qsheet) の editor 以上が必要。`,
+      inputSchema: {
+        schedule_id: z.string(),
+        column_id: z.string(),
+        title: z.string().max(500).optional(),
+        kind: z.enum(ITEM_KINDS).optional(),
+        start_min: z.number().int().min(0).max(2880),
+        end_min: z.number().int().min(0).max(2880),
+        assignee: z.string().optional(),
+        note: z.string().optional(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await createScheduleItem(actor, args.schedule_id, {
+        columnId: args.column_id,
+        title: args.title,
+        kind: args.kind,
+        startMin: args.start_min,
+        endMin: args.end_min,
+        assignee: args.assignee ?? null,
+        note: args.note ?? null,
+      });
+      audit('create_schedule_item', args, { created_id: row?.id, schedule_id: args.schedule_id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'update_schedule_item',
+    {
+      title: 'スケジュール表の枠を更新',
+      description:
+        '既存の枠 (item_id) を部分更新する。渡したフィールドだけ変わる。他の人の編集と競合したときは ' +
+        'エラー (CONFLICT) になるので、直前に get_day_schedule で読み直してから呼ぶこと。' +
+        '制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        item_id: z.string(),
+        column_id: z.string().optional(),
+        title: z.string().max(500).optional(),
+        kind: z.enum(ITEM_KINDS).optional(),
+        start_min: z.number().int().min(0).max(2880).optional(),
+        end_min: z.number().int().min(0).max(2880).optional(),
+        assignee: z.string().optional().describe('空文字で消せる'),
+        note: z.string().optional().describe('空文字で消せる'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      const row = await updateScheduleItem(actor, args.schedule_id, args.item_id, {
+        columnId: args.column_id,
+        title: args.title,
+        kind: args.kind,
+        startMin: args.start_min,
+        endMin: args.end_min,
+        assignee: 'assignee' in args ? args.assignee : undefined,
+        note: 'note' in args ? args.note : undefined,
+      });
+      audit('update_schedule_item', args, { item_id: args.item_id, schedule_id: args.schedule_id }, args.requested_by);
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'delete_schedule_item',
+    {
+      title: 'スケジュール表の枠を削除',
+      description: '既存の枠 (item_id) を削除する (取消不可)。制作資料 (qsheet) の editor 以上が必要。',
+      inputSchema: {
+        schedule_id: z.string(),
+        item_id: z.string(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const actor = await requireProductionActor('editor');
+      await deleteScheduleItem(actor, args.schedule_id, args.item_id);
+      audit('delete_schedule_item', args, { item_id: args.item_id, schedule_id: args.schedule_id }, args.requested_by);
+      return ok({ deleted: true, item_id: args.item_id });
+    }),
+  );
 
   // create_sheet（旧 create_qsheet）
   const CREATE_SHEET_SCHEMA = {

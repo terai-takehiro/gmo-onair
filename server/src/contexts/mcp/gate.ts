@@ -69,6 +69,11 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   respond_to_delegation: { module: 'dailyops', level: 'editor' },
   // studio (スタジオ予約カレンダー)。`studio` は権限モデル単純化で `sales` に統合済み
   create_studio_booking: { module: 'sales', level: 'editor' },
+  // 機材管理 (equipment)。⚠️ HTTP 側 (`equipment.routes.ts`) は `/lendings` 系ルートに
+  // 個別の requirePermission を持たず router 既定の reader のまま書き込めるが、MCP 側は
+  // 他カテゴリの書き込みツールと揃えて editor 以上を要求する (`equipment.tools.ts` 冒頭コメント参照)。
+  lend_equipment: { module: 'equipment', level: 'editor' },
+  return_equipment: { module: 'equipment', level: 'editor' },
   // 制作資料 (production)。⚠️ このゲートは静的キーには効かない（isOAuth===false は即 return）。
   // 制作資料のツールは production.access.ts の requireProductionActor() が
   // 静的キーそのものを 403 で止める（05-mcp.md §3-1）。ここは OAuth actor の
@@ -86,6 +91,11 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   propose_qsheet_draft: { module: 'qsheet', level: 'editor' },
   discard_sheet_proposal: { module: 'qsheet', level: 'editor' },
   discard_qsheet_proposal: { module: 'qsheet', level: 'editor' },
+  // スケジュール表の枠 CRUD。HTTP 側 (`schedule-items.routes.ts`) の
+  // requirePermission('qsheet', 'editor') と揃えてある。
+  create_schedule_item: { module: 'qsheet', level: 'editor' },
+  update_schedule_item: { module: 'qsheet', level: 'editor' },
+  delete_schedule_item: { module: 'qsheet', level: 'editor' },
 };
 
 const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
