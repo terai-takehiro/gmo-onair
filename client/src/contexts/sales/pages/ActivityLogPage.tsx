@@ -125,7 +125,11 @@ export default function ActivityLogPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('');
-  const [sort, setSort] = useState<SortKey>('date');
+  // **`?sort=next_action` は初回だけ読む**（`tab` と違い並び順まで URL に
+  // 常時同期させると絞り込みの他パラメータも URL 化する話になり手が広がるため）。
+  // ダッシュボード「期限が過ぎたやること」からのリンク（`OverduePanel.tsx`）が
+  // 次回アクション期限順で開けるようにするための入口
+  const [sort, setSort] = useState<SortKey>(() => (urlParams.get('sort') === 'next_action' ? 'next_action' : 'date'));
   const [page, setPage] = useState(1);
   /** 開いているダイアログ。`'new'` は新規、行なら編集 */
   const [editing, setEditing] = useState<ActivityLogRow | 'new' | null>(null);

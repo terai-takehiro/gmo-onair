@@ -60,8 +60,12 @@ export function OverduePanel() {
       title="期限が過ぎたやること"
       icon={<Clock className="h-4 w-4" aria-hidden="true" />}
       note={rows.length > SHOW ? `${rows.length}件のうち古い順に${SHOW}件` : '相手を待たせています'}
-      to="/sales/tasks/list"
-      toLabel="やること一覧で見る"
+      /* このパネルは activity_logs.next_action の期限超過を数えている。
+         /sales/tasks/list は project_tasks（GLS-A案件だけ）の別集合で
+         次回アクションを1件も含まないため、実際に次回アクションを一覧できる
+         「営業活動記録」（sort=next_action で期限が近い順＝超過分が先頭に来る）へ送る */
+      to="/sales/activity-logs?sort=next_action"
+      toLabel="営業活動記録で見る"
       linkAt="foot"
     >
       {isLoading ? (
