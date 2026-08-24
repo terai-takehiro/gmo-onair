@@ -13,9 +13,10 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import * as rentalCatalogApi from '@/lib/rentalCatalogApi';
 import type { RentalCompany, RentalItemSummary } from '@/lib/rentalCatalogApi';
-import { companyBadgeClass, formatSyncTimestamp, formatYen, isSyncStale } from './rental/rentalFormat';
+import { companyBadgeClass, formatSyncTimestamp, isSyncStale } from './rental/rentalFormat';
 import RentalItemDetailDialog from './rental/RentalItemDetailDialog';
 import { WrappingChips } from './rental/WrappingChips';
 
@@ -202,14 +203,16 @@ function RentalItemCard({ item, onOpenDetail }: { item: RentalItemSummary; onOpe
           {item.priceTel != null ? (
             <>
               <span className="text-sub-sm text-muted-foreground">
-                ネット受付 <span className="font-number text-sub font-extrabold text-foreground">{formatYen(item.priceNet)}</span>
+                ネット受付 <Money value={item.priceNet} inline className="text-sub font-extrabold text-foreground" />
                 <span className="text-sub-sm text-muted-foreground">/日</span>
               </span>
-              <span className="font-number text-sub-sm text-muted-foreground">電話 {formatYen(item.priceTel)}</span>
+              <span className="text-sub-sm text-muted-foreground">
+                電話 <Money value={item.priceTel} inline className="text-sub-sm" />
+              </span>
             </>
           ) : (
             <span className="text-sub-sm text-muted-foreground">
-              価格 <span className="font-number text-sub font-extrabold text-foreground">{formatYen(item.priceNet)}</span>
+              価格 <Money value={item.priceNet} inline className="text-sub font-extrabold text-foreground" />
               <span className="text-sub-sm text-muted-foreground">（税込）/日</span>
             </span>
           )}

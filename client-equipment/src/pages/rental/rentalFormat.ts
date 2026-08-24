@@ -1,10 +1,7 @@
-// レンタル機材検索の画面共通フォーマッタ。`client-techops/src/pages/rental/rentalFormat.ts`
-// の対応する関数と同じ実装（このアプリは予約・期間の機能を持たないため、その関連分は持ってこない）。
-export function formatYen(value: number | null | undefined): string {
-  if (value == null) return '—';
-  return `¥${value.toLocaleString('ja-JP')}`; // ui-tokens-ok: qsheet 側と揃えた自前実装
-}
-
+// レンタル機材検索の画面共通フォーマッタ。金額は v4 の決めごとどおり共通の `<Money>`
+// （`@gmo-onair/shared/src/client/ui/money`）を使うので、ここには持たない
+// （`client-techops/src/pages/rental/rentalFormat.ts` の `formatYen` は qsheet が
+// タスク指示により `<Money>` を使わない自前実装のため、v4 対象のこのアプリでは倣わない）。
 export function companyBadgeClass(company: string): string {
   return company === 'レスター' ? 'bg-cat-7/10 text-cat-7' : 'bg-primary-surface text-primary';
 }

@@ -8,8 +8,9 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Video } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import * as rentalCatalogApi from '@/lib/rentalCatalogApi';
-import { companyBadgeClass, formatYen } from './rentalFormat';
+import { companyBadgeClass } from './rentalFormat';
 
 interface RentalItemDetailDialogProps {
   /** null = 閉じる。開くたびにここへ company/itemId を渡す */
@@ -99,7 +100,7 @@ export default function RentalItemDetailDialog({ target, onOpenChange }: RentalI
                   <span className="text-sub-sm text-muted-foreground">
                     {item.priceTel != null ? 'ネット受付' : '価格'}
                     <br />
-                    <span className="font-number text-base font-extrabold text-foreground">{formatYen(item.priceNet)}</span>
+                    <Money value={item.priceNet} inline className="text-base font-extrabold text-foreground" />
                     <span className="text-sub-sm text-muted-foreground">{item.priceTel != null ? '/日' : '（税込）/日'}</span>
                   </span>
                   {item.priceTel != null && (
@@ -108,7 +109,7 @@ export default function RentalItemDetailDialog({ target, onOpenChange }: RentalI
                       <span className="text-sub-sm text-muted-foreground">
                         電話受付
                         <br />
-                        <span className="font-number text-base font-extrabold text-muted-foreground">{formatYen(item.priceTel)}</span>
+                        <Money value={item.priceTel} inline className="text-base font-extrabold text-muted-foreground" />
                         <span className="text-sub-sm text-muted-foreground">/日</span>
                       </span>
                     </>
@@ -145,7 +146,9 @@ export default function RentalItemDetailDialog({ target, onOpenChange }: RentalI
                           className="inline-flex h-8 items-center gap-1.5 rounded-control border border-border bg-card px-2.5 text-sub text-foreground hover:bg-muted"
                         >
                           {r.name}
-                          <span className="font-number text-sub-sm text-muted-foreground">{formatYen(r.priceNet)}/日</span>
+                          <span className="text-sub-sm text-muted-foreground">
+                            <Money value={r.priceNet} inline />/日
+                          </span>
                         </button>
                       ))}
                     </div>
