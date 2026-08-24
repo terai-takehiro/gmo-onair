@@ -2,10 +2,11 @@
 // 実装設計: 04-schedule-impl.md §5-3・§5-4・§4-2（項目単位の楽観ロック）
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles } from "lucide-react";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
@@ -21,6 +22,11 @@ import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
 
 const POLL_MS = 15000;
 
+// 表示間隔（グリッドの刻み分）。5分刻みは細かすぎて見づらいという指摘への対応で
+// 既定を15分にした（サーバー側 migration 234）。DB の CHECK 制約と同じ値を持つ
+// （server/src/shared/db/migrations/234_qsheet_schedule_slot_min.sql）。
+const SLOT_MIN_OPTIONS = [5, 10, 15, 30, 60] as const;
+
 export default function SchedulePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -34,6 +40,13 @@ export default function SchedulePage() {
   const [aiOpen, setAiOpen] = useState(false);
 
   const queue = useItemCommitQueue();
+
+  // グリッドの表示間隔（PC のみ意味を持つ。スマホは MobileTimeline でカード積みのため slot_min を見ない）
+  const slotMinMutation = useMutation({
+    mutationFn: (slotMin: number) => scheduleApi.updateSchedule(id!, { slot_min: slotMin }),
+    onSuccess: () => refetchDetail(),
+    onError: () => notifyError("表示間隔の変更に失敗しました"),
+  });
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -176,7 +189,21 @@ export default function SchedulePage() {
           <ArrowLeft className="mr-1 h-4 w-4" />一覧へ
         </Button>
         <h1 className="text-lg font-semibold text-foreground">{schedule.service_date} {schedule.title}</h1>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {!isMobile && (
+            <Select
+              value={String(schedule.slot_min)}
+              onValueChange={(v) => slotMinMutation.mutate(Number(v))}
+              disabled={slotMinMutation.isPending}
+            >
+              <SelectTrigger className="min-h-[44px] w-[128px]" aria-label="表示間隔">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SLOT_MIN_OPTIONS.map((m) => <SelectItem key={m} value={String(m)}>{m}分刻み</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setApplyOpen(true)}>
             <LayoutTemplate className="mr-1 h-4 w-4" />ひな形を適用
           </Button>
