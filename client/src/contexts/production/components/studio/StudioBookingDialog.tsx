@@ -2,17 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { invalidateBookingQueries } from "@/lib/bookingQueries";
+import { notifyWarning } from "@gmo-onair/shared/src/client/notify";
 import { cn } from "@/lib/utils";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
 import { formatShortDate } from "@/lib/format";
@@ -306,11 +301,14 @@ export default function StudioBookingDialog({
       editingBooking
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
-    onSuccess: () => {
+    onSuccess: (res) => {
       // 予約を読む問い合わせは2つあり、カレンダー側しか落としていなかったため
       // **案件詳細から登録しても予約一覧が増えず**、「登録できなかった」ように見えて
       // もう一度入れられていた。**案件の実施日**も込みで `lib/bookingQueries.ts` が落とす
       invalidateBookingQueries(qc);
+      // 時間外の印(`hours_check`)は保存の返り値にだけ乗る（サーバーは止めない方針）。画面が気づかせる唯一の場所
+      const hoursCheck = res?.data?.data?.hours_check;
+      if (hoursCheck?.outside) notifyWarning("営業時間外の予約です", { description: hoursCheck.reason || undefined });
       setSaveError(null);
       onOpenChange(false);
     },
