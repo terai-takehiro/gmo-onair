@@ -2,15 +2,23 @@
 //
 // ⚠️ ドラッグ移動・リサイズは今回のスコープでは実装していない（クリックで選び、
 // シートの時刻入力で編集する）。重なりの可視化（横に割る）は実装済み。
+//
+// 縦軸は「時間の区切りごとに表示」— 固定刻み（旧 `slot_min` の均等割り）ではなく、
+// 項目の開始・終了時刻そのものを目盛りにする（`shared/src/schedule/timeline.ts`）。
+// 何も予定が無い時間帯は短い帯に圧縮され、項目がある時間帯はほぼ実際の長さで描かれるので、
+// 空白の多い日でも表全体の縦スクロールが無駄に伸びない（ユーザー指摘への対応）。
 import { useMemo } from "react";
 import { fmtHmPad } from "@gmo-onair/shared/src/schedule/time";
 import { itemKindColor, COL_GROUP_LABEL, type ColGroup } from "@gmo-onair/shared/src/schedule/kinds";
+import { buildTimeline } from "@gmo-onair/shared/src/schedule/timeline";
 import type { Schedule, ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import { assignLanes, countOverlaps } from "./scheduleLanes";
 import { cn } from "@/lib/utils";
 
 const TIME_COL_WIDTH = 64;
-const ROW_HEIGHT = 22; // px / slot
+// クリックで新規作成するときの丸め単位（分）。区切りごと表示は連続値を返すため、
+// キリのいい時刻を既定値にする（ダイアログ側でいつでも直せる）
+const CLICK_SNAP_MIN = 5;
 
 const GROUP_ORDER: ColGroup[] = ["venue", "prep", "ops"];
 
@@ -24,11 +32,21 @@ interface Props {
 }
 
 export default function ScheduleGrid({ schedule, columns, items, conflictedIds, onSelect, onAddAt }: Props) {
-  const slotMin = schedule.slot_min;
   const viewStart = schedule.view_start_min;
   const viewEnd = schedule.view_end_min;
-  const rowCount = Math.max(1, Math.ceil((viewEnd - viewStart) / slotMin));
-  const gridHeight = rowCount * ROW_HEIGHT;
+
+  // 縦軸は列をまたいで1つ（表全体でどこかに項目があれば「項目がある区間」として広く取る）
+  const timeline = useMemo(
+    () => buildTimeline(items.map((it) => ({ start_min: it.start_min, end_min: it.end_min })), viewStart, viewEnd),
+    [items, viewStart, viewEnd],
+  );
+  const gridHeight = timeline.totalHeightPx;
+  const minToY = timeline.yOf;
+  // 目盛り（区切り線・時刻ラベル）を出す位置 = 各区間の始点 + 表の最後の終点
+  const ticks = useMemo(() => {
+    if (timeline.segments.length === 0) return [] as number[];
+    return [...timeline.segments.map((s) => s.startMin), timeline.segments[timeline.segments.length - 1].endMin];
+  }, [timeline]);
 
   const sorted = useMemo(
     () => [...columns].sort((a, b) => GROUP_ORDER.indexOf(a.col_group) - GROUP_ORDER.indexOf(b.col_group) || a.sort_order - b.sort_order),
@@ -43,8 +61,6 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
     return m;
   }, [items]);
 
-  const minToY = (min: number) => ((Math.max(viewStart, Math.min(viewEnd, min)) - viewStart) / slotMin) * ROW_HEIGHT;
-
   return (
     <div className="overflow-auto rounded-lg border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
       <div className="flex" style={{ width: TIME_COL_WIDTH + sorted.reduce((n, c) => n + c.width_px, 0) }}>
@@ -52,13 +68,13 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
         <div className="sticky left-0 z-20 shrink-0 bg-background" style={{ width: TIME_COL_WIDTH }}>
           <div className="sticky top-0 z-30 h-[52px] border-b border-r border-border bg-muted/60" />
           <div className="relative border-r border-border" style={{ height: gridHeight }}>
-            {Array.from({ length: rowCount }).map((_, r) => (
+            {ticks.map((min) => (
               <div
-                key={r}
+                key={min}
                 className="absolute left-0 right-0 border-t border-border/60 px-1 text-[11px] text-muted-foreground"
-                style={{ top: r * ROW_HEIGHT }}
+                style={{ top: minToY(min) }}
               >
-                {fmtHmPad(viewStart + r * slotMin)}
+                {fmtHmPad(min)}
               </div>
             ))}
           </div>
@@ -90,16 +106,18 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
                         if (e.target !== e.currentTarget) return;
                         const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                         const y = e.clientY - rect.top;
-                        const min = viewStart + Math.round(y / ROW_HEIGHT) * slotMin;
+                        const min = Math.round(timeline.minOf(y) / CLICK_SNAP_MIN) * CLICK_SNAP_MIN;
                         onAddAt(col.id, min);
                       }}
                     >
-                      {Array.from({ length: rowCount }).map((_, r) => (
-                        <div key={r} className="absolute left-0 right-0 border-t border-border/40" style={{ top: r * ROW_HEIGHT }} />
+                      {ticks.map((min) => (
+                        <div key={min} className="absolute left-0 right-0 border-t border-border/40" style={{ top: minToY(min) }} />
                       ))}
                       {lanes.map(({ item, lane, laneCount }) => {
                         const top = minToY(item.start_min);
-                        const height = Math.max(ROW_HEIGHT - 2, minToY(item.end_min) - top);
+                        // 区間の最低高さ（timeline.ts の minBusyPx）で通常は下回らないが、
+                        // 開始・終了が同じ（尺0）データが紛れ込んだときの保険として床を残す
+                        const height = Math.max(20, minToY(item.end_min) - top);
                         const laneWidthPct = 100 / laneCount;
                         const conflicted = conflictedIds.has(item.id);
                         return (
