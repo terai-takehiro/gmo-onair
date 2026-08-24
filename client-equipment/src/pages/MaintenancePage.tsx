@@ -56,6 +56,11 @@ export default function MaintenancePage() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['maintenance-records'] });
     qc.invalidateQueries({ queryKey: ['equipment-stats'] });
+    // 故障報告→修理中／完了→稼働中で equipment_items.status も書き換わる
+    // (maintenance.service.ts の create/update)。台帳・詳細・貸出候補も古いまま残さない
+    qc.invalidateQueries({ queryKey: ['equipment-items'] });
+    qc.invalidateQueries({ queryKey: ['equipment-item'] });
+    qc.invalidateQueries({ queryKey: ['equipment-lendable'] });
   };
 
   const create = useMutation({

@@ -773,8 +773,8 @@ export default function EquipmentDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Lending history (rental only) */}
-        {item.equipment_section === "rental" && (
+        {/* Lending history (貸出可の機材のみ = is_rental_listed。equipment_section は見ない) */}
+        {item.is_rental_listed && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">

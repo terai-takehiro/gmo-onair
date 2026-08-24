@@ -61,6 +61,16 @@ export const statsService = {
 
     let recentLendings: unknown[] = [];
     try {
+      /*
+       * ⚠️ **返却予定日が早い順（＝返却遅延が先頭）に返す。**
+       * 以前は `lent_at DESC`（直近に貸し出した5件）だったため、
+       * 上の `overdue`（`equipment_lendings` 全体を正確に COUNT）が
+       * 5件を超える、または遅延している貸出が直近5件に入っていないと、
+       * ダッシュボードの KPI タイル「返却遅延 N点」と、この一覧を絞り込む
+       * 「返してもらう」セクションの遅延件数が食い違っていた。
+       * `due_date` 昇順（NULL は末尾）にし、上限も5→20に上げて、
+       * 遅延しているものが先頭から漏れなく出やすくする
+       */
       recentLendings = await queryAll(
         `SELECT el.id, el.borrower_name, el.due_date, el.lent_at,
                 ei.name as equipment_name, ei.unit_number,
@@ -69,7 +79,7 @@ export const statsService = {
          JOIN equipment_items ei ON ei.id = el.equipment_id
          LEFT JOIN projects p ON p.id = el.project_id
          WHERE el.status = '${EQUIPMENT_LENDING_STATUS.LENT}'
-         ORDER BY el.lent_at DESC LIMIT 5`,
+         ORDER BY el.due_date IS NULL, el.due_date ASC, el.lent_at DESC LIMIT 20`,
       );
     } catch {
       /* 古いスキーマでは projects/equipment_items の JOIN が失敗するため空配列で返す */

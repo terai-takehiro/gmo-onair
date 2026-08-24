@@ -231,14 +231,14 @@ router.get('/items/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/items', async (req, res, next) => {
+router.post('/items', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     const result = await itemService.create(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
-router.put('/items/:id', async (req, res, next) => {
+router.put('/items/:id', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await itemService.update(req.params.id as string, req.body, req.user?.id ?? null);
     res.json({ success: true });
@@ -246,7 +246,7 @@ router.put('/items/:id', async (req, res, next) => {
 });
 
 // 部分更新 (親子付け替え等で全フィールド送らなくてよい)
-router.patch('/items/:id', async (req, res, next) => {
+router.patch('/items/:id', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await itemService.patch(
       req.params.id as string,
@@ -258,7 +258,7 @@ router.patch('/items/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/items/:id', async (req, res, next) => {
+router.delete('/items/:id', requirePermission('equipment', 'manager'), async (req, res, next) => {
   try {
     await itemService.delete(req.params.id as string, req.user?.id ?? null);
     res.json({ success: true });
@@ -279,14 +279,14 @@ router.get('/lendings', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/lendings', async (req, res, next) => {
+router.post('/lendings', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     const result = await lendingService.create(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
-router.post('/lendings/batch', async (req, res, next) => {
+router.post('/lendings/batch', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     const result = await lendingService.createBatch(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
@@ -297,21 +297,21 @@ router.post('/lendings/batch', async (req, res, next) => {
  * 出庫予定を「持ち出した」に変える (migration 168)。
  * **予定の行を消して作り直さない** — いつ予定を立てたかが消える。
  */
-router.put('/lendings/:id/checkout', async (req, res, next) => {
+router.put('/lendings/:id/checkout', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await lendingService.markPlannedAsLent(String(req.params.id), req.user?.id ?? null);
     res.json({ success: true, data: { id: req.params.id, status: 'lent' } });
   } catch (err) { next(err); }
 });
 
-router.put('/lendings/:id/return', async (req, res, next) => {
+router.put('/lendings/:id/return', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await lendingService.returnLending(req.params.id as string, req.body, req.user?.id ?? null);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
 
-router.delete('/lendings/:id', async (req, res, next) => {
+router.delete('/lendings/:id', requirePermission('equipment', 'manager'), async (req, res, next) => {
   try {
     await lendingService.delete(req.params.id as string);
     res.json({ success: true });
@@ -332,14 +332,14 @@ router.get('/maintenance', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/maintenance', async (req, res, next) => {
+router.post('/maintenance', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     const result = await maintenanceService.create(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
-router.put('/maintenance/:id', async (req, res, next) => {
+router.put('/maintenance/:id', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await maintenanceService.update(req.params.id as string, req.body);
     res.json({ success: true });
