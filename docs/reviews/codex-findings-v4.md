@@ -1426,6 +1426,30 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （PR本文の検証チェックリストにも未実施のまま記載済み）。typecheck:all・lint・
   build:changed（client-techops/server）・実DB（`verify:up`）でのmigration適用確認・
   `npm run test -w shared`（1454件）は通過している。
+- **#407（制作技術支援のトップ・一覧系画面のページ幅を案件管理と揃えた・2026-08-24）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 08:41:24 /
+  CI（`checks`/`build`）両方 green 08:43:24 / マージ 08:44:41（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約1分17秒でマージ**しており、
+  #401・#402・#403 と同じ「見る前に入った」形。`npm run reviews:debt` は今回も 401 で
+  使えなかったため GitHub MCP で直接確認した。ユーザーからの指摘（「制作技術支援関連の
+  ページ幅がほかの案件管理アプリなどと比較して幅が狭い気がしている」）に対応。
+  `ProductionTopPage.tsx`・`TopPage.tsx`・`JourneyPage.tsx`・`schedule/ScheduleListPage.tsx`
+  のルート要素が揃って `mx-auto max-w-4xl`（896px）で幅を絞っており、案件管理側
+  （`ProjectListPage.tsx` 等）は max-width 指定なしでシェル幅いっぱいに広がる設計との
+  食い違いが原因。4画面から `mx-auto max-w-4xl` を外して揃えた。本番中に使う4画面
+  （`OnAirPage.tsx`・`RundownPage.tsx`・`PrompterPage.tsx`・`AudioSupportPage.tsx`）と、
+  同じパターンを持つ計時・視聴者の運用画面（`LiveDashboardPage.tsx`・
+  `LiveTimerAdminPage.tsx`）は、ユーザーへの事前確認で対象範囲として明示しなかったため
+  対象外とした。表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ **この開発セッションは実ブラウザでのPC/スマホ確認を行っていない**
+  （PR本文の検証チェックリストにも未実施のまま記載済み）。
+  `npx tsc -b client-techops`・`npm run lint`（エラー0・警告は着手前と同数）・
+  `npm run test`（shared の Vitest・1454件）は通過している。
+  なお本 PR は、並行していた別セッションのリリース PR（#406・`release: v4.4.2`）が
+  7秒早くマージされたため、`docs/changelog.d/` 経由の通常のリリースノート収集
+  （`npm run release:notes`）には乗らなかった。ユーザーの明示的な指示
+  （「v4.4.2 のリリースにマージ」）により、`CLAUDE.md`/`README.md` の v4.4.2 の
+  エントリへ直接追記して揃えた（別PR・後述）。
 
 ---
 
