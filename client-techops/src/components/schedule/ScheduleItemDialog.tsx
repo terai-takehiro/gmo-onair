@@ -1,6 +1,6 @@
 // 項目の編集シート。PC は中央ダイアログ、375px はボトムシート風（下端固定・safe-area対応）。
 // 実装設計: 04-schedule-impl.md §5-4・§4-2
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -51,19 +51,35 @@ interface Props {
 
 const LINKABLE_KINDS = ["onair", "rehearsal", "recording"];
 
+const draftOf = (item: ScheduleItem | null | undefined, initial: Partial<ItemDraft> | undefined, columns: ScheduleColumn[]): ItemDraft => ({
+  columnId: item?.column_id ?? initial?.columnId ?? columns[0]?.id ?? "",
+  title: item?.title ?? initial?.title ?? "",
+  kind: item?.kind ?? initial?.kind ?? "other",
+  startMin: item?.start_min ?? initial?.startMin ?? 540,
+  endMin: item?.end_min ?? initial?.endMin ?? 600,
+  assignee: item?.assignee ?? "",
+  note: item?.note ?? "",
+});
+
 export default function ScheduleItemDialog({
   open, onOpenChange, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
   onCreateScript, onOpenScript, savingDisabled,
 }: Props) {
-  const [draft, setDraft] = useState<ItemDraft>(() => ({
-    columnId: item?.column_id ?? initial?.columnId ?? columns[0]?.id ?? "",
-    title: item?.title ?? initial?.title ?? "",
-    kind: item?.kind ?? initial?.kind ?? "other",
-    startMin: item?.start_min ?? initial?.startMin ?? 540,
-    endMin: item?.end_min ?? initial?.endMin ?? 600,
-    assignee: item?.assignee ?? "",
-    note: item?.note ?? "",
-  }));
+  const [draft, setDraft] = useState<ItemDraft>(() => draftOf(item, initial, columns));
+
+  // ⚠️ このダイアログは常にマウントされたまま（`open` で表示だけ切り替わる。
+  // Dialog を出す SchedulePage 側は毎回同じ <ScheduleItemDialog> インスタンスを使い回す）。
+  // useState の初期化関数は初回マウント時にしか走らないため、`item`/`initial` を
+  // props に頼るだけでは「1回目に開いたときの内容」が残り続け、2件目以降は
+  // ヘッダーだけ「項目を編集」になった新規作成フォーム（区分=その他・09:00〜10:00 の
+  // 既定値）に化ける不具合があった。開くたび（open が false→true になるたび）に
+  // そのときの item/initial で作り直す。
+  useEffect(() => {
+    if (open) setDraft(draftOf(item, initial, columns));
+    // columns は open のたびに再取得されるが、フォームを開き直す判定には使わない
+    // （画面全体の再取得でリファレンスが変わるたびにフォームをリセットしないため）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item, initial]);
 
   const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
