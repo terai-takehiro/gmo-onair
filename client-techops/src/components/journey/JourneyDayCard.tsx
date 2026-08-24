@@ -87,6 +87,10 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
     return !marksByKey.get(markKey(day.date, stage, "dismissed", s.key));
   });
 
+  // `day.docs` は進行台本以外（スケジュール表そのもの）も混ざる（MiniAppTiles の件数バッジ用）。
+  // この見出しは「進行台本」専用なので、ここだけは絞り込む
+  const sheetDocs = day.docs.filter((doc) => doc.app === "sheet");
+
   return (
     <section className="rounded-card border border-border bg-card">
       <button
@@ -199,11 +203,11 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
             </div>
           )}
 
-          {day.docs.length > 0 && (
+          {sheetDocs.length > 0 && (
             <div className="border-t border-border px-4 py-3 sm:px-6">
               <h3 className="text-xs font-semibold text-muted-foreground">進行台本</h3>
               <ul className="mt-2 space-y-1.5">
-                {day.docs.map((doc) => (
+                {sheetDocs.map((doc) => (
                   <li key={doc.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <Link to={docPathOf(doc.app, doc.id)} className="min-w-0 flex-1 truncate text-primary hover:underline">
