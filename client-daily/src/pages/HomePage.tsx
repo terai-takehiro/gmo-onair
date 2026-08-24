@@ -72,6 +72,11 @@ export default function HomePage() {
   const unhandled = alerts.data?.unhandledInquiries ?? 0;
   const cs = cardStats.data;
 
+  // バッジは絞り込んだ集合を数えているので、リンク先も同じ絞り込みで開く
+  // （InviewPage/SecurityCardsPage 側は `?scope=`/`?filter=` を初期値として読む）。
+  // 「貸出中」は「返却遅延」を含むので、どちらのバッジから来ても `filter=lent` でよい
+  const cardsHref = cs?.lent ? '/security-cards?filter=lent' : '/security-cards';
+
   return (
     <div className="flex flex-col gap-5 p-3 lg:gap-6 lg:p-6">
       <PageHeader
@@ -128,7 +133,7 @@ export default function HomePage() {
 
       <Group title="現場の受付" note="その日その場で人と向き合うもの">
         <Tile
-          to="/inview"
+          to="/inview?scope=upcoming"
           icon={DoorOpen}
           title="内覧会 来場予約"
           description="開催日ごとの名簿。Kairos3 のメールを AI が取り込み、当日の受付にも使います"
@@ -136,7 +141,7 @@ export default function HomePage() {
           empty="今後の予約はまだありません"
         />
         <Tile
-          to="/security-cards"
+          to={cardsHref}
           icon={KeyRound}
           title="セキュリティカード"
           description="GMOサムライスタジオ用賀の 24 枚の貸し借りを追いかけます"

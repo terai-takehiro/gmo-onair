@@ -28,6 +28,13 @@
  * スクロールし尽くすことになる）。`CardTiles`（一覧をタイルで積む）＋
  * `Sheet`（選んだ1枚を下から出す）に分け、決めごと「終わらせるのはシートで」
  * に合わせた。絞り込みも `MobileFilterBar` で1行に畳む
+ *
+ * ── `?filter=` を初期値として読む（2026-08 監査で確定） ───────────
+ *
+ * ホームの「セキュリティカード」タイルの「貸出中」「返却遅延」バッジは絞り込んだ
+ * 集合を数えているのに、この画面は既定 `filter='all'` で開いていたため、押しても
+ * 絞り込まれていない24枚全部が出ていた。`?filter=lent` を初期値として読むようにした
+ * （下の `?card=` と同じ流儀）。
  */
 import { useMemo, useState } from 'react';
 import { DoorOpen, Search, X } from 'lucide-react';
@@ -55,7 +62,13 @@ export default function SecurityCardsPage() {
   const { canEdit } = usePermissions();
   const isMobile = useIsMobile();
   const cards = useSecurityCards();
-  const [filter, setFilter] = useState<CardFilter>('all');
+  // 既定は `all`。**ホームの「貸出中/返却遅延」バッジから来たときは `?filter=lent` で開く**
+  // （下の `?card=` と同じ流儀）。`lent` は `overdue` を含む（返却遅延も貸出中の一部）ので、
+  // どちらのバッジから来ても `lent` で開けば絞り込んだ集合と一致する
+  const [filter, setFilter] = useState<CardFilter>(() => {
+    const f = new URLSearchParams(window.location.search).get('filter');
+    return f === 'available' || f === 'lent' || f === 'overdue' ? f : 'all';
+  });
   /** モックの3分類での絞り込み。空 = すべて */
   const [group, setGroup] = useState<string>('');
   const [search, setSearch] = useState('');
