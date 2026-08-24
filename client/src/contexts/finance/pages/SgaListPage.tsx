@@ -237,7 +237,7 @@ export default function SgaListPage() {
           <ExcelToolbar
             resource="/sga-expenses"
             name="販管費"
-            queryKey={['sga-expenses']}
+            queryKey={['sga-list']}
             hasDuplicateKey={false}
             exportParams={{
               search: crud.search || undefined,
