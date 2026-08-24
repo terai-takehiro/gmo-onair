@@ -112,7 +112,7 @@ describe('押せるのに 403 にしない', () => {
 
     const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
     // 行き先が無い行は押せなくする（押して権限エラーに送らない）
-    expect(card).toMatch(/const href = inboxHrefOf\(it\.kind, can\)/);
+    expect(card).toMatch(/const href = inboxHrefOf\(it, can\)/);
     expect(card).toMatch(/return href \? \(/);
     expect(card).not.toContain("navigate('/sales/projects/new')");
 
@@ -125,6 +125,30 @@ describe('押せるのに 403 にしない', () => {
     const home = read('client', 'src', 'contexts', 'platform', 'pages', 'HomePage.tsx');
     expect(home).toMatch(/onWaiting=\{waitingHref \? \(\) => go\(waitingHref\) : undefined\}/);
     expect(home).toMatch(/overdueHref = canSeeDailyops \? '\/daily\/tasks' : null/);
+  });
+
+  it('「お待たせ中」の期限超過・受け取った書類は案件作成に送らない（ユーザー指摘）', () => {
+    // ⚠️ 以前は `kind` を見ずに `can.intake` が真なら**全種類**を `/sales/projects/new`
+    // へ送っていた。あの画面はネタ案件・問い合わせしか並べないので、期限超過の
+    // 次回アクションや受け取った書類を押しても該当の行は出てこず（押した意味が無い）、
+    // しかも `/sales/projects/new` は `editor` を要求するため、`editor` を持たない
+    // `sales` 利用者にはその条件自体が偽になり、期限超過の行が**一律クリックできない
+    // ままだった**（押しても本当に何も起きない＝「機能していない」）
+    const kinds = read('client', 'src', 'contexts', 'sales', 'pages', 'inbox', 'kinds.ts');
+    const at = kinds.indexOf('export function inboxHrefOf');
+    expect(at).toBeGreaterThan(-1);
+    const body = kinds.slice(at, kinds.indexOf('export function inboxAllHrefOf'));
+    // 種類ごとに分岐している（先頭で `can.intake` にまとめて丸投げしていない）
+    expect(body).toMatch(/case 'overdue_action':/);
+    expect(body).toMatch(/case 'finance_doc':/);
+    expect(body).toMatch(/`\/sales\/projects\/\$\{projectId\}\/thread`/);
+    // 期限超過は `viewProjects`（`editor` 未満でも真になる閲覧権限）で開く。
+    // `intake`（`editor` 必須）を使い回すと、また同じ不具合に戻る
+    expect(body.slice(0, body.indexOf("case 'finance_doc'"))).not.toMatch(/can\.intake/);
+
+    expect(kinds).toMatch(/viewProjects: boolean/);
+    const home = read('client', 'src', 'contexts', 'platform', 'pages', 'HomePage.tsx');
+    expect(home).toMatch(/viewProjects: canSeeSales/);
   });
 
   it('計時・視聴者のタイルは reader でも既存セッションを開ける（resolve-by-project は新規作成だけ manager）', () => {

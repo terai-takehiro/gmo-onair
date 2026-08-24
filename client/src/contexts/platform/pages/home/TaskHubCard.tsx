@@ -278,7 +278,7 @@ function WaitingTab({ data, can }: { data: InboxData | undefined; can: InboxOpen
             /* ⚠️ **行き先はその人が開ける場所。** 開けない行は押せなくする —
                押して「権限がありません」に送るのは、API の 403 を画面に
                移し替えただけ（レビューでの指摘）。中身は読めるので消さない */
-            const href = inboxHrefOf(it.kind, can);
+            const href = inboxHrefOf(it, can);
             const body = (
               <>
                 <span className="min-w-0 flex-1">

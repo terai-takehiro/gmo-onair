@@ -167,6 +167,9 @@ export default function HomePage() {
     inquiries: canSeeDailyops,
     // `budget` は権限モデル単純化で `sales` に統合済み
     documents: canSeeSales || canSeeDailyops,
+    // 期限超過の行を案件のやり取りとして開けるか。**`intake` とは別**
+    // （`editor` 未満の閲覧だけの人でも案件は開けるので、要求する権限を分ける）
+    viewProjects: canSeeSales,
   }), [hasPermission, canSeeSales, canSeeDailyops]);
   const waitingHref = inboxAllHrefOf(openable)?.href ?? null;
   // 「期限切れ」の行き先は日常業務の「タスク・依頼」（`/daily/tasks`）。
