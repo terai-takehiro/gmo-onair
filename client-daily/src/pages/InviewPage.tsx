@@ -18,6 +18,8 @@
  * ・**一覧を1回だけ引く。** 以前は `upcoming` をサーバーに渡していたので、
  *   絞り込みを押すたびに引き直していた。今後かどうかは日付の比較で決まるので、
  *   全件から数える (同じものを2か所で数えない)
+ * ・**`?scope=upcoming` を初期値として読む。** ホームの「今後 N組」バッジと
+ *   絞り込みを揃えるため (2026-08 監査で確定)
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -67,7 +69,9 @@ export default function InviewPage() {
   // **一覧は1回だけ引く。** 今後かどうかは日付の比較で決まるので、
   // 絞り込みのたびにサーバーへ行かない (チップの件数も同じ1本から数える)
   const list = useInviewList();
-  const [scope, setScope] = useState<Scope>('all');
+  // ホームの「今後 N組」バッジは `?scope=upcoming` で開く（`?card=` と同じ流儀）
+  const [scope, setScope] = useState<Scope>(() =>
+    (new URLSearchParams(window.location.search).get('scope') === 'upcoming' ? 'upcoming' : 'all'));
   const [query, setQuery] = useState('');
   const [dateAsc, setDateAsc] = useState(false); // false = 新しい順 (既定)
   const [adding, setAdding] = useState(false);
