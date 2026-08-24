@@ -1412,6 +1412,20 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   この不具合を再現する自動テストも追加していない**（PR本文の検証チェックリストにも
   未実施のまま記載済み）。typecheck:all・lint（warning 58件、着手前と同じ）・
   `npm run build -w client-techops`・`npm run test -w shared`（1454件）は通過している
+- **#403（スケジュール表の時間刻みを選択式にし既定を15分にした・2026-08-24）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 07:08:36 /
+  CI（`checks`/`build`）両方 green 07:10:25 / マージ 07:11:13（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約48秒でマージされており、
+  #159・#239・#241 と同じ「見る前に入った」形**。`npm run reviews:debt` は今回も401で
+  使えず、GitHub MCP で直接確認した。ユーザーから「スケジュール表がいま5分刻みで
+  非常に見づらい。15分単位くらいにしてほしい（単位を複数選べるように15/30/60分など）」
+  と依頼され、DB既定値を5→15分に上げ・CHECK制約に60分を追加するmigrationと、
+  スケジュール表詳細画面（PCグリッド表示時のみ）への「表示間隔」セレクタ新設で対応した。
+  表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ **この開発セッションは実ブラウザでのPC/スマホ確認を行っていない**
+  （PR本文の検証チェックリストにも未実施のまま記載済み）。typecheck:all・lint・
+  build:changed（client-techops/server）・実DB（`verify:up`）でのmigration適用確認・
+  `npm run test -w shared`（1454件）は通過している。
 
 ---
 
