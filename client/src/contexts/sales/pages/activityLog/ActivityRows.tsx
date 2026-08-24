@@ -98,7 +98,8 @@ export function ActivityRows({
 }: {
   rows: ActivityLogRow[];
   actions: Actions;
-  onOpen: (row: ActivityLogRow) => void;
+  /** 編集導線。**未指定なら行を開けない**（`sales` の editor 権限が無い一覧から渡す） */
+  onOpen?: (row: ActivityLogRow) => void;
 }) {
   return (
     <>
@@ -115,11 +116,11 @@ export function ActivityRows({
           <Row
             key={row.id}
             divider
-            interactive
+            interactive={!!onOpen}
             stackOnMobile
             align="start"
             className={row.is_ai_created ? 'bg-ai-surface' : undefined}
-            onClick={() => onOpen(row)}
+            onClick={onOpen ? () => onOpen(row) : undefined}
           >
             <RowSlot w={96}>
               <span className="font-number text-sub-sm">{shortDate(row.activity_date)}</span>

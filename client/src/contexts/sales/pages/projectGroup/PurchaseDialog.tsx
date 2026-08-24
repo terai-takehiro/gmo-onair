@@ -58,6 +58,7 @@ export function PurchaseDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project-group-detail', groupId] });
       qc.invalidateQueries({ queryKey: ['purchases-all'] });
+      qc.invalidateQueries({ queryKey: ['project-groups'] });
       notifySuccess(editing ? '仕入を更新しました' : '仕入を登録しました');
       onClose();
     },

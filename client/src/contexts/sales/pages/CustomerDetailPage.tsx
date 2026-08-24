@@ -30,6 +30,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Building2, Mail, MapPin, Phone, Plus, Sparkles, User } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonKpi, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/shared/src/client/states';
@@ -49,6 +50,10 @@ export default function CustomerDetailPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
+  const { hasPermission } = useAuth();
+  // サーバー（`activity-logs.routes.ts`）は POST '/' に editor を要求する。
+  // `ActivityLogPage.tsx` の「活動を記録」と同じ穴（このボタンは "やり取りを記録"）
+  const canEdit = hasPermission('sales', 'editor');
 
   const { data, isLoading, isError, error, refetch } = useQuery<CustomerOverview>({
     queryKey: ['customer-overview', id],
@@ -90,6 +95,7 @@ export default function CustomerDetailPage() {
         <CustomerDetailBody
           data={data}
           mobile={isMobile}
+          canEdit={canEdit}
           onRecordActivity={() => setFormOpen(true)}
           onOpenProject={openProject}
           actions={actions}
@@ -110,10 +116,11 @@ export default function CustomerDetailPage() {
 }
 
 function CustomerDetailBody({
-  data, mobile, onRecordActivity, onOpenProject, actions,
+  data, mobile, canEdit, onRecordActivity, onOpenProject, actions,
 }: {
   data: CustomerOverview;
   mobile: boolean;
+  canEdit: boolean;
   onRecordActivity: () => void;
   onOpenProject: (id: string) => void;
   actions: ReturnType<typeof useNextActionActions>;
@@ -138,9 +145,11 @@ function CustomerDetailBody({
           </span>
         }
         primaryAction={
-          <Button onClick={onRecordActivity}>
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />やり取りを記録
-          </Button>
+          canEdit ? (
+            <Button onClick={onRecordActivity}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />やり取りを記録
+            </Button>
+          ) : undefined
         }
       />
 

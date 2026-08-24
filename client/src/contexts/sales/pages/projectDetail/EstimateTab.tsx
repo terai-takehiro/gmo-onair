@@ -33,6 +33,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Receipt, Wallet } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input as TextInput } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -118,6 +119,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  // **サーバーは POST/PUT '/'・PUT '/:id/items' に editor を要求する**
+  // （`estimates.routes.ts` の `canEdit`）。承認ボタンは `can_approve` で
+  // サーバー側から出し分けているが、作成・保存はここで見ないと
+  // reader にもボタンが出て「押せるのに 403」になる
+  const canEdit = hasPermission('sales', 'editor');
   const base = `/projects/${project.id}/estimates`;
   const invalidate = () => qc.invalidateQueries({ queryKey: ['estimates', project.id] });
 
@@ -218,7 +225,11 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         <EmptyState
           title="見積はまだありません"
           description="明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。"
-          action={<Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>}
+          action={canEdit ? (
+            <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
+          ) : (
+            <p className="text-sub text-muted-foreground">見積の作成には案件管理の編集権限が必要です。</p>
+          )}
         />
       ) : (
         <>
@@ -229,11 +240,15 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             切れていた（実ブラウザで実測）。ボタンは縮めない・説明文は下に回す
           */}
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-            <Button className="shrink-0" onClick={() => create.mutate()}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
-            </Button>
+            {canEdit && (
+              <Button className="shrink-0" onClick={() => create.mutate()}>
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
+              </Button>
+            )}
             <p className="text-sub text-muted-foreground">
-              版を上げると前の版はそのまま残ります（お客様に出したものを後から書き換えないため）。
+              {canEdit
+                ? '版を上げると前の版はそのまま残ります（お客様に出したものを後から書き換えないため）。'
+                : '閲覧のみの権限です。新しい版の作成・明細の保存には案件管理の編集権限が必要です。'}
             </p>
           </div>
 
@@ -334,6 +349,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
                 estimate={{ ...detail.data, project_id: project.id, customer_type: project.customer_type }}
                 onSave={(items) => saveItems.mutate({ id: openId, items })}
                 saving={saveItems.isPending}
+                canEdit={canEdit}
               />
             </>
           )}
