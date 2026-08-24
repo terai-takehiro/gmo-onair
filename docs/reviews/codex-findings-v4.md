@@ -1351,6 +1351,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   検証環境の `rental_scraper_dev` で実績のある形をそのまま踏襲している）。次の Release 公開後、
   `rental-scraper/README.md`「本番環境での自動実行」記載の4段診断で実際にクロールできて
   いるかの確認が必須
+- **#393（カレンダーのスマホ週表示と検収書の備考・分類を修正・2026-08-24）** — `get_reviews`／
+  `get_review_comments`／`get_comments` とも0件のまま、作成 05:22:12 / CI（`checks`/`build`）
+  両方 green 05:24:24 / マージ 05:25:09（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約45秒でマージ**しており、#251・#256・#272 と同じ「見る前に入った」形。
+  `npm run reviews:debt` は今回も 401 で使えなかったため GitHub MCP で直接確認した。
+  利用者からの指摘（カレンダーのスマホ表示は幅が狭いと週・月が見られない／見積の備考が
+  空でも検収書に「見積 v2 から登録」という内部文言が印字される／検収書のカテゴリが
+  見積書と違い英語表記になる）の3件に対応。① スマホの月/週切替（`MobileCalHeader.tsx`）
+  と週表（`MobileWeekStrip.tsx`）を新設。② `estimate.service.ts` の `convertToRevenue` が
+  備考に自動生成していた `見積 vN から登録` を、見積側の備考をそのまま写す形に直した。
+  ③ `estimate_items.category` の内部キー（`studio`/`tech`/`other`）を日本語に翻訳する
+  `estimate-pdf.service.ts` の `categoryLabel` を `/revenues/:id/pdf`（請求書・検収書）でも
+  使うようにした。表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ **この開発セッションは実ブラウザでの PC/スマホ確認・実 DB での保存確認を行っていない**
+  （PR本文の検証チェックリストにも未実施のまま記載済み）。typecheck・lint・build（shared/
+  client/server）・`npm run test -w shared`（1453件、既存の `estimateCategory.test.ts` を含む）
+  は通過している
 
 ---
 
