@@ -1383,6 +1383,35 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   AI の自由生成物ではなく操作代行（`lend_security_card` と同型）と判定して5条件の
   フル適用ではなく `mcp_audit_log` 記録で足りると判断した。表に移す指摘はない
   （レビュー自体が届いていないため）。
+- **#401（techopsのハブ画面「スケジュール表」タイル件数が常に0件のままだった不具合を修正・
+  2026-08-24）** — `get_reviews`／`get_comments` とも0件のまま、作成 06:58:21 /
+  CI（`checks`/`build`）両方 green 07:04:13 / マージ 07:04:27（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約14秒でマージ**しており、
+  #251・#256・#272・#393 と同じ「見る前に入った」形。`npm run reviews:debt` は今回も 401 で
+  使えなかったため GitHub MCP で直接確認した。利用者からの指摘（「スケジュール表入ってるのに
+  0件から変わらない（更新しても）」）に対応。サーバー側 `journey.service.ts` の `docs` が
+  進行台本（`app: "sheet"`）しか積んでおらず、スケジュール表そのもの（`app: "schedule"`）を
+  1件も入れていなかったのが原因。`fetchSchedulesForProject`/`fetchSchedulesForProgram` を
+  追加してジャーニーに組み込み、`JourneyDayCard.tsx` の台本一覧側は `app === "sheet"` で
+  絞り込むよう修正。あわせて「次に決めること」の `no_schedule` 提案が枠の有無だけで判定して
+  いた関連不具合も直した。表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ 実ブラウザ・実DBでの確認はこのセッションから行っていない（PR本文に明記済み）
+- **#402（techopsスケジュール表・項目クリックが新規作成の空欄になる不具合を修正・2026-08-24）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 07:06:33 /
+  CI（`checks`/`build`）両方 green 07:08:32 / マージ 07:10:13（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約1分41秒でマージ**しており、
+  #251・#256・#272・#393 と同じ「見る前に入った」形。`npm run reviews:debt` は今回も 401 で
+  使えなかったため GitHub MCP で直接確認した。利用者からの指摘（「項目をクリックしたときに
+  なぜか新規作成になる。いろいろと挙動がおかしい」）に対応。`ScheduleItemDialog` が
+  `SchedulePage` に常駐し `open` の真偽だけで表示を切り替える作りなのに、フォーム状態
+  （`draft`）を `useState` の初期化関数（初回マウント時にしか走らない）で作っていたため、
+  2件目以降のクリックで見出しは「項目を編集」なのに中身は新規作成の既定値のまま、という
+  不具合だった。`open` が false→true になるたびに `item`/`initial` から作り直すよう修正。
+  表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ **この開発セッションは実ブラウザでの PC/スマホ確認・実 DB での保存確認を行っておらず、
+  この不具合を再現する自動テストも追加していない**（PR本文の検証チェックリストにも
+  未実施のまま記載済み）。typecheck:all・lint（warning 58件、着手前と同じ）・
+  `npm run build -w client-techops`・`npm run test -w shared`（1454件）は通過している
 - **#403（スケジュール表の時間刻みを選択式にし既定を15分にした・2026-08-24）** —
   `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 07:08:36 /
   CI（`checks`/`build`）両方 green 07:10:25 / マージ 07:11:13（terai-takehiro 本人が
