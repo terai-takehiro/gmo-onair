@@ -686,12 +686,23 @@ export const estimateService = {
       const base = (est.project_gls_number as string | null) || 'REV';
       const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
 
+      /*
+       * ⚠️ **備考は見積の備考をそのまま写す。「見積 vN から登録」等の自動文言を
+       * 入れない**（ユーザー指摘・実際に踏んだ不具合）。
+       *
+       * この `notes` は社内向けの管理メモではなく、請求書・検収書 PDF の
+       * 「備考」欄にそのまま印字される（`revenues.routes.ts` の `/:id/pdf`）。
+       * 見積側で何も書いていないのに変換のたびに定型文が入ると、
+       * 備考欄を空のまま出したいだけの帳票に社内の作成経緯が漏れて出る。
+       * どの見積から変換したかは `estimates.revenue_id`（この行）から逆引き
+       * できるので、`notes` に埋め込んで持たせる必要も無い。
+       */
       await tx.execute(
         `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
            subtitle, notes, status, created_by, updated_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9, $9)`,
         [revenueId, billingKey, projectId, customerId, taxCategory, amount,
-         (est.title as string) || null, `見積 v${est.version} から登録`, userId],
+         (est.title as string) || null, (est.notes as string) || null, userId],
       );
       let order = 1;
       for (const it of items) {

@@ -58,7 +58,15 @@ export const ESTIMATE_CATEGORY_LABEL: Record<string, string> = {
   other: '制作・その他',
 };
 
-function categoryLabel(category: string | null): string | null {
+/**
+ * `/revenues/:id/pdf`（請求書・検収書）もこの表を要る — **見積を売上に変換すると
+ * `estimate_items.category` の鍵（`studio`/`tech`/`other`）がそのまま
+ * `revenue_items.category` へ写る**（`estimate.service.ts` の `convertToRevenue`）。
+ * ここだけ翻訳して revenues 側を素通しにすると、変換元が見積の明細だけ
+ * 「studio」のまま検収書・請求書に出る（実際にそう出ていた・ユーザー指摘）。
+ * 直接入力された自由文の分類（例:「音響」）は表に無いのでそのまま通す。
+ */
+export function categoryLabel(category: string | null): string | null {
   if (!category) return null;
   return ESTIMATE_CATEGORY_LABEL[category] ?? category;
 }
