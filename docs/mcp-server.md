@@ -81,18 +81,25 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (90 種 / 20 カテゴリ / v4)
+## ツール一覧 (95 種 / 20 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
 > 数え直して `client/public/mcp-tools.json` を作ります（画面の「MCP コネクタ」はそれを読む）。
 > **ツールを足したら生成スクリプトを流し、この文書も直してください** —
 > v4 の時点で本文は「71 種」のままで、`mytasks` 10 種と `aifeedback` 1 種が丸ごと抜けていました。
+> **2026-08 時点でも「90 種」のまま取り残されていました** — qsheet→techops Phase 4 の改名
+> (2026-08-22) で production に旧名 (`*_qsheet` 系) 5 種が二重登録された分が未反映でした。
 >
 > 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
 > opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1 /
-> production 8（読み取り5・書き込み3。**このカテゴリだけ OAuth actor 専用**。下記参照）
+> production 13（読み取り7・書き込み6。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種。
+> **このカテゴリだけ OAuth actor 専用**。下記参照）
+>
+> equipment（機材管理）・live（計時・視聴者）向けの MCP ツールは無い。廃止決定ではなく、
+> MCP サーバーがそもそも案件・営業・財務・日常業務系のドメインを対象に作られており、
+> 機材・現場運用系ドメインは着手対象になったことがない（未検討）。
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -362,7 +369,8 @@ server/src/contexts/mcp/
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
-    ├── production.tools.ts  制作技術支援 8 種 (read 5 / write 3)。`production.access.ts` の
+    ├── production.tools.ts  制作技術支援 13 種 (read 7 / write 6・旧名 `*_qsheet` 5種の
+    │                        二重登録込み)。`production.access.ts` の
     │                        `requireProductionActor()` を全ツールの先頭で呼び、
     │                        静的キーを拒否 + OAuth actor を実ユーザーへ解決する
     ├── production.access.ts 制作技術支援ツール専用のゲート (段10・05-mcp.md §3-1)
@@ -377,12 +385,12 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（44 種＋制作技術支援の read 5種）はここにはゲートがありません。** OAuth で自分の
+- ⚠️ **読み取りツール（44 種＋制作技術支援の read 7種）はここにはゲートがありません。** OAuth で自分の
   ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
   `list_inquiries` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が
   MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
   44 種あるので**別の作業**にしてあります。
-  **制作技術支援の read 5種だけは例外**— `gate.ts` は経由しませんが、
+  **制作技術支援の read 7種だけは例外**— `gate.ts` は経由しませんが、
   `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
   静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています
 
