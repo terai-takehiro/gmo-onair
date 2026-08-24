@@ -1,0 +1,1 @@
+**PR #409（スケジュール表グリッドの誤クリックを修正）のマージ後の棚卸しを記録した**（コード変更なし）。作成から約21分23秒（CI green から約19分17秒）で terai-takehiro 本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
