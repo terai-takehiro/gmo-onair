@@ -83,7 +83,7 @@ export default function ProductionTopPage() {
   const goTo = (href: string) => navigate(href);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="制作技術支援"
         sub="番組・イベントを選ぶと、台本づくり・スケジュール表・収録配信の設定が開けます"

@@ -62,7 +62,7 @@ export default function ScheduleListPage() {
   const filterLabel = (listQuery.data ?? []).find((s) => s.project_name || s.program_name);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
       <DashboardHeader
         title="スケジュール表"
         description="会場×時間軸で当日の動きを1日1枚に置きます。"
