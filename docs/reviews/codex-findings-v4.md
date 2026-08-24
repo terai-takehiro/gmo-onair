@@ -1368,6 +1368,21 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （PR本文の検証チェックリストにも未実施のまま記載済み）。typecheck・lint・build（shared/
   client/server）・`npm run test -w shared`（1453件、既存の `estimateCategory.test.ts` を含む）
   は通過している
+- **#395（機材管理のMCPツール新設・techopsスケジュール表への書き込み追加・2026-08-24）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 05:27:35 /
+  CI（`checks`/`build`）両方 green 05:29:08 / マージ 05:42:13（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約13分待っており、#244・#262・#389 と
+  同じ「見る前に入った」形ではない、原因不明のまま0件だったケース**。ユーザーから
+  「MCPについて、v4で新たに作成したアプリ関連含めて整っているか確認を」と依頼され、
+  機材管理（equipment）・計時視聴者（live）向けの MCP ツールが無いことを調査で発見・
+  報告したところ、ユーザーから「機材管理は欲しい」「techops のスケジュール表などは
+  どうか」との追加依頼を受けて実装した。機材管理は read 5（台帳検索・詳細・貸出履歴・
+  棚卸し状況）＋ write 2（貸出・返却）を新設、techops はスケジュール表の write 3
+  （枠の作成・更新・削除）を追加。機材管理の追加は会社方針「AIを使い捨てにしない」に
+  基づき `.claude/skills/ai-feedback-loop/` で事前レビューを実施し、貸出/返却は
+  AI の自由生成物ではなく操作代行（`lend_security_card` と同型）と判定して5条件の
+  フル適用ではなく `mcp_audit_log` 記録で足りると判断した。表に移す指摘はない
+  （レビュー自体が届いていないため）。
 
 ---
 
@@ -1375,6 +1390,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #395 | P2 | `equipment.tools.ts` / `production.tools.ts`（新設のMCPツール） | **実際のOAuthフロー・実DBでこの開発セッションから呼び出し確認していない**（typecheck・lint・testのみ）。特に貸出/返却の二重貸出ガード（`ALREADY_LENT`）・スケジュール表write系のエラー変換（`HttpError`→`AppError`。read側と揃えたが実リクエストでは未確認）・`gate.ts`の権限ゲート（reader/editorの実際の拒否挙動）は実機での確認が要る | ❓ 未確認（検証環境での確認待ち） |
 | #388 | P2 | `client-techops/src/components/layout/AppShell.tsx` | **`appKey="qsheet"`→`"techops"` の修正・「ユーザー管理・権限」マニュアルの書き直しを実ブラウザで確認していない** — 特にアプリ切替ボタンの表示崩れ（「ONAiR」フォールバック）が直っているかは検証環境での見た目確認が要る | ❓ 未確認（検証環境での確認待ち） |
 | #387 | P3 | 実機点検の11件修正・全体 | **実ブラウザ（PC/スマホ）・実DB保存の確認をこの開発セッションからは実施していない**（typecheck・lint・test・build のみ通過確認）。特に⑦（収録設定・配信設定・レンタル機材検索の実施日デフォルト）は複数画面をまたぐ非同期の状態遷移を含み、実機での見え方の確認が要る | ❓ 未確認（検証環境での確認待ち） |
 | #380 | P2 | `rental-scraper/restar_scraper.py` | **修正はサンドボックスから実サイト（`restargp.com`）へ接続できないまま行っている** — 連続404の打ち切り閾値が「1件も見つかっていない」段階から効いていた点は直したが、実際のHTML構造・実際の商品ID分布に対して正しく効くかは未検証。デプロイ後、検証環境の `rental_scraper_dev` ログで実際に件数が取れているか確認要 | ❓ 未確認（検証環境ログ待ち） |
