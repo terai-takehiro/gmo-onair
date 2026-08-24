@@ -29,6 +29,7 @@ import {
   ClipboardList,
   Layers,
   Package,
+  PackageSearch,
   QrCode,
   Search,
   Server,
@@ -58,6 +59,9 @@ export const EQUIPMENT_NAV: ShellNavSection[] = [
       { label: '貸出・返却', to: '/equipment/lendings', icon: ArrowRightLeft },
       // 台帳のタブへ直接送る。貸出のときはこちらから入るほうが早い
       { label: '貸出対象の機材', to: '/equipment/items?view=lend', icon: Layers },
+      // 社外（TOC・レスター）のレンタル機材を検索する画面。「借りる前段でどういう
+      // 機材があるか調べたい」という要望で新設 — 社内の台帳（上の2項目）とは別物
+      { label: 'レンタル機材検索', to: '/equipment/rental-search', icon: PackageSearch },
     ],
   },
   {

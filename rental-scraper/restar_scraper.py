@@ -33,7 +33,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
-from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail
+from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail, extract_tables_as_dict
 
 COMPANY = "レスター"
 BASE = "https://www.restargp.com"
@@ -64,8 +64,25 @@ log = logging.getLogger(__name__)
 session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
 
-PRICE_RE = re.compile(r"￥\s*([\d,]+)\s*-?\s*[\(（]税込[\)）]")
+#  想定していた本来の書式（「￥12,000-(税込)」）。まずこれで厳密に当てる —
+# 「税込」の注記まで含めて一致するので、誤って別の金額（送料・保証金等）を
+# 拾う可能性が低い
+PRICE_RE = re.compile(r"[￥¥]\s*([\d,]+)\s*-?\s*[\(（]税込[\)）]")
+# ⚠️ 2026-08-24 追加。上の厳密な書式に一致しない実ページ（「税込」の注記が無い・
+# 「円」表記・全角/半角の¥が混ざる等）で価格が1件も取れず「レンタル費用が
+# かなり取得できていない」という報告を受けた対処。TOC 側（_extract_price_from_specs）
+# と同じ考え方で、まず厳密な書式を試し、駄目なら緩いパターンにフォールバックする。
+# 「￥12,000」のように¥記号のみのケースと「12,000円」のように円表記のケースの
+# どちらか最初に見つかったものを拾う
+PRICE_FALLBACK_RE = re.compile(r"[￥¥]\s*([\d,]+)|([\d,]+)\s*円")
 END_MARKER = "レンタルに関するお問い合わせ"
+
+# ⚠️ 2026-08-24 追加。レスターの「ジャンル分けがうまく効いていない」報告への対処。
+# 商品ページのスペック表（テーブル）に「カテゴリ」「ジャンル」等の行があれば、
+# パンくずの大分類（「レンタル」1本に潰れがちで下記コメント参照）より先に優先する。
+# 実サイトの実際の見出し名は未確認のため、候補は広めに複数持たせてある
+# （デプロイ後のログに残す診断情報を見て、当たっていない場合は候補を調整すること）
+CATEGORY_KEYS = ("カテゴリ", "ジャンル", "分類", "種類", "商品分類", "商品カテゴリ")
 
 
 def fetch(url: str, retries: int = 3):
@@ -106,6 +123,25 @@ def _extract_images(soup: BeautifulSoup) -> list:
     return images
 
 
+def _extract_category_from_specs(specs: dict):
+    """スペック表（テーブル）の中に「カテゴリ」「ジャンル」等の行があればそれを使う。
+    TOC の `_extract_price_from_specs` と同じ考え方のフォールバック。
+    見つかれば (category, subcategory) を返す。区切り文字（「/」「、」「＞」等）で
+    複数階層が書かれているページも想定し、最初の区切りで category/subcategory に割る。"""
+    for key in CATEGORY_KEYS:
+        val = specs.get(key)
+        if not val:
+            continue
+        parts = re.split(r"[/／、,＞>]", val)
+        parts = [p.strip() for p in parts if p.strip()]
+        if not parts:
+            continue
+        category = parts[0]
+        subcategory = parts[1] if len(parts) >= 2 else ""
+        return category, subcategory
+    return None, None
+
+
 def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
     soup = BeautifulSoup(decode_html(html), "html.parser")
     detail = ItemDetail(item_id=item_id, url=ITEM_URL_TMPL.format(id=item_id))
@@ -115,11 +151,17 @@ def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
 
     detail.images = _extract_images(soup)
 
+    # スペック表（あれば）。価格・カテゴリの両方のフォールバックが参照する
+    detail.specs = extract_tables_as_dict(soup)
+
     page_text = soup.get_text("\n", strip=True)
 
     m = PRICE_RE.search(page_text)
+    if not m:
+        m = PRICE_FALLBACK_RE.search(page_text)
     if m:
-        detail.price_net = int(m.group(1).replace(",", ""))
+        price_str = next(g for g in m.groups() if g)
+        detail.price_net = int(price_str.replace(",", ""))
         # レスターは「電話/ネット」の価格分けがなく単一価格のためprice_telはNoneのまま
 
         start = m.end()
@@ -129,11 +171,34 @@ def parse_item_detail(item_id: str, html: bytes) -> ItemDetail:
         description = re.sub(r"\n+", " ", page_text[start:end]).strip()
         if description:
             detail.specs["description"] = description[:2000]
+    else:
+        # ⚠️ 厳密な書式・緩いフォールバックのどちらでも取れなかったケース。
+        # 実際にどの見出し・書式で価格が出ているのか、デプロイ後のログで
+        # 当たりを絞れるよう診断情報を残す（抽出には使わない）。TOC の
+        # 「価格取得不可」ログと同じ考え方
+        log.warning(
+            "価格取得不可: %s（spec keys=%s）",
+            detail.url, list(detail.specs.keys())[:10],
+        )
 
-    # レスターの一覧構造は大分類が「レンタル」で共通のため、パンくずから分かる範囲のみ保存
-    crumbs = [a.get_text(strip=True) for a in soup.find_all("a", href=True)
-              if "/service/solutions/rental" in a["href"]]
-    detail.category = crumbs[-1] if crumbs else "レンタル"
+    # カテゴリ・ジャンル: まずスペック表の「カテゴリ」「ジャンル」等の行を優先する
+    # （2026-08-24 追加。以前はパンくずしか見ておらず、大分類「レンタル」1本に
+    # ほぼ全商品が潰れてジャンル分けが効いていなかった）
+    category, subcategory = _extract_category_from_specs(detail.specs)
+    if category:
+        detail.category = category
+        detail.subcategory = subcategory or ""
+    else:
+        # フォールバック: パンくず内のリンクから拾う。レスターの一覧構造は大分類が
+        # 「レンタル」で共通のため、これだけでは実質的にジャンル分けにならない
+        # ケースが多い（診断ログを残す）
+        crumbs = [a.get_text(strip=True) for a in soup.find_all("a", href=True)
+                  if "/service/solutions/rental" in a["href"]]
+        detail.category = crumbs[-1] if crumbs else "レンタル"
+        log.info(
+            "カテゴリはパンくずのフォールバックを使用: %s（crumbs=%s, spec keys=%s）",
+            detail.url, crumbs, list(detail.specs.keys())[:10],
+        )
 
     return detail
 

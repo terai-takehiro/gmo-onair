@@ -61,6 +61,24 @@ def decode_html(content: bytes) -> str:
     return UnicodeDammit(content).unicode_markup or content.decode("utf-8", errors="replace")
 
 
+def extract_tables_as_dict(soup) -> dict:
+    """商品ページ内の `<table>` を key/value（th・td先頭2セル）の辞書にする。
+    TOC・レスター共通で使う（価格ラベルが無いページの価格フォールバック、
+    レスターのカテゴリ・ジャンル抽出フォールバックの両方が参照する）。
+    元は toc_scraper.py だけが持っていたローカル関数だったが、レスター側でも
+    同じ抽出が必要になったためここへ移した（重複実装を避ける）。"""
+    specs = {}
+    for table in soup.find_all("table"):
+        for row in table.find_all("tr"):
+            cells = row.find_all(["th", "td"])
+            if len(cells) >= 2:
+                key = cells[0].get_text(strip=True)
+                val = cells[1].get_text(strip=True)
+                if key and val:
+                    specs[key] = val
+    return specs
+
+
 @dataclass
 class ItemDetail:
     item_id: str

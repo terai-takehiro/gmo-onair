@@ -51,4 +51,5 @@ export const EQUIPMENT_MOBILE_OK: string[] = [
   '/equipment/scan',        // QRスキャン
   '/equipment/search',      // 探す — **スマホの下タブ3つ目**（M9）
   '/equipment/maintenance', // メンテナンス — **現場で「壊れている」を登録する**（ご判断）
+  '/equipment/rental-search', // レンタル機材検索 — 借りる前段の下調べを現場でも
 ];
