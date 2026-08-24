@@ -18,6 +18,8 @@ START_ID よりだいぶ手前まで欠番（404連続）だと、本物のカ�
 import unittest
 from unittest.mock import patch
 
+from bs4 import BeautifulSoup
+
 import restar_scraper as restar
 from common_db import ItemDetail
 
@@ -109,6 +111,93 @@ class RunEarlyAbortTest(unittest.TestCase):
 
             self.assertEqual(mock_fetch.call_count, 30)
             mock_upsert.assert_not_called()
+
+
+class ParseItemDetailPriceTest(unittest.TestCase):
+    """⚠️ 2026-08-24 の回帰テスト。「レンタル費用がかなり取得できていない」報告への
+    対処。以前は「￥12,000-(税込)」という1パターンの正規表現だけで、これに一致
+    しないページ（税込の注記が無い・円表記・半角¥ 等）は診断ログすら残さず
+    price_net が None のまま静かに失われていた。"""
+
+    def test_uses_strict_format_when_present(self):
+        html = "<html><body><h1>商品A</h1>￥12,000-(税込)本体のみ<br>レンタルに関するお問い合わせ</body></html>"
+        detail = restar.parse_item_detail("1", html.encode("utf-8"))
+        self.assertEqual(detail.price_net, 12000)
+
+    def test_falls_back_to_yen_format_without_zeikomi_note(self):
+        """「(税込)」の注記が無い・¥ ではなく円表記のページ。"""
+        html = "<html><body><h1>商品B</h1>レンタル価格: 8,000円/日</body></html>"
+        detail = restar.parse_item_detail("2", html.encode("utf-8"))
+        self.assertEqual(detail.price_net, 8000)
+
+    def test_falls_back_to_half_width_yen_mark(self):
+        html = "<html><body><h1>商品C</h1>価格 ¥5,500 (送料別)</body></html>"
+        detail = restar.parse_item_detail("3", html.encode("utf-8"))
+        self.assertEqual(detail.price_net, 5500)
+
+    def test_logs_warning_and_leaves_price_none_when_not_found_anywhere(self):
+        html = "<html><body><h1>商品D</h1>お問い合わせください</body></html>"
+        with self.assertLogs(restar.log, level="WARNING") as cm:
+            detail = restar.parse_item_detail("4", html.encode("utf-8"))
+        self.assertIsNone(detail.price_net)
+        self.assertTrue(any("価格取得不可" in msg for msg in cm.output))
+
+
+class ParseItemDetailCategoryTest(unittest.TestCase):
+    """⚠️ 2026-08-24 の回帰テスト。「ジャンル分けがうまく効いていない」報告への対処。
+    以前はパンくず内の '/service/solutions/rental' を含むリンクのうち**最後の1つ**
+    だけを category にしていたため、パンくずの大分類「レンタル」自体や、本文中の
+    無関係な同ドメインリンク（末尾に出やすい）が拾われ、実質ジャンル分けが機能して
+    いなかった。まずスペック表の「カテゴリ」「ジャンル」等の行を優先するようにした。"""
+
+    def test_uses_category_row_in_spec_table_when_present(self):
+        html = """
+        <html><body>
+        <h1>商品A</h1>
+        <table><tr><th>カテゴリ</th><td>カメラ／レンズ</td></tr></table>
+        ￥12,000-(税込)
+        </body></html>
+        """
+        detail = restar.parse_item_detail("1", html.encode("utf-8"))
+        self.assertEqual(detail.category, "カメラ")
+        self.assertEqual(detail.subcategory, "レンズ")
+
+    def test_uses_genre_row_as_alternate_key(self):
+        html = """
+        <html><body>
+        <h1>商品B</h1>
+        <table><tr><th>ジャンル</th><td>照明</td></tr></table>
+        </body></html>
+        """
+        detail = restar.parse_item_detail("2", html.encode("utf-8"))
+        self.assertEqual(detail.category, "照明")
+        self.assertEqual(detail.subcategory, "")
+
+    def test_falls_back_to_breadcrumb_and_logs_when_no_spec_row(self):
+        html = """
+        <html><body>
+        <h1>商品C</h1>
+        <a href="/service/solutions/rental/">レンタル</a>
+        </body></html>
+        """
+        with self.assertLogs(restar.log, level="INFO") as cm:
+            detail = restar.parse_item_detail("3", html.encode("utf-8"))
+        self.assertEqual(detail.category, "レンタル")
+        self.assertTrue(any("パンくずのフォールバック" in msg for msg in cm.output))
+
+
+class ExtractCategoryFromSpecsTest(unittest.TestCase):
+    def test_splits_on_slash_into_category_and_subcategory(self):
+        specs = {"カテゴリ": "音響／マイク"}
+        self.assertEqual(restar._extract_category_from_specs(specs), ("音響", "マイク"))
+
+    def test_returns_none_when_no_matching_key(self):
+        specs = {"重さ": "1kg"}
+        self.assertEqual(restar._extract_category_from_specs(specs), (None, None))
+
+    def test_single_value_has_empty_subcategory(self):
+        specs = {"分類": "配信機材"}
+        self.assertEqual(restar._extract_category_from_specs(specs), ("配信機材", ""))
 
 
 if __name__ == "__main__":

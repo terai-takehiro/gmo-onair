@@ -28,7 +28,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
-from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail
+from common_db import init_db, upsert_item, mark_missing_items, decode_html, ItemDetail, extract_tables_as_dict
 
 COMPANY = "TOC"
 BASE = "https://ec.toc-net.jp"
@@ -148,17 +148,7 @@ def _extract_price_from_specs(specs: dict):
     return None
 
 
-def _extract_tables_as_dict(soup: BeautifulSoup) -> dict:
-    specs = {}
-    for table in soup.find_all("table"):
-        for row in table.find_all("tr"):
-            cells = row.find_all(["th", "td"])
-            if len(cells) >= 2:
-                key = cells[0].get_text(strip=True)
-                val = cells[1].get_text(strip=True)
-                if key and val:
-                    specs[key] = val
-    return specs
+_extract_tables_as_dict = extract_tables_as_dict  # 後方互換の別名（common_db.py へ移設）
 
 
 def _extract_breadcrumb(soup: BeautifulSoup) -> tuple:
