@@ -194,7 +194,10 @@ function computeClientState(row: any) {
     return { ...row, remainingMs: Number(row.paused_remaining_ms ?? row.remaining_ms) };
   }
   const elapsed = row.started_at ? Date.now() - new Date(row.started_at).getTime() : 0;
-  return { ...row, remaining_ms: Number(row.paused_remaining_ms) - elapsed };
+  // ⚠️ 稼働中も remainingMs（キャメルケース）で統一する。socket.ts の getClientState()
+  //   と同じキー名にすること（この応答だけキー名が割れていると、素直に読むクライアント側が
+  //   片方の状態で値を取れなくなる）。
+  return { ...row, remainingMs: Number(row.paused_remaining_ms) - elapsed };
 }
 
 export default router;
