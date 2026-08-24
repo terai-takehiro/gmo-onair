@@ -127,15 +127,28 @@ interface ScheduleDocRow {
   updated_at: string;
 }
 
-async function fetchDocsForProject(projectId: string): Promise<DocRow[]> {
-  const rows = await queryAll(
-    `SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
-            ${SECTION_COUNT_SQL} AS section_count
-     FROM qsheet_documents d
-     WHERE d.project_id = ? AND d.deleted_at IS NULL
-     ORDER BY d.updated_at DESC`,
-    [projectId],
-  );
+/**
+ * その案件の進行台本。`fetchSchedulesForProject` と同じアクセス範囲（作成者本人／共有先／
+ * system_admin）で絞る — ここだけ絞りが無いと、ハブ画面（`MiniAppTiles`/`JourneyDayCard`）の
+ * 件数・一覧に他人の非共有台本まで混ざり、開くと `documents.routes.ts` の
+ * `GET /documents/:id` が 404 を返す行き止まりになる（監査 2026-08-24）。
+ */
+async function fetchDocsForProject(projectId: string, user: AccessUser): Promise<DocRow[]> {
+  let sql = `
+    SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
+           ${SECTION_COUNT_SQL} AS section_count
+    FROM qsheet_documents d
+    WHERE d.project_id = $1 AND d.deleted_at IS NULL
+  `;
+  const params: unknown[] = [projectId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (d.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_document_shares sh WHERE sh.document_id = d.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY d.updated_at DESC';
+
+  const rows = await queryAll(sql, params);
   return rows as unknown as DocRow[];
 }
 
@@ -219,6 +232,7 @@ function buildDayFromDocs(
   docs: DocRow[],
   frames: JourneyFrame[],
   scheduleDocs: ScheduleDocRow[] = [],
+  scheduleListPath = '/techops/schedules',
 ): JourneyDay {
   const hasAny = docs.length > 0;
   const latestUpdatedAt = docs.length > 0 ? (docs[0].updated_at as unknown as string) : null;
@@ -252,8 +266,10 @@ function buildDayFromDocs(
   // 「スケジュール表がまだありません」は文字どおり表が無いときだけ出す。表はあるが
   // 枠（項目）がまだ0件のとき（作った直後）にも hasFrames だけで判定すると、
   // 実在する表を「まだ無い」と偽って案内してしまう（§scheduleDocs のコメントと同じ穴）。
+  // `to` は `MiniAppTiles.tsx` のタイルと同じくこの案件・番組で絞り込む
+  // （絞り込み無しの一覧から作ると project_id/program_id が両方 null の孤立した表ができてしまう。監査 2026-08-24）。
   if (!hasFrames && scheduleDocs.length === 0) {
-    suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: '/techops/schedules' });
+    suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: scheduleListPath });
   }
   if (!hasAny) {
     suggestions.push({ key: 'no_sheet', label: '進行台本がまだありません', to: '/techops/sheets' });
@@ -294,15 +310,23 @@ function buildDayFromDocs(
 // ジャーニー（番組＝マニュアル単位。2026-08-22 追加）
 // ============================================================
 
-async function fetchDocsForProgram(programId: string): Promise<DocRow[]> {
-  const rows = await queryAll(
-    `SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
-            ${SECTION_COUNT_SQL} AS section_count
-     FROM qsheet_documents d
-     WHERE d.program_id = ? AND d.deleted_at IS NULL
-     ORDER BY d.updated_at DESC`,
-    [programId],
-  );
+/** `fetchDocsForProject` の番組（マニュアル）版。持ち物は `program_id` に変わるだけで作りは同じ */
+async function fetchDocsForProgram(programId: string, user: AccessUser): Promise<DocRow[]> {
+  let sql = `
+    SELECT d.id, d.title, d.doc_no, d.broadcast_date, d.updated_at,
+           ${SECTION_COUNT_SQL} AS section_count
+    FROM qsheet_documents d
+    WHERE d.program_id = $1 AND d.deleted_at IS NULL
+  `;
+  const params: unknown[] = [programId];
+  if (!isQsheetAdmin(user)) {
+    sql += ` AND (d.created_by = $2 OR EXISTS (
+               SELECT 1 FROM qsheet_document_shares sh WHERE sh.document_id = d.id AND sh.user_id = $2))`;
+    params.push(user.id);
+  }
+  sql += ' ORDER BY d.updated_at DESC';
+
+  const rows = await queryAll(sql, params);
   return rows as unknown as DocRow[];
 }
 
@@ -385,7 +409,7 @@ export async function getJourneyForProgram(programId: string, user: AccessUser):
   if (!program) return null;
 
   const [docs, framesByDate, scheduleDocs] = await Promise.all([
-    fetchDocsForProgram(programId),
+    fetchDocsForProgram(programId, user),
     fetchFramesForProgram(programId, user),
     fetchSchedulesForProgram(programId, user),
   ]);
@@ -414,13 +438,16 @@ export async function getJourneyForProgram(programId: string, user: AccessUser):
     scheduleDocsByDate.get(s.service_date)!.push(s);
   }
 
+  // `MiniAppTiles.tsx` のタイルと同じ絞り込みクエリ（?program=<id>）を「見る」ボタンにも付ける
+  const scheduleListPath = `/techops/schedules?program=${encodeURIComponent(programId)}`;
+
   const dates = [...dateLabels.keys()].sort();
   const days: JourneyDay[] = dates.map((date) => buildDayFromDocs(
-    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [],
+    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [], scheduleListPath,
   ));
 
   const undated = docsByDate.get(null) ?? [];
-  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
+  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, [], [], scheduleListPath));
 
   return {
     // `glsNumber` は番組には無いので常に null（JourneyResponse.project の型を割らない・§JourneyResponse のコメント参照）
@@ -438,7 +465,7 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
   if (!project) return null;
 
   const [docs, framesByDate, scheduleDocs] = await Promise.all([
-    fetchDocsForProject(projectId),
+    fetchDocsForProject(projectId, user),
     fetchFramesForProject(projectId, user),
     fetchSchedulesForProject(projectId, user),
   ]);
@@ -483,14 +510,17 @@ export async function getJourneyForProject(projectId: string, user: AccessUser):
     scheduleDocsByDate.get(s.service_date)!.push(s);
   }
 
+  // `MiniAppTiles.tsx` のタイルと同じ絞り込みクエリ（?project=<id>）を「見る」ボタンにも付ける
+  const scheduleListPath = `/techops/schedules?project=${encodeURIComponent(projectId)}`;
+
   const dates = [...dateLabels.keys()].sort();
   const days: JourneyDay[] = dates.map((date) => buildDayFromDocs(
-    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [],
+    date, dateLabels.get(date) ?? null, docsByDate.get(date) ?? [], framesByDate.get(date) ?? [], scheduleDocsByDate.get(date) ?? [], scheduleListPath,
   ));
 
   // 日が決まっていない資料（broadcast_date が無い）は「日が決まっていない」束にまとめる
   const undated = docsByDate.get(null) ?? [];
-  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, []));
+  if (undated.length > 0) days.push(buildDayFromDocs(null, null, undated, [], [], scheduleListPath));
 
   return {
     project: {
