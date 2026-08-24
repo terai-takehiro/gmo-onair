@@ -155,7 +155,7 @@ export default function RevenueListPage() {
           <ExcelToolbar
             resource="/revenues"
             name="売上"
-            queryKey={['revenues']}
+            queryKey={['revenues-all']}
             hasDuplicateKey={false}
             exportParams={{
               search: search || undefined,

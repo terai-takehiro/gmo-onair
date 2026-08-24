@@ -148,7 +148,7 @@ export default function PurchaseListPage() {
           <ExcelToolbar
             resource="/purchases"
             name="仕入"
-            queryKey={['purchases']}
+            queryKey={['purchases-all']}
             hasDuplicateKey={false}
             exportParams={{
               search: crud.search || undefined,

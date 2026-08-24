@@ -134,7 +134,12 @@ export function MobileCollect() {
        * `['billing']` で両方（締め・請求の一覧）を落とします。
        */
       qc.invalidateQueries({ queryKey: ['billing'] });
+      // `['revenues']` は案件詳細（`RevenueBillingPane.tsx` の
+      // `['revenues','project',projectId]`）には前方一致で当たるが、
+      // 財務③ 売上一覧（`RevenueListPage.tsx` の `['revenues-all',…]`）には
+      // 当たらない。両方落とす。
       qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
       setOpen(null);
       notifySuccess('入金を記録しました');
     },
