@@ -249,7 +249,10 @@ function buildDayFromDocs(
   ];
 
   const suggestions: Suggestion[] = [];
-  if (!hasFrames) {
+  // 「スケジュール表がまだありません」は文字どおり表が無いときだけ出す。表はあるが
+  // 枠（項目）がまだ0件のとき（作った直後）にも hasFrames だけで判定すると、
+  // 実在する表を「まだ無い」と偽って案内してしまう（§scheduleDocs のコメントと同じ穴）。
+  if (!hasFrames && scheduleDocs.length === 0) {
     suggestions.push({ key: 'no_schedule', label: 'スケジュール表がまだありません', to: '/techops/schedules' });
   }
   if (!hasAny) {
