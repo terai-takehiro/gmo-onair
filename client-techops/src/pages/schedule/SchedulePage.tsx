@@ -81,6 +81,21 @@ export default function SchedulePage() {
 
   const refetchDetail = () => queryClient.invalidateQueries({ queryKey: ["schedule", id] });
   const refetchBreakdown = () => queryClient.invalidateQueries({ queryKey: ["schedule-breakdown", id] });
+  // 項目（枠）を足す/直す/消す/台本化すると、一覧（`ScheduleListPage.tsx` の ["schedules","list",...]）と
+  // ハブ画面（`JourneyPage.tsx` の ["qsheet-journey", scope, id]）が読む件数・提案が古いまま残る
+  // （既定の staleTime=60秒。監査 2026-08-24）。この2つも合わせて invalidate する。
+  const refetchListsAndHub = () => {
+    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
+    const data = detailQuery.data;
+    if (data?.project_id) {
+      queryClient.invalidateQueries({ queryKey: ["qsheet-journey", "project", data.project_id] });
+    } else if (data?.program_id) {
+      queryClient.invalidateQueries({ queryKey: ["qsheet-journey", "program", data.program_id] });
+    } else {
+      // owner がまだ分からない（読み込み中 等）ときは絞り込めないので全ジャーニーを対象にする
+      queryClient.invalidateQueries({ queryKey: ["qsheet-journey"] });
+    }
+  };
 
   const handleSave = async (draft: ItemDraft) => {
     const body = {
@@ -103,6 +118,7 @@ export default function SchedulePage() {
       closeDialog();
       refetchDetail();
       refetchBreakdown();
+      refetchListsAndHub();
     } catch (err) {
       if (isConflict(err)) {
         notifyError("この項目は別のタブ/端末で更新されています");
@@ -123,6 +139,7 @@ export default function SchedulePage() {
       closeDialog();
       refetchDetail();
       refetchBreakdown();
+      refetchListsAndHub();
     } catch {
       notifyError("削除に失敗しました");
     }
@@ -135,6 +152,7 @@ export default function SchedulePage() {
       notifySuccess("進行台本を作りました");
       closeDialog();
       refetchDetail();
+      refetchListsAndHub();
       navigate(`/techops/editor/${document.id}`);
     } catch (err) {
       if (isConflict(err)) notifyError("すでに台本が結ばれています");
