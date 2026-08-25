@@ -113,23 +113,35 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
 
   const items = (await queryAll(
-    `SELECT description, quantity, unit_price, amount, category, item_notes, item_date
+    // **`item_date`/`item_date_end` は DATE 列なので、素通しで選ぶと pg が
+    // 文字列ではなく Date を返す**（上の `sent_at` と同じ落とし穴）。
+    // `dateSlash()` は文字列前提で `.split('-')` するため、行に日付が
+    // 入っている見積を発行すると "d.split is not a function" で 500 になっていた
+    // （実 Postgres に当てて実際に踏んだ）。`to_char` で文字列に変換して渡す
+    `SELECT description, quantity, unit_price, amount, category, item_notes,
+            to_char(item_date, 'YYYY-MM-DD') AS item_date,
+            to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end
        FROM estimate_items WHERE estimate_id = ? ORDER BY sort_order, created_at`,
     [estimateId],
   )) as Record<string, unknown>[];
 
   const discount = Math.max(0, Number(est.discount) || 0);
   const rows = items.map((it) => {
-    // **行ごとの日付（migration 194）を紙にも出す。** 無ければ null のまま
-    // （PDF レンダラーは null を「期間なし」として案件全体の日付にフォールバックする）
+    // **行ごとの日付（migration 194 開始日・235 終了日）を紙にも出す。**
+    // 終了日が無い行（単日 or 入れていない）は開始日をそのまま終了日にも使う —
+    // `period_start`/`period_end` が別々に null だと PDF レンダラーが
+    // 「期間なし」として案件全体の日付にフォールバックしてしまう（1日だけの
+    // 利用なのに「期間なし」に化けるのを避けるため、開始日で埋める）。
+    // 開始日そのものが無ければ両方 null のまま（従来どおりのフォールバック）
     const itemDate = (it.item_date as string | null) ?? null;
+    const itemDateEnd = (it.item_date_end as string | null) ?? null;
     return {
       description:  String(it.description ?? ''),
       quantity:     Number(it.quantity) || 0,
       unit_price:   Number(it.unit_price) || 0,
       amount:       Number(it.amount) || 0,
       period_start: itemDate,
-      period_end:   itemDate,
+      period_end:   itemDateEnd ?? itemDate,
       item_notes:   (it.item_notes as string | null) ?? null,
       category:     categoryLabel(it.category as string | null),
     };

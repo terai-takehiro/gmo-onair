@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ESTIMATE_CATEGORY_LABEL } from '../../server/src/contexts/sales/services/estimate-pdf.service';
+import { ESTIMATE_CATEGORY_LABEL, categoryLabel } from '../../server/src/contexts/sales/services/estimate-pdf.service';
 
 /** 画面の `CATEGORIES` を文字として読む（`{ key: 'studio', label: 'スタジオ' }` の並び） */
 function screenCategories(): Record<string, string> {
@@ -49,5 +49,18 @@ describe('見積の明細の分類', () => {
     for (const key of Object.keys(ESTIMATE_CATEGORY_LABEL)) {
       expect(key, key).toMatch(/^[a-z][a-z0-9_]*$/);
     }
+  });
+
+  /**
+   * 見積の明細カテゴリは既定3つに加えて自由入力ができる（`EstimateItems.tsx` の
+   * 「カテゴリを追加」）。`estimate_items.category` は元々自由な TEXT 列で、
+   * `categoryLabel()` は「知らない値はそのまま出す」設計（コメント参照）なので、
+   * 自由入力を足しても既定3カテゴリの対応関係（上の2試験）には影響しない —
+   * ここはその「そのまま出す」側の挙動を固定する。
+   */
+  it('自由入力のカテゴリ（既定3つに無い値）はそのまま出す', () => {
+    expect(categoryLabel('音響')).toBe('音響');
+    expect(categoryLabel('車両')).toBe('車両');
+    expect(categoryLabel(null)).toBe(null);
   });
 });

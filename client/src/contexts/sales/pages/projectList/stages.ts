@@ -54,8 +54,22 @@ export const STAGE_BADGE_TONE: Record<ProjectStage, string> = {
 export const TERMINAL_STAGES: ProjectStage[] = ['s_completed', 'e_lost'];
 
 /**
+ * 「進行中」（旧・分ける前の `all`）が指す4ステージ。**チップ・既定の初期値・
+ * `clearFilters` の3か所が同じ配列を指す**（`STAGE_CHIPS` の下のコメント参照）。
+ */
+export const ACTIVE_STAGES: ProjectStage[] = ['d_hold', 'c_proposal', 'b_verbal', 'a_won'];
+
+/**
+ * 「すべて」の件数を数えるステージ。ネタを除く全ステージ（終了＝完了・失注を含む）。
+ * **チップの合計とは別に持つ** — チップを足し算すると「すべて」に出していない
+ * ネタまで数えてしまい、「全 42 件」と出して 31 行しか並ばないことになります。
+ */
+export const ALL_STAGES: ProjectStage[] = [...ACTIVE_STAGES, 's_completed', 'e_lost'];
+
+/**
  * 絞り込みのチップ。**並びはモックどおり**「受注に近い順」。
- * `stages` が API に送る値 (カンマ区切り)。
+ * `stages` が API に送る値 (カンマ区切り)。空配列は**絞り込み無し**を意味し、
+ * サーバーへ `stage` パラメータそのものを送らない（`ProjectListPage.tsx`）。
  *
  * ── 「E 問合せ」のチップを外した ────────────────────────────
  *
@@ -63,34 +77,29 @@ export const TERMINAL_STAGES: ProjectStage[] = ['s_completed', 'e_lost'];
  * 同じ案件が2か所から絞り込めて、しかも名前が違っていました。
  * → **ネタは3つ目の見え方タブ「ネタ」に寄せます**（列が違うので、
  *   そちらのほうが読めます — 金額も実施日もほとんど空なので）。
+ * **この画面のチップにネタは戻さない** — 「すべて」もネタは出さない。
  *
- * ── 「すべて」にネタと終了を出さない ────────────────────────
+ * ── 「すべて」と「進行中」を分けた（ユーザー指摘 2026-08-25） ──
  *
- * `all` は**空**にせず、出すステージを名指しします。空にすると
- * サーバーは絞り込み無し＝**ネタも終了も全部**返すためです。
- *  ・**ネタ**は「ネタ」タブが持つ（案件の数にもヨミにも入らない）
- *  ・**終了**（完了・失注）は動かないのが正しい状態なので、
- *    探しに行ったときだけ出す（「終了」チップ）
+ * 以前はここが1つの `all` チップ（ラベル「すべて（進行中）」・
+ * ネタと終了を含まない4ステージだけ）しか持たず、**「すべて」を選んでも
+ * 完了・失注の案件が出せませんでした**（ラベルで「進行中だけ」と
+ * 断ってはいたが、探している人はまず「すべて」を押す）。
+ *  ・**`all`**（「すべて」）… ネタを除く全ステージ（`ALL_STAGES`）。
+ *    終了（完了・失注）も含む、文字どおりの全件
+ *  ・**`active`**（「進行中」）… 旧 `all` と同じ4ステージ。**既定はこちら**
+ *    （`ProjectListPage.tsx` の初期値・`clearFilters`）。分ける前の挙動を
+ *    壊さないため、何も選ばずに開いたときはこれまでどおり進行中だけが並ぶ
  */
 export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }[] = [
-  // ⚠️ **「すべて」に「（進行中）」を足した**（UXレポート 2026-08-18 指摘）。
-  // 上のコメントの通り「すべて」はネタ・終了を含まない4ステージだけを指すが、
-  // ラベルが「すべて」のままだと初見では全件を指すように読める。何が入るかを
-  // 一言で示す（詳しい内訳は `docs/archive/2026/2026-08-19-uiux-operation-report-response.md` 4-4）
-  { key: 'all', label: 'すべて（進行中）', stages: ['d_hold', 'c_proposal', 'b_verbal', 'a_won'] },
+  { key: 'all', label: 'すべて', stages: ALL_STAGES },
+  { key: 'active', label: '進行中', stages: ACTIVE_STAGES },
   { key: 'a_won', label: 'A 受注済', stages: ['a_won'] },
   { key: 'b_verbal', label: 'B 口頭決定', stages: ['b_verbal'] },
   { key: 'c_proposal', label: 'C 見積提案', stages: ['c_proposal'] },
   { key: 'd_hold', label: 'D 仮押さえ', stages: ['d_hold'] },
   { key: 'done', label: '終了', stages: ['s_completed', 'e_lost'] },
 ];
-
-/**
- * 「すべて」の件数を数えるステージ。**チップの合計とは別に持つ** —
- * チップを足し算すると「すべて」に出していないネタと終了まで数えてしまい、
- * 「全 42 件」と出して 31 行しか並ばないことになります。
- */
-export const ALL_STAGES: ProjectStage[] = ['d_hold', 'c_proposal', 'b_verbal', 'a_won'];
 
 /**
  * 「止まっている」と見なす日数。

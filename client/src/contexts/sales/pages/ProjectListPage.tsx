@@ -102,7 +102,9 @@ export default function ProjectListPage() {
    */
   const [stageKey, setStageKey] = useState(() => {
     const asked = params.get('stage');
-    return asked && STAGE_CHIPS.some((c) => c.key === asked) ? asked : 'all';
+    // **既定は「進行中」。**「すべて」「進行中」に分ける前はここが唯一の `all`
+    // だったので、分けたことで無条件に開いたときの挙動が変わらないようにする
+    return asked && STAGE_CHIPS.some((c) => c.key === asked) ? asked : 'active';
   });
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -183,14 +185,14 @@ export default function ProjectListPage() {
   // 0件のときに「どれを外せば出るのか」を名指しするための一覧
   const activeFilters = [
     search ? `探している言葉: ${search}` : null,
-    stageKey !== 'all' ? `ステージ: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
+    stageKey !== 'active' ? `ステージ: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
     period.mode !== 'all' ? `実施日: ${periodLabel(period)}` : null,
     aiOnly ? `AI 作成のみ${aiUnreviewedOnly ? ' (未確認)' : ''}` : null,
   ].filter((f): f is string => f !== null);
 
   const clearFilters = () => {
     flip.capture();
-    setSearch(''); setStageKey('all'); setPeriod({ ...period, mode: 'all' }); setAiOnly(false); setPage(1);
+    setSearch(''); setStageKey('active'); setPeriod({ ...period, mode: 'all' }); setAiOnly(false); setPage(1);
   };
 
   /** PC・スマホで**同じ props**（写すと片方だけ絞り込みが増える） */

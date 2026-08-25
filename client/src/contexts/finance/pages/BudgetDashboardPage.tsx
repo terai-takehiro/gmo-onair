@@ -15,13 +15,22 @@
  * 内訳は上位だけを出す（＝全部足しても合計にならない）ので、
  * 画面側で計算すると内訳と合計が食い違います。
  *
- * ── 期間と絞り込みの計算は旧実装のまま ──────────────────────
+ * ── 期間の計算は旧実装のまま ──────────────────────────────────
  *
- * 月／四半期／年／期間指定の期間の作り方と、5本のクエリは**1行も変えていません**。
- * 変えたのは並べ方だけです（金額の集計を作り直しと同じ回で触らない）。
+ * 月／四半期／年／期間指定の期間の作り方は1行も変えていません。
+ *
+ * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
+ *
+ * 以前は5本のクエリとも `limit` を大きく（300/2000）指定して上位だけを
+ * 切り出していましたが、実際には共通の `extractPagination` が `limit` を
+ * 無条件に100件へ切っており（`shared/services/pagination.ts`）、大きい
+ * `limit` を渡しても100件しか返っていませんでした。売上・仕入（変動原価）・
+ * 販管費は `useInfiniteQuery` に変え、`BreakdownColumn` の「もっと見る」で
+ * サーバーの実ページ（100件区切り）を追加取得できるようにしています
+ * （固定原価は案件のように増えないため従来どおり単発取得のまま）。
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatMonth } from '@/lib/format';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -55,6 +64,15 @@ type PurchaseRow = {
   amount: number; is_provisional?: boolean;
 };
 
+/** `paginatedResponse`（サーバー共通）の形。`total`/`totalPages` を badge・もっと見るに使う */
+interface PagedResponse<T> {
+  data: T[];
+  pagination?: { page: number; limit: number; total: number; totalPages: number };
+}
+
+/** サーバー共通の上限（`shared/services/pagination.ts` の `Math.min(100, …)`）に合わせたページサイズ */
+const PAGE_SIZE = 100;
+
 export default function BudgetDashboardPage() {
   const now = new Date();
   const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
@@ -81,16 +99,32 @@ export default function BudgetDashboardPage() {
     return { from: `${month}-01`, to: `${month}-31`, label: formatMonth(`${month}-01`) };
   }, [mode, month, year, quarter, rangeFrom, rangeTo]);
 
+  /*
+   * ⚠️ **`/projects?limit=500` は実は 100 件しか返らない**（ご指摘の再現例
+   * GLS-A004「GMOアワード2026」で発覚）。`limit` は共通の `extractPagination`
+   * （`shared/services/pagination.ts`）が `Math.min(100, …)` で無条件に切るため、
+   * `?limit=500` と書いても静かに 100 件へ落ちる。しかも既定の並び順
+   * (`DEFAULT_SORT_SQL`) は「完了/失注は最後」なので、GMOアワード2026 のように
+   * **開催済み（`s_completed`）の案件から真っ先に 100 件の外へ押し出される**。
+   *
+   * `client/CLAUDE.md`「受注確定した案件の絞り込みは stage が正」の節のとおり、
+   * 受注確定済みの一覧は `project.service.ts` の `getWonProjects()`
+   * （`stage IN ('a_won','s_completed')`・**上限なし**）を使うのが正しい形で、
+   * 現に同関数のコメントは「予算詳細」もこの一覧の利用先として挙げている
+   * （仕入・売上・精算PDF取込レビュー・書類引き渡しの案件プルダウンと同じ）。
+   * ここが `/projects?limit=500` のままだったのが今回のズレの本体。
+   */
   const { data: projectsData } = useQuery({
-    queryKey: ['projects-for-budget-dashboard'],
-    queryFn: async () => (await api.get('/projects?limit=500')).data,
+    queryKey: ['won-projects-for-budget-dashboard'],
+    queryFn: async () => (await api.get('/projects/won-projects')).data,
     staleTime: 120_000,
   });
   /*
-   * **`/projects?limit=500` だけでは足りない**（ご指摘: 内訳には出るのに絞り込みの
-   * 選択肢に出てこない案件がある）。500件の上限と削除済み除外を持たない
-   * `/projects-with-activity` を合わせて出す — 内訳（`revenues`/`purchases` の
-   * LEFT JOIN）と同じ集合になる
+   * **`won-projects` だけでも足りない。** 受注確定（`a_won`/`s_completed`）より
+   * 前のステージ・削除済みでも、按分や過去の入力で `revenues`/`purchases` に
+   * 実績が残っていることがある。そちらを取りこぼさないよう、上限を持たない
+   * `/projects-with-activity`（内訳＝`revenues`/`purchases` の LEFT JOIN と同じ集合）
+   * を合わせて出す
    */
   const { data: activeProjectsData } = useQuery({
     queryKey: ['projects-with-activity', period.from, period.to],
@@ -107,9 +141,6 @@ export default function BudgetDashboardPage() {
     return [...base, ...extra.filter((p) => !seen.has(p.id))];
   }, [projectsData, activeProjectsData]);
 
-  // 期間が複数月にまたがると明細が増えるため上限を引き上げる（旧実装のまま）
-  const limit = mode === 'month' ? '300' : '2000';
-
   const summaryQuery = useQuery({
     queryKey: ['budget-monthly-summary', period.from, period.to, projectId],
     queryFn: async () => {
@@ -122,50 +153,68 @@ export default function BudgetDashboardPage() {
   });
   const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY;
 
-  const revenues = useQuery({
+  const revenues = useInfiniteQuery({
     queryKey: ['budget-breakdown-revenues', period.from, period.to, projectId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       // 合計 (monthly-summary) は確定売上だけを数えているので内訳も confirmed に揃える
-      const params: Record<string, string> = {
-        recognition_from: period.from, recognition_to: period.to, limit, status: 'confirmed',
+      const params: Record<string, string | number> = {
+        recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam, status: 'confirmed',
       };
       if (projectId) params.project_id = projectId;
-      return (await api.get('/revenues', { params })).data;
+      return (await api.get('/revenues', { params })).data as PagedResponse<any>; // 行の形は revItems 側で個別に絞る
     },
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: !!period.from,
   });
 
   // 仕入(変動原価): 固定原価Pjを除く。固定原価は gls_number=NULL で既定ソートの末尾に来るため、
   // 同じクエリだと limit 内に入らず消える（旧実装のコメントのまま）
-  const purchases = useQuery({
+  const purchases = useInfiniteQuery({
     queryKey: ['budget-breakdown-purchases', period.from, period.to, projectId],
-    queryFn: async () => {
-      const params: Record<string, string> = {
-        recognition_from: period.from, recognition_to: period.to, limit, fixed_cost: '0',
+    queryFn: async ({ pageParam }) => {
+      const params: Record<string, string | number> = {
+        recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam, fixed_cost: '0',
       };
       if (projectId) params.project_id = projectId;
-      return (await api.get('/purchases', { params })).data;
+      return (await api.get('/purchases', { params })).data as PagedResponse<PurchaseRow>;
     },
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: !!period.from,
   });
 
-  // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない
+  // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない。
+  // 償却負担額など全社共通の少数の行しか無い想定のため、こちらは単発取得のまま（「もっと見る」を持たない）
   const fixed = useQuery({
     queryKey: ['budget-breakdown-fixed', period.from, period.to],
     queryFn: async () => (await api.get('/purchases', {
-      params: { recognition_from: period.from, recognition_to: period.to, limit: '2000', fixed_cost: '1' },
-    })).data,
+      params: { recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, fixed_cost: '1' },
+    })).data as PagedResponse<PurchaseRow>,
     enabled: !!period.from && !projectId,
   });
 
   // 販管費は案件に紐づかないので、案件で絞っているときは取りに行かない
-  const sga = useQuery({
+  const sga = useInfiniteQuery({
     queryKey: ['budget-breakdown-sga', period.from, period.to],
-    queryFn: async () => (await api.get('/sga', {
-      params: { recognition_from: period.from, recognition_to: period.to, limit },
-    })).data,
+    queryFn: async ({ pageParam }) => (await api.get('/sga', {
+      params: { recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam },
+    })).data as PagedResponse<any>,
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: !!period.from && !projectId,
   });
+
+  // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
+  const revenueRows = useMemo(() => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data]);
+  const purchaseRows = useMemo(() => purchases.data?.pages.flatMap((p) => p.data) ?? [], [purchases.data]);
+  const sgaRows = useMemo(() => sga.data?.pages.flatMap((p) => p.data) ?? [], [sga.data]);
+
+  // 件数の badge・「もっと見る」の残数はサーバーが返す実件数 (pagination.total) を正とする
+  const revenueTotalCount = revenues.data?.pages[0]?.pagination?.total ?? revenueRows.length;
+  const purchaseTotalCount = purchases.data?.pages[0]?.pagination?.total ?? purchaseRows.length;
+  const fixedTotalCount = fixed.data?.pagination?.total ?? fixed.data?.data.length ?? 0;
+  const sgaTotalCount = sga.data?.pages[0]?.pagination?.total ?? sgaRows.length;
 
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
@@ -177,21 +226,21 @@ export default function BudgetDashboardPage() {
    */
   const steps: FlowStep[] = projectId
     ? [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenues.data?.data?.length ?? 0}件`, to: '/budget/revenues' },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchases.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchaseTotalCount}件`, to: '/budget/purchases' },
         { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
       ]
     : [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenues.data?.data?.length ?? 0}件`, to: '/budget/revenues' },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchases.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchaseTotalCount}件`, to: '/budget/purchases' },
         { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
-        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixed.data?.data?.length ?? 0}件`, to: '/budget/purchases' },
+        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixedTotalCount}件`, to: '/budget/purchases' },
         { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
-        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sga.data?.data?.length ?? 0}件`, to: '/budget/sga' },
+        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sgaTotalCount}件`, to: '/budget/sga' },
         { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
       ];
 
-  const revItems: BreakdownItem[] = (revenues.data?.data ?? []).map(
+  const revItems: BreakdownItem[] = revenueRows.map(
     (r: { id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }) => ({
       id: r.id,
       code: r.episode_code || r.gls_number,
@@ -202,7 +251,7 @@ export default function BudgetDashboardPage() {
   );
 
   const purItems: BreakdownItem[] = [
-    ...((purchases.data?.data ?? []) as PurchaseRow[]),
+    ...purchaseRows,
     ...((fixed.data?.data ?? []) as PurchaseRow[]),
   ].map((p) => ({
     id: p.id,
@@ -213,7 +262,7 @@ export default function BudgetDashboardPage() {
     tag: p.is_provisional ? '仮' : null,
   }));
 
-  const sgaItems: BreakdownItem[] = (sga.data?.data ?? []).map(
+  const sgaItems: BreakdownItem[] = sgaRows.map(
     (x: { id: string; vendor_name?: string | null; description?: string | null; amount: number }) => ({
       id: x.id,
       title: x.description || '（詳細なし）',
@@ -256,6 +305,10 @@ export default function BudgetDashboardPage() {
               title="売上の内訳"
               total={s.revenue_total}
               items={revItems}
+              totalCount={revenueTotalCount}
+              hasMore={!!revenues.hasNextPage}
+              isLoadingMore={revenues.isFetchingNextPage}
+              onLoadMore={() => revenues.fetchNextPage()}
               to="/budget/revenues"
               empty="この期間の確定売上はありません。"
             />
@@ -263,6 +316,10 @@ export default function BudgetDashboardPage() {
               title="仕入の内訳"
               total={s.purchase_total}
               items={purItems}
+              totalCount={purchaseTotalCount + fixedTotalCount}
+              hasMore={!!purchases.hasNextPage}
+              isLoadingMore={purchases.isFetchingNextPage}
+              onLoadMore={() => purchases.fetchNextPage()}
               to="/budget/purchases"
               empty="この期間の仕入はありません。"
             />
@@ -272,6 +329,10 @@ export default function BudgetDashboardPage() {
                 title="販管費の内訳"
                 total={s.sga_total}
                 items={sgaItems}
+                totalCount={sgaTotalCount}
+                hasMore={!!sga.hasNextPage}
+                isLoadingMore={sga.isFetchingNextPage}
+                onLoadMore={() => sga.fetchNextPage()}
                 to="/budget/sga"
                 empty="この期間の販管費はありません。"
               />
@@ -279,8 +340,9 @@ export default function BudgetDashboardPage() {
           </div>
 
           <p className="text-note text-muted-foreground">
-            内訳は<strong className="font-bold">金額の大きい順に上位だけ</strong>を出しています。
-            合計と内訳の足し算がズレることがあります（全部を見るには台帳をひらいてください）。
+            内訳は既定では<strong className="font-bold">金額の大きい順に上位だけ</strong>を出しています。
+            「この条件の全N件をここで見る」で、この絞り込み条件に該当する分をすべてこの画面のまま確認できます
+            （編集・CSV書き出しなど台帳側の機能が必要なときは「台帳をひらく」から移動してください）。
           </p>
         </>
       )}
