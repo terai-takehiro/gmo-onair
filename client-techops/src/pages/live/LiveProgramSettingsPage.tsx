@@ -36,6 +36,8 @@ interface LiveProgram {
   project_id: string | null;
   project_name?: string;
   gls_number?: string | null;
+  qsheet_program_id: string | null;
+  qsheet_program_name?: string;
 }
 
 export default function LiveProgramSettingsPage() {
@@ -174,6 +176,13 @@ function ProgramSettingsContent({ owner, programId }: {
                 <span className=" text-primary text-xs mr-2">{program.gls_number}</span>
               )}
               <span className="font-medium">{program.project_name}</span>
+            </div>
+          )}
+          {/* 独自作成の番組（マニュアル）に紐づく場合の表示（migration 237） */}
+          {program?.qsheet_program_name && (
+            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+              <span className="text-muted-foreground text-xs">紐づき番組: </span>
+              <span className="font-medium">{program.qsheet_program_name}</span>
             </div>
           )}
 

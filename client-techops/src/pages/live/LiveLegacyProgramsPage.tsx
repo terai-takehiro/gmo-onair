@@ -29,6 +29,7 @@ interface LiveProgram {
   id: string;
   name: string;
   project_id: string | null;
+  qsheet_program_id: string | null;
   youtube_urls: { label: string; url: string }[];
   jstream_lpid: string | null;
   zoom_meeting_id: string | null;
@@ -97,7 +98,11 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
   const { data: programs = [], isLoading } = useQuery({
     queryKey: ['liveops-legacy-programs'],
     queryFn: () => api.get('/liveops/programs').then(
-      (r) => (r.data.data as LiveProgram[]).filter((p) => !p.project_id),
+      // ⚠️ migration 237 で qsheet_program_id が増えた後は、project_id が無いだけでは
+      // 「案件にも番組にも紐づかない」とは言えない — 「独自作成の番組」に紐づく行
+      // （qsheet_program_id が入っている）も project_id は常に null になるため、
+      // 両方 null の行だけを本当の「案件・番組どちらにも紐づかない」旧データとして絞る。
+      (r) => (r.data.data as LiveProgram[]).filter((p) => !p.project_id && !p.qsheet_program_id),
     ),
   });
 

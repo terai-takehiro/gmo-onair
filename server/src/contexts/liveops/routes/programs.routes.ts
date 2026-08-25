@@ -47,12 +47,14 @@ router.get('/', ...canRead, async (req, res) => {
     const params: string[] = [];
     const filter = project_id ? (params.push(String(project_id)), `AND p.project_id = $${params.length}`) : '';
     const rows = await query(
-      `SELECT p.id, p.name, p.project_id, p.youtube_urls, p.jstream_lpid,
+      `SELECT p.id, p.name, p.project_id, p.qsheet_program_id, p.youtube_urls, p.jstream_lpid,
               p.zoom_meeting_id, p.zoom_webinar_id, p.teams_meeting_url,
               p.singular_mappings, p.created_at, p.updated_at,
-              pr.name AS project_name, pr.gls_number
+              pr.name AS project_name, pr.gls_number,
+              qp.name AS qsheet_program_name
        FROM liveops_programs p
        LEFT JOIN projects pr ON p.project_id = pr.id
+       LEFT JOIN qsheet_programs qp ON p.qsheet_program_id = qp.id
        WHERE p.deleted_at IS NULL ${filter}
        ORDER BY p.updated_at DESC`,
       params
@@ -71,9 +73,11 @@ router.get('/', ...canRead, async (req, res) => {
 router.get('/:id', ...canRead, async (req, res) => {
   try {
     const row = await queryOne(
-      `SELECT p.*, pr.name AS project_name, pr.gls_number
+      `SELECT p.*, pr.name AS project_name, pr.gls_number,
+              qp.name AS qsheet_program_name
        FROM liveops_programs p
        LEFT JOIN projects pr ON p.project_id = pr.id
+       LEFT JOIN qsheet_programs qp ON p.qsheet_program_id = qp.id
        WHERE p.id = $1 AND p.deleted_at IS NULL`,
       [req.params.id]
     );
@@ -192,6 +196,76 @@ router.post('/resolve-by-project/:projectId', ...canRead, async (req, res) => {
     const row = await queryOne(
       'SELECT id FROM liveops_programs WHERE project_id = $1 AND deleted_at IS NULL',
       [projectId]
+    );
+    if (!row) {
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+    res.json({ success: true, data: { id: (row as any).id } });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// 上の resolve-by-project の「独自作成の番組（マニュアル）」（`qsheet_programs`。
+// migration 227）版。対になるエンドポイント — 唯一の違いは owner 列が
+// `project_id` ではなく `qsheet_program_id`（migration 237）であること。
+// ⚠️ ゲート・新規作成時の manager 要求はすべて resolve-by-project と同じ基準にそろえる。
+router.post('/resolve-by-program/:programId', ...canRead, async (req, res) => {
+  try {
+    const { programId } = req.params;
+
+    const existing = await queryOne(
+      'SELECT id FROM liveops_programs WHERE qsheet_program_id = $1 AND deleted_at IS NULL',
+      [programId]
+    );
+    if (existing) {
+      return res.json({ success: true, data: { id: (existing as any).id } });
+    }
+
+    // ここから先は新規作成（INSERT）。reader/editor には作らせない — manager 以上が必要。
+    const authUser = (req as any).user;
+    if (!meetsPermissionLevel(authUser?.role, authUser?.permissions?.['qsheet'], 'manager')) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      const error = isProduction
+        ? { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' }
+        : {
+            code: 'FORBIDDEN',
+            message: 'このモジュールへのアクセス権限がありません',
+            debug: {
+              requiredModule: 'qsheet',
+              requiredMinLevel: 'manager',
+              userRole: authUser?.role,
+              userLevel: authUser?.permissions?.['qsheet'] ?? null,
+            },
+          };
+      return res.status(403).json({ success: false, error });
+    }
+
+    const program = await queryOne(
+      'SELECT name FROM qsheet_programs WHERE id = $1 AND deleted_at IS NULL',
+      [programId]
+    );
+    if (!program) {
+      return res.status(404).json({ success: false, message: 'Program not found' });
+    }
+
+    const id = uuidv4();
+    const userId = (req as any).user?.id;
+    const inserted = await queryOne(
+      `INSERT INTO liveops_programs (id, name, qsheet_program_id, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (qsheet_program_id) WHERE qsheet_program_id IS NOT NULL AND deleted_at IS NULL DO NOTHING
+       RETURNING id`,
+      [id, (program as any).name, programId, userId]
+    );
+    if (inserted) {
+      return res.status(201).json({ success: true, data: { id: (inserted as any).id } });
+    }
+
+    // 同時実行で他のリクエストが先に作った。もう一度 SELECT すれば必ず1件だけ見つかる。
+    const row = await queryOne(
+      'SELECT id FROM liveops_programs WHERE qsheet_program_id = $1 AND deleted_at IS NULL',
+      [programId]
     );
     if (!row) {
       return res.status(500).json({ success: false, message: 'Internal server error' });
