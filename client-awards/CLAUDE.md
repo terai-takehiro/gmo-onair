@@ -48,9 +48,27 @@
 - CG の配色・書体は `src/cg/cg.css` と `src/oneshot/styles/tokens.css` に独立して持っている
 - `src/components/ui/` が無く、部品を自前で持っている
 
-## 未確認事項
+## デモ用ダミーデータ（`server/src/shared/db/seed-awards.ts`）
 
-このセッションでは型検査・ビルド（`client-awards` の `tsc -b && vite build`、`server` の
-型検査・`tsc`）までは確認したが、**実サーバーを起動して `/awards/*` に実際にアクセスできることは
-未確認**。復活時点でコードそのものは変えていないため動くはずだが、廃止していた期間に
-`shared` 側や DB スキーマが変わっていないかは別途確認したほうがよい。
+復活させても DB が空のままでは URL を開いても何も映らないため、他の `seed-*.ts`
+（`seed-subapps.ts` / `seed-tasks.ts` 等）と同じ仕組みでダミーデータの投入スクリプトを
+新設した（開発・検証環境の起動時に自動実行。本番は既存の仕組みどおり `SKIP_SEED=true`
+のため入らない。手動投入は `npm run db:seed:awards -w server`）。
+
+- **イベント3件**: 開催中 (`live`) の「GMO ONAiR AWARDS 2026」・終了済み (`closed`) の
+  「GMO ONAiR AWARDS 2025」・準備中 (`draft`) の「第3回 GMO ONAiR AWARDS」
+- **カテゴリ9本**（直接選出 `direct` 7本・投票 `vote` 2本）・**エントリ計37件**
+- **クイズ2問**（正誤つき `quiz` モード1・投票のみ `survey` モード1、選択肢に投票数も投入）
+- 開催中イベント (`event_id=1`) は `awards_cue_state`（`step='nominees'`）・
+  `awards_oneshot_cue_state`（`is_live=true`）もあらかじめ「表示中」まで進めてあるので、
+  `/awards/output/*` を開いた瞬間から実際の画面が見える
+- `awards_events` に既にデータがあれば何もしない（冪等・既存データは壊さない）
+
+## 検証状況
+
+型検査・ビルド（`client-awards` の `tsc -b && vite build`、`server` の型検査・`tsc`）に加え、
+実サーバー（検証用Postgres）を起動して確認済み: `seed-awards.ts` の投入と再実行時のスキップ、
+`GET /awards/events`・`/events/:id`・`/events/:id/cg-status`（`ranking.live=true`・
+`oneshot.live=true` を確認）・認証なしの公開エンドポイント `/events/:id/output` がダミーデータを
+返すこと、`/awards/*`・`/awards/output/1` が200で返ること。Socket.IO・`interactive-poller` も
+正常起動を確認済み。**実ブラウザでの操作確認（CGコックピット・出力画面の見た目）は未実施。**

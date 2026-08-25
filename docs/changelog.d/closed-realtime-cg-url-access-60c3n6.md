@@ -2,4 +2,6 @@
 2026-08〜「廃止」（サーバー配信・API・Socket.IO・ビルド対象・トップページの入口をすべて外し、Webサイトのどこからも到達できない状態）にしていたが、`docs/v4-plan.md` の用語でいう一段手前の「凍結」（URLは生かすが、トップページのタイル・アプリ切替・左メニューには出さない）へ戻した。
 `client-awards/CLAUDE.md` の「復活させたいとき」に書かれていた手順のうち、`server/src/app.ts` の `serveApp('/awards', …)`・`server/src/routes/index.ts` の `createAwardsRoutes()`/`createQuizRoutes()`・`server/src/index.ts` の `initAwardsSocketIO()`/`initQuizSocketIO()`/`initInteractivePoller()`・`Dockerfile` の `build-client-awards` ステージと `production` への `COPY` の4点を戻した。
 `client/.../home/AppTiles.tsx` の `EVENT_KEYS` へ `awards` を戻す5点目だけは行わず、トップページのタイル・アプリ切替・左メニューには出さないままにした（コード自体も frozen:true のままのため、これらの画面には元々出ない）。ホームタイルにも出したい場合は別途対応が必要。
-検証: `client-awards` の型検査・`vite build`、`server` の型検査・`tsc` ビルドが通ることを確認済み（実サーバー起動・実ブラウザでの `/awards/*` アクセス確認はこのセッションからは未実施）。
+**デモ用のダミーデータも投入した**（ユーザー要望「PRの前にデモンストレーションが可能な完全なダミーデータをある程度のボリュームで格納しておいてほしい」）。復活させても DB が空のままでは URL を開いても何も映らなかったため、他の `seed-*.ts` と同じ仕組みで `server/src/shared/db/seed-awards.ts` を新設し、開発・検証環境の起動時に自動投入されるようにした（本番は既存の仕組みどおり `SKIP_SEED=true` のため入らない）。イベント3件（開催中 `live`・終了済み `closed`・準備中 `draft` の3状態）・カテゴリ9本（直接選出 `direct` 7本・投票 `vote` 2本）・エントリ計37件、クイズ2問（正誤つき `quiz` モード1・投票のみ `survey` モード1、選択肢に投票数も投入）を用意した。開催中イベントは `awards_cue_state`・`awards_oneshot_cue_state` もあらかじめ「表示中」の状態まで進めてあるため、`/awards/*` を開いた瞬間から実際の画面が見える。
+
+検証: `client-awards`・`server` の型検査・ビルドに加え、実サーバー（検証用Postgres）を起動して `seed-awards.ts` の投入と再実行時のスキップ（冪等性）、`/awards/events`・`/events/:id`・`/events/:id/cg-status`・公開用 `/events/:id/output`（認証なし）が投入したダミーデータを正しく返すこと、`/awards/output/1` が200で返ることを確認済み。

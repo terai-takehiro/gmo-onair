@@ -6,6 +6,7 @@ import { runMigrations } from './shared/db/migrate';
 import { seed } from './shared/db/seed';
 import { seedSubApps } from './shared/db/seed-subapps';
 import { seedTasks } from './shared/db/seed-tasks';
+import { seedAwards } from './shared/db/seed-awards';
 import { seedRental } from './shared/db/seed-rental';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './shared/socket';
@@ -43,6 +44,9 @@ async function main() {
     });
     await seedTasks().catch((err) => {
       console.warn('[seed-tasks] warn:', err?.message ?? err);
+    });
+    await seedAwards().catch((err) => {
+      console.warn('[seed-awards] warn:', err?.message ?? err);
     });
     // ⚠️ SKIP_RENTAL_SEED=true の環境（検証VPSの app_dev）では飛ばす。
     // rental_scraper_dev コンテナが実際のクロール結果を qsheet_rental_items へ
