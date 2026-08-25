@@ -1,1 +1,0 @@
-**PR #429（見積のアーカイブ・請求書Excel出力・財務一覧の案件リンクを直した）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分2秒、CI green から約27分57秒（作成から約29分59秒）でterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
