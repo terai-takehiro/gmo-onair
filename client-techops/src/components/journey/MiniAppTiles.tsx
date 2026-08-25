@@ -101,23 +101,19 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       to: panelPathOf("rental", id),
       count: rentalCount,
     },
-    // 計時・視聴者（liveops）は scope === "project" のときだけ出す（12-live-timer-decision.md
-    // §3-1）。liveops_programs.project_id は projects テーブルのみを指し、qsheet 独自の
-    // 「番組（マニュアル）」（scope === "program"）には対応しないため。運用画面が
-    // client-techops バンドル内（kind: 'panel'）へ移植されたため、他のミニアプリと同じ
-    // <Link> + panelPathOf で出す（ミニアプリ化フェーズ2・ExternalMiniAppLink は廃止した）。
-    ...(scope === "project"
-      ? [
-          {
-            key: "liveops",
-            label: MINI_APP_BY_KEY.liveops.label,
-            description: "タイマー・視聴者数",
-            icon: Timer,
-            to: panelPathOf("liveops", id),
-            count: null,
-          },
-        ]
-      : []),
+    // 計時・視聴者（liveops）。liveops_programs は project_id / qsheet_program_id の
+    // 両方（migration 237）から owner を引けるため、scope === "project" / "program" の
+    // どちらでも出す（12-live-timer-decision.md §3-5 の「既知の空白」は migration 237 で解消）。
+    // 運用画面が client-techops バンドル内（kind: 'panel'）へ移植されたため、他のミニアプリと
+    // 同じ <Link> + panelPathOf で出す（ミニアプリ化フェーズ2・ExternalMiniAppLink は廃止した）。
+    {
+      key: "liveops",
+      label: MINI_APP_BY_KEY.liveops.label,
+      description: "タイマー・視聴者数",
+      icon: Timer,
+      to: panelPathOf("liveops", id),
+      count: null,
+    },
   ];
 
   return (

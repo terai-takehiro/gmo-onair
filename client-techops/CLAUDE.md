@@ -153,17 +153,21 @@
 - **番組設定（`LiveProgramSettingsPage.tsx`）は案件単位。** 旧 `ProgramsPage.tsx` の
   移植で、ダッシュボードと同じ `useLiveProgram` で owner 解決する。スマホでも開く
   （旧 `client-live` 版と同じ判断）
-- **`scope === 'project'` のときだけ開ける。** `scope === 'program'`（qsheet 独自の
-  「番組（マニュアル）」）には対応しない — `liveops_programs.project_id` が
-  `projects` テーブルだけを指すため（09完全統合案にも解決策が無い既知の空白。
-  §3-5）。`useLiveProgram`（`pages/live/useLiveProgram.ts`）がこの判定と
-  「取得または作成」（`POST /liveops/programs/resolve-by-project/:projectId`）を
-  1か所にまとめている（旧 `client-live` の `OpenByProjectPage.tsx` の役割をこの
-  画面自身に統合したもの）。⚠️ **このルートのゲートは `qsheet` の `reader`**（既存
-  program の取得までは reader/editor でも通る）。**「まだ program が無い」ときの
-  新規作成（INSERT）だけ**、ハンドラ内で手動に `qsheet` の `manager` を要求する
-  2段構え（v4.1 段2 レビュー対応。着手時は `canWrite`＝manager 固定で、reader/editor は
-  既存セッションの閲覧すら常に 403 だった）
+- **`scope === 'project'` と `scope === 'program'`（qsheet 独自の「番組（マニュアル）」）
+  の両方で開ける**（2026-08-25・migration 237）。以前は `liveops_programs.project_id` が
+  `projects` テーブルだけを指すFKで、`scope === 'program'` は「09完全統合案にも解決策が
+  無い既知の空白」として対応していなかった（§3-5）——「独自に番組作成をした際に計時タイマーが
+  表示されない」というユーザー指摘で、`liveops_programs.qsheet_program_id`（migration 237。
+  `project_id` とは同時に持たない CHECK）を足して埋めた。`useLiveProgram`
+  （`pages/live/useLiveProgram.ts`）が owner の `kind` に応じて「取得または作成」
+  （`project` → `POST /liveops/programs/resolve-by-project/:projectId`・`program` →
+  `POST /liveops/programs/resolve-by-program/:programId`）を呼び分ける（旧 `client-live` の
+  `OpenByProjectPage.tsx` の役割をこの画面自身に統合したもの）。`MiniAppTiles.tsx` の
+  計時・視聴者タイルも scope を問わず出すようにした。⚠️ **どちらのルートもゲートは
+  `qsheet` の `reader`**（既存 program の取得までは reader/editor でも通る）。
+  **「まだ program が無い」ときの新規作成（INSERT）だけ**、ハンドラ内で手動に `qsheet` の
+  `manager` を要求する2段構え（v4.1 段2 レビュー対応。着手時は `canWrite`＝manager 固定で、
+  reader/editor は既存セッションの閲覧すら常に 403 だった）
 - **部品は `components/live/` に複製した。** `TimerDisplay` / `TimerControls` /
   `TimerSettingsPanel` / `ViewerCard` / `ViewerChart` / `chartUtils` / `format`
   （`formatTimer`/`formatCount`）— `client-live` 側の同名部品の移植（ロジック・
@@ -180,8 +184,10 @@
   （このバンドル側にセッション一覧・**新規**スタンドアロン作成の相当画面は移植していない）
   - ⚠️ **「新規作成の廃止」と「既存データへの UI 到達を失わせること」は別**
     （現場運用レビューでの指摘・GROUND_RULES §致命的2）。セッション一覧の廃止で、
-    案件に紐づかない**既存**の `liveops_programs`（`project_id IS NULL`）へ到達する
-    画面がどこにも無くなっていた——旧URLの案内文「案件から開き直してください」も
+    案件にも番組にも紐づかない**既存**の `liveops_programs`（`project_id IS NULL`。
+    migration 237 で `qsheet_program_id` も足したいまは `qsheet_program_id IS NULL` も
+    合わせて見る必要がある——`LiveLegacyProgramsPage.tsx` の絞り込みも両方 NULL
+    で判定する）へ到達する画面がどこにも無くなっていた——旧URLの案内文「案件から開き直してください」も
     実行不可能だった（案件から開くと別の新しい program が作られるだけ）。
     `pages/live/LiveLegacyProgramsPage.tsx`（`/techops/live-legacy`。qsheet manager
     限定・`TECHOPS_PC_ONLY`）でこの一覧だけを復活させた。**新規作成ボタンは無い** —

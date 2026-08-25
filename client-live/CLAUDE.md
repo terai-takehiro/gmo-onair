@@ -54,7 +54,12 @@ PR-B（ミニアプリとしての導線追加と同じPR）で「計時LIVE」�
   には二度と辿り着けなくなる。いまは `client-qsheet` 側に復活させた管理者向け一覧
   （`/qsheet/live-legacy`・下記「セッション一覧」参照）へ、この program を
   あらかじめ選択した状態（`?program=<id>`）で `redirect` する（`blocked` ではなく
-  実際に辿り着ける行き先を返す）。`RedirectOnce` は同一バンドル内専用（react-router の
+  実際に辿り着ける行き先を返す）。
+  ⚠️ **migration 237 で `qsheet_program_id`（独自作成の番組）が増えた後は、`project_id` が
+  無いだけでは「案件に紐づかない」とは限らない。** `useLegacyProgramRedirect.ts` は
+  `project_id` が無くても `qsheet_program_id` があれば `/techops/live/:qsheetProgramId`
+  （通常の新URL）へ送り、両方無いときだけ `live-legacy` へ送るよう分岐している。
+  `RedirectOnce` は同一バンドル内専用（react-router の
   `navigate()`）なので使えず、すべて `window.location.replace()` によるハード遷移
   （`pages/redirects/RedirectStatus.tsx`）
 - **`DashboardPage.tsx`/`TimerAdminPage.tsx`/`ProgramsPage.tsx`/`SettingsPage.tsx`/
