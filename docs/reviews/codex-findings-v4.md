@@ -1532,6 +1532,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   次の版→アーカイブ→一覧から消える→表示切替→解除・Excel出力の200＋有効なxlsx・
   権限のない利用者で403）は確認済みだが、⚠️ **実ブラウザでのクリック確認はこの開発
   セッションから行っていない**（PR本文に明記済み・`npm run verify:ui` も未実施）。
+- **#432（制作技術支援で独自作成の番組の計時タイマーが表示されない不具合を直した・2026-08-26）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 00:01:25 JST /
+  CI（`checks`/`build`）両方 green 00:03:15 JST / マージ 00:04:52 JST（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約1分37秒でマージ**しており、#412・
+  #415〜#424・#429 と同じ「見る前に入った」形。`npm run reviews:debt` は今回も401で使えず、
+  GitHub MCP で直接確認した。ユーザー指摘「制作技術支援で独自に番組作成をした際に計時
+  タイマーのアプリが表示されない」に対応。原因は `liveops_programs.project_id` が
+  `projects` テーブルのみを参照するFKで、案件に紐づかない「独自作成の番組」
+  （`qsheet_programs`）に対応する列が存在しなかったこと（`12-live-timer-decision.md` §3-5
+  に「既知の空白」として明記済みだった）。`liveops_programs.qsheet_program_id`
+  （migration 237・`project_id` とは同時に持たないCHECK）を追加し、対になる
+  `resolve-by-program` エンドポイント・`useLiveProgram.ts`・`MiniAppTiles.tsx` の
+  scope分岐を対応させた。表に移す指摘はない（レビュー自体が届いていないため）。
+  実DB（`npm run verify:up`）で番組作成→owner解決→`resolve-by-program`→冪等性・
+  CHECK制約・ユニーク制約・権限ゲート（reader可・初回作成はmanager必須）まで確認済み
+  だが、⚠️ **実ブラウザでのクリック確認はこの開発セッションから行っていない**
+  （PR本文に明記済み）。
 - **#433（廃止したリアルタイムCGをURLアクセス可能に戻し、デモ用ダミーデータを投入・
   2026-08-26）** — `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、
   作成 00:01:46 JST / CI（`checks`/`build`）両方 green 00:04:26 JST / マージ 00:05:04 JST
