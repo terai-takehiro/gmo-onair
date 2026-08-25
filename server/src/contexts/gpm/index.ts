@@ -285,10 +285,11 @@ export function createGpmRoutes(): Router {
    * `salesOverview`（返事待ち）と `billing.routes`（一覧）の2か所を実測して塞いだ
    * （migration 179 からは、どちらも `gls_category = 'A'` で絞っている）。
    */
+  // ?include_archived=1 でアーカイブした版も含める（案件側と同じ規則。migration 236）
   router.get('/projects/:id/estimates', ...canRead, async (req, res) => {
     const id = String(req.params.id);
     await assertGpmProject(id);
-    const rows = await estimateService.listByProject(id);
+    const rows = await estimateService.listByProject(id, req.query.include_archived === '1');
     // 「あなたは承認できるか」はサーバーが決める（押して 403 にしない）
     res.json({ success: true, data: await withCanApprove(rows, req.user!.id, canEditGpm(req)) });
   });
@@ -387,6 +388,28 @@ export function createGpmRoutes(): Router {
     }
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     res.json({ success: true, data: await estimateService.replaceItems(id, items) });
+  });
+
+  /**
+   * アーカイブ／解除。**案件と同じサービス**（`estimateService.archive`/`unarchive`）を呼ぶ。
+   * `status` は触らないので `isGpmProject` の確かめだけで十分（`items` の PUT と同じ形）。
+   */
+  router.post('/estimates/:id/archive', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await estimateService.getById(id);
+    if (!row || !(await isGpmProject(row.project_id))) {
+      throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    }
+    res.json({ success: true, data: await estimateService.archive(id, req.user!.id) });
+  });
+
+  router.post('/estimates/:id/unarchive', ...canEdit, async (req, res) => {
+    const id = String(req.params.id);
+    const row = await estimateService.getById(id);
+    if (!row || !(await isGpmProject(row.project_id))) {
+      throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    }
+    res.json({ success: true, data: await estimateService.unarchive(id, req.user!.id) });
   });
 
   /**

@@ -92,6 +92,8 @@ export interface Estimate {
   revenue_id: string | null;
   notes: string | null;
   updated_at: string;
+  /** アーカイブした日時。`null` なら一覧に出る（migration 236） */
+  archived_at: string | null;
   items?: EstimateItem[];
 }
 
@@ -99,7 +101,7 @@ const SELECT_ESTIMATE = `
   SELECT id, project_id, submit_to, customer_id, group_id, version, title, status,
          tax_category, subtotal, discount, valid_until,
          approval_state, approved_by, approved_at,
-         sent_at, decided_at, revenue_id, notes, created_at, updated_at
+         sent_at, decided_at, revenue_id, notes, archived_at, created_at, updated_at
   FROM estimates
 `;
 
@@ -297,10 +299,17 @@ export async function withCanApprove<T extends Estimate>(
 }
 
 export const estimateService = {
-  /** 案件の見積を新しい版から順に。**版はまとめず全部返す** (履歴を見るのが目的) */
-  async listByProject(projectId: string): Promise<Estimate[]> {
+  /**
+   * 案件の見積を新しい版から順に。**版はまとめず全部返す** (履歴を見るのが目的)
+   *
+   * **既定はアーカイブした版を除く。** 版を重ねるほど一覧に古い版が積み上がり、
+   * 見たい版（最新の draft・sent）が埋もれるため、`archived_at` を立てた版は
+   * `includeArchived: true` を渡したときだけ返す（画面の「アーカイブした版を表示」）。
+   */
+  async listByProject(projectId: string, includeArchived = false): Promise<Estimate[]> {
     return (await queryAll(
       `${SELECT_ESTIMATE} WHERE project_id = $1 AND deleted_at IS NULL
+       ${includeArchived ? '' : 'AND archived_at IS NULL'}
        ORDER BY group_id, version DESC`,
       [projectId]
     )) as unknown as Estimate[];
@@ -660,6 +669,39 @@ export const estimateService = {
       `UPDATE estimates SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
       [id, userId]
     );
+  },
+
+  /**
+   * アーカイブする。**一覧から隠すだけ**（レビューでの指摘に先回り — `remove` と混同しないこと）。
+   *
+   * `status` はここでは一切触らない。アーカイブは「一覧に出すか」だけの直交した印で、
+   * 送付済み・受注済みの版をアーカイブしても、送った記録（`sent`）そのものは変わらない。
+   * 何度呼んでも同じ状態に収まるよう `WHERE archived_at IS NULL` は付けない
+   * （すでにアーカイブ済みでも 400 にせず、`archived_at` を今の時刻に更新するだけ）。
+   */
+  async archive(id: string, userId: string): Promise<Estimate> {
+    const est = await queryOne(
+      `SELECT id FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [id],
+    );
+    if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    await execute(
+      `UPDATE estimates SET archived_at = NOW(), updated_at = NOW(), updated_by = $2 WHERE id = $1`,
+      [id, userId],
+    );
+    return (await this.getById(id))!;
+  },
+
+  /** アーカイブを解く。一覧に戻す。 */
+  async unarchive(id: string, userId: string): Promise<Estimate> {
+    const est = await queryOne(
+      `SELECT id FROM estimates WHERE id = $1 AND deleted_at IS NULL`, [id],
+    );
+    if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    await execute(
+      `UPDATE estimates SET archived_at = NULL, updated_at = NOW(), updated_by = $2 WHERE id = $1`,
+      [id, userId],
+    );
+    return (await this.getById(id))!;
   },
 
   /**

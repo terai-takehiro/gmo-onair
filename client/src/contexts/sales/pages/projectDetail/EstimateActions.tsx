@@ -5,7 +5,7 @@
  * **PC の `Row` とスマホのカードで同じものを呼ぶ** — 写すと、片方だけ
  * ボタンを足し忘れたり条件がずれたりする（他のタブと同じ理由）。
  */
-import { Copy, Send, Trash2, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { Copy, Send, Trash2, CheckCircle2, XCircle, ArrowRight, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -20,10 +20,12 @@ export interface EstimateForActions {
   subtotal: number;
   discount: number;
   revenue_id: string | null;
+  /** アーカイブした日時。`null`/未設定なら一覧に出る（migration 236） */
+  archived_at?: string | null;
 }
 
 export function EstimateActions({
-  e, base, onSetStatus, onConvert, onNextVersion, onRemove,
+  e, base, onSetStatus, onConvert, onNextVersion, onRemove, onArchive, onUnarchive,
 }: {
   e: EstimateForActions;
   base: string;
@@ -31,6 +33,8 @@ export function EstimateActions({
   onConvert: () => void;
   onNextVersion: () => void;
   onRemove: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -80,6 +84,18 @@ export function EstimateActions({
       <Button variant="outline" size="sm" title="この版を写して次の版をつくる" onClick={onNextVersion}>
         <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
+      {/* **アーカイブは消すのとは別**（`status` を変えない・記録はそのまま）。
+          送付済み・受注済みの版も「もう見ない版を一覧から隠す」だけなら
+          いつでもできる — `status` の分岐に関係なく常に出す */}
+      {e.archived_at ? (
+        <Button variant="outline" size="sm" title="一覧に戻す" onClick={onUnarchive}>
+          <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" title="アーカイブする（一覧から隠す。消えません）" onClick={onArchive}>
+          <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      )}
       {/* ⚠️ **消せるのは下書きだけ**（レビューでの指摘 #50）。
           `revenue_id` が無いことだけを見ていたので、**出した版・受注した版・
           差し替え済みの版まで消せました** — 送った見積はお客様に渡した記録で、

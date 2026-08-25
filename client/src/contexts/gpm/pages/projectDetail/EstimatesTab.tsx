@@ -31,7 +31,7 @@
  * 他のタブ（工程・未確認事項・書類）と同じ `stackOnMobile` を足して縦積みにした。
  */
 import { useState } from 'react';
-import { FileText, Plus, Loader2 } from 'lucide-react';
+import { FileText, Plus, Loader2, Archive, ArchiveRestore } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -68,11 +68,26 @@ const STATUS_LABEL: Record<GpmEstimate['status'], string> = {
 };
 
 export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
-  const query = useGpmEstimates(projectId);
+  // **既定はアーカイブした版を隠す**（案件の見積タブ・サーバーの既定と揃える。migration 236）
+  const [showArchived, setShowArchived] = useState(false);
+  const query = useGpmEstimates(projectId, showArchived);
+  const invalidate = useInvalidateGpm();
   const [adding, setAdding] = useState(false);
   /** 明細を開いている見積。**一覧には明細を積まない**ので、開いたときだけ引く */
   const [openId, setOpenId] = useState<string | null>(null);
   const rows = query.data ?? [];
+
+  /** 一覧から隠すだけ。`status` は変えない（消すのとは別。案件の見積タブと同じ規則） */
+  const archive = useMutation({
+    mutationFn: (id: string) => api.post(`/gpm/estimates/${id}/archive`),
+    onSuccess: () => { invalidate(projectId); notifySuccess('アーカイブしました（一覧から隠しただけです。消えていません）'); },
+    onError: (e) => notifyApiError('アーカイブできませんでした', e),
+  });
+  const unarchive = useMutation({
+    mutationFn: (id: string) => api.post(`/gpm/estimates/${id}/unarchive`),
+    onSuccess: () => { invalidate(projectId); notifySuccess('アーカイブを解除しました'); },
+    onError: (e) => notifyApiError('アーカイブを解除できませんでした', e),
+  });
 
   // **旧版も出す。** 「いくらで出して、いくらで決まったか」を追うための表なので、
   // 差し替え済みの版を隠すと version が飛んで読めなくなる（案件側の一覧とは目的が違う）
@@ -103,6 +118,15 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         )}
       </div>
 
+      <button
+        type="button"
+        onClick={() => setShowArchived((v) => !v)}
+        className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
+      >
+        <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+        {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
+      </button>
+
       {/* 承認待ちは一覧の上に出す（案件の見積タブと同じ部品・同じ規則） */}
       {(rows).filter(needsApproval).map((e) => (
         <ApprovalNotice key={`approval-${e.id}`} estimate={e} base="/gpm/estimates"
@@ -131,7 +155,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
             {/* 金額は右寄せ。**列見出しも右に寄せる** — 値が右端でそろっているのに
                 見出しだけ左端にあると、どの列の見出しなのかが読み取れない */}
             <RowSlot w={128} align="right">金額</RowSlot>
-            <RowSlot w={56} align="right" placeholder="" />
+            <RowSlot w={96} align="right" placeholder="" />
           </RowHeader>
           {rows.map((e) => (
             <Row
@@ -161,6 +185,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                   v{e.version}
                   {e.valid_until && ` ・ 有効期限 ${e.valid_until}`}
                   {e.status === 'superseded' && ' ・ 次の版に差し替え済み'}
+                  {e.archived_at && ' ・ アーカイブ済み'}
                 </RowSub>
               </RowMain>
               <RowSlot w={72}>
@@ -177,8 +202,26 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                   紙で確かめたい場面が多く、状態で隠すといちばん要るときに押せない。
                   押すと**社外と共有するフォルダの `01_見積・提案`** にも入る
                   （行き先は `doc-box-dest.ts` の1つの表・案件と共用）*/}
-              <RowSlot w={56} align="right" placeholder="">
+              <RowSlot w={96} align="right" placeholder="" className="gap-1">
                 <DocPdfButton path={`/gpm/estimates/${e.id}/pdf`} kind="estimate" />
+                {/* **アーカイブは行を開くクリックと別**（`stopPropagation` が無いと
+                    ボタンを押した瞬間に行が開閉してしまう）。`status` は変えない —
+                    「もう見ない版を一覧から隠す」だけの操作 */}
+                {e.archived_at ? (
+                  <Button
+                    variant="outline" size="sm" title="一覧に戻す"
+                    onClick={(ev) => { ev.stopPropagation(); unarchive.mutate(e.id); }}
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline" size="sm" title="アーカイブする（一覧から隠す。消えません）"
+                    onClick={(ev) => { ev.stopPropagation(); archive.mutate(e.id); }}
+                  >
+                    <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                )}
               </RowSlot>
             </Row>
           ))}

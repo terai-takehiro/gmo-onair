@@ -64,6 +64,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
+import { DocExcelButton } from '@/contexts/shared/components/DocExcelButton';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -77,10 +78,11 @@ import type { Revenue, Purchase, Vendor } from '@gmo-onair/shared/src/types';
  */
 function DocButtons({ revenueId }: { revenueId: string }) {
   return (
-    <RowSlot w={96} align="right" className="gap-1">
+    <RowSlot w={160} align="right" className="gap-1">
       {(['invoice', 'inspection'] as const).map((type) => (
         <DocPdfButton key={type} path={`/revenues/${revenueId}/pdf`} kind={type} params={{ type }} />
       ))}
+      <DocExcelButton revenueId={revenueId} />
     </RowSlot>
   );
 }
@@ -229,7 +231,7 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
               <RowSlot w={96}>計上月</RowSlot>
               <RowSlot w={128} align="right">金額</RowSlot>
               <RowSlot w={96}>状態</RowSlot>
-              <RowSlot w={96} align="right">帳票</RowSlot>
+              <RowSlot w={160} align="right">帳票</RowSlot>
             </RowHeader>
             {revenueRows.map((r) => (
               <Row key={r.id} divider stackOnMobile align="center">

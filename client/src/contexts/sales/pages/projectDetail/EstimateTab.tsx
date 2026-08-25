@@ -32,29 +32,34 @@
  * だけ）からカード積みに作り直しました。明細の入力欄（`EstimateItems`）は
  * 手を入れていません — そこは6列の数値入力欄の並びで、375pxに収める作り直し
  * よりPCで入力するほうが理にかなっています。
+ *
+ * ── 版の一覧の描画は `EstimateVersionList.tsx` に分離した ────────────
+ *
+ * アーカイブ機能（`archived_at`・migration 236）を足したところで
+ * このファイルが400行を超えたため、PC表／スマホカードの描画部分
+ * （データ取得・ミューテーションの定義はここに残したまま）だけを
+ * 切り出した。`Estimate` 型・`STATUS_LABEL`/`STATUS_TONE` はこのファイルが
+ * 正で `export` している——2か所に持つと版の状態の色分けがずれる。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Receipt, Wallet } from 'lucide-react';
+import { Plus, Receipt, Wallet, Archive } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input as TextInput } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Money } from '@gmo-onair/shared/src/client/ui/money';
-import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { RevenueBillingPane } from './RevenueBillingPane';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
-import { EstimateActions, type EstimateStatus as Status } from './EstimateActions';
+import { type EstimateStatus as Status } from './EstimateActions';
+import { EstimateVersionList } from './EstimateVersionList';
 import type { ProjectDetail } from './types';
 import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
 
-interface Estimate {
+export interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
   subtotal: number; discount: number; sent_at: string | null;
   /** 見積全体の備考。行の備考（`item_notes`）とは別（migration 138 の既存列） */
@@ -67,13 +72,15 @@ interface Estimate {
   is_approver?: boolean;
   /** 受注して売上に変換したときの行。追跡用（migration 138）。無ければ未変換 */
   revenue_id: string | null;
+  /** アーカイブした日時。`null` なら一覧に出る（migration 236） */
+  archived_at?: string | null;
   items?: Item[];
 }
 
-const STATUS_LABEL: Record<Status, string> = {
+export const STATUS_LABEL: Record<Status, string> = {
   draft: '作成中', sent: '提出済', accepted: '受注', rejected: '失注', superseded: '旧版',
 };
-const STATUS_TONE: Record<Status, string> = {
+export const STATUS_TONE: Record<Status, string> = {
   draft: 'border-transparent bg-muted text-muted-foreground',
   sent: 'border-transparent bg-primary-surface text-primary',
   accepted: 'border-transparent bg-success-surface text-success',
@@ -121,6 +128,10 @@ function EstimateMetaCard({
 export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
   const [openId, setOpenId] = useState<string | null>(null);
+  // **既定はアーカイブした版を隠す**（サーバーの既定と揃える）。「アーカイブした版を
+  // 表示」を押すと `include_archived=1` を付けて引き直す — 版が増えるほど古い版が
+  // 一覧に積み上がって見たい版（最新の draft・sent）が埋もれるのを防ぐための機能
+  const [showArchived, setShowArchived] = useState(false);
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
@@ -130,11 +141,14 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // reader にもボタンが出て「押せるのに 403」になる
   const canEdit = hasPermission('sales', 'editor');
   const base = `/projects/${project.id}/estimates`;
+  // **`showArchived` は鍵に含めない。** `invalidateQueries({ queryKey: ['estimates', project.id] })`
+  // は前方一致で両方の鍵（表示あり／なし）を落とすので、鍵を分けても取りこぼしは無いが、
+  // 呼び出し側を増やさないためにここは1本のまま揃える
   const invalidate = () => qc.invalidateQueries({ queryKey: ['estimates', project.id] });
 
   const list = useQuery<Estimate[]>({
-    queryKey: ['estimates', project.id],
-    queryFn: async () => (await api.get(base)).data.data,
+    queryKey: ['estimates', project.id, showArchived],
+    queryFn: async () => (await api.get(base, { params: showArchived ? { include_archived: '1' } : undefined })).data.data,
     enabled: pane === 'estimate',
   });
 
@@ -188,6 +202,25 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     onError: (e) => notifyApiError('見積を消せませんでした', e),
   });
 
+  /** 一覧から隠すだけ。`status` は変えない（消すのとは別。migration 236） */
+  const archive = useMutation({
+    mutationFn: (id: string) => api.post(`${base}/${id}/archive`),
+    onSuccess: () => {
+      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
+      notifySuccess('アーカイブしました（一覧から隠しただけです。消えていません）');
+    },
+    onError: (e) => notifyApiError('アーカイブできませんでした', e),
+  });
+
+  const unarchive = useMutation({
+    mutationFn: (id: string) => api.post(`${base}/${id}/unarchive`),
+    onSuccess: () => {
+      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
+      notifySuccess('アーカイブを解除しました');
+    },
+    onError: (e) => notifyApiError('アーカイブを解除できませんでした', e),
+  });
+
   /**
    * 受注した見積を売上・請求 (`revenues`) に登録する。
    * migration 138 が予告していたまま行き先が無かった変換（`estimate.service.ts` 参照）。
@@ -220,6 +253,17 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           </button>
         ))}
       </div>
+
+      {pane === 'estimate' && (
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
+        >
+          <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+          {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
+        </button>
+      )}
 
       {pane === 'revenue' ? (
         <RevenueBillingPane projectId={project.id} mobile={isMobile} />
@@ -263,84 +307,20 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
               onDone={() => list.refetch()} />
           ))}
 
-          {isMobile ? (
-            // **版1件＝カード1枚。** PC の `Row` は「版」「操作」を含む5列の表を
-            // 375px でも横に並べたまま `stackOnMobile` で潰していたため、右端
-            // 240px の操作ボタン群が折り返して行の高さが版ごとにばらついていた
-            <div className="flex flex-col gap-2">
-              {(list.data ?? []).map((e) => (
-                <div key={e.id} className="rounded-card flex flex-col gap-2.5 border border-border bg-card p-3.5">
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(openId === e.id ? null : e.id)}
-                    className="flex min-h-tap items-start gap-2.5 text-left"
-                  >
-                    <span className="text-list rounded-control-sm shrink-0 bg-surface-subtle px-1.5 py-0.5 font-number text-muted-foreground">
-                      v{e.version}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="text-list block truncate font-bold">{e.title || '名前のない見積'}</span>
-                      {e.sent_at && (
-                        <span className="text-sub-sm block text-muted-foreground">
-                          出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
-                        </span>
-                      )}
-                    </span>
-                    <TableBadge w={null} label={STATUS_LABEL[e.status]} className={cn('shrink-0', STATUS_TONE[e.status])} />
-                  </button>
-                  <Money value={e.subtotal - e.discount} className="text-list font-bold" />
-                  <EstimateActions
-                    e={e}
-                    base={base}
-                    onSetStatus={(status) => setStatus.mutate({ id: e.id, status })}
-                    onConvert={() => convertToRevenue.mutate(e.id)}
-                    onNextVersion={() => nextVersion.mutate(e.id)}
-                    onRemove={() => remove.mutate(e.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-card border border-border bg-card">
-              <RowHeader className="hidden sm:flex">
-                <RowSlot w={56}>版</RowSlot>
-                <RowMain>見積</RowMain>
-                <RowSlot w={128} align="right">金額（税抜）</RowSlot>
-                <RowSlot w={96}>状態</RowSlot>
-                <RowSlot w={240} align="right">操作</RowSlot>
-              </RowHeader>
-              {(list.data ?? []).map((e) => (
-                <Row key={e.id} divider interactive stackOnMobile align="center">
-                  <RowSlot w={56}>
-                    <span className="text-list font-number">v{e.version}</span>
-                  </RowSlot>
-                  <RowMain>
-                    {/* 高さは決めた段に乗せる (中身任せだと 39px になり、指でも押しにくい) */}
-                    <button type="button" onClick={() => setOpenId(openId === e.id ? null : e.id)} className="min-h-tap w-full text-left">
-                      <span className="text-list block truncate">{e.title || '名前のない見積'}</span>
-                      {e.sent_at && (
-                        <span className="text-sub-sm block text-muted-foreground">
-                          出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
-                        </span>
-                      )}
-                    </button>
-                  </RowMain>
-                  <Money value={e.subtotal - e.discount} className="text-sub w-32 shrink-0" />
-                  <TableBadge w={96} label={STATUS_LABEL[e.status]} className={STATUS_TONE[e.status]} />
-                  <RowSlot w={240} align="right" className="flex-wrap gap-1">
-                    <EstimateActions
-                      e={e}
-                      base={base}
-                      onSetStatus={(status) => setStatus.mutate({ id: e.id, status })}
-                      onConvert={() => convertToRevenue.mutate(e.id)}
-                      onNextVersion={() => nextVersion.mutate(e.id)}
-                      onRemove={() => remove.mutate(e.id)}
-                    />
-                  </RowSlot>
-                </Row>
-              ))}
-            </div>
-          )}
+          <EstimateVersionList
+            estimates={list.data ?? []}
+            isMobile={isMobile}
+            onToggleOpen={(id) => setOpenId(openId === id ? null : id)}
+            base={base}
+            statusLabel={STATUS_LABEL}
+            statusTone={STATUS_TONE}
+            onSetStatus={(id, status) => setStatus.mutate({ id, status })}
+            onConvert={(id) => convertToRevenue.mutate(id)}
+            onNextVersion={(id) => nextVersion.mutate(id)}
+            onRemove={(id) => remove.mutate(id)}
+            onArchive={(id) => archive.mutate(id)}
+            onUnarchive={(id) => unarchive.mutate(id)}
+          />
 
           {openId && detail.data && (
             <>

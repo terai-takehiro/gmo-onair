@@ -9,7 +9,7 @@
  *   金額（税抜） 128px  **￥は左端・数字は右端**
  *   期日         96px   入金の確認だけ。**超過は赤**
  *   状態         96px
- *   帳票         56px   請求書を出す／検収書を出す のタブだけ（下記）
+ *   帳票         96px   請求書を出す／検収書を出す のタブだけ（下記）
  *
  * ── 「帳票」列だけモックに無い ──────────────────────────────
  *
@@ -17,6 +17,9 @@
  * 相手に渡す紙はどこからも出せませんでした（v4 で PDF の口ごと落ちていた）。
  * 記録する画面で紙も出せないと、**別の画面を開き直して同じ行を探す**ことになります。
  * 押すと BOX の社内限りフォルダ `03_請求` にも入ります（`lib/docPdf.ts`）。
+ * **請求書 Excel（業務推進提出用）だけは BOX に入りません**
+ * （`downloadRevenueExcel`・`lib/docPdf.ts`）。2つ目のボタンぶん列を
+ * 56px→96px に広げた
  *
  * **入金の確認タブには出しません** — 入金は相手が払う話で、こちらが出す紙はありません。
  *
@@ -31,6 +34,7 @@ import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Check, Lock } from 'lucide-react';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
+import { DocExcelButton } from '@/contexts/shared/components/DocExcelButton';
 import type { ClosingRow, ClosingTab } from './types';
 
 /** `2026-08-31` → `08/31`。期日は月日だけで足りる */
@@ -76,7 +80,7 @@ export function ClosingRows({
         <RowSlot w={128} align="right">金額（税抜）</RowSlot>
         {tab === 'collect' && <RowSlot w={96}>入金期日</RowSlot>}
         <RowSlot w={96}>{tab === 'issue' ? '状態' : tab === 'collect' ? '入金' : '検収'}</RowSlot>
-        {tab !== 'collect' && <RowSlot w={56} align="right">帳票</RowSlot>}
+        {tab !== 'collect' && <RowSlot w={96} align="right">帳票</RowSlot>}
       </RowHeader>
 
       {rows.map((r) => {
@@ -151,12 +155,13 @@ export function ClosingRows({
             </RowSlot>
 
             {tab !== 'collect' && (
-              <RowSlot w={56} align="right">
+              <RowSlot w={96} align="right" className="gap-1">
                 <DocPdfButton
                   path={`/revenues/${r.id}/pdf`}
                   kind={tab === 'issue' ? 'invoice' : 'inspection'}
                   params={{ type: tab === 'issue' ? 'invoice' : 'inspection' }}
                 />
+                <DocExcelButton revenueId={r.id} />
               </RowSlot>
             )}
           </Row>
