@@ -1,33 +1,39 @@
-# リアルタイムCG — **廃止済み（コードのみ保存）**
+# リアルタイムCG — **凍結中（URLのみ・一覧には出さない）**
 
-ベースパス（廃止前）`/awards/`・ポート 5179。
+ベースパス `/awards/`・ポート 5179。
 
-## いまの状態（2026-08〜）
+## いまの状態（2026-08-25〜）
 
-このアプリは**機能として廃止した**。v4.0.0 の「凍結」（見た目は変えないが URL は生かす）
-からさらに一段進めて、**Web サイト・URL のどこからも到達できない**状態にしてある。
-ただし**コードは削除していない** — 今後の開発で参照する可能性があるための保存。
+このアプリは v4.0.0 の「凍結」（見た目は変えないが URL は生かす）に戻してある。
+2026-08〜しばらくは「廃止」（Web サイト・URL のどこからも到達できない）まで一段進めていたが、
+「URL を叩けばアクセスできるようにしてほしい」という要望を受けて凍結まで戻した
+（ユーザー判断・詳細は `docs/changelog.d/closed-realtime-cg-url-access-60c3n6.md`）。
 
-- **サーバーが配信していない。** `server/src/app.ts` の `serveApp('/awards', …)` を外した
-  ので、`/awards/*` は他の全ルートと同じく 404（SPA の catch-all にも当たらない）
-- **API・Socket.IO も登録していない。** `server/src/routes/index.ts` の `createAwardsRoutes()`、
-  `server/src/index.ts` の `initAwardsSocketIO()` / `initQuizSocketIO()` /
-  `initInteractivePoller()` の呼び出しを外した（中身のファイルは `server/src/contexts/awards/`
-  `server/src/contexts/quiz/` にそのまま残る。quiz は awards の QuizStack 画面専用）
-- **本番イメージに入らない。** `Dockerfile` の `build-client-awards` ステージと
-  `production` ステージへの `COPY` を外したので、ビルドもされずイメージにも入らない
-- **トップページのタイルからも外した。** `client/.../home/AppTiles.tsx` の `EVENT_KEYS`
-  から `awards` を削除（上辺バー・アプリ切替・左メニューはこれより前から `frozen: true`
-  で既に出していなかった）
-- **`shared/src/client/apps.ts` の `APPS` エントリはあえて残した。** 権限モデル
+- **サーバーが配信している。** `server/src/app.ts` の `serveApp('/awards', …)` を戻したので、
+  `/awards/*` は通常どおりビルド済み SPA を返す
+- **API・Socket.IO も登録している。** `server/src/routes/index.ts` の `createAwardsRoutes()`・
+  `createQuizRoutes()`、`server/src/index.ts` の `initAwardsSocketIO()` / `initQuizSocketIO()` /
+  `initInteractivePoller()` の呼び出しを戻した
+- **本番イメージに入る。** `Dockerfile` に `build-client-awards` ステージと
+  `production` ステージへの `COPY` を戻したので、通常のビルドでイメージに入る
+- **トップページのタイル・アプリ切替・左メニューには出さない。** `client/.../home/AppTiles.tsx` の
+  `EVENT_KEYS` には `awards` を戻していない（上辺バー・アプリ切替・左メニューはそれ以前から
+  `frozen: true` で出していない）。**URL を直接知っている・ブックマークしている人だけが開ける**
+- `shared/src/client/apps.ts` の `APPS` エントリは廃止のあいだも触っていない。権限モデル
   （`permissionModule: 'awards'`）・権限とメンバー画面の表示・DB のデータビューア
-  （`awards_events` 等）はそのまま動く。**壊す理由が無いものは触っていない**
+  （`awards_events` 等）はそのまま動いていた
 
-## 復活させたいとき
+## さらに廃止に戻したいとき
 
-上の5点（`server/src/app.ts` / `server/src/routes/index.ts` / `server/src/index.ts` /
-`Dockerfile` / `client/.../home/AppTiles.tsx` の `EVENT_KEYS`）を元に戻すだけでよい。
-画面・API・DB スキーマのどれも変えていないので、これだけで今日と同じ動作に戻る。
+上の3点（`server/src/app.ts` / `server/src/routes/index.ts` / `server/src/index.ts` の関連呼び出し・
+`Dockerfile` の `build-client-awards` ステージと `COPY`）を外せばよい。過去の「廃止」時の
+コメントは git 履歴（このファイルの1つ前の版）に残っている。
+
+## ホームのタイルにも出したいとき
+
+`client/.../home/AppTiles.tsx` の `EVENT_KEYS` に `awards` を足すだけでよい（画面・API・DB
+スキーマのどれも変えていないので、これだけで一覧に出るようになる）。**今回はユーザーが
+「URL を叩ければよい」とだけ求めたため、あえて行っていない。**
 
 ## 廃止前の決めごと（当時の記録・コードを読むときの参考）
 
@@ -38,6 +44,13 @@
 - **画面**: 操作系 `pages/{CgCockpitPage,ControlPage,OneShotControlPage,QuizStackControlPage,EventEditorPage}` /
   出力系 `pages/{Output,OutputNext,OneShotOutput,OneShotOutputNext,QuizStackOutput,QuizStackOutputNext}Page`
 - 送出は OA / NEXT / TAKE / CLEAR。サーバー側は `server/src/contexts/awards/socket.ts` と
-  `quiz/socket.ts`（どちらも呼び出しを外しただけでファイルは残る）
+  `quiz/socket.ts`
 - CG の配色・書体は `src/cg/cg.css` と `src/oneshot/styles/tokens.css` に独立して持っている
 - `src/components/ui/` が無く、部品を自前で持っている
+
+## 未確認事項
+
+このセッションでは型検査・ビルド（`client-awards` の `tsc -b && vite build`、`server` の
+型検査・`tsc`）までは確認したが、**実サーバーを起動して `/awards/*` に実際にアクセスできることは
+未確認**。復活時点でコードそのものは変えていないため動くはずだが、廃止していた期間に
+`shared` 側や DB スキーマが変わっていないかは別途確認したほうがよい。

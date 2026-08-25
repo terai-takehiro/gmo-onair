@@ -13,7 +13,10 @@ import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initIcsSyncPoller, shutdownIcsSyncPoller, initGoogleSyncPoller, shutdownGoogleSyncPoller, initMsSyncPoller, shutdownMsSyncPoller } from './contexts/schedule';
-// awards (リアルタイムCG) / quiz は廃止のため初期化しない。中身は contexts/awards, contexts/quiz に残す
+import { initAwardsSocketIO } from './contexts/awards';
+import { initQuizSocketIO, initInteractivePoller, shutdownInteractivePoller } from './contexts/quiz';
+// awards (リアルタイムCG) / quiz は「凍結」相当に戻した (2026-08-25)。Socket.IO・ポーラーも生かす
+// (client-awards/CLAUDE.md 参照)
 
 async function main() {
   await initDb();
@@ -87,6 +90,9 @@ async function main() {
   initQsheetSocketIO(io);
   initProjectCollabSocketIO(io);
   initLiveopsSocketIO(io);
+  initAwardsSocketIO(io);
+  initQuizSocketIO(io);
+  initInteractivePoller(io);
   initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
   initGoogleSyncPoller();     // v2.9.190: マイカレンダーの Google OAuth 同期 (Google → ONAiR)
   initMsSyncPoller();         // v2.9.191: マイカレンダーの Outlook OAuth 同期 (Microsoft → ONAiR)
@@ -101,6 +107,7 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', () => {
     shutdownSocketIO();
+    shutdownInteractivePoller();
     shutdownIcsSyncPoller();
     shutdownGoogleSyncPoller();
     shutdownMsSyncPoller();
