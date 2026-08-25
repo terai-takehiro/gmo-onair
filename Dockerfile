@@ -116,8 +116,13 @@ COPY shared/ shared/
 COPY client-live/ client-live/
 RUN npm run build --workspace=client-live
 
-# リアルタイムCG (client-awards) は廃止済み。ビルドステージを持たない
-# (コードは client-awards/ に残す・サーバーが配信しない。詳細は client-awards/CLAUDE.md)
+# ── Stage: build-client-awards (リアルタイムCG) ──
+# 「凍結」相当に戻した (2026-08-25)。URL は生かすがトップページ・アプリ切替・左メニューには
+# 出さない (詳細は client-awards/CLAUDE.md)
+FROM deps AS build-client-awards
+COPY shared/ shared/
+COPY client-awards/ client-awards/
+RUN npm run build --workspace=client-awards
 
 # ── Stage: build-client-daily (日常業務) ──────
 FROM deps AS build-client-daily
@@ -172,6 +177,7 @@ COPY --from=build-client /app/client/dist client/dist
 COPY --from=build-client-equipment /app/client-equipment/dist client-equipment/dist
 COPY --from=build-client-techops /app/client-techops/dist client-techops/dist
 COPY --from=build-client-live /app/client-live/dist client-live/dist
+COPY --from=build-client-awards /app/client-awards/dist client-awards/dist
 COPY --from=build-client-daily /app/client-daily/dist client-daily/dist
 
 # Runtime
