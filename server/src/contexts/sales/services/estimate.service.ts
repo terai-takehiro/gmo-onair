@@ -8,8 +8,25 @@
  * ── 版の増やし方 ────────────────────────────────────────────
  *
  * 「新しい版を作る」= **前の版を丸ごと写して version を +1 する**。
- * 前の版は `superseded` にして残します (中身は変えません — 送ったものを
- * 後から書き換えられると「何を出したか」が追えなくなる)。
+ *
+ * **前の版を `superseded` にするのは、前の版が `sent`（お客様に出した）ときだけ**
+ * です（ユーザー指摘）。以前は `accepted` 以外なら無条件に `superseded` に
+ * しており、**まだお客様に出していない `draft`（下書き）から次の版を作っただけで
+ * 前の版まで編集できなくなっていました**（`update`/`replaceItems` は `status = 'draft'`
+ * のときしか編集を許さないため）。「並行して複数の版を作る」「意図的に案件を
+ * 複数の見積に分ける（本編とケータリング等）」ときに下書きを直せなくなるのは
+ * 事実に反するので、`draft` から次の版を作ったときは**前の版を `draft` のまま
+ * 残します**（＝そのまま編集可能）。`sent`/`accepted`/`rejected`/`superseded` の
+ * 版はもともと `status <> 'draft'` で編集を止めているので、ここで状態を触らなくても
+ * 「送った記録は書き換えない」という既存方針は変わりません。
+ *
+ * この結果、**同じ `group_id` に `draft` が複数残ることがあります**
+ * （下書きから版を重ねた分だけ）。周辺コード（一覧・承認判定・売上への変換・
+ * PDF発行）はどれも「版1件＝行1件」で `id` 単位に扱っており、`group_id` に対して
+ * 「`draft` は最大1件」を仮定している箇所は無いことを確認済みです
+ * （唯一 `group_id` で集約する `project.service.ts` の `ESTIMATE_AMOUNT_LATERAL` は
+ * `DISTINCT ON (group_id) ... ORDER BY version DESC` で常に最新版を1本だけ拾う作りなので、
+ * 同じ group に draft が複数あっても壊れません）。
  */
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
@@ -33,6 +50,8 @@ export interface EstimateItem {
   pricing_item_id: string | null;
   /** この行の日付（スタジオ利用日・機材の使用日など）。任意（migration 194） */
   item_date: string | null;
+  /** この行の終了日。任意・`item_date`（開始日）とセットで使う（migration 235） */
+  item_date_end: string | null;
   sort_order: number;
 }
 
@@ -333,8 +352,17 @@ export const estimateService = {
       unknown as Estimate | undefined;
     if (!row) return undefined;
     row.items = (await queryAll(
+      // **`item_date`/`item_date_end` は DATE 列**なので、素通しで選ぶと pg が
+      // 文字列ではなく Date を返し、`res.json()` が `toISOString()` した
+      // "2026-09-01T00:00:00.000Z" が画面に渡る（実際に確認した）。
+      // `<input type="date">` は `YYYY-MM-DD` しか受け付けないため、渡すたびに
+      // 欄が空に見えてしまう。`to_char` で最初から `YYYY-MM-DD` の文字列にする
+      // （`estimate-pdf.service.ts` の同じ落とし穴と同じ直し方）
       `SELECT id, description, quantity, unit, unit_price, amount, cost, category,
-              pricing_item_id, item_notes, item_date, sort_order
+              pricing_item_id, item_notes,
+              to_char(item_date, 'YYYY-MM-DD') AS item_date,
+              to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end,
+              sort_order
        FROM estimate_items WHERE estimate_id = $1 ORDER BY sort_order, created_at`,
       [id]
     )) as unknown as EstimateItem[];
@@ -363,8 +391,16 @@ export const estimateService = {
   },
 
   /**
-   * 次の版を作る。**前の版は中身を変えずに `superseded` にして残す。**
-   * 明細もそのまま写すので、直したいところだけ直せばよい。
+   * 次の版を作る。**前の版は中身を変えない。** 明細もそのまま写すので、
+   * 直したいところだけ直せばよい。
+   *
+   * 前の版を `superseded`（差し替え済み）にするのは**前の版が `sent`
+   * （お客様に出した）ときだけ**。`draft`（まだ出していない下書き）から
+   * 次の版を作ったときは前の版を `draft` のまま残す — お客様に出していない
+   * ものまで「もう直せない」にする理由が無い（ユーザー指摘）。
+   * `accepted`/`rejected`/`superseded` はここで触らなくても、そもそも
+   * `update`/`replaceItems` が `status = 'draft'` のときしか編集を許さないので
+   * 「送った記録は書き換えない」という既存方針は変わらない。
    */
   async createNextVersion(fromId: string, userId: string): Promise<Estimate> {
     const from = await this.getById(fromId);
@@ -391,17 +427,20 @@ export const estimateService = {
     for (const it of from.items ?? []) {
       await execute(
         `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-           amount, cost, category, pricing_item_id, item_notes, item_date, sort_order)
+           amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
          SELECT $1, $2, description, quantity, unit, unit_price, amount, cost, category,
-                pricing_item_id, item_notes, item_date, sort_order
+                pricing_item_id, item_notes, item_date, item_date_end, sort_order
          FROM estimate_items WHERE id = $3`,
         [uuidv4(), id, it.id]
       );
     }
-    // 前の版は「次の版に置き換わった」印を付けるだけ。**中身は触らない**
+    // 前の版は「次の版に置き換わった」印を付けるだけ。**中身は触らない**。
+    // **`sent` からの版上げだけ** `superseded` にする — `draft` はまだお客様に
+    // 出していないので、次の版を作ったあとも編集できる `draft` のまま残す
+    // （`accepted`/`rejected`/`superseded` はここで触らなくても編集不可のまま）
     await execute(
       `UPDATE estimates SET status = 'superseded', updated_at = NOW(), updated_by = $2
-       WHERE id = $1 AND status <> 'accepted'`,
+       WHERE id = $1 AND status = 'sent'`,
       [fromId, userId]
     );
     await recalc(id);
@@ -578,13 +617,21 @@ export const estimateService = {
         // `unit_price` と同じく `Math.round` で整数に丸めてから渡す
         const qty = Math.max(0, Math.round(Number(it.quantity) || 0));
         const price = Math.round(Number(it.unit_price) || 0);
+        const itemDate = it.item_date ?? null;
+        const itemDateEnd = it.item_date_end ?? null;
+        // 終了日が開始日より前は事実として矛盾するので保存の手前で弾く（DB の
+        // CHECK 制約 `estimate_items_date_range_check`（migration 235）に任せて
+        // そのまま突っ込むと、生の Postgres エラーが 500 として画面に出てしまう）
+        if (itemDate && itemDateEnd && itemDateEnd < itemDate) {
+          throw new AppError(400, 'VALIDATION_ERROR', '終了日は開始日より後にしてください');
+        }
         await tx.execute(
           `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-             amount, cost, category, item_notes, item_date, pricing_item_id, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+             amount, cost, category, item_notes, item_date, item_date_end, pricing_item_id, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
           [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
            qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
-           it.item_notes ?? null, it.item_date ?? null, it.pricing_item_id ?? null, order++]
+           it.item_notes ?? null, itemDate, itemDateEnd, it.pricing_item_id ?? null, order++]
         );
       }
     });

@@ -12,7 +12,7 @@
  * 計算・並び・止め方（出したあとは直せない）はここが決めます。
  */
 import { useState } from 'react';
-import { Plus, Trash2, Link2 } from 'lucide-react';
+import { Plus, Trash2, Link2, CopyCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
@@ -24,8 +24,10 @@ export interface EstimateItemRow {
   unit_price: number; amount: number; cost: number; category: string | null;
   /** 行の備考（migration 138 の既存列。サーバーはすでに読み書きしている） */
   item_notes?: string | null;
-  /** 行の日付（スタジオ利用日・機材の使用日など。任意・migration 194） */
+  /** 行の日付（開始日。スタジオ利用日・機材の使用日など。任意・migration 194） */
   item_date?: string | null;
+  /** 行の終了日（任意・`item_date` とセット。migration 235）。無ければ単日扱い */
+  item_date_end?: string | null;
   /** 料金表から選んだ品目（migration 172）。手入力の行は null */
   pricing_item_id?: string | null;
 }
@@ -42,7 +44,16 @@ export interface EstimateForItems {
   customer_type?: string | null;
 }
 
-/** v4 の3グループ (docs/design/v4 — 明細はこの3つで見せる) */
+/**
+ * v4 の既定3グループ (docs/design/v4 — 明細はこの3つで見せる)。
+ *
+ * ⚠️ **この3つの鍵・札は増減・改名しないこと**（`shared/tests/estimateCategory.test.ts`
+ * が PDF 側 `ESTIMATE_CATEGORY_LABEL` と1対1で突き合わせる）。任意の名前のカテゴリは
+ * 下の `allCategories`（この配列 + 明細に実際に入っている未知の値）で足す —
+ * `estimate_items.category` は元々自由な TEXT 列で、サーバー側の
+ * `categoryLabel()`（PDF）も「知らない値はそのまま出す」設計なので、
+ * この配列自体を自由入力にする必要は無い（増やすとテストの前提が壊れる）。
+ */
 const CATEGORIES: { key: string; label: string }[] = [
   { key: 'studio', label: 'スタジオ' },
   { key: 'tech', label: '技術・人員' },
@@ -75,10 +86,26 @@ export function EstimateItems({
 }) {
   const [items, setItems] = useState<EstimateItemRow[]>(estimate.items ?? []);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  /** カテゴリの自由入力欄（②「④ カテゴリの自由入力」）。押すまでは何も作らない */
+  const [newCategoryName, setNewCategoryName] = useState('');
   const m = margin(items, estimate.discount);
   const statusLocked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
   const locked = statusLocked || !canEdit;
   const customerType = estimate.customer_type === 'internal' ? 'internal' : 'external';
+
+  /**
+   * 既定3つ + 明細に実際に入っている未知のカテゴリ（自由入力で足したもの・
+   * 古いデータで既に入っていたもの）。**`CATEGORIES` 自体は増やさない**
+   * （上のコメント参照）— 表示する塊をここで合成する。
+   */
+  const allCategories = [
+    ...CATEGORIES,
+    ...Array.from(new Set(
+      items
+        .map((it) => it.category)
+        .filter((c): c is string => !!c && !CATEGORIES.some((cat) => cat.key === c)),
+    )).map((key) => ({ key, label: key })),
+  ];
 
   const upd = (i: number, patch: Partial<EstimateItemRow>) =>
     setItems((prev) => prev.map((it, n) => {
@@ -95,6 +122,29 @@ export function EstimateItems({
       amount: picked.unit_price, cost: 0, category,
       pricing_item_id: picked.pricing_item_id,
     }]);
+  };
+
+  /**
+   * 任意の名前のカテゴリを足す（要望④）。DB の `category` は元々自由な TEXT 列
+   * なので保存自体はこれまでも通っていた — ここは**画面から作る導線**を足すだけ。
+   * 空の行を1つ作ってそのカテゴリで開始する（他のカテゴリの「行を足す」と同じ形）。
+   */
+  const addCustomCategory = () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setItems((prev) => [...prev,
+      { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: name }]);
+    setNewCategoryName('');
+  };
+
+  /**
+   * 1行の期間（開始・終了）を全行に一括反映する（要望①）。
+   * **カテゴリを問わず明細全体に効く** — 期間はカテゴリと無関係な情報のため
+   * （撮影期間をスタジオ・技術どちらの行にも同じ日付で入れたい、という要望）。
+   */
+  const copyPeriodToAll = (i: number) => {
+    const { item_date, item_date_end } = items[i];
+    setItems((prev) => prev.map((it) => ({ ...it, item_date: item_date ?? null, item_date_end: item_date_end ?? null })));
   };
 
   return (
@@ -122,19 +172,26 @@ export function EstimateItems({
         </div>
       </div>
 
-      {!locked && (
-        <RowHeader className="hidden sm:flex">
-          <RowMain>品目 / 備考</RowMain>
-          <RowSlot w={72}>数量</RowSlot>
-          <RowSlot w={128}>単価</RowSlot>
-          <RowSlot w={128}>仕入（見込み）</RowSlot>
-          <RowSlot w={128}>日付</RowSlot>
-          <RowSlot w={128} align="right">金額</RowSlot>
-          <RowSlot w={56} />
-        </RowHeader>
-      )}
+      {/*
+        表頭は編集できるとき「だけ」ではなく**常に**出す（要望③）。以前は `!locked`
+        の間しか出しておらず、送付済み・閲覧のみで入力欄が disabled のまま並ぶと
+        「数量」「金額」「仕入」がどの数字か表せていなかった（ユーザー指摘）。
+        削除ボタン・期間コピー列は編集できるときにしか出ない列なので、
+        表頭側もその2つだけ `!locked` で出し分けて body と揃える。
+      */}
+      <RowHeader className="hidden sm:flex">
+        <RowMain>品目 / 備考</RowMain>
+        <RowSlot w={72}>数量</RowSlot>
+        <RowSlot w={128}>単価（税抜）</RowSlot>
+        <RowSlot w={128}>仕入（見込み）</RowSlot>
+        <RowSlot w={128}>開始日</RowSlot>
+        <RowSlot w={128}>終了日</RowSlot>
+        {!locked && <RowSlot w={56} />}
+        <RowSlot w={128} align="right">金額（数量×単価）</RowSlot>
+        {!locked && <RowSlot w={56} />}
+      </RowHeader>
 
-      {CATEGORIES.map((c) => {
+      {allCategories.map((c) => {
         const rows = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.category ?? 'other') === c.key);
         if (rows.length === 0 && locked) return null;
         return (
@@ -160,17 +217,32 @@ export function EstimateItems({
                     onChange={(e) => upd(i, { quantity: Math.round(Number(e.target.value)) || 0 })} />
                 </RowSlot>
                 <RowSlot w={128}>
-                  <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価"
+                  <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価（税抜・1件あたり）"
                     onChange={(e) => upd(i, { unit_price: Number(e.target.value) || 0 })} />
                 </RowSlot>
                 <RowSlot w={128}>
-                  <Input type="number" value={it.cost} disabled={locked} aria-label="仕入 (見込み)"
+                  <Input type="number" value={it.cost} disabled={locked} aria-label="仕入（見込み・実際の仕入とは別）"
                     onChange={(e) => upd(i, { cost: Number(e.target.value) || 0 })} />
                 </RowSlot>
                 <RowSlot w={128}>
-                  <Input type="date" value={it.item_date ?? ''} disabled={locked} aria-label="この行の日付"
+                  <Input type="date" value={it.item_date ?? ''} disabled={locked} aria-label="この行の開始日"
                     onChange={(e) => upd(i, { item_date: e.target.value || null })} />
                 </RowSlot>
+                <RowSlot w={128}>
+                  <Input type="date" value={it.item_date_end ?? ''} disabled={locked} aria-label="この行の終了日（任意）"
+                    min={it.item_date ?? undefined}
+                    onChange={(e) => upd(i, { item_date_end: e.target.value || null })} />
+                </RowSlot>
+                {!locked && (
+                  <RowSlot w={56} align="center">
+                    {/* 要望①: 1行に入れた期間（開始・終了）をボタン1つで他の全行へ */}
+                    <Button variant="ghost" size="sm" aria-label="この行の期間を全ての行にコピー"
+                      title="この行の期間（開始・終了）を全ての行にコピー"
+                      onClick={() => copyPeriodToAll(i)}>
+                      <CopyCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                    </Button>
+                  </RowSlot>
+                )}
                 <Money value={it.amount} className="text-sub w-32 shrink-0" />
                 {!locked && (
                   <RowSlot w={56} align="right">
@@ -198,6 +270,20 @@ export function EstimateItems({
           </div>
         );
       })}
+
+      {!locked && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-faint px-4 py-3">
+          <span className="text-sub text-muted-foreground">カテゴリを追加</span>
+          <Input value={newCategoryName} placeholder="例: 音響、車両"
+            aria-label="新しいカテゴリの名前"
+            className="w-40"
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); } }} />
+          <Button variant="outline" size="sm" disabled={!newCategoryName.trim()} onClick={addCustomCategory}>
+            <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />追加
+          </Button>
+        </div>
+      )}
 
       {!locked && (
         <div className="flex items-center gap-3 border-t border-border-subtle px-4 py-3">

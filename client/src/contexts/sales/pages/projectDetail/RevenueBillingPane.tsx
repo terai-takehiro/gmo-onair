@@ -44,16 +44,31 @@
  * 受け取ってカード積みに切り替えた。呼び手（`EstimateTab.tsx`）は
  * PC専用ゲートの内側にあるが、「それでもこのまま開く」を選んだ人のために
  * 中身は作り込んである。
+ *
+ * ── 仕入の「追加」だけは例外（ご要望で追加） ───────────────────
+ *
+ * 「読むだけ」の原則はそのまま——このペインに仕入の編集フォームを
+ * 新しく作ることはしていない。**財務②仕入台帳（`PurchaseListPage.tsx`）が
+ * 使っているダイアログ（`ledger/PurchaseDialog.tsx`）・API（`POST /purchases`）を
+ * そのまま呼んでいるだけ**（コードの二重実装を避ける）。編集・削除は
+ * 台帳側にしか出さない（このペインは新規登録の入口だけ）。
+ * 権限も台帳と同じ `sales:editor`（サーバー `POST /purchases` の要件）。
  */
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import type { Revenue, Purchase } from '@gmo-onair/shared/src/types';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { PurchaseDialog, type PurchaseProjectOption } from '@/contexts/finance/pages/ledger/PurchaseDialog';
+import type { Revenue, Purchase, Vendor } from '@gmo-onair/shared/src/types';
 
 /**
  * 帳票を出すボタン2つ（請求書・検収書）。
@@ -113,6 +128,12 @@ function MoreNote({ n }: { n: number }) {
 }
 
 export function RevenueBillingPane({ projectId, mobile }: { projectId: string; mobile?: boolean }) {
+  const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  // サーバー側 `POST /purchases` の要件（`requirePermission('sales', 'editor')`）に合わせる
+  const canAddPurchase = hasPermission('sales', 'editor');
+  const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
+
   const revenues = useQuery<ListResponse<Revenue>>({
     queryKey: ['revenues', 'project', projectId],
     queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data,
@@ -120,6 +141,35 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
   const purchases = useQuery<ListResponse<Purchase>>({
     queryKey: ['purchases', 'project', projectId],
     queryFn: async () => (await api.get('/purchases', { params: { project_id: projectId, limit: 100 } })).data,
+  });
+
+  // ダイアログを開いたときだけ取りに行く（`PurchaseListPage.tsx` と同じ鍵——
+  // 台帳側で既に引いていれば、そのキャッシュをそのまま使い回せる）
+  const { data: wonProjectsData } = useQuery({
+    queryKey: ['won-projects-for-purchase'],
+    queryFn: async () => (await api.get('/projects/won-projects')).data,
+    enabled: addPurchaseOpen,
+  });
+  const glsProjects: PurchaseProjectOption[] = wonProjectsData?.data ?? [];
+  const { data: vendorsData } = useQuery({
+    queryKey: ['vendors-list'],
+    queryFn: async () => (await api.get('/vendors?limit=200')).data,
+    enabled: addPurchaseOpen,
+  });
+  const vendors: Vendor[] = vendorsData?.data ?? [];
+
+  const savePurchase = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => (await api.post('/purchases', payload)).data,
+    onSuccess: () => {
+      // このペイン自身の一覧に加えて、財務②仕入台帳（`purchases-all`）も落とす
+      // （react-query の鍵の対——`client/CLAUDE.md`）。片方だけだと台帳を開いたときに
+      // 古い一覧のままになる
+      qc.invalidateQueries({ queryKey: ['purchases', 'project', projectId] });
+      qc.invalidateQueries({ queryKey: ['purchases-all'] });
+      notifySuccess('仕入を登録しました');
+      setAddPurchaseOpen(false);
+    },
+    onError: (err) => notifyApiError('仕入の登録に失敗しました', err),
   });
 
   if (revenues.isLoading || purchases.isLoading) {
@@ -233,9 +283,24 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
           )}
         </div>
         <div className="overflow-hidden rounded-card border border-border bg-card">
-          <p className="text-cardtitle border-b border-border px-4 py-3">仕入（原価）</p>
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <p className="text-cardtitle">仕入（原価）</p>
+            {canAddPurchase && (
+              <Button size="sm" variant="outline" onClick={() => setAddPurchaseOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />仕入を追加
+              </Button>
+            )}
+          </div>
           {purchaseRows.length === 0 ? (
-            <EmptyState title="仕入はまだありません" description="財務管理の仕入台帳から登録できます。" />
+            <EmptyState
+              title="仕入はまだありません"
+              description="財務管理の仕入台帳、またはここからも登録できます。"
+              action={canAddPurchase ? (
+                <Button size="sm" onClick={() => setAddPurchaseOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />仕入を追加
+                </Button>
+              ) : undefined}
+            />
           ) : mobile ? (
             <>
               <div className="flex flex-col">
@@ -276,6 +341,20 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
           ))}
         </div>
       </div>
+
+      {addPurchaseOpen && (
+        <PurchaseDialog
+          editing={null}
+          defaultProjectId={projectId}
+          projects={glsProjects}
+          vendors={vendors}
+          saving={savePurchase.isPending}
+          deleting={false}
+          onSave={(payload) => savePurchase.mutate(payload)}
+          onDelete={() => {}}
+          onClose={() => setAddPurchaseOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -47,7 +47,8 @@ export interface MobileFilterBarProps extends FilterBarProps {
 export function activeFilterCount(p: MobileFilterBarProps, now: Date): number {
   const d = defaultPeriod(now);
   let n = 0;
-  if (p.stageKey !== 'all') n += 1;
+  // 既定は「進行中」（`active`）。分ける前の `all` と同じ意味の既定値
+  if (p.stageKey !== 'active') n += 1;
   if (p.period.mode !== d.mode || p.period.year !== d.year || p.period.index !== d.index) n += 1;
   if (p.aiOnly) n += 1;
   return n;
@@ -175,7 +176,7 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
           />
         ))}
         <p className="text-note pt-2 text-muted-foreground">
-          ネタは「ネタ」の見え方で見ます。終了（完了・失注）は「終了」を選んだときだけ出ます。
+          ネタは「ネタ」の見え方で見ます。終了（完了・失注）は「終了」または「すべて」を選んだときだけ出ます。
         </p>
       </Sheet>
 
@@ -270,7 +271,7 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
 
 /** 並びが変わったときの「全部やめる」。**既定に戻す** */
 export function clearFilters(p: MobileFilterBarProps, now: Date): void {
-  p.onStageKey('all');
+  p.onStageKey('active');
   p.onPeriod(defaultPeriod(now));
   p.onAiOnly(false);
 }
