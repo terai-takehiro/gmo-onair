@@ -153,8 +153,11 @@ export function EstimateItems({
                   )}
                 </RowMain>
                 <RowSlot w={72}>
-                  <Input type="number" value={it.quantity} disabled={locked} aria-label="数量"
-                    onChange={(e) => upd(i, { quantity: Number(e.target.value) || 0 })} />
+                  {/* 数量は整数のみ（サーバーの `estimate_items.quantity` が INTEGER 列）。
+                      小数を打てると保存時にサーバー内部エラーになっていた（実際に踏んだ）ため、
+                      `step="1"` でブラウザにも整数だと伝える */}
+                  <Input type="number" step={1} min={0} value={it.quantity} disabled={locked} aria-label="数量"
+                    onChange={(e) => upd(i, { quantity: Math.round(Number(e.target.value)) || 0 })} />
                 </RowSlot>
                 <RowSlot w={128}>
                   <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価"

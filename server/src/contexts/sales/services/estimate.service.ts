@@ -571,7 +571,12 @@ export const estimateService = {
       await tx.execute(`DELETE FROM estimate_items WHERE estimate_id = $1`, [estimateId]);
       let order = 0;
       for (const it of items) {
-        const qty = Math.max(0, Number(it.quantity) || 0);
+        // **`quantity` は INTEGER 列。** 数量欄は `type="number"` で小数も打てるため
+        // （半日利用のつもりで「0.5」等）、`unit_price` と同じく丸めずに渡すと
+        // Postgres が `invalid input syntax for type integer` で拒否し、
+        // 見積の明細保存＝発行の手前が丸ごと 500 になっていた（実際に踏んだ）。
+        // `unit_price` と同じく `Math.round` で整数に丸めてから渡す
+        const qty = Math.max(0, Math.round(Number(it.quantity) || 0));
         const price = Math.round(Number(it.unit_price) || 0);
         await tx.execute(
           `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
