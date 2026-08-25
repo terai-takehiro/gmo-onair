@@ -9,7 +9,7 @@
  *   検収           96px  (`RowSlot`)      モック 96px
  *   入金           96px  (`RowSlot`)      モック 96px
  *   締め・入金日   96px  (`RowSlot`)      モック 104px
- *   帳票           96px  (`RowSlot`)      **モックには無い**（下記）
+ *   帳票          160px  (`RowSlot`)      **モックには無い**（下記）
  *
  * ── 「帳票」列だけモックに無い ──────────────────────────────
  *
@@ -17,6 +17,9 @@
  * 足しました。ここは**案件をまたいで取りこぼさない一覧**なので、
  * 「検収前・入金前のものを見つけて、その場で紙を出す」がそのまま片づきます。
  * 押すと BOX の社内限りフォルダ `03_請求` にも入ります（`lib/docPdf.ts`）。
+ * **請求書 Excel（業務推進提出用）だけは BOX に入りません** —
+ * `downloadRevenueExcel`（`lib/docPdf.ts`）参照。3つ目のボタンぶん列を
+ * 96px→160px に広げた
  *
  * ── 検収と入金は「押して日付を入れる」──────────────────────
  *
@@ -32,6 +35,7 @@ import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { notifyWarning } from '@gmo-onair/shared/src/client/notify';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
+import { DocExcelButton } from '@/contexts/shared/components/DocExcelButton';
 import type { BillingInvoice } from './types';
 
 function dueTone(due: string | null, today: string, paid: boolean): string {
@@ -127,7 +131,7 @@ export function InvoiceRows({
         <RowSlot w={96}>検収</RowSlot>
         <RowSlot w={96}>入金</RowSlot>
         <RowSlot w={96} align="right">締め・入金日</RowSlot>
-        <RowSlot w={96} align="right">帳票</RowSlot>
+        <RowSlot w={160} align="right">帳票</RowSlot>
       </RowHeader>
       {rows.map((r) => {
         const paid = !!r.paid_date;
@@ -181,10 +185,11 @@ export function InvoiceRows({
                 </span>
               )}
             </RowSlot>
-            <RowSlot w={96} align="right" className="gap-1">
+            <RowSlot w={160} align="right" className="gap-1">
               {(['invoice', 'inspection'] as const).map((type) => (
                 <DocPdfButton key={type} path={`/revenues/${r.id}/pdf`} kind={type} params={{ type }} />
               ))}
+              <DocExcelButton revenueId={r.id} />
             </RowSlot>
           </Row>
         );

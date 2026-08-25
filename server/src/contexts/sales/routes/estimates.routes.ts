@@ -50,9 +50,10 @@ const canEditSales = (req: Request) => meetsPermissionLevel(
 );
 
 // GET /projects/:projectId/estimates
+// ?include_archived=1 でアーカイブした版も含める（既定は除く。画面の「アーカイブした版を表示」）
 router.get('/', wrap(async (req, res) => {
   const { projectId } = req.params as Record<string, string>;
-  const rows = await estimateService.listByProject(projectId);
+  const rows = await estimateService.listByProject(projectId, req.query.include_archived === '1');
   // **「あなたは承認できるか」をサーバーが決めて渡す。** 画面はこれを見て
   // 「承認する」を出す（押して 403 にしないため）
   res.json({ success: true, data: await withCanApprove(rows, userOf(req), canEditSales(req)) });
@@ -156,6 +157,24 @@ router.delete('/:id', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;
   await estimateService.remove(id, userOf(req));
   res.json({ success: true });
+}));
+
+/**
+ * POST /projects/:projectId/estimates/:id/archive — 一覧から隠す（消さない）
+ * POST /projects/:projectId/estimates/:id/unarchive — 一覧に戻す
+ *
+ * `status` は一切変えない（アーカイブは一覧に出すかどうかだけの直交した印。
+ * migration 236）。**送付済み・受注済みの版もアーカイブできる** — 「もう見ない版を
+ * 隠したい」だけの操作で、記録を直すものではないため `canEdit` 止まりでよい。
+ */
+router.post('/:id/archive', canEdit, wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  res.json({ success: true, data: await estimateService.archive(id, userOf(req)) });
+}));
+
+router.post('/:id/unarchive', canEdit, wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  res.json({ success: true, data: await estimateService.unarchive(id, userOf(req)) });
 }));
 
 export default router;

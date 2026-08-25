@@ -33,7 +33,8 @@ export const gpmKeys = {
   templates: () => ['gpm-templates'] as const,
   users: () => ['gpm-users'] as const,
   customers: () => ['gpm-customers'] as const,
-  estimates: (projectId: string) => ['gpm-estimates', projectId] as const,
+  estimates: (projectId: string, includeArchived = false) =>
+    ['gpm-estimates', projectId, includeArchived] as const,
   estimateSummary: () => ['gpm-estimate-summary'] as const,
 };
 
@@ -62,6 +63,8 @@ export interface GpmEstimate {
   can_approve?: boolean;
   /** 承認者に決められているか（編集権限は見ない）。できない理由を名指しするために使う */
   is_approver?: boolean;
+  /** アーカイブした日時。`null`/未設定なら一覧に出る（migration 236） */
+  archived_at?: string | null;
 }
 
 export interface GpmEstimateSummary {
@@ -70,10 +73,13 @@ export interface GpmEstimateSummary {
   awaiting_inspection: number; awaiting_inspection_amount: number;
 }
 
-export function useGpmEstimates(projectId: string) {
+// `includeArchived` は既定 false（サーバーの既定と揃える。migration 236）。
+// 「アーカイブした版を表示」を押したときだけ true にして引き直す
+export function useGpmEstimates(projectId: string, includeArchived = false) {
   return useQuery<GpmEstimate[]>({
-    queryKey: gpmKeys.estimates(projectId),
-    queryFn: async () => (await api.get(`/gpm/projects/${projectId}/estimates`)).data.data,
+    queryKey: gpmKeys.estimates(projectId, includeArchived),
+    queryFn: async () => (await api.get(`/gpm/projects/${projectId}/estimates`,
+      { params: includeArchived ? { include_archived: '1' } : undefined })).data.data,
     enabled: !!projectId,
   });
 }

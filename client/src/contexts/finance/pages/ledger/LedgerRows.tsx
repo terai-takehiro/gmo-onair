@@ -31,6 +31,7 @@
  * （PC の列と二重に出さない）。
  */
 import { useNavigate } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -98,7 +99,24 @@ export function LedgerRows({
             </RowSlot>
 
             <RowMain>
-              <RowTitle>{r.title || '（名称なし）'}</RowTitle>
+              <div className="flex items-center gap-1">
+                <RowTitle className="min-w-0 flex-1">{r.title || '（名称なし）'}</RowTitle>
+                {/* 案件へのリンク。`RowMain` は PC・スマホ両方の描画で1回しか出ないので
+                    ここに置く（列を増やすと PC 専用になり、スマホでは押せなくなる）。
+                    `onOpen` は編集者では編集ダイアログを開いてしまい行から案件へ行けないため、
+                    行き先を固定するボタンを別に持つ */}
+                {r.project_id && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/sales/projects/${r.project_id}`); }}
+                    title="案件を開く"
+                    aria-label="案件を開く"
+                    className="v4-tap shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
               {r.sub && <RowSub>{r.sub}</RowSub>}
               {/* スマホでは相手先・税・計上月の列が畳まれるので、2行目にまとめて出す */}
               <RowSub className="sm:hidden">

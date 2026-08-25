@@ -72,9 +72,9 @@ function filenameOf(res: AxiosResponse, fallback: string): string {
   }
 }
 
-/** blob をダウンロードさせる */
-function download(data: BlobPart, filename: string): void {
-  const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+/** blob をダウンロードさせる。既定は PDF、請求書 Excel は呼び出し側で mime を渡す */
+function download(data: BlobPart, filename: string, mime = 'application/pdf'): void {
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -129,5 +129,29 @@ export async function issueDocPdf(
     notifyWarning(`${label}をダウンロードしました。${BOX_REASON[reason] ?? 'BOX には保存していません。'}`);
   } catch (err) {
     notifyError(await messageOf(err, `${label}を発行できませんでした`));
+  }
+}
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * 請求書 Excel（業務推進への監査提出用）をダウンロードする。
+ *
+ * **PDF の発行（`issueDocPdf`）とは別に持つ** — `GET /revenues/:id/excel` は
+ * BOX にはなにも置かない、手元に落とすだけの帳票（`server/.../revenues.routes.ts`）。
+ * `X-Box-*` ヘッダーを返さないので、ここでは読みません。読んで「保存しました」と
+ * 出すと、実際には保存していないのに保存したかのように伝えることになります。
+ *
+ * blob の受け取り方・ファイル名の取り出し方（`filenameOf`）・エラーの読み方
+ * （`messageOf`）は PDF と同じ形なので使い回します（食い違いの元は関数を分けることではなく、
+ * この3つを画面ごとに書き写すことだったため）。
+ */
+export async function downloadRevenueExcel(revenueId: string): Promise<void> {
+  try {
+    const res = await api.get(`/revenues/${revenueId}/excel`, { responseType: 'blob' });
+    download(res.data, filenameOf(res, '請求書.xlsx'), XLSX_MIME);
+    notifySuccess('請求書Excelを発行しました');
+  } catch (err) {
+    notifyError(await messageOf(err, '請求書Excelを発行できませんでした'));
   }
 }
