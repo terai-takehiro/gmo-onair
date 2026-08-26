@@ -50,6 +50,7 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   record_finance_doc: { module: ['dailyops', 'sales'], level: 'editor' },
   record_inquiry: { module: 'dailyops', level: 'editor' },
   register_inview_attendee: { module: 'dailyops', level: 'editor' },
+  update_inview_attendee: { module: 'dailyops', level: 'editor' },
   submit_ops_report: { module: 'dailyops', level: 'editor' },
   add_ops_report_items: { module: 'dailyops', level: 'editor' },
   // セキュリティカードの貸出/返却 (v2.9.229 で追加された際に登録が漏れており、

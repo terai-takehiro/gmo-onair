@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (111 種 / 21 カテゴリ / v4)
+## ツール一覧 (112 種 / 21 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -93,7 +93,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 >
 > 内訳: projects 6 / customers 4 / activities 4 / tasks 10 / members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
-> opsreports 5 / eventreports 5 / inview 3 / inbox 4 / security-cards 5 / aifeedback 1 /
+> opsreports 5 / eventreports 5 / inview 4 / inbox 4 / security-cards 5 / aifeedback 1 /
 > production 22（読み取り7・書き込み15。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
 > スケジュール表の枠 CRUD 3種（2026-08 新設）＋スケジュール表そのもの・列の CRUD 6種
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
@@ -172,6 +172,7 @@ kind と運用契約:
 | ツール | 種別 | 概要 |
 |---|---|---|
 | `register_inview_attendee` | write | Kairos3 の登録通知メールを取り込む。`session_label` に「参加希望の回」をそのまま渡すと日付/時間帯/対象を自動抽出。同 email × 同 session_label は更新 (再取込で重複しない)。同行者・全連絡先フィールド対応 |
+| `update_inview_attendee` | write | 来場予約の部分更新 (渡したフィールドだけ変更)。id は register_inview_attendee の返り値 / list_inview_attendees から取得。session_label 変更時は日付/時間帯/対象を再抽出。companions は氏名で既存と突き合わせ受付記録を引き継ぐ |
 | `list_inview_attendees` | read | 来場予約一覧 (from/to/upcoming で絞り込み) |
 | `list_inview_sessions` | read | 回 (セッション) ごとの 登録件数 / 合計人数 / 来場済み数 集計 |
 
