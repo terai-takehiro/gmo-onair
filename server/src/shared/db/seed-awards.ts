@@ -19,6 +19,8 @@
  *   - クイズ2問 (quiz モード1・survey モード1)、選択肢に投票数もあらかじめ入れる
  */
 
+import path from 'path';
+import fs from 'fs';
 import { initDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 
@@ -40,6 +42,68 @@ interface EntryInput {
   nominationTitle?: string;
 }
 
+// ============================================================
+// ダミー顔写真 (イラスト調アバター)
+//
+// 運用（デモ）時に「画像部分」が空だと初期文字だけのグラデーション
+// プレースホルダー (PortraitPlaceholder.tsx) になり、実際の放送CGの
+// 見え方をデモしづらい。実在の人物写真は権利・プライバシー上使えない
+// ため、コードで生成したイラスト調のアバター (架空の人物) を SVG で
+// 用意し、通常のアップロード写真と同じ配信経路 (UPLOAD_DIR 直下 +
+// /api/v1/internal/awards/images/:filename) に載せて photo_url に
+// 設定する。
+// ============================================================
+
+// server/src/shared/db/ から見た uploads/awards (他ルートの UPLOAD_DIR と同一パス)
+const AWARDS_UPLOAD_DIR = path.join(__dirname, '../../../../uploads/awards');
+
+const AVATAR_HAIR = ['#2b2b2b', '#5b3a29', '#8a5a34', '#c9a15a', '#3a3a3a', '#704214'];
+const AVATAR_SKIN = ['#f2c9a0', '#e8b58c', '#d99a6c', '#c07f4f', '#f6d7b0'];
+const AVATAR_BG = ['#c9d8e8', '#e8d9c9', '#d8e8d0', '#e8d0d8', '#d0d8e8', '#e8e0c9'];
+
+/** seed から決定的にイラスト調アバター (架空の人物・実在しない) の SVG を作る。 */
+function buildAvatarSvg(seed: number): string {
+  const hair = AVATAR_HAIR[seed % AVATAR_HAIR.length];
+  const skin = AVATAR_SKIN[(seed * 3 + 1) % AVATAR_SKIN.length];
+  const bg = AVATAR_BG[(seed * 5 + 2) % AVATAR_BG.length];
+  const hairStyle = seed % 3; // 0: ショート / 1: ロング / 2: ボブ
+
+  const hairShape =
+    hairStyle === 0
+      ? `<path d="M100 60 C60 60 45 95 48 140 L60 140 C58 105 70 78 100 78 C130 78 142 105 140 140 L152 140 C155 95 140 60 100 60 Z" fill="${hair}"/>`
+      : hairStyle === 1
+        ? `<path d="M100 55 C55 55 42 95 45 175 L65 175 C60 150 58 120 62 100 L62 145 L74 145 L74 95 C82 82 118 82 126 95 L126 145 L138 145 L138 100 C142 120 140 150 135 175 L155 175 C158 95 145 55 100 55 Z" fill="${hair}"/>`
+        : `<path d="M100 58 C62 58 46 92 50 132 C52 138 58 140 62 136 C58 100 72 80 100 80 C128 80 142 100 138 136 C142 140 148 138 150 132 C154 92 138 58 100 58 Z" fill="${hair}"/>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <rect width="200" height="200" fill="${bg}"/>
+  <circle cx="100" cy="112" r="52" fill="${skin}"/>
+  <ellipse cx="100" cy="185" rx="70" ry="45" fill="${skin}"/>
+  ${hairShape}
+  <circle cx="80" cy="108" r="4.5" fill="#2b2b2b"/>
+  <circle cx="120" cy="108" r="4.5" fill="#2b2b2b"/>
+  <path d="M85 132 Q100 142 115 132" stroke="#8a4a3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>`;
+}
+
+/**
+ * イラスト調ダミーアバターを count 件ぶん UPLOAD_DIR に用意し (既に有れば再利用)、
+ * 通常の写真アップロードと同じ URL 形式で返す。
+ */
+function ensureAvatarPool(count: number): string[] {
+  if (!fs.existsSync(AWARDS_UPLOAD_DIR)) fs.mkdirSync(AWARDS_UPLOAD_DIR, { recursive: true });
+  const urls: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const filename = `dummy-avatar-${String(i + 1).padStart(2, '0')}.svg`;
+    const filePath = path.join(AWARDS_UPLOAD_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, buildAvatarSvg(i));
+    }
+    urls.push(`/api/v1/internal/awards/images/${filename}`);
+  }
+  return urls;
+}
+
 async function insertCategory(
   eventId: number,
   order: number,
@@ -58,17 +122,22 @@ async function insertCategory(
   );
 }
 
-async function insertEntries(eventId: number, categoryId: number, entries: EntryInput[]): Promise<void> {
+async function insertEntries(
+  eventId: number,
+  categoryId: number,
+  entries: EntryInput[],
+  nextAvatarUrl?: () => string,
+): Promise<void> {
   for (const e of entries) {
     await ins(
       `INSERT INTO awards_entries
          (event_id, category_id, rank, name, name_en, org, points, own_points,
-          is_winner, vote_count, nomination_title)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          is_winner, vote_count, nomination_title, photo_url)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         eventId, categoryId, e.rank ?? null, e.name, e.nameEn ?? null, e.org ?? null,
         e.points ?? null, e.ownPoints ?? null, e.isWinner ?? false, e.voteCount ?? 0,
-        e.nominationTitle ?? null,
+        e.nominationTitle ?? null, nextAvatarUrl ? nextAvatarUrl() : null,
       ],
     );
   }
@@ -98,6 +167,12 @@ async function seedAwards() {
 
   console.log('[seed-awards] リアルタイムCGのダミーデータを投入します...');
 
+  // デモの「画像部分」が空にならないよう、全エントリにイラスト調のダミー
+  // 顔写真を割り当てる (37件に対して16種を使い回す)。
+  const avatarUrls = ensureAvatarPool(16);
+  let avatarCursor = 0;
+  const nextAvatarUrl = () => avatarUrls[avatarCursor++ % avatarUrls.length];
+
   // ============================================================
   // イベント A: 開催中 (live) — メインのデモ対象
   // ============================================================
@@ -120,7 +195,7 @@ async function seedAwards() {
     { name: 'ネットLIVE配信', nameEn: 'Net LIVE Stream', org: '配信チーム', rank: 3, points: 78, ownPoints: 74 },
     { name: 'GH春季IR説明会', nameEn: 'GH Spring IR Briefing', org: '制作二課', rank: 2, points: 85, ownPoints: 80 },
     { name: 'サイエンス・フロンティア #001〜#012', nameEn: 'Science Frontier Season 1', org: '制作三課', rank: 1, points: 96, ownPoints: 91, isWinner: true, nominationTitle: '年間視聴継続率No.1、科学教養番組の新境地を開いた1年' },
-  ]);
+  ], nextAvatarUrl);
 
   const catBestMc = await insertCategory(eventA, 2, '最優秀MC賞', 'Best MC Award', {
     description: '進行力・場を作る力でもっとも輝いた出演者に贈られる。',
@@ -131,7 +206,7 @@ async function seedAwards() {
     { name: 'MC 田中 太郎', nameEn: 'Taro Tanaka', org: 'GH春季IR説明会', rank: 3, points: 74 },
     { name: 'MC 佐藤 太郎', nameEn: 'Taro Sato', org: 'GMOスタジオ情報バラエティ', rank: 2, points: 82 },
     { name: 'MC 鈴木 一郎', nameEn: 'Ichiro Suzuki', org: 'GMOスタジオ情報バラエティ', rank: 1, points: 90, isWinner: true, nominationTitle: '安定した進行と当意即妙なアドリブで番組を牽引' },
-  ]);
+  ], nextAvatarUrl);
 
   const catBestTechStaff = await insertCategory(eventA, 3, 'スタッフ賞（テクニカル部門）', 'Best Technical Staff', {
     description: '中継・スイッチング・音声などテクニカル領域で番組を支えたスタッフを表彰。',
@@ -141,7 +216,7 @@ async function seedAwards() {
     { name: '音響オペレーションチーム', nameEn: 'Audio Ops Team', org: '技術部', rank: 3, points: 72 },
     { name: 'スイッチング班', nameEn: 'Switching Crew', org: '技術部', rank: 2, points: 84 },
     { name: 'サブコントロール運用チーム', nameEn: 'Sub-control Team', org: '技術部', rank: 1, points: 93, isWinner: true, nominationTitle: '大型特番3本を無事故で完遂' },
-  ]);
+  ], nextAvatarUrl);
 
   const catAudienceChoice = await insertCategory(eventA, 4, '視聴者が選ぶベストコーナー賞', "Audience's Choice — Best Segment", {
     pattern: 'vote',
@@ -155,7 +230,7 @@ async function seedAwards() {
     { name: '最新ニュース深掘り', nameEn: 'Tech News Deep Dive', org: 'GMOスタジオ情報バラエティ', voteCount: 559 },
     { name: 'チャットQ&A', nameEn: 'Live Chat Q&A', org: 'ネットLIVE配信', voteCount: 447 },
     { name: '取材：量子研究所訪問', nameEn: 'Quantum Lab Visit', org: 'サイエンス・フロンティア', voteCount: 388 },
-  ]);
+  ], nextAvatarUrl);
 
   // live イベントは「URLを開けば実際に何か映る」状態まで進めておく
   await ins(
@@ -234,7 +309,7 @@ async function seedAwards() {
     { name: 'GMOスタジオ情報バラエティ', org: '制作一課', rank: 3, points: 71 },
     { name: 'GH秋季IR説明会', org: '制作二課', rank: 2, points: 79 },
     { name: 'サイエンス・フロンティア', org: '制作三課', rank: 1, points: 88, isWinner: true, nominationTitle: '放送開始1年目にして最多視聴を記録' },
-  ]);
+  ], nextAvatarUrl);
 
   const catB2 = await insertCategory(eventB, 2, '最優秀MC賞', 'Best MC Award');
   await insertEntries(eventB, catB2, [
@@ -242,7 +317,7 @@ async function seedAwards() {
     { name: 'MC 佐藤 太郎', org: 'GMOスタジオ情報バラエティ', rank: 3, points: 69 },
     { name: '佐藤 花子', org: 'ネットLIVE配信', rank: 2, points: 77 },
     { name: 'MC 田中 太郎', org: 'GH秋季IR説明会', rank: 1, points: 85, isWinner: true, nominationTitle: '落ち着いた進行で株主説明会の信頼感を作った' },
-  ]);
+  ], nextAvatarUrl);
 
   const catB3 = await insertCategory(eventB, 3, 'スタッフ賞（テクニカル部門）', 'Best Technical Staff');
   await insertEntries(eventB, catB3, [
@@ -250,7 +325,7 @@ async function seedAwards() {
     { name: 'スイッチング班', org: '技術部', rank: 3, points: 66 },
     { name: '中継技術チーム', org: '技術部', rank: 2, points: 80 },
     { name: 'サブコントロール運用チーム', org: '技術部', rank: 1, points: 91, isWinner: true, nominationTitle: '開局初年度のトラブルゼロ運用' },
-  ]);
+  ], nextAvatarUrl);
 
   // ============================================================
   // イベント C: 準備中 (draft) — ノミネート選定がまだ途中の回
@@ -272,7 +347,7 @@ async function seedAwards() {
     { name: 'サイエンス・フロンティア', org: '制作三課' },
     { name: 'GMOスタジオ情報バラエティ', org: '制作一課' },
     { name: 'ネットLIVE配信', org: '配信チーム' },
-  ]);
+  ], nextAvatarUrl);
 
   const catC2 = await insertCategory(eventC, 2, '視聴者が選ぶベストコーナー賞', "Audience's Choice — Best Segment", {
     pattern: 'vote',
@@ -284,7 +359,7 @@ async function seedAwards() {
     { name: '早押しクイズ', org: 'GMOスタジオ情報バラエティ' },
     { name: '春の簡単レシピ', org: 'GMOスタジオ情報バラエティ' },
     { name: 'チャットQ&A', org: 'ネットLIVE配信' },
-  ]);
+  ], nextAvatarUrl);
 
   console.log('[seed-awards] 投入完了:');
   console.log(`  events: 3件 (live=${eventA} / closed=${eventB} / draft=${eventC})`);
