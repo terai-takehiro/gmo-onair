@@ -83,6 +83,64 @@ export function registerInviewTools(server: McpServer): void {
   );
 
   server.registerTool(
+    'update_inview_attendee',
+    {
+      title: '内覧会 来場予約の更新',
+      description:
+        '内覧会の来場予約を部分更新する (渡したフィールドだけ変更)。id は register_inview_attendee の返り値や ' +
+        'list_inview_attendees の一覧から取得する。session_label を変更すると日付・時間帯・対象を再抽出して同期する。' +
+        'companions (同行者氏名の配列) は既存と氏名で突き合わせ、一致した同行者の受付記録 (来場チェック) を引き継ぐ。',
+      inputSchema: {
+        id: z.string().min(1).describe('更新対象の来場予約 id'),
+        name: z.string().min(1).optional().describe('申込者 (代表者) の氏名'),
+        session_label: z.string().optional().describe('参加希望の回 (生の文字列。日付/時間帯/対象を自動抽出)'),
+        session_date: z.string().regex(DATE_RE).optional().describe('回の日付 YYYY-MM-DD (通常は session_label から自動抽出されるので不要)'),
+        furigana: z.string().optional(),
+        email: z.string().optional(),
+        company: z.string().optional().describe('会社情報 (会社名+部署をそのまま)'),
+        role: z.string().optional().describe('役職'),
+        postal_code: z.string().optional(),
+        address: z.string().optional(),
+        phone: z.string().optional(),
+        fax: z.string().optional(),
+        mobile: z.string().optional(),
+        mail_consent: z.boolean().optional().describe('メール配信可否 (承諾=true)'),
+        party_size: z.number().int().min(1).max(999).optional().describe('ご参加人数'),
+        companions: z.array(z.string()).optional().describe('同行者の氏名 (ご参加者2〜5)'),
+        visit_time: z.string().optional().describe('ご来場予定時間'),
+        interests: z.string().optional().describe('ご興味・ご相談事項'),
+        notes: z.string().optional().describe('運営メモ'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const row = await inviewService.update(args.id, {
+        name: args.name,
+        session_label: args.session_label,
+        session_date: args.session_date,
+        furigana: args.furigana,
+        email: args.email,
+        company: args.company,
+        role: args.role,
+        postal_code: args.postal_code,
+        address: args.address,
+        phone: args.phone,
+        fax: args.fax,
+        mobile: args.mobile,
+        mail_consent: args.mail_consent,
+        party_size: args.party_size,
+        companions: args.companions,
+        visit_time: args.visit_time,
+        interests: args.interests,
+        notes: args.notes,
+        requested_by: args.requested_by ?? null,
+      });
+      audit('update_inview_attendee', args, { id: row.id, session_label: row.session_label, session_date: row.session_date }, args.requested_by);
+      return ok({ updated: true, id: row.id, session_label: row.session_label, session_date: row.session_date, name: row.name });
+    }),
+  );
+
+  server.registerTool(
     'list_inview_attendees',
     {
       title: '内覧会 来場予約の一覧',
