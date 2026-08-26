@@ -1569,6 +1569,21 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `/events/:id/output`、`/awards`・`/awards/output/1` の200応答までは確認済みだが、
   ⚠️ **実ブラウザでの操作確認（CGコックピット・出力画面の見た目、PC/スマホとも）は
   この開発セッションから行っていない**（PR本文に明記済み）。
+- **#437（内覧会 来場予約の MCP ツールに update_inview_attendee を追加・2026-08-26）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 09:56:39 JST /
+  CI（`checks`/`build`）両方 green 09:58:27 JST / マージ 10:01:56 JST（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約3分29秒でマージ**しており、#429・#432・
+  #433 と同じ「見る前に入った」形。`npm run reviews:debt` は今回も401で使えず、GitHub MCP
+  で直接確認した。ユーザー指摘「ONAiRの内覧会関連ツールは『新規登録
+  （register_inview_attendee）』と『一覧参照（list）』のみで、既存レコードを更新・編集する
+  ツールを追加」に対応。HTTP 側 (`inview.routes.ts`) が既に使っていた `inviewService.update`
+  （部分更新・session_label 変更時の日付/時間帯/対象の再抽出・companions の氏名突き合わせに
+  よる受付記録の引き継ぎに対応済み）をそのまま呼ぶ薄いラッパーとして MCP ツールを新設し、
+  権限ゲート（`dailyops` editor 以上）にも登録した。DB マイグレーション・画面変更なし。
+  表に移す指摘はない（レビュー自体が届いていないため）。
+  検証は `npm run typecheck` / `npm run lint` / `npm run build` / `npm run test`（1465件）を
+  確認済みだが、⚠️ **実DB・実サーバーでの動作確認（MCP経由での呼び出し）はこの開発セッションから
+  行っていない**（PR本文に明記済み）。
 
 ---
 
