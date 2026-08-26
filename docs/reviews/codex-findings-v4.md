@@ -1584,6 +1584,21 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   検証は `npm run typecheck` / `npm run lint` / `npm run build` / `npm run test`（1465件）を
   確認済みだが、⚠️ **実DB・実サーバーでの動作確認（MCP経由での呼び出し）はこの開発セッションから
   行っていない**（PR本文に明記済み）。
+- **#439（廃止したリアルタイムCGのデモ用ダミーデータにダミー顔写真を追加・2026-08-26）** —
+  `get_reviews`／`get_review_comments`／`get_comments` とも0件のまま、作成 10:26:11 JST /
+  CI（`checks`/`build`）両方 green 10:28:17 JST / マージ 10:29:06 JST（terai-takehiro 本人が
+  手動マージ・`merged_by` で確認）。**CI green から約49秒でマージ**しており、#429・#432・
+  #433・#437 と同じ「見る前に入った」形。GitHub MCP の `pull_request_read` で直接確認した
+  （`npm run reviews:debt` は未実行）。ユーザー要望「運用の際に画像部分にダミーの顔写真を
+  入れられるようにしたい」に対応。ヒアリングの結果、使う場面はデモ用シードデータのみ・
+  画像はイラスト調のアバター（実在の人物写真ではない）でよいと確認したうえで、
+  `server/src/shared/db/seed-awards.ts` が投入する37エントリ全件に、コード生成した
+  イラスト調アバターSVG（16種類使い回し）を `photo_url` として割り当てた。DB マイグレーション
+  なし・画面変更なし。表に移す指摘はない（レビュー自体が届いていないため）。
+  検証は `npm run typecheck` / `npm run lint` / `npm run test`（1465件）に加え、実サーバー
+  （検証用Postgres、フレッシュな状態から）で `db:seed:awards` の投入・冪等性・画像配信
+  （`GET /api/v1/internal/awards/images/dummy-avatar-01.svg` が200）・公開エンドポイントの
+  `photo_url` を確認し、生成画像をブラウザで目視確認済み。
 
 ---
 
