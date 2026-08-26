@@ -12,9 +12,12 @@ import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.ser
 
 const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'] as const;
 
+// 正は `shared/src/constants/statuses.ts` の `PROJECT_STAGE` (docs/core-redesign-plan.md §3-7)。
+// server は shared を import できない (`server/tsconfig.json` の rootDir) ため値を写している —
+// ズレたら `shared/tests/stageLabels.test.ts` が落とす。変えるときは shared 側から
 const STAGE_LABELS: Record<string, string> = {
   neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案', b_verbal: 'B 口頭決定',
-  a_won: 'A 受注済', s_completed: 'S 案件終了', e_lost: 'E 失注',
+  a_won: 'A 受注済', s_completed: 'S 完了', e_lost: 'E 失注',
 };
 
 /**

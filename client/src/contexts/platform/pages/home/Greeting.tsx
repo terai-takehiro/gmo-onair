@@ -64,18 +64,20 @@ export function Greeting({
         {canCount && (
           waitingTotal === 0 && myOverdue === 0 ? (
             <p className="text-sub mt-1 text-secondary-foreground">
-              待たせているものも、期限を過ぎたものもありません。
+              受信箱は空です。期限を過ぎたものもありません。
             </p>
           ) : mobile ? (
             /**
-             * **スマホはチップ**（モックの `お待たせ 3件 ・ 期限切れ 2件`）。
+             * **スマホはチップ**（モックは `お待たせ 3件 ・ 期限切れ 2件`。
+             * 「お待たせ中」の廃止＝受信箱への改名で1語目だけ変えた —
+             * 根源整理 Phase 1・`docs/v4-mock-deviations.md` に記録済み）。
              * 文章にすると 375px で2行になり、挨拶の下が読み飛ばされる。
              * **押せるようにしてある** — 件数を見た人が次にやるのは「開く」なので、
              * 数字を読んでからメニューを探し直すのは1手だけ無駄
              */
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {waitingTotal > 0 && (
-                <CountChip label="お待たせ" n={waitingTotal} onClick={onWaiting} />
+                <CountChip label="受信箱" n={waitingTotal} onClick={onWaiting} />
               )}
               {myOverdue > 0 && (
                 <CountChip label="期限切れ" n={myOverdue} onClick={onOverdue} />
@@ -83,15 +85,15 @@ export function Greeting({
             </div>
           ) : (
             /**
-             * **PC は文章**（モック:「お客様を待たせているものが 3件、
-             * 自分の期限を過ぎたものが 2件 あります。」）。
-             * 幅があるので1行に収まり、**チップより何の件数かがはっきりする**。
-             * 数字は押せる（行き先はチップと同じ）
+             * **PC は文章**（モックの形のまま、言葉だけ受信箱に合わせた:
+             * 「受信箱に届いているものが 3件、自分の期限を過ぎたものが 2件
+             * あります。」）。幅があるので1行に収まり、**チップより何の件数かが
+             * はっきりする**。数字は押せる（行き先はチップと同じ）
              */
             <p className="text-sub mt-1 text-secondary-foreground">
               {waitingTotal > 0 && (
                 <>
-                  お客様を待たせているものが{' '}
+                  受信箱に届いているものが{' '}
                   <CountLink n={waitingTotal} onClick={onWaiting} />
                 </>
               )}

@@ -16,6 +16,7 @@ import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { CalLayer } from './calendarLayout';
 import { MY_SOURCE_LEGEND } from './useCalendarEvents';
+import { TASK_DEADLINE_COLOR } from './taskLayer';
 
 interface LocationRow {
   id: string;
@@ -158,6 +159,8 @@ const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
   { key: 'studio', label: 'スタジオの予約', dot: '#dc2626' },
   { key: 'partner', label: 'パートナーの予定', dot: '#8b5cf6' },
   { key: 'my', label: '自分の予定', dot: '#2563eb' },
+  // 4層目（根源整理 §3-5）。dailyops 権限が無い人には `visible` が行ごと隠す
+  { key: 'tasks', label: 'タスクの期限', dot: TASK_DEADLINE_COLOR },
 ];
 
 /**
@@ -165,24 +168,27 @@ const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
  *
  * PC 版の `CalToolbar` は帯の中にチップを並べる余白があるが、スマホは
  * 幅が無いのでダイアログに畳む（月表アイコン行の「レイヤー」ボタンから開く）。
- * 出し分けの対象は `layerPrefs.ts` の3層のみで、部屋・人の絞り込みは持たない。
+ * 出し分けの対象は `layerPrefs.ts` の4層のみで、部屋・人の絞り込みは持たない。
  */
 export function LayerFilterDialog({
-  open, onOpenChange, value, onChange,
+  open, onOpenChange, value, onChange, visible,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   value: Record<CalLayer, boolean>;
   onChange: (v: Record<CalLayer, boolean>) => void;
+  /** その層を読む権限がある人にだけ行を出す（PC の `CalSidebarExtras` と同じ約束）。省略時は全部出す */
+  visible?: Record<CalLayer, boolean>;
 }) {
   const toggle = (k: CalLayer) => onChange({ ...value, [k]: !value[k] });
+  const items = visible ? LAYER_ITEMS.filter((it) => visible[it.key]) : LAYER_ITEMS;
 
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
       title="出すものを選ぶ"
-      sub="スタジオの予約・パートナーの予定・自分の予定を、出す/隠すで選びます。"
+      sub="カレンダーに重ねるもの（予約・予定・タスクの期限）を、出す/隠すで選びます。"
       footer={
         <FormDialogFooter>
           <Button onClick={() => onOpenChange(false)}>閉じる</Button>
@@ -190,7 +196,7 @@ export function LayerFilterDialog({
       }
     >
         <div className="flex flex-col gap-1">
-          {LAYER_ITEMS.map((it) => {
+          {items.map((it) => {
             const on = value[it.key];
             return (
               <div key={it.key} className="flex flex-col gap-1">

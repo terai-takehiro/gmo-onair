@@ -273,17 +273,27 @@ export async function generateKptDraft(
   ) as Record<string, unknown>[];
 
   // **期限を過ぎたタスク**だけを渡す。全部渡すと「予定どおり終わった仕事」が
-  // 困ったことの材料に見えてしまう
+  // 困ったことの材料に見えてしまう。
+  // 期限は COALESCE(due_at, due_date+18:00) で読む（根源整理 §3-4）—
+  // due_date しか見ないと、マイタスク・依頼・投入口で作られた（due_at のみの）
+  // 遅れが材料に入らず、ふりかえりの半分が見えない。
+  // 遅れの判定は今までどおり**日付の粒度**（当日の 19:00 完了を「遅れ」と呼ばない）
   const lateTasks = await queryAll(
-    `SELECT title, due_date, is_completed, completed_at
-       FROM project_tasks
-      WHERE project_id = ? AND deleted_at IS NULL AND due_date IS NOT NULL
+    `SELECT t.title,
+            COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::date::text AS due_date,
+            t.is_completed, t.completed_at
+       FROM project_tasks t
+      WHERE t.project_id = ? AND t.deleted_at IS NULL
+        AND COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) IS NOT NULL
         AND (
-          (is_completed = false AND due_date < to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD'))
-          OR (is_completed = true AND completed_at IS NOT NULL
-              AND to_char(completed_at AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD') > due_date)
+          (t.is_completed = false
+           AND COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::date::text
+               < to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD'))
+          OR (t.is_completed = true AND t.completed_at IS NOT NULL
+              AND to_char(t.completed_at AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')
+                  > COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::date::text)
         )
-      ORDER BY due_date LIMIT 20`,
+      ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) LIMIT 20`,
     [projectId],
   ) as Record<string, unknown>[];
 

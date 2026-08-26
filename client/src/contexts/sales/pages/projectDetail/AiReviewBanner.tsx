@@ -22,11 +22,13 @@
  * 「AI が作った」という事実だけを出します。
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Check, CheckCircle2, Loader2 } from 'lucide-react';
+import { Sparkles, Check, CheckCircle2, Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { useDismissAiProject } from '../inbox/useInboxActions';
 
 export function AiReviewBanner({
   projectId, reviewedAt,
@@ -35,6 +37,17 @@ export function AiReviewBanner({
   reviewedAt: string | null | undefined;
 }) {
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  /**
+   * 「不要（見送りにする）」— AI起票の3出口（採用/修正/不要）の3つ目
+   * （根源整理 Phase 1・docs/core-redesign-plan.md §3-6）。受信箱・案件作成の
+   * レールと**同じ1本の mutation**（`inbox/useInboxActions.ts`）で、
+   * `e_lost`＋理由「見送り（案件化せず）」にする＝却下が AI の教師データになる。
+   * `PATCH /projects/:id/stage` は `sales` の **editor** を要求するので出し分ける
+   * （「確認した」の `POST /ai-review` も同じ要求 — 押せない人にはどちらも出さない）。
+   */
+  const canDecide = hasPermission('sales', 'editor');
+  const dismiss = useDismissAiProject();
 
   const review = useMutation({
     mutationFn: async () => api.post(`/projects/${projectId}/ai-review`),
@@ -63,20 +76,37 @@ export function AiReviewBanner({
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
           })}）
         </span>
-      ) : (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="shrink-0 gap-1"
-          disabled={review.isPending}
-          onClick={() => review.mutate()}
-        >
-          {review.isPending
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-          確認した
-        </Button>
+      ) : canDecide && (
+        <span className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* 中身が合っていた → 確認した ／ 作られるべきでなかった → 不要。
+              どちらも editor の口なので出し分けは canDecide 1つ（上のコメント） */}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1 text-destructive"
+            disabled={dismiss.isPending || review.isPending}
+            onClick={() => dismiss.dismiss(projectId)}
+          >
+            {dismiss.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              : <X className="h-3.5 w-3.5" aria-hidden="true" />}
+            不要（見送りにする）
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            disabled={review.isPending || dismiss.isPending}
+            onClick={() => review.mutate()}
+          >
+            {review.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+            確認した
+          </Button>
+        </span>
       )}
     </div>
   );

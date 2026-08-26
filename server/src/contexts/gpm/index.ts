@@ -245,6 +245,9 @@ export function createGpmRoutes(): Router {
       data: await gpmTaskService.listAll({
         status: typeof req.query.status === 'string' ? req.query.status : undefined,
         project_id: typeof req.query.project_id === 'string' ? req.query.project_id : undefined,
+        // private タスクは担当者/作成者本人にだけ返す（根源整理 §3-4 の漏れ修正。
+        // 渡さないと本人の分まで隠れて「/daily/tasks には有るのに GPM に無い」になる）
+        viewer_id: req.user!.id,
       }),
     });
   });

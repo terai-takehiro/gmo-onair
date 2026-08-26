@@ -15,7 +15,7 @@
  * `GET /dashboard/inbox` は4種類を返しますが、ここに出すのは
  * **ネタ案件と問い合わせ**（`INTAKE_KINDS`）だけです。期限超過はダッシュボードの
  * 「期限が過ぎたやること」、見積・請求の書類は財務の「受け取った書類」が持ちます。
- * **口は変えません** — 同じ口をホームの「お待たせ中」とタイルの件数が読んでいます。
+ * **口は変えません** — 同じ口をホームの「受信箱」とタイルの件数が読んでいます。
  *
  * ── 掴んで滑らせる ──────────────────────────────────────────
  *
@@ -31,6 +31,7 @@ import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import {
   INTAKE_KINDS, intakeCountOf, titleOf, subtitleOf, type InboxData, type InboxItem,
 } from '../inbox/kinds';
+import { useDismissAiProject } from '../inbox/useInboxActions';
 
 /**
  * レールのカードの幅。**モックの実測値（236px）**。件名の長さなりにすると
@@ -76,6 +77,8 @@ export function IntakeRail({
   onSelect: (item: InboxItem | null) => void;
 }) {
   const rail = useRail();
+  // AI起票ネタの「不要」（受信箱と同じ1本・早期 return より前に呼ぶこと）
+  const dismiss = useDismissAiProject();
 
   // **1件も無いときは枠ごと出さない。** 「自動で届いたもの 0件」の帯が
   // 毎回出ると、案件作成が「受付の付属品」に見える
@@ -133,34 +136,71 @@ export function IntakeRail({
           {items.map((item) => {
             const badge = KIND_BADGE[item.kind] ?? KIND_BADGE.inquiry;
             const on = item.key === selectedKey;
+            /**
+             * ネタ案件のカードだけ「不要」を持つ（AI起票の却下を1クリックに —
+             * 受信箱と同じ1本の mutation・`inbox/useInboxActions.ts`）。
+             * このレール（案件作成）は `sales` の editor しか開けない画面なので、
+             * 権限の出し分けはここでは要らない（ボタンの要求と画面の要求が同じ）。
+             * **選択ボタンの中に入れない**（入れ子のボタンは HTML として壊れる）
+             * ため、カードの枠を div にして選択部と「不要」を兄弟に分けてある。
+             */
+            const canDismiss = item.kind === 'ai_project' && typeof item.meta.id === 'string';
             return (
-              <button
+              <div
                 key={item.key}
-                type="button"
-                role="option"
-                aria-selected={on}
-                onClick={() => onSelect(on ? null : item)}
-                className={`v4-press ${CARD_W} shrink-0 rounded-note border px-3 py-2.5 text-left ${
+                className={`${CARD_W} flex shrink-0 flex-col rounded-note border ${
                   on
                     ? 'border-primary-border-strong bg-primary-surface'
-                    : 'border-border bg-card hover:bg-muted'
+                    : 'border-border bg-card'
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  <span className="text-sub min-w-0 flex-1 truncate font-bold">{titleOf(item)}</span>
-                  <span className={`text-badge inline-flex h-5 w-14 shrink-0 items-center justify-center rounded-badge-xs ${badge.tone}`}>
-                    {badge.label}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => onSelect(on ? null : item)}
+                  className={`v4-press flex-1 px-3 pt-2.5 text-left ${canDismiss ? 'pb-1' : 'pb-2.5'} ${
+                    on ? '' : 'hover:bg-muted'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sub min-w-0 flex-1 truncate font-bold">{titleOf(item)}</span>
+                    <span className={`text-badge inline-flex h-5 w-14 shrink-0 items-center justify-center rounded-badge-xs ${badge.tone}`}>
+                      {badge.label}
+                    </span>
                   </span>
-                </span>
-                <span className="mt-0.5 flex items-center gap-2">
-                  <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
-                    {subtitleOf(item)}
+                  <span className="mt-0.5 flex items-center gap-2">
+                    <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
+                      {subtitleOf(item)}
+                    </span>
+                    <span className="text-note font-number shrink-0 text-fg-disabled">
+                      {formatRelativeTime(item.received_at)}
+                    </span>
                   </span>
-                  <span className="text-note font-number shrink-0 text-fg-disabled">
-                    {formatRelativeTime(item.received_at)}
+                </button>
+                {canDismiss && (
+                  <span className="flex justify-end px-2 pb-1">
+                    <button
+                      type="button"
+                      disabled={dismiss.isPending}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const done = await dismiss.dismiss(
+                          String(item.meta.id),
+                          typeof item.meta.name === 'string' ? item.meta.name : null,
+                        );
+                        // 選んだままのカードを見送りにすると、フォームに読み取り結果
+                        // だけが残って「消えたのに入っている」に見える — 選択を外す
+                        // （確認で「やめる」を押したときは外さない）
+                        if (done && on) onSelect(null);
+                      }}
+                      className="min-h-tap text-note px-1.5 font-bold text-destructive hover:underline disabled:opacity-50 lg:min-h-0"
+                    >
+                      不要
+                    </button>
                   </span>
-                </span>
-              </button>
+                )}
+              </div>
             );
           })}
         </div>

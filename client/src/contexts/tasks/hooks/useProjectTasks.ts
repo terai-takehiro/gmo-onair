@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+// 統合カレンダー「タスクの期限」レイヤーの鍵（`invalidateTasks` のコメント参照）。
+// `lib/bookingQueries.ts` が `holds/holdLogic.ts` の HOLD_KEY を読むのと同じ形
+import { TASK_DEADLINE_KEY } from "@/contexts/production/pages/calendar/taskLayer";
 import type {
   TaskColumn,
   ProjectTask,
@@ -130,11 +133,17 @@ export function useProjectTasks(
  * 返す `task_count`/`task_done_count` から回ごとの進捗バーを出しており、タスクタブの
  * 同じ画面に常駐している。ここを落とさないと、タスクを足す/終える/消しても
  * 「回」一覧の進捗バッジだけ古いままになる。
+ *
+ * **`task-deadlines`（統合カレンダーの「タスクの期限」レイヤー・週間予定の併載）も
+ * 落とすこと**（根源整理 §3-5）。完了・期限変更がカレンダーに残って見えると、
+ * もう無い締め切りに向けて動いてしまう。鍵の正は
+ * `contexts/production/pages/calendar/taskLayer.ts` の `TASK_DEADLINE_KEY`。
  */
 const invalidateTasks = (qc: ReturnType<typeof useQueryClient>, projectId: string) => {
   qc.invalidateQueries({ queryKey: ["project-tasks", projectId] });
   qc.invalidateQueries({ queryKey: ["task-dashboard"] });
   qc.invalidateQueries({ queryKey: ["episodes", projectId] });
+  qc.invalidateQueries({ queryKey: [TASK_DEADLINE_KEY] });
 };
 
 export function useCreateTask(projectId: string) {

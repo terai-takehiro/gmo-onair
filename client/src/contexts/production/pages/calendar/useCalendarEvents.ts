@@ -1,9 +1,10 @@
 /**
- * ① 予定 — 3 つの取得元を 1 つの形に畳む
+ * ① 予定 — 4 つの取得元を 1 つの形に畳む
  *
- * スタジオ予約 / パートナーの予定 / 自分の予定は**別のテーブル・別の API** で、
- * 持っている項目も違います。画面ごとに変換を書くと、
- * 「月表には出るのに一覧には出ない」が起きます。**畳むのはここだけ。**
+ * スタジオ予約 / パートナーの予定 / 自分の予定 / タスクの期限は
+ * **別のテーブル・別の API** で、持っている項目も違います。
+ * 画面ごとに変換を書くと、「月表には出るのに一覧には出ない」が起きます。
+ * **畳むのはここだけ。**
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import {
   type PartnerSchedule, type PersonalEvent,
 } from '../../components/schedule/scheduleShared';
 import type { CalEvent, CalLayer } from './calendarLayout';
+import { TASK_DEADLINE_KEY, TASK_DEADLINE_COLOR, type TaskDeadline } from './taskLayer';
 
 /**
  * 自分の予定の色。種別を持たないので取込元で分ける。
@@ -71,6 +73,9 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
   const canStudio = isAdmin || hasPermission('sales');
   const canPartner = isAdmin || hasPermission('sales');
   const canPersonal = isAdmin || hasPermission('sales', 'editor');
+  // タスクの期限だけ権限が違う（`GET /dailyops/tasks/deadlines` は dailyops reader）。
+  // 権限が無い人はクエリ自体を止め、レイヤーのチェックも出さない（403 を画面に出さない）
+  const canTasks = isAdmin || hasPermission('dailyops');
 
   const bookings = useQuery<CalBooking[]>({
     queryKey: ['studio-bookings', from, to, ''],
@@ -90,6 +95,26 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
     queryKey: ['personal-events', from, to],
     queryFn: async () => (await api.get(`/schedule/personal?from=${from}&to=${to}`)).data.data,
     enabled: canPersonal,
+    placeholderData: (prev) => prev,
+  });
+
+  /**
+   * 自分のタスクの期限（根源整理 §3-5・4層目）。API は `YYYY-MM-DD` しか受けないので
+   * `T23:59` 付きの `to` は日付に切り詰める（その日いっぱいまで返る）。
+   *
+   * 鍵は予約と独立（`taskLayer.ts` の説明）。タスク完了との連動は、同じバンドルの
+   * 画面（案件のタスクタブ・④ タスク一覧）が `invalidateTasks` で
+   * `['task-deadlines']` を落とすが、**日常業務（`/daily/` 別バンドル）での完了は
+   * このキャッシュに届かない**。全部を確実に連動させるには通知の口が要り
+   * 範囲が広がりすぎるので、staleTime を共通既定（60秒）より短い30秒にして妥協する。
+   */
+  const deadlines = useQuery<TaskDeadline[]>({
+    queryKey: [TASK_DEADLINE_KEY, from.slice(0, 10), to.slice(0, 10)],
+    queryFn: async () => (await api.get('/dailyops/tasks/deadlines', {
+      params: { from: from.slice(0, 10), to: to.slice(0, 10) },
+    })).data.data,
+    enabled: canTasks,
+    staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
 
@@ -188,8 +213,34 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
         });
       }
     }
+
+    if (canTasks && f.layers.tasks) {
+      for (const t of deadlines.data ?? []) {
+        // 部屋も人も持たない（自分の予定と同じ扱い。絞りの目的は「部屋・人の空きを見る」）
+        if (f.roomIds.length > 0 || f.userIds.length > 0) continue;
+        out.push({
+          key: `tk-${t.id}`,
+          id: t.id,
+          layer: 'tasks',
+          // 〆 で「予定ではなく締め切り」だと分かるようにする（月マスには種別の札が出ない）
+          title: `〆 ${t.title}`,
+          color: TASK_DEADLINE_COLOR,
+          typeLabel: '期限',
+          sub: t.project_name
+            ? `${t.project_name}${t.gls_number ? `（${t.gls_number}）` : ''}`
+            : '個人タスク',
+          source: '',
+          allDay: false,
+          // 期限は「点」なので始まり＝終わりで持つ（`timeLabel` は時刻を1つだけ出し、
+          // 週表では `placeDay` が 30 分ぶんの札にする）
+          start: at(t.due_at),
+          end: at(t.due_at),
+          tentative: false,
+        });
+      }
+    }
     return out;
-  }, [bookings.data, partners.data, mine.data, f, canStudio, canPartner, canPersonal]);
+  }, [bookings.data, partners.data, mine.data, deadlines.data, f, canStudio, canPartner, canPersonal, canTasks]);
 
   return {
     events,
@@ -200,11 +251,19 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
     bookings: bookings.data ?? [],
     partners: partners.data ?? [],
     mine: mine.data ?? [],
-    isLoading: bookings.isLoading || partners.isLoading || mine.isLoading,
-    isError: bookings.isError || partners.isError || mine.isError,
-    error: bookings.error ?? partners.error ?? mine.error,
-    refetch: () => { bookings.refetch(); partners.refetch(); mine.refetch(); },
-    can: { studio: canStudio, partner: canPartner, personal: canPersonal },
+    deadlines: deadlines.data ?? [],
+    isLoading: bookings.isLoading || partners.isLoading || mine.isLoading || deadlines.isLoading,
+    isError: bookings.isError || partners.isError || mine.isError || deadlines.isError,
+    error: bookings.error ?? partners.error ?? mine.error ?? deadlines.error,
+    // 権限が無い層は refetch しない（disabled のクエリも `refetch()` は実際に取りに行き、
+    // 403 が isError に化けてカレンダー全体が「読めませんでした」になる）
+    refetch: () => {
+      if (canStudio) bookings.refetch();
+      if (canPartner) partners.refetch();
+      if (canPersonal) mine.refetch();
+      if (canTasks) deadlines.refetch();
+    },
+    can: { studio: canStudio, partner: canPartner, personal: canPersonal, tasks: canTasks },
   };
 }
 

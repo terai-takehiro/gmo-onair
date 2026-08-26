@@ -45,9 +45,14 @@
  * 終わった案件では E〜A のどれも光りません（居ないので嘘になる）。押せば戻せます —
  * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Pencil, Plus, AlarmClock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/platform/AuthContext';
+import { SnoozeDialog, useSnooze } from '../projectList/snooze';
 import { PROJECT_TABS, MOBILE_TABS_BY_PHASE, type ProjectPhase, type ProjectTabKey } from './tabs';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 
@@ -105,6 +110,23 @@ export function DetailHeader({
   onChangeStage, mobile, phase, updatedAt,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('sales', 'editor');
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+
+  /**
+   * スヌーズの状態（docs/core-redesign-plan.md §3-1）。props を増やさず、
+   * **ページと同じ鍵**（`['project', id]`）でキャッシュから読む — 同じ鍵なので
+   * 追加のリクエストは飛ばず、`useSnooze` の invalidate でここも一緒に更新される。
+   */
+  const { data: p } = useQuery<{ health?: string; snooze_until?: string | null }>({
+    queryKey: ['project', id],
+    queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
+    enabled: !!id,
+  });
+  const snoozed = p?.health === 'snoozed' && !!p?.snooze_until;
+  const snooze = useSnooze(id);
+
   const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
   const tabs = PROJECT_TABS
     // **スマホは3つだけ。** 7タブを 375px に並べると1つ 40px 弱になり押し分けられない
@@ -213,6 +235,27 @@ export function DetailHeader({
           })}
         </div>
 
+        {/*
+          スヌーズ（docs/core-redesign-plan.md §3-1）。再開日を決めて意図して寝かせる —
+          寝ているあいだは停滞にも自動整理にも出ない。**掛かっているときは
+          押した先のダイアログに「解除」がある**ので、ここはボタン1つで済む。
+        */}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setSnoozeOpen(true)}
+            aria-pressed={snoozed}
+            className={`text-sub inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control border px-2.5 ${
+              snoozed
+                ? 'border-border bg-muted font-bold text-foreground'
+                : 'border-border text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <AlarmClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            スヌーズ
+          </button>
+        )}
+
         <span className="flex-1" />
         {/* 最後の更新。**概要タブの右カラムから移した**（どのタブでも同じ位置に出る） */}
         {updatedAt && !mobile && (
@@ -221,6 +264,36 @@ export function DetailHeader({
           </span>
         )}
       </div>
+
+      {/*
+        スヌーズ中の帯。**控えめにする** — 意図して寝かせた静かな状態なので、
+        警告色で騒がない。解除はここから1クリック（掛け直しはスヌーズボタンから）。
+      */}
+      {snoozed && p?.snooze_until && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-faint bg-muted/50 px-4 py-1.5 lg:px-6">
+          <AlarmClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="text-note text-muted-foreground">
+            スヌーズ中 — {p.snooze_until.replace(/-/g, '/')} に自動で再開します（それまで停滞にも自動整理にも出ません）
+          </span>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => snooze.mutate(null)}
+              disabled={snooze.isPending}
+              className="text-note font-bold text-primary hover:underline disabled:opacity-50"
+            >
+              いま解除する
+            </button>
+          )}
+        </div>
+      )}
+
+      <SnoozeDialog
+        open={snoozeOpen}
+        onOpenChange={setSnoozeOpen}
+        projectId={id}
+        current={snoozed ? p?.snooze_until : null}
+      />
 
       {/*
         ── 2段目（44px）: タブ ───────────────────────────────────

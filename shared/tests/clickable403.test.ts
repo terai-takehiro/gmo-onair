@@ -110,11 +110,15 @@ describe('押せるのに 403 にしない', () => {
     // **別バンドルへは素の遷移**（ルーターでは動けない）
     expect(kinds).toMatch(/export function isCrossApp/);
 
-    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
+    // 受信箱タブの中身は根源整理 Phase 1 で `InboxTab.tsx` に分かれた
+    // （1ファイル400行の上限。`TaskHubCard` はタブの枠だけ持つ）
+    const card = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'InboxTab.tsx');
     // 行き先が無い行は押せなくする（押して権限エラーに送らない）
-    expect(card).toMatch(/const href = inboxHrefOf\(it, can\)/);
-    expect(card).toMatch(/return href \? \(/);
+    expect(card).toMatch(/const href = inboxHrefOf\(item, can\)/);
+    expect(card).toMatch(/\{href \? \(/);
     expect(card).not.toContain("navigate('/sales/projects/new')");
+    const hub = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'TaskHubCard.tsx');
+    expect(hub).not.toContain("navigate('/sales/projects/new')");
 
     // 挨拶の件数も同じ。**行き先を知っているのは呼ぶ側**（部品は見た目だけ持つ）
     const greeting = read('client', 'src', 'contexts', 'platform', 'pages', 'home', 'Greeting.tsx');

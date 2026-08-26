@@ -19,6 +19,13 @@ import { syncProjectEventDates } from '../../production/services/project-event-d
 import {
   JAPANESE_SORT_KEYS, japaneseCollationAvailable, withJapaneseCollation,
 } from './japanese-sort';
+/**
+ * 健全性（stalled / overdue / snoozed / ok）・停滞しきい値・「最後の動き」の定義は
+ * **project-health.ts の1か所だけ**が持つ（docs/core-redesign-plan.md §3-7）。
+ * ここに式を書き写すと、一覧・並び順・ダッシュボードが黙ってずれる。
+ */
+import { healthSql, stalledDaysSql, HEALTH_FILTERS } from './project-health';
+import { jstDate } from '../../../shared/utils/jst';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -175,6 +182,11 @@ export interface ProjectFilter {
   /** 開催期間レンジ (YYYY-MM-DD)。イベント期間がこのレンジに重なる案件のみ */
   eventFrom?: string;
   eventTo?: string;
+  /**
+   * 健全性で絞る（'stalled' 停滞 / 'overdue' 期限超過 / 'snoozed' スヌーズ中）。
+   * 定義は `project-health.ts`。知らない値は素通しさせない（ステージと同じ守り方）。
+   */
+  health?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
 }
@@ -237,14 +249,15 @@ const DEFAULT_SORT_SQL = `
  *
  * ── 何を「止まっている」と見なすか ──────────────────────────
  *
- * 画面の「止まっている」バッジ (`projectList/stages.ts` の `STALE_DAYS`) と
- * **同じ7日**です。ここだけ別の日数にすると、バッジが付いていない行が
- * 先頭に来る（またはその逆）ことになり、並び順の理由が読めなくなります。
- * 終わった案件 (完了・失注) は動かないのが正しいので上げません。
+ * **健全性の単一定義（`project-health.ts`）の 'stalled'** です。以前はここに
+ * 「7日」を直書きしていて、バッジ側と別々にずれる形でした。いまはステージ別
+ * しきい値・生存証拠・スヌーズをすべて通した「停滞」だけを先頭に上げます
+ * （並びの意味は同じ: 止まっているものが先、次に期限が近い順）。
+ * 「最後の動き」は一覧が lateral（`mv`）で既に持っているのでそれを渡し、
+ * 同じ副問い合わせを二度走らせません。
  */
 const RECOMMENDED_SORT_SQL = `
-  CASE WHEN p.stage NOT IN ('s_completed', 'e_lost')
-        AND GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) < NOW() - INTERVAL '7 days'
+  CASE WHEN (${healthSql('GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at))')}) = 'stalled'
        THEN 0 ELSE 1 END ASC,
   nt.due_date ASC NULLS LAST,
   p.event_start ASC NULLS LAST,
@@ -495,6 +508,22 @@ export class ProjectService {
       where += ` AND (p.event_start IS NULL OR NULLIF(p.event_start, '') IS NULL OR (p.event_start <= ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?))`;
       params.push(filter.eventTo, filter.eventFrom);
     }
+    /*
+     * 健全性で絞る（'stalled' / 'overdue' / 'snoozed'）。式は SELECT 句に出すものと
+     * **同じ1つ**（`project-health.ts`）— 別に書くとバッジと絞り込みが食い違う。
+     * ここは件数（total / stage_counts）の問い合わせにも使われるので、
+     * lateral（mv）に頼らない素の式で書く。**知らない値は当たらない条件に落とす**
+     * （素通しすると「絞ったのに全件」に気づけない — ステージと同じ守り方）。
+     * ステージより前に足すので、チップの件数（stage_counts）とも両立する。
+     */
+    if (filter.health) {
+      if ((HEALTH_FILTERS as readonly string[]).includes(filter.health)) {
+        where += ` AND (${healthSql()}) = ?`;
+        params.push(filter.health);
+      } else {
+        where += ' AND FALSE';
+      }
+    }
 
     /*
      * ステージだけは**最後に足す**。
@@ -560,7 +589,12 @@ export class ProjectService {
        nt.title as next_task_title, nt.due_date as next_task_due, nt.assignee_name as next_task_assignee,
        COALESCE(est.amount, 0) as estimate_amount,
        memo.description as memo_excerpt,
-       GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at
+       GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at)) as last_activity_at,
+       -- 健全性と放置日数 (project-health.ts の単一定義)。「最後の動き」は上と同じ mv を渡す。
+       -- snooze_until は DATE を ::text にする (pg が JS Date にして UTC で1日ずれるため。due_date と同じ理由)
+       ${healthSql('GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at))')} as health,
+       ${stalledDaysSql('GREATEST(p.updated_at, COALESCE(mv.last_at, p.updated_at))')} as stalled_days,
+       p.snooze_until::text as snooze_until
        FROM projects p
        LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
@@ -603,7 +637,10 @@ export class ProjectService {
        memo.description as memo_excerpt,
        -- 案件詳細の「事実の帯」が**見積金額**を出す（モックの指定）。
        -- 一覧と**同じ計算**を使う（写すと、同じ案件が画面によって違う額になる）
-       COALESCE(est.amount, 0) as estimate_amount
+       COALESCE(est.amount, 0) as estimate_amount,
+       -- 健全性 (project-health.ts) とスヌーズ。一覧と同じ定義・同じ ::text (日付ずれ対策)
+       ${healthSql()} as health,
+       p.snooze_until::text as snooze_until
        FROM projects p
        LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
@@ -1254,6 +1291,50 @@ export class ProjectService {
     // 「AI の誤り」として数えられ、修正率が意味のない数字になる
     await recordProjectCorrections(id, existing, saved, userId);
     return saved;
+  }
+
+  /**
+   * スヌーズ（`PATCH /projects/:id/snooze`・docs/core-redesign-plan.md §3-1）。
+   *
+   * 「待ち」は独立の状態ではなく**未来日付＋期限切れ時の自動再浮上**で表す。
+   * だから**未来の日付しか受け付けない** — 今日以前を許すと「掛けた瞬間から
+   * 効いていないスヌーズ」ができ、無期限を許すと「お待たせ中」の轍を踏む。
+   * `null` で解除。期日が来たときの解除処理は**要らない**（判定側が
+   * `snooze_until >= CURRENT_DATE` で見るだけなので、過ぎれば勝手に普通に戻る）。
+   * どのステージからでも掛けられる（終端に掛けても健全性は常に ok のまま）。
+   */
+  async setSnooze(id: string, until: unknown, userId: string) {
+    const project = await queryOne(
+      'SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id],
+    );
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+    if (until === null || until === undefined || until === '') {
+      await execute(
+        `UPDATE projects SET snooze_until = NULL, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+        [userId, id],
+      );
+      return await this.getById(id);
+    }
+
+    // 形と実在の両方を見る（'2026-02-30' は DATE のキャストで 500 になるため手前で弾く）
+    if (typeof until !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(until)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'スヌーズの期日は YYYY-MM-DD で指定してください');
+    }
+    const [y, m, d] = until.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+      throw new AppError(400, 'VALIDATION_ERROR', '実在しない日付です');
+    }
+    // **日本の壁時計の「今日」と比べる**（サーバーは UTC で動く。jst.ts の理由）
+    if (until <= jstDate()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'スヌーズの期日は明日以降の日付にしてください（過去や今日には掛けられません）');
+    }
+    await execute(
+      `UPDATE projects SET snooze_until = ?, updated_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL`,
+      [until, userId, id],
+    );
+    return await this.getById(id);
   }
 
   /**

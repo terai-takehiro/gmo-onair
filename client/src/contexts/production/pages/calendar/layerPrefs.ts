@@ -12,9 +12,10 @@ const LAYER_KEY = 'unified-cal-layers';
 export function loadLayers(): Record<CalLayer, boolean> {
   try {
     const raw = localStorage.getItem(LAYER_KEY);
-    if (raw) return { studio: true, partner: true, my: true, ...JSON.parse(raw) };
+    // 4層目（tasks）を足す前に保存された値には鍵が無い → 既定（出す）に倒す
+    if (raw) return { studio: true, partner: true, my: true, tasks: true, ...JSON.parse(raw) };
   } catch { /* 壊れていたら既定に戻す */ }
-  return { studio: true, partner: true, my: true };
+  return { studio: true, partner: true, my: true, tasks: true };
 }
 
 export function saveLayers(layers: Record<CalLayer, boolean>) {

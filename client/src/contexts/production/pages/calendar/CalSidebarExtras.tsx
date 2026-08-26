@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { addMonths, monthWeeks, type CalLayer } from './calendarLayout';
 import { MY_SOURCE_LEGEND } from './useCalendarEvents';
+import { TASK_DEADLINE_COLOR } from './taskLayer';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -23,6 +24,8 @@ const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
   { key: 'studio', label: 'スタジオ', dot: '#dc2626' },
   { key: 'partner', label: 'パートナー', dot: '#8b5cf6' },
   { key: 'my', label: '自分', dot: '#2563eb' },
+  // 4層目（根源整理 §3-5）。dailyops 権限が無い人には `visible` が節ごと隠す
+  { key: 'tasks', label: 'タスクの期限', dot: TASK_DEADLINE_COLOR },
 ];
 
 export function CalSidebarExtras({

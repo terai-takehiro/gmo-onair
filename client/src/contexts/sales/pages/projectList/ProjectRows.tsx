@@ -25,7 +25,9 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
-import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES, isStale } from './stages';
+import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES } from './stages';
+import { HealthBadge } from './health';
+import { TidyActions } from './TidyActions';
 import { rowInProps, type RowAnim } from './rowAnim';
 import type { ProjectListRow } from './types';
 
@@ -93,11 +95,14 @@ export function ProjectRow({
   p,
   today,
   row,
+  tidy,
   onOpen,
 }: {
   p: ProjectListRow;
   today: string;
   row?: RowAnim;
+  /** 「要整理」ビューか。行に4つの軽いアクション（次の一手/スヌーズ/見送り/失注）を出す */
+  tidy?: boolean;
   onOpen: () => void;
 }) {
   /**
@@ -112,7 +117,6 @@ export function ProjectRow({
   const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
   const isExpected = estimate === 0 && expected > 0;
   const terminal = TERMINAL_STAGES.includes(p.stage);
-  const stale = isStale(p.stage, p.last_activity_at);
   const due = dueLabel(p.next_task_due, today);
 
   return (
@@ -136,11 +140,8 @@ export function ProjectRow({
       <RowMain>
         <div className="flex items-center gap-2">
           <RowTitle>{p.name}</RowTitle>
-          {stale && (
-            <span className="text-badge shrink-0 rounded-badge-xs bg-destructive-surface px-1.5 py-0.5 text-destructive">
-              止まっている
-            </span>
-          )}
+          {/* 健全性はサーバーの `health` だけを見る（`projectList/health.tsx`）。ok は何も出ない */}
+          <HealthBadge p={p} />
           {p.is_ai_created && (
             <span
               className="text-badge inline-flex shrink-0 items-center gap-0.5 rounded-badge-xs bg-ai-surface px-1.5 py-0.5 text-ai"
@@ -156,6 +157,8 @@ export function ProjectRow({
           {p.customer_name || 'お客様 未設定'}
           {(p.gls_number || p.code) && ` ・ ${p.gls_number || p.code}`}
         </RowSub>
+        {/* 「要整理」のときだけ、行の中に4つの手を出す（TidyActions がクリックを止める） */}
+        {tidy && <TidyActions p={p} />}
       </RowMain>
 
       <TableBadge

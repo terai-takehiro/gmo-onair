@@ -12,7 +12,13 @@ export interface ProjectTask {
   task_type: 'free' | 'checklist' | 'production_step' | 'sales';
   production_step: 'script' | 'materials' | 'recording' | null;
   start_date: string | null;
+  /**
+   * 期限の**日付**（後方互換の表示用）。正は `due_at` で、この値は
+   * `COALESCE(due_at, due_date+18:00)` の日付部分。カンバン・ガントが読む
+   */
   due_date: string | null;
+  /** 期限（時刻つき・唯一の正）。docs/core-redesign-plan.md §3-4 */
+  due_at: string | null;
   assigned_to: string | null;
   assigned_to_name: string | null;
   is_completed: boolean;
@@ -53,12 +59,22 @@ function normalizeWorkState(value: unknown): 'todo' | 'doing' | 'waiting' {
     : 'todo';
 }
 
+/**
+ * 期限の読みの唯一の式（根源整理 §3-4）。**書き手がどちらの列に書いても同じ期限が見える。**
+ * my-tasks.service.ts の DUE_EXPR と同じ形（時刻の無い旧行は終業 18:00 として補う）。
+ * ずれると「マイタスクで直した期限がカンバンに出ない」が再発する
+ * （shared/tests/taskDueUnification.test.ts が固定している）。
+ */
+const DUE_EXPR = `COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)`;
+
 // v2.9.198+: AI 作成判定の lateral はパラメータ無しのため $n 採番に影響しない
 const SELECT_TASK = `
   SELECT
     t.id, t.project_id, t.episode_id, t.column_id,
     t.title, t.description, t.task_type, t.production_step,
-    t.start_date::text AS start_date, t.due_date::text AS due_date,
+    t.start_date::text AS start_date,
+    ${DUE_EXPR}::date::text AS due_date,
+    ${DUE_EXPR}::text AS due_at,
     t.assigned_to, u.name AS assigned_to_name,
     t.is_completed, t.completed_at, t.work_state, t.progress, t.is_milestone,
     t.sort_order, t.parent_task_id,
@@ -183,15 +199,17 @@ export const projectTasksService = {
     const sortOrder = ((maxRow?.max as number) ?? -1) + 1;
 
     await execute(
+      // 期限は due_at（時刻つき）にも書く（根源整理 §3-4: 書き手は全員 due_at を書く）。
+      // 日付しか受けない口なので終業 18:00 を補う。due_date は互換のため残す
       `INSERT INTO project_tasks
          (id, project_id, episode_id, column_id, title, description,
-          task_type, production_step, start_date, due_date,
+          task_type, production_step, start_date, due_date, due_at,
           assigned_to, sort_order, parent_task_id, progress, is_milestone,
           work_state,
           created_at, updated_at, created_by, updated_by)
        VALUES
          ($1, $2, $3, $4, $5, $6,
-          $7, $8, $9::date, $10::date,
+          $7, $8, $9::date, $10::date, ($10::date + TIME '18:00')::timestamp,
           $11, $12, $13, $14, $15,
           $16,
           NOW(), NOW(), $17, $17)`,
@@ -258,7 +276,14 @@ export const projectTasksService = {
       params.push(normalizeWorkState(data.work_state));
     }
     if ('start_date' in data) { sets.push(`start_date = $${i++}::date`); params.push(data.start_date); }
-    if ('due_date' in data) { sets.push(`due_date = $${i++}::date`); params.push(data.due_date); }
+    if ('due_date' in data) {
+      // 期限は due_at にも書く（根源整理 §3-4）。同じ $n を2回使うのは
+      // 「同じ日付から作る」ことを SQL の形で保証するため（別パラメータだとずれうる）
+      sets.push(`due_date = $${i}::date`);
+      sets.push(`due_at = ($${i}::date + TIME '18:00')::timestamp`);
+      i++;
+      params.push(data.due_date);
+    }
 
     await execute(
       `UPDATE project_tasks SET ${sets.join(', ')} WHERE id = $1`,

@@ -397,15 +397,17 @@ export async function openItemToTask(
     const due = /^\d{4}-\d{2}-\d{2}$/.test(String(item.due ?? '')) ? String(item.due) : null;
 
     await tx.execute(
-      `INSERT INTO project_tasks (id, project_id, title, description, due_date, source, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, 'minutes', ?, ?)`,
+      // 期限は due_at（時刻つき・唯一の正）にも書く（根源整理 §3-4）。
+      // 議事録の持ち帰りは日付しか持たないので終業 18:00 を補う。due_date は互換のため残す
+      `INSERT INTO project_tasks (id, project_id, title, description, due_date, due_at, source, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, 'minutes', ?, ?)`,
       [
         taskId, m.project_id, text,
         // **どの打合せから来たかを残す。** タスクだけを見た人が
         // 「誰が言ったことか」を追えないと、勝手に消される
         [`議事録「${m.title || '（表題なし）'}」${m.met_on ? `（${m.met_on}）` : ''}から`,
           owner ? `打合せでの担当: ${owner}` : null].filter(Boolean).join('\n'),
-        due, userId, userId,
+        due, due, userId, userId,
       ],
     );
 

@@ -14,29 +14,22 @@
  */
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { jstDate, jstMonthRange, shiftYmd } from '../../../shared/utils/jst';
+/**
+ * 「最後の動き」と「止まっている」の定義は **project-health.ts の1か所だけ**が持つ
+ * （docs/core-redesign-plan.md §3-7）。以前はここに `LAST_MOVE` と `STUCK_DAYS = 7`
+ * を書き写していて、しきい値を変えると一覧・並び順・この画面が黙ってずれる形だった。
+ */
+import {
+  LAST_MOVE_SQL, healthSql, STUCK_DAYS_BY_STAGE,
+} from '../../sales/services/project-health';
+
+const LAST_MOVE = LAST_MOVE_SQL;
 
 /**
- * 「最後の動き」の式。**案件一覧 (`project.service`) と同じ考え方**で、
- * 案件そのもの・タスク・活動記録のいちばん新しい時刻を採る。
- *
- * `projects.updated_at` だけでは足りない — この数字を見る目的は
- * 「放っておかれていないか」なので、タスクを動かしただけでも「動いている」。
- *
- * 見積・請求は入れない (`revenues` は締め処理で一斉に更新されるので、
- * 誰も触っていない案件まで「たった今」になる)。
+ * 「今週動いた」の窓。**停滞のしきい値ではない**（あちらはステージ別で
+ * `STUCK_DAYS_BY_STAGE`）。この KPI は文字どおり「直近1週間に動いたか」を数える。
  */
-const LAST_MOVE = `
-  GREATEST(
-    p.updated_at,
-    COALESCE((SELECT MAX(t.updated_at) FROM project_tasks t
-              WHERE t.project_id = p.id AND t.deleted_at IS NULL), p.updated_at),
-    COALESCE((SELECT MAX(a.updated_at) FROM activity_logs a
-              WHERE a.project_id = p.id AND a.deleted_at IS NULL), p.updated_at)
-  )
-`;
-
-/** 何日動いていなければ「止まっている」とするか。モックの文言もこの日数 */
-const STUCK_DAYS = 7;
+const MOVED_WINDOW_DAYS = 7;
 
 /**
  * **この画面は GLS-A（案件）だけを数える** (migration 179・決め⑩)。
@@ -106,11 +99,14 @@ export async function getSalesOverview(now = new Date()) {
   const [moves, week, quotes, revenue, stuckRows, won, history] = await Promise.all([
     // ── 進行中の件数と、そのうち直近7日に動いたもの / 止まっているもの ──
     // 1回のスキャンで3つ数える (3本に分けると同じ式を3回書くことになる)
+    // 「止まっている」は健全性の単一定義（project-health）の 'stalled' —
+    // ステージ別しきい値・生存証拠・スヌーズをすべて通したもの。
+    // 一覧の停滞バッジと**同じ式**なので、KPI の数字と一覧の行数が食い違わない
     queryOne(
       `SELECT
          COUNT(*)::int AS active,
-         COUNT(*) FILTER (WHERE ${LAST_MOVE} >= NOW() - INTERVAL '${STUCK_DAYS} days')::int AS moved,
-         COUNT(*) FILTER (WHERE ${LAST_MOVE} <  NOW() - INTERVAL '${STUCK_DAYS} days')::int AS stuck
+         COUNT(*) FILTER (WHERE ${LAST_MOVE} >= NOW() - INTERVAL '${MOVED_WINDOW_DAYS} days')::int AS moved,
+         COUNT(*) FILTER (WHERE (${healthSql()}) = 'stalled')::int AS stuck
        FROM projects p
        WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')`
     ),
@@ -171,7 +167,7 @@ export async function getSalesOverview(now = new Date()) {
        FROM projects p
        LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')
-         AND ${LAST_MOVE} < NOW() - INTERVAL '${STUCK_DAYS} days'
+         AND (${healthSql()}) = 'stalled'
        ORDER BY ${LAST_MOVE} ASC
        LIMIT 5`
     ),
@@ -201,7 +197,13 @@ export async function getSalesOverview(now = new Date()) {
   }));
 
   return {
-    stuck_days: STUCK_DAYS,
+    /**
+     * 互換のため残す（client の文言が読む）。停滞のしきい値は**ステージ別**に
+     * なったので、単一の数字としては**いちばん短いもの**を返す。
+     * 画面がステージ別に言いたいときは `stuck_days_by_stage` を読む。
+     */
+    stuck_days: Math.min(...Object.values(STUCK_DAYS_BY_STAGE)),
+    stuck_days_by_stage: STUCK_DAYS_BY_STAGE,
     kpi: {
       active_projects: (moves as any)?.active ?? 0,
       moved_this_week: (moves as any)?.moved ?? 0,

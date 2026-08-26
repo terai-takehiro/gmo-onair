@@ -24,7 +24,7 @@
  * 持っているので、そこに畳むものがもうありません。
  */
 import { useState } from 'react';
-import { Search, ChevronDown, Check, Sparkles, Info } from 'lucide-react';
+import { Search, ChevronDown, Check, Sparkles, Info, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -51,6 +51,7 @@ export function activeFilterCount(p: MobileFilterBarProps, now: Date): number {
   if (p.stageKey !== 'active') n += 1;
   if (p.period.mode !== d.mode || p.period.year !== d.year || p.period.index !== d.index) n += 1;
   if (p.aiOnly) n += 1;
+  if (p.tidyOnly) n += 1;
   return n;
 }
 
@@ -234,6 +235,17 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
         ))}
 
         <div className="mt-3 border-t border-border pt-3">
+          {/* 「要整理」= 停滞だけ。PC の帯と**同じ props**（`FilterBarProps.tidyOnly`） */}
+          <label className="flex min-h-tap items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={p.tidyOnly}
+              onChange={(e) => p.onTidyOnly(e.target.checked)}
+              className="v4-tap h-5 w-5 shrink-0 accent-primary"
+            />
+            <Filter className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+            <span className="text-list">要整理（停滞している案件だけ）</span>
+          </label>
           <label className="flex min-h-tap items-center gap-2.5">
             <input
               type="checkbox"
@@ -274,4 +286,5 @@ export function clearFilters(p: MobileFilterBarProps, now: Date): void {
   p.onStageKey('active');
   p.onPeriod(defaultPeriod(now));
   p.onAiOnly(false);
+  p.onTidyOnly(false);
 }

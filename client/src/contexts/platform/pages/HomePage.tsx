@@ -280,8 +280,8 @@ export default function HomePage() {
         {inbox.isLoading && !inbox.data ? (
           <Delayed><SkeletonRows rows={4} /></Delayed>
         ) : (
-          /* **並びは 今日の予定 → タスク**（`わたしのタスク`／`お待たせ中` は
-             `TaskHubCard` の中でタブとして並ぶ。中身は変えていない — まとめただけ */
+          /* **並びは 今日の予定 → タスク**（`自分のタスク`／`受信箱`（旧「お待たせ中」）は
+             `TaskHubCard` の中でタブとして並ぶ） */
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
             {canSeeSales && <TodayCard days={schedule.data} />}
             {(canSeeSales || canSeeDailyops) && (

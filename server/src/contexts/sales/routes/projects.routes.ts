@@ -46,6 +46,8 @@ router.get('/', async (req, res) => {
     eventMonth: req.query.event_month as string,
     eventFrom: req.query.event_from as string,
     eventTo: req.query.event_to as string,
+    // 健全性で絞る (stalled/overdue/snoozed)。知らない値は service 側が当たらない条件に落とす
+    health: req.query.health as string,
     issue: req.query.issue as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
@@ -183,6 +185,17 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res) => {
   const { stage, ...rest } = req.body;
   const result = await projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
+/**
+ * スヌーズ（再開日付きで意図して寝かせる・docs/core-redesign-plan.md §3-1）。
+ * `{ until: 'YYYY-MM-DD' }` で設定（**未来日付のみ**）、`{ until: null }` で解除。
+ * スヌーズ中は停滞にも自動整理にも出ない。期日が来たら勝手に普通の判定に戻る。
+ */
+router.patch('/:id/snooze', requirePermission('sales', 'editor'), async (req, res) => {
+  const { until } = req.body || {};
+  const result = await projectService.setSnooze(req.params.id as string, until ?? null, req.user!.id);
   res.json({ success: true, data: result });
 });
 

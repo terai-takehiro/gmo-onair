@@ -28,9 +28,10 @@ export const DAY_END_H = 22;
 const WIN_FROM = DAY_START_H * 60;
 const WIN_SPAN = (DAY_END_H - DAY_START_H) * 60;
 
-export type CalLayer = 'studio' | 'partner' | 'my';
+/** `tasks` = タスクの期限（根源整理 §3-5 で足した4層目。`taskLayer.ts`） */
+export type CalLayer = 'studio' | 'partner' | 'my' | 'tasks';
 
-/** 3つの取得元を1つの形に畳んだもの。**画面はこれしか見ない** */
+/** 4つの取得元を1つの形に畳んだもの。**画面はこれしか見ない** */
 export interface CalEvent {
   /** `bk-<id>` のように取得元の頭文字を付ける（元の id とぶつからないように） */
   key: string;
@@ -163,7 +164,9 @@ export function placeDay(events: CalEvent[], day: string): Placed[] {
     .map((e) => {
       const from = minutesOnDay(e.start, day, 0);
       const to0 = minutesOnDay(e.end, day, 24 * 60);
-      // 終わりが始まりより前（値が壊れている）ときだけ、その日の終わりまで伸ばす
+      // 終わりが始まり以前のときは 30 分の札にする（値が壊れているときの保険。
+      // タスクの期限＝始まり = 終わりの「点」の予定も意図してこの道を通す —
+      // 線にすると題名が1文字も読めない）
       return { ev: e, from, to: to0 <= from ? Math.min(24 * 60, from + 30) : to0 };
     })
     .filter((s) => s.to > WIN_FROM && s.from < WIN_FROM + WIN_SPAN)
@@ -254,6 +257,9 @@ export function timeLabel(e: CalEvent): string {
   const s = e.start.slice(11, 16);
   const t = e.end?.slice(11, 16) ?? '';
   if (!t) return s;
+  // 始まり＝終わり（タスクの期限のような「点」の予定）は時刻を1つだけ出す。
+  // 「18:00–18:00」と書くと 0 分の会議に見える
+  if (e.end === e.start) return s;
   if (e.end.slice(0, 10) !== e.start.slice(0, 10)) return `${s}–翌${t}`;
   return `${s}–${t}`;
 }

@@ -25,8 +25,17 @@
  *
  * 失注の理由そのもの（`lost_reason` / `lost_reason_note`）はモックにも
  * あるので残しています。
+ *
+ * ── 「見送り」もこのダイアログで受ける（docs/core-redesign-plan.md §2-5）──
+ *
+ * ゴミが溜まる根本は**クローズが重い／失注扱いが心理的に不当**なことなので、
+ * 「見送り（案件にならなかった）」を「失注（案件だったが取れなかった）」と
+ * 別の入口にしました。`mode="pass"` で開くと、文言が見送りになり、
+ * 理由に「見送り（案件化せず）」（migration 238 の lr_08）を先に選んでおきます。
+ * DB 上はどちらも `e_lost` ＋理由で、**理由が違うだけ**です（失注分析で
+ * ノイズにならないよう理由マスタ側で分けてある）。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -40,16 +49,43 @@ export interface LostPayload {
   lost_reason_note: string;
 }
 
+/** 「見送り（案件化せず）」。migration 238 の lr_08 と同じ文字列であること */
+const PASS_REASON = '見送り（案件化せず）';
+
+/** mode ごとの文言。**送り先はどちらも `e_lost`**（理由が違うだけ） */
+const TEXTS = {
+  lost: {
+    title: '失注にする',
+    sub: 'なぜ決まらなかったかを残してください。営業レビューの失注分析で使います。',
+    warn: '失注は理由を残さないと次の案件に活かせません',
+    confirm: '失注にする',
+  },
+  pass: {
+    title: '見送りにする',
+    sub: '案件にならなかったものを閉じます。失注とは別の理由で残るので、失注分析のノイズになりません。',
+    warn: '見送りはいつでもステージ帯から戻せます',
+    confirm: '見送りにする',
+  },
+} as const;
+
 export function LostDialog({
-  open, onOpenChange, onConfirm, busy,
+  open, onOpenChange, onConfirm, busy, mode = 'lost',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (payload: LostPayload) => void;
   busy: boolean;
+  /** `pass` = 見送り（案件化せず）。文言と理由の初期選択だけが変わる */
+  mode?: 'lost' | 'pass';
 }) {
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
+  const texts = TEXTS[mode];
+
+  // 見送りで開いたときは理由を先に選んでおく（1クリックで閉じられるように。変えてもよい）
+  useEffect(() => {
+    if (open) setReason(mode === 'pass' ? PASS_REASON : '');
+  }, [open, mode]);
 
   // 理由の選択肢は DB のマスタ。画面に並べ直すと、増やしたときに片方だけ古くなる
   const { data } = useQuery({
@@ -68,30 +104,30 @@ export function LostDialog({
     <FormDialog
       open={open}
       onOpenChange={close}
-      title="失注にする"
-      sub="なぜ決まらなかったかを残してください。営業レビューの失注分析で使います。"
+      title={texts.title}
+      sub={texts.sub}
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => close(false)} disabled={busy}>やめる</Button>
           <Button
-            variant="destructive"
+            variant={mode === 'lost' ? 'destructive' : 'default'}
             disabled={!reason || busy}
             onClick={() => onConfirm({ lost_reason: reason, lost_reason_note: note })}
           >
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            失注にする
+            {texts.confirm}
           </Button>
         </FormDialogFooter>
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="flex items-center gap-1.5 text-sub font-bold text-destructive">
+        <p className={`flex items-center gap-1.5 text-sub font-bold ${mode === 'lost' ? 'text-destructive' : 'text-muted-foreground'}`}>
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          失注は理由を残さないと次の案件に活かせません
+          {texts.warn}
         </p>
 
         <div>
-          <Label>失注理由 *</Label>
+          <Label>理由 *</Label>
           <div className="mt-2 space-y-2">
             {categories.length === 0 ? (
               <p className="text-sub text-muted-foreground">
