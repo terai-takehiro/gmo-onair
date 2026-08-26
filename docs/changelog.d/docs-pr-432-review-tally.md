@@ -1,1 +1,0 @@
-**PR #432（独自作成の番組の計時タイマー表示不具合を直した）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約1分50秒、CI green から約1分37秒（作成から約3分27秒）でterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は今回も401で使えず、GitHub MCP で直接確認した）。
