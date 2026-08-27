@@ -1,1 +1,0 @@
-**PR #456（カレンダーの短い予約可読性・ドラッグ登録/延長・関連バグ修正）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分19秒、CI green から約1分29秒（作成から約3分48秒）でterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は401エラーで実行できなかったため、GitHub MCP で直接確認した）。
