@@ -6,7 +6,7 @@ export interface FlowTask {
   id: string;
   phase_id: string;
   title: string;
-  /** 担当の**職種**。人ではない（v4 は案件担当者という概念を持たない） */
+  /** 担当の**職種**。人ではない（実務の割り当てはタスク単位で決める・client/CLAUDE.md「v4 の設計判断」） */
   role: string | null;
   anchor: FlowAnchor;
   /** 符号つき。実施日の60日前 = -60 */

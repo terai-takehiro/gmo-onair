@@ -31,7 +31,7 @@ describe('MCP の update_project が黙って捨てない', () => {
     const list = TOOLS.slice(at, TOOLS.indexOf('] as const;', at));
     for (const f of [
       'audience', 'project_category',
-      'intake_channel', 'contact_name', 'recurrence', 'attendee_count', 'goal', 'wants',
+      'intake_channel', 'contact_name', 'recurrence', 'attendee_count', 'goal',
     ]) {
       expect(list).toContain(`'${f}'`);
     }

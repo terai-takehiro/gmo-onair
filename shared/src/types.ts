@@ -1,4 +1,4 @@
-import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, CalcType } from './enums';
+import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, CalcType } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
@@ -87,10 +87,14 @@ export interface Project extends BaseEntity {
   event_start: string | null;
   event_end: string | null;
   status: ProjectStatus;
-  broadcast_type: BroadcastType;
-  media_platform: MediaPlatform;
+  // v4 フォーム（BroadcastSection.tsx）が複数選択をカンマ結合した文字列
+  // （例: "live,recording"）として保存するため、単一値の enum ではなく
+  // 自由文字列として扱う（バグ⑤: docs/project-ledger-simplification-plan.md）。
+  // 選択肢一覧としての enum 定義自体は shared/src/enums.ts の BroadcastType/
+  // MediaPlatform に残っている（フォームの選択肢などで使用）。
+  broadcast_type: string | null;
+  media_platform: string | null;
   application_form: boolean;
-  logo_permission: boolean;
   notes: string | null;
   // Joined
   customer_name?: string;

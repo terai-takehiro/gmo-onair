@@ -138,7 +138,14 @@ export function registerStudioTools(server: McpServer): void {
           occupant: z.string().optional(),
           usage_note: z.string().optional(),
         })).optional().describe('部屋ごとの使用者・用途メモ付き指定 (room_ids より優先)'),
-        location_note: z.string().optional().describe('外現場など場所メモ'),
+        location_note: z.string()
+          .max(40, '場所は短い地名だけにしてください（40字まで）。経緯はやり取りに書いてください')
+          .optional()
+          .describe(
+            '外現場の**短い地名だけ**（例: 用賀 ビジネススクエアタワー18F）。' +
+            '**要確認・打診の経緯・長い説明文は書かない** — それらは案件のやり取り (create_activity_log 等) に書くこと。' +
+            '場所が確定していないときは空のままにする。',
+          ),
         notes: z.string().optional().describe('備考'),
         ...REQUESTED_BY,
       },

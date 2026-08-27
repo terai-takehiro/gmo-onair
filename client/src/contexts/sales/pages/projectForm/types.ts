@@ -23,7 +23,6 @@ export interface FormValues {
    * 送ると2段と種類がずれた行ができます。
    */
   project_type: string;
-  project_type_other: string;
   /**
    * 客入れの有無 × 案件分類（migration 182）。**案件作成と同じ2段**です。
    * ここが空のまま保存すると分類の無い案件になるので、必須にしてあります
@@ -46,22 +45,20 @@ export interface FormValues {
   assigned_to: string;
   broadcast_type: string;
   media_platform: string;
-  tags: string;
   box_url_internal: string;
   box_url_external: string;
   application_form: boolean;
-  logo_permission: boolean;
 }
 
 export const EMPTY_FORM: FormValues = {
-  name: '', customer_id: '', customer_type: 'external', project_type: '', project_type_other: '',
+  name: '', customer_id: '', customer_type: 'external', project_type: '',
   audience: '', project_category: '',
   gls_category: '',
   contact_name: '', recurrence: 'single', attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
-  broadcast_type: '', media_platform: '', tags: '',
+  broadcast_type: '', media_platform: '',
   box_url_internal: '', box_url_external: '',
-  application_form: false, logo_permission: false,
+  application_form: false,
 };
 
 export interface GlsDialogState {

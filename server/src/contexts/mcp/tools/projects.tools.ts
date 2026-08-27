@@ -42,16 +42,16 @@ const STAGE_LABELS: Record<string, string> = {
  * **`projectService.update` が受ける項目を足したら、ここにも足すこと。**
  */
 const UPDATE_FIELDS = [
-  'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type', 'project_type_other',
-  'event_start', 'event_end', 'broadcast_type', 'media_platform', 'tags',
-  'application_form', 'logo_permission', 'notes', 'customer_type',
+  'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type',
+  'event_start', 'event_end', 'broadcast_type', 'media_platform',
+  'application_form', 'notes', 'customer_type',
   'box_url_internal', 'box_url_external', 'gls_category',
   // 2段分類（migration 182）。**`project_type` は両方から導かれる**ので、
   // これが落ちると「作るときは配信、直すとハイブリッド」のような食い違いになる
   'audience', 'project_category',
   // 登録の16項目のうち列を足したぶん（migration 165 / 170）
   'intake_channel', 'intake_confidence',
-  'contact_name', 'recurrence', 'attendee_count', 'goal', 'reply_due', 'wants',
+  'contact_name', 'recurrence', 'attendee_count', 'goal',
 ] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
@@ -69,7 +69,6 @@ function trimProjectRow(row: any) {
     event_start: row.event_start,
     event_end: row.event_end,
     assigned_to_name: row.assigned_to_name,
-    tags: row.tags,
     total_revenue: row.total_revenue,
     total_purchase: row.total_purchase,
     created_at: row.created_at,
@@ -91,7 +90,6 @@ export function registerProjectTools(server: McpServer): void {
         stage: z.enum(STAGES).optional(),
         tab: z.enum(['all', 'yomi', 'active', 'completed', 'lost']).optional(),
         gls_category: z.enum(['A', 'B']).optional().describe('A=案件（スタジオ） / B=プロジェクト（プロジェクト管理）'),
-        tag: z.string().optional(),
         event_month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe('開催月 (YYYY-MM)。イベント期間がこの月に重なる案件'),
         event_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催期間レンジ開始 (YYYY-MM-DD)。event_to とセットで指定'),
         event_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -109,7 +107,6 @@ export function registerProjectTools(server: McpServer): void {
           search: args.search,
           stage: args.stage,
           tab: args.tab,
-          tag: args.tag,
           glsCategory: args.gls_category,
           eventMonth: args.event_month,
           eventFrom: args.event_from,
@@ -243,8 +240,9 @@ export function registerProjectTools(server: McpServer): void {
           recurrence: args.recurrence,
           attendee_count: args.attendee_count,
           goal: args.goal,
-          reply_due: args.reply_due,
-          wants: args.wants,
+          // reply_due / wants は列を落とした（案件台帳の項目整理 Phase A）ので渡さない。
+          // 引数自体は下の inputSchema に残す — 本番のメール取込スキルが渡す呼び出しを
+          // 400 で落とさないため（受け取るが使わない、確立パターン）。
           /*
            * ⚠️ **AI が起こす案件は必ずネタ。`args.stage` は受け取るが使わない**（ご判断）。
            *
@@ -263,14 +261,14 @@ export function registerProjectTools(server: McpServer): void {
         currentActorId(),
       ) as any;
 
-      // 取込メタ (message_id / idempotency_key / source_channel) を後付けで保存 (service は未対応のため UPDATE)
-      if (args.idempotency_key || args.message_id || args.source_channel) {
+      // 取込メタ (idempotency_key) を後付けで保存 (service は未対応のため UPDATE)。
+      // message_id / source_channel は列を落とした（案件台帳の項目整理 Phase A・読み手ゼロ）。
+      // 実体は下の recordAiOutput が ai_outputs.message_id / ai_outputs.source_channel に残す。
+      if (args.idempotency_key) {
         await execute(
-          `UPDATE projects SET idempotency_key = COALESCE(?, idempotency_key),
-                               message_id = COALESCE(?, message_id),
-                               source_channel = COALESCE(?, source_channel)
+          `UPDATE projects SET idempotency_key = COALESCE(?, idempotency_key)
            WHERE id = ?`,
-          [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
+          [args.idempotency_key ?? null, row.id],
         );
       }
       // フィードバックループ (会社方針「AI を使い捨てにしない」の条件1)。
@@ -326,9 +324,7 @@ export function registerProjectTools(server: McpServer): void {
         event_end: z.string().nullable().optional(),
         broadcast_type: z.string().nullable().optional(),
         media_platform: z.string().nullable().optional(),
-        tags: z.string().optional().describe('カンマ区切りタグ文字列'),
         application_form: z.boolean().optional().describe('申込書受領フラグ'),
-        logo_permission: z.boolean().optional().describe('ロゴ使用許諾フラグ'),
         notes: z.string().nullable().optional()
           .describe('備考。**やり取りに「メモ」として1件足します**（案件の列ではありません）。'
             + '同じ本文が既にあるときは足しません'),
@@ -400,7 +396,6 @@ export function registerProjectTools(server: McpServer): void {
         confirm: z.boolean().default(false).describe('e_lost のときのみ必要。プレビュー確認後に true'),
         lost_reason: z.string().optional().describe('失注理由 (e_lost のとき推奨)'),
         lost_reason_note: z.string().optional(),
-        lessons_learned: z.string().optional().describe('教訓・学び (e_lost のとき)'),
         ...REQUESTED_BY,
       },
     },
@@ -414,7 +409,6 @@ export function registerProjectTools(server: McpServer): void {
             `現在のステージ: ${STAGE_LABELS[existing.stage] ?? existing.stage}`,
             `想定金額: ¥${Number(existing.expected_amount ?? 0).toLocaleString()}`,
             `記録される失注理由: ${args.lost_reason ?? '(未指定)'}${args.lost_reason_note ? ` / ${args.lost_reason_note}` : ''}`,
-            `教訓・学び: ${args.lessons_learned ?? '(未指定)'}`,
             'lost_at が記録され、一覧の失注タブへ移動する',
           ],
           '失注登録後もステージを戻すことは可能だが、失注日時・理由の記録が残る',
@@ -423,7 +417,7 @@ export function registerProjectTools(server: McpServer): void {
 
       const row = await projectService.changeStage(
         args.id, args.stage,
-        { lost_reason: args.lost_reason, lost_reason_note: args.lost_reason_note, lessons_learned: args.lessons_learned },
+        { lost_reason: args.lost_reason, lost_reason_note: args.lost_reason_note },
         currentActorId(),
       ) as any;
       audit('change_project_stage', args, { id: row.id, from: existing.stage, to: args.stage }, args.requested_by);

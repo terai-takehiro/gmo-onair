@@ -92,7 +92,7 @@ const SHEETS: SheetDef[] = [
     name: '案件',
     query: `SELECT p.gls_number, p.code, p.name, c.name as customer_name, p.stage,
                    p.project_type, p.expected_amount, p.event_start, p.event_end,
-                   u.name as assigned_to_name, p.tags, p.lost_reason, p.created_at
+                   u.name as assigned_to_name, p.lost_reason, p.created_at
             FROM projects p
             LEFT JOIN companies c ON c.id = p.customer_id
             LEFT JOIN users u ON u.id = p.assigned_to
@@ -109,7 +109,6 @@ const SHEETS: SheetDef[] = [
       { key: 'event_start', header: '開始日', width: 12 },
       { key: 'event_end', header: '終了日', width: 12 },
       { key: 'assigned_to_name', header: '担当', width: 14 },
-      { key: 'tags', header: 'タグ', width: 18 },
       { key: 'lost_reason', header: '失注理由', width: 14 },
       { key: 'created_at', header: '作成日', width: 20 },
     ],

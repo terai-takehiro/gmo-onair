@@ -35,7 +35,6 @@ router.get('/', async (req, res) => {
     stage: req.query.stage as string,
     assignedTo: req.query.assigned_to as string,
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
-    tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
     issued: req.query.issued === '1' || req.query.issued === 'true',
     source: req.query.source === 'kessan' ? 'kessan' : undefined,
@@ -69,11 +68,6 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
   ) as Record<string, unknown>[];
   const columns = ['gls_number', 'name', 'client_name', 'stage', 'expected_amount'];
   csvResponse(res, 'projects.csv', generateCsv(rows, columns));
-});
-
-// タグ一覧
-router.get('/tags', async (_req, res) => {
-  res.json({ success: true, data: await projectService.getTags() });
 });
 
 // GLS番号付き案件一覧（リンク先選択用）
@@ -136,10 +130,12 @@ router.get('/:id', async (req, res) => {
  * （＝ AI がうまくいった回だけが数字に出ない）。
  */
 router.post('/:id/ai-review', requirePermission('sales', 'editor'), async (req, res) => {
+  // ai_reviewed_by は列を落とした（案件台帳の項目整理 Phase A・読み手ゼロ）。
+  // 「誰が確認したか」は recordProjectAccepted 側の記録で足りる
   await execute(
-    `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+    `UPDATE projects SET ai_reviewed_at = NOW(), updated_at = NOW()
      WHERE id = ? AND deleted_at IS NULL`,
-    [req.user!.id, req.params.id]
+    [req.params.id]
   );
   await recordProjectAccepted(req.params.id as string, req.user!.id);
   res.json({ success: true, data: { reviewed: true } });
@@ -154,10 +150,11 @@ router.post('/ai-review-bulk', requirePermission('sales', 'editor'), async (req,
   const idList = ids.filter((x): x is string => typeof x === 'string').slice(0, 500);
   if (idList.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '有効な ID がありません');
   const placeholders = idList.map(() => '?').join(', ');
+  // ai_reviewed_by は列を落とした（案件台帳の項目整理 Phase A・読み手ゼロ）
   await execute(
-    `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+    `UPDATE projects SET ai_reviewed_at = NOW(), updated_at = NOW()
      WHERE id IN (${placeholders}) AND deleted_at IS NULL AND ai_reviewed_at IS NULL`,
-    [req.user!.id, ...idList]
+    [...idList]
   );
   // まとめて確認した分も1件ずつ記録する（記録の入口を分けると必ず片方だけ抜ける）
   for (const id of idList) await recordProjectAccepted(id, req.user!.id);

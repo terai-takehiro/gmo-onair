@@ -208,18 +208,15 @@ export interface Project extends BaseEntity {
   customer_id: string;
   stage: ProjectStage;
   project_type: ProjectType;
-  project_type_other: string | null;
   expected_amount: number;
   event_start: string | null;
   event_end: string | null;
   broadcast_type: string | null;
   media_platform: string | null;
   assigned_to: string;
-  tags: string;
   lost_reason: string | null;
   lost_reason_note: string | null;
   application_form: boolean;
-  logo_permission: boolean;
   notes: string | null;
   // joined fields
   customer_name?: string;

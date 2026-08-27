@@ -60,9 +60,8 @@ export function BulkEditDialog({
   const [category, setCategory] = useState('');
   const [text, setText] = useState('');
   const [flag, setFlag] = useState('');
-  const [tagsMode, setTagsMode] = useState('append');
 
-  const set = buildBulkSet(field, { audience, category, text, flag, tagsMode });
+  const set = buildBulkSet(field, { audience, category, text, flag });
   const count = targets.length;
 
   /** 何に変わるかの1行（押す前に必ず読ませる） */
@@ -73,8 +72,6 @@ export function BulkEditDialog({
       case 'assigned_to': return users.find((u) => u.id === text)?.name ?? null;
       case 'customer_id': return customers.find((c) => c.id === text)?.name ?? null;
       case 'application_form': return flag === '1' ? 'あり' : 'なし';
-      case 'logo_permission': return flag === '1' ? 'あり' : 'なし';
-      case 'tags': return tagsMode === 'replace' ? `「${text || '（空）'}」で置き換える` : `「${text}」を足す`;
       default: return text;
     }
   })();
@@ -190,9 +187,9 @@ export function BulkEditDialog({
             </div>
           )}
 
-          {(field === 'application_form' || field === 'logo_permission') && (
+          {field === 'application_form' && (
             <div>
-              <Label htmlFor="bulk-flag">{field === 'application_form' ? '申込書' : 'ロゴ利用の許諾'}</Label>
+              <Label htmlFor="bulk-flag">申込書</Label>
               <Select value={flag || undefined} onValueChange={setFlag}>
                 <SelectTrigger id="bulk-flag" className="mt-1"><SelectValue placeholder="選ぶ" /></SelectTrigger>
                 <SelectContent>
@@ -200,25 +197,6 @@ export function BulkEditDialog({
                   <SelectItem value="0">なし</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          )}
-
-          {field === 'tags' && (
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="bulk-tags-mode">入れ方</Label>
-                <Select value={tagsMode} onValueChange={setTagsMode}>
-                  <SelectTrigger id="bulk-tags-mode" className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="append">いまのタグに足す</SelectItem>
-                    <SelectItem value="replace">いまのタグを置き換える（空にもできます）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="bulk-tags">タグ</Label>
-                <Input id="bulk-tags" className="mt-1" value={text} onChange={(e) => setText(e.target.value)} placeholder="例: 周年" />
-              </div>
             </div>
           )}
 

@@ -1,6 +1,12 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { config } from '../../../config';
 import { normalizeWeekStart, defaultWeekStart, addDays } from './ops-report.service';
+/**
+ * 見積金額（見積があれば見積・無ければ想定）の導出は **project.service.ts の
+ * ESTIMATE_AMOUNT_LATERAL 単一定義**を使う（docs/project-ledger-phase-c-design.md
+ * テーマ1 C-1a）。ここに書き写すと版・group_id の扱いが2か所に増え、ずれる。
+ */
+import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 
 // ウィークリー活動報告の数値集計 (オンデマンド)。
 // dashboard.routes の /kpi /sales-board /weekly-schedule と同じ流儀で集計する。
@@ -31,7 +37,8 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
 
   // 週内に作成された案件 (AI 起票判定は created_by=mcpActor OR 監査ログ照合 — OAuth 本人名義でも検出)
   const newProjects = await queryAll(
-    `SELECT p.id, p.gls_number, p.name, p.stage, p.expected_amount, p.created_by,
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.expected_amount,
+            COALESCE(est.amount, 0) AS estimate_amount, p.created_by,
             c.name AS customer_name,
             ai.requested_by AS ai_requested_by,
             (p.created_by = ? OR ai.audit_id IS NOT NULL) AS is_ai_created
@@ -43,6 +50,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
+     ${ESTIMATE_AMOUNT_LATERAL}
      WHERE p.deleted_at IS NULL
        AND p.created_at >= ?::date AND p.created_at < (?::date + INTERVAL '1 day')
      ORDER BY p.created_at ASC

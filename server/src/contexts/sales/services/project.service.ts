@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type TxClient } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeJaText } from '../../../shared/utils/text';
@@ -152,7 +152,6 @@ export interface ProjectFilter {
   stage?: string;
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
-  tag?: string;
   /**
    * 案件分類。`'A'` = 案件（スタジオ）／ `'B'` = プロジェクト。
    * **発番済かどうかは含まない**（それは `issued`）。
@@ -207,8 +206,7 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   // 「見積金額が大きい順」。SELECT 句で組み立てた別名をそのまま使う
   // (`last_move` と同じ理由 — 式を書き写すと並び順と表示が食い違う)
   estimate_amount: 'estimate_amount',
-  // 「期限が近い順」= **次のタスクの期限**。返事の期限 (`reply_due`) ではない
-  // (v4 の案件作成フォームから返事の期限を外したので、新しい案件には入らない)
+  // 「期限が近い順」= **次のタスクの期限**（返事の期限という概念は列ごと廃止済み）
   next_task_due: 'nt.due_date',
   // 「最後の動き」順。SELECT 句で組み立てた別名をそのまま並べ替えに使う
   // (PostgreSQL は ORDER BY に SELECT の別名を書ける)。**式を書き写さないこと** —
@@ -279,8 +277,8 @@ const RECOMMENDED_SORT_SQL = `
  * JSON にすると UTC に寄って**日付が1日ずれる**ため
  * (`project-tasks.service.ts` も同じ理由で `::text` にしてある)。
  *
- * 案件担当者ではなく**タスクの担当者**を出す。v4 は
- * 「案件担当者という概念を持たない。誰が何をするかはタスク単位で表す」
+ * `assigned_to`（案件の主担当）ではなく**タスクの担当者**を出す。
+ * 主担当は責任の所在・集計の軸であり、**実務の割り当てはタスク単位**
  * (client/CLAUDE.md「v4 の設計判断」)。
  */
 const NEXT_TASK_LATERAL = `
@@ -402,6 +400,251 @@ export const TOTAL_PURCHASE_SQL = `(
              WHERE pa.project_id = p.id), 0)
 )`;
 
+/**
+ * **ステージが変わったときの「履歴・受注日時・失注日時」を1か所に集める**共有関数
+ * (docs/project-ledger-phase-c-design.md テーマ2)。
+ *
+ * `projects.stage` を動かす経路は案件の `changeStage()` 以外にも複数あり
+ * (GPM の `update()`・自動整理ジョブ等)、これまでは経路ごとに履歴 INSERT・
+ * `won_at`/`lost_at` の書き方がバラバラで、**GPM 経由の見送りは `lost_at` を
+ * 一度も書いていなかった**（失注理由分析は GLS-A/B 両方を読むため、GPM の見送りは
+ * 永久に `lost_at IS NULL` のまま `updated_at` に付け替えられて集計されていた）。
+ * 書き口をここへ集約することで、新しい経路を足すたびに3点セットを書き忘れる
+ * 心配が無くなる。
+ *
+ * **ここが担当するのは3点だけ**（`stage` 列そのものの UPDATE・GLS 発番・
+ * AI 確認印などは呼び出し元の責務のまま — `changeStage()` を参照）:
+ *   ・`e_lost` へ: `lost_reason` / `lost_reason_note` / `lost_at=NOW()`
+ *   ・`a_won` へ: `won_at` を**初回だけ**書く（`COALESCE(won_at, NOW())`）
+ *   ・ステージが実際に変わったときだけ `project_stage_changes` に1行残す
+ *     （同じステージへの押し直しを「今日また受注した」と数えない）
+ */
+export async function recordStageTransition(
+  id: string,
+  fromStage: string | null | undefined,
+  toStage: string,
+  userId: string,
+  lostFields?: { lost_reason?: unknown; lost_reason_note?: unknown },
+): Promise<void> {
+  if (toStage === 'e_lost') {
+    await execute(
+      `UPDATE projects SET lost_reason=?, lost_reason_note=?, lost_at=NOW() WHERE id=?`,
+      [lostFields?.lost_reason ?? null, lostFields?.lost_reason_note ?? null, id],
+    );
+  } else if (toStage === 'a_won') {
+    // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
+    // (`won_at IS NULL` のときだけ入れる)。受注した月が後ろにずれると
+    // 「今月の受注」が二重に立つ
+    await execute(
+      `UPDATE projects SET won_at=COALESCE(won_at, NOW()) WHERE id=?`,
+      [id],
+    );
+  }
+  // **同じステージへの押し直しは記録しない。** 記録すると
+  // 「1日に3回 受注になった」ことになり、今月の受注が水増しされる。
+  if (fromStage !== toStage) {
+    await execute(
+      `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [uuidv4(), id, fromStage ?? null, toStage, userId],
+    );
+  }
+}
+
+/**
+ * `create()` に渡せる内部向けオプション（テーマ4 PR1・docs/project-ledger-phase-c-design.md）。
+ *
+ * **画面 / MCP はどのフィールドも渡さない。** 渡さなければ今までの `create()` と
+ * 完全に同じ挙動になる（安全弁も採番も従来どおり）。ここに載っているのは
+ * Excel取込・決算取込のような**バッチ経路専用**の抜け道で、通常の登録画面が
+ * 誤って渡すと安全弁が効かなくなる。
+ */
+export interface CreateProjectOptions {
+  /** 呼び出し元が既に開いているトランザクションに参加する。省略時は create() 自身が withTransaction を開く */
+  tx?: TxClient;
+  /**
+   * true なら終了系ステージ（受注/完了/失注）への直接作成を禁じる安全弁を外す。既定 false。
+   * 決算取込（`a_won` 直書きが前提）・Excel取込（過去データ移行で `s_completed`/`e_lost`
+   * 直接指定が仕様）専用 — 画面 / MCP からは絶対に渡さない
+   */
+  allowTerminalStage?: boolean;
+  /** 指定があれば `generateSequenceNumber` を呼ばずこの値を code に使う（Excel/決算の移行用） */
+  externalCode?: string;
+  /** 指定があれば `gls_number` に直接書く（Excel/決算の旧番号移行用） */
+  externalGlsNumber?: string;
+  /** true なら BOX フォルダ自動作成をスキップする（バッチ取込のたびに数十〜数百フォルダが自動生成されるのを防ぐ） */
+  skipBoxFolder?: boolean;
+}
+
+/**
+ * `create()` の本体（テーマ4 PR1・docs/project-ledger-phase-c-design.md）。
+ * 顧客確認・採番・分類導出・本体INSERT・最初のステージ履歴・最初のタスク・
+ * 仮スケジュールを、渡された1つの `tx` の中で行う。
+ *
+ * ── なぜ切り出したか ────────────────────────────────────────
+ *
+ * 旧 `create()` は `execute`/`queryOne` がプール直結で、Excel取込・決算取込のような
+ * 「複数行・複数テーブルにまたがる1つの BEGIN...COMMIT」に単純には挟み込めなかった。
+ * `tx` を明示的に受け取る形にして、**呼び出し元の外側のトランザクションに参加できる**
+ * ようにする（`create()` 自身が呼ぶときは自分で `withTransaction` を開いて渡す）。
+ *
+ * ── ここに入れていないもの ──────────────────────────────────
+ *
+ * **メモ (`addMemoActivity`) と BOX フォルダ作成はここに入れない**（トランザクションの
+ * 外・公開 `create()` 側の責務）。BOX 作成は外部 API 呼び出しで、トランザクションの中に
+ * 入れると DB のロックを抱えたまま待つことになるうえ、失敗してもロールバックしたくない
+ * （案件自体は残したい）。`gpm.service.ts` の `create()` と同じ判断。
+ * `idempotency_key` の二重押下ガード（事前チェック・一意索引違反時の復旧）も、
+ * 同じ理由で呼び出し元（公開 `create()`）側に残す — Postgres は明示トランザクション内で
+ * 一意索引違反が起きるとその取引全体が abort 状態になり、同じ `tx` で後続の
+ * クエリを打てなくなるため（取引の外・新しい接続でなら安全に確かめ直せる）。
+ *
+ * `{ id }` だけを返す — 呼び出し元（`create()`）が全体の姿を必要とするときは
+ * トランザクションの外で `getById(id)` を呼ぶ。
+ */
+export async function createCore(
+  tx: TxClient,
+  data: Record<string, unknown>,
+  userId: string,
+  opts: CreateProjectOptions = {},
+): Promise<{ id: string }> {
+  const { name: rawName, customer_id, expected_amount, assigned_to, project_type, customer_type,
+          box_url_internal, box_url_external, application_form,
+          event_start, event_end, dates, gls_category,
+          intake_channel, intake_confidence,
+          broadcast_type, media_platform,
+          // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
+          contact_name, recurrence, attendee_count, goal,
+          audience, project_category,
+          stage, first_task } = data;
+  if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
+  // **半角カナ等の表記ゆれを保存時に正規化。** Box の OCR / AI起票など外部由来の
+  // テキストがそのまま案件名になり、請求一覧等で化けて見える不具合の対策（NFKC）
+  const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
+  const glsCategory = normalizeGlsCategory(gls_category);
+  if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
+  // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
+  // 「顧客ロールの会社か」を保証しない。直接 API / MCP から仕入先・販管費
+  // 支払先の company_id を渡せてしまうのを防ぐ（レビュー指摘・PR #199 P2 の2巡目）
+  await assertCustomerCompanyId(customer_id);
+
+  const id = uuidv4();
+  const code = opts.externalCode || await generateSequenceNumber('opp_code', 'OPP');
+  // **グループ区分はお客様が決める**（migration 192）。渡された値は、お客様が
+  // 見つからないときの控えとしてだけ使う（`resolveCustomerType` の理由）
+  const cType = await resolveCustomerType(customer_id, customer_type);
+
+  // dates 配列がある場合は MIN/MAX を event_start/event_end に同期
+  let finalEventStart: string | null = (event_start as string) || null;
+  let finalEventEnd: string | null = (event_end as string) || null;
+  let datesToInsert: Array<{ date: string; label?: string | null }> = [];
+  if (Array.isArray(dates)) {
+    datesToInsert = (dates as Array<{ date: string; label?: string | null }>)
+      .filter((d) => d && typeof d.date === 'string' && d.date.length > 0);
+    if (datesToInsert.length > 0) {
+      const sorted = [...datesToInsert].map((d) => d.date).sort();
+      finalEventStart = sorted[0];
+      finalEventEnd = sorted[sorted.length - 1];
+    }
+  }
+
+  // 入口と確信 (migration 165)。**知らない値は入れない** — DB の CHECK が弾くので、
+  // 弾かれると案件の登録そのものが 500 になる。ここで NULL に落とす
+  const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
+  const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
+
+  /**
+   * **ステージを選べるようにした** (v4 の登録モーダル)。
+   *
+   * 「もう仮押さえまで進んでいる引き合いを登録する」が普通に起きるのに、
+   * これまでは必ず `neta` から始めて、作ってから押し直すことになっていました。
+   * **知らない値は `neta` に落とす** — 素通しさせるとどの一覧にも出ない案件ができます。
+   *
+   * **受注以降では作れません**（既定）。GLS 番号を採る流れ（確認ダイアログ付き）を
+   * 飛ばしてしまうためです。作ってからステージを上げてもらいます。
+   * `opts.allowTerminalStage` が true のときだけこの安全弁を外す —
+   * 決算取込（`a_won` 直書きが前提）・Excel取込（過去データ移行で `s_completed`/`e_lost`
+   * 直接指定が仕様）はこの安全弁と正面衝突するため（テーマ4）。
+   */
+  const initialStage = STAGES.includes(String(stage)) ? String(stage) : 'neta';
+  const safeStage = (!opts.allowTerminalStage && ['a_won', 's_completed', 'e_lost'].includes(initialStage))
+    ? 'neta' : initialStage;
+
+  const recur = recurrence === 'regular' ? 'regular' : 'single';
+  /**
+   * **無観客の案件には来場人数を持たせない** (migration 182)。
+   * 画面が欄を出さないので値は来ませんが、MCP や旧フォームから来ることがあります。
+   * 入ってしまうと「無観客なのに 150 名」の行ができ、規模別の集計が狂います。
+   */
+  const rawScale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
+    ? Math.floor(Number(attendee_count)) : null;
+  const scale = audience === 'no_audience' ? null : rawScale;
+
+  /**
+   * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
+   * 画面から両方送らせると、片方だけ更新された行ができます
+   * （`project-classification.ts` の冒頭）。
+   */
+  // **GLS-B は2段を持たない**（`project-classification.ts`）。作る画面は必ず
+  // GLS-A だが、MCP の `create_project` は両方を受け取れるのでここでも渡す
+  const cls = resolveClassification(audience, project_category, project_type, glsCategory);
+
+  await tx.execute(
+    `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, audience, project_category,
+                           gls_category, expected_amount, assigned_to,
+                           event_start, event_end, broadcast_type, media_platform,
+                           customer_type, box_url_internal, box_url_external,
+                           application_form, intake_channel, intake_confidence,
+                           contact_name, recurrence, attendee_count, goal,
+                           idempotency_key, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, code, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
+     glsCategory, expected_amount || 0, assigned_to || userId,
+     finalEventStart, finalEventEnd, broadcast_type || null, media_platform || null,
+     cType, box_url_internal || null, box_url_external || null,
+     application_form ? 1 : 0, channel, confidence,
+     contact_name || null, recur, scale, goal || null,
+     (typeof data.idempotency_key === 'string' && data.idempotency_key.trim()) ? data.idempotency_key.trim() : null,
+     userId]
+  );
+
+  // **最初のステージも履歴に残す** (migration 164)。
+  // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
+  await tx.execute(
+    `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+     VALUES (?, ?, NULL, ?, ?)`,
+    [uuidv4(), id, safeStage, userId],
+  );
+
+  /**
+   * 最初のタスク（登録モーダルの16項目め）。
+   *
+   * **入れなくても作れます。** 入れたときだけ1件作ります。
+   * 期限は `docs/wording.md` の決めどおり**時刻まで**持ちます
+   * （日付だけ渡されたら 18:00 を補い、補ったことは画面が出す）。
+   */
+  const task = first_task as { title?: string; assigned_to?: string; due_at?: string; due_date?: string } | undefined;
+  if (task && typeof task.title === 'string' && task.title.trim()) {
+    const dueAt = task.due_at || (task.due_date ? `${task.due_date}T18:00:00` : null);
+    await tx.execute(
+      `INSERT INTO project_tasks (id, project_id, title, assigned_to, due_at, is_completed, sort_order, created_by)
+       VALUES (?, ?, ?, ?, ?, false, 1, ?)`,
+      [uuidv4(), id, task.title.trim(), task.assigned_to || assigned_to || userId, dueAt, userId],
+    );
+  }
+
+  // project_dates にINSERT
+  for (let i = 0; i < datesToInsert.length; i++) {
+    const d = datesToInsert[i];
+    await tx.execute(
+      `INSERT INTO project_dates (id, project_id, date, label, sort_order) VALUES (?, ?, ?, ?, ?)`,
+      [uuidv4(), id, d.date, d.label || null, i + 1]
+    );
+  }
+
+  return { id };
+}
+
 export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
@@ -429,10 +672,6 @@ export class ProjectService {
     if (filter.assignedTo) {
       where += ` AND p.assigned_to = ?`;
       params.push(filter.assignedTo);
-    }
-    if (filter.tag) {
-      where += ` AND (',' || p.tags || ',') LIKE ?`;
-      params.push(`%,${filter.tag},%`);
     }
     // 決算インポート分のみ。**印は `kessan_marker` の列が持つ**（migration 184）。
     // 以前は `notes` の先頭の `[kessan:2026-03]` という文字列を読んでいたが、
@@ -581,7 +820,6 @@ export class ProjectService {
     // SELECT 句の ? が最初のプレースホルダになるため params の先頭に mcpActorId を置く。
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
-       (SELECT COUNT(*) FROM project_dates pd WHERE pd.project_id = p.id) as dates_count,
        ${TOTAL_REVENUE_SQL} as total_revenue,
        ${TOTAL_PURCHASE_SQL} as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
@@ -772,6 +1010,18 @@ export class ProjectService {
       if (back?.audience === 'no_audience') setClauses.push('attendee_count = NULL');
     }
     if (typeof set.stage === 'string' && STAGES.includes(set.stage)) {
+      /**
+       * **受注・失注への一括変更は禁じる**（テーマ2 PR3・docs/project-ledger-phase-c-design.md）。
+       *
+       * `a_won`/`e_lost` は `recordStageTransition()`（履歴・`won_at`/`lost_at`）・
+       * GLS自動発番・失注理由の入力を伴う特別なステージで、案件詳細の `changeStage()`
+       * を通さずここで直接動かすと、それらを一切経由せず**履歴の無い受注・`lost_at` の
+       * 無い失注**ができてしまう。画面は `stage` を送らないよう自主規制しているだけで、
+       * API を直接叩けば素通りしていた（実害はまだ無いが恒久的に穴を塞ぐ）。
+       */
+      if (set.stage === 'a_won' || set.stage === 'e_lost') {
+        throw new AppError(400, 'VALIDATION_ERROR', '受注・失注への一括変更はできません（案件詳細から1件ずつ）');
+      }
       setClauses.push('stage = ?'); params.push(set.stage);
     }
     if (set.event_start !== undefined) {
@@ -782,19 +1032,6 @@ export class ProjectService {
     }
     if (set.application_form !== undefined) {
       setClauses.push('application_form = ?'); params.push(set.application_form ? 1 : 0);
-    }
-    if (set.logo_permission !== undefined) {
-      setClauses.push('logo_permission = ?'); params.push(set.logo_permission ? 1 : 0);
-    }
-    // タグ: mode='replace' で置換 / 'append' で末尾追加 (空なら付与のみ)
-    if (typeof set.tags === 'string' && (set.tagsMode === 'replace' || set.tagsMode === 'append')) {
-      const tag = (set.tags as string).trim();
-      if (set.tagsMode === 'replace') {
-        setClauses.push('tags = ?'); params.push(tag);
-      } else if (tag) {
-        setClauses.push(`tags = CASE WHEN COALESCE(tags, '') = '' THEN ? ELSE tags || ',' || ? END`);
-        params.push(tag, tag);
-      }
     }
 
     if (setClauses.length === 0) {
@@ -815,85 +1052,16 @@ export class ProjectService {
   }
 
   /**
-   * 新規作成（ヨミ段階: 最低限の入力でOK）
+   * 新規作成（ヨミ段階: 最低限の入力でOK）。
+   *
+   * 本体は `createCore()`（テーマ4 PR1・docs/project-ledger-phase-c-design.md）。
+   * ここは薄いラッパー: `opts` を渡さない通常の呼び出し（画面 / MCP `create_project`）は
+   * これまでと**完全に同じ**挙動になる — `opts.tx` が無ければ自分で `withTransaction` を
+   * 開いて `createCore` に渡し、トランザクションの**外**でメモ・BOX フォルダ作成を行う
+   * （`gpm.service.ts` の `create()` と同じ判断: 外部 API 呼び出しをトランザクションの
+   * 中に入れない）。
    */
-  async create(data: Record<string, unknown>, userId: string) {
-    const { name: rawName, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
-            box_url_internal, box_url_external, application_form, logo_permission,
-            event_start, event_end, dates, gls_category,
-            intake_channel, intake_confidence,
-            // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
-            contact_name, recurrence, attendee_count, goal, reply_due, wants,
-            audience, project_category,
-            stage, first_task } = data;
-    if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
-    // **半角カナ等の表記ゆれを保存時に正規化。** Box の OCR / AI起票など外部由来の
-    // テキストがそのまま案件名になり、請求一覧等で化けて見える不具合の対策（NFKC）
-    const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
-    const glsCategory = normalizeGlsCategory(gls_category);
-    if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
-    // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
-    // 「顧客ロールの会社か」を保証しない。直接 API / MCP から仕入先・販管費
-    // 支払先の company_id を渡せてしまうのを防ぐ（レビュー指摘・PR #199 P2 の2巡目）
-    await assertCustomerCompanyId(customer_id);
-
-    const id = uuidv4();
-    const code = await generateSequenceNumber('opp_code', 'OPP');
-    // **グループ区分はお客様が決める**（migration 192）。渡された値は、お客様が
-    // 見つからないときの控えとしてだけ使う（`resolveCustomerType` の理由）
-    const cType = await resolveCustomerType(customer_id, customer_type);
-
-    // dates 配列がある場合は MIN/MAX を event_start/event_end に同期
-    let finalEventStart: string | null = (event_start as string) || null;
-    let finalEventEnd: string | null = (event_end as string) || null;
-    let datesToInsert: Array<{ date: string; label?: string | null }> = [];
-    if (Array.isArray(dates)) {
-      datesToInsert = (dates as Array<{ date: string; label?: string | null }>)
-        .filter((d) => d && typeof d.date === 'string' && d.date.length > 0);
-      if (datesToInsert.length > 0) {
-        const sorted = [...datesToInsert].map((d) => d.date).sort();
-        finalEventStart = sorted[0];
-        finalEventEnd = sorted[sorted.length - 1];
-      }
-    }
-
-    // 入口と確信 (migration 165)。**知らない値は入れない** — DB の CHECK が弾くので、
-    // 弾かれると案件の登録そのものが 500 になる。ここで NULL に落とす
-    const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
-    const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
-
-    /**
-     * **ステージを選べるようにした** (v4 の登録モーダル)。
-     *
-     * 「もう仮押さえまで進んでいる引き合いを登録する」が普通に起きるのに、
-     * これまでは必ず `neta` から始めて、作ってから押し直すことになっていました。
-     * **知らない値は `neta` に落とす** — 素通しさせるとどの一覧にも出ない案件ができます。
-     *
-     * **受注以降では作れません。** GLS 番号を採る流れ（確認ダイアログ付き）を
-     * 飛ばしてしまうためです。作ってからステージを上げてもらいます。
-     */
-    const initialStage = STAGES.includes(String(stage)) ? String(stage) : 'neta';
-    const safeStage = ['a_won', 's_completed', 'e_lost'].includes(initialStage) ? 'neta' : initialStage;
-
-    const recur = recurrence === 'regular' ? 'regular' : 'single';
-    /**
-     * **無観客の案件には来場人数を持たせない** (migration 182)。
-     * 画面が欄を出さないので値は来ませんが、MCP や旧フォームから来ることがあります。
-     * 入ってしまうと「無観客なのに 150 名」の行ができ、規模別の集計が狂います。
-     */
-    const rawScale = Number.isFinite(Number(attendee_count)) && Number(attendee_count) > 0
-      ? Math.floor(Number(attendee_count)) : null;
-    const scale = audience === 'no_audience' ? null : rawScale;
-
-    /**
-     * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
-     * 画面から両方送らせると、片方だけ更新された行ができます
-     * （`project-classification.ts` の冒頭）。
-     */
-    // **GLS-B は2段を持たない**（`project-classification.ts`）。作る画面は必ず
-    // GLS-A だが、MCP の `create_project` は両方を受け取れるのでここでも渡す
-    const cls = resolveClassification(audience, project_category, project_type, glsCategory);
-
+  async create(data: Record<string, unknown>, userId: string, opts: CreateProjectOptions = {}) {
     /*
      * **同じ意図で2回作らせない**（レビューでの指摘 #62）。
      *
@@ -910,6 +1078,10 @@ export class ProjectService {
      * **ぶつかったら、そのとき出来ている案件を返します**（エラーにしない）。
      * 押した人にとっては「案件が1件できた」で正しく、
      * エラーを出すと**出来ているのに失敗したと思って、もう一度作ります**。
+     *
+     * この事前チェック・衝突時の復旧はどちらも `createCore` の**外**（`tx` の外）で行う
+     * — 一意索引違反は明示トランザクション内で起きると取引全体を abort 状態にし、
+     * 同じ `tx` では復旧のための SELECT すら打てなくなるため。
      */
     const idem = typeof data.idempotency_key === 'string' && data.idempotency_key.trim()
       ? data.idempotency_key.trim() : null;
@@ -919,24 +1091,13 @@ export class ProjectService {
       ) as { id: string } | null;
       if (dup) return await this.getById(dup.id);
     }
+
+    let id: string;
     try {
-      await execute(
-        `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category,
-                               gls_category, expected_amount, assigned_to,
-                               event_start, event_end,
-                               customer_type, box_url_internal, box_url_external,
-                               application_form, logo_permission, intake_channel, intake_confidence,
-                               contact_name, recurrence, attendee_count, goal, reply_due, wants,
-                               idempotency_key, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
-         glsCategory, expected_amount || 0, assigned_to || userId,
-         finalEventStart, finalEventEnd,
-         cType, box_url_internal || null, box_url_external || null,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
-         contact_name || null, recur, scale, goal || null, reply_due || null, wants || null,
-         idem, userId]
-      );
+      const core = opts.tx
+        ? await createCore(opts.tx, data, userId, opts)
+        : await withTransaction((tx) => createCore(tx, data, userId, opts));
+      id = core.id;
     } catch (e) {
       // 同時に押されたときは一意索引が止める。**先に出来たほうを返す**
       const already = idem
@@ -953,63 +1114,41 @@ export class ProjectService {
      * 本番のメール取込スキルが毎日叩いており、引数を消すと次の実行から
      * 「備考が入らない」ではなく**呼び出しごと落ちます**。受け取ったものは
      * `activity_type='memo'` の1件として、他のやり取りと同じ時系列に並べます。
-     */
-    await addMemoActivity(id, customer_id as string, notes, userId);
-
-    // **最初のステージも履歴に残す** (migration 164)。
-    // 1件目が無いと「ネタでいた期間」が測れず、停滞理由が「いつから」を言えない
-    await execute(
-      `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-       VALUES (?, ?, NULL, ?, ?)`,
-      [uuidv4(), id, safeStage, userId],
-    );
-
-    /**
-     * 最初のタスク（登録モーダルの16項目め）。
      *
-     * **入れなくても作れます。** 入れたときだけ1件作ります。
-     * 期限は `docs/wording.md` の決めどおり**時刻まで**持ちます
-     * （日付だけ渡されたら 18:00 を補い、補ったことは画面が出す）。
+     * **トランザクションの外で書く** — ここで失敗しても案件自体は残したい
+     * （`gpm.service.ts` の `create()` と同じ判断）。
      */
-    const task = first_task as { title?: string; assigned_to?: string; due_at?: string; due_date?: string } | undefined;
-    if (task && typeof task.title === 'string' && task.title.trim()) {
-      const dueAt = task.due_at || (task.due_date ? `${task.due_date}T18:00:00` : null);
-      await execute(
-        `INSERT INTO project_tasks (id, project_id, title, assigned_to, due_at, is_completed, sort_order, created_by)
-         VALUES (?, ?, ?, ?, ?, false, 1, ?)`,
-        [uuidv4(), id, task.title.trim(), task.assigned_to || assigned_to || userId, dueAt, userId],
-      );
-    }
-
-    // project_dates にINSERT
-    for (let i = 0; i < datesToInsert.length; i++) {
-      const d = datesToInsert[i];
-      await execute(
-        `INSERT INTO project_dates (id, project_id, date, label, sort_order) VALUES (?, ?, ?, ?, ?)`,
-        [uuidv4(), id, d.date, d.label || null, i + 1]
-      );
-    }
+    await addMemoActivity(id, data.customer_id as string, data.notes, userId);
 
     // BOX フォルダ自動作成 (両親フォルダに並行作成。OPP コード命名で、GLS 発番時にリネームされる)
-    // 既に box_url_internal / box_url_external が手動入力されている場合は、未入力側だけ補填
-    try {
-      const folders = await createProjectFolderTree(code, String(name));
-      const updates: string[] = [];
-      const params: unknown[] = [];
-      if (!box_url_internal && folders.internal) {
-        updates.push('box_url_internal = ?');
-        params.push(folders.internal.folderUrl);
+    // 既に box_url_internal / box_url_external が手動入力されている場合は、未入力側だけ補填。
+    // `opts.skipBoxFolder` が true のときはスキップする — バッチ取込のたびに数十〜数百フォルダが
+    // 自動生成される暴発を防ぐため（テーマ4）
+    if (!opts.skipBoxFolder) {
+      try {
+        // `code`/`name` は createCore がトランザクション内で決めた値（採番済みの code・
+        // 正規化済みの名前）を、確定した行から読み直す（クロージャで持ち越さない）
+        const created = await queryOne(
+          'SELECT code, name, box_url_internal, box_url_external FROM projects WHERE id = ?', [id],
+        ) as { code: string; name: string; box_url_internal: string | null; box_url_external: string | null };
+        const folders = await createProjectFolderTree(created.code, String(created.name));
+        const updates: string[] = [];
+        const params: unknown[] = [];
+        if (!created.box_url_internal && folders.internal) {
+          updates.push('box_url_internal = ?');
+          params.push(folders.internal.folderUrl);
+        }
+        if (!created.box_url_external && folders.external) {
+          updates.push('box_url_external = ?');
+          params.push(folders.external.folderUrl);
+        }
+        if (updates.length > 0) {
+          params.push(id);
+          await execute(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`, params);
+        }
+      } catch (err) {
+        console.warn('[create] BOX folder creation failed (non-blocking):', (err as Error).message);
       }
-      if (!box_url_external && folders.external) {
-        updates.push('box_url_external = ?');
-        params.push(folders.external.folderUrl);
-      }
-      if (updates.length > 0) {
-        params.push(id);
-        await execute(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`, params);
-      }
-    } catch (err) {
-      console.warn('[create] BOX folder creation failed (non-blocking):', (err as Error).message);
     }
 
     return this.getById(id);
@@ -1029,9 +1168,9 @@ export class ProjectService {
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const { name: rawName, customer_id, expected_amount, project_type, project_type_other,
-            event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes, box_url_internal, box_url_external,
+    const { name: rawName, customer_id, expected_amount, project_type,
+            event_start, event_end, broadcast_type, media_platform,
+            application_form, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
     // **半角カナ等の表記ゆれを保存時に正規化。** `create` と同じ理由（NFKC）
     const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
@@ -1046,8 +1185,8 @@ export class ProjectService {
      * 押した人には「保存できませんでした」としか出ず、原因が分かりませんでした
      * （実測: 空にして保存すると 500）。
      *
-     * v4 は「案件担当者という概念を持たない」（誰がやるかはタスク単位）方針ですが、
-     * **列は NOT NULL のまま**です。NULL 許容にすると一覧の絞り込み・`getById` の
+     * v4 は主担当を持つが実務の割り当てはタスク単位（client/CLAUDE.md「v4 の設計判断」）、
+     * かつ**列は NOT NULL のまま**です。NULL 許容にすると一覧の絞り込み・`getById` の
      * LEFT JOIN・MCP の `list_projects`・週報・営業レビューの集計が
      * 「担当者なし」を想定していないので、そちらの影響のほうが大きい。
      * ここでは**渡されなければ今の値を保つ**にとどめます。
@@ -1055,17 +1194,6 @@ export class ProjectService {
     const assigned_to = (data.assigned_to === undefined || data.assigned_to === null || data.assigned_to === '')
       ? existing.assigned_to
       : data.assigned_to;
-    /**
-     * **画面に無い項目は今の値を保つ。**
-     *
-     * v4 のモックはタグと「案件種類（その他）」の入力欄を落としました。
-     * この UPDATE は送られた値でそのまま上書きするので、欄を消しただけだと
-     * **保存のたびに既存の値が空になります**（本番データが黙って消える）。
-     * 列は残したまま、**未指定なら今の値を保つ**形にしてから欄を外しました。
-     * 明示的に空文字を送ったときは消せます（＝人が消したいときは消える）。
-     */
-    const tagsValue = tags === undefined ? ((existing.tags as string | null) ?? '') : (tags || '');
-
     /**
      * **登録の16項目（migration 170）も「渡さなければ今の値を保つ」。**
      *
@@ -1082,11 +1210,6 @@ export class ProjectService {
       ? existing.attendee_count
       : (Number(data.attendee_count) > 0 ? Math.floor(Number(data.attendee_count)) : null);
     const goalValue = keep(data.goal, existing.goal);
-    const replyDue = keep(data.reply_due, existing.reply_due);
-    const wantsValue = keep(data.wants, existing.wants);
-    const projectTypeOther = project_type_other === undefined
-      ? ((existing.project_type_other as string | null) ?? null)
-      : (project_type_other || null);
 
     /**
      * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
@@ -1144,6 +1267,16 @@ export class ProjectService {
     const channelValue = intake_channel === undefined
       ? existing.intake_channel
       : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
+    /**
+     * **確信バッジも「渡さなければ今の値を保つ」**（`intake_channel` と同型）。
+     *
+     * MCP `update_project` は `intake_confidence` を UPDATE_FIELDS に載せて
+     * 「更新した」と返すのに、この関数が一度も書いていなかった（silent drop）。
+     * **知らない値は NULL に落とす** — `create` と同じ守り方。
+     */
+    const confidenceValue = data.intake_confidence === undefined
+      ? existing.intake_confidence
+      : (INTAKE_CONFIDENCES.includes(data.intake_confidence as string) ? data.intake_confidence : null);
 
     /**
      * **グループ区分はお客様から引き直す**（migration 192・ご指示）。
@@ -1196,40 +1329,40 @@ export class ProjectService {
     if (allowCategoryUpdate) {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
-         broadcast_type=?, media_platform=?, tags=?,
-         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         intake_channel=?,
-         application_form=?, logo_permission=?, customer_type=?,
+         project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
+         broadcast_type=?, media_platform=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?,
+         intake_channel=?, intake_confidence=?,
+         application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         channelValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
+         broadcast_type || null, media_platform || null,
+         contactName, recurrenceValue, attendeeFinal, goalValue,
+         channelValue, confidenceValue,
+         application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
       );
     } else {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
-         broadcast_type=?, media_platform=?, tags=?,
-         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         intake_channel=?,
-         application_form=?, logo_permission=?, customer_type=?,
+         project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
+         broadcast_type=?, media_platform=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?,
+         intake_channel=?, intake_confidence=?,
+         application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         channelValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
+         broadcast_type || null, media_platform || null,
+         contactName, recurrenceValue, attendeeFinal, goalValue,
+         channelValue, confidenceValue,
+         application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
       );
@@ -1357,37 +1490,27 @@ export class ProjectService {
      */
     const stageChanged = project.stage !== stage;
 
+    // **履歴・受注日時 (won_at)・失注日時 (lost_at) の3点セットは共有関数に集約**
+    // （`recordStageTransition` — テーマ2 PR1・docs/project-ledger-phase-c-design.md）。
+    // ここが担当するのは `stage` 列そのもの・GLS発番・AI確認印など、この関数だけの責務のまま
+    await recordStageTransition(id, project.stage, stage, userId, {
+      lost_reason: data.lost_reason,
+      lost_reason_note: data.lost_reason_note,
+    });
+
+    await execute(
+      `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+      [stage, userId, id]
+    );
+
     if (stage === 'e_lost') {
-      await execute(
-        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
-        [stage, data.lost_reason || null, data.lost_reason_note || null, data.lessons_learned || null, userId, id]
-      );
       // AI が起票したネタを人が見送った = **拾いすぎ**の手がかり。
       // 受注/失注そのものはステージから読めるので記録しないが、
       // 「AI 出力が業務にならなかった」は不採用として残す
       await recordIntakeDecision(id, 'dropped', userId, (data.lost_reason_note as string) || (data.lost_reason as string) || null);
-    } else if (stage === 'a_won') {
-      // **受注の時刻を残す** — 失注に `lost_at` があるのに受注に無かった。
-      // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
-      // (`won_at IS NULL` のときだけ入れる)。受注した月が後ろにずれると
-      // 「今月の受注」が二重に立つ
-      await execute(
-        `UPDATE projects SET stage=?, won_at=COALESCE(won_at, NOW()), updated_at=NOW(), updated_by=? WHERE id=?`,
-        [stage, userId, id]
-      );
-    } else {
-      await execute(
-        `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-        [stage, userId, id]
-      );
     }
 
     if (stageChanged) {
-      await execute(
-        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-         VALUES (?, ?, ?, ?, ?)`,
-        [uuidv4(), id, project.stage ?? null, stage, userId],
-      );
       await this.markAiReviewedByStageDecision(id, stage, userId);
     }
 
@@ -1487,14 +1610,14 @@ export class ProjectService {
     // 見ずに次へ進むと **AI 起票でない案件のステージを動かすたびに「無修正で採用」が
     // 1件積まれ**、受入率が実態より高く出る
     const marked = await queryOne(
-      `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+      `UPDATE projects SET ai_reviewed_at = NOW(), updated_at = NOW()
        WHERE id = ? AND deleted_at IS NULL AND ai_reviewed_at IS NULL
          AND (created_by = ? OR EXISTS (
            SELECT 1 FROM mcp_audit_log m
            WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
          ))
        RETURNING id`,
-      [userId, id, config.mcpActorId],
+      [id, config.mcpActorId],
     );
     // 印が付かなかった（AI 起票ではない／すでに確認済み）ときは何も残さない
     if (!marked) return;
@@ -1641,7 +1764,6 @@ export class ProjectService {
    * - GLS 未発番の案件: gls_category カラムだけ更新
    * - GLS 発番済の案件: 新カテゴリ側 sequence から **採番し直し**、
    *   - projects.gls_number / gls_category を更新
-   *   - projects.previous_gls_numbers に旧番号を履歴として push
    *   - 同 project の episodes.episode_code を `{旧GLS}-NNN` → `{新GLS}-NNN` に書換
    *   - qsheet_documents.episode_code も同様に書換
    *   - BOX 両フォルダ (社内限り / 社外共有可) を `{新GLS}_{案件名}` にリネーム
@@ -1676,19 +1798,16 @@ export class ProjectService {
     const oldGlsNumber = project.gls_number as string;
     const newGlsNumber = await generateGlsNumber(newCategory);
 
-    // projects: gls_number / gls_category 更新 + 履歴 push
+    // projects: gls_number / gls_category 更新
+    // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため
+    //   列ごと削除した。監査は `project_stage_changes`/`ai_outputs` で足りる —
+    //   docs/project-ledger-simplification-plan.md §4 Phase A）
     await execute(
       `UPDATE projects
        SET gls_number=?, gls_category=?,
-           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
            updated_at=NOW(), updated_by=?
        WHERE id=?`,
-      [newGlsNumber, newCategory, JSON.stringify([{
-        gls_number: oldGlsNumber,
-        category: currentCategory,
-        changed_at: new Date().toISOString(),
-        changed_by: userId,
-      }]), userId, id]
+      [newGlsNumber, newCategory, userId, id]
     );
 
     // episodes.episode_code: '{old}-NNN' → '{new}-NNN'
@@ -1810,7 +1929,7 @@ export class ProjectService {
   /**
    * 発番済みの案件を「別の既存 GLS のエピソード」として紐づけ直す。
    * - GLS 未発番なら従来の linkToExistingGls にフォールバック (概算見積→確定売上)
-   * - 発番済みなら: gls_number を新 GLS に差し替え、旧番号を previous_gls_numbers に push、
+   * - 発番済みなら: gls_number を新 GLS に差し替え、
    *   episodes.episode_code / qsheet_documents.episode_code を新 GLS で **再採番** (UNIQUE 衝突回避のため
    *   新 GLS の現在の最大エピソード番号の続きに振る)、BOX フォルダ名をリネーム、概算見積を確定売上に変換。
    */
@@ -1831,17 +1950,18 @@ export class ProjectService {
     const newGls = target.gls_number as string;
     if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じGLS番号に紐づいています');
 
-    // 1. projects: gls_number 差し替え + 旧番号を履歴に push + 分類/番組種別/媒体を継承 + ステージ昇格
+    // 1. projects: gls_number 差し替え + 分類/番組種別/媒体を継承 + ステージ昇格
+    // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため
+    //   列ごと削除した。監査は `project_stage_changes`/`ai_outputs` で足りる —
+    //   docs/project-ledger-simplification-plan.md §4 Phase A）
     await execute(
       `UPDATE projects
        SET gls_number=?, gls_category=?,
            broadcast_type=COALESCE(broadcast_type, ?), media_platform=COALESCE(media_platform, ?),
-           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
            stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
            updated_at=NOW(), updated_by=?
        WHERE id=?`,
       [newGls, target.gls_category, target.broadcast_type || null, target.media_platform || null,
-       JSON.stringify([{ gls_number: oldGls, category: project.gls_category, changed_at: new Date().toISOString(), changed_by: userId, reason: 'relink-episode' }]),
        userId, id]
     );
 
@@ -1990,19 +2110,6 @@ export class ProjectService {
     const grossProfit = totalRevenue - totalPurchase;
     const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
     return { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin };
-  }
-
-  /**
-   * タグ一覧（全案件から使用中のタグを抽出）
-   */
-  async getTags() {
-    const rows = await queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
-    const tagSet = new Set<string>();
-    for (const row of rows) {
-      const tags = (row.tags as string).split(',').map(t => t.trim()).filter(Boolean);
-      tags.forEach(t => tagSet.add(t));
-    }
-    return Array.from(tagSet).sort();
   }
 
   async delete(id: string, userId: string) {

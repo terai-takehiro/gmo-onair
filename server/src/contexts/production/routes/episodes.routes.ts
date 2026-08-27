@@ -9,6 +9,14 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
 
+// v4 フォーム（BroadcastSection.tsx）は複数選択をカンマ結合した文字列
+// （例: "live,recording"）として projects.broadcast_type に保存するため、
+// 完全一致ではなくカンマ区切りの中に対象値が含まれるかで判定する
+// （旧実装は `=== 'live'` の完全一致で、複数選択の案件では黙って外れていた）。
+function broadcastTypeIncludes(broadcastType: string | null | undefined, value: string): boolean {
+  return (broadcastType ?? '').split(',').map((s) => s.trim()).includes(value);
+}
+
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
 
@@ -182,7 +190,7 @@ router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), asy
       'SELECT broadcast_type FROM projects WHERE id = ? AND deleted_at IS NULL',
       [req.params.projectId]
     ) as any;
-    if (project && project.broadcast_type === 'live') {
+    if (project && broadcastTypeIncludes(project.broadcast_type, 'live')) {
       finalBroadcastDate = recording_date;
     }
   }

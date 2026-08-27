@@ -25,7 +25,7 @@
  * PC は従来の2段組・区切り線のままにしています。**中身（何を出すか）は
  * 1つも変えていません** — `Fact` の呼び出し順・渡す値は共通です。
  */
-import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, Tag, ExternalLink } from 'lucide-react';
+import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -243,15 +243,6 @@ export function OverviewTab({
             </Field>
           )}
           <Field label="案件内容">{project.goal}</Field>
-          {/*
-            **返事の期限と求められているものは、案件作成のフォームから外しました。**
-            列は残っているので、**すでに入っている案件では読めるようにしておきます**
-            （新しい案件には入りません）。空の案件では欄ごと出しません
-          */}
-          {project.reply_due && (
-            <Field label="返事の期限"><span className="font-number">{project.reply_due}</span></Field>
-          )}
-          {project.wants && <Field label="求められているもの">{project.wants}</Field>}
           <Field label="リード経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />
@@ -354,24 +345,11 @@ export function OverviewTab({
         </Section>
 
         {/*
-          **タグは付いている案件にだけ出します**（v3 の置き土産）。
-          v4 は入力欄を外し（モックどおり）、**絞り込む口も画面に1つも
-          ありません**。空でも節を出していたので、ほぼ全部の案件で
-          「タグ：付いていません。」という**永久に埋まらない枠**が並んでいました。
-          **列と、すでに入っている値は消しません** — v3 で付けたタグを
-          読む場所がここしか無いためです。
+          **タグの節は 2026-08-27 の棚卸しで削除した**（Phase B・ユーザー判断。
+          `docs/project-ledger-simplification-plan.md` §5 の `tags`）。v4 は入力欄も
+          絞り込む口も持たず、v3 で付いた値を読むためだけにこの節が残っていたが、
+          育てる（正式なタグ管理UIを作る）よりも列ごと廃止することを選んだ。
         */}
-        {project.tags && (
-          <Section title="タグ">
-            <div className="flex flex-wrap gap-1.5">
-              {project.tags.split(',').filter(Boolean).map((t) => (
-                <span key={t} className="text-sub inline-flex items-center gap-1 rounded-chip bg-muted px-2.5 py-1">
-                  <Tag className="h-3 w-3 text-muted-foreground" aria-hidden="true" />{t}
-                </span>
-              ))}
-            </div>
-          </Section>
-        )}
 
         {/*
           **「最後の更新」はヘッダーの1段目へ移しました**（指示書 第5章）。

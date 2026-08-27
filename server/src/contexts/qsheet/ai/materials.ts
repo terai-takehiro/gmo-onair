@@ -25,7 +25,6 @@ export interface ProjectMaterial {
   audience: string | null;
   broadcastType: string | null;
   mediaPlatform: string | null;
-  tags: string | null;
   /** いちばん新しいメモ（`activity_logs.activity_type='memo'`）。旧 `projects.notes` の代わり */
   memoExcerpt: string | null;
   eventStart: string | null;
@@ -86,7 +85,7 @@ async function fetchProject(projectId: string | null): Promise<ProjectMaterial |
   try {
     const row = await queryOne(
       `SELECT p.id, p.name, p.project_type, p.project_category, p.audience,
-              p.broadcast_type, p.media_platform, p.tags,
+              p.broadcast_type, p.media_platform,
               memo.description AS memo_excerpt,
               p.event_start, p.event_end, p.customer_id, co.name AS company_name
          FROM projects p
@@ -103,7 +102,6 @@ async function fetchProject(projectId: string | null): Promise<ProjectMaterial |
       audience: (row.audience as string) ?? null,
       broadcastType: (row.broadcast_type as string) ?? null,
       mediaPlatform: (row.media_platform as string) ?? null,
-      tags: (row.tags as string) ?? null,
       memoExcerpt: (row.memo_excerpt as string) ?? null,
       eventStart: (row.event_start as string) ?? null,
       eventEnd: (row.event_end as string) ?? null,

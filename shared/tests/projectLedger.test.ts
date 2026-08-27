@@ -26,7 +26,7 @@ import {
 import { buildBulkSet } from '../../client/src/contexts/sales/pages/projectLedger/bulkSet';
 
 /** `buildBulkSet` に渡す値の空の形 */
-const EMPTY = { audience: '', category: '', text: '', flag: '', tagsMode: 'append' };
+const EMPTY = { audience: '', category: '', text: '', flag: '' };
 
 describe('列の表（COL_DEFS）', () => {
   it('鍵が重複していない（重複すると React の key がぶつかって列が消える）', () => {
@@ -89,7 +89,6 @@ describe('まとめて直す項目（BULK_FIELDS）', () => {
 describe('buildBulkSet — 送る中身', () => {
   it('何も選んでいなければ送らない（押せない）', () => {
     for (const f of BULK_FIELDS) {
-      if (f.key === 'tags') continue;   // タグは置換だけ空でも通す（下で確かめる）
       expect(buildBulkSet(f.key, EMPTY)).toBeNull();
     }
   });
@@ -109,21 +108,8 @@ describe('buildBulkSet — 送る中身', () => {
     expect(set).not.toHaveProperty('project_type');
   });
 
-  it('申込書・ロゴは「なし」も送れる（0 を空と混同しない）', () => {
+  it('申込書は「なし」も送れる（0 を空と混同しない）', () => {
     expect(buildBulkSet('application_form', { ...EMPTY, flag: '0' })).toEqual({ application_form: false });
-    expect(buildBulkSet('logo_permission', { ...EMPTY, flag: '1' })).toEqual({ logo_permission: true });
-  });
-
-  /**
-   * タグの「置き換える」は**空でも通す** — タグを消したいことがあるため。
-   * 「足す」は空だと何も起きないので押させない。
-   */
-  it('タグ: 置き換えは空でも通し、足すは空だと送らない', () => {
-    expect(buildBulkSet('tags', { ...EMPTY, tagsMode: 'replace', text: '' }))
-      .toEqual({ tags: '', tagsMode: 'replace' });
-    expect(buildBulkSet('tags', { ...EMPTY, tagsMode: 'append', text: '' })).toBeNull();
-    expect(buildBulkSet('tags', { ...EMPTY, tagsMode: 'append', text: '周年' }))
-      .toEqual({ tags: '周年', tagsMode: 'append' });
   });
 });
 

@@ -23,7 +23,6 @@ export interface ProjectDetail {
   total_revenue: number | string | null;
   /** 見積金額（束ごとの最新版の合計・税抜）。一覧と同じ計算をサーバーが出す */
   estimate_amount?: number | string | null;
-  tags: string | null;
   box_url_internal: string | null;
   box_url_external: string | null;
   updated_at: string;
@@ -40,8 +39,6 @@ export interface ProjectDetail {
   recurrence?: 'single' | 'regular' | null;
   attendee_count?: number | null;
   goal?: string | null;
-  reply_due?: string | null;
-  wants?: string | null;
   /** 引き合いの入口 (migration 165) */
   intake_channel?: string | null;
   /**

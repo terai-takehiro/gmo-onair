@@ -9,6 +9,12 @@ import { getAppBadges } from '../services/appBadges.service';
  * （docs/core-redesign-plan.md §3-7）。ここに写すと一覧のバッジと「今日の営業」が黙ってずれる。
  */
 import { completeElapsedWonProjects, healthSql, stalledDaysSql } from '../../sales/services/project-health';
+/**
+ * 見積金額（見積があれば見積・無ければ想定）の導出は **project.service.ts の
+ * ESTIMATE_AMOUNT_LATERAL 単一定義**を使う（docs/project-ledger-phase-c-design.md
+ * テーマ1 C-1a）。ここに書き写すと版・group_id の扱いが2か所に増え、ずれる。
+ */
+import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 
 const router = Router();
 
@@ -429,6 +435,7 @@ router.get('/sales-board', async (_req, res) => {
   // 直近活動自体の AI 取込判定 (last_activity_is_ai) も返す。
   const rows = await queryAll(
     `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.expected_amount,
+            COALESCE(est.amount, 0) AS estimate_amount,
             p.created_by, p.ai_reviewed_at,
             c.name AS customer_name,
             la.activity_type   AS last_activity_type,
@@ -476,6 +483,7 @@ router.get('/sales-board', async (_req, res) => {
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
+     ${ESTIMATE_AMOUNT_LATERAL}
      -- **GLS-A（案件）だけ** (migration 179)。期限超過の次アクションは営業の道具で、
      -- GLS-B（プロジェクト）の「相手待ち」はプロジェクト管理の未確認事項が持つ
      WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
@@ -542,6 +550,7 @@ const AI_INBOX_BASE =
      ORDER BY m.created_at ASC
      LIMIT 1
    ) ai ON TRUE
+   ${ESTIMATE_AMOUNT_LATERAL}
    -- **GLS-A（案件）だけ** (migration 179)。受付は案件管理の画面で、
    -- GLS-B（プロジェクト）はプロジェクト管理で受け取る
    WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
@@ -552,7 +561,8 @@ const AI_INBOX_BASE =
      AND p.stage = 'neta'`;
 
 const AI_INBOX_SQL =
-  `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+  `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount,
+          COALESCE(est.amount, 0) AS estimate_amount, p.created_at,
           p.intake_channel, p.intake_confidence,
           c.name AS customer_name, u.name AS assigned_to_name,
           ai.requested_by AS ai_requested_by

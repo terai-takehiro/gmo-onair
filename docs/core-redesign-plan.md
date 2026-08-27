@@ -249,6 +249,10 @@ Google/Outlook/ICS 同期・書き戻しまで完備しているのに、**タ�
 
 ### Phase 3（構想）
 
+- **`projects` 全57列の棚卸しと導線の単純化** — 死んだ列9本・重複した持ち場所・
+  書く口6経路の分散・AI入口のガードレール不足を実測で確定した。
+  **具体化は [docs/project-ledger-simplification-plan.md](project-ledger-simplification-plan.md)**
+  （棚卸し表・発見した実バグ6件・段階 A/B/C）
 - `activity_logs.next_action` と `project_tasks` の統合（2つのバックログを1本に）
 - `gpm_open_items`・議事録持ち帰りの担当を users に接続
 - ai_outputs / ai_usage / AiJob の kind 語彙統一
