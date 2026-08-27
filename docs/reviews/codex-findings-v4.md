@@ -1798,6 +1798,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   週報への `estimate_amount` 追加を確認済みだが、**実ブラウザでのPC/スマホ確認は行っていない**
   （ほぼ全てサーバー・データモデル側の変更。Phase Bで削除した2〜3個のUI要素
   [ロゴ許諾スイッチ・タグ節・台帳一括編集の対応項目] は目視確認していないことをPR本文に明記済み）。
+- **#459（docs(reviews): PR #457・#458 のマージ後の棚卸しを記録した・2026-08-27）** —
+  `get_reviews` 0件のまま、作成 08:39:02 UTC / マージ 08:41:45 UTC（terai-takehiro 本人が
+  手動マージ、約2分43秒後）。`docs/reviews/codex-findings-v4.md` への追記のみ（コード変更なし）。
+  表に移す指摘はない（レビュー自体が届いていないため）。
+- **#460→#461（release: v4.5.2・2026-08-27）** — ユーザー依頼「ここまでまとめてリリースしたい」を
+  受け、`npm run release:notes -- 4.5.2` で版の3か所（`package.json`/`CLAUDE.md`/`README.md`）を
+  更新し `docs/changelog.d/` 7件を集約する版上げ専用PR。最初 `claude/release-prep-lod7ck` 枝で
+  #460 として出したところ、`check-changelog.mjs` のリリース判定（`RELEASE=1` か枝名が `release/`
+  で始まること）に外れ `checks` が落ちた（CI は `RELEASE=1` を設定しないため、枝名で判定するしか
+  ない — `docs/branching.md` の正式な運用どおり）。ユーザーに確認のうえ同一コミットを
+  `release/4.5.2` 枝に出し直し、#461 として再オープン（#460 はクローズ、マージなし）。#461 は
+  `get_reviews`/`get_review_comments` とも0件のまま、作成 08:44:48 UTC / CI（`checks`/`build`）
+  両方 green 08:47:17 UTC / マージ 08:48:29 UTC（terai-takehiro 本人が手動マージ、CI green から
+  約1分12秒後）。表に移す指摘はない（レビュー自体が届いていないため）。検証は
+  `npm run typecheck:all`・`RELEASE=1 npm run lint`（エラー0・warning は着手前と同数）・
+  `npm run test`（1553件）・`npm run check:version`（3か所一致）を確認済み。**本番へは
+  出ていない** — 本番デプロイはユーザーが GitHub Releases でタグ `v4.5.2` を Publish
+  したときのみ。
 
 ---
 
