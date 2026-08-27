@@ -19,12 +19,16 @@ const ROOT = join(__dirname, '..', '..');
 const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 
 describe('営業側の月次 AI レビュー（Phase 2 ②）', () => {
-  it('レビュー対象は営業系9種で固定（欠けても増えても気づけるように）', () => {
+  it('レビュー対象は営業系9種＋プロジェクト管理2種で固定（欠けても増えても気づけるように）', () => {
     // 順不同で比較する（並び替えは自由だが、増減は意図を持って両方を直すこと）
+    // gpm_* の2種は MCP のプロジェクト管理ツール整備で追加（gpm の権限は sales に
+    // 統合済みで、レビュー担当が同じ営業マネージャーのため同じ月次レビューに載せる）
     expect([...SALES_REVIEW_KINDS].sort()).toEqual([
       'activity_format',
       'estimate_draft',
       'finance_doc_intake',
+      'gpm_project_draft',
+      'gpm_task_draft',
       'inquiry_intake',
       'kpt_draft',
       'minutes_draft',

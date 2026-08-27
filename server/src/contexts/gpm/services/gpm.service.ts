@@ -57,6 +57,14 @@ import { getMinutes } from '../../sales/services/minutes.service';
  * ここに式を写すと、案件側のしきい値を直した日からプロジェクト一覧だけ別の判定になる。
  */
 import { healthSql, stalledDaysSql } from '../../sales/services/project-health';
+/**
+ * AI（MCP `create_gpm_project` / `create_gpm_task`）が起票した行を人が直したときの
+ * 差分の記録（会社方針「AI を使い捨てにしない」の条件2）。**update の中で呼ぶ**。
+ * ⚠️ GLS-B のタスクは**この口だけでなく `project-tasks.service` の update も通る**
+ * （案件詳細のガント・MCP の `update_task`）ので、タスクのフックは**両方**に入れてある。
+ * 片方だけにすると、その経路の修正だけが黙って数えられない。
+ */
+import { recordGpmProjectCorrections, recordGpmTaskCorrections } from './gpm-ai-feedback.service';
 
 export const GPM_KINDS = ['self_build', 'group_order'] as const;
 export const OPEN_ITEM_STATUSES = ['waiting', 'checking', 'resolved'] as const;
@@ -174,13 +182,15 @@ export const templateService = {
     const existing = await queryOne('SELECT id FROM gpm_templates WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'テンプレートが見つかりません');
     await withTransaction(async (tx) => {
-      await tx.execute(
-        `UPDATE gpm_templates SET name = COALESCE(?, name), icon = ?, description = ?,
-                sort_order = COALESCE(?, sort_order), updated_by = ?, updated_at = NOW()
-          WHERE id = ?`,
-        [input.name ?? null, input.icon ?? null, input.description ?? null,
-         input.sort_order ?? null, userId, id],
-      );
+      // icon / description は**キーが入っているときだけ**書き換える（他の update と同じ形）。
+      // 以前は無条件で書いており、名前だけ直す呼び出しがアイコンを黙って消していた
+      const sets = ['name = COALESCE(?, name)', 'sort_order = COALESCE(?, sort_order)',
+                    'updated_by = ?', 'updated_at = NOW()'];
+      const params: unknown[] = [input.name ?? null, input.sort_order ?? null, userId];
+      if ('icon' in input) { sets.push('icon = ?'); params.push(input.icon ?? null); }
+      if ('description' in input) { sets.push('description = ?'); params.push(input.description ?? null); }
+      params.push(id);
+      await tx.execute(`UPDATE gpm_templates SET ${sets.join(', ')} WHERE id = ?`, params);
       // **フェーズは全置換。** 展開済みのプロジェクトには影響しない（写して使うため）
       if (Array.isArray(input.phases)) {
         await tx.execute('DELETE FROM gpm_template_phases WHERE template_id = ?', [id]);
@@ -416,10 +426,18 @@ export const projectService = {
     await assertProject(id);
     if (typeof input.stage === 'string') assertIn(input.stage, STAGES, 'stage');
     if (typeof input.gpm_kind === 'string') assertIn(input.gpm_kind, GPM_KINDS, 'gpm_kind');
-    // 段が動いたかを**書き換える前に**見る（履歴と発番の判断に要る）
+    // 段が動いたかを**書き換える前に**見る（履歴と発番の判断に要る）。
+    // AI 起票の修正差分（gpm-ai-feedback）にも同じ before を使うので、
+    // 突き合わせる項目（name / gpm_kind / pm_company / 日付 / 担当）も一緒に読む
     const before = await queryOne(
-      'SELECT stage, gls_number, gls_category, customer_id FROM projects WHERE id = ?', [id],
-    ) as { stage: string | null; gls_number: string | null; gls_category: string | null; customer_id: string | null };
+      `SELECT stage, gls_number, gls_category, customer_id, name, gpm_kind, pm_company,
+              started_on::text AS started_on, ends_on::text AS ends_on, assigned_to
+         FROM projects WHERE id = ?`, [id],
+    ) as {
+      stage: string | null; gls_number: string | null; gls_category: string | null;
+      customer_id: string | null; name: string; gpm_kind: string | null; pm_company: string | null;
+      started_on: string | null; ends_on: string | null; assigned_to: string | null;
+    };
     // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
     // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #200 P2・create() と同じ理由）。
     // **実際に変わったときだけ確かめる**（レビュー指摘・PR #201 P1）— 詳細画面の
@@ -431,19 +449,24 @@ export const projectService = {
     }
     const nextStage = typeof input.stage === 'string' ? input.stage : null;
     const stageChanged = !!nextStage && nextStage !== before.stage;
-    await execute(
-      `UPDATE projects SET
-         name = COALESCE(?, name), gpm_kind = COALESCE(?, gpm_kind),
-         customer_id = COALESCE(?, customer_id),
-         pm_company = ?, assigned_to = COALESCE(?, assigned_to),
-         started_on = ?, ends_on = ?, stage = COALESCE(?, stage),
-         updated_by = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [input.name ?? null, input.gpm_kind ?? null, input.customer_id ?? null,
-       input.pm_company ?? null, input.assigned_to ?? null,
-       dateOrNull(input.started_on), dateOrNull(input.ends_on),
-       input.stage ?? null, userId, id],
-    );
+    /**
+     * **渡した項目だけを書き換える**（`gpmTaskService.update` と同じ形）。
+     * 以前は `pm_company` / `started_on` / `ends_on` を無条件で書いていたので、
+     * 一部の項目だけ送る呼び出し（MCP の部分更新）が**触っていない日付を黙って消す**
+     * 形だった。画面は全項目を送るので挙動は変わらない。
+     * `pm_company` と日付は「空にする」も送れるように、**キーが入っていれば** null でも書く。
+     */
+    const sets = ['name = COALESCE(?, name)', 'gpm_kind = COALESCE(?, gpm_kind)',
+                  'customer_id = COALESCE(?, customer_id)', 'assigned_to = COALESCE(?, assigned_to)',
+                  'stage = COALESCE(?, stage)'];
+    const params: unknown[] = [input.name ?? null, input.gpm_kind ?? null,
+                               input.customer_id ?? null, input.assigned_to ?? null, input.stage ?? null];
+    if ('pm_company' in input) { sets.push('pm_company = ?'); params.push(input.pm_company ?? null); }
+    if ('started_on' in input) { sets.push('started_on = ?'); params.push(dateOrNull(input.started_on)); }
+    if ('ends_on' in input) { sets.push('ends_on = ?'); params.push(dateOrNull(input.ends_on)); }
+    sets.push('updated_by = ?', 'updated_at = NOW()');
+    params.push(userId, id);
+    await execute(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`, params);
     // **同じ本文なら足さない**（`skipIfSame`）。保存し直すたびに同じメモが積むと、
     // やり取りがメモで埋まって読めなくなる（案件側と同じ決めごと）
     const cur = await queryOne('SELECT customer_id FROM projects WHERE id = ?', [id]) as { customer_id: string } | null;
@@ -479,6 +502,15 @@ export const projectService = {
         }
       }
     }
+    // AI（MCP）が起票したプロジェクトなら、人がどこを直したかを差分で残す（7日窓・
+    // 失敗しても保存は成功のまま）。after は同じ ::text キャストで読み直して比べる
+    const after = await queryOne(
+      `SELECT name, gpm_kind, pm_company, started_on::text AS started_on,
+              ends_on::text AS ends_on, assigned_to, customer_id
+         FROM projects WHERE id = ?`, [id],
+    ) as Record<string, unknown> | null;
+    if (after) await recordGpmProjectCorrections(id, before, after, userId);
+
     const saved = (await this.getById(id))!;
     return glsError ? { ...saved, gls_error: glsError } : saved;
   },
@@ -488,6 +520,35 @@ export const projectService = {
     await execute('UPDATE projects SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?', [id]);
   },
 };
+
+/**
+ * その id がプロジェクト（GLS-B）かを確かめる。案件（A）なら 404。
+ * `gpm/index.ts` の私用ヘルパーと同じ確認を、見積・議事録・BOX の MCP ツール
+ * （`gpm.tools.ts`）からも呼べるように公開したもの — 書き写すと `gls_category`
+ * の確認を1か所でも落としたときに気づけない
+ */
+export async function assertGpmProjectId(id: string): Promise<void> {
+  await assertProject(id);
+}
+
+/** その project_id がプロジェクト（GLS-B）か（見積の所属確認用・404にしない場合） */
+export async function isGpmProjectId(id: string | null | undefined): Promise<boolean> {
+  if (!id) return false;
+  const row = await queryOne(`SELECT id FROM projects p WHERE p.id = ? AND ${IS_PROJECT}`, [id]);
+  return !!row;
+}
+
+/** その議事録がプロジェクト（GLS-B）のものか。案件の議事録を触らせない（`gpm/index.ts` と同じ確認） */
+export async function assertGpmMinutesId(minutesId: string): Promise<{ project_id: string }> {
+  const row = await queryOne(
+    `SELECT m.id, m.project_id FROM project_minutes m
+       JOIN projects p ON p.id = m.project_id
+      WHERE m.id = ? AND m.deleted_at IS NULL AND ${IS_PROJECT}`,
+    [minutesId],
+  ) as { id: string; project_id: string } | null;
+  if (!row) throw new AppError(404, 'NOT_FOUND', '議事録が見つかりません');
+  return row;
+}
 
 /**
  * 体制（組織図）のメンバー (migration 169)。
@@ -508,8 +569,8 @@ export const projectService = {
  * 「箱ごと消す」は作りません。押した人は「箱の名前を消した」つもりでも
  * **中の人が全員消えます**。1人ずつ消せば、最後の1人が消えたときに箱も消えます。
  */
-const MEMBER_SIDES = ['internal', 'client', 'pm', 'vendor'];
-const MEMBER_TIERS = ['top', 'lead', 'unit'];
+export const MEMBER_SIDES = ['internal', 'client', 'pm', 'vendor'] as const;
+export const MEMBER_TIERS = ['top', 'lead', 'unit'] as const;
 
 export const memberService = {
   async add(projectId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -571,6 +632,22 @@ export const memberService = {
     if (!row) throw new AppError(404, 'NOT_FOUND', 'メンバーが見つかりません');
     // **物理削除。** 体制は「いま誰がやっているか」で、履歴を残す表ではない
     await execute('DELETE FROM gpm_members WHERE id = ?', [id]);
+  },
+
+  /**
+   * 並び替え（画面にも HTTP にも今までこの操作は無かった・MCP 整備で新設）。
+   * `sort_order` は段（`tier`）の中の位置なので、**この案件のメンバーだけ**を
+   * 対象にする（`project_id` で絞る・`taskColumnsService.reorder` と同じ形）。
+   * 段をまたぐ並び替えは呼べる（段は `update` の別呼び出しで変える）。
+   */
+  async reorder(projectId: string, items: Array<{ id: string; sort_order: number }>): Promise<void> {
+    await assertProject(projectId);
+    for (const item of items) {
+      await execute(
+        'UPDATE gpm_members SET sort_order = ? WHERE id = ? AND project_id = ?',
+        [item.sort_order, item.id, projectId],
+      );
+    }
   },
 };
 
@@ -744,6 +821,12 @@ export const gpmTaskService = {
    */
   async update(taskId: string, input: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
     const task = await assertGpmTask(taskId);
+    // AI 起票の修正差分（gpm-ai-feedback）用の before。期限は日付に丸めて比べる
+    // （書き込みは常に `<日付>T18:00:00` なので、日付が同じなら「直していない」）
+    const FEEDBACK_COLS = `SELECT title, description, assigned_to,
+              due_at::date::text AS due_date, gpm_phase_id
+         FROM project_tasks WHERE id = ?`;
+    const before = await queryOne(FEEDBACK_COLS, [taskId]) as Record<string, unknown> | null;
     const sets: string[] = ['updated_at = NOW()', 'updated_by = ?'];
     const params: unknown[] = [userId];
 
@@ -759,7 +842,12 @@ export const gpmTaskService = {
     }
     if ('due_date' in input) {
       const due = dateOrNull(input.due_date);
-      sets.push('due_at = ?'); params.push(due ? `${due}T18:00:00` : null);
+      // **旧 `due_date` 列も一緒に書く**（project-tasks.service の update と同じ形）。
+      // 読み手は全員 COALESCE(due_at, due_date+18:00) なので、due_at だけ NULL にすると
+      // 旧列に日付が残っている行（カンバン/ガント/一括作成で作られたもの）では
+      // 「期限を消したのに消えない」になる
+      sets.push('due_at = ?', 'due_date = ?');
+      params.push(due ? `${due}T18:00:00` : null, due);
     }
     if ('gpm_phase_id' in input) {
       const phaseId = await resolvePhaseId(String(task.project_id), input.gpm_phase_id);
@@ -772,6 +860,9 @@ export const gpmTaskService = {
     }
     params.push(taskId);
     await execute(`UPDATE project_tasks SET ${sets.join(', ')} WHERE id = ?`, params);
+    // AI（MCP）が起票したタスクなら、人がどこを直したかを差分で残す（7日窓）
+    const after = await queryOne(FEEDBACK_COLS, [taskId]) as Record<string, unknown> | null;
+    if (before && after) await recordGpmTaskCorrections(taskId, before, after, userId);
     return (await this.getById(taskId))!;
   },
 
@@ -877,10 +968,15 @@ export const openItemService = {
     // 1つの UPDATE 文に CASE を並べて同じ値を何度も渡す形にすると、
     // 位置がずれた瞬間に黙って効かなくなる（実際に効かなかった）。
     // 組み立ててから流すほうが読めるし、試験でずれに気づける
-    const sets = ['question = COALESCE(?, question)', 'to_kind = COALESCE(?, to_kind)',
-                  'to_name = ?', 'blocks = ?', 'due_date = ?'];
-    const params: unknown[] = [input.question ?? null, input.to_kind ?? null,
-                               input.to_name ?? null, input.blocks ?? null, dateOrNull(input.due_date)];
+    // **渡した項目だけを書き換える**（タスクの update と同じ形）。以前は
+    // to_name / blocks / due_date を無条件で書いており、一部の項目だけ送る呼び出し
+    // （MCP の部分更新）が触っていない値を黙って消す形だった。画面は全項目を送るので
+    // 挙動は変わらない。「空にする」はキーごと null を送れば書ける
+    const sets = ['question = COALESCE(?, question)', 'to_kind = COALESCE(?, to_kind)'];
+    const params: unknown[] = [input.question ?? null, input.to_kind ?? null];
+    if ('to_name' in input) { sets.push('to_name = ?'); params.push(input.to_name ?? null); }
+    if ('blocks' in input) { sets.push('blocks = ?'); params.push(input.blocks ?? null); }
+    if ('due_date' in input) { sets.push('due_date = ?'); params.push(dateOrNull(input.due_date)); }
     if (status) {
       sets.push('status = ?');
       params.push(status);
@@ -1010,12 +1106,15 @@ export const phaseService = {
     const existing = await queryOne('SELECT id FROM gpm_phases WHERE id = ?', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '工程が見つかりません');
     if (typeof input.state === 'string') assertIn(input.state, PHASE_STATES, 'state');
-    await execute(
-      `UPDATE gpm_phases SET label = COALESCE(?, label), state = COALESCE(?, state),
-              started_on = ?, ends_on = ?, role = ?, updated_at = NOW() WHERE id = ?`,
-      [input.label ?? null, input.state ?? null, dateOrNull(input.started_on),
-       dateOrNull(input.ends_on), input.role ?? null, id],
-    );
+    // **渡した項目だけを書き換える**（open-item の update と同じ形・同じ理由）。
+    // 画面は全項目を送るので挙動は変わらない
+    const sets = ['label = COALESCE(?, label)', 'state = COALESCE(?, state)', 'updated_at = NOW()'];
+    const params: unknown[] = [input.label ?? null, input.state ?? null];
+    if ('started_on' in input) { sets.push('started_on = ?'); params.push(dateOrNull(input.started_on)); }
+    if ('ends_on' in input) { sets.push('ends_on = ?'); params.push(dateOrNull(input.ends_on)); }
+    if ('role' in input) { sets.push('role = ?'); params.push(input.role ?? null); }
+    params.push(id);
+    await execute(`UPDATE gpm_phases SET ${sets.join(', ')} WHERE id = ?`, params);
     return (await queryOne('SELECT * FROM gpm_phases WHERE id = ?', [id]))!;
   },
 

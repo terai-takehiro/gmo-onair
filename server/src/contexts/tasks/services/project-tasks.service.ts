@@ -1,6 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+/**
+ * AI（MCP `create_gpm_task`）が起票したタスクを人が直したときの差分の記録。
+ * GLS-B のタスクは GPM の口（`gpm.service`）だけでなく**この update も通る**
+ * （案件詳細のガント・MCP の `update_task`）。ここに入れないと、ツールの説明が
+ * 「細かい編集は update_task で」と誘導している経路の修正だけが黙って数えられない。
+ * AI 起票でない行では 1 SELECT の no-op（7日窓・失敗しても保存は成功のまま）。
+ */
+import { recordGpmTaskCorrections } from '../../gpm/services/gpm-ai-feedback.service';
 
 export interface ProjectTask {
   id: string;
@@ -97,6 +105,31 @@ export interface TaskFilter {
   columnId?: string;
 }
 
+/**
+ * 親タスク・回（エピソード）が**その案件のものか**を確かめる。
+ * null / undefined は「付けない」なので素通し。
+ */
+async function assertBelongsToProject(
+  projectId: string,
+  parentTaskId: string | null | undefined,
+  episodeId: string | null | undefined,
+): Promise<void> {
+  if (parentTaskId) {
+    const p = await queryOne(
+      `SELECT id FROM project_tasks WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+      [parentTaskId, projectId]
+    );
+    if (!p) throw new AppError(400, 'VALIDATION_ERROR', 'その親タスクはこの案件のものではありません');
+  }
+  if (episodeId) {
+    const e = await queryOne(
+      `SELECT id FROM episodes WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+      [episodeId, projectId]
+    );
+    if (!e) throw new AppError(400, 'VALIDATION_ERROR', 'その回はこの案件のものではありません');
+  }
+}
+
 export const projectTasksService = {
   async list(projectId: string, filter: TaskFilter = {}): Promise<ProjectTask[]> {
     const params: unknown[] = [projectId];
@@ -185,6 +218,10 @@ export const projectTasksService = {
     },
     userId: string
   ): Promise<ProjectTask> {
+    // **他の案件の親・回には付けさせない**（gpm.service の resolvePhaseId と同じ理由）。
+    // 付いてしまうと、別案件のチェックリスト配下に表示される一方で
+    // この案件の一覧（top-level → children）からは見えない不可視タスクができる
+    await assertBelongsToProject(projectId, data.parent_task_id, data.episode_id);
     const id = uuidv4();
 
     const maxRow = await queryOne(
@@ -249,10 +286,21 @@ export const projectTasksService = {
     userId: string
   ): Promise<ProjectTask> {
     const existing = await queryOne(
-      `SELECT id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT id, project_id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
-    );
+    ) as { id: string; project_id: string | null } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    // 回の付け替えも同じ確認を通す（create と同じ理由）
+    if ('episode_id' in data && existing.project_id) {
+      await assertBelongsToProject(existing.project_id, null, data.episode_id);
+    }
+
+    // AI 起票の修正差分用の before（gpm-ai-feedback の TASK_FIELDS と同じ列・
+    // 期限は日付に丸めて比べる。gpm.service の update と同じ形）
+    const FEEDBACK_COLS = `SELECT title, description, assigned_to,
+              due_at::date::text AS due_date, gpm_phase_id
+         FROM project_tasks WHERE id = $1`;
+    const feedbackBefore = await queryOne(FEEDBACK_COLS, [id]) as Record<string, unknown> | null;
 
     const sets: string[] = ['updated_at = NOW()', 'updated_by = $2'];
     const params: unknown[] = [id, userId];
@@ -289,6 +337,12 @@ export const projectTasksService = {
       `UPDATE project_tasks SET ${sets.join(', ')} WHERE id = $1`,
       params
     );
+
+    // AI（MCP）が起票したタスクなら、人がどこを直したかを差分で残す（7日窓）
+    const feedbackAfter = await queryOne(FEEDBACK_COLS, [id]) as Record<string, unknown> | null;
+    if (feedbackBefore && feedbackAfter) {
+      await recordGpmTaskCorrections(id, feedbackBefore, feedbackAfter, userId);
+    }
 
     return (await this.getById(id))!;
   },

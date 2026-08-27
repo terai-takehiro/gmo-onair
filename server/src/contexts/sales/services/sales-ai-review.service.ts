@@ -30,6 +30,9 @@ import { NEXT_ACTION_SHORT_KIND } from './next-action-short.service';
 import { KPT_DRAFT_KIND } from './kpt.service';
 import { MINUTES_KIND } from './minutes.service';
 import {
+  GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND,
+} from '../../gpm/services/gpm-ai-feedback.service';
+import {
   FINANCE_DOC_INTAKE_KIND, INQUIRY_INTAKE_KIND,
 } from '../../dailyops/services/inbox-ai-feedback.service';
 
@@ -40,10 +43,12 @@ export const SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID = 'sales_ai_review_draft';
 export const AI_ACTIVITY_LINK = '/settings/ai-activity';
 
 /**
- * レビュー対象の営業系 kind（Phase 2 ②で決めた9種）。
+ * レビュー対象の営業系 kind（Phase 2 ②で決めた9種 ＋ プロジェクト管理の2種）。
  * `estimate_draft` / `task_intake` には専用の定数が無い（`aifeedback.tools.ts` の
  * KNOWN_KINDS と同じ理由でリテラルのまま）。**この一覧は
  * `shared/tests/salesAiReview.test.ts` が固定している** — 増減はテストごと直すこと。
+ * プロジェクト管理（GPM）の2種を足したのは、`gpm` の権限が `sales` に統合されており
+ * レビュー担当（営業マネージャー）が同じため。
  */
 export const SALES_REVIEW_KINDS = [
   'task_intake',
@@ -55,6 +60,8 @@ export const SALES_REVIEW_KINDS = [
   'estimate_draft',
   INQUIRY_INTAKE_KIND,
   FINANCE_DOC_INTAKE_KIND,
+  GPM_PROJECT_DRAFT_KIND,
+  GPM_TASK_DRAFT_KIND,
 ] as const;
 
 const pct = (v: number | null | undefined): string => (v == null ? '—' : `${Math.round(v * 100)}%`);
@@ -80,6 +87,11 @@ function kindSection(kind: string, d: FeedbackDigest): string[] {
   if (d.minutes) {
     lines.push(`- 持ち帰りの追跡率: ${pct(d.minutes.tracked_rate)}`
       + `（${d.minutes.open_items_tracked}/${d.minutes.open_items_total}・確定議事録${d.minutes.confirmed}件）`);
+  }
+  if (d.gpm_tasks) {
+    lines.push(`- 期限内完了率: ${pct(d.gpm_tasks.on_time_rate)}`
+      + `（起票${d.gpm_tasks.created}件・期限内${d.gpm_tasks.on_time}/遅れ${d.gpm_tasks.late}`
+      + `・超過中${d.gpm_tasks.overdue}）`);
   }
   lines.push('');
   return lines;
