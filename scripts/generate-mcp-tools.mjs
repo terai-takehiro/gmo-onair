@@ -25,6 +25,7 @@ const OUT_FILE = path.join(ROOT, "client", "public", "mcp-tools.json");
 // aifeedback / budget / … のまま「MCP コネクタ」モーダルに出ていた）。
 const CATEGORY_LABELS = {
   projects: "案件管理",
+  gpm: "プロジェクト管理",
   customers: "顧客",
   activities: "営業活動",
   tasks: "タスク",

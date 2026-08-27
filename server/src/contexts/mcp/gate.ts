@@ -35,6 +35,36 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string | string[]; level:
   bulk_create_tasks: { module: 'sales', level: 'editor' },
   add_task_dependency: { module: 'sales', level: 'editor' },
   remove_task_dependency: { module: 'sales', level: 'editor' },
+  // かんばん列 (task_columns)。⚠️ HTTP 側 (`task-columns.routes.ts`) は router 既定の
+  // requirePermission('sales') = reader のまま書き込めるが、MCP 側は他カテゴリの
+  // 書き込みツールと揃えて editor 以上を要求する (equipment の貸出/返却と同じ判断)。
+  create_task_column: { module: 'sales', level: 'editor' },
+  update_task_column: { module: 'sales', level: 'editor' },
+  reorder_task_columns: { module: 'sales', level: 'editor' },
+  delete_task_column: { module: 'sales', level: 'editor' },
+  apply_task_column_template: { module: 'sales', level: 'editor' },
+  // プロジェクト管理 (GPM)。HTTP 側 (`gpm/index.ts`) の canEdit = requirePermission('sales','editor')
+  // / canManage = requirePermission('sales','manager') と一致させる
+  // (`gpm` は権限モデル単純化で `sales` に統合済み — `apps.ts` の permissionModule 参照)。
+  create_gpm_project: { module: 'sales', level: 'editor' },
+  update_gpm_project: { module: 'sales', level: 'editor' },
+  delete_gpm_project: { module: 'sales', level: 'manager' },
+  create_gpm_phase: { module: 'sales', level: 'editor' },
+  update_gpm_phase: { module: 'sales', level: 'editor' },
+  move_gpm_phase: { module: 'sales', level: 'editor' },
+  delete_gpm_phase: { module: 'sales', level: 'editor' },
+  create_gpm_task: { module: 'sales', level: 'editor' },
+  update_gpm_task: { module: 'sales', level: 'editor' },
+  delete_gpm_task: { module: 'sales', level: 'editor' },
+  create_gpm_open_item: { module: 'sales', level: 'editor' },
+  update_gpm_open_item: { module: 'sales', level: 'editor' },
+  delete_gpm_open_item: { module: 'sales', level: 'editor' },
+  add_gpm_member: { module: 'sales', level: 'editor' },
+  update_gpm_member: { module: 'sales', level: 'editor' },
+  remove_gpm_member: { module: 'sales', level: 'editor' },
+  create_gpm_template: { module: 'sales', level: 'editor' },
+  update_gpm_template: { module: 'sales', level: 'editor' },
+  delete_gpm_template: { module: 'sales', level: 'manager' },
   upsert_event_report: { module: 'sales', level: 'editor' },
   attach_event_photo: { module: 'sales', level: 'editor' },
   detach_event_photo: { module: 'sales', level: 'editor' },

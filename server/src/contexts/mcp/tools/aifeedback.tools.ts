@@ -8,6 +8,7 @@ import { NEXT_ACTION_SHORT_KIND } from '../../sales/services/next-action-short.s
 import { KPT_DRAFT_KIND } from '../../sales/services/kpt.service';
 import { MINUTES_KIND } from '../../sales/services/minutes.service';
 import { FINANCE_DOC_INTAKE_KIND, INQUIRY_INTAKE_KIND } from '../../dailyops/services/inbox-ai-feedback.service';
+import { GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND } from '../../gpm/services/gpm-ai-feedback.service';
 import { QSHEET_AI_KINDS, isQsheetAiKind } from '../../qsheet/ai/kinds';
 import { ok, runTool, actorContext } from '../helpers';
 
@@ -43,6 +44,9 @@ const KNOWN_KINDS = [
   // 削除されがちか」を生成前に読めるようにする（HTTP の /ai-activity だけだと AI 側から
   // ループが閉じない）。本文は社内周知でありセリフのような秘匿対象ではないので degrade しない
   OPS_NEWS_ITEM_KIND,
+  // プロジェクト管理 (GPM)。create_gpm_project / create_gpm_task の起票を人がどう直したか
+  GPM_PROJECT_DRAFT_KIND,
+  GPM_TASK_DRAFT_KIND,
   ...QSHEET_AI_KINDS,
 ] as const;
 
@@ -120,6 +124,8 @@ export function registerAiFeedbackTools(server: McpServer): void {
             'AI出力の種別 (既定 estimate_draft)。記録があるのは ' +
             'estimate_draft (見積の下書き) / task_intake (投入欄からのタスク下書き) / ' +
             'project_draft (create_project で起票したネタ案件。受付で人が直した差分が入る) / ' +
+            'gpm_project_draft・gpm_task_draft (create_gpm_project / create_gpm_task で起票した' +
+            'プロジェクト管理の行。人が直した差分が入る) / ' +
             'inquiry_intake (record_inquiry で取り込んだ情報。仕分けの行き先と見送り率が入る) / ' +
             'finance_doc_intake (record_finance_doc で取り込んだ書類) / ' +
             'event_plan_draft・script_outline_draft・script_line_draft (制作資料の AI 提案。' +

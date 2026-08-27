@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectTasksService } from '../../tasks/services/project-tasks.service';
+import { taskColumnsService } from '../../tasks/services/task-columns.service';
+import { taskTemplatesService } from '../../tasks/services/task-templates.service';
 import { queryAll } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
-// 案件タスク (project_tasks) の MCP ツール — projectTasksService を再利用。
+// 案件タスク (project_tasks) + かんばん列 (task_columns) の MCP ツール —
+// projectTasksService / taskColumnsService / taskTemplatesService を再利用。
+// GLS-B (プロジェクト管理) のタスクも同じ表なので、これらのツールで細かい編集
+// (start_date / progress / is_milestone / work_state / 依存関係) ができる。
 
 const TASK_TYPES = ['free', 'checklist', 'production_step', 'sales'] as const;
+const WORK_STATES = ['todo', 'doing', 'waiting'] as const;
+const PRODUCTION_STEPS = ['script', 'materials', 'recording'] as const;
 
 export function registerTaskTools(server: McpServer): void {
   server.registerTool(
@@ -60,18 +67,26 @@ export function registerTaskTools(server: McpServer): void {
       title: 'タスク作成',
       description:
         '案件にタスクを追加する。task_type: free=フリー (既定), checklist=チェックリスト, production_step=制作工程, sales=営業。' +
-        'assigned_to は users.id (list_users で解決)。かんばん列に置く場合は column_id を指定 (未指定なら列なし)。',
+        'assigned_to は users.id (list_users で解決)。かんばん列に置く場合は column_id を指定 ' +
+        '(list_task_columns で解決・未指定なら列なし)。' +
+        'parent_task_id を渡すと子タスク (チェックリスト項目) として親にぶら下がる。',
       inputSchema: {
         project_id: z.string().min(1).describe('案件 ID'),
         title: z.string().min(1),
         description: z.string().optional(),
         task_type: z.enum(TASK_TYPES).default('free'),
+        production_step: z.enum(PRODUCTION_STEPS).optional()
+          .describe('制作工程の種類 (task_type=production_step のとき): script=台本 / materials=素材 / recording=収録'),
         column_id: z.string().optional(),
-        start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        episode_id: z.string().optional().describe('回 (エピソード) ID。連続案件で回に紐づける場合'),
+        parent_task_id: z.string().optional().describe('親タスク ID (子タスク=チェックリスト項目を作る場合)'),
+        start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開始日 (ガントのバーの左端)'),
         due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('期限日'),
         assigned_to: z.string().optional().describe('担当者の users.id'),
         progress: z.number().int().min(0).max(100).optional().describe('進捗% (0-100)'),
         is_milestone: z.boolean().optional().describe('マイルストーンか (◆・単一日)'),
+        work_state: z.enum(WORK_STATES).optional()
+          .describe('止まり方: todo=未着手 (既定) / doing=進行中 / waiting=相手待ち'),
         ...REQUESTED_BY,
       },
     },
@@ -82,12 +97,16 @@ export function registerTaskTools(server: McpServer): void {
           title: args.title,
           description: args.description ?? null,
           task_type: args.task_type,
+          production_step: args.production_step ?? null,
           column_id: args.column_id ?? null,
+          episode_id: args.episode_id ?? null,
+          parent_task_id: args.parent_task_id ?? null,
           start_date: args.start_date ?? null,
           due_date: args.due_date ?? null,
           assigned_to: args.assigned_to ?? null,
           progress: args.progress,
           is_milestone: args.is_milestone,
+          work_state: args.work_state,
         },
         currentActorId(),
       );
@@ -101,24 +120,33 @@ export function registerTaskTools(server: McpServer): void {
     {
       title: 'タスク更新',
       description:
-        'タスクを部分更新する (渡したフィールドだけ変更)。completed: true/false で完了状態も切り替えられる。',
+        'タスクを部分更新する (渡したフィールドだけ変更)。completed: true/false で完了状態も切り替えられる。' +
+        'GLS-B (プロジェクト管理) のタスクにも使える — ガント用の start_date / progress / ' +
+        'is_milestone / work_state はこのツールで直す。',
       inputSchema: {
         id: z.string().min(1).describe('タスク ID'),
         title: z.string().min(1).optional(),
         description: z.string().nullable().optional(),
+        task_type: z.enum(TASK_TYPES).optional(),
+        production_step: z.enum(PRODUCTION_STEPS).nullable().optional()
+          .describe('制作工程の種類 script/materials/recording (null で解除)'),
         column_id: z.string().nullable().optional(),
-        start_date: z.string().nullable().optional(),
+        episode_id: z.string().nullable().optional().describe('回 (エピソード) ID / null で回から外す'),
+        start_date: z.string().nullable().optional().describe('開始日 (ガントのバーの左端) / null で解除'),
         due_date: z.string().nullable().optional(),
         assigned_to: z.string().nullable().optional().describe('users.id / null で担当解除'),
         progress: z.number().int().min(0).max(100).optional().describe('進捗% (0-100)'),
         is_milestone: z.boolean().optional().describe('マイルストーンか (◆)'),
+        work_state: z.enum(WORK_STATES).optional()
+          .describe('止まり方: todo=未着手 / doing=進行中 / waiting=相手待ち (完了は completed で)'),
         completed: z.boolean().optional().describe('完了状態の変更'),
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
       const data: Record<string, unknown> = {};
-      for (const f of ['title', 'description', 'column_id', 'start_date', 'due_date', 'assigned_to', 'progress', 'is_milestone'] as const) {
+      for (const f of ['title', 'description', 'task_type', 'production_step', 'column_id', 'episode_id',
+        'start_date', 'due_date', 'assigned_to', 'progress', 'is_milestone', 'work_state'] as const) {
         const argVal = (args as Record<string, unknown>)[f];
         if (argVal !== undefined) data[f] = argVal;
       }
@@ -209,12 +237,15 @@ export function registerTaskTools(server: McpServer): void {
           title: z.string().min(1),
           description: z.string().optional(),
           task_type: z.enum(TASK_TYPES).optional(),
+          production_step: z.enum(PRODUCTION_STEPS).optional(),
           column_id: z.string().optional(),
+          episode_id: z.string().optional(),
           start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           assigned_to: z.string().optional(),
           progress: z.number().int().min(0).max(100).optional(),
           is_milestone: z.boolean().optional(),
+          work_state: z.enum(WORK_STATES).optional(),
         })).min(1).max(100).describe('作成するタスクの配列 (最大100件)'),
         ...REQUESTED_BY,
       },
@@ -228,12 +259,15 @@ export function registerTaskTools(server: McpServer): void {
             title: t.title,
             description: t.description ?? null,
             task_type: t.task_type ?? 'free',
+            production_step: t.production_step ?? null,
             column_id: t.column_id ?? null,
+            episode_id: t.episode_id ?? null,
             start_date: t.start_date ?? null,
             due_date: t.due_date ?? null,
             assigned_to: t.assigned_to ?? null,
             progress: t.progress,
             is_milestone: t.is_milestone,
+            work_state: t.work_state,
           },
           currentActorId(),
         );
@@ -294,6 +328,139 @@ export function registerTaskTools(server: McpServer): void {
       await projectTasksService.removeDependency(args.id);
       audit('remove_task_dependency', args, { removed_id: args.id }, args.requested_by);
       return ok({ removed: true, id: args.id });
+    }),
+  );
+
+  // ---- かんばん列 (task_columns) ----
+  // これまで move_task は column_id を要求するのに、列を知る・作る口が MCP に無かった。
+  // HTTP 側 (`task-columns.routes.ts`) と同じサービスを呼ぶ。
+
+  server.registerTool(
+    'list_task_columns',
+    {
+      title: 'かんばん列の一覧',
+      description:
+        '案件のかんばん列 (セクション) を一覧する。move_task / create_task の column_id はここで解決する。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+      },
+    },
+    async (args) => runTool(async () => ok(await taskColumnsService.listForProject(args.project_id))),
+  );
+
+  server.registerTool(
+    'create_task_column',
+    {
+      title: 'かんばん列を追加',
+      description: '案件にかんばん列 (セクション) を追加する (いちばん右に付く。位置は reorder_task_columns で)。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+        name: z.string().min(1).max(100).describe('列の名前'),
+        color: z.string().max(20).optional().describe('列の色 (#RRGGBB など・任意)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const column = await taskColumnsService.create(
+        args.project_id, { name: args.name, color: args.color ?? null }, currentActorId(),
+      );
+      audit('create_task_column', args, { created_id: column.id, project_id: args.project_id, name: args.name }, args.requested_by);
+      return ok({ created: true, column });
+    }),
+  );
+
+  server.registerTool(
+    'update_task_column',
+    {
+      title: 'かんばん列を更新',
+      description: 'かんばん列の名前・色を変更する (渡したフィールドだけ変更)。',
+      inputSchema: {
+        id: z.string().min(1).describe('列 ID'),
+        name: z.string().min(1).max(100).optional(),
+        color: z.string().max(20).nullable().optional().describe('null で色なしに'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const column = await taskColumnsService.update(
+        args.id,
+        {
+          ...(args.name !== undefined ? { name: args.name } : {}),
+          ...(args.color !== undefined ? { color: args.color } : {}),
+        },
+        currentActorId(),
+      );
+      audit('update_task_column', args, { updated_id: args.id }, args.requested_by);
+      return ok({ updated: true, column });
+    }),
+  );
+
+  server.registerTool(
+    'reorder_task_columns',
+    {
+      title: 'かんばん列の並び替え',
+      description: '同一案件内のかんばん列の並び順 (sort_order) を一括更新する。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+        items: z.array(z.object({
+          id: z.string().min(1),
+          sort_order: z.number().int(),
+        })).min(1).describe('{id, sort_order} の配列 (小さいほど左)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await taskColumnsService.reorder(args.project_id, args.items, currentActorId());
+      audit('reorder_task_columns', args, { project_id: args.project_id, count: args.items.length }, args.requested_by);
+      return ok({ reordered: true, count: args.items.length });
+    }),
+  );
+
+  server.registerTool(
+    'delete_task_column',
+    {
+      title: 'かんばん列を削除',
+      description:
+        'かんばん列を削除する (soft delete)。**列の中のタスクは消えない** — 列なしに移って残る。',
+      inputSchema: {
+        id: z.string().min(1).describe('列 ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await taskColumnsService.delete(args.id, currentActorId());
+      audit('delete_task_column', args, { deleted_id: args.id }, args.requested_by);
+      return ok({ deleted: true, id: args.id });
+    }),
+  );
+
+  server.registerTool(
+    'list_task_column_templates',
+    {
+      title: 'かんばん列テンプレートの一覧',
+      description: 'かんばん列の雛形 (配信案件用・イベント用など) を一覧する。apply_task_column_template に渡す。',
+      inputSchema: {},
+    },
+    async () => runTool(async () => ok(await taskTemplatesService.list())),
+  );
+
+  server.registerTool(
+    'apply_task_column_template',
+    {
+      title: 'かんばん列テンプレートを適用',
+      description:
+        'テンプレートの列一式を案件に追加する (既存の列は消えず、後ろに足される)。' +
+        'template_id は list_task_column_templates で解決。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+        template_id: z.string().min(1).describe('テンプレート ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const columns = await taskColumnsService.fromTemplate(args.project_id, args.template_id, currentActorId());
+      audit('apply_task_column_template', args, { project_id: args.project_id, template_id: args.template_id, created_count: columns.length }, args.requested_by);
+      return ok({ applied: true, count: columns.length, columns });
     }),
   );
 }
