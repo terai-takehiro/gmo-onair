@@ -90,7 +90,16 @@ export function ClosingRows({
         return (
           <Row key={r.id} onClick={can ? () => onPick(r.id, !on) : undefined}>
             <RowSlot w={96}>
-              <span className="flex items-center gap-2">
+              {/*
+                **`min-w-0` が無いと `truncate` は何もしません**（実際に踏んだ・
+                レイアウト崩れの報告あり）。この span はチェック枠(18px)+隙間(8px)+
+                番号の3つを持つ入れ子の flex で、flex アイテムは既定で
+                「中身の幅より縮まない」ため、96px の `RowSlot` に収まらない
+                長い番号（エピソードコード付き・例 `GLS-A010-2608`）が枠を
+                突き破って隣の案件名に重なっていた。番号側に `min-w-0 flex-1` を、
+                この外側にも `min-w-0` を足し、縮んでから省略記号を出す形にする。
+              */}
+              <span className="flex min-w-0 items-center gap-2">
                 {can ? (
                   <span
                     aria-hidden="true"
@@ -108,7 +117,7 @@ export function ClosingRows({
                     <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   </span>
                 )}
-                <span className="font-number truncate text-sub-sm text-primary">
+                <span className="font-number min-w-0 flex-1 truncate text-sub-sm text-primary">
                   {r.episode_code || r.gls_number || '—'}
                 </span>
               </span>
