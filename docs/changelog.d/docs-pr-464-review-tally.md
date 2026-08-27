@@ -1,1 +1,0 @@
-**PR #464（プロジェクト詳細にガント・かんばんを追加し、MCP をガント編集に対応させた）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分14秒、CI green からマージまで約7分21秒（作成から約9分35秒）で terai-takehiro 本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は GitHub 401 のためこの環境から実行できず、GitHub MCP で直接確認した）。
