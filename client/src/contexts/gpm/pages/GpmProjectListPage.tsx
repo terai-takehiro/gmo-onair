@@ -142,10 +142,13 @@ export default function GpmProjectListPage() {
   const [sort, setSort] = useState<SortKey>('recommended');
 
   // **スマホでボードを選んだまま画面を回転・PCから引き継いだ場合に備える。**
-  // 240px 固定カラムが5列並ぶボードは375pxに1列も入らないので、スマホでは常にリストへ落とす
+  // 240px 固定カラムが5列並ぶボードは375pxに1列も入らないので、スマホでは常にリストへ落とす。
+  // useEffect は描画のあとに走るので、state の書き戻しだけだと**1コマだけボードが出る**。
+  // 描くときは `effectiveView` を見る（概要タブのガント・かんばんと同じ形）
   useEffect(() => {
     if (isMobile && view === 'board') setView('list');
   }, [isMobile, view]);
+  const effectiveView = isMobile ? 'list' : view;
 
   const today = useMemo(() => localDateStr(new Date()), []);
   const { data, isLoading, isError, refetch } = useGpmProjects(search.trim());
@@ -317,7 +320,7 @@ export default function GpmProjectListPage() {
         ) : (
           <NoSearchResults activeFilters={activeFilters} onClearFilters={clearFilters} />
         )
-      ) : view === 'board' ? (
+      ) : effectiveView === 'board' ? (
         <GpmProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
       ) : isMobile ? (
         <PullToRefresh onRefresh={refetch}>

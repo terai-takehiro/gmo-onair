@@ -134,7 +134,7 @@ export function MembersTab({
             </p>
           ) : (
             <div className={cn(
-              'grid gap-2.5',
+              'grid grid-cols-1 gap-2.5',
               // 中段は1つのことが多いので広く取る。上段と下段は横に並べる
               tier === 'lead' ? 'lg:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3',
             )}>

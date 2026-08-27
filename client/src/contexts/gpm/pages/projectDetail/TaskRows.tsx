@@ -24,10 +24,8 @@ import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/c
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { dueLabel, dueTone, ymd, type GpmTask } from '../../types';
 
-/** タスク1行。**工程の行より一段下げて出す**（同じ高さで並べると区別が付かない） */
-export function TaskRow({
-  task, today, canEdit, indent = true, onToggleDone, onEdit, onDelete,
-}: {
+/** タスク1件ぶんの props。PC の行とスマホのカードで**同じ組**を使う（写しを作らない） */
+export interface TaskItemProps {
   task: GpmTask;
   today: string;
   canEdit: boolean;
@@ -35,7 +33,12 @@ export function TaskRow({
   onToggleDone: (task: GpmTask) => void;
   onEdit: (task: GpmTask) => void;
   onDelete: (task: GpmTask) => void;
-}) {
+}
+
+/** タスク1行。**工程の行より一段下げて出す**（同じ高さで並べると区別が付かない） */
+export function TaskRow({
+  task, today, canEdit, indent = true, onToggleDone, onEdit, onDelete,
+}: TaskItemProps) {
   const due = ymd(task.due_at);
   return (
     <Row
@@ -115,26 +118,109 @@ export function TaskRow({
 }
 
 /**
+ * スマホのタスクカード（2行固定）。
+ *
+ * PC の行（`TaskRow`）を `stackOnMobile` で折り返すと、チェックボックスが
+ * 題名と別の行に落ち、操作ボタン（44px×2）が 56px の枠を突き破っていた。
+ * スマホは**1行目 = チェック＋題名 / 2行目 = 期限・担当＋操作**に固定する。
+ */
+export function TaskCard({
+  task, today, canEdit, indent = true, onToggleDone, onEdit, onDelete,
+}: TaskItemProps) {
+  const due = ymd(task.due_at);
+  const iconBtn = 'rounded-control-md flex h-11 w-11 items-center justify-center text-muted-foreground hover:bg-muted';
+  return (
+    <div
+      className={cn(
+        'border-b border-border-faint px-4 py-2.5 last:border-b-0',
+        indent && 'bg-background',
+        task.is_completed && 'opacity-60',
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => onToggleDone(task)}
+            aria-label={task.is_completed ? `${task.title} を未完了に戻す` : `${task.title} を完了にする`}
+            /* 見た目は 18px のまま、当たり判定だけ 44px にする（M10・`v4-tap`） */
+            className={cn(
+              'v4-tap rounded-badge-xs flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px]',
+              task.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
+            )}
+          >
+            {task.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
+          </button>
+        ) : (
+          <span className={cn('text-badge shrink-0', task.is_completed ? 'text-success' : 'text-muted-foreground')}>
+            {task.is_completed ? '完了' : '—'}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <RowTitle className={cn('font-normal', task.is_completed && 'text-muted-foreground line-through')}>
+            {task.title}
+          </RowTitle>
+          {task.description && <RowSub>{task.description}</RowSub>}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pl-[28px]">
+        <p className="text-sub min-w-0 flex-1 truncate">
+          <span className={cn('font-number', task.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
+            {dueLabel(due, today) ?? '期限なし'}
+          </span>
+          {task.assigned_to_name && (
+            <span className="text-muted-foreground"> ・ {task.assigned_to_name}</span>
+          )}
+        </p>
+        {canEdit && (
+          <span className="flex shrink-0 items-center">
+            <button
+              type="button"
+              onClick={() => onEdit(task)}
+              aria-label={`${task.title} を直す`}
+              className={iconBtn}
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(task)}
+              aria-label={`${task.title} を消す`}
+              className={iconBtn}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * 工程の下の束（タスクが0件のときの案内 ＋ 「タスクを足す」）。
  *
  * **0件のときも足す口を出します** — ひな形を選ばずに作ったプロジェクトは
  * 工程だけがあってタスクが無い状態から始まるため。
  */
 export function TaskGroup({
-  tasks, today, canEdit, onAdd, onToggleDone, onEdit, onDelete,
+  tasks, today, canEdit, mobile = false, onAdd, onToggleDone, onEdit, onDelete,
 }: {
   tasks: GpmTask[];
   today: string;
   canEdit: boolean;
+  /** スマホはカード、PC は行。**呼ぶ側の `useIsMobile()` を渡す**（ここでは判定しない） */
+  mobile?: boolean;
   onAdd: () => void;
   onToggleDone: (task: GpmTask) => void;
   onEdit: (task: GpmTask) => void;
   onDelete: (task: GpmTask) => void;
 }) {
+  const Item = mobile ? TaskCard : TaskRow;
   return (
     <>
       {tasks.map((t) => (
-        <TaskRow
+        <Item
           key={t.id}
           task={t}
           today={today}

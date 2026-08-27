@@ -33,9 +33,9 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmProjectTasks, useInvalidateGpm } from '../../queries';
 import type { GpmPhase, GpmProjectDetail, GpmTask, PhaseState } from '../../types';
-import { PhaseRow, PhaseRowsHeader } from './PhaseRows';
+import { PhaseCard, PhaseRow, PhaseRowsHeader } from './PhaseRows';
 import { PhaseDialog } from './PhaseDialog';
-import { TaskGroup, TaskRow } from './TaskRows';
+import { TaskCard, TaskGroup, TaskRow } from './TaskRows';
 import { TaskDialog } from './TaskDialog';
 import { GpmGanttView } from './GpmGanttView';
 import { GpmKanbanView } from './GpmKanbanView';
@@ -210,10 +210,13 @@ export function OverviewTab({
         />
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-card">
-          <PhaseRowsHeader />
-          {p.phases.map((ph, i) => (
+          {!isMobile && <PhaseRowsHeader />}
+          {p.phases.map((ph, i) => {
+            // スマホはカード・PC は行。**同じ props の組**（`PhaseItemProps`）を渡す
+            const PhaseItem = isMobile ? PhaseCard : PhaseRow;
+            return (
             <div key={ph.id}>
-              <PhaseRow
+              <PhaseItem
                 phase={ph}
                 index={i}
                 canEdit={canEdit}
@@ -235,6 +238,7 @@ export function OverviewTab({
                     tasks={tasksByPhase.get(ph.id) ?? []}
                     today={today}
                     canEdit={canEdit}
+                    mobile={isMobile}
                     onAdd={() => setTaskDialog({ task: null, phaseId: ph.id })}
                     onToggleDone={(t) => toggleTask.mutate(t)}
                     onEdit={(t) => setTaskDialog({ task: t, phaseId: t.phase_id })}
@@ -243,7 +247,8 @@ export function OverviewTab({
                 )
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
 
@@ -273,18 +278,21 @@ export function OverviewTab({
             ありません。工程が決まる前のタスクはここに置けます。
           </p>
         ) : (
-          looseTasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              today={today}
-              canEdit={canEdit}
-              indent={false}
-              onToggleDone={(x) => toggleTask.mutate(x)}
-              onEdit={(x) => setTaskDialog({ task: x, phaseId: null })}
-              onDelete={onDeleteTask}
-            />
-          ))
+          looseTasks.map((t) => {
+            const TaskItem = isMobile ? TaskCard : TaskRow;
+            return (
+              <TaskItem
+                key={t.id}
+                task={t}
+                today={today}
+                canEdit={canEdit}
+                indent={false}
+                onToggleDone={(x) => toggleTask.mutate(x)}
+                onEdit={(x) => setTaskDialog({ task: x, phaseId: null })}
+                onDelete={onDeleteTask}
+              />
+            );
+          })
         )}
       </section>
       )}
