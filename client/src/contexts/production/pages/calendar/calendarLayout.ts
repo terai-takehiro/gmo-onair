@@ -142,7 +142,18 @@ export interface Placed {
   /** 表示の外から続いている（上／下が切れている） */
   cutTop: boolean;
   cutBottom: boolean;
+  /** 実際の長さ（分）。**札の中身を1行に畳むかの判定に使う**（height は最低値に底上げされるため） */
+  minutes: number;
 }
+
+/**
+ * 札の見た目の最低の長さ（分）。10分の予約が線になると題名が1文字も読めない。
+ * 24分 = グリッド616pxで約17.6px。1行の文字（11px×1.4行間 = 15.4px）が
+ * 切れずに入る最小値（従来の2.4% = 14.8pxでは1行も入らなかった・実測）。
+ * **列割りもこの長さで行う** — 高さだけ底上げすると、連続する短い予約
+ * （10:00–10:10 と 10:10–10:20）が同じ列に置かれて**互いに重なって潰れる**。
+ */
+export const MIN_VIS_MIN = 24;
 
 /**
  * 1日ぶんの札を置く。
@@ -167,7 +178,15 @@ export function placeDay(events: CalEvent[], day: string): Placed[] {
       // 終わりが始まり以前のときは 30 分の札にする（値が壊れているときの保険。
       // タスクの期限＝始まり = 終わりの「点」の予定も意図してこの道を通す —
       // 線にすると題名が1文字も読めない）
-      return { ev: e, from, to: to0 <= from ? Math.min(24 * 60, from + 30) : to0 };
+      const to = to0 <= from ? Math.min(24 * 60, from + 30) : to0;
+      // 見た目の終わり。短い予定は `MIN_VIS_MIN` 分ぶんまで底上げする
+      return {
+        ev: e, from, to,
+        vis: Math.max(to, Math.min(24 * 60, from + MIN_VIS_MIN)),
+        // 実際の終わり（切れ判定用）。点の予定の30分底上げに「↓」を付けない —
+        // 21:50 の期限が「22:00 の外へ続く」ように見えてしまう
+        rawTo: Math.max(from, to0),
+      };
     })
     .filter((s) => s.to > WIN_FROM && s.from < WIN_FROM + WIN_SPAN)
     .sort((a, b) => a.from - b.from || a.to - b.to);
@@ -179,29 +198,34 @@ export function placeDay(events: CalEvent[], day: string): Placed[] {
 
   const flush = () => {
     if (group.length === 0) return;
-    /** 列ごとに「いまどこまで埋まっているか」 */
+    /** 列ごとに「いまどこまで埋まっているか」。**見た目の長さ（`vis`）で埋める** —
+        実時間で埋めると、底上げされた短い札どうしが同じ列で重なる */
     const colEnd: number[] = [];
     const colOf = new Map<typeof group[number], number>();
     for (const s of group) {
       let c = colEnd.findIndex((e) => e <= s.from);
       if (c === -1) { c = colEnd.length; colEnd.push(0); }
-      colEnd[c] = s.to;
+      colEnd[c] = s.vis;
       colOf.set(s, c);
     }
     const cols = colEnd.length;
     for (const s of group) {
       const a = Math.max(WIN_FROM, s.from);
-      const z = Math.min(WIN_FROM + WIN_SPAN, s.to);
+      const z = Math.min(WIN_FROM + WIN_SPAN, s.vis);
       const c = colOf.get(s) ?? 0;
+      // **最低の高さを持たせる。** 15 分の予定が線になると、題名が1文字も読めない
+      // （`vis` の底上げが効くが、窓の端で切られた札のための保険として clamp も残す）
+      const height = Math.max(2.4, ((z - a) / WIN_SPAN) * 100);
       out.push({
         ev: s.ev,
-        top: ((a - WIN_FROM) / WIN_SPAN) * 100,
-        // **最低の高さを持たせる。** 15 分の予定が線になると、題名が1文字も読めない
-        height: Math.max(2.4, ((z - a) / WIN_SPAN) * 100),
+        // 22:00 際の短い札は底上げで枠の下へはみ出すので、上へ押し戻す
+        top: Math.max(0, Math.min(100 - height, ((a - WIN_FROM) / WIN_SPAN) * 100)),
+        height,
         left: (c / cols) * 100,
         width: 100 / cols,
         cutTop: s.from < WIN_FROM,
-        cutBottom: s.to > WIN_FROM + WIN_SPAN,
+        cutBottom: s.rawTo > WIN_FROM + WIN_SPAN,
+        minutes: s.to - s.from,
       });
     }
     group = [];
@@ -211,10 +235,30 @@ export function placeDay(events: CalEvent[], day: string): Placed[] {
   for (const s of spans) {
     if (group.length > 0 && s.from >= groupEnd) flush();
     group.push(s);
-    groupEnd = Math.max(groupEnd, s.to);
+    groupEnd = Math.max(groupEnd, s.vis);
   }
   flush();
   return out;
+}
+
+// ───────────────────────────────────────────────────────────
+// ドラッグ操作（空きマスで新規・札の下端で延長）の計算
+// ───────────────────────────────────────────────────────────
+
+/** グリッドの縦位置（0〜1）→ その日の分。**窓（8:00〜22:00）の外に出さない** */
+export function fracToMin(frac: number): number {
+  return WIN_FROM + Math.min(1, Math.max(0, frac)) * WIN_SPAN;
+}
+
+/** 15分刻みに丸める（ドラッグの手ぶれを吸収する。刻みは差し替え可能） */
+export function snapMin(min: number, step = 15): number {
+  return Math.round(min / step) * step;
+}
+
+/** 分 → `HH:MM`（`<input type="time">` と予約 API がそのまま受ける形） */
+export function minToHM(min: number): string {
+  const m = Math.min(24 * 60 - 1, Math.max(0, Math.round(min)));
+  return `${p2(Math.floor(m / 60))}:${p2(m % 60)}`;
 }
 
 /** 目盛り（8:00 … 22:00）。`top` は `%` */
@@ -238,7 +282,45 @@ export function nowTop(now: Date): number | null {
 
 /** その日にかかっている予定（終日・日をまたぐものを落とさない） */
 export function eventsOn(events: CalEvent[], day: string): CalEvent[] {
-  return events.filter((e) => e.start.slice(0, 10) <= day && (e.end || e.start).slice(0, 10) >= day);
+  // 終わりが始まりより前の壊れたデータは始まりの日に出す（そのまま比べると
+  // どの日の条件も満たせず、全ビューから黙って消える — placeDay の30分の保険にも届かない）
+  return events.filter((e) => {
+    const end = e.end && e.end >= e.start ? e.end : e.start;
+    return e.start.slice(0, 10) <= day && end.slice(0, 10) >= day;
+  });
+}
+
+/**
+ * その月にかかっている予定（一覧ビュー用）。
+ * **開始の月だけで絞らない** — 前月末から続く予定が一覧だけから消える
+ * （月表は `eventsOn` の重なり判定なので出る。ビューごとに絞り方を変えない）。
+ */
+export function eventsInMonth(events: CalEvent[], ym: string): CalEvent[] {
+  const first = `${ym}-01`;
+  const last = addDays(addMonths(first, 1), -1);
+  return events.filter((e) => {
+    const end = e.end && e.end >= e.start ? e.end : e.start;
+    return e.start.slice(0, 10) <= last && end.slice(0, 10) >= first;
+  });
+}
+
+/**
+ * 8:00〜22:00 の窓に**まったくかからない**時刻付きの予定（週表の端の印用）。
+ * 窓の外だけの予定（23:00 のタスク期限・早朝の搬入）は札にできないが、
+ * 何の印も無いと「無い」と読まれる — 月表・一覧との食い違いがここで起きていた。
+ */
+export function outsideWindow(events: CalEvent[], day: string): { before: CalEvent[]; after: CalEvent[] } {
+  const before: CalEvent[] = [];
+  const after: CalEvent[] = [];
+  for (const e of events) {
+    if (e.allDay) continue;
+    const from = minutesOnDay(e.start, day, 0);
+    const to0 = minutesOnDay(e.end, day, 24 * 60);
+    const to = to0 <= from ? Math.min(24 * 60, from + 30) : to0;
+    if (to <= WIN_FROM) before.push(e);
+    else if (from >= WIN_FROM + WIN_SPAN) after.push(e);
+  }
+  return { before, after };
 }
 
 /** 一覧・今日の欄の並び。**終日を先頭**にして、あとは時刻順 */
@@ -260,6 +342,10 @@ export function timeLabel(e: CalEvent): string {
   // 始まり＝終わり（タスクの期限のような「点」の予定）は時刻を1つだけ出す。
   // 「18:00–18:00」と書くと 0 分の会議に見える
   if (e.end === e.start) return s;
-  if (e.end.slice(0, 10) !== e.start.slice(0, 10)) return `${s}–翌${t}`;
+  if (e.end.slice(0, 10) !== e.start.slice(0, 10)) {
+    // 「翌」は1日またぎだけ。2日以上またぐものに付けると1日短く読める
+    if (e.end.slice(0, 10) === addDays(e.start.slice(0, 10), 1)) return `${s}–翌${t}`;
+    return `${s}–${Number(e.end.slice(5, 7))}/${Number(e.end.slice(8, 10))} ${t}`;
+  }
   return `${s}–${t}`;
 }

@@ -210,9 +210,9 @@ export default function KoubanView({
     if (!onSlotClick) return;
     const hour = SLOT_START + Math.floor(slotIndex / SLOTS_PER_HOUR);
     const min = (slotIndex % SLOTS_PER_HOUR) * 30;
-    const endHour = hour + 1;
     const start = `${dateStr}T${formatTime(hour, min)}:00`;
-    const end = `${dateStr}T${formatTime(endHour, min)}:00`;
+    const endMin = Math.min(24 * 60 - 1, (hour + 1) * 60 + min); // 23時台のマスで「24:00」台（time 入力に無い不正値）にしない
+    const end = `${dateStr}T${formatTime(Math.floor(endMin / 60), endMin % 60)}:00`;
     onSlotClick(roomId, start, end);
   };
 
