@@ -82,6 +82,14 @@ export async function handoffDoc(
     throw new AppError(400, 'NOT_APPROVED',
       '承認済みの書類だけ台帳へ渡せます（確認中のものは先に承認してください）');
   }
+  // **見積書は台帳に渡せない。** 実際に仕入・販管費になるのは請求書・注文書だけ
+  // （ユーザー指摘）。「受け取った書類」画面は既定で見積書を出さないが、
+  // `doc_type=quote` を明示すれば見える MCP 経路や、この口を直接叩く手も残るため、
+  // 台帳へ書き込む境界でも二重に止める
+  if (doc.doc_type === 'quote') {
+    throw new AppError(400, 'QUOTE_NOT_HANDOFFABLE',
+      '見積書は台帳（仕入・販管費）に入れられません。請求書が届いてから渡してください');
+  }
 
   if (!YMD.test(input.recognition_date)) {
     throw new AppError(400, 'VALIDATION_ERROR', '計上月は YYYY-MM-DD で指定してください');

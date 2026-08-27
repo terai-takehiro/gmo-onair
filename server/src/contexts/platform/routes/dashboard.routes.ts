@@ -74,8 +74,12 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
   // 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
   // 記録が打たれていない行が受信箱に残り続ける
   const INQUIRY_BASE = `FROM misc_inquiries WHERE deleted_at IS NULL AND state = 'unsorted'`;
+  // **見積書（quote）は台帳に入らない**（実際に仕入・販管費になるのは請求書・注文書だけ。
+  // ユーザー指摘）。受信箱に出しても「台帳に入れる」までたどり着けない行が並ぶだけなので、
+  // ここで最初から外す。`financeDocService.list()`（受け取った書類の一覧本体）・
+  // `pendingCount()`（同画面のバッジ）も同じ条件で揃える（下記）
   const FINANCE_DOC_BASE =
-    `FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')`;
+    `FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected') AND doc_type <> 'quote'`;
 
   const countOf = async (sql: string, params: unknown[] = []): Promise<number> =>
     Number(((await queryOne(sql, params)) as { c?: number } | undefined)?.c ?? 0);
