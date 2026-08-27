@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
-import { formatShortDate } from "@/lib/format";
+import { formatShortDate, localDateStr } from "@/lib/format";
 
 interface StudioRoom {
   id: string;
@@ -213,7 +213,7 @@ export default function StudioBookingDialog({
           setStartDate(presetDate.start);
           const endD = new Date(presetDate.end);
           endD.setDate(endD.getDate() - 1);
-          let ed = endD.toISOString().split("T")[0];
+          let ed = localDateStr(endD); // `toISOString` は使わない — UTC に寄せて1日ずれる
           // presetDate.end は FullCalendar の exclusive-end 前提 (-1 で最終日)。
           // 呼び出し元が inclusive end (単日なら start と同値) を渡すと ed が start より
           // 前になるため、start にクランプして単日扱いにする (二重の安全策)。
@@ -229,10 +229,11 @@ export default function StudioBookingDialog({
         }
       } else {
         setAllDay(true);
-        const today = new Date().toISOString().split("T")[0];
+        const today = localDateStr(new Date()); // 深夜のJSTで `toISOString` を使うと前日になる
         setStartDate(today); setEndDate(today);
         setStartTime("09:00"); setEndTime("18:00");
       }
+      lastAutoTitleRef.current = null; // 前回の自動題名と混同しない
     }
   }, [open, editingBooking, presetDate, presetRoomIds, presetProjectId]);
 
@@ -244,14 +245,15 @@ export default function StudioBookingDialog({
     if (bookingType === "hold" || bookingType === "consultation") setStatus("tentative");
   }, [bookingType]);
 
+  const lastAutoTitleRef = useRef<string | null>(null); // 直前の自動題名。日付等を変えるたび上書くと手直しが消える
   useEffect(() => {
     if (projectId && !editingBooking) {
       const proj = projectOptions.find((p: any) => p.id === projectId);
       if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
         // タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記不要
         const datePart = formatShortDate(startDate);
-        const suffix = datePart ? ` (${datePart})` : "";
-        setTitle(`${proj.name}${suffix}`);
+        const auto = `${proj.name}${datePart ? ` (${datePart})` : ""}`;
+        setTitle((prev) => (prev === "" || prev === lastAutoTitleRef.current ? auto : prev)); lastAutoTitleRef.current = auto;
       }
     }
   }, [projectId, bookingType, startDate, projects, episodes, editingBooking]); // eslint-disable-line react-hooks/exhaustive-deps

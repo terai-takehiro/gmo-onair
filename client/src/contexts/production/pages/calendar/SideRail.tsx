@@ -73,7 +73,9 @@ export function SideRail({
             className="min-h-tap flex w-full items-center gap-2.5 border-t border-border-faint px-4 py-2.5 text-left"
           >
             <span className="h-[30px] w-1 shrink-0 rounded-badge-xs" style={{ backgroundColor: e.color }} />
-            <span className="font-number text-sub-sm w-[72px] shrink-0 text-secondary-foreground">{timeLabel(e)}</span>
+            {/* **`truncate` が要る** — 日またぎの表記（`20:00–8/27 02:00`）は72pxに入り切らず、
+                無指定だと折り返さず隣の題名に重なって出ていた */}
+            <span className="font-number text-sub-sm w-[72px] shrink-0 truncate text-secondary-foreground">{timeLabel(e)}</span>
             <span className="min-w-0 flex-1">
               <span className="text-list block truncate">{e.title}</span>
               <span className="text-sub-sm block truncate text-muted-foreground">{e.sub || '—'}</span>

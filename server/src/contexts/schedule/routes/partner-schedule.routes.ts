@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 
 // パートナー (従業員) スケジュール — 代休/有給/出張/社外活動 等をパートナー間で共有する。
 // 権限モジュール 'sales'（旧 'partner_schedule'。権限モデル単純化で統合済み）の
@@ -51,6 +52,7 @@ router.post('/partner', ...canEdit, async (req, res) => {
     throw new AppError(403, 'FORBIDDEN', '他のパートナーの予定を登録できるのは管理権限のみです');
   }
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
+  if (isReversedTimeRange(start_time, end_time)) throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
   const type = SCHEDULE_TYPES.includes(schedule_type) ? schedule_type : 'other';
   const target = await queryOne(`SELECT id FROM users WHERE id = ? AND deleted_at IS NULL`, [targetUserId]);
   if (!target) throw new AppError(400, 'VALIDATION_ERROR', '対象ユーザーが見つかりません');
@@ -82,13 +84,20 @@ router.put('/partner/:id', ...canEdit, async (req, res) => {
     throw new AppError(403, 'FORBIDDEN', '予定の対象者を変更できるのは管理権限のみです');
   }
   const type = SCHEDULE_TYPES.includes(b.schedule_type) ? b.schedule_type : existing.schedule_type;
+  // **渡さなかった側は今の値のまま**で比べる（終了だけ延ばす部分更新が既存の
+  // 開始と比べずに通らないように）
+  const effectiveStart = b.start_time != null ? String(b.start_time) : String(existing.start_time);
+  const effectiveEnd = b.end_time != null ? String(b.end_time) : String(existing.end_time);
+  if (isReversedTimeRange(effectiveStart, effectiveEnd)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
+  }
   await execute(
     `UPDATE partner_schedules SET user_id=?, schedule_type=?, title=?, all_day=?, start_time=?, end_time=?, notes=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [targetUserId, type,
      b.title != null ? String(b.title).slice(0, 300) : existing.title,
      b.all_day != null ? (b.all_day ? 1 : 0) : existing.all_day,
-     b.start_time != null ? String(b.start_time) : existing.start_time,
-     b.end_time != null ? String(b.end_time) : existing.end_time,
+     effectiveStart,
+     effectiveEnd,
      b.notes !== undefined ? (b.notes ? String(b.notes).slice(0, 1000) : null) : existing.notes,
      req.user!.id, existing.id]
   );

@@ -187,6 +187,7 @@ function DesktopCalendar() {
 
   /** マス目・週の見出しを押したときは**選ぶだけ**（モックの `cell.pick`）。画面は動かさない */
   const pickDay = (d: string) => setSelected(d);
+  const showMoreOnDay = (d: string) => { setSelected(d); setAnchor(d); pickView('week'); }; // 月表「他N件」→ 週表で見せる
 
   /** ミニカレンダーの日を押したときは、本体の月・週・選択日をまとめて揃える */
   const miniPick = (d: string) => {
@@ -308,7 +309,7 @@ function DesktopCalendar() {
               <MonthGrid
                 anchor={`${anchor.slice(0, 7)}-01`} today={today} selected={selected}
                 events={cal.events} holidays={cal.holidays}
-                onPickDay={pickDay} onOpen={(e) => open(e.key)}
+                onPickDay={pickDay} onOpen={(e) => open(e.key)} onMore={showMoreOnDay}
               />
             ) : view === 'list' ? (
               <EventTable events={eventsInMonth(cal.events, anchor.slice(0, 7))} holidays={cal.holidays} onOpen={(e) => open(e.key)} />

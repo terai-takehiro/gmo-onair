@@ -8,6 +8,7 @@ import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
 import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/business-hours.service';
 import { syncProjectEventDates } from '../services/project-event-dates.service';
+import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 import type { HoursCheck } from '../../../shared/services/businessHours';
 
 const router = Router();
@@ -467,8 +468,8 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
   // **元の案件も控える。** 予約を別の案件に付け替えると、**元の案件と付け替え先の
   // 両方**の実施日が変わる（元の案件はその予約が無くなった期間で引き直す）
   const existing = await queryOne(
-    'SELECT id, project_id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],
-  ) as { id: string; project_id: string | null } | undefined;
+    'SELECT id, project_id, start_time, end_time FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  ) as { id: string; project_id: string | null; start_time: string; end_time: string } | undefined;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
   /**
@@ -484,6 +485,14 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
   const sets: string[] = [];
   const params: unknown[] = [];
   const set = (col: string, v: unknown) => { sets.push(`${col}=?`); params.push(v); };
+
+  // **渡さなかった側は今の値のまま**で比べる — 「終了だけ延ばす」部分更新
+  // （週表の下端ドラッグ）が既存の開始と比べずに通ってしまわないようにする
+  const effectiveStart = b.start_time !== undefined ? String(b.start_time) : existing.start_time;
+  const effectiveEnd = b.end_time !== undefined ? String(b.end_time) : existing.end_time;
+  if (isReversedTimeRange(effectiveStart, effectiveEnd)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
+  }
 
   if (b.title !== undefined) set('title', b.title);
   if (b.booking_type !== undefined) set('booking_type', b.booking_type || 'other');

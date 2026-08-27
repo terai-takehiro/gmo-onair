@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  SLOT_HEIGHT, SLOTS_PER_HOUR, SLOT_START, TOTAL_SLOTS,
+  formatTime, toLocalDateStr, extractDatePart, minutesOnDate, minutesToSlot, assignColumns,
+  getLocationTab, bookingTypeColors, type LocationTab,
+} from "./koubanLayout";
 
 interface StudioRoom {
   id: string;
@@ -44,56 +49,6 @@ interface StudioBooking {
   gls_number: string | null;
   episode_code: string | null;
   rooms: BookingRoom[];
-}
-
-const bookingTypeColors: Record<string, string> = {
-  project: "#3b82f6",
-  maintenance: "#ef4444",
-  tour: "#8b5cf6",
-  internal: "#f59e0b",
-  other: "#6b7280",
-};
-
-const SLOT_START = 0; // 00:00
-const SLOT_END = 24; // 24:00
-const SLOT_HEIGHT = 48; // px per 30min slot
-const SLOTS_PER_HOUR = 2;
-const TOTAL_SLOTS = (SLOT_END - SLOT_START) * SLOTS_PER_HOUR;
-
-type LocationTab = "yoga" | "shibuya" | "aoyama" | "other";
-
-function getLocationTab(locationName: string): LocationTab {
-  // 判定順が重要: 新名称「GMOサムライスタジオ用賀/青山」も「サムライ」を含むため、
-  // 地名 (用賀/青山) を「サムライ」→渋谷 のフォールバックより先に判定する
-  if (locationName.includes("用賀") || locationName.includes("グローバル")) return "yoga";
-  if (locationName.includes("青山")) return "aoyama";
-  if (locationName.includes("渋谷") || locationName.includes("サムライ")) return "shibuya";
-  return "other";
-}
-
-function formatTime(hour: number, min: number): string {
-  return `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-}
-
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function extractDatePart(timeStr: string): string {
-  // Handle both "2026-03-29" and "2026-03-29T10:00:00" formats
-  return timeStr.split("T")[0];
-}
-
-function timeToSlot(timeStr: string): number {
-  // Parse time part from string like "2026-03-29T10:00:00" or "10:00:00"
-  const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : null;
-  if (!timePart) return 0; // Date-only string = start of day
-  const [hh, mm] = timePart.split(":").map(Number);
-  const totalMin = (hh - SLOT_START) * 60 + mm;
-  return Math.max(0, Math.min(TOTAL_SLOTS, Math.round(totalMin / 30)));
 }
 
 interface KoubanViewProps {
@@ -141,12 +96,12 @@ export default function KoubanView({
     });
   }, [bookings, dateStr, activeTab]);
 
-  // Map bookings to room slots
+  // Map bookings to room slots (重なりは列分けして全部押せるようにする)
   const roomBookings = useMemo(() => {
-    const map = new Map<string, { booking: StudioBooking; room: BookingRoom; startSlot: number; endSlot: number }[]>();
+    const raw = new Map<string, { booking: StudioBooking; room: BookingRoom; startSlot: number; endSlot: number }[]>();
 
     for (const room of filteredRooms) {
-      map.set(room.id, []);
+      raw.set(room.id, []);
     }
 
     for (const b of bookings) {
@@ -156,7 +111,7 @@ export default function KoubanView({
       if (bStartDate > dateStr || bEndDate < dateStr) continue;
 
       for (const room of b.rooms) {
-        if (!map.has(room.room_id)) continue;
+        if (!raw.has(room.room_id)) continue;
 
         let startSlot: number;
         let endSlot: number;
@@ -165,13 +120,16 @@ export default function KoubanView({
           startSlot = 0;
           endSlot = TOTAL_SLOTS;
         } else {
-          startSlot = timeToSlot(b.start_time);
-          endSlot = timeToSlot(b.end_time);
+          // **表示日から見た分**で置く（時刻だけ見ると日またぎ予約が誤った位置に描かれる）
+          const startMin = minutesOnDate(b.start_time, dateStr, 0);
+          const endMin = minutesOnDate(b.end_time, dateStr, TOTAL_SLOTS * 30);
+          startSlot = minutesToSlot(startMin, false);
+          endSlot = minutesToSlot(endMin, true);
         }
 
         if (endSlot <= startSlot) endSlot = startSlot + 1;
 
-        map.get(room.room_id)!.push({
+        raw.get(room.room_id)!.push({
           booking: b,
           room,
           startSlot,
@@ -180,6 +138,8 @@ export default function KoubanView({
       }
     }
 
+    const map = new Map<string, ReturnType<typeof assignColumns<{ booking: StudioBooking; room: BookingRoom; startSlot: number; endSlot: number }>>>();
+    for (const [roomId, items] of raw) map.set(roomId, assignColumns(items));
     return map;
   }, [bookings, filteredRooms, dateStr]);
 
@@ -345,7 +305,9 @@ export default function KoubanView({
                       />
                     ))}
 
-                    {/* Booking blocks */}
+                    {/* Booking blocks. **列分け（col/cols）で重なりを横に割る** —
+                        以前は全件 left-1/right-1 の全幅固定で、同室同時間帯の2件目が
+                        完全に隠れて押せなかった */}
                     {entries.map((entry, idx) => {
                       const top = entry.startSlot * SLOT_HEIGHT;
                       const height = (entry.endSlot - entry.startSlot) * SLOT_HEIGHT;
@@ -356,32 +318,42 @@ export default function KoubanView({
                       return (
                         <div
                           key={`${entry.booking.id}-${idx}`}
-                          className="absolute left-1 right-1 rounded px-1.5 py-1 cursor-pointer overflow-hidden transition-opacity hover:opacity-90"
+                          className="absolute overflow-hidden"
                           style={{
                             top,
                             height: Math.max(height, SLOT_HEIGHT / 2),
-                            backgroundColor: color,
-                            color: "#fff",
+                            left: `${(entry.col / entry.cols) * 100}%`,
+                            width: `${100 / entry.cols}%`,
                             zIndex: 5,
                           }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onBookingClick(entry.booking);
-                          }}
                         >
-                          <div className="text-xs font-medium leading-tight truncate">
-                            {entry.booking.title}
+                          <div
+                            className="mx-0.5 h-full rounded px-1.5 py-1 cursor-pointer overflow-hidden transition-opacity hover:opacity-90"
+                            style={{ backgroundColor: color, color: "#fff" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBookingClick(entry.booking);
+                            }}
+                          >
+                            <div className="text-xs font-medium leading-tight truncate">
+                              {entry.booking.title}
+                            </div>
+                            {height >= SLOT_HEIGHT && (
+                              <div className="text-xs leading-tight opacity-80 truncate">
+                                {/* **この日から見た時刻**を出す（`entry.startSlot`/`endSlot` は
+                                    日またぎ考慮済み）。生の start_time/end_time をそのまま
+                                    出すと、翌日側で「23:00 - 02:00」のような誤った時刻になる */}
+                                {formatTime(Math.floor((entry.startSlot * 30) / 60), (entry.startSlot * 30) % 60)}
+                                {" - "}
+                                {formatTime(Math.floor((entry.endSlot * 30) / 60), (entry.endSlot * 30) % 60)}
+                              </div>
+                            )}
+                            {height >= SLOT_HEIGHT * 2 && entry.booking.gls_number && (
+                              <div className="text-xs leading-tight opacity-70 truncate mt-0.5">
+                                {entry.booking.gls_number}
+                              </div>
+                            )}
                           </div>
-                          {height >= SLOT_HEIGHT && (
-                            <div className="text-xs leading-tight opacity-80 truncate">
-                              {entry.booking.start_time.split("T")[1]?.slice(0, 5)} - {entry.booking.end_time.split("T")[1]?.slice(0, 5)}
-                            </div>
-                          )}
-                          {height >= SLOT_HEIGHT * 2 && entry.booking.gls_number && (
-                            <div className="text-xs leading-tight opacity-70 truncate mt-0.5">
-                              {entry.booking.gls_number}
-                            </div>
-                          )}
                         </div>
                       );
                     })}

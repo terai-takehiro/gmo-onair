@@ -14,7 +14,7 @@
  *     「43日前」のような、数え直さないと日付にならない表示が出ます
  */
 import { describe, it, expect } from 'vitest';
-import { formatRelativeTime } from '../src/client/format';
+import { formatRelativeTime, localDateStr } from '../src/client/format';
 
 // 「今」を固定する。実時刻に依存させるとテストが日によって落ちる
 const NOW = new Date('2026-08-05T12:00:00+09:00');
@@ -65,5 +65,18 @@ describe('formatRelativeTime — 壊れた値', () => {
     const d = new Date('2026-08-05T11:00:00+09:00');
     expect(formatRelativeTime(d, NOW)).toBe('1時間前');
     expect(formatRelativeTime(d.getTime(), NOW)).toBe('1時間前');
+  });
+});
+
+describe('localDateStr — `toISOString` を使わない年月日', () => {
+  it('ローカルの年月日をそのまま文字にする', () => {
+    expect(localDateStr(new Date(2026, 7, 8, 15, 0))).toBe('2026-08-08');
+  });
+  it('**深夜0時〜朝9時でも前日にならない**（`toISOString` は JST を UTC に寄せて前日になる）', () => {
+    expect(localDateStr(new Date(2026, 7, 27, 2, 0))).toBe('2026-08-27');
+    expect(localDateStr(new Date(2026, 7, 27, 0, 0))).toBe('2026-08-27');
+  });
+  it('月・日は0埋め2桁', () => {
+    expect(localDateStr(new Date(2026, 0, 5))).toBe('2026-01-05');
   });
 });

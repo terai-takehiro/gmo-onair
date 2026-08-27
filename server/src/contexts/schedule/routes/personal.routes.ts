@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 import { encrypt, decrypt, mask } from '../../liveops/crypto';
 import { syncFeedById } from '../services/ics-sync.service';
 import { assertSafeHttpsUrl } from '../../../shared/security/safe-remote-url';
@@ -170,6 +171,7 @@ async function syncShares(eventId: string, ownerId: string, userIds: unknown): P
 router.post('/personal', ...canUse, async (req, res) => {
   const { title, all_day, start_time, end_time, location, notes, share_user_ids } = req.body ?? {};
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
+  if (isReversedTimeRange(start_time, end_time)) throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
   const id = randomUUID();
   const me = req.user!.id;
   await execute(
@@ -213,12 +215,19 @@ router.put('/personal/:id', ...canUse, async (req, res) => {
   }
 
   const b = req.body ?? {};
+  // **渡さなかった側は今の値のまま**で比べる（終了だけ延ばす部分更新が既存の
+  // 開始と比べずに通らないように）
+  const effectiveStart = b.start_time != null ? String(b.start_time) : String(existing.start_time);
+  const effectiveEnd = b.end_time != null ? String(b.end_time) : String(existing.end_time);
+  if (isReversedTimeRange(effectiveStart, effectiveEnd)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
+  }
   await execute(
     `UPDATE personal_events SET title=?, all_day=?, start_time=?, end_time=?, location=?, notes=?, updated_at=NOW() WHERE id=?`,
     [b.title != null ? String(b.title).slice(0, 300) : existing.title,
      b.all_day != null ? (b.all_day ? 1 : 0) : existing.all_day,
-     b.start_time != null ? String(b.start_time) : existing.start_time,
-     b.end_time != null ? String(b.end_time) : existing.end_time,
+     effectiveStart,
+     effectiveEnd,
      b.location !== undefined ? (b.location ? String(b.location).slice(0, 300) : null) : existing.location,
      b.notes !== undefined ? (b.notes ? String(b.notes).slice(0, 1000) : null) : existing.notes,
      existing.id]
