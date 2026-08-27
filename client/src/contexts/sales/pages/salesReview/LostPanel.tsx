@@ -4,9 +4,7 @@
  * 計算は旧実装のまま（`sales-analytics.service.ts` の `getLostReasonAnalysis`）。
  */
 import { Hash, Wallet, Scale } from 'lucide-react';
-import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { manYen } from '@gmo-onair/shared/src/client/ui/numbers';
-import { formatDate } from '@/lib/format';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { Panel } from './Panel';
 import { Strip, type StripItem } from './Strip';
@@ -83,28 +81,12 @@ export function LostPanel({ lost, year }: { lost: LostAnalysis; year: number }) 
         </Panel>
       </div>
 
-      {lost.lessons.length > 0 && (
-        <Panel title="教訓・学び">
-          <div className="flex flex-col gap-2">
-            {lost.lessons.map((l) => (
-              <div key={l.id} className="rounded-note border border-border p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-list truncate font-bold">
-                      {l.gls_number || l.code} {l.name}
-                    </p>
-                    <p className="text-note text-muted-foreground">
-                      {l.customer_short_name || l.customer_name} ・ {formatDate(l.lost_at)} ・ {l.lost_reason}
-                    </p>
-                  </div>
-                  <MoneyCell value={l.expected_amount} width={96} className="shrink-0 text-destructive" />
-                </div>
-                <p className="text-sub mt-1.5 rounded-note bg-surface-subtle p-2">{l.lessons_learned}</p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
+      {/*
+        「教訓・学び」パネルは 2026-08-27 の棚卸しで削除した（Phase B・ユーザー判断。
+        `docs/project-ledger-simplification-plan.md` §5 の `lessons_learned`）。失注ダイアログが
+        値を送らなくなって以来 Web 画面からは永久に空欄だったため、失注の振り返りは
+        KPT・イベントレポートに一本化する。
+      */}
     </div>
   );
 }

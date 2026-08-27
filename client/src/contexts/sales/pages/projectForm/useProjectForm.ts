@@ -132,11 +132,9 @@ export function useProjectForm(id: string | undefined) {
       assigned_to: project.assigned_to || '',
       broadcast_type: project.broadcast_type || '',
       media_platform: project.media_platform || '',
-      tags: project.tags || '',
       box_url_internal: project.box_url_internal || '',
       box_url_external: project.box_url_external || '',
       application_form: !!project.application_form,
-      logo_permission: !!project.logo_permission,
     });
   }, [project, reset]);
 

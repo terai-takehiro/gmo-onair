@@ -273,7 +273,6 @@ const PROJECTS_CONFIG: ResourceConfig = {
     { key: 'broadcast_type',       header: '配信種別',       width: 12 },
     { key: 'media_platform',       header: 'メディア',       width: 14 },
     { key: 'assigned_to_email',    header: '担当者Email',    width: 24 },
-    { key: 'tags',                 header: 'タグ',           width: 18 },
     { key: 'notes',                header: '備考',           width: 30 },
   ],
   templateRows: [
@@ -281,12 +280,12 @@ const PROJECTS_CONFIG: ResourceConfig = {
       customer_name: '株式会社サンプル', stage: 'c_proposal', project_type: 'event',
       expected_amount: 1000000, event_start: '2026-06-01', event_end: '2026-06-02',
       broadcast_type: 'live', media_platform: 'YouTube',
-      assigned_to_email: 'admin@example.com', tags: '配信,IR', notes: '' },
+      assigned_to_email: 'admin@example.com', notes: '' },
     { code: 'PRJ-LEGACY-001', gls_number: 'GLS001', name: '旧案件サンプル（過去データ取り込み例）',
       customer_name: '株式会社サンプル', stage: 's_completed', project_type: 'recording',
       expected_amount: 3000000, event_start: '2024-03-01', event_end: '2024-03-01',
       broadcast_type: '', media_platform: '',
-      assigned_to_email: 'admin@example.com', tags: '', notes: '旧システムからの移行データ' },
+      assigned_to_email: 'admin@example.com', notes: '旧システムからの移行データ' },
   ],
   guideSheet: {
     name: '入力ガイド',
@@ -301,14 +300,13 @@ const PROJECTS_CONFIG: ResourceConfig = {
       { col: '顧客名', desc: '【必須】事前に登録済みの顧客名と完全一致' },
       { col: 'ステージ', desc: 'neta/d_hold/c_proposal/b_verbal/a_won/s_completed/e_lost (日本語OK: ネタ/保留/提案中/口頭内示/受注/完了/失注)' },
       { col: '担当者Email', desc: '【必須】事前に登録済みのユーザーEmailと完全一致' },
-      { col: 'タグ', desc: 'カンマ区切り文字列' },
       { col: '備考', desc: '案件の「やり取り」にメモとして1件残ります。取り込み直しても、同じ本文なら増えません。書き出しはいちばん新しいメモ' },
     ],
   },
   exportQuery: `
     SELECT p.code, p.gls_number, p.name, c.name as customer_name,
            p.stage, p.project_type, p.expected_amount, p.event_start, p.event_end,
-           p.broadcast_type, p.media_platform, u.email as assigned_to_email, p.tags,
+           p.broadcast_type, p.media_platform, u.email as assigned_to_email,
            memo.description AS notes
     FROM projects p
     LEFT JOIN companies c ON c.id = p.customer_id
@@ -380,7 +378,6 @@ const PROJECTS_CONFIG: ResourceConfig = {
         event_end: asString(raw.event_end),
         broadcast_type: asString(raw.broadcast_type),
         media_platform: asString(raw.media_platform),
-        tags: asString(raw.tags) || '',
         notes: asString(raw.notes),
       },
       errors,
@@ -396,12 +393,12 @@ const PROJECTS_CONFIG: ResourceConfig = {
       `INSERT INTO projects (id, code, gls_number, name, customer_id, stage,
                              project_type, audience, project_category,
                              expected_amount, event_start, event_end, broadcast_type, media_platform,
-                             assigned_to, tags, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+                             assigned_to, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [id, d.code, d.gls_number, d.name, d.customer_id, d.stage,
        cls.project_type, cls.audience, cls.project_category,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
-       d.assigned_to, d.tags, userId, userId],
+       d.assigned_to, userId, userId],
     );
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
@@ -426,12 +423,12 @@ const PROJECTS_CONFIG: ResourceConfig = {
       `UPDATE projects SET code=$1, gls_number=$2, name=$3, customer_id=$4, stage=$5,
                            project_type=$6, audience=$7, project_category=$8,
                            expected_amount=$9, event_start=$10, event_end=$11, broadcast_type=$12, media_platform=$13,
-                           assigned_to=$14, tags=$15, updated_by=$16, updated_at=NOW()
-       WHERE id=$17`,
+                           assigned_to=$14, updated_by=$15, updated_at=NOW()
+       WHERE id=$16`,
       [d.code, d.gls_number, d.name, d.customer_id, d.stage,
        cls.project_type, cls.audience, cls.project_category,
        d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
-       d.assigned_to, d.tags, userId, id],
+       d.assigned_to, userId, id],
     );
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },

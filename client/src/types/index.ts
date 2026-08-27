@@ -214,11 +214,9 @@ export interface Project extends BaseEntity {
   broadcast_type: string | null;
   media_platform: string | null;
   assigned_to: string;
-  tags: string;
   lost_reason: string | null;
   lost_reason_note: string | null;
   application_form: boolean;
-  logo_permission: boolean;
   notes: string | null;
   // joined fields
   customer_name?: string;

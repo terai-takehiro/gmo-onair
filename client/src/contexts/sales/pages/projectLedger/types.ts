@@ -170,8 +170,6 @@ export const BULK_FIELDS = [
   { key: 'event_start', label: '実施日（開始）' },
   { key: 'event_end', label: '実施日（終了）' },
   { key: 'application_form', label: '申込書' },
-  { key: 'logo_permission', label: 'ロゴ利用の許諾' },
-  { key: 'tags', label: 'タグ' },
 ] as const;
 
 export type BulkFieldKey = (typeof BULK_FIELDS)[number]['key'];

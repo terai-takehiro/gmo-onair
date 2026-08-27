@@ -95,7 +95,6 @@ export interface Project extends BaseEntity {
   broadcast_type: string | null;
   media_platform: string | null;
   application_form: boolean;
-  logo_permission: boolean;
   notes: string | null;
   // Joined
   customer_name?: string;

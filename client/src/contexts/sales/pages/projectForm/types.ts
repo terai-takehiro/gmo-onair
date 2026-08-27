@@ -45,11 +45,9 @@ export interface FormValues {
   assigned_to: string;
   broadcast_type: string;
   media_platform: string;
-  tags: string;
   box_url_internal: string;
   box_url_external: string;
   application_form: boolean;
-  logo_permission: boolean;
 }
 
 export const EMPTY_FORM: FormValues = {
@@ -58,9 +56,9 @@ export const EMPTY_FORM: FormValues = {
   gls_category: '',
   contact_name: '', recurrence: 'single', attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
-  broadcast_type: '', media_platform: '', tags: '',
+  broadcast_type: '', media_platform: '',
   box_url_internal: '', box_url_external: '',
-  application_form: false, logo_permission: false,
+  application_form: false,
 };
 
 export interface GlsDialogState {

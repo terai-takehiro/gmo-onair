@@ -35,3 +35,18 @@ migration 242 で削除し、サーバーの SQL・MCP ツール・クライア�
 Postgres で migration 242 の適用・冪等性を確認。実サーバー（検証用Postgres）で案件の作成・
 `intake_confidence` の更新反映・AI確認・受注/失注へのステージ変更（`won_at`/`lost_at` の実地
 確認）・失注分析APIの月次集計・`GET /projects/tags` の404化を確認済み。
+
+**続けて Phase B（`logo_permission`・`tags`・`lessons_learned` の削除、`assigned_to` 方針文書の
+書き直し）を実装した**（ユーザー判断: 3列とも削除・`assigned_to` は書き直しを選択）。
+migration 243 で3列を削除し、案件を直す画面の「ロゴの使用許諾」スイッチ・案件詳細の「タグ」節・
+台帳の一括編集（タグ・ロゴ）・営業レビューの「教訓・学び」パネルを削除、MCP `list_projects` の
+`tag` 引数・`update_project` の `tags`/`logo_permission` 引数・`change_project_stage` の
+`lessons_learned` 引数も撤去した。実装時に棚卸し時点では見えていなかった書き手が追加で見つかり
+（Excel 取込のインポート/エクスポートテンプレート・バックアップ xlsx 出力・制作技術支援 AI の
+生成コンテキスト）、同じ棚卸しの延長としてまとめて削除した。`assigned_to` は
+[client/CLAUDE.md](../client/CLAUDE.md) の「v4 の設計判断」を実態に合わせて書き直した
+（旧「案件担当者という概念を持たない」→「主担当を持つ。実務の割り当てはタスク単位」）。
+検証: `npm run typecheck:all`・`npm run lint`・`npm run test`（1518件）緑。検証用 Postgres で
+migration 243 の適用・冪等性を確認。実サーバーで案件の作成・更新（両方の UPDATE 分岐）・
+一括編集・失注へのステージ変更・失注分析API・Excel/バックアップの出力エンドポイントが
+軒並み 200 で返り、レスポンスから3列が消えていることを確認済み。

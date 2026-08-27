@@ -175,7 +175,7 @@ export async function seed() {
    * 全部その見え方になり、実際に「登録してあるのに未登録になる」と報告されました。
    * 導く表は `project-classification.ts`（`classificationOf`）の1か所だけ。
    */
-  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   /** 旧種類から2段を引く。GLS-B の3種は `null`（2段を持たない） */
   const cls2 = (projType: string) => {
     const c = classificationOf(projType);
@@ -200,41 +200,41 @@ export async function seed() {
     PROJECTS[code] = id;
     // ヨミ段階のデフォルト分類: project_type からの推奨値 (A系項目なら 'A')
     const yomiCat = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B';
-    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
+    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, eventStart, eventEnd, null, null, staffIds[i % 3], USERS.admin]);
   }
 
   // --- 失注 ---
-  const lostData: [string, string, string, string, number, string, string, string, string, string][] = [
-    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-01-15', '予算不足', '先方の年度予算が確定せず見送り', '早期段階で予算規模を確認すべき。ヒアリング段階で予算枠の有無を必ず確認する。', '2026-01-20'],
-    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', '競合負け', '他社スタジオの方が安価だったため', '価格だけの勝負にならないよう、付加価値（設備・サポート体制）を提案書に明記する。', '2026-02-25'],
-    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15', '顧客都合（延期・中止）', '企画自体が無期限延期に', '延期リスクがある案件は仮押さえ段階でキャンセルポリシーを合意しておく。', '2026-03-18'],
-    ['OPP-202603-0016', 'SN 新番組パイロット', 'SN', 'recording', 4500000, '2026-02-01', 'スケジュール不一致', 'スタジオ空き日程が合わなかった', 'スケジュール提案を2パターン以上用意し、代替案を早めに提示すべき。', '2026-02-05'],
-    ['OPP-202603-0017', 'GE 社員研修配信', 'GE', 'live_broadcast', 1800000, '2026-03-05', '条件不一致', '求められた配信品質の要件が合わなかった', '技術要件のすり合わせを営業段階で行い、テスト配信の提案も検討する。', '2026-03-08'],
+  const lostData: [string, string, string, string, number, string, string, string, string][] = [
+    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-01-15', '予算不足', '先方の年度予算が確定せず見送り', '2026-01-20'],
+    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', '競合負け', '他社スタジオの方が安価だったため', '2026-02-25'],
+    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15', '顧客都合（延期・中止）', '企画自体が無期限延期に', '2026-03-18'],
+    ['OPP-202603-0016', 'SN 新番組パイロット', 'SN', 'recording', 4500000, '2026-02-01', 'スケジュール不一致', 'スタジオ空き日程が合わなかった', '2026-02-05'],
+    ['OPP-202603-0017', 'GE 社員研修配信', 'GE', 'live_broadcast', 1800000, '2026-03-05', '条件不一致', '求められた配信品質の要件が合わなかった', '2026-03-08'],
   ];
   for (let i = 0; i < lostData.length; i++) {
-    const [code, name, custKey, projType, amt, date, reason, note, lessons, lostAt] = lostData[i];
+    const [code, name, custKey, projType, amt, date, reason, note, lostAt] = lostData[i];
     const id = uuidv4();
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, CUSTOMERS[custKey], projType, ...cls2(projType),
        ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B',
-       amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
+       amt, date, staffIds[i % 3], reason, note, lostAt, USERS.admin]
     );
   }
 
   // --- GLS発番済み（案件進行中）---
-  const glsData: [string, string, string, string, string, number, string, string, string, string, string][] = [
-    ['GLS-A001', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 's_completed', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube', '株主総会2026'],
-    ['GLS-A002', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', '2026-03-22', 'recording', 'terrestrial_tv', ''],
-    ['GLS-A003', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', '2026-03-25', 'live', 'net_media', ''],
-    ['GLS-A004', 'PW 新サービス発表会', 'PW', 'hybrid_event', 'b_verbal', 2800000, '2026-03-30', '2026-03-30', 'live', 'zoom', '株主総会2026'],
-    ['GLS-A005', 'GE ドキュメンタリー撮影', 'GE', 'recording', 'a_won', 12000000, '2026-04-05', '2026-04-07', 'recording', 'net_media', ''],
-    ['GLS-A006', 'DA 社内イベント中継', 'DA', 'live_broadcast', 'b_verbal', 1500000, '2026-04-10', '2026-04-10', 'live', 'teams', ''],
-    ['GLS-A007', 'JB 番組パイロット撮影', 'JB', 'recording', 'b_verbal', 4500000, '2026-04-14', '2026-04-15', 'recording', 'terrestrial_tv', ''],
-    ['GLS-A008', '富士見 CM撮影「春キャンペーン」', '富士見', 'offline_event', 's_completed', 3200000, '2026-03-12', '2026-03-12', 'recording', 'terrestrial_tv', ''],
+  const glsData: [string, string, string, string, string, number, string, string, string, string][] = [
+    ['GLS-A001', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 's_completed', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube'],
+    ['GLS-A002', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', '2026-03-22', 'recording', 'terrestrial_tv'],
+    ['GLS-A003', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', '2026-03-25', 'live', 'net_media'],
+    ['GLS-A004', 'PW 新サービス発表会', 'PW', 'hybrid_event', 'b_verbal', 2800000, '2026-03-30', '2026-03-30', 'live', 'zoom'],
+    ['GLS-A005', 'GE ドキュメンタリー撮影', 'GE', 'recording', 'a_won', 12000000, '2026-04-05', '2026-04-07', 'recording', 'net_media'],
+    ['GLS-A006', 'DA 社内イベント中継', 'DA', 'live_broadcast', 'b_verbal', 1500000, '2026-04-10', '2026-04-10', 'live', 'teams'],
+    ['GLS-A007', 'JB 番組パイロット撮影', 'JB', 'recording', 'b_verbal', 4500000, '2026-04-14', '2026-04-15', 'recording', 'terrestrial_tv'],
+    ['GLS-A008', '富士見 CM撮影「春キャンペーン」', '富士見', 'offline_event', 's_completed', 3200000, '2026-03-12', '2026-03-12', 'recording', 'terrestrial_tv'],
   ];
   for (let i = 0; i < glsData.length; i++) {
-    const [gls, name, custKey, projType, stage, amt, es, ee, bType, mPlatform, tags] = glsData[i];
+    const [gls, name, custKey, projType, stage, amt, es, ee, bType, mPlatform] = glsData[i];
     // **GLS-A002 だけ id を固定**（`pj-1`）。案件詳細を検査スクリプト
     // (`scripts/verify-ui.mjs` の `/sales/projects/pj-1` 7ページ) から開くのに、
     // 毎回変わる uuid では狙えない（プロジェクト管理の `gpm-1` と同じ理由）。
@@ -244,7 +244,7 @@ export async function seed() {
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
-    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
+    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, es, ee, bType, mPlatform, staffIds[i % 3], USERS.admin]);
   }
 
   // --- B系: GLS-B (その他売上) ---
@@ -255,13 +255,13 @@ export async function seed() {
   // **GLS-B は2段分類を持たない**（`project-classification.ts`）。**空を明示して書く** —
   // 列ごと書かないと「書き忘れ」と見分けが付かず、そのままにしていたのが
   // 上の A 系の壊れ方（詳細では登録済み・直す画面では未登録）の原因でした
-  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`;
+  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`;
   for (let i = 0; i < glsBData.length; i++) {
     const [gls, name, custKey, projType, stage, amt] = glsBData[i];
     const id = uuidv4();
     PROJECTS[gls] = id;
     const oppCode = `OPP-202603-${String(30 + i).padStart(4, '0')}`;
-    await ins(projBSql, [id, oppCode, gls, 'B', name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], '', USERS.admin]);
+    await ins(projBSql, [id, oppCode, gls, 'B', name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], USERS.admin]);
   }
 
   // ============================================================

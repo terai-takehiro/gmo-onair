@@ -150,25 +150,12 @@ export class SalesAnalyticsService {
       params
     );
 
-    // 教訓付き失注案件一覧（直近）
-    const lessonsData = await queryAll(
-      `SELECT p.id, p.name, p.gls_number, p.code, p.lost_reason, p.lessons_learned, p.expected_amount,
-              p.lost_at, c.name as customer_name, c.short_name as customer_short_name
-       FROM projects p
-       LEFT JOIN companies c ON c.id = p.customer_id
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' AND p.lessons_learned IS NOT NULL AND p.lessons_learned != '' ${dateFilter}
-       ORDER BY p.lost_at DESC, p.updated_at DESC
-       LIMIT 20`,
-      params
-    );
-
     return {
       reasons,
       total_lost: (totalRow as any)?.c || 0,
       total_lost_amount: (totalRow as any)?.total_amount || 0,
       avg_lost_amount: Math.round((totalRow as any)?.avg_amount || 0),
       monthly_trend: monthlyTrend,
-      lessons: lessonsData,
     };
   }
 

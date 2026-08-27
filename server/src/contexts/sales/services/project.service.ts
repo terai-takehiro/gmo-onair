@@ -153,13 +153,6 @@ export interface ProjectFilter {
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   /**
-   * カンマ区切りタグ（`tags` 列）の絞り込み。**MCP `list_projects` の `tag` 引数専用**
-   * （docs/project-ledger-simplification-plan.md で削除対象にした `GET /projects/tags`・
-   * 案件一覧画面の `?tag=` は client 側の呼び出し元がゼロだったので削除済みだが、
-   * MCP はこの絞り込みを実際に使っているので、フィルタ自体は残す）
-   */
-  tag?: string;
-  /**
    * 案件分類。`'A'` = 案件（スタジオ）／ `'B'` = プロジェクト。
    * **発番済かどうかは含まない**（それは `issued`）。
    */
@@ -284,8 +277,8 @@ const RECOMMENDED_SORT_SQL = `
  * JSON にすると UTC に寄って**日付が1日ずれる**ため
  * (`project-tasks.service.ts` も同じ理由で `::text` にしてある)。
  *
- * 案件担当者ではなく**タスクの担当者**を出す。v4 は
- * 「案件担当者という概念を持たない。誰が何をするかはタスク単位で表す」
+ * `assigned_to`（案件の主担当）ではなく**タスクの担当者**を出す。
+ * 主担当は責任の所在・集計の軸であり、**実務の割り当てはタスク単位**
  * (client/CLAUDE.md「v4 の設計判断」)。
  */
 const NEXT_TASK_LATERAL = `
@@ -434,10 +427,6 @@ export class ProjectService {
     if (filter.assignedTo) {
       where += ` AND p.assigned_to = ?`;
       params.push(filter.assignedTo);
-    }
-    if (filter.tag) {
-      where += ` AND (',' || p.tags || ',') LIKE ?`;
-      params.push(`%,${filter.tag},%`);
     }
     // 決算インポート分のみ。**印は `kessan_marker` の列が持つ**（migration 184）。
     // 以前は `notes` の先頭の `[kessan:2026-03]` という文字列を読んでいたが、
@@ -787,19 +776,6 @@ export class ProjectService {
     if (set.application_form !== undefined) {
       setClauses.push('application_form = ?'); params.push(set.application_form ? 1 : 0);
     }
-    if (set.logo_permission !== undefined) {
-      setClauses.push('logo_permission = ?'); params.push(set.logo_permission ? 1 : 0);
-    }
-    // タグ: mode='replace' で置換 / 'append' で末尾追加 (空なら付与のみ)
-    if (typeof set.tags === 'string' && (set.tagsMode === 'replace' || set.tagsMode === 'append')) {
-      const tag = (set.tags as string).trim();
-      if (set.tagsMode === 'replace') {
-        setClauses.push('tags = ?'); params.push(tag);
-      } else if (tag) {
-        setClauses.push(`tags = CASE WHEN COALESCE(tags, '') = '' THEN ? ELSE tags || ',' || ? END`);
-        params.push(tag, tag);
-      }
-    }
 
     if (setClauses.length === 0) {
       throw new AppError(400, 'VALIDATION_ERROR', '変更する項目が指定されていません');
@@ -823,7 +799,7 @@ export class ProjectService {
    */
   async create(data: Record<string, unknown>, userId: string) {
     const { name: rawName, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
-            box_url_internal, box_url_external, application_form, logo_permission,
+            box_url_internal, box_url_external, application_form,
             event_start, event_end, dates, gls_category,
             intake_channel, intake_confidence,
             // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
@@ -929,15 +905,15 @@ export class ProjectService {
                                gls_category, expected_amount, assigned_to,
                                event_start, event_end,
                                customer_type, box_url_internal, box_url_external,
-                               application_form, logo_permission, intake_channel, intake_confidence,
+                               application_form, intake_channel, intake_confidence,
                                contact_name, recurrence, attendee_count, goal,
                                idempotency_key, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
          glsCategory, expected_amount || 0, assigned_to || userId,
          finalEventStart, finalEventEnd,
          cType, box_url_internal || null, box_url_external || null,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
+         application_form ? 1 : 0, channel, confidence,
          contact_name || null, recur, scale, goal || null,
          idem, userId]
       );
@@ -1034,8 +1010,8 @@ export class ProjectService {
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     const { name: rawName, customer_id, expected_amount, project_type,
-            event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes, box_url_internal, box_url_external,
+            event_start, event_end, broadcast_type, media_platform,
+            application_form, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
     // **半角カナ等の表記ゆれを保存時に正規化。** `create` と同じ理由（NFKC）
     const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
@@ -1050,8 +1026,8 @@ export class ProjectService {
      * 押した人には「保存できませんでした」としか出ず、原因が分かりませんでした
      * （実測: 空にして保存すると 500）。
      *
-     * v4 は「案件担当者という概念を持たない」（誰がやるかはタスク単位）方針ですが、
-     * **列は NOT NULL のまま**です。NULL 許容にすると一覧の絞り込み・`getById` の
+     * v4 は主担当を持つが実務の割り当てはタスク単位（client/CLAUDE.md「v4 の設計判断」）、
+     * かつ**列は NOT NULL のまま**です。NULL 許容にすると一覧の絞り込み・`getById` の
      * LEFT JOIN・MCP の `list_projects`・週報・営業レビューの集計が
      * 「担当者なし」を想定していないので、そちらの影響のほうが大きい。
      * ここでは**渡されなければ今の値を保つ**にとどめます。
@@ -1059,17 +1035,6 @@ export class ProjectService {
     const assigned_to = (data.assigned_to === undefined || data.assigned_to === null || data.assigned_to === '')
       ? existing.assigned_to
       : data.assigned_to;
-    /**
-     * **画面に無い項目は今の値を保つ。**
-     *
-     * v4 のモックはタグと「案件種類（その他）」の入力欄を落としました。
-     * この UPDATE は送られた値でそのまま上書きするので、欄を消しただけだと
-     * **保存のたびに既存の値が空になります**（本番データが黙って消える）。
-     * 列は残したまま、**未指定なら今の値を保つ**形にしてから欄を外しました。
-     * 明示的に空文字を送ったときは消せます（＝人が消したいときは消える）。
-     */
-    const tagsValue = tags === undefined ? ((existing.tags as string | null) ?? '') : (tags || '');
-
     /**
      * **登録の16項目（migration 170）も「渡さなければ今の値を保つ」。**
      *
@@ -1206,19 +1171,19 @@ export class ProjectService {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
-         broadcast_type=?, media_platform=?, tags=?,
+         broadcast_type=?, media_platform=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?,
          intake_channel=?, intake_confidence=?,
-         application_form=?, logo_permission=?, customer_type=?,
+         application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tagsValue,
+         broadcast_type || null, media_platform || null,
          contactName, recurrenceValue, attendeeFinal, goalValue,
          channelValue, confidenceValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
+         application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
       );
@@ -1226,19 +1191,19 @@ export class ProjectService {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
          project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
-         broadcast_type=?, media_platform=?, tags=?,
+         broadcast_type=?, media_platform=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?,
          intake_channel=?, intake_confidence=?,
-         application_form=?, logo_permission=?, customer_type=?,
+         application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
-         broadcast_type || null, media_platform || null, tagsValue,
+         broadcast_type || null, media_platform || null,
          contactName, recurrenceValue, attendeeFinal, goalValue,
          channelValue, confidenceValue,
-         application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
+         application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
       );
@@ -1368,8 +1333,8 @@ export class ProjectService {
 
     if (stage === 'e_lost') {
       await execute(
-        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
-        [stage, data.lost_reason || null, data.lost_reason_note || null, data.lessons_learned || null, userId, id]
+        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
+        [stage, data.lost_reason || null, data.lost_reason_note || null, userId, id]
       );
       // AI が起票したネタを人が見送った = **拾いすぎ**の手がかり。
       // 受注/失注そのものはステージから読めるので記録しないが、

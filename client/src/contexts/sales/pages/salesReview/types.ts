@@ -40,26 +40,12 @@ export interface LostReason {
   total_amount: number;
 }
 
-export interface LostLesson {
-  id: string;
-  name: string;
-  gls_number?: string | null;
-  code?: string | null;
-  customer_name?: string | null;
-  customer_short_name?: string | null;
-  lost_reason?: string | null;
-  lessons_learned: string;
-  expected_amount: number;
-  lost_at: string | null;
-}
-
 export interface LostAnalysis {
   reasons: LostReason[];
   total_lost: number;
   total_lost_amount: number;
   avg_lost_amount: number;
   monthly_trend: MonthlyTrendRow[];
-  lessons: LostLesson[];
 }
 
 export interface PerformanceRow {

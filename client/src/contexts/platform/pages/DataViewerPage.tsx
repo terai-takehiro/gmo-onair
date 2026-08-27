@@ -254,7 +254,6 @@ const COLUMN_LABELS: Record<string, string> = {
   broadcast_type: '番組種別',
   media_platform: '配信媒体',
   application_form: '申込書',
-  logo_permission: 'ロゴ許可',
   episode_number: '話数番号',
   episode_code: 'エピソードコード',
   recording_date: '収録日',

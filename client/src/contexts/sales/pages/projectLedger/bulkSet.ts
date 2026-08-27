@@ -17,8 +17,6 @@
  *    押した人には「選んだのに入っていない」としか見えません
  *  ・**旧 `project_type` は送らない。** サーバーが2段から導きます
  *    （両方送ると、分類と種類がずれた行ができる）
- *  ・**タグの「置き換える」は空でも通す**（消したいことがある）。
- *    「足す」は空だと何も起きないので押させない
  */
 import type { BulkFieldKey } from './types';
 
@@ -27,7 +25,6 @@ export interface BulkInput {
   category: string;
   text: string;
   flag: string;
-  tagsMode: string;
 }
 
 export function buildBulkSet(field: BulkFieldKey, v: BulkInput): Record<string, unknown> | null {
@@ -45,12 +42,6 @@ export function buildBulkSet(field: BulkFieldKey, v: BulkInput): Record<string, 
       return v.text ? { event_end: v.text } : null;
     case 'application_form':
       return v.flag ? { application_form: v.flag === '1' } : null;
-    case 'logo_permission':
-      return v.flag ? { logo_permission: v.flag === '1' } : null;
-    case 'tags':
-      return v.tagsMode === 'replace'
-        ? { tags: v.text, tagsMode: 'replace' }
-        : (v.text ? { tags: v.text, tagsMode: 'append' } : null);
     default:
       return null;
   }
