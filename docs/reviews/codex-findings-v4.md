@@ -1634,6 +1634,32 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   分離。DBマイグレーション・画面変更なし。表に移す指摘はない（レビュー自体が届いていない
   ため）。検証は `npm run lint`（warning数58件で着手前と同数）のみ（文書のみの変更のため
   typecheck/build/実DB/実ブラウザは対象外・PR本文に明記済み）。
+- **#444（docs(reviews): PR #442・#443 のマージ後の棚卸しを記録・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 00:31:35 JST / CI（`checks`/`build`）両方 green
+  00:33:40 JST / マージ 01:45:39 JST 頃（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  CI green から約1時間12分と待つ時間はあったが0件だった。棚卸し記録そのもののPR（コード変更
+  なし）。表に移す指摘はない（レビュー自体が届いていないため）。
+- **#445（案件・タスク・AI・カレンダーの根源整理 Phase 2・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 01:46:45 JST / CI（`checks`/`build`）両方 green
+  01:48:57 JST / マージ 01:57:12 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約8分15秒でマージ**。GitHub MCP の `pull_request_read` で直接確認した
+  （`npm run reviews:debt` は未実行）。Phase 1（#442）に続く Phase 2 で、8体の実装・検証
+  エージェント（Server3・Client4・Verify1）の Workflow により、①「今日の営業」カード
+  （`GET /dashboard/today-sales`・旧「期限が過ぎたやること」パネルを吸収して削除）
+  ②AI活動ページ（`/settings/ai-activity`）＋営業側月次AIレビュー（`ai_review_sales`・
+  manager通知・確認打刻）③デイリーニュース★評価のAIループ接続（`ops_news_item`）
+  ④AIナレッジ承認UI（`/techops/ai-knowledge`）⑤依頼のコメントスレッド（`task_comments`・
+  description追記の廃止）⑥標準工程/議事録タスクの担当割当 ⑦タスク期限の個人ICSフィード
+  ⑧prompt_version 5ツール展開・GPM一覧health化 を実装（migration 240/241）。
+  Phase 2 リストの「保留（d_hold）廃止」はユーザー決定で見送り（実態は仮押さえ＝顧客側の
+  事実・経緯は `docs/core-redesign-plan.md`）。表に移す指摘はない（レビュー自体が届いて
+  いないため）。検証は typecheck:all / lint / test 1519件 / build:changed に加え、検証用
+  Postgres で migration 240/241 の2回適用（冪等）、実サーバーで today-sales・ai-activity
+  4口（qsheet系kind 400・権限なし403）・コメントの当事者403と相手方通知・ICS配信
+  （text/calendar・不正トークン404）・月次レビューの冪等 upsert を実測済み。
+  ⚠️ **実ブラウザでの操作確認（今日の営業カード・AI活動ページ・ナレッジ承認・コメント欄・
+  カレンダー購読、375px含む）はこの開発セッションから行っていない**（PR本文に明記済み・
+  検証環境での確認を推奨）。
 
 ---
 
