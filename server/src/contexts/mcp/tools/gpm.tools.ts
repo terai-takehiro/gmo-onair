@@ -30,11 +30,13 @@ import { ok, runTool, clampLimit, audit, preview, REQUESTED_BY, currentActorId }
 // この口から案件 (GLS-A) の行を触ることはできない。
 //
 // ⚠️ タスクは案件と同じ `project_tasks` の行。ガント用の細かい編集
-// (start_date / progress / is_milestone / work_state / 依存関係) は
-// 案件タスク側のツール (update_task / add_task_dependency 等) が GLS-B のタスクにも
-// そのまま使える (案件詳細のタスクタブは GLS-B ではガントが既定ビュー)。
-// こちらの create_gpm_task / update_gpm_task は工程 (gpm_phase_id) への付け外しと
-// 18:00 期限の GPM 流儀を守る口。
+// (start_date / progress / is_milestone / work_state / sort_order) は
+// **この口 (create_gpm_task / update_gpm_task) がそのまま受ける**
+// (GPM の画面にガント・かんばんが載った回で整備した。GLS-B かの確認
+// = assertGpmTask を必ず通るのはこちらの口)。
+// タスク間の依存関係 (先行→後続の矢印) だけは案件タスク側の
+// add_task_dependency / remove_task_dependency / list_task_dependencies が
+// GLS-B のタスクにもそのまま使える。
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -93,7 +95,8 @@ export function registerGpmTools(server: McpServer): void {
       title: 'プロジェクトのタスク一覧 (GPM 横断)',
       description:
         'プロジェクト (GLS-B) のタスクを横断で一覧する。工程 (phase_label) と' +
-        'プロジェクト名が付く。visibility=private のタスクは担当者/作成者本人 (OAuth 連携時) にだけ出る。' +
+        'プロジェクト名、ガント用の start_date / progress / is_milestone が付く。' +
+        'visibility=private のタスクは担当者/作成者本人 (OAuth 連携時) にだけ出る。' +
         '案件 (GLS-A) のタスクは list_tasks を使うこと。',
       inputSchema: {
         status: z.enum(['all', 'open', 'done', 'overdue']).default('open')
@@ -381,12 +384,15 @@ export function registerGpmTools(server: McpServer): void {
       description:
         'プロジェクト (GLS-B) にタスクを追加する。gpm_phase_id で工程に付ける (任意・' +
         'get_gpm_project の phases[].id)。期限は 18:00 の時刻付きで入り、「自分のタスク」にも出る。' +
-        'ガント用の開始日・進捗・マイルストーンを付けたいときは、作成後に update_task (案件タスク側) が使える。',
+        'ガント用の start_date (バーの左端)・progress (進捗%)・is_milestone (◆) もここで付けられる。',
       inputSchema: {
         project_id: z.string().min(1).describe('プロジェクト ID'),
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional(),
-        due_date: z.string().regex(YMD).optional().describe('期限日 YYYY-MM-DD (18:00 として入る)'),
+        due_date: z.string().regex(YMD).optional().describe('期限日 YYYY-MM-DD (18:00 として入る。ガントのバーの右端)'),
+        start_date: z.string().regex(YMD).optional().describe('開始日 YYYY-MM-DD (ガントのバーの左端。未指定は期限日だけの1日バー)'),
+        progress: z.number().int().min(0).max(100).optional().describe('進捗% (0-100・既定 0)'),
+        is_milestone: z.boolean().optional().describe('マイルストーン (◆・単一日の節目) にする'),
         assigned_to: z.string().optional().describe('担当者の users.id (list_users で解決)'),
         gpm_phase_id: z.string().optional().describe('付ける工程の ID (同じプロジェクトのものだけ)'),
         prompt_version: z.string().max(50).optional()
@@ -399,6 +405,7 @@ export function registerGpmTools(server: McpServer): void {
         args.project_id,
         {
           title: args.title, description: args.description, due_date: args.due_date,
+          start_date: args.start_date, progress: args.progress, is_milestone: args.is_milestone,
           assigned_to: args.assigned_to, gpm_phase_id: args.gpm_phase_id,
         },
         currentActorId(),
@@ -410,7 +417,9 @@ export function registerGpmTools(server: McpServer): void {
         targetId: String(row.id),
         payload: {
           project_id: args.project_id, title: args.title, description: args.description ?? null,
-          due_date: args.due_date ?? null, assigned_to: args.assigned_to ?? null,
+          due_date: args.due_date ?? null, start_date: args.start_date ?? null,
+          progress: args.progress ?? null, is_milestone: args.is_milestone ?? null,
+          assigned_to: args.assigned_to ?? null,
           gpm_phase_id: args.gpm_phase_id ?? null,
         },
         toolName: 'create_gpm_task',
@@ -429,14 +438,21 @@ export function registerGpmTools(server: McpServer): void {
       title: 'プロジェクトのタスクを更新 (GPM)',
       description:
         'プロジェクト (GLS-B) のタスクを部分更新する (渡したフィールドだけ変更)。' +
-        'due_date / assigned_to / gpm_phase_id / description は null で「空にする」。' +
-        'completed で完了/未完了を切り替える。' +
-        'ガント用の開始日・進捗・マイルストーン・止まり方 (work_state) は update_task (案件タスク側) で。',
+        'due_date / start_date / assigned_to / gpm_phase_id / description は null で「空にする」。' +
+        'completed で完了/未完了を切り替える。ガント用の細かい編集もここで行う: ' +
+        'start_date (バーの左端) / due_date (右端) / progress (進捗%) / is_milestone (◆) / ' +
+        'work_state (止まり方) / sort_order (同じ工程内の並び)。',
       inputSchema: {
         id: z.string().min(1).describe('タスク ID'),
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(2000).nullable().optional(),
-        due_date: z.string().regex(YMD).nullable().optional(),
+        due_date: z.string().regex(YMD).nullable().optional().describe('期限日 (ガントのバーの右端) / null で解除'),
+        start_date: z.string().regex(YMD).nullable().optional().describe('開始日 (ガントのバーの左端) / null で解除'),
+        progress: z.number().int().min(0).max(100).nullable().optional().describe('進捗% (0-100) / null で 0 に戻す'),
+        is_milestone: z.boolean().optional().describe('マイルストーン (◆) かどうか'),
+        work_state: z.enum(['todo', 'doing', 'waiting']).optional()
+          .describe('止まり方 (todo=これから / doing=作業中 / waiting=待ち)。完了は completed で'),
+        sort_order: z.number().int().optional().describe('同じ工程内の並び順 (小さいほど上)'),
         assigned_to: z.string().nullable().optional().describe('users.id / null で担当解除'),
         gpm_phase_id: z.string().nullable().optional().describe('付け替える工程 ID / null で工程から外す'),
         completed: z.boolean().optional().describe('完了状態の変更'),
@@ -445,7 +461,8 @@ export function registerGpmTools(server: McpServer): void {
     },
     async (args) => runTool(async () => {
       const input: Record<string, unknown> = {};
-      for (const f of ['title', 'description', 'due_date', 'assigned_to', 'gpm_phase_id'] as const) {
+      for (const f of ['title', 'description', 'due_date', 'start_date', 'progress', 'is_milestone',
+        'work_state', 'sort_order', 'assigned_to', 'gpm_phase_id'] as const) {
         if ((args as Record<string, unknown>)[f] !== undefined) input[f] = (args as Record<string, unknown>)[f];
       }
       if (args.completed !== undefined) input.is_completed = args.completed;
