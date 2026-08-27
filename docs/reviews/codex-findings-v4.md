@@ -1725,6 +1725,28 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   「見積書・請求書・注文書」→「請求書・注文書」に更新。表に移す指摘はない（レビュー自体が
   届いていないため）。検証は `npm run typecheck --workspace=server` / `npm run lint` を
   確認済み。
+- **#451（docs(reviews): PR #446・#447・#448・#449・#450 のマージ後の棚卸しを記録・
+  2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 06:02:19 JST / CI（`checks`/`build`）両方 green
+  06:04:40 JST / マージ 06:09:42 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約5分2秒でマージ**。棚卸し記録そのもののPR（コード変更なし。#446・#447・
+  #448・#449・#450 の5PR分をまとめて記録）。表に移す指摘はない（レビュー自体が届いていない
+  ため）。検証は `npm run lint`（warning数58件で着手前と同数）のみ。
+- **#452（release: v4.5.1・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 06:04:43 JST / CI（`checks`/`build`）両方 green
+  06:06:49 JST / マージ 06:09:52 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約3分3秒でマージ**。ユーザー指示「0.0.1バージョン上げでリリース」を受けた
+  パッチ版上げ（4.5.0→4.5.1）。`npm run release:notes -- 4.5.1` で `docs/changelog.d/` の
+  下書き3件（#448〈PageHeaderの見出し潰れ修正〉・#449〈GLS番号重なり修正〉・#450〈見積書
+  除外〉）を集約し、`package.json`・`CLAUDE.md`「現在のバージョン」・`README.md` の3か所と
+  `docs/version-history.md` への v4.4.8 アーカイブ移動を実施。中身はいずれも本流にマージ済み
+  の不具合修正のみで、新機能・DBマイグレーションを含まない。#451（棚卸し記録PR）はこの
+  リリースの時点で未マージだったため今回のリリースには含まれず、次リリースへ繰り越し。
+  表に移す指摘はない（レビュー自体が届いていないため）。検証は `npm run check:version`
+  （3か所一致）・`RELEASE=1 npm run lint`（warning 58件・着手前と同数）・`npm run test`
+  （1519件全パス）・`node scripts/generate-version-history.mjs`（478件、書式崩れなし）を
+  確認済み。**本番へは出ていない** — 本番デプロイはユーザーが GitHub Releases でタグ
+  `v4.5.1` を Publish したときのみ。
 
 ---
 
