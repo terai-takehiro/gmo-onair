@@ -1773,6 +1773,31 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   短い予約の1行表示・香盤の重複列分け・日またぎの正しい時刻表示・月表「他N件」の週表切替・
   キーボード操作・3系統の時刻逆転が作成/部分更新とも400で拒否されること・権限なし利用者
   (`v-none`) で403/非表示になることをDOM実測・API呼び出しで確認済み。
+- **#457（docs(reviews): PR #456 のマージ後の棚卸しを記録した・2026-08-27）** —
+  `get_reviews` 0件のまま、作成 08:31:14 UTC / CI `build` green 08:31:40 UTC /
+  マージ 08:32:58 UTC（terai-takehiro 本人が手動マージ）。**`checks` ジョブの完了（08:33:30
+  UTC）を待たずにマージされている**（`build` は間に合っていたが `checks` は完了前）。
+  `docs/reviews/codex-findings-v4.md` への追記のみ（コード変更なし）。表に移す指摘はない
+  （レビュー自体が届いていないため）。
+- **#458（refactor(sales): 案件台帳(projects)の項目整理とバグ修正・2026-08-27）** —
+  `get_reviews`/`get_review_comments`/`get_comments` いずれも0件のまま、作成 08:32:32 UTC /
+  CI（`checks`/`build`）両方 green 08:34:55 UTC / マージ 08:36:13 UTC（terai-takehiro 本人が
+  手動マージ）。**CI green から約1分18秒でマージ**（作成から約3分41秒）。ユーザー指摘
+  「会場・スタジオの表記が揺らいでいる。案件台帳のDB項目が拡張し続けてぐちゃぐちゃ」を
+  受け、`projects` 全57列を実測で棚卸しし、Phase A（死んだ列7本削除・実バグ5件修正）→
+  Phase B（ユーザー判断で死んだ列3本を追加削除・`assigned_to` 方針文書を書き直し）→
+  Phase C 一部（受注/失注日時の書き口を `recordStageTransition()` に集約し GPM の
+  `lost_at` 欠落バグを修正・`create()` を `createCore` に分割し投入口の `customer_type`
+  固定バグを修正）の3段階を1本のPRにまとめた。金額の集計統一・実施日のDATE型化は
+  本番データの事前監査が必須のため、このPRには含めず [docs/project-ledger-phase-c-design.md](../project-ledger-phase-c-design.md)
+  に未実装として明記した。表に移す指摘はない（レビュー自体が届いていないため）。検証は
+  `npm run typecheck:all`・`npm run lint`（warning 58件で着手前と同数）・`npm run test`
+  （1522件）・migration 242/243 の適用と冪等性（`check-migration-numbers.mjs` でOK）を確認済み。
+  実サーバー（検証用Postgres）で案件の作成/更新/ステージ変更・台帳一括編集のガード・GPMの
+  受注/失注（`lost_at` 修正の実地確認込み）・投入口の `customer_type` 修正・ダッシュボード/
+  週報への `estimate_amount` 追加を確認済みだが、**実ブラウザでのPC/スマホ確認は行っていない**
+  （ほぼ全てサーバー・データモデル側の変更。Phase Bで削除した2〜3個のUI要素
+  [ロゴ許諾スイッチ・タグ節・台帳一括編集の対応項目] は目視確認していないことをPR本文に明記済み）。
 
 ---
 
