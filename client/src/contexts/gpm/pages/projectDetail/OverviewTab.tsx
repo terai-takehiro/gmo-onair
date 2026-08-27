@@ -23,18 +23,34 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
+import { GanttChartSquare, KanbanSquare, List, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmProjectTasks, useInvalidateGpm } from '../../queries';
 import type { GpmPhase, GpmProjectDetail, GpmTask, PhaseState } from '../../types';
 import { PhaseRow, PhaseRowsHeader } from './PhaseRows';
 import { PhaseDialog } from './PhaseDialog';
 import { TaskGroup, TaskRow } from './TaskRows';
 import { TaskDialog } from './TaskDialog';
+import { GpmGanttView } from './GpmGanttView';
+import { GpmKanbanView } from './GpmKanbanView';
+
+/**
+ * 見え方。**リストが既定**（今までどおり）。ガント（工程とタスクの時間軸）と
+ * かんばん（工程の列にタスクのカード）は PC だけ — どちらも横に伸びる表で、
+ * 375px 向けの作り直しをしていない（案件詳細のタスクタブと同じ判断）。
+ */
+type OverviewView = 'list' | 'gantt' | 'board';
+const VIEWS: { key: OverviewView; label: string; icon: typeof List }[] = [
+  { key: 'list', label: 'リスト', icon: List },
+  { key: 'gantt', label: 'ガント', icon: GanttChartSquare },
+  { key: 'board', label: 'かんばん', icon: KanbanSquare },
+];
 
 export function OverviewTab({
   project: p, today, canEdit, canManage, onDeleteProject,
@@ -48,6 +64,11 @@ export function OverviewTab({
   const id = p.id;
   const invalidate = useInvalidateGpm();
   const tasksQuery = useGpmProjectTasks(id);
+  const isMobile = useIsMobile();
+  const [view, setView] = useState<OverviewView>('list');
+  // **スマホは常にリスト**（切り替えボタンごと出さない）。幅が変わって `view` が
+  // ガントのまま残っても、ここで明示的にリストへ倒す
+  const effectiveView: OverviewView = isMobile ? 'list' : view;
 
   const [phaseEdit, setPhaseEdit] = useState<GpmPhase | null>(null);
   const [phaseAdding, setPhaseAdding] = useState(false);
@@ -123,8 +144,33 @@ export function OverviewTab({
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sub min-w-0 flex-1 text-muted-foreground">
-          工程の名前を押すと、その工程のタスクが出ます。
+          {effectiveView === 'list'
+            ? '工程の名前を押すと、その工程のタスクが出ます。'
+            : effectiveView === 'gantt'
+              ? '工程とタスクを1本の時間軸で見ています。'
+              : '工程の列にタスクを並べています。'}
         </p>
+        {/* 見え方の切り替え（PC だけ）。ガント・かんばんは横に伸びる表なのでスマホには出さない */}
+        {!isMobile && (
+          <div role="group" aria-label="見え方" className="flex overflow-hidden rounded-control-md border border-border">
+            {VIEWS.map(({ key, label, icon: Icon }, i) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setView(key)}
+                aria-pressed={view === key}
+                className={cn(
+                  'text-sub flex h-9 items-center gap-1.5 px-3',
+                  i > 0 && 'border-l border-border',
+                  view === key ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {canEdit && (
           <Button variant="outline" onClick={() => setPhaseAdding(true)}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />工程を足す
@@ -132,7 +178,31 @@ export function OverviewTab({
         )}
       </div>
 
-      {p.phases.length === 0 ? (
+      {effectiveView !== 'list' && (
+        tasksQuery.isLoading ? (
+          <Delayed><SkeletonRows rows={6} /></Delayed>
+        ) : effectiveView === 'gantt' ? (
+          <GpmGanttView
+            project={p}
+            tasks={tasksQuery.data ?? []}
+            canEdit={canEdit}
+            onEditPhase={setPhaseEdit}
+            onEditTask={(t) => setTaskDialog({ task: t, phaseId: t.phase_id })}
+          />
+        ) : (
+          <GpmKanbanView
+            project={p}
+            tasks={tasksQuery.data ?? []}
+            today={today}
+            canEdit={canEdit}
+            onEditTask={(t) => setTaskDialog({ task: t, phaseId: t.phase_id })}
+            onAddTask={(phaseId) => setTaskDialog({ task: null, phaseId })}
+            onToggleDone={(t) => toggleTask.mutate(t)}
+          />
+        )
+      )}
+
+      {effectiveView === 'list' && (p.phases.length === 0 ? (
         <EmptyState
           title="工程がまだありません"
           description="標準工程を選んで作ると、工程とタスクが日付付きで入ります。ここから1つずつ足すこともできます。"
@@ -175,8 +245,10 @@ export function OverviewTab({
             </div>
           ))}
         </div>
-      )}
+      ))}
 
+      {/* 工程に付いていないタスクの束はリストだけ。ガント・かんばんは自分の中に「工程なし」を持つ */}
+      {effectiveView === 'list' && (
       <section className="overflow-hidden rounded-card border border-border bg-card">
         <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-subtle px-4 py-2">
           <h2 className="text-th min-w-0 flex-1 text-muted-foreground">
@@ -215,6 +287,7 @@ export function OverviewTab({
           ))
         )}
       </section>
+      )}
 
       {/* メモ。**いちばん新しい1件**（列ではなくやり取りの `memo` に入っている・migration 184） */}
       {p.notes && (

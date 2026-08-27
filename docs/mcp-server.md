@@ -121,9 +121,10 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 ### プロジェクト管理 (GPM — GLS-B・2026-08 新設)
 
 HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、この口から案件 (GLS-A) は
-触れない。タスクは案件と同じ `project_tasks` の行なので、**ガント用の細かい編集
-(start_date / progress / is_milestone / work_state / 依存関係) は案件タスク側のツール
-(`update_task` / `add_task_dependency` 等) が GLS-B のタスクにもそのまま使える**。
+触れない。タスクは案件と同じ `project_tasks` の行で、**ガント用の細かい編集
+(start_date / progress / is_milestone / work_state / sort_order) は `create_gpm_task` /
+`update_gpm_task` がそのまま受ける**（GPM 画面にガント・かんばんが載った回で整備。
+タスク間の依存関係だけは案件タスク側の `add_task_dependency` 等が GLS-B にも使える）。
 `create_gpm_project` / `create_gpm_task` は AI 出力を `ai_outputs` に記録し
 (kind: `gpm_project_draft` / `gpm_task_draft`・`prompt_version` 任意)、人が画面や MCP から
 直すと差分が自動記録される (`gpm-ai-feedback.service`・7日窓)。
@@ -132,7 +133,7 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 |---|---|---|
 | `list_gpm_projects` | read | プロジェクト一覧 (stage / kind / q)。工程の進み・未確認事項の残数・次のタスク・最新見積・健全性 (health) つき |
 | `get_gpm_project` | read | 詳細 (工程 + 未確認事項 + 体制) |
-| `list_gpm_tasks` | read | タスク横断一覧 (open / done / overdue / all・project_id 絞り込み)。private は本人にだけ出る |
+| `list_gpm_tasks` | read | タスク横断一覧 (open / done / overdue / all・project_id 絞り込み)。ガント用の start_date / progress / is_milestone つき。private は本人にだけ出る |
 | `list_gpm_open_items` | read | 未確認事項の横断一覧 (既定は未解決のみ) |
 | `list_gpm_templates` | read | 標準工程テンプレート一覧 (工程・配下タスクの雛形・適用件数つき) |
 | `create_gpm_project` | write | プロジェクト作成 (テンプレート展開・開始日から工程に日付付与)。**AI 出力を記録** |
@@ -141,8 +142,8 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 | `create_gpm_phase` / `update_gpm_phase` | write | 工程の追加/部分更新 (日程は started_on / ends_on) |
 | `move_gpm_phase` | write | 工程を1つ上/下と入れ替え |
 | `delete_gpm_phase` | write | 工程を削除 (配下タスクは消えず「工程なし」に外れる) |
-| `create_gpm_task` | write | タスク追加 (工程に付けるのは任意・期限は 18:00)。**AI 出力を記録** |
-| `update_gpm_task` | write | タスクの部分更新 (期限 / 担当 / 工程の付け替え / 完了) |
+| `create_gpm_task` | write | タスク追加 (工程に付けるのは任意・期限は 18:00・start_date / progress / is_milestone も可)。**AI 出力を記録** |
+| `update_gpm_task` | write | タスクの部分更新 (期限 / 開始日 / 進捗% / ◆ / 止まり方 / 並び / 担当 / 工程の付け替え / 完了) |
 | `delete_gpm_task` | write | タスク削除 (soft delete) |
 | `create_gpm_open_item` / `update_gpm_open_item` | write | 未確認事項の追加/部分更新 (status: waiting/checking/resolved) |
 | `delete_gpm_open_item` | write | 未確認事項を削除 |

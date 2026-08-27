@@ -46,12 +46,17 @@ const PROJECT_FIELDS: { path: string; label: string }[] = [
 /**
  * タスク側。`is_completed` は業務の印なので入れない。
  * `gpm_phase_id` は「どの工程に付けるか」を AI が決めるので突き合わせる。
+ * `start_date`（ガントのバーの左端）と `is_milestone` も AI が埋められる項目なので
+ * 突き合わせる（ガント整備の回で create/update に入った）。`progress` / `work_state` は
+ * 業務が進んだ印なので入れない（進んだだけで「AI が間違えた」と数えてしまう）。
  */
 const TASK_FIELDS: { path: string; label: string }[] = [
   { path: 'title', label: 'タスク名' },
   { path: 'description', label: '説明' },
   { path: 'assigned_to', label: '担当者' },
   { path: 'due_date', label: '期限' },
+  { path: 'start_date', label: '開始日' },
+  { path: 'is_milestone', label: 'マイルストーン' },
   { path: 'gpm_phase_id', label: '工程' },
 ];
 

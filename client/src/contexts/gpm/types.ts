@@ -208,6 +208,10 @@ export interface GpmTask {
   is_completed: boolean;
   work_state: string | null;
   due_at: string | null;
+  /** ガント用 (migration 131): バーの左端・進捗% (0-100)・◆マイルストーン */
+  start_date: string | null;
+  progress: number;
+  is_milestone: boolean;
   sort_order: number;
   assigned_to: string | null;
   assigned_to_name: string | null;

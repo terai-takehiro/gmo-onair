@@ -106,6 +106,18 @@ function assertIn<T extends string>(v: string, allowed: readonly T[], label: str
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const dateOrNull = (v: unknown): string | null => (typeof v === 'string' && YMD.test(v) ? v : null);
 
+/**
+ * タスクの止まり方 (migration 137)。**完了は入れない** — 完了は `is_completed` が正で、
+ * `work_state` は「未完了のあいだの止まり方」（`project-tasks.service` と同じ3値）。
+ */
+const TASK_WORK_STATES = ['todo', 'doing', 'waiting'] as const;
+
+/** 進捗% (migration 131)。0〜100 の整数に丸める。数字でなければ null（呼び出し側で既定を決める） */
+function clampProgress(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
+}
+
 /** `2026-05-12` に `n` 日足す。**曜日は見ない** — 営業日で数えるかは決まっていない */
 function addDays(ymd: string, n: number): string {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -774,6 +786,9 @@ export const gpmTaskService = {
     return queryAll(
       `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
               COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::text AS due_at,
+              -- ガント用の3列 (migration 131)。読めないと、ガントの見た目を
+              -- MCP から直すときに現状が分からず「読める場所が案件側の口だけ」になる
+              t.start_date::text AS start_date, t.progress, t.is_milestone,
               t.sort_order, t.assigned_to,
               u.name AS assigned_to_name,
               ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
@@ -796,6 +811,7 @@ export const gpmTaskService = {
       // 期限の読みは一覧と同じ COALESCE（根源整理 §3-4）
       `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
               COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::text AS due_at,
+              t.start_date::text AS start_date, t.progress, t.is_milestone,
               t.sort_order, t.assigned_to,
               u.name AS assigned_to_name,
               ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
@@ -833,13 +849,17 @@ export const gpmTaskService = {
     ) as { m: number } | undefined;
 
     const id = uuidv4();
+    // 期限は due_at (18:00) と**旧 `due_date` 列の両方**に書く（update と同じ形）。
+    // due_at だけだと、start_date/due_date を読む案件詳細のガント（GLS-B の既定ビュー）
+    // からは「未スケジュール」に見える
     await execute(
       `INSERT INTO project_tasks
-         (id, project_id, title, description, is_completed, sort_order, due_at,
-          assigned_to, gpm_phase_id, created_by, updated_by)
-       VALUES (?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?)`,
+         (id, project_id, title, description, is_completed, sort_order, due_at, due_date,
+          start_date, progress, is_milestone, assigned_to, gpm_phase_id, created_by, updated_by)
+       VALUES (?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, projectId, title, input.description ?? null, Number(maxRow?.m ?? -1) + 1,
-       due ? `${due}T18:00:00` : null,
+       due ? `${due}T18:00:00` : null, due,
+       dateOrNull(input.start_date), clampProgress(input.progress) ?? 0, input.is_milestone === true,
        (typeof input.assigned_to === 'string' && input.assigned_to) ? input.assigned_to : null,
        phaseId, userId, userId],
     );
@@ -857,7 +877,8 @@ export const gpmTaskService = {
     // AI 起票の修正差分（gpm-ai-feedback）用の before。期限は日付に丸めて比べる
     // （書き込みは常に `<日付>T18:00:00` なので、日付が同じなら「直していない」）
     const FEEDBACK_COLS = `SELECT title, description, assigned_to,
-              due_at::date::text AS due_date, gpm_phase_id
+              due_at::date::text AS due_date, start_date::text AS start_date,
+              is_milestone, gpm_phase_id
          FROM project_tasks WHERE id = ?`;
     const before = await queryOne(FEEDBACK_COLS, [taskId]) as Record<string, unknown> | null;
     const sets: string[] = ['updated_at = NOW()', 'updated_by = ?'];
@@ -885,6 +906,26 @@ export const gpmTaskService = {
     if ('gpm_phase_id' in input) {
       const phaseId = await resolvePhaseId(String(task.project_id), input.gpm_phase_id);
       sets.push('gpm_phase_id = ?'); params.push(phaseId);
+    }
+    // ── ガント用の細かい編集 (migration 131 の列) ──────────────
+    // これまで「案件タスク側の update_task で」と案内していたが、GPM の画面に
+    // ガント・かんばんが載った回からこの口でも直せるようにした（口が2つあると
+    // 片方だけ検証が緩む形になるので、確認 (assertGpmTask) はこの update 1本に寄せる）
+    if ('start_date' in input) { sets.push('start_date = ?'); params.push(dateOrNull(input.start_date)); }
+    if ('progress' in input) {
+      // 列は NOT NULL DEFAULT 0。null で「消す」= 0 に戻す
+      sets.push('progress = ?'); params.push(clampProgress(input.progress) ?? 0);
+    }
+    if ('is_milestone' in input) { sets.push('is_milestone = ?'); params.push(input.is_milestone === true); }
+    if ('work_state' in input) {
+      const ws = String(input.work_state ?? 'todo');
+      assertIn(ws, TASK_WORK_STATES, 'work_state');
+      sets.push('work_state = ?'); params.push(ws);
+    }
+    if ('sort_order' in input) {
+      const so = Number(input.sort_order);
+      if (!Number.isInteger(so)) throw new AppError(400, 'VALIDATION_ERROR', 'sort_order は整数です');
+      sets.push('sort_order = ?'); params.push(so);
     }
     if ('is_completed' in input) {
       const done = input.is_completed !== false;
