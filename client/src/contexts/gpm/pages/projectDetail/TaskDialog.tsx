@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmUsers, useInvalidateGpm } from '../../queries';
 import { PHASE_STATE_LABEL, ymd, type GpmPhase, type GpmTask } from '../../types';
+import { PredecessorField } from './PredecessorField';
 
 const NONE = '_none_';
 
@@ -53,8 +54,11 @@ export function TaskDialog({
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [assignedTo, setAssignedTo] = useState(task?.assigned_to ?? '');
+  const [startDate, setStartDate] = useState(ymd(task?.start_date) ?? '');
   const [dueDate, setDueDate] = useState(ymd(task?.due_at) ?? '');
   const [phaseId, setPhaseId] = useState(task?.phase_id ?? defaultPhaseId ?? '');
+  const [progress, setProgress] = useState(task?.progress ?? 0);
+  const [isMilestone, setIsMilestone] = useState(task?.is_milestone ?? false);
 
   const save = useMutation({
     mutationFn: () => {
@@ -62,8 +66,11 @@ export function TaskDialog({
         title: title.trim(),
         description: description.trim() || null,
         assigned_to: assignedTo || null,
+        start_date: startDate || null,
         due_date: dueDate || null,
         gpm_phase_id: phaseId || null,
+        progress,
+        is_milestone: isMilestone,
       };
       return task
         ? api.put(`/gpm/tasks/${task.id}`, body)
@@ -120,7 +127,7 @@ export function TaskDialog({
             </Select>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="tk-who">担当</Label>
               <Select value={assignedTo || NONE} onValueChange={(v) => setAssignedTo(v === NONE ? '' : v)}>
@@ -134,10 +141,43 @@ export function TaskDialog({
               </Select>
             </div>
             <div>
+              <Label htmlFor="tk-progress">進み具合</Label>
+              <Select value={String(progress)} onValueChange={(v) => setProgress(Number(v))}>
+                <SelectTrigger id="tk-progress"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[0, 25, 50, 75, 100].map((p) => (
+                    <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tk-start">開始日（ガントのバーの左端）</Label>
+              <Input id="tk-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
               <Label htmlFor="tk-due">期限</Label>
               <Input id="tk-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
+
+          <label className="flex min-h-tap cursor-pointer items-center gap-2.5 lg:min-h-0">
+            <input
+              type="checkbox"
+              checked={isMilestone}
+              onChange={(e) => setIsMilestone(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            <span className="text-sub">
+              マイルストーン（◆）にする — 引渡し・検収など<strong className="font-bold">1日の節目</strong>。ガントでひし形になります
+            </span>
+          </label>
+
+          {/* 先行タスクは別テーブルへその場で保存するので、タスクがまだ無い（足すとき）は出せない */}
+          {task && <PredecessorField projectId={projectId} taskId={task.id} />}
 
           <div>
             <Label htmlFor="tk-desc">補足</Label>

@@ -23,7 +23,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { GanttChartSquare, KanbanSquare, List, Plus, Trash2 } from 'lucide-react';
+import { CalendarRange, GanttChartSquare, KanbanSquare, List, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Delayed, SkeletonRows, ErrorPanel, EmptyState } from '@gmo-onair/shared/src/client/states';
@@ -32,24 +32,30 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useGpmProjectTasks, useInvalidateGpm } from '../../queries';
-import type { GpmPhase, GpmProjectDetail, GpmTask, PhaseState } from '../../types';
+import { lateDays, ymd, type GpmPhase, type GpmProjectDetail, type GpmTask, type PhaseState } from '../../types';
 import { PhaseCard, PhaseRow, PhaseRowsHeader } from './PhaseRows';
 import { PhaseDialog } from './PhaseDialog';
 import { TaskCard, TaskGroup, TaskRow } from './TaskRows';
 import { TaskDialog } from './TaskDialog';
 import { GpmGanttView } from './GpmGanttView';
 import { GpmKanbanView } from './GpmKanbanView';
+import { GpmTimelineView } from './GpmTimelineView';
 
 /**
- * 見え方。**リストが既定**（今までどおり）。ガント（工程とタスクの時間軸）と
- * かんばん（工程の列にタスクのカード）は PC だけ — どちらも横に伸びる表で、
- * 375px 向けの作り直しをしていない（案件詳細のタスクタブと同じ判断）。
+ * 見え方。**リストが既定**（今までどおり）。
+ *   PC:    リスト／ガント／かんばん — ガント・かんばんは横に伸びる表なので PC だけ
+ *   スマホ: リスト／工程表 — ガントは移植せず、縦に読む工程表を出す
+ *          （Monday・TeamGantt・ANDPAD と同じ「モバイルにガントを縮小しない」判断）
  */
-type OverviewView = 'list' | 'gantt' | 'board';
-const VIEWS: { key: OverviewView; label: string; icon: typeof List }[] = [
+type OverviewView = 'list' | 'gantt' | 'board' | 'timeline';
+const PC_VIEWS: { key: OverviewView; label: string; icon: typeof List }[] = [
   { key: 'list', label: 'リスト', icon: List },
   { key: 'gantt', label: 'ガント', icon: GanttChartSquare },
   { key: 'board', label: 'かんばん', icon: KanbanSquare },
+];
+const MOBILE_VIEWS: { key: OverviewView; label: string; icon: typeof List }[] = [
+  { key: 'list', label: 'リスト', icon: List },
+  { key: 'timeline', label: '工程表', icon: CalendarRange },
 ];
 
 export function OverviewTab({
@@ -66,9 +72,22 @@ export function OverviewTab({
   const tasksQuery = useGpmProjectTasks(id);
   const isMobile = useIsMobile();
   const [view, setView] = useState<OverviewView>('list');
-  // **スマホは常にリスト**（切り替えボタンごと出さない）。幅が変わって `view` が
-  // ガントのまま残っても、ここで明示的にリストへ倒す
-  const effectiveView: OverviewView = isMobile ? 'list' : view;
+  // 幅が変わって `view` にその幅では出せない見え方が残っても、描く前にリストへ倒す
+  // （スマホにガント・かんばんは無い／PC に工程表は無い）
+  const effectiveView: OverviewView = isMobile
+    ? (view === 'timeline' ? 'timeline' : 'list')
+    : (view === 'timeline' ? 'list' : view);
+  const views = isMobile ? MOBILE_VIEWS : PC_VIEWS;
+
+  // 遅れの要約（工程の期限超過＋タスクの期限超過）。切り替えの右に常に出す —
+  // リスト・工程表・ガントのどれを見ていても「遅れているか」は最初に知りたい
+  const lateSummary = useMemo(() => {
+    const latePhases = p.phases.filter((ph) => lateDays(ymd(ph.ends_on), today, ph.state === 'done') > 0).length;
+    const overdueTasks = (tasksQuery.data ?? []).filter(
+      (t) => !t.is_completed && lateDays(ymd(t.due_at), today, false) > 0,
+    ).length;
+    return { latePhases, overdueTasks };
+  }, [p.phases, tasksQuery.data, today]);
 
   const [phaseEdit, setPhaseEdit] = useState<GpmPhase | null>(null);
   const [phaseAdding, setPhaseAdding] = useState(false);
@@ -143,40 +162,45 @@ export function OverviewTab({
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sub min-w-0 flex-1 text-muted-foreground">
-          {effectiveView === 'list'
-            ? '工程の名前を押すと、その工程のタスクが出ます。'
-            : effectiveView === 'gantt'
-              ? '工程とタスクを1本の時間軸で見ています。'
-              : '工程の列にタスクを並べています。'}
-        </p>
-        {/* 見え方の切り替え（PC だけ）。ガント・かんばんは横に伸びる表なのでスマホには出さない */}
-        {!isMobile && (
-          <div role="group" aria-label="見え方" className="flex overflow-hidden rounded-control-md border border-border">
-            {VIEWS.map(({ key, label, icon: Icon }, i) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setView(key)}
-                aria-pressed={view === key}
-                className={cn(
-                  'text-sub flex h-9 items-center gap-1.5 px-3',
-                  i > 0 && 'border-l border-border',
-                  view === key ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                {label}
-              </button>
-            ))}
-          </div>
+        {/* 見え方の切り替え。スマホは リスト／工程表・PC は リスト／ガント／かんばん */}
+        <div role="group" aria-label="見え方" className="flex overflow-hidden rounded-control-md border border-border bg-card">
+          {views.map(({ key, label, icon: Icon }, i) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              aria-pressed={effectiveView === key}
+              className={cn(
+                'text-sub flex items-center gap-1.5 px-3',
+                isMobile ? 'min-h-tap' : 'h-9',
+                i > 0 && 'border-l border-border',
+                effectiveView === key ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {(lateSummary.latePhases > 0 || lateSummary.overdueTasks > 0) && (
+          <p className="text-sub min-w-0 font-bold text-destructive">
+            {[
+              lateSummary.latePhases > 0 ? `遅れ ${lateSummary.latePhases}工程` : null,
+              lateSummary.overdueTasks > 0 ? `期限超過 ${lateSummary.overdueTasks}件` : null,
+            ].filter(Boolean).join(' ・ ')}
+          </p>
         )}
+        <div className="min-w-0 flex-1" />
         {canEdit && (
           <Button variant="outline" onClick={() => setPhaseAdding(true)}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />工程を足す
           </Button>
         )}
       </div>
+
+      {effectiveView === 'list' && (
+        <p className="text-sub text-muted-foreground">工程の名前を押すと、その工程のタスクが出ます。</p>
+      )}
 
       {effectiveView !== 'list' && (
         tasksQuery.isLoading ? (
@@ -187,6 +211,14 @@ export function OverviewTab({
             tasks={tasksQuery.data ?? []}
             canEdit={canEdit}
             onEditPhase={setPhaseEdit}
+            onEditTask={(t) => setTaskDialog({ task: t, phaseId: t.phase_id })}
+          />
+        ) : effectiveView === 'timeline' ? (
+          <GpmTimelineView
+            project={p}
+            tasks={tasksQuery.data ?? []}
+            today={today}
+            canEdit={canEdit}
             onEditTask={(t) => setTaskDialog({ task: t, phaseId: t.phase_id })}
           />
         ) : (
@@ -219,6 +251,7 @@ export function OverviewTab({
               <PhaseItem
                 phase={ph}
                 index={i}
+                today={today}
                 canEdit={canEdit}
                 open={openPhases.has(ph.id)}
                 canMoveUp={i > 0}

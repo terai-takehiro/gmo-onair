@@ -29,7 +29,7 @@ import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import {
-  PHASE_STATE_LABEL, PHASE_STATE_TONE, ymd, type GpmPhase, type PhaseState,
+  lateDays, PHASE_STATE_LABEL, PHASE_STATE_TONE, ymd, type GpmPhase, type PhaseState,
 } from '../../types';
 
 const STATES: PhaseState[] = ['todo', 'doing', 'blocked', 'done'];
@@ -39,6 +39,8 @@ export interface PhaseItemProps {
   phase: GpmPhase;
   /** 上から何番目か。PC の行だけが # 列に出す（カードは使わない） */
   index: number;
+  /** 今日（`YYYY-MM-DD`）。「N日遅れ」の判定に使う — 呼ぶ側が1回だけ作って配る */
+  today: string;
   canEdit: boolean;
   /** タスクを開いているか。**持つのは呼ぶ側** */
   open: boolean;
@@ -64,8 +66,9 @@ export function PhaseRowsHeader() {
 }
 
 export function PhaseRow({
-  phase, index, canEdit, open, canMoveUp, canMoveDown, onToggleOpen, onChangeState, onEdit, onMove,
+  phase, index, today, canEdit, open, canMoveUp, canMoveDown, onToggleOpen, onChangeState, onEdit, onMove,
 }: PhaseItemProps) {
+  const late = lateDays(ymd(phase.ends_on), today, phase.state === 'done');
   return (
     <Row divider stackOnMobile>
       <RowSlot w={56} align="right" className="text-sub-sm font-number text-muted-foreground" hideOnMobile>
@@ -109,8 +112,9 @@ export function PhaseRow({
         )}
       </RowSlot>
 
-      <RowSlot w={128}>
+      <RowSlot w={128} className="flex-col items-start justify-center">
         <DateRange short start={ymd(phase.started_on)} end={ymd(phase.ends_on)} className="text-sub" />
+        {late > 0 && <span className="text-badge font-bold text-destructive">{late}日遅れ</span>}
       </RowSlot>
 
       <RowSlot w={72} align="right" className="text-sub font-number" placeholder="—">
@@ -169,9 +173,10 @@ export function PhaseRow({
  * スマホは**1行目 = 工程名＋状態 / 2行目 = 担当・期間・タスク数＋操作**に固定する。
  */
 export function PhaseCard({
-  phase, canEdit, open, canMoveUp, canMoveDown, onToggleOpen, onChangeState, onEdit, onMove,
+  phase, today, canEdit, open, canMoveUp, canMoveDown, onToggleOpen, onChangeState, onEdit, onMove,
 }: PhaseItemProps) {
   const iconBtn = 'rounded-control-md flex h-11 w-11 items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30';
+  const late = lateDays(ymd(phase.ends_on), today, phase.state === 'done');
   return (
     <div className="border-b border-border-faint px-4 py-3 last:border-b-0">
       <div className="flex items-center gap-2">
@@ -232,6 +237,7 @@ export function PhaseCard({
               </span>
             </>
           )}
+          {late > 0 && <span className="text-badge font-bold text-destructive">{late}日遅れ</span>}
         </div>
         {canEdit && (
           <span className="flex shrink-0 items-center">

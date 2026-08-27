@@ -976,6 +976,21 @@ export async function seed() {
     await ins(gTaskSql, ['gpm-task-loose', GPM1, null, '引渡し後の保守契約をどうするか整理する',
       null, false, null, null, USERS.staff1, 0, USERS.admin]);
 
+    // 依存関係（先行→後続・FS）。ガントの矢印と「後続もずらすか」の確認を
+    // 画面で確かめるのに最低1本要る。機材の発注は「型番の確定」「割り付け図」の後
+    const depSql = `INSERT INTO task_dependencies (id, project_id, predecessor_id, successor_id, created_by) VALUES (?,?,?,?,?)`;
+    await ins(depSql, ['gpm-dep-1', GPM1, 'gpm-task-4', 'gpm-task-8', USERS.admin]);
+    await ins(depSql, ['gpm-dep-2', GPM1, 'gpm-task-5', 'gpm-task-8', USERS.admin]);
+
+    // ◆ マイルストーン（1日の節目）と、開始日を持つタスクを1つずつ。
+    // 無いと ◆ の描画・期間バー（開始〜期限）のガント表示が画面で確かめられない
+    await ins(
+      `INSERT INTO project_tasks (id, project_id, gpm_phase_id, title, is_completed, due_at, due_date, is_milestone, sort_order, created_by)
+       VALUES (?,?,?,?,false,?,?,true,?,?)`,
+      ['gpm-task-ms', GPM1, 'gpm-1-ph6', '引渡し', '2026-09-30T18:00', '2026-09-30', 1, USERS.admin],
+    );
+    await ins(`UPDATE project_tasks SET start_date = ? WHERE id = ?`, ['2026-08-12', 'gpm-task-8']);
+
     // 未確認事項（返事待ち・確認中・解決を1つずつ）
     const askSql = `INSERT INTO gpm_open_items (id, project_id, phase_id, question, to_kind, to_name, status, blocks, due_date, raised_by, raised_at, resolved_at, resolved_by)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
