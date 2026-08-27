@@ -1660,6 +1660,71 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   ⚠️ **実ブラウザでの操作確認（今日の営業カード・AI活動ページ・ナレッジ承認・コメント欄・
   カレンダー購読、375px含む）はこの開発セッションから行っていない**（PR本文に明記済み・
   検証環境での確認を推奨）。
+- **#446（docs(reviews): PR #444・#445 のマージ後の棚卸しを記録・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 01:59:10 JST / CI（`checks`/`build`）両方 green
+  02:01:28 JST / マージ 04:24:16 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約2時間22分48秒でマージ**しており、見る時間はあったが0件だった。棚卸し
+  記録そのもののPR（コード変更なし）。表に移す指摘はない（レビュー自体が届いていない
+  ため）。検証は `npm run lint`（warning数58件で着手前と同数）のみ。
+- **#447（release: v4.5.0・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 04:43:14 JST / CI（`checks`/`build`）両方 green
+  04:45:30 JST / マージ 04:46:26 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約56秒でマージ**しており、#433・#437・#439・#443 と同じ「見る前に入った」形。
+  ユーザー指示「リリース準備を」を受けた版上げ（4.4.9→4.5.0）。`npm run release:notes -- 4.5.0`
+  で `docs/changelog.d/` の下書き6件（#440・#442〜#446）を集約し、`package.json`・
+  `CLAUDE.md`「現在のバージョン」・`README.md` の3か所と `docs/version-history.md` への
+  アーカイブ移動を実施。中身は根源整理 Phase 1（#442）・Phase 2（#445）等、本流にマージ済み
+  の変更のみで、このPR自体は版の表記のみ（migration・画面変更なし）。表に移す指摘はない
+  （レビュー自体が届いていないため）。検証は `npm run check:version`（3か所一致）・
+  `RELEASE=1 npm run lint`（warning 58件・着手前と同数）・`npm run test`（1519件全パス）・
+  `node scripts/generate-version-history.mjs`（477件、書式崩れなし）を確認済み。
+  **本番へは出ていない** — 本番デプロイはユーザーが GitHub Releases でタグ `v4.5.0` を
+  Publish したときのみ（このPRのマージでは検証環境にしか出ない）。
+- **#448（fix(shared): PageHeader のタイトルが操作ボタンの多い画面で1文字ずつ潰れるのを
+  直した・2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 05:12:04 JST / CI（`checks`/`build`）両方 green
+  05:14:37 JST / マージ 05:19:07 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約4分30秒でマージ**。ユーザー報告「レイアウト崩れてるね」（案件を直す画面の
+  見出しが1文字ずつ縦に潰れているスクリーンショット）を受け、Playwright で実ブラウザ・
+  DOM 実測して原因を特定: `PageHeader` の見出しラッパーが `flex-1`（`flex-basis: 0%`）
+  だったため、flex-wrap の折り返し計算で見出しの幅が0と数えられ、補助操作ボタンが9個ある
+  「案件を直す」画面で見出しに残り幅しか渡らなかった。`flex-auto`（basis = 内容の幅）に
+  変更し、入り切らないときは補助操作側が下の行へ折り返るようにした。`shared/` の共通部品
+  のため配信中5アプリ全部に影響。1440px/1100px/375px で `/sales/projects/:id/edit`
+  （補助操作9個・最悪ケース）を実測し、修正後は見出しが1行で正しく表示されることを確認。
+  `/sales/projects`（一覧）・`/sales/dashboard` への回帰なしも確認済み。表に移す指摘はない
+  （レビュー自体が届いていないため）。検証は `npm run typecheck` / `npm run lint` に加え、
+  実ブラウザでの DOM 実測（複数ビューポート）を実施。
+- **#449（fix(client): 財務②請求・入金のGLS番号が長いと案件名に重なる不具合を直した・
+  2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 05:30:34 JST / CI（`checks`/`build`）両方 green
+  05:32:41 JST / マージ 05:53:35 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約20分54秒でマージ**。ユーザー報告「GLS番号 レイアウト崩れ」（請求・入金
+  画面でGLS番号が案件名に重なるスクリーンショット）を受け、Playwright で実ブラウザ・DOM
+  実測して原因を特定: `ClosingRows.tsx` のGLS番号列（`RowSlot w={96}`）がチェックボックス/
+  鍵アイコン＋番号を `flex` でまとめているが `min-w-0` が無く、内側の `truncate` 指定が
+  効かないまま `GLS-A010-2608` のような長い値が自然幅（実測127px）で描画され、96px の枠を
+  31px超えて隣の案件名列に重なっていた。`min-w-0`／`min-w-0 flex-1` を追加して修正
+  （修正後は wrapperSpan が正確に96px・numberSpan 70px・隣列と非重複を DOM で実測確認）。
+  同型の不具合が姉妹画面 `InvoiceRows.tsx`（見積・請求画面の同種列）にも存在すると分かり、
+  同じPRでまとめて修正した。表に移す指摘はない（レビュー自体が届いていないため）。検証は
+  `npm run typecheck` / `npm run lint` に加え、実ブラウザでの DOM 実測（修正前後の幅・
+  重なりの有無）を実施。
+- **#450（fix(finance): 受け取った書類から見積書を除外（台帳に入らないため）・
+  2026-08-27）** —
+  `get_review_comments` 0件のまま、作成 05:40:58 JST / CI（`checks`/`build`）両方 green
+  05:43:11 JST / マージ 05:53:48 JST（terai-takehiro 本人が手動マージ・`merged_by` で確認）。
+  **CI green から約10分37秒でマージ**。ユーザー指摘「見積書は除外したい 実際に台帳に入れる
+  のは請求書になるので」を受け、`finance_docs` の一覧（`inbox.service.ts` の
+  `list()`/`pendingCount()`）とホーム受信箱（`dashboard.routes.ts` の `FINANCE_DOC_BASE`）
+  から `doc_type='quote'`（見積書）を既定で除外し、台帳への受け渡し境界
+  （`doc-handoff.service.ts` の `handoffDoc()`）でも二重に弾くようにした。見積書は
+  ワークフローを最後までたどれない（承認しても「台帳に入れる」の先が無い）ため画面から
+  外したが、記録自体は消さず `doc_type=quote` を明示すれば読める（MCP の
+  `record_finance_doc` 説明文にも注記追加）。`DocumentsPage.tsx` の見出し・空状態の文言も
+  「見積書・請求書・注文書」→「請求書・注文書」に更新。表に移す指摘はない（レビュー自体が
+  届いていないため）。検証は `npm run typecheck --workspace=server` / `npm run lint` を
+  確認済み。
 
 ---
 
