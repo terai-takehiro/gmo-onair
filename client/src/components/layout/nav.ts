@@ -15,6 +15,7 @@
  */
 import {
   BarChart3,
+  Bot,
   Building2,
   Calendar,
   CalendarClock,
@@ -263,6 +264,8 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "設定", to: "/settings", icon: Settings, end: true },
         { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "sales" },
         { label: "権限とメンバー", to: "/settings/users", icon: UserCog, module: "admin" },
+        // AI の活動（Phase 2 ②）。月次レビュー通知の link がここを指すので URL は固定
+        { label: "AIの活動", to: "/settings/ai-activity", icon: Bot, module: "sales" },
       ],
     },
     {

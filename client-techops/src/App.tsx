@@ -32,6 +32,8 @@ import LiveLegacyProgramsPage from "@/pages/live/LiveLegacyProgramsPage";
 // docs/design/v4/qsheet-v4-coding/13-live-display-layout-editor.md §6）
 import LiveDisplayLayoutEditorPage from "@/pages/live/LiveDisplayLayoutEditorPage";
 import LiveDisplayTemplateLibraryPage from "@/pages/live/LiveDisplayTemplateLibraryPage";
+// AIナレッジの承認（core-redesign-plan.md Phase 2 ④。qsheet_ai_knowledge の唯一のUI）
+import AiKnowledgePage from "@/pages/ai-knowledge/AiKnowledgePage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -112,6 +114,10 @@ export default function App() {
             — セッション一覧の廃止に伴う UI 到達性の回復のみが目的（レビュー対応・§致命的2） */}
         <Route path="/techops/live-legacy" element={<LiveLegacyProgramsPage />} />
 
+        {/* AIナレッジの承認。案件に紐づかない全体設定なので :ownerKey を取らない
+            （閲覧は qsheet reader・操作ボタンは manager のみ。サーバー側ゲートと同じ線） */}
+        <Route path="/techops/ai-knowledge" element={<AiKnowledgePage />} />
+
         {/* スケジュール表（段4・04-schedule-impl.md §5-1） */}
         <Route path="/techops/schedules" element={<ScheduleListPage />} />
         <Route path="/techops/schedules/:id" element={<SchedulePage />} />
@@ -146,8 +152,8 @@ export default function App() {
         機械的に処理）: login / (top) / top / home / sheets / editor(/:id) /
         recording/:ownerKey / streaming/:ownerKey / rental/:ownerKey(/list)
         (/mail/:company) / live/:ownerKey(/timers)(/timers/:timerId/layout)(/settings) /
-        live-org-settings / live-display-templates / live-legacy / schedules(/:id) /
-        settings/schedule-templates / projects/:id /
+        live-org-settings / live-display-templates / live-legacy / ai-knowledge /
+        schedules(/:id) / settings/schedule-templates / projects/:id /
         docs/:id / programs/:id / onair/:id / rundown/:id / prompter/:id / audio/:id。
         `/qsheet/editor`（id無し）だけは `/techops/editor` 経由で
         `/techops/sheets` へさらに1段転送される（既存の同名ルートと同じ挙動）。

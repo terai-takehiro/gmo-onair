@@ -14,6 +14,9 @@ import { ListChecks } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
+// 健全性バッジは案件一覧と同じ部品（理由は `ProjectRows.tsx` の import に）。
+// リスト・カード・ボードの3か所が同じ1部品を使う — 見え方で状態が変わらないように
+import { HealthBadge } from '@/contexts/sales/pages/projectList/health';
 import { dueLabel, dueTone, KIND_LABEL, ymd, type GpmProjectRow } from '../../types';
 
 /** 左から「まだ何も無い」→「進行中」。完了・見送りは並べない（案件一覧の `ProjectBoard` と同じ） */
@@ -82,8 +85,9 @@ export function GpmProjectBoard({
                       {p.gpm_kind ? KIND_LABEL[p.gpm_kind] : '区分なし'}
                     </span>
                   </div>
-                  <p className="text-sub-sm mt-0.5 truncate text-muted-foreground">
-                    {p.customer_name || '依頼元 未設定'}
+                  <p className="text-sub-sm mt-0.5 flex items-center justify-between gap-1.5 text-muted-foreground">
+                    <span className="min-w-0 truncate">{p.customer_name || '依頼元 未設定'}</span>
+                    <HealthBadge p={p} />
                   </p>
                   <div className="mt-2 flex items-center gap-1.5 border-t border-border-faint pt-2">
                     <ListChecks className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />

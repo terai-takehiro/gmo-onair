@@ -51,6 +51,16 @@ export function ApplyFlowDialog({
   const qc = useQueryClient();
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set());
+  /** 役割→担当者（Phase 2 ⑥）。**選ばなくても入れられる**（従来どおり未割当） */
+  const [assign, setAssign] = useState<Record<string, string>>({});
+
+  // 担当の選択肢。**写しの一覧を作らず**既存の共通鍵を使い回す
+  // （出す人の範囲が画面ごとにずれるのを防ぐ）
+  const users = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ['users-by-module-sales'],
+    queryFn: async () => (await api.get('/users/by-module/sales')).data.data,
+    enabled: open,
+  });
 
   const classification = audience && projectCategory
     ? classificationKey(audience as Audience, projectCategory as ProjectCategory)
@@ -76,8 +86,8 @@ export function ApplyFlowDialog({
     enabled: open && !!picked,
   });
 
-  // 型を選び直したらチェックを入れ直す（前の型で外したものを持ち越さない）
-  useEffect(() => { setOff(new Set()); }, [picked?.id]);
+  // 型を選び直したらチェックと担当を入れ直す（前の型で選んだものを持ち越さない）
+  useEffect(() => { setOff(new Set()); setAssign({}); }, [picked?.id]);
 
   const chosen = useMemo(
     () => (rows.data ?? []).filter((r) => r.is_required || !off.has(r.id)),
@@ -85,10 +95,22 @@ export function ApplyFlowDialog({
   );
   const noDue = chosen.filter((r) => !r.due).length;
 
+  // 型に出てくる職種の一覧（重複を除く・行の並び順）。担当の欄はここから作る —
+  // 固定の ROLES 定数から作ると、型が使っていない職種の欄まで並ぶ
+  const roles = useMemo(() => {
+    const seen: string[] = [];
+    for (const r of rows.data ?? []) {
+      if (r.role && !seen.includes(r.role)) seen.push(r.role);
+    }
+    return seen;
+  }, [rows.data]);
+
   const apply = useMutation({
     mutationFn: () => api.post(`/flow-templates/${picked!.id}/apply`, {
       project_id: projectId,
       task_ids: chosen.map((r) => r.id),
+      // 役割→担当者。**未選択の役割は送らない**（渡さなければ従来どおり未割当で入る）
+      assignments: Object.fromEntries(Object.entries(assign).filter(([, v]) => v !== '')),
     }),
     onSuccess: () => {
       // **4つとも落とすこと。** 同じタスクを別の鍵で持つ画面が3つある
@@ -136,8 +158,9 @@ export function ApplyFlowDialog({
       <div className="flex flex-col gap-4">
         <p className="text-sub text-muted-foreground">
           入る工程を確かめて、要らないもののチェックを外してください。
-          <strong className="font-bold">担当は入りません</strong> — 型が持っているのは職種で、
-          誰がやるかは案件ごとに決まります。
+          型が持っているのは<strong className="font-bold">職種</strong>で、誰がやるかは案件ごとに
+          決まります — 下の「役割ごとの担当者」で選べば、その役割の工程に担当が入ります
+          （<strong className="font-bold">選ばなければ未割当のまま</strong>）。
         </p>
 
         {tpls.isError && <ErrorPanel title="工程の型を読み込めませんでした" error={tpls.error} onRetry={() => tpls.refetch()} />}
@@ -223,6 +246,40 @@ export function ApplyFlowDialog({
                 </label>
               );
             })}
+          </div>
+        )}
+
+        {/* 役割ごとの担当者（Phase 2 ⑥）。型が使っている職種の分だけ欄を出す */}
+        {picked && roles.length > 0 && (
+          <div className="rounded-card border border-border p-3.5">
+            <p className="text-th text-muted-foreground">役割ごとの担当者（選ばなくても入れられます）</p>
+            <p className="text-note mt-0.5 text-muted-foreground">
+              選んだ役割の工程にだけ担当が入ります。あとからタスクタブでも直せます。
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {roles.map((role) => (
+                <label key={role} className="flex items-center gap-2">
+                  <span className={cn(
+                    'text-badge rounded-badge w-[72px] shrink-0 px-2 py-0.5 text-center font-bold',
+                    ROLE_TONE[role] ?? 'bg-surface-subtle text-muted-foreground',
+                  )}
+                  >
+                    {role}
+                  </span>
+                  <select
+                    value={assign[role] ?? ''}
+                    onChange={(e) => setAssign((s) => ({ ...s, [role]: e.target.value }))}
+                    aria-label={`${role} の担当者`}
+                    className="min-h-tap rounded-control text-sub w-full min-w-0 flex-1 border border-border bg-background px-2 lg:min-h-[36px]"
+                  >
+                    <option value="">選ばない（あとで決める）</option>
+                    {(users.data ?? []).map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

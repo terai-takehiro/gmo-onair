@@ -35,6 +35,9 @@ import {
 } from '../../sales/services/project-health';
 import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
 import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID } from '../../qsheet/ai/monthly-review.service';
+import {
+  runSalesReviewIfDue, SALES_AI_REVIEW_JOB_KEY, SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID,
+} from '../../sales/services/sales-ai-review.service';
 
 /**
  * いまの `YYYY-MM-DD` と `HH:MM`。**日本の壁時計**で返す。
@@ -589,6 +592,21 @@ async function qsheetAiReviewDraft(today: string): Promise<NotifyInput[]> {
   }
 }
 
+/**
+ * 営業側の月次 AI レビュー（docs/core-redesign-plan.md Phase 2 ②）。
+ * 制作側（03:25）と同じ形 — **毎月1日だけ動き、AI を1回も呼ばない**。
+ * 止めたいときは `SALES_AI_REVIEW_NIGHTLY=off`。
+ */
+async function salesAiReviewDraft(today: string): Promise<NotifyInput[]> {
+  if ((process.env.SALES_AI_REVIEW_NIGHTLY || '').toLowerCase() === 'off') return [];
+  try {
+    return await runSalesReviewIfDue(today);
+  } catch (e) {
+    console.error('[scheduler] sales_ai_review failed:', (e as Error).message);
+    return [];
+  }
+}
+
 const JOBS: Job[] = [
   // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→完了）を
   // 先にしておかないと、その日の他の集計・通知が「終わったのに受注のまま」の行を数える。
@@ -616,6 +634,8 @@ const JOBS: Job[] = [
   // 段9（04-ai.md §5-5）。月次レビューの下書き＋通知。実際に動くのは毎月1日だけ
   // （`qsheetAiReviewDraft` の中で日付を見る。仕組みは他の日次仕事と同じ15分ポーリングに乗せる）
   { key: AI_REVIEW_JOB_KEY, at: '03:25', templateId: AI_REVIEW_NOTIFY_TEMPLATE_ID, run: qsheetAiReviewDraft },
+  // 営業側の月次 AI レビュー（Phase 2 ②）。制作側（03:25）の直後に置き、深夜の集計系に寄せる
+  { key: SALES_AI_REVIEW_JOB_KEY, at: '03:35', templateId: SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID, run: salesAiReviewDraft },
 ];
 
 /**

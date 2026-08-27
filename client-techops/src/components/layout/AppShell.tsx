@@ -37,12 +37,16 @@ import { buildQsheetNav } from "./nav";
  * 「コメントに書いたクラス名も Tailwind に拾われます」と同じ理由の別バージョン）。
  */
 export default function AppShell() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const productionNavContext = useProductionNavContext();
-  const { sections, mobileTabs } = buildQsheetNav(location.pathname, searchParams, productionNavContext);
+  const { sections, mobileTabs } = buildQsheetNav(location.pathname, searchParams, productionNavContext, {
+    // 「AIナレッジの承認」メニューは manager 以上にだけ出す。共通シェルの `module` 指定では
+    // レベル（manager）まで見られないため、ここで判定して渡す（`nav.ts` のコメント参照）
+    canManageAiKnowledge: hasPermission('qsheet', 'manager'),
+  });
 
   return (
     <SharedAppShell

@@ -327,4 +327,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   // sm:ブレークポイント対応済みで、社外/社内の文面カード・定時実行ログとも
   // 375pxで崩れなかった。ひな形コピーのダイアログも確認済み
   '/settings/notify',                   // ⑦ 通知とテンプレート
+  // 読む画面（一覧・集計・「確認した」の1タップ）だけで入力欄が無い。
+  // 一覧は行カード・成績は grid-cols-1 で縦積みになる設計（Phase 2 ②）
+  '/settings/ai-activity',              // AI の活動
 ];

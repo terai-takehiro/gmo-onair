@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { getFeedbackDigest, type FeedbackDigest } from '../../../shared/services/ai-feedback.service';
+import { getFeedbackDigest, OPS_NEWS_ITEM_KIND, type FeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { queryOne } from '../../../shared/db/connection';
 import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.service';
 import { ACTIVITY_FORMAT_KIND } from '../../sales/services/activity-log.service';
@@ -39,6 +39,10 @@ const KNOWN_KINDS = [
   NEXT_ACTION_SHORT_KIND,
   KPT_DRAFT_KIND,
   MINUTES_KIND,
+  // デイリーニュースの AI 投稿（Phase 2 ③）。ニュースを起票するスキルが「どんな投稿が
+  // 削除されがちか」を生成前に読めるようにする（HTTP の /ai-activity だけだと AI 側から
+  // ループが閉じない）。本文は社内周知でありセリフのような秘匿対象ではないので degrade しない
+  OPS_NEWS_ITEM_KIND,
   ...QSHEET_AI_KINDS,
 ] as const;
 

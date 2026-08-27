@@ -14,7 +14,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  Building2, ReceiptJapaneseYen, ListChecks, Contact, Scale, CalendarClock, Users, Mail,
+  Building2, ReceiptJapaneseYen, ListChecks, Contact, Scale, CalendarClock, Users, Mail, Bot,
 } from 'lucide-react';
 
 export interface HubCard {
@@ -99,6 +99,19 @@ export const HUB_GROUPS: HubGroup[] = [
         key: 'notify', title: '通知とテンプレート', desc: 'メール文面と通知の送り先',
         icon: Mail, tone: 'bg-primary-surface text-primary',
         to: '/settings/notify', module: 'admin', who: 'システム管理者',
+      },
+    ],
+  },
+  {
+    // AI の活動（Phase 2 ②）。設定というより「見張り」だが、月次レビュー通知の
+    // link（/settings/ai-activity）がここを指すので設定の下に置く
+    label: 'AI',
+    cards: [
+      {
+        key: 'ai-activity', title: 'AIの活動', desc: 'AIが何をして、どれだけ直されたか',
+        icon: Bot, tone: 'bg-ai-surface text-ai',
+        // 「直せるのは◯◯」の欄 — この画面で書けるのは月次レビューの「確認した」だけ
+        to: '/settings/ai-activity', module: 'sales', who: '案件管理の管理職（確認の打刻）',
       },
     ],
   },

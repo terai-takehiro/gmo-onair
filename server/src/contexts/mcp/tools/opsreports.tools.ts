@@ -3,6 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { opsReportService, OPS_REPORT_KINDS } from '../../dailyops/services/ops-report.service';
 import { getWeeklyStats } from '../../dailyops/services/weekly-stats.service';
 import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { queryAll } from '../../../shared/db/connection';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
+import { OPS_NEWS_ITEM_KIND } from '../../../shared/services/ai-feedback.service';
 
 // 日常業務アプリ (dailyops) の MCP ツール — 汎用レポート基盤 (ops_reports / ops_report_items)。
 // AI エージェントが定期実行 (毎朝のニュース収集 / 週明けの週次レポート生成) で使う想定。
@@ -95,6 +98,8 @@ export function registerOpsReportTools(server: McpServer): void {
           ai_related: z.boolean().optional().describe('AI 関連ニュースか'),
           pick: z.number().int().min(1).max(5).optional().describe('採用フラグ (通常は人間が設定)'),
         })).min(1).max(50),
+        prompt_version: z.string().max(100).optional()
+          .describe('生成に使ったプロンプトの版 (例 news-v2)。渡すと版ごとの成績を比較できる。任意 — 既存の呼び出しは変えなくてよい'),
         ...REQUESTED_BY,
       },
     },
@@ -109,6 +114,35 @@ export function registerOpsReportTools(server: McpServer): void {
         args.items,
         { source: 'ai', recordedBy: args.requested_by || currentActorId(), dedupeUrl: true },
       );
+      // フィードバックループ（Phase 2 ③・会社方針「AIを使い捨てにしない」の条件1）。
+      // **item ごとに1行**記録する — pick（1〜5）は行単位で付くので、レポート単位に
+      // 畳むと「どの記事が刺さったか」が読めない。**best-effort**（記録の失敗で
+      // ニュース投稿そのものは止めない）。ここで拾うのは今回入れた source='ai' の行だけ:
+      // `addItems` は id を返さないので、sort_order が単調増加であることを使って
+      // 末尾 `added` 件を引き直す（人の行は source='human' なので混ざらない）。
+      if (added > 0) {
+        try {
+          const inserted = await queryAll(
+            `SELECT id, category, content, note, url, ai_related, pick
+               FROM ops_report_items
+              WHERE report_id = ? AND deleted_at IS NULL AND source = 'ai'
+              ORDER BY sort_order DESC LIMIT ?`,
+            [report.id, added],
+          ) as Array<Record<string, unknown>>;
+          for (const row of inserted) {
+            await recordAiOutput({
+              kind: OPS_NEWS_ITEM_KIND,
+              targetTable: 'ops_report_items', targetId: String(row.id),
+              // payload は保存された行の全文（人が pick を付けたときの before になる）
+              payload: row, toolName: 'add_ops_report_items',
+              promptVersion: args.prompt_version ?? null,
+              actorId: currentActorId(), requestedBy: args.requested_by ?? null,
+            });
+          }
+        } catch (e) {
+          console.warn('[mcp] ops_news_item の記録に失敗しました（続行）:', (e as Error).message);
+        }
+      }
       audit('add_ops_report_items', { kind: args.kind, period_key: args.period_key, item_count: args.items.length },
         { report_id: report.id, added, skipped }, args.requested_by);
       return ok({ report_id: report.id, kind: report.kind, period_key: report.period_key, added, skipped });

@@ -113,6 +113,7 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/live/:ownerKey/timers', // 計時・視聴者・タイマー管理（同上）
   '/techops/live/:ownerKey/settings', // 計時・視聴者・番組設定（移植元の client-live 版もスマホで開いていた。縦一列のフォーム）
   '/techops/live-display-templates', // 表示レイアウト テンプレートライブラリ（一覧・検索・適用のみ。ドラッグ操作は無いのでスマホ対応の対象。13-live-display-layout-editor.md §6-3・§9-3）
+  '/techops/ai-knowledge', // AIナレッジの承認（カード縦積み。承認・却下はスマホからでも押せる — 月次レビュー通知から出先で処理する場面を想定）
   '/techops/projects/:id', // 制作のジャーニー（案件の入口）。カード縦積みで375pxでも読める
   '/techops/docs/:id',     // 制作のジャーニー（資料単体の入口）。同上
   '/techops/programs/:id', // 制作のジャーニー（番組＝マニュアルの入口）。2026-08-22 追加・同上

@@ -42,6 +42,10 @@ export function registerInboxTools(server: McpServer): void {
         gls_number: z.string().optional().describe('関連案件の GLS 番号 (分かれば)'),
         notes: z.string().optional(),
         message_id: z.string().optional().describe('メールの Message-ID (重複取込ガード)'),
+        // Phase 2（prompt_version の全 kind 展開）。**任意のまま増やすだけ** — 毎時動く
+        // メール取込スキルの後方互換が制約なので、必須にしない・既存引数は変えない
+        prompt_version: z.string().max(100).optional()
+          .describe('取込に使ったプロンプトの版 (例 mail-intake-v3)。渡すと版ごとの無修正採用率を比較できる。任意'),
         ...RICH_CONTENT_ARGS,
         ...REQUESTED_BY,
       },
@@ -64,6 +68,7 @@ export function registerInboxTools(server: McpServer): void {
         kind: FINANCE_DOC_INTAKE_KIND,
         targetTable: 'finance_docs', targetId: String(row.id),
         payload: args, toolName: 'record_finance_doc',
+        promptVersion: args.prompt_version ?? null,
         actorId: currentActorId(), requestedBy: args.requested_by ?? null,
         sourceChannel: 'email', messageId: args.message_id ?? null,
       });
@@ -119,6 +124,9 @@ export function registerInboxTools(server: McpServer): void {
         url: z.string().optional(),
         received_at: z.string().regex(DATE_RE).optional().describe('受信日 (YYYY-MM-DD)'),
         message_id: z.string().optional().describe('メールの Message-ID (重複取込ガード)'),
+        // Phase 2（prompt_version の全 kind 展開）。任意のまま増やすだけ — 既存の呼び出しを壊さない
+        prompt_version: z.string().max(100).optional()
+          .describe('取込に使ったプロンプトの版 (例 mail-intake-v3)。渡すと版ごとの無修正採用率を比較できる。任意'),
         ...RICH_CONTENT_ARGS,
         ...REQUESTED_BY,
       },
@@ -140,6 +148,7 @@ export function registerInboxTools(server: McpServer): void {
         kind: INQUIRY_INTAKE_KIND,
         targetTable: 'misc_inquiries', targetId: String(row.id),
         payload: args, toolName: 'record_inquiry',
+        promptVersion: args.prompt_version ?? null,
         actorId: currentActorId(), requestedBy: args.requested_by ?? null,
         sourceChannel: args.source ?? 'mail', messageId: args.message_id ?? null,
       });

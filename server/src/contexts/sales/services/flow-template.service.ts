@@ -172,9 +172,14 @@ export async function preview(
  * 選んだ工程を案件のタスクとして入れる。
  *
  * @param taskIds 入れる工程の id。**渡されたものだけ**入れる（外したものは入れない）
+ * @param assignments 職種（`project_flow_tasks.role`）→ 担当者（`users.id`）の対応表。
+ *   **渡さなければ今までどおり全員未割当**（Phase 2 ⑥。型が持つのは職種で、
+ *   誰がやるかは案件ごとに違う — だから入れる場でだけ選べるようにする。
+ *   対応表に無い職種・職種の無い工程は未割当のまま）
  */
 export async function apply(
   projectId: string, templateId: string, taskIds: string[], userId: string,
+  assignments?: Record<string, string>,
 ): Promise<{ created: number }> {
   const proj = await queryOne(
     `SELECT id, flow_applied_at FROM projects WHERE id = ? AND deleted_at IS NULL`,
@@ -187,6 +192,21 @@ export async function apply(
   }
   if (taskIds.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '入れる工程を1つ以上選んでください');
 
+  // 割当表の相手が実在するかを先に確かめる（assigned_to は users への FK なので、
+  // 確かめずに入れると途中の 1 件だけ FK 違反で落ち、タスクが半分だけ入る）
+  const assignByRole = assignments ?? {};
+  const assignees = [...new Set(Object.values(assignByRole).filter(Boolean))];
+  if (assignees.length > 0) {
+    const found = await queryAll(
+      `SELECT id FROM users WHERE id = ANY(?::text[]) AND deleted_at IS NULL`, [assignees],
+    );
+    const ok = new Set(found.map((u) => String(u.id)));
+    const missing = assignees.filter((id) => !ok.has(id));
+    if (missing.length > 0) {
+      throw new AppError(404, 'NOT_FOUND', '割当先のユーザーが見つかりません');
+    }
+  }
+
   const { intake, event } = await datesOf(projectId);
   const rows = await preview(templateId, intake, event);
   const chosen = rows.filter((r) => taskIds.includes(r.id));
@@ -197,11 +217,13 @@ export async function apply(
       // 期限は due_at（時刻つき・唯一の正）にも書く（根源整理 §3-4）。
       // 日付しか無い工程なので終業 18:00 を補う。due_date は互換のため残す —
       // due_date だけだと期限前通知（tk_due 以外の COALESCE 読み）から漏れる
-      `INSERT INTO project_tasks (id, project_id, title, due_date, due_at, sort_order, source, created_by, updated_by)
-       VALUES (?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, ?, 'flow_template', ?, ?)`,
-      // **担当は入れない。** 型が持つのは職種で、誰がやるかは案件ごとに決まる。
-      // 適当な人を入れると「自分のタスク」に他人の仕事が並ぶ
-      [uuidv4(), projectId, `${r.phase_name}｜${r.title}`, r.due, r.due, order++, userId, userId],
+      `INSERT INTO project_tasks (id, project_id, title, due_date, due_at, assigned_to, sort_order, source, created_by, updated_by)
+       VALUES (?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, ?, ?, 'flow_template', ?, ?)`,
+      // **担当は勝手には入れない。** 型が持つのは職種で、誰がやるかは案件ごとに決まる。
+      // 適当な人を入れると「自分のタスク」に他人の仕事が並ぶ。
+      // 入れる人が職種→担当の対応表を渡したときだけ、その職種の工程に割り当てる（Phase 2 ⑥）
+      [uuidv4(), projectId, `${r.phase_name}｜${r.title}`, r.due, r.due,
+        (r.role && assignByRole[r.role]) || null, order++, userId, userId],
     );
   }
 

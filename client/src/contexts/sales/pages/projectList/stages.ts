@@ -101,14 +101,7 @@ export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }
   { key: 'done', label: '終了', stages: ['s_completed', 'e_lost'] },
 ];
 
-/**
- * ⚠️ **案件一覧はもうこの日数を使いません**（docs/core-redesign-plan.md §3-1）。
- *
- * 「止まっている」のクライアント7日判定（旧 `isStale`）は廃止し、
- * 一覧・カード・ボードは `GET /projects` が返す `health`
- * （サーバー1か所 = `server/.../project-health.ts`・ステージ別しきい値＋生存証拠）
- * を使います。この定数が残っているのは **GPM の「おすすめ順」の近似判定**
- * （`contexts/gpm/pages/GpmProjectListPage.tsx` — GPM にはまだサーバー側の
- * health が無い）だけが参照しているためです。GPM が health を持ったら消すこと。
- */
-export const STALE_DAYS = 7;
+// 旧 `STALE_DAYS`（クライアント7日判定）はここに居ましたが、**削除済み**です
+// （docs/core-redesign-plan.md §3-1）。「止まっている」の判定は
+// `server/.../project-health.ts` の単一定義をサーバーが行に付けて返す `health` が正で、
+// 最後まで参照していた GPM の「おすすめ順」も health ベースに置き換えました。

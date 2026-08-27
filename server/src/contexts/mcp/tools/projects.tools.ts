@@ -82,7 +82,8 @@ export function registerProjectTools(server: McpServer): void {
     {
       title: '案件一覧',
       description:
-        '案件 (プロジェクト) を検索・一覧する。stage: neta=ネタ, d_hold=仮押さえ, c_proposal=見積提案, b_verbal=口頭決定, a_won=受注済, s_completed=案件終了, e_lost=失注。' +
+        // ラベルの正は shared/src/constants/statuses.ts（s_completed は「S 完了」。旧「案件終了」は使わない）
+        '案件 (プロジェクト) を検索・一覧する。stage: neta=ネタ, d_hold=仮押さえ, c_proposal=見積提案, b_verbal=口頭決定, a_won=受注済, s_completed=完了, e_lost=失注。' +
         'tab: yomi=GLS未発番のヨミ案件, active=GLS発番済で進行中, completed=完了, lost=失注。' +
         'search 指定時は開催期間フィルタ (event_month/event_from/event_to) は無視され全期間から検索される。',
       inputSchema: {
@@ -181,6 +182,10 @@ export function registerProjectTools(server: McpServer): void {
           .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:project")。同じキーが既存なら再作成しない'),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
         source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
+        // Phase 2（prompt_version の全 kind 展開）。**任意のまま増やすだけ** — 毎時動く
+        // メール取込スキルの後方互換が制約なので、必須にしない・既存引数は変えない
+        prompt_version: z.string().max(100).optional()
+          .describe('起票に使ったプロンプトの版 (例 mail-intake-v3)。渡すと get_ai_feedback_digest の by_model で版ごとの無修正採用率を比較できる。任意'),
         intake_channel: z.enum(['mail', 'phone', 'inview', 'referral', 'web', 'meeting', 'other']).optional()
           .describe('引き合いの入口（リード経路）。ネタの一覧に列で出る。'
             + 'inview=定期内覧会の来場から / web=問い合わせフォーム（画面では「WEBフォーム」）。'
@@ -284,6 +289,7 @@ export function registerProjectTools(server: McpServer): void {
           dates: args.dates ?? null, notes: args.notes ?? null,
         },
         toolName: 'create_project',
+        promptVersion: args.prompt_version ?? null,
         actorId: currentActorId(),
         requestedBy: args.requested_by ?? null,
         sourceChannel: args.source_channel ?? null,

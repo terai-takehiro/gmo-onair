@@ -35,6 +35,8 @@ import {
 import {
   STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES,
 } from '@/contexts/sales/pages/projectList/stages';
+// 健全性バッジは案件一覧と同じ部品（理由は `ProjectRows.tsx` の import に）
+import { HealthBadge } from '@/contexts/sales/pages/projectList/health';
 import { ProgressBar } from './ProjectRows';
 
 export function GpmProjectCards({
@@ -74,6 +76,7 @@ export function GpmProjectCards({
                     <span className="text-badge shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
                       {p.gpm_kind ? KIND_LABEL[p.gpm_kind] : '区分なし'}
                     </span>
+                    <HealthBadge p={p} />
                   </span>
                   {p.open_items > 0 && (
                     <span className="text-badge inline-flex shrink-0 items-center gap-0.5 text-destructive">

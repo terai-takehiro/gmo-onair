@@ -4,6 +4,7 @@ import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../s
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll } from '../../../shared/db/connection';
 import { myTasksService } from '../../tasks/services/my-tasks.service';
+import { taskCommentsService } from '../../tasks/services/task-comments.service';
 import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-intake.service';
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import {
@@ -763,6 +764,66 @@ router.post('/tasks', ...canEdit, async (req, res) => {
     source: b.source ? String(b.source) : 'manual',
   }, userId);
   res.status(201).json({ success: true, data: task });
+});
+
+// ══════════════════════════════════════════════
+// コメントスレッド (Phase 2 ⑤)
+// ══════════════════════════════════════════════
+
+/**
+ * タスクのコメント一覧。**当事者（依頼主・受け手・作成者）だけ**が読める
+ * （service 側で判定し、当事者以外には明確な 403 を返す）。
+ */
+router.get('/tasks/:id/comments', ...canRead, async (req, res) => {
+  const userId = me(req);
+  const rows = await taskCommentsService.listComments(String(req.params.id), userId);
+  res.json({ success: true, data: rows });
+});
+
+/**
+ * コメントを書く。当事者だけ。相手方（自分が依頼主なら受け手・受け手なら依頼主）へ
+ * 通知が出る（ひな形 dg_comment・best-effort。service 側）。
+ */
+router.post('/tasks/:id/comments', ...canEdit, async (req, res) => {
+  const userId = me(req);
+  const comment = await taskCommentsService.addComment(
+    String(req.params.id), userId, String(req.body?.body ?? ''),
+  );
+  res.status(201).json({ success: true, data: comment });
+});
+
+// ══════════════════════════════════════════════
+// タスク期限の ICS フィードトークン (Phase 2 ⑦)
+// ══════════════════════════════════════════════
+
+/** フィードの購読 URL を組み立てる（配信口は schedule コンテキストの認証なしの口） */
+function feedUrl(token: string): string {
+  const baseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
+  return `${baseUrl}/api/v1/internal/schedule/task-feeds/${token}.ics`;
+}
+
+/** いまのトークン。まだ発行していなければ token: null（画面は「発行する」を出す） */
+router.get('/tasks/feed-token', ...canRead, async (req, res) => {
+  const userId = me(req);
+  const token = await taskCommentsService.getFeedToken(userId);
+  res.json({ success: true, data: { token, feed_url: token ? feedUrl(token) : null } });
+});
+
+/**
+ * トークンを発行/再発行する。
+ * **reader でも発行できる**（見えるのは本人の期限だけで、書き換わるのは自分の
+ * トークン 1 行だけ。reader の人にもタスクは割り当てられるので、editor に
+ * 絞ると「タスクは来るのにカレンダーに出せない」人ができる）。
+ */
+router.post('/tasks/feed-token', ...canRead, async (req, res) => {
+  const userId = me(req);
+  const token = await taskCommentsService.issueFeedToken(userId);
+  res.status(201).json({
+    success: true,
+    // **再発行で旧 URL は無効になる**ことを必ず伝える（購読済みカレンダーが黙って止まるため）
+    message: '購読用 URL を発行しました。以前に発行した URL は無効になります。',
+    data: { token, feed_url: feedUrl(token) },
+  });
 });
 
 // ══════════════════════════════════════════════

@@ -55,10 +55,22 @@ router.post('/:id/preview', wrap(async (req, res) => {
 
 /** 選んだ工程を案件に入れる。**書き込みなので editor 以上** */
 router.post('/:id/apply', requirePermission('sales', 'editor'), wrap(async (req, res) => {
-  const { project_id, task_ids } = req.body ?? {};
+  const { project_id, task_ids, assignments } = req.body ?? {};
   if (!project_id) throw new AppError(400, 'VALIDATION_ERROR', '案件を指定してください');
   const ids = Array.isArray(task_ids) ? task_ids.map(String) : [];
-  res.json({ success: true, data: await apply(String(project_id), p1(req.params.id), ids, userOf(req)) });
+  // 職種→担当者の対応表（Phase 2 ⑥）。**渡さなければ今までどおり未割当**。
+  // 空の値（未選択のセレクト）はここで落とす — service に渡すと実在確認で 404 になる
+  const assignMap = assignments && typeof assignments === 'object' && !Array.isArray(assignments)
+    ? Object.fromEntries(
+        Object.entries(assignments as Record<string, unknown>)
+          .filter(([, v]) => typeof v === 'string' && v.trim() !== '')
+          .map(([k, v]) => [String(k), String(v)]),
+      )
+    : undefined;
+  res.json({
+    success: true,
+    data: await apply(String(project_id), p1(req.params.id), ids, userOf(req), assignMap),
+  });
 }));
 
 router.post('/:id/duplicate', canEdit, wrap(async (req, res) => {

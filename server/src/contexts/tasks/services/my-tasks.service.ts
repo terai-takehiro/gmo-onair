@@ -444,24 +444,27 @@ export const myTasksService = {
       throw new AppError(403, 'FORBIDDEN', '自分が受けた依頼にだけ返答できます');
     }
 
-    // 返答の内容は description に追記して残す (やり取りの記録として消さない)
-    const appended = note?.trim()
-      ? `\n\n[${decision === 'accepted' ? '承諾' : decision === 'declined' ? '辞退' : '相談'}] ${note.trim()}`
-      : '';
+    const decisionLabel = decision === 'accepted' ? '承諾' : decision === 'declined' ? '辞退' : '相談';
 
     await execute(
       `UPDATE project_tasks
        SET delegation_status = ?,
            accepted_at = CASE WHEN ? = 'accepted' THEN NOW() ELSE NULL END,
-           description = COALESCE(description, '') || ?,
            updated_at = NOW(), updated_by = ?
        WHERE id = ?`,
-      [decision, decision, appended, userId, taskId]
+      [decision, decision, userId, taskId]
     );
+    // 返答のメモはコメントスレッドに残す（Phase 2 ⑤。以前は description への追記だった —
+    // 本文と会話が混ざり、誰がいつ書いたかも分からなかった。**過去の追記は移行せずそのまま残す**）
+    if (note?.trim()) {
+      await execute(
+        `INSERT INTO task_comments (id, task_id, author_id, body) VALUES (?, ?, ?, ?)`,
+        [uuidv4(), taskId, userId, `[${decisionLabel}] ${note.trim()}`]
+      );
+    }
     const updated = await this.get(taskId);
     // 依頼主へ返答を知らせる（§3-4。特に辞退・相談は知らされないと「頼んだのに忘れられた」に戻る）。
     // ref_date に返答の種類を入れる — 相談→承諾は両方届き、同じ返答の連打は1回になる
-    const decisionLabel = decision === 'accepted' ? '承諾' : decision === 'declined' ? '辞退' : '相談';
     await notifyDelegation('dg_reply', String(row.requester_id), {
       '相手名': updated.assigned_to_name ?? '（不明）',
       'タスク名': updated.title,

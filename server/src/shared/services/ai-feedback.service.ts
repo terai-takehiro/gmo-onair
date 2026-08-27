@@ -24,6 +24,40 @@ import {
 } from '../../contexts/qsheet/ai/kinds';
 import { parseDur } from '../schedule/time';
 
+/**
+ * デイリーニュース1行の kind（Phase 2 ③・docs/core-redesign-plan.md §3-6）。
+ * `add_ops_report_items`（MCP）が item ごとに記録し、人の pick（1〜5）が成果になる。
+ * 値の正はここ — ツール側（`opsreports.tools.ts`）はこれを import する。
+ */
+export const OPS_NEWS_ITEM_KIND = 'ops_news_item';
+
+/** デイリーニュースの成果（kind=ops_news_item のときのみ）。pick は人が画面で付ける 1〜5 */
+export interface NewsStat {
+  /** AI が入れた行のうち、記録が残っている数（分母） */
+  items_total: number;
+  /** pick（1〜5）が付いた数 */
+  rated: number;
+  /** 評価が付いた割合 (0〜1)。低いままなら「評価する運用」が回っていない */
+  rated_rate: number | null;
+  /** 付いた pick の平均。**評価が付いた行だけ**で割る（未評価を 0 に数えない） */
+  avg_pick: number | null;
+}
+
+/**
+ * pick 成果の導出式（純関数・`shared/tests/salesAiReview.test.ts` が固定する）。
+ * - `rated_rate` は**全行**が分母（評価運用が回っているか）
+ * - `avg_pick` は**評価が付いた行だけ**が分母 — 未評価を 0 点に混ぜると、
+ *   評価を溜めている週ほど「質が下がった」ように見える
+ */
+export function newsPickOutcome(itemsTotal: number, rated: number, pickSum: number): {
+  rated_rate: number | null; avg_pick: number | null;
+} {
+  return {
+    rated_rate: itemsTotal > 0 ? Math.round((rated / itemsTotal) * 100) / 100 : null,
+    avg_pick: rated > 0 ? Math.round((pickSum / rated) * 100) / 100 : null,
+  };
+}
+
 export interface FieldStat {
   field_path: string;
   corrections: number;
@@ -165,6 +199,8 @@ export interface FeedbackDigest {
   };
   /** 投入の指標 (kind=task_intake のときのみ) */
   intake?: IntakeStat;
+  /** デイリーニュースの成果 (kind=ops_news_item のときのみ・Phase 2 ③) */
+  news?: NewsStat;
   /** 骨格の成績（kind=script_outline_draft のときのみ・段9） */
   outline?: OutlineStat;
   /** セリフの成績（kind=script_line_draft のときのみ・段9） */
@@ -510,6 +546,33 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
       total: num(iq?.total), unsorted: num(iq?.unsorted), stock: num(iq?.stock),
       ticket: num(iq?.ticket), project: num(iq?.project), dropped: num(iq?.dropped),
       dropped_rate: sorted > 0 ? num(iq?.dropped) / sorted : null,
+    };
+  }
+
+  // デイリーニュースの成果 (Phase 2 ③)。**既存データから読み取り時に導出する** —
+  // pick (1〜5) は人が画面で付ける採用フラグで、これが「AI が拾った記事の質」の成果になる。
+  // 同じ item に出力が複数付いても数えないよう、先に item を1行に畳む
+  // (`SUM(DISTINCT 金額)` を避けた estimate_draft の判断と同じ形)。
+  if (kind === OPS_NEWS_ITEM_KIND) {
+    const nw = await queryOne(
+      `SELECT COUNT(*) AS items_total,
+              COUNT(*) FILTER (WHERE pick IS NOT NULL) AS rated,
+              COALESCE(SUM(pick), 0) AS pick_sum
+         FROM (
+           SELECT DISTINCT i.id, i.pick
+             FROM ai_outputs o
+             JOIN ops_report_items i ON i.id = o.target_id
+              AND o.target_table = 'ops_report_items' AND i.deleted_at IS NULL
+            WHERE o.kind = ?
+              AND o.created_at >= NOW() - (? || ' days')::interval
+         ) AS one_row_per_item`,
+      [kind, w],
+    ) as any;
+    const itemsTotal = num(nw?.items_total);
+    const rated = num(nw?.rated);
+    digest.news = {
+      items_total: itemsTotal, rated,
+      ...newsPickOutcome(itemsTotal, rated, num(nw?.pick_sum)),
     };
   }
 
@@ -865,12 +928,31 @@ function inquiryAdvice(d: FeedbackDigest): string[] {
   return out;
 }
 
+/** デイリーニュースの pick（kind=ops_news_item のときだけ中身が出る・Phase 2 ③） */
+function newsAdvice(d: FeedbackDigest): string[] {
+  const n = d.news;
+  if (!n || n.items_total === 0) return [];
+  const out: string[] = [];
+  const rr = n.rated_rate != null ? Math.round(n.rated_rate * 100) : null;
+  out.push(`AI が入れたニュース ${n.items_total}件のうち、pick（1〜5）が付いたのは ${n.rated}件`
+    + (rr == null ? '。' : `（${rr}%）。`)
+    + (n.avg_pick != null ? ` 平均 pick は ${n.avg_pick}。` : ''));
+  // **平均が低い＝拾う記事の質が合っていない**。ただし評価が少ないうちは断定しない
+  // （既存の「10件未満は断定しない」作法と同じ）
+  if (n.avg_pick != null && n.rated >= SMALL_SAMPLE_THRESHOLD && n.avg_pick < 3) {
+    out.push('平均 pick が3を切っている。読まれるカテゴリ・pick の高い記事の傾向に寄せて選ぶこと。');
+  }
+  return out;
+}
+
 function buildAdvice(d: FeedbackDigest): string[] {
   const out: string[] = [];
   // **行き先は「人が直したか」とは別の信号**なので、修正が1件も無くても出す。
   // 誰も中身を直さずに全部見送っている、というのがまさに拾いすぎの形で、
   // 修正差分が無いことを理由に黙ると**その状態こそ気づけない**
   out.push(...inquiryAdvice(d));
+  // ニュースの pick も「直されたか」とは別の信号（評価そのもの）なので同じ扱い
+  out.push(...newsAdvice(d));
   // outline も「直されたか」とは別の信号（実尺の取得率）を含むので、reviewed_outputs=0 の
   // 早期return より前に出す（inquiryAdvice と同じ理由）
   out.push(...outlineAdvice(d));

@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, BookOpenCheck } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -151,6 +151,23 @@ function hubLabelOf(ctx: ProductionNavContext): string {
   return ctx.label || (ctx.scope === 'project' ? '案件ホーム' : '番組ホーム');
 }
 
+/**
+ * AIナレッジの承認（`/techops/ai-knowledge`）— qsheet **manager 以上にだけ**出すメニュー。
+ *
+ * 共通シェルの `ShellNavItem.module` は「そのモジュール権限を持つか」しか見ない
+ * （レベル manager の判定ができない。`AppSideMenu.tsx` の `visibleSections`）ので、
+ * 呼び出し側（`AppShell.tsx`）が `hasPermission('qsheet', 'manager')` を判定して
+ * ここへ渡す形にした。reader も直URLでは読める（読み専）が、承認業務の入口である
+ * このメニューは承認できる人にだけ見せる。
+ *
+ * 案件/番組の文脈に依存しない全体設定なので、文脈あり・なしのどちらの並びにも
+ * 独立した節として最後に足す（スマホ下タブには足さない — 3本ルールの枠を
+ * 日常業務でない管理メニューで潰さないため。スマホでは左メニューから開ける）。
+ */
+function aiKnowledgeSection(): ShellNavSection {
+  return { items: [{ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck }] };
+}
+
 function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
   const items = [
@@ -189,16 +206,19 @@ function buildDefaultMobileTabs(): ShellMobileTab[] {
 /**
  * サイドバー（PC）とスマホ下タブの中身を、いまの URL（と必要ならストアの値）から組み立てる。
  * `AppShell.tsx` から `buildQsheetNav(location.pathname, searchParams, useProductionNavContext())`
- * の形で呼ばれる契約（後続の作業がこの名前・シグネチャで読み込む）。
+ * の形で呼ばれる契約（後続の作業がこの名前・シグネチャで読み込む。第4引数は
+ * 後から足した省略可能な追加オプションで、既存の呼び方はそのまま動く）。
  */
 export function buildQsheetNav(
   pathname: string,
   searchParams: URLSearchParams,
   storeCtx: ProductionNavContext | null,
+  opts?: { canManageAiKnowledge?: boolean },
 ): { sections: ShellNavSection[]; mobileTabs: ShellMobileTab[] } {
   const ctx = resolveContext(pathname, searchParams, storeCtx);
-  if (ctx) {
-    return { sections: buildResolvedSections(ctx), mobileTabs: buildResolvedMobileTabs(ctx) };
-  }
-  return { sections: buildDefaultSections(), mobileTabs: buildDefaultMobileTabs() };
+  const sections = ctx ? buildResolvedSections(ctx) : buildDefaultSections();
+  // manager にだけ「AIナレッジの承認」を独立した節で足す（aiKnowledgeSection のコメント参照）
+  if (opts?.canManageAiKnowledge) sections.push(aiKnowledgeSection());
+  const mobileTabs = ctx ? buildResolvedMobileTabs(ctx) : buildDefaultMobileTabs();
+  return { sections, mobileTabs };
 }
