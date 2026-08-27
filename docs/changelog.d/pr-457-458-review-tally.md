@@ -1,1 +1,0 @@
-**PR #457（PR #456 の棚卸し記録）と PR #458（案件台帳の項目整理とバグ修正）のマージ後の棚卸しを記録した**（コード変更なし）。#457 は作成から `build` green まで約26秒（`checks` の完了は待たずマージ）、#458 は作成からCI green まで約2分23秒、CI green から約1分18秒（作成から約3分41秒）で、いずれもterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は401エラーで実行できなかったため、GitHub MCP で直接確認した）。
