@@ -4,7 +4,11 @@ import { requireAuth, requirePermission, requireAnyPermission } from '../../../s
 import { config } from '../../../config';
 import { getSalesOverview } from '../services/salesOverview.service';
 import { getAppBadges } from '../services/appBadges.service';
-import { completeElapsedWonProjects } from '../../sales/services/project-health';
+/**
+ * 健全性（stalled）と放置日数の式は **project-health.ts の単一定義**を読む
+ * （docs/core-redesign-plan.md §3-7）。ここに写すと一覧のバッジと「今日の営業」が黙ってずれる。
+ */
+import { completeElapsedWonProjects, healthSql, stalledDaysSql } from '../../sales/services/project-health';
 
 const router = Router();
 
@@ -303,7 +307,11 @@ router.get('/alerts', async (_req, res) => {
 // 出していたので、`LIMIT` に当たった瞬間から**画面の数字が実数と別のもの**になる
 // （実測: 未確認の AI 起票 124 件 → バッジは 50、未仕分けの問い合わせ 132 件 → 100）。
 // しかも**エラーは出ず、増えるほどズレが広がる**ので誰も報告できない。
-const OVERDUE_ACTIONS_BASE =
+//
+// 「次の一手」の共通条件（未完了の次回アクション × 進行中の案件）。
+// 超過（< 今日・受信箱）と「今日の営業」（<= 今日・今日期限も含む）は
+// **この1本から日付の切り方だけ**を変えて組む — 条件を写すと片方だけ直る。
+const NEXT_MOVES_CORE =
   `FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
@@ -311,7 +319,9 @@ const OVERDUE_ACTIONS_BASE =
    WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
      AND p.stage NOT IN ('s_completed','e_lost')
      AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-     AND a.next_action_done_at IS NULL
+     AND a.next_action_done_at IS NULL`;
+
+const OVERDUE_ACTIONS_BASE = `${NEXT_MOVES_CORE}
      AND a.next_action_date < CURRENT_DATE::text`;
 
 const OVERDUE_ACTIONS_SQL =
@@ -330,6 +340,66 @@ const OVERDUE_ACTIONS_COUNT_SQL = `SELECT COUNT(*)::int AS c ${OVERDUE_ACTIONS_B
 router.get('/overdue-actions', async (_req, res) => {
   const rows = await queryAll(OVERDUE_ACTIONS_SQL);
   res.json({ success: true, data: rows });
+});
+
+// ══════════════════════════════════════════════════════════
+// 「今日の営業」(docs/core-redesign-plan.md Phase 2 ①) — 営業が朝いちばんに開く3つの束。
+// 3集合とも **GLS-A（案件）だけ**（営業のビュー。GLS-B はプロジェクト管理の持ち物）。
+// ══════════════════════════════════════════════════════════
+
+// 期限が来た次の一手。**条件は受信箱の超過（OVERDUE_ACTIONS_BASE）と同じ NEXT_MOVES_CORE**
+// で、違いは日付の切り方だけ（<= 今日 = 今日期限のぶんも含める。超過してから浮上では遅い）。
+// 古い順 = 長くお待たせしているものが先。
+const TODAY_NEXT_MOVES_SQL =
+  `SELECT a.project_id, p.name AS project_name, c.name AS customer_name,
+          a.next_action AS action,
+          -- 一覧の1行に収まる短い言い換え（AI 生成・migration 190）。無ければ本文をそのまま
+          COALESCE(NULLIF(a.next_action_short, ''), a.next_action) AS action_short,
+          a.next_action_date AS due_date,
+          a.id AS activity_log_id
+   ${NEXT_MOVES_CORE}
+     AND a.next_action_date <= CURRENT_DATE::text
+     AND p.gls_category = 'A'
+   ORDER BY a.next_action_date ASC
+   LIMIT 50`;
+
+// スヌーズが明けたばかりの案件（今日までの7日間）。明けて7日経ったら黙って退場する —
+// 「明けました」を永久に並べると、次に開いた日から誰も読まなくなる。
+// snooze_until は DATE を ::text で返す（pg が JS Date にして UTC で1日ずれるため。一覧と同じ理由）
+const SNOOZE_AWAKE_SQL =
+  `SELECT p.id AS project_id, p.name AS project_name, c.name AS customer_name,
+          p.snooze_until::text AS snooze_until
+   FROM projects p
+   LEFT JOIN companies c ON c.id = p.customer_id
+   WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
+     AND p.stage NOT IN ('s_completed','e_lost')
+     AND p.snooze_until BETWEEN (CURRENT_DATE - 7) AND CURRENT_DATE
+   ORDER BY p.snooze_until DESC
+   LIMIT 50`;
+
+// 新しく停滞に入った案件。判定は project-health の 'stalled' そのもの（終端・スヌーズ中・
+// 期限超過は式の中で除外済み）。放置日数の**少ない順** = 腐り始めたばかりのものが先 —
+// 何百日も放置のものは受信箱・自動整理が拾う側で、ここは「今日気づけば安く済む」ものを出す。
+const NEWLY_STALLED_SQL =
+  `SELECT p.id AS project_id, p.name AS project_name, c.name AS customer_name, p.stage,
+          ${stalledDaysSql()} AS stalled_days
+   FROM projects p
+   LEFT JOIN companies c ON c.id = p.customer_id
+   WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
+     AND (${healthSql()}) = 'stalled'
+   ORDER BY stalled_days ASC
+   LIMIT 20`;
+
+router.get('/today-sales', async (_req, res) => {
+  const [nextMoves, snoozeAwake, newlyStalled] = await Promise.all([
+    queryAll(TODAY_NEXT_MOVES_SQL),
+    queryAll(SNOOZE_AWAKE_SQL),
+    queryAll(NEWLY_STALLED_SQL),
+  ]);
+  res.json({
+    success: true,
+    data: { next_moves: nextMoves, snooze_awake: snoozeAwake, newly_stalled: newlyStalled },
+  });
 });
 
 router.get('/recent-projects', async (_req, res) => {

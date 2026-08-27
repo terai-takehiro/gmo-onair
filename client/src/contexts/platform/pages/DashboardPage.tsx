@@ -7,11 +7,17 @@
  * 朝いちばんに開いて、押す先が決まればそれで役目は終わりです。
  *
  *   受付          未処理が何件あるか → 受付をひらく
+ *   今日の営業    期限が来た次の一手 / 今日スヌーズ明け / 止まり始めた案件
+ *                 （docs/core-redesign-plan.md Phase 2 ①。**最上部の主役**）
  *   数字 5つ      進行中 / 今週の実施 / 見積の返事待ち / 今月の売上 / 止まっている
  *   動いている案件 動きがあった順に6件。次のアクションと担当つき
  *   止まっている案件 7日以上ほったらかしのものを名指しする
  *   ステージ別    受注に近い順。棒は金額
  *   今週の現場    今日から7日ぶん
+ *
+ * **「期限が過ぎたやること」（`OverduePanel`）はこの版で「今日の営業」に吸収**。
+ * 同じ次の一手を2枚のカードで数えることになるため（client/CLAUDE.md
+ * 「同じ数字を2か所で数えない」）、経緯は `TodaySalesCard.tsx` の頭に。
  *
  * ── 前の版から**外した**もの (意図した変更) ──────────────────
  *
@@ -42,7 +48,7 @@ import { KpiStrip } from './salesDashboard/KpiStrip';
 import { IntakeButton } from './salesDashboard/IntakeButton';
 import { MovingPanel } from './salesDashboard/MovingPanel';
 import { StuckPanel } from './salesDashboard/StuckPanel';
-import { OverduePanel } from './salesDashboard/OverduePanel';
+import { TodaySalesCard } from './salesDashboard/TodaySalesCard';
 import { StagePanel } from './salesDashboard/StagePanel';
 import { WeekPanel } from './salesDashboard/WeekPanel';
 import { MobileSalesDashboard } from './salesDashboard/MobileSalesDashboard';
@@ -110,6 +116,13 @@ function DesktopSalesDashboard() {
         <IntakeButton />
       </PageHeader>
 
+      {/*
+        **「今日の営業」を最上部に**（docs/core-redesign-plan.md Phase 2 ①）。
+        朝いちばんに開く画面の一番上は「押す先が決まる枚」— KPI は状況の説明で、
+        行動を決めるのはこちら。
+      */}
+      <TodaySalesCard />
+
       {overview.isError ? (
         <ErrorPanel
           title="ダッシュボードの数字を読み込めませんでした"
@@ -123,18 +136,15 @@ function DesktopSalesDashboard() {
       )}
 
       {/*
-        2列。左が広い (3:2) のは、左に置く2枚が**案件を名指しする枚**だからです。
-        スマホでは1列になり、順番は「動いている → 期限超過 → 止まっている →
-        ステージ別 → 今週」。
+        2列。左が広い (3:2) のは、左に置く枚が**案件を名指しする枚**だからです。
+        スマホでは1列になり、順番は「動いている → 止まっている → ステージ別 → 今週」。
 
-        **「期限が過ぎたやること」は上のほうに置く。** 受付（②）を
-        モックどおり引き合いだけにしたので、**相手を待たせているものを見る場所は
-        ここだけ**になりました。下に送ると見られません。
+        「期限が過ぎたやること」（旧 `OverduePanel`）がここに居ましたが、
+        **最上部の「今日の営業」に吸収**しました。ステージ別は右の 1fr に
+        相方が居なくなったので全幅に伸ばします（枠だけの空きマスを置かない）。
       */}
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <MovingPanel />
-
-        <OverduePanel />
 
         {overview.data ? (
           <StuckPanel overview={overview.data} />
@@ -144,13 +154,15 @@ function DesktopSalesDashboard() {
           </div>
         )}
 
-        {pipeline.data ? (
-          <StagePanel stages={pipeline.data} />
-        ) : (
-          <div className="rounded-card border border-border bg-card p-4">
-            <Delayed><SkeletonRows rows={5} /></Delayed>
-          </div>
-        )}
+        <div className="lg:col-span-2">
+          {pipeline.data ? (
+            <StagePanel stages={pipeline.data} />
+          ) : (
+            <div className="rounded-card border border-border bg-card p-4">
+              <Delayed><SkeletonRows rows={5} /></Delayed>
+            </div>
+          )}
+        </div>
 
         {/*
           **今週の現場は全幅**（モックの `grid-column: 1 / -1`）。

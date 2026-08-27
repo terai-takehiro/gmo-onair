@@ -32,6 +32,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { TemplateDialog } from './TemplateDialog';
+import { CalendarFeedCard } from './CalendarFeedCard';
 import type { NotifyResponse, Template } from './notifyTypes';
 
 const AUDIENCE = {
@@ -45,8 +46,11 @@ const CHANNEL = {
 
 export default function NotifyPage() {
   const qc = useQueryClient();
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const canEdit = currentUser?.role === 'system_admin';
+  // カレンダー購読の口は dailyops reader（自分のタスクの期限だけ）。
+  // 権限が無い人には節ごと出さない — 出すと押した瞬間 403 になるだけ
+  const canFeed = currentUser?.role === 'system_admin' || hasPermission('dailyops');
   const [open, setOpen] = useState<Template | null>(null);
 
   const q = useQuery<NotifyResponse>({
@@ -159,6 +163,9 @@ export default function NotifyPage() {
         </div>
         {internal.map((t) => <Card key={t.id} t={t} />)}
       </div>
+
+      {/* ── カレンダー購読（Phase 2 ⑦・dailyops 権限のある人だけ）── */}
+      {canFeed && <CalendarFeedCard />}
 
       {/* ── 定時実行 ──────────────────────────────────────── */}
       <div className="rounded-card overflow-hidden border border-border bg-card">

@@ -67,12 +67,6 @@ import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from 
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { GpmProjectCards } from './projectList/ProjectCards';
 import { GpmProjectBoard } from './projectList/ProjectBoard';
-/**
- * 「止まっている」の判定は案件一覧と同じ7日（`STALE_DAYS`）を使う。
- * ここだけ別の日数にすると、案件台帳の「おすすめ順」と並びの理由が食い違う
- * （レビュー指摘 Codex #177 で発見: 以前は並べ替えずサーバーの順のままにしていた）。
- */
-import { STALE_DAYS, TERMINAL_STAGES } from '@/contexts/sales/pages/projectList/stages';
 
 type SortKey = 'recommended' | 'estimate_desc' | 'due_asc';
 
@@ -93,20 +87,16 @@ function compareDue(da: string | null, db: string | null, tie: number): number {
 /**
  * **「おすすめ順」は案件台帳の `sort_by=recommended` と同じ考え方で並べる**
  * （`server/.../project.service.ts` の `RECOMMENDED_SORT_SQL`）:
- * ① 動いている案件のうち7日動いていないもの（`STALE_DAYS`）を先に ②期限が近い順
- * ③受注に近い段（進行中 → 準備中の中でも受注に近い順）。
+ * ① 停滞している案件を先に ② 期限が近い順。
  *
- * サーバーが返す順をそのまま使わないのは、それが「ステージ順 → 実施日 → 作成日」
- * （`gpm.service.ts` の一覧 SQL）で、**止まっている案件を先に出す**という
- * 案件台帳の「おすすめ」の意味を持っていないため（レビュー指摘で発見）。
- * GPM には案件の `last_activity_at`（活動記録）に相当する列が無いので、
- * 止まっている判定は行の `updated_at` で代用する。
+ * 「停滞」の判定は**サーバーが一覧の行に付けて返す `health`**
+ * （`project-health.ts` の単一定義。終端・スヌーズ中・期限超過は 'stalled' に
+ * ならない）をそのまま読む。以前は `STALE_DAYS`（7日・`updated_at` 比較）で
+ * この画面だけ近似していて、案件一覧のしきい値を直しても GPM だけ古い判定の
+ * ままになる形だった（docs/core-redesign-plan.md §3-1 で単一定義へ寄せた）。
  */
-function recommendedRank(p: GpmProjectRow, today: number): number {
-  if (TERMINAL_STAGES.includes(p.stage)) return 1;
-  const t = new Date(p.updated_at).getTime();
-  if (!Number.isFinite(t)) return 1;
-  return today - t >= STALE_DAYS * 86_400_000 ? 0 : 1;
+function recommendedRank(p: GpmProjectRow): number {
+  return p.health === 'stalled' ? 0 : 1;
 }
 
 function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
@@ -116,9 +106,8 @@ function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
   } else if (sort === 'due_asc') {
     withKey.sort((a, b) => compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i));
   } else {
-    const now = Date.now();
     withKey.sort((a, b) => {
-      const rankDiff = recommendedRank(a.p, now) - recommendedRank(b.p, now);
+      const rankDiff = recommendedRank(a.p) - recommendedRank(b.p);
       if (rankDiff !== 0) return rankDiff;
       return compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i);
     });

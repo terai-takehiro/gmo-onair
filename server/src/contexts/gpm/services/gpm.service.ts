@@ -51,6 +51,12 @@ import {
  * 別表にすると、Whisper の投げ方・整形のプロンプト・差分の記録が2つになります。
  */
 import { getMinutes } from '../../sales/services/minutes.service';
+/**
+ * 健全性（snoozed / overdue / stalled / ok）と放置日数は **project-health.ts の単一定義**を読む
+ * （docs/core-redesign-plan.md §3-7・案件一覧 GET /projects と同じ意味論）。
+ * ここに式を写すと、案件側のしきい値を直した日からプロジェクト一覧だけ別の判定になる。
+ */
+import { healthSql, stalledDaysSql } from '../../sales/services/project-health';
 
 export const GPM_KINDS = ['self_build', 'group_order'] as const;
 export const OPEN_ITEM_STATUSES = ['waiting', 'checking', 'resolved'] as const;
@@ -288,7 +294,12 @@ export const projectService = {
               --    （書くと SQL の途中で文字列が終わり、構文エラーになる）
               est.amount AS estimate_amount,
               last_est.version AS estimate_version,
-              last_est.status AS estimate_status
+              last_est.status AS estimate_status,
+              -- 健全性と放置日数（project-health.ts の単一定義・案件一覧と同じ意味論）。
+              -- snooze_until は DATE を ::text にする（pg が JS Date にして UTC で1日ずれるため）
+              ${healthSql()} AS health,
+              ${stalledDaysSql()} AS stalled_days,
+              p.snooze_until::text AS snooze_until
          FROM projects p
          LEFT JOIN companies c ON c.id = p.customer_id
          LEFT JOIN users u ON u.id = p.assigned_to

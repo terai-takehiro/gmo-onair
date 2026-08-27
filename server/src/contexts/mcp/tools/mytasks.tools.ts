@@ -65,6 +65,10 @@ export function registerMyTaskTools(server: McpServer): void {
         drafts: z.array(z.object(DRAFT_SHAPE)).default([])
           .describe('解析したタスク案。曖昧なものも印を立てて含める'),
         note: z.string().optional(),
+        // Phase 2（prompt_version の全 kind 展開）。**任意のまま増やすだけ** — 毎時動く
+        // メール取込スキルの後方互換が制約なので、必須にしない・既存引数は変えない
+        prompt_version: z.string().max(100).optional()
+          .describe('解析に使ったプロンプトの版 (例 intake-v2)。渡すと get_ai_feedback_digest の by_model で版ごとの成績を比較できる。任意'),
         ...REQUESTED_BY,
       },
     },
@@ -77,6 +81,9 @@ export function registerMyTaskTools(server: McpServer): void {
           note: args.note ?? null,
           requested_by: args.requested_by ?? null,
           tool_name: 'create_task_intake',
+          // サービス側は最初から受け口を持っていた（「これが無いとプロンプト改善の
+          // 前後を比較できない」）のに、MCP からは渡す口が無かった — ここで繋ぐ
+          prompt_version: args.prompt_version ?? null,
         },
         currentActorId()
       );

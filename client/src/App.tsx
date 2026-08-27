@@ -64,6 +64,7 @@ import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SearchPage from "@/contexts/platform/pages/SearchPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
+import AiActivityPage from "@/contexts/platform/pages/AiActivityPage";
 import SitesPage from "@/contexts/platform/pages/SitesPage";
 import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
 import MoneyRulesPage from "@/contexts/platform/pages/money/MoneyRulesPage";
@@ -88,10 +89,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * 旧 `/sales/projects/:projectId/{tasks,episodes,estimates}` — v4 ⑥ で
- * 案件詳細のタブに畳んだ。**ブックマークと配布済みのリンクを生かすための転送**。
- */
 /** 旧 `/admin/*` → `/settings/*`。`/admin/settings` だけは `/settings` に畳む */
 function RedirectAdminToSettings() {
   const { pathname, search } = useLocation();
@@ -100,6 +97,7 @@ function RedirectAdminToSettings() {
   return <Navigate to={to + search} replace />;
 }
 
+/** 旧 `/sales/projects/:projectId/{tasks,episodes,estimates}` — v4 ⑥ で案件詳細のタブに畳んだ。ブックマークと配布済みリンクを生かすための転送 */
 function RedirectToDetailTab({ tab }: { tab: string }) {
   const { projectId } = useParams<{ projectId: string }>();
   return <Navigate to={`/sales/projects/${projectId}/${tab}`} replace />;
@@ -334,6 +332,8 @@ function AppRoutes() {
         <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
         {/* ⑦ 通知とテンプレート。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
+        {/* AI の活動（Phase 2 ②）。読むのは `sales` の reader。「確認した」だけ manager（画面とサーバーの両方で見ている）。URL は月次レビュー通知の link と対 — 変えない */}
+        <Route path="/settings/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         {/* 決算インポートは v4 で「取り込み」に畳んだ。旧URLは二段で転送する */}

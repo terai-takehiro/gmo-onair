@@ -92,7 +92,11 @@ router.post('/:id/open-items/:index/task', canEdit, async (req, res) => {
   }
   res.status(201).json({
     success: true,
-    data: await openItemToTask(paramsOf(req).id, index, req.user!.id),
+    data: await openItemToTask(
+      paramsOf(req).id, index, req.user!.id,
+      // 担当（Phase 2 ⑥）。**渡さなければ今までどおり未割当**
+      req.body?.assigned_to ? String(req.body.assigned_to) : undefined,
+    ),
   });
 });
 

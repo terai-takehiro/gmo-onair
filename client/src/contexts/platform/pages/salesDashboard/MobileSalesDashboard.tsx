@@ -43,7 +43,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Inbox, ClipboardPaste, Mic, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -57,10 +57,12 @@ import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
 import { intakeCountOf, type InboxData } from '@/contexts/sales/pages/inbox/kinds';
+import { TodaySalesCard, TODAY_SALES_KEY } from './TodaySalesCard';
 import type { SalesOverview } from './types';
 
 export function MobileSalesDashboard() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
   const [stuckOpen, setStuckOpen] = useState(false);
@@ -92,7 +94,12 @@ export function MobileSalesDashboard() {
   const waiting = intakeCountOf(inbox.data);
   const kpi = overview.data?.kpi;
 
-  const refresh = () => Promise.all([overview.refetch(), inbox.refetch(), tasks.refetch()]);
+  // 「今日の営業」は部品（`TodaySalesCard`）が自分で問い合わせを持つので、
+  // ここからは鍵で落とすだけ（refetch の関数を配って回すより取り違えが起きない）
+  const refresh = () => Promise.all([
+    overview.refetch(), inbox.refetch(), tasks.refetch(),
+    qc.invalidateQueries({ queryKey: TODAY_SALES_KEY }),
+  ]);
 
   return (
     <div className="flex flex-col gap-3.5 p-3">
@@ -110,6 +117,12 @@ export function MobileSalesDashboard() {
 
       <PullToRefresh onRefresh={refresh}>
       <div className="flex flex-col gap-3.5">
+      {/* ── ⓪ 今日の営業（docs/core-redesign-plan.md Phase 2 ①） ──────
+          PC と同じ部品を最上部に。モックの3ブロックより先に置くのは、
+          これが「開いた瞬間に押す先が決まる枚」だから（PC 側と同じ判断）。
+          部品は 375px でも1カラムで成立する（Row が縦積みに折り返す） */}
+      <TodaySalesCard />
+
       {/* ── ① 案件受付 ─────────────────────────────────────── */}
       <section className="rounded-card border border-primary-border bg-card p-3.5">
         <h2 className="text-cardtitle mb-2.5 flex items-center gap-2">

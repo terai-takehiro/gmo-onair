@@ -358,14 +358,16 @@ export async function deleteMinutes(id: string, userId: string): Promise<void> {
  * どちらを消すか分からなくなります（画面のボタンを隠すだけでは足りません —
  * もう一方の画面は古いままボタンを出しています）。
  *
- * ── 担当は入れない ──────────────────────────────────────────
+ * ── 担当は勝手には入れない ──────────────────────────────────
  *
  * `open_items[].owner` は **AI が文字起こしから拾った名前の文字列**で、
  * 利用者の id ではありません。名前で人を突き合わせると、同姓の人や
- * 取引先の名前を社内の誰かに割り当てます。**説明に書くだけ**にします。
+ * 取引先の名前を社内の誰かに割り当てます。AI の文字列は**説明に書くだけ**にします。
+ * ただし**人が画面で担当を選んだとき**（`assignedTo`）はその id で割り当てます
+ * （Phase 2 ⑥。渡さなければ今までどおり未割当）。
  */
 export async function openItemToTask(
-  minutesId: string, index: number, userId: string,
+  minutesId: string, index: number, userId: string, assignedTo?: string | null,
 ): Promise<{ task_id: string; title: string }> {
   const taskId = uuidv4();
   return withTransaction(async (tx) => {
@@ -396,18 +398,27 @@ export async function openItemToTask(
     const owner = String(item.owner ?? '').trim();
     const due = /^\d{4}-\d{2}-\d{2}$/.test(String(item.due ?? '')) ? String(item.due) : null;
 
+    // 担当は**人が選んだときだけ**入れる（実在しない id は FK 違反で 500 になる前に確かめる）
+    const assignee = assignedTo?.trim() || null;
+    if (assignee) {
+      const u = await tx.queryOne(
+        'SELECT id FROM users WHERE id = ? AND deleted_at IS NULL', [assignee],
+      );
+      if (!u) throw new AppError(404, 'NOT_FOUND', '担当者のユーザーが見つかりません');
+    }
+
     await tx.execute(
       // 期限は due_at（時刻つき・唯一の正）にも書く（根源整理 §3-4）。
       // 議事録の持ち帰りは日付しか持たないので終業 18:00 を補う。due_date は互換のため残す
-      `INSERT INTO project_tasks (id, project_id, title, description, due_date, due_at, source, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, 'minutes', ?, ?)`,
+      `INSERT INTO project_tasks (id, project_id, title, description, due_date, due_at, assigned_to, source, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, ?, 'minutes', ?, ?)`,
       [
         taskId, m.project_id, text,
         // **どの打合せから来たかを残す。** タスクだけを見た人が
         // 「誰が言ったことか」を追えないと、勝手に消される
         [`議事録「${m.title || '（表題なし）'}」${m.met_on ? `（${m.met_on}）` : ''}から`,
           owner ? `打合せでの担当: ${owner}` : null].filter(Boolean).join('\n'),
-        due, due, userId, userId,
+        due, due, assignee, userId, userId,
       ],
     );
 

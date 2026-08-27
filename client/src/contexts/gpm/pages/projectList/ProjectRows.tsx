@@ -41,6 +41,13 @@ import {
 import {
   STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES,
 } from '@/contexts/sales/pages/projectList/stages';
+/**
+ * 健全性バッジも**案件一覧と同じ部品**（docs/core-redesign-plan.md §3-1）。
+ * サーバーが行に付けて返す `health` / `stalled_days` / `snooze_until` を
+ * そのまま渡すだけで、GPM 側で日数を数え直さない（写しを作ると
+ * 同じプロジェクトが案件台帳と GPM で違う状態に見える）。
+ */
+import { HealthBadge } from '@/contexts/sales/pages/projectList/health';
 
 export function ProjectRowsHeader() {
   return (
@@ -111,6 +118,7 @@ export function ProjectRow({
           <span className="text-badge shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
             {p.gpm_kind ? KIND_LABEL[p.gpm_kind] : '区分なし'}
           </span>
+          <HealthBadge p={p} />
         </div>
         <RowSub>{pmLine || '依頼元 未設定'}</RowSub>
       </RowMain>

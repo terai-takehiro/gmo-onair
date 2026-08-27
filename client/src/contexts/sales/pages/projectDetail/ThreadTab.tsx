@@ -124,15 +124,17 @@ export function ThreadTab({ projectId }: { projectId: string }) {
    * タスクタブに切り替えても新しい行が出ず「作れなかった」と見える
    */
   const makeTask = useMutation({
-    mutationFn: (v: { id: string; index: number }) =>
-      api.post(`/projects/${projectId}/minutes/${v.id}/open-items/${v.index}/task`),
+    mutationFn: (v: { id: string; index: number; assigned_to?: string }) =>
+      api.post(`/projects/${projectId}/minutes/${v.id}/open-items/${v.index}/task`,
+        // 担当（Phase 2 ⑥）。**選ばなければ送らない** = 従来どおり未割当で入る
+        v.assigned_to ? { assigned_to: v.assigned_to } : undefined),
     onSuccess: (r) => {
       invalidate();
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
       qc.invalidateQueries({ queryKey: ['task-columns', projectId] });
       qc.invalidateQueries({ queryKey: ['task-dashboard'] });
       notifySuccess('タスクにしました', {
-        description: `「${(r.data?.data?.title ?? '').slice(0, 40)}」をタスクタブに入れました。担当と期限はそちらで決めてください。`,
+        description: `「${(r.data?.data?.title ?? '').slice(0, 40)}」をタスクタブに入れました。担当や期限はそちらで直せます。`,
       });
     },
     onError: (e) => notifyApiError('タスクにできませんでした', e),
@@ -228,7 +230,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               detailPath={(id) => `/projects/${projectId}/minutes/${id}`}
               busy={save.isPending || remove.isPending || makeTask.isPending}
               onSave={(patch) => save.mutate({ id: m.id, patch })}
-              onMakeTask={(index) => makeTask.mutate({ id: m.id, index })}
+              onMakeTask={(index, assignedTo) => makeTask.mutate({ id: m.id, index, assigned_to: assignedTo })}
               onDelete={async () => {
                 const ok = await confirmAction({
                   title: '議事録を消しますか',

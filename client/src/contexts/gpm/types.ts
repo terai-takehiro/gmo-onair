@@ -86,6 +86,17 @@ export interface GpmProjectRow extends GpmProjectBase {
   /** いちばん新しい1本の版と状態（`v2 提出済`） */
   estimate_version: number | null;
   estimate_status: EstimateStatus | null;
+  /**
+   * 健全性（`server/.../project-health.ts` が唯一の正・案件一覧 `GET /projects` と
+   * 同じ意味論。docs/core-redesign-plan.md §3-1）。**クライアントで日数を
+   * 数え直さない** — 以前この画面は `STALE_DAYS`（7日・updated_at 比較）で
+   * 近似していて、案件一覧の判定と食い違っていた。
+   */
+  health: 'ok' | 'snoozed' | 'overdue' | 'stalled';
+  /** `health='stalled'` のときだけ入る「放置◯日」。他は null */
+  stalled_days: number | null;
+  /** スヌーズの再開日（YYYY-MM-DD）。掛かっていなければ null */
+  snooze_until: string | null;
 }
 
 /** 見積の状態。`estimates.status`（案件と共用の表・migration 138） */

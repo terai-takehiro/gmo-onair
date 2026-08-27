@@ -156,6 +156,9 @@ export function registerPricingTools(server: McpServer): void {
         })).min(1).describe('見積明細の配列'),
         status: z.enum(['draft', 'final']).default('draft')
           .describe('draft=下書き(既定・expected_amount 未反映) / final=確定(即 expected_amount 反映)。通常は draft のままにし人間が確定する'),
+        // Phase 2（prompt_version の全 kind 展開）。任意のまま増やすだけ — 既存の呼び出しを壊さない
+        prompt_version: z.string().max(100).optional()
+          .describe('見積の組み立てに使ったプロンプトの版 (例 estimate-v2)。渡すと版ごとの無修正採用率を比較できる。任意'),
         ...REQUESTED_BY,
       },
     },
@@ -216,6 +219,7 @@ export function registerPricingTools(server: McpServer): void {
         targetId: args.project_id,
         payload: { status, total, items: rows },
         toolName: 'set_project_simulation',
+        promptVersion: args.prompt_version ?? null,
         actorId: currentActorId(),
         requestedBy: args.requested_by ?? null,
       });

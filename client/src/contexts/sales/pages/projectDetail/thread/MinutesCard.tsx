@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed } from '@gmo-onair/shared/src/client/states';
+import { OpenItemAssignee } from './OpenItemAssignee';
 import type { Minutes, MinutesPatch } from './types';
 
 /**
@@ -130,8 +131,12 @@ export function MinutesCard({
   detailPath: (id: string) => string;
   onSave: (patch: MinutesPatch) => void;
   onDelete: () => void;
-  /** 持ち帰りの `index` 番目を追いかける形にする（案件=タスク／プロジェクト=未確認事項） */
-  onMakeTask: (index: number) => void;
+  /**
+   * 持ち帰りの `index` 番目を追いかける形にする（案件=タスク／プロジェクト=未確認事項）。
+   * 第2引数はタスク行きのときだけ入る担当者（Phase 2 ⑥・未選択なら undefined）。
+   * 未確認事項側の呼び手は第2引数を受け取らなくてよい（TS は引数の少ない関数を許す）。
+   */
+  onMakeTask: (index: number, assignedTo?: string) => void;
   /**
    * 持ち帰りの行き先。**案件はタスク、プロジェクトは未確認事項**です
    * （工事・構築の持ち帰りはほとんどが「先方の判断待ち」で、タスクにすると
@@ -155,6 +160,8 @@ export function MinutesCard({
   });
   const transcript = m.transcript ?? detail.data?.transcript ?? null;
   const [draft, setDraft] = useState<MinutesPatch>({});
+  /** 持ち帰りごとの担当（Phase 2 ⑥）。空文字 = 選んでいない（未割当で入れる） */
+  const [assignee, setAssignee] = useState<Record<number, string>>({});
   const st = STATUS[m.status] ?? STATUS.draft;
 
   const val = <K extends keyof MinutesPatch>(k: K, fallback: MinutesPatch[K]): MinutesPatch[K] =>
@@ -312,9 +319,20 @@ export function MinutesCard({
                         <Check className="h-3.5 w-3.5" aria-hidden="true" />{track.doneLabel}
                       </span>
                     ) : canEdit && (
-                      <Button variant="outline" size="sm" disabled={busy} onClick={() => onMakeTask(i)}>
-                        <ListPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{track.label}
-                      </Button>
+                      <>
+                        {/* 担当ピッカーはタスク行きだけ（未確認事項は担当を持たない） */}
+                        {track.markKey === 'task_id' && (
+                          <OpenItemAssignee
+                            value={assignee[i] ?? ''}
+                            onChange={(v) => setAssignee((s) => ({ ...s, [i]: v }))}
+                            disabled={busy}
+                          />
+                        )}
+                        <Button variant="outline" size="sm" disabled={busy}
+                          onClick={() => onMakeTask(i, assignee[i] || undefined)}>
+                          <ListPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{track.label}
+                        </Button>
+                      </>
                     )}
                   </li>
                 ))}
@@ -322,8 +340,14 @@ export function MinutesCard({
             )}
             <p className="text-note mt-1.5 text-muted-foreground">
               {track.note}
-              <strong className="font-bold">担当は入りません</strong> — 打合せで出た名前は
-              文字起こしから拾った文字列で、利用者と結びついていないためです（説明に書いてあります）。
+              {track.markKey === 'task_id' ? (
+                // タスク行きは担当を選べるようになった（Phase 2 ⑥）。ただし自動では入れない
+                <>担当は<strong className="font-bold">選んだときだけ</strong>入ります — 打合せで出た名前は
+                文字起こしから拾った文字列で、自動では利用者に結びつけません。</>
+              ) : (
+                <><strong className="font-bold">担当は入りません</strong> — 打合せで出た名前は
+                文字起こしから拾った文字列で、利用者と結びついていないためです。</>
+              )}
               <strong className="font-bold">同じ持ち帰りからは1つしか作れません。</strong>
             </p>
           </div>

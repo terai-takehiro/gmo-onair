@@ -27,6 +27,7 @@ import {
   type InboxData, type InboxItem, type InboxOpenable,
 } from '@/contexts/sales/pages/inbox/kinds';
 import { useDismissAiProject } from '@/contexts/sales/pages/inbox/useInboxActions';
+import { TODAY_SALES_KEY } from '@/contexts/platform/pages/salesDashboard/TodaySalesCard';
 import { useNextActionActions } from '@/contexts/sales/pages/activityLog/useNextActionActions';
 
 /** 1つの節に出す行数。節が4つ全部あっても縦がカード1枚に収まる量 */
@@ -40,12 +41,14 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
   /**
    * 「済んだ」は既存の次回アクション完了の口（`POST /activity-logs/:id/
    * complete-next-action`）をそのまま使う。受信箱の鍵と、同じ行を持つ
-   * ダッシュボードの「期限が過ぎたやること」・帯の件数も一緒に落とす
+   * ダッシュボードの「今日の営業」・帯の件数も一緒に落とす
    * （片方だけだと「済んだのに残っている」に見える）。
+   * ※ 旧「期限超過の次の一手」パネル（overdue-actions 鍵）は Phase 2 で
+   *   「今日の営業」カードに吸収されたので、落とす鍵もそちらに替えた。
    */
   const nextAction = useNextActionActions([
     [...queryKeys.dashboard.inbox()],
-    [...queryKeys.dashboard.overdueActions()],
+    [...TODAY_SALES_KEY],
     ['dashboard', 'sales-overview'],
   ]);
   /** **別バンドルへは素の遷移**（`/daily/` は日常業務アプリ・ルーターでは動けない） */

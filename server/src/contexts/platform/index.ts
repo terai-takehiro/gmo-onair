@@ -11,6 +11,7 @@ import backupRoutes from './routes/backup.routes';
 import kessanRoutes from './routes/kessan.routes';
 import integrationsRoutes from './routes/integrations.routes';
 import aiUsageRoutes from './routes/ai-usage.routes';
+import aiActivityRoutes from './routes/ai-activity.routes';
 
 export function createPlatformRoutes(): Router {
   const router = Router();
@@ -27,6 +28,7 @@ export function createPlatformRoutes(): Router {
   router.use('/admin/kessan', kessanRoutes); // 決算インポート (検証DB専用)
   router.use('/admin', integrationsRoutes);  // /admin/integrations (つながっているかの一覧)
   router.use('/admin', aiUsageRoutes);       // /admin/ai-usage (どこにいくら掛かっているか)
+  router.use('/ai-activity', aiActivityRoutes); // AI活動 (digest / 直近の出力 / 月次レビュー — Phase 2 ②)
   router.use(backupRoutes); // /admin/backup.xlsx
 
   return router;

@@ -105,6 +105,8 @@ services:
       QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY:-}
       # 制作資料 v4 段9: 月次 AI レビューの下書き(毎月1日 3:25)。AI は呼ばない。off で止まる
       QSHEET_AI_REVIEW_NIGHTLY: ${QSHEET_AI_REVIEW_NIGHTLY:-}
+      # 案件管理 Phase 2: 営業側の月次 AI レビューの下書き(毎月1日 3:35)。AI は呼ばない。off で止まる
+      SALES_AI_REVIEW_NIGHTLY: ${SALES_AI_REVIEW_NIGHTLY:-}
       # 月次レビューの担当者(1人)。未設定なら「未設定」として動く(通知は qsheet manager 全員へ届く)
       QSHEET_AI_REVIEW_OWNER_USER_ID: ${QSHEET_AI_REVIEW_OWNER_USER_ID:-}
       # AI の使用量を金額で出すための単価。**未設定ならトークン数と分数だけ出る**
@@ -195,6 +197,8 @@ services:
       QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY_DEV:-${QSHEET_AI_SETTLE_NIGHTLY:-}}
       # 制作資料 v4 段9。同上（AI を呼ばない）
       QSHEET_AI_REVIEW_NIGHTLY: ${QSHEET_AI_REVIEW_NIGHTLY_DEV:-${QSHEET_AI_REVIEW_NIGHTLY:-}}
+      # 案件管理 Phase 2。同上（AI を呼ばない）
+      SALES_AI_REVIEW_NIGHTLY: ${SALES_AI_REVIEW_NIGHTLY_DEV:-${SALES_AI_REVIEW_NIGHTLY:-}}
       # ⚠️ prod にフォールバックしない。検証は mockAuth の別ユーザー群なので、
       # 本番の利用者 id をそのまま渡しても存在しない id として無視されるだけで意味が無い
       QSHEET_AI_REVIEW_OWNER_USER_ID: ${QSHEET_AI_REVIEW_OWNER_USER_ID_DEV:-}

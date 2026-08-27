@@ -19,6 +19,7 @@ import {
   type MyTask,
 } from '@/lib/tasksApi';
 import { CellScoreBadge } from './CellScoreBadge';
+import { TaskCommentsThread } from './TaskComments';
 
 function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
   const respond = useRespondDelegation();
@@ -85,6 +86,9 @@ function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             )}
           </>
         )}
+
+        {/* やり取りは description に混ぜず、コメントスレッドで残す (Phase 2 ⑤) */}
+        <TaskCommentsThread taskId={t.id} canWrite={canEdit} />
       </CardContent>
     </Card>
   );
@@ -160,6 +164,9 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             </div>
           </div>
         )}
+
+        {/* 出した側からも同じスレッドが見える (受け手の返答メモもここに入る) */}
+        <TaskCommentsThread taskId={t.id} canWrite={canEdit} />
       </CardContent>
     </Card>
   );
