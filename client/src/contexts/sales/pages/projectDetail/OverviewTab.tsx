@@ -243,15 +243,6 @@ export function OverviewTab({
             </Field>
           )}
           <Field label="案件内容">{project.goal}</Field>
-          {/*
-            **返事の期限と求められているものは、案件作成のフォームから外しました。**
-            列は残っているので、**すでに入っている案件では読めるようにしておきます**
-            （新しい案件には入りません）。空の案件では欄ごと出しません
-          */}
-          {project.reply_due && (
-            <Field label="返事の期限"><span className="font-number">{project.reply_due}</span></Field>
-          )}
-          {project.wants && <Field label="求められているもの">{project.wants}</Field>}
           <Field label="リード経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />

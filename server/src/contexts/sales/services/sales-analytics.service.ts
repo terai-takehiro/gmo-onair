@@ -113,7 +113,8 @@ export class SalesAnalyticsService {
     // 台帳の一括編集で他項目を直す等の「ただの編集」でも `updated_at` は動くため、
     // それで集計すると金額が実際の失注月ではなく直近に編集された月へ丸ごと寄る。
     // `lost_at` が無い古い行（migration 002 以前）だけ `updated_at` にフォールバックする
-    const dateExpr = `COALESCE(p.lost_at::timestamp, p.updated_at)`;
+    // `lost_at` は migration で TIMESTAMPTZ 化済みのため `::timestamp` キャストは不要
+    const dateExpr = `COALESCE(p.lost_at, p.updated_at)`;
     let dateFilter = '';
     const params: unknown[] = [];
     if (year) {

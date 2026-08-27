@@ -360,11 +360,12 @@ export const inviewService = {
         gls_category: glsCategory,
         assigned_to: actor.userId,
         notes: noteLines.join('\n'),
+        // 流入チャネルを記録。`intake_channel='inview'` は migration 183 で
+        // このために追加済みの正式な選択肢（旧: 読み手ゼロの source_channel への後付け UPDATE）
+        intake_channel: 'inview',
       },
       actor.userId,
     ) as any;
-    // 流入チャネルを記録 (create は source_channel を持たないため後付け UPDATE)
-    await execute(`UPDATE projects SET source_channel = '内覧会' WHERE id = ?`, [project.id]);
 
     // 3) 来場を活動記録に (visit)
     const activityDate = (reg.session_date && /^\d{4}-\d{2}-\d{2}$/.test(String(reg.session_date)))

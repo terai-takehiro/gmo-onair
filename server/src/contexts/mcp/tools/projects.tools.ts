@@ -42,7 +42,7 @@ const STAGE_LABELS: Record<string, string> = {
  * **`projectService.update` が受ける項目を足したら、ここにも足すこと。**
  */
 const UPDATE_FIELDS = [
-  'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type', 'project_type_other',
+  'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type',
   'event_start', 'event_end', 'broadcast_type', 'media_platform', 'tags',
   'application_form', 'logo_permission', 'notes', 'customer_type',
   'box_url_internal', 'box_url_external', 'gls_category',
@@ -51,7 +51,7 @@ const UPDATE_FIELDS = [
   'audience', 'project_category',
   // 登録の16項目のうち列を足したぶん（migration 165 / 170）
   'intake_channel', 'intake_confidence',
-  'contact_name', 'recurrence', 'attendee_count', 'goal', 'reply_due', 'wants',
+  'contact_name', 'recurrence', 'attendee_count', 'goal',
 ] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
@@ -243,8 +243,9 @@ export function registerProjectTools(server: McpServer): void {
           recurrence: args.recurrence,
           attendee_count: args.attendee_count,
           goal: args.goal,
-          reply_due: args.reply_due,
-          wants: args.wants,
+          // reply_due / wants は列を落とした（案件台帳の項目整理 Phase A）ので渡さない。
+          // 引数自体は下の inputSchema に残す — 本番のメール取込スキルが渡す呼び出しを
+          // 400 で落とさないため（受け取るが使わない、確立パターン）。
           /*
            * ⚠️ **AI が起こす案件は必ずネタ。`args.stage` は受け取るが使わない**（ご判断）。
            *
@@ -263,14 +264,14 @@ export function registerProjectTools(server: McpServer): void {
         currentActorId(),
       ) as any;
 
-      // 取込メタ (message_id / idempotency_key / source_channel) を後付けで保存 (service は未対応のため UPDATE)
-      if (args.idempotency_key || args.message_id || args.source_channel) {
+      // 取込メタ (idempotency_key) を後付けで保存 (service は未対応のため UPDATE)。
+      // message_id / source_channel は列を落とした（案件台帳の項目整理 Phase A・読み手ゼロ）。
+      // 実体は下の recordAiOutput が ai_outputs.message_id / ai_outputs.source_channel に残す。
+      if (args.idempotency_key) {
         await execute(
-          `UPDATE projects SET idempotency_key = COALESCE(?, idempotency_key),
-                               message_id = COALESCE(?, message_id),
-                               source_channel = COALESCE(?, source_channel)
+          `UPDATE projects SET idempotency_key = COALESCE(?, idempotency_key)
            WHERE id = ?`,
-          [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
+          [args.idempotency_key ?? null, row.id],
         );
       }
       // フィードバックループ (会社方針「AI を使い捨てにしない」の条件1)。

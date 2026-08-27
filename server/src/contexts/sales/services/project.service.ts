@@ -152,6 +152,12 @@ export interface ProjectFilter {
   stage?: string;
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
+  /**
+   * カンマ区切りタグ（`tags` 列）の絞り込み。**MCP `list_projects` の `tag` 引数専用**
+   * （docs/project-ledger-simplification-plan.md で削除対象にした `GET /projects/tags`・
+   * 案件一覧画面の `?tag=` は client 側の呼び出し元がゼロだったので削除済みだが、
+   * MCP はこの絞り込みを実際に使っているので、フィルタ自体は残す）
+   */
   tag?: string;
   /**
    * 案件分類。`'A'` = 案件（スタジオ）／ `'B'` = プロジェクト。
@@ -207,8 +213,7 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   // 「見積金額が大きい順」。SELECT 句で組み立てた別名をそのまま使う
   // (`last_move` と同じ理由 — 式を書き写すと並び順と表示が食い違う)
   estimate_amount: 'estimate_amount',
-  // 「期限が近い順」= **次のタスクの期限**。返事の期限 (`reply_due`) ではない
-  // (v4 の案件作成フォームから返事の期限を外したので、新しい案件には入らない)
+  // 「期限が近い順」= **次のタスクの期限**（返事の期限という概念は列ごと廃止済み）
   next_task_due: 'nt.due_date',
   // 「最後の動き」順。SELECT 句で組み立てた別名をそのまま並べ替えに使う
   // (PostgreSQL は ORDER BY に SELECT の別名を書ける)。**式を書き写さないこと** —
@@ -581,7 +586,6 @@ export class ProjectService {
     // SELECT 句の ? が最初のプレースホルダになるため params の先頭に mcpActorId を置く。
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
-       (SELECT COUNT(*) FROM project_dates pd WHERE pd.project_id = p.id) as dates_count,
        ${TOTAL_REVENUE_SQL} as total_revenue,
        ${TOTAL_PURCHASE_SQL} as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
@@ -823,7 +827,7 @@ export class ProjectService {
             event_start, event_end, dates, gls_category,
             intake_channel, intake_confidence,
             // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
-            contact_name, recurrence, attendee_count, goal, reply_due, wants,
+            contact_name, recurrence, attendee_count, goal,
             audience, project_category,
             stage, first_task } = data;
     if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
@@ -926,15 +930,15 @@ export class ProjectService {
                                event_start, event_end,
                                customer_type, box_url_internal, box_url_external,
                                application_form, logo_permission, intake_channel, intake_confidence,
-                               contact_name, recurrence, attendee_count, goal, reply_due, wants,
+                               contact_name, recurrence, attendee_count, goal,
                                idempotency_key, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
          glsCategory, expected_amount || 0, assigned_to || userId,
          finalEventStart, finalEventEnd,
          cType, box_url_internal || null, box_url_external || null,
          application_form ? 1 : 0, logo_permission ? 1 : 0, channel, confidence,
-         contact_name || null, recur, scale, goal || null, reply_due || null, wants || null,
+         contact_name || null, recur, scale, goal || null,
          idem, userId]
       );
     } catch (e) {
@@ -1029,7 +1033,7 @@ export class ProjectService {
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const { name: rawName, customer_id, expected_amount, project_type, project_type_other,
+    const { name: rawName, customer_id, expected_amount, project_type,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
@@ -1082,11 +1086,6 @@ export class ProjectService {
       ? existing.attendee_count
       : (Number(data.attendee_count) > 0 ? Math.floor(Number(data.attendee_count)) : null);
     const goalValue = keep(data.goal, existing.goal);
-    const replyDue = keep(data.reply_due, existing.reply_due);
-    const wantsValue = keep(data.wants, existing.wants);
-    const projectTypeOther = project_type_other === undefined
-      ? ((existing.project_type_other as string | null) ?? null)
-      : (project_type_other || null);
 
     /**
      * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
@@ -1144,6 +1143,16 @@ export class ProjectService {
     const channelValue = intake_channel === undefined
       ? existing.intake_channel
       : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
+    /**
+     * **確信バッジも「渡さなければ今の値を保つ」**（`intake_channel` と同型）。
+     *
+     * MCP `update_project` は `intake_confidence` を UPDATE_FIELDS に載せて
+     * 「更新した」と返すのに、この関数が一度も書いていなかった（silent drop）。
+     * **知らない値は NULL に落とす** — `create` と同じ守り方。
+     */
+    const confidenceValue = data.intake_confidence === undefined
+      ? existing.intake_confidence
+      : (INTAKE_CONFIDENCES.includes(data.intake_confidence as string) ? data.intake_confidence : null);
 
     /**
      * **グループ区分はお客様から引き直す**（migration 192・ご指示）。
@@ -1196,19 +1205,19 @@ export class ProjectService {
     if (allowCategoryUpdate) {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
+         project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
-         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         intake_channel=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?,
+         intake_channel=?, intake_confidence=?,
          application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         channelValue,
+         contactName, recurrenceValue, attendeeFinal, goalValue,
+         channelValue, confidenceValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          userId, id]
@@ -1216,19 +1225,19 @@ export class ProjectService {
     } else {
       await execute(
         `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-         project_type=?, audience=?, project_category=?, project_type_other=?, event_start=?, event_end=?,
+         project_type=?, audience=?, project_category=?, event_start=?, event_end=?,
          broadcast_type=?, media_platform=?, tags=?,
-         contact_name=?, recurrence=?, attendee_count=?, goal=?, reply_due=?, wants=?,
-         intake_channel=?,
+         contact_name=?, recurrence=?, attendee_count=?, goal=?,
+         intake_channel=?, intake_confidence=?,
          application_form=?, logo_permission=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
-         cls.project_type, cls.audience, cls.project_category, projectTypeOther,
+         cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null, tagsValue,
-         contactName, recurrenceValue, attendeeFinal, goalValue, replyDue, wantsValue,
-         channelValue,
+         contactName, recurrenceValue, attendeeFinal, goalValue,
+         channelValue, confidenceValue,
          application_form ? 1 : 0, logo_permission ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          userId, id]
@@ -1487,14 +1496,14 @@ export class ProjectService {
     // 見ずに次へ進むと **AI 起票でない案件のステージを動かすたびに「無修正で採用」が
     // 1件積まれ**、受入率が実態より高く出る
     const marked = await queryOne(
-      `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+      `UPDATE projects SET ai_reviewed_at = NOW(), updated_at = NOW()
        WHERE id = ? AND deleted_at IS NULL AND ai_reviewed_at IS NULL
          AND (created_by = ? OR EXISTS (
            SELECT 1 FROM mcp_audit_log m
            WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
          ))
        RETURNING id`,
-      [userId, id, config.mcpActorId],
+      [id, config.mcpActorId],
     );
     // 印が付かなかった（AI 起票ではない／すでに確認済み）ときは何も残さない
     if (!marked) return;
@@ -1641,7 +1650,6 @@ export class ProjectService {
    * - GLS 未発番の案件: gls_category カラムだけ更新
    * - GLS 発番済の案件: 新カテゴリ側 sequence から **採番し直し**、
    *   - projects.gls_number / gls_category を更新
-   *   - projects.previous_gls_numbers に旧番号を履歴として push
    *   - 同 project の episodes.episode_code を `{旧GLS}-NNN` → `{新GLS}-NNN` に書換
    *   - qsheet_documents.episode_code も同様に書換
    *   - BOX 両フォルダ (社内限り / 社外共有可) を `{新GLS}_{案件名}` にリネーム
@@ -1676,19 +1684,16 @@ export class ProjectService {
     const oldGlsNumber = project.gls_number as string;
     const newGlsNumber = await generateGlsNumber(newCategory);
 
-    // projects: gls_number / gls_category 更新 + 履歴 push
+    // projects: gls_number / gls_category 更新
+    // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため
+    //   列ごと削除した。監査は `project_stage_changes`/`ai_outputs` で足りる —
+    //   docs/project-ledger-simplification-plan.md §4 Phase A）
     await execute(
       `UPDATE projects
        SET gls_number=?, gls_category=?,
-           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
            updated_at=NOW(), updated_by=?
        WHERE id=?`,
-      [newGlsNumber, newCategory, JSON.stringify([{
-        gls_number: oldGlsNumber,
-        category: currentCategory,
-        changed_at: new Date().toISOString(),
-        changed_by: userId,
-      }]), userId, id]
+      [newGlsNumber, newCategory, userId, id]
     );
 
     // episodes.episode_code: '{old}-NNN' → '{new}-NNN'
@@ -1810,7 +1815,7 @@ export class ProjectService {
   /**
    * 発番済みの案件を「別の既存 GLS のエピソード」として紐づけ直す。
    * - GLS 未発番なら従来の linkToExistingGls にフォールバック (概算見積→確定売上)
-   * - 発番済みなら: gls_number を新 GLS に差し替え、旧番号を previous_gls_numbers に push、
+   * - 発番済みなら: gls_number を新 GLS に差し替え、
    *   episodes.episode_code / qsheet_documents.episode_code を新 GLS で **再採番** (UNIQUE 衝突回避のため
    *   新 GLS の現在の最大エピソード番号の続きに振る)、BOX フォルダ名をリネーム、概算見積を確定売上に変換。
    */
@@ -1831,17 +1836,18 @@ export class ProjectService {
     const newGls = target.gls_number as string;
     if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じGLS番号に紐づいています');
 
-    // 1. projects: gls_number 差し替え + 旧番号を履歴に push + 分類/番組種別/媒体を継承 + ステージ昇格
+    // 1. projects: gls_number 差し替え + 分類/番組種別/媒体を継承 + ステージ昇格
+    // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため
+    //   列ごと削除した。監査は `project_stage_changes`/`ai_outputs` で足りる —
+    //   docs/project-ledger-simplification-plan.md §4 Phase A）
     await execute(
       `UPDATE projects
        SET gls_number=?, gls_category=?,
            broadcast_type=COALESCE(broadcast_type, ?), media_platform=COALESCE(media_platform, ?),
-           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
            stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
            updated_at=NOW(), updated_by=?
        WHERE id=?`,
       [newGls, target.gls_category, target.broadcast_type || null, target.media_platform || null,
-       JSON.stringify([{ gls_number: oldGls, category: project.gls_category, changed_at: new Date().toISOString(), changed_by: userId, reason: 'relink-episode' }]),
        userId, id]
     );
 
@@ -1990,19 +1996,6 @@ export class ProjectService {
     const grossProfit = totalRevenue - totalPurchase;
     const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
     return { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin };
-  }
-
-  /**
-   * タグ一覧（全案件から使用中のタグを抽出）
-   */
-  async getTags() {
-    const rows = await queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
-    const tagSet = new Set<string>();
-    for (const row of rows) {
-      const tags = (row.tags as string).split(',').map(t => t.trim()).filter(Boolean);
-      tags.forEach(t => tagSet.add(t));
-    }
-    return Array.from(tagSet).sort();
   }
 
   async delete(id: string, userId: string) {

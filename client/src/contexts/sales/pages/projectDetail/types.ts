@@ -40,8 +40,6 @@ export interface ProjectDetail {
   recurrence?: 'single' | 'regular' | null;
   attendee_count?: number | null;
   goal?: string | null;
-  reply_due?: string | null;
-  wants?: string | null;
   /** 引き合いの入口 (migration 165) */
   intake_channel?: string | null;
   /**

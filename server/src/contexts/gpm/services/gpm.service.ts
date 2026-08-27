@@ -470,12 +470,22 @@ export const projectService = {
          VALUES (?, ?, ?, ?, ?)`,
         [uuidv4(), id, before.stage ?? null, nextStage, userId],
       );
-      if (nextStage === 'a_won' && !before.gls_number) {
-        try {
-          await salesProjectService.issueGls(id, {}, userId);
-        } catch (err) {
-          glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
-          console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
+      if (nextStage === 'a_won') {
+        // **受注の時刻を残す**（案件管理側 `project.service.ts` の `changeStage` と同じ考え方）。
+        // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
+        // (`won_at IS NULL` のときだけ入れる)。これが無いと GPM（GLS-B）経由の受注が
+        // 「今月の受注」KPI（salesOverview.service.ts が読む）から漏れる
+        await execute(
+          `UPDATE projects SET won_at = COALESCE(won_at, NOW()) WHERE id = ?`,
+          [id],
+        );
+        if (!before.gls_number) {
+          try {
+            await salesProjectService.issueGls(id, {}, userId);
+          } catch (err) {
+            glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+            console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
+          }
         }
       }
     }

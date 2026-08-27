@@ -60,8 +60,6 @@ const FIELDS: { path: string; label: string }[] = [
   { path: 'recurrence', label: '継続区分' },
   { path: 'attendee_count', label: '来場人数' },
   { path: 'goal', label: '案件内容' },
-  { path: 'reply_due', label: '返事の期限' },
-  { path: 'wants', label: '求められているもの' },
   { path: 'intake_channel', label: 'リード経路' },
   // 2段分類 (migration 182)。**`project_type` と両方見る** — 旧分類は4種しかなく
   // 「有観客の収録」と「有観客の配信」が同じ `hybrid_event` に寄るので、

@@ -230,7 +230,6 @@ const COLUMN_LABELS: Record<string, string> = {
   title: '案件名',
   customer_id: '顧客ID',
   project_type: '案件種類',
-  project_type_other: '案件種類(その他)',
   stage: 'ステージ',
   expected_amount: '想定金額',
   expected_date: '想定日',

@@ -29,7 +29,12 @@ describe('プロジェクト管理が使える', () => {
   it('受注にすると GLS を採り、段の履歴を残す', () => {
     // 案件管理の `changeStage` と同じことをする（#67）
     expect(GPM).toMatch(/INSERT INTO project_stage_changes/);
-    expect(GPM).toMatch(/if \(nextStage === 'a_won' && !before\.gls_number\)/);
+    // 受注の時刻 (`won_at`) は gls_number の有無に関わらず必ず残す（migration 242 の
+    // 棚卸しで判明したバグ③の修正 — 案件管理側と同じ COALESCE パターン）。
+    // GLS の発番だけは引き続き `!before.gls_number` のときだけ（採り直さない）。
+    expect(GPM).toMatch(/if \(nextStage === 'a_won'\)/);
+    expect(GPM).toMatch(/UPDATE projects SET won_at = COALESCE\(won_at, NOW\(\)\) WHERE id = \?/);
+    expect(GPM).toMatch(/if \(!before\.gls_number\)/);
     expect(GPM).toMatch(/await salesProjectService\.issueGls\(id, \{\}, userId\)/);
     // 採れなくても受注そのものは止めない（分類が無い古い行を開けなくしない）
     expect(GPM).toMatch(/glsError = err instanceof AppError/);

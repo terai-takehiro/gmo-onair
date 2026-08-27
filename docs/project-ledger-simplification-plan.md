@@ -103,7 +103,7 @@
 
 ## 4. 段階
 
-### Phase A — 安全な削除とバグ修正（振る舞いを変えない・データは消さない）
+### Phase A — 安全な削除とバグ修正（振る舞いを変えない・データは消さない）**✅ 実装済み（2026-08-27）**
 
 1. **死んだ列の削除（7本）**: `message_id`・`ai_reviewed_by`・`source_channel`・
    `previous_gls_numbers`・`project_type_other`・`reply_due`・`wants`。
@@ -113,13 +113,32 @@
    - `flow_template_id` は**保留**（XOR CHECK が生きている。CHECK の代替を決めてから）。
    - `previous_gls_numbers` は監査目的なら DROP 前に `mcp_audit_log` 相当へ退避するか、
      「監査は `project_stage_changes`/`ai_outputs` で足りる」と決めてから。
+   - → `server/src/shared/db/migrations/242_drop_dead_project_columns.sql` で実施。
 2. **バグ①〜⑤の修正**（②は `intake_channel='inview'` に書き替え＋既存行の backfill、
    ⑤は `includes('live')` 判定＋ `shared/src/types.ts` の型を実態に合わせる）。
-3. **死にエンドポイントの削除**: `GET /projects/tags`・`?tag=` フィルタ・一覧 SQL の `dates_count`。
+   - → 全5件を修正済み（バグ④は「型を直す」を選択 — `lost_at` を TEXT から TIMESTAMPTZ へ
+     ALTER し、読み出し側の `::timestamp` キャストを撤去。§2 の表に修正方法を追記）。
+3. **死にエンドポイントの削除**: `GET /projects/tags`・一覧画面の `?tag=` クエリ受け取り・
+   一覧 SQL の `dates_count`。
+   - ⚠️ **実装時に判明した修正**: `?tag=` の SQL フィルタ自体（`ProjectFilter.tag` と
+     `(',' || p.tags || ',') LIKE ?`）は**削除しなかった** — 当初の棚卸しは client の
+     Web 画面だけを見ており、MCP `list_projects` ツールの `tag` 引数がこのフィルタを
+     実際に使っていることを見落としていた（実サーバーで型検査後に発覚）。死んでいたのは
+     REST の「一覧が」のクエリ受け取りだけで、フィルタ本体・MCP 引数は現役なので残した。
 4. **会場のガードレール**: MCP `create_studio_booking`/`update` 系の `location_note` に
    `max(40)` と「**短い地名だけ**（例: 用賀 ビジネススクエアタワー18F）。要確認・経緯・
    打診メモは書かない — それらは案件のやり取りへ」を明記。
    ※ AI 入口の変更なので、実装時は `.claude/skills/ai-feedback-loop` の5条件表を PR に付ける。
+   - → §6 の5条件表どおり実施。`create_studio_booking` のみ該当（update 系ツールは無し）。
+
+**検証**: `npm run typecheck:all`・`npm run lint`（`droppedColumns.test.ts`・`silentDrop.test.ts`・
+`check-migration-numbers.mjs` 含む）・`npm run test`（1519件）緑。検証用 Postgres で
+migration 242 の適用・再適用（冪等性）を確認。実サーバー（検証用Postgres）で
+案件の作成・更新（`intake_confidence` が実際に書き換わることを確認 = バグ①の実地検証）・
+AI確認（`ai_reviewed_by` 無しで 200）・受注へのステージ変更（`won_at` が入ることを確認）・
+失注へのステージ変更（`lost_at` が timestamptz として正しく入り、失注分析 API が
+月次集計まで正しく返すことを確認 = バグ④の実地検証）・`GET /projects/tags` の404化を
+確認済み。
 
 ### Phase B — 決めてから直すもの（ユーザー判断が要る）
 

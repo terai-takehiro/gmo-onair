@@ -208,7 +208,6 @@ export interface Project extends BaseEntity {
   customer_id: string;
   stage: ProjectStage;
   project_type: ProjectType;
-  project_type_other: string | null;
   expected_amount: number;
   event_start: string | null;
   event_end: string | null;

@@ -462,8 +462,10 @@ export const taskIntakeService = {
    *
    * ── 作ったものに `idempotency_key` を残す（列を足さずに済ませる）────
    *
-   * `projects` / `activity_logs` には `idempotency_key`（部分一意索引つき）と
-   * `source_channel` が既にあります（migration 126）。`intake:<投入id>:<draft_key>` を
+   * `projects` / `activity_logs` には `idempotency_key`（部分一意索引つき）が
+   * 既にあります（migration 126。`projects.source_channel` は読み手ゼロだったため
+   * migration 242 で削除済み — `activity_logs.source_channel` は別列で現役）。
+   * `intake:<投入id>:<draft_key>` を
    * 入れておくと、①押し直しによる二重登録を **DB が**拒否し、
    * ②あとから「投入口から生まれた案件が受注に至ったか」を
    * **新しい表を作らずに**数えられます（AI 改善の条件3）。
@@ -584,7 +586,7 @@ export const taskIntakeService = {
             `INSERT INTO projects
                (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category,
                 expected_amount, assigned_to, customer_type,
-                intake_channel, idempotency_key, source_channel, created_by)
+                intake_channel, idempotency_key, created_by)
              /* customer_type は internal / external の2値（社内案件か外のお客様か）で、
                 投入口から入るのは外からの引き合いなので external。
                 intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた。
@@ -594,7 +596,7 @@ export const taskIntakeService = {
                 旧種類 'other' と同じく人に決めてもらう（案件を直す画面に
                 「まだ分類が入っていません」と出る）。列ごと書かないと
                 書き忘れと見分けが付かないので、NULL と書いてある */
-             VALUES (?, ?, ?, ?, 'neta', 'other', NULL, NULL, ?, 0, ?, 'external', 'other', ?, 'intake', ?)`,
+             VALUES (?, ?, ?, ?, 'neta', 'other', NULL, NULL, ?, 0, ?, 'external', 'other', ?, ?)`,
             [id, code, t.title.trim(), customerId, t.gls_category, userId, key, userId]
           );
           /*

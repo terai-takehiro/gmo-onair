@@ -113,7 +113,6 @@ export function useProjectForm(id: string | undefined) {
       customer_id: project.customer_id || '',
       customer_type: project.customer_type === 'internal' ? 'internal' : 'external',
       project_type: project.project_type || 'other',
-      project_type_other: project.project_type_other || '',
       // 2段分類（migration 182）。**旧 `project_type` から埋め直さない** —
       // 旧分類は4種しかないので「有観客の収録」が「有観客の配信」に化ける。
       // 入っていない案件は空で出し、人に選んでもらう（必須にしてある）
@@ -261,7 +260,6 @@ export function useProjectForm(id: string | undefined) {
        * 送らなければサーバーは今の値を保ちます（2段が揃っていればそちらが勝つ）。
        */
       delete body.project_type;
-      delete body.project_type_other;
       /**
        * **2段が空なら送らない。** GLS-B（工事・構築）は2段を持たないので、
        * 空文字を送るとサーバーが「分類を消したい」と受け取ります。
