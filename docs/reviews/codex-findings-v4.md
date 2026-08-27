@@ -1829,6 +1829,26 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   403確認の3項目はこの開発セッションの環境制約（ブラウザ・Postgres起動不可）で未実施と
   PR本文に明記（`npm run typecheck`・`npm run lint`・`npm run build -w client -w server`・
   `npm run test`1497件は実施・緑）。マージ後の実ブラウザでの目視確認を推奨として残した。
+- **#464（feat(gpm): プロジェクト詳細にガント・かんばんを追加し、MCP をガント編集に対応・
+  2026-08-27）** — `get_reviews`/`get_review_comments`/`get_comments` いずれも0件のまま、
+  作成 11:32:09 UTC / CI（`checks`/`build`）両方 green 11:34:23 UTC / マージ 11:41:44 UTC
+  （terai-takehiro 本人が手動マージ）。**CI green から約7分21秒でマージ**（作成から約9分35秒）。
+  ユーザー指摘「プロジェクト管理ってガントチャートどこにあるんですか？」「むしろガント
+  チャート、カンバン管理が必要なのはプロジェクト管理ですよね。実装を。MCPもちゃんと
+  整備してください（細部の編集にも対応できるよう）」を受け、GPM（`/gpm/*`）詳細の概要
+  タブに見え方の切り替え（リスト／ガント／かんばん・PC のみ）を新設した。ガントは工程
+  （`gpm_phases`）とタスクを1本の時間軸に出しドラッグで日程移動・端で期間変更、かんばんは
+  工程を列にしてタスクをドラッグで付け替え — 案件側の `GanttView`/`KanbanView` は呼ばず、
+  工程が主役の GPM 専用実装にした（列＝工程・時間軸＝工程とタスク）。MCP
+  `create_gpm_task`/`update_gpm_task` にガント用フィールド（start_date/progress/
+  is_milestone/work_state/sort_order）を追加し、従来「案件タスク側の update_task で」と
+  していた迂回を解消。表に移す指摘はない（レビュー自体が届いていないため）。検証は
+  `npm run typecheck:all`・`npm run lint`（warning 58件で着手前と同数）・`npm run test`
+  （1553件）・`npm run build`（shared/client/server 個別ビルド）に加え、実サーバー
+  （検証用 Postgres）+ Playwright（1440/375px）で工程バーのドラッグによる日付更新・
+  かんばんのカードドラッグによる工程付け替えを API 実測、権限なし利用者（`v-none`・
+  `gpm`/`sales` を持たない `v-keiri`）で 403 になることを確認済み。マイグレーションなし
+  （既存の `progress`/`is_milestone`/`start_date` 列を読み書きに使うだけ）。
 
 ---
 
