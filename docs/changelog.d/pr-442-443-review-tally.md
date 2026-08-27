@@ -1,0 +1,1 @@
+**PR #442（案件・タスク・AI・カレンダーの根源整理 Phase 1）と PR #443（PR テンプレートの凍結アプリ欄修正）のマージ後の棚卸しを記録した**（コード変更なし）。#442 は作成からCI green まで約2分3秒、CI green から約15分19秒（作成から約17分22秒）、#443 は作成からCI green まで約2分3秒、CI green から約1分37秒（作成から約3分40秒）で、いずれもterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は未実行のため GitHub MCP で直接確認した）。
